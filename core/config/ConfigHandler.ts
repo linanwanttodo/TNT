@@ -8,9 +8,10 @@ import {
   ILLM,
 } from "../index.js";
 import { Telemetry } from "../util/posthog.js";
+import { IConfigHandler } from "./IConfigHandler.js";
 import { finalToBrowserConfig, loadFullConfigNode } from "./load.js";
 
-export class ConfigHandler {
+export class ConfigHandler implements IConfigHandler {
   private savedConfig: ContinueConfig | undefined;
   private savedBrowserConfig?: BrowserSerializedContinueConfig;
   private additionalContextProviders: IContextProvider[] = [];
@@ -35,8 +36,8 @@ export class ConfigHandler {
     this.reloadConfig();
   }
 
-  private updateListeners: (() => void)[] = [];
-  onConfigUpdate(listener: () => void) {
+  private updateListeners: ((newConfig: ContinueConfig) => void)[] = [];
+  onConfigUpdate(listener: (newConfig: ContinueConfig) => void) {
     this.updateListeners.push(listener);
   }
 
@@ -45,10 +46,10 @@ export class ConfigHandler {
     this.savedBrowserConfig = undefined;
     this._pendingConfigPromise = undefined;
 
-    await this.loadConfig();
+    const newConfig = await this.loadConfig();
 
     for (const listener of this.updateListeners) {
-      listener();
+      listener(newConfig);
     }
   }
 
