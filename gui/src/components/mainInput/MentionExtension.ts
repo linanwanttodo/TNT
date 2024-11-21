@@ -28,6 +28,8 @@ export const Mention = Node.create<MentionOptions>({
         ];
       },
       suggestion: {
+        char: "@",
+        pluginKey: MentionPluginKey,
         command: ({ editor, range, props }) => {
           // increase range.to by one when the next node is of type "text"
           // and starts with a space character
@@ -38,23 +40,20 @@ export const Mention = Node.create<MentionOptions>({
             range.to += 1;
           }
 
-          // For # symbol mentions, we add the file to the "Code to edit" rather than the editor
-          const text = editor.state.doc.textBetween(range.from, range.to);
-          const startsWithHash = text.startsWith("#");
-          const content = startsWithHash
-            ? []
-            : [
-                {
-                  type: this.name,
-                  attrs: props,
-                },
-                {
-                  type: "text",
-                  text: " ",
-                },
-              ];
-
-          editor.chain().focus().insertContentAt(range, content).run();
+          editor
+            .chain()
+            .focus()
+            .insertContentAt(range, [
+              {
+                type: this.name,
+                attrs: props,
+              },
+              {
+                type: "text",
+                text: " ",
+              },
+            ])
+            .run();
 
           window.getSelection()?.collapseToEnd();
         },
