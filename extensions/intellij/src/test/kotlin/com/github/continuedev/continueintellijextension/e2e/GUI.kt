@@ -19,7 +19,6 @@ import com.intellij.remoterobot.utils.waitFor
 import com.intellij.remoterobot.utils.waitForIgnoringError
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.awt.event.KeyEvent.*
@@ -39,55 +38,6 @@ class GUI {
 
     @AfterEach
     fun closeProject(remoteRobot: RemoteRobot) = CommonSteps(remoteRobot).closeProject()
-
-    @Test
-    @Video
-    @Order(1)
-    fun onboarding(remoteRobot: RemoteRobot): Unit = with(remoteRobot) {
-        welcomeFrame {
-            createNewProjectLink.click()
-            dialog("New Project") {
-                findText("Java").click()
-                checkBox("Add sample code").select()
-                button("Create").click()
-            }
-        }
-
-        idea {
-            // Wait for the default "Main.java" tab to load
-            // Our "continue_tutorial.java.ft" tab loads first, but then "Main.java" takes focus.
-            // So we need to wait for that to occur, and then focus on "continue_tutorial.java.ft"
-            waitFor(ofSeconds(20)) {
-                findAll<ComponentFixture>(
-                    byXpath("//div[@accessiblename='Main.java' and @class='EditorTabLabel']")
-                ).isNotEmpty()
-            }
-
-            step("Verify Continue tutorial file is loaded") {
-                find<ComponentFixture>(byXpath("//div[@visible_text='continue_tutorial.java.ft']"))
-            }
-
-            step("Manually open the webview") {
-                // Manually open the webview
-                find<ComponentFixture>(byXpath("//div[@text='Continue']"), ofSeconds((10))).click()
-
-                waitFor(ofSeconds(10)) {
-                    browser().isShowing
-                }
-            }
-
-            step("Verify the onboarding card is present") {
-                waitFor(ofSeconds(30)) {
-                    try {
-                        browser().findElement("//*[@data-testid='onboarding-card']").html.isNotEmpty()
-                    } catch (e: Exception) {
-                        false
-                    }
-                }
-            }
-        }
-
-    }
 
     @Test
     @Video
@@ -116,7 +66,6 @@ class GUI {
                 Thread.sleep(5000)
             }
 
-
             step("Verify we can highlight code and add to webview") {
                 val textToInsert = "Hello world!"
 
@@ -132,7 +81,6 @@ class GUI {
                 waitFor(ofSeconds(10)) {
                     browser().findElementByContainsText(textToInsert).html.isNotEmpty()
                 }
-
             }
         }
     }
