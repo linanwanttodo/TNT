@@ -53,6 +53,7 @@ export default class ControlPlaneProfileLoader implements IProfileLoader {
       this.controlPlaneClient,
       this.writeLog,
       serializedConfig,
+      undefined,
       this.workspaceId,
     );
 
