@@ -26,7 +26,7 @@ To open this `config.yaml`, you need to open the assistants dropdown in the top-
 
 When editing this file, you can see the available options suggested as you type, or check the reference below. When you save a config file from the IDE, Continue will automatically refresh to take into account your changes. A config file is automatically created the first time you use Continue, and always automatically generated with default values if it doesn't exist.
 
-See the full reference for `config.yaml` [here](../../reference.md).
+See the full reference for `config.yaml` [here](../../advanced/reference).
 
 ## Deprecated configuration methods
 

@@ -191,9 +191,9 @@ chat, editing, and summarizing.
   provider and model. Supported capabilities include `tool_use` and `image_input`.
 - `maxStopWords`: Maximum number of stop words allowed, to avoid API errors with extensive lists.
 - `promptTemplates`: Can be used to override the default prompt templates for different model roles. Valid values are
-  `chat`, [`edit`](./customize/model-roles/edit.mdx#prompt-templating), [
-  `apply`](./customize/model-roles/apply.mdx#prompt-templating) and [
-  `autocomplete`](./customize/model-roles/autocomplete.md#prompt-templating). The `chat` property must be a
+  `chat`, [`edit`](./advanced/model-roles/edit.mdx#prompt-templating), [
+  `apply`](./advanced/model-roles/apply.mdx#prompt-templating) and [
+  `autocomplete`](./advanced/model-roles/autocomplete.md#prompt-templating). The `chat` property must be a
   valid template name, such as `llama3` or `anthropic`.
 - `chatOptions`: If the model includes role `chat`, these settings apply for Chat and Agent mode:
   - `baseSystemMessage`: Can be used to override the default system prompt for **Chat** mode.
@@ -263,7 +263,7 @@ models:
 The `context` section defines context providers, which supply additional information or context to the language models.
 Each context provider can be configured with specific parameters.
 
-More information about usage/params for each context provider can be found [here](/customize/context-providers.mdx)
+More information about usage/params for each context provider can be found [here](/advanced/context-integration/custom-providers)
 
 **Properties:**
 
@@ -296,7 +296,7 @@ context:
 
 List of rules that the LLM should follow. These are concatenated into the system message for
 all [Chat](./chat/how-to-use-it.md), [Edit](./edit/how-to-use-it.md), and [Agent](./agent/how-to-use-it.md) requests.
-See the [rules deep dive](./customize/deep-dives/rules.mdx) for details.
+See the [rules deep dive](./advanced/deep-dives/rules.mdx) for details.
 
 Explicit rules can either be simple text or an object with the following properties:
 
@@ -400,7 +400,7 @@ mcpServers:
 
 ### `data`
 
-Destinations to which [development data](./customize/deep-dives/development-data.md) will be sent.
+Destinations to which [development data](./advanced/deep-dives/development-data.md) will be sent.
 
 **Properties:**
 
