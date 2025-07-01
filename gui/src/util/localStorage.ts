@@ -15,6 +15,7 @@ type LocalStorageTypes = {
   shownProfilesIntroduction: boolean;
   disableIndexing: boolean;
   hasDismissedDeprecationBanner: boolean;
+  uiLanguage?: "en" | "zh-CN" | "auto";
 };
 
 export enum LocalStorageKey {

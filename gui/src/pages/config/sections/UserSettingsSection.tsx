@@ -5,6 +5,7 @@ import {
 import { useContext, useEffect, useState } from "react";
 import { Card, Toggle, useFontSize } from "../../../components/ui";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
+import { LanguageSetting, useI18n } from "../../../i18n";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { updateConfig } from "../../../redux/slices/configSlice";
 import { setLocalStorage } from "../../../util/localStorage";
@@ -16,6 +17,7 @@ export function UserSettingsSection() {
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);
   const config = useAppSelector((state) => state.config.config);
+  const { t, language, setLanguage } = useI18n();
 
   const [showExperimental, setShowExperimental] = useState(false);
 
@@ -88,31 +90,31 @@ export function UserSettingsSection() {
   return (
     <div>
       <div className="flex flex-col">
-        <ConfigHeader title="User Settings" />
+        <ConfigHeader title={t("settings.title")} />
         <div className="space-y-6">
           {/* Chat Interface Settings */}
           <div>
-            <ConfigHeader title="Chat" variant="sm" />
+            <ConfigHeader title={t("settings.section.chat")} variant="sm" />
             <Card>
               <div className="flex flex-col gap-4">
                 <UserSetting
                   type="toggle"
-                  title="Show Session Tabs"
-                  description="Displays tabs above the chat as an alternative way to organize and access your sessions."
+                  title={t("settings.showSessionTabs")}
+                  description={t("settings.showSessionTabs.desc")}
                   value={showSessionTabs}
                   onChange={(value) => handleUpdate({ showSessionTabs: value })}
                 />
                 <UserSetting
                   type="toggle"
-                  title="Wrap Codeblocks"
-                  description="Wraps long lines in code blocks instead of showing horizontal scroll."
+                  title={t("settings.wrapCodeblocks")}
+                  description={t("settings.wrapCodeblocks.desc")}
                   value={codeWrap}
                   onChange={(value) => handleUpdate({ codeWrap: value })}
                 />
                 <UserSetting
                   type="toggle"
-                  title="Show Chat Scrollbar"
-                  description="Enables a scrollbar in the chat window."
+                  title={t("settings.showChatScrollbar")}
+                  description={t("settings.showChatScrollbar.desc")}
                   value={showChatScrollbar}
                   onChange={(value) =>
                     handleUpdate({ showChatScrollbar: value })
@@ -120,15 +122,15 @@ export function UserSettingsSection() {
                 />
                 <UserSetting
                   type="toggle"
-                  title="Text-to-Speech Output"
-                  description="Reads LLM responses aloud with TTS."
+                  title={t("settings.ttsOutput")}
+                  description={t("settings.ttsOutput.desc")}
                   value={readResponseTTS}
                   onChange={(value) => handleUpdate({ readResponseTTS: value })}
                 />
                 <UserSetting
                   type="toggle"
-                  title="Enable Session Titles"
-                  description="Generates summary titles for each chat session after the first message, using the current Chat model."
+                  title={t("settings.enableSessionTitles")}
+                  description={t("settings.enableSessionTitles.desc")}
                   value={!disableSessionTitles}
                   onChange={(value) =>
                     handleUpdate({ disableSessionTitles: !value })
@@ -136,8 +138,8 @@ export function UserSettingsSection() {
                 />
                 <UserSetting
                   type="toggle"
-                  title="Format Markdown"
-                  description="If off, shows responses as raw text."
+                  title={t("settings.formatMarkdown")}
+                  description={t("settings.formatMarkdown.desc")}
                   value={!displayRawMarkdown}
                   onChange={(value) =>
                     handleUpdate({ displayRawMarkdown: !value })
@@ -149,13 +151,28 @@ export function UserSettingsSection() {
 
           {/* Appearance Settings */}
           <div>
-            <ConfigHeader title="Appearance" variant="sm" />
+            <ConfigHeader
+              title={t("settings.section.appearance")}
+              variant="sm"
+            />
             <Card>
               <div className="flex flex-col gap-4">
                 <UserSetting
+                  type="select"
+                  title={t("settings.language")}
+                  description={t("settings.language.desc")}
+                  value={language}
+                  onChange={(value) => setLanguage(value as LanguageSetting)}
+                  options={[
+                    { label: t("language.auto"), value: "auto" },
+                    { label: t("language.en"), value: "en" },
+                    { label: t("language.zh-CN"), value: "zh-CN" },
+                  ]}
+                />
+                <UserSetting
                   type="number"
-                  title="Font Size"
-                  description="Specifies base font size for UI elements."
+                  title={t("settings.fontSize")}
+                  description={t("settings.fontSize.desc")}
                   value={fontSize}
                   onChange={(val) => {
                     setLocalStorage("fontSize", val);
@@ -170,13 +187,16 @@ export function UserSettingsSection() {
 
           {/* Autocomplete Settings */}
           <div>
-            <ConfigHeader title="Autocomplete" variant="sm" />
+            <ConfigHeader
+              title={t("settings.section.autocomplete")}
+              variant="sm"
+            />
             <Card>
               <div className="flex flex-col gap-4">
                 <UserSetting
                   type="select"
-                  title="Multiline Autocompletions"
-                  description="Controls multiline completions for autocomplete."
+                  title={t("settings.multilineAutocompletions")}
+                  description={t("settings.multilineAutocompletions.desc")}
                   value={useAutocompleteMultilineCompletions}
                   onChange={(value) =>
                     handleUpdate({
@@ -187,15 +207,15 @@ export function UserSettingsSection() {
                     })
                   }
                   options={[
-                    { label: "Auto", value: "auto" },
-                    { label: "Always", value: "always" },
-                    { label: "Never", value: "never" },
+                    { label: t("settings.auto"), value: "auto" },
+                    { label: t("settings.always"), value: "always" },
+                    { label: t("settings.never"), value: "never" },
                   ]}
                 />
                 <UserSetting
                   type="number"
-                  title="Autocomplete Timeout (ms)"
-                  description="Maximum time in milliseconds for autocomplete request/retrieval."
+                  title={t("settings.autocompleteTimeout")}
+                  description={t("settings.autocompleteTimeout.desc")}
                   value={modelTimeout}
                   onChange={(val) => handleUpdate({ modelTimeout: val })}
                   min={100}
@@ -203,8 +223,8 @@ export function UserSettingsSection() {
                 />
                 <UserSetting
                   type="number"
-                  title="Autocomplete Debounce (ms)"
-                  description="Minimum time in milliseconds to trigger an autocomplete request after a change."
+                  title={t("settings.autocompleteDebounce")}
+                  description={t("settings.autocompleteDebounce.desc")}
                   value={debounceDelay}
                   onChange={(val) => handleUpdate({ debounceDelay: val })}
                   min={0}
@@ -212,8 +232,8 @@ export function UserSettingsSection() {
                 />
                 <UserSetting
                   type="input"
-                  title="Disable autocomplete in files"
-                  description="List of comma-separated glob pattern to disable autocomplete in matching files."
+                  title={t("settings.disableAutocompleteInFiles")}
+                  description={t("settings.disableAutocompleteInFiles.desc")}
                   placeholder="**/*.(txt,md)"
                   value={formDisableAutocomplete}
                   onChange={setFormDisableAutocomplete}
@@ -230,18 +250,21 @@ export function UserSettingsSection() {
 
           {/* Experimental Settings */}
           <div>
-            <ConfigHeader title="Experimental" variant="sm" />
+            <ConfigHeader
+              title={t("settings.section.experimental")}
+              variant="sm"
+            />
             <Card>
               <Toggle
                 isOpen={showExperimental}
                 onToggle={() => setShowExperimental(!showExperimental)}
-                title="Show Experimental Settings"
+                title={t("settings.showExperimentalSettings")}
               >
                 <div className="flex flex-col gap-x-1 gap-y-4">
                   <UserSetting
                     type="toggle"
-                    title="Add Current File by Default"
-                    description=" the currently open file is added as context in every new conversation."
+                    title={t("settings.addCurrentFileByDefault")}
+                    description={t("settings.addCurrentFileByDefault.desc")}
                     value={useCurrentFileAsContext}
                     onChange={(value) =>
                       handleUpdate({ useCurrentFileAsContext: value })
@@ -249,8 +272,8 @@ export function UserSettingsSection() {
                   />
                   <UserSetting
                     type="toggle"
-                    title="Enable experimental tools"
-                    description=" enables access to experimental tools that are still in development."
+                    title={t("settings.enableExperimentalTools")}
+                    description={t("settings.enableExperimentalTools.desc")}
                     value={enableExperimentalTools}
                     onChange={(value) =>
                       handleUpdate({ enableExperimentalTools: value })
@@ -258,8 +281,8 @@ export function UserSettingsSection() {
                   />
                   <UserSetting
                     type="toggle"
-                    title="Only use system message tools"
-                    description=" Continue will not attempt to use native tool calling and will only use system message tools."
+                    title={t("settings.onlyUseSystemMessageTools")}
+                    description={t("settings.onlyUseSystemMessageTools.desc")}
                     value={onlyUseSystemMessageTools}
                     onChange={(value) =>
                       handleUpdate({ onlyUseSystemMessageTools: value })
@@ -267,8 +290,8 @@ export function UserSettingsSection() {
                   />
                   <UserSetting
                     type="toggle"
-                    title="@Codebase: use tool calling only"
-                    description=" @codebase context provider will only use tool calling for code retrieval."
+                    title={t("settings.codebaseToolCallingOnly")}
+                    description={t("settings.codebaseToolCallingOnly.desc")}
                     value={codebaseToolCallingOnly}
                     onChange={(value) =>
                       handleUpdate({ codebaseToolCallingOnly: value })
@@ -276,8 +299,8 @@ export function UserSettingsSection() {
                   />
                   <UserSetting
                     type="toggle"
-                    title="Stream after tool rejection"
-                    description=" streaming will continue after the tool call is rejected."
+                    title={t("settings.streamAfterToolRejection")}
+                    description={t("settings.streamAfterToolRejection.desc")}
                     value={continueAfterToolRejection}
                     onChange={(value) =>
                       handleUpdate({ continueAfterToolRejection: value })

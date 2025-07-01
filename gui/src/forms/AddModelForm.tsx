@@ -5,6 +5,7 @@ import { Button, Input } from "../components";
 import ModelSelectionListbox from "../components/modelSelection/ModelSelectionListbox";
 import { useAuth } from "../context/Auth";
 import { IdeMessengerContext } from "../context/IdeMessenger";
+import { useI18n } from "../i18n";
 
 // Curated whitelist of registered providerName values from core LLMClasses.
 // The backend matches LLM implementation classes statically by provider name,
@@ -86,6 +87,7 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
     defaultValues: { provider: "openai" },
   });
   const ideMessenger = useContext(IdeMessengerContext);
+  const { t } = useI18n();
   const { selectedProfile } = useAuth();
 
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
@@ -173,23 +175,27 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
     <FormProvider {...formMethods}>
       <form onSubmit={formMethods.handleSubmit(onSubmit)}>
         <div className="mx-auto max-w-md p-6">
-          <h1 className="mb-0 text-center text-2xl">Add Chat model</h1>
+          <h1 className="mb-0 text-center text-2xl">
+            {t("addChatModel.title")}
+          </h1>
 
           <div className="my-8 flex flex-col gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium">
-                Display name
+                {t("addChatModel.displayName")}
               </label>
               <Input
                 id="title"
                 className="w-full"
-                placeholder="My model"
+                placeholder={t("addChatModel.displayName.placeholder")}
                 {...formMethods.register("title")}
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Provider</label>
+              <label className="mb-1 block text-sm font-medium">
+                {t("addChatModel.provider")}
+              </label>
               <ModelSelectionListbox
                 selectedProvider={{
                   title:
@@ -207,18 +213,17 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
                   title: p.title,
                   provider: p.provider,
                 }))}
-                searchPlaceholder="Search providers..."
+                searchPlaceholder={t("addChatModel.searchProviders")}
               />
               <span className="text-description-muted mt-1 block text-xs">
-                Use OpenAI with a custom API Base for any OpenAI-compatible
-                endpoint.
+                {t("addChatModel.provider.hint")}
               </span>
             </div>
 
             <div>
               <div className="flex items-center justify-between">
                 <label className="mb-1 block text-sm font-medium">
-                  Model ID
+                  {t("addChatModel.modelId")}
                 </label>
                 <button
                   type="button"
@@ -230,28 +235,30 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
                   {isFetchingModels ? (
                     <span className="flex items-center gap-1 text-xs">
                       <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
-                      Fetching...
+                      {t("addChatModel.fetching")}
                     </span>
                   ) : (
-                    <span className="text-xs underline">Fetch model list</span>
+                    <span className="text-xs underline">
+                      {t("addChatModel.fetchModelList")}
+                    </span>
                   )}
                 </button>
               </div>
               <Input
                 id="model"
                 className="w-full"
-                placeholder="e.g. gpt-4o, claude-4-sonnet, my-model"
+                placeholder={t("addChatModel.modelId.placeholder")}
                 {...formMethods.register("model")}
               />
               {fetchError && (
                 <span className="text-warning mt-1 block text-xs">
-                  {fetchError}
+                  {t("addChatModel.fetchError")}
                 </span>
               )}
               {fetchedModels.length > 0 && (
                 <div className="border-border bg-input mt-2 max-h-48 overflow-y-auto rounded border p-2">
                   <div className="text-description-muted mb-1 text-xs">
-                    Select models to add
+                    {t("addChatModel.selectModelsToAdd")}
                   </div>
                   {fetchedModels.map((m) => {
                     const id = m.modelId ?? m.name;
@@ -280,7 +287,7 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
 
             <div>
               <label className="mb-1 block text-sm font-medium">
-                API Base (optional)
+                {t("addChatModel.apiBase")}
               </label>
               <Input
                 id="apiBase"
@@ -292,13 +299,13 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
 
             <div>
               <label className="mb-1 block text-sm font-medium">
-                API Key (optional)
+                {t("addChatModel.apiKey")}
               </label>
               <Input
                 id="apiKey"
                 className="w-full"
                 type="password"
-                placeholder="Enter your API key"
+                placeholder={t("addChatModel.apiKey.placeholder")}
                 {...formMethods.register("apiKey")}
               />
             </div>
@@ -306,7 +313,7 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="mb-1 block text-sm font-medium">
-                  Context length (optional)
+                  {t("addChatModel.contextLength")}
                 </label>
                 <Input
                   id="contextLength"
@@ -318,7 +325,7 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
               </div>
               <div className="flex-1">
                 <label className="mb-1 block text-sm font-medium">
-                  Max output tokens (optional)
+                  {t("addChatModel.maxOutputTokens")}
                 </label>
                 <Input
                   id="maxTokens"
@@ -332,7 +339,7 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
 
             <div>
               <label className="mb-1 block text-sm font-medium">
-                Capabilities
+                {t("addChatModel.capabilities")}
               </label>
               <div className="flex flex-col gap-1">
                 <label className="flex cursor-pointer items-center gap-2">
@@ -340,14 +347,16 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
                     type="checkbox"
                     {...formMethods.register("capToolUse")}
                   />
-                  <span className="text-xs">Tool use</span>
+                  <span className="text-xs">{t("addChatModel.toolUse")}</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
                     type="checkbox"
                     {...formMethods.register("capImageInput")}
                   />
-                  <span className="text-xs">Image input</span>
+                  <span className="text-xs">
+                    {t("addChatModel.imageInput")}
+                  </span>
                 </label>
               </div>
             </div>
@@ -355,11 +364,11 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
 
           <div className="mt-4 w-full">
             <Button type="submit" className="w-full" disabled={isDisabled()}>
-              Connect
+              {t("addChatModel.connect")}
             </Button>
 
             <span className="text-description-muted block w-full text-center text-xs">
-              This will update your{" "}
+              {t("addChatModel.willUpdateConfig")}{" "}
               <span
                 className="cursor-pointer underline"
                 onClick={() =>
@@ -368,7 +377,7 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
                   })
                 }
               >
-                config file
+                {t("addChatModel.configFile")}
               </span>
             </span>
           </div>

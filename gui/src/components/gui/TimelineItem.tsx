@@ -2,6 +2,7 @@ import { ChatBubbleOvalLeftIcon } from "@heroicons/react/24/outline";
 import { ChatHistoryItem } from "core";
 import styled from "styled-components";
 import { lightGray, vscBackground } from "..";
+import { useI18n } from "../../i18n";
 import { getFontSize } from "../../util";
 
 const CollapseButton = styled.div`
@@ -35,6 +36,7 @@ interface TimelineItemProps {
 }
 
 function TimelineItem(props: TimelineItemProps) {
+  const { t } = useI18n();
   return props.open ? (
     props.children
   ) : (
@@ -49,7 +51,7 @@ function TimelineItem(props: TimelineItemProps) {
         )}
       </CollapseButton>
       <span style={{ color: lightGray }}>
-        {props.item.message.role} Message
+        {t("chat.roleMessage", { role: props.item.message.role })}
         {/* {props.step.error ? props.step.error.title : props.step.name} */}
       </span>
     </CollapsedDiv>

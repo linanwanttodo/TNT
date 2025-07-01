@@ -1,0 +1,101 @@
+import { en } from "./en";
+
+export const zhCN: Record<keyof typeof en, string> = {
+  "sidebar.back": "返回",
+  "sidebar.models": "模型",
+  "sidebar.rules": "规则",
+  "sidebar.tools": "工具",
+  "sidebar.configs": "配置",
+  "sidebar.indexing": "索引",
+  "sidebar.settings": "设置",
+  "sidebar.help": "帮助",
+
+  "config.screenTooSmall.title": "屏幕宽度过小",
+  "config.screenTooSmall.desc": "如需查看设置，请拖动左右边框展开侧边栏",
+
+  "settings.title": "用户设置",
+  "settings.section.chat": "聊天",
+  "settings.showSessionTabs": "显示会话标签页",
+  "settings.showSessionTabs.desc":
+    "在聊天上方显示标签页，作为组织与访问会话的另一种方式。",
+  "settings.wrapCodeblocks": "代码块自动换行",
+  "settings.wrapCodeblocks.desc": "代码块中的长行自动换行，而不是横向滚动。",
+  "settings.showChatScrollbar": "显示聊天滚动条",
+  "settings.showChatScrollbar.desc": "在聊天窗口中启用滚动条。",
+  "settings.ttsOutput": "语音朗读输出",
+  "settings.ttsOutput.desc": "使用 TTS 朗读模型回复。",
+  "settings.enableSessionTitles": "启用会话标题",
+  "settings.enableSessionTitles.desc":
+    "在首条消息之后，使用当前聊天模型为每个会话生成摘要标题。",
+  "settings.formatMarkdown": "渲染 Markdown",
+  "settings.formatMarkdown.desc": "关闭后以原始文本显示回复。",
+  "settings.section.appearance": "外观",
+  "settings.fontSize": "字体大小",
+  "settings.fontSize.desc": "指定界面元素的基础字体大小。",
+  "settings.language": "语言",
+  "settings.language.desc": "界面显示语言。自动模式跟随系统语言。",
+  "settings.section.autocomplete": "自动补全",
+  "settings.multilineAutocompletions": "多行自动补全",
+  "settings.multilineAutocompletions.desc": "控制自动补全的多行补全行为。",
+  "settings.auto": "自动",
+  "settings.always": "总是",
+  "settings.never": "从不",
+  "settings.autocompleteTimeout": "自动补全超时（毫秒）",
+  "settings.autocompleteTimeout.desc":
+    "自动补全请求/获取的最长等待时间（毫秒）。",
+  "settings.autocompleteDebounce": "自动补全防抖（毫秒）",
+  "settings.autocompleteDebounce.desc":
+    "变更后触发自动补全请求的最小间隔时间（毫秒）。",
+  "settings.disableAutocompleteInFiles": "在指定文件中禁用自动补全",
+  "settings.disableAutocompleteInFiles.desc":
+    "以逗号分隔的 glob 模式列表，匹配的文件将禁用自动补全。",
+  "settings.section.experimental": "实验性",
+  "settings.showExperimentalSettings": "显示实验性设置",
+  "settings.addCurrentFileByDefault": "默认添加当前文件",
+  "settings.addCurrentFileByDefault.desc":
+    " 每个新会话都会将当前打开的文件作为上下文添加。",
+  "settings.enableExperimentalTools": "启用实验性工具",
+  "settings.enableExperimentalTools.desc": " 启用仍在开发中的实验性工具。",
+  "settings.onlyUseSystemMessageTools": "仅使用系统消息工具",
+  "settings.onlyUseSystemMessageTools.desc":
+    " 将不尝试使用原生工具调用，仅使用系统消息工具。",
+  "settings.codebaseToolCallingOnly": "@Codebase：仅使用工具调用",
+  "settings.codebaseToolCallingOnly.desc":
+    " @codebase 上下文提供器将仅使用工具调用进行代码检索。",
+  "settings.streamAfterToolRejection": "工具被拒绝后继续流式输出",
+  "settings.streamAfterToolRejection.desc":
+    " 工具调用被拒绝后，流式输出将继续进行。",
+
+  "language.auto": "自动",
+  "language.en": "English",
+  "language.zh-CN": "简体中文",
+
+  "addChatModel.title": "添加聊天模型",
+  "addChatModel.displayName": "显示名称",
+  "addChatModel.displayName.placeholder": "我的模型",
+  "addChatModel.provider": "提供方",
+  "addChatModel.provider.hint":
+    "对任何 OpenAI 兼容端点，可选择 OpenAI 并填写自定义 API Base。",
+  "addChatModel.searchProviders": "搜索提供方...",
+  "addChatModel.modelId": "模型 ID",
+  "addChatModel.modelId.placeholder": "例如 gpt-4o、claude-4-sonnet、my-model",
+  "addChatModel.fetchModelList": "获取模型列表",
+  "addChatModel.fetching": "获取中...",
+  "addChatModel.fetchError": "获取模型列表失败。请检查 API Key 与 API Base。",
+  "addChatModel.selectModelsToAdd": "选择要添加的模型",
+  "addChatModel.apiBase": "API Base（可选）",
+  "addChatModel.apiBase.placeholder": "https://api.example.com/v1",
+  "addChatModel.apiKey": "API Key（可选）",
+  "addChatModel.apiKey.placeholder": "输入你的 API Key",
+  "addChatModel.contextLength": "上下文长度（可选）",
+  "addChatModel.maxOutputTokens": "最大输出 tokens（可选）",
+  "addChatModel.capabilities": "能力",
+  "addChatModel.toolUse": "工具调用",
+  "addChatModel.imageInput": "图片输入",
+  "addChatModel.connect": "连接",
+  "addChatModel.willUpdateConfig": "此操作会更新你的",
+  "addChatModel.configFile": "配置文件",
+
+  "chat.roleMessage": "{role}消息",
+  "chat.thinking": "思考中",
+};

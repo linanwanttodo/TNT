@@ -9,6 +9,7 @@ import { AuthProvider } from "../../context/Auth";
 import { IdeMessengerProvider } from "../../context/IdeMessenger";
 import { MockIdeMessenger } from "../../context/MockIdeMessenger";
 import ParallelListeners from "../../hooks/ParallelListeners";
+import { I18nProvider } from "../../i18n";
 import { setupStore } from "../../redux/store";
 // As a basic setup, import your same slice reducers
 
@@ -48,18 +49,20 @@ export async function renderWithProviders(
   const user = userEvent.setup();
 
   const Wrapper = ({ children }: PropsWithChildren) => (
-    <MemoryRouter {...routerProps}>
-      <IdeMessengerProvider messenger={ideMessenger}>
-        <Provider store={store}>
-          <AuthProvider>
-            <MainEditorProvider>
-              {children}
-              <ParallelListeners />
-            </MainEditorProvider>
-          </AuthProvider>
-        </Provider>
-      </IdeMessengerProvider>
-    </MemoryRouter>
+    <I18nProvider>
+      <MemoryRouter {...routerProps}>
+        <IdeMessengerProvider messenger={ideMessenger}>
+          <Provider store={store}>
+            <AuthProvider>
+              <MainEditorProvider>
+                {children}
+                <ParallelListeners />
+              </MainEditorProvider>
+            </AuthProvider>
+          </Provider>
+        </IdeMessengerProvider>
+      </MemoryRouter>
+    </I18nProvider>
   );
 
   let rendered: RenderResult;

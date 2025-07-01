@@ -4,6 +4,7 @@ import { MainEditorProvider } from "./components/mainInput/TipTapEditor";
 import { SubmenuContextProvidersProvider } from "./context/SubmenuContextProviders";
 import { VscThemeProvider } from "./context/VscTheme";
 import ParallelListeners from "./hooks/ParallelListeners";
+import { I18nProvider } from "./i18n";
 import ConfigPage from "./pages/config";
 import ErrorPage from "./pages/error";
 import Chat from "./pages/gui";
@@ -52,14 +53,16 @@ const router = createMemoryRouter([
 */
 function App() {
   return (
-    <VscThemeProvider>
-      <MainEditorProvider>
-        <SubmenuContextProvidersProvider>
-          <RouterProvider router={router} />
-        </SubmenuContextProvidersProvider>
-      </MainEditorProvider>
-      <ParallelListeners />
-    </VscThemeProvider>
+    <I18nProvider>
+      <VscThemeProvider>
+        <MainEditorProvider>
+          <SubmenuContextProvidersProvider>
+            <RouterProvider router={router} />
+          </SubmenuContextProvidersProvider>
+        </MainEditorProvider>
+        <ParallelListeners />
+      </VscThemeProvider>
+    </I18nProvider>
   );
 }
 

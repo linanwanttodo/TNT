@@ -38,7 +38,7 @@ export const topTabSections: TabSection[] = [
     tabs: [
       {
         id: "back",
-        label: "Back",
+        label: "sidebar.back",
         component: <div />,
         icon: <ArrowLeftIcon className="xs:h-4 xs:w-4 h-3 w-3 flex-shrink-0" />,
       },
@@ -50,7 +50,7 @@ export const topTabSections: TabSection[] = [
     tabs: [
       {
         id: "models",
-        label: "Models",
+        label: "sidebar.models",
         component: (
           <ConfigSection>
             <ModelsSection />
@@ -60,7 +60,7 @@ export const topTabSections: TabSection[] = [
       },
       {
         id: "rules",
-        label: "Rules",
+        label: "sidebar.rules",
         component: (
           <ConfigSection>
             <RulesSection />
@@ -70,7 +70,7 @@ export const topTabSections: TabSection[] = [
       },
       {
         id: "tools",
-        label: "Tools",
+        label: "sidebar.tools",
         component: (
           <ConfigSection>
             <ToolsSection />
@@ -88,7 +88,7 @@ export const topTabSections: TabSection[] = [
     tabs: [
       {
         id: "configs",
-        label: "Configs",
+        label: "sidebar.configs",
         component: (
           <ConfigSection>
             <ConfigsSection />
@@ -104,7 +104,7 @@ export const topTabSections: TabSection[] = [
     tabs: [
       {
         id: "indexing",
-        label: "Indexing",
+        label: "sidebar.indexing",
         component: (
           <ConfigSection>
             <IndexingSettingsSection />
@@ -124,7 +124,7 @@ export const bottomTabSections: TabSection[] = [
     tabs: [
       {
         id: "settings",
-        label: "Settings",
+        label: "sidebar.settings",
         component: (
           <ConfigSection>
             <UserSettingsSection />
@@ -134,7 +134,7 @@ export const bottomTabSections: TabSection[] = [
       },
       {
         id: "help",
-        label: "Help",
+        label: "sidebar.help",
         component: (
           <ConfigSection>
             <HelpSection />

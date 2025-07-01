@@ -1,3 +1,4 @@
+import { useI18n } from "../../i18n";
 import { Divider } from "./Divider";
 import { TabButton } from "./TabButton";
 
@@ -27,20 +28,21 @@ export function TabGroup({
   showBottomDivider = false,
   className = "",
 }: TabGroupProps) {
+  const { t } = useI18n();
   return (
     <div className={className}>
       {showTopDivider && <Divider />}
 
       {label && (
         <div className="text-description-muted text-2xs mb-1 ml-1.5 hidden font-medium md:block md:pt-1">
-          {label}
+          {t(label)}
         </div>
       )}
 
       {tabs.map((tab) => (
         <TabButton
           key={tab.id}
-          label={tab.label}
+          label={t(tab.label)}
           icon={tab.icon}
           isActive={activeTab === tab.id}
           onClick={() => onTabClick(tab.id)}

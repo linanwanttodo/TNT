@@ -4,6 +4,7 @@ import Alert from "../../components/gui/Alert";
 import { Divider } from "../../components/ui/Divider";
 import { TabGroup } from "../../components/ui/TabGroup";
 import { useNavigationListener } from "../../hooks/useNavigationListener";
+import { useI18n } from "../../i18n";
 import { bottomTabSections, getAllTabs, topTabSections } from "./configTabs";
 import { DeprecationBanner } from "../../components/DeprecationBanner";
 import { AccountDropdown } from "./features/account/AccountDropdown";
@@ -11,6 +12,7 @@ import { AccountDropdown } from "./features/account/AccountDropdown";
 function ConfigPage() {
   useNavigationListener();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "settings";
 
@@ -68,10 +70,11 @@ function ConfigPage() {
         <div className="block px-4 py-4 sm:hidden">
           <Alert type="warning" className="max-w-md">
             <div className="flex flex-col">
-              <div className="font-medium">Screen width too small</div>
+              <div className="font-medium">
+                {t("config.screenTooSmall.title")}
+              </div>
               <div className="text-description mt-1 text-sm">
-                To view settings, please expand the sidebar by dragging the
-                left/right border
+                {t("config.screenTooSmall.desc")}
               </div>
             </div>
           </Alert>
