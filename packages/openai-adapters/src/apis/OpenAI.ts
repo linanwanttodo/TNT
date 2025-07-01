@@ -45,12 +45,17 @@ export class OpenAIApi implements BaseLlmApi {
       apiKey: config.apiKey ?? "",
       baseURL: this.apiBase,
       fetch: customFetch(config.requestOptions),
-      timeout: config?.requestOptions?.timeout || undefined,
+      // requestOptions.timeout is in seconds (see packages/fetch getAgentOptions);
+      // the OpenAI SDK expects milliseconds.
+      timeout:
+        config?.requestOptions?.timeout === undefined
+          ? undefined
+          : config.requestOptions.timeout * 1000,
     });
   }
   modifyChatBody<T extends ChatCompletionCreateParams>(body: T): T {
     // Add stream_options to include usage in streaming responses
-    if (body.stream) {
+    if (body.stream && this.config.streamOptions !== false) {
       (body as any).stream_options = { include_usage: true };
     }
 
