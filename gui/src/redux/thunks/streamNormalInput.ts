@@ -9,6 +9,7 @@ import {
   abortStream,
   addPromptCompletionPair,
   errorToolCall,
+  ReasoningDepth,
   setActive,
   setAppliedRulesAtIndex,
   setContextPercentage,
@@ -49,6 +50,7 @@ function buildReasoningCompletionOptions(
   baseOptions: LLMFullCompletionOptions,
   hasReasoningEnabled: boolean | undefined,
   model: ModelDescription,
+  depth?: ReasoningDepth,
 ): LLMFullCompletionOptions {
   if (hasReasoningEnabled === undefined) {
     return baseOptions;
@@ -62,8 +64,14 @@ function buildReasoningCompletionOptions(
   // Add reasoning budget tokens if reasoning is enabled and provider supports it
   if (hasReasoningEnabled && model.underlyingProviderName !== "ollama") {
     // Ollama doesn't support limiting reasoning tokens at this point
+    const depthBudget: Record<Exclude<ReasoningDepth, "off">, number> = {
+      low: 1024,
+      medium: 2048,
+      high: 4096,
+    };
     reasoningOptions.reasoningBudgetTokens =
-      model.completionOptions?.reasoningBudgetTokens ?? 2048;
+      model.completionOptions?.reasoningBudgetTokens ??
+      (depth && depth !== "off" ? depthBudget[depth] : 2048);
   }
 
   return reasoningOptions;
@@ -130,6 +138,7 @@ export const streamNormalInput = createAsyncThunk<
       completionOptions,
       state.session.hasReasoningEnabled,
       selectedChatModel,
+      state.session.reasoningDepth,
     );
 
     // Construct messages (excluding system message)
