@@ -6,7 +6,7 @@ import {
   SlashCommandSource,
 } from "core";
 import { memo, useMemo } from "react";
-import { defaultBorderRadius, vscBackground } from "..";
+import { defaultBorderRadius } from "..";
 import { useAppSelector } from "../../redux/hooks";
 import { selectSlashCommandComboBoxInputs } from "../../redux/selectors";
 import { ContextItemsPeek } from "./belowMainInput/ContextItemsPeek";
@@ -114,23 +114,32 @@ function ContinueInputBox(props: ContinueInputBoxProps) {
     >
       <div className={`relative flex flex-col px-2`}>
         {props.isMainInput && <Lump />}
-        <GradientBorder
-          loading={0}
-          borderColor={vscBackground}
-          borderRadius={defaultBorderRadius}
+        <div
+          style={
+            props.isMainInput
+              ? undefined
+              : {
+                  // History user messages render as bubbles
+                  backgroundColor: "var(--vscode-input-background)",
+                  padding: "8px 10px",
+                  minWidth: "150px",
+                }
+          }
         >
-          <TipTapEditor
-            editorState={props.editorState}
-            onEnter={props.onEnter}
-            placeholder={placeholder}
-            isMainInput={props.isMainInput ?? false}
-            availableContextProviders={filteredContextProviders}
-            availableSlashCommands={filteredSlashCommands}
-            historyKey={historyKey}
-            toolbarOptions={toolbarOptions}
-            inputId={props.inputId}
-          />
-        </GradientBorder>
+          <GradientBorder loading={0} borderRadius={defaultBorderRadius}>
+            <TipTapEditor
+              editorState={props.editorState}
+              onEnter={props.onEnter}
+              placeholder={placeholder}
+              isMainInput={props.isMainInput ?? false}
+              availableContextProviders={filteredContextProviders}
+              availableSlashCommands={filteredSlashCommands}
+              historyKey={historyKey}
+              toolbarOptions={toolbarOptions}
+              inputId={props.inputId}
+            />
+          </GradientBorder>
+        </div>
       </div>
 
       {(appliedRules.length > 0 || contextItems.length > 0) && (

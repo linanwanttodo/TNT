@@ -98,6 +98,7 @@ export default function StepContainer(props: StepContainerProps) {
               isRenderingInStepContainer
               source={stripImages(props.item.message.content)}
               itemIndex={props.index}
+              isStreaming={props.isLast && isStreaming}
             />
           </>
         )}

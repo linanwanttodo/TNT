@@ -37,28 +37,14 @@ const StyledMarkdown = styled.div<{
   whiteSpace: string;
   bgColor: string;
 }>`
-  h1 {
-    font-size: 1.25em;
-  }
-
-  h2 {
-    font-size: 1.15em;
-  }
-
-  h3 {
-    font-size: 1.05em;
-  }
-
-  h4 {
-    font-size: 1em;
-  }
-
-  h5 {
-    font-size: 0.95em;
-  }
-
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
   h6 {
-    font-size: 0.9em;
+    font-size: inherit;
+    margin-block: 0.5em;
   }
 
   pre {
@@ -131,7 +117,7 @@ const StyledMarkdown = styled.div<{
   li,
   ol,
   ul {
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
   * {
@@ -140,6 +126,22 @@ const StyledMarkdown = styled.div<{
 
   > *:last-child {
     margin-bottom: 0;
+  }
+
+  .stream-caret {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background-color: ${vscForeground};
+    animation: stream-caret-blink 0.8s steps(2, start) infinite;
+  }
+
+  @keyframes stream-caret-blink {
+    to {
+      visibility: hidden;
+    }
   }
 `;
 
@@ -155,6 +157,7 @@ interface StyledMarkdownPreviewProps {
   toolCallId?: string;
   expandCodeblocks?: boolean;
   collapsible?: boolean;
+  isStreaming?: boolean;
 }
 
 const HLJS_LANGUAGE_CLASSNAME_PREFIX = "language-";
@@ -423,6 +426,7 @@ const StyledMarkdownPreview = memo(function StyledMarkdownPreview(
       bgColor={props.useParentBackgroundColor ? "" : vscBackground}
     >
       {reactContent}
+      {props.isStreaming && <span className="stream-caret" />}
     </StyledMarkdown>
   );
 });
