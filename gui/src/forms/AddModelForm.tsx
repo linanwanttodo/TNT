@@ -1,186 +1,172 @@
-import {
-  ArrowPathIcon,
-  ArrowTopRightOnSquareIcon,
-} from "@heroicons/react/24/outline";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { useCallback, useContext, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { Button, Input, StyledActionButton } from "../components";
-import Alert from "../components/gui/Alert";
+import { Button, Input } from "../components";
 import ModelSelectionListbox from "../components/modelSelection/ModelSelectionListbox";
-import { ModelProviderTags } from "../components/modelSelection/utils";
 import { useAuth } from "../context/Auth";
 import { IdeMessengerContext } from "../context/IdeMessenger";
-import { completionParamsInputs } from "../pages/AddNewModel/configs/completionParamsInputs";
-import {
-  fetchProviderModels,
-  initializeDynamicModels,
-} from "../pages/AddNewModel/configs/fetchProviderModels";
-import { DisplayInfo, ModelPackage } from "../pages/AddNewModel/configs/models";
-import {
-  ProviderInfo,
-  providers,
-} from "../pages/AddNewModel/configs/providers";
+
+// Curated whitelist of registered providerName values from core LLMClasses.
+// The backend matches LLM implementation classes statically by provider name,
+// so free-form provider input is not allowed.
+const PROVIDER_OPTIONS = [
+  { title: "OpenAI", provider: "openai" },
+  { title: "Anthropic", provider: "anthropic" },
+  { title: "Gemini", provider: "gemini" },
+  { title: "Azure", provider: "azure" },
+  { title: "Mistral", provider: "mistral" },
+  { title: "DeepSeek", provider: "deepseek" },
+  { title: "Groq", provider: "groq" },
+  { title: "OpenRouter", provider: "openrouter" },
+  { title: "Together", provider: "together" },
+  { title: "Fireworks", provider: "fireworks" },
+  { title: "Cohere", provider: "cohere" },
+  { title: "xAI", provider: "xAI" },
+  { title: "Bedrock", provider: "bedrock" },
+  { title: "Vertex AI", provider: "vertexai" },
+  { title: "Moonshot", provider: "moonshot" },
+  { title: "MiniMax", provider: "minimax" },
+  { title: "SiliconFlow", provider: "siliconflow" },
+  { title: "Novita", provider: "novita" },
+  { title: "Nebius", provider: "nebius" },
+  { title: "Cerebras", provider: "cerebras" },
+  { title: "Ollama", provider: "ollama" },
+  { title: "LM Studio", provider: "lmstudio" },
+  { title: "llama.cpp", provider: "llama.cpp" },
+  { title: "vLLM", provider: "vllm" },
+  { title: "HuggingFace TEI", provider: "huggingface-tei" },
+  { title: "HuggingFace TGI", provider: "huggingface-tgi" },
+  { title: "HuggingFace Inference API", provider: "huggingface-inference-api" },
+].sort((a, b) => a.title.localeCompare(b.title));
 
 interface AddModelFormProps {
   onDone: () => void;
 }
 
-const MODEL_PROVIDERS_URL =
-  "https://docs.continue.dev/customize/model-providers";
-const CODESTRAL_URL = "https://console.mistral.ai/codestral";
-const CONTINUE_SETUP_URL = "https://docs.continue.dev/setup/overview";
+interface FetchedModel {
+  name: string;
+  modelId?: string;
+  description?: string;
+  contextLength?: number;
+  maxTokens?: number;
+  supportsTools?: boolean;
+}
+
+function toModelDescription(
+  fields: Record<string, any>,
+  modelId: string,
+  overrides?: Partial<FetchedModel>,
+): Record<string, any> {
+  const contextLength =
+    parseInt(fields.contextLength, 10) || overrides?.contextLength;
+  const maxTokens = parseInt(fields.maxTokens, 10) || overrides?.maxTokens;
+
+  const capabilities: Record<string, boolean> = {};
+  if (fields.capToolUse || overrides?.supportsTools) {
+    capabilities.tools = true;
+  }
+  if (fields.capImageInput) {
+    capabilities.uploadImage = true;
+  }
+
+  return {
+    provider: fields.provider,
+    title: fields.title,
+    model: modelId,
+    ...(fields.apiBase ? { apiBase: fields.apiBase } : {}),
+    ...(fields.apiKey ? { apiKey: fields.apiKey } : {}),
+    ...(contextLength ? { contextLength } : {}),
+    ...(maxTokens ? { completionOptions: { maxTokens } } : {}),
+    ...(Object.keys(capabilities).length > 0 ? { capabilities } : {}),
+  };
+}
 
 export function AddModelForm({ onDone }: AddModelFormProps) {
-  const [selectedProvider, setSelectedProvider] = useState<ProviderInfo>(
-    providers["openai"]!,
-  );
-  const { selectedProfile } = useAuth();
-  const [selectedModel, setSelectedModel] = useState(
-    selectedProvider.packages[0],
-  );
-  const formMethods = useForm();
+  const formMethods = useForm<Record<string, any>>({
+    defaultValues: { provider: "openai" },
+  });
   const ideMessenger = useContext(IdeMessengerContext);
+  const { selectedProfile } = useAuth();
 
-  const [fetchedModelsList, setFetchedModelsList] = useState<ModelPackage[]>(
-    [],
-  );
+  const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
+  const [checkedModels, setCheckedModels] = useState<Set<string>>(new Set());
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [fetchError, setFetchError] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    void initializeDynamicModels(ideMessenger);
-  }, []);
-
-  useEffect(() => {
-    setFetchedModelsList([]);
-  }, [selectedProvider]);
+  const selectedProvider = formMethods.watch("provider");
+  const titleValue = formMethods.watch("title");
+  const modelValue = formMethods.watch("model");
 
   const handleFetchModels = useCallback(async () => {
-    const apiKey = formMethods.watch("apiKey");
-    const apiBase = formMethods.watch("apiBase");
-    if (!apiKey) return;
+    const apiKey = formMethods.getValues("apiKey");
+    const apiBase = formMethods.getValues("apiBase");
+    const provider = formMethods.getValues("provider");
+    if (!provider) return;
 
-    const providerAtFetchTime = selectedProvider.provider;
     setIsFetchingModels(true);
+    setFetchError(undefined);
     try {
-      const models = await fetchProviderModels(
-        ideMessenger,
-        providerAtFetchTime,
+      const response = await ideMessenger.request("models/fetch", {
+        provider,
         apiKey,
         apiBase,
+      });
+      if (response.status === "error" || !response.content) {
+        setFetchError("Failed to fetch models. Check your API key and base.");
+        return;
+      }
+      const models = [...response.content].sort((a, b) =>
+        a.name.localeCompare(b.name),
       );
-      setFetchedModelsList((prev) =>
-        selectedProvider.provider === providerAtFetchTime ? models : prev,
-      );
+      setFetchedModels(models);
+      setCheckedModels(new Set(models.map((m) => m.modelId ?? m.name)));
     } catch (error) {
       console.error("Failed to fetch models:", error);
+      setFetchError("Failed to fetch models. Check your API key and base.");
     } finally {
       setIsFetchingModels(false);
     }
-  }, [ideMessenger, selectedProvider, formMethods]);
+  }, [ideMessenger, formMethods]);
 
-  const popularProviderTitles = [
-    providers["openai"]?.title || "",
-    providers["anthropic"]?.title || "",
-    providers["mistral"]?.title || "",
-    providers["gemini"]?.title || "",
-    providers["azure"]?.title || "",
-    providers["ollama"]?.title || "",
-    providers["openrouter"]?.title || "",
-  ];
-
-  const allProviders = Object.entries(providers)
-    .filter(([key]) => !["openai-aiohttp"].includes(key))
-    .map(([, provider]) => provider)
-    .filter((provider) => !!provider)
-    .map((provider) => provider!); // for type checking
-
-  const popularProviders = allProviders
-    .filter((provider) => popularProviderTitles.includes(provider.title))
-    .sort((a, b) => a.title.localeCompare(b.title));
-
-  const otherProviders = allProviders
-    .filter((provider) => !popularProviderTitles.includes(provider.title))
-    .sort((a, b) => a.title.localeCompare(b.title));
-
-  const selectedProviderApiKeyUrl =
-    selectedModel && selectedModel.params.model.startsWith("codestral")
-      ? CODESTRAL_URL
-      : selectedProvider.apiKeyUrl;
+  function toggleModel(modelId: string) {
+    setCheckedModels((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) {
+        next.delete(modelId);
+      } else {
+        next.add(modelId);
+      }
+      return next;
+    });
+  }
 
   function isDisabled() {
-    if (selectedProvider.downloadUrl) {
+    if (checkedModels.size > 0) {
       return false;
     }
-
-    const required = selectedProvider.collectInputFor
-      ?.filter((input) => input.required)
-      .map((input) => {
-        const value = formMethods.watch(input.key);
-        return value;
-      });
-
-    return !required?.every((value) => value !== undefined && value.length > 0);
+    return !modelValue || modelValue.length === 0 || !titleValue;
   }
 
-  useEffect(() => {
-    setSelectedModel(selectedProvider.packages[0]);
-    if (!selectedProvider.tags?.includes(ModelProviderTags.RequiresApiKey)) {
-      formMethods.setValue("apiKey", "");
-    }
-  }, [selectedProvider]);
+  function onSubmit(fields: Record<string, any>) {
+    const modelIds = checkedModels.size > 0 ? [...checkedModels] : [modelValue];
 
-  const requiresSkPrefix =
-    selectedProvider.provider === "openai" ||
-    selectedProvider.provider === "anthropic";
+    for (const modelId of modelIds) {
+      const override = fetchedModels.find(
+        (m) => (m.modelId ?? m.name) === modelId,
+      );
+      const model = toModelDescription(fields, modelId, override) as any;
+      ideMessenger.post("config/addModel", { model });
 
-  const apiKeyValue = formMethods.watch("apiKey");
-  const apiKeyWarning =
-    requiresSkPrefix &&
-    apiKeyValue &&
-    apiKeyValue.length > 0 &&
-    !apiKeyValue.startsWith("sk-")
-      ? "API key usually starts with sk-"
-      : undefined;
-
-  function onSubmit() {
-    const apiKey = formMethods.watch("apiKey");
-    const hasValidApiKey = apiKey !== undefined && apiKey !== "";
-
-    const reqInputFields: Record<string, any> = {};
-    for (let input of selectedProvider.collectInputFor ?? []) {
-      reqInputFields[input.key] = formMethods.watch(input.key);
+      if (selectedProfile) {
+        ideMessenger.post("config/updateSelectedModel", {
+          profileId: selectedProfile.id,
+          role: "chat",
+          title: model.title,
+        });
+      }
     }
 
-    const model = {
-      ...selectedProvider.params,
-      ...selectedModel.params,
-      ...reqInputFields,
-      provider: selectedProvider.provider,
-      title: selectedModel.title,
-      ...(hasValidApiKey ? { apiKey } : {}),
-    };
-
-    ideMessenger.post("config/addModel", { model });
-
-    ideMessenger.post("config/openProfile", {
-      profileId: "local",
-    });
-
-    if (selectedProfile) {
-      ideMessenger.post("config/updateSelectedModel", {
-        profileId: selectedProfile.id,
-        role: "chat",
-        title: model.title,
-      });
-    }
-
-    formMethods.setValue("apiKey", "");
     onDone();
-  }
-
-  function onClickDownloadProvider() {
-    selectedProvider.downloadUrl &&
-      ideMessenger.post("openUrl", selectedProvider.downloadUrl);
   }
 
   return (
@@ -189,205 +175,182 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
         <div className="mx-auto max-w-md p-6">
           <h1 className="mb-0 text-center text-2xl">Add Chat model</h1>
 
-          <div className="my-8 flex flex-col gap-6">
+          <div className="my-8 flex flex-col gap-4">
             <div>
-              <label className="block text-sm font-medium">Provider</label>
+              <label className="mb-1 block text-sm font-medium">
+                Display name
+              </label>
+              <Input
+                id="title"
+                className="w-full"
+                placeholder="My model"
+                {...formMethods.register("title")}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Provider</label>
               <ModelSelectionListbox
-                selectedProvider={selectedProvider}
-                setSelectedProvider={(val: DisplayInfo) => {
-                  const match = [...popularProviders, ...otherProviders].find(
-                    (provider) => provider.title === val.title,
-                  );
-                  if (match) {
-                    setSelectedProvider(match);
-                  }
+                selectedProvider={{
+                  title:
+                    PROVIDER_OPTIONS.find(
+                      (p) => p.provider === selectedProvider,
+                    )?.title ?? selectedProvider,
+                  provider: selectedProvider,
                 }}
-                topOptions={popularProviders}
-                otherOptions={otherProviders}
+                setSelectedProvider={(val) => {
+                  formMethods.setValue("provider", val.provider ?? "openai");
+                  setFetchedModels([]);
+                  setCheckedModels(new Set());
+                }}
+                topOptions={PROVIDER_OPTIONS.map((p) => ({
+                  title: p.title,
+                  provider: p.provider,
+                }))}
                 searchPlaceholder="Search providers..."
               />
               <span className="text-description-muted mt-1 block text-xs">
-                Don't see your provider?{" "}
-                <a
-                  className="cursor-pointer text-inherit underline hover:text-inherit"
-                  onClick={() =>
-                    ideMessenger.post("openUrl", MODEL_PROVIDERS_URL)
-                  }
-                >
-                  Click here
-                </a>{" "}
-                to view the full list
+                Use OpenAI with a custom API Base for any OpenAI-compatible
+                endpoint.
               </span>
             </div>
 
-            {selectedProvider.downloadUrl && (
-              <div>
-                <label className="mb-1 block text-sm font-medium">
-                  Install provider
-                </label>
-                <StyledActionButton onClick={onClickDownloadProvider}>
-                  <p className="text-sm underline">
-                    {selectedProvider.downloadUrl}
-                  </p>
-                  <ArrowTopRightOnSquareIcon width={24} height={24} />
-                </StyledActionButton>
-              </div>
-            )}
-
             <div>
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium">Model</label>
+                <label className="mb-1 block text-sm font-medium">
+                  Model ID
+                </label>
                 <button
                   type="button"
-                  title="Use entered API key to fetch available models"
-                  className={`cursor-pointer border-none bg-transparent p-0 ${
-                    apiKeyValue &&
-                    apiKeyValue.length > 0 &&
-                    selectedProvider.provider !== "ollama" &&
-                    selectedProvider.provider !== "openrouter"
-                      ? `text-description-muted hover:text-foreground`
-                      : "invisible"
-                  }`}
+                  title="Fetch available models from the provider"
+                  className="text-description-muted cursor-pointer border-none bg-transparent p-0"
                   onClick={handleFetchModels}
                   disabled={isFetchingModels}
                 >
-                  <ArrowPathIcon
-                    className={`h-3.5 w-3.5 ${isFetchingModels ? "animate-spin" : ""}`}
-                  />
+                  {isFetchingModels ? (
+                    <span className="flex items-center gap-1 text-xs">
+                      <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
+                      Fetching...
+                    </span>
+                  ) : (
+                    <span className="text-xs underline">Fetch model list</span>
+                  )}
                 </button>
               </div>
-              <ModelSelectionListbox
-                selectedProvider={selectedModel}
-                setSelectedProvider={(val: DisplayInfo) => {
-                  const options =
-                    Object.entries(providers).find(
-                      ([, provider]) =>
-                        provider?.title === selectedProvider.title,
-                    )?.[1]?.packages ?? [];
-                  const allOptions = [...options, ...fetchedModelsList];
-                  const match = allOptions.find(
-                    (option) => option.title === val.title,
-                  );
-                  if (match) {
-                    setSelectedModel(match);
-                  }
-                }}
-                topOptions={(() => {
-                  const providerInfo = Object.entries(providers).find(
-                    ([, provider]) =>
-                      provider?.title === selectedProvider.title,
-                  )?.[1];
-                  return (
-                    providerInfo?.popularPackages ?? providerInfo?.packages
-                  );
-                })()}
-                otherOptions={(() => {
-                  const providerInfo = Object.entries(providers).find(
-                    ([, provider]) =>
-                      provider?.title === selectedProvider.title,
-                  )?.[1];
-                  const staticOther = providerInfo?.popularPackages
-                    ? providerInfo.packages.filter(
-                        (p) =>
-                          !new Set(
-                            providerInfo.popularPackages!.map((pp) => pp.title),
-                          ).has(p.title),
-                      )
-                    : undefined;
-                  // Merge dynamically fetched models (deduplicated)
-                  if (fetchedModelsList.length > 0) {
-                    const existingTitles = new Set(
-                      (providerInfo?.packages ?? []).map((p) => p.title),
+              <Input
+                id="model"
+                className="w-full"
+                placeholder="e.g. gpt-4o, claude-4-sonnet, my-model"
+                {...formMethods.register("model")}
+              />
+              {fetchError && (
+                <span className="text-warning mt-1 block text-xs">
+                  {fetchError}
+                </span>
+              )}
+              {fetchedModels.length > 0 && (
+                <div className="border-border bg-input mt-2 max-h-48 overflow-y-auto rounded border p-2">
+                  <div className="text-description-muted mb-1 text-xs">
+                    Select models to add
+                  </div>
+                  {fetchedModels.map((m) => {
+                    const id = m.modelId ?? m.name;
+                    return (
+                      <label
+                        key={id}
+                        className="flex cursor-pointer items-center gap-2 py-1"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checkedModels.has(id)}
+                          onChange={() => toggleModel(id)}
+                        />
+                        <span className="text-xs">{m.name}</span>
+                        {m.contextLength && (
+                          <span className="text-description-muted text-xs">
+                            {Math.round(m.contextLength / 1000)}k
+                          </span>
+                        )}
+                      </label>
                     );
-                    const newModels = fetchedModelsList.filter(
-                      (m) => !existingTitles.has(m.title),
-                    );
-                    return [...(staticOther ?? []), ...newModels];
-                  }
-                  return staticOther;
-                })()}
-                otherOptionsLabel="Additional models"
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                API Base (optional)
+              </label>
+              <Input
+                id="apiBase"
+                className="w-full"
+                placeholder="https://api.example.com/v1"
+                {...formMethods.register("apiBase")}
               />
             </div>
 
-            {selectedModel.params.model.startsWith("codestral") && (
-              <div className="my-2">
-                <Alert>
-                  <p className="m-0 text-sm font-bold">Codestral API key</p>
-                  <p className="m-0 mt-1">
-                    Note that codestral requires a different API key from other
-                    Mistral models
-                  </p>
-                </Alert>
-              </div>
-            )}
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                API Key (optional)
+              </label>
+              <Input
+                id="apiKey"
+                className="w-full"
+                type="password"
+                placeholder="Enter your API key"
+                {...formMethods.register("apiKey")}
+              />
+            </div>
 
-            {selectedProvider.apiKeyUrl && (
-              <div>
-                <>
-                  <label className="mb-1 block text-sm font-medium">
-                    API key
-                  </label>
-                  <Input
-                    id="apiKey"
-                    className={
-                      apiKeyWarning ? "border-warning w-full" : "w-full"
-                    }
-                    type="password"
-                    placeholder={`Enter your ${selectedProvider.title} API key`}
-                    {...formMethods.register("apiKey")}
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium">
+                  Context length (optional)
+                </label>
+                <Input
+                  id="contextLength"
+                  className="w-full"
+                  type="number"
+                  placeholder="128000"
+                  {...formMethods.register("contextLength")}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-sm font-medium">
+                  Max output tokens (optional)
+                </label>
+                <Input
+                  id="maxTokens"
+                  className="w-full"
+                  type="number"
+                  placeholder="4096"
+                  {...formMethods.register("maxTokens")}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                Capabilities
+              </label>
+              <div className="flex flex-col gap-1">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    {...formMethods.register("capToolUse")}
                   />
-                  {apiKeyWarning && (
-                    <span className="text-warning mt-1 block text-xs">
-                      {apiKeyWarning}
-                    </span>
-                  )}
-                  <span className="text-description-muted mt-1 block text-xs">
-                    <a
-                      className="cursor-pointer text-inherit underline hover:text-inherit hover:brightness-125"
-                      onClick={() => {
-                        if (selectedProviderApiKeyUrl) {
-                          ideMessenger.post(
-                            "openUrl",
-                            selectedProviderApiKeyUrl,
-                          );
-                        }
-                      }}
-                    >
-                      Click here
-                    </a>{" "}
-                    to create a {selectedProvider.title} API key
-                  </span>
-                </>
+                  <span className="text-xs">Tool use</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    {...formMethods.register("capImageInput")}
+                  />
+                  <span className="text-xs">Image input</span>
+                </label>
               </div>
-            )}
-
-            {selectedProvider.collectInputFor &&
-              selectedProvider.collectInputFor
-                .filter(
-                  (field) =>
-                    !Object.values(completionParamsInputs).some(
-                      (input) => input.key === field.key,
-                    ) &&
-                    field.required &&
-                    field.key !== "apiKey",
-                )
-                .map((field) => (
-                  <div key={field.key}>
-                    <>
-                      <label className="mb-1 block text-sm font-medium">
-                        {field.label}
-                      </label>
-                      <Input
-                        id={field.key}
-                        className="w-full"
-                        defaultValue={field.defaultValue}
-                        placeholder={`${field.placeholder}`}
-                        {...formMethods.register(field.key)}
-                      />
-                    </>
-                  </div>
-                ))}
+            </div>
           </div>
 
           <div className="mt-4 w-full">
@@ -398,7 +361,7 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
             <span className="text-description-muted block w-full text-center text-xs">
               This will update your{" "}
               <span
-                className="cursor-pointer underline hover:brightness-125"
+                className="cursor-pointer underline"
                 onClick={() =>
                   ideMessenger.post("config/openProfile", {
                     profileId: undefined,

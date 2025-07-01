@@ -2,10 +2,6 @@ import { ToolPolicy } from "@continuedev/terminal-security";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RuleWithSource, Tool } from "core";
 import { BUILT_IN_GROUP_NAME } from "core/tools/builtIn";
-import {
-  defaultOnboardingCardState,
-  OnboardingCardState,
-} from "../../components/OnboardingCard";
 import { getLocalStorage, LocalStorageKey } from "../../util/localStorage";
 
 export type RulePolicy = "on" | "off";
@@ -20,7 +16,6 @@ export type ReasoningSettings = { [modelTitle: string]: boolean };
 type UIState = {
   showDialog: boolean;
   dialogMessage: JSX.Element | undefined;
-  onboardingCard: OnboardingCardState;
   isExploreDialogOpen: boolean;
   hasDismissedExploreDialog: boolean;
   shouldAddFileForEditing: boolean;
@@ -36,7 +31,6 @@ export const DEFAULT_RULE_SETTING: RulePolicy = "on";
 export const DEFAULT_UI_SLICE: UIState = {
   showDialog: false,
   dialogMessage: undefined,
-  onboardingCard: defaultOnboardingCardState,
   isExploreDialogOpen:
     getLocalStorage(LocalStorageKey.IsExploreDialogOpen) ?? false,
   hasDismissedExploreDialog:
@@ -55,12 +49,6 @@ export const uiSlice = createSlice({
   name: "ui",
   initialState: DEFAULT_UI_SLICE,
   reducers: {
-    setOnboardingCard: (
-      state,
-      action: PayloadAction<Partial<OnboardingCardState>>,
-    ) => {
-      state.onboardingCard = { ...state.onboardingCard, ...action.payload };
-    },
     setDialogMessage: (
       state,
       action: PayloadAction<UIState["dialogMessage"]>,
@@ -153,7 +141,6 @@ export const uiSlice = createSlice({
 });
 
 export const {
-  setOnboardingCard,
   setDialogMessage,
   setShowDialog,
   setIsExploreDialogOpen,

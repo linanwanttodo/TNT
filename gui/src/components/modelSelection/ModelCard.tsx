@@ -7,8 +7,6 @@ import {
   lightGray,
   vscFocusBorder,
 } from "..";
-import { PackageDimension } from "../../pages/AddNewModel/configs/models";
-import { providers } from "../../pages/AddNewModel/configs/providers";
 import HeaderButtonWithToolTip from "../gui/HeaderButtonWithToolTip";
 import InfoHover from "../InfoHover";
 import { ModelProviderTag } from "./ModelProviderTag";
@@ -26,7 +24,11 @@ interface ModelCardProps {
     selectedProvider?: string,
   ) => void;
   disabled?: boolean;
-  dimensions?: PackageDimension[];
+  dimensions?: {
+    name: string;
+    description: string;
+    options: Record<string, any>;
+  }[];
   providerOptions?: string[];
 }
 
@@ -35,19 +37,13 @@ const Div = styled.div<{ color: string; disabled: boolean; hovered: boolean }>`
   border-radius: ${defaultBorderRadius};
   position: relative;
   width: 100%;
-  transition: all 0.5s;
 
   ${(props) =>
     props.disabled
       ? `
     opacity: 0.5;
     `
-      : props.hovered
-        ? `
-    border: 1px solid ${props.color};
-    background-color: ${props.color}22;
-    cursor: pointer;`
-        : ""}
+      : ""}
 `;
 
 const DimensionsDiv = styled.div`
@@ -91,8 +87,6 @@ function ModelCard(props: ModelCardProps) {
     props.dimensions?.map((d) => Object.keys(d.options)[0]) || [],
   );
 
-  const [hovered, setHovered] = useState(false);
-
   const [selectedProvider, setSelectedProvider] = useState<string | undefined>(
     undefined,
   );
@@ -104,14 +98,8 @@ function ModelCard(props: ModelCardProps) {
   }, [props.providerOptions]);
 
   return (
-    <Div
-      disabled={props.disabled || false}
-      color={greenButtonColor}
-      hovered={hovered}
-    >
+    <Div disabled={props.disabled || false} color={""} hovered={false}>
       <div
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
         className="px-2 py-1"
         onClick={
           props.disabled
@@ -215,13 +203,9 @@ function ModelCard(props: ModelCardProps) {
               </div>
               <div className="rtl flex flex-wrap items-center justify-end">
                 {props.providerOptions?.map((option, i) => {
-                  const info = providers[option];
-                  if (!info) {
-                    return null;
-                  }
                   return (
                     <HeaderButtonWithToolTip
-                      text={info.title}
+                      text={option}
                       className="mx-1 items-center p-2 text-center"
                       style={{
                         backgroundColor:
@@ -235,12 +219,7 @@ function ModelCard(props: ModelCardProps) {
                         setSelectedProvider(option);
                       }}
                     >
-                      {window.vscMediaUrl && info.icon && (
-                        <img
-                          src={`${window.vscMediaUrl}/logos/${info.icon}`}
-                          height="24px"
-                        />
-                      )}
+                      {option}
                     </HeaderButtonWithToolTip>
                   );
                 })}

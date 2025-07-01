@@ -11,7 +11,6 @@ import Shortcut from "../../../components/gui/Shortcut";
 import { Card } from "../../../components/ui";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
-import { setOnboardingCard } from "../../../redux/slices/uiSlice";
 import { saveCurrentSession } from "../../../redux/thunks/session";
 import { isJetBrains } from "../../../util";
 import { ROUTES } from "../../../util/navigation";
@@ -219,17 +218,11 @@ export function HelpSection() {
                 icon={DocumentArrowUpIcon}
                 onClick={async () => {
                   navigate("/");
-                  // Used to clear the chat panel before showing onboarding card
+                  // Used to clear the chat panel before showing the tutorial
                   await dispatch(
                     saveCurrentSession({
                       openNewSession: true,
                       generateTitle: true,
-                    }),
-                  );
-                  dispatch(
-                    setOnboardingCard({
-                      show: true,
-                      activeTab: undefined,
                     }),
                   );
                   ideMessenger.post("showTutorial", undefined);

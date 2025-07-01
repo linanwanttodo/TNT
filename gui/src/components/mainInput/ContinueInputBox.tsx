@@ -115,12 +115,8 @@ function ContinueInputBox(props: ContinueInputBoxProps) {
       <div className={`relative flex flex-col px-2`}>
         {props.isMainInput && <Lump />}
         <GradientBorder
-          loading={isStreaming && (props.isLastUserInput || isInEdit) ? 1 : 0}
-          borderColor={
-            isStreaming && (props.isLastUserInput || isInEdit)
-              ? undefined
-              : vscBackground
-          }
+          loading={0}
+          borderColor={vscBackground}
           borderRadius={defaultBorderRadius}
         >
           <TipTapEditor

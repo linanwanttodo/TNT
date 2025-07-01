@@ -21,7 +21,6 @@ import TimelineItem from "../../components/gui/TimelineItem";
 import { NewSessionButton } from "../../components/mainInput/belowMainInput/NewSessionButton";
 import ThinkingBlockPeek from "../../components/mainInput/belowMainInput/ThinkingBlockPeek";
 import ContinueInputBox from "../../components/mainInput/ContinueInputBox";
-import { useOnboardingCard } from "../../components/OnboardingCard";
 import StepContainer from "../../components/StepContainer";
 import { TabBar } from "../../components/TabBar/TabBar";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
@@ -107,7 +106,6 @@ export function Chat() {
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);
   const reduxStore = useStore<RootState>();
-  const onboardingCard = useOnboardingCard();
   const showSessionTabs = useAppSelector(
     (store) => store.config.config.ui?.showSessionTabs,
   );
@@ -443,9 +441,7 @@ export function Chat() {
           </div>
           <FatalErrorIndicator />
           {!hasDismissedExploreDialog && <ExploreDialogWatcher />}
-          {history.length === 0 && (
-            <EmptyChatBody showOnboardingCard={onboardingCard.show} />
-          )}
+          {history.length === 0 && <EmptyChatBody />}
         </div>
       </div>
     </>

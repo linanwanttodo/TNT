@@ -1,10 +1,9 @@
 import { JSONContent } from "@tiptap/react";
-import { OnboardingStatus } from "../components/OnboardingCard";
 
 type LocalStorageTypes = {
   isExploreDialogOpen: boolean;
   hasDismissedExploreDialog: boolean;
-  onboardingStatus?: OnboardingStatus;
+  onboardingStatus?: "Started" | "Completed";
   hasDismissedOnboardingCard: boolean;
   mainTextEntryCounter: number;
   ide: "vscode" | "jetbrains";

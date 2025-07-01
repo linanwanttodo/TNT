@@ -237,10 +237,8 @@ describe("errorAnalysis", () => {
         const result = analyzeError(error, selectedModel);
 
         expect(result.modelTitle).toBe("GPT-4");
-        expect(result.providerName).toBe("OpenAI");
-        expect(result.apiKeyUrl).toBe(
-          "https://platform.openai.com/account/api-keys",
-        );
+        expect(result.providerName).toBe("openai");
+        expect(result.apiKeyUrl).toBe(undefined);
       });
 
       it("should use selectedModel info when no matching provider is found", () => {
@@ -264,10 +262,8 @@ describe("errorAnalysis", () => {
         const result = analyzeError(error, selectedModel);
 
         expect(result.modelTitle).toBe(undefined);
-        expect(result.providerName).toBe("OpenAI");
-        expect(result.apiKeyUrl).toBe(
-          "https://platform.openai.com/account/api-keys",
-        );
+        expect(result.providerName).toBe("openai");
+        expect(result.apiKeyUrl).toBe(undefined);
       });
 
       it("should handle selectedModel with missing underlyingProviderName", () => {
@@ -302,10 +298,8 @@ describe("errorAnalysis", () => {
         const error = new Error("Test error");
         const result = analyzeError(error, selectedModel);
 
-        expect(result.providerName).toBe("Anthropic");
-        expect(result.apiKeyUrl).toBe(
-          "https://console.anthropic.com/account/keys",
-        );
+        expect(result.providerName).toBe("anthropic");
+        expect(result.apiKeyUrl).toBe(undefined);
       });
 
       it("should match Groq provider", () => {
@@ -316,8 +310,8 @@ describe("errorAnalysis", () => {
         const error = new Error("Test error");
         const result = analyzeError(error, selectedModel);
 
-        expect(result.providerName).toBe("Groq");
-        expect(result.apiKeyUrl).toBe("https://console.groq.com/keys");
+        expect(result.providerName).toBe("groq");
+        expect(result.apiKeyUrl).toBe(undefined);
       });
 
       it("should match provider with no apiKeyUrl", () => {
@@ -328,7 +322,7 @@ describe("errorAnalysis", () => {
         const error = new Error("Test error");
         const result = analyzeError(error, selectedModel);
 
-        expect(result.providerName).toBe("Ollama");
+        expect(result.providerName).toBe("ollama");
         expect(result.apiKeyUrl).toBe(undefined);
       });
 
@@ -362,10 +356,8 @@ describe("errorAnalysis", () => {
           'HTTP 429 Rate Limited\n\n{"error": "Too many requests", "retry_after": 60}',
         );
         expect(result.modelTitle).toBe("GPT-4");
-        expect(result.providerName).toBe("OpenAI");
-        expect(result.apiKeyUrl).toBe(
-          "https://platform.openai.com/account/api-keys",
-        );
+        expect(result.providerName).toBe("openai");
+        expect(result.apiKeyUrl).toBe(undefined);
       });
 
       it("should handle error with complex nested JSON structure", () => {
@@ -491,9 +483,7 @@ describe("errorAnalysis", () => {
         const result = analyzeError(error, selectedModel);
 
         expect(result.statusCode).toBe(401);
-        expect(result.apiKeyUrl).toBe(
-          "https://platform.openai.com/account/api-keys",
-        );
+        expect(result.apiKeyUrl).toBe(undefined);
       });
 
       it("should handle Anthropic rate limit error", () => {
@@ -507,7 +497,7 @@ describe("errorAnalysis", () => {
         const result = analyzeError(error, selectedModel);
 
         expect(result.statusCode).toBe(429);
-        expect(result.providerName).toBe("Anthropic");
+        expect(result.providerName).toBe("anthropic");
       });
 
       it("should handle network connectivity error", () => {
@@ -520,7 +510,7 @@ describe("errorAnalysis", () => {
 
         expect(result.parsedError).toBe("Network request failed");
         expect(result.statusCode).toBe(undefined);
-        expect(result.providerName).toBe("Ollama");
+        expect(result.providerName).toBe("ollama");
       });
 
       it("should handle timeout error", () => {
@@ -626,7 +616,7 @@ describe("errorAnalysis", () => {
         const result = analyzeError(error, selectedModel);
 
         expect(result.customErrorMessage).toContain("out of credits");
-        expect(result.customErrorMessage).toContain("DeepSeek");
+        expect(result.customErrorMessage).toContain("deepseek");
       });
 
       it("should detect Insufficient Balance in error message", () => {

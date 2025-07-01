@@ -371,11 +371,46 @@ const StyledMarkdownPreview = memo(function StyledMarkdownPreview(
     },
   });
 
+  // During streaming, markdown updates arrive many times per second and
+  // re-parsing the full document each time causes visible flicker. Throttle
+  // re-parses to roughly 10 per second with a trailing update so the final
+  // content is always rendered exactly once it settles.
+  const latestSourceRef = useRef<string | undefined>(undefined);
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const lastRenderTimeRef = useRef(0);
+
   useEffect(() => {
-    setMarkdownSource(
-      // some patches to source markdown are applied here:
-      fixDoubleDollarNewLineLatex(patchNestedMarkdown(props.source ?? "")),
+    const source = fixDoubleDollarNewLineLatex(
+      patchNestedMarkdown(props.source ?? ""),
     );
+    latestSourceRef.current = source;
+
+    const renderNow = () => {
+      lastRenderTimeRef.current = Date.now();
+      if (throttleTimerRef.current !== undefined) {
+        clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = undefined;
+      }
+      setMarkdownSource(latestSourceRef.current ?? "");
+    };
+
+    const elapsed = Date.now() - lastRenderTimeRef.current;
+    if (elapsed >= 100) {
+      renderNow();
+    } else if (throttleTimerRef.current === undefined) {
+      throttleTimerRef.current = setTimeout(renderNow, 100 - elapsed);
+    }
+
+    return () => {
+      if (throttleTimerRef.current !== undefined) {
+        clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = undefined;
+        // Flush pending content so unmounts never lose the latest source
+        setMarkdownSource(latestSourceRef.current ?? "");
+      }
+    };
   }, [props.source, allSymbols]);
 
   const uiConfig = useAppSelector(selectUIConfig);

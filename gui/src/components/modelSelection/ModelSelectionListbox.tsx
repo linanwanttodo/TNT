@@ -12,14 +12,18 @@ import {
   ListboxOptions,
   Transition,
 } from "../../components/ui";
-import { DisplayInfo } from "../../pages/AddNewModel/configs/models";
+export interface SelectionOption {
+  title: string;
+  icon?: string;
+  provider?: string;
+}
 
 interface ModelSelectionListboxProps {
   /** Model selection listbox for choosing AI providers */
-  selectedProvider: DisplayInfo;
-  setSelectedProvider: (val: DisplayInfo) => void;
-  topOptions?: DisplayInfo[];
-  otherOptions?: DisplayInfo[];
+  selectedProvider: SelectionOption;
+  setSelectedProvider: (val: SelectionOption) => void;
+  topOptions?: SelectionOption[];
+  otherOptions?: SelectionOption[];
   otherOptionsLabel?: string;
   searchPlaceholder?: string;
 }
