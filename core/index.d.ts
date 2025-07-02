@@ -1223,6 +1223,13 @@ export interface BaseCompletionOptions {
    * thinkingLevel).
    */
   reasoningEffort?: ReasoningEffort;
+  /**
+   * Constrains the response to a JSON schema, or to JSON mode when set to
+   * "json". Providers that support structured outputs map this onto their own
+   * parameter (Ollama format, OpenAI text.format, Anthropic
+   * output_config.format).
+   */
+  responseFormat?: "json" | Record<string, unknown>;
   promptCaching?: boolean;
 }
 

@@ -286,12 +286,7 @@ class VertexAI extends BaseLLM {
     );
 
     // For some reason gemini through vertex does not support ids in functionResponses yet
-    const body = this.geminiInstance.prepareBody(
-      messages,
-      options,
-      false,
-      false,
-    );
+    const body = this.geminiInstance.prepareBody(messages, options, false);
     const response = await this.fetch(apiURL, {
       method: "POST",
       body: JSON.stringify(body),
@@ -458,12 +453,9 @@ class VertexAI extends BaseLLM {
     signal: AbortSignal,
     options: CompletionOptions,
   ): AsyncGenerator<ChatMessage> {
-    const isV1API = this.apiBase.includes("/v1/");
-
-    // Conditionally apply removeSystemMessage
-    const convertedMsgs = isV1API
-      ? this.geminiInstance.removeSystemMessage(messages)
-      : messages;
+    // The system message is carried in systemInstruction, so it is kept out
+    // of the contents list.
+    const convertedMsgs = this.geminiInstance.removeSystemMessage(messages);
     if (this.vertexProvider === "gemini") {
       yield* this.streamChatGemini(convertedMsgs, options, signal);
     } else if (this.vertexProvider === "mistral") {

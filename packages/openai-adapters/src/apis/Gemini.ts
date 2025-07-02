@@ -114,7 +114,6 @@ export class GeminiApi implements BaseLlmApi {
 
   public _convertBody(
     oaiBody: ChatCompletionCreateParams,
-    isV1API: boolean,
     includeToolCallIds: boolean,
   ) {
     const generationConfig: any = {};
@@ -165,7 +164,7 @@ export class GeminiApi implements BaseLlmApi {
 
     const contents = oaiBody.messages
       .map((msg) => {
-        if (msg.role === "system" && !isV1API) {
+        if (msg.role === "system") {
           return null; // Don't include system message in contents
         }
 
@@ -262,36 +261,33 @@ export class GeminiApi implements BaseLlmApi {
       generationConfig,
       contents: mergedContents,
       // if there is a system message, reformat it for Gemini API
-      ...(sysMsg &&
-        !isV1API && {
-          systemInstruction: { parts: [{ text: sysMsg.content }] },
-        }),
+      ...(sysMsg && {
+        systemInstruction: { parts: [{ text: sysMsg.content }] },
+      }),
     };
 
-    if (!isV1API) {
-      // Convert and add tools if present
-      if (oaiBody.tools?.length) {
-        // Choosing to map all tools to the functionDeclarations of one tool
-        // Rather than map each tool to its own tool + functionDeclaration
-        // Same difference
-        const functions: GeminiToolFunctionDeclaration[] = [];
-        oaiBody.tools.forEach((tool) => {
-          try {
-            functions.push(convertOpenAIToolToGeminiFunction(tool));
-          } catch (e) {
-            console.warn(
-              `Failed to convert tool to gemini function definition. Skipping: ${JSON.stringify(tool, null, 2)}`,
-            );
-          }
-        });
-
-        if (functions.length) {
-          finalBody.tools = [
-            {
-              functionDeclarations: functions,
-            },
-          ];
+    // Convert and add tools if present
+    if (oaiBody.tools?.length) {
+      // Choosing to map all tools to the functionDeclarations of one tool
+      // Rather than map each tool to its own tool + functionDeclaration
+      // Same difference
+      const functions: GeminiToolFunctionDeclaration[] = [];
+      oaiBody.tools.forEach((tool) => {
+        try {
+          functions.push(convertOpenAIToolToGeminiFunction(tool));
+        } catch (e) {
+          console.warn(
+            `Failed to convert tool to gemini function definition. Skipping: ${JSON.stringify(tool, null, 2)}`,
+          );
         }
+      });
+
+      if (functions.length) {
+        finalBody.tools = [
+          {
+            functionDeclarations: functions,
+          },
+        ];
       }
     }
 
@@ -440,11 +436,7 @@ export class GeminiApi implements BaseLlmApi {
     body: ChatCompletionCreateParamsStreaming,
     _signal: AbortSignal,
   ): AsyncGenerator<ChatCompletionChunk> {
-    const convertedBody = this._convertBody(
-      body,
-      this.apiBase.includes("/v1/"),
-      true,
-    );
+    const convertedBody = this._convertBody(body, true);
     const response = await this.generateStream(
       this.genAI,
       body.model,
@@ -457,7 +449,7 @@ export class GeminiApi implements BaseLlmApi {
     genAI: GoogleGenAI,
     body: ChatCompletionCreateParamsStreaming,
   ): AsyncGenerator<ChatCompletionChunk> {
-    const convertedBody = this._convertBody(body, false, true);
+    const convertedBody = this._convertBody(body, true);
     const response = await this.generateStream(
       genAI,
       body.model,
