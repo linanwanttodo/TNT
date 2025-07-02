@@ -1943,6 +1943,8 @@ export interface Skill {
   content: string;
   files: string[];
   license?: string;
+  // Absolute uri of the skill's SKILL.md, filled in during loading
+  uri?: string;
 }
 
 export interface CompleteOnboardingPayload {
