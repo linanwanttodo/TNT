@@ -102,6 +102,94 @@ export const en = {
 
   "chat.roleMessage": "{role} Message",
   "chat.thinking": "Thinking",
+
+  "toolbar.contextUsage": "Context",
+  "toolbar.contextUsage.desc": "Estimated context window usage",
+  "toolbar.contextUsage.free": "Free",
+  "toolbar.toolPolicy": "Tool permissions",
+  "toolbar.toolPolicy.desc": "How tools may run in agent mode",
+  "toolbar.toolPolicy.ask": "Ask every time",
+  "toolbar.toolPolicy.autoAllow": "Auto-allow safe tools",
+  "toolbar.toolPolicy.autoAll": "Auto-run all tools",
+  "toolbar.reasoningDepth": "Thinking depth",
+  "toolbar.reasoningDepth.desc": "How much the model reasons before answering",
+  "reasoningDepth.off": "Off",
+  "reasoningDepth.low": "Low",
+  "reasoningDepth.medium": "Medium",
+  "reasoningDepth.high": "High",
+
+  "sidebar.usage": "Usage",
+  "sidebar.rtk": "Command savings",
+  "sidebar.mcp": "MCP",
+  "sidebar.skills": "Skills",
+
+  "skills.title": "Skills",
+  "skills.subtitle":
+    "Reusable instructions the agent loads on demand from SKILL.md files",
+  "skills.location":
+    "Skills are read from .claude/skills in your workspace and the global Continue folder",
+  "skills.refresh": "Refresh",
+  "skills.empty":
+    "No skills found. Add a SKILL.md under .claude/skills to create one.",
+  "skills.openFile": "Open SKILL.md",
+  "skills.files": "Bundled files",
+  "skills.noFiles": "No bundled files",
+  "skills.scope.global": "Global",
+  "skills.scope.workspace": "Workspace",
+
+  "mcp.title": "MCP Servers",
+  "mcp.subtitle": "Connect external tools and resources through MCP",
+  "mcp.servers": "Servers",
+  "mcp.addServer": "Add MCP server",
+  "mcp.chatDisabled":
+    "All MCPs are disabled in Chat, switch to Plan or Agent mode to use MCPs",
+  "mcp.empty":
+    "No MCP servers configured. Click the + button to add your first server.",
+  "mcp.noneAvailable": "No {name} available",
+  "mcp.authenticate": "Authenticate",
+  "mcp.status.authenticating": "Authenticating",
+  "mcp.removeAuth": "Remove authentication",
+  "mcp.logout": "Logout",
+  "mcp.edit": "Edit",
+  "mcp.disconnect": "Disconnect",
+  "mcp.reload": "Reload",
+  "mcp.tools": "Tools",
+  "mcp.prompts": "Prompts",
+  "mcp.resources": "Resources",
+
+  "tools.title": "Tools",
+  "tools.subtitle": "Tool policies for built-in tools",
+  "tools.builtIn": "Built-in Tools",
+  "tools.chatDisabled":
+    "All tools disabled in Chat, switch to Plan or Agent mode to use tools",
+  "tools.planReadonly": "Read-only tools available in Plan mode",
+
+  "stats.title": "Usage & Token Stats",
+  "stats.promptTokens": "Prompt tokens",
+  "stats.generatedTokens": "Generated tokens",
+  "stats.heatmap": "Last 53 weeks",
+  "stats.perModel": "Tokens per model",
+  "stats.noData": "No token data recorded yet.",
+  "stats.less": "Less",
+  "stats.more": "More",
+
+  "rtk.title": "Command Token Savings",
+  "rtk.description":
+    "Terminal commands are routed through rtk and their output is compacted before reaching the model. Savings below come from rtk's own history.",
+  "rtk.refresh": "Refresh",
+  "rtk.notInstalled":
+    "rtk is not installed on this machine. Install it to save tokens on terminal command outputs.",
+  "rtk.install": "Install",
+  "rtk.installing": "Installing...",
+  "rtk.upgrade": "Upgrade",
+  "rtk.upgrading": "Upgrading...",
+  "rtk.versionLabel": "rtk version:",
+  "rtk.commands": "Commands",
+  "rtk.inputTokens": "Input tokens",
+  "rtk.savedTokens": "Saved tokens",
+  "rtk.savingsRate": "Savings rate",
+  "rtk.recentDays": "Recent days",
+  "rtk.date": "Date",
 };
 
 export type TranslationKey = keyof typeof en;
