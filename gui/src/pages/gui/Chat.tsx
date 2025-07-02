@@ -21,6 +21,7 @@ import TimelineItem from "../../components/gui/TimelineItem";
 import { NewSessionButton } from "../../components/mainInput/belowMainInput/NewSessionButton";
 import ThinkingBlockPeek from "../../components/mainInput/belowMainInput/ThinkingBlockPeek";
 import ContinueInputBox from "../../components/mainInput/ContinueInputBox";
+import { InputStatusBar } from "../../components/mainInput/InputStatusBar";
 import StepContainer from "../../components/StepContainer";
 import { TabBar } from "../../components/TabBar/TabBar";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
@@ -418,6 +419,8 @@ export function Chat() {
           }
           inputId={MAIN_EDITOR_INPUT_ID}
         />
+
+        {!isInEdit && <InputStatusBar />}
 
         <div
           style={{

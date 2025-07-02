@@ -207,6 +207,8 @@ export type ChatHistoryItemWithMessageId = ChatHistoryItem & {
   message: ChatMessage & { id: string };
 };
 
+export type ReasoningDepth = "off" | "low" | "medium" | "high";
+
 type SessionState = {
   lastSessionId?: string;
   isSessionMetadataLoading: boolean;
@@ -226,6 +228,7 @@ type SessionState = {
   };
   newestToolbarPreviewForInput: Record<string, string>;
   hasReasoningEnabled?: boolean;
+  reasoningDepth?: ReasoningDepth;
   isPruned?: boolean;
   contextPercentage?: number;
   inlineErrorMessage?: InlineErrorMessageType;
@@ -973,6 +976,10 @@ export const sessionSlice = createSlice({
     setHasReasoningEnabled: (state, action: PayloadAction<boolean>) => {
       state.hasReasoningEnabled = action.payload;
     },
+    setReasoningDepth: (state, action: PayloadAction<ReasoningDepth>) => {
+      state.reasoningDepth = action.payload;
+      state.hasReasoningEnabled = action.payload !== "off";
+    },
     setNewestToolbarPreviewForInput: (
       state,
       {
@@ -1093,6 +1100,7 @@ export const {
   setNewestToolbarPreviewForInput,
   setIsInEdit,
   setHasReasoningEnabled,
+  setReasoningDepth,
   setInlineErrorMessage,
   setIsPruned,
   setContextPercentage,
