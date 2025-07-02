@@ -53,6 +53,7 @@ import {
   getConfigJsPathForRemote,
   getConfigTsPath,
   getContinueDotEnv,
+  getContinueGlobalPath,
   getEsbuildBinaryPath,
 } from "../util/paths";
 import { localPathToUri } from "../util/pathToUri";
@@ -676,11 +677,10 @@ async function handleEsbuildInstallation(
     await import("esbuild");
     return true; // available
   } catch {
-    // Try resolving from ~/.continue/node_modules as a courtesy
+    // Try resolving from the global config dir's node_modules as a courtesy
     try {
       const userEsbuild = path.join(
-        os.homedir(),
-        ".continue",
+        getContinueGlobalPath(),
         "node_modules",
         "esbuild",
       );

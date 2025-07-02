@@ -216,6 +216,30 @@ function clampReasoningEffort(
   return effort === "xhigh" || effort === "max" ? "high" : effort;
 }
 
+/**
+ * Maps the config-level responseFormat onto the OpenAI response_format shape.
+ * "json" selects the plain JSON mode; an object is treated as a JSON schema and
+ * wrapped in the json_schema envelope OpenAI expects.
+ */
+export function toOpenAIResponseFormat(
+  responseFormat: CompletionOptions["responseFormat"],
+): Record<string, unknown> | undefined {
+  if (!responseFormat) {
+    return undefined;
+  }
+  if (responseFormat === "json") {
+    return { type: "json_object" };
+  }
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: "response",
+      strict: true,
+      schema: responseFormat,
+    },
+  };
+}
+
 export function toChatBody(
   messages: ChatMessage[],
   options: CompletionOptions,
@@ -223,6 +247,7 @@ export function toChatBody(
     includeReasoningField?: boolean;
     includeReasoningDetailsField?: boolean;
     includeReasoningContentField?: boolean;
+    includeReasoningEffortField?: boolean;
   },
 ): ChatCompletionCreateParams {
   const params: ChatCompletionCreateParams = {
@@ -243,12 +268,20 @@ export function toChatBody(
     tool_choice: options.toolChoice,
   };
 
-  // Reasoning models on Chat Completions take the effort level directly.
-  // Providers that do not understand the field ignore it.
-  if (options.reasoningEffort) {
+  // Reasoning models on Chat Completions take the effort level directly, but
+  // only providers known to accept the parameter receive it: endpoints that do
+  // not understand it can reject the whole request.
+  if (options.reasoningEffort && providerFlags?.includeReasoningEffortField) {
     (params as any).reasoning_effort = clampReasoningEffort(
       options.reasoningEffort,
     );
+  }
+
+  // Structured output is opt-in per model, so a provider only ever sees this
+  // when the user asked for it in the model config.
+  const responseFormat = toOpenAIResponseFormat(options.responseFormat);
+  if (responseFormat) {
+    (params as any).response_format = responseFormat;
   }
 
   if (options.tools?.length) {
