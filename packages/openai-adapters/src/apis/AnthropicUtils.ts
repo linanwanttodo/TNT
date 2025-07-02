@@ -67,6 +67,7 @@ export function getAnthropicHeaders(
   apiKey: string,
   enableCaching: boolean,
   apiBase?: string,
+  enableContextManagement?: boolean,
 ): Record<string, string> {
   const isAzure = isAzureAnthropicEndpoint(apiBase);
 
@@ -90,8 +91,17 @@ export function getAnthropicHeaders(
     [authHeaderName]: apiKey,
   };
 
+  // Beta features are advertised through a comma-separated list. Context
+  // management is opt-in and only reaches the official endpoint.
+  const betas: string[] = [];
   if (enableCaching) {
-    headers["anthropic-beta"] = "prompt-caching-2024-07-31";
+    betas.push("prompt-caching-2024-07-31");
+  }
+  if (enableContextManagement) {
+    betas.push("context-management-2025-06-27");
+  }
+  if (betas.length > 0) {
+    headers["anthropic-beta"] = betas.join(",");
   }
   return headers;
 }

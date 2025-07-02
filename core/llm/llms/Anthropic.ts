@@ -53,6 +53,20 @@ class Anthropic extends BaseLLM {
     };
   }
 
+  // Context management is a beta feature: only the official Anthropic
+  // endpoint understands it, so cloud resellers that reuse this class
+  // (Vertex AI) never receive it.
+  private supportsContextManagement(options: CompletionOptions): boolean {
+    if (!options.contextManagement || !this.apiBase) {
+      return false;
+    }
+    try {
+      return new URL(this.apiBase).host === "api.anthropic.com";
+    } catch {
+      return false;
+    }
+  }
+
   // Public for use within VertexAI
   public convertArgs(
     options: CompletionOptions,
@@ -72,13 +86,26 @@ class Anthropic extends BaseLLM {
       ...(options.reasoning
         ? { output_config: { effort: options.reasoningEffort ?? "high" } }
         : {}),
+      // Provider-side context trimming: old tool results and thinking blocks
+      // are cleared as the conversation grows, so long agent runs stay within
+      // the context window without client-side pruning.
+      ...(this.supportsContextManagement(options)
+        ? {
+            context_management: {
+              edits: [
+                { type: "clear_tool_uses_20250919" },
+                { type: "clear_thinking_20251015" },
+              ],
+            },
+          }
+        : {}),
       tool_choice: options.toolChoice
         ? {
             type: "tool" as const,
             name: options.toolChoice.function.name,
           }
         : undefined,
-    };
+    } as Omit<MessageCreateParams, "messages">;
 
     return finalOptions;
   }
@@ -425,6 +452,7 @@ class Anthropic extends BaseLLM {
       this.apiKey,
       shouldCacheSystemMessage || shouldCachePrompt,
       this.apiBase,
+      this.supportsContextManagement(options),
     );
 
     const body: MessageCreateParams = {

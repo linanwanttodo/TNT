@@ -1230,6 +1230,27 @@ export interface BaseCompletionOptions {
    * output_config.format).
    */
   responseFormat?: "json" | Record<string, unknown>;
+  /**
+   * Enables provider-side context management, which trims long conversation
+   * history automatically (Anthropic clears old tool results and thinking
+   * blocks). Only sent to the official Anthropic endpoint, and only when
+   * explicitly enabled, since it is a beta feature other endpoints reject.
+   */
+  contextManagement?: boolean;
+  /**
+   * Sends OpenAI request options that only the official API accepts: server
+   * side response storage, prompt cache routing, and the service tier. Left
+   * off by default because other OpenAI-compatible providers reject these
+   * fields.
+   */
+  openaiRequestOptions?: {
+    /** store responses server-side so they can be reused by later requests */
+    store?: boolean;
+    /** routing key that keeps related requests on the same prompt cache */
+    promptCacheKey?: string;
+    /** processing tier the request should be served with */
+    serviceTier?: "auto" | "default" | "flex" | "scale" | "priority";
+  };
   promptCaching?: boolean;
 }
 
