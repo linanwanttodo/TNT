@@ -73,8 +73,10 @@ export function ModelsSection() {
     <div className="space-y-4">
       <ConfigHeader
         title="Models"
+        subtext="Connect a provider, or point at any OpenAI-compatible endpoint"
         onAddClick={handleAddModel}
         addButtonTooltip="Add model"
+        addButtonLabel="Add model"
       />
 
       <Card>

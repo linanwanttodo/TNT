@@ -1,4 +1,8 @@
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowPathIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/outline";
 import { useCallback, useContext, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Button, Input } from "../components";
@@ -80,9 +84,6 @@ function toModelDescription(
     completionOptions.reasoning = true;
     completionOptions.reasoningEffort = fields.reasoningEffort;
   }
-  if (fields.responseFormatJson) {
-    completionOptions.responseFormat = "json";
-  }
   if (fields.contextManagement) {
     completionOptions.contextManagement = true;
   }
@@ -119,6 +120,8 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
   const [checkedModels, setCheckedModels] = useState<Set<string>>(new Set());
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState<string | undefined>(undefined);
+  // Advanced options are rarely needed, so they start collapsed.
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const selectedProvider = formMethods.watch("provider");
   const titleValue = formMethods.watch("title");
@@ -387,78 +390,80 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">
-                {t("addChatModel.reasoningDepth")}
-              </label>
-              <select
-                className="border-border bg-input text-foreground w-full rounded border px-2 py-1.5 text-sm"
-                {...formMethods.register("reasoningEffort")}
+              <button
+                type="button"
+                className="text-foreground flex cursor-pointer items-center gap-1 text-sm font-medium"
+                onClick={() => setShowAdvanced((prev) => !prev)}
               >
-                <option value="">{t("reasoningDepth.inherit")}</option>
-                <option value="low">{t("reasoningDepth.low")}</option>
-                <option value="medium">{t("reasoningDepth.medium")}</option>
-                <option value="high">{t("reasoningDepth.high")}</option>
-                <option value="xhigh">{t("reasoningDepth.xhigh")}</option>
-                <option value="max">{t("reasoningDepth.max")}</option>
-              </select>
-              <span className="text-description-muted mt-1 block text-xs">
-                {t("addChatModel.reasoningDepth.desc")}
-              </span>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium">
+                {showAdvanced ? (
+                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRightIcon className="h-3.5 w-3.5" />
+                )}
                 {t("addChatModel.advanced")}
-              </label>
-              <div className="flex flex-col gap-1">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    {...formMethods.register("responseFormatJson")}
-                  />
-                  <span className="text-xs">
-                    {t("addChatModel.responseFormatJson")}
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    {...formMethods.register("contextManagement")}
-                  />
-                  <span className="text-xs">
-                    {t("addChatModel.contextManagement")}
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    {...formMethods.register("openaiStore")}
-                  />
-                  <span className="text-xs">
-                    {t("addChatModel.openaiStore")}
-                  </span>
-                </label>
-              </div>
-              <div className="mt-2">
-                <label className="mb-1 block text-xs">
-                  {t("addChatModel.serviceTier")}
-                </label>
-                <select
-                  className="border-border bg-input text-foreground w-full rounded border px-2 py-1.5 text-sm"
-                  {...formMethods.register("openaiServiceTier")}
-                >
-                  <option value="">
-                    {t("addChatModel.serviceTier.default")}
-                  </option>
-                  <option value="auto">auto</option>
-                  <option value="flex">flex</option>
-                  <option value="scale">scale</option>
-                  <option value="priority">priority</option>
-                </select>
-              </div>
-              <span className="text-description-muted mt-1 block text-xs">
-                {t("addChatModel.advanced.desc")}
-              </span>
+              </button>
+
+              {showAdvanced && (
+                <div className="mt-2 flex flex-col gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs">
+                      {t("addChatModel.reasoningDepth")}
+                    </label>
+                    <select
+                      className="border-border bg-input text-foreground w-full rounded border px-2 py-1.5 text-sm"
+                      {...formMethods.register("reasoningEffort")}
+                    >
+                      <option value="">{t("reasoningDepth.inherit")}</option>
+                      <option value="low">{t("reasoningDepth.low")}</option>
+                      <option value="medium">
+                        {t("reasoningDepth.medium")}
+                      </option>
+                      <option value="high">{t("reasoningDepth.high")}</option>
+                      <option value="xhigh">{t("reasoningDepth.xhigh")}</option>
+                      <option value="max">{t("reasoningDepth.max")}</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        {...formMethods.register("contextManagement")}
+                      />
+                      <span className="text-xs">
+                        {t("addChatModel.contextManagement")}
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        {...formMethods.register("openaiStore")}
+                      />
+                      <span className="text-xs">
+                        {t("addChatModel.openaiStore")}
+                      </span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs">
+                      {t("addChatModel.serviceTier")}
+                    </label>
+                    <select
+                      className="border-border bg-input text-foreground w-full rounded border px-2 py-1.5 text-sm"
+                      {...formMethods.register("openaiServiceTier")}
+                    >
+                      <option value="">
+                        {t("addChatModel.serviceTier.default")}
+                      </option>
+                      <option value="auto">auto</option>
+                      <option value="flex">flex</option>
+                      <option value="scale">scale</option>
+                      <option value="priority">priority</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

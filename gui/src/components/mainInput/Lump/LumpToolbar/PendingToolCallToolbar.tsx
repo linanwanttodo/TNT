@@ -2,7 +2,6 @@ import { useAppDispatch, useAppSelector } from "../../../../redux/hooks";
 import { selectPendingToolCalls } from "../../../../redux/selectors/selectToolCalls";
 import { callToolById } from "../../../../redux/thunks/callToolById";
 import { cancelToolCallThunk } from "../../../../redux/thunks/cancelToolCall";
-import { getAltKeyLabel, getMetaKeyLabel, isJetBrains } from "../../../../util";
 import { Button } from "../../../ui";
 import { useMainEditor } from "../../TipTapEditor";
 
@@ -15,7 +14,6 @@ export const generateToolCallButtonTestId = (
 
 export function PendingToolCallToolbar() {
   const dispatch = useAppDispatch();
-  const jetbrains = isJetBrains();
   const pendingToolCalls = useAppSelector(selectPendingToolCalls);
   const editor = useMainEditor();
 
@@ -37,7 +35,7 @@ export function PendingToolCallToolbar() {
 
   return (
     <div className="flex w-full flex-col pb-0.5">
-      {pendingToolCalls.map((toolCall, index) => (
+      {pendingToolCalls.map((toolCall) => (
         <div
           key={toolCall.toolCallId}
           className="border-input bg-input flex items-center gap-2 rounded border"
@@ -57,12 +55,6 @@ export function PendingToolCallToolbar() {
                 toolCall.toolCallId,
               )}
             >
-              {/* JetBrains overrides cmd+backspace, so we have to use another shortcut */}
-              {index === 0 && (
-                <span className="text-2xs mr-1">
-                  {jetbrains ? getAltKeyLabel() : getMetaKeyLabel()}⌫
-                </span>
-              )}
               <span>Reject</span>
             </Button>
 
@@ -76,9 +68,6 @@ export function PendingToolCallToolbar() {
                 toolCall.toolCallId,
               )}
             >
-              {index === 0 && (
-                <span className="text-2xs mr-1">{getMetaKeyLabel()}⏎</span>
-              )}
               <span>Accept</span>
             </Button>
           </div>

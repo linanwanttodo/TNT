@@ -2,13 +2,11 @@ import { useContext } from "react";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
 import { useAppDispatch } from "../../../../redux/hooks";
 import { cancelStream } from "../../../../redux/thunks/cancelStream";
-import { getAltKeyLabel, getMetaKeyLabel } from "../../../../util";
 import { GeneratingIndicator } from "./GeneratingIndicator";
 
 export const IsApplyingToolbar = () => {
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useAppDispatch();
-  const jetbrains = window.location.protocol === "jb-api:";
 
   return (
     <div className="flex w-full items-center justify-between">
@@ -25,8 +23,7 @@ export const IsApplyingToolbar = () => {
           ideMessenger.post("rejectDiff", {});
         }}
       >
-        {/* JetBrains overrides cmd+backspace, so we have to use another shortcut */}
-        {jetbrains ? getAltKeyLabel() : getMetaKeyLabel()} ⌫ Cancel
+        Cancel
       </div>
     </div>
   );

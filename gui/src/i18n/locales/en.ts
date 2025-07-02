@@ -105,7 +105,6 @@ export const en = {
   "addChatModel.advanced": "Advanced options",
   "addChatModel.advanced.desc":
     "Only apply to providers that support them. OpenAI-specific options are sent to the official OpenAI API only.",
-  "addChatModel.responseFormatJson": "Force JSON output",
   "addChatModel.contextManagement": "Auto-trim long context",
   "addChatModel.openaiStore": "Store responses server-side",
   "addChatModel.serviceTier": "Service tier",
