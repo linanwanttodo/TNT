@@ -21,11 +21,8 @@ export function ConfigRow({
   children,
   className = "",
 }: ConfigRowProps) {
-  const baseClasses =
-    "flex items-start justify-between rounded-md transition-colors px-4 py-3";
-  const interactiveClasses = onClick
-    ? "hover:bg-list-hover cursor-pointer"
-    : "";
+  const baseClasses = "flex items-start justify-between px-4 py-2.5";
+  const interactiveClasses = onClick ? "cursor-pointer" : "";
   const disabledClasses = disabled ? "opacity-50 cursor-not-allowed" : "";
 
   const handleClick = (event: React.MouseEvent) => {
@@ -61,11 +58,13 @@ export function ConfigRow({
       >
         <div className="flex flex-col">
           <span className="text-sm font-medium">{title}</span>
-          <p className="mt-0.5 text-xs text-gray-500">{description}</p>
+          <p className="text-description-muted mt-0.5 text-xs">{description}</p>
         </div>
         <div className="flex items-center gap-4">
           {children}
-          {Icon && <Icon className="h-5 w-5 flex-shrink-0 text-gray-400" />}
+          {Icon && (
+            <Icon className="text-description-muted h-5 w-5 flex-shrink-0" />
+          )}
         </div>
       </Button>
     );
@@ -78,11 +77,13 @@ export function ConfigRow({
     >
       <div className="flex flex-col">
         <span className="text-sm font-medium">{title}</span>
-        <p className="mt-0.5 text-xs text-gray-500">{description}</p>
+        <p className="text-description-muted mt-0.5 text-xs">{description}</p>
       </div>
       <div className="flex items-center gap-4">
         {children}
-        {Icon && <Icon className="h-5 w-5 flex-shrink-0 text-gray-400" />}
+        {Icon && (
+          <Icon className="text-description-muted h-5 w-5 flex-shrink-0" />
+        )}
       </div>
     </div>
   );
