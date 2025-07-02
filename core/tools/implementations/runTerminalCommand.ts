@@ -2,6 +2,7 @@ import iconv from "iconv-lite";
 import childProcess from "node:child_process";
 import os from "node:os";
 import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { rewriteCommandWithRtk } from "../../util/rtk";
 
 // Default timeout for terminal commands (2 minutes)
 const DEFAULT_TOOL_TIMEOUT_MS = 120_000;
@@ -107,7 +108,11 @@ const getColorEnv = () => ({
 const LOCAL_ONLY = ["", "local"];
 
 export const runTerminalCommandImpl: ToolImpl = async (args, extras) => {
-  const command = getStringArg(args, "command");
+  let command = getStringArg(args, "command");
+  // Route the command through rtk when it knows a more compact equivalent.
+  // Falls back to the original command when rtk is absent or has no rewrite,
+  // so behavior is unchanged on machines without rtk.
+  command = (await rewriteCommandWithRtk(command)) ?? command;
   // Default to waiting for completion if not specified
   const waitForCompletion =
     getBooleanArg(args, "waitForCompletion", false) ?? true;
