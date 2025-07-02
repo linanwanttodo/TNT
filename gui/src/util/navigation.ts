@@ -5,6 +5,10 @@ export type ConfigTab =
   | "tools"
   | "configs"
   | "indexing"
+  | "usage"
+  | "rtk"
+  | "mcp"
+  | "skills"
   | "settings"
   | "help";
 
@@ -14,7 +18,6 @@ export const ROUTES = {
   HOME_INDEX: "/index.html",
   CONFIG: "/config",
   THEME: "/theme",
-  STATS: "/stats",
   // EXAMPLE_ROUTE_WITH_PARAMS: (params: ParamsType) => `/route/${params}`,
 };
 
@@ -30,6 +33,10 @@ export const CONFIG_ROUTES = {
   TOOLS: buildConfigRoute("tools"),
   CONFIGS: buildConfigRoute("configs"),
   INDEXING: buildConfigRoute("indexing"),
+  USAGE: buildConfigRoute("usage"),
+  RTK: buildConfigRoute("rtk"),
+  MCP: buildConfigRoute("mcp"),
+  SKILLS: buildConfigRoute("skills"),
   SETTINGS: buildConfigRoute("settings"),
   HELP: buildConfigRoute("help"),
 } as const;

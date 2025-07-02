@@ -13,7 +13,7 @@ import { IdeMessengerContext } from "../../../context/IdeMessenger";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { saveCurrentSession } from "../../../redux/thunks/session";
 import { isJetBrains } from "../../../util";
-import { ROUTES } from "../../../util/navigation";
+import { CONFIG_ROUTES, ROUTES } from "../../../util/navigation";
 import { ConfigHeader } from "../components/ConfigHeader";
 import { ConfigRow } from "../components/ConfigRow";
 
@@ -199,7 +199,7 @@ export function HelpSection() {
                 title="Token usage"
                 description="Daily token usage across models"
                 icon={TableCellsIcon}
-                onClick={() => navigate(ROUTES.STATS)}
+                onClick={() => navigate(CONFIG_ROUTES.USAGE)}
               />
 
               {currentSession.history.length > 0 &&

@@ -1,11 +1,15 @@
 import {
+  AcademicCapIcon,
   ArrowLeftIcon,
+  BoltIcon,
+  ChartBarIcon,
   CircleStackIcon,
   Cog6ToothIcon,
   CubeIcon,
   DocumentIcon,
   PencilIcon,
   QuestionMarkCircleIcon,
+  ServerStackIcon,
   WrenchScrewdriverIcon,
 } from "@heroicons/react/24/outline";
 import { ConfigSection } from "./components/ConfigSection";
@@ -14,7 +18,11 @@ import { HelpSection } from "./sections/HelpSection";
 import { IndexingSettingsSection } from "./sections/IndexingSettingsSection";
 import { ModelsSection } from "./sections/ModelsSection";
 import { RulesSection } from "./sections/RulesSection";
+import { McpSection } from "./sections/McpSection";
+import { RtkSection } from "./sections/RtkSection";
+import { SkillsSection } from "./sections/SkillsSection";
 import { ToolsSection } from "./sections/ToolsSection";
+import { UsageStatsSection } from "./sections/UsageStatsSection";
 import { UserSettingsSection } from "./sections/UserSettingsSection";
 
 interface TabOption {
@@ -80,6 +88,30 @@ export const topTabSections: TabSection[] = [
           <WrenchScrewdriverIcon className="xs:h-4 xs:w-4 h-3 w-3 flex-shrink-0" />
         ),
       },
+      {
+        id: "mcp",
+        label: "sidebar.mcp",
+        component: (
+          <ConfigSection>
+            <McpSection />
+          </ConfigSection>
+        ),
+        icon: (
+          <ServerStackIcon className="xs:h-4 xs:w-4 h-3 w-3 flex-shrink-0" />
+        ),
+      },
+      {
+        id: "skills",
+        label: "sidebar.skills",
+        component: (
+          <ConfigSection>
+            <SkillsSection />
+          </ConfigSection>
+        ),
+        icon: (
+          <AcademicCapIcon className="xs:h-4 xs:w-4 h-3 w-3 flex-shrink-0" />
+        ),
+      },
     ],
   },
   {
@@ -113,6 +145,26 @@ export const topTabSections: TabSection[] = [
         icon: (
           <CircleStackIcon className="xs:h-4 xs:w-4 h-3 w-3 flex-shrink-0" />
         ),
+      },
+      {
+        id: "usage",
+        label: "sidebar.usage",
+        component: (
+          <ConfigSection>
+            <UsageStatsSection />
+          </ConfigSection>
+        ),
+        icon: <ChartBarIcon className="xs:h-4 xs:w-4 h-3 w-3 flex-shrink-0" />,
+      },
+      {
+        id: "rtk",
+        label: "sidebar.rtk",
+        component: (
+          <ConfigSection>
+            <RtkSection />
+          </ConfigSection>
+        ),
+        icon: <BoltIcon className="xs:h-4 xs:w-4 h-3 w-3 flex-shrink-0" />,
       },
     ],
   },
