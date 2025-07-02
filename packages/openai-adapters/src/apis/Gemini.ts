@@ -132,6 +132,24 @@ export class GeminiApi implements BaseLlmApi {
       const stop = Array.isArray(oaiBody.stop) ? oaiBody.stop : [oaiBody.stop];
       generationConfig.stopSequences = stop.filter((x) => x.trim() !== "");
     }
+    // Gemini 3 models steer reasoning with a thinking level rather than a
+    // token budget. Only set when the request carries an effort level, so
+    // models that predate thinking levels are unaffected.
+    if (oaiBody.reasoning_effort) {
+      const levelMap: Record<string, string> = {
+        minimal: "MINIMAL",
+        low: "LOW",
+        medium: "MEDIUM",
+        high: "HIGH",
+        // xhigh/max have no Gemini equivalent; the highest level applies.
+        xhigh: "HIGH",
+        max: "HIGH",
+      };
+      const level = levelMap[oaiBody.reasoning_effort];
+      if (level) {
+        generationConfig.thinkingConfig = { thinkingLevel: level };
+      }
+    }
 
     const toolCallIdToNameMap = new Map<string, string>();
     oaiBody.messages.forEach((msg) => {

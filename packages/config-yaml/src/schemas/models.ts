@@ -57,6 +57,7 @@ export const completionOptionsSchema = z.object({
   n: z.number().optional(),
   reasoning: z.boolean().optional(),
   reasoningBudgetTokens: z.number().optional(),
+  reasoningEffort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
   promptCaching: z.boolean().optional(),
   stream: z.boolean().optional(),
   keepAlive: z.number().optional(),

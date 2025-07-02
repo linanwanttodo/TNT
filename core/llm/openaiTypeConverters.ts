@@ -234,6 +234,12 @@ export function toChatBody(
     tool_choice: options.toolChoice,
   };
 
+  // Reasoning models on Chat Completions take the effort level directly.
+  // Providers that do not understand the field ignore it.
+  if (options.reasoningEffort) {
+    (params as any).reasoning_effort = options.reasoningEffort;
+  }
+
   if (options.tools?.length) {
     params.tools = options.tools
       .filter((tool) => !tool.type || tool.type === "function")
