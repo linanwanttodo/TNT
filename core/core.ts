@@ -25,6 +25,8 @@ import { compactConversation } from "./util/conversationCompaction";
 import { GlobalContext } from "./util/GlobalContext";
 import historyManager from "./util/history";
 import { editConfigFile, migrateV1DevDataFiles } from "./util/paths";
+import { installRtk, readRtkGain, upgradeRtk } from "./util/rtk";
+import { listMarkdownSkills } from "./config/markdown/loadMarkdownSkills";
 
 import {
   isProcessBackgrounded,
@@ -791,6 +793,26 @@ export class Core {
     on("stats/getTokensPerModel", async (msg) => {
       const rows = await DevDataSqliteDb.getTokensPerModel();
       return rows;
+    });
+
+    on("rtk/getGain", async () => {
+      return readRtkGain();
+    });
+
+    on("rtk/install", async () => {
+      return installRtk();
+    });
+
+    on("rtk/upgrade", async () => {
+      return upgradeRtk();
+    });
+
+    on("skills/list", async () => {
+      return listMarkdownSkills(this.ide);
+    });
+
+    on("skills/openFile", async (msg) => {
+      await this.ide.openFile(msg.data.path);
     });
 
     on("index/forceReIndex", async ({ data }) => {

@@ -261,6 +261,14 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     undefined,
     { model: string; promptTokens: number; generatedTokens: number }[],
   ];
+  "rtk/getGain": [undefined, import("../util/rtk").RtkGainView];
+  "rtk/install": [undefined, import("../util/rtk").RtkGainView];
+  "rtk/upgrade": [undefined, import("../util/rtk").RtkGainView];
+  "skills/list": [
+    undefined,
+    import("../config/markdown/loadMarkdownSkills").SkillsView,
+  ];
+  "skills/openFile": [{ path: string }, void];
   "tts/kill": [undefined, void];
 
   // Codebase indexing
