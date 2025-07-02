@@ -99,6 +99,17 @@ export const en = {
   "addChatModel.connect": "Connect",
   "addChatModel.willUpdateConfig": "This will update your",
   "addChatModel.configFile": "config file",
+  "addChatModel.reasoningDepth": "Thinking depth",
+  "addChatModel.reasoningDepth.desc":
+    "Sent as reasoning effort for providers with adaptive reasoning. Leave on inherit to use the provider default.",
+  "addChatModel.advanced": "Advanced options",
+  "addChatModel.advanced.desc":
+    "Only apply to providers that support them. OpenAI-specific options are sent to the official OpenAI API only.",
+  "addChatModel.responseFormatJson": "Force JSON output",
+  "addChatModel.contextManagement": "Auto-trim long context",
+  "addChatModel.openaiStore": "Store responses server-side",
+  "addChatModel.serviceTier": "Service tier",
+  "addChatModel.serviceTier.default": "Provider default",
 
   "chat.roleMessage": "{role} Message",
   "chat.thinking": "Thinking",
@@ -117,6 +128,9 @@ export const en = {
   "reasoningDepth.low": "Low",
   "reasoningDepth.medium": "Medium",
   "reasoningDepth.high": "High",
+  "reasoningDepth.xhigh": "Extra high",
+  "reasoningDepth.max": "Max",
+  "reasoningDepth.inherit": "Inherit from provider",
 
   "sidebar.usage": "Usage",
   "sidebar.rtk": "Command savings",

@@ -70,6 +70,31 @@ function toModelDescription(
     capabilities.uploadImage = true;
   }
 
+  // Only fields the user actually set are written, so an untouched form adds
+  // a model with the provider defaults rather than empty overrides.
+  const completionOptions: Record<string, unknown> = {};
+  if (maxTokens) {
+    completionOptions.maxTokens = maxTokens;
+  }
+  if (fields.reasoningEffort) {
+    completionOptions.reasoning = true;
+    completionOptions.reasoningEffort = fields.reasoningEffort;
+  }
+  if (fields.responseFormatJson) {
+    completionOptions.responseFormat = "json";
+  }
+  if (fields.contextManagement) {
+    completionOptions.contextManagement = true;
+  }
+  if (fields.openaiStore || fields.openaiServiceTier) {
+    completionOptions.openaiRequestOptions = {
+      ...(fields.openaiStore ? { store: true } : {}),
+      ...(fields.openaiServiceTier
+        ? { serviceTier: fields.openaiServiceTier }
+        : {}),
+    };
+  }
+
   return {
     provider: fields.provider,
     title: fields.title,
@@ -77,7 +102,7 @@ function toModelDescription(
     ...(fields.apiBase ? { apiBase: fields.apiBase } : {}),
     ...(fields.apiKey ? { apiKey: fields.apiKey } : {}),
     ...(contextLength ? { contextLength } : {}),
-    ...(maxTokens ? { completionOptions: { maxTokens } } : {}),
+    ...(Object.keys(completionOptions).length > 0 ? { completionOptions } : {}),
     ...(Object.keys(capabilities).length > 0 ? { capabilities } : {}),
   };
 }
@@ -359,6 +384,81 @@ export function AddModelForm({ onDone }: AddModelFormProps) {
                   </span>
                 </label>
               </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                {t("addChatModel.reasoningDepth")}
+              </label>
+              <select
+                className="border-border bg-input text-foreground w-full rounded border px-2 py-1.5 text-sm"
+                {...formMethods.register("reasoningEffort")}
+              >
+                <option value="">{t("reasoningDepth.inherit")}</option>
+                <option value="low">{t("reasoningDepth.low")}</option>
+                <option value="medium">{t("reasoningDepth.medium")}</option>
+                <option value="high">{t("reasoningDepth.high")}</option>
+                <option value="xhigh">{t("reasoningDepth.xhigh")}</option>
+                <option value="max">{t("reasoningDepth.max")}</option>
+              </select>
+              <span className="text-description-muted mt-1 block text-xs">
+                {t("addChatModel.reasoningDepth.desc")}
+              </span>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                {t("addChatModel.advanced")}
+              </label>
+              <div className="flex flex-col gap-1">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    {...formMethods.register("responseFormatJson")}
+                  />
+                  <span className="text-xs">
+                    {t("addChatModel.responseFormatJson")}
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    {...formMethods.register("contextManagement")}
+                  />
+                  <span className="text-xs">
+                    {t("addChatModel.contextManagement")}
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    {...formMethods.register("openaiStore")}
+                  />
+                  <span className="text-xs">
+                    {t("addChatModel.openaiStore")}
+                  </span>
+                </label>
+              </div>
+              <div className="mt-2">
+                <label className="mb-1 block text-xs">
+                  {t("addChatModel.serviceTier")}
+                </label>
+                <select
+                  className="border-border bg-input text-foreground w-full rounded border px-2 py-1.5 text-sm"
+                  {...formMethods.register("openaiServiceTier")}
+                >
+                  <option value="">
+                    {t("addChatModel.serviceTier.default")}
+                  </option>
+                  <option value="auto">auto</option>
+                  <option value="flex">flex</option>
+                  <option value="scale">scale</option>
+                  <option value="priority">priority</option>
+                </select>
+              </div>
+              <span className="text-description-muted mt-1 block text-xs">
+                {t("addChatModel.advanced.desc")}
+              </span>
             </div>
           </div>
 
