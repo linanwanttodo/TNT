@@ -95,6 +95,17 @@ export const zhCN: Record<keyof typeof en, string> = {
   "addChatModel.connect": "连接",
   "addChatModel.willUpdateConfig": "此操作会更新你的",
   "addChatModel.configFile": "配置文件",
+  "addChatModel.reasoningDepth": "思考深度",
+  "addChatModel.reasoningDepth.desc":
+    "以推理强度下发给支持自适应推理的提供方。留空表示跟随提供方默认值。",
+  "addChatModel.advanced": "高级选项",
+  "addChatModel.advanced.desc":
+    "仅在提供方支持时生效。OpenAI 专属选项只会发送给 OpenAI 官方接口。",
+  "addChatModel.responseFormatJson": "强制输出 JSON",
+  "addChatModel.contextManagement": "自动裁剪过长上下文",
+  "addChatModel.openaiStore": "在服务端存储响应",
+  "addChatModel.serviceTier": "服务层级",
+  "addChatModel.serviceTier.default": "提供方默认",
 
   "chat.roleMessage": "{role}消息",
   "chat.thinking": "思考中",
@@ -113,6 +124,9 @@ export const zhCN: Record<keyof typeof en, string> = {
   "reasoningDepth.low": "低",
   "reasoningDepth.medium": "中",
   "reasoningDepth.high": "高",
+  "reasoningDepth.xhigh": "极高",
+  "reasoningDepth.max": "最高",
+  "reasoningDepth.inherit": "跟随提供方默认",
 
   "sidebar.usage": "用量",
   "sidebar.rtk": "命令节省",
