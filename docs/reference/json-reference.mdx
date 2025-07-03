@@ -192,7 +192,14 @@ Parameters that control the behavior of text generation and completion settings.
 - `numGpu`: For Ollama, this parameter overrides the number of gpu layers that will be used to load the model into VRAM.
 - `useMmap`: For Ollama, this parameter allows the model to be mapped into memory. If disabled can enhance response time on low end devices but will slow down the stream.
 - `reasoning`: Enables thinking/reasoning for Anthropic Claude 3.7+ and some Ollama models.
-- `reasoningBudgetTokens`: Sets budget tokens for thinking/reasoning in Anthropic Claude 3.7+ models.
+- `reasoningBudgetTokens`: Sets budget tokens for thinking/reasoning in Anthropic Claude 3.7+ models. Deprecated on current Claude models, which use reasoning effort instead.
+- `reasoningEffort`: How much the model should reason before answering. One of `low`, `medium`, `high`, `xhigh`, or `max`. Sent as `output_config.effort` for Anthropic, `reasoning_effort` for OpenAI Chat Completions, `reasoning.effort` for the OpenAI Responses API, and a thinking level for Gemini and Ollama.
+- `responseFormat`: Constrains the response to structured JSON. Set to `"json"` for JSON mode, or to a JSON schema object for schema-constrained output.
+- `contextManagement`: Enables provider-side context trimming (Anthropic clears old tool results and thinking blocks as the conversation grows). Only sent to the official Anthropic endpoint.
+- `openaiRequestOptions`: Options only the official OpenAI API accepts. Ignored by OpenAI-compatible providers.
+  - `store`: Store responses server-side so later requests can reuse them.
+  - `promptCacheKey`: Routing key that keeps related requests on the same prompt cache.
+  - `serviceTier`: Processing tier to serve the request with: `auto`, `default`, `flex`, `scale`, or `priority`.
 
 Example
 

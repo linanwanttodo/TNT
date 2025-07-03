@@ -61,6 +61,16 @@ export const completionOptionsSchema = z.object({
   responseFormat: z
     .union([z.literal("json"), z.record(z.unknown())])
     .optional(),
+  contextManagement: z.boolean().optional(),
+  openaiRequestOptions: z
+    .object({
+      store: z.boolean().optional(),
+      promptCacheKey: z.string().optional(),
+      serviceTier: z
+        .enum(["auto", "default", "flex", "scale", "priority"])
+        .optional(),
+    })
+    .optional(),
   promptCaching: z.boolean().optional(),
   stream: z.boolean().optional(),
   keepAlive: z.number().optional(),

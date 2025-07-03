@@ -252,6 +252,21 @@ class OpenAI extends BaseLLM {
     return {};
   }
 
+  // Request options that only the official OpenAI endpoint understands
+  // (response storage, cache routing, service tier) are gated on this, so
+  // OpenAI-compatible providers and cloud resellers involved in the same
+  // class never receive unknown fields. Azure uses its own apiType.
+  protected isOfficialOpenAIAPI(): boolean {
+    if (this.apiType === "azure" || !this.apiBase) {
+      return false;
+    }
+    try {
+      return new URL(this.apiBase).host === "api.openai.com";
+    } catch {
+      return false;
+    }
+  }
+
   protected getMaxStopWords(): number {
     const url = new URL(this.apiBase!);
 
@@ -341,6 +356,24 @@ class OpenAI extends BaseLLM {
         requested === "xhigh" || requested === "max" ? "high" : requested;
       body.reasoning = { effort, summary: "auto" };
       body.include = ["reasoning.encrypted_content"];
+    }
+
+    // Server-side storage, prompt cache routing and the service tier are only
+    // understood by the official OpenAI API. They stay off unless the user
+    // turns them on, so OpenAI-compatible providers never see the fields.
+    if (this.isOfficialOpenAIAPI()) {
+      const opts = options.openaiRequestOptions;
+      if (opts) {
+        if (opts.store !== undefined) {
+          body.store = opts.store;
+        }
+        if (opts.promptCacheKey) {
+          body.prompt_cache_key = opts.promptCacheKey;
+        }
+        if (opts.serviceTier) {
+          body.service_tier = opts.serviceTier;
+        }
+      }
     }
 
     // Tools support for Responses API (schema differs from Chat Completions)
