@@ -23,8 +23,10 @@ export function ConfigHeader({
   showAddButton = true,
 }: ConfigHeaderProps) {
   const isSmall = variant === "sm";
-  const marginBottom = isSmall ? "mb-4" : "mb-6";
-  const titleSize = isSmall ? "text-sm font-semibold" : "text-xl font-semibold";
+  const marginBottom = isSmall ? "mb-3" : "mb-5";
+  const titleSize = isSmall
+    ? "text-xs font-medium tracking-wide uppercase"
+    : "text-xl font-semibold";
   const HeadingTag = isSmall ? "h3" : "h2";
 
   return (
@@ -35,8 +37,14 @@ export function ConfigHeader({
       )}
     >
       <div className="flex flex-col">
-        <HeadingTag className={`my-0 ${titleSize}`}>{title}</HeadingTag>
-        {subtext && <p className="text-description mt-1 text-sm">{subtext}</p>}
+        <HeadingTag
+          className={cn("my-0", titleSize, isSmall && "text-description-muted")}
+        >
+          {title}
+        </HeadingTag>
+        {subtext && (
+          <p className="text-description-muted mt-1 text-sm">{subtext}</p>
+        )}
       </div>
       {showAddButton && onAddClick && (
         <ToolTip content={addButtonTooltip}>
