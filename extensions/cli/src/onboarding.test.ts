@@ -127,7 +127,7 @@ name: "Incomplete Config"
       expect(message).toContain(configPath);
 
       // Should NOT mention falling back to default config (this was the bug!)
-      expect(message).not.toContain("~/.continue/config.yaml");
+      expect(message).not.toContain("~/.continue-next/config.yaml");
       expect(message).not.toContain("default config");
       expect(message).not.toContain("fallback");
     }

@@ -158,7 +158,7 @@ export const ADDITIONAL_INDEXING_IGNORE_FILETYPES = [
   "*.jsonl",
   // "*.prompt", // can be incredibly confusing for the LLM to have another set of instructions injected into the prompt
   // Application specific
-  ".continue/",
+  ".continue-next/",
 ];
 
 export const ADDITIONAL_INDEXING_IGNORE_DIRS = [

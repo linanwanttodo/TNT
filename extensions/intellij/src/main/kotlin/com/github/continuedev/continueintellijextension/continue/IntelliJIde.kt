@@ -106,7 +106,7 @@ class IntelliJIDE(
         "target/", "out/", "bin/", ".pytest_cache/", ".vscode-test/",
         "__pycache__/", "site-packages/", ".gradle/", ".mvn/", ".cache/",
         "gems/", "vendor/", ".venv/", "venv/", ".vscode/", ".idea/", ".vs/",
-        ".continue/"
+        ".continue-next/"
     )
     
     // Combined patterns for use in ripgrep

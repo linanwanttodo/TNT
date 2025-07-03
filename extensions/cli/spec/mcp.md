@@ -16,8 +16,8 @@ MCP server configurations often require secrets (API keys, tokens, etc.) referen
 Local environment variables are checked in this priority order:
 
 - `process.env` (runtime environment variables)
-- `~/.continue/.env`
-- `<workspace>/.continue/.env`
+- `~/.continue-next/.env`
+- `<workspace>/.continue-next/.env`
 - `<workspace>/.env`
 
 This fallback mechanism ensures MCP servers can start successfully in environments where organization secrets aren't accessible, such as development containers or CI/CD pipelines, by allowing environment variables to provide the required credentials.

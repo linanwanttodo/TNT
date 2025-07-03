@@ -116,7 +116,7 @@ async function handleSkills(): Promise<SlashCommandResult> {
     return {
       exit: false,
       output: chalk.yellow(
-        "No skills found. Add skills under .continue/skills or .claude/skills.",
+        "No skills found. Add skills under .continue-next/skills or .claude/skills.",
       ),
     };
   }

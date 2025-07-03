@@ -670,7 +670,7 @@ async function handleEsbuildInstallation(
   _ideType: IdeType,
 ): Promise<boolean> {
   // Only check when config.ts is going to be used; never auto-install.
-  const installCmd = "npm i esbuild@x.x.x --prefix ~/.continue";
+  const installCmd = "npm i esbuild@x.x.x --prefix ~/.continue-next";
 
   // Try to detect a user-installed esbuild (normal resolution)
   try {
@@ -687,7 +687,7 @@ async function handleEsbuildInstallation(
       const candidate = require.resolve("esbuild", { paths: [userEsbuild] });
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       require(candidate);
-      return true; // available via ~/.continue
+      return true; // available via the global config dir
     } catch {
       // Not available → show friendly instructions and opt out of building
       await ide.showToast(
@@ -713,7 +713,7 @@ async function tryBuildConfigTs() {
     }
   } catch (e) {
     console.log(
-      `Build error. Please check your ~/.continue/config.ts file: ${e}`,
+      `Build error. Please check your ~/.continue-next/config.ts file: ${e}`,
     );
   }
 }

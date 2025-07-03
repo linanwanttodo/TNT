@@ -110,7 +110,8 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
   },
   {
     name: "import-skill",
-    description: "Import a skill from a URL or name into ~/.continue/skills",
+    description:
+      "Import a skill from a URL or name into ~/.continue-next/skills",
     category: "system",
   },
   {

@@ -133,7 +133,7 @@ const isFileInDirectory = (
  * Checks if a rule is a root-level rule (.continue directory or no file path)
  */
 const isRootLevelRule = (rule: RuleWithSource): boolean => {
-  return !rule.sourceFile || rule.sourceFile.includes(".continue/"); // sourceFile path is absolute - hence we need to check for it in between
+  return !rule.sourceFile || rule.sourceFile.includes(".continue-next/"); // sourceFile path is absolute - hence we need to check for it in between
 };
 
 /**

@@ -25,7 +25,7 @@ export async function createSmokeContext(): Promise<SmokeTestContext> {
   const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "cn-smoke-"));
 
   // Create onboarding flag so the CLI skips onboarding flow
-  const continueDir = path.join(testDir, ".continue");
+  const continueDir = path.join(testDir, ".continue-next");
   await fs.mkdir(continueDir, { recursive: true });
   await fs.writeFile(
     path.join(continueDir, ".onboarding_complete"),

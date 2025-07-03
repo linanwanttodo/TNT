@@ -48,33 +48,33 @@ describe("findAvailableFilename", () => {
     const mockFileExists = async (uri: string) => false;
 
     const result = await findAvailableFilename(
-      "/workspace/.continue/models",
+      "/workspace/.continue-next/models",
       "models",
       mockFileExists,
     );
 
-    expect(result).toBe("/workspace/.continue/models/new-model.yaml");
+    expect(result).toBe("/workspace/.continue-next/models/new-model.yaml");
   });
 
   test("returns filename with counter when base exists", async () => {
     const mockFileExists = async (uri: string) => {
-      return uri === "/workspace/.continue/models/new-model.yaml";
+      return uri === "/workspace/.continue-next/models/new-model.yaml";
     };
 
     const result = await findAvailableFilename(
-      "/workspace/.continue/models",
+      "/workspace/.continue-next/models",
       "models",
       mockFileExists,
     );
 
-    expect(result).toBe("/workspace/.continue/models/new-model-1.yaml");
+    expect(result).toBe("/workspace/.continue-next/models/new-model-1.yaml");
   });
 
   test("increments counter until available filename is found", async () => {
     const existingFiles = new Set([
-      "/workspace/.continue/context/new-context.yaml",
-      "/workspace/.continue/context/new-context-1.yaml",
-      "/workspace/.continue/context/new-context-2.yaml",
+      "/workspace/.continue-next/context/new-context.yaml",
+      "/workspace/.continue-next/context/new-context-1.yaml",
+      "/workspace/.continue-next/context/new-context-2.yaml",
     ]);
 
     const mockFileExists = async (uri: string) => {
@@ -82,12 +82,12 @@ describe("findAvailableFilename", () => {
     };
 
     const result = await findAvailableFilename(
-      "/workspace/.continue/context",
+      "/workspace/.continue-next/context",
       "context",
       mockFileExists,
     );
 
-    expect(result).toBe("/workspace/.continue/context/new-context-3.yaml");
+    expect(result).toBe("/workspace/.continue-next/context/new-context-3.yaml");
   });
 
   test("handles different block types correctly with proper extensions", async () => {
@@ -127,8 +127,8 @@ describe("findAvailableFilename", () => {
 
   test("handles rules markdown files with counter", async () => {
     const existingFiles = new Set([
-      `/workspace/.continue/rules/new-rule.${RULE_FILE_EXTENSION}`,
-      `/workspace/.continue/rules/new-rule-1.${RULE_FILE_EXTENSION}`,
+      `/workspace/.continue-next/rules/new-rule.${RULE_FILE_EXTENSION}`,
+      `/workspace/.continue-next/rules/new-rule-1.${RULE_FILE_EXTENSION}`,
     ]);
 
     const mockFileExists = async (uri: string) => {
@@ -136,13 +136,13 @@ describe("findAvailableFilename", () => {
     };
 
     const result = await findAvailableFilename(
-      "/workspace/.continue/rules",
+      "/workspace/.continue-next/rules",
       "rules",
       mockFileExists,
     );
 
     expect(result).toBe(
-      `/workspace/.continue/rules/new-rule-2.${RULE_FILE_EXTENSION}`,
+      `/workspace/.continue-next/rules/new-rule-2.${RULE_FILE_EXTENSION}`,
     );
   });
 
@@ -150,8 +150,8 @@ describe("findAvailableFilename", () => {
     const existingFiles = new Set(
       Array.from({ length: 100 }, (_, i) =>
         i === 0
-          ? "/workspace/.continue/prompts/new-prompt.md"
-          : `/workspace/.continue/prompts/new-prompt-${i}.md`,
+          ? "/workspace/.continue-next/prompts/new-prompt.md"
+          : `/workspace/.continue-next/prompts/new-prompt-${i}.md`,
       ),
     );
 
@@ -160,11 +160,11 @@ describe("findAvailableFilename", () => {
     };
 
     const result = await findAvailableFilename(
-      "/workspace/.continue/prompts",
+      "/workspace/.continue-next/prompts",
       "prompts",
       mockFileExists,
     );
 
-    expect(result).toBe("/workspace/.continue/prompts/new-prompt-100.md");
+    expect(result).toBe("/workspace/.continue-next/prompts/new-prompt-100.md");
   });
 });

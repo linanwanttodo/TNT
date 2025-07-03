@@ -84,12 +84,12 @@ function getRuleNameFromPath(filePath: string): string {
 }
 
 /**
- * Scan .continue/rules/ directories for markdown rule files and return the rules with metadata that should be always-applied
+ * Scan .continue-next/rules/ directories for markdown rule files and return the rules with metadata that should be always-applied
  */
 export function loadMarkdownRulesWithMetadata(): RuleObject[] {
   const cwd = process.cwd();
   const rulesDirs = [
-    path.join(cwd, ".continue", "rules"),
+    path.join(cwd, ".continue-next", "rules"),
     path.join(env.continueHome, "rules"),
   ];
 
@@ -200,7 +200,7 @@ export async function constructSystemMessage(
   const configYamlRules = await getConfigYamlRules();
   processedRules.push(...configYamlRules);
 
-  // Load markdown rules from .continue/rules/ directories
+  // Load markdown rules from .continue-next/rules/ directories
   const markdownRules = loadMarkdownRulesWithMetadata();
   // Deduplicate against already-loaded rules
   const existingRulesSet = new Set(processedRules);

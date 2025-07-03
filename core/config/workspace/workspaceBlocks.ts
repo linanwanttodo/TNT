@@ -166,7 +166,10 @@ export async function createNewWorkspaceBlockFile(
     );
   }
 
-  const baseDirUri = joinPathsToUri(workspaceDirs[0], `.continue/${blockType}`);
+  const baseDirUri = joinPathsToUri(
+    workspaceDirs[0],
+    `.continue-next/${blockType}`,
+  );
 
   const fileUri = await findAvailableFilename(
     baseDirUri,
