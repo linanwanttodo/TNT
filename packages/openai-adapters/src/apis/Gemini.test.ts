@@ -1,6 +1,49 @@
 import { describe, expect, it } from "vitest";
 
-import { GeminiApi } from "./Gemini.js";
+import { GeminiApi, splitGeminiApiBase } from "./Gemini.js";
+
+describe("splitGeminiApiBase", () => {
+  // The SDK composes <baseUrl>/<apiVersion>/..., so these two must be split
+  // out of the single apiBase Continue stores. Getting this wrong either sends
+  // custom endpoints to Google or duplicates the version in the path.
+  it("splits the official endpoint", () => {
+    expect(
+      splitGeminiApiBase("https://generativelanguage.googleapis.com/v1beta/"),
+    ).toEqual({
+      baseUrl: "https://generativelanguage.googleapis.com",
+      apiVersion: "v1beta",
+    });
+  });
+
+  it("splits a local gateway endpoint", () => {
+    expect(splitGeminiApiBase("http://127.0.0.1:3425/v1beta/")).toEqual({
+      baseUrl: "http://127.0.0.1:3425",
+      apiVersion: "v1beta",
+    });
+  });
+
+  it("keeps a path prefix a gateway proxies under", () => {
+    expect(splitGeminiApiBase("https://gw.example.com/proxy/v1beta/")).toEqual({
+      baseUrl: "https://gw.example.com/proxy",
+      apiVersion: "v1beta",
+    });
+  });
+
+  it("recognises the stable version segment", () => {
+    expect(
+      splitGeminiApiBase("https://generativelanguage.googleapis.com/v1/"),
+    ).toEqual({
+      baseUrl: "https://generativelanguage.googleapis.com",
+      apiVersion: "v1",
+    });
+  });
+
+  it("falls back to the origin when there is no version segment", () => {
+    expect(splitGeminiApiBase("http://localhost:11434/")).toEqual({
+      baseUrl: "http://localhost:11434",
+    });
+  });
+});
 
 describe("GeminiApi", () => {
   const api = new GeminiApi({

@@ -65,6 +65,34 @@ interface GeminiToolDelta
   };
 }
 
+// The Google Gen AI SDK composes request URLs as <baseUrl>/<apiVersion>/...,
+// while Continue stores both parts in a single apiBase such as
+// "https://generativelanguage.googleapis.com/v1beta/". Splitting them keeps
+// custom endpoints, proxies and gateways working without duplicating the
+// version segment in the path.
+export function splitGeminiApiBase(apiBase: string): {
+  baseUrl: string;
+  apiVersion?: string;
+} {
+  try {
+    const url = new URL(apiBase);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const versionIndex = segments.findIndex((s) =>
+      /^v\d+(alpha|beta)?$/.test(s),
+    );
+    if (versionIndex === -1) {
+      return { baseUrl: `${url.origin}${url.pathname.replace(/\/$/, "")}` };
+    }
+    // Keep any path prefix that precedes the version (gateways often proxy
+    // under one), and hand the version to the SDK separately.
+    const prefix = segments.slice(0, versionIndex).join("/");
+    const origin = prefix ? `${url.origin}/${prefix}` : url.origin;
+    return { baseUrl: origin, apiVersion: segments[versionIndex] };
+  } catch {
+    return { baseUrl: apiBase };
+  }
+}
+
 export class GeminiApi implements BaseLlmApi {
   apiBase: string = "https://generativelanguage.googleapis.com/v1beta/";
   private genAI: GoogleGenAI;
@@ -75,10 +103,21 @@ export class GeminiApi implements BaseLlmApi {
     this.apiBase = config.apiBase ?? this.apiBase;
     // Create GoogleGenAI with native fetch to avoid pollution
     // from Vercel AI SDK packages that can break stream handling
+    //
+    // The SDK builds request URLs as <baseUrl>/<apiVersion>/models/..., so a
+    // configured apiBase is split into its origin and its version segment.
+    // Passing the whole apiBase as baseUrl would duplicate the version in the
+    // path, and omitting it entirely would send custom endpoints and gateways
+    // to Google's official host.
+    const { baseUrl, apiVersion } = splitGeminiApiBase(this.apiBase);
     this.genAI = withNativeFetch(
       () =>
         new GoogleGenAI({
           apiKey: this.config.apiKey,
+          httpOptions: {
+            baseUrl,
+            ...(apiVersion ? { apiVersion } : {}),
+          },
         }),
     );
   }
