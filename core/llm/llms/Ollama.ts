@@ -9,6 +9,7 @@ import {
   CompletionOptions,
   LLMOptions,
   ModelInstaller,
+  ReasoningEffort,
   ThinkingChatMessage,
 } from "../../index.js";
 import { renderChatMessage } from "../../util/messageContent.js";
@@ -68,7 +69,8 @@ interface OllamaModelFileParams {
 interface OllamaBaseOptions {
   model: string; // the model name
   options?: OllamaModelFileParams; // additional model parameters listed in the documentation for the Modelfile such as temperature
-  format?: "json"; // the format to return a response in. Currently, the only accepted value is json
+  // "json" for JSON mode, or a JSON schema object for structured outputs
+  format?: "json" | Record<string, unknown>;
   stream?: boolean; // if false the response will be returned as a single response object, rather than a stream of objects
   keep_alive?: number; // controls how long the model will stay loaded into memory following the request (default: 5m)
 }
@@ -86,9 +88,9 @@ interface OllamaRawOptions extends OllamaBaseOptions {
 interface OllamaChatOptions extends OllamaBaseOptions {
   messages: OllamaChatMessage[]; // the messages of the chat, this can be used to keep a chat memory
   tools?: OllamaTool[]; // the tools of the chat, this can be used to keep a tool memory
-  // Not supported yet - tools: tools for the model to use if supported. Requires stream to be set to false
-  // And correspondingly, tool calls in OllamaChatMessage
-  think?: boolean; // if true the model will be prompted to think about the response before generating it
+  // true/false enable or disable thinking; a level string (low/medium/high/max)
+  // steers how much the model thinks on models that support levels.
+  think?: boolean | string;
 }
 
 type OllamaBaseResponse = {
@@ -147,6 +149,17 @@ interface OllamaTool {
     description?: string;
     parameters?: JSONSchema7;
   };
+}
+
+// Ollama accepts low/medium/high/max (or a plain boolean when no level is
+// configured). xhigh has no equivalent and clamps to max.
+function ollamaThinkLevel(
+  effort: ReasoningEffort | undefined,
+): true | "low" | "medium" | "high" | "max" {
+  if (!effort) {
+    return true;
+  }
+  return effort === "xhigh" ? "max" : effort;
 }
 
 class Ollama extends BaseLLM implements ModelInstaller {
@@ -506,10 +519,19 @@ class Ollama extends BaseLLM implements ModelInstaller {
       model: this._getModel(),
       messages: ollamaMessages,
       options: this._getModelFileParams(options),
-      think: options.reasoning,
+      // A level string steers thinking depth on models that support levels;
+      // a plain boolean enables/disables it. undefined keeps the model default.
+      think:
+        options.reasoning === undefined
+          ? undefined
+          : options.reasoning
+            ? ollamaThinkLevel(options.reasoningEffort)
+            : false,
       keep_alive: options.keepAlive ?? 60 * 30, // 30 minutes
       stream: options.stream,
-      // format: options.format, // Not currently in base completion options
+      ...(options.responseFormat
+        ? { format: options.responseFormat as OllamaBaseOptions["format"] }
+        : {}),
     };
     if (options.tools?.length && ollamaMessages.at(-1)?.role === "user") {
       chatOptions.tools = options.tools.map((tool) => ({

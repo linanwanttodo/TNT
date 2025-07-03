@@ -220,11 +220,8 @@ export class VertexAIApi implements BaseLlmApi {
     };
   }
 
-  private convertGeminiBody(
-    oaiBody: ChatCompletionCreateParams,
-    isV1API: boolean,
-  ): object {
-    return this.geminiInstance._convertBody(oaiBody, isV1API, false);
+  private convertGeminiBody(oaiBody: ChatCompletionCreateParams): object {
+    return this.geminiInstance._convertBody(oaiBody, false);
   }
 
   async chatCompletionNonStream(
@@ -254,10 +251,7 @@ export class VertexAIApi implements BaseLlmApi {
         url = this.buildUrl(
           `publishers/google/models/${body.model}:generateContent`,
         );
-        requestBody = this.convertGeminiBody(
-          body,
-          url.toString().includes("/v1/"),
-        );
+        requestBody = this.convertGeminiBody(body);
         break;
       case "mistral":
         url = this.buildUrl(

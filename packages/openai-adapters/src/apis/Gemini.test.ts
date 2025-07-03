@@ -43,7 +43,6 @@ describe("GeminiApi", () => {
             },
           ],
         },
-        false,
         true,
       );
 
@@ -83,7 +82,6 @@ describe("GeminiApi", () => {
             { role: "user", content: "Now do something else" },
           ],
         },
-        false,
         true,
       );
 
@@ -103,7 +101,6 @@ describe("GeminiApi", () => {
             { role: "assistant", content: "Second response" },
           ],
         },
-        false,
         true,
       );
 
@@ -123,7 +120,6 @@ describe("GeminiApi", () => {
             { role: "user", content: "How are you?" },
           ],
         },
-        false,
         true,
       );
 

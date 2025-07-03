@@ -332,20 +332,15 @@ class OpenAI extends BaseLLM {
       top_p: options.topP ?? null,
     };
 
-    // Reasoning effort is configurable per model. Without an explicit level
-    // (or with reasoning turned off) the reasoning block is left out so
-    // non-reasoning models are not sent a field they reject.
+    // Reasoning effort is configurable per model. Without reasoning enabled
+    // the reasoning block is left out so non-reasoning models are not sent a
+    // field they reject. xhigh/max are not accepted here and clamp to high.
     if (options.reasoning !== false) {
-      const effort = options.reasoningEffort ?? "medium";
-      if (effort !== "xhigh" && effort !== "max") {
-        body.reasoning = { effort, summary: "auto" };
-        body.include = ["reasoning.encrypted_content"];
-      } else {
-        // xhigh/max are not part of the Chat Completions effort enum and are
-        // mapped down to the highest level the Responses API accepts.
-        body.reasoning = { effort: "high", summary: "auto" };
-        body.include = ["reasoning.encrypted_content"];
-      }
+      const requested = options.reasoningEffort ?? "medium";
+      const effort =
+        requested === "xhigh" || requested === "max" ? "high" : requested;
+      body.reasoning = { effort, summary: "auto" };
+      body.include = ["reasoning.encrypted_content"];
     }
 
     // Tools support for Responses API (schema differs from Chat Completions)
@@ -372,10 +367,6 @@ class OpenAI extends BaseLLM {
 
     if (typeof options.maxTokens === "number") {
       body.max_output_tokens = options.maxTokens;
-    }
-
-    if (model === "o1") {
-      body.stream = false;
     }
 
     return body;

@@ -36,6 +36,7 @@ import {
   CompletionOptions,
   MessageContent,
   MessagePart,
+  ReasoningEffort,
   TextMessagePart,
   ThinkingChatMessage,
   ToolCallDelta,
@@ -207,6 +208,14 @@ export function toChatMessage(
   }
 }
 
+// Chat Completions accepts minimal/low/medium/high: the wider provider set is
+// clamped so a configured xhigh/max does not produce an invalid request.
+function clampReasoningEffort(
+  effort: ReasoningEffort,
+): "minimal" | "low" | "medium" | "high" {
+  return effort === "xhigh" || effort === "max" ? "high" : effort;
+}
+
 export function toChatBody(
   messages: ChatMessage[],
   options: CompletionOptions,
@@ -237,7 +246,9 @@ export function toChatBody(
   // Reasoning models on Chat Completions take the effort level directly.
   // Providers that do not understand the field ignore it.
   if (options.reasoningEffort) {
-    (params as any).reasoning_effort = options.reasoningEffort;
+    (params as any).reasoning_effort = clampReasoningEffort(
+      options.reasoningEffort,
+    );
   }
 
   if (options.tools?.length) {
