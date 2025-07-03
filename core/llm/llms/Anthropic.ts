@@ -58,6 +58,22 @@ class Anthropic extends BaseLLM {
   public convertArgs(
     options: CompletionOptions,
   ): Omit<MessageCreateParams, "messages"> {
+    // Adaptive reasoning replaced fixed thinking budgets on Claude 4.7+,
+    // where the legacy thinking.type "enabled" is rejected with a 400. When
+    // an effort level is configured we steer reasoning through the top-level
+    // output_config.effort parameter and omit the thinking field entirely, so
+    // the model keeps its adaptive default. Models that only support extended
+    // thinking keep the budget path.
+    const usesEffort = options.reasoning && !!options.reasoningEffort;
+    const thinking =
+      options.reasoning && !usesEffort
+        ? {
+            type: "enabled" as const,
+            budget_tokens:
+              options.reasoningBudgetTokens ?? DEFAULT_REASONING_TOKENS,
+          }
+        : undefined;
+
     const finalOptions = {
       top_k: options.topK,
       top_p: options.topP,
@@ -67,13 +83,10 @@ class Anthropic extends BaseLLM {
       stop_sequences: options.stop?.filter((x) => x.trim() !== ""),
       stream: options.stream ?? true,
       tools: options.tools?.map(this.convertToolToAnthropicTool),
-      thinking: options.reasoning
-        ? {
-            type: "enabled" as const,
-            budget_tokens:
-              options.reasoningBudgetTokens ?? DEFAULT_REASONING_TOKENS,
-          }
-        : undefined,
+      thinking,
+      ...(usesEffort
+        ? { output_config: { effort: options.reasoningEffort } }
+        : {}),
       tool_choice: options.toolChoice
         ? {
             type: "tool" as const,

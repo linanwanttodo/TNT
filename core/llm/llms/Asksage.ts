@@ -3,6 +3,7 @@ import {
   ChatMessage,
   CompletionOptions,
   LLMOptions,
+  ReasoningEffort,
   TextMessagePart,
   Tool,
   ToolCallDelta,
@@ -26,7 +27,9 @@ interface AskSageCompletionOptions extends CompletionOptions {
   enabledMcpTools?: string[];
   toolsToExecute?: string[];
   askSageToolChoice?: AskSageToolChoice;
-  reasoningEffort?: "low" | "medium" | "high";
+  // AskSage accepts three levels; the wider provider set is clamped in
+  // _convertArgs before it reaches the request.
+  reasoningEffort?: ReasoningEffort;
   deepAgentId?: number;
   streaming?: boolean;
   file?: unknown;
@@ -203,11 +206,15 @@ class Asksage extends BaseLLM {
         "You are an expert software developer. You give helpful and concise responses.",
       tools,
       tool_choice: toolChoice,
-      reasoning_effort: options.reasoningEffort as
-        | "low"
-        | "medium"
-        | "high"
-        | undefined,
+      // AskSage only accepts low/medium/high: the wider set (xhigh/max) is
+      // clamped down to high rather than rejected.
+      reasoning_effort: ((): "low" | "medium" | "high" | undefined => {
+        const effort = options.reasoningEffort;
+        if (!effort) {
+          return undefined;
+        }
+        return effort === "xhigh" || effort === "max" ? "high" : effort;
+      })(),
       deep_agent_id: options.deepAgentId as number | undefined,
       streaming: options.streaming as boolean | undefined,
       file: options.file,

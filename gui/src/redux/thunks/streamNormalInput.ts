@@ -61,14 +61,25 @@ function buildReasoningCompletionOptions(
     reasoning: !!hasReasoningEnabled,
   };
 
-  // Add reasoning budget tokens if reasoning is enabled and provider supports it
   if (hasReasoningEnabled && model.underlyingProviderName !== "ollama") {
     // Ollama doesn't support limiting reasoning tokens at this point
+    //
+    // Two knobs are set from the same depth so both generations of provider
+    // APIs work: reasoningEffort for providers that moved to adaptive
+    // reasoning (Anthropic output_config.effort, OpenAI reasoning_effort,
+    // Gemini thinkingLevel), and reasoningBudgetTokens for the fixed-budget
+    // providers that still use it.
     const depthBudget: Record<Exclude<ReasoningDepth, "off">, number> = {
       low: 1024,
       medium: 2048,
       high: 4096,
     };
+    if (depth && depth !== "off") {
+      reasoningOptions.reasoningEffort = depth;
+    } else if (model.completionOptions?.reasoningEffort) {
+      reasoningOptions.reasoningEffort =
+        model.completionOptions.reasoningEffort;
+    }
     reasoningOptions.reasoningBudgetTokens =
       model.completionOptions?.reasoningBudgetTokens ??
       (depth && depth !== "off" ? depthBudget[depth] : 2048);

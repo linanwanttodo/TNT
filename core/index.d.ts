@@ -1216,8 +1216,17 @@ export interface BaseCompletionOptions {
   toolChoice?: ToolChoice;
   reasoning?: boolean;
   reasoningBudgetTokens?: number;
+  /**
+   * How much effort the model should spend on a response. Providers that
+   * replaced fixed reasoning budgets with adaptive reasoning use this
+   * (Anthropic output_config.effort, OpenAI reasoning_effort, Gemini
+   * thinkingLevel).
+   */
+  reasoningEffort?: ReasoningEffort;
   promptCaching?: boolean;
 }
+
+export type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface ModelCapability {
   uploadImage?: boolean;
