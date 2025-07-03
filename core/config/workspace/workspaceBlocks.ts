@@ -70,16 +70,6 @@ function getContentsForNewBlock(blockType: BlockType): ConfigYaml {
         },
       ];
       break;
-    case "mcpServers":
-      configYaml.mcpServers = [
-        {
-          name: "New MCP server",
-          command: "npx",
-          args: ["-y", "<your-mcp-server>"],
-          env: {},
-        },
-      ];
-      break;
   }
 
   return configYaml;
@@ -92,11 +82,41 @@ function getFileExtension(blockType: BlockType): string {
   return "yaml";
 }
 
+// The MCP server block starts out fully commented out on purpose: a server
+// entry with unreplaced placeholders would be spawned on every config load and
+// fail to connect, showing up as a broken server in the MCP list. The file is
+// picked up as soon as the user uncomments an entry below.
+function createMcpServerTemplate(): string {
+  return `name: New MCP server
+version: 0.0.1
+schema: v1
+
+# Add your MCP server below and delete the leading "#" characters.
+# Until then this file is ignored, so nothing is started or reported as broken.
+#
+# Local (stdio) server:
+# mcpServers:
+#   - name: my-mcp-server
+#     command: npx
+#     args:
+#       - -y
+#       - "@modelcontextprotocol/server-everything"
+#     env: {}
+#
+# Remote server:
+# mcpServers:
+#   - name: my-remote-server
+#     url: https://example.com/mcp
+`;
+}
+
 export function getFileContent(blockType: BlockType): string {
   if (blockType === "rules") {
     return createRuleMarkdown("New Rule", "Your rule content", {
       description: "A description of your rule",
     });
+  } else if (blockType === "mcpServers") {
+    return createMcpServerTemplate();
   } else if (blockType === "prompts") {
     return createPromptMarkdown(
       "New prompt",
