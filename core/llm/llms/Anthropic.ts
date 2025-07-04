@@ -83,8 +83,27 @@ class Anthropic extends BaseLLM {
       stop_sequences: options.stop?.filter((x) => x.trim() !== ""),
       stream: options.stream ?? true,
       tools: options.tools?.map(this.convertToolToAnthropicTool),
-      ...(options.reasoning
-        ? { output_config: { effort: options.reasoningEffort ?? "high" } }
+      // Reasoning is steered with output_config.effort and structured output
+      // rides on the same object under format, so both are merged into one.
+      ...(options.reasoning || options.responseFormat
+        ? {
+            output_config: {
+              ...(options.reasoning
+                ? { effort: options.reasoningEffort ?? "high" }
+                : {}),
+              ...(options.responseFormat
+                ? {
+                    format:
+                      options.responseFormat === "json"
+                        ? { type: "json_object" }
+                        : {
+                            type: "json_schema",
+                            schema: options.responseFormat,
+                          },
+                  }
+                : {}),
+            },
+          }
         : {}),
       // Provider-side context trimming: old tool results and thinking blocks
       // are cleared as the conversation grows, so long agent runs stay within

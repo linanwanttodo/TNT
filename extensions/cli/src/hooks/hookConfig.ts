@@ -73,7 +73,7 @@ function mergeHooksConfigs(
 function getSettingsFilePaths(cwd: string, homeDir?: string): string[] {
   const home = homeDir ?? os.homedir();
   const continueHome =
-    process.env.CONTINUE_GLOBAL_DIR || path.join(home, ".continue");
+    process.env.CONTINUE_GLOBAL_DIR || path.join(home, ".continue-next");
 
   return [
     // User-global (lowest precedence)

@@ -9,6 +9,11 @@ class Deepseek extends OpenAI {
   protected supportsReasoningField = false;
   protected supportsReasoningDetailsField = false;
   protected supportsReasoningContentField = true;
+
+  // DeepSeek accepts a reasoning effort for its reasoning models.
+  protected supportsReasoningEffort(_model?: string): boolean {
+    return true;
+  }
   static defaultOptions: Partial<LLMOptions> = {
     apiBase: "https://api.deepseek.com/",
     model: "deepseek-coder",

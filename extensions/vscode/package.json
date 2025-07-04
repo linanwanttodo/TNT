@@ -1,8 +1,8 @@
 {
-  "name": "continue",
+  "name": "continue-next",
   "icon": "media/icon.png",
   "author": "Continue Dev, Inc",
-  "version": "1.3.40",
+  "version": "0.0.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/continuedev/continue"
@@ -18,7 +18,7 @@
   "homepage": "https://continue.dev",
   "qna": "https://github.com/continuedev/continue/issues/new/choose",
   "license": "Apache-2.0",
-  "displayName": "Continue - open-source AI code agent",
+  "displayName": "Continue Next - open-source AI code agent",
   "pricing": "Free",
   "description": "The leading open-source AI code agent",
   "publisher": "Continue",
@@ -84,7 +84,7 @@
       }
     ],
     "configuration": {
-      "title": "Continue",
+      "title": "Continue Next",
       "properties": {
         "continue.telemetryEnabled": {
           "type": "boolean",
@@ -597,14 +597,14 @@
       "activitybar": [
         {
           "id": "continue",
-          "title": "Continue",
+          "title": "Continue Next",
           "icon": "media/sidebar-icon.png"
         }
       ],
       "panel": [
         {
           "id": "continueConsole",
-          "title": "Continue Console",
+          "title": "Continue Next Console",
           "icon": "$(window)"
         }
       ]
@@ -614,7 +614,7 @@
         {
           "type": "webview",
           "id": "continue.continueGUIView",
-          "name": "Continue",
+          "name": "Continue Next",
           "icon": "media/sidebar-icon.png",
           "visibility": "visible"
         }
@@ -623,7 +623,7 @@
         {
           "type": "webview",
           "id": "continue.continueConsoleView",
-          "name": "Continue Console",
+          "name": "Continue Next Console",
           "icon": "$(window)",
           "visibility": "visible",
           "when": "config.continue.enableConsole"

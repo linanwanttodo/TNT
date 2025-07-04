@@ -95,6 +95,15 @@ export abstract class BaseLLM implements ILLM {
   protected supportsReasoningDetailsField: boolean = false;
   protected supportsReasoningContentField: boolean = false;
 
+  /**
+   * Whether the provider understands a reasoning effort parameter. Only
+   * providers that are known to accept it opt in, so the field is never sent
+   * to an endpoint that would reject it as an unknown parameter.
+   */
+  protected supportsReasoningEffort(_model?: string): boolean {
+    return false;
+  }
+
   get providerName(): string {
     return (this.constructor as typeof BaseLLM).providerName;
   }
@@ -1224,6 +1233,9 @@ export abstract class BaseLLM implements ILLM {
             includeReasoningField: this.supportsReasoningField,
             includeReasoningDetailsField: this.supportsReasoningDetailsField,
             includeReasoningContentField: this.supportsReasoningContentField,
+            includeReasoningEffortField: this.supportsReasoningEffort(
+              completionOptions.model,
+            ),
           });
           body = this.modifyChatBody(body);
 
