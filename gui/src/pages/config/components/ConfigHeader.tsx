@@ -8,6 +8,8 @@ interface ConfigHeaderProps {
   subtext?: string;
   onAddClick?: () => void;
   addButtonTooltip?: string;
+  /** Text for a labelled add button; without it only the icon is shown. */
+  addButtonLabel?: string;
   className?: string;
   variant?: "default" | "sm";
   showAddButton?: boolean;
@@ -18,6 +20,7 @@ export function ConfigHeader({
   subtext,
   onAddClick,
   addButtonTooltip = "Add item",
+  addButtonLabel,
   className = "",
   variant = "default",
   showAddButton = true,
@@ -48,13 +51,29 @@ export function ConfigHeader({
       </div>
       {showAddButton && onAddClick && (
         <ToolTip content={addButtonTooltip}>
-          <Button
-            onClick={onAddClick}
-            variant="icon"
-            size={isSmall ? "sm" : "lg"}
-          >
-            <PlusIcon className={isSmall ? "h-2.5 w-2.5" : "h-3 w-3"} />
-          </Button>
+          {addButtonLabel ? (
+            // A labelled button makes the action self-explanatory instead of
+            // relying on a bare icon the user has to discover.
+            <Button
+              onClick={onAddClick}
+              variant="secondary"
+              size={isSmall ? "sm" : "lg"}
+              className="flex items-center gap-1.5"
+            >
+              <PlusIcon className={isSmall ? "h-2.5 w-2.5" : "h-3.5 w-3.5"} />
+              <span className={isSmall ? "text-xs" : "text-sm"}>
+                {addButtonLabel}
+              </span>
+            </Button>
+          ) : (
+            <Button
+              onClick={onAddClick}
+              variant="icon"
+              size={isSmall ? "sm" : "lg"}
+            >
+              <PlusIcon className={isSmall ? "h-2.5 w-2.5" : "h-3 w-3"} />
+            </Button>
+          )}
         </ToolTip>
       )}
     </div>

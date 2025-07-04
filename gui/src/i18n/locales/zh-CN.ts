@@ -101,7 +101,6 @@ export const zhCN: Record<keyof typeof en, string> = {
   "addChatModel.advanced": "高级选项",
   "addChatModel.advanced.desc":
     "仅在提供方支持时生效。OpenAI 专属选项只会发送给 OpenAI 官方接口。",
-  "addChatModel.responseFormatJson": "强制输出 JSON",
   "addChatModel.contextManagement": "自动裁剪过长上下文",
   "addChatModel.openaiStore": "在服务端存储响应",
   "addChatModel.serviceTier": "服务层级",

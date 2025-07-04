@@ -194,14 +194,13 @@ function InputToolbar(props: InputToolbarProps) {
               >
                 <ToolTip
                   place="top-end"
-                  content={`${
+                  content={
                     useActiveFile
-                      ? "Send Without Active File"
-                      : "Send With Active File"
-                  } (${getMetaKeyLabel()}⏎)`}
+                      ? "Send with the active file"
+                      : "Send without the active file"
+                  }
                 >
                   <span>
-                    {getMetaKeyLabel()}⏎{" "}
                     {useActiveFile ? "No active file" : "Active file"}
                   </span>
                 </ToolTip>
