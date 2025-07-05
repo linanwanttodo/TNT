@@ -1,4 +1,9 @@
-import { BlockType, RULE_FILE_EXTENSION } from "@continuedev/config-yaml";
+import {
+  BlockType,
+  getBlockType,
+  parseConfigYaml,
+  RULE_FILE_EXTENSION,
+} from "@continuedev/config-yaml";
 import { describe, expect, test } from "vitest";
 import { findAvailableFilename, getFileContent } from "./workspaceBlocks";
 
@@ -38,8 +43,12 @@ describe("getFileContent", () => {
 
     const mcpResult = getFileContent("mcpServers");
     expect(mcpResult).toContain("name: New MCP server");
-    expect(mcpResult).toContain("mcpServers:");
-    expect(mcpResult).toContain("command: npx");
+    // The placeholder must not define an active server: an entry with
+    // unreplaced placeholders is spawned on every config load and can never
+    // connect, so it shows up as a broken server in the MCP list.
+    const parsedMcpResult = parseConfigYaml(mcpResult);
+    expect(getBlockType(parsedMcpResult)).toBeUndefined();
+    expect(parsedMcpResult.mcpServers ?? []).toHaveLength(0);
   });
 });
 
