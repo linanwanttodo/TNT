@@ -162,7 +162,7 @@ export async function readSession(
   context: CLITestContext,
 ): Promise<any | null> {
   try {
-    const sessionDir = path.join(context.testDir, ".continue", "sessions");
+    const sessionDir = path.join(context.testDir, ".continue-next", "sessions");
     const files = await fs.readdir(sessionDir);
 
     if (files.length === 0) {
@@ -187,7 +187,7 @@ export async function createMockSession(
   context: CLITestContext,
   messages: any[],
 ): Promise<string> {
-  const sessionDir = path.join(context.testDir, ".continue", "sessions");
+  const sessionDir = path.join(context.testDir, ".continue-next", "sessions");
   await fs.mkdir(sessionDir, { recursive: true });
 
   const sessionId = `test-session-${Date.now()}`;

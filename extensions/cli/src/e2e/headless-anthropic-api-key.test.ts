@@ -54,7 +54,7 @@ models:
     // Create onboarding flag to skip onboarding
     const onboardingFlagPath = path.join(
       context.testDir,
-      ".continue",
+      ".continue-next",
       ".onboarding_complete",
     );
     await fs.mkdir(path.dirname(onboardingFlagPath), { recursive: true });

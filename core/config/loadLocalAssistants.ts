@@ -19,12 +19,12 @@ export function isContinueConfigRelatedUri(uri: string): boolean {
     uri.endsWith(".prompt") ||
     !!SUPPORTED_AGENT_FILES.find((file) => uri.endsWith(`/${file}`)) ||
     uri.endsWith(SYSTEM_PROMPT_DOT_FILE) ||
-    (uri.includes(".continue") &&
+    (uri.includes(".continue-next") &&
       (uri.endsWith(".yaml") ||
         uri.endsWith(".yml") ||
         uri.endsWith(".json"))) ||
     [...BLOCK_TYPES, "agents", "assistants", "configs"].some((blockType) =>
-      uri.includes(`.continue/${blockType}`),
+      uri.includes(`.continue-next/${blockType}`),
     )
   );
 }
@@ -37,9 +37,9 @@ export function isContinueAgentConfigFile(uri: string): boolean {
 
   const normalizedUri = URI.normalize(uri);
   return (
-    normalizedUri.includes(`/.continue/agents/`) ||
-    normalizedUri.includes(`/.continue/assistants/`) ||
-    normalizedUri.includes(`/.continue/configs/`)
+    normalizedUri.includes(`/.continue-next/agents/`) ||
+    normalizedUri.includes(`/.continue-next/assistants/`) ||
+    normalizedUri.includes(`/.continue-next/configs/`)
   );
 }
 
@@ -109,14 +109,14 @@ export function getDotContinueSubDirs(
 ): string[] {
   let fullDirs: string[] = [];
 
-  // Workspace .continue/<subDirName>
+  // Workspace .continue-next/<subDirName>
   if (options.includeWorkspace) {
     fullDirs = workspaceDirs.map((dir) =>
-      joinPathsToUri(dir, ".continue", subDirName),
+      joinPathsToUri(dir, ".continue-next", subDirName),
     );
   }
 
-  // ~/.continue/<subDirName>
+  // ~/.continue-next/<subDirName>
   if (options.includeGlobal) {
     fullDirs.push(localPathToUri(getGlobalFolderWithName(subDirName)));
   }
@@ -125,8 +125,8 @@ export function getDotContinueSubDirs(
 }
 
 /**
- * This method searches in both ~/.continue and workspace .continue
- * for all YAML/Markdown files in the specified subdirectory, for example .continue/assistants or .continue/prompts
+ * This method searches in both the global config dir and the workspace counterpart
+ * for all YAML/Markdown files in the specified subdirectory, for example .continue-next/assistants or .continue-next/prompts
  */
 export async function getAllDotContinueDefinitionFiles(
   ide: IDE,

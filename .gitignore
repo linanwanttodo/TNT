@@ -179,3 +179,7 @@ keys
 .copy-status
 .copy-log
 
+
+# Test artifacts written with a stray "file:" prefix
+file:/
+core/file:/

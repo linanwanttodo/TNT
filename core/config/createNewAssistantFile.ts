@@ -52,7 +52,7 @@ export async function createNewAssistantFile(
 
   const baseDirUri = joinPathsToUri(
     workspaceDirs[0],
-    assistantPath ?? ".continue/agents",
+    assistantPath ?? ".continue-next/agents",
   );
 
   // Find the first available filename
