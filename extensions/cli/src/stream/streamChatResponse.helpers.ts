@@ -508,12 +508,17 @@ export async function executeStreamedToolCalls(
   hasRejection: boolean;
   chatHistoryEntries: ToolResultWithStatus[];
 }> {
-  // Strategy: queue permissions (preserve order), then run approved tools in parallel.
-  // If any permission is rejected, cancel the remaining tools in this batch.
+  // Permissions are checked sequentially and in order, because a rejection has
+  // to be visible before the calls around it start. Once a call is approved it
+  // is placed into the plan, which decides what may overlap it.
   //
-  // NOTE: parallelToolCallCount is passed to each tool so they can divide their
-  // output limits accordingly to avoid context overflow. Bash/Read do this for now
-  const parallelToolCallCount = preprocessedCalls.length;
+  // NOTE: parallelToolCallCount is the size of the call's own step, not the size
+  // of the batch, so a tool dividing its output budget by it does not shrink
+  // because of unrelated calls it will never run alongside.
+  const plan = planToolCalls(preprocessedCalls);
+  const plannedByIndex = new Map(
+    plan.all.map((planned) => [planned.index, planned]),
+  );
 
   type IndexedCall = { index: number; call: PreprocessedToolCall };
   const indexedCalls: IndexedCall[] = preprocessedCalls.map((call, index) => ({
@@ -522,7 +527,7 @@ export async function executeStreamedToolCalls(
   }));
 
   const entriesByIndex = new Map<number, ToolResultWithStatus>();
-  const execPromises: Promise<void>[] = [];
+  const execPromises: Array<Promise<void>> = [];
 
   let hasRejection = false;
 
@@ -580,7 +585,6 @@ export async function executeStreamedToolCalls(
           );
         } catch {}
         hasRejection = true;
-        // Remaining items will be auto-cancelled in subsequent iterations
         continue;
       }
 
@@ -589,62 +593,64 @@ export async function executeStreamedToolCalls(
         services.chatHistory.updateToolStatus(call.id, "calling");
       } catch {}
 
-      // Start execution immediately for approved calls
-      execPromises.push(
-        (async () => {
-          try {
-            logger.debug("Executing tool", {
-              name: call.name,
-              arguments: call.arguments,
-            });
+      const planned = plannedByIndex.get(index);
 
-            const toolResult = await executeToolCall(call, {
-              parallelToolCallCount,
-            });
-            const entry: ToolResultWithStatus = {
-              role: "tool",
-              tool_call_id: call.id,
-              content: toolResult,
-              status: "done",
-            };
-            entriesByIndex.set(index, entry);
-            callbacks?.onToolResult?.(toolResult, call.name, "done");
-            onToolOutcome?.(call.name, true);
-            // Immediate service update for UI feedback
-            try {
-              services.chatHistory.addToolResult(
-                call.id,
-                String(toolResult),
-                "done",
-              );
-            } catch {}
-          } catch (error) {
-            const errorMessage = `Error executing tool ${call.name}: ${
-              error instanceof Error ? error.message : String(error)
-            }`;
-            onToolOutcome?.(call.name, false, error);
-            logger.error("Tool execution failed", {
-              name: call.name,
-              error: errorMessage,
-            });
-            entriesByIndex.set(index, {
-              role: "tool",
-              tool_call_id: call.id,
-              content: errorMessage,
-              status: "errored",
-            });
-            callbacks?.onToolError?.(errorMessage, call.name);
-            // Immediate service update for UI feedback
-            try {
-              services.chatHistory.addToolResult(
-                call.id,
-                errorMessage as string,
-                "errored",
-              );
-            } catch {}
-          }
-        })(),
-      );
+      // Start execution immediately for approved calls
+      execPromises[index] = (async () => {
+        try {
+          logger.debug("Executing tool", {
+            name: call.name,
+            arguments: call.arguments,
+          });
+
+          const toolResult = await executionGate.run(planned?.keys ?? [], () =>
+            executeToolCall(call, {
+              parallelToolCallCount: planned?.parallelCount ?? 1,
+            }),
+          );
+          const entry: ToolResultWithStatus = {
+            role: "tool",
+            tool_call_id: call.id,
+            content: toolResult,
+            status: "done",
+          };
+          entriesByIndex.set(index, entry);
+          callbacks?.onToolResult?.(toolResult, call.name, "done");
+          onToolOutcome?.(call.name, true);
+          // Immediate service update for UI feedback
+          try {
+            services.chatHistory.addToolResult(
+              call.id,
+              String(toolResult),
+              "done",
+            );
+          } catch {}
+        } catch (error) {
+          const errorMessage = `Error executing tool ${call.name}: ${
+            error instanceof Error ? error.message : String(error)
+          }`;
+          onToolOutcome?.(call.name, false, error);
+          logger.error("Tool execution failed", {
+            name: call.name,
+            error: errorMessage,
+          });
+          entriesByIndex.set(index, {
+            role: "tool",
+            tool_call_id: call.id,
+            content: errorMessage,
+            status: "errored",
+          });
+          callbacks?.onToolError?.(errorMessage, call.name);
+          // Immediate service update for UI feedback
+          try {
+            services.chatHistory.addToolResult(
+              call.id,
+              errorMessage as string,
+              "errored",
+            );
+          } catch {}
+        }
+      })();
     } catch (error) {
       const errorMessage = `Error checking permissions for ${call.name}: ${
         error instanceof Error ? error.message : String(error)
@@ -671,7 +677,17 @@ export async function executeStreamedToolCalls(
     }
   }
 
-  await Promise.all(execPromises);
+  // Walk the plan in order. Unserialized calls start together; a call holding
+  // a slot waits for everything ahead of it to settle first. Each promise
+  // resolves on its own, so one failing call never discards the results of the
+  // calls that already finished.
+  for (const step of plan.steps) {
+    const running = step.calls
+      .map((planned) => execPromises[planned.index])
+      .filter((promise): promise is Promise<void> => !!promise);
+    await Promise.allSettled(running);
+  }
+  await Promise.allSettled(execPromises.filter((p) => !!p));
 
   // Assemble final entries in original order
   const chatHistoryEntries: ToolResultWithStatus[] = preprocessedCalls
