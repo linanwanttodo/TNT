@@ -193,6 +193,17 @@ addCommonOptions(program)
   .option("--resume", "Resume from last session")
   .option("--fork <sessionId>", "Fork from an existing session ID")
   .option(
+    "--max-steps <count>",
+    "Maximum model rounds per turn before the turn is cut short",
+    (value) => {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        throw new Error("--max-steps must be a positive integer");
+      }
+      return parsed;
+    },
+  )
+  .option(
     "--beta-subagent-tool",
     "Enable beta Subagent tool for invoking subagents",
   )

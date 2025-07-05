@@ -9,6 +9,18 @@ import type {
 } from "openai/resources.mjs";
 
 import { pruneLastMessage } from "../compaction.js";
+import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
+import { ToolFailureTracker } from "../loop/toolFailureTracker.js";
+import {
+  describeTermination,
+  type TerminationReason,
+} from "../loop/termination.js";
+import {
+  classifyStreamError,
+  type TerminalStopKind,
+  TerminalStopTracker,
+} from "../loop/terminalStop.js";
+import { TurnBudget, type TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { applyChatCompletionToolOverrides } from "../tools/applyToolOverrides.js";
@@ -91,13 +103,21 @@ function refreshChatHistoryFromService(
   return chatHistory;
 }
 
-// Helper function to handle auto-continuation after compaction
+/**
+ * Decide whether the turn continues after compaction, and how.
+ *
+ * A compaction that shrinks the history is progress and the turn should keep
+ * going. A compaction that barely helped is not progress: appending another
+ * continuation message to it would start the turn over with no headroom, so
+ * the caller stops instead of looping.
+ */
 function handleAutoContinuation(
   compactionOccurred: boolean,
   shouldContinue: boolean,
   chatHistory: ChatHistoryItem[],
+  compactionWasWorthwhile: boolean,
 ): { shouldAutoContinue: boolean; chatHistory: ChatHistoryItem[] } {
-  if (!compactionOccurred || shouldContinue) {
+  if (!compactionOccurred || shouldContinue || !compactionWasWorthwhile) {
     return { shouldAutoContinue: false, chatHistory };
   }
 
@@ -135,6 +155,7 @@ interface ProcessChunkOptions {
   indexToIdMap: Map<number, string>;
   callbacks?: StreamCallbacks;
   isHeadless?: boolean;
+  loopDetector?: LoopDetector;
 }
 
 function processChunk(options: ProcessChunkOptions): {
@@ -148,6 +169,7 @@ function processChunk(options: ProcessChunkOptions): {
     indexToIdMap,
     callbacks,
     isHeadless,
+    loopDetector,
   } = options;
   // Safety check: ensure chunk has the expected structure
   if (!chunk.choices || !chunk.choices[0]) {
@@ -168,6 +190,7 @@ function processChunk(options: ProcessChunkOptions): {
       aiResponse,
       callbacks,
       isHeadless,
+      loopDetector,
     );
   }
 
@@ -202,6 +225,12 @@ export async function processStreamingResponse(
   toolCalls: ToolCall[];
   shouldContinue: boolean;
   usage?: any;
+  loopDetection?: LoopDetection;
+  /**
+   * Set when the round ended because the stream was cut short. The caller
+   * decides whether to retry based on its own per-turn budget.
+   */
+  terminalStop?: TerminalStopKind;
 }> {
   const {
     model,
@@ -283,6 +312,9 @@ export async function processStreamingResponse(
   let inputTokens = 0;
   let outputTokens = 0;
   let fullUsage: any = null;
+  // One detector per assistant message. A repetition spanning two separate
+  // messages is a different problem and is not what this catches.
+  const loopDetector = new LoopDetector();
 
   try {
     const streamWithBackoff = withExponentialBackoff(
@@ -325,6 +357,7 @@ export async function processStreamingResponse(
         indexToIdMap,
         callbacks,
         isHeadless,
+        loopDetector,
       });
       aiResponse = result.aiResponse;
       if (!result.shouldContinue) break;
@@ -381,6 +414,25 @@ export async function processStreamingResponse(
       };
     }
 
+    // A stream that was cut before its terminal event is not the same as a
+    // completed turn. Reported to the caller instead of thrown so the loop can
+    // decide whether this kind of fault is still worth retrying.
+    const stopKind = classifyStreamError(error);
+    if (stopKind !== "ok") {
+      logger.warn("Stream ended early", {
+        kind: stopKind,
+        error: error.message || String(error),
+      });
+      return {
+        content: aiResponse,
+        finalContent: aiResponse,
+        toolCalls: [],
+        shouldContinue: false,
+        usage: fullUsage,
+        terminalStop: stopKind,
+      };
+    }
+
     // Handle context length errors with helpful message
     if (isContextLengthError(error)) {
       logger.debug(`Context length exceeded: ${error}`);
@@ -415,6 +467,7 @@ export async function processStreamingResponse(
     toolCalls: validToolCalls,
     shouldContinue: validToolCalls.length > 0,
     usage: fullUsage,
+    loopDetection: loopDetector.finish(),
   };
 }
 
@@ -427,6 +480,7 @@ export async function streamChatResponse(
   abortController: AbortController,
   callbacks?: StreamCallbacks,
   isCompacting = false,
+  turnBudgetLimits?: Partial<TurnBudgetLimits>,
 ) {
   logger.debug("streamChatResponse called", {
     model,
@@ -440,9 +494,55 @@ export async function streamChatResponse(
   let finalResponse = "";
   let compactionOccurredThisTurn = false; // Track if compaction happened during this conversation turn
 
+  // One budget, one failure tally, and one repetition detector per user turn.
+  // They reset together because all three measure the same span: this turn.
+  const budget = new TurnBudget(turnBudgetLimits);
+  const toolFailures = new ToolFailureTracker();
+  const terminalStops = new TerminalStopTracker();
+
+  /**
+   * End the turn, tell the caller why, and return the text produced so far.
+   * Every exit from the loop goes through here so no path can end silently.
+   */
+  const finish = (reason: TerminationReason): string => {
+    callbacks?.onTurnTerminated?.(reason, {
+      maxSteps: budget.limits.maxSteps,
+      notice: describeTermination(reason, {
+        maxSteps: budget.limits.maxSteps,
+      }),
+    });
+    logger.debug("streamChatResponse terminated", {
+      reason,
+      steps: budget.stepsDone,
+      totalResponseLength: fullResponse.length,
+      totalMessages: chatHistory.length,
+    });
+    return isHeadless ? finalResponse : fullResponse;
+  };
+
   while (true) {
+    // The abort signal used to be ignored here, so a cancelled turn kept
+    // requesting models until one of them happened to return no tool calls.
+    if (abortController?.signal.aborted) {
+      return finish("user_abort");
+    }
+
+    // Checked before the round rather than after, so a turn that is already
+    // over budget stops instead of spending one more round to find that out.
+    if (budget.stepsExhausted) {
+      return finish("max_steps");
+    }
+
     // If ChatHistoryService is available, refresh local chatHistory view
     chatHistory = refreshChatHistoryFromService(chatHistory, isCompacting);
+    // Reduction ratios reported by this round's three compaction checkpoints,
+    // in the order they can fire. Reset each round so a stale ratio from an
+    // earlier round cannot be read as this round's result.
+    let preApiReductionRatio: number | undefined;
+    let postToolReductionRatio: number | undefined;
+    // Snapshot before this round's tool calls so the tail can measure how much
+    // the conversation actually grew.
+    const historyLengthBefore = chatHistory.length;
     logger.debug("Starting conversation iteration");
 
     // Get system message once per iteration (can change based on tool permissions mode)
@@ -471,6 +571,7 @@ export async function streamChatResponse(
     if (preCompactionResult.wasCompacted) {
       compactionOccurredThisTurn = true;
     }
+    preApiReductionRatio = preCompactionResult.reductionRatio;
 
     logger.debug("Tools prepared", {
       toolCount: tools.length,
@@ -478,20 +579,51 @@ export async function streamChatResponse(
     });
 
     // Get response from LLM
-    const { content, toolCalls, shouldContinue, usage } =
-      await processStreamingResponse({
-        isHeadless,
-        chatHistory,
-        model,
-        llmApi,
-        abortController,
-        callbacks,
-        tools,
-        systemMessage,
-      });
+    const {
+      content,
+      toolCalls,
+      shouldContinue,
+      usage,
+      loopDetection,
+      terminalStop,
+    } = await processStreamingResponse({
+      isHeadless,
+      chatHistory,
+      model,
+      llmApi,
+      abortController,
+      callbacks,
+      tools,
+      systemMessage,
+    });
 
     if (abortController?.signal.aborted) {
-      return finalResponse || content || fullResponse;
+      return finish("user_abort");
+    }
+
+    // Retry only while this kind of fault still has budget. Once the budget is
+    // gone the turn ends, because retrying an unchanging fault only spends
+    // tokens to arrive at the same place.
+    if (terminalStop) {
+      if (terminalStops.shouldRetry(terminalStop)) {
+        logger.debug("Retrying round after early stream end", {
+          kind: terminalStop,
+          attempt: terminalStops.retriesUsed(terminalStop),
+        });
+        continue;
+      }
+      return finish("stream_stall");
+    }
+
+    // Repetition is checked after the abort test so an interrupted stream is
+    // never reported as a model loop.
+    if (loopDetection) {
+      logger.warn("Repetitive output detected", {
+        kind: loopDetection.kind,
+        repetitions: loopDetection.repetitions,
+        fingerprint: loopDetection.fingerprint,
+      });
+      return finish("loop_detected");
     }
 
     fullResponse += content;
@@ -515,10 +647,22 @@ export async function streamChatResponse(
       callbacks,
       isHeadless,
       usage,
+      onToolOutcome: (toolName, succeeded, error) => {
+        const notice = toolFailures.record(toolName, succeeded, error);
+        if (notice) {
+          // Appended as a tool result rather than a user message so the model
+          // sees it in the place it is working, without a new turn boundary.
+          logger.warn("Tool repeatedly failing", {
+            tool: notice.toolName,
+            consecutiveFailures: notice.consecutiveFailures,
+            lastError: notice.lastError,
+          });
+        }
+      },
     });
 
     if (shouldReturn) {
-      return finalResponse || content || fullResponse;
+      return finish("tool_stop");
     }
 
     // After tool execution, validate that we haven't exceeded context limit
@@ -539,6 +683,7 @@ export async function streamChatResponse(
     if (postToolResult.wasCompacted) {
       compactionOccurredThisTurn = true;
     }
+    postToolReductionRatio = postToolResult.reductionRatio;
 
     // Normal auto-compaction check at 80% threshold
     const compactionResult = await handleNormalAutoCompaction(
@@ -559,12 +704,52 @@ export async function streamChatResponse(
       compactionOccurredThisTurn = true;
     }
 
+    // A compaction is only progress if it actually removed something. The
+    // model call it spent is real either way, so one that barely shrank the
+    // history leaves the next round just as expensive as this one.
+    // Reported by the helpers themselves, because only they know what their
+    // compaction actually removed.
+    const reductionRatio =
+      compactionResult.reductionRatio ??
+      postToolReductionRatio ??
+      preApiReductionRatio;
+    // Only a round that actually compacted counts toward the compaction
+    // circuit. A round with no compaction at all is not a failed compaction.
+    const compactionWasWorthwhile = compactionOccurredThisTurn
+      ? budget.recordCompaction(reductionRatio)
+      : true;
+
+    // Once compaction has failed this many times the context is not going to
+    // recover on its own, and each retry spends another summarization call.
+    if (compactionOccurredThisTurn && budget.compactionCircuitOpen) {
+      return finish("compaction_circuit_open");
+    }
+
+    // Charge the round to the budget. Progress is measured as the growth of
+    // the conversation rather than the length of one reply: a round that adds
+    // one short line on top of a long history has not moved the task forward,
+    // while a round that appends a tool result has. The provider's own output
+    // count is used when present because it is exact.
+    const historyGrowth = Math.max(0, chatHistory.length - historyLengthBefore);
+    const tokensAdded =
+      usage?.completion_tokens ??
+      usage?.outputTokens ??
+      Math.ceil(historyGrowth * 200);
+    const budgetState = budget.recordStep(tokensAdded);
+    if (budgetState === "steps_exhausted") {
+      return finish("max_steps");
+    }
+    if (budgetState === "diminishing_returns") {
+      return finish("diminishing_returns");
+    }
+
     // If compaction happened during this turn and we're about to stop,
     // automatically send a continuation message to keep the agent going
     const autoContinueResult = handleAutoContinuation(
       compactionOccurredThisTurn,
       shouldContinue,
       chatHistory,
+      compactionWasWorthwhile,
     );
     chatHistory = autoContinueResult.chatHistory;
     const shouldAutoContinue = autoContinueResult.shouldAutoContinue;
@@ -574,9 +759,11 @@ export async function streamChatResponse(
       compactionOccurredThisTurn = false;
     }
 
-    // Check if we should continue (skip break if auto-continuing after compaction)
+    // Check if we should continue (skip the end if auto-continuing after
+    // compaction). Goes through finish so the caller still learns the turn
+    // ended, rather than the loop breaking quietly.
     if (!shouldContinue && !shouldAutoContinue) {
-      break;
+      return finish("no_tool_calls");
     }
   }
 
@@ -587,5 +774,5 @@ export async function streamChatResponse(
 
   // For headless mode, we return only the final response
   // Otherwise, return the full response
-  return isHeadless ? finalResponse : fullResponse;
+  return finish("no_tool_calls");
 }

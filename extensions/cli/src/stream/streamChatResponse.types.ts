@@ -2,6 +2,7 @@ import { CompletionOptions } from "@continuedev/config-yaml";
 import type { ToolStatus } from "core/index.js";
 import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
 
+import type { TerminationReason } from "../loop/termination.js";
 import { ToolCallPreview } from "../tools/types.js";
 
 export interface StreamCallbacks {
@@ -17,6 +18,15 @@ export interface StreamCallbacks {
     preview?: ToolCallPreview[],
   ) => void;
   onSystemMessage?: (message: string) => void;
+  /**
+   * Called once when the turn ends, with the reason. A turn cut short by a
+   * step ceiling or a stalled loop still returns its partial text, so this is
+   * how a caller learns to label that text as incomplete.
+   */
+  onTurnTerminated?: (
+    reason: TerminationReason,
+    detail?: { maxSteps?: number; notice?: string },
+  ) => void;
 }
 
 export function getDefaultCompletionOptions(

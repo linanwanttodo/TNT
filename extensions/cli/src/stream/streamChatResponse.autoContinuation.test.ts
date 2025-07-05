@@ -156,7 +156,11 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
       compactionCallCount++;
       return Promise.resolve({
         chatHistory,
-        wasCompacted: compactionCallCount === 1, // Only first call has compaction
+        // Only first call has compaction, and it reports the share of history
+        // it removed so the loop can tell a useful compaction from one that
+        // barely shrank anything.
+        wasCompacted: compactionCallCount === 1,
+        reductionRatio: compactionCallCount === 1 ? 0.5 : undefined,
       });
     });
 

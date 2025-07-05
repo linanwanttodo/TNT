@@ -22,12 +22,42 @@ export interface CompactionHelperOptions {
 }
 
 /**
+ * Result of a compaction attempt.
+ *
+ * `reductionRatio` is the fraction of history entries the compaction removed,
+ * measured where the compaction actually happened rather than inferred later.
+ * A compaction that ran but removed almost nothing still spent a summarization
+ * call, so the caller needs the ratio to decide whether to keep going.
+ */
+export interface CompactionHelperResult {
+  chatHistory: ChatHistoryItem[];
+  wasCompacted: boolean;
+  /** Fraction of history entries removed, present only when compaction ran. */
+  reductionRatio?: number;
+}
+
+/**
+ * Fraction of history entries a compaction removed, or undefined when the
+ * history did not shrink. Compared on entry counts rather than tokens because
+ * this runs on every compaction and a token count would cost a tokenizer pass.
+ */
+function measureReduction(
+  before: ChatHistoryItem[],
+  after: ChatHistoryItem[],
+): number | undefined {
+  if (after.length >= before.length || before.length === 0) {
+    return undefined;
+  }
+  return (before.length - after.length) / before.length;
+}
+
+/**
  * Handle pre-API auto-compaction if needed
  */
 export async function handlePreApiCompaction(
   chatHistory: ChatHistoryItem[],
   options: CompactionHelperOptions,
-): Promise<{ chatHistory: ChatHistoryItem[]; wasCompacted: boolean }> {
+): Promise<CompactionHelperResult> {
   const {
     model,
     llmApi,
@@ -55,15 +85,24 @@ export async function handlePreApiCompaction(
 
   if (wasCompacted) {
     logger.debug("Pre-API compaction occurred, updating chat history");
+    const reductionRatio = measureReduction(chatHistory, preCompactHistory);
     const chatHistorySvc = services.chatHistory;
     if (
       typeof chatHistorySvc?.isReady === "function" &&
       chatHistorySvc.isReady()
     ) {
       chatHistorySvc.setHistory(preCompactHistory);
-      return { chatHistory: chatHistorySvc.getHistory(), wasCompacted: true };
+      return {
+        chatHistory: chatHistorySvc.getHistory(),
+        wasCompacted: true,
+        reductionRatio,
+      };
     }
-    return { chatHistory: [...preCompactHistory], wasCompacted: true };
+    return {
+      chatHistory: [...preCompactHistory],
+      wasCompacted: true,
+      reductionRatio,
+    };
   }
 
   return { chatHistory, wasCompacted: false };
@@ -76,7 +115,7 @@ export async function handlePostToolValidation(
   toolCalls: ToolCall[],
   chatHistory: ChatHistoryItem[],
   options: CompactionHelperOptions,
-): Promise<{ chatHistory: ChatHistoryItem[]; wasCompacted: boolean }> {
+): Promise<CompactionHelperResult> {
   const { model, llmApi, isHeadless, callbacks, systemMessage, tools } =
     options;
 
@@ -122,6 +161,7 @@ export async function handlePostToolValidation(
       });
 
     if (wasCompacted) {
+      const reductionRatio = measureReduction(chatHistory, compactedHistory);
       // Use the service to update history if available, otherwise use local copy
       if (chatHistorySvc && typeof chatHistorySvc.setHistory === "function") {
         chatHistorySvc.setHistory(compactedHistory);
@@ -157,7 +197,7 @@ export async function handlePostToolValidation(
         inputTokens: postCompactionValidation.inputTokens,
         contextLimit: postCompactionValidation.contextLimit,
       });
-      return { chatHistory, wasCompacted: true };
+      return { chatHistory, wasCompacted: true, reductionRatio };
     } else {
       // Compaction failed, cannot continue
       logger.error("Failed to compact history after tool execution overflow");
@@ -177,7 +217,7 @@ export async function handleNormalAutoCompaction(
   chatHistory: ChatHistoryItem[],
   shouldContinue: boolean,
   options: CompactionHelperOptions,
-): Promise<{ chatHistory: ChatHistoryItem[]; wasCompacted: boolean }> {
+): Promise<CompactionHelperResult> {
   const { model, llmApi, isHeadless, callbacks, systemMessage, tools } =
     options;
 
@@ -205,16 +245,22 @@ export async function handleNormalAutoCompaction(
     });
 
   if (wasCompacted) {
+    const reductionRatio = measureReduction(chatHistory, updatedChatHistory);
     // Use the service to update history if available, otherwise use local copy
     if (chatHistorySvc && typeof chatHistorySvc.setHistory === "function") {
       chatHistorySvc.setHistory(updatedChatHistory);
       return {
         chatHistory: chatHistorySvc.getHistory(),
         wasCompacted: true,
+        reductionRatio,
       };
     }
     // Fallback: return the compacted history directly when service unavailable
-    return { chatHistory: updatedChatHistory, wasCompacted: true };
+    return {
+      chatHistory: updatedChatHistory,
+      wasCompacted: true,
+      reductionRatio,
+    };
   }
 
   return { chatHistory, wasCompacted: false };
