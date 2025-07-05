@@ -13,23 +13,19 @@ export function getSubagent(modelState: ModelServiceState, name: string) {
 }
 
 /**
- * Generate dynamic tool description listing available agents
+ * Generate the tool description.
+ *
+ * The available agents are deliberately not listed here. This string is part
+ * of the cached prompt prefix, so interpolating the agent list into it means a
+ * configuration change rewrites the tool schema and invalidates every cached
+ * token after it. A model that needs the list calls the separate listing tool
+ * instead, which keeps the prefix stable.
  */
-export function generateSubagentToolDescription(
-  modelState: ModelServiceState,
-): string {
-  const agentList = ModelService.getSubagentModels(modelState)
-    .map(
-      (subagentModel) =>
-        `  - ${subagentModel.model.name}: ${subagentModel.model.chatOptions?.baseSystemMessage}`,
-    )
-    .join("\n");
-
-  // todo: refine this prompt later
+export function generateSubagentToolDescription(): string {
   return `Launch a specialized subagent to handle a specific task.
 
-Here are the available subagents:
-${agentList}
+Call the agent listing tool to discover which agents are available before
+choosing one.
 `;
 }
 

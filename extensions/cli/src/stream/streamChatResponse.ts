@@ -48,6 +48,7 @@ import {
 import {
   getDefaultCompletionOptions,
   StreamCallbacks,
+  StreamRunOverrides,
 } from "./streamChatResponse.types.js";
 
 dotenv.config();
@@ -481,6 +482,11 @@ export async function streamChatResponse(
   callbacks?: StreamCallbacks,
   isCompacting = false,
   turnBudgetLimits?: Partial<TurnBudgetLimits>,
+  /**
+   * Overrides for a delegated run. Left unset, every value falls back to the
+   * process-wide services, so a top-level turn is unaffected.
+   */
+  runOverrides?: StreamRunOverrides,
 ) {
   logger.debug("streamChatResponse called", {
     model,
@@ -488,7 +494,8 @@ export async function streamChatResponse(
     hasCallbacks: !!callbacks,
   });
 
-  const isHeadless = services.toolPermissions.isHeadless();
+  const isHeadless =
+    runOverrides?.isHeadless ?? services.toolPermissions.isHeadless();
 
   let fullResponse = "";
   let finalResponse = "";
@@ -546,12 +553,18 @@ export async function streamChatResponse(
     logger.debug("Starting conversation iteration");
 
     // Get system message once per iteration (can change based on tool permissions mode)
-    const systemMessage = await services.systemMessage.getSystemMessage(
-      services.toolPermissions.getState().currentMode,
-    );
+    const systemMessage =
+      runOverrides?.systemMessage ??
+      (await services.systemMessage.getSystemMessage(
+        services.toolPermissions.getState().currentMode,
+      ));
 
     // Recompute tools on each iteration to handle mode changes during streaming
-    const rawTools = await getRequestTools(isHeadless);
+    const rawTools = await getRequestTools(
+      isHeadless,
+      runOverrides?.permissions,
+      runOverrides?.canDelegate,
+    );
     const tools = applyChatCompletionToolOverrides(
       rawTools,
       model.chatOptions?.toolOverrides,
@@ -647,6 +660,8 @@ export async function streamChatResponse(
       callbacks,
       isHeadless,
       usage,
+      permissions: runOverrides?.permissions,
+      canDelegate: runOverrides?.canDelegate,
       onToolOutcome: (toolName, succeeded, error) => {
         const notice = toolFailures.record(toolName, succeeded, error);
         if (notice) {
