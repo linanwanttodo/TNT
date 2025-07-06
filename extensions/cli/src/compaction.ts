@@ -15,6 +15,8 @@ import {
   getModelMaxTokens,
 } from "./util/tokenizer.js";
 
+import { buildSummaryRequest } from "./compaction/prefixPreservation.js";
+
 // Buffer cap/ratio for auto-compaction threshold calculation
 export const AUTO_COMPACT_BUFFER_CAP = 15_000;
 export const AUTO_COMPACT_BUFFER_RATIO = 0.8;
@@ -57,18 +59,17 @@ export async function compactChatHistory(
   options?: CompactionOptions,
 ): Promise<CompactionResult> {
   const { callbacks, abortController, systemMessageTokens = 0 } = options || {};
-  // Create a prompt to summarize the conversation
-  const compactionPrompt: ChatHistoryItem = {
-    message: {
-      role: "user" as const,
-      content: COMPACTION_PROMPT,
-    },
-    contextItems: [],
-  };
 
   // Check if the history with compaction prompt is too long, prune if necessary
   let historyToUse = chatHistory;
-  let historyForCompaction = [...historyToUse, compactionPrompt];
+  // The instruction is appended to the replayed history rather than replacing
+  // it, so the system prompt, tool definitions and earlier turns stay
+  // byte-identical to the requests that came before. Reshaping them would
+  // invalidate every cached token from the first difference onward.
+  let historyForCompaction = buildSummaryRequest(
+    historyToUse,
+    COMPACTION_PROMPT,
+  ).history;
 
   const contextLimit = getModelContextLimit(model);
   const maxTokens = getModelMaxTokens(model);
@@ -110,7 +111,10 @@ export async function compactChatHistory(
     }
 
     historyToUse = prunedHistory;
-    historyForCompaction = [...historyToUse, compactionPrompt];
+    historyForCompaction = buildSummaryRequest(
+      historyToUse,
+      COMPACTION_PROMPT,
+    ).history;
   }
 
   // Stream the compaction response (service drives updates; this collects content locally)

@@ -31,6 +31,7 @@ import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { checkIfRipgrepIsInstalled, searchCodeTool } from "./searchCode.js";
 import { skillsTool } from "./skills.js";
 import { listSubagentsTool, subagentTool } from "./subagent.js";
+import { sortToolsByName } from "./stableOrder.js";
 import {
   isBetaSubagentToolEnabled,
   isBetaUploadArtifactToolEnabled,
@@ -147,7 +148,11 @@ export async function getAllAvailableTools(
   );
   tools.push(...mcpState.tools.map(convertMcpToolToContinueTool));
 
-  return tools;
+  // Registration order depends on which optional tools are present and on the
+  // order a provider happens to return MCP tools in. Tool definitions are part
+  // of the cached prompt prefix, so the order has to be a pure function of the
+  // names rather than of how the list was assembled.
+  return sortToolsByName(tools);
 }
 
 export function getToolDisplayName(toolName: string): string {
