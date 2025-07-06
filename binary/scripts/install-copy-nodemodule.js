@@ -9,7 +9,7 @@ const path = require("path");
 const ncp = require("ncp").ncp;
 const { rimrafSync } = require("rimraf");
 
-const { execCmdSync } = require("../../../scripts/util");
+const { execCmdSync } = require("../../scripts/util");
 
 async function installNodeModuleInTempDirAndCopyToCurrent(packageName, toCopy) {
   console.log(`Copying ${packageName} to ${toCopy}`);

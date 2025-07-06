@@ -9,9 +9,7 @@ const {
 const { downloadRipgrep } = require("./ripgrep");
 const { TARGET_TO_LANCEDB } = require("../utils/targets");
 const fs = require("fs");
-const {
-  downloadSqlite,
-} = require("../../extensions/vscode/scripts/download-copy-sqlite");
+const { downloadSqlite } = require("../scripts/download-copy-sqlite");
 const { fork } = require("child_process");
 
 async function downloadNodeSqlite(target, targetDir) {

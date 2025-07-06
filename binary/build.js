@@ -8,7 +8,7 @@ const { ALL_TARGETS, TARGET_TO_LANCEDB } = require("./utils/targets");
 const { fork } = require("child_process");
 const {
   installAndCopyNodeModules,
-} = require("../extensions/vscode/scripts/install-copy-nodemodule");
+} = require("./scripts/install-copy-nodemodule");
 const { bundleBinary } = require("./utils/bundle-binary");
 
 const bin = path.join(__dirname, "bin");
@@ -144,12 +144,12 @@ async function buildWithEsbuild() {
     );
   });
 
-  // copy tree-sitter colder to binary folder to make it available when running in intellij debug mode
+  // copy tree-sitter queries into the binary folder so indexing has them at runtime
   const treeSitterDir = path.join(__dirname, "tree-sitter");
   fs.mkdirSync(treeSitterDir);
   await new Promise((resolve, reject) => {
     ncp(
-      path.join(__dirname, "..", "extensions", "vscode", "tree-sitter"),
+      path.join(__dirname, "..", "core", "indexing", "tree-sitter-queries"),
       treeSitterDir,
       { dereference: true },
       (error) => {
