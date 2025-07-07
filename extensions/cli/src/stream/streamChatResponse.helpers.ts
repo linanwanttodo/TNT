@@ -303,6 +303,11 @@ export function recordStreamTelemetry(options: {
   model: any;
   tools?: any[];
   fullUsage?: any;
+  /**
+   * Compaction and title requests carry their own prefix, so they do not count
+   * toward this session's cold-start attribution.
+   */
+  requestKind?: "turn" | "compaction";
 }): number {
   const {
     requestStartTime,
@@ -312,6 +317,7 @@ export function recordStreamTelemetry(options: {
     model,
     tools,
     fullUsage,
+    requestKind = "turn",
   } = options;
   const totalDuration = responseEndTime - requestStartTime;
 
@@ -377,7 +383,7 @@ export function recordStreamTelemetry(options: {
   }
 
   telemetryService.recordCost(cost, model.model);
-  trackSessionUsage(cost, usage);
+  trackSessionUsage(cost, usage, requestKind);
 
   telemetryService.recordResponseTime(
     totalDuration,

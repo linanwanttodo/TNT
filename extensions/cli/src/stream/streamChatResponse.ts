@@ -24,6 +24,7 @@ import { TurnBudget, type TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { applyChatCompletionToolOverrides } from "../tools/applyToolOverrides.js";
+import { headerEquals, type RequestHeader } from "../cache/requestHeader.js";
 import { ToolCall } from "../tools/index.js";
 import {
   chatCompletionStreamWithBackoff,
@@ -214,6 +215,8 @@ interface ProcessStreamingResponseOptions {
   isHeadless?: boolean;
   tools?: ChatCompletionTool[];
   systemMessage: string;
+  /** True when this request is a compaction, whose prefix is not the session's. */
+  isCompacting?: boolean;
 }
 
 // Process a single streaming response and return whether we need to continue
@@ -241,6 +244,7 @@ export async function processStreamingResponse(
     isHeadless,
     tools,
     systemMessage,
+    isCompacting,
   } = options;
 
   let chatHistory = options.chatHistory;
@@ -373,6 +377,7 @@ export async function processStreamingResponse(
       model,
       tools,
       fullUsage,
+      requestKind: isCompacting ? "compaction" : "turn",
     });
     const totalDuration = responseEndTime - requestStartTime;
 
@@ -393,6 +398,23 @@ export async function processStreamingResponse(
       cost,
       duration: totalDuration,
     });
+
+    // The hit ratio is logged for every request rather than only the session
+    // total, because the session total is an average over requests that may
+    // have used entirely different prefixes. A zero here on an otherwise
+    // identical second request is the signal that something in the prefix moved.
+    const cacheRead = fullUsage?.prompt_tokens_details?.cache_read_tokens ?? 0;
+    const cacheWrite =
+      fullUsage?.prompt_tokens_details?.cache_write_tokens ?? 0;
+    const reportedInput = fullUsage?.prompt_tokens ?? inputTokens;
+    if (reportedInput > 0) {
+      logger.debug("Request cache usage", {
+        inputTokens: reportedInput,
+        cacheReadTokens: cacheRead,
+        cacheWriteTokens: cacheWrite,
+        cacheHitRatio: Number((cacheRead / reportedInput).toFixed(4)),
+      });
+    }
   } catch (error: any) {
     const errorDuration = Date.now() - requestStartTime;
 
@@ -506,6 +528,13 @@ export async function streamChatResponse(
   const budget = new TurnBudget(turnBudgetLimits);
   const toolFailures = new ToolFailureTracker();
   const terminalStops = new TerminalStopTracker();
+  /**
+   * The header of the previous request in this turn. A mid-turn change to the
+   * system prompt or the tool list invalidates the cached prefix from that
+   * point onward, and it is otherwise invisible: the model just answers slower
+   * and costs more.
+   */
+  let previousRequestHeader: RequestHeader | undefined;
 
   /**
    * End the turn, tell the caller why, and return the text produced so far.
@@ -570,6 +599,29 @@ export async function streamChatResponse(
       model.chatOptions?.toolOverrides,
     );
 
+    const requestHeader: RequestHeader = {
+      model: model.model,
+      systemMessage,
+      tools,
+      temperature: model.defaultCompletionOptions?.temperature,
+      maxTokens: model.defaultCompletionOptions?.maxTokens,
+      mode: services.toolPermissions.getState().currentMode,
+    };
+    if (previousRequestHeader) {
+      const { equal, differingFields } = headerEquals(
+        previousRequestHeader,
+        requestHeader,
+      );
+      if (!equal) {
+        // Named fields rather than a hash: knowing that the tool list moved is
+        // actionable, knowing that "something changed" is not.
+        logger.warn("Request prefix changed between turns", {
+          differingFields,
+        });
+      }
+    }
+    previousRequestHeader = requestHeader;
+
     // Pre-API auto-compaction checkpoint (now includes tools)
     const preCompactionResult = await handlePreApiCompaction(chatHistory, {
       model,
@@ -608,6 +660,7 @@ export async function streamChatResponse(
       callbacks,
       tools,
       systemMessage,
+      isCompacting,
     });
 
     if (abortController?.signal.aborted) {

@@ -274,6 +274,20 @@ export interface IContextProvider {
 export interface SessionUsage extends Usage {
   /** Total cumulative cost in USD for all LLM API calls in this session */
   totalCost: number;
+  /**
+   * Usage of the first request in this session, kept apart from the totals.
+   *
+   * A session-wide hit rate is diluted by every request after the first, so it
+   * cannot answer the question a user actually asks: why was this session slow
+   * to start. Requests that carry their own independent prefix, such as
+   * compaction or title generation, are not counted here either, because they
+   * do not share this prefix.
+   */
+  coldStart?: {
+    inputTokens: number;
+    cachedTokens: number;
+    cacheWriteTokens: number;
+  };
 }
 
 export interface Session {
