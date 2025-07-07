@@ -281,12 +281,21 @@ export interface Session {
   title: string;
   workspaceDirectory: string;
   history: ChatHistoryItem[];
-  /** Optional: per-session UI mode (chat/agent/plan/background) */
+  /** Optional: per-session UI mode (agent/plan/debug/multitask/chat) */
   mode?: MessageModes;
   /** Optional: title of the selected chat model for this session */
   chatModelTitle?: string | null;
   /** Optional: cumulative usage and cost for all LLM API calls in this session */
   usage?: SessionUsage;
+  /**
+   * Optional: how deep this session sits in a delegation chain.
+   *
+   * Persisted so that a limit enforced only in memory cannot be reset by
+   * resuming the session, which would make a resumed child look like a
+   * top-level agent. A value read from here is combined with the runtime depth
+   * by taking the larger of the two.
+   */
+  delegationDepth?: number;
 }
 
 export interface BaseSessionMetadata {
@@ -493,7 +502,7 @@ export interface PromptLog {
   completion: string;
 }
 
-export type MessageModes = "chat" | "agent" | "plan" | "background";
+export type MessageModes = "agent" | "plan" | "debug" | "multitask" | "chat";
 
 export type ToolStatus =
   | "generating" // Tool call arguments are being streamed from the LLM
@@ -652,6 +661,8 @@ export interface LLMOptions {
   baseAgentSystemMessage?: string;
   basePlanSystemMessage?: string;
   baseChatSystemMessage?: string;
+  baseDebugSystemMessage?: string;
+  baseMultitaskSystemMessage?: string;
   autocompleteOptions?: Partial<TabAutocompleteOptions>;
   contextLength?: number;
   maxStopWords?: number;
@@ -1282,6 +1293,8 @@ export interface ModelDescription {
   baseAgentSystemMessage?: string;
   basePlanSystemMessage?: string;
   baseChatSystemMessage?: string;
+  baseDebugSystemMessage?: string;
+  baseMultitaskSystemMessage?: string;
   requestOptions?: RequestOptions;
   promptTemplates?: { [key: string]: string };
   cacheBehavior?: CacheBehavior;
@@ -1949,9 +1962,13 @@ export type RuleSource =
   | "default-chat"
   | "default-plan"
   | "default-agent"
+  | "default-debug"
+  | "default-multitask"
   | "model-options-chat"
   | "model-options-plan"
   | "model-options-agent"
+  | "model-options-debug"
+  | "model-options-multitask"
   | "rules-block"
   | "colocated-markdown"
   | "json-systemMessage"
@@ -1994,6 +2011,18 @@ export interface CompiledMessagesResult {
   compiledChatMessages: ChatMessage[];
   didPrune: boolean;
   contextPercentage: number;
+  tokenBreakdown?: ContextTokenBreakdown;
+}
+
+export interface ContextTokenBreakdown {
+  systemPrompt: number;
+  tools: number;
+  mcp: number;
+  skills: number;
+  conversation: number;
+  used: number;
+  available: number;
+  contextLength: number;
 }
 
 export interface AddToChatPayload {

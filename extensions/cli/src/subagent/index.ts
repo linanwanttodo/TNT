@@ -26,3 +26,25 @@ export const SUBAGENT_TOOL_META: Tool = {
   },
   run: async () => "",
 };
+
+/**
+ * Lists the agents available for delegation.
+ *
+ * This is a separate tool rather than part of the delegation tool's
+ * description on purpose. The description sits in the cached prompt prefix, so
+ * listing agents there would rewrite the tool schema whenever the
+ * configuration changes and invalidate every cached token after it.
+ */
+export const LIST_SUBAGENTS_TOOL_META: Tool = {
+  name: "ListSubagents",
+  displayName: "List Subagents",
+  description:
+    "List the specialized agents available for delegation, with a one-line description of each.",
+  readonly: true,
+  isBuiltIn: true,
+  parameters: {
+    type: "object",
+    properties: {},
+  },
+  run: async () => "",
+};

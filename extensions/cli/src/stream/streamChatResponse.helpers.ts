@@ -408,6 +408,7 @@ export async function preprocessStreamedToolCalls(
   isHeadless: boolean,
   toolCalls: ToolCall[],
   callbacks?: StreamCallbacks,
+  canDelegate: boolean = true,
 ): Promise<{
   preprocessedCalls: PreprocessedToolCall[];
   errorChatEntries: ChatCompletionToolMessageParam[];
@@ -421,7 +422,10 @@ export async function preprocessStreamedToolCalls(
   for (const toolCall of toolCalls) {
     const startTime = Date.now();
     try {
-      const availableTools: Tool[] = await getAllAvailableTools(isHeadless);
+      const availableTools: Tool[] = await getAllAvailableTools(
+        isHeadless,
+        canDelegate,
+      );
       const tool = availableTools.find((t) => t.name === toolCall.name);
       if (!tool) {
         throw new Error(`Tool ${toolCall.name} not found`);
@@ -504,6 +508,12 @@ export async function executeStreamedToolCalls(
     succeeded: boolean,
     error?: unknown,
   ) => void,
+  /**
+   * Permissions to enforce. Left unset, the process-wide policy is used. A
+   * delegated run passes its own narrowed policy, so the check at execution
+   * time agrees with the tool list the model was shown.
+   */
+  permissions?: ToolPermissions,
 ): Promise<{
   hasRejection: boolean;
   chatHistoryEntries: ToolResultWithStatus[];
@@ -546,11 +556,14 @@ export async function executeStreamedToolCalls(
 
       // Check tool permissions using helper
       const permissionState =
-        await serviceContainer.get<ToolPermissionServiceState>(
-          SERVICE_NAMES.TOOL_PERMISSIONS,
-        );
+        permissions ??
+        (
+          await serviceContainer.get<ToolPermissionServiceState>(
+            SERVICE_NAMES.TOOL_PERMISSIONS,
+          )
+        ).permissions;
       const permissionResult = await checkToolPermissionApproval(
-        permissionState.permissions,
+        permissionState,
         call,
         callbacks,
         isHeadless,

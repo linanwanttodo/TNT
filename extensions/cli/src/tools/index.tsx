@@ -30,7 +30,7 @@ import { reportFailureTool } from "./reportFailure.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { checkIfRipgrepIsInstalled, searchCodeTool } from "./searchCode.js";
 import { skillsTool } from "./skills.js";
-import { subagentTool } from "./subagent.js";
+import { listSubagentsTool, subagentTool } from "./subagent.js";
 import {
   isBetaSubagentToolEnabled,
   isBetaUploadArtifactToolEnabled,
@@ -78,6 +78,13 @@ const BUILTIN_SEARCH_TOOLS: Tool[] = [searchCodeTool];
 // Get all builtin tools including dynamic ones, with capability-based filtering
 export async function getAllAvailableTools(
   isHeadless: boolean,
+  /**
+   * Whether this run may delegate again. A run that has reached its depth
+   * limit does not receive the delegation tool at all: an absent tool costs
+   * no schema tokens and gives the model nothing to attempt, which is a
+   * stronger guard than refusing a call it can already see.
+   */
+  canDelegate: boolean = true,
 ): Promise<Tool[]> {
   const tools = [...BASE_BUILTIN_TOOLS];
 
@@ -128,8 +135,9 @@ export async function getAllAvailableTools(
     tools.push(exitTool);
   }
 
-  if (isBetaSubagentToolEnabled()) {
+  if (isBetaSubagentToolEnabled() && canDelegate) {
     tools.push(await subagentTool());
+    tools.push(await listSubagentsTool());
   }
 
   tools.push(await skillsTool());

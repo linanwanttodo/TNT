@@ -3,6 +3,7 @@ import { stripImages } from "core/util/messageContent.js";
 import { createHistoryItem } from "core/util/messageConversion.js";
 
 import { checkToolPermission } from "src/permissions/permissionChecker.js";
+import type { ToolPermissions } from "src/permissions/types.js";
 
 import {
   SERVICE_NAMES,
@@ -41,6 +42,14 @@ interface HandleToolCallsOptions {
     succeeded: boolean,
     error?: unknown,
   ) => void;
+  /**
+   * Permissions to enforce. Left unset, the process-wide policy is used.
+   */
+  permissions?: ToolPermissions;
+  /**
+   * Whether this run may delegate again. False at the depth limit.
+   */
+  canDelegate?: boolean;
 }
 
 export async function handleToolCalls(
@@ -118,7 +127,12 @@ export async function handleToolCalls(
 
   // First preprocess the tool calls
   const { preprocessedCalls, errorChatEntries } =
-    await preprocessStreamedToolCalls(isHeadless, toolCalls, callbacks);
+    await preprocessStreamedToolCalls(
+      isHeadless,
+      toolCalls,
+      callbacks,
+      options.canDelegate,
+    );
 
   // Add any preprocessing errors to the toolCallStates on the assistant message
   // (NOT as separate history items, which would cause duplicate tool_result messages)
@@ -164,6 +178,7 @@ export async function handleToolCalls(
     callbacks,
     isHeadless,
     options.onToolOutcome,
+    options.permissions,
   );
 
   if (isHeadless && hasRejection) {
@@ -180,19 +195,34 @@ export async function handleToolCalls(
   return false;
 }
 
-export async function getRequestTools(isHeadless: boolean) {
-  const availableTools = await getAllAvailableTools(isHeadless);
+export async function getRequestTools(
+  isHeadless: boolean,
+  /**
+   * Permissions to evaluate against. Left unset, the process-wide policy is
+   * used, which is what a top-level turn wants.
+   */
+  permissions?: ToolPermissions,
+  /**
+   * Whether this run may delegate again. A run at its depth limit does not see
+   * the delegation tool at all.
+   */
+  canDelegate: boolean = true,
+) {
+  const availableTools = await getAllAvailableTools(isHeadless, canDelegate);
 
   const permissionsState =
-    await serviceContainer.get<ToolPermissionServiceState>(
-      SERVICE_NAMES.TOOL_PERMISSIONS,
-    );
+    permissions ??
+    (
+      await serviceContainer.get<ToolPermissionServiceState>(
+        SERVICE_NAMES.TOOL_PERMISSIONS,
+      )
+    ).permissions;
 
   const allowedTools: Tool[] = [];
   for (const tool of availableTools) {
     const result = checkToolPermission(
       { name: tool.name, arguments: {} },
-      permissionsState.permissions,
+      permissionsState,
     );
 
     if (

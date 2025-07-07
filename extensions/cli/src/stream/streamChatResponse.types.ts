@@ -3,6 +3,7 @@ import type { ToolStatus } from "core/index.js";
 import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
 
 import type { TerminationReason } from "../loop/termination.js";
+import type { ToolPermissions } from "../permissions/types.js";
 import { ToolCallPreview } from "../tools/types.js";
 
 export interface StreamCallbacks {
@@ -27,6 +28,31 @@ export interface StreamCallbacks {
     reason: TerminationReason,
     detail?: { maxSteps?: number; notice?: string },
   ) => void;
+}
+
+/**
+ * Values that differ for a delegated run.
+ *
+ * A top-level turn leaves these unset and reads the process-wide services. A
+ * delegated run passes them so two concurrent delegations cannot overwrite each
+ * other's system prompt or permissions.
+ */
+export interface StreamRunOverrides {
+  /** System prompt for this run, already resolved. */
+  readonly systemMessage?: string;
+  /** Whether this run has an interactive approver. Defaults to the global. */
+  readonly isHeadless?: boolean;
+  /**
+   * Permissions for this run. Defaults to the global. A delegated run passes
+   * its own narrowed policy so it cannot widen its own scope, and so two
+   * concurrent delegations do not read each other's permissions.
+   */
+  readonly permissions?: ToolPermissions;
+  /**
+   * Whether this run may delegate again. False at the depth limit, which keeps
+   * the delegation tool out of the tool list entirely.
+   */
+  readonly canDelegate?: boolean;
 }
 
 export function getDefaultCompletionOptions(

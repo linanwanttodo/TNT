@@ -1,12 +1,20 @@
 import type { ChatHistoryItem } from "core";
 
 import { services } from "../services/index.js";
-import { serviceContainer } from "../services/ServiceContainer.js";
-import type { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { escapeEvents } from "../util/cli.js";
 import { logger } from "../util/logger.js";
+
+import { getCurrentSession } from "../session.js";
+
+import {
+  canDelegate,
+  DEFAULT_MAX_SUBAGENT_DEPTH,
+  delegationDepthOf,
+  resolveChildDepth,
+} from "./depth.js";
+import { createChildContext, type AgentRunContext } from "./runContext.js";
 
 /**
  * Options for executing a subagent
@@ -17,6 +25,12 @@ export interface SubAgentExecutionOptions {
   parentSessionId: string;
   abortController: AbortController;
   onOutputUpdate?: (output: string) => void;
+  /**
+   * Run context for the parent. When omitted, one is built from the global
+   * services, so a caller that has none still works.
+   */
+  parentContext?: AgentRunContext;
+  maxDelegationDepth?: number;
 }
 
 /**
@@ -33,12 +47,10 @@ export interface SubAgentResult {
  */
 async function buildAgentSystemMessage(
   agent: ModelServiceState,
-  services: any,
+  mode: string,
 ): Promise<string> {
   const baseMessage = services.systemMessage
-    ? await services.systemMessage.getSystemMessage(
-        services.toolPermissions.getState().currentMode,
-      )
+    ? await services.systemMessage.getSystemMessage(mode as any)
     : "";
 
   const agentPrompt = agent.model?.chatOptions?.baseSystemMessage || "";
@@ -58,12 +70,13 @@ async function buildAgentSystemMessage(
 export async function executeSubAgent(
   options: SubAgentExecutionOptions,
 ): Promise<SubAgentResult> {
-  const { agent: subAgent, prompt, abortController, onOutputUpdate } = options;
-
-  const mainAgentPermissionsState =
-    await serviceContainer.get<ToolPermissionServiceState>(
-      SERVICE_NAMES.TOOL_PERMISSIONS,
-    );
+  const {
+    agent: subAgent,
+    prompt,
+    abortController,
+    onOutputUpdate,
+    parentContext,
+  } = options;
 
   try {
     logger.debug("Starting subagent execution", {
@@ -75,41 +88,37 @@ export async function executeSubAgent(
       throw new Error("Model or LLM API not available");
     }
 
-    // allow all tools for now
-    // todo: eventually we want to show the same prompt in a dialog whether asking whether that tool call is allowed or not
+    const maxDelegationDepth =
+      options.maxDelegationDepth ?? DEFAULT_MAX_SUBAGENT_DEPTH;
 
-    serviceContainer.set<ToolPermissionServiceState>(
-      SERVICE_NAMES.TOOL_PERMISSIONS,
-      {
-        ...mainAgentPermissionsState,
-        permissions: {
-          policies: [{ tool: "*", permission: "allow" }],
-        },
-      },
+    const resolvedParent =
+      parentContext ??
+      ({
+        id: options.parentSessionId,
+        parentContext: undefined,
+        delegationDepth: delegationDepthOf(getCurrentSession()),
+        systemMessage: "",
+        permissions: services.toolPermissions.getState().permissions,
+        mode: services.toolPermissions.getState().currentMode,
+        abortSignal: abortController.signal,
+      } satisfies AgentRunContext);
+
+    const childDepth = resolveChildDepth({
+      delegationDepth: resolvedParent.delegationDepth,
+      maxDelegationDepth,
+    });
+
+    const systemMessage = await buildAgentSystemMessage(
+      subAgent,
+      resolvedParent.mode,
     );
 
-    // Build agent system message
-    const systemMessage = await buildAgentSystemMessage(subAgent, services);
-
-    // Store original system message function
-    const originalGetSystemMessage = services.systemMessage?.getSystemMessage;
-
-    // Store original ChatHistoryService ready state
-    const chatHistorySvc = services.chatHistory;
-    const originalIsReady =
-      chatHistorySvc && typeof chatHistorySvc.isReady === "function"
-        ? chatHistorySvc.isReady
-        : undefined;
-
-    // Override system message for this execution
-    if (services.systemMessage) {
-      services.systemMessage.getSystemMessage = async () => systemMessage;
-    }
-
-    // Temporarily disable ChatHistoryService to prevent it from interfering with child session
-    if (chatHistorySvc && originalIsReady) {
-      chatHistorySvc.isReady = () => false;
-    }
+    const childContext = createChildContext(resolvedParent, {
+      id: `${resolvedParent.id}:${childDepth}:${subAgent.model?.name ?? "agent"}`,
+      delegationDepth: childDepth,
+      systemMessage,
+      abortSignal: abortController.signal,
+    });
 
     const chatHistory = [
       {
@@ -159,6 +168,16 @@ export async function executeSubAgent(
           },
         },
         false, // Not compacting
+        undefined,
+        {
+          systemMessage: childContext.systemMessage,
+          isHeadless: true,
+          permissions: childContext.permissions,
+          canDelegate: canDelegate({
+            delegationDepth: childDepth,
+            maxDelegationDepth,
+          }),
+        },
       );
 
       // The last message (mostly) contains the important output to be submitted back to the main agent
@@ -181,22 +200,6 @@ export async function executeSubAgent(
       if (escapeHandler) {
         escapeEvents.removeListener("user-escape", escapeHandler);
       }
-
-      // Restore original system message function
-      if (services.systemMessage && originalGetSystemMessage) {
-        services.systemMessage.getSystemMessage = originalGetSystemMessage;
-      }
-
-      // Restore original ChatHistoryService ready state
-      if (chatHistorySvc && originalIsReady) {
-        chatHistorySvc.isReady = originalIsReady;
-      }
-
-      // Restore original main agent tool permissions
-      serviceContainer.set<ToolPermissionServiceState>(
-        SERVICE_NAMES.TOOL_PERMISSIONS,
-        mainAgentPermissionsState,
-      );
     }
   } catch (error: any) {
     logger.error("Subagent execution failed", {

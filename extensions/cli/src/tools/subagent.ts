@@ -1,5 +1,6 @@
 import { services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
+import { ModelService } from "../services/ModelService.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
@@ -7,7 +8,10 @@ import {
   getSubagent,
   getAgentNames as getSubagentNames,
 } from "../subagent/get-agents.js";
-import { SUBAGENT_TOOL_META } from "../subagent/index.js";
+import {
+  LIST_SUBAGENTS_TOOL_META,
+  SUBAGENT_TOOL_META,
+} from "../subagent/index.js";
 import { logger } from "../util/logger.js";
 
 import { Tool } from "./types.js";
@@ -20,7 +24,7 @@ export const subagentTool = async (): Promise<Tool> => {
   return {
     ...SUBAGENT_TOOL_META,
 
-    description: generateSubagentToolDescription(modelServiceState),
+    description: generateSubagentToolDescription(),
 
     parameters: {
       ...SUBAGENT_TOOL_META.parameters,
@@ -28,11 +32,8 @@ export const subagentTool = async (): Promise<Tool> => {
         ...SUBAGENT_TOOL_META.parameters.properties,
         subagent_name: {
           type: "string",
-          description: `The type of specialized agent to use for this task. Available agents: ${
-            modelServiceState
-              ? getSubagentNames(modelServiceState).join(", ")
-              : ""
-          }`,
+          description:
+            "The type of specialized agent to use for this task. Call the agent listing tool to see the available agents.",
         },
       },
     },
@@ -110,6 +111,35 @@ export const subagentTool = async (): Promise<Tool> => {
         .join("\n");
 
       return output;
+    },
+  };
+};
+
+/**
+ * Reports the agents that can be delegated to.
+ *
+ * Kept out of the delegation tool's description so the cached prompt prefix
+ * does not change when the agent configuration does.
+ */
+export const listSubagentsTool = async (): Promise<Tool> => {
+  const modelServiceState = await serviceContainer.get<ModelServiceState>(
+    SERVICE_NAMES.MODEL,
+  );
+
+  return {
+    ...LIST_SUBAGENTS_TOOL_META,
+    run: async () => {
+      const agents = ModelService.getSubagentModels(modelServiceState);
+      if (agents.length === 0) {
+        return "No subagents are configured.";
+      }
+      const lines = agents.map((agent) => {
+        const description =
+          agent.model.chatOptions?.baseSystemMessage?.trim().split("\n")[0] ??
+          "no description";
+        return `- ${agent.model.name}: ${description}`;
+      });
+      return `Available subagents:\n${lines.join("\n")}`;
     },
   };
 };
