@@ -47,6 +47,10 @@ import {
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
 import {
+  pruneCacheBreakpoints,
+  sanitizeReasoningBlocks,
+} from "./cacheControl.js";
+import {
   BaseLlmApi,
   CreateRerankResponse,
   FimCreateParamsStreaming,
@@ -82,7 +86,30 @@ export class AnthropicApi implements BaseLlmApi {
       addCacheControlToLastTwoUserMessages(result.messages);
     }
 
-    return result;
+    // Step 4: Remove breakpoints that cannot earn their keep.
+    //
+    // A breakpoint on a reasoning block is wasted: the provider drops a block
+    // whose signature does not verify, and takes the cached span with it. A
+    // block that lost its signature in serialization would therefore cost the
+    // whole prefix rather than just itself. Once those are gone, the remaining
+    // breakpoints are capped to the most recent ones, since a breakpoint older
+    // than the provider's eviction window is not read back.
+    //
+    // This only removes breakpoints. How many are sent is the strategy's
+    // decision and is left alone until usage data justifies changing it.
+    const sanitized = sanitizeReasoningBlocks(result.messages);
+    const prunedMessages = pruneCacheBreakpoints(sanitized);
+
+    return {
+      ...result,
+      messages: prunedMessages,
+      ...(Array.isArray(result.system)
+        ? { system: pruneCacheBreakpoints(result.system) }
+        : {}),
+      ...(Array.isArray(result.tools)
+        ? { tools: pruneCacheBreakpoints(result.tools) }
+        : {}),
+    };
   }
 
   private maxTokensForModel(model: string): number {
