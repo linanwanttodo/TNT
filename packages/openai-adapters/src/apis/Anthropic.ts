@@ -47,9 +47,11 @@ import {
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
 import {
+  applyCacheControlFormat,
   pruneCacheBreakpoints,
   sanitizeReasoningBlocks,
 } from "./cacheControl.js";
+import type { CacheControlFormat } from "./cacheControl.js";
 import {
   BaseLlmApi,
   CreateRerankResponse,
@@ -63,6 +65,7 @@ export class AnthropicApi implements BaseLlmApi {
   constructor(
     protected config: AnthropicConfig & {
       cachingStrategy?: CachingStrategyName;
+      cacheControlFormat?: CacheControlFormat;
     },
   ) {
     this.apiBase = config.apiBase ?? this.apiBase;
@@ -100,7 +103,7 @@ export class AnthropicApi implements BaseLlmApi {
     const sanitized = sanitizeReasoningBlocks(result.messages);
     const prunedMessages = pruneCacheBreakpoints(sanitized);
 
-    return {
+    const pruned = {
       ...result,
       messages: prunedMessages,
       ...(Array.isArray(result.system)
@@ -110,6 +113,10 @@ export class AnthropicApi implements BaseLlmApi {
         ? { tools: pruneCacheBreakpoints(result.tools) }
         : {}),
     };
+
+    // Narrow only when the caller declared what the endpoint accepts. No
+    // declaration means today's behavior is sent unchanged.
+    return applyCacheControlFormat(pruned, this.config.cacheControlFormat);
   }
 
   private maxTokensForModel(model: string): number {
