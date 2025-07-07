@@ -8,6 +8,7 @@ import { ChatCompletionToolMessageParam } from "openai/resources/chat/completion
 
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 
+import type { LoopDetector } from "../loop/loopDetector.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
@@ -24,6 +25,8 @@ import {
   Tool,
   validateToolCallArgsPresent,
 } from "../tools/index.js";
+import { ExecutionGate } from "../tools/specs/gate.js";
+import { planToolCalls } from "../tools/specs/planner.js";
 import { PreprocessedToolCall, ToolCall } from "../tools/types.js";
 import { logger } from "../util/logger.js";
 
@@ -32,6 +35,12 @@ import { StreamCallbacks } from "./streamChatResponse.types.js";
 export interface ToolResultWithStatus extends ChatCompletionToolMessageParam {
   status: ToolStatus;
 }
+
+/**
+ * One gate per process. The gate is stateless across turns, so a slot left
+ * unclaimed by a crashed turn cannot leak into the next one.
+ */
+const executionGate = new ExecutionGate();
 
 // Helper function to handle permission denied
 export function handlePermissionDenied(
@@ -168,8 +177,16 @@ export function processChunkContent(
   aiResponse: string,
   callbacks?: StreamCallbacks,
   isHeadless?: boolean,
+  /**
+   * Fed each chunk so a repetition can be caught mid-message rather than after
+   * paying for the whole round. See {@link processStreamingResponse} for where
+   * the detector's result is consumed.
+   */
+  loopDetector?: LoopDetector,
 ): string {
   const updatedResponse = aiResponse + content;
+
+  loopDetector?.feed(content);
 
   if (callbacks?.onContent) {
     callbacks.onContent(content);
@@ -478,6 +495,15 @@ export async function executeStreamedToolCalls(
   preprocessedCalls: PreprocessedToolCall[],
   callbacks?: StreamCallbacks,
   isHeadless?: boolean,
+  /**
+   * Notified once per tool call with the outcome, so the caller can keep a
+   * per-tool failure tally without this function knowing why it cares.
+   */
+  onToolOutcome?: (
+    toolName: string,
+    succeeded: boolean,
+    error?: unknown,
+  ) => void,
 ): Promise<{
   hasRejection: boolean;
   chatHistoryEntries: ToolResultWithStatus[];
@@ -583,6 +609,7 @@ export async function executeStreamedToolCalls(
             };
             entriesByIndex.set(index, entry);
             callbacks?.onToolResult?.(toolResult, call.name, "done");
+            onToolOutcome?.(call.name, true);
             // Immediate service update for UI feedback
             try {
               services.chatHistory.addToolResult(
@@ -595,6 +622,7 @@ export async function executeStreamedToolCalls(
             const errorMessage = `Error executing tool ${call.name}: ${
               error instanceof Error ? error.message : String(error)
             }`;
+            onToolOutcome?.(call.name, false, error);
             logger.error("Tool execution failed", {
               name: call.name,
               error: errorMessage,

@@ -31,6 +31,16 @@ interface HandleToolCallsOptions {
   callbacks: StreamCallbacks | undefined;
   isHeadless: boolean;
   usage?: any;
+  /**
+   * Forwarded to the executor so the caller can keep a per-tool failure tally.
+   * A permission denial is not a tool failure, so it is deliberately not
+   * reported here.
+   */
+  onToolOutcome?: (
+    toolName: string,
+    succeeded: boolean,
+    error?: unknown,
+  ) => void;
 }
 
 export async function handleToolCalls(
@@ -153,6 +163,7 @@ export async function handleToolCalls(
     preprocessedCalls,
     callbacks,
     isHeadless,
+    options.onToolOutcome,
   );
 
   if (isHeadless && hasRejection) {

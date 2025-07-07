@@ -237,6 +237,34 @@ export function createStreamCallbacks(
         },
       ]);
     },
+
+    // A turn cut short by the step ceiling or a stalled loop still returns
+    // its partial text, so the session needs to record that the text is not a
+    // finished answer. Reuses the system-message channel rather than adding a
+    // second way to surface notices.
+    onTurnTerminated: (_reason: unknown, detail?: { notice?: string }) => {
+      const notice = detail?.notice;
+      if (!notice) {
+        return;
+      }
+      try {
+        const svc = services.chatHistory;
+        if (typeof svc?.isReady === "function" && svc.isReady()) {
+          svc.addSystemMessage(notice);
+          return;
+        }
+      } catch {}
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          message: {
+            role: "system",
+            content: notice,
+          },
+          contextItems: [],
+        },
+      ]);
+    },
   };
 }
 

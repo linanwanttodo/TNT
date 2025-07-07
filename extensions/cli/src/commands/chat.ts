@@ -7,6 +7,7 @@ import { ChatDescriber } from "core/util/chatDescriber.js";
 import { compactChatHistory, findCompactionIndex } from "../compaction.js";
 import { processCommandFlags } from "../flags/flagProcessor.js";
 import { safeStderr, safeStdout } from "../init.js";
+import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { configureLogger } from "../logger.js";
 import * as logging from "../logging.js";
 import { initializeServices, services } from "../services/index.js";
@@ -22,6 +23,7 @@ import {
   updateSessionTitle,
 } from "../session.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
+import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { startTUIChat } from "../ui/index.js";
 import { gracefulExit } from "../util/exit.js";
@@ -83,6 +85,8 @@ export interface ChatOptions extends ExtendedCommandOptions {
   fork?: string; // Fork from an existing session ID
   format?: "json"; // Output format for headless mode
   silent?: boolean; // Strip <think></think> tags and excess whitespace
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
 }
 
 export async function initializeChatHistory(
@@ -168,29 +172,38 @@ async function getStreamingResponse(
   compactionIndex: number | null | undefined,
   model: ModelConfig,
   llmApi: BaseLlmApi,
+  turnBudgetLimits?: Partial<TurnBudgetLimits>,
 ): Promise<string> {
   const abortController = new AbortController();
+  // Captured rather than logged: a truncated turn still returns usable text, so
+  // the caller has to know to label it as incomplete.
+  let truncationNotice: string | undefined;
+  const callbacks: StreamCallbacks = {
+    onTurnTerminated: (_reason, detail) => {
+      truncationNotice = detail?.notice;
+    },
+  };
 
-  if (compactionIndex !== null && compactionIndex !== undefined) {
-    // Use service to compute history for LLM
-    const historyForLLM =
-      services.chatHistory.getHistoryForLLM(compactionIndex);
+  const history =
+    compactionIndex !== null && compactionIndex !== undefined
+      ? services.chatHistory.getHistoryForLLM(compactionIndex)
+      : services.chatHistory.getHistory();
 
-    return await streamChatResponse(
-      historyForLLM,
-      model,
-      llmApi,
-      abortController,
-    );
-  } else {
-    // No compaction - get full history from service
-    return await streamChatResponse(
-      services.chatHistory.getHistory(),
-      model,
-      llmApi,
-      abortController,
-    );
+  const response = await streamChatResponse(
+    history,
+    model,
+    llmApi,
+    abortController,
+    callbacks,
+    false,
+    turnBudgetLimits,
+  );
+
+  if (truncationNotice) {
+    safeStderr(`\n[${truncationNotice}]\n`);
   }
+
+  return response;
 }
 
 // Helper function to process and output response in headless mode
@@ -337,6 +350,8 @@ interface ProcessMessageOptions {
   silent?: boolean;
   compactionIndex?: number | null;
   firstAssistantResponse?: boolean;
+  /** Passed through to the loop so a turn can be capped from the CLI. */
+  maxSteps?: number;
 }
 
 async function processMessage(
@@ -352,6 +367,7 @@ async function processMessage(
     silent,
     compactionIndex: initialCompactionIndex,
     firstAssistantResponse = false,
+    maxSteps,
   } = options;
   let compactionIndex = initialCompactionIndex;
   // Check for slash commands in headless mode
@@ -390,6 +406,7 @@ async function processMessage(
       compactionIndex,
       model,
       llmApi,
+      maxSteps === undefined ? undefined : { maxSteps },
     );
 
     // Generate session title after first assistant response
@@ -531,6 +548,7 @@ async function runHeadlessMode(
       silent: options.silent,
       compactionIndex,
       firstAssistantResponse: isFirstMessage && !options.resume, // Only generate title for new conversations
+      maxSteps: options.maxSteps,
     });
 
     // Update compaction index if compaction occurred
