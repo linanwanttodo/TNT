@@ -26,13 +26,27 @@ async function getGitignorePatterns() {
 }
 
 // procedure 1: search with ripgrep
+//
+// The answer cannot change while a process is running, but the tool list is
+// rebuilt on every turn, so probing it per turn would spawn a subprocess each
+// time. The result is cached for the life of the process.
+let ripgrepProbe: Promise<boolean> | undefined;
+
 export async function checkIfRipgrepIsInstalled(): Promise<boolean> {
-  try {
-    await execPromise("rg --version");
-    return true;
-  } catch {
-    return false;
-  }
+  ripgrepProbe ??= (async () => {
+    try {
+      await execPromise("rg --version");
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  return ripgrepProbe;
+}
+
+/** Clears the cached probe so a test can force a different answer. */
+export function resetRipgrepProbeCache(): void {
+  ripgrepProbe = undefined;
 }
 
 async function searchWithRipgrep(
