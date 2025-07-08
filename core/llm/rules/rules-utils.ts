@@ -16,6 +16,10 @@ export function getRuleSourceDisplayName(rule: RuleMetadata): string {
       return "Default chat system message";
     case "default-plan":
       return "Default plan mode system message";
+    case "default-debug":
+      return "Default debug mode system message";
+    case "default-multitask":
+      return "Default multitask mode system message";
     case "default-agent":
       return "Default agent system message";
     case "json-systemMessage":
@@ -24,6 +28,10 @@ export function getRuleSourceDisplayName(rule: RuleMetadata): string {
       return "Base System Agent Message";
     case "model-options-plan":
       return "Base System Plan Message";
+    case "model-options-debug":
+      return "Base System Debug Message";
+    case "model-options-multitask":
+      return "Base System Multitask Message";
     case "model-options-chat":
       return "Base System Chat Message";
     case "agentFile":

@@ -5,6 +5,43 @@ import { FromCoreProtocol, ToCoreProtocol } from "../protocol";
 import { IMessenger, Message } from "../protocol/messenger";
 
 import { TTS } from "../util/tts";
+import {
+  buildCacheFingerprint,
+  detectCacheBreak,
+  type CacheFingerprint,
+} from "../util/cacheBreakDetection";
+import { Logger } from "../util/Logger";
+
+// Prompt caching only helps while the request prefix stays identical. The
+// fingerprint is kept per conversation so a change can be attributed to the
+// system prompt, the tool definitions, or the model, rather than showing up
+// only as a slower, more expensive request.
+const cacheFingerprints = new Map<string, CacheFingerprint>();
+
+function logCacheBreak(
+  messages: ChatMessage[],
+  completionOptions: ToCoreProtocol["llm/streamChat"][0]["completionOptions"],
+  model: { model: string; title?: string },
+) {
+  const conversationKey = model.title ?? model.model;
+  const fingerprint = buildCacheFingerprint(
+    messages,
+    completionOptions.tools,
+    completionOptions.model ?? model.model,
+  );
+  const previous = cacheFingerprints.get(conversationKey);
+  const cacheBreak = detectCacheBreak(previous, fingerprint);
+  if (cacheBreak) {
+    Logger.debug(
+      `[prompt-cache] prefix changed (${cacheBreak.reason})${
+        cacheBreak.changedTools?.length
+          ? `: ${cacheBreak.changedTools.join(", ")}`
+          : ""
+      }`,
+    );
+  }
+  cacheFingerprints.set(conversationKey, fingerprint);
+}
 
 export async function* llmStreamChat(
   configHandler: ConfigHandler,
@@ -112,6 +149,7 @@ export async function* llmStreamChat(
 
       return next.value;
     } else {
+      logCacheBreak(messages, completionOptions, model);
       const gen = model.streamChat(
         messages,
         abortController.signal,

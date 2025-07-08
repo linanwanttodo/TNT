@@ -566,6 +566,10 @@ export interface ChatHistoryItem {
   reasoning?: Reasoning;
   appliedRules?: RuleMetadata[];
   conversationSummary?: string;
+  compactionCheckpoint?: {
+    kind: "compact-checkpoint";
+    compactionId: string;
+  };
 }
 
 export interface LLMFullCompletionOptions extends BaseCompletionOptions {

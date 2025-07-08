@@ -132,6 +132,9 @@ export const chatOptionsSchema = z.object({
   baseSystemMessage: z.string().optional(),
   baseAgentSystemMessage: z.string().optional(),
   basePlanSystemMessage: z.string().optional(),
+  baseDebugSystemMessage: z.string().optional(),
+  baseMultitaskSystemMessage: z.string().optional(),
+  supportsInHistorySystemUpdates: z.boolean().optional(),
   /** Tool overrides keyed by tool name (e.g., "run_terminal_command") */
   toolOverrides: z.record(z.string(), toolOverrideSchema).optional(),
 });

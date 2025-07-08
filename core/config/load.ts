@@ -610,6 +610,8 @@ function llmToSerializedModelDescription(llm: ILLM): ModelDescription {
     baseAgentSystemMessage: llm.baseAgentSystemMessage,
     basePlanSystemMessage: llm.basePlanSystemMessage,
     baseChatSystemMessage: llm.baseChatSystemMessage,
+    baseDebugSystemMessage: llm.baseDebugSystemMessage,
+    baseMultitaskSystemMessage: llm.baseMultitaskSystemMessage,
     requestOptions: llm.requestOptions,
     promptTemplates: serializePromptTemplates(llm.promptTemplates),
     capabilities: llm.capabilities,
