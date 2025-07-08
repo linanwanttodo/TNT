@@ -31,15 +31,15 @@ describe("compaction infinite loop prevention", () => {
   const mockLlmApi = {} as BaseLlmApi;
 
   it("should not loop infinitely when pruning doesn't reduce history size", async () => {
-    const { countChatHistoryTokens, getModelContextLimit } = await import(
-      "./util/tokenizer.js"
-    );
+    const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
+      await import("./util/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);
 
     // Setup mocks
     mockGetContextLimit.mockReturnValue(4000);
+    vi.mocked(getModelMaxTokens).mockReturnValue(1000);
     mockCountTokens.mockReturnValue(5000); // Always too big
     mockStreamResponse.mockImplementation(
       async (history, model, api, controller, callbacks) => {
@@ -55,23 +55,25 @@ describe("compaction infinite loop prevention", () => {
     ]);
 
     // This should not hang - it should break out of the loop
-    const result = await compactChatHistory(history, mockModel, mockLlmApi);
-
-    // Should complete successfully even though token count is still too high
-    expect(result.compactedHistory).toBeDefined();
+    await expect(
+      compactChatHistory(history, mockModel, mockLlmApi),
+    ).rejects.toThrow(
+      "Compaction request exceeds the available context budget",
+    );
+    expect(mockStreamResponse).not.toHaveBeenCalled();
     expect(mockCountTokens).toHaveBeenCalled();
   });
 
   it("should not loop infinitely with history ending in assistant message", async () => {
-    const { countChatHistoryTokens, getModelContextLimit } = await import(
-      "./util/tokenizer.js"
-    );
+    const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
+      await import("./util/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);
 
     // Setup mocks
     mockGetContextLimit.mockReturnValue(4000);
+    vi.mocked(getModelMaxTokens).mockReturnValue(1000);
     mockCountTokens.mockReturnValue(5000); // Always too big
     mockStreamResponse.mockImplementation(
       async (history, model, api, controller, callbacks) => {
@@ -89,29 +91,35 @@ describe("compaction infinite loop prevention", () => {
     ]);
 
     // This should not hang
-    const result = await compactChatHistory(history, mockModel, mockLlmApi);
-
-    expect(result.compactedHistory).toBeDefined();
+    await expect(
+      compactChatHistory(history, mockModel, mockLlmApi),
+    ).rejects.toThrow(
+      "Compaction request exceeds the available context budget",
+    );
+    expect(mockStreamResponse).not.toHaveBeenCalled();
   });
 
   it("should successfully prune when pruning actually reduces size", async () => {
-    const { countChatHistoryTokens, getModelContextLimit } = await import(
-      "./util/tokenizer.js"
-    );
+    const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
+      await import("./util/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);
 
     // Setup mocks
     mockGetContextLimit.mockReturnValue(4000);
+    vi.mocked(getModelMaxTokens).mockReturnValue(1000);
 
-    // Mock token counting to show reduction after pruning
-    let callCount = 0;
-    mockCountTokens.mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) return 5000; // Initial too big
-      if (callCount === 2) return 3000; // After pruning, fits
-      return 2000; // Subsequent calls
+    mockCountTokens.mockImplementation((history) => {
+      const isSummaryRequest = history.some((item) =>
+        String(item.message.content).includes(
+          "Please provide a concise summary",
+        ),
+      );
+      if (isSummaryRequest) {
+        return history.length > 3 ? 5000 : 2000;
+      }
+      return history.length * 100;
     });
 
     mockStreamResponse.mockImplementation(

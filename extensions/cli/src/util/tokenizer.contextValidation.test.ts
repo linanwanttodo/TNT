@@ -37,17 +37,15 @@ describe("validateContextLength", () => {
     expect(result.error).toBeUndefined();
   });
 
-  it("should fail validation when input + maxTokens exceeds context limit", () => {
+  it("should reject input that leaves no safe output capacity", () => {
     const model = createMockModel(1000, 800);
-    const chatHistory = createMockHistory(20, 100); // ~500+ tokens
+    const chatHistory = createMockHistory(5, 5000);
 
     const result = validateContextLength({ chatHistory, model });
 
     expect(result.isValid).toBe(false);
-    expect(result.error).toContain("Context length exceeded");
-    expect(result.error).toContain("input");
-    expect(result.error).toContain("max_tokens");
-    expect(result.error).toContain("context_limit");
+    expect(result.error).toContain("No output capacity remains");
+    expect(result.maxTokens).toBe(0);
   });
 
   it("should handle large models with appropriate scaling", () => {

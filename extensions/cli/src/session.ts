@@ -76,6 +76,7 @@ export function getSessionFilePath(): string {
 class SessionManager {
   private static instance: SessionManager;
   private currentSession: Session | null = null;
+  private historyGeneration = 0;
   /**
    * True once the first request whose prefix belongs to this session has been
    * counted. Compaction and title generation do not set it, because their
@@ -121,13 +122,30 @@ class SessionManager {
 
   setSession(session: Session): void {
     this.currentSession = session;
+    this.historyGeneration++;
     this.syncUsageFromSession();
   }
 
   updateHistory(history: ChatHistoryItem[]): void {
     const session = this.getCurrentSession();
     session.history = history;
+    this.historyGeneration++;
     saveSession();
+  }
+
+  getHistoryGeneration(): number {
+    return this.historyGeneration;
+  }
+
+  replaceHistoryIfGeneration(
+    expectedGeneration: number,
+    history: ChatHistoryItem[],
+  ): boolean {
+    if (this.historyGeneration !== expectedGeneration) {
+      return false;
+    }
+    this.updateHistory(history);
+    return true;
   }
 
   updateTitle(title: string): void {
@@ -138,6 +156,7 @@ class SessionManager {
 
   clear(): void {
     this.currentSession = null;
+    this.historyGeneration++;
     this.hasRecordedTurnUsage = false;
     this.sessionUsage = {
       totalCost: 0,
@@ -570,6 +589,20 @@ export function loadOrCreateSessionById(
  */
 export function updateSessionHistory(history: ChatHistoryItem[]): void {
   SessionManager.getInstance().updateHistory(history);
+}
+
+export function getSessionHistoryGeneration(): number {
+  return SessionManager.getInstance().getHistoryGeneration();
+}
+
+export function replaceSessionHistoryIfGeneration(
+  expectedGeneration: number,
+  history: ChatHistoryItem[],
+): boolean {
+  return SessionManager.getInstance().replaceHistoryIfGeneration(
+    expectedGeneration,
+    history,
+  );
 }
 
 /**

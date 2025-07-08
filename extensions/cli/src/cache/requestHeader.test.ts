@@ -65,6 +65,15 @@ describe("headerEquals", () => {
     });
   });
 
+  it("detects an appended system prompt update", () => {
+    expect(
+      headerEquals(
+        { ...base, systemMessageUpdates: ["new"] },
+        { ...base, systemMessageUpdates: ["newer"] },
+      ),
+    ).toEqual({ equal: false, differingFields: ["systemMessageUpdates"] });
+  });
+
   it("detects a tool reorder", () => {
     expect(
       headerEquals(base, {

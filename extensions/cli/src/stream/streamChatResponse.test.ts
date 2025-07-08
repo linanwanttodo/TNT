@@ -162,6 +162,33 @@ describe("processStreamingResponse - content preservation", () => {
     expect(result.finalContent).toBe("I'll read the README file for you.");
   });
 
+  it("sends a dynamically reduced output token limit", async () => {
+    mockModel = {
+      ...mockModel,
+      defaultCompletionOptions: { contextLength: 1000, maxTokens: 500 },
+    } as ModelConfig;
+    chatHistory = [
+      {
+        message: { role: "user", content: "x".repeat(3600) },
+        contextItems: [],
+      },
+    ];
+    chunks = [contentChunk("ok")];
+
+    await processStreamingResponse({
+      chatHistory,
+      model: mockModel,
+      llmApi: mockLlmApi,
+      abortController: mockAbortController,
+      systemMessage: "",
+    });
+
+    expect(mockLlmApi.chatCompletionStream).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 445 }),
+      expect.anything(),
+    );
+  });
+
   it("content before tool calls is preserved", async () => {
     chunks = [
       contentChunk("Let me search for that. "),

@@ -2,6 +2,7 @@ import { ModelConfig } from "@continuedev/config-yaml";
 import { BaseLlmApi } from "@continuedev/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
+import { TOOL_RESULT_TRUNCATION_MARKER } from "core/util/toolResultCompaction.js";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -140,6 +141,21 @@ describe("compaction", () => {
 
       const index = findCompactionIndex(history);
       expect(index).toBe(2);
+    });
+
+    it("recognizes checkpoint metadata in histories without the legacy summary field", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System" },
+        { role: "assistant", content: "Summary" },
+      ]);
+      Object.assign(history[1], {
+        compactionCheckpoint: {
+          kind: "compact-checkpoint",
+          compactionId: "checkpoint-1",
+        },
+      });
+
+      expect(findCompactionIndex(history)).toBe(1);
     });
   });
 
@@ -331,6 +347,62 @@ describe("compaction", () => {
   });
 
   describe("compactChatHistory", () => {
+    it("truncates old tool results before requesting a summary", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      let summaryRequestHistory: ChatHistoryItem[] = [];
+      mockStreamResponse.mockImplementation(async (history) => {
+        summaryRequestHistory = history;
+        return "Summary";
+      });
+
+      const rawMessages: any[] = [{ role: "user", content: "Start" }];
+      for (let i = 0; i < 6; i++) {
+        const id = `call-${i}`;
+        rawMessages.push(
+          {
+            role: "assistant",
+            content: "",
+            tool_calls: [
+              {
+                id,
+                type: "function",
+                function: { name: "read_file", arguments: "{}" },
+              },
+            ],
+          },
+          {
+            role: "tool",
+            content: i === 0 ? "0123456789abcdef".repeat(400) : `result-${i}`,
+            tool_call_id: id,
+          },
+        );
+      }
+      rawMessages.push({ role: "user", content: "Continue" });
+
+      const history = convertToUnifiedHistory(rawMessages);
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 128_000, maxTokens: 2048 },
+      } as ModelConfig;
+
+      await compactChatHistory(history, model, mockLlmApi);
+
+      const summarizedToolCall = summaryRequestHistory.find((item) =>
+        item.toolCallStates?.some((state) => state.toolCallId === "call-0"),
+      );
+      const summarizedOutput = summarizedToolCall?.toolCallStates?.find(
+        (state) => state.toolCallId === "call-0",
+      )?.output?.[0]?.content;
+      const originalToolCall = history.find((item) =>
+        item.toolCallStates?.some((state) => state.toolCallId === "call-0"),
+      );
+
+      expect(summarizedOutput).toContain(TOOL_RESULT_TRUNCATION_MARKER);
+      expect(
+        originalToolCall?.toolCallStates?.[0].output?.[0]?.content,
+      ).not.toContain(TOOL_RESULT_TRUNCATION_MARKER);
+    });
+
     it("should compact chat history successfully", async () => {
       const mockStreamResponse = vi.mocked(streamChatResponse);
       const mockContent = "This is a summary of the conversation";
@@ -366,6 +438,10 @@ describe("compaction", () => {
         },
         contextItems: [],
         conversationSummary: mockContent,
+        compactionCheckpoint: {
+          kind: "compact-checkpoint",
+          compactionId: expect.any(String),
+        },
       });
       expect(result.compactionIndex).toBe(1);
       expect(result.compactionContent).toBe(mockContent);
@@ -387,7 +463,7 @@ describe("compaction", () => {
       );
 
       const history = convertToUnifiedHistory([
-        { role: "user", content: "Hello" },
+        { role: "user", content: `Hello ${"x".repeat(1000)}` },
       ]);
 
       await compactChatHistory(history, mockModel, mockLlmApi, {
@@ -422,7 +498,7 @@ describe("compaction", () => {
       expect(onError).toHaveBeenCalledWith(mockError);
     });
 
-    it("should handle history with only system message", async () => {
+    it("rejects a system-only history that cannot be reduced", async () => {
       const mockStreamResponse = vi.mocked(streamChatResponse);
       const mockContent = "Summary of system setup";
 
@@ -438,16 +514,9 @@ describe("compaction", () => {
         { role: "system", content: "You are a helpful assistant" },
       ]);
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
-
-      expect(result.compactedHistory).toHaveLength(2);
-      expect(result.compactedHistory[0].message).toEqual({
-        role: "system",
-        content: "You are a helpful assistant",
-      });
-      expect(result.compactedHistory[1].message.content).toContain(
-        "Summary of system setup",
-      );
+      await expect(
+        compactChatHistory(history, mockModel, mockLlmApi),
+      ).rejects.toThrow("Compaction did not reduce context usage");
     });
 
     it("should handle empty content from stream", async () => {
@@ -465,10 +534,9 @@ describe("compaction", () => {
         { role: "user", content: "Hello" },
       ]);
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
-
-      expect(result.compactionContent).toBe("");
-      expect(result.compactedHistory[0].message.content).toBe("");
+      await expect(
+        compactChatHistory(history, mockModel, mockLlmApi),
+      ).rejects.toThrow("Compaction summary is empty");
     });
 
     it("should correctly construct prompt for compaction", async () => {
@@ -557,6 +625,135 @@ describe("compaction", () => {
 
       expect(result.compactedHistory).toHaveLength(2); // System + compaction
       expect(result.compactionIndex).toBe(1);
+    });
+
+    it("retains recent turns after summarizing older history", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      let summaryRequestHistory: ChatHistoryItem[] = [];
+      mockStreamResponse.mockImplementation(async (history) => {
+        summaryRequestHistory = history;
+        return "Summary";
+      });
+
+      const messages: any[] = [{ role: "system", content: "System" }];
+      for (let i = 0; i < 100; i++) {
+        messages.push(
+          { role: "user", content: `User ${i} ${"x".repeat(100)}` },
+          { role: "assistant", content: `Assistant ${i} ${"x".repeat(100)}` },
+        );
+      }
+      const history = convertToUnifiedHistory(messages);
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
+      } as ModelConfig;
+
+      const result = await compactChatHistory(history, model, mockLlmApi);
+
+      expect(
+        result.compactedHistory.slice(-2).map((item) => item.message.content),
+      ).toEqual([
+        `User 99 ${"x".repeat(100)}`,
+        `Assistant 99 ${"x".repeat(100)}`,
+      ]);
+      expect(
+        summaryRequestHistory.some((item) =>
+          String(item.message.content).includes("User 99"),
+        ),
+      ).toBe(false);
+      expect(
+        summaryRequestHistory.some((item) =>
+          String(item.message.content).includes("User 0"),
+        ),
+      ).toBe(true);
+    });
+
+    it("reduces failed summary requests without splitting tool-call pairs", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const requestHistories: ChatHistoryItem[][] = [];
+      mockStreamResponse.mockImplementation(async (history) => {
+        requestHistories.push(history);
+        if (requestHistories.length < 3) {
+          throw new Error("maximum context length exceeded");
+        }
+        return "Summary";
+      });
+
+      const history: ChatHistoryItem[] = [];
+      for (let i = 0; i < 12; i++) {
+        const toolCallId = `call-${i}`;
+        history.push(
+          {
+            message: {
+              role: "user",
+              content: `User ${i} ${"x".repeat(800)}`,
+            },
+            contextItems: [],
+          },
+          {
+            message: {
+              role: "assistant",
+              content: "",
+              toolCalls: [
+                {
+                  id: toolCallId,
+                  type: "function",
+                  function: { name: "read_file", arguments: "{}" },
+                },
+              ],
+            } as any,
+            contextItems: [],
+          },
+          {
+            message: {
+              role: "tool",
+              content: `Result ${i}`,
+              toolCallId,
+            } as any,
+            contextItems: [],
+          },
+          {
+            message: {
+              role: "assistant",
+              content: `Done ${i} ${"x".repeat(800)}`,
+            },
+            contextItems: [],
+          },
+        );
+      }
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
+      } as ModelConfig;
+
+      await compactChatHistory(history, model, mockLlmApi);
+
+      expect(requestHistories).toHaveLength(3);
+      expect(requestHistories[1].length).toBeLessThan(
+        requestHistories[0].length,
+      );
+      expect(requestHistories[2].length).toBeLessThan(
+        requestHistories[1].length,
+      );
+      for (const requestHistory of requestHistories) {
+        const ids = new Set(
+          requestHistory.flatMap((item) =>
+            item.message.role === "tool" && "toolCallId" in item.message
+              ? [item.message.toolCallId]
+              : [],
+          ),
+        );
+        for (const item of requestHistory) {
+          if (
+            item.message.role === "assistant" &&
+            "toolCalls" in item.message
+          ) {
+            for (const toolCall of item.message.toolCalls ?? []) {
+              expect(ids.has(toolCall.id)).toBe(true);
+            }
+          }
+        }
+      }
     });
 
     it("should handle history without system message", async () => {
@@ -719,13 +916,12 @@ describe("compaction", () => {
       const histories: ChatHistoryItem[][] = [
         convertToUnifiedHistory([
           { role: "system", content: "System" },
-          { role: "user", content: "Hello" },
+          { role: "user", content: `Hello ${"x".repeat(1000)}` },
         ]),
         convertToUnifiedHistory([
-          { role: "user", content: "Hello" },
-          { role: "assistant", content: "Hi" },
+          { role: "user", content: `Hello ${"x".repeat(1000)}` },
+          { role: "assistant", content: `Hi ${"x".repeat(1000)}` },
         ]),
-        convertToUnifiedHistory([{ role: "system", content: "System" }]),
       ];
 
       for (const history of histories) {

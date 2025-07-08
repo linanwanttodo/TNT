@@ -2,11 +2,7 @@ import { ModelConfig } from "@continuedev/config-yaml";
 import type { ChatHistoryItem } from "core/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  AUTO_COMPACT_BUFFER_CAP,
-  AUTO_COMPACT_BUFFER_RATIO,
-  shouldAutoCompact,
-} from "../compaction.js";
+import { shouldAutoCompact } from "../compaction.js";
 
 import { logger } from "./logger.js";
 import {
@@ -16,6 +12,7 @@ import {
   countChatHistoryTokens,
   countToolDefinitionTokens,
   getModelContextLimit,
+  validateContextLength,
 } from "./tokenizer.js";
 
 // Mock the logger
@@ -227,6 +224,51 @@ describe("tokenizer", () => {
     });
   });
 
+  describe("validateContextLength", () => {
+    const createModel = (maxTokens: number): ModelConfig => ({
+      name: "test-model",
+      model: "test",
+      provider: "openai",
+      defaultCompletionOptions: { contextLength: 1000, maxTokens },
+    });
+
+    it("shrinks output tokens to preserve safe context headroom", () => {
+      const validation = validateContextLength({
+        chatHistory: [
+          {
+            message: { role: "user", content: "x".repeat(1800) },
+            contextItems: [],
+          },
+        ],
+        model: createModel(500),
+        safetyBuffer: 100,
+      });
+
+      expect(validation).toMatchObject({
+        isValid: true,
+        inputTokens: 455,
+        maxTokens: 445,
+      });
+    });
+
+    it("rejects a request that has no output capacity left", () => {
+      const validation = validateContextLength({
+        chatHistory: [
+          {
+            message: { role: "user", content: "x".repeat(3580) },
+            contextItems: [],
+          },
+        ],
+        model: createModel(500),
+        safetyBuffer: 100,
+      });
+
+      expect(validation.isValid).toBe(false);
+      expect(validation.error).toContain("No output capacity remains");
+      expect(validation.maxTokens).toBe(0);
+    });
+  });
+
   describe("shouldAutoCompact", () => {
     const createModel = (
       contextLength: number,
@@ -252,82 +294,47 @@ describe("tokenizer", () => {
       ];
     };
 
-    // Helper to calculate threshold using the new formula
-    const calculateThreshold = (
-      contextLength: number,
-      maxTokens: number,
-    ): number => {
-      const ratioCompactionBuffer = Math.ceil(
-        (1 - AUTO_COMPACT_BUFFER_RATIO) * (contextLength - maxTokens),
-      );
-      const safeCompactionBuffer = Math.max(maxTokens, ratioCompactionBuffer);
-      const compactionBuffer = Math.min(
-        safeCompactionBuffer,
-        AUTO_COMPACT_BUFFER_CAP,
-      );
-      return contextLength - maxTokens - compactionBuffer;
-    };
-
     it("should compact when input tokens exceed threshold with maxTokens", () => {
       const model = createModel(1000, 200); // 1000 context, 200 max output
-      // ratioBuffer = ceil(0.2 * 800) = 160, safeBuffer = max(200, 160) = 200
-      // compactionBuffer = min(200, 15k) = 200
-      // Threshold: 1000 - 200 - 200 = 600
-      const threshold = calculateThreshold(1000, 200);
-      expect(threshold).toBe(600);
-      const chatHistory = createChatHistory(650); // Above threshold
+      const chatHistory = createChatHistory(740);
 
       expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
     });
 
     it("should not compact when input tokens are below threshold with maxTokens", () => {
       const model = createModel(1000, 200); // 1000 context, 200 max output
-      const threshold = calculateThreshold(1000, 200);
-      const chatHistory = createChatHistory(threshold - 100); // Below threshold
+      const chatHistory = createChatHistory(700);
 
       expect(shouldAutoCompact({ chatHistory, model })).toBe(false);
     });
 
     it("should use 35% default reservation when maxTokens is not set", () => {
       const model = createModel(1000); // No maxTokens
-      // Default maxTokens = min(1000 * 0.35, 64k) = 350
-      // ratioBuffer = ceil(0.2 * 650) = 130, safeBuffer = max(350, 130) = 350
-      // compactionBuffer = min(350, 15k) = 350
-      // Threshold: 1000 - 350 - 350 = 300
-      const threshold = calculateThreshold(1000, 350);
-      expect(threshold).toBe(300);
-      const chatHistory = createChatHistory(350); // Above threshold
+      const chatHistory = createChatHistory(600);
 
       expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
     });
 
     it("should not compact when below default threshold without maxTokens", () => {
       const model = createModel(1000); // No maxTokens
-      // Threshold: 300 (calculated above)
-      const chatHistory = createChatHistory(250); // Below threshold
+      const chatHistory = createChatHistory(500);
 
       expect(shouldAutoCompact({ chatHistory, model })).toBe(false);
     });
 
-    it("should throw error when threshold becomes zero or negative", () => {
-      // With extremely high maxTokens relative to context, threshold can become <= 0
+    it("should compact earlier when output reservation is unusually large", () => {
       const model = createModel(1000, 800); // maxTokens is 80% of context
-      // ratioBuffer = ceil(0.2 * 200) = 40, safeBuffer = max(800, 40) = 800
-      // compactionBuffer = min(800, 15k) = 800
-      // Threshold: 1000 - 800 - 800 = -600 (negative!)
-      const chatHistory = createChatHistory(1); // Minimal input
+      const chatHistory = createChatHistory(140);
 
-      expect(() => shouldAutoCompact({ chatHistory, model })).toThrow(
-        "max_tokens is larger than context_length, which should not be possible. Please check your configuration.",
-      );
+      expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
     });
 
-    it("should throw error when maxTokens equals contextLength", () => {
+    it("should reject a model with no safe context space", () => {
       const model = createModel(1000, 1000); // maxTokens equals contextLength
       const chatHistory = createChatHistory(1); // Minimal input
 
       expect(() => shouldAutoCompact({ chatHistory, model })).toThrow(
-        "max_tokens is larger than context_length, which should not be possible. Please check your configuration.",
+        "Context window has no safe input space",
       );
     });
 
@@ -336,18 +343,13 @@ describe("tokenizer", () => {
       const chatHistory = createChatHistory(1); // Minimal input
 
       expect(() => shouldAutoCompact({ chatHistory, model })).toThrow(
-        "max_tokens is larger than context_length, which should not be possible. Please check your configuration.",
+        "Context window has no safe input space",
       );
     });
 
     it("should handle edge case with very small context limit", () => {
       const model = createModel(200, 50); // Small context
-      // ratioBuffer = ceil(0.2 * 150) = 30, safeBuffer = max(50, 30) = 50
-      // compactionBuffer = min(50, 15k) = 50
-      // Threshold: 200 - 50 - 50 = 100
-      const threshold = calculateThreshold(200, 50);
-      expect(threshold).toBe(100);
-      const chatHistory = createChatHistory(110); // Above threshold
+      const chatHistory = createChatHistory(100);
 
       expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
     });
@@ -355,8 +357,8 @@ describe("tokenizer", () => {
     it("should log debug information correctly", () => {
       const model = createModel(1000, 200);
       const chatHistory = createChatHistory(550);
-      const expectedBuffer = 200; // max(200, ceil(0.2*800)=160) = 200, min(200, 15k) = 200
-      const expectedThreshold = 1000 - 200 - expectedBuffer;
+      const expectedBuffer = 64;
+      const expectedThreshold = 736;
 
       shouldAutoCompact({ chatHistory, model });
 
@@ -370,19 +372,14 @@ describe("tokenizer", () => {
         reservedForOutput: 200,
         compactionBuffer: expectedBuffer,
         compactionThreshold: expectedThreshold,
+        retainTokens: 128,
         shouldCompact: expect.any(Boolean),
       });
     });
 
     it("should handle model with zero maxTokens correctly", () => {
       const model = createModel(1000, 0); // Explicit zero
-      // When maxTokens is 0, getModelMaxTokens returns 0 (not the default)
-      // ratioBuffer = ceil(0.2 * 1000) = 200, safeBuffer = max(0, 200) = 200
-      // compactionBuffer = min(200, 15k) = 200
-      // Threshold: 1000 - 0 - 200 = 800
-      const threshold = calculateThreshold(1000, 0);
-      expect(threshold).toBe(800);
-      const chatHistory = createChatHistory(threshold + 50); // Above threshold
+      const chatHistory = createChatHistory(850);
 
       expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
     });
@@ -391,12 +388,7 @@ describe("tokenizer", () => {
       it("should prevent Claude 3.5 Sonnet context overflow", () => {
         // Claude 3.5 Sonnet: 200k context, often uses 4k max_tokens
         const model = createModel(200_000, 4_000);
-        // ratioBuffer = ceil(0.2 * 196k) = 39200, safeBuffer = max(4k, 39200) = 39200
-        // compactionBuffer = min(39200, 15k) = 15000
-        // Threshold: 200k - 4k - 15k = 181k
-        const threshold = calculateThreshold(200_000, 4_000);
-        expect(threshold).toBe(181_000);
-        const chatHistory = createChatHistory(threshold + 1000); // Above threshold
+        const chatHistory = createChatHistory(161_000);
 
         expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
       });
@@ -404,51 +396,32 @@ describe("tokenizer", () => {
       it("should prevent GPT-4 context overflow", () => {
         // GPT-4: 128k context, often uses 4k max_tokens
         const model = createModel(128_000, 4_000);
-        // ratioBuffer = ceil(0.2 * 124k) = 24800, safeBuffer = max(4k, 24800) = 24800
-        // compactionBuffer = min(24800, 15k) = 15000
-        // Threshold: 128k - 4k - 15k = 109k
-        const threshold = calculateThreshold(128_000, 4_000);
-        expect(threshold).toBe(109_000);
-        const chatHistory = createChatHistory(threshold + 1000); // Above threshold
+        const chatHistory = createChatHistory(103_000);
 
         expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
       });
 
       it("should handle models with very high max_tokens", () => {
-        // Some models allow very high max_tokens (e.g., 64k)
         const model = createModel(200_000, 64_000);
-        // ratioBuffer = ceil(0.2 * 136k) = 27200, safeBuffer = max(64k, 27200) = 64000
-        // compactionBuffer = min(64k, 15k) = 15000
-        // Threshold: 200k - 64k - 15k = 121k
-        const threshold = calculateThreshold(200_000, 64_000);
-        expect(threshold).toBe(121_000);
-        const chatHistory = createChatHistory(threshold + 1000); // Above threshold
+        const chatHistory = createChatHistory(137_000);
 
         expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
       });
 
-      it("should cap buffer at AUTO_COMPACT_BUFFER_CAP for large maxTokens", () => {
-        // When computed buffer > AUTO_COMPACT_BUFFER_CAP, buffer should be capped
+      it("should stay below the output-reserved context boundary", () => {
         const contextLength = 200_000;
         const maxTokens = 64_000;
         const model = createModel(contextLength, maxTokens);
-        const threshold = calculateThreshold(contextLength, maxTokens);
-        const chatHistory = createChatHistory(threshold - 1000); // Below threshold
+        const chatHistory = createChatHistory(135_000);
 
         expect(shouldAutoCompact({ chatHistory, model })).toBe(false);
       });
 
       it("should use ratio-based buffer when maxTokens is small", () => {
-        // When maxTokens is small, ratio-based buffer should take precedence
         const contextLength = 100_000;
         const maxTokens = 1_000;
         const model = createModel(contextLength, maxTokens);
-        // ratioBuffer = ceil(0.2 * 99k) = 19800, safeBuffer = max(1k, 19800) = 19800
-        // compactionBuffer = min(19800, 15k) = 15000
-        // Threshold: 100k - 1k - 15k = 84k
-        const threshold = calculateThreshold(contextLength, maxTokens);
-        expect(threshold).toBe(84_000);
-        const chatHistory = createChatHistory(threshold + 1000); // Above threshold
+        const chatHistory = createChatHistory(81_000);
 
         expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
       });

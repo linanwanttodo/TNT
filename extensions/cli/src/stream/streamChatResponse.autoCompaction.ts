@@ -1,17 +1,48 @@
 import { ModelConfig } from "@continuedev/config-yaml";
 import { BaseLlmApi } from "@continuedev/openai-adapters";
-import type { ChatHistoryItem } from "core/index.js";
+import type { ChatHistoryItem, Session } from "core/index.js";
+import {
+  createAutoCompactionState,
+  isCompactionBreakerTripped,
+  recordCompactionFailure,
+  recordCompactionSuccess,
+  type AutoCompactionState,
+} from "core/util/autoCompaction.js";
+import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
 import React from "react";
 
 import {
   compactChatHistory,
+  findCompactionIndex,
   getAutoCompactMessage,
   shouldAutoCompact,
 } from "../compaction.js";
-import { updateSessionHistory } from "../session.js";
+import {
+  getCurrentSession,
+  getSessionHistoryGeneration,
+  replaceSessionHistoryIfGeneration,
+} from "../session.js";
 import { formatError } from "../util/formatError.js";
 import { logger } from "../util/logger.js";
+
+const compactionStateBySession = new WeakMap<Session, AutoCompactionState>();
+
+function getCompactionState(session: Session): AutoCompactionState {
+  let state = compactionStateBySession.get(session);
+  if (!state) {
+    state = createAutoCompactionState();
+    compactionStateBySession.set(session, state);
+  }
+  return state;
+}
+
+function setCompactionState(
+  session: Session,
+  state: AutoCompactionState,
+): void {
+  compactionStateBySession.set(session, state);
+}
 
 interface AutoCompactionCallbacks {
   // For streaming mode
@@ -141,21 +172,69 @@ export async function handleAutoCompaction(
     tools,
   } = options;
 
-  if (
-    !model ||
-    !shouldAutoCompact({
-      chatHistory,
+  if (!model) {
+    return { chatHistory, compactionIndex: null, wasCompacted: false };
+  }
+
+  const session = getCurrentSession();
+  const initialGeneration = getSessionHistoryGeneration();
+  let compactionState = getCompactionState(session);
+  if (compactionState.inFlight) {
+    return {
+      chatHistory: session.history,
+      compactionIndex: findCompactionIndex(session.history),
+      wasCompacted: false,
+    };
+  }
+
+  const toolResultCompaction = compactToolCallOutputs(chatHistory);
+  const historyAfterToolResultCompaction = toolResultCompaction.history;
+  const compactionIndex = findCompactionIndex(historyAfterToolResultCompaction);
+  let expectedGeneration = initialGeneration;
+
+  if (toolResultCompaction.truncatedCount > 0) {
+    const persisted = replaceSessionHistoryIfGeneration(
+      expectedGeneration,
+      historyAfterToolResultCompaction,
+    );
+    if (!persisted) {
+      const latestHistory = getCurrentSession().history;
+      return {
+        chatHistory: latestHistory,
+        compactionIndex: findCompactionIndex(latestHistory),
+        wasCompacted: false,
+      };
+    }
+    expectedGeneration = getSessionHistoryGeneration();
+    callbacks?.setChatHistory?.(historyAfterToolResultCompaction);
+    callbacks?.setCompactionIndex?.(compactionIndex);
+  }
+
+  const shouldSummarize =
+    !isCompactionBreakerTripped(compactionState) &&
+    shouldAutoCompact({
+      chatHistory: historyAfterToolResultCompaction,
       model,
       systemMessage: providedSystemMessage,
       tools,
-    })
-  ) {
-    return { chatHistory, compactionIndex: null, wasCompacted: false };
+    });
+  if (!shouldSummarize) {
+    if (toolResultCompaction.truncatedCount === 0) {
+      return { chatHistory, compactionIndex: null, wasCompacted: false };
+    }
+
+    return {
+      chatHistory: historyAfterToolResultCompaction,
+      compactionIndex,
+      wasCompacted: true,
+    };
   }
 
   logger.info(
     `Auto-compaction triggered${isHeadless ? " in headless mode" : ""}`,
   );
+  compactionState = { ...compactionState, inFlight: true };
+  setCompactionState(session, compactionState);
 
   // Notify about compaction start
   notifyCompactionStart(getAutoCompactMessage(model), isHeadless, callbacks);
@@ -187,18 +266,38 @@ export async function handleAutoCompaction(
     );
 
     // Compact the history
-    const result = await compactChatHistory(chatHistory, model, llmApi, {
-      callbacks: isHeadless
-        ? undefined
-        : {
-            onStreamContent: callbacks?.onContent,
-            onStreamComplete: () => {},
-          },
-      systemMessageTokens,
-    });
+    const result = await compactChatHistory(
+      historyAfterToolResultCompaction,
+      model,
+      llmApi,
+      {
+        callbacks: isHeadless
+          ? undefined
+          : {
+              onStreamContent: callbacks?.onContent,
+              onStreamComplete: () => {},
+            },
+        systemMessageTokens,
+        toolResultsCompacted: true,
+      },
+    );
 
-    // Save the compacted session
-    updateSessionHistory(result.compactedHistory);
+    const persisted = replaceSessionHistoryIfGeneration(
+      expectedGeneration,
+      result.compactedHistory,
+    );
+    if (!persisted) {
+      setCompactionState(session, { ...compactionState, inFlight: false });
+      const latestHistory = getCurrentSession().history;
+      return {
+        chatHistory: latestHistory,
+        compactionIndex: findCompactionIndex(latestHistory),
+        wasCompacted: false,
+      };
+    }
+
+    compactionState = recordCompactionSuccess(compactionState);
+    setCompactionState(session, compactionState);
 
     // Handle success notification
     handleCompactionSuccess(result, isHeadless, callbacks);
@@ -211,6 +310,19 @@ export async function handleAutoCompaction(
   } catch (error: any) {
     // Handle error notification
     handleCompactionError(error, isHeadless, callbacks);
+    compactionState =
+      toolResultCompaction.truncatedCount > 0
+        ? { ...compactionState, inFlight: false }
+        : recordCompactionFailure(compactionState);
+    setCompactionState(session, compactionState);
+
+    if (toolResultCompaction.truncatedCount > 0) {
+      return {
+        chatHistory: historyAfterToolResultCompaction,
+        compactionIndex,
+        wasCompacted: true,
+      };
+    }
 
     // Continue without compaction on error
     return { chatHistory, compactionIndex: null, wasCompacted: false };

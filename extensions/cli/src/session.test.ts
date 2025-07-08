@@ -9,9 +9,11 @@ import {
   clearSession,
   createSession,
   getCurrentSession,
+  getSessionHistoryGeneration,
   hasSession,
   loadOrCreateSessionById,
   loadSession,
+  replaceSessionHistoryIfGeneration,
   saveSession,
   startNewSession,
   updateSessionHistory,
@@ -162,6 +164,35 @@ describe("SessionManager", () => {
 
       expect(session.sessionId).toBe("custom-session-id");
       expect(uuidv4).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("history compare-and-set", () => {
+    it("does not overwrite history changed while a compaction was running", () => {
+      createSession();
+      const generationBeforeCompaction = getSessionHistoryGeneration();
+      const newerHistory: ChatHistoryItem[] = [
+        {
+          message: { role: "user", content: "New user message" },
+          contextItems: [],
+        },
+      ];
+      updateSessionHistory(newerHistory);
+
+      const staleCompactedHistory: ChatHistoryItem[] = [
+        {
+          message: { role: "assistant", content: "Old summary" },
+          contextItems: [],
+        },
+      ];
+
+      expect(
+        replaceSessionHistoryIfGeneration(
+          generationBeforeCompaction,
+          staleCompactedHistory,
+        ),
+      ).toBe(false);
+      expect(getCurrentSession().history).toBe(newerHistory);
     });
   });
 

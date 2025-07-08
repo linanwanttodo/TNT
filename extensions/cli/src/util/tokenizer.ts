@@ -1,6 +1,7 @@
 import { ModelConfig } from "@continuedev/config-yaml";
 import type { ChatHistoryItem } from "core/index.js";
 import { getAdjustedTokenCountFromModel } from "core/llm/getAdjustedTokenCount.js";
+import { calculateMaxOutputTokens } from "core/util/contextPolicy.js";
 import { encode } from "gpt-tokenizer";
 import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
 
@@ -356,7 +357,7 @@ export function validateContextLength(params: ValidateContextLengthParams): {
   error?: string;
   inputTokens?: number;
   contextLimit?: number;
-  maxTokens?: number;
+  maxTokens: number;
 } {
   const { chatHistory, model, safetyBuffer = 0, systemMessage, tools } = params;
 
@@ -367,17 +368,22 @@ export function validateContextLength(params: ValidateContextLengthParams): {
     model,
   });
   const contextLimit = getModelContextLimit(model);
-  const maxTokens = model.defaultCompletionOptions?.maxTokens || 0;
-
-  // If maxTokens is not set, use 35% default reservation for output
-  const reservedForOutput =
-    maxTokens > 0 ? maxTokens : Math.ceil(contextLimit * 0.35);
+  const configuredMaxTokens = getModelMaxTokens(model);
+  const reservedForOutput = calculateMaxOutputTokens(
+    contextLimit,
+    inputTokens,
+    configuredMaxTokens,
+    Math.max(safetyBuffer, 64),
+  );
   const totalRequired = inputTokens + reservedForOutput + safetyBuffer;
 
-  if (totalRequired > contextLimit) {
+  if (reservedForOutput <= 0 || totalRequired > contextLimit) {
     return {
       isValid: false,
-      error: `Context length exceeded: input (${inputTokens.toLocaleString()}) + max_tokens (${reservedForOutput.toLocaleString()})${safetyBuffer > 0 ? ` + buffer (${safetyBuffer})` : ""} = ${totalRequired.toLocaleString()} > context_limit (${contextLimit.toLocaleString()})`,
+      error:
+        reservedForOutput <= 0
+          ? "No output capacity remains after reserving context headroom"
+          : `Context length exceeded: input (${inputTokens.toLocaleString()}) + max_tokens (${reservedForOutput.toLocaleString()})${safetyBuffer > 0 ? ` + buffer (${safetyBuffer})` : ""} = ${totalRequired.toLocaleString()} > context_limit (${contextLimit.toLocaleString()})`,
       inputTokens,
       contextLimit,
       maxTokens: reservedForOutput,
