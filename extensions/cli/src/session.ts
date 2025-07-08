@@ -76,6 +76,12 @@ export function getSessionFilePath(): string {
 class SessionManager {
   private static instance: SessionManager;
   private currentSession: Session | null = null;
+  /**
+   * True once the first request whose prefix belongs to this session has been
+   * counted. Compaction and title generation do not set it, because their
+   * requests carry prefixes of their own.
+   */
+  private hasRecordedTurnUsage = false;
   private sessionUsage: SessionUsage = {
     totalCost: 0,
     promptTokens: 0,
@@ -132,6 +138,7 @@ class SessionManager {
 
   clear(): void {
     this.currentSession = null;
+    this.hasRecordedTurnUsage = false;
     this.sessionUsage = {
       totalCost: 0,
       promptTokens: 0,
@@ -151,7 +158,11 @@ class SessionManager {
     return this.getCurrentSession().sessionId;
   }
 
-  trackUsage(cost: number, usage: Usage): void {
+  trackUsage(
+    cost: number,
+    usage: Usage,
+    kind: "turn" | "compaction" = "turn",
+  ): void {
     // Accumulate cost
     this.sessionUsage.totalCost += cost;
 
@@ -176,6 +187,21 @@ class SessionManager {
         usage.promptTokensDetails.cacheWriteTokens;
     }
 
+    if (kind === "turn" && !this.hasRecordedTurnUsage) {
+      this.hasRecordedTurnUsage = true;
+      this.sessionUsage.coldStart = {
+        inputTokens: usage.promptTokens,
+        cachedTokens: usage.promptTokensDetails?.cachedTokens ?? 0,
+        cacheWriteTokens: usage.promptTokensDetails?.cacheWriteTokens ?? 0,
+      };
+      // Logged at info because this is the number a user can act on. The
+      // session totals below only ever grow and cannot explain a slow start.
+      logger.info("Session cache cold start", {
+        ...this.sessionUsage.coldStart,
+        cost,
+      });
+    }
+
     // Update session and persist
     const session = this.getCurrentSession();
     session.usage = { ...this.sessionUsage };
@@ -194,6 +220,10 @@ class SessionManager {
     const session = this.currentSession;
     if (session?.usage) {
       this.sessionUsage = { ...session.usage };
+      // A session that already recorded a cold start keeps that number. One
+      // loaded from an older format has none, and the first request after a
+      // resume is exactly the slow start worth attributing.
+      this.hasRecordedTurnUsage = Boolean(session.usage.coldStart);
     } else {
       // Migrate old sessions that only had totalCost
       this.sessionUsage = {
@@ -589,8 +619,12 @@ export function startNewSession(history: ChatHistoryItem[] = []): Session {
 /**
  * Track cost for the current session
  */
-export function trackSessionUsage(cost: number, usage: Usage): void {
-  SessionManager.getInstance().trackUsage(cost, usage);
+export function trackSessionUsage(
+  cost: number,
+  usage: Usage,
+  kind: "turn" | "compaction" = "turn",
+): void {
+  SessionManager.getInstance().trackUsage(cost, usage, kind);
 }
 
 /**
