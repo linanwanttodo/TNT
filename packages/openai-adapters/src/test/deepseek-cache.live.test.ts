@@ -155,12 +155,14 @@ describe.skipIf(!API_KEY)(`${MODEL} prompt cache - live API`, () => {
         });
       }
 
-      // The first request has nothing to read, so it may only write.
-      expect(reads[0]).toBe(0);
-
-      // Every later request reuses the same system prompt and tool
-      // definitions, so each must report a cache read. A run that reports zero
-      // here is paying full price for a prefix it has already sent.
+      // Every request after the first reuses the same system prompt and tool
+      // definitions, so each must report a cache read. A zero here is paying
+      // full price for a prefix the run has already sent.
+      //
+      // The first request is deliberately not asserted on: a provider keeps
+      // cached prefixes across runs, so it reads if this test ran recently and
+      // writes if it did not. Both are correct, and asserting otherwise would
+      // make the test depend on the provider's clock rather than on our code.
       expect(reads.slice(1).every((n) => n > 0)).toBe(true);
     },
   );

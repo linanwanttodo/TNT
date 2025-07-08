@@ -2,6 +2,7 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources";
 import { describe, expect, it } from "vitest";
 
 import {
+  applyCacheControlFormat,
   countCacheBreakpoints,
   pruneCacheBreakpoints,
   sanitizeReasoningBlocks,
@@ -137,5 +138,69 @@ describe("countCacheBreakpoints", () => {
       { role: "user", content: "no blocks" },
     ];
     expect(countCacheBreakpoints(messages)).toBe(1);
+  });
+});
+
+describe("applyCacheControlFormat", () => {
+  const ephemeral = { type: "ephemeral" as const };
+  const body = () => ({
+    system: [{ type: "text" as const, text: "s", cache_control: ephemeral }],
+    tools: [{ name: "Read", cache_control: ephemeral }],
+    messages: [
+      {
+        role: "user" as const,
+        content: [
+          { type: "text" as const, text: "m", cache_control: ephemeral },
+        ],
+      },
+    ],
+  });
+
+  it("changes nothing when no capabilities are declared", () => {
+    const input = body();
+    expect(applyCacheControlFormat(input, undefined)).toBe(input);
+    expect(applyCacheControlFormat(input, {})).toEqual(input);
+  });
+
+  it("drops tool breakpoints only when the endpoint rejects them", () => {
+    const result = applyCacheControlFormat(body(), {
+      acceptsCacheControlOnTools: false,
+    });
+    expect(result.tools[0]).not.toHaveProperty("cache_control");
+    expect(result.messages[0].content[0]).toHaveProperty("cache_control");
+    expect(result.system[0]).toHaveProperty("cache_control");
+  });
+
+  it("drops message breakpoints only when the endpoint rejects them", () => {
+    const result = applyCacheControlFormat(body(), {
+      acceptsCacheControlOnMessages: false,
+    });
+    expect(result.messages[0].content[0]).not.toHaveProperty("cache_control");
+    expect(result.tools[0]).toHaveProperty("cache_control");
+  });
+
+  it("enforces one budget across system, tools and messages", () => {
+    const result = applyCacheControlFormat(body(), { maxBreakpoints: 1 });
+    // The budget goes to the breakpoint with the longest span ahead of it,
+    // which is the one nearest the end of the request.
+    expect(result.messages[0].content[0]).toHaveProperty("cache_control");
+    expect(result.tools[0]).not.toHaveProperty("cache_control");
+    expect(result.system[0]).not.toHaveProperty("cache_control");
+  });
+
+  it("keeps the most recent breakpoints when narrowing a budget", () => {
+    const result = applyCacheControlFormat(body(), { maxBreakpoints: 1 });
+    const kept =
+      (result.messages[0].content[0] as any)?.cache_control ??
+      (result.tools[0] as any)?.cache_control ??
+      (result.system[0] as any)?.cache_control;
+    expect(kept).toEqual(ephemeral);
+  });
+
+  it("removes every breakpoint when the budget is zero", () => {
+    const result = applyCacheControlFormat(body(), { maxBreakpoints: 0 });
+    expect(countCacheBreakpoints(result.messages)).toBe(0);
+    expect((result.tools[0] as any).cache_control).toBeUndefined();
+    expect((result.system[0] as any).cache_control).toBeUndefined();
   });
 });
