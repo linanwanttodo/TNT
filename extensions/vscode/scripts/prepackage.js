@@ -10,9 +10,11 @@ const {
   autodetectPlatformAndArch,
 } = require("../../../scripts/util/index");
 
-const { copySqlite } = require("./download-copy-sqlite");
+const { copySqlite } = require("../../../binary/scripts/download-copy-sqlite");
 const { generateAndCopyConfigYamlSchema } = require("./generate-copy-config");
-const { installAndCopyNodeModules } = require("./install-copy-nodemodule");
+const {
+  installAndCopyNodeModules,
+} = require("../../../binary/scripts/install-copy-nodemodule");
 const { npmInstall } = require("./npm-install");
 const { writeBuildTimestamp, continueDir } = require("./utils");
 
@@ -441,9 +443,6 @@ void (async () => {
 
   // Validate the all of the necessary files are present
   validateFilesPresent([
-    // Queries used to create the index for @code context provider
-    "tree-sitter/code-snippet-queries/c_sharp.scm",
-
     // Queries used for @outline and @highlights context providers
     "tag-qry/tree-sitter-c_sharp-tags.scm",
 

@@ -2,7 +2,6 @@ const { fork } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const { ProxyAgent } = require("undici");
 const { rimrafSync } = require("rimraf");
 
 const { execCmdSync } = require("../../scripts/util");
@@ -15,11 +14,19 @@ const { execCmdSync } = require("../../scripts/util");
 async function downloadFile(url, outputPath) {
   // Use proxy if set in environment variables
   const proxy = process.env.https_proxy || process.env.HTTPS_PROXY;
-  const agent = proxy ? new ProxyAgent(proxy) : undefined;
+  // undici is only present in some of the workspaces this script is loaded
+  // from, so fall back to a plain fetch when it cannot be resolved.
+  let dispatcher;
+  if (proxy) {
+    try {
+      const { ProxyAgent } = require("undici");
+      dispatcher = new ProxyAgent(proxy);
+    } catch {}
+  }
 
   const response = await fetch(url, {
     redirect: "follow", // Automatically follow redirects
-    dispatcher: agent,
+    dispatcher,
   });
 
   if (!response.ok) {
