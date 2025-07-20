@@ -23,6 +23,7 @@ export function getDefaultToolPolicies(
     { tool: "Read", permission: "allow" },
     { tool: "Search", permission: "allow" },
     { tool: "Status", permission: "allow" },
+    { tool: "Todo", permission: "allow" },
     { tool: "ReportFailure", permission: "allow" },
     { tool: "UploadArtifact", permission: "allow" },
   ];
@@ -59,6 +60,7 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Search", permission: "allow" },
   { tool: "Skills", permission: "allow" },
   { tool: "Status", permission: "allow" },
+  { tool: "Todo", permission: "allow" },
   { tool: "UploadArtifact", permission: "allow" },
 
   // Allow MCP tools

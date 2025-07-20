@@ -10,6 +10,45 @@ import { ChecklistDisplay } from "./components/ChecklistDisplay.js";
 
 const MAX_BASH_OUTPUT_LINES = 4;
 
+const TODO_DETAILS_PREFIX = "tnt-todo:";
+const MAX_TODO_PREVIEW = 5;
+
+/**
+ * The todo tool stores a machine-readable payload after the human readable
+ * line so the todo state can be rebuilt from history. Only the first line is
+ * shown in the transcript, plus at most five list entries.
+ */
+function todoSummaryLine(content: string): string {
+  const markerIndex = content.indexOf(TODO_DETAILS_PREFIX);
+  if (markerIndex === -1) {
+    return content;
+  }
+  const readable = content.slice(0, markerIndex).trimEnd();
+  const payload = content.slice(markerIndex + TODO_DETAILS_PREFIX.length);
+
+  try {
+    const details = JSON.parse(payload) as {
+      todos?: { id: number; text: string; done: boolean }[];
+    };
+    const todos = details.todos ?? [];
+    if (todos.length === 0) {
+      return readable;
+    }
+    const done = todos.filter((todo) => todo.done).length;
+    const preview = todos
+      .slice(0, MAX_TODO_PREVIEW)
+      .map((todo) => `${todo.done ? "✓" : "○"} #${todo.id} ${todo.text}`)
+      .join("\n");
+    const overflow =
+      todos.length > MAX_TODO_PREVIEW
+        ? `\n… ${todos.length - MAX_TODO_PREVIEW} more`
+        : "";
+    return `${readable} (${done}/${todos.length})\n${preview}${overflow}`;
+  } catch {
+    return readable;
+  }
+}
+
 interface ToolResultSummaryProps {
   toolName?: string;
   content: string;
@@ -41,6 +80,17 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
           <Text color="blue">Task List Updated</Text>
         </Box>
         <ChecklistDisplay content={`Task list status:\n${content}`} />
+      </Box>
+    );
+  }
+
+  if (toolName === "Todo") {
+    return (
+      <Box flexDirection="column">
+        <Box>
+          <Text color="dim">⎿ </Text>
+          <Text color="blue">{todoSummaryLine(content)}</Text>
+        </Box>
       </Box>
     );
   }
