@@ -1,4 +1,4 @@
-import type { AssistantUnrolled } from "@continuedev/config-yaml";
+import type { AssistantUnrolled } from "@tnt/config-yaml";
 import {
   beforeEach,
   describe,
@@ -9,6 +9,7 @@ import {
 } from "vitest";
 
 import type { ConfigServiceState } from "./services/types.js";
+import { getLocale, setLocale } from "./i18n/index.js";
 import { handleSlashCommands } from "./slashCommands.js";
 
 // Mock the services
@@ -80,7 +81,7 @@ vi.mock("core/util/history.js", () => ({
 // Mock session functions
 vi.mock("./session.js", () => ({
   getSessionFilePath: vi.fn(
-    () => "/home/test/.continue-next/cli-sessions/continue-cli-pid-12345.json",
+    () => "/home/test/.tnt/cli-sessions/continue-cli-pid-12345.json",
   ),
   hasSession: vi.fn(() => false),
   getCurrentSession: vi.fn(() => {
@@ -120,6 +121,21 @@ describe("slashCommands", () => {
       expect(result?.output).toContain("@");
       expect(result?.output).toContain("/");
       expect(result?.exit).toBeUndefined();
+    });
+
+    it("switches and persists the display language", async () => {
+      const originalLocale = getLocale();
+      try {
+        const result = await handleSlashCommands(
+          "/language zh-CN",
+          mockAssistant,
+        );
+
+        expect(getLocale()).toBe("zh-CN");
+        expect(result?.output).toContain("语言已切换为 zh-CN");
+      } finally {
+        setLocale(originalLocale);
+      }
     });
 
     it("should handle /info command and show config info", async () => {
@@ -209,7 +225,7 @@ describe("slashCommands", () => {
 
       // Mock the session functions for this specific test
       (getSessionFilePath as any).mockReturnValue(
-        "/test-home/.continue-next/cli-sessions/continue-cli-test-123.json",
+        "/test-home/.tnt/cli-sessions/continue-cli-test-123.json",
       );
       (getCurrentSession as any).mockReturnValue({
         sessionId: "test-123",
@@ -229,9 +245,7 @@ describe("slashCommands", () => {
 
       expect(result?.output).toContain("Session:");
       expect(result?.output).toContain("Test Session");
-      expect(result?.output).toContain(
-        "/test-home/.continue-next/cli-sessions/",
-      );
+      expect(result?.output).toContain("/test-home/.tnt/cli-sessions/");
       expect(result?.output).toContain(".json");
     });
 

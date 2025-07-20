@@ -1,4 +1,4 @@
-import { createRuleMarkdown } from "@continuedev/config-yaml";
+import { createRuleMarkdown } from "@tnt/config-yaml";
 import { ToolImpl } from ".";
 import { RuleWithSource } from "../..";
 import { createRuleFilePath } from "../../config/markdown/utils";

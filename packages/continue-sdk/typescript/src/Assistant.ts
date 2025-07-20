@@ -1,4 +1,4 @@
-import { AssistantUnrolled } from "@continuedev/config-yaml";
+import { AssistantUnrolled } from "@tnt/config-yaml";
 
 export type AssistantConfig = AssistantUnrolled;
 

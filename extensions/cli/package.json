@@ -1,12 +1,12 @@
 {
-  "name": "@continuedev/cli",
+  "name": "@tnt/cli",
   "version": "0.0.0-dev",
   "description": "Continue CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "bin": {
-    "cn": "dist/cn.js"
+    "tnt": "dist/tnt.js"
   },
   "scripts": {
     "test": "vitest run",
@@ -20,7 +20,7 @@
     "build:validate": "node validate-aliases.mjs",
     "build:bundle": "node build.mjs",
     "build": "npm run build:validate && npm run build:bundle",
-    "start": "node dist/cn.js",
+    "start": "node dist/tnt.js",
     "dev": "tsx src/index.ts",
     "repomix:sdk": "npx repomix node_modules/@continuedev/sdk --ignore **/api,cli-repomix.xml -o sdk-repomix.xml",
     "repomix:cli": "npx repomix --ignore sdk-repomix.xml -o cli-repomix.xml",
@@ -29,7 +29,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "watch:logs": "touch ~/.continue-next/logs/cn.log && tail -f ~/.continue-next/logs/cn.log",
+    "watch:logs": "touch ~/.tnt/logs/tnt.log && tail -f ~/.tnt/logs/tnt.log",
     "prepare": "npm run build",
     "semantic-release": "semantic-release",
     "semantic-release:dry-run": "semantic-release --dry-run"
@@ -38,10 +38,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/continuedev/continue.git"
+    "url": "https://github.com/linanwanttodo/TNT.git"
   },
   "bugs": {
-    "url": "https://github.com/continuedev/continue/issues"
+    "url": "https://github.com/linanwanttodo/TNT/issues"
   },
   "homepage": "https://continue.dev",
   "dependencies": {
@@ -51,10 +51,10 @@
     "js-yaml": "^4.1.1"
   },
   "devDependencies": {
-    "@continuedev/config-yaml": "file:../../packages/config-yaml",
-    "@continuedev/openai-adapters": "file:../../packages/openai-adapters",
+    "@tnt/config-yaml": "file:../../packages/config-yaml",
+    "@tnt/openai-adapters": "file:../../packages/openai-adapters",
     "@continuedev/sdk": "^0.0.13",
-    "@continuedev/terminal-security": "file:../../packages/terminal-security",
+    "@tnt/terminal-security": "file:../../packages/terminal-security",
     "@modelcontextprotocol/sdk": "^1.24.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.203.0",

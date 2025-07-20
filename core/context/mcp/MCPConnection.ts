@@ -3,10 +3,7 @@ import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { homedir } from "os";
 import { fileURLToPath } from "url";
 
-import {
-  decodeSecretLocation,
-  getTemplateVariables,
-} from "@continuedev/config-yaml";
+import { decodeSecretLocation, getTemplateVariables } from "@tnt/config-yaml";
 import {
   SSEClientTransport,
   SseError,

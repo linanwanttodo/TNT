@@ -1,4 +1,4 @@
-import { ModelRole } from "@continuedev/config-yaml";
+import { ModelRole } from "@tnt/config-yaml";
 import { ModelDescription } from "core";
 import { useContext, useState } from "react";
 import Shortcut from "../../../components/gui/Shortcut";

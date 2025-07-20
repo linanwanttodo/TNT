@@ -1,7 +1,4 @@
-import {
-  ConfigValidationError,
-  markdownToRule,
-} from "@continuedev/config-yaml";
+import { ConfigValidationError, markdownToRule } from "@tnt/config-yaml";
 import { IDE, RuleWithSource } from "../..";
 import { walkDirs } from "../../indexing/walkDir";
 import { RULES_MARKDOWN_FILENAME } from "../../llm/rules/constants";

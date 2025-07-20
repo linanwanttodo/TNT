@@ -1,4 +1,4 @@
-import { decodeFQSN, getTemplateVariables } from "@continuedev/config-yaml";
+import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
 import { type AssistantConfig } from "@continuedev/sdk";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 

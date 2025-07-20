@@ -4,7 +4,7 @@ import {
   createPromptMarkdown,
   createRuleMarkdown,
   sanitizeRuleName,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import * as YAML from "yaml";
 import { IDE } from "../..";
 import { getContinueGlobalPath } from "../../util/paths";
@@ -186,10 +186,7 @@ export async function createNewWorkspaceBlockFile(
     );
   }
 
-  const baseDirUri = joinPathsToUri(
-    workspaceDirs[0],
-    `.continue-next/${blockType}`,
-  );
+  const baseDirUri = joinPathsToUri(workspaceDirs[0], `.tnt/${blockType}`);
 
   const fileUri = await findAvailableFilename(
     baseDirUri,

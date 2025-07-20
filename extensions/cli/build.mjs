@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 
 import * as esbuild from "esbuild";
-import { chmodSync, copyFileSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
+import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 
 // Parse command line arguments
@@ -20,6 +27,19 @@ const external = [
 ];
 
 console.log("Building CLI with esbuild...");
+
+// Remove launcher shims left behind by earlier builds (for example the old
+// "cn" command before the rename to "tnt"). They are untracked, so nothing
+// else cleans them up, and a stale one would still ship inside the npm
+// tarball and keep exposing a command that no longer exists.
+const distDir = resolve(__dirname, "dist");
+if (existsSync(distDir)) {
+  for (const entry of readdirSync(distDir, { withFileTypes: true })) {
+    if (entry.isFile() && /^(cn|tnt)\.js$/.test(entry.name)) {
+      rmSync(join(distDir, entry.name));
+    }
+  }
+}
 
 // Plugin to handle optional react-devtools-core
 const optionalDevtoolsPlugin = {
@@ -51,28 +71,28 @@ try {
 
     // Handle TypeScript paths and local packages
     alias: {
-      "@continuedev/config-yaml": resolve(
+      "@tnt/config-yaml": resolve(
         __dirname,
         "../../packages/config-yaml/dist/index.js",
       ),
-      "@continuedev/openai-adapters": resolve(
+      "@tnt/openai-adapters": resolve(
         __dirname,
         "../../packages/openai-adapters/dist/index.js",
       ),
-      "@continuedev/config-types": resolve(
+      "@tnt/config-types": resolve(
         __dirname,
         "../../packages/config-types/dist/index.js",
       ),
       core: resolve(__dirname, "../../core"),
-      "@continuedev/fetch": resolve(
+      "@tnt/fetch": resolve(
         __dirname,
         "../../packages/fetch/dist/index.js",
       ),
-      "@continuedev/llm-info": resolve(
+      "@tnt/llm-info": resolve(
         __dirname,
         "../../packages/llm-info/dist/index.js",
       ),
-      "@continuedev/terminal-security": resolve(
+      "@tnt/terminal-security": resolve(
         __dirname,
         "../../packages/terminal-security/dist/index.js",
       ),
@@ -91,7 +111,7 @@ const require = __createRequire(import.meta.url);`,
   // Create wrapper script with shebang that explicitly runs the CLI
   // Note: We must call runCli(); a plain dynamic import will not execute the CLI.
   writeFileSync(
-    "dist/cn.js",
+    "dist/tnt.js",
     "#!/usr/bin/env node\nimport { runCli } from './index.js';\nawait runCli();\n",
   );
   // Copy worker files needed by JSDOM
@@ -108,7 +128,7 @@ const require = __createRequire(import.meta.url);`,
   }
 
   // Make the wrapper script executable
-  chmodSync("dist/cn.js", 0o755);
+  chmodSync("dist/tnt.js", 0o755);
 
   // Calculate bundle size
   const bundleSize = result.metafile.outputs["dist/index.js"].bytes;

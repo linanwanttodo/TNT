@@ -5,7 +5,7 @@ import {
   ConfigResult,
   ConfigValidationError,
   PackageIdentifier,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 
 import {
   ContinueConfig,
@@ -47,7 +47,7 @@ async function loadRules(ide: IDE) {
   rules.unshift(...yamlRules);
   errors.push(...continueRulesErrors);
 
-  // Add rules from markdown files in .continue-next/rules
+  // Add rules from markdown files in .tnt/rules
   const { rules: markdownRules, errors: markdownRulesErrors } =
     await loadMarkdownRules(ide);
   rules.unshift(...markdownRules);

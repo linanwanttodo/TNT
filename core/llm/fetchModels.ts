@@ -1,4 +1,4 @@
-import { fetchwithRequestOptions } from "@continuedev/fetch";
+import { fetchwithRequestOptions } from "@tnt/fetch";
 
 import type { RequestOptions } from "../index.js";
 import { LLMClasses, llmFromProviderAndOptions } from "./llms/index.js";

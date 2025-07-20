@@ -1,4 +1,4 @@
-import { decodePackageSlug } from "@continuedev/config-yaml";
+import { decodePackageSlug } from "@tnt/config-yaml";
 import type { OpenAI } from "openai";
 import { Configuration, DefaultApi } from "../api/dist/index.js";
 import { Assistant } from "./Assistant.js";

@@ -1,7 +1,4 @@
-import {
-  ConfigValidationError,
-  parseMarkdownRule,
-} from "@continuedev/config-yaml";
+import { ConfigValidationError, parseMarkdownRule } from "@tnt/config-yaml";
 import z from "zod";
 import { IDE, Skill } from "../..";
 import { walkDir } from "../../indexing/walkDir";

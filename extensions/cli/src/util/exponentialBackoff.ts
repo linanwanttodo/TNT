@@ -1,4 +1,4 @@
-import { BaseLlmApi, isResponsesModel } from "@continuedev/openai-adapters";
+import { BaseLlmApi, isResponsesModel } from "@tnt/openai-adapters";
 import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
 
 import { error, warn } from "../logging.js";

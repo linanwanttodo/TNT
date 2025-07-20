@@ -10,13 +10,13 @@ import {
   RawMessageStreamEvent,
   ToolUseBlock,
 } from "@anthropic-ai/sdk/resources/messages.mjs";
-import { streamSse } from "@continuedev/fetch";
+import { streamSse } from "@tnt/fetch";
 import {
   addCacheControlToLastTwoUserMessages,
   getAnthropicErrorMessage,
   getAnthropicHeaders,
   getAnthropicMediaTypeFromDataUrl,
-} from "@continuedev/openai-adapters";
+} from "@tnt/openai-adapters";
 import {
   ChatMessage,
   CompletionOptions,

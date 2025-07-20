@@ -128,7 +128,7 @@ class ReloadBrowserAction: ContinueToolbarAction() {
 class OpenLogsAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val logFile = File(System.getProperty("user.home") + "/.continue-next/logs/core.log")
+        val logFile = File(System.getProperty("user.home") + "/.tnt/logs/core.log")
         if (logFile.exists()) {
             val virtualFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByIoFile(logFile)
             if (virtualFile != null) {

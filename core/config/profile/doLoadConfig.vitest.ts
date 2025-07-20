@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { PackageIdentifier } from "@continuedev/config-yaml";
+import type { PackageIdentifier } from "@tnt/config-yaml";
 
 // Mock heavy dependencies before importing doLoadConfig
 const stubConfig = {
@@ -114,8 +114,7 @@ describe("doLoadConfig pre-read content bypass", () => {
 
     const packageIdentifier: PackageIdentifier = {
       uriType: "file",
-      fileUri:
-        "vscode-remote://wsl+Ubuntu/home/user/.continue-next/agents/test.yaml",
+      fileUri: "vscode-remote://wsl+Ubuntu/home/user/.tnt/agents/test.yaml",
       content: "name: Test\nversion: 1.0.0\nschema: v1\n",
     };
 
@@ -139,8 +138,7 @@ describe("doLoadConfig pre-read content bypass", () => {
 
     const packageIdentifier: PackageIdentifier = {
       uriType: "file",
-      fileUri:
-        "vscode-remote://wsl+Ubuntu/home/user/.continue-next/agents/test.yaml",
+      fileUri: "vscode-remote://wsl+Ubuntu/home/user/.tnt/agents/test.yaml",
     };
 
     await doLoadConfig({

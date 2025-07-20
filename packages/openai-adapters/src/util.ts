@@ -1,5 +1,5 @@
-import { RequestOptions } from "@continuedev/config-types";
-import { fetchwithRequestOptions, patchedFetch } from "@continuedev/fetch";
+import { RequestOptions } from "@tnt/config-types";
+import { fetchwithRequestOptions, patchedFetch } from "@tnt/fetch";
 import {
   ChatCompletionChunk,
   CompletionUsage,

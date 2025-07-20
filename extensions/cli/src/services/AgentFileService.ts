@@ -7,7 +7,7 @@ import {
   parseAgentFile,
   parseAgentFileRules,
   parseAgentFileTools,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 
 import { getErrorString } from "src/util/error.js";
 

@@ -1,4 +1,4 @@
-import { ConfigResult, ConfigValidationError } from "@continuedev/config-yaml";
+import { ConfigResult, ConfigValidationError } from "@tnt/config-yaml";
 
 import {
   BrowserSerializedContinueConfig,
@@ -160,7 +160,7 @@ export class ConfigHandler {
 
   async getLocalProfiles(options: LoadAssistantFilesOptions) {
     /**
-     * Users can define as many local agents as they want in a `.continue-next/agents` (or previous .continue-next/assistants) folder
+     * Users can define as many local agents as they want in a `.tnt/agents` (or previous .tnt/assistants) folder
      */
     const localProfiles: ProfileLifecycleManager[] = [];
 

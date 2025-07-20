@@ -1,4 +1,4 @@
-import { ConfigValidationError } from "@continuedev/config-yaml";
+import { ConfigValidationError } from "@tnt/config-yaml";
 
 import { ModelDescription, SerializedContinueConfig } from "../";
 
