@@ -16,9 +16,11 @@ import {
 } from "./messages.js";
 
 import { renderChatMessage } from "../util/messageContent.js";
+import { BuiltInToolNames } from "../tools/builtIn.js";
 import { AsyncEncoder, LlamaAsyncEncoder } from "./asyncEncoder.js";
 import { DEFAULT_PRUNING_LENGTH } from "./constants.js";
 import { getAdjustedTokenCountFromModel } from "./getAdjustedTokenCount.js";
+import { compactToolResults } from "../util/toolResultCompaction.js";
 import llamaTokenizer from "./llamaTokenizer.js";
 interface Encoding {
   encode: Tiktoken["encode"];
@@ -132,45 +134,50 @@ function countTokens(
 }
 
 // https://community.openai.com/t/how-to-calculate-the-tokens-when-using-function-call/266573/10
-function countToolsTokens(tools: Tool[], modelName: string): number {
+function countSingleToolTokens(tool: Tool, modelName: string): number {
   const count = (value: string) =>
     encodingForModel(modelName).encode(value).length;
 
-  let numTokens = 12;
-
-  for (const tool of tools) {
-    let functionTokens = count(tool.function.name);
-    if (tool.function.description) {
-      functionTokens += count(tool.function.description);
-    }
-    const props = tool.function.parameters?.properties;
-    if (props) {
-      for (const key in props) {
-        functionTokens += count(key);
-        const fields = props[key];
-        if (fields) {
-          const fieldType = fields["type"];
-          const fieldDesc = fields["description"];
-          const fieldEnum = fields["enum"];
-          if (fieldType && typeof fieldType === "string") {
-            functionTokens += 2;
-            functionTokens += count(fieldType);
-          }
-          if (fieldDesc && typeof fieldDesc === "string") {
-            functionTokens += 2;
-            functionTokens += count(fieldDesc);
-          }
-          if (fieldEnum && Array.isArray(fieldEnum)) {
-            functionTokens -= 3;
-            for (const e of fieldEnum) {
-              functionTokens += 3;
-              functionTokens += typeof e === "string" ? count(e) : 5;
-            }
+  let functionTokens = count(tool.function.name);
+  if (tool.function.description) {
+    functionTokens += count(tool.function.description);
+  }
+  const props = tool.function.parameters?.properties;
+  if (props) {
+    for (const key in props) {
+      functionTokens += count(key);
+      const fields = props[key];
+      if (fields) {
+        const fieldType = fields["type"];
+        const fieldDesc = fields["description"];
+        const fieldEnum = fields["enum"];
+        if (fieldType && typeof fieldType === "string") {
+          functionTokens += 2;
+          functionTokens += count(fieldType);
+        }
+        if (fieldDesc && typeof fieldDesc === "string") {
+          functionTokens += 2;
+          functionTokens += count(fieldDesc);
+        }
+        if (fieldEnum && Array.isArray(fieldEnum)) {
+          functionTokens -= 3;
+          for (const e of fieldEnum) {
+            functionTokens += 3;
+            functionTokens += typeof e === "string" ? count(e) : 5;
           }
         }
       }
     }
-    numTokens += functionTokens;
+  }
+
+  return functionTokens;
+}
+
+function countToolsTokens(tools: Tool[], modelName: string): number {
+  let numTokens = 12;
+
+  for (const tool of tools) {
+    numTokens += countSingleToolTokens(tool, modelName);
   }
 
   return numTokens + 12;
@@ -474,8 +481,21 @@ function compileChatMessages({
 
   // Tools
   let toolTokens = 0;
+  let mcpTokens = 0;
+  let skillTokens = 0;
   if (tools) {
     toolTokens = countToolsTokens(tools, modelName);
+    // Attribute each tool definition to its own bucket so the breakdown can be
+    // displayed. The preamble and closing tokens are shared by the whole set,
+    // so they stay in the generic tool bucket.
+    for (const tool of tools) {
+      const tokens = countSingleToolTokens(tool, modelName);
+      if (tool.function.name === BuiltInToolNames.ReadSkill) {
+        skillTokens += tokens;
+      } else if (tool.uri?.startsWith("mcp://")) {
+        mcpTokens += tokens;
+      }
+    }
   }
 
   const contextLength = knownContextLength ?? DEFAULT_PRUNING_LENGTH;
@@ -508,15 +528,28 @@ function compileChatMessages({
   }
 
   // Now remove messages till we're under the limit
-  let currentTotal = 0;
-  const historyWithTokens = msgsCopy.map((message) => {
-    const tokens = countChatMessageTokens(modelName, message);
-    currentTotal += tokens;
-    return {
-      ...message,
-      tokens,
-    };
-  });
+  const withTokens = (messages: ChatMessage[]) => {
+    let total = 0;
+    const entries = messages.map((message) => {
+      const tokens = countChatMessageTokens(modelName, message);
+      total += tokens;
+      return { ...message, tokens };
+    });
+    return { entries, total };
+  };
+
+  let { entries: historyWithTokens, total: currentTotal } =
+    withTokens(msgsCopy);
+
+  if (currentTotal > inputTokensAvailable) {
+    const compacted = compactToolResults(msgsCopy);
+    if (compacted.truncatedCount > 0) {
+      const recounted = withTokens(compacted.messages);
+      historyWithTokens = recounted.entries;
+      currentTotal = recounted.total;
+      didPrune = true;
+    }
+  }
 
   while (historyWithTokens.length > 0 && currentTotal > inputTokensAvailable) {
     const message = historyWithTokens.shift()!;
@@ -547,6 +580,18 @@ function compileChatMessages({
     compiledChatMessages: reassembled,
     didPrune,
     contextPercentage,
+    tokenBreakdown: {
+      systemPrompt: systemMsgTokens,
+      // MCP and skills are counted inside toolTokens, so subtract them here to
+      // keep the reported buckets disjoint and summing to `used`.
+      tools: toolTokens - mcpTokens - skillTokens,
+      mcp: mcpTokens,
+      skills: skillTokens,
+      conversation: currentTotal + lastMessagesTokens,
+      used: inputTokens,
+      available: availableTokens,
+      contextLength,
+    },
   };
 }
 

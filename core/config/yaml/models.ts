@@ -94,6 +94,8 @@ async function modelConfigToBaseLLM({
     baseAgentSystemMessage: model.chatOptions?.baseAgentSystemMessage,
     basePlanSystemMessage: model.chatOptions?.basePlanSystemMessage,
     baseChatSystemMessage: model.chatOptions?.baseSystemMessage,
+    baseDebugSystemMessage: model.chatOptions?.baseDebugSystemMessage,
+    baseMultitaskSystemMessage: model.chatOptions?.baseMultitaskSystemMessage,
     toolOverrides: model.chatOptions?.toolOverrides
       ? Object.entries(model.chatOptions.toolOverrides).map(([name, o]) => ({
           name,
