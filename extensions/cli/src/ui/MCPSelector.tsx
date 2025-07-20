@@ -94,10 +94,10 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
 
           const counts = [];
           if (toolsCount > 0) {
-            counts.push(`🔧${toolsCount}`);
+            counts.push(`tools ${toolsCount}`);
           }
           if (promptsCount > 0) {
-            counts.push(`📝${promptsCount}`);
+            counts.push(`prompts ${promptsCount}`);
           }
 
           if (counts.length > 0) {
@@ -171,7 +171,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
         {serverInfo.warnings.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
             <Text color="yellow" bold>
-              ⚠️ Warnings:
+              Warnings:
             </Text>
             {serverInfo.warnings.map((warning, index) => (
               <Text key={index} color="yellow">
@@ -184,7 +184,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
         {/* Add prompts if any */}
         {serverInfo.prompts.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="blue">📝 Prompts: {serverInfo.prompts.length}</Text>
+            <Text color="blue">Prompts: {serverInfo.prompts.length}</Text>
             {serverInfo.prompts.map((prompt, index) => (
               <Text key={index} color="dim">
                 • {prompt.name}
@@ -196,7 +196,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
         {/* Add tools if any */}
         {serverInfo.tools.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="blue">🔧 Tools: {serverInfo.tools.length}</Text>
+            <Text color="blue">Tools: {serverInfo.tools.length}</Text>
             {serverInfo.tools.map((tool, index) => (
               <Text key={index} color="dim">
                 • {tool.name}
@@ -288,7 +288,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
       case "explore-mcp-servers":
         // Open the MCP servers hub in the default browser
         const open = (await import("open")).default;
-        await open("https://continue.dev/hub?type=mcpServers");
+        await open("https://github.com/linanwanttodo/TNT");
         setMessage("Opened MCP servers hub in browser");
         break;
       case "back":

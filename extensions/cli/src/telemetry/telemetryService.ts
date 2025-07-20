@@ -78,7 +78,9 @@ class TelemetryService {
     } else if (process.env.CONTINUE_METRICS_ENABLED === "1") {
       telemetryEnabled = true;
     } else {
-      telemetryEnabled = process.env.CONTINUE_CLI_ENABLE_TELEMETRY !== "0";
+      // Telemetry is off by default; enable explicitly via
+      // CONTINUE_CLI_ENABLE_TELEMETRY=1 together with an OTEL endpoint.
+      telemetryEnabled = process.env.CONTINUE_CLI_ENABLE_TELEMETRY === "1";
     }
 
     const enabled = telemetryEnabled && hasOtelConfig;
@@ -232,7 +234,7 @@ class TelemetryService {
     });
 
     this.costCounter = this.meter.createCounter("continue_cli_cost_usage", {
-      description: "Cost of the Continue CLI session",
+      description: "Cost of the TNT session",
       unit: "USD",
     });
 
@@ -257,7 +259,7 @@ class TelemetryService {
       },
     );
 
-    // Additional Continue CLI specific metrics
+    // Additional TNT specific metrics
     this.authAttemptsCounter = this.meter.createCounter(
       "continue_cli_auth_attempts",
       {

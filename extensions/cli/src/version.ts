@@ -2,8 +2,6 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-import node_machine_id from "node-machine-id";
-
 import { logger } from "./util/logger.js";
 
 export function getVersion(): string {
@@ -17,10 +15,6 @@ export function getVersion(): string {
     console.warn("Warning: Could not read version from package.json");
     return "unknown";
   }
-}
-
-function getEventUserId(): string {
-  return node_machine_id.machineIdSync();
 }
 
 // Singleton to cache the latest version result
@@ -37,24 +31,20 @@ export async function getLatestVersion(
   // Create and cache the promise
   latestVersionCache = (async () => {
     try {
-      const id = getEventUserId();
-      const response = await fetch(
-        `https://api.continue.dev/cn/info?id=${encodeURIComponent(id)}`,
-        { signal },
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.version;
+      // Prefer the version published to the npm registry; fall back to the
+      // local package version when offline. No external service is contacted.
+      const { execFileSync } = await import("node:child_process");
+      const latest = execFileSync("npm", ["view", "@tnt/cli", "version"], {
+        encoding: "utf8",
+        timeout: 5000,
+      }).trim();
+      return latest || getVersion();
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         // Request was aborted, don't log
         return null;
       }
-      logger?.debug(
-        "Warning: Could not fetch latest version from api.continue.dev",
-      );
+      // Offline or npm unavailable: rely on the installed version.
       return null;
     }
   })();
@@ -69,9 +59,7 @@ getLatestVersion()
     }
   })
   .catch((error) => {
-    logger?.debug(
-      `Warning: Could not fetch latest version from api.continue.dev: ${error}`,
-    );
+    logger?.debug("Warning: Could not check latest version from npm");
   });
 
 export function compareVersions(
