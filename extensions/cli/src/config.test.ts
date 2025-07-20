@@ -1,4 +1,4 @@
-import { AssistantUnrolled, ModelConfig } from "@continuedev/config-yaml";
+import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
 // Mock dependencies

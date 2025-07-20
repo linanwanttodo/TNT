@@ -1,9 +1,5 @@
-import { AssistantUnrolled, ModelConfig } from "@continuedev/config-yaml";
-import {
-  BaseLlmApi,
-  constructLlmApi,
-  LLMConfig,
-} from "@continuedev/openai-adapters";
+import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
+import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
 import {
   Configuration,
   DefaultApi,

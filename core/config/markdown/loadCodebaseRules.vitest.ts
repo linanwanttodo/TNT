@@ -1,4 +1,4 @@
-import { markdownToRule } from "@continuedev/config-yaml";
+import { markdownToRule } from "@tnt/config-yaml";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDE } from "../..";
 import { walkDirs } from "../../indexing/walkDir";
@@ -9,7 +9,7 @@ vi.mock("../../indexing/walkDir", () => ({
   walkDirs: vi.fn(),
 }));
 
-vi.mock("@continuedev/config-yaml", () => ({
+vi.mock("@tnt/config-yaml", () => ({
   markdownToRule: vi.fn(),
 }));
 
@@ -33,7 +33,7 @@ describe("loadCodebaseRules", () => {
       '---\nglobs: "**/*.{ts,tsx}"\n---\n# Redux Rules\nUse Redux Toolkit',
     "file:///workspace/src/components/rules.md":
       '---\nglobs: ["**/*.tsx", "**/*.jsx"]\n---\n# Component Rules\nUse functional components',
-    "file:///workspace/.continue-next/rules.md":
+    "file:///workspace/.tnt/rules.md":
       "# Global Rules\nFollow project guidelines",
   };
 
@@ -59,11 +59,11 @@ describe("loadCodebaseRules", () => {
       source: "colocated-markdown",
       sourceFile: "file:///workspace/src/components/rules.md",
     },
-    "file:///workspace/.continue-next/rules.md": {
+    "file:///workspace/.tnt/rules.md": {
       name: "Global Rules",
       rule: "Follow project guidelines",
       source: "colocated-markdown",
-      sourceFile: "file:///workspace/.continue-next/rules.md",
+      sourceFile: "file:///workspace/.tnt/rules.md",
     },
   };
 
@@ -114,7 +114,7 @@ describe("loadCodebaseRules", () => {
       "file:///workspace/src/components/rules.md",
     );
     expect(mockIde.readFile).toHaveBeenCalledWith(
-      "file:///workspace/.continue-next/rules.md",
+      "file:///workspace/.tnt/rules.md",
     );
 
     // Should convert all rules
@@ -132,7 +132,7 @@ describe("loadCodebaseRules", () => {
       mockConvertedRules["file:///workspace/src/components/rules.md"],
     );
     expect(rules).toContainEqual(
-      mockConvertedRules["file:///workspace/.continue-next/rules.md"],
+      mockConvertedRules["file:///workspace/.tnt/rules.md"],
     );
 
     // Should not have errors
@@ -159,7 +159,7 @@ describe("loadCodebaseRules", () => {
       mockConvertedRules["file:///workspace/src/components/rules.md"],
     );
     expect(rules).toContainEqual(
-      mockConvertedRules["file:///workspace/.continue-next/rules.md"],
+      mockConvertedRules["file:///workspace/.tnt/rules.md"],
     );
 
     // Should have one error

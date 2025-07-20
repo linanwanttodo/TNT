@@ -1,7 +1,4 @@
-import {
-  ConfigValidationError,
-  markdownToRule,
-} from "@continuedev/config-yaml";
+import { ConfigValidationError, markdownToRule } from "@tnt/config-yaml";
 import { IDE, RuleWithSource } from "../..";
 import { PROMPTS_DIR_NAME, RULES_DIR_NAME } from "../../promptFiles";
 import { joinPathsToUri } from "../../util/uri";
@@ -9,7 +6,7 @@ import { getAllDotContinueDefinitionFiles } from "../loadLocalAssistants";
 
 export const SUPPORTED_AGENT_FILES = ["AGENTS.md", "AGENT.md", "CLAUDE.md"];
 /**
- * Loads rules from markdown files in the .continue-next/rules and .continue-next/prompts directories
+ * Loads rules from markdown files in the .tnt/rules and .tnt/prompts directories
  * and agent files (AGENTS.md, AGENT.md, CLAUDE.md) at workspace root
  */
 export async function loadMarkdownRules(ide: IDE): Promise<{
@@ -54,7 +51,7 @@ export async function loadMarkdownRules(ide: IDE): Promise<{
     }
   }
 
-  // Load markdown files from both .continue-next/rules and .continue-next/prompts
+  // Load markdown files from both .tnt/rules and .tnt/prompts
   const dirsToCheck = [RULES_DIR_NAME, PROMPTS_DIR_NAME];
 
   for (const dirName of dirsToCheck) {

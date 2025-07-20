@@ -1,10 +1,10 @@
-import { fetchwithRequestOptions } from "@continuedev/fetch";
+import { fetchwithRequestOptions } from "@tnt/fetch";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fetchModels } from "./fetchModels.js";
 import { llmFromProviderAndOptions } from "./llms/index.js";
 
-vi.mock("@continuedev/fetch", () => ({ fetchwithRequestOptions: vi.fn() }));
+vi.mock("@tnt/fetch", () => ({ fetchwithRequestOptions: vi.fn() }));
 vi.mock("./llms/index.js", () => ({
   LLMClasses: [],
   llmFromProviderAndOptions: vi.fn(),

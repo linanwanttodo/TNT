@@ -1,12 +1,9 @@
-import {
-  RULE_FILE_EXTENSION,
-  sanitizeRuleName,
-} from "@continuedev/config-yaml";
+import { RULE_FILE_EXTENSION, sanitizeRuleName } from "@tnt/config-yaml";
 import { joinPathsToUri } from "../../util/uri";
 
 function createRelativeRuleFilePathParts(ruleName: string): string[] {
   const safeRuleName = sanitizeRuleName(ruleName);
-  return [".continue-next", "rules", `${safeRuleName}.${RULE_FILE_EXTENSION}`];
+  return [".tnt", "rules", `${safeRuleName}.${RULE_FILE_EXTENSION}`];
 }
 
 export function createRelativeRuleFilePath(ruleName: string): string {
@@ -14,7 +11,7 @@ export function createRelativeRuleFilePath(ruleName: string): string {
 }
 
 /**
- * Creates the file path for a rule in the workspace .continue-next/rules directory
+ * Creates the file path for a rule in the workspace .tnt/rules directory
  */
 export function createRuleFilePath(
   workspaceDir: string,

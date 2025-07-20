@@ -1,5 +1,5 @@
 {
-  "name": "@continuedev/terminal-security",
+  "name": "@tnt/terminal-security",
   "version": "1.0.0",
   "description": "Terminal command security evaluation for Continue",
   "main": "dist/index.js",

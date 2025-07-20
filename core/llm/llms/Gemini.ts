@@ -1,4 +1,4 @@
-import { streamResponse } from "@continuedev/fetch";
+import { streamResponse } from "@tnt/fetch";
 import { v4 as uuidv4 } from "uuid";
 import {
   AssistantChatMessage,

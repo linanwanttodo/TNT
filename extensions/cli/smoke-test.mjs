@@ -136,15 +136,15 @@ runTest("Local packages are bundled", () => {
     "utf8",
   );
 
-  // Check for code from @continuedev/config-yaml
+  // Check for code from @tnt/config-yaml
   if (
     !bundleContent.includes("AssistantUnrolled") &&
     !bundleContent.includes("config-yaml")
   ) {
-    throw new Error("@continuedev/config-yaml not properly bundled");
+    throw new Error("@tnt/config-yaml not properly bundled");
   }
 
-  // Check for code from @continuedev/openai-adapters
+  // Check for code from @tnt/openai-adapters
   // Since the bundle is minified, check for strings that would be present
   // even after minification (e.g., error messages, property names)
   if (
@@ -154,7 +154,7 @@ runTest("Local packages are bundled", () => {
     !bundleContent.includes("azure") &&
     !bundleContent.includes("bedrock")
   ) {
-    throw new Error("@continuedev/openai-adapters not properly bundled");
+    throw new Error("@tnt/openai-adapters not properly bundled");
   }
 });
 

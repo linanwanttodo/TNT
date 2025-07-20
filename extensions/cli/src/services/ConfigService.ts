@@ -3,7 +3,7 @@ import {
   decodePackageIdentifier,
   mergeUnrolledAssistants,
   PackageIdentifier,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import { DefaultApiInterface } from "@continuedev/sdk/dist/api/dist/index.js";
 
 import { isStringRule } from "src/hubLoader.js";

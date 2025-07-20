@@ -9,7 +9,7 @@ import {
   RegistryClient,
   unrollAssistant,
   unrollAssistantFromContent,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import { DefaultApiInterface } from "@continuedev/sdk/dist/api/dist/index.js";
 import chalk from "chalk";
 
@@ -302,7 +302,7 @@ async function loadUserAssistantWithFallback(
 }
 
 /**
- * Loads default config.yaml from ~/.continue-next/config.yaml
+ * Loads default config.yaml from ~/.tnt/config.yaml
  */
 async function loadLocalConfigYaml(
   accessToken: string | null,

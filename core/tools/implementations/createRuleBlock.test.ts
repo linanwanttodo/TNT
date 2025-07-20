@@ -1,4 +1,4 @@
-import { parseMarkdownRule } from "@continuedev/config-yaml";
+import { parseMarkdownRule } from "@tnt/config-yaml";
 import { jest } from "@jest/globals";
 import { createRuleBlockImpl } from "./createRuleBlock";
 
@@ -55,7 +55,7 @@ test("createRuleBlockImpl should create a filename based on sanitized rule name 
   await createRuleBlockImpl(args, mockExtras as any);
 
   const fileUri = mockIde.writeFile.mock.calls[0][0];
-  expect(fileUri).toBe("/.continue-next/rules/special-chracters-spaces.md");
+  expect(fileUri).toBe("/.tnt/rules/special-chracters-spaces.md");
 });
 
 test("createRuleBlockImpl should create a rule with description pattern", async () => {

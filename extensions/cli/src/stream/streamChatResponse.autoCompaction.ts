@@ -1,5 +1,5 @@
-import { ModelConfig } from "@continuedev/config-yaml";
-import { BaseLlmApi } from "@continuedev/openai-adapters";
+import { ModelConfig } from "@tnt/config-yaml";
+import { BaseLlmApi } from "@tnt/openai-adapters";
 import type { ChatHistoryItem, Session } from "core/index.js";
 import {
   createAutoCompactionState,

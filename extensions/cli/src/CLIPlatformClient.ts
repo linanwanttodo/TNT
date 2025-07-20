@@ -6,7 +6,7 @@ import {
   PlatformClient,
   SecretResult,
   SecretType,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import { DefaultApiInterface } from "@continuedev/sdk/dist/api";
 import * as dotenv from "dotenv";
 
@@ -61,11 +61,11 @@ export class CLIPlatformClient implements PlatformClient {
       return processEnvSecret;
     }
 
-    // Then check in priority order: ~/.continue-next/.env, <workspace>/.continue-next/.env, <workspace>/.env
+    // Then check in priority order: ~/.tnt/.env, <workspace>/.tnt/.env, <workspace>/.env
     const workspaceDir = process.cwd();
     const envPaths = [
       path.join(env.continueHome, ".env"),
-      path.join(workspaceDir, ".continue-next", ".env"),
+      path.join(workspaceDir, ".tnt", ".env"),
       path.join(workspaceDir, ".env"),
     ];
 

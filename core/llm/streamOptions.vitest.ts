@@ -1,5 +1,5 @@
-import { modelSchema } from "@continuedev/config-yaml";
-import type { OpenAIApi } from "@continuedev/openai-adapters/dist/apis/OpenAI.js";
+import { modelSchema } from "@tnt/config-yaml";
+import type { OpenAIApi } from "@tnt/openai-adapters/dist/apis/OpenAI.js";
 import { describe, expect, it, vi } from "vitest";
 
 import { BaseLLM } from "./index.js";

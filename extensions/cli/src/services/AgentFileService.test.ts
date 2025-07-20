@@ -83,9 +83,8 @@ vi.mock("../auth/workos.js", () => ({
 }));
 
 // Mock the config-yaml package
-vi.mock("@continuedev/config-yaml", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@continuedev/config-yaml")>();
+vi.mock("@tnt/config-yaml", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tnt/config-yaml")>();
   return {
     ...actual,
   };

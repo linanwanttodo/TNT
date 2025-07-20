@@ -1,4 +1,4 @@
-import { ModelRole } from "@continuedev/config-yaml";
+import { ModelRole } from "@tnt/config-yaml";
 
 import { ContinueConfig, ILLM } from "..";
 import { LLMConfigurationStatuses } from "../llm/constants";

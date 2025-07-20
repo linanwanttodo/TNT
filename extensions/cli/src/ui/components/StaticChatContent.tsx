@@ -1,6 +1,6 @@
-import type { AssistantUnrolled, ModelConfig } from "@continuedev/config-yaml";
-import { Box, Static, Text, useStdout } from "ink";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import type { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
+import { Box, Text } from "ink";
+import React from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import type { MCPService } from "../../services/MCPService.js";
@@ -8,6 +8,7 @@ import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
+import { estimateHistoryHeight } from "../utils/wrappedLineCount.js";
 
 interface StaticChatContentProps {
   showIntroMessage: boolean;
@@ -23,6 +24,16 @@ interface StaticChatContentProps {
     allMessages?: ChatHistoryItem[],
   ) => React.ReactElement;
   refreshTrigger?: number;
+  /**
+   * How many lines the transcript is scrolled up from the bottom. 0 means the
+   * newest content is visible. The parent keeps this pinned to the bottom by
+   * default and only allows it to grow when the user scrolls up.
+   */
+  scrollOffset?: number;
+  /** Number of visible rows the viewport may occupy. */
+  visibleRows?: number;
+  /** Called when the user requests to jump back to the newest content. */
+  onScrollToBottom?: () => void;
 }
 
 export const StaticChatContent: React.FC<StaticChatContentProps> = ({
@@ -35,46 +46,14 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
   queuedMessages = [],
   renderMessage,
   refreshTrigger,
+  scrollOffset = 0,
+  visibleRows,
+  onScrollToBottom,
 }) => {
-  const { columns, rows } = useTerminalSize();
-  const { stdout } = useStdout();
+  const { columns } = useTerminalSize();
 
-  // State for managing static refresh with key-based remounting
-  const [staticKey, setStaticKey] = useState(0);
-  const isInitialMount = useRef(true);
-
-  // Refresh function that clears terminal and remounts Static component
-  const refreshStatic = useCallback(() => {
-    // Clear terminal completely including scrollback buffer (3J)
-    stdout.write("\x1b[2J\x1b[H");
-    setStaticKey((prev) => prev + 1);
-    stdout.write("\x1b[3J");
-  }, [stdout]);
-
-  // Debounced terminal resize handler (300ms like gemini-cli)
-  useEffect(() => {
-    // Skip refreshing Static during first mount
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    // Debounce so it doesn't fire too often during resize
-    const handler = setTimeout(() => {
-      refreshStatic();
-    }, 300);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [columns, rows, refreshStatic]);
-
-  // Trigger refresh when refreshTrigger prop changes (for /clear command)
-  useEffect(() => {
-    if (refreshTrigger !== undefined && refreshTrigger > 0) {
-      refreshStatic();
-    }
-  }, [refreshTrigger, refreshStatic]);
+  // /clear forces the transcript to remount by keying the content on the
+  // refresh trigger, discarding any previously rendered history.
 
   // Filter out system messages without content and split large messages
   const processedChatHistory = React.useMemo(() => {
@@ -138,25 +117,28 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
   ]);
 
   return (
-    <Box flexDirection="column">
-      {/* Static content - items that won't change */}
-      <Static
-        key={staticKey}
-        items={staticItems}
-        style={{
-          width: columns - 1,
-          textWrap: "wrap",
-        }}
-      >
-        {(item) => item}
-      </Static>
+    <Box
+      key={refreshTrigger ?? 0}
+      flexDirection="column"
+      flexGrow={1}
+      overflow="hidden"
+    >
+      {/* Leading spacer: scrollOffset blank lines push the history down so the
+          visible window reveals older content when scrolled up. When offset is
+          0 the newest content sits at the bottom of the viewport. */}
+      {scrollOffset > 0 && (
+        <Text>
+          {Array.from({ length: scrollOffset }, () => " ").join("\n")}
+        </Text>
+      )}
 
-      {/* Pending area - dynamically rendered items that can update */}
-      <Box flexDirection="column">
-        {pendingItems.map((item, index) => (
-          <React.Fragment key={`pending-${index}`}>{item}</React.Fragment>
-        ))}
-      </Box>
+      {staticItems.map((item, index) => (
+        <React.Fragment key={`static-${index}`}>{item}</React.Fragment>
+      ))}
+
+      {pendingItems.map((item, index) => (
+        <React.Fragment key={`pending-${index}`}>{item}</React.Fragment>
+      ))}
 
       {/* Queued messages - show at bottom with queue indicators */}
       {queuedMessages.length > 0 && (

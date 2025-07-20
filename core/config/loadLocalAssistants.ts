@@ -1,4 +1,4 @@
-import { BLOCK_TYPES } from "@continuedev/config-yaml";
+import { BLOCK_TYPES } from "@tnt/config-yaml";
 import ignore from "ignore";
 import * as URI from "uri-js";
 import { IDE } from "..";
@@ -19,12 +19,12 @@ export function isContinueConfigRelatedUri(uri: string): boolean {
     uri.endsWith(".prompt") ||
     !!SUPPORTED_AGENT_FILES.find((file) => uri.endsWith(`/${file}`)) ||
     uri.endsWith(SYSTEM_PROMPT_DOT_FILE) ||
-    (uri.includes(".continue-next") &&
+    (uri.includes(".tnt") &&
       (uri.endsWith(".yaml") ||
         uri.endsWith(".yml") ||
         uri.endsWith(".json"))) ||
     [...BLOCK_TYPES, "agents", "assistants", "configs"].some((blockType) =>
-      uri.includes(`.continue-next/${blockType}`),
+      uri.includes(`.tnt/${blockType}`),
     )
   );
 }
@@ -37,9 +37,9 @@ export function isContinueAgentConfigFile(uri: string): boolean {
 
   const normalizedUri = URI.normalize(uri);
   return (
-    normalizedUri.includes(`/.continue-next/agents/`) ||
-    normalizedUri.includes(`/.continue-next/assistants/`) ||
-    normalizedUri.includes(`/.continue-next/configs/`)
+    normalizedUri.includes(`/.tnt/agents/`) ||
+    normalizedUri.includes(`/.tnt/assistants/`) ||
+    normalizedUri.includes(`/.tnt/configs/`)
   );
 }
 
@@ -109,14 +109,14 @@ export function getDotContinueSubDirs(
 ): string[] {
   let fullDirs: string[] = [];
 
-  // Workspace .continue-next/<subDirName>
+  // Workspace .tnt/<subDirName>
   if (options.includeWorkspace) {
     fullDirs = workspaceDirs.map((dir) =>
-      joinPathsToUri(dir, ".continue-next", subDirName),
+      joinPathsToUri(dir, ".tnt", subDirName),
     );
   }
 
-  // ~/.continue-next/<subDirName>
+  // ~/.tnt/<subDirName>
   if (options.includeGlobal) {
     fullDirs.push(localPathToUri(getGlobalFolderWithName(subDirName)));
   }
@@ -126,7 +126,7 @@ export function getDotContinueSubDirs(
 
 /**
  * This method searches in both the global config dir and the workspace counterpart
- * for all YAML/Markdown files in the specified subdirectory, for example .continue-next/assistants or .continue-next/prompts
+ * for all YAML/Markdown files in the specified subdirectory, for example .tnt/assistants or .tnt/prompts
  */
 export async function getAllDotContinueDefinitionFiles(
   ide: IDE,

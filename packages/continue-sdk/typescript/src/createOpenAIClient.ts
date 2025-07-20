@@ -1,7 +1,7 @@
 import {
   AssistantUnrolled,
   ContinueProperties,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import fetch, { Response } from "node-fetch";
 import OpenAI from "openai";
 

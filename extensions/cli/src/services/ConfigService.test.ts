@@ -2,7 +2,7 @@ import {
   decodePackageIdentifier,
   mergeUnrolledAssistants,
   ModelRole,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import * as workos from "../auth/workos.js";
@@ -19,7 +19,7 @@ vi.mock("../configLoader.js", () => ({
 }));
 vi.mock("../util/logger.js");
 vi.mock("./ServiceContainer.js");
-vi.mock("@continuedev/config-yaml");
+vi.mock("@tnt/config-yaml");
 vi.mock("src/systemMessage.js", () => ({
   loadMarkdownRulesWithMetadata: vi.fn().mockReturnValue([]),
 }));
