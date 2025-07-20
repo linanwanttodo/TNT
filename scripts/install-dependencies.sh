@@ -44,7 +44,7 @@ popd
 echo "Installing GUI extension dependencies..."
 pushd gui
 npm install
-npm link @continuedev/core
+npm link @tnt/core
 NODE_OPTIONS="--max-old-space-size=4096" npm run build
 popd
 
@@ -53,7 +53,7 @@ echo "Installing VSCode extension dependencies..."
 pushd extensions/vscode
 # This does way too many things inline but is the common denominator between many of the scripts
 npm install
-npm link @continuedev/core
+npm link @tnt/core
 # npm run prepackage # not required since npm run package has prescript of prepackage
 npm run package
 popd
