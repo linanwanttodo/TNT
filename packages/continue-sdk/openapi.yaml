@@ -1,16 +1,14 @@
 openapi: 3.0.0
 info:
-  title: Continue Hub IDE API
+  title: TNT IDE API
   description: |
-    API for Continue IDE to fetch assistants and other related information.
-    These endpoints are primarily used by the Continue IDE extensions for VS Code and JetBrains.
+    API for TNT IDE to fetch assistants and other related information.
+    These endpoints are primarily used by the TNT IDE extensions for VS Code and JetBrains.
   version: 1.0.0
   contact:
-    name: Continue Dev Team
-    url: https://continue.dev
+    name: TNT
+    url: https://github.com/linanwanttodo/TNT
 servers:
-  - url: https://api.continue.dev
-    description: Production server
   - url: http://localhost:3001
     description: Local development server
 paths:

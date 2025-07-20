@@ -32,7 +32,9 @@ describe("getFileContent", () => {
     const docsResult = getFileContent("docs");
     expect(docsResult).toContain("name: New doc");
     expect(docsResult).toContain("docs:");
-    expect(docsResult).toContain("startUrl: https://docs.continue.dev");
+    expect(docsResult).toContain(
+      "startUrl: https://github.com/linanwanttodo/TNT/tree/main/docs",
+    );
 
     const promptsResult = getFileContent("prompts");
     expect(promptsResult).toContain("name: New prompt");

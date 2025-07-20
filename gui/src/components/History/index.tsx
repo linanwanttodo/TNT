@@ -219,9 +219,7 @@ export function History() {
         >
           Chat history is saved to{" "}
           <span className="italic">
-            {platform === "windows"
-              ? "%USERPROFILE%/.continue-next"
-              : "~/.continue-next/sessions"}
+            {platform === "windows" ? "%USERPROFILE%/.tnt" : "~/.tnt/sessions"}
           </span>
         </span>
       </div>

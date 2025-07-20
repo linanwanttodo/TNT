@@ -12,7 +12,7 @@ export class DownloadYamlExtensionCodeLensProvider
     document: vscode.TextDocument,
     _: vscode.CancellationToken,
   ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-    if (!document.uri.fsPath.includes(".continue-next")) {
+    if (!document.uri.fsPath.includes(".tnt")) {
       return [];
     }
 
@@ -24,7 +24,11 @@ export class DownloadYamlExtensionCodeLensProvider
       command: {
         title: "📖 View Continue Reference",
         command: "vscode.open",
-        arguments: [vscode.Uri.parse("https://docs.continue.dev/reference")],
+        arguments: [
+          vscode.Uri.parse(
+            "https://github.com/linanwanttodo/TNT/tree/main/docs/reference",
+          ),
+        ],
       },
       isResolved: true,
     };

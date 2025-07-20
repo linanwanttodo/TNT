@@ -14,8 +14,8 @@ permissions:
 jobs:
   CLAAssistant:
     runs-on: ubuntu-latest
-    # Only run this workflow on the main repository (continuedev/continue)
-    if: github.repository == 'continuedev/continue'
+    # Only run this workflow on the main repository (linanwanttodo/TNT)
+    if: github.repository == 'linanwanttodo/TNT'
     steps:
       - name: "CLA Assistant"
         if: (contains(github.event.comment.body, 'recheck') || contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')) || github.event_name == 'pull_request_target'
@@ -24,8 +24,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           path-to-signatures: "signatures/version1/cla.json"
-          path-to-document: "https://github.com/continuedev/continue/blob/main/CLA.md"
+          path-to-document: "https://github.com/linanwanttodo/TNT/blob/main/CLA.md"
           branch: cla-signatures
           # Bots and CLAs signed outside of GitHub
-          allowlist: dependabot[bot],fbricon,panyamkeerthana,Jazzcort,owtaylor,halfline,agent@continue.dev,action@github.com,continue[bot],snyk-bot,noreply@continue.dev,google-labs-jules[bot]
+          allowlist: dependabot[bot],action@github.com,snyk-bot,google-labs-jules[bot]
           signed-commit-message: "CLA signed in $pullRequestNo"

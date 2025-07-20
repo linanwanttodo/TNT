@@ -6,8 +6,8 @@ on:
     branches:
       - main
     paths:
-      - '.github/workflows/runloop-blueprint-template.json'
-      - '.github/workflows/runloop-blueprint-staging-template.json'
+      - ".github/workflows/runloop-blueprint-template.json"
+      - ".github/workflows/runloop-blueprint-staging-template.json"
 
 permissions:
   contents: read
@@ -16,8 +16,8 @@ jobs:
   upload-blueprints:
     name: Upload Blueprints to Runloop
     runs-on: ubuntu-latest
-    # Only run this workflow on the main repository (continuedev/continue)
-    if: github.repository == 'continuedev/continue'
+    # Only run this workflow on the main repository (linanwanttodo/TNT)
+    if: github.repository == 'linanwanttodo/TNT'
     strategy:
       matrix:
         include:

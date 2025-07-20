@@ -12,14 +12,14 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
-  id-token: write  # Required for OIDC
+  id-token: write # Required for OIDC
 
 jobs:
   stable-release:
     name: Stable Release
     runs-on: ubuntu-latest
-    # Only run this workflow on the main repository (continuedev/continue)
-    if: github.repository == 'continuedev/continue'
+    # Only run this workflow on the main repository (linanwanttodo/TNT)
+    if: github.repository == 'linanwanttodo/TNT'
     steps:
       - name: Checkout
         uses: actions/checkout@v6

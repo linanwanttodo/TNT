@@ -1,4 +1,4 @@
-# @continuedev/sdk
+# @tnt/sdk
 
 > **⚠️ EXPERIMENTAL: This package is in early development and subject to frequent breaking changes without notice.**
 

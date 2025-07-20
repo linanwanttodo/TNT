@@ -275,7 +275,7 @@ export const en = {
   "help.tools": "Tools",
   "help.keyboardShortcuts": "Keyboard Shortcuts",
   "help.documentation": "Documentation",
-  "help.documentation.desc": "Learn how to configure and use Continue Next",
+  "help.documentation.desc": "Learn how to configure and use TNT",
   "help.tokenUsage": "Token usage",
   "help.tokenUsage.desc": "Daily token usage across models",
   "help.sessionHistory": "View current session history",

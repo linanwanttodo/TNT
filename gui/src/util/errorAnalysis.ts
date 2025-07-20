@@ -130,7 +130,8 @@ export function analyzeError(
 
   // Missing authentication header (no API key configured)
   if (errorText.includes("missing bearer or basic authentication")) {
-    helpUrl = "https://docs.continue.dev/reference#models";
+    helpUrl =
+      "https://github.com/linanwanttodo/TNT/tree/main/docs/reference#models";
     customErrorMessage =
       'No API key was sent with the request. Add "apiKey" to your model config.';
   }

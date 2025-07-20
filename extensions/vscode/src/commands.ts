@@ -687,7 +687,9 @@ const getCommandsMap: (
         .then(async (selection) => {
           if (selection === "Read the docs") {
             await vscode.env.openExternal(
-              vscode.Uri.parse("https://docs.continue.dev/yaml-migration"),
+              vscode.Uri.parse(
+                "https://github.com/linanwanttodo/TNT/tree/main/docs/yaml-migration",
+              ),
             );
           }
         });

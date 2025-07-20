@@ -264,7 +264,7 @@ export const zhCN: Record<keyof typeof en, string> = {
   "help.tools": "工具",
   "help.keyboardShortcuts": "键盘快捷键",
   "help.documentation": "文档",
-  "help.documentation.desc": "了解如何配置和使用 Continue Next",
+  "help.documentation.desc": "了解如何配置和使用 TNT",
   "help.tokenUsage": "Token 用量",
   "help.tokenUsage.desc": "各模型的每日 token 用量",
   "help.sessionHistory": "查看当前会话历史",
