@@ -17,8 +17,10 @@ import {
   ListboxOptions,
 } from "../../../components/ui";
 import { useFontSize } from "../../../components/ui/font";
+import { useI18n } from "../../../i18n";
 import { useAppSelector } from "../../../redux/hooks";
 import { addTool, setToolPolicy } from "../../../redux/slices/uiSlice";
+import { getModeToolAccess } from "../../../util/modes";
 
 interface ToolPolicyItemProps {
   tool: Tool;
@@ -28,6 +30,7 @@ interface ToolPolicyItemProps {
 
 export function ToolPolicyItem(props: ToolPolicyItemProps) {
   const dispatch = useDispatch();
+  const { t } = useI18n();
   const policy = useAppSelector(
     (state) => state.ui.toolSettings[props.tool.function.name],
   );
@@ -54,7 +57,7 @@ export function ToolPolicyItem(props: ToolPolicyItemProps) {
 
   const disabled =
     !props.isGroupEnabled ||
-    (mode === "plan" &&
+    (getModeToolAccess(mode) === "readonly" &&
       props.tool.group === BUILT_IN_GROUP_NAME &&
       !props.tool.readonly);
 
@@ -88,7 +91,7 @@ export function ToolPolicyItem(props: ToolPolicyItemProps) {
                     className="flex flex-wrap items-center"
                     content={
                       <p className="m-0 p-0">
-                        <span>Duplicate tool name</span>{" "}
+                        <span>{t("tools.policy.duplicate")}</span>{" "}
                         <code>{props.tool.function.name}</code>{" "}
                         <span>
                           detected. Permissions will conflict and usage may be
@@ -140,22 +143,24 @@ export function ToolPolicyItem(props: ToolPolicyItemProps) {
                 >
                   <span className="text-xs">
                     {disabled || policy === "disabled"
-                      ? "Excluded"
+                      ? t("tools.policy.excluded")
                       : policy === "allowedWithoutPermission"
-                        ? "Automatic"
-                        : "Ask First"}
+                        ? t("tools.policy.automatic")
+                        : t("tools.policy.askFirst")}
                   </span>
                   <ChevronDownIcon className="h-3 w-3" />
                 </ListboxButton>
                 {!disabled && (
                   <ListboxOptions className="min-w-0">
                     <ListboxOption value="allowedWithoutPermission">
-                      Automatic
+                      {t("tools.policy.automatic")}
                     </ListboxOption>
                     <ListboxOption value="allowedWithPermission">
-                      Ask First
+                      {t("tools.policy.askFirst")}
                     </ListboxOption>
-                    <ListboxOption value="disabled">Excluded</ListboxOption>
+                    <ListboxOption value="disabled">
+                      {t("tools.policy.excluded")}
+                    </ListboxOption>
                   </ListboxOptions>
                 )}
               </div>
@@ -163,23 +168,27 @@ export function ToolPolicyItem(props: ToolPolicyItemProps) {
           </div>
         </div>
         <Tooltip id={disabledTooltipId}>
-          {mode === "chat"
+          {getModeToolAccess(mode) === "none"
             ? "Tool disabled in chat mode"
             : !props.isGroupEnabled
               ? "Group is turned off"
-              : "Tool disabled in plan mode"}
+              : "Tool disabled in this mode"}
         </Tooltip>
       </div>
       <div
         className={`flex flex-col overflow-hidden ${isExpanded ? "h-min" : "h-0 opacity-0"} gap-x-1 gap-y-2 pl-2 transition-all`}
       >
-        <span className="text-2xs mt-1.5 font-bold">Description:</span>
+        <span className="text-2xs mt-1.5 font-bold">
+          {t("tools.policy.description")}
+        </span>
         <span className="text-2xs italic">
           {props.tool.function.description}
         </span>
         {parameters ? (
           <>
-            <span className="text-2xs font-bold">Arguments:</span>
+            <span className="text-2xs font-bold">
+              {t("tools.policy.arguments")}
+            </span>
             {parameters.map((param, idx) => (
               <div key={idx} className="text-2xs block">
                 <code className="">{param[0]}</code>

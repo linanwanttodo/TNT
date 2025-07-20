@@ -57,7 +57,7 @@ function ThinkingBlockPeek({
 
   return duplicateRedactedThinkingBlock ? null : (
     <div className="thread-message">
-      <div className="mt-1 flex flex-col px-4">
+      <div className="mt-1 flex flex-col pr-4">
         <div>
           <Button
             variant="outline"

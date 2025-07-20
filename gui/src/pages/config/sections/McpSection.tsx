@@ -28,8 +28,10 @@ import {
 import { useAuth } from "../../../context/Auth";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
 import { useI18n } from "../../../i18n";
+import type { TranslationKey } from "../../../i18n/locales/en";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { updateConfig } from "../../../redux/slices/configSlice";
+import { getModeToolAccess } from "../../../util/modes";
 import { ConfigHeader } from "../components/ConfigHeader";
 import { ToolPoliciesGroup } from "../components/ToolPoliciesGroup";
 
@@ -92,7 +94,7 @@ export function McpSection() {
   };
 
   const allToolsOff = useMemo(() => {
-    return mode === "chat";
+    return getModeToolAccess(mode) === "none";
   }, [mode]);
 
   return (
@@ -110,7 +112,7 @@ export function McpSection() {
         addButtonTooltip={t("mcp.addServer")}
         showAddButton={true}
       />
-      {mode === "chat" && (
+      {getModeToolAccess(mode) === "none" && (
         <Alert type="info" size="sm">
           <span className="text-2xs italic">{t("mcp.chatDisabled")}</span>
         </Alert>
@@ -134,13 +136,13 @@ export function McpSection() {
   );
 }
 
-const ServerStatusTooltip: Record<MCPConnectionStatus, string> = {
-  connected: "Active",
-  connecting: "Connecting",
-  "not-connected": "Inactive",
-  disabled: "Off",
-  authenticating: "Authenticating",
-  error: "Error",
+const ServerStatusTooltip: Record<MCPConnectionStatus, TranslationKey> = {
+  connected: "mcp.status.active",
+  connecting: "mcp.status.connecting",
+  "not-connected": "mcp.status.inactive",
+  disabled: "mcp.status.off",
+  authenticating: "mcp.status.authenticating",
+  error: "mcp.status.error",
 };
 
 const ServerStatusColor: Record<MCPConnectionStatus, string> = {
@@ -314,7 +316,11 @@ function MCPServerPreview({
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h3 className="my-0 text-sm font-medium">{server.name}</h3>
-              <ToolTip content={ServerStatusTooltip[server.status] ?? "Error"}>
+              <ToolTip
+                content={t(
+                  ServerStatusTooltip[server.status] ?? "mcp.status.error",
+                )}
+              >
                 <div
                   className={`h-2 w-2 flex-shrink-0 rounded-full ${ServerStatusColor[server.status] ?? "bg-error"}`}
                 />

@@ -292,9 +292,9 @@ export function StepContainerPreToolbar({
   }
 
   return (
-    <div className="outline-command-border -outline-offset-0.5 rounded-default bg-editor !my-2 flex min-w-0 flex-col outline outline-1">
+    <div className="my-2 flex min-w-0 flex-col">
       <div
-        className={`find-widget-skip bg-editor sticky -top-2 z-10 m-0 flex items-center justify-between gap-3 px-1.5 py-1 ${isExpanded ? "rounded-t-default border-command-border border-b" : "rounded-default"}`}
+        className="find-widget-skip border-command-border sticky -top-2 z-10 m-0 flex items-center justify-between gap-3 border-b py-1"
         style={{ fontSize: `${getFontSize() - 2}px` }}
       >
         <div className="flex max-w-[50%] flex-row items-center">

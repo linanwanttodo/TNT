@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import ConfirmationDialog from "../../../../components/dialogs/ConfirmationDialog";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
 import { useWebviewListener } from "../../../../hooks/useWebviewListener";
+import { useI18n } from "../../../../i18n";
 import {
   setDialogMessage,
   setShowDialog,
@@ -25,9 +26,10 @@ export function getProgressPercentage(
 function IndexingProgress() {
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useDispatch();
+  const { t } = useI18n();
   const [paused, setPaused] = useState<boolean | undefined>(undefined);
   const [update, setUpdate] = useState<IndexingProgressUpdate>({
-    desc: "Loading indexing config",
+    desc: t("indexing.loading"),
     progress: 0.0,
     status: "loading",
   });
@@ -60,14 +62,9 @@ function IndexingProgress() {
       dispatch(
         setDialogMessage(
           <ConfirmationDialog
-            title="Rebuild codebase index"
-            confirmText="Rebuild"
-            text={
-              "Your index appears corrupted. We recommend clearing and rebuilding it, " +
-              "which may take time for large codebases.\n\n" +
-              "For a faster rebuild without clearing data, press 'Shift + Command + P' to open " +
-              "the Command Palette, and type out 'Continue: Force Codebase Re-Indexing'"
-            }
+            title={t("indexing.rebuild.title")}
+            confirmText={t("indexing.rebuild.confirm")}
+            text={t("indexing.rebuild.body")}
             onConfirm={() => {
               ideMessenger.post("index/forceReIndex", {
                 shouldClearIndexes: true,

@@ -14,6 +14,7 @@ import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { saveCurrentSession } from "../../../redux/thunks/session";
 import { isJetBrains } from "../../../util";
 import { CONFIG_ROUTES, ROUTES } from "../../../util/navigation";
+import { useI18n } from "../../../i18n";
 import { ConfigHeader } from "../components/ConfigHeader";
 import { ConfigRow } from "../components/ConfigRow";
 
@@ -38,110 +39,111 @@ function KeyboardShortcut(props: KeyboardShortcutProps) {
   );
 }
 
+interface ShortcutDef {
+  shortcut: string;
+  descriptionKey: string;
+}
+
 // Shortcut strings will be rendered correctly based on the platform by the Shortcut component
-const vscodeShortcuts: Omit<KeyboardShortcutProps, "isEven">[] = [
+const vscodeShortcuts: ShortcutDef[] = [
   {
     shortcut: "cmd '",
-    description: "Toggle Selected Model",
+    descriptionKey: "help.shortcut.toggleModel",
   },
   {
     shortcut: "cmd I",
-    description: "Edit highlighted code",
+    descriptionKey: "help.shortcut.editCode",
   },
   {
     shortcut: "cmd L",
-    description:
-      "New Chat / New Chat With Selected Code / Close Continue Sidebar If Chat Already In Focus",
+    descriptionKey: "help.shortcut.newChat",
   },
   {
     shortcut: "cmd backspace",
-    description: "Cancel response",
+    descriptionKey: "help.shortcut.cancel",
   },
   {
     shortcut: "cmd shift I",
-    description: "Toggle inline edit focus",
+    descriptionKey: "help.shortcut.inlineEditFocus",
   },
   {
     shortcut: "cmd shift L",
-    description:
-      "Focus Current Chat / Add Selected Code To Current Chat / Close Continue Sidebar If Chat Already In Focus",
+    descriptionKey: "help.shortcut.focusChat",
   },
   {
     shortcut: "cmd shift R",
-    description: "Debug Terminal",
+    descriptionKey: "help.shortcut.debugTerminal",
   },
   {
     shortcut: "cmd shift backspace",
-    description: "Reject Diff",
+    descriptionKey: "help.shortcut.rejectDiff",
   },
   {
     shortcut: "cmd shift enter",
-    description: "Accept Diff",
+    descriptionKey: "help.shortcut.acceptDiff",
   },
   {
     shortcut: "alt cmd N",
-    description: "Reject Top Change in Diff",
+    descriptionKey: "help.shortcut.rejectTopChange",
   },
   {
     shortcut: "alt cmd Y",
-    description: "Accept Top Change in Diff",
+    descriptionKey: "help.shortcut.acceptTopChange",
   },
   {
     shortcut: "cmd K cmd A",
-    description: "Toggle Autocomplete Enabled",
+    descriptionKey: "help.shortcut.toggleAutocomplete",
   },
   {
     shortcut: "cmd alt space",
-    description: "Force an Autocomplete Trigger",
+    descriptionKey: "help.shortcut.forceAutocomplete",
   },
   {
     shortcut: "cmd K cmd M",
-    description: "Toggle Full Screen",
+    descriptionKey: "help.shortcut.fullScreen",
   },
 ];
 
-const jetbrainsShortcuts: Omit<KeyboardShortcutProps, "isEven">[] = [
+const jetbrainsShortcuts: ShortcutDef[] = [
   {
     shortcut: "cmd '",
-    description: "Toggle Selected Model",
+    descriptionKey: "help.shortcut.toggleModel",
   },
   {
     shortcut: "cmd I",
-    description: "Edit highlighted code",
+    descriptionKey: "help.shortcut.editCode",
   },
   {
     shortcut: "cmd J",
-    description:
-      "New Chat / New Chat With Selected Code / Close Continue Sidebar If Chat Already In Focus",
+    descriptionKey: "help.shortcut.newChat",
   },
   {
     shortcut: "cmd backspace",
-    description: "Cancel response",
+    descriptionKey: "help.shortcut.cancel",
   },
   {
     shortcut: "cmd shift I",
-    description: "Toggle inline edit focus",
+    descriptionKey: "help.shortcut.inlineEditFocus",
   },
   {
     shortcut: "cmd shift J",
-    description:
-      "Focus Current Chat / Add Selected Code To Current Chat / Close Continue Sidebar If Chat Already In Focus",
+    descriptionKey: "help.shortcut.focusChat",
   },
   {
     shortcut: "cmd shift backspace",
-    description: "Reject Diff",
+    descriptionKey: "help.shortcut.rejectDiff",
   },
   {
     shortcut: "cmd shift enter",
-    description: "Accept Diff",
+    descriptionKey: "help.shortcut.acceptDiff",
   },
   {
     shortcut: "alt shift J",
-    description: "Quick Input",
+    descriptionKey: "help.shortcut.quickInput",
   },
   {
     shortcut: "alt cmd J",
-    description: "Toggle Sidebar",
+    descriptionKey: "help.shortcut.toggleSidebar",
   },
 ];
 
@@ -149,6 +151,7 @@ export function HelpSection() {
   const ideMessenger = useContext(IdeMessengerContext);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { t } = useI18n();
 
   const currentSession = useAppSelector((state) => state.session);
 
@@ -171,16 +174,16 @@ export function HelpSection() {
 
   return (
     <div className="flex flex-col">
-      <ConfigHeader title="Help Center" />
+      <ConfigHeader title={t("help.title")} />
       <div className="space-y-6">
         {/* Resources */}
         <div>
-          <h3 className="mb-3 text-base font-medium">Resources</h3>
+          <h3 className="mb-3 text-base font-medium">{t("help.resources")}</h3>
           <Card className="!p-0">
             <div className="flex flex-col">
               <ConfigRow
-                title="Documentation"
-                description="Learn how to configure and use Continue"
+                title={t("help.documentation")}
+                description={t("help.documentation.desc")}
                 icon={LinkIcon}
                 onClick={() =>
                   ideMessenger.post("openUrl", "https://docs.continue.dev/")
@@ -192,12 +195,12 @@ export function HelpSection() {
 
         {/* Tools */}
         <div>
-          <h3 className="mb-3 text-base font-medium">Tools</h3>
+          <h3 className="mb-3 text-base font-medium">{t("help.tools")}</h3>
           <Card className="!p-0">
             <div className="flex flex-col">
               <ConfigRow
-                title="Token usage"
-                description="Daily token usage across models"
+                title={t("help.tokenUsage")}
+                description={t("help.tokenUsage.desc")}
                 icon={TableCellsIcon}
                 onClick={() => navigate(CONFIG_ROUTES.USAGE)}
               />
@@ -205,16 +208,16 @@ export function HelpSection() {
               {currentSession.history.length > 0 &&
                 !currentSession.isStreaming && (
                   <ConfigRow
-                    title="View current session history"
-                    description="Open the current chat session file for troubleshooting"
+                    title={t("help.sessionHistory")}
+                    description={t("help.sessionHistory.desc")}
                     icon={NumberedListIcon}
                     onClick={handleViewSessionData}
                   />
                 )}
 
               <ConfigRow
-                title="Quickstart"
-                description="Reopen the quickstart and tutorial file"
+                title={t("help.quickstart")}
+                description={t("help.quickstart.desc")}
                 icon={DocumentArrowUpIcon}
                 onClick={async () => {
                   navigate("/");
@@ -231,8 +234,8 @@ export function HelpSection() {
 
               {process.env.NODE_ENV === "development" && (
                 <ConfigRow
-                  title="Theme Test Page"
-                  description="Development page for testing themes"
+                  title={t("help.themeTest")}
+                  description={t("help.themeTest.desc")}
                   icon={PaintBrushIcon}
                   onClick={async () => {
                     navigate(ROUTES.THEME);
@@ -245,7 +248,9 @@ export function HelpSection() {
 
         {/* Keyboard Shortcuts */}
         <div>
-          <h3 className="mb-3 text-base font-medium">Keyboard Shortcuts</h3>
+          <h3 className="mb-3 text-base font-medium">
+            {t("help.keyboardShortcuts")}
+          </h3>
           <Card className="!p-0">
             <div className="overflow-hidden rounded-md border border-gray-600">
               {shortcuts.map((shortcut, i) => {
@@ -253,7 +258,7 @@ export function HelpSection() {
                   <KeyboardShortcut
                     key={i}
                     shortcut={shortcut.shortcut}
-                    description={shortcut.description}
+                    description={t(shortcut.descriptionKey)}
                     isEven={i % 2 === 0}
                   />
                 );

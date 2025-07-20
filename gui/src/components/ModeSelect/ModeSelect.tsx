@@ -1,51 +1,43 @@
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ExclamationTriangleIcon,
-  InformationCircleIcon,
-} from "@heroicons/react/24/outline";
+import { CheckIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { MessageModes } from "core";
-import { isRecommendedAgentModel } from "core/llm/toolSupport";
 import { useCallback, useEffect, useMemo } from "react";
-import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { selectSelectedChatModel } from "../../redux/slices/configSlice";
-import { setMode } from "../../redux/slices/sessionSlice";
-import { getFontSize, getMetaKeyLabel } from "../../util";
-import { ToolTip } from "../gui/Tooltip";
-import { useMainEditor } from "../mainInput/TipTapEditor";
-import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from "../ui";
-import { ModeIcon } from "./ModeIcon";
+import { useI18n } from "../../i18n/index.tsx";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks.ts";
+import { setMode } from "../../redux/slices/sessionSlice.ts";
+import { isMetaEquivalentKeyPressed } from "../../util/index.ts";
+import { resolveModes } from "../../util/modes.ts";
+import { useMainEditor } from "../mainInput/TipTapEditor/index.ts";
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from "../ui/index.ts";
+import { ModeIcon } from "./ModeIcon.tsx";
 
-export function ModeSelect() {
+interface ModeSelectProps {
+  enableCycleShortcut?: boolean;
+}
+
+export function ModeSelect({ enableCycleShortcut = false }: ModeSelectProps) {
   const dispatch = useAppDispatch();
   const mode = useAppSelector((store) => store.session.mode);
-  const selectedModel = useAppSelector(selectSelectedChatModel);
-
-  const isGoodAtAgentMode = useMemo(() => {
-    if (!selectedModel) {
-      return undefined;
-    }
-    return isRecommendedAgentModel(selectedModel.model);
-  }, [selectedModel]);
-
+  const { t } = useI18n();
+  const modes = useMemo(() => resolveModes(t), [t]);
+  const activeMode = modes.find((entry) => entry.id === mode);
   const { mainEditor } = useMainEditor();
-  const metaKeyLabel = useMemo(() => {
-    return getMetaKeyLabel();
-  }, []);
 
   const cycleMode = useCallback(() => {
-    if (mode === "chat") {
-      dispatch(setMode("plan"));
-    } else if (mode === "plan") {
-      dispatch(setMode("agent"));
-    } else {
-      dispatch(setMode("chat"));
+    const currentIndex = modes.findIndex((entry) => entry.id === mode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+    if (!nextMode) {
+      return;
     }
-    // Only focus main editor if another one doesn't already have focus
+    dispatch(setMode(nextMode.id));
     if (!document.activeElement?.classList?.contains("ProseMirror")) {
       mainEditor?.commands.focus();
     }
-  }, [mode, mainEditor]);
+  }, [dispatch, mode, mainEditor, modes]);
 
   const selectMode = useCallback(
     (newMode: MessageModes) => {
@@ -57,116 +49,59 @@ export function ModeSelect() {
 
       mainEditor?.commands.focus();
     },
-    [mode, mainEditor],
+    [dispatch, mode, mainEditor],
   );
 
   useEffect(() => {
+    if (!enableCycleShortcut) {
+      return;
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "." && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "." && isMetaEquivalentKeyPressed(e)) {
         e.preventDefault();
-        void cycleMode();
+        cycleMode();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [cycleMode]);
-
-  const notGreatAtAgent = (mode: string) => (
-    <>
-      <ToolTip
-        style={{
-          zIndex: 200001, // in front of listbox
-        }}
-        className="flex items-center gap-1"
-        content={`${mode} might not work well with this model.`}
-      >
-        <ExclamationTriangleIcon className="text-warning h-2.5 w-2.5" />
-      </ToolTip>
-    </>
-  );
+  }, [cycleMode, enableCycleShortcut]);
 
   return (
     <Listbox value={mode} onChange={selectMode}>
-      <div className="relative">
+      <div className="composer-mode-select relative">
         <ListboxButton
           data-testid="mode-select-button"
-          className="xs:px-2 text-description bg-lightgray/20 gap-1 rounded-full border-none px-1.5 py-0.5 transition-colors duration-200 hover:brightness-110"
+          aria-label={activeMode?.label ?? mode}
+          className="composer-mode-select-button"
         >
           <ModeIcon mode={mode} />
-          <span className="hidden sm:block">
-            {mode === "chat" ? "Chat" : mode === "agent" ? "Agent" : "Plan"}
+          <span className="composer-mode-select-label">
+            {activeMode?.label ?? mode}
           </span>
           <ChevronDownIcon
-            className="h-2 w-2 flex-shrink-0"
+            className="h-3 w-3 flex-shrink-0"
             aria-hidden="true"
           />
         </ListboxButton>
-        <ListboxOptions className="min-w-32 max-w-48">
-          <ListboxOption value="chat">
-            <div className="flex flex-row items-center gap-1.5">
-              <ModeIcon mode="chat" />
-              <span className="">Chat</span>
-              <ToolTip
-                style={{
-                  zIndex: 200001,
-                }}
-                content="All tools disabled"
-              >
-                <InformationCircleIcon
-                  data-tooltip-id="chat-tip"
-                  className="h-2.5 w-2.5 flex-shrink-0"
-                />
-              </ToolTip>
-              <span
-                className={`text-description-muted text-[${getFontSize() - 3}px] mr-auto`}
-              >
-                {getMetaKeyLabel()}L
-              </span>
-            </div>
-            {mode === "chat" && <CheckIcon className="ml-auto h-3 w-3" />}
-          </ListboxOption>
-          <ListboxOption value="plan" className={"gap-1"}>
-            <div className="flex flex-row items-center gap-1.5">
-              <ModeIcon mode="plan" />
-              <span className="">Plan</span>
-              <ToolTip
-                style={{
-                  zIndex: 200001,
-                }}
-                content="Read-only/MCP tools available"
-              >
-                <InformationCircleIcon className="h-2.5 w-2.5 flex-shrink-0" />
-              </ToolTip>
-            </div>
-            {!isGoodAtAgentMode && notGreatAtAgent("Plan")}
-            <CheckIcon
-              className={`ml-auto h-3 w-3 ${mode === "plan" ? "" : "opacity-0"}`}
-            />
-          </ListboxOption>
-
-          <ListboxOption value="agent" className={"gap-1"}>
-            <div className="flex flex-row items-center gap-1.5">
-              <ModeIcon mode="agent" />
-              <span className="">Agent</span>
-              <ToolTip
-                style={{
-                  zIndex: 200001,
-                }}
-                content="All tools available"
-              >
-                <InformationCircleIcon className="h-2.5 w-2.5 flex-shrink-0" />
-              </ToolTip>
-            </div>
-            {!isGoodAtAgentMode && notGreatAtAgent("Agent")}
-            <CheckIcon
-              className={`ml-auto h-3 w-3 ${mode === "agent" ? "" : "opacity-0"}`}
-            />
-          </ListboxOption>
-
-          <div className="text-description-muted px-2 py-1">
-            {`${metaKeyLabel} . for next mode`}
-          </div>
+        <ListboxOptions
+          anchor="top start"
+          portal
+          className="composer-mode-menu"
+        >
+          {modes.map((entry) => (
+            <ListboxOption
+              key={entry.id}
+              value={entry.id}
+              className="composer-mode-option"
+            >
+              <ModeIcon mode={entry.id} className="h-3.5 w-3.5" />
+              <span className="composer-mode-option-label">{entry.label}</span>
+              {mode === entry.id && (
+                <CheckIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              )}
+            </ListboxOption>
+          ))}
         </ListboxOptions>
       </div>
     </Listbox>

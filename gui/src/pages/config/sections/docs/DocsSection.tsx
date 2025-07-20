@@ -2,11 +2,13 @@ import { parseConfigYaml } from "@continuedev/config-yaml";
 import { IndexingStatus } from "core";
 import { useMemo } from "react";
 import { useAuth } from "../../../../context/Auth";
+import { useI18n } from "../../../../i18n";
 import { useAppSelector } from "../../../../redux/hooks";
 import { EmptyState } from "../../../../components/ui";
 import DocsIndexingStatus from "./DocsIndexingStatus";
 
 function DocsIndexingStatuses() {
+  const { t } = useI18n();
   const config = useAppSelector((store) => store.config.config);
   const indexingStatuses = useAppSelector(
     (store) => store.indexing.indexing.statuses,
@@ -49,9 +51,7 @@ function DocsIndexingStatuses() {
   }, [mergedDocs, indexingStatuses]);
 
   if (sortedConfigDocs.length === 0) {
-    return (
-      <EmptyState message="No documentation sources configured. Click the + button to add your first docs." />
-    );
+    return <EmptyState message={t("docs.empty")} />;
   }
 
   return (

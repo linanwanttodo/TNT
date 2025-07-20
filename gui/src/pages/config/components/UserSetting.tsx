@@ -12,6 +12,7 @@ import {
   ListboxOption,
   ListboxOptions,
 } from "../../../components/ui";
+import { useI18n } from "../../../i18n";
 
 interface BaseUserSettingProps {
   title: string;
@@ -60,6 +61,7 @@ type UserSettingProps =
 
 export function UserSetting(props: UserSettingProps) {
   const { title, description, disabled = false } = props;
+  const { t } = useI18n();
 
   const renderControl = () => {
     switch (props.type) {
@@ -173,12 +175,12 @@ export function UserSetting(props: UserSettingProps) {
                 </div>
                 {props.isDirty && (
                   <div className="flex flex-row items-center gap-1">
-                    <ToolTip content="Save">
+                    <ToolTip content={t("config.save")}>
                       <div onClick={props.onSubmit} className="cursor-pointer">
                         <CheckIcon className="h-4 w-4 text-green-500 hover:opacity-80" />
                       </div>
                     </ToolTip>
-                    <ToolTip content="Cancel">
+                    <ToolTip content={t("config.cancel")}>
                       <div onClick={props.onCancel} className="cursor-pointer">
                         <XMarkIcon className="h-4 w-4 text-red-500 hover:opacity-80" />
                       </div>

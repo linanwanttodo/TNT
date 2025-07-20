@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import styled from "styled-components";
-import { defaultBorderRadius, vscForeground } from "..";
+import { vscForeground } from "..";
 import { VscThemeContext } from "../../context/VscTheme";
 
 const generateThemeStyles = (theme: any) => {
@@ -22,9 +22,6 @@ const StyledPre = styled.pre<{ theme: any }>`
 
   margin-top: 0;
   margin-bottom: 0;
-  border-radius: 0 0 ${defaultBorderRadius} ${defaultBorderRadius} !important;
-  max-height: 40vh;
-  overflow-y: scroll !important;
 
   ${(props) => generateThemeStyles(props.theme)}
 `;

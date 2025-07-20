@@ -10,6 +10,7 @@ import ConfirmationDialog from "../../../../components/dialogs/ConfirmationDialo
 import { ToolTip } from "../../../../components/gui/Tooltip";
 import { useEditDoc } from "../../../../components/mainInput/Lump/useEditBlock";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
+import { useI18n } from "../../../../i18n";
 import { useAppDispatch, useAppSelector } from "../../../../redux/hooks";
 import { updateIndexingStatus } from "../../../../redux/slices/indexingSlice";
 import {
@@ -32,6 +33,7 @@ function DocsIndexingStatus({
   const editDoc = useEditDoc();
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useAppDispatch();
+  const { t } = useI18n();
   const [indexedPages, setIndexedPages] = useState<null | string[]>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -209,8 +211,12 @@ function DocsIndexingStatus({
           >
             {isComplete
               ? indexedPages
-                ? `${indexedPages.length} page${indexedPages.length === 1 ? "" : "s"} indexed`
-                : "Loading site info..."
+                ? indexedPages.length === 1
+                  ? t("docs.pageIndexedCount")
+                  : t("docs.pagesIndexedCount", {
+                      count: indexedPages.length,
+                    })
+                : t("docs.loadingSiteInfo")
               : status.description}
           </p>
         </div>

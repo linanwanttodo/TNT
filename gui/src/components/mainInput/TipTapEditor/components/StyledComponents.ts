@@ -1,38 +1,26 @@
 import styled from "styled-components";
-import {
-  lightGray,
-  vscBadgeBackground,
-  vscCommandCenterActiveBorder,
-  vscCommandCenterInactiveBorder,
-  vscForeground,
-  vscInputBackground,
-  vscInputBorderFocus,
-} from "../../..";
+import { lightGray, vscBadgeBackground, vscForeground } from "../../..";
 import { getFontSize } from "../../../../util";
 
+// The composer card's border and fill live on GradientBorder, which wraps this
+// element. Keeping them off here avoids drawing two nested outlines.
 export const InputBoxDiv = styled.div<{}>`
   resize: none;
   font-family: inherit;
   border-radius: 0.5rem;
-  padding-bottom: 1px;
+  padding: 0;
   margin: 0;
   height: auto;
-  background-color: ${vscInputBackground};
+  background-color: transparent;
   color: ${vscForeground};
 
-  border: 1px solid ${vscCommandCenterInactiveBorder};
-  transition: border-color 0.15s ease-in-out;
-  &:focus-within {
-    border: 1px solid ${vscCommandCenterActiveBorder};
-  }
+  border: none;
 
   outline: none;
   font-size: ${getFontSize()}px;
 
   &:focus {
     outline: none;
-
-    border: 0.5px solid ${vscInputBorderFocus};
   }
 
   &::placeholder {

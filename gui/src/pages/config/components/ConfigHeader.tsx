@@ -1,6 +1,7 @@
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { ToolTip } from "../../../components/gui/Tooltip";
 import { Button } from "../../../components/ui";
+import { useI18n } from "../../../i18n";
 import { cn } from "../../../util/cn";
 
 interface ConfigHeaderProps {
@@ -19,12 +20,13 @@ export function ConfigHeader({
   title,
   subtext,
   onAddClick,
-  addButtonTooltip = "Add item",
+  addButtonTooltip,
   addButtonLabel,
   className = "",
   variant = "default",
   showAddButton = true,
 }: ConfigHeaderProps) {
+  const { t } = useI18n();
   const isSmall = variant === "sm";
   const marginBottom = isSmall ? "mb-3" : "mb-5";
   const titleSize = isSmall
@@ -50,7 +52,7 @@ export function ConfigHeader({
         )}
       </div>
       {showAddButton && onAddClick && (
-        <ToolTip content={addButtonTooltip}>
+        <ToolTip content={addButtonTooltip ?? t("config.addItem")}>
           {addButtonLabel ? (
             // A labelled button makes the action self-explanatory instead of
             // relying on a bare icon the user has to discover.

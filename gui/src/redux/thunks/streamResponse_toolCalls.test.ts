@@ -263,6 +263,7 @@ describe("streamResponseThunk - tool calls", () => {
       "session/setInlineErrorMessage",
       "session/setIsPruned",
       "session/setContextPercentage",
+      "session/setContextBreakdown",
       "symbols/updateFromContextItems/fulfilled",
       "session/streamUpdate",
       "session/streamUpdate",
@@ -282,6 +283,7 @@ describe("streamResponseThunk - tool calls", () => {
       "session/setInlineErrorMessage",
       "session/setIsPruned",
       "session/setContextPercentage",
+      "session/setContextBreakdown",
       "session/streamUpdate",
       "session/addPromptCompletionPair",
       "session/setInactive",
@@ -402,6 +404,7 @@ describe("streamResponseThunk - tool calls", () => {
       ],
       options: {
         tools: [grepTool],
+        openaiRequestOptions: { promptCacheKey: "session-123" },
       },
     });
 
@@ -738,6 +741,10 @@ describe("streamResponseThunk - tool calls", () => {
         payload: 0.9,
       },
       {
+        type: "session/setContextBreakdown",
+        payload: undefined,
+      },
+      {
         type: "symbols/updateFromContextItems/fulfilled",
         meta: {
           arg: [],
@@ -941,12 +948,18 @@ describe("streamResponseThunk - tool calls", () => {
           ],
         },
       ],
-      options: { tools: [grepTool] },
+      options: {
+        tools: [grepTool],
+        openaiRequestOptions: { promptCacheKey: "session-123" },
+      },
     });
 
     expect(mockIdeMessengerManual.llmStreamChat).toHaveBeenCalledWith(
       {
-        completionOptions: { tools: [grepTool] },
+        completionOptions: {
+          tools: [grepTool],
+          openaiRequestOptions: { promptCacheKey: "session-123" },
+        },
         legacySlashCommandData: undefined,
         messageOptions: { precompiled: true },
         messages: [
@@ -1292,6 +1305,10 @@ describe("streamResponseThunk - tool calls", () => {
         payload: 0.85,
       },
       {
+        type: "session/setContextBreakdown",
+        payload: undefined,
+      },
+      {
         type: "symbols/updateFromContextItems/fulfilled",
         meta: {
           arg: [],
@@ -1586,6 +1603,10 @@ describe("streamResponseThunk - tool calls", () => {
       {
         type: "session/setContextPercentage",
         payload: 0.85,
+      },
+      {
+        type: "session/setContextBreakdown",
+        payload: undefined,
       },
       {
         type: "session/streamUpdate",

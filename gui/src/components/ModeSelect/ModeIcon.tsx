@@ -1,6 +1,7 @@
 import {
+  BugAntIcon,
   ChatBubbleLeftIcon,
-  RocketLaunchIcon,
+  CircleStackIcon,
   SparklesIcon,
   SwatchIcon,
 } from "@heroicons/react/24/outline";
@@ -20,9 +21,11 @@ export function ModeIcon({
       return <SparklesIcon className={className} />;
     case "plan":
       return <SwatchIcon className={className} />;
+    case "debug":
+      return <BugAntIcon className={className} />;
+    case "multitask":
+      return <CircleStackIcon className={className} />;
     case "chat":
       return <ChatBubbleLeftIcon className={className} />;
-    case "background":
-      return <RocketLaunchIcon className={className} />;
   }
 }

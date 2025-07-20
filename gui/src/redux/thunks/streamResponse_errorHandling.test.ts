@@ -501,7 +501,9 @@ describe("streamResponseThunk", () => {
           ],
         },
       ],
-      options: {},
+      options: {
+        openaiRequestOptions: { promptCacheKey: "session-123" },
+      },
     });
     expect(chatSpy).not.toHaveBeenCalled();
 
@@ -802,7 +804,9 @@ describe("streamResponseThunk", () => {
           ],
         },
       ],
-      options: {},
+      options: {
+        openaiRequestOptions: { promptCacheKey: "mock-uuid-123" },
+      },
     });
     expect(chatSpy).not.toHaveBeenCalled();
 

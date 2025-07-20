@@ -46,6 +46,40 @@ const isTerminalCommand = (toolCallState: any) => {
   );
 };
 
+/**
+ * The strip exists to surface work in progress, so it is only worth drawing
+ * when something is actually running. Everything else about the composer is
+ * reachable from the message list or the settings pages, which keeps the card
+ * from doubling as a second navigation surface.
+ */
+export function useHasLumpToolbarContent(): boolean {
+  const ttsActive = useAppSelector((state) => state.ui.ttsActive);
+  const isStreaming = useAppSelector((state) => state.session.isStreaming);
+  const isInEdit = useAppSelector((state) => state.session.isInEdit);
+  const configErrorCount = useAppSelector(
+    (state) => state.config.configError?.length ?? 0,
+  );
+  const applyStates = useAppSelector(
+    (state) => state.session.codeBlockApplyStates.states,
+  );
+  const pendingToolCalls = useAppSelector(selectPendingToolCalls);
+  const callingToolCalls = useAppSelector((state) =>
+    selectToolCallsByStatus(state, "calling"),
+  );
+
+  return (
+    ttsActive ||
+    isStreaming ||
+    isInEdit ||
+    configErrorCount > 0 ||
+    pendingToolCalls.length > 0 ||
+    callingToolCalls.length > 0 ||
+    applyStates.some(
+      (state) => state.status === "done" || state.status === "streaming",
+    )
+  );
+}
+
 export function LumpToolbar() {
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);

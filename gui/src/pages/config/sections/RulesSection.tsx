@@ -16,6 +16,8 @@ import {
 import {
   DEFAULT_AGENT_SYSTEM_MESSAGE,
   DEFAULT_CHAT_SYSTEM_MESSAGE,
+  DEFAULT_DEBUG_SYSTEM_MESSAGE,
+  DEFAULT_MULTITASK_SYSTEM_MESSAGE,
   DEFAULT_PLAN_SYSTEM_MESSAGE,
 } from "core/llm/defaultSystemMessages";
 import { getRuleDisplayName } from "core/llm/rules/rules-utils";
@@ -34,6 +36,7 @@ import { Card, EmptyState } from "../../../components/ui";
 import { useAuth } from "../../../context/Auth";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
 import { useBookmarkedSlashCommands } from "../../../hooks/useBookmarkedSlashCommands";
+import { useI18n } from "../../../i18n";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import {
   DEFAULT_RULE_SETTING,
@@ -133,6 +136,7 @@ interface RuleCardProps {
 }
 
 const RuleCard: React.FC<RuleCardProps> = ({ rule }) => {
+  const { t } = useI18n();
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);
   const policy = useAppSelector((state) =>
@@ -173,9 +177,9 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule }) => {
     dispatch(
       setDialogMessage(
         <ConfirmationDialog
-          title="Delete Rule"
-          text="Are you sure you want to delete this rule file?"
-          confirmText="Delete"
+          title={t("rules.delete.title")}
+          text={t("rules.delete.text")}
+          confirmText={t("config.delete")}
           onConfirm={async () => {
             try {
               await ideMessenger.request("config/deleteRule", {
@@ -223,27 +227,33 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule }) => {
               </div>
             )}
             <div className="flex flex-row items-start gap-1">
-              <HeaderButtonWithToolTip onClick={onClickExpand} text="Expand">
+              <HeaderButtonWithToolTip
+                onClick={onClickExpand}
+                text={t("config.expand")}
+              >
                 <ArrowsPointingOutIcon className="h-3 w-3 text-gray-400" />
               </HeaderButtonWithToolTip>{" "}
               {rule.source === "default-chat" ||
               rule.source === "default-agent" ? (
                 <HeaderButtonWithToolTip
                   onClick={() => openRule(rule)}
-                  text="View"
+                  text={t("config.view")}
                 >
                   <EyeIcon className="h-3 w-3 text-gray-400" />
                 </HeaderButtonWithToolTip>
               ) : (
                 <HeaderButtonWithToolTip
                   onClick={() => openRule(rule)}
-                  text="Edit"
+                  text={t("config.edit")}
                 >
                   <PencilIcon className="h-3 w-3 text-gray-400" />
                 </HeaderButtonWithToolTip>
               )}
               {canDeleteRule && (
-                <HeaderButtonWithToolTip onClick={handleDelete} text="Delete">
+                <HeaderButtonWithToolTip
+                  onClick={handleDelete}
+                  text={t("config.delete")}
+                >
                   <TrashIcon className="h-3 w-3 text-gray-400" />
                 </HeaderButtonWithToolTip>
               )}
@@ -266,7 +276,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule }) => {
             }}
             className="mt-1.5 flex flex-col gap-1"
           >
-            <span className="italic">Applies to files</span>
+            <span className="italic">{t("rules.appliesToFiles")}</span>
             <code
               className={`line-clamp-1 px-1 py-0.5 ${isDisabled ? "text-gray-500" : "text-gray-400"}`}
             >
@@ -284,6 +294,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule }) => {
  */
 function PromptsSubSection() {
   const { selectedProfile } = useAuth();
+  const { t } = useI18n();
   const { isCommandBookmarked, toggleBookmark } = useBookmarkedSlashCommands();
   const ideMessenger = useContext(IdeMessengerContext);
 
@@ -339,10 +350,10 @@ function PromptsSubSection() {
   return (
     <div>
       <ConfigHeader
-        title="Prompts"
+        title={t("rules.prompts")}
         variant="sm"
         onAddClick={handleAddPrompt}
-        addButtonTooltip="Add prompt"
+        addButtonTooltip={t("rules.addPrompt")}
       />
 
       {sortedCommands.length > 0 ? (
@@ -361,7 +372,7 @@ function PromptsSubSection() {
         </Card>
       ) : (
         <Card>
-          <EmptyState message="No prompts configured. Click the + button to add your first prompt." />
+          <EmptyState message={t("rules.prompts.empty")} />
         </Card>
       )}
     </div>
@@ -395,6 +406,19 @@ function addDefaultSystemMessage(
       customSource: "model-options-plan" as RuleSource,
       defaultSource: "default-plan" as RuleSource,
     },
+    debug: {
+      customMessage: config.selectedModelByRole.chat?.baseDebugSystemMessage,
+      defaultMessage: DEFAULT_DEBUG_SYSTEM_MESSAGE,
+      customSource: "model-options-debug" as RuleSource,
+      defaultSource: "default-debug" as RuleSource,
+    },
+    multitask: {
+      customMessage:
+        config.selectedModelByRole.chat?.baseMultitaskSystemMessage,
+      defaultMessage: DEFAULT_MULTITASK_SYSTEM_MESSAGE,
+      customSource: "model-options-multitask" as RuleSource,
+      defaultSource: "default-multitask" as RuleSource,
+    },
   };
 
   const currentMode = modeConfig[mode as keyof typeof modeConfig];
@@ -411,20 +435,23 @@ function addDefaultSystemMessage(
   }
 }
 
-// Define dropdown options for global rules
-const globalRulesOptions = [
-  { value: "workspace", label: "Current workspace" },
-  { value: "global", label: "Global" },
-];
-
 function RulesSubSection() {
   const { selectedProfile } = useAuth();
+  const { t } = useI18n();
   const config = useAppSelector((store) => store.config.config);
   const mode = useAppSelector((store) => store.session.mode);
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useAppDispatch();
   const [globalRulesMode, setGlobalRulesMode] = useState<string>("workspace");
   const configLoading = useAppSelector((store) => store.config.loading);
+
+  const globalRulesOptions = useMemo(
+    () => [
+      { value: "workspace", label: t("rules.currentWorkspace") },
+      { value: "global", label: t("rules.global") },
+    ],
+    [t],
+  );
 
   const handleAddRule = (mode?: string) => {
     const currentMode = mode || globalRulesMode;
@@ -486,11 +513,11 @@ function RulesSubSection() {
   return (
     <div>
       <DropdownButton
-        title="Rules"
+        title={t("rules.title")}
         variant="sm"
         options={globalRulesOptions}
         onOptionClick={handleOptionClick}
-        addButtonTooltip="Add rules"
+        addButtonTooltip={t("rules.add")}
       />
 
       <Card>
@@ -501,12 +528,12 @@ function RulesSubSection() {
             ))}
             {configLoading && (
               <div className="px-2 py-1.5 text-xs opacity-65">
-                Reloading rules from your config...
+                {t("rules.reloading")}
               </div>
             )}
           </div>
         ) : (
-          <EmptyState message="No rules configured. Click the + button to add your first rule." />
+          <EmptyState message={t("rules.empty")} />
         )}
       </Card>
     </div>
@@ -514,9 +541,10 @@ function RulesSubSection() {
 }
 
 export function RulesSection() {
+  const { t } = useI18n();
   return (
     <>
-      <ConfigHeader title="Rules" />
+      <ConfigHeader title={t("rules.title")} />
 
       <div className="space-y-6">
         <RulesSubSection />

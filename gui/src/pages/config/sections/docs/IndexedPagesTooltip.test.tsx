@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
+import { I18nProvider } from "../../../../i18n";
 import { createMockStore } from "../../../../util/test/mockStore";
 import { IndexedPagesTooltip } from "./IndexedPagesTooltip";
 
@@ -21,11 +22,13 @@ describe("IndexedPagesTooltip", () => {
 
     return {
       ...render(
-        <Provider store={store}>
-          <IdeMessengerContext.Provider value={mockIdeMessenger}>
-            <IndexedPagesTooltip {...defaultProps} {...props} />
-          </IdeMessengerContext.Provider>
-        </Provider>,
+        <I18nProvider>
+          <Provider store={store}>
+            <IdeMessengerContext.Provider value={mockIdeMessenger}>
+              <IndexedPagesTooltip {...defaultProps} {...props} />
+            </IdeMessengerContext.Provider>
+          </Provider>
+        </I18nProvider>,
       ),
       mockIdeMessenger,
       store,

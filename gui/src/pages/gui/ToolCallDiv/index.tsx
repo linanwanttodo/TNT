@@ -107,7 +107,7 @@ export function ToolCallDiv({
 
   if (shouldShowGroupedUI) {
     return (
-      <div className="border-border rounded-lg border px-4 py-3 pb-0">
+      <div className="border-border rounded-lg border py-2 pb-0 pr-3">
         <GroupedToolCallHeader
           toolCallStates={toolCallStates}
           activeCalls={pendingCalls.length > 0 ? pendingCalls : activeCalls}
@@ -120,7 +120,7 @@ export function ToolCallDiv({
           }`}
         >
           {toolCallStates.map((toolCallState) => (
-            <div className="py-1 pl-6" key={toolCallState.toolCallId}>
+            <div className="py-1" key={toolCallState.toolCallId}>
               {renderToolCall(toolCallState)}
             </div>
           ))}

@@ -1,6 +1,7 @@
 import {
-  ArrowLeftIcon,
   ChatBubbleOvalLeftIcon,
+  ClockIcon,
+  PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { Editor, JSONContent } from "@tiptap/react";
 import { ChatHistoryItem, InputModifiers } from "core";
@@ -14,19 +15,21 @@ import {
   useState,
 } from "react";
 import { ErrorBoundary } from "react-error-boundary";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { Button, lightGray, vscBackground } from "../../components";
+import { useI18n } from "../../i18n";
+import { ToolTip } from "../../components/gui/Tooltip";
 import { useFindWidget } from "../../components/find/FindWidget";
 import TimelineItem from "../../components/gui/TimelineItem";
-import { NewSessionButton } from "../../components/mainInput/belowMainInput/NewSessionButton";
 import ThinkingBlockPeek from "../../components/mainInput/belowMainInput/ThinkingBlockPeek";
 import ContinueInputBox from "../../components/mainInput/ContinueInputBox";
-import { InputStatusBar } from "../../components/mainInput/InputStatusBar";
 import StepContainer from "../../components/StepContainer";
 import { TabBar } from "../../components/TabBar/TabBar";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
 import { useWebviewListener } from "../../hooks/useWebviewListener";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { useAutoCompaction } from "../../hooks/useAutoCompaction";
 import {
   selectDoneApplyStates,
   selectPendingToolCalls,
@@ -38,7 +41,8 @@ import {
   updateToolCallOutput,
 } from "../../redux/slices/sessionSlice";
 import { streamEditThunk } from "../../redux/thunks/edit";
-import { loadLastSession } from "../../redux/thunks/session";
+import { exitEdit } from "../../redux/thunks/edit";
+import { saveCurrentSession } from "../../redux/thunks/session";
 import { streamResponseThunk } from "../../redux/thunks/streamResponse";
 import { isJetBrains, isMetaEquivalentKeyPressed } from "../../util";
 import { ToolCallDiv } from "./ToolCallDiv";
@@ -77,8 +81,12 @@ const StepsDiv = styled.div`
   }
 
   .thread-message {
-    margin: 0 0 0 1px;
+    margin: 0;
   }
+
+  /* One gutter for the whole transcript: the rows inside stack their own
+     icons and text, so indenting each level separately only compounds. */
+  --thread-gutter: 12px;
 `;
 
 export const MAIN_EDITOR_INPUT_ID = "main-editor-input";
@@ -105,6 +113,8 @@ function fallbackRender({ error, resetErrorBoundary }: any) {
 
 export function Chat() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { t } = useI18n();
   const ideMessenger = useContext(IdeMessengerContext);
   const reduxStore = useStore<RootState>();
   const showSessionTabs = useAppSelector(
@@ -116,13 +126,13 @@ export function Chat() {
   const stepsDivRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   const history = useAppSelector((state) => state.session.history);
+  const sessionTitle = useAppSelector((state) => state.session.title);
   const showChatScrollbar = useAppSelector(
     (state) => state.config.config.ui?.showChatScrollbar,
   );
   const codeToEdit = useAppSelector((state) => state.editModeState.codeToEdit);
   const isInEdit = useAppSelector((store) => store.session.isInEdit);
 
-  const lastSessionId = useAppSelector((state) => state.session.lastSessionId);
   const hasDismissedExploreDialog = useAppSelector(
     (state) => state.ui.hasDismissedExploreDialog,
   );
@@ -131,6 +141,7 @@ export function Chat() {
   }, []);
 
   useAutoScroll(stepsDivRef, history);
+  useAutoCompaction();
 
   useEffect(() => {
     // Cmd + Backspace to delete current step
@@ -385,7 +396,7 @@ export function Chat() {
 
       <StepsDiv
         ref={stepsDivRef}
-        className={`pt-[8px] ${showScrollbar ? "thin-scrollbar" : "no-scrollbar"} ${history.length > 0 ? "min-h-0 flex-1 overflow-y-scroll" : "shrink-0"}`}
+        className={`thread-gutter min-h-0 flex-1 overflow-y-scroll ${showScrollbar ? "thin-scrollbar" : "no-scrollbar"}`}
       >
         <DeprecationBanner dismissable={true} />
         {highlights}
@@ -410,7 +421,55 @@ export function Chat() {
             </div>
           ))}
       </StepsDiv>
-      <div className={"relative shrink-0"}>
+      <div className={"relative mt-auto shrink-0 pb-2"}>
+        <div
+          style={{
+            pointerEvents: isStreaming ? "none" : "auto",
+          }}
+        >
+          <div className="flex flex-row items-center gap-1 px-2 pb-1 pt-3">
+            <ToolTip place="top" content={t("chat.newChat")}>
+              <button
+                type="button"
+                aria-label={t("chat.newChat")}
+                data-testid="new-chat-button"
+                className="composer-icon-button"
+                onClick={() => {
+                  if (isInEdit) {
+                    void dispatch(exitEdit({}));
+                  } else {
+                    void dispatch(
+                      saveCurrentSession({
+                        openNewSession: true,
+                        generateTitle: true,
+                      }),
+                    );
+                  }
+                }}
+              >
+                <PencilSquareIcon className="h-3.5 w-3.5" />
+              </button>
+            </ToolTip>
+            <ToolTip place="top" content={t("chat.history")}>
+              <button
+                type="button"
+                aria-label={t("chat.history")}
+                data-testid="history-button"
+                className="composer-icon-button"
+                onClick={() => navigate("/history")}
+              >
+                <ClockIcon className="h-3.5 w-3.5" />
+              </button>
+            </ToolTip>
+            <span className="text-description truncate text-xs">
+              {sessionTitle}
+            </span>
+          </div>
+          {history.length === 0 && <EmptyChatBody />}
+          <FatalErrorIndicator />
+          {!hasDismissedExploreDialog && <ExploreDialogWatcher />}
+        </div>
+
         <ContinueInputBox
           isMainInput
           isLastUserInput={false}
@@ -419,33 +478,6 @@ export function Chat() {
           }
           inputId={MAIN_EDITOR_INPUT_ID}
         />
-
-        {!isInEdit && <InputStatusBar />}
-
-        <div
-          style={{
-            pointerEvents: isStreaming ? "none" : "auto",
-          }}
-        >
-          <div className="flex flex-row items-center justify-between pb-1 pl-0.5 pr-2">
-            <div className="xs:inline hidden">
-              {history.length === 0 && lastSessionId && !isInEdit && (
-                <NewSessionButton
-                  onClick={async () => {
-                    await dispatch(loadLastSession());
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeftIcon className="h-3 w-3" />
-                  <span className="text-xs">Last Session</span>
-                </NewSessionButton>
-              )}
-            </div>
-          </div>
-          <FatalErrorIndicator />
-          {!hasDismissedExploreDialog && <ExploreDialogWatcher />}
-          {history.length === 0 && <EmptyChatBody />}
-        </div>
       </div>
     </>
   );

@@ -2,6 +2,8 @@ import { ModelDescription, Tool } from "core";
 import {
   DEFAULT_AGENT_SYSTEM_MESSAGE,
   DEFAULT_CHAT_SYSTEM_MESSAGE,
+  DEFAULT_DEBUG_SYSTEM_MESSAGE,
+  DEFAULT_MULTITASK_SYSTEM_MESSAGE,
   DEFAULT_PLAN_SYSTEM_MESSAGE,
 } from "core/llm/defaultSystemMessages";
 
@@ -19,12 +21,19 @@ export function getBaseSystemMessage(
     baseMessage = model.baseAgentSystemMessage ?? DEFAULT_AGENT_SYSTEM_MESSAGE;
   } else if (messageMode === "plan") {
     baseMessage = model.basePlanSystemMessage ?? DEFAULT_PLAN_SYSTEM_MESSAGE;
+  } else if (messageMode === "debug") {
+    baseMessage = model.baseDebugSystemMessage ?? DEFAULT_DEBUG_SYSTEM_MESSAGE;
+  } else if (messageMode === "multitask") {
+    baseMessage =
+      model.baseMultitaskSystemMessage ?? DEFAULT_MULTITASK_SYSTEM_MESSAGE;
   } else {
     baseMessage = model.baseChatSystemMessage ?? DEFAULT_CHAT_SYSTEM_MESSAGE;
   }
 
-  // Add no-tools warning for agent/plan modes when no tools are available
-  if (messageMode !== "chat" && (!activeTools || activeTools.length === 0)) {
+  // Every mode now runs on at least the read-only tools, so an empty set
+  // means the user disabled everything and the model should say so rather
+  // than silently answering without them.
+  if (!activeTools || activeTools.length === 0) {
     baseMessage += NO_TOOL_WARNING;
   }
 

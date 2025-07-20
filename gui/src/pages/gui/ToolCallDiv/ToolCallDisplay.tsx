@@ -35,7 +35,7 @@ export function ToolCallDisplay({
     }
   }
   return (
-    <div className="flex flex-col justify-center px-4">
+    <div className="flex flex-col justify-center pr-4">
       <div className="mb-2 flex flex-col">
         <div className="flex flex-row items-start justify-between gap-1.5">
           <div

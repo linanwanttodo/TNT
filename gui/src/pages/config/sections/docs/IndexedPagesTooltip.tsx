@@ -2,6 +2,7 @@ import { EyeIcon } from "@heroicons/react/24/outline";
 import { useContext } from "react";
 import { useDispatch } from "react-redux";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
+import { useI18n } from "../../../../i18n";
 import {
   setDialogMessage,
   setShowDialog,
@@ -26,6 +27,7 @@ export const IndexedPagesTooltip = ({
 }: IndexedPagesTooltipProps) => {
   const ideMessenger = useContext(IdeMessengerContext);
   const dispatch = useDispatch();
+  const { t } = useI18n();
 
   const handleEyeIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -42,12 +44,12 @@ export const IndexedPagesTooltip = ({
         style={{ fontSize: fontSize(-3) }}
       >
         <span>
-          {siteTitle} - {pages.length} Pages Indexed
+          {t("docs.pagesIndexed", { title: siteTitle, count: pages.length })}
         </span>
         <EyeIcon
           className="ml-2 h-4 w-4 cursor-pointer text-red-500 transition-colors hover:text-red-400"
           onClick={handleEyeIconClick}
-          title="View detailed docs information"
+          title={t("docs.viewDetails")}
         />
       </div>
       <div className="max-h-48 overflow-y-auto px-1">
