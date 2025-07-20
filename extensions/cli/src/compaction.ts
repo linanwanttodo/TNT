@@ -1,11 +1,17 @@
+import { randomUUID } from "node:crypto";
+
 import { ModelConfig } from "@continuedev/config-yaml";
 import { BaseLlmApi } from "@continuedev/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
+import { calculateContextBudget } from "core/util/contextPolicy.js";
+import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import { encode } from "gpt-tokenizer";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
+import { buildSummaryRequest } from "./compaction/prefixPreservation.js";
 import { streamChatResponse } from "./stream/streamChatResponse.js";
 import { StreamCallbacks } from "./stream/streamChatResponse.types.js";
+import { isContextLengthError } from "./util/exponentialBackoff.js";
 import { logger } from "./util/logger.js";
 import {
   countChatHistoryTokens,
@@ -14,12 +20,6 @@ import {
   getModelContextLimit,
   getModelMaxTokens,
 } from "./util/tokenizer.js";
-
-import { buildSummaryRequest } from "./compaction/prefixPreservation.js";
-
-// Buffer cap/ratio for auto-compaction threshold calculation
-export const AUTO_COMPACT_BUFFER_CAP = 15_000;
-export const AUTO_COMPACT_BUFFER_RATIO = 0.8;
 
 export interface CompactionResult {
   compactedHistory: ChatHistoryItem[];
@@ -37,12 +37,172 @@ export interface CompactionOptions {
   callbacks?: CompactionCallbacks;
   abortController?: AbortController;
   systemMessageTokens?: number;
+  toolResultsCompacted?: boolean;
 }
 
 const COMPACTION_PROMPT =
   "Please provide a concise summary of our conversation so far, capturing the key context, decisions made, and current state. Format this as a single comprehensive message that preserves all important information needed to continue our work. You do not need to recap the system message, as this will remain. Make sure it is clear what the current stream of work was at the very end prior to compaction so that you can continue exactly where you left off without missing any information.";
 
 const COMPACTION_PROMPT_TOKENS = 150; // rough generous token count of ^
+
+function messageRole(item: ChatHistoryItem | undefined): string | undefined {
+  return item?.message.role;
+}
+
+function findTrailingTurnStart(
+  history: ChatHistoryItem[],
+  endExclusive: number,
+): number {
+  let start = endExclusive - 1;
+  while (start > 0 && messageRole(history[start]) !== "user") {
+    start--;
+  }
+  return messageRole(history[start]) === "user" ? start : endExclusive - 1;
+}
+
+function splitHistoryAtRetainBudget(
+  history: ChatHistoryItem[],
+  retainTokens: number,
+  model: ModelConfig,
+): { summaryHistory: ChatHistoryItem[]; retainedHistory: ChatHistoryItem[] } {
+  const hasLeadingSystem = messageRole(history[0]) === "system";
+  const leadingSystem = hasLeadingSystem ? history[0] : undefined;
+  const body = hasLeadingSystem ? history.slice(1) : history;
+  const totalBodyTokens = countChatHistoryTokens(body, model);
+
+  if (totalBodyTokens <= retainTokens) {
+    return { summaryHistory: history, retainedHistory: [] };
+  }
+
+  let start = body.length;
+  let retainedTokens = 0;
+  while (start > 0) {
+    const turnStart = findTrailingTurnStart(body, start);
+    const turnTokens = countChatHistoryTokens(
+      body.slice(turnStart, start),
+      model,
+    );
+    if (retainedTokens > 0 && retainedTokens + turnTokens > retainTokens) {
+      break;
+    }
+    if (retainedTokens === 0 && turnTokens > retainTokens) {
+      break;
+    }
+    retainedTokens += turnTokens;
+    start = turnStart;
+  }
+
+  const summaryBody = body.slice(0, start);
+  return {
+    summaryHistory: leadingSystem
+      ? [leadingSystem, ...summaryBody]
+      : summaryBody,
+    retainedHistory: body.slice(start),
+  };
+}
+
+function dropOldestHistoryTurn(history: ChatHistoryItem[]): ChatHistoryItem[] {
+  const firstBodyIndex = messageRole(history[0]) === "system" ? 1 : 0;
+  if (firstBodyIndex >= history.length) {
+    return history;
+  }
+
+  let end = firstBodyIndex + 1;
+  while (end < history.length && messageRole(history[end]) !== "user") {
+    end++;
+  }
+
+  return [...history.slice(0, firstBodyIndex), ...history.slice(end)];
+}
+
+interface SummaryGenerationResult {
+  content: string;
+  summarizedHistory: ChatHistoryItem[];
+}
+
+function reduceSummaryHistoryToHalf(
+  summarizedHistory: ChatHistoryItem[],
+  requestHistory: ChatHistoryItem[],
+  targetTokens: number,
+  model: ModelConfig,
+): { summarizedHistory: ChatHistoryItem[]; requestHistory: ChatHistoryItem[] } {
+  let reducedHistory = summarizedHistory;
+  let reducedRequest = requestHistory;
+  while (countChatHistoryTokens(reducedRequest, model) > targetTokens) {
+    const nextHistory = dropOldestHistoryTurn(reducedHistory);
+    if (nextHistory.length === reducedHistory.length) {
+      break;
+    }
+    reducedHistory = nextHistory;
+    reducedRequest = buildSummaryRequest(
+      reducedHistory,
+      COMPACTION_PROMPT,
+    ).history;
+  }
+  return { summarizedHistory: reducedHistory, requestHistory: reducedRequest };
+}
+
+async function generateCompactionSummary(
+  summarizedHistory: ChatHistoryItem[],
+  requestHistory: ChatHistoryItem[],
+  model: ModelConfig,
+  llmApi: BaseLlmApi,
+  controller: AbortController,
+  callbacks: CompactionCallbacks | undefined,
+): Promise<SummaryGenerationResult> {
+  let currentHistory = summarizedHistory;
+  let currentRequest = requestHistory;
+  let content = "";
+  const streamCallbacks: StreamCallbacks = {
+    onContent: (chunk: string) => {
+      content += chunk;
+      callbacks?.onStreamContent?.(chunk);
+    },
+    onContentComplete: () => callbacks?.onStreamComplete?.(),
+  };
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    content = "";
+    try {
+      const response = await streamChatResponse(
+        currentRequest,
+        model,
+        llmApi,
+        controller,
+        streamCallbacks,
+        true,
+      );
+      if (!content && typeof response === "string") {
+        content = response;
+      }
+      break;
+    } catch (error) {
+      if (!isContextLengthError(error) || attempt === 2) {
+        throw error;
+      }
+      const currentTokens = countChatHistoryTokens(currentRequest, model);
+      const reduced = reduceSummaryHistoryToHalf(
+        currentHistory,
+        currentRequest,
+        Math.floor(currentTokens / 2),
+        model,
+      );
+      if (
+        reduced.summarizedHistory.length === currentHistory.length ||
+        countChatHistoryTokens(reduced.requestHistory, model) >= currentTokens
+      ) {
+        throw error;
+      }
+      currentHistory = reduced.summarizedHistory;
+      currentRequest = reduced.requestHistory;
+    }
+  }
+
+  if (!content.trim()) {
+    throw new Error("Compaction summary is empty");
+  }
+  return { content, summarizedHistory: currentHistory };
+}
 
 /**
  * Compacts a chat history into a summarized form
@@ -58,21 +218,29 @@ export async function compactChatHistory(
   llmApi: BaseLlmApi,
   options?: CompactionOptions,
 ): Promise<CompactionResult> {
-  const { callbacks, abortController, systemMessageTokens = 0 } = options || {};
+  const {
+    callbacks,
+    abortController,
+    systemMessageTokens = 0,
+    toolResultsCompacted = false,
+  } = options || {};
 
-  // Check if the history with compaction prompt is too long, prune if necessary
-  let historyToUse = chatHistory;
-  // The instruction is appended to the replayed history rather than replacing
-  // it, so the system prompt, tool definitions and earlier turns stay
-  // byte-identical to the requests that came before. Reshaping them would
-  // invalidate every cached token from the first difference onward.
-  let historyForCompaction = buildSummaryRequest(
-    historyToUse,
-    COMPACTION_PROMPT,
-  ).history;
-
+  const historyToUse = toolResultsCompacted
+    ? chatHistory
+    : compactToolCallOutputs(chatHistory).history;
   const contextLimit = getModelContextLimit(model);
   const maxTokens = getModelMaxTokens(model);
+  const contextBudget = calculateContextBudget(contextLimit, maxTokens);
+  const { summaryHistory, retainedHistory } = splitHistoryAtRetainBudget(
+    historyToUse,
+    contextBudget.retainTokens,
+    model,
+  );
+  let historyToSummarize = summaryHistory;
+  let historyForCompaction = buildSummaryRequest(
+    historyToSummarize,
+    COMPACTION_PROMPT,
+  ).history;
 
   // Check if system message is already in the history to avoid double-counting
   const hasSystemMessageInHistory = chatHistory.some(
@@ -90,59 +258,49 @@ export async function compactChatHistory(
     systemMessageReservation -
     COMPACTION_PROMPT_TOKENS;
 
-  // Check if we need to prune to fit within context
   while (
     countChatHistoryTokens(historyForCompaction, model) > availableForInput &&
-    historyToUse.length > 0
+    historyToSummarize.length > 0
   ) {
-    logger.debug("Compaction history too long, pruning last message", {
+    logger.debug("Compaction history too long, pruning oldest turn", {
       tokenCount: countChatHistoryTokens(historyForCompaction, model),
       availableForInput,
-      historyLength: historyToUse.length,
+      historyLength: historyToSummarize.length,
     });
-    const prunedHistory = pruneLastMessage(historyToUse);
+    const prunedHistory = dropOldestHistoryTurn(historyToSummarize);
 
-    // Break if pruning didn't change the history (prevents infinite loop)
-    if (prunedHistory.length === historyToUse.length) {
+    if (prunedHistory.length === historyToSummarize.length) {
       logger.warn(
         "Cannot prune history further while maintaining valid conversation structure",
       );
       break;
     }
 
-    historyToUse = prunedHistory;
+    historyToSummarize = prunedHistory;
     historyForCompaction = buildSummaryRequest(
-      historyToUse,
+      historyToSummarize,
       COMPACTION_PROMPT,
     ).history;
   }
 
-  // Stream the compaction response (service drives updates; this collects content locally)
+  if (countChatHistoryTokens(historyForCompaction, model) > availableForInput) {
+    throw new Error("Compaction request exceeds the available context budget");
+  }
+
   const controller = abortController || new AbortController();
 
-  let compactionContent = "";
-  const streamCallbacks: StreamCallbacks = {
-    onContent: (content: string) => {
-      compactionContent += content;
-      callbacks?.onStreamContent?.(content);
-    },
-    onContentComplete: () => {
-      callbacks?.onStreamComplete?.();
-    },
-  };
-
   try {
-    await streamChatResponse(
+    const summary = await generateCompactionSummary(
+      historyToSummarize,
       historyForCompaction,
       model,
       llmApi,
       controller,
-      streamCallbacks,
-      true,
+      callbacks,
     );
+    const compactionContent = summary.content;
 
-    // Create the compacted history with a special marker
-    const systemMessage = chatHistory.find(
+    const systemMessage = historyToUse.find(
       (item) => item.message.role === "system",
     );
     const compactionMessage: ChatHistoryItem = {
@@ -152,11 +310,21 @@ export async function compactChatHistory(
       },
       contextItems: [],
       conversationSummary: compactionContent,
+      compactionCheckpoint: {
+        kind: "compact-checkpoint",
+        compactionId: randomUUID(),
+      },
     };
 
     const compactedHistory: ChatHistoryItem[] = systemMessage
-      ? [systemMessage, compactionMessage]
-      : [compactionMessage];
+      ? [systemMessage, compactionMessage, ...retainedHistory]
+      : [compactionMessage, ...retainedHistory];
+
+    const originalTokens = countChatHistoryTokens(historyToUse, model);
+    const compactedTokens = countChatHistoryTokens(compactedHistory, model);
+    if (compactedTokens >= originalTokens) {
+      throw new Error("Compaction did not reduce context usage");
+    }
 
     return {
       compactedHistory,
@@ -179,7 +347,9 @@ export function findCompactionIndex(
   chatHistory: ChatHistoryItem[],
 ): number | null {
   const compactedIndex = chatHistory.findIndex(
-    (item) => item.conversationSummary !== undefined,
+    (item) =>
+      item.conversationSummary !== undefined ||
+      item.compactionCheckpoint?.kind === "compact-checkpoint",
   );
   return compactedIndex === -1 ? null : compactedIndex;
 }
@@ -279,28 +449,15 @@ export function shouldAutoCompact(params: AutoCompactParams): boolean {
   const contextLimit = getModelContextLimit(model);
   const maxTokens = getModelMaxTokens(model);
 
-  // Additional buffer matching the auto-compaction threshold formula
-  const ratioCompactionBuffer = Math.ceil(
-    (1 - AUTO_COMPACT_BUFFER_RATIO) * (contextLimit - maxTokens),
+  const { compactAtTokens, retainTokens } = calculateContextBudget(
+    contextLimit,
+    maxTokens,
   );
-  const safeCompactionBuffer = Math.max(maxTokens, ratioCompactionBuffer);
-  const compactionBuffer = Math.min(
-    safeCompactionBuffer,
-    AUTO_COMPACT_BUFFER_CAP,
-  );
-
-  const compactionThreshold = contextLimit - maxTokens - compactionBuffer;
-
-  // Ensure we have positive space available for input
-  if (compactionThreshold <= 0) {
-    throw new Error(
-      `max_tokens is larger than context_length, which should not be possible. Please check your configuration.`,
-    );
-  }
+  const compactionBuffer = contextLimit - maxTokens - compactAtTokens;
 
   const toolTokens = tools ? countToolDefinitionTokens(tools) : 0;
   const systemTokens = systemMessage ? encode(systemMessage).length : 0;
-  const shouldCompact = inputTokens >= compactionThreshold;
+  const shouldCompact = inputTokens >= compactAtTokens;
 
   logger.debug("Context usage check", {
     inputTokens,
@@ -311,7 +468,8 @@ export function shouldAutoCompact(params: AutoCompactParams): boolean {
     maxTokens,
     reservedForOutput: maxTokens,
     compactionBuffer,
-    compactionThreshold,
+    compactionThreshold: compactAtTokens,
+    retainTokens,
     shouldCompact,
   });
 

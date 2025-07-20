@@ -1,17 +1,34 @@
 import type { ChatHistoryItem } from "core/index.js";
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
+import { TOOL_RESULT_TRUNCATION_MARKER } from "core/util/toolResultCompaction.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockSessionState = vi.hoisted(() => ({
+  generation: 0,
+  session: { sessionId: "test-session", history: [] as any[] },
+}));
 
 import { handleAutoCompaction } from "./streamChatResponse.autoCompaction.js";
 
 // Mock dependencies
 vi.mock("../compaction.js", () => ({
   compactChatHistory: vi.fn(),
+  findCompactionIndex: vi.fn(() => null),
   shouldAutoCompact: vi.fn(),
   getAutoCompactMessage: vi.fn(),
 }));
 
 vi.mock("../session.js", () => ({
+  getCurrentSession: vi.fn(() => mockSessionState.session),
+  getSessionHistoryGeneration: vi.fn(() => mockSessionState.generation),
+  replaceSessionHistoryIfGeneration: vi.fn((expectedGeneration, history) => {
+    if (mockSessionState.generation !== expectedGeneration) {
+      return false;
+    }
+    mockSessionState.session.history = history;
+    mockSessionState.generation++;
+    return true;
+  }),
   createSession: vi.fn((history) => ({
     sessionId: "test",
     title: "Test",
@@ -79,6 +96,8 @@ describe("handleAutoCompaction", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSessionState.generation = 0;
+    mockSessionState.session = { sessionId: "test-session", history: [] };
   });
 
   it("should return original history when auto-compaction is not needed", async () => {
@@ -110,7 +129,7 @@ describe("handleAutoCompaction", () => {
   it("should perform auto-compaction when context limit is approaching", async () => {
     const { compactChatHistory, shouldAutoCompact, getAutoCompactMessage } =
       await import("../compaction.js");
-    const { updateSessionHistory } = await import("../session.js");
+    const { replaceSessionHistoryIfGeneration } = await import("../session.js");
 
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
     vi.mocked(getAutoCompactMessage).mockReturnValue("Auto-compacting...");
@@ -163,7 +182,8 @@ describe("handleAutoCompaction", () => {
         systemMessageTokens: expect.any(Number),
       }),
     );
-    expect(updateSessionHistory).toHaveBeenCalledWith(
+    expect(replaceSessionHistoryIfGeneration).toHaveBeenCalledWith(
+      0,
       mockCompactionResult.compactedHistory,
     );
 
@@ -179,6 +199,170 @@ describe("handleAutoCompaction", () => {
       compactionIndex: mockCompactionResult.compactionIndex,
       wasCompacted: true,
     });
+  });
+
+  it("persists tool-result pruning without summarizing when it clears the threshold", async () => {
+    const { compactChatHistory, shouldAutoCompact } = await import(
+      "../compaction.js"
+    );
+    const { replaceSessionHistoryIfGeneration } = await import("../session.js");
+    const body = "0123456789abcdef".repeat(400);
+    const history: ChatHistoryItem[] = Array.from({ length: 6 }, (_, index) => {
+      const id = `call-${index}`;
+      return {
+        message: { role: "assistant", content: "" },
+        contextItems: [],
+        toolCallStates: [
+          {
+            toolCallId: id,
+            toolCall: {
+              id,
+              type: "function",
+              function: { name: "read_file", arguments: "{}" },
+            },
+            status: "done",
+            parsedArgs: {},
+            output: [
+              {
+                content: index === 0 ? body : `recent-${index}`,
+                name: "Tool Result: read_file",
+                description: "Tool execution result",
+              },
+            ],
+          },
+        ],
+      };
+    });
+    vi.mocked(shouldAutoCompact).mockImplementation(
+      ({ chatHistory }) =>
+        !chatHistory[0].toolCallStates?.[0].output?.[0].content.includes(
+          TOOL_RESULT_TRUNCATION_MARKER,
+        ),
+    );
+    const callbacks = {
+      setChatHistory: vi.fn(),
+      setCompactionIndex: vi.fn(),
+    };
+
+    const result = await handleAutoCompaction(history, mockModel, mockLlmApi, {
+      callbacks,
+    });
+
+    expect(compactChatHistory).not.toHaveBeenCalled();
+    expect(result.wasCompacted).toBe(true);
+    expect(
+      result.chatHistory[0].toolCallStates?.[0].output?.[0].content,
+    ).toContain(TOOL_RESULT_TRUNCATION_MARKER);
+    expect(replaceSessionHistoryIfGeneration).toHaveBeenCalledWith(
+      0,
+      result.chatHistory,
+    );
+    expect(callbacks.setChatHistory).toHaveBeenCalledWith(result.chatHistory);
+    expect(callbacks.setCompactionIndex).toHaveBeenCalledWith(null);
+  });
+
+  it("opens the failure breaker after three summary failures", async () => {
+    const { compactChatHistory, shouldAutoCompact } = await import(
+      "../compaction.js"
+    );
+    vi.mocked(shouldAutoCompact).mockReturnValue(true);
+    vi.mocked(compactChatHistory).mockRejectedValue(
+      new Error("summary failed"),
+    );
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+    }
+    await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+
+    expect(compactChatHistory).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not count a persisted tool-result prune as a summary failure", async () => {
+    const { compactChatHistory, shouldAutoCompact } = await import(
+      "../compaction.js"
+    );
+    vi.mocked(shouldAutoCompact).mockReturnValue(true);
+    vi.mocked(compactChatHistory).mockRejectedValue(
+      new Error("summary failed"),
+    );
+
+    await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+    await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+
+    const largeOutput = "0123456789abcdef".repeat(400);
+    const history: ChatHistoryItem[] = Array.from({ length: 6 }, (_, index) => {
+      const id = `call-${index}`;
+      return {
+        message: { role: "assistant", content: "" },
+        contextItems: [],
+        toolCallStates: [
+          {
+            toolCallId: id,
+            toolCall: {
+              id,
+              type: "function",
+              function: { name: "read_file", arguments: "{}" },
+            },
+            status: "done",
+            parsedArgs: {},
+            output: [
+              {
+                content: index === 0 ? largeOutput : `recent-${index}`,
+                name: "Tool Result: read_file",
+                description: "Tool execution result",
+              },
+            ],
+          },
+        ],
+      };
+    });
+
+    const pruningAttempt = await handleAutoCompaction(
+      history,
+      mockModel,
+      mockLlmApi,
+    );
+    await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+    await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+
+    expect(pruningAttempt.wasCompacted).toBe(true);
+    expect(compactChatHistory).toHaveBeenCalledTimes(4);
+  });
+
+  it("does not overwrite a newer history when the summary returns late", async () => {
+    const { compactChatHistory, shouldAutoCompact } = await import(
+      "../compaction.js"
+    );
+    const { replaceSessionHistoryIfGeneration } = await import("../session.js");
+    const latestHistory: ChatHistoryItem[] = [
+      {
+        message: { role: "user", content: "Message added during summary" },
+        contextItems: [],
+      },
+    ];
+    mockSessionState.session.history = latestHistory;
+    vi.mocked(shouldAutoCompact).mockReturnValue(true);
+    vi.mocked(replaceSessionHistoryIfGeneration).mockReturnValueOnce(false);
+    vi.mocked(compactChatHistory).mockResolvedValue({
+      compactedHistory: [
+        {
+          message: { role: "assistant", content: "Stale summary" },
+          contextItems: [],
+        },
+      ],
+      compactionIndex: 0,
+      compactionContent: "Stale summary",
+    });
+
+    const result = await handleAutoCompaction(
+      mockChatHistory,
+      mockModel,
+      mockLlmApi,
+    );
+
+    expect(result.chatHistory).toBe(latestHistory);
+    expect(result.wasCompacted).toBe(false);
   });
 
   it("should handle compaction errors gracefully", async () => {

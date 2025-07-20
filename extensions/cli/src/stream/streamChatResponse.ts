@@ -8,23 +8,23 @@ import type {
   ChatCompletionTool,
 } from "openai/resources.mjs";
 
+import { headerEquals, type RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
-import { ToolFailureTracker } from "../loop/toolFailureTracker.js";
-import {
-  describeTermination,
-  type TerminationReason,
-} from "../loop/termination.js";
 import {
   classifyStreamError,
   type TerminalStopKind,
   TerminalStopTracker,
 } from "../loop/terminalStop.js";
+import {
+  describeTermination,
+  type TerminationReason,
+} from "../loop/termination.js";
+import { ToolFailureTracker } from "../loop/toolFailureTracker.js";
 import { TurnBudget, type TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { applyChatCompletionToolOverrides } from "../tools/applyToolOverrides.js";
-import { headerEquals, type RequestHeader } from "../cache/requestHeader.js";
 import { ToolCall } from "../tools/index.js";
 import {
   chatCompletionStreamWithBackoff,
@@ -51,6 +51,7 @@ import {
   StreamCallbacks,
   StreamRunOverrides,
 } from "./streamChatResponse.types.js";
+import { decideSystemPrompt } from "./systemPromptPolicy.js";
 
 dotenv.config();
 
@@ -215,6 +216,7 @@ interface ProcessStreamingResponseOptions {
   isHeadless?: boolean;
   tools?: ChatCompletionTool[];
   systemMessage: string;
+  systemMessageUpdates?: readonly string[];
   /** True when this request is a compaction, whose prefix is not the session's. */
   isCompacting?: boolean;
 }
@@ -244,6 +246,7 @@ export async function processStreamingResponse(
     isHeadless,
     tools,
     systemMessage,
+    systemMessageUpdates = [],
     isCompacting,
   } = options;
 
@@ -253,8 +256,12 @@ export async function processStreamingResponse(
   const SAFETY_BUFFER = 100;
 
   // Validate context length INCLUDING system message and tools
+  const systemMessageHistory = systemMessageUpdates.map((content) => ({
+    message: { role: "system" as const, content },
+    contextItems: [],
+  }));
   let validation = validateContextLength({
-    chatHistory,
+    chatHistory: [...chatHistory, ...systemMessageHistory],
     model,
     safetyBuffer: SAFETY_BUFFER,
     systemMessage,
@@ -271,7 +278,7 @@ export async function processStreamingResponse(
 
     // Re-validate with system message and tools
     validation = validateContextLength({
-      chatHistory,
+      chatHistory: [...chatHistory, ...systemMessageHistory],
       model,
       safetyBuffer: SAFETY_BUFFER,
       systemMessage,
@@ -284,10 +291,15 @@ export async function processStreamingResponse(
   }
 
   // Create OpenAI format history with validated system message
-  const openaiChatHistory = convertFromUnifiedHistoryWithSystemMessage(
-    chatHistory,
-    systemMessage,
-  ) as ChatCompletionMessageParam[];
+  const openaiChatHistory = [
+    ...convertFromUnifiedHistoryWithSystemMessage(chatHistory, systemMessage),
+    ...systemMessageUpdates.map(
+      (content): ChatCompletionMessageParam => ({
+        role: "system",
+        content,
+      }),
+    ),
+  ] as ChatCompletionMessageParam[];
   const requestStartTime = Date.now();
 
   const streamFactory = async (retryAbortSignal: AbortSignal) => {
@@ -304,6 +316,7 @@ export async function processStreamingResponse(
         stream: true,
         tools,
         ...getDefaultCompletionOptions(model.defaultCompletionOptions),
+        max_tokens: validation.maxTokens,
       },
       retryAbortSignal,
     );
@@ -535,6 +548,9 @@ export async function streamChatResponse(
    * and costs more.
    */
   let previousRequestHeader: RequestHeader | undefined;
+  let previousSystemMessage: string | undefined;
+  let requestSystemMessage: string | undefined;
+  let systemMessageUpdates: string[] = [];
 
   /**
    * End the turn, tell the caller why, and return the text produced so far.
@@ -582,11 +598,29 @@ export async function streamChatResponse(
     logger.debug("Starting conversation iteration");
 
     // Get system message once per iteration (can change based on tool permissions mode)
-    const systemMessage =
+    const nextSystemMessage =
       runOverrides?.systemMessage ??
       (await services.systemMessage.getSystemMessage(
         services.toolPermissions.getState().currentMode,
       ));
+    const promptDecision = decideSystemPrompt({
+      previous: previousSystemMessage,
+      next: nextSystemMessage,
+      supportsInHistoryUpdate:
+        model.chatOptions?.supportsInHistorySystemUpdates === true,
+      startsSeries: previousSystemMessage === undefined,
+    });
+    if (promptDecision.action === "append" && promptDecision.appendedPrompt) {
+      systemMessageUpdates = [
+        ...systemMessageUpdates,
+        promptDecision.appendedPrompt,
+      ];
+    } else if (promptDecision.action === "rewrite") {
+      systemMessageUpdates = [];
+      requestSystemMessage = nextSystemMessage;
+    }
+    previousSystemMessage = nextSystemMessage;
+    const systemMessage = requestSystemMessage ?? nextSystemMessage;
 
     // Recompute tools on each iteration to handle mode changes during streaming
     const rawTools = await getRequestTools(
@@ -602,6 +636,7 @@ export async function streamChatResponse(
     const requestHeader: RequestHeader = {
       model: model.model,
       systemMessage,
+      systemMessageUpdates,
       tools,
       temperature: model.defaultCompletionOptions?.temperature,
       maxTokens: model.defaultCompletionOptions?.maxTokens,
@@ -660,6 +695,7 @@ export async function streamChatResponse(
       callbacks,
       tools,
       systemMessage,
+      systemMessageUpdates,
       isCompacting,
     });
 

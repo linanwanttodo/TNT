@@ -11,6 +11,7 @@
 export interface RequestHeader {
   readonly model: string;
   readonly systemMessage?: string;
+  readonly systemMessageUpdates?: readonly string[];
   readonly tools?: readonly unknown[];
   readonly temperature?: number;
   readonly maxTokens?: number;
@@ -32,6 +33,9 @@ export function canonicalHeader(header: RequestHeader): CanonicalRequestHeader {
     model: header.model,
     ...(header.systemMessage !== undefined
       ? { systemMessage: header.systemMessage }
+      : {}),
+    ...(header.systemMessageUpdates && header.systemMessageUpdates.length > 0
+      ? { systemMessageUpdates: header.systemMessageUpdates }
       : {}),
     ...(tools !== undefined ? { tools } : {}),
     ...(header.temperature !== undefined
@@ -57,6 +61,7 @@ export function headerEquals(
   const fields: Array<keyof CanonicalRequestHeader> = [
     "model",
     "systemMessage",
+    "systemMessageUpdates",
     "tools",
     "temperature",
     "maxTokens",
