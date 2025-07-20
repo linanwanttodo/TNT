@@ -22,7 +22,6 @@ vi.mock("../../util/git.js", () => ({
 
 describe("BottomStatusBar Ctrl+C message", () => {
   const defaultProps: BottomStatusBarProps = {
-    currentMode: "normal" as const,
     remoteUrl: "github.com/user/repo",
     isRemoteMode: false,
     services: { model: { model: null } },
@@ -70,6 +69,39 @@ describe("BottomStatusBar Ctrl+C message", () => {
 
     expect(indexModule.setExitMessageCallback).toHaveBeenCalledWith(
       expect.any(Function),
+    );
+  });
+
+  it("shows workspace, model, thinking depth, and context below the composer", async () => {
+    const gitModule = (await vi.importMock("../../util/git.js")) as any;
+    gitModule.isGitRepo.mockReturnValue(true);
+    gitModule.getGitBranch.mockReturnValue("feature/status");
+
+    const { lastFrame } = render(
+      <BottomStatusBar
+        {...defaultProps}
+        remoteUrl={undefined}
+        contextPercentage={34}
+        services={{
+          model: {
+            model: {
+              name: "deepseek/deepseek-chat",
+              model: "deepseek-chat",
+              defaultCompletionOptions: { reasoningEffort: "high" },
+            },
+          },
+        }}
+      />,
+    );
+
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain(process.cwd().split(/[\\/]/).pop() ?? "");
+    expect(frame).toContain("feature/status");
+    expect(frame).toContain("deepseek-chat");
+    expect(frame).toContain("think:high");
+    expect(frame).toContain("34%");
+    expect(frame.indexOf("deepseek-chat")).toBeLessThan(
+      frame.indexOf("think:high"),
     );
   });
 });

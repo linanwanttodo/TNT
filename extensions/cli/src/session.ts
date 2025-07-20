@@ -35,11 +35,7 @@ export interface ExtendedSessionMetadata extends BaseSessionMetadata {
 function getSessionDir(): string {
   // For tests, use the test directory if we're in test mode
   if (process.env.CONTINUE_CLI_TEST && process.env.HOME) {
-    const sessionDir = path.join(
-      process.env.HOME,
-      ".continue-next",
-      "sessions",
-    );
+    const sessionDir = path.join(process.env.HOME, ".tnt", "sessions");
 
     // Create directory if it doesn't exist
     if (!fs.existsSync(sessionDir)) {
@@ -51,8 +47,7 @@ function getSessionDir(): string {
 
   // Use CONTINUE_GLOBAL_DIR if set (for testing)
   const continueHome =
-    process.env.CONTINUE_GLOBAL_DIR ||
-    path.join(os.homedir(), ".continue-next");
+    process.env.CONTINUE_GLOBAL_DIR || path.join(os.homedir(), ".tnt");
   const sessionDir = path.join(continueHome, "sessions");
 
   // Create directory if it doesn't exist
@@ -568,7 +563,7 @@ export function loadSessionById(sessionId: string): Session | null {
 
 /**
  * Load an existing session by ID or create a new one with that ID.
- * Useful for long-lived processes (e.g., cn serve) that need to
+ * Useful for long-lived processes (e.g., tnt serve) that need to
  * preserve chat history across restarts for the same storage/agent id.
  */
 export function loadOrCreateSessionById(

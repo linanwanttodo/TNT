@@ -27,7 +27,7 @@ function getLogDir(): string {
 // Get current log file path
 function getLogFilePath(): string {
   const logDir = getLogDir();
-  return path.join(logDir, "cn.log");
+  return path.join(logDir, "tnt.log");
 }
 
 // Simple replacer for JSON.stringify to handle common issues

@@ -57,6 +57,7 @@ describe("serve command", () => {
 
     vi.mock("chalk", () => ({
       default: {
+        blue: (str: string) => str,
         green: (str: string) => str,
         dim: (str: string) => str,
         yellow: (str: string) => str,

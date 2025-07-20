@@ -22,7 +22,7 @@ describe("getRequestTools - Tool Filtering", () => {
   });
 
   test("should exclude Bash tool in plan mode after service initialization", async () => {
-    // Initialize services in plan mode (simulating `cn -p`)
+    // Initialize services in plan mode (simulating `tnt -p`)
     await initializeServices({
       headless: false,
       toolPermissionOverrides: {

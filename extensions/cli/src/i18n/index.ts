@@ -1,0 +1,244 @@
+/**
+ * UI strings for the CLI, with a locale the user can switch at runtime.
+ *
+ * Keys are dotted and grouped by the surface that uses them. A missing key
+ * falls back to English rather than printing the key, so a partially
+ * translated locale still renders readable text.
+ */
+
+import * as fs from "fs";
+import * as path from "path";
+
+import { env } from "../env.js";
+
+export type Locale = "en" | "zh-CN";
+
+export const LOCALES: Locale[] = ["en", "zh-CN"];
+
+export const LOCALE_LABELS: Record<Locale, string> = {
+  en: "English",
+  "zh-CN": "简体中文",
+};
+
+const en = {
+  "intro.config": "Config",
+  "intro.model": "Model",
+  "intro.org": "Org",
+  "intro.rules": "Rules",
+  "intro.mcpServers": "MCP Servers",
+  "intro.loading": "Loading...",
+  "composer.placeholder":
+    "Ask anything, @ for context, / for slash commands, ! for shell mode",
+  "composer.placeholderRemote":
+    "Ask anything, / for slash commands, ! for shell mode",
+  "commands.noMatches": "No matching commands found",
+  "commands.navigation": "↑/↓ to navigate, Enter to select, Tab to complete",
+  "files.noMatches": "No matching files found",
+  "interrupted.message": "Interrupted by user - Press enter to continue",
+  "action.background": "ctrl+b to background",
+  "action.compacting": "Compacting history",
+  "status.context": "Context",
+  "status.think": "think",
+  "status.image": "Ctrl+V paste image",
+  "status.cost": "Cost",
+  "status.exit": "ctrl+c to exit",
+  "tip.label": "Tip",
+  "model.warningTitle": "Model Capability Warning",
+  "tip.shortcuts": "Use `/help` to learn keyboard shortcuts",
+  "tip.pause": "Press escape to pause tnt, and press enter to continue",
+  "tip.history": "Use arrow keys to navigate through your input history",
+  "tip.multiline":
+    'Multi-line input is supported by typing "\\" and pressing enter',
+  "tip.resume": "Use `tnt ls` or `/resume` to resume a previous conversation",
+  "tip.headless":
+    'Run `tnt` with the `-p` flag for headless mode. For example: `tnt -p "Generate a commit message for the current changes."`',
+  "tip.init":
+    "Use the /init slash command to generate an AGENTS.md file so tnt understands your codebase.",
+  "model.notRecommended":
+    'The model "{model}" is not recommended for tnt because of its limited reasoning and tool support. Consider switching to a recommended model.',
+  "session.empty":
+    "No previous sessions found. Start a new conversation with: tnt",
+  "session.newWith": "Start a new conversation with: tnt",
+  "session.loading": "Loading sessions...",
+  "session.recent": "Recent Sessions",
+  "session.local": "(local)",
+  "session.remote": "(remote)",
+  "session.pressEsc": "Press Esc to exit",
+  "session.navigate": "↑/↓ to navigate, Enter to select, Esc to exit",
+  "session.moreAbove": "{count} more sessions above...",
+  "config.loading": "Loading configurations...",
+  "config.select": "Select Configuration",
+  "config.local": "Local config.yaml",
+  "config.loadFailed": "Failed to load configurations",
+  "setup.intro":
+    "A provider is needed before the first request can be sent. Nothing is sent anywhere while you answer these four questions.",
+  "setup.protocol": "Protocol",
+  "setup.baseUrl": "Base URL",
+  "setup.apiKey": "API key",
+  "setup.model": "Model name",
+  "setup.apiKeyRequired": "An API key is required.",
+  "setup.invalidProtocol":
+    "Choose a number between 1 and {count}, or press enter for the default.",
+  "setup.saved": "Config file written to {path}",
+  "setup.bedrock": "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
+  "language.title": "Language",
+  "language.changed": "Language set to {locale}",
+  "scroll.bottom": "Jump to latest",
+};
+
+export type TranslationKey = keyof typeof en;
+
+const zhCN: Record<TranslationKey, string> = {
+  "intro.config": "配置",
+  "intro.model": "模型",
+  "intro.org": "组织",
+  "intro.rules": "规则",
+  "intro.mcpServers": "MCP 服务器",
+  "intro.loading": "加载中...",
+  "composer.placeholder": "输入内容，@ 引用上下文，/ 打开命令，! 执行 shell",
+  "composer.placeholderRemote": "输入内容，/ 打开命令，! 执行 shell",
+  "commands.noMatches": "没有匹配的命令",
+  "commands.navigation": "↑/↓ 选择，Enter 确认，Tab 补全",
+  "files.noMatches": "没有匹配的文件",
+  "interrupted.message": "已由用户中断 - 按回车继续",
+  "action.background": "ctrl+b 放到后台",
+  "action.compacting": "正在压缩历史",
+  "status.context": "上下文",
+  "status.think": "思考",
+  "status.image": "Ctrl+V 粘贴图片",
+  "status.cost": "费用",
+  "status.exit": "ctrl+c 退出",
+  "tip.label": "提示",
+  "model.warningTitle": "模型能力提示",
+  "tip.shortcuts": "输入 /help 查看快捷键",
+  "tip.pause": "按 Esc 暂停 tnt，按回车继续",
+  "tip.history": "用方向键翻阅历史输入",
+  "tip.multiline": "输入 \\ 后回车可以换行",
+  "tip.resume": "用 `tnt ls` 或 /resume 恢复之前的会话",
+  "tip.headless":
+    '用 `tnt -p` 可以以非交互模式运行。例如：tnt -p "为当前改动生成提交信息"',
+  "tip.init": "用 /init 生成 AGENTS.md，让 tnt 更了解你的代码库。",
+  "model.notRecommended":
+    "模型 {model} 的推理与工具支持有限，不建议用于 tnt。建议切换到推荐的模型。",
+  "session.empty": "没有找到历史会话。输入 tnt 开始新会话。",
+  "session.newWith": "输入 tnt 开始新会话：",
+  "session.loading": "正在加载会话...",
+  "session.recent": "最近的会话",
+  "session.local": "（本地）",
+  "session.remote": "（远程）",
+  "session.pressEsc": "按 Esc 退出",
+  "session.navigate": "↑/↓ 移动，Enter 选择，Esc 退出",
+  "session.moreAbove": "上方还有 {count} 个会话...",
+  "config.loading": "正在加载配置...",
+  "config.select": "选择配置",
+  "config.local": "本地配置 config.yaml",
+  "config.loadFailed": "加载配置失败",
+  "setup.intro":
+    "发送第一个请求前需要先配置模型服务。回答这四个问题不会向任何服务发送数据。",
+  "setup.protocol": "协议",
+  "setup.baseUrl": "接口地址",
+  "setup.apiKey": "API 密钥",
+  "setup.model": "模型名称",
+  "setup.apiKeyRequired": "API 密钥不能为空。",
+  "setup.invalidProtocol":
+    "请输入 1 到 {count} 之间的数字，直接回车使用默认值。",
+  "setup.saved": "配置文件已写入 {path}",
+  "setup.bedrock": "正在使用 AWS Bedrock（检测到 CONTINUE_USE_BEDROCK）",
+  "language.title": "语言",
+  "language.changed": "语言已切换为 {locale}",
+  "scroll.bottom": "回到底部",
+};
+
+const DICTIONARIES: Record<Locale, Record<TranslationKey, string>> = {
+  en,
+  "zh-CN": zhCN,
+};
+
+function detectLocale(): Locale {
+  // process.env can be absent or partial (some sandboxes stub the process
+  // global), so read it defensively rather than assuming it exists.
+  const envVars =
+    typeof process !== "undefined" && process.env ? process.env : undefined;
+  const candidates = [
+    envVars?.LC_ALL,
+    envVars?.LC_MESSAGES,
+    envVars?.LANG,
+    envVars?.LANGUAGE,
+  ].filter((value): value is string => Boolean(value));
+  const fromEnv = candidates.join(":").toLowerCase();
+  return fromEnv.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+}
+
+const SETTINGS_PATH = path.join(env.continueHome, "settings.json");
+
+function readStoredLocale(): Locale | undefined {
+  try {
+    if (!fs.existsSync(SETTINGS_PATH)) {
+      return undefined;
+    }
+    const parsed = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
+    const stored = parsed?.locale;
+    return LOCALES.includes(stored) ? stored : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStoredLocale(locale: Locale): void {
+  try {
+    const dir = path.dirname(SETTINGS_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    let existing: Record<string, unknown> = {};
+    if (fs.existsSync(SETTINGS_PATH)) {
+      existing = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
+    }
+    fs.writeFileSync(
+      SETTINGS_PATH,
+      JSON.stringify({ ...existing, locale }, null, 2),
+    );
+  } catch {
+    // A home directory that cannot be written should not stop the CLI from
+    // running; the locale simply will not persist.
+  }
+}
+
+let currentLocale: Locale | undefined;
+const localeListeners = new Set<() => void>();
+
+export function subscribeLocale(listener: () => void): () => void {
+  localeListeners.add(listener);
+  return () => localeListeners.delete(listener);
+}
+
+export function getLocale(): Locale {
+  if (!currentLocale) {
+    currentLocale = readStoredLocale() ?? detectLocale();
+  }
+  return currentLocale;
+}
+
+export function setLocale(locale: Locale): void {
+  if (getLocale() === locale) {
+    return;
+  }
+  currentLocale = locale;
+  writeStoredLocale(locale);
+  localeListeners.forEach((listener) => listener());
+}
+
+export function t(
+  key: TranslationKey,
+  params?: Record<string, string | number>,
+): string {
+  const dictionary = DICTIONARIES[getLocale()] ?? en;
+  const text = dictionary[key] ?? en[key] ?? key;
+  if (!params) {
+    return text;
+  }
+  return Object.entries(params).reduce(
+    (acc, [name, value]) => acc.replaceAll(`{${name}}`, String(value)),
+    text,
+  );
+}

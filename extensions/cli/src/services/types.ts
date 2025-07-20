@@ -6,8 +6,8 @@ import {
   parseAgentFileTools,
 } from "@tnt/config-yaml";
 import { BaseLlmApi } from "@tnt/openai-adapters";
-import { AssistantConfig } from "@continuedev/sdk";
-import { DefaultApiInterface } from "@continuedev/sdk/dist/api/dist/index.js";
+import { AssistantConfig } from "@tnt/sdk";
+import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 import type { AuthConfig } from "../auth/workos.js";

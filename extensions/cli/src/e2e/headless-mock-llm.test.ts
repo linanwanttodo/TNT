@@ -25,7 +25,7 @@ describe("E2E: Headless Mode with Mock Server", () => {
     await cleanupTestContext(context);
   });
 
-  it('should output "Hello World!" when using cn -p "Hi"', async () => {
+  it('should output "Hello World!" when using tnt -p "Hi"', async () => {
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath, "Hi"],
       timeout: 15000,

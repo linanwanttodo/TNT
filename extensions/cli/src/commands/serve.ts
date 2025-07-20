@@ -78,7 +78,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   // Check if prompt should come from stdin instead of parameter
   let actualPrompt = prompt;
   if (!prompt) {
-    // Try to read from stdin (for piped input like: cat file | cn serve)
+    // Try to read from stdin (for piped input like: cat file | tnt serve)
     const stdinInput = readStdinSync();
     if (stdinInput) {
       actualPrompt = stdinInput;

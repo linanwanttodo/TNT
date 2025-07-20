@@ -7,6 +7,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AuthConfig } from "./auth/workos.js";
 import { initializeWithOnboarding } from "./onboarding.js";
 
+const questionMock = vi.fn();
+
+vi.mock("./util/prompt.js", () => ({
+  question: (...args: unknown[]) => questionMock(...args),
+}));
+
 describe("onboarding config flag handling", () => {
   let tempDir: string;
   let mockAuthConfig: AuthConfig;
@@ -127,7 +133,7 @@ name: "Incomplete Config"
       expect(message).toContain(configPath);
 
       // Should NOT mention falling back to default config (this was the bug!)
-      expect(message).not.toContain("~/.continue-next/config.yaml");
+      expect(message).not.toContain("~/.tnt/config.yaml");
       expect(message).not.toContain("default config");
       expect(message).not.toContain("fallback");
     }
@@ -205,7 +211,7 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
     expect(result).toBe(true);
     expect(mockConsoleLog).toHaveBeenCalledWith(
       expect.stringContaining(
-        "✓ Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
+        "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
       ),
     );
   });
@@ -228,12 +234,91 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
       const allCalls = mockConsoleLog.mock.calls.flat();
       const hasBedrockMessage = allCalls.some((call) =>
         String(call).includes(
-          "✓ Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
+          "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
         ),
       );
       expect(hasBedrockMessage).toBe(false);
     } finally {
       process.stdin.isTTY = originalIsTTY;
     }
+  });
+});
+
+describe("interactive provider onboarding writes a real config file", () => {
+  let tempDir: string;
+  const originalGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
+  const originalIsTTY = process.stdin.isTTY;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "continue-onboard-"));
+    process.env.CONTINUE_GLOBAL_DIR = tempDir;
+    // Force the interactive branch (not the non-TTY test guard).
+    process.stdin.isTTY = true;
+    process.env.NODE_ENV = "development";
+    process.env.CI = "";
+    process.env.VITEST = "";
+    questionMock.mockReset();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    if (originalGlobalDir === undefined) {
+      delete process.env.CONTINUE_GLOBAL_DIR;
+    } else {
+      process.env.CONTINUE_GLOBAL_DIR = originalGlobalDir;
+    }
+    process.stdin.isTTY = originalIsTTY;
+    vi.restoreAllMocks();
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test("protocol -> url -> key -> model lands a minimal config on disk", async () => {
+    questionMock
+      .mockResolvedValueOnce("5") // any OpenAI-compatible endpoint
+      .mockResolvedValueOnce("http://127.0.0.1:8080/v1")
+      .mockResolvedValueOnce("sk-local-key")
+      .mockResolvedValueOnce("qwen2.5-coder");
+
+    const { runOnboardingFlow } = await import("./onboarding.js");
+    const onboarded = await runOnboardingFlow(undefined);
+
+    expect(onboarded).toBe(true);
+
+    const configPath = path.join(tempDir, "config.yaml");
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    const written = fs.readFileSync(configPath, "utf8");
+    expect(written).toContain("name: TNT");
+    expect(written).toContain("schema: v1");
+    // openai-compatible is recorded as the openai adapter with a custom URL.
+    expect(written).toContain("provider: openai");
+    expect(written).toContain('apiBase: "http://127.0.0.1:8080/v1"');
+    expect(written).toContain('apiKey: "sk-local-key"');
+    expect(written).toContain('model: "qwen2.5-coder"');
+    // Minimal: no roles or completion options are written.
+    expect(written).not.toContain("roles:");
+    expect(written).not.toContain("defaultCompletionOptions:");
+  });
+
+  test("the built config parses as YAML with one model entry", async () => {
+    questionMock
+      .mockResolvedValueOnce("5")
+      .mockResolvedValueOnce("https://api.deepseek.com/v1")
+      .mockResolvedValueOnce("sk-deepseek")
+      .mockResolvedValueOnce("");
+
+    const { runOnboardingFlow } = await import("./onboarding.js");
+    await runOnboardingFlow(undefined);
+
+    const { parse } = await import("yaml");
+    const parsed = parse(
+      fs.readFileSync(path.join(tempDir, "config.yaml"), "utf8"),
+    );
+    expect(parsed.schema).toBe("v1");
+    expect(parsed.models).toHaveLength(1);
+    expect(parsed.models[0].provider).toBe("deepseek");
+    expect(parsed.models[0].model).toBe("deepseek-chat");
+    expect(parsed.models[0].apiBase).toBe("https://api.deepseek.com/");
   });
 });

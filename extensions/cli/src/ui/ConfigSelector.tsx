@@ -4,6 +4,7 @@ import * as path from "path";
 import React, { useEffect, useState } from "react";
 
 import { env } from "../env.js";
+import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 
 import { Selector, SelectorOption } from "./Selector.js";
@@ -40,7 +41,7 @@ const ConfigSelector: React.FC<ConfigSelectorProps> = ({
         if (fs.existsSync(CONFIG_PATH)) {
           options.push({
             id: "local",
-            name: "Local config.yaml",
+            name: t("config.local"),
             type: "local",
             organizationId: null,
           });
@@ -61,7 +62,7 @@ const ConfigSelector: React.FC<ConfigSelectorProps> = ({
         setCurrentConfigId(currentId);
         setLoading(false);
       } catch (err: any) {
-        setError(err.message || "Failed to load configurations");
+        setError(err.message || t("config.loadFailed"));
         setLoading(false);
       }
     };
@@ -71,12 +72,12 @@ const ConfigSelector: React.FC<ConfigSelectorProps> = ({
 
   return (
     <Selector
-      title="Select Configuration"
+      title={t("config.select")}
       options={configs}
       selectedIndex={selectedIndex}
       loading={loading}
       error={error}
-      loadingMessage="Loading configurations..."
+      loadingMessage={t("config.loading")}
       currentId={currentConfigId}
       onSelect={onSelect}
       onCancel={onCancel}

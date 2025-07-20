@@ -379,7 +379,10 @@ describe("compaction", () => {
       }
       rawMessages.push({ role: "user", content: "Continue" });
 
-      const history = convertToUnifiedHistory(rawMessages);
+      // core/dist/index.d.ts is not emitted (core/index.d.ts is a hand-written
+      // root declaration and .d.ts inputs are not copied to outDir), so the
+      // return type of convertToUnifiedHistory is not resolvable here.
+      const history: ChatHistoryItem[] = convertToUnifiedHistory(rawMessages);
       const model = {
         ...mockModel,
         defaultCompletionOptions: { contextLength: 128_000, maxTokens: 2048 },

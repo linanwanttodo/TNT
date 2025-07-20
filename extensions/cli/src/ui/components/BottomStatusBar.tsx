@@ -1,17 +1,17 @@
+import type { ModelConfig } from "@tnt/config-yaml";
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
 import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
-import type { PermissionMode } from "../../permissions/types.js";
+import { t } from "../../i18n/index.js";
+import { getGitBranch } from "../../util/git.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { UpdateNotification } from "../UpdateNotification.js";
 
 import { ContextPercentageDisplay } from "./ContextPercentageDisplay.js";
-import { ModeIndicator } from "./ModeIndicator.js";
 import { ResponsiveRepoDisplay } from "./ResponsiveRepoDisplay.js";
 
 export interface BottomStatusBarProps {
-  currentMode: PermissionMode;
   remoteUrl?: string;
   isRemoteMode: boolean;
   services: any;
@@ -24,11 +24,31 @@ export interface BottomStatusBarProps {
   totalCost?: number;
 }
 
+function currentDirectory(): string {
+  const parts = process.cwd().split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] || process.cwd();
+}
+
+/**
+ * The configured reasoning depth shown next to the model. An unset depth is
+ * reported as "default" instead of hiding the field, so the row always
+ * explains how much thinking the model will do.
+ */
+export function getThinkingDepth(model?: ModelConfig | null): string {
+  if (!model) {
+    return "";
+  }
+  const options = model.defaultCompletionOptions;
+  if (options?.reasoning === false) {
+    return "off";
+  }
+  return options?.reasoningEffort ?? "default";
+}
+
 export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
-  currentMode,
   remoteUrl,
   isRemoteMode,
-  services: _services,
+  services,
   navState: _navState,
   navigateTo: _navigateTo,
   closeCurrentScreen: _closeCurrentScreen,
@@ -46,47 +66,61 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   }, []);
 
   const showingExitMessage = shouldShowExitMessage();
+  const model = services?.model?.model as ModelConfig | null | undefined;
+  const modelName = model?.name || model?.model || "";
+  const thinkingDepth = getThinkingDepth(model);
+  const branch = isRemoteMode ? null : getGitBranch();
+  const workspace = `${remoteUrl ?? currentDirectory()}${
+    branch ? ` ⊦${branch}` : ""
+  }`;
 
   return (
     <Box flexDirection="row" justifyContent="space-between" alignItems="center">
       <Box marginLeft={2} flexDirection="row" alignItems="center">
-        {currentMode === "normal" && (
+        {showingExitMessage ? (
+          <Text color="dim" wrap="truncate-start">
+            {t("status.exit")}
+          </Text>
+        ) : (
           <React.Fragment>
-            {hasImageInClipboard ? (
-              <Text key="image-paste-hint" color="cyan" wrap="truncate-start">
-                Press Ctrl+V to paste image
-              </Text>
-            ) : showingExitMessage ? (
-              <Text key="repo-url" color="dim" wrap="truncate-start">
-                {"ctrl+c to exit"}
-              </Text>
-            ) : (
+            {isRemoteMode && remoteUrl ? (
               <ResponsiveRepoDisplay remoteUrl={remoteUrl} />
+            ) : (
+              <Text color="dim" wrap="truncate-start">
+                {workspace}
+              </Text>
             )}
-            <Text key="repo-separator"> </Text>
+            {modelName ? (
+              <React.Fragment>
+                <Text color="dim">{"  "}</Text>
+                <Text color="white" wrap="truncate-start">
+                  {modelName}
+                </Text>
+              </React.Fragment>
+            ) : null}
+            {modelName && thinkingDepth ? (
+              <React.Fragment>
+                <Text color="dim">{" · "}</Text>
+                <Text color="cyan">{`${t("status.think")}:${thinkingDepth}`}</Text>
+              </React.Fragment>
+            ) : null}
+            {contextPercentage !== undefined ? (
+              <React.Fragment>
+                <Text color="dim">{" · "}</Text>
+                <ContextPercentageDisplay percentage={contextPercentage} />
+              </React.Fragment>
+            ) : null}
+            {hasImageInClipboard ? (
+              <Text color="cyan">{` · ${t("status.image")}`}</Text>
+            ) : null}
           </React.Fragment>
         )}
-        <ModeIndicator />
-        {contextPercentage !== undefined && contextPercentage > 0 && (
+        {isVerboseMode && totalCost !== undefined && totalCost > 0 ? (
           <React.Fragment>
-            <Text key="context-separator" color="dim">
-              {" "}
-              •{" "}
-            </Text>
-            <ContextPercentageDisplay percentage={contextPercentage} />
+            <Text color="dim">{" · "}</Text>
+            <Text color="dim">{`${t("status.cost")}: $${totalCost.toFixed(4)}`}</Text>
           </React.Fragment>
-        )}
-        {isVerboseMode && totalCost !== undefined && totalCost > 0 && (
-          <React.Fragment>
-            <Text key="cost-separator" color="dim">
-              {" "}
-              •{" "}
-            </Text>
-            <Text key="cost-display" color="dim">
-              Cost: ${totalCost.toFixed(4)}
-            </Text>
-          </React.Fragment>
-        )}
+        ) : null}
       </Box>
       <Box marginRight={2} marginLeft={2}>
         <UpdateNotification isRemoteMode={isRemoteMode} />

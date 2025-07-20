@@ -1,5 +1,5 @@
 import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
-import { type AssistantConfig } from "@continuedev/sdk";
+import { type AssistantConfig } from "@tnt/sdk";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 import { getErrorString } from "../util/error.js";

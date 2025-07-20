@@ -180,7 +180,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
         if (line.includes("Interrupted by user")) {
           foundInterruptionLine = index;
         }
-        if (line.includes("●") || line.includes("▋")) {
+        if (line.includes(">") || line.includes("▋")) {
           foundInputBoxLine = index;
         }
       });

@@ -301,12 +301,14 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
     console.log(
       chalk.yellow("\nNo reviews found. To add reviews:\n") +
         chalk.dim(
-          "  1. Create .continue-next/agents/my-review.md with agent instructions\n",
+          "  1. Create .tnt/agents/my-review.md with agent instructions\n",
         ) +
         chalk.dim(
-          "  2. Or specify an agent: cn review --review-agents org/agent-name\n",
+          "  2. Or specify an agent: tnt review --review-agents org/agent-name\n",
         ) +
-        chalk.dim("  3. Or configure reviews on https://continue.dev\n"),
+        chalk.dim(
+          "  3. Or configure reviews on https://github.com/linanwanttodo/TNT\n",
+        ),
     );
     process.exit(0);
   }

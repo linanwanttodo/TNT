@@ -101,7 +101,7 @@ function loadLocalAgentInstructions(filePath: string): string {
 export async function runReviewWorker(): Promise<void> {
   if (typeof process.send !== "function") {
     console.error(
-      "Error: review worker must be run as a forked process (via cn review).",
+      "Error: review worker must be run as a forked process (via tnt review).",
     );
     process.exit(1);
   }

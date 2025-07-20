@@ -3,6 +3,7 @@ import { format, isThisWeek, isThisYear, isToday, isYesterday } from "date-fns";
 import { Box, Text, useInput } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 
+import { t } from "../i18n/index.js";
 import { ExtendedSessionMetadata, loadSessionById } from "../session.js";
 
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
@@ -108,9 +109,8 @@ export function SessionSelector({
   if (sessions.length === 0) {
     return (
       <Box {...defaultBoxStyles("blue")}>
-        <Text color="yellow">No previous sessions found.</Text>
-        <Text color="gray">Start a new conversation with: cn</Text>
-        <Text color="gray">Press Esc to exit</Text>
+        <Text color="yellow">{t("session.empty")}</Text>
+        <Text color="gray">{t("session.pressEsc")}</Text>
       </Box>
     );
   }
@@ -129,16 +129,16 @@ export function SessionSelector({
       {/* Left side: Session list */}
       <Box {...defaultBoxStyles("blue")} width={listWidth}>
         <Text color="blue" bold>
-          Recent Sessions{" "}
+          {t("session.recent")}{" "}
           {sessions.length > displaySessions.length &&
             `(${selectedIndex + 1}/${sessions.length})`}
         </Text>
-        <Text color="gray">↑/↓ to navigate, Enter to select, Esc to exit</Text>
+        <Text color="gray">{t("session.navigate")}</Text>
         <Text> </Text>
 
         {hasMoreAbove && (
           <Text color="gray" italic>
-            ⬆ {scrollOffset} more sessions above...
+            {t("session.moreAbove", { count: scrollOffset })}
           </Text>
         )}
 
@@ -159,7 +159,9 @@ export function SessionSelector({
               <Box marginLeft={2}>
                 <Text color="gray">
                   {formatTimestamp(new Date(session.dateCreated))}
-                  {session.isRemote ? " (remote)" : " (local)"}
+                  {session.isRemote
+                    ? ` ${t("session.remote")}`
+                    : ` ${t("session.local")}`}
                 </Text>
               </Box>
               {index < displaySessions.length - 1 && (

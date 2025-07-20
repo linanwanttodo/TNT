@@ -5,8 +5,8 @@
 ### Message Display Tests
 
 - [ ] Empty chat displays correctly (no messages)
-- [ ] Single user message displays with correct formatting (● indicator)
-- [ ] Single assistant message displays with correct formatting (● indicator)
+- [ ] Single user message displays with correct formatting (> indicator)
+- [ ] Single assistant message displays with correct formatting (> indicator)
 - [ ] Multiple messages display in correct order
 - [ ] System messages display with correct styling (gray, italic)
 
@@ -15,7 +15,7 @@
 - [ ] Input field shows typed text
 - [ ] Input field clears after pressing Enter
 - [ ] Input field handles special characters
-- [ ] Input prompt shows correctly ("cn>" or custom)
+- [ ] Input prompt shows correctly ("tnt>" or custom)
 
 ### Loading State Tests
 

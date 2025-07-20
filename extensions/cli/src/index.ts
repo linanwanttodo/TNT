@@ -171,9 +171,9 @@ process.on("SIGINT", async () => {
 const program = new Command();
 
 program
-  .name("cn")
+  .name("tnt")
   .description(
-    "Continue CLI - AI-powered development assistant. Starts an interactive session by default, use -p/--print for non-interactive output.",
+    "TNT - AI-powered development assistant. Starts an interactive session by default, use -p/--print for non-interactive output.",
   )
   .version(getVersion(), "-v, --version", "Display version number");
 
@@ -249,7 +249,7 @@ addCommonOptions(program)
       ask: options.ask,
       exclude: options.exclude,
       isRootCommand: true,
-      commandName: "cn",
+      commandName: "tnt",
     });
 
     if (!validation.isValid) {
@@ -292,12 +292,12 @@ addCommonOptions(program)
         "Error: A prompt is required when using the -p/--print flag, unless --prompt, --agent, or --resume is provided.\n\n",
       );
       safeStderr("Usage examples:\n");
-      safeStderr('  cn -p "please review my current git diff"\n');
-      safeStderr('  echo "hello" | cn -p\n');
-      safeStderr('  cn -p "analyze the code in src/"\n');
-      safeStderr("  cn -p --agent my-org/my-agent\n");
-      safeStderr("  cn -p --prompt my-org/my-prompt\n");
-      safeStderr("  cn -p --resume\n");
+      safeStderr('  tnt -p "please review my current git diff"\n');
+      safeStderr('  echo "hello" | tnt -p\n');
+      safeStderr('  tnt -p "analyze the code in src/"\n');
+      safeStderr("  tnt -p --agent my-org/my-agent\n");
+      safeStderr("  tnt -p --prompt my-org/my-prompt\n");
+      safeStderr("  tnt -p --resume\n");
       await gracefulExit(1);
     }
 
@@ -379,7 +379,7 @@ program.on("command:*", () => {
 });
 
 export async function runCli(): Promise<void> {
-  // Handle internal worker subprocess for cn review
+  // Handle internal worker subprocess for tnt review
   if (process.argv.includes("--internal-review-worker")) {
     const { runReviewWorker } = await import(
       "./commands/review/reviewWorker.js"

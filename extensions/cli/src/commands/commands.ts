@@ -1,9 +1,10 @@
-import { type AssistantConfig } from "@continuedev/sdk";
+import { type AssistantConfig } from "@tnt/sdk";
 
 import {
   getSkillSlashCommandName,
   loadMarkdownSkills,
 } from "../util/loadMarkdownSkills.js";
+import { t } from "../i18n/index.js";
 
 // Export command functions
 export { chat } from "./chat.js";
@@ -35,7 +36,7 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
   },
   {
     name: "update",
-    description: "Update the Continue CLI",
+    description: "Update the TNT",
     category: "system",
   },
   {
@@ -110,8 +111,7 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
   },
   {
     name: "import-skill",
-    description:
-      "Import a skill from a URL or name into ~/.continue-next/skills",
+    description: "Import a skill from a URL or name into ~/.tnt/skills",
     category: "system",
   },
   {
@@ -122,6 +122,11 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
   {
     name: "import",
     description: "Import a session from JSON file",
+    category: "system",
+  },
+  {
+    name: "language",
+    description: "Switch the CLI display language",
     category: "system",
   },
 ];
@@ -159,7 +164,11 @@ export async function getAllSlashCommands(
   }
 
   // All system commands are available
-  const systemCommands = SYSTEM_SLASH_COMMANDS;
+  const systemCommands = SYSTEM_SLASH_COMMANDS.map((command) =>
+    command.name === "language"
+      ? { ...command, description: t("language.title") }
+      : command,
+  );
 
   // Get assistant prompt commands
   const assistantCommands: SlashCommand[] =

@@ -454,8 +454,8 @@ export function expectNormalMode(frame: string | undefined) {
   if (!frame) throw new Error("Frame is undefined");
 
   // Should show normal indicator
-  expect(frame).toContain("●");
-  expect(frame).toContain("Continue CLI");
+  expect(frame).toContain(">");
+  expect(frame).toContain("TNT");
 }
 
 /**

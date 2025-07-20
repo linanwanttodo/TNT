@@ -76,23 +76,6 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
     await initializeWithOnboarding(null, commandOptions.config);
   }
 
-  // Handle ANTHROPIC_API_KEY in headless mode when no config path is provided
-  if (
-    initOptions.headless &&
-    !commandOptions.config &&
-    process.env.ANTHROPIC_API_KEY
-  ) {
-    const { createOrUpdateConfig } = await import("../onboarding.js");
-    const { env } = await import("../env.js");
-    const path = await import("path");
-
-    const CONFIG_PATH = path.join(env.continueHome, "config.yaml");
-    await createOrUpdateConfig(process.env.ANTHROPIC_API_KEY);
-
-    // Update options to use the created config
-    commandOptions.config = CONFIG_PATH;
-  }
-
   serviceContainer.register(
     SERVICE_NAMES.AUTH,
     async () => {

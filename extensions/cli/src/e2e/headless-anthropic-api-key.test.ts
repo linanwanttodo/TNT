@@ -54,7 +54,7 @@ models:
     // Create onboarding flag to skip onboarding
     const onboardingFlagPath = path.join(
       context.testDir,
-      ".continue-next",
+      ".tnt",
       ".onboarding_complete",
     );
     await fs.mkdir(path.dirname(onboardingFlagPath), { recursive: true });
@@ -78,28 +78,5 @@ models:
       (m: any) => m.role === "user",
     );
     expect(userMessage.content).toBe("Hi there");
-  }, 20000);
-
-  it("should create config but fail with invalid API key when no config exists", async () => {
-    // This test verifies that CLI automatically creates config from ANTHROPIC_API_KEY
-    // when no config file exists, but fails when the API key is invalid
-
-    const result = await runCLI(context, {
-      args: ["-p", "test prompt"],
-      env: {
-        ANTHROPIC_API_KEY: "TEST-test-invalid-key-format",
-        CONTINUE_GLOBAL_DIR: context.testDir + "/.continue",
-      },
-      expectError: true, // API call should fail with invalid key
-      timeout: 15000,
-    });
-
-    // The CLI auto-creates an explicit Anthropic model from ANTHROPIC_API_KEY,
-    // so it now reaches the provider and fails on the invalid key rather than
-    // failing earlier with "no model specified".
-    expect(result.exitCode).toBe(1);
-
-    // Should contain an authentication error from the invalid API key
-    expect(result.stderr).toContain("invalid x-api-key");
   }, 20000);
 });

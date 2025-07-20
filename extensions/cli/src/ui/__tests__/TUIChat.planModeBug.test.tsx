@@ -43,6 +43,8 @@ describe("TUIChat - Plan Mode Bug Reproduction", () => {
 
       // c) Make sure the string "[plan]" is on the screen
       expect(frame!).toContain("plan]");
+      // The mode label is embedded in the composer's top border line.
+      expect(frame!).toMatch(/╭─\[plan\]/);
 
       // d) Successfully send a message without error
       const testMessage = "Can you help me analyze this code?";

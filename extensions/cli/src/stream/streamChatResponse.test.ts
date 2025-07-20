@@ -227,17 +227,13 @@ describe("processStreamingResponse - content preservation", () => {
       toolCallChunk(
         "toolu_vrtx_01Jj9m9VbtwVZwcU6A311g6A",
         undefined,
-        "rs/nate/gh/c",
+        "rs/nate/gh/",
       ),
+      toolCallChunk("toolu_vrtx_01Jj9m9VbtwVZwcU6A311g6A", undefined, "tnt"),
       toolCallChunk(
         "toolu_vrtx_01Jj9m9VbtwVZwcU6A311g6A",
         undefined,
-        "ontinuede",
-      ),
-      toolCallChunk(
-        "toolu_vrtx_01Jj9m9VbtwVZwcU6A311g6A",
-        undefined,
-        "v/cli/README",
+        "/cli/README",
       ),
       toolCallChunk("toolu_vrtx_01Jj9m9VbtwVZwcU6A311g6A", undefined, '.md"}'),
       contentChunk(""),
@@ -261,7 +257,7 @@ describe("processStreamingResponse - content preservation", () => {
     // Verify the tool call was assembled correctly
     expect(result.toolCalls[0].name).toBe("Read");
     expect(result.toolCalls[0].argumentsStr).toBe(
-      '{"filepath": "/Users/nate/gh/continuedev/cli/README.md"}',
+      '{"filepath": "/Users/nate/gh/tnt/cli/README.md"}',
     );
   });
 
@@ -428,7 +424,7 @@ describe("processStreamingResponse - content preservation", () => {
         0,
         undefined,
         undefined,
-        '{"filepath": "/Users/nate/gh/continuedev/cli/README.md"}',
+        '{"filepath": "/Users/nate/gh/tnt/cli/README.md"}',
       ),
     ];
 
@@ -454,7 +450,7 @@ describe("processStreamingResponse - content preservation", () => {
     // Tool call arguments are preserved using index mapping
     expect(result.toolCalls[0].name).toBe("Read");
     expect(result.toolCalls[0].argumentsStr).toBe(
-      '{"filepath": "/Users/nate/gh/continuedev/cli/README.md"}',
+      '{"filepath": "/Users/nate/gh/tnt/cli/README.md"}',
     );
   });
 
@@ -475,9 +471,7 @@ describe("processStreamingResponse - content preservation", () => {
       toolCallChunkWithIndex(0, undefined, undefined, ": "),
       toolCallChunkWithIndex(0, undefined, undefined, '"/U'),
       toolCallChunkWithIndex(0, undefined, undefined, "sers/nate/gh"),
-      toolCallChunkWithIndex(0, undefined, undefined, "/c"),
-      toolCallChunkWithIndex(0, undefined, undefined, "onti"),
-      toolCallChunkWithIndex(0, undefined, undefined, "nuedev/cli"),
+      toolCallChunkWithIndex(0, undefined, undefined, "/tnt/cli"),
       toolCallChunkWithIndex(0, undefined, undefined, "/READ"),
       toolCallChunkWithIndex(0, undefined, undefined, "ME.m"),
       toolCallChunkWithIndex(0, undefined, undefined, 'd"}'),
@@ -500,7 +494,7 @@ describe("processStreamingResponse - content preservation", () => {
     // 2. Tool call arguments are assembled correctly
     expect(result.toolCalls[0].name).toBe("Read");
     expect(result.toolCalls[0].argumentsStr).toBe(
-      '{"filepath": "/Users/nate/gh/continuedev/cli/README.md"}',
+      '{"filepath": "/Users/nate/gh/tnt/cli/README.md"}',
     );
   });
 
