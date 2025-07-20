@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../../../context/Auth";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
 import { MockIdeMessenger } from "../../../../context/MockIdeMessenger";
+import { I18nProvider } from "../../../../i18n";
 import { createMockStore } from "../../../../util/test/mockStore";
 import DocsIndexingStatus from "./DocsIndexingStatus";
 
@@ -37,17 +38,19 @@ describe("DocsIndexingStatus", () => {
 
     const result = await act(async () =>
       render(
-        <Provider store={store}>
-          <IdeMessengerContext.Provider value={mockIdeMessenger}>
-            <AuthProvider>
-              <DocsIndexingStatus
-                docConfig={mockDocConfig}
-                docFromYaml={mockDocFromYaml}
-                {...props}
-              />
-            </AuthProvider>
-          </IdeMessengerContext.Provider>
-        </Provider>,
+        <I18nProvider>
+          <Provider store={store}>
+            <IdeMessengerContext.Provider value={mockIdeMessenger}>
+              <AuthProvider>
+                <DocsIndexingStatus
+                  docConfig={mockDocConfig}
+                  docFromYaml={mockDocFromYaml}
+                  {...props}
+                />
+              </AuthProvider>
+            </IdeMessengerContext.Provider>
+          </Provider>
+        </I18nProvider>,
       ),
     );
 

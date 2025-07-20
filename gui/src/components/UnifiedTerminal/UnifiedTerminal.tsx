@@ -422,14 +422,10 @@ export function UnifiedTerminalCommand({
       className="mx-2 mb-4"
       data-testid="terminal-container"
     >
-      <div className="outline-command-border rounded-default bg-editor !my-2 flex min-w-0 flex-col outline outline-1">
+      <div className="my-2 flex min-w-0 flex-col">
         {/* Toolbar */}
         <div
-          className={`find-widget-skip bg-editor sticky -top-2 z-10 m-0 flex items-center justify-between gap-3 px-1.5 py-1 ${
-            isExpanded
-              ? "rounded-t-default border-command-border border-b"
-              : "rounded-default"
-          }`}
+          className="find-widget-skip border-command-border sticky -top-2 z-10 m-0 flex items-center justify-between gap-3 border-b py-1"
           style={{ fontSize: `${getFontSize() - 2}px` }}
         >
           <div className="flex max-w-[50%] flex-row items-center">
@@ -455,7 +451,7 @@ export function UnifiedTerminalCommand({
         {/* Content */}
         {isExpanded && (
           <TerminalContent>
-            <pre className="bg-editor">
+            <pre>
               <code>
                 {/* Command is always visible */}
                 <div className="text-terminal pb-2">{command}</div>

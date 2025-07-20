@@ -49,14 +49,9 @@ const StyledMarkdown = styled.div<{
 
   pre {
     white-space: ${(props) => props.whiteSpace};
-    background-color: ${vscEditorBackground};
-    border-radius: ${defaultBorderRadius};
-
     max-width: calc(100vw - 24px);
     overflow-x: scroll;
     overflow-y: hidden;
-
-    padding: 8px;
   }
 
   code {

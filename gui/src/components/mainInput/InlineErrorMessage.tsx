@@ -3,7 +3,7 @@ import { IdeMessengerContext } from "../../context/IdeMessenger";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { setInlineErrorMessage } from "../../redux/slices/sessionSlice";
 
-export type InlineErrorMessageType = "out-of-context";
+export type InlineErrorMessageType = "out-of-context" | "too-many-turns";
 
 export default function InlineErrorMessage() {
   const dispatch = useAppDispatch();
@@ -11,6 +11,27 @@ export default function InlineErrorMessage() {
   const inlineErrorMessage = useAppSelector(
     (state) => state.session.inlineErrorMessage,
   );
+  if (inlineErrorMessage === "too-many-turns") {
+    return (
+      <div
+        className={`border-border relative m-2 flex flex-col rounded-md border border-solid bg-transparent p-4`}
+      >
+        <p className={`thread-message text-error text-center`}>
+          {`Stopped after too many steps. Send a message to continue.`}
+        </p>
+        <div className="text-description flex flex-row items-center justify-center gap-1.5 px-3">
+          <span
+            className="cursor-pointer text-xs hover:underline"
+            onClick={() => {
+              dispatch(setInlineErrorMessage(undefined));
+            }}
+          >
+            Hide
+          </span>
+        </div>
+      </div>
+    );
+  }
   if (inlineErrorMessage === "out-of-context") {
     return (
       <div

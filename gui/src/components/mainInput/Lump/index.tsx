@@ -1,12 +1,25 @@
-import { LumpToolbar } from "./LumpToolbar/LumpToolbar";
+import {
+  LumpToolbar,
+  useHasLumpToolbarContent,
+} from "./LumpToolbar/LumpToolbar";
 
 /**
- * Simplified toolbar component that only shows the toolbar without expansion
+ * The strip that sits above the editor inside the composer card. It carries
+ * state-dependent controls (streaming, pending tool calls) and, when idle,
+ * nothing at all.
  */
 export function Lump() {
+  const hasContent = useHasLumpToolbarContent();
+
+  // An empty band above the editor reads as a stray divider, so the strip
+  // goes away entirely rather than rendering an empty row.
+  if (!hasContent) {
+    return null;
+  }
+
   return (
-    <div className="bg-input rounded-t-default border-command-border mx-1.5 border-l border-r border-t">
-      <div className="xs:px-2 px-1 py-0.5">
+    <div className="composer-strip">
+      <div className="composer-strip-inner">
         <LumpToolbar />
       </div>
     </div>

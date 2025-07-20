@@ -8,6 +8,7 @@ import { IndexingProgressUpdate } from "core";
 import { useContext, useState } from "react";
 import { GhostButton } from "../../../../components";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
+import { useI18n } from "../../../../i18n";
 import { useAppSelector } from "../../../../redux/hooks";
 
 export interface IndexingProgressErrorTextProps {
@@ -21,6 +22,7 @@ const copyWarningsToClipboard = (warnings: string[] = []) => {
 
 function IndexingProgressErrorText({ update }: IndexingProgressErrorTextProps) {
   const ideMessenger = useContext(IdeMessengerContext);
+  const { t } = useI18n();
   const [showWarnings, setShowWarnings] = useState(false);
   const embeddingsProvider = useAppSelector(
     (state) => state.config.config.selectedModelByRole.embed,
@@ -31,8 +33,7 @@ function IndexingProgressErrorText({ update }: IndexingProgressErrorTextProps) {
       <div className="flex items-center gap-2 italic">
         <XCircleIcon className="h-4 w-4 min-w-[10%]" />
         <span className="leading-relaxed">
-          Add an Embeddings model to enable codebase indexing. See the docs for
-          examples:
+          {t("indexing.embeddingsRequired")}
           <a
             href="https://docs.continue.dev/walkthroughs/codebase-embeddings#embeddings-providers"
             target="_blank"
@@ -58,8 +59,9 @@ function IndexingProgressErrorText({ update }: IndexingProgressErrorTextProps) {
           onClick={() => setShowWarnings(!showWarnings)}
         >
           <span className="leading-relaxed">
-            {update.warnings.length} warning
-            {update.warnings.length > 1 ? "s" : ""} during indexing
+            {t("indexing.warningsCount", {
+              count: update.warnings.length,
+            })}
           </span>
           <ChevronRightIcon
             className={`h-3 w-3 transition-transform duration-300 ${
@@ -90,7 +92,7 @@ function IndexingProgressErrorText({ update }: IndexingProgressErrorTextProps) {
               className="flex items-center !px-1.5 !py-0.5 text-xs"
             >
               <ClipboardIcon className="mr-1 h-3 w-3" />
-              <span>Copy output</span>
+              <span>{t("indexing.copyOutput")}</span>
             </GhostButton>
 
             {/* Open dev tools to view logs */}
@@ -101,7 +103,7 @@ function IndexingProgressErrorText({ update }: IndexingProgressErrorTextProps) {
               className="flex items-center !px-1.5 !py-0.5 text-xs"
             >
               <ArrowTopRightOnSquareIcon className="mr-1 h-3 w-3" />
-              <span>View Logs</span>
+              <span>{t("indexing.viewLogs")}</span>
             </GhostButton>
           </div>
         </div>

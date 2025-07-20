@@ -18,6 +18,449 @@
 
 :root {
   --example-var: rgb(30, 30, 30);
+
+  --continue-input-border: var(--continue-next-ui-stroke-tertiary);
+  --continue-input-border-focus: var(--continue-next-ui-stroke-focused);
+  --continue-input-surface: var(--vscode-input-background);
+
+  --continue-ctx-system: var(--continue-next-ui-blue);
+  --continue-ctx-tools: var(--continue-next-ui-green);
+  --continue-ctx-conversation: var(--continue-next-ui-yellow);
+  --continue-ctx-mcp: var(--continue-next-ui-purple);
+  --continue-ctx-skills: var(--continue-next-ui-magenta);
+  --continue-ctx-free: var(--continue-next-ui-bg-secondary);
+}
+
+/* Composer: one card. The state strip sits on top, the editor in the middle,
+   and the control row at the bottom. */
+.composer-editor-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--continue-next-ui-spacing-1-5);
+  padding: var(--continue-next-ui-spacing-2) var(--continue-next-ui-spacing-2-5)
+    var(--continue-next-ui-spacing-1-5);
+}
+
+/* The strip, editor and control row are one card. The shell owns the outline
+   and the radius; the parts inside only draw the seams between them, so the
+   card does not show a border where two pieces meet. */
+.composer-card {
+  border: 1px solid var(--continue-input-border);
+  border-radius: var(--continue-next-ui-radius-lg);
+  background-color: var(--vscode-input-background);
+  overflow: hidden;
+  transition: border-color 0.1s ease-in-out;
+}
+
+.composer-card-host:focus-within .composer-card,
+.composer-card:focus-within {
+  border-color: var(--continue-input-border-focus);
+}
+
+.composer-strip {
+  border-bottom: 1px solid var(--continue-input-border);
+  border-radius: var(--continue-next-ui-radius-lg)
+    var(--continue-next-ui-radius-lg) 0 0;
+  margin: 0;
+  background-color: transparent;
+}
+
+.composer-strip-inner {
+  display: flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 var(--continue-next-ui-spacing-2);
+}
+
+/* One gutter for the transcript. Rows carry their own icon and text, so the
+   same left edge has to come from a single wrapper; padding each level of the
+   message tree compounds into a staircase instead. */
+.thread-gutter {
+  --thread-gutter: 12px;
+  padding-left: var(--thread-gutter);
+}
+
+.thread-gutter .thread-message {
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.composer-bar {
+  gap: 8px;
+  min-height: 24px;
+  margin: 0 -10px -6px;
+  padding: 4px 6px 6px;
+  font-size: 12px;
+}
+
+.composer-control-group {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.composer-control-group::-webkit-scrollbar {
+  display: none;
+}
+
+.composer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.composer-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--continue-next-ui-radius-base);
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+}
+
+.composer-icon-button:hover {
+  background: var(--continue-next-ui-bg-tertiary);
+  color: var(--vscode-editor-foreground);
+}
+
+.composer-icon-button:focus-visible,
+.composer-mode-select-button:focus-visible,
+.composer-model-select-button:focus-visible,
+.composer-context:focus-visible,
+.composer-send-button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.composer-mode-select {
+  flex: 0 0 auto;
+}
+
+.composer-mode-select-button,
+.composer-model-select-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  max-width: 208px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 1px solid var(--continue-input-border);
+  border-radius: var(--continue-next-ui-radius-full);
+  background: var(--continue-next-ui-bg-secondary);
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.composer-mode-select-button:hover,
+.composer-model-select-button:hover,
+.composer-mode-select-button[data-open] {
+  background: var(--continue-next-ui-bg-tertiary);
+}
+
+.composer-mode-select-button {
+  max-width: 148px;
+}
+
+.composer-mode-select-label,
+.composer-model-select-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-model-select {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.composer-mode-menu {
+  z-index: 50;
+  min-width: 176px;
+  max-width: 260px;
+  max-height: min(320px, calc(100vh - 16px));
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--continue-input-border);
+  border-radius: var(--continue-next-ui-radius-lg);
+  background: var(--vscode-menu-background, var(--vscode-input-background));
+}
+
+.composer-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 6px 8px;
+  border-radius: var(--continue-next-ui-radius-base);
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.composer-mode-option[data-focus],
+.composer-mode-option[data-selected] {
+  background: var(--continue-next-ui-bg-tertiary);
+}
+
+.composer-mode-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-model-select-button {
+  background: transparent;
+}
+
+.composer-model-select-button > svg {
+  flex: 0 0 auto;
+}
+
+.composer-send-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--continue-next-ui-radius-full);
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+}
+
+.composer-send-button:hover:enabled {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.composer-send-button:disabled {
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  border: 1px solid var(--continue-input-border);
+  cursor: default;
+}
+
+.composer-context {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 var(--continue-next-ui-spacing-1);
+  border: none;
+  border-radius: var(--continue-next-ui-radius-base);
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.composer-context:hover {
+  background: var(--continue-next-ui-bg-tertiary);
+  color: var(--vscode-editor-foreground);
+}
+
+.composer-context-meter {
+  display: block;
+  width: 22px;
+  height: 3px;
+  border-radius: var(--continue-next-ui-radius-xs);
+  background: var(--continue-next-ui-bg-secondary);
+  overflow: hidden;
+}
+
+.composer-context-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--continue-next-ui-radius-xs);
+}
+
+.composer-context-warning {
+  color: var(--vscode-editorWarning-foreground);
+}
+
+.composer-context-panel {
+  z-index: 50;
+  width: min(288px, calc(100vw - 16px));
+  padding: 12px;
+  border: 1px solid var(--continue-input-border);
+  border-radius: var(--continue-next-ui-radius-lg);
+  background: var(
+    --vscode-editorWidget-background,
+    var(--vscode-editor-background)
+  );
+  color: var(--vscode-editor-foreground);
+}
+
+.composer-context-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.composer-context-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.composer-context-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--vscode-editor-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-context-tokens,
+.composer-context-percentage {
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.composer-menu {
+  min-width: 260px;
+  max-width: 340px;
+  padding: 4px;
+  border: 1px solid var(--continue-input-border);
+  border-radius: var(--continue-next-ui-radius-lg);
+  background: var(--vscode-menu-background, var(--vscode-input-background));
+}
+
+/* Headless UI writes `overflow: auto` inline on an anchored panel to cap it
+   to the viewport, which would clip a submenu opened to its right. The menu
+   is short, so it can grow freely instead. */
+.composer-menu-root {
+  overflow: visible !important;
+}
+
+.composer-menu-search {
+  display: flex;
+  align-items: center;
+  gap: var(--continue-next-ui-spacing-1-5);
+  height: 28px;
+  margin-bottom: 4px;
+  padding: 0 var(--continue-next-ui-spacing-2);
+  border-bottom: 1px solid var(--continue-input-border);
+  color: var(--vscode-descriptionForeground);
+}
+
+.composer-menu-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-input-foreground);
+  font-size: 12.5px;
+  outline: none;
+}
+
+.composer-menu-search-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.composer-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--continue-next-ui-spacing-5);
+  padding: var(--continue-next-ui-spacing-1) var(--continue-next-ui-spacing-2);
+  border: none;
+  border-radius: var(--continue-next-ui-radius-base);
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.composer-menu-item:hover,
+.composer-menu-item[data-focus] {
+  background: var(--continue-next-ui-bg-tertiary);
+}
+
+.composer-menu-item-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--vscode-descriptionForeground);
+}
+
+.composer-menu-item-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.composer-menu-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-menu-item-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+
+.composer-menu-item-check {
+  flex-shrink: 0;
+  color: var(--vscode-editor-foreground);
+}
+
+.composer-menu-item-chevron {
+  flex-shrink: 0;
+  color: var(--vscode-descriptionForeground);
+}
+
+.composer-menu-empty {
+  padding: 6px 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.composer-menu-divider {
+  height: 1px;
+  margin: var(--continue-next-ui-spacing-1) var(--continue-next-ui-spacing-2);
+  background: var(--continue-input-border);
+}
+
+.composer-submenu {
+  max-height: 240px;
+  max-width: 320px;
+  overflow-y: auto;
+}
+
+/* The control row is part of the card, so it needs no fill of its own. */
+.composer-bar .bg-vsc-input-background {
+  background-color: transparent;
 }
 
 html,

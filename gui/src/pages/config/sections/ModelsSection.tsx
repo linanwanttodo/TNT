@@ -10,6 +10,7 @@ import { AddModelForm } from "../../../forms/AddModelForm";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { setDialogMessage, setShowDialog } from "../../../redux/slices/uiSlice";
 import { updateSelectedModelByRole } from "../../../redux/thunks/updateSelectedModelByRole";
+import { useI18n } from "../../../i18n";
 import { getMetaKeyLabel, isJetBrains } from "../../../util";
 import { ConfigHeader } from "../components/ConfigHeader";
 import { ModelRoleRow } from "../components/ModelRoleRow";
@@ -34,6 +35,7 @@ export function ModelsSection() {
   const { selectedProfile } = useAuth();
   const dispatch = useAppDispatch();
   const ideMessenger = useContext(IdeMessengerContext);
+  const { t } = useI18n();
 
   const config = useAppSelector((state) => state.config.config);
   const jetbrains = isJetBrains();
@@ -72,17 +74,16 @@ export function ModelsSection() {
   return (
     <div className="space-y-4">
       <ConfigHeader
-        title="Models"
-        subtext="Connect a provider, or point at any OpenAI-compatible endpoint"
+        title={t("models.title")}
+        subtext={t("models.subtext")}
         onAddClick={handleAddModel}
-        addButtonTooltip="Add model"
-        addButtonLabel="Add model"
+        addButtonTooltip={t("models.add")}
       />
 
       <Card>
         <ModelRoleRow
           role="chat"
-          displayName="Chat"
+          displayName={t("models.role.chat")}
           shortcut={
             <span className="text-2xs text-description-muted">
               (<Shortcut>{`cmd ${jetbrains ? "J" : "L"}`}</Shortcut>)
@@ -90,14 +91,14 @@ export function ModelsSection() {
           }
           description={
             <span>
-              Used in Chat, Plan, Agent mode (
+              {t("models.chat.desc")} (
               <a
                 href={MODEL_DOCS_URLS.chat.learnMore}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-inherit underline hover:brightness-125"
               >
-                Learn more
+                {t("config.learnMore")}
               </a>
               )
             </span>
@@ -113,17 +114,17 @@ export function ModelsSection() {
 
         <ModelRoleRow
           role="autocomplete"
-          displayName="Autocomplete"
+          displayName={t("models.role.autocomplete")}
           description={
             <span>
-              Used in inline code completions as you type (
+              {t("models.autocomplete.desc")} (
               <a
                 href={MODEL_DOCS_URLS.autocomplete.learnMore}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-inherit underline hover:brightness-125"
               >
-                Learn more
+                {t("config.learnMore")}
               </a>
               )
             </span>
@@ -141,7 +142,7 @@ export function ModelsSection() {
             <Divider />
             <ModelRoleRow
               role="edit"
-              displayName="Edit"
+              displayName={t("models.role.edit")}
               shortcut={
                 <span className="text-2xs text-description-muted">
                   (<Shortcut>cmd I</Shortcut>)
@@ -149,14 +150,14 @@ export function ModelsSection() {
               }
               description={
                 <span>
-                  Used to transform a selected section of code (
+                  {t("models.edit.desc")} (
                   <a
                     href={MODEL_DOCS_URLS.edit.learnMore}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-inherit underline hover:brightness-125"
                   >
-                    Learn more
+                    {t("config.learnMore")}
                   </a>
                   )
                 </span>
@@ -175,14 +176,14 @@ export function ModelsSection() {
         <Toggle
           isOpen={showAdditionalRoles}
           onToggle={() => setShowAdditionalRoles(!showAdditionalRoles)}
-          title="Additional model roles"
-          subtitle="Apply, Embed, Rerank"
+          title={t("models.additionalRoles")}
+          subtitle={t("models.additionalRoles.subtitle")}
         >
           <div className="flex flex-col">
             <ModelRoleRow
               role="apply"
-              displayName="Apply"
-              description="Used to apply generated codeblocks to files"
+              displayName={t("models.role.apply")}
+              description={t("models.apply.desc")}
               models={config.modelsByRole.apply}
               selectedModel={config.selectedModelByRole.apply ?? undefined}
               onSelect={(model) => handleRoleUpdate("apply", model)}
@@ -194,8 +195,8 @@ export function ModelsSection() {
 
             <ModelRoleRow
               role="embed"
-              displayName="Embed"
-              description="Used to generate and query embeddings for the @codebase and @docs context providers"
+              displayName={t("models.role.embed")}
+              description={t("models.embed.desc")}
               models={config.modelsByRole.embed}
               selectedModel={config.selectedModelByRole.embed ?? undefined}
               onSelect={(model) => handleRoleUpdate("embed", model)}
@@ -207,8 +208,8 @@ export function ModelsSection() {
 
             <ModelRoleRow
               role="rerank"
-              displayName="Rerank"
-              description="Used for reranking results from the @codebase and @docs context providers"
+              displayName={t("models.role.rerank")}
+              description={t("models.rerank.desc")}
               models={config.modelsByRole.rerank}
               selectedModel={config.selectedModelByRole.rerank ?? undefined}
               onSelect={(model) => handleRoleUpdate("rerank", model)}

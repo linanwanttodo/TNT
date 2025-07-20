@@ -6,6 +6,7 @@ import { useContext } from "react";
 import Alert from "../../../components/gui/Alert";
 import { Card, Divider } from "../../../components/ui";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
+import { useI18n } from "../../../i18n";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { updateConfig } from "../../../redux/slices/configSlice";
 import { ConfigHeader } from "../components/ConfigHeader";
@@ -15,18 +16,21 @@ import { DocsSection } from "./DocsSection";
 
 function CodebaseSubSection() {
   const config = useAppSelector((state) => state.config.config);
+  const { t } = useI18n();
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="mb-0 text-sm font-semibold">@codebase index</h3>
+        <h3 className="mb-0 text-sm font-semibold">{t("indexing.codebase")}</h3>
       </div>
 
       <Card>
         <div className="py-2">
           {config.disableIndexing ? (
             <div className="p-1">
-              <p className="text-center font-semibold">Indexing is disabled</p>
+              <p className="text-center font-semibold">
+                {t("indexing.disabled")}
+              </p>
             </div>
           ) : (
             <IndexingProgress />
@@ -39,6 +43,7 @@ function CodebaseSubSection() {
 
 function EnableIndexingSetting() {
   const dispatch = useAppDispatch();
+  const { t } = useI18n();
   const ideMessenger = useContext(IdeMessengerContext);
   const config = useAppSelector((state) => state.config.config);
 
@@ -54,16 +59,14 @@ function EnableIndexingSetting() {
   return (
     <div className="flex flex-col gap-4">
       <UserSetting
-        title="Enable indexing"
+        title={t("indexing.enable")}
         type="toggle"
         description={
           <div className="text-foreground">
-            Allows indexing of your codebase for search and context
-            understanding.
+            {t("indexing.enable.description")}
             <br />
             <br />
-            Note that indexing can consume significant system resources,
-            especially on larger codebases.
+            {t("indexing.enable.warning")}
           </div>
         }
         value={!disableIndexing}
@@ -75,28 +78,29 @@ function EnableIndexingSetting() {
 }
 
 export function IndexingSettingsSection() {
+  const { t } = useI18n();
   const config = useAppSelector((state) => state.config.config);
   const disableIndexing = config.disableIndexing ?? false;
 
   return (
     <>
-      <ConfigHeader title="Indexing" />
+      <ConfigHeader title={t("indexing.title")} />
 
       <Alert type="warning" className="mb-6">
         <div className="space-y-4">
           <div>
             <div className="-mt-0.5 text-sm font-medium">
-              Indexing has been deprecated
+              {t("indexing.deprecated.title")}
             </div>
             <div className="mt-1 text-xs">
-              Learn how to{" "}
+              {t("indexing.deprecated.prefix")}{" "}
               <a
                 href="https://docs.continue.dev/guides/codebase-documentation-awareness"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-inherit underline hover:brightness-125"
               >
-                make your agent aware of your codebase and documentation
+                {t("indexing.deprecated.link")}
               </a>
             </div>
           </div>

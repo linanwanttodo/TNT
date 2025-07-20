@@ -28,9 +28,6 @@ export default function StepContainer(props: StepContainerProps) {
   const latestSummaryIndex = props.latestSummaryIndex ?? -1;
   const isBeforeLatestSummary =
     latestSummaryIndex !== -1 && props.index <= latestSummaryIndex;
-  const isLatestSummary =
-    latestSummaryIndex !== -1 && props.index === latestSummaryIndex;
-
   const historyItemAfterThis = useAppSelector(
     (state) => state.session.history[props.index + 1],
   );
@@ -77,7 +74,7 @@ export default function StepContainer(props: StepContainerProps) {
   return (
     <div>
       <div
-        className={`bg-background p-1 px-1.5 ${isBeforeLatestSummary ? "opacity-35" : ""}`}
+        className={`bg-background pr-1.5 ${isBeforeLatestSummary ? "opacity-35" : ""}`}
       >
         {uiConfig?.displayRawMarkdown ? (
           <pre className="text-2xs max-w-full overflow-x-auto whitespace-pre-wrap break-words p-4">
@@ -117,19 +114,6 @@ export default function StepContainer(props: StepContainerProps) {
             item={props.item}
             isLast={props.isLast}
           />
-        </div>
-      )}
-
-      {/* Show compaction indicator for the latest summary */}
-      {isLatestSummary && (
-        <div className="mx-1.5 my-5">
-          <div className="flex items-center">
-            <div className="border-border flex-1 border-t border-solid"></div>
-            <span className="text-description mx-3 text-xs">
-              Previous Conversation Compacted
-            </span>
-            <div className="border-border flex-1 border-t border-solid"></div>
-          </div>
         </div>
       )}
 

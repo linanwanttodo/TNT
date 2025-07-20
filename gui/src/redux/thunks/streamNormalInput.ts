@@ -12,6 +12,7 @@ import {
   ReasoningDepth,
   setActive,
   setAppliedRulesAtIndex,
+  setContextBreakdown,
   setContextPercentage,
   setInactive,
   setInlineErrorMessage,
@@ -33,6 +34,8 @@ import {
   selectPendingToolCalls,
 } from "../selectors/selectToolCalls";
 import { getBaseSystemMessage } from "../util/getBaseSystemMessage";
+import { isAgentTurnLimitReached } from "../../util/agentLoop";
+import { runToolCallsOrdered } from "../../util/toolCallConcurrency";
 import { callToolById } from "./callToolById";
 import { evaluateToolPolicies } from "./evaluateToolPolicies";
 import { preprocessToolCalls } from "./preprocessToolCallArgs";
@@ -101,10 +104,10 @@ export const streamNormalInput = createAsyncThunk<
     { legacySlashCommandData, depth = 0 },
     { dispatch, extra, getState },
   ) => {
-    if (process.env.NODE_ENV === "test" && depth > 50) {
-      const message = `Max stream depth of ${50} reached in test`;
-      console.error(message, JSON.stringify(getState(), null, 2));
-      throw new Error(message);
+    if (isAgentTurnLimitReached(depth)) {
+      dispatch(setInlineErrorMessage("too-many-turns"));
+      dispatch(setInactive());
+      return;
     }
     const state = getState();
     const selectedChatModel = selectSelectedChatModel(state);
@@ -151,6 +154,17 @@ export const streamNormalInput = createAsyncThunk<
       selectedChatModel,
       state.session.reasoningDepth,
     );
+
+    // A stable per-session routing key lets the provider reuse the cached
+    // prefix across the turns of one conversation. Providers that do not
+    // understand the field drop it, so this is safe to set unconditionally;
+    // an explicit key from the model config still wins.
+    completionOptions.openaiRequestOptions = {
+      ...completionOptions.openaiRequestOptions,
+      promptCacheKey:
+        completionOptions.openaiRequestOptions?.promptCacheKey ??
+        state.session.id,
+    };
 
     // Construct messages (excluding system message)
     const baseSystemMessage = getBaseSystemMessage(
@@ -207,11 +221,16 @@ export const streamNormalInput = createAsyncThunk<
       }
     }
 
-    const { compiledChatMessages, didPrune, contextPercentage } =
-      precompiledRes.content;
+    const {
+      compiledChatMessages,
+      didPrune,
+      contextPercentage,
+      tokenBreakdown,
+    } = precompiledRes.content;
 
     dispatch(setIsPruned(didPrune));
     dispatch(setContextPercentage(contextPercentage));
+    dispatch(setContextBreakdown(tokenBreakdown));
 
     const start = Date.now();
     const streamAborter = state.session.streamAborter;
@@ -388,8 +407,10 @@ export const streamNormalInput = createAsyncThunk<
         return;
       }
       if (generatedCalls4.length > 0) {
-        await Promise.all(
-          generatedCalls4.map(async ({ toolCallId }) => {
+        await runToolCallsOrdered(
+          generatedCalls4,
+          (toolCallState) => Boolean(toolCallState.tool?.readonly),
+          async ({ toolCallId }) => {
             unwrapResult(
               await dispatch(
                 callToolById({
@@ -399,7 +420,7 @@ export const streamNormalInput = createAsyncThunk<
                 }),
               ),
             );
-          }),
+          },
         );
       } else {
         for (const { toolCallId } of originalToolCalls) {

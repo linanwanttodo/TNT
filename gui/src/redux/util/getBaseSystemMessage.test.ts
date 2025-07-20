@@ -52,7 +52,7 @@ test("getBaseSystemMessage should return the correct system message based on mod
   );
 });
 
-test("getBaseSystemMessage should append no-tools warning for agent/plan modes without tools", () => {
+test("getBaseSystemMessage should append no-tools warning for every mode without tools", () => {
   const mockModel = {
     baseChatSystemMessage: "Custom Chat System Message",
     basePlanSystemMessage: "Custom Plan System Message",
@@ -69,9 +69,10 @@ test("getBaseSystemMessage should append no-tools warning for agent/plan modes w
     "Custom Plan System Message" + NO_TOOL_WARNING,
   );
 
-  // Test chat mode without tools (should not append warning)
+  // Ask runs on the read-only tools too, so an empty set means the user
+  // disabled everything and the model should be told.
   expect(getBaseSystemMessage("chat", mockModel, [])).toBe(
-    "Custom Chat System Message",
+    "Custom Chat System Message" + NO_TOOL_WARNING,
   );
 
   // Test agent mode with undefined tools

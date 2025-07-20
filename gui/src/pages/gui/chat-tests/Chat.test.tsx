@@ -14,44 +14,25 @@ test("should render input box", async () => {
 });
 
 test("should be able to toggle modes", async () => {
-  await renderWithProviders(<Chat />);
-  await getElementByText("Agent");
+  const { store } = await renderWithProviders(<Chat />);
 
-  // Simulate cmd+. keyboard shortcut to toggle modes
-  act(() => {
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: ".",
-        metaKey: true, // cmd key on Mac
-      }),
-    );
-  });
+  // Agent is the default mode
+  expect(store.getState().session.mode).toBe("agent");
 
-  // Check that it switched to Chat mode
-  await getElementByText("Chat");
-
-  act(() => {
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: ".",
-        metaKey: true, // cmd key on Mac
-      }),
-    );
-  });
-
-  // Check that it switched to Plan mode
-  await getElementByText("Plan");
-
-  act(() => {
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: ".",
-        metaKey: true, // cmd key on Mac
-      }),
-    );
-  });
-
-  await getElementByText("Agent");
+  // Simulate cmd+. keyboard shortcut to cycle through the mode list and back
+  // to the default
+  const expectedCycle = ["plan", "debug", "multitask", "chat", "agent"];
+  for (const expectedMode of expectedCycle) {
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: ".",
+          metaKey: true, // cmd key on Mac
+        }),
+      );
+    });
+    expect(store.getState().session.mode).toBe(expectedMode);
+  }
 });
 
 test("should send a message and receive a response", async () => {

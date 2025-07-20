@@ -112,33 +112,43 @@ function ContinueInputBox(props: ContinueInputBoxProps) {
       className={`${props.hidden ? "hidden" : ""}`}
       data-testid={`continue-input-box-${props.inputId}`}
     >
-      <div className={`relative flex flex-col px-2`}>
-        {props.isMainInput && <Lump />}
-        <div
-          style={
-            props.isMainInput
-              ? undefined
-              : {
-                  // History user messages render as bubbles
-                  backgroundColor: "var(--vscode-input-background)",
-                  padding: "8px 10px",
-                  minWidth: "150px",
-                }
-          }
-        >
-          <GradientBorder loading={0} borderRadius={defaultBorderRadius}>
-            <TipTapEditor
-              editorState={props.editorState}
-              onEnter={props.onEnter}
-              placeholder={placeholder}
-              isMainInput={props.isMainInput ?? false}
-              availableContextProviders={filteredContextProviders}
-              availableSlashCommands={filteredSlashCommands}
-              historyKey={historyKey}
-              toolbarOptions={toolbarOptions}
-              inputId={props.inputId}
-            />
-          </GradientBorder>
+      <div
+        className={`relative flex flex-col px-2 ${
+          props.isMainInput ? "composer-card-host" : ""
+        }`}
+      >
+        <div className={props.isMainInput ? "composer-card" : "contents"}>
+          {props.isMainInput && <Lump />}
+          <div
+            style={
+              props.isMainInput
+                ? undefined
+                : {
+                    // History user messages render as bubbles
+                    backgroundColor: "var(--vscode-input-background)",
+                    padding: "8px 10px",
+                    minWidth: "150px",
+                  }
+            }
+          >
+            <GradientBorder
+              loading={0}
+              borderRadius={defaultBorderRadius}
+              nested={props.isMainInput}
+            >
+              <TipTapEditor
+                editorState={props.editorState}
+                onEnter={props.onEnter}
+                placeholder={placeholder}
+                isMainInput={props.isMainInput ?? false}
+                availableContextProviders={filteredContextProviders}
+                availableSlashCommands={filteredSlashCommands}
+                historyKey={historyKey}
+                toolbarOptions={toolbarOptions}
+                inputId={props.inputId}
+              />
+            </GradientBorder>
+          </div>
         </div>
       </div>
 

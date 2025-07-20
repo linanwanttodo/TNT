@@ -7,22 +7,21 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/Auth";
-import { AddModelForm } from "../../forms/AddModelForm";
-import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { setDialogMessage, setShowDialog } from "../../redux/slices/uiSlice";
-import { updateSelectedModelByRole } from "../../redux/thunks/updateSelectedModelByRole";
-import { getMetaKeyLabel, isMetaEquivalentKeyPressed } from "../../util";
-import { CONFIG_ROUTES } from "../../util/navigation";
+import { useAuth } from "../../context/Auth.tsx";
+import { AddModelForm } from "../../forms/AddModelForm.tsx";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks.ts";
+import { setDialogMessage, setShowDialog } from "../../redux/slices/uiSlice.ts";
+import { updateSelectedModelByRole } from "../../redux/thunks/updateSelectedModelByRole.ts";
+import { isMetaEquivalentKeyPressed } from "../../util/index.ts";
+import { CONFIG_ROUTES } from "../../util/navigation.ts";
 import {
   Button,
   Listbox,
   ListboxButton,
   ListboxOption,
   ListboxOptions,
-  useFontSize,
-} from "../ui";
-import { Divider } from "../ui/Divider";
+} from "../ui/index.ts";
+import { Divider } from "../ui/Divider.tsx";
 
 interface ModelOptionProps {
   option: Option;
@@ -128,7 +127,6 @@ function ModelSelect() {
   const [options, setOptions] = useState<Option[]>([]);
   const [sortedOptions, setSortedOptions] = useState<Option[]>([]);
   const { selectedProfile } = useAuth();
-  const tinyFont = useFontSize(-4);
 
   let selectedModel = null;
   let allModels = null;
@@ -249,17 +247,17 @@ function ModelSelect() {
         <ListboxButton
           data-testid="model-select-button"
           ref={buttonRef}
-          className="text-description h-[18px] gap-1 border-none"
+          className="composer-model-select-button"
         >
-          <span className="line-clamp-1 break-all hover:brightness-110">
+          <span className="composer-model-select-label">
             {modelSelectTitle(selectedModel) || "Select model"}
           </span>
           <ChevronDownIcon
-            className="hidden h-2 w-2 flex-shrink-0 hover:brightness-110 min-[200px]:flex"
+            className="h-3 w-3 flex-shrink-0"
             aria-hidden="true"
           />
         </ListboxButton>
-        <ListboxOptions className="min-w-[160px]">
+        <ListboxOptions anchor="top start" portal className="min-w-[160px]">
           <div className="flex items-center justify-between px-1.5 py-1">
             <span className="text-description text-xs font-medium">Models</span>
             <div className="flex items-center gap-0.5">
@@ -317,11 +315,6 @@ function ModelSelect() {
               </ListboxOption>
 
               <Divider className="!my-0" />
-              <div className="text-description flex items-center justify-start p-2">
-                <span className="block" style={{ fontSize: tinyFont }}>
-                  <code>{getMetaKeyLabel()}'</code> to toggle model
-                </span>
-              </div>
             </>
           )}
         </ListboxOptions>

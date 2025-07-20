@@ -32,14 +32,17 @@ import { handleImageFile } from "./imageUtils";
 export function getPlaceholderText(
   placeholder: TipTapEditorProps["placeholder"],
   historyLength: number,
+  modePlaceholder?: string,
 ) {
   if (placeholder) {
     return placeholder;
   }
 
-  return historyLength === 0
-    ? "Ask anything, '@' to add context"
-    : "Ask a follow-up";
+  if (historyLength === 0 && modePlaceholder) {
+    return modePlaceholder;
+  }
+
+  return historyLength === 0 ? "Ask anything" : "Ask a follow-up";
 }
 
 /**
@@ -80,8 +83,9 @@ export function createEditorConfig(options: {
   props: TipTapEditorProps;
   ideMessenger: IIdeMessenger;
   dispatch: AppDispatch;
+  modePlaceholder?: string;
 }) {
-  const { props, ideMessenger, dispatch } = options;
+  const { props, ideMessenger, dispatch, modePlaceholder } = options;
 
   const { getSubmenuContextItems } = useSubmenuContextProviders();
   const defaultModel = useAppSelector(selectSelectedChatModel);
@@ -101,6 +105,7 @@ export function createEditorConfig(options: {
     props.availableContextProviders,
   );
   const historyLengthRef = useUpdatingRef(historyLength);
+  const modePlaceholderRef = useUpdatingRef(modePlaceholder);
   const availableSlashCommandsRef = useUpdatingRef(
     props.availableSlashCommands,
   );
@@ -226,6 +231,7 @@ export function createEditorConfig(options: {
         placeholder: getPlaceholderText(
           props.placeholder,
           historyLengthRef.current,
+          modePlaceholderRef.current,
         ),
       }),
       Paragraph.extend({

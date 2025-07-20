@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import { Tooltip } from "react-tooltip";
 import { SecondaryButton } from "../../../../components";
 import { IdeMessengerContext } from "../../../../context/IdeMessenger";
+import { useI18n } from "../../../../i18n";
 import {
   setDialogMessage,
   setShowDialog,
@@ -15,6 +16,7 @@ interface DocsDetailsDialogProps {
 
 function DocsDetailsDialog({ startUrl }: DocsDetailsDialogProps) {
   const dispatch = useDispatch();
+  const { t } = useI18n();
 
   const ideMessenger = useContext(IdeMessengerContext);
 
@@ -50,13 +52,15 @@ function DocsDetailsDialog({ startUrl }: DocsDetailsDialogProps) {
     void fetchData();
   }, []);
 
-  let comp = <div>Loading...</div>;
+  let comp = <div>{t("docs.loading")}</div>;
   if (!isLoading) {
     if (isError) {
       comp = (
         <div>
-          <div>Error fetching docs details</div>
-          <SecondaryButton onClick={fetchData}>Try again</SecondaryButton>
+          <div>{t("docs.error")}</div>
+          <SecondaryButton onClick={fetchData}>
+            {t("config.tryAgain")}
+          </SecondaryButton>
         </div>
       );
     }
@@ -65,14 +69,14 @@ function DocsDetailsDialog({ startUrl }: DocsDetailsDialogProps) {
         <div className="flex flex-col gap-0.5">
           <p className="m-0 mt-2 p-0 text-stone-500">{`Title: ${data.config.title}`}</p>
           {!data.chunks?.length ? (
-            <div>No article chunks</div>
+            <div>{t("docs.noChunks")}</div>
           ) : (
             <div className="relative mt-2 h-[300px] overflow-auto">
               <table className="w-full border-collapse">
                 <thead className="bg-vsc-background sticky top-0 text-left">
                   <tr>
-                    <th className="py-1">Filepath</th>
-                    <th>Content</th>
+                    <th className="py-1">{t("docs.filepath")}</th>
+                    <th>{t("docs.content")}</th>
                   </tr>
                 </thead>
                 <tbody className="h-20 overflow-y-scroll">
@@ -140,7 +144,7 @@ function DocsDetailsDialog({ startUrl }: DocsDetailsDialogProps) {
 
   return (
     <div className="px-2 py-4 sm:px-4">
-      <h3>Docs index</h3>
+      <h3>{t("docs.title")}</h3>
       <p
         className="text-lightgray m-0 mt-1 cursor-pointer p-0 hover:underline"
         onClick={(e) => {
@@ -152,7 +156,9 @@ function DocsDetailsDialog({ startUrl }: DocsDetailsDialogProps) {
       </p>
       {comp}
       <div className="flex flex-row justify-end">
-        <SecondaryButton onClick={closeDialog}>Close</SecondaryButton>
+        <SecondaryButton onClick={closeDialog}>
+          {t("config.close")}
+        </SecondaryButton>
       </div>
     </div>
   );

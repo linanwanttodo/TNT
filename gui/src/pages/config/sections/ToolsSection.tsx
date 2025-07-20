@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import Alert from "../../../components/gui/Alert";
 import { useAppSelector } from "../../../redux/hooks";
 import { useI18n } from "../../../i18n";
+import { getModeToolAccess } from "../../../util/modes";
 import { ConfigHeader } from "../components/ConfigHeader";
 import { ToolPoliciesGroup } from "../components/ToolPoliciesGroup";
 
@@ -26,13 +27,13 @@ export function ToolsSection() {
   }, [availableTools]);
 
   const allToolsOff = useMemo(() => {
-    return mode === "chat";
+    return getModeToolAccess(mode) === "none";
   }, [mode]);
 
   const availableToolsMessage =
-    mode === "chat"
+    getModeToolAccess(mode) === "none"
       ? t("tools.chatDisabled")
-      : mode === "plan"
+      : getModeToolAccess(mode) === "readonly"
         ? t("tools.planReadonly")
         : "";
 

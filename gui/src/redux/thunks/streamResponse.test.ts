@@ -232,6 +232,10 @@ describe("streamResponseThunk", () => {
         payload: 0.8,
       },
       {
+        type: "session/setContextBreakdown",
+        payload: undefined,
+      },
+      {
         type: "symbols/updateFromContextItems/fulfilled",
         meta: expect.objectContaining({
           arg: [],
@@ -382,12 +386,16 @@ describe("streamResponseThunk", () => {
           ],
         },
       ],
-      options: {},
+      options: {
+        openaiRequestOptions: { promptCacheKey: "session-123" },
+      },
     });
 
     expect(mockIdeMessenger.llmStreamChat).toHaveBeenCalledWith(
       {
-        completionOptions: {},
+        completionOptions: {
+          openaiRequestOptions: { promptCacheKey: "session-123" },
+        },
         legacySlashCommandData: undefined,
         messageOptions: { precompiled: true },
         messages: [
@@ -601,6 +609,7 @@ describe("streamResponseThunk", () => {
       "session/setInlineErrorMessage",
       "session/setIsPruned",
       "session/setContextPercentage",
+      "session/setContextBreakdown",
       "symbols/updateFromContextItems/fulfilled",
       "session/streamUpdate",
       "session/streamUpdate",
@@ -620,6 +629,7 @@ describe("streamResponseThunk", () => {
       "session/setInlineErrorMessage",
       "session/setIsPruned",
       "session/setContextPercentage",
+      "session/setContextBreakdown",
       "session/streamUpdate",
       "session/addPromptCompletionPair",
       "session/setInactive",
@@ -738,7 +748,10 @@ describe("streamResponseThunk", () => {
           ],
         },
       ],
-      options: { tools: [grepTool] },
+      options: {
+        tools: [grepTool],
+        openaiRequestOptions: { promptCacheKey: "session-123" },
+      },
     });
 
     expect(requestSpy).toHaveBeenCalledWith("tools/call", {
@@ -1033,6 +1046,10 @@ describe("streamResponseThunk", () => {
         payload: 0.8,
       },
       {
+        type: "session/setContextBreakdown",
+        payload: undefined,
+      },
+      {
         type: "symbols/updateFromContextItems/fulfilled",
         meta: {
           arg: [],
@@ -1204,12 +1221,16 @@ describe("streamResponseThunk", () => {
           ],
         },
       ],
-      options: {},
+      options: {
+        openaiRequestOptions: { promptCacheKey: "session-123" },
+      },
     });
 
     expect(mockIdeMessengerAbort.llmStreamChat).toHaveBeenCalledWith(
       {
-        completionOptions: {},
+        completionOptions: {
+          openaiRequestOptions: { promptCacheKey: "session-123" },
+        },
         legacySlashCommandData: undefined,
         messageOptions: { precompiled: true },
         messages: [

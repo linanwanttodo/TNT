@@ -14,6 +14,7 @@ import {
   ChatMessage,
   ContextItem,
   ContextItemWithId,
+  ContextTokenBreakdown,
   FileSymbolMap,
   McpUiState,
   MessageModes,
@@ -26,6 +27,12 @@ import {
   ToolCallState,
 } from "core";
 import { mergeReasoningDetails } from "core/llm/openaiTypeConverters";
+import {
+  AutoCompactionState,
+  createAutoCompactionState,
+  recordCompactionFailure,
+  recordCompactionSuccess,
+} from "core/util/autoCompaction";
 import { NEW_SESSION_TITLE } from "core/util/constants";
 import {
   renderChatMessage,
@@ -231,8 +238,10 @@ type SessionState = {
   reasoningDepth?: ReasoningDepth;
   isPruned?: boolean;
   contextPercentage?: number;
+  contextBreakdown?: ContextTokenBreakdown;
   inlineErrorMessage?: InlineErrorMessageType;
   compactionLoading: Record<number, boolean>; // Track compaction loading by message index
+  autoCompaction: AutoCompactionState;
 };
 
 export const INITIAL_SESSION_STATE: SessionState = {
@@ -253,6 +262,7 @@ export const INITIAL_SESSION_STATE: SessionState = {
   lastSessionId: undefined,
   newestToolbarPreviewForInput: {},
   compactionLoading: {},
+  autoCompaction: createAutoCompactionState(),
 };
 
 export const sessionSlice = createSlice({
@@ -444,6 +454,7 @@ export const sessionSlice = createSlice({
         state.inlineErrorMessage = undefined;
         state.isPruned = false;
         state.contextPercentage = undefined;
+        state.contextBreakdown = undefined;
       }
     },
     deleteMessage: (state, action: PayloadAction<number>) => {
@@ -452,6 +463,7 @@ export const sessionSlice = createSlice({
       state.inlineErrorMessage = undefined;
       state.isPruned = false;
       state.contextPercentage = undefined;
+      state.contextBreakdown = undefined;
     },
     deleteCompaction: (state, action: PayloadAction<number>) => {
       // Removes the conversation summary from the specified message
@@ -705,6 +717,8 @@ export const sessionSlice = createSlice({
       state.inlineErrorMessage = undefined;
       state.isPruned = false;
       state.contextPercentage = undefined;
+      state.contextBreakdown = undefined;
+      state.autoCompaction = createAutoCompactionState();
 
       if (payload) {
         state.history = payload.history as any;
@@ -1012,8 +1026,29 @@ export const sessionSlice = createSlice({
     setIsPruned: (state, action: PayloadAction<boolean>) => {
       state.isPruned = action.payload;
     },
-    setContextPercentage: (state, action: PayloadAction<number>) => {
+    setContextPercentage: (
+      state,
+      action: PayloadAction<number | undefined>,
+    ) => {
       state.contextPercentage = action.payload;
+    },
+    setContextBreakdown: (
+      state,
+      action: PayloadAction<ContextTokenBreakdown | undefined>,
+    ) => {
+      state.contextBreakdown = action.payload;
+    },
+    beginAutoCompaction: (state) => {
+      state.autoCompaction.inFlight = true;
+    },
+    autoCompactionSucceeded: (state) => {
+      state.autoCompaction = recordCompactionSuccess(state.autoCompaction);
+    },
+    autoCompactionFailed: (state) => {
+      state.autoCompaction = recordCompactionFailure(state.autoCompaction);
+    },
+    resetAutoCompaction: (state) => {
+      state.autoCompaction = createAutoCompactionState();
     },
   },
   selectors: {
@@ -1104,7 +1139,12 @@ export const {
   setInlineErrorMessage,
   setIsPruned,
   setContextPercentage,
+  setContextBreakdown,
   setCompactionLoading,
+  beginAutoCompaction,
+  autoCompactionSucceeded,
+  autoCompactionFailed,
+  resetAutoCompaction,
 } = sessionSlice.actions;
 
 export const { selectIsGatheringContext } = sessionSlice.selectors;

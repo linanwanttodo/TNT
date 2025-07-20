@@ -5,10 +5,12 @@ import { ToolTip } from "../../../components/gui/Tooltip";
 import { Button, Card, Divider, EmptyState } from "../../../components/ui";
 import { useAuth } from "../../../context/Auth";
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
+import { useI18n } from "../../../i18n";
 import { useAppSelector } from "../../../redux/hooks";
 import { ConfigHeader } from "../components/ConfigHeader";
 
 export function ConfigsSection() {
+  const { t } = useI18n();
   const { profiles, selectedProfile } = useAuth();
   const ideMessenger = useContext(IdeMessengerContext);
   const configError = useAppSelector((state) => state.config.configError);
@@ -24,9 +26,9 @@ export function ConfigsSection() {
   return (
     <>
       <ConfigHeader
-        title="Configs"
+        title={t("configs.title")}
         onAddClick={handleAddConfig}
-        addButtonTooltip="Add config"
+        addButtonTooltip={t("configs.add")}
       />
 
       <Card>
@@ -82,7 +84,7 @@ export function ConfigsSection() {
                       )}
                     </div>
                   </div>
-                  <ToolTip content="Open configuration">
+                  <ToolTip content={t("configs.open")}>
                     <Button
                       onClick={() => handleConfigureAgent(profile.id)}
                       variant="ghost"
@@ -98,7 +100,7 @@ export function ConfigsSection() {
             );
           })
         ) : (
-          <EmptyState message="No agents configured. Click the + button to add your first agent." />
+          <EmptyState message={t("configs.empty")} />
         )}
       </Card>
     </>

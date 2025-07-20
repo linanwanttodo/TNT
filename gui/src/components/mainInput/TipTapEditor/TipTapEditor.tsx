@@ -12,9 +12,12 @@ import {
 import { IdeMessengerContext } from "../../../context/IdeMessenger";
 import useIsOSREnabled from "../../../hooks/useIsOSREnabled";
 import useUpdatingRef from "../../../hooks/useUpdatingRef";
+import { useI18n } from "../../../i18n";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { selectSelectedChatModel } from "../../../redux/slices/configSlice";
-import InputToolbar, { ToolbarOptions } from "../InputToolbar";
+import { resolveModes } from "../../../util/modes";
+import ComposerBar from "../ComposerBar";
+import { ToolbarOptions } from "../InputToolbar";
 import { ComboBoxItem } from "../types";
 import { DragOverlay } from "./components/DragOverlay";
 import { InputBoxDiv } from "./components/StyledComponents";
@@ -56,11 +59,17 @@ function TipTapEditorInner(props: TipTapEditorProps) {
   const isStreaming = useAppSelector((state) => state.session.isStreaming);
   const historyLength = useAppSelector((store) => store.session.history.length);
   const isInEdit = useAppSelector((store) => store.session.isInEdit);
+  const mode = useAppSelector((store) => store.session.mode);
+  const { t } = useI18n();
+  const modePlaceholder = resolveModes(t).find(
+    (entry) => entry.id === mode,
+  )?.placeholder;
 
   const { editor, onEnter } = createEditorConfig({
     props,
     ideMessenger,
     dispatch,
+    modePlaceholder,
   });
 
   // Register the main editor with the provider
@@ -85,7 +94,11 @@ function TipTapEditorInner(props: TipTapEditorProps) {
     if (!editor) {
       return;
     }
-    const placeholder = getPlaceholderText(props.placeholder, historyLength);
+    const placeholder = getPlaceholderText(
+      props.placeholder,
+      historyLength,
+      modePlaceholder,
+    );
     const placeholderExt = editor.extensionManager.extensions.find(
       (e) => e.name === "placeholder",
     ) as any;
@@ -93,7 +106,7 @@ function TipTapEditorInner(props: TipTapEditorProps) {
       placeholderExt.options["placeholder"] = placeholder;
       editor.view.dispatch(editor.state.tr);
     }
-  }, [editor, props.placeholder, historyLength]);
+  }, [editor, props.placeholder, historyLength, modePlaceholder]);
 
   useEffect(() => {
     if (props.isMainInput) {
@@ -146,8 +159,6 @@ function TipTapEditorInner(props: TipTapEditorProps) {
 
   const [showDragOverMsg, setShowDragOverMsg] = useState(false);
 
-  const [activeKey, setActiveKey] = useState<string | null>(null);
-
   const insertCharacterWithWhitespace = useCallback(
     (char: string) => {
       if (!editor) {
@@ -165,11 +176,10 @@ function TipTapEditorInner(props: TipTapEditorProps) {
     [editor],
   );
 
-  const { handleKeyUp, handleKeyDown } = useEditorEventHandlers({
+  const { handleKeyDown } = useEditorEventHandlers({
     editor,
     isOSREnabled: isOSREnabled,
     editorFocusedRef,
-    setActiveKey,
   });
 
   const blurTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -210,7 +220,6 @@ function TipTapEditorInner(props: TipTapEditorProps) {
       onFocus={handleFocus}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
       className={
         !props.isMainInput && shouldHideToolbar
           ? "cursor-pointer"
@@ -264,7 +273,7 @@ function TipTapEditorInner(props: TipTapEditorProps) {
         event.preventDefault();
       }}
     >
-      <div className="px-2.5 pb-1 pt-2">
+      <div className="composer-editor-area">
         <EditorContent
           className={`scroll-container overflow-y-scroll ${props.isMainInput ? "max-h-[70vh]" : ""}`}
           spellCheck={false}
@@ -273,12 +282,13 @@ function TipTapEditorInner(props: TipTapEditorProps) {
             event.stopPropagation();
           }}
         />
-        <InputToolbar
+        <ComposerBar
           isMainInput={props.isMainInput}
           toolbarOptions={props.toolbarOptions}
-          activeKey={activeKey}
           hidden={shouldHideToolbar && !props.isMainInput}
-          onAddContextItem={() => insertCharacterWithWhitespace("@")}
+          onAddContextItem={(prefix = "@") =>
+            insertCharacterWithWhitespace(prefix)
+          }
           onEnter={onEnter}
           onImageFileSelected={(file) => {
             void handleImageFile(ideMessenger, file).then((result) => {
