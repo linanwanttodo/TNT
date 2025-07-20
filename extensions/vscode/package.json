@@ -12,8 +12,7 @@
     "workspace"
   ],
   "bugs": {
-    "url": "https://github.com/linanwanttodo/TNT/issues",
-    "email": "nate@continue.dev"
+    "url": "https://github.com/linanwanttodo/TNT/issues"
   },
   "homepage": "https://github.com/linanwanttodo/TNT",
   "qna": "https://github.com/linanwanttodo/TNT/issues/new/choose",
@@ -89,7 +88,7 @@
         "continue.telemetryEnabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Continue collects anonymous usage data, cleaned of PII, to help us improve the product for our users. Read more  at [continue.dev › Telemetry](https://docs.continue.dev/telemetry).",
+          "markdownDescription": "TNT collects anonymous usage data, cleaned of PII, to help us improve the product for our users. Read more  at [TNT › Telemetry](https://github.com/linanwanttodo/TNT/tree/main/docs/telemetry).",
           "markdownDeprecationMessage": "This setting is deprecated and will be removed in a later version. Please use the _Telemetry > Allow Anonymous Telemetry_ setting in the extension's User Settings page.",
           "deprecationMessage": "Please use the _Telemetry > Allow Anonymous Telemetry_ setting in the extension's User Settings page."
         },
@@ -106,27 +105,27 @@
         "continue.enableQuickActions": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Enable the experimental Quick Actions feature. Read our walkthrough to learn about configuration and how to share feedback: [continue.dev › Walkthrough: Quick Actions (experimental)](https://docs.continue.dev/customize/deep-dives/vscode-actions#quick-actions)"
+          "markdownDescription": "Enable the experimental Quick Actions feature. Read our walkthrough to learn about configuration and how to share feedback: [TNT › Walkthrough: Quick Actions (experimental)](https://github.com/linanwanttodo/TNT/tree/main/docs/customize/deep-dives/vscode-actions#quick-actions)"
         },
         "continue.enableTabAutocomplete": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Enable Continue's tab autocomplete feature. Read our walkthrough to learn about configuration and how to share feedback: [continue.dev › Walkthrough: Tab Autocomplete (beta)](https://docs.continue.dev/features/tab-autocomplete)"
+          "markdownDescription": "Enable TNT's tab autocomplete feature. Read our walkthrough to learn about configuration and how to share feedback: [TNT › Walkthrough: Tab Autocomplete (beta)](https://github.com/linanwanttodo/TNT/tree/main/docs/features/tab-autocomplete)"
         },
         "continue.enableNextEdit": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Enable Continue's next edit feature. Read our docs to learn about configuration and how to share feedback: [continue.dev › Features › Autocomplete › Next Edit (experimental)](https://docs.continue.dev/features/autocomplete/next-edit)"
+          "markdownDescription": "Enable TNT's next edit feature. Read our docs to learn about configuration and how to share feedback: [TNT › Features › Autocomplete › Next Edit (experimental)](https://github.com/linanwanttodo/TNT/tree/main/docs/features/autocomplete/next-edit)"
         },
         "continue.pauseTabAutocompleteOnBattery": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Pause Continue's tab autocomplete feature when your battery is low."
+          "markdownDescription": "Pause TNT's tab autocomplete feature when your battery is low."
         },
         "continue.pauseCodebaseIndexOnStart": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Pause Continue's codebase index on start."
+          "markdownDescription": "Pause TNT's codebase index on start."
         },
         "continue.enableConsole": {
           "type": "boolean",

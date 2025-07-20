@@ -35,11 +35,11 @@ function IndexingProgressErrorText({ update }: IndexingProgressErrorTextProps) {
         <span className="leading-relaxed">
           {t("indexing.embeddingsRequired")}
           <a
-            href="https://docs.continue.dev/walkthroughs/codebase-embeddings#embeddings-providers"
+            href="https://github.com/linanwanttodo/TNT/tree/main/docs/walkthroughs/codebase-embeddings#embeddings-providers"
             target="_blank"
             className="cursor-pointer text-inherit underline hover:text-inherit"
           >
-            https://docs.continue.dev/walkthroughs/codebase-embeddings#embeddings-providers
+            https://github.com/linanwanttodo/TNT/tree/main/docs/walkthroughs/codebase-embeddings#embeddings-providers
           </a>
         </span>
       </div>

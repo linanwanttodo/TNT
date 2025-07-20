@@ -1,8 +1,8 @@
-# @continuedev/sdk
+# @tnt/sdk
 
 > **⚠️ EXPERIMENTAL: This package is in early development and subject to frequent breaking changes without notice.**
 
-This SDK provides programmatic access to Continue's Hub APIs and functionality.
+This SDK provides programmatic access to TNT's Hub APIs and functionality.
 
 ## Overview
 
@@ -21,7 +21,7 @@ Each package includes:
 
 End users should install the published packages directly:
 
-- For TypeScript/JavaScript: `npm install @continuedev/sdk`
+- For TypeScript/JavaScript: `npm install @tnt/sdk`
 - For Python: `pip install continuedev`
 - For other languages: Check back for new language support
 

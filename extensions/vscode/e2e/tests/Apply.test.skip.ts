@@ -15,7 +15,7 @@ import { TestUtils } from "../TestUtils";
  * our apply button is instead rendering as "Create file" since the file doesn't exist
  * in our workspace.
  *
- * The most recent failing screenshot is here: https://github.com/continuedev/continue/actions/runs/14481877233?pr=5167
+ * The most recent failing screenshot is here: https://github.com/linanwanttodo/TNT/actions/runs/14481877233?pr=5167
  */
 describe("Apply Test", () => {
   let view: WebView;

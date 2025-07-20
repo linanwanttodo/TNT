@@ -1,10 +1,10 @@
 import { ContextProviderName } from "..";
 
 export const DEFAULT_PROMPTS_FOLDER_V1 = ".prompts";
-export const DEFAULT_PROMPTS_FOLDER_V2 = ".continue-next/prompts";
-export const DEFAULT_RULES_FOLDER = ".continue-next/rules";
+export const DEFAULT_PROMPTS_FOLDER_V2 = ".tnt/prompts";
+export const DEFAULT_RULES_FOLDER = ".tnt/rules";
 
-// Subdirectory names (without .continue-next/ prefix)
+// Subdirectory names (without .tnt/ prefix)
 export const RULES_DIR_NAME = "rules";
 export const PROMPTS_DIR_NAME = "prompts";
 

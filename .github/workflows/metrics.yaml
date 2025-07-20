@@ -16,8 +16,8 @@ jobs:
   build:
     name: issue metrics
     runs-on: ubuntu-latest
-    # Only run this workflow on the main repository (continuedev/continue)
-    if: github.repository == 'continuedev/continue'
+    # Only run this workflow on the main repository (linanwanttodo/TNT)
+    if: github.repository == 'linanwanttodo/TNT'
     permissions:
       issues: write
       pull-requests: read
@@ -39,7 +39,7 @@ jobs:
         uses: github/issue-metrics@v3
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SEARCH_QUERY: 'repo:continuedev/continue created:${{ env.last_month }} -reason:"not planned"'
+          SEARCH_QUERY: 'repo:linanwanttodo/TNT created:${{ env.last_month }} -reason:"not planned"'
 
       - name: Read metrics file content
         id: read-metrics

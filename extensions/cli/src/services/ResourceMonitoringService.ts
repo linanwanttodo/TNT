@@ -219,7 +219,7 @@ class ResourceMonitoringService {
       }
 
       // Periodically update file descriptor count to prevent lsof command leak
-      // Issue: https://github.com/continuedev/continue/issues/9422
+      // Issue: https://github.com/linanwanttodo/TNT/issues/9422
       const now = Date.now();
       if (now - this.lastFdCheckTime >= this.fdCheckIntervalMs) {
         this.updateFileDescriptorCount();

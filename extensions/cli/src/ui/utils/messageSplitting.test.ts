@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * NOTICE: This file has been modified from the original Gemini CLI source
- * for integration with Continue CLI (cn)
+ * for integration with TNT (tnt)
  */
 
 import { describe, expect, it } from "vitest";

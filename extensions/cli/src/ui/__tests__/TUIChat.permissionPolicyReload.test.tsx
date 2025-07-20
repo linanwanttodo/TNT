@@ -164,6 +164,6 @@ describe("Permission Policy Reload Workflow", () => {
     expect(services.toolPermissions.reloadPermissions).toHaveBeenCalled();
 
     // This represents the improvement: the new policy takes effect immediately
-    // without requiring the user to restart the Continue CLI
+    // without requiring the user to restart the TNT
   });
 });

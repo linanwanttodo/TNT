@@ -105,7 +105,7 @@ describe("isSecurityConcern", () => {
     });
 
     it("should detect continue directory as security concern", () => {
-      expect(isSecurityConcern(".continue-next/config.json")).toBe(true);
+      expect(isSecurityConcern(".tnt/config.json")).toBe(true);
     });
 
     it("should detect temporary secret directories as security concerns", () => {

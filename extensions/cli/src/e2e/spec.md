@@ -1,6 +1,6 @@
-# End-to-End Testing for Continue CLI
+# End-to-End Testing for TNT
 
-This document describes the principles, practices, and patterns for writing end-to-end (E2E) tests for the Continue CLI.
+This document describes the principles, practices, and patterns for writing end-to-end (E2E) tests for the TNT.
 
 ## Overview
 
@@ -61,7 +61,7 @@ const result = await runCLI(context, {
 
 // Verify output and exit code
 expect(result.exitCode).toBe(0);
-expect(result.stdout).toContain("Continue CLI");
+expect(result.stdout).toContain("TNT");
 ```
 
 ### Testing with Input

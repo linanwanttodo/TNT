@@ -1,4 +1,4 @@
-name: Release @continuedev/llm-info
+name: Release @tnt/llm-info
 on:
   push:
     branches:
@@ -15,8 +15,8 @@ permissions:
 
 jobs:
   release:
-    # Only run this workflow on the main repository (continuedev/continue)
-    if: github.repository == 'continuedev/continue'
+    # Only run this workflow on the main repository (linanwanttodo/TNT)
+    if: github.repository == 'linanwanttodo/TNT'
     uses: ./.github/workflows/reusable-release.yml
     with:
       package-name: "llm-info"

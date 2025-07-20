@@ -24,7 +24,7 @@ export class RecentlyEditedTracker {
   private static maxRecentlyEditedDocuments = 10;
 
   constructor(private ideUtils: VsCodeIdeUtils) {
-    // TODO merge this and re-enable https://github.com/continuedev/continue/pull/8364
+    // TODO merge this and re-enable https://github.com/linanwanttodo/TNT/pull/8364
     // vscode.workspace.onDidChangeTextDocument((event) => {
     //   event.contentChanges.forEach((change) => {
     //     const editedRange = {

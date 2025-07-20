@@ -43,7 +43,7 @@ const mockHistoryManager: any = vi.hoisted(() => ({
   save: vi.fn((session: any) => {
     // Mimic writing the session payload to disk so expectations on fs still work
     fs.writeFileSync(
-      `/home/test/.continue-next/sessions/${session.sessionId}.json`,
+      `/home/test/.tnt/sessions/${session.sessionId}.json`,
       JSON.stringify(session),
     );
   }),

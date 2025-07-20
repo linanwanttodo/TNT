@@ -1,8 +1,8 @@
-# Continue CLI Model Context Protocol (MCP) integration
+# TNT CLI Model Context Protocol (MCP) integration
 
 ## Intro
 
-Model Context Protocol is a protocol for giving models access to resources and tools. MCP servers can run locally (stdio) or be remote (http/streamable/etc). See https://modelcontextprotocol.io/specification. The Continue CLI uses MCP to extend model's capabilities with MCP prompts and tools. MCP server configurations are stored in the `mcpServers` field of an assistant/config.yaml configuration.
+Model Context Protocol is a protocol for giving models access to resources and tools. MCP servers can run locally (stdio) or be remote (http/streamable/etc). See https://modelcontextprotocol.io/specification. The TNT CLI uses MCP to extend model's capabilities with MCP prompts and tools. MCP server configurations are stored in the `mcpServers` field of an assistant/config.yaml configuration.
 
 ## Secret Resolution
 
@@ -16,8 +16,8 @@ MCP server configurations often require secrets (API keys, tokens, etc.) referen
 Local environment variables are checked in this priority order:
 
 - `process.env` (runtime environment variables)
-- `~/.continue-next/.env`
-- `<workspace>/.continue-next/.env`
+- `~/.tnt/.env`
+- `<workspace>/.tnt/.env`
 - `<workspace>/.env`
 
 This fallback mechanism ensures MCP servers can start successfully in environments where organization secrets aren't accessible, such as development containers or CI/CD pipelines, by allowing environment variables to provide the required credentials.

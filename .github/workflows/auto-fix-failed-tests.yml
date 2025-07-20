@@ -101,9 +101,9 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install Continue CLI globally
+      - name: Install TNT CLI globally
         if: steps.workflow-details.outputs.has_failed_tests == 'true'
-        run: npm i -g @continuedev/cli
+        run: npm i -g @tnt/cli
 
       - name: Start remote session to fix failed tests
         if: steps.workflow-details.outputs.has_failed_tests == 'true'
@@ -140,7 +140,7 @@ jobs:
           Please start by examining the failing tests and their error messages, then proceed with the necessary fixes.
           PROMPT_EOF
 
-          echo "Starting Continue CLI remote session for test fixes..."
+          echo "Starting TNT CLI remote session for test fixes..."
           echo "Prompt content:"
           cat /tmp/fix_tests_prompt.txt
 

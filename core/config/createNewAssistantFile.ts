@@ -2,14 +2,14 @@ import { IDE } from "..";
 import { joinPathsToUri } from "../util/uri";
 
 const DEFAULT_ASSISTANT_FILE = `# This is an example configuration file
-# To learn more, see the full config.yaml reference: https://docs.continue.dev/reference
+# To learn more, see the full config.yaml reference: https://github.com/linanwanttodo/TNT/tree/main/docs/reference
 
 name: Example Config
 version: 1.0.0
 schema: v1
 
 # Define which models can be used
-# https://docs.continue.dev/customization/models
+# https://github.com/linanwanttodo/TNT/tree/main/docs/customization/models
 models:
   - name: my gpt-5
     provider: openai
@@ -52,7 +52,7 @@ export async function createNewAssistantFile(
 
   const baseDirUri = joinPathsToUri(
     workspaceDirs[0],
-    assistantPath ?? ".continue-next/agents",
+    assistantPath ?? ".tnt/agents",
   );
 
   // Find the first available filename

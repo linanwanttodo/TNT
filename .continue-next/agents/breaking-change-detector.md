@@ -28,7 +28,7 @@ Analyze this pull request for breaking changes that may leave stale references e
    - Documentation examples use the new format
    - Default configs are updated
 
-4. **URL changes** - If any hardcoded URLs (e.g., `hub.continue.dev`, `api.continue.dev`) are changed, scan for stale references across the repo.
+4. **URL changes** - If any hardcoded URLs (e.g., `hub.TNT`, `github.com/linanwanttodo/TNT`) are changed, scan for stale references across the repo.
 
 ## What to Do
 

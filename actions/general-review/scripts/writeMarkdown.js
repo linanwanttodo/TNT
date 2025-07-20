@@ -12,7 +12,7 @@ const messages = {
 `,
   cli_install_failed: `## Code Review Summary
 
-⚠️ AI review skipped: Continue CLI installation failed.
+⚠️ AI review skipped: TNT CLI installation failed.
 
 ### Troubleshooting
 - Check that npm installation succeeded
@@ -20,11 +20,11 @@ const messages = {
 `,
   empty_output: `## Code Review Summary
 
-⚠️ Continue CLI returned an empty response. Please check the configuration.
+⚠️ TNT CLI returned an empty response. Please check the configuration.
 `,
   cli_not_found: `## Code Review Summary
 
-⚠️ Continue CLI is not properly installed. Please ensure @tnt/cli is installed globally.
+⚠️ TNT CLI is not properly installed. Please ensure @tnt/cli is installed globally.
 `,
   config_error: `## Code Review Summary
 
