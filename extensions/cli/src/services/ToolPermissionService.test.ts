@@ -27,7 +27,7 @@ describe("ToolPermissionService", () => {
 
       expect(state).toEqual({
         permissions: { policies: [] },
-        currentMode: "normal",
+        currentMode: "agent",
         isHeadless: false,
         modePolicyCount: 0,
       });
@@ -150,7 +150,7 @@ describe("ToolPermissionService", () => {
         ],
       );
 
-      const state = service.initializeSync({ mode: "normal" });
+      const state = service.initializeSync({ mode: "agent" });
 
       // Normal mode should use user configuration
       expect(state.permissions.policies).toEqual([
@@ -172,7 +172,7 @@ describe("ToolPermissionService", () => {
     });
 
     test("should switch from normal to plan mode", () => {
-      service.initializeSync({ mode: "normal" });
+      service.initializeSync({ mode: "agent" });
 
       const state = service.switchMode("plan");
 
@@ -190,7 +190,7 @@ describe("ToolPermissionService", () => {
     });
 
     test("should store original policies when leaving normal mode", () => {
-      service.initializeSync({ mode: "normal" });
+      service.initializeSync({ mode: "agent" });
       const originalState = service.getState();
 
       service.switchMode("plan");
@@ -204,21 +204,21 @@ describe("ToolPermissionService", () => {
 
     test("should restore original policies when switching back to normal", () => {
       // Start in normal with user policies
-      service.initializeSync({ mode: "normal" });
+      service.initializeSync({ mode: "agent" });
       const originalPolicies = service.getState().permissions.policies;
 
       // Switch to plan
       service.switchMode("plan");
 
       // Switch back to normal
-      const state = service.switchMode("normal");
+      const state = service.switchMode("agent");
 
       // Should restore original user policies
       expect(state.permissions.policies).toEqual(originalPolicies);
     });
 
     test("should handle multiple mode switches", () => {
-      service.initializeSync({ mode: "normal" });
+      service.initializeSync({ mode: "agent" });
 
       // Switch through all modes
       service.switchMode("plan");
@@ -230,8 +230,8 @@ describe("ToolPermissionService", () => {
         { tool: "*", permission: "allow" },
       ]);
 
-      service.switchMode("normal");
-      expect(service.getCurrentMode()).toBe("normal");
+      service.switchMode("agent");
+      expect(service.getCurrentMode()).toBe("agent");
     });
   });
 
@@ -289,7 +289,7 @@ describe("ToolPermissionService", () => {
 
   describe("Event Emission", () => {
     test("should emit stateChanged when switching modes", () => {
-      service.initializeSync({ mode: "normal" });
+      service.initializeSync({ mode: "agent" });
 
       const listener = vi.fn();
       service.on("stateChanged", listener);
@@ -298,7 +298,7 @@ describe("ToolPermissionService", () => {
 
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({ currentMode: "plan" }),
-        expect.objectContaining({ currentMode: "normal" }),
+        expect.objectContaining({ currentMode: "agent" }),
       );
     });
 
@@ -452,7 +452,7 @@ describe("ToolPermissionService", () => {
       );
 
       const service = new ToolPermissionService();
-      service.initializeSync({ mode: "normal" });
+      service.initializeSync({ mode: "agent" });
 
       // Verify initial state
       expect(service.getPermissions().policies).toEqual(mockPolicies);

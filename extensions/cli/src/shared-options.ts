@@ -13,6 +13,10 @@ export function addCommonOptions(command: Command): Command {
     )
     .option("--readonly", "Start in plan mode (read-only tools)")
     .option("--auto", "Start in auto mode (all tools allowed)")
+    .option(
+      "--mode <mode>",
+      "Start in a specific permission mode: agent, plan, or auto",
+    )
     .option("--verbose", "Enable verbose logging")
     .option("--beta-status-tool", "Enable beta status tool")
     .option(

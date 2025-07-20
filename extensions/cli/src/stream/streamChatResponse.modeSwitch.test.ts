@@ -23,7 +23,7 @@ describe("streamChatResponse - Mode Switch During Streaming", () => {
     await initializeServices({
       headless: false,
       toolPermissionOverrides: {
-        mode: "normal",
+        mode: "agent",
       },
     });
   });
@@ -60,7 +60,7 @@ describe("streamChatResponse - Mode Switch During Streaming", () => {
 
   test("getRequestTools reflects current mode immediately", async () => {
     // Start in normal mode
-    expect(toolPermissionService.getCurrentMode()).toBe("normal");
+    expect(toolPermissionService.getCurrentMode()).toBe("agent");
     let tools = await getRequestTools(false);
     expect(tools.map((t) => t.function.name)).toContain("Write");
 

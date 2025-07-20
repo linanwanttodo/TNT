@@ -47,7 +47,7 @@ export class ToolPermissionService
   constructor() {
     super("ToolPermissionService", {
       permissions: { policies: [] },
-      currentMode: "normal",
+      currentMode: "agent",
       isHeadless: false,
       modePolicyCount: 0,
     });
@@ -175,9 +175,9 @@ export class ToolPermissionService
         return [...PLAN_MODE_POLICIES];
       case "auto":
         return [...AUTO_MODE_POLICIES];
-      case "normal":
+      case "agent":
       default:
-        // Normal mode uses the more nuanced policy loading
+        // Agent mode uses the more nuanced policy loading
         return [];
     }
   }
@@ -286,10 +286,10 @@ export class ToolPermissionService
     const currentMode = this.currentState.currentMode;
     logger.debug(`Switching from mode '${currentMode}' to '${newMode}'`);
 
-    // Store original policies when leaving normal mode for the first time
+    // Store original policies when leaving agent mode for the first time
     if (
-      currentMode === "normal" &&
-      newMode !== "normal" &&
+      currentMode === "agent" &&
+      newMode !== "agent" &&
       !this.currentState.originalPolicies
     ) {
       // Deep copy the policies array to preserve the original state
@@ -311,7 +311,7 @@ export class ToolPermissionService
     const modePolicies = this.generateModePolicies();
 
     // For plan and auto modes, use ONLY mode policies (absolute override)
-    // For normal mode, restore original policies if available
+    // For agent mode, restore original policies if available
     let allPolicies: ToolPermissionPolicy[];
     if (newMode === "plan" || newMode === "auto") {
       // Absolute override: ignore all user configuration
@@ -320,9 +320,9 @@ export class ToolPermissionService
       // Normal mode: restore original policies if we have them
       if (this.currentState.originalPolicies) {
         // Restore the original user policies
-        // When original policies were stored in normal mode, they had 0 mode policies
+        // When original policies were stored in agent mode, they had 0 mode policies
         // So we need to slice from the number of mode policies that were active when stored
-        const originalModePolicyCount = 0; // Normal mode has no mode policies
+        const originalModePolicyCount = 0; // Agent mode has no mode policies
         const originalNonModePolicies =
           this.currentState.originalPolicies.policies.slice(
             originalModePolicyCount,
@@ -374,9 +374,9 @@ export class ToolPermissionService
    * Useful after policy changes to update the in-memory permissions
    */
   async reloadPermissions(): Promise<void> {
-    // Only reload if we're in normal mode - other modes have absolute overrides
-    if (this.currentState.currentMode !== "normal") {
-      logger.debug("Skipping permission reload in non-normal mode");
+    // Only reload if we're in agent mode - other modes have absolute overrides
+    if (this.currentState.currentMode !== "agent") {
+      logger.debug("Skipping permission reload in non-agent mode");
       return;
     }
 

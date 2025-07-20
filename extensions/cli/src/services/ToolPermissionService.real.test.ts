@@ -137,7 +137,7 @@ describe("ToolPermissionService - Real Tool Permission Test", () => {
       // Start with user explicitly allowing Write
       service.initializeSync({
         allow: ["Write"],
-        mode: "normal",
+        mode: "agent",
       });
 
       // Verify Write is allowed in normal mode

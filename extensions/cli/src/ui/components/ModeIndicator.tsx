@@ -26,10 +26,10 @@ const ModeIndicator: React.FC<ModeIndicatorProps> = ({
   const { services } = useServices<{
     toolPermissions: ToolPermissionServiceState;
   }>([SERVICE_NAMES.TOOL_PERMISSIONS]);
-  const currentMode = mode ?? services.toolPermissions?.currentMode ?? "normal";
+  const currentMode = mode ?? services.toolPermissions?.currentMode ?? "agent";
   const { columns } = useTerminalSize();
 
-  if (currentMode === "normal") {
+  if (currentMode === "agent") {
     return null;
   }
 

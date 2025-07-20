@@ -14,6 +14,7 @@ export interface ValidationOptions {
   // Common flags
   readonly?: boolean;
   auto?: boolean;
+  mode?: string;
   config?: string;
 
   // Session flags
@@ -100,6 +101,26 @@ function validateModeFlags(options: ValidationOptions): ValidationError[] {
       code: "CONFLICTING_MODE_FLAGS",
       message: "Error: Cannot use both --readonly and --auto flags together",
     });
+  }
+
+  if (options.mode) {
+    if (options.readonly || options.auto) {
+      errors.push({
+        code: "CONFLICTING_MODE_FLAGS",
+        message: "Error: Cannot use --mode together with --readonly or --auto",
+      });
+    }
+
+    if (
+      options.mode !== "agent" &&
+      options.mode !== "plan" &&
+      options.mode !== "auto"
+    ) {
+      errors.push({
+        code: "INVALID_MODE",
+        message: `Error: Invalid --mode "${options.mode}". Expected one of: agent, plan, auto`,
+      });
+    }
   }
 
   return errors;

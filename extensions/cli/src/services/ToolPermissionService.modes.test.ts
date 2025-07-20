@@ -12,7 +12,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
   describe("mode initialization", () => {
     it("should initialize with normal mode by default", () => {
       const state = service.initializeSync();
-      expect(state.currentMode).toBe("normal");
+      expect(state.currentMode).toBe("agent");
     });
 
     it("should initialize with specified mode", () => {
@@ -64,7 +64,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should have mode-specific policy positioning", () => {
-      const normalState = service.initializeSync({ mode: "normal" });
+      const normalState = service.initializeSync({ mode: "agent" });
       const planState = service.initializeSync({ mode: "plan" });
 
       // Normal mode may have default policies but no mode-specific wildcard at the start
@@ -93,7 +93,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should switch from normal to plan mode", () => {
-      expect(service.getCurrentMode()).toBe("normal");
+      expect(service.getCurrentMode()).toBe("agent");
 
       const newState = service.switchMode("plan");
 
@@ -102,7 +102,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should update policies when switching modes", () => {
-      service.initializeSync({ mode: "normal" });
+      service.initializeSync({ mode: "agent" });
       const normalPolicies = service.getPermissions().policies;
 
       service.switchMode("plan");
@@ -150,8 +150,8 @@ describe("ToolPermissionService - Mode Functionality", () => {
       service.switchMode("auto");
       expect(service.getCurrentMode()).toBe("auto");
 
-      service.switchMode("normal");
-      expect(service.getCurrentMode()).toBe("normal");
+      service.switchMode("agent");
+      expect(service.getCurrentMode()).toBe("agent");
     });
 
     it("should preserve original user policies when switching modes", () => {
@@ -185,7 +185,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       expect(planUserPolicyCount).toBe(0);
 
       // Switch back to normal mode (should restore original policies)
-      service.switchMode("normal");
+      service.switchMode("agent");
       const restoredPolicies = service.getPermissions().policies;
 
       // Should have user policies restored
@@ -298,7 +298,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       service.initializeSync();
 
       const initialState = service.getState();
-      expect(initialState.currentMode).toBe("normal");
+      expect(initialState.currentMode).toBe("agent");
 
       service.switchMode("plan");
 

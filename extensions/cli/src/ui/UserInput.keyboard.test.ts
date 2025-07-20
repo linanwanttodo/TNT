@@ -11,7 +11,7 @@ describe("UserInput Keyboard Shortcuts", () => {
   describe("mode cycling logic", () => {
     it("should cycle through modes in correct order", () => {
       // Initially should be normal mode
-      expect(toolPermissionService.getCurrentMode()).toBe("normal");
+      expect(toolPermissionService.getCurrentMode()).toBe("agent");
 
       // Cycle to plan
       toolPermissionService.switchMode("plan");
@@ -22,12 +22,12 @@ describe("UserInput Keyboard Shortcuts", () => {
       expect(toolPermissionService.getCurrentMode()).toBe("auto");
 
       // Cycle back to normal
-      toolPermissionService.switchMode("normal");
-      expect(toolPermissionService.getCurrentMode()).toBe("normal");
+      toolPermissionService.switchMode("agent");
+      expect(toolPermissionService.getCurrentMode()).toBe("agent");
     });
 
     it("should cycle through all modes sequentially", () => {
-      const modes = ["normal", "plan", "auto"] as const;
+      const modes = ["agent", "plan", "auto"] as const;
 
       // Test cycling through all modes
       for (let i = 0; i < modes.length * 2; i++) {

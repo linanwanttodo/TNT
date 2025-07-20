@@ -73,10 +73,10 @@ describe("SystemMessageService", () => {
       constructSystemMessageMock.mockResolvedValue("Test system message");
 
       await service.initialize(config);
-      const message = await service.getSystemMessage("normal");
+      const message = await service.getSystemMessage("agent");
 
       expect(constructSystemMessageMock).toHaveBeenCalledWith(
-        "normal", // Default mode
+        "agent", // Default mode
         ["rule1"],
         "json",
         true,
@@ -97,10 +97,10 @@ describe("SystemMessageService", () => {
       });
 
       constructSystemMessageMock.mockResolvedValue("Updated message");
-      await service.getSystemMessage("normal");
+      await service.getSystemMessage("agent");
 
       expect(constructSystemMessageMock).toHaveBeenCalledWith(
-        "normal",
+        "agent",
         ["rule1"],
         "json",
         false,
@@ -118,10 +118,10 @@ describe("SystemMessageService", () => {
       });
 
       constructSystemMessageMock.mockResolvedValue("Updated message");
-      await service.getSystemMessage("normal");
+      await service.getSystemMessage("agent");
 
       expect(constructSystemMessageMock).toHaveBeenCalledWith(
-        "normal",
+        "agent",
         ["rule2", "rule3"],
         "json",
         undefined,
@@ -137,7 +137,7 @@ describe("SystemMessageService", () => {
 
       await service.initialize({});
 
-      await expect(service.getSystemMessage("normal")).rejects.toThrow(
+      await expect(service.getSystemMessage("agent")).rejects.toThrow(
         "Failed to construct",
       );
     });
