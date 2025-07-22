@@ -8,6 +8,12 @@ import { ChatCompletionToolMessageParam } from "openai/resources/chat/completion
 
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 
+import {
+  firePostToolUse,
+  firePostToolUseFailure,
+  firePreToolUse,
+  firePermissionRequest,
+} from "../hooks/fireHook.js";
 import type { LoopDetector } from "../loop/loopDetector.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
@@ -134,6 +140,22 @@ export async function checkToolPermissionApproval(
       // "ask" tools are excluded in headless so can only get here by policy evaluation
       return { approved: false, denialReason: "policy" };
     }
+
+    const hookResult = await firePermissionRequest(
+      toolCall.name,
+      toolCall.arguments,
+    );
+    const decision = hookResult.permissionRequestDecision;
+    if (decision?.behavior === "allow") {
+      return { approved: true };
+    }
+    if (decision?.behavior === "deny") {
+      return { approved: false, denialReason: "policy" };
+    }
+    if (hookResult.blocked) {
+      return { approved: false, denialReason: "policy" };
+    }
+
     const userApproved = await requestUserPermission(toolCall, callbacks);
     return userApproved
       ? { approved: true }
@@ -622,6 +644,31 @@ export async function executeStreamedToolCalls(
             arguments: call.arguments,
           });
 
+          const preHook = await firePreToolUse(
+            call.name,
+            call.arguments,
+            call.id,
+          );
+          if (preHook.blocked) {
+            const blockMessage =
+              preHook.blockReason ?? `Hook blocked ${call.name}`;
+            entriesByIndex.set(index, {
+              role: "tool",
+              tool_call_id: call.id,
+              content: blockMessage,
+              status: "canceled",
+            });
+            callbacks?.onToolResult?.(blockMessage, call.name, "canceled");
+            try {
+              services.chatHistory.addToolResult(
+                call.id,
+                blockMessage,
+                "canceled",
+              );
+            } catch {}
+            return;
+          }
+
           const toolResult = await executionGate.run(planned?.keys ?? [], () =>
             executeToolCall(call, {
               parallelToolCallCount: planned?.parallelCount ?? 1,
@@ -636,6 +683,7 @@ export async function executeStreamedToolCalls(
           entriesByIndex.set(index, entry);
           callbacks?.onToolResult?.(toolResult, call.name, "done");
           onToolOutcome?.(call.name, true);
+          await firePostToolUse(call.name, call.arguments, toolResult, call.id);
           // Immediate service update for UI feedback
           try {
             services.chatHistory.addToolResult(
@@ -653,6 +701,12 @@ export async function executeStreamedToolCalls(
             name: call.name,
             error: errorMessage,
           });
+          await firePostToolUseFailure(
+            call.name,
+            call.arguments,
+            call.id,
+            errorMessage,
+          );
           entriesByIndex.set(index, {
             role: "tool",
             tool_call_id: call.id,

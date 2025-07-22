@@ -1,5 +1,6 @@
 import type { ChatHistoryItem } from "core";
 
+import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
 import { services } from "../services/index.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
@@ -120,6 +121,11 @@ export async function executeSubAgent(
       abortSignal: abortController.signal,
     });
 
+    const agentId = childContext.id;
+    const agentType = subAgent.model?.name ?? "agent";
+
+    await fireSubagentStart(agentId, agentType).catch(() => {});
+
     const chatHistory = [
       {
         message: {
@@ -191,6 +197,8 @@ export async function executeSubAgent(
         agent: model?.name,
         responseLength: response.length,
       });
+
+      await fireSubagentStop(agentId, agentType, response).catch(() => {});
 
       return {
         success: true,

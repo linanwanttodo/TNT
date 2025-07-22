@@ -10,8 +10,10 @@ import { services } from "../services/index.js";
 import { getCurrentSession } from "../session.js";
 
 import type {
+  ConfigChangeInput,
   HookEventResult,
   NotificationInput,
+  PermissionRequestInput,
   PostToolUseFailureInput,
   PostToolUseInput,
   PreCompactInput,
@@ -20,6 +22,8 @@ import type {
   SessionEndReason,
   SessionStartInput,
   SessionStartSource,
+  SubagentStartInput,
+  SubagentStopInput,
   StopInput,
   UserPromptSubmitInput,
 } from "./types.js";
@@ -125,6 +129,62 @@ export async function firePostToolUseFailure(
   return services.hooks.fireEvent(input);
 }
 
+export async function firePermissionRequest(
+  toolName: string,
+  toolInput: unknown,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+
+  const input: PermissionRequestInput = {
+    ...getCommonFields(),
+    hook_event_name: "PermissionRequest",
+    tool_name: toolName,
+    tool_input: toolInput,
+  };
+
+  return services.hooks.fireEvent(input);
+}
+
+// ---------------------------------------------------------------------------
+// Subagent events
+// ---------------------------------------------------------------------------
+
+export async function fireSubagentStart(
+  agentId: string,
+  agentType: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+
+  const input: SubagentStartInput = {
+    ...getCommonFields(),
+    hook_event_name: "SubagentStart",
+    agent_id: agentId,
+    agent_type: agentType,
+  };
+
+  return services.hooks.fireEvent(input);
+}
+
+export async function fireSubagentStop(
+  agentId: string,
+  agentType: string,
+  lastAssistantMessage?: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+
+  const input: SubagentStopInput = {
+    ...getCommonFields(),
+    hook_event_name: "SubagentStop",
+    stop_hook_active: true,
+    agent_id: agentId,
+    agent_transcript_path: "",
+    agent_type: agentType,
+    last_assistant_message: lastAssistantMessage,
+  };
+
+  return services.hooks.fireEvent(input);
+}
+
 // ---------------------------------------------------------------------------
 // Lifecycle events
 // ---------------------------------------------------------------------------
@@ -225,6 +285,26 @@ export async function firePreCompact(
     hook_event_name: "PreCompact",
     trigger,
     custom_instructions: customInstructions,
+  };
+
+  return services.hooks.fireEvent(input);
+}
+
+// ---------------------------------------------------------------------------
+// Config change event
+// ---------------------------------------------------------------------------
+
+export async function fireConfigChange(
+  source: string,
+  filePath?: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+
+  const input: ConfigChangeInput = {
+    ...getCommonFields(),
+    hook_event_name: "ConfigChange",
+    source,
+    file_path: filePath,
   };
 
   return services.hooks.fireEvent(input);

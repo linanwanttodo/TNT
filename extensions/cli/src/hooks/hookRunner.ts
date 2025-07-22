@@ -1,10 +1,17 @@
 import { execFile } from "child_process";
 
+import {
+  SERVICE_NAMES,
+  serviceContainer,
+  services,
+} from "../services/index.js";
+import type { ModelServiceState } from "../services/types.js";
 import { logger } from "../util/logger.js";
 
 import { getMatchingHookGroups } from "./hookConfig.js";
 import { MATCHER_FIELD_MAP, NO_MATCHER_EVENTS } from "./types.js";
 import type {
+  AgentHookHandler,
   CommandHookHandler,
   HookEventName,
   HookEventResult,
@@ -13,11 +20,29 @@ import type {
   HookInput,
   HookOutput,
   HttpHookHandler,
+  PromptHookHandler,
 } from "./types.js";
 import type { HooksConfig } from "./types.js";
 
 const DEFAULT_COMMAND_TIMEOUT_SECONDS = 600;
 const DEFAULT_HTTP_TIMEOUT_SECONDS = 30;
+const DEFAULT_PROMPT_TIMEOUT_SECONDS = 30;
+
+/**
+ * Model state for LLM-backed hooks. Returns null when the model service has
+ * not come up, which is the normal case in unit tests and early startup.
+ */
+async function resolveModelState(): Promise<ModelServiceState | null> {
+  try {
+    if (services.model?.isReady?.()) {
+      const { serviceContainer } = await import("../services/index.js");
+      return await serviceContainer.get<ModelServiceState>(SERVICE_NAMES.MODEL);
+    }
+  } catch {
+    // Hook handlers must never fail the calling flow.
+  }
+  return null;
+}
 
 function tryParseJson(str: string): HookOutput | null {
   const trimmed = str.trim();
@@ -207,6 +232,163 @@ async function executeHttpHook(
   }
 }
 
+/**
+ * Single-turn LLM evaluation. The prompt receives the hook input as $ARGUMENTS
+ * and must answer with the Claude Code hook JSON schema.
+ */
+async function executePromptHook(
+  handler: PromptHookHandler,
+  input: HookInput,
+): Promise<HookExecutionResult> {
+  const timeoutMs = (handler.timeout ?? DEFAULT_PROMPT_TIMEOUT_SECONDS) * 1000;
+
+  const modelState = await resolveModelState();
+  const llmApi = modelState?.llmApi ?? null;
+  const model = modelState?.model ?? null;
+
+  if (!llmApi || !model) {
+    logger.warn("Prompt hook skipped: no model available");
+    return {
+      output: null,
+      stdout: "",
+      stderr: "No model available for prompt hook",
+      exitCode: 1,
+      blocked: false,
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const { chatCompletionStreamWithBackoff } = await import(
+      "../util/exponentialBackoff.js"
+    );
+
+    const prompt = handler.prompt.replace(
+      /\$ARGUMENTS/g,
+      JSON.stringify(input),
+    );
+
+    const stream = await chatCompletionStreamWithBackoff(
+      llmApi,
+      {
+        model: handler.model ?? model.model,
+        messages: [{ role: "user", content: prompt }],
+        stream: true,
+      } as any,
+      controller.signal,
+    );
+
+    let text = "";
+    for await (const chunk of stream) {
+      const delta = chunk?.choices?.[0]?.delta?.content;
+      if (typeof delta === "string") {
+        text += delta;
+      }
+    }
+
+    const output = tryParseJson(text);
+    const blocked = output?.decision === "block";
+
+    return {
+      output,
+      stdout: text.trim(),
+      stderr: "",
+      exitCode: 0,
+      blocked,
+      blockReason: blocked ? output?.reason || "Blocked by hook" : undefined,
+    };
+  } catch (error) {
+    logger.warn("Prompt hook failed", error);
+    return {
+      output: null,
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+      exitCode: 1,
+      blocked: false,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Multi-turn subagent evaluation. Runs the prompt through a delegated agent
+ * loop so hook authors can ask for a decision that needs tool access.
+ */
+async function executeAgentHook(
+  handler: AgentHookHandler,
+  input: HookInput,
+): Promise<HookExecutionResult> {
+  const timeoutMs = (handler.timeout ?? DEFAULT_PROMPT_TIMEOUT_SECONDS) * 1000;
+
+  const agent = await resolveModelState();
+  if (!agent?.llmApi || !agent.model) {
+    logger.warn("Agent hook skipped: no model available");
+    return {
+      output: null,
+      stdout: "",
+      stderr: "No model available for agent hook",
+      exitCode: 1,
+      blocked: false,
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const { executeSubAgent } = await import("../subagent/executor.js");
+
+    const prompt = handler.prompt.replace(
+      /\$ARGUMENTS/g,
+      JSON.stringify(input),
+    );
+
+    const result = await executeSubAgent({
+      agent,
+      prompt,
+      parentSessionId: input.session_id || "hook",
+      abortController: controller,
+    });
+
+    if (!result.success) {
+      logger.warn(`Agent hook failed: ${result.error}`);
+      return {
+        output: null,
+        stdout: "",
+        stderr: result.error ?? "Agent hook failed",
+        exitCode: 1,
+        blocked: false,
+      };
+    }
+
+    const output = tryParseJson(result.response);
+    const blocked = output?.decision === "block";
+
+    return {
+      output,
+      stdout: result.response.trim(),
+      stderr: "",
+      exitCode: 0,
+      blocked,
+      blockReason: blocked ? output?.reason || "Blocked by hook" : undefined,
+    };
+  } catch (error) {
+    logger.warn("Agent hook failed", error);
+    return {
+      output: null,
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+      exitCode: 1,
+      blocked: false,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function executeHandler(
   handler: HookHandler,
   input: HookInput,
@@ -218,18 +400,9 @@ async function executeHandler(
     case "http":
       return executeHttpHook(handler, input);
     case "prompt":
+      return executePromptHook(handler, input);
     case "agent":
-      // Prompt and agent hooks are not yet implemented
-      logger.debug(
-        `Hook type "${handler.type}" is not yet supported, skipping`,
-      );
-      return {
-        output: null,
-        stdout: "",
-        stderr: "",
-        exitCode: 0,
-        blocked: false,
-      };
+      return executeAgentHook(handler, input);
     default:
       logger.warn(`Unknown hook handler type: ${(handler as any).type}`);
       return {

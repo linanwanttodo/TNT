@@ -751,7 +751,7 @@ describeUnix("hookRunner", () => {
   });
 
   describe("runHooks - prompt/agent types", () => {
-    it("returns no-op for prompt hook type", async () => {
+    it("reports a non-blocking error for a prompt hook with no model", async () => {
       const config: HooksConfig = {
         PreToolUse: [
           {
@@ -778,7 +778,8 @@ describeUnix("hookRunner", () => {
       const result = await runHooks(config, input);
       expect(result.blocked).toBe(false);
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].exitCode).toBe(0);
+      expect(result.results[0].exitCode).toBe(1);
+      expect(result.results[0].stderr).toContain("No model available");
     });
   });
 

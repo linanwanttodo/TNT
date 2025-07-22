@@ -13,6 +13,8 @@ interface CreateStreamCallbacksOptions {
   setActivePermissionRequest: React.Dispatch<React.SetStateAction<any>>;
   llmApi?: any;
   model?: any;
+  /** Receives the final assistant text of each turn, for Stop hooks. */
+  onAssistantText?: (text: string) => void;
 }
 
 /**
@@ -21,12 +23,21 @@ interface CreateStreamCallbacksOptions {
 export function createStreamCallbacks(
   options: CreateStreamCallbacksOptions,
 ): any {
-  const { setChatHistory, setActivePermissionRequest, llmApi, model } = options;
+  const {
+    setChatHistory,
+    setActivePermissionRequest,
+    llmApi,
+    model,
+    onAssistantText,
+  } = options;
 
   return {
     onContent: (_: string) => {},
 
     onContentComplete: async (content: string) => {
+      if (content) {
+        onAssistantText?.(content);
+      }
       // Do not add assistant messages via service; handleToolCalls is the single writer
       // For environments where the service isn't ready (unit tests), update local state only
       try {

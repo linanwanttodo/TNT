@@ -2,6 +2,7 @@ import type { ChatHistoryItem, Session } from "core/index.js";
 
 import { compactChatHistory } from "../../compaction.js";
 import { updateSessionHistory } from "../../session.js";
+import { firePreCompact } from "../../hooks/fireHook.js";
 import { handleAutoCompaction as coreHandleAutoCompaction } from "../../stream/streamChatResponse.autoCompaction.js";
 import { formatError } from "../../util/formatError.js";
 import { logger } from "../../util/logger.js";
@@ -41,6 +42,8 @@ export async function handleCompactCommand({
   // Start compaction status display
   setIsCompacting(true);
   setCompactionStartTime(Date.now());
+
+  const preCompact = await firePreCompact("manual");
 
   try {
     // Compact the chat history directly (already in unified format) with abort controller
@@ -146,6 +149,8 @@ export async function handleAutoCompaction({
       setCompactionIndex,
     },
   });
+
+  await firePreCompact("auto");
 
   if (!result.wasCompacted) {
     return {
