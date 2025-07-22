@@ -6,6 +6,7 @@ import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { ToolResultSummary } from "../ToolResultSummary.js";
+import { CompactionBoundary } from "./CompactionBoundary.js";
 
 /**
  * Formats message content for display, converting message parts array back to
@@ -67,17 +68,7 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
 
     // Handle conversation summary (compaction)
     if (conversationSummary) {
-      return (
-        <Box
-          key={index}
-          marginBottom={1}
-          borderStyle="single"
-          borderBottom={false}
-          borderLeft={false}
-          borderRight={false}
-          borderColor="gray"
-        />
-      );
+      return <CompactionBoundary key={index} summary={conversationSummary} />;
     }
 
     // Handle tool calls

@@ -3,6 +3,7 @@ import type { ChatHistoryItem, Session } from "core/index.js";
 import { compactChatHistory } from "../../compaction.js";
 import { updateSessionHistory } from "../../session.js";
 import { firePreCompact } from "../../hooks/fireHook.js";
+import { t } from "../../i18n/index.js";
 import { handleAutoCompaction as coreHandleAutoCompaction } from "../../stream/streamChatResponse.autoCompaction.js";
 import { formatError } from "../../util/formatError.js";
 import { logger } from "../../util/logger.js";
@@ -74,7 +75,7 @@ export async function handleCompactCommand({
       {
         message: {
           role: "system",
-          content: "Chat history compacted successfully.",
+          content: t("compaction.done"),
         },
         contextItems: [],
       },
@@ -88,7 +89,7 @@ export async function handleCompactCommand({
         {
           message: {
             role: "system",
-            content: "Compaction cancelled.",
+            content: t("compaction.cancelled"),
           },
           contextItems: [],
         },
@@ -100,7 +101,7 @@ export async function handleCompactCommand({
         {
           message: {
             role: "system",
-            content: `Compaction failed: ${formatError(error)}`,
+            content: t("compaction.failed", { error: formatError(error) }),
           },
           contextItems: [],
         },
