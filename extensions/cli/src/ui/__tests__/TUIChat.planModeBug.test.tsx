@@ -18,7 +18,7 @@ describe("TUIChat - Plan Mode Bug Reproduction", () => {
 
     // Ensure mode service is properly initialized in normal mode
     await toolPermissionService.doInitialize({
-      mode: "normal",
+      mode: "agent",
     });
   });
 

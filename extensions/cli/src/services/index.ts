@@ -135,7 +135,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
         if (overrides.mode) {
           initArgs.mode = overrides.mode;
         }
-        // If mode is "normal" or undefined, no flags are set
+        // If mode is "agent" or undefined, no flags are set
         return await toolPermissionService.initialize(
           initArgs,
           agentFileState,

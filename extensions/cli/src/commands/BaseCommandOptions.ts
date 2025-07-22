@@ -39,4 +39,6 @@ export interface ExtendedCommandOptions extends BaseCommandOptions {
   readonly?: boolean;
   /** Start in auto mode (all tools allowed) */
   auto?: boolean;
+  /** Start in a specific permission mode: agent, plan, or auto */
+  mode?: string;
 }

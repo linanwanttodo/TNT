@@ -11,7 +11,7 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
     service = new ToolPermissionService();
   });
 
-  const testModes: PermissionMode[] = ["normal", "plan", "auto"];
+  const testModes: PermissionMode[] = ["agent", "plan", "auto"];
 
   testModes.forEach((mode) => {
     describe(`${mode} mode`, () => {
@@ -83,7 +83,7 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
     // Initialize with user config that allows Write
     service.initializeSync({
       allow: ["Write"],
-      mode: "normal",
+      mode: "agent",
     });
 
     console.log("\n=== NORMAL MODE WITH USER ALLOW WRITE ===");

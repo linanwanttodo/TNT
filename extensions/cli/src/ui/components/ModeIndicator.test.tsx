@@ -13,7 +13,7 @@ describe("ModeIndicator", () => {
     await initializeServices({
       headless: true,
       toolPermissionOverrides: {
-        mode: "normal",
+        mode: "agent",
       },
     });
   });
@@ -60,7 +60,7 @@ describe("ModeIndicator", () => {
       rerender(<ModeIndicator />);
       expect(lastFrame()).toContain("auto]");
 
-      toolPermissionService.switchMode("normal");
+      toolPermissionService.switchMode("agent");
       rerender(<ModeIndicator />);
       expect(lastFrame()).toBe("");
     });

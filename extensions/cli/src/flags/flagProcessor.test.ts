@@ -26,6 +26,24 @@ describe("convertLegacyModeFlags", () => {
       "Cannot use both --readonly and --auto flags together",
     );
   });
+
+  test("should return the requested mode", () => {
+    expect(convertLegacyModeFlags(false, false, "agent")).toBe("agent");
+    expect(convertLegacyModeFlags(false, false, "plan")).toBe("plan");
+    expect(convertLegacyModeFlags(false, false, "auto")).toBe("auto");
+  });
+
+  test("should reject an unknown mode", () => {
+    expect(() => convertLegacyModeFlags(false, false, "yolo")).toThrow(
+      'Invalid --mode "yolo"',
+    );
+  });
+
+  test("should reject --mode combined with legacy flags", () => {
+    expect(() => convertLegacyModeFlags(true, false, "plan")).toThrow(
+      "Cannot use --mode together with --readonly or --auto",
+    );
+  });
 });
 
 describe("buildPermissionOverrides", () => {
@@ -127,6 +145,20 @@ describe("processCommandFlags", () => {
         auto: true,
       }),
     ).toThrow("Cannot use both --readonly and --auto flags together");
+  });
+
+  test("should process the mode flag", () => {
+    const result = processCommandFlags({ mode: "agent" });
+
+    expect(result).toEqual({
+      mode: "agent",
+      permissionOverrides: {
+        allow: undefined,
+        ask: undefined,
+        exclude: undefined,
+        mode: "agent",
+      },
+    });
   });
 
   test("should handle empty options", () => {

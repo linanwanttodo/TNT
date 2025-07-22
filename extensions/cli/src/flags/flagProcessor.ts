@@ -23,9 +23,22 @@ export interface ProcessedFlags {
 export function convertLegacyModeFlags(
   readonly?: boolean,
   auto?: boolean,
+  mode?: string,
 ): PermissionMode | undefined {
   if (readonly && auto) {
     throw new Error("Cannot use both --readonly and --auto flags together");
+  }
+
+  if (mode) {
+    if (readonly || auto) {
+      throw new Error("Cannot use --mode together with --readonly or --auto");
+    }
+    if (mode !== "agent" && mode !== "plan" && mode !== "auto") {
+      throw new Error(
+        `Invalid --mode "${mode}". Expected one of: agent, plan, auto`,
+      );
+    }
+    return mode;
   }
 
   if (readonly) {
@@ -64,12 +77,17 @@ export function buildPermissionOverrides(
 export function processCommandFlags(options: {
   readonly?: boolean;
   auto?: boolean;
+  mode?: string;
   allow?: string[];
   ask?: string[];
   exclude?: string[];
 }): ProcessedFlags {
   // Convert legacy flags to mode
-  const mode = convertLegacyModeFlags(options.readonly, options.auto);
+  const mode = convertLegacyModeFlags(
+    options.readonly,
+    options.auto,
+    options.mode,
+  );
 
   // Build permission overrides
   const permissionOverrides = buildPermissionOverrides(
