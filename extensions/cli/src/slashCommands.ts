@@ -294,12 +294,28 @@ function handleSubagents() {
 
   return {
     exit: false,
+    // The list is printed for headless runs; interactive runs also get a
+    // picker so a delegated transcript can be opened directly.
+    openSubagentsSelector: true,
     output: [
       chalk.bold(t("subagent.title", { count: children.length })),
       "",
       ...lines,
     ].join("\n"),
   };
+}
+
+function handleBackToParent() {
+  const parentSessionId = getCurrentSession().parentSessionId;
+
+  if (!parentSessionId) {
+    return {
+      exit: false,
+      output: chalk.dim(t("subagent.noParent")),
+    };
+  }
+
+  return { exit: false, loadSessionId: parentSessionId };
 }
 
 const EXPORTED_SESSION_VERSION = 1;
@@ -463,6 +479,8 @@ const commandHandlers: Record<string, CommandHandler> = {
   "import-skill": (args) => handleImportSkill(args),
   sessions: handleSessions,
   subagents: handleSubagents,
+  back: handleBackToParent,
+  parent: handleBackToParent,
   export: handleExport,
   import: handleImport,
   language: handleLanguage,

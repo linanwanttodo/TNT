@@ -8,6 +8,7 @@ import type {
 import { UserInput } from "../UserInput.js";
 
 import { QuizPrompt } from "./QuizPrompt.js";
+import { SubagentBreadcrumb } from "./SubagentBreadcrumb.js";
 import { ToolPermissionSelector } from "./ToolPermissionSelector.js";
 
 interface ChatScreenContentProps {
@@ -32,6 +33,8 @@ interface ChatScreenContentProps {
   isRemoteMode: boolean;
   onImageInClipboardChange?: (hasImage: boolean) => void;
   onShowEditSelector?: () => void;
+  /** Set while a delegated transcript is open. */
+  subagentView?: { parentSessionId: string; subagentType: string } | null;
 }
 
 export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
@@ -51,6 +54,7 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
   isRemoteMode,
   onImageInClipboardChange,
   onShowEditSelector,
+  subagentView,
 }) => {
   if (activeQuizQuestion) {
     return (
@@ -78,19 +82,27 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
   }
 
   return (
-    <UserInput
-      onSubmit={handleUserMessage}
-      isWaitingForResponse={isWaitingForResponse}
-      isCompacting={isCompacting}
-      inputMode={inputMode}
-      onInterrupt={handleInterrupt}
-      assistant={assistant}
-      wasInterrupted={wasInterrupted}
-      onFileAttached={handleFileAttached}
-      disabled={isInputDisabled}
-      isRemoteMode={isRemoteMode}
-      onImageInClipboardChange={onImageInClipboardChange}
-      onShowEditSelector={onShowEditSelector}
-    />
+    <>
+      {subagentView && (
+        <SubagentBreadcrumb
+          subagentType={subagentView.subagentType}
+          parentSessionId={subagentView.parentSessionId}
+        />
+      )}
+      <UserInput
+        onSubmit={handleUserMessage}
+        isWaitingForResponse={isWaitingForResponse}
+        isCompacting={isCompacting}
+        inputMode={inputMode}
+        onInterrupt={handleInterrupt}
+        assistant={assistant}
+        wasInterrupted={wasInterrupted}
+        onFileAttached={handleFileAttached}
+        disabled={isInputDisabled}
+        isRemoteMode={isRemoteMode}
+        onImageInClipboardChange={onImageInClipboardChange}
+        onShowEditSelector={onShowEditSelector}
+      />
+    </>
   );
 };
