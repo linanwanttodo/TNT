@@ -30,10 +30,10 @@ This document catalogs all build dependencies, secrets, and environment variable
 
 ## CLI
 
-| Variable            | Purpose                                                                 | Referenced In                                                                                      |
-| ------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `CONTINUE_API_BASE` | Base URL for the Continue API (defaults to `https://api.continue.dev/`) | `extensions/cli/.env.example`                                                                      |
-| `CONTINUE_API_KEY`  | API key for Continue authentication                                     | `extensions/cli/.env.example`, `packages/continue-sdk/typescript/.env.example`, multiple workflows |
+| Variable       | Purpose                                              | Referenced In                                                                                      |
+| -------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `TNT_API_BASE` | Base URL of your own control plane; unset by default | `extensions/cli/.env.example`                                                                      |
+| `TNT_API_KEY`  | API key for your own control plane, when required    | `extensions/cli/.env.example`, `packages/continue-sdk/typescript/.env.example`, multiple workflows |
 
 ---
 

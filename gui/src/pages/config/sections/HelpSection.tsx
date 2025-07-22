@@ -186,7 +186,10 @@ export function HelpSection() {
                 description={t("help.documentation.desc")}
                 icon={LinkIcon}
                 onClick={() =>
-                  ideMessenger.post("openUrl", "https://docs.continue.dev/")
+                  ideMessenger.post(
+                    "openUrl",
+                    "https://github.com/linanwanttodo/TNT/tree/main/docs/",
+                  )
                 }
               />
             </div>

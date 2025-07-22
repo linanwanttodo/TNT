@@ -17,17 +17,22 @@ import { ModelRoleRow } from "../components/ModelRoleRow";
 
 const MODEL_DOCS_URLS = {
   chat: {
-    learnMore: "https://docs.continue.dev/ide-extensions/chat/quick-start",
-    setup: "https://docs.continue.dev/ide-extensions/chat/model-setup",
+    learnMore:
+      "https://github.com/linanwanttodo/TNT/tree/main/docs/ide-extensions/chat/quick-start",
+    setup:
+      "https://github.com/linanwanttodo/TNT/tree/main/docs/ide-extensions/chat/model-setup",
   },
   autocomplete: {
     learnMore:
-      "https://docs.continue.dev/ide-extensions/autocomplete/quick-start",
-    setup: "https://docs.continue.dev/ide-extensions/autocomplete/model-setup",
+      "https://github.com/linanwanttodo/TNT/tree/main/docs/ide-extensions/autocomplete/quick-start",
+    setup:
+      "https://github.com/linanwanttodo/TNT/tree/main/docs/ide-extensions/autocomplete/model-setup",
   },
   edit: {
-    learnMore: "https://docs.continue.dev/ide-extensions/edit/quick-start",
-    setup: "https://docs.continue.dev/ide-extensions/edit/model-setup",
+    learnMore:
+      "https://github.com/linanwanttodo/TNT/tree/main/docs/ide-extensions/edit/quick-start",
+    setup:
+      "https://github.com/linanwanttodo/TNT/tree/main/docs/ide-extensions/edit/model-setup",
   },
 } as const;
 
@@ -188,7 +193,7 @@ export function ModelsSection() {
               selectedModel={config.selectedModelByRole.apply ?? undefined}
               onSelect={(model) => handleRoleUpdate("apply", model)}
               onConfigure={handleConfigureModel}
-              setupURL="https://docs.continue.dev/customize/model-roles/apply"
+              setupURL="https://github.com/linanwanttodo/TNT/tree/main/docs/customize/model-roles/apply"
             />
 
             <Divider />
@@ -201,7 +206,7 @@ export function ModelsSection() {
               selectedModel={config.selectedModelByRole.embed ?? undefined}
               onSelect={(model) => handleRoleUpdate("embed", model)}
               onConfigure={handleConfigureModel}
-              setupURL="https://docs.continue.dev/customize/model-roles/embeddings"
+              setupURL="https://github.com/linanwanttodo/TNT/tree/main/docs/customize/model-roles/embeddings"
             />
 
             <Divider />
@@ -214,7 +219,7 @@ export function ModelsSection() {
               selectedModel={config.selectedModelByRole.rerank ?? undefined}
               onSelect={(model) => handleRoleUpdate("rerank", model)}
               onConfigure={handleConfigureModel}
-              setupURL="https://docs.continue.dev/customize/model-roles/reranking"
+              setupURL="https://github.com/linanwanttodo/TNT/tree/main/docs/customize/model-roles/reranking"
             />
           </div>
         </Toggle>

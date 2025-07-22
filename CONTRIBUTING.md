@@ -36,16 +36,16 @@
 
 # ❤️ Ways to Contribute
 
-## 👋 Continue Contribution Ideas
+## Contribution Ideas
 
-[This GitHub project board](https://github.com/orgs/continuedev/projects/2) is a list of ideas for how you can
-contribute to Continue. These aren't the only ways, but are a great starting point if you are new to the project. You
+[This GitHub project board](https://github.com/linanwanttodo/TNT/issues) is a list of ideas for how you can
+contribute to TNT. These aren't the only ways, but are a great starting point if you are new to the project. You
 can also browse the list
-of [good first issues](https://github.com/continuedev/continue/issues?q=is:issue%20state:open%20label:good-first-issue).
+of [good first issues](https://github.com/linanwanttodo/TNT/issues?q=is:issue%20state:open%20label:good-first-issue).
 
 ## 🐛 Report Bugs
 
-If you find a bug, please [create an issue](https://github.com/continuedev/continue/issues) to report it! A great bug
+If you find a bug, please [create an issue](https://github.com/linanwanttodo/TNT/issues) to report it! A great bug
 report includes:
 
 - A description of the bug
@@ -62,16 +62,16 @@ an enhancement are:
 - Create an issue
 
   - First, check whether a similar proposal has already been made
-  - If not, [create an issue](https://github.com/continuedev/continue/issues)
+  - If not, [create an issue](https://github.com/linanwanttodo/TNT/issues)
   - Please describe the enhancement in as much detail as you can, and why it would be useful
 
-- Join the [GitHub Discussions](https://github.com/continuedev/continue/discussions) and tell us about your idea
+- Join the [GitHub Discussions](https://github.com/linanwanttodo/TNT/discussions) and tell us about your idea
 
 ## 📖 Updating / Improving Documentation
 
 Continue is continuously improving, but a feature isn't complete until it is reflected in the documentation! If you see
 something out-of-date or missing, you can help by clicking "Edit this page" at the bottom of any page
-on [docs.continue.dev](https://docs.continue.dev).
+on [TNT Docs](https://github.com/linanwanttodo/TNT/tree/main/docs).
 
 ### Running the Documentation Server Locally
 
@@ -131,7 +131,7 @@ npm i -g vite
 
 #### Fork the Continue Repository
 
-1. Go to the [Continue GitHub repository](https://github.com/continuedev/continue) and fork it to your GitHub account.
+1. Go to the [Continue GitHub repository](https://github.com/linanwanttodo/TNT) and fork it to your GitHub account.
 
 2. Clone your forked repository to your local machine. Use: `git clone https://github.com/YOUR_USERNAME/continue.git`
 
@@ -192,7 +192,7 @@ To keep the Continue codebase clean and maintainable, we expect the following fr
 - Keep changes focused. Multiple unrelated fixes should be opened as separate PRs
 - Write or update tests for new functionality
 - Update relevant documentation in the `docs` folder
-- **For new features**: Include a short screen recording or screenshot demonstrating the new functionality. This makes it much easier for us as contributors to review and understand your changes. See [this PR](https://github.com/continuedev/continue/pull/6455) as a good example
+- **For new features**: Include a short screen recording or screenshot demonstrating the new functionality. This makes it much easier for us as contributors to review and understand your changes. See [this PR](https://github.com/linanwanttodo/TNT/pull/6455) as a good example
 - Open a PR against the `main` branch. Make sure to fill in the PR template
 
 ### Formatting
@@ -233,7 +233,7 @@ When contributing, please update or create the appropriate tests to help verify 
 
 ### Getting Help
 
-Join the [GitHub Discussions](https://github.com/continuedev/continue/discussions) to engage with maintainers and other contributors.
+Join the [GitHub Discussions](https://github.com/linanwanttodo/TNT/discussions) to engage with maintainers and other contributors.
 
 ## Contributing New LLM Providers/Models
 
@@ -241,7 +241,7 @@ Join the [GitHub Discussions](https://github.com/continuedev/continue/discussion
 
 Continue has support for more than a dozen different LLM "providers", making it easy to use models running on OpenAI,
 Ollama, Together, LM Studio, Msty, and more. You can find all of the existing
-providers [here](https://github.com/continuedev/continue/tree/main/core/llm/llms), and if you see one missing, you can
+providers [here](https://github.com/linanwanttodo/TNT/tree/main/core/llm/llms), and if you see one missing, you can
 add it with the following steps:
 
 1. Create a new file in the `core/llm/llms` directory. The name of the file should be the name of the provider, and it
@@ -268,7 +268,7 @@ model:
   2. Add the model within its provider's array
      to [configs/providers.ts](./gui/src/pages/AddNewModel/configs/providers.ts) (add provider if needed)
 - LLM Providers: Since many providers use their own custom strings to identify models, you'll have to add the
-  translation from Continue's model name (the one you added to `index.d.ts`) and the model string for each of these
+  translation from TNT's model name (the one you added to `index.d.ts`) and the model string for each of these
   providers: [Ollama](./core/llm/llms/Ollama.ts), [Together](./core/llm/llms/Together.ts),
   and [Replicate](./core/llm/llms/Replicate.ts). You can find their full model lists
   here: [Ollama](https://ollama.ai/library), [Together](https://docs.together.ai/docs/inference-models), [Replicate](https://replicate.com/collections/streaming-language-models).
