@@ -54,7 +54,7 @@ describe("CLI utility functions", () => {
     });
 
     it("should return true when prompt follows other flags after -p", () => {
-      // This is the bug fix - handles cases like: cn -p --config my.yaml "Prompt"
+      // This is the bug fix - handles cases like: tnt -p --config my.yaml "Prompt"
       process.argv = [
         "node",
         "script.js",

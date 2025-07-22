@@ -1,6 +1,7 @@
 import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
 
+import { t } from "../i18n/index.js";
 import { useServices } from "../hooks/useService.js";
 import {
   FileIndexServiceState,
@@ -140,7 +141,7 @@ const FileSearchUI: React.FC<FileSearchUIProps> = ({
       return (
         <FileSearchContainer>
           <Text color="gray" dimColor>
-            No matching files found
+            {t("files.noMatches")}
           </Text>
         </FileSearchContainer>
       );

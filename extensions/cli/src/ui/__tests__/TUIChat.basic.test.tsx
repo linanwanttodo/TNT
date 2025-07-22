@@ -2,7 +2,9 @@ import { render } from "ink-testing-library";
 import React from "react";
 
 import { createUITestContext } from "../../test-helpers/ui-test-context.js";
+import { setLocale } from "../../i18n/index.js";
 import { AppRoot } from "../AppRoot.js";
+import { waitForCondition } from "./TUIChat.testHelper.js";
 
 describe("TUIChat - Basic UI Tests", () => {
   let context: any;
@@ -17,6 +19,7 @@ describe("TUIChat - Basic UI Tests", () => {
 
   afterEach(() => {
     context.cleanup();
+    setLocale("en");
   });
 
   it("renders without crashing", () => {
@@ -58,5 +61,16 @@ describe("TUIChat - Basic UI Tests", () => {
     if (frame) {
       expect(frame.length).toBeGreaterThan(0);
     }
+  });
+
+  it("localizes the composer and status labels after /language", async () => {
+    setLocale("zh-CN");
+    const { lastFrame } = render(React.createElement(AppRoot));
+
+    await waitForCondition(() => lastFrame()?.includes("输入内容") ?? false);
+
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("上下文");
+    expect(frame).not.toContain("Ask anything");
   });
 });

@@ -37,6 +37,7 @@ export async function getLatestVersion(
       const latest = execFileSync("npm", ["view", "@tnt/cli", "version"], {
         encoding: "utf8",
         timeout: 5000,
+        stdio: ["ignore", "pipe", "ignore"],
       }).trim();
       return latest || getVersion();
     } catch (error) {

@@ -1,9 +1,6 @@
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
-import {
-  Configuration,
-  DefaultApi,
-} from "@continuedev/sdk/dist/api/dist/index.js";
+import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { AuthConfig } from "./auth/workos.js";
 import { env } from "./env.js";
@@ -15,7 +12,7 @@ import { getVersion } from "./version.js";
  */
 function getUserAgent(): string {
   const version = getVersion();
-  return `Continue-CLI/${version}`;
+  return `TNT-CLI/${version}`;
 }
 
 /**
@@ -29,7 +26,7 @@ function _mergeUserAgentIntoRequestOptions(
     headers: {
       ...requestOptions?.headers,
       "user-agent": getUserAgent(),
-      "x-continue-unique-id": getUniqueId(),
+      "x-tnt-unique-id": getUniqueId(),
     },
   };
 }

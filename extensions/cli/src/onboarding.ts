@@ -2,51 +2,21 @@ import * as fs from "fs";
 import * as path from "path";
 
 import chalk from "chalk";
-import { setConfigFilePermissions } from "core/util/paths.js";
 
 import type { AuthConfig } from "./auth/workos.js";
 import { getApiClient } from "./config.js";
 import { loadConfiguration } from "./configLoader.js";
 import { env } from "./env.js";
 import {
-  getApiKeyValidationError,
-  isValidAnthropicApiKey,
-} from "./util/apiKeyValidation.js";
-import { question } from "./util/prompt.js";
-import { updateAnthropicModelInYaml } from "./util/yamlConfigUpdater.js";
+  CONFIG_PATH,
+  buildConfigYaml,
+  checkHasAcceptableModel,
+  runProviderSetup,
+  writeConfig,
+} from "./providerSetup.js";
+import { t } from "./i18n/index.js";
 
-const CONFIG_PATH = path.join(env.continueHome, "config.yaml");
-
-export async function checkHasAcceptableModel(
-  configPath: string,
-): Promise<boolean> {
-  try {
-    if (!fs.existsSync(configPath)) {
-      return false;
-    }
-
-    const content = fs.readFileSync(configPath, "utf8");
-    return content.includes("claude");
-  } catch {
-    return false;
-  }
-}
-
-export async function createOrUpdateConfig(apiKey: string): Promise<void> {
-  const configDir = path.dirname(CONFIG_PATH);
-
-  if (!fs.existsSync(configDir)) {
-    fs.mkdirSync(configDir, { recursive: true });
-  }
-
-  const existingContent = fs.existsSync(CONFIG_PATH)
-    ? fs.readFileSync(CONFIG_PATH, "utf8")
-    : "";
-
-  const updatedContent = updateAnthropicModelInYaml(existingContent, apiKey);
-  fs.writeFileSync(CONFIG_PATH, updatedContent);
-  setConfigFilePermissions(CONFIG_PATH);
-}
+export { checkHasAcceptableModel };
 
 export async function runOnboardingFlow(
   configPath: string | undefined,
@@ -58,9 +28,7 @@ export async function runOnboardingFlow(
 
   // Step 2: Check for CONTINUE_USE_BEDROCK environment variable first (before test env check)
   if (process.env.CONTINUE_USE_BEDROCK === "1") {
-    console.log(
-      chalk.blue("✓ Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)"),
-    );
+    console.log(chalk.blue(t("setup.bedrock")));
     return true;
   }
 
@@ -73,11 +41,10 @@ export async function runOnboardingFlow(
     !process.stdin.isTTY;
 
   if (isTestEnv) {
-    // In test/CI environment, check for ANTHROPIC_API_KEY first
+    // In test/CI there is nobody to answer the prompts, so an already
+    // complete config is left exactly as it is.
     if (process.env.ANTHROPIC_API_KEY) {
-      console.log(chalk.blue("✓ Using ANTHROPIC_API_KEY from environment"));
-      await createOrUpdateConfig(process.env.ANTHROPIC_API_KEY);
-      console.log(chalk.gray(`  Config saved to: ${CONFIG_PATH}`));
+      console.log(chalk.blue("Using ANTHROPIC_API_KEY from the environment"));
       return false;
     }
 
@@ -85,21 +52,12 @@ export async function runOnboardingFlow(
     return false;
   }
 
-  // Step 4: Prompt for API key
-  console.log(chalk.yellow("To get started, enter your Anthropic API key."));
+  // Step 4: Ask which provider to use, then for its URL, key and model. The
+  // answers become the config file; no provider is assumed.
+  const setup = await runProviderSetup();
 
-  const apiKey = await question(
-    chalk.white("\nEnter your Anthropic API key: "),
-  );
-
-  if (!isValidAnthropicApiKey(apiKey)) {
-    throw new Error(getApiKeyValidationError(apiKey));
-  }
-
-  await createOrUpdateConfig(apiKey);
-  console.log(
-    chalk.green(`✓ Config file updated successfully at ${CONFIG_PATH}`),
-  );
+  writeConfig(buildConfigYaml(setup));
+  console.log(chalk.green(t("setup.saved", { path: CONFIG_PATH })));
 
   return true;
 }

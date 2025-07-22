@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
 
-import { type AssistantConfig } from "@continuedev/sdk";
+import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text, useApp, useInput } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -11,6 +11,7 @@ import {
 import { useServices } from "../hooks/useService.js";
 import type { PermissionMode } from "../permissions/types.js";
 import type { FileIndexServiceState } from "../services/FileIndexService.js";
+import type { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
 import {
   SERVICE_NAMES,
   serviceContainer,
@@ -20,8 +21,11 @@ import { messageQueue } from "../stream/messageQueue.js";
 import { escapeEvents } from "../util/cli.js";
 import { InputHistory } from "../util/inputHistory.js";
 
+import { t } from "../i18n/index.js";
 import { FileSearchUI } from "./FileSearchUI.js";
+import { ModeIndicator } from "./components/ModeIndicator.js";
 import { useClipboardMonitor } from "./hooks/useClipboardMonitor.js";
+import { useLocale } from "./hooks/useLocale.js";
 import {
   handleControlKeys,
   updateTextBufferState,
@@ -33,10 +37,11 @@ import { TextBuffer } from "./TextBuffer.js";
 const InterruptedBanner: React.FC<{ wasInterrupted: boolean }> = ({
   wasInterrupted,
 }) => {
+  useLocale();
   if (!wasInterrupted) return null;
   return (
     <Box paddingX={1} marginBottom={0}>
-      <Text color="yellow">Interrupted by user - Press enter to continue</Text>
+      <Text color="yellow">{t("interrupted.message")}</Text>
     </Box>
   );
 };
@@ -131,6 +136,7 @@ const UserInput: React.FC<UserInputProps> = ({
   onImageInClipboardChange,
   onShowEditSelector,
 }) => {
+  useLocale();
   const [textBuffer] = useState(() => new TextBuffer());
   const [inputHistory] = useState(() => new InputHistory());
   const lastEscapePressRef = useRef<number>(0);
@@ -180,6 +186,11 @@ const UserInput: React.FC<UserInputProps> = ({
   useServices<{
     fileIndex: FileIndexServiceState;
   }>(["fileIndex"]);
+  const { services: permissionServices } = useServices<{
+    toolPermissions: ToolPermissionServiceState;
+  }>([SERVICE_NAMES.TOOL_PERMISSIONS]);
+  const currentMode =
+    permissionServices.toolPermissions?.currentMode ?? "normal";
 
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([
     { name: "help", description: "Show help message", category: "system" },
@@ -782,10 +793,11 @@ const UserInput: React.FC<UserInputProps> = ({
   });
 
   const renderInputText = () => {
-    const placeholderText = isRemoteMode
-      ? "Ask anything, / for slash commands, ! for shell mode"
-      : placeholder ||
-        "Ask anything, @ for context, / for slash commands, ! for shell mode";
+    const placeholderText =
+      placeholder ??
+      (isRemoteMode
+        ? t("composer.placeholderRemote")
+        : t("composer.placeholder"));
     if (inputText.length === 0) {
       return (
         <>
@@ -870,10 +882,16 @@ const UserInput: React.FC<UserInputProps> = ({
     <Box flexDirection="column">
       <InterruptedBanner wasInterrupted={!!wasInterrupted} />
 
+      {/* Active mode is embedded in the composer's top border rule. */}
+      <ModeIndicator
+        mode={currentMode}
+        borderColor={showBashMode ? "yellow" : isRemoteMode ? "cyan" : "gray"}
+      />
+
       {/* Input box */}
       <Box
         borderStyle="round"
-        borderTop={true}
+        borderTop={currentMode === "normal"}
         paddingX={1}
         borderColor={showBashMode ? "yellow" : isRemoteMode ? "cyan" : "gray"}
       >
@@ -881,7 +899,7 @@ const UserInput: React.FC<UserInputProps> = ({
           color={showBashMode ? "yellow" : isRemoteMode ? "cyan" : "blue"}
           bold
         >
-          {showBashMode ? "$ " : isRemoteMode ? "◉ " : "● "}
+          {showBashMode ? "$ " : isRemoteMode ? "◉ " : "> "}
         </Text>
         {renderInputText()}
       </Box>

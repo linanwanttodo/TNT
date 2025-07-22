@@ -58,7 +58,7 @@ export async function startTUIChat(
     throw new Error(
       "Cannot start TUI in TTY-less environment. No TTY available for interactive mode.\n" +
         "For non-interactive use, run with -p flag:\n" +
-        '  cn -p "your prompt here"',
+        '  tnt -p "your prompt here"',
     );
   }
 
@@ -87,7 +87,7 @@ export async function startTUIChat(
     } catch {
       throw new Error(
         "Terminal does not support raw mode required for interactive UI.\n" +
-          'Use -p flag for headless mode: cn -p "your prompt"',
+          'Use -p flag for headless mode: tnt -p "your prompt"',
       );
     }
   } else if (!customStdin) {

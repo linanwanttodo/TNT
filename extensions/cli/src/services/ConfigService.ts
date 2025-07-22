@@ -4,7 +4,7 @@ import {
   mergeUnrolledAssistants,
   PackageIdentifier,
 } from "@tnt/config-yaml";
-import { DefaultApiInterface } from "@continuedev/sdk/dist/api/dist/index.js";
+import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { isStringRule } from "src/hubLoader.js";
 import { loadMarkdownRulesWithMetadata } from "src/systemMessage.js";

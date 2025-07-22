@@ -6,39 +6,46 @@ import { ToolPermissionServiceState } from "src/services/ToolPermissionService.j
 import { SERVICE_NAMES } from "src/services/types.js";
 
 import type { PermissionMode } from "../../permissions/types.js";
+import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { composeTopBorder } from "../utils/borderLine.js";
 
 interface ModeIndicatorProps {
   mode?: PermissionMode;
+  borderColor?: React.ComponentProps<typeof Text>["color"];
 }
 
-const ModeIndicator: React.FC<ModeIndicatorProps> = ({ mode }) => {
+/**
+ * Renders the composer's top rule with the active mode embedded at the left
+ * edge. Returns nothing for the default mode so the composer keeps its plain
+ * border when no mode override is in effect.
+ */
+const ModeIndicator: React.FC<ModeIndicatorProps> = ({
+  mode,
+  borderColor = "gray",
+}) => {
   const { services } = useServices<{
     toolPermissions: ToolPermissionServiceState;
   }>([SERVICE_NAMES.TOOL_PERMISSIONS]);
   const currentMode = mode ?? services.toolPermissions?.currentMode ?? "normal";
+  const { columns } = useTerminalSize();
 
-  // Don't show indicator for normal mode to keep it clean
   if (currentMode === "normal") {
     return null;
   }
 
-  // Get mode display info
-  const getModeDisplay = (mode: PermissionMode) => {
-    switch (mode) {
-      case "plan":
-        return { text: "⏸ plan", color: "blue" };
-      case "auto":
-        return { text: "⏵⏵ auto", color: "green" };
-      default:
-        return { text: mode, color: "dim" };
-    }
-  };
-
-  const { text, color } = getModeDisplay(currentMode);
+  const { prefix, label, suffix } = composeTopBorder(
+    columns,
+    `[${currentMode}]`,
+  );
+  const modeColor = currentMode === "plan" ? "blue" : "green";
 
   return (
-    <Text color={color} dimColor={false}>
-      [{text}]
+    <Text>
+      <Text color={borderColor}>{prefix}</Text>
+      <Text color={modeColor} bold>
+        {label}
+      </Text>
+      <Text color={borderColor}>{suffix}</Text>
     </Text>
   );
 };

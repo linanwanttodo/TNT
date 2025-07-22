@@ -3,6 +3,7 @@ import React from "react";
 
 import { listSessions, loadSessionById } from "../session.js";
 import { SessionSelector } from "../ui/SessionSelector.js";
+import { t } from "../i18n/index.js";
 import { logger } from "../util/logger.js";
 
 import { chat } from "./chat.js";
@@ -57,9 +58,7 @@ export async function listSessionsCommand(
 
   // Handle empty sessions case
   if (sessions.length === 0) {
-    console.log(
-      "No previous sessions found. Start a new conversation with: cn",
-    );
+    console.log(t("session.empty"));
     return;
   }
 

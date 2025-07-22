@@ -1,6 +1,8 @@
 import { Text } from "ink";
 import React from "react";
 
+import { t } from "../../i18n/index.js";
+
 interface ContextPercentageDisplayProps {
   percentage: number;
 }
@@ -12,9 +14,9 @@ interface ContextPercentageDisplayProps {
 export const ContextPercentageDisplay: React.FC<
   ContextPercentageDisplayProps
 > = ({ percentage }) => {
-  if (percentage === 0) {
-    return null;
-  }
-
-  return <Text color="dim">Context: {percentage}%</Text>;
+  return (
+    <Text color="dim">
+      {t("status.context")}: {percentage}%
+    </Text>
+  );
 };

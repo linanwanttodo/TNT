@@ -1,4 +1,4 @@
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import React, {
   useCallback,
   useEffect,
@@ -28,10 +28,14 @@ import { ResourceDebugBar } from "./components/ResourceDebugBar.js";
 import { ScreenContent } from "./components/ScreenContent.js";
 import { StaticChatContent } from "./components/StaticChatContent.js";
 import { useNavigation } from "./context/NavigationContext.js";
+import { useLocale } from "./hooks/useLocale.js";
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import { estimateHistoryHeight } from "./utils/wrappedLineCount.js";
 import { useChat } from "./hooks/useChat.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
 import { useMessageRenderer } from "./hooks/useMessageRenderer.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
+import { t } from "../i18n/index.js";
 
 interface TUIChatProps {
   // Remote mode props
@@ -158,6 +162,8 @@ const TUIChat: React.FC<TUIChatProps> = ({
   additionalRules,
   additionalPrompts,
 }) => {
+  useLocale();
+
   // Use custom hook for services
   const { services, allServicesReady, isRemoteMode } =
     useTUIChatServices(remoteUrl);
@@ -253,6 +259,47 @@ const TUIChat: React.FC<TUIChatProps> = ({
     remoteUrl,
     onShowDiff: handleShowDiff,
     onShowStatusMessage: handleShowStatusMessage,
+  });
+
+  // Transcript scroll: how many lines the history is scrolled up from the
+  // bottom. Pinned to the bottom (0) by default.
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const scrollToBottom = useCallback(() => setScrollOffset(0), []);
+
+  // Estimate the total transcript height in rows; used to bound how far the
+  // user can scroll up before hitting the oldest content.
+  const { columns, rows } = useTerminalSize();
+  const transcriptHeight = estimateHistoryHeight(
+    (chatHistory?.length ?? 0) + (showIntroMessage && !isRemoteMode ? 1 : 0),
+    columns,
+  );
+  // Rows available to the scrollable transcript viewport (history box minus the
+  // fixed bottom section: status/action lines, composer, status bar, arrow).
+  const bottomSectionReserve = 8;
+  const visibleRows = Math.max(1, rows - bottomSectionReserve);
+  const maxScrollOffset = Math.max(0, transcriptHeight - visibleRows);
+
+  // Keyboard scrolling of the transcript. Only active on the chat screen and
+  // when no selector/screen is open, so it never fights text entry or menus.
+  useInput((_input, key) => {
+    if (navState.currentScreen !== "chat") {
+      return;
+    }
+    if (isScreenActive && Object.values(isScreenActive).some((v) => v)) {
+      return;
+    }
+    if (key.pageUp) {
+      setScrollOffset((prev) => Math.max(0, prev - visibleRows));
+    } else if (key.pageDown) {
+      setScrollOffset((prev) => Math.min(maxScrollOffset, prev + visibleRows));
+    } else if (key.downArrow && scrollOffset < maxScrollOffset) {
+      // A plain down arrow nudges toward the newest content when scrolled up.
+      setScrollOffset((prev) => Math.min(maxScrollOffset, prev + 1));
+    } else if (key.upArrow && scrollOffset > 0) {
+      setScrollOffset((prev) => Math.max(0, prev - 1));
+    } else {
+      return;
+    }
   });
 
   // Update ref after useChat returns
@@ -388,9 +435,16 @@ const TUIChat: React.FC<TUIChatProps> = ({
   }, []);
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" height={rows}>
       {/* Chat history - takes up all available space above input */}
-      <Box flexDirection="column" flexGrow={1} overflow="hidden">
+      <Box
+        flexDirection="column"
+        flexGrow={1}
+        flexShrink={1}
+        flexBasis={0}
+        minHeight={0}
+        overflow="hidden"
+      >
         {/* Debug component - comment out when not needed */}
         {/* {!isRemoteMode && (
           <ServiceDebugger
@@ -414,8 +468,29 @@ const TUIChat: React.FC<TUIChatProps> = ({
           queuedMessages={queuedMessages}
           renderMessage={renderMessage}
           refreshTrigger={staticRefreshTrigger}
+          scrollOffset={scrollOffset}
+          visibleRows={visibleRows}
+          onScrollToBottom={scrollToBottom}
         />
       </Box>
+
+      {/* Down-arrow affordance: shown when the transcript is scrolled up so the
+          user can jump back to the newest content. */}
+      {scrollOffset > 0 && (
+        <Box flexDirection="column" flexShrink={0}>
+          <Box
+            alignSelf="center"
+            borderStyle="round"
+            borderColor="blue"
+            paddingX={1}
+          >
+            <Text color="blue" bold>
+              {"↓ "}
+              {t("scroll.bottom")}
+            </Text>
+          </Box>
+        </Box>
+      )}
 
       {/* Fixed bottom section */}
       <Box flexDirection="column" flexShrink={0}>
@@ -426,7 +501,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           message=""
           showSpinner={true}
           additionalHint={
-            isBashToolRunning ? "ctrl+b to background" : undefined
+            isBashToolRunning ? t("action.background") : undefined
           }
         />
 
@@ -434,7 +509,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
         <ActionStatus
           visible={isCompacting && !!compactionStartTime}
           startTime={compactionStartTime || 0}
-          message="Compacting history"
+          message={t("action.compacting")}
           showSpinner={true}
           loadingColor="grey"
         />
@@ -483,14 +558,13 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
         {/* Bottom status bar */}
         <BottomStatusBar
-          currentMode={services?.toolPermissions?.currentMode ?? "normal"}
           remoteUrl={remoteUrl}
           isRemoteMode={isRemoteMode}
           services={services}
           navState={navState}
           navigateTo={navigateTo}
           closeCurrentScreen={closeCurrentScreen}
-          contextPercentage={contextData?.percentage}
+          contextPercentage={contextData?.percentage ?? 0}
           hasImageInClipboard={hasImageInClipboard}
           isVerboseMode={isVerboseMode}
           totalCost={getTotalSessionCost()}

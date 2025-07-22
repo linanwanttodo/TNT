@@ -87,7 +87,7 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
           {/* Render assistant message content if any */}
           {message.content && (
             <Box marginBottom={1}>
-              <Text color="white">{hideBullet ? " " : "●"}</Text>
+              <Text color="white">{hideBullet ? " " : ">"}</Text>
               <Text> </Text>
               <MarkdownRenderer
                 content={formatMessageContentForDisplay(message.content)}
@@ -164,7 +164,7 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
 
     return (
       <Box key={index} marginBottom={1}>
-        <Text color={isUser ? "blue" : "white"}>{hideBullet ? " " : "●"}</Text>
+        <Text color={isUser ? "blue" : "white"}>{hideBullet ? " " : ">"}</Text>
         <Text> </Text>
         {isUser ? (
           <Text color="dim">

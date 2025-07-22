@@ -1,4 +1,4 @@
-import { Continue, ContinueClient } from "@continuedev/sdk";
+import { Continue, ContinueClient } from "@tnt/sdk";
 import chalk from "chalk";
 
 import { env } from "./env.js";

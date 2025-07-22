@@ -223,13 +223,13 @@
   "navbar": {
     "primary": {
       "type": "github",
-      "href": "https://github.com/continuedev/continue"
+      "href": "https://github.com/linanwanttodo/TNT"
     }
   },
   "footer": {
     "socials": {
       "x": "https://twitter.com/continuedev",
-      "github": "https://github.com/continuedev/continue",
+      "github": "https://github.com/linanwanttodo/TNT",
       "linkedin": "https://linkedin.com/company/continuedev",
       "youtube": "https://www.youtube.com/@continuedev"
     }

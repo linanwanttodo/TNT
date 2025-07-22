@@ -16,10 +16,7 @@ describe("ModelCapabilityWarning", () => {
     if (frame) {
       expect(frame).toContain("Model Capability Warning");
       expect(frame).toContain("gpt-3-davinci");
-      expect(frame).toContain(
-        "is not recommended for use with cn due to limited reasoning and tool",
-      );
-      expect(frame).toContain("calling capabilities");
+      expect(frame).toContain("is not recommended for tnt");
     }
   });
 
@@ -36,14 +33,15 @@ describe("ModelCapabilityWarning", () => {
     }
   });
 
-  test("should display warning icon", () => {
+  test("should display a warning without an emoji marker", () => {
     const { lastFrame } = render(
       React.createElement(ModelCapabilityWarning, { modelName: "test-model" }),
     );
 
     const frame = lastFrame();
     if (frame) {
-      expect(frame).toContain("⚠️");
+      expect(frame).toContain("Model Capability Warning");
+      expect(frame).not.toContain("⚠️");
     }
   });
 });

@@ -1,4 +1,4 @@
-import { type AssistantConfig } from "@continuedev/sdk";
+import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
@@ -6,6 +6,8 @@ import {
   getAllSlashCommands,
   type SlashCommand,
 } from "../commands/commands.js";
+import { t } from "../i18n/index.js";
+import { useLocale } from "./hooks/useLocale.js";
 
 const MAX_DESCRIPTION_LENGTH = 80;
 
@@ -30,6 +32,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
   filter,
   selectedIndex,
 }) => {
+  const locale = useLocale();
   const [allCommands, setAllCommands] = useState<SlashCommand[]>(
     // Fallback - basic commands without assistant
     [
@@ -60,7 +63,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
     return () => {
       stale = true;
     };
-  }, [assistant?.prompts, assistant?.rules]);
+  }, [assistant?.prompts, assistant?.rules, locale]);
 
   // Filter commands based on the current filter
   const filteredCommands = allCommands
@@ -78,7 +81,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
   if (filteredCommands.length === 0) {
     return (
       <Box paddingX={1} marginX={1} marginBottom={1}>
-        <Text color="gray">No matching commands found</Text>
+        <Text color="gray">{t("commands.noMatches")}</Text>
       </Box>
     );
   }
@@ -112,7 +115,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
 
       <Box marginTop={1}>
         <Text color="gray" dimColor>
-          ↑/↓ to navigate, Enter to select, Tab to complete
+          {t("commands.navigation")}
         </Text>
       </Box>
     </Box>
