@@ -20,6 +20,7 @@ import { handleInfoSlashCommand } from "./infoScreen.js";
 import { getCurrentSession, updateSessionTitle } from "./session.js";
 import { telemetryService } from "./telemetry/telemetryService.js";
 import { buildImportSkillPrompt } from "./tools/skills.js";
+import { readTodoState } from "./tools/todo.js";
 import { SlashCommandResult } from "./ui/hooks/useChat.types.js";
 import {
   getSkillSlashCommandName,
@@ -47,7 +48,7 @@ async function handleHelp(_args: string[], _assistant: AssistantConfig) {
     `  ${chalk.cyan("Ctrl+C")}     Clear input`,
     `  ${chalk.cyan("Ctrl+D")}     Exit application`,
     `  ${chalk.cyan("Ctrl+L")}     Clear screen`,
-    `  ${chalk.cyan("Shift+Tab")}  Cycle permission modes (normal/plan/auto)`,
+    `  ${chalk.cyan("Shift+Tab")}  Cycle permission modes (agent/plan/auto)`,
     `  ${chalk.cyan("Esc")}        Cancel streaming or close suggestions`,
     "",
     chalk.white("Special Characters:"),
@@ -305,6 +306,30 @@ function handleImport(args: string[]): SlashCommandResult {
   }
 }
 
+function handleTodos(): SlashCommandResult {
+  const { todos } = readTodoState();
+
+  if (todos.length === 0) {
+    return { output: chalk.dim("No todos yet.") };
+  }
+
+  const done = todos.filter((todo) => todo.done).length;
+  const lines = todos.map((todo) => {
+    const mark = todo.done ? chalk.green("✓") : chalk.dim("○");
+    const id = chalk.cyan(`#${todo.id}`);
+    const text = todo.done ? chalk.dim(todo.text) : todo.text;
+    return `  ${mark} ${id} ${text}`;
+  });
+
+  return {
+    output: [
+      chalk.bold(`Todos (${done}/${todos.length} completed)`),
+      "",
+      ...lines,
+    ].join("\n"),
+  };
+}
+
 const commandHandlers: Record<string, CommandHandler> = {
   help: handleHelp,
   clear: () => {
@@ -337,6 +362,7 @@ const commandHandlers: Record<string, CommandHandler> = {
     return { openUpdateSelector: true };
   },
   jobs: handleJobs,
+  todos: handleTodos,
   skills: () => handleSkills(),
   "import-skill": (args) => handleImportSkill(args),
   sessions: handleSessions,

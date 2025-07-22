@@ -24,6 +24,7 @@ import { InputHistory } from "../util/inputHistory.js";
 import { t } from "../i18n/index.js";
 import { FileSearchUI } from "./FileSearchUI.js";
 import { ModeIndicator } from "./components/ModeIndicator.js";
+import { TodoIndicator } from "./components/TodoIndicator.js";
 import { useClipboardMonitor } from "./hooks/useClipboardMonitor.js";
 import { useLocale } from "./hooks/useLocale.js";
 import {
@@ -887,6 +888,8 @@ const UserInput: React.FC<UserInputProps> = ({
         mode={currentMode}
         borderColor={showBashMode ? "yellow" : isRemoteMode ? "cyan" : "gray"}
       />
+
+      <TodoIndicator />
 
       {/* Input box */}
       <Box

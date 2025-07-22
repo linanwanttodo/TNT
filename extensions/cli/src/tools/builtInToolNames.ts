@@ -17,6 +17,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "Bash",
   "Search",
   "Status",
+  "Todo",
   "Subagent",
   "Skills",
   "UploadArtifact",
