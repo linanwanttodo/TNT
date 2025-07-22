@@ -304,6 +304,16 @@ export interface Session {
   /** Optional: session-wide objective shown above the composer */
   goal?: string;
   /**
+   * Optional: session this one was delegated from.
+   *
+   * A child session keeps its parent id so the UI can offer a breadcrumb back
+   * to the conversation that spawned it, and so the root session list can
+   * hide delegated sessions instead of mixing them in with top-level chats.
+   */
+  parentSessionId?: string;
+  /** Optional: label of the delegated agent that owns this session */
+  subagentType?: string;
+  /**
    * Optional: how deep this session sits in a delegation chain.
    *
    * Persisted so that a limit enforced only in memory cannot be reset by

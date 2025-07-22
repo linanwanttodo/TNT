@@ -11,10 +11,13 @@ import {
   getCurrentSession,
   getSessionHistoryGeneration,
   hasSession,
+  listSessions,
+  listSubagentSessions,
   loadOrCreateSessionById,
   loadSession,
   replaceSessionHistoryIfGeneration,
   saveSession,
+  saveSubagentSession,
   startNewSession,
   updateSessionHistory,
   updateSessionTitle,
@@ -307,6 +310,135 @@ describe("SessionManager", () => {
       // After modification, system messages are filtered out
       expect(savedData.history).toHaveLength(1);
       expect(savedData.history[0].message.role).toBe("user");
+    });
+  });
+
+  describe("subagent sessions", () => {
+    const childHistory: ChatHistoryItem[] = [
+      {
+        message: { role: "user", content: "Inspect the parser" },
+        contextItems: [],
+      },
+    ];
+
+    function sessionFile(session: Partial<Session>) {
+      return JSON.stringify({
+        sessionId: "child",
+        title: "agent session",
+        workspaceDirectory: "/test/workspace",
+        history: [],
+        ...session,
+      });
+    }
+
+    it("persists the parent link and one deeper delegation level", () => {
+      const parent = getCurrentSession();
+      parent.delegationDepth = 2;
+
+      const child = saveSubagentSession({
+        parentSessionId: parent.sessionId,
+        subagentType: "Explore",
+        history: childHistory,
+      });
+
+      expect(child.parentSessionId).toBe(parent.sessionId);
+      expect(child.subagentType).toBe("Explore");
+      expect(child.delegationDepth).toBe(3);
+      expect(child.sessionId.startsWith(`${parent.sessionId}:`)).toBe(true);
+      expect(mockFs.writeFileSync).toHaveBeenCalledWith(
+        expect.stringContaining(`${child.sessionId}.json`),
+        expect.stringContaining('"parentSessionId"'),
+      );
+    });
+
+    it("keeps a resumed child counting from the persisted depth", () => {
+      const parent = getCurrentSession();
+      parent.delegationDepth = 1;
+      const first = saveSubagentSession({
+        parentSessionId: parent.sessionId,
+        subagentType: "Explore",
+        history: childHistory,
+      });
+
+      expect(first.delegationDepth).toBe(2);
+    });
+
+    it("returns only the children of the requested parent, newest first", () => {
+      mockFs.readdirSync.mockReturnValue([
+        "sessions.json",
+        "older.json",
+        "newer.json",
+        "other.json",
+        "broken.json",
+      ] as any);
+      mockFs.readFileSync.mockImplementation(((file: any) => {
+        const name = String(file);
+        if (name.endsWith("older.json")) {
+          return sessionFile({
+            sessionId: "parent:older",
+            parentSessionId: "parent",
+            subagentType: "Explore",
+          });
+        }
+        if (name.endsWith("newer.json")) {
+          return sessionFile({
+            sessionId: "parent:newer",
+            parentSessionId: "parent",
+            subagentType: "Plan",
+          });
+        }
+        if (name.endsWith("other.json")) {
+          return sessionFile({ sessionId: "no-parent" });
+        }
+        return "{ not json";
+      }) as any);
+      mockFs.statSync.mockImplementation(((file: any) => ({
+        birthtime: String(file).endsWith("newer.json")
+          ? new Date("2026-01-02T00:00:00Z")
+          : new Date("2026-01-01T00:00:00Z"),
+      })) as any);
+
+      const children = listSubagentSessions("parent");
+
+      expect(children.map((child) => child.sessionId)).toEqual([
+        "parent:newer",
+        "parent:older",
+      ]);
+      expect(children[0].subagentType).toBe("Plan");
+      expect(children[0].isRemote).toBe(false);
+    });
+
+    it("returns an empty list when nothing has been delegated", () => {
+      mockFs.readdirSync.mockReturnValue([] as any);
+      expect(listSubagentSessions("parent")).toEqual([]);
+    });
+
+    it("returns an empty list when the session dir is missing", () => {
+      mockFs.existsSync.mockReturnValue(false);
+      expect(listSubagentSessions("parent")).toEqual([]);
+    });
+
+    it("hides delegated sessions from the root session list", async () => {
+      mockHistoryManager.list.mockReturnValue([
+        { sessionId: "root" },
+        { sessionId: "child" },
+      ]);
+      mockFs.existsSync.mockReturnValue(true);
+      mockFs.readFileSync.mockImplementation((file: any) =>
+        String(file).endsWith("child.json")
+          ? sessionFile({
+              sessionId: "child",
+              parentSessionId: "root",
+              subagentType: "Explore",
+            })
+          : sessionFile({ sessionId: "root" }),
+      );
+      mockFs.statSync.mockReturnValue({ birthtime: new Date() } as any);
+
+      const sessions = await listSessions();
+      mockHistoryManager.list.mockReturnValue([]);
+
+      expect(sessions.map((session) => session.sessionId)).toEqual(["root"]);
     });
   });
 

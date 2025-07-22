@@ -20,6 +20,7 @@ import { handleInfoSlashCommand } from "./infoScreen.js";
 import {
   getCurrentSession,
   getSessionGoal,
+  listSubagentSessions,
   setSessionGoal,
   updateSessionTitle,
 } from "./session.js";
@@ -272,6 +273,35 @@ function handleSessions() {
   return { openSessionSelector: true };
 }
 
+function handleSubagents() {
+  const parent = getCurrentSession();
+  const children = listSubagentSessions(parent.sessionId);
+
+  if (children.length === 0) {
+    return {
+      exit: false,
+      output: chalk.dim(t("subagent.empty")),
+    };
+  }
+
+  const lines = children.map((child) => {
+    const label = child.subagentType ?? t("subagent.unlabeled");
+    const preview = child.firstUserMessage
+      ? ` - ${child.firstUserMessage.split("\n")[0]}`
+      : "";
+    return `  ${chalk.cyan(label)} ${chalk.dim(child.sessionId)}${preview}`;
+  });
+
+  return {
+    exit: false,
+    output: [
+      chalk.bold(t("subagent.title", { count: children.length })),
+      "",
+      ...lines,
+    ].join("\n"),
+  };
+}
+
 const EXPORTED_SESSION_VERSION = 1;
 
 interface ExportedSession {
@@ -432,6 +462,7 @@ const commandHandlers: Record<string, CommandHandler> = {
   skills: () => handleSkills(),
   "import-skill": (args) => handleImportSkill(args),
   sessions: handleSessions,
+  subagents: handleSubagents,
   export: handleExport,
   import: handleImport,
   language: handleLanguage,
