@@ -142,7 +142,34 @@ export async function loadMarkdownSkills(): Promise<LoadSkillsResult> {
     });
   }
 
+  const pluginSkills = await loadPluginSkills();
+  skills.push(...pluginSkills);
+
   return { skills, errors };
+}
+
+/**
+ * Skills contributed by installed plugins. Read from the plugin cache rather
+ * than the workspace so they are available in every project.
+ */
+async function loadPluginSkills(): Promise<Skill[]> {
+  try {
+    const cwd = process.cwd();
+    // Imported lazily so tests that mock the TNT home for the markdown skills
+    // scan do not pull in the plugin loader (and its logger) at module load.
+    const { loadAllPlugins } = await import("../plugins/loader.js");
+    return loadAllPlugins().skills.map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      path: getRelativePath(cwd, skill.path),
+      content: fs.readFileSync(skill.path, "utf-8"),
+      files: [],
+    }));
+  } catch {
+    // Plugin skills are best-effort: a missing or broken plugin cache must
+    // not surface errors in the user's skill scan.
+    return [];
+  }
 }
 
 export function getSkillSlashCommandName(skill: Skill): string {

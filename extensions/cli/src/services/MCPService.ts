@@ -5,6 +5,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { getErrorString } from "../util/error.js";
 import { logger } from "../util/logger.js";
 
+import { loadAllPlugins } from "../plugins/loader.js";
+
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
 import {
   constructHttpTransport,
@@ -22,6 +24,25 @@ import {
 
 interface ServerConnection extends MCPConnectionInfo {
   client: Client | null;
+}
+
+/**
+ * MCP servers declared by installed plugins. Names are namespaced with the
+ * plugin name so two plugins never collide on a server id.
+ */
+function getPluginMcpServers(): MCPServerConfig[] {
+  try {
+    return Object.entries(loadAllPlugins().mcpServers).map(
+      ([name, config]) =>
+        ({
+          name,
+          ...(config as object),
+        }) as MCPServerConfig,
+    );
+  } catch (error) {
+    logger.warn("Failed to load plugin MCP servers:", error);
+    return [];
+  }
 }
 
 export const EMPTY_MCP_STATE: MCPServiceState = {
@@ -70,7 +91,10 @@ export class MCPService
     this.assistant = assistant;
     this.connections.clear();
 
-    const connectionPromises = assistant.mcpServers?.map(async (config) => {
+    const pluginServers = getPluginMcpServers();
+    const allServers = [...(assistant.mcpServers ?? []), ...pluginServers];
+
+    const connectionPromises = allServers.map(async (config) => {
       if (config) {
         return await this.connectServer(config);
       }

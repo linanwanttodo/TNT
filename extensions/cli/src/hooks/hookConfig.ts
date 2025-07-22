@@ -18,6 +18,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
+import { loadAllPlugins } from "../plugins/loader.js";
 import { logger } from "../util/logger.js";
 
 import type {
@@ -117,6 +118,18 @@ export function loadHooksConfig(
     if (settings.hooks) {
       mergedHooks = mergeHooksConfigs(mergedHooks, settings.hooks);
     }
+  }
+
+  // Plugins contribute hooks last so settings stay authoritative for ordering
+  // of the built-in sources, while plugin hooks still all run.
+  try {
+    const plugins = loadAllPlugins();
+    if (plugins.hooks.disabled) {
+      disabled = true;
+    }
+    mergedHooks = mergeHooksConfigs(mergedHooks, plugins.hooks.config);
+  } catch (error) {
+    logger.warn("Failed to load plugin hooks:", error);
   }
 
   return { hooks: mergedHooks, disabled };

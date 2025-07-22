@@ -24,6 +24,7 @@ import {
   updateSessionTitle,
 } from "./session.js";
 import { telemetryService } from "./telemetry/telemetryService.js";
+import { loadAllPlugins } from "./plugins/loader.js";
 import { buildImportSkillPrompt } from "./tools/skills.js";
 import { readTodoState } from "./tools/todo.js";
 import { SlashCommandResult } from "./ui/hooks/useChat.types.js";
@@ -192,6 +193,35 @@ function handleGoal(args: string[]) {
   return {
     exit: false,
     output: chalk.green(`Goal set: ${goal}`),
+  };
+}
+
+function handlePlugins() {
+  const result = loadAllPlugins();
+  const installed = result.plugins;
+
+  if (installed.length === 0) {
+    return {
+      exit: false,
+      output: chalk.dim(
+        "No plugins installed. Place plugins under ~/.tnt/plugins/cache/<marketplace>/<name>/<version>/.",
+      ),
+    };
+  }
+
+  const lines = installed.map((plugin) => {
+    const note = plugin.id !== plugin.name ? ` (${plugin.id})` : "";
+    const desc = plugin.description ? ` - ${plugin.description}` : "";
+    return `  ${chalk.cyan(plugin.name)}${chalk.dim(note)}${desc}`;
+  });
+
+  return {
+    exit: false,
+    output: [
+      chalk.bold(`Installed plugins (${installed.length})`),
+      "",
+      ...lines,
+    ].join("\n"),
   };
 }
 
@@ -390,6 +420,7 @@ const commandHandlers: Record<string, CommandHandler> = {
   title: handleTitle,
   rename: handleTitle,
   goal: handleGoal,
+  plugins: handlePlugins,
   init: (args, assistant) => {
     return handleInit(args, assistant);
   },
