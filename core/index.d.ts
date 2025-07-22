@@ -301,6 +301,8 @@ export interface Session {
   chatModelTitle?: string | null;
   /** Optional: cumulative usage and cost for all LLM API calls in this session */
   usage?: SessionUsage;
+  /** Optional: session-wide objective shown above the composer */
+  goal?: string;
   /**
    * Optional: how deep this session sits in a delegation chain.
    *

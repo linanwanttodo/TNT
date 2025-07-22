@@ -608,6 +608,27 @@ export function updateSessionTitle(title: string): void {
 }
 
 /**
+ * Session-wide goal shown above the composer. It rides along with the session
+ * so a resumed conversation keeps working toward the same objective.
+ */
+export function getSessionGoal(): string | undefined {
+  const goal = SessionManager.getInstance().getCurrentSession().goal;
+  return goal?.trim() || undefined;
+}
+
+export function setSessionGoal(goal: string | undefined): void {
+  const manager = SessionManager.getInstance();
+  const session = manager.getCurrentSession();
+  const normalized = goal?.trim();
+  if (normalized) {
+    session.goal = normalized;
+  } else {
+    delete session.goal;
+  }
+  manager.updateHistory(session.history);
+}
+
+/**
  * Get the current session
  */
 export function getCurrentSession(): Session {

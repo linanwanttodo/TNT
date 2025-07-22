@@ -17,7 +17,12 @@ import {
   type Locale,
 } from "./i18n/index.js";
 import { handleInfoSlashCommand } from "./infoScreen.js";
-import { getCurrentSession, updateSessionTitle } from "./session.js";
+import {
+  getCurrentSession,
+  getSessionGoal,
+  setSessionGoal,
+  updateSessionTitle,
+} from "./session.js";
 import { telemetryService } from "./telemetry/telemetryService.js";
 import { buildImportSkillPrompt } from "./tools/skills.js";
 import { readTodoState } from "./tools/todo.js";
@@ -159,6 +164,35 @@ function handleTitle(args: string[]) {
 
 function handleJobs() {
   return { openJobsSelector: true };
+}
+
+function handleGoal(args: string[]) {
+  const goal = args.join(" ").trim();
+  if (!goal) {
+    const current = getSessionGoal();
+    return {
+      exit: false,
+      output: current
+        ? chalk.dim(`Current goal: ${current}`)
+        : chalk.yellow(
+            "No goal set. Usage: /goal <objective> or /goal clear to remove it.",
+          ),
+    };
+  }
+
+  if (goal.toLowerCase() === "clear" || goal.toLowerCase() === "none") {
+    setSessionGoal(undefined);
+    return {
+      exit: false,
+      output: chalk.dim("Goal cleared"),
+    };
+  }
+
+  setSessionGoal(goal);
+  return {
+    exit: false,
+    output: chalk.green(`Goal set: ${goal}`),
+  };
 }
 
 async function handleSkills(): Promise<SlashCommandResult> {
@@ -355,6 +389,7 @@ const commandHandlers: Record<string, CommandHandler> = {
   fork: handleFork,
   title: handleTitle,
   rename: handleTitle,
+  goal: handleGoal,
   init: (args, assistant) => {
     return handleInit(args, assistant);
   },

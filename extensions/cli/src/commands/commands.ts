@@ -85,6 +85,11 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
     category: "system",
   },
   {
+    name: "goal",
+    description: "Set the goal for the current session",
+    category: "system",
+  },
+  {
     name: "rename",
     description: "Rename the current session",
     category: "system",

@@ -23,6 +23,7 @@ import { InputHistory } from "../util/inputHistory.js";
 
 import { t } from "../i18n/index.js";
 import { FileSearchUI } from "./FileSearchUI.js";
+import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator } from "./components/ModeIndicator.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { useClipboardMonitor } from "./hooks/useClipboardMonitor.js";
@@ -888,6 +889,8 @@ const UserInput: React.FC<UserInputProps> = ({
         mode={currentMode}
         borderColor={showBashMode ? "yellow" : isRemoteMode ? "cyan" : "gray"}
       />
+
+      <GoalIndicator />
 
       <TodoIndicator />
 
