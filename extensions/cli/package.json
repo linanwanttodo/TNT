@@ -21,7 +21,7 @@
     "build:bundle": "node build.mjs",
     "build": "npm run build:validate && npm run build:bundle",
     "start": "node dist/tnt.js",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/dev.ts",
     "repomix:sdk": "npx repomix node_modules/@tnt/sdk --ignore **/api,cli-repomix.xml -o sdk-repomix.xml",
     "repomix:cli": "npx repomix --ignore sdk-repomix.xml -o cli-repomix.xml",
     "lint": "tsc --noEmit && eslint .",
