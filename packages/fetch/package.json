@@ -9,10 +9,10 @@
     "test": "vitest run",
     "build": "tsc"
   },
-  "author": "Nate Sesti and Ty Dunn",
+  "author": "linanwanttodo",
   "license": "Apache-2.0",
   "dependencies": {
-    "@tnt/config-types": "^1.0.14",
+    "@tnt/config-types": "file:../config-types",
     "follow-redirects": "^1.15.6",
     "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.5",

@@ -9,7 +9,7 @@
     "test": "echo 'No tests to run'",
     "build": "tsc"
   },
-  "author": "Nate Sesti and Ty Dunn",
+  "author": "linanwanttodo",
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/node": "^20.11.19",
