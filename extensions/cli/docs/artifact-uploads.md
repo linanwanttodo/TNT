@@ -207,10 +207,10 @@ results.forEach((result) => {
 The CLI requires these environment variables for artifact uploads:
 
 - `CONTINUE_API_KEY`: Bearer token for backend authentication
-- `CONTINUE_API_BASE`: API base URL (defaults to `https://api.continue.dev/`)
+- `CONTINUE_API_BASE`: API base URL (defaults to `https://github.com/linanwanttodo/TNT/`)
 - `AGENT_SESSION_ID`: The current agent session identifier
 
-These are automatically provided when running in Continue's devbox environment.
+These are automatically provided when running in TNT's devbox environment.
 
 ## Error Handling
 

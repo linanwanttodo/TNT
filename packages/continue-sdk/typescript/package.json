@@ -1,7 +1,7 @@
 {
-  "name": "@continuedev/sdk",
+  "name": "@tnt/sdk",
   "version": "0.0.13",
-  "description": "SDK for Continue.dev",
+  "description": "SDK for TNT",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "type": "module",
@@ -10,9 +10,11 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
-  "author": "Continue Dev, Inc.",
+  "author": "linanwanttodo",
   "license": "Apache-2.0",
   "dependencies": {
+    "@tnt/config-yaml": "file:../../config-yaml",
+    "node-fetch": "^3.3.2",
     "openai": "^4.104.0"
   },
   "devDependencies": {

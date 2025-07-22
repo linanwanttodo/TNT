@@ -9,7 +9,7 @@ This document specifies the behavior of the CLI's configuration loading system, 
 **Authentication Source Priority:**
 
 1. **Environment Variable**: `CONTINUE_API_KEY` environment variable
-2. **File-Based Auth**: `~/.continue-next/auth.json` file
+2. **File-Based Auth**: `~/.tnt/auth.json` file
 3. **No Authentication**: Unauthenticated mode
 
 **Authentication Effects:**
@@ -36,8 +36,8 @@ This document specifies the behavior of the CLI's configuration loading system, 
 
 3. **Default Resolution** (if no flag and no saved URI)
    - **Authenticated**: First user assistant from `listAssistants()`
-   - **config.yaml**: The saved config file at `~/.continue-next/config.yaml`
-   - **Unauthenticated**: Falls back to `continuedev/default-cli-config`
+   - **config.yaml**: The saved config file at `~/.tnt/config.yaml`
+   - **Unauthenticated**: Falls back to `tnt/default-cli-config`
 
 ## Authentication State Interactions
 
@@ -61,7 +61,7 @@ This document specifies the behavior of the CLI's configuration loading system, 
 **Available Options:**
 
 - Local YAML files only
-- Default assistant (`continuedev/default-cli-config`)
+- Default assistant (`tnt/default-cli-config`)
 
 **Behavior:**
 
@@ -121,7 +121,7 @@ This document specifies the behavior of the CLI's configuration loading system, 
 **No User Assistants:**
 
 - Authenticated user has no personal assistants
-- **Result**: Falls back to `continuedev/default-cli-config`
+- **Result**: Falls back to `tnt/default-cli-config`
 
 **Default Agent Unavailable:**
 

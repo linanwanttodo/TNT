@@ -2,7 +2,7 @@
 
 TNT (`tnt`) is a customizable command line coding agent.
 
-This project is a fork derived from [Continue](https://github.com/continuedev/continue), an open-source AI code agent. TNT builds on Continue's foundation with its own naming, CLI interface and behavior changes.
+This project is a fork derived from [Continue](https://github.com/linanwanttodo/TNT), an open-source AI code agent. TNT builds on TNT's foundation with its own naming, CLI interface and behavior changes.
 
 ![TNT Demo](./media/demo.gif)
 
@@ -11,19 +11,19 @@ This project is a fork derived from [Continue](https://github.com/continuedev/co
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/continuedev/continue/main/extensions/cli/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/extensions/cli/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/continuedev/continue/main/extensions/cli/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/extensions/cli/scripts/install.ps1 | iex
 ```
 
 Or install with npm if you have Node.js 20+:
 
 ```bash
-npm i -g @continuedev/cli
+npm i -g @tnt/cli
 ```
 
 ## Usage

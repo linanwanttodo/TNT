@@ -9,10 +9,10 @@ on:
         type: string
         default: ""
       agent:
-        description: "The agent to use (e.g., continuedev/github-pr-agent)"
+        description: "The agent to use (e.g., tnt/github-pr-agent)"
         required: true
         type: string
-        default: "continuedev/github-pr-agent"
+        default: "tnt/github-pr-agent"
       branch_name:
         description: "The base branch name to work from"
         required: false
@@ -43,9 +43,9 @@ jobs:
             --arg repoUrl "$REPO_URL" \
             '{prompt: $prompt, agent: $agent, branchName: $branchName, repoUrl: $repoUrl}')
 
-          response=$(curl -f -X POST https://api.continue.dev/agents \
+          response=$(curl -f -X POST https://github.com/linanwanttodo/TNT/agents \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $CONTINUE_API_KEY" \
             -d "$json_body")
           id=$(echo $response | jq -r '.id')
-          echo "https://continue.dev/hub?type=agents/$id"
+          echo "https://github.com/linanwanttodo/TNT/hub?type=agents/$id"

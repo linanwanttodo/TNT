@@ -1,641 +1,621 @@
 :root {
-  --continue-next-ui-red: var(--vscode-charts-red);
-  --continue-next-ui-orange: var(--vscode-charts-orange);
-  --continue-next-ui-yellow: var(--vscode-charts-yellow);
-  --continue-next-ui-green: var(--vscode-charts-green);
-  --continue-next-ui-cyan: var(--vscode-terminal-ansiCyan);
-  --continue-next-ui-blue: var(--vscode-terminal-ansiBlue);
-  --continue-next-ui-magenta: var(--vscode-terminal-ansiMagenta);
-  --continue-next-ui-purple: var(--vscode-charts-purple);
-  --continue-next-ui-added: var(--vscode-gitDecoration-addedResourceForeground);
-  --continue-next-ui-modified: var(
-    --vscode-gitDecoration-modifiedResourceForeground
-  );
-  --continue-next-ui-removed: var(
-    --vscode-gitDecoration-deletedResourceForeground
-  );
-  --continue-next-ui-untracked: var(
-    --vscode-gitDecoration-untrackedResourceForeground
-  );
-  --continue-next-ui-markdown-foreground: var(--vscode-editor-foreground);
-  --continue-next-ui-text-primary: var(--vscode-editor-foreground);
-  --continue-next-ui-text-secondary: color-mix(
+  --tnt-ui-red: var(--vscode-charts-red);
+  --tnt-ui-orange: var(--vscode-charts-orange);
+  --tnt-ui-yellow: var(--vscode-charts-yellow);
+  --tnt-ui-green: var(--vscode-charts-green);
+  --tnt-ui-cyan: var(--vscode-terminal-ansiCyan);
+  --tnt-ui-blue: var(--vscode-terminal-ansiBlue);
+  --tnt-ui-magenta: var(--vscode-terminal-ansiMagenta);
+  --tnt-ui-purple: var(--vscode-charts-purple);
+  --tnt-ui-added: var(--vscode-gitDecoration-addedResourceForeground);
+  --tnt-ui-modified: var(--vscode-gitDecoration-modifiedResourceForeground);
+  --tnt-ui-removed: var(--vscode-gitDecoration-deletedResourceForeground);
+  --tnt-ui-untracked: var(--vscode-gitDecoration-untrackedResourceForeground);
+  --tnt-ui-markdown-foreground: var(--vscode-editor-foreground);
+  --tnt-ui-text-primary: var(--vscode-editor-foreground);
+  --tnt-ui-text-secondary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 74%,
     transparent
   );
-  --continue-next-ui-text-tertiary: color-mix(
+  --tnt-ui-text-tertiary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 60%,
     transparent
   );
-  --continue-next-ui-text-quaternary: color-mix(
+  --tnt-ui-text-quaternary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 36%,
     transparent
   );
-  --continue-next-ui-text-active: var(--vscode-list-activeSelectionForeground);
-  --continue-next-ui-text-focused: var(--vscode-list-focusForeground);
-  --continue-next-ui-text-red-primary: var(--continue-next-ui-red);
-  --continue-next-ui-text-red-secondary: color-mix(
+  --tnt-ui-text-active: var(--vscode-list-activeSelectionForeground);
+  --tnt-ui-text-focused: var(--vscode-list-focusForeground);
+  --tnt-ui-text-red-primary: var(--tnt-ui-red);
+  --tnt-ui-text-red-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-red) 78%,
+    var(--tnt-ui-red) 78%,
     transparent
   );
-  --continue-next-ui-text-orange-primary: var(--continue-next-ui-orange);
-  --continue-next-ui-text-orange-secondary: color-mix(
+  --tnt-ui-text-orange-primary: var(--tnt-ui-orange);
+  --tnt-ui-text-orange-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-orange) 78%,
+    var(--tnt-ui-orange) 78%,
     transparent
   );
-  --continue-next-ui-text-yellow-primary: var(--continue-next-ui-yellow);
-  --continue-next-ui-text-yellow-secondary: color-mix(
+  --tnt-ui-text-yellow-primary: var(--tnt-ui-yellow);
+  --tnt-ui-text-yellow-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-yellow) 78%,
+    var(--tnt-ui-yellow) 78%,
     transparent
   );
-  --continue-next-ui-text-green-primary: var(--continue-next-ui-green);
-  --continue-next-ui-text-green-secondary: color-mix(
+  --tnt-ui-text-green-primary: var(--tnt-ui-green);
+  --tnt-ui-text-green-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-green) 78%,
+    var(--tnt-ui-green) 78%,
     transparent
   );
-  --continue-next-ui-text-cyan-primary: var(--continue-next-ui-cyan);
-  --continue-next-ui-text-cyan-secondary: color-mix(
+  --tnt-ui-text-cyan-primary: var(--tnt-ui-cyan);
+  --tnt-ui-text-cyan-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-cyan) 78%,
+    var(--tnt-ui-cyan) 78%,
     transparent
   );
-  --continue-next-ui-text-blue-primary: var(--continue-next-ui-blue);
-  --continue-next-ui-text-blue-secondary: color-mix(
+  --tnt-ui-text-blue-primary: var(--tnt-ui-blue);
+  --tnt-ui-text-blue-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-blue) 78%,
+    var(--tnt-ui-blue) 78%,
     transparent
   );
-  --continue-next-ui-text-magenta-primary: var(--continue-next-ui-magenta);
-  --continue-next-ui-text-magenta-secondary: color-mix(
+  --tnt-ui-text-magenta-primary: var(--tnt-ui-magenta);
+  --tnt-ui-text-magenta-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-magenta) 78%,
+    var(--tnt-ui-magenta) 78%,
     transparent
   );
-  --continue-next-ui-text-purple-primary: var(--continue-next-ui-purple);
-  --continue-next-ui-text-purple-secondary: color-mix(
+  --tnt-ui-text-purple-primary: var(--tnt-ui-purple);
+  --tnt-ui-text-purple-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-purple) 78%,
+    var(--tnt-ui-purple) 78%,
     transparent
   );
-  --continue-next-ui-text-git-added-primary: var(--continue-next-ui-added);
-  --continue-next-ui-text-git-added-secondary: color-mix(
+  --tnt-ui-text-git-added-primary: var(--tnt-ui-added);
+  --tnt-ui-text-git-added-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 78%,
+    var(--tnt-ui-added) 78%,
     transparent
   );
-  --continue-next-ui-text-git-added-tertiary: color-mix(
+  --tnt-ui-text-git-added-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 64%,
+    var(--tnt-ui-added) 64%,
     transparent
   );
-  --continue-next-ui-text-git-added-quaternary: color-mix(
+  --tnt-ui-text-git-added-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 40%,
+    var(--tnt-ui-added) 40%,
     transparent
   );
-  --continue-next-ui-text-git-modified-primary: var(
-    --continue-next-ui-modified
-  );
-  --continue-next-ui-text-git-modified-secondary: color-mix(
+  --tnt-ui-text-git-modified-primary: var(--tnt-ui-modified);
+  --tnt-ui-text-git-modified-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 78%,
+    var(--tnt-ui-modified) 78%,
     transparent
   );
-  --continue-next-ui-text-git-modified-tertiary: color-mix(
+  --tnt-ui-text-git-modified-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 64%,
+    var(--tnt-ui-modified) 64%,
     transparent
   );
-  --continue-next-ui-text-git-modified-quaternary: color-mix(
+  --tnt-ui-text-git-modified-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 40%,
+    var(--tnt-ui-modified) 40%,
     transparent
   );
-  --continue-next-ui-text-git-removed-primary: var(--continue-next-ui-removed);
-  --continue-next-ui-text-git-removed-secondary: color-mix(
+  --tnt-ui-text-git-removed-primary: var(--tnt-ui-removed);
+  --tnt-ui-text-git-removed-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 78%,
+    var(--tnt-ui-removed) 78%,
     transparent
   );
-  --continue-next-ui-text-git-removed-tertiary: color-mix(
+  --tnt-ui-text-git-removed-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 64%,
+    var(--tnt-ui-removed) 64%,
     transparent
   );
-  --continue-next-ui-text-git-removed-quaternary: color-mix(
+  --tnt-ui-text-git-removed-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 40%,
+    var(--tnt-ui-removed) 40%,
     transparent
   );
-  --continue-next-ui-text-git-untracked-primary: var(
-    --continue-next-ui-untracked
-  );
-  --continue-next-ui-text-git-untracked-secondary: color-mix(
+  --tnt-ui-text-git-untracked-primary: var(--tnt-ui-untracked);
+  --tnt-ui-text-git-untracked-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 78%,
+    var(--tnt-ui-untracked) 78%,
     transparent
   );
-  --continue-next-ui-text-git-untracked-tertiary: color-mix(
+  --tnt-ui-text-git-untracked-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 64%,
+    var(--tnt-ui-untracked) 64%,
     transparent
   );
-  --continue-next-ui-text-git-untracked-quaternary: color-mix(
+  --tnt-ui-text-git-untracked-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 40%,
+    var(--tnt-ui-untracked) 40%,
     transparent
   );
-  --continue-next-ui-icon-primary: var(--vscode-editor-foreground);
-  --continue-next-ui-icon-secondary: color-mix(
+  --tnt-ui-icon-primary: var(--vscode-editor-foreground);
+  --tnt-ui-icon-secondary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 66%,
     transparent
   );
-  --continue-next-ui-icon-tertiary: color-mix(
+  --tnt-ui-icon-tertiary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 52%,
     transparent
   );
-  --continue-next-ui-icon-quaternary: color-mix(
+  --tnt-ui-icon-quaternary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 28%,
     transparent
   );
-  --continue-next-ui-icon-red-primary: var(--continue-next-ui-red);
-  --continue-next-ui-icon-red-secondary: color-mix(
+  --tnt-ui-icon-red-primary: var(--tnt-ui-red);
+  --tnt-ui-icon-red-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-red) 70%,
+    var(--tnt-ui-red) 70%,
     transparent
   );
-  --continue-next-ui-icon-orange-primary: var(--continue-next-ui-orange);
-  --continue-next-ui-icon-orange-secondary: color-mix(
+  --tnt-ui-icon-orange-primary: var(--tnt-ui-orange);
+  --tnt-ui-icon-orange-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-orange) 70%,
+    var(--tnt-ui-orange) 70%,
     transparent
   );
-  --continue-next-ui-icon-yellow-primary: var(--continue-next-ui-yellow);
-  --continue-next-ui-icon-yellow-secondary: color-mix(
+  --tnt-ui-icon-yellow-primary: var(--tnt-ui-yellow);
+  --tnt-ui-icon-yellow-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-yellow) 70%,
+    var(--tnt-ui-yellow) 70%,
     transparent
   );
-  --continue-next-ui-icon-green-primary: var(--continue-next-ui-green);
-  --continue-next-ui-icon-green-secondary: color-mix(
+  --tnt-ui-icon-green-primary: var(--tnt-ui-green);
+  --tnt-ui-icon-green-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-green) 70%,
+    var(--tnt-ui-green) 70%,
     transparent
   );
-  --continue-next-ui-icon-cyan-primary: var(--continue-next-ui-cyan);
-  --continue-next-ui-icon-cyan-secondary: color-mix(
+  --tnt-ui-icon-cyan-primary: var(--tnt-ui-cyan);
+  --tnt-ui-icon-cyan-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-cyan) 70%,
+    var(--tnt-ui-cyan) 70%,
     transparent
   );
-  --continue-next-ui-icon-blue-primary: var(--continue-next-ui-blue);
-  --continue-next-ui-icon-blue-secondary: color-mix(
+  --tnt-ui-icon-blue-primary: var(--tnt-ui-blue);
+  --tnt-ui-icon-blue-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-blue) 70%,
+    var(--tnt-ui-blue) 70%,
     transparent
   );
-  --continue-next-ui-icon-magenta-primary: var(--continue-next-ui-magenta);
-  --continue-next-ui-icon-magenta-secondary: color-mix(
+  --tnt-ui-icon-magenta-primary: var(--tnt-ui-magenta);
+  --tnt-ui-icon-magenta-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-magenta) 70%,
+    var(--tnt-ui-magenta) 70%,
     transparent
   );
-  --continue-next-ui-icon-purple-primary: var(--continue-next-ui-purple);
-  --continue-next-ui-icon-purple-secondary: color-mix(
+  --tnt-ui-icon-purple-primary: var(--tnt-ui-purple);
+  --tnt-ui-icon-purple-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-purple) 70%,
+    var(--tnt-ui-purple) 70%,
     transparent
   );
-  --continue-next-ui-icon-accent-primary: var(--vscode-button-background);
-  --continue-next-ui-icon-accent-secondary: color-mix(
+  --tnt-ui-icon-accent-primary: var(--vscode-button-background);
+  --tnt-ui-icon-accent-secondary: color-mix(
     in srgb,
     var(--vscode-button-background) 70%,
     transparent
   );
-  --continue-next-ui-icon-git-added-primary: var(--continue-next-ui-added);
-  --continue-next-ui-icon-git-added-secondary: color-mix(
+  --tnt-ui-icon-git-added-primary: var(--tnt-ui-added);
+  --tnt-ui-icon-git-added-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 70%,
+    var(--tnt-ui-added) 70%,
     transparent
   );
-  --continue-next-ui-icon-git-added-tertiary: color-mix(
+  --tnt-ui-icon-git-added-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 56%,
+    var(--tnt-ui-added) 56%,
     transparent
   );
-  --continue-next-ui-icon-git-added-quaternary: color-mix(
+  --tnt-ui-icon-git-added-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 32%,
+    var(--tnt-ui-added) 32%,
     transparent
   );
-  --continue-next-ui-icon-git-modified-primary: var(
-    --continue-next-ui-modified
-  );
-  --continue-next-ui-icon-git-modified-secondary: color-mix(
+  --tnt-ui-icon-git-modified-primary: var(--tnt-ui-modified);
+  --tnt-ui-icon-git-modified-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 70%,
+    var(--tnt-ui-modified) 70%,
     transparent
   );
-  --continue-next-ui-icon-git-modified-tertiary: color-mix(
+  --tnt-ui-icon-git-modified-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 56%,
+    var(--tnt-ui-modified) 56%,
     transparent
   );
-  --continue-next-ui-icon-git-modified-quaternary: color-mix(
+  --tnt-ui-icon-git-modified-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 32%,
+    var(--tnt-ui-modified) 32%,
     transparent
   );
-  --continue-next-ui-icon-git-removed-primary: var(--continue-next-ui-removed);
-  --continue-next-ui-icon-git-removed-secondary: color-mix(
+  --tnt-ui-icon-git-removed-primary: var(--tnt-ui-removed);
+  --tnt-ui-icon-git-removed-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 70%,
+    var(--tnt-ui-removed) 70%,
     transparent
   );
-  --continue-next-ui-icon-git-removed-tertiary: color-mix(
+  --tnt-ui-icon-git-removed-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 56%,
+    var(--tnt-ui-removed) 56%,
     transparent
   );
-  --continue-next-ui-icon-git-removed-quaternary: color-mix(
+  --tnt-ui-icon-git-removed-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 32%,
+    var(--tnt-ui-removed) 32%,
     transparent
   );
-  --continue-next-ui-icon-git-untracked-primary: var(
-    --continue-next-ui-untracked
-  );
-  --continue-next-ui-icon-git-untracked-secondary: color-mix(
+  --tnt-ui-icon-git-untracked-primary: var(--tnt-ui-untracked);
+  --tnt-ui-icon-git-untracked-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 70%,
+    var(--tnt-ui-untracked) 70%,
     transparent
   );
-  --continue-next-ui-icon-git-untracked-tertiary: color-mix(
+  --tnt-ui-icon-git-untracked-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 56%,
+    var(--tnt-ui-untracked) 56%,
     transparent
   );
-  --continue-next-ui-icon-git-untracked-quaternary: color-mix(
+  --tnt-ui-icon-git-untracked-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 32%,
+    var(--tnt-ui-untracked) 32%,
     transparent
   );
-  --continue-next-ui-bg-primary: color-mix(
+  --tnt-ui-bg-primary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 20%,
     transparent
   );
-  --continue-next-ui-bg-secondary: color-mix(
+  --tnt-ui-bg-secondary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 14%,
     transparent
   );
-  --continue-next-ui-bg-tertiary: color-mix(
+  --tnt-ui-bg-tertiary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 8%,
     transparent
   );
-  --continue-next-ui-bg-quaternary: color-mix(
+  --tnt-ui-bg-quaternary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 6%,
     transparent
   );
-  --continue-next-ui-bg-quinary: color-mix(
+  --tnt-ui-bg-quinary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 4%,
     transparent
   );
-  --continue-next-ui-bg-elevated: var(
+  --tnt-ui-bg-elevated: var(
     --vscode-dropdown-background,
     var(--vscode-quickInput-background)
   );
-  --continue-next-ui-bg-active: var(--vscode-list-activeSelectionBackground);
-  --continue-next-ui-bg-focused: var(--vscode-list-focusBackground);
-  --continue-next-ui-bg-red-primary: var(--continue-next-ui-red);
-  --continue-next-ui-bg-red-secondary: color-mix(
+  --tnt-ui-bg-active: var(--vscode-list-activeSelectionBackground);
+  --tnt-ui-bg-focused: var(--vscode-list-focusBackground);
+  --tnt-ui-bg-red-primary: var(--tnt-ui-red);
+  --tnt-ui-bg-red-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-red) 24%,
+    var(--tnt-ui-red) 24%,
     transparent
   );
-  --continue-next-ui-bg-orange-primary: var(--continue-next-ui-orange);
-  --continue-next-ui-bg-orange-secondary: color-mix(
+  --tnt-ui-bg-orange-primary: var(--tnt-ui-orange);
+  --tnt-ui-bg-orange-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-orange) 24%,
+    var(--tnt-ui-orange) 24%,
     transparent
   );
-  --continue-next-ui-bg-yellow-primary: var(--continue-next-ui-yellow);
-  --continue-next-ui-bg-yellow-secondary: color-mix(
+  --tnt-ui-bg-yellow-primary: var(--tnt-ui-yellow);
+  --tnt-ui-bg-yellow-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-yellow) 24%,
+    var(--tnt-ui-yellow) 24%,
     transparent
   );
-  --continue-next-ui-bg-green-primary: var(--continue-next-ui-green);
-  --continue-next-ui-bg-green-secondary: color-mix(
+  --tnt-ui-bg-green-primary: var(--tnt-ui-green);
+  --tnt-ui-bg-green-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-green) 24%,
+    var(--tnt-ui-green) 24%,
     transparent
   );
-  --continue-next-ui-bg-cyan-primary: var(--continue-next-ui-cyan);
-  --continue-next-ui-bg-cyan-secondary: color-mix(
+  --tnt-ui-bg-cyan-primary: var(--tnt-ui-cyan);
+  --tnt-ui-bg-cyan-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-cyan) 24%,
+    var(--tnt-ui-cyan) 24%,
     transparent
   );
-  --continue-next-ui-bg-blue-primary: var(--continue-next-ui-blue);
-  --continue-next-ui-bg-blue-secondary: color-mix(
+  --tnt-ui-bg-blue-primary: var(--tnt-ui-blue);
+  --tnt-ui-bg-blue-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-blue) 24%,
+    var(--tnt-ui-blue) 24%,
     transparent
   );
-  --continue-next-ui-bg-magenta-primary: var(--continue-next-ui-magenta);
-  --continue-next-ui-bg-magenta-secondary: color-mix(
+  --tnt-ui-bg-magenta-primary: var(--tnt-ui-magenta);
+  --tnt-ui-bg-magenta-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-magenta) 24%,
+    var(--tnt-ui-magenta) 24%,
     transparent
   );
-  --continue-next-ui-bg-purple-primary: var(--continue-next-ui-purple);
-  --continue-next-ui-bg-purple-secondary: color-mix(
+  --tnt-ui-bg-purple-primary: var(--tnt-ui-purple);
+  --tnt-ui-bg-purple-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-purple) 12%,
+    var(--tnt-ui-purple) 12%,
     transparent
   );
-  --continue-next-ui-bg-git-added-primary: var(--continue-next-ui-added);
-  --continue-next-ui-bg-git-added-hover: color-mix(
+  --tnt-ui-bg-git-added-primary: var(--tnt-ui-added);
+  --tnt-ui-bg-git-added-hover: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 10%,
-    var(--continue-next-ui-added)
+    var(--tnt-ui-added)
   );
-  --continue-next-ui-bg-git-added-secondary: color-mix(
+  --tnt-ui-bg-git-added-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 24%,
+    var(--tnt-ui-added) 24%,
     transparent
   );
-  --continue-next-ui-bg-git-added-tertiary: color-mix(
+  --tnt-ui-bg-git-added-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 12%,
+    var(--tnt-ui-added) 12%,
     transparent
   );
-  --continue-next-ui-bg-git-added-quaternary: color-mix(
+  --tnt-ui-bg-git-added-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 8%,
+    var(--tnt-ui-added) 8%,
     transparent
   );
-  --continue-next-ui-bg-git-modified-primary: var(--continue-next-ui-modified);
-  --continue-next-ui-bg-git-modified-hover: color-mix(
+  --tnt-ui-bg-git-modified-primary: var(--tnt-ui-modified);
+  --tnt-ui-bg-git-modified-hover: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 10%,
-    var(--continue-next-ui-modified)
+    var(--tnt-ui-modified)
   );
-  --continue-next-ui-bg-git-modified-secondary: color-mix(
+  --tnt-ui-bg-git-modified-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 24%,
+    var(--tnt-ui-modified) 24%,
     transparent
   );
-  --continue-next-ui-bg-git-modified-tertiary: color-mix(
+  --tnt-ui-bg-git-modified-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 12%,
+    var(--tnt-ui-modified) 12%,
     transparent
   );
-  --continue-next-ui-bg-git-modified-quaternary: color-mix(
+  --tnt-ui-bg-git-modified-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 8%,
+    var(--tnt-ui-modified) 8%,
     transparent
   );
-  --continue-next-ui-bg-git-removed-primary: var(--continue-next-ui-removed);
-  --continue-next-ui-bg-git-removed-hover: color-mix(
+  --tnt-ui-bg-git-removed-primary: var(--tnt-ui-removed);
+  --tnt-ui-bg-git-removed-hover: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 10%,
-    var(--continue-next-ui-removed)
+    var(--tnt-ui-removed)
   );
-  --continue-next-ui-bg-git-removed-secondary: color-mix(
+  --tnt-ui-bg-git-removed-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 24%,
+    var(--tnt-ui-removed) 24%,
     transparent
   );
-  --continue-next-ui-bg-git-removed-tertiary: color-mix(
+  --tnt-ui-bg-git-removed-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 12%,
+    var(--tnt-ui-removed) 12%,
     transparent
   );
-  --continue-next-ui-bg-git-removed-quaternary: color-mix(
+  --tnt-ui-bg-git-removed-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 8%,
+    var(--tnt-ui-removed) 8%,
     transparent
   );
-  --continue-next-ui-bg-git-untracked-primary: var(
-    --continue-next-ui-untracked
-  );
-  --continue-next-ui-bg-git-untracked-hover: color-mix(
+  --tnt-ui-bg-git-untracked-primary: var(--tnt-ui-untracked);
+  --tnt-ui-bg-git-untracked-hover: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 10%,
-    var(--continue-next-ui-untracked)
+    var(--tnt-ui-untracked)
   );
-  --continue-next-ui-bg-git-untracked-secondary: color-mix(
+  --tnt-ui-bg-git-untracked-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 24%,
+    var(--tnt-ui-untracked) 24%,
     transparent
   );
-  --continue-next-ui-bg-git-untracked-tertiary: color-mix(
+  --tnt-ui-bg-git-untracked-tertiary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 12%,
+    var(--tnt-ui-untracked) 12%,
     transparent
   );
-  --continue-next-ui-bg-git-untracked-quaternary: color-mix(
+  --tnt-ui-bg-git-untracked-quaternary: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 8%,
+    var(--tnt-ui-untracked) 8%,
     transparent
   );
-  --continue-next-ui-stroke-primary: color-mix(
+  --tnt-ui-stroke-primary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 20%,
     transparent
   );
-  --continue-next-ui-stroke-secondary: color-mix(
+  --tnt-ui-stroke-secondary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 12%,
     transparent
   );
-  --continue-next-ui-stroke-tertiary: color-mix(
+  --tnt-ui-stroke-tertiary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 8%,
     transparent
   );
-  --continue-next-ui-stroke-quaternary: color-mix(
+  --tnt-ui-stroke-quaternary: color-mix(
     in srgb,
     var(--vscode-editor-foreground) 4%,
     transparent
   );
-  --continue-next-ui-stroke-focused: var(--vscode-focusBorder);
-  --continue-next-ui-stroke-red-primary: color-mix(
+  --tnt-ui-stroke-focused: var(--vscode-focusBorder);
+  --tnt-ui-stroke-red-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-red) 56%,
+    var(--tnt-ui-red) 56%,
     transparent
   );
-  --continue-next-ui-stroke-red-secondary: color-mix(
+  --tnt-ui-stroke-red-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-red) 42%,
+    var(--tnt-ui-red) 42%,
     transparent
   );
-  --continue-next-ui-stroke-orange-primary: color-mix(
+  --tnt-ui-stroke-orange-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-orange) 56%,
+    var(--tnt-ui-orange) 56%,
     transparent
   );
-  --continue-next-ui-stroke-orange-secondary: color-mix(
+  --tnt-ui-stroke-orange-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-orange) 42%,
+    var(--tnt-ui-orange) 42%,
     transparent
   );
-  --continue-next-ui-stroke-yellow-primary: color-mix(
+  --tnt-ui-stroke-yellow-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-yellow) 56%,
+    var(--tnt-ui-yellow) 56%,
     transparent
   );
-  --continue-next-ui-stroke-yellow-secondary: color-mix(
+  --tnt-ui-stroke-yellow-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-yellow) 42%,
+    var(--tnt-ui-yellow) 42%,
     transparent
   );
-  --continue-next-ui-stroke-green-primary: color-mix(
+  --tnt-ui-stroke-green-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-green) 56%,
+    var(--tnt-ui-green) 56%,
     transparent
   );
-  --continue-next-ui-stroke-green-secondary: color-mix(
+  --tnt-ui-stroke-green-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-green) 42%,
+    var(--tnt-ui-green) 42%,
     transparent
   );
-  --continue-next-ui-stroke-cyan-primary: color-mix(
+  --tnt-ui-stroke-cyan-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-cyan) 56%,
+    var(--tnt-ui-cyan) 56%,
     transparent
   );
-  --continue-next-ui-stroke-cyan-secondary: color-mix(
+  --tnt-ui-stroke-cyan-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-cyan) 42%,
+    var(--tnt-ui-cyan) 42%,
     transparent
   );
-  --continue-next-ui-stroke-blue-primary: color-mix(
+  --tnt-ui-stroke-blue-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-blue) 56%,
+    var(--tnt-ui-blue) 56%,
     transparent
   );
-  --continue-next-ui-stroke-blue-secondary: color-mix(
+  --tnt-ui-stroke-blue-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-blue) 42%,
+    var(--tnt-ui-blue) 42%,
     transparent
   );
-  --continue-next-ui-stroke-magenta-primary: color-mix(
+  --tnt-ui-stroke-magenta-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-magenta) 56%,
+    var(--tnt-ui-magenta) 56%,
     transparent
   );
-  --continue-next-ui-stroke-magenta-secondary: color-mix(
+  --tnt-ui-stroke-magenta-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-magenta) 42%,
+    var(--tnt-ui-magenta) 42%,
     transparent
   );
-  --continue-next-ui-stroke-purple-primary: color-mix(
+  --tnt-ui-stroke-purple-primary: color-mix(
     in srgb,
-    var(--continue-next-ui-purple) 56%,
+    var(--tnt-ui-purple) 56%,
     transparent
   );
-  --continue-next-ui-stroke-purple-secondary: color-mix(
+  --tnt-ui-stroke-purple-secondary: color-mix(
     in srgb,
-    var(--continue-next-ui-purple) 42%,
+    var(--tnt-ui-purple) 42%,
     transparent
   );
-  --continue-next-ui-stroke-git-added: color-mix(
+  --tnt-ui-stroke-git-added: color-mix(
     in srgb,
-    var(--continue-next-ui-added) 56%,
+    var(--tnt-ui-added) 56%,
     transparent
   );
-  --continue-next-ui-stroke-git-modified: color-mix(
+  --tnt-ui-stroke-git-modified: color-mix(
     in srgb,
-    var(--continue-next-ui-modified) 56%,
+    var(--tnt-ui-modified) 56%,
     transparent
   );
-  --continue-next-ui-stroke-git-removed: color-mix(
+  --tnt-ui-stroke-git-removed: color-mix(
     in srgb,
-    var(--continue-next-ui-removed) 56%,
+    var(--tnt-ui-removed) 56%,
     transparent
   );
-  --continue-next-ui-stroke-git-untracked: color-mix(
+  --tnt-ui-stroke-git-untracked: color-mix(
     in srgb,
-    var(--continue-next-ui-untracked) 56%,
+    var(--tnt-ui-untracked) 56%,
     transparent
   );
-  --continue-next-ui-shadow-primary: var(--vscode-widget-shadow);
-  --continue-next-ui-shadow-secondary: color-mix(
+  --tnt-ui-shadow-primary: var(--vscode-widget-shadow);
+  --tnt-ui-shadow-secondary: color-mix(
     in srgb,
     var(--vscode-widget-shadow) 60%,
     transparent
   );
-  --continue-next-ui-shadow-tertiary: color-mix(
+  --tnt-ui-shadow-tertiary: color-mix(
     in srgb,
     var(--vscode-widget-shadow) 30%,
     transparent
   );
-  --continue-next-ui-box-shadow-sm:
-    0 0 0 1px
-      var(--vscode-widget-border, var(--continue-next-ui-stroke-tertiary)),
-    0 2px 8px 0 var(--continue-next-ui-shadow-secondary);
-  --continue-next-ui-box-shadow-base:
-    0 0 0 1px
-      var(--vscode-widget-border, var(--continue-next-ui-stroke-tertiary)),
-    0 0 4px 0 var(--continue-next-ui-shadow-secondary),
-    0 8px 24px -2px var(--continue-next-ui-shadow-secondary);
-  --continue-next-ui-box-shadow-lg:
-    0 0 0 1px
-      var(--vscode-widget-border, var(--continue-next-ui-stroke-tertiary)),
-    0 0 4px 0 var(--continue-next-ui-shadow-secondary),
-    0 16px 24px 0 var(--continue-next-ui-shadow-secondary);
-  --continue-next-ui-box-shadow-xl:
-    0 0 0 1px
-      var(--vscode-widget-border, var(--continue-next-ui-stroke-tertiary)),
-    0 0 4px 0 var(--continue-next-ui-shadow-secondary),
-    0 12px 24px 0 var(--continue-next-ui-shadow-secondary),
-    0 24px 36px 0 var(--continue-next-ui-shadow-secondary);
-  --continue-next-ui-shadow-workbench: 0 0 8px 2px
+  --tnt-ui-box-shadow-sm:
+    0 0 0 1px var(--vscode-widget-border, var(--tnt-ui-stroke-tertiary)),
+    0 2px 8px 0 var(--tnt-ui-shadow-secondary);
+  --tnt-ui-box-shadow-base:
+    0 0 0 1px var(--vscode-widget-border, var(--tnt-ui-stroke-tertiary)),
+    0 0 4px 0 var(--tnt-ui-shadow-secondary),
+    0 8px 24px -2px var(--tnt-ui-shadow-secondary);
+  --tnt-ui-box-shadow-lg:
+    0 0 0 1px var(--vscode-widget-border, var(--tnt-ui-stroke-tertiary)),
+    0 0 4px 0 var(--tnt-ui-shadow-secondary),
+    0 16px 24px 0 var(--tnt-ui-shadow-secondary);
+  --tnt-ui-box-shadow-xl:
+    0 0 0 1px var(--vscode-widget-border, var(--tnt-ui-stroke-tertiary)),
+    0 0 4px 0 var(--tnt-ui-shadow-secondary),
+    0 12px 24px 0 var(--tnt-ui-shadow-secondary),
+    0 24px 36px 0 var(--tnt-ui-shadow-secondary);
+  --tnt-ui-shadow-workbench: 0 0 8px 2px
     color-mix(in srgb, var(--vscode-widget-shadow) 40%, transparent);
-  --continue-next-ui-spacing-0-25: 1px;
-  --continue-next-ui-spacing-0-5: 2px;
-  --continue-next-ui-spacing-0-75: 3px;
-  --continue-next-ui-spacing-1: 4px;
-  --continue-next-ui-spacing-1-25: 5px;
-  --continue-next-ui-spacing-1-5: 6px;
-  --continue-next-ui-spacing-2: 8px;
-  --continue-next-ui-spacing-2-5: 10px;
-  --continue-next-ui-spacing-3: 12px;
-  --continue-next-ui-spacing-4: 16px;
-  --continue-next-ui-spacing-5: 20px;
-  --continue-next-ui-spacing-6: 24px;
-  --continue-next-ui-spacing-8: 32px;
-  --continue-next-ui-spacing-10: 40px;
-  --continue-next-ui-spacing-12: 48px;
-  --continue-next-ui-spacing-ne-1-5: -6px;
-  --continue-next-ui-radius-xs: 2px;
-  --continue-next-ui-radius-sm: 4px;
-  --continue-next-ui-radius-base: 6px;
-  --continue-next-ui-radius-lg: 8px;
-  --continue-next-ui-radius-full: 9999px;
-  --continue-next-ui-font-size-xs: 11px;
-  --continue-next-ui-font-size-sm: 12px;
-  --continue-next-ui-font-size-base: 13px;
-  --continue-next-ui-font-size-lg: 14px;
-  --continue-next-ui-line-height-xs: 14px;
-  --continue-next-ui-line-height-sm: 16px;
-  --continue-next-ui-line-height-base: 18px;
-  --continue-next-ui-line-height-lg: 22px;
+  --tnt-ui-spacing-0-25: 1px;
+  --tnt-ui-spacing-0-5: 2px;
+  --tnt-ui-spacing-0-75: 3px;
+  --tnt-ui-spacing-1: 4px;
+  --tnt-ui-spacing-1-25: 5px;
+  --tnt-ui-spacing-1-5: 6px;
+  --tnt-ui-spacing-2: 8px;
+  --tnt-ui-spacing-2-5: 10px;
+  --tnt-ui-spacing-3: 12px;
+  --tnt-ui-spacing-4: 16px;
+  --tnt-ui-spacing-5: 20px;
+  --tnt-ui-spacing-6: 24px;
+  --tnt-ui-spacing-8: 32px;
+  --tnt-ui-spacing-10: 40px;
+  --tnt-ui-spacing-12: 48px;
+  --tnt-ui-spacing-ne-1-5: -6px;
+  --tnt-ui-radius-xs: 2px;
+  --tnt-ui-radius-sm: 4px;
+  --tnt-ui-radius-base: 6px;
+  --tnt-ui-radius-lg: 8px;
+  --tnt-ui-radius-full: 9999px;
+  --tnt-ui-font-size-xs: 11px;
+  --tnt-ui-font-size-sm: 12px;
+  --tnt-ui-font-size-base: 13px;
+  --tnt-ui-font-size-lg: 14px;
+  --tnt-ui-line-height-xs: 14px;
+  --tnt-ui-line-height-sm: 16px;
+  --tnt-ui-line-height-base: 18px;
+  --tnt-ui-line-height-lg: 22px;
 }

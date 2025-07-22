@@ -1,7 +1,4 @@
-import {
-  AssistantUnrolled,
-  ContinueProperties,
-} from "@tnt/config-yaml";
+import { AssistantUnrolled } from "@tnt/config-yaml";
 import fetch, { Response } from "node-fetch";
 import OpenAI from "openai";
 
@@ -20,47 +17,43 @@ interface OpenAIClientOptions extends Record<string, any> {
   organizationId?: string | null;
 
   /**
-   * Whether to always use the Continue-managed proxy for model requests
+   * Whether to always route model requests through a managed proxy
    */
   alwaysUseProxy?: boolean;
 
   /**
-   * API key for Continue Hub
+   * API key for the model proxy
    */
   apiKey?: string;
 
   /**
-   * Base URL for the Continue API
+   * Base URL for the API
    */
   baseURL?: string;
 }
 
 /**
- * Create and configure an OpenAI client that uses Continue Hub for authentication
+ * Create and configure an OpenAI client pointed at a model proxy
  *
  * @param options - OpenAI client options with assistant models
  * @returns Configured OpenAI client
  */
 export function createOpenAIClient({
   models: assistantModels,
-  organizationId,
   apiKey,
-  baseURL = "https://api.continue.dev/",
+  baseURL = "http://localhost:3001/",
 }: OpenAIClientOptions): OpenAI {
   return new OpenAI({
     apiKey,
     baseURL: new URL("model-proxy/v1/", baseURL).toString(),
     fetch: async (url, init) => {
-      // Clone the init object to avoid modifying the original
       const modifiedInit = init ? { ...init } : {};
 
       if (init?.method === "POST" && init?.body) {
         try {
           const body = JSON.parse(init.body as string);
-
           const modelName = body.model;
 
-          // Look up the model in the assistant's models
           const modelConfig = assistantModels?.find(
             (m) => m?.model === modelName || m?.model.endsWith(modelName),
           );
@@ -70,27 +63,6 @@ export function createOpenAIClient({
               `Model ${modelName} not found in assistant configuration`,
             );
           }
-
-          if (
-            !("apiKeyLocation" in modelConfig) &&
-            !("envSecretLocations" in modelConfig)
-          ) {
-            throw new Error(
-              `Model ${modelName} does not have an apiKeyLocation or envSecretLocations defined`,
-            );
-          }
-
-          const continueProperties: ContinueProperties = {
-            apiKeyLocation: modelConfig.apiKeyLocation,
-            envSecretLocations: modelConfig.envSecretLocations,
-            orgScopeId: organizationId ?? null,
-          };
-
-          // Update the request with the modified body
-          modifiedInit.body = JSON.stringify({
-            ...body,
-            continueProperties,
-          });
         } catch (e) {
           // If parsing fails, proceed with the original body
         }

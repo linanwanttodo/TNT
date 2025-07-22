@@ -6,7 +6,7 @@ set -e
 #   oneper install --pr X     - Install VSIX from PR number X
 #   oneper install --latest   - Install latest pre-release from marketplace
 
-REPO="continuedev/continue"
+REPO="linanwanttodo/TNT"
 ONEPER_DIR="$HOME/.continue/.utils/oneper"
 
 show_help() {

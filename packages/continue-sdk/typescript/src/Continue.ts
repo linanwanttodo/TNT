@@ -94,7 +94,7 @@ export class Continue {
   static async from(
     options: ContinueClientOptions,
   ): Promise<ContinueClientBase | ContinueClient> {
-    const baseURL = options.baseURL || "https://api.continue.dev/";
+    const baseURL = options.baseURL || "http://localhost:3001/";
 
     const continueClient = new DefaultApi(
       new Configuration({

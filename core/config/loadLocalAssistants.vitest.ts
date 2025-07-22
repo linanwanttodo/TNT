@@ -13,13 +13,13 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
 
     // Add test files to the test directory
     addToTestDir([
-      ".continue-next/assistants/",
-      [".continue-next/assistants/assistant1.yaml", "yaml content 1"],
-      [".continue-next/assistants/assistant2.yml", "yaml content 2"],
-      [".continue-next/assistants/assistant3.md", "markdown content 1"],
-      [".continue-next/assistants/assistant4.txt", "txt content"],
-      [".continue-next/assistants/config.yaml", "txt content"],
-      [".continue-next/assistants/config.yml", "txt content"],
+      ".tnt/assistants/",
+      [".tnt/assistants/assistant1.yaml", "yaml content 1"],
+      [".tnt/assistants/assistant2.yml", "yaml content 2"],
+      [".tnt/assistants/assistant3.md", "markdown content 1"],
+      [".tnt/assistants/assistant4.txt", "txt content"],
+      [".tnt/assistants/config.yaml", "txt content"],
+      [".tnt/assistants/config.yml", "txt content"],
     ]);
   });
 
@@ -156,9 +156,9 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
     walkDirCache.invalidate();
     setUpTestDir();
     addToTestDir([
-      ".continue-next/assistants/",
-      [".continue-next/assistants/nonmatch1.txt", "txt content"],
-      [".continue-next/assistants/nonmatch2.json", "json content"],
+      ".tnt/assistants/",
+      [".tnt/assistants/nonmatch1.txt", "txt content"],
+      [".tnt/assistants/nonmatch2.json", "json content"],
     ]);
 
     const options: LoadAssistantFilesOptions = {
@@ -215,9 +215,9 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
   it("should filter by file extension case sensitively", async () => {
     // Add files with uppercase extensions
     addToTestDir([
-      [".continue-next/assistants/assistant5.YAML", "uppercase yaml"],
-      [".continue-next/assistants/assistant6.YML", "uppercase yml"],
-      [".continue-next/assistants/assistant7.MD", "uppercase md"],
+      [".tnt/assistants/assistant5.YAML", "uppercase yaml"],
+      [".tnt/assistants/assistant6.YML", "uppercase yml"],
+      [".tnt/assistants/assistant7.MD", "uppercase md"],
     ]);
 
     const yamlOptions: LoadAssistantFilesOptions = {
@@ -273,11 +273,11 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
 
     // Add test files to the test directory
     addToTestDir([
-      ".continue-next/agents/",
-      [".continue-next/agents/agent1.yaml", "yaml content 1"],
-      [".continue-next/agents/agent2.yml", "yaml content 2"],
-      [".continue-next/agents/agent3.md", "markdown content 1"],
-      [".continue-next/agents/agent4.txt", "txt content"],
+      ".tnt/agents/",
+      [".tnt/agents/agent1.yaml", "yaml content 1"],
+      [".tnt/agents/agent2.yml", "yaml content 2"],
+      [".tnt/agents/agent3.md", "markdown content 1"],
+      [".tnt/agents/agent4.txt", "txt content"],
     ]);
   });
 
@@ -390,9 +390,9 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
     walkDirCache.invalidate();
     setUpTestDir();
     addToTestDir([
-      ".continue-next/agents/",
-      [".continue-next/agents/nonmatch1.txt", "txt content"],
-      [".continue-next/agents/nonmatch2.json", "json content"],
+      ".tnt/agents/",
+      [".tnt/agents/nonmatch1.txt", "txt content"],
+      [".tnt/agents/nonmatch2.json", "json content"],
     ]);
 
     const options: LoadAssistantFilesOptions = {
@@ -449,9 +449,9 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
   it("should filter by file extension case sensitively", async () => {
     // Add files with uppercase extensions
     addToTestDir([
-      [".continue-next/agents/agent5.YAML", "uppercase yaml"],
-      [".continue-next/agents/agent6.YML", "uppercase yml"],
-      [".continue-next/agents/agent7.MD", "uppercase md"],
+      [".tnt/agents/agent5.YAML", "uppercase yaml"],
+      [".tnt/agents/agent6.YML", "uppercase yml"],
+      [".tnt/agents/agent7.MD", "uppercase md"],
     ]);
 
     const yamlOptions: LoadAssistantFilesOptions = {

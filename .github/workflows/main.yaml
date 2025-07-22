@@ -133,7 +133,7 @@ jobs:
           files: |
             vsix-artifacts/*.vsix
           token: ${{ secrets.CI_GITHUB_TOKEN }}
-          repository: continuedev/continue
+          repository: linanwanttodo/TNT
 
   publish:
     runs-on: ubuntu-latest

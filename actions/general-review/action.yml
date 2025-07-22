@@ -1,6 +1,6 @@
 name: "Continue PR Review"
-description: "Automated code review for pull requests using Continue CLI"
-author: "Continue Dev, Inc."
+description: "Automated code review for pull requests using TNT CLI"
+author: "TNT"
 
 inputs:
   continue-api-key:
@@ -110,10 +110,10 @@ runs:
       with:
         node-version: 20
 
-    - name: Install Continue CLI
+    - name: Install TNT CLI
       if: env.SHOULD_RUN == 'true'
       shell: bash
-      run: npm install -g @continuedev/cli@latest
+      run: npm install -g @tnt/cli@latest
 
     - name: Setup Action Scripts
       if: env.SHOULD_RUN == 'true'
@@ -121,7 +121,7 @@ runs:
       run: |
         # Create directory for scripts
         mkdir -p .continue-action-scripts
-        
+
         # Check if we're running in the Continue repo itself (scripts exist locally)
         if [ -f "actions/general-review/scripts/buildPrompt.js" ] && [ -f "actions/general-review/scripts/writeMarkdown.js" ]; then
           echo "Running in Continue repo - using local scripts from current checkout"
@@ -132,25 +132,25 @@ runs:
           
           # Download scripts from Continue repo
           echo "Downloading buildPrompt.js..."
-          curl -sSL https://raw.githubusercontent.com/continuedev/continue/main/actions/general-review/scripts/buildPrompt.js \
+          curl -sSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/actions/general-review/scripts/buildPrompt.js \
             -o .continue-action-scripts/buildPrompt.js
           
           echo "Downloading writeMarkdown.js..."
-          curl -sSL https://raw.githubusercontent.com/continuedev/continue/main/actions/general-review/scripts/writeMarkdown.js \
+          curl -sSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/actions/general-review/scripts/writeMarkdown.js \
             -o .continue-action-scripts/writeMarkdown.js
         fi
-        
+
         # Verify scripts exist
         if [ ! -f .continue-action-scripts/buildPrompt.js ]; then
           echo "Error: buildPrompt.js not found"
           exit 1
         fi
-        
+
         if [ ! -f .continue-action-scripts/writeMarkdown.js ]; then
           echo "Error: writeMarkdown.js not found"
           exit 1
         fi
-        
+
         echo "Scripts ready:"
         ls -lh .continue-action-scripts/
 
@@ -200,7 +200,7 @@ runs:
           initialMessage += `- PR #${prNumber}\n\n`;
           initialMessage += `⏱️ This typically takes 1-2 minutes.\n\n`;
           initialMessage += `[View live progress →](${workflowRunUrl})\n\n`;
-          initialMessage += `---\n<!-- ${new Date().toISOString()} | Powered by Continue (https://continue.dev) -->`;
+          initialMessage += `---\n<!-- ${new Date().toISOString()} | Powered by Continue (https://github.com/linanwanttodo/TNT) -->`;
 
           if (existingComment) {
             // Check if comment is less than 1 hour old
@@ -260,7 +260,7 @@ runs:
         node .continue-action-scripts/buildPrompt.js "$PR_NUMBER"
         rm -f pr_data.json
 
-    - name: Run Continue CLI Review
+    - name: Run TNT CLI Review
       if: env.SHOULD_RUN == 'true'
       shell: bash
       env:
@@ -269,7 +269,7 @@ runs:
         CONTINUE_AGENT: ${{ inputs.continue-agent }}
         GITHUB_TOKEN: ${{ github.token }}
       run: |
-        echo "Running Continue CLI with prompt:"
+        echo "Running TNT CLI with prompt:"
         echo "=================================="
         head -n 100 review_prompt.txt
         echo "... [truncated] ..."
@@ -297,22 +297,22 @@ runs:
           exit 1
         fi
 
-        # Test Continue CLI availability
+        # Test TNT CLI availability
         if [ "$SKIP_CLI" != "true" ]; then
-          echo "Testing Continue CLI..."
+          echo "Testing TNT CLI..."
           if ! which cn > /dev/null 2>&1; then
-            echo "Warning: Continue CLI not found or not working"
+            echo "Warning: TNT CLI not found or not working"
             node .continue-action-scripts/writeMarkdown.js code_review.md cli_install_failed
             echo "SKIP_CLI=true" >> $GITHUB_ENV
           else
-            echo "Continue CLI found at: $(which cn)"
-            echo "Continue CLI version: $(cn --version 2>/dev/null || echo 'version check failed')"
+            echo "TNT CLI found at: $(which cn)"
+            echo "TNT CLI version: $(cn --version 2>/dev/null || echo 'version check failed')"
           fi
         fi
 
         # Run the CLI with validated config and error handling
         if [ "$SKIP_CLI" != "true" ]; then
-          echo "Executing Continue CLI with config: $CONTINUE_ORG/$CONTINUE_AGENT"
+          echo "Executing TNT CLI with config: $CONTINUE_ORG/$CONTINUE_AGENT"
           
           # Write prompt to temp file for headless mode
           PROMPT_FILE="/tmp/continue-review-$RANDOM.txt"
@@ -324,7 +324,7 @@ runs:
           echo "Executing command: cn --agent $CONTINUE_ORG/$CONTINUE_AGENT -p @$PROMPT_FILE --allow Bash"
           
           if timeout 360 cn --agent "$CONTINUE_ORG/$CONTINUE_AGENT" -p "@$PROMPT_FILE" --allow Bash > code_review_raw.md 2>cli_error.log; then
-            echo "Continue CLI completed successfully"
+            echo "TNT CLI completed successfully"
             echo "Raw output length: $(wc -c < code_review_raw.md) characters"
             
             # Clean up ANSI codes if any
@@ -337,11 +337,11 @@ runs:
             
             # Check if output is empty
             if [ ! -s code_review.md ]; then
-              echo "Warning: Continue CLI returned empty output"
+              echo "Warning: TNT CLI returned empty output"
               node .continue-action-scripts/writeMarkdown.js code_review.md empty_output
             fi
           else
-            echo "Error: Continue CLI command failed with exit code $?"
+            echo "Error: TNT CLI command failed with exit code $?"
             echo "CLI error log:"
             cat cli_error.log
             
@@ -389,7 +389,7 @@ runs:
             } else {
               // Build direct link to workflow logs
               const workflowRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-              reviewContent = `⚠️ AI review completed but no review output was generated.\n\n**Likely cause:** Expired CONTINUE_API_KEY or missing continuedev/review-bot assistant\n\n[📋 View workflow logs](${workflowRunUrl}) for details.`;
+              reviewContent = `⚠️ AI review completed but no review output was generated.\n\n**Likely cause:** Expired CONTINUE_API_KEY or missing tnt/review-bot assistant\n\n[📋 View workflow logs](${workflowRunUrl}) for details.`;
             }
 
             // Get PR number based on event type
@@ -408,7 +408,7 @@ runs:
 
             // Add footer with timestamp and branding
             const timestamp = new Date().toISOString();
-            reviewContent += `\n\n---\n<!-- ${timestamp} | Powered by Continue (https://continue.dev) -->`;
+            reviewContent += `\n\n---\n<!-- ${timestamp} | Powered by Continue (https://github.com/linanwanttodo/TNT) -->`;
 
             // Look for existing review comment to update (sticky comment)
             const marker = '<!-- continue-agent-review -->';

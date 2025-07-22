@@ -11,7 +11,7 @@ vi.mock("../../auth/workos.js", () => ({
 }));
 
 vi.mock("../../env.js", () => ({
-  env: { apiBase: "https://api.continue.dev" },
+  env: { apiBase: "http://localhost:3001" },
 }));
 
 vi.mock("../../util/logger.js", () => ({
@@ -41,12 +41,12 @@ describe("resolveReviews local discovery", () => {
     vi.restoreAllMocks();
   });
 
-  it("discovers files from .continue-next/agents/", async () => {
+  it("discovers files from .tnt/agents/", async () => {
     vi.mocked(fs.existsSync).mockImplementation((p) => {
-      return p === path.join("/test/repo", ".continue-next", "agents");
+      return p === path.join("/test/repo", ".tnt", "agents");
     });
     vi.mocked(fs.readdirSync).mockImplementation(((p: fs.PathLike) => {
-      if (p === path.join("/test/repo", ".continue-next", "agents")) {
+      if (p === path.join("/test/repo", ".tnt", "agents")) {
         return ["security-review.md", "style-check.md"];
       }
       return [];
@@ -59,12 +59,12 @@ describe("resolveReviews local discovery", () => {
     expect(reviews[0].source).toContain("agents");
   });
 
-  it("discovers files from .continue-next/checks/", async () => {
+  it("discovers files from .tnt/checks/", async () => {
     vi.mocked(fs.existsSync).mockImplementation((p) => {
-      return p === path.join("/test/repo", ".continue-next", "checks");
+      return p === path.join("/test/repo", ".tnt", "checks");
     });
     vi.mocked(fs.readdirSync).mockImplementation(((p: fs.PathLike) => {
-      if (p === path.join("/test/repo", ".continue-next", "checks")) {
+      if (p === path.join("/test/repo", ".tnt", "checks")) {
         return ["anti-slop.md"];
       }
       return [];

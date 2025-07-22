@@ -45,7 +45,7 @@ export const FatalErrorIndicator = () => {
           onClick={() => {
             ideMessenger.post(
               "openUrl",
-              "https://docs.continue.dev/troubleshooting",
+              "https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting",
             );
           }}
           className="cursor-pointer underline"

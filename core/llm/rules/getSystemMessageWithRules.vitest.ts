@@ -69,7 +69,7 @@ describe("Rule colocation glob matching", () => {
       name: "Root Rule",
       rule: "Follow project standards",
       source: "rules-block",
-      sourceFile: "/path/to/repo/.continue-next/rules.md",
+      sourceFile: "/path/to/repo/.tnt/rules.md",
       // No restriction, should apply to all files
     };
 
@@ -212,7 +212,7 @@ describe("Rule policies", () => {
       name: "Root Rule",
       rule: "Follow project standards",
       source: "rules-block",
-      sourceFile: "/my/project/.continue-next/rules.md",
+      sourceFile: "/my/project/.tnt/rules.md",
     };
 
     // Off policy should override even global rules

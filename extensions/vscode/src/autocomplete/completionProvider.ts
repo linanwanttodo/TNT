@@ -52,7 +52,7 @@ export class ContinueCompletionProvider
       if (val === "Documentation") {
         vscode.env.openExternal(
           vscode.Uri.parse(
-            "https://docs.continue.dev/features/tab-autocomplete",
+            "https://github.com/linanwanttodo/TNT/tree/main/docs/features/tab-autocomplete",
           ),
         );
       }

@@ -44,7 +44,7 @@ class IdeProtocolClient(
      * Create a dispatcher with limited parallelism to prevent UI freezing.
      * Note that there are 64 total threads available to the IDE.
      *
-     * See this thread for details: https://github.com/continuedev/continue/issues/4098#issuecomment-2854865310
+     * See this thread for details: https://github.com/linanwanttodo/TNT/issues/4098#issuecomment-2854865310
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val limitedDispatcher = Dispatchers.IO.limitedParallelism(4)

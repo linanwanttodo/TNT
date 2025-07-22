@@ -1,6 +1,6 @@
 ---
 name: cn-check
-description: Install and run the Continue CLI (`cn`) to execute AI agent checks on local code changes. Use when asked to "run checks", "lint with AI", "review my changes with cn", or set up Continue CI locally.
+description: Install and run the TNT CLI (`cn`) to execute AI agent checks on local code changes. Use when asked to "run checks", "lint with AI", "review my changes with cn", or set up Continue CI locally.
 license: Apache-2.0
 metadata:
   author: continuedev
@@ -9,7 +9,7 @@ metadata:
 
 # cn check — Local AI Agent Checks
 
-Run AI-powered code checks locally against your working tree changes using the Continue CLI. Each check is an agent (defined in markdown) that reviews your diff, identifies issues, and optionally suggests fixes as a patch.
+Run AI-powered code checks locally against your working tree changes using the TNT CLI. Each check is an agent (defined in markdown) that reviews your diff, identifies issues, and optionally suggests fixes as a patch.
 
 ## When to Use
 
@@ -29,7 +29,7 @@ Run AI-powered code checks locally against your working tree changes using the C
 ### Install the CLI
 
 ```bash
-npm install -g @continuedev/cli
+npm install -g @tnt/cli
 ```
 
 ### Authenticate (required for Hub checks, optional for local-only)
@@ -50,7 +50,7 @@ cn check
 
 This auto-detects checks from three sources (in priority order):
 
-1. Hub API — checks configured for your repo on continue.dev
+1. Hub API — checks configured for your repo on TNT
 2. Local agents — markdown files in `.continue/agents/*.md`
 
 ### Specify agents explicitly

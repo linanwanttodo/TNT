@@ -14,7 +14,7 @@ export interface ResolvedReview {
  * Determine which reviews to run, using three sources in order:
  * 1. CLI --agent flags (highest priority)
  * 2. Hub API (if logged in and no --agent flags)
- * 3. Local .continue-next/agents/*.md and .continue-next/checks/*.md (fallback)
+ * 3. Local .tnt/agents/*.md and .tnt/checks/*.md (fallback)
  */
 export async function resolveReviews(
   agentFlags?: string[],
@@ -34,7 +34,7 @@ export async function resolveReviews(
     return hubReviews;
   }
 
-  // Source 3: Local .continue-next/agents/*.md and .continue-next/checks/*.md
+  // Source 3: Local .tnt/agents/*.md and .tnt/checks/*.md
   const localReviews = resolveFromLocal();
   if (localReviews.length > 0) {
     return localReviews;
@@ -51,14 +51,14 @@ async function resolveFromHub(): Promise<ResolvedReview[]> {
 }
 
 /**
- * Resolve reviews from local .continue-next/agents/*.md and .continue-next/checks/*.md files.
+ * Resolve reviews from local .tnt/agents/*.md and .tnt/checks/*.md files.
  * Agents take precedence over checks if the same filename exists in both directories.
  */
 function resolveFromLocal(): ResolvedReview[] {
   const cwd = process.cwd();
   const dirs = [
-    path.join(cwd, ".continue-next", "agents"),
-    path.join(cwd, ".continue-next", "checks"),
+    path.join(cwd, ".tnt", "agents"),
+    path.join(cwd, ".tnt", "checks"),
   ];
 
   const seen = new Set<string>();

@@ -11,7 +11,7 @@ import {
 
 vi.mock("../env.js", () => ({
   env: {
-    apiBase: "https://api.continue.dev",
+    apiBase: "http://localhost:3001",
   },
 }));
 
@@ -54,7 +54,7 @@ describe("apiClient", () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        new URL("test-endpoint", "https://api.continue.dev"),
+        new URL("test-endpoint", "http://localhost:3001"),
         {
           method: "POST",
           headers: {

@@ -196,7 +196,7 @@ export const getAllSnippets = async ({
     IDE_SNIPPETS_ENABLED
       ? racePromise(getIdeSnippets(helper, ide, getDefinitionsFromLsp))
       : [],
-    [], // racePromise(getDiffSnippets(ide)) // temporarily disabled, see https://github.com/continuedev/continue/pull/5882,
+    [], // racePromise(getDiffSnippets(ide)) // temporarily disabled, see https://github.com/linanwanttodo/TNT/pull/5882,
     racePromise(getClipboardSnippets(ide)),
     racePromise(getSnippetsFromRecentlyOpenedFiles(helper, ide)), // giving this one a little more time to complete
     helper.options.experimental_enableStaticContextualization
@@ -245,7 +245,7 @@ export const getAllSnippetsWithoutRace = async ({
     IDE_SNIPPETS_ENABLED
       ? getIdeSnippets(helper, ide, getDefinitionsFromLsp)
       : [],
-    [], // racePromise(getDiffSnippets(ide)) // temporarily disabled, see https://github.com/continuedev/continue/pull/5882,
+    [], // racePromise(getDiffSnippets(ide)) // temporarily disabled, see https://github.com/linanwanttodo/TNT/pull/5882,
     getClipboardSnippets(ide),
     getSnippetsFromRecentlyOpenedFiles(helper, ide),
     helper.options.experimental_enableStaticContextualization

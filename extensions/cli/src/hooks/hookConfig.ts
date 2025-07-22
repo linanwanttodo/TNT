@@ -2,9 +2,9 @@
  * Hook configuration loader.
  *
  * Loads hooks from settings files in the same locations as Claude Code:
- * - ~/.continue-next/settings.json  (user-global)
- * - .continue-next/settings.json    (project, committable)
- * - .continue-next/settings.local.json (project-local, gitignored)
+ * - ~/.tnt/settings.json  (user-global)
+ * - .tnt/settings.json    (project, committable)
+ * - .tnt/settings.local.json (project-local, gitignored)
  *
  * Also supports Claude Code's native locations for cross-compatibility:
  * - ~/.claude/settings.json
@@ -73,7 +73,7 @@ function mergeHooksConfigs(
 function getSettingsFilePaths(cwd: string, homeDir?: string): string[] {
   const home = homeDir ?? os.homedir();
   const continueHome =
-    process.env.CONTINUE_GLOBAL_DIR || path.join(home, ".continue-next");
+    process.env.CONTINUE_GLOBAL_DIR || path.join(home, ".tnt");
 
   return [
     // User-global (lowest precedence)
@@ -82,11 +82,11 @@ function getSettingsFilePaths(cwd: string, homeDir?: string): string[] {
 
     // Project-level
     path.join(cwd, ".claude", "settings.json"),
-    path.join(cwd, ".continue-next", "settings.json"),
+    path.join(cwd, ".tnt", "settings.json"),
 
     // Project-local (highest precedence)
     path.join(cwd, ".claude", "settings.local.json"),
-    path.join(cwd, ".continue-next", "settings.local.json"),
+    path.join(cwd, ".tnt", "settings.local.json"),
   ];
 }
 

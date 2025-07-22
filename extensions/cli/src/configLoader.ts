@@ -10,7 +10,7 @@ import {
   unrollAssistant,
   unrollAssistantFromContent,
 } from "@tnt/config-yaml";
-import { DefaultApiInterface } from "@continuedev/sdk/dist/api/dist/index.js";
+import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 import chalk from "chalk";
 
 import { uriToPath, uriToSlug } from "./auth/uriUtils.js";
@@ -321,7 +321,7 @@ async function loadLocalConfigYaml(
 }
 
 /**
- * Loads the default continuedev/default-config
+ * Loads the default tnt/default-config
  */
 async function loadDefaultConfig(
   organizationId: string | null,
@@ -330,7 +330,7 @@ async function loadDefaultConfig(
   injectBlocks: PackageIdentifier[],
 ): Promise<AssistantUnrolled> {
   const resp = await apiClient.getAssistant({
-    ownerSlug: "continuedev",
+    ownerSlug: "tnt",
     packageSlug: "default-cli-config",
     organizationId: organizationId ?? undefined,
   });

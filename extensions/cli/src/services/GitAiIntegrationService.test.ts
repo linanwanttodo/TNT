@@ -63,7 +63,7 @@ describe("GitAiIntegrationService", () => {
     });
 
     mockGetSessionFilePath.mockReturnValue(
-      "/test/.continue-next/sessions/test-session-id.json",
+      "/test/.tnt/sessions/test-session-id.json",
     );
 
     mockServiceContainer.getSync.mockReturnValue({
@@ -164,7 +164,7 @@ describe("GitAiIntegrationService", () => {
 
       expect(hookInput).toMatchObject({
         session_id: "test-session-id",
-        transcript_path: "/test/.continue-next/sessions/test-session-id.json",
+        transcript_path: "/test/.tnt/sessions/test-session-id.json",
         cwd: "/test/workspace",
         model: "claude-sonnet-4-5",
         hook_event_name: "PreToolUse",

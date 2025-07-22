@@ -73,7 +73,7 @@ export class CompletionProvider {
       return undefined;
     }
 
-    // Temporary fix for JetBrains autocomplete bug as described in https://github.com/continuedev/continue/pull/3022
+    // Temporary fix for JetBrains autocomplete bug as described in https://github.com/linanwanttodo/TNT/pull/3022
     if (llm.model === undefined && llm.completionOptions?.model !== undefined) {
       llm.model = llm.completionOptions.model;
     }

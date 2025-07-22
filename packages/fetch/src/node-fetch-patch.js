@@ -1,6 +1,6 @@
 /*
 This is a patched version of index.js from node-fetch 3.3.2 (see packages/fetch/node_modules/node-fetch/src/index.js)
-This is to fix "Premature close" errors caused by chunked encoding assumptions - see https://github.com/continuedev/continue/issues/5502
+This is to fix "Premature close" errors caused by chunked encoding assumptions - see https://github.com/linanwanttodo/TNT/issues/5502
 The patch adjusts boundary chunk detection logic (see "PATCH" comment next to patch)
 And is based on https://github.com/node-fetch/node-fetch/issues/1576
 */

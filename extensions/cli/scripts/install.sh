@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Continue CLI Installer - Unix (macOS, Linux, WSL, Git Bash)
-# curl -fsSL https://continue.dev/install.sh | bash
+# TNT CLI Installer - Unix (macOS, Linux, WSL, Git Bash)
+# curl -fsSL https://github.com/linanwanttodo/TNT | bash
 
 REQUIRED_NODE_VERSION="20.20.1"
-PACKAGE_NAME="@continuedev/cli"
+PACKAGE_NAME="@tnt/cli"
 CLI_COMMAND="cn"
 NETWORK_TIMEOUT=60
 FNM_INSTALL_DIR="$HOME/.local/share/fnm"
@@ -294,7 +294,7 @@ install_cli() {
 finalize() {
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    success "Continue CLI installation complete!"
+    success "TNT CLI installation complete!"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
@@ -310,7 +310,7 @@ finalize() {
 main() {
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    printf "${BOLD}           Continue CLI Installer${NC}\n"
+    printf "${BOLD}           TNT CLI Installer${NC}\n"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 

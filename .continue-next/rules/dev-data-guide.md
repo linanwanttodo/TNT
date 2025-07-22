@@ -197,4 +197,4 @@ onAutocompleteAccepted(completion: CompletionData) {
 }
 ```
 
-This guide provides the foundation for understanding and working with Continue's dev data system. Always prioritize user privacy and follow established patterns when making changes.
+This guide provides the foundation for understanding and working with TNT's dev data system. Always prioritize user privacy and follow established patterns when making changes.

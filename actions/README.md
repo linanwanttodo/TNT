@@ -1,6 +1,6 @@
 # Continue PR Review Actions
 
-GitHub Actions that provide automated code reviews for pull requests using Continue CLI.
+GitHub Actions that provide automated code reviews for pull requests using TNT CLI.
 
 ## Available Actions
 
@@ -10,7 +10,7 @@ This repository provides a GitHub Action for automated PR reviews:
 
 Provides high-level PR assessment with overall feedback and recommendations.
 
-- **Path:** `continuedev/continue/actions/general-review@main`
+- **Path:** `linanwanttodo/TNT/actions/general-review@main`
 - **Trigger:** `@continue-review`
 - **Output:** Summary comment with strengths, issues, and recommendations
 
@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: continuedev/continue/actions/general-review@main
+      - uses: linanwanttodo/TNT/actions/general-review@main
         with:
           continue-api-key: ${{ secrets.CONTINUE_API_KEY }}
           continue-org: "your-org-name"
@@ -110,7 +110,7 @@ The general review provides a structured comment that includes:
 1. Checks out repository code
 2. Fetches PR diff using GitHub CLI
 3. Generates a comprehensive review prompt
-4. Runs Continue CLI with specified configuration
+4. Runs TNT CLI with specified configuration
 5. Posts review as a PR comment
 
 ## Versioning
@@ -122,7 +122,7 @@ We recommend using the main branch:
 Example:
 
 ```yaml
-uses: continuedev/continue/actions/general-review@main
+uses: linanwanttodo/TNT/actions/general-review@main
 ```
 
 ## Troubleshooting
@@ -143,6 +143,6 @@ uses: continuedev/continue/actions/general-review@main
 
 For issues or questions:
 
-- [Continue Documentation](https://docs.continue.dev)
-- [GitHub Issues](https://github.com/continuedev/continue/issues)
-- [GitHub Discussions](https://github.com/continuedev/continue/discussions)
+- [Continue Documentation](https://github.com/linanwanttodo/TNT/tree/main/docs)
+- [GitHub Issues](https://github.com/linanwanttodo/TNT/issues)
+- [GitHub Discussions](https://github.com/linanwanttodo/TNT/discussions)

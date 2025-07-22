@@ -8,7 +8,7 @@ describe("Implicit global rules application", () => {
     name: "Implicit Global Rule",
     rule: "This rule should be applied to all messages (implicit global)",
     source: "rules-block",
-    sourceFile: ".continue-next/global-rule.md",
+    sourceFile: ".tnt/global-rule.md",
     // No alwaysApply specified
     // No globs specified
   };
@@ -19,7 +19,7 @@ describe("Implicit global rules application", () => {
     rule: "This rule should always be applied (explicit global)",
     alwaysApply: true,
     source: "rules-block",
-    sourceFile: ".continue-next/explicit-global.md",
+    sourceFile: ".tnt/explicit-global.md",
   };
 
   // Create a colocated rule in a nested directory
@@ -63,7 +63,7 @@ describe("Implicit global rules application", () => {
       name: "Root No Globs Rule",
       rule: "This is a root-level rule with no globs",
       source: "rules-block",
-      sourceFile: ".continue-next/rules.md",
+      sourceFile: ".tnt/rules.md",
       // No alwaysApply, no globs
     };
 
@@ -119,7 +119,7 @@ describe("Implicit global rules application", () => {
       name: "Assistant Guidelines",
       rule: "SOLID Design Principles - Coding Assistant Guidelines",
       source: "rules-block",
-      sourceFile: ".continue-next/rules.md",
+      sourceFile: ".tnt/rules.md",
       // No alwaysApply, no globs - should still apply
     };
 
