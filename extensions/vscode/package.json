@@ -1,7 +1,7 @@
 {
   "name": "tnt",
   "icon": "media/icon.png",
-  "author": "Continue Dev, Inc",
+  "author": "linanwanttodo",
   "version": "0.0.1",
   "repository": {
     "type": "git",
@@ -15,7 +15,7 @@
     "url": "https://github.com/linanwanttodo/TNT/issues",
     "email": "nate@continue.dev"
   },
-  "homepage": "https://continue.dev",
+  "homepage": "https://github.com/linanwanttodo/TNT",
   "qna": "https://github.com/linanwanttodo/TNT/issues/new/choose",
   "license": "Apache-2.0",
   "displayName": "TNT - open-source AI code agent",
