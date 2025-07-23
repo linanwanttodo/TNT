@@ -36,6 +36,11 @@ export interface PluginManifest {
   hooks?: string | unknown;
   mcpServers?: Record<string, unknown> | string;
   outputStyles?: string[] | string;
+  lspServers?:
+    | string
+    | string[]
+    | Record<string, unknown>
+    | Array<string | Record<string, unknown>>;
   settings?: Record<string, unknown>;
 }
 
