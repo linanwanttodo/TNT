@@ -5,6 +5,12 @@ import { useApp } from "ink";
 import { useEffect, useRef, useState } from "react";
 
 import { findCompactionIndex } from "../../compaction.js";
+import {
+  fireSessionEnd,
+  fireSessionStart,
+  fireStop,
+  fireUserPromptSubmit,
+} from "../../hooks/fireHook.js";
 import { toolPermissionManager } from "../../permissions/permissionManager.js";
 import { services } from "../../services/index.js";
 import {
@@ -72,6 +78,7 @@ export function useChat({
 
   // Track service subscription
   const serviceListenerCleanupRef = useRef<null | (() => void)>(null);
+  const lastAssistantTextRef = useRef<string | null>(null);
 
   // Store the current session
   const [currentSession, setCurrentSession] = useState<Session>(() => {
@@ -229,6 +236,15 @@ export function useChat({
     };
   }, [abortController]);
 
+  // Fire SessionStart once per session, then SessionEnd when the UI unmounts.
+  useEffect(() => {
+    const source: "startup" | "resume" = resume ? "resume" : "startup";
+    fireSessionStart(source, model?.model).catch(() => {});
+    return () => {
+      fireSessionEnd("other").catch(() => {});
+    };
+  }, []);
+
   // Remote mode polling
   useEffect(() => {
     if (!isRemoteMode || !remoteUrl || process.env.NODE_ENV === "test") return;
@@ -316,6 +332,9 @@ export function useChat({
         setActivePermissionRequest,
         llmApi,
         model,
+        onAssistantText: (text: string) => {
+          lastAssistantTextRef.current = text;
+        },
       });
 
       // Execute streaming chat response
@@ -355,6 +374,7 @@ export function useChat({
     } finally {
       // Stop active time tracking
       telemetryService.stopActiveTime();
+      fireStop(lastAssistantTextRef.current ?? undefined).catch(() => {});
 
       setAbortController(null);
       setIsWaitingForResponse(false);
@@ -511,6 +531,17 @@ export function useChat({
       return; // Command was handled and no further processing needed
     }
     message = processedMessage;
+
+    const promptHook = await fireUserPromptSubmit(message);
+    if (promptHook.blocked) {
+      onShowStatusMessage?.(
+        promptHook.blockReason ?? "Blocked by UserPromptSubmit hook",
+      );
+      return;
+    }
+    if (promptHook.additionalContext) {
+      message = `${promptHook.additionalContext}\n\n${message}`;
+    }
 
     // Track telemetry
     trackUserMessage(message, model);

@@ -9,6 +9,7 @@ import React, {
 
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 
+import { fireConfigChange } from "../hooks/fireHook.js";
 import { useServices } from "../hooks/useService.js";
 import {
   ApiClientServiceState,
@@ -136,6 +137,7 @@ function useChatHandlers(
 
   // Service reload handlers - these will trigger reactive updates
   const handleReload = useCallback(async () => {
+    await fireConfigChange("reload").catch(() => {});
     // Services will automatically update the UI when they reload
     // We just need to reset chat history, intro message, and clear the screen
     if (resetChatHistoryRef.current) {
