@@ -4,12 +4,11 @@ import React, { useEffect, useState } from "react";
 
 import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { t } from "../../i18n/index.js";
+import { getSessionUsage } from "../../session.js";
+import { getCacheHitRatio } from "../../util/cacheRatio.js";
 import { getGitBranch } from "../../util/git.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { UpdateNotification } from "../UpdateNotification.js";
-
-import { ContextPercentageDisplay } from "./ContextPercentageDisplay.js";
-import { ResponsiveRepoDisplay } from "./ResponsiveRepoDisplay.js";
 
 export interface BottomStatusBarProps {
   remoteUrl?: string;
@@ -45,6 +44,20 @@ export function getThinkingDepth(model?: ModelConfig | null): string {
   return options?.reasoningEffort ?? "default";
 }
 
+const SEPARATOR = "  ";
+
+function joinParts(parts: React.ReactNode[]) {
+  return parts.flatMap((part, index) =>
+    index === 0
+      ? [part]
+      : [<Text key={`sep-${index}`}>{SEPARATOR}</Text>, part],
+  );
+}
+
+/**
+ * Single line of composer metadata: workspace, git branch, context usage and
+ * cache hit ratio on the left, model and reasoning depth on the right.
+ */
 export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   remoteUrl,
   isRemoteMode,
@@ -70,9 +83,68 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   const modelName = model?.name || model?.model || "";
   const thinkingDepth = getThinkingDepth(model);
   const branch = isRemoteMode ? null : getGitBranch();
-  const workspace = `${remoteUrl ?? currentDirectory()}${
-    branch ? ` ⊦${branch}` : ""
-  }`;
+  const workspaceName = remoteUrl ?? currentDirectory();
+  const cacheHitRatio = getCacheHitRatio(getSessionUsage());
+
+  const leftParts: React.ReactNode[] = [];
+  if (workspaceName) {
+    leftParts.push(
+      <Text key="workspace" color="dim" wrap="truncate-start">
+        {`▸ ${workspaceName}`}
+      </Text>,
+    );
+  }
+  if (branch) {
+    leftParts.push(
+      <Text key="branch" color="dim" wrap="truncate-start">
+        {`⊦ ${branch}`}
+      </Text>,
+    );
+  }
+  if (contextPercentage !== undefined) {
+    leftParts.push(
+      <Text key="context" color="dim">
+        {`◷ ${t("status.context")} ${contextPercentage}%`}
+      </Text>,
+    );
+  }
+  if (cacheHitRatio !== undefined) {
+    leftParts.push(
+      <Text key="cache" color="dim">
+        {`☰ ${t("status.cache")} ${cacheHitRatio}%`}
+      </Text>,
+    );
+  }
+  if (hasImageInClipboard) {
+    leftParts.push(
+      <Text key="image" color="cyan">
+        {t("status.image")}
+      </Text>,
+    );
+  }
+  if (isVerboseMode && totalCost !== undefined && totalCost > 0) {
+    leftParts.push(
+      <Text key="cost" color="dim">
+        {`${t("status.cost")} $${totalCost.toFixed(4)}`}
+      </Text>,
+    );
+  }
+
+  const rightParts: React.ReactNode[] = [];
+  if (modelName) {
+    rightParts.push(
+      <Text key="model" color="white" wrap="truncate-end">
+        {`◈ ${modelName}`}
+      </Text>,
+    );
+  }
+  if (modelName && thinkingDepth) {
+    rightParts.push(
+      <Text key="thinking" color="cyan">
+        {`◐ ${t("status.think")}:${thinkingDepth}`}
+      </Text>,
+    );
+  }
 
   return (
     <Box flexDirection="row" justifyContent="space-between" alignItems="center">
@@ -82,48 +154,19 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
             {t("status.exit")}
           </Text>
         ) : (
-          <React.Fragment>
-            {isRemoteMode && remoteUrl ? (
-              <ResponsiveRepoDisplay remoteUrl={remoteUrl} />
-            ) : (
-              <Text color="dim" wrap="truncate-start">
-                {workspace}
-              </Text>
-            )}
-            {modelName ? (
-              <React.Fragment>
-                <Text color="dim">{"  "}</Text>
-                <Text color="white" wrap="truncate-start">
-                  {modelName}
-                </Text>
-              </React.Fragment>
-            ) : null}
-            {modelName && thinkingDepth ? (
-              <React.Fragment>
-                <Text color="dim">{" · "}</Text>
-                <Text color="cyan">{`${t("status.think")}:${thinkingDepth}`}</Text>
-              </React.Fragment>
-            ) : null}
-            {contextPercentage !== undefined ? (
-              <React.Fragment>
-                <Text color="dim">{" · "}</Text>
-                <ContextPercentageDisplay percentage={contextPercentage} />
-              </React.Fragment>
-            ) : null}
-            {hasImageInClipboard ? (
-              <Text color="cyan">{` · ${t("status.image")}`}</Text>
-            ) : null}
-          </React.Fragment>
+          joinParts(leftParts)
         )}
-        {isVerboseMode && totalCost !== undefined && totalCost > 0 ? (
-          <React.Fragment>
-            <Text color="dim">{" · "}</Text>
-            <Text color="dim">{`${t("status.cost")}: $${totalCost.toFixed(4)}`}</Text>
-          </React.Fragment>
-        ) : null}
       </Box>
-      <Box marginRight={2} marginLeft={2}>
-        <UpdateNotification isRemoteMode={isRemoteMode} />
+      <Box
+        marginRight={2}
+        marginLeft={2}
+        flexDirection="row"
+        alignItems="center"
+      >
+        {joinParts(rightParts)}
+        <Box marginLeft={2}>
+          <UpdateNotification isRemoteMode={isRemoteMode} />
+        </Box>
       </Box>
     </Box>
   );

@@ -20,6 +20,10 @@ vi.mock("../../util/git.js", () => ({
   getGitBranch: vi.fn(() => null),
 }));
 
+vi.mock("../../session.js", () => ({
+  getSessionUsage: vi.fn(() => undefined),
+}));
+
 describe("BottomStatusBar Ctrl+C message", () => {
   const defaultProps: BottomStatusBarProps = {
     remoteUrl: "github.com/user/repo",
@@ -72,7 +76,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     );
   });
 
-  it("shows workspace, model, thinking depth, and context below the composer", async () => {
+  it("shows workspace, branch, context, model and thinking depth in one row", async () => {
     const gitModule = (await vi.importMock("../../util/git.js")) as any;
     gitModule.isGitRepo.mockReturnValue(true);
     gitModule.getGitBranch.mockReturnValue("feature/status");
@@ -97,11 +101,49 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const frame = lastFrame() ?? "";
     expect(frame).toContain(process.cwd().split(/[\\/]/).pop() ?? "");
     expect(frame).toContain("feature/status");
-    expect(frame).toContain("deepseek-chat");
+    expect(frame).toContain("deepseek/deepseek-chat");
     expect(frame).toContain("think:high");
     expect(frame).toContain("34%");
-    expect(frame.indexOf("deepseek-chat")).toBeLessThan(
+    expect(frame.indexOf("deepseek/deepseek-chat")).toBeLessThan(
       frame.indexOf("think:high"),
     );
+  });
+
+  it("shows the cache hit ratio when the session reported cache tokens", async () => {
+    const sessionModule = (await vi.importMock("../../session.js")) as any;
+    sessionModule.getSessionUsage.mockReturnValue({
+      totalCost: 0,
+      promptTokens: 1000,
+      completionTokens: 0,
+      promptTokensDetails: { cachedTokens: 800, cacheWriteTokens: 0 },
+    });
+
+    const { lastFrame } = render(
+      <BottomStatusBar {...defaultProps} contextPercentage={10} />,
+    );
+
+    expect(lastFrame()).toContain("80%");
+  });
+
+  it("keeps workspace metadata on the left and the model on the right", async () => {
+    const gitModule = (await vi.importMock("../../util/git.js")) as any;
+    gitModule.getGitBranch.mockReturnValue("main");
+
+    const { lastFrame } = render(
+      <BottomStatusBar
+        {...defaultProps}
+        remoteUrl={undefined}
+        contextPercentage={5}
+        services={{
+          model: { model: { name: "gpt-5", model: "gpt-5" } },
+        }}
+      />,
+    );
+
+    const frame = lastFrame() ?? "";
+    const workspaceIndex = frame.indexOf("main");
+    const modelIndex = frame.indexOf("gpt-5");
+    expect(workspaceIndex).toBeGreaterThanOrEqual(0);
+    expect(modelIndex).toBeGreaterThan(workspaceIndex);
   });
 });
