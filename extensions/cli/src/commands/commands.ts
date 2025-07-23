@@ -1,5 +1,7 @@
 import { type AssistantConfig } from "@tnt/sdk";
 
+import { loadAllPlugins } from "../plugins/loader.js";
+import { logger } from "../util/logger.js";
 import {
   getSkillSlashCommandName,
   loadMarkdownSkills,
@@ -87,6 +89,11 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
   {
     name: "goal",
     description: "Set the goal for the current session",
+    category: "system",
+  },
+  {
+    name: "plugins",
+    description: "List installed plugins and what they contribute",
     category: "system",
   },
   {
@@ -189,11 +196,14 @@ export async function getAllSlashCommands(
   // Get skill commands
   const skillCommands = await getSkillSlashCommands();
 
+  const pluginCommands = getPluginSlashCommands();
+
   return [
     ...systemCommands,
     ...assistantCommands,
     ...invokableRuleCommands,
     ...skillCommands,
+    ...pluginCommands,
   ];
 }
 
@@ -253,4 +263,20 @@ export async function getSkillSlashCommands(): Promise<SlashCommand[]> {
     description: skill.description,
     category: "assistant" as const,
   }));
+}
+
+/**
+ * Commands contributed by installed plugins, namespaced as plugin:command.
+ */
+export function getPluginSlashCommands(): SlashCommand[] {
+  try {
+    return loadAllPlugins().commands.map((command) => ({
+      name: command.name,
+      description: command.description,
+      category: "assistant" as const,
+    }));
+  } catch (error) {
+    logger.warn("Failed to load plugin commands:", error);
+    return [];
+  }
 }

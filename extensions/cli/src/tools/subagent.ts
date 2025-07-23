@@ -1,4 +1,5 @@
 import { services } from "../services/index.js";
+import { loadAllPlugins } from "../plugins/loader.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ModelService } from "../services/ModelService.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
@@ -15,6 +16,23 @@ import {
 import { logger } from "../util/logger.js";
 
 import { Tool } from "./types.js";
+
+/**
+ * Agents contributed by installed plugins. Failures are swallowed because a
+ * broken plugin must not break the agent listing the model depends on.
+ */
+function getPluginAgents(): {
+  name: string;
+  description?: string;
+  content: string;
+}[] {
+  try {
+    return loadAllPlugins().agents;
+  } catch (error) {
+    logger.warn("Failed to load plugin agents:", error);
+    return [];
+  }
+}
 
 export const subagentTool = async (): Promise<Tool> => {
   const modelServiceState = await serviceContainer.get<ModelServiceState>(
@@ -130,15 +148,21 @@ export const listSubagentsTool = async (): Promise<Tool> => {
     ...LIST_SUBAGENTS_TOOL_META,
     run: async () => {
       const agents = ModelService.getSubagentModels(modelServiceState);
-      if (agents.length === 0) {
-        return "No subagents are configured.";
-      }
       const lines = agents.map((agent) => {
         const description =
           agent.model.chatOptions?.baseSystemMessage?.trim().split("\n")[0] ??
           "no description";
         return `- ${agent.model.name}: ${description}`;
       });
+
+      for (const agent of getPluginAgents()) {
+        const firstLine = agent.content.trim().split("\n")[0] ?? "";
+        lines.push(`- ${agent.name}: ${agent.description ?? firstLine}`);
+      }
+
+      if (lines.length === 0) {
+        return "No subagents are configured.";
+      }
       return `Available subagents:\n${lines.join("\n")}`;
     },
   };
