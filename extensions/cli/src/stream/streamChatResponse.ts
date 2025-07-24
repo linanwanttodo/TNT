@@ -9,6 +9,7 @@ import type {
 } from "openai/resources.mjs";
 
 import { headerEquals, type RequestHeader } from "../cache/requestHeader.js";
+import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { pruneLastMessage } from "../compaction.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
@@ -301,6 +302,7 @@ export async function processStreamingResponse(
     ),
   ] as ChatCompletionMessageParam[];
   const requestStartTime = Date.now();
+  const promptCacheKey = currentPromptCacheKey();
 
   const streamFactory = async (retryAbortSignal: AbortSignal) => {
     logger.debug("Creating chat completion stream", {
@@ -317,6 +319,7 @@ export async function processStreamingResponse(
         tools,
         ...getDefaultCompletionOptions(model.defaultCompletionOptions),
         max_tokens: validation.maxTokens,
+        ...(promptCacheKey ? { prompt_cache_key: promptCacheKey } : {}),
       },
       retryAbortSignal,
     );
