@@ -1,5 +1,6 @@
 import type { AssistantUnrolled } from "@tnt/config-yaml";
 import {
+  afterEach,
   beforeEach,
   describe,
   expect,
@@ -87,6 +88,7 @@ vi.mock("./session.js", () => ({
   getCurrentSession: vi.fn(() => {
     throw new Error("Session not available");
   }),
+  listSubagentSessions: vi.fn(() => []),
   updateSessionTitle: vi.fn(),
 }));
 
@@ -413,6 +415,77 @@ describe("slashCommands", () => {
       expect(result?.newInput).toBe(
         "Analyze the following code for patterns: my code",
       );
+    });
+  });
+
+  describe("/subagents", () => {
+    const originalLocale = getLocale();
+
+    afterEach(() => {
+      setLocale(originalLocale);
+    });
+
+    async function mockSubagents(
+      parentId: string,
+      children: {
+        sessionId: string;
+        subagentType?: string;
+        firstUserMessage?: string;
+      }[],
+    ) {
+      const { getCurrentSession, listSubagentSessions } = await import(
+        "./session.js"
+      );
+      (getCurrentSession as any).mockReturnValue({ sessionId: parentId });
+      (listSubagentSessions as any).mockReturnValue(children);
+    }
+
+    it("says so when nothing has been delegated yet", async () => {
+      await mockSubagents("parent", []);
+
+      const result = await handleSlashCommands("/subagents", mockAssistant);
+
+      expect(result?.exit).toBe(false);
+      expect(result?.output).toContain(
+        "No subagent sessions for this conversation yet.",
+      );
+    });
+
+    it("lists the delegated sessions of the current session", async () => {
+      await mockSubagents("parent", [
+        {
+          sessionId: "parent:one",
+          subagentType: "Explore",
+          firstUserMessage: "Find the parser\nmore",
+        },
+        { sessionId: "parent:two" },
+      ]);
+
+      const result = await handleSlashCommands("/subagents", mockAssistant);
+
+      expect(result?.output).toContain("Subagent sessions (2)");
+      expect(result?.output).toContain("Explore parent:one - Find the parser");
+      expect(result?.output).not.toContain("more");
+      expect(result?.output).toContain("agent parent:two");
+    });
+
+    it("queries children of the current session only", async () => {
+      await mockSubagents("parent", []);
+
+      await handleSlashCommands("/subagents", mockAssistant);
+
+      const { listSubagentSessions } = await import("./session.js");
+      expect(listSubagentSessions).toHaveBeenCalledWith("parent");
+    });
+
+    it("follows the active locale", async () => {
+      setLocale("zh-CN");
+      await mockSubagents("parent", [{ sessionId: "parent:one" }]);
+
+      const result = await handleSlashCommands("/subagents", mockAssistant);
+
+      expect(result?.output).toContain("子代理会话（1）");
+      expect(result?.output).toContain("子代理 parent:one");
     });
   });
 });

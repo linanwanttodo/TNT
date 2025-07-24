@@ -13,6 +13,7 @@ import historyManager from "core/util/history.js";
 import { v4 as uuidv4 } from "uuid";
 
 import { DEFAULT_SESSION_TITLE } from "./constants/session.js";
+import { delegationDepthOf } from "./subagent/depth.js";
 import { logger } from "./util/logger.js";
 
 // Re-export BaseSessionMetadata for external consumers
@@ -23,6 +24,8 @@ export interface ExtendedSessionMetadata extends BaseSessionMetadata {
   firstUserMessage?: string;
   isRemote?: boolean;
   remoteId?: string; // For remote sessions, this is the agent ID
+  parentSessionId?: string;
+  subagentType?: string;
 }
 
 // Note: We now use UUID-based session IDs instead of terminal-based IDs.
@@ -480,6 +483,8 @@ function getSessionMetadataWithPreview(
       dateCreated: stats.birthtime.toISOString(),
       workspaceDirectory: sessionData.workspaceDirectory || "",
       firstUserMessage,
+      parentSessionId: sessionData.parentSessionId,
+      subagentType: sessionData.subagentType,
     };
   } catch (error) {
     logger.error(`Error reading session file ${filePath}:`, error);
@@ -515,6 +520,11 @@ export async function listSessions(
 
       if (fs.existsSync(sessionFilePath)) {
         const metadata = getSessionMetadataWithPreview(sessionFilePath);
+        // A delegated run is reachable from its parent, so it is kept out of
+        // the root list to avoid mixing transcripts of different scopes.
+        if (metadata && metadata.parentSessionId) {
+          continue;
+        }
         if (metadata) {
           localSessionsWithPreview.push({
             ...metadata,
@@ -626,6 +636,88 @@ export function setSessionGoal(goal: string | undefined): void {
     delete session.goal;
   }
   manager.updateHistory(session.history);
+}
+
+/**
+ * Persist a delegated run as its own session so it can be inspected later.
+ *
+ * The child is linked back to the session that spawned it and marked
+ * delegated, which keeps it out of the root session list while leaving it
+ * reachable through the parent.
+ */
+export function saveSubagentSession(options: {
+  parentSessionId: string;
+  subagentType: string;
+  history: ChatHistoryItem[];
+}): Session {
+  const { parentSessionId, subagentType, history } = options;
+  const child: Session = {
+    sessionId: `${parentSessionId}:${uuidv4().slice(0, 8)}`,
+    title: `${subagentType} session`,
+    workspaceDirectory: process.cwd(),
+    history,
+    parentSessionId,
+    subagentType,
+    delegationDepth:
+      delegationDepthOf({
+        delegationDepth: getCurrentSession().delegationDepth,
+      }) + 1,
+    usage: {
+      totalCost: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      promptTokensDetails: {
+        cachedTokens: 0,
+        cacheWriteTokens: 0,
+      },
+    },
+  };
+
+  historyManager.save(getSessionPersistenceSnapshot(child));
+  return child;
+}
+
+/**
+ * Sessions spawned by a delegated run, newest first. Used by the parent to
+ * offer navigation into the subagent transcripts.
+ */
+export function listSubagentSessions(
+  parentSessionId: string,
+): ExtendedSessionMetadata[] {
+  try {
+    const sessionDir = getSessionDir();
+    if (!fs.existsSync(sessionDir)) {
+      return [];
+    }
+
+    return fs
+      .readdirSync(sessionDir)
+      .filter((file) => file.endsWith(".json") && file !== "sessions.json")
+      .map((file): ExtendedSessionMetadata | null => {
+        try {
+          const session: Session = JSON.parse(
+            fs.readFileSync(path.join(sessionDir, file), "utf8"),
+          );
+          if (session.parentSessionId !== parentSessionId) {
+            return null;
+          }
+          const metadata = getSessionMetadataWithPreview(
+            path.join(sessionDir, file),
+          );
+          return metadata ? { ...metadata, isRemote: false } : null;
+        } catch {
+          return null;
+        }
+      })
+      .filter((entry): entry is ExtendedSessionMetadata => entry !== null)
+      .sort(
+        (a, b) =>
+          new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
+      );
+  } catch (error) {
+    logger.error("Error listing subagent sessions:", error);
+    return [];
+  }
 }
 
 /**

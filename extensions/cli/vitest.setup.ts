@@ -6,6 +6,13 @@ import { resetConsoleOverrides } from "./src/init.js";
 process.env.CONTINUE_CLI_ENABLE_TELEMETRY = "0";
 process.env.CONTINUE_ALLOW_ANONYMOUS_TELEMETRY = "0";
 
+// Pin the locale so suites that assert English strings do not follow the
+// machine's LANG. Tests that need another locale call setLocale explicitly.
+process.env.LC_ALL = "C.UTF-8";
+process.env.LC_MESSAGES = "C.UTF-8";
+process.env.LANG = "C.UTF-8";
+process.env.LANGUAGE = "";
+
 // Mock fetch to prevent actual API calls in tests
 const originalFetch = global.fetch;
 global.fetch = vi

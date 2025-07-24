@@ -117,6 +117,11 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
     category: "system",
   },
   {
+    name: "subagents",
+    description: "Show sessions delegated from the current one",
+    category: "system",
+  },
+  {
     name: "skills",
     description: "List all available skills",
     category: "system",

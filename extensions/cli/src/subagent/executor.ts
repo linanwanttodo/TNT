@@ -7,7 +7,7 @@ import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { escapeEvents } from "../util/cli.js";
 import { logger } from "../util/logger.js";
 
-import { getCurrentSession } from "../session.js";
+import { getCurrentSession, saveSubagentSession } from "../session.js";
 
 import {
   canDelegate,
@@ -196,6 +196,12 @@ export async function executeSubAgent(
       logger.debug("Subagent execution completed", {
         agent: model?.name,
         responseLength: response.length,
+      });
+
+      saveSubagentSession({
+        parentSessionId: resolvedParent.id,
+        subagentType: agentType,
+        history: chatHistory,
       });
 
       await fireSubagentStop(agentId, agentType, response).catch(() => {});
