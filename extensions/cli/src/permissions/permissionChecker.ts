@@ -8,6 +8,15 @@ import {
   ToolCallRequest,
   ToolPermissions,
 } from "./types.js";
+import { isReadOnlyCommand } from "./readOnlyCommand.js";
+
+/**
+ * The message the model reads when a read-only mode refuses a command. It
+ * names the mode so the model stops retrying and asks the user to switch,
+ * instead of rewording the same write.
+ */
+export const READ_ONLY_MODE_DENIAL =
+  "Blocked: this mode is read-only, and the command can modify the project. Ask the user to switch to agent mode to run it.";
 
 /**
  * Checks if a tool name matches a pattern.
@@ -164,6 +173,24 @@ export function checkToolPermission(
         permission: "exclude",
         matchedPolicy,
       };
+    }
+
+    // A read-only policy narrows "allow" to commands that cannot write. The
+    // tool listing probe carries no command, and refusing there would drop the
+    // tool from the request, so only a real call is judged.
+    if (matchedPolicy?.readOnlyOnly) {
+      const command = toolCall.arguments?.command;
+      if (
+        typeof command === "string" &&
+        command.trim() !== "" &&
+        !isReadOnlyCommand(command)
+      ) {
+        return {
+          permission: "exclude",
+          matchedPolicy,
+          reason: READ_ONLY_MODE_DENIAL,
+        };
+      }
     }
 
     // Otherwise, user preference wins - return the original base permission

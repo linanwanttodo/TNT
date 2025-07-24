@@ -46,8 +46,10 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "MultiEdit", permission: "exclude" },
   { tool: "Write", permission: "exclude" },
 
-  // TODO address bash read only concerns, maybe make permissions more granular
-  { tool: "Bash", permission: "allow" },
+  // Plan mode promises the project is not modified, so shell commands are
+  // allowed only while they cannot write. A command the classifier does not
+  // recognize is refused rather than sent.
+  { tool: "Bash", permission: "allow", readOnlyOnly: true },
   { tool: "CheckBackgroundJob", permission: "allow" },
   { tool: "AskQuestion", permission: "allow" },
   { tool: "Checklist", permission: "allow" },

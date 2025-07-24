@@ -11,6 +11,11 @@ export interface ToolPermissionPolicy {
   permission: PermissionPolicy;
   /** Optional argument matching patterns. If not specified, applies to all calls to this tool */
   argumentMatches?: Record<string, any>;
+  /**
+   * Only commands that cannot write may run. Set by read-only modes for
+   * terminal tools, where the arguments decide whether the call is safe.
+   */
+  readOnlyOnly?: boolean;
 }
 
 export interface ToolPermissions {
@@ -28,4 +33,6 @@ export interface PermissionCheckResult {
   permission: PermissionPolicy;
   /** The policy that matched this tool call */
   matchedPolicy?: ToolPermissionPolicy;
+  /** Why the call was refused, when the decision needs explaining. */
+  reason?: string;
 }
