@@ -1,4 +1,5 @@
 import { Box, Text, useInput } from "ink";
+import type { Session } from "core/index.js";
 import React, {
   useCallback,
   useEffect,
@@ -57,6 +58,7 @@ async function loadAndSetSession(
   closeCurrentScreen: () => void,
   setChatHistory: (history: any) => void,
   setShowIntroMessage: (show: boolean) => void,
+  setDisplayedSession: (session: Session | null) => void,
 ) {
   try {
     // Close the session selector
@@ -80,6 +82,10 @@ async function loadAndSetSession(
 
     // Set the chat history from the session
     setChatHistory(session.history);
+
+    // Track which session is on screen so a delegated transcript can be
+    // labelled and made read-only.
+    setDisplayedSession(session);
 
     // Clear the intro message since we're now showing a resumed session
     setShowIntroMessage(false);
@@ -188,6 +194,27 @@ const TUIChat: React.FC<TUIChatProps> = ({
   // State to trigger static content refresh for /clear command
   const [staticRefreshTrigger, setStaticRefreshTrigger] = useState(0);
 
+  // Session currently on screen. Used to label and lock a delegated
+  // transcript, which is a record of a finished run rather than a
+  // conversation the user can continue.
+  const [displayedSession, setDisplayedSession] = useState<Session | null>(
+    null,
+  );
+  const subagentView = useMemo(() => {
+    const parentSessionId = displayedSession?.parentSessionId;
+    if (!parentSessionId) {
+      return null;
+    }
+    return {
+      parentSessionId,
+      subagentType: displayedSession?.subagentType ?? t("subagent.unlabeled"),
+    };
+  }, [displayedSession]);
+
+  // Slash commands are dispatched inside useChat, but session switching lives
+  // here, so /back reaches the handler through a ref.
+  const loadSessionRef = useRef<(sessionId: string) => void>(() => {});
+
   // Use chat handlers hook
   const { handleClear, handleReload, resetChatHistoryRef } = useChatHandlers(
     setShowIntroMessage,
@@ -251,6 +278,8 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowMCPSelector: () => navigateTo("mcp"),
     onShowUpdateSelector: () => navigateTo("update"),
     onShowSessionSelector: () => navigateTo("session"),
+    onShowSubagentsSelector: () => navigateTo("subagents"),
+    onLoadSession: (sessionId: string) => loadSessionRef.current(sessionId),
     onShowJobsSelector: () => navigateTo("jobs"),
     onShowExportSelector: () => navigateTo("export"),
     onReload: handleReload,
@@ -259,6 +288,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     // Remote mode configuration
     isRemoteMode,
     remoteUrl,
+    isReadOnlySession: !!subagentView,
     onShowDiff: handleShowDiff,
     onShowStatusMessage: handleShowStatusMessage,
   });
@@ -334,10 +364,17 @@ const TUIChat: React.FC<TUIChatProps> = ({
         closeCurrentScreen,
         setChatHistory,
         setShowIntroMessage,
+        setDisplayedSession,
       );
     },
     [closeCurrentScreen, setChatHistory, setShowIntroMessage],
   );
+
+  useEffect(() => {
+    loadSessionRef.current = (sessionId: string) => {
+      void handleSessionSelect(sessionId);
+    };
+  }, [handleSessionSelect]);
 
   // Export session handler
   const handleExportSession = useCallback(
@@ -551,6 +588,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           chatHistory={chatHistory}
           handleEditMessage={handleEditMessage}
           onShowEditSelector={() => navigateTo("edit")}
+          subagentView={subagentView}
         />
 
         {/* Resource debug bar - only in verbose mode */}

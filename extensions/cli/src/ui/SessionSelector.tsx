@@ -14,6 +14,8 @@ interface SessionSelectorProps {
   sessions: ExtendedSessionMetadata[];
   onSelect: (sessionId: string) => void;
   onExit: () => void;
+  /** Header for the list; defaults to the recent-sessions heading. */
+  title?: string;
 }
 
 function formatTimestamp(date: Date): string {
@@ -41,6 +43,7 @@ export function SessionSelector({
   sessions,
   onSelect,
   onExit,
+  title,
 }: SessionSelectorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [previewSession, setPreviewSession] = useState<Session | null>(null);
@@ -129,7 +132,7 @@ export function SessionSelector({
       {/* Left side: Session list */}
       <Box {...defaultBoxStyles("blue")} width={listWidth}>
         <Text color="blue" bold>
-          {t("session.recent")}{" "}
+          {title ?? t("session.recent")}{" "}
           {sessions.length > displaySessions.length &&
             `(${selectedIndex + 1}/${sessions.length})`}
         </Text>

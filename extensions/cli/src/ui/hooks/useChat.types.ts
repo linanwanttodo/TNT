@@ -19,6 +19,8 @@ export interface UseChatProps {
   onShowUpdateSelector: () => void;
   onShowModelSelector?: () => void;
   onShowSessionSelector?: () => void;
+  onShowSubagentsSelector?: () => void;
+  onLoadSession?: (sessionId: string) => void | Promise<void>;
   onShowJobsSelector?: () => void;
   onShowExportSelector?: () => void;
   onReload?: () => Promise<void>;
@@ -27,6 +29,11 @@ export interface UseChatProps {
   // Remote mode props
   isRemoteMode?: boolean;
   remoteUrl?: string;
+  /**
+   * True while a delegated transcript is open. Slash commands still work so
+   * the user can leave it, but new turns are refused.
+   */
+  isReadOnlySession?: boolean;
   onShowDiff?: (diffContent: string) => void;
   onShowStatusMessage?: (message: string) => void;
 }
@@ -68,6 +75,9 @@ export interface SlashCommandResult {
   openMcpSelector?: boolean;
   openUpdateSelector?: boolean;
   openSessionSelector?: boolean;
+  openSubagentsSelector?: boolean;
+  /** Load this session instead of the current one, e.g. returning to a parent. */
+  loadSessionId?: string;
   openJobsSelector?: boolean;
   openExportSelector?: boolean;
   compact?: boolean;

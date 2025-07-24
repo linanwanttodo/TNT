@@ -122,6 +122,11 @@ export const SYSTEM_SLASH_COMMANDS: SystemCommand[] = [
     category: "system",
   },
   {
+    name: "back",
+    description: "Return from a delegated session to its parent",
+    category: "system",
+  },
+  {
     name: "skills",
     description: "List all available skills",
     category: "system",

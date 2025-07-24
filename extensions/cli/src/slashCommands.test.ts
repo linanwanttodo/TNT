@@ -487,5 +487,51 @@ describe("slashCommands", () => {
       expect(result?.output).toContain("子代理会话（1）");
       expect(result?.output).toContain("子代理 parent:one");
     });
+
+    it("offers the picker once children exist", async () => {
+      await mockSubagents("parent", [{ sessionId: "parent:one" }]);
+
+      const result = await handleSlashCommands("/subagents", mockAssistant);
+
+      expect(result?.openSubagentsSelector).toBe(true);
+    });
+  });
+
+  describe("/back", () => {
+    async function mockCurrentSession(session: Record<string, unknown>) {
+      const { getCurrentSession } = await import("./session.js");
+      (getCurrentSession as any).mockReturnValue(session);
+    }
+
+    it("returns to the parent of a delegated session", async () => {
+      await mockCurrentSession({
+        sessionId: "parent:one",
+        parentSessionId: "parent",
+      });
+
+      const result = await handleSlashCommands("/back", mockAssistant);
+
+      expect(result?.loadSessionId).toBe("parent");
+    });
+
+    it("says so when the session has no parent", async () => {
+      await mockCurrentSession({ sessionId: "parent" });
+
+      const result = await handleSlashCommands("/back", mockAssistant);
+
+      expect(result?.loadSessionId).toBeUndefined();
+      expect(result?.output).toContain("not a delegated session");
+    });
+
+    it("is also reachable as /parent", async () => {
+      await mockCurrentSession({
+        sessionId: "parent:one",
+        parentSessionId: "parent",
+      });
+
+      const result = await handleSlashCommands("/parent", mockAssistant);
+
+      expect(result?.loadSessionId).toBe("parent");
+    });
   });
 });

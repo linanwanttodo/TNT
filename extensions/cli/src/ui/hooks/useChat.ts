@@ -12,6 +12,7 @@ import {
   fireUserPromptSubmit,
 } from "../../hooks/fireHook.js";
 import { toolPermissionManager } from "../../permissions/permissionManager.js";
+import { t } from "../../i18n/index.js";
 import { services } from "../../services/index.js";
 import {
   createSession,
@@ -65,12 +66,15 @@ export function useChat({
   onShowUpdateSelector,
   onShowMCPSelector,
   onShowSessionSelector,
+  onShowSubagentsSelector,
+  onLoadSession,
   onShowJobsSelector,
   onShowExportSelector,
   onClear,
   onRefreshStatic,
   isRemoteMode = false,
   remoteUrl,
+  isReadOnlySession = false,
   onShowDiff,
   onShowStatusMessage,
 }: UseChatProps) {
@@ -469,6 +473,8 @@ export function useChat({
       onShowModelSelector,
       onShowMCPSelector,
       onShowSessionSelector,
+      onShowSubagentsSelector,
+      onLoadSession,
       onShowJobsSelector,
       onShowUpdateSelector,
       onShowExportSelector,
@@ -531,6 +537,20 @@ export function useChat({
       return; // Command was handled and no further processing needed
     }
     message = processedMessage;
+
+    // A delegated transcript records a finished run. Slash commands above still
+    // work so the user can leave it, but a new turn would silently write into
+    // someone else's conversation.
+    if (isReadOnlySession) {
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          message: { role: "system", content: t("subagent.readOnly") },
+          contextItems: [],
+        },
+      ]);
+      return;
+    }
 
     const promptHook = await fireUserPromptSubmit(message);
     if (promptHook.blocked) {

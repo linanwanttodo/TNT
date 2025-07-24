@@ -52,6 +52,8 @@ interface ScreenContentProps {
   chatHistory?: ChatHistoryItem[];
   handleEditMessage?: (messageIndex: number, newContent: string) => void;
   onShowEditSelector?: () => void;
+  /** Set while a delegated transcript is open, so it can be labelled. */
+  subagentView?: { parentSessionId: string; subagentType: string } | null;
 }
 
 function hideScreenContent(state?: UpdateServiceState) {
@@ -89,6 +91,7 @@ export const ScreenContent: React.FC<ScreenContentProps> = ({
   chatHistory = [],
   handleEditMessage,
   onShowEditSelector,
+  subagentView,
 }) => {
   if (hideScreenContent(services.update)) {
     return null;
@@ -137,6 +140,18 @@ export const ScreenContent: React.FC<ScreenContentProps> = ({
     return (
       <SessionSelectorWithLoading
         onSelect={handleExportSession}
+        onExit={closeCurrentScreen}
+      />
+    );
+  }
+
+  // Delegated transcripts of the current session
+  if (isScreenActive("subagents")) {
+    return (
+      <SessionSelectorWithLoading
+        source="subagents"
+        parentSessionId={subagentView?.parentSessionId}
+        onSelect={handleSessionSelect}
         onExit={closeCurrentScreen}
       />
     );
@@ -193,6 +208,7 @@ export const ScreenContent: React.FC<ScreenContentProps> = ({
         isRemoteMode={isRemoteMode}
         onImageInClipboardChange={onImageInClipboardChange}
         onShowEditSelector={onShowEditSelector}
+        subagentView={subagentView}
       />
     );
   }
