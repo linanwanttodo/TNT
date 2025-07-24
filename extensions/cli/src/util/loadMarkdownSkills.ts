@@ -3,10 +3,14 @@ import fsPromises from "fs/promises";
 import * as path from "path";
 
 import { parseMarkdownRule } from "@tnt/config-yaml";
-import { WalkerSync } from "ignore-walk";
+import ignoreWalk from "ignore-walk";
 import { z } from "zod";
 
 import { env } from "../env.js";
+
+// ignore-walk ships as CommonJS and Node cannot synthesize a named export for
+// it, so the walker has to come off the default import instead.
+const { WalkerSync } = ignoreWalk;
 
 export interface Skill {
   name: string;
