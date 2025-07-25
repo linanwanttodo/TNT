@@ -166,4 +166,20 @@ describe("getRequestTools - Tool Filtering", () => {
     expect(toolNames).toContain("Read");
     expect(toolNames).toContain("List");
   });
+
+  test("returns the same tool list in the same order on every turn", async () => {
+    await initializeServices({
+      headless: false,
+      toolPermissionOverrides: {
+        mode: "agent",
+      },
+    });
+
+    const first = await getRequestTools(false);
+    const second = await getRequestTools(false);
+
+    // Tool order is part of the cached prefix: a list that reshuffles between
+    // turns invalidates the provider cache even though nothing changed.
+    expect(second).toEqual(first);
+  });
 });

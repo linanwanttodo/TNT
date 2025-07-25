@@ -8,8 +8,18 @@ import type {
   ChatCompletionTool,
 } from "openai/resources.mjs";
 
-import { headerEquals, type RequestHeader } from "../cache/requestHeader.js";
+import {
+  attributeCacheMiss,
+  cachePrefixKeys,
+  classifyCachePrefix,
+  COMPACTION_PREFIX_STATE,
+  COLD_PREFIX_STATE,
+  type CachePrefixVerdict,
+  recallCachePrefix,
+  rememberCachePrefix,
+} from "../cache/prefixState.js";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
+import { type RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
@@ -220,6 +230,12 @@ interface ProcessStreamingResponseOptions {
   systemMessageUpdates?: readonly string[];
   /** True when this request is a compaction, whose prefix is not the session's. */
   isCompacting?: boolean;
+  /**
+   * How this request's prefix relates to the last one the provider saw. Only
+   * the caller building the request can tell, so it is passed in rather than
+   * recomputed here.
+   */
+  cachePrefixVerdict?: CachePrefixVerdict;
 }
 
 // Process a single streaming response and return whether we need to continue
@@ -249,6 +265,7 @@ export async function processStreamingResponse(
     systemMessage,
     systemMessageUpdates = [],
     isCompacting,
+    cachePrefixVerdict,
   } = options;
 
   let chatHistory = options.chatHistory;
@@ -424,11 +441,24 @@ export async function processStreamingResponse(
       fullUsage?.prompt_tokens_details?.cache_write_tokens ?? 0;
     const reportedInput = fullUsage?.prompt_tokens ?? inputTokens;
     if (reportedInput > 0) {
-      logger.debug("Request cache usage", {
+      const missOwner = attributeCacheMiss({
+        verdict: cachePrefixVerdict,
+        cacheReadTokens: cacheRead,
+        inputTokens: reportedInput,
+      });
+      // Logged at info so the line is in the log file without a debug level
+      // set: attribution that only exists in a log nobody turns on is not
+      // attribution.
+      logger.info("Request cache usage", {
         inputTokens: reportedInput,
         cacheReadTokens: cacheRead,
         cacheWriteTokens: cacheWrite,
         cacheHitRatio: Number((cacheRead / reportedInput).toFixed(4)),
+        prefixState:
+          cachePrefixVerdict?.state ??
+          (isCompacting ? COMPACTION_PREFIX_STATE : COLD_PREFIX_STATE),
+        prefixReasons: cachePrefixVerdict?.reasons ?? [],
+        ...(missOwner ? { cacheMissOwner: missOwner } : {}),
       });
     }
   } catch (error: any) {
@@ -545,12 +575,14 @@ export async function streamChatResponse(
   const toolFailures = new ToolFailureTracker();
   const terminalStops = new TerminalStopTracker();
   /**
-   * The header of the previous request in this turn. A mid-turn change to the
-   * system prompt or the tool list invalidates the cached prefix from that
-   * point onward, and it is otherwise invisible: the model just answers slower
-   * and costs more.
+   * False once this turn has issued its first request, which is how the log
+   * tells a prefix that moved between turns from one that moved mid-turn.
    */
-  let previousRequestHeader: RequestHeader | undefined;
+  let coldTurn = true;
+  /** The cache slot this turn's requests share, and the scope of the prefix memory. */
+  const promptCacheKey = currentPromptCacheKey();
+  /** Set when this turn rewrote the message history since the last request. */
+  let historyRewritten = false;
   let previousSystemMessage: string | undefined;
   let requestSystemMessage: string | undefined;
   let systemMessageUpdates: string[] = [];
@@ -645,20 +677,6 @@ export async function streamChatResponse(
       maxTokens: model.defaultCompletionOptions?.maxTokens,
       mode: services.toolPermissions.getState().currentMode,
     };
-    if (previousRequestHeader) {
-      const { equal, differingFields } = headerEquals(
-        previousRequestHeader,
-        requestHeader,
-      );
-      if (!equal) {
-        // Named fields rather than a hash: knowing that the tool list moved is
-        // actionable, knowing that "something changed" is not.
-        logger.warn("Request prefix changed between turns", {
-          differingFields,
-        });
-      }
-    }
-    previousRequestHeader = requestHeader;
 
     // Pre-API auto-compaction checkpoint (now includes tools)
     const preCompactionResult = await handlePreApiCompaction(chatHistory, {
@@ -673,8 +691,32 @@ export async function streamChatResponse(
     chatHistory = preCompactionResult.chatHistory;
     if (preCompactionResult.wasCompacted) {
       compactionOccurredThisTurn = true;
+      historyRewritten = true;
     }
     preApiReductionRatio = preCompactionResult.reductionRatio;
+
+    // Compared against the last request this session sent, not only against
+    // the previous iteration: a prefix that moved between turns is the case
+    // that costs the most and is otherwise invisible. A compaction request
+    // carries a summary prompt of its own, so it neither reports on nor
+    // overwrites the session prefix.
+    const cachePrefixVerdict = isCompacting
+      ? undefined
+      : classifyCachePrefix(recallCachePrefix(promptCacheKey), requestHeader, {
+          historyRewritten,
+        });
+    if (cachePrefixVerdict?.state === "invalidated") {
+      // Named fields rather than a hash: knowing that the tool list moved is
+      // actionable, knowing that "something changed" is not.
+      logger.warn("Request prefix invalidated", {
+        reasons: cachePrefixVerdict.reasons,
+        ...cachePrefixKeys(requestHeader),
+        scenario: coldTurn ? "turn_start" : "mid_turn",
+      });
+    }
+    if (!isCompacting) {
+      rememberCachePrefix(promptCacheKey, requestHeader);
+    }
 
     logger.debug("Tools prepared", {
       toolCount: tools.length,
@@ -700,7 +742,10 @@ export async function streamChatResponse(
       systemMessage,
       systemMessageUpdates,
       isCompacting,
+      cachePrefixVerdict,
     });
+    coldTurn = false;
+    historyRewritten = false;
 
     if (abortController?.signal.aborted) {
       return finish("user_abort");
@@ -789,6 +834,7 @@ export async function streamChatResponse(
     chatHistory = postToolResult.chatHistory;
     if (postToolResult.wasCompacted) {
       compactionOccurredThisTurn = true;
+      historyRewritten = true;
     }
     postToolReductionRatio = postToolResult.reductionRatio;
 
@@ -809,6 +855,7 @@ export async function streamChatResponse(
     chatHistory = compactionResult.chatHistory;
     if (compactionResult.wasCompacted) {
       compactionOccurredThisTurn = true;
+      historyRewritten = true;
     }
 
     // A compaction is only progress if it actually removed something. The
