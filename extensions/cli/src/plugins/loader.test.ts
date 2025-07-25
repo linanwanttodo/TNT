@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { env } from "../env.js";
 
 import { getPluginCacheDirectory, getPluginsDirectory } from "./directories.js";
-import { isBlockedMarketplaceName, loadAllPlugins } from "./loader.js";
+import {
+  isBlockedMarketplaceName,
+  loadAllPlugins,
+  selectForcedOutputStyle,
+} from "./loader.js";
 
 function writeJson(target: string, value: unknown): void {
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -171,5 +175,117 @@ describe("loadAllPlugins", () => {
 
     const result = loadAllPlugins();
     expect(result.plugins.find((p) => p.name === "broken")).toBeUndefined();
+  });
+
+  it("loads output styles from the default directory and the manifest", () => {
+    const root = installPlugin("acme", "stylepack", "1.0.0");
+
+    writeJson(path.join(root, ".claude-plugin", "plugin.json"), {
+      name: "stylepack",
+      version: "1.0.0",
+      outputStyles: "./styles/extra.md",
+    });
+
+    writeFile(
+      path.join(root, "output-styles", "terse.md"),
+      "---\nname: terse\ndescription: Short answers\nforce-for-plugin: true\n---\n\nAnswer in one line.\n",
+    );
+    writeFile(
+      path.join(root, "styles", "extra.md"),
+      "Explain your reasoning using ${CLAUDE_PLUGIN_ROOT} notes.",
+    );
+
+    const styles = loadAllPlugins().outputStyles.filter(
+      (style) => style.plugin === "stylepack",
+    );
+
+    expect(styles.map((style) => style.name).sort()).toEqual([
+      "stylepack:extra",
+      "stylepack:terse",
+    ]);
+
+    const terse = styles.find((style) => style.name === "stylepack:terse");
+    expect(terse?.description).toBe("Short answers");
+    expect(terse?.prompt).toBe("Answer in one line.");
+    expect(terse?.forceForPlugin).toBe(true);
+
+    const extra = styles.find((style) => style.name === "stylepack:extra");
+    expect(extra?.description).toBe("Output style from stylepack");
+    expect(extra?.forceForPlugin).toBeUndefined();
+    expect(extra?.prompt).toContain(root);
+  });
+
+  it("reads the force flag written as a string", () => {
+    const root = installPlugin("acme", "stringflag", "1.0.0");
+
+    writeJson(path.join(root, "plugin.json"), { name: "stringflag" });
+    writeFile(
+      path.join(root, "output-styles", "loud.md"),
+      '---\nforce-for-plugin: "true"\n---\n\nBe loud.\n',
+    );
+
+    const styles = loadAllPlugins().outputStyles.filter(
+      (style) => style.plugin === "stringflag",
+    );
+
+    expect(styles).toHaveLength(1);
+    expect(styles[0].forceForPlugin).toBe(true);
+  });
+
+  it("selects the forced style and ignores the offered ones", () => {
+    const offered = {
+      name: "demo:offered",
+      plugin: "demo",
+      description: "",
+      prompt: "offered",
+    };
+    const forced = {
+      name: "demo:forced",
+      plugin: "demo",
+      description: "",
+      prompt: "forced",
+      forceForPlugin: true,
+    };
+
+    expect(selectForcedOutputStyle([offered])).toBeUndefined();
+    expect(selectForcedOutputStyle([offered, forced])?.name).toBe(
+      "demo:forced",
+    );
+  });
+
+  it("loads lsp servers from an inline entry and a config file", () => {
+    const root = installPlugin("acme", "lspack", "1.0.0");
+
+    writeJson(path.join(root, ".claude-plugin", "plugin.json"), {
+      name: "lspack",
+      version: "1.0.0",
+      lspServers: [
+        {
+          typescript: {
+            command: "typescript-language-server",
+            args: ["--stdio"],
+            root: "${CLAUDE_PLUGIN_ROOT}",
+          },
+        },
+        "./lsp/python.json",
+      ],
+    });
+    writeJson(path.join(root, "lsp", "python.json"), {
+      pyright: { command: "pyright-langserver", args: ["--stdio"] },
+    });
+
+    const servers = loadAllPlugins().lspServers.filter(
+      (server) => server.plugin === "lspack",
+    );
+    const names = servers.map((server) => server.name);
+
+    expect(names).toContain("lspack-typescript");
+    expect(names).toContain("lspack-pyright");
+
+    const typescript = servers.find(
+      (server) => server.name === "lspack-typescript",
+    );
+    expect(typescript?.config.command).toBe("typescript-language-server");
+    expect(typescript?.config.root).toBe(root);
   });
 });

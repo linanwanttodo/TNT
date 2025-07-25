@@ -7,6 +7,11 @@ import { parseMarkdownRule, RuleObject } from "@tnt/config-yaml";
 import { env } from "./env.js";
 import { processRule } from "./hubLoader.js";
 import { PermissionMode } from "./permissions/types.js";
+import {
+  loadAllPlugins,
+  selectForcedOutputStyle,
+  type PluginOutputStyle,
+} from "./plugins/loader.js";
 import { serviceContainer } from "./services/ServiceContainer.js";
 import { ConfigServiceState, SERVICE_NAMES } from "./services/types.js";
 
@@ -151,6 +156,18 @@ export function loadMarkdownRulesWithMetadata(): RuleObject[] {
 }
 
 /**
+ * Renders an output style as its own system message section. Returns an empty
+ * string when no style is active, so the caller can append unconditionally.
+ */
+export function buildOutputStyleSection(
+  style: PluginOutputStyle | undefined,
+): string {
+  if (!style) return "";
+
+  return `\n\n<context name="outputStyle" source="${style.name}">\n${style.prompt}\n</context>`;
+}
+
+/**
  * Load and construct a comprehensive system message with base message and rules section
  * @param additionalRules - Additional rules from --rule flags
  * @param format - Output format for headless mode
@@ -238,6 +255,13 @@ Example response format:
   "property": "value"
 }`;
   }
+
+  // A plugin may force an output style on as soon as it is enabled. Styles a
+  // plugin merely offers are left alone: applying one changes every request
+  // prefix until it is switched back, so it stays a user decision.
+  systemMessage += buildOutputStyleSection(
+    selectForcedOutputStyle(loadAllPlugins().outputStyles),
+  );
 
   // Add rules section if we have any rules or agent content
   if (agentContent || processedRules.length > 0) {
