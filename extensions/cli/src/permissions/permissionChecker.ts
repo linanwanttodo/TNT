@@ -8,6 +8,7 @@ import {
   ToolCallRequest,
   ToolPermissions,
 } from "./types.js";
+import { isDocumentPath } from "./documentPath.js";
 import { isReadOnlyCommand } from "./readOnlyCommand.js";
 
 /**
@@ -17,6 +18,14 @@ import { isReadOnlyCommand } from "./readOnlyCommand.js";
  */
 export const READ_ONLY_MODE_DENIAL =
   "Blocked: this mode is read-only, and the command can modify the project. Ask the user to switch to agent mode to run it.";
+
+/**
+ * The message the model reads when a documentation-only mode refuses a write.
+ * It names the accepted extensions so the model files its plan correctly
+ * instead of renaming the same file and retrying.
+ */
+export const DOCUMENT_ONLY_MODE_DENIAL =
+  "Blocked: this mode may only write documentation files (.md, .mdx, .markdown, .rst, .txt). Ask the user to switch to agent mode to change code.";
 
 /**
  * Checks if a tool name matches a pattern.
@@ -152,6 +161,28 @@ export function checkToolPermission(
       basePermission = policy.permission;
       matchedPolicy = policy;
       break;
+    }
+  }
+
+  // A documentation-only policy narrows "allow" to the files a planning
+  // session may touch. A tool listing probe carries no path, and refusing
+  // there would drop the tool from the request, so only a real call is judged.
+  if (matchedPolicy?.docsOnly) {
+    const filePath =
+      toolCall.arguments?.filepath ?? toolCall.arguments?.file_path;
+    const hasArguments =
+      typeof toolCall.arguments === "object" &&
+      toolCall.arguments !== null &&
+      Object.keys(toolCall.arguments).length > 0;
+
+    // A real call must name a documentation file. An argument shape that
+    // carries no recognisable path is refused rather than assumed harmless.
+    if (hasArguments && !isDocumentPath(filePath)) {
+      return {
+        permission: "exclude",
+        matchedPolicy,
+        reason: DOCUMENT_ONLY_MODE_DENIAL,
+      };
     }
   }
 

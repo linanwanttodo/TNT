@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
 
 import {
+  DOCUMENT_ONLY_MODE_DENIAL,
   checkToolPermission,
   matchesArguments,
   matchesToolPattern,
@@ -883,5 +884,72 @@ describe("Permission Checker", () => {
         expect(result.matchedPolicy).toBe(policy);
       });
     });
+  });
+});
+
+describe("documentation-only policy", () => {
+  const permissions: ToolPermissions = {
+    policies: [
+      { tool: "Write", permission: "allow", docsOnly: true },
+      { tool: "Edit", permission: "allow", docsOnly: true },
+      { tool: "MultiEdit", permission: "allow", docsOnly: true },
+      { tool: "*", permission: "ask" },
+    ],
+  };
+
+  it("should allow writing a documentation file", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: { filepath: "docs/plan.md" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("should refuse a source file and explain the refusal", () => {
+    const result = checkToolPermission(
+      { name: "Edit", arguments: { file_path: "src/index.ts" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("exclude");
+    expect(result.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
+  });
+
+  it("should refuse an extension it does not recognise", () => {
+    const result = checkToolPermission(
+      { name: "MultiEdit", arguments: { file_path: "scripts/deploy.sh" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("exclude");
+  });
+
+  it("should leave a call without a path to the tool", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: {} },
+      permissions,
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("should refuse a call that names no recognised file argument", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: { path: "docs/plan.md", content: "x" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("exclude");
+    expect(result.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
+  });
+
+  it("should not narrow write tools that omit the flag", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: { filepath: "src/index.ts" } },
+      { policies: [{ tool: "Write", permission: "allow" }] },
+    );
+
+    expect(result.permission).toBe("allow");
   });
 });

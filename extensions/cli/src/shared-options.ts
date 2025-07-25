@@ -11,7 +11,7 @@ export function addCommonOptions(command: Command): Command {
       "--org <slug>",
       "Organization slug to use for this session (supported only in headless mode)",
     )
-    .option("--readonly", "Start in plan mode (read-only tools)")
+    .option("--readonly", "Start in plan mode (documentation writes only)")
     .option("--auto", "Start in auto mode (all tools allowed)")
     .option(
       "--mode <mode>",

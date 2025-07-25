@@ -40,11 +40,14 @@ export function getDefaultToolPolicies(
   return policies;
 }
 
-// Plan mode: Complete override - exclude all write operations, allow only reads and bash
+// Plan mode: writes are allowed for documentation only, reads stay open, and
+// shell commands must be provably non-writing. The path decides whether a
+// write call is safe, so the write tools stay listed and the check runs at
+// execution time.
 export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
-  { tool: "Edit", permission: "exclude" },
-  { tool: "MultiEdit", permission: "exclude" },
-  { tool: "Write", permission: "exclude" },
+  { tool: "Edit", permission: "allow", docsOnly: true },
+  { tool: "MultiEdit", permission: "allow", docsOnly: true },
+  { tool: "Write", permission: "allow", docsOnly: true },
 
   // Plan mode promises the project is not modified, so shell commands are
   // allowed only while they cannot write. A command the classifier does not

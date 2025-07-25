@@ -50,9 +50,10 @@ describe("getRequestTools - Tool Filtering", () => {
     expect(toolNames).toContain("Fetch");
     expect(toolNames).toContain("Checklist");
 
-    // Write tools should be excluded
-    expect(toolNames).not.toContain("Write");
-    expect(toolNames).not.toContain("Edit");
+    // Write tools stay in the request; the permission layer narrows them to
+    // documentation paths at execution time
+    expect(toolNames).toContain("Write");
+    expect(toolNames).toContain("Edit");
   });
 
   test("should include Bash tool in normal mode", async () => {
@@ -145,10 +146,18 @@ describe("getRequestTools - Tool Filtering", () => {
     const tools = await getRequestTools(false);
     const toolNames = tools.map((t) => t.function.name);
 
-    // Plan mode should still exclude write tools despite --allow flags
-    // This tests that plan mode policies have absolute precedence
-    expect(toolNames).not.toContain("Write");
-    expect(toolNames).not.toContain("Edit");
+    // Plan mode policies have absolute precedence: the write tools remain
+    // listed but carry the documentation-only narrowing rather than the
+    // blanket allow the user asked for
+    const permissionState = getServiceSync<ToolPermissionServiceState>(
+      SERVICE_NAMES.TOOL_PERMISSIONS,
+    );
+    const writePolicy = permissionState.value?.permissions.policies.find(
+      (policy) => policy.tool === "Write",
+    );
+    expect(writePolicy?.docsOnly).toBe(true);
+    expect(toolNames).toContain("Write");
+    expect(toolNames).toContain("Edit");
 
     // Bash should be available in plan mode
     expect(toolNames).toContain("Bash");
