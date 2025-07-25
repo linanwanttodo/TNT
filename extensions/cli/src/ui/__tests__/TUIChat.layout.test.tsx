@@ -22,16 +22,23 @@ describe("TUIChat layout", () => {
 
   afterEach(() => context.cleanup());
 
-  it("keeps the composer at the terminal bottom when the intro is taller than the viewport", () => {
+  it("sizes the frame to its content and keeps the composer last", () => {
     const { lastFrame, unmount } = render(<AppRoot />);
 
     try {
       const lines = (lastFrame() ?? "").split("\n");
-      expect(lines).toHaveLength(12);
-      expect(lines[8]).toContain("╭");
-      expect(lines[9]).toContain("Ask anything");
-      expect(lines[10]).toContain("╰");
-      expect(lines[11]).toContain("TNT");
+      const lastLine = lines.length - 1;
+
+      // No blank rows are inserted to fill the terminal: the frame is only as
+      // tall as the composer and the status bar, so everything the transcript
+      // prints above it stays on screen.
+      expect(lines).toHaveLength(4);
+      expect(lines.filter((line) => line.trim() === "")).toHaveLength(0);
+
+      expect(lines[lastLine]).toContain("TNT");
+      expect(lines[lastLine - 1]).toContain("╰");
+      expect(lines[lastLine - 2]).toContain("Ask anything");
+      expect(lines[lastLine - 3]).toContain("╭");
     } finally {
       unmount();
     }

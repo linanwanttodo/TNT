@@ -1,4 +1,4 @@
-import { Box, Text, useInput } from "ink";
+import { Box, Text } from "ink";
 import type { Session } from "core/index.js";
 import React, {
   useCallback,
@@ -31,9 +31,7 @@ import { ScreenContent } from "./components/ScreenContent.js";
 import { StaticChatContent } from "./components/StaticChatContent.js";
 import { useNavigation } from "./context/NavigationContext.js";
 import { useLocale } from "./hooks/useLocale.js";
-import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { collectFailedMcpServerNames } from "./utils/mcpFailures.js";
-import { estimateHistoryHeight } from "./utils/wrappedLineCount.js";
 import { useChat } from "./hooks/useChat.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
 import { useMessageRenderer } from "./hooks/useMessageRenderer.js";
@@ -319,46 +317,13 @@ const TUIChat: React.FC<TUIChatProps> = ({
     ]);
   }, [services.mcp?.connections, setChatHistory]);
 
-  // Transcript scroll: how many lines the history is scrolled up from the
-  // bottom. Pinned to the bottom (0) by default.
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const scrollToBottom = useCallback(() => setScrollOffset(0), []);
-
-  // Estimate the total transcript height in rows; used to bound how far the
-  // user can scroll up before hitting the oldest content.
-  const { columns, rows } = useTerminalSize();
-  const transcriptHeight = estimateHistoryHeight(
-    (chatHistory?.length ?? 0) + (showIntroMessage && !isRemoteMode ? 1 : 0),
-    columns,
-  );
-  // Rows available to the scrollable transcript viewport (history box minus the
-  // fixed bottom section: status/action lines, composer, status bar, arrow).
-  const bottomSectionReserve = 8;
-  const visibleRows = Math.max(1, rows - bottomSectionReserve);
-  const maxScrollOffset = Math.max(0, transcriptHeight - visibleRows);
-
-  // Keyboard scrolling of the transcript. Only active on the chat screen and
-  // when no selector/screen is open, so it never fights text entry or menus.
-  useInput((_input, key) => {
-    if (navState.currentScreen !== "chat") {
-      return;
-    }
-    if (isScreenActive && Object.values(isScreenActive).some((v) => v)) {
-      return;
-    }
-    if (key.pageUp) {
-      setScrollOffset((prev) => Math.max(0, prev - visibleRows));
-    } else if (key.pageDown) {
-      setScrollOffset((prev) => Math.min(maxScrollOffset, prev + visibleRows));
-    } else if (key.downArrow && scrollOffset < maxScrollOffset) {
-      // A plain down arrow nudges toward the newest content when scrolled up.
-      setScrollOffset((prev) => Math.min(maxScrollOffset, prev + 1));
-    } else if (key.upArrow && scrollOffset > 0) {
-      setScrollOffset((prev) => Math.max(0, prev - 1));
-    } else {
-      return;
-    }
-  });
+  // The transcript is not scrolled inside the UI: finished messages are handed
+  // to Ink's <Static> and land in the terminal scrollback, so scrolling is the
+  // terminal's own. Only an answer that is still being written has to stay in
+  // the live frame, together with the tool call or permission prompt that
+  // belongs to it.
+  const liveItemCount =
+    isWaitingForResponse || isCompacting || !!activePermissionRequest ? 1 : 0;
 
   // Update ref after useChat returns
   useEffect(() => {
@@ -499,62 +464,22 @@ const TUIChat: React.FC<TUIChatProps> = ({
     };
   }, []);
 
+  // The frame is only as tall as its content: settled messages are printed
+  // above it and belong to the terminal scrollback, so the composer follows the
+  // newest line instead of sitting inside a fixed-height viewport.
   return (
-    <Box flexDirection="column" height={rows}>
-      {/* Chat history - takes up all available space above input */}
-      <Box
-        flexDirection="column"
-        flexGrow={1}
-        flexShrink={1}
-        flexBasis={0}
-        minHeight={0}
-        overflow="hidden"
-      >
-        {/* Debug component - comment out when not needed */}
-        {/* {!isRemoteMode && (
-          <ServiceDebugger
-            services={services}
-            loading={servicesLoading}
-            error={servicesError}
-            allReady={allServicesReady}
-            servicesLoading={servicesLoading}
-            servicesError={servicesError}
-          />
-        )} */}
-
-        {/* Chat content with intro message and messages in static container */}
-        <StaticChatContent
-          showIntroMessage={showIntroMessage && !isRemoteMode}
-          config={services.config?.config || undefined}
-          model={services.model?.model || undefined}
-          organizationName={organizationName}
-          chatHistory={chatHistory}
-          queuedMessages={queuedMessages}
-          renderMessage={renderMessage}
-          refreshTrigger={staticRefreshTrigger}
-          scrollOffset={scrollOffset}
-          visibleRows={visibleRows}
-          onScrollToBottom={scrollToBottom}
-        />
-      </Box>
-
-      {/* Down-arrow affordance: shown when the transcript is scrolled up so the
-          user can jump back to the newest content. */}
-      {scrollOffset > 0 && (
-        <Box flexDirection="column" flexShrink={0}>
-          <Box
-            alignSelf="center"
-            borderStyle="round"
-            borderColor="blue"
-            paddingX={1}
-          >
-            <Text color="blue" bold>
-              {"↓ "}
-              {t("scroll.bottom")}
-            </Text>
-          </Box>
-        </Box>
-      )}
+    <Box flexDirection="column" flexShrink={0} flexGrow={0}>
+      <StaticChatContent
+        showIntroMessage={showIntroMessage && !isRemoteMode}
+        config={services.config?.config || undefined}
+        model={services.model?.model || undefined}
+        organizationName={organizationName}
+        chatHistory={chatHistory}
+        queuedMessages={queuedMessages}
+        renderMessage={renderMessage}
+        refreshTrigger={staticRefreshTrigger}
+        liveItemCount={liveItemCount}
+      />
 
       {/* Fixed bottom section */}
       <Box flexDirection="column" flexShrink={0}>

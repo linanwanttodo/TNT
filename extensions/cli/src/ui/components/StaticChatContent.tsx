@@ -1,5 +1,5 @@
 import type { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
-import { Box, Text } from "ink";
+import { Box, Static, Text } from "ink";
 import React from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
@@ -7,7 +7,7 @@ import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
-import { estimateHistoryHeight } from "../utils/wrappedLineCount.js";
+import { splitTranscriptSegments } from "../utils/transcriptSegments.js";
 
 interface StaticChatContentProps {
   showIntroMessage: boolean;
@@ -23,15 +23,12 @@ interface StaticChatContentProps {
   ) => React.ReactElement;
   refreshTrigger?: number;
   /**
-   * How many lines the transcript is scrolled up from the bottom. 0 means the
-   * newest content is visible. The parent keeps this pinned to the bottom by
-   * default and only allows it to grow when the user scrolls up.
+   * Trailing history items that are still changing and therefore cannot be
+   * printed once: the answer being streamed, the tool call being run, the
+   * message waiting on a permission prompt. They stay in the live frame; every
+   * other item is final and is written to the terminal scrollback.
    */
-  scrollOffset?: number;
-  /** Number of visible rows the viewport may occupy. */
-  visibleRows?: number;
-  /** Called when the user requests to jump back to the newest content. */
-  onScrollToBottom?: () => void;
+  liveItemCount?: number;
 }
 
 export const StaticChatContent: React.FC<StaticChatContentProps> = ({
@@ -43,14 +40,13 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
   queuedMessages = [],
   renderMessage,
   refreshTrigger,
-  scrollOffset = 0,
-  visibleRows,
-  onScrollToBottom,
+  liveItemCount = 0,
 }) => {
   const { columns } = useTerminalSize();
 
-  // /clear forces the transcript to remount by keying the content on the
-  // refresh trigger, discarding any previously rendered history.
+  // /clear remounts this subtree through the refresh trigger key, so the
+  // printed state restarts from the banner instead of keeping the old
+  // transcript in the live frame.
 
   // Filter out system messages without content and split large messages
   const processedChatHistory = React.useMemo(() => {
@@ -62,13 +58,22 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
     return splitChatHistory(filtered, columns);
   }, [chatHistory, columns]);
 
-  // Split chat history into stable and pending items
-  // Keep more items static now that we've split large messages
-  const { staticItems, pendingItems } = React.useMemo(() => {
-    // Add intro message as first item if it should be shown
-    const staticItems: React.ReactElement[] = [];
+  const { settled, live } = React.useMemo(
+    () => splitTranscriptSegments(processedChatHistory, liveItemCount),
+    [processedChatHistory, liveItemCount],
+  );
+
+  // A transcript item is immutable once the answer it belongs to has finished,
+  // so it is handed to Ink's <Static>, which prints it above the live frame and
+  // never redraws it. That is what makes the log behave like terminal output:
+  // finished messages scroll up into the scrollback and the newest lines stay
+  // next to the composer, instead of the whole conversation being re-wrapped
+  // inside a fixed-height box and clipped at the top.
+  const settledItems = React.useMemo(() => {
+    const items: React.ReactElement[] = [];
+
     if (showIntroMessage) {
-      staticItems.push(
+      items.push(
         <IntroMessage
           key="intro"
           config={config}
@@ -78,71 +83,57 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
       );
     }
 
-    // Since messages are now split into reasonably-sized chunks,
-    // we can keep more items static (only last 1-2 items dynamic)
-    const PENDING_ITEMS_COUNT = 1;
-    const stableCount = Math.max(
-      0,
-      processedChatHistory.length - PENDING_ITEMS_COUNT,
-    );
-    const stableHistory = processedChatHistory.slice(0, stableCount);
-    const pendingHistory = processedChatHistory.slice(stableCount);
+    for (let index = 0; index < settled.length; index += 1) {
+      items.push(renderMessage(settled[index], index, processedChatHistory));
+    }
 
-    // Add stable messages to static items
-    stableHistory.forEach((item, index) => {
-      staticItems.push(renderMessage(item, index, processedChatHistory));
-    });
-
-    // Pending items will be rendered dynamically outside Static
-    const pendingItems = pendingHistory.map((item, index) =>
-      renderMessage(item, stableCount + index, processedChatHistory),
-    );
-
-    return {
-      staticItems,
-      pendingItems,
-    };
+    return items;
   }, [
     showIntroMessage,
     config,
     model,
     organizationName,
+    settled,
     processedChatHistory,
     renderMessage,
   ]);
 
+  // The live frame: whatever is still being written, plus the message queue.
+  // Kept out of <Static> because Ink may not redraw anything it has printed.
+  const liveItems = React.useMemo(() => {
+    const items: React.ReactElement[] = [];
+
+    for (let index = 0; index < live.length; index += 1) {
+      items.push(
+        renderMessage(
+          live[index],
+          settled.length + index,
+          processedChatHistory,
+        ),
+      );
+    }
+
+    return items;
+  }, [live, settled.length, processedChatHistory, renderMessage]);
+
   return (
-    <Box
-      key={refreshTrigger ?? 0}
-      flexDirection="column"
-      flexGrow={1}
-      overflow="hidden"
-    >
-      {/* Leading spacer: scrollOffset blank lines push the history down so the
-          visible window reveals older content when scrolled up. When offset is
-          0 the newest content sits at the bottom of the viewport. */}
-      {scrollOffset > 0 && (
-        <Text>
-          {Array.from({ length: scrollOffset }, () => " ").join("\n")}
-        </Text>
-      )}
-
-      {staticItems.map((item, index) => (
-        <React.Fragment key={`static-${index}`}>{item}</React.Fragment>
-      ))}
-
-      {pendingItems.map((item, index) => (
-        <React.Fragment key={`pending-${index}`}>{item}</React.Fragment>
-      ))}
+    <React.Fragment key={refreshTrigger ?? 0}>
+      <Static items={settledItems}>{(item) => item}</Static>
 
       {/* Queued messages - show at bottom with queue indicators */}
-      {queuedMessages.length > 0 && (
-        <Box paddingLeft={2} paddingBottom={1}>
-          <Text color="dim" italic>
-            {queuedMessages.map((msg) => msg.message).join("\n")}
-          </Text>
+      {(liveItems.length > 0 || queuedMessages.length > 0) && (
+        <Box flexDirection="column" flexShrink={0}>
+          {liveItems}
+
+          {queuedMessages.length > 0 && (
+            <Box paddingLeft={2} paddingBottom={1}>
+              <Text color="dim" italic>
+                {queuedMessages.map((msg) => msg.message).join("\n")}
+              </Text>
+            </Box>
+          )}
         </Box>
       )}
-    </Box>
+    </React.Fragment>
   );
 };
