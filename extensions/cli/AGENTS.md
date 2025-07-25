@@ -8,8 +8,8 @@ This file provides guidance to AI coding agents when working with code in this r
 - **Test**: `npm test` - Runs Vitest tests with ESM support
 - **Type Check**: `npm run lint` - Runs TypeScript compiler without emitting files for type checking
 - **Format**: `npm run format` - Runs Prettier with --write flag to check + fix formatting
-- **Start**: `npm start` - Runs the built CLI from dist/index.js
-- **Development**: After building, test locally with `node dist/index.js`
+- **Start**: `npm start` - Runs the built CLI from dist/tnt.js
+- **Development**: `npm run dev` runs `src/dev.ts` through tsx with no build step. After a build, run `node dist/tnt.js`
 
 ## Architecture Overview
 
@@ -62,7 +62,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
      - `.claude/settings.local.json`, `.tnt/settings.local.json` (project-local)
    - **Exit code semantics**: 0 = proceed, 2 = block (stderr becomes feedback), other = non-blocking error
    - **JSON output**: Optional structured output with `hookSpecificOutput` for fine-grained control
-   - **Hook types**: `command` (shell), `http` (POST request), `prompt`/`agent` (not yet implemented)
+   - **Hook types**: `command` (shell), `http` (POST request), `prompt` (single model turn), `agent` (delegated multi-turn run), all handled by `hookRunner.ts`
 
 ### Key Features
 
@@ -76,7 +76,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 - Uses Vitest with TypeScript and ESM support
 - Configuration in `vitest.config.ts`
 - Tests should be written with `.test.ts` extension
-- No existing test files found - tests should be added when writing new functionality
+- The suite is large (roughly 200 files). Add tests alongside new behavior; a change is not done until `npx tsc --noEmit`, `npx vitest run` and `npx prettier --check "src/**/*.{ts,tsx}"` all pass
 - Run tests using `npm run test path/or/pattern`
 
 ### Build System
