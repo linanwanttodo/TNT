@@ -2,8 +2,6 @@
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
-import { isModelCapable } from "src/utils/modelCapability.js";
-
 import {
   SERVICE_NAMES,
   serviceContainer,
@@ -106,7 +104,6 @@ export async function getAllAvailableTools(
     }
   }
 
-  // If model is capable, exclude editTool in favor of multiEditTool
   const modelState = await serviceContainer.get<ModelServiceState>(
     SERVICE_NAMES.MODEL,
   );
@@ -114,23 +111,10 @@ export async function getAllAvailableTools(
     throw new Error("Model service is not initialized");
   }
 
-  const { provider, name, model } = modelState.model;
-
-  const isCapable = isModelCapable(provider, name, model);
-  if (isCapable) {
-    tools.push(multiEditTool);
-  } else {
-    tools.push(editTool);
-    logger.debug(
-      "Excluded Edit tool for capable model - MultiEdit will be used instead",
-    );
-  }
-
-  logger.debug("Capability-based tool filtering", {
-    provider,
-    name,
-    isCapable,
-  });
+  // Both edit tools are offered. Which one a model handles well cannot be
+  // told from its name, and a project that wants only one can exclude the
+  // other through the permission policies.
+  tools.push(editTool, multiEditTool);
 
   if (isHeadless) {
     tools.push(exitTool);

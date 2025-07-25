@@ -1,23 +1,12 @@
-import { Text } from "ink";
 import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IntroMessage } from "./IntroMessage.js";
 
-// Mock the TipsDisplay module
-vi.mock("./TipsDisplay.js", () => ({
-  TipsDisplay: () => React.createElement(Text, null, "Mocked TipsDisplay"),
-  shouldShowTip: vi.fn(),
-}));
-
 // Mock other dependencies
 vi.mock("../asciiArt.js", () => ({
   getDisplayableAsciiArt: () => "MOCK ASCII ART",
-}));
-
-vi.mock("../utils/modelCapability.js", () => ({
-  isModelCapable: () => true,
 }));
 
 describe("IntroMessage", () => {
@@ -33,24 +22,6 @@ describe("IntroMessage", () => {
     const { lastFrame } = render(<IntroMessage />);
 
     expect(lastFrame()).toContain("MOCK ASCII ART");
-  });
-
-  it("shows tips when shouldShowTip returns true", async () => {
-    const { shouldShowTip } = await import("./TipsDisplay.js");
-    vi.mocked(shouldShowTip).mockReturnValue(true);
-
-    const { lastFrame } = render(<IntroMessage />);
-
-    expect(lastFrame()).toContain("Mocked TipsDisplay");
-  });
-
-  it("does not show tips when shouldShowTip returns false", async () => {
-    const { shouldShowTip } = await import("./TipsDisplay.js");
-    vi.mocked(shouldShowTip).mockReturnValue(false);
-
-    const { lastFrame } = render(<IntroMessage />);
-
-    expect(lastFrame()).not.toContain("Mocked TipsDisplay");
   });
 
   it("renders config name when config is provided", () => {

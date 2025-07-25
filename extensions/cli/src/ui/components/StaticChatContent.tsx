@@ -3,7 +3,6 @@ import { Box, Text } from "ink";
 import React from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
-import type { MCPService } from "../../services/MCPService.js";
 import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
@@ -14,7 +13,6 @@ interface StaticChatContentProps {
   showIntroMessage: boolean;
   config?: AssistantUnrolled;
   model?: ModelConfig;
-  mcpService?: MCPService;
   organizationName?: string;
   chatHistory: ChatHistoryItem[];
   queuedMessages?: QueuedMessage[];
@@ -40,7 +38,6 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
   showIntroMessage,
   config,
   model,
-  mcpService,
   organizationName,
   chatHistory,
   queuedMessages = [],
@@ -76,7 +73,6 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
           key="intro"
           config={config}
           model={model}
-          mcpService={mcpService}
           organizationName={organizationName}
         />,
       );
@@ -110,7 +106,6 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
     showIntroMessage,
     config,
     model,
-    mcpService,
     organizationName,
     processedChatHistory,
     renderMessage,

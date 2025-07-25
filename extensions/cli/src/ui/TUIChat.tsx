@@ -32,6 +32,7 @@ import { StaticChatContent } from "./components/StaticChatContent.js";
 import { useNavigation } from "./context/NavigationContext.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import { collectFailedMcpServerNames } from "./utils/mcpFailures.js";
 import { estimateHistoryHeight } from "./utils/wrappedLineCount.js";
 import { useChat } from "./hooks/useChat.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
@@ -293,6 +294,31 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowStatusMessage: handleShowStatusMessage,
   });
 
+  // MCP servers connect in the background, so a failure lands after the
+  // transcript has started. Report it once, in the transcript, rather than in
+  // the startup banner that is already on screen.
+  const mcpFailuresReported = useRef(false);
+  useEffect(() => {
+    const names = collectFailedMcpServerNames(services.mcp?.connections);
+
+    if (names.length === 0 || mcpFailuresReported.current) {
+      return;
+    }
+
+    mcpFailuresReported.current = true;
+
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        message: {
+          role: "system",
+          content: `${t("mcp.failed", { servers: names.join(", ") })}\n${t("mcp.failedHint")}`,
+        },
+        contextItems: [],
+      },
+    ]);
+  }, [services.mcp?.connections, setChatHistory]);
+
   // Transcript scroll: how many lines the history is scrolled up from the
   // bottom. Pinned to the bottom (0) by default.
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -501,7 +527,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
           showIntroMessage={showIntroMessage && !isRemoteMode}
           config={services.config?.config || undefined}
           model={services.model?.model || undefined}
-          mcpService={services.mcp?.mcpService || undefined}
           organizationName={organizationName}
           chatHistory={chatHistory}
           queuedMessages={queuedMessages}
