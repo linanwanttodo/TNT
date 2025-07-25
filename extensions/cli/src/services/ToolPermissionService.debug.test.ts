@@ -30,9 +30,10 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
         const wildcardPolicy = policies.find((p) => p.tool === "*");
 
         if (mode === "plan") {
-          // Plan mode should explicitly exclude Write
-          expect(writePolicy?.permission).toBe("exclude");
-          console.log(`✓ Write tool correctly excluded in plan mode`);
+          // Plan mode allows Write but narrows it to documentation paths
+          expect(writePolicy?.permission).toBe("allow");
+          expect(writePolicy?.docsOnly).toBe(true);
+          console.log(`Write tool narrowed to documentation in plan mode`);
         } else if (mode === "auto") {
           // Auto mode should allow everything
           expect(wildcardPolicy?.permission).toBe("allow");
@@ -65,7 +66,7 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
         });
 
         if (mode === "plan") {
-          // Should have Write exclude policy BEFORE any wildcard
+          // Should have the Write narrowing policy BEFORE any wildcard
           const writeIndex = policies.findIndex((p) => p.tool === "Write");
           const wildcardIndex = policies.findIndex((p) => p.tool === "*");
 
@@ -73,7 +74,7 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
           if (wildcardIndex >= 0) {
             expect(writeIndex).toBeLessThan(wildcardIndex);
           }
-          expect(policies[writeIndex].permission).toBe("exclude");
+          expect(policies[writeIndex].docsOnly).toBe(true);
         }
       });
     });
@@ -110,6 +111,7 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
     });
 
     const writePolicy = policies.find((p) => p.tool === "Write");
-    expect(writePolicy?.permission).toBe("exclude");
+    expect(writePolicy?.permission).toBe("allow");
+    expect(writePolicy?.docsOnly).toBe(true);
   });
 });

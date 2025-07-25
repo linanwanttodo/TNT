@@ -184,10 +184,8 @@ Rule 3: Third rule`;
       "which means that your goal is to help the user investigate their ideas",
     );
     expect(result).toContain("produce a plan before taking action");
-    expect(result).toContain("read-only tools");
-    expect(result).toContain(
-      "should not attempt to circumvent them to write / delete / create files",
-    );
+    expect(result).toContain("may write documentation files");
+    expect(result).toContain("must not change code or any other file");
     expect(result).toContain("Produce planning artifacts only");
   });
 
@@ -225,8 +223,8 @@ Rule 3: Third rule`;
     );
 
     expect(result).toContain(PLAN_MODE_STRING);
-    expect(result).toContain("read-only tools");
-    expect(result).toContain("write / delete / create files");
+    expect(result).toContain("may write documentation files");
+    expect(result).toContain("must not change code");
   });
 
   it("should combine plan mode with headless mode instructions", async () => {

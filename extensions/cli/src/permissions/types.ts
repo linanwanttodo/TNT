@@ -16,6 +16,12 @@ export interface ToolPermissionPolicy {
    * terminal tools, where the arguments decide whether the call is safe.
    */
   readOnlyOnly?: boolean;
+  /**
+   * Only documentation files may be modified. Set by planning modes, which
+   * are allowed to produce plans and notes but must not touch code. The
+   * arguments decide whether the call is safe.
+   */
+  docsOnly?: boolean;
 }
 
 export interface ToolPermissions {

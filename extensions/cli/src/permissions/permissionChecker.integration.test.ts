@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach } from "vitest";
 
 import { ToolPermissionService } from "../services/ToolPermissionService.js";
 
-import { checkToolPermission } from "./permissionChecker.js";
+import {
+  DOCUMENT_ONLY_MODE_DENIAL,
+  checkToolPermission,
+} from "./permissionChecker.js";
 
 describe("Permission Integration Tests", () => {
   let service: ToolPermissionService;
@@ -89,26 +92,29 @@ describe("Permission Integration Tests", () => {
       expect(editResult.permission).toBe("exclude");
     });
 
-    it("should work with plan mode and --allow overrides", () => {
-      // Plan mode normally excludes write operations
+    it("should allow documentation writes in plan mode", () => {
+      // Plan mode writes documentation only, and the mode rule is what
+      // applies even when the user allows Edit outright.
       service.initializeSync({
         mode: "plan",
-        allow: ["Edit"], // But we explicitly allow Edit
+        allow: ["Edit"],
         isHeadless: true,
       });
 
       const state = service.getState();
 
-      // In plan mode with --allow Edit override
-      const editResult = checkToolPermission(
-        { name: "Edit", arguments: {} },
+      const planWrite = checkToolPermission(
+        { name: "Edit", arguments: { file_path: "notes/implementation.md" } },
         state.permissions,
       );
+      expect(planWrite.permission).toBe("allow");
 
-      // Currently this fails because plan mode ignores --allow flags
-      // After fix, this should be 'allow'
-      expect(editResult.permission).toBe("exclude"); // Current behavior
-      // TODO: After fix, change to: expect(editResult.permission).toBe('allow');
+      const codeWrite = checkToolPermission(
+        { name: "Edit", arguments: { file_path: "src/index.ts" } },
+        state.permissions,
+      );
+      expect(codeWrite.permission).toBe("exclude");
+      expect(codeWrite.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
     });
   });
 });

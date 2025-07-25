@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { checkToolPermission } from "../permissions/permissionChecker.js";
+import {
+  DOCUMENT_ONLY_MODE_DENIAL,
+  checkToolPermission,
+} from "../permissions/permissionChecker.js";
 
 import { ToolPermissionService } from "./ToolPermissionService.js";
 
@@ -144,23 +147,25 @@ describe("ToolPermissionService - Real Tool Permission Test", () => {
       let permissions = service.getPermissions();
       const toolCall = {
         name: "Write",
-        arguments: { path: "test.txt", content: "test" },
+        arguments: { filepath: "src/app.ts", content: "test" },
       };
       let result = checkToolPermission(toolCall, permissions);
       console.log(`Normal mode with user allow - Write result:`, result);
       expect(result.permission).toBe("allow");
 
-      // Switch to plan mode - should OVERRIDE user config completely
+      // Switch to plan mode - the mode narrows writes to documentation,
+      // which overrides the user's blanket allow
       service.switchMode("plan");
       permissions = service.getPermissions();
       result = checkToolPermission(toolCall, permissions);
 
-      console.log(`After switching to plan mode - write_file result:`, result);
+      console.log(`After switching to plan mode - Write result:`, result);
       console.log(
         `Plan mode policies:`,
         permissions.policies.map((p) => `${p.tool}:${p.permission}`),
       );
       expect(result.permission).toBe("exclude");
+      expect(result.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
     });
   });
 });

@@ -24,12 +24,22 @@ describe("ToolPermissionService - Mode Functionality", () => {
       const state = service.initializeSync({ mode: "plan" });
       const policies = state.permissions.policies;
 
-      // Should have specific policies for write tools (excluded)
+      // Write tools are allowed but narrowed to documentation paths
       expect(
-        policies.some((p) => p.tool === "Write" && p.permission === "exclude"),
+        policies.some(
+          (p) =>
+            p.tool === "Write" &&
+            p.permission === "allow" &&
+            p.docsOnly === true,
+        ),
       ).toBe(true);
       expect(
-        policies.some((p) => p.tool === "Edit" && p.permission === "exclude"),
+        policies.some(
+          (p) =>
+            p.tool === "Edit" &&
+            p.permission === "allow" &&
+            p.docsOnly === true,
+        ),
       ).toBe(true);
       expect(
         policies.some((p) => p.tool === "Bash" && p.permission === "allow"),
@@ -78,7 +88,10 @@ describe("ToolPermissionService - Mode Functionality", () => {
       const planPolicies = planState.permissions.policies;
       expect(
         planPolicies.some(
-          (p) => p.tool === "Write" && p.permission === "exclude",
+          (p) =>
+            p.tool === "Write" &&
+            p.permission === "allow" &&
+            p.docsOnly === true,
         ),
       ).toBe(true);
       expect(
@@ -111,7 +124,10 @@ describe("ToolPermissionService - Mode Functionality", () => {
       expect(planPolicies).not.toEqual(normalPolicies);
       expect(
         planPolicies.some(
-          (p) => p.tool === "Write" && p.permission === "exclude",
+          (p) =>
+            p.tool === "Write" &&
+            p.permission === "allow" &&
+            p.docsOnly === true,
         ),
       ).toBe(true);
     });
@@ -132,7 +148,8 @@ describe("ToolPermissionService - Mode Functionality", () => {
       // Plan mode should use ONLY mode policies (absolute override)
       // Should contain Write exclude policy for plan mode
       const writePolicy = newPolicies.find((p) => p.tool === "Write");
-      expect(writePolicy?.permission).toBe("exclude");
+      expect(writePolicy?.permission).toBe("allow");
+      expect(writePolicy?.docsOnly).toBe(true);
 
       // Should not contain any user-defined policies from the initial setup
       const userAllowPolicy = newPolicies.find((p) => p.tool === "allowedTool");
@@ -226,10 +243,20 @@ describe("ToolPermissionService - Mode Functionality", () => {
 
       // Mode policies should override user config - Write should be excluded despite being in allow list
       expect(
-        policies.some((p) => p.tool === "Write" && p.permission === "exclude"),
+        policies.some(
+          (p) =>
+            p.tool === "Write" &&
+            p.permission === "allow" &&
+            p.docsOnly === true,
+        ),
       ).toBe(true);
       expect(
-        policies.some((p) => p.tool === "Edit" && p.permission === "exclude"),
+        policies.some(
+          (p) =>
+            p.tool === "Edit" &&
+            p.permission === "allow" &&
+            p.docsOnly === true,
+        ),
       ).toBe(true);
       expect(
         policies.some((p) => p.tool === "Bash" && p.permission === "allow"),

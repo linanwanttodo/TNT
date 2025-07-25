@@ -75,7 +75,8 @@ describe("ToolPermissionService", () => {
       expect(state.permissions.policies.length).toBeGreaterThan(0);
       expect(state.permissions.policies).toContainEqual({
         tool: "Write",
-        permission: "exclude",
+        permission: "allow",
+        docsOnly: true,
       });
     });
   });
@@ -117,9 +118,17 @@ describe("ToolPermissionService", () => {
       const state = service.initializeSync({ mode: "plan" });
       const policies = state.permissions.policies;
 
-      // Should exclude write tools
-      expect(policies).toContainEqual({ tool: "Write", permission: "exclude" });
-      expect(policies).toContainEqual({ tool: "Edit", permission: "exclude" });
+      // Write tools stay available for documentation and are narrowed by path
+      expect(policies).toContainEqual({
+        tool: "Write",
+        permission: "allow",
+        docsOnly: true,
+      });
+      expect(policies).toContainEqual({
+        tool: "Edit",
+        permission: "allow",
+        docsOnly: true,
+      });
 
       // Should allow read tools and inspecting shell commands, and only those
       expect(policies).toContainEqual({
@@ -184,7 +193,8 @@ describe("ToolPermissionService", () => {
       // Should only have plan mode policies
       expect(state.permissions.policies).toContainEqual({
         tool: "Write",
-        permission: "exclude",
+        permission: "allow",
+        docsOnly: true,
       });
       // Should not have user policies
       expect(state.permissions.policies).not.toContainEqual({
@@ -341,14 +351,17 @@ describe("ToolPermissionService", () => {
         allow: ["Write", "Edit"],
       });
 
-      // Plan mode should override and exclude these tools
+      // Plan mode should override the user preference and narrow these tools
+      // to documentation paths
       expect(state.permissions.policies).toContainEqual({
         tool: "Write",
-        permission: "exclude",
+        permission: "allow",
+        docsOnly: true,
       });
       expect(state.permissions.policies).toContainEqual({
         tool: "Edit",
-        permission: "exclude",
+        permission: "allow",
+        docsOnly: true,
       });
     });
 
@@ -399,11 +412,11 @@ describe("ToolPermissionService", () => {
         mode: "plan",
       });
 
-      // Plan mode should exclude write tools
-      const writeExcludeIndex = state.permissions.policies.findIndex(
-        (p) => p.tool === "Write" && p.permission === "exclude",
+      // Plan mode should narrow write tools to documentation paths
+      const writeDocsOnlyIndex = state.permissions.policies.findIndex(
+        (p) => p.tool === "Write" && p.docsOnly === true,
       );
-      expect(writeExcludeIndex).toBeGreaterThanOrEqual(0);
+      expect(writeDocsOnlyIndex).toBeGreaterThanOrEqual(0);
 
       // Plan mode allows all other tools via wildcard
       expect(state.permissions.policies).toContainEqual({
