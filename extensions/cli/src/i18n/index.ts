@@ -24,8 +24,6 @@ const en = {
   "intro.config": "Config",
   "intro.model": "Model",
   "intro.org": "Org",
-  "intro.rules": "Rules",
-  "intro.mcpServers": "MCP Servers",
   "intro.loading": "Loading...",
   "composer.placeholder":
     "Ask anything, @ for context, / for slash commands, ! for shell mode",
@@ -43,20 +41,8 @@ const en = {
   "status.image": "Ctrl+V paste image",
   "status.cost": "Cost",
   "status.exit": "ctrl+c to exit",
-  "tip.label": "Tip",
-  "model.warningTitle": "Model Capability Warning",
-  "tip.shortcuts": "Use `/help` to learn keyboard shortcuts",
-  "tip.pause": "Press escape to pause tnt, and press enter to continue",
-  "tip.history": "Use arrow keys to navigate through your input history",
-  "tip.multiline":
-    'Multi-line input is supported by typing "\\" and pressing enter',
-  "tip.resume": "Use `tnt ls` or `/resume` to resume a previous conversation",
-  "tip.headless":
-    'Run `tnt` with the `-p` flag for headless mode. For example: `tnt -p "Generate a commit message for the current changes."`',
-  "tip.init":
-    "Use the /init slash command to generate an AGENTS.md file so tnt understands your codebase.",
-  "model.notRecommended":
-    'The model "{model}" is not recommended for tnt because of its limited reasoning and tool support. Consider switching to a recommended model.',
+  "mcp.failed": "MCP servers failed to connect: {servers}",
+  "mcp.failedHint": "Run /mcp to see the details.",
   "session.empty":
     "No previous sessions found. Start a new conversation with: tnt",
   "session.newWith": "Start a new conversation with: tnt",
@@ -106,8 +92,6 @@ const zhCN: Record<TranslationKey, string> = {
   "intro.config": "配置",
   "intro.model": "模型",
   "intro.org": "组织",
-  "intro.rules": "规则",
-  "intro.mcpServers": "MCP 服务器",
   "intro.loading": "加载中...",
   "composer.placeholder": "输入内容，@ 引用上下文，/ 打开命令，! 执行 shell",
   "composer.placeholderRemote": "输入内容，/ 打开命令，! 执行 shell",
@@ -123,18 +107,8 @@ const zhCN: Record<TranslationKey, string> = {
   "status.image": "Ctrl+V 粘贴图片",
   "status.cost": "费用",
   "status.exit": "ctrl+c 退出",
-  "tip.label": "提示",
-  "model.warningTitle": "模型能力提示",
-  "tip.shortcuts": "输入 /help 查看快捷键",
-  "tip.pause": "按 Esc 暂停 tnt，按回车继续",
-  "tip.history": "用方向键翻阅历史输入",
-  "tip.multiline": "输入 \\ 后回车可以换行",
-  "tip.resume": "用 `tnt ls` 或 /resume 恢复之前的会话",
-  "tip.headless":
-    '用 `tnt -p` 可以以非交互模式运行。例如：tnt -p "为当前改动生成提交信息"',
-  "tip.init": "用 /init 生成 AGENTS.md，让 tnt 更了解你的代码库。",
-  "model.notRecommended":
-    "模型 {model} 的推理与工具支持有限，不建议用于 tnt。建议切换到推荐的模型。",
+  "mcp.failed": "MCP 服务器连接失败：{servers}",
+  "mcp.failedHint": "输入 /mcp 查看详情。",
   "session.empty": "没有找到历史会话。输入 tnt 开始新会话。",
   "session.newWith": "输入 tnt 开始新会话：",
   "session.loading": "正在加载会话...",
