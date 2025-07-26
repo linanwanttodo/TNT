@@ -36,13 +36,13 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
   const [allCommands, setAllCommands] = useState<SlashCommand[]>(
     // Fallback - basic commands without assistant
     [
-      { name: "help", description: "Show help message", category: "system" },
+      { name: "help", description: t("cmd.help"), category: "system" },
       {
         name: "clear",
-        description: "Clear the chat history",
+        description: t("cmd.clear"),
         category: "system",
       },
-      { name: "exit", description: "Exit the chat", category: "system" },
+      { name: "exit", description: t("cmd.exit"), category: "system" },
     ],
   );
 

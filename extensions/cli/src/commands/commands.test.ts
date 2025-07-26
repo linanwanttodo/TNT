@@ -31,4 +31,45 @@ describe("localized system commands", () => {
       englishLanguageCommand?.description,
     );
   });
+
+  it("translates built-in command descriptions with the locale", async () => {
+    const assistant = { name: "test" } as any;
+    const englishCommands = await getAllSlashCommands(assistant);
+    const englishHelp = englishCommands.find(
+      (command) => command.name === "help",
+    );
+
+    expect(englishHelp?.description).toBe(t("cmd.help"));
+
+    setLocale("zh-CN");
+    const localizedCommands = await getAllSlashCommands(assistant);
+    const localizedHelp = localizedCommands.find(
+      (command) => command.name === "help",
+    );
+
+    expect(localizedHelp?.description).toBe(t("cmd.help"));
+    expect(localizedHelp?.description).not.toBe(englishHelp?.description);
+    expect(localizedHelp?.name).toBe("help");
+  });
+
+  it("keeps descriptions supplied by plugins and prompts untouched", async () => {
+    const assistant = {
+      name: "test",
+      prompts: [
+        {
+          name: "test-prompt",
+          prompt: "Test prompt",
+          description: "Test prompt description",
+        },
+      ],
+    } as any;
+
+    setLocale("zh-CN");
+    const commands = await getAllSlashCommands(assistant);
+    const promptCommand = commands.find(
+      (command) => command.name === "test-prompt",
+    );
+
+    expect(promptCommand?.description).toBe("Test prompt description");
+  });
 });

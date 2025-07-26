@@ -138,7 +138,7 @@ const UserInput: React.FC<UserInputProps> = ({
   onImageInClipboardChange,
   onShowEditSelector,
 }) => {
-  useLocale();
+  const locale = useLocale();
   const [textBuffer] = useState(() => new TextBuffer());
   const [inputHistory] = useState(() => new InputHistory());
   const lastEscapePressRef = useRef<number>(0);
@@ -195,13 +195,13 @@ const UserInput: React.FC<UserInputProps> = ({
     permissionServices.toolPermissions?.currentMode ?? "agent";
 
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([
-    { name: "help", description: "Show help message", category: "system" },
+    { name: "help", description: t("cmd.help"), category: "system" },
     {
       name: "clear",
-      description: "Clear the chat history",
+      description: t("cmd.clear"),
       category: "system",
     },
-    { name: "exit", description: "Exit the chat", category: "system" },
+    { name: "exit", description: t("cmd.exit"), category: "system" },
   ]);
 
   useEffect(() => {
@@ -213,7 +213,7 @@ const UserInput: React.FC<UserInputProps> = ({
     };
 
     void loadCommands();
-  }, [assistant?.prompts, assistant?.rules]);
+  }, [assistant?.prompts, assistant?.rules, locale]);
 
   // Cycle through permission modes
   const cycleModes = async () => {

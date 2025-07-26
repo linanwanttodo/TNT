@@ -6,7 +6,7 @@ import {
   getSkillSlashCommandName,
   loadMarkdownSkills,
 } from "../util/loadMarkdownSkills.js";
-import { t } from "../i18n/index.js";
+import { type TranslationKey, t } from "../i18n/index.js";
 
 // Export command functions
 export { chat } from "./chat.js";
@@ -172,6 +172,52 @@ export const REMOTE_MODE_SLASH_COMMANDS: SlashCommand[] = [
 ];
 
 /**
+ * i18n keys for the built-in command descriptions. The lists above are module
+ * constants, so the text is resolved when a list is read rather than when the
+ * module loads; a locale change then takes effect as soon as the list is
+ * rebuilt.
+ */
+const COMMAND_DESCRIPTION_KEYS: Record<string, TranslationKey> = {
+  help: "cmd.help",
+  clear: "cmd.clear",
+  update: "cmd.update",
+  info: "cmd.info",
+  model: "cmd.model",
+  config: "cmd.config",
+  mcp: "cmd.mcp",
+  init: "cmd.init",
+  compact: "cmd.compact",
+  resume: "cmd.resume",
+  fork: "cmd.fork",
+  title: "cmd.title",
+  goal: "cmd.goal",
+  plugins: "cmd.plugins",
+  rename: "cmd.rename",
+  exit: "cmd.exit",
+  jobs: "cmd.jobs",
+  sessions: "cmd.sessions",
+  subagents: "cmd.subagents",
+  back: "cmd.back",
+  skills: "cmd.skills",
+  "import-skill": "cmd.importSkill",
+  export: "cmd.export",
+  import: "cmd.import",
+  language: "language.title",
+  diff: "cmd.diff",
+  apply: "cmd.apply",
+};
+
+/**
+ * Replaces a built-in command description with its translation, leaving
+ * commands that carry their own text (plugins, skills, prompts) untouched.
+ */
+function translateCommandDescription(command: SlashCommand): SlashCommand {
+  const key = COMMAND_DESCRIPTION_KEYS[command.name];
+
+  return key ? { ...command, description: t(key) } : command;
+}
+
+/**
  * Get all available slash commands including system commands and assistant prompts
  */
 export async function getAllSlashCommands(
@@ -182,15 +228,11 @@ export async function getAllSlashCommands(
 
   // In remote mode, only show the exit command
   if (isRemoteMode) {
-    return REMOTE_MODE_SLASH_COMMANDS;
+    return REMOTE_MODE_SLASH_COMMANDS.map(translateCommandDescription);
   }
 
   // All system commands are available
-  const systemCommands = SYSTEM_SLASH_COMMANDS.map((command) =>
-    command.name === "language"
-      ? { ...command, description: t("language.title") }
-      : command,
-  );
+  const systemCommands = SYSTEM_SLASH_COMMANDS.map(translateCommandDescription);
 
   // Get assistant prompt commands
   const assistantCommands: SlashCommand[] =
