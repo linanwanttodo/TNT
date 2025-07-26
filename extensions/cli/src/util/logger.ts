@@ -116,9 +116,100 @@ const winstonLogger = winston.createLogger({
   ],
 });
 
+const LOG_LEVELS = ["error", "warn", "info", "debug", "silly"] as const;
+
+/**
+ * Maps a configured level name to a level this logger accepts, or undefined
+ * when the name is not one of them. A typo is ignored rather than raising the
+ * volume, so it cannot flood the log.
+ */
+export function resolveLogLevel(
+  value: string | undefined,
+): (typeof LOG_LEVELS)[number] | undefined {
+  const requested = (value ?? "").trim().toLowerCase();
+  return LOG_LEVELS.find((level) => level === requested);
+}
+
+/**
+ * Applies the level named by `TNT_LOG_LEVEL` (or the older
+ * `CONTINUE_LOG_LEVEL`). Unrecognized values are ignored rather than raising
+ * the volume, so a typo cannot flood the log.
+ */
+function applyConfiguredLogLevel(): void {
+  const level = resolveLogLevel(
+    process.env.TNT_LOG_LEVEL ?? process.env.CONTINUE_LOG_LEVEL,
+  );
+
+  if (level) {
+    winstonLogger.level = level;
+  }
+}
+
+applyConfiguredLogLevel();
+
 // Function to set log level
 export function setLogLevel(level: string) {
   winstonLogger.level = level;
+}
+
+interface ClosableTransport {
+  close?: (callback?: () => void) => void;
+}
+
+/**
+ * Closes each transport and resolves when they report done, or after the
+ * timeout, so a wedged transport cannot hold the exit.
+ */
+export function flushTransports(
+  transports: ReadonlyArray<ClosableTransport>,
+  timeoutMs = 1000,
+): Promise<void> {
+  const pending = transports.map(
+    (transport) =>
+      new Promise<void>((resolve) => {
+        if (typeof transport.close !== "function") {
+          resolve();
+          return;
+        }
+
+        let settled = false;
+        const done = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolve();
+        };
+        const timer = setTimeout(done, timeoutMs);
+        timer.unref?.();
+
+        try {
+          transport.close(() => {
+            clearTimeout(timer);
+            done();
+          });
+        } catch {
+          clearTimeout(timer);
+          done();
+        }
+      }),
+  );
+
+  return Promise.all(pending).then(() => undefined);
+}
+
+/**
+ * Waits until the lines already written have reached the log file.
+ *
+ * The process leaves through `process.exit()`, which drops whatever the file
+ * stream still had buffered, and the end-of-turn telemetry is exactly that
+ * tail.
+ */
+export function flushLogs(timeoutMs = 1000): Promise<void> {
+  return flushTransports(
+    winstonLogger.transports as unknown as ReadonlyArray<ClosableTransport>,
+    timeoutMs,
+  );
 }
 
 // Function to configure headless mode
@@ -176,6 +267,7 @@ export const logger = {
   },
   setLevel: setLogLevel,
   configureHeadlessMode,
+  flush: flushLogs,
   getLogPath: getLogFilePath,
   getSessionId: () => SESSION_ID,
 };
