@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 20
           cache: "npm"
-          cache-dependency-path: extensions/cli/package-lock.json
+          cache-dependency-path: packages/cli/package-lock.json
 
       - name: Setup packages
         uses: ./.github/actions/setup-packages
@@ -46,12 +46,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm ci --include=optional
 
       - name: Run linting
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm run lint
 
   test:
@@ -74,8 +74,8 @@ jobs:
       - name: Cache CLI node_modules
         uses: actions/cache@v5
         with:
-          path: extensions/cli/node_modules
-          key: ${{ runner.os }}-node${{ matrix.node-version }}-cli-modules-${{ hashFiles('extensions/cli/package-lock.json') }}
+          path: packages/cli/node_modules
+          key: ${{ runner.os }}-node${{ matrix.node-version }}-cli-modules-${{ hashFiles('packages/cli/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node${{ matrix.node-version }}-cli-modules-
 
@@ -94,29 +94,29 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm ci --include=optional
 
       - name: Build
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm run build
 
       - name: Run smoke tests
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm run test:smoke
 
       - name: Run tests
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm test
 
       # e2e tests are failing on Windows specifically - likely due to stdout flush issues
       - name: Run e2e tests
         if: matrix.os != 'windows-latest'
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm run test:e2e
 
   smoke-api:
@@ -132,7 +132,7 @@ jobs:
         with:
           node-version: 20
           cache: "npm"
-          cache-dependency-path: extensions/cli/package-lock.json
+          cache-dependency-path: packages/cli/package-lock.json
 
       - name: Setup packages
         uses: ./.github/actions/setup-packages
@@ -149,12 +149,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm ci --include=optional
 
       - name: Build
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm run build
 
       - name: Run smoke API tests
@@ -162,7 +162,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CONTINUE_API_KEY: ${{ secrets.CONTINUE_API_KEY }}
         run: |
-          cd extensions/cli
+          cd packages/cli
           npm run test:smoke-api
 
   # GitHub does not have a way of requiring that all checks pass (you must manually select each job)

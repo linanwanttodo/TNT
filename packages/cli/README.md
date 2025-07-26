@@ -11,13 +11,13 @@ This project is a fork derived from [Continue](https://github.com/linanwanttodo/
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/extensions/cli/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/extensions/cli/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
 ```
 
 Or install with npm if you have Node.js 20+:

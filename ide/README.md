@@ -2,7 +2,7 @@
 
 Status: parked, not deleted.
 
-The product surface is the TNT CLI (`extensions/cli`) and the shared engine
+The product surface is the TNT CLI (`packages/cli`) and the shared engine
 (`core/`). The IDE plugins are kept here, working and buildable, but they are
 not part of the default build or CI path. Nothing in this directory runs unless
 you invoke it explicitly.

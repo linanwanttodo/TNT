@@ -43,8 +43,8 @@
     "ide/vscode/e2e/_output": true,
     "ide/vscode/e2e/storage": true,
     "ide/vscode/e2e/vsix": true,
-    "extensions/.continue-debug": true,
-    "extensions/cli/dist/**": true,
+    "packages/cli/.continue-debug": true,
+    "packages/cli/dist/**": true,
     "packages/config-yaml/dist/**": true
     // "sync/**": true
   },

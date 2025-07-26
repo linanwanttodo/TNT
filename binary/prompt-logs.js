@@ -4,7 +4,8 @@ const path = require("path");
 const logDirPath = path.join(
   __dirname,
   "..",
-  "extensions",
+  "packages",
+  "cli",
   ".continue-debug",
   "logs",
 );

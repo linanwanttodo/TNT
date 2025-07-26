@@ -327,7 +327,7 @@
       },
       "problemMatcher": ["$tsc"],
       "options": {
-        "cwd": "${workspaceFolder}/extensions/cli"
+        "cwd": "${workspaceFolder}/packages/cli"
       }
     },
     {
@@ -347,7 +347,7 @@
       },
       "problemMatcher": ["$tsc"],
       "options": {
-        "cwd": "${workspaceFolder}/extensions/cli"
+        "cwd": "${workspaceFolder}/packages/cli"
       }
     },
     {
@@ -364,7 +364,7 @@
         "clear": false
       },
       "options": {
-        "cwd": "${workspaceFolder}/extensions/cli"
+        "cwd": "${workspaceFolder}/packages/cli"
       }
     },
     {
@@ -391,7 +391,7 @@
         "focus": false
       },
       "options": {
-        "cwd": "${workspaceFolder}/extensions/cli"
+        "cwd": "${workspaceFolder}/packages/cli"
       }
     },
     {

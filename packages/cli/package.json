@@ -16,7 +16,7 @@
     "test:smoke": "node smoke-test.mjs",
     "test:smoke-api": "vitest run --config vitest.smoke-api.config.ts",
     "build:tsc": "tsc -p tsconfig.build.json",
-    "build:local-deps": "cd ../../packages/config-types && npm i && npm run build && cd ../fetch && npm i && npm run build && cd ../llm-info && npm i && npm run build && cd ../terminal-security && npm i && npm run build && cd ../config-yaml && npm i && npm run build && cd ../openai-adapters && npm i && npm run build && cd ../../core && npm i && npm run build && cd ../extensions/cli && npm i",
+    "build:local-deps": "cd ../../packages/config-types && npm i && npm run build && cd ../fetch && npm i && npm run build && cd ../llm-info && npm i && npm run build && cd ../terminal-security && npm i && npm run build && cd ../config-yaml && npm i && npm run build && cd ../openai-adapters && npm i && npm run build && cd ../../core && npm i && npm run build && cd ../packages/cli && npm i",
     "build:validate": "node validate-aliases.mjs",
     "build:bundle": "node build.mjs",
     "build": "npm run build:validate && npm run build:bundle",
@@ -45,7 +45,7 @@
   },
   "homepage": "https://github.com/linanwanttodo/TNT",
   "dependencies": {
-    "@tnt/sdk": "file:../../packages/continue-sdk/typescript",
+    "@tnt/sdk": "file:../../packages/sdk/typescript",
     "fdir": "^6.4.2",
     "find-up": "^8.0.0",
     "fzf": "^0.5.2",

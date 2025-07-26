@@ -30,10 +30,10 @@ This document catalogs all build dependencies, secrets, and environment variable
 
 ## CLI
 
-| Variable       | Purpose                                              | Referenced In                                                                                      |
-| -------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `TNT_API_BASE` | Base URL of your own control plane; unset by default | `extensions/cli/.env.example`                                                                      |
-| `TNT_API_KEY`  | API key for your own control plane, when required    | `extensions/cli/.env.example`, `packages/continue-sdk/typescript/.env.example`, multiple workflows |
+| Variable       | Purpose                                              | Referenced In                                                                           |
+| -------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `TNT_API_BASE` | Base URL of your own control plane; unset by default | `packages/cli/.env.example`                                                             |
+| `TNT_API_KEY`  | API key for your own control plane, when required    | `packages/cli/.env.example`, `packages/sdk/typescript/.env.example`, multiple workflows |
 
 ---
 
@@ -101,5 +101,5 @@ Used for integration tests in PR checks and package releases.
 
 All workflow files are located under `.github/workflows/`. Environment example files are at:
 
-- `extensions/cli/.env.example`
-- `packages/continue-sdk/typescript/.env.example`
+- `packages/cli/.env.example`
+- `packages/sdk/typescript/.env.example`
