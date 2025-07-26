@@ -9,7 +9,7 @@ Analyze this pull request for breaking changes that may leave stale references e
 
 ## What Constitutes a Breaking Change
 
-1. **CLI command renames or removals** - If a command registered in `extensions/cli/src/commands/` is renamed, removed, or has its flags changed, check that:
+1. **CLI command renames or removals** - If a command registered in `packages/cli/src/commands/` is renamed, removed, or has its flags changed, check that:
 
    - Documentation in `docs/` reflects the new name
    - Agent definitions in `.continue/agents/` don't reference the old command
@@ -19,7 +19,7 @@ Analyze this pull request for breaking changes that may leave stale references e
 
 2. **Public API changes** - If exported functions, interfaces, or types in `core/` or `packages/` are renamed or have signature changes, check that:
 
-   - All callers in `ide/gui/`, `extensions/cli/`, and `binary/` are updated
+   - All callers in `ide/gui/`, `packages/cli/`, and `binary/` are updated
    - Type definitions in `packages/config-types/` are consistent
 
 3. **Configuration schema changes** - If config file formats (YAML or JSON) are modified, check that:
