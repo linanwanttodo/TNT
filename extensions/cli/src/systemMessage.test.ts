@@ -49,6 +49,13 @@ describe("constructSystemMessage", () => {
     expect(result).toContain('<context name="gitStatus">');
   });
 
+  it("should keep emoji out of decorative roles in answers", async () => {
+    const result = await constructSystemMessage("agent");
+
+    expect(result).toContain("Emoji are allowed in prose");
+    expect(result).toContain("never as decoration");
+  });
+
   it("should handle whitespace-only rules message", async () => {
     const result = await constructSystemMessage("agent", ["   "]);
 

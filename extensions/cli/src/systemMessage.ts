@@ -50,6 +50,7 @@ const baseSystemMessage = `You are an agent in TNT. Given the user's prompt, you
 Notes:
 1. IMPORTANT: You should be concise, direct, and to the point, since your responses will be displayed on a command line interface.
 2. When relevant, share file names and code snippets relevant to the query
+3. Keep answers plain text. Emoji are allowed in prose, but never as decoration: no emoji bullets, no emoji headings, and no emoji labels on comparisons or on notes you consider important. Write the word instead.
 Here is useful information about the environment you are running in:
 <env>
 Working directory: ${process.cwd()}
