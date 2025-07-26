@@ -1,0 +1,59 @@
+---
+title: "Slash Commands"
+description: "Everything reachable from the composer with a leading slash."
+---
+
+Type `/` in the composer to filter this list. Descriptions follow the selected
+language, see [Language](/cli/i18n).
+
+## Session
+
+| Command | Effect |
+| --- | --- |
+| `/help` | show the help message |
+| `/clear` | clear the chat history |
+| `/info` | show session information |
+| `/exit` | leave the chat |
+| `/sessions` | show all saved sessions |
+| `/resume` | resume a previous session |
+| `/fork` | start a new session from the current history |
+| `/title` | set the session title |
+| `/rename` | rename the session |
+| `/export` | export the session to a JSON file |
+| `/import` | import a session from a JSON file |
+| `/goal` | set the goal that the session is working towards |
+
+## Model and configuration
+
+| Command | Effect |
+| --- | --- |
+| `/model` | switch between the configured models |
+| `/config` | switch the active configuration |
+| `/init` | create an `AGENTS.md` file |
+| `/language` | change the interface language |
+| `/update` | update the TNT installation |
+
+## Capabilities
+
+| Command | Effect |
+| --- | --- |
+| `/mcp` | manage MCP server connections |
+| `/plugins` | list installed plugins and what they contribute |
+| `/skills` | list the available skills |
+| `/import-skill` | import a skill into `~/.tnt/skills` |
+| `/subagents` | show the sessions delegated from this one |
+| `/back` | return from a delegated session to its parent |
+| `/jobs` | list background jobs |
+
+## Context and workspace
+
+| Command | Effect |
+| --- | --- |
+| `/compact` | summarise the history into a compact form |
+| `/diff` | show the current diff from the remote environment |
+| `/apply` | apply that diff to the local working tree |
+
+<Note>
+Commands that open a picker, such as `/model`, `/sessions` and `/mcp`, accept the
+arrow keys and Enter, and `Esc` returns to the composer without changing anything.
+</Note>

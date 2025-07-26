@@ -37,13 +37,9 @@ function loadDocsRedirects(): Map<string, string> {
 
 export const docsRedirects: Map<string, string> = loadDocsRedirects();
 
-// Whitelist of allowed external redirect domains for security
-const ALLOWED_REDIRECT_DOMAINS = [
-  "continue.dev",
-  "docs.continue.dev",
-  "www.continue.dev",
-  "changelog.continue.dev",
-];
+// Whitelist of allowed external redirect domains. Empty on purpose: the docs
+// site only redirects inside itself, so an external destination is refused.
+const ALLOWED_REDIRECT_DOMAINS: string[] = [];
 
 export function resolveDocsRedirect(slug: string[]): string | null {
   const key = slug.join("/");

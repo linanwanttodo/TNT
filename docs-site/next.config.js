@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 
-// Served at the root of the custom domain docs.continue.dev (via GitHub Pages),
-// so there is no base path. (public/CNAME sets the custom domain.)
+// Served at the repository's GitHub Pages root, so there is no base path.
 const basePath = "";
 
 const nextConfig = {

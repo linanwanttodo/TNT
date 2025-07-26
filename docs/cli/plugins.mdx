@@ -1,0 +1,65 @@
+---
+title: "Plugins"
+description: "Install Claude Code compatible plugins and see what they contribute."
+---
+
+Plugins bundle commands, agents, skills, hooks, MCP servers, output styles and
+language servers in one installable unit. TNT reads the Claude Code plugin format,
+so an existing plugin tree keeps working.
+
+## Layout
+
+```
+~/.tnt/plugins/
+  known_marketplaces.json
+  installed_plugins.json
+  marketplaces/<marketplace>/
+  cache/<marketplace>/<plugin>/<version>/
+  data/<plugin-id>/
+```
+
+`~/.claude/plugins/cache/` is read as a migration source, so plugins that are
+already installed elsewhere are picked up without copying anything. Point the
+whole tree somewhere else with the plugin cache directory environment variable.
+
+## Manifest
+
+A plugin is a directory with a `plugin.json`:
+
+```json title="plugin.json"
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "commands": ["commands"],
+  "skills": ["skills"],
+  "hooks": "hooks/hooks.json",
+  "mcpServers": {},
+  "outputStyles": ["styles"],
+  "lspServers": []
+}
+```
+
+| Field | Contributes |
+| --- | --- |
+| `commands` | markdown commands, shown as slash commands |
+| `agents` | agent definitions, available to the Subagent tool |
+| `skills` | skill folders, same format as [Skills](/cli/skills) |
+| `hooks` | hook configuration, merged with the settings files |
+| `mcpServers` | MCP servers, merged with the config file |
+| `outputStyles` | answer styles the session can adopt |
+| `lspServers` | language servers the agent can query |
+
+Every field also accepts the default directory (`commands/`, `skills/`, ...) when
+it is omitted, and unknown fields are ignored rather than rejected, so a manifest
+written for a newer host still loads.
+
+## Inspecting what is installed
+
+```
+/plugins
+```
+
+lists every installed plugin and the pieces it contributes, which is the quickest
+way to find out where a given slash command or hook came from. Marketplace names
+reserved by the upstream catalog are refused, so a third-party marketplace cannot
+shadow an official one.

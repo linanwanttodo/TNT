@@ -1,0 +1,49 @@
+---
+title: "Skills"
+description: "Reusable instruction sets the agent can load on demand."
+---
+
+A skill is a directory containing a `SKILL.md` file. Its description tells the
+agent when the skill applies, and its body is loaded only when it does.
+
+## Locations
+
+Skills are discovered from:
+
+1. `<workspace>/.tnt/skills/`
+2. `<workspace>/.claude/skills/`
+3. `~/.tnt/skills/`
+
+The same layout means a skill folder written for the Claude Code conventions can
+be dropped in unchanged.
+
+## Shape
+
+```
+~/.tnt/skills/release-notes/
+  SKILL.md
+  template.md
+```
+
+```markdown title="~/.tnt/skills/release-notes/SKILL.md"
+---
+name: release-notes
+description: Write release notes for a version. Use when the user asks for a changelog or release summary.
+---
+
+1. Read the commits since the previous tag.
+2. Group them into breaking changes, features and fixes.
+3. Follow `template.md` for the layout.
+```
+
+The frontmatter `name` and `description` are required; the body is free text,
+and any other files in the folder are available as references.
+
+## Managing skills
+
+| Command | Effect |
+| --- | --- |
+| `/skills` | list the available skills and where they came from |
+| `/import-skill` | import a skill from a URL or a name into `~/.tnt/skills` |
+
+Plugins can ship skills too; they are listed together with the local ones.

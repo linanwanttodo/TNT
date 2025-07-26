@@ -1,0 +1,37 @@
+---
+title: "Subagents"
+description: "Delegate a task to a child agent that runs on the same engine."
+---
+
+A subagent runs a task in its own session while the parent keeps working. It uses
+the same engine, the same models and the same permission modes as the parent.
+
+<Info>
+The Subagent tool is behind the `--beta-subagent-tool` flag while the delegation
+surface settles.
+</Info>
+
+## Watching and returning
+
+```
+/subagents
+```
+
+lists the sessions delegated from the current one.
+
+```
+/back
+```
+
+returns to the parent session. Delegated transcripts open read only: the child
+session can be inspected, but edits happen in the session that owns the work, so
+two agents cannot rewrite the same conversation.
+
+## Cache behaviour
+
+A subagent inherits the parent prompt cache key, so the shared prefix is served
+from cache instead of being paid for again. Nested delegation is deliberately
+kept shallow: allowing children to fan out further multiplies cache writes, and
+the saving from reuse is lost. If a delegated task needs more parallelism, that
+is a sign the work should be split into two delegated tasks from the parent
+instead.

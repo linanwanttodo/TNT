@@ -1,0 +1,52 @@
+---
+title: "MCP"
+description: "Connect Model Context Protocol servers for extra tools and prompts."
+---
+
+MCP servers extend the agent with tools and prompts that are not built in. They
+are declared in the `mcpServers` list of `config.yaml`.
+
+```yaml
+mcpServers:
+  - name: filesystem
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+  - name: remote
+    url: https://example.com/mcp
+    headers:
+      Authorization: Bearer ${{ secrets.MCP_TOKEN }}
+```
+
+A stdio server (`command`, `args`, `env`) runs as a child process; an HTTP server
+uses `url` and optional `headers`. Secrets written as `${{ secrets.NAME }}` are
+resolved from the environment and the `.env` files listed in
+[Configuration](/cli/configuration).
+
+## Managing connections
+
+```
+/mcp
+```
+
+opens a menu that lists every configured server with its state and lets you
+restart or stop them. The states are:
+
+| State | Meaning |
+| --- | --- |
+| `connecting` | the handshake is in progress |
+| `connected` | tools and prompts are available to the model |
+| `error` | the server could not be reached, the reason is shown |
+
+Only servers in the active configuration are loaded, and they are all connected
+in parallel so a slow server does not delay the session.
+
+## When a server fails
+
+A server that cannot be reached is reported once at startup with its name, rather
+than repeated on every turn. Tools from a failed server are simply absent, and the
+session continues with the remaining servers.
+
+<Tip>
+Prompts exposed by an MCP server appear as slash commands alongside the built-in
+ones, so a server can contribute a reusable workflow, not only tools.
+</Tip>

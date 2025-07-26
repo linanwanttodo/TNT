@@ -1,14 +1,57 @@
 ---
-title: "What is Continue?"
-description: "Open source AI code assistant for VS Code and JetBrains"
+title: "TNT"
+description: "A terminal coding agent: an interactive UI, a headless runner, and an extensible core for tools, permissions, hooks, skills and plugins."
 ---
 
-**Continue enables developers to create, share, and use custom AI code agents with our open source [VS Code](https://marketplace.visualstudio.com/items?itemName=Continue.continue) and [JetBrains](https://plugins.jetbrains.com/plugin/22707-continue-extension) extensions.**
+TNT is a command line coding agent. It reads a repository, runs tools, edits files and
+answers questions without leaving the terminal. The same engine is reused by the editor
+integrations, so anything the agent learns to do works in both places.
 
-## Key Features
+<CardGroup cols={2}>
+  <Card title="Quickstart" href="/cli/quickstart">
+    Install TNT, point it at a model, and run the first session.
+  </Card>
+  <Card title="Configuration" href="/cli/configuration">
+    Where configuration comes from and how the layers resolve.
+  </Card>
+  <Card title="Permissions" href="/cli/permissions">
+    Decide what the agent may do without asking.
+  </Card>
+  <Card title="Extend" href="/cli/mcp">
+    MCP servers, hooks, skills and plugins.
+  </Card>
+</CardGroup>
 
-- [Agent mode](/ide-extensions/agent/quick-start) to work on development tasks together with AI
-- [Chat mode](/ide-extensions/chat/quick-start) to ask general questions and clarify code sections
-- [Edit mode](/ide-extensions/edit/quick-start) to modify code sections without leaving your current file
-- [Autocomplete](/ide-extensions/autocomplete/quick-start) to receive inline code suggestions as you type
-- [Continue CLI (cn)](/cli/quickstart) for terminal-native AI coding assistance
+## Two ways to run it
+
+| | Interactive | Headless |
+| --- | --- | --- |
+| Command | `tnt` | `tnt -p "..."` |
+| Interface | transcript, composer and status line in the terminal | stdout only |
+| Typical use | working inside a repository | scripts, CI, editor integrations |
+
+## What the agent can do
+
+- Read, write and edit files in the workspace.
+- Search the codebase and run shell commands, each subject to its permission policy.
+- Use MCP servers for extra tools, prompts and resources.
+- Delegate work to a subagent that runs on the same engine.
+- Load markdown skills and plugins written for the Claude Code plugin format.
+
+Every action passes through the permission system. `agent` mode asks before
+high risk operations, `plan` mode is read only, `auto` mode allows everything.
+See [Modes](/cli/modes).
+
+## Where things live
+
+| Path | Contents |
+| --- | --- |
+| `~/.tnt/config.yaml` | models, MCP servers, rules |
+| `~/.tnt/permissions.yaml` | permission policies |
+| `~/.tnt/settings.json` | hooks and other settings |
+| `~/.tnt/skills/` | markdown skills |
+| `~/.tnt/plugins/` | installed plugins |
+| `~/.tnt/sessions/` | saved chat sessions |
+| `~/.tnt/logs/tnt.log` | debug log |
+
+A repository can override most of this from its own `.tnt/` directory.

@@ -1,86 +1,71 @@
 ---
 title: "Quickstart"
+description: "Install TNT, configure a model, and start the first session."
 ---
 
-import { OSAutoDetect } from '/snippets/OSAutoDetect.jsx'
-import CLIInstall from '/snippets/cli-install.mdx'
-
-<OSAutoDetect />
-
-Continue CLI (`cn`) is a terminal-based coding agent. It can edit files, run commands, and work through multi-step tasks — the same agent that powers the Continue IDE extensions, running in your terminal.
-
-<Frame>
-  <img src="/images/cn-demo.gif" />
-</Frame>
+import CLIInstall from "/snippets/cli-install.mdx";
 
 ## Install
 
 <CLIInstall />
 
-Verify the installation:
+The npm route needs Node.js 20 or newer. Verify the installation:
 
 ```bash
-cn --version
+tnt --version
 ```
 
-### Requirements
+## Configure a model
 
-- **Node.js 20+** — needed for the npm install path. The shell installer bundles its own runtime.
-- A [Continue](https://continue.dev) account, or an Anthropic API key.
+TNT reads `~/.tnt/config.yaml`. Start from an OpenAI compatible endpoint:
 
-## First run
+```yaml title="~/.tnt/config.yaml"
+name: TNT
+version: 1.0.0
+schema: v1
+models:
+  - name: my-model
+    provider: openai
+    model: gpt-4.1
+    apiBase: https://api.openai.com/v1
+    apiKey: ${{ secrets.OPENAI_API_KEY }}
+```
+
+Secrets written as `${{ secrets.NAME }}` are resolved from the environment, then from
+`~/.tnt/.env`, `<workspace>/.tnt/.env` and `<workspace>/.env`. See
+[Models](/cli/models) for the provider list and the other model options.
+
+## Start a session
 
 ```bash
-cd your-project
-cn
+tnt
 ```
 
-On first launch you'll be asked to log in with [Continue](https://continue.dev) or enter an Anthropic API key. After that, you're in a session and can start typing.
+Type a request, then press Enter to send it. The transcript stays in the terminal
+scrollback: finished messages are printed once, the newest content sits above the
+composer.
 
-## Authentication
+| Key | Action |
+| --- | --- |
+| `Enter` | send the message |
+| `Shift+Tab` | cycle the permission mode (`agent`, `plan`, `auto`) |
+| `Esc` | interrupt the running turn |
+| `Up` / `Down` | recall earlier input |
+| `Ctrl+C` | cancel the input, press twice to exit |
 
-### Log in with Continue
+## Common flag combinations
 
-```bash
-cn login
-```
+| Task | Command |
+| --- | --- |
+| One shot answer in a script | `tnt -p "summarize the staged diff"` |
+| Machine readable output | `tnt -p "list the failing tests" --format json` |
+| Read only exploration | `tnt --readonly "explain the request path"` |
+| Unattended run | `tnt --auto "fix the lint errors"` |
+| Resume the last session here | `tnt --resume` |
+| Pick any saved session | `tnt ls` |
 
-This opens your browser to authenticate with [Continue](https://continue.dev). Once authenticated, `cn` can use your configured assistants, models, and MCP servers from the platform.
+## Next steps
 
-### API key (headless / CI)
-
-For automation environments where there's no browser, set the `CONTINUE_API_KEY` environment variable:
-
-```bash
-export CONTINUE_API_KEY=your-key-here
-cn -p "your prompt"
-```
-
-### Local API key
-
-If you don't want to use Continue, you can use an Anthropic API key directly. On first launch, `cn` will prompt you to choose between logging in with Continue or entering an Anthropic API key.
-
-## Two modes
-
-**[TUI mode](/cli/tui-mode)** — run `cn` to start an interactive session. You type messages, reference files with `@`, approve tool calls, and iterate with the agent. This is the default.
-
-**[Headless mode](/cli/headless-mode)** — run `cn -p "your prompt"` for single-shot automation. The agent runs to completion and prints its response to stdout. Use this in scripts, CI/CD, and git hooks.
-
-## Common flags
-
-| Flag | Effect |
-|------|--------|
-| `-p "prompt"` | Headless mode — run prompt and exit |
-| `--config <path or slug>` | Use a specific config file or assistant |
-| `--resume` | Resume the most recent session |
-| `--auto` | Allow all tools without prompting |
-| `--readonly` | Plan mode — read-only tools only |
-| `--allow <tool>` | Allow a specific tool (repeatable) |
-| `--exclude <tool>` | Exclude a specific tool (repeatable) |
-| `--rule <rule>` | Add a rule — file path or string (repeatable) |
-| `--mcp <slug>` | Add an MCP server by slug (repeatable) |
-| `--model <slug>` | Add a model by slug (repeatable) |
-| `--agent <slug>` | Load an agent file by slug |
-| `--verbose` | Enable verbose logging |
-
-Run `cn --help` for the full list.
+- [Configuration](/cli/configuration) for the full resolution order.
+- [TUI](/cli/tui) for the layout and the interactive controls.
+- [Slash commands](/cli/slash-commands) for everything reachable from `/`.
