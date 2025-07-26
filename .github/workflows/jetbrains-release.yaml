@@ -24,7 +24,7 @@ on:
 
 defaults:
   run:
-    working-directory: extensions/intellij
+    working-directory: ide/intellij
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -85,7 +85,7 @@ jobs:
   #         body: |
   #           Automated PR to bump the JetBrains extension version after successful pre-release publication.
 
-  #           - Bumped version in extensions/intellij/gradle.properties to ${{ env.NEW_VERSION }}
+  #           - Bumped version in ide/intellij/gradle.properties to ${{ env.NEW_VERSION }}
   #         branch: ${{ env.BRANCH_NAME }}
   #         base: main
   #         delete-branch: true
@@ -171,8 +171,8 @@ jobs:
       - name: Cache gui node_modules
         uses: actions/cache@v5
         with:
-          path: gui/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('gui/package-lock.json') }}
+          path: ide/gui/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('ide/gui/package-lock.json') }}
 
       - name: Build packages (Unix)
         run: cd ../.. && node ./scripts/build-packages.js
@@ -186,7 +186,7 @@ jobs:
       # npm install gui
       - name: Install gui node_modules and build
         run: |
-          cd ../../gui
+          cd ../../ide/gui
           npm ci
           npm run build
         env:
@@ -195,7 +195,7 @@ jobs:
       # Run prepackage.js script
       - name: Run prepackage script
         run: |
-          cd ../../extensions/vscode
+          cd ../../ide/vscode
           npm ci
           npm run prepackage
         env:
@@ -282,7 +282,7 @@ jobs:
         id: artifact
         shell: bash
         run: |
-          cd ../../extensions/intellij/build/distributions
+          cd ../../ide/intellij/build/distributions
           echo "Contents of distributions folder:"
           ls
           echo "---"
@@ -297,7 +297,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.artifact.outputs.filename }}
-          path: ./extensions/intellij/build/distributions/content/*/*
+          path: ./ide/intellij/build/distributions/content/*/*
 
       # Upload binaries as artifacts
       - name: Upload artifact (darwin-arm64)
@@ -458,7 +458,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tests-result
-          path: ${{ github.workspace }}/extensions/intellij/build/reports/tests
+          path: ${{ github.workspace }}/ide/intellij/build/reports/tests
 
   # Run Qodana inspections and provide report
   inspectCode:

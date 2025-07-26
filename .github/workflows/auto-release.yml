@@ -22,7 +22,7 @@ jobs:
         id: get_version
         run: |
           # Read version from package.json and add -vscode suffix
-          version=$(node -p "require('./extensions/vscode/package.json').version")
+          version=$(node -p "require('./ide/vscode/package.json').version")
           new_version="v${version}-vscode"
           echo "New version will be: $new_version"
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
@@ -53,7 +53,7 @@ jobs:
         id: get_version
         run: |
           # Read version from gradle.properties and add -jetbrains suffix
-          version=$(grep '^pluginVersion=' extensions/intellij/gradle.properties | cut -d'=' -f2)
+          version=$(grep '^pluginVersion=' ide/intellij/gradle.properties | cut -d'=' -f2)
           new_version="v${version}-jetbrains"
           echo "New version will be: $new_version"
           echo "NEW_VERSION=$new_version" >> $GITHUB_ENV

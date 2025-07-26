@@ -86,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}-vsix
-          path: "extensions/vscode/*.vsix"
+          path: "ide/vscode/*.vsix"
 
   release:
     permissions:
@@ -151,7 +151,7 @@ jobs:
       # 2. Publish the extension to VS Code Marketplace
       - name: Publish to VS Code Marketplace
         run: |
-          cd extensions/vscode
+          cd ide/vscode
           npx @vscode/vsce publish --pre-release --packagePath ../../vsix-artifacts/*.vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
@@ -160,7 +160,7 @@ jobs:
       - name: Publish (Open VSX Registry)
         continue-on-error: true
         run: |
-          cd extensions/vscode
+          cd ide/vscode
           npx ovsx publish --pre-release -p ${{ secrets.VSX_REGISTRY_TOKEN }} --packagePath ../../vsix-artifacts/*.vsix
 
       # 4. Create PR with version bump
@@ -177,7 +177,7 @@ jobs:
 
       - name: Bump version in package.json
         run: |
-          cd extensions/vscode
+          cd ide/vscode
           npm version patch --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
@@ -191,7 +191,7 @@ jobs:
           body: |
             Automated PR to bump the VS Code extension version after successful pre-release publication.
 
-            - Bumped version in extensions/vscode/package.json to ${{ env.NEW_VERSION }}
+            - Bumped version in ide/vscode/package.json to ${{ env.NEW_VERSION }}
           branch: ${{ env.BRANCH_NAME }}
           base: main
           delete-branch: true
@@ -199,7 +199,7 @@ jobs:
       # 5. Update version in package.json
       # - name: Update version in package.json
       #   run: |
-      #     cd extensions/vscode
+      #     cd ide/vscode
       #     npm version patch
       # - name: Commit changes
       #   run: |

@@ -19,7 +19,7 @@ Analyze this pull request for breaking changes that may leave stale references e
 
 2. **Public API changes** - If exported functions, interfaces, or types in `core/` or `packages/` are renamed or have signature changes, check that:
 
-   - All callers in `gui/`, `extensions/`, and `binary/` are updated
+   - All callers in `ide/gui/`, `extensions/cli/`, and `binary/` are updated
    - Type definitions in `packages/config-types/` are consistent
 
 3. **Configuration schema changes** - If config file formats (YAML or JSON) are modified, check that:

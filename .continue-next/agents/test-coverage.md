@@ -51,6 +51,6 @@ Review this pull request to determine if new functionality has adequate test cov
 ## Test Infrastructure Reference
 
 - **Core**: Jest (`*.test.ts`) + Vitest (`*.vitest.ts`) in `core/`
-- **GUI**: Vitest (`*.test.ts`) in `gui/src/`
+- **GUI**: Vitest (`*.test.ts`) in `ide/gui/src/`
 - **CLI**: Vitest (`*.test.ts`, `*.e2e.test.ts`) in `extensions/cli/`
 - **Packages**: Vitest in each `packages/*/` directory

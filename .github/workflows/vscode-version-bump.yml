@@ -81,13 +81,13 @@ jobs:
 
           # Update the version in package.json
           echo "Current package.json version:"
-          cat extensions/vscode/package.json | grep version
+          cat ide/vscode/package.json | grep version
 
           echo "Updating version in package.json..."
-          jq ".version = \"$NEW_VERSION\"" extensions/vscode/package.json > temp.json && mv temp.json extensions/vscode/package.json
+          jq ".version = \"$NEW_VERSION\"" ide/vscode/package.json > temp.json && mv temp.json ide/vscode/package.json
 
           echo "New package.json version:"
-          cat extensions/vscode/package.json | grep version
+          cat ide/vscode/package.json | grep version
 
           # Configure git
           echo "Configuring git..."
@@ -96,7 +96,7 @@ jobs:
 
           # Commit and push changes
           echo "Committing changes..."
-          git add extensions/vscode/package.json
+          git add ide/vscode/package.json
           git commit -m "Bump VS Code extension to ${NEW_VERSION}"
 
           echo "Pushing branch to origin..."
