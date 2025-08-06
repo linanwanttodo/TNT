@@ -21,8 +21,8 @@
       "preLaunchTask": "vscode-extension:build-with-packages",
       "env": {
         // "CONTROL_PLANE_ENV": "local",
-        "CONTINUE_GLOBAL_DIR": "${workspaceFolder}/extensions/.continue-debug"
-        // "staging" for the preview deployment	        "CONTINUE_GLOBAL_DIR": "${workspaceFolder}/extensions/.continue-debug"
+        "CONTINUE_GLOBAL_DIR": "${workspaceFolder}/packages/cli/.continue-debug"
+        // "staging" for the preview deployment	        "CONTINUE_GLOBAL_DIR": "${workspaceFolder}/packages/cli/.continue-debug"
         // "local" for entirely local development of control plane/proxy
       }
     },
@@ -40,7 +40,7 @@
       "env": {
         // "CONTROL_PLANE_ENV": "test",
         "CONTINUE_DEVELOPMENT": "true",
-        "CONTINUE_GLOBAL_DIR": "${workspaceFolder}/extensions/.continue-debug"
+        "CONTINUE_GLOBAL_DIR": "${workspaceFolder}/packages/cli/.continue-debug"
       }
     },
     {
@@ -136,7 +136,7 @@
       "name": "Debug CLI",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/extensions/cli/dist/cn.js",
+      "program": "${workspaceFolder}/packages/cli/dist/cn.js",
       "args": [],
       "runtimeArgs": ["--enable-source-maps"],
       "env": {
@@ -147,9 +147,9 @@
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
-      "outFiles": ["${workspaceFolder}/extensions/cli/dist/**/*.js"],
+      "outFiles": ["${workspaceFolder}/packages/cli/dist/**/*.js"],
       "sourceMapPathOverrides": {
-        "../src/*": "${workspaceFolder}/extensions/cli/src/*",
+        "../src/*": "${workspaceFolder}/packages/cli/src/*",
         "../../core/*": "${workspaceFolder}/core/*"
       },
       "resolveSourceMapLocations": [
@@ -163,7 +163,7 @@
       "name": "Debug CLI - AWS Bedrock",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/extensions/cli/dist/cn.js",
+      "program": "${workspaceFolder}/packages/cli/dist/cn.js",
       "args": [],
       "runtimeArgs": ["--enable-source-maps"],
       "env": {
@@ -174,9 +174,9 @@
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
-      "outFiles": ["${workspaceFolder}/extensions/cli/dist/**/*.js"],
+      "outFiles": ["${workspaceFolder}/packages/cli/dist/**/*.js"],
       "sourceMapPathOverrides": {
-        "../src/*": "${workspaceFolder}/extensions/cli/src/*",
+        "../src/*": "${workspaceFolder}/packages/cli/src/*",
         "../../core/*": "${workspaceFolder}/core/*"
       },
       "resolveSourceMapLocations": [
@@ -190,7 +190,7 @@
       "name": "Debug CLI Tests",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/extensions/cli/node_modules/.bin/vitest",
+      "program": "${workspaceFolder}/packages/cli/node_modules/.bin/vitest",
       "args": ["--run", "--no-cache"],
       "env": {
         "NODE_ENV": "test"
@@ -203,7 +203,7 @@
         "${workspaceFolder}/**",
         "!**/node_modules/**"
       ],
-      "cwd": "${workspaceFolder}/extensions/cli"
+      "cwd": "${workspaceFolder}/packages/cli"
     }
   ]
 }

@@ -34,7 +34,7 @@ TNT builds on the final Continue 2.0.0 release of the VS Code extension, CLI, an
 
 ### CLI
 
-[![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=white)](https://github.com/linanwanttodo/TNT) [![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](extensions/cli)
+[![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=white)](https://github.com/linanwanttodo/TNT) [![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](packages/cli)
 
 ### JetBrains
 

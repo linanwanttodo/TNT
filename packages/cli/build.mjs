@@ -99,7 +99,7 @@ try {
       // Aliased to the package root rather than a file: the SDK is imported
       // through deep paths such as "@tnt/sdk/dist/api/dist/index.js", and the
       // alias substitution keeps those subpaths intact.
-      "@tnt/sdk": resolve(__dirname, "../../packages/continue-sdk/typescript"),
+      "@tnt/sdk": resolve(__dirname, "../../packages/sdk/typescript"),
     },
 
     // Add banner to create require for CommonJS packages

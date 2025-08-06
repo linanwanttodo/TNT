@@ -47,19 +47,19 @@ jobs:
           npm run build
 
       - name: Install CLI dependencies
-        working-directory: extensions/cli
+        working-directory: packages/cli
         run: npm ci
 
       - name: Update version
-        working-directory: extensions/cli
+        working-directory: packages/cli
         run: npm version ${{ inputs.stable_version }} --no-git-tag-version
 
       - name: Build
-        working-directory: extensions/cli
+        working-directory: packages/cli
         run: npm run build
 
       - name: Run tests
-        working-directory: extensions/cli
+        working-directory: packages/cli
         run: npm test
 
       - name: Setup Node.js for OIDC publish
@@ -69,7 +69,7 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish to npm
-        working-directory: extensions/cli
+        working-directory: packages/cli
         run: |
           unset NODE_AUTH_TOKEN
           npm publish --tag latest --provenance

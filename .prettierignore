@@ -5,7 +5,7 @@ binary/tmp
 core/.continue-test
 docs/.docusaurus
 docs/**/*.mdx
-extensions/.continue-debug
+packages/cli/.continue-debug
 ide/vscode/continue_rc_schema.json
 ide/vscode/.vscode-test
 ide/vscode/bin
@@ -30,5 +30,5 @@ CHANGELOG.md
 core/vendor
 coverage
 # e2e
-packages/continue-sdk
+packages/sdk
 .conductor
