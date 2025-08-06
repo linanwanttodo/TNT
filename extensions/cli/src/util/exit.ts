@@ -211,6 +211,12 @@ export async function gracefulExit(code: number = 0): Promise<void> {
     logger.debug("Telemetry shutdown error (ignored)", err as any);
   }
 
+  try {
+    await logger.flush();
+  } catch {
+    // The log is a debugging aid; failing to flush it must not block the exit.
+  }
+
   // If we're trying to exit with success (0) but had unhandled errors,
   // exit with 1 instead to signal failure
   const finalCode = code === 0 && hadUnhandledError() ? 1 : code;
