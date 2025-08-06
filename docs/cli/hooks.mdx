@@ -1,0 +1,71 @@
+---
+title: "Hooks"
+description: "Run commands or model turns at defined points in the agent loop."
+---
+
+Hooks observe and intercept the agent loop. They are configured in the `hooks`
+object of a settings file.
+
+## Events
+
+| Event | Fires |
+| --- | --- |
+| `SessionStart`, `SessionEnd` | session boundaries |
+| `UserPromptSubmit` | a prompt was submitted, before it reaches the model |
+| `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | around a tool call |
+| `PermissionRequest` | a tool needs a permission decision |
+| `Stop` | the agent finished a turn |
+| `PreCompact` | before the history is compacted |
+| `SubagentStart`, `SubagentStop` | around a delegated run |
+| `Notification`, `ConfigChange`, `TeammateIdle` | notices and state changes |
+
+## Where hooks are configured
+
+All sources are merged and all of them run; later files add to earlier ones
+rather than replacing them:
+
+1. `~/.claude/settings.json`, `~/.tnt/settings.json`
+2. `.claude/settings.json`, `.tnt/settings.json`
+3. `.claude/settings.local.json`, `.tnt/settings.local.json`
+
+Plugins can contribute hooks as well. See [Plugins](/cli/plugins).
+
+## Shape
+
+```json title="~/.tnt/settings.json"
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm run format -- $TNT_FILE_PATH"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Four handler types are supported:
+
+| Type | Runs |
+| --- | --- |
+| `command` | a shell command, 600 second default timeout |
+| `http` | a POST request, 30 second default timeout |
+| `prompt` | a single model turn, 30 second default timeout |
+| `agent` | a delegated multi-turn run, 60 second default timeout |
+
+## Exit codes
+
+| Code | Effect |
+| --- | --- |
+| `0` | the action proceeds |
+| `2` | the action is blocked and stderr is fed back to the model |
+| anything else | the hook failed, the action still proceeds |
+
+A handler can also return JSON on stdout with `hookSpecificOutput` for finer
+control than an exit code allows.

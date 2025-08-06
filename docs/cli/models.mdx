@@ -1,0 +1,59 @@
+---
+title: "Models"
+description: "Configure providers, endpoints, keys and context limits."
+---
+
+Models are declared in the `models` list of `config.yaml`. The first entry is used
+until another one is selected with `/model`.
+
+```yaml
+models:
+  - name: deepseek
+    provider: openai
+    model: deepseek-chat
+    apiBase: https://api.deepseek.com/v1
+    apiKey: ${{ secrets.DEEPSEEK_API_KEY }}
+```
+
+| Key | Meaning |
+| --- | --- |
+| `name` | label shown in `/model` and the status line |
+| `provider` | protocol adapter to use, see the table below |
+| `model` | model id sent to the endpoint |
+| `apiBase` | base URL, required for OpenAI compatible endpoints |
+| `apiKey` | literal key or `${{ secrets.NAME }}` |
+| `contextLength` | context window override, when the model metadata is wrong |
+
+## Providers
+
+The provider id selects the wire protocol adapter. Common ids:
+
+| Provider | Use for |
+| --- | --- |
+| `openai` | OpenAI and any OpenAI compatible endpoint (DeepSeek, vLLM, Groq, Together, ...) |
+| `anthropic` | Anthropic Messages API |
+| `gemini` | Google Gemini |
+| `ollama` | local models through Ollama |
+| `bedrock`, `vertexai`, `azure` | the respective cloud offerings |
+| `openrouter` | OpenRouter routing |
+
+The remaining ids follow the same names as the adapters in `packages/openai-adapters`,
+for example `cohere`, `deepseek`, `mistral`, `moonshot`, `minimax`, `sambanova`,
+`cerebras`, `llamacpp` and `mock` for tests. An unknown id fails fast at startup
+instead of silently falling back.
+
+<Tip>
+For a self hosted endpoint, `provider: openai` with an `apiBase` pointing at the
+local server is usually all that is needed.
+</Tip>
+
+## Switching models
+
+`/model` opens a picker over the configured models. The choice is stored with the
+session, so resuming it later restores the same model.
+
+## Context and compaction
+
+TNT derives the context window from the model metadata, falling back to
+`contextLength`. When usage approaches the limit the session is compacted
+automatically; see [Context and compaction](/cli/context).

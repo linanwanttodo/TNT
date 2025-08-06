@@ -1,75 +1,53 @@
 ---
 title: "Headless Mode"
+description: "Run one task without the terminal UI, for scripts, CI and editor integrations."
 ---
 
-Run `cn -p "your prompt"` to execute a single task without an interactive session. The agent runs to completion and prints its response to stdout.
+Headless mode runs a single task and prints the answer:
 
 ```bash
-cn -p "Generate a conventional commit message for the staged changes"
+tnt -p "Generate a commit message for the staged changes"
 ```
 
-## Piping
-
-Pipe data into `cn` to include it as context:
+Piped input is added as context:
 
 ```bash
-git diff --staged | cn -p "Write a commit message for this diff"
-cat error.log | cn -p "Explain what went wrong"
-curl -s https://api.example.com/health | cn -p "Is this healthy?"
+git diff --staged | tnt -p "Write a commit message for this diff"
+cat error.log | tnt -p "Explain what went wrong"
 ```
 
-Pipe the output into other tools:
+## Flags
+
+| Flag | Meaning |
+| --- | --- |
+| `-p`, `--print` | print the response and exit |
+| `--format json` | emit the result as JSON, only with `-p` |
+| `--silent` | strip `think` tags and excess whitespace, only with `-p` |
+| `--max-steps <n>` | cap the model rounds per turn |
+| `--config <path>` | use a specific config file for this run |
+| `--org <slug>` | organization slug, headless only |
+| `--allow`, `--ask`, `--exclude` | override permission policies for this run |
+| `--mode <agent\|plan\|auto>` | start in a permission mode |
+| `--readonly`, `--auto` | shortcuts for `--mode plan` and `--mode auto` |
+
+## Environments without a TTY
+
+When a prompt is supplied, TNT does not read stdin and does not start the
+interactive UI, so it works from Docker without a TTY, from CI runners and from
+editor tool integrations. Set `FORCE_NO_TTY` to require that behaviour explicitly.
 
 ```bash
-cn -p "Generate a commit message" | git commit -F -
-cn -p "List all TODO comments in src/" --silent > todos.txt
+docker run --rm my-image tnt -p "Review the changes" --format json
 ```
 
-## Output options
+## Other entry points
 
-| Flag | Effect |
-|------|--------|
-| `--silent` | Strip `<think>` tags and excess whitespace from output |
-| `--format json` | Output structured JSON |
+| Command | Purpose |
+| --- | --- |
+| `tnt ls [--json]` | list saved sessions |
+| `tnt review` | review changes against a base ref, with `--fix` and `--patch` |
+| `tnt checks` | run the repository check pipeline |
+| `tnt serve` | start the HTTP server mode |
 
-`--silent` is useful when piping output into another program. `--format json` is useful for parsing results programmatically.
-
-## Tool permissions
-
-In headless mode, tools that would normally prompt for approval (`ask` permission) are automatically excluded — there's no one to approve them. To enable write operations, explicitly allow them:
-
-```bash
-# Allow the agent to write files
-cn -p "Fix the type errors in src/" --allow Write --allow Edit
-
-# Allow everything
-cn -p "Set up the project" --allow "*"
-```
-
-See [tool permissions](/cli/tool-permissions) for the full policy system.
-
-## Resume in headless mode
-
-Resume a previous session without interactive input:
-
-```bash
-cn -p --resume
-```
-
-This replays the previous session's history, which can be useful for inspecting past results in automation.
-
-## Examples
-
-```bash
-# Git hooks
-cn -p "Review staged changes for obvious bugs" --silent
-
-# CI pipeline — allow file writes for auto-fix
-cn -p "Fix all ESLint errors in src/" --allow Write --allow Edit --allow Bash
-
-# Generate docs from code
-cn -p "@src/api/ Generate OpenAPI documentation for these endpoints" --silent > api-docs.yaml
-
-# Use a specific assistant
-cn -p "Triage this error log" --config my-org/error-triage-assistant
-```
+Exit codes follow the run: a completed turn exits `0`, a failed run exits non-zero,
+which makes these commands usable as build steps.

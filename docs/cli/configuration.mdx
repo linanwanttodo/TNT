@@ -1,56 +1,83 @@
 ---
 title: "Configuration"
+description: "Where TNT reads models, MCP servers, permissions and settings from."
 ---
 
-`cn` resolves its configuration (models, MCP servers, rules, etc.) from several sources, in this order:
+## Resolution order
 
-1. **`--config` flag** — a file path passed at launch
-2. **Saved config** — the last-used configuration, persisted across sessions
-3. **Default** — `~/.continue/config.yaml`
+TNT resolves its configuration in this order, first match wins:
 
-## `--config` flag
+1. `--config <path>` passed at launch.
+2. `~/.tnt/config.yaml`, the user-level configuration.
+3. The built-in default configuration.
 
-Point `cn` at a local YAML file:
+`/config` switches configuration inside a session; the choice is remembered for
+the next launch.
 
-```bash
-cn --config ./my-config.yaml
+## The config file
+
+```yaml title="~/.tnt/config.yaml"
+name: TNT
+version: 1.0.0
+schema: v1
+
+models:
+  - name: fast
+    provider: openai
+    model: gpt-4.1-mini
+    apiBase: https://api.openai.com/v1
+    apiKey: ${{ secrets.OPENAI_API_KEY }}
+  - name: deep
+    provider: anthropic
+    model: claude-sonnet-4-5
+    apiKey: ${{ secrets.ANTHROPIC_API_KEY }}
+
+mcpServers:
+  - name: filesystem
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+rules:
+  - Use the existing test helpers instead of new fixtures.
 ```
 
-This overrides any saved preference for the current session.
+| Field | Contents |
+| --- | --- |
+| `models` | the models the agent can run, see [Models](/cli/models) |
+| `mcpServers` | MCP servers to connect, see [MCP](/cli/mcp) |
+| `rules` | instructions prepended to the system message |
+| `permissions` | tool policies, see [Permissions](/cli/permissions) |
 
-## Switching at runtime
+## Directory layout
 
-Use `/config` inside a TUI session to switch between available configurations:
+| Path | Purpose |
+| --- | --- |
+| `~/.tnt/config.yaml` | user configuration |
+| `~/.tnt/permissions.yaml` | permission policies |
+| `~/.tnt/settings.json` | hooks and settings |
+| `~/.tnt/sessions/` | saved sessions |
+| `~/.tnt/skills/` | user skills |
+| `~/.tnt/plugins/` | installed plugins |
+| `~/.tnt/logs/tnt.log` | log file |
+| `~/.tnt/.env` | secrets for `${{ secrets.* }}` |
+| `.tnt/` | repository-level overrides |
 
-```
-> /config
-```
-
-This shows your available local configs. The selection is saved for next time.
-
-## `config.yaml`
-
-`cn` looks for `~/.continue/config.yaml`. This file uses the same format as the IDE extensions — see [config.yaml reference](/customize/deep-dives/configuration) for the full schema.
-
-## CLI-specific flags
-
-Several flags inject configuration at launch without editing a file:
-
-```bash
-# Add rules (file path or inline string)
-cn --rule ./rules/style.md
-cn --rule "Always use TypeScript strict mode"
-
-# Load an agent file
-cn --agent my-org/pr-reviewer
-```
-
-All of these are repeatable — pass them multiple times to add multiple items.
+The home directory can be relocated with the global directory environment
+variable, which also moves `sessions`, `logs` and the plugin tree with it.
 
 ## Secrets
 
-Store sensitive values (API keys, tokens) as environment variables. Reference them in config with:
+`${{ secrets.NAME }}` is resolved from, in order: the process environment,
+`~/.tnt/.env`, `<workspace>/.tnt/.env`, then `<workspace>/.env`. Keeping keys out
+of `config.yaml` means the config file can be shared.
 
-```yaml
-${{ secrets.MY_API_KEY }}
+## Rules and prompts
+
+Extra instructions can also be passed on the command line, repeatable:
+
+```bash
+tnt --rule ./docs/style.md --rule "Never disable a test to make it pass"
 ```
+
+`tnt init` creates an `AGENTS.md` in the workspace, which is loaded automatically
+for every session in that repository.

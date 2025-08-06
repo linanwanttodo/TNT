@@ -1,0 +1,52 @@
+---
+title: "Context and Compaction"
+description: "How the context window is measured, when the history is compacted, and what happens to prompt caching."
+---
+
+## Measuring usage
+
+The status line reports the share of the context window in use. The figure counts
+the system message, the tool definitions and the whole conversation, which is why
+it can be non-zero before the first question is answered.
+
+## Automatic compaction
+
+A session is compacted before it can overflow the window. With the default
+context policy:
+
+| Setting | Value |
+| --- | --- |
+| Compact when input reaches | 80 percent of the context window |
+| Kept verbatim after compaction | 16 percent of the input capacity |
+| Headroom reserved for output | 64 tokens |
+
+Compaction summarises the older part of the conversation, keeps the recent part
+verbatim, and records a boundary in the transcript so it is visible where the
+summary replaced the original messages. The context indicator resets afterwards.
+
+`/compact` performs the same operation on demand, which is useful before a long
+task rather than in the middle of one.
+
+## Prompt caching
+
+Every request after the first reuses a prefix of the previous one so the provider
+can serve the cached part at a lower price. The status line reports cache reads
+when the provider sends them, and the log records misses together with the prefix
+state that changed, which is what usually explains a sudden drop in cache hits:
+
+| Cause | Effect |
+| --- | --- |
+| the system message changed | the whole prefix is invalidated |
+| tools were added or removed | the tool block changes, cache is rebuilt |
+| a subagent run had a different prefix | its own cache is separate |
+| compaction rewrote the history | a new prefix starts after the boundary |
+
+Subagents inherit the parent prompt cache key, so delegation reuses the parent
+prefix instead of paying for a fresh one. Nested delegation is deliberately not
+allowed to fan out further, because each new prefix costs a full cache write.
+
+## Controlling the turn length
+
+`--max-steps <n>` caps the number of model rounds in a single turn. It is a
+guardrail for unattended runs, not a context setting: the context limit is always
+derived from the model.

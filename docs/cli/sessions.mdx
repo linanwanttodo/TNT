@@ -1,0 +1,49 @@
+---
+title: "Sessions"
+description: "Save, resume, fork, export and import conversations."
+---
+
+Sessions are written to `~/.tnt/sessions/` as they run, so an interrupted session
+is not lost.
+
+## Resume
+
+```bash
+tnt --resume                # the last session for this terminal
+tnt ls                      # pick from recent sessions
+tnt ls --json               # same data for scripts
+```
+
+Inside a session, `/sessions` lists everything saved, `/resume` opens the picker,
+and `/title` or `/rename` labels the current one so it is easy to find later.
+
+## Fork
+
+`/fork` branches the current history into a new session, which is the safe way to
+try an alternative approach without losing the original thread:
+
+```bash
+tnt --fork <sessionId>      # fork on startup instead
+```
+
+## Move sessions between machines
+
+```bash
+/export                     # write the session to a JSON file
+/import                     # read one back
+```
+
+The exported file contains the transcript and tool results, so a session can be
+attached to an issue or moved between workstations.
+
+## Delegated sessions
+
+A subagent runs as its own session that is linked to its parent. `/subagents`
+lists them and `/back` returns to the parent; delegated transcripts open read
+only. See [Subagents](/cli/subagents).
+
+<Warning>
+Session files contain the full transcript, including any text the agent read from
+your repository. Treat `~/.tnt/sessions/` as sensitive and exclude it from shared
+backups unless that is intended.
+</Warning>

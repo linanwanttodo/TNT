@@ -1,0 +1,63 @@
+---
+title: "Troubleshooting"
+description: "Where to look when a session misbehaves."
+---
+
+## Logs
+
+`~/.tnt/logs/tnt.log` records startup, configuration resolution, MCP connections,
+tool calls and cache accounting. Raise the detail level for a single run:
+
+```bash
+TNT_LOG_LEVEL=debug tnt
+```
+
+`--verbose` does the same for a headless run.
+
+## The agent cannot see my model
+
+Run `/model` and check the list. A model missing from it means the `models` entry
+was not parsed, which the log reports at startup with the field that failed.
+Remember that a `provider` id that does not exist is an error, not a fallback.
+
+## A key is rejected
+
+`${{ secrets.NAME }}` resolves from the environment and the `.env` files in
+[Configuration](/cli/configuration). Print the resolved value with
+`TNT_LOG_LEVEL=debug` and look for the secret line: if it shows the placeholder
+rather than a value, the variable is not set in the process that started TNT.
+
+## MCP servers do not connect
+
+`/mcp` shows the state of each server and the error for the ones that failed. A
+server that works in another tool but not here is usually a missing environment
+variable or a relative path that resolves against the wrong directory.
+
+## The context fills up immediately
+
+The percentage counts the system message and the tool definitions, so a large
+rules file or a large tool set starts the session part-way full. `/compact`
+trims the history, and a smaller rule set trims the fixed part. See
+[Context and compaction](/cli/context).
+
+## Cache reads dropped to zero
+
+A changed system message, a changed tool list or a compaction boundary starts a
+new prefix. The log records which prefix state changed, which is normally enough
+to identify the cause.
+
+## A command is not found
+
+An older installation can leave a stale shim on the path. Reinstall with the
+package manager you used, or check the install directory listed by
+`which tnt` and confirm it points at the current version:
+
+```bash
+tnt --version
+```
+
+## Resetting
+
+Configuration lives in `~/.tnt/`. Moving that directory aside resets models,
+permissions, sessions and plugins to their defaults while keeping the old data
+available for comparison.
