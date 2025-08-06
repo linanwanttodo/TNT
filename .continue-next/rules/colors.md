@@ -2,7 +2,7 @@
 name: Extension Color Themes
 description: Guidelines for using theme colors in GUI components
 alwaysApply: false
-globs: "gui/**/*.tsx"
+globs: "ide/gui/**/*.tsx"
 ---
 
 When adding colors to components, use tailwind color classes.

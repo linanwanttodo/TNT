@@ -32,27 +32,27 @@ runs:
     - uses: actions/cache@v4
       id: vscode-node-modules-cache
       with:
-        path: extensions/vscode/node_modules
-        key: ${{ runner.os }}-vscode-node-modules-${{ hashFiles('extensions/vscode/package-lock.json') }}
+        path: ide/vscode/node_modules
+        key: ${{ runner.os }}-vscode-node-modules-${{ hashFiles('ide/vscode/package-lock.json') }}
 
     # We don't want to cache the Continue extension, so it is deleted at the end of the job
     - uses: actions/cache@v4
       id: test-extensions-cache
       with:
-        path: extensions/vscode/e2e/.test-extensions
+        path: ide/vscode/e2e/.test-extensions
         key: CONSTANT
 
     - uses: actions/cache@v4
       id: storage-cache
       with:
-        path: extensions/vscode/e2e/storage
-        key: ${{ runner.os }}-vscode-storage-${{ hashFiles('extensions/vscode/package-lock.json') }}
+        path: ide/vscode/e2e/storage
+        key: ${{ runner.os }}-vscode-storage-${{ hashFiles('ide/vscode/package-lock.json') }}
 
     - name: Download build artifact
       uses: actions/download-artifact@v4
       with:
         name: vscode-extension-build-Linux
-        path: extensions/vscode/build
+        path: ide/vscode/build
 
     - name: Build packages and download e2e dependencies
       shell: bash
@@ -61,7 +61,7 @@ runs:
         if [ "${{ steps.storage-cache.outputs.cache-hit }}" != "true" ]; then
           cd core
           npm ci
-          cd ../extensions/vscode
+          cd ../ide/vscode
           npm ci
           npm run e2e:ci:download
         else
@@ -74,8 +74,8 @@ runs:
     - name: Fix VSCode binary permissions
       shell: bash
       run: |
-        chmod +x extensions/vscode/e2e/storage/VSCode-linux-x64/code
-        chmod +x extensions/vscode/e2e/storage/chromedriver-linux64/chromedriver
+        chmod +x ide/vscode/e2e/storage/VSCode-linux-x64/code
+        chmod +x ide/vscode/e2e/storage/chromedriver-linux64/chromedriver
 
     - name: Set up SSH
       if: ${{ inputs.ssh_key != '' && inputs.ssh_host != '' && inputs.is_fork == 'false' }}
@@ -99,7 +99,7 @@ runs:
     - name: Run e2e tests
       shell: bash
       run: |
-        cd extensions/vscode
+        cd ide/vscode
         IGNORE_SSH_TESTS="${{ inputs.is_fork }}" TEST_FILE="${{ inputs.test_file }}" npm run ${{ inputs.command }}
       env:
         DISPLAY: :99
@@ -107,7 +107,7 @@ runs:
     - name: Delete continue from test extensions
       shell: bash
       run: |
-        cd extensions/vscode
+        cd ide/vscode
         rm -rf e2e/.test-extensions/continue*
 
     - name: Sanitize test file name
@@ -124,7 +124,7 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: e2e-failure-screenshots-${{ steps.sanitize_filename.outputs.sanitized_test_file || 'unknown' }}-${{ inputs.command == 'e2e:ci:run-yaml' && 'yaml' || 'json' }}
-        path: extensions/vscode/e2e/storage/screenshots
+        path: ide/vscode/e2e/storage/screenshots
 
     - name: Find e2e log file
       if: always()
@@ -138,4 +138,4 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: e2e-logs-${{ steps.sanitize_filename.outputs.sanitized_test_file || 'unknown' }}-${{ inputs.command == 'e2e:ci:run-yaml' && 'yaml' || 'json' }}
-        path: extensions/vscode/e2e.log
+        path: ide/vscode/e2e.log

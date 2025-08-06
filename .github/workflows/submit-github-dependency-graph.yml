@@ -24,4 +24,4 @@ jobs:
         uses: gradle/actions/dependency-submission@v6
         with:
           # The gradle project is not in the root of the repository.
-          build-root-directory: extensions/intellij
+          build-root-directory: ide/intellij

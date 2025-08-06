@@ -71,7 +71,7 @@ All events inherit from a base schema (`/packages/config-yaml/src/schemas/data/b
 
 ### Edit Features
 
-- **Files**: `/extensions/vscode/src/extension/EditOutcomeTracker.ts`, `/core/nextEdit/NextEditLoggingService.ts`
+- **Files**: `/ide/vscode/src/extension/EditOutcomeTracker.ts`, `/core/nextEdit/NextEditLoggingService.ts`
 - **Purpose**: Track edit suggestions, acceptance rates, and outcomes
 - **Integration**: Embedded in edit workflow to capture user decisions
 

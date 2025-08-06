@@ -2,7 +2,7 @@ name: 'Setup Component'
 description: 'Cache and install dependencies for a specific component'
 inputs:
   component:
-    description: 'Component name (core, gui, vscode, binary)'
+    description: 'Component name (core, binary, vscode, intellij, gui)'
     required: true
   include-packages:
     description: 'Whether to include packages cache (default: true)'
@@ -16,13 +16,24 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Resolve component directory
+      id: component-dir
+      shell: bash
+      run: |
+        case "${{ inputs.component }}" in
+          vscode) dir="ide/vscode" ;;
+          intellij) dir="ide/intellij" ;;
+          gui) dir="ide/gui" ;;
+          *) dir="${{ inputs.component }}" ;;
+        esac
+        echo "dir=$dir" >> "$GITHUB_OUTPUT"
     - uses: actions/setup-node@v4
       with:
         node-version-file: ".nvmrc"
     - uses: actions/cache@v4
       with:
         path: ~/.npm
-        key: ${{ runner.os }}-npm-cache-${{ inputs.component }}-${{ hashFiles(inputs.component == 'vscode' && 'extensions/vscode/package-lock.json' || format('{0}/package-lock.json', inputs.component)) }}
+        key: ${{ runner.os }}-npm-cache-${{ inputs.component }}-${{ hashFiles(format('{0}/package-lock.json', steps.component-dir.outputs.dir)) }}
 
     - uses: actions/cache@v4
       if: inputs.include-packages == 'true'
@@ -46,12 +57,12 @@ runs:
     - uses: actions/cache@v4
       id: component-cache
       with:
-        path: ${{ inputs.component == 'vscode' && 'extensions/vscode/node_modules' || format('{0}/node_modules', inputs.component) }}
-        key: ${{ runner.os }}-${{ inputs.component }}-node-modules-${{ hashFiles(inputs.component == 'vscode' && 'extensions/vscode/package-lock.json' || format('{0}/package-lock.json', inputs.component)) }}
+        path: ${{ format('{0}/node_modules', steps.component-dir.outputs.dir) }}
+        key: ${{ runner.os }}-${{ inputs.component }}-node-modules-${{ hashFiles(format('{0}/package-lock.json', steps.component-dir.outputs.dir)) }}
 
     - name: Install component dependencies
       if: steps.component-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        cd ${{ inputs.component == 'vscode' && 'extensions/vscode' || inputs.component }}
+        cd ${{ steps.component-dir.outputs.dir }}
         npm ci

@@ -86,7 +86,7 @@ npm link
 Pop-Location
 
 Write-Output "`nInstalling GUI extension dependencies..." -ForegroundColor White
-Push-Location gui
+Push-Location ide/gui
 npm install
 npm link @tnt/core
 npm run build
@@ -94,7 +94,7 @@ Pop-Location
 
 # VSCode Extension (will also package GUI)
 Write-Output "`nInstalling VSCode extension dependencies..." -ForegroundColor White
-Push-Location extensions/vscode
+Push-Location ide/vscode
 
 # This does way too many things inline but is the common denominator between many of the scripts
 npm install

@@ -42,10 +42,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: vscode-extension-build-${{ matrix.platform }}-${{ matrix.arch }}
-          path: extensions/vscode/build
+          path: ide/vscode/build
 
       - name: Upload .vsix artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}-vsix
-          path: "extensions/vscode/*.vsix"
+          path: "ide/vscode/*.vsix"

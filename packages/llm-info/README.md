@@ -29,4 +29,4 @@ Providers are defined in the `providers` directory, with all models that they su
 
 - Replace autodetect.ts
 - See usage in `BaseLLM` constructor, and finish the job of using llm-info everywhere relevant.
-- Replace `gui/pages/AddNewModel/configs/[providers/models].ts`
+- Replace `ide/gui/src/pages/AddNewModel/configs/[providers/models].ts`
