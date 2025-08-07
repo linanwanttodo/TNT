@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 
 import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { t } from "../../i18n/index.js";
-import { getSessionUsage } from "../../session.js";
+import { getSessionUsage } from "../../session/index.js";
 import { getCacheHitRatio } from "../../util/cacheRatio.js";
 import { getGitBranch } from "../../util/git.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
@@ -84,7 +84,9 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   const thinkingDepth = getThinkingDepth(model);
   const branch = isRemoteMode ? null : getGitBranch();
   const workspaceName = remoteUrl ?? currentDirectory();
-  const cacheHitRatio = getCacheHitRatio(getSessionUsage());
+  const sessionUsage = getSessionUsage();
+  const cacheHitRatio = getCacheHitRatio(sessionUsage);
+  const compactionCost = sessionUsage?.compaction?.cost ?? 0;
 
   const leftParts: React.ReactNode[] = [];
   if (workspaceName) {
@@ -112,6 +114,13 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
     leftParts.push(
       <Text key="cache" color="dim">
         {`☰ ${t("status.cache")} ${cacheHitRatio}%`}
+      </Text>,
+    );
+  }
+  if (compactionCost > 0) {
+    leftParts.push(
+      <Text key="compaction" color="dim">
+        {`${t("status.compact")} $${compactionCost.toFixed(4)}`}
       </Text>,
     );
   }
