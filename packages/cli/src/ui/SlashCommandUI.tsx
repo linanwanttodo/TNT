@@ -2,10 +2,7 @@ import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
-import {
-  getAllSlashCommands,
-  type SlashCommand,
-} from "../commands/commands.js";
+import { getAllSlashCommands, type SlashCommand } from "../slash/index.js";
 import { t } from "../i18n/index.js";
 import { useLocale } from "./hooks/useLocale.js";
 

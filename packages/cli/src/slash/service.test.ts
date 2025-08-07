@@ -5,8 +5,9 @@ vi.mock("../util/loadMarkdownSkills.js", () => ({
   loadMarkdownSkills: vi.fn(async () => ({ skills: [] })),
 }));
 
-import { getAllSlashCommands } from "./commands.js";
 import { setLocale, t } from "../i18n/index.js";
+import { loadMarkdownSkills } from "../util/loadMarkdownSkills.js";
+import { CommandService, getAllSlashCommands } from "./service.js";
 
 describe("localized system commands", () => {
   beforeEach(() => setLocale("en"));
@@ -71,5 +72,44 @@ describe("localized system commands", () => {
     );
 
     expect(promptCommand?.description).toBe("Test prompt description");
+  });
+
+  it("keeps the built-in command when a skill claims the same name", async () => {
+    vi.mocked(loadMarkdownSkills).mockResolvedValueOnce({
+      skills: [{ name: "help", description: "Skill help", path: "/tmp/help" }],
+    } as any);
+
+    const service = await CommandService.create({ name: "test" } as any);
+    const helpCommands = service
+      .getCommands()
+      .filter((command) => command.name === "help");
+
+    expect(helpCommands).toHaveLength(1);
+    expect(helpCommands[0].category).toBe("system");
+    expect(service.getConflicts()).toEqual([
+      expect.objectContaining({ name: "help", winner: "builtin" }),
+    ]);
+  });
+
+  it("exposes only remote commands in remote mode", async () => {
+    const service = await CommandService.create({ name: "test" } as any, {
+      isRemoteMode: true,
+    });
+
+    expect(service.getCommands().map((command) => command.name)).toEqual([
+      "exit",
+      "diff",
+      "apply",
+    ]);
+    expect(service.getConflicts()).toEqual([]);
+  });
+
+  it("answers lookups regardless of case", async () => {
+    const service = await CommandService.create({ name: "test" } as any);
+
+    expect(service.find("HELP")?.name).toBe("help");
+    expect(service.matches("lang").map((command) => command.name)).toContain(
+      "language",
+    );
   });
 });

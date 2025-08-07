@@ -28,19 +28,13 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - `ensureAuth.ts`: Handles authentication flow
    - `workos.ts`: WorkOS configuration and token management
 
-3. **Continue SDK Integration** (`src/continueSDK.ts`): Initializes the Continue SDK client with:
-
-   - API key authentication
-   - Assistant configuration (slug-based)
-   - Organization support
-
-4. **Terminal UI** (`src/ui/`): React/Ink-based TUI components
+3. **Terminal UI** (`src/ui/`): React/Ink-based TUI components
 
    - `TUIChat.tsx`: Main chat interface component
    - `UserInput.tsx`: Input handling with multi-line support
    - `TextBuffer.ts`: Text display utilities
 
-5. **Tools System** (`src/tools/`): Built-in development tools including:
+4. **Tools System** (`src/tools/`): Built-in development tools including:
 
    - File operations (read, write, list)
    - Code search functionality
@@ -48,9 +42,10 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - Diff viewing
    - Exit tool (headless mode only)
 
-6. **MCP Integration** (`src/mcp.ts`): Model Context Protocol service for extended tool capabilities
+5. **MCP Integration** (`src/services/MCPService.ts`): Model Context Protocol service for extended tool capabilities
 
-7. **Hooks System** (`src/hooks/`): Event interception system for extending CLI behavior
+6. **Hooks System** (`src/hooks/`): Event interception system for extending CLI behavior
+
    - `HookService.ts`: Service container integration, loads config and fires events
    - `hookConfig.ts`: Loads hooks from settings files, merges configs from multiple sources
    - `hookRunner.ts`: Executes hook handlers (command, HTTP) with exit code semantics
@@ -64,10 +59,41 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - **JSON output**: Optional structured output with `hookSpecificOutput` for fine-grained control
    - **Hook types**: `command` (shell), `http` (POST request), `prompt` (single model turn), `agent` (delegated multi-turn run), all handled by `hookRunner.ts`
 
+7. **Slash Command Pipeline** (`src/slash/`): every command source is a loader
+
+   - `types.ts`: `SlashCommand`, `CommandLoader`, `CommandSource`, conflict types
+   - `loaders/`: built-in, remote mode, assistant prompts, invokable rules, skills, plugins
+   - `resolver.ts`: the first source to claim a name keeps it; later claims are reported as conflicts
+   - `service.ts`: `CommandService.create()` runs every loader in parallel and freezes the result
+   - `handlers/`: in-process command implementations, grouped by domain
+   - `dispatch.ts`: `handleSlashCommands()` entry point
+   - `src/commands/`: argv subcommands (`chat`, `serve`, `ls`, `review`, `checks`), separate from slash commands
+
+### Module Layout
+
+`src/` is grouped by layer; only the entry points sit at the top level.
+
+| Path                                                                                                    | Purpose                                                                             |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `index.ts`, `dev.ts`                                                                                    | CLI entry points (bundled build and the tsx dev runner)                             |
+| `agent/`                                                                                                | System prompt assembly                                                              |
+| `commands/`                                                                                             | argv subcommands: `chat`, `serve`, `ls`, `review`, `checks`                         |
+| `compaction/`                                                                                           | History compaction and prefix preservation                                          |
+| `config/`                                                                                               | Assistant and configuration loading, env, provider setup, rules                     |
+| `platform/`                                                                                             | TNT platform API client                                                             |
+| `session/`                                                                                              | Session state, titles, goals, delegated sessions                                    |
+| `slash/`                                                                                                | Slash command pipeline: loaders, resolver, handlers, dispatch                       |
+| `startup/`                                                                                              | Process bootstrap: console interception, onboarding, info screen, banner, version   |
+| `stream/`, `loop/`, `tools/`, `permissions/`, `cache/`, `plugins/`, `hooks/`, `subagent/`, `telemetry/` | Agent engine                                                                        |
+| `services/`                                                                                             | Long-lived services resolved through `ServiceContainer`                             |
+| `ui/`                                                                                                   | Ink components, hooks, contexts                                                     |
+| `i18n/`                                                                                                 | Translations and locale switching                                                   |
+| `util/`                                                                                                 | Shared helpers; `logger.ts` writes the file log, `console.ts` gates headless output |
+
 ### Key Features
 
 - **Streaming Responses**: Real-time AI response streaming (`streamChatResponse.ts`)
-- **Slash Commands**: Built-in commands like `/help`, `/exit` (`slashCommands.ts`)
+- **Slash Commands**: Built-in commands like `/help`, `/exit`, plus prompt, rule, skill and plugin sources (`src/slash/`)
 - **Multi-mode Operation**: Supports TUI, headless, and standard chat modes
 - **Tool Integration**: Extensible tool system for development tasks
 

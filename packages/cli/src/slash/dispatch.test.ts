@@ -9,12 +9,12 @@ import {
   type MockedFunction,
 } from "vitest";
 
-import type { ConfigServiceState } from "./services/types.js";
-import { getLocale, setLocale } from "./i18n/index.js";
-import { handleSlashCommands } from "./slashCommands.js";
+import type { ConfigServiceState } from "../services/types.js";
+import { getLocale, setLocale } from "../i18n/index.js";
+import { handleSlashCommands } from "./dispatch.js";
 
 // Mock the services
-vi.mock("./services/index.js", () => ({
+vi.mock("../services/index.js", () => ({
   services: {
     config: {
       getState: vi.fn(),
@@ -30,12 +30,12 @@ vi.mock("./services/index.js", () => ({
 }));
 
 // Mock commands
-vi.mock("./commands/commands.js", () => ({
+vi.mock("./service.js", () => ({
   getAllSlashCommands: vi.fn(() => []),
 }));
 
 // Mock logger to avoid file system operations
-vi.mock("./util/logger.js", () => ({
+vi.mock("../util/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -45,7 +45,7 @@ vi.mock("./util/logger.js", () => ({
 }));
 
 // Mock env.js to avoid file operations
-vi.mock("./env.js", () => ({
+vi.mock("../config/env.js", () => ({
   env: {
     continueHome: "/home/test/.continue",
   },
@@ -80,7 +80,7 @@ vi.mock("core/util/history.js", () => ({
 }));
 
 // Mock session functions
-vi.mock("./session.js", () => ({
+vi.mock("../session/index.js", () => ({
   getSessionFilePath: vi.fn(
     () => "/home/test/.tnt/cli-sessions/continue-cli-pid-12345.json",
   ),
@@ -90,6 +90,22 @@ vi.mock("./session.js", () => ({
   }),
   listSubagentSessions: vi.fn(() => []),
   updateSessionTitle: vi.fn(),
+}));
+
+// Mock the plugin registry so plugin commands can be exercised without disk
+vi.mock("../plugins/loader.js", () => ({
+  loadAllPlugins: vi.fn(() => ({
+    plugins: [],
+    hooks: { hooks: {} },
+    commands: [
+      { name: "sample:review", description: "Review", content: "Review body" },
+    ],
+    agents: [],
+    skills: [],
+    mcpServers: {},
+    outputStyles: [],
+    lspServers: [],
+  })),
 }));
 
 describe("slashCommands", () => {
@@ -141,7 +157,7 @@ describe("slashCommands", () => {
     });
 
     it("should handle /info command and show config info", async () => {
-      const { services } = await import("./services/index.js");
+      const { services } = await import("../services/index.js");
 
       (
         services.config.getState as MockedFunction<
@@ -163,7 +179,7 @@ describe("slashCommands", () => {
     });
 
     it("should handle /info command when config not found", async () => {
-      const { services } = await import("./services/index.js");
+      const { services } = await import("../services/index.js");
 
       (
         services.config.getState as MockedFunction<
@@ -183,7 +199,7 @@ describe("slashCommands", () => {
     });
 
     it("should handle /info command with config path", async () => {
-      const { services } = await import("./services/index.js");
+      const { services } = await import("../services/index.js");
 
       (
         services.config.getState as MockedFunction<
@@ -203,7 +219,7 @@ describe("slashCommands", () => {
     });
 
     it("should handle config service errors gracefully", async () => {
-      const { services } = await import("./services/index.js");
+      const { services } = await import("../services/index.js");
 
       (
         services.config.getState as MockedFunction<
@@ -220,9 +236,9 @@ describe("slashCommands", () => {
     });
 
     it("should use test session directory when in test mode", async () => {
-      const { services } = await import("./services/index.js");
+      const { services } = await import("../services/index.js");
       const { getSessionFilePath, getCurrentSession } = await import(
-        "./session.js"
+        "../session/index.js"
       );
 
       // Mock the session functions for this specific test
@@ -252,7 +268,7 @@ describe("slashCommands", () => {
     });
 
     it("should handle /title command with valid title", async () => {
-      const { updateSessionTitle } = await import("./session.js");
+      const { updateSessionTitle } = await import("../session/index.js");
 
       const result = await handleSlashCommands(
         "/title My New Session Title",
@@ -288,7 +304,7 @@ describe("slashCommands", () => {
     });
 
     it("should handle /title command when session update fails", async () => {
-      const { updateSessionTitle } = await import("./session.js");
+      const { updateSessionTitle } = await import("../session/index.js");
 
       (updateSessionTitle as any).mockImplementation(() => {
         throw new Error("Failed to save session");
@@ -307,7 +323,7 @@ describe("slashCommands", () => {
     });
 
     it("should handle /rename as an alias for /title", async () => {
-      const { updateSessionTitle } = await import("./session.js");
+      const { updateSessionTitle } = await import("../session/index.js");
       (updateSessionTitle as any).mockReset();
 
       const result = await handleSlashCommands(
@@ -434,7 +450,7 @@ describe("slashCommands", () => {
       }[],
     ) {
       const { getCurrentSession, listSubagentSessions } = await import(
-        "./session.js"
+        "../session/index.js"
       );
       (getCurrentSession as any).mockReturnValue({ sessionId: parentId });
       (listSubagentSessions as any).mockReturnValue(children);
@@ -474,7 +490,7 @@ describe("slashCommands", () => {
 
       await handleSlashCommands("/subagents", mockAssistant);
 
-      const { listSubagentSessions } = await import("./session.js");
+      const { listSubagentSessions } = await import("../session/index.js");
       expect(listSubagentSessions).toHaveBeenCalledWith("parent");
     });
 
@@ -499,7 +515,7 @@ describe("slashCommands", () => {
 
   describe("/back", () => {
     async function mockCurrentSession(session: Record<string, unknown>) {
-      const { getCurrentSession } = await import("./session.js");
+      const { getCurrentSession } = await import("../session/index.js");
       (getCurrentSession as any).mockReturnValue(session);
     }
 
@@ -532,6 +548,23 @@ describe("slashCommands", () => {
       const result = await handleSlashCommands("/parent", mockAssistant);
 
       expect(result?.loadSessionId).toBe("parent");
+    });
+  });
+
+  describe("plugin commands", () => {
+    it("forwards the command body with the given arguments", async () => {
+      const result = await handleSlashCommands(
+        "/sample:review src/app.ts",
+        mockAssistant,
+      );
+
+      expect(result?.newInput).toBe("Review body\n\nsrc/app.ts");
+    });
+
+    it("forwards the command body on its own when no arguments are given", async () => {
+      const result = await handleSlashCommands("/sample:review", mockAssistant);
+
+      expect(result?.newInput).toBe("Review body");
     });
   });
 });

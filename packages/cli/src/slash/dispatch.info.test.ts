@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { services } from "./services/index.js";
-import * as sessionModule from "./session.js";
-import { handleSlashCommands } from "./slashCommands.js";
-import * as versionModule from "./version.js";
+import { services } from "../services/index.js";
+import * as sessionModule from "../session/index.js";
+import { handleSlashCommands } from "./dispatch.js";
+import * as versionModule from "../startup/version.js";
 
 // Mock all dependencies
-vi.mock("./version.js", () => ({
+vi.mock("../startup/version.js", () => ({
   getVersion: vi.fn(() => "1.2.3"),
   getLatestVersion: vi.fn(() => Promise.resolve(null)),
   compareVersions: vi.fn(() => "same"),
 }));
-vi.mock("./session.js");
+vi.mock("../session/index.js");
 
-vi.mock("./services/index.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./services/index.js")>();
+vi.mock("../services/index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/index.js")>();
   return {
     ...actual,
     services: {

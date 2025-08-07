@@ -1,7 +1,7 @@
 import type { AssistantConfig } from "@tnt/sdk";
 import { describe, expect, it } from "vitest";
 
-import { getAllSlashCommands } from "./commands.js";
+import { getAllSlashCommands } from "./service.js";
 
 describe("Slash Commands Integration", () => {
   const mockAssistant: AssistantConfig = {
