@@ -9,7 +9,8 @@ import {
   info,
   warn,
   loggers,
-} from "./logging.js";
+  suppressConsoleInfo,
+} from "./console.js";
 
 describe("logging utilities", () => {
   let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
@@ -246,6 +247,27 @@ describe("logging utilities", () => {
 
       configureLogger({ headless: false });
       expect(isLoggingEnabled()).toBe(true);
+    });
+  });
+
+  describe("suppressConsoleInfo", () => {
+    afterEach(() => {
+      (console as any).restoreInfo?.();
+      delete (console as any).restoreInfo;
+    });
+
+    it("silences console.info while headless", () => {
+      suppressConsoleInfo(true);
+      console.info("hidden");
+
+      expect(consoleInfoSpy).not.toHaveBeenCalled();
+    });
+
+    it("leaves console.info untouched when not headless", () => {
+      suppressConsoleInfo(false);
+      console.info("visible");
+
+      expect(consoleInfoSpy).toHaveBeenCalledWith("visible");
     });
   });
 });

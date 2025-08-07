@@ -5,7 +5,7 @@ import path from "path";
 import chalk from "chalk";
 import winston from "winston";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 
 const { combine, timestamp, printf, errors } = winston.format;
 

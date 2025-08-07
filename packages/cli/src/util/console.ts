@@ -4,7 +4,7 @@ import chalk from "chalk";
 let isHeadlessMode = false;
 
 /**
- * Configure the logger to enable/disable headless mode
+ * Configure the console wrappers to enable/disable headless mode
  */
 export function configureLogger(options: { headless: boolean }) {
   isHeadlessMode = options.headless;
@@ -72,3 +72,26 @@ export const loggers = {
     log(chalk.gray(message), forceLog),
   command: (message: string) => log(message, true), // Always show command outputs
 };
+
+/**
+ * Silences console.info outright while headless mode is on. The wrappers above
+ * only gate the CLI's own output; this covers code paths that reach the CLI
+ * outside its entry point, where the process-level interception in
+ * `startup/init.ts` has not run.
+ */
+export function suppressConsoleInfo(isHeadless: boolean): void {
+  if (!isHeadless) {
+    return;
+  }
+
+  const originalConsoleInfo = console.info;
+
+  console.info = function () {
+    // Do nothing in headless mode
+  };
+
+  // Add a method to restore original behavior if needed
+  (console as any).restoreInfo = function () {
+    console.info = originalConsoleInfo;
+  };
+}

@@ -4,12 +4,15 @@ import chalk from "chalk";
 import { ChatHistoryItem, Session } from "core";
 import { ChatDescriber } from "core/util/chatDescriber.js";
 
-import { compactChatHistory, findCompactionIndex } from "../compaction.js";
+import {
+  compactChatHistory,
+  findCompactionIndex,
+} from "../compaction/index.js";
 import { processCommandFlags } from "../flags/flagProcessor.js";
-import { safeStderr, safeStdout } from "../init.js";
+import { safeStderr, safeStdout } from "../startup/init.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
-import { configureLogger } from "../logger.js";
-import * as logging from "../logging.js";
+import * as logging from "../util/console.js";
+import { suppressConsoleInfo } from "../util/console.js";
 import { initializeServices, services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import {
@@ -21,7 +24,7 @@ import {
   loadSession,
   updateSessionHistory,
   updateSessionTitle,
-} from "../session.js";
+} from "../session/index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
@@ -96,7 +99,9 @@ export async function initializeChatHistory(
 
   // Fork from an existing session if --fork flag is used
   if (options.fork) {
-    const { loadSessionById, startNewSession } = await import("../session.js");
+    const { loadSessionById, startNewSession } = await import(
+      "../session/index.js"
+    );
     const sessionToFork = loadSessionById(options.fork);
     if (sessionToFork) {
       logger.info(chalk.yellow("Forking from existing session..."));
@@ -562,8 +567,8 @@ async function runHeadlessMode(
 }
 
 export async function chat(prompt?: string, options: ChatOptions = {}) {
-  // Configure logger based on headless mode
-  configureLogger(options.headless ?? false);
+  // Silence console.info for callers that bypass the CLI entry point
+  suppressConsoleInfo(options.headless ?? false);
 
   // Configure headless-aware logging system
   logging.configureLogger({ headless: options.headless ?? false });
