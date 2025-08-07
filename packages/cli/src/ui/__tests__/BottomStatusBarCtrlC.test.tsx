@@ -20,7 +20,7 @@ vi.mock("../../util/git.js", () => ({
   getGitBranch: vi.fn(() => null),
 }));
 
-vi.mock("../../session.js", () => ({
+vi.mock("../../session/index.js", () => ({
   getSessionUsage: vi.fn(() => undefined),
 }));
 
@@ -110,7 +110,9 @@ describe("BottomStatusBar Ctrl+C message", () => {
   });
 
   it("shows the cache hit ratio when the session reported cache tokens", async () => {
-    const sessionModule = (await vi.importMock("../../session.js")) as any;
+    const sessionModule = (await vi.importMock(
+      "../../session/index.js",
+    )) as any;
     sessionModule.getSessionUsage.mockReturnValue({
       totalCost: 0,
       promptTokens: 1000,
@@ -123,6 +125,53 @@ describe("BottomStatusBar Ctrl+C message", () => {
     );
 
     expect(lastFrame()).toContain("80%");
+  });
+
+  it("shows the compaction spend next to the cache hit ratio", async () => {
+    const sessionModule = (await vi.importMock(
+      "../../session/index.js",
+    )) as any;
+    sessionModule.getSessionUsage.mockReturnValue({
+      totalCost: 1.5,
+      promptTokens: 10000,
+      completionTokens: 0,
+      promptTokensDetails: { cachedTokens: 8000, cacheWriteTokens: 0 },
+      compaction: {
+        requests: 2,
+        inputTokens: 24000,
+        outputTokens: 1000,
+        cachedTokens: 12000,
+        cacheWriteTokens: 0,
+        cost: 0.3125,
+      },
+    });
+
+    const { lastFrame } = render(
+      <BottomStatusBar {...defaultProps} contextPercentage={10} />,
+    );
+
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("80%");
+    expect(frame).toContain("$0.3125");
+    expect(frame.indexOf("80%")).toBeLessThan(frame.indexOf("$0.3125"));
+  });
+
+  it("hides the compaction spend before any compaction ran", async () => {
+    const sessionModule = (await vi.importMock(
+      "../../session/index.js",
+    )) as any;
+    sessionModule.getSessionUsage.mockReturnValue({
+      totalCost: 0,
+      promptTokens: 1000,
+      completionTokens: 0,
+      promptTokensDetails: { cachedTokens: 800, cacheWriteTokens: 0 },
+    });
+
+    const { lastFrame } = render(
+      <BottomStatusBar {...defaultProps} contextPercentage={10} />,
+    );
+
+    expect(lastFrame()).not.toContain("Compaction");
   });
 
   it("keeps workspace metadata on the left and the model on the right", async () => {

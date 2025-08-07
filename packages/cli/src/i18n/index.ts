@@ -9,7 +9,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 
 export type Locale = "en" | "zh-CN";
 
@@ -66,6 +66,7 @@ const en = {
   "status.think": "think",
   "status.image": "Ctrl+V paste image",
   "status.cost": "Cost",
+  "status.compact": "Compaction",
   "status.exit": "ctrl+c to exit",
   "mcp.failed": "MCP servers failed to connect: {servers}",
   "mcp.failedHint": "Run /mcp to see the details.",
@@ -157,6 +158,7 @@ const zhCN: Record<TranslationKey, string> = {
   "status.think": "思考",
   "status.image": "Ctrl+V 粘贴图片",
   "status.cost": "费用",
+  "status.compact": "压缩",
   "status.exit": "ctrl+c 退出",
   "mcp.failed": "MCP 服务器连接失败：{servers}",
   "mcp.failedHint": "输入 /mcp 查看详情。",

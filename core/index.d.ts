@@ -288,6 +288,26 @@ export interface SessionUsage extends Usage {
     cachedTokens: number;
     cacheWriteTokens: number;
   };
+  /**
+   * What history compaction has cost so far, kept apart from the totals.
+   *
+   * Compaction is the price paid for a shorter reusable prefix, so it is only
+   * meaningful next to the cache read it bought: a hit rate bought with
+   * expensive compaction is not a saving. Requests that summarise history are
+   * counted here and never in `coldStart`, because their prefix is their own.
+   */
+  compaction?: {
+    /** Number of compaction requests that completed. */
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    /** Cache tokens read by compaction requests. */
+    cachedTokens: number;
+    /** Cache tokens written by compaction requests. */
+    cacheWriteTokens: number;
+    /** Cumulative cost of compaction requests, in USD. */
+    cost: number;
+  };
 }
 
 export interface Session {
