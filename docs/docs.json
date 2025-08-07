@@ -64,7 +64,11 @@
       "dark": "#1a1a1a"
     }
   },
-  "redirects": [],
+  "redirects": [
+    { "source": "/customize", "destination": "/" },
+    { "source": "/guides", "destination": "/" },
+    { "source": "/ide-extensions", "destination": "/" }
+  ],
   "navbar": {
     "primary": {
       "type": "github",
