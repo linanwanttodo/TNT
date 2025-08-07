@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatHistoryService } from "./ChatHistoryService.js";
 
 // Mock the dependencies
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   updateSessionHistory: vi.fn(),
   loadSession: vi.fn(),
   createSession: vi.fn((history) => ({
@@ -148,7 +148,7 @@ describe("ChatHistoryService", () => {
     });
 
     it("should not save to session in remote mode", async () => {
-      const { updateSessionHistory } = await import("../session.js");
+      const { updateSessionHistory } = await import("../session/index.js");
 
       await service.initialize(undefined, true);
       service.addUserMessage("Remote message");

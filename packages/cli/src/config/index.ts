@@ -2,10 +2,10 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
 import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
-import { AuthConfig } from "./auth/workos.js";
+import { AuthConfig } from "../auth/workos.js";
 import { env } from "./env.js";
-import { getUniqueId } from "./util/uniqueId.js";
-import { getVersion } from "./version.js";
+import { getUniqueId } from "../util/uniqueId.js";
+import { getVersion } from "../startup/version.js";
 
 /**
  * Creates user-agent header value for CLI requests

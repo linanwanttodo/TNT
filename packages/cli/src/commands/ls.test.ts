@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import * as sessionModule from "../session.js";
+import * as sessionModule from "../session/index.js";
 
 import { listSessionsCommand } from "./ls.js";
 
 // Mock the session module
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   listSessions: vi.fn(),
   loadSessionById: vi.fn(),
 }));

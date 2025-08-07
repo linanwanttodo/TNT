@@ -15,7 +15,7 @@ import {
   agentFileProcessor,
   loadModelFromHub,
   loadPackageFromHub,
-} from "../hubLoader.js";
+} from "../config/hubLoader.js";
 import { logger } from "../util/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";

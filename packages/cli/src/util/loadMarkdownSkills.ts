@@ -6,7 +6,7 @@ import { parseMarkdownRule } from "@tnt/config-yaml";
 import ignoreWalk from "ignore-walk";
 import { z } from "zod";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 
 // ignore-walk ships as CommonJS and Node cannot synthesize a named export for
 // it, so the walker has to come off the default import instead.

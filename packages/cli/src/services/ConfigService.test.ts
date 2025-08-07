@@ -6,21 +6,21 @@ import {
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import * as workos from "../auth/workos.js";
-import * as configLoader from "../configLoader.js";
+import * as configLoader from "../config/loader.js";
 
 import { ConfigService } from "./ConfigService.js";
 import { serviceContainer } from "./ServiceContainer.js";
 import { ToolPermissionServiceState } from "./ToolPermissionService.js";
 import { AgentFileServiceState, SERVICE_NAMES } from "./types.js";
 vi.mock("../auth/workos.js");
-vi.mock("../configLoader.js", () => ({
+vi.mock("../config/loader.js", () => ({
   loadConfiguration: vi.fn(),
   unrollPackageIdentifiersAsConfigYaml: vi.fn(),
 }));
 vi.mock("../util/logger.js");
 vi.mock("./ServiceContainer.js");
 vi.mock("@tnt/config-yaml");
-vi.mock("src/systemMessage.js", () => ({
+vi.mock("src/agent/systemMessage.js", () => ({
   loadMarkdownRulesWithMetadata: vi.fn().mockReturnValue([]),
 }));
 

@@ -1,4 +1,4 @@
-import { processRule } from "../hubLoader.js";
+import { processRule } from "../config/hubLoader.js";
 
 import { logger } from "./logger.js";
 

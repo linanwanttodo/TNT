@@ -9,11 +9,11 @@ import {
   compactChatHistory,
   findCompactionIndex,
   getHistoryForLLM,
-} from "./compaction.js";
-import { streamChatResponse } from "./stream/streamChatResponse.js";
+} from "./index.js";
+import { streamChatResponse } from "../stream/streamChatResponse.js";
 
 // Mock the streamChatResponse function
-vi.mock("./stream/streamChatResponse.js", () => ({
+vi.mock("../stream/streamChatResponse.js", () => ({
   streamChatResponse: vi.fn(),
 }));
 

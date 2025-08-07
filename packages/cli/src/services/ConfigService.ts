@@ -6,8 +6,8 @@ import {
 } from "@tnt/config-yaml";
 import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 
-import { isStringRule } from "src/hubLoader.js";
-import { loadMarkdownRulesWithMetadata } from "src/systemMessage.js";
+import { isStringRule } from "src/config/hubLoader.js";
+import { loadMarkdownRulesWithMetadata } from "src/agent/systemMessage.js";
 import { getErrorString } from "src/util/error.js";
 
 import { AuthConfig, loadAuthConfig } from "../auth/workos.js";
@@ -15,7 +15,7 @@ import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";
 import {
   loadConfiguration,
   unrollPackageIdentifiersAsConfigYaml,
-} from "../configLoader.js";
+} from "../config/loader.js";
 import { logger } from "../util/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";

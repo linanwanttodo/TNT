@@ -4,7 +4,7 @@ import type { ChatHistoryItem } from "../../../../../core/index.js";
 
 import { processSlashCommandResult } from "./useChat.helpers.js";
 
-vi.mock("../../session.js", () => ({
+vi.mock("../../session/index.js", () => ({
   loadSession: vi.fn(),
   updateSessionHistory: vi.fn(),
   startNewSession: vi.fn(),

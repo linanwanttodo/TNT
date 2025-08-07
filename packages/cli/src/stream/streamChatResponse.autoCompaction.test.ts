@@ -11,14 +11,14 @@ const mockSessionState = vi.hoisted(() => ({
 import { handleAutoCompaction } from "./streamChatResponse.autoCompaction.js";
 
 // Mock dependencies
-vi.mock("../compaction.js", () => ({
+vi.mock("../compaction/index.js", () => ({
   compactChatHistory: vi.fn(),
   findCompactionIndex: vi.fn(() => null),
   shouldAutoCompact: vi.fn(),
   getAutoCompactMessage: vi.fn(),
 }));
 
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => mockSessionState.session),
   getSessionHistoryGeneration: vi.fn(() => mockSessionState.generation),
   replaceSessionHistoryIfGeneration: vi.fn((expectedGeneration, history) => {
@@ -101,7 +101,7 @@ describe("handleAutoCompaction", () => {
   });
 
   it("should return original history when auto-compaction is not needed", async () => {
-    const { shouldAutoCompact } = await import("../compaction.js");
+    const { shouldAutoCompact } = await import("../compaction/index.js");
     const mockedShouldAutoCompact = shouldAutoCompact as any;
     mockedShouldAutoCompact.mockReturnValue(false);
 
@@ -128,8 +128,10 @@ describe("handleAutoCompaction", () => {
 
   it("should perform auto-compaction when context limit is approaching", async () => {
     const { compactChatHistory, shouldAutoCompact, getAutoCompactMessage } =
-      await import("../compaction.js");
-    const { replaceSessionHistoryIfGeneration } = await import("../session.js");
+      await import("../compaction/index.js");
+    const { replaceSessionHistoryIfGeneration } = await import(
+      "../session/index.js"
+    );
 
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
     vi.mocked(getAutoCompactMessage).mockReturnValue("Auto-compacting...");
@@ -203,9 +205,11 @@ describe("handleAutoCompaction", () => {
 
   it("persists tool-result pruning without summarizing when it clears the threshold", async () => {
     const { compactChatHistory, shouldAutoCompact } = await import(
-      "../compaction.js"
+      "../compaction/index.js"
     );
-    const { replaceSessionHistoryIfGeneration } = await import("../session.js");
+    const { replaceSessionHistoryIfGeneration } = await import(
+      "../session/index.js"
+    );
     const body = "0123456789abcdef".repeat(400);
     const history: ChatHistoryItem[] = Array.from({ length: 6 }, (_, index) => {
       const id = `call-${index}`;
@@ -263,7 +267,7 @@ describe("handleAutoCompaction", () => {
 
   it("opens the failure breaker after three summary failures", async () => {
     const { compactChatHistory, shouldAutoCompact } = await import(
-      "../compaction.js"
+      "../compaction/index.js"
     );
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
     vi.mocked(compactChatHistory).mockRejectedValue(
@@ -280,7 +284,7 @@ describe("handleAutoCompaction", () => {
 
   it("does not count a persisted tool-result prune as a summary failure", async () => {
     const { compactChatHistory, shouldAutoCompact } = await import(
-      "../compaction.js"
+      "../compaction/index.js"
     );
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
     vi.mocked(compactChatHistory).mockRejectedValue(
@@ -332,9 +336,11 @@ describe("handleAutoCompaction", () => {
 
   it("does not overwrite a newer history when the summary returns late", async () => {
     const { compactChatHistory, shouldAutoCompact } = await import(
-      "../compaction.js"
+      "../compaction/index.js"
     );
-    const { replaceSessionHistoryIfGeneration } = await import("../session.js");
+    const { replaceSessionHistoryIfGeneration } = await import(
+      "../session/index.js"
+    );
     const latestHistory: ChatHistoryItem[] = [
       {
         message: { role: "user", content: "Message added during summary" },
@@ -367,7 +373,7 @@ describe("handleAutoCompaction", () => {
 
   it("should handle compaction errors gracefully", async () => {
     const { compactChatHistory, shouldAutoCompact, getAutoCompactMessage } =
-      await import("../compaction.js");
+      await import("../compaction/index.js");
     const { logger } = await import("../util/logger.js");
 
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
@@ -408,7 +414,7 @@ describe("handleAutoCompaction", () => {
 
   it("should not call system message callback in headless mode", async () => {
     const { compactChatHistory, shouldAutoCompact, getAutoCompactMessage } =
-      await import("../compaction.js");
+      await import("../compaction/index.js");
 
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
     vi.mocked(getAutoCompactMessage).mockReturnValue("Auto-compacting...");

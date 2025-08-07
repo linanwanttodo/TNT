@@ -3,15 +3,15 @@ import { BaseLlmApi } from "@tnt/openai-adapters";
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { compactChatHistory } from "./compaction.js";
-import { streamChatResponse } from "./stream/streamChatResponse.js";
+import { compactChatHistory } from "./index.js";
+import { streamChatResponse } from "../stream/streamChatResponse.js";
 
 // Mock the dependencies
-vi.mock("./stream/streamChatResponse.js", () => ({
+vi.mock("../stream/streamChatResponse.js", () => ({
   streamChatResponse: vi.fn(),
 }));
 
-vi.mock("./util/tokenizer.js", () => ({
+vi.mock("../util/tokenizer.js", () => ({
   countChatHistoryTokens: vi.fn(),
   getModelContextLimit: vi.fn(),
   getModelMaxTokens: vi.fn(),
@@ -32,7 +32,7 @@ describe("compaction infinite loop prevention", () => {
 
   it("should not loop infinitely when pruning doesn't reduce history size", async () => {
     const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
-      await import("./util/tokenizer.js");
+      await import("../util/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);
@@ -66,7 +66,7 @@ describe("compaction infinite loop prevention", () => {
 
   it("should not loop infinitely with history ending in assistant message", async () => {
     const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
-      await import("./util/tokenizer.js");
+      await import("../util/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);
@@ -101,7 +101,7 @@ describe("compaction infinite loop prevention", () => {
 
   it("should successfully prune when pruning actually reduces size", async () => {
     const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
-      await import("./util/tokenizer.js");
+      await import("../util/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);

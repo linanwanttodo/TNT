@@ -3,7 +3,7 @@ import path from "path";
 
 import YAML from "yaml";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 import { logger } from "../util/logger.js";
 
 import { PermissionPolicy, ToolPermissionPolicy } from "./types.js";

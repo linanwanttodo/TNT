@@ -10,8 +10,8 @@ const { buildOutputStyleSection, constructSystemMessage } =
   await vi.importActual<typeof import("./systemMessage.js")>(
     "./systemMessage.js",
   );
-const { serviceContainer } = await import("./services/ServiceContainer.js");
-const { SERVICE_NAMES } = await import("./services/types.js");
+const { serviceContainer } = await import("../services/ServiceContainer.js");
+const { SERVICE_NAMES } = await import("../services/types.js");
 
 describe("buildOutputStyleSection", () => {
   it("returns nothing when no style is active", () => {

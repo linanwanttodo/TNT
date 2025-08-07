@@ -4,12 +4,12 @@ import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { AuthConfig } from "./auth/workos.js";
+import type { AuthConfig } from "../auth/workos.js";
 import { initializeWithOnboarding } from "./onboarding.js";
 
 const questionMock = vi.fn();
 
-vi.mock("./util/prompt.js", () => ({
+vi.mock("../util/prompt.js", () => ({
   question: (...args: unknown[]) => questionMock(...args),
 }));
 
@@ -184,7 +184,7 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
     vi.spyOn(console, "log").mockImplementation(mockConsoleLog);
 
     // Mock the config module
-    vi.doMock("./config.js", () => ({ initialize: mockInitialize }));
+    vi.doMock("../config/index.js", () => ({ initialize: mockInitialize }));
 
     mockAuthConfig = null;
   });
@@ -196,7 +196,7 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
       delete process.env.CONTINUE_USE_BEDROCK;
     }
     vi.restoreAllMocks();
-    vi.doUnmock("./config.js");
+    vi.doUnmock("../config/index.js");
   });
 
   test("should bypass interactive options when CONTINUE_USE_BEDROCK=1", async () => {

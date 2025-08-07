@@ -15,8 +15,8 @@ import chalk from "chalk";
 import { setConfigFilePermissions } from "core/util/paths.js";
 
 import { env } from "./env.js";
-import { t } from "./i18n/index.js";
-import { question } from "./util/prompt.js";
+import { t } from "../i18n/index.js";
+import { question } from "../util/prompt.js";
 
 export const CONFIG_PATH = path.join(env.continueHome, "config.yaml");
 

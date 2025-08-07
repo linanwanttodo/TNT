@@ -11,14 +11,14 @@ import { logger } from "../util/logger.js";
 
 import { streamChatResponse } from "./streamChatResponse.js";
 
-vi.mock("../compaction.js", () => ({
+vi.mock("../compaction/index.js", () => ({
   compactChatHistory: vi.fn(),
   pruneLastMessage: vi.fn((history: ChatHistoryItem[]) => history.slice(0, -1)),
   shouldAutoCompact: vi.fn(),
   getAutoCompactMessage: vi.fn(() => "Auto-compacting..."),
 }));
 
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => ({ sessionId: "session-a" })),
   updateSessionHistory: vi.fn(),
   trackSessionUsage: vi.fn(),

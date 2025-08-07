@@ -1,5 +1,5 @@
 import { AuthConfig } from "../auth/workos.js";
-import { getApiClient } from "../config.js";
+import { getApiClient } from "../config/index.js";
 import { logger } from "../util/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";

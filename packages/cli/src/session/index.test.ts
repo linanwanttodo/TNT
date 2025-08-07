@@ -21,7 +21,7 @@ import {
   startNewSession,
   updateSessionHistory,
   updateSessionTitle,
-} from "./session.js";
+} from "./index.js";
 
 // Mock dependencies first, before any imports
 vi.mock("os", () => ({
@@ -34,7 +34,7 @@ vi.mock("fs");
 vi.mock("uuid", () => ({
   v4: vi.fn(() => "test-uuid-123"),
 }));
-vi.mock("./util/logger.js", () => ({
+vi.mock("../util/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),

@@ -4,7 +4,7 @@ import { Box, Text, useInput } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { t } from "../i18n/index.js";
-import { ExtendedSessionMetadata, loadSessionById } from "../session.js";
+import { ExtendedSessionMetadata, loadSessionById } from "../session/index.js";
 
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { SessionPreview } from "./SessionPreview.js";

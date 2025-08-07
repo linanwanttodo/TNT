@@ -91,7 +91,7 @@ describe("Local Config Switching Investigation", () => {
   test("hypothesis: local config loading has different behavior", async () => {
     // The loadConfiguration function has different code paths:
 
-    const { loadConfiguration } = await import("../configLoader.js");
+    const { loadConfiguration } = await import("../config/loader.js");
 
     // Path 1: Local file loading (lines 176-189 in config.ts)
     // if (config.startsWith(".") || config.startsWith("/") || config.startsWith("~")) {

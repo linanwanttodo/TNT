@@ -1,13 +1,13 @@
 import { decodePackageIdentifier } from "@tnt/config-yaml";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isStringRule } from "src/hubLoader.js";
+import { isStringRule } from "src/config/hubLoader.js";
 
 import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";
 import { ConfigService } from "../services/ConfigService.js";
 
 // Mock the required functions - need to match the import path used by ConfigService
-vi.mock("src/hubLoader.js", () => ({
+vi.mock("src/config/hubLoader.js", () => ({
   isStringRule: vi.fn(),
 }));
 
@@ -20,7 +20,7 @@ vi.mock("@tnt/config-yaml", async (importOriginal) => ({
   })),
 }));
 
-vi.mock("../configLoader.js", () => ({
+vi.mock("../config/loader.js", () => ({
   loadConfiguration: vi.fn(),
 }));
 

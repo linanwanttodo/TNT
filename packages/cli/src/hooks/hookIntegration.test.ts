@@ -24,7 +24,7 @@ vi.mock("../services/index.js", () => {
   };
 });
 
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   getCurrentSession: () => ({ sessionId: "sess-1", history: [] }),
 }));
 

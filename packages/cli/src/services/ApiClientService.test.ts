@@ -1,8 +1,8 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
 
 // Mock the config module
-vi.mock("../config.js");
-import * as config from "../config.js";
+vi.mock("../config/index.js");
+import * as config from "../config/index.js";
 
 import { ApiClientService } from "./ApiClientService.js";
 

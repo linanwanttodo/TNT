@@ -7,7 +7,7 @@
  */
 
 import { services } from "../services/index.js";
-import { getCurrentSession } from "../session.js";
+import { getCurrentSession } from "../session/index.js";
 
 import type {
   ConfigChangeInput,

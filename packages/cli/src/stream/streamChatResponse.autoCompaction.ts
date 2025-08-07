@@ -17,12 +17,12 @@ import {
   findCompactionIndex,
   getAutoCompactMessage,
   shouldAutoCompact,
-} from "../compaction.js";
+} from "../compaction/index.js";
 import {
   getCurrentSession,
   getSessionHistoryGeneration,
   replaceSessionHistoryIfGeneration,
-} from "../session.js";
+} from "../session/index.js";
 import { formatError } from "../util/formatError.js";
 import { logger } from "../util/logger.js";
 

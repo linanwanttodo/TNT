@@ -4,16 +4,16 @@ import * as path from "path";
 
 import { parseMarkdownRule, RuleObject } from "@tnt/config-yaml";
 
-import { env } from "./env.js";
-import { processRule } from "./hubLoader.js";
-import { PermissionMode } from "./permissions/types.js";
+import { env } from "../config/env.js";
+import { processRule } from "../config/hubLoader.js";
+import { PermissionMode } from "../permissions/types.js";
 import {
   loadAllPlugins,
   selectForcedOutputStyle,
   type PluginOutputStyle,
-} from "./plugins/loader.js";
-import { serviceContainer } from "./services/ServiceContainer.js";
-import { ConfigServiceState, SERVICE_NAMES } from "./services/types.js";
+} from "../plugins/loader.js";
+import { serviceContainer } from "../services/ServiceContainer.js";
+import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
 
 /**
  * Check if current directory is a git repository

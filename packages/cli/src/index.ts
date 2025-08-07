@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // MUST be the first import - intercepts console/stdout/stderr before any dependencies load
-import "./init.js";
+import "./startup/init.js";
 
 import { Command } from "commander";
 
@@ -14,14 +14,17 @@ import {
   handleValidationErrors,
   validateFlags,
 } from "./flags/flagValidator.js";
-import { configureConsoleForHeadless, safeStderr } from "./init.js";
-import { addCommonOptions, mergeParentOptions } from "./shared-options.js";
+import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
+import {
+  addCommonOptions,
+  mergeParentOptions,
+} from "./config/sharedOptions.js";
 import { post } from "./util/apiClient.js";
 import { markUnhandledError } from "./util/errorState.js";
 import { gracefulExit } from "./util/exit.js";
 import { logger } from "./util/logger.js";
 import { readStdinSync } from "./util/stdin.js";
-import { getVersion } from "./version.js";
+import { getVersion } from "./startup/version.js";
 
 // TUI lifecycle and two-stage exit state management
 let tuiUnmount: (() => void) | null;

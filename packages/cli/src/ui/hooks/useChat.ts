@@ -4,7 +4,7 @@ import type { ChatHistoryItem, Session } from "core/index.js";
 import { useApp } from "ink";
 import { useEffect, useRef, useState } from "react";
 
-import { findCompactionIndex } from "../../compaction.js";
+import { findCompactionIndex } from "../../compaction/index.js";
 import {
   fireSessionEnd,
   fireSessionStart,
@@ -18,8 +18,8 @@ import {
   createSession,
   loadSession,
   updateSessionHistory,
-} from "../../session.js";
-import { handleSlashCommands } from "../../slashCommands.js";
+} from "../../session/index.js";
+import { handleSlashCommands } from "../../slash/index.js";
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../util/formatError.js";
@@ -93,7 +93,10 @@ export function useChat({
 
     // Fork from an existing session if fork flag is used
     if (fork) {
-      const { loadSessionById, startNewSession } = require("../../session.js");
+      const {
+        loadSessionById,
+        startNewSession,
+      } = require("../../session/index.js");
       const sessionToFork = loadSessionById(fork);
       if (sessionToFork) {
         return startNewSession(sessionToFork.history);

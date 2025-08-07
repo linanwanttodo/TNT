@@ -20,7 +20,7 @@ import {
   ModelServiceState,
   UpdateServiceState,
 } from "../services/types.js";
-import { getTotalSessionCost } from "../session.js";
+import { getTotalSessionCost } from "../session/index.js";
 import { bashToolEvents } from "../util/cli.js";
 import { logger } from "../util/logger.js";
 
@@ -64,7 +64,7 @@ async function loadAndSetSession(
     closeCurrentScreen();
 
     // Import session functions
-    const { loadSessionById } = await import("../session.js");
+    const { loadSessionById } = await import("../session/index.js");
 
     // Load the session
     const session = loadSessionById(sessionId);
@@ -371,7 +371,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
   const handleExportSession = useCallback(
     async (sessionId: string) => {
       try {
-        const { loadSessionById } = await import("../session.js");
+        const { loadSessionById } = await import("../session/index.js");
         const fs = await import("fs");
         const path = await import("path");
 

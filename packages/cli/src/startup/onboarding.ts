@@ -3,18 +3,18 @@ import * as path from "path";
 
 import chalk from "chalk";
 
-import type { AuthConfig } from "./auth/workos.js";
-import { getApiClient } from "./config.js";
-import { loadConfiguration } from "./configLoader.js";
-import { env } from "./env.js";
+import type { AuthConfig } from "../auth/workos.js";
+import { getApiClient } from "../config/index.js";
+import { loadConfiguration } from "../config/loader.js";
+import { env } from "../config/env.js";
 import {
   CONFIG_PATH,
   buildConfigYaml,
   checkHasAcceptableModel,
   runProviderSetup,
   writeConfig,
-} from "./providerSetup.js";
-import { t } from "./i18n/index.js";
+} from "../config/providerSetup.js";
+import { t } from "../i18n/index.js";
 
 export { checkHasAcceptableModel };
 

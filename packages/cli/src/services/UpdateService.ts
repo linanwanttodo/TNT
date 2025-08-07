@@ -5,7 +5,11 @@ import { GlobalContext } from "core/util/GlobalContext.js";
 
 import { logger } from "src/util/logger.js";
 
-import { compareVersions, getLatestVersion, getVersion } from "../version.js";
+import {
+  compareVersions,
+  getLatestVersion,
+  getVersion,
+} from "../startup/version.js";
 
 import { BaseService } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";

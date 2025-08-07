@@ -14,7 +14,7 @@ vi.mock("child_process", () => ({
 }));
 
 // Mock session functions
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(),
   getSessionFilePath: vi.fn(),
 }));
@@ -46,7 +46,7 @@ describe("GitAiIntegrationService", () => {
   beforeEach(async () => {
     // Import mocked modules
     const childProcess = await import("child_process");
-    const session = await import("../session.js");
+    const session = await import("../session/index.js");
     const { serviceContainer } = await import("./ServiceContainer.js");
 
     mockExec = childProcess.exec as any;

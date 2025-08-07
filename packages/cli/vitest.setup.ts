@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-import { resetConsoleOverrides } from "./src/init.js";
+import { resetConsoleOverrides } from "./src/startup/init.js";
 
 // Disable telemetry for tests
 process.env.CONTINUE_CLI_ENABLE_TELEMETRY = "0";
@@ -59,7 +59,7 @@ vi.mock("open", () => ({
 }));
 
 // Mock constructSystemMessage to avoid service container issues in tests
-vi.mock("./src/systemMessage.js", () => ({
+vi.mock("./src/agent/systemMessage.js", () => ({
   constructSystemMessage: vi
     .fn()
     .mockResolvedValue(

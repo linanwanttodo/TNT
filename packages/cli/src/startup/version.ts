@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-import { logger } from "./util/logger.js";
+import { logger } from "../util/logger.js";
 
 export function getVersion(): string {
   try {

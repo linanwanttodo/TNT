@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { processStreamingResponse } from "./streamChatResponse.js";
 
-vi.mock("../session.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../session.js")>();
+vi.mock("../session/index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../session/index.js")>();
   return {
     ...actual,
     getCurrentSession: vi.fn(() => ({ sessionId: "session-a" })),
@@ -65,7 +65,7 @@ describe("processStreamingResponse prompt cache key", () => {
   });
 
   it("reuses the parent key for a delegated run", async () => {
-    const { getCurrentSession } = await import("../session.js");
+    const { getCurrentSession } = await import("../session/index.js");
     vi.mocked(getCurrentSession).mockReturnValue({
       sessionId: "session-a:1",
       parentSessionId: "session-a",

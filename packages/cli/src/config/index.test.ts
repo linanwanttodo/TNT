@@ -2,10 +2,10 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
 // Mock dependencies
-vi.mock("./auth/workos.js");
+vi.mock("../auth/workos.js");
 
-import type { AuthConfig } from "./auth/workos.js";
-import { getLlmApi } from "./config.js";
+import type { AuthConfig } from "../auth/workos.js";
+import { getLlmApi } from "./index.js";
 
 describe("config", () => {
   let mockAuthConfig: AuthConfig;

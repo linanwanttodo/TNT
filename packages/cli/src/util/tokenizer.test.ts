@@ -2,7 +2,7 @@ import { ModelConfig } from "@tnt/config-yaml";
 import type { ChatHistoryItem } from "core/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { shouldAutoCompact } from "../compaction.js";
+import { shouldAutoCompact } from "../compaction/index.js";
 
 import { logger } from "./logger.js";
 import {

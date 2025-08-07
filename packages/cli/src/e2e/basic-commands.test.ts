@@ -3,7 +3,7 @@ import {
   createTestContext,
   runCLI,
 } from "../test-helpers/cli-helpers.js";
-import { getVersion } from "../version.js";
+import { getVersion } from "../startup/version.js";
 
 describe("E2E: Basic Commands", () => {
   let context: any;

@@ -8,18 +8,18 @@ import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import { encode } from "gpt-tokenizer";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
-import { buildSummaryRequest } from "./compaction/prefixPreservation.js";
-import { streamChatResponse } from "./stream/streamChatResponse.js";
-import { StreamCallbacks } from "./stream/streamChatResponse.types.js";
-import { isContextLengthError } from "./util/exponentialBackoff.js";
-import { logger } from "./util/logger.js";
+import { buildSummaryRequest } from "./prefixPreservation.js";
+import { streamChatResponse } from "../stream/streamChatResponse.js";
+import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
+import { isContextLengthError } from "../util/exponentialBackoff.js";
+import { logger } from "../util/logger.js";
 import {
   countChatHistoryTokens,
   countToolDefinitionTokens,
   countTotalInputTokens,
   getModelContextLimit,
   getModelMaxTokens,
-} from "./util/tokenizer.js";
+} from "../util/tokenizer.js";
 
 export interface CompactionResult {
   compactedHistory: ChatHistoryItem[];

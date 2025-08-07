@@ -13,14 +13,14 @@ import {
 import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 import chalk from "chalk";
 
-import { uriToPath, uriToSlug } from "./auth/uriUtils.js";
-import type { AuthConfig } from "./auth/workos.js";
+import { uriToPath, uriToSlug } from "../auth/uriUtils.js";
+import type { AuthConfig } from "../auth/workos.js";
 import {
   getAccessToken,
   getOrganizationId,
   updateConfigUri,
-} from "./auth/workos.js";
-import { CLIPlatformClient } from "./CLIPlatformClient.js";
+} from "../auth/workos.js";
+import { CLIPlatformClient } from "../platform/CLIPlatformClient.js";
 import { env } from "./env.js";
 
 export interface ConfigLoadResult {

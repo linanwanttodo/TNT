@@ -10,7 +10,7 @@ import {
 import { DefaultApiInterface } from "@tnt/sdk/dist/api";
 import * as dotenv from "dotenv";
 
-import { env } from "./env.js";
+import { env } from "../config/env.js";
 
 export class CLIPlatformClient implements PlatformClient {
   constructor(

@@ -23,7 +23,7 @@ import {
   serviceContainer,
   services,
 } from "../services/index.js";
-import { trackSessionUsage } from "../session.js";
+import { trackSessionUsage } from "../session/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import {
   executeToolCall,

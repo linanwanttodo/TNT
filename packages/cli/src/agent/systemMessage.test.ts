@@ -5,7 +5,7 @@ vi.unmock("./systemMessage.js");
 const { constructSystemMessage } = await import("./systemMessage.js");
 
 // Mock the service container to avoid "No factory registered for service 'config'" error
-vi.mock("./services/ServiceContainer.js", () => ({
+vi.mock("../services/ServiceContainer.js", () => ({
   serviceContainer: {
     get: vi.fn().mockResolvedValue({ config: { rules: [] } }),
     set: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock("./services/ServiceContainer.js", () => ({
 }));
 
 // Mock processRule to avoid file system operations in tests
-vi.mock("./hubLoader.js", () => ({
+vi.mock("../config/hubLoader.js", () => ({
   processRule: vi
     .fn()
     .mockImplementation((spec: string) => Promise.resolve(spec)),

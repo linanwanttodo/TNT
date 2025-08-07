@@ -9,14 +9,14 @@ import type { TerminationReason } from "../loop/termination.js";
 
 import { streamChatResponse } from "./streamChatResponse.js";
 
-vi.mock("../compaction.js", () => ({
+vi.mock("../compaction/index.js", () => ({
   compactChatHistory: vi.fn(),
   pruneLastMessage: vi.fn((history) => history.slice(0, -1)),
   shouldAutoCompact: vi.fn(),
   getAutoCompactMessage: vi.fn(() => "Auto-compacting..."),
 }));
 
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   updateSessionHistory: vi.fn(),
   trackSessionUsage: vi.fn(),
 }));

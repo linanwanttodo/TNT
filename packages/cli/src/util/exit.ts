@@ -1,7 +1,7 @@
 import type { ChatHistoryItem } from "core/index.js";
 
 import { backgroundJobService } from "../services/BackgroundJobService.js";
-import { getSessionUsage } from "../session.js";
+import { getSessionUsage } from "../session/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 
 import { hadUnhandledError } from "./errorState.js";
