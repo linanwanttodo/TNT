@@ -19,6 +19,34 @@ describe("claimForToolCall", () => {
     });
   });
 
+  it("resolves the argument name each writing tool actually uses", () => {
+    // Write takes `filepath`; Edit and MultiEdit take `file_path`. Reading a
+    // single spelling would resolve no key and serialize every write.
+    const calls: Array<[string, Record<string, unknown>]> = [
+      ["Write", { filepath: "src/a.ts", content: "x" }],
+      ["Edit", { file_path: "src/a.ts" }],
+      ["MultiEdit", { file_path: "src/a.ts", edits: [] }],
+    ];
+    for (const [name, args] of calls) {
+      expect(claimForToolCall(name, args)).toEqual({
+        exclusive: false,
+        keys: ["src/a.ts"],
+      });
+    }
+  });
+
+  it("puts every spelling of the same path on one shard", () => {
+    const shards = [
+      claimForToolCall("Write", { path: "src/a.ts" }).keys,
+      claimForToolCall("Write", { filepath: "src/a.ts" }).keys,
+      claimForToolCall("Edit", { file_path: "src/a.ts" }).keys,
+      claimForToolCall("Edit", { filePath: "./src/a.ts" }).keys,
+    ];
+    for (const shard of shards) {
+      expect(shard).toEqual(["src/a.ts"]);
+    }
+  });
+
   it("gives two spellings of the same path the same shard", () => {
     expect(claimForToolCall("Write", { path: "./src/a.ts" }).keys).toEqual(
       claimForToolCall("Edit", { path: "src/a.ts" }).keys,

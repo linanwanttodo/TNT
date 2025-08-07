@@ -156,11 +156,11 @@ export const TOOL_CONCURRENCY: Record<string, Concurrency> = {
   ReadLints: "shared",
   LS: "shared",
 
-  Write: { kind: "keyed", keysFrom: (args) => pathKeys(args?.path) },
-  Edit: { kind: "keyed", keysFrom: (args) => pathKeys(args?.path) },
-  MultiEdit: { kind: "keyed", keysFrom: (args) => pathKeys(args?.path) },
-  ApplyPatch: { kind: "keyed", keysFrom: (args) => pathKeys(args?.path) },
-  Create: { kind: "keyed", keysFrom: (args) => pathKeys(args?.path) },
+  Write: { kind: "keyed", keysFrom: keysFromPathArgument },
+  Edit: { kind: "keyed", keysFrom: keysFromPathArgument },
+  MultiEdit: { kind: "keyed", keysFrom: keysFromPathArgument },
+  ApplyPatch: { kind: "keyed", keysFrom: keysFromPathArgument },
+  Create: { kind: "keyed", keysFrom: keysFromPathArgument },
 
   Bash: {
     kind: "keyed",
@@ -182,6 +182,30 @@ function pathKeys(rawPath: unknown): string[] {
     return [];
   }
   return [normalizePathKey(rawPath)];
+}
+
+/**
+ * Argument names the file-mutating tools use for their target path. They are
+ * not consistent: `Write` takes `filepath`, `Edit` and `MultiEdit` take
+ * `file_path`. Reading only one spelling resolves no key, which silently
+ * collapses every write onto the global slot and serializes edits to unrelated
+ * files, so each accepted spelling is listed here.
+ */
+const PATH_ARGUMENT_NAMES = [
+  "path",
+  "filepath",
+  "file_path",
+  "filePath",
+] as const;
+
+function keysFromPathArgument(args: any): string[] {
+  for (const name of PATH_ARGUMENT_NAMES) {
+    const keys = pathKeys(args?.[name]);
+    if (keys.length > 0) {
+      return keys;
+    }
+  }
+  return [];
 }
 
 /**
