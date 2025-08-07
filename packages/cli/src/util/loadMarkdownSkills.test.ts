@@ -7,7 +7,7 @@ vi.mock("./loadMarkdownSkills.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../env.js", () => ({
+vi.mock("../config/env.js", () => ({
   env: {
     continueHome: "/mock/home/.continue",
   },

@@ -1,8 +1,8 @@
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import { describe, expect, it } from "vitest";
 
-import { pruneLastMessage } from "./compaction.js";
-import { logger } from "./util/logger.js";
+import { pruneLastMessage } from "./index.js";
+import { logger } from "../util/logger.js";
 
 describe("pruneLastMessage", () => {
   it("should return empty array for empty input", () => {

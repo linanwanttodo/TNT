@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file */
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 
 import { logger } from "./logger.js";
 

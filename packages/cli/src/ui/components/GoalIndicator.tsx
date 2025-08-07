@@ -1,7 +1,7 @@
 import { Text } from "ink";
 import React from "react";
 
-import { getSessionGoal } from "../../session.js";
+import { getSessionGoal } from "../../session/index.js";
 
 const MAX_VISIBLE_CHARS = 80;
 const ELLIPSIS = "...";

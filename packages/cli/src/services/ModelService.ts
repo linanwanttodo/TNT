@@ -1,7 +1,7 @@
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 
 import { AuthConfig, getModelName } from "../auth/workos.js";
-import { createLlmApi, getLlmApi } from "../config.js";
+import { createLlmApi, getLlmApi } from "../config/index.js";
 import { logger } from "../util/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";

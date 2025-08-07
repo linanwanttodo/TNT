@@ -14,7 +14,7 @@ vi.mock("../util/logger.js", () => ({
   },
 }));
 
-vi.mock("../env.js", () => ({
+vi.mock("../config/env.js", () => ({
   env: { apiBase: "https://api.test/" },
 }));
 

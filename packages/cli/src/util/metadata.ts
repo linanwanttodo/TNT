@@ -1,6 +1,6 @@
 import type { ChatHistoryItem } from "core/index.js";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 
 import {
   post,

@@ -1,5 +1,5 @@
 import { PermissionMode } from "../permissions/types.js";
-import { constructSystemMessage } from "../systemMessage.js";
+import { constructSystemMessage } from "../agent/systemMessage.js";
 import { logger } from "../util/logger.js";
 
 import { BaseService } from "./BaseService.js";

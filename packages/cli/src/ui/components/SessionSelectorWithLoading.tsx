@@ -8,7 +8,7 @@ import {
   listSessions,
   listSubagentSessions,
   type ExtendedSessionMetadata,
-} from "../../session.js";
+} from "../../session/index.js";
 import { SessionSelector } from "../SessionSelector.js";
 
 interface SessionSelectorWithLoadingProps {

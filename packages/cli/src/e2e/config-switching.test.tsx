@@ -52,7 +52,7 @@ describe("Config Switching Implementation Test", () => {
   });
 
   test("loadConfiguration function exists for configuration loading", async () => {
-    const configLoaderModule = await import("../configLoader.js");
+    const configLoaderModule = await import("../config/loader.js");
 
     // Verify loadConfiguration function exists and is callable
     expect(typeof configLoaderModule.loadConfiguration).toBe("function");

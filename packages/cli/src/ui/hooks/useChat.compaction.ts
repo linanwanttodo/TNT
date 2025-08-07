@@ -1,7 +1,7 @@
 import type { ChatHistoryItem, Session } from "core/index.js";
 
-import { compactChatHistory } from "../../compaction.js";
-import { updateSessionHistory } from "../../session.js";
+import { compactChatHistory } from "../../compaction/index.js";
+import { updateSessionHistory } from "../../session/index.js";
 import { firePreCompact } from "../../hooks/fireHook.js";
 import { t } from "../../i18n/index.js";
 import { handleAutoCompaction as coreHandleAutoCompaction } from "../../stream/streamChatResponse.autoCompaction.js";

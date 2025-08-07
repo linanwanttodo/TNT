@@ -28,7 +28,7 @@ describe("serve command", () => {
       isAuthenticatedConfig: vi.fn(() => false),
     }));
 
-    vi.mock("../onboarding.js", () => ({
+    vi.mock("../startup/onboarding.js", () => ({
       runNormalFlow: vi.fn(() =>
         Promise.resolve({
           config: { models: [] },
@@ -38,11 +38,11 @@ describe("serve command", () => {
       ),
     }));
 
-    vi.mock("../session.js", () => ({
+    vi.mock("../session/index.js", () => ({
       saveSession: vi.fn(),
     }));
 
-    vi.mock("../systemMessage.js", () => ({
+    vi.mock("../agent/systemMessage.js", () => ({
       constructSystemMessage: vi.fn(() => Promise.resolve("System message")),
     }));
 

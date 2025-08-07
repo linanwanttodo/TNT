@@ -9,7 +9,7 @@ import {
   put,
 } from "./apiClient.js";
 
-vi.mock("../env.js", () => ({
+vi.mock("../config/env.js", () => ({
   env: {
     apiBase: "http://localhost:3001",
   },

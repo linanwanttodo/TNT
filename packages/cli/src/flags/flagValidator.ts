@@ -3,7 +3,7 @@
  * Provides consistent validation across all commands and proper error reporting
  */
 
-import { safeStderr } from "../init.js";
+import { safeStderr } from "../startup/init.js";
 
 export interface ValidationOptions {
   // Root command specific flags

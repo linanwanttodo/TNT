@@ -20,7 +20,7 @@ import {
 } from "../cache/prefixState.js";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { type RequestHeader } from "../cache/requestHeader.js";
-import { pruneLastMessage } from "../compaction.js";
+import { pruneLastMessage } from "../compaction/index.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
   classifyStreamError,

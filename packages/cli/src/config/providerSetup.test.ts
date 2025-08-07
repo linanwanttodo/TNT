@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const questionMock = vi.fn();
 
-vi.mock("./util/prompt.js", () => ({
+vi.mock("../util/prompt.js", () => ({
   question: (...args: unknown[]) => questionMock(...args),
 }));
 

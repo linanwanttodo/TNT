@@ -2,7 +2,7 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { Box, Text } from "ink";
 import React from "react";
 
-import { getDisplayableAsciiArt } from "../asciiArt.js";
+import { getDisplayableAsciiArt } from "../startup/asciiArt.js";
 import { t } from "../i18n/index.js";
 
 interface IntroMessageProps {

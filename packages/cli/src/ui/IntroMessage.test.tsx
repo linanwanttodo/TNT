@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IntroMessage } from "./IntroMessage.js";
 
 // Mock other dependencies
-vi.mock("../asciiArt.js", () => ({
+vi.mock("../startup/asciiArt.js", () => ({
   getDisplayableAsciiArt: () => "MOCK ASCII ART",
 }));
 

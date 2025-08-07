@@ -5,7 +5,7 @@ import { ConfigService } from "./ConfigService.js";
 import { ModelService } from "./ModelService.js";
 
 // Mock the hubLoader module
-vi.mock("../hubLoader.js", () => ({
+vi.mock("../config/hubLoader.js", () => ({
   loadPackageFromHub: vi.fn(),
   loadPackagesFromHub: vi.fn(),
   loadModelFromHub: vi.fn(),
@@ -30,7 +30,7 @@ vi.mock("../util/logger.js", () => ({
 }));
 
 // Mock config module
-vi.mock("../config.js", () => ({
+vi.mock("../config/index.js", () => ({
   createLlmApi: vi.fn(),
   getLlmApi: vi.fn(),
 }));
@@ -55,7 +55,7 @@ vi.mock("@tnt/config-yaml", async (importOriginal) => {
 });
 
 // Mock configLoader
-vi.mock("../configLoader.js", () => ({
+vi.mock("../config/loader.js", () => ({
   loadConfiguration: vi.fn(),
 }));
 
@@ -114,8 +114,8 @@ describe("Agent file Integration Tests", () => {
     vi.clearAllMocks();
 
     // Get mock functions
-    const hubLoaderModule = await import("../hubLoader.js");
-    const configModule = await import("../config.js");
+    const hubLoaderModule = await import("../config/hubLoader.js");
+    const configModule = await import("../config/index.js");
 
     mockLoadPackageFromHub = hubLoaderModule.loadPackageFromHub as any;
     mockLoadPackagesFromHub = hubLoaderModule.loadPackagesFromHub as any;

@@ -5,7 +5,7 @@ import {
   promptCacheKeyForSession,
 } from "./promptCacheKey.js";
 
-vi.mock("../session.js", () => ({
+vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => {
     throw new Error("Session not available");
   }),

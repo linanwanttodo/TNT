@@ -24,9 +24,9 @@ import {
   createSession,
   getCompleteStateSnapshot,
   loadOrCreateSessionById,
-} from "../session.js";
+} from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
-import { constructSystemMessage } from "../systemMessage.js";
+import { constructSystemMessage } from "../agent/systemMessage.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { reportFailureTool } from "../tools/reportFailure.js";
 import { gracefulExit, updateAgentMetadata } from "../util/exit.js";

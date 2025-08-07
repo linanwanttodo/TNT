@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 import { formatError } from "../util/formatError.js";
 import { logger } from "../util/logger.js";
 

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SessionSelectorWithLoading } from "./SessionSelectorWithLoading.js";
 
-vi.mock("../../session.js", () => ({
+vi.mock("../../session/index.js", () => ({
   listSessions: vi.fn(async () => []),
   loadSessionById: vi.fn(() => null),
   listSubagentSessions: vi.fn(() => [
@@ -34,7 +34,7 @@ describe("SessionSelectorWithLoading subagent source", () => {
     });
 
     const { listSessions, listSubagentSessions } = await import(
-      "../../session.js"
+      "../../session/index.js"
     );
     expect(listSubagentSessions).toHaveBeenCalledWith("parent");
     expect(listSessions).not.toHaveBeenCalled();

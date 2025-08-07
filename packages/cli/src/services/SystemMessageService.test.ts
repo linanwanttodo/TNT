@@ -6,7 +6,7 @@ import { services } from "./index.js";
 const toolPermissionService = services.toolPermissions;
 
 // Mock the systemMessage module
-vi.mock("../systemMessage.js", () => ({
+vi.mock("../agent/systemMessage.js", () => ({
   constructSystemMessage: vi.fn(),
 }));
 
@@ -29,7 +29,9 @@ describe("SystemMessageService", () => {
     vi.clearAllMocks();
 
     // Get mock reference
-    const { constructSystemMessage } = await import("../systemMessage.js");
+    const { constructSystemMessage } = await import(
+      "../agent/systemMessage.js"
+    );
     constructSystemMessageMock = constructSystemMessage as any;
 
     // Create new service instance

@@ -4,7 +4,10 @@ import type { ChatHistoryItem } from "core/index.js";
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { compactChatHistory, findCompactionIndex } from "../../compaction.js";
+import {
+  compactChatHistory,
+  findCompactionIndex,
+} from "../../compaction/index.js";
 import { streamChatResponse } from "../../stream/streamChatResponse.js";
 import {
   calculateContextUsagePercentage,

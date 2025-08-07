@@ -4,7 +4,7 @@ import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 
 import { getPluginCacheDirectory, getPluginsDirectory } from "./directories.js";
 import {

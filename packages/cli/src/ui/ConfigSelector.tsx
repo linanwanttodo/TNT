@@ -3,7 +3,7 @@ import * as path from "path";
 
 import React, { useEffect, useState } from "react";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 

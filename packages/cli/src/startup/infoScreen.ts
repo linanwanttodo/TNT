@@ -2,13 +2,13 @@ import { execSync } from "child_process";
 
 import chalk from "chalk";
 
-import { services } from "./services/index.js";
+import { services } from "../services/index.js";
 import {
   getCurrentSession,
   getSessionFilePath,
   getSessionUsage,
-} from "./session.js";
-import { logger } from "./util/logger.js";
+} from "../session/index.js";
+import { logger } from "../util/logger.js";
 import { getVersion } from "./version.js";
 
 function getVersionInfo(): string[] {

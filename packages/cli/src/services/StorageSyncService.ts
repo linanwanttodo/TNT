@@ -1,6 +1,6 @@
 import chalk from "chalk";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 import { formatError } from "../util/formatError.js";
 import { getGitDiffSnapshot } from "../util/git.js";
 import { logger } from "../util/logger.js";

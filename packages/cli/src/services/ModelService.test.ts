@@ -2,12 +2,12 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // Mock dependencies before imports
-vi.mock("../config.js");
+vi.mock("../config/index.js");
 vi.mock("../auth/workos.js");
 
 import * as workos from "../auth/workos.js";
 import { AuthConfig } from "../auth/workos.js";
-import * as config from "../config.js";
+import * as config from "../config/index.js";
 
 import { ModelService } from "./ModelService.js";
 

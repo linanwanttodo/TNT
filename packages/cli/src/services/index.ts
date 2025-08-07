@@ -1,5 +1,5 @@
 import { HookService } from "../hooks/HookService.js";
-import { initializeWithOnboarding } from "../onboarding.js";
+import { initializeWithOnboarding } from "../startup/onboarding.js";
 import {
   setBetaSubagentToolEnabled,
   setBetaUploadArtifactToolEnabled,

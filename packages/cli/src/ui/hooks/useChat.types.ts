@@ -65,21 +65,4 @@ export interface RemoteServerState {
   };
 }
 
-export interface SlashCommandResult {
-  output?: string;
-  exit?: boolean;
-  newInput?: string;
-  clear?: boolean;
-  openConfigSelector?: boolean;
-  openModelSelector?: boolean;
-  openMcpSelector?: boolean;
-  openUpdateSelector?: boolean;
-  openSessionSelector?: boolean;
-  openSubagentsSelector?: boolean;
-  /** Load this session instead of the current one, e.g. returning to a parent. */
-  loadSessionId?: string;
-  openJobsSelector?: boolean;
-  openExportSelector?: boolean;
-  compact?: boolean;
-  diffContent?: string;
-}
+export type { SlashCommandResult } from "../../slash/types.js";

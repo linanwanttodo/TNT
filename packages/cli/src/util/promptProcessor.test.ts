@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { processRule } from "../hubLoader.js";
+import { processRule } from "../config/hubLoader.js";
 
 import { prependPrompt, processAndCombinePrompts } from "./promptProcessor.js";
 
 // Mock the args module
-vi.mock("../hubLoader.js", () => ({
+vi.mock("../config/hubLoader.js", () => ({
   processRule: vi.fn(),
 }));
 

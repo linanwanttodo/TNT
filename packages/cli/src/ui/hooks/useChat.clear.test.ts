@@ -2,12 +2,12 @@ import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import { ChatCompletionMessageParam } from "openai/resources.mjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { startNewSession } from "../../session.js";
+import { startNewSession } from "../../session/index.js";
 
 import { processSlashCommandResult } from "./useChat.helpers.js";
 
 // Mock the session module
-vi.mock("../../session.js", () => ({
+vi.mock("../../session/index.js", () => ({
   loadSession: vi.fn(),
   updateSessionHistory: vi.fn(),
   startNewSession: vi.fn(),

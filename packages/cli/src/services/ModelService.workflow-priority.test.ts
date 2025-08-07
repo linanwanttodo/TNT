@@ -2,7 +2,7 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthConfig } from "../auth/workos.js";
-import * as config from "../config.js";
+import * as config from "../config/index.js";
 
 import { ModelService } from "./ModelService.js";
 import { AgentFileServiceState } from "./types.js";
@@ -12,7 +12,7 @@ vi.mock("../auth/workos.js", () => ({
   getModelName: vi.fn(() => null),
 }));
 
-vi.mock("../config.js", () => ({
+vi.mock("../config/index.js", () => ({
   createLlmApi: vi.fn(() => ({ provider: "test" })),
   getLlmApi: vi.fn(() => [
     { provider: "test" },

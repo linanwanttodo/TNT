@@ -12,7 +12,7 @@ vi.mock("node:fs", () => ({
 }));
 
 // Mock env module
-vi.mock("./env.js", () => ({
+vi.mock("../config/env.js", () => ({
   env: {
     continueHome: "/home/user/.continue",
   },

@@ -21,7 +21,7 @@ import { ContinueErrorReason } from "../../../../core/util/errors.js";
 import { isHeadlessMode } from "../util/cli.js";
 import { isContinueRemoteAgent, isGitHubActions } from "../util/git.js";
 import { logger } from "../util/logger.js";
-import { getVersion } from "../version.js";
+import { getVersion } from "../startup/version.js";
 
 import { detectTerminalType, parseOtelHeaders } from "./headerUtils.js";
 

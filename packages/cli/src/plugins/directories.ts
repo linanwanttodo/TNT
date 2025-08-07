@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { env } from "../env.js";
+import { env } from "../config/env.js";
 
 /**
  * Plugin storage layout, mirroring the Claude Code layout so an existing

@@ -1,7 +1,7 @@
 import { exec } from "child_process";
 import * as path from "path";
 
-import { env } from "../../env.js";
+import { env } from "../../config/env.js";
 import { services } from "../../services/index.js";
 import { useNavigation } from "../context/NavigationContext.js";
 

@@ -3,7 +3,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BaseSessionMetadata } from "../session.js";
+import type { BaseSessionMetadata } from "../session/index.js";
 
 import { SessionSelector } from "./SessionSelector.js";
 

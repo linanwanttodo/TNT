@@ -1,6 +1,6 @@
 import type { Session } from "core/index.js";
 
-import { getCurrentSession } from "../session.js";
+import { getCurrentSession } from "../session/index.js";
 import { logger } from "../util/logger.js";
 
 /**

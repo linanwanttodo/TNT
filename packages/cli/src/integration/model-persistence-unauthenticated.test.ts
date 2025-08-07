@@ -6,7 +6,7 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { getModelName, updateModelName } from "../auth/workos.js";
-import * as config from "../config.js";
+import * as config from "../config/index.js";
 import { ModelService } from "../services/ModelService.js";
 import {
   getPersistedModelName,
@@ -14,7 +14,7 @@ import {
 } from "../util/modelPersistence.js";
 
 // Mock the config module
-vi.mock("../config.js");
+vi.mock("../config/index.js");
 
 describe("Model Persistence (Hub auth removed)", () => {
   let testDir: string;

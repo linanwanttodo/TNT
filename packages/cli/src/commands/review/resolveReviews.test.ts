@@ -10,7 +10,7 @@ vi.mock("../../auth/workos.js", () => ({
   getAccessToken: vi.fn(() => null),
 }));
 
-vi.mock("../../env.js", () => ({
+vi.mock("../../config/env.js", () => ({
   env: { apiBase: "http://localhost:3001" },
 }));
 

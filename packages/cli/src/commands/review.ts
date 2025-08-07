@@ -3,7 +3,7 @@ import { execSync, fork } from "child_process";
 import chalk from "chalk";
 import React from "react";
 
-import { configureConsoleForHeadless } from "../init.js";
+import { configureConsoleForHeadless } from "../startup/init.js";
 import { logger } from "../util/logger.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";

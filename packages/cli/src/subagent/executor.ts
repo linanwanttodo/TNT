@@ -7,7 +7,7 @@ import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { escapeEvents } from "../util/cli.js";
 import { logger } from "../util/logger.js";
 
-import { getCurrentSession, saveSubagentSession } from "../session.js";
+import { getCurrentSession, saveSubagentSession } from "../session/index.js";
 
 import {
   canDelegate,

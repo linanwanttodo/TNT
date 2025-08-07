@@ -4,7 +4,7 @@ import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
 import { logger } from "src/util/logger.js";
 
 import { services } from "../../services/index.js";
-import { getCurrentSession, updateSessionTitle } from "../../session.js";
+import { getCurrentSession, updateSessionTitle } from "../../session/index.js";
 
 import { generateSessionTitle } from "./useChat.helpers.js";
 
@@ -299,7 +299,7 @@ export async function executeStreaming({
   streamCallbacks,
   currentCompactionIndex,
 }: ExecuteStreamingOptions): Promise<void> {
-  const { getHistoryForLLM } = await import("../../compaction.js");
+  const { getHistoryForLLM } = await import("../../compaction/index.js");
   const { streamChatResponse } = await import(
     "../../stream/streamChatResponse.js"
   );

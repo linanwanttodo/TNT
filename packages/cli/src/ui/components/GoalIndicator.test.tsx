@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { GoalIndicator, truncateGoal } from "./GoalIndicator.js";
 
-vi.mock("../../session.js", () => ({
+vi.mock("../../session/index.js", () => ({
   getSessionGoal: vi.fn(() => undefined),
 }));
 
@@ -34,7 +34,9 @@ describe("GoalIndicator", () => {
   });
 
   it("renders the goal line above the composer", async () => {
-    const sessionModule = (await vi.importMock("../../session.js")) as any;
+    const sessionModule = (await vi.importMock(
+      "../../session/index.js",
+    )) as any;
     sessionModule.getSessionGoal.mockReturnValue(
       "Ship the TNT cli resume flow",
     );
