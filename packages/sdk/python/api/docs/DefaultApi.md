@@ -1,6 +1,6 @@
 # openapi_client.DefaultApi
 
-All URIs are relative to *https://api.continue.dev*
+All URIs are relative to *http://localhost:3001*
 
 | Method                                                                             | HTTP request                                         | Description                                       |
 | ---------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------- |
@@ -33,10 +33,10 @@ from openapi_client.models.get_assistant200_response import GetAssistant200Respo
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -119,10 +119,10 @@ from openapi_client.models.get_free_trial_status200_response import GetFreeTrial
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -194,10 +194,10 @@ from openapi_client.models.get_models_add_on_checkout_url200_response import Get
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -275,10 +275,10 @@ from openapi_client.models.get_policy200_response import GetPolicy200Response
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -350,10 +350,10 @@ import openapi_client
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -425,10 +425,10 @@ from openapi_client.models.list_assistants200_response_inner import ListAssistan
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -506,10 +506,10 @@ from openapi_client.models.list_organizations200_response import ListOrganizatio
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
@@ -581,10 +581,10 @@ from openapi_client.models.sync_secrets_request import SyncSecretsRequest
 from openapi_client.rest import ApiException
 from pprint import pprint
 
-# Defining the host is optional and defaults to https://api.continue.dev
+# Defining the host is optional and defaults to http://localhost:3001
 # See configuration.py for a list of all supported configuration parameters.
 configuration = openapi_client.Configuration(
-    host = "https://api.continue.dev"
+    host = "http://localhost:3001"
 )
 
 # The client must configure the authentication and authorization parameters
