@@ -80,7 +80,7 @@ async function complete(config: AutocompleteConfig): Promise<Result> {
 
 - `core/` — shared logic across all extensions
 - `ide/vscode/src/` — VS Code extension source
-- `extensions/cli/src/` — CLI source
+- `packages/cli/src/` — CLI source
 - `ide/gui/src/` — React GUI components
 - `packages/` — shared npm packages
 
