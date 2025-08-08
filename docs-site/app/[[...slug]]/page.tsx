@@ -39,7 +39,7 @@ export async function generateStaticParams() {
   }
 
   // All redirect source pages
-  for (const source of docsRedirects.keys()) {
+  for (const source of Array.from(docsRedirects.keys())) {
     params.push({ slug: source.split("/") });
   }
 
