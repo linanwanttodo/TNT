@@ -750,7 +750,7 @@ export default class DocsService {
       void this.ide.showToast(
         "error",
         "Set up an embeddings model to use the @docs context provider. See: " +
-          "https://github.com/linanwanttodo/TNT/tree/main/docs/customize/model-roles/embeddings",
+          "https://github.com/linanwanttodo/TNT/tree/main/docs/cli/models",
       );
       return [];
     }
