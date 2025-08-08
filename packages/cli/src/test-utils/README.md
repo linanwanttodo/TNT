@@ -12,7 +12,7 @@ The `mock-llm-server.ts` module provides utilities for creating mock LLM servers
 import {
   setupMockLLMTest,
   cleanupMockLLMServer,
-} from "../test-helpers/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 describe("My Test", () => {
   let context: any;

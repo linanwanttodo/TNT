@@ -1,4 +1,4 @@
-import { createUITestContext } from "../../test-helpers/ui-test-context.js";
+import { createUITestContext } from "../../test-utils/ui-test-context.js";
 
 import { testBothModes, renderInMode } from "./TUIChat.dualModeHelper.js";
 

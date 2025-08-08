@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createMinimalTestContext } from "../../test-helpers/ui-test-context.js";
+import { createMinimalTestContext } from "../../test-utils/ui-test-context.js";
 
 describe("useChat", () => {
   let context: any;

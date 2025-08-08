@@ -14,7 +14,7 @@ export default defineConfig({
         "dist/",
         "**/*.test.ts",
         "**/*.spec.ts",
-        "**/test-helpers/**",
+        "**/test-utils/**",
         "**/types/**",
         "**/__mocks__/**",
       ],
