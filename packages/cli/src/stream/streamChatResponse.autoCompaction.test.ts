@@ -40,15 +40,15 @@ vi.mock("../session/index.js", () => ({
   trackSessionUsage: vi.fn(),
 }));
 
-vi.mock("../util/tokenizer.js", () => ({
+vi.mock("../utils/tokenizer.js", () => ({
   countChatHistoryItemTokens: vi.fn(() => 100), // Mock return value
 }));
 
-vi.mock("../util/formatError.js", () => ({
+vi.mock("../utils/formatError.js", () => ({
   formatError: vi.fn((error) => error.message || String(error)),
 }));
 
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     info: vi.fn(),
     debug: vi.fn(),
@@ -374,7 +374,7 @@ describe("handleAutoCompaction", () => {
   it("should handle compaction errors gracefully", async () => {
     const { compactChatHistory, shouldAutoCompact, getAutoCompactMessage } =
       await import("../compaction/index.js");
-    const { logger } = await import("../util/logger.js");
+    const { logger } = await import("../utils/logger.js");
 
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
     vi.mocked(getAutoCompactMessage).mockReturnValue("Auto-compacting...");

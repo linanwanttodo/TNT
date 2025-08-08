@@ -6,7 +6,7 @@ import {
   services,
 } from "../services/index.js";
 import type { ModelServiceState } from "../services/types.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { getMatchingHookGroups } from "./hookConfig.js";
 import { MATCHER_FIELD_MAP, NO_MATCHER_EVENTS } from "./types.js";
@@ -262,7 +262,7 @@ async function executePromptHook(
 
   try {
     const { chatCompletionStreamWithBackoff } = await import(
-      "../util/exponentialBackoff.js"
+      "../utils/exponentialBackoff.js"
     );
 
     const prompt = handler.prompt.replace(

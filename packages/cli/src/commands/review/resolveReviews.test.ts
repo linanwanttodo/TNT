@@ -14,7 +14,7 @@ vi.mock("../../config/env.js", () => ({
   env: { apiBase: "http://localhost:3001" },
 }));
 
-vi.mock("../../util/logger.js", () => ({
+vi.mock("../../utils/logger.js", () => ({
   logger: { debug: vi.fn() },
 }));
 

@@ -8,7 +8,7 @@ import { getModelName, updateModelName } from "../auth/workos.js";
 import {
   getPersistedModelName,
   persistModelName,
-} from "../util/modelPersistence.js";
+} from "../utils/modelPersistence.js";
 
 describe("Model Persistence Integration", () => {
   let testDir: string;

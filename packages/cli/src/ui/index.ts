@@ -5,8 +5,8 @@ import { enableSigintHandler, setTUIUnmount } from "../index.js";
 import { PermissionMode } from "../permissions/types.js";
 import { initializeServices } from "../services/index.js";
 import { ServiceContainerProvider } from "../services/ServiceContainerContext.js";
-import { isHeadlessMode, isTTYless } from "../util/cli.js";
-import { logger } from "../util/logger.js";
+import { isHeadlessMode, isTTYless } from "../utils/cli.js";
+import { logger } from "../utils/logger.js";
 
 import { AppRoot } from "./AppRoot.js";
 

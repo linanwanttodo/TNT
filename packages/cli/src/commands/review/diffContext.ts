@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
 
-import { logger } from "../../util/logger.js";
+import { logger } from "../../utils/logger.js";
 
 const MAX_DIFF_SIZE = 50 * 1024; // 50KB
 

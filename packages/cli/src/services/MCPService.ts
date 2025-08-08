@@ -2,8 +2,8 @@ import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
 import { type AssistantConfig } from "@tnt/sdk";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
-import { getErrorString } from "../util/error.js";
-import { logger } from "../util/logger.js";
+import { getErrorString } from "../utils/error.js";
+import { logger } from "../utils/logger.js";
 
 import { loadAllPlugins } from "../plugins/loader.js";
 

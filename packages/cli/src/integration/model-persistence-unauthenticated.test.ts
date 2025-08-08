@@ -11,7 +11,7 @@ import { ModelService } from "../services/ModelService.js";
 import {
   getPersistedModelName,
   persistModelName,
-} from "../util/modelPersistence.js";
+} from "../utils/modelPersistence.js";
 
 // Mock the config module
 vi.mock("../config/index.js");

@@ -19,8 +19,8 @@ This document provides an overview of the different testing strategies used in t
 
 **Examples**:
 
-- [`src/util/formatError.test.ts`](../src/util/formatError.test.ts) - Tests error formatting utility
-- [`src/util/exponentialBackoff.test.ts`](../src/util/exponentialBackoff.test.ts) - Tests backoff logic
+- [`src/utils/formatError.test.ts`](../src/utils/formatError.test.ts) - Tests error formatting utility
+- [`src/utils/exponentialBackoff.test.ts`](../src/utils/exponentialBackoff.test.ts) - Tests backoff logic
 - [`src/logging.test.ts`](../src/logging.test.ts) - Tests logging functionality
 - [`src/args.test.ts`](../src/args.test.ts) - Tests argument parsing
 
@@ -129,7 +129,7 @@ npm test
 npx vitest --watch
 
 # Run specific test file
-npx vitest src/util/formatError.test.ts
+npx vitest src/utils/formatError.test.ts
 
 # Run tests with coverage
 npx vitest --coverage

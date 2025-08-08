@@ -5,7 +5,7 @@ import * as util from "util";
 import {
   parseEnvNumber,
   truncateOutputFromEnd,
-} from "../util/truncateOutput.js";
+} from "../utils/truncateOutput.js";
 
 import { Tool } from "./types.js";
 

@@ -1,9 +1,9 @@
 import chalk from "chalk";
 
-import { get, post } from "../util/apiClient.js";
-import { gracefulExit } from "../util/exit.js";
-import { getGitBranch, getGitRemoteUrl } from "../util/git.js";
-import { logger } from "../util/logger.js";
+import { get, post } from "../utils/apiClient.js";
+import { gracefulExit } from "../utils/exit.js";
+import { getGitBranch, getGitRemoteUrl } from "../utils/git.js";
+import { logger } from "../utils/logger.js";
 
 interface CheckStatus {
   name: string;

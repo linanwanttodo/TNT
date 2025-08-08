@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { getModelName, updateModelName } from "../auth/workos.js";
 import * as config from "../config/index.js";
 import { ModelService } from "../services/ModelService.js";
-import { persistModelName } from "../util/modelPersistence.js";
+import { persistModelName } from "../utils/modelPersistence.js";
 
 // Mock the config module
 vi.mock("../config/index.js");

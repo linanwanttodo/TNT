@@ -15,8 +15,8 @@ import {
   services,
 } from "../services/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
-import { escapeEvents } from "../util/cli.js";
-import { InputHistory } from "../util/inputHistory.js";
+import { escapeEvents } from "../utils/cli.js";
+import { InputHistory } from "../utils/inputHistory.js";
 
 import { t } from "../i18n/index.js";
 import { FileSearchUI } from "./FileSearchUI.js";

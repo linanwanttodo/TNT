@@ -34,7 +34,7 @@ vi.mock("fs");
 vi.mock("uuid", () => ({
   v4: vi.fn(() => "test-uuid-123"),
 }));
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),

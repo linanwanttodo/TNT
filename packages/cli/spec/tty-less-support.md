@@ -39,7 +39,7 @@ The CLI has two distinct execution modes with complete separation:
 
 ### Safeguards Implemented
 
-#### 1. **TTY Detection Utilities** (`src/util/cli.ts`)
+#### 1. **TTY Detection Utilities** (`src/utils/cli.ts`)
 
 ```typescript
 // Check if running in TTY-less environment
@@ -52,7 +52,7 @@ export function supportsInteractive(): boolean;
 export function hasSuppliedPrompt(): boolean;
 ```
 
-#### 2. **Stdin Reading Protection** (`src/util/stdin.ts`)
+#### 2. **Stdin Reading Protection** (`src/utils/stdin.ts`)
 
 Prevents stdin reading when:
 
@@ -93,7 +93,7 @@ if (!prompt) {
 }
 ```
 
-#### 5. **Logger Configuration** (`src/util/logger.ts`)
+#### 5. **Logger Configuration** (`src/utils/logger.ts`)
 
 Configures output handling for TTY-less environments:
 
@@ -230,10 +230,10 @@ cn -p "your prompt"
 
 ## Related Files
 
-- `src/util/cli.ts` - TTY detection utilities
-- `src/util/stdin.ts` - Stdin reading protection
+- `src/utils/cli.ts` - TTY detection utilities
+- `src/utils/stdin.ts` - Stdin reading protection
 - `src/ui/index.ts` - TUI initialization guards
 - `src/commands/chat.ts` - Mode routing and validation
-- `src/util/logger.ts` - Output configuration
+- `src/utils/logger.ts` - Output configuration
 - `src/test-helpers/cli-helpers.ts` - Test support
 - `src/e2e/headless-minimal.test.ts` - TTY-less tests

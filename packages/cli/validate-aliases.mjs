@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 let logger;
 try {
   // Try to import the compiled logger
-  const loggerModule = await import("./dist/util/logger.js");
+  const loggerModule = await import("./dist/utils/logger.js");
   logger = loggerModule.logger;
 } catch {
   // Fallback to console if logger not available (e.g., not built yet)

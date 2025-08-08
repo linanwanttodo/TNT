@@ -9,7 +9,7 @@ import { initializeWithOnboarding } from "./onboarding.js";
 
 const questionMock = vi.fn();
 
-vi.mock("../util/prompt.js", () => ({
+vi.mock("../utils/prompt.js", () => ({
   question: (...args: unknown[]) => questionMock(...args),
 }));
 

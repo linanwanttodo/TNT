@@ -1,4 +1,4 @@
-import { logger } from "../../util/logger.js";
+import { logger } from "../../utils/logger.js";
 
 /**
  * Dynamically import Sharp without using eval

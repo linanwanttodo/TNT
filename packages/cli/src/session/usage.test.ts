@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("fs");
 vi.mock("uuid", () => ({ v4: vi.fn(() => "cold-start-session") }));
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -12,7 +12,7 @@ vi.mock("../util/logger.js", () => ({
 }));
 
 import { clearSession, getSessionUsage, trackSessionUsage } from "./index.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 describe("session cold-start cache attribution", () => {
   beforeEach(() => {

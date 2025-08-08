@@ -1,7 +1,7 @@
 import type { ChatHistoryItem, ToolCallState, ToolStatus } from "core/index.js";
 
 import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
-import { logger } from "src/util/logger.js";
+import { logger } from "src/utils/logger.js";
 
 import { services } from "../../services/index.js";
 import { getCurrentSession, updateSessionTitle } from "../../session/index.js";

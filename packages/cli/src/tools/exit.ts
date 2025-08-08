@@ -1,4 +1,4 @@
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
 
@@ -15,7 +15,7 @@ export const exitTool: Tool = {
   isBuiltIn: true,
   run: async (): Promise<string> => {
     const { gracefulExit, updateAgentMetadata } = await import(
-      "../util/exit.js"
+      "../utils/exit.js"
     );
 
     // Mark agent as complete before exiting

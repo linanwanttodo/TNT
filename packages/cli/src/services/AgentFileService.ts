@@ -9,14 +9,14 @@ import {
   parseAgentFileTools,
 } from "@tnt/config-yaml";
 
-import { getErrorString } from "src/util/error.js";
+import { getErrorString } from "src/utils/error.js";
 
 import {
   agentFileProcessor,
   loadModelFromHub,
   loadPackageFromHub,
 } from "../config/hubLoader.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";

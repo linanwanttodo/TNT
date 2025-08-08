@@ -1,6 +1,6 @@
 import { ChildProcess, spawn } from "child_process";
 
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 export type BackgroundJobStatus =
   | "pending"

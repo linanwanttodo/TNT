@@ -4,7 +4,7 @@ import path from "path";
 import YAML from "yaml";
 
 import { env } from "../config/env.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { PermissionPolicy, ToolPermissionPolicy } from "./types.js";
 

@@ -4,9 +4,9 @@ import {
   ApiRequestError,
   AuthenticationRequiredError,
   post,
-} from "../util/apiClient.js";
-import { updateAgentMetadata } from "../util/exit.js";
-import { logger } from "../util/logger.js";
+} from "../utils/apiClient.js";
+import { updateAgentMetadata } from "../utils/exit.js";
+import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
 

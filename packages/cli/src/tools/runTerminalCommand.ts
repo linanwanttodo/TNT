@@ -13,12 +13,12 @@ import {
   isGitCommitCommand,
   isPullRequestCommand,
 } from "../telemetry/utils.js";
-import { backgroundSignalManager } from "../util/backgroundSignalManager.js";
-import { emitBashToolEnded, emitBashToolStarted } from "../util/cli.js";
+import { backgroundSignalManager } from "../utils/backgroundSignalManager.js";
+import { emitBashToolEnded, emitBashToolStarted } from "../utils/cli.js";
 import {
   parseEnvNumber,
   truncateOutputFromStart,
-} from "../util/truncateOutput.js";
+} from "../utils/truncateOutput.js";
 
 import { Tool, ToolRunContext } from "./types.js";
 

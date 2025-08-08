@@ -60,7 +60,6 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - **Hook types**: `command` (shell), `http` (POST request), `prompt` (single model turn), `agent` (delegated multi-turn run), all handled by `hookRunner.ts`
 
 7. **Slash Command Pipeline** (`src/slash/`): every command source is a loader
-
    - `types.ts`: `SlashCommand`, `CommandLoader`, `CommandSource`, conflict types
    - `loaders/`: built-in, remote mode, assistant prompts, invokable rules, skills, plugins
    - `resolver.ts`: the first source to claim a name keeps it; later claims are reported as conflicts
@@ -88,7 +87,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 | `services/`                                                                                             | Long-lived services resolved through `ServiceContainer`                             |
 | `ui/`                                                                                                   | Ink components, hooks, contexts                                                     |
 | `i18n/`                                                                                                 | Translations and locale switching                                                   |
-| `util/`                                                                                                 | Shared helpers; `logger.ts` writes the file log, `console.ts` gates headless output |
+| `utils/`                                                                                                | Shared helpers; `logger.ts` writes the file log, `console.ts` gates headless output |
 
 ### Key Features
 

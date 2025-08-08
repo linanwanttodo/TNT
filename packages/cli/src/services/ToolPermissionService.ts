@@ -11,7 +11,7 @@ import {
   ToolPermissions,
 } from "../permissions/types.js";
 import { BUILT_IN_TOOL_NAMES } from "../tools/builtInToolNames.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";

@@ -4,7 +4,7 @@ import type { ChatHistoryItem } from "core/index.js";
 import { getLastNPathParts } from "core/util/uri.js";
 import { v4 as uuidv4 } from "uuid";
 
-import { logger } from "src/util/logger.js";
+import { logger } from "src/utils/logger.js";
 
 import { DEFAULT_SESSION_TITLE } from "../../constants/session.js";
 import { loadSession, startNewSession } from "../../session/index.js";
@@ -73,7 +73,7 @@ export function processSlashCommandResult({
   onClear,
 }: ProcessSlashCommandResultOptions): string | null {
   if (result.exit) {
-    import("../../util/exit.js").then(({ gracefulExit }) => gracefulExit(0));
+    import("../../utils/exit.js").then(({ gracefulExit }) => gracefulExit(0));
   }
 
   if (result.openMcpSelector) {

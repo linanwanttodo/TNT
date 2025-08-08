@@ -41,9 +41,9 @@ import {
   chatCompletionStreamWithBackoff,
   isContextLengthError,
   withExponentialBackoff,
-} from "../util/exponentialBackoff.js";
-import { logger } from "../util/logger.js";
-import { validateContextLength } from "../util/tokenizer.js";
+} from "../utils/exponentialBackoff.js";
+import { logger } from "../utils/logger.js";
+import { validateContextLength } from "../utils/tokenizer.js";
 
 import { getRequestTools, handleToolCalls } from "./handleToolCalls.js";
 import {

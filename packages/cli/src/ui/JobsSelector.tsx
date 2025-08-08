@@ -5,7 +5,7 @@ import {
   BackgroundJob,
   backgroundJobService,
 } from "../services/BackgroundJobService.js";
-import { truncateOutputFromStart } from "../util/truncateOutput.js";
+import { truncateOutputFromStart } from "../utils/truncateOutput.js";
 
 import { defaultBoxStyles } from "./styles.js";
 

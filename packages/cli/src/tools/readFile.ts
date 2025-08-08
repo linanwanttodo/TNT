@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
-import { parseEnvNumber } from "../util/truncateOutput.js";
+import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { formatToolArgument } from "./formatters.js";
 import { Tool, ToolRunContext } from "./types.js";

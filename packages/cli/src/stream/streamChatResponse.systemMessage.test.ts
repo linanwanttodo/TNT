@@ -24,7 +24,7 @@ vi.mock("../services/index.js", () => ({
 }));
 
 // Mock logger
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -34,8 +34,8 @@ vi.mock("../util/logger.js", () => ({
 }));
 
 // Mock tokenizer
-vi.mock("../util/tokenizer.js", async () => {
-  const actual = await vi.importActual("../util/tokenizer.js");
+vi.mock("../utils/tokenizer.js", async () => {
+  const actual = await vi.importActual("../utils/tokenizer.js");
   return {
     ...actual,
     countChatHistoryTokens: vi.fn((history: ChatHistoryItem[]) => {

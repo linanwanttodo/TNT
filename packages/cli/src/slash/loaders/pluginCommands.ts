@@ -1,5 +1,5 @@
 import { loadAllPlugins, type PluginCommands } from "../../plugins/loader.js";
-import { logger } from "../../util/logger.js";
+import { logger } from "../../utils/logger.js";
 import type {
   CommandLoadContext,
   CommandLoader,

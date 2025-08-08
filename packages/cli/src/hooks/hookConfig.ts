@@ -19,7 +19,7 @@ import * as os from "os";
 import * as path from "path";
 
 import { loadAllPlugins } from "../plugins/loader.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import type {
   HookMatcherGroup,

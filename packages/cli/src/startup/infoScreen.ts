@@ -8,7 +8,7 @@ import {
   getSessionFilePath,
   getSessionUsage,
 } from "../session/index.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 import { getVersion } from "./version.js";
 
 function getVersionInfo(): string[] {

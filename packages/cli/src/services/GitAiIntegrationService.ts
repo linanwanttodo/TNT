@@ -3,7 +3,7 @@ import { exec, spawn } from "child_process";
 import { PreprocessedToolCall } from "src/tools/types.js";
 
 import { getCurrentSession, getSessionFilePath } from "../session/index.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";

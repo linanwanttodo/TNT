@@ -9,7 +9,7 @@ import {
   MCPServiceState,
   SERVICE_NAMES,
 } from "../services/types.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { defaultBoxStyles } from "./styles.js";
 

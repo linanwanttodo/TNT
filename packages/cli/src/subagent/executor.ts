@@ -4,8 +4,8 @@ import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
 import { services } from "../services/index.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
-import { escapeEvents } from "../util/cli.js";
-import { logger } from "../util/logger.js";
+import { escapeEvents } from "../utils/cli.js";
+import { logger } from "../utils/logger.js";
 
 import { getCurrentSession, saveSubagentSession } from "../session/index.js";
 

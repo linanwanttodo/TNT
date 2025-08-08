@@ -128,10 +128,10 @@ Binary files a/image.png and b/image.png differ`;
     });
 
     it("should handle real-world TypeScript diff", () => {
-      const diff = `diff --git a/src/util/metadata.ts b/src/util/metadata.ts
+      const diff = `diff --git a/src/utils/metadata.ts b/src/utils/metadata.ts
 index abc123..def456 100644
---- a/src/util/metadata.ts
-+++ b/src/util/metadata.ts
+--- a/src/utils/metadata.ts
++++ b/src/utils/metadata.ts
 @@ -1,10 +1,15 @@
  import type { ChatHistoryItem } from "core/index.js";
 

@@ -1,7 +1,7 @@
 import {
   getSkillSlashCommandName,
   loadMarkdownSkills,
-} from "../../util/loadMarkdownSkills.js";
+} from "../../utils/loadMarkdownSkills.js";
 import type {
   CommandLoadContext,
   CommandLoader,

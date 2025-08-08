@@ -11,7 +11,7 @@ vi.mock("../session/index.js", () => ({
   }),
 }));
 
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 

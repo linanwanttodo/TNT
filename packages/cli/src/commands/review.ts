@@ -4,7 +4,7 @@ import chalk from "chalk";
 import React from "react";
 
 import { configureConsoleForHeadless } from "../startup/init.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import type { DiffContext } from "./review/diffContext.js";

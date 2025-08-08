@@ -5,7 +5,7 @@ import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import {
   parseEnvNumber,
   truncateOutputFromEnd,
-} from "../util/truncateOutput.js";
+} from "../utils/truncateOutput.js";
 
 import { Tool } from "./types.js";
 

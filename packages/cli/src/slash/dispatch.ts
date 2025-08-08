@@ -4,7 +4,7 @@ import { telemetryService } from "../telemetry/telemetryService.js";
 import {
   getSkillSlashCommandName,
   loadMarkdownSkills,
-} from "../util/loadMarkdownSkills.js";
+} from "../utils/loadMarkdownSkills.js";
 
 import { createCommandHandlers } from "./handlers/index.js";
 import {

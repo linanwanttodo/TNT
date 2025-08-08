@@ -35,7 +35,7 @@ vi.mock("./service.js", () => ({
 }));
 
 // Mock logger to avoid file system operations
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),

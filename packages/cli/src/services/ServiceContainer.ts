@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { type ServiceResult, type ServiceState } from "./types.js";
 

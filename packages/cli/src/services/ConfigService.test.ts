@@ -17,7 +17,7 @@ vi.mock("../config/loader.js", () => ({
   loadConfiguration: vi.fn(),
   unrollPackageIdentifiersAsConfigYaml: vi.fn(),
 }));
-vi.mock("../util/logger.js");
+vi.mock("../utils/logger.js");
 vi.mock("./ServiceContainer.js");
 vi.mock("@tnt/config-yaml");
 vi.mock("src/agent/systemMessage.js", () => ({

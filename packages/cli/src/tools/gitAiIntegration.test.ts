@@ -23,7 +23,7 @@ vi.mock("../telemetry/telemetryService.js", () => ({
 }));
 
 // Mock logger
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     warn: vi.fn(),

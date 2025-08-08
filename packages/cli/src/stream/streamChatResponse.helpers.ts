@@ -34,7 +34,7 @@ import {
 import { ExecutionGate } from "../tools/specs/gate.js";
 import { planToolCalls } from "../tools/specs/planner.js";
 import { PreprocessedToolCall, ToolCall } from "../tools/types.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { StreamCallbacks } from "./streamChatResponse.types.js";
 

@@ -11,8 +11,8 @@ import {
 import { processCommandFlags } from "../flags/flagProcessor.js";
 import { safeStderr, safeStdout } from "../startup/init.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
-import * as logging from "../util/console.js";
-import { suppressConsoleInfo } from "../util/console.js";
+import * as logging from "../utils/console.js";
+import { suppressConsoleInfo } from "../utils/console.js";
 import { initializeServices, services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import {
@@ -29,15 +29,15 @@ import { streamChatResponse } from "../stream/streamChatResponse.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { startTUIChat } from "../ui/index.js";
-import { gracefulExit } from "../util/exit.js";
-import { formatAnthropicError, formatError } from "../util/formatError.js";
-import { logger } from "../util/logger.js";
-import { question } from "../util/prompt.js";
-import { prependPrompt } from "../util/promptProcessor.js";
+import { gracefulExit } from "../utils/exit.js";
+import { formatAnthropicError, formatError } from "../utils/formatError.js";
+import { logger } from "../utils/logger.js";
+import { question } from "../utils/prompt.js";
+import { prependPrompt } from "../utils/promptProcessor.js";
 import {
   calculateContextUsagePercentage,
   countChatHistoryTokens,
-} from "../util/tokenizer.js";
+} from "../utils/tokenizer.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 
@@ -492,7 +492,7 @@ async function runHeadlessMode(
 
   // Handle additional prompts from --prompt flags
   const { processAndCombinePrompts } = await import(
-    "../util/promptProcessor.js"
+    "../utils/promptProcessor.js"
   );
   const agentFileState = await serviceContainer.get<AgentFileServiceState>(
     SERVICE_NAMES.AGENT_FILE,

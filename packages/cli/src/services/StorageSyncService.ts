@@ -1,9 +1,9 @@
 import chalk from "chalk";
 
 import { env } from "../config/env.js";
-import { formatError } from "../util/formatError.js";
-import { getGitDiffSnapshot } from "../util/git.js";
-import { logger } from "../util/logger.js";
+import { formatError } from "../utils/formatError.js";
+import { getGitDiffSnapshot } from "../utils/git.js";
+import { logger } from "../utils/logger.js";
 
 import type { StorageSyncServiceState } from "./types.js";
 
