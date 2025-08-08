@@ -1,7 +1,7 @@
 import type { Session } from "core/index.js";
 
 import { getCurrentSession } from "../session/index.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Pins one conversation to a single prompt cache.

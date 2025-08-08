@@ -4,7 +4,7 @@ import * as path from "path";
 import { parseMarkdownRule } from "@tnt/config-yaml";
 
 import type { HookMatcherGroup, HookSettingsFile } from "../hooks/types.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { getPluginSearchRoots } from "./directories.js";
 import {

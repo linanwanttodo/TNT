@@ -3,8 +3,8 @@ import { useEffect, useRef } from "react";
 import {
   checkClipboardForImage,
   getClipboardImage,
-} from "../../util/clipboard.js";
-import { logger } from "../../util/logger.js";
+} from "../../utils/clipboard.js";
+import { logger } from "../../utils/logger.js";
 
 interface UseClipboardMonitorOptions {
   onImageStatusChange?: (hasImage: boolean) => void;

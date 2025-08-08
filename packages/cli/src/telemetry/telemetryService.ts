@@ -18,9 +18,9 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 import { ContinueErrorReason } from "../../../../core/util/errors.js";
-import { isHeadlessMode } from "../util/cli.js";
-import { isContinueRemoteAgent, isGitHubActions } from "../util/git.js";
-import { logger } from "../util/logger.js";
+import { isHeadlessMode } from "../utils/cli.js";
+import { isContinueRemoteAgent, isGitHubActions } from "../utils/git.js";
+import { logger } from "../utils/logger.js";
 import { getVersion } from "../startup/version.js";
 
 import { detectTerminalType, parseOtelHeaders } from "./headerUtils.js";

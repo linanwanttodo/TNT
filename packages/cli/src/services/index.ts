@@ -4,7 +4,7 @@ import {
   setBetaSubagentToolEnabled,
   setBetaUploadArtifactToolEnabled,
 } from "../tools/toolsConfig.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { AgentFileService } from "./AgentFileService.js";
 import { ApiClientService } from "./ApiClientService.js";

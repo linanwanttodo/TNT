@@ -1,10 +1,10 @@
 import type { PermissionMode } from "../../permissions/types.js";
-import { backgroundSignalManager } from "../../util/backgroundSignalManager.js";
+import { backgroundSignalManager } from "../../utils/backgroundSignalManager.js";
 import {
   checkClipboardForImage,
   getClipboardImage,
-} from "../../util/clipboard.js";
-import { logger } from "../../util/logger.js";
+} from "../../utils/clipboard.js";
+import { logger } from "../../utils/logger.js";
 import type { TextBuffer } from "../TextBuffer.js";
 
 // Helper function to handle control keys
@@ -77,7 +77,7 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
   // Handle Ctrl+D to exit
   if (key.ctrl && input === "d") {
     exit();
-    import("../../util/exit.js").then(({ gracefulExit }) => gracefulExit(0));
+    import("../../utils/exit.js").then(({ gracefulExit }) => gracefulExit(0));
   }
 
   // Handle Ctrl+L to refresh screen (clear terminal artifacts)

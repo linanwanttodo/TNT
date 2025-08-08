@@ -7,7 +7,7 @@
 
 import { AgentFile, ModelConfig, parseAgentFile } from "@tnt/config-yaml";
 
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Pattern to match valid hub slugs (owner/package format).

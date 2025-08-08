@@ -6,7 +6,7 @@
  */
 
 import { BaseService } from "../services/BaseService.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { loadHooksConfig } from "./hookConfig.js";
 import { runHooks } from "./hookRunner.js";

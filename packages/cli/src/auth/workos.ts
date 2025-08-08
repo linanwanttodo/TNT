@@ -9,7 +9,7 @@
 import {
   getPersistedModelName,
   persistModelName,
-} from "../util/modelPersistence.js";
+} from "../utils/modelPersistence.js";
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,6 +1,6 @@
 import type { AssistantConfig } from "@tnt/sdk";
 
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import {
   AssistantPromptLoader,

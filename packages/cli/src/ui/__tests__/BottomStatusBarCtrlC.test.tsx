@@ -14,7 +14,7 @@ vi.mock("../../index.js", () => ({
 }));
 
 // Mock git utility functions
-vi.mock("../../util/git.js", () => ({
+vi.mock("../../utils/git.js", () => ({
   isGitRepo: vi.fn(() => false),
   getGitRemoteUrl: vi.fn(() => null),
   getGitBranch: vi.fn(() => null),
@@ -77,7 +77,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
   });
 
   it("shows workspace, branch, context, model and thinking depth in one row", async () => {
-    const gitModule = (await vi.importMock("../../util/git.js")) as any;
+    const gitModule = (await vi.importMock("../../utils/git.js")) as any;
     gitModule.isGitRepo.mockReturnValue(true);
     gitModule.getGitBranch.mockReturnValue("feature/status");
 
@@ -175,7 +175,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
   });
 
   it("keeps workspace metadata on the left and the model on the right", async () => {
-    const gitModule = (await vi.importMock("../../util/git.js")) as any;
+    const gitModule = (await vi.importMock("../../utils/git.js")) as any;
     gitModule.getGitBranch.mockReturnValue("main");
 
     const { lastFrame } = render(

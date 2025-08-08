@@ -22,8 +22,8 @@ import {
 import { handleSlashCommands } from "../../slash/index.js";
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
-import { formatError } from "../../util/formatError.js";
-import { logger } from "../../util/logger.js";
+import { formatError } from "../../utils/formatError.js";
+import { logger } from "../../utils/logger.js";
 
 import {
   handleAutoCompaction,
@@ -298,7 +298,7 @@ export function useChat({
     ) {
       const processPrompts = async () => {
         const { processAndCombinePrompts } = await import(
-          "../../util/promptProcessor.js"
+          "../../utils/promptProcessor.js"
         );
         const finalMessage = await processAndCombinePrompts(
           additionalPrompts,

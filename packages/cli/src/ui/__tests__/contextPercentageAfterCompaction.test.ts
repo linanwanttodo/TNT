@@ -12,7 +12,7 @@ import { streamChatResponse } from "../../stream/streamChatResponse.js";
 import {
   calculateContextUsagePercentage,
   countChatHistoryTokens,
-} from "../../util/tokenizer.js";
+} from "../../utils/tokenizer.js";
 
 vi.mock("../../stream/streamChatResponse.js", () => ({
   streamChatResponse: vi.fn(),

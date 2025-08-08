@@ -1,7 +1,7 @@
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
-import { loadMarkdownSkills } from "../util/loadMarkdownSkills.js";
-import { logger } from "../util/logger.js";
+import { loadMarkdownSkills } from "../utils/loadMarkdownSkills.js";
+import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
 

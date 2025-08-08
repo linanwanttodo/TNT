@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Base abstract class for all services

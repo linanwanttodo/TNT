@@ -5,7 +5,7 @@ import * as util from "util";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { findUp } from "find-up";
 
-import { parseEnvNumber } from "../util/truncateOutput.js";
+import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { Tool } from "./types.js";
 

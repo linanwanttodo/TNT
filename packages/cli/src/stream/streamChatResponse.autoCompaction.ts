@@ -23,8 +23,8 @@ import {
   getSessionHistoryGeneration,
   replaceSessionHistoryIfGeneration,
 } from "../session/index.js";
-import { formatError } from "../util/formatError.js";
-import { logger } from "../util/logger.js";
+import { formatError } from "../utils/formatError.js";
+import { logger } from "../utils/logger.js";
 
 const compactionStateBySession = new WeakMap<Session, AutoCompactionState>();
 
@@ -253,7 +253,9 @@ export async function handleAutoCompaction(
     const resolvedSystemMessage =
       typeof systemMessage === "string" ? systemMessage : await systemMessage;
 
-    const { countChatHistoryItemTokens } = await import("../util/tokenizer.js");
+    const { countChatHistoryItemTokens } = await import(
+      "../utils/tokenizer.js"
+    );
     const systemMessageTokens = countChatHistoryItemTokens(
       {
         message: {

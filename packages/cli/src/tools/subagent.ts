@@ -13,7 +13,7 @@ import {
   LIST_SUBAGENTS_TOOL_META,
   SUBAGENT_TOOL_META,
 } from "../subagent/index.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
 

@@ -3,7 +3,7 @@ import * as path from "path";
 
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
 

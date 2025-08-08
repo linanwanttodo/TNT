@@ -1,7 +1,7 @@
 import type { ChatHistoryItem } from "core/index.js";
 
 import { services } from "../../services/index.js";
-import { logger } from "../../util/logger.js";
+import { logger } from "../../utils/logger.js";
 
 import { RemoteServerState } from "./useChat.types.js";
 

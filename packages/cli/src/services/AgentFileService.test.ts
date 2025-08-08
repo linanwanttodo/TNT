@@ -61,7 +61,7 @@ vi.mock("../config/hubLoader.js", () => ({
 }));
 
 // Mock the logger
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     error: vi.fn(),

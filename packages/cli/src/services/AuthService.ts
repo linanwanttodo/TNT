@@ -1,4 +1,4 @@
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";
 import { AuthServiceState } from "./types.js";

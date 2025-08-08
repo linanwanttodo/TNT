@@ -1,9 +1,9 @@
 import { fdir } from "fdir";
 import { AsyncFzf, FzfResultItem } from "fzf";
 
-import { FILE_IGNORE_PATTERNS } from "../util/filePatterns.js";
-import { isGitRepo } from "../util/git.js";
-import { logger } from "../util/logger.js";
+import { FILE_IGNORE_PATTERNS } from "../utils/filePatterns.js";
+import { isGitRepo } from "../utils/git.js";
+import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";

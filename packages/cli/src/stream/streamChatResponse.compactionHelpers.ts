@@ -5,8 +5,8 @@ import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
 
 import { services } from "../services/index.js";
 import { ToolCall } from "../tools/index.js";
-import { logger } from "../util/logger.js";
-import { validateContextLength } from "../util/tokenizer.js";
+import { logger } from "../utils/logger.js";
+import { validateContextLength } from "../utils/tokenizer.js";
 
 import { handleAutoCompaction } from "./streamChatResponse.autoCompaction.js";
 import { StreamCallbacks } from "./streamChatResponse.types.js";

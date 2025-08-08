@@ -11,7 +11,7 @@ vi.mock("../agent/systemMessage.js", () => ({
 }));
 
 // Mock the logger
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),

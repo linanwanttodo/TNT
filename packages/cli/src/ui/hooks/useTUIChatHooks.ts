@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { getGitBranch, getGitRemoteUrl, isGitRepo } from "../../util/git.js";
+import { getGitBranch, getGitRemoteUrl, isGitRepo } from "../../utils/git.js";
 import type { ConfigOption, ModelOption } from "../types/selectorTypes.js";
 
 import { useConfigSelector } from "./useConfigSelector.js";

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FileIndexService } from "./FileIndexService.js";
 
 // Mock the file watcher
-vi.mock("../util/fileWatcher.js", () => ({
+vi.mock("../utils/fileWatcher.js", () => ({
   getFileWatcher: () => ({
     startWatching: vi.fn(),
     stopWatching: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock("../util/fileWatcher.js", () => ({
 }));
 
 // Mock git detection
-vi.mock("../util/git.js", () => ({
+vi.mock("../utils/git.js", () => ({
   isGitRepo: vi.fn(() => false),
 }));
 

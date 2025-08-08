@@ -4,7 +4,7 @@ import React from "react";
 import { listSessions, loadSessionById } from "../session/index.js";
 import { SessionSelector } from "../ui/SessionSelector.js";
 import { t } from "../i18n/index.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { chat } from "./chat.js";
 

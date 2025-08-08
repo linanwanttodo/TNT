@@ -3,7 +3,7 @@ import type { ChatHistoryItem } from "core/index.js";
 import express, { Request, Response } from "express";
 
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
-import { prependPrompt } from "src/util/promptProcessor.js";
+import { prependPrompt } from "src/utils/promptProcessor.js";
 
 import { runEnvironmentInstallSafe } from "../environment/environmentHandler.js";
 import { processCommandFlags } from "../flags/flagProcessor.js";
@@ -29,11 +29,11 @@ import { messageQueue } from "../stream/messageQueue.js";
 import { constructSystemMessage } from "../agent/systemMessage.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { reportFailureTool } from "../tools/reportFailure.js";
-import { gracefulExit, updateAgentMetadata } from "../util/exit.js";
-import { formatError } from "../util/formatError.js";
-import { getGitDiffSnapshot } from "../util/git.js";
-import { logger } from "../util/logger.js";
-import { readStdinSync } from "../util/stdin.js";
+import { gracefulExit, updateAgentMetadata } from "../utils/exit.js";
+import { formatError } from "../utils/formatError.js";
+import { getGitDiffSnapshot } from "../utils/git.js";
+import { logger } from "../utils/logger.js";
+import { readStdinSync } from "../utils/stdin.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import {

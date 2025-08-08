@@ -3,7 +3,7 @@ import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 import { services } from "../services/index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Remove partial assistant message if the last message is an empty assistant message.

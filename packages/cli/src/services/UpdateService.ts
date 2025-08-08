@@ -3,7 +3,7 @@ import { promisify } from "util";
 
 import { GlobalContext } from "core/util/GlobalContext.js";
 
-import { logger } from "src/util/logger.js";
+import { logger } from "src/utils/logger.js";
 
 import {
   compareVersions,

@@ -1,7 +1,7 @@
 import { Box, Text } from "ink";
 import React from "react";
 
-import { logger } from "src/util/logger.js";
+import { logger } from "src/utils/logger.js";
 
 import { t } from "../../i18n/index.js";
 import {

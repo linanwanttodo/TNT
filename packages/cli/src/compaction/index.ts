@@ -11,15 +11,15 @@ import { ChatCompletionTool } from "openai/resources.mjs";
 import { buildSummaryRequest } from "./prefixPreservation.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
-import { isContextLengthError } from "../util/exponentialBackoff.js";
-import { logger } from "../util/logger.js";
+import { isContextLengthError } from "../utils/exponentialBackoff.js";
+import { logger } from "../utils/logger.js";
 import {
   countChatHistoryTokens,
   countToolDefinitionTokens,
   countTotalInputTokens,
   getModelContextLimit,
   getModelMaxTokens,
-} from "../util/tokenizer.js";
+} from "../utils/tokenizer.js";
 
 export interface CompactionResult {
   compactedHistory: ChatHistoryItem[];

@@ -12,7 +12,7 @@ describe("TelemetryService - Session Metadata", () => {
     originalArgv = [...process.argv];
 
     // Mock logger to prevent console output during tests
-    vi.mock("../util/logger.js", () => ({
+    vi.mock("../utils/logger.js", () => ({
       logger: {
         debug: vi.fn(),
         info: vi.fn(),

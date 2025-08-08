@@ -1,12 +1,12 @@
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Skill } from "../util/loadMarkdownSkills.js";
+import { Skill } from "../utils/loadMarkdownSkills.js";
 
 import { skillsTool } from "./skills.js";
 
-vi.mock("../util/loadMarkdownSkills.js");
-vi.mock("../util/logger.js");
+vi.mock("../utils/loadMarkdownSkills.js");
+vi.mock("../utils/logger.js");
 
 const mockSkills: Skill[] = [
   {
@@ -29,7 +29,7 @@ describe("skillsTool", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     const { loadMarkdownSkills } = await import(
-      "../util/loadMarkdownSkills.js"
+      "../utils/loadMarkdownSkills.js"
     );
     vi.mocked(loadMarkdownSkills).mockResolvedValue({
       skills: mockSkills,

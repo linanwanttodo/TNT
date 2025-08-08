@@ -20,7 +20,7 @@ vi.mock("../session/index.js", () => ({
   trackSessionUsage: vi.fn(),
 }));
 
-vi.mock("../util/tokenizer.js", () => ({
+vi.mock("../utils/tokenizer.js", () => ({
   countChatHistoryItemTokens: vi.fn(() => 100),
   validateContextLength: vi.fn(() => ({ isValid: true })),
 }));
@@ -34,7 +34,7 @@ vi.mock("../telemetry/telemetryService.js", () => ({
   },
 }));
 
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     info: vi.fn(),
     debug: vi.fn(),
@@ -137,7 +137,7 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
     const { handleNormalAutoCompaction } = await import(
       "./streamChatResponse.compactionHelpers.js"
     );
-    const { logger } = await import("../util/logger.js");
+    const { logger } = await import("../utils/logger.js");
 
     // Track history modifications
     const historyUpdates: string[] = [];

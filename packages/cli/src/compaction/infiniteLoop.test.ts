@@ -11,7 +11,7 @@ vi.mock("../stream/streamChatResponse.js", () => ({
   streamChatResponse: vi.fn(),
 }));
 
-vi.mock("../util/tokenizer.js", () => ({
+vi.mock("../utils/tokenizer.js", () => ({
   countChatHistoryTokens: vi.fn(),
   getModelContextLimit: vi.fn(),
   getModelMaxTokens: vi.fn(),
@@ -32,7 +32,7 @@ describe("compaction infinite loop prevention", () => {
 
   it("should not loop infinitely when pruning doesn't reduce history size", async () => {
     const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
-      await import("../util/tokenizer.js");
+      await import("../utils/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);
@@ -66,7 +66,7 @@ describe("compaction infinite loop prevention", () => {
 
   it("should not loop infinitely with history ending in assistant message", async () => {
     const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
-      await import("../util/tokenizer.js");
+      await import("../utils/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);
@@ -101,7 +101,7 @@ describe("compaction infinite loop prevention", () => {
 
   it("should successfully prune when pruning actually reduces size", async () => {
     const { countChatHistoryTokens, getModelContextLimit, getModelMaxTokens } =
-      await import("../util/tokenizer.js");
+      await import("../utils/tokenizer.js");
     const mockStreamResponse = vi.mocked(streamChatResponse);
     const mockCountTokens = vi.mocked(countChatHistoryTokens);
     const mockGetContextLimit = vi.mocked(getModelContextLimit);

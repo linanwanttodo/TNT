@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import {
   calculateContextUsagePercentage,
   countChatHistoryTokens,
-} from "../../util/tokenizer.js";
+} from "../../utils/tokenizer.js";
 
 interface UseContextPercentageProps {
   chatHistory: ChatHistoryItem[];

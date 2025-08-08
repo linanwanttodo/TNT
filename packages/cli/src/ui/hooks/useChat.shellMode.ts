@@ -1,5 +1,5 @@
 import { runTerminalCommandTool } from "src/tools/runTerminalCommand.js";
-import { getErrorString } from "src/util/error.js";
+import { getErrorString } from "src/utils/error.js";
 
 import { services } from "../../services/index.js";
 

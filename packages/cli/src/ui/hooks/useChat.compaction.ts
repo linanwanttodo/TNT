@@ -5,8 +5,8 @@ import { updateSessionHistory } from "../../session/index.js";
 import { firePreCompact } from "../../hooks/fireHook.js";
 import { t } from "../../i18n/index.js";
 import { handleAutoCompaction as coreHandleAutoCompaction } from "../../stream/streamChatResponse.autoCompaction.js";
-import { formatError } from "../../util/formatError.js";
-import { logger } from "../../util/logger.js";
+import { formatError } from "../../utils/formatError.js";
+import { logger } from "../../utils/logger.js";
 
 interface HandleCompactCommandOptions {
   chatHistory: ChatHistoryItem[];

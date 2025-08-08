@@ -17,7 +17,7 @@ import {
   Tool,
   ToolCall,
 } from "../tools/index.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import {
   executeStreamedToolCalls,

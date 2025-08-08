@@ -14,7 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { DEFAULT_SESSION_TITLE } from "../constants/session.js";
 import { delegationDepthOf } from "../subagent/depth.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 // Re-export BaseSessionMetadata for external consumers
 export type { BaseSessionMetadata };

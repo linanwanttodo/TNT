@@ -19,11 +19,11 @@ import {
   addCommonOptions,
   mergeParentOptions,
 } from "./config/sharedOptions.js";
-import { post } from "./util/apiClient.js";
-import { markUnhandledError } from "./util/errorState.js";
-import { gracefulExit } from "./util/exit.js";
-import { logger } from "./util/logger.js";
-import { readStdinSync } from "./util/stdin.js";
+import { post } from "./utils/apiClient.js";
+import { markUnhandledError } from "./utils/errorState.js";
+import { gracefulExit } from "./utils/exit.js";
+import { logger } from "./utils/logger.js";
+import { readStdinSync } from "./utils/stdin.js";
 import { getVersion } from "./startup/version.js";
 
 // TUI lifecycle and two-stage exit state management

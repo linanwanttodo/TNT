@@ -5,8 +5,8 @@ import React, { useEffect, useState } from "react";
 import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { t } from "../../i18n/index.js";
 import { getSessionUsage } from "../../session/index.js";
-import { getCacheHitRatio } from "../../util/cacheRatio.js";
-import { getGitBranch } from "../../util/git.js";
+import { getCacheHitRatio } from "../../utils/cacheRatio.js";
+import { getGitBranch } from "../../utils/git.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { UpdateNotification } from "../UpdateNotification.js";
 

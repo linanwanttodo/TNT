@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getGitDiffSnapshot } from "../util/git.js";
-import { logger } from "../util/logger.js";
+import { getGitDiffSnapshot } from "../utils/git.js";
+import { logger } from "../utils/logger.js";
 
 import { StorageSyncService } from "./StorageSyncService.js";
 
-vi.mock("../util/logger.js", () => ({
+vi.mock("../utils/logger.js", () => ({
   logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock("../config/env.js", () => ({
   env: { apiBase: "https://api.test/" },
 }));
 
-vi.mock("../util/git.js", () => ({
+vi.mock("../utils/git.js", () => ({
   getGitDiffSnapshot: vi.fn(),
 }));
 

@@ -2,7 +2,7 @@ import fs from "fs";
 
 import YAML from "yaml";
 
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import {
   PERMISSIONS_YAML_PATH,

@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 
-import type { InputHistory } from "../util/inputHistory.js";
-import { logger } from "../util/logger.js";
+import type { InputHistory } from "../utils/inputHistory.js";
+import { logger } from "../utils/logger.js";
 
 export interface QueuedMessage {
   message: string;

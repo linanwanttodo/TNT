@@ -2,8 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { env } from "../config/env.js";
-import { formatError } from "../util/formatError.js";
-import { logger } from "../util/logger.js";
+import { formatError } from "../utils/formatError.js";
+import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";
 import type { ArtifactUploadServiceState } from "./types.js";

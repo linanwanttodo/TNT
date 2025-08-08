@@ -4,7 +4,7 @@ import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { AuthConfig } from "../auth/workos.js";
 import { env } from "./env.js";
-import { getUniqueId } from "../util/uniqueId.js";
+import { getUniqueId } from "../utils/uniqueId.js";
 import { getVersion } from "../startup/version.js";
 
 /**

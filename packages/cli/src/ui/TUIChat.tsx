@@ -21,8 +21,8 @@ import {
   UpdateServiceState,
 } from "../services/types.js";
 import { getTotalSessionCost } from "../session/index.js";
-import { bashToolEvents } from "../util/cli.js";
-import { logger } from "../util/logger.js";
+import { bashToolEvents } from "../utils/cli.js";
+import { logger } from "../utils/logger.js";
 
 import { ActionStatus } from "./components/ActionStatus.js";
 import { BottomStatusBar } from "./components/BottomStatusBar.js";

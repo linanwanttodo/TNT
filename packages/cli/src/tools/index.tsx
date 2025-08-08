@@ -13,7 +13,7 @@ import type {
   ModelServiceState,
 } from "../services/types.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
-import { logger } from "../util/logger.js";
+import { logger } from "../utils/logger.js";
 
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { askQuestionTool } from "./askQuestion.js";

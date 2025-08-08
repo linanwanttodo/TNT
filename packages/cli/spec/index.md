@@ -44,6 +44,6 @@ High level concepts / features should have a spec when possible. Good examples o
 - We intentionally write different implementations of the "loop" instead of trying to build a single engine that can be used across TUI, headless mode, `cn serve`, and more. So far, it would be more work than it is worth to add this abstraction.
 - "Everything is a service." Nobody (human or AI) should need to re-invent a polling mechanism or way to store / update state. This decision has been made already so we can focus on the business logic. The service setup lets us easily keep reactive state and avoid React anti-patterns like `useEffect`.
 - We use `ink` for UI, following the same usual React principles that we do elsewhere. Keep [components](../src/ui/components/) small, avoid `useEffect`, group logic into [hooks](../src/hooks).
-- Always use the [logger](../src/util/logger.ts) instead of `console.log`.
+- Always use the [logger](../src/utils/logger.ts) instead of `console.log`.
 - Use commander to define [commands](../src/commands/BaseCommandOptions.ts)
 - `cn remote` is intended to act the same as `cn`'s TUI in almost every way. There is a test helper that allows us to run any e2e test in _both_ remote and normal modes to ensure this is true.
