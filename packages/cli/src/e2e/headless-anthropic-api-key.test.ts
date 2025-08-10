@@ -5,12 +5,12 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../test-helpers/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import {
   cleanupMockLLMServer,
   createMockLLMServer,
   type MockLLMServer,
-} from "../test-helpers/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 describe("E2E: Headless Mode with ANTHROPIC_API_KEY", () => {
   let context: any;

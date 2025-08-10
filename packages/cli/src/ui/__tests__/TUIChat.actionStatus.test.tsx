@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createUITestContext } from "../../test-helpers/ui-test-context.js";
+import { createUITestContext } from "../../test-utils/ui-test-context.js";
 import { AppRoot } from "../AppRoot.js";
 
 // Mock the useChat hook to control state

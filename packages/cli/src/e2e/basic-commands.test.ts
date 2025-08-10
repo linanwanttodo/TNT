@@ -2,7 +2,7 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../test-helpers/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import { getVersion } from "../startup/version.js";
 
 describe("E2E: Basic Commands", () => {

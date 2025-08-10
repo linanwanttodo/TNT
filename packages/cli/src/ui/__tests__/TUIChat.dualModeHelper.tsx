@@ -1,7 +1,7 @@
 import { render } from "ink-testing-library";
 import React from "react";
 
-import { createUITestContext } from "../../test-helpers/ui-test-context.js";
+import { createUITestContext } from "../../test-utils/ui-test-context.js";
 import { AppRoot } from "../AppRoot.js";
 
 export type TestMode = "local" | "remote";

@@ -235,5 +235,5 @@ cn -p "your prompt"
 - `src/ui/index.ts` - TUI initialization guards
 - `src/commands/chat.ts` - Mode routing and validation
 - `src/utils/logger.ts` - Output configuration
-- `src/test-helpers/cli-helpers.ts` - Test support
+- `src/test-utils/cli-helpers.ts` - Test support
 - `src/e2e/headless-minimal.test.ts` - TTY-less tests

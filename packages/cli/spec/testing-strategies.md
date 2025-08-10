@@ -90,12 +90,12 @@ This document provides an overview of the different testing strategies used in t
 
 **Service Container Testing**:
 
-- [`src/test-helpers/testServiceContainer.ts`](../src/test-helpers/testServiceContainer.ts) - Mock service container setup
-- [`src/test-helpers/ui-test-context.ts`](../src/test-helpers/ui-test-context.ts) - UI test context setup
+- [`src/test-utils/testServiceContainer.ts`](../src/test-utils/testServiceContainer.ts) - Mock service container setup
+- [`src/test-utils/ui-test-context.ts`](../src/test-utils/ui-test-context.ts) - UI test context setup
 
 **CLI Testing**:
 
-- Test helpers in [`src/test-helpers/`](../src/test-helpers/) for CLI command execution
+- Test helpers in [`src/test-utils/`](../src/test-utils/) for CLI command execution
 
 ### Mocks
 
