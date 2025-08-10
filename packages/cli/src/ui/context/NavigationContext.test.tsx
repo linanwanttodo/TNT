@@ -9,7 +9,7 @@ import {
   NavigationProvider,
   useNavigation,
   NavigationScreen,
-} from "../NavigationContext.js";
+} from "./NavigationContext.js";
 
 describe("NavigationContext", () => {
   // Helper to create wrapper
