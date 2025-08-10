@@ -72,22 +72,22 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 
 `src/` is grouped by layer; only the entry points sit at the top level.
 
-| Path                                                                                                    | Purpose                                                                             |
-| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `index.ts`, `dev.ts`                                                                                    | CLI entry points (bundled build and the tsx dev runner)                             |
-| `agent/`                                                                                                | System prompt assembly                                                              |
-| `commands/`                                                                                             | argv subcommands: `chat`, `serve`, `ls`, `review`, `checks`                         |
-| `compaction/`                                                                                           | History compaction and prefix preservation                                          |
-| `config/`                                                                                               | Assistant and configuration loading, env, provider setup, rules                     |
-| `platform/`                                                                                             | TNT platform API client                                                             |
-| `session/`                                                                                              | Session state, titles, goals, delegated sessions                                    |
-| `slash/`                                                                                                | Slash command pipeline: loaders, resolver, handlers, dispatch                       |
-| `startup/`                                                                                              | Process bootstrap: console interception, onboarding, info screen, banner, version   |
-| `stream/`, `loop/`, `tools/`, `permissions/`, `cache/`, `plugins/`, `hooks/`, `subagent/`, `telemetry/` | Agent engine                                                                        |
-| `services/`                                                                                             | Long-lived services resolved through `ServiceContainer`                             |
-| `ui/`                                                                                                   | Ink components, hooks, contexts                                                     |
-| `i18n/`                                                                                                 | Translations and locale switching                                                   |
-| `utils/`                                                                                                | Shared helpers; `logger.ts` writes the file log, `console.ts` gates headless output |
+| Path                                                                                                    | Purpose                                                                                             |
+| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `index.ts`, `dev.ts`                                                                                    | CLI entry points (bundled build and the tsx dev runner)                                             |
+| `agent/`                                                                                                | System prompt assembly                                                                              |
+| `commands/`                                                                                             | argv subcommands: `chat`, `serve`, `ls`, `review`, `checks`                                         |
+| `compaction/`                                                                                           | History compaction and prefix preservation                                                          |
+| `config/`                                                                                               | Assistant and configuration loading, env, provider setup, rules, CLI flag parsing, shared constants |
+| `platform/`                                                                                             | TNT platform API client                                                                             |
+| `session/`                                                                                              | Session state, titles, goals, delegated sessions                                                    |
+| `slash/`                                                                                                | Slash command pipeline: loaders, resolver, handlers, dispatch                                       |
+| `startup/`                                                                                              | Process bootstrap: console interception, onboarding, info screen, banner, version                   |
+| `stream/`, `loop/`, `tools/`, `permissions/`, `cache/`, `plugins/`, `hooks/`, `subagent/`, `telemetry/` | Agent engine                                                                                        |
+| `services/`                                                                                             | Long-lived services resolved through `ServiceContainer`                                             |
+| `ui/`                                                                                                   | Ink components, hooks, contexts                                                                     |
+| `i18n/`                                                                                                 | Translations and locale switching                                                                   |
+| `utils/`                                                                                                | Shared helpers; `logger.ts` writes the file log, `console.ts` gates headless output                 |
 
 ### Key Features
 

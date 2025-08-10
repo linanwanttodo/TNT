@@ -5,8 +5,8 @@ import express, { Request, Response } from "express";
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 import { prependPrompt } from "src/utils/promptProcessor.js";
 
-import { runEnvironmentInstallSafe } from "../environment/environmentHandler.js";
-import { processCommandFlags } from "../flags/flagProcessor.js";
+import { runEnvironmentInstallSafe } from "../utils/environmentHandler.js";
+import { processCommandFlags } from "../config/flagProcessor.js";
 import { setAgentId } from "../index.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import {

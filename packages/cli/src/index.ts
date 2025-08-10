@@ -13,7 +13,7 @@ import { serve } from "./commands/serve.js";
 import {
   handleValidationErrors,
   validateFlags,
-} from "./flags/flagValidator.js";
+} from "./config/flagValidator.js";
 import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
 import {
   addCommonOptions,

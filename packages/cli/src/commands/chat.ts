@@ -8,7 +8,7 @@ import {
   compactChatHistory,
   findCompactionIndex,
 } from "../compaction/index.js";
-import { processCommandFlags } from "../flags/flagProcessor.js";
+import { processCommandFlags } from "../config/flagProcessor.js";
 import { safeStderr, safeStdout } from "../startup/init.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import * as logging from "../utils/console.js";

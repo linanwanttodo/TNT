@@ -12,7 +12,7 @@ import type {
 import historyManager from "core/util/history.js";
 import { v4 as uuidv4 } from "uuid";
 
-import { DEFAULT_SESSION_TITLE } from "../constants/session.js";
+import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import { delegationDepthOf } from "../subagent/depth.js";
 import { logger } from "../utils/logger.js";
 
