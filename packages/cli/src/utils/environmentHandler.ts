@@ -7,8 +7,8 @@ import chalk from "chalk";
 
 const execAsync = promisify(exec);
 
-import { formatError } from "../utils/formatError.js";
-import { logger } from "../utils/logger.js";
+import { formatError } from "./formatError.js";
+import { logger } from "./logger.js";
 
 interface EnvironmentConfig {
   install?: string;

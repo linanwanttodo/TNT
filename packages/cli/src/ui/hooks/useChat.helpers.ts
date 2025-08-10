@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { logger } from "src/utils/logger.js";
 
-import { DEFAULT_SESSION_TITLE } from "../../constants/session.js";
+import { DEFAULT_SESSION_TITLE } from "../../config/constants.js";
 import { loadSession, startNewSession } from "../../session/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 
