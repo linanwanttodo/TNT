@@ -91,7 +91,7 @@ describe("Local Config Switching Investigation", () => {
   test("hypothesis: local config loading has different behavior", async () => {
     // The loadConfiguration function has different code paths:
 
-    const { loadConfiguration } = await import("../config/loader.js");
+    const { loadConfiguration } = await import("../src/config/loader.js");
 
     // Path 1: Local file loading (lines 176-189 in config.ts)
     // if (config.startsWith(".") || config.startsWith("/") || config.startsWith("~")) {
@@ -123,7 +123,7 @@ describe("Local Config Switching Investigation", () => {
     // When switching to a remote config, we call updateAssistantSlug(configPath)
 
     const { updateAssistantSlug, getAssistantSlug } = await import(
-      "../auth/workos.js"
+      "../src/auth/workos.js"
     );
 
     expect(typeof updateAssistantSlug).toBe("function");
@@ -141,7 +141,7 @@ describe("Local Config Switching Investigation", () => {
   });
 
   test("checks if ConfigService state management differs for local configs", async () => {
-    const { ConfigService } = await import("../services/ConfigService.js");
+    const { ConfigService } = await import("../src/services/ConfigService.js");
 
     // The ConfigService.updateConfigPath method should work the same for both types:
     // 1. Load new config via loadConfiguration(authConfig, newConfigPath, ...)

@@ -10,7 +10,7 @@ import {
   createTestContext,
   runCLI,
   type CLITestContext,
-} from "../test-utils/cli-helpers.js";
+} from "../src/test-utils/cli-helpers.js";
 
 describe("E2E: Git Branch Display", () => {
   let context: CLITestContext;
@@ -76,7 +76,7 @@ models:
 
         // Now let's test that our git utils work in this context
         // We can't easily test the full TUI display, but we can verify the git functions work
-        const { getGitBranch } = await import("../utils/git.js");
+        const { getGitBranch } = await import("../src/utils/git.js");
         const branch = getGitBranch();
         expect(branch).toBe(testBranchName);
       } catch (error) {
@@ -93,7 +93,7 @@ models:
       await createTestConfig(context, testConfig);
 
       // Test that git functions return null in non-git directory
-      const { getGitBranch, isGitRepo } = await import("../utils/git.js");
+      const { getGitBranch, isGitRepo } = await import("../src/utils/git.js");
 
       expect(isGitRepo()).toBe(false);
       expect(getGitBranch()).toBeNull();
@@ -145,7 +145,7 @@ models:
         execSync(`git checkout ${firstCommit}`, { stdio: "ignore" });
 
         // Test git functions in detached HEAD state
-        const { getGitBranch, isGitRepo } = await import("../utils/git.js");
+        const { getGitBranch, isGitRepo } = await import("../src/utils/git.js");
 
         expect(isGitRepo()).toBe(true);
         // In detached HEAD state, git branch --show-current returns empty string
@@ -185,7 +185,7 @@ models:
         execSync(`git checkout -b "${specialBranchName}"`, { stdio: "ignore" });
 
         // Test git functions
-        const { getGitBranch } = await import("../utils/git.js");
+        const { getGitBranch } = await import("../src/utils/git.js");
         const branch = getGitBranch();
         expect(branch).toBe(specialBranchName);
       } catch (error) {
@@ -228,7 +228,7 @@ models:
 
         // Test the formatting function
         const { getResponsiveRepoText } = await import(
-          "../ui/hooks/useTUIChatHooks.js"
+          "../src/ui/hooks/useTUIChatHooks.js"
         );
         const repoText = getResponsiveRepoText();
 
@@ -248,7 +248,9 @@ models:
       process.chdir(context.testDir);
 
       // Test without git repo
-      const { getRepoUrlText } = await import("../ui/hooks/useTUIChatHooks.js");
+      const { getRepoUrlText } = await import(
+        "../src/ui/hooks/useTUIChatHooks.js"
+      );
       const repoText = getRepoUrlText();
 
       // Should not contain branch separator

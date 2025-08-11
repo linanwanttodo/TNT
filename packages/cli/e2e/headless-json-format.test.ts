@@ -2,12 +2,12 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../test-utils/cli-helpers.js";
+} from "../src/test-utils/cli-helpers.js";
 import {
   setupMockLLMTest,
   cleanupMockLLMServer,
   type MockLLMServer,
-} from "../test-utils/mock-llm-server.js";
+} from "../src/test-utils/mock-llm-server.js";
 
 describe("E2E: Headless Mode with JSON Format", () => {
   let context: any;

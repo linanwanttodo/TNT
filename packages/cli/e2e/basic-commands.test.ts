@@ -2,8 +2,8 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../test-utils/cli-helpers.js";
-import { getVersion } from "../startup/version.js";
+} from "../src/test-utils/cli-helpers.js";
+import { getVersion } from "../src/startup/version.js";
 
 describe("E2E: Basic Commands", () => {
   let context: any;

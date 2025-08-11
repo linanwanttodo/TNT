@@ -5,14 +5,14 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../test-utils/cli-helpers.js";
+} from "../src/test-utils/cli-helpers.js";
 import {
   setupMockLLMTest,
   cleanupMockLLMServer,
   createMockLLMServer,
   createMockLLMConfig,
   type MockLLMServer,
-} from "../test-utils/mock-llm-server.js";
+} from "../src/test-utils/mock-llm-server.js";
 
 describe("E2E: Headless Mode with Dynamic Responses", () => {
   let context: any;

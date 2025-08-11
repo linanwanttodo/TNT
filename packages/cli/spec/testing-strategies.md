@@ -79,10 +79,10 @@ This document provides an overview of the different testing strategies used in t
 
 **Examples**:
 
-- [`src/e2e/auth.test.ts`](../src/e2e/auth.test.ts) - Authentication workflows
-- [`src/e2e/basic-commands.test.ts`](../src/e2e/basic-commands.test.ts) - Basic CLI commands
-- [`src/e2e/headless-tool-calls.test.ts`](../src/e2e/headless-tool-calls.test.ts) - Tool execution in headless mode
-- [`src/e2e/config-switching.test.tsx`](../src/e2e/config-switching.test.tsx) - Configuration switching
+- [`e2e/headless-anthropic-api-key.test.ts`](../e2e/headless-anthropic-api-key.test.ts) - API key handling in headless mode
+- [`e2e/basic-commands.test.ts`](../e2e/basic-commands.test.ts) - Basic CLI commands
+- [`e2e/headless-tool-calls.test.ts`](../e2e/headless-tool-calls.test.ts) - Tool execution in headless mode
+- [`e2e/config-switching.test.tsx`](../e2e/config-switching.test.tsx) - Configuration switching
 
 ## Testing Infrastructure
 
