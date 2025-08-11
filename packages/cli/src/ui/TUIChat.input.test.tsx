@@ -1,5 +1,8 @@
-import { renderInMode, testBothModes } from "./TUIChat.dualModeHelper.js";
-import { waitForNextRender } from "./TUIChat.testHelper.js";
+import {
+  renderInMode,
+  testBothModes,
+} from "../test-utils/TUIChat.dualModeHelper.js";
+import { waitForNextRender } from "../test-utils/TUIChat.testHelper.js";
 
 describe("TUIChat - User Input Tests", () => {
   testBothModes("shows typed text in input field", async (mode) => {

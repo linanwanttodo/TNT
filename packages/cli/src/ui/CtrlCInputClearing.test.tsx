@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-import { UserInput } from "../UserInput.js";
+import { UserInput } from "./UserInput.js";
 
 describe("Ctrl+C input clearing", () => {
   let mockOnSubmit: ReturnType<typeof vi.fn>;

@@ -2,10 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  BottomStatusBar,
-  BottomStatusBarProps,
-} from "../components/BottomStatusBar.js";
+import { BottomStatusBar, BottomStatusBarProps } from "./BottomStatusBar.js";
 
 // Mock the index module functions
 vi.mock("../../index.js", () => ({

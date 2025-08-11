@@ -2,9 +2,9 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { setLocale } from "../../i18n/index.js";
-import { SlashCommandUI } from "../SlashCommandUI.js";
-import { waitForCondition } from "./TUIChat.testHelper.js";
+import { setLocale } from "../i18n/index.js";
+import { SlashCommandUI } from "./SlashCommandUI.js";
+import { waitForCondition } from "../test-utils/TUIChat.testHelper.js";
 
 describe("SlashCommandUI locale", () => {
   afterEach(() => {

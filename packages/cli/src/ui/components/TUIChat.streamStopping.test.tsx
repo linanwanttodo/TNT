@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { vi } from "vitest";
 
-import { ToolPermissionSelector } from "../components/ToolPermissionSelector.js";
+import { ToolPermissionSelector } from "./ToolPermissionSelector.js";
 
 describe("TUIChat - Stream Stopping on Tool Rejection", () => {
   beforeEach(() => {

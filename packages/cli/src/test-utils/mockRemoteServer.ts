@@ -2,7 +2,6 @@ import { Server } from "http";
 
 import express from "express";
 import type { ChatCompletionMessageParam } from "openai/resources.mjs";
-import { describe, expect, test } from "vitest";
 
 export interface MockRemoteServerConfig {
   port?: number;
@@ -163,10 +162,3 @@ export class MockRemoteServer {
     this.currentResponseIndex = 0;
   }
 }
-
-// Add a dummy test to satisfy Vitest requirement
-describe("MockRemoteServer", () => {
-  test("should be defined", () => {
-    expect(MockRemoteServer).toBeDefined();
-  });
-});

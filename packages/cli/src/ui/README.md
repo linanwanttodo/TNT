@@ -8,14 +8,14 @@ The testing framework ensures that the TUI behaves consistently whether running 
 
 ## Key Components
 
-### 1. Mock Remote Server (`mockRemoteServer.ts`)
+### 1. Mock Remote Server (`src/test-utils/mockRemoteServer.ts`)
 
 A mock Express server that simulates the `tnt serve` endpoints:
 
 - `GET /state` - Returns current chat state
 - `POST /message` - Receives user messages and can simulate responses
 
-### 2. Test Helper (`TUIChat.testHelper.ts`)
+### 2. Test Helper (`src/test-utils/TUIChat.testHelper.ts`)
 
 Provides utilities for writing tests that work in both modes:
 
@@ -35,7 +35,7 @@ Provides utilities for writing tests that work in both modes:
 ### Basic Test (runs in both modes)
 
 ```typescript
-import { runTest } from "./TUIChat.testHelper.js";
+import { runTest } from "../test-utils/TUIChat.testHelper.js";
 
 runTest("my test name", async (ctx) => {
   const { renderResult, mode, server } = ctx;
@@ -54,7 +54,7 @@ runTest("my test name", async (ctx) => {
 ### Test Suite (runs all tests in both modes)
 
 ```typescript
-import { runTestSuite } from "./TUIChat.testHelper.js";
+import { runTestSuite } from "../test-utils/TUIChat.testHelper.js";
 
 runTestSuite("My Test Suite", () => {
   runTest("test 1", async (ctx) => {

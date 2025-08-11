@@ -7,14 +7,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   compactChatHistory,
   findCompactionIndex,
-} from "../../compaction/index.js";
-import { streamChatResponse } from "../../stream/streamChatResponse.js";
+} from "../compaction/index.js";
+import { streamChatResponse } from "../stream/streamChatResponse.js";
 import {
   calculateContextUsagePercentage,
   countChatHistoryTokens,
-} from "../../utils/tokenizer.js";
+} from "./tokenizer.js";
 
-vi.mock("../../stream/streamChatResponse.js", () => ({
+vi.mock("../stream/streamChatResponse.js", () => ({
   streamChatResponse: vi.fn(),
 }));
 
