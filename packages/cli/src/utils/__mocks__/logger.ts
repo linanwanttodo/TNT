@@ -9,3 +9,8 @@ export const logger: any = {
 };
 export const getLogPath = vi.fn(() => "/mock/log/path");
 export const getSessionId = vi.fn(() => "mock-session-id");
+export const resolveLogLevel = vi.fn(() => "info");
+export const setLogLevel = vi.fn();
+export const configureHeadlessMode = vi.fn();
+export const flushTransports = vi.fn();
+export const flushLogs = vi.fn<() => Promise<void>>(async () => {});
