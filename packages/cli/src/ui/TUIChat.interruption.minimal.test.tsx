@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { UserInput } from "../UserInput.js";
+import { UserInput } from "./UserInput.js";
 
 describe("TUIChat - Interruption UI (Minimal Test)", () => {
   beforeEach(() => {

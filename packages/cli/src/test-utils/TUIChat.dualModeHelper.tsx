@@ -1,19 +1,10 @@
 import { render } from "ink-testing-library";
 import React from "react";
 
-import { createUITestContext } from "../../test-utils/ui-test-context.js";
-import { AppRoot } from "../AppRoot.js";
+import { createUITestContext } from "./ui-test-context.js";
+import { AppRoot } from "../ui/AppRoot.js";
 
 export type TestMode = "local" | "remote";
-
-// Dummy test to satisfy Vitest
-describe("TUIChat dual mode helper", () => {
-  it("exports helper functions", () => {
-    expect(testBothModes).toBeDefined();
-    expect(renderInMode).toBeDefined();
-    expect(testSingleMode).toBeDefined();
-  });
-});
 
 /**
  * Helper to run a test in both local and remote modes

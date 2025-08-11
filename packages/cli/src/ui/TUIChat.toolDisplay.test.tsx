@@ -1,8 +1,8 @@
 import { render } from "ink-testing-library";
 import React from "react";
 
-import { createUITestContext } from "../../test-utils/ui-test-context.js";
-import { AppRoot } from "../AppRoot.js";
+import { createUITestContext } from "../test-utils/ui-test-context.js";
+import { AppRoot } from "./AppRoot.js";
 
 describe("TUIChat - Tool Display Tests", () => {
   let context: any;

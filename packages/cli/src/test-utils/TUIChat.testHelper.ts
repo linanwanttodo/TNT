@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { vi } from "vitest";
 
-import { TUIChat } from "../TUIChat.js";
+import { TUIChat } from "../ui/TUIChat.js";
 
 import { MockRemoteServer } from "./mockRemoteServer.js";
 import {
@@ -67,7 +67,7 @@ export function runTest(
       it(name, async () => {
         // Import mocks from Vitest setup
         const { useServices, useService } = await import(
-          "../../hooks/useService.js"
+          "../hooks/useService.js"
         );
         const mockUseServices = useServices as any;
         const mockUseService = useService as any;
@@ -211,7 +211,7 @@ export function runTestSuite(
 
       beforeAll(async () => {
         const { useServices, useService } = await import(
-          "../../hooks/useService.js"
+          "../hooks/useService.js"
         );
         const mockUseServices = useServices as any;
         const mockUseService = useService as any;

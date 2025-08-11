@@ -1,5 +1,8 @@
-import { renderInMode, testBothModes } from "./TUIChat.dualModeHelper.js";
-import { waitForCondition } from "./TUIChat.testHelper.js";
+import {
+  renderInMode,
+  testBothModes,
+} from "../test-utils/TUIChat.dualModeHelper.js";
+import { waitForCondition } from "../test-utils/TUIChat.testHelper.js";
 
 /**
  * Integration tests for the message edit feature in TUIChat

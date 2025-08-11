@@ -2,10 +2,10 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createUITestContext } from "../../test-utils/ui-test-context.js";
-import { AppRoot } from "../AppRoot.js";
+import { createUITestContext } from "../test-utils/ui-test-context.js";
+import { AppRoot } from "./AppRoot.js";
 
-vi.mock("../hooks/useTerminalSize.js", () => ({
+vi.mock("./hooks/useTerminalSize.js", () => ({
   useTerminalSize: () => ({ columns: 100, rows: 12, isResizing: false }),
 }));
 

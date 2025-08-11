@@ -58,9 +58,9 @@ This document provides an overview of the different testing strategies used in t
 
 **Examples**:
 
-- [`src/ui/__tests__/TUIChat.basic.test.tsx`](../src/ui/__tests__/TUIChat.basic.test.tsx) - Basic rendering tests
-- [`src/ui/__tests__/TUIChat.messages.test.tsx`](../src/ui/__tests__/TUIChat.messages.test.tsx) - Message display tests
-- [`src/ui/__tests__/TUIChat.input.test.tsx`](../src/ui/__tests__/TUIChat.input.test.tsx) - Input handling tests
+- [`src/ui/TUIChat.basic.test.tsx`](../src/ui/TUIChat.basic.test.tsx) - Basic rendering tests
+- [`src/ui/TUIChat.messages.test.tsx`](../src/ui/TUIChat.messages.test.tsx) - Message display tests
+- [`src/ui/TUIChat.input.test.tsx`](../src/ui/TUIChat.input.test.tsx) - Input handling tests
 - [`src/ui/MarkdownRenderer.test.tsx`](../src/ui/MarkdownRenderer.test.tsx) - Markdown rendering tests
 
 **Test Checklist**: See [`src/ui/UI_TEST_CHECKLIST.md`](../src/ui/UI_TEST_CHECKLIST.md) for comprehensive UI testing guidelines.

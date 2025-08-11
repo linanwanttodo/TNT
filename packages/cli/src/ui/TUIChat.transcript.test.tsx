@@ -2,16 +2,16 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createUITestContext } from "../../test-utils/ui-test-context.js";
-import { AppRoot } from "../AppRoot.js";
+import { createUITestContext } from "../test-utils/ui-test-context.js";
+import { AppRoot } from "./AppRoot.js";
 
 const mockUseChat = vi.fn();
 
-vi.mock("../hooks/useChat.js", () => ({
+vi.mock("./hooks/useChat.js", () => ({
   useChat: () => mockUseChat(),
 }));
 
-vi.mock("../hooks/useTerminalSize.js", () => ({
+vi.mock("./hooks/useTerminalSize.js", () => ({
   useTerminalSize: () => ({ columns: 80, rows: 12, isResizing: false }),
 }));
 
