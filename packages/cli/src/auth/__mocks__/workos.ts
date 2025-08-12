@@ -23,7 +23,4 @@ export const updateLocalConfigPath = vi.fn();
 
 // Type re-exports for test compatibility
 export type AuthConfig = null;
-export type {
-  AuthenticatedConfig,
-  EnvironmentAuthConfig,
-} from "../../auth/workos.js";
+export type { AuthenticatedConfig, EnvironmentAuthConfig } from "../workos.js";
