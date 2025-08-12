@@ -92,6 +92,11 @@ const RESERVED_MARKETPLACE_NAMES = new Set([
 const RESERVED_NAME_PATTERN =
   /(?:official[^a-z0-9]*(anthropic|claude)|(?:anthropic|claude)[^a-z0-9]*official|^(?:anthropic|claude)[^a-z0-9]*(marketplace|plugins|official))/i;
 
+/** Exact catalogue names that only the official source may claim. */
+export function isReservedMarketplaceName(name: string): boolean {
+  return RESERVED_MARKETPLACE_NAMES.has(name.toLowerCase());
+}
+
 export function isBlockedMarketplaceName(name: string): boolean {
   if (RESERVED_MARKETPLACE_NAMES.has(name.toLowerCase())) {
     return false;
