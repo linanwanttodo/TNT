@@ -29,17 +29,17 @@ describe("plugin directories", () => {
   });
 
   it("honours the cache dir override with tilde expansion", () => {
-    const previous = process.env.TNT_PLUGIN_CACHE_DIR;
-    process.env.TNT_PLUGIN_CACHE_DIR = "~/custom-plugins";
+    const previous = process.env.TNT_PLUGINS_DIR;
+    process.env.TNT_PLUGINS_DIR = "~/custom-plugins";
     try {
       expect(getPluginsDirectory()).toBe(
         path.join(os.homedir(), "custom-plugins"),
       );
     } finally {
       if (previous === undefined) {
-        delete process.env.TNT_PLUGIN_CACHE_DIR;
+        delete process.env.TNT_PLUGINS_DIR;
       } else {
-        process.env.TNT_PLUGIN_CACHE_DIR = previous;
+        process.env.TNT_PLUGINS_DIR = previous;
       }
     }
   });
