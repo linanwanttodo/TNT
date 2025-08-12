@@ -67,7 +67,7 @@ export function marketplaceCacheDir(name: string): string {
   return path.join(marketplacesRoot(), sanitizeSegment(name));
 }
 
-async function gitClone(
+export async function gitClone(
   deps: MarketplaceDeps,
   url: string,
   target: string,
@@ -98,7 +98,7 @@ async function gitClone(
 }
 
 /** Pull first; a checkout that cannot be updated is replaced, not abandoned. */
-async function ensureGitCheckout(
+export async function ensureGitCheckout(
   deps: MarketplaceDeps,
   urls: string[],
   target: string,
@@ -134,7 +134,7 @@ function gitUrls(source: { url: string; ref?: string }): string[] {
   return [source.url];
 }
 
-function githubUrls(repo: string): string[] {
+export function githubUrls(repo: string): string[] {
   return [`git@github.com:${repo}.git`, `https://github.com/${repo}.git`];
 }
 
@@ -154,7 +154,7 @@ async function fetchToCache(
   return manifestPath;
 }
 
-async function unpackNpm(
+export async function unpackNpm(
   deps: MarketplaceDeps,
   pkg: string,
   cacheDir: string,
