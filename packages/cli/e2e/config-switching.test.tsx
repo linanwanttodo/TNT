@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 describe("Config Switching Implementation Test", () => {
   test("ConfigService updateConfigPath method exists with correct signature", async () => {
-    const { ConfigService } = await import("../services/ConfigService.js");
+    const { ConfigService } = await import("../src/services/ConfigService.js");
     const configService = new ConfigService();
 
     // Verify the method exists
@@ -15,7 +15,7 @@ describe("Config Switching Implementation Test", () => {
 
   test("ServiceContainer has required reactive methods", async () => {
     const { serviceContainer } = await import(
-      "../services/ServiceContainer.js"
+      "../src/services/ServiceContainer.js"
     );
 
     // Verify service container has all methods needed for reactive updates
@@ -27,7 +27,7 @@ describe("Config Switching Implementation Test", () => {
   });
 
   test("SERVICE_NAMES constants exist for config switching", async () => {
-    const { SERVICE_NAMES } = await import("../services/types.js");
+    const { SERVICE_NAMES } = await import("../src/services/types.js");
 
     // Verify the service names our implementation uses (lowercase)
     expect(SERVICE_NAMES.CONFIG).toBe("config");
@@ -38,7 +38,7 @@ describe("Config Switching Implementation Test", () => {
   });
 
   test("ConfigService implementation structure is correct", async () => {
-    const { ConfigService } = await import("../services/ConfigService.js");
+    const { ConfigService } = await import("../src/services/ConfigService.js");
 
     // Create instance to verify it can be instantiated
     const configService = new ConfigService();
@@ -52,7 +52,7 @@ describe("Config Switching Implementation Test", () => {
   });
 
   test("loadConfiguration function exists for configuration loading", async () => {
-    const configLoaderModule = await import("../config/loader.js");
+    const configLoaderModule = await import("../src/config/loader.js");
 
     // Verify loadConfiguration function exists and is callable
     expect(typeof configLoaderModule.loadConfiguration).toBe("function");
@@ -61,7 +61,7 @@ describe("Config Switching Implementation Test", () => {
   });
 
   test("auth functions exist for assistant slug management", async () => {
-    const authModule = await import("../auth/workos.js");
+    const authModule = await import("../src/auth/workos.js");
 
     // Verify auth functions exist for assistant slug handling
     expect(typeof authModule.loadAuthConfig).toBe("function");
@@ -101,7 +101,7 @@ describe("Config Switching Implementation Test", () => {
 
   test("real implementation inspection", async () => {
     // This test inspects the actual implementation to verify it does what we expect
-    const { ConfigService } = await import("../services/ConfigService.js");
+    const { ConfigService } = await import("../src/services/ConfigService.js");
 
     // Get the source code of updateConfigPath to verify it contains the right calls
     const updateConfigPathSource =

@@ -6,7 +6,7 @@ import {
   runCLI,
   createTestConfig,
   type CLITestContext,
-} from "../test-utils/cli-helpers.js";
+} from "../src/test-utils/cli-helpers.js";
 
 describe("E2E: Pipe Input to TUI Mode", () => {
   let context: CLITestContext;

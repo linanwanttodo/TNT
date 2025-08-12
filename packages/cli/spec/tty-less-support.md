@@ -236,4 +236,4 @@ cn -p "your prompt"
 - `src/commands/chat.ts` - Mode routing and validation
 - `src/utils/logger.ts` - Output configuration
 - `src/test-utils/cli-helpers.ts` - Test support
-- `src/e2e/headless-minimal.test.ts` - TTY-less tests
+- `e2e/headless-minimal.test.ts` - TTY-less tests

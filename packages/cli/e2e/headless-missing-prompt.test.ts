@@ -3,7 +3,7 @@ import {
   cleanupTestContext,
   runCLI,
   createTestConfig,
-} from "../test-utils/cli-helpers.js";
+} from "../src/test-utils/cli-helpers.js";
 
 describe("E2E: Headless Mode - Missing Prompt", () => {
   let context: any;
