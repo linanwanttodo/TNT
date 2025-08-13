@@ -1,19 +1,33 @@
 import chalk from "chalk";
 
 import { loadAllPlugins } from "../../plugins/loader.js";
+import { loadKnownMarketplaces } from "../../plugins/marketplaceRegistry.js";
+import { runMarketplaceCommand } from "../../plugins/marketplaceCommand.js";
 import type { SlashCommandResult } from "../types.js";
 
-export function handlePlugins(): SlashCommandResult {
+export async function handlePlugins(
+  args: string[] = [],
+): Promise<SlashCommandResult> {
+  if (args[0] === "marketplace") {
+    const result = await runMarketplaceCommand(args.slice(1));
+    return { output: result.output };
+  }
+
   const result = loadAllPlugins();
   const installed = result.plugins;
 
+  const marketplaces = Object.keys(loadKnownMarketplaces()).length;
+
   if (installed.length === 0) {
-    return {
-      exit: false,
-      output: chalk.dim(
-        "No plugins installed. Place plugins under ~/.tnt/plugins/cache/<marketplace>/<name>/<version>/.",
-      ),
-    };
+    const lines = [
+      "No plugins installed.",
+      "Add a marketplace: /plugin marketplace add <name> github:<owner>/<repo>",
+      "Or place plugins under ~/.tnt/plugins/cache/<marketplace>/<name>/<version>.",
+    ];
+    if (marketplaces > 0) {
+      lines.push(`${marketplaces} marketplace(s) registered`);
+    }
+    return { exit: false, output: chalk.dim(lines.join("\n")) };
   }
 
   const lines = installed.map((plugin) => {
@@ -28,6 +42,8 @@ export function handlePlugins(): SlashCommandResult {
       chalk.bold(`Installed plugins (${installed.length})`),
       "",
       ...lines,
+      "",
+      chalk.dim(`${marketplaces} marketplace(s) registered`),
     ].join("\n"),
   };
 }
