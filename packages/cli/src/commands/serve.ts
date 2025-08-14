@@ -1,4 +1,6 @@
 import chalk from "chalk";
+
+import { t } from "../i18n/index.js";
 import type { ChatHistoryItem } from "core/index.js";
 import express, { Request, Response } from "express";
 
@@ -578,7 +580,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
 
   // Handle graceful shutdown
   process.on("SIGINT", () => {
-    console.log(chalk.yellow("\nShutting down server..."));
+    console.log(chalk.yellow(t("serve.shuttingDown")));
     state.serverRunning = false;
     stopStorageSync();
     if (inactivityChecker) {

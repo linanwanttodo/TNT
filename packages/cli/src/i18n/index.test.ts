@@ -1,3 +1,5 @@
+import fs from "fs";
+
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -48,6 +50,48 @@ describe("i18n runtime locale switching", () => {
 
     expect(listener).toHaveBeenCalledOnce();
     unsubscribe();
+  });
+
+  test("translates every key in the groups the CLI renders directly", () => {
+    const source = fs.readFileSync(
+      new URL("./index.ts", import.meta.url),
+      "utf-8",
+    );
+    const keys = [
+      ...new Set(
+        [...source.matchAll(/^  "([A-Za-z0-9.]+)":/gm)].map(
+          (match) => match[1],
+        ),
+      ),
+    ];
+    // Keys whose Chinese and English text are legitimately the same, e.g. a
+    // value that is only a symbol or a URL. Adding one here is a deliberate act.
+    const intentionallyIdentical = new Set<string>();
+    const groups = [
+      "review.",
+      "checks.",
+      "chat.",
+      "serve.",
+      "startup.",
+      "plugin.",
+      "session.",
+      "skills.",
+    ];
+    const targeted = keys.filter((key) =>
+      groups.some((group) => key.startsWith(group)),
+    );
+    expect(targeted.length).toBeGreaterThan(50);
+
+    for (const key of targeted) {
+      if (intentionallyIdentical.has(key)) continue;
+      setLocale("en");
+      const english = t(key as never);
+      setLocale("zh-CN");
+      const chinese = t(key as never);
+      expect(english, key).not.toBe(key);
+      expect(chinese, key).not.toBe(key);
+      expect(chinese, key).not.toBe(english);
+    }
   });
 
   test("restores the pre-test locale for other suites", () => {

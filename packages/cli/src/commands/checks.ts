@@ -1,5 +1,7 @@
 import chalk from "chalk";
 
+import { t } from "../i18n/index.js";
+
 import { get, post } from "../utils/apiClient.js";
 import { gracefulExit } from "../utils/exit.js";
 import { getGitBranch, getGitRemoteUrl } from "../utils/git.js";
@@ -98,19 +100,15 @@ async function resolvePrUrl(prUrlArg: string | undefined): Promise<string> {
     return prUrlArg;
   }
 
-  console.log(chalk.dim("Auto-detecting PR from current branch..."));
+  console.log(chalk.dim(t("checks.detecting")));
   const detected = await detectPrUrl();
   if (!detected) {
-    console.error(
-      chalk.red(
-        "Could not detect a PR for the current branch. Please provide a PR URL.",
-      ),
-    );
+    console.error(chalk.red(t("checks.noPr")));
     await gracefulExit(1);
     throw new Error("unreachable");
   }
 
-  console.log(chalk.dim(`Found PR: ${detected}`));
+  console.log(chalk.dim(t("checks.foundPr", { url: detected })));
   return detected;
 }
 
@@ -131,7 +129,7 @@ async function printCheckDiff(check: CheckStatus): Promise<void> {
     if (!diffResponse.data.diff) {
       return;
     }
-    console.log(`\n${chalk.bold(`   Diff:`)}`);
+    console.log(`\n${chalk.bold(t("checks.diff"))}`);
     for (const line of diffResponse.data.diff.split("\n")) {
       console.log(`   ${line}`);
     }
@@ -150,11 +148,11 @@ async function listChecks(prUrl: string): Promise<void> {
   const { checks } = response.data;
 
   if (checks.length === 0) {
-    console.log(chalk.dim("No checks found for this PR."));
+    console.log(chalk.dim(t("checks.none")));
     return;
   }
 
-  console.log(chalk.bold(`\nChecks for ${chalk.cyan(prUrl)}\n`));
+  console.log(chalk.bold(t("checks.header", { url: chalk.cyan(prUrl) })));
 
   for (const check of checks) {
     const icon = STATE_ICONS[check.state] || "?";
@@ -162,7 +160,7 @@ async function listChecks(prUrl: string): Promise<void> {
     console.log(`   ${chalk.dim(check.description)}`);
 
     if (check.commitMessage) {
-      console.log(`   Commit: ${check.commitMessage}`);
+      console.log(t("checks.commit", { message: check.commitMessage }));
     }
 
     if (check.suggestionStatus) {
@@ -172,7 +170,9 @@ async function listChecks(prUrl: string): Promise<void> {
           : check.suggestionStatus === "accepted"
             ? chalk.green
             : chalk.red;
-      console.log(`   Suggestion: ${statusColor(check.suggestionStatus)}`);
+      console.log(
+        t("checks.suggestion", { status: statusColor(check.suggestionStatus) }),
+      );
     }
 
     if (check.commitMessage) {
@@ -215,22 +215,20 @@ async function acceptChecks(prUrl: string): Promise<void> {
   );
 
   if (pending.length === 0) {
-    console.log(chalk.dim("No pending suggestions to accept."));
+    console.log(chalk.dim(t("checks.noPendingAccept")));
     return;
   }
 
-  console.log(
-    chalk.bold(`Accepting ${pending.length} pending suggestion(s)...\n`),
-  );
+  console.log(chalk.bold(t("checks.accepting", { count: pending.length })));
 
   for (const check of pending) {
     try {
       await post(`agents/${check.sessionId}/accept`);
-      console.log(chalk.green(`\u2714  Accepted: ${check.name}`));
+      console.log(chalk.green(t("checks.accepted", { name: check.name })));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(
-        chalk.red(`\u2716  Failed to accept ${check.name}: ${msg}`),
+        chalk.red(t("checks.acceptFailed", { name: check.name, message: msg })),
       );
     }
   }
@@ -250,22 +248,20 @@ async function rejectChecks(prUrl: string): Promise<void> {
   );
 
   if (pending.length === 0) {
-    console.log(chalk.dim("No pending suggestions to reject."));
+    console.log(chalk.dim(t("checks.noPendingReject")));
     return;
   }
 
-  console.log(
-    chalk.bold(`Rejecting ${pending.length} pending suggestion(s)...\n`),
-  );
+  console.log(chalk.bold(t("checks.rejecting", { count: pending.length })));
 
   for (const check of pending) {
     try {
       await post(`agents/${check.sessionId}/reject`);
-      console.log(chalk.red(`\u2716  Rejected: ${check.name}`));
+      console.log(chalk.red(t("checks.rejected", { name: check.name })));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(
-        chalk.red(`\u2716  Failed to reject ${check.name}: ${msg}`),
+        chalk.red(t("checks.rejectFailed", { name: check.name, message: msg })),
       );
     }
   }
