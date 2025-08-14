@@ -675,6 +675,28 @@ export function getSessionGoal(): string | undefined {
   return goal?.trim() || undefined;
 }
 
+/**
+ * Output style chosen for this session. The choice rides along with the session
+ * so a resumed conversation keeps the tone the user picked, and it outranks a
+ * style a plugin forces on.
+ */
+export function getSessionOutputStyle(): string | undefined {
+  const chosen = SessionManager.getInstance().getCurrentSession().outputStyle;
+  return chosen?.trim() || undefined;
+}
+
+export function setSessionOutputStyle(name: string | undefined): void {
+  const manager = SessionManager.getInstance();
+  const session = manager.getCurrentSession();
+  const normalized = name?.trim();
+  if (normalized) {
+    session.outputStyle = normalized;
+  } else {
+    delete session.outputStyle;
+  }
+  manager.updateHistory(session.history);
+}
+
 export function setSessionGoal(goal: string | undefined): void {
   const manager = SessionManager.getInstance();
   const session = manager.getCurrentSession();

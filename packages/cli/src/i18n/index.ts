@@ -190,6 +190,15 @@ const en = {
   "chat.noPreviousSession": "No previous session found, starting fresh...",
   "serve.shuttingDown": "\\nShutting down server...",
   "startup.anthropicKey": "Using ANTHROPIC_API_KEY from the environment",
+  "cmd.outputStyle": "Output style",
+  "outputStyle.current": "Output style: {name}",
+  "outputStyle.none": "No output style selected.",
+  "outputStyle.available": "Available styles:",
+  "outputStyle.noneAvailable": "No output styles are installed.",
+  "outputStyle.set": "Output style set to {name}.",
+  "outputStyle.cleared": "Output style cleared.",
+  "outputStyle.unknown": "No output style named {name}.",
+  "outputStyle.usage": "Usage: /output-style <name> | /output-style clear",
   "language.changed": "Language set to {locale}",
 };
 
@@ -354,6 +363,15 @@ const zhCN: Record<TranslationKey, string> = {
   "chat.noPreviousSession": "未找到上一个会话，从头开始...",
   "serve.shuttingDown": "\\n正在关闭服务器...",
   "startup.anthropicKey": "使用环境变量中的 ANTHROPIC_API_KEY",
+  "cmd.outputStyle": "输出风格",
+  "outputStyle.current": "当前输出风格：{name}",
+  "outputStyle.none": "尚未选择输出风格。",
+  "outputStyle.available": "可用风格：",
+  "outputStyle.noneAvailable": "没有已安装的输出风格。",
+  "outputStyle.set": "输出风格已设为 {name}。",
+  "outputStyle.cleared": "已清除输出风格。",
+  "outputStyle.unknown": "没有名为 {name} 的输出风格。",
+  "outputStyle.usage": "用法：/output-style <名称> | /output-style clear",
   "language.changed": "语言已切换为 {locale}",
 };
 

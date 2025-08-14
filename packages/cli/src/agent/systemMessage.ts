@@ -12,8 +12,10 @@ import {
   selectForcedOutputStyle,
   type PluginOutputStyle,
 } from "../plugins/loader.js";
+import { getSessionOutputStyle } from "../session/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * Check if current directory is a git repository
@@ -160,6 +162,23 @@ export function loadMarkdownRulesWithMetadata(): RuleObject[] {
  * Renders an output style as its own system message section. Returns an empty
  * string when no style is active, so the caller can append unconditionally.
  */
+/**
+ * The style the session asked for wins; otherwise a forced style applies. A
+ * chosen style whose plugin disappeared falls back rather than throwing, since
+ * a removed plugin should not break every request.
+ */
+function selectOutputStyle(
+  styles: readonly PluginOutputStyle[],
+): PluginOutputStyle | undefined {
+  const chosen = getSessionOutputStyle();
+  if (chosen) {
+    const match = styles.find((style) => style.name === chosen);
+    if (match) return match;
+    logger.warn(`Output style ${chosen} is not installed; using the default`);
+  }
+  return selectForcedOutputStyle(styles);
+}
+
 export function buildOutputStyleSection(
   style: PluginOutputStyle | undefined,
 ): string {
@@ -261,7 +280,7 @@ Example response format:
   // plugin merely offers are left alone: applying one changes every request
   // prefix until it is switched back, so it stays a user decision.
   systemMessage += buildOutputStyleSection(
-    selectForcedOutputStyle(loadAllPlugins().outputStyles),
+    selectOutputStyle(loadAllPlugins().outputStyles),
   );
 
   // Add rules section if we have any rules or agent content

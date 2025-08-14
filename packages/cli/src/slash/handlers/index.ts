@@ -5,6 +5,7 @@ import type { CommandHandler } from "../types.js";
 import { handleHelp } from "./help.js";
 import { handleLanguage } from "./language.js";
 import { handleJobs, handleTodos } from "./misc.js";
+import { handleOutputStyle } from "./outputStyle.js";
 import { handlePlugins } from "./plugins.js";
 import { handleExport, handleImport } from "./sessionTransfer.js";
 import {
@@ -49,6 +50,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     rename: handleTitle,
     goal: handleGoal,
     plugins: handlePlugins,
+    "output-style": handleOutputStyle,
     init: (args, assistant) => {
       return handleInit(args, assistant);
     },
