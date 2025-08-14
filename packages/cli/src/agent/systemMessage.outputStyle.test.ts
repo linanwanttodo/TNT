@@ -43,13 +43,13 @@ describe("constructSystemMessage output style wiring", () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
     created.length = 0;
-    delete process.env.TNT_PLUGIN_CACHE_DIR;
+    delete process.env.TNT_PLUGINS_DIR;
   });
 
   it("appends the style a plugin forces on", async () => {
     const cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-styles-"));
     created.push(cacheRoot);
-    process.env.TNT_PLUGIN_CACHE_DIR = cacheRoot;
+    process.env.TNT_PLUGINS_DIR = cacheRoot;
 
     // The config service is normally started by the CLI entry point. Only the
     // rules it contributes are read here, so an empty config is enough.

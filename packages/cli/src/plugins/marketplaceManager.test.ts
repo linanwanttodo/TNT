@@ -72,17 +72,17 @@ function noOpsDeps(): MarketplaceDeps {
 }
 
 beforeEach(() => {
-  previousOverride = process.env.TNT_PLUGIN_CACHE_DIR;
+  previousOverride = process.env.TNT_PLUGINS_DIR;
   cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-manager-"));
   marketDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-market-"));
-  process.env.TNT_PLUGIN_CACHE_DIR = cacheDir;
+  process.env.TNT_PLUGINS_DIR = cacheDir;
 });
 
 afterEach(() => {
   if (previousOverride === undefined) {
-    delete process.env.TNT_PLUGIN_CACHE_DIR;
+    delete process.env.TNT_PLUGINS_DIR;
   } else {
-    process.env.TNT_PLUGIN_CACHE_DIR = previousOverride;
+    process.env.TNT_PLUGINS_DIR = previousOverride;
   }
   fs.rmSync(cacheDir, { recursive: true, force: true });
   fs.rmSync(marketDir, { recursive: true, force: true });

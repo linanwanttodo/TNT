@@ -16,7 +16,9 @@ import { env } from "../config/env.js";
  *   data/<plugin-id>/
  */
 export function getPluginsDirectory(): string {
-  const override = process.env.TNT_PLUGIN_CACHE_DIR;
+  // Names the plugins tree, which contains cache/, data/ and the registries.
+  // Pointing it at a cache directory would nest one inside the other.
+  const override = process.env.TNT_PLUGINS_DIR;
   if (override) {
     return expandTilde(override);
   }
