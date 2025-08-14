@@ -200,6 +200,17 @@ const en = {
   "outputStyle.unknown": "No output style named {name}.",
   "outputStyle.usage": "Usage: /output-style <name> | /output-style clear",
   "outputStyle.fromSettings": "Output style: {name} (from settings)",
+  "cmd.diagnostics": "Language server diagnostics",
+  "diagnostics.usage": "Usage: /diagnostics <file>",
+  "diagnostics.missing": "No such file: {path}",
+  "diagnostics.noServers":
+    "No language server is running. Declare one in a plugin manifest under lspServers.",
+  "diagnostics.clean": "No diagnostics for {path}.",
+  "diagnostics.header": "{count} diagnostic(s) for {path}:",
+  "diagnostics.severity.error": "error",
+  "diagnostics.severity.warning": "warning",
+  "diagnostics.severity.info": "info",
+  "diagnostics.severity.hint": "hint",
   "language.changed": "Language set to {locale}",
 };
 
@@ -374,6 +385,17 @@ const zhCN: Record<TranslationKey, string> = {
   "outputStyle.unknown": "没有名为 {name} 的输出风格。",
   "outputStyle.usage": "用法：/output-style <名称> | /output-style clear",
   "outputStyle.fromSettings": "当前输出风格：{name}（来自设置）",
+  "cmd.diagnostics": "语言服务器诊断",
+  "diagnostics.usage": "用法：/diagnostics <文件>",
+  "diagnostics.missing": "文件不存在：{path}",
+  "diagnostics.noServers":
+    "没有运行中的语言服务器。请在插件清单的 lspServers 中声明。",
+  "diagnostics.clean": "{path} 没有诊断信息。",
+  "diagnostics.header": "{path} 共 {count} 条诊断：",
+  "diagnostics.severity.error": "错误",
+  "diagnostics.severity.warning": "警告",
+  "diagnostics.severity.info": "信息",
+  "diagnostics.severity.hint": "提示",
   "language.changed": "语言已切换为 {locale}",
 };
 

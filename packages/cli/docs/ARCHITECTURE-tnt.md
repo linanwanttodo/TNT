@@ -97,6 +97,9 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   pulled is replaced. `src/plugins/marketplaceManager.ts` validates the fetched
   manifest before recording it, refusing a name that impersonates an official
   catalogue and a reserved name served from a non-official source.
+  `src/lsp/` starts a plugin's declared language server over stdio, keeps
+  request correlation and timeouts, and collects published diagnostics that
+  `/diagnostics` prints.
   `/plugin marketplace add|list|remove` is the user-facing entry point, and
   `src/plugins/pluginInstall.ts` installs one plugin from a resolved
   marketplace into `cache/<marketplace>/<plugin>/<version>/`, which is exactly
@@ -180,8 +183,11 @@ Stated as gaps, not as intentions:
    The `dependencies` field of a marketplace entry is parsed but not resolved,
    and there is no automatic refresh of an installed plugin when its
    marketplace updates.
-2. `lspServers` is parsed and exposed by the loader, but the CLI has no LSP
-   client, so it has no effect.
+2. `lspServers` starts a real client: `/diagnostics <file>` opens the file in
+   every declared server and prints what it publishes, with server failures
+   logged rather than thrown. Missing: an open document is never updated when
+   the file changes, and the richer requests (completion, hover, rename) are not
+   exposed.
 3. Output styles resolve in this order: the session choice made with
    `/output-style <plugin:style>`, then an `outputStyle` key in one of the six
    settings files, then a style a plugin forces on. The remaining gap is that
