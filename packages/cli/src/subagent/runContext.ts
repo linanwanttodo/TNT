@@ -72,15 +72,16 @@ export function narrowPermissions(
   const policies: ToolPermissionPolicy[] = [];
   for (const policy of parent.policies) {
     if (policy.tool === "*") {
-      // A wildcard in the parent still has to lose the mutating tools, so it is
-      // replaced by an explicit allow for everything else plus an exclusion.
+      // The exclusions must come BEFORE the wildcard: the checker takes the
+      // first matching policy, so a wildcard emitted first would shadow every
+      // exclusion after it and the child would keep the mutating tools.
+      for (const name of MUTATING_TOOL_NAMES) {
+        policies.push({ tool: name, permission: "exclude" });
+      }
       policies.push({
         tool: "*",
         permission: policy.permission === "exclude" ? "exclude" : "allow",
       });
-      for (const name of MUTATING_TOOL_NAMES) {
-        policies.push({ tool: name, permission: "exclude" });
-      }
       continue;
     }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ToolPermissions } from "../permissions/types.js";
+import { checkToolPermission } from "../permissions/permissionChecker.js";
 
 import {
   createChildContext,
@@ -79,18 +80,19 @@ describe("narrowPermissions", () => {
       { policies: [{ tool: "*", permission: "allow" }] },
       { readonly: true },
     );
-    expect(result.policies).toContainEqual({
-      tool: "Write",
-      permission: "exclude",
-    });
-    expect(result.policies).toContainEqual({
-      tool: "Edit",
-      permission: "exclude",
-    });
-    expect(result.policies).toContainEqual({
-      tool: "Bash",
-      permission: "exclude",
-    });
+
+    // Assert the verdict, not the list shape: the checker takes the first
+    // matching policy, so a list that merely contains the exclusions can still
+    // let a write through.
+    for (const tool of ["Write", "Edit", "Bash"]) {
+      expect(
+        checkToolPermission({ name: tool, arguments: {} }, result).permission,
+        tool,
+      ).toBe("exclude");
+    }
+    expect(
+      checkToolPermission({ name: "Read", arguments: {} }, result).permission,
+    ).not.toBe("exclude");
   });
 
   it("keeps an excluded wildcard excluded in readonly mode", () => {
@@ -98,7 +100,12 @@ describe("narrowPermissions", () => {
       { policies: [{ tool: "*", permission: "exclude" }] },
       { readonly: true },
     );
-    expect(result.policies[0]).toEqual({ tool: "*", permission: "exclude" });
+    for (const tool of ["Write", "Read", "Bash"]) {
+      expect(
+        checkToolPermission({ name: tool, arguments: {} }, result).permission,
+        tool,
+      ).toBe("exclude");
+    }
   });
 });
 
