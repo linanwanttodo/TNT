@@ -484,6 +484,40 @@ describe("Permission Checker", () => {
       expect(result.permission).toBe("ask");
     });
 
+    it("lets a star rule listed first override every rule below it", () => {
+      const permissions: ToolPermissions = {
+        policies: [
+          { tool: "*", permission: "allow" },
+          { tool: "Write", permission: "exclude" },
+        ],
+      };
+
+      // This is what makes a command-line allow-all override work. It also
+      // means the star row has to be first: appending it produces a fallback.
+      expect(
+        checkToolPermission({ name: "Write", arguments: {} }, permissions)
+          .permission,
+      ).toBe("allow");
+    });
+
+    it("treats a star rule listed last as a fallback", () => {
+      const permissions: ToolPermissions = {
+        policies: [
+          { tool: "Write", permission: "exclude" },
+          { tool: "*", permission: "allow" },
+        ],
+      };
+
+      expect(
+        checkToolPermission({ name: "Write", arguments: {} }, permissions)
+          .permission,
+      ).toBe("exclude");
+      expect(
+        checkToolPermission({ name: "Read", arguments: {} }, permissions)
+          .permission,
+      ).toBe("allow");
+    });
+
     it("should match Bash command patterns in checkToolPermission", () => {
       const permissions: ToolPermissions = {
         policies: [

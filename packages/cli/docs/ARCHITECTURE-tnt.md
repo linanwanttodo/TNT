@@ -117,6 +117,15 @@ not dispatch another subagent. Deeper nesting multiplies system prompts and tool
 definitions per request, which is the fastest way to lose the cache reuse
 described in section 4.
 
+A delegation never inherits the parent's permissions unchanged.
+`src/subagent/runContext.ts` narrows them into a new context: a restricted
+delegate loses `Bash`, `Edit`, `Write`, `MultiEdit`, `ApplyPatch`, `Create`,
+`Checklist` and `UploadArtifact`, every "ask" becomes a decision the child may
+not make for itself, and the parent's own permissions object is left untouched,
+so returning to the parent restores exactly what it had. The narrowing appends
+its exclusions ahead of any star rule, because the checker takes the first
+matching policy.
+
 ## 7. Verification gates
 
 Three commands, run from `packages/cli`, must all pass before a commit:

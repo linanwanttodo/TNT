@@ -149,7 +149,9 @@ export function checkToolPermission(
 ): PermissionCheckResult {
   const policies = permissions.policies;
 
-  // First, get the base permission from static policies
+  // The FIRST matching policy wins, which is what makes an allow-all override
+  // work: listing the star rule first lets it beat every rule below it. Callers
+  // that append a star last therefore get a fallback, not an override.
   let basePermission: PermissionPolicy = "ask";
   let matchedPolicy = undefined;
 
