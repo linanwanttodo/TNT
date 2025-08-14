@@ -1,5 +1,7 @@
 import chalk from "chalk";
 
+import { t } from "../../i18n/index.js";
+
 import { loadAllPlugins } from "../../plugins/loader.js";
 import { runMarketplaceCommand } from "../../plugins/marketplaceCommand.js";
 import { createDefaultDeps } from "../../plugins/marketplaceManager.js";
@@ -28,16 +30,19 @@ function resolveMarketplace(
   const registered = Object.keys(loadKnownMarketplaces());
   if (registered.length === 1) return { marketplace: registered[0] };
   if (registered.length === 0) {
-    return { problem: "No marketplaces registered. Add one first." };
+    return { problem: t("plugin.needMarketplace") };
   }
   return {
-    problem: `Name the marketplace: Registered are ${registered.join(", ")}. Use ${name}@<marketplace>`,
+    problem: t("plugin.chooseMarketplace", {
+      list: registered.join(", "),
+      name,
+    }),
   };
 }
 
 async function handleInstall(reference: string | undefined) {
   if (!reference) {
-    return { output: "Usage: /plugin install <name>[@marketplace]" };
+    return { output: t("plugin.installUsage") };
   }
   const { name, marketplace } = splitPluginReference(reference);
   const resolved = resolveMarketplace(name, marketplace);
@@ -54,18 +59,21 @@ async function handleInstall(reference: string | undefined) {
       ? ` at ${installed.gitCommitSha.slice(0, 8)}`
       : "";
     return {
-      output: `${installed.reused ? "Already installed" : "Installed"} ${installed.id} ${installed.version}${sha}\n  ${installed.installPath}`,
+      output: `${installed.reused ? t("plugin.alreadyInstalled", { id: installed.id, version: installed.version }) : t("plugin.installed", { id: installed.id, version: installed.version })}${sha}\n  ${installed.installPath}`,
     };
   } catch (error) {
     return {
-      output: `Could not install ${reference}: ${(error as Error).message}`,
+      output: t("plugin.installFailed", {
+        reference,
+        message: (error as Error).message,
+      }),
     };
   }
 }
 
 function handleUninstall(reference: string | undefined) {
   if (!reference) {
-    return { output: "Usage: /plugin uninstall <name>[@marketplace]" };
+    return { output: t("plugin.uninstallUsage") };
   }
   const { name, marketplace } = splitPluginReference(reference);
   const resolved = resolveMarketplace(name, marketplace);
@@ -76,8 +84,8 @@ function handleUninstall(reference: string | undefined) {
   const removed = uninstallPlugin(id);
   return {
     output: removed
-      ? `Removed ${id} from the registry. Its cached files stay until cleaned.`
-      : `No installation recorded for ${id}.`,
+      ? t("plugin.uninstallDone", { id })
+      : t("plugin.uninstallMissing", { id }),
   };
 }
 
@@ -101,13 +109,13 @@ export async function handlePlugins(
 
   if (installed.length === 0) {
     const lines = [
-      "No plugins installed.",
-      "Add a marketplace: /plugin marketplace add <name> github:<owner>/<repo>",
-      "Then install: /plugin install <name>@<marketplace>",
-      "Or place plugins under ~/.tnt/plugins/cache/<marketplace>/<name>/<version>.",
+      t("plugin.none"),
+      t("plugin.addMarketplaceHint"),
+      t("plugin.installHint"),
+      t("plugin.placeHint"),
     ];
     if (marketplaces > 0) {
-      lines.push(`${marketplaces} marketplace(s) registered`);
+      lines.push(t("plugin.marketplacesRegistered", { count: marketplaces }));
     }
     return { exit: false, output: chalk.dim(lines.join("\n")) };
   }
@@ -121,7 +129,7 @@ export async function handlePlugins(
   return {
     exit: false,
     output: [
-      chalk.bold(`Installed plugins (${installed.length})`),
+      chalk.bold(t("plugin.installedHeader", { count: installed.length })),
       "",
       ...lines,
       "",

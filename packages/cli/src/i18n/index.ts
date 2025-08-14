@@ -109,6 +109,51 @@ const en = {
   "setup.saved": "Config file written to {path}",
   "setup.bedrock": "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
   "language.title": "Language",
+  "skills.none":
+    "No skills found. Add skills under .tnt/skills or .claude/skills.",
+  "session.forkFailed": "Failed to create fork command: {error}",
+  "session.titleUsage": "Please provide a title. Usage: /title <your title>",
+  "session.titleUpdated": 'Session title updated to: "{title}"',
+  "session.titleFailed": "Failed to update title: {error}",
+  "session.goalUsage":
+    "No goal set. Usage: /goal <objective> or /goal clear to remove it.",
+  "session.currentGoal": "Current goal: {goal}",
+  "session.goalCleared": "Goal cleared",
+  "session.goalSet": "Goal set: {goal}",
+  "session.fileNotFound": "File not found: {path}",
+  "session.invalidFile":
+    "Invalid session file: expected a valid Continue exported session (version 1).",
+  "plugin.none": "No plugins installed.",
+  "plugin.addMarketplaceHint":
+    "Add a marketplace: /plugin marketplace add <name> github:<owner>/<repo>",
+  "plugin.installHint": "Then install: /plugin install <name>@<marketplace>",
+  "plugin.placeHint":
+    "Or place plugins under ~/.tnt/plugins/cache/<marketplace>/<name>/<version>.",
+  "plugin.marketplacesRegistered": "{count} marketplace(s) registered",
+  "plugin.installedHeader": "Installed plugins ({count})",
+  "plugin.installUsage": "Usage: /plugin install <name>[@marketplace]",
+  "plugin.uninstallUsage": "Usage: /plugin uninstall <name>[@marketplace]",
+  "plugin.needMarketplace": "No marketplaces registered. Add one first.",
+  "plugin.chooseMarketplace":
+    "Name the marketplace: Registered are {list}. Use {name}@<marketplace>",
+  "plugin.uninstallDone":
+    "Removed {id} from the registry. Its cached files stay until cleaned.",
+  "plugin.uninstallMissing": "No installation recorded for {id}.",
+  "plugin.installFailed": "Could not install {reference}: {message}",
+  "plugin.installed": "Installed {id} {version}",
+  "plugin.alreadyInstalled": "Already installed {id} {version}",
+  "plugin.marketplace.empty": "No marketplaces registered.",
+  "plugin.marketplace.added": "Added marketplace {name} with {count} plugins.",
+  "plugin.marketplace.addedReused":
+    "Added marketplace {name} with {count} plugins (reused local files).",
+  "plugin.marketplace.removeHint":
+    "Removed marketplace {name}. Cached plugins stay until cleaned.",
+  "plugin.marketplace.unknown": "No marketplace named {name}.",
+  "plugin.marketplace.unknownAction":
+    "Unknown marketplace action: {action}. Use add, list or remove.",
+  "plugin.marketplace.addUsage":
+    "Usage: /plugin marketplace add <name> <source> | /plugin marketplace add <source>",
+  "plugin.marketplace.addFailed": "Could not add marketplace: {message}",
   "language.changed": "Language set to {locale}",
 };
 
@@ -199,6 +244,46 @@ const zhCN: Record<TranslationKey, string> = {
   "setup.saved": "配置文件已写入 {path}",
   "setup.bedrock": "正在使用 AWS Bedrock（检测到 CONTINUE_USE_BEDROCK）",
   "language.title": "语言",
+  "skills.none": "没有找到技能。把技能放在 .tnt/skills 或 .claude/skills 下。",
+  "session.forkFailed": "创建 fork 命令失败：{error}",
+  "session.titleUsage": "请提供标题。用法：/title <标题>",
+  "session.titleUpdated": '会话标题已更新为："{title}"',
+  "session.titleFailed": "更新标题失败：{error}",
+  "session.goalUsage": "未设置目标。用法：/goal <目标>，或 /goal clear 清除。",
+  "session.currentGoal": "当前目标：{goal}",
+  "session.goalCleared": "目标已清除",
+  "session.goalSet": "目标已设置：{goal}",
+  "session.fileNotFound": "文件不存在：{path}",
+  "session.invalidFile":
+    "会话文件无效：需要 Continue 导出的合法会话（版本 1）。",
+  "plugin.none": "未安装任何插件。",
+  "plugin.addMarketplaceHint":
+    "添加插件市场：/plugin marketplace add <名称> github:<owner>/<repo>",
+  "plugin.installHint": "然后安装：/plugin install <名称>@<市场>",
+  "plugin.placeHint":
+    "或把插件放在 ~/.tnt/plugins/cache/<市场>/<名称>/<版本> 下。",
+  "plugin.marketplacesRegistered": "已注册 {count} 个插件市场",
+  "plugin.installedHeader": "已安装插件（{count}）",
+  "plugin.installUsage": "用法：/plugin install <名称>[@市场]",
+  "plugin.uninstallUsage": "用法：/plugin uninstall <名称>[@市场]",
+  "plugin.needMarketplace": "尚未注册插件市场，请先添加一个。",
+  "plugin.chooseMarketplace": "请指定市场：已注册 {list}。使用 {name}@<市场>",
+  "plugin.uninstallDone": "已从注册表移除 {id}，其缓存文件保留待清理。",
+  "plugin.uninstallMissing": "没有 {id} 的安装记录。",
+  "plugin.installFailed": "无法安装 {reference}：{message}",
+  "plugin.installed": "已安装 {id} {version}",
+  "plugin.alreadyInstalled": "此前已安装 {id} {version}",
+  "plugin.marketplace.empty": "尚未注册插件市场。",
+  "plugin.marketplace.added": "已添加市场 {name}，包含 {count} 个插件。",
+  "plugin.marketplace.addedReused":
+    "已添加市场 {name}，包含 {count} 个插件（复用了本地文件）。",
+  "plugin.marketplace.removeHint": "已移除市场 {name}，插件缓存保留待清理。",
+  "plugin.marketplace.unknown": "没有名为 {name} 的市场。",
+  "plugin.marketplace.unknownAction":
+    "未知的市场操作：{action}。可用 add、list、remove。",
+  "plugin.marketplace.addUsage":
+    "用法：/plugin marketplace add <名称> <来源> 或 /plugin marketplace add <来源>",
+  "plugin.marketplace.addFailed": "添加市场失败：{message}",
   "language.changed": "语言已切换为 {locale}",
 };
 
