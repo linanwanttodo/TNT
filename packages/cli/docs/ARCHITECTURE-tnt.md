@@ -97,7 +97,11 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   pulled is replaced. `src/plugins/marketplaceManager.ts` validates the fetched
   manifest before recording it, refusing a name that impersonates an official
   catalogue and a reserved name served from a non-official source.
-  `/plugin marketplace add|list|remove` is the user-facing entry point.
+  `/plugin marketplace add|list|remove` is the user-facing entry point, and
+  `src/plugins/pluginInstall.ts` installs one plugin from a resolved
+  marketplace into `cache/<marketplace>/<plugin>/<version>/`, which is exactly
+  where `discoverInstalledPlugins` looks, then records it in
+  `installed_plugins.json` as scope `user`.
 - `src/hooks/` implements `command`, `http`, `prompt` and `agent` hook types with
   Claude Code exit-code semantics: 0 proceeds, 2 blocks and turns stderr into
   feedback, anything else is a non-blocking error. Config is merged from user,
@@ -146,12 +150,12 @@ by vitest when they sit in `__mocks__` next to the mocked module.
 
 Stated as gaps, not as intentions:
 
-1. Marketplaces can be added, listed and removed, but individual plugins cannot
-   be installed yet: nothing resolves a plugin entry's `source` from a
-   marketplace manifest into `cache/<marketplace>/<plugin>/<version>/`, so
-   `installed_plugins.json` is only written when a caller records an
-   installation directly. Plugins are still discovered from whatever is already
-   on disk.
+1. Marketplace plugins install from a relative path, `github:`, `git:` or
+   `npm:` source; a plugin declared with any other scheme is refused rather
+   than guessed at, and `url:`-style plugin descriptors are not implemented.
+   The `dependencies` field of a marketplace entry is parsed but not resolved,
+   and there is no automatic refresh of an installed plugin when its
+   marketplace updates.
 2. `lspServers` is parsed and exposed by the loader, but the CLI has no LSP
    client, so it has no effect.
 3. Output styles: only styles with `force-for-plugin: true` apply automatically.
