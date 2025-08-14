@@ -182,11 +182,12 @@ Stated as gaps, not as intentions:
    marketplace updates.
 2. `lspServers` is parsed and exposed by the loader, but the CLI has no LSP
    client, so it has no effect.
-3. Output styles are chosen with `/output-style <plugin:style>` and the choice
-   is stored on the session, so a resumed conversation keeps it and it outranks a
-   style the plugin forces on. What is missing is a project-level default: the
-   choice does not yet live in a settings file, so a new session starts from the
-   plugin default again.
+3. Output styles resolve in this order: the session choice made with
+   `/output-style <plugin:style>`, then an `outputStyle` key in one of the six
+   settings files, then a style a plugin forces on. The remaining gap is that
+   the command writes only the session, so setting a project default still
+   means editing a settings file by hand.
+
 4. Plugin-declared settings are parsed but only a key whitelist is honoured in
    the settings cascade.
 5. Vendor-side cache behaviour is not verified on this machine. Proving that a

@@ -199,6 +199,7 @@ const en = {
   "outputStyle.cleared": "Output style cleared.",
   "outputStyle.unknown": "No output style named {name}.",
   "outputStyle.usage": "Usage: /output-style <name> | /output-style clear",
+  "outputStyle.fromSettings": "Output style: {name} (from settings)",
   "language.changed": "Language set to {locale}",
 };
 
@@ -372,6 +373,7 @@ const zhCN: Record<TranslationKey, string> = {
   "outputStyle.cleared": "已清除输出风格。",
   "outputStyle.unknown": "没有名为 {name} 的输出风格。",
   "outputStyle.usage": "用法：/output-style <名称> | /output-style clear",
+  "outputStyle.fromSettings": "当前输出风格：{name}（来自设置）",
   "language.changed": "语言已切换为 {locale}",
 };
 
