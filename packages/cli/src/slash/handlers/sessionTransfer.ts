@@ -1,5 +1,7 @@
 import fs from "fs";
 
+import { t } from "../../i18n/index.js";
+
 import type { Session } from "core/index.js";
 import historyManager from "core/util/history.js";
 import chalk from "chalk";
@@ -52,7 +54,7 @@ export function handleImport(args: string[]): SlashCommandResult {
   if (!fs.existsSync(filePath)) {
     return {
       exit: false,
-      output: chalk.red(`File not found: ${filePath}`),
+      output: chalk.red(t("session.fileNotFound", { path: filePath })),
     };
   }
 
@@ -63,9 +65,7 @@ export function handleImport(args: string[]): SlashCommandResult {
     if (!isValidExportedSession(exportedData)) {
       return {
         exit: false,
-        output: chalk.red(
-          "Invalid session file: expected a valid Continue exported session (version 1).",
-        ),
+        output: chalk.red(t("session.invalidFile")),
       };
     }
 

@@ -31,7 +31,7 @@ export async function handleFork(): Promise<SlashCommandResult> {
   } catch (error: any) {
     return {
       exit: false,
-      output: chalk.red(`Failed to create fork command: ${error.message}`),
+      output: chalk.red(t("session.forkFailed", { error: error.message })),
     };
   }
 }
@@ -41,9 +41,7 @@ export function handleTitle(args: string[]): SlashCommandResult {
   if (!title) {
     return {
       exit: false,
-      output: chalk.yellow(
-        "Please provide a title. Usage: /title <your title>",
-      ),
+      output: chalk.yellow(t("session.titleUsage")),
     };
   }
 
@@ -51,12 +49,12 @@ export function handleTitle(args: string[]): SlashCommandResult {
     updateSessionTitle(title);
     return {
       exit: false,
-      output: chalk.green(`Session title updated to: "${title}"`),
+      output: chalk.green(t("session.titleUpdated", { title })),
     };
   } catch (error: any) {
     return {
       exit: false,
-      output: chalk.red(`Failed to update title: ${error.message}`),
+      output: chalk.red(t("session.titleFailed", { error: error.message })),
     };
   }
 }
@@ -68,10 +66,8 @@ export function handleGoal(args: string[]): SlashCommandResult {
     return {
       exit: false,
       output: current
-        ? chalk.dim(`Current goal: ${current}`)
-        : chalk.yellow(
-            "No goal set. Usage: /goal <objective> or /goal clear to remove it.",
-          ),
+        ? chalk.dim(t("session.currentGoal", { goal: current }))
+        : chalk.yellow(t("session.goalUsage")),
     };
   }
 
@@ -79,14 +75,14 @@ export function handleGoal(args: string[]): SlashCommandResult {
     setSessionGoal(undefined);
     return {
       exit: false,
-      output: chalk.dim("Goal cleared"),
+      output: chalk.dim(t("session.goalCleared")),
     };
   }
 
   setSessionGoal(goal);
   return {
     exit: false,
-    output: chalk.green(`Goal set: ${goal}`),
+    output: chalk.green(t("session.goalSet", { goal })),
   };
 }
 

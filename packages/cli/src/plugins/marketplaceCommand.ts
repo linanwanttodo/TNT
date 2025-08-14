@@ -1,5 +1,7 @@
 import path from "path";
 
+import { t } from "../i18n/index.js";
+
 import {
   forgetMarketplace,
   loadKnownMarketplaces,
@@ -76,7 +78,7 @@ export async function runMarketplaceCommand(
     const all = loadKnownMarketplaces();
     const names = Object.keys(all).sort();
     if (names.length === 0) {
-      return { output: "No marketplaces registered." };
+      return { output: t("plugin.marketplace.empty") };
     }
     return {
       output: names
@@ -93,8 +95,7 @@ export async function runMarketplaceCommand(
     const [nameOrSource, maybeSource] = rest;
     if (!nameOrSource) {
       return {
-        output:
-          "Usage: /plugin marketplace add <name> <source> | /plugin marketplace add <source>",
+        output: t("plugin.marketplace.addUsage"),
       };
     }
     const rawSource = maybeSource ?? nameOrSource;
@@ -103,11 +104,21 @@ export async function runMarketplaceCommand(
       const { source } = parseMarketplaceSource(rawSource);
       const result = await addMarketplace(name, source, createDefaultDeps());
       return {
-        output: `Added marketplace ${name} with ${result.manifest.plugins.length} plugins${result.reused ? " (reused local files)" : ""}.`,
+        output: result.reused
+          ? t("plugin.marketplace.addedReused", {
+              name,
+              count: result.manifest.plugins.length,
+            })
+          : t("plugin.marketplace.added", {
+              name,
+              count: result.manifest.plugins.length,
+            }),
       };
     } catch (error) {
       return {
-        output: `Could not add marketplace: ${(error as Error).message}`,
+        output: t("plugin.marketplace.addFailed", {
+          message: (error as Error).message,
+        }),
       };
     }
   }
@@ -115,18 +126,18 @@ export async function runMarketplaceCommand(
   if (action === "remove") {
     const name = rest[0];
     if (!name) {
-      return { output: "Usage: /plugin marketplace remove <name>" };
+      return { output: t("plugin.uninstallUsage") };
     }
     const removed = forgetMarketplace(name);
     return {
       output: removed
-        ? `Removed marketplace ${name}. Cached plugins stay until cleaned.`
-        : `No marketplace named ${name}.`,
+        ? t("plugin.marketplace.removeHint", { name })
+        : t("plugin.marketplace.unknown", { name }),
     };
   }
 
   return {
-    output: `Unknown marketplace action: ${action}. Use add, list or remove.`,
+    output: t("plugin.marketplace.unknownAction", { action }),
   };
 }
 
