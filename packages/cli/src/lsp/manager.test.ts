@@ -21,9 +21,9 @@ function writePlugin(lspServers: unknown): void {
   );
 }
 
-function fileToCheck(name = "sample.ts"): string {
+function fileToCheck(name = "sample.ts", content = "const BAD = 1\n"): string {
   const file = path.join(workDir, name);
-  fs.writeFileSync(file, "const a = 1\n");
+  fs.writeFileSync(file, content);
   return file;
 }
 
@@ -89,6 +89,18 @@ describe("collecting diagnostics", () => {
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].message).toContain("fake diagnostic");
     expect(diagnostics[0].severity).toBe(1);
+  });
+
+  it("clears the diagnostics when the new text is clean", async () => {
+    writePlugin({ fake: { command: process.execPath, args: [SERVER] } });
+    await getLspManager().ensureStarted(workDir);
+    const file = fileToCheck();
+    expect(await getLspManager().collectDiagnostics(file)).toHaveLength(1);
+
+    fs.writeFileSync(file, "const fine = 1\n");
+    const after = await getLspManager().collectDiagnostics(file);
+
+    expect(after).toEqual([]);
   });
 
   it("returns nothing when no server is running", async () => {
