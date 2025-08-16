@@ -149,8 +149,6 @@ const en = {
   "plugin.marketplace.removeHint":
     "Removed marketplace {name}. Cached plugins stay until cleaned.",
   "plugin.marketplace.unknown": "No marketplace named {name}.",
-  "plugin.marketplace.unknownAction":
-    "Unknown marketplace action: {action}. Use add, list or remove.",
   "plugin.marketplace.addUsage":
     "Usage: /plugin marketplace add <name> <source> | /plugin marketplace add <source>",
   "plugin.marketplace.addFailed": "Could not add marketplace: {message}",
@@ -220,6 +218,16 @@ const en = {
   "checks.summary.passed": "{count} passed",
   "checks.summary.failing": "{count} failing",
   "checks.summary.pending": "{count} pending",
+  "plugin.marketplace.refreshUsage":
+    "Usage: /plugin marketplace refresh [name]",
+  "plugin.marketplace.refreshed":
+    "Marketplace {name}: {updated} plugin(s) updated",
+  "plugin.marketplace.refreshFailed": "Could not refresh {name}: {message}",
+  "plugin.marketplace.unchanged": "Marketplace {name} is already up to date.",
+  "plugin.marketplace.refreshUpdateFailed":
+    "  {id} could not be updated: {message}",
+  "plugin.marketplace.unknownAction":
+    "Unknown marketplace action: {action}. Use add, list, refresh or remove.",
   "language.changed": "Language set to {locale}",
 };
 
@@ -345,8 +353,6 @@ const zhCN: Record<TranslationKey, string> = {
     "已添加市场 {name}，包含 {count} 个插件（复用了本地文件）。",
   "plugin.marketplace.removeHint": "已移除市场 {name}，插件缓存保留待清理。",
   "plugin.marketplace.unknown": "没有名为 {name} 的市场。",
-  "plugin.marketplace.unknownAction":
-    "未知的市场操作：{action}。可用 add、list、remove。",
   "plugin.marketplace.addUsage":
     "用法：/plugin marketplace add <名称> <来源> 或 /plugin marketplace add <来源>",
   "plugin.marketplace.addFailed": "添加市场失败：{message}",
@@ -413,6 +419,13 @@ const zhCN: Record<TranslationKey, string> = {
   "checks.summary.passed": "{count} 通过",
   "checks.summary.failing": "{count} 失败",
   "checks.summary.pending": "{count} 待处理",
+  "plugin.marketplace.refreshUsage": "用法：/plugin marketplace refresh [名称]",
+  "plugin.marketplace.refreshed": "市场 {name}：已更新 {updated} 个插件",
+  "plugin.marketplace.refreshFailed": "刷新 {name} 失败：{message}",
+  "plugin.marketplace.unchanged": "市场 {name} 已是最新。",
+  "plugin.marketplace.refreshUpdateFailed": "  {id} 更新失败：{message}",
+  "plugin.marketplace.unknownAction":
+    "未知的市场操作：{action}。可用 add、list、refresh、remove。",
   "language.changed": "语言已切换为 {locale}",
 };
 
