@@ -1,4 +1,5 @@
 import * as fs from "fs";
+
 import * as path from "path";
 
 import chalk from "chalk";
@@ -44,7 +45,7 @@ export async function runOnboardingFlow(
     // In test/CI there is nobody to answer the prompts, so an already
     // complete config is left exactly as it is.
     if (process.env.ANTHROPIC_API_KEY) {
-      console.log(chalk.blue("Using ANTHROPIC_API_KEY from the environment"));
+      console.log(chalk.blue(t("startup.anthropicKey")));
       return false;
     }
 

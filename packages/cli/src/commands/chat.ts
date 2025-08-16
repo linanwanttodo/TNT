@@ -1,4 +1,6 @@
 import { ModelConfig } from "@tnt/config-yaml";
+
+import { t } from "../i18n/index.js";
 import { BaseLlmApi } from "@tnt/openai-adapters";
 import chalk from "chalk";
 import { ChatHistoryItem, Session } from "core";
@@ -104,7 +106,7 @@ export async function initializeChatHistory(
     );
     const sessionToFork = loadSessionById(options.fork);
     if (sessionToFork) {
-      logger.info(chalk.yellow("Forking from existing session..."));
+      logger.info(chalk.yellow(t("chat.forking")));
       const newSession = startNewSession(sessionToFork.history);
       return newSession.history;
     } else {
@@ -117,10 +119,10 @@ export async function initializeChatHistory(
   if (options.resume) {
     session = loadSession();
     if (session) {
-      logger.info(chalk.yellow("Resuming previous session..."));
+      logger.info(chalk.yellow(t("chat.resuming")));
       return session.history;
     } else {
-      logger.info(chalk.yellow("No previous session found, starting fresh..."));
+      logger.info(chalk.yellow(t("chat.noPreviousSession")));
     }
   }
 
@@ -135,7 +137,7 @@ async function handleManualCompaction(
   isHeadless: boolean,
 ): Promise<{ compactionIndex?: number | null } | void> {
   if (!isHeadless) {
-    console.info(chalk.yellow("Compacting chat history..."));
+    console.info(chalk.yellow(t("chat.compacting")));
   }
 
   try {
@@ -157,7 +159,7 @@ async function handleManualCompaction(
         }) + "\n",
       );
     } else {
-      console.info(chalk.green("Chat history compacted successfully."));
+      console.info(chalk.green(t("chat.compacted")));
     }
 
     return { compactionIndex: result.compactionIndex };
@@ -288,7 +290,7 @@ async function handleAutoCompaction(
       } else if (message.includes("Warning:")) {
         if (!isHeadless) {
           console.error(chalk.red(message));
-          console.info(chalk.yellow("Continuing without compaction..."));
+          console.info(chalk.yellow(t("chat.compactionSkipped")));
         } else if (format === "json") {
           safeStdout(
             JSON.stringify({

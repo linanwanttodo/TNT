@@ -126,7 +126,22 @@ so returning to the parent restores exactly what it had. The narrowing appends
 its exclusions ahead of any star rule, because the checker takes the first
 matching policy.
 
-## 7. Verification gates
+## 7. What is deliberately not translated
+
+Only terminal copy goes through the translator. Three classes of string stay in
+English on purpose:
+
+1. HTTP payloads served by `tnt serve` and the platform client. They are a
+   protocol, not prose; translating them would break clients and every test that
+   pins the wire format.
+2. Log lines written through `logger`. Log files are read by support and
+   grepped by hand, so one language there beats two.
+3. Composed help blocks that mix prose with generated content, such as the
+   endpoint listing `tnt serve` prints and the per-check summary line in
+   `tnt checks`. They need a structured shape rather than a single key; the
+   measured list is in the round's notes rather than converted halfway.
+
+## 8. Verification gates
 
 Three commands, run from `packages/cli`, must all pass before a commit:
 
@@ -155,7 +170,7 @@ cross-cutting suites are named by what they prove.
 suites outside `src/` are still type-checked. Hand-written mocks are only read
 by vitest when they sit in `__mocks__` next to the mocked module.
 
-## 8. Known gaps
+## 9. Known gaps
 
 Stated as gaps, not as intentions:
 

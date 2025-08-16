@@ -1,5 +1,7 @@
 import { execSync, fork } from "child_process";
 
+import { t } from "../i18n/index.js";
+
 import chalk from "chalk";
 import React from "react";
 
@@ -141,7 +143,7 @@ function applyPatches(results: ReviewResult[]): void {
   );
 
   if (patchResults.length === 0) {
-    console.log(chalk.dim("No patches to apply."));
+    console.log(chalk.dim(t("review.noPatches")));
     return;
   }
 
@@ -161,20 +163,18 @@ function applyPatches(results: ReviewResult[]): void {
         stdio: ["pipe", "pipe", "pipe"],
       });
       applied++;
-      console.log(chalk.green(`  ✓ Applied patch from ${result.name}`));
+      console.log(chalk.green(t("review.appliedPatch", { name: result.name })));
     } catch {
       failed++;
-      console.log(
-        chalk.red(
-          `  ✗ Could not apply patch from ${result.name} (conflict with working tree)`,
-        ),
-      );
+      console.log(chalk.red(t("review.patchConflict", { name: result.name })));
     }
   }
 
   console.log(
-    `\nApplied ${applied}/${patchResults.length} patches.` +
-      (failed > 0 ? ` ${failed} had conflicts (see above).` : ""),
+    t("review.appliedSummary", {
+      applied,
+      total: patchResults.length,
+    }) + (failed > 0 ? t("review.conflictsSuffix", { count: failed }) : ""),
   );
 }
 
@@ -245,7 +245,7 @@ function outputResultsAndExit(
   console.log("\n" + report);
 
   if (options.fix) {
-    console.log(chalk.dim("\nApplying fixes..."));
+    console.log(chalk.dim(t("review.applyingFixes")));
     applyPatches(results);
   }
 
@@ -280,11 +280,7 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
 
   if (!diffContext.diff.trim() && diffContext.changedFiles.length === 0) {
     unmountUI();
-    console.log(
-      chalk.yellow(
-        "No changes detected. Make some changes or specify a different base branch with --base.",
-      ),
-    );
+    console.log(chalk.yellow(t("review.noChanges")));
     process.exit(0);
   }
 
@@ -298,18 +294,7 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
 
   if (reviews.length === 0) {
     unmountUI();
-    console.log(
-      chalk.yellow("\nNo reviews found. To add reviews:\n") +
-        chalk.dim(
-          "  1. Create .tnt/agents/my-review.md with agent instructions\n",
-        ) +
-        chalk.dim(
-          "  2. Or specify an agent: tnt review --review-agents org/agent-name\n",
-        ) +
-        chalk.dim(
-          "  3. Or configure reviews on https://github.com/linanwanttodo/TNT\n",
-        ),
-    );
+    console.log(chalk.yellow(t("review.none")));
     process.exit(0);
   }
 
