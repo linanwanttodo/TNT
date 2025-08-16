@@ -17,24 +17,35 @@ function respond(id, result) {
 function handle(message) {
   if (message.id === undefined) {
     // Notification: the client finishing its handshake or opening a document.
-    if (message.method === "textDocument/didOpen") {
-      const uri = message.params?.textDocument?.uri;
+    if (
+      message.method === "textDocument/didOpen" ||
+      message.method === "textDocument/didChange"
+    ) {
+      const doc = message.params?.textDocument;
+      const uri = doc?.uri;
+      const text =
+        message.method === "textDocument/didOpen"
+          ? doc?.text
+          : message.params?.contentChanges?.[0]?.text;
+      const clean = typeof text === "string" && !text.includes("BAD");
       send({
         jsonrpc: "2.0",
         method: "textDocument/publishDiagnostics",
         params: {
           uri,
-          diagnostics: [
-            {
-              range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 1 },
-              },
-              severity: 1,
-              source: "fake-lsp",
-              message: "fake diagnostic for " + uri,
-            },
-          ],
+          diagnostics: clean
+            ? []
+            : [
+                {
+                  range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 1 },
+                  },
+                  severity: 1,
+                  source: "fake-lsp",
+                  message: "fake diagnostic for " + uri,
+                },
+              ],
         },
       });
     }

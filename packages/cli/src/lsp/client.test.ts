@@ -106,9 +106,10 @@ describe("documents and diagnostics", () => {
       },
     });
 
+    const content = "const BAD = 1\n";
     const file = path.join(fixtureDir, "sample.ts");
-    fs.writeFileSync(file, "const a = 1\n");
-    client.openDocument(file, "const a = 1\n");
+    fs.writeFileSync(file, content);
+    client.openDocument(file, content);
 
     await vi.waitFor(() => expect(diagnostics).toHaveLength(1));
     expect(diagnostics[0].uri).toContain("sample.ts");

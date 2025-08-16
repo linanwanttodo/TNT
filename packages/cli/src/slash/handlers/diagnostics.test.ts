@@ -29,7 +29,7 @@ function writePlugin(): void {
 
 function sampleFile(): string {
   const file = path.join(workDir, "sample.ts");
-  fs.writeFileSync(file, "const a = 1\n");
+  fs.writeFileSync(file, "const BAD = 1\n");
   return file;
 }
 

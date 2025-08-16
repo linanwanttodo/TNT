@@ -117,7 +117,9 @@ export class LspManager {
       return [];
     }
     for (const client of clients) {
-      client.openDocument(absolute, text);
+      // A repeated didOpen is a protocol error, so a second request for the
+      // same file is sent as a change instead.
+      client.openOrUpdate(absolute, text);
     }
 
     const deadline = Date.now() + DIAGNOSTIC_TIMEOUT_MS;

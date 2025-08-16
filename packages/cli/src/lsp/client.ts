@@ -179,6 +179,32 @@ export class LspClient {
     });
   }
 
+  /** Opens a document, or pushes new text when the server already has it. */
+  openOrUpdate(filePath: string, text: string): void {
+    const uri = pathToFileURL(path.resolve(filePath)).toString();
+    if (this.openDocuments.has(uri)) {
+      this.updateDocument(filePath, text);
+      return;
+    }
+    this.openDocument(filePath, text);
+  }
+
+  /**
+   * Pushes new text for an already open document. A change to a document that
+   * was never opened is ignored, since a server may not know about it.
+   */
+  updateDocument(filePath: string, text: string): void {
+    const uri = pathToFileURL(path.resolve(filePath)).toString();
+    const open = this.openDocuments.get(uri);
+    if (!open) return;
+    open.text = text;
+    open.version += 1;
+    this.notify("textDocument/didChange", {
+      textDocument: { uri, version: open.version },
+      contentChanges: [{ text }],
+    });
+  }
+
   async dispose(): Promise<void> {
     if (this.disposed) return;
     for (const uri of this.openDocuments.keys()) {
