@@ -211,6 +211,15 @@ const en = {
   "diagnostics.severity.warning": "warning",
   "diagnostics.severity.info": "info",
   "diagnostics.severity.hint": "hint",
+  "serve.started": "Server started on http://localhost:{port}",
+  "serve.endpoints": "Endpoints:",
+  "serve.endpointList":
+    "  GET  /state      - Get current agent state\n  POST /message    - Send a message (body: { message: string })\n  POST /permission - Approve/reject tool (body: { requestId, approved })\n  POST /pause      - Pause the current agent run\n  GET  /diff       - Get git diff against main branch\n  POST /exit       - Gracefully shut down the server",
+  "serve.inactivity":
+    "\nServer will shut down after {seconds} seconds of inactivity",
+  "checks.summary.passed": "{count} passed",
+  "checks.summary.failing": "{count} failing",
+  "checks.summary.pending": "{count} pending",
   "language.changed": "Language set to {locale}",
 };
 
@@ -396,6 +405,14 @@ const zhCN: Record<TranslationKey, string> = {
   "diagnostics.severity.warning": "警告",
   "diagnostics.severity.info": "信息",
   "diagnostics.severity.hint": "提示",
+  "serve.started": "服务器已启动：http://localhost:{port}",
+  "serve.endpoints": "端点：",
+  "serve.endpointList":
+    "  GET  /state      - 获取当前智能体状态\n  POST /message    - 发送消息（body: { message: string }）\n  POST /permission - 批准/拒绝工具调用（body: { requestId, approved }）\n  POST /pause      - 暂停当前智能体运行\n  GET  /diff       - 获取相对主分支的 git diff\n  POST /exit       - 优雅关闭服务",
+  "serve.inactivity": "\n闲置 {seconds} 秒后服务器将自动关闭",
+  "checks.summary.passed": "{count} 通过",
+  "checks.summary.failing": "{count} 失败",
+  "checks.summary.pending": "{count} 待处理",
   "language.changed": "语言已切换为 {locale}",
 };
 

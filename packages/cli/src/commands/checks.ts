@@ -187,11 +187,7 @@ async function listChecks(prUrl: string): Promise<void> {
   const failures = checks.filter((c) => c.state === "failure").length;
   const successes = checks.filter((c) => c.state === "success").length;
 
-  const parts: string[] = [];
-  if (successes > 0) parts.push(chalk.green(`${successes} passed`));
-  if (failures > 0) parts.push(chalk.red(`${failures} failing`));
-  if (pending > 0) parts.push(chalk.yellow(`${pending} pending`));
-  console.log(parts.join(", "));
+  console.log(formatChecksSummary({ successes, failures, pending }));
 
   // Exit code: 0=all pass, 1=any failure, 2=still pending
   if (failures > 0) {
@@ -275,6 +271,34 @@ async function rejectChecks(prUrl: string): Promise<void> {
  *   tnt checks accept [pr-url]       - Accept pending suggestions
  *   tnt checks reject [pr-url]       - Reject pending suggestions
  */
+/**
+ * One line summarising a run, with only the counts that occurred. Kept as a
+ * formatter so the wording can be tested without running a command.
+ */
+export function formatChecksSummary(counts: {
+  successes: number;
+  failures: number;
+  pending: number;
+}): string {
+  const parts: string[] = [];
+  if (counts.successes > 0) {
+    parts.push(
+      chalk.green(t("checks.summary.passed", { count: counts.successes })),
+    );
+  }
+  if (counts.failures > 0) {
+    parts.push(
+      chalk.red(t("checks.summary.failing", { count: counts.failures })),
+    );
+  }
+  if (counts.pending > 0) {
+    parts.push(
+      chalk.yellow(t("checks.summary.pending", { count: counts.pending })),
+    );
+  }
+  return parts.join(", ");
+}
+
 export async function checks(
   actionOrUrl: string | undefined,
   prUrlArg: string | undefined,
