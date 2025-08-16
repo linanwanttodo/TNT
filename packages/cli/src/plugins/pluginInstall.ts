@@ -170,6 +170,98 @@ export async function installPlugin(
   return { id, installPath: target, version, gitCommitSha, reused: false };
 }
 
+export interface InstallPlan {
+  id: string;
+  /** Every plugin that ended up installed, dependencies first. */
+  installed: InstalledPlugin[];
+}
+
+function parseDependency(
+  reference: string,
+  defaultMarketplace: string,
+): { name: string; marketplace: string } {
+  const at = reference.lastIndexOf("@");
+  if (at <= 0) return { name: reference, marketplace: defaultMarketplace };
+  return {
+    name: reference.slice(0, at),
+    marketplace: reference.slice(at + 1),
+  };
+}
+
+/**
+ * Installs a plugin after its dependencies. A declaration may name another
+ * marketplace, which is only allowed when the declaring marketplace lists that
+ * marketplace in allowCrossMarketplaceDependenciesOn; anything else would let
+ * one catalogue pull code from an unrelated one.
+ */
+export async function installPluginWithDependencies(
+  marketplaceName: string,
+  pluginName: string,
+  deps: MarketplaceDeps,
+): Promise<InstallPlan> {
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const order: { marketplace: string; name: string; id: string }[] = [];
+
+  const manifestFor = (marketplace: string) => {
+    const record = loadKnownMarketplaces()[marketplace];
+    if (!record) {
+      throw new PluginInstallError(`No marketplace named ${marketplace}`);
+    }
+    if (!fs.existsSync(record.installLocation)) {
+      throw new PluginInstallError(
+        `Marketplace ${marketplace} is not fetched; re-add it to refresh`,
+      );
+    }
+    return parseMarketplaceManifest(
+      JSON.parse(fs.readFileSync(record.installLocation, "utf-8")),
+    );
+  };
+
+  const visit = (marketplace: string, name: string, path: string[]): void => {
+    const id = `${name}@${marketplace}`;
+    if (visited.has(id)) return;
+    if (visiting.has(id)) {
+      throw new PluginInstallError(
+        `Dependency cycle: ${[...path, id].join(" -> ")}`,
+      );
+    }
+    const manifest = manifestFor(marketplace);
+    const entry = manifest.plugins.find((candidate) => candidate.name === name);
+    if (!entry) {
+      throw new PluginInstallError(
+        `Marketplace ${marketplace} has no plugin named ${name}`,
+      );
+    }
+    visiting.add(id);
+    for (const reference of entry.dependencies ?? []) {
+      const dependency = parseDependency(reference, marketplace);
+      if (
+        dependency.marketplace !== marketplace &&
+        !(manifest.allowCrossMarketplaceDependenciesOn ?? []).includes(
+          dependency.marketplace,
+        )
+      ) {
+        throw new PluginInstallError(
+          `${id} depends on ${reference}, but ${marketplace} does not allow dependencies on ${dependency.marketplace}`,
+        );
+      }
+      visit(dependency.marketplace, dependency.name, [...path, id]);
+    }
+    visiting.delete(id);
+    visited.add(id);
+    order.push({ marketplace, name, id });
+  };
+
+  visit(marketplaceName, pluginName, []);
+
+  const installed: InstalledPlugin[] = [];
+  for (const step of order) {
+    installed.push(await installPlugin(step.marketplace, step.name, deps));
+  }
+  return { id: `${pluginName}@${marketplaceName}`, installed };
+}
+
 export function uninstallPlugin(id: string): number {
   return removePluginInstallation(id);
 }

@@ -228,6 +228,7 @@ const en = {
     "  {id} could not be updated: {message}",
   "plugin.marketplace.unknownAction":
     "Unknown marketplace action: {action}. Use add, list, refresh or remove.",
+  "plugin.dependenciesInstalled": "  dependencies: {list}",
   "language.changed": "Language set to {locale}",
 };
 
@@ -426,6 +427,7 @@ const zhCN: Record<TranslationKey, string> = {
   "plugin.marketplace.refreshUpdateFailed": "  {id} 更新失败：{message}",
   "plugin.marketplace.unknownAction":
     "未知的市场操作：{action}。可用 add、list、refresh、remove。",
+  "plugin.dependenciesInstalled": "  依赖：{list}",
   "language.changed": "语言已切换为 {locale}",
 };
 
