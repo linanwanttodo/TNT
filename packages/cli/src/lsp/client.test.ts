@@ -119,9 +119,11 @@ describe("documents and diagnostics", () => {
   it("returns the result of a request it can answer", async () => {
     const client = await startClient();
 
-    const result = await client.request("textDocument/hover", {});
+    const result = await client.request("textDocument/hover", {
+      position: { line: 4, character: 2 },
+    });
 
-    expect(result).toEqual({ contents: "fake hover" });
+    expect(result).toEqual({ contents: "hover at 4:2" });
   });
 
   it("rejects with the server error message for an unknown method", async () => {

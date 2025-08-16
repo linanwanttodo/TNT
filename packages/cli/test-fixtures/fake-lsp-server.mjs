@@ -65,9 +65,14 @@ function handle(message) {
     case "shutdown":
       respond(message.id, null);
       break;
-    case "textDocument/hover":
-      respond(message.id, { contents: "fake hover" });
+    case "textDocument/hover": {
+      // Echo the position so a test can prove the 1-based to 0-based mapping.
+      const position = message.params?.position;
+      respond(message.id, {
+        contents: `hover at ${position?.line}:${position?.character}`,
+      });
       break;
+    }
     case "workspace/symbol":
       // One match per query prefix, so a test can assert both hit and miss.
       respond(

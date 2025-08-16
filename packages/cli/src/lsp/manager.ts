@@ -113,6 +113,40 @@ export class LspManager {
   }
 
   /**
+   * Reads the signature a server reports for a position. The document is opened
+   * first, since a server is not obliged to answer for a file it never saw.
+   */
+  async hoverAt(
+    filePath: string,
+    line: number,
+    character: number,
+  ): Promise<string | null> {
+    const absolute = path.resolve(filePath);
+    let text: string;
+    try {
+      text = fs.readFileSync(absolute, "utf-8");
+    } catch {
+      return null;
+    }
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    for (const client of clients) {
+      client.openOrUpdate(absolute, text);
+      try {
+        const answer = await client.request("textDocument/hover", {
+          textDocument: { uri: pathToFileURL(absolute).toString() },
+          // LSP positions are zero-based; callers count from one.
+          position: { line: line - 1, character: character - 1 },
+        });
+        const rendered = renderHover(answer);
+        if (rendered) return rendered;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Asks every running server for symbols matching a query and merges the
    * answers. One server failing does not hide another's results.
    */
@@ -179,6 +213,24 @@ export class LspManager {
       clients.map((client) => client.dispose().catch(() => {})),
     );
   }
+}
+
+/** A hover answer is a string, a marked string, or a list of either. */
+export function renderHover(answer: unknown): string | null {
+  if (!answer || typeof answer !== "object") return null;
+  const contents = (answer as { contents?: unknown }).contents;
+  if (typeof contents === "string") return contents.trim() || null;
+  if (Array.isArray(contents)) {
+    const parts = contents
+      .map((entry) => renderHover({ contents: entry }))
+      .filter((entry): entry is string => Boolean(entry));
+    return parts.join("\n") || null;
+  }
+  if (contents && typeof contents === "object") {
+    const value = (contents as { value?: unknown }).value;
+    if (typeof value === "string") return value.trim() || null;
+  }
+  return null;
 }
 
 let manager: LspManager | null = null;
