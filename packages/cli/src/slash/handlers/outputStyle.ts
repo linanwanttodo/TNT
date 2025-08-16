@@ -1,6 +1,7 @@
 import chalk from "chalk";
 
 import { t } from "../../i18n/index.js";
+import { readSettingsString } from "../../config/settingsFiles.js";
 import { loadAllPlugins } from "../../plugins/loader.js";
 import {
   getSessionOutputStyle,
@@ -19,10 +20,13 @@ export function handleOutputStyle(args: string[] = []): SlashCommandResult {
 
   if (!requested) {
     const chosen = getSessionOutputStyle();
+    const fromSettings = readSettingsString("outputStyle");
     const lines = [
       chosen
         ? t("outputStyle.current", { name: chosen })
-        : t("outputStyle.none"),
+        : fromSettings
+          ? t("outputStyle.fromSettings", { name: fromSettings })
+          : t("outputStyle.none"),
     ];
     if (styles.length === 0) {
       lines.push(t("outputStyle.noneAvailable"));

@@ -18,6 +18,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
+import { getSettingsFilePaths } from "../config/settingsFiles.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { logger } from "../utils/logger.js";
 
@@ -65,30 +66,6 @@ function mergeHooksConfigs(
   }
 
   return merged;
-}
-
-/**
- * Resolve all settings file paths in precedence order (lowest to highest).
- * Later files' hooks are appended but all run.
- */
-function getSettingsFilePaths(cwd: string, homeDir?: string): string[] {
-  const home = homeDir ?? os.homedir();
-  const continueHome =
-    process.env.CONTINUE_GLOBAL_DIR || path.join(home, ".tnt");
-
-  return [
-    // User-global (lowest precedence)
-    path.join(home, ".claude", "settings.json"),
-    path.join(continueHome, "settings.json"),
-
-    // Project-level
-    path.join(cwd, ".claude", "settings.json"),
-    path.join(cwd, ".tnt", "settings.json"),
-
-    // Project-local (highest precedence)
-    path.join(cwd, ".claude", "settings.local.json"),
-    path.join(cwd, ".tnt", "settings.local.json"),
-  ];
 }
 
 export interface LoadedHooksConfig {

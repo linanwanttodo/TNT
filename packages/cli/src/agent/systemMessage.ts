@@ -12,6 +12,7 @@ import {
   selectForcedOutputStyle,
   type PluginOutputStyle,
 } from "../plugins/loader.js";
+import { readSettingsString } from "../config/settingsFiles.js";
 import { getSessionOutputStyle } from "../session/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
@@ -163,18 +164,24 @@ export function loadMarkdownRulesWithMetadata(): RuleObject[] {
  * string when no style is active, so the caller can append unconditionally.
  */
 /**
- * The style the session asked for wins; otherwise a forced style applies. A
- * chosen style whose plugin disappeared falls back rather than throwing, since
- * a removed plugin should not break every request.
+ * Precedence: the session choice, then a project default from the settings
+ * files, then a style a plugin forces on. A named style whose plugin
+ * disappeared falls through to the next source rather than throwing, since a
+ * removed plugin should not break every request.
  */
 function selectOutputStyle(
   styles: readonly PluginOutputStyle[],
 ): PluginOutputStyle | undefined {
-  const chosen = getSessionOutputStyle();
-  if (chosen) {
-    const match = styles.find((style) => style.name === chosen);
+  for (const candidate of [
+    { name: getSessionOutputStyle(), source: "session" },
+    { name: readSettingsString("outputStyle"), source: "settings" },
+  ]) {
+    if (!candidate.name) continue;
+    const match = styles.find((style) => style.name === candidate.name);
     if (match) return match;
-    logger.warn(`Output style ${chosen} is not installed; using the default`);
+    logger.warn(
+      `Output style ${candidate.name} from ${candidate.source} is not installed; trying the next source`,
+    );
   }
   return selectForcedOutputStyle(styles);
 }

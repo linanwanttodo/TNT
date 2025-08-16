@@ -54,6 +54,71 @@ afterEach(() => {
   fs.rmSync(pluginsDir, { recursive: true, force: true });
 });
 
+describe("the project default from settings", () => {
+  let projectDir: string;
+  let previousCwd: string;
+
+  beforeEach(() => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-style-project-"));
+    previousCwd = process.cwd();
+    process.chdir(projectDir);
+  });
+
+  afterEach(() => {
+    process.chdir(previousCwd);
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  function writeDefault(name: string): void {
+    fs.mkdirSync(path.join(projectDir, ".tnt"), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, ".tnt", "settings.json"),
+      JSON.stringify({ outputStyle: name }),
+    );
+  }
+
+  it("applies a project default when the session chose nothing", async () => {
+    writeStyles([
+      { file: "terse.md", body: "Answer in one line." },
+      { file: "verbose.md", body: "Explain every step." },
+    ]);
+    writeDefault("voice:verbose");
+
+    const message = await constructSystemMessage("agent");
+
+    expect(message).toContain('source="voice:verbose"');
+    expect(message).not.toContain("Answer in one line.");
+  });
+
+  it("lets the session choice beat the project default", async () => {
+    writeStyles([
+      { file: "terse.md", body: "Answer in one line." },
+      { file: "verbose.md", body: "Explain every step." },
+    ]);
+    writeDefault("voice:verbose");
+    chosen.value = "voice:terse";
+
+    const message = await constructSystemMessage("agent");
+
+    expect(message).toContain('source="voice:terse"');
+    expect(message).not.toContain("Explain every step.");
+  });
+
+  it("falls through to the plugin default when the setting names a missing style", async () => {
+    writeStyles([
+      {
+        file: "terse.md",
+        body: "---\nforce-for-plugin: true\n---\nAnswer in one line.",
+      },
+    ]);
+    writeDefault("voice:removed");
+
+    const message = await constructSystemMessage("agent");
+
+    expect(message).toContain('source="voice:terse"');
+  });
+});
+
 describe("choosing an output style for the session", () => {
   it("applies the chosen style even when another is merely offered", async () => {
     writeStyles([
