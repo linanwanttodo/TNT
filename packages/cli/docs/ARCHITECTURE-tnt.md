@@ -182,9 +182,13 @@ Stated as gaps, not as intentions:
 1. Marketplace plugins install from a relative path, `github:`, `git:` or
    `npm:` source; a plugin declared with any other scheme is refused rather
    than guessed at, and `url:`-style plugin descriptors are not implemented.
-   The `dependencies` field of a marketplace entry is parsed but not resolved,
-   and there is no automatic refresh of an installed plugin when its
-   marketplace updates.
+   `/plugin marketplace refresh` re-reads a marketplace and updates the
+   installed plugins whose declared version moved, reporting `changed` from a
+   digest stored when the marketplace was last read. What it will not do is
+   remove an installed plugin whose entry disappeared: that stays a user
+   decision. The `dependencies` field of a marketplace entry is parsed but
+   not resolved.
+
 2. `lspServers` drives a real client: the `Diagnostics` tool and
    `/diagnostics <file>` open the file in every declared server, push the new
    text when it changes, and return what the server publishes, with failures

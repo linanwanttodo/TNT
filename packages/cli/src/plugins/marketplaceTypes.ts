@@ -30,6 +30,12 @@ export interface KnownMarketplace {
   installLocation: string;
   lastUpdated: string;
   autoUpdate?: boolean;
+  /**
+   * Digest of the manifest as it was when last read. For a local source the
+   * file itself is the marketplace, so only a stored digest can say whether a
+   * refresh found something new.
+   */
+  manifestDigest?: string;
 }
 
 export type KnownMarketplacesFile = Record<string, KnownMarketplace>;

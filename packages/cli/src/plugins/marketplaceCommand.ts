@@ -7,7 +7,11 @@ import {
   loadKnownMarketplaces,
 } from "./marketplaceRegistry.js";
 import { MarketplaceSource } from "./marketplaceTypes.js";
-import { addMarketplace, createDefaultDeps } from "./marketplaceManager.js";
+import {
+  addMarketplace,
+  createDefaultDeps,
+  refreshMarketplace,
+} from "./marketplaceManager.js";
 
 const SOURCE_KINDS = [
   "directory",
@@ -121,6 +125,44 @@ export async function runMarketplaceCommand(
         }),
       };
     }
+  }
+
+  if (action === "refresh") {
+    const registered = Object.keys(loadKnownMarketplaces());
+    const targets = rest[0] ? [rest[0]] : registered;
+    if (targets.length === 0) {
+      return { output: t("plugin.marketplace.empty") };
+    }
+    const lines: string[] = [];
+    for (const target of targets) {
+      try {
+        const summary = await refreshMarketplace(target, createDefaultDeps());
+        lines.push(
+          summary.changed
+            ? t("plugin.marketplace.refreshed", {
+                name: summary.name,
+                updated: summary.updatedPlugins.length,
+              })
+            : t("plugin.marketplace.unchanged", { name: summary.name }),
+        );
+        for (const failure of summary.failed) {
+          lines.push(
+            t("plugin.marketplace.refreshUpdateFailed", {
+              id: failure.id,
+              message: failure.message,
+            }),
+          );
+        }
+      } catch (error) {
+        lines.push(
+          t("plugin.marketplace.refreshFailed", {
+            name: target,
+            message: (error as Error).message,
+          }),
+        );
+      }
+    }
+    return { output: lines.join("\n") };
   }
 
   if (action === "remove") {

@@ -1,4 +1,5 @@
 import { execFile, spawnSync } from "child_process";
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 
@@ -12,12 +13,17 @@ import {
   MarketplacePluginEntry,
   MarketplaceSource,
 } from "./marketplaceTypes.js";
+import { installPlugin } from "./pluginInstall.js";
 import {
   CommandResult,
   MarketplaceDeps,
   resolveMarketplaceSource,
 } from "./marketplaceSources.js";
-import { rememberMarketplace } from "./marketplaceRegistry.js";
+import {
+  loadInstalledPlugins,
+  loadKnownMarketplaces,
+  rememberMarketplace,
+} from "./marketplaceRegistry.js";
 
 export class MarketplaceManifestError extends Error {}
 
@@ -231,7 +237,88 @@ export async function addMarketplace(
     source,
     installLocation: path.resolve(resolved.manifestPath),
     lastUpdated: new Date().toISOString(),
+    manifestDigest: manifestDigest(resolved.manifestPath),
   };
   rememberMarketplace(name, entry);
   return { marketplace: entry, manifest, reused: resolved.reused };
+}
+
+export interface MarketplaceRefresh {
+  name: string;
+  /** True when the manifest differs from the one recorded at the last read. */
+  changed: boolean;
+  updatedPlugins: { id: string; from: string; to: string }[];
+  failed: { id: string; message: string }[];
+}
+
+export function manifestDigest(filePath: string): string {
+  return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+/**
+ * Re-reads a marketplace and, unless asked not to, brings installed plugins up
+ * to the version it now declares. The previous plugin list is read before the
+ * refetch so a plugin that disappeared can be reported rather than silently
+ * dropped from the summary.
+ */
+export async function refreshMarketplace(
+  name: string,
+  deps: MarketplaceDeps = createDefaultDeps(),
+  options: { updatePlugins?: boolean } = {},
+): Promise<MarketplaceRefresh> {
+  const record = loadKnownMarketplaces()[name];
+  if (!record) {
+    throw new MarketplaceManifestError(`No marketplace named ${name}`);
+  }
+  // Resolved without the reuse shortcut: a refresh exists to see what changed.
+  const resolved = await resolveMarketplaceSource(record.source, name, deps);
+  if (!fs.existsSync(resolved.manifestPath)) {
+    throw new MarketplaceManifestError(
+      `Marketplace manifest not found at ${resolved.manifestPath}`,
+    );
+  }
+  const manifest = parseMarketplaceManifest(
+    JSON.parse(fs.readFileSync(resolved.manifestPath, "utf-8")),
+  );
+  rememberMarketplace(name, {
+    ...record,
+    installLocation: path.resolve(resolved.manifestPath),
+    lastUpdated: new Date().toISOString(),
+    manifestDigest: manifestDigest(resolved.manifestPath),
+  });
+
+  const summary: MarketplaceRefresh = {
+    name,
+    changed: manifestDigest(resolved.manifestPath) !== record.manifestDigest,
+    updatedPlugins: [],
+    failed: [],
+  };
+
+  if (options.updatePlugins === false) return summary;
+
+  const suffix = `@${name}`;
+  for (const [id, installations] of Object.entries(
+    loadInstalledPlugins().plugins,
+  )) {
+    if (!id.endsWith(suffix)) continue;
+    const pluginName = id.slice(0, id.length - suffix.length);
+    const entry = manifest.plugins.find(
+      (candidate) => candidate.name === pluginName,
+    );
+    if (!entry) continue;
+    const target = entry.version ?? "0.0.0";
+    const installed = installations[0]?.version;
+    if (installed === target) continue;
+    try {
+      await installPlugin(name, pluginName, deps);
+      summary.updatedPlugins.push({
+        id,
+        from: installed ?? "unknown",
+        to: target,
+      });
+    } catch (error) {
+      summary.failed.push({ id, message: (error as Error).message });
+    }
+  }
+  return summary;
 }
