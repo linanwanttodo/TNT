@@ -323,6 +323,8 @@ export interface Session {
   usage?: SessionUsage;
   /** Optional: session-wide objective shown above the composer */
   goal?: string;
+  /** Optional: output style chosen for this session, as "plugin:style" */
+  outputStyle?: string;
   /**
    * Optional: session this one was delegated from.
    *
