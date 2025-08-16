@@ -10,6 +10,20 @@ import { LspClient, LspDiagnostic, LspServerConfig } from "./client.js";
 const DIAGNOSTIC_TIMEOUT_MS = 3_000;
 const POLL_INTERVAL_MS = 50;
 
+/**
+ * The subset of the LSP symbol shape the CLI reads. A server may answer with
+ * SymbolInformation or WorkspaceSymbol; both carry a location and a name.
+ */
+export interface LspSymbol {
+  name: string;
+  kind?: number;
+  containerName?: string;
+  location?: {
+    uri?: string;
+    range?: { start?: { line?: number; character?: number } };
+  };
+}
+
 interface RunningServer {
   name: string;
   client: LspClient;
@@ -96,6 +110,32 @@ export class LspManager {
 
   runningServers(): string[] {
     return [...this.servers.keys()].sort();
+  }
+
+  /**
+   * Asks every running server for symbols matching a query and merges the
+   * answers. One server failing does not hide another's results.
+   */
+  async findSymbols(query: string): Promise<LspSymbol[]> {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    const answers = await Promise.all(
+      clients.map(async (client) => {
+        try {
+          return (await client.request("workspace/symbol", {
+            query: trimmed,
+          })) as LspSymbol[] | null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const symbols: LspSymbol[] = [];
+    for (const answer of answers) {
+      if (Array.isArray(answer)) symbols.push(...answer);
+    }
+    return symbols;
   }
 
   /**

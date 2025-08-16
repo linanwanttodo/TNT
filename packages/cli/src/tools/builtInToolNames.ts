@@ -11,6 +11,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "Edit",
   "Exit",
   "Fetch",
+  "FindSymbol",
   "List",
   "MultiEdit",
   "Read",

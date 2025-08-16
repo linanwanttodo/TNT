@@ -5,6 +5,7 @@ import { diagnosticsTool } from "./diagnostics.js";
 import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
 import { fetchTool } from "./fetch.js";
+import { findSymbolTool } from "./findSymbol.js";
 import { listFilesTool } from "./listFiles.js";
 import { multiEditTool } from "./multiEdit.js";
 import { readFileTool } from "./readFile.js";
@@ -26,6 +27,7 @@ export const ALL_BUILT_IN_TOOLS = [
   editTool,
   exitTool,
   fetchTool,
+  findSymbolTool,
   listFilesTool,
   multiEditTool,
   readFileTool,
