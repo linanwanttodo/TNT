@@ -140,10 +140,11 @@ English on purpose:
    pins the wire format.
 2. Log lines written through `logger`. Log files are read by support and
    grepped by hand, so one language there beats two.
-3. Composed help blocks that mix prose with generated content, such as the
-   endpoint listing `tnt serve` prints and the per-check summary line in
-   `tnt checks`. They need a structured shape rather than a single key; the
-   measured list is in the round's notes rather than converted halfway.
+   Composed output is translated too, but as one key per block rather than per
+   line: the `tnt serve` banner and the `tnt checks` summary each have a formatter
+   (`src/commands/serve.help.ts`, `formatChecksSummary`) so the wording is
+   testable without running the command, and the endpoint list keeps its column
+   alignment inside a single translated value.
 
 ## 8. Verification gates
 
