@@ -427,7 +427,7 @@ TNT stores secrets locally and does not use an external hub.`;
     connection: ServerConnection,
   ): Promise<Client> {
     const client = new Client(
-      { name: "continue-cli-client", version: "1.0.0" },
+      { name: "tnt-cli-client", version: "1.0.0" },
       { capabilities: {} },
     );
 
