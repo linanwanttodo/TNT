@@ -189,12 +189,15 @@ Stated as gaps, not as intentions:
    a digest stored at the last read; it will not remove an installed plugin
    whose entry disappeared, since that stays a user decision.
 
-2. `lspServers` drives a real client: the `Diagnostics` tool and
-   `/diagnostics <file>` open the file in every declared server, push the new
-   text when it changes, and return what the server publishes, with failures
-   logged rather than thrown. Missing: the richer requests (completion, hover,
-   rename) are not exposed, and servers start lazily on first use rather than at
-   session start.
+2. `lspServers` drives a real client. The model reaches it through two
+   read-only tools: `Diagnostics` returns what a server published for a file
+   (opening it, or pushing the new text when it changed) and `FindSymbol`
+   answers where a name is declared through `workspace/symbol`, which a text
+   search cannot answer on its own. `/diagnostics <file>` stays for the user,
+   and server failures are logged rather than thrown. Missing: hover,
+   completion and rename are not exposed, and servers still start lazily on
+   first use rather than at session start.
+
 3. Output styles resolve in this order: the session choice made with
    `/output-style <plugin:style>`, then an `outputStyle` key in one of the six
    settings files, then a style a plugin forces on. The remaining gap is that

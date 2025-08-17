@@ -68,6 +68,27 @@ function handle(message) {
     case "textDocument/hover":
       respond(message.id, { contents: "fake hover" });
       break;
+    case "workspace/symbol":
+      // One match per query prefix, so a test can assert both hit and miss.
+      respond(
+        message.id,
+        String(message.params?.query ?? "").startsWith("known")
+          ? [
+              {
+                name: "knownSymbol",
+                kind: 12,
+                location: {
+                  uri: "file:///workspace/src/known.ts",
+                  range: {
+                    start: { line: 4, character: 2 },
+                    end: { line: 4, character: 14 },
+                  },
+                },
+              },
+            ]
+          : [],
+      );
+      break;
     case "test/slow":
       // Never answers, so the client timeout path can be exercised.
       break;
