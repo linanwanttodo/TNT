@@ -6,7 +6,10 @@ import { loadAllPlugins } from "../../plugins/loader.js";
 import { runMarketplaceCommand } from "../../plugins/marketplaceCommand.js";
 import { createDefaultDeps } from "../../plugins/marketplaceManager.js";
 import { loadKnownMarketplaces } from "../../plugins/marketplaceRegistry.js";
-import { installPlugin, uninstallPlugin } from "../../plugins/pluginInstall.js";
+import {
+  installPluginWithDependencies,
+  uninstallPlugin,
+} from "../../plugins/pluginInstall.js";
 import type { SlashCommandResult } from "../types.js";
 
 function splitPluginReference(reference: string): {
@@ -50,17 +53,28 @@ async function handleInstall(reference: string | undefined) {
     return { output: resolved.problem ?? "No marketplace to install from." };
   }
   try {
-    const installed = await installPlugin(
+    const plan = await installPluginWithDependencies(
       resolved.marketplace,
       name,
       createDefaultDeps(),
     );
+    const installed = plan.installed[plan.installed.length - 1];
     const sha = installed.gitCommitSha
       ? ` at ${installed.gitCommitSha.slice(0, 8)}`
       : "";
-    return {
-      output: `${installed.reused ? t("plugin.alreadyInstalled", { id: installed.id, version: installed.version }) : t("plugin.installed", { id: installed.id, version: installed.version })}${sha}\n  ${installed.installPath}`,
-    };
+    const lines = [
+      `${installed.reused ? t("plugin.alreadyInstalled", { id: installed.id, version: installed.version }) : t("plugin.installed", { id: installed.id, version: installed.version })}${sha}`,
+      `  ${installed.installPath}`,
+    ];
+    const dependencies = plan.installed.slice(0, -1);
+    if (dependencies.length > 0) {
+      lines.push(
+        t("plugin.dependenciesInstalled", {
+          list: dependencies.map((entry) => entry.id).join(", "),
+        }),
+      );
+    }
+    return { output: lines.join("\n") };
   } catch (error) {
     return {
       output: t("plugin.installFailed", {
