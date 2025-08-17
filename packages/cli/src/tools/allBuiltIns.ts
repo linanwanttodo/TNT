@@ -6,6 +6,7 @@ import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
 import { fetchTool } from "./fetch.js";
 import { findSymbolTool } from "./findSymbol.js";
+import { hoverTool } from "./hover.js";
 import { listFilesTool } from "./listFiles.js";
 import { multiEditTool } from "./multiEdit.js";
 import { readFileTool } from "./readFile.js";
@@ -28,6 +29,7 @@ export const ALL_BUILT_IN_TOOLS = [
   exitTool,
   fetchTool,
   findSymbolTool,
+  hoverTool,
   listFilesTool,
   multiEditTool,
   readFileTool,
