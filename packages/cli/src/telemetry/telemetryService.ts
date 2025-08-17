@@ -34,6 +34,9 @@ export interface TelemetryConfig {
   includeAccountUuid: boolean;
 }
 
+/** Name this CLI reports to the telemetry backend. */
+export const TELEMETRY_SERVICE_NAME = "tnt-cli";
+
 class TelemetryService {
   private meterProvider: MeterProvider | null = null;
   private meter: any = null;
@@ -101,7 +104,7 @@ class TelemetryService {
     try {
       // Create resource
       const resource = resourceFromAttributes({
-        [SEMRESATTRS_SERVICE_NAME]: "continue-cli",
+        [SEMRESATTRS_SERVICE_NAME]: TELEMETRY_SERVICE_NAME,
         [SEMRESATTRS_SERVICE_VERSION]: getVersion(),
         [SEMRESATTRS_HOST_NAME]: os.hostname(),
         [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
@@ -164,7 +167,7 @@ class TelemetryService {
       });
 
       metrics.setGlobalMeterProvider(this.meterProvider);
-      this.meter = metrics.getMeter("continue-cli", getVersion());
+      this.meter = metrics.getMeter(TELEMETRY_SERVICE_NAME, getVersion());
 
       this.initializeMetrics();
 

@@ -57,10 +57,7 @@ export async function getClipboardImage(): Promise<Buffer | null> {
   try {
     const platform = os.platform();
     const tempDir = os.tmpdir();
-    const tempImagePath = path.join(
-      tempDir,
-      `continue-clipboard-${Date.now()}.png`,
-    );
+    const tempImagePath = path.join(tempDir, `tnt-clipboard-${Date.now()}.png`);
 
     if (platform === "darwin") {
       // macOS: Save clipboard image using osascript
