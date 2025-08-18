@@ -68,3 +68,63 @@ describe("product naming", () => {
     expect(stale).toEqual([]);
   });
 });
+
+/**
+ * The environment names are an interface: CI jobs, hook scripts and users set
+ * them. They keep the CONTINUE_ prefix on purpose, so this pins the exact set
+ * rather than letting a rename pass change one and break those callers.
+ */
+const ENVIRONMENT_INTERFACE = [
+  "CONTINUE_API_BASE",
+  "CONTINUE_CLI_AUTO_UPDATED",
+  "CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS",
+  "CONTINUE_CLI_BASH_MAX_OUTPUT_LINES",
+  "CONTINUE_CLI_DIFF_MAX_OUTPUT_LENGTH",
+  "CONTINUE_CLI_ENABLE_TELEMETRY",
+  "CONTINUE_CLI_FETCH_MAX_OUTPUT_LENGTH",
+  "CONTINUE_CLI_READ_FILE_MAX_OUTPUT_CHARS",
+  "CONTINUE_CLI_READ_FILE_MAX_OUTPUT_LINES",
+  "CONTINUE_CLI_SEARCH_CODE_MAX_RESULT_CHARS",
+  "CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS",
+  "CONTINUE_CLI_TEST",
+  "CONTINUE_CLI_TEST_SESSION_ID",
+  "CONTINUE_GLOBAL_DIR",
+  "CONTINUE_LOG_LEVEL",
+  "CONTINUE_METRICS_ENABLED",
+  "CONTINUE_REMOTE",
+  "CONTINUE_USE_BEDROCK",
+  "CONTINUE_USER_ID",
+];
+
+describe("environment interface", () => {
+  it("reads exactly the documented set of CONTINUE_ names", () => {
+    const packageRoot = process.cwd();
+    const names = new Set<string>();
+    for (const file of sourceFiles(path.join(packageRoot, "src"))) {
+      const content = fs.readFileSync(file, "utf-8");
+      for (const match of content.matchAll(
+        /process\.env(?:\.|\[")(CONTINUE_[A-Z_]+)/g,
+      )) {
+        names.add(match[1]);
+      }
+    }
+
+    expect([...names].sort()).toEqual([...ENVIRONMENT_INTERFACE].sort());
+  });
+
+  it("carries no stale home directory or site reference", () => {
+    const packageRoot = process.cwd();
+    const offenders = sourceFiles(path.join(packageRoot, "src"))
+      .filter((file) => {
+        const content = fs.readFileSync(file, "utf-8");
+        return (
+          content.includes("continue.dev") || content.includes("/.continue/")
+        );
+      })
+      .map((file) =>
+        path.relative(packageRoot, file).split(path.sep).join("/"),
+      );
+
+    expect(offenders).toEqual([]);
+  });
+});
