@@ -14,6 +14,11 @@ import { editTool, validateAndResolveFilePath } from "./edit.js";
 import { readFileTool } from "./readFile.js";
 import { Tool } from "./types.js";
 import { generateDiff } from "./writeFile.js";
+import {
+  MARKER_FILE_CREATED,
+  MARKER_FILE_EDITED,
+  MARKER_PERMISSION_DENIED,
+} from "./resultMarkers.js";
 
 export interface EditOperation {
   old_string: string;
@@ -166,7 +171,7 @@ WARNINGS:
         args.file_path,
       );
 
-      return `Successfully edited ${args.file_path} with ${args.editCount} edit${args.editCount === 1 ? "" : "s"}\nDiff:\n${diff}`;
+      return `${MARKER_FILE_EDITED} ${args.file_path} with ${args.editCount} edit${args.editCount === 1 ? "" : "s"}\nDiff:\n${diff}`;
     } catch (error) {
       if (error instanceof ContinueError) {
         throw error;

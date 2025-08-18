@@ -7,6 +7,11 @@ import { getToolDisplayName } from "src/tools/index.js";
 
 import { ColoredDiff } from "./ColoredDiff.js";
 import { ChecklistDisplay } from "./components/ChecklistDisplay.js";
+import { t } from "../i18n/index.js";
+import {
+  MARKER_FILE_CREATED,
+  MARKER_PERMISSION_DENIED,
+} from "../tools/resultMarkers.js";
 
 const MAX_BASH_OUTPUT_LINES = 4;
 
@@ -79,7 +84,7 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
           <Text color="dim">⎿ </Text>
           <Text color="blue">Task List Updated</Text>
         </Box>
-        <ChecklistDisplay content={`Task list status:\n${content}`} />
+        <ChecklistDisplay content={t("tool.taskListStatus", { content })} />
       </Box>
     );
   }
@@ -219,14 +224,16 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
   // Handle all other cases with text summary
   const getSummary = () => {
     // Check if this is a user cancellation first
-    if (content === "Permission denied by user") {
-      return "Cancelled by user";
+    if (content === MARKER_PERMISSION_DENIED) {
+      return t("tool.cancelled");
     }
 
     // Check if it was an error
     if (content.startsWith("Error")) {
       const lines = content.split("\n");
-      return `Error: ${lines[0]}${lines.length > 1 ? "..." : ""}`;
+      return t("tool.errorSummary", {
+        message: `${lines[0]}${lines.length > 1 ? "..." : ""}`,
+      });
     }
 
     // Convert absolute paths to relative paths from workspace root
@@ -246,26 +253,34 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
         if (content.includes("→")) {
           const pathMatch = content.match(/^(.+?):/);
           const filePath = pathMatch ? pathMatch[1] : "file";
-          return `${displayName} ${formatPath(filePath)} (${lines} lines)`;
+          return t("tool.pathSummary", {
+            name: displayName,
+            path: formatPath(filePath),
+            count: lines,
+          });
         }
-        return `${displayName} tool output (${lines} lines)`;
+        return t("tool.outputSummary", { name: displayName, count: lines });
 
       case "Write":
-        return content.includes("Successfully created file")
-          ? "File created successfully"
-          : "File updated successfully";
+        return content.includes(MARKER_FILE_CREATED)
+          ? t("tool.fileCreated")
+          : t("tool.fileUpdated");
 
       case "Edit":
-        return "File edited successfully";
+        return t("tool.fileEdited");
 
       case "MultiEdit":
-        return "File edited successfully";
+        return t("tool.fileEdited");
 
       case "List":
-        return `Listed ${lines} ${lines === 1 ? "item" : "items"}`;
+        return lines === 1
+          ? t("tool.listedItem", { count: lines })
+          : t("tool.listedItems", { count: lines });
 
       case "Search":
-        return `Found ${lines} ${lines === 1 ? "match" : "matches"}`;
+        return lines === 1
+          ? t("tool.foundMatch", { count: lines })
+          : t("tool.foundMatches", { count: lines });
 
       case "Diff":
         return `Diff output (${lines} lines)`;

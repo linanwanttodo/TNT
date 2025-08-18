@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { services } from "../services/index.js";
 
 import { Selector, SelectorOption } from "./Selector.js";
+import { t } from "../i18n/index.js";
 
 interface ModelOption extends SelectorOption {
   index: number;
@@ -31,7 +32,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         const currentIndex = services.model.getCurrentModelIndex();
 
         if (availableModels.length === 0) {
-          setError("No chat models available in the configuration");
+          setError(t("models.none"));
           setLoading(false);
           return;
         }
@@ -48,7 +49,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         setSelectedIndex(Math.max(0, currentIndex));
         setLoading(false);
       } catch (err: any) {
-        setError(err.message || "Failed to load models");
+        setError(err.message || t("models.loadFailed"));
         setLoading(false);
       }
     };
@@ -58,12 +59,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   return (
     <Selector
-      title="Select Model"
+      title={t("models.title")}
       options={models}
       selectedIndex={selectedIndex}
       loading={loading}
       error={error}
-      loadingMessage="Loading available models..."
+      loadingMessage={t("models.loading")}
       currentId={
         currentModelIndex >= 0 && models[currentModelIndex]
           ? models[currentModelIndex].id

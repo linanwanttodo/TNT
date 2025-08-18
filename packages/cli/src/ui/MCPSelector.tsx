@@ -12,6 +12,7 @@ import {
 import { logger } from "../utils/logger.js";
 
 import { defaultBoxStyles } from "./styles.js";
+import { t } from "../i18n/index.js";
 
 // Utility function to get status icon and color based on server connection
 const getServerStatusDisplay = (conn: MCPConnectionInfo) => {
@@ -279,11 +280,11 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
     switch (value) {
       case "restart-all":
         await mcpService?.restartAllServers();
-        setMessage("All servers restarted");
+        setMessage(t("mcp.restarted"));
         break;
       case "stop-all":
         await mcpService?.shutdownConnections();
-        setMessage("All servers stopped");
+        setMessage(t("mcp.stopped"));
         break;
       case "explore-mcp-servers":
         // Open the MCP servers hub in the default browser

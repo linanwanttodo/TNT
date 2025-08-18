@@ -16,6 +16,11 @@ import { EditOperation } from "./multiEdit.js";
 import { readFilesSet, readFileTool } from "./readFile.js";
 import { Tool } from "./types.js";
 import { generateDiff } from "./writeFile.js";
+import {
+  MARKER_FILE_CREATED,
+  MARKER_FILE_EDITED,
+  MARKER_PERMISSION_DENIED,
+} from "./resultMarkers.js";
 
 export function validateAndResolveFilePath(args: any): {
   originalPath: string;
@@ -177,7 +182,7 @@ WARNINGS:
         args.resolvedPath,
       );
 
-      return `Successfully edited ${args.resolvedPath}\nDiff:\n${diff}`;
+      return `${MARKER_FILE_EDITED} ${args.resolvedPath}\nDiff:\n${diff}`;
     } catch (error) {
       if (error instanceof ContinueError) {
         throw error;

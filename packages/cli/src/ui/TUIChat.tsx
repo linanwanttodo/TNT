@@ -382,7 +382,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
             {
               message: {
                 role: "system",
-                content: `Failed to export: Session ${sessionId} not found`,
+                content: t("session.exportMissing", { id: sessionId }),
               },
               contextItems: [],
             },
@@ -409,7 +409,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           {
             message: {
               role: "system",
-              content: `Session exported to ${defaultPath}`,
+              content: t("session.exported", { path: defaultPath }),
             },
             contextItems: [],
           },
@@ -421,7 +421,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           {
             message: {
               role: "system",
-              content: `Failed to export session: ${error.message}`,
+              content: t("session.exportFailed", { message: error.message }),
             },
             contextItems: [],
           },

@@ -37,6 +37,11 @@ import { PreprocessedToolCall, ToolCall } from "../tools/types.js";
 import { logger } from "../utils/logger.js";
 
 import { StreamCallbacks } from "./streamChatResponse.types.js";
+import {
+  MARKER_FILE_CREATED,
+  MARKER_FILE_EDITED,
+  MARKER_PERMISSION_DENIED,
+} from "../tools/resultMarkers.js";
 
 export interface ToolResultWithStatus extends ChatCompletionToolMessageParam {
   status: ToolStatus;
@@ -58,7 +63,7 @@ export function handlePermissionDenied(
   const deniedMessage =
     reason === "policy"
       ? `Command blocked by security policy`
-      : `Permission denied by user`;
+      : MARKER_PERMISSION_DENIED;
 
   logger.info("Tool call denied", {
     name: toolCall.name,
@@ -613,7 +618,7 @@ export async function executeStreamedToolCalls(
           permissionResult.message ??
           (denialReason === "policy"
             ? `Command blocked by security policy`
-            : `Permission denied by user`);
+            : MARKER_PERMISSION_DENIED);
 
         const deniedEntry: ToolResultWithStatus = {
           role: "tool",
