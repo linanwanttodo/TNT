@@ -6,6 +6,7 @@ import type { UpdateServiceState } from "../services/types.js";
 import { SERVICE_NAMES } from "../services/types.js";
 
 import { Selector, SelectorOption } from "./Selector.js";
+import { t } from "../i18n/index.js";
 
 interface UpdateSelectorProps {
   onCancel: () => void;
@@ -30,32 +31,32 @@ export const UpdateSelector: React.FC<UpdateSelectorProps> = ({ onCancel }) => {
 
   const error: string | null = useMemo(() => {
     if (updateServiceState.state === "error") {
-      return updateServiceState.error?.message || "Update service error";
+      return updateServiceState.error?.message || t("update.error");
     }
     if (updateState?.status === "error") {
-      return updateState.message || "Update failed";
+      return updateState.message || t("update.failed");
     }
     return null;
   }, [updateServiceState.state, updateServiceState.error, updateState]);
 
   const loadingMessage = useMemo(() => {
-    if (!updateState) return "Preparing update...";
-    return updateState.message || "Working...";
+    if (!updateState) return t("update.preparing");
+    return updateState.message || t("update.working");
   }, [updateState]);
 
   const options: UpdateOption[] = useMemo(() => {
     const runLabel = updateState?.latestVersion
-      ? `Run update to v${updateState.latestVersion}`
-      : "Run update";
+      ? t("update.runVersion", { version: updateState.latestVersion })
+      : t("update.run");
 
     const autoUpdateLabel = updateState?.autoUpdate
-      ? "Turn off auto-updates"
-      : "Turn on auto-updates";
+      ? t("update.autoOff")
+      : t("update.autoOn");
 
     return [
       { id: "run-update", name: runLabel, action: "run" },
       { id: "toggle-auto", name: autoUpdateLabel, action: "toggle-auto" },
-      { id: "back", name: "Back", action: "back" },
+      { id: "back", name: t("common.back"), action: "back" },
     ];
   }, [updateState?.latestVersion, updateState?.autoUpdate]);
 

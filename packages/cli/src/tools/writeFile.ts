@@ -11,6 +11,11 @@ import {
 } from "../telemetry/utils.js";
 
 import { Tool, ToolCallPreview } from "./types.js";
+import {
+  MARKER_FILE_CREATED,
+  MARKER_FILE_EDITED,
+  MARKER_PERMISSION_DENIED,
+} from "./resultMarkers.js";
 
 export function generateDiff(
   oldContent: string,
@@ -167,7 +172,7 @@ export const writeFileTool: Tool = {
           language,
         );
 
-        return `Successfully created file: ${args.filepath}`;
+        return `${MARKER_FILE_CREATED}: ${args.filepath}`;
       }
     } catch (error) {
       if (error instanceof ContinueError) {
