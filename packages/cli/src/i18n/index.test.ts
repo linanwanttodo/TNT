@@ -83,6 +83,13 @@ describe("i18n runtime locale switching", () => {
       "mcp.",
       "common.",
       "update.",
+      "debug.",
+      "jobs.",
+      "permission.",
+      "edit.",
+      "goal.",
+      "selector.",
+      "quiz.",
     ];
     const targeted = keys.filter((key) =>
       groups.some((group) => key.startsWith(group)),

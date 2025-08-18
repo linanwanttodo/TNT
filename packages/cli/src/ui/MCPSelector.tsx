@@ -290,7 +290,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
         // Open the MCP servers hub in the default browser
         const open = (await import("open")).default;
         await open("https://github.com/linanwanttodo/TNT");
-        setMessage("Opened MCP servers hub in browser");
+        setMessage(t("mcp.hubOpened"));
         break;
       case "back":
         onCancel();
@@ -332,9 +332,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
             ? `Server: ${selectedServer}`
             : "MCP Servers"}
         </Text>
-        {connections.length === 0 && (
-          <Text color="gray">No servers configured</Text>
-        )}
+        {connections.length === 0 && <Text color="gray">{t("mcp.none")}</Text>}
         {menuState === "server-detail" &&
           selectedServer &&
           (() => {

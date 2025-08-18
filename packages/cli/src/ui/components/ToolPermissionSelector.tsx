@@ -7,6 +7,7 @@ import { ToolCallPreview } from "../../tools/types.js";
 import { defaultBoxStyles } from "../styles.js";
 
 import { ToolPreview } from "./ToolPreview.js";
+import { t } from "../../i18n/index.js";
 
 // show dangerous commmand warning only once per CLI process
 let hasShownDangerousCommandWarning = false;
@@ -36,17 +37,22 @@ interface ToolPermissionSelectorProps {
 
 const getPermissionOptions = (): PermissionOption[] => {
   return [
-    { id: "approve", name: "Continue", color: "green", approved: true },
+    {
+      id: "approve",
+      name: t("permission.continue"),
+      color: "green",
+      approved: true,
+    },
     {
       id: "approve_policy",
-      name: "Continue + don't ask again",
+      name: t("permission.continueDontAsk"),
       color: "cyan",
       approved: true,
       createPolicy: true,
     },
     {
       id: "deny_stop",
-      name: "No, and tell Continue what to do differently",
+      name: t("permission.tellDifferently"),
       color: "yellow",
       approved: false,
       stopStream: true,
@@ -133,7 +139,7 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
       </Box>
 
       <Box marginTop={1} flexDirection="column">
-        <Text color="dim">Would you like to continue?</Text>
+        <Text color="dim">{t("permission.prompt")}</Text>
         {showDynamicWarning && (
           <Box marginTop={1}>
             <Text color="yellow" dimColor>

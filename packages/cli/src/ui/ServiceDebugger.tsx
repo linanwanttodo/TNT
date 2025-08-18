@@ -10,6 +10,7 @@ import {
 } from "../services/types.js";
 
 import { defaultBoxStyles } from "./styles.js";
+import { t } from "../i18n/index.js";
 
 interface ServiceDebuggerProps {
   services: {
@@ -45,17 +46,21 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
       case "auth":
         return service?.authConfig
           ? `User: ${service.authConfig.email || "unknown"}`
-          : "No auth config";
+          : t("debug.noAuth");
       case "config":
-        return service?.config ? `Config: ${service.config.name}` : "No config";
+        return service?.config
+          ? `Config: ${service.config.name}`
+          : t("debug.noConfig");
       case "model":
-        return service?.model ? `Model: ${service.model.name}` : "No model";
+        return service?.model
+          ? `Model: ${service.model.name}`
+          : t("debug.noModel");
       case "mcp":
         return service?.mcpService
           ? `Tools: ${service.mcpService.getTools()?.length || 0}`
-          : "No MCP service";
+          : t("debug.noMcp");
       case "apiClient":
-        return service?.apiClient ? "API client ready" : "No API client";
+        return service?.apiClient ? t("debug.apiReady") : t("debug.noApi");
       default:
         return "";
     }
@@ -68,7 +73,7 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
       </Text>
       <Text> </Text>
 
-      <Text color="yellow">Overall Status:</Text>
+      <Text color="yellow">{t("debug.overallStatus")}</Text>
       <Text>Loading: {loading ? "🟡 Yes" : "✅ No"}</Text>
       <Text>All Ready: {allReady ? "✅ Yes" : "❌ No"}</Text>
       <Text>Services Loading: {servicesLoading ? "🟡 Yes" : "✅ No"}</Text>
@@ -80,7 +85,7 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
       )}
 
       <Text> </Text>
-      <Text color="yellow">Individual Services:</Text>
+      <Text color="yellow">{t("debug.individualServices")}</Text>
 
       {["auth", "config", "model", "mcp", "apiClient"].map((serviceName) => {
         const service = services[serviceName as keyof typeof services];
@@ -102,7 +107,7 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
       })}
 
       <Text> </Text>
-      <Text color="yellow">Intro Message Conditions:</Text>
+      <Text color="yellow">{t("debug.introConditions")}</Text>
       <Text>Services ready: {allReady ? "✅" : "❌"}</Text>
       <Text>Has config: {services.config?.config ? "✅" : "❌"}</Text>
       <Text>Has model: {services.model?.model ? "✅" : "❌"}</Text>

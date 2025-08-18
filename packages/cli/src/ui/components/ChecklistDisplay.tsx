@@ -1,5 +1,6 @@
 import { Box, Text } from "ink";
 import React from "react";
+import { MARKER_TASK_LIST } from "../../tools/resultMarkers.js";
 
 interface ChecklistDisplayProps {
   content: string;
@@ -27,7 +28,7 @@ export const ChecklistDisplay: React.FC<ChecklistDisplayProps> = ({
   return (
     <Box flexDirection="column" paddingLeft={2}>
       {lines.map((line, index) => {
-        if (line.startsWith("Task list")) {
+        if (line.startsWith(MARKER_TASK_LIST)) {
           return null;
         }
         // Match both completed [x] and incomplete [ ] checkboxes

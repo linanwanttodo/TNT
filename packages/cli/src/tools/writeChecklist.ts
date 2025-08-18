@@ -1,4 +1,5 @@
 import type { Tool } from "./types.js";
+import { MARKER_TASK_LIST } from "./resultMarkers.js";
 
 export const writeChecklistTool: Tool = {
   name: "Checklist",
@@ -30,6 +31,6 @@ export const writeChecklistTool: Tool = {
     };
   },
   run: async (args: { checklist: string }) => {
-    return `Task list status:\n${args.checklist}`;
+    return `${MARKER_TASK_LIST} status:\n${args.checklist}`;
   },
 };

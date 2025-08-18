@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 
 import { services } from "../../services/index.js";
 import { ResourceUsage } from "../../services/ResourceMonitoringService.js";
+import { t } from "../../i18n/index.js";
 
 interface ResourceDebugBarProps {
   visible: boolean;
@@ -57,7 +58,7 @@ export function ResourceDebugBar({ visible }: ResourceDebugBarProps) {
   if (isError) {
     return (
       <Box paddingX={1}>
-        <Text color="red">Resource monitoring error</Text>
+        <Text color="red">{t("debug.resourceError")}</Text>
       </Box>
     );
   }
@@ -93,7 +94,7 @@ export function ResourceDebugBar({ visible }: ResourceDebugBarProps) {
 
   return (
     <Box paddingX={1}>
-      <Text color="gray">Debug: </Text>
+      <Text color="gray">{t("debug.label")}</Text>
 
       <Text color={getMemoryColor()}>
         MEM: {formatBytes(resourceData.memory.rss)}
@@ -163,19 +164,19 @@ export function ResourceDebugDetails({ visible }: { visible: boolean }) {
       </Text>
 
       <Box marginTop={1}>
-        <Text color="gray">Current: </Text>
+        <Text color="gray">{t("debug.current")}</Text>
         <Text>{formatBytes(summary.current.memory.rss)} mem, </Text>
         <Text>{formatPercent(summary.current.cpu.percent || 0)} cpu</Text>
       </Box>
 
       <Box>
-        <Text color="gray">Peak: </Text>
+        <Text color="gray">{t("debug.peak")}</Text>
         <Text>{formatBytes(summary.peak.memory)} mem, </Text>
         <Text>{formatPercent(summary.peak.cpu)} cpu</Text>
       </Box>
 
       <Box>
-        <Text color="gray">Average: </Text>
+        <Text color="gray">{t("debug.average")}</Text>
         <Text>{formatBytes(summary.average.memory)} mem, </Text>
         <Text>{formatPercent(summary.average.cpu)} cpu</Text>
       </Box>

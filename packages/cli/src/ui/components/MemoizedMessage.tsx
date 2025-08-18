@@ -7,6 +7,7 @@ import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { ToolResultSummary } from "../ToolResultSummary.js";
 import { CompactionBoundary } from "./CompactionBoundary.js";
+import { t } from "../../i18n/index.js";
 
 /**
  * Formats message content for display, converting message parts array back to
@@ -127,7 +128,8 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
                 {isErrored ? (
                   <Box marginLeft={2}>
                     <Text color="red">
-                      {toolState.output?.[0].content ?? "Tool execution failed"}
+                      {toolState.output?.[0].content ??
+                        t("tool.executionFailed")}
                     </Text>
                   </Box>
                 ) : (

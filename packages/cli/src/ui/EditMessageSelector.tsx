@@ -5,6 +5,7 @@ import type { ChatHistoryItem } from "../../../../core/index.js";
 
 import { defaultBoxStyles } from "./styles.js";
 import { TextBuffer } from "./TextBuffer.js";
+import { t } from "../i18n/index.js";
 
 // Infer the Key type from useInput's callback parameters
 type UseInputHandler = Parameters<typeof useInput>[0];
@@ -170,8 +171,8 @@ export function EditMessageSelector({
   if (userMessages.length === 0) {
     return (
       <Box {...defaultBoxStyles("yellow")}>
-        <Text color="yellow">No user messages to edit.</Text>
-        <Text color="gray">Press Esc to exit</Text>
+        <Text color="yellow">{t("edit.none")}</Text>
+        <Text color="gray">{t("edit.exitHint")}</Text>
       </Box>
     );
   }
@@ -239,14 +240,14 @@ export function EditMessageSelector({
       </Text>
       <Text color="gray">
         {isEditing
-          ? "Enter to submit, Esc to cancel, Shift+Enter for newline"
+          ? t("edit.inputHint")
           : "↑/↓ to navigate, Enter to edit, Esc to exit"}
       </Text>
       <Text> </Text>
 
       {!isEditing && (
         <>
-          <Text color="blue">Select a message to edit:</Text>
+          <Text color="blue">{t("edit.prompt")}</Text>
           <Text> </Text>
           {userMessages.map((msg, index) => {
             const isSelected = index === selectedIndex;
