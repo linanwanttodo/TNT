@@ -6,6 +6,7 @@ import { ToolCallPreview } from "../../tools/types.js";
 import { ColoredDiff } from "../ColoredDiff.js";
 
 import { ChecklistDisplay } from "./ChecklistDisplay.js";
+import { t } from "../../i18n/index.js";
 
 interface ToolPreviewProps {
   toolCallPreview?: ToolCallPreview[];
@@ -36,7 +37,9 @@ export const ToolPreview: React.FC<ToolPreviewProps> = ({
             return (
               <Box key={index}>
                 <ChecklistDisplay
-                  content={`Task list status:\n${preview.content}`}
+                  content={t("tool.taskListStatus", {
+                    content: preview.content,
+                  })}
                 />
               </Box>
             );
@@ -48,7 +51,7 @@ export const ToolPreview: React.FC<ToolPreviewProps> = ({
     );
   }
 
-  let message = `Will call ${getToolDisplayName(toolName)}`;
+  let message = t("tool.willCall", { name: getToolDisplayName(toolName) });
   const argCount = Object.keys(toolArgs || {}).length;
   if (argCount > 0) {
     message += ` with ${argCount} argument${argCount === 1 ? "" : "s"}`;

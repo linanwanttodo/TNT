@@ -298,6 +298,8 @@ const en = {
   "quiz.typeAnswer": "Type answer, Enter submit",
   "mcp.none": "No servers configured",
   "mcp.hubOpened": "Opened MCP servers hub in browser",
+  "tool.willCall": "Will call {name}",
+  "tool.todosCount": "Todos {done}/{total}",
   "language.changed": "Language set to {locale}",
 };
 
@@ -566,6 +568,8 @@ const zhCN: Record<TranslationKey, string> = {
   "quiz.typeAnswer": "输入答案，回车提交",
   "mcp.none": "未配置 MCP 服务器",
   "mcp.hubOpened": "已在浏览器中打开 MCP 服务器中心",
+  "tool.willCall": "将调用 {name}",
+  "tool.todosCount": "待办 {done}/{total}",
   "language.changed": "语言已切换为 {locale}",
 };
 
