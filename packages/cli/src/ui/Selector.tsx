@@ -2,6 +2,7 @@ import { Box, Text, useInput } from "ink";
 import React, { ReactNode } from "react";
 
 import { defaultBoxStyles } from "./styles.js";
+import { t } from "../i18n/index.js";
 
 export interface SelectorOption {
   id: string;
@@ -33,7 +34,7 @@ export function Selector<T extends SelectorOption>({
   selectedIndex,
   loading,
   error,
-  loadingMessage = "Loading...",
+  loadingMessage = t("selector.loading"),
   currentId,
   onSelect,
   onCancel,

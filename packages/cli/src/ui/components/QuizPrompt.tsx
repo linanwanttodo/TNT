@@ -2,6 +2,7 @@ import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
 import { defaultBoxStyles } from "../styles.js";
+import { t } from "../../i18n/index.js";
 
 interface QuizPromptProps {
   question: string;
@@ -154,7 +155,7 @@ export const QuizPrompt: React.FC<QuizPromptProps> = ({
         <Text color="gray" dimColor>
           {hasOptions && !isCustomMode
             ? "↑/↓ navigate, Enter select"
-            : "Type answer, Enter submit"}
+            : t("quiz.typeAnswer")}
         </Text>
       </Box>
     </Box>

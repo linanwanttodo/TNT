@@ -11,3 +11,4 @@
 export const MARKER_PERMISSION_DENIED = "Permission denied by user";
 export const MARKER_FILE_CREATED = "Successfully created file";
 export const MARKER_FILE_EDITED = "Successfully edited";
+export const MARKER_TASK_LIST = "Task list";

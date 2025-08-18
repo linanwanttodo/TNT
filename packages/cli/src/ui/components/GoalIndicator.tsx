@@ -2,6 +2,7 @@ import { Text } from "ink";
 import React from "react";
 
 import { getSessionGoal } from "../../session/index.js";
+import { t } from "../../i18n/index.js";
 
 const MAX_VISIBLE_CHARS = 80;
 const ELLIPSIS = "...";
@@ -34,7 +35,7 @@ const GoalIndicator: React.FC = () => {
   return (
     <Text wrap="truncate-end">
       <Text color="blue" bold>
-        {"Goal: "}
+        {t("goal.label")}
       </Text>
       <Text color="gray" dimColor>
         {truncateGoal(goal)}

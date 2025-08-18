@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { defaultBoxStyles } from "./styles.js";
+import { t } from "../i18n/index.js";
 
 interface SessionPreviewProps {
   chatHistory: ChatHistoryItem[];
@@ -84,7 +85,8 @@ export function SessionPreview({
       <Text> </Text>
       {previewMessages.slice(0, maxMessages).map((msg, index) => {
         const roleColor = msg.role === "user" ? "green" : "cyan";
-        const roleLabel = msg.role === "user" ? "You" : "Assistant";
+        const roleLabel =
+          msg.role === "user" ? t("session.you") : t("session.assistant");
         // Truncate long messages for preview
         const truncatedContent =
           msg.content.length > 150

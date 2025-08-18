@@ -8,6 +8,7 @@ import {
 import { truncateOutputFromStart } from "../utils/truncateOutput.js";
 
 import { defaultBoxStyles } from "./styles.js";
+import { t } from "../i18n/index.js";
 
 interface JobsSelectorProps {
   onCancel: () => void;
@@ -99,9 +100,9 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
           Background Jobs
         </Text>
         <Text> </Text>
-        <Text color="gray">No background jobs</Text>
+        <Text color="gray">{t("jobs.none")}</Text>
         <Text> </Text>
-        <Text color="gray">Press Esc to go back</Text>
+        <Text color="gray">{t("jobs.backHint")}</Text>
       </Box>
     );
   }
@@ -118,7 +119,7 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
         <Text color="blue" bold>
           Job Details
         </Text>
-        <Text color="gray">Press Esc/b to go back, x to cancel job</Text>
+        <Text color="gray">{t("jobs.listHint")}</Text>
         <Text> </Text>
 
         <Box flexDirection="row" gap={1}>
@@ -127,23 +128,23 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
         </Box>
 
         <Box flexDirection="row" gap={1}>
-          <Text color="gray">Status:</Text>
+          <Text color="gray">{t("jobs.status")}</Text>
           <Text color={getStatusColor(freshJob.status)}>{freshJob.status}</Text>
         </Box>
 
         <Box flexDirection="row" gap={1}>
-          <Text color="gray">Duration:</Text>
+          <Text color="gray">{t("jobs.duration")}</Text>
           <Text>{formatDuration(freshJob)}</Text>
         </Box>
 
         <Box flexDirection="row" gap={1}>
-          <Text color="gray">Command:</Text>
+          <Text color="gray">{t("jobs.command")}</Text>
           <Text>{freshJob.command}</Text>
         </Box>
 
         {freshJob.exitCode !== null && (
           <Box flexDirection="row" gap={1}>
-            <Text color="gray">Exit Code:</Text>
+            <Text color="gray">{t("jobs.exitCode")}</Text>
             <Text color={freshJob.exitCode === 0 ? "green" : "red"}>
               {freshJob.exitCode}
             </Text>
@@ -152,13 +153,13 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
 
         {freshJob.error && (
           <Box flexDirection="row" gap={1}>
-            <Text color="gray">Error:</Text>
+            <Text color="gray">{t("jobs.error")}</Text>
             <Text color="red">{freshJob.error}</Text>
           </Box>
         )}
 
         <Text> </Text>
-        <Text color="gray">Last 10 lines of output:</Text>
+        <Text color="gray">{t("jobs.outputTail")}</Text>
         <Box borderStyle="single" borderColor="gray" paddingX={1}>
           <Text>{lastOutput || "(no output)"}</Text>
         </Box>
