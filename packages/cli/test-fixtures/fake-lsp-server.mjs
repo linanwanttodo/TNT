@@ -73,6 +73,22 @@ function handle(message) {
       });
       break;
     }
+    case "textDocument/completion": {
+      const position = message.params?.position;
+      respond(message.id, {
+        isIncomplete: false,
+        items: [
+          {
+            label: `candidate at ${position?.line}:${position?.character}`,
+            kind: 2,
+            detail: "fake signature",
+          },
+          { label: "secondCandidate", kind: 6 },
+          { label: "thirdCandidate", kind: 3 },
+        ],
+      });
+      break;
+    }
     case "workspace/symbol":
       // One match per query prefix, so a test can assert both hit and miss.
       respond(

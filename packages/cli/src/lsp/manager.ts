@@ -113,6 +113,39 @@ export class LspManager {
   }
 
   /**
+   * Asks for the completions a server offers at a position. The answer may be
+   * a list or a list wrapper, and servers are free to return either.
+   */
+  async completionAt(
+    filePath: string,
+    line: number,
+    character: number,
+  ): Promise<LspCompletionItem[]> {
+    const absolute = path.resolve(filePath);
+    let text: string;
+    try {
+      text = fs.readFileSync(absolute, "utf-8");
+    } catch {
+      return [];
+    }
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    for (const client of clients) {
+      client.openOrUpdate(absolute, text);
+      try {
+        const answer = await client.request("textDocument/completion", {
+          textDocument: { uri: pathToFileURL(absolute).toString() },
+          position: { line: line - 1, character: character - 1 },
+        });
+        const items = normalizeCompletion(answer);
+        if (items.length > 0) return items;
+      } catch {
+        continue;
+      }
+    }
+    return [];
+  }
+
+  /**
    * Reads the signature a server reports for a position. The document is opened
    * first, since a server is not obliged to answer for a file it never saw.
    */
@@ -213,6 +246,53 @@ export class LspManager {
       clients.map((client) => client.dispose().catch(() => {})),
     );
   }
+}
+
+export interface LspCompletionItem {
+  label: string;
+  kind?: number;
+  detail?: string;
+}
+
+/** CompletionItemKind values, named for the ones worth showing. */
+export const COMPLETION_KINDS: Record<number, string> = {
+  1: "text",
+  2: "method",
+  3: "function",
+  4: "constructor",
+  5: "field",
+  6: "variable",
+  7: "class",
+  8: "interface",
+  9: "module",
+  10: "property",
+  13: "enum",
+  14: "keyword",
+  15: "snippet",
+  21: "constant",
+  22: "struct",
+};
+
+/** A completion answer is a bare list or a list wrapped with isIncomplete. */
+export function normalizeCompletion(answer: unknown): LspCompletionItem[] {
+  if (!answer) return [];
+  const items = Array.isArray(answer)
+    ? answer
+    : Array.isArray((answer as { items?: unknown }).items)
+      ? (answer as { items: unknown[] }).items
+      : [];
+  const normalized: LspCompletionItem[] = [];
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Record<string, unknown>;
+    if (typeof entry.label !== "string") continue;
+    normalized.push({
+      label: entry.label,
+      kind: typeof entry.kind === "number" ? entry.kind : undefined,
+      detail: typeof entry.detail === "string" ? entry.detail : undefined,
+    });
+  }
+  return normalized;
 }
 
 /** A hover answer is a string, a marked string, or a list of either. */
