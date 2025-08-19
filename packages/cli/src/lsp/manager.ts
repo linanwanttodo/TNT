@@ -238,6 +238,20 @@ export class LspManager {
     return this.diagnostics.get(uri) ?? [];
   }
 
+  /**
+   * The exit-time counterpart of dispose: a process that is going away cannot
+   * await a protocol shutdown, and a language server left running would outlive
+   * the session that started it.
+   */
+  stopAllNow(): void {
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    this.servers.clear();
+    this.diagnostics.clear();
+    for (const client of clients) {
+      client.killNow();
+    }
+  }
+
   async dispose(): Promise<void> {
     const clients = [...this.servers.values()].map((entry) => entry.client);
     this.servers.clear();
@@ -316,6 +330,10 @@ export function renderHover(answer: unknown): string | null {
 let manager: LspManager | null = null;
 
 export function getLspManager(): LspManager {
-  manager ??= new LspManager();
+  if (!manager) {
+    manager = new LspManager();
+    // Registered once with the manager, so repeated calls cannot stack handlers.
+    process.once("exit", () => manager?.stopAllNow());
+  }
   return manager;
 }
