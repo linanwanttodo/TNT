@@ -2,6 +2,7 @@ import { Box, Text } from "ink";
 import React from "react";
 
 import { readTodoState } from "../../tools/todo.js";
+import { t } from "../../i18n/index.js";
 
 const MAX_VISIBLE = 5;
 
@@ -32,7 +33,7 @@ const TodoIndicator: React.FC<TodoIndicatorProps> = ({
     <Box flexDirection="column">
       <Box>
         <Text color="gray" dimColor>
-          {`Todos ${done}/${todos.length}`}
+          {t("tool.todosCount", { done, total: todos.length })}
         </Text>
       </Box>
       {visible.map((todo) => (
