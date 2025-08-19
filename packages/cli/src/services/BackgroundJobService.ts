@@ -27,9 +27,21 @@ const MAX_OUTPUT_LINES = 1000;
  * Service for managing background job execution and lifecycle
  * Handles spawning, tracking, and cleanup of background processes
  */
+let exitHookRegistered = false;
+
 export class BackgroundJobService {
   private jobs: Map<string, BackgroundJob> = new Map();
   private processes: Map<string, ChildProcess> = new Map();
+
+  constructor() {
+    // A background job cannot be checked once the process that tracked it is
+    // gone, and several exits bypass the graceful path, so sweep on the way out.
+    // Registered once for the process, not once per instance.
+    if (!exitHookRegistered) {
+      exitHookRegistered = true;
+      process.once("exit", () => this.killAllJobs());
+    }
+  }
   private jobCounter = 0;
 
   createJob(command: string): BackgroundJob | null {
