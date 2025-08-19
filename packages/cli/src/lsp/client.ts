@@ -205,6 +205,23 @@ export class LspClient {
     });
   }
 
+  /**
+   * Kills the server without waiting for the protocol goodbye. Used on process
+   * exit, where only synchronous work can still run.
+   */
+  killNow(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const [id, entry] of this.pending) {
+      clearTimeout(entry.timer);
+      entry.reject(new Error("language server client is closed"));
+      this.pending.delete(id);
+    }
+    if (!this.child.killed) {
+      this.child.kill();
+    }
+  }
+
   async dispose(): Promise<void> {
     if (this.disposed) return;
     for (const uri of this.openDocuments.keys()) {

@@ -2,6 +2,12 @@
 // stdio: responds to initialize and shutdown, and publishes one diagnostic per
 // opened document. Run it with node, no build step.
 
+const pidFlag = process.argv.indexOf("--pid-file");
+if (pidFlag !== -1 && process.argv[pidFlag + 1]) {
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(process.argv[pidFlag + 1], String(process.pid));
+}
+
 let buffer = Buffer.alloc(0);
 
 function send(payload) {

@@ -99,8 +99,10 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   catalogue and a reserved name served from a non-official source.
   `src/lsp/` starts a plugin's declared language server over stdio, keeps
   request correlation and timeouts, and collects published diagnostics. The
-  model reaches them through the read-only `Diagnostics` tool, which lets it
-  check its own edit instead of guessing.
+  model reaches it through read-only tools: `Diagnostics` checks its own edit,
+  `FindSymbol` locates a declaration, `Hover` reads a signature and `Completion`
+  lists what can be written next. Servers are killed when the process exits,
+  which is why a session cannot leave one running behind it.
   `/plugin marketplace add|list|remove` is the user-facing entry point, and
   `src/plugins/pluginInstall.ts` installs one plugin from a resolved
   marketplace into `cache/<marketplace>/<plugin>/<version>/`, which is exactly
