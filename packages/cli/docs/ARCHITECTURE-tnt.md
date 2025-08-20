@@ -132,9 +132,12 @@ described in section 4.
 
 Delegation is allowed in every mode, including plan mode, because the child
 context narrows what the parent had: a delegate cannot exceed the restrictions
-of the session that started it. Nothing is left to a default either - a tool with
-no policy falls back to prompting, so a test checks every built-in tool has an
-explicit rule in both the agent and plan lists.
+of the session that started it. Nothing is left to a default either: a tool with
+no policy falls back to prompting, so a test checks that every tool a run is
+actually offered has an explicit rule in both the agent and plan lists. It reads
+the list a run is offered rather than the static registry, because the beta
+gated tools are only built at runtime and an earlier version of the check could
+not see them.
 
 A delegation never inherits the parent's permissions unchanged.
 `src/subagent/runContext.ts` narrows them into a new context: a restricted
