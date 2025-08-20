@@ -83,15 +83,23 @@ export function parseMarketplaceManifest(
     }
     const entry = candidate as Record<string, unknown>;
     const pluginName = typeof entry.name === "string" ? entry.name : "";
-    const source = typeof entry.source === "string" ? entry.source : "";
-    if (!pluginName || !source) {
+    const rawSource = entry.source;
+    const sourceIsUsable =
+      typeof rawSource === "string"
+        ? rawSource.length > 0
+        : Boolean(
+            rawSource &&
+              typeof rawSource === "object" &&
+              typeof (rawSource as { source?: unknown }).source === "string",
+          );
+    if (!pluginName || !sourceIsUsable) {
       throw new MarketplaceManifestError(
         "Marketplace plugin needs both a name and a source",
       );
     }
     plugins.push({
       name: pluginName,
-      source,
+      source: rawSource as MarketplacePluginEntry["source"],
       version: typeof entry.version === "string" ? entry.version : undefined,
       description:
         typeof entry.description === "string" ? entry.description : undefined,

@@ -254,8 +254,10 @@ describe("installing a plugin from a marketplace", () => {
   });
 
   it("refuses a source form it cannot resolve instead of guessing", async () => {
+    // url: is a git source now, so the unknown case needs a scheme nothing
+    // claims.
     writeMarketplace([
-      { name: "weird", source: "url:https://example.test/p.json" },
+      { name: "weird", source: "ftp:https://example.test/p.json" },
     ]);
     registerMarketplace();
 
