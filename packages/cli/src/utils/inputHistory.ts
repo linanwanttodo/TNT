@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+import { writeFileAtomically } from "core/util/atomicWrite.js";
+
 import { env } from "../config/env.js";
 
 const HISTORY_FILE = path.join(env.continueHome, "input_history.json");
@@ -44,7 +46,7 @@ export class InputHistory {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      fs.writeFileSync(HISTORY_FILE, JSON.stringify(this.history, null, 2));
+      writeFileAtomically(HISTORY_FILE, JSON.stringify(this.history, null, 2));
     } catch (error) {
       console.error("Failed to save input history:", error);
     }

@@ -9,6 +9,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { writeFileAtomically } from "core/util/atomicWrite.js";
+
 import { env } from "../config/env.js";
 
 export type Locale = "en" | "zh-CN";
@@ -618,7 +620,7 @@ function writeStoredLocale(locale: Locale): void {
     if (fs.existsSync(SETTINGS_PATH)) {
       existing = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
     }
-    fs.writeFileSync(
+    writeFileAtomically(
       SETTINGS_PATH,
       JSON.stringify({ ...existing, locale }, null, 2),
     );
