@@ -12,6 +12,8 @@ import { IdeType, SerializedContinueConfig } from "../";
 import { defaultConfig } from "../config/default";
 import Types from "../config/types";
 
+import { writeFileAtomically } from "./atomicWrite.js";
+
 dotenv.config();
 
 export function setConfigFilePermissions(filePath: string): void {
@@ -256,7 +258,10 @@ function editConfigJson(
   // Check if it's an object
   if (typeof configJson === "object" && configJson !== null) {
     configJson = callback(configJson as any) as any;
-    fs.writeFileSync(getConfigJsonPath(), JSONC.stringify(configJson, null, 2));
+    writeFileAtomically(
+      getConfigJsonPath(),
+      JSONC.stringify(configJson, null, 2),
+    );
   } else {
     console.warn("config.json is not a valid object");
   }
@@ -269,7 +274,7 @@ function editConfigYaml(callback: (config: ConfigYaml) => ConfigYaml): void {
   // Check if it's an object
   if (typeof configYaml === "object" && configYaml !== null) {
     configYaml = callback(configYaml as any) as any;
-    fs.writeFileSync(configPath, YAML.stringify(configYaml));
+    writeFileAtomically(configPath, YAML.stringify(configYaml));
     setConfigFilePermissions(configPath);
   } else {
     console.warn("config.yaml is not a valid object");
