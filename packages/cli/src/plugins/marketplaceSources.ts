@@ -134,6 +134,18 @@ function gitUrls(source: { url: string; ref?: string }): string[] {
   return [source.url];
 }
 
+/**
+ * The clone candidates for a github repository, most likely to work first: a
+ * configured key means ssh, otherwise https with ssh as the fallback.
+ */
+export async function githubCloneUrls(
+  deps: MarketplaceDeps,
+  repo: string,
+): Promise<string[]> {
+  const [ssh, https] = githubUrls(repo);
+  return (await deps.sshConfiguredForGitHub()) ? [ssh, https] : [https, ssh];
+}
+
 export function githubUrls(repo: string): string[] {
   return [`git@github.com:${repo}.git`, `https://github.com/${repo}.git`];
 }
@@ -264,9 +276,7 @@ export async function resolveMarketplaceSource(
           "git is not installed, so a github marketplace cannot be fetched",
         );
       }
-      const candidates = (await deps.sshConfiguredForGitHub())
-        ? githubUrls(source.repo)
-        : [githubUrls(source.repo)[1], githubUrls(source.repo)[0]];
+      const candidates = await githubCloneUrls(deps, source.repo);
       const { reused } = await ensureGitCheckout(deps, candidates, cacheDir, {
         ref: source.ref,
         sparsePaths: source.sparsePaths,

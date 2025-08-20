@@ -71,9 +71,22 @@ export interface MarketplaceAuthor {
   url?: string;
 }
 
+/**
+ * The object spelling of a plugin source, as a catalogue written for the
+ * reference tool declares it. A url source means a git repository.
+ */
+export type PluginSourceObject =
+  | { source: "npm"; package: string; version?: string; registry?: string }
+  | { source: "github"; repo: string; ref?: string }
+  | { source: "url"; url: string; ref?: string }
+  | { source: "git-subdir"; url: string; path: string; ref?: string }
+  | { source: "pip"; package?: string };
+
+export type PluginSource = string | PluginSourceObject;
+
 export interface MarketplacePluginEntry {
   name: string;
-  source: string;
+  source: PluginSource;
   version?: string;
   description?: string;
   category?: string;

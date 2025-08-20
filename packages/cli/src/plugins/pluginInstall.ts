@@ -12,10 +12,10 @@ import {
 import {
   MarketplaceDeps,
   ensureGitCheckout,
-  githubUrls,
+  githubCloneUrls,
   unpackNpm,
 } from "./marketplaceSources.js";
-import { sanitizeSegment } from "./marketplaceTypes.js";
+import { PluginSource, sanitizeSegment } from "./marketplaceTypes.js";
 
 export class PluginInstallError extends Error {}
 
@@ -30,24 +30,86 @@ export interface InstalledPlugin {
 /**
  * Where a plugin entry's `source` is read from. A relative path resolves inside
  * the marketplace that declared it; the remote forms reuse the fetch machinery
- * the marketplace layer already uses.
+ * the marketplace layer already uses. The object forms are what a catalogue
+ * written for the reference tool uses, so both spellings are accepted.
  */
-function classifyPluginSource(source: string): {
-  kind: "relative" | "github" | "git" | "npm";
+function classifyPluginSource(source: PluginSource): {
+  kind: "relative" | "github" | "git" | "gitSubdir" | "npm";
   value: string;
+  ref?: string;
+  subPath?: string;
 } {
+  if (typeof source !== "string") {
+    const detail = source as Record<string, unknown>;
+    switch (detail.source) {
+      case "npm":
+        if (typeof detail.package !== "string" || !detail.package) {
+          throw new PluginInstallError("An npm plugin source needs a package");
+        }
+        return { kind: "npm", value: detail.package };
+      case "github":
+        if (typeof detail.repo !== "string" || !detail.repo) {
+          throw new PluginInstallError("A github plugin source needs a repo");
+        }
+        return {
+          kind: "github",
+          value: detail.repo,
+          ref: typeof detail.ref === "string" ? detail.ref : undefined,
+        };
+      case "url":
+        if (typeof detail.url !== "string" || !detail.url) {
+          throw new PluginInstallError("A url plugin source needs a url");
+        }
+        // A url source is fetched as a git repository, which is what the name
+        // means wherever it appears.
+        return {
+          kind: "git",
+          value: detail.url,
+          ref: typeof detail.ref === "string" ? detail.ref : undefined,
+        };
+      case "git-subdir":
+        if (
+          typeof detail.url !== "string" ||
+          typeof detail.path !== "string" ||
+          !detail.url ||
+          !detail.path
+        ) {
+          throw new PluginInstallError(
+            "A git-subdir plugin source needs a url and a path",
+          );
+        }
+        return {
+          kind: "gitSubdir",
+          value: detail.url,
+          ref: typeof detail.ref === "string" ? detail.ref : undefined,
+          subPath: detail.path,
+        };
+      case "pip":
+        throw new PluginInstallError(
+          "Python package plugins are not supported",
+        );
+      default:
+        throw new PluginInstallError(
+          `Unsupported plugin source type ${String(detail.source)}`,
+        );
+    }
+  }
+
   if (source.startsWith("github:")) {
     return { kind: "github", value: source.slice("github:".length) };
   }
   if (source.startsWith("git:")) {
     return { kind: "git", value: source.slice("git:".length) };
   }
+  if (source.startsWith("url:")) {
+    return { kind: "git", value: source.slice("url:".length) };
+  }
   if (source.startsWith("npm:")) {
     return { kind: "npm", value: source.slice("npm:".length) };
   }
   if (/^[a-z][a-z0-9+.-]*:/i.test(source)) {
     throw new PluginInstallError(
-      `Unsupported plugin source ${source}; supported forms are a relative path, github:<owner>/<repo>, git:<url> and npm:<package>`,
+      `Unsupported plugin source ${source}; supported forms are a relative path, github:<owner>/<repo>, git:<url>, url:<git-url> and npm:<package>`,
     );
   }
   return { kind: "relative", value: source };
@@ -119,7 +181,7 @@ export async function installPlugin(
     };
   }
 
-  const { kind, value } = classifyPluginSource(entry.source);
+  const { kind, value, ref, subPath } = classifyPluginSource(entry.source);
   let gitCommitSha: string | undefined;
 
   if (kind === "relative") {
@@ -135,14 +197,32 @@ export async function installPlugin(
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.rmSync(target, { recursive: true, force: true });
     fs.cpSync(source, target, { recursive: true });
-  } else if (kind === "github" || kind === "git") {
+  } else if (kind === "github" || kind === "git" || kind === "gitSubdir") {
     if (!deps.gitAvailable()) {
       throw new PluginInstallError(
         `Plugin ${id} needs git to be installed and on PATH`,
       );
     }
-    const urls = kind === "github" ? githubUrls(value) : [value];
-    await ensureGitCheckout(deps, urls, target, {});
+    const urls =
+      kind === "github" ? await githubCloneUrls(deps, value) : [value];
+    // A subdirectory source is cloned somewhere temporary and then reduced to
+    // the directory the manifest named.
+    const cloneTarget = subPath
+      ? path.join(path.dirname(target), `${path.basename(target)}.tmp-clone`)
+      : target;
+    await ensureGitCheckout(deps, urls, cloneTarget, { ref });
+    if (subPath) {
+      const inner = path.join(cloneTarget, subPath);
+      if (!fs.existsSync(inner)) {
+        fs.rmSync(cloneTarget, { recursive: true, force: true });
+        throw new PluginInstallError(
+          `Plugin ${id} declares the subdirectory ${subPath}, which the repository does not contain`,
+        );
+      }
+      fs.rmSync(target, { recursive: true, force: true });
+      fs.cpSync(inner, target, { recursive: true });
+      fs.rmSync(cloneTarget, { recursive: true, force: true });
+    }
     const head = await deps.run("git", ["rev-parse", "HEAD"], {
       cwd: target,
       env: {},
