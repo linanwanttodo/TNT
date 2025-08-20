@@ -13,7 +13,7 @@ import { UpdateNotification } from "./UpdateNotification.js";
 
 // Mock useServices hook
 const mockUseServices = vi.fn();
-vi.mock("../hooks/useService.js", () => ({
+vi.mock("./hooks/useService.js", () => ({
   useServices: () => mockUseServices(),
 }));
 

@@ -65,4 +65,4 @@ export interface RemoteServerState {
   };
 }
 
-export type { SlashCommandResult } from "../../slash/types.js";
+export type { SlashCommandResult } from "../commands/types.js";

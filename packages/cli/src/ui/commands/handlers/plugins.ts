@@ -1,15 +1,15 @@
 import chalk from "chalk";
 
-import { t } from "../../i18n/index.js";
+import { t } from "../../../i18n/index.js";
 
-import { loadAllPlugins } from "../../plugins/loader.js";
-import { runMarketplaceCommand } from "../../plugins/marketplaceCommand.js";
-import { createDefaultDeps } from "../../plugins/marketplaceManager.js";
-import { loadKnownMarketplaces } from "../../plugins/marketplaceRegistry.js";
+import { loadAllPlugins } from "../../../plugins/loader.js";
+import { runMarketplaceCommand } from "../../../plugins/marketplaceCommand.js";
+import { createDefaultDeps } from "../../../plugins/marketplaceManager.js";
+import { loadKnownMarketplaces } from "../../../plugins/marketplaceRegistry.js";
 import {
   installPluginWithDependencies,
   uninstallPlugin,
-} from "../../plugins/pluginInstall.js";
+} from "../../../plugins/pluginInstall.js";
 import type { SlashCommandResult } from "../types.js";
 
 function splitPluginReference(reference: string): {

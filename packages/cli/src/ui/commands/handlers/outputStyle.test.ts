@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getSessionOutputStyle,
   setSessionOutputStyle,
-} from "../../session/index.js";
+} from "../../../session/index.js";
 import { handleOutputStyle } from "./outputStyle.js";
 
 let pluginsDir: string;

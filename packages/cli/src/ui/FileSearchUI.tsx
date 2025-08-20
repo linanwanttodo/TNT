@@ -2,7 +2,7 @@ import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
 
 import { t } from "../i18n/index.js";
-import { useServices } from "../hooks/useService.js";
+import { useServices } from "./hooks/useService.js";
 import {
   FileIndexServiceState,
   FileItem,

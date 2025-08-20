@@ -67,7 +67,7 @@ export function runTest(
       it(name, async () => {
         // Import mocks from Vitest setup
         const { useServices, useService } = await import(
-          "../hooks/useService.js"
+          "../ui/hooks/useService.js"
         );
         const mockUseServices = useServices as any;
         const mockUseService = useService as any;
@@ -211,7 +211,7 @@ export function runTestSuite(
 
       beforeAll(async () => {
         const { useServices, useService } = await import(
-          "../hooks/useService.js"
+          "../ui/hooks/useService.js"
         );
         const mockUseServices = useServices as any;
         const mockUseService = useService as any;

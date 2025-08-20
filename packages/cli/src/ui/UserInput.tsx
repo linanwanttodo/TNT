@@ -4,8 +4,8 @@ import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text, useApp, useInput } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { getAllSlashCommands, type SlashCommand } from "../slash/index.js";
-import { useServices } from "../hooks/useService.js";
+import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
+import { useServices } from "./hooks/useService.js";
 import type { PermissionMode } from "../permissions/types.js";
 import type { FileIndexServiceState } from "../services/FileIndexService.js";
 import type { ToolPermissionServiceState } from "../services/ToolPermissionService.js";

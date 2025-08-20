@@ -7,7 +7,7 @@ import {
   setLocale,
   t,
   type Locale,
-} from "../../i18n/index.js";
+} from "../../../i18n/index.js";
 import type { SlashCommandResult } from "../types.js";
 
 export async function handleLanguage(

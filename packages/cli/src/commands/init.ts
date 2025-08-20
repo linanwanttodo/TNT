@@ -1,7 +1,7 @@
 import { type AssistantConfig } from "@tnt/sdk";
 import { createRelativeRuleFilePath } from "core/config/markdown/utils.js";
 
-import { type SlashCommandResult } from "../slash/index.js";
+import { type SlashCommandResult } from "../ui/commands/index.js";
 
 function createInitPrompt(): string {
   const relativeRuleFilepath = createRelativeRuleFilePath("review");

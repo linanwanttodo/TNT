@@ -2,7 +2,7 @@ import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 import { quote } from "shell-quote";
 
-import { useServices } from "../hooks/useService.js";
+import { useServices } from "./hooks/useService.js";
 import {
   MCPConnectionInfo,
   MCPServerStatus,

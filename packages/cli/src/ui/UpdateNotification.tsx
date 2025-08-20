@@ -1,7 +1,7 @@
 import { Box, Text } from "ink";
 import React, { useMemo } from "react";
 
-import { useServices } from "../hooks/useService.js";
+import { useServices } from "./hooks/useService.js";
 import {
   SERVICE_NAMES,
   UpdateServiceState,

@@ -1,12 +1,12 @@
 import chalk from "chalk";
 
-import { t } from "../../i18n/index.js";
-import { readSettingsString } from "../../config/settingsFiles.js";
-import { loadAllPlugins } from "../../plugins/loader.js";
+import { t } from "../../../i18n/index.js";
+import { readSettingsString } from "../../../config/settingsFiles.js";
+import { loadAllPlugins } from "../../../plugins/loader.js";
 import {
   getSessionOutputStyle,
   setSessionOutputStyle,
-} from "../../session/index.js";
+} from "../../../session/index.js";
 import type { SlashCommandResult } from "../types.js";
 
 /**

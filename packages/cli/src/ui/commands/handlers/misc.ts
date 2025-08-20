@@ -1,6 +1,6 @@
 import chalk from "chalk";
 
-import { readTodoState } from "../../tools/todo.js";
+import { readTodoState } from "../../../tools/todo.js";
 import type { SlashCommandResult } from "../types.js";
 
 export function handleJobs(): SlashCommandResult {

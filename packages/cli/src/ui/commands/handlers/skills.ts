@@ -1,9 +1,9 @@
 import chalk from "chalk";
 
-import { t } from "../../i18n/index.js";
+import { t } from "../../../i18n/index.js";
 
-import { buildImportSkillPrompt } from "../../tools/skills.js";
-import { loadMarkdownSkills } from "../../utils/loadMarkdownSkills.js";
+import { buildImportSkillPrompt } from "../../../tools/skills.js";
+import { loadMarkdownSkills } from "../../../utils/loadMarkdownSkills.js";
 import type { SlashCommandResult } from "../types.js";
 
 export async function handleSkills(): Promise<SlashCommandResult> {

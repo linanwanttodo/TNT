@@ -1,5 +1,5 @@
-import { handleInit } from "../../commands/init.js";
-import { handleInfoSlashCommand } from "../../startup/infoScreen.js";
+import { handleInit } from "../../../commands/init.js";
+import { handleInfoSlashCommand } from "../../../startup/infoScreen.js";
 import type { CommandHandler } from "../types.js";
 
 import { handleHelp } from "./help.js";
