@@ -17,6 +17,7 @@ import { resolveReviews } from "./review/resolveReviews.js";
 import { ReviewProgress } from "./review/ReviewProgress.js";
 import type { ReviewState } from "./review/ReviewProgress.js";
 import type { WorkerConfig, WorkerResult } from "./review/reviewWorker.js";
+import { trackWorker, untrackWorker } from "./review/workerPool.js";
 import { createWorktree, cleanupWorktree } from "./review/worktree.js";
 
 export interface ReviewOptions extends ExtendedCommandOptions {
@@ -49,12 +50,15 @@ async function runReviewInWorker(
       },
     });
 
+    trackWorker(child);
+
     let settled = false;
 
     const timeout = setTimeout(
       () => {
         if (!settled) {
           settled = true;
+          untrackWorker(child);
           child.kill("SIGTERM");
           resolve({
             patch: "",
@@ -86,6 +90,8 @@ async function runReviewInWorker(
         if (!settled) {
           settled = true;
           clearTimeout(timeout);
+          untrackWorker(child);
+          child.kill("SIGTERM");
           resolve(msg.result);
         }
       }
@@ -95,6 +101,7 @@ async function runReviewInWorker(
       if (!settled) {
         settled = true;
         clearTimeout(timeout);
+        untrackWorker(child);
         resolve({
           patch: "",
           agentOutput: "",
@@ -108,6 +115,7 @@ async function runReviewInWorker(
       if (!settled) {
         settled = true;
         clearTimeout(timeout);
+        untrackWorker(child);
         if (code !== 0) {
           resolve({
             patch: "",

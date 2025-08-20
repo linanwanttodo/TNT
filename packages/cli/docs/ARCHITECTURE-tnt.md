@@ -22,10 +22,11 @@ the engine but replaces the host with a terminal process.
 | `src/stream/`, `src/loop/`, `src/tools/`, `src/permissions/`, `src/cache/`, `src/plugins/`, `src/hooks/`, `src/subagent/`, `src/telemetry/` | agent engine                                            |
 
 Long-lived resources are swept on the way out, not left to the operating
-system: language servers, background jobs and MCP connections each register a
-synchronous sweep on `exit`, because several code paths call `process.exit`
-directly and would otherwise bypass the graceful shutdown that flushes
-telemetry.
+system: language servers, background jobs, review workers and MCP connections
+each register a synchronous sweep on `exit`, because several code paths call
+`process.exit` directly and would otherwise bypass the graceful shutdown that
+flushes telemetry. A review worker is also stopped as soon as it reports its
+result, since its work is finished at that point.
 
 There is no `core/continueServer` reference anywhere under `src/`. The only
 outbound hosts are model providers, `api.workos.com` for optional account auth,
