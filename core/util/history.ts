@@ -78,10 +78,7 @@ export class HistoryManager {
       (session) => session.sessionId !== sessionId,
     );
 
-    fs.writeFileSync(
-      sessionsListFile,
-      JSON.stringify(sessionsList, undefined, 2),
-    );
+    writeJsonAtomically(sessionsListFile, sessionsList);
   }
 
   clearAll() {
@@ -128,10 +125,7 @@ export class HistoryManager {
       orderedSession.usage = session.usage;
     }
 
-    fs.writeFileSync(
-      getSessionFilePath(session.sessionId),
-      JSON.stringify(orderedSession, undefined, 2),
-    );
+    writeJsonAtomically(getSessionFilePath(session.sessionId), orderedSession);
 
     // Read and update the sessions list
     const sessionsListFilePath = getSessionsListPath();
@@ -143,7 +137,7 @@ export class HistoryManager {
         sessionsList = JSON.parse(rawSessionsList);
       } catch (e) {
         if (rawSessionsList.trim() === "") {
-          fs.writeFileSync(sessionsListFilePath, JSON.stringify([]));
+          writeJsonAtomically(sessionsListFilePath, []);
           sessionsList = [];
         } else {
           throw e;
@@ -175,10 +169,7 @@ export class HistoryManager {
         sessionsList.push(sessionMetadata);
       }
 
-      fs.writeFileSync(
-        sessionsListFilePath,
-        JSON.stringify(sessionsList, undefined, 2),
-      );
+      writeJsonAtomically(sessionsListFilePath, sessionsList);
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new Error(
@@ -190,6 +181,18 @@ export class HistoryManager {
       );
     }
   }
+}
+
+/**
+ * Writes JSON in one step: a reader sees either the previous file or the new
+ * one, never a half-written one. A plain write interrupted by a crash leaves a
+ * truncated conversation behind, and the session listing skips a file it cannot
+ * parse without saying so.
+ */
+function writeJsonAtomically(filePath: string, data: unknown): void {
+  const temporaryPath = `${filePath}.tmp`;
+  fs.writeFileSync(temporaryPath, JSON.stringify(data, undefined, 2));
+  fs.renameSync(temporaryPath, filePath);
 }
 
 const historyManager = new HistoryManager();
