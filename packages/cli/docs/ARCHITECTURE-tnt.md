@@ -130,6 +130,12 @@ not dispatch another subagent. Deeper nesting multiplies system prompts and tool
 definitions per request, which is the fastest way to lose the cache reuse
 described in section 4.
 
+Delegation is allowed in every mode, including plan mode, because the child
+context narrows what the parent had: a delegate cannot exceed the restrictions
+of the session that started it. Nothing is left to a default either - a tool with
+no policy falls back to prompting, so a test checks every built-in tool has an
+explicit rule in both the agent and plan lists.
+
 A delegation never inherits the parent's permissions unchanged.
 `src/subagent/runContext.ts` narrows them into a new context: a restricted
 delegate loses `Bash`, `Edit`, `Write`, `MultiEdit`, `ApplyPatch`, `Create`,
