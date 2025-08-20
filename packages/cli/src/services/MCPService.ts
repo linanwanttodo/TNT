@@ -4,6 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 import { getErrorString } from "../utils/error.js";
 import { logger } from "../utils/logger.js";
+import { registerShutdownCallback } from "../utils/processShutdown.js";
 
 import { loadAllPlugins } from "../plugins/loader.js";
 
@@ -70,10 +71,11 @@ export class MCPService
       ...EMPTY_MCP_STATE,
     });
 
-    // Register shutdown handler
-    process.on("exit", () => this.cleanup());
-    process.on("SIGINT", () => this.cleanup());
-    process.on("SIGTERM", () => this.cleanup());
+    // Registered under a key: constructing another instance replaces this
+    // callback instead of stacking another set of process listeners.
+    registerShutdownCallback("mcp-service", () => {
+      void this.cleanup();
+    });
   }
 
   /**
