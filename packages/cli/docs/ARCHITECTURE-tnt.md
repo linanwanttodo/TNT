@@ -252,3 +252,15 @@ Stated as gaps, not as intentions:
    provider accepts these cache parameters needs a real API key and two
    consecutive rounds of the same prompt against the same model; until then no
    claim about provider acceptance is recorded here.
+
+6. Retrieval over a large codebase is the largest missing piece. `core`
+   carries the whole stack - `CodebaseIndexer`, a vector index (LanceDB), a
+   full-text index and tree-sitter chunking - but nothing in the CLI hosts it:
+   `FileIndexService` is an fzf filename list for @-mentions, and the agent's
+   only ways to find code are the ripgrep-backed `SearchCode` and `Glob`.
+   For comparison, the community Claude Code reconstruction has no index of
+   any kind (ripgrep, a file index for suggestions and compaction only), and
+   Cursor ships retrieval as a dedicated sidecar. Closing this means hosting
+   the core indexer behind a service, exposing it as a read-only model tool,
+   and giving the index a build and refresh lifecycle that honours ignore
+   rules; embedding provider configuration and cost are the open questions.
