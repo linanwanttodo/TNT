@@ -130,6 +130,12 @@ not dispatch another subagent. Deeper nesting multiplies system prompts and tool
 definitions per request, which is the fastest way to lose the cache reuse
 described in section 4.
 
+The tool the model is offered is built from the registry entry with one
+deliberate override: the agent-name parameter's description points at the
+listing tool, which is a separate call. Everything else comes from the entry, and
+a test pins that derivation so the schema the model sees cannot drift from the
+one the registry describes.
+
 Delegation is allowed in every mode, including plan mode, because the child
 context narrows what the parent had: a delegate cannot exceed the restrictions
 of the session that started it. Nothing is left to a default either: a tool with
