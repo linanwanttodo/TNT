@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { createTwoFilesPatch } from "diff";
 
@@ -136,7 +137,7 @@ export const writeFileTool: Tool = {
       }
 
       // Write new content
-      fs.writeFileSync(args.filepath, args.content, "utf-8");
+      writeFileAtomically(args.filepath, args.content);
 
       // Track lines of code changes if file existed before
       if (oldContent) {

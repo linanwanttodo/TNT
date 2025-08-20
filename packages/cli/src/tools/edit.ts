@@ -4,6 +4,7 @@ import path from "path";
 import { validateSingleEdit } from "core/edit/searchAndReplace/findAndReplaceUtils.js";
 import { executeFindAndReplace } from "core/edit/searchAndReplace/performReplace.js";
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
+import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
 import { telemetryService } from "../telemetry/telemetryService.js";
@@ -155,7 +156,7 @@ WARNINGS:
     oldContent: string;
   }) => {
     try {
-      fs.writeFileSync(args.resolvedPath, args.newContent, "utf-8");
+      writeFileAtomically(args.resolvedPath, args.newContent);
 
       // Get lines for telemetry
       const { added, removed } = calculateLinesOfCodeDiff(
