@@ -131,6 +131,19 @@ const require = __createRequire(import.meta.url);`,
     console.warn("Warning: Could not copy xhr-sync-worker.js:", error.message);
   }
 
+  // Copy the tokenizer workers next to the bundle: core spawns them by path at
+  // runtime to chunk the codebase index.
+  for (const worker of [
+    "llamaTokenizerWorkerPool.mjs",
+    "tiktokenWorkerPool.mjs",
+  ]) {
+    copyFileSync(
+      resolve(__dirname, "../../core/llm", worker),
+      resolve(__dirname, "dist", worker),
+    );
+    console.log(`✓ Copied ${worker}`);
+  }
+
   // Make the wrapper script executable
   chmodSync("dist/tnt.js", 0o755);
 
