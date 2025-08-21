@@ -273,9 +273,15 @@ Stated as gaps, not as intentions:
    grammars the chunker understands next to the bundle - all of them are
    loaded by path at runtime. A probe build with the service reachable ran the
    whole loop from `dist/index.js`; the bundle grows from 12.8 MB to about
-   30 MB when the service is included. Still missing: no model-facing tool
-   calls the service yet, there is no index build or refresh lifecycle beyond
-   `update()`, and the vector path is not wired. One packaging note:
+   30 MB when the service is included. The model now reaches the index through
+   `CodebaseSearch`, a read-only tool that takes a query and returns the best
+   chunks with file paths and line ranges, capped per chunk and per call and
+   divided by the parallel tool-call count; it builds the index on first use
+   and reuses it afterwards, serializing concurrent first calls. The tool is
+   in both permission lists, and the coverage guard in the test suite names it
+   if a future policy edit drops it. Still missing: no index build or refresh
+   lifecycle beyond first use (a changed file is not reindexed until the next
+   explicit `update()`), and the vector path is not wired. One packaging note:
    `packages/cli/package-lock.json` is stale - it references the pre-move
    `../config-yaml` - so a fresh `npm install` in that package needs the lock
    regenerated first.

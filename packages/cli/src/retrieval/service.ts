@@ -3,6 +3,7 @@ import path from "path";
 import { ConfigHandler } from "core/config/ConfigHandler.js";
 import { CodebaseIndexer } from "core/indexing/CodebaseIndexer.js";
 import { FullTextSearchCodebaseIndex } from "core/indexing/FullTextSearchCodebaseIndex.js";
+import { SqliteDb } from "core/indexing/refreshIndex.js";
 import { LLMLogger } from "core/llm/logger.js";
 import FileSystemIde from "core/util/filesystem.js";
 import { localPathToUri } from "core/util/pathToUri.js";
@@ -30,6 +31,7 @@ export class RetrievalService {
   private readonly workspaceDir: string;
   private readonly ide: FileSystemIde;
   private readonly indexer: CodebaseIndexer;
+  private buildPromise: Promise<void> | null = null;
 
   constructor(workspaceDir: string = process.cwd()) {
     // Core's IDE abstraction speaks file URIs, so the workspace the indexer
@@ -47,6 +49,37 @@ export class RetrievalService {
   /** Walks the workspace and brings the index up to date with it. */
   async update(): Promise<void> {
     await this.indexer.refreshCodebaseIndex([this.workspaceDir]);
+  }
+
+  /** Whether this directory already has a full-text index to answer from. */
+  async hasIndex(): Promise<boolean> {
+    const branch = await this.ide.getBranch(this.workspaceDir);
+    try {
+      const db = await SqliteDb.get();
+      const rows = await db.all(
+        "SELECT 1 FROM tag_catalog WHERE artifactId = ? AND dir = ? AND branch = ? LIMIT 1",
+        [FullTextSearchCodebaseIndex.artifactId, this.workspaceDir, branch],
+      );
+      return rows.length > 0;
+    } catch (error) {
+      // A database that has never been written has no tag table yet.
+      logger.debug("Codebase index lookup failed", error as Error);
+      return false;
+    }
+  }
+
+  /**
+   * Builds the index on first use and reuses it afterwards. Two callers that
+   * race on an unbuilt workspace share one build.
+   */
+  async ensureIndexed(): Promise<void> {
+    if (await this.hasIndex()) {
+      return;
+    }
+    this.buildPromise ??= this.update().finally(() => {
+      this.buildPromise = null;
+    });
+    await this.buildPromise;
   }
 
   /** Full-text search over the indexed chunks, best match first. */
@@ -80,4 +113,19 @@ export class RetrievalService {
       return [];
     }
   }
+}
+
+const services = new Map<string, RetrievalService>();
+
+/** One index host per workspace for the life of the process. */
+export function getRetrievalService(
+  workspaceDir: string = process.cwd(),
+): RetrievalService {
+  const key = path.resolve(workspaceDir);
+  let service = services.get(key);
+  if (!service) {
+    service = new RetrievalService(key);
+    services.set(key, service);
+  }
+  return service;
 }
