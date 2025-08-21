@@ -5,6 +5,8 @@ import {
   chmodSync,
   copyFileSync,
   existsSync,
+  mkdirSync,
+  readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
@@ -24,6 +26,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const external = [
   "fsevents", // macOS native file watcher (optional dependency)
   "./xhr-sync-worker.js", // JSDOM worker file that needs to be copied separately
+  // Reached through the codebase index, which the retrieval service hosts:
+  // sqlite stores the full-text index, and the vendored transformers runtime
+  // and vectordb bind native code that esbuild can never inline. sqlite3 is a
+  // regular dependency; the rest are optional and only load when a config
+  // selects the embeddings path, which leaves them out of a default install.
+  "sqlite3",
+  "onnxruntime-node",
+  "onnxruntime-web",
+  "@huggingface/jinja",
+  "vectordb",
 ];
 
 console.log("Building CLI with esbuild...");
@@ -84,10 +96,7 @@ try {
         "../../packages/config-types/dist/index.js",
       ),
       core: resolve(__dirname, "../../core"),
-      "@tnt/fetch": resolve(
-        __dirname,
-        "../../packages/fetch/dist/index.js",
-      ),
+      "@tnt/fetch": resolve(__dirname, "../../packages/fetch/dist/index.js"),
       "@tnt/llm-info": resolve(
         __dirname,
         "../../packages/llm-info/dist/index.js",
@@ -102,10 +111,16 @@ try {
       "@tnt/sdk": resolve(__dirname, "../../packages/sdk/typescript"),
     },
 
-    // Add banner to create require for CommonJS packages
+    // Add banner to create require for CommonJS packages, and to give the
+    // bundled CJS sources a __dirname: this output is one ESM file, which has
+    // none, and Node refuses to run one that reads __dirname alongside
+    // top-level await.
     banner: {
       js: `import { createRequire as __createRequire } from 'module';
-const require = __createRequire(import.meta.url);`,
+import { fileURLToPath as __fileURLToPath } from 'url';
+import { dirname as __pathDirname } from 'path';
+const require = __createRequire(import.meta.url);
+const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
     },
   });
 
@@ -135,6 +150,7 @@ const require = __createRequire(import.meta.url);`,
   // runtime to chunk the codebase index.
   for (const worker of [
     "llamaTokenizerWorkerPool.mjs",
+    "llamaTokenizer.mjs",
     "tiktokenWorkerPool.mjs",
   ]) {
     copyFileSync(
@@ -143,6 +159,43 @@ const require = __createRequire(import.meta.url);`,
     );
     console.log(`✓ Copied ${worker}`);
   }
+
+  // The chunker loads the tree-sitter runtime and one grammar per language by
+  // path, relative to the bundle. Which grammars exist is read from core's
+  // LanguageName enum rather than copied wholesale, since the package ships
+  // grammars for languages this build does not offer.
+  copyFileSync(
+    resolve(
+      __dirname,
+      "../../core/node_modules/web-tree-sitter/tree-sitter.wasm",
+    ),
+    resolve(__dirname, "dist/tree-sitter.wasm"),
+  );
+  const treeSitterSource = readFileSync(
+    resolve(__dirname, "../../core/util/treeSitter.ts"),
+    "utf-8",
+  );
+  const enumBlock = treeSitterSource.match(
+    /export enum LanguageName \{([\s\S]*?)\}/,
+  );
+  if (!enumBlock) {
+    throw new Error("Could not read LanguageName from core/util/treeSitter.ts");
+  }
+  const languages = [...enumBlock[1].matchAll(/= "([a-z_]+)"/g)].map(
+    (match) => match[1],
+  );
+  const grammarDir = resolve(__dirname, "dist/tree-sitter-wasms");
+  mkdirSync(grammarDir, { recursive: true });
+  for (const language of languages) {
+    copyFileSync(
+      resolve(
+        __dirname,
+        `../../core/node_modules/tree-sitter-wasms/out/tree-sitter-${language}.wasm`,
+      ),
+      join(grammarDir, `tree-sitter-${language}.wasm`),
+    );
+  }
+  console.log(`✓ Copied tree-sitter.wasm and ${languages.length} grammars`);
 
   // Make the wrapper script executable
   chmodSync("dist/tnt.js", 0o755);
