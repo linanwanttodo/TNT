@@ -5,6 +5,7 @@ import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { createTwoFilesPatch } from "diff";
 
+import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import {
   calculateLinesOfCodeDiff,
@@ -138,6 +139,7 @@ export const writeFileTool: Tool = {
 
       // Write new content
       writeFileAtomically(args.filepath, args.content);
+      scheduleFileRefresh(args.filepath);
 
       // Track lines of code changes if file existed before
       if (oldContent) {

@@ -7,6 +7,7 @@ import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
+import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import {
   calculateLinesOfCodeDiff,
@@ -157,6 +158,7 @@ WARNINGS:
   }) => {
     try {
       writeFileAtomically(args.resolvedPath, args.newContent);
+      scheduleFileRefresh(args.resolvedPath);
 
       // Get lines for telemetry
       const { added, removed } = calculateLinesOfCodeDiff(

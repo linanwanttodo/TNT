@@ -3,11 +3,16 @@ import os from "os";
 import path from "path";
 
 import { ContinueError } from "core/util/errors.js";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { env } from "../config/env.js";
+import { getRetrievalService } from "../retrieval/service.js";
+import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
 import { codebaseSearchTool } from "./codebaseSearch.js";
+import { writeFileTool } from "./writeFile.js";
+
+vi.mock("../telemetry/telemetryService.js");
 
 /**
  * The tool works on the current working directory, which is how the CLI
@@ -48,6 +53,20 @@ afterAll(() => {
   fs.rmSync(workspace, { recursive: true, force: true });
 });
 
+async function waitFor(
+  check: () => Promise<boolean>,
+  timeoutMs = 20_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
 describe("the codebase search tool", () => {
   it("builds the index on first use and finds the symbol", async () => {
     const result = await codebaseSearchTool.run({
@@ -75,4 +94,35 @@ describe("the codebase search tool", () => {
       codebaseSearchTool.run({ query: "  " }),
     ).rejects.toBeInstanceOf(ContinueError);
   });
+
+  it("picks up a file written by a tool", async () => {
+    const written = path.join(workspace, "src", "written.ts");
+    await writeFileTool.run({
+      filepath: written,
+      content: "export const writtenByToolMarker = 1;\n",
+    });
+
+    const found = await waitFor(async () => {
+      const hits = await getRetrievalService().search("writtenByToolMarker");
+      return hits.length > 0;
+    });
+
+    expect(found).toBe(true);
+  }, 60_000);
+
+  it("does not build an index for a change on its own", async () => {
+    const fresh = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-search-fresh-"));
+    const changed = path.join(fresh, "changed.ts");
+    fs.writeFileSync(changed, "export const freshMarker = 1;\n");
+
+    const insideWorkspace = process.cwd();
+    process.chdir(fresh);
+    scheduleFileRefresh(changed);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const indexed = await getRetrievalService().hasIndex();
+    process.chdir(insideWorkspace);
+
+    expect(indexed).toBe(false);
+    fs.rmSync(fresh, { recursive: true, force: true });
+  }, 30_000);
 });

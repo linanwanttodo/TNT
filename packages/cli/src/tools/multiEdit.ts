@@ -5,6 +5,7 @@ import { executeMultiFindAndReplace } from "core/edit/searchAndReplace/performRe
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
+import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import {
   calculateLinesOfCodeDiff,
@@ -146,6 +147,7 @@ WARNINGS:
   }) => {
     try {
       writeFileAtomically(args.file_path, args.newContent);
+      scheduleFileRefresh(args.file_path);
 
       // Get lines for telemetry
       const { added, removed } = calculateLinesOfCodeDiff(
