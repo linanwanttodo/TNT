@@ -137,7 +137,10 @@ no policy falls back to prompting, so a test checks that every tool a run is
 actually offered has an explicit rule in both the agent and plan lists. It reads
 the list a run is offered rather than the static registry, because the beta
 gated tools are only built at runtime and an earlier version of the check could
-not see them.
+not see them. Those tools are also registered, since other consumers read the
+registry directly: an agent file that names the tools it may use excludes every
+other built-in by name, and a tool missing from the registry would escape that
+allowlist through the catch-all rule.
 
 A delegation never inherits the parent's permissions unchanged.
 `src/subagent/runContext.ts` narrows them into a new context: a restricted

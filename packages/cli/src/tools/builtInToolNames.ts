@@ -23,6 +23,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "Status",
   "Todo",
   "Subagent",
+  "ListSubagents",
   "Skills",
   "UploadArtifact",
   "Diff",
