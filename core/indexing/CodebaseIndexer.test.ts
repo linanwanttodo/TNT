@@ -767,6 +767,34 @@ describe("CodebaseIndexer", () => {
         expect(indexes).toHaveLength(1);
         expect(indexes[0].artifactId).toBe("codeSnippets");
       });
+
+      test("builds chunking before full-text search without an embeddings model", async () => {
+        // The declared order puts the readers first; chunking, which fills the
+        // table they read, has to be built and run before them.
+        mockConfig.selectedModelByRole = {};
+        mockConfig.contextProviders = [
+          {
+            description: {
+              dependsOnIndexing: ["embeddings", "fullTextSearch", "chunk"],
+            },
+          },
+        ];
+
+        jest.spyOn(testConfigHandler, "loadConfig").mockResolvedValue({
+          config: mockConfig,
+          errors: [],
+          configLoadInterrupted: false,
+        });
+
+        const indexes = (await (
+          indexer as any
+        ).getIndexesToBuild()) as CodebaseIndex[];
+
+        expect(indexes.map((index) => index.artifactId)).toEqual([
+          "chunks",
+          "sqliteFts",
+        ]);
+      });
     });
   });
 

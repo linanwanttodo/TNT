@@ -8,6 +8,7 @@ import {
   IDE,
   IdeInfo,
   IdeSettings,
+  IdeType,
   IndexTag,
   Location,
   Problem,
@@ -20,7 +21,10 @@ import {
 } from "../index.js";
 
 class FileSystemIde implements IDE {
-  constructor(private readonly workspaceDir: string) {}
+  constructor(
+    private readonly workspaceDir: string,
+    private readonly ideType: IdeType = "vscode",
+  ) {}
 
   async readSecrets(keys: string[]): Promise<Record<string, string>> {
     return {};
@@ -132,7 +136,7 @@ class FileSystemIde implements IDE {
 
   getIdeInfo(): Promise<IdeInfo> {
     return Promise.resolve({
-      ideType: "vscode",
+      ideType: this.ideType,
       name: "na",
       version: "0.1",
       remoteName: "na",

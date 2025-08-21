@@ -45,6 +45,9 @@ export class PauseToken {
   }
 }
 
+/** Chunk size used for full-text search when no embeddings model is configured. */
+const DEFAULT_MAX_EMBEDDING_CHUNK_SIZE = 500;
+
 export class CodebaseIndexer {
   /**
    * We batch for two reasons:
@@ -150,21 +153,11 @@ export class CodebaseIndexer {
     }
 
     const embeddingsModel = config.selectedModelByRole.embed;
-    if (!embeddingsModel) {
-      return [];
-    }
-
     const ideSettings = await this.ide.getIdeSettings();
-    if (!ideSettings) {
-      return [];
-    }
     const continueServerClient = new ContinueServerClient(
-      ideSettings.remoteConfigServerUrl,
-      ideSettings.userToken,
+      ideSettings?.remoteConfigServerUrl,
+      ideSettings?.userToken,
     );
-    if (!continueServerClient) {
-      return [];
-    }
 
     const indexTypesToBuild = new Set( // use set to remove duplicates
       config.contextProviders
@@ -177,15 +170,24 @@ export class CodebaseIndexer {
       ContextIndexingType,
       () => Promise<CodebaseIndex | null>
     > = {
+      // Chunking stores the chunks the other two indexes read, so it only
+      // needs a chunk-size setting, not an embeddings model.
       chunk: async () =>
         new ChunkCodebaseIndex(
           this.ide.readFile.bind(this.ide),
           continueServerClient,
-          embeddingsModel.maxEmbeddingChunkSize,
+          embeddingsModel?.maxEmbeddingChunkSize ??
+            DEFAULT_MAX_EMBEDDING_CHUNK_SIZE,
         ),
       codeSnippets: async () => new CodeSnippetsCodebaseIndex(this.ide),
       fullTextSearch: async () => new FullTextSearchCodebaseIndex(),
+      // Only this index needs the embeddings model, and only when the config
+      // selects one: a provider that asks for full-text search alone still
+      // gets its index built.
       embeddings: async () => {
+        if (!embeddingsModel) {
+          return null;
+        }
         const lanceDbIndex = await LanceDbIndex.create(
           embeddingsModel,
           this.ide.readFile.bind(this.ide),
@@ -195,8 +197,22 @@ export class CodebaseIndexer {
     };
 
     const indexes: CodebaseIndex[] = [];
+    // Producers before consumers: full-text search and embeddings read the
+    // chunk table, so chunking (and code snippets, which a provider may also
+    // ask for) has to run in the same pass, not in the next one. The declared
+    // provider order puts them first, which would leave the readers empty on
+    // the first index of a workspace.
+    const buildOrder: Record<ContextIndexingType, number> = {
+      chunk: 0,
+      codeSnippets: 1,
+      fullTextSearch: 2,
+      embeddings: 3,
+    };
+    const orderedIndexTypes = [...indexTypesToBuild].sort(
+      (a, b) => buildOrder[a] - buildOrder[b],
+    );
     // not parallelizing to avoid race conditions in sqlite
-    for (const indexType of indexTypesToBuild) {
+    for (const indexType of orderedIndexTypes) {
       if (indexType && indexType in indexTypeToIndexerMapping) {
         const index = await indexTypeToIndexerMapping[indexType]();
         if (index) {
