@@ -59,7 +59,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - **JSON output**: Optional structured output with `hookSpecificOutput` for fine-grained control
    - **Hook types**: `command` (shell), `http` (POST request), `prompt` (single model turn), `agent` (delegated multi-turn run), all handled by `hookRunner.ts`
 
-7. **Slash Command Pipeline** (`src/slash/`): every command source is a loader
+7. **Slash Command Pipeline** (`src/ui/commands/`): every command source is a loader
    - `types.ts`: `SlashCommand`, `CommandLoader`, `CommandSource`, conflict types
    - `loaders/`: built-in, remote mode, assistant prompts, invokable rules, skills, plugins
    - `resolver.ts`: the first source to claim a name keeps it; later claims are reported as conflicts
@@ -81,18 +81,17 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 | `config/`                                                                                               | Assistant and configuration loading, env, provider setup, rules, CLI flag parsing, shared constants |
 | `platform/`                                                                                             | TNT platform API client                                                                             |
 | `session/`                                                                                              | Session state, titles, goals, delegated sessions                                                    |
-| `slash/`                                                                                                | Slash command pipeline: loaders, resolver, handlers, dispatch                                       |
 | `startup/`                                                                                              | Process bootstrap: console interception, onboarding, info screen, banner, version                   |
 | `stream/`, `loop/`, `tools/`, `permissions/`, `cache/`, `plugins/`, `hooks/`, `subagent/`, `telemetry/` | Agent engine                                                                                        |
 | `services/`                                                                                             | Long-lived services resolved through `ServiceContainer`                                             |
-| `ui/`                                                                                                   | Ink components, hooks, contexts                                                                     |
+| `ui/`                                                                                                   | Ink components, hooks, contexts, slash command pipeline                                             |
 | `i18n/`                                                                                                 | Translations and locale switching                                                                   |
 | `utils/`                                                                                                | Shared helpers; `logger.ts` writes the file log, `console.ts` gates headless output                 |
 
 ### Key Features
 
 - **Streaming Responses**: Real-time AI response streaming (`streamChatResponse.ts`)
-- **Slash Commands**: Built-in commands like `/help`, `/exit`, plus prompt, rule, skill and plugin sources (`src/slash/`)
+- **Slash Commands**: Built-in commands like `/help`, `/exit`, plus prompt, rule, skill and plugin sources (`src/ui/commands/`)
 - **Multi-mode Operation**: Supports TUI, headless, and standard chat modes
 - **Tool Integration**: Extensible tool system for development tasks
 

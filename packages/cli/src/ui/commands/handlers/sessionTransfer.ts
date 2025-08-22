@@ -1,6 +1,6 @@
 import fs from "fs";
 
-import { t } from "../../i18n/index.js";
+import { t } from "../../../i18n/index.js";
 
 import type { Session } from "core/index.js";
 import historyManager from "core/util/history.js";

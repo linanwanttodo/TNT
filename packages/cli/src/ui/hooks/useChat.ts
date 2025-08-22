@@ -19,7 +19,7 @@ import {
   loadSession,
   updateSessionHistory,
 } from "../../session/index.js";
-import { handleSlashCommands } from "../../slash/index.js";
+import { handleSlashCommands } from "../commands/index.js";
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";

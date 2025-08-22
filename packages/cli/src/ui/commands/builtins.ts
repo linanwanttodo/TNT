@@ -1,4 +1,4 @@
-import { t, type TranslationKey } from "../i18n/index.js";
+import { t, type TranslationKey } from "../../i18n/index.js";
 import type { SlashCommand, SystemCommand } from "./types.js";
 
 /**

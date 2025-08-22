@@ -1,13 +1,13 @@
 import chalk from "chalk";
 
-import { t } from "../../i18n/index.js";
+import { t } from "../../../i18n/index.js";
 import {
   getCurrentSession,
   getSessionGoal,
   listSubagentSessions,
   setSessionGoal,
   updateSessionTitle,
-} from "../../session/index.js";
+} from "../../../session/index.js";
 import type { SlashCommandResult } from "../types.js";
 
 export async function handleFork(): Promise<SlashCommandResult> {

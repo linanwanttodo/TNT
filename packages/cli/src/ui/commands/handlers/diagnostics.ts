@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 
-import { t } from "../../i18n/index.js";
-import { getLspManager } from "../../lsp/manager.js";
+import { t } from "../../../i18n/index.js";
+import { getLspManager } from "../../../lsp/manager.js";
 import type { SlashCommandResult } from "../types.js";
 
 const SEVERITY_KEYS = [

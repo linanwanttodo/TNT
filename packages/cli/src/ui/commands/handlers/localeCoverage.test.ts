@@ -4,7 +4,7 @@ import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getLocale, setLocale } from "../../i18n/index.js";
+import { getLocale, setLocale } from "../../../i18n/index.js";
 import { handlePlugins } from "./plugins.js";
 import { handleGoal, handleTitle } from "./sessions.js";
 import { handleSkills } from "./skills.js";

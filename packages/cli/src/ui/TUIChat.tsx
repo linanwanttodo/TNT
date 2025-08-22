@@ -11,7 +11,7 @@ import React, {
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 
 import { fireConfigChange } from "../hooks/fireHook.js";
-import { useServices } from "../hooks/useService.js";
+import { useServices } from "./hooks/useService.js";
 import {
   ApiClientServiceState,
   AuthServiceState,

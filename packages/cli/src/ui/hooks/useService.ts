@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { useServiceContainer } from "../services/ServiceContainerContext.js";
-import { ServiceResult } from "../services/types.js";
+import { useServiceContainer } from "../../services/ServiceContainerContext.js";
+import { ServiceResult } from "../../services/types.js";
 
 /**
  * React hook for consuming services reactively
