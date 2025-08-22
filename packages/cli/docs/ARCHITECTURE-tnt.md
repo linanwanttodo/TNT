@@ -284,9 +284,12 @@ Stated as gaps, not as intentions:
    never reads stale chunks for a file the agent just changed; the refresh
    runs only when the workspace already has an index, so a project that never
    searches never pays for indexing, and the import is lazy so a write does
-   not load the index machinery or fail with it. Still missing: no explicit
-   rebuild command (the index is built on first search and refreshed per
-   write), and the vector path is not wired. One packaging note:
-   `packages/cli/package-lock.json` is stale - it references the pre-move
-   `../config-yaml` - so a fresh `npm install` in that package needs the lock
-   regenerated first.
+   not load the index machinery or fail with it. `/index` rebuilds the index
+   and `/index status` reports whether the workspace has one, both in the
+   active locale; the rebuild is awaited, so a large workspace makes the
+   command wait rather than pretend the work happened, and a progress UI and
+   a config-without-a-codebase-provider refusal are the visible edges of that.
+   Still missing: the vector path (embeddings) is not wired. One packaging
+   note: `packages/cli/package-lock.json` is stale - it references the
+   pre-move `../config-yaml` - so a fresh `npm install` in that package needs
+   the lock regenerated first.
