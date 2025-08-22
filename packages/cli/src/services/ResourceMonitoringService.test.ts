@@ -27,11 +27,6 @@ describe("ResourceMonitoringService", () => {
   let service: ResourceMonitoringService;
 
   beforeEach(async () => {
-    // Remove process event listeners to prevent interference
-    process.removeAllListeners("exit");
-    process.removeAllListeners("SIGINT");
-    process.removeAllListeners("SIGTERM");
-
     service = new ResourceMonitoringService();
     await service.initialize();
   });
@@ -48,6 +43,13 @@ describe("ResourceMonitoringService", () => {
     // Should not be monitoring unless --verbose is passed
     const usage = service.getCurrentResourceUsage();
     expect(usage.timestamp).toBeGreaterThan(0);
+  });
+
+  it("should not stack process listeners when initialized again", async () => {
+    const before = process.listenerCount("SIGTERM");
+    await service.initialize();
+    await service.initialize();
+    expect(process.listenerCount("SIGTERM")).toBe(before);
   });
 
   it("should collect current resource usage", () => {

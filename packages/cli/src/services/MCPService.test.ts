@@ -69,6 +69,17 @@ describe("MCPService", () => {
       expect(state.prompts.length).toBe(0);
     });
 
+    it("should not stack process listeners when constructed again", () => {
+      const beforeTerm = process.listenerCount("SIGTERM");
+      const beforeExit = process.listenerCount("exit");
+
+      new MCPService();
+      new MCPService();
+
+      expect(process.listenerCount("SIGTERM")).toBe(beforeTerm);
+      expect(process.listenerCount("exit")).toBe(beforeExit);
+    });
+
     it("should initialize with no servers", async () => {
       const emptyAssistant = {
         name: "empty",

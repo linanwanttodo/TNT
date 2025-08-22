@@ -3,6 +3,7 @@ import * as os from "os";
 import { promisify } from "util";
 
 import { logger } from "../utils/logger.js";
+import { registerShutdownCallback } from "../utils/processShutdown.js";
 
 const execAsync = promisify(exec);
 
@@ -55,10 +56,11 @@ class ResourceMonitoringService {
       this.startMonitoring();
     }
 
-    // Cleanup on exit
-    process.on("exit", () => this.cleanup());
-    process.on("SIGINT", () => this.cleanup());
-    process.on("SIGTERM", () => this.cleanup());
+    // A second initialize() replaces this callback rather than adding more
+    // process listeners.
+    registerShutdownCallback("resource-monitoring", () => {
+      void this.cleanup();
+    });
   }
 
   async cleanup(): Promise<void> {
