@@ -14,6 +14,7 @@ import {
 } from "../config/sharedConfig";
 
 import { getGlobalContextFilePath } from "./paths";
+import { writeFileAtomically } from "./atomicWrite.js";
 
 export type GlobalContextModelSelections = Partial<
   Record<ModelRole, string | null>
@@ -66,7 +67,7 @@ export class GlobalContext {
   ) {
     const filepath = getGlobalContextFilePath();
     if (!fs.existsSync(filepath)) {
-      fs.writeFileSync(filepath, JSON.stringify({ [key]: value }, null, 2));
+      writeFileAtomically(filepath, JSON.stringify({ [key]: value }, null, 2));
     } else {
       const data = fs.readFileSync(filepath, "utf-8");
 
@@ -106,12 +107,12 @@ export class GlobalContext {
         // Recreate the file with salvaged values plus the new value
         const newData = { ...salvaged, [key]: value };
 
-        fs.writeFileSync(filepath, JSON.stringify(newData, null, 2));
+        writeFileAtomically(filepath, JSON.stringify(newData, null, 2));
         return;
       }
 
       parsed[key] = value;
-      fs.writeFileSync(filepath, JSON.stringify(parsed, null, 2));
+      writeFileAtomically(filepath, JSON.stringify(parsed, null, 2));
     }
   }
 

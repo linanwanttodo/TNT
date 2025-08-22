@@ -4,6 +4,7 @@ import { BaseSessionMetadata, Session } from "../index.js";
 import { ListHistoryOptions } from "../protocol/core.js";
 
 import { NEW_SESSION_TITLE } from "./constants.js";
+import { writeFileAtomically } from "./atomicWrite.js";
 import {
   getSessionFilePath,
   getSessionsFolderPath,
@@ -183,16 +184,8 @@ export class HistoryManager {
   }
 }
 
-/**
- * Writes JSON in one step: a reader sees either the previous file or the new
- * one, never a half-written one. A plain write interrupted by a crash leaves a
- * truncated conversation behind, and the session listing skips a file it cannot
- * parse without saying so.
- */
 function writeJsonAtomically(filePath: string, data: unknown): void {
-  const temporaryPath = `${filePath}.tmp`;
-  fs.writeFileSync(temporaryPath, JSON.stringify(data, undefined, 2));
-  fs.renameSync(temporaryPath, filePath);
+  writeFileAtomically(filePath, JSON.stringify(data, undefined, 2));
 }
 
 const historyManager = new HistoryManager();
