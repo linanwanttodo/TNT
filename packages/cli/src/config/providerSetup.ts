@@ -17,6 +17,7 @@ import { setConfigFilePermissions } from "core/util/paths.js";
 import { env } from "./env.js";
 import { t } from "../i18n/index.js";
 import { question } from "../utils/prompt.js";
+import { writeFileAtomically } from "core/util/atomicWrite.js";
 
 export const CONFIG_PATH = path.join(env.continueHome, "config.yaml");
 
@@ -287,7 +288,7 @@ export function writeConfig(contents: string): void {
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
   }
-  fs.writeFileSync(CONFIG_PATH, contents);
+  writeFileAtomically(CONFIG_PATH, contents);
   setConfigFilePermissions(CONFIG_PATH);
 }
 
