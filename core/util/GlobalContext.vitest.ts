@@ -50,8 +50,18 @@ beforeAll(async () => {
   paths = await import("./paths.js");
 });
 
+function temporaryFiles(): string[] {
+  const file = contextFile();
+  const dir = path.dirname(file);
+  const base = path.basename(file);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((name) => name.startsWith(`${base}.`) && name.endsWith(".tmp"));
+}
+
 afterAll(() => {
-  for (const file of [contextFile(), `${contextFile()}.tmp`]) {
+  for (const file of [contextFile(), ...temporaryFiles()]) {
     if (fs.existsSync(file)) fs.rmSync(file);
   }
 });
@@ -64,7 +74,7 @@ describe("the global context file", () => {
       profileA: { chat: "gpt" },
     });
 
-    expect(fs.existsSync(`${contextFile()}.tmp`)).toBe(false);
+    expect(temporaryFiles()).toEqual([]);
     const written = JSON.parse(fs.readFileSync(contextFile(), "utf-8"));
     expect(written.selectedModelsByProfileId).toEqual({
       profileA: { chat: "gpt" },

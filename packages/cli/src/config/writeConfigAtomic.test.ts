@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -35,11 +36,20 @@ vi.mock("fs", async (importOriginal) => {
 
 const { CONFIG_PATH, writeConfig } = await import("./providerSetup.js");
 
+function leftoverTemporaryFiles(): string[] {
+  const dir = path.dirname(CONFIG_PATH);
+  const base = path.basename(CONFIG_PATH);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((name) => name.startsWith(`${base}.`) && name.endsWith(".tmp"));
+}
+
 afterEach(() => {
   control.failWriteFor = null;
-  if (fs.existsSync(CONFIG_PATH)) fs.rmSync(CONFIG_PATH);
-  const temporary = `${CONFIG_PATH}.tmp`;
-  if (fs.existsSync(temporary)) fs.rmSync(temporary);
+  for (const file of [CONFIG_PATH, ...leftoverTemporaryFiles()]) {
+    if (fs.existsSync(file)) fs.rmSync(file);
+  }
 });
 
 describe("writing the config file", () => {
@@ -47,7 +57,7 @@ describe("writing the config file", () => {
     writeConfig("name: first\n");
 
     expect(fs.readFileSync(CONFIG_PATH, "utf-8")).toBe("name: first\n");
-    expect(fs.existsSync(`${CONFIG_PATH}.tmp`)).toBe(false);
+    expect(leftoverTemporaryFiles()).toEqual([]);
   });
 
   it("keeps the previous config when a write dies partway through", () => {
