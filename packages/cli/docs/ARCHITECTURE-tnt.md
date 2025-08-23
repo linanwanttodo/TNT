@@ -37,6 +37,12 @@ outbound hosts are model providers, `api.workos.com` for optional account auth,
 and `github.com` for tool and plugin fetches. `api.continue.dev` does not appear
 in `packages/cli/src` or in `core`.
 
+Writes that a crash would leave corrupt go through `core/util/atomicWrite.ts`:
+session files, the global context, the config file and every file the edit
+tools rewrite. It writes a uniquely named temporary file beside the target and
+renames it over the real path, resolving symlinks first and carrying over the
+original mode, so replacing a file keeps its link and its permissions.
+
 ## 2. Mode axis
 
 Three modes, fixed constants, no settings entry: `agent`, `plan`, `auto`

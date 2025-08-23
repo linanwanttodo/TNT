@@ -13,6 +13,10 @@ import { multiEditTool } from "./multiEdit.js";
 import { markFileAsRead } from "./readFile.js";
 import { generateDiff } from "./writeFile.js";
 
+// The write goes through the shared atomic helper in core, which the suite's
+// fs mock cannot reach, so the file it wrote is inspected through the real fs.
+const actualFs = await vi.importActual<typeof import("fs")>("fs");
+
 // Mock the dependencies
 vi.mock("../telemetry/telemetryService.js");
 vi.mock("../telemetry/utils.js", () => ({
@@ -58,6 +62,7 @@ describe("multiEditTool CLI specific", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    actualFs.rmSync(testFilePath, { force: true });
   });
 
   describe("file system validation", () => {
@@ -158,11 +163,7 @@ describe("multiEditTool CLI specific", () => {
       expect(result).toBe(
         `Successfully edited ${testFilePath} with 1 edit\nDiff:\nmocked diff`,
       );
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        testFilePath,
-        newContent,
-        "utf-8",
-      );
+      expect(actualFs.readFileSync(testFilePath, "utf-8")).toBe(newContent);
     });
 
     it("should return correct message for multiple edits", async () => {
@@ -181,12 +182,10 @@ describe("multiEditTool CLI specific", () => {
     });
 
     it("should throw error if file write fails", async () => {
-      vi.mocked(fs.writeFileSync).mockImplementation(() => {
-        throw new Error("Write failed");
-      });
-
       const args = {
-        file_path: testFilePath,
+        // A missing parent directory fails the real write; the suite's fs mock
+        // only governs the calls this package makes itself.
+        file_path: path.join(`${testFilePath}-missing-dir`, "file.txt"),
         newContent: "new content",
         originalContent: originalContent,
         editCount: 1,

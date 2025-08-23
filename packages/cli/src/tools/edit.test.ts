@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +12,10 @@ import {
 import { editTool } from "./edit.js";
 import { markFileAsRead, readFilesSet } from "./readFile.js";
 import { generateDiff } from "./writeFile.js";
+
+// The write goes through the shared atomic helper in core, which the suite's
+// fs mock cannot reach, so the file it wrote is inspected through the real fs.
+const actualFs = await vi.importActual<typeof import("fs")>("fs");
 
 // Mock the dependencies
 vi.mock("../telemetry/telemetryService.js");
@@ -52,6 +57,7 @@ describe("editTool", () => {
   afterEach(() => {
     vi.clearAllMocks();
     readFilesSet.clear();
+    actualFs.rmSync(testFilePath, { force: true });
   });
 
   describe("preprocess", () => {
@@ -192,20 +198,14 @@ describe("editTool", () => {
       expect(result).toBe(
         `Successfully edited ${testFilePath}\nDiff:\nmocked diff`,
       );
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        testFilePath,
-        newContent,
-        "utf-8",
-      );
+      expect(actualFs.readFileSync(testFilePath, "utf-8")).toBe(newContent);
     });
 
     it("should throw error if file write fails", async () => {
-      vi.mocked(fs.writeFileSync).mockImplementation(() => {
-        throw new Error("Write failed");
-      });
-
       const args = {
-        resolvedPath: testFilePath,
+        // A missing parent directory fails the real write; the suite's fs mock
+        // only governs the calls this package makes itself.
+        resolvedPath: path.join(`${testFilePath}-missing-dir`, "file.txt"),
         newContent: "new content",
         oldContent: originalContent,
       };
