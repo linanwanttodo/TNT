@@ -1,31 +1,19 @@
-import { vi } from "vitest";
+import fs from "fs";
+import path from "path";
+
+import { env } from "../config/env.js";
 
 import { InputHistory } from "./inputHistory.js";
 
-// Mock fs to avoid creating actual files during tests
-vi.mock("fs", () => ({
-  default: {
-    existsSync: vi.fn(),
-    readFileSync: vi.fn(),
-    writeFileSync: vi.fn(),
-    mkdirSync: vi.fn(),
-  },
-  existsSync: vi.fn(),
-  readFileSync: vi.fn(),
-  writeFileSync: vi.fn(),
-  mkdirSync: vi.fn(),
-}));
+// The history file lives in the per-worker temp global dir, so the suite
+// exercises the real read and write path rather than a mocked fs.
+const HISTORY_FILE = path.join(env.continueHome, "input_history.json");
 
 describe("InputHistory", () => {
   let inputHistory: InputHistory;
 
-  beforeEach(async () => {
-    // Reset mocks and set up default behavior
-    vi.clearAllMocks();
-    const fs = await import("fs");
-    vi.mocked(fs.existsSync).mockReturnValue(false);
-    vi.mocked(fs.readFileSync).mockReturnValue("[]");
-
+  beforeEach(() => {
+    fs.rmSync(HISTORY_FILE, { force: true });
     inputHistory = new InputHistory();
   });
 
@@ -80,6 +68,8 @@ describe("InputHistory", () => {
     });
 
     it("should handle navigation with no history", () => {
+      fs.rmSync(HISTORY_FILE, { force: true });
+
       const emptyHistory = new InputHistory();
       const result = emptyHistory.navigateUp("test");
       expect(result).toBe(null);
