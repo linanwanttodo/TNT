@@ -247,9 +247,12 @@ Stated as gaps, not as intentions:
 
 3. Output styles resolve in this order: the session choice made with
    `/output-style <plugin:style>`, then an `outputStyle` key in one of the six
-   settings files, then a style a plugin forces on. The remaining gap is that
-   the command writes only the session, so setting a project default still
-   means editing a settings file by hand.
+   settings files, then a style a plugin forces on. `/output-style save [name]`
+   writes the choice into the project's `.tnt/settings.json` - keeping every
+   other key in the file, written atomically - so setting a project default no
+   longer means editing the file by hand; with nothing selected or named the
+   command refuses rather than guessing, and clearing the session choice never
+   touches the file.
 
 4. Plugin-declared settings are parsed but only a key whitelist is honoured in
    the settings cascade.

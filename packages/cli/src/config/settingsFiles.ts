@@ -2,6 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+import { writeFileAtomically } from "core/util/atomicWrite.js";
+
 /**
  * The settings files TNT reads, lowest precedence first. Hooks and the
  * session defaults both come from here, so the list exists once: a second copy
@@ -45,6 +47,25 @@ export function readSettingsFile(
     // in the list still applies.
     return null;
   }
+}
+
+/** The project settings file the CLI writes to: committable, not local. */
+export function getProjectSettingsPath(cwd: string = process.cwd()): string {
+  return path.join(cwd, ".tnt", "settings.json");
+}
+
+/** Writes one key into a settings file, keeping every other key in it. */
+export function writeSettingsValue(
+  filePath: string,
+  key: string,
+  value: unknown,
+): void {
+  const existing = readSettingsFile(filePath) ?? {};
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  writeFileAtomically(
+    filePath,
+    `${JSON.stringify({ ...existing, [key]: value }, null, 2)}\n`,
+  );
 }
 
 /**
