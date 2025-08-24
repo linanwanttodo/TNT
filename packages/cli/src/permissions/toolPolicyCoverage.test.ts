@@ -55,6 +55,23 @@ describe("tool policy coverage", () => {
       expect(offered.length).toBeGreaterThan(10);
       expect(uncovered).toEqual([]);
     });
+
+    it("drops the delegation tools once a run has reached its depth limit", async () => {
+      const mayDelegate = (await getAllAvailableTools(false, true)).map(
+        (tool) => tool.name,
+      );
+      const cannotDelegate = (await getAllAvailableTools(false, false)).map(
+        (tool) => tool.name,
+      );
+
+      expect(mayDelegate).toContain("Subagent");
+      expect(mayDelegate).toContain("ListSubagents");
+      expect(cannotDelegate).not.toContain("Subagent");
+      expect(cannotDelegate).not.toContain("ListSubagents");
+      // Only those two disappear; everything else is untouched.
+      expect(cannotDelegate).toContain("Read");
+      expect(cannotDelegate.length).toBe(mayDelegate.length - 2);
+    });
   });
 
   it("gives every built-in tool a policy in agent mode", () => {
