@@ -289,8 +289,17 @@ Stated as gaps, not as intentions:
    active locale; the rebuild is awaited, so a large workspace makes the
    command wait rather than pretend the work happened, and a progress UI and
    a config-without-a-codebase-provider refusal are the visible edges of that.
-   Still missing: the vector path (embeddings) is not wired. One packaging
-   note: `packages/cli/package-lock.json` was regenerated on 2026-10-14 - the
+   With an embeddings model selected in the config, the indexer also builds
+   the vector index and `search()` asks it too, merging its hits behind the
+   full-text ones with duplicates dropped and the combined list capped
+   (`mergeHits`). The vector half is proven offline in core with a
+   deterministic fake provider (`core/indexing/LanceDbIndex.vitest.ts`), so no
+   test ever downloads model weights; no test exercises a real embeddings
+   model either, which is a deliberate boundary. Nothing in the retrieval
+   workstream is unwired now; what is missing needs a real environment or an
+   interface: an indexing progress UI, and a user-facing way to pick an
+   embeddings model. One packaging note:
+   `packages/cli/package-lock.json` was regenerated on 2026-10-14 - the
    old lock failed npm's own link validation, so `npm install` refused to run
    and a fresh clone could not set up - and `npm ci --dry-run` now passes,
    with the new runtime dependencies (`sqlite3` and the optional embedding
