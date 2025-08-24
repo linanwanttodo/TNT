@@ -265,11 +265,17 @@ Stated as gaps, not as intentions:
    that: the indexer refused to build anything without an embeddings model
    (full-text search needs none) and built the readers before the chunk index
    they read, so a first index of a workspace produced an empty full-text
-   index. Both are fixed, and the tokenizer workers are copied next to the
-   npm build and the CLI bundle because they are loaded by path. Still
-   missing: no model-facing tool calls the service yet, there is no index
-   build/refresh lifecycle beyond `update()`, the vector path is not wired,
-   and the CLI bundle cannot yet include the service because the chain
-   reaches native modules (`onnxruntime-node` through transformers.js,
-   `sqlite3`, LanceDB); the next piece of work is choosing how the bundle
-   carries or avoids those, before the tool can ship.
+   index. Both are fixed. The bundle can carry the service: the native pieces
+   stay external and are declared as dependencies (`sqlite3` for the index
+   store; onnxruntime and vectordb are optional and only load on the
+   embeddings path), the ESM bundle derives `__dirname` from its own URL, and
+   the build copies the tokenizer workers, the tree-sitter runtime and the 27
+   grammars the chunker understands next to the bundle - all of them are
+   loaded by path at runtime. A probe build with the service reachable ran the
+   whole loop from `dist/index.js`; the bundle grows from 12.8 MB to about
+   30 MB when the service is included. Still missing: no model-facing tool
+   calls the service yet, there is no index build or refresh lifecycle beyond
+   `update()`, and the vector path is not wired. One packaging note:
+   `packages/cli/package-lock.json` is stale - it references the pre-move
+   `../config-yaml` - so a fresh `npm install` in that package needs the lock
+   regenerated first.
