@@ -201,6 +201,15 @@ const en = {
   "outputStyle.usage": "Usage: /output-style <name> | /output-style clear",
   "outputStyle.fromSettings": "Output style: {name} (from settings)",
   "cmd.diagnostics": "Language server diagnostics",
+  "cmd.index": "Codebase index",
+  "index.usage": "Usage: /index [status]",
+  "index.rebuilt": "Codebase index updated.",
+  "index.statusBuilt": "The codebase index is built for this workspace.",
+  "index.statusMissing":
+    "No codebase index for this workspace yet. Run /index to build it.",
+  "index.disabled":
+    "Indexing is not enabled: the config declares no codebase context provider, so there is nothing to index.",
+  "index.failed": "Indexing failed: {message}",
   "diagnostics.usage": "Usage: /diagnostics <file>",
   "diagnostics.missing": "No such file: {path}",
   "diagnostics.noServers":
@@ -475,6 +484,14 @@ const zhCN: Record<TranslationKey, string> = {
   "outputStyle.usage": "用法：/output-style <名称> | /output-style clear",
   "outputStyle.fromSettings": "当前输出风格：{name}（来自设置）",
   "cmd.diagnostics": "语言服务器诊断",
+  "cmd.index": "代码库索引",
+  "index.usage": "用法：/index [status]",
+  "index.rebuilt": "代码库索引已更新。",
+  "index.statusBuilt": "当前工作区已建立代码库索引。",
+  "index.statusMissing": "当前工作区还没有代码库索引，运行 /index 构建。",
+  "index.disabled":
+    "索引未启用：配置中没有声明 codebase 上下文提供者，没有可索引的内容。",
+  "index.failed": "索引失败：{message}",
   "diagnostics.usage": "用法：/diagnostics <文件>",
   "diagnostics.missing": "文件不存在：{path}",
   "diagnostics.noServers":

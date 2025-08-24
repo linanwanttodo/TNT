@@ -2,6 +2,7 @@ import { handleInit } from "../../../commands/init.js";
 import { handleInfoSlashCommand } from "../../../startup/infoScreen.js";
 import type { CommandHandler } from "../types.js";
 
+import { handleIndex } from "./codebaseIndex.js";
 import { handleHelp } from "./help.js";
 import { handleLanguage } from "./language.js";
 import { handleJobs, handleTodos } from "./misc.js";
@@ -53,6 +54,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     plugins: handlePlugins,
     "output-style": handleOutputStyle,
     diagnostics: (args) => handleDiagnostics(args),
+    index: (args) => handleIndex(args),
     init: (args, assistant) => {
       return handleInit(args, assistant);
     },
