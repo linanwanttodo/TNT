@@ -7,7 +7,7 @@
     "vitest": "vitest run",
     "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage && open ./coverage/lcov-report/index.html",
     "tsc:check": "tsc -p ./ --noEmit",
-    "build": "tsc -p ./tsconfig.npm.json",
+    "build": "tsc -p ./tsconfig.npm.json && node ./scripts/copy-workers.mjs",
     "build:npm": "npm run build",
     "lint": "eslint . --ext ts",
     "lint:fix": "eslint . --ext ts --fix"
