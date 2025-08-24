@@ -253,14 +253,23 @@ Stated as gaps, not as intentions:
    consecutive rounds of the same prompt against the same model; until then no
    claim about provider acceptance is recorded here.
 
-6. Retrieval over a large codebase is the largest missing piece. `core`
-   carries the whole stack - `CodebaseIndexer`, a vector index (LanceDB), a
-   full-text index and tree-sitter chunking - but nothing in the CLI hosts it:
-   `FileIndexService` is an fzf filename list for @-mentions, and the agent's
-   only ways to find code are the ripgrep-backed `SearchCode` and `Glob`.
-   For comparison, the community Claude Code reconstruction has no index of
-   any kind (ripgrep, a file index for suggestions and compaction only), and
-   Cursor ships retrieval as a dedicated sidecar. Closing this means hosting
-   the core indexer behind a service, exposing it as a read-only model tool,
-   and giving the index a build and refresh lifecycle that honours ignore
-   rules; embedding provider configuration and cost are the open questions.
+6. Retrieval over a large codebase is the largest missing piece, and its
+   foundation now exists. `core` carries the whole stack - `CodebaseIndexer`,
+   a vector index (LanceDB), a full-text index and tree-sitter chunking - and
+   `src/retrieval/service.ts` hosts it for the CLI: it loads the same
+   config.yaml through core's `ConfigHandler`, indexes the workspace through
+   `FileSystemIde` (reporting the `cli` IDE type, so no editor defaults leak
+   into the config) and answers `search()` from the full-text index.
+   `src/retrieval/service.test.ts` proves the loop end to end - index a temp
+   workspace, then find a symbol in it - and two core defects came out of
+   that: the indexer refused to build anything without an embeddings model
+   (full-text search needs none) and built the readers before the chunk index
+   they read, so a first index of a workspace produced an empty full-text
+   index. Both are fixed, and the tokenizer workers are copied next to the
+   npm build and the CLI bundle because they are loaded by path. Still
+   missing: no model-facing tool calls the service yet, there is no index
+   build/refresh lifecycle beyond `update()`, the vector path is not wired,
+   and the CLI bundle cannot yet include the service because the chain
+   reaches native modules (`onnxruntime-node` through transformers.js,
+   `sqlite3`, LanceDB); the next piece of work is choosing how the bundle
+   carries or avoids those, before the tool can ship.
