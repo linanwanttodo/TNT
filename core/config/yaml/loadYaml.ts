@@ -312,16 +312,12 @@ export async function configYamlToContinueConfig(options: {
       if (model.roles?.includes("embed")) {
         const { provider } = model;
         if (provider === "transformers.js") {
-          if (ideInfo.ideType === "vscode") {
-            continueConfig.modelsByRole.embed.push(
-              new TransformersJsEmbeddingsProvider(),
-            );
-          } else {
-            localErrors.push({
-              fatal: false,
-              message: `Transformers.js embeddings provider not supported in this IDE.`,
-            });
-          }
+          // The provider runs on Node with bundled weights, so an explicit
+          // config entry works for every host. Only the auto-enable below is
+          // limited to VS Code: downloading a model is a choice, not a default.
+          continueConfig.modelsByRole.embed.push(
+            new TransformersJsEmbeddingsProvider(),
+          );
         } else {
           continueConfig.modelsByRole.embed.push(...llms);
         }
