@@ -290,6 +290,10 @@ Stated as gaps, not as intentions:
    command wait rather than pretend the work happened, and a progress UI and
    a config-without-a-codebase-provider refusal are the visible edges of that.
    Still missing: the vector path (embeddings) is not wired. One packaging
-   note: `packages/cli/package-lock.json` is stale - it references the
-   pre-move `../config-yaml` - so a fresh `npm install` in that package needs
-   the lock regenerated first.
+   note: `packages/cli/package-lock.json` was regenerated on 2026-10-14 - the
+   old lock failed npm's own link validation, so `npm install` refused to run
+   and a fresh clone could not set up - and `npm ci --dry-run` now passes,
+   with the new runtime dependencies (`sqlite3` and the optional embedding
+   stack) recorded. The locks of some sibling packages (`openai-adapters`)
+   still contain pre-move paths from an earlier directory layout; whether
+   they block their own installs has not been verified.
