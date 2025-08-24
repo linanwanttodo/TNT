@@ -31,6 +31,10 @@ export class RetrievalService {
   private readonly workspaceDir: string;
   private readonly ide: FileSystemIde;
   private readonly indexer: CodebaseIndexer;
+  /**
+   * Re-indexes one file, for the tools that just wrote it. Files outside the
+   * workspace are ignored by the indexer.
+   */
   private buildPromise: Promise<void> | null = null;
 
   constructor(workspaceDir: string = process.cwd()) {
@@ -80,6 +84,16 @@ export class RetrievalService {
       this.buildPromise = null;
     });
     await this.buildPromise;
+  }
+
+  /**
+   * Re-indexes one file, for the tools that just wrote it. Files outside the
+   * workspace are ignored by the indexer.
+   */
+  async refreshFile(filePath: string): Promise<void> {
+    await this.indexer.refreshFile(localPathToUri(path.resolve(filePath)), [
+      this.workspaceDir,
+    ]);
   }
 
   /** Full-text search over the indexed chunks, best match first. */

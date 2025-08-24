@@ -279,9 +279,14 @@ Stated as gaps, not as intentions:
    divided by the parallel tool-call count; it builds the index on first use
    and reuses it afterwards, serializing concurrent first calls. The tool is
    in both permission lists, and the coverage guard in the test suite names it
-   if a future policy edit drops it. Still missing: no index build or refresh
-   lifecycle beyond first use (a changed file is not reindexed until the next
-   explicit `update()`), and the vector path is not wired. One packaging note:
+   if a future policy edit drops it. Every write through the edit tools
+   schedules a per-file refresh (`src/retrieval/writeRefresh.ts`), so a search
+   never reads stale chunks for a file the agent just changed; the refresh
+   runs only when the workspace already has an index, so a project that never
+   searches never pays for indexing, and the import is lazy so a write does
+   not load the index machinery or fail with it. Still missing: no explicit
+   rebuild command (the index is built on first search and refreshed per
+   write), and the vector path is not wired. One packaging note:
    `packages/cli/package-lock.json` is stale - it references the pre-move
    `../config-yaml` - so a fresh `npm install` in that package needs the lock
    regenerated first.
