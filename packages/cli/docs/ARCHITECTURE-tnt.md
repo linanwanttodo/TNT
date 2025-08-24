@@ -68,9 +68,14 @@ touch code.
 
 ## 3. Todo layer
 
-`src/tools/todo.ts` gives the model an explicit, ordered work list that survives
-compaction, rather than relying on prose in the system prompt to hold state. It
-is allowed in every mode, including `plan`.
+`src/tools/todo.ts` gives the model an explicit, ordered work list that
+survives compaction. The list is not stored in a file: it is replayed from
+the Todo tool results in the history, and compaction carries the current list
+forward on its summary message (same payload format, readable to the model),
+so the replay still reconstructs it once the tool results it came from have
+been summarized away. Without the carry, a `Todo list` call after a
+compaction answered with an empty list. It is allowed in every mode,
+including `plan`.
 
 ## 4. Cache prefix engineering
 

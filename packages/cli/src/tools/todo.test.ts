@@ -11,7 +11,7 @@ vi.mock("../services/index.js", () => ({
   },
 }));
 
-import { readTodoState, todoTool } from "./todo.js";
+import { buildTodoCarryContextItem, readTodoState, todoTool } from "./todo.js";
 
 function assistantItem(results: { name: string; content: string }[]) {
   return {
@@ -148,5 +148,51 @@ describe("todo tool", () => {
     ]);
 
     expect(readTodoState().todos).toEqual([]);
+  });
+
+  test("replays a state that a compaction carried forward", () => {
+    const carried = buildTodoCarryContextItem(
+      [{ id: 1, text: "carried work", done: false }],
+      2,
+    )!;
+    const history = [
+      {
+        message: { role: "assistant", content: "Summary of the conversation" },
+        contextItems: [carried],
+      },
+    ] as unknown as ChatHistoryItem[];
+
+    expect(readTodoState(history)).toEqual({
+      todos: [{ id: 1, text: "carried work", done: false }],
+      nextId: 2,
+    });
+  });
+
+  test("lets a todo call after the carry override it", () => {
+    const carried = buildTodoCarryContextItem(
+      [{ id: 1, text: "carried work", done: false }],
+      2,
+    )!;
+    const toggled = {
+      action: "toggle",
+      todos: [{ id: 1, text: "carried work", done: true }],
+      nextId: 2,
+    };
+    const history = [
+      {
+        message: { role: "assistant", content: "Summary of the conversation" },
+        contextItems: [carried],
+      },
+      assistantItem([
+        {
+          name: "Todo",
+          content: `Todo #1 completed\n\ntnt-todo:${JSON.stringify(toggled)}`,
+        },
+      ]),
+    ] as unknown as ChatHistoryItem[];
+
+    expect(readTodoState(history).todos).toEqual([
+      { id: 1, text: "carried work", done: true },
+    ]);
   });
 });

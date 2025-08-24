@@ -11,6 +11,7 @@ import {
   getHistoryForLLM,
 } from "./index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
+import { readTodoState } from "../tools/todo.js";
 
 // Mock the streamChatResponse function
 vi.mock("../stream/streamChatResponse.js", () => ({
@@ -568,6 +569,58 @@ describe("compaction", () => {
       expect(capturedHistory[3].message).toEqual({
         role: "user",
         content: expect.stringContaining("provide a concise summary"),
+      });
+    });
+
+    it("carries the todo list through compaction", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      mockStreamResponse.mockImplementation(async () => "Summary");
+
+      const todoPayload = `Added todo #1: ship the carry\n\ntnt-todo:${JSON.stringify(
+        {
+          action: "add",
+          todos: [{ id: 1, text: "ship the carry", done: false }],
+          nextId: 2,
+        },
+      )}`;
+      const messages: any[] = [
+        { role: "system", content: "System" },
+        { role: "user", content: "Start" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              id: "todo-1",
+              type: "function",
+              function: { name: "Todo", arguments: "{}" },
+            },
+          ],
+        },
+        { role: "tool", content: todoPayload, tool_call_id: "todo-1" },
+      ];
+      for (let i = 0; i < 100; i++) {
+        messages.push(
+          { role: "user", content: `User ${i} ${"x".repeat(100)}` },
+          { role: "assistant", content: `Assistant ${i} ${"x".repeat(100)}` },
+        );
+      }
+      const history = convertToUnifiedHistory(messages);
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
+      } as ModelConfig;
+
+      const result = await compactChatHistory(history, model, mockLlmApi);
+
+      // The todo call itself was summarized away, so only the carry keeps the
+      // list recoverable - and readable to the model as well.
+      const index = findCompactionIndex(result.compactedHistory)!;
+      const carry = result.compactedHistory[index].contextItems?.[0];
+      expect(carry?.content).toContain("ship the carry");
+      expect(readTodoState(result.compactedHistory)).toEqual({
+        todos: [{ id: 1, text: "ship the carry", done: false }],
+        nextId: 2,
       });
     });
 
