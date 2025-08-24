@@ -4,6 +4,7 @@ import {
 } from "../subagent/index.js";
 
 import { askQuestionTool } from "./askQuestion.js";
+import { codebaseSearchTool } from "./codebaseSearch.js";
 import { completionTool } from "./completion.js";
 import { diagnosticsTool } from "./diagnostics.js";
 import { editTool } from "./edit.js";
@@ -28,6 +29,7 @@ import { writeFileTool } from "./writeFile.js";
 // putting in here for circular import issue
 export const ALL_BUILT_IN_TOOLS = [
   askQuestionTool,
+  codebaseSearchTool,
   completionTool,
   diagnosticsTool,
   editTool,
