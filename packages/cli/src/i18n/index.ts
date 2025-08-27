@@ -210,6 +210,8 @@ const en = {
   "index.usage": "Usage: /index [status]",
   "index.rebuilt": "Codebase index updated.",
   "index.statusBuilt": "The codebase index is built for this workspace.",
+  "index.statusFullTextOnly":
+    "The codebase index is built for this workspace (full text only). Add a models entry with roles: [embed] - provider transformers.js runs locally without a key - to enable semantic search.",
   "index.statusMissing":
     "No codebase index for this workspace yet. Run /index to build it.",
   "index.disabled":
@@ -497,6 +499,8 @@ const zhCN: Record<TranslationKey, string> = {
   "index.usage": "用法：/index [status]",
   "index.rebuilt": "代码库索引已更新。",
   "index.statusBuilt": "当前工作区已建立代码库索引。",
+  "index.statusFullTextOnly":
+    "当前工作区已建立代码库索引（仅全文检索）。在 models 中加一条 roles: [embed] 的模型即可启用语义检索——provider 用 transformers.js 可本地运行、无需密钥。",
   "index.statusMissing": "当前工作区还没有代码库索引，运行 /index 构建。",
   "index.disabled":
     "索引未启用：配置中没有声明 codebase 上下文提供者，没有可索引的内容。",

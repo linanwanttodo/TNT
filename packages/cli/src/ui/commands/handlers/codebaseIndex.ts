@@ -22,11 +22,16 @@ export async function handleIndex(
   const service = getRetrievalService();
 
   if (subcommand === "status") {
+    if (!(await service.hasIndex())) {
+      return { output: t("index.statusMissing") };
+    }
+    // An index exists; whether the config also selects an embeddings model
+    // decides if it is full-text only or answers semantic searches too.
     return {
       output: t(
-        (await service.hasIndex())
+        (await service.hasEmbeddingsModel())
           ? "index.statusBuilt"
-          : "index.statusMissing",
+          : "index.statusFullTextOnly",
       ),
     };
   }

@@ -2,6 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+import { ConfigHandler } from "core/config/ConfigHandler.js";
+import { LLMLogger } from "core/llm/logger.js";
+import FileSystemIde from "core/util/filesystem.js";
 import { localPathToUri } from "core/util/pathToUri.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -16,6 +19,20 @@ import { RetrievalService } from "./service.js";
  */
 let workspace: string;
 let symbolFile: string;
+
+// A config that names an embeddings model no longer has to be a hosted one:
+// the bundled local provider is selectable from the CLI.
+const LOCAL_EMBEDDINGS_CONFIG = `name: local-embeddings
+version: 0.0.1
+models:
+  - name: local-embed
+    provider: transformers.js
+    model: all-MiniLM-L6-v2
+    roles:
+      - embed
+context:
+  - provider: codebase
+`;
 
 const CONFIG = `name: retrieval-test
 version: 0.0.1
@@ -69,4 +86,26 @@ describe("retrieval over the workspace", () => {
 
     expect(hits).toEqual([]);
   }, 120_000);
+
+  it("accepts the bundled local embeddings model", async () => {
+    const configPath = path.join(env.continueHome, "config.yaml");
+    fs.writeFileSync(configPath, LOCAL_EMBEDDINGS_CONFIG);
+    try {
+      const ide = new FileSystemIde(localPathToUri(workspace), "cli");
+      const { config } = await new ConfigHandler(
+        ide,
+        new LLMLogger(),
+      ).loadConfig();
+
+      const embed = config?.modelsByRole.embed ?? [];
+      expect(
+        embed.some(
+          (model: { providerName?: string }) =>
+            model.providerName === "transformers.js",
+        ),
+      ).toBe(true);
+    } finally {
+      fs.writeFileSync(configPath, CONFIG);
+    }
+  }, 60_000);
 });

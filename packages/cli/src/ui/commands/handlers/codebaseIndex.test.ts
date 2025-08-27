@@ -66,8 +66,11 @@ describe("the /index command", () => {
     const built = await handleIndex([]);
     expect(built.output).toContain("Codebase index updated");
 
+    // The test config selects no embeddings model, so the status is the
+    // full-text variant, which also names the way to enable semantic search.
     const status = await handleIndex(["status"]);
-    expect(status.output).toContain("is built");
+    expect(status.output).toContain("full text only");
+    expect(status.output).toContain("transformers.js");
 
     process.chdir(originalCwd);
   }, 120_000);

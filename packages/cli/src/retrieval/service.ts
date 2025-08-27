@@ -180,6 +180,11 @@ export class RetrievalService {
     }
   }
 
+  /** Whether the config selects an embeddings model for the vector index. */
+  async hasEmbeddingsModel(): Promise<boolean> {
+    return (await this.getVectorIndex()) !== null;
+  }
+
   private async getVectorIndex(): Promise<LanceDbIndex | null> {
     if (this.vectorIndex !== undefined) {
       return this.vectorIndex;
