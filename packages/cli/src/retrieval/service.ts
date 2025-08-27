@@ -3,6 +3,7 @@ import path from "path";
 import { ConfigHandler } from "core/config/ConfigHandler.js";
 import { CodebaseIndexer } from "core/indexing/CodebaseIndexer.js";
 import { FullTextSearchCodebaseIndex } from "core/indexing/FullTextSearchCodebaseIndex.js";
+import { LanceDbIndex } from "core/indexing/LanceDbIndex.js";
 import { SqliteDb } from "core/indexing/refreshIndex.js";
 import { LLMLogger } from "core/llm/logger.js";
 import FileSystemIde from "core/util/filesystem.js";
@@ -17,6 +18,30 @@ export interface RetrievalHit {
   content: string;
 }
 
+/** Keeps the primary order, drops duplicates, and caps the combined list. */
+export function mergeHits(
+  primary: RetrievalHit[],
+  secondary: RetrievalHit[],
+  n: number,
+): RetrievalHit[] {
+  const seen = new Set(
+    primary.map((hit) => `${hit.filepath}:${hit.startLine}:${hit.endLine}`),
+  );
+  const merged = [...primary];
+  for (const hit of secondary) {
+    const key = `${hit.filepath}:${hit.startLine}:${hit.endLine}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    merged.push(hit);
+    if (merged.length >= n) {
+      break;
+    }
+  }
+  return merged.slice(0, n);
+}
+
 /**
  * Hosts core's codebase indexer for the CLI.
  *
@@ -25,17 +50,18 @@ export interface RetrievalHit {
  * search: `update()` walks the workspace, `search()` asks the same index the
  * IDE extensions query. The indexer builds its indexes from the config file,
  * so a config with a codebase context provider and no embeddings model ends
- * up with full-text search over file chunks, which needs no provider.
+ * up with full-text search over file chunks, which needs no provider. With
+ * an embeddings model selected, search also asks the vector index and merges
+ * its hits behind the full-text ones.
  */
 export class RetrievalService {
   private readonly workspaceDir: string;
   private readonly ide: FileSystemIde;
+  private readonly configHandler: ConfigHandler;
   private readonly indexer: CodebaseIndexer;
-  /**
-   * Re-indexes one file, for the tools that just wrote it. Files outside the
-   * workspace are ignored by the indexer.
-   */
   private buildPromise: Promise<void> | null = null;
+  /** undefined until a search asks; null when the config selects no model. */
+  private vectorIndex: LanceDbIndex | null | undefined = undefined;
 
   constructor(workspaceDir: string = process.cwd()) {
     // Core's IDE abstraction speaks file URIs, so the workspace the indexer
@@ -44,10 +70,8 @@ export class RetrievalService {
     // The CLI is neither of the two IDE types core knows, so it says so and
     // keeps the editor-specific defaults out of the config it loads.
     this.ide = new FileSystemIde(this.workspaceDir, "cli");
-    this.indexer = new CodebaseIndexer(
-      new ConfigHandler(this.ide, new LLMLogger()),
-      this.ide,
-    );
+    this.configHandler = new ConfigHandler(this.ide, new LLMLogger());
+    this.indexer = new CodebaseIndexer(this.configHandler, this.ide);
   }
 
   /** Walks the workspace and brings the index up to date with it. */
@@ -102,6 +126,15 @@ export class RetrievalService {
     if (!query) {
       return [];
     }
+    const ftsHits = await this.fullTextSearch(query, n);
+    const vectorHits = await this.vectorSearch(query, n);
+    return mergeHits(ftsHits, vectorHits, n);
+  }
+
+  private async fullTextSearch(
+    query: string,
+    n: number,
+  ): Promise<RetrievalHit[]> {
     const branch = await this.ide.getBranch(this.workspaceDir);
     try {
       const chunks = await new FullTextSearchCodebaseIndex().retrieve({
@@ -114,12 +147,7 @@ export class RetrievalService {
         // what keeps the result short instead.
         bm25Threshold: 0,
       });
-      return chunks.map((chunk) => ({
-        filepath: chunk.filepath,
-        startLine: chunk.startLine,
-        endLine: chunk.endLine,
-        content: chunk.content,
-      }));
+      return toHits(chunks);
     } catch (error) {
       // A query before the first update finds no index tables; the caller
       // gets an empty result and the reason is in the log.
@@ -127,6 +155,67 @@ export class RetrievalService {
       return [];
     }
   }
+
+  /** The vector half, for configs that select an embeddings model. */
+  private async vectorSearch(
+    query: string,
+    n: number,
+  ): Promise<RetrievalHit[]> {
+    const index = await this.getVectorIndex();
+    if (!index) {
+      return [];
+    }
+    const branch = await this.ide.getBranch(this.workspaceDir);
+    try {
+      const chunks = await index.retrieve(
+        query,
+        n,
+        [{ directory: this.workspaceDir, branch }],
+        undefined,
+      );
+      return toHits(chunks);
+    } catch (error) {
+      logger.debug("Vector search failed", error as Error);
+      return [];
+    }
+  }
+
+  private async getVectorIndex(): Promise<LanceDbIndex | null> {
+    if (this.vectorIndex !== undefined) {
+      return this.vectorIndex;
+    }
+    try {
+      const { config } = await this.configHandler.loadConfig();
+      const embedModel = config?.selectedModelByRole.embed;
+      this.vectorIndex = embedModel
+        ? await LanceDbIndex.create(embedModel, (filepath) =>
+            this.ide.readFile(filepath),
+          )
+        : null;
+    } catch (error) {
+      // No model, or a platform the vector engine does not support: search
+      // keeps working on the full-text index alone.
+      logger.debug("Vector index unavailable", error as Error);
+      this.vectorIndex = null;
+    }
+    return this.vectorIndex;
+  }
+}
+
+function toHits(
+  chunks: {
+    filepath: string;
+    startLine: number;
+    endLine: number;
+    content: string;
+  }[],
+): RetrievalHit[] {
+  return chunks.map((chunk) => ({
+    filepath: chunk.filepath,
+    startLine: chunk.startLine,
+    endLine: chunk.endLine,
+    content: chunk.content,
+  }));
 }
 
 const services = new Map<string, RetrievalService>();
