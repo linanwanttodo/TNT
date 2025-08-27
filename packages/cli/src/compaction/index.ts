@@ -11,6 +11,7 @@ import { ChatCompletionTool } from "openai/resources.mjs";
 import { buildSummaryRequest } from "./prefixPreservation.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
+import { buildTodoCarryContextItem, readTodoState } from "../tools/todo.js";
 import { isContextLengthError } from "../utils/exponentialBackoff.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -303,12 +304,20 @@ export async function compactChatHistory(
     const systemMessage = historyToUse.find(
       (item) => item.message.role === "system",
     );
+    // The todo list is replayed from the Todo results in the history, so the
+    // summary has to carry the list forward or a later `Todo list` call
+    // reconstructs nothing.
+    const todoState = readTodoState(historyToUse);
+    const todoCarry = buildTodoCarryContextItem(
+      todoState.todos,
+      todoState.nextId,
+    );
     const compactionMessage: ChatHistoryItem = {
       message: {
         role: "assistant",
         content: compactionContent,
       },
-      contextItems: [],
+      contextItems: todoCarry ? [todoCarry] : [],
       conversationSummary: compactionContent,
       compactionCheckpoint: {
         kind: "compact-checkpoint",

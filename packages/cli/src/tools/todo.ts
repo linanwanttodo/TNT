@@ -1,5 +1,7 @@
 import { services } from "../services/index.js";
 
+import type { ChatHistoryItem, ContextItemWithId } from "core/index.js";
+
 import type { Tool } from "./types.js";
 
 export interface Todo {
@@ -22,38 +24,47 @@ const TODO_TOOL_NAME = "Todo";
  * Todo state lives in the tool result of each todo call rather than in a
  * side file. Replaying the branch and applying the latest payload therefore
  * reconstructs exactly the list that was current at that point in history,
- * which keeps forked and resumed sessions consistent.
+ * which keeps forked and resumed sessions consistent. Compaction carries the
+ * state forward as a context item in the same payload format, so the replay
+ * still finds it after the tool calls it came from were summarized away.
  */
-export function readTodoState(): { todos: Todo[]; nextId: number } {
+export function readTodoState(
+  history: ChatHistoryItem[] = services.chatHistory?.getHistory?.() ?? [],
+): { todos: Todo[]; nextId: number } {
   let todos: Todo[] = [];
   let nextId = 1;
 
-  const history = services.chatHistory?.getHistory?.() ?? [];
+  const applyPayload = (content: unknown): void => {
+    if (typeof content !== "string") {
+      return;
+    }
+    const markerIndex = content.indexOf(DETAILS_PREFIX);
+    if (markerIndex === -1) {
+      return;
+    }
+    try {
+      const details = JSON.parse(
+        content.slice(markerIndex + DETAILS_PREFIX.length),
+      ) as TodoDetails;
+      if (Array.isArray(details.todos)) {
+        todos = details.todos;
+        nextId = details.nextId ?? nextId;
+      }
+    } catch {
+      // A malformed payload should not break the rest of the replay.
+    }
+  };
+
   for (const item of history) {
+    for (const contextItem of item.contextItems ?? []) {
+      applyPayload(contextItem.content);
+    }
     for (const toolCallState of item.toolCallStates ?? []) {
       if (toolCallState.toolCall?.function?.name !== TODO_TOOL_NAME) {
         continue;
       }
       for (const output of toolCallState.output ?? []) {
-        const content = output.content;
-        if (typeof content !== "string") {
-          continue;
-        }
-        const markerIndex = content.indexOf(DETAILS_PREFIX);
-        if (markerIndex === -1) {
-          continue;
-        }
-        try {
-          const details = JSON.parse(
-            content.slice(markerIndex + DETAILS_PREFIX.length),
-          ) as TodoDetails;
-          if (Array.isArray(details.todos)) {
-            todos = details.todos;
-            nextId = details.nextId ?? nextId;
-          }
-        } catch {
-          // A malformed payload should not break the rest of the replay.
-        }
+        applyPayload(output.content);
       }
     }
   }
@@ -82,6 +93,34 @@ function serialize(
     details.error = error;
   }
   return `${text}\n\n${DETAILS_PREFIX}${JSON.stringify(details)}`;
+}
+
+/**
+ * The todo list, in the same payload format a Todo call produces, for a
+ * caller that is about to drop the history the list was replayed from -
+ * compaction attaches this to its summary message. Without it the list is
+ * lost the moment the last Todo result is summarized away, since a replay
+ * over the compacted history finds nothing. An empty list carries nothing.
+ */
+export function buildTodoCarryContextItem(
+  todos: Todo[],
+  nextId: number,
+): ContextItemWithId | undefined {
+  if (todos.length === 0) {
+    return undefined;
+  }
+  return {
+    id: { providerTitle: "todo", itemId: "todo-state" },
+    name: "todo-state",
+    description:
+      "The todo list as it stood when the conversation was compacted",
+    content: serialize(
+      "list",
+      todos,
+      nextId,
+      `Current todo list:\n${formatTodos(todos)}`,
+    ),
+  };
 }
 
 export const todoTool: Tool = {
