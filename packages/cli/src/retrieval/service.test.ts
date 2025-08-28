@@ -108,4 +108,39 @@ describe("retrieval over the workspace", () => {
       fs.writeFileSync(configPath, CONFIG);
     }
   }, 60_000);
+
+  it("starts indexing without waiting for it", async () => {
+    const fresh = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-index-start-"));
+    fs.writeFileSync(
+      path.join(fresh, "started.ts"),
+      "export const startedMarker = 1;\n",
+    );
+    const service = new RetrievalService(fresh);
+
+    service.startIndexing();
+
+    // The call returns before the build lands - that is the point of the
+    // background start - and a second call joins the run instead of doubling.
+    expect(service.isIndexing()).toBe(true);
+    service.startIndexing();
+
+    const finished = await waitFor(async () => !service.isIndexing());
+    expect(finished).toBe(true);
+    expect(await service.hasIndex()).toBe(true);
+    fs.rmSync(fresh, { recursive: true, force: true });
+  }, 120_000);
 });
+
+async function waitFor(
+  check: () => Promise<boolean>,
+  timeoutMs = 60_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}

@@ -60,19 +60,38 @@ describe("the /index command", () => {
     expect(result.output).toContain("No codebase index");
   });
 
-  it("builds the index and then reports it as built", async () => {
+  it("starts the build and reports progress until it lands", async () => {
     process.chdir(workspace);
+    try {
+      const started = await handleIndex([]);
+      expect(started.output).toContain("background");
 
-    const built = await handleIndex([]);
-    expect(built.output).toContain("Codebase index updated");
+      // Still running: the status reports the live build rather than the
+      // "no index" message it showed before the build was started.
+      const running = await handleIndex(["status"]);
+      const runningOutput = running.output ?? "";
+      expect(runningOutput).not.toContain("No codebase index");
+      expect(runningOutput).not.toContain("还没有代码库索引");
 
-    // The test config selects no embeddings model, so the status is the
-    // full-text variant, which also names the way to enable semantic search.
-    const status = await handleIndex(["status"]);
-    expect(status.output).toContain("full text only");
-    expect(status.output).toContain("transformers.js");
+      // Poll the status the way a user would; the build runs in the
+      // background and the command never blocks on it.
+      const landed = await waitFor(async () => {
+        const status = await handleIndex(["status"]);
+        const output = status.output ?? "";
+        return output.includes("full text only") || output.includes("is built");
+      });
 
-    process.chdir(originalCwd);
+      // The test config selects no embeddings model, so the final status is
+      // the full-text variant, which also names the way to enable semantic
+      // search.
+      const status = await handleIndex(["status"]);
+      const finalOutput = status.output ?? "";
+      expect(landed).toBe(true);
+      expect(finalOutput).toContain("full text only");
+      expect(finalOutput).toContain("transformers.js");
+    } finally {
+      process.chdir(originalCwd);
+    }
   }, 120_000);
 
   it("answers in the active locale", async () => {
@@ -80,6 +99,20 @@ describe("the /index command", () => {
 
     const result = await handleIndex(["status"]);
 
-    expect(result.output).toContain("还没有代码库索引");
+    expect(result.output).toMatch(/代码库索引|正在索引/);
   }, 30_000);
 });
+
+async function waitFor(
+  check: () => Promise<boolean>,
+  timeoutMs = 60_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}

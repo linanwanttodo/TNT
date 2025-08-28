@@ -5,10 +5,10 @@ import type { SlashCommandResult } from "../types.js";
  * Builds or reports on the codebase index.
  *
  * The retrieval service is imported lazily: a command that never touches the
- * index should not load the sqlite store and the chunker with it. The rebuild
- * is awaited, so the reported result is real - a large workspace makes the
- * command wait rather than pretend the work happened (a progress UI is not
- * part of this yet).
+ * index should not load the sqlite store and the chunker with it. A build
+ * runs in the background - waiting on the command made a large workspace look
+ * frozen - and `/index status` reports the indexer's own progress, then the
+ * result.
  */
 export async function handleIndex(
   args: string[] = [],
@@ -21,33 +21,39 @@ export async function handleIndex(
   const { getRetrievalService } = await import("../../../retrieval/service.js");
   const service = getRetrievalService();
 
-  if (subcommand === "status") {
-    if (!(await service.hasIndex())) {
-      return { output: t("index.statusMissing") };
-    }
-    // An index exists; whether the config also selects an embeddings model
-    // decides if it is full-text only or answers semantic searches too.
-    return {
-      output: t(
-        (await service.hasEmbeddingsModel())
-          ? "index.statusBuilt"
-          : "index.statusFullTextOnly",
-      ),
-    };
+  if (subcommand !== "status") {
+    service.startIndexing();
+    return { output: t("index.started") };
   }
 
-  try {
-    await service.update();
-  } catch (error) {
+  const progress = service.indexingProgress();
+  if (service.isIndexing()) {
     return {
-      output: t("index.failed", {
-        message: error instanceof Error ? error.message : String(error),
+      output: t("index.progress", {
+        percent: Math.round(progress.progress * 100),
+        desc: progress.desc,
       }),
     };
   }
-
-  if (!(await service.hasIndex())) {
-    return { output: t("index.disabled") };
+  if (progress.status === "failed") {
+    return { output: t("index.failed", { message: progress.desc }) };
   }
-  return { output: t("index.rebuilt") };
+  if (!(await service.hasIndex())) {
+    // A build that ran and left nothing behind means the config has no
+    // codebase provider; one that never ran means the user should start it.
+    return {
+      output: t(
+        progress.status === "done" ? "index.disabled" : "index.statusMissing",
+      ),
+    };
+  }
+  // An index exists; whether the config also selects an embeddings model
+  // decides if it is full-text only or answers semantic searches too.
+  return {
+    output: t(
+      (await service.hasEmbeddingsModel())
+        ? "index.statusBuilt"
+        : "index.statusFullTextOnly",
+    ),
+  };
 }

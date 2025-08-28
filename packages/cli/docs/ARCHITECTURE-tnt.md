@@ -313,9 +313,14 @@ Stated as gaps, not as intentions:
    selectable from the config on every host - `provider: transformers.js`
    under `roles: [embed]` needs no key and runs from the bundled weights - and
    `/index status` names that option whenever the index is full-text only.
-   What is still missing: an indexing progress UI, and a picker UI for the
-   embeddings model (the config path works; the selectors do not list embed
-   models). One packaging note:
+   An index build runs in the background rather than freezing the command:
+   `/index` starts it (a start that overlaps a running build joins it), and
+   `/index status` reports the indexer's own progress line while it runs, the
+   failure message when the indexer gave up, and the final state after that -
+   a workspace that was never built still reads as "no index" until a build
+   is started. What is still missing: a picker UI for the embeddings model
+   (the config path works; the selectors do not list embed models). One
+   packaging note:
    `packages/cli/package-lock.json` was regenerated on 2026-10-14 - the
    old lock failed npm's own link validation, so `npm install` refused to run
    and a fresh clone could not set up - and `npm ci --dry-run` now passes,
