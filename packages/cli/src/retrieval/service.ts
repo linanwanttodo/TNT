@@ -111,6 +111,31 @@ export class RetrievalService {
   }
 
   /**
+   * Builds the index in the background; a build already running is joined
+   * rather than doubled. The caller polls `indexingProgress()` - and, when it
+   * wants certainty, `hasIndex()` - instead of waiting on a frozen command.
+   */
+  startIndexing(): void {
+    this.buildPromise ??= this.update().finally(() => {
+      this.buildPromise = null;
+    });
+  }
+
+  isIndexing(): boolean {
+    return this.buildPromise !== null;
+  }
+
+  /** The indexer's own progress, live while a build runs. */
+  indexingProgress(): { status: string; desc: string; progress: number } {
+    const state = this.indexer.currentIndexingState;
+    return {
+      status: state.status,
+      desc: state.desc,
+      progress: state.progress,
+    };
+  }
+
+  /**
    * Re-indexes one file, for the tools that just wrote it. Files outside the
    * workspace are ignored by the indexer.
    */

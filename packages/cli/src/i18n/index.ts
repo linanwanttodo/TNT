@@ -208,7 +208,9 @@ const en = {
   "cmd.diagnostics": "Language server diagnostics",
   "cmd.index": "Codebase index",
   "index.usage": "Usage: /index [status]",
-  "index.rebuilt": "Codebase index updated.",
+  "index.started":
+    "Indexing started in the background. /index status reports progress.",
+  "index.progress": "Indexing... {percent}% - {desc}",
   "index.statusBuilt": "The codebase index is built for this workspace.",
   "index.statusFullTextOnly":
     "The codebase index is built for this workspace (full text only). Add a models entry with roles: [embed] - provider transformers.js runs locally without a key - to enable semantic search.",
@@ -497,7 +499,8 @@ const zhCN: Record<TranslationKey, string> = {
   "cmd.diagnostics": "语言服务器诊断",
   "cmd.index": "代码库索引",
   "index.usage": "用法：/index [status]",
-  "index.rebuilt": "代码库索引已更新。",
+  "index.started": "索引已在后台开始，/index status 可查看进度。",
+  "index.progress": "正在索引……{percent}% - {desc}",
   "index.statusBuilt": "当前工作区已建立代码库索引。",
   "index.statusFullTextOnly":
     "当前工作区已建立代码库索引（仅全文检索）。在 models 中加一条 roles: [embed] 的模型即可启用语义检索——provider 用 transformers.js 可本地运行、无需密钥。",
