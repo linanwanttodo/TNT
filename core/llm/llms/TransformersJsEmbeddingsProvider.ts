@@ -48,10 +48,13 @@ export class TransformersJsEmbeddingsProvider extends BaseLLM {
     model: TransformersJsEmbeddingsProvider.model,
   };
 
-  constructor() {
+  constructor(options: Partial<LLMOptions> = {}) {
     super({
+      // The entry's model field is not read: the weights are the ones bundled
+      // beside the vendored runtime, and downloads are off. The name is what
+      // a config chooses between two entries by.
       model: TransformersJsEmbeddingsProvider.model,
-      title: "Transformers.js (Built-In)",
+      title: options.title ?? "Transformers.js (Built-In)",
     });
   }
 
