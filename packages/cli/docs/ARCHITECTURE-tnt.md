@@ -354,3 +354,17 @@ Stated as gaps, not as intentions:
    stack) recorded. The locks of some sibling packages (`openai-adapters`)
    still contain pre-move paths from an earlier directory layout; whether
    they block their own installs has not been verified.
+
+7. Sessions persist as one file per conversation plus a `sessions.json` list.
+   The writer carries every optional `Session` field - the goal, the output
+   style, the delegation link and depth - so the root list hides delegated
+   transcripts, a resumed child keeps its depth, and resume restores goal and
+   style; selecting a conversation (`tnt ls` or the in-TUI picker) loads it
+   and moves the `SessionManager`, with the id travelling through typed
+   options so a dropped hop is a compile error. A new session is titled on
+   the first assistant response in both the TUI and headless runs. Known
+   limit: `sessions.json` is a read-modify-write file, so two `tnt` processes
+   saving in the same instant can lose one list entry - the session file
+   itself is safe (atomic write) and stays loadable by id. `clearSession`
+   remains a test reset helper: it deletes the session file but not its list
+   entry.
