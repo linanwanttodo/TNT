@@ -417,12 +417,22 @@ export function loadSession(): Session | null {
       }))
       .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 
-    if (files.length === 0) {
+    // A delegated run is reachable from its parent, so resume must land on a
+    // root conversation even when the child transcript was written last.
+    let session: Session | null = null;
+    for (const file of files) {
+      const parsed: Session = JSON.parse(fs.readFileSync(file.path, "utf8"));
+      if (parsed.parentSessionId) {
+        continue;
+      }
+      session = parsed;
+      break;
+    }
+
+    if (!session) {
       return null;
     }
 
-    // Load the most recent session
-    const session: Session = JSON.parse(fs.readFileSync(files[0].path, "utf8"));
     // Set this as the current session for future saves
     SessionManager.getInstance().setSession(session);
     return session;
@@ -612,6 +622,11 @@ export async function listSessions(
  */
 export function loadSessionById(sessionId: string): Session | null {
   try {
+    // The core loader fabricates an empty session for a missing file, so the
+    // existence check happens here; every caller treats null as "not found".
+    if (!fs.existsSync(path.join(getSessionDir(), `${sessionId}.json`))) {
+      return null;
+    }
     const session = historyManager.load(sessionId);
     return session;
   } catch (error) {
