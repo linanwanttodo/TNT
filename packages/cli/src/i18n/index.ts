@@ -198,8 +198,13 @@ const en = {
   "outputStyle.set": "Output style set to {name}.",
   "outputStyle.cleared": "Output style cleared.",
   "outputStyle.unknown": "No output style named {name}.",
-  "outputStyle.usage": "Usage: /output-style <name> | /output-style clear",
+  "outputStyle.usage":
+    "Usage: /output-style <name> | /output-style clear | /output-style save [name]",
   "outputStyle.fromSettings": "Output style: {name} (from settings)",
+  "outputStyle.saved": "Default output style set to {name} in {path}.",
+  "outputStyle.saveNothing":
+    "Nothing to save: select a style first, or pass a style name.",
+  "outputStyle.saveFailed": "Could not write {path}: {message}",
   "cmd.diagnostics": "Language server diagnostics",
   "cmd.index": "Codebase index",
   "index.usage": "Usage: /index [status]",
@@ -481,8 +486,12 @@ const zhCN: Record<TranslationKey, string> = {
   "outputStyle.set": "输出风格已设为 {name}。",
   "outputStyle.cleared": "已清除输出风格。",
   "outputStyle.unknown": "没有名为 {name} 的输出风格。",
-  "outputStyle.usage": "用法：/output-style <名称> | /output-style clear",
+  "outputStyle.usage":
+    "用法：/output-style <名称> | /output-style clear | /output-style save [名称]",
   "outputStyle.fromSettings": "当前输出风格：{name}（来自设置）",
+  "outputStyle.saved": "已将默认输出风格设为 {name}（{path}）。",
+  "outputStyle.saveNothing": "没有可保存的风格：先选择风格，或传入风格名。",
+  "outputStyle.saveFailed": "无法写入 {path}：{message}",
   "cmd.diagnostics": "语言服务器诊断",
   "cmd.index": "代码库索引",
   "index.usage": "用法：/index [status]",
