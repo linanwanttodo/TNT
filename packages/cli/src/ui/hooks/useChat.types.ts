@@ -14,6 +14,8 @@ export interface UseChatProps {
   /** Specific session a resume should open; omitted means the newest root. */
   sessionId?: string;
   fork?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
   additionalRules?: string[];
   additionalPrompts?: string[];
   onShowConfigSelector: () => void;

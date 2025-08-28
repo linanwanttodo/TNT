@@ -12,10 +12,14 @@ import { AppRoot } from "./AppRoot.js";
 
 export { MarkdownRenderer } from "./MarkdownRenderer.js";
 
-interface StartTUIChatOptions {
+export interface StartTUIChatOptions {
   initialPrompt?: string;
   resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
   fork?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
   config?: string;
   org?: string;
   rule?: string[];
@@ -35,7 +39,9 @@ export async function startTUIChat(
   const {
     initialPrompt,
     resume,
+    sessionId,
     fork,
+    maxSteps,
     config,
     org,
     rule,
@@ -108,7 +114,9 @@ export async function startTUIChat(
         configPath: config,
         initialPrompt,
         resume,
+        sessionId,
         fork,
+        maxSteps,
         additionalRules: rule,
         additionalPrompts: prompt,
       }),

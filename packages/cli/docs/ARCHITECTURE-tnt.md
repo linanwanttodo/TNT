@@ -50,7 +50,9 @@ runs; headless pays one extra non-streaming completion for it, which the e2e
 suites pin so the cost stays visible. Switching conversations - the `tnt ls`
 picker or the in-TUI selector - goes through `selectSession`, which also moves
 the `SessionManager`, so new turns append to the session on screen instead of
-to whatever session the process happened to start with.
+to whatever session the process happened to start with. The id travels to the
+TUI through typed options (`StartTUIChatOptions`), so a hop that drops it is a
+compile error rather than a silent fallback to the newest session.
 
 ## 2. Mode axis
 

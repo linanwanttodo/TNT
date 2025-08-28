@@ -286,6 +286,8 @@ interface ExecuteStreamingOptions {
   controller: AbortController;
   streamCallbacks: any;
   currentCompactionIndex: number | null;
+  /** Model rounds allowed for this turn; unset means the budget defaults. */
+  maxSteps?: number;
 }
 
 /**
@@ -298,11 +300,13 @@ export async function executeStreaming({
   controller,
   streamCallbacks,
   currentCompactionIndex,
+  maxSteps,
 }: ExecuteStreamingOptions): Promise<void> {
   const { getHistoryForLLM } = await import("../../compaction/index.js");
   const { streamChatResponse } = await import(
     "../../stream/streamChatResponse.js"
   );
+  const turnBudgetLimits = maxSteps === undefined ? undefined : { maxSteps };
 
   if (model && llmApi) {
     if (
@@ -320,6 +324,8 @@ export async function executeStreaming({
         llmApi,
         controller,
         streamCallbacks,
+        false,
+        turnBudgetLimits,
       );
 
       // Service-driven streaming; history updates occur via ChatHistoryService
@@ -330,6 +336,8 @@ export async function executeStreaming({
         llmApi,
         controller,
         streamCallbacks,
+        false,
+        turnBudgetLimits,
       );
     }
   }
