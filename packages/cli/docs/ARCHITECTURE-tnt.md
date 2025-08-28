@@ -254,8 +254,14 @@ Stated as gaps, not as intentions:
    command refuses rather than guessing, and clearing the session choice never
    touches the file.
 
-4. Plugin-declared settings are parsed but only a key whitelist is honoured in
-   the settings cascade.
+4. Plugin-declared settings are the lowest layer of the settings cascade,
+   matching the reference tool: the `settings` record of every installed
+   plugin's manifest is merged (name order, a later plugin wins a key) with
+   only allowlisted keys kept, and every one of the six settings files
+   overrides it. The allowlist is deliberately one key - `outputStyle` -
+   because a key only belongs there once something in the CLI reads it from
+   the settings; the reference's own allowlist is likewise a single key
+   (`agent`), which TNT still has no consumer for.
 5. Vendor-side cache behaviour is not verified on this machine. Proving that a
    provider accepts these cache parameters needs a real API key and two
    consecutive rounds of the same prompt against the same model; until then no

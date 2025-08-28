@@ -4,6 +4,8 @@ import path from "path";
 
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 
+import { getPluginSettingsBase } from "../plugins/pluginSettings.js";
+
 /**
  * The settings files TNT reads, lowest precedence first. Hooks and the
  * session defaults both come from here, so the list exists once: a second copy
@@ -83,6 +85,14 @@ export function readSettingsString(
     const candidate = settings?.[key];
     if (typeof candidate === "string" && candidate.trim()) {
       value = candidate.trim();
+    }
+  }
+  if (value === undefined) {
+    // The lowest layer: defaults an installed plugin declares. Every settings
+    // file outranks them, so a plugin ships defaults rather than decisions.
+    const fromPlugins = getPluginSettingsBase()?.[key];
+    if (typeof fromPlugins === "string" && fromPlugins.trim()) {
+      value = fromPlugins.trim();
     }
   }
   return value;

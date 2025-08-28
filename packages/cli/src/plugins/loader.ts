@@ -12,6 +12,10 @@ import {
   type LoadedPlugin,
   substitutePluginVariables,
 } from "./manifest.js";
+import {
+  mergePluginSettings,
+  setPluginSettingsBase,
+} from "./pluginSettings.js";
 
 export interface PluginHooks {
   config: Record<string, HookMatcherGroup[]>;
@@ -529,6 +533,9 @@ function loadPluginLspServers(plugins: LoadedPlugin[]): PluginLspServer[] {
  */
 export function loadAllPlugins(): PluginLoadResult {
   const plugins = discoverInstalledPlugins(getPluginSearchRoots());
+  // Cache the settings layer for the synchronous readers (settingsFiles): a
+  // plugin contributes defaults, below every settings file.
+  setPluginSettingsBase(mergePluginSettings(plugins));
 
   return {
     plugins,
