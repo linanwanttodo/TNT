@@ -191,6 +191,10 @@ English on purpose:
    (`src/commands/serve.help.ts`, `formatChecksSummary`) so the wording is
    testable without running the command, and the endpoint list keeps its column
    alignment inside a single translated value.
+   The slash command surface follows the same rule: the `/help` screen,
+   `/todos`, `/clear` and `/exit` copy, the `/skills` listing and the `/index`
+   messages all come from the dictionary, so a locale change reaches every
+   screen the commands print.
 
 ## 8. Verification gates
 

@@ -1,5 +1,6 @@
 import chalk from "chalk";
 
+import { t } from "../../../i18n/index.js";
 import { readTodoState } from "../../../tools/todo.js";
 import type { SlashCommandResult } from "../types.js";
 
@@ -11,7 +12,7 @@ export function handleTodos(): SlashCommandResult {
   const { todos } = readTodoState();
 
   if (todos.length === 0) {
-    return { output: chalk.dim("No todos yet.") };
+    return { output: chalk.dim(t("todos.none")) };
   }
 
   const done = todos.filter((todo) => todo.done).length;
@@ -24,7 +25,7 @@ export function handleTodos(): SlashCommandResult {
 
   return {
     output: [
-      chalk.bold(`Todos (${done}/${todos.length} completed)`),
+      chalk.bold(t("todos.header", { done, total: todos.length })),
       "",
       ...lines,
     ].join("\n"),

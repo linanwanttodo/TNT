@@ -1,4 +1,5 @@
 import { handleInit } from "../../../commands/init.js";
+import { t } from "../../../i18n/index.js";
 import { handleInfoSlashCommand } from "../../../startup/infoScreen.js";
 import type { CommandHandler } from "../types.js";
 
@@ -28,10 +29,10 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
   return {
     help: handleHelp,
     clear: () => {
-      return { clear: true, output: "Chat history cleared" };
+      return { clear: true, output: t("session.cleared") };
     },
     exit: () => {
-      return { exit: true, output: "Goodbye!" };
+      return { exit: true, output: t("session.goodbye") };
     },
     config: () => {
       return { openConfigSelector: true };

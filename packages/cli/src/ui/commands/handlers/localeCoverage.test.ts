@@ -5,6 +5,11 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getLocale, setLocale } from "../../../i18n/index.js";
+import type { SlashCommandResult } from "../types.js";
+
+import { handleHelp } from "./help.js";
+import { createCommandHandlers } from "./index.js";
+import { handleTodos } from "./misc.js";
 import { handlePlugins } from "./plugins.js";
 import { handleGoal, handleTitle } from "./sessions.js";
 import { handleSkills } from "./skills.js";
@@ -62,5 +67,29 @@ describe("slash command copy follows the active locale", () => {
     const result = await handleSkills();
 
     expect(result.output).toContain("没有找到技能");
+  });
+
+  it("translates the help screen", async () => {
+    const result = await handleHelp();
+
+    expect(result.output).toContain("键盘快捷键");
+    expect(result.output).toContain("切换权限模式");
+  });
+
+  it("translates the todo listing", () => {
+    const result = handleTodos();
+
+    expect(result.output).toContain("暂无待办事项");
+  });
+
+  it("translates the clear and exit messages", () => {
+    const handlers = createCommandHandlers();
+
+    expect(
+      (handlers.clear([], {} as never) as SlashCommandResult).output,
+    ).toContain("聊天记录已清空");
+    expect(
+      (handlers.exit([], {} as never) as SlashCommandResult).output,
+    ).toContain("再见");
   });
 });
