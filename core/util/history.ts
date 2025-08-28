@@ -126,6 +126,18 @@ export class HistoryManager {
       orderedSession.usage = session.usage;
     }
 
+    // The remaining optional fields - the goal, the output style, the
+    // delegation link - are read back from this file (the root list hides
+    // children by parentSessionId, a resumed child reads its depth), so
+    // everything else the caller attached is copied too. Writing only the
+    // ordered keys above silently dropped them.
+    const written = orderedSession as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(session)) {
+      if (value !== undefined && !(key in written)) {
+        written[key] = value;
+      }
+    }
+
     writeJsonAtomically(getSessionFilePath(session.sessionId), orderedSession);
 
     // Read and update the sessions list
