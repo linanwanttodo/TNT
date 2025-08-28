@@ -316,7 +316,7 @@ export async function configYamlToContinueConfig(options: {
           // config entry works for every host. Only the auto-enable below is
           // limited to VS Code: downloading a model is a choice, not a default.
           continueConfig.modelsByRole.embed.push(
-            new TransformersJsEmbeddingsProvider(),
+            new TransformersJsEmbeddingsProvider({ title: model.name }),
           );
         } else {
           continueConfig.modelsByRole.embed.push(...llms);
