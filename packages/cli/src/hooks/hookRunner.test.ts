@@ -177,3 +177,82 @@ describe("hook matching", () => {
     expect(result).toEqual({ blocked: false, results: [] });
   });
 });
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitFor(
+  check: () => boolean,
+  timeoutMs = 10_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (check()) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+describe("command hook limits", () => {
+  it("fails a hook that outlives its timeout and kills its children", async () => {
+    const pidFile = path.join(workDir, "timed-out-hook.pid");
+    const config: HooksConfig = {
+      PreToolUse: [
+        {
+          matcher: "*",
+          hooks: [
+            {
+              type: "command",
+              command: `sh -c 'sleep 30 & echo $! > ${pidFile}; wait'`,
+              timeout: 1,
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await runHooks(config, toolCall(), workDir);
+
+    // A killed hook must not read as a success: it is a failure, and it says
+    // why.
+    expect(result.results[0].exitCode).toBe(1);
+    expect(result.results[0].stderr).toContain("timed out");
+
+    // The work the hook started dies with it, not thirty seconds later.
+    expect(fs.existsSync(pidFile)).toBe(true);
+    const pid = Number(fs.readFileSync(pidFile, "utf-8"));
+    expect(await waitFor(() => !isAlive(pid))).toBe(true);
+    expect(isAlive(pid)).toBe(false);
+  }, 30_000);
+
+  it("fails a hook whose output runs away", async () => {
+    const config: HooksConfig = {
+      PreToolUse: [
+        {
+          matcher: "*",
+          hooks: [
+            {
+              type: "command",
+              command: "head -c 11000000 /dev/zero | tr '\\0' x",
+              timeout: 30,
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = await runHooks(config, toolCall(), workDir);
+
+    expect(result.results[0].exitCode).toBe(1);
+    expect(result.results[0].stderr).toContain("size limit");
+    expect(result.blocked).toBe(false);
+  }, 30_000);
+});
