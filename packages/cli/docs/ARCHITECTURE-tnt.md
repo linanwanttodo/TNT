@@ -318,8 +318,13 @@ Stated as gaps, not as intentions:
    `/index status` reports the indexer's own progress line while it runs, the
    failure message when the indexer gave up, and the final state after that -
    a workspace that was never built still reads as "no index" until a build
-   is started. What is still missing: a picker UI for the embeddings model
-   (the config path works; the selectors do not list embed models). One
+   is started. `/index embed` is the picker: it lists the embed-role models,
+   re-reading the config first so an edit to config.yaml is seen, and
+   `/index embed <name>` stores the choice in the global context - where the
+   config load and the editors both keep model selections - and drops the
+   cached vector index, so the next search builds against the new model. A
+   transformers.js entry is named by its config `name` and uses the bundled
+   weights; its `model` field is not read, since downloads are off. One
    packaging note:
    `packages/cli/package-lock.json` was regenerated on 2026-10-14 - the
    old lock failed npm's own link validation, so `npm install` refused to run

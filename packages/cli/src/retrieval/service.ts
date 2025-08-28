@@ -7,6 +7,7 @@ import { LanceDbIndex } from "core/indexing/LanceDbIndex.js";
 import { SqliteDb } from "core/indexing/refreshIndex.js";
 import { LLMLogger } from "core/llm/logger.js";
 import FileSystemIde from "core/util/filesystem.js";
+import { GlobalContext } from "core/util/GlobalContext.js";
 import { localPathToUri } from "core/util/pathToUri.js";
 
 import { logger } from "../utils/logger.js";
@@ -208,6 +209,48 @@ export class RetrievalService {
   /** Whether the config selects an embeddings model for the vector index. */
   async hasEmbeddingsModel(): Promise<boolean> {
     return (await this.getVectorIndex()) !== null;
+  }
+
+  /**
+   * Re-reads the config from disk. Selection commands call this first: a user
+   * who just edited config.yaml to add an embeddings model expects the next
+   * command to see it, and the handler caches what it loaded.
+   */
+  async refreshConfig(): Promise<void> {
+    await this.configHandler.reloadConfig("cli index command");
+  }
+
+  /** Titles of the models the config offers for the embed role. */
+  async embeddingModels(): Promise<string[]> {
+    const { config } = await this.configHandler.loadConfig();
+    return (config?.modelsByRole.embed ?? []).map(
+      (model: { title: string }) => model.title,
+    );
+  }
+
+  /** The title the load currently resolves embeddings to, if any. */
+  async selectedEmbeddingModel(): Promise<string | null> {
+    const { config } = await this.configHandler.loadConfig();
+    return config?.selectedModelByRole.embed?.title ?? null;
+  }
+
+  /**
+   * Points this profile's embed role at one of the configured models and
+   * drops the cached vector index, so the next search builds against the new
+   * model. The choice goes into the global context, where the config load
+   * picks it up - the same place the editors store model selections.
+   */
+  async selectEmbeddingModel(title: string): Promise<boolean> {
+    if (!(await this.embeddingModels()).includes(title)) {
+      return false;
+    }
+    const profileId = this.configHandler.currentProfile?.profileDescription.id;
+    if (!profileId) {
+      return false;
+    }
+    new GlobalContext().updateSelectedModel(profileId, "embed", title);
+    this.vectorIndex = undefined;
+    return true;
   }
 
   private async getVectorIndex(): Promise<LanceDbIndex | null> {
