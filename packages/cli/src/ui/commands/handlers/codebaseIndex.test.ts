@@ -2,10 +2,12 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+import { GlobalContext } from "core/util/GlobalContext.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { env } from "../../../config/env.js";
 import { getLocale, setLocale } from "../../../i18n/index.js";
+import { RetrievalService } from "../../../retrieval/service.js";
 
 import { handleIndex } from "./codebaseIndex.js";
 
@@ -27,6 +29,23 @@ models:
     roles:
       - chat
     apiKey: test
+context:
+  - provider: codebase
+`;
+
+const EMBEDDINGS_CONFIG = `name: embeddings-test
+version: 0.0.1
+models:
+  - name: first-embed
+    provider: transformers.js
+    model: all-MiniLM-L6-v2
+    roles:
+      - embed
+  - name: second-embed
+    provider: transformers.js
+    model: bge-small-en
+    roles:
+      - embed
 context:
   - provider: codebase
 `;
@@ -100,7 +119,50 @@ describe("the /index command", () => {
     const result = await handleIndex(["status"]);
 
     expect(result.output).toMatch(/代码库索引|正在索引/);
+    setLocale(originalLocale);
   }, 30_000);
+
+  it("explains when no embeddings model is configured", async () => {
+    const result = await handleIndex(["embed"]);
+
+    expect(result.output ?? "").toContain("No embeddings model");
+  });
+
+  it("lists embeddings models and applies the chosen one", async () => {
+    const configPath = path.join(env.continueHome, "config.yaml");
+    fs.writeFileSync(configPath, EMBEDDINGS_CONFIG);
+    try {
+      const listed = await handleIndex(["embed"]);
+      expect(listed.output ?? "").toContain("first-embed");
+      expect(listed.output ?? "").toContain("second-embed");
+
+      const selected = await handleIndex(["embed", "second-embed"]);
+      expect(selected.output ?? "").toContain("second-embed");
+
+      // The choice lands where the config load picks it up.
+      const stored = new GlobalContext().get("selectedModelsByProfileId") ?? {};
+      const chosen = Object.values(stored).map((entry) => entry?.embed);
+      expect(chosen).toContain("second-embed");
+
+      // And a freshly loaded config resolves embeddings to it.
+      const fresh = new RetrievalService(workspace);
+      expect(await fresh.selectedEmbeddingModel()).toBe("second-embed");
+    } finally {
+      fs.writeFileSync(configPath, CONFIG);
+    }
+  }, 60_000);
+
+  it("refuses an embeddings model that is not configured", async () => {
+    const configPath = path.join(env.continueHome, "config.yaml");
+    fs.writeFileSync(configPath, EMBEDDINGS_CONFIG);
+    try {
+      const result = await handleIndex(["embed", "missing-embed"]);
+
+      expect(result.output ?? "").toContain("No embeddings model named");
+    } finally {
+      fs.writeFileSync(configPath, CONFIG);
+    }
+  }, 60_000);
 });
 
 async function waitFor(
