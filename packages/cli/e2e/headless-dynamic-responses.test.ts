@@ -92,8 +92,8 @@ describe("E2E: Headless Mode with Dynamic Responses", () => {
     });
     expect(unknownResult.stdout).toContain("I don't understand your question.");
 
-    // Verify all requests were tracked
-    expect(mockServer.requests).toHaveLength(3);
+    // Verify all requests were tracked: a prompt and a title request per run
+    expect(mockServer.requests).toHaveLength(6);
   });
 
   it("should work with non-streaming responses", async () => {
@@ -166,7 +166,8 @@ models:
     });
 
     expect(result.stdout).toContain("Response from GPT-4");
-    expect(gpt4Server.requests).toHaveLength(1);
+    // The prompt request plus the title request both go to the chosen model
+    expect(gpt4Server.requests).toHaveLength(2);
     expect(claudeServer.requests).toHaveLength(0);
 
     // Servers will be cleaned up in afterEach
@@ -182,20 +183,30 @@ models:
     mockServer = await createMockLLMServer({
       customHandler: (req, res) => {
         if (req.method === "POST" && req.url === "/chat/completions") {
-          const response = responses[requestCount % responses.length];
-          requestCount++;
-
-          res.writeHead(200, {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            Connection: "keep-alive",
+          let body = "";
+          req.on("data", (chunk) => {
+            body += chunk.toString();
           });
+          req.on("end", () => {
+            // The session title is a small non-streaming call; answer it
+            // without consuming the scripted sequence.
+            const isTitleRequest = body.includes('"stream":false');
+            const response = isTitleRequest
+              ? "Session Title"
+              : responses[requestCount++ % responses.length];
 
-          res.write(
-            `data: {"choices":[{"delta":{"content":"${response}"},"index":0}]}\n\n`,
-          );
-          res.write(`data: [DONE]\n\n`);
-          res.end();
+            res.writeHead(200, {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive",
+            });
+
+            res.write(
+              `data: {"choices":[{"delta":{"content":"${response}"},"index":0}]}\n\n`,
+            );
+            res.write(`data: [DONE]\n\n`);
+            res.end();
+          });
         } else {
           res.writeHead(404);
           res.end();

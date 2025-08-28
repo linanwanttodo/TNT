@@ -190,8 +190,8 @@ describe("E2E: Resume Flag", () => {
     // Should show the new response
     expect(resumeResult.stdout).toContain("Second response");
 
-    // Verify both requests were made to the server
-    expect(mockServer.requests).toHaveLength(2);
+    // Verify the new-session run (prompt + title) and the resume run (prompt)
+    expect(mockServer.requests).toHaveLength(3);
 
     // Check that the session file contains both messages
     sessionFiles = (await fs.readdir(sessionDir)).filter(

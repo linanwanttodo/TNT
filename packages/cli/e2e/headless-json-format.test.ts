@@ -96,7 +96,8 @@ describe("E2E: Headless Mode with JSON Format", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(mockServer.requests).toHaveLength(1);
+    // The prompt request plus the title request for the new session
+    expect(mockServer.requests).toHaveLength(2);
 
     // Find the system message
     const systemMessage = mockServer.requests[0].body.messages.find(

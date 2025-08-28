@@ -543,6 +543,7 @@ async function runHeadlessMode(
         ? initialUserInput
         : await question(`\n${chalk.bold.green("You:")} `);
 
+    const isFirstTurn = isFirstMessage;
     isFirstMessage = false;
 
     const result = await processMessage({
@@ -554,7 +555,7 @@ async function runHeadlessMode(
       format: options.format,
       silent: options.silent,
       compactionIndex,
-      firstAssistantResponse: isFirstMessage && !options.resume, // Only generate title for new conversations
+      firstAssistantResponse: isFirstTurn && !options.resume, // Only generate title for new conversations
       maxSteps: options.maxSteps,
     });
 

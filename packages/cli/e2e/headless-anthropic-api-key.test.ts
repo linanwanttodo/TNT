@@ -71,7 +71,8 @@ models:
     // Verify the CLI successfully runs (even if not using env var in this test)
     expect(result.stdout).toContain("Hello! This is a response from Claude.");
     expect(result.exitCode).toBe(0);
-    expect(mockServer.requests).toHaveLength(1);
+    // The prompt request plus the title request for the new session
+    expect(mockServer.requests).toHaveLength(2);
 
     // Find the user message in the request
     const userMessage = mockServer.requests[0].body.messages.find(
