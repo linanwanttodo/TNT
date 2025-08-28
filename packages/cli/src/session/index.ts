@@ -636,6 +636,26 @@ export function loadSessionById(sessionId: string): Session | null {
 }
 
 /**
+ * Load a specific session and make it the one later saves append to.
+ */
+export function selectSession(sessionId: string): Session | null {
+  const session = loadSessionById(sessionId);
+  if (!session) {
+    return null;
+  }
+  SessionManager.getInstance().setSession(session);
+  return session;
+}
+
+/**
+ * The session a resume should land on: the explicitly requested one when it
+ * still exists, otherwise the newest root conversation.
+ */
+export function resumeSession(sessionId?: string): Session | null {
+  return sessionId ? selectSession(sessionId) : loadSession();
+}
+
+/**
  * Load an existing session by ID or create a new one with that ID.
  * Useful for long-lived processes (e.g., tnt serve) that need to
  * preserve chat history across restarts for the same storage/agent id.

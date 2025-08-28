@@ -47,7 +47,10 @@ keys: the goal, the output style, the delegation link and depth are read back
 from the file, and the writer copies whatever else the session carries. A new
 session is titled on the first assistant response in both the TUI and headless
 runs; headless pays one extra non-streaming completion for it, which the e2e
-suites pin so the cost stays visible.
+suites pin so the cost stays visible. Switching conversations - the `tnt ls`
+picker or the in-TUI selector - goes through `selectSession`, which also moves
+the `SessionManager`, so new turns append to the session on screen instead of
+to whatever session the process happened to start with.
 
 ## 2. Mode axis
 

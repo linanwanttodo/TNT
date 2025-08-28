@@ -46,6 +46,8 @@ interface TUIChatProps {
   configPath?: string;
   initialPrompt?: string;
   resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
   fork?: string;
   additionalRules?: string[];
   additionalPrompts?: string[];
@@ -64,20 +66,15 @@ async function loadAndSetSession(
     closeCurrentScreen();
 
     // Import session functions
-    const { loadSessionById } = await import("../session/index.js");
+    const { selectSession } = await import("../session/index.js");
 
-    // Load the session
-    const session = loadSessionById(sessionId);
+    // Load the session and move the session manager onto it, so later saves
+    // append to the conversation on screen.
+    const session = selectSession(sessionId);
     if (!session) {
       logger.error(`Session ${sessionId} could not be loaded.`);
       return;
     }
-
-    // Set the session ID so future operations use this session
-    process.env.CONTINUE_CLI_TEST_SESSION_ID = sessionId.replace(
-      "continue-cli-",
-      "",
-    );
 
     // Set the chat history from the session
     setChatHistory(session.history);
@@ -165,6 +162,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
   configPath,
   initialPrompt,
   resume,
+  sessionId,
   fork,
   additionalRules,
   additionalPrompts,
@@ -269,6 +267,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     llmApi: services.model?.llmApi || undefined,
     initialPrompt,
     resume,
+    sessionId,
     fork,
     additionalRules,
     additionalPrompts,
