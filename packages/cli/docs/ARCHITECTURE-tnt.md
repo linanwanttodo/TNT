@@ -309,10 +309,13 @@ Stated as gaps, not as intentions:
    (`mergeHits`). The vector half is proven offline in core with a
    deterministic fake provider (`core/indexing/LanceDbIndex.vitest.ts`), so no
    test ever downloads model weights; no test exercises a real embeddings
-   model either, which is a deliberate boundary. Nothing in the retrieval
-   workstream is unwired now; what is missing needs a real environment or an
-   interface: an indexing progress UI, and a user-facing way to pick an
-   embeddings model. One packaging note:
+   model either, which is a deliberate boundary. A local embeddings model is
+   selectable from the config on every host - `provider: transformers.js`
+   under `roles: [embed]` needs no key and runs from the bundled weights - and
+   `/index status` names that option whenever the index is full-text only.
+   What is still missing: an indexing progress UI, and a picker UI for the
+   embeddings model (the config path works; the selectors do not list embed
+   models). One packaging note:
    `packages/cli/package-lock.json` was regenerated on 2026-10-14 - the
    old lock failed npm's own link validation, so `npm install` refused to run
    and a fresh clone could not set up - and `npm ci --dry-run` now passes,
