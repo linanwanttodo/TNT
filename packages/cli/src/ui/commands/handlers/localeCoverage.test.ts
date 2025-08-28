@@ -51,6 +51,35 @@ describe("slash command copy follows the active locale", () => {
     expect(result.output).toBe("尚未注册插件市场。");
   });
 
+  it("translates the installed-plugin footer", async () => {
+    const pluginRoot = path.join(
+      pluginsDir,
+      "cache",
+      "local-market",
+      "demo",
+      "1.0.0",
+    );
+    fs.mkdirSync(path.join(pluginRoot, ".claude-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pluginRoot, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "demo" }),
+    );
+    fs.writeFileSync(
+      path.join(pluginsDir, "known_marketplaces.json"),
+      JSON.stringify({
+        "local-market": {
+          source: { source: "directory", path: pluginsDir },
+          installLocation: path.join(pluginsDir, "marketplace.json"),
+        },
+      }),
+    );
+
+    const result = await handlePlugins([]);
+
+    expect(result.output).toContain("demo");
+    expect(result.output).toContain("已注册 1 个插件市场");
+  });
+
   it("translates the session title prompt", () => {
     const result = handleTitle([]);
 

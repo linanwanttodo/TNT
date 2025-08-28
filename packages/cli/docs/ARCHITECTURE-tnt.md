@@ -194,7 +194,9 @@ English on purpose:
    The slash command surface follows the same rule: the `/help` screen,
    `/todos`, `/clear` and `/exit` copy, the `/skills` listing and the `/index`
    messages all come from the dictionary, so a locale change reaches every
-   screen the commands print.
+   screen the commands print. The interactive panels follow it too: the MCP
+   selector reads its header, menu, server detail view and status words from
+   the dictionary, and its test renders the frame in `zh-CN` to pin that.
 
 ## 8. Verification gates
 
