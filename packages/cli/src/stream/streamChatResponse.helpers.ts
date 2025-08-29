@@ -596,6 +596,30 @@ export async function executeStreamedToolCalls(
       // Notify tool start before permission check to display in UI fallbacks
       callbacks?.onToolStart?.(call.name, call.arguments);
 
+      // The PreToolUse hook runs before the permission check, like the
+      // reference: it may block the call, rewrite its input, or allow it
+      // without a prompt. The rewritten input is what the permission check
+      // sees and what actually executes.
+      const preHook = await firePreToolUse(call.name, call.arguments, call.id);
+      const effectiveCall = preHook.updatedInput
+        ? { ...call, arguments: preHook.updatedInput }
+        : call;
+
+      if (preHook.blocked) {
+        const blockMessage = preHook.blockReason ?? `Hook blocked ${call.name}`;
+        entriesByIndex.set(index, {
+          role: "tool",
+          tool_call_id: call.id,
+          content: blockMessage,
+          status: "canceled",
+        });
+        callbacks?.onToolResult?.(blockMessage, call.name, "canceled");
+        try {
+          services.chatHistory.addToolResult(call.id, blockMessage, "canceled");
+        } catch {}
+        continue;
+      }
+
       // Check tool permissions using helper
       const permissionState =
         permissions ??
@@ -604,12 +628,15 @@ export async function executeStreamedToolCalls(
             SERVICE_NAMES.TOOL_PERMISSIONS,
           )
         ).permissions;
-      const permissionResult = await checkToolPermissionApproval(
-        permissionState,
-        call,
-        callbacks,
-        isHeadless,
-      );
+      const permissionResult =
+        preHook.permissionDecision === "allow"
+          ? { approved: true as const }
+          : await checkToolPermissionApproval(
+              permissionState,
+              effectiveCall,
+              callbacks,
+              isHeadless,
+            );
 
       if (!permissionResult.approved) {
         // Permission denied: create entry with canceled status
@@ -655,37 +682,12 @@ export async function executeStreamedToolCalls(
       execPromises[index] = (async () => {
         try {
           logger.debug("Executing tool", {
-            name: call.name,
-            arguments: call.arguments,
+            name: effectiveCall.name,
+            arguments: effectiveCall.arguments,
           });
 
-          const preHook = await firePreToolUse(
-            call.name,
-            call.arguments,
-            call.id,
-          );
-          if (preHook.blocked) {
-            const blockMessage =
-              preHook.blockReason ?? `Hook blocked ${call.name}`;
-            entriesByIndex.set(index, {
-              role: "tool",
-              tool_call_id: call.id,
-              content: blockMessage,
-              status: "canceled",
-            });
-            callbacks?.onToolResult?.(blockMessage, call.name, "canceled");
-            try {
-              services.chatHistory.addToolResult(
-                call.id,
-                blockMessage,
-                "canceled",
-              );
-            } catch {}
-            return;
-          }
-
           const toolResult = await executionGate.run(planned?.keys ?? [], () =>
-            executeToolCall(call, {
+            executeToolCall(effectiveCall, {
               parallelToolCallCount: planned?.parallelCount ?? 1,
             }),
           );
@@ -698,7 +700,12 @@ export async function executeStreamedToolCalls(
           entriesByIndex.set(index, entry);
           callbacks?.onToolResult?.(toolResult, call.name, "done");
           onToolOutcome?.(call.name, true);
-          await firePostToolUse(call.name, call.arguments, toolResult, call.id);
+          await firePostToolUse(
+            effectiveCall.name,
+            effectiveCall.arguments,
+            toolResult,
+            call.id,
+          );
           // Immediate service update for UI feedback
           try {
             services.chatHistory.addToolResult(
@@ -717,8 +724,8 @@ export async function executeStreamedToolCalls(
             error: errorMessage,
           });
           await firePostToolUseFailure(
-            call.name,
-            call.arguments,
+            effectiveCall.name,
+            effectiveCall.arguments,
             call.id,
             errorMessage,
           );
