@@ -19,6 +19,7 @@ import type { LoopDetector } from "../loop/loopDetector.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
+import { spillOversizedToolResult } from "./toolResultStorage.js";
 import {
   SERVICE_NAMES,
   serviceContainer,
@@ -719,6 +720,14 @@ export async function executeStreamedToolCalls(
               parallelToolCallCount: planned?.parallelCount ?? 1,
             }),
           );
+          // The model is given a preview of anything oversized before the hook
+          // notes are appended, so a hook's context is never the part that gets
+          // cut - and the post hook still sees the result whole.
+          const stowed = await spillOversizedToolResult({
+            toolName: effectiveCall.name,
+            callId: call.id,
+            content: String(toolResult),
+          });
           // The post hook runs before the result is published so its context
           // can join the answer the model reads; the UI sees the call a hook's
           // runtime later, which is the same delay the permission phase allows.
@@ -728,7 +737,7 @@ export async function executeStreamedToolCalls(
             toolResult,
             call.id,
           );
-          const content = withHookContext(String(toolResult), [
+          const content = withHookContext(stowed, [
             [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
             [`PostToolUse:${effectiveCall.name}`, postHook.additionalContext],
           ]);
