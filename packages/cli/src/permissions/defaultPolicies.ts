@@ -7,11 +7,15 @@ import { ToolPermissionPolicy } from "./types.js";
 export function getDefaultToolPolicies(
   isHeadless = false,
 ): ToolPermissionPolicy[] {
+  // Headless runs cannot prompt, so the tools that ask in the TUI behave like
+  // Bash there: offered to the model and auto-allowed. --ask/--exclude still
+  // narrow them per run.
+  const writePermission = isHeadless ? "allow" : "ask";
   const policies: ToolPermissionPolicy[] = [
     // Write tools
-    { tool: "Edit", permission: "ask" },
-    { tool: "MultiEdit", permission: "ask" },
-    { tool: "Write", permission: "ask" },
+    { tool: "Edit", permission: writePermission },
+    { tool: "MultiEdit", permission: writePermission },
+    { tool: "Write", permission: writePermission },
     { tool: "CheckBackgroundJob", permission: "allow" },
     { tool: "AskQuestion", permission: "allow" },
     { tool: "Checklist", permission: "allow" },

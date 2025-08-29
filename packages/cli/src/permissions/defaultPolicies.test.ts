@@ -62,4 +62,17 @@ describe("defaultPolicies", () => {
     );
     expect(catchAllIndex).toBe(DEFAULT_TOOL_POLICIES.length - 1);
   });
+
+  it("should offer and allow the write tools in headless runs", () => {
+    const headless = getDefaultToolPolicies(true);
+
+    for (const tool of ["Write", "Edit", "MultiEdit", "Bash", "*"]) {
+      const policy = headless.find((p) => p.tool === tool);
+      expect(policy, `Policy should exist for ${tool}`).toBeDefined();
+      expect(policy?.permission, `${tool} should be allowed`).toBe("allow");
+    }
+
+    // Read-only tools keep their allow policies.
+    expect(headless.find((p) => p.tool === "Read")?.permission).toBe("allow");
+  });
 });
