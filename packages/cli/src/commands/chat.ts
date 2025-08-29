@@ -12,6 +12,12 @@ import {
 } from "../compaction/index.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
 import { safeStderr, safeStdout } from "../startup/init.js";
+import {
+  fireSessionEnd,
+  fireSessionStart,
+  fireStop,
+  fireUserPromptSubmit,
+} from "../hooks/fireHook.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import * as logging from "../utils/console.js";
 import { suppressConsoleInfo } from "../utils/console.js";
@@ -494,6 +500,13 @@ async function runHeadlessMode(
     compactionIndex = findCompactionIndex(chatHistory);
   }
 
+  // The lifecycle hooks fire in headless runs too, so a CI job's hooks.json
+  // sees the same events the TUI fires.
+  await fireSessionStart(
+    options.resume ? "resume" : "startup",
+    model.model,
+  ).catch(() => {});
+
   // Handle additional prompts from --prompt flags
   const { processAndCombinePrompts } = await import(
     "../utils/promptProcessor.js"
@@ -520,6 +533,7 @@ async function runHeadlessMode(
     if (options.resume || options.fork) {
       // For resume/fork with no new input, we've already loaded the history above
       // Just exit successfully (the history was already loaded into chatHistory)
+      await fireSessionEnd("other").catch(() => {});
       await gracefulExit(0);
       return;
     }
@@ -548,8 +562,24 @@ async function runHeadlessMode(
     const isFirstTurn = isFirstMessage;
     isFirstMessage = false;
 
+    // A UserPromptSubmit hook can block the prompt or prepend context, the
+    // same contract the TUI honors.
+    let effectiveInput = userInput;
+    const promptHook = await fireUserPromptSubmit(userInput).catch(() => null);
+    if (promptHook?.blocked) {
+      safeStderr(
+        `Error: ${promptHook.blockReason ?? "blocked by UserPromptSubmit hook"}\n`,
+      );
+      await fireSessionEnd("other").catch(() => {});
+      await gracefulExit(1);
+      return;
+    }
+    if (promptHook?.additionalContext) {
+      effectiveInput = `${promptHook.additionalContext}\n\n${userInput}`;
+    }
+
     const result = await processMessage({
-      userInput,
+      userInput: effectiveInput,
       chatHistory,
       model,
       llmApi,
@@ -566,6 +596,17 @@ async function runHeadlessMode(
       compactionIndex = result.compactionIndex;
     }
   }
+
+  const lastAssistant = services.chatHistory
+    .getHistory()
+    .filter((item) => item.message.role === "assistant")
+    .at(-1);
+  const lastAssistantText =
+    lastAssistant && typeof lastAssistant.message.content === "string"
+      ? lastAssistant.message.content
+      : undefined;
+  await fireStop(lastAssistantText).catch(() => {});
+  await fireSessionEnd("other").catch(() => {});
 
   // exit after headless mode completes
   await gracefulExit(0);

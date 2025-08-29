@@ -147,7 +147,11 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
 - `src/hooks/` implements `command`, `http`, `prompt` and `agent` hook types with
   Claude Code exit-code semantics: 0 proceeds, 2 blocks and turns stderr into
   feedback, anything else is a non-blocking error. Config is merged from user,
-  project and project-local files for both `.tnt/` and `.claude/`.
+  project and project-local files for both `.tnt/` and `.claude/`. Lifecycle
+  events fire in headless runs too: a `tnt -p` session emits SessionStart,
+  UserPromptSubmit, Stop and SessionEnd around its turn, and a blocking
+  UserPromptSubmit ends the run with a nonzero exit - the contract a CI job's
+  hooks.json depends on (serve still fires the tool hooks only).
 
 A hook or plugin script that throws never aborts the agent loop; failures are
 reported and the turn continues. A command hook that outlives its timeout is
