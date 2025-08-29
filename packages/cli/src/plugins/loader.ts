@@ -3,7 +3,11 @@ import * as path from "path";
 
 import { parseMarkdownRule } from "@tnt/config-yaml";
 
-import type { HookMatcherGroup, HookSettingsFile } from "../hooks/types.js";
+import type {
+  HookHandler,
+  HookMatcherGroup,
+  HookSettingsFile,
+} from "../hooks/types.js";
 import { logger } from "../utils/logger.js";
 
 import { getPluginSearchRoots } from "./directories.js";
@@ -152,6 +156,37 @@ function substituteVariablesDeep(
 }
 
 /**
+ * Resolve the plugin variables a hook handler may reference. The runner has
+ * no plugin binding, so the root and data directory have to be baked into the
+ * strings here, the same way commands and agents are substituted at load time.
+ */
+function substituteHandlerVariables(
+  handler: HookHandler,
+  plugin: LoadedPlugin,
+): HookHandler {
+  switch (handler?.type) {
+    case "command":
+      return {
+        ...handler,
+        command: substitutePluginVariables(handler.command, plugin),
+      };
+    case "prompt":
+    case "agent":
+      return {
+        ...handler,
+        prompt: substitutePluginVariables(handler.prompt, plugin),
+      };
+    case "http":
+      return {
+        ...handler,
+        url: substitutePluginVariables(handler.url, plugin),
+      };
+    default:
+      return handler;
+  }
+}
+
+/**
  * Load hooks contributed by plugins. Both hooks/hooks.json and the manifest's
  * inline or file-referenced hooks are merged, matching Claude Code.
  */
@@ -159,10 +194,19 @@ function loadPluginHooks(plugins: LoadedPlugin[]): PluginHooks {
   const config: Record<string, HookMatcherGroup[]> = {};
   let disabled = false;
 
-  const merge = (incoming: Record<string, HookMatcherGroup[]>) => {
+  const merge = (
+    incoming: Record<string, HookMatcherGroup[]>,
+    plugin: LoadedPlugin,
+  ) => {
     for (const [event, groups] of Object.entries(incoming)) {
       if (!Array.isArray(groups)) continue;
-      config[event] = [...(config[event] ?? []), ...groups];
+      const resolved = groups.map((group) => ({
+        ...group,
+        hooks: (group.hooks ?? []).map((handler) =>
+          substituteHandlerVariables(handler, plugin),
+        ),
+      }));
+      config[event] = [...(config[event] ?? []), ...resolved];
     }
   };
 
@@ -170,7 +214,7 @@ function loadPluginHooks(plugins: LoadedPlugin[]): PluginHooks {
     const hooksFile = path.join(plugin.path, "hooks", "hooks.json");
     const fileConfig = readJson<HookSettingsFile>(hooksFile);
     if (fileConfig?.hooks) {
-      merge(fileConfig.hooks as Record<string, HookMatcherGroup[]>);
+      merge(fileConfig.hooks as Record<string, HookMatcherGroup[]>, plugin);
     }
     if (fileConfig?.disableAllHooks) {
       disabled = true;
@@ -181,12 +225,12 @@ function loadPluginHooks(plugins: LoadedPlugin[]): PluginHooks {
       const resolved = path.join(plugin.path, manifestHooks);
       const fromFile = readJson<HookSettingsFile>(resolved);
       if (fromFile?.hooks) {
-        merge(fromFile.hooks as Record<string, HookMatcherGroup[]>);
+        merge(fromFile.hooks as Record<string, HookMatcherGroup[]>, plugin);
       }
     } else if (manifestHooks && typeof manifestHooks === "object") {
       const asSettings = manifestHooks as HookSettingsFile;
       if (asSettings.hooks) {
-        merge(asSettings.hooks as Record<string, HookMatcherGroup[]>);
+        merge(asSettings.hooks as Record<string, HookMatcherGroup[]>, plugin);
       }
     }
   }

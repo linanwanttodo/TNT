@@ -192,6 +192,53 @@ describe("hooks contributed by a plugin", () => {
     expect(result.results.every((entry) => entry.blocked === false)).toBe(true);
   });
 
+  it("resolves CLAUDE_PLUGIN_ROOT in a plugin hook command", async () => {
+    writePlugin("acme", "voice", {
+      manifest: { name: "voice" },
+      hooksJson: {
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: "*",
+              hooks: [
+                {
+                  type: "command",
+                  command: "${CLAUDE_PLUGIN_ROOT}/scripts/hook.sh",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    const script = path.join(
+      pluginsDir,
+      "cache",
+      "acme",
+      "voice",
+      "1.0.0",
+      "scripts",
+      "hook.sh",
+    );
+    fs.mkdirSync(path.dirname(script), { recursive: true });
+    fs.writeFileSync(
+      script,
+      "#!/bin/sh\necho 'tnt-rooted hook' 1>&2\nexit 2\n",
+    );
+    fs.chmodSync(script, 0o755);
+
+    const { hooks } = loadAllPlugins();
+    const result = await runHooks(hooks.config, toolCall(), pluginsDir);
+
+    // Without the substitution the shell expands the unset variable to an
+    // empty path and the hook never blocks.
+    expect(result.blocked).toBe(true);
+    expect(
+      result.results.some((entry) => entry.blockReason === "tnt-rooted hook"),
+    ).toBe(true);
+  });
+
   it("ignores a hooks file that is not valid JSON", () => {
     writePlugin("acme", "voice", { manifest: { name: "voice" } });
     const hooksPath = path.join(
