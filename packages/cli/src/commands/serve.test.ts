@@ -2,6 +2,7 @@ import type { Server } from "http";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../i18n/index.js";
 import { createMinimalTestContext } from "../test-utils/ui-test-context.js";
 
 describe("serve command", () => {
@@ -148,5 +149,46 @@ describe("serve command", () => {
     // Clean up spies
     initializeServicesSpy.mockRestore();
     getServiceSpy.mockRestore();
+  });
+
+  it("prints its startup copy in the active locale", async () => {
+    const servicesModule = await import("../services/index.js");
+    const initializeServicesSpy = vi
+      .spyOn(servicesModule, "initializeServices")
+      .mockResolvedValue({
+        config: { models: [] },
+        llmApi: { chat: vi.fn() },
+        model: { name: "test-model" },
+      } as any);
+    const getServiceSpy = vi
+      .spyOn(servicesModule, "getService")
+      .mockResolvedValue({
+        config: { name: "test" },
+        llmApi: { chat: vi.fn() },
+        model: { provider: "test", model: "test" },
+        currentMode: "agent",
+      } as any);
+
+    const consoleSpy = vi.mocked(console.log);
+    consoleSpy.mockClear();
+    setLocale("zh-CN");
+
+    try {
+      const { serve } = await import("./serve.js");
+      // The startup path is mocked only partway; the copy lands before it fails.
+      await serve("test prompt", { timeout: "60", port: "9000" } as any);
+    } catch {
+      // Expected: incomplete mocks for the later startup stages.
+    } finally {
+      setLocale("en");
+      initializeServicesSpy.mockRestore();
+      getServiceSpy.mockRestore();
+    }
+
+    const printed = consoleSpy.mock.calls
+      .map((args) => String(args[0] ?? ""))
+      .join("\n");
+    expect(printed).toContain("配置：");
+    expect(printed).toContain("助手：test");
   });
 });

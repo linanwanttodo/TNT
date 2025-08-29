@@ -300,6 +300,16 @@ const en = {
     "  GET  /state      - Get current agent state\n  POST /message    - Send a message (body: { message: string })\n  POST /permission - Approve/reject tool (body: { requestId, approved })\n  POST /pause      - Pause the current agent run\n  GET  /diff       - Get git diff against main branch\n  POST /exit       - Gracefully shut down the server",
   "serve.inactivity":
     "\nServer will shut down after {seconds} seconds of inactivity",
+  "serve.configHeader": "\nConfiguration:",
+  "serve.assistantLine": "  Assistant: {name}",
+  "serve.modelLine": "  Model: {provider}/{model}",
+  "serve.configFileLine": "  Config file: {path}",
+  "serve.exitRequested": "\nReceived exit request, shutting down server...",
+  "serve.processingInitialPrompt": "\nProcessing initial prompt...",
+  "serve.skippingInitialPrompt":
+    "Skipping initial prompt because existing conversation history was found.",
+  "serve.inactivityShutdown":
+    "\nShutting down due to {seconds} seconds of inactivity",
   "checks.summary.passed": "{count} passed",
   "checks.summary.failing": "{count} failing",
   "checks.summary.pending": "{count} pending",
@@ -651,6 +661,14 @@ const zhCN: Record<TranslationKey, string> = {
   "serve.endpointList":
     "  GET  /state      - 获取当前智能体状态\n  POST /message    - 发送消息（body: { message: string }）\n  POST /permission - 批准/拒绝工具调用（body: { requestId, approved }）\n  POST /pause      - 暂停当前智能体运行\n  GET  /diff       - 获取相对主分支的 git diff\n  POST /exit       - 优雅关闭服务",
   "serve.inactivity": "\n闲置 {seconds} 秒后服务器将自动关闭",
+  "serve.configHeader": "\n配置：",
+  "serve.assistantLine": "  助手：{name}",
+  "serve.modelLine": "  模型：{provider}/{model}",
+  "serve.configFileLine": "  配置文件：{path}",
+  "serve.exitRequested": "\n收到退出请求，正在关闭服务器...",
+  "serve.processingInitialPrompt": "\n正在处理初始提示词...",
+  "serve.skippingInitialPrompt": "已存在会话历史，跳过初始提示词。",
+  "serve.inactivityShutdown": "\n已闲置 {seconds} 秒，正在关闭服务器",
   "checks.summary.passed": "{count} 通过",
   "checks.summary.failing": "{count} 失败",
   "checks.summary.pending": "{count} 待处理",

@@ -127,11 +127,15 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   const modelProvider = model.provider;
   const modelName = model.model;
 
-  console.log(chalk.blue(`\nConfiguration:`));
-  console.log(chalk.dim(`  Assistant: ${assistantName}`));
-  console.log(chalk.dim(`  Model: ${modelProvider}/${modelName}`));
+  console.log(chalk.blue(t("serve.configHeader")));
+  console.log(chalk.dim(t("serve.assistantLine", { name: assistantName })));
+  console.log(
+    chalk.dim(
+      t("serve.modelLine", { provider: modelProvider, model: modelName }),
+    ),
+  );
   if (options.config) {
-    console.log(chalk.dim(`  Config file: ${options.config}`));
+    console.log(chalk.dim(t("serve.configFileLine", { path: options.config })));
   }
 
   // Initialize session with system message
@@ -341,9 +345,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
 
   // POST /exit - Gracefully shut down the server
   app.post("/exit", async (_req: Request, res: Response) => {
-    console.log(
-      chalk.yellow("\nReceived exit request, shutting down server..."),
-    );
+    console.log(chalk.yellow(t("serve.exitRequested")));
 
     // Respond immediately before shutting down
     res.json({
@@ -413,15 +415,11 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
         })() ?? [];
 
       if (shouldQueueInitialPrompt(existingHistory, initialPrompt)) {
-        logger.info(chalk.dim("\nProcessing initial prompt..."));
+        logger.info(chalk.dim(t("serve.processingInitialPrompt")));
         await messageQueue.enqueueMessage(initialPrompt);
         processMessages(state, llmApi);
       } else {
-        logger.info(
-          chalk.dim(
-            "Skipping initial prompt because existing conversation history was found.",
-          ),
-        );
+        logger.info(chalk.dim(t("serve.skippingInitialPrompt")));
       }
     }
   });
@@ -529,7 +527,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
     if (!state.isProcessing && Date.now() - state.lastActivity > timeoutMs) {
       console.log(
         chalk.yellow(
-          `\nShutting down due to ${timeoutSeconds} seconds of inactivity`,
+          t("serve.inactivityShutdown", { seconds: timeoutSeconds }),
         ),
       );
       state.serverRunning = false;
