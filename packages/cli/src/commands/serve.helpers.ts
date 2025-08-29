@@ -1,5 +1,6 @@
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 
+import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
@@ -36,6 +37,7 @@ export async function streamChatResponseWithInterruption(
   llmApi: any,
   abortController: AbortController,
   shouldInterrupt: () => boolean,
+  turnBudgetLimits?: Partial<TurnBudgetLimits>,
 ): Promise<string> {
   // Import the original streamChatResponse logic but add interruption checks
   // Create a wrapper that checks for interruption
@@ -123,6 +125,8 @@ export async function streamChatResponseWithInterruption(
       llmApi,
       abortController,
       callbacks,
+      false,
+      turnBudgetLimits,
     );
     return response || "";
   } finally {
