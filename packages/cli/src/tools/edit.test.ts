@@ -10,7 +10,7 @@ import {
 } from "../telemetry/utils.js";
 
 import { editTool } from "./edit.js";
-import { markFileAsRead, readFilesSet } from "./readFile.js";
+import { forgetSeenFiles, markFileAsSeen } from "./fileState.js";
 import { generateDiff } from "./writeFile.js";
 
 // The write goes through the shared atomic helper in core, which the suite's
@@ -56,7 +56,7 @@ describe("editTool", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
-    readFilesSet.clear();
+    forgetSeenFiles();
     actualFs.rmSync(testFilePath, { force: true });
   });
 
@@ -75,7 +75,7 @@ describe("editTool", () => {
 
     it("should throw error if file does not exist", async () => {
       const nonExistentFile = "/tmp/non-existent-file.txt";
-      markFileAsRead(nonExistentFile);
+      markFileAsSeen(nonExistentFile);
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
       const args = {
@@ -90,7 +90,7 @@ describe("editTool", () => {
     });
 
     it("should throw error if old_string is not found", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
       vi.mocked(fs.readFileSync).mockReturnValue("Different content");
 
       const args = {
@@ -107,7 +107,7 @@ describe("editTool", () => {
     });
 
     it("should throw error if old_string appears multiple times and replace_all is false", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
 
       const args = {
         file_path: testFilePath,
@@ -124,7 +124,7 @@ describe("editTool", () => {
     });
 
     it("should throw error if old_string and new_string are the same", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
 
       const args = {
         file_path: testFilePath,
@@ -140,7 +140,7 @@ describe("editTool", () => {
     });
 
     it("should successfully preprocess valid single replacement", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
 
       const args = {
         file_path: testFilePath,
@@ -167,7 +167,7 @@ describe("editTool", () => {
     });
 
     it("should successfully preprocess replace_all", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
 
       const args = {
         file_path: testFilePath,
@@ -216,9 +216,9 @@ describe("editTool", () => {
     });
   });
 
-  describe("markFileAsRead", () => {
+  describe("markFileAsSeen", () => {
     it("should allow editing after marking file as read", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
 
       const args = {
         file_path: testFilePath,

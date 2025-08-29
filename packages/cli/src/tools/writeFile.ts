@@ -12,6 +12,8 @@ import {
   getLanguageFromFilePath,
 } from "../telemetry/utils.js";
 
+import { changedSinceSeen, markFileAsSeen } from "./fileState.js";
+import { readFileTool } from "./readFile.js";
 import { Tool, ToolCallPreview } from "./types.js";
 import {
   MARKER_FILE_CREATED,
@@ -137,8 +139,18 @@ export const writeFileTool: Tool = {
         oldContent = fs.readFileSync(args.filepath, "utf-8");
       }
 
+      // Write has no read requirement of its own, so this only fires when the
+      // model did read the file - and what it read is no longer there.
+      if (changedSinceSeen(args.filepath)) {
+        throw new ContinueError(
+          ContinueErrorReason.EditToolFileNotRead,
+          `${args.filepath} changed since you read it. Use the ${readFileTool.name} tool to read it again before overwriting it.`,
+        );
+      }
+
       // Write new content
       writeFileAtomically(args.filepath, args.content);
+      markFileAsSeen(args.filepath);
       scheduleFileRefresh(args.filepath);
 
       // Track lines of code changes if file existed before
