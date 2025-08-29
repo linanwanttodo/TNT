@@ -43,6 +43,7 @@ import {
   checkAgentComplete,
   removePartialAssistantMessage,
   streamChatResponseWithInterruption,
+  titleServeSessionIfUntitled,
   type ServerState,
 } from "./serve.helpers.js";
 
@@ -455,7 +456,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
         state.currentAbortController = new AbortController();
 
         // Stream the response with interruption support
-        await streamChatResponseWithInterruption(
+        const response = await streamChatResponseWithInterruption(
           state,
           llmApi,
           state.currentAbortController,
@@ -463,6 +464,14 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
           options.maxSteps === undefined
             ? undefined
             : { maxSteps: options.maxSteps },
+        );
+
+        // Name the session from its first reply, like the other surfaces do.
+        await titleServeSessionIfUntitled(
+          state.session,
+          response,
+          llmApi,
+          state.model,
         );
 
         // No direct persistence here; ChatHistoryService handles persistence when appropriate

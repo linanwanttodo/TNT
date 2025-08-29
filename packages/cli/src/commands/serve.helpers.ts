@@ -1,7 +1,9 @@
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 
+import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
+import { updateSessionTitle } from "../session/index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { logger } from "../utils/logger.js";
@@ -140,6 +142,40 @@ export interface PendingPermission {
   requestId: string;
   timestamp: number;
   toolCallPreview?: any[];
+}
+
+/**
+ * Name an untitled session from the first assistant response, matching the
+ * TUI and headless surfaces; a title set earlier is kept. A failure here must
+ * never fail the served turn.
+ */
+export async function titleServeSessionIfUntitled(
+  session: Session,
+  response: string,
+  llmApi: any,
+  model: any,
+): Promise<string | undefined> {
+  try {
+    if (session.title !== DEFAULT_SESSION_TITLE) {
+      return undefined;
+    }
+    if (!response || !response.trim()) {
+      return undefined;
+    }
+    const { ChatDescriber } = await import("core/util/chatDescriber.js");
+    const generated = await ChatDescriber.describeWithBaseLlmApi(
+      llmApi,
+      model,
+      response,
+    );
+    if (generated) {
+      updateSessionTitle(generated);
+    }
+    return generated;
+  } catch (error) {
+    logger.debug("Serve session title generation failed:", error as Error);
+    return undefined;
+  }
 }
 
 export interface ServerState {
