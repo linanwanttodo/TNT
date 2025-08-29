@@ -136,7 +136,11 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   project and project-local files for both `.tnt/` and `.claude/`.
 
 A hook or plugin script that throws never aborts the agent loop; failures are
-reported and the turn continues.
+reported and the turn continues. A command hook that outlives its timeout is
+failed, never read as a success from the killed process's missing exit code,
+and it is killed together with the process group it started - the shell is
+rarely the work - with its output capped, so a runaway hook cannot flood the
+turn or leave background work behind.
 
 ## 6. Subagents
 

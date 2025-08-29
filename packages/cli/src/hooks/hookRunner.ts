@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+import { ChildProcess, spawn } from "child_process";
 
 import {
   SERVICE_NAMES,
@@ -27,6 +27,30 @@ import type { HooksConfig } from "./types.js";
 const DEFAULT_COMMAND_TIMEOUT_SECONDS = 600;
 const DEFAULT_HTTP_TIMEOUT_SECONDS = 30;
 const DEFAULT_PROMPT_TIMEOUT_SECONDS = 30;
+
+/** Output a hook may produce before it is treated as a runaway. */
+const MAX_COMMAND_OUTPUT_CHARS = 10 * 1024 * 1024;
+
+/**
+ * Kills the hook and everything it started. A shell hook usually runs the
+ * real work as its children, which killing the shell alone leaves behind; on
+ * POSIX the hook runs in its own process group precisely so the whole group
+ * can be killed here. Windows keeps the single-process kill.
+ */
+function killProcessTree(child: ChildProcess): void {
+  if (child.pid === undefined) {
+    return;
+  }
+  try {
+    if (process.platform === "win32") {
+      child.kill("SIGKILL");
+    } else {
+      process.kill(-child.pid, "SIGKILL");
+    }
+  } catch {
+    // Already gone.
+  }
+}
 
 /**
  * Model state for LLM-backed hooks. Returns null when the model service has
@@ -68,30 +92,40 @@ function executeCommandHook(
       CONTINUE_PROJECT_DIR: cwd,
     };
 
-    // Use shell to execute the command (matches Claude Code behavior)
+    // Use shell to execute the command (matches Claude Code behavior). The
+    // hook gets its own process group on POSIX (see killProcessTree).
     const shell = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
     const shellArgs =
       process.platform === "win32"
         ? ["/c", handler.command]
         : ["-c", handler.command];
 
-    const child = execFile(shell, shellArgs, {
+    const child = spawn(shell, shellArgs, {
       cwd,
       env,
-      timeout: timeoutMs,
-      maxBuffer: 10 * 1024 * 1024, // 10MB
+      detached: process.platform !== "win32",
     });
 
     let stdout = "";
     let stderr = "";
+    let outputExceeded = false;
+    let timedOut = false;
 
     child.stdout?.setEncoding("utf8");
     child.stdout?.on("data", (data: string) => {
+      if (stdout.length + data.length > MAX_COMMAND_OUTPUT_CHARS) {
+        outputExceeded = true;
+        killProcessTree(child);
+        return;
+      }
       stdout += data;
     });
 
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (data: string) => {
+      if (stderr.length + data.length > MAX_COMMAND_OUTPUT_CHARS) {
+        return;
+      }
       stderr += data;
     });
 
@@ -109,8 +143,22 @@ function executeCommandHook(
       child.stdin.end();
     }
 
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killProcessTree(child);
+    }, timeoutMs);
+
     child.on("close", (code) => {
-      const exitCode = code ?? 0;
+      clearTimeout(timer);
+
+      // A killed hook reports no exit code, which must not read as success:
+      // a timeout and runaway output are failures in their own right.
+      const killedBecause = timedOut
+        ? `Hook timed out after ${timeoutMs / 1000}s`
+        : outputExceeded
+          ? "Hook output exceeded the size limit"
+          : undefined;
+      const exitCode = killedBecause ? 1 : (code ?? 0);
       const output = tryParseJson(stdout);
 
       // Determine if the hook blocked the action
@@ -125,10 +173,14 @@ function executeCommandHook(
         blockReason = output.reason || stderr.trim() || "Blocked by hook";
       }
 
+      const trimmedStderr = killedBecause
+        ? [stderr.trim(), killedBecause].filter(Boolean).join("\n")
+        : stderr.trim();
+
       resolve({
         output,
         stdout: stdout.trim(),
-        stderr: stderr.trim(),
+        stderr: trimmedStderr,
         exitCode,
         blocked,
         blockReason,
@@ -136,6 +188,7 @@ function executeCommandHook(
     });
 
     child.on("error", (error) => {
+      clearTimeout(timer);
       logger.warn(`Hook command failed: ${handler.command}`, error);
       resolve({
         output: null,
