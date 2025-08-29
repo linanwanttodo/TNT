@@ -156,7 +156,10 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   the permission check, `permissionDecision: "allow"` skips the policy check
   for that call, and `updatedInput` replaces the arguments the check and the
   execution both see; `"ask"` is parsed but currently falls through to the
-  policy.
+  policy. A call that survives both checks and still needs the human fires a
+  PermissionRequest hook first; only when that hook leaves the decision to the
+  user does a Notification of type `permission_prompt` precede the prompt, so a
+  notifier hook never reports a prompt that never opened.
 
 A hook or plugin script that throws never aborts the agent loop; failures are
 reported and the turn continues. A command hook that outlives its timeout is

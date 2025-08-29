@@ -9,6 +9,7 @@ import { ChatCompletionToolMessageParam } from "openai/resources/chat/completion
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 
 import {
+  fireNotification,
   firePostToolUse,
   firePostToolUseFailure,
   firePreToolUse,
@@ -164,6 +165,14 @@ export async function checkToolPermissionApproval(
     if (hookResult.blocked) {
       return { approved: false, denialReason: "policy" };
     }
+
+    // A prompt is about to open; tell notifier hooks (the reference's
+    // "permission_prompt" notification type).
+    await fireNotification(
+      `TNT needs your permission to use ${toolCall.name}`,
+      "permission_prompt",
+      toolCall.name,
+    ).catch(() => {});
 
     const userApproved = await requestUserPermission(toolCall, callbacks);
     return userApproved
