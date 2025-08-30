@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { logger } from "src/utils/logger.js";
 
+import { expandMentions } from "../../agent/atMentions.js";
 import { DEFAULT_SESSION_TITLE } from "../../config/constants.js";
 import { loadSession, startNewSession } from "../../session/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
@@ -203,6 +204,13 @@ export async function formatMessageWithFiles(
     },
   }));
 
+  // `@path` in the typed prompt is the user pointing at code: expand it into
+  // context here rather than letting the model spend a round on Read for
+  // something it was already told. Files picked from the autocomplete are
+  // already in contextItems, so they are not attached a second time.
+  const mentions = expandMentions(message, process.cwd(), contextItems);
+  const allContextItems = [...contextItems, ...mentions.contextItems];
+
   // Process message content for images
   let messageContent: import("core/index.js").MessageContent = message;
 
@@ -240,7 +248,7 @@ export async function formatMessageWithFiles(
       role: "user",
       content: messageContent,
     },
-    contextItems,
+    contextItems: allContextItems,
   };
 }
 

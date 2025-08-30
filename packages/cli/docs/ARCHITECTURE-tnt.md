@@ -118,6 +118,16 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
 - `src/cache/promptCacheKey.ts` produces the key used to compare rounds.
 - `src/stream/streamChatResponse.ts` logs per-request cache usage, so a hit-rate
   regression is attributable to a change rather than to the vendor.
+- `src/agent/atMentions.ts` is what `@path` in a prompt means. All three surfaces
+  expand it into context items on the user message before the first request, so
+  the model reads the file the user pointed at instead of spending a round on
+  `Read`: ranges (`@f.ts:10-20`), directories as a capped listing, and a per-file
+  and per-prompt character budget so one prompt cannot pull the repository into
+  the header. A mention that could not be honoured is reported to the model in its
+  own block and the user's text is left exactly as typed, and the expansion records
+  the file in `fileState`, so an edit after a mention is allowed while an outside
+  change to it is still caught. Files the interface already attached are not paid
+  for twice.
 - `src/stream/toolResultStorage.ts` bounds what one tool answer costs for the rest
   of the session. A result over `CONTINUE_CLI_MAX_TOOL_RESULT_CHARS` (25,000 by
   default) is written whole under `tool-results/<session>/` beside the session
