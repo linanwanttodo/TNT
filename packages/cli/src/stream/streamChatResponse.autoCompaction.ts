@@ -63,6 +63,12 @@ interface AutoCompactionOptions {
   callbacks?: AutoCompactionCallbacks;
   systemMessage?: string;
   tools?: ChatCompletionTool[];
+  /**
+   * Summarize without asking the threshold. The caller uses it when evidence
+   * from outside the local estimate says the history does not fit, most often
+   * the provider's own refusal for length.
+   */
+  force?: boolean;
 }
 
 /**
@@ -170,6 +176,7 @@ export async function handleAutoCompaction(
     callbacks,
     systemMessage: providedSystemMessage,
     tools,
+    force,
   } = options;
 
   if (!model) {
@@ -212,12 +219,13 @@ export async function handleAutoCompaction(
 
   const shouldSummarize =
     !isCompactionBreakerTripped(compactionState) &&
-    shouldAutoCompact({
-      chatHistory: historyAfterToolResultCompaction,
-      model,
-      systemMessage: providedSystemMessage,
-      tools,
-    });
+    (force === true ||
+      shouldAutoCompact({
+        chatHistory: historyAfterToolResultCompaction,
+        model,
+        systemMessage: providedSystemMessage,
+        tools,
+      }));
   if (!shouldSummarize) {
     if (toolResultCompaction.truncatedCount === 0) {
       return { chatHistory, compactionIndex: null, wasCompacted: false };

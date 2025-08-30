@@ -126,6 +126,34 @@ describe("handleAutoCompaction", () => {
     });
   });
 
+  it("compacts when the caller forces it, without consulting the threshold", async () => {
+    const { compactChatHistory, getAutoCompactMessage, shouldAutoCompact } =
+      await import("../compaction/index.js");
+
+    vi.mocked(shouldAutoCompact).mockReturnValue(false);
+    vi.mocked(getAutoCompactMessage).mockReturnValue("Compacting...");
+    vi.mocked(compactChatHistory).mockResolvedValue({
+      compactedHistory: convertToUnifiedHistory([
+        { role: "system", content: "[COMPACTED HISTORY]" },
+      ]),
+      compactionIndex: 0,
+      compactionContent: "[COMPACTED HISTORY]",
+    } as any);
+
+    const result = await handleAutoCompaction(
+      mockChatHistory,
+      mockModel,
+      mockLlmApi,
+      { force: true },
+    );
+
+    // The provider refusing for length is the evidence; the local estimate that
+    // said it fit is what is being overridden.
+    expect(result.wasCompacted).toBe(true);
+    expect(compactChatHistory).toHaveBeenCalled();
+    expect(shouldAutoCompact).not.toHaveBeenCalled();
+  });
+
   it("should perform auto-compaction when context limit is approaching", async () => {
     const { compactChatHistory, shouldAutoCompact, getAutoCompactMessage } =
       await import("../compaction/index.js");

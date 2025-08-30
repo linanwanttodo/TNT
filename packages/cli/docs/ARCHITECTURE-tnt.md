@@ -135,6 +135,15 @@ accumulated in `src/session/index.ts`, and rendered next to the hit ratio in
 `src/ui/components/BottomStatusBar.tsx`. Seeing both numbers on one line is the
 point: compaction spending that erases cache reuse is not a saving.
 
+The threshold that triggers a compaction is a local estimate, so the provider can
+still refuse. `src/utils/contextLength.ts` owns the vendor phrasings for that
+refusal and both layers read it: the backoff stops retrying a request that will
+never fit, and `classifyStreamError` names the round `context_overflow`, so the loop
+compacts under force - skipping the estimate that just proved wrong - and resends,
+bounded by `OVERFLOW_RECOVERIES` before it gives up quoting the provider. A refusal
+for length used to be thrown, which ended the turn having spent the whole context
+on a request that never ran.
+
 ## 5. Plugin and hook compatibility
 
 The plugin layer reads the existing ecosystem layout instead of inventing one.
