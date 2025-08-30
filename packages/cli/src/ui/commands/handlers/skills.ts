@@ -16,7 +16,7 @@ export async function handleSkills(): Promise<SlashCommandResult> {
     };
   }
 
-  const header = chalk.bold("Available skills:");
+  const header = chalk.bold(t("skills.header"));
   const lines = skills.map(
     (skill) =>
       `${chalk.cyan(skill.name)} - ${skill.description} ${chalk.gray(
@@ -38,9 +38,7 @@ export async function handleImportSkill(
   if (!query) {
     return {
       exit: false,
-      output: chalk.yellow(
-        "Please provide a skill URL or name. Usage: /import-skill <url-or-name>",
-      ),
+      output: chalk.yellow(t("skills.importUsage")),
     };
   }
 
