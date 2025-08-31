@@ -13,18 +13,6 @@ interface ListSessionsOptions {
 }
 
 /**
- * Set a specific session ID for the current process
- * This allows us to load a selected session as if it were the current session
- */
-function setSessionId(sessionId: string): void {
-  // Use the same environment variable that getSessionId() checks
-  process.env.CONTINUE_CLI_TEST_SESSION_ID = sessionId.replace(
-    "continue-cli-",
-    "",
-  );
-}
-
-/**
  * List recent chat sessions and allow selection
  */
 export async function listSessionsCommand(
@@ -78,13 +66,11 @@ export async function listSessionsCommand(
 
         logger.info(`Loading session: ${sessionId}`);
 
-        // Set the session ID so that when chat() runs, it will load this session
-        setSessionId(sessionId);
-
         // Start chat with resume flag to load the selected session
         await chat(undefined, {
           resume: true,
           headless: false,
+          sessionId,
         });
 
         resolve();

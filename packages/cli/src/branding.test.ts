@@ -13,10 +13,6 @@ import { TELEMETRY_SERVICE_NAME } from "./telemetry/telemetryService.js";
 const ALLOWED: Record<string, string> = {
   "src/services/GitAiIntegrationService.ts":
     "the checkpoint command is an external contract; the argument it receives is not ours to rename",
-  "src/commands/ls.ts":
-    "strips a session id prefix produced outside this package",
-  "src/ui/TUIChat.tsx":
-    "strips a session id prefix produced outside this package",
 };
 
 function sourceFiles(root: string): string[] {

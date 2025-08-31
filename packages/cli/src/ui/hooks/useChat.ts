@@ -17,6 +17,7 @@ import { services } from "../../services/index.js";
 import {
   createSession,
   loadSession,
+  resumeSession,
   updateSessionHistory,
 } from "../../session/index.js";
 import { handleSlashCommands } from "../commands/index.js";
@@ -58,6 +59,7 @@ export function useChat({
   llmApi,
   initialPrompt,
   resume,
+  sessionId,
   fork,
   additionalRules,
   additionalPrompts,
@@ -107,7 +109,7 @@ export function useChat({
 
     // Load previous session if resume flag is used
     if (resume) {
-      const savedSession = loadSession();
+      const savedSession = resumeSession(sessionId);
       if (savedSession) {
         return savedSession;
       }

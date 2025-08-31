@@ -87,6 +87,8 @@ function stripThinkTags(response: string): string {
 export interface ChatOptions extends ExtendedCommandOptions {
   headless?: boolean;
   resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
   fork?: string; // Fork from an existing session ID
   format?: "json"; // Output format for headless mode
   silent?: boolean; // Strip <think></think> tags and excess whitespace
@@ -616,6 +618,7 @@ export async function chat(prompt?: string, options: ChatOptions = {}) {
       const tuiOptions: any = {
         initialPrompt,
         resume: options.resume,
+        sessionId: options.sessionId,
         fork: options.fork,
         config: options.config,
         org: options.org,

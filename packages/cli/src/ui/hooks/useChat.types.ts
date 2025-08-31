@@ -11,6 +11,8 @@ export interface UseChatProps {
   llmApi?: BaseLlmApi;
   initialPrompt?: string;
   resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
   fork?: string;
   additionalRules?: string[];
   additionalPrompts?: string[];

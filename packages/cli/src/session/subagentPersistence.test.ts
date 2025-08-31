@@ -11,7 +11,10 @@ import {
   listSubagentSessions,
   loadSession,
   loadSessionById,
+  resumeSession,
   saveSubagentSession,
+  selectSession,
+  startNewSession,
   updateSessionHistory,
 } from "./index.js";
 
@@ -113,5 +116,35 @@ describe("delegated session persistence", () => {
 
   it("reports an unknown session id as missing", () => {
     expect(loadSessionById(`missing-${Date.now()}`)).toBeNull();
+  });
+
+  it("selects the requested session and makes later saves follow it", () => {
+    updateSessionHistory(childHistory);
+    const first = getCurrentSession().sessionId;
+
+    startNewSession([]);
+    const second = getCurrentSession().sessionId;
+    expect(second).not.toBe(first);
+
+    const selected = selectSession(first);
+
+    expect(selected?.sessionId).toBe(first);
+    expect(getCurrentSession().sessionId).toBe(first);
+  });
+
+  it("resumes a requested session, and the newest root without one", () => {
+    updateSessionHistory(childHistory);
+    const older = getCurrentSession().sessionId;
+
+    startNewSession([]);
+    updateSessionHistory(childHistory);
+    const newer = getCurrentSession().sessionId;
+    // The two writes can land in the same millisecond; make the order explicit.
+    const future = new Date(Date.now() + 5_000);
+    fs.utimesSync(path.join(sessionDir, `${newer}.json`), future, future);
+
+    expect(resumeSession(older)?.sessionId).toBe(older);
+    expect(resumeSession()?.sessionId).toBe(newer);
+    expect(resumeSession("missing-id")).toBeNull();
   });
 });
