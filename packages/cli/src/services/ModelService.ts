@@ -307,6 +307,29 @@ export class ModelService
     });
   }
 
+  /**
+   * A configured model by name, as a caller that has only a state object can
+   * ask for one. Matches either the entry's name or its model id, because hook
+   * and plugin authors write both.
+   */
+  static findModelByName(
+    modelState: ModelServiceState,
+    name: string,
+  ): ModelServiceState | null {
+    const match = (modelState.assistant?.models ?? []).find(
+      (model) => !!model && (model.name === name || model.model === name),
+    );
+    if (!match) {
+      return null;
+    }
+    return {
+      llmApi: createLlmApi(match, modelState.authConfig),
+      model: match,
+      assistant: modelState.assistant,
+      authConfig: modelState.authConfig,
+    };
+  }
+
   static getSubagentModels(modelState: ModelServiceState) {
     const configuredModels = (modelState.assistant?.models ?? [])
       .filter((model) => !!model)

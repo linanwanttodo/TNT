@@ -68,6 +68,39 @@ async function resolveModelState(): Promise<ModelServiceState | null> {
   return null;
 }
 
+/**
+ * Resolve the model a hook asked for.
+ *
+ * `model` is part of the handler contract for both LLM-backed hook types. An
+ * unset or unknown name falls back to the session's own model rather than
+ * failing the hook - a hook must not break the flow around it - but the
+ * fallback is logged, because a cheap check that silently became an expensive
+ * one is otherwise invisible.
+ */
+async function resolveHookModel(
+  handler: { model?: string },
+  label: string,
+): Promise<ModelServiceState | null> {
+  const base = await resolveModelState();
+  if (!base?.llmApi || !base.model) {
+    return null;
+  }
+  if (!handler.model) {
+    return base;
+  }
+
+  const { ModelService } = await import("../services/ModelService.js");
+  const named = ModelService.findModelByName(base, handler.model);
+  if (named?.llmApi && named.model) {
+    return named;
+  }
+
+  logger.warn(`${label} hook model not found; using the session model`, {
+    requested: handler.model,
+  });
+  return base;
+}
+
 function tryParseJson(str: string): HookOutput | null {
   const trimmed = str.trim();
   if (!trimmed || !trimmed.startsWith("{")) return null;
@@ -295,7 +328,7 @@ async function executePromptHook(
 ): Promise<HookExecutionResult> {
   const timeoutMs = (handler.timeout ?? DEFAULT_PROMPT_TIMEOUT_SECONDS) * 1000;
 
-  const modelState = await resolveModelState();
+  const modelState = await resolveHookModel(handler, "prompt");
   const llmApi = modelState?.llmApi ?? null;
   const model = modelState?.model ?? null;
 
@@ -376,7 +409,7 @@ async function executeAgentHook(
 ): Promise<HookExecutionResult> {
   const timeoutMs = (handler.timeout ?? DEFAULT_PROMPT_TIMEOUT_SECONDS) * 1000;
 
-  const agent = await resolveModelState();
+  const agent = await resolveHookModel(handler, "agent");
   if (!agent?.llmApi || !agent.model) {
     logger.warn("Agent hook skipped: no model available");
     return {
