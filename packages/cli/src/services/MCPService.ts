@@ -204,28 +204,41 @@ export class MCPService
   }
 
   /**
-   * Run a tool by name
+   * Run a tool by name. The server that owns it is passed when the caller knows
+   * it, which is the only way two servers exporting the same tool name can both
+   * be reached: scanning for the first name match would always answer with the
+   * first server and leave the other one unreachable.
    */
-  public async runTool(name: string, args: Record<string, any>) {
+  public async runTool(
+    name: string,
+    args: Record<string, any>,
+    serverName?: string,
+  ) {
     for (const connection of this.connections.values()) {
-      if (connection.status === "connected" && connection.client) {
-        const tool = connection.tools.find((t) => t.name === name);
-        if (tool) {
-          const serverName = connection.config!.name;
-          return await this.withTokenRefresh(serverName, async () => {
-            const conn = this.connections.get(serverName);
-            if (!conn?.client) {
-              throw new Error(`Client for ${serverName} not available`);
-            }
-            return await conn.client.callTool({
-              name,
-              arguments: args,
-            });
-          });
+      const owner = connection.config?.name;
+      if (!owner) continue;
+      if (serverName && owner !== serverName) continue;
+      if (connection.status !== "connected" || !connection.client) continue;
+
+      const tool = connection.tools.find((t) => t.name === name);
+      if (!tool) continue;
+
+      return await this.withTokenRefresh(owner, async () => {
+        const conn = this.connections.get(owner);
+        if (!conn?.client) {
+          throw new Error(`Client for ${owner} not available`);
         }
-      }
+        return await conn.client.callTool({
+          name,
+          arguments: args,
+        });
+      });
     }
-    throw new Error(`Tool ${name} not found`);
+    throw new Error(
+      serverName
+        ? `Tool ${name} not found on ${serverName}`
+        : `Tool ${name} not found`,
+    );
   }
 
   /**

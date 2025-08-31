@@ -136,6 +136,16 @@ widens it. Two surfaces are deliberately not covered, because the check could no
 be honest there: `Bash` can write anywhere, and `auto` mode is the user's answer
 of "allow everything".
 
+MCP tools are offered as `mcp__<server>__<tool>` by
+`src/tools/mcpToolsFromConnections`, because two servers can export the same name:
+the flat tool list lost the owning server, dispatch took the first name match, and
+the second server's tool could not be reached under any name while the request
+carried the name twice. The name is sanitized to the characters a provider accepts
+and clipped to 64, and a name that still collides is numbered, so no name appears
+twice. The namespaced name is what the permission policies, a hook's `tool_name`
+and the chat history use, which makes `mcp__github_*` a rule an author can write;
+the server is called with the name it published.
+
 ## 3. Todo layer
 
 `src/tools/todo.ts` gives the model an explicit, ordered work list that

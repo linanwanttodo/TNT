@@ -156,6 +156,40 @@ describe("MCPService", () => {
         "Tool unknown-tool not found",
       );
     });
+
+    it("runs a tool only on the server the caller named", async () => {
+      mockClient.listTools.mockResolvedValue({
+        tools: [{ name: "known", inputSchema: { type: "object" } }],
+      } as never);
+      const scoped = new MCPService();
+      await scoped.initialize(mockAssistant);
+
+      try {
+        // initialize() resolves before the listed tools land on the connection,
+        // so wait for the list instead of asserting against an empty one, which
+        // would make the refusal below true for the wrong reason.
+        for (let attempt = 0; attempt < 40; attempt++) {
+          if ((await scoped.getState().tools).length > 0) break;
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        expect(scoped.getState().tools.map((t) => t.name)).toEqual(["known"]);
+
+        await expect(scoped.runTool("known", {})).resolves.toEqual({});
+        // Scanning for the first name match is what let one server shadow
+        // another, so a named server that does not have the tool is a refusal.
+        await expect(
+          scoped.runTool("known", {}, "other-server"),
+        ).rejects.toThrow("Tool known not found on other-server");
+        await expect(
+          scoped.runTool("known", {}, "test-server"),
+        ).resolves.toEqual({});
+      } finally {
+        await scoped.cleanup();
+        // The shared client mock is module-level: leave it as the other cases in
+        // this file expect, with no tools published.
+        mockClient.listTools.mockResolvedValue({ tools: [] } as never);
+      }
+    });
   });
 
   describe("shutdown", () => {
