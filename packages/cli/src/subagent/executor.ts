@@ -16,6 +16,7 @@ import {
   resolveChildDepth,
 } from "./depth.js";
 import { createChildContext, type AgentRunContext } from "./runContext.js";
+import { type SubAgentVerdict, parseVerdict } from "./verdict.js";
 
 /**
  * Options for executing a subagent
@@ -41,6 +42,11 @@ export interface SubAgentResult {
   success: boolean;
   response: string;
   error?: string;
+  /**
+   * Set when the agent's report ends in a verdict line, which is how a
+   * delegated check reports its finding without the caller re-reading prose.
+   */
+  verdict?: SubAgentVerdict;
 }
 
 /**
@@ -209,6 +215,7 @@ export async function executeSubAgent(
       return {
         success: true,
         response,
+        verdict: parseVerdict(response),
       };
     } finally {
       if (escapeHandler) {

@@ -118,4 +118,27 @@ describe("subagentTool", () => {
       "subagent-output\n<task_metadata>\nstatus: completed\n</task_metadata>",
     );
   });
+
+  it("carries the verdict a verification agent reported", async () => {
+    vi.mocked(getAgentNames).mockReturnValue(["verification"]);
+    vi.mocked(getSubagent).mockReturnValue({
+      model: { name: "verification" },
+    } as any);
+    vi.mocked(executeSubAgent).mockResolvedValue({
+      success: true,
+      response: "build ok\nVERDICT: PASS",
+      verdict: "pass",
+    } as any);
+
+    const tool = await subagentTool();
+
+    const result = await tool.run(
+      { prompt: "verify the change", subagent_name: "verification" },
+      { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
+    );
+
+    // The caller branches on this line instead of re-reading the report.
+    expect(result).toContain("status: completed");
+    expect(result).toContain("verdict: pass");
+  });
 });

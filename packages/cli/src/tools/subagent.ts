@@ -123,6 +123,7 @@ export const subagentTool = async (): Promise<Tool> => {
         result.response,
         "<task_metadata>",
         `status: ${result.success ? "completed" : "failed"}`,
+        ...(result.verdict ? [`verdict: ${result.verdict}`] : []),
         "</task_metadata>",
       ]
         .filter(Boolean)

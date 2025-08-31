@@ -201,13 +201,15 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   hook can force the human prompt for a call the policy would have allowed, and
   its reason rides at the front of the preview the prompt shows. An `"exclude"`
   still outranks the hook - a policy refusal is not reopened by an escalation,
-  and in headless an escalation is refused because nobody is there to answer it. The same three events' `additionalContext` is a note to the model: the
+  and in headless an escalation is refused because nobody is there to answer it.
+  The same three events' `additionalContext` is a note to the model: the
   reference delivers it as its own meta message, but the chat protocol wants
   exactly one tool message per call, so it rides inside that call's result,
-  attributed as `PreToolUse:<tool> hook additional context: ...`. A call that survives both checks and still needs the human fires a
-  PermissionRequest hook first; only when that hook leaves the decision to the
-  user does a Notification of type `permission_prompt` precede the prompt, so a
-  notifier hook never reports a prompt that never opened.
+  attributed as `PreToolUse:<tool> hook additional context: ...`. A call that
+  survives both checks and still needs the human fires a PermissionRequest hook
+  first; only when that hook leaves the decision to the user does a Notification
+  of type `permission_prompt` precede the prompt, so a notifier hook never
+  reports a prompt that never opened.
 
 A hook or plugin script that throws never aborts the agent loop; failures are
 reported and the turn continues. A command hook that outlives its timeout is
@@ -249,6 +251,16 @@ not make for itself, and the parent's own permissions object is left untouched,
 so returning to the parent restores exactly what it had. The narrowing appends
 its exclusions ahead of any star rule, because the checker takes the first
 matching policy.
+
+A delegated check should end in a finding the caller can branch on rather than a
+paragraph it has to re-read. `src/subagent/verdict.ts` reads a stand-alone
+`VERDICT: PASS|FAIL|PARTIAL` line out of the child's report - the last one wins,
+so a report that quotes the format does not report a result - the executor
+carries it on `SubAgentResult.verdict`, and the delegation tool writes it into
+`<task_metadata>` alongside the status. `PARTIAL` is reserved for an environment
+that made the check impossible, not for a verifier that was unsure. No built-in
+verification agent ships yet, so this is the contract a declared agent - an agent
+file, or a plugin's `agent` hook - can already be written against.
 
 ## 7. What is deliberately not translated
 
