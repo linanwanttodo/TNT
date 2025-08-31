@@ -50,7 +50,7 @@ async function handleInstall(reference: string | undefined) {
   const { name, marketplace } = splitPluginReference(reference);
   const resolved = resolveMarketplace(name, marketplace);
   if (!resolved.marketplace) {
-    return { output: resolved.problem ?? "No marketplace to install from." };
+    return { output: resolved.problem ?? t("plugin.noMarketplace") };
   }
   try {
     const plan = await installPluginWithDependencies(
@@ -92,7 +92,7 @@ function handleUninstall(reference: string | undefined) {
   const { name, marketplace } = splitPluginReference(reference);
   const resolved = resolveMarketplace(name, marketplace);
   if (!resolved.marketplace) {
-    return { output: resolved.problem ?? "No marketplace to uninstall from." };
+    return { output: resolved.problem ?? t("plugin.noMarketplace") };
   }
   const id = `${name}@${resolved.marketplace}`;
   const removed = uninstallPlugin(id);
@@ -147,7 +147,7 @@ export async function handlePlugins(
       "",
       ...lines,
       "",
-      chalk.dim(`${marketplaces} marketplace(s) registered`),
+      chalk.dim(t("plugin.marketplacesRegistered", { count: marketplaces })),
     ].join("\n"),
   };
 }
