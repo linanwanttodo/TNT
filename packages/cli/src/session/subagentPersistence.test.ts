@@ -9,6 +9,8 @@ import {
   getCurrentSession,
   listSessions,
   listSubagentSessions,
+  loadSession,
+  loadSessionById,
   saveSubagentSession,
   updateSessionHistory,
 } from "./index.js";
@@ -84,5 +86,32 @@ describe("delegated session persistence", () => {
     const ids = sessions.map((entry) => entry.sessionId);
     expect(ids).toContain(rootId);
     expect(ids).not.toContain(child.sessionId);
+  });
+
+  it("resumes the newest root conversation instead of a delegated run", () => {
+    updateSessionHistory(childHistory);
+    const rootId = getCurrentSession().sessionId;
+    const child = saveSubagentSession({
+      parentSessionId: rootId,
+      subagentType: "Explore",
+      history: childHistory,
+    });
+
+    // Make the child strictly newer so the pick would land on it without the
+    // root-only filter.
+    const future = new Date(Date.now() + 10_000);
+    fs.utimesSync(
+      path.join(sessionDir, `${child.sessionId}.json`),
+      future,
+      future,
+    );
+
+    const resumed = loadSession();
+
+    expect(resumed?.sessionId).toBe(rootId);
+  });
+
+  it("reports an unknown session id as missing", () => {
+    expect(loadSessionById(`missing-${Date.now()}`)).toBeNull();
   });
 });
