@@ -100,6 +100,20 @@ the TUI asks about - Edit, MultiEdit, Write and Bash - and the request carries
 those tools; `--ask` and `--exclude` still narrow a run, and a tool left on
 `ask` in headless is withheld rather than silently allowed.
 
+A policy only means something for a tool the model is actually offered, so
+`src/permissions/toolPolicyCoverage.test.ts` checks the two lists against
+`getAllAvailableTools` in both directions. That function is a pure function of
+the run's flags: what needs nothing but the workspace is always offered (Todo,
+Diff, CodebaseSearch and the four language-server tools - with no server
+configured those four answer that a plugin must declare one, which is a result
+the model can act on rather than a tool it cannot see), and everything else
+appears only under the condition the test names beside it: `Exit` for headless,
+`Search` for a machine with ripgrep, `Status` and `ReportFailure` for a run
+carrying `--id`, and the delegation tools for the beta flag plus a run below the
+depth limit. A policy that names a tool nothing offers is a dead rule and fails
+the guard, and so does a declared condition that no longer describes a withheld
+tool.
+
 ## 3. Todo layer
 
 `src/tools/todo.ts` gives the model an explicit, ordered work list that
