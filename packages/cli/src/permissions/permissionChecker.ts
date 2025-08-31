@@ -10,6 +10,7 @@ import {
 } from "./types.js";
 import { isDocumentPath } from "./documentPath.js";
 import { isReadOnlyCommand } from "./readOnlyCommand.js";
+import { bashCommandMatches } from "./bashCommandRule.js";
 import { isWithinWorkspace, workspaceRoot } from "./workspacePath.js";
 
 /**
@@ -61,21 +62,10 @@ export function matchesToolPattern(
     // Check if this is a bash/terminal tool
     const isBashTool = toolName === "Bash";
     if (isBashTool && toolArguments?.command) {
-      const commandPattern = bashCommandMatch[1];
-      const command = toolArguments.command;
-
-      // Handle command patterns with wildcards
-      if (commandPattern.includes("*") || commandPattern.includes("?")) {
-        // Escape all regex metacharacters except * and ?
-        const escaped = commandPattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-        // Convert * and ? to their regex equivalents
-        const regexPattern = escaped.replace(/\*/g, ".*").replace(/\?/g, ".");
-        const regex = new RegExp(`^${regexPattern}$`);
-        return regex.test(command);
-      }
-
-      // Exact command match
-      return command === commandPattern;
+      return bashCommandMatches(
+        String(toolArguments.command),
+        bashCommandMatch[1].trim(),
+      );
     }
     return false;
   }

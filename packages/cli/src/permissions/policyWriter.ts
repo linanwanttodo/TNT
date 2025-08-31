@@ -9,6 +9,7 @@ import {
   PermissionsYamlConfig,
   loadPermissionsYaml,
 } from "./permissionsYamlLoader.js";
+import { commandSegments } from "./bashCommandRule.js";
 
 /**
  * Generates a policy rule for a given tool call
@@ -21,13 +22,19 @@ export function generatePolicyRule(toolName: string, toolArgs: any): string {
   // For Bash tool, create command-specific policies
   if (normalizedName === "Bash" && toolArgs?.command) {
     const command = toolArgs.command.trim();
-    // Extract the first command (before pipes, &&, ||, etc.)
-    const firstCommand = command.split(/[;&|]|&&|\|\|/)[0]?.trim();
-    if (firstCommand) {
-      // Extract just the command name (before spaces or flags)
-      const commandName = firstCommand.split(/\s+/)[0];
-      return `Bash(${commandName}*)`;
+    const segments = commandSegments(command);
+    if (segments.length === 0) {
+      return normalizedName;
     }
+    // A chain was approved as the line the user read, not as its first command
+    // with any tail: the old rule wrote `git add . && rm -rf /` as Bash(git*),
+    // which then approved every git command forever.
+    if (segments.length > 1) {
+      return `Bash(${command})`;
+    }
+    // Extract just the command name (before spaces or flags)
+    const commandName = segments[0].split(/\s+/)[0];
+    return `Bash(${commandName}*)`;
   }
 
   // For all other tools, return the display name
