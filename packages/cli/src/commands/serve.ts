@@ -43,7 +43,7 @@ import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import {
   checkAgentComplete,
   removePartialAssistantMessage,
-  streamChatResponseWithInterruption,
+  streamServeResponse,
   titleServeSessionIfUntitled,
   type ServerState,
 } from "./serve.helpers.js";
@@ -459,11 +459,10 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
         state.currentAbortController = new AbortController();
 
         // Stream the response with interruption support
-        const response = await streamChatResponseWithInterruption(
+        const response = await streamServeResponse(
           state,
           llmApi,
           state.currentAbortController,
-          () => false,
           options.maxSteps === undefined
             ? undefined
             : { maxSteps: options.maxSteps },

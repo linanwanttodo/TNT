@@ -33,26 +33,18 @@ export function removePartialAssistantMessage(
   }
 }
 
-// Modified version of streamChatResponse that supports interruption
-export async function streamChatResponseWithInterruption(
+/**
+ * Run one served turn. Interruption belongs to the abort controller: `POST
+ * /pause` and `POST /exit` abort it, and the engine stops on the signal. What
+ * used to sit here was a 100ms poll of a callback the caller passed as
+ * `() => false`, so it could only ever add a timer to every response.
+ */
+export async function streamServeResponse(
   state: ServerState,
   llmApi: any,
   abortController: AbortController,
-  shouldInterrupt: () => boolean,
   turnBudgetLimits?: Partial<TurnBudgetLimits>,
 ): Promise<string> {
-  // Import the original streamChatResponse logic but add interruption checks
-  // Create a wrapper that checks for interruption
-  const originalSignal = abortController.signal;
-  const checkInterruption = () => {
-    if (shouldInterrupt() && !originalSignal.aborted) {
-      abortController.abort();
-    }
-  };
-
-  // Set up periodic interruption checks
-  const interruptionChecker = setInterval(checkInterruption, 100);
-
   // Create callbacks to capture tool events
   const callbacks: StreamCallbacks = {
     onContent: (_: string) => {
@@ -129,20 +121,16 @@ export async function streamChatResponseWithInterruption(
       ? state.session.history.slice(1)
       : state.session.history;
 
-  try {
-    const response = await streamChatResponse(
-      history,
-      state.model,
-      llmApi,
-      abortController,
-      callbacks,
-      false,
-      turnBudgetLimits,
-    );
-    return response || "";
-  } finally {
-    clearInterval(interruptionChecker);
-  }
+  const response = await streamChatResponse(
+    history,
+    state.model,
+    llmApi,
+    abortController,
+    callbacks,
+    false,
+    turnBudgetLimits,
+  );
+  return response || "";
 }
 
 export interface PendingPermission {
