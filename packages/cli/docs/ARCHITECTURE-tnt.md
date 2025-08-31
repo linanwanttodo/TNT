@@ -44,7 +44,10 @@ renames it over the real path, resolving symlinks first and carrying over the
 original mode, so replacing a file keeps its link and its permissions. A
 session file carries every optional `Session` field, not just the ordered core
 keys: the goal, the output style, the delegation link and depth are read back
-from the file, and the writer copies whatever else the session carries.
+from the file, and the writer copies whatever else the session carries. A new
+session is titled on the first assistant response in both the TUI and headless
+runs; headless pays one extra non-streaming completion for it, which the e2e
+suites pin so the cost stays visible.
 
 ## 2. Mode axis
 

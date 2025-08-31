@@ -44,7 +44,13 @@ describe("E2E: Headless Mode with Mock Server", () => {
 
     expect(result.stdout).toContain("Hello World!");
     expect(result.exitCode).toBe(0);
-    expect(mockServer.requests).toHaveLength(1);
+    // The prompt request plus the title request for the new session
+    expect(mockServer.requests).toHaveLength(2);
+    // The title call is the small non-streaming completion
+    expect(mockServer.requests[1].body.stream).toBe(false);
+    expect(mockServer.requests[1].body.messages[0].content).toContain(
+      "title for the chat",
+    );
     // Find the user message (system message is first)
     const userMessage = mockServer.requests[0].body.messages.find(
       (m: any) => m.role === "user",
@@ -65,7 +71,8 @@ describe("E2E: Headless Mode with Mock Server", () => {
 
     expect(result.stdout).toContain("Hello World!");
     expect(result.exitCode).toBe(0);
-    expect(mockServer.requests).toHaveLength(1);
+    // The prompt request plus the title request for the new session
+    expect(mockServer.requests).toHaveLength(2);
     // Find the user message (system message is first)
     const userMessage = mockServer.requests[0].body.messages.find(
       (m: any) => m.role === "user",
