@@ -31,14 +31,23 @@ export interface AgentRunContext {
 }
 
 export const READONLY_SUBAGENT_NOTICE =
-  "This agent was started with a restricted tool set. Operations that modify files, run commands, or call MCP servers are unavailable, and the approval policy is fixed: it cannot be widened from inside this session.";
+  "This agent was started with a restricted tool set. It cannot write files or run commands, and the approval policy is fixed: it cannot be widened from inside this session.";
+
+export const NO_WRITE_SUBAGENT_NOTICE =
+  "This agent was started with a restricted tool set. It cannot create or modify files, but running commands and reading the workspace are available, and the approval policy is fixed: it cannot be widened from inside this session.";
 
 /**
- * Tools that can change the workspace or run something outside it. A restricted
- * agent keeps the read-only tools and loses these.
+ * How a delegated agent may be narrower than the session that started it.
+ *
+ * A verifier has to run the build and the tests, so the only restriction that
+ * makes sense for one is "no file writes" - dropping `Bash` as well would leave
+ * it reading code and reporting a guess, which is the failure mode the whole
+ * role exists to avoid.
  */
-const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set([
-  "Bash",
+export type SubagentRestriction = "readonly" | "no-writes";
+
+/** Tools that can change files or session state. */
+const WRITE_TOOL_NAMES: readonly string[] = [
   "Edit",
   "Write",
   "MultiEdit",
@@ -46,7 +55,22 @@ const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set([
   "Create",
   "Checklist",
   "UploadArtifact",
-]);
+];
+
+/** Tools that run something outside the process. */
+const EXEC_TOOL_NAMES: readonly string[] = ["Bash"];
+
+function namesExcludedBy(
+  restriction: SubagentRestriction | undefined,
+): ReadonlySet<string> {
+  if (restriction === "readonly") {
+    return new Set([...WRITE_TOOL_NAMES, ...EXEC_TOOL_NAMES]);
+  }
+  if (restriction === "no-writes") {
+    return new Set(WRITE_TOOL_NAMES);
+  }
+  return new Set<string>();
+}
 
 /**
  * Narrows a parent's permissions to what a child may keep.
@@ -57,9 +81,10 @@ const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set([
  */
 export function narrowPermissions(
   parent: ToolPermissions,
-  options: { readonly: boolean },
+  options: { restriction?: SubagentRestriction },
 ): ToolPermissions {
-  if (!options.readonly) {
+  const excluded = namesExcludedBy(options.restriction);
+  if (excluded.size === 0) {
     return {
       policies: parent.policies.map((policy) =>
         policy.permission === "ask"
@@ -75,7 +100,7 @@ export function narrowPermissions(
       // The exclusions must come BEFORE the wildcard: the checker takes the
       // first matching policy, so a wildcard emitted first would shadow every
       // exclusion after it and the child would keep the mutating tools.
-      for (const name of MUTATING_TOOL_NAMES) {
+      for (const name of excluded) {
         policies.push({ tool: name, permission: "exclude" });
       }
       policies.push({
@@ -85,7 +110,7 @@ export function narrowPermissions(
       continue;
     }
 
-    if (MUTATING_TOOL_NAMES.has(policy.tool)) {
+    if (excluded.has(policy.tool)) {
       policies.push({ tool: policy.tool, permission: "exclude" });
       continue;
     }
@@ -106,17 +131,27 @@ export function createChildContext(
     delegationDepth: number;
     systemMessage: string;
     abortSignal?: AbortSignal;
-    readonly?: boolean;
+    restriction?: SubagentRestriction;
   },
 ): AgentRunContext {
+  const restriction = overrides.restriction;
+  const notice =
+    restriction === "readonly"
+      ? READONLY_SUBAGENT_NOTICE
+      : restriction === "no-writes"
+        ? NO_WRITE_SUBAGENT_NOTICE
+        : undefined;
+
   return {
     id: overrides.id,
     parentContext: parent,
     delegationDepth: overrides.delegationDepth,
-    systemMessage: overrides.systemMessage,
-    permissions: narrowPermissions(parent.permissions, {
-      readonly: overrides.readonly ?? false,
-    }),
+    // The child cannot see which tools are missing, so it is told what changed
+    // and why it may not widen the policy itself.
+    systemMessage: notice
+      ? `${overrides.systemMessage}\n\n${notice}`
+      : overrides.systemMessage,
+    permissions: narrowPermissions(parent.permissions, { restriction }),
     mode: parent.mode,
     abortSignal: overrides.abortSignal ?? parent.abortSignal,
   };

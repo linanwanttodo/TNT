@@ -16,6 +16,7 @@ import {
   resolveChildDepth,
 } from "./depth.js";
 import { createChildContext, type AgentRunContext } from "./runContext.js";
+import { builtInAgentByName } from "./builtInAgents.js";
 import { type SubAgentVerdict, parseVerdict } from "./verdict.js";
 
 /**
@@ -120,15 +121,20 @@ export async function executeSubAgent(
       resolvedParent.mode,
     );
 
+    const agentType = subAgent.model?.name ?? "agent";
+    const builtIn = builtInAgentByName(agentType);
+
     const childContext = createChildContext(resolvedParent, {
-      id: `${resolvedParent.id}:${childDepth}:${subAgent.model?.name ?? "agent"}`,
+      id: `${resolvedParent.id}:${childDepth}:${agentType}`,
       delegationDepth: childDepth,
       systemMessage,
       abortSignal: abortController.signal,
+      // A built-in role declares what it may not do; a configured agent keeps
+      // whatever the session allowed, as it did before this existed.
+      restriction: builtIn?.restriction,
     });
 
     const agentId = childContext.id;
-    const agentType = subAgent.model?.name ?? "agent";
 
     await fireSubagentStart(agentId, agentType).catch(() => {});
 

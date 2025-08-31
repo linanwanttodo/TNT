@@ -5,6 +5,7 @@ import { createLlmApi, getLlmApi } from "../config/index.js";
 import { logger } from "../utils/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
+import { BUILT_IN_AGENTS } from "../subagent/builtInAgents.js";
 import { AgentFileServiceState, ModelServiceState } from "./types.js";
 
 /**
@@ -307,23 +308,47 @@ export class ModelService
   }
 
   static getSubagentModels(modelState: ModelServiceState) {
-    if (!modelState.assistant) {
-      return [];
-    }
-    const subagentModels = modelState.assistant.models
-      ?.filter((model) => !!model)
+    const configuredModels = (modelState.assistant?.models ?? [])
+      .filter((model) => !!model)
       .filter((model) => !!model.name) // filter out models without a name
       .filter((model) => model.roles?.includes("subagent")) // filter with role subagent
       .filter((model) => !!model.chatOptions?.baseSystemMessage); // filter those with a system message
 
-    if (!subagentModels) {
-      return [];
-    }
-    return subagentModels?.map((model) => ({
+    const entries = configuredModels.map((model) => ({
       llmApi: createLlmApi(model, modelState.authConfig),
       model,
       assistant: modelState.assistant,
       authConfig: modelState.authConfig,
     }));
+
+    // Built-in roles are defined by what they do, not by a model someone has to
+    // configure, so they run on the session's own model. A configured agent that
+    // takes the same name wins, because that is the user overriding a default.
+    const inheritFrom = modelState.model ?? configuredModels[0];
+    if (inheritFrom) {
+      const declared = new Set(entries.map((entry) => entry.model.name));
+      for (const agent of BUILT_IN_AGENTS) {
+        if (declared.has(agent.name)) {
+          continue;
+        }
+        const model: ModelConfig = {
+          ...inheritFrom,
+          name: agent.name,
+          roles: ["subagent"],
+          chatOptions: {
+            ...inheritFrom.chatOptions,
+            baseSystemMessage: agent.systemMessage,
+          },
+        };
+        entries.push({
+          llmApi: createLlmApi(model, modelState.authConfig),
+          model,
+          assistant: modelState.assistant,
+          authConfig: modelState.authConfig,
+        });
+      }
+    }
+
+    return entries;
   }
 }
