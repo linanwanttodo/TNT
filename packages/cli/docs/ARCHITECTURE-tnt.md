@@ -114,6 +114,16 @@ depth limit. A policy that names a tool nothing offers is a dead rule and fails
 the guard, and so does a declared condition that no longer describes a withheld
 tool.
 
+`Search` runs `rg`, `grep` or `findstr` with an argument list and no shell, which
+is a security property rather than a style choice: the pattern, the path and
+every line of the project's `.gitignore` are values the model or a cloned
+repository supplies, and a shell re-reads them as syntax. Measured against the
+previous build, a `.gitignore` line of `$(touch marker)` created that file on the
+first search and a pattern of `x"; touch marker; #` did the same, the second one
+also swallowing the path argument and leaving the search to wait on stdin
+forever. Arguments after a `--` marker are data to the program: they cannot
+start a second command and are not read as options either.
+
 ## 3. Todo layer
 
 `src/tools/todo.ts` gives the model an explicit, ordered work list that

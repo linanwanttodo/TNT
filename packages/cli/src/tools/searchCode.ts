@@ -9,7 +9,22 @@ import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { Tool } from "./types.js";
 
-const execPromise = util.promisify(child_process.exec);
+const execFilePromise = util.promisify(child_process.execFile);
+
+/**
+ * No shell here: the pattern, the path and each .gitignore line stay data
+ * (ARCHITECTURE-tnt.md section 2).
+ */
+async function search(
+  program: string,
+  args: string[],
+  cwd?: string,
+): Promise<{ stdout: string; stderr: string }> {
+  return execFilePromise(program, args, {
+    cwd,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
 
 async function getGitignorePatterns() {
   const gitIgnorePath = await findUp(".gitignore");
@@ -35,7 +50,7 @@ let ripgrepProbe: Promise<boolean> | undefined;
 export async function checkIfRipgrepIsInstalled(): Promise<boolean> {
   ripgrepProbe ??= (async () => {
     try {
-      await execPromise("rg --version");
+      await search("rg", ["--version"]);
       return true;
     } catch {
       return false;
@@ -54,20 +69,19 @@ async function searchWithRipgrep(
   searchPath: string,
   filePattern?: string,
 ) {
-  let command = `rg --line-number --with-filename --color never "${pattern}"`;
+  const args = ["--line-number", "--with-filename", "--color", "never"];
 
   if (filePattern) {
-    command += ` -g "${filePattern}"`;
+    args.push("--glob", filePattern);
   }
 
   const ignorePatterns = await getGitignorePatterns();
   for (const ignorePattern of ignorePatterns) {
-    command += ` -g "!${ignorePattern}"`;
+    args.push("--glob", `!${ignorePattern}`);
   }
 
-  command += ` "${searchPath}"`;
-  const { stdout, stderr } = await execPromise(command);
-  return { stdout, stderr };
+  args.push("--", pattern, searchPath);
+  return await search("rg", args);
 }
 
 // procedure 2: search with grep on unix or findstr on windows
@@ -78,22 +92,27 @@ async function searchWithGrepOrFindstr(
 ) {
   const isWindows = process.platform === "win32";
   const ignorePatterns = await getGitignorePatterns();
-  let command: string;
   if (isWindows) {
+    // findstr has no way to exclude paths, so the ignore list is not used here.
     const fileSpec = filePattern ? filePattern : "*";
-    command = `findstr /S /N /P /R "${pattern}" "${fileSpec}"`; // findstr does not support ignoring patterns
-  } else {
-    let excludeArgs = "";
-    for (const ignorePattern of ignorePatterns) {
-      excludeArgs += ` --exclude="${ignorePattern}" --exclude-dir="${ignorePattern}"`; // use both exclude and exclude-dir because ignorePattern can be a file or directory
-    }
-    if (filePattern) {
-      command = `find . -type f -path "${filePattern}" -print0 | xargs -0 grep -nH -I${excludeArgs} "${pattern}"`;
-    } else {
-      command = `grep -R -n -H -I${excludeArgs} "${pattern}" .`;
-    }
+    return await search(
+      "findstr",
+      ["/S", "/N", "/P", "/R", pattern, fileSpec],
+      searchPath,
+    );
   }
-  return await execPromise(command, { cwd: searchPath });
+  const args = ["-R", "-n", "-H", "-I"];
+  for (const ignorePattern of ignorePatterns) {
+    // use both exclude and exclude-dir because ignorePattern can be a file or directory
+    args.push(`--exclude=${ignorePattern}`, `--exclude-dir=${ignorePattern}`);
+  }
+  // --include matches file names, not whole paths: the path-shaped form the
+  // shell pipeline used needs a second program fed by a pipe.
+  if (filePattern) {
+    args.push(`--include=${filePattern}`);
+  }
+  args.push("--", pattern, ".");
+  return await search("grep", args, searchPath);
 }
 
 // Output truncation defaults
