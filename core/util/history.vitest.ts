@@ -150,4 +150,31 @@ describe("the session writer", () => {
     expect(fs.readFileSync(file, "utf-8")).toBe(before);
     control.failRename = false;
   });
+
+  it("persists the optional fields the readers depend on", () => {
+    const session = {
+      ...sessionWith(3),
+      goal: "Ship the release",
+      outputStyle: "plugin:terse",
+      parentSessionId: "parent-1",
+      subagentType: "Explore",
+      delegationDepth: 2,
+    };
+
+    historyManager.save(session as never);
+
+    const written = JSON.parse(fs.readFileSync(writePathFor(session), "utf-8"));
+    expect(written.goal).toBe("Ship the release");
+    expect(written.outputStyle).toBe("plugin:terse");
+    expect(written.parentSessionId).toBe("parent-1");
+    expect(written.subagentType).toBe("Explore");
+    expect(written.delegationDepth).toBe(2);
+    // The ordered keys still open the file so it stays readable by hand.
+    expect(Object.keys(written).slice(0, 4)).toEqual([
+      "sessionId",
+      "title",
+      "workspaceDirectory",
+      "history",
+    ]);
+  });
 });

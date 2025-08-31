@@ -41,7 +41,10 @@ Writes that a crash would leave corrupt go through `core/util/atomicWrite.ts`:
 session files, the global context, the config file and every file the edit
 tools rewrite. It writes a uniquely named temporary file beside the target and
 renames it over the real path, resolving symlinks first and carrying over the
-original mode, so replacing a file keeps its link and its permissions.
+original mode, so replacing a file keeps its link and its permissions. A
+session file carries every optional `Session` field, not just the ordered core
+keys: the goal, the output style, the delegation link and depth are read back
+from the file, and the writer copies whatever else the session carries.
 
 ## 2. Mode axis
 
