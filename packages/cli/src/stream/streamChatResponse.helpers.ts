@@ -166,7 +166,11 @@ export async function checkToolPermissionApproval(
       // "ask" tools are excluded in headless so this is either a policy
       // evaluation that landed on ask or a hook escalation, and with no human
       // to answer either one the call is refused.
-      return { approved: false, denialReason: "policy" };
+      return {
+        approved: false,
+        denialReason: "policy",
+        message: permissionCheck.reason,
+      };
     }
 
     const hookResult = await firePermissionRequest(
@@ -195,7 +199,9 @@ export async function checkToolPermissionApproval(
     const userApproved = await requestUserPermission(
       toolCall,
       callbacks,
-      hookAskReason,
+      // The prompt says why it opened: a hook's reason first, else the policy
+      // that escalated this particular call rather than the tool in general.
+      hookAskReason ?? permissionCheck.reason,
     );
     return userApproved
       ? { approved: true }

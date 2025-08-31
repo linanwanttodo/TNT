@@ -171,4 +171,13 @@ describe("tool policy coverage", () => {
       expect(policy?.docsOnly, name).toBe(true);
     }
   });
+
+  it("keeps a write that leaves the workspace in front of a human", () => {
+    // Headless allows the write tools, so the destination check is the only
+    // thing standing between a runaway run and someone else's directory.
+    for (const name of ["Edit", "MultiEdit", "Write"]) {
+      expect(policyFor(agent, name)?.workspaceOnly, `agent ${name}`).toBe(true);
+      expect(policyFor(plan, name)?.workspaceOnly, `plan ${name}`).toBe(true);
+    }
+  });
 });

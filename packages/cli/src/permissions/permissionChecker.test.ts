@@ -1,3 +1,5 @@
+import path from "path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
@@ -9,6 +11,7 @@ import {
   matchesToolPattern,
 } from "./permissionChecker.js";
 import { ToolPermissions } from "./types.js";
+import { workspaceRoot } from "./workspacePath.js";
 
 // Create a mock function for evaluateToolCallPolicy
 const mockEvaluateToolCallPolicy = vi.fn();
@@ -982,6 +985,95 @@ describe("documentation-only policy", () => {
     const result = checkToolPermission(
       { name: "Write", arguments: { filepath: "src/index.ts" } },
       { policies: [{ tool: "Write", permission: "allow" }] },
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+});
+
+describe("workspace-only policy", () => {
+  const permissions: ToolPermissions = {
+    policies: [
+      { tool: "Write", permission: "allow", workspaceOnly: true },
+      { tool: "Edit", permission: "allow", workspaceOnly: true },
+      { tool: "*", permission: "ask" },
+    ],
+  };
+  const outside = path.join(process.cwd(), "..", "tnt-elsewhere", "notes.md");
+
+  it("leaves a write inside the workspace allowed", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: { filepath: "docs/plan.md" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("allow");
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("escalates a write that lands outside the workspace", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: { filepath: outside, content: "x" } },
+      permissions,
+    );
+
+    // Not a refusal: the human may well mean this write. The point is that a
+    // policy that allows Write does not also get to decide where it goes.
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toContain("Outside the workspace");
+    expect(result.reason).toContain(outside);
+    expect(result.reason).toContain(workspaceRoot());
+  });
+
+  it("escalates the file_path argument name as well", () => {
+    const result = checkToolPermission(
+      { name: "Edit", arguments: { file_path: outside } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("ask");
+  });
+
+  it("leaves a call without a path to the tool", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: {} },
+      permissions,
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("escalates a path it cannot name", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: { content: "x" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toContain("the path this call names");
+  });
+
+  it("does not narrow write tools that omit the flag", () => {
+    const result = checkToolPermission(
+      { name: "Write", arguments: { filepath: outside } },
+      { policies: [{ tool: "Write", permission: "allow" }] },
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("beats an allow rule a later policy would grant", () => {
+    // First match wins, so a user rule without the flag that comes first is the
+    // documented way to widen a run past the workspace.
+    const widened: ToolPermissions = {
+      policies: [
+        { tool: "Write", permission: "allow" },
+        { tool: "Write", permission: "allow", workspaceOnly: true },
+      ],
+    };
+    const result = checkToolPermission(
+      { name: "Write", arguments: { filepath: outside } },
+      widened,
     );
 
     expect(result.permission).toBe("allow");

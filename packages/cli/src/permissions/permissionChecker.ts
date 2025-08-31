@@ -10,6 +10,7 @@ import {
 } from "./types.js";
 import { isDocumentPath } from "./documentPath.js";
 import { isReadOnlyCommand } from "./readOnlyCommand.js";
+import { isWithinWorkspace, workspaceRoot } from "./workspacePath.js";
 
 /**
  * The message the model reads when a read-only mode refuses a command. It
@@ -26,6 +27,20 @@ export const READ_ONLY_MODE_DENIAL =
  */
 export const DOCUMENT_ONLY_MODE_DENIAL =
   "Blocked: this mode may only write documentation files (.md, .mdx, .markdown, .rst, .txt). Ask the user to switch to agent mode to change code.";
+
+/**
+ * The message that explains a write the policy allows but the workspace does not
+ * contain. It names both the destination and the root so the model can move the
+ * file rather than reword the same call, and it reads the same way as the note in
+ * front of a permission prompt and as the refusal a headless run returns.
+ */
+export function outsideWorkspaceNotice(filePath: unknown): string {
+  const named =
+    typeof filePath === "string" && filePath.trim() !== ""
+      ? filePath
+      : "the path this call names";
+  return `Outside the workspace: ${named} is not inside ${workspaceRoot()}. A write into another directory is the user's own decision, so approve this one or keep the write inside the workspace.`;
+}
 
 /**
  * Checks if a tool name matches a pattern.
@@ -184,6 +199,28 @@ export function checkToolPermission(
         permission: "exclude",
         matchedPolicy,
         reason: DOCUMENT_ONLY_MODE_DENIAL,
+      };
+    }
+  }
+
+  // A write that lands outside the workspace is not the same decision as one
+  // inside it, so an allow policy does not get to make it alone: the call is
+  // escalated to the human, and a run with no human refuses. Only a real call is
+  // judged, because the tool listing probe carries no path and escalating there
+  // would drop the write tools from the request entirely.
+  if (matchedPolicy?.workspaceOnly) {
+    const filePath =
+      toolCall.arguments?.filepath ?? toolCall.arguments?.file_path;
+    const hasArguments =
+      typeof toolCall.arguments === "object" &&
+      toolCall.arguments !== null &&
+      Object.keys(toolCall.arguments).length > 0;
+
+    if (hasArguments && !isWithinWorkspace(filePath)) {
+      return {
+        permission: "ask",
+        matchedPolicy,
+        reason: outsideWorkspaceNotice(filePath),
       };
     }
   }
