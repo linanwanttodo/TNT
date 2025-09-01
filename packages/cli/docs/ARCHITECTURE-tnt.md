@@ -264,7 +264,12 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   events fire in headless runs too: a `tnt -p` session emits SessionStart,
   UserPromptSubmit, Stop and SessionEnd around its turn, and a blocking
   UserPromptSubmit ends the run with a nonzero exit - the contract a CI job's
-  hooks.json depends on (serve still fires the tool hooks only). A SessionStart
+  hooks.json depends on (serve still fires the tool hooks only). PreCompact is
+  fired by the engine that compacts, before it summarizes, so a headless or serve
+  run tells the hooks too - it used to be a TUI event, and the TUI announced it
+  after the fact. A hook that blocks it is obeyed: the run continues with the
+  history it has, and an oversized request is reported rather than summarized
+  behind the hook's back. A SessionStart
   hook's stdout is context for the model and the session has no message to carry
   it yet, so it is held and prepended to the run's first prompt ahead of any
   UserPromptSubmit note, with the user's own text last. The `transcript_path` in
