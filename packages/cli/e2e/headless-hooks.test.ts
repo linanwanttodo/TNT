@@ -121,4 +121,52 @@ describe("E2E: Headless lifecycle hooks", () => {
     // only the session boundaries land in the log; the session still ends.
     expect(log.trim().split("\n")).toEqual(["SessionStart", "SessionEnd"]);
   }, 30000);
+
+  it("carries a SessionStart note into the request and names a readable transcript", async () => {
+    const transcriptRecord = path.join(context.testDir, "transcript-seen.txt");
+    const scriptPath = path.join(context.testDir, "sessionStartHook.cjs");
+    await fs.writeFile(
+      scriptPath,
+      [
+        'let data = "";',
+        'process.stdin.on("data", (chunk) => (data += chunk));',
+        'process.stdin.on("end", () => {',
+        '  const input = JSON.parse(data || "{}");',
+        `  require("fs").writeFileSync(${JSON.stringify(
+          transcriptRecord,
+        )}, input.transcript_path ?? "");`,
+        '  console.log("always answer in one word");',
+        "});",
+      ].join("\n"),
+    );
+    await plantPlugin({
+      SessionStart: [
+        {
+          matcher: "*",
+          hooks: [{ type: "command", command: `node "${scriptPath}"` }],
+        },
+      ],
+    });
+
+    const result = await runCLI(context, {
+      args: ["-p", "--config", context.configPath, "hi"],
+      env: pluginEnv(),
+      timeout: 15000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    // The stdout of a SessionStart hook is context for the model. It was fired,
+    // collected and dropped, so the hook only ever cost time.
+    const userMessage = mockServer.requests[0].body.messages.find(
+      (message: any) => message.role === "user",
+    );
+    expect(JSON.stringify(userMessage?.content)).toContain(
+      "always answer in one word",
+    );
+
+    // And the transcript a hook is pointed at is the session file, which exists.
+    const seen = await fs.readFile(transcriptRecord, "utf-8");
+    expect(seen).toMatch(/\.json$/);
+    await fs.access(seen);
+  }, 30000);
 });
