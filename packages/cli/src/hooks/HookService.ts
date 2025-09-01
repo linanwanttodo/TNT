@@ -84,7 +84,12 @@ export class HookService extends BaseService<HookServiceState> {
     }
 
     try {
-      const result = await runHooks(this.currentState.config, input, this.cwd);
+      const result = await runHooks(
+        this.currentState.config,
+        input,
+        this.cwd,
+        this.currentState.onceKeys,
+      );
       return result;
     } catch (error) {
       logger.warn(`Hook event ${input.hook_event_name} failed:`, error);

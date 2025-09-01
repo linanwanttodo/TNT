@@ -269,10 +269,14 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   run tells the hooks too - it used to be a TUI event, and the TUI announced it
   after the fact. A hook that blocks it is obeyed: the run continues with the
   history it has, and an oversized request is reported rather than summarized
-  behind the hook's back. A SessionStart
-  hook's stdout is context for the model and the session has no message to carry
-  it yet, so it is held and prepended to the run's first prompt ahead of any
-  UserPromptSubmit note, with the user's own text last. The `transcript_path` in
+  behind the hook's back. A handler marked `once` runs the first time its event
+  fires and is spent for the rest of the process; the spent set belongs to
+  `HookService` because that is what lives as long as the session, the settings
+  file is not rewritten to forget it, and handlers are marked before they run so
+  two events in flight cannot both get one. A SessionStart hook's stdout is
+  context for the model and the session has no message to carry it yet, so it is
+  held and prepended to the run's first prompt ahead of any UserPromptSubmit note,
+  with the user's own text last. The `transcript_path` in
   every hook input is the session file itself, because that is what a resumed run
   reads; it used to be sent as an empty string, which told an auditing hook there
   was nothing to audit. Thirteen of the seventeen declared events are fired;
