@@ -8,7 +8,11 @@ interface AppRootProps {
   configPath?: string;
   initialPrompt?: string;
   resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
   fork?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
   additionalRules?: string[];
   additionalPrompts?: string[];
 }

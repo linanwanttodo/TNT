@@ -30,7 +30,7 @@ import {
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
-import { startTUIChat } from "../ui/index.js";
+import { startTUIChat, type StartTUIChatOptions } from "../ui/index.js";
 import { gracefulExit } from "../utils/exit.js";
 import { formatAnthropicError, formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
@@ -615,11 +615,14 @@ export async function chat(prompt?: string, options: ChatOptions = {}) {
       );
 
       // Start TUI with skipOnboarding since we already handled it
-      const tuiOptions: any = {
+      const tuiOptions: StartTUIChatOptions & {
+        customStdin?: NodeJS.ReadStream;
+      } = {
         initialPrompt,
         resume: options.resume,
         sessionId: options.sessionId,
         fork: options.fork,
+        maxSteps: options.maxSteps,
         config: options.config,
         org: options.org,
         rule: options.rule,

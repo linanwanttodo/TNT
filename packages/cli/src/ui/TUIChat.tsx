@@ -49,6 +49,8 @@ interface TUIChatProps {
   /** Specific session a resume should open; omitted means the newest root. */
   sessionId?: string;
   fork?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
   additionalRules?: string[];
   additionalPrompts?: string[];
 }
@@ -164,6 +166,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
   resume,
   sessionId,
   fork,
+  maxSteps,
   additionalRules,
   additionalPrompts,
 }) => {
@@ -269,6 +272,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     resume,
     sessionId,
     fork,
+    maxSteps,
     additionalRules,
     additionalPrompts,
     onShowConfigSelector: () => navigateTo("config"),

@@ -61,6 +61,7 @@ export function useChat({
   resume,
   sessionId,
   fork,
+  maxSteps,
   additionalRules,
   additionalPrompts,
   onShowConfigSelector,
@@ -354,6 +355,7 @@ export function useChat({
         controller,
         streamCallbacks,
         currentCompactionIndex,
+        maxSteps,
       });
 
       // Save the updated session with the latest chat history that includes the assistant's reply
