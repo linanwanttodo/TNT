@@ -1,6 +1,13 @@
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import {
+  fireSessionEnd,
+  fireSessionStart,
+  fireStop,
+  fireUserPromptSubmit,
+  takeSessionStartContext,
+} from "../hooks/fireHook.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { updateSessionTitle } from "../session/index.js";
@@ -31,6 +38,56 @@ export function removePartialAssistantMessage(
       sessionHistory.pop();
     }
   }
+}
+
+/**
+ * Announce a served session. The server hosts one session for its whole life, so
+ * SessionStart and SessionEnd belong to the process, not to a request: without
+ * them a hooks.json written for the reference sees tool calls but no session in
+ * a `tnt serve` deployment, which is the mode the web client uses.
+ */
+export async function startServedSession(
+  resumed: boolean,
+  model?: string,
+): Promise<void> {
+  await fireSessionStart(resumed ? "resume" : "startup", model).catch(() => {});
+}
+
+export async function endServedSession(
+  reason: "clear" | "logout" | "prompt_input_exit" | "other",
+): Promise<void> {
+  await fireSessionEnd(reason).catch(() => {});
+}
+
+/**
+ * The prompt as the model should see it: a UserPromptSubmit hook may block the
+ * turn or add context to it, and the note a SessionStart hook wrote for the
+ * session leads on the first prompt only.
+ */
+export async function prepareServedPrompt(message: string): Promise<{
+  text: string;
+  blocked: boolean;
+  blockReason?: string;
+}> {
+  const promptHook = await fireUserPromptSubmit(message).catch(() => null);
+  if (promptHook?.blocked) {
+    return {
+      text: message,
+      blocked: true,
+      blockReason: promptHook.blockReason,
+    };
+  }
+  const notes = [takeSessionStartContext(), promptHook?.additionalContext]
+    .filter((note): note is string => Boolean(note))
+    .join("\n\n");
+  return { text: notes ? `${notes}\n\n${message}` : message, blocked: false };
+}
+
+/** A served turn that produced an answer is a Stop; an interrupted one is not. */
+export async function finishServedTurn(
+  lastAssistantMessage: string,
+): Promise<void> {
+  await fireStop(lastAssistantMessage).catch(() => {});
 }
 
 /**

@@ -4,6 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSession, getCurrentSession } from "../session/index.js";
 
 import {
+  endServedSession,
+  finishServedTurn,
+  prepareServedPrompt,
+  startServedSession,
   streamServeResponse,
   titleServeSessionIfUntitled,
 } from "./serve.helpers.js";
@@ -12,6 +16,29 @@ const { streamChatResponse } = vi.hoisted(() => ({
   streamChatResponse: vi.fn(async (..._args: unknown[]) => "ok"),
 }));
 vi.mock("../stream/streamChatResponse.js", () => ({ streamChatResponse }));
+
+const hooks = vi.hoisted(() => {
+  const ok = async (
+    ..._args: unknown[]
+  ): Promise<Partial<import("../hooks/types.js").HookEventResult>> => ({
+    blocked: false,
+    results: [],
+  });
+  return {
+    userPromptSubmit: vi.fn(ok),
+    sessionStart: vi.fn(ok),
+    sessionStartContext: vi.fn(() => undefined as string | undefined),
+    sessionEnd: vi.fn(ok),
+    stop: vi.fn(ok),
+  };
+});
+vi.mock("../hooks/fireHook.js", () => ({
+  fireUserPromptSubmit: (...args: unknown[]) => hooks.userPromptSubmit(...args),
+  fireSessionStart: (...args: unknown[]) => hooks.sessionStart(...args),
+  fireSessionEnd: (...args: unknown[]) => hooks.sessionEnd(...args),
+  fireStop: (...args: unknown[]) => hooks.stop(...args),
+  takeSessionStartContext: () => hooks.sessionStartContext(),
+}));
 
 beforeEach(() => {
   streamChatResponse.mockClear();
@@ -166,5 +193,92 @@ describe("serve session titles", () => {
 
     expect(title).toBeUndefined();
     expect(llmApi.chatCompletionNonStream).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `tnt serve` is the mode the web client uses, and it fired no lifecycle event
+ * at all: a hooks.json written for the reference saw tool calls with no session
+ * around them.
+ */
+describe("serve lifecycle hooks", () => {
+  beforeEach(() => {
+    hooks.userPromptSubmit.mockReset();
+    hooks.userPromptSubmit.mockResolvedValue({ blocked: false, results: [] });
+    hooks.sessionStart.mockReset();
+    hooks.sessionEnd.mockReset();
+    hooks.stop.mockReset();
+    hooks.sessionStartContext.mockReset();
+    hooks.sessionStartContext.mockReturnValue(undefined);
+  });
+
+  it("announces the session it is about to host", async () => {
+    await startServedSession(true, "gpt-4");
+    expect(hooks.sessionStart).toHaveBeenCalledWith("resume", "gpt-4");
+
+    await startServedSession(false, "gpt-4");
+    expect(hooks.sessionStart).toHaveBeenCalledWith("startup", "gpt-4");
+  });
+
+  it("ends the session on the way out", async () => {
+    await endServedSession("other");
+    expect(hooks.sessionEnd).toHaveBeenCalledWith("other");
+  });
+
+  it("asks the prompt hook before the message reaches the history", async () => {
+    hooks.userPromptSubmit.mockResolvedValue({
+      blocked: false,
+      results: [],
+      additionalContext: "style: two spaces",
+    });
+
+    const prepared = await prepareServedPrompt("fix the file");
+
+    expect(hooks.userPromptSubmit).toHaveBeenCalledWith("fix the file");
+    expect(prepared.blocked).toBe(false);
+    expect(prepared.text).toBe("style: two spaces\n\nfix the file");
+  });
+
+  it("leads with the session note on the first prompt only", async () => {
+    hooks.sessionStartContext.mockReturnValueOnce("repo uses pnpm");
+    hooks.userPromptSubmit.mockResolvedValue({
+      blocked: false,
+      results: [],
+      additionalContext: "style: two spaces",
+    });
+
+    const first = await prepareServedPrompt("one");
+    const second = await prepareServedPrompt("two");
+
+    expect(first.text).toBe("repo uses pnpm\n\nstyle: two spaces\n\none");
+    expect(second.text).toBe("style: two spaces\n\ntwo");
+  });
+
+  it("surfaces a refused prompt instead of running the turn", async () => {
+    hooks.userPromptSubmit.mockResolvedValue({
+      blocked: true,
+      blockReason: "no deploys from serve",
+      results: [],
+    });
+
+    const prepared = await prepareServedPrompt("deploy it");
+
+    expect(prepared.blocked).toBe(true);
+    expect(prepared.blockReason).toBe("no deploys from serve");
+  });
+
+  it("treats a finished turn as a Stop", async () => {
+    await finishServedTurn("done, tests pass");
+
+    expect(hooks.stop).toHaveBeenCalledWith("done, tests pass");
+  });
+
+  it("survives a hook that throws", async () => {
+    hooks.userPromptSubmit.mockRejectedValue(new Error("boom"));
+
+    const prepared = await prepareServedPrompt("keep going");
+
+    expect(prepared.blocked).toBe(false);
+    expect(prepared.text).toBe("keep going");
   });
 });
