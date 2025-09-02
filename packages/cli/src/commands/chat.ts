@@ -7,6 +7,7 @@ import { ChatHistoryItem, Session } from "core";
 import { ChatDescriber } from "core/util/chatDescriber.js";
 
 import { expandMentions } from "../agent/atMentions.js";
+import { describeChangedFiles } from "../agent/changedFiles.js";
 import {
   compactChatHistory,
   findCompactionIndex,
@@ -582,11 +583,12 @@ async function runHeadlessMode(
       await gracefulExit(1);
       return;
     }
-    // The session note leads and the prompt note follows: both are context the
-    // hook author wrote for the model, and the user's own text stays last.
+    // The session note leads, then the prompt note, then the files that moved:
+    // all three are context for the model, and the user's own text stays last.
     const hookNotes = [
       takeSessionStartContext(),
       promptHook?.additionalContext,
+      describeChangedFiles(),
     ];
     const leading = hookNotes.filter((note): note is string => Boolean(note));
     if (leading.length > 0) {

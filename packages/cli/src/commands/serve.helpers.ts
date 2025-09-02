@@ -1,6 +1,7 @@
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import { describeChangedFiles } from "../agent/changedFiles.js";
 import {
   fireSessionEnd,
   fireSessionStart,
@@ -77,7 +78,11 @@ export async function prepareServedPrompt(message: string): Promise<{
       blockReason: promptHook.blockReason,
     };
   }
-  const notes = [takeSessionStartContext(), promptHook?.additionalContext]
+  const notes = [
+    takeSessionStartContext(),
+    promptHook?.additionalContext,
+    describeChangedFiles(),
+  ]
     .filter((note): note is string => Boolean(note))
     .join("\n\n");
   return { text: notes ? `${notes}\n\n${message}` : message, blocked: false };

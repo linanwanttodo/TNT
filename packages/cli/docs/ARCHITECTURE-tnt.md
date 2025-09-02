@@ -69,7 +69,13 @@ mtime or inode moved since that record and `Write` refuses the same; a file that
 was never read through TNT is still written, because no claim about its contents
 was made. The deciding check sits in `run`, not in the preview: the replacement is
 computed while planning, and a permission prompt can outlast that, so the bytes
-about to be replaced are compared against the content the plan was built from. A
+about to be replaced are compared against the content the plan was built from.
+Refusing is correct but expensive - it costs the model a call to find out what it
+could have been told - so `src/agent/changedFiles.ts` also says it up front: a
+note naming the files that moved since they were read, ahead of the user's text on
+the next prompt, once per change (`fileState` remembers what it announced and
+forgets the reminder when the file is read again), capped at eight paths with the
+rest counted so a mass reformat cannot spend the turn's budget on filenames. A
 rewrite in the same millisecond that keeps the same size and inode stays
 undetectable - content hashing would catch it at the cost of reading every target
 twice per edit.
