@@ -234,7 +234,12 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   directory are substituted into plugin content.
 - `src/plugins/loader.ts` resolves hooks, commands, agents, skills, MCP servers,
   output styles and LSP server declarations, and blocks reserved marketplace
-  names.
+  names. A contributed agent is named `<plugin>:<file>` the way a contributed
+  command already was, because the model asks for an agent by that name and two
+  plugins shipping `agents/review.md` under bare names meant the one it got
+  depended on directory order; a second file that would reuse a name is skipped
+  with a warning naming both paths. Markdown files are read in sorted order, so
+  the listing a model sees does not change between runs.
 - `src/plugins/marketplaceRegistry.ts` and `marketplaceSources.ts` register a
   marketplace and fetch it from `directory`, `file`, `url`, `github`, `git` or
   `npm`. Git runs with credential prompts disabled and strict host key

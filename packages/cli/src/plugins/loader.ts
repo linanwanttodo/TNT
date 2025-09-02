@@ -238,8 +238,23 @@ function loadPluginHooks(plugins: LoadedPlugin[]): PluginHooks {
   return { config, disabled };
 }
 
+/**
+ * Directory order is the filesystem's, not the manifest's, and both lists below
+ * reach the model: an agent listing and a slash-command palette whose order
+ * changes between runs is a prefix that cannot stay cached, and a first-match
+ * lookup that can pick a different file each boot. Sorting makes both a pure
+ * function of the installed files.
+ */
+function sortedMarkdownFiles(dir: string): string[] {
+  return fs
+    .readdirSync(dir)
+    .filter((file) => file.endsWith(".md"))
+    .sort();
+}
+
 function loadPluginCommands(plugins: LoadedPlugin[]): PluginCommands[] {
   const commands: PluginCommands[] = [];
+  const taken = new Set<string>();
 
   for (const plugin of plugins) {
     const declared = expandListField(plugin.manifest.commands);
@@ -252,13 +267,23 @@ function loadPluginCommands(plugins: LoadedPlugin[]): PluginCommands[] {
         : path.join(plugin.path, entry.replace(/^\.\//, ""));
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
 
-      for (const file of fs.readdirSync(dir)) {
-        if (!file.endsWith(".md")) continue;
+      for (const file of sortedMarkdownFiles(dir)) {
         const fullPath = path.join(dir, file);
+        const name = `${plugin.name}:${path.basename(file, ".md")}`;
+        if (taken.has(name)) {
+          // A manifest may list the same directory twice, or list two that hold
+          // the same file name. Dropping the copy silently would leave the model
+          // with a command whose body depends on scan order.
+          logger.warn(
+            `Duplicate plugin command ${name} at ${fullPath}: keeping the first`,
+          );
+          continue;
+        }
         try {
           const content = fs.readFileSync(fullPath, "utf-8");
+          taken.add(name);
           commands.push({
-            name: `${plugin.name}:${path.basename(file, ".md")}`,
+            name,
             description: plugin.description ?? `Plugin ${plugin.name}`,
             content: substitutePluginVariables(content, plugin),
           });
@@ -274,6 +299,7 @@ function loadPluginCommands(plugins: LoadedPlugin[]): PluginCommands[] {
 
 function loadPluginAgents(plugins: LoadedPlugin[]): PluginAgents[] {
   const agents: PluginAgents[] = [];
+  const taken = new Set<string>();
 
   for (const plugin of plugins) {
     const declared = expandListField(plugin.manifest.agents);
@@ -286,13 +312,23 @@ function loadPluginAgents(plugins: LoadedPlugin[]): PluginAgents[] {
         : path.join(plugin.path, entry.replace(/^\.\//, ""));
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
 
-      for (const file of fs.readdirSync(dir)) {
-        if (!file.endsWith(".md")) continue;
+      for (const file of sortedMarkdownFiles(dir)) {
         const fullPath = path.join(dir, file);
+        // The agent a model asks for is found by this name, and two plugins can
+        // both ship agents/review.md. Bare names made the winner depend on install
+        // order, so the plugin is part of the name, exactly as it is for commands.
+        const name = `${plugin.name}:${path.basename(file, ".md")}`;
+        if (taken.has(name)) {
+          logger.warn(
+            `Duplicate plugin agent ${name} at ${fullPath}: keeping the first`,
+          );
+          continue;
+        }
         try {
           const content = fs.readFileSync(fullPath, "utf-8");
+          taken.add(name);
           agents.push({
-            name: path.basename(file, ".md"),
+            name,
             description: plugin.description,
             content: substitutePluginVariables(content, plugin),
           });
@@ -333,7 +369,8 @@ function safeReaddir(dir: string): string[] {
   try {
     return fs
       .readdirSync(dir)
-      .filter((entry) => fs.statSync(path.join(dir, entry)).isDirectory());
+      .filter((entry) => fs.statSync(path.join(dir, entry)).isDirectory())
+      .sort();
   } catch {
     return [];
   }
