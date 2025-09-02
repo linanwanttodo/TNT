@@ -201,6 +201,12 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   the file in `fileState`, so an edit after a mention is allowed while an outside
   change to it is still caught. Files the interface already attached are not paid
   for twice.
+- `Search` bounds its own output and says what it left out: at most
+  `CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS` match lines (100, or the call's
+  `head_limit` up to 500), and no line over 1,000 characters, with the omitted
+  count named in the answer. Dropping a line used to be invisible, and when every
+  line was dropped the tool answered "No matches found" - a pattern that had hit
+  was reported as a miss, and the model went and searched for it again.
 - `src/stream/toolResultStorage.ts` bounds what one tool answer costs for the rest
   of the session. A result over `CONTINUE_CLI_MAX_TOOL_RESULT_CHARS` (25,000 by
   default) is written whole under `tool-results/<session>/` beside the session

@@ -98,7 +98,11 @@ describe("searchCodeTool", () => {
 
       expect(result).toContain("path/file.ts:2:match");
       expect(result).not.toContain(long);
-      expect(result).not.toContain("[Results truncated:");
+      // Dropping a line used to be invisible; the count of what was left out is
+      // now part of the answer, so this is the message the tool owes the model.
+      expect(result).toContain(
+        "[Results truncated: 1 match line(s) over 1000 characters were not shown]",
+      );
     });
 
     it("hands the pattern to the program as one argument", async () => {
@@ -158,5 +162,63 @@ describe("searchCodeTool", () => {
       }
       expect(options.length).toBeGreaterThan(0);
     });
+  });
+});
+
+/**
+ * The per-line cap dropped matches in silence and, when it dropped all of them,
+ * the tool answered "No matches found" - the model was told the pattern was wrong
+ * when the search had found it the first time.
+ */
+describe("search result limits", () => {
+  const long = "a".repeat(1001);
+
+  async function runWith(stdout: string, args: Record<string, unknown>) {
+    const childProc = await import("child_process");
+    vi.mocked(childProc.execFile as any).mockImplementation(
+      (...callArgs: any[]) => {
+        const cb = callArgs[callArgs.length - 1];
+        cb(null, stdout, "");
+        return {} as any;
+      },
+    );
+    const { searchCodeTool } = await import("./searchCode.js");
+    return searchCodeTool.run({ pattern: "match", path: ".", ...args } as any);
+  }
+
+  it("does not report no matches when every match was too long to show", async () => {
+    const result = await runWith(`file.ts:1:${long}`, {});
+
+    expect(result).not.toContain("No matches found");
+    expect(result).toContain("Matches found");
+    expect(result).toContain(
+      "all 1 line(s) are longer than the 1000-character limit",
+    );
+  });
+
+  it("counts the long lines it left out alongside the ones it shows", async () => {
+    const result = await runWith(`file.ts:1:match\nfile.ts:2:${long}\n`, {});
+
+    expect(result).toContain("file.ts:1:match");
+    expect(result).toContain(
+      "1 match line(s) over 1000 characters were not shown",
+    );
+  });
+
+  it("takes a smaller line count from the caller", async () => {
+    const result = await runWith("a.ts:1:one\nb.ts:1:two\nc.ts:1:three\n", {
+      head_limit: 2,
+    });
+
+    expect(result).toContain("a.ts:1:one");
+    expect(result).toContain("b.ts:1:two");
+    expect(result).not.toContain("c.ts:1:three");
+    expect(result).toContain("showing 2 of 3 matches");
+  });
+
+  it("still says there are no matches when the search truly found none", async () => {
+    const result = await runWith("   ", {});
+
+    expect(result).toContain("No matches found for pattern");
   });
 });
