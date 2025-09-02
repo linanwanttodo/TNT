@@ -51,6 +51,8 @@ interface ServeOptions extends ExtendedCommandOptions {
   port?: string;
   /** Storage identifier for remote sync */
   id?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
 }
 
 /**
@@ -458,6 +460,9 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
           llmApi,
           state.currentAbortController,
           () => false,
+          options.maxSteps === undefined
+            ? undefined
+            : { maxSteps: options.maxSteps },
         );
 
         // No direct persistence here; ChatHistoryService handles persistence when appropriate

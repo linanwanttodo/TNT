@@ -116,6 +116,7 @@ export function mergeParentOptions(parentCommand: Command, options: any): any {
     "ask",
     "exclude",
     "agent",
+    "maxSteps",
   ];
 
   for (const optName of inheritableOptions) {
