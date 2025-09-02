@@ -132,6 +132,28 @@ describe("delegated session persistence", () => {
     expect(getCurrentSession().sessionId).toBe(first);
   });
 
+  it("resumes only conversations from the current directory", () => {
+    updateSessionHistory(childHistory);
+    const mine = getCurrentSession().sessionId;
+
+    // A newer conversation that belongs to another project.
+    const foreignId = `foreign-${Date.now()}`;
+    const foreignPath = path.join(sessionDir, `${foreignId}.json`);
+    fs.writeFileSync(
+      foreignPath,
+      JSON.stringify({
+        sessionId: foreignId,
+        title: "Other project",
+        workspaceDirectory: "/some/other/project",
+        history: [],
+      }),
+    );
+    const future = new Date(Date.now() + 10_000);
+    fs.utimesSync(foreignPath, future, future);
+
+    expect(loadSession()?.sessionId).toBe(mine);
+  });
+
   it("resumes a requested session, and the newest root without one", () => {
     updateSessionHistory(childHistory);
     const older = getCurrentSession().sessionId;

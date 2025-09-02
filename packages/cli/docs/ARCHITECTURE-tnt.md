@@ -361,8 +361,11 @@ Stated as gaps, not as intentions:
    transcripts, a resumed child keeps its depth, and resume restores goal and
    style; selecting a conversation (`tnt ls` or the in-TUI picker) loads it
    and moves the `SessionManager`, with the id travelling through typed
-   options so a dropped hop is a compile error. A new session is titled on
-   the first assistant response in both the TUI and headless runs. Known
+   options so a dropped hop is a compile error. A plain `--resume` opens the
+   newest root conversation of the current directory only - crossing into
+   another project's transcript is what the picker is for. A new session is
+   titled on the first assistant response in both the TUI and headless runs.
+   Known
    limit: `sessions.json` is a read-modify-write file, so two `tnt` processes
    saving in the same instant can lose one list entry - the session file
    itself is safe (atomic write) and stays loadable by id. `clearSession`

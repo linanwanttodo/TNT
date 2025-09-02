@@ -499,7 +499,8 @@ describe("SessionManager", () => {
       const mockSession: Session = {
         sessionId: "loaded-session-id",
         title: "Loaded Session",
-        workspaceDirectory: "/test/workspace",
+        // Resume without an id only opens conversations from this directory.
+        workspaceDirectory: process.cwd(),
         history: [],
       };
 

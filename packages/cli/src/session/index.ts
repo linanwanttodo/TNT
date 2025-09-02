@@ -418,11 +418,20 @@ export function loadSession(): Session | null {
       .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
 
     // A delegated run is reachable from its parent, so resume must land on a
-    // root conversation even when the child transcript was written last.
+    // root conversation even when the child transcript was written last, and
+    // a resume without an explicit id stays inside the current workspace: the
+    // picker is the cross-directory path, so a plain --resume in one project
+    // must not open another project's conversation.
+    const currentWorkspace = process.cwd().toLowerCase();
     let session: Session | null = null;
     for (const file of files) {
       const parsed: Session = JSON.parse(fs.readFileSync(file.path, "utf8"));
       if (parsed.parentSessionId) {
+        continue;
+      }
+      if (
+        (parsed.workspaceDirectory ?? "").toLowerCase() !== currentWorkspace
+      ) {
         continue;
       }
       session = parsed;
