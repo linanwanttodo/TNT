@@ -40,7 +40,8 @@ export function generateDiff(
 export const writeFileTool: Tool = {
   name: "Write",
   displayName: "Write",
-  description: "Write content to a file at the specified path",
+  description: `Write content to a file at the specified path, replacing the file's whole contents.
+To change part of an existing file, prefer Edit: it sends the difference, leaves the rest alone, and refuses the change if the file moved since it was read. Use this for a new file or when every line is being rewritten.`,
   parameters: {
     type: "object",
     required: ["filepath", "content"],

@@ -166,6 +166,21 @@ through. What an approval still does not have is an expiry: a written rule lives
 in `permissions.yaml` until it is removed, which is a stated gap rather than a
 behaviour to rely on.
 
+How the agent should behave is said in two places, chosen by how often it applies.
+`src/agent/systemMessage.ts` carries the standing clauses - look before claiming,
+read before editing, no unrequested refactoring, no comments by default, verify
+before reporting and never claim a suite passed unseen, one approval is not a
+standing approval, and write the ending for someone who just stepped away. They are
+static text with no interpolated state, which is what keeps the cached prefix
+byte-identical across turns and reloads (a test compares two builds of the
+message). Guidance about a _single call_ belongs in that call's own `description`,
+where the model is reading it at the moment it chooses the arguments: `Read` states
+its line and character ceiling and the `start_line`/`end_line` range that beats it,
+`Write` says to prefer `Edit` because Edit sends a difference, and `Search` says
+what it will leave out. `Read` refuses an oversized file rather than truncating it
+silently, and now offers the range in the refusal instead of pointing the model at
+`head`/`sed`.
+
 ## 3. Todo layer
 
 `src/tools/todo.ts` gives the model an explicit, ordered work list that
