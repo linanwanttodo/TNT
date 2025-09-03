@@ -128,7 +128,9 @@ export const todoTool: Tool = {
   displayName: "Todo",
   description: `Manage the todo list for the current task. Actions: list, add (text), toggle (id), clear.
 Use this to plan multi-step work and to keep the user informed about progress.
-In plan mode, use it to record the implementation plan as todos.`,
+In plan mode, use it to record the implementation plan as todos.
+WHEN TO USE IT: work with three or more steps. A single trivial task does not need a list, and neither does a question you can just answer.
+WHEN TO UPDATE IT: keep exactly one item in_progress - two means the list is not telling the truth. Do not mark an item completed while its test still fails, its implementation is partial, or you have not verified the result; fix that item or reopen it instead.`,
   readonly: true,
   isBuiltIn: true,
   parameters: {

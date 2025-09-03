@@ -26,6 +26,16 @@ export function generateSubagentToolDescription(): string {
 
 Call the agent listing tool to discover which agents are available before
 choosing one.
+
+WRITE THE PROMPT LIKE A BRIEF FOR A COLLEAGUE WHO JUST WALKED IN. They have not
+seen this conversation, so state what is being accomplished, what has already been
+tried or ruled out, and the file paths and line numbers involved.
+Never delegate understanding. "Based on your findings, fix it" is not a brief: say
+what to change and where, in the same detail you would write yourself.
+Do not delegate a lookup. If you know which file or symbol you want, read it with
+Read or Search yourself - a subagent costs a whole run to do one lookup.
+While one is working, do not repeat its search. Wait for its report and use it;
+duplicated work costs the context both of you are sharing.
 `;
 }
 
