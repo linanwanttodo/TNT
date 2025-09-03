@@ -13,6 +13,10 @@ const { streamChatResponse } = vi.hoisted(() => ({
 }));
 vi.mock("../stream/streamChatResponse.js", () => ({ streamChatResponse }));
 
+beforeEach(() => {
+  streamChatResponse.mockClear();
+});
+
 const state = {
   session: { history: [] },
   model: {},
@@ -28,10 +32,6 @@ const state = {
  * this wiring existed; the headless and TUI paths already pass the budget.
  */
 describe("serve stream turn budget", () => {
-  beforeEach(() => {
-    streamChatResponse.mockClear();
-  });
-
   it("passes the step budget to the stream", async () => {
     await streamChatResponseWithInterruption(
       state as never,
@@ -61,6 +61,43 @@ describe("serve stream turn budget", () => {
     );
 
     expect(streamChatResponse.mock.calls[0][6]).toBeUndefined();
+  });
+});
+
+/**
+ * Serve seeds the session with the system prompt and the request header
+ * injects the same prompt, so streams used to carry two system messages.
+ */
+describe("serve request history", () => {
+  it("drops the seeded system message the header re-injects", async () => {
+    const history = [
+      { message: { role: "system", content: "system" }, contextItems: [] },
+      { message: { role: "user", content: "hi" }, contextItems: [] },
+    ] as unknown as ChatHistoryItem[];
+
+    await streamChatResponseWithInterruption(
+      { ...state, session: { history } } as never,
+      {},
+      new AbortController(),
+      () => false,
+    );
+
+    expect(streamChatResponse.mock.calls[0][0]).toEqual([history[1]]);
+  });
+
+  it("passes a history without a leading system message unchanged", async () => {
+    const history = [
+      { message: { role: "user", content: "hi" }, contextItems: [] },
+    ] as unknown as ChatHistoryItem[];
+
+    await streamChatResponseWithInterruption(
+      { ...state, session: { history } } as never,
+      {},
+      new AbortController(),
+      () => false,
+    );
+
+    expect(streamChatResponse.mock.calls[0][0]).toBe(history);
   });
 });
 

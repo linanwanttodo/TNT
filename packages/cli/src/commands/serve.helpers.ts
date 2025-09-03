@@ -120,9 +120,18 @@ export async function streamChatResponseWithInterruption(
     },
   };
 
+  // The session history keeps the system prompt at its head for the /state
+  // snapshot, but the request header re-injects the same prompt (the same
+  // constructSystemMessage inputs), so a leading system item would be sent
+  // twice. The stream gets the history without it.
+  const history =
+    state.session.history[0]?.message?.role === "system"
+      ? state.session.history.slice(1)
+      : state.session.history;
+
   try {
     const response = await streamChatResponse(
-      state.session.history,
+      history,
       state.model,
       llmApi,
       abortController,
