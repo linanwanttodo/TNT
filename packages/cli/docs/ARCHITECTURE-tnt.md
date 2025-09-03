@@ -75,7 +75,10 @@ Runtime enforcement is in `src/permissions/permissionChecker.ts`. When it
 refuses, the reason string is carried to the model as the tool result message
 (`src/stream/streamChatResponse.helpers.ts`), so the model can correct itself
 instead of retrying blind. This is why `plan` can produce a written plan but not
-touch code.
+touch code. A headless run cannot prompt, so its default policies allow what
+the TUI asks about - Edit, MultiEdit, Write and Bash - and the request carries
+those tools; `--ask` and `--exclude` still narrow a run, and a tool left on
+`ask` in headless is withheld rather than silently allowed.
 
 ## 3. Todo layer
 

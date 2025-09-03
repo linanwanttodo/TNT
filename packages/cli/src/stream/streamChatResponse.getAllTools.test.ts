@@ -182,4 +182,20 @@ describe("getRequestTools - Tool Filtering", () => {
     // turns invalidates the provider cache even though nothing changed.
     expect(second).toEqual(first);
   });
+
+  test("offers the write tools in headless mode", async () => {
+    await initializeServices({
+      headless: true,
+    });
+
+    const tools = await getRequestTools(true);
+    const toolNames = tools.map((t) => t.function.name);
+
+    // A headless run cannot prompt, so the ask-in-TUI tools behave like Bash:
+    // offered and auto-allowed. Without them a -p task could not edit files.
+    expect(toolNames).toContain("Edit");
+    expect(toolNames).toContain("Write");
+    expect(toolNames).toContain("MultiEdit");
+    expect(toolNames).toContain("Bash");
+  });
 });
