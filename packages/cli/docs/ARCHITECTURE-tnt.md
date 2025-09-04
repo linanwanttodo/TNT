@@ -151,7 +151,12 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   events fire in headless runs too: a `tnt -p` session emits SessionStart,
   UserPromptSubmit, Stop and SessionEnd around its turn, and a blocking
   UserPromptSubmit ends the run with a nonzero exit - the contract a CI job's
-  hooks.json depends on (serve still fires the tool hooks only).
+  hooks.json depends on (serve still fires the tool hooks only). A PreToolUse
+  hook's stdout fields are honored beyond its exit code: the hook runs before
+  the permission check, `permissionDecision: "allow"` skips the policy check
+  for that call, and `updatedInput` replaces the arguments the check and the
+  execution both see; `"ask"` is parsed but currently falls through to the
+  policy.
 
 A hook or plugin script that throws never aborts the agent loop; failures are
 reported and the turn continues. A command hook that outlives its timeout is
