@@ -216,6 +216,25 @@ export function trackFirstTokenTime(
   return firstTokenTime;
 }
 
+/**
+ * Hook stdout beyond the exit code. The reference delivers `additionalContext`
+ * as its own meta message; the chat protocol requires every tool call to be
+ * answered by exactly one tool message, so it rides inside that answer here,
+ * in the reference's wording so a hook author sees its own text attributed.
+ */
+function withHookContext(
+  content: string,
+  parts: Array<[string, string | undefined]>,
+): string {
+  const notes = parts
+    .filter(([, text]) => text?.trim())
+    .map(
+      ([hookName, text]) =>
+        `<system-reminder>${hookName} hook additional context: ${text?.trim()}</system-reminder>`,
+    );
+  return notes.length > 0 ? `${content}\n\n${notes.join("\n\n")}` : content;
+}
+
 // Helper function to process content from a chunk
 export function processChunkContent(
   content: string,
@@ -700,28 +719,31 @@ export async function executeStreamedToolCalls(
               parallelToolCallCount: planned?.parallelCount ?? 1,
             }),
           );
-          const entry: ToolResultWithStatus = {
-            role: "tool",
-            tool_call_id: call.id,
-            content: toolResult,
-            status: "done",
-          };
-          entriesByIndex.set(index, entry);
-          callbacks?.onToolResult?.(toolResult, call.name, "done");
-          onToolOutcome?.(call.name, true);
-          await firePostToolUse(
+          // The post hook runs before the result is published so its context
+          // can join the answer the model reads; the UI sees the call a hook's
+          // runtime later, which is the same delay the permission phase allows.
+          const postHook = await firePostToolUse(
             effectiveCall.name,
             effectiveCall.arguments,
             toolResult,
             call.id,
           );
+          const content = withHookContext(String(toolResult), [
+            [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
+            [`PostToolUse:${effectiveCall.name}`, postHook.additionalContext],
+          ]);
+          const entry: ToolResultWithStatus = {
+            role: "tool",
+            tool_call_id: call.id,
+            content,
+            status: "done",
+          };
+          entriesByIndex.set(index, entry);
+          callbacks?.onToolResult?.(content, call.name, "done");
+          onToolOutcome?.(call.name, true);
           // Immediate service update for UI feedback
           try {
-            services.chatHistory.addToolResult(
-              call.id,
-              String(toolResult),
-              "done",
-            );
+            services.chatHistory.addToolResult(call.id, content, "done");
           } catch {}
         } catch (error) {
           const errorMessage = `Error executing tool ${call.name}: ${
@@ -732,26 +754,29 @@ export async function executeStreamedToolCalls(
             name: call.name,
             error: errorMessage,
           });
-          await firePostToolUseFailure(
+          const failureHook = await firePostToolUseFailure(
             effectiveCall.name,
             effectiveCall.arguments,
             call.id,
             errorMessage,
           );
+          const content = withHookContext(errorMessage, [
+            [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
+            [
+              `PostToolUseFailure:${effectiveCall.name}`,
+              failureHook.additionalContext,
+            ],
+          ]);
           entriesByIndex.set(index, {
             role: "tool",
             tool_call_id: call.id,
-            content: errorMessage,
+            content,
             status: "errored",
           });
-          callbacks?.onToolError?.(errorMessage, call.name);
+          callbacks?.onToolError?.(content, call.name);
           // Immediate service update for UI feedback
           try {
-            services.chatHistory.addToolResult(
-              call.id,
-              errorMessage as string,
-              "errored",
-            );
+            services.chatHistory.addToolResult(call.id, content, "errored");
           } catch {}
         }
       })();
