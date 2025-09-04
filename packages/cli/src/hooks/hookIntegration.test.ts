@@ -119,7 +119,10 @@ describe("fireHook integration points", () => {
 
     expect(fireEvent.mock.calls[0][0]).toMatchObject({
       hook_event_name: "Stop",
-      stop_hook_active: true,
+      // A fresh stop, not a stop-hook continuation: TNT does not re-run the
+      // agent on a blocked Stop, so the loop guard must be false or every
+      // guard-pattern hook would skip its work.
+      stop_hook_active: false,
       last_assistant_message: "all done",
     });
   });
@@ -136,6 +139,7 @@ describe("fireHook integration points", () => {
     expect(fireEvent.mock.calls[1][0]).toMatchObject({
       hook_event_name: "SubagentStop",
       agent_id: "agent-1",
+      stop_hook_active: false,
       last_assistant_message: "found it",
     });
   });

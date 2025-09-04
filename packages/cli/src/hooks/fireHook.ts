@@ -175,7 +175,9 @@ export async function fireSubagentStop(
   const input: SubagentStopInput = {
     ...getCommonFields(),
     hook_event_name: "SubagentStop",
-    stop_hook_active: true,
+    // A stop is never a continuation here: a blocked Stop does not re-run
+    // the agent, so guard-pattern hooks must run on this first event.
+    stop_hook_active: false,
     agent_id: agentId,
     agent_transcript_path: "",
     agent_type: agentType,
@@ -241,7 +243,9 @@ export async function fireStop(
   const input: StopInput = {
     ...getCommonFields(),
     hook_event_name: "Stop",
-    stop_hook_active: true,
+    // A stop is never a continuation here: a blocked Stop does not re-run
+    // the agent, so guard-pattern hooks must run on this first event.
+    stop_hook_active: false,
     last_assistant_message: lastAssistantMessage,
   };
 
