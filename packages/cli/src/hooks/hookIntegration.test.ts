@@ -31,6 +31,7 @@ vi.mock("../session/index.js", () => ({
 import { services } from "../services/index.js";
 import {
   fireConfigChange,
+  fireNotification,
   firePermissionRequest,
   firePostToolUse,
   firePostToolUseFailure,
@@ -151,6 +152,21 @@ describe("fireHook integration points", () => {
       hook_event_name: "PreCompact",
       trigger: "auto",
       custom_instructions: null,
+    });
+  });
+
+  it("fires Notification with the type and tool title", async () => {
+    await fireNotification(
+      "TNT needs your permission to use Bash",
+      "permission_prompt",
+      "Bash",
+    );
+
+    expect(fireEvent.mock.calls[0][0]).toMatchObject({
+      hook_event_name: "Notification",
+      message: "TNT needs your permission to use Bash",
+      notification_type: "permission_prompt",
+      title: "Bash",
     });
   });
 
