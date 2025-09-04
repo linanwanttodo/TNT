@@ -232,6 +232,25 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   refused. A `<context name="userRules">` block then starts with a fixed sentence
   saying these instructions override how the agent would otherwise work, so the
   layering is stated rather than implied.
+- `normalizeUsage()` in `packages/openai-adapters/src/util.ts` is why the cache
+  numbers mean anything across providers. Each adapter used to write its own field
+  names - Anthropic `cache_read_input_tokens`, Gemini `cachedContentTokenCount`, the
+  Responses API `input_tokens_details.cached_tokens`, a Vercel or AiSdk result
+  `cacheReadTokens` - and the engine read one of them, so a Gemini or DeepSeek cache
+  hit was metered as a miss and the status bar showed a zero ratio over a warm prefix.
+  Every chat path now folds its dialect into the OpenAI names, fills both
+  `cached_tokens` and `cache_read_tokens` from whichever the provider sent, and
+  leaves a field out instead of inventing a zero, so a caller's own token estimate
+  survives. Anthropic needs one more step, done in `anthropicUsage()`: its
+  `input_tokens` counts only the fresh prefix, with the cached and newly written
+  parts reported separately, so a 100k-token cached request would otherwise have been
+  metered as twelve tokens. The CLI reads the two spellings through
+  `cacheTokensFrom()` in `src/stream/streamChatResponse.helpers.ts`, which is also
+  where reasoning tokens reach `Usage.completionTokensDetails`. Not covered: Bedrock
+  sends no usage on its chat paths at all, and Ollama's native `/api/chat` class in
+  `core/llm/llms/Ollama.ts` types `prompt_eval_count` and `eval_count` but never
+  reads them - the CLI reaches Ollama through its OpenAI-compatible endpoint, where
+  the counts do arrive and are now folded.
 - The `git status --porcelain` block is a snapshot taken at session start, and the
   prompt says so, because it cannot update itself. It is also bounded - 200 entries
   or 8,000 characters - and says how many entries it left out, since a tree with

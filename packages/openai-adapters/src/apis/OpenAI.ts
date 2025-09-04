@@ -17,7 +17,7 @@ import type {
 } from "openai/resources/responses/responses.js";
 import { z } from "zod";
 import { OpenAIConfigSchema } from "../types.js";
-import { customFetch } from "../util.js";
+import { customFetch, normalizeUsage } from "../util.js";
 import {
   BaseLlmApi,
   CreateRerankResponse,
@@ -145,7 +145,7 @@ export class OpenAIApi implements BaseLlmApi {
         signal,
       },
     );
-    return response;
+    return { ...response, usage: normalizeUsage(response.usage) };
   }
 
   async *chatCompletionStream(
@@ -169,7 +169,7 @@ export class OpenAIApi implements BaseLlmApi {
       // Check if this chunk contains usage information
       if (result.usage) {
         // Store it to emit after all content chunks
-        lastChunkWithUsage = result;
+        lastChunkWithUsage = { ...result, usage: normalizeUsage(result.usage) };
       } else {
         yield result;
       }

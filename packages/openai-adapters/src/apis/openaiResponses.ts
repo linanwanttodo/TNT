@@ -1,4 +1,5 @@
 import type { CompletionUsage } from "openai/resources/index.js";
+import { normalizeUsage } from "../util.js";
 import {
   ChatCompletion,
   ChatCompletionAssistantMessageParam,
@@ -433,17 +434,10 @@ export function toResponsesParams(
 }
 
 function mapUsage(usage?: ResponseUsage | null): CompletionUsage | undefined {
-  if (!usage) {
-    return undefined;
-  }
-
-  const mapped: CompletionUsage = {
-    completion_tokens: usage.output_tokens,
-    prompt_tokens: usage.input_tokens,
-    total_tokens: usage.total_tokens,
-  };
-
-  return mapped;
+  // The Responses API names the same counts differently and hides the cached and
+  // the reasoning parts inside *_tokens_details, which the old field-by-field
+  // copy dropped; normalizeUsage keeps both.
+  return normalizeUsage(usage);
 }
 
 interface ToolCallState {

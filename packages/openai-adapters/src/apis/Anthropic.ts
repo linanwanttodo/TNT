@@ -22,7 +22,6 @@ import {
   Completion,
   CompletionCreateParamsNonStreaming,
   CompletionCreateParamsStreaming,
-  CompletionUsage,
 } from "openai/resources/index";
 import { ChatCompletionCreateParams } from "openai/resources/index.js";
 import { AnthropicConfig } from "../types.js";
@@ -30,6 +29,8 @@ import {
   chatChunk,
   chatChunkFromDelta,
   customFetch,
+  type NormalizedUsage,
+  normalizeUsage,
   usageChatChunk,
 } from "../util.js";
 import { EMPTY_CHAT_COMPLETION } from "../util/emptyChatCompletion.js";
@@ -58,6 +59,37 @@ import {
   FimCreateParamsStreaming,
   RerankCreateParams,
 } from "./base.js";
+
+// Anthropic reports the fresh prefix, the cached part and the newly written part
+// as three separate numbers, and `input_tokens` is only the fresh one. Metered as
+// it arrives, a request that read 100k cached tokens looks like a 5-token request
+// to the cost calculation and to the cache hit ratio.
+function positive(value: unknown): number {
+  return typeof value === "number" && value > 0 ? value : 0;
+}
+
+export function anthropicUsage(raw: unknown): NormalizedUsage | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const usage = { ...(raw as Record<string, unknown>) };
+  const promptTokens =
+    positive(usage.input_tokens) +
+    positive(usage.cache_read_input_tokens) +
+    positive(usage.cache_creation_input_tokens);
+  if (promptTokens > 0) usage.prompt_tokens = promptTokens;
+  return normalizeUsage(usage);
+}
+
+// A stream reports the prefix in message_start and the completion in
+// message_delta, so the two patches merge into one record. A zero never
+// overwrites a number already known, because several events echo zeros.
+function mergeUsage(target: Record<string, unknown>, patch: unknown): void {
+  if (typeof patch !== "object" || patch === null) return;
+  for (const [key, value] of Object.entries(patch)) {
+    if (typeof value === "object" || value === undefined) continue;
+    if (value === 0 && target[key] !== undefined) continue;
+    target[key] = value;
+  }
+}
 
 export class AnthropicApi implements BaseLlmApi {
   apiBase: string = "https://api.anthropic.com/v1/";
@@ -362,22 +394,12 @@ export class AnthropicApi implements BaseLlmApi {
 
     const completion = await response.json();
 
-    const usage: Record<string, number> | undefined = completion.usage;
     return {
       id: completion.id,
       object: "chat.completion",
       model: body.model,
       created: Math.floor(Date.now() / 1000),
-      usage: {
-        total_tokens: (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
-        completion_tokens: usage?.output_tokens ?? 0,
-        prompt_tokens: usage?.input_tokens ?? 0,
-        prompt_tokens_details: {
-          cached_tokens: usage?.cache_read_input_tokens ?? 0,
-          cache_read_tokens: usage?.cache_read_input_tokens ?? 0,
-          cache_write_tokens: usage?.cache_creation_input_tokens ?? 0,
-        } as any,
-      },
+      usage: anthropicUsage(completion.usage),
       choices: [
         {
           logprobs: null,
@@ -398,11 +420,7 @@ export class AnthropicApi implements BaseLlmApi {
     let lastToolUseId: string | undefined;
     let lastToolUseName: string | undefined;
 
-    const usage: CompletionUsage = {
-      completion_tokens: 0,
-      prompt_tokens: 0,
-      total_tokens: 0,
-    };
+    const usage: Record<string, unknown> = {};
     for await (const event of streamSse(response)) {
       // https://docs.anthropic.com/en/api/messages-streaming#event-types
       const rawEvent = event as RawMessageStreamEvent;
@@ -416,19 +434,10 @@ export class AnthropicApi implements BaseLlmApi {
           break;
         case "message_start":
           const startEvent = rawEvent as RawMessageStartEvent;
-          usage.prompt_tokens = startEvent.message.usage?.input_tokens ?? 0;
-          usage.prompt_tokens_details = {
-            cache_write_tokens:
-              startEvent.message.usage?.cache_creation_input_tokens ?? 0,
-            cache_read_tokens:
-              startEvent.message.usage?.cache_read_input_tokens ?? 0,
-            cached_tokens:
-              startEvent.message.usage?.cache_read_input_tokens ?? 0,
-          } as any;
+          mergeUsage(usage, startEvent.message.usage);
           break;
         case "message_delta":
-          const deltaEvent = rawEvent as RawMessageDeltaEvent;
-          usage.completion_tokens = deltaEvent.usage?.output_tokens ?? 0;
+          mergeUsage(usage, (rawEvent as RawMessageDeltaEvent).usage);
           break;
         case "content_block_delta":
           // https://docs.anthropic.com/en/api/messages-streaming#delta-types
@@ -474,10 +483,7 @@ export class AnthropicApi implements BaseLlmApi {
 
     yield usageChatChunk({
       model,
-      usage: {
-        ...usage,
-        total_tokens: usage.completion_tokens + usage.prompt_tokens,
-      },
+      usage: anthropicUsage(usage),
     });
   }
 

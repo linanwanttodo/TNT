@@ -386,6 +386,24 @@ function calculateFallbackCost(
   return (inputTokens * 1 + outputTokens * 2) / 1_000_000;
 }
 
+/**
+ * The adapters fold every provider into one usage shape, but a request that came
+ * through core can still carry only the OpenAI spelling of a cache hit, so both
+ * names are read here and a hit is not reported as a miss because of a field name.
+ */
+export function cacheTokensFrom(usage?: any): {
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+} {
+  const details = usage?.prompt_tokens_details;
+  const cacheReadTokens = details?.cache_read_tokens ?? details?.cached_tokens;
+  const cacheWriteTokens = details?.cache_write_tokens;
+  return {
+    ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
+    ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+  };
+}
+
 // Helper function to record telemetry
 export function recordStreamTelemetry(options: {
   requestStartTime: number;
@@ -416,6 +434,7 @@ export function recordStreamTelemetry(options: {
   // Calculate cost using comprehensive pricing that includes caching
   let cost: number;
   let usage: Usage;
+  const cacheTokens = cacheTokensFrom(fullUsage);
 
   if (fullUsage) {
     // Transform API usage format to Usage interface
@@ -424,9 +443,14 @@ export function recordStreamTelemetry(options: {
       completionTokens: fullUsage.completion_tokens,
       promptTokensDetails: fullUsage.prompt_tokens_details
         ? {
-            cachedTokens: fullUsage.prompt_tokens_details.cache_read_tokens,
-            cacheWriteTokens:
-              fullUsage.prompt_tokens_details.cache_write_tokens,
+            cachedTokens: cacheTokens.cacheReadTokens,
+            cacheWriteTokens: cacheTokens.cacheWriteTokens,
+          }
+        : undefined,
+      completionTokensDetails: fullUsage.completion_tokens_details
+        ? {
+            reasoningTokens:
+              fullUsage.completion_tokens_details.reasoning_tokens,
           }
         : undefined,
     };
@@ -459,16 +483,16 @@ export function recordStreamTelemetry(options: {
   telemetryService.recordTokenUsage(actualOutputTokens, "output", model.model);
 
   // Record cache tokens if available
-  if (fullUsage?.prompt_tokens_details?.cache_read_tokens) {
+  if (cacheTokens.cacheReadTokens) {
     telemetryService.recordTokenUsage(
-      fullUsage.prompt_tokens_details.cache_read_tokens,
+      cacheTokens.cacheReadTokens,
       "cacheRead",
       model.model,
     );
   }
-  if (fullUsage?.prompt_tokens_details?.cache_write_tokens) {
+  if (cacheTokens.cacheWriteTokens) {
     telemetryService.recordTokenUsage(
-      fullUsage.prompt_tokens_details.cache_write_tokens,
+      cacheTokens.cacheWriteTokens,
       "cacheCreation",
       model.model,
     );

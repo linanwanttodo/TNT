@@ -25,6 +25,7 @@ import {
   chatChunkFromDelta,
   customFetch,
   embedding,
+  normalizeUsage,
   usageChatChunk,
 } from "../util.js";
 import {
@@ -41,11 +42,6 @@ import {
   FimCreateParamsStreaming,
   RerankCreateParams,
 } from "./base.js";
-
-type UsageInfo = Pick<
-  CompletionUsage,
-  "total_tokens" | "completion_tokens" | "prompt_tokens"
->;
 
 interface GeminiToolCall
   extends OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall {
@@ -338,7 +334,7 @@ export class GeminiApi implements BaseLlmApi {
     signal: AbortSignal,
   ): Promise<ChatCompletion> {
     let completion = "";
-    let usage: UsageInfo | undefined = undefined;
+    let usage: CompletionUsage | undefined = undefined;
     for await (const chunk of this.chatCompletionStream(
       {
         ...body,
@@ -378,15 +374,14 @@ export class GeminiApi implements BaseLlmApi {
     response: AsyncIterable<any>,
     model: string,
   ): AsyncGenerator<ChatCompletionChunk> {
-    let usage: UsageInfo | undefined = undefined;
+    let usage: CompletionUsage | undefined = undefined;
 
     for await (const chunk of response) {
       if (chunk.usageMetadata) {
-        usage = {
-          prompt_tokens: chunk.usageMetadata.promptTokenCount || 0,
-          completion_tokens: chunk.usageMetadata.candidatesTokenCount || 0,
-          total_tokens: chunk.usageMetadata.totalTokenCount || 0,
-        };
+        // promptTokenCount already includes the cached prefix, so it maps
+        // straight through; the cached and thinking parts are what the flat
+        // three-field mapping used to throw away.
+        usage = normalizeUsage(chunk.usageMetadata);
       }
 
       const contentParts = chunk?.candidates?.[0]?.content?.parts;
