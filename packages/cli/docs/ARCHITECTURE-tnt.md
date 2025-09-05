@@ -118,6 +118,16 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
 - `src/cache/promptCacheKey.ts` produces the key used to compare rounds.
 - `src/stream/streamChatResponse.ts` logs per-request cache usage, so a hit-rate
   regression is attributable to a change rather than to the vendor.
+- `src/stream/toolResultStorage.ts` bounds what one tool answer costs for the rest
+  of the session. A result over `CONTINUE_CLI_MAX_TOOL_RESULT_CHARS` (25,000 by
+  default) is written whole under `tool-results/<session>/` beside the session
+  store, and the model is handed a 2,000-character head plus that path, so the
+  remainder stays reachable instead of being cut. The call is made once, when the
+  result is created, which is what keeps the prefix intact - trimming old results
+  later would rewrite every byte after them. The store keeps the newest 50 results
+  per session, flattens a path-shaped call id into the directory rather than out of
+  it, and when the write itself fails falls back to cutting at the inline budget, so
+  a "shortened" answer is never longer than the original.
 
 Compaction trades against this: summarising history rewrites the prefix. That
 cost is tracked separately - `SessionUsage.compaction` in `core/index.d.ts`,

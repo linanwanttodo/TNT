@@ -70,6 +70,20 @@ export function getSessionFilePath(): string {
   return path.join(sessionDir, `${sessionId}.json`);
 }
 
+/**
+ * Where a tool result too large to hand the model whole is kept: beside the
+ * session store, one directory per session, so a resumed session can still
+ * reach its own files and pruning can bound what is left behind.
+ */
+export function getToolResultsDir(sessionId: string): string {
+  const safeId = sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
+  const dir = path.join(path.dirname(getSessionDir()), "tool-results", safeId);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
 // Singleton for current session management
 class SessionManager {
   private static instance: SessionManager;
