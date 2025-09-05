@@ -5,6 +5,8 @@ import type { ChatCompletionChunk } from "openai/resources/chat/completions.mjs"
 import { vi } from "vitest";
 
 import { toolPermissionManager } from "../permissions/permissionManager.js";
+import { serviceContainer } from "../services/ServiceContainer.js";
+import { SERVICE_NAMES } from "../services/types.js";
 import { ToolCall } from "../tools/index.js";
 import { readFileTool } from "../tools/readFile.js";
 import { searchCodeTool } from "../tools/searchCode.js";
@@ -555,10 +557,18 @@ describe("processStreamingResponse - content preservation", () => {
 });
 
 // Tests for preprocessStreamedToolCalls function
-describe.skip("preprocessStreamedToolCalls", () => {
-  // Mock dependencies
-  beforeEach(async () => {
-    // Mock setup would go here but is currently causing issues
+describe("preprocessStreamedToolCalls", () => {
+  beforeEach(() => {
+    // The tool list is built through the service container, so a run that never
+    // registered the model and the (empty) MCP connections failed every call at
+    // lookup - which is why this block was skipped rather than fixed.
+    serviceContainer.registerValue(SERVICE_NAMES.MODEL, {
+      model: { name: "test-model" },
+    } as never);
+    serviceContainer.registerValue(SERVICE_NAMES.MCP, {
+      connections: [],
+      tools: [],
+    } as never);
   });
 
   afterEach(() => {
@@ -596,21 +606,13 @@ describe.skip("preprocessStreamedToolCalls", () => {
     expect(callbacks.onToolError).not.toHaveBeenCalled();
   });
 
-  it("handles tool preprocessing errors correctly", async () => {
-    // Set the spy to throw an error
-    const toolsModule = await import("../tools/index.js");
-    vi.spyOn(toolsModule, "validateToolCallArgsPresent").mockImplementationOnce(
-      () => {
-        throw new Error("Missing required argument");
-      },
-    );
-
+  it("answers a bad call with what the tool wanted, not with a mock", async () => {
     const toolCalls: ToolCall[] = [
       {
         id: "call_456",
         name: "Read",
-        arguments: {}, // Missing required filepath
-        argumentsStr: "{}",
+        arguments: { path: "src/a.ts" },
+        argumentsStr: '{"path":"src/a.ts"}',
         startNotified: false,
       },
     ];
@@ -626,12 +628,21 @@ describe.skip("preprocessStreamedToolCalls", () => {
     // Should have no preprocessed calls and one error
     expect(preprocessedCalls).toHaveLength(0);
     expect(errorChatEntries).toHaveLength(1);
-    expect(errorChatEntries[0].content).toContain("Missing required argument");
+    // The message the model reads has to be enough to fix the call in one round:
+    // the argument that is missing, the one that arrived under another name, and
+    // the shape to send.
+    const content = String(errorChatEntries[0].content);
+    expect(content).toContain('a value arrived as "path"');
+    expect(content).toContain('this tool names it "filepath"');
+    expect(content).toContain('"filepath": string');
 
     // Callbacks should be called for errors
-    expect(callbacks.onToolStart).toHaveBeenCalledWith("Read", {});
+    expect(callbacks.onToolStart).toHaveBeenCalledWith(
+      "Read",
+      toolCalls[0].arguments,
+    );
     expect(callbacks.onToolError).toHaveBeenCalledWith(
-      expect.stringContaining("Missing required argument"),
+      expect.stringContaining("Invalid arguments for tool"),
       "Read",
     );
   });

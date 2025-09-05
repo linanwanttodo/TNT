@@ -364,17 +364,6 @@ export async function executeToolCall(
   }
 }
 
-// Only checks top-level required
-export function validateToolCallArgsPresent(toolCall: ToolCall, tool: Tool) {
-  const requiredParams = tool.parameters.required ?? [];
-  for (const paramName of requiredParams) {
-    if (
-      toolCall.arguments[paramName] === undefined ||
-      toolCall.arguments[paramName] === null
-    ) {
-      throw new Error(
-        `Required parameter "${paramName}" missing for tool "${toolCall.name}"`,
-      );
-    }
-  }
-}
+// The reader lives in validateArgs.ts so the depth of a schema is checked there
+// and not here, where the tool list is assembled.
+export { validateToolCallArgs } from "./validateArgs.js";

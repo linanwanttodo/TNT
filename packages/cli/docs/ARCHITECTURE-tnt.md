@@ -166,6 +166,21 @@ through. What an approval still does not have is an expiry: a written rule lives
 in `permissions.yaml` until it is removed, which is a stated gap rather than a
 behaviour to rely on.
 
+Before a call reaches a tool, `src/tools/validateArgs.ts` checks its arguments
+against the schema the tool itself declares, to the depth the schema goes - an
+array's `items` and a nested `properties` included, which the earlier top-level
+"is the required key present" check could not see. The rejection is written for the
+model that has to fix it: every problem at once (one field per round is one round
+per field), each named by its path (`"edits[1].new_string"`), with the value that
+arrived quoted, and the expected shape on the last line so the next call can be
+copied from it. A required key missing next to a value that is the same idea under
+another name says so - `a value arrived as "path" - this tool names it "filepath"` -
+because that is the most common bad call and the cheapest to repair. A schema this
+reader does not understand (no `type`, a union) is not treated as a verdict, so MCP
+tools with hand-written JSON Schema are not rejected for the reader's limits.
+Unknown keys are left alone: JSON Schema allows them, and a tool that ignores an
+extra key is not a failure the model needs to hear about.
+
 How the agent should behave is said in two places, chosen by how often it applies.
 `src/agent/systemMessage.ts` carries the standing clauses - look before claiming,
 read before editing, no unrequested refactoring, no comments by default, verify
