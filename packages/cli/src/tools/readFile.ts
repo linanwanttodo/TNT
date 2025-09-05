@@ -6,6 +6,7 @@ import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { formatToolArgument } from "./formatters.js";
+import { markFileAsSeen } from "./fileState.js";
 import { Tool, ToolRunContext } from "./types.js";
 
 // Output truncation defaults
@@ -26,11 +27,8 @@ function getReadFileMaxLines(): number {
   );
 }
 
-// Track files that have been read in the current session
-export const readFilesSet = new Set<string>();
-export function markFileAsRead(filePath: string) {
-  readFilesSet.add(filePath);
-}
+// Read state is tracked with what the file looked like at the time, so a write
+// can tell an unchanged file from one edited outside TNT. See fileState.ts.
 
 export const readFileTool: Tool = {
   name: "Read",
@@ -107,8 +105,8 @@ export const readFileTool: Tool = {
         );
       }
 
-      // Mark this file as read for the edit tool
-      markFileAsRead(realPath);
+      // Remember the file and its stamp on disk for the edit tools
+      markFileAsSeen(realPath);
 
       return `Content of ${filepath}:\n${content}`;
     } catch (error) {

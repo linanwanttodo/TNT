@@ -15,7 +15,8 @@ import {
 } from "../telemetry/utils.js";
 
 import { EditOperation } from "./multiEdit.js";
-import { readFilesSet, readFileTool } from "./readFile.js";
+import { changedSinceSeen, hasSeenFile, markFileAsSeen } from "./fileState.js";
+import { readFileTool } from "./readFile.js";
 import { Tool } from "./types.js";
 import { generateDiff } from "./writeFile.js";
 import {
@@ -54,10 +55,19 @@ export function validateAndResolveFilePath(args: any): {
   }
 
   // Check if file has been read
-  if (!readFilesSet.has(resolvedPath)) {
+  if (!hasSeenFile(resolvedPath)) {
     throw new ContinueError(
       ContinueErrorReason.EditToolFileNotRead,
       `You must use the ${readFileTool.name} tool to read ${file_path} before editing it.`,
+    );
+  }
+
+  // What the model read must still be what is on disk, or the edit is written
+  // against a file someone else changed in the meantime.
+  if (changedSinceSeen(resolvedPath)) {
+    throw new ContinueError(
+      ContinueErrorReason.EditToolFileNotRead,
+      `${file_path} changed since you read it. Use the ${readFileTool.name} tool to read it again before editing.`,
     );
   }
 
@@ -157,7 +167,17 @@ WARNINGS:
     oldContent: string;
   }) => {
     try {
+      // The replacement was computed from the file as it was when the call was
+      // planned, and a permission prompt can outlast that. The bytes about to be
+      // replaced are checked again here instead of trusting the preview.
+      if (fs.readFileSync(args.resolvedPath, "utf-8") !== args.oldContent) {
+        throw new ContinueError(
+          ContinueErrorReason.EditToolFileNotRead,
+          `${args.resolvedPath} changed while this edit was awaiting approval. Read it again before editing.`,
+        );
+      }
       writeFileAtomically(args.resolvedPath, args.newContent);
+      markFileAsSeen(args.resolvedPath);
       scheduleFileRefresh(args.resolvedPath);
 
       // Get lines for telemetry

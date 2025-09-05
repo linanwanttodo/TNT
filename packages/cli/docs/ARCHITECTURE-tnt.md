@@ -54,6 +54,19 @@ to whatever session the process happened to start with. The id travels to the
 TUI through typed options (`StartTUIChatOptions`), so a hop that drops it is a
 compile error rather than a silent fallback to the newest session.
 
+Atomicity covers the write, not the world around it. `src/tools/fileState.ts`
+records what each file looked like the last time the model was shown it - by
+`Read`, and by every write the agent itself makes, so its own edit never looks
+like somebody else's change. `Edit` and `MultiEdit` refuse a file whose size,
+mtime or inode moved since that record and `Write` refuses the same; a file that
+was never read through TNT is still written, because no claim about its contents
+was made. The deciding check sits in `run`, not in the preview: the replacement is
+computed while planning, and a permission prompt can outlast that, so the bytes
+about to be replaced are compared against the content the plan was built from. A
+rewrite in the same millisecond that keeps the same size and inode stays
+undetectable - content hashing would catch it at the cost of reading every target
+twice per edit.
+
 ## 2. Mode axis
 
 Three modes, fixed constants, no settings entry: `agent`, `plan`, `auto`

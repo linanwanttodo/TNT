@@ -13,6 +13,7 @@ import {
 } from "../telemetry/utils.js";
 
 import { editTool, validateAndResolveFilePath } from "./edit.js";
+import { markFileAsSeen } from "./fileState.js";
 import { readFileTool } from "./readFile.js";
 import { Tool } from "./types.js";
 import { generateDiff } from "./writeFile.js";
@@ -146,7 +147,16 @@ WARNINGS:
     editCount: number;
   }) => {
     try {
+      // Same re-check as Edit: the edits were applied to a snapshot taken while
+      // planning, and approval can take longer than that snapshot is true.
+      if (fs.readFileSync(args.file_path, "utf-8") !== args.originalContent) {
+        throw new ContinueError(
+          ContinueErrorReason.EditToolFileNotRead,
+          `${args.file_path} changed while this edit was awaiting approval. Read it again before editing.`,
+        );
+      }
       writeFileAtomically(args.file_path, args.newContent);
+      markFileAsSeen(args.file_path);
       scheduleFileRefresh(args.file_path);
 
       // Get lines for telemetry

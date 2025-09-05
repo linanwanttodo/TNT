@@ -10,7 +10,7 @@ import {
 } from "../telemetry/utils.js";
 
 import { multiEditTool } from "./multiEdit.js";
-import { markFileAsRead } from "./readFile.js";
+import { forgetSeenFiles, markFileAsSeen } from "./fileState.js";
 import { generateDiff } from "./writeFile.js";
 
 // The write goes through the shared atomic helper in core, which the suite's
@@ -62,6 +62,7 @@ describe("multiEditTool CLI specific", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    forgetSeenFiles();
     actualFs.rmSync(testFilePath, { force: true });
   });
 
@@ -84,7 +85,7 @@ describe("multiEditTool CLI specific", () => {
 
     it("should throw error if file does not exist", async () => {
       const nonExistentFile = "/tmp/non-existent-file.txt";
-      markFileAsRead(nonExistentFile);
+      markFileAsSeen(nonExistentFile);
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
       const args = {
@@ -122,7 +123,7 @@ describe("multiEditTool CLI specific", () => {
 
   describe("preprocess CLI specific", () => {
     it("should generate preview with diff", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
 
       const args = {
         file_path: testFilePath,
@@ -201,7 +202,7 @@ describe("multiEditTool CLI specific", () => {
     it("should convert relative paths to absolute paths", async () => {
       const relativePath = "test-file.txt";
       const absolutePath = path.resolve(process.cwd(), relativePath);
-      markFileAsRead(absolutePath);
+      markFileAsSeen(absolutePath);
 
       const args = {
         file_path: relativePath,
@@ -224,7 +225,7 @@ describe("multiEditTool CLI specific", () => {
     it("should handle relative paths with subdirectories", async () => {
       const relativePath = "src/components/test.js";
       const absolutePath = path.resolve(process.cwd(), relativePath);
-      markFileAsRead(absolutePath);
+      markFileAsSeen(absolutePath);
 
       const args = {
         file_path: relativePath,
@@ -244,7 +245,7 @@ describe("multiEditTool CLI specific", () => {
     it("should handle relative paths with ../ patterns", async () => {
       const relativePath = "../test-file.txt";
       const absolutePath = path.resolve(process.cwd(), relativePath);
-      markFileAsRead(absolutePath);
+      markFileAsSeen(absolutePath);
 
       const args = {
         file_path: relativePath,
@@ -263,7 +264,7 @@ describe("multiEditTool CLI specific", () => {
 
     it("should leave absolute paths unchanged", async () => {
       const absolutePath = "/tmp/absolute-file.txt";
-      markFileAsRead(absolutePath);
+      markFileAsSeen(absolutePath);
 
       const args = {
         file_path: absolutePath,
@@ -281,9 +282,9 @@ describe("multiEditTool CLI specific", () => {
     });
   });
 
-  describe("markFileAsRead", () => {
+  describe("markFileAsSeen", () => {
     it("should allow editing after marking file as read", async () => {
-      markFileAsRead(testFilePath);
+      markFileAsSeen(testFilePath);
 
       const args = {
         file_path: testFilePath,
