@@ -19,6 +19,7 @@ import type { LoopDetector } from "../loop/loopDetector.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
+import { hasSessionApproval } from "../permissions/sessionApprovals.js";
 import { spillOversizedToolResult } from "./toolResultStorage.js";
 import {
   SERVICE_NAMES,
@@ -186,6 +187,12 @@ export async function checkToolPermissionApproval(
     }
     if (hookResult.blocked) {
       return { approved: false, denialReason: "policy" };
+    }
+
+    // Answered once in this session is enough for this exact call; a hook still
+    // gets its veto above, and nothing here reaches permissions.yaml.
+    if (hasSessionApproval(toolCall.name, toolCall.arguments)) {
+      return { approved: true };
     }
 
     // A prompt is about to open; tell notifier hooks (the reference's

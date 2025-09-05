@@ -167,6 +167,36 @@ describe("TUIChat - Tool Permission Tests", () => {
       true,
       undefined,
       undefined,
+      undefined,
+    );
+  });
+
+  it("offers an approval that is held for the session only", async () => {
+    const handleResponse = vi.fn();
+
+    const { lastFrame, stdin } = render(
+      <ToolPermissionSelector
+        toolName="Bash"
+        toolArgs={{ command: "npm run build" }}
+        requestId="test-request-session"
+        onResponse={handleResponse}
+      />,
+    );
+
+    await vi.advanceTimersByTimeAsync(50);
+
+    // Between "continue once" and "don't ask again" (which writes a rule)
+    expect(lastFrame()).toMatch(/don't ask again this session/);
+
+    stdin.write("s");
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(handleResponse).toHaveBeenCalledWith(
+      "test-request-session",
+      true,
+      false,
+      false,
+      true,
     );
   });
 

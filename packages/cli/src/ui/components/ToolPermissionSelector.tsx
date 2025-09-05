@@ -18,6 +18,7 @@ interface PermissionOption {
   color: string;
   approved: boolean;
   createPolicy?: boolean;
+  forSession?: boolean;
   stopStream?: boolean;
 }
 
@@ -32,6 +33,7 @@ interface ToolPermissionSelectorProps {
     approved: boolean,
     createPolicy?: boolean,
     stopStream?: boolean,
+    forSession?: boolean,
   ) => void;
 }
 
@@ -42,6 +44,13 @@ const getPermissionOptions = (): PermissionOption[] => {
       name: t("permission.continue"),
       color: "green",
       approved: true,
+    },
+    {
+      id: "approve_session",
+      name: t("permission.continueThisSession"),
+      color: "blue",
+      approved: true,
+      forSession: true,
     },
     {
       id: "approve_policy",
@@ -85,6 +94,7 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
         selectedOption.approved,
         selectedOption.createPolicy,
         selectedOption.stopStream,
+        selectedOption.forSession,
       );
       return;
     }
@@ -120,6 +130,9 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
       onResponse(requestId, true, false, false);
     } else if (input === "n" || input === "N") {
       onResponse(requestId, false, false, true);
+    } else if (input === "s" || input === "S") {
+      // Allow this exact call for the rest of the session, nothing written
+      onResponse(requestId, true, false, false, true);
     }
   });
 
@@ -152,6 +165,7 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
           const isSelected = index === selectedIndex;
           let shortcut = "";
           if (option.id === "approve") shortcut = "(tab)";
+          else if (option.id === "approve_session") shortcut = "(s)";
           else if (option.id === "approve_policy") shortcut = "(shift+tab)";
           else if (option.id === "deny_stop") shortcut = "(esc)";
 

@@ -19,6 +19,7 @@ interface ChatScreenContentProps {
     approved: boolean,
     createPolicy?: boolean,
     stopStream?: boolean,
+    forSession?: boolean,
   ) => void;
   handleQuizAnswer: (requestId: string, answer: string) => void;
   handleUserMessage: (message: string, imageMap?: Map<string, Buffer>) => void;
