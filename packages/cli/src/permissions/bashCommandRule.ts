@@ -28,6 +28,58 @@ function hasEmbeddedCode(segment: string): boolean {
   return EMBEDDED_CODE.test(segment);
 }
 
+/**
+ * Commands whose effect is not visible in their name: they remove, they reach
+ * another machine, they publish, they run what they fetched, or they rewrite
+ * history. A rule about a *shape* cannot answer for them, because the shape is
+ * exactly what they vary by - `Bash(git*)` written to approve `git status` would
+ * also approve `git push --force`. Only a rule that is the whole line the user
+ * read covers these, and the approval prompt writes that form for them.
+ */
+const NEVER_BY_SHAPE: string[][] = [
+  ["rm"],
+  ["rmdir"],
+  ["dd"],
+  ["mkfs"],
+  ["shred"],
+  ["fdisk"],
+  ["parted"],
+  ["sudo"],
+  ["doas"],
+  ["su"],
+  ["ssh"],
+  ["scp"],
+  ["sftp"],
+  ["curl"],
+  ["wget"],
+  ["docker"],
+  ["podman"],
+  ["kubectl"],
+  ["helm"],
+  ["terraform"],
+  ["aws"],
+  ["npm", "publish"],
+  ["yarn", "publish"],
+  ["pnpm", "publish"],
+  ["twine", "upload"],
+  ["git", "push"],
+  ["git", "reset"],
+  ["git", "clean"],
+  ["git", "rebase"],
+  ["git", "filter-branch"],
+];
+
+/**
+ * True when a segment is one of those commands. Matching is by leading words, so
+ * `su` does not match `sudo` and `git push` is told apart from `git push-config`.
+ */
+export function isCommandRiskyAlone(segment: string): boolean {
+  const words = segment.trim().split(/[\s\t]+/);
+  return NEVER_BY_SHAPE.some((entry) =>
+    entry.every((word, index) => words[index] === word),
+  );
+}
+
 function globToRegExp(pattern: string): RegExp {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`^${escaped.replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
@@ -49,6 +101,8 @@ export function bashCommandMatches(command: string, pattern: string): boolean {
   const segments = commandSegments(trimmed);
   if (segments.length === 0) return false;
   if (segments.some(hasEmbeddedCode)) return false;
+  // A shape rule stops here: see NEVER_BY_SHAPE for why these need the exact line.
+  if (segments.some(isCommandRiskyAlone)) return false;
 
   // The form the TUI writes when a run is approved for good: a command name with
   // a trailing star. The star may cover arguments, never another word, so it

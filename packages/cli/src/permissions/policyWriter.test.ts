@@ -40,6 +40,24 @@ describe("policyWriter", () => {
       ).toBe("Bash(grep*)");
     });
 
+    it("writes the exact line when the command can do more than its name says", () => {
+      // Bash(git*) here would grant git reset and git push on the strength of an
+      // approval for one push, so the rule is the line the user read.
+      expect(
+        generatePolicyRule("Bash", { command: "git push origin main" }),
+      ).toBe("Bash(git push origin main)");
+      expect(generatePolicyRule("Bash", { command: "rm -rf build" })).toBe(
+        "Bash(rm -rf build)",
+      );
+      expect(generatePolicyRule("Bash", { command: "npm publish" })).toBe(
+        "Bash(npm publish)",
+      );
+      // An ordinary command still gets the reusable shape.
+      expect(generatePolicyRule("Bash", { command: "git status" })).toBe(
+        "Bash(git*)",
+      );
+    });
+
     it("should fallback to display name for bash tools without command", () => {
       expect(generatePolicyRule("Bash", {})).toBe("Bash");
       expect(generatePolicyRule("Bash", { command: "" })).toBe("Bash");

@@ -158,13 +158,22 @@ newline matches only when every segment does, a rule written as a command name
 plus a star stops at the word so `Bash(ls*)` never covers `lsvirtual`, a rule with
 no wildcard is the exact command line, and no prefix rule covers a segment holding
 `$( )` or a backtick, because a rule about a command name cannot answer for code
-evaluated inside it. The rule written when the user approves a run for good follows
-the same shape: one command becomes `Bash(<name>*)`, a chain is written as the
-whole line the user read. It used to be reduced to its first command, so approving
-`git add . && rm -rf /` granted every git command forever and let the removal
-through. What an approval still does not have is an expiry: a written rule lives
-in `permissions.yaml` until it is removed, which is a stated gap rather than a
-behaviour to rely on.
+evaluated inside it. It also stops at the commands listed in `NEVER_BY_SHAPE` -
+`rm`, `dd`, `sudo`, `ssh`, `curl`, `docker`, `kubectl`, `terraform`, `aws`,
+`git push`/`reset`/`clean`/`rebase`, `npm publish` and their like - because what
+those vary by is exactly what makes them irreversible or reachable past this
+machine, so a `Bash(git*)` written to stop being asked about `git status` does not
+also cover `git push --force`. The list is matched on leading words, which is why
+`sudo` is in it and `superior` is not, and why `docker` is while `docker-compose`
+isn't. Only a rule that is the whole line can cover one of these, and the writer
+produces that form when such a run is approved for good, so the answer is still
+remembered without the grant widening. The rule written when the user approves a
+run for good otherwise follows the same shape: one safe command becomes
+`Bash(<name>*)`, a chain is written as the whole line the user read. It used to be
+reduced to its first command, so approving `git add . && rm -rf /` granted every
+git command forever and let the removal through. What an approval still does not
+have is an expiry: a written rule lives in `permissions.yaml` until it is removed,
+which is a stated gap rather than a behaviour to rely on.
 
 The prompt offers three answers, not two (`src/ui/components/ToolPermissionSelector.tsx`,
 `(s)` for the middle one). `src/permissions/sessionApprovals.ts` holds the session
