@@ -30,6 +30,7 @@ import {
 } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { constructSystemMessage } from "../agent/systemMessage.js";
+import { expandMentions } from "../agent/atMentions.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { reportFailureTool } from "../tools/reportFailure.js";
 import { gracefulExit, updateAgentMetadata } from "../utils/exit.js";
@@ -440,14 +441,16 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
       state.lastActivity = Date.now();
       processedMessage = true;
 
-      // Add user message via ChatHistoryService (single source of truth)
+      // Add user message via ChatHistoryService (single source of truth). A
+      // `@path` in a served prompt means the same as it does in the TUI.
+      const mentionItems = expandMentions(userMessage).contextItems;
       try {
-        services.chatHistory.addUserMessage(userMessage);
+        services.chatHistory.addUserMessage(userMessage, mentionItems);
       } catch {
         // Fallback to local array if service unavailable
         state.session.history.push({
           message: { role: "user", content: userMessage },
-          contextItems: [],
+          contextItems: mentionItems,
         });
       }
 

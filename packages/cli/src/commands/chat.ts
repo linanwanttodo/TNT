@@ -6,6 +6,7 @@ import chalk from "chalk";
 import { ChatHistoryItem, Session } from "core";
 import { ChatDescriber } from "core/util/chatDescriber.js";
 
+import { expandMentions } from "../agent/atMentions.js";
 import {
   compactChatHistory,
   findCompactionIndex,
@@ -407,8 +408,14 @@ async function processMessage(
     // Service already updated in handleAutoCompaction via setHistory
   }
 
-  // Add user message to history AFTER potential compaction
-  services.chatHistory.addUserMessage(userInput);
+  // Add user message to history AFTER potential compaction. A `@path` in the
+  // prompt is the user pointing at code, so it is expanded into context here -
+  // otherwise `tnt -p "@src/x.ts why does this fail"` leaves the model reading
+  // a literal token.
+  services.chatHistory.addUserMessage(
+    userInput,
+    expandMentions(userInput).contextItems,
+  );
 
   // Get AI response with potential tool usage
   if (!isHeadless) {
