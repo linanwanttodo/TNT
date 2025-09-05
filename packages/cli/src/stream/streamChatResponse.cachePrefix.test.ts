@@ -1,10 +1,12 @@
 import { ModelConfig } from "@tnt/config-yaml";
 import { BaseLlmApi } from "@tnt/openai-adapters";
+import * as fs from "fs";
 import type { ChatHistoryItem } from "core/index.js";
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.mjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { forgetCacheRounds } from "../cache/cacheBreakReport.js";
 import { forgetCachePrefixes } from "../cache/prefixState.js";
 import { services } from "../services/index.js";
 import { logger } from "../utils/logger.js";
@@ -18,11 +20,20 @@ vi.mock("../compaction/index.js", () => ({
   getAutoCompactMessage: vi.fn(() => "Auto-compacting..."),
 }));
 
-vi.mock("../session/index.js", () => ({
-  getCurrentSession: vi.fn(() => ({ sessionId: "session-a" })),
-  updateSessionHistory: vi.fn(),
-  trackSessionUsage: vi.fn(),
-}));
+vi.mock("../session/index.js", async () => {
+  const fs = await import("fs");
+  const os = await import("os");
+  const path = await import("path");
+  // A real directory, because the cache-break report is written rather than
+  // merely described, and the assertion is about the file.
+  const breaksDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-cb-"));
+  return {
+    getCurrentSession: vi.fn(() => ({ sessionId: "session-a" })),
+    getCacheBreaksDir: vi.fn(() => breaksDir),
+    updateSessionHistory: vi.fn(),
+    trackSessionUsage: vi.fn(),
+  };
+});
 
 vi.mock("../utils/tokenizer.js", () => ({
   countChatHistoryItemTokens: vi.fn(() => 100),
@@ -134,6 +145,7 @@ describe("streamChatResponse cache prefix attribution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     forgetCachePrefixes();
+    forgetCacheRounds();
     chatHistory = convertToUnifiedHistory([{ role: "user", content: "Hello" }]);
     llmApi = {
       chatCompletionStream: vi.fn().mockImplementation(async function* () {
@@ -205,5 +217,72 @@ describe("streamChatResponse cache prefix attribution", () => {
       expect.objectContaining({ prefixState: "full" }),
     );
     expect(cacheUsageLogs()[1]).not.toHaveProperty("cacheMissOwner");
+  });
+
+  function apiReading(readTokens: number): typeof llmApi {
+    return {
+      chatCompletionStream: vi.fn().mockImplementation(async function* () {
+        const chunk = answerChunk();
+        (chunk as unknown as { usage: Record<string, unknown> }).usage = {
+          prompt_tokens: INPUT_TOKENS,
+          completion_tokens: 4,
+          total_tokens: INPUT_TOKENS + 4,
+          prompt_tokens_details: {
+            cache_read_tokens: readTokens,
+            cache_write_tokens: 0,
+          },
+        };
+        yield chunk;
+      }),
+    } as unknown as typeof llmApi;
+  }
+
+  function breakWarnings() {
+    return vi
+      .mocked(logger.warn)
+      .mock.calls.filter((call) => call[0] === "Cache break")
+      .map((call) => call[1] as Record<string, unknown>);
+  }
+
+  it("writes the moved prefix to a file when a warm request goes cold", async () => {
+    llmApi = apiReading(INPUT_TOKENS - 10);
+    await runTurn("prompt v1");
+    llmApi = apiReading(0);
+    await runTurn("prompt v2, a rules block joined it");
+
+    const breaks = breakWarnings();
+    expect(breaks).toHaveLength(1);
+    expect(breaks[0]).toEqual(
+      expect.objectContaining({
+        prefixReasons: ["systemMessage"],
+        cacheMissOwner: "prefix",
+        hitRateBefore: expect.any(Number),
+      }),
+    );
+
+    const reportPath = String(breaks[0].reportPath);
+    expect(reportPath).toContain("tnt-cb-");
+    const body = JSON.parse(fs.readFileSync(reportPath, "utf-8"));
+    expect(body.reasons).toEqual(["systemMessage"]);
+    expect(body.diff.systemMessage.added.join("\n")).toContain("rules block");
+  });
+
+  it("stays quiet when nothing was cached to begin with", async () => {
+    // A short request the provider never caches reads nothing on both turns:
+    // no drop, and a report here would train nobody.
+    llmApi = apiReading(0);
+    await runTurn("prompt v1");
+    await runTurn("prompt v2");
+
+    expect(breakWarnings()).toEqual([]);
+  });
+
+  it("stays quiet when the drop is smaller than the threshold", async () => {
+    llmApi = apiReading(INPUT_TOKENS - 10); // 99.8%
+    await runTurn("prompt v1");
+    llmApi = apiReading(INPUT_TOKENS - 200); // 96%, 3.8 points down
+    await runTurn("prompt v1");
+
+    expect(breakWarnings()).toEqual([]);
   });
 });

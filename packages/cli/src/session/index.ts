@@ -84,6 +84,20 @@ export function getToolResultsDir(sessionId: string): string {
   return dir;
 }
 
+/**
+ * Where the prefix that moved between two rounds is written, beside the session
+ * store like the tool results: a cache break that only exists as a log line with
+ * a field name cannot be read.
+ */
+export function getCacheBreaksDir(sessionId: string): string {
+  const safeId = sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
+  const dir = path.join(path.dirname(getSessionDir()), "cache-breaks", safeId);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
 // Singleton for current session management
 class SessionManager {
   private static instance: SessionManager;

@@ -240,6 +240,17 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
 - `src/cache/prefixState.ts` classifies each request as `full`, `passthrough` or
   `invalidated` with reasons, and attributes a loss to either `prefix` (our
   shaping) or `provider` (vendor behaviour).
+- `src/cache/cacheBreakReport.ts` turns that verdict into something readable when
+  the bill actually shows a break: it compares the hit ratio of two consecutive
+  rounds and reports only a drop over `HIT_RATE_DROP_POINTS` (5) on a request of at
+  least `MIN_REPORTED_INPUT_TOKENS` (2,000), because a one-point wobble or a short
+  prompt the provider never cached is noise, and a log full of noise is a log nobody
+  reads. The report line names the reasons, the two ratios and the miss owner, and it
+  points at a JSON file under `cache-breaks/<session>/` beside the session store - the
+  system-message lines that left and arrived, the tools whose definition changed
+  versus the ones that only swapped order, the fields that were frozen, and whether the
+  history was rewritten. Newest 20 per session are kept. A file it cannot write is not
+  a reason to lose the numbers, so the path is simply absent from the line.
 - `src/cache/promptCacheKey.ts` produces the key used to compare rounds.
 - `src/stream/streamChatResponse.ts` logs per-request cache usage, so a hit-rate
   regression is attributable to a change rather than to the vendor.
