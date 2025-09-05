@@ -47,7 +47,7 @@ describe("a delegated read-only session", () => {
       id: "child-1",
       delegationDepth: 1,
       systemMessage: "You are a delegate.",
-      readonly: true,
+      restriction: "readonly",
     });
 
     for (const request of WRITES) {
@@ -61,7 +61,7 @@ describe("a delegated read-only session", () => {
       id: "child-1",
       delegationDepth: 1,
       systemMessage: "You are a delegate.",
-      readonly: true,
+      restriction: "readonly",
     });
 
     for (const request of READS) {
@@ -78,7 +78,7 @@ describe("a delegated read-only session", () => {
       id: "child-1",
       delegationDepth: 1,
       systemMessage: "You are a delegate.",
-      readonly: true,
+      restriction: "readonly",
     });
 
     expect(JSON.stringify(parent.permissions)).toBe(before);
@@ -94,13 +94,12 @@ describe("a delegated read-only session", () => {
       id: "child-1",
       delegationDepth: 1,
       systemMessage: "First delegate.",
-      readonly: true,
+      restriction: "readonly",
     });
     const second = createChildContext(parent, {
       id: "child-2",
       delegationDepth: 1,
       systemMessage: "Second delegate.",
-      readonly: false,
     });
 
     expect(checkToolPermission(WRITES[0], first.permissions).permission).toBe(
@@ -119,7 +118,7 @@ describe("a delegated read-only session", () => {
       id: "child-1",
       delegationDepth: 1,
       systemMessage: "You are a delegate.",
-      readonly: true,
+      restriction: "readonly",
     });
 
     expect(
@@ -143,7 +142,7 @@ describe("a delegated read-only session", () => {
       id: "child-1",
       delegationDepth: 1,
       systemMessage: "You are a delegate.",
-      readonly: true,
+      restriction: "readonly",
     });
 
     const markdown = call("Write", { filepath: "docs/plan.md" });

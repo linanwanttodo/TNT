@@ -29,15 +29,35 @@ describe("narrowPermissions", () => {
   it("keeps an allow as an allow when not readonly", () => {
     const result = narrowPermissions(
       { policies: [{ tool: "Read", permission: "allow" }] },
-      { readonly: false },
+      {},
     );
     expect(result.policies).toEqual([{ tool: "Read", permission: "allow" }]);
+  });
+
+  it("separates no file writes from no commands at all", () => {
+    const wildcard = {
+      policies: [{ tool: "*", permission: "allow" as const }],
+    };
+
+    const noWrites = narrowPermissions(wildcard, { restriction: "no-writes" });
+    expect(
+      checkToolPermission({ name: "Bash", arguments: {} }, noWrites).permission,
+    ).toBe("allow");
+    expect(
+      checkToolPermission({ name: "Write", arguments: {} }, noWrites)
+        .permission,
+    ).toBe("exclude");
+
+    const readOnly = narrowPermissions(wildcard, { restriction: "readonly" });
+    expect(
+      checkToolPermission({ name: "Bash", arguments: {} }, readOnly).permission,
+    ).toBe("exclude");
   });
 
   it("downgrades an ask to an exclude, never to an allow", () => {
     const result = narrowPermissions(
       { policies: [{ tool: "Read", permission: "ask" }] },
-      { readonly: false },
+      {},
     );
     expect(result.policies).toEqual([{ tool: "Read", permission: "exclude" }]);
   });
@@ -45,7 +65,7 @@ describe("narrowPermissions", () => {
   it("does not let a child widen a tool its parent excluded", () => {
     const result = narrowPermissions(
       { policies: [{ tool: "Bash", permission: "exclude" }] },
-      { readonly: false },
+      {},
     );
     expect(result.policies).toEqual([{ tool: "Bash", permission: "exclude" }]);
   });
@@ -59,7 +79,7 @@ describe("narrowPermissions", () => {
           { tool: "Bash", permission: "allow" },
         ],
       },
-      { readonly: true },
+      { restriction: "readonly" },
     );
     expect(result.policies).toContainEqual({
       tool: "Write",
@@ -78,7 +98,7 @@ describe("narrowPermissions", () => {
   it("expands a wildcard in readonly mode so the exclusions actually bite", () => {
     const result = narrowPermissions(
       { policies: [{ tool: "*", permission: "allow" }] },
-      { readonly: true },
+      { restriction: "readonly" },
     );
 
     // Assert the verdict, not the list shape: the checker takes the first
@@ -98,7 +118,7 @@ describe("narrowPermissions", () => {
   it("keeps an excluded wildcard excluded in readonly mode", () => {
     const result = narrowPermissions(
       { policies: [{ tool: "*", permission: "exclude" }] },
-      { readonly: true },
+      { restriction: "readonly" },
     );
     for (const tool of ["Write", "Read", "Bash"]) {
       expect(
@@ -144,7 +164,7 @@ describe("createChildContext", () => {
       id: "child-1",
       delegationDepth: 1,
       systemMessage: "x",
-      readonly: true,
+      restriction: "readonly",
     });
     expect(child.permissions.policies).toContainEqual({
       tool: "Bash",

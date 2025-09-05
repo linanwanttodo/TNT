@@ -244,23 +244,32 @@ other built-in by name, and a tool missing from the registry would escape that
 allowlist through the catch-all rule.
 
 A delegation never inherits the parent's permissions unchanged.
-`src/subagent/runContext.ts` narrows them into a new context: a restricted
-delegate loses `Bash`, `Edit`, `Write`, `MultiEdit`, `ApplyPatch`, `Create`,
-`Checklist` and `UploadArtifact`, every "ask" becomes a decision the child may
-not make for itself, and the parent's own permissions object is left untouched,
-so returning to the parent restores exactly what it had. The narrowing appends
-its exclusions ahead of any star rule, because the checker takes the first
-matching policy.
+`src/subagent/runContext.ts` narrows them into a new context under one of two
+restrictions: `no-writes` excludes the file mutators and keeps `Bash`, `readonly`
+excludes both. The distinction is what a verifier lives on - without the shell it
+can only read code and guess - and the child is told which restriction applies,
+because a tool it no longer has is otherwise invisible to it. Every "ask" becomes
+a decision the child may not make for itself, and the parent's own permissions
+object is left untouched, so returning to the parent restores exactly what it
+had. The narrowing appends its exclusions ahead of any star rule, because the
+checker takes the first matching policy.
+
+`src/subagent/builtInAgents.ts` is what declares a restriction. A configured agent
+is a model entry with the `subagent` role, which fits models a user chooses and not
+a role defined by what it does, so built-ins are appended to the registry on top of
+the model the session already runs, and a configured agent that takes the same name
+wins - that is the user overriding a default. `verification` is the first: run the
+build, the tests and the linters before claiming anything, paste the output that
+was judged, and end with the verdict line the executor parses, with `PARTIAL`
+reserved for a check the environment made impossible.
 
 A delegated check should end in a finding the caller can branch on rather than a
 paragraph it has to re-read. `src/subagent/verdict.ts` reads a stand-alone
 `VERDICT: PASS|FAIL|PARTIAL` line out of the child's report - the last one wins,
 so a report that quotes the format does not report a result - the executor
 carries it on `SubAgentResult.verdict`, and the delegation tool writes it into
-`<task_metadata>` alongside the status. `PARTIAL` is reserved for an environment
-that made the check impossible, not for a verifier that was unsure. No built-in
-verification agent ships yet, so this is the contract a declared agent - an agent
-file, or a plugin's `agent` hook - can already be written against.
+`<task_metadata>` alongside the status. Any declared agent can be written against
+the same contract: an agent file, or a plugin's `agent` hook.
 
 ## 7. What is deliberately not translated
 
