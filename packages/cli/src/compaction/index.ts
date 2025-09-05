@@ -12,7 +12,7 @@ import { buildSummaryRequest } from "./prefixPreservation.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { buildTodoCarryContextItem, readTodoState } from "../tools/todo.js";
-import { isContextLengthError } from "../utils/exponentialBackoff.js";
+import { isContextLengthError } from "../utils/contextLength.js";
 import { logger } from "../utils/logger.js";
 import {
   countChatHistoryTokens,

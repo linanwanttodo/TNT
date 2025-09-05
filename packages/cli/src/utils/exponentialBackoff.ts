@@ -2,6 +2,7 @@ import { BaseLlmApi, isResponsesModel } from "@tnt/openai-adapters";
 import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
 
 import { error, warn } from "./console.js";
+import { isContextLengthError } from "./contextLength.js";
 
 import { formatError } from "./formatError.js";
 import { logger } from "./logger.js";
@@ -73,40 +74,6 @@ function isConnectionError(errorMessage: string): boolean {
   ];
 
   return connectionErrorPatterns.some((pattern) =>
-    errorMessage.includes(pattern),
-  );
-}
-
-/**
- * Checks if the error indicates a context length issue (non-retryable)
- */
-export function isContextLengthError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  const errorMessage = error.message?.toLowerCase() || "";
-
-  if (errorMessage.includes("invalid_request_error")) {
-    if (errorMessage.includes("context")) {
-      return true;
-    }
-  }
-
-  const contextLengthPatterns = [
-    // Anthropic Claude
-    "input length and max_tokens exceed context limit",
-    "decrease input length or max_tokens",
-    // OpenAI
-    "maximum context length",
-    "reduce the length of the messages",
-    // Mistral
-    "tokens in the prompt exceeds",
-    "use a shorter prompt",
-    // Generic patterns
-    "context_length_exceeded",
-  ];
-
-  return contextLengthPatterns.some((pattern) =>
     errorMessage.includes(pattern),
   );
 }

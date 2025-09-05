@@ -24,6 +24,7 @@ import { pruneLastMessage } from "../compaction/index.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
   classifyStreamError,
+  OVERFLOW_RECOVERIES,
   type TerminalStopKind,
   TerminalStopTracker,
 } from "../loop/terminalStop.js";
@@ -39,7 +40,6 @@ import { applyChatCompletionToolOverrides } from "../tools/applyToolOverrides.js
 import { ToolCall } from "../tools/index.js";
 import {
   chatCompletionStreamWithBackoff,
-  isContextLengthError,
   withExponentialBackoff,
 } from "../utils/exponentialBackoff.js";
 import { logger } from "../utils/logger.js";
@@ -254,6 +254,11 @@ export async function processStreamingResponse(
    * decides whether to retry based on its own per-turn budget.
    */
   terminalStop?: TerminalStopKind;
+  /**
+   * The provider's own words, kept so a refusal the loop cannot recover from is
+   * reported as what the vendor said rather than as a generic failure.
+   */
+  terminalStopMessage?: string;
 }> {
   const {
     model,
@@ -499,13 +504,8 @@ export async function processStreamingResponse(
         shouldContinue: false,
         usage: fullUsage,
         terminalStop: stopKind,
+        terminalStopMessage: error.message || String(error),
       };
-    }
-
-    // Handle context length errors with helpful message
-    if (isContextLengthError(error)) {
-      logger.debug(`Context length exceeded: ${error}`);
-      throw new Error(`Context length exceeded: ${error}`);
     }
 
     throw error;
@@ -586,6 +586,14 @@ export async function streamChatResponse(
   let previousSystemMessage: string | undefined;
   let requestSystemMessage: string | undefined;
   let systemMessageUpdates: string[] = [];
+  /**
+   * A refusal naming the context window is proof that the local estimate was
+   * too low, so the round after it compacts whether or not the estimate agrees.
+   * Bounded, because a history that will not shrink cannot be compacted into
+   * fitting and each attempt spends a summarization call.
+   */
+  let overflowRecoveries = 0;
+  let forceNextCompaction = false;
 
   /**
    * End the turn, tell the caller why, and return the text produced so far.
@@ -679,6 +687,8 @@ export async function streamChatResponse(
     };
 
     // Pre-API auto-compaction checkpoint (now includes tools)
+    const forcingCompaction = forceNextCompaction;
+    forceNextCompaction = false;
     const preCompactionResult = await handlePreApiCompaction(chatHistory, {
       model,
       llmApi,
@@ -687,6 +697,7 @@ export async function streamChatResponse(
       callbacks,
       systemMessage,
       tools,
+      force: forcingCompaction,
     });
     chatHistory = preCompactionResult.chatHistory;
     if (preCompactionResult.wasCompacted) {
@@ -731,6 +742,7 @@ export async function streamChatResponse(
       usage,
       loopDetection,
       terminalStop,
+      terminalStopMessage,
     } = await processStreamingResponse({
       isHeadless,
       chatHistory,
@@ -749,6 +761,25 @@ export async function streamChatResponse(
 
     if (abortController?.signal.aborted) {
       return finish("user_abort");
+    }
+
+    // A refusal for length is the one fault the agent can fix by changing what
+    // it sends: compact, then spend the same round again. Retrying without
+    // shrinking is what the old path did by throwing, which is why an oversized
+    // history ended the turn instead of recovering.
+    if (terminalStop === "context_overflow") {
+      if (overflowRecoveries >= OVERFLOW_RECOVERIES) {
+        throw new Error(
+          `Context length exceeded after ${overflowRecoveries} compactions: ${terminalStopMessage ?? "the provider refused the request"}`,
+        );
+      }
+      overflowRecoveries++;
+      forceNextCompaction = true;
+      logger.warn("Provider refused the request for length", {
+        attempt: overflowRecoveries,
+        error: terminalStopMessage,
+      });
+      continue;
     }
 
     // Retry only while this kind of fault still has budget. Once the budget is

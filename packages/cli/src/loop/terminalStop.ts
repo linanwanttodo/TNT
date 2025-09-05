@@ -10,6 +10,8 @@
  * is worth retrying and stop on the one that is not.
  */
 
+import { isContextLengthError } from "../utils/contextLength.js";
+
 /**
  * Signals that a provider ended a stream before sending its terminal event.
  * Each pattern is a phrasing a real provider has used for the same underlying
@@ -38,6 +40,8 @@ export type TerminalStopKind =
   | "stream_stall"
   /** The provider sent an error that names a missing terminal event. */
   | "missing_terminal_event"
+  /** The provider refused the request because it does not fit the context. */
+  | "context_overflow"
   /** The model returned nothing at all. */
   | "empty_response"
   /** The model returned a tool call that could not be parsed. */
@@ -60,6 +64,11 @@ export const MAX_RETRIES_PER_KIND = 3;
 export function classifyStreamError(error: unknown): TerminalStopKind {
   const text = error instanceof Error ? error.message : String(error);
 
+  // Checked before the transport patterns: a refusal naming the context window
+  // is the provider answering, not cutting the stream short.
+  if (isContextLengthError(error)) {
+    return "context_overflow";
+  }
   if (STREAM_STALL_PATTERNS.some((pattern) => pattern.test(text))) {
     return "stream_stall";
   }
@@ -72,11 +81,21 @@ export function classifyStreamError(error: unknown): TerminalStopKind {
 /**
  * Whether a completed round is worth retrying. Only the two transport-level
  * kinds are: an empty response or a malformed tool call is a model decision,
- * and repeating the same request usually reproduces it.
+ * and repeating the same request usually reproduces it. A context overflow is
+ * deliberately not here - resending the same bytes gets the same refusal, so
+ * the loop has to shrink the history first (see {@link OVERFLOW_RECOVERIES}).
  */
 export function isRetryableStop(kind: TerminalStopKind): boolean {
   return kind === "stream_stall" || kind === "missing_terminal_event";
 }
+
+/**
+ * How many times one turn may answer a context refusal by compacting and
+ * resending. Two covers the estimate being slightly off and the summary call
+ * itself needing room; more than that is spending turns on a history that is
+ * not shrinking.
+ */
+export const OVERFLOW_RECOVERIES = 2;
 
 /**
  * Per-turn tally of retried round kinds. Each kind gets its own budget so a

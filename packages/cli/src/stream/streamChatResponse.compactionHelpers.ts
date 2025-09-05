@@ -19,6 +19,12 @@ export interface CompactionHelperOptions {
   callbacks?: StreamCallbacks;
   systemMessage: string;
   tools?: ChatCompletionTool[];
+  /**
+   * Compact without waiting for the estimate to agree. Used when something
+   * outside the estimate proved the history does not fit - the provider's own
+   * refusal, or a tool result that pushed past the local limit.
+   */
+  force?: boolean;
 }
 
 /**
@@ -66,6 +72,7 @@ export async function handlePreApiCompaction(
     callbacks,
     systemMessage,
     tools,
+    force,
   } = options;
 
   if (isCompacting) {
@@ -81,6 +88,7 @@ export async function handlePreApiCompaction(
       },
       systemMessage,
       tools,
+      force,
     });
 
   if (wasCompacted) {
@@ -158,6 +166,7 @@ export async function handlePostToolValidation(
         },
         systemMessage,
         tools,
+        force: true,
       });
 
     if (wasCompacted) {
