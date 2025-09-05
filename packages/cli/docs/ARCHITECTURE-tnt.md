@@ -178,8 +178,11 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   hook's stdout fields are honored beyond its exit code: the hook runs before
   the permission check, `permissionDecision: "allow"` skips the policy check
   for that call, and `updatedInput` replaces the arguments the check and the
-  execution both see; `"ask"` is parsed but currently falls through to the
-  policy. The same three events' `additionalContext` is a note to the model: the
+  execution both see; `"ask"` is an escalation rather than a fallthrough, so a
+  hook can force the human prompt for a call the policy would have allowed, and
+  its reason rides at the front of the preview the prompt shows. An `"exclude"`
+  still outranks the hook - a policy refusal is not reopened by an escalation,
+  and in headless an escalation is refused because nobody is there to answer it. The same three events' `additionalContext` is a note to the model: the
   reference delivers it as its own meta message, but the chat protocol wants
   exactly one tool message per call, so it rides inside that call's result,
   attributed as `PreToolUse:<tool> hook additional context: ...`. A call that survives both checks and still needs the human fires a

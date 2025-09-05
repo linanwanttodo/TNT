@@ -87,15 +87,20 @@ export function handlePermissionDenied(
 export async function requestUserPermission(
   toolCall: PreprocessedToolCall,
   callbacks?: StreamCallbacks,
+  note?: string,
 ): Promise<boolean> {
   if (!callbacks?.onToolPermissionRequest) {
     return false;
   }
 
+  const basePreview = toolCall.preprocessResult?.preview;
   const toolCallRequest: ToolCallRequest = {
     name: toolCall.name,
     arguments: toolCall.preprocessResult?.args ?? toolCall.arguments,
-    preview: toolCall.preprocessResult?.preview,
+    // A hook that demanded this prompt owes the user its reason.
+    preview: note
+      ? [{ type: "text" as const, content: note }, ...(basePreview ?? [])]
+      : basePreview,
   };
 
   // Set up listener for permissionRequested event
@@ -137,6 +142,13 @@ export async function checkToolPermissionApproval(
   toolCall: PreprocessedToolCall,
   callbacks?: StreamCallbacks,
   isHeadless?: boolean,
+  /**
+   * Set when a PreToolUse hook answered "ask". The policy is not the last word
+   * then: escalation is the reason a security hook has "ask" at all, so a call
+   * the policy would allow still has to reach the human. A policy that refuses
+   * outright outranks the hook either way.
+   */
+  hookAskReason?: string,
 ): Promise<{
   approved: boolean;
   denialReason?: "user" | "policy";
@@ -144,11 +156,16 @@ export async function checkToolPermissionApproval(
 }> {
   const permissionCheck = checkToolPermission(toolCall, permissions);
 
-  if (permissionCheck.permission === "allow") {
+  if (permissionCheck.permission === "allow" && !hookAskReason) {
     return { approved: true };
-  } else if (permissionCheck.permission === "ask") {
+  } else if (
+    permissionCheck.permission === "ask" ||
+    (permissionCheck.permission === "allow" && hookAskReason)
+  ) {
     if (isHeadless) {
-      // "ask" tools are excluded in headless so can only get here by policy evaluation
+      // "ask" tools are excluded in headless so this is either a policy
+      // evaluation that landed on ask or a hook escalation, and with no human
+      // to answer either one the call is refused.
       return { approved: false, denialReason: "policy" };
     }
 
@@ -175,7 +192,11 @@ export async function checkToolPermissionApproval(
       toolCall.name,
     ).catch(() => {});
 
-    const userApproved = await requestUserPermission(toolCall, callbacks);
+    const userApproved = await requestUserPermission(
+      toolCall,
+      callbacks,
+      hookAskReason,
+    );
     return userApproved
       ? { approved: true }
       : { approved: false, denialReason: "user" };
@@ -665,6 +686,10 @@ export async function executeStreamedToolCalls(
               effectiveCall,
               callbacks,
               isHeadless,
+              preHook.permissionDecision === "ask"
+                ? preHook.permissionDecisionReason ||
+                    "A PreToolUse hook asked you to confirm this call."
+                : undefined,
             );
 
       if (!permissionResult.approved) {
