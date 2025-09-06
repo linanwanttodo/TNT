@@ -1,9 +1,22 @@
+import { readFileSync } from "fs";
+
 import {
   cleanupTestContext,
   createTestContext,
   runCLI,
 } from "../src/test-utils/cli-helpers.js";
-import { getVersion } from "../src/startup/version.js";
+
+/**
+ * `getVersion()` resolves package.json relative to `src/startup/`, where there
+ * is none, so it returns its "unknown" fallback while the bundle returns the
+ * real version. Read the version the bundle is built from instead.
+ */
+function bundledVersion(): string {
+  const { version } = JSON.parse(readFileSync("package.json", "utf8")) as {
+    version: string;
+  };
+  return version;
+}
 
 describe("E2E: Basic Commands", () => {
   let context: any;
@@ -21,7 +34,7 @@ describe("E2E: Basic Commands", () => {
       const result = await runCLI(context, { args: ["--version"] });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toBe(getVersion());
+      expect(result.stdout).toBe(bundledVersion());
       expect(result.stderr).toBe("");
     });
   });
