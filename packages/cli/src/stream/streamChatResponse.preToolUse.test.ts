@@ -1,9 +1,13 @@
+import path from "path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HookEventResult } from "../hooks/types.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
+import { workspaceRoot } from "../permissions/workspacePath.js";
 import { readFileTool } from "../tools/readFile.js";
 import type { PreprocessedToolCall } from "../tools/types.js";
+import { writeFileTool } from "../tools/writeFile.js";
 
 import { executeStreamedToolCalls } from "./streamChatResponse.helpers.js";
 
@@ -244,5 +248,122 @@ describe("PreToolUse ask escalates to the prompt", () => {
 
     expect(requestPermission).not.toHaveBeenCalled();
     expect(chatHistoryEntries[0]?.status).toBe("canceled");
+  });
+});
+
+/**
+ * An allow rule grants a tool, not a destination. A write that lands outside the
+ * workspace is escalated to the human even where the policy allows Write, and a
+ * run with no human to answer refuses with the reason the model can act on.
+ */
+describe("a write outside the workspace escalates", () => {
+  const outside = path.join(process.cwd(), "..", "tnt-elsewhere", "notes.md");
+  const inside = path.join(workspaceRoot(), "docs", "plan.md");
+  const writePolicies = {
+    policies: [
+      { tool: "Write", permission: "allow" as const, workspaceOnly: true },
+    ],
+  };
+
+  beforeEach(() => {
+    fireHooks.firePreToolUse.mockReset();
+    fireHooks.firePreToolUse.mockResolvedValue({ blocked: false, results: [] });
+    vi.spyOn(toolPermissionManager, "on").mockImplementation(
+      () => toolPermissionManager as never,
+    );
+    vi.spyOn(toolPermissionManager, "off").mockImplementation(
+      () => toolPermissionManager as never,
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function writeCall(filepath: string): PreprocessedToolCall {
+    return {
+      id: "call_1",
+      name: "Write",
+      arguments: { filepath, content: "body" },
+      argumentsStr: JSON.stringify({ filepath, content: "body" }),
+      startNotified: false,
+      tool: writeFileTool,
+    };
+  }
+
+  it("asks the human and says which destination it is worried about", async () => {
+    const requestPermission = vi
+      .spyOn(toolPermissionManager, "requestPermission")
+      .mockResolvedValue({ approved: true } as never);
+    const toolsModule = await import("../tools/index.js");
+    const executeToolCall = vi
+      .spyOn(toolsModule, "executeToolCall")
+      .mockResolvedValue("done");
+
+    const { chatHistoryEntries } = await executeStreamedToolCalls(
+      [writeCall(outside)],
+      { onToolPermissionRequest: vi.fn() },
+      false,
+      undefined,
+      writePolicies,
+    );
+
+    expect(requestPermission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Write",
+        preview: expect.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining("Outside the workspace"),
+          }),
+        ]),
+      }),
+    );
+    expect(executeToolCall).toHaveBeenCalled();
+    expect(chatHistoryEntries[0]?.status).toBe("done");
+  });
+
+  it("refuses the same call in headless and names the workspace to the model", async () => {
+    const requestPermission = vi
+      .spyOn(toolPermissionManager, "requestPermission")
+      .mockResolvedValue({ approved: false } as never);
+    const toolsModule = await import("../tools/index.js");
+    const executeToolCall = vi.spyOn(toolsModule, "executeToolCall");
+
+    const { chatHistoryEntries } = await executeStreamedToolCalls(
+      [writeCall(outside)],
+      { onToolPermissionRequest: vi.fn() },
+      true,
+      undefined,
+      writePolicies,
+    );
+
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(executeToolCall).not.toHaveBeenCalled();
+    expect(String(chatHistoryEntries[0]?.content)).toContain(
+      "Outside the workspace",
+    );
+    expect(String(chatHistoryEntries[0]?.content)).toContain(workspaceRoot());
+  });
+
+  it("asks nothing of a write that stays inside", async () => {
+    const requestPermission = vi
+      .spyOn(toolPermissionManager, "requestPermission")
+      .mockResolvedValue({ approved: false } as never);
+    const toolsModule = await import("../tools/index.js");
+    const executeToolCall = vi
+      .spyOn(toolsModule, "executeToolCall")
+      .mockResolvedValue("done");
+
+    const { chatHistoryEntries } = await executeStreamedToolCalls(
+      [writeCall(inside)],
+      { onToolPermissionRequest: vi.fn() },
+      false,
+      undefined,
+      writePolicies,
+    );
+
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(executeToolCall).toHaveBeenCalled();
+    expect(chatHistoryEntries[0]?.status).toBe("done");
   });
 });

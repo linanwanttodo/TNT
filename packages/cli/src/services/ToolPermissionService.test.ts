@@ -77,6 +77,7 @@ describe("ToolPermissionService", () => {
         tool: "Write",
         permission: "allow",
         docsOnly: true,
+        workspaceOnly: true,
       });
     });
   });
@@ -123,11 +124,13 @@ describe("ToolPermissionService", () => {
         tool: "Write",
         permission: "allow",
         docsOnly: true,
+        workspaceOnly: true,
       });
       expect(policies).toContainEqual({
         tool: "Edit",
         permission: "allow",
         docsOnly: true,
+        workspaceOnly: true,
       });
 
       // Should allow read tools and inspecting shell commands, and only those
@@ -195,6 +198,7 @@ describe("ToolPermissionService", () => {
         tool: "Write",
         permission: "allow",
         docsOnly: true,
+        workspaceOnly: true,
       });
       // Should not have user policies
       expect(state.permissions.policies).not.toContainEqual({
@@ -357,11 +361,13 @@ describe("ToolPermissionService", () => {
         tool: "Write",
         permission: "allow",
         docsOnly: true,
+        workspaceOnly: true,
       });
       expect(state.permissions.policies).toContainEqual({
         tool: "Edit",
         permission: "allow",
         docsOnly: true,
+        workspaceOnly: true,
       });
     });
 

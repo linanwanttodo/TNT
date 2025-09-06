@@ -15,6 +15,7 @@ The system comes with sensible default policies:
 - Terminal commands (`runTerminalCommand`) require **confirmation** (ask)
 - MCP tools and Bash require **confirmation** (ask) in TUI mode, but are **allowed** automatically in headless mode
 - Any unmatched tools default to **ask**
+- A policy can also scope a call by its arguments: `docsOnly` (plan mode, documentation paths only) and `workspaceOnly` (the write tools, where a destination outside the working directory is escalated to the user even when the tool is allowed). Because the first matching policy wins, an `allow` rule you list ahead of the defaults widens a run past that scope.
 
 ## How It Works
 

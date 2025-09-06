@@ -124,6 +124,18 @@ also swallowing the path argument and leaving the search to wait on stdin
 forever. Arguments after a `--` marker are data to the program: they cannot
 start a second command and are not read as options either.
 
+A write whose destination is not inside the project is a different decision than
+one that is, so the write tools also carry `workspaceOnly`, which escalates such
+a call to the human even where the policy allows the tool, and a headless run
+that cannot ask refuses it with both the destination and the root named so the
+model can move the file instead of rewording the same call. The test is on the
+resolved path, so a symlink inside the project that points out of it is outside.
+A run that means to write elsewhere says so: the checker takes the first matching
+policy, so an `{tool: "Write", permission: "allow"}` rule ahead of the defaults
+widens it. Two surfaces are deliberately not covered, because the check could not
+be honest there: `Bash` can write anywhere, and `auto` mode is the user's answer
+of "allow everything".
+
 ## 3. Todo layer
 
 `src/tools/todo.ts` gives the model an explicit, ordered work list that

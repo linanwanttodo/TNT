@@ -22,6 +22,13 @@ export interface ToolPermissionPolicy {
    * arguments decide whether the call is safe.
    */
   docsOnly?: boolean;
+  /**
+   * A write that lands outside the workspace is escalated to the human even
+   * where the policy allows the tool, because writing into another project or
+   * into a home directory is a different decision than editing this one. A run
+   * that cannot ask refuses it. The arguments decide where the bytes land.
+   */
+  workspaceOnly?: boolean;
 }
 
 export interface ToolPermissions {

@@ -13,9 +13,9 @@ export function getDefaultToolPolicies(
   const writePermission = isHeadless ? "allow" : "ask";
   const policies: ToolPermissionPolicy[] = [
     // Write tools
-    { tool: "Edit", permission: writePermission },
-    { tool: "MultiEdit", permission: writePermission },
-    { tool: "Write", permission: writePermission },
+    { tool: "Edit", permission: writePermission, workspaceOnly: true },
+    { tool: "MultiEdit", permission: writePermission, workspaceOnly: true },
+    { tool: "Write", permission: writePermission, workspaceOnly: true },
     { tool: "CheckBackgroundJob", permission: "allow" },
     { tool: "AskQuestion", permission: "allow" },
     { tool: "Checklist", permission: "allow" },
@@ -56,9 +56,15 @@ export function getDefaultToolPolicies(
 // write call is safe, so the write tools stay listed and the check runs at
 // execution time.
 export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
-  { tool: "Edit", permission: "allow", docsOnly: true },
-  { tool: "MultiEdit", permission: "allow", docsOnly: true },
-  { tool: "Write", permission: "allow", docsOnly: true },
+  // Documentation only, and only inside the project the plan is about.
+  { tool: "Edit", permission: "allow", docsOnly: true, workspaceOnly: true },
+  {
+    tool: "MultiEdit",
+    permission: "allow",
+    docsOnly: true,
+    workspaceOnly: true,
+  },
+  { tool: "Write", permission: "allow", docsOnly: true, workspaceOnly: true },
 
   // Plan mode promises the project is not modified, so shell commands are
   // allowed only while they cannot write. A command the classifier does not
