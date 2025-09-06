@@ -234,9 +234,19 @@ including `plan`.
 Prompt cache reuse is the reason most of the request-shaping code exists.
 
 - `packages/openai-adapters/src/apis/cacheControl.ts` applies provider-specific
-  `cache_control` breakpoints, keeps at most `DEFAULT_MAX_CACHE_BREAKPOINTS`
-  (4), prunes stale breakpoints with a sliding window, and strips reasoning
-  blocks that would otherwise invalidate the prefix.
+  `cache_control` breakpoints and prunes stale ones. The budget is one per
+  request, not per section: `capBreakpointsForAnthropic` keeps the newest message
+  plus the stable head (the last tool when tools are marked, else the system
+  block) and strips the rest, at `ANTHROPIC_MAX_CACHE_BREAKPOINTS` (2), because
+  Anthropic bills a cache write for each breakpoint and reads the sections as one
+  sequence - capping each section separately let a request leave with twelve. A
+  request aimed at DeepSeek is sent with none at all
+  (`DEEPSEEK_ACCEPTS_NO_BREAKPOINTS` in `AnthropicUtils.ts`, selected by
+  `isDeepSeekEndpoint`): DeepSeek discounts whatever prefix it recognises on its
+  own, so a marker is a paid write nobody reads, and on its Anthropic-compatible
+  endpoint the field also changes the bytes the prefix is matched on. It also
+  removes reasoning blocks whose signature cannot be verified, which would
+  otherwise be rejected wholesale and take the cached span with them.
 - `src/cache/prefixState.ts` classifies each request as `full`, `passthrough` or
   `invalidated` with reasons, and attributes a loss to either `prefix` (our
   shaping) or `provider` (vendor behaviour).
