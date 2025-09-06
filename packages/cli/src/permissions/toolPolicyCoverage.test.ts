@@ -24,10 +24,35 @@ function policyFor(
  * to "ask" in agent mode and is simply unavailable in plan mode, which reads as
  * a broken tool rather than a missing rule. Both lists are therefore checked
  * against the tool registry, so adding a tool without a rule fails here.
+ *
+ * The other direction is the one that rots silently: a policy that names a tool
+ * the model is never offered grants nothing, and reads as a capability the CLI
+ * has. That is only acceptable on purpose, so every such name is declared below
+ * with the condition that hides it, and the guard fails on a name that is
+ * neither offered nor declared.
  */
 describe("tool policy coverage", () => {
   const agent = getDefaultToolPolicies();
   const plan = PLAN_MODE_POLICIES;
+
+  /** Names a plain TUI run may or may not be offered, and why. */
+  const CONDITIONALLY_OFFERED: Record<string, string> = {
+    Exit: "only a headless run is told to exit",
+    Search: "needs ripgrep on the machine",
+    Status: "posts to the platform for an agent, which --id names",
+    ReportFailure: "reports to the platform for an agent, which --id names",
+    UploadArtifact: "needs --id and the beta flag",
+    Subagent: "needs the beta flag and a run below the depth limit",
+    ListSubagents: "needs the beta flag and a run below the depth limit",
+  };
+
+  /** Withheld in every mode of this test's flags, so its absence is checkable. */
+  const NEVER_OFFERED_HERE = [
+    "Exit",
+    "ReportFailure",
+    "UploadArtifact",
+    "Status",
+  ];
 
   describe("the tools a run is actually offered", () => {
     beforeEach(() => {
@@ -54,6 +79,41 @@ describe("tool policy coverage", () => {
 
       expect(offered.length).toBeGreaterThan(10);
       expect(uncovered).toEqual([]);
+    });
+
+    it("accounts for every tool the policies name", async () => {
+      const offered = new Set(
+        (await getAllAvailableTools(false, true)).map((tool) => tool.name),
+      );
+      const named = new Set(
+        [...agent, ...plan]
+          .map((policy) => policy.tool)
+          .filter((name) => name !== "*"),
+      );
+      const unaccounted = [...named].filter(
+        (name) => !offered.has(name) && !CONDITIONALLY_OFFERED[name],
+      );
+
+      expect(unaccounted).toEqual([]);
+    });
+
+    it("keeps every stated reason a reason and every declared name a tool", async () => {
+      const offered = new Set(
+        (await getAllAvailableTools(false, true)).map((tool) => tool.name),
+      );
+      // A declared condition that has stopped holding would hide the fact that
+      // the tool is now always offered, so the ones this run cannot enable are
+      // checked to be actually absent.
+      for (const name of NEVER_OFFERED_HERE) {
+        expect(
+          offered.has(name),
+          `${name}: ${CONDITIONALLY_OFFERED[name]}`,
+        ).toBe(false);
+      }
+      const stale = Object.keys(CONDITIONALLY_OFFERED).filter(
+        (name) => !(BUILT_IN_TOOL_NAMES as readonly string[]).includes(name),
+      );
+      expect(stale).toEqual([]);
     });
 
     it("drops the delegation tools once a run has reached its depth limit", async () => {

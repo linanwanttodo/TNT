@@ -18,9 +18,14 @@ import { logger } from "../utils/logger.js";
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { askQuestionTool } from "./askQuestion.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
+import { codebaseSearchTool } from "./codebaseSearch.js";
+import { completionTool } from "./completion.js";
+import { diagnosticsTool } from "./diagnostics.js";
 import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
 import { fetchTool } from "./fetch.js";
+import { findSymbolTool } from "./findSymbol.js";
+import { hoverTool } from "./hover.js";
 import { listFilesTool } from "./listFiles.js";
 import { multiEditTool } from "./multiEdit.js";
 import { readFileTool } from "./readFile.js";
@@ -28,8 +33,10 @@ import { reportFailureTool } from "./reportFailure.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { checkIfRipgrepIsInstalled, searchCodeTool } from "./searchCode.js";
 import { skillsTool } from "./skills.js";
+import { statusTool } from "./status.js";
 import { listSubagentsTool, subagentTool } from "./subagent.js";
 import { sortToolsByName } from "./stableOrder.js";
+import { todoTool } from "./todo.js";
 import {
   isBetaSubagentToolEnabled,
   isBetaUploadArtifactToolEnabled,
@@ -43,6 +50,7 @@ import {
   PreprocessedToolCall,
 } from "./types.js";
 import { uploadArtifactTool } from "./uploadArtifact.js";
+import { viewDiffTool } from "./viewDiff.js";
 import { writeChecklistTool } from "./writeChecklist.js";
 import { writeFileTool } from "./writeFile.js";
 
@@ -74,6 +82,24 @@ const BASE_BUILTIN_TOOLS: Tool[] = [
 
 const BUILTIN_SEARCH_TOOLS: Tool[] = [searchCodeTool];
 
+/**
+ * Tools that need nothing outside the workspace to answer. The language-server
+ * tools are in this list even though most projects have no server: each one
+ * returns the message that says a plugin must declare one, which tells the
+ * model more than an invisible tool does, and the permission policies already
+ * assume they exist. A tool that has a policy but is never offered is a dead
+ * rule, and a project that wants it gone can deny it through the policies.
+ */
+const WORKSPACE_TOOLS: Tool[] = [
+  todoTool,
+  viewDiffTool,
+  codebaseSearchTool,
+  diagnosticsTool,
+  findSymbolTool,
+  hoverTool,
+  completionTool,
+];
+
 // Get all builtin tools including dynamic ones, with capability-based filtering
 export async function getAllAvailableTools(
   isHeadless: boolean,
@@ -85,7 +111,7 @@ export async function getAllAvailableTools(
    */
   canDelegate: boolean = true,
 ): Promise<Tool[]> {
-  const tools = [...BASE_BUILTIN_TOOLS];
+  const tools = [...BASE_BUILTIN_TOOLS, ...WORKSPACE_TOOLS];
 
   const isRipgrepInstalled = await checkIfRipgrepIsInstalled();
   if (isRipgrepInstalled) {
@@ -96,7 +122,7 @@ export async function getAllAvailableTools(
   // (these require --id to function and will confuse the agent if unavailable)
   const agentId = getAgentIdFromArgs();
   if (agentId) {
-    tools.push(reportFailureTool);
+    tools.push(reportFailureTool, statusTool);
 
     // UploadArtifact tool is gated behind beta flag
     if (isBetaUploadArtifactToolEnabled()) {
