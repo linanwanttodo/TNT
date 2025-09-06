@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSession, getCurrentSession } from "../session/index.js";
 
 import {
-  streamChatResponseWithInterruption,
+  streamServeResponse,
   titleServeSessionIfUntitled,
 } from "./serve.helpers.js";
 
@@ -33,13 +33,9 @@ const state = {
  */
 describe("serve stream turn budget", () => {
   it("passes the step budget to the stream", async () => {
-    await streamChatResponseWithInterruption(
-      state as never,
-      {},
-      new AbortController(),
-      () => false,
-      { maxSteps: 5 },
-    );
+    await streamServeResponse(state as never, {}, new AbortController(), {
+      maxSteps: 5,
+    });
 
     expect(streamChatResponse).toHaveBeenCalledWith(
       [],
@@ -53,14 +49,22 @@ describe("serve stream turn budget", () => {
   });
 
   it("leaves the budget at its default without a cap", async () => {
-    await streamChatResponseWithInterruption(
-      state as never,
-      {},
-      new AbortController(),
-      () => false,
-    );
+    await streamServeResponse(state as never, {}, new AbortController());
 
     expect(streamChatResponse.mock.calls[0][6]).toBeUndefined();
+  });
+
+  it("holds no polling timer of its own", async () => {
+    // Interruption is the abort controller's job. A poll used to run here every
+    // 100ms against a callback the caller passed as `() => false`, so all it
+    // did was keep a timer alive during every served response.
+    vi.useFakeTimers();
+    try {
+      await streamServeResponse(state as never, {}, new AbortController());
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -75,11 +79,10 @@ describe("serve request history", () => {
       { message: { role: "user", content: "hi" }, contextItems: [] },
     ] as unknown as ChatHistoryItem[];
 
-    await streamChatResponseWithInterruption(
+    await streamServeResponse(
       { ...state, session: { history } } as never,
       {},
       new AbortController(),
-      () => false,
     );
 
     expect(streamChatResponse.mock.calls[0][0]).toEqual([history[1]]);
@@ -90,11 +93,10 @@ describe("serve request history", () => {
       { message: { role: "user", content: "hi" }, contextItems: [] },
     ] as unknown as ChatHistoryItem[];
 
-    await streamChatResponseWithInterruption(
+    await streamServeResponse(
       { ...state, session: { history } } as never,
       {},
       new AbortController(),
-      () => false,
     );
 
     expect(streamChatResponse.mock.calls[0][0]).toBe(history);

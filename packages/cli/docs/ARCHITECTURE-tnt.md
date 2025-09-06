@@ -21,6 +21,13 @@ the engine but replaces the host with a terminal process.
 | `src/services/`                                                                                                                             | long-lived services resolved through `ServiceContainer` |
 | `src/stream/`, `src/loop/`, `src/tools/`, `src/permissions/`, `src/cache/`, `src/plugins/`, `src/hooks/`, `src/subagent/`, `src/telemetry/` | agent engine                                            |
 
+`tnt serve` shares the engine and adds nothing to it. An in-flight turn is
+stopped by `POST /pause` or `POST /exit` aborting the controller the stream runs
+on - the same signal the TUI's escape key raises - so `streamServeResponse` in
+`src/commands/serve.helpers.ts` holds no timer. It used to poll a callback whose
+only argument was `() => false`, which could not interrupt anything and kept a
+100ms interval alive through every response.
+
 Long-lived resources are swept on the way out, not left to the operating
 system: language servers, background jobs, review workers and MCP connections
 each register a synchronous sweep on `exit`, because several code paths call
