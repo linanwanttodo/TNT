@@ -64,3 +64,30 @@ describe("subagent registry", () => {
     ).toEqual([]);
   });
 });
+
+describe("findModelByName", () => {
+  it("matches the entry name and the model id", () => {
+    const other = {
+      ...sessionModel,
+      name: "cheap-model",
+      model: "haiku",
+    };
+    const withModels = stateOf({
+      assistant: { models: [sessionModel, other] },
+    });
+
+    expect(
+      ModelService.findModelByName(withModels, "cheap-model")?.model?.model,
+    ).toBe("haiku");
+    // Hook authors write whichever of the two identifies the model to them.
+    expect(ModelService.findModelByName(withModels, "haiku")?.model?.name).toBe(
+      "cheap-model",
+    );
+  });
+
+  it("returns null for a name nobody configured", () => {
+    const withModels = stateOf({ assistant: { models: [sessionModel] } });
+
+    expect(ModelService.findModelByName(withModels, "ghost")).toBeNull();
+  });
+});

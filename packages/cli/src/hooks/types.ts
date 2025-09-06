@@ -70,7 +70,10 @@ export interface PromptHookHandler extends HookHandlerBase {
   type: "prompt";
   /** Prompt text. Use $ARGUMENTS as a placeholder for hook input JSON */
   prompt: string;
-  /** Model to use. Defaults to a fast model */
+  /**
+   * Which configured model runs this hook, matched by entry name or model id.
+   * Unset or unknown, the session's own model runs it.
+   */
   model?: string;
 }
 
@@ -79,7 +82,10 @@ export interface AgentHookHandler extends HookHandlerBase {
   type: "agent";
   /** Prompt text. Use $ARGUMENTS as a placeholder for hook input JSON */
   prompt: string;
-  /** Model to use. Defaults to a fast model */
+  /**
+   * Which configured model runs this hook, matched by entry name or model id.
+   * Unset or unknown, the session's own model runs it.
+   */
   model?: string;
 }
 

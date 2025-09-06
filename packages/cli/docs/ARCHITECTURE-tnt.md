@@ -188,7 +188,11 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   `installed_plugins.json` as scope `user`.
 - `src/hooks/` implements `command`, `http`, `prompt` and `agent` hook types with
   Claude Code exit-code semantics: 0 proceeds, 2 blocks and turns stderr into
-  feedback, anything else is a non-blocking error. Config is merged from user,
+  feedback, anything else is a non-blocking error. The two LLM-backed types
+  resolve their declared `model` against the configured models - by entry name or
+  model id - and an unset or unknown name runs the session's own model with the
+  fallback logged, because a check that silently changed models is a different
+  cost than the one the hook author asked for. Config is merged from user,
   project and project-local files for both `.tnt/` and `.claude/`. Lifecycle
   events fire in headless runs too: a `tnt -p` session emits SessionStart,
   UserPromptSubmit, Stop and SessionEnd around its turn, and a blocking
