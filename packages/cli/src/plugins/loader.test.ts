@@ -139,7 +139,9 @@ describe("loadAllPlugins", () => {
     expect(result.commands[0].name).toBe("demo:sync");
     expect(result.commands[0].content).toContain(root);
 
-    expect(result.agents[0].name).toBe("reviewer");
+    // An agent is named for the plugin that contributed it, the same way a
+    // command is: the model asks for it by this name.
+    expect(result.agents[0].name).toBe("demo:reviewer");
 
     expect(result.skills[0].name).toBe("helper");
     expect(result.skills[0].description).toBe("Helps out");
@@ -150,6 +152,62 @@ describe("loadAllPlugins", () => {
     };
     expect(mcpServer.command).toBe("node");
     expect(mcpServer.args[0]).toBe(path.join(root, "server.js"));
+  });
+
+  it("keeps two plugins that both ship agents/reviewer.md apart", () => {
+    const first = installPlugin("acme", "one", "1.0.0");
+    const second = installPlugin("acme", "two", "1.0.0");
+    writeJson(path.join(first, ".claude-plugin", "plugin.json"), {
+      name: "one",
+    });
+    writeJson(path.join(second, ".claude-plugin", "plugin.json"), {
+      name: "two",
+    });
+    writeFile(path.join(first, "agents", "reviewer.md"), "review as one");
+    writeFile(path.join(second, "agents", "reviewer.md"), "review as two");
+
+    const result = loadAllPlugins();
+
+    // Under bare names the model could only ever reach whichever plugin the
+    // directory scan happened to return first.
+    expect(result.agents.map((agent) => agent.name)).toEqual([
+      "one:reviewer",
+      "two:reviewer",
+    ]);
+  });
+
+  it("lists contributed files in name order, not in directory order", () => {
+    const root = installPlugin("acme", "ordered", "1.0.0");
+    writeJson(path.join(root, ".claude-plugin", "plugin.json"), {
+      name: "ordered",
+    });
+    writeFile(path.join(root, "commands", "zeta.md"), "z");
+    writeFile(path.join(root, "commands", "alpha.md"), "a");
+    writeFile(path.join(root, "commands", "middle.md"), "m");
+
+    const result = loadAllPlugins();
+
+    // A listing the model sees is part of the request; an order that changes
+    // between runs cannot stay cached.
+    expect(result.commands.map((command) => command.name)).toEqual([
+      "ordered:alpha",
+      "ordered:middle",
+      "ordered:zeta",
+    ]);
+  });
+
+  it("keeps the first of two files that name the same command", () => {
+    const root = installPlugin("acme", "doubled", "1.0.0");
+    writeJson(path.join(root, ".claude-plugin", "plugin.json"), {
+      name: "doubled",
+      commands: ["./commands", "./commands"],
+    });
+    writeFile(path.join(root, "commands", "sync.md"), "first body");
+
+    const result = loadAllPlugins();
+
+    expect(result.commands).toHaveLength(1);
+    expect(result.commands[0].content).toBe("first body");
   });
 
   it("uses the newest version directory", () => {
