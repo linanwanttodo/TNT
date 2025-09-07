@@ -1,22 +1,33 @@
 import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 import * as diff from "diff";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock fs module
 vi.mock("fs", async () => {
-  // Use actual fs implementation for non-mocked functions
-  const actualFs = await vi.importActual("fs");
+  // Use actual fs implementation for non-mocked functions, and let the two
+  // mocked ones fall through to it by default: a stub that answers "undefined"
+  // for every path made these tests fail for the wrong reason (the tools check
+  // what exists), which is why the block below used to be skipped.
+  const actualFs = await vi.importActual<typeof import("fs")>("fs");
   return {
     ...(actualFs as any),
     default: actualFs,
-    existsSync: vi.fn(),
-    readFileSync: vi.fn(),
+    existsSync: vi.fn((...args: any[]) =>
+      (actualFs as any).existsSync(...args),
+    ),
+    readFileSync: vi.fn((...args: any[]) =>
+      (actualFs as any).readFileSync(...args),
+    ),
   };
 });
 
-// Mock telemetry service
-vi.mock("./src/telemetry/telemetryService.js"); // Mock diff module
+// Mock telemetry service - the path has to be relative to this file, which is
+// why the block below used to be skipped rather than passing.
+vi.mock("../telemetry/telemetryService.js");
+// Mock diff module
 vi.mock("diff", () => ({
   createTwoFilesPatch: vi.fn(),
 }));
@@ -27,6 +38,7 @@ const mockReadFileSync = vi.mocked(fs.readFileSync);
 const mockCreateTwoFilesPatch = vi.mocked(diff.createTwoFilesPatch);
 
 import { fetchTool } from "./fetch.js";
+import { formatToolArgument } from "./formatters.js";
 import { listFilesTool } from "./listFiles.js";
 import { readFileTool } from "./readFile.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
@@ -34,7 +46,7 @@ import { searchCodeTool } from "./searchCode.js";
 import { viewDiffTool } from "./viewDiff.js";
 import { writeFileTool } from "./writeFile.js";
 
-describe.skip("Tool preprocess functions", () => {
+describe("Tool preprocess functions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // The mock functions will be configured in each test as needed
@@ -73,34 +85,38 @@ describe.skip("Tool preprocess functions", () => {
   });
 
   describe("listFilesTool.preprocess", () => {
-    it("should return preview with directory path when directory arg present", async () => {
-      const args = { dirpath: "some/path" };
-      const result = await listFilesTool.preprocess!(args);
+    it("names the resolved directory in the preview", async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-list-"));
+      try {
+        const result = await listFilesTool.preprocess!({ dirpath: dir });
 
-      expect(result).toEqual({
-        args,
-        preview: [
+        // The path is resolved before the preview is built, so what the user
+        // reads is the directory the tool will actually list.
+        expect(result.args.dirpath).toBe(dir);
+        expect(result.preview).toEqual([
           {
             type: "text",
-            content: "Will list files in: some/path",
+            content: `Will list files in: ${formatToolArgument(dir)}`,
           },
-        ],
-      });
+        ]);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
 
-    it("should show current directory when no directory arg", async () => {
-      const args = {};
-      const result = await listFilesTool.preprocess!(args);
+    it("lists the working directory when the call names none", async () => {
+      const result = await listFilesTool.preprocess!({});
 
-      expect(result).toEqual({
-        args,
-        preview: [
-          {
-            type: "text",
-            content: "Will list files in current directory",
-          },
-        ],
-      });
+      expect(result.args.dirpath).toBe(process.cwd());
+      expect(result.preview).toEqual([
+        { type: "text", content: `Will list files in: ${process.cwd()}` },
+      ]);
+    });
+
+    it("refuses a path that is not there, with the tool's own reason", async () => {
+      await expect(
+        listFilesTool.preprocess!({ dirpath: "/no/such/directory" }),
+      ).rejects.toThrow(/Directory does not exist: \/no\/such\/directory/);
     });
   });
 
@@ -224,6 +240,7 @@ describe.skip("Tool preprocess functions", () => {
       // Setup mocks for this test
       mockExistsSync.mockReturnValue(true);
       mockReadFileSync.mockReturnValue("old content");
+      mockCreateTwoFilesPatch.mockReturnValue("mock diff content");
 
       const args = { filepath: "path/to/file.txt", content: "new content" };
       const result = await writeFileTool.preprocess!(args);

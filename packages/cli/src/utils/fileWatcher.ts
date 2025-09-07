@@ -16,6 +16,7 @@ export class FileWatcher {
   private options: Required<FileWatcherOptions>;
   private watchedDirs: Set<string> = new Set();
   private isInitializing: boolean = false;
+  private pendingChange: boolean = false;
   private lastErrorCode: string | null = null;
 
   constructor(options: FileWatcherOptions = {}) {
@@ -57,8 +58,11 @@ export class FileWatcher {
   }
 
   private triggerCallbacks(): void {
-    // Don't trigger callbacks during initialization
+    // A change that lands while the watchers are still being attached is held,
+    // not dropped: dropping it lost every edit made in the first moments after
+    // startWatching, which is exactly when an editor or a build writes files.
     if (this.isInitializing) {
+      this.pendingChange = true;
       return;
     }
 
@@ -185,17 +189,23 @@ export class FileWatcher {
   public startWatching(rootPath: string = process.cwd()): void {
     this.stopWatching();
     this.isInitializing = true;
+    this.pendingChange = false;
     this.watchDirectory(rootPath);
 
-    // Allow a small delay for initial file system events to settle
-    // before enabling callbacks
+    // Allow a small delay for initial file system events to settle before
+    // enabling callbacks, then answer for anything that arrived in the meantime.
     setTimeout(() => {
       this.isInitializing = false;
+      if (this.pendingChange) {
+        this.pendingChange = false;
+        this.triggerCallbacks();
+      }
     }, 50);
   }
 
   public stopWatching(): void {
     this.isInitializing = false;
+    this.pendingChange = false;
     this.watchers.forEach((watcher) => {
       try {
         watcher.close();

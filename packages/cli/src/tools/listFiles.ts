@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+
 import { formatToolArgument } from "./formatters.js";
 import { Tool } from "./types.js";
 
@@ -11,27 +13,38 @@ export const listFilesTool: Tool = {
   description: "List files in a directory",
   parameters: {
     type: "object",
-    required: ["dirpath"],
     properties: {
       dirpath: {
         type: "string",
-        description: "The path to the directory to list",
+        description:
+          "The path to the directory to list. Defaults to the current working directory",
       },
     },
   },
   readonly: true,
   isBuiltIn: true,
   preprocess: async (args) => {
-    // Resolve relative paths
-    const normalizedPath = path.normalize(args.dirpath);
-    const dirPath = path.resolve(process.cwd(), normalizedPath);
+    // A call with no path lists the project the run is already in, which is what
+    // the preview below always said it would do - before, the missing path
+    // reached path.normalize and surfaced as a TypeError.
+    const requested = typeof args?.dirpath === "string" ? args.dirpath : "";
+    const dirPath = path.resolve(
+      process.cwd(),
+      path.normalize(requested || "."),
+    );
 
     if (!fs.existsSync(dirPath)) {
-      throw new Error(`Directory does not exist: ${dirPath}`);
+      throw new ContinueError(
+        ContinueErrorReason.DirectoryNotFound,
+        `Directory does not exist: ${dirPath}`,
+      );
     }
 
     if (!fs.statSync(dirPath).isDirectory()) {
-      throw new Error(`Error: Path is not a directory: ${dirPath}`);
+      throw new ContinueError(
+        ContinueErrorReason.Unspecified,
+        `Error: Path is not a directory: ${dirPath}`,
+      );
     }
 
     return {
@@ -41,9 +54,7 @@ export const listFilesTool: Tool = {
       preview: [
         {
           type: "text",
-          content: dirPath
-            ? `Will list files in: ${formatToolArgument(dirPath)}`
-            : "Will list files in current directory",
+          content: `Will list files in: ${formatToolArgument(dirPath)}`,
         },
       ],
     };
