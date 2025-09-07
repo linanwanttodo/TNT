@@ -233,20 +233,23 @@ including `plan`.
 
 Prompt cache reuse is the reason most of the request-shaping code exists.
 
-- `packages/openai-adapters/src/apis/cacheControl.ts` applies provider-specific
-  `cache_control` breakpoints and prunes stale ones. The budget is one per
-  request, not per section: `capBreakpointsForAnthropic` keeps the newest message
-  plus the stable head (the last tool when tools are marked, else the system
-  block) and strips the rest, at `ANTHROPIC_MAX_CACHE_BREAKPOINTS` (2), because
-  Anthropic bills a cache write for each breakpoint and reads the sections as one
-  sequence - capping each section separately let a request leave with twelve. A
-  request aimed at DeepSeek is sent with none at all
+- `packages/openai-adapters/src/apis/cacheControl.ts` owns the `cache_control`
+  breakpoints. The cap is applied across the whole request rather than per section:
+  `capBreakpointsForAnthropic` keeps the newest message plus the stable head (the
+  last tool when tools are marked, else the system block) and strips the rest, at
+  `ANTHROPIC_MAX_CACHE_BREAKPOINTS` (2). Anthropic itself reads up to four per
+  request - past four the last four are the ones that take effect - and bills a
+  cache write near 1.25x the input rate for each one it acts on against a read near
+  0.1x, so the sections used to be capped separately (four each) and a request could
+  leave with twelve marked spans, most of them paying a write for bytes a kept
+  breakpoint already covered. A request aimed at DeepSeek is sent with none at all
   (`DEEPSEEK_ACCEPTS_NO_BREAKPOINTS` in `AnthropicUtils.ts`, selected by
-  `isDeepSeekEndpoint`): DeepSeek discounts whatever prefix it recognises on its
-  own, so a marker is a paid write nobody reads, and on its Anthropic-compatible
-  endpoint the field also changes the bytes the prefix is matched on. It also
-  removes reasoning blocks whose signature cannot be verified, which would
-  otherwise be rejected wholesale and take the cached span with them.
+  `isDeepSeekEndpoint`): DeepSeek's API takes no cache parameter, caches every prefix
+  it recognises on its own, and reports the split afterwards as
+  `prompt_cache_hit_tokens` against `prompt_cache_miss_tokens`, so a breakpoint there
+  is a paid write nobody reads. The same module also removes reasoning blocks whose
+  signature cannot be verified, which would otherwise be rejected wholesale and take
+  the cached span with them.
 - `src/cache/prefixState.ts` classifies each request as `full`, `passthrough` or
   `invalidated` with reasons, and attributes a loss to either `prefix` (our
   shaping) or `provider` (vendor behaviour).
@@ -304,7 +307,10 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   parts reported separately, so a 100k-token cached request would otherwise have been
   metered as twelve tokens. The CLI reads the two spellings through
   `cacheTokensFrom()` in `src/stream/streamChatResponse.helpers.ts`, which is also
-  where reasoning tokens reach `Usage.completionTokensDetails`. Not covered: Bedrock
+  where reasoning tokens reach `Usage.completionTokensDetails`. DeepSeek's own
+  spelling (`prompt_cache_hit_tokens`, against `prompt_cache_miss_tokens`) is folded
+  in too, which matters because DeepSeek takes no cache parameter at all - it caches
+  automatically and reports the split afterwards. Not covered: Bedrock
   sends no usage on its chat paths at all, and Ollama's native `/api/chat` class in
   `core/llm/llms/Ollama.ts` types `prompt_eval_count` and `eval_count` but never
   reads them - the CLI reaches Ollama through its OpenAI-compatible endpoint, where
