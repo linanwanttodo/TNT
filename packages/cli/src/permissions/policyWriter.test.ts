@@ -24,15 +24,17 @@ describe("policyWriter", () => {
       );
     });
 
-    it("should handle complex bash commands", () => {
+    it("writes the whole line for a chain, not a prefix over it", () => {
+      // Bash(ls*) used to be the result here, which granted every ls-shaped
+      // command forever on the strength of one approval that also ran echo.
       expect(
         generatePolicyRule("Bash", { command: "ls -la && echo test" }),
-      ).toBe("Bash(ls*)");
+      ).toBe("Bash(ls -la && echo test)");
       expect(
         generatePolicyRule("Bash", {
           command: "find . -name '*.ts' | head -10",
         }),
-      ).toBe("Bash(find*)");
+      ).toBe("Bash(find . -name '*.ts' | head -10)");
       expect(
         generatePolicyRule("Bash", { command: "  grep -r test .  " }),
       ).toBe("Bash(grep*)");

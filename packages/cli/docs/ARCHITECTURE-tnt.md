@@ -146,6 +146,20 @@ twice. The namespaced name is what the permission policies, a hook's `tool_name`
 and the chat history use, which makes `mcp__github_*` a rule an author can write;
 the server is called with the name it published.
 
+A `Bash(...)` rule is matched against every command the call actually runs
+(`src/permissions/bashCommandRule.ts`): a line with `&&`, `||`, `;`, `|` or a
+newline matches only when every segment does, a rule written as a command name
+plus a star stops at the word so `Bash(ls*)` never covers `lsvirtual`, a rule with
+no wildcard is the exact command line, and no prefix rule covers a segment holding
+`$( )` or a backtick, because a rule about a command name cannot answer for code
+evaluated inside it. The rule written when the user approves a run for good follows
+the same shape: one command becomes `Bash(<name>*)`, a chain is written as the
+whole line the user read. It used to be reduced to its first command, so approving
+`git add . && rm -rf /` granted every git command forever and let the removal
+through. What an approval still does not have is an expiry: a written rule lives
+in `permissions.yaml` until it is removed, which is a stated gap rather than a
+behaviour to rely on.
+
 ## 3. Todo layer
 
 `src/tools/todo.ts` gives the model an explicit, ordered work list that
