@@ -76,6 +76,18 @@ vi.mock("os", async (importOriginal) => {
   };
 });
 
+const mockHooks = vi.hoisted(() => ({
+  calls: [] as string[],
+  result: { blocked: false, results: [] } as Record<string, unknown>,
+}));
+
+vi.mock("../hooks/fireHook.js", () => ({
+  firePreCompact: async (trigger: string) => {
+    mockHooks.calls.push(`preCompact:${trigger}`);
+    return { blocked: false, results: [], ...mockHooks.result };
+  },
+}));
+
 describe("handleAutoCompaction", () => {
   const mockModel = {
     provider: "openai",

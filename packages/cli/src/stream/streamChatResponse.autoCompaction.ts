@@ -18,6 +18,7 @@ import {
   getAutoCompactMessage,
   shouldAutoCompact,
 } from "../compaction/index.js";
+import { firePreCompact } from "../hooks/fireHook.js";
 import {
   getCurrentSession,
   getSessionHistoryGeneration,
@@ -241,6 +242,22 @@ export async function handleAutoCompaction(
   logger.info(
     `Auto-compaction triggered${isHeadless ? " in headless mode" : ""}`,
   );
+
+  // PreCompact has to run before the history is summarized, and in every surface
+  // that compacts: it is the hook an operator uses to keep a full transcript, and
+  // the reference lets it refuse. A refusal is obeyed - the run continues with
+  // what it has, so an oversized request is reported rather than compacted behind
+  // the hook's back.
+  const preCompact = await firePreCompact("auto");
+  if (preCompact.blocked) {
+    logger.info("PreCompact hook refused the summarization; continuing as-is");
+    return {
+      chatHistory: historyAfterToolResultCompaction,
+      compactionIndex,
+      wasCompacted: toolResultCompaction.truncatedCount > 0,
+    };
+  }
+
   compactionState = { ...compactionState, inFlight: true };
   setCompactionState(session, compactionState);
 

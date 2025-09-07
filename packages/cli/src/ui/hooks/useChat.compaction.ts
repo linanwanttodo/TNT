@@ -40,11 +40,28 @@ export async function handleCompactCommand({
   const compactionController = new AbortController();
   setCompactionAbortController(compactionController);
 
+  // Asked before the display starts, because a hook that refuses the
+  // summarization leaves nothing to watch.
+  const preCompact = await firePreCompact("manual");
+  if (preCompact.blocked) {
+    setCompactionAbortController(null);
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        // The hook's own words, not a UI string: the reason belongs to the hook.
+        message: {
+          role: "system",
+          content: preCompact.blockReason ?? "Blocked by PreCompact hook",
+        },
+        contextItems: [],
+      },
+    ]);
+    return;
+  }
+
   // Start compaction status display
   setIsCompacting(true);
   setCompactionStartTime(Date.now());
-
-  const preCompact = await firePreCompact("manual");
 
   try {
     // Compact the chat history directly (already in unified format) with abort controller
@@ -151,7 +168,8 @@ export async function handleAutoCompaction({
     },
   });
 
-  await firePreCompact("auto");
+  // PreCompact for the auto trigger is fired by the engine before it summarizes,
+  // so a run that reaches this point already told the hooks.
 
   if (!result.wasCompacted) {
     return {
