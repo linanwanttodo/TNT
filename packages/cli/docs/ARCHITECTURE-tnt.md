@@ -264,7 +264,15 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   events fire in headless runs too: a `tnt -p` session emits SessionStart,
   UserPromptSubmit, Stop and SessionEnd around its turn, and a blocking
   UserPromptSubmit ends the run with a nonzero exit - the contract a CI job's
-  hooks.json depends on (serve still fires the tool hooks only). PreCompact is
+  hooks.json depends on. `tnt serve` emits them as well, at the granularity the
+  server actually has (`src/commands/serve.helpers.ts`): SessionStart when it
+  takes a session up, once, and SessionEnd on each of its three ways out after
+  the final metadata write, because a command hook that archives the transcript
+  would otherwise be killed mid-run; UserPromptSubmit per queued prompt, where a
+  refusal is returned to the client as the assistant turn rather than starting a
+  model call; and Stop for a turn that ended by itself, never for an interrupted
+  one. A served SessionStart note reaches the first queued prompt only, since the
+  session outlives the request that would have carried it. PreCompact is
   fired by the engine that compacts, before it summarizes, so a headless or serve
   run tells the hooks too - it used to be a TUI event, and the TUI announced it
   after the fact. A hook that blocks it is obeyed: the run continues with the

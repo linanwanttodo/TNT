@@ -42,7 +42,11 @@ import { readStdinSync } from "../utils/stdin.js";
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import {
   checkAgentComplete,
+  endServedSession,
+  finishServedTurn,
+  prepareServedPrompt,
   removePartialAssistantMessage,
+  startServedSession,
   streamServeResponse,
   titleServeSessionIfUntitled,
   type ServerState,
@@ -163,6 +167,11 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
     trimmedId && trimmedId.length > 0
       ? loadOrCreateSessionById(trimmedId, initialHistory)
       : createSession(initialHistory);
+  // A server attached to an id that already carries a conversation is a resumed
+  // session for the hooks, which is what SessionStart's source field is for.
+  const resumedSession =
+    Boolean(trimmedId) &&
+    session.history.some((item) => item.message.role !== "system");
 
   // Align ChatHistoryService with server session and enable remote mode
   try {
@@ -218,6 +227,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   // Record session start
   telemetryService.recordSessionStart();
   telemetryService.startActiveTime();
+  await startServedSession(resumedSession, model?.model);
 
   const app = express();
   app.use(express.json());
@@ -385,6 +395,11 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
           logger.debug("Failed to update metadata (non-critical)", err as any);
         }
 
+        // Every way out of the server is a session ending for the hooks, and it
+        // is awaited before the exit: a command hook that archives the
+        // transcript would otherwise be killed mid-run.
+        await endServedSession("other");
+
         gracefulExit(0).catch((err) => {
           logger.error(`Graceful exit failed: ${formatError(err)}`);
           process.exit(1);
@@ -441,15 +456,35 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
       state.lastActivity = Date.now();
       processedMessage = true;
 
+      // A UserPromptSubmit hook may refuse this prompt outright; the answer is
+      // recorded as the assistant turn so the waiting client sees why nothing
+      // happened, and the queue moves on.
+      const prepared = await prepareServedPrompt(userMessage);
+      if (prepared.blocked) {
+        const reason =
+          prepared.blockReason ?? "blocked by UserPromptSubmit hook";
+        logger.info("Served prompt blocked by a UserPromptSubmit hook");
+        try {
+          services.chatHistory.addAssistantMessage(reason);
+        } catch {
+          state.session.history.push({
+            message: { role: "assistant", content: reason },
+            contextItems: [],
+          });
+        }
+        state.isProcessing = false;
+        continue;
+      }
+
       // Add user message via ChatHistoryService (single source of truth). A
       // `@path` in a served prompt means the same as it does in the TUI.
-      const mentionItems = expandMentions(userMessage).contextItems;
+      const mentionItems = expandMentions(prepared.text).contextItems;
       try {
-        services.chatHistory.addUserMessage(userMessage, mentionItems);
+        services.chatHistory.addUserMessage(prepared.text, mentionItems);
       } catch {
         // Fallback to local array if service unavailable
         state.session.history.push({
-          message: { role: "user", content: userMessage },
+          message: { role: "user", content: prepared.text },
           contextItems: mentionItems,
         });
       }
@@ -475,6 +510,10 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
           llmApi,
           state.model,
         );
+
+        // The turn ended by itself, which is what Stop means; an interruption
+        // takes the abort path below and is not a stop the agent reached.
+        await finishServedTurn(response);
 
         // No direct persistence here; ChatHistoryService handles persistence when appropriate
 
@@ -559,6 +598,11 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
           logger.debug("Failed to update metadata (non-critical)", err as any);
         }
 
+        // Every way out of the server is a session ending for the hooks, and it
+        // is awaited before the exit: a command hook that archives the
+        // transcript would otherwise be killed mid-run.
+        await endServedSession("other");
+
         gracefulExit(0).catch((err) => {
           logger.error(`Graceful exit failed: ${formatError(err)}`);
           process.exit(1);
@@ -590,6 +634,8 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
       } catch (err) {
         logger.debug("Failed to update metadata (non-critical)", err as any);
       }
+
+      await endServedSession("other");
 
       gracefulExit(0).catch((err) => {
         logger.error(`Graceful exit failed: ${formatError(err)}`);
