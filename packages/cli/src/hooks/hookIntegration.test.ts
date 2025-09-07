@@ -26,6 +26,7 @@ vi.mock("../services/index.js", () => {
 
 vi.mock("../session/index.js", () => ({
   getCurrentSession: () => ({ sessionId: "sess-1", history: [] }),
+  getSessionFilePath: () => "/sessions/sess-1.json",
 }));
 
 import { services } from "../services/index.js";
@@ -64,6 +65,7 @@ describe("fireHook integration points", () => {
     expect(input.tool_input).toEqual({ command: "ls" });
     expect(input.tool_use_id).toBe("tool-1");
     expect(input.session_id).toBe("sess-1");
+    expect(input.transcript_path).toBe("/sessions/sess-1.json");
     expect(input.permission_mode).toBe("agent");
   });
 

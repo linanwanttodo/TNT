@@ -10,6 +10,7 @@ import {
   fireSessionStart,
   fireStop,
   fireUserPromptSubmit,
+  takeSessionStartContext,
 } from "../../hooks/fireHook.js";
 import { toolPermissionManager } from "../../permissions/permissionManager.js";
 import { t } from "../../i18n/index.js";
@@ -566,8 +567,12 @@ export function useChat({
       );
       return;
     }
-    if (promptHook.additionalContext) {
-      message = `${promptHook.additionalContext}\n\n${message}`;
+    // The session note leads and the prompt note follows; the user's text stays
+    // last, and the note is taken once so it cannot repeat on later messages.
+    const hookNotes = [takeSessionStartContext(), promptHook.additionalContext];
+    const leading = hookNotes.filter((note): note is string => Boolean(note));
+    if (leading.length > 0) {
+      message = `${leading.join("\n\n")}\n\n${message}`;
     }
 
     // Track telemetry

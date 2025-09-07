@@ -7,7 +7,7 @@
  */
 
 import { services } from "../services/index.js";
-import { getCurrentSession } from "../session/index.js";
+import { getCurrentSession, getSessionFilePath } from "../session/index.js";
 
 import type {
   ConfigChangeInput,
@@ -44,7 +44,9 @@ function getCommonFields(): {
 
     return {
       session_id: session.sessionId,
-      transcript_path: "", // We don't have a transcript file like Claude Code
+      // The session store is the transcript: a hook that audits what happened
+      // reads the same file the resume path writes.
+      transcript_path: getSessionFilePath(),
       cwd: process.cwd(),
       permission_mode: permissionMode,
     };
@@ -205,6 +207,20 @@ export async function fireUserPromptSubmit(
   return services.hooks.fireEvent(input);
 }
 
+/**
+ * A SessionStart hook writes context for the session, and the session has no
+ * message to put it in yet: the chat protocol only carries user and assistant
+ * turns. The note is held here and taken by the first prompt of the run, which is
+ * where the reference delivers it too.
+ */
+let pendingSessionContext: string | undefined;
+
+export function takeSessionStartContext(): string | undefined {
+  const note = pendingSessionContext;
+  pendingSessionContext = undefined;
+  return note;
+}
+
 export async function fireSessionStart(
   source: SessionStartSource,
   model?: string,
@@ -218,7 +234,11 @@ export async function fireSessionStart(
     model,
   };
 
-  return services.hooks.fireEvent(input);
+  const result = await services.hooks.fireEvent(input);
+  if (result.additionalContext) {
+    pendingSessionContext = result.additionalContext;
+  }
+  return result;
 }
 
 export async function fireSessionEnd(

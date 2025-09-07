@@ -264,7 +264,16 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   events fire in headless runs too: a `tnt -p` session emits SessionStart,
   UserPromptSubmit, Stop and SessionEnd around its turn, and a blocking
   UserPromptSubmit ends the run with a nonzero exit - the contract a CI job's
-  hooks.json depends on (serve still fires the tool hooks only). A PreToolUse
+  hooks.json depends on (serve still fires the tool hooks only). A SessionStart
+  hook's stdout is context for the model and the session has no message to carry
+  it yet, so it is held and prepended to the run's first prompt ahead of any
+  UserPromptSubmit note, with the user's own text last. The `transcript_path` in
+  every hook input is the session file itself, because that is what a resumed run
+  reads; it used to be sent as an empty string, which told an auditing hook there
+  was nothing to audit. Thirteen of the seventeen declared events are fired;
+  `TeammateIdle`, `TaskCompleted`, `WorktreeCreate` and `WorktreeRemove` are
+  declared for manifest compatibility and nothing fires them, which is stated here
+  rather than left for a hook author to discover. A PreToolUse
   hook's stdout fields are honored beyond its exit code: the hook runs before
   the permission check, `permissionDecision: "allow"` skips the policy check
   for that call, and `updatedInput` replaces the arguments the check and the
