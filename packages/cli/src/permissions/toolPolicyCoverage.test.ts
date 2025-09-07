@@ -62,7 +62,10 @@ describe("tool policy coverage", () => {
       serviceContainer.registerValue(SERVICE_NAMES.MODEL, {
         model: { name: "test-model" },
       } as never);
-      serviceContainer.registerValue(SERVICE_NAMES.MCP, { tools: [] } as never);
+      serviceContainer.registerValue(SERVICE_NAMES.MCP, {
+        connections: [],
+        tools: [],
+      } as never);
     });
 
     afterEach(() => {
