@@ -256,3 +256,63 @@ describe("command hook limits", () => {
     expect(result.blocked).toBe(false);
   }, 30_000);
 });
+
+/**
+ * `once` is in the reference schema for every handler type and was declared here
+ * with a comment claiming it was for skills, which is not what it says there: the
+ * handler runs one time and is then spent.
+ */
+describe("once handlers", () => {
+  function countingConfig(counter: string, once: boolean): HooksConfig {
+    const handler: HookHandler = {
+      type: "command",
+      command: `n=$(cat "${counter}" 2>/dev/null || echo 0); echo $((n+1)) > "${counter}"`,
+      ...(once ? { once: true } : {}),
+    };
+    return { PreToolUse: [{ matcher: "*", hooks: [handler] }] };
+  }
+
+  async function readCounter(counter: string): Promise<number> {
+    const raw = await fs.promises.readFile(counter, "utf-8");
+    return Number(raw.trim());
+  }
+
+  it("runs the first event and nothing after it", async () => {
+    const counter = path.join(workDir, "once-count");
+    await fs.promises.rm(counter, { force: true });
+    const onceKeys = new Set<string>();
+    const config = countingConfig(counter, true);
+
+    await runHooks(config, toolCall(), workDir, onceKeys);
+    await runHooks(config, toolCall(), workDir, onceKeys);
+    await runHooks(config, toolCall(), workDir, onceKeys);
+
+    expect(await readCounter(counter)).toBe(1);
+    expect(onceKeys.size).toBe(1);
+  }, 30_000);
+
+  it("runs every time without the flag", async () => {
+    const counter = path.join(workDir, "always-count");
+    await fs.promises.rm(counter, { force: true });
+    const onceKeys = new Set<string>();
+    const config = countingConfig(counter, false);
+
+    await runHooks(config, toolCall(), workDir, onceKeys);
+    await runHooks(config, toolCall(), workDir, onceKeys);
+
+    expect(await readCounter(counter)).toBe(2);
+    expect(onceKeys.size).toBe(0);
+  }, 30_000);
+
+  it("spends the handler even when no set is handed to it", async () => {
+    // A caller that tracks nothing must not turn the flag into a no-op: the
+    // handler still runs, which is the behaviour the field promised before.
+    const counter = path.join(workDir, "no-set-count");
+    await fs.promises.rm(counter, { force: true });
+    const config = countingConfig(counter, true);
+
+    await runHooks(config, toolCall(), workDir);
+
+    expect(await readCounter(counter)).toBe(1);
+  }, 30_000);
+});

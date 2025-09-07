@@ -533,6 +533,12 @@ export async function runHooks(
   config: HooksConfig,
   input: HookInput,
   cwd: string = process.cwd(),
+  /**
+   * Keys of the `once` handlers this process has already run. The set is owned
+   * by the caller that lives as long as the session does, because the settings
+   * file is not rewritten to forget a handler that has had its one run.
+   */
+  onceKeys?: Set<string>,
 ): Promise<HookEventResult> {
   const eventName = input.hook_event_name;
   const matcherValue = getMatcherValue(input);
@@ -543,22 +549,32 @@ export async function runHooks(
     return { blocked: false, results: [] };
   }
 
-  // Collect all handlers, deduplicating by key
+  // Collect all handlers, deduplicating by key. A `once` handler whose key is
+  // already spent is not collected at all, so it costs no subprocess and cannot
+  // answer the event a second time.
   const seen = new Set<string>();
   const handlers: HookHandler[] = [];
 
   for (const group of matchingGroups) {
     for (const handler of group.hooks) {
       const key = getHandlerDedupeKey(handler);
-      if (!seen.has(key)) {
-        seen.add(key);
-        handlers.push(handler);
-      }
+      if (seen.has(key)) continue;
+      if (handler.once && onceKeys?.has(key)) continue;
+      seen.add(key);
+      handlers.push(handler);
     }
   }
 
   if (handlers.length === 0) {
     return { blocked: false, results: [] };
+  }
+
+  // Marked before they run rather than after: two events in flight must not both
+  // get the handler, and a run that fails has still had its one execution.
+  if (onceKeys) {
+    for (const handler of handlers) {
+      if (handler.once) onceKeys.add(getHandlerDedupeKey(handler));
+    }
   }
 
   // Separate async (fire-and-forget) from sync handlers

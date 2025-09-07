@@ -41,7 +41,7 @@ interface HookHandlerBase {
   timeout?: number;
   /** Custom spinner message displayed while the hook runs */
   statusMessage?: string;
-  /** If true, runs only once per session then is removed (skills only) */
+  /** Runs one time per process, then is spent for every later event. */
   once?: boolean;
 }
 
