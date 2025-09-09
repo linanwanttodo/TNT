@@ -27,13 +27,50 @@ function getReadFileMaxLines(): number {
   );
 }
 
+/**
+ * The section a call asked for, clamped to the file. One-sided input is refused
+ * by asking for both ends: half a range would read to the end of the file, which
+ * is the oversized answer the range exists to avoid.
+ */
+export function readRange(
+  args: { start_line?: number; end_line?: number },
+  lineCount: number,
+): { start: number; end: number } | null {
+  const start = Number(args.start_line);
+  const end = Number(args.end_line);
+  if (!Number.isFinite(start) && !Number.isFinite(end)) return null;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    throw new ContinueError(
+      ContinueErrorReason.Unspecified,
+      "start_line and end_line must both be given, with end_line at or after start_line",
+    );
+  }
+  if (start < 1) {
+    throw new ContinueError(
+      ContinueErrorReason.Unspecified,
+      "start_line counts from 1",
+    );
+  }
+  if (start > lineCount) {
+    throw new ContinueError(
+      ContinueErrorReason.Unspecified,
+      `start_line ${start} is past the end of a ${lineCount}-line file`,
+    );
+  }
+  return {
+    start: Math.floor(start),
+    end: Math.min(Math.floor(end), lineCount),
+  };
+}
+
 // Read state is tracked with what the file looked like at the time, so a write
 // can tell an unchanged file from one edited outside TNT. See fileState.ts.
 
 export const readFileTool: Tool = {
   name: "Read",
   displayName: "Read",
-  description: "Read the contents of a file at the specified path",
+  description: `Read the contents of a file at the specified path.
+One call returns at most ${DEFAULT_READ_FILE_MAX_LINES} lines or ${DEFAULT_READ_FILE_MAX_CHARS} characters; a larger file is refused rather than cut, so pass start_line and end_line to read the section you need instead of guessing at the whole file.`,
   parameters: {
     type: "object",
     required: ["filepath"],
@@ -41,6 +78,14 @@ export const readFileTool: Tool = {
       filepath: {
         type: "string",
         description: "The path to the file to read",
+      },
+      start_line: {
+        type: "number",
+        description: `First line of the section to read, counting from 1 (requires end_line)`,
+      },
+      end_line: {
+        type: "number",
+        description: "Last line of the section to read, inclusive",
       },
     },
   },
@@ -63,7 +108,7 @@ export const readFileTool: Tool = {
     };
   },
   run: async (
-    args: { filepath: string },
+    args: { filepath: string; start_line?: number; end_line?: number },
     context?: ToolRunContext,
   ): Promise<string> => {
     try {
@@ -87,8 +132,18 @@ export const readFileTool: Tool = {
       const baseMaxChars = getReadFileMaxChars();
       const maxLines = Math.floor(baseMaxLines / parallelCount);
       const maxChars = Math.floor(baseMaxChars / parallelCount);
-      const lineCount = content.split("\n").length;
+      const allLines = content.split("\n");
+      const lineCount = allLines.length;
       const charCount = content.length;
+
+      const range = readRange(args, lineCount);
+      if (range) {
+        const section = allLines.slice(range.start - 1, range.end);
+        // The stamp is the whole file: the edit guard asks whether the file moved
+        // since it was read, which a section read answers as well as all of it.
+        markFileAsSeen(realPath);
+        return `Content of ${filepath} (lines ${range.start}-${range.end} of ${lineCount}):\n${section.join("\n")}`;
+      }
 
       if (charCount > maxChars || lineCount > maxLines) {
         // Include note about single-tool limit when parallel calls reduce the limit
@@ -101,7 +156,7 @@ export const readFileTool: Tool = {
           ContinueErrorReason.FileTooLarge,
           `File is too large to read: ${filepath} (${charCount.toLocaleString()} characters, ${lineCount.toLocaleString()} lines). ` +
             `Maximum allowed: ${maxChars.toLocaleString()} characters or ${maxLines.toLocaleString()} lines.${parallelNote} ` +
-            `Consider using terminal commands like 'head', 'tail', 'sed', or 'grep' to read targeted parts of the file.`,
+            `Read a section with start_line and end_line, or search within it with Search, instead of shell commands.`,
         );
       }
 
