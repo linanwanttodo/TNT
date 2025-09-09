@@ -4,6 +4,7 @@ import type { ChatHistoryItem, Session } from "core/index.js";
 import { useApp } from "ink";
 import { useEffect, useRef, useState } from "react";
 
+import { describeChangedFiles } from "../../agent/changedFiles.js";
 import { findCompactionIndex } from "../../compaction/index.js";
 import {
   fireSessionEnd,
@@ -567,9 +568,13 @@ export function useChat({
       );
       return;
     }
-    // The session note leads and the prompt note follows; the user's text stays
-    // last, and the note is taken once so it cannot repeat on later messages.
-    const hookNotes = [takeSessionStartContext(), promptHook.additionalContext];
+    // The session note leads, then the prompt note, then the files that moved;
+    // the user's text stays last, and a note is taken once so it cannot repeat.
+    const hookNotes = [
+      takeSessionStartContext(),
+      promptHook.additionalContext,
+      describeChangedFiles(),
+    ];
     const leading = hookNotes.filter((note): note is string => Boolean(note));
     if (leading.length > 0) {
       message = `${leading.join("\n\n")}\n\n${message}`;

@@ -1,6 +1,11 @@
 import type { ChatHistoryItem } from "core/index.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { markFileAsSeen } from "../tools/fileState.js";
 import { createSession, getCurrentSession } from "../session/index.js";
 
 import {
@@ -202,6 +207,12 @@ describe("serve session titles", () => {
  * around them.
  */
 describe("serve lifecycle hooks", () => {
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-serve-hooks-"));
+
+  afterAll(() => {
+    fs.rmSync(workDir, { recursive: true, force: true });
+  });
+
   beforeEach(() => {
     hooks.userPromptSubmit.mockReset();
     hooks.userPromptSubmit.mockResolvedValue({ blocked: false, results: [] });
@@ -280,5 +291,19 @@ describe("serve lifecycle hooks", () => {
 
     expect(prepared.blocked).toBe(false);
     expect(prepared.text).toBe("keep going");
+  });
+
+  it("carries a moved file in front of the served prompt", async () => {
+    const target = path.join(workDir, "moved.ts");
+    fs.writeFileSync(target, "export const a = 1;\n");
+    markFileAsSeen(target);
+    fs.writeFileSync(target, "export const a = 22;\n");
+
+    const prepared = await prepareServedPrompt("continue");
+
+    // The write tools would refuse this file until it is read again; saying so
+    // first saves the model a call.
+    expect(prepared.text).toContain("changed on disk since you read them");
+    expect(prepared.text.endsWith("\n\ncontinue")).toBe(true);
   });
 });

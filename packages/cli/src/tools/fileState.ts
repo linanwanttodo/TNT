@@ -15,6 +15,21 @@ type FileStamp = {
 
 const lastSeen = new Map<string, FileStamp | undefined>();
 
+/**
+ * The stamp a change was already announced at. Without it every turn of a long
+ * task repeats one stale file, and a note that repeats stops being a signal; with
+ * it, the same change is mentioned once and a later change is mentioned again.
+ */
+const announced = new Map<string, FileStamp | undefined>();
+
+function sameStamp(
+  a: FileStamp | undefined,
+  b: FileStamp | undefined,
+): boolean {
+  if (!a || !b) return a === b;
+  return a.size === b.size && a.mtimeMs === b.mtimeMs && a.ino === b.ino;
+}
+
 function stampOf(filePath: string): FileStamp | undefined {
   try {
     const stat = fs.statSync(filePath);
@@ -37,11 +52,43 @@ function seenKey(filePath: string): string {
 }
 
 export function markFileAsSeen(filePath: string): void {
-  lastSeen.set(seenKey(filePath), stampOf(filePath));
+  const key = seenKey(filePath);
+  lastSeen.set(key, stampOf(key));
+  // Re-reading is the reset: a change after this point is news again.
+  announced.delete(key);
 }
 
 export function hasSeenFile(filePath: string): boolean {
   return lastSeen.has(seenKey(filePath));
+}
+
+export interface ChangedFile {
+  path: string;
+  /** The file is gone rather than different. */
+  deleted: boolean;
+}
+
+/**
+ * Files the model was shown that are no longer what it was shown, each reported
+ * once per change. Order is by path so the same set of changes produces the same
+ * text every run.
+ */
+export function changedFilesSinceSeen(): ChangedFile[] {
+  const changed: ChangedFile[] = [];
+
+  for (const [key, seen] of lastSeen) {
+    if (!seen) continue;
+    const current = stampOf(key);
+    if (sameStamp(current, seen)) continue;
+    if (announced.has(key) && sameStamp(announced.get(key), current)) continue;
+
+    announced.set(key, current);
+    changed.push({ path: key, deleted: !current });
+  }
+
+  return changed.sort((a, b) =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
+  );
 }
 
 /**
@@ -64,4 +111,5 @@ export function changedSinceSeen(filePath: string): boolean {
 
 export function forgetSeenFiles(): void {
   lastSeen.clear();
+  announced.clear();
 }
