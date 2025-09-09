@@ -118,12 +118,20 @@ async function searchWithGrepOrFindstr(
 // Output truncation defaults
 const DEFAULT_SEARCH_MAX_RESULTS = 100;
 const DEFAULT_SEARCH_MAX_RESULT_CHARS = 1000; // Max chars per result line
+/** A caller may ask for fewer lines; asking for more than this is not honoured. */
+const MAX_SEARCH_HEAD_LIMIT = 500;
 
 function getSearchMaxResults(): number {
   return parseEnvNumber(
     process.env.CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS,
     DEFAULT_SEARCH_MAX_RESULTS,
   );
+}
+
+function resolveMaxResults(requested: unknown): number {
+  const value = Number(requested);
+  if (!Number.isFinite(value) || value <= 0) return getSearchMaxResults();
+  return Math.min(Math.floor(value), MAX_SEARCH_HEAD_LIMIT);
 }
 
 function getSearchMaxResultChars(): number {
@@ -136,7 +144,8 @@ function getSearchMaxResultChars(): number {
 export const searchCodeTool: Tool = {
   name: "Search",
   displayName: "Search",
-  description: "Search the codebase using ripgrep (rg) for a specific pattern",
+  description: `Search the codebase using ripgrep (rg) for a specific pattern.
+Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with head_limit, and drops any match line longer than ${DEFAULT_SEARCH_MAX_RESULT_CHARS} characters - when it drops something, the result says so rather than claiming there were no matches.`,
   parameters: {
     type: "object",
     required: ["pattern"],
@@ -152,6 +161,10 @@ export const searchCodeTool: Tool = {
       file_pattern: {
         type: "string",
         description: "Optional file pattern to filter results (e.g., '*.ts')",
+      },
+      head_limit: {
+        type: "number",
+        description: `Maximum number of result lines to return (default ${DEFAULT_SEARCH_MAX_RESULTS}, ceiling ${MAX_SEARCH_HEAD_LIMIT})`,
       },
     },
   },
@@ -176,6 +189,7 @@ export const searchCodeTool: Tool = {
     pattern: string;
     path?: string;
     file_pattern?: string;
+    head_limit?: number;
   }): Promise<string> => {
     const searchPath = args.path || process.cwd();
     if (!fs.existsSync(searchPath)) {
@@ -217,23 +231,37 @@ export const searchCodeTool: Tool = {
       }
 
       // Split the results into lines and limit the number of results
-      const maxResults = getSearchMaxResults();
+      const maxResults = resolveMaxResults(args.head_limit);
       const maxResultChars = getSearchMaxResultChars();
 
-      const splitLines = stdout.split("\n");
-      const lines = splitLines.filter((line) => line.length <= maxResultChars);
+      const matchLines = stdout.split("\n").filter((line) => line.length > 0);
+      const lines = matchLines.filter((line) => line.length <= maxResultChars);
+      const droppedLongLines = matchLines.length - lines.length;
+
       if (lines.length === 0) {
-        return `No matches found for pattern "${args.pattern}"${
+        // Matches existed and every one of them was too long to show. Answering
+        // "no matches" here tells the model its pattern was wrong, and it goes
+        // and re-searches for something that was found the first time.
+        return `Matches found for pattern "${args.pattern}"${
           args.file_pattern ? ` in files matching "${args.file_pattern}"` : ""
-        }.`;
+        }, but all ${droppedLongLines} line(s) are longer than the ${maxResultChars}-character limit. Narrow the pattern or search a smaller path.`;
       }
+
       const truncated = lines.length > maxResults;
       const limitedLines = lines.slice(0, maxResults);
       const resultText = limitedLines.join("\n");
 
-      const truncationMessage = truncated
-        ? `\n\n[Results truncated: showing ${maxResults} of ${lines.length} matches]`
-        : "";
+      const notes: string[] = [];
+      if (truncated) {
+        notes.push(`showing ${maxResults} of ${lines.length} matches`);
+      }
+      if (droppedLongLines > 0) {
+        notes.push(
+          `${droppedLongLines} match line(s) over ${maxResultChars} characters were not shown`,
+        );
+      }
+      const truncationMessage =
+        notes.length > 0 ? `\n\n[Results truncated: ${notes.join("; ")}]` : "";
 
       return `Search results for pattern "${args.pattern}"${
         args.file_pattern ? ` in files matching "${args.file_pattern}"` : ""
