@@ -122,7 +122,16 @@ export const runTerminalCommandTool: Tool = {
 
 Commands are automatically executed from the current working directory (${process.cwd()}), so there's no need to change directories with 'cd' commands.
 
-IMPORTANT: To edit files, use Edit/MultiEdit tools instead of bash commands (sed, awk, etc).
+USE THE DEDICATED TOOL WHEN ONE EXISTS - a shell pipeline loses the guard, the diff and the indexing that the tool gives you:
+- Read a file with Read, not cat, head, tail or sed. A large file is read in sections with start_line/end_line, not with 'sed -n'.
+- Change a file with Edit, MultiEdit or Write, not sed, awk or 'echo >'.
+- Look for code with Search or CodebaseSearch, and list files with List, rather than grep, rg or find.
+- Put text meant for the user in your reply, not in echo or printf.
+
+HOW TO SHAPE A COMMAND:
+- Prefer absolute paths and quote any path that can contain spaces. Avoid 'cd': the working directory is already the project, and a chain of commands shares one shell.
+- Join commands that depend on each other with '&&', so a failure stops the chain. Use ';' only when the later commands may run regardless of it. Never separate commands with a newline.
+- git: create a new commit rather than '--amend'. When a pre-commit hook fails, no commit happened, and amending would rewrite the previous one - fix the cause and commit again. Do not use 'git status -uall'; on a large tree it can exhaust memory.
 `,
   parameters: {
     type: "object",
