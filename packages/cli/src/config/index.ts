@@ -4,6 +4,7 @@ import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { AuthConfig } from "../auth/workos.js";
 import { env } from "./env.js";
+import { assertModelChoices } from "./providerLint.js";
 import { getUniqueId } from "../utils/uniqueId.js";
 import { getVersion } from "../startup/version.js";
 
@@ -68,6 +69,10 @@ export function getLlmApi(
       "No models with the chat role found in the configured assistant",
     );
   }
+
+  // The last gate before a request exists: a model the provider cannot answer
+  // fails at the provider with a message about a field the user never wrote.
+  assertModelChoices([model]);
 
   const llmApi = createLlmApi(model, authConfig);
 

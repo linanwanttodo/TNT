@@ -33,13 +33,15 @@ describe("E2E: Headless Mode with ANTHROPIC_API_KEY", () => {
       response: "Hello! This is a response from Claude.",
     });
 
-    // Use OpenAI provider pointing to mock server (same as working tests)
+    // The model and provider have to belong together: the CLI now refuses a
+    // Claude model under an OpenAI provider (see the case below), and the mock
+    // speaks the OpenAI wire format.
     const configContent = `name: Test Assistant
 version: 1.0.0
 schema: v1
 models:
-  - name: test-claude
-    model: claude-3-5-sonnet
+  - name: test-model
+    model: gpt-4o
     provider: openai
     apiKey: test-key
     apiBase: ${mockServer.url}
@@ -80,4 +82,43 @@ models:
     );
     expect(userMessage.content).toBe("Hi there");
   }, 20000);
+
+  it("refuses a Claude model configured under an OpenAI provider", async () => {
+    const configContent = `name: Test Assistant
+version: 1.0.0
+schema: v1
+models:
+  - name: mismatch
+    model: claude-sonnet-4-5
+    provider: openai
+    apiKey: test-key
+    apiBase: http://127.0.0.1:1
+    roles:
+      - chat
+`;
+    const configPath = path.join(context.testDir, "mismatch-config.yaml");
+    await fs.writeFile(configPath, configContent);
+    const onboardingFlagPath = path.join(
+      context.testDir,
+      ".tnt",
+      ".onboarding_complete",
+    );
+    await fs.mkdir(path.dirname(onboardingFlagPath), { recursive: true });
+    await fs.writeFile(onboardingFlagPath, new Date().toISOString());
+
+    const result = await runCLI(context, {
+      args: ["-p", "--config", configPath, "Hi there"],
+      env: { ANTHROPIC_API_KEY: "test-api-key-from-env" },
+      timeout: 15000,
+      expectError: true,
+    });
+
+    // The pair is refused before any request is made, with the reason the user
+    // needs - not a 400 from the provider about a field they never wrote.
+    const output = `${result.stdout}\n${result.stderr}`;
+    expect(output).toContain(
+      "is a Claude model, but it is configured with provider: openai",
+    );
+    expect(result.exitCode).not.toBe(0);
+  }, 30000);
 });
