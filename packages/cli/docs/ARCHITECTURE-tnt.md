@@ -216,6 +216,26 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   the file in `fileState`, so an edit after a mention is allowed while an outside
   change to it is still caught. Files the interface already attached are not paid
   for twice.
+- `src/agent/instructionIncludes.ts` reads the instruction files that sit in the
+  prefix: `AGENTS.md` (or `AGENT.md`, `CLAUDE.md`, `CODEX.md`, first one wins) with
+  `AGENTS.local.md` layered on top as the uncommitted personal file, and the
+  always-applied files under the managed rules directory (`/etc/tnt/rules`,
+  `CONTINUE_CLI_MANAGED_RULES_DIR` for an operator who mounts it elsewhere), the
+  user's own rules directory, then the project's `.tnt/rules/` - least to most
+  specific, each listing sorted so the prefix does not move between rounds. Each
+  is read through `@path` includes - relative to the including file, `~/`, or
+  absolute - which stop at 5 levels, refuse a cycle instead of doubling the file,
+  leave prose like `@author` alone, and are skipped inside a fenced code block. The
+  limits are reported in the text rather than silently applied: a file over 1 MiB is
+  not read, an expanded file is cut at 40,000 characters with the dropped count
+  named, and a non-text target (`.pdf`, an image, anything that opens with a NUL) is
+  refused. A `<context name="userRules">` block then starts with a fixed sentence
+  saying these instructions override how the agent would otherwise work, so the
+  layering is stated rather than implied.
+- The `git status --porcelain` block is a snapshot taken at session start, and the
+  prompt says so, because it cannot update itself. It is also bounded - 200 entries
+  or 8,000 characters - and says how many entries it left out, since a tree with
+  thousands of changes would otherwise pay for all of them on every request.
 - `Search` bounds its own output and says what it left out: at most
   `CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS` match lines (100, or the call's
   `head_limit` up to 500), and no line over 1,000 characters, with the omitted

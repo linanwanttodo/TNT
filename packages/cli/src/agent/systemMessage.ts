@@ -17,6 +17,12 @@ import { getSessionOutputStyle } from "../session/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
 import { logger } from "../utils/logger.js";
+import { loadInstructionFile } from "./instructionIncludes.js";
+
+// Static, because everything ahead of the user's own text is inside the cached
+// prefix of every request in the session.
+export const RULES_PREAMBLE =
+  "These instructions come from the user's own files for this project and override how you would otherwise choose to work. Follow each one. Where two of them conflict, the one closer to the project and to the file being changed wins; say which you followed when the choice mattered. When a request cannot be met under them, say so instead of quietly dropping the rule.";
 
 /**
  * Check if current directory is a git repository
@@ -28,6 +34,32 @@ function isGitRepo(): boolean {
   } catch {
     return false;
   }
+}
+
+// A large tree can be thousands of entries, and this block rides along with
+// every request in the session, so it is bounded and says what it dropped.
+const GIT_STATUS_MAX_ENTRIES = 200;
+const GIT_STATUS_MAX_CHARS = 8000;
+
+export function formatGitStatus(raw: string): string {
+  const entries = raw.split("\n").filter((line) => line.trim() !== "");
+  if (entries.length === 0) return "Working tree clean";
+
+  const kept: string[] = [];
+  let chars = 0;
+  for (const entry of entries) {
+    if (kept.length >= GIT_STATUS_MAX_ENTRIES) break;
+    if (chars + entry.length > GIT_STATUS_MAX_CHARS) break;
+    kept.push(entry);
+    chars += entry.length + 1;
+  }
+
+  const dropped = entries.length - kept.length;
+  if (dropped === 0) return kept.join("\n");
+
+  return `${kept.join(
+    "\n",
+  )}\n\n[${dropped.toLocaleString()} of ${entries.length.toLocaleString()} entries are not shown: the list stops at ${GIT_STATUS_MAX_ENTRIES.toLocaleString()} entries or ${GIT_STATUS_MAX_CHARS.toLocaleString()} characters. Run git status for the whole picture.]`;
 }
 
 /**
@@ -42,7 +74,7 @@ function getGitStatus(): string {
       encoding: "utf-8",
       cwd: process.cwd(),
     });
-    return result.trim() || "Working tree clean";
+    return formatGitStatus(result);
   } catch {
     return "Git status not available";
   }
@@ -105,13 +137,29 @@ function getRuleNameFromPath(filePath: string): string {
 }
 
 /**
- * Scan .tnt/rules/ directories for markdown rule files and return the rules with metadata that should be always-applied
+ * The tier deployed for the whole machine, ahead of any personal file. Operators
+ * point it at their own path rather than mounting one at /etc.
+ */
+export function managedRulesDir(): string {
+  const fromEnv = process.env.CONTINUE_CLI_MANAGED_RULES_DIR;
+  if (fromEnv) return fromEnv;
+  return process.platform === "win32"
+    ? path.join(process.env.PROGRAMDATA ?? "C:\\ProgramData", "TNT", "rules")
+    : "/etc/tnt/rules";
+}
+
+/**
+ * Scan the managed, user and project rules directories for markdown rule files
+ * and return the rules with metadata that should be always-applied
  */
 export function loadMarkdownRulesWithMetadata(): RuleObject[] {
   const cwd = process.cwd();
+  // Ordered least to most specific, the way the reference layers them: a rule
+  // deployed for the machine, then the user's own, then the project's.
   const rulesDirs = [
-    path.join(cwd, ".tnt", "rules"),
+    managedRulesDir(),
     path.join(env.continueHome, "rules"),
+    path.join(cwd, ".tnt", "rules"),
   ];
 
   const rules: RuleObject[] = [];
@@ -125,6 +173,9 @@ export function loadMarkdownRulesWithMetadata(): RuleObject[] {
     } catch {
       continue;
     }
+    // Read order is not promised to be alphabetical, and the rules land in the
+    // cached prefix, so the listing is sorted before it is read.
+    files = files.map(String).sort();
 
     for (const file of files) {
       if (!String(file).endsWith(".md")) continue;
@@ -138,7 +189,7 @@ export function loadMarkdownRulesWithMetadata(): RuleObject[] {
       }
 
       try {
-        const content = fs.readFileSync(filePath, "utf-8");
+        const content = loadInstructionFile(filePath);
         const { frontmatter, markdown } = parseMarkdownRule(content);
 
         if (frontmatter.invokable) continue;
@@ -221,22 +272,34 @@ export async function constructSystemMessage(
   headless?: boolean,
 ): Promise<string> {
   const agentFiles = ["AGENTS.md", "AGENT.md", "CLAUDE.md", "CODEX.md"];
-
-  let agentContent = "";
+  const layers: string[] = [];
 
   try {
     for (const fileName of agentFiles) {
       const filePath = path.join(process.cwd(), fileName);
 
       if (fs.existsSync(filePath)) {
-        agentContent = fs.readFileSync(filePath, "utf-8");
+        // The local file is the personal layer over the committed one, so both
+        // are read when both exist, and each says which it is.
+        layers.push(
+          `Rules from ${fileName}:\n${loadInstructionFile(filePath)}`,
+        );
         break; // Use the first found agent file
       }
+    }
+
+    const localPath = path.join(process.cwd(), "AGENTS.local.md");
+    if (fs.existsSync(localPath)) {
+      layers.push(
+        `Rules from AGENTS.local.md, which is not committed:\n${loadInstructionFile(localPath)}`,
+      );
     }
   } catch (error) {
     // If there's any error reading the file, continue without agent content
     console.warn("Warning: Could not read agent configuration file:", error);
   }
+
+  const agentContent = layers.join("\n\n");
 
   // Process additional rules from --rule flags
   const processedRules: string[] = [];
@@ -302,21 +365,16 @@ Example response format:
     selectOutputStyle(loadAllPlugins().outputStyles),
   );
 
-  // Add rules section if we have any rules or agent content
+  // The rules block is the last thing in the prefix, so its own wording stays
+  // fixed and only the user's text changes.
   if (agentContent || processedRules.length > 0) {
-    systemMessage += '\n\n<context name="userRules">';
+    const blocks = [RULES_PREAMBLE];
+    if (agentContent) blocks.push(agentContent);
+    blocks.push(...processedRules);
 
-    if (agentContent) {
-      systemMessage += `\n${agentContent}`;
-    }
-
-    // Add processed rules from --rule flags
-    if (processedRules.length > 0) {
-      const separator = agentContent ? "\n\n" : "\n";
-      systemMessage += `${separator}${processedRules.join("\n\n")}`;
-    }
-
-    systemMessage += "\n</context>";
+    systemMessage += `\n\n<context name="userRules">\n${blocks.join(
+      "\n\n",
+    )}\n</context>`;
   }
 
   return systemMessage;
