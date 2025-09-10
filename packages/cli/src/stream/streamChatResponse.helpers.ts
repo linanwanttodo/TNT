@@ -31,7 +31,7 @@ import {
   executeToolCall,
   getAllAvailableTools,
   Tool,
-  validateToolCallArgsPresent,
+  validateToolCallArgs,
 } from "../tools/index.js";
 import { ExecutionGate } from "../tools/specs/gate.js";
 import { planToolCalls } from "../tools/specs/planner.js";
@@ -550,10 +550,13 @@ export async function preprocessStreamedToolCalls(
       );
       const tool = availableTools.find((t) => t.name === toolCall.name);
       if (!tool) {
-        throw new Error(`Tool ${toolCall.name} not found`);
+        throw new ContinueError(
+          ContinueErrorReason.ToolNotFound,
+          `Tool ${toolCall.name} not found. It is either not installed or withheld from this mode; the tools you can call are the ones in this run's tool list.`,
+        );
       }
 
-      validateToolCallArgsPresent(toolCall, tool);
+      validateToolCallArgs(toolCall, tool);
 
       const preprocessedCall: PreprocessedToolCall = {
         ...toolCall,
