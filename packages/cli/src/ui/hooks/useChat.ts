@@ -13,20 +13,19 @@ import {
   fireUserPromptSubmit,
   takeSessionStartContext,
 } from "../../hooks/fireHook.js";
-import { toolPermissionManager } from "../../permissions/permissionManager.js";
 import { t } from "../../i18n/index.js";
+import { toolPermissionManager } from "../../permissions/permissionManager.js";
 import { services } from "../../services/index.js";
 import {
   createSession,
-  loadSession,
   resumeSession,
   updateSessionHistory,
 } from "../../session/index.js";
-import { handleSlashCommands } from "../commands/index.js";
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
+import { handleSlashCommands } from "../commands/index.js";
 
 import {
   handleAutoCompaction,

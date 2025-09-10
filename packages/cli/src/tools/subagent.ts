@@ -1,7 +1,7 @@
-import { services } from "../services/index.js";
 import { loadAllPlugins } from "../plugins/loader.js";
-import { serviceContainer } from "../services/ServiceContainer.js";
+import { services } from "../services/index.js";
 import { ModelService } from "../services/ModelService.js";
+import { serviceContainer } from "../services/ServiceContainer.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {

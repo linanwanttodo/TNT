@@ -11,8 +11,9 @@ vi.mock("../utils/logger.js", () => ({
   },
 }));
 
-import { clearSession, getSessionUsage, trackSessionUsage } from "./index.js";
 import { logger } from "../utils/logger.js";
+
+import { clearSession, getSessionUsage, trackSessionUsage } from "./index.js";
 
 describe("session cold-start cache attribution", () => {
   beforeEach(() => {

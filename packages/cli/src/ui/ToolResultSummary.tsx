@@ -5,13 +5,14 @@ import React from "react";
 
 import { getToolDisplayName } from "src/tools/index.js";
 
-import { ColoredDiff } from "./ColoredDiff.js";
-import { ChecklistDisplay } from "./components/ChecklistDisplay.js";
 import { t } from "../i18n/index.js";
 import {
   MARKER_FILE_CREATED,
   MARKER_PERMISSION_DENIED,
 } from "../tools/resultMarkers.js";
+
+import { ColoredDiff } from "./ColoredDiff.js";
+import { ChecklistDisplay } from "./components/ChecklistDisplay.js";
 
 const MAX_BASH_OUTPUT_LINES = 4;
 

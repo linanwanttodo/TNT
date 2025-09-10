@@ -2,9 +2,10 @@ import type { ChatHistoryItem } from "core/index.js";
 import { Box, Text } from "ink";
 import React, { useMemo } from "react";
 
+import { t } from "../i18n/index.js";
+
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { defaultBoxStyles } from "./styles.js";
-import { t } from "../i18n/index.js";
 
 interface SessionPreviewProps {
   chatHistory: ChatHistoryItem[];

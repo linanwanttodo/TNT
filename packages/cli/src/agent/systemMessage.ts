@@ -6,17 +6,18 @@ import { parseMarkdownRule, RuleObject } from "@tnt/config-yaml";
 
 import { env } from "../config/env.js";
 import { processRule } from "../config/hubLoader.js";
+import { readSettingsString } from "../config/settingsFiles.js";
 import { PermissionMode } from "../permissions/types.js";
 import {
   loadAllPlugins,
   selectForcedOutputStyle,
   type PluginOutputStyle,
 } from "../plugins/loader.js";
-import { readSettingsString } from "../config/settingsFiles.js";
-import { getSessionOutputStyle } from "../session/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
+import { getSessionOutputStyle } from "../session/index.js";
 import { logger } from "../utils/logger.js";
+
 import { loadInstructionFile } from "./instructionIncludes.js";
 
 // Static, because everything ahead of the user's own text is inside the cached

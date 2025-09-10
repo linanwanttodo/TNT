@@ -1,15 +1,14 @@
 import chalk from "chalk";
-
-import { t } from "../i18n/index.js";
-import { renderServerStartupHelp } from "./serve.help.js";
 import type { ChatHistoryItem } from "core/index.js";
 import express, { Request, Response } from "express";
 
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 import { prependPrompt } from "src/utils/promptProcessor.js";
 
-import { runEnvironmentInstallSafe } from "../utils/environmentHandler.js";
+import { expandMentions } from "../agent/atMentions.js";
+import { constructSystemMessage } from "../agent/systemMessage.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
+import { t } from "../i18n/index.js";
 import { setAgentId } from "../index.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import {
@@ -29,10 +28,9 @@ import {
   loadOrCreateSessionById,
 } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
-import { constructSystemMessage } from "../agent/systemMessage.js";
-import { expandMentions } from "../agent/atMentions.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { reportFailureTool } from "../tools/reportFailure.js";
+import { runEnvironmentInstallSafe } from "../utils/environmentHandler.js";
 import { gracefulExit, updateAgentMetadata } from "../utils/exit.js";
 import { formatError } from "../utils/formatError.js";
 import { getGitDiffSnapshot } from "../utils/git.js";
@@ -40,6 +38,7 @@ import { logger } from "../utils/logger.js";
 import { readStdinSync } from "../utils/stdin.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
+import { renderServerStartupHelp } from "./serve.help.js";
 import {
   checkAgentComplete,
   endServedSession,

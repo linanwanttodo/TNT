@@ -1,8 +1,8 @@
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
-import { defaultBoxStyles } from "../styles.js";
 import { t } from "../../i18n/index.js";
+import { defaultBoxStyles } from "../styles.js";
 
 interface QuizPromptProps {
   question: string;

@@ -1,13 +1,12 @@
 import * as fs from "fs";
-
 import * as path from "path";
 
 import chalk from "chalk";
 
 import type { AuthConfig } from "../auth/workos.js";
+import { env } from "../config/env.js";
 import { getApiClient } from "../config/index.js";
 import { loadConfiguration } from "../config/loader.js";
-import { env } from "../config/env.js";
 import {
   CONFIG_PATH,
   buildConfigYaml,

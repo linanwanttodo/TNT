@@ -11,13 +11,13 @@ import * as fs from "fs";
 import * as path from "path";
 
 import chalk from "chalk";
-
+import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { setConfigFilePermissions } from "core/util/paths.js";
 
-import { env } from "./env.js";
 import { t } from "../i18n/index.js";
 import { question } from "../utils/prompt.js";
-import { writeFileAtomically } from "core/util/atomicWrite.js";
+
+import { env } from "./env.js";
 
 export const CONFIG_PATH = path.join(env.continueHome, "config.yaml");
 

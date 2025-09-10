@@ -30,6 +30,7 @@ vi.mock("../session/index.js", () => ({
 }));
 
 import { services } from "../services/index.js";
+
 import {
   fireConfigChange,
   fireNotification,

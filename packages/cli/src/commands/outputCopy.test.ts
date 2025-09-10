@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { getLocale, setLocale } from "../i18n/index.js";
+
 import { formatChecksSummary } from "./checks.js";
 import { renderServerStartupHelp } from "./serve.help.js";
-import { getLocale, setLocale } from "../i18n/index.js";
 
 let previousLocale: string;
 

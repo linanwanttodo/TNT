@@ -1,7 +1,6 @@
 import chalk from "chalk";
 
 import { t } from "../i18n/index.js";
-
 import { get, post } from "../utils/apiClient.js";
 import { gracefulExit } from "../utils/exit.js";
 import { getGitBranch, getGitRemoteUrl } from "../utils/git.js";

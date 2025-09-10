@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getLocale, setLocale } from "../../../i18n/index.js";
 import { getLspManager } from "../../../lsp/manager.js";
+
 import { handleDiagnostics } from "./diagnostics.js";
 
 const SERVER = path.join(process.cwd(), "test-fixtures", "fake-lsp-server.mjs");

@@ -1,12 +1,11 @@
 import fs from "fs";
 
-import { t } from "../../../i18n/index.js";
-
+import chalk from "chalk";
 import type { Session } from "core/index.js";
 import historyManager from "core/util/history.js";
-import chalk from "chalk";
 import { v4 as uuidv4 } from "uuid";
 
+import { t } from "../../../i18n/index.js";
 import type { SlashCommandResult } from "../types.js";
 
 const EXPORTED_SESSION_VERSION = 1;

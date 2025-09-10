@@ -34,9 +34,9 @@ import { reportFailureTool } from "./reportFailure.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { checkIfRipgrepIsInstalled, searchCodeTool } from "./searchCode.js";
 import { skillsTool } from "./skills.js";
+import { sortToolsByName } from "./stableOrder.js";
 import { statusTool } from "./status.js";
 import { listSubagentsTool, subagentTool } from "./subagent.js";
-import { sortToolsByName } from "./stableOrder.js";
 import { todoTool } from "./todo.js";
 import {
   isBetaSubagentToolEnabled,

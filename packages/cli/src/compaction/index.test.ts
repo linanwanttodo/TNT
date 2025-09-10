@@ -5,13 +5,14 @@ import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import { TOOL_RESULT_TRUNCATION_MARKER } from "core/util/toolResultCompaction.js";
 import { describe, expect, it, vi } from "vitest";
 
+import { streamChatResponse } from "../stream/streamChatResponse.js";
+import { readTodoState } from "../tools/todo.js";
+
 import {
   compactChatHistory,
   findCompactionIndex,
   getHistoryForLLM,
 } from "./index.js";
-import { streamChatResponse } from "../stream/streamChatResponse.js";
-import { readTodoState } from "../tools/todo.js";
 
 // Mock the streamChatResponse function
 vi.mock("../stream/streamChatResponse.js", () => ({

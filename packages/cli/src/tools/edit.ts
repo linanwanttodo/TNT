@@ -14,16 +14,12 @@ import {
   getLanguageFromFilePath,
 } from "../telemetry/utils.js";
 
-import { EditOperation } from "./multiEdit.js";
 import { changedSinceSeen, hasSeenFile, markFileAsSeen } from "./fileState.js";
+import { EditOperation } from "./multiEdit.js";
 import { readFileTool } from "./readFile.js";
+import { MARKER_FILE_EDITED } from "./resultMarkers.js";
 import { Tool } from "./types.js";
 import { generateDiff } from "./writeFile.js";
-import {
-  MARKER_FILE_CREATED,
-  MARKER_FILE_EDITED,
-  MARKER_PERMISSION_DENIED,
-} from "./resultMarkers.js";
 
 export function validateAndResolveFilePath(args: any): {
   originalPath: string;

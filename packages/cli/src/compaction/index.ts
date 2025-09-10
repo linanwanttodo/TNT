@@ -8,7 +8,6 @@ import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import { encode } from "gpt-tokenizer";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
-import { buildSummaryRequest } from "./prefixPreservation.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { buildTodoCarryContextItem, readTodoState } from "../tools/todo.js";
@@ -21,6 +20,8 @@ import {
   getModelContextLimit,
   getModelMaxTokens,
 } from "../utils/tokenizer.js";
+
+import { buildSummaryRequest } from "./prefixPreservation.js";
 
 export interface CompactionResult {
   compactedHistory: ChatHistoryItem[];

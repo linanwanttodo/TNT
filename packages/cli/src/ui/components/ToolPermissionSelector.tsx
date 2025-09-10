@@ -3,11 +3,11 @@ import React, { useState } from "react";
 
 import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
 
+import { t } from "../../i18n/index.js";
 import { ToolCallPreview } from "../../tools/types.js";
 import { defaultBoxStyles } from "../styles.js";
 
 import { ToolPreview } from "./ToolPreview.js";
-import { t } from "../../i18n/index.js";
 
 // show dangerous commmand warning only once per CLI process
 let hasShownDangerousCommandWarning = false;

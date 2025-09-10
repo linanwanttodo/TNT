@@ -1,10 +1,11 @@
-import { act } from "react";
-import { render } from "ink-testing-library";
 import { Text } from "ink";
+import { render } from "ink-testing-library";
+import { act } from "react";
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { getLocale, setLocale, t, type Locale } from "../../i18n/index.js";
+
 import { useLocale } from "./useLocale.js";
 
 const LocaleText: React.FC = () => {

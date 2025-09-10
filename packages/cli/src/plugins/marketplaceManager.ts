@@ -8,22 +8,22 @@ import {
   isReservedMarketplaceName,
 } from "./loader.js";
 import {
-  KnownMarketplace,
-  MarketplaceManifest,
-  MarketplacePluginEntry,
-  MarketplaceSource,
-} from "./marketplaceTypes.js";
-import { installPlugin } from "./pluginInstall.js";
+  loadInstalledPlugins,
+  loadKnownMarketplaces,
+  rememberMarketplace,
+} from "./marketplaceRegistry.js";
 import {
   CommandResult,
   MarketplaceDeps,
   resolveMarketplaceSource,
 } from "./marketplaceSources.js";
 import {
-  loadInstalledPlugins,
-  loadKnownMarketplaces,
-  rememberMarketplace,
-} from "./marketplaceRegistry.js";
+  KnownMarketplace,
+  MarketplaceManifest,
+  MarketplacePluginEntry,
+  MarketplaceSource,
+} from "./marketplaceTypes.js";
+import { installPlugin } from "./pluginInstall.js";
 
 export class MarketplaceManifestError extends Error {}
 

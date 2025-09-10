@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OVERFLOW_RECOVERIES } from "../loop/terminalStop.js";
 
-import { streamChatResponse } from "./streamChatResponse.js";
 import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
+import { streamChatResponse } from "./streamChatResponse.js";
 
 vi.mock("../compaction/index.js", () => ({
   compactChatHistory: vi.fn(),

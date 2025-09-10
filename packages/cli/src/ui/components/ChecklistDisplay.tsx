@@ -1,5 +1,6 @@
 import { Box, Text } from "ink";
 import React from "react";
+
 import { MARKER_TASK_LIST } from "../../tools/resultMarkers.js";
 
 interface ChecklistDisplayProps {

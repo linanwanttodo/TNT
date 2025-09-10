@@ -1,7 +1,7 @@
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 
-import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import { describeChangedFiles } from "../agent/changedFiles.js";
+import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import {
   fireSessionEnd,
   fireSessionStart,

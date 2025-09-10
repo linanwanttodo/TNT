@@ -1,10 +1,9 @@
 import { execSync, fork } from "child_process";
 
-import { t } from "../i18n/index.js";
-
 import chalk from "chalk";
 import React from "react";
 
+import { t } from "../i18n/index.js";
 import { configureConsoleForHeadless } from "../startup/init.js";
 import { logger } from "../utils/logger.js";
 

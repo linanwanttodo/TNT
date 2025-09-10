@@ -1,13 +1,13 @@
 import { Box, Text } from "ink";
 import React, { useMemo } from "react";
 
-import { useServices } from "./hooks/useService.js";
 import {
   SERVICE_NAMES,
   UpdateServiceState,
   UpdateStatus,
 } from "../services/types.js";
 
+import { useServices } from "./hooks/useService.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { LoadingAnimation } from "./LoadingAnimation.js";
 

@@ -1,14 +1,14 @@
 import { render } from "ink-testing-library";
 import React from "react";
-
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getLocale, setLocale } from "../i18n/index.js";
-import { ToolResultSummary } from "./ToolResultSummary.js";
 import {
   MARKER_FILE_CREATED,
   MARKER_PERMISSION_DENIED,
 } from "../tools/resultMarkers.js";
+
+import { ToolResultSummary } from "./ToolResultSummary.js";
 
 let previousLocale: string;
 

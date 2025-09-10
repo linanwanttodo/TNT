@@ -20,9 +20,9 @@ export function getVersion(): string {
 // Singleton to cache the latest version result
 let latestVersionCache: Promise<string | null> | null = null;
 
-export async function getLatestVersion(
-  signal?: AbortSignal,
-): Promise<string | null> {
+// A parameter that no caller passes and the body ignores is a promise the
+// function does not keep, so the check is simply not cancellable.
+export async function getLatestVersion(): Promise<string | null> {
   // Return cached promise if it exists
   if (latestVersionCache) {
     return latestVersionCache;
@@ -59,7 +59,7 @@ getLatestVersion()
       logger?.info(`Latest version: ${version}`);
     }
   })
-  .catch((error) => {
+  .catch(() => {
     logger?.debug("Warning: Could not check latest version from npm");
   });
 

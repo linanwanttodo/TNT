@@ -14,12 +14,8 @@ import {
 
 import { changedSinceSeen, markFileAsSeen } from "./fileState.js";
 import { readFileTool } from "./readFile.js";
+import { MARKER_FILE_CREATED } from "./resultMarkers.js";
 import { Tool, ToolCallPreview } from "./types.js";
-import {
-  MARKER_FILE_CREATED,
-  MARKER_FILE_EDITED,
-  MARKER_PERMISSION_DENIED,
-} from "./resultMarkers.js";
 
 export function generateDiff(
   oldContent: string,

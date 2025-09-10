@@ -3,8 +3,9 @@ import { BaseLlmApi } from "@tnt/openai-adapters";
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { compactChatHistory } from "./index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
+
+import { compactChatHistory } from "./index.js";
 
 // Mock the dependencies
 vi.mock("../stream/streamChatResponse.js", () => ({

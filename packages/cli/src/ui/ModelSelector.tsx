@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 
+import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 
 import { Selector, SelectorOption } from "./Selector.js";
-import { t } from "../i18n/index.js";
 
 interface ModelOption extends SelectorOption {
   index: number;

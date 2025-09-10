@@ -15,13 +15,9 @@ import {
 import { editTool, validateAndResolveFilePath } from "./edit.js";
 import { markFileAsSeen } from "./fileState.js";
 import { readFileTool } from "./readFile.js";
+import { MARKER_FILE_EDITED } from "./resultMarkers.js";
 import { Tool } from "./types.js";
 import { generateDiff } from "./writeFile.js";
-import {
-  MARKER_FILE_CREATED,
-  MARKER_FILE_EDITED,
-  MARKER_PERMISSION_DENIED,
-} from "./resultMarkers.js";
 
 export interface EditOperation {
   old_string: string;

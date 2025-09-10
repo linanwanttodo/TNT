@@ -4,13 +4,12 @@ import { handleInfoSlashCommand } from "../../../startup/infoScreen.js";
 import type { CommandHandler } from "../types.js";
 
 import { handleIndex } from "./codebaseIndex.js";
+import { handleDiagnostics } from "./diagnostics.js";
 import { handleHelp } from "./help.js";
 import { handleLanguage } from "./language.js";
 import { handleJobs, handleTodos } from "./misc.js";
-import { handleDiagnostics } from "./diagnostics.js";
 import { handleOutputStyle } from "./outputStyle.js";
 import { handlePlugins } from "./plugins.js";
-import { handleExport, handleImport } from "./sessionTransfer.js";
 import {
   handleBackToParent,
   handleFork,
@@ -19,6 +18,7 @@ import {
   handleSubagents,
   handleTitle,
 } from "./sessions.js";
+import { handleExport, handleImport } from "./sessionTransfer.js";
 import { handleImportSkill, handleSkills } from "./skills.js";
 
 /**

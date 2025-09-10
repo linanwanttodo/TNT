@@ -2,11 +2,9 @@ import type { AssistantConfig } from "@tnt/sdk";
 
 import { logger } from "../../utils/logger.js";
 
-import {
-  AssistantPromptLoader,
-  InvokableRuleLoader,
-} from "./loaders/assistantCommands.js";
+import { AssistantPromptLoader } from "./loaders/assistantPromptLoader.js";
 import { BuiltinCommandLoader } from "./loaders/builtinCommands.js";
+import { InvokableRuleLoader } from "./loaders/invokableRuleLoader.js";
 import { PluginCommandLoader } from "./loaders/pluginCommands.js";
 import { RemoteCommandLoader } from "./loaders/remoteCommands.js";
 import { SkillCommandLoader } from "./loaders/skillCommands.js";

@@ -8,11 +8,12 @@ import { getLocale, setLocale } from "../../../i18n/index.js";
 import type { SlashCommandResult } from "../types.js";
 
 import { handleHelp } from "./help.js";
-import { createCommandHandlers } from "./index.js";
 import { handleTodos } from "./misc.js";
 import { handlePlugins } from "./plugins.js";
 import { handleGoal, handleTitle } from "./sessions.js";
 import { handleSkills } from "./skills.js";
+
+import { createCommandHandlers } from "./index.js";
 
 let pluginsDir: string;
 let previousOverride: string | undefined;

@@ -7,6 +7,7 @@ vi.mock("../../utils/loadMarkdownSkills.js", () => ({
 
 import { setLocale, t } from "../../i18n/index.js";
 import { loadMarkdownSkills } from "../../utils/loadMarkdownSkills.js";
+
 import { CommandService, getAllSlashCommands } from "./service.js";
 
 describe("localized system commands", () => {

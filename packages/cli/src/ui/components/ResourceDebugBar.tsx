@@ -1,9 +1,9 @@
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
+import { t } from "../../i18n/index.js";
 import { services } from "../../services/index.js";
 import { ResourceUsage } from "../../services/ResourceMonitoringService.js";
-import { t } from "../../i18n/index.js";
 
 interface ResourceDebugBarProps {
   visible: boolean;

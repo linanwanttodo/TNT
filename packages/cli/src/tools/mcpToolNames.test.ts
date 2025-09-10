@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SERVICE_NAMES, serviceContainer } from "../services/index.js";
 import { services } from "../services/index.js";
@@ -9,13 +9,14 @@ import type {
   ModelServiceState,
 } from "../services/types.js";
 
+import { setBetaSubagentToolEnabled } from "./toolsConfig.js";
+
 import {
   convertMcpToolToContinueTool,
   getAllAvailableTools,
   mcpToolName,
   mcpToolsFromConnections,
 } from "./index.js";
-import { setBetaSubagentToolEnabled } from "./toolsConfig.js";
 
 function tool(name: string): MCPTool {
   return {

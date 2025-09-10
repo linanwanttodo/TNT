@@ -1,6 +1,7 @@
 import { Box, Text } from "ink";
 import React from "react";
 
+import { t } from "../i18n/index.js";
 import {
   ApiClientServiceState,
   AuthServiceState,
@@ -10,7 +11,6 @@ import {
 } from "../services/types.js";
 
 import { defaultBoxStyles } from "./styles.js";
-import { t } from "../i18n/index.js";
 
 interface ServiceDebuggerProps {
   services: {

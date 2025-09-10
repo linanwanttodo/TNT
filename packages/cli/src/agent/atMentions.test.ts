@@ -3,7 +3,6 @@ import * as os from "os";
 import * as path from "path";
 
 import type { ContextItemWithId } from "core/index.js";
-
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { changedSinceSeen } from "../tools/fileState.js";

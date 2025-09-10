@@ -4,7 +4,6 @@ import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { RequestHeader } from "./requestHeader.js";
 import {
   HIT_RATE_DROP_POINTS,
   MIN_REPORTED_INPUT_TOKENS,
@@ -16,6 +15,7 @@ import {
   recallCacheRound,
   writeCacheBreakReport,
 } from "./cacheBreakReport.js";
+import type { RequestHeader } from "./requestHeader.js";
 
 const header = (over: Partial<RequestHeader> = {}): RequestHeader => ({
   model: "test-model",

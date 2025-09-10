@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { runHooks } from "../hooks/hookRunner.js";
 import type { HooksConfig, PreToolUseInput } from "../hooks/types.js";
+
 import { loadAllPlugins } from "./loader.js";
 
 let pluginsDir: string;

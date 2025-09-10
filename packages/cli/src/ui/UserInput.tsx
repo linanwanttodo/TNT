@@ -4,27 +4,27 @@ import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text, useApp, useInput } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
-import { useServices } from "./hooks/useService.js";
+import { t } from "../i18n/index.js";
 import type { PermissionMode } from "../permissions/types.js";
 import type { FileIndexServiceState } from "../services/FileIndexService.js";
-import type { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
 import {
   SERVICE_NAMES,
   serviceContainer,
   services,
 } from "../services/index.js";
+import type { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { escapeEvents } from "../utils/cli.js";
 import { InputHistory } from "../utils/inputHistory.js";
 
-import { t } from "../i18n/index.js";
-import { FileSearchUI } from "./FileSearchUI.js";
+import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator } from "./components/ModeIndicator.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
+import { FileSearchUI } from "./FileSearchUI.js";
 import { useClipboardMonitor } from "./hooks/useClipboardMonitor.js";
 import { useLocale } from "./hooks/useLocale.js";
+import { useServices } from "./hooks/useService.js";
 import {
   handleControlKeys,
   updateTextBufferState,

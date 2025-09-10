@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadAllPlugins } from "./loader.js";
 import { addMarketplace, refreshMarketplace } from "./marketplaceManager.js";
 import { loadInstalledPlugins } from "./marketplaceRegistry.js";
-import { installPlugin } from "./pluginInstall.js";
 import type { MarketplaceDeps } from "./marketplaceSources.js";
+import { installPlugin } from "./pluginInstall.js";
 
 let pluginsDir: string;
 let marketDir: string;

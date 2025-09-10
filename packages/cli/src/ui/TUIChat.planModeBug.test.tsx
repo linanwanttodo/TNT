@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { services } from "../services/index.js";
 import { createUITestContext } from "../test-utils/ui-test-context.js";
+
 import { AppRoot } from "./AppRoot.js";
 const toolPermissionService = services.toolPermissions;
 describe("TUIChat - Plan Mode Bug Reproduction", () => {

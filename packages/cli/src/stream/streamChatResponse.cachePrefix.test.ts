@@ -1,6 +1,7 @@
+import * as fs from "fs";
+
 import { ModelConfig } from "@tnt/config-yaml";
 import { BaseLlmApi } from "@tnt/openai-adapters";
-import * as fs from "fs";
 import type { ChatHistoryItem } from "core/index.js";
 import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.mjs";

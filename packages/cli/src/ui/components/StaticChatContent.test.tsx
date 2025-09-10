@@ -5,6 +5,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
+
 import { StaticChatContent } from "./StaticChatContent.js";
 
 /**

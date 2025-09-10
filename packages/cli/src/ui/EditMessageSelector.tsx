@@ -2,10 +2,10 @@ import { Box, Text, useInput } from "ink";
 import React, { useMemo, useState } from "react";
 
 import type { ChatHistoryItem } from "../../../../core/index.js";
+import { t } from "../i18n/index.js";
 
 import { defaultBoxStyles } from "./styles.js";
 import { TextBuffer } from "./TextBuffer.js";
-import { t } from "../i18n/index.js";
 
 // Infer the Key type from useInput's callback parameters
 type UseInputHandler = Parameters<typeof useInput>[0];

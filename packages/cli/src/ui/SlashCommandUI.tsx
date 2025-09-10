@@ -2,8 +2,9 @@ import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
-import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { t } from "../i18n/index.js";
+
+import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { useLocale } from "./hooks/useLocale.js";
 
 const MAX_DESCRIPTION_LENGTH = 80;

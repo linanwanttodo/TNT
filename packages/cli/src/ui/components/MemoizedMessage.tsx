@@ -4,10 +4,11 @@ import React, { memo } from "react";
 import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
+import { t } from "../../i18n/index.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { ToolResultSummary } from "../ToolResultSummary.js";
+
 import { CompactionBoundary } from "./CompactionBoundary.js";
-import { t } from "../../i18n/index.js";
 
 /**
  * Formats message content for display, converting message parts array back to

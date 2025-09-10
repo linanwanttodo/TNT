@@ -9,6 +9,12 @@ import type {
 } from "openai/resources.mjs";
 
 import {
+  assessCacheBreak,
+  recallCacheRound,
+  recordCacheRound,
+  writeCacheBreakReport,
+} from "../cache/cacheBreakReport.js";
+import {
   attributeCacheMiss,
   cachePrefixKeys,
   classifyCachePrefix,
@@ -19,15 +25,9 @@ import {
   rememberCachePrefix,
 } from "../cache/prefixState.js";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
-import { noteRequestSent } from "../compaction/microCompact.js";
-import {
-  assessCacheBreak,
-  recallCacheRound,
-  recordCacheRound,
-  writeCacheBreakReport,
-} from "../cache/cacheBreakReport.js";
 import { type RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
+import { noteRequestSent } from "../compaction/microCompact.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
   classifyStreamError,
@@ -253,7 +253,6 @@ interface ProcessStreamingResponseOptions {
 }
 
 // Process a single streaming response and return whether we need to continue
-// eslint-disable-next-line max-statements, complexity
 export async function processStreamingResponse(
   options: ProcessStreamingResponseOptions,
 ): Promise<{
@@ -585,7 +584,6 @@ export async function processStreamingResponse(
 }
 
 // Main function that handles the conversation loop
-// eslint-disable-next-line max-params
 export async function streamChatResponse(
   chatHistory: ChatHistoryItem[],
   model: ModelConfig,
@@ -674,12 +672,8 @@ export async function streamChatResponse(
 
     // If ChatHistoryService is available, refresh local chatHistory view
     chatHistory = refreshChatHistoryFromService(chatHistory, isCompacting);
-    // Reduction ratios reported by this round's three compaction checkpoints,
-    // in the order they can fire. Reset each round so a stale ratio from an
-    // earlier round cannot be read as this round's result.
-    let preApiReductionRatio: number | undefined;
-    let postToolReductionRatio: number | undefined;
-    // Snapshot before this round's tool calls so the tail can measure how much
+    // Reduction ratios reported by this round's three compaction checkpoints are
+    // declared where they are measured, then read together below.
     // the conversation actually grew.
     const historyLengthBefore = chatHistory.length;
     logger.debug("Starting conversation iteration");
@@ -748,7 +742,7 @@ export async function streamChatResponse(
       compactionOccurredThisTurn = true;
       historyRewritten = true;
     }
-    preApiReductionRatio = preCompactionResult.reductionRatio;
+    const preApiReductionRatio = preCompactionResult.reductionRatio;
 
     // Compared against the last request this session sent, not only against
     // the previous iteration: a prefix that moved between turns is the case
@@ -922,7 +916,7 @@ export async function streamChatResponse(
       compactionOccurredThisTurn = true;
       historyRewritten = true;
     }
-    postToolReductionRatio = postToolResult.reductionRatio;
+    const postToolReductionRatio = postToolResult.reductionRatio;
 
     // Normal auto-compaction check at 80% threshold
     const compactionResult = await handleNormalAutoCompaction(

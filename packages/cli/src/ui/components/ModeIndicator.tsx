@@ -1,9 +1,9 @@
 import { Text } from "ink";
 import React from "react";
 
-import { useServices } from "src/ui/hooks/useService.js";
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 import { SERVICE_NAMES } from "src/services/types.js";
+import { useServices } from "src/ui/hooks/useService.js";
 
 import type { PermissionMode } from "../../permissions/types.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";

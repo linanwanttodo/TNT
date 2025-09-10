@@ -1,6 +1,4 @@
 import { ModelConfig } from "@tnt/config-yaml";
-
-import { t } from "../i18n/index.js";
 import { BaseLlmApi } from "@tnt/openai-adapters";
 import chalk from "chalk";
 import { ChatHistoryItem, Session } from "core";
@@ -13,7 +11,6 @@ import {
   findCompactionIndex,
 } from "../compaction/index.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
-import { safeStderr, safeStdout } from "../startup/init.js";
 import {
   fireSessionEnd,
   fireSessionStart,
@@ -21,9 +18,8 @@ import {
   fireUserPromptSubmit,
   takeSessionStartContext,
 } from "../hooks/fireHook.js";
+import { t } from "../i18n/index.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
-import * as logging from "../utils/console.js";
-import { suppressConsoleInfo } from "../utils/console.js";
 import { initializeServices, services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import {
@@ -36,10 +32,13 @@ import {
   updateSessionHistory,
   updateSessionTitle,
 } from "../session/index.js";
+import { safeStderr, safeStdout } from "../startup/init.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { startTUIChat, type StartTUIChatOptions } from "../ui/index.js";
+import { suppressConsoleInfo } from "../utils/console.js";
+import * as logging from "../utils/console.js";
 import { gracefulExit } from "../utils/exit.js";
 import { formatAnthropicError, formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
