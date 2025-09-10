@@ -859,12 +859,30 @@ export function useChat({
     approved: boolean,
     createPolicy?: boolean,
     stopStream?: boolean,
+    forSession?: boolean,
   ) => {
     // Capture the current permission request before clearing it
     const currentRequest = activePermissionRequest;
 
     // Clear the active permission request
     setActivePermissionRequest(null);
+
+    // Held in memory for this session only: no file is written and no
+    // permission reload is needed, because nothing outside this process changes.
+    if (approved && forSession && currentRequest) {
+      const { rememberSessionApproval } = await import(
+        "../../permissions/sessionApprovals.js"
+      );
+      const key = rememberSessionApproval(
+        currentRequest.toolName,
+        currentRequest.toolArgs,
+      );
+      logger.debug(
+        key
+          ? `Approval held for this session: ${key}`
+          : `Approval for ${currentRequest.toolName} cannot be held for the session`,
+      );
+    }
 
     // Handle policy creation if requested
     if (approved && createPolicy && currentRequest) {

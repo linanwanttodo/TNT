@@ -166,6 +166,19 @@ through. What an approval still does not have is an expiry: a written rule lives
 in `permissions.yaml` until it is removed, which is a stated gap rather than a
 behaviour to rely on.
 
+The prompt offers three answers, not two (`src/ui/components/ToolPermissionSelector.tsx`,
+`(s)` for the middle one). `src/permissions/sessionApprovals.ts` holds the session
+tier in memory and is read in `checkToolPermissionApproval` after hooks have had
+their veto and before a human is asked, so the scope of a grant is the scope of the
+key: one exact command line for `Bash` (whitespace folded, a chain never reduced to
+its first command), one exact resolved file per tool for `Edit`/`MultiEdit`/`Write` -
+so an approved edit does not become an approved overwrite of the same file - and
+nothing at all for `mcp__*` tools, whose arguments can name anything and whose server
+is not ours to reason about. The store is keyed by session id, so resuming or starting
+another session cannot inherit a grant it was never shown, and `clearSessionApprovals()`
+is the revoke path. The permanent tier still writes `permissions.yaml`; this one
+writes nothing, which is why it needs no reload.
+
 Before a call reaches a tool, `src/tools/validateArgs.ts` checks its arguments
 against the schema the tool itself declares, to the depth the schema goes - an
 array's `items` and a nested `properties` included, which the earlier top-level

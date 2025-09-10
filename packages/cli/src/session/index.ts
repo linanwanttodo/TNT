@@ -319,7 +319,7 @@ class SessionManager {
   }
 }
 
-function getCurrentSessionId(): string {
+export function getCurrentSessionId(): string {
   return SessionManager.getInstance().getSessionId();
 }
 
