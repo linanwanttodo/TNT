@@ -9,7 +9,7 @@ import {
   PermissionsYamlConfig,
   loadPermissionsYaml,
 } from "./permissionsYamlLoader.js";
-import { commandSegments } from "./bashCommandRule.js";
+import { commandSegments, isCommandRiskyAlone } from "./bashCommandRule.js";
 
 /**
  * Generates a policy rule for a given tool call
@@ -30,6 +30,12 @@ export function generatePolicyRule(toolName: string, toolArgs: any): string {
     // with any tail: the old rule wrote `git add . && rm -rf /` as Bash(git*),
     // which then approved every git command forever.
     if (segments.length > 1) {
+      return `Bash(${command})`;
+    }
+    // The same reasoning holds for one command that can do more than its name
+    // says, because a shape rule matches exactly the part that varies. Writing
+    // `Bash(git*)` for an approved `git push` would also approve `git reset`.
+    if (isCommandRiskyAlone(segments[0])) {
       return `Bash(${command})`;
     }
     // Extract just the command name (before spaces or flags)
