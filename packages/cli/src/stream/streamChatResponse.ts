@@ -52,6 +52,7 @@ import {
   handlePreApiCompaction,
 } from "./streamChatResponse.compactionHelpers.js";
 import {
+  cacheTokensFrom,
   processChunkContent,
   processToolCallDelta,
   recordStreamTelemetry,
@@ -418,6 +419,7 @@ export async function processStreamingResponse(
       requestKind: isCompacting ? "compaction" : "turn",
     });
     const totalDuration = responseEndTime - requestStartTime;
+    const cacheTokens = cacheTokensFrom(fullUsage);
 
     // Enhance fullUsage with model and cost for saving to session
     if (fullUsage) {
@@ -431,8 +433,8 @@ export async function processStreamingResponse(
       toolCallsCount: toolCallsMap.size,
       inputTokens,
       outputTokens,
-      cacheReadTokens: fullUsage?.prompt_tokens_details?.cache_read_tokens,
-      cacheWriteTokens: fullUsage?.prompt_tokens_details?.cache_write_tokens,
+      cacheReadTokens: cacheTokens.cacheReadTokens,
+      cacheWriteTokens: cacheTokens.cacheWriteTokens,
       cost,
       duration: totalDuration,
     });
@@ -441,9 +443,8 @@ export async function processStreamingResponse(
     // total, because the session total is an average over requests that may
     // have used entirely different prefixes. A zero here on an otherwise
     // identical second request is the signal that something in the prefix moved.
-    const cacheRead = fullUsage?.prompt_tokens_details?.cache_read_tokens ?? 0;
-    const cacheWrite =
-      fullUsage?.prompt_tokens_details?.cache_write_tokens ?? 0;
+    const cacheRead = cacheTokens.cacheReadTokens ?? 0;
+    const cacheWrite = cacheTokens.cacheWriteTokens ?? 0;
     const reportedInput = fullUsage?.prompt_tokens ?? inputTokens;
     if (reportedInput > 0) {
       const missOwner = attributeCacheMiss({

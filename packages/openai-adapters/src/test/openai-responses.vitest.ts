@@ -482,6 +482,10 @@ describe("responseToChatCompletion", () => {
       prompt_tokens: 100,
       completion_tokens: 42,
       total_tokens: 142,
+      // The Responses API reports these inside *_tokens_details, and dropping
+      // them made a cached or a reasoning request look like neither.
+      prompt_tokens_details: { cached_tokens: 4, cache_read_tokens: 4 },
+      completion_tokens_details: { reasoning_tokens: 10 },
     });
   });
 });
