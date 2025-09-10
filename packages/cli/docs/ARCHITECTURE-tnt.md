@@ -342,6 +342,15 @@ accumulated in `src/session/index.ts`, and rendered next to the hit ratio in
 `src/ui/components/BottomStatusBar.tsx`. Seeing both numbers on one line is the
 point: compaction spending that erases cache reuse is not a saving.
 
+The cost line is a claim about money, so a model with no entry in
+`core/llm/utils/calculateRequestCost.ts` contributes nothing to the total and is
+counted instead (`SessionUsage.unpricedRequests`): the line reads
+`Cost $1.5000 (+2 unpriced)`, and it appears even when the whole session was
+unpriced, where a lone `$0.0000` would have read as free. The old fallback billed
+such a model at an invented $1/$2 per MTok, which is a number that looks measured.
+A request whose usage never arrived at all is a different case and still gets that
+estimate from the tokens counted locally - the two are not the same kind of guess.
+
 Not every reduction has to be that expensive. `src/compaction/microCompact.ts` runs
 on the request path before the token estimate is even consulted: when the gap since
 this session's last request is at least `CONTINUE_CLI_CACHE_GAP_MS` (five minutes by

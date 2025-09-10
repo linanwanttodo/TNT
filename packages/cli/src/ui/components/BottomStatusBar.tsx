@@ -2,8 +2,8 @@ import type { ModelConfig } from "@tnt/config-yaml";
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
-import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { t } from "../../i18n/index.js";
+import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { getSessionUsage } from "../../session/index.js";
 import { getCacheHitRatio } from "../../utils/cacheRatio.js";
 import { getGitBranch } from "../../utils/git.js";
@@ -21,6 +21,24 @@ export interface BottomStatusBarProps {
   hasImageInClipboard?: boolean;
   isVerboseMode?: boolean;
   totalCost?: number;
+}
+
+/**
+ * The cost line, or undefined when there is nothing to say. A request whose model
+ * has no price still happened, so the line appears for it and names the count the
+ * total cannot account for - a lone `$0.0000` would read as free.
+ */
+export function costLineText(
+  totalCost: number | undefined,
+  unpricedRequests: number,
+): string | undefined {
+  const cost = totalCost ?? 0;
+  if (cost <= 0 && unpricedRequests <= 0) return undefined;
+
+  const amount = `$${cost.toFixed(4)}`;
+  return unpricedRequests > 0
+    ? `${t("status.cost")} ${amount} (+${unpricedRequests} ${t("status.unpriced")})`
+    : `${t("status.cost")} ${amount}`;
 }
 
 function currentDirectory(): string {
@@ -87,6 +105,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   const sessionUsage = getSessionUsage();
   const cacheHitRatio = getCacheHitRatio(sessionUsage);
   const compactionCost = sessionUsage?.compaction?.cost ?? 0;
+  const costLine = costLineText(totalCost, sessionUsage?.unpricedRequests ?? 0);
 
   const leftParts: React.ReactNode[] = [];
   if (workspaceName) {
@@ -131,10 +150,10 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
       </Text>,
     );
   }
-  if (isVerboseMode && totalCost !== undefined && totalCost > 0) {
+  if (isVerboseMode && costLine) {
     leftParts.push(
       <Text key="cost" color="dim">
-        {`${t("status.cost")} $${totalCost.toFixed(4)}`}
+        {costLine}
       </Text>,
     );
   }
