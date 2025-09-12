@@ -80,7 +80,13 @@ function isConnectionError(errorMessage: string): boolean {
 /**
  * Determines if an error is retryable based on the error type and status code
  */
-function isRetryableError(error: any): boolean {
+export function isRetryableError(error: any): boolean {
+  // What was thrown is not always an error object - and a `throw undefined` must
+  // not replace the failure being reported with a TypeError about it.
+  if (!error) {
+    return false;
+  }
+
   // Context length errors are never retryable - they need user intervention
   if (isContextLengthError(error)) {
     return false;
@@ -113,7 +119,7 @@ function isRetryableError(error: any): boolean {
 /**
  * Calculates the delay for the next retry attempt
  */
-function calculateDelay(
+export function calculateDelay(
   attempt: number,
   options: Required<ExponentialBackoffOptions>,
 ): number {
