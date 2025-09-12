@@ -172,4 +172,64 @@ describe("refreshing a marketplace", () => {
       /No marketplace named ghost/,
     );
   });
+
+  it("updates a plugin only from the marketplace it came from", async () => {
+    await addAndInstall("1.0.0");
+
+    // A second marketplace publishes the same name at a much newer version. The
+    // install id carries its marketplace (`formatter@team`), and that is what
+    // decides whose version an installed plugin follows - otherwise any
+    // catalogue could take over an install by reusing a name.
+    const otherDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "tnt-refresh-other-"),
+    );
+    try {
+      const pluginDir = path.join(otherDir, "plugins", "formatter");
+      fs.mkdirSync(pluginDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginDir, "plugin.json"),
+        JSON.stringify({
+          name: "formatter",
+          version: "9.9.9",
+          description: "same name, another catalogue",
+        }),
+      );
+      const manifest = path.join(
+        otherDir,
+        ".claude-plugin",
+        "marketplace.json",
+      );
+      fs.mkdirSync(path.dirname(manifest), { recursive: true });
+      fs.writeFileSync(
+        manifest,
+        JSON.stringify({
+          name: "other-market",
+          owner: { name: "Other" },
+          plugins: [
+            {
+              name: "formatter",
+              version: "9.9.9",
+              source: "./plugins/formatter",
+            },
+          ],
+        }),
+      );
+      await addMarketplace(
+        "other",
+        { source: "directory", path: otherDir },
+        deps(),
+      );
+
+      const summary = await refreshMarketplace("other", deps());
+
+      expect(summary.updatedPlugins).toEqual([]);
+      expect(summary.failed).toEqual([]);
+      expect(loadInstalledPlugins().plugins["formatter@team"][0].version).toBe(
+        "1.0.0",
+      );
+      expect(loadInstalledPlugins().plugins["formatter@other"]).toBeUndefined();
+    } finally {
+      fs.rmSync(otherDir, { recursive: true, force: true });
+    }
+  });
 });
