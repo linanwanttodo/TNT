@@ -19,6 +19,12 @@ import {
   rememberCachePrefix,
 } from "../cache/prefixState.js";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
+import {
+  assessCacheBreak,
+  recallCacheRound,
+  recordCacheRound,
+  writeCacheBreakReport,
+} from "../cache/cacheBreakReport.js";
 import { type RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
@@ -237,6 +243,12 @@ interface ProcessStreamingResponseOptions {
    * recomputed here.
    */
   cachePrefixVerdict?: CachePrefixVerdict;
+  /**
+   * The prefix this request was compared against and the one it actually sent,
+   * so a reported break can show the bytes that moved rather than only the name
+   * of the field that changed.
+   */
+  cachePrefixComparison?: { previous?: RequestHeader; current: RequestHeader };
 }
 
 // Process a single streaming response and return whether we need to continue
@@ -272,6 +284,7 @@ export async function processStreamingResponse(
     systemMessageUpdates = [],
     isCompacting,
     cachePrefixVerdict,
+    cachePrefixComparison,
   } = options;
 
   let chatHistory = options.chatHistory;
@@ -466,6 +479,35 @@ export async function processStreamingResponse(
         prefixReasons: cachePrefixVerdict?.reasons ?? [],
         ...(missOwner ? { cacheMissOwner: missOwner } : {}),
       });
+
+      // A break is called out only when the bill shows it: a drop of a few points,
+      // or one on a request too short for the provider to have cached anything, is
+      // noise and would train nobody to ignore the line. The diff goes to a file
+      // because "the tool list moved" is not something a reader can act on.
+      const round = { inputTokens: reportedInput, cacheReadTokens: cacheRead };
+      const breakAssessment = assessCacheBreak(
+        recallCacheRound(promptCacheKey),
+        round,
+      );
+      if (breakAssessment.report && cachePrefixComparison) {
+        const reportPath = writeCacheBreakReport({
+          verdict: cachePrefixVerdict,
+          previous:
+            cachePrefixComparison.previous ?? cachePrefixComparison.current,
+          current: cachePrefixComparison.current,
+          assessment: breakAssessment,
+        });
+        logger.warn("Cache break", {
+          hitRateBefore: Number(breakAssessment.previousRate.toFixed(4)),
+          hitRateAfter: Number(breakAssessment.currentRate.toFixed(4)),
+          dropPoints: Number(breakAssessment.dropPoints.toFixed(2)),
+          prefixState: cachePrefixVerdict?.state ?? COLD_PREFIX_STATE,
+          prefixReasons: cachePrefixVerdict?.reasons ?? [],
+          ...(missOwner ? { cacheMissOwner: missOwner } : {}),
+          ...(reportPath ? { reportPath } : {}),
+        });
+      }
+      recordCacheRound(promptCacheKey, round);
     }
   } catch (error: any) {
     const errorDuration = Date.now() - requestStartTime;
@@ -712,9 +754,12 @@ export async function streamChatResponse(
     // that costs the most and is otherwise invisible. A compaction request
     // carries a summary prompt of its own, so it neither reports on nor
     // overwrites the session prefix.
+    const previousRequestHeader = isCompacting
+      ? undefined
+      : recallCachePrefix(promptCacheKey);
     const cachePrefixVerdict = isCompacting
       ? undefined
-      : classifyCachePrefix(recallCachePrefix(promptCacheKey), requestHeader, {
+      : classifyCachePrefix(previousRequestHeader, requestHeader, {
           historyRewritten,
         });
     if (cachePrefixVerdict?.state === "invalidated") {
@@ -756,6 +801,10 @@ export async function streamChatResponse(
       systemMessageUpdates,
       isCompacting,
       cachePrefixVerdict,
+      cachePrefixComparison: {
+        previous: previousRequestHeader,
+        current: requestHeader,
+      },
     });
     coldTurn = false;
     historyRewritten = false;
