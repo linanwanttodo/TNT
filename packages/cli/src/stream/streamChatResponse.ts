@@ -14,6 +14,7 @@ import {
   recordCacheRound,
   writeCacheBreakReport,
 } from "../cache/cacheBreakReport.js";
+import { rememberLastRequestCacheState } from "../cache/lastRequestCacheState.js";
 import {
   attributeCacheMiss,
   cachePrefixKeys,
@@ -489,8 +490,9 @@ export async function processStreamingResponse(
         recallCacheRound(promptCacheKey),
         round,
       );
+      let reportPath: string | undefined;
       if (breakAssessment.report && cachePrefixComparison) {
-        const reportPath = writeCacheBreakReport({
+        reportPath = writeCacheBreakReport({
           verdict: cachePrefixVerdict,
           previous:
             cachePrefixComparison.previous ?? cachePrefixComparison.current,
@@ -504,6 +506,19 @@ export async function processStreamingResponse(
           prefixState: cachePrefixVerdict?.state ?? COLD_PREFIX_STATE,
           prefixReasons: cachePrefixVerdict?.reasons ?? [],
           ...(missOwner ? { cacheMissOwner: missOwner } : {}),
+          ...(reportPath ? { reportPath } : {}),
+        });
+      }
+
+      // Held for the status bar: the session-wide ratio is an average and cannot
+      // say why this round re-read everything. A request with no verdict is the
+      // first of a conversation, so there is nothing to report yet - and nothing
+      // stale to keep either, since the holder starts empty.
+      if (cachePrefixVerdict) {
+        rememberLastRequestCacheState({
+          state: cachePrefixVerdict.state,
+          reasons: cachePrefixVerdict.reasons,
+          hitRate: Number((cacheRead / reportedInput).toFixed(4)),
           ...(reportPath ? { reportPath } : {}),
         });
       }
