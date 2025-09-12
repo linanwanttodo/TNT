@@ -130,6 +130,47 @@ function calculateDelay(
 }
 
 /**
+ * The wait a provider asked for, read from a Retry-After header. Retrying sooner
+ * than the server said spends an attempt on the same refusal, and a 429 usually
+ * means the window is still full; retrying much later than asked holds the turn
+ * for nothing. A value that is neither seconds nor a date is ignored rather than
+ * guessed at, and a wait beyond the cap is capped instead of obeyed.
+ */
+export const MAX_RETRY_AFTER_MS = 5 * 60 * 1000;
+
+export function retryAfterMs(
+  error: any,
+  now: number = Date.now(),
+): number | undefined {
+  const headers = error?.headers;
+  const raw =
+    typeof headers?.get === "function"
+      ? headers.get("retry-after")
+      : (headers?.["retry-after"] ?? headers?.["Retry-After"]);
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return undefined;
+  }
+
+  const value = raw.trim();
+  let milliseconds: number | undefined;
+  if (/^\d+$/.test(value)) {
+    milliseconds = Number(value) * 1000;
+  } else if (/[A-Za-z]/.test(value)) {
+    // A date always spells something - a month, a weekday, GMT. Requiring a
+    // letter is what keeps "1.5" from being read as a date by a lenient parser.
+    const when = Date.parse(value);
+    if (!Number.isNaN(when)) {
+      milliseconds = Math.max(0, when - now);
+    }
+  }
+  if (milliseconds === undefined) {
+    return undefined;
+  }
+
+  return Math.min(milliseconds, MAX_RETRY_AFTER_MS);
+}
+
+/**
  * Wrapper around llmApi.chatCompletionStream with exponential backoff retry logic
  */
 export async function chatCompletionStreamWithBackoff(
@@ -183,14 +224,19 @@ export async function chatCompletionStreamWithBackoff(
         throw err;
       }
 
-      const delay = calculateDelay(attempt, opts);
+      // A provider that said how long to wait is answered on its own terms: the
+      // computed delay is the floor, not the answer.
+      const requested = retryAfterMs(err);
+      const delay = Math.max(calculateDelay(attempt, opts), requested ?? 0);
 
       // Only log retry attempts after the first hiddenRetries attempts
       if (attempt >= opts.hiddenRetries) {
         warn(
           `Retrying LLM API call (attempt ${attempt + 1 - opts.hiddenRetries}/${
             opts.maxRetries + 1 - opts.hiddenRetries
-          }) after ${delay}ms delay. Error: ${err.message}`,
+          }) after ${delay}ms delay${
+            requested !== undefined ? " (the provider's Retry-After)" : ""
+          }. Error: ${err.message}`,
         );
       }
 
