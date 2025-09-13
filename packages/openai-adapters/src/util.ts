@@ -114,6 +114,8 @@ export function normalizeUsage(usage: unknown): NormalizedUsage | undefined {
       "cache_read_input_tokens",
       "cacheReadTokens",
       "cachedContentTokenCount",
+      // DeepSeek reports the split of its own automatic cache this way.
+      "prompt_cache_hit_tokens",
     ]),
   ]);
   const cacheWriteTokens = firstCount([

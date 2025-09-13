@@ -195,11 +195,11 @@ export function getAnthropicMediaTypeFromDataUrl(
 }
 
 /**
- * DeepSeek caches on its own: it discounts whatever prefix it recognises and
- * reads no `cache_control` of its own. Marking breakpoints at it therefore pays a
- * cache write for a marker nobody reads, and on its Anthropic-compatible endpoint
- * the extra field also changes the bytes the prefix is matched on. So an
- * Anthropic-shaped request heading for DeepSeek carries no breakpoints at all.
+ * DeepSeek caches on its own: its API takes no cache parameter at all, it matches
+ * whatever prefix it recognises, and it reports the split in `usage` as
+ * `prompt_cache_hit_tokens` against `prompt_cache_miss_tokens`. So a breakpoint
+ * sent on an Anthropic-shaped request heading for DeepSeek is a write nobody reads,
+ * and the only thing it can do to a prefix is disturb it.
  */
 export const DEEPSEEK_ACCEPTS_NO_BREAKPOINTS: CacheControlFormat = {
   acceptsCacheControlOnTools: false,

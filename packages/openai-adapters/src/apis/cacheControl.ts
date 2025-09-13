@@ -123,12 +123,14 @@ export function countCacheBreakpoints(messages: MessageParam[]): number {
 }
 
 /**
- * Anthropic counts a breakpoint against the whole request and bills a cache write
- * for each one, so the sections used to be capped separately - four on the messages,
- * four on the tools, four on the system block - and a request could leave with
- * twelve. Two are the number that earns their keep: the newest message, because its
- * span reaches back over everything, and one on the stable head, because that is the
- * part that survives between turns.
+ * Anthropic reads up to four breakpoints per request - past four, the last four
+ * are the ones that take effect - and bills a cache write of about 1.25x the input
+ * rate for each one it acts on, against a read of about 0.1x. Two is the number
+ * that earns its keep: the newest message, whose span reaches back over everything
+ * before it, and one on the stable head, which is the part that survives between
+ * turns. The rest would each pay a write for a span that a kept breakpoint already
+ * covers. (The 1,024-token minimum and the five-minute lifetime are Anthropic's;
+ * nothing here can tell whether a prefix is long enough or still warm.)
  */
 export const ANTHROPIC_MAX_CACHE_BREAKPOINTS = 2;
 

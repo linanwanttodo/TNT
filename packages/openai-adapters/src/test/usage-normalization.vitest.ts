@@ -86,6 +86,23 @@ describe("normalizeUsage", () => {
     expect(usage?.completion_tokens_details?.reasoning_tokens).toBe(40);
   });
 
+  it("reads DeepSeek's own split of an automatic cache hit", () => {
+    // DeepSeek takes no cache parameter; it reports the hit and the miss counts
+    // instead, and the hit is what the ratio and the cost are computed from.
+    const usage = normalizeUsage({
+      prompt_tokens: 4000,
+      completion_tokens: 60,
+      total_tokens: 4060,
+      prompt_cache_hit_tokens: 3712,
+      prompt_cache_miss_tokens: 288,
+    });
+
+    expect(usage?.prompt_tokens_details).toEqual({
+      cached_tokens: 3712,
+      cache_read_tokens: 3712,
+    });
+  });
+
   it("adds the total when a provider only sends the parts", () => {
     expect(
       normalizeUsage({ prompt_tokens: 70, completion_tokens: 8 })?.total_tokens,
