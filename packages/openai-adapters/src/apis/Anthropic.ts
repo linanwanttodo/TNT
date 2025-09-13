@@ -42,14 +42,17 @@ import {
 } from "./AnthropicCachingStrategies.js";
 import {
   addCacheControlToLastTwoUserMessages,
+  DEEPSEEK_ACCEPTS_NO_BREAKPOINTS,
   getAnthropicHeaders,
   getAnthropicMediaTypeFromDataUrl,
+  isDeepSeekEndpoint,
   openAiToolChoiceToAnthropicToolChoice,
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
 import {
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
   applyCacheControlFormat,
-  pruneCacheBreakpoints,
+  capBreakpointsForAnthropic,
   sanitizeReasoningBlocks,
 } from "./cacheControl.js";
 import type { CacheControlFormat } from "./cacheControl.js";
@@ -126,25 +129,29 @@ export class AnthropicApi implements BaseLlmApi {
     // A breakpoint on a reasoning block is wasted: the provider drops a block
     // whose signature does not verify, and takes the cached span with it. A
     // block that lost its signature in serialization would therefore cost the
-    // whole prefix rather than just itself. Once those are gone, the remaining
-    // breakpoints are capped to the most recent ones, since a breakpoint older
-    // than the provider's eviction window is not read back.
+    // whole prefix rather than just itself.
     //
-    // This only removes breakpoints. How many are sent is the strategy's
-    // decision and is left alone until usage data justifies changing it.
-    const sanitized = sanitizeReasoningBlocks(result.messages);
-    const prunedMessages = pruneCacheBreakpoints(sanitized);
-
+    // Step 5: spend the request's breakpoint budget. Anthropic reads the
+    // sections as one sequence and bills a write per breakpoint, so the cap is
+    // applied across them together - capping each section on its own let a
+    // request leave with three times the intended number.
     const pruned = {
       ...result,
-      messages: prunedMessages,
-      ...(Array.isArray(result.system)
-        ? { system: pruneCacheBreakpoints(result.system) }
-        : {}),
-      ...(Array.isArray(result.tools)
-        ? { tools: pruneCacheBreakpoints(result.tools) }
-        : {}),
+      messages: sanitizeReasoningBlocks(result.messages),
     };
+
+    // An endpoint that reads no breakpoints gets none; a caller that declared
+    // what its endpoint accepts gets exactly that; anything else gets the
+    // Anthropic default.
+    const format =
+      this.config.cacheControlFormat ??
+      (isDeepSeekEndpoint(this.apiBase, oaiBody.model)
+        ? DEEPSEEK_ACCEPTS_NO_BREAKPOINTS
+        : undefined);
+    if (format) {
+      return applyCacheControlFormat(pruned, format);
+    }
+    return capBreakpointsForAnthropic(pruned, ANTHROPIC_MAX_CACHE_BREAKPOINTS);
 
     // Narrow only when the caller declared what the endpoint accepts. No
     // declaration means today's behavior is sent unchanged.

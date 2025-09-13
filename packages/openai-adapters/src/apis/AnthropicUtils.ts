@@ -9,6 +9,7 @@ import {
   ChatCompletionTool,
   ChatCompletionToolChoiceOption,
 } from "openai/resources";
+import type { CacheControlFormat } from "./cacheControl.js";
 
 export function getAnthropicErrorMessage(response: ErrorResponse): string {
   switch (response.error.type) {
@@ -191,4 +192,24 @@ export function getAnthropicMediaTypeFromDataUrl(
     }
   }
   return "image/jpeg";
+}
+
+/**
+ * DeepSeek caches on its own: it discounts whatever prefix it recognises and
+ * reads no `cache_control` of its own. Marking breakpoints at it therefore pays a
+ * cache write for a marker nobody reads, and on its Anthropic-compatible endpoint
+ * the extra field also changes the bytes the prefix is matched on. So an
+ * Anthropic-shaped request heading for DeepSeek carries no breakpoints at all.
+ */
+export const DEEPSEEK_ACCEPTS_NO_BREAKPOINTS: CacheControlFormat = {
+  acceptsCacheControlOnTools: false,
+  acceptsCacheControlOnMessages: false,
+  maxBreakpoints: 0,
+};
+
+export function isDeepSeekEndpoint(apiBase?: string, model?: string): boolean {
+  return (
+    (apiBase ?? "").toLowerCase().includes("api.deepseek.com") ||
+    (model ?? "").toLowerCase().includes("deepseek")
+  );
 }

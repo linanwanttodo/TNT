@@ -14,16 +14,14 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources";
  * changing it.
  */
 
-export const DEFAULT_MAX_CACHE_BREAKPOINTS = 4;
-
 /**
  * What an endpoint accepts for cache breakpoints.
  *
  * Endpoints differ in whether they honor a breakpoint on tool definitions,
  * how many breakpoints they honor, and whether they recognize the key at all.
- * Leaving this unset keeps today's behavior exactly: the strategy decides how
- * many breakpoints to place and the request is sent as before. A value is only
- * for an endpoint whose behavior is known and needs the request narrowed.
+ * Leaving this unset keeps the Anthropic default: two breakpoints, one on the
+ * stable head and one on the newest message. A value is for an endpoint whose
+ * behavior is known and needs the request narrowed further.
  */
 export interface CacheControlFormat {
   /** Endpoint honors a breakpoint on tool definitions. Defaults to true. */
@@ -55,35 +53,6 @@ function stripCacheControl<T>(value: T): T {
   }
   const { cache_control: _dropped, ...rest } = value as Record<string, any>;
   return rest as T;
-}
-
-/**
- * Keeps the most recent `max` breakpoints and removes the rest.
- *
- * Breakpoints are scanned from the end so the ones nearest the current turn,
- * which the provider is most likely to still hold, are the ones kept.
- */
-export function pruneCacheBreakpoints<T>(
-  items: readonly T[],
-  max: number = DEFAULT_MAX_CACHE_BREAKPOINTS,
-): T[] {
-  let remaining = Math.max(0, max);
-  const result: T[] = new Array(items.length);
-
-  for (let i = items.length - 1; i >= 0; i--) {
-    const item = items[i];
-    result[i] = item;
-    if (!hasCacheControl(item)) {
-      continue;
-    }
-    if (remaining > 0) {
-      remaining -= 1;
-      continue;
-    }
-    result[i] = stripCacheControl(item);
-  }
-
-  return result;
 }
 
 /**
@@ -151,6 +120,73 @@ export function countCacheBreakpoints(messages: MessageParam[]): number {
       total + message.content.filter((block) => hasCacheControl(block)).length
     );
   }, 0);
+}
+
+/**
+ * Anthropic counts a breakpoint against the whole request and bills a cache write
+ * for each one, so the sections used to be capped separately - four on the messages,
+ * four on the tools, four on the system block - and a request could leave with
+ * twelve. Two are the number that earns their keep: the newest message, because its
+ * span reaches back over everything, and one on the stable head, because that is the
+ * part that survives between turns.
+ */
+export const ANTHROPIC_MAX_CACHE_BREAKPOINTS = 2;
+
+/**
+ * Keeps the breakpoint on the newest message and the one on the stable head, and
+ * strips whatever else the strategy marked. The head is the last tool when tools
+ * carry one - a breakpoint there covers the system block and every tool before it -
+ * and the last system block when they do not.
+ */
+export function capBreakpointsForAnthropic<T extends Record<string, any>>(
+  body: T,
+  max: number = ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+): T {
+  const sections: Array<readonly any[] | undefined> = [
+    Array.isArray(body.system) ? body.system : undefined,
+    Array.isArray(body.tools) ? body.tools : undefined,
+    Array.isArray(body.messages) ? body.messages : undefined,
+  ];
+  const positions: Array<{ section: number; index: number }> = [];
+  sections.forEach((items, section) => {
+    (items ?? []).forEach((item, index) => {
+      if (hasBreakpointAnywhere(item)) positions.push({ section, index });
+    });
+  });
+
+  if (positions.length <= max) {
+    return body;
+  }
+
+  const keep = new Set<string>();
+  if (max > 0) {
+    const newest = positions[positions.length - 1];
+    keep.add(`${newest.section}:${newest.index}`);
+    if (max > 1) {
+      const head =
+        [...positions].reverse().find((spot) => spot.section === 1) ??
+        [...positions].reverse().find((spot) => spot.section === 0);
+      if (head) keep.add(`${head.section}:${head.index}`);
+    }
+  }
+
+  const narrowOne = (items: readonly any[] | undefined, section: number) =>
+    items?.map((item, index) =>
+      hasBreakpointAnywhere(item) && !keep.has(`${section}:${index}`)
+        ? stripCacheControlDeep(item)
+        : item,
+    );
+
+  return {
+    ...body,
+    ...(Array.isArray(body.system)
+      ? { system: narrowOne(body.system, 0) }
+      : {}),
+    ...(Array.isArray(body.tools) ? { tools: narrowOne(body.tools, 1) } : {}),
+    ...(Array.isArray(body.messages)
+      ? { messages: narrowOne(body.messages, 2) }
+      : {}),
+  } as T;
 }
 
 /**
