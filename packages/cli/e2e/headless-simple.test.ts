@@ -29,14 +29,10 @@ models:
   });
 
   describe("basic headless functionality", () => {
-    it.skip("should output response and exit with -p flag", async () => {
-      // Skip this test as it requires mocking the LLM which doesn't work in subprocess
-      // This functionality is better tested with integration tests
-    });
-
-    it.skip("should handle streaming responses in headless mode", async () => {
-      // Skip this test as it requires mocking the LLM which doesn't work in subprocess
-    });
+    // What used to sit here as three empty `it.skip` stubs - a response with -p,
+    // streaming, and a minimal config - is covered with a mock provider in
+    // `headless-mock-llm.test.ts` and `cache-prefix-stability.test.ts`. A skipped
+    // case that asserts nothing reads as coverage that does not exist.
 
     it("should fail gracefully when config is invalid", async () => {
       // Test with invalid config
@@ -52,10 +48,6 @@ no models here`,
       });
 
       expect(result.exitCode).not.toBe(0);
-    });
-
-    it.skip("should work with minimal config", async () => {
-      // Skip this test as it requires mocking the LLM which doesn't work in subprocess
     });
 
     it("should handle missing prompt in headless mode", async () => {

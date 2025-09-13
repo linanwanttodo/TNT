@@ -671,8 +671,14 @@ describe("preprocessStreamedToolCalls", () => {
 });
 
 // Tests for executeStreamedToolCalls function
-describe.skip("executeStreamedToolCalls", () => {
+describe("executeStreamedToolCalls", () => {
   beforeEach(() => {
+    // The policy is read from the service container when the caller does not
+    // pass one, and the container has no factory here - which is what the block
+    // used to fail on.
+    serviceContainer.registerValue(SERVICE_NAMES.TOOL_PERMISSIONS, {
+      permissions: { policies: [{ tool: "*", permission: "allow" }] },
+    } as never);
     // Reset spies
     vi.spyOn(toolPermissionManager, "requestPermission").mockReset();
     vi.spyOn(toolPermissionManager, "on").mockReset();
@@ -681,7 +687,9 @@ describe.skip("executeStreamedToolCalls", () => {
 
   it("executes tool calls with allowed permissions", async () => {
     // Setup spies instead of mocks
-    const permissionsModule = await import("../permissions/index.js");
+    const permissionsModule = await import(
+      "../permissions/permissionChecker.js"
+    );
     vi.spyOn(permissionsModule, "checkToolPermission").mockReturnValue({
       permission: "allow",
     });
@@ -717,7 +725,7 @@ describe.skip("executeStreamedToolCalls", () => {
     // Verify results
     expect(chatHistoryEntries).toHaveLength(1);
     expect(chatHistoryEntries[0].content).toBe("Tool execution successful");
-    expect(callbacks.onToolStart).toHaveBeenCalledWith("read_file", {
+    expect(callbacks.onToolStart).toHaveBeenCalledWith("Read", {
       filepath: "/test.txt",
     });
     expect(callbacks.onToolResult).toHaveBeenCalledWith(
@@ -725,12 +733,20 @@ describe.skip("executeStreamedToolCalls", () => {
       "Read",
       "done",
     );
-    expect(mockedExecuteToolCall).toHaveBeenCalledWith(preprocessedCalls[0]);
+    // The executor is handed the call it should run - the id and name are the
+    // parts this asserts, because the message it runs with may have been
+    // rewritten by a hook or the tool's own preprocess.
+    expect(mockedExecuteToolCall).toHaveBeenCalledTimes(1);
+    expect(mockedExecuteToolCall.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ id: "call_123", name: "Read" }),
+    );
   });
 
   it("handles permission denied correctly", async () => {
     // Setup permission to ask
-    const permissionsModule = await import("../permissions/index.js");
+    const permissionsModule = await import(
+      "../permissions/permissionChecker.js"
+    );
     vi.spyOn(permissionsModule, "checkToolPermission").mockReturnValue({
       permission: "ask",
     });
@@ -795,9 +811,10 @@ describe.skip("executeStreamedToolCalls", () => {
     expect(hasRejection).toEqual(true);
     expect(chatHistoryEntries).toHaveLength(2);
     expect(chatHistoryEntries[0].content).toBe("Permission denied by user");
-    expect(chatHistoryEntries[1].content).toBe(
-      "Cancelled due to previous tool rejection",
-    );
+    // Each call of the turn is answered on its own: a rejection marks the turn
+    // through `hasRejection`, it does not silently rewrite the next call's
+    // answer into "cancelled".
+    expect(chatHistoryEntries[1].content).toBe("Permission denied by user");
     expect(callbacks.onToolStart).toHaveBeenCalledWith("Write", {
       filepath: "/test.txt",
       content: "data",
@@ -817,7 +834,9 @@ describe.skip("executeStreamedToolCalls", () => {
 
   it("handles tool execution errors", async () => {
     // Setup spies
-    const permissionsModule = await import("../permissions/index.js");
+    const permissionsModule = await import(
+      "../permissions/permissionChecker.js"
+    );
     vi.spyOn(permissionsModule, "checkToolPermission").mockReturnValue({
       permission: "allow",
     });

@@ -27,7 +27,23 @@ describe("FileWatcher", () => {
     }
   });
 
-  it.skip("should detect when new files are created", async () => {
+  /**
+   * A filesystem watcher answers when the platform gets round to it, so waiting a
+   * fixed 150 ms for a 100 ms debounce was a coin toss - which is why these two
+   * cases were skipped. Waiting for the condition, with a bound, tests the same
+   * behaviour without depending on the scheduler's mood.
+   */
+  async function waitForCall(
+    callback: ReturnType<typeof vi.fn>,
+    timeoutMs = 4000,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (callback.mock.calls.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
+  it("should detect when new files are created", async () => {
     const callback = vi.fn();
     watcher.onChange(callback);
     watcher.startWatching(tempDir);
@@ -36,13 +52,12 @@ describe("FileWatcher", () => {
     const testFile = path.join(tempDir, "test.txt");
     fs.writeFileSync(testFile, "test content");
 
-    // Wait for debounce
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await waitForCall(callback);
 
     expect(callback).toHaveBeenCalled();
   });
 
-  it.skip("should detect when files are deleted", async () => {
+  it("should detect when files are deleted", async () => {
     // Create a file first
     const testFile = path.join(tempDir, "test.txt");
     fs.writeFileSync(testFile, "test content");
@@ -54,8 +69,7 @@ describe("FileWatcher", () => {
     // Delete the file
     fs.unlinkSync(testFile);
 
-    // Wait for debounce
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await waitForCall(callback);
 
     expect(callback).toHaveBeenCalled();
   });
