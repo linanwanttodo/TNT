@@ -342,6 +342,19 @@ accumulated in `src/session/index.ts`, and rendered next to the hit ratio in
 `src/ui/components/BottomStatusBar.tsx`. Seeing both numbers on one line is the
 point: compaction spending that erases cache reuse is not a saving.
 
+Not every reduction has to be that expensive. `src/compaction/microCompact.ts` runs
+on the request path before the token estimate is even consulted: when the gap since
+this session's last request is at least `CONTINUE_CLI_CACHE_GAP_MS` (five minutes by
+default, which is Anthropic's cache lifetime), the provider has certainly let the
+prefix go, so the content of tool results from earlier turns is replaced with
+`[Old tool result content cleared]` and the message, the tool call and the result id
+stay where they are - a result without its call is not a history the API accepts, so
+the shape is preserved and only the bulk goes. The last turn is never touched, since
+that is what the request is about, and a history with nothing before it comes back
+unchanged. The gap is measured from the last request this process sent, or, for a
+session that has sent nothing yet, from the session file's own timestamp: a session
+picked up the next day is the case this exists for.
+
 The threshold that triggers a compaction is a local estimate, so the provider can
 still refuse. `src/utils/contextLength.ts` owns the vendor phrasings for that
 refusal and both layers read it: the backoff stops retrying a request that will

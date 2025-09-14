@@ -4,6 +4,11 @@ import type { ChatHistoryItem } from "core/index.js";
 import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
 
 import { services } from "../services/index.js";
+import {
+  cacheGapMs,
+  isCacheCold,
+  microCompactHistory,
+} from "../compaction/microCompact.js";
 import { ToolCall } from "../tools/index.js";
 import { logger } from "../utils/logger.js";
 import { validateContextLength } from "../utils/tokenizer.js";
@@ -77,6 +82,28 @@ export async function handlePreApiCompaction(
 
   if (isCompacting) {
     return { chatHistory, wasCompacted: false };
+  }
+
+  // Before anything token-shaped is considered: a request that arrives after the
+  // provider's cache has expired is paying full price for old tool results, so
+  // their bulk goes first. It is the cheapest reduction available and it leaves the
+  // conversation's shape alone.
+  if (isCacheCold()) {
+    const micro = microCompactHistory(chatHistory);
+    if (micro.clearedResults > 0) {
+      logger.info("Micro-compacted after a cache gap", {
+        clearedResults: micro.clearedResults,
+        droppedChars: micro.droppedChars,
+        gapMs: cacheGapMs(),
+      });
+      const svc = services.chatHistory;
+      if (typeof svc?.isReady === "function" && svc.isReady()) {
+        svc.setHistory(micro.history);
+        chatHistory = svc.getHistory();
+      } else {
+        chatHistory = micro.history;
+      }
+    }
   }
 
   const { wasCompacted, chatHistory: preCompactHistory } =

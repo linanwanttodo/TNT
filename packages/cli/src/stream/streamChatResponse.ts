@@ -19,6 +19,7 @@ import {
   rememberCachePrefix,
 } from "../cache/prefixState.js";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
+import { noteRequestSent } from "../compaction/microCompact.js";
 import {
   assessCacheBreak,
   recallCacheRound,
@@ -779,6 +780,10 @@ export async function streamChatResponse(
       toolCount: tools.length,
       toolNames: tools.map((t) => t.function.name),
     });
+
+    // The request is about to go out, which is what the next turn's cache gap is
+    // measured from.
+    noteRequestSent();
 
     // Get response from LLM
     const {
