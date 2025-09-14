@@ -40,12 +40,14 @@ import {
   describeTermination,
   type TerminationReason,
 } from "../loop/termination.js";
+import { TodoReminderTracker } from "../loop/todoReminder.js";
 import { ToolFailureTracker } from "../loop/toolFailureTracker.js";
 import { TurnBudget, type TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { applyChatCompletionToolOverrides } from "../tools/applyToolOverrides.js";
 import { ToolCall } from "../tools/index.js";
+import { readTodoState } from "../tools/todo.js";
 import {
   chatCompletionStreamWithBackoff,
   withExponentialBackoff,
@@ -631,6 +633,7 @@ export async function streamChatResponse(
   const budget = new TurnBudget(turnBudgetLimits);
   const toolFailures = new ToolFailureTracker();
   const terminalStops = new TerminalStopTracker();
+  const todoReminder = new TodoReminderTracker();
   /**
    * False once this turn has issued its first request, which is how the log
    * tells a prefix that moved between turns from one that moved mid-turn.
@@ -889,7 +892,14 @@ export async function streamChatResponse(
       toolCalls,
       chatHistory,
       content,
-      callbacks,
+      // A list nobody updates is a list that lies, so after ten tool calls
+      // without a Todo update the reminder rides the next tool result - the
+      // request tail, not the cached prefix.
+      callbacks: {
+        ...callbacks,
+        onTailReminder: (toolName) =>
+          todoReminder.recordToolResult(toolName, readTodoState().todos),
+      },
       isHeadless,
       usage,
       permissions: runOverrides?.permissions,
