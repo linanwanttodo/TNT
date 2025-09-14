@@ -193,6 +193,10 @@ addCommonOptions(program)
     "--silent",
     "Strip <think></think> tags and excess whitespace from output. Only works with -p/--print flag.",
   )
+  .option(
+    "--output-schema <path>",
+    "Validate the final answer of a headless run against a JSON Schema file. Only works with -p/--print flag.",
+  )
   .option("--resume", "Resume from last session")
   .option("--fork <sessionId>", "Fork from an existing session ID")
   .option(
@@ -243,6 +247,7 @@ addCommonOptions(program)
       print: options.print,
       format: options.format,
       silent: options.silent,
+      outputSchema: options.outputSchema,
       readonly: options.readonly,
       auto: options.auto,
       config: options.config,

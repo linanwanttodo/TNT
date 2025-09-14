@@ -38,6 +38,7 @@ vi.mock("../compaction/index.js", () => ({
 vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => sessionState.session),
   getSessionHistoryGeneration: vi.fn(() => sessionState.generation),
+  getSessionPromptProfile: vi.fn(() => undefined),
   replaceSessionHistoryIfGeneration: vi.fn((generation, history) => {
     if (sessionState.generation !== generation) return false;
     sessionState.session.history = history;

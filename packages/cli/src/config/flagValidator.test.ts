@@ -77,6 +77,32 @@ describe("validateFlags", () => {
     });
   });
 
+  describe("output-schema flag validation", () => {
+    test("should pass when outputSchema is used with print", () => {
+      const result = validateFlags({
+        outputSchema: "/tmp/schema.json",
+        print: true,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should fail when outputSchema is used without print", () => {
+      const result = validateFlags({
+        outputSchema: "/tmp/schema.json",
+        print: false,
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("OUTPUT_SCHEMA_REQUIRES_PRINT");
+      expect(result.errors[0].message).toBe(
+        "Error: --output-schema flag can only be used with -p/--print flag",
+      );
+    });
+  });
+
   describe("mode flags validation", () => {
     test("should pass with readonly only", () => {
       const result = validateFlags({

@@ -53,6 +53,11 @@ import {
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import {
+  describeSchemaForPrompt,
+  enforceOutputSchema,
+  loadOutputSchema,
+} from "./outputSchema.js";
+import {
   createStreamJsonCallbacks,
   streamJsonErrorLine,
   streamJsonResultLine,
@@ -107,6 +112,8 @@ export interface ChatOptions extends ExtendedCommandOptions {
   fork?: string; // Fork from an existing session ID
   format?: OutputFormat; // Output format for headless mode
   silent?: boolean; // Strip <think></think> tags and excess whitespace
+  /** JSON Schema file the final answer of a headless run must conform to. */
+  outputSchema?: string;
   /** Model rounds allowed per turn before the turn is cut short. */
   maxSteps?: number;
 }
@@ -382,13 +389,49 @@ interface ProcessMessageOptions {
   silent?: boolean;
   compactionIndex?: number | null;
   firstAssistantResponse?: boolean;
+  /** Parsed JSON Schema the final answer must conform to. */
+  outputSchema?: unknown;
   /** Passed through to the loop so a turn can be capped from the CLI. */
   maxSteps?: number;
 }
 
+/**
+ * One bounded repair call for an answer that does not match --output-schema.
+ * It is a side call like the title request: it does not enter the session
+ * history, because the transcript records what the model said, not what the
+ * schema check made of it.
+ */
+async function requestSchemaRepair(
+  llmApi: BaseLlmApi,
+  model: ModelConfig,
+  invalidText: string,
+  errors: string[],
+  schema: unknown,
+): Promise<string> {
+  const response = await llmApi.chatCompletionNonStream(
+    {
+      model: model.model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You fix JSON responses so that they conform to a JSON Schema. Reply with only the corrected JSON document.",
+        },
+        {
+          role: "user",
+          content: `JSON Schema:\n${JSON.stringify(schema, null, 2)}\n\nResponse to fix:\n${invalidText}\n\nProblems found:\n${errors.map((error) => `- ${error}`).join("\n")}`,
+        },
+      ],
+      stream: false,
+    },
+    new AbortController().signal,
+  );
+  return response.choices?.[0]?.message?.content ?? "";
+}
+
 async function processMessage(
   options: ProcessMessageOptions,
-): Promise<{ compactionIndex?: number | null } | void> {
+): Promise<{ compactionIndex?: number | null; finalText?: string } | void> {
   const {
     userInput,
     chatHistory,
@@ -399,6 +442,7 @@ async function processMessage(
     silent,
     compactionIndex: initialCompactionIndex,
     firstAssistantResponse = false,
+    outputSchema,
     maxSteps,
   } = options;
   let compactionIndex = initialCompactionIndex;
@@ -447,13 +491,25 @@ async function processMessage(
 
   try {
     // Get AI response with potential tool usage
-    const finalResponse = await getStreamingResponse(
+    let finalResponse = await getStreamingResponse(
       compactionIndex,
       model,
       llmApi,
       maxSteps === undefined ? undefined : { maxSteps },
       streamJsonCallbacks,
     );
+
+    // A run asked for a schema-shaped answer is not done until the answer
+    // matches it: one repair round, and then the run fails instead of
+    // printing something the caller said it cannot accept.
+    if (outputSchema !== undefined && finalResponse.trim()) {
+      finalResponse = await enforceOutputSchema(
+        finalResponse,
+        outputSchema,
+        (invalidText, errors) =>
+          requestSchemaRepair(llmApi, model, invalidText, errors, outputSchema),
+      );
+    }
 
     // Generate session title after first assistant response
     if (firstAssistantResponse && finalResponse && finalResponse.trim()) {
@@ -465,6 +521,8 @@ async function processMessage(
 
     // Save session after each successful response
     updateSessionHistory(services.chatHistory.getHistory());
+
+    return { finalText: finalResponse };
   } catch (e: any) {
     const error = e instanceof Error ? e : new Error(String(e));
 
@@ -502,6 +560,16 @@ async function runHeadlessMode(
 ): Promise<void> {
   // Initialize services for headless mode
   const { permissionOverrides } = processCommandFlags(options);
+
+  // Loaded before the services start so a bad file fails in seconds instead of
+  // after a model was picked and a session was set up.
+  const outputSchema = options.outputSchema
+    ? loadOutputSchema(options.outputSchema)
+    : undefined;
+  const schemaNote =
+    outputSchema === undefined
+      ? undefined
+      : describeSchemaForPrompt(outputSchema);
 
   await initializeServices({
     options,
@@ -581,6 +649,9 @@ async function runHeadlessMode(
   }
 
   let isFirstMessage = true;
+  // The final text after any schema repair, so the result line and the Stop
+  // hook report the answer that was actually accepted.
+  let acceptedText: string | undefined;
   while (true) {
     // When in headless mode, don't ask for user input
     if (!isFirstMessage && initialUserInput && options.headless) {
@@ -614,6 +685,7 @@ async function runHeadlessMode(
       takeSessionStartContext(),
       promptHook?.additionalContext,
       describeChangedFiles(),
+      schemaNote,
     ];
     const leading = hookNotes.filter((note): note is string => Boolean(note));
     if (leading.length > 0) {
@@ -630,12 +702,16 @@ async function runHeadlessMode(
       silent: options.silent,
       compactionIndex,
       firstAssistantResponse: isFirstTurn && !options.resume, // Only generate title for new conversations
+      outputSchema,
       maxSteps: options.maxSteps,
     });
 
     // Update compaction index if compaction occurred
     if (result && result.compactionIndex !== undefined) {
       compactionIndex = result.compactionIndex;
+    }
+    if (result && result.finalText !== undefined) {
+      acceptedText = result.finalText;
     }
   }
 
@@ -647,12 +723,11 @@ async function runHeadlessMode(
     lastAssistant && typeof lastAssistant.message.content === "string"
       ? lastAssistant.message.content
       : undefined;
+  const answeredText = acceptedText ?? lastAssistantText;
   if (options.format === "stream-json") {
-    safeStdout(
-      streamJsonResultLine(lastAssistantText ?? "", getSessionUsage()),
-    );
+    safeStdout(streamJsonResultLine(answeredText ?? "", getSessionUsage()));
   }
-  await fireStop(lastAssistantText).catch(() => {});
+  await fireStop(answeredText).catch(() => {});
   await fireSessionEnd("other").catch(() => {});
 
   // exit after headless mode completes
