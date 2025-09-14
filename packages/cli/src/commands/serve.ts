@@ -6,6 +6,7 @@ import { ToolPermissionServiceState } from "src/services/ToolPermissionService.j
 import { prependPrompt } from "src/utils/promptProcessor.js";
 
 import { expandMentions } from "../agent/atMentions.js";
+import { isPromptProfile } from "../agent/promptProfiles.js";
 import { constructSystemMessage } from "../agent/systemMessage.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
 import { t } from "../i18n/index.js";
@@ -25,6 +26,7 @@ import {
 import {
   createSession,
   getCompleteStateSnapshot,
+  getSessionPromptProfile,
   loadOrCreateSessionById,
 } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
@@ -146,11 +148,15 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   }
 
   // Initialize session with system message
+  // The stored profile is a string; an unknown one falls back to the default
+  // rather than failing the session at startup.
+  const storedProfile = getSessionPromptProfile();
   const systemMessage = await constructSystemMessage(
     permissionsState.currentMode,
     options.rule,
     undefined,
     true,
+    storedProfile && isPromptProfile(storedProfile) ? storedProfile : undefined,
   );
 
   const initialHistory: ChatHistoryItem[] = [];

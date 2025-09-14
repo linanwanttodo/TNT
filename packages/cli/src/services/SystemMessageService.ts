@@ -1,6 +1,8 @@
+import { isPromptProfile } from "../agent/promptProfiles.js";
 import { constructSystemMessage } from "../agent/systemMessage.js";
 import type { OutputFormat } from "../config/outputFormat.js";
 import { PermissionMode } from "../permissions/types.js";
+import { getSessionPromptProfile } from "../session/index.js";
 import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";
@@ -50,11 +52,17 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
   public async getSystemMessage(currentMode: PermissionMode): Promise<string> {
     const { additionalRules, format, headless } = this.currentState;
 
+    const storedProfile = getSessionPromptProfile();
     const systemMessage = await constructSystemMessage(
       currentMode,
       additionalRules,
       format,
       headless,
+      // A profile name that no longer exists falls back to the default rather
+      // than breaking every request.
+      storedProfile && isPromptProfile(storedProfile)
+        ? storedProfile
+        : undefined,
     );
 
     logger.debug("Generated fresh system message", {
