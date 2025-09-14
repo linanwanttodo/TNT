@@ -18,6 +18,7 @@ import {
   getAutoCompactMessage,
   shouldAutoCompact,
 } from "../compaction/index.js";
+import type { OutputFormat } from "../config/outputFormat.js";
 import { firePreCompact } from "../hooks/fireHook.js";
 import {
   getCurrentSession,
@@ -60,7 +61,7 @@ interface AutoCompactionCallbacks {
 
 interface AutoCompactionOptions {
   isHeadless?: boolean;
-  format?: "json";
+  format?: OutputFormat;
   callbacks?: AutoCompactionCallbacks;
   systemMessage?: string;
   tools?: ChatCompletionTool[];

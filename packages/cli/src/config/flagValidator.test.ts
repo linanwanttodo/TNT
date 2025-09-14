@@ -26,6 +26,16 @@ describe("validateFlags", () => {
       );
     });
 
+    test("should accept stream-json as a format value", () => {
+      const result = validateFlags({
+        format: "stream-json",
+        print: true,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
     test("should fail when format value is invalid", () => {
       const result = validateFlags({
         format: "xml",
@@ -35,8 +45,8 @@ describe("validateFlags", () => {
       expect(result.isValid).toBe(false);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0].code).toBe("INVALID_FORMAT_VALUE");
-      expect(result.errors[0].message).toContain(
-        "--format currently only supports 'json'",
+      expect(result.errors[0].message).toBe(
+        'Error: Unsupported --format "xml". Expected one of: json, stream-json',
       );
     });
   });

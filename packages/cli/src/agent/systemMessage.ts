@@ -6,6 +6,7 @@ import { parseMarkdownRule, RuleObject } from "@tnt/config-yaml";
 
 import { env } from "../config/env.js";
 import { processRule } from "../config/hubLoader.js";
+import type { OutputFormat } from "../config/outputFormat.js";
 import { readSettingsString } from "../config/settingsFiles.js";
 import { PermissionMode } from "../permissions/types.js";
 import {
@@ -280,7 +281,7 @@ export function buildOutputStyleSection(
 export async function constructSystemMessage(
   mode: PermissionMode,
   additionalRules?: string[],
-  format?: "json",
+  format?: OutputFormat,
   headless?: boolean,
 ): Promise<string> {
   const agentFiles = ["AGENTS.md", "AGENT.md", "CLAUDE.md", "CODEX.md"];
@@ -345,10 +346,16 @@ export async function constructSystemMessage(
   // Construct the comprehensive system message
   let systemMessage = baseSystemMessage;
 
-  // Add plan mode specific instructions if in plan mode
+  // Plan is one text, whichever way it was chosen: the permission mode and the
+  // profile must not produce two wordings of the same instruction.
   if (mode === "plan") {
-    systemMessage +=
-      '\n<context name="planMode">You are operating in _Plan Mode_, which means that your goal is to help the user investigate their ideas and produce a plan before taking action. You may write documentation files (.md, .mdx, .markdown, .rst, .txt) and read everything, but you must not change code or any other file: a write outside documentation is refused, and the Bash tool only runs commands that cannot modify the project. Ask the user to switch to agent mode if they want changes made. Produce planning artifacts only: an implementation plan, the decisions behind it, and a todo list the user can follow, written to documentation files. Keep the plan concrete, ordered, and tied to specific files.</context>\n';
+    systemMessage += PLAN_MODE_TEXT;
+  }
+
+  // The profile is the task-shaped axis. It is skipped when the plan text is
+  // already in from the mode, and the default profile adds nothing at all.
+  if (profile && profile !== "default" && mode !== "plan") {
+    systemMessage += profileSection(profile);
   }
 
   // In headless mode, add instructions to be concise and only provide final answers

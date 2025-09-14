@@ -11,6 +11,7 @@ import {
   findCompactionIndex,
 } from "../compaction/index.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
+import type { OutputFormat } from "../config/outputFormat.js";
 import {
   fireSessionEnd,
   fireSessionStart,
@@ -28,6 +29,7 @@ import {
   SERVICE_NAMES,
 } from "../services/types.js";
 import {
+  getSessionUsage,
   loadSession,
   updateSessionHistory,
   updateSessionTitle,
@@ -50,6 +52,11 @@ import {
 } from "../utils/tokenizer.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
+import {
+  createStreamJsonCallbacks,
+  streamJsonErrorLine,
+  streamJsonResultLine,
+} from "./streamJson.js";
 
 /**
  * Processes and validates JSON output for headless mode
@@ -98,7 +105,7 @@ export interface ChatOptions extends ExtendedCommandOptions {
   /** Specific session a resume should open; omitted means the newest root. */
   sessionId?: string;
   fork?: string; // Fork from an existing session ID
-  format?: "json"; // Output format for headless mode
+  format?: OutputFormat; // Output format for headless mode
   silent?: boolean; // Strip <think></think> tags and excess whitespace
   /** Model rounds allowed per turn before the turn is cut short. */
   maxSteps?: number;
@@ -190,14 +197,17 @@ async function getStreamingResponse(
   model: ModelConfig,
   llmApi: BaseLlmApi,
   turnBudgetLimits?: Partial<TurnBudgetLimits>,
+  extraCallbacks?: StreamCallbacks,
 ): Promise<string> {
   const abortController = new AbortController();
   // Captured rather than logged: a truncated turn still returns usable text, so
   // the caller has to know to label it as incomplete.
   let truncationNotice: string | undefined;
   const callbacks: StreamCallbacks = {
-    onTurnTerminated: (_reason, detail) => {
+    ...extraCallbacks,
+    onTurnTerminated: (reason, detail) => {
       truncationNotice = detail?.notice;
+      extraCallbacks?.onTurnTerminated?.(reason, detail);
     },
   };
 
@@ -228,8 +238,13 @@ function processAndOutputResponse(
   finalResponse: string,
   isHeadless: boolean,
   silent?: boolean,
-  format?: "json",
+  format?: OutputFormat,
 ): void {
+  // The event stream already carried the text, and the run ends with a result
+  // line that repeats the final answer; printing it again would leave a bare
+  // text line inside a stream every consumer parses line by line.
+  if (format === "stream-json") return;
+
   if (isHeadless && finalResponse && finalResponse.trim()) {
     let processedResponse = finalResponse;
 
@@ -254,7 +269,7 @@ async function handleAutoCompaction(
   model: ModelConfig,
   llmApi: BaseLlmApi,
   isHeadless: boolean,
-  format?: "json",
+  format?: OutputFormat,
 ): Promise<number | null> {
   const { handleAutoCompaction: coreAutoCompaction } = await import(
     "../stream/streamChatResponse.autoCompaction.js"
@@ -363,7 +378,7 @@ interface ProcessMessageOptions {
   model: ModelConfig;
   llmApi: BaseLlmApi;
   isHeadless: boolean;
-  format?: "json";
+  format?: OutputFormat;
   silent?: boolean;
   compactionIndex?: number | null;
   firstAssistantResponse?: boolean;
@@ -423,6 +438,13 @@ async function processMessage(
     console.info(`\n${chalk.bold.blue("Assistant:")}`);
   }
 
+  // In stream-json mode every notable event becomes one NDJSON line as it
+  // happens, so a CI job can follow the run instead of reading one blob.
+  const streamJsonCallbacks =
+    format === "stream-json"
+      ? createStreamJsonCallbacks((line) => safeStdout(line))
+      : undefined;
+
   try {
     // Get AI response with potential tool usage
     const finalResponse = await getStreamingResponse(
@@ -430,6 +452,7 @@ async function processMessage(
       model,
       llmApi,
       maxSteps === undefined ? undefined : { maxSteps },
+      streamJsonCallbacks,
     );
 
     // Generate session title after first assistant response
@@ -541,6 +564,9 @@ async function runHeadlessMode(
     if (options.resume || options.fork) {
       // For resume/fork with no new input, we've already loaded the history above
       // Just exit successfully (the history was already loaded into chatHistory)
+      if (options.format === "stream-json") {
+        safeStdout(streamJsonResultLine("", getSessionUsage()));
+      }
       await fireSessionEnd("other").catch(() => {});
       await gracefulExit(0);
       return;
@@ -621,6 +647,11 @@ async function runHeadlessMode(
     lastAssistant && typeof lastAssistant.message.content === "string"
       ? lastAssistant.message.content
       : undefined;
+  if (options.format === "stream-json") {
+    safeStdout(
+      streamJsonResultLine(lastAssistantText ?? "", getSessionUsage()),
+    );
+  }
   await fireStop(lastAssistantText).catch(() => {});
   await fireSessionEnd("other").catch(() => {});
 
@@ -714,6 +745,11 @@ export async function chat(prompt?: string, options: ChatOptions = {}) {
         message: err.message || String(err),
       };
       safeStderr(JSON.stringify(errorOutput) + "\n");
+      if (options.format === "stream-json") {
+        // A stream-json consumer reads stdout, so the event stream ends with a
+        // failed result line rather than stopping mid-stream.
+        safeStdout(streamJsonErrorLine(err.message || String(err)));
+      }
     } else {
       // Use headless-aware error logging for non-headless mode
       logging.error(chalk.red(`Fatal error: ${formatError(err)}`));

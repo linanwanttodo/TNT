@@ -1,4 +1,5 @@
 import { constructSystemMessage } from "../agent/systemMessage.js";
+import type { OutputFormat } from "../config/outputFormat.js";
 import { PermissionMode } from "../permissions/types.js";
 import { logger } from "../utils/logger.js";
 
@@ -7,7 +8,7 @@ import { SERVICE_NAMES } from "./types.js";
 
 export interface SystemMessageServiceState {
   additionalRules?: string[];
-  format?: "json";
+  format?: OutputFormat;
   headless?: boolean;
 }
 
@@ -25,7 +26,7 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
    */
   async doInitialize(args: {
     additionalRules?: string[];
-    format?: "json";
+    format?: OutputFormat;
     headless?: boolean;
   }): Promise<SystemMessageServiceState> {
     this.setState({
