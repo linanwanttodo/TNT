@@ -309,6 +309,51 @@ const matchingStrategies: Array<{ strategy: MatchStrategy; name: string }> = [
 ];
 
 /**
+ * Instruction-shaped text for a search that matched nothing: the file line
+ * most similar to the search's first line, shown with line numbers, so the
+ * model sees what the file now says instead of guessing again. Bounded on
+ * both sides - a few lines of the file, one line of the search - because the
+ * message lands in a tool result whose size costs the next request.
+ */
+export function describeSearchFailure(
+  fileContent: string,
+  oldString: string,
+): string {
+  const lines = fileContent.split("\n");
+  const firstLine =
+    oldString.split("\n").find((line) => line.trim() !== "") ?? "";
+  const anchor = firstLine.trim();
+  const quoted = anchor.length > 120 ? `${anchor.slice(0, 120)}...` : anchor;
+
+  let bestLine = -1;
+  let bestScore = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line === "") continue;
+    const score = jaroWinklerSimilarity(anchor, line);
+    if (score > bestScore) {
+      bestScore = score;
+      bestLine = i;
+    }
+  }
+
+  if (bestLine === -1 || bestScore < 0.5) {
+    return `Searched for the line "${quoted}", and nothing in the file's ${lines.length} lines is close to it. Read the file again and copy the exact text.`;
+  }
+
+  const from = Math.max(0, bestLine - 2);
+  const to = Math.min(lines.length - 1, bestLine + 2);
+  const snippet = lines
+    .slice(from, to + 1)
+    .map((line, offset) => {
+      const shown = line.length > 160 ? `${line.slice(0, 160)}...` : line;
+      return `${String(from + offset + 1).padStart(4)}| ${shown}`;
+    })
+    .join("\n");
+  return `Searched for the line "${quoted}". The closest line is ${Math.round(bestScore * 100)}% similar, at line ${bestLine + 1}:\n${snippet}\nRead the file again and copy the exact text, including its indentation.`;
+}
+
+/**
  * Find the exact match position for search content in file content.
  * Uses multiple matching strategies in order of preference.
  *

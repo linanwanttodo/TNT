@@ -1,6 +1,10 @@
 import { EditOperation } from "../../tools/definitions/multiEdit";
 import { ContinueError, ContinueErrorReason } from "../../util/errors";
-import { SearchMatchResult, findSearchMatches } from "./findSearchMatch";
+import {
+  SearchMatchResult,
+  describeSearchFailure,
+  findSearchMatches,
+} from "./findSearchMatch";
 
 /**
  * Get the leading whitespace of the first non-empty line in a string.
@@ -92,9 +96,12 @@ export function executeFindAndReplace(
   const matches = findSearchMatches(fileContent, oldString);
 
   if (matches.length === 0) {
+    // The message leads with what the file does contain near the anchor line:
+    // a failure that only echoes the search leaves the model retrying the same
+    // guess, which is the loop this text exists to break.
     throw new ContinueError(
       ContinueErrorReason.FindAndReplaceOldStringNotFound,
-      `Edit at index ${editIndex}: string not found in file: "${oldString}"`,
+      `Edit at index ${editIndex}: the text to replace was not found in the file.\n${describeSearchFailure(fileContent, oldString)}`,
     );
   }
 
