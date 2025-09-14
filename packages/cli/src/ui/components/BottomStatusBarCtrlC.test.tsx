@@ -2,7 +2,11 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BottomStatusBar, BottomStatusBarProps } from "./BottomStatusBar.js";
+import {
+  BottomStatusBar,
+  BottomStatusBarProps,
+  costLineText,
+} from "./BottomStatusBar.js";
 
 // Mock the index module functions
 vi.mock("../../index.js", () => ({
@@ -191,5 +195,15 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const modelIndex = frame.indexOf("gpt-5");
     expect(workspaceIndex).toBeGreaterThanOrEqual(0);
     expect(modelIndex).toBeGreaterThan(workspaceIndex);
+  });
+
+  it("says how many requests the cost line cannot account for", () => {
+    // Asserted as text rather than through a frame: the bar is one row, and an
+    // 80-column test frame truncates before the number of interest.
+    expect(costLineText(1.5, 2)).toBe("Cost $1.5000 (+2 unpriced)");
+    expect(costLineText(0, 1)).toBe("Cost $0.0000 (+1 unpriced)");
+    expect(costLineText(1.5, 0)).toBe("Cost $1.5000");
+    expect(costLineText(0, 0)).toBeUndefined();
+    expect(costLineText(undefined, 0)).toBeUndefined();
   });
 });

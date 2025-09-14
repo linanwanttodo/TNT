@@ -18,9 +18,8 @@ import {
 import type { LoopDetector } from "../loop/loopDetector.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
-import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
 import { hasSessionApproval } from "../permissions/sessionApprovals.js";
-import { spillOversizedToolResult } from "./toolResultStorage.js";
+import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
 import {
   SERVICE_NAMES,
   serviceContainer,
@@ -34,17 +33,14 @@ import {
   Tool,
   validateToolCallArgs,
 } from "../tools/index.js";
+import { MARKER_PERMISSION_DENIED } from "../tools/resultMarkers.js";
 import { ExecutionGate } from "../tools/specs/gate.js";
 import { planToolCalls } from "../tools/specs/planner.js";
 import { PreprocessedToolCall, ToolCall } from "../tools/types.js";
 import { logger } from "../utils/logger.js";
 
 import { StreamCallbacks } from "./streamChatResponse.types.js";
-import {
-  MARKER_FILE_CREATED,
-  MARKER_FILE_EDITED,
-  MARKER_PERMISSION_DENIED,
-} from "../tools/resultMarkers.js";
+import { spillOversizedToolResult } from "./toolResultStorage.js";
 
 export interface ToolResultWithStatus extends ChatCompletionToolMessageParam {
   status: ToolStatus;
@@ -441,6 +437,7 @@ export function recordStreamTelemetry(options: {
   // Calculate cost using comprehensive pricing that includes caching
   let cost: number;
   let usage: Usage;
+  let unpriced = false;
   const cacheTokens = cacheTokensFrom(fullUsage);
 
   if (fullUsage) {
@@ -466,15 +463,21 @@ export function recordStreamTelemetry(options: {
     const provider = detectProvider(model.model);
     const costBreakdown = calculateRequestCost(provider, model.model, usage);
 
-    // Use fallback for unknown models
-    cost =
-      costBreakdown?.cost ??
-      calculateFallbackCost(
-        fullUsage.prompt_tokens,
-        fullUsage.completion_tokens,
-      );
+    if (costBreakdown) {
+      cost = costBreakdown.cost;
+    } else {
+      // The model has no price in the table. A number invented from a made-up
+      // rate would be read as a measurement, so the total stays short and the
+      // session counts the request instead.
+      unpriced = true;
+      cost = 0;
+      logger.debug("No price for this model; its cost is unknown", {
+        model: model.model,
+      });
+    }
   } else {
-    // Fallback when fullUsage not available
+    // Fallback when fullUsage not available: an estimate is all there is, and
+    // it is named as one by not being a model price.
     usage = {
       promptTokens: inputTokens,
       completionTokens: outputTokens,
@@ -505,8 +508,10 @@ export function recordStreamTelemetry(options: {
     );
   }
 
-  telemetryService.recordCost(cost, model.model);
-  trackSessionUsage(cost, usage, requestKind);
+  if (!unpriced) {
+    telemetryService.recordCost(cost, model.model);
+  }
+  trackSessionUsage(cost, usage, requestKind, unpriced);
 
   telemetryService.recordResponseTime(
     totalDuration,

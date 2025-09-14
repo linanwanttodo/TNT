@@ -275,6 +275,12 @@ export interface SessionUsage extends Usage {
   /** Total cumulative cost in USD for all LLM API calls in this session */
   totalCost: number;
   /**
+   * Requests whose model has no price in the table. Their cost is not in
+   * `totalCost` at all, because a number invented for a model nobody priced
+   * reads as a measurement; the counter is what keeps the total honest.
+   */
+  unpricedRequests?: number;
+  /**
    * Usage of the first request in this session, kept apart from the totals.
    *
    * A session-wide hit rate is diluted by every request after the first, so it

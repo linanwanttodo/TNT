@@ -207,9 +207,18 @@ class SessionManager {
     cost: number,
     usage: Usage,
     kind: "turn" | "compaction" = "turn",
+    /**
+     * True when the model has no price in the table. The request contributes
+     * nothing to the total, and the counter says why the total is short.
+     */
+    unpriced: boolean = false,
   ): void {
     // Accumulate cost
     this.sessionUsage.totalCost += cost;
+    if (unpriced) {
+      this.sessionUsage.unpricedRequests =
+        (this.sessionUsage.unpricedRequests ?? 0) + 1;
+    }
 
     // Accumulate token counts
     this.sessionUsage.promptTokens += usage.promptTokens;
@@ -907,8 +916,9 @@ export function trackSessionUsage(
   cost: number,
   usage: Usage,
   kind: "turn" | "compaction" = "turn",
+  unpriced: boolean = false,
 ): void {
-  SessionManager.getInstance().trackUsage(cost, usage, kind);
+  SessionManager.getInstance().trackUsage(cost, usage, kind, unpriced);
 }
 
 /**
