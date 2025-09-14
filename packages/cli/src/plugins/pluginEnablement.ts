@@ -55,3 +55,23 @@ export function configuredEnabledPlugins(
   }
   return configured;
 }
+
+/** The wiring the loader uses: what may load, and what it skipped. */
+export function applyPluginEnablement<T extends { name: string }>(
+  installed: readonly T[],
+): {
+  plugins: T[];
+  disabledPlugins: string[];
+  unknownEnabledPlugins: string[];
+} {
+  const enablement = resolvePluginEnablement(
+    installed.map((plugin) => plugin.name),
+    configuredEnabledPlugins(),
+  );
+  const allowed = new Set(enablement.enabled);
+  return {
+    plugins: installed.filter((plugin) => allowed.has(plugin.name)),
+    disabledPlugins: enablement.disabled,
+    unknownEnabledPlugins: enablement.unknown,
+  };
+}

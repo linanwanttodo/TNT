@@ -12,14 +12,11 @@ import { logger } from "../utils/logger.js";
 
 import { getPluginSearchRoots } from "./directories.js";
 import {
-  configuredEnabledPlugins,
-  resolvePluginEnablement,
-} from "./pluginEnablement.js";
-import {
   discoverInstalledPlugins,
   type LoadedPlugin,
   substitutePluginVariables,
 } from "./manifest.js";
+import { applyPluginEnablement } from "./pluginEnablement.js";
 import {
   mergePluginSettings,
   setPluginSettingsBase,
@@ -623,12 +620,8 @@ function loadPluginLspServers(plugins: LoadedPlugin[]): PluginLspServer[] {
 export function loadAllPlugins(): PluginLoadResult {
   const installed = discoverInstalledPlugins(getPluginSearchRoots());
   // Installing is not enabling: a settings list decides which of them may load.
-  const enablement = resolvePluginEnablement(
-    installed.map((plugin) => plugin.name),
-    configuredEnabledPlugins(),
-  );
-  const allowed = new Set(enablement.enabled);
-  const plugins = installed.filter((plugin) => allowed.has(plugin.name));
+  const { plugins, disabledPlugins, unknownEnabledPlugins } =
+    applyPluginEnablement(installed);
   // Cache the settings layer for the synchronous readers (settingsFiles): a
   // plugin contributes defaults, below every settings file.
   setPluginSettingsBase(mergePluginSettings(plugins));
@@ -642,7 +635,7 @@ export function loadAllPlugins(): PluginLoadResult {
     mcpServers: loadPluginMcpServers(plugins),
     outputStyles: loadPluginOutputStyles(plugins),
     lspServers: loadPluginLspServers(plugins),
-    disabledPlugins: enablement.disabled,
-    unknownEnabledPlugins: enablement.unknown,
+    disabledPlugins,
+    unknownEnabledPlugins,
   };
 }
