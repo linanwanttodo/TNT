@@ -8,6 +8,10 @@ import type { ChatCompletionChunk } from "openai/resources/chat/completions.mjs"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { forgetCacheRounds } from "../cache/cacheBreakReport.js";
+import {
+  forgetLastRequestCacheState,
+  getLastRequestCacheState,
+} from "../cache/lastRequestCacheState.js";
 import { forgetCachePrefixes } from "../cache/prefixState.js";
 import { services } from "../services/index.js";
 import { logger } from "../utils/logger.js";
@@ -147,6 +151,7 @@ describe("streamChatResponse cache prefix attribution", () => {
     vi.clearAllMocks();
     forgetCachePrefixes();
     forgetCacheRounds();
+    forgetLastRequestCacheState();
     chatHistory = convertToUnifiedHistory([{ role: "user", content: "Hello" }]);
     llmApi = {
       chatCompletionStream: vi.fn().mockImplementation(async function* () {
@@ -191,6 +196,24 @@ describe("streamChatResponse cache prefix attribution", () => {
         prefixReasons: ["systemMessage"],
         cacheMissOwner: "prefix",
       }),
+    );
+    // The same verdict reaches the status bar, which is where a user looks.
+    expect(getLastRequestCacheState()).toEqual(
+      expect.objectContaining({
+        state: "invalidated",
+        reasons: ["systemMessage"],
+      }),
+    );
+  });
+
+  it("holds the last request's ratio, not the session average", async () => {
+    await runTurn("prompt v1");
+    await runTurn("prompt v1");
+
+    // Nothing was read on either turn, so the ratio is zero - and it is the
+    // ratio of the last request that is remembered.
+    expect(getLastRequestCacheState()).toEqual(
+      expect.objectContaining({ state: "full", hitRate: 0 }),
     );
   });
 

@@ -1,5 +1,6 @@
-import { execaNode } from "execa";
 import * as net from "net";
+
+import { execaNode } from "execa";
 
 import {
   cleanupTestContext,

@@ -3,6 +3,10 @@ import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
 import { t } from "../../i18n/index.js";
+import {
+  cacheStateText,
+  getLastRequestCacheState,
+} from "../../cache/lastRequestCacheState.js";
 import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { getSessionUsage } from "../../session/index.js";
 import { getCacheHitRatio } from "../../utils/cacheRatio.js";
@@ -133,6 +137,23 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
     leftParts.push(
       <Text key="cache" color="dim">
         {`☰ ${t("status.cache")} ${cacheHitRatio}%`}
+      </Text>,
+    );
+  }
+  // The ratio above is a session average; this says what the last request did
+  // with the prefix, and stays silent while the prefix held.
+  const prefixState = cacheStateText(getLastRequestCacheState(), {
+    prefix: t("status.prefix"),
+    states: {
+      full: "",
+      passthrough: t("status.cacheExtended"),
+      invalidated: t("status.cacheMoved"),
+    },
+  });
+  if (prefixState) {
+    leftParts.push(
+      <Text key="prefix" color="dim">
+        {`⟲ ${prefixState}`}
       </Text>,
     );
   }
