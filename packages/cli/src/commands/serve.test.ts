@@ -87,11 +87,9 @@ describe("serve command", () => {
     vi.clearAllMocks();
   });
 
-  it.skip("should have /exit endpoint that returns success response", async () => {
-    // This test is complex and requires proper module mocking setup
-    // Skip for now to focus on removing top-level mocks
-    expect(true).toBe(true);
-  });
+  // The /exit endpoint used to sit here as a stub asserting `true`, because the
+  // route is registered inside serve() and there was nowhere to call it. It is
+  // real coverage now, over HTTP, in `e2e/serve-http.test.ts`.
 
   it("should pass the --org flag through to initializeServices", async () => {
     // Import the services module to spy on
