@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ToolPermissions } from "../permissions/types.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
+import type { ToolPermissions } from "../permissions/types.js";
 
 import {
   createChildContext,

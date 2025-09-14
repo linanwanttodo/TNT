@@ -9,8 +9,9 @@ import {
   type MockedFunction,
 } from "vitest";
 
-import type { ConfigServiceState } from "../../services/types.js";
 import { getLocale, setLocale } from "../../i18n/index.js";
+import type { ConfigServiceState } from "../../services/types.js";
+
 import { handleSlashCommands } from "./dispatch.js";
 
 // Mock the services

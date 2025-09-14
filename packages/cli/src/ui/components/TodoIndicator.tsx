@@ -1,8 +1,8 @@
 import { Box, Text } from "ink";
 import React from "react";
 
-import { readTodoState } from "../../tools/todo.js";
 import { t } from "../../i18n/index.js";
+import { readTodoState } from "../../tools/todo.js";
 
 const MAX_VISIBLE = 5;
 

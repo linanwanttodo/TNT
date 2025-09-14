@@ -1,5 +1,5 @@
-import { Box, Text } from "ink";
 import type { Session } from "core/index.js";
+import { Box, Text } from "ink";
 import React, {
   useCallback,
   useEffect,
@@ -11,7 +11,7 @@ import React, {
 import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
 
 import { fireConfigChange } from "../hooks/fireHook.js";
-import { useServices } from "./hooks/useService.js";
+import { t } from "../i18n/index.js";
 import {
   ApiClientServiceState,
   AuthServiceState,
@@ -30,13 +30,13 @@ import { ResourceDebugBar } from "./components/ResourceDebugBar.js";
 import { ScreenContent } from "./components/ScreenContent.js";
 import { StaticChatContent } from "./components/StaticChatContent.js";
 import { useNavigation } from "./context/NavigationContext.js";
-import { useLocale } from "./hooks/useLocale.js";
-import { collectFailedMcpServerNames } from "./utils/mcpFailures.js";
 import { useChat } from "./hooks/useChat.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
+import { useLocale } from "./hooks/useLocale.js";
 import { useMessageRenderer } from "./hooks/useMessageRenderer.js";
+import { useServices } from "./hooks/useService.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
-import { t } from "../i18n/index.js";
+import { collectFailedMcpServerNames } from "./utils/mcpFailures.js";
 
 interface TUIChatProps {
   // Remote mode props

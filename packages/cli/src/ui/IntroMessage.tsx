@@ -2,8 +2,8 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { Box, Text } from "ink";
 import React from "react";
 
-import { getDisplayableAsciiArt } from "../startup/asciiArt.js";
 import { t } from "../i18n/index.js";
+import { getDisplayableAsciiArt } from "../startup/asciiArt.js";
 
 interface IntroMessageProps {
   config?: AssistantUnrolled;

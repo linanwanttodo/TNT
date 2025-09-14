@@ -1,3 +1,4 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   AgentFile,
   AssistantUnrolled,
@@ -8,7 +9,6 @@ import {
 import { BaseLlmApi } from "@tnt/openai-adapters";
 import { AssistantConfig } from "@tnt/sdk";
 import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 import type { AuthConfig } from "../auth/workos.js";
 import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";

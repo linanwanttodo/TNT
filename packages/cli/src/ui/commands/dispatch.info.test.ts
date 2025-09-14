@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { services } from "../../services/index.js";
 import * as sessionModule from "../../session/index.js";
-import { handleSlashCommands } from "./dispatch.js";
 import * as versionModule from "../../startup/version.js";
+
+import { handleSlashCommands } from "./dispatch.js";
 
 // Mock all dependencies
 vi.mock("../../startup/version.js", () => ({

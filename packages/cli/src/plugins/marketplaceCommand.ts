@@ -3,15 +3,15 @@ import path from "path";
 import { t } from "../i18n/index.js";
 
 import {
-  forgetMarketplace,
-  loadKnownMarketplaces,
-} from "./marketplaceRegistry.js";
-import { MarketplaceSource } from "./marketplaceTypes.js";
-import {
   addMarketplace,
   createDefaultDeps,
   refreshMarketplace,
 } from "./marketplaceManager.js";
+import {
+  forgetMarketplace,
+  loadKnownMarketplaces,
+} from "./marketplaceRegistry.js";
+import { MarketplaceSource } from "./marketplaceTypes.js";
 
 const SOURCE_KINDS = [
   "directory",

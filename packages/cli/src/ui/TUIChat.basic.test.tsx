@@ -1,10 +1,11 @@
 import { render } from "ink-testing-library";
 import React from "react";
 
-import { createUITestContext } from "../test-utils/ui-test-context.js";
 import { setLocale } from "../i18n/index.js";
-import { AppRoot } from "./AppRoot.js";
 import { waitForCondition } from "../test-utils/TUIChat.testHelper.js";
+import { createUITestContext } from "../test-utils/ui-test-context.js";
+
+import { AppRoot } from "./AppRoot.js";
 
 describe("TUIChat - Basic UI Tests", () => {
   let context: any;

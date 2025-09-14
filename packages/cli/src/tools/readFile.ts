@@ -5,8 +5,8 @@ import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
-import { formatToolArgument } from "./formatters.js";
 import { markFileAsSeen } from "./fileState.js";
+import { formatToolArgument } from "./formatters.js";
 import { Tool, ToolRunContext } from "./types.js";
 
 // Output truncation defaults

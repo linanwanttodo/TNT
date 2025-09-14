@@ -1,10 +1,6 @@
 import { ChildProcess, spawn } from "child_process";
 
-import {
-  SERVICE_NAMES,
-  serviceContainer,
-  services,
-} from "../services/index.js";
+import { SERVICE_NAMES, services } from "../services/index.js";
 import type { ModelServiceState } from "../services/types.js";
 import { logger } from "../utils/logger.js";
 

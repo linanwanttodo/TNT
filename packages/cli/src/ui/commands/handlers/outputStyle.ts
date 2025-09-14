@@ -1,12 +1,13 @@
-import chalk from "chalk";
 import path from "path";
 
-import { t } from "../../../i18n/index.js";
+import chalk from "chalk";
+
 import {
   getProjectSettingsPath,
   readSettingsString,
   writeSettingsValue,
 } from "../../../config/settingsFiles.js";
+import { t } from "../../../i18n/index.js";
 import { loadAllPlugins } from "../../../plugins/loader.js";
 import {
   getSessionOutputStyle,

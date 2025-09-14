@@ -7,10 +7,10 @@ import type {
   ToolPermissionPolicy,
 } from "../permissions/types.js";
 import type { ModelServiceState } from "../services/types.js";
-
-import { executeSubAgent } from "./executor.js";
-import { VERIFICATION_AGENT } from "./builtInAgents.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
+
+import { VERIFICATION_AGENT } from "./builtInAgents.js";
+import { executeSubAgent } from "./executor.js";
 import type { AgentRunContext } from "./runContext.js";
 
 vi.mock("../stream/streamChatResponse.js", () => ({

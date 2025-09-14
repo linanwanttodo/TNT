@@ -4,12 +4,12 @@ import YAML from "yaml";
 
 import { logger } from "../utils/logger.js";
 
+import { commandSegments, isCommandRiskyAlone } from "./bashCommandRule.js";
 import {
   PERMISSIONS_YAML_PATH,
   PermissionsYamlConfig,
   loadPermissionsYaml,
 } from "./permissionsYamlLoader.js";
-import { commandSegments, isCommandRiskyAlone } from "./bashCommandRule.js";
 
 /**
  * Generates a policy rule for a given tool call

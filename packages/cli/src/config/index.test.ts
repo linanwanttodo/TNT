@@ -5,6 +5,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 vi.mock("../auth/workos.js");
 
 import type { AuthConfig } from "../auth/workos.js";
+
 import { getLlmApi } from "./index.js";
 
 describe("config", () => {

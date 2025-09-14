@@ -1,6 +1,6 @@
-import { services } from "../services/index.js";
-
 import type { ChatHistoryItem, ContextItemWithId } from "core/index.js";
+
+import { services } from "../services/index.js";
 
 import type { Tool } from "./types.js";
 

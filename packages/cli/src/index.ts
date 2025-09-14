@@ -14,17 +14,17 @@ import {
   handleValidationErrors,
   validateFlags,
 } from "./config/flagValidator.js";
-import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
 import {
   addCommonOptions,
   mergeParentOptions,
 } from "./config/sharedOptions.js";
+import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
+import { getVersion } from "./startup/version.js";
 import { post } from "./utils/apiClient.js";
 import { markUnhandledError } from "./utils/errorState.js";
 import { gracefulExit } from "./utils/exit.js";
 import { logger } from "./utils/logger.js";
 import { readStdinSync } from "./utils/stdin.js";
-import { getVersion } from "./startup/version.js";
 
 // TUI lifecycle and two-stage exit state management
 let tuiUnmount: (() => void) | null;

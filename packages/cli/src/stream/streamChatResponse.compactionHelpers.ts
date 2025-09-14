@@ -3,12 +3,12 @@ import { BaseLlmApi } from "@tnt/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
 import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
 
-import { services } from "../services/index.js";
 import {
   cacheGapMs,
   isCacheCold,
   microCompactHistory,
 } from "../compaction/microCompact.js";
+import { services } from "../services/index.js";
 import { ToolCall } from "../tools/index.js";
 import { logger } from "../utils/logger.js";
 import { validateContextLength } from "../utils/tokenizer.js";

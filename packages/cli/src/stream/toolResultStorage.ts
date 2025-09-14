@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { parseEnvNumber } from "../utils/truncateOutput.js";
 import { logger } from "../utils/logger.js";
+import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 /**
  * How much of a tool result the model is given inline. A search, an MCP server
@@ -55,8 +55,6 @@ export async function spillOversizedToolResult(options: {
   if (content.length <= limit) {
     return content;
   }
-
-  const omitted = (content.length - PREVIEW_CHARS).toLocaleString();
 
   let storedPath: string | undefined;
   try {

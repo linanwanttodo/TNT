@@ -2,7 +2,6 @@ import type { ChatHistoryItem } from "core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ModelServiceState } from "../services/types.js";
-
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 
 import { executeSubAgent } from "./executor.js";

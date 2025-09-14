@@ -3,7 +3,6 @@ import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
 
 import { error, warn } from "./console.js";
 import { isContextLengthError } from "./contextLength.js";
-
 import { formatError } from "./formatError.js";
 import { logger } from "./logger.js";
 

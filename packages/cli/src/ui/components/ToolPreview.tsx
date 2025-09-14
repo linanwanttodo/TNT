@@ -1,12 +1,12 @@
 import { Box, Text } from "ink";
 import React from "react";
 
+import { t } from "../../i18n/index.js";
 import { getToolDisplayName } from "../../tools/index.js";
 import { ToolCallPreview } from "../../tools/types.js";
 import { ColoredDiff } from "../ColoredDiff.js";
 
 import { ChecklistDisplay } from "./ChecklistDisplay.js";
-import { t } from "../../i18n/index.js";
 
 interface ToolPreviewProps {
   toolCallPreview?: ToolCallPreview[];

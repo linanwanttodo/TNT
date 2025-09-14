@@ -3,6 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createUITestContext } from "../test-utils/ui-test-context.js";
+
 import { AppRoot } from "./AppRoot.js";
 
 vi.mock("./hooks/useTerminalSize.js", () => ({

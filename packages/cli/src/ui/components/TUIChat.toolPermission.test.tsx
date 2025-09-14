@@ -6,6 +6,7 @@ import type {
   ToolCallState,
   ChatHistoryItem,
 } from "../../../../../core/index.js";
+
 import { ToolPermissionSelector } from "./ToolPermissionSelector.js";
 
 describe("TUIChat - Tool Permission Tests", () => {

@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { SERVICE_NAMES } from "../services/types.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
+import { SERVICE_NAMES } from "../services/types.js";
 import { generateSubagentToolDescription } from "../subagent/get-agents.js";
-import { getAllAvailableTools } from "./index.js";
 
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { todoTool } from "./todo.js";
+
+import { getAllAvailableTools } from "./index.js";
 
 const bash = runTerminalCommandTool.description;
 

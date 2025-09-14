@@ -6,8 +6,8 @@ import {
 } from "@tnt/config-yaml";
 import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 
-import { isStringRule } from "src/config/hubLoader.js";
 import { loadMarkdownRulesWithMetadata } from "src/agent/systemMessage.js";
+import { isStringRule } from "src/config/hubLoader.js";
 import { getErrorString } from "src/utils/error.js";
 
 import { AuthConfig, loadAuthConfig } from "../auth/workos.js";

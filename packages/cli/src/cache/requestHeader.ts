@@ -31,18 +31,18 @@ export function canonicalHeader(header: RequestHeader): CanonicalRequestHeader {
     header.tools && header.tools.length > 0 ? header.tools : undefined;
   return {
     model: header.model,
-    ...(header.systemMessage !== undefined
-      ? { systemMessage: header.systemMessage }
-      : {}),
+    ...(header.systemMessage === undefined
+      ? {}
+      : { systemMessage: header.systemMessage }),
     ...(header.systemMessageUpdates && header.systemMessageUpdates.length > 0
       ? { systemMessageUpdates: header.systemMessageUpdates }
       : {}),
-    ...(tools !== undefined ? { tools } : {}),
-    ...(header.temperature !== undefined
-      ? { temperature: header.temperature }
-      : {}),
-    ...(header.maxTokens !== undefined ? { maxTokens: header.maxTokens } : {}),
-    ...(header.mode !== undefined ? { mode: header.mode } : {}),
+    ...(tools === undefined ? {} : { tools }),
+    ...(header.temperature === undefined
+      ? {}
+      : { temperature: header.temperature }),
+    ...(header.maxTokens === undefined ? {} : { maxTokens: header.maxTokens }),
+    ...(header.mode === undefined ? {} : { mode: header.mode }),
   };
 }
 

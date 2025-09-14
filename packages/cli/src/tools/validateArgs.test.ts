@@ -1,5 +1,4 @@
 import { ContinueError } from "core/util/errors.js";
-
 import { describe, expect, it } from "vitest";
 
 import { multiEditTool } from "./multiEdit.js";

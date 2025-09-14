@@ -3,10 +3,11 @@ import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
 import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { AuthConfig } from "../auth/workos.js";
+import { getVersion } from "../startup/version.js";
+import { getUniqueId } from "../utils/uniqueId.js";
+
 import { env } from "./env.js";
 import { assertModelChoices } from "./providerLint.js";
-import { getUniqueId } from "../utils/uniqueId.js";
-import { getVersion } from "../startup/version.js";
 
 /**
  * Creates user-agent header value for CLI requests

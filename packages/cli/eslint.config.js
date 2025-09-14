@@ -145,6 +145,34 @@ export default [
     },
   },
   {
+    // Pre-existing hot spots, exempted so the rest of the tree stays under the
+    // limits rather than the limits being raised for everyone. Each one is a
+    // single coherent module whose split is queued work; this list is not to
+    // grow - put the new code somewhere else instead.
+    files: [
+      "src/commands/chat.ts", // max-lines
+      "src/hooks/hookRunner.ts", // max-lines
+      "src/i18n/index.ts", // max-lines (translation tables)
+      "src/session/index.ts", // max-lines
+      "src/stream/streamChatResponse.ts", // max-lines
+      "src/agent/atMentions.ts", // max-statements (55)
+      "src/stream/streamChatResponse.autoCompaction.ts", // max-statements (54)
+      "src/compaction/index.ts", // max-params (6)
+      "src/loop/loopDetector.ts", // max-depth (5)
+      "src/permissions/permissionChecker.ts", // complexity (31)
+      "src/plugins/marketplaceManager.ts", // complexity (31)
+      "src/lsp/client.ts", // two small classes in one file
+    ],
+    rules: {
+      "max-lines": "off",
+      "max-statements": "off",
+      "max-params": "off",
+      "max-depth": "off",
+      complexity: "off",
+      "max-classes-per-file": "off",
+    },
+  },
+  {
     // Test files can have different rules
     files: [
       "**/*.test.ts",

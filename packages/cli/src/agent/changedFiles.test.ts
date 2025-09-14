@@ -4,8 +4,9 @@ import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { describeChangedFiles } from "./changedFiles.js";
 import { forgetSeenFiles, markFileAsSeen } from "../tools/fileState.js";
+
+import { describeChangedFiles } from "./changedFiles.js";
 
 /**
  * The note is produced from real files, because what it reports is a fact about

@@ -8,6 +8,7 @@ import {
   getSessionOutputStyle,
   setSessionOutputStyle,
 } from "../../../session/index.js";
+
 import { handleOutputStyle } from "./outputStyle.js";
 
 let pluginsDir: string;

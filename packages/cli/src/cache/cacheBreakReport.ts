@@ -6,8 +6,8 @@ import { hashString } from "core/util/cacheBreakDetection.js";
 import { getCacheBreaksDir, getCurrentSession } from "../session/index.js";
 import { logger } from "../utils/logger.js";
 
-import type { RequestHeader } from "./requestHeader.js";
 import type { CachePrefixVerdict } from "./prefixState.js";
+import type { RequestHeader } from "./requestHeader.js";
 
 /**
  * A prefix that moved is only worth reporting when the bill shows it: providers

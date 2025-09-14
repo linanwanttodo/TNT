@@ -13,14 +13,6 @@ import {
 // the model guess again.
 const MAX_VALUE_LENGTH = 80;
 
-type JsonType =
-  | "string"
-  | "number"
-  | "integer"
-  | "boolean"
-  | "array"
-  | "object";
-
 function actualType(value: unknown): string {
   if (value === null) return "null";
   if (Array.isArray(value)) return "array";

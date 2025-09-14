@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  getDefaultToolPolicies,
-  PLAN_MODE_POLICIES,
-} from "./defaultPolicies.js";
-import type { ToolPermissionPolicy } from "./types.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
 import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
 import { BUILT_IN_TOOL_NAMES } from "../tools/builtInToolNames.js";
 import { getAllAvailableTools } from "../tools/index.js";
 import { setBetaSubagentToolEnabled } from "../tools/toolsConfig.js";
+
+import {
+  getDefaultToolPolicies,
+  PLAN_MODE_POLICIES,
+} from "./defaultPolicies.js";
+import type { ToolPermissionPolicy } from "./types.js";
 
 function policyFor(
   list: ToolPermissionPolicy[],

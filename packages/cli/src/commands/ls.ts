@@ -1,9 +1,9 @@
 import { render } from "ink";
 import React from "react";
 
+import { t } from "../i18n/index.js";
 import { listSessions, loadSessionById } from "../session/index.js";
 import { SessionSelector } from "../ui/SessionSelector.js";
-import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
 
 import { chat } from "./chat.js";

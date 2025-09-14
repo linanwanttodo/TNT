@@ -1,9 +1,8 @@
 import fs from "fs";
 import path from "path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import type { ChatHistoryItem } from "core/index.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   getCurrentSession,

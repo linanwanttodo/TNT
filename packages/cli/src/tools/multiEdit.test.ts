@@ -9,8 +9,8 @@ import {
   getLanguageFromFilePath,
 } from "../telemetry/utils.js";
 
-import { multiEditTool } from "./multiEdit.js";
 import { forgetSeenFiles, markFileAsSeen } from "./fileState.js";
+import { multiEditTool } from "./multiEdit.js";
 import { generateDiff } from "./writeFile.js";
 
 // The write goes through the shared atomic helper in core, which the suite's

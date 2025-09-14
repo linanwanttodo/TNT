@@ -2,7 +2,7 @@ import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 import { quote } from "shell-quote";
 
-import { useServices } from "./hooks/useService.js";
+import { t } from "../i18n/index.js";
 import {
   MCPConnectionInfo,
   MCPServiceState,
@@ -10,8 +10,8 @@ import {
 } from "../services/types.js";
 import { logger } from "../utils/logger.js";
 
+import { useServices } from "./hooks/useService.js";
 import { defaultBoxStyles } from "./styles.js";
-import { t } from "../i18n/index.js";
 
 // Utility function to get status icon and color based on server connection
 const getServerStatusDisplay = (conn: MCPConnectionInfo) => {

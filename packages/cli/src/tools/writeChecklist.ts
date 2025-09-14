@@ -1,5 +1,5 @@
-import type { Tool } from "./types.js";
 import { MARKER_TASK_LIST } from "./resultMarkers.js";
+import type { Tool } from "./types.js";
 
 export const writeChecklistTool: Tool = {
   name: "Checklist",

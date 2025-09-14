@@ -1,6 +1,7 @@
 import { Box, Text, useInput } from "ink";
 import React, { useEffect, useState } from "react";
 
+import { t } from "../i18n/index.js";
 import {
   BackgroundJob,
   backgroundJobService,
@@ -8,7 +9,6 @@ import {
 import { truncateOutputFromStart } from "../utils/truncateOutput.js";
 
 import { defaultBoxStyles } from "./styles.js";
-import { t } from "../i18n/index.js";
 
 interface JobsSelectorProps {
   onCancel: () => void;

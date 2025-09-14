@@ -1,12 +1,11 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
 import { type AssistantConfig } from "@tnt/sdk";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
+import { loadAllPlugins } from "../plugins/loader.js";
 import { getErrorString } from "../utils/error.js";
 import { logger } from "../utils/logger.js";
 import { registerShutdownCallback } from "../utils/processShutdown.js";
-
-import { loadAllPlugins } from "../plugins/loader.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
 import {

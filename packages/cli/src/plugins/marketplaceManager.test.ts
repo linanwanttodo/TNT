@@ -5,15 +5,15 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  MarketplaceFetchError,
-  MarketplaceDeps,
-} from "./marketplaceSources.js";
-import {
   MarketplaceManifestError,
   addMarketplace,
   parseMarketplaceManifest,
 } from "./marketplaceManager.js";
 import { loadKnownMarketplaces } from "./marketplaceRegistry.js";
+import {
+  MarketplaceFetchError,
+  MarketplaceDeps,
+} from "./marketplaceSources.js";
 
 let cacheDir: string;
 let marketDir: string;

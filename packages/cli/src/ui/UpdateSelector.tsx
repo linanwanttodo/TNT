@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from "react";
 
-import { useService } from "./hooks/useService.js";
+import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 import type { UpdateServiceState } from "../services/types.js";
 import { SERVICE_NAMES } from "../services/types.js";
 
+import { useService } from "./hooks/useService.js";
 import { Selector, SelectorOption } from "./Selector.js";
-import { t } from "../i18n/index.js";
 
 interface UpdateSelectorProps {
   onCancel: () => void;

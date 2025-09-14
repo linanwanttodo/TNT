@@ -2,13 +2,13 @@ import type { ChatHistoryItem } from "core";
 
 import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
 import { services } from "../services/index.js";
-import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
+import { ModelServiceState } from "../services/types.js";
+import { getCurrentSession, saveSubagentSession } from "../session/index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { escapeEvents } from "../utils/cli.js";
 import { logger } from "../utils/logger.js";
 
-import { getCurrentSession, saveSubagentSession } from "../session/index.js";
-
+import { builtInAgentByName } from "./builtInAgents.js";
 import {
   canDelegate,
   DEFAULT_MAX_SUBAGENT_DEPTH,
@@ -16,7 +16,6 @@ import {
   resolveChildDepth,
 } from "./depth.js";
 import { createChildContext, type AgentRunContext } from "./runContext.js";
-import { builtInAgentByName } from "./builtInAgents.js";
 import { type SubAgentVerdict, parseVerdict } from "./verdict.js";
 
 /**
@@ -74,7 +73,7 @@ async function buildAgentSystemMessage(
 /**
  * Execute a subagent in a child session
  */
-// eslint-disable-next-line complexity
+
 export async function executeSubAgent(
   options: SubAgentExecutionOptions,
 ): Promise<SubAgentResult> {

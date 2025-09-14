@@ -14,7 +14,6 @@ import {
   recordPluginInstallation,
   rememberMarketplace,
   removePluginInstallation,
-  saveInstalledPlugins,
 } from "./marketplaceRegistry.js";
 import { KnownMarketplace } from "./marketplaceTypes.js";
 

@@ -1,7 +1,6 @@
 import chalk from "chalk";
 
 import { t } from "../../../i18n/index.js";
-
 import { loadAllPlugins } from "../../../plugins/loader.js";
 import { runMarketplaceCommand } from "../../../plugins/marketplaceCommand.js";
 import { createDefaultDeps } from "../../../plugins/marketplaceManager.js";
@@ -135,7 +134,7 @@ export async function handlePlugins(
   }
 
   const lines = installed.map((plugin) => {
-    const note = plugin.id !== plugin.name ? ` (${plugin.id})` : "";
+    const note = plugin.id === plugin.name ? "" : ` (${plugin.id})`;
     const desc = plugin.description ? ` - ${plugin.description}` : "";
     return `  ${chalk.cyan(plugin.name)}${chalk.dim(note)}${desc}`;
   });

@@ -5,6 +5,7 @@ import * as path from "path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { AuthConfig } from "../auth/workos.js";
+
 import { initializeWithOnboarding } from "./onboarding.js";
 
 const questionMock = vi.fn();

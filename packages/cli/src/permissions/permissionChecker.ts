@@ -2,15 +2,15 @@ import type { ToolPolicy } from "@tnt/terminal-security";
 
 import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
 
+import { bashCommandMatches } from "./bashCommandRule.js";
+import { isDocumentPath } from "./documentPath.js";
+import { isReadOnlyCommand } from "./readOnlyCommand.js";
 import {
   PermissionCheckResult,
   PermissionPolicy,
   ToolCallRequest,
   ToolPermissions,
 } from "./types.js";
-import { isDocumentPath } from "./documentPath.js";
-import { isReadOnlyCommand } from "./readOnlyCommand.js";
-import { bashCommandMatches } from "./bashCommandRule.js";
 import { isWithinWorkspace, workspaceRoot } from "./workspacePath.js";
 
 /**
