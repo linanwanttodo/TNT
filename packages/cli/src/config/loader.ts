@@ -21,6 +21,7 @@ import {
   updateConfigUri,
 } from "../auth/workos.js";
 import { CLIPlatformClient } from "../platform/CLIPlatformClient.js";
+
 import { env } from "./env.js";
 
 export interface ConfigLoadResult {
