@@ -12,6 +12,10 @@ import { logger } from "../utils/logger.js";
 
 import { getPluginSearchRoots } from "./directories.js";
 import {
+  configuredEnabledPlugins,
+  resolvePluginEnablement,
+} from "./pluginEnablement.js";
+import {
   discoverInstalledPlugins,
   type LoadedPlugin,
   substitutePluginVariables,
@@ -79,6 +83,10 @@ export interface PluginLoadResult {
   mcpServers: Record<string, unknown>;
   outputStyles: PluginOutputStyle[];
   lspServers: PluginLspServer[];
+  /** Installed but not loaded, because the settings list does not name them. */
+  disabledPlugins: string[];
+  /** Names the settings list mentions that are not installed, so a typo shows. */
+  unknownEnabledPlugins: string[];
 }
 
 /**
@@ -613,7 +621,14 @@ function loadPluginLspServers(plugins: LoadedPlugin[]): PluginLspServer[] {
  * than taking down startup.
  */
 export function loadAllPlugins(): PluginLoadResult {
-  const plugins = discoverInstalledPlugins(getPluginSearchRoots());
+  const installed = discoverInstalledPlugins(getPluginSearchRoots());
+  // Installing is not enabling: a settings list decides which of them may load.
+  const enablement = resolvePluginEnablement(
+    installed.map((plugin) => plugin.name),
+    configuredEnabledPlugins(),
+  );
+  const allowed = new Set(enablement.enabled);
+  const plugins = installed.filter((plugin) => allowed.has(plugin.name));
   // Cache the settings layer for the synchronous readers (settingsFiles): a
   // plugin contributes defaults, below every settings file.
   setPluginSettingsBase(mergePluginSettings(plugins));
@@ -627,5 +642,7 @@ export function loadAllPlugins(): PluginLoadResult {
     mcpServers: loadPluginMcpServers(plugins),
     outputStyles: loadPluginOutputStyles(plugins),
     lspServers: loadPluginLspServers(plugins),
+    disabledPlugins: enablement.disabled,
+    unknownEnabledPlugins: enablement.unknown,
   };
 }

@@ -97,3 +97,28 @@ export function readSettingsString(
   }
   return value;
 }
+
+/**
+ * The list value of a key across the settings files. A later file replaces an
+ * earlier one rather than merging: a list here is a decision ("these may load"),
+ * and a merge would silently add to it. Strings are trimmed and empties dropped;
+ * anything that is not a list of strings is ignored rather than guessed at.
+ */
+export function readSettingsStringArray(
+  key: string,
+  cwd: string = process.cwd(),
+  homeDir?: string,
+): string[] | undefined {
+  let value: string[] | undefined;
+  for (const filePath of getSettingsFilePaths(cwd, homeDir)) {
+    const settings = readSettingsFile(filePath);
+    const candidate = settings?.[key];
+    if (Array.isArray(candidate)) {
+      value = candidate
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry !== "");
+    }
+  }
+  return value;
+}

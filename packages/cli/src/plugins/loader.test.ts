@@ -2,16 +2,24 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { env } from "../config/env.js";
 
 import { getPluginCacheDirectory, getPluginsDirectory } from "./directories.js";
+import { resolvePluginEnablement } from "./pluginEnablement.js";
 import {
   isBlockedMarketplaceName,
   loadAllPlugins,
   selectForcedOutputStyle,
 } from "./loader.js";
+
+// The enablement filter has its own tests; here it defaults to "everything
+// installed may load", which is the state those cases were written against.
+vi.mock("./pluginEnablement.js", () => ({
+  configuredEnabledPlugins: vi.fn(() => undefined),
+  resolvePluginEnablement: vi.fn(),
+}));
 
 function writeJson(target: string, value: unknown): void {
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -70,6 +78,13 @@ describe("loadAllPlugins", () => {
 
   beforeEach(() => {
     created = [];
+    vi.mocked(resolvePluginEnablement).mockImplementation(
+      (ids: readonly string[]) => ({
+        enabled: [...ids],
+        disabled: [],
+        unknown: [],
+      }),
+    );
   });
 
   afterEach(() => {
@@ -345,5 +360,43 @@ describe("loadAllPlugins", () => {
     );
     expect(typescript?.config.command).toBe("typescript-language-server");
     expect(typescript?.config.root).toBe(root);
+  });
+
+  it("installs without enabling when the settings list is in charge", () => {
+    const root = installPlugin("market", "idle", "1.0.0");
+    writeJson(path.join(root, ".claude-plugin", "plugin.json"), {
+      name: "idle",
+      version: "1.0.0",
+      description: "Installed and idle",
+    });
+    // What resolvePluginEnablement returns when a settings file names someone
+    // else: the plugin is on disk, not loaded, and said so.
+    vi.mocked(resolvePluginEnablement).mockReturnValueOnce({
+      enabled: [],
+      disabled: ["idle"],
+      unknown: ["typo-in-the-list"],
+    });
+
+    const result = loadAllPlugins();
+
+    // The precondition, so a missing manifest cannot make this pass by itself.
+    expect(result.plugins.map((plugin) => plugin.name)).not.toContain("idle");
+    expect(result.disabledPlugins).toEqual(["idle"]);
+    expect(result.unknownEnabledPlugins).toEqual(["typo-in-the-list"]);
+  });
+
+  it("loads the same plugin once the list names it", () => {
+    // The mirror of the case above: same plugin, a list that allows it.
+    const root = installPlugin("market", "allowed", "1.0.0");
+    writeJson(path.join(root, ".claude-plugin", "plugin.json"), {
+      name: "allowed",
+      version: "1.0.0",
+      description: "Installed and enabled",
+    });
+
+    const result = loadAllPlugins();
+
+    expect(result.plugins.map((plugin) => plugin.name)).toContain("allowed");
+    expect(result.disabledPlugins).toEqual([]);
   });
 });
