@@ -70,7 +70,8 @@ export const readFileTool: Tool = {
   name: "Read",
   displayName: "Read",
   description: `Read the contents of a file at the specified path.
-One call returns at most ${DEFAULT_READ_FILE_MAX_LINES} lines or ${DEFAULT_READ_FILE_MAX_CHARS} characters; a larger file is refused rather than cut, so pass start_line and end_line to read the section you need instead of guessing at the whole file.`,
+One call returns at most ${DEFAULT_READ_FILE_MAX_LINES} lines or ${DEFAULT_READ_FILE_MAX_CHARS} characters; a larger file is refused rather than cut, so pass start_line and end_line to read the section you need instead of guessing at the whole file.
+Do not read a file back just to confirm an edit landed: the edit would have failed if it did not apply, and the file's state is tracked for you.`,
   parameters: {
     type: "object",
     required: ["filepath"],
