@@ -4,8 +4,8 @@ import { vi } from "vitest";
 
 import { env } from "../../config/env.js";
 
-export const PERMISSIONS_YAML_PATH = path.resolve(
-  path.join(env.continueHome, "permissions.yaml"),
+export const permissionsYamlPath = vi.fn(() =>
+  path.resolve(path.join(env.continueHome, "permissions.yaml")),
 );
 
 export const loadPermissionsYaml = vi.fn<() => any>(() => null);
