@@ -29,6 +29,7 @@ import { findSymbolTool } from "./findSymbol.js";
 import { hoverTool } from "./hover.js";
 import { listFilesTool } from "./listFiles.js";
 import { multiEditTool } from "./multiEdit.js";
+import { enterPlanModeTool, exitPlanModeTool } from "./planMode.js";
 import { readFileTool } from "./readFile.js";
 import { reportFailureTool } from "./reportFailure.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
@@ -79,6 +80,8 @@ const BASE_BUILTIN_TOOLS: Tool[] = [
   writeChecklistTool,
   checkBackgroundJobTool,
   askQuestionTool,
+  enterPlanModeTool,
+  exitPlanModeTool,
 ];
 
 const BUILTIN_SEARCH_TOOLS: Tool[] = [searchCodeTool];
