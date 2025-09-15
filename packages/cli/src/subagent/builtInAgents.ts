@@ -13,6 +13,12 @@ export interface BuiltInAgentDefinition {
   /** What the listing tool shows, and the delegation hint for the model. */
   description: string;
   restriction: SubagentRestriction;
+  /**
+   * Tool names removed from this agent's tool list entirely, on top of what
+   * the restriction cuts. An absent tool costs no schema tokens and gives the
+   * model nothing to attempt, which is stronger than a permission refusal.
+   */
+  deniedTools?: readonly string[];
   systemMessage: string;
 }
 
@@ -62,6 +68,10 @@ export const VERIFICATION_AGENT: BuiltInAgentDefinition = {
   // the failure this role exists to prevent; it must not be able to fix what it
   // is judging, because then its report describes its own change.
   restriction: "no-writes",
+  // AskQuestion would block forever - the delegation runs inside the parent's
+  // turn and nobody is watching it - and Exit would end the whole process the
+  // verdict is being reported to.
+  deniedTools: ["AskQuestion", "Exit"],
   systemMessage: VERIFICATION_SYSTEM_MESSAGE,
 };
 

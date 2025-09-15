@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
+
 import {
   BUILT_IN_AGENTS,
   VERIFICATION_AGENT,
@@ -13,6 +15,21 @@ describe("built-in agents", () => {
     ]);
     expect(builtInAgentByName("verification")).toBe(VERIFICATION_AGENT);
     expect(builtInAgentByName("configured-agent")).toBeUndefined();
+  });
+
+  it("denies only tools that exist, so a deny entry always bites", () => {
+    const toolNames = new Set(ALL_BUILT_IN_TOOLS.map((tool) => tool.name));
+    for (const agent of BUILT_IN_AGENTS) {
+      for (const name of agent.deniedTools ?? []) {
+        expect(toolNames.has(name)).toBe(true);
+      }
+    }
+  });
+
+  it("keeps AskQuestion and Exit away from the verifier", () => {
+    // AskQuestion would block a delegated run nobody is watching; Exit would
+    // end the process the verdict is being reported to.
+    expect(VERIFICATION_AGENT.deniedTools).toEqual(["AskQuestion", "Exit"]);
   });
 
   it("restricts the verifier to no file writes, not to no shell", () => {

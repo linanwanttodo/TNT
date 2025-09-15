@@ -132,4 +132,37 @@ describe("built-in agent restriction", () => {
     ).toBe("allow");
     expect(overrides.systemMessage).not.toContain("restricted tool set");
   });
+
+  it("keeps AskQuestion and Exit away from the verifier's child run", async () => {
+    const overrides = await runAs(VERIFICATION_AGENT.name);
+
+    expect(
+      checkToolPermission(call("AskQuestion"), overrides.permissions)
+        .permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission(call("Exit"), overrides.permissions).permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission(call("Read"), overrides.permissions).permission,
+    ).toBe("allow");
+  });
+
+  it("names the denied tools in the child's prompt", async () => {
+    const overrides = await runAs(VERIFICATION_AGENT.name);
+
+    expect(overrides.systemMessage).toContain(
+      "These tools are not available to you: AskQuestion, Exit.",
+    );
+  });
+
+  it("denies nothing extra for a configured agent", async () => {
+    const overrides = await runAs("code-explorer");
+
+    expect(
+      checkToolPermission(call("AskQuestion"), overrides.permissions)
+        .permission,
+    ).toBe("allow");
+    expect(overrides.systemMessage).not.toContain("not available to you");
+  });
 });
