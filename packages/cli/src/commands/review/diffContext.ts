@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 import { logger } from "../../utils/logger.js";
 
@@ -13,26 +13,49 @@ export interface DiffContext {
 }
 
 /**
+ * What a review runs against. `base` is the branch diff against the
+ * merge-base (plus the working tree); `uncommitted` is only the working tree
+ * against HEAD, for reviewing work that is not committed yet.
+ */
+export type ReviewTarget =
+  | { kind: "base"; base?: string }
+  | { kind: "uncommitted" };
+
+/** Resolves the CLI flags into the one target the diff is computed for. */
+export function reviewTargetFromOptions(options: {
+  base?: string;
+  uncommitted?: boolean;
+}): ReviewTarget {
+  return options.uncommitted
+    ? { kind: "uncommitted" }
+    : { kind: "base", base: options.base };
+}
+
+/**
  * Auto-detect the default branch (main/master) for the current repo.
  */
 function detectDefaultBranch(): string {
   try {
-    const ref = execSync("git symbolic-ref refs/remotes/origin/HEAD", {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
+    const ref = execFileSync(
+      "git",
+      ["symbolic-ref", "refs/remotes/origin/HEAD"],
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    ).trim();
     // refs/remotes/origin/main -> main
     return ref.replace("refs/remotes/origin/", "");
   } catch {
     // Fallback: check if main or master exists
     try {
-      execSync("git rev-parse --verify main", {
+      execFileSync("git", ["rev-parse", "--verify", "main"], {
         stdio: ["pipe", "pipe", "pipe"],
       });
       return "main";
     } catch {
       try {
-        execSync("git rev-parse --verify master", {
+        execFileSync("git", ["rev-parse", "--verify", "master"], {
           stdio: ["pipe", "pipe", "pipe"],
         });
         return "master";
@@ -43,17 +66,76 @@ function detectDefaultBranch(): string {
   }
 }
 
+/** The diff against one ref, in the shape the reviewers consume. */
+function collectDiff(againstRef: string): {
+  diff: string;
+  changedFiles: string[];
+  stat: string;
+  truncated: boolean;
+} {
+  let diff: string;
+  try {
+    diff = execFileSync("git", ["diff", againstRef], {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+  } catch {
+    diff = "";
+  }
+
+  let truncated = false;
+  if (diff.length > MAX_DIFF_SIZE) {
+    diff = diff.slice(0, MAX_DIFF_SIZE);
+    truncated = true;
+  }
+
+  let changedFiles: string[] = [];
+  try {
+    const fileList = execFileSync("git", ["diff", "--name-only", againstRef], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    changedFiles = fileList ? fileList.split("\n") : [];
+  } catch {
+    changedFiles = [];
+  }
+
+  let stat = "";
+  try {
+    stat = execFileSync("git", ["diff", "--stat", againstRef], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+  } catch {
+    stat = "";
+  }
+
+  return { diff, changedFiles, stat, truncated };
+}
+
 /**
- * Compute the diff context for the current working tree against a base branch.
- * Includes both committed changes on the branch AND uncommitted changes.
+ * Computes the diff a review runs against.
+ *
+ * `base` (the default) diffs against the merge-base with the base branch, so
+ * a diverged branch shows its own changes plus the working tree; HEAD is the
+ * merge-base when the branch has not diverged, which is why a repo that never
+ * branched behaves the same either way. `uncommitted` diffs the working tree
+ * against HEAD only, for reviewing what is not committed yet.
  */
-export function computeDiffContext(baseBranch?: string): DiffContext {
-  const base = baseBranch || detectDefaultBranch();
+export function computeDiffContext(
+  target: ReviewTarget = { kind: "base" },
+): DiffContext {
+  if (target.kind === "uncommitted") {
+    return { baseBranch: "HEAD", ...collectDiff("HEAD") };
+  }
+
+  const base = target.base || detectDefaultBranch();
 
   // Get the merge-base to handle diverged branches
   let mergeBase: string;
   try {
-    mergeBase = execSync(`git merge-base ${base} HEAD`, {
+    mergeBase = execFileSync("git", ["merge-base", base, "HEAD"], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
@@ -64,53 +146,5 @@ export function computeDiffContext(baseBranch?: string): DiffContext {
     mergeBase = base;
   }
 
-  // Get diff of committed changes + working tree changes against the base
-  let diff: string;
-  let truncated = false;
-  try {
-    // Use diff against merge-base to include all branch changes + working tree
-    diff = execSync(`git diff ${mergeBase}`, {
-      encoding: "utf-8",
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-  } catch {
-    diff = "";
-  }
-
-  if (diff.length > MAX_DIFF_SIZE) {
-    diff = diff.slice(0, MAX_DIFF_SIZE);
-    truncated = true;
-  }
-
-  // Get changed file list
-  let changedFiles: string[] = [];
-  try {
-    const fileList = execSync(`git diff --name-only ${mergeBase}`, {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
-    changedFiles = fileList ? fileList.split("\n") : [];
-  } catch {
-    changedFiles = [];
-  }
-
-  // Get diff stat
-  let stat = "";
-  try {
-    stat = execSync(`git diff --stat ${mergeBase}`, {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
-  } catch {
-    stat = "";
-  }
-
-  return {
-    baseBranch: base,
-    diff,
-    changedFiles,
-    stat,
-    truncated,
-  };
+  return { baseBranch: base, ...collectDiff(mergeBase) };
 }
