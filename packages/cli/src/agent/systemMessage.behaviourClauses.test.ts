@@ -47,6 +47,43 @@ describe("behaviour clauses in the system message", () => {
     expect(first).toBe(second);
   });
 
+  it("tells the agent when to act, how far the scope reaches, and what a denial means", async () => {
+    const message = await constructSystemMessage("agent", [], undefined);
+
+    expect(message).toMatch(/When you have enough information to act, act/);
+    expect(message).toMatch(/The requested scope is the deliverable/);
+    expect(message).toMatch(/say exactly what you left out and why/);
+    expect(message).toMatch(/denied was declined, not misheard/);
+    expect(message).toMatch(/Independent tool calls can be sent together/);
+    expect(message).toMatch(
+      /Before deleting or overwriting, look at the target/,
+    );
+    expect(message).toMatch(/cached or indexed after deletion/);
+    expect(message).toMatch(/that is their decision: proceed with the whole/);
+    expect(message).toMatch(/read your own last paragraph/);
+    expect(message).toMatch(/the cause may be somewhere else/);
+  });
+
+  it("says how the answer reads, down to the punctuation", async () => {
+    const message = await constructSystemMessage("agent", [], undefined);
+
+    expect(message).toMatch(/Lead with the answer or the outcome/);
+    expect(message).toMatch(/No em dashes, no arrows/);
+    expect(message).toMatch(/Keep code and numbers out of prose/);
+    expect(message).toMatch(/Reference a location as path:line/);
+    expect(message).toMatch(/no restating what the user can already see/);
+  });
+
+  it("tells a headless run to proceed, and says nothing of the sort interactively", async () => {
+    const headless = await constructSystemMessage("agent", [], undefined, true);
+    const interactive = await constructSystemMessage("agent", [], undefined);
+
+    expect(headless).toMatch(/no question can be answered mid-task/);
+    expect(headless).toMatch(/stop only for destructive actions/);
+    // A terminal user is watching, so that permission is not given there.
+    expect(interactive).not.toMatch(/no question can be answered mid-task/);
+  });
+
   it("puts the clauses ahead of the environment block", async () => {
     const message = await constructSystemMessage("agent", [], undefined);
 
