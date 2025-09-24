@@ -1,72 +1,10 @@
 import { vi } from "vitest";
 
-import { ExponentialBackoffOptions } from "./exponentialBackoff.js";
-
-// Since the functions are not exported, we need to recreate them for testing
-function isRetryableError(error: any): boolean {
-  // Handle null/undefined
-  if (!error) {
-    return false;
-  }
-
-  // Network errors are retryable
-  if (
-    error.code === "ECONNRESET" ||
-    error.code === "ENOTFOUND" ||
-    error.code === "ETIMEDOUT" ||
-    error.code === "EPIPE" ||
-    error.code === "ECONNREFUSED"
-  ) {
-    return true;
-  }
-
-  // HTTP status codes that are retryable
-  if (error.status) {
-    const status = error.status;
-    // 429 (Too Many Requests), 502 (Bad Gateway), 503 (Service Unavailable), 504 (Gateway Timeout)
-    return status === 429 || status === 502 || status === 503 || status === 504;
-  }
-
-  // OpenAI specific errors
-  if (error.type === "server_error" || error.type === "rate_limit_exceeded") {
-    return true;
-  }
-
-  // Anthropic specific errors
-  const lower = error.message?.toLowerCase();
-  if (lower?.includes("overloaded")) {
-    return true;
-  }
-
-  // Check for premature close errors by message content
-  if (
-    lower?.includes("premature close") ||
-    lower?.includes("premature end") ||
-    lower?.includes("connection reset") ||
-    lower?.includes("socket hang up") ||
-    lower?.includes("aborted")
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-function calculateDelay(
-  attempt: number,
-  options: Required<ExponentialBackoffOptions>,
-): number {
-  const baseDelay =
-    options.initialDelay * Math.pow(options.backoffMultiplier, attempt);
-  const cappedDelay = Math.min(baseDelay, options.maxDelay);
-
-  if (options.jitter) {
-    // Add jitter: randomize between 50% and 100% of the calculated delay
-    return Math.floor(cappedDelay * (0.5 + Math.random() * 0.5));
-  }
-
-  return cappedDelay;
-}
+import {
+  calculateDelay,
+  isRetryableError,
+  type ExponentialBackoffOptions,
+} from "./exponentialBackoff.js";
 
 describe("exponentialBackoff utilities", () => {
   describe("isRetryableError", () => {
