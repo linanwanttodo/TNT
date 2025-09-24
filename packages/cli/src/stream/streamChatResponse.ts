@@ -29,6 +29,7 @@ import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { type RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
 import { noteRequestSent } from "../compaction/microCompact.js";
+import { ContextBudgetTracker } from "../loop/contextBudget.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
   classifyStreamError,
@@ -634,6 +635,7 @@ export async function streamChatResponse(
   const toolFailures = new ToolFailureTracker();
   const terminalStops = new TerminalStopTracker();
   const todoReminder = new TodoReminderTracker();
+  const contextBudget = new ContextBudgetTracker();
   /**
    * False once this turn has issued its first request, which is how the log
    * tells a prefix that moved between turns from one that moved mid-turn.
@@ -825,6 +827,9 @@ export async function streamChatResponse(
     });
     coldTurn = false;
     historyRewritten = false;
+    // What the provider measured for this request is the honest fullness of the
+    // window; a local count of the whole history is neither measured nor cheap.
+    contextBudget.recordRequest(usage?.promptTokens);
 
     if (abortController?.signal.aborted) {
       return finish("user_abort");
@@ -894,11 +899,19 @@ export async function streamChatResponse(
       content,
       // A list nobody updates is a list that lies, so after ten tool calls
       // without a Todo update the reminder rides the next tool result - the
-      // request tail, not the cached prefix.
+      // request tail, not the cached prefix. The context notice shares the
+      // channel for the same reason.
       callbacks: {
         ...callbacks,
-        onTailReminder: (toolName) =>
-          todoReminder.recordToolResult(toolName, readTodoState().todos),
+        onTailReminder: (toolName) => {
+          const notes = [
+            contextBudget.reminder(
+              model.defaultCompletionOptions?.contextLength,
+            ),
+            todoReminder.recordToolResult(toolName, readTodoState().todos),
+          ].filter((note): note is string => Boolean(note));
+          return notes.length > 0 ? notes.join("\n\n") : undefined;
+        },
       },
       isHeadless,
       usage,
