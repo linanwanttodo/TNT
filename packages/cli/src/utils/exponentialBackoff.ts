@@ -241,7 +241,7 @@ export async function chatCompletionStreamWithBackoff(
           `Retrying LLM API call (attempt ${attempt + 1 - opts.hiddenRetries}/${
             opts.maxRetries + 1 - opts.hiddenRetries
           }) after ${delay}ms delay${
-            requested !== undefined ? " (the provider's Retry-After)" : ""
+            requested === undefined ? "" : " (the provider's Retry-After)"
           }. Error: ${err.message}`,
         );
       }

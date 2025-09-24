@@ -2,11 +2,11 @@ import type { ModelConfig } from "@tnt/config-yaml";
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 
-import { t } from "../../i18n/index.js";
 import {
   cacheStateText,
   getLastRequestCacheState,
 } from "../../cache/lastRequestCacheState.js";
+import { t } from "../../i18n/index.js";
 import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { getSessionUsage } from "../../session/index.js";
 import { getCacheHitRatio } from "../../utils/cacheRatio.js";

@@ -2,24 +2,16 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { env } from "../config/env.js";
 
 import { getPluginCacheDirectory, getPluginsDirectory } from "./directories.js";
-import { resolvePluginEnablement } from "./pluginEnablement.js";
 import {
   isBlockedMarketplaceName,
   loadAllPlugins,
   selectForcedOutputStyle,
 } from "./loader.js";
-
-// The enablement filter has its own tests; here it defaults to "everything
-// installed may load", which is the state those cases were written against.
-vi.mock("./pluginEnablement.js", () => ({
-  configuredEnabledPlugins: vi.fn(() => undefined),
-  resolvePluginEnablement: vi.fn(),
-}));
 
 function writeJson(target: string, value: unknown): void {
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -78,13 +70,6 @@ describe("loadAllPlugins", () => {
 
   beforeEach(() => {
     created = [];
-    vi.mocked(resolvePluginEnablement).mockImplementation(
-      (ids: readonly string[]) => ({
-        enabled: [...ids],
-        disabled: [],
-        unknown: [],
-      }),
-    );
   });
 
   afterEach(() => {
@@ -369,20 +354,24 @@ describe("loadAllPlugins", () => {
       version: "1.0.0",
       description: "Installed and idle",
     });
-    // What resolvePluginEnablement returns when a settings file names someone
-    // else: the plugin is on disk, not loaded, and said so.
-    vi.mocked(resolvePluginEnablement).mockReturnValueOnce({
-      enabled: [],
-      disabled: ["idle"],
-      unknown: ["typo-in-the-list"],
-    });
+    // The real settings file, in this worker's own global directory.
+    const settingsFile = path.join(
+      process.env.CONTINUE_GLOBAL_DIR as string,
+      "settings.json",
+    );
+    writeJson(settingsFile, { enabledPlugins: ["someone-else", "typo"] });
 
-    const result = loadAllPlugins();
+    try {
+      const result = loadAllPlugins();
 
-    // The precondition, so a missing manifest cannot make this pass by itself.
-    expect(result.plugins.map((plugin) => plugin.name)).not.toContain("idle");
-    expect(result.disabledPlugins).toEqual(["idle"]);
-    expect(result.unknownEnabledPlugins).toEqual(["typo-in-the-list"]);
+      // The precondition, so a missing manifest cannot make this pass by itself.
+      expect(result.plugins.map((plugin) => plugin.name)).not.toContain("idle");
+      expect(result.disabledPlugins).toEqual(["idle"]);
+      // Both names in the list are unknown: neither is installed.
+      expect(result.unknownEnabledPlugins).toEqual(["someone-else", "typo"]);
+    } finally {
+      fs.rmSync(settingsFile, { force: true });
+    }
   });
 
   it("loads the same plugin once the list names it", () => {
