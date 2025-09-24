@@ -4,6 +4,7 @@ import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
 import { generateSubagentToolDescription } from "../subagent/get-agents.js";
 
+import { readFileTool } from "./readFile.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { todoTool } from "./todo.js";
 
@@ -32,6 +33,21 @@ describe("tool-level working rules", () => {
     expect(bash).toContain("create a new commit rather than '--amend'");
     expect(bash).toContain("amending would rewrite the previous one");
     expect(bash).toContain("git status -uall");
+    expect(bash).toContain("only when the user asks for it");
+  });
+
+  it("says what comes back from a shell, and what cannot come back", () => {
+    expect(bash).toContain(
+      "The output returns to you, not reliably to the user",
+    );
+    expect(bash).toContain("repeated in your answer");
+    expect(bash).toContain("There is no terminal to answer a prompt");
+  });
+
+  it("keeps a verification read from being spent on an edit that already landed", () => {
+    expect(readFileTool.description).toContain(
+      "Do not read a file back just to confirm an edit landed",
+    );
   });
 
   it("keeps the todo list honest about progress", () => {

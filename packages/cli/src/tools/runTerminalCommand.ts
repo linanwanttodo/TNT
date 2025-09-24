@@ -131,7 +131,11 @@ USE THE DEDICATED TOOL WHEN ONE EXISTS - a shell pipeline loses the guard, the d
 HOW TO SHAPE A COMMAND:
 - Prefer absolute paths and quote any path that can contain spaces. Avoid 'cd': the working directory is already the project, and a chain of commands shares one shell.
 - Join commands that depend on each other with '&&', so a failure stops the chain. Use ';' only when the later commands may run regardless of it. Never separate commands with a newline.
-- git: create a new commit rather than '--amend'. When a pre-commit hook fails, no commit happened, and amending would rewrite the previous one - fix the cause and commit again. Do not use 'git status -uall'; on a large tree it can exhaust memory.
+- git: create a new commit rather than '--amend'. When a pre-commit hook fails, no commit happened, and amending would rewrite the previous one - fix the cause and commit again. Do not use 'git status -uall'; on a large tree it can exhaust memory. Commit, push or open a pull request only when the user asks for it.
+
+WHAT COMES BACK:
+- The output returns to you, not reliably to the user, so anything that matters has to be repeated in your answer.
+- There is no terminal to answer a prompt: an interactive command ('git rebase -i', 'git add -i', an editor) waits forever. Pass flags that make it non-interactive, or leave it to the user.
 `,
   parameters: {
     type: "object",
