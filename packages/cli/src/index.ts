@@ -373,6 +373,10 @@ program
     "--uncommitted",
     "Review only uncommitted changes (staged and unstaged) instead of the branch diff",
   )
+  .option(
+    "--commit <ref>",
+    "Review one commit as it stood, instead of the branch diff",
+  )
   .option("--format <format>", "Output format")
   .option("--fix", "Automatically apply suggested fixes")
   .option("--patch", "Show patches")

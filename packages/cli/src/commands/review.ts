@@ -8,10 +8,11 @@ import { configureConsoleForHeadless } from "../startup/init.js";
 import { logger } from "../utils/logger.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
-import type { DiffContext } from "./review/diffContext.js";
+import type { DiffContext, ReviewTarget } from "./review/diffContext.js";
 import {
   computeDiffContext,
   reviewTargetFromOptions,
+  worktreeOptionsForTarget,
 } from "./review/diffContext.js";
 import type { ReviewResult } from "./review/renderReport.js";
 import { renderReport } from "./review/renderReport.js";
@@ -26,6 +27,8 @@ export interface ReviewOptions extends ExtendedCommandOptions {
   base?: string;
   /** Review only the working tree against HEAD instead of the branch diff. */
   uncommitted?: boolean;
+  /** Review one commit as it stood, without the working tree riding along. */
+  commit?: string;
   format?: string;
   fix?: boolean;
   patch?: boolean;
@@ -288,13 +291,14 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
   );
 
   // Step 1: Compute diff
-  if (options.base && options.uncommitted) {
-    console.error(
-      chalk.red("Error: --base and --uncommitted cannot be combined"),
-    );
+  let target: ReviewTarget;
+  try {
+    target = reviewTargetFromOptions(options);
+  } catch (error) {
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
     process.exit(1);
   }
-  const diffContext = computeDiffContext(reviewTargetFromOptions(options));
+  const diffContext = computeDiffContext(target);
 
   if (!diffContext.diff.trim() && diffContext.changedFiles.length === 0) {
     unmountUI();
@@ -343,7 +347,7 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
       reviewStates[i].startTime = Date.now();
       rerender();
 
-      worktreePath = await createWorktree(i);
+      worktreePath = await createWorktree(i, worktreeOptionsForTarget(target));
 
       const workerResult = await runReviewInWorker(
         resolvedReview.source,
