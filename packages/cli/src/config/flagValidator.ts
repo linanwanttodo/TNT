@@ -5,6 +5,8 @@
 
 import { safeStderr } from "../startup/init.js";
 
+import { isOutputFormat, OUTPUT_FORMATS } from "./outputFormat.js";
+
 export interface ValidationOptions {
   // Root command specific flags
   print?: boolean;
@@ -79,10 +81,10 @@ function validateSilentFlag(options: ValidationOptions): ValidationError[] {
 function validateFormatValue(options: ValidationOptions): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (options.format && options.format !== "json") {
+  if (options.format && !isOutputFormat(options.format)) {
     errors.push({
       code: "INVALID_FORMAT_VALUE",
-      message: "Error: --format currently only supports 'json'",
+      message: `Error: Unsupported --format "${options.format}". Expected one of: ${OUTPUT_FORMATS.join(", ")}`,
     });
   }
 
