@@ -377,6 +377,10 @@ program
     "--commit <ref>",
     "Review one commit as it stood, instead of the branch diff",
   )
+  .option(
+    "--range <spec>",
+    "Review an arbitrary git range (e.g. main...HEAD, HEAD~3)",
+  )
   .option("--format <format>", "Output format")
   .option("--fix", "Automatically apply suggested fixes")
   .option("--patch", "Show patches")

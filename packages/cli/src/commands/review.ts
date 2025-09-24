@@ -29,6 +29,8 @@ export interface ReviewOptions extends ExtendedCommandOptions {
   uncommitted?: boolean;
   /** Review one commit as it stood, without the working tree riding along. */
   commit?: string;
+  /** Review an arbitrary git range, e.g. `main...HEAD` or `HEAD~3`. */
+  range?: string;
   format?: string;
   fix?: boolean;
   patch?: boolean;

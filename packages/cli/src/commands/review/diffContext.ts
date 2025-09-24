@@ -16,12 +16,14 @@ export interface DiffContext {
  * What a review runs against. `base` is the branch diff against the
  * merge-base (plus the working tree); `uncommitted` is only the working tree
  * against HEAD, for reviewing work that is not committed yet; `commit` is one
- * commit on its own, for reviewing what a specific change did.
+ * commit on its own, for reviewing what a specific change did; `range` is any
+ * git range the caller names, for a comparison none of the three describes.
  */
 export type ReviewTarget =
   | { kind: "base"; base?: string }
   | { kind: "uncommitted" }
-  | { kind: "commit"; ref: string };
+  | { kind: "commit"; ref: string }
+  | { kind: "range"; spec: string };
 
 /**
  * Resolves the CLI flags into the one target the diff is computed for. The
@@ -32,11 +34,13 @@ export function reviewTargetFromOptions(options: {
   base?: string;
   uncommitted?: boolean;
   commit?: string;
+  range?: string;
 }): ReviewTarget {
   const chosen = [
     options.base ? "--base" : undefined,
     options.uncommitted ? "--uncommitted" : undefined,
     options.commit ? "--commit" : undefined,
+    options.range ? "--range" : undefined,
   ].filter((name): name is string => Boolean(name));
   if (chosen.length > 1) {
     throw new Error(`${chosen.join(" and ")} cannot be combined`);
@@ -45,6 +49,9 @@ export function reviewTargetFromOptions(options: {
   if (options.commit) {
     return { kind: "commit", ref: options.commit };
   }
+  if (options.range) {
+    return { kind: "range", spec: options.range };
+  }
   return options.uncommitted
     ? { kind: "uncommitted" }
     : { kind: "base", base: options.base };
@@ -52,8 +59,9 @@ export function reviewTargetFromOptions(options: {
 
 /**
  * The worktree a target needs. A commit is reviewed as it stood, so the
- * working tree of the moment is not copied over it; anything else is reviewed
- * in the current working state.
+ * working tree of the moment is not copied over it. A range is not pinned to
+ * one tree at all - its right side is where the code stands now - so the
+ * current state is the honest place to read from.
  */
 export function worktreeOptionsForTarget(target: ReviewTarget): {
   ref?: string;
@@ -191,6 +199,13 @@ export function computeDiffContext(
         ["show", "--format=", "--stat", target.ref],
       ),
     };
+  }
+
+  if (target.kind === "range") {
+    // The spec is one argv element passed straight to git, so any range git
+    // understands (`main...HEAD`, `HEAD~3`, `a..b`) works without this layer
+    // learning git's syntax.
+    return { baseBranch: target.spec, ...collectDiffAgainst(target.spec) };
   }
 
   const base = target.base || detectDefaultBranch();
