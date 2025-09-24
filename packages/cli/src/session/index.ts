@@ -778,6 +778,28 @@ export function setSessionOutputStyle(name: string | undefined): void {
   manager.updateHistory(session.history);
 }
 
+export function getSessionPromptProfile(): string | undefined {
+  const chosen = SessionManager.getInstance().getCurrentSession().promptProfile;
+  return chosen?.trim() || undefined;
+}
+
+/**
+ * Stored on the session like the output style, so a resumed conversation is
+ * still in the mode of work it was in, and a new session starts at the default
+ * rather than inheriting one nobody chose.
+ */
+export function setSessionPromptProfile(name: string | undefined): void {
+  const manager = SessionManager.getInstance();
+  const session = manager.getCurrentSession();
+  const normalized = name?.trim();
+  if (normalized) {
+    session.promptProfile = normalized;
+  } else {
+    delete session.promptProfile;
+  }
+  manager.updateHistory(session.history);
+}
+
 export function setSessionGoal(goal: string | undefined): void {
   const manager = SessionManager.getInstance();
   const session = manager.getCurrentSession();

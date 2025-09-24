@@ -84,6 +84,34 @@ describe("behaviour clauses in the system message", () => {
     expect(interactive).not.toMatch(/no question can be answered mid-task/);
   });
 
+  it("injects the profile it was given, and says plan once whichever way plan was chosen", async () => {
+    const plain = await constructSystemMessage("agent", [], undefined);
+    const debug = await constructSystemMessage(
+      "agent",
+      [],
+      undefined,
+      undefined,
+      "debug",
+    );
+    const byProfile = await constructSystemMessage(
+      "agent",
+      [],
+      undefined,
+      undefined,
+      "plan",
+    );
+    const byMode = await constructSystemMessage("plan", [], undefined);
+
+    expect(plain).not.toContain("debugging turn");
+    expect(plain).not.toContain("Plan Mode");
+    expect(debug).toContain("debugging turn");
+    expect(debug).not.toContain("Plan Mode");
+    // The two ways into plan produce the same instruction, exactly once.
+    expect(byProfile).toContain("Plan Mode");
+    expect(byProfile).toBe(byMode);
+    expect(byMode.match(/Plan Mode/g)).toHaveLength(1);
+  });
+
   it("puts the clauses ahead of the environment block", async () => {
     const message = await constructSystemMessage("agent", [], undefined);
 

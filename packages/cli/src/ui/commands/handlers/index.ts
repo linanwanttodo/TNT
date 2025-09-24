@@ -10,6 +10,7 @@ import { handleLanguage } from "./language.js";
 import { handleJobs, handleTodos } from "./misc.js";
 import { handleOutputStyle } from "./outputStyle.js";
 import { handlePlugins } from "./plugins.js";
+import { handleProfile } from "./profile.js";
 import {
   handleBackToParent,
   handleFork,
@@ -54,6 +55,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     goal: handleGoal,
     plugins: handlePlugins,
     "output-style": handleOutputStyle,
+    profile: handleProfile,
     diagnostics: (args) => handleDiagnostics(args),
     index: (args) => handleIndex(args),
     init: (args, assistant) => {

@@ -20,6 +20,11 @@ import { getSessionOutputStyle } from "../session/index.js";
 import { logger } from "../utils/logger.js";
 
 import { loadInstructionFile } from "./instructionIncludes.js";
+import {
+  PLAN_MODE_TEXT,
+  profileSection,
+  type PromptProfile,
+} from "./promptProfiles.js";
 
 // Static, because everything ahead of the user's own text is inside the cached
 // prefix of every request in the session.
@@ -283,6 +288,7 @@ export async function constructSystemMessage(
   additionalRules?: string[],
   format?: OutputFormat,
   headless?: boolean,
+  profile?: PromptProfile,
 ): Promise<string> {
   const agentFiles = ["AGENTS.md", "AGENT.md", "CLAUDE.md", "CODEX.md"];
   const layers: string[] = [];

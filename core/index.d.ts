@@ -331,6 +331,8 @@ export interface Session {
   goal?: string;
   /** Optional: output style chosen for this session, as "plugin:style" */
   outputStyle?: string;
+  /** Optional: mode of work chosen for this session, e.g. "debug" or "review" */
+  promptProfile?: string;
   /**
    * Optional: session this one was delegated from.
    *
