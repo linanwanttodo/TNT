@@ -82,6 +82,7 @@ describe("SystemMessageService", () => {
         ["rule1"],
         "json",
         true,
+        undefined,
       );
       expect(message).toBe("Test system message");
     });
@@ -106,6 +107,7 @@ describe("SystemMessageService", () => {
         ["rule1"],
         "json",
         false,
+        undefined,
       );
     });
 
@@ -126,6 +128,7 @@ describe("SystemMessageService", () => {
         "agent",
         ["rule2", "rule3"],
         "json",
+        undefined,
         undefined,
       );
     });
