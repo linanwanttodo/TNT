@@ -17,6 +17,8 @@ const INITIAL_STATE_MESSAGE =
  */
 async function copyUntrackedFiles(worktreePath: string): Promise<void> {
   const { stdout: untrackedOutput } = await execFileAsync("git", [
+    "-c",
+    "core.quotepath=off",
     "ls-files",
     "--others",
     "--exclude-standard",
