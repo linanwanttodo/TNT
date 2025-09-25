@@ -112,19 +112,19 @@ function detectDefaultBranch(): string {
 }
 
 /**
- * Untracked work is the one thing `git diff` cannot see, and it is exactly what
- * a review of the working tree should judge: a file that exists only on disk
- * still gets read, run and shipped. Each is rendered as a new-file patch so the
- * reviewers treat it like any other addition, and a file that cannot be shown
- * is named instead of dropped without a word.
- */
-/**
  * git escapes non-ascii paths in its listings, and the escaped form is not a
  * path that can be opened again. Every listing this module reads back has to be
  * in the plain form, or a Chinese or accented file name is named and never read.
  */
 const GIT_PLAIN_PATHS = ["-c", "core.quotepath=off"];
 
+/**
+ * Untracked work is the one thing `git diff` cannot see, and it is exactly what
+ * a review of the working tree should judge: a file that exists only on disk
+ * still gets read, run and shipped. Each is rendered as a new-file patch so the
+ * reviewers treat it like any other addition, and a file that cannot be shown
+ * is named instead of dropped without a word.
+ */
 function collectUntracked(): { paths: string[]; patch: string } {
   let listed: string;
   try {
