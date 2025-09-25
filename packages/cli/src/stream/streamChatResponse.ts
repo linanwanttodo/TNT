@@ -28,6 +28,7 @@ import {
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { type RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
+import { noteMeasuredRequest } from "../compaction/measuredContext.js";
 import { noteRequestSent } from "../compaction/microCompact.js";
 import { ContextBudgetTracker } from "../loop/contextBudget.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
@@ -830,6 +831,9 @@ export async function streamChatResponse(
     // What the provider measured for this request is the honest fullness of the
     // window; a local count of the whole history is neither measured nor cheap.
     contextBudget.recordRequest(usage?.promptTokens);
+    noteMeasuredRequest(promptCacheKey, usage ?? {}, {
+      historyLength: chatHistory.length,
+    });
 
     if (abortController?.signal.aborted) {
       return finish("user_abort");

@@ -12,12 +12,14 @@ import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import type { ChatCompletionTool } from "openai/resources/chat/completions.mjs";
 import React from "react";
 
+import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import {
   compactChatHistory,
   findCompactionIndex,
   getAutoCompactMessage,
   shouldAutoCompact,
 } from "../compaction/index.js";
+import { measuredRequestFor } from "../compaction/measuredContext.js";
 import type { OutputFormat } from "../config/outputFormat.js";
 import { firePreCompact } from "../hooks/fireHook.js";
 import {
@@ -219,6 +221,7 @@ export async function handleAutoCompaction(
     callbacks?.setCompactionIndex?.(compactionIndex);
   }
 
+  const prefixKey = currentPromptCacheKey();
   const shouldSummarize =
     !isCompactionBreakerTripped(compactionState) &&
     (force === true ||
@@ -227,6 +230,10 @@ export async function handleAutoCompaction(
         model,
         systemMessage: providedSystemMessage,
         tools,
+        // The provider's own number for the request sent under this same prefix,
+        // refused by `shouldAutoCompact` itself if the history has since shrunk.
+        measured: measuredRequestFor(prefixKey),
+        prefixKey,
       }));
   if (!shouldSummarize) {
     if (toolResultCompaction.truncatedCount === 0) {

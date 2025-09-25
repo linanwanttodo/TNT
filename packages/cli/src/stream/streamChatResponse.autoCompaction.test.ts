@@ -68,6 +68,12 @@ vi.mock("../services/index.js", () => ({
   },
 }));
 
+vi.mock("../cache/promptCacheKey.js", () => ({
+  // No prefix in this harness: the measurement the loop looks up has to come
+  // out undefined for the expectations below to mean anything.
+  currentPromptCacheKey: vi.fn(() => undefined),
+}));
+
 vi.mock("os", async (importOriginal) => {
   const actual = (await importOriginal()) as object;
   return {
@@ -135,6 +141,10 @@ describe("handleAutoCompaction", () => {
       model: mockModel,
       systemMessage: undefined,
       tools: undefined,
+      // This harness never measured a request under a cache prefix, so the
+      // decision is handed nothing to trust and has to count.
+      measured: undefined,
+      prefixKey: undefined,
     });
   });
 
@@ -213,6 +223,10 @@ describe("handleAutoCompaction", () => {
       model: mockModel,
       systemMessage: undefined,
       tools: undefined,
+      // This harness never measured a request under a cache prefix, so the
+      // decision is handed nothing to trust and has to count.
+      measured: undefined,
+      prefixKey: undefined,
     });
     expect(getAutoCompactMessage).toHaveBeenCalledWith(mockModel);
     expect(compactChatHistory).toHaveBeenCalledWith(

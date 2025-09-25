@@ -21,6 +21,10 @@ import {
   getModelMaxTokens,
 } from "../utils/tokenizer.js";
 
+import {
+  type MeasuredRequest,
+  measuredInputTokens,
+} from "./measuredContext.js";
 import { buildSummaryRequest } from "./prefixPreservation.js";
 
 export interface CompactionResult {
@@ -429,6 +433,13 @@ export interface AutoCompactParams {
   model: ModelConfig;
   systemMessage?: string;
   tools?: ChatCompletionTool[];
+  /**
+   * What the provider reported for the last request this session sent, and the
+   * prefix it was sent under. A measured count beats a local one, which has to
+   * re-encode the entire history to guess what already happened.
+   */
+  measured?: MeasuredRequest;
+  prefixKey?: string;
 }
 
 /**
@@ -448,14 +459,26 @@ export function getAutoCompactMessage(model: ModelConfig): string {
  * @returns Whether auto-compacting should be triggered
  */
 export function shouldAutoCompact(params: AutoCompactParams): boolean {
-  const { chatHistory, model, systemMessage, tools } = params;
+  const { chatHistory, model, systemMessage, tools, measured, prefixKey } =
+    params;
 
-  const inputTokens = countTotalInputTokens({
-    chatHistory,
-    systemMessage,
-    tools,
-    model,
+  // Only the items that arrived since the measurement are counted; everything
+  // before them is a number the provider already gave.
+  const measuredTokens = measuredInputTokens(measured, {
+    historyLength: chatHistory.length,
+    prefixKey,
+    tailTokens: measured
+      ? countChatHistoryTokens(chatHistory.slice(measured.historyLength), model)
+      : 0,
   });
+  const inputTokens =
+    measuredTokens ??
+    countTotalInputTokens({
+      chatHistory,
+      systemMessage,
+      tools,
+      model,
+    });
   const contextLimit = getModelContextLimit(model);
   const maxTokens = getModelMaxTokens(model);
 
@@ -471,6 +494,7 @@ export function shouldAutoCompact(params: AutoCompactParams): boolean {
 
   logger.debug("Context usage check", {
     inputTokens,
+    fromMeasurement: measuredTokens !== undefined,
     historyTokens: countChatHistoryTokens(chatHistory, model),
     systemTokens,
     toolTokens,
