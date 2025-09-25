@@ -1,15 +1,21 @@
-import fs from "fs";
-
+import { writeFileAtomically } from "core/util/atomicWrite.js";
 import YAML from "yaml";
 
 import { logger } from "../utils/logger.js";
 
 import { commandSegments, isCommandRiskyAlone } from "./bashCommandRule.js";
 import {
-  PERMISSIONS_YAML_PATH,
   PermissionsYamlConfig,
   loadPermissionsYaml,
+  permissionsYamlPath,
 } from "./permissionsYamlLoader.js";
+import { withPermissionWriteLock } from "./permissionWriteLock.js";
+
+const PERMISSIONS_HEADER = `# TNT Permissions Configuration
+# This file is managed by the TNT and should not be edited manually.
+# Use the TUI to modify permissions interactively.
+
+`;
 
 /**
  * Generates a policy rule for a given tool call
@@ -48,37 +54,32 @@ export function generatePolicyRule(toolName: string, toolArgs: any): string {
 }
 
 /**
- * Adds a policy rule to the permissions.yaml file
+ * Adds a policy rule to the permissions.yaml file.
+ *
+ * The read-modify-write runs under a lock file and the write replaces the file
+ * atomically: two sessions granting a permanent rule at the same moment used
+ * to lose one of them, and a crash mid-write left a half-parsed file through
+ * which every rule on it disappeared for the session that read it.
  */
 export async function addPolicyToYaml(policyRule: string): Promise<void> {
   try {
-    // Load existing config or create empty one
-    const config: PermissionsYamlConfig = loadPermissionsYaml() || {};
-
-    // Ensure allow array exists
-    if (!config.allow) {
-      config.allow = [];
-    }
-
-    // Add the policy if it doesn't already exist
-    if (config.allow.includes(policyRule)) {
-      logger.debug(`Policy rule already exists: ${policyRule}`);
-    } else {
-      config.allow.push(policyRule);
-
-      // Write the updated config back to the file
-      const yamlContent = YAML.stringify(config);
-
-      // Add header comment
-      const finalContent = `# TNT Permissions Configuration
-# This file is managed by the TNT and should not be edited manually.
-# Use the TUI to modify permissions interactively.
-
-${yamlContent}`;
-
-      await fs.promises.writeFile(PERMISSIONS_YAML_PATH, finalContent, "utf-8");
+    const filePath = permissionsYamlPath();
+    await withPermissionWriteLock(`${filePath}.lock`, async () => {
+      // Read inside the lock: another writer may have appended a rule between
+      // this approval being granted and its write landing.
+      const config: PermissionsYamlConfig = loadPermissionsYaml() || {};
+      const allow = config.allow ?? [];
+      if (allow.includes(policyRule)) {
+        logger.debug(`Policy rule already exists: ${policyRule}`);
+        return;
+      }
+      const yamlContent = YAML.stringify({
+        ...config,
+        allow: [...allow, policyRule],
+      });
+      writeFileAtomically(filePath, `${PERMISSIONS_HEADER}${yamlContent}`);
       logger.info(`Added policy rule to permissions.yaml: ${policyRule}`);
-    }
+    });
   } catch (error) {
     logger.error("Failed to add policy to permissions.yaml", {
       error,

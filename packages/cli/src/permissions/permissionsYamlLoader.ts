@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 
+import { writeFileAtomically } from "core/util/atomicWrite.js";
 import YAML from "yaml";
 
 import { env } from "../config/env.js";
@@ -8,9 +9,14 @@ import { logger } from "../utils/logger.js";
 
 import { PermissionPolicy, ToolPermissionPolicy } from "./types.js";
 
-export const PERMISSIONS_YAML_PATH = path.resolve(
-  path.join(env.continueHome, "permissions.yaml"),
-);
+/**
+ * Resolved at call time, not import time: the home directory comes from
+ * CONTINUE_GLOBAL_DIR, which tests and embedding callers set after this module
+ * has already been loaded.
+ */
+export function permissionsYamlPath(): string {
+  return path.resolve(path.join(env.continueHome, "permissions.yaml"));
+}
 
 export interface PermissionsYamlConfig {
   allow?: string[];
@@ -23,15 +29,16 @@ export interface PermissionsYamlConfig {
  * Returns null if file doesn't exist or can't be parsed
  */
 export function loadPermissionsYaml(): PermissionsYamlConfig | null {
+  const filePath = permissionsYamlPath();
   try {
-    if (!fs.existsSync(PERMISSIONS_YAML_PATH)) {
+    if (!fs.existsSync(filePath)) {
       logger.debug("Permissions YAML file does not exist", {
-        path: PERMISSIONS_YAML_PATH,
+        path: filePath,
       });
       return null;
     }
 
-    const content = fs.readFileSync(PERMISSIONS_YAML_PATH, "utf-8");
+    const content = fs.readFileSync(filePath, "utf-8");
     const parsed = YAML.parse(content) as PermissionsYamlConfig;
 
     // Validate the structure
@@ -55,13 +62,13 @@ export function loadPermissionsYaml(): PermissionsYamlConfig | null {
     }
 
     logger.warn("Invalid permissions YAML structure", {
-      path: PERMISSIONS_YAML_PATH,
+      path: filePath,
     });
     return null;
   } catch (error) {
     logger.error("Failed to load permissions YAML", {
       error,
-      path: PERMISSIONS_YAML_PATH,
+      path: filePath,
     });
     return null;
   }
@@ -150,15 +157,14 @@ export function yamlConfigToPolicies(
  * Creates the permissions.yaml file with default content if it doesn't exist
  */
 export async function ensurePermissionsYamlExists(): Promise<void> {
-  const dir = path.dirname(PERMISSIONS_YAML_PATH);
+  const filePath = permissionsYamlPath();
+  const dir = path.dirname(filePath);
 
   // Ensure directory exists
-  if (!fs.existsSync(dir)) {
-    await fs.promises.mkdir(dir, { recursive: true });
-  }
+  await fs.promises.mkdir(dir, { recursive: true });
 
   // Create file if it doesn't exist
-  if (!fs.existsSync(PERMISSIONS_YAML_PATH)) {
+  if (!fs.existsSync(filePath)) {
     const defaultContent = `# tnt tool permissions
 
 # Tools that are automatically allowed without prompting
@@ -171,9 +177,9 @@ ask: []
 exclude: []
 `;
 
-    await fs.promises.writeFile(PERMISSIONS_YAML_PATH, defaultContent, "utf-8");
+    writeFileAtomically(filePath, defaultContent);
     logger.info("Created default permissions.yaml", {
-      path: PERMISSIONS_YAML_PATH,
+      path: filePath,
     });
   }
 }

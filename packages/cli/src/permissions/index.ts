@@ -19,7 +19,7 @@ export type { PermissionRequestResult } from "./permissionManager.js";
 export {
   ensurePermissionsYamlExists,
   loadPermissionsYaml,
-  PERMISSIONS_YAML_PATH,
+  permissionsYamlPath,
   yamlConfigToPolicies,
 } from "./permissionsYamlLoader.js";
 export type { PermissionsYamlConfig } from "./permissionsYamlLoader.js";
