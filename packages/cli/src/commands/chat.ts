@@ -12,6 +12,7 @@ import {
 } from "../compaction/index.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
 import type { OutputFormat } from "../config/outputFormat.js";
+import { runCompletionNotify } from "../hooks/completionNotify.js";
 import {
   fireSessionEnd,
   fireSessionStart,
@@ -729,6 +730,9 @@ async function runHeadlessMode(
   }
   await fireStop(answeredText).catch(() => {});
   await fireSessionEnd("other").catch(() => {});
+  // A `notify` command in the settings cascade learns the turn is done, with
+  // the same payload Codex hands its notifier. It cannot fail the run.
+  await runCompletionNotify(answeredText ?? "");
 
   // exit after headless mode completes
   await gracefulExit(0);
