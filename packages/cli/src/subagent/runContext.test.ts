@@ -187,6 +187,35 @@ describe("narrowPermissions", () => {
       ).toBe("exclude");
     }
   });
+
+  it("narrows the child without touching the parent", () => {
+    const parentPermissions: ToolPermissions = {
+      policies: [
+        { tool: "*", permission: "ask" },
+        { tool: "Write", permission: "allow" },
+      ],
+    };
+    const snapshot = structuredClone(parentPermissions);
+    const writeVerdict = checkToolPermission(
+      { name: "Write", arguments: {} },
+      parentPermissions,
+    ).permission;
+
+    const child = narrowPermissions(parentPermissions, {
+      restriction: "readonly",
+    });
+
+    // A session that delegates must not come back to find its own policy
+    // narrowed: two children of one parent would then inherit each other.
+    expect(parentPermissions).toEqual(snapshot);
+    expect(
+      checkToolPermission({ name: "Write", arguments: {} }, parentPermissions)
+        .permission,
+    ).toBe(writeVerdict);
+    expect(
+      checkToolPermission({ name: "Write", arguments: {} }, child).permission,
+    ).toBe("exclude");
+  });
 });
 
 describe("createChildContext", () => {
