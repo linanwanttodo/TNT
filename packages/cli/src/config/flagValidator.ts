@@ -12,6 +12,7 @@ export interface ValidationOptions {
   print?: boolean;
   format?: string;
   silent?: boolean;
+  outputSchema?: string;
 
   // Common flags
   readonly?: boolean;
@@ -69,6 +70,25 @@ function validateSilentFlag(options: ValidationOptions): ValidationError[] {
     errors.push({
       code: "SILENT_REQUIRES_PRINT",
       message: "Error: --silent flag can only be used with -p/--print flag",
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Validate that --output-schema only works with -p/--print
+ */
+function validateOutputSchemaFlag(
+  options: ValidationOptions,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (options.outputSchema && !options.print) {
+    errors.push({
+      code: "OUTPUT_SCHEMA_REQUIRES_PRINT",
+      message:
+        "Error: --output-schema flag can only be used with -p/--print flag",
     });
   }
 
@@ -212,6 +232,7 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
   const validators = [
     validateFormatFlag,
     validateSilentFlag,
+    validateOutputSchemaFlag,
     validateFormatValue,
     validateModeFlags,
     validateSessionFlags,
