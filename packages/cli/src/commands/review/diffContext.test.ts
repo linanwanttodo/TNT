@@ -68,6 +68,48 @@ describe("computeDiffContext", () => {
     expect(context.truncated).toBe(false);
   });
 
+  it("reviews a file git is not tracking", () => {
+    const repo = makeDivergedRepo();
+    process.chdir(repo);
+    fs.writeFileSync(
+      path.join(repo, "scratch.ts"),
+      "export const draft = 1;\n",
+    );
+
+    const context = computeDiffContext({ kind: "uncommitted" });
+
+    expect(context.changedFiles).toContain("scratch.ts");
+    expect(context.diff).toContain("+++ b/scratch.ts");
+    expect(context.diff).toContain("+export const draft = 1;");
+    expect(context.stat).toContain("1 untracked");
+  });
+
+  it("names an untracked file it will not print", () => {
+    const repo = makeDivergedRepo();
+    process.chdir(repo);
+    fs.writeFileSync(path.join(repo, "blob.bin"), Buffer.from([0, 1, 2, 3]));
+
+    const context = computeDiffContext({ kind: "uncommitted" });
+
+    expect(context.changedFiles).toContain("blob.bin");
+    expect(context.diff).toContain("(binary file, not shown)");
+  });
+
+  it("leaves untracked work out of a commit review", () => {
+    const repo = makeDivergedRepo();
+    process.chdir(repo);
+    fs.writeFileSync(
+      path.join(repo, "scratch.ts"),
+      "export const draft = 1;\n",
+    );
+    const head = git(repo, ["rev-parse", "HEAD"]).trim();
+
+    const context = computeDiffContext({ kind: "commit", ref: head });
+
+    expect(context.changedFiles).toEqual(["a.txt"]);
+    expect(context.diff).not.toContain("scratch.ts");
+  });
+
   it("sees a staged change in the uncommitted target", () => {
     const repo = makeDivergedRepo();
     process.chdir(repo);

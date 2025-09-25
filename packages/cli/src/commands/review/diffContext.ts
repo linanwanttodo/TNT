@@ -1,8 +1,12 @@
 import { execFileSync } from "child_process";
+import { readFileSync } from "fs";
 
 import { logger } from "../../utils/logger.js";
 
 const MAX_DIFF_SIZE = 50 * 1024; // 50KB
+
+/** One new file has no diff to keep it small, so it is capped on its own. */
+const MAX_UNTRACKED_FILE_SIZE = 20 * 1024; // 20KB
 
 export interface DiffContext {
   baseBranch: string;
@@ -108,6 +112,59 @@ function detectDefaultBranch(): string {
 }
 
 /**
+ * Untracked work is the one thing `git diff` cannot see, and it is exactly what
+ * a review of the working tree should judge: a file that exists only on disk
+ * still gets read, run and shipped. Each is rendered as a new-file patch so the
+ * reviewers treat it like any other addition, and a file that cannot be shown
+ * is named instead of dropped without a word.
+ */
+function collectUntracked(): { paths: string[]; patch: string } {
+  let listed: string;
+  try {
+    listed = execFileSync(
+      "git",
+      ["ls-files", "--others", "--exclude-standard"],
+      {
+        encoding: "utf-8",
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    ).trim();
+  } catch {
+    return { paths: [], patch: "" };
+  }
+
+  const paths = listed ? listed.split("\n") : [];
+  const blocks: string[] = [];
+  for (const file of paths) {
+    let text: string;
+    try {
+      const raw = readFileSync(file);
+      if (raw.includes(0)) {
+        blocks.push(`--- /dev/null\n+++ b/${file}\n(binary file, not shown)\n`);
+        continue;
+      }
+      text = raw.toString("utf-8");
+    } catch {
+      blocks.push(`--- /dev/null\n+++ b/${file}\n(could not be read)\n`);
+      continue;
+    }
+
+    const cut = text.length > MAX_UNTRACKED_FILE_SIZE;
+    const shown = cut ? text.slice(0, MAX_UNTRACKED_FILE_SIZE) : text;
+    const lines = shown.split("\n");
+    blocks.push(
+      `--- /dev/null\n+++ b/${file}\n@@ -0,0 +1,${lines.length} @@\n` +
+        lines.map((line) => `+${line}`).join("\n") +
+        "\n" +
+        (cut ? "+(stopped: the file is larger than the review limit)\n" : ""),
+    );
+  }
+
+  return { paths, patch: blocks.join("") };
+}
+
+/**
  * Runs one git form three ways: the patch, the file names, the stat. The form
  * differs by target - `diff <ref>` for a working-tree comparison, `show <ref>`
  * for a commit - but everything the reviewers consume is the same shape.
@@ -116,6 +173,7 @@ function collectDiff(
   gitForm: string[],
   nameForm: string[],
   statForm: string[],
+  includeUntracked = false,
 ): {
   diff: string;
   changedFiles: string[];
@@ -131,6 +189,11 @@ function collectDiff(
     });
   } catch {
     diff = "";
+  }
+
+  const untracked = includeUntracked ? collectUntracked() : undefined;
+  if (untracked?.patch) {
+    diff = `${diff}${untracked.patch}`;
   }
 
   let truncated = false;
@@ -149,6 +212,9 @@ function collectDiff(
   } catch {
     changedFiles = [];
   }
+  if (untracked) {
+    changedFiles = [...changedFiles, ...untracked.paths];
+  }
 
   let stat = "";
   try {
@@ -159,16 +225,25 @@ function collectDiff(
   } catch {
     stat = "";
   }
+  if (untracked && untracked.paths.length > 0) {
+    stat = [
+      stat,
+      `${untracked.paths.length} untracked (not counted in the numbers above)`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
 
   return { diff, changedFiles, stat, truncated };
 }
 
 /** The diff of the working tree against one ref. */
-function collectDiffAgainst(againstRef: string) {
+function collectDiffAgainst(againstRef: string, includeUntracked = false) {
   return collectDiff(
     ["diff", againstRef],
     ["diff", "--name-only", againstRef],
     ["diff", "--stat", againstRef],
+    includeUntracked,
   );
 }
 
@@ -179,13 +254,20 @@ function collectDiffAgainst(againstRef: string) {
  * a diverged branch shows its own changes plus the working tree; HEAD is the
  * merge-base when the branch has not diverged, which is why a repo that never
  * branched behaves the same either way. `uncommitted` diffs the working tree
- * against HEAD only, for reviewing what is not committed yet.
+ * against HEAD only, for reviewing what is not committed yet. Both of those
+ * include files git is not tracking, because a review of unfinished work that
+ * skipped them would skip the newest thing in the tree. `commit` compares a
+ * recorded state and leaves them out. `range` does too: whether its right side
+ * is the working tree depends on how the spec is written (`a..b` never is,
+ * `HEAD~3` is), and this layer deliberately does not learn git's range syntax
+ * to decide, so the caller who wants untracked work in a review names the
+ * working-tree target instead.
  */
 export function computeDiffContext(
   target: ReviewTarget = { kind: "base" },
 ): DiffContext {
   if (target.kind === "uncommitted") {
-    return { baseBranch: "HEAD", ...collectDiffAgainst("HEAD") };
+    return { baseBranch: "HEAD", ...collectDiffAgainst("HEAD", true) };
   }
 
   if (target.kind === "commit") {
@@ -224,5 +306,5 @@ export function computeDiffContext(
     mergeBase = base;
   }
 
-  return { baseBranch: base, ...collectDiffAgainst(mergeBase) };
+  return { baseBranch: base, ...collectDiffAgainst(mergeBase, true) };
 }
