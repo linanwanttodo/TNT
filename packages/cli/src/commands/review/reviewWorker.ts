@@ -8,6 +8,7 @@
 
 import * as fs from "fs";
 
+import { t } from "../../i18n/index.js";
 import {
   initializeServices,
   getService,
@@ -100,9 +101,7 @@ function loadLocalAgentInstructions(filePath: string): string {
  */
 export async function runReviewWorker(): Promise<void> {
   if (typeof process.send !== "function") {
-    console.error(
-      "Error: review worker must be run as a forked process (via tnt review).",
-    );
+    console.error(t("review.workerNeedsFork"));
     process.exit(1);
   }
 

@@ -297,7 +297,9 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
   try {
     target = reviewTargetFromOptions(options);
   } catch (error) {
-    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    console.error(
+      chalk.red(t("review.failed", { message: (error as Error).message })),
+    );
     process.exit(1);
   }
   const diffContext = computeDiffContext(target);
