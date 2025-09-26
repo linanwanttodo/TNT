@@ -807,10 +807,16 @@ export async function executeStreamedToolCalls(
             toolResult,
             call.id,
           );
-          const content = withHookContext(stowed, [
-            [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
-            [`PostToolUse:${effectiveCall.name}`, postHook.additionalContext],
-          ]);
+          const reminder = callbacks?.onTailReminder?.(effectiveCall.name);
+          const content = withHookContext(
+            reminder
+              ? `${stowed}\n\n<system-reminder>${reminder}</system-reminder>`
+              : stowed,
+            [
+              [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
+              [`PostToolUse:${effectiveCall.name}`, postHook.additionalContext],
+            ],
+          );
           const entry: ToolResultWithStatus = {
             role: "tool",
             tool_call_id: call.id,
