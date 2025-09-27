@@ -3,10 +3,9 @@ import chalk from "chalk";
 import {
   isPromptProfile,
   PROMPT_PROFILES,
-  type PromptProfile,
 } from "../../../agent/promptProfiles.js";
 import { t } from "../../../i18n/index.js";
-import { services } from "../../../services/index.js";
+import { enterPlanProfile } from "../../../permissions/planProfile.js";
 import {
   getSessionPromptProfile,
   setSessionPromptProfile,
@@ -61,15 +60,4 @@ export function handleProfile(args: string[] = []): SlashCommandResult {
 
   setSessionPromptProfile(requested);
   return { output: t("profile.set", { name: requested }) };
-}
-
-/** Called by plan-shaped entry points so the two axes move together. */
-export function enterPlanProfile(): PromptProfile {
-  setSessionPromptProfile("plan");
-  try {
-    services.toolPermissions.switchMode("plan");
-  } catch {
-    // A missing permission service must not cost the user the profile.
-  }
-  return "plan";
 }

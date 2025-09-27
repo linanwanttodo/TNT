@@ -18,6 +18,8 @@ export function getDefaultToolPolicies(
     { tool: "Write", permission: writePermission, workspaceOnly: true },
     { tool: "CheckBackgroundJob", permission: "allow" },
     { tool: "AskQuestion", permission: "allow" },
+    { tool: "EnterPlanMode", permission: "allow" },
+    { tool: "ExitPlanMode", permission: "ask" },
     { tool: "Checklist", permission: "allow" },
     { tool: "Diff", permission: "allow" },
     { tool: "Skills", permission: "allow" },
@@ -72,6 +74,10 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Bash", permission: "allow", readOnlyOnly: true },
   { tool: "CheckBackgroundJob", permission: "allow" },
   { tool: "AskQuestion", permission: "allow" },
+  // Entering plan mode only narrows what may happen, so it needs no prompt;
+  // leaving it is what allows changes again, and that one is asked for.
+  { tool: "EnterPlanMode", permission: "allow" },
+  { tool: "ExitPlanMode", permission: "ask" },
   { tool: "Checklist", permission: "allow" },
   { tool: "Diff", permission: "allow" },
   { tool: "Exit", permission: "allow" },
