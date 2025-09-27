@@ -104,6 +104,10 @@ describe("editTool", () => {
       expect(error.reason).toBe(
         ContinueErrorReason.FindAndReplaceOldStringNotFound,
       );
+      // The failure the model reads says what the file has and what to do,
+      // not just that the search failed.
+      expect(error.message).toContain('Searched for the line "Not found"');
+      expect(error.message).toContain("Read the file again");
     });
 
     it("should throw error if old_string appears multiple times and replace_all is false", async () => {
