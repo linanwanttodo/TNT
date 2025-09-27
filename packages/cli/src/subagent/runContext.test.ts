@@ -25,6 +25,66 @@ function parent(
   };
 }
 
+describe("deniedTools", () => {
+  it("excludes a named tool from a child that would otherwise allow it", () => {
+    const result = narrowPermissions(
+      { policies: [{ tool: "*", permission: "allow" }] },
+      { deniedTools: ["AskQuestion", "Exit"] },
+    );
+
+    expect(
+      checkToolPermission({ name: "AskQuestion", arguments: {} }, result)
+        .permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission({ name: "Exit", arguments: {} }, result).permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission({ name: "Read", arguments: {} }, result).permission,
+    ).toBe("allow");
+  });
+
+  it("adds to the restriction rather than replacing it", () => {
+    const result = narrowPermissions(
+      { policies: [{ tool: "*", permission: "allow" }] },
+      { restriction: "no-writes", deniedTools: ["AskQuestion"] },
+    );
+
+    expect(
+      checkToolPermission({ name: "Write", arguments: {} }, result).permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission({ name: "AskQuestion", arguments: {} }, result)
+        .permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission({ name: "Bash", arguments: {} }, result).permission,
+    ).toBe("allow");
+  });
+
+  it("names the missing tools in the child's prompt", () => {
+    const child = createChildContext(
+      parent({ policies: [{ tool: "*", permission: "allow" }] }),
+      {
+        id: "child",
+        delegationDepth: 1,
+        systemMessage: "base system",
+        deniedTools: ["AskQuestion"],
+      },
+    );
+
+    expect(child.systemMessage).toContain(
+      "These tools are not available to you: AskQuestion.",
+    );
+    expect(
+      checkToolPermission(
+        { name: "AskQuestion", arguments: {} },
+        child.permissions,
+      ).permission,
+    ).toBe("exclude");
+  });
+});
+
 describe("narrowPermissions", () => {
   it("keeps an allow as an allow when not readonly", () => {
     const result = narrowPermissions(

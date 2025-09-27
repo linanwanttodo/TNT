@@ -81,9 +81,16 @@ function namesExcludedBy(
  */
 export function narrowPermissions(
   parent: ToolPermissions,
-  options: { restriction?: SubagentRestriction },
+  options: {
+    restriction?: SubagentRestriction;
+    /** Named tools this child never sees, on top of what the restriction cuts. */
+    deniedTools?: readonly string[];
+  },
 ): ToolPermissions {
-  const excluded = namesExcludedBy(options.restriction);
+  const excluded = new Set([
+    ...namesExcludedBy(options.restriction),
+    ...(options.deniedTools ?? []),
+  ]);
   if (excluded.size === 0) {
     return {
       policies: parent.policies.map((policy) =>
@@ -132,15 +139,22 @@ export function createChildContext(
     systemMessage: string;
     abortSignal?: AbortSignal;
     restriction?: SubagentRestriction;
+    deniedTools?: readonly string[];
   },
 ): AgentRunContext {
   const restriction = overrides.restriction;
-  const notice =
+  const restrictionNotice =
     restriction === "readonly"
       ? READONLY_SUBAGENT_NOTICE
       : restriction === "no-writes"
         ? NO_WRITE_SUBAGENT_NOTICE
         : undefined;
+  const deniedNotice = overrides.deniedTools?.length
+    ? `These tools are not available to you: ${overrides.deniedTools.join(", ")}.`
+    : undefined;
+  const notice = [restrictionNotice, deniedNotice]
+    .filter((part): part is string => Boolean(part))
+    .join("\n\n");
 
   return {
     id: overrides.id,
@@ -151,7 +165,10 @@ export function createChildContext(
     systemMessage: notice
       ? `${overrides.systemMessage}\n\n${notice}`
       : overrides.systemMessage,
-    permissions: narrowPermissions(parent.permissions, { restriction }),
+    permissions: narrowPermissions(parent.permissions, {
+      restriction,
+      deniedTools: overrides.deniedTools,
+    }),
     mode: parent.mode,
     abortSignal: overrides.abortSignal ?? parent.abortSignal,
   };

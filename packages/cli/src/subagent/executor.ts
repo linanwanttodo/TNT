@@ -131,6 +131,7 @@ export async function executeSubAgent(
       // A built-in role declares what it may not do; a configured agent keeps
       // whatever the session allowed, as it did before this existed.
       restriction: builtIn?.restriction,
+      deniedTools: builtIn?.deniedTools,
     });
 
     const agentId = childContext.id;
