@@ -9,7 +9,10 @@ import { logger } from "../utils/logger.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import type { DiffContext } from "./review/diffContext.js";
-import { computeDiffContext } from "./review/diffContext.js";
+import {
+  computeDiffContext,
+  reviewTargetFromOptions,
+} from "./review/diffContext.js";
 import type { ReviewResult } from "./review/renderReport.js";
 import { renderReport } from "./review/renderReport.js";
 import { resolveReviews } from "./review/resolveReviews.js";
@@ -21,6 +24,8 @@ import { createWorktree, cleanupWorktree } from "./review/worktree.js";
 
 export interface ReviewOptions extends ExtendedCommandOptions {
   base?: string;
+  /** Review only the working tree against HEAD instead of the branch diff. */
+  uncommitted?: boolean;
   format?: string;
   fix?: boolean;
   patch?: boolean;
@@ -283,7 +288,13 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
   );
 
   // Step 1: Compute diff
-  const diffContext = computeDiffContext(options.base);
+  if (options.base && options.uncommitted) {
+    console.error(
+      chalk.red("Error: --base and --uncommitted cannot be combined"),
+    );
+    process.exit(1);
+  }
+  const diffContext = computeDiffContext(reviewTargetFromOptions(options));
 
   if (!diffContext.diff.trim() && diffContext.changedFiles.length === 0) {
     unmountUI();

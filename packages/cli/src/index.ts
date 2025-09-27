@@ -369,6 +369,10 @@ program
   .command("review")
   .description("Run AI-powered reviews on your changes")
   .option("--base <ref>", "Base git ref to diff against (default: auto-detect)")
+  .option(
+    "--uncommitted",
+    "Review only uncommitted changes (staged and unstaged) instead of the branch diff",
+  )
   .option("--format <format>", "Output format")
   .option("--fix", "Automatically apply suggested fixes")
   .option("--patch", "Show patches")
