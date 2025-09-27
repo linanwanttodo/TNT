@@ -5,6 +5,7 @@ import { firePreCompact } from "../../hooks/fireHook.js";
 import { t } from "../../i18n/index.js";
 import { updateSessionHistory } from "../../session/index.js";
 import { handleAutoCompaction as coreHandleAutoCompaction } from "../../stream/streamChatResponse.autoCompaction.js";
+import { summarizeWithEngine } from "../../stream/summarizeWithEngine.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
 
@@ -67,6 +68,7 @@ export async function handleCompactCommand({
     // Compact the chat history directly (already in unified format) with abort controller
     const result = await compactChatHistory(chatHistory, model, llmApi, {
       abortController: compactionController,
+      summarize: summarizeWithEngine,
     });
 
     // Check if operation was aborted before proceeding with success actions

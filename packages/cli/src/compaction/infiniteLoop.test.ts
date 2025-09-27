@@ -5,12 +5,26 @@ import { describe, expect, it, vi } from "vitest";
 
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 
-import { compactChatHistory } from "./index.js";
+import { compactChatHistory, type SummarizeHistory } from "./index.js";
 
 // Mock the dependencies
 vi.mock("../stream/streamChatResponse.js", () => ({
   streamChatResponse: vi.fn(),
 }));
+
+/** Hands the mocked engine down the way production hands it down. */
+const summarize: SummarizeHistory = async (request) => {
+  const response = await streamChatResponse(
+    request.history,
+    request.model,
+    request.llmApi,
+    request.abortController,
+    request.callbacks,
+    true,
+  );
+
+  return typeof response === "string" ? response : "";
+};
 
 vi.mock("../utils/tokenizer.js", () => ({
   countChatHistoryTokens: vi.fn(),
@@ -57,7 +71,7 @@ describe("compaction infinite loop prevention", () => {
 
     // This should not hang - it should break out of the loop
     await expect(
-      compactChatHistory(history, mockModel, mockLlmApi),
+      compactChatHistory(history, mockModel, mockLlmApi, { summarize }),
     ).rejects.toThrow(
       "Compaction request exceeds the available context budget",
     );
@@ -93,7 +107,7 @@ describe("compaction infinite loop prevention", () => {
 
     // This should not hang
     await expect(
-      compactChatHistory(history, mockModel, mockLlmApi),
+      compactChatHistory(history, mockModel, mockLlmApi, { summarize }),
     ).rejects.toThrow(
       "Compaction request exceeds the available context budget",
     );
@@ -139,7 +153,9 @@ describe("compaction infinite loop prevention", () => {
       { role: "user", content: "Another question" },
     ]);
 
-    const result = await compactChatHistory(history, mockModel, mockLlmApi);
+    const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+      summarize,
+    });
 
     expect(result.compactedHistory).toBeDefined();
     // The function will call countTokens multiple times during the process

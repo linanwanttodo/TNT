@@ -12,12 +12,32 @@ import {
   compactChatHistory,
   findCompactionIndex,
   getHistoryForLLM,
+  type SummarizeHistory,
 } from "./index.js";
 
 // Mock the streamChatResponse function
 vi.mock("../stream/streamChatResponse.js", () => ({
   streamChatResponse: vi.fn(),
 }));
+
+/**
+ * The wiring production uses at its three call sites: the engine is handed down
+ * as the summarizer. Keeping it here means the mock above still decides what the
+ * summary says and how many times it ran, so the assertions below did not have to
+ * change when compaction stopped importing the engine itself.
+ */
+const summarize: SummarizeHistory = async (request) => {
+  const response = await streamChatResponse(
+    request.history,
+    request.model,
+    request.llmApi,
+    request.abortController,
+    request.callbacks,
+    true,
+  );
+
+  return typeof response === "string" ? response : "";
+};
 
 describe("compaction", () => {
   const mockModel: ModelConfig = {
@@ -390,7 +410,7 @@ describe("compaction", () => {
         defaultCompletionOptions: { contextLength: 128_000, maxTokens: 2048 },
       } as ModelConfig;
 
-      await compactChatHistory(history, model, mockLlmApi);
+      await compactChatHistory(history, model, mockLlmApi, { summarize });
 
       const summarizedToolCall = summaryRequestHistory.find((item) =>
         item.toolCallStates?.some((state) => state.toolCallId === "call-0"),
@@ -426,7 +446,9 @@ describe("compaction", () => {
         { role: "assistant", content: "Hi there" },
       ]);
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
 
       expect(result.compactedHistory).toHaveLength(2);
       expect(result.compactedHistory[0]).toEqual({
@@ -472,6 +494,7 @@ describe("compaction", () => {
       ]);
 
       await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
         callbacks: {
           onStreamContent,
           onStreamComplete,
@@ -496,6 +519,7 @@ describe("compaction", () => {
 
       await expect(
         compactChatHistory(history, mockModel, mockLlmApi, {
+          summarize,
           callbacks: { onError },
         }),
       ).rejects.toThrow("Stream failed");
@@ -520,7 +544,7 @@ describe("compaction", () => {
       ]);
 
       await expect(
-        compactChatHistory(history, mockModel, mockLlmApi),
+        compactChatHistory(history, mockModel, mockLlmApi, { summarize }),
       ).rejects.toThrow("Compaction did not reduce context usage");
     });
 
@@ -540,7 +564,7 @@ describe("compaction", () => {
       ]);
 
       await expect(
-        compactChatHistory(history, mockModel, mockLlmApi),
+        compactChatHistory(history, mockModel, mockLlmApi, { summarize }),
       ).rejects.toThrow("Compaction summary is empty");
     });
 
@@ -563,7 +587,7 @@ describe("compaction", () => {
         { role: "assistant", content: "Hi" },
       ]);
 
-      await compactChatHistory(history, mockModel, mockLlmApi);
+      await compactChatHistory(history, mockModel, mockLlmApi, { summarize });
 
       // Should have original history plus the compaction prompt
       expect(capturedHistory).toHaveLength(4);
@@ -612,7 +636,9 @@ describe("compaction", () => {
         defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
       } as ModelConfig;
 
-      const result = await compactChatHistory(history, model, mockLlmApi);
+      const result = await compactChatHistory(history, model, mockLlmApi, {
+        summarize,
+      });
 
       // The todo call itself was summarized away, so only the carry keeps the
       // list recoverable - and readable to the model as well.
@@ -645,7 +671,9 @@ describe("compaction", () => {
         { role: "assistant", content: "Done" },
       ]);
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
 
       expect(result.compactedHistory).toHaveLength(2);
       expect(result.compactionContent).toBe(mockContent);
@@ -678,7 +706,9 @@ describe("compaction", () => {
         });
       }
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
 
       expect(result.compactedHistory).toHaveLength(2); // System + compaction
       expect(result.compactionIndex).toBe(1);
@@ -705,7 +735,9 @@ describe("compaction", () => {
         defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
       } as ModelConfig;
 
-      const result = await compactChatHistory(history, model, mockLlmApi);
+      const result = await compactChatHistory(history, model, mockLlmApi, {
+        summarize,
+      });
 
       expect(
         result.compactedHistory.slice(-2).map((item) => item.message.content),
@@ -783,7 +815,7 @@ describe("compaction", () => {
         defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
       } as ModelConfig;
 
-      await compactChatHistory(history, model, mockLlmApi);
+      await compactChatHistory(history, model, mockLlmApi, { summarize });
 
       expect(requestHistories).toHaveLength(3);
       expect(requestHistories[1].length).toBeLessThan(
@@ -830,7 +862,9 @@ describe("compaction", () => {
         { role: "assistant", content: "Hi" },
       ]);
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
 
       expect(result.compactedHistory).toHaveLength(1); // Only compaction
       expect(result.compactedHistory[0].message.role).toBe("assistant");
@@ -948,7 +982,12 @@ describe("compaction", () => {
       ];
 
       for (const history of testHistories) {
-        const result = await compactChatHistory(history, mockModel, mockLlmApi);
+        const result = await compactChatHistory(
+          history,
+          mockModel,
+          mockLlmApi,
+          { summarize },
+        );
 
         // Compacted history should be shorter than original
         // (system + compaction) or just compaction
@@ -982,7 +1021,12 @@ describe("compaction", () => {
       ];
 
       for (const history of histories) {
-        const result = await compactChatHistory(history, mockModel, mockLlmApi);
+        const result = await compactChatHistory(
+          history,
+          mockModel,
+          mockLlmApi,
+          { summarize },
+        );
 
         // The message at compactionIndex should have a conversationSummary
         const compactionMessage =
@@ -1009,7 +1053,9 @@ describe("compaction", () => {
         { role: "assistant", content: "Hi" },
       ]);
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
 
       // System message should still be at index 0
       expect(result.compactedHistory[0]).toEqual(history[0]);
@@ -1031,7 +1077,9 @@ describe("compaction", () => {
         { role: "assistant", content: "Hi" },
       ]);
 
-      const result = await compactChatHistory(history, mockModel, mockLlmApi);
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
 
       // findCompactionIndex should find the same index
       const foundIndex = findCompactionIndex(result.compactedHistory);

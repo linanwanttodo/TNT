@@ -8,8 +8,6 @@ import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import { encode } from "gpt-tokenizer";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
-import { streamChatResponse } from "../stream/streamChatResponse.js";
-import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { buildTodoCarryContextItem, readTodoState } from "../tools/todo.js";
 import { isContextLengthError } from "../utils/contextLength.js";
 import { logger } from "../utils/logger.js";
@@ -39,11 +37,35 @@ export interface CompactionCallbacks {
   onError?: (error: Error) => void;
 }
 
+/**
+ * What the summarizer needs, and the callbacks it streams through. Declared here
+ * instead of taken from the engine, because compaction is the lower layer: the
+ * caller hands the function down rather than this module reaching back up, which
+ * is what made the two groups import each other and forced a compaction unit
+ * test to boot the service container.
+ */
+export interface SummaryCallbacks {
+  onContent: (chunk: string) => void;
+  onContentComplete: () => void;
+}
+
+export interface SummaryRequest {
+  history: ChatHistoryItem[];
+  model: ModelConfig;
+  llmApi: BaseLlmApi;
+  abortController: AbortController;
+  callbacks: SummaryCallbacks;
+}
+
+export type SummarizeHistory = (request: SummaryRequest) => Promise<string>;
+
 export interface CompactionOptions {
   callbacks?: CompactionCallbacks;
   abortController?: AbortController;
   systemMessageTokens?: number;
   toolResultsCompacted?: boolean;
+  /** Required whenever the history is long enough to need a summary. */
+  summarize?: SummarizeHistory;
 }
 
 const COMPACTION_PROMPT =
@@ -155,11 +177,12 @@ async function generateCompactionSummary(
   llmApi: BaseLlmApi,
   controller: AbortController,
   callbacks: CompactionCallbacks | undefined,
+  summarize: SummarizeHistory,
 ): Promise<SummaryGenerationResult> {
   let currentHistory = summarizedHistory;
   let currentRequest = requestHistory;
   let content = "";
-  const streamCallbacks: StreamCallbacks = {
+  const streamCallbacks: SummaryCallbacks = {
     onContent: (chunk: string) => {
       content += chunk;
       callbacks?.onStreamContent?.(chunk);
@@ -170,14 +193,13 @@ async function generateCompactionSummary(
   for (let attempt = 0; attempt < 3; attempt++) {
     content = "";
     try {
-      const response = await streamChatResponse(
-        currentRequest,
+      const response = await summarize({
+        history: currentRequest,
         model,
         llmApi,
-        controller,
-        streamCallbacks,
-        true,
-      );
+        abortController: controller,
+        callbacks: streamCallbacks,
+      });
       if (!content && typeof response === "string") {
         content = response;
       }
@@ -229,6 +251,7 @@ export async function compactChatHistory(
     abortController,
     systemMessageTokens = 0,
     toolResultsCompacted = false,
+    summarize,
   } = options || {};
 
   const historyToUse = toolResultsCompacted
@@ -295,6 +318,12 @@ export async function compactChatHistory(
 
   const controller = abortController || new AbortController();
 
+  if (!summarize) {
+    throw new Error(
+      "Compaction has no summarizer: pass options.summarize to write the summary.",
+    );
+  }
+
   try {
     const summary = await generateCompactionSummary(
       historyToSummarize,
@@ -303,6 +332,7 @@ export async function compactChatHistory(
       llmApi,
       controller,
       callbacks,
+      summarize,
     );
     const compactionContent = summary.content;
 

@@ -38,6 +38,7 @@ import {
 import { safeStderr, safeStdout } from "../startup/init.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
+import { summarizeWithEngine } from "../stream/summarizeWithEngine.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { startTUIChat, type StartTUIChatOptions } from "../ui/index.js";
 import { suppressConsoleInfo } from "../utils/console.js";
@@ -167,7 +168,9 @@ async function handleManualCompaction(
 
   try {
     const current = services.chatHistory.getHistory();
-    const result = await compactChatHistory(current, model, llmApi);
+    const result = await compactChatHistory(current, model, llmApi, {
+      summarize: summarizeWithEngine,
+    });
 
     // Update service-driven history (persistence handled by service)
     services.chatHistory.compact(
