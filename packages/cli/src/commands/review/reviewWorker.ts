@@ -20,6 +20,7 @@ import { streamChatResponse } from "../../stream/streamChatResponse.js";
 
 import type { DiffContext } from "./diffContext.js";
 import { FINDINGS_CONTRACT } from "./findings.js";
+import { resolveReviewModelState } from "./reviewModel.js";
 import { captureWorktreeDiff } from "./worktree.js";
 
 export interface WorkerConfig {
@@ -35,6 +36,8 @@ export interface WorkerConfig {
     org?: string;
     rule?: string[];
     verbose?: boolean;
+    /** A model of its own, so a review need not spend the session's model. */
+    reviewModel?: string;
   };
 }
 
@@ -143,6 +146,11 @@ export async function runReviewWorker(): Promise<void> {
         throw new Error("Failed to initialize model service");
       }
 
+      const reviewState = await resolveReviewModelState(
+        { ...modelState, model: modelState.model, llmApi: modelState.llmApi },
+        config.options.reviewModel,
+      );
+
       // Build the review prompt
       const reviewPrompt = buildReviewPrompt(config.diffContext);
 
@@ -177,8 +185,8 @@ export async function runReviewWorker(): Promise<void> {
       const abortController = new AbortController();
       const response = await streamChatResponse(
         chatHistory,
-        modelState.model,
-        modelState.llmApi,
+        reviewState.model,
+        reviewState.llmApi,
         abortController,
       );
 
