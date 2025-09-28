@@ -108,6 +108,35 @@ describe("computeDiffContext", () => {
     expect(context.diff).toContain("+one");
     expect(context.changedFiles).toEqual(["a.txt"]);
   });
+  it("reviews an exact range as the range itself defines it", () => {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-review-range-"));
+    git(repo, ["init", "-b", "main"]);
+    git(repo, ["config", "user.email", "t@t"]);
+    git(repo, ["config", "user.name", "T"]);
+    fs.writeFileSync(path.join(repo, "a.txt"), "one\n");
+    git(repo, ["add", "a.txt"]);
+    git(repo, ["commit", "-m", "first"]);
+    fs.writeFileSync(path.join(repo, "a.txt"), "one\ntwo\n");
+    git(repo, ["commit", "-am", "second"]);
+    process.chdir(repo);
+
+    const context = computeDiffContext({ kind: "range", spec: "HEAD~1..HEAD" });
+
+    expect(context.baseBranch).toBe("HEAD~1..HEAD");
+    expect(context.diff).toContain("+two");
+    expect(context.diff).not.toContain("+one");
+    expect(context.changedFiles).toEqual(["a.txt"]);
+  });
+
+  it("leaves the working tree out of a three-dot range", () => {
+    const repo = makeDivergedRepo();
+    process.chdir(repo);
+
+    const context = computeDiffContext({ kind: "range", spec: "main...HEAD" });
+
+    expect(context.diff).toContain("+feature");
+    expect(context.diff).not.toContain("+local");
+  });
 });
 
 describe("worktreeOptionsForTarget", () => {
@@ -123,6 +152,11 @@ describe("worktreeOptionsForTarget", () => {
   it("leaves the worktree on the current state for the other targets", () => {
     expect(worktreeOptionsForTarget({ kind: "base" })).toEqual({});
     expect(worktreeOptionsForTarget({ kind: "uncommitted" })).toEqual({});
+    // A range has no single tree to pin to; its right side is where the code
+    // stands now.
+    expect(worktreeOptionsForTarget({ kind: "range", spec: "a..b" })).toEqual(
+      {},
+    );
   });
 });
 
@@ -154,6 +188,13 @@ describe("reviewTargetFromOptions", () => {
     });
   });
 
+  it("selects the range target", () => {
+    expect(reviewTargetFromOptions({ range: "main...HEAD" })).toEqual({
+      kind: "range",
+      spec: "main...HEAD",
+    });
+  });
+
   it("refuses two targets at once", () => {
     expect(() =>
       reviewTargetFromOptions({ base: "main", uncommitted: true }),
@@ -164,5 +205,11 @@ describe("reviewTargetFromOptions", () => {
     expect(() =>
       reviewTargetFromOptions({ uncommitted: true, commit: "abc" }),
     ).toThrow("--uncommitted and --commit cannot be combined");
+    expect(() =>
+      reviewTargetFromOptions({ base: "main", range: "a..b" }),
+    ).toThrow("--base and --range cannot be combined");
+    expect(() =>
+      reviewTargetFromOptions({ commit: "abc", range: "a..b" }),
+    ).toThrow("--commit and --range cannot be combined");
   });
 });
