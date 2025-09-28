@@ -119,4 +119,32 @@ describe("behaviour clauses in the system message", () => {
       message.indexOf("<env>"),
     );
   });
+
+  it("carries the clauses the first pass left out", async () => {
+    const message = await constructSystemMessage("agent", [], undefined);
+
+    // Work inside what the repository already has, and size the checking to
+    // what the change can reach.
+    expect(message).toMatch(/patterns and helpers the repository already has/);
+    expect(message).toMatch(/Scale the checking to the blast radius/);
+    // A tree with someone else's work in it is not yours to reset.
+    expect(message).toMatch(/Never undo a change you did not make/);
+    // The reader is not watching the reasoning, only the answer.
+    expect(message).toMatch(
+      /Do not narrate your own reasoning, and do not announce that a task needed no tools/,
+    );
+  });
+
+  it("tells the headless run that follow-ups come after the work", async () => {
+    const interactive = await constructSystemMessage("agent", [], undefined);
+    const headless = await constructSystemMessage("agent", [], undefined, true);
+
+    expect(headless).toMatch(
+      /Offer follow-ups after the work is done; asking permission before starting it is not the way/,
+    );
+    // It is a headless-only rule, so the TUI prompt must not carry it.
+    expect(interactive).not.toContain(
+      "Offer follow-ups after the work is done",
+    );
+  });
 });
