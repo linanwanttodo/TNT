@@ -105,6 +105,36 @@ describe("command hook exit codes", () => {
   });
 });
 
+describe("one handler failing next to another", () => {
+  it("keeps the block raised by the handler that still worked", async () => {
+    const result = await runHooks(
+      commands("exit 1", "echo 'no deploy on this branch' 1>&2; exit 2"),
+      toolCall(),
+      workDir,
+    );
+
+    expect(result.results).toHaveLength(2);
+    expect(result.blocked).toBe(true);
+    expect(result.blockReason).toBe("no deploy on this branch");
+  });
+
+  it("keeps the decision the handler that crashed never made", async () => {
+    const result = await runHooks(
+      commands(
+        "definitely-not-a-real-binary-xyz --flag",
+        `printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"ls -la"}}}'`,
+      ),
+      toolCall(),
+      workDir,
+    );
+
+    expect(result.results).toHaveLength(2);
+    expect(result.blocked).toBe(false);
+    expect(result.permissionDecision).toBe("allow");
+    expect(result.updatedInput).toEqual({ command: "ls -la" });
+  });
+});
+
 describe("command hook environment", () => {
   it("receives the hook payload on stdin", async () => {
     const result = await runHooks(commands(`cat`), toolCall("Read"), workDir);
