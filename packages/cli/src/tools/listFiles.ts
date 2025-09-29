@@ -10,7 +10,8 @@ import { Tool } from "./types.js";
 export const listFilesTool: Tool = {
   name: "List",
   displayName: "List",
-  description: "List files in a directory",
+  description:
+    "List the entries in one directory: each name, whether it is a file or a directory, and a file's size. It does not recurse and accepts no pattern, so finding a name anywhere in the project belongs in Bash ('find' or 'rg --files') and finding text inside files belongs in Search.",
   parameters: {
     type: "object",
     properties: {
