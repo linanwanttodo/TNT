@@ -160,13 +160,36 @@ describe("MultiEdit against a file that moved", () => {
     };
   }
 
+  it("applies none of the edits when one of them cannot be found", async () => {
+    const original = "const value = 1;\nexport const flag = 2;\n";
+    writeOnDisk(original);
+    await readWithTool();
+
+    let failure: unknown;
+    try {
+      await multiEditTool.preprocess!({
+        file_path: target,
+        edits: [
+          { old_string: "const value = 1;", new_string: "const value = 9;" },
+          { old_string: "export const missing = 7;", new_string: "x = 1;" },
+        ],
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(Error);
+    // The tool's own description promises this: a first edit that matched is
+    // not applied either, because half a MultiEdit is a file nobody asked for.
+    expect(fs.readFileSync(target, "utf-8")).toBe(original);
+  });
+
   it("refuses at write time when the file changed while approval was pending", async () => {
     writeOnDisk("const value = 1;\nexport const flag = 2;\n");
     await readWithTool();
     const planned = await multiEditTool.preprocess!(
       multiEditArgs("const value = 1;", "const value = 3;"),
     );
-
     writeOnDisk("const value = 1;\nexport const flag = 222;\n");
     const error = await multiEditTool.run!(planned.args).catch((e) => e);
 
