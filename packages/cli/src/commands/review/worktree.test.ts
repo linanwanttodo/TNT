@@ -32,6 +32,26 @@ describe("createWorktree", () => {
     process.chdir(previousCwd);
   });
 
+  it("carries an untracked file with a non-ascii name into the worktree", async () => {
+    const { repo } = makeRepo();
+    process.chdir(repo);
+    const name = `${String.fromCharCode(0x6d4b, 0x8bd5)}.ts`;
+    // git's default listing escapes such a name into a string that is no longer
+    // a path it can open, and the copy that fails to open it says nothing.
+    git(repo, ["config", "core.quotepath", "true"]);
+    fs.writeFileSync(path.join(repo, name), "export const draft = 1;\n");
+
+    const worktree = await createWorktree(9);
+    try {
+      expect(fs.existsSync(path.join(worktree, name))).toBe(true);
+      expect(fs.readFileSync(path.join(worktree, name), "utf-8")).toContain(
+        "draft = 1",
+      );
+    } finally {
+      await cleanupWorktree(worktree);
+    }
+  });
+
   it("mirrors the working tree into a worktree at HEAD by default", async () => {
     const { repo } = makeRepo();
     process.chdir(repo);
