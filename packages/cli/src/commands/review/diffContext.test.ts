@@ -95,6 +95,23 @@ describe("computeDiffContext", () => {
     expect(context.diff).toContain("(binary file, not shown)");
   });
 
+  it("reads an untracked file whose name is not ascii", () => {
+    const repo = makeDivergedRepo();
+    process.chdir(repo);
+    const name = `${String.fromCharCode(0x6d4b, 0x8bd5)}.ts`;
+    const line = `export const ${String.fromCharCode(0x503c)} = 1;`;
+    // The default git setting quotes non-ascii paths in its listing, and the
+    // quoted form is not a path that can be opened again. Without the override
+    // a Chinese file name is named in the review but its content never arrives.
+    git(repo, ["config", "core.quotepath", "true"]);
+    fs.writeFileSync(path.join(repo, name), `${line}\n`);
+
+    const context = computeDiffContext({ kind: "uncommitted" });
+
+    expect(context.changedFiles).toContain(name);
+    expect(context.diff).toContain(`+${line}`);
+  });
+
   it("leaves untracked work out of a commit review", () => {
     const repo = makeDivergedRepo();
     process.chdir(repo);

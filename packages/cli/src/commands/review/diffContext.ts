@@ -118,12 +118,19 @@ function detectDefaultBranch(): string {
  * reviewers treat it like any other addition, and a file that cannot be shown
  * is named instead of dropped without a word.
  */
+/**
+ * git escapes non-ascii paths in its listings, and the escaped form is not a
+ * path that can be opened again. Every listing this module reads back has to be
+ * in the plain form, or a Chinese or accented file name is named and never read.
+ */
+const GIT_PLAIN_PATHS = ["-c", "core.quotepath=off"];
+
 function collectUntracked(): { paths: string[]; patch: string } {
   let listed: string;
   try {
     listed = execFileSync(
       "git",
-      ["ls-files", "--others", "--exclude-standard"],
+      [...GIT_PLAIN_PATHS, "ls-files", "--others", "--exclude-standard"],
       {
         encoding: "utf-8",
         maxBuffer: 10 * 1024 * 1024,
@@ -204,7 +211,7 @@ function collectDiff(
 
   let changedFiles: string[] = [];
   try {
-    const fileList = execFileSync("git", nameForm, {
+    const fileList = execFileSync("git", [...GIT_PLAIN_PATHS, ...nameForm], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
