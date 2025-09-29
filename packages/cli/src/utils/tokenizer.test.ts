@@ -374,6 +374,9 @@ describe("tokenizer", () => {
         compactionThreshold: expectedThreshold,
         retainTokens: 128,
         shouldCompact: expect.any(Boolean),
+        // Nothing was measured for this call, so the number above is the local
+        // count and the log says which of the two it was.
+        fromMeasurement: false,
       });
     });
 
