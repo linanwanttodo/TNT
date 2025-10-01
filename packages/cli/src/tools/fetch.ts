@@ -23,7 +23,7 @@ export const fetchTool: Tool = {
   name: "Fetch",
   displayName: "Fetch",
   description:
-    "Fetches content from a URL, converts to markdown, and handles long content with truncation",
+    "Read one URL and return the page as markdown. A non-2xx response reports its status; a very long page is truncated and the result says how much. Scripts do not run, so a page that builds itself in the browser can come back nearly empty - that is not evidence that the page has nothing, so try another source or a deeper link rather than concluding. Fetches one URL per call.",
   parameters: {
     type: "object",
     required: ["url"],
