@@ -1,6 +1,7 @@
 import type { ToolPolicy } from "@tnt/terminal-security";
 
 import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
+import { parseApplyPatch } from "src/tools/applyPatch.js";
 
 import { bashCommandMatches } from "./bashCommandRule.js";
 import { isDocumentPath } from "./documentPath.js";
@@ -41,6 +42,30 @@ export function outsideWorkspaceNotice(filePath: unknown): string {
       ? filePath
       : "the path this call names";
   return `Outside the workspace: ${named} is not inside ${workspaceRoot()}. A write into another directory is the user's own decision, so approve this one or keep the write inside the workspace.`;
+}
+
+/**
+ * Every file a write call names. `Write` and `Edit` put one path in an argument,
+ * while `ApplyPatch` carries its paths inside the patch text - so a policy check
+ * that read only the argument would judge a patch that rewrites someone else's
+ * directory as a workspace-bound write, which is a dead rule. A patch this cannot
+ * read names nothing, and naming no destination is not the same as staying inside.
+ */
+function writtenPaths(toolArguments: any): string[] {
+  const single = toolArguments?.filepath ?? toolArguments?.file_path;
+  if (typeof single === "string" && single.trim() !== "") {
+    return [single];
+  }
+
+  if (typeof toolArguments?.patch === "string") {
+    try {
+      return parseApplyPatch(toolArguments.patch).map((file) => file.path);
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 }
 
 /**
@@ -175,8 +200,7 @@ export function checkToolPermission(
   // session may touch. A tool listing probe carries no path, and refusing
   // there would drop the tool from the request, so only a real call is judged.
   if (matchedPolicy?.docsOnly) {
-    const filePath =
-      toolCall.arguments?.filepath ?? toolCall.arguments?.file_path;
+    const targets = writtenPaths(toolCall.arguments);
     const hasArguments =
       typeof toolCall.arguments === "object" &&
       toolCall.arguments !== null &&
@@ -184,7 +208,8 @@ export function checkToolPermission(
 
     // A real call must name a documentation file. An argument shape that
     // carries no recognisable path is refused rather than assumed harmless.
-    if (hasArguments && !isDocumentPath(filePath)) {
+    const nonDocument = targets.filter((file) => !isDocumentPath(file));
+    if (hasArguments && (targets.length === 0 || nonDocument.length > 0)) {
       return {
         permission: "exclude",
         matchedPolicy,
@@ -199,18 +224,18 @@ export function checkToolPermission(
   // judged, because the tool listing probe carries no path and escalating there
   // would drop the write tools from the request entirely.
   if (matchedPolicy?.workspaceOnly) {
-    const filePath =
-      toolCall.arguments?.filepath ?? toolCall.arguments?.file_path;
+    const targets = writtenPaths(toolCall.arguments);
     const hasArguments =
       typeof toolCall.arguments === "object" &&
       toolCall.arguments !== null &&
       Object.keys(toolCall.arguments).length > 0;
 
-    if (hasArguments && !isWithinWorkspace(filePath)) {
+    const outside = targets.filter((file) => !isWithinWorkspace(file));
+    if (hasArguments && (targets.length === 0 || outside.length > 0)) {
       return {
         permission: "ask",
         matchedPolicy,
-        reason: outsideWorkspaceNotice(filePath),
+        reason: outsideWorkspaceNotice(outside[0]),
       };
     }
   }

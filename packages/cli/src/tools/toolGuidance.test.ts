@@ -4,6 +4,7 @@ import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
 import { generateSubagentToolDescription } from "../subagent/get-agents.js";
 
+import { applyPatchTool } from "./applyPatch.js";
 import { fetchTool } from "./fetch.js";
 import { globFilesTool } from "./globFiles.js";
 import { listFilesTool } from "./listFiles.js";
@@ -11,6 +12,7 @@ import { readFileTool } from "./readFile.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { searchCodeTool } from "./searchCode.js";
 import { todoTool } from "./todo.js";
+import { writeFileTool } from "./writeFile.js";
 
 import { getAllAvailableTools } from "./index.js";
 
@@ -100,6 +102,22 @@ describe("tool-level working rules", () => {
     expect(description).toContain("Never delegate understanding");
     expect(description).toContain("do not repeat its search");
     expect(description).toContain("file paths and line numbers");
+  });
+
+  it("sends a change that crosses files to one patch approved once", () => {
+    const patch = applyPatchTool.description;
+
+    // The two promises the model cannot infer from a single-file tool: the call
+    // covers the whole set, and a half-applicable set writes nothing at all.
+    expect(patch).toContain("several files in one step");
+    expect(patch).toContain("approved once");
+    expect(patch).toContain("nothing is written unless every file");
+    expect(patch).toContain("*** Begin Patch");
+    expect(patch).toContain("inside the workspace");
+
+    // Write has to hand the multi-file case over, or the model keeps calling it
+    // once per file and pays one approval per file.
+    expect(writeFileTool.description).toContain("prefer ApplyPatch");
   });
 
   describe("on the tools a run is actually offered", () => {

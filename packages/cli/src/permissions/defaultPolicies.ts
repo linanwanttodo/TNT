@@ -16,6 +16,7 @@ export function getDefaultToolPolicies(
     { tool: "Edit", permission: writePermission, workspaceOnly: true },
     { tool: "MultiEdit", permission: writePermission, workspaceOnly: true },
     { tool: "Write", permission: writePermission, workspaceOnly: true },
+    { tool: "ApplyPatch", permission: writePermission, workspaceOnly: true },
     { tool: "CheckBackgroundJob", permission: "allow" },
     { tool: "AskQuestion", permission: "allow" },
     { tool: "EnterPlanMode", permission: "allow" },
@@ -68,6 +69,12 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
     workspaceOnly: true,
   },
   { tool: "Write", permission: "allow", docsOnly: true, workspaceOnly: true },
+  {
+    tool: "ApplyPatch",
+    permission: "allow",
+    docsOnly: true,
+    workspaceOnly: true,
+  },
 
   // Plan mode promises the project is not modified, so shell commands are
   // allowed only while they cannot write. A command the classifier does not

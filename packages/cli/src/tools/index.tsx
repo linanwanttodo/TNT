@@ -17,6 +17,7 @@ import { telemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
 
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
+import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 import { codebaseSearchTool } from "./codebaseSearch.js";
@@ -145,7 +146,7 @@ export async function getAllAvailableTools(
   // Both edit tools are offered. Which one a model handles well cannot be
   // told from its name, and a project that wants only one can exclude the
   // other through the permission policies.
-  tools.push(editTool, multiEditTool);
+  tools.push(editTool, multiEditTool, applyPatchTool);
 
   if (isHeadless) {
     tools.push(exitTool);

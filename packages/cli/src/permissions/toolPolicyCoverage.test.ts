@@ -167,7 +167,7 @@ describe("tool policy coverage", () => {
   });
 
   it("keeps the write tools out of plan mode's reach", () => {
-    for (const name of ["Edit", "MultiEdit", "Write"]) {
+    for (const name of ["ApplyPatch", "Edit", "MultiEdit", "Write"]) {
       const policy = policyFor(plan, name);
       expect(policy, name).toBeDefined();
       // Plan mode may write documentation, so these are scoped rather than
@@ -179,7 +179,7 @@ describe("tool policy coverage", () => {
   it("keeps a write that leaves the workspace in front of a human", () => {
     // Headless allows the write tools, so the destination check is the only
     // thing standing between a runaway run and someone else's directory.
-    for (const name of ["Edit", "MultiEdit", "Write"]) {
+    for (const name of ["ApplyPatch", "Edit", "MultiEdit", "Write"]) {
       expect(policyFor(agent, name)?.workspaceOnly, `agent ${name}`).toBe(true);
       expect(policyFor(plan, name)?.workspaceOnly, `plan ${name}`).toBe(true);
     }
