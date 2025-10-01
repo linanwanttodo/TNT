@@ -1,5 +1,7 @@
 import chalk from "chalk";
 
+import { orderFindings, parseFindings, type Finding } from "./findings.js";
+
 export interface ReviewResult {
   /** Agent slug or local path */
   agent: string;
@@ -47,15 +49,25 @@ function renderJsonReport(
 
   return JSON.stringify(
     {
-      reviews: results.map((r) => ({
-        agent: r.agent,
-        name: r.name,
-        status: r.status,
-        patch: r.patch,
-        output: r.output,
-        duration: r.duration,
-        ...(r.error ? { error: r.error } : {}),
-      })),
+      reviews: results.map((r) => {
+        const parsed = parseFindings(r.output);
+
+        return {
+          agent: r.agent,
+          name: r.name,
+          status: r.status,
+          patch: r.patch,
+          output: r.output,
+          duration: r.duration,
+          // Structured for whoever pipes this into a tool; the prose above is
+          // untouched, so a consumer that reads the text still reads the same
+          // thing it did before this field existed.
+          ...(parsed && parsed.findings.length > 0
+            ? { findings: orderFindings(parsed.findings) }
+            : {}),
+          ...(r.error ? { error: r.error } : {}),
+        };
+      }),
       summary: {
         total: results.length,
         passed,
@@ -66,6 +78,13 @@ function renderJsonReport(
     null,
     2,
   );
+}
+
+/** One finding per line, severity first: the reader should not hunt for the place. */
+function findingLine(finding: Finding): string {
+  const where = finding.line ? `${finding.file}:${finding.line}` : finding.file;
+
+  return `${finding.severity}  ${where}  ${finding.message}`;
 }
 
 function renderTextReport(
@@ -96,8 +115,33 @@ function renderTextReport(
       lines.push(header);
       lines.push("");
 
-      if (result.output.trim()) {
-        lines.push(result.output.trim());
+      const parsed = parseFindings(result.output);
+      const ordered = parsed ? orderFindings(parsed.findings) : [];
+
+      if (ordered.length > 0) {
+        lines.push("### Findings");
+        for (const finding of ordered) {
+          lines.push(`- ${findingLine(finding)}`);
+        }
+        lines.push("");
+      }
+
+      // The block itself is a wire format, not something to read: what it said
+      // is in the list above, and a line the parser could not read is shown
+      // rather than dropped.
+      const prose = [
+        parsed
+          ? result.output
+              .replace(/<tnt-findings>[\s\S]*?<\/tnt-findings>/, "")
+              .trim()
+          : result.output.trim(),
+        (parsed?.unread ?? []).map((line) => `- ${line}`).join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      if (prose) {
+        lines.push(prose);
         lines.push("");
       }
 

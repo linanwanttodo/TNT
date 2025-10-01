@@ -19,6 +19,7 @@ import type { ModelServiceState } from "../../services/types.js";
 import { streamChatResponse } from "../../stream/streamChatResponse.js";
 
 import type { DiffContext } from "./diffContext.js";
+import { FINDINGS_CONTRACT } from "./findings.js";
 import { captureWorktreeDiff } from "./worktree.js";
 
 export interface WorkerConfig {
@@ -79,6 +80,11 @@ ${diffContext.diff || "(no diff available)"}
 - ONLY make edits to files listed in the changed files above, and only to fix violations of your specific review rules in the changed code.
 - Do NOT make general improvements, refactoring, documentation changes, or style fixes.
 - If there are no violations in the changed code, do NOT edit any files. State that no issues were found and exit.
+`;
+
+  prompt += `
+## Findings
+${FINDINGS_CONTRACT}
 `;
 
   return prompt;
