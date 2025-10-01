@@ -2,7 +2,19 @@ import { describe, expect, it } from "vitest";
 import { EditOperation } from "../../tools/definitions/multiEdit";
 import { ContinueErrorReason } from "../../util/errors";
 import { validateMultiEdit } from "./multiEditValidation";
-import { executeMultiFindAndReplace } from "./performReplace";
+import {
+  EARLY_EDIT_CAUSE_LINE,
+  executeMultiFindAndReplace,
+} from "./performReplace";
+
+function catchThrown(run: () => unknown): Error {
+  try {
+    run();
+  } catch (error) {
+    return error as Error;
+  }
+  throw new Error("expected the edit sequence to fail");
+}
 
 describe("multiEdit shared validation", () => {
   describe("validateMultiEdit", () => {
@@ -264,6 +276,38 @@ describe("multiEdit shared validation", () => {
           reason: ContinueErrorReason.FindAndReplaceOldStringNotFound,
         }),
       );
+    });
+
+    it("blames the earlier edit when it is what removed the text", () => {
+      // The buffer a later edit is searched against already holds the earlier
+      // edits, so "not found in the file" is the wrong answer when the text is
+      // still in the file as the model read it. Without the cause named it
+      // re-reads the file, finds the line, and retries the same edit forever.
+      const content = "Hello world\nGoodbye world";
+      const edits = [
+        { old_string: "Hello world", new_string: "Hi there" },
+        { old_string: "Hello world", new_string: "Hey" },
+      ];
+
+      const error = catchThrown(() =>
+        executeMultiFindAndReplace(content, edits),
+      );
+      expect(error.message).toContain("Edit at index 1");
+      expect(error.message).toContain(EARLY_EDIT_CAUSE_LINE);
+    });
+
+    it("does not blame an earlier edit for text the file never had", () => {
+      const content = "Hello world\nGoodbye world";
+      const edits = [
+        { old_string: "Hello world", new_string: "Hi there" },
+        { old_string: "never in the file", new_string: "Hey" },
+      ];
+
+      const error = catchThrown(() =>
+        executeMultiFindAndReplace(content, edits),
+      );
+      expect(error.message).toContain("Edit at index 1");
+      expect(error.message).not.toContain(EARLY_EDIT_CAUSE_LINE);
     });
 
     it("should handle whitespace differences using findSearchMatch", () => {
