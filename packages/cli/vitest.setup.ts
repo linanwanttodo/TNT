@@ -59,14 +59,28 @@ vi.mock("open", () => ({
 }));
 
 // Mock constructSystemMessage to avoid service container issues in tests
-vi.mock("./src/agent/systemMessage.js", () => ({
-  constructSystemMessage: vi
-    .fn()
-    .mockResolvedValue(
-      "You are an agent in the TNT CLI. Given the user's prompt, you should use the tools available to you to answer the user's question.",
-    ),
-  loadMarkdownRulesWithMetadata: vi.fn().mockReturnValue([]),
-}));
+// Only the two disk-touching exports are stubbed. The section helpers stay real,
+// because the system message service now builds through them, and a mock that
+// leaves an export out makes every suite that reaches the service fail on a
+// missing function instead of on a wrong expectation.
+vi.mock("./src/agent/systemMessage.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./src/agent/systemMessage.js")>();
+  const stubText =
+    "You are an agent in the TNT CLI. Given the user's prompt, you should use the tools available to you to answer the user's question.";
+  return {
+    ...actual,
+    constructSystemMessage: vi.fn().mockResolvedValue(stubText),
+    // The service builds through the sections and joins them, so the stub has to
+    // answer at that level too or a suite that never registered the config
+    // service reaches the real builder and fails on the container instead of on
+    // an assertion.
+    buildSystemMessageSections: vi
+      .fn()
+      .mockResolvedValue([{ name: "stub", text: stubText, volatile: false }]),
+    loadMarkdownRulesWithMetadata: vi.fn().mockReturnValue([]),
+  };
+});
 
 // NOTE: CONTINUE_GLOBAL_DIR is set to a unique per-worker temp dir in
 // ./vitest.global-dir-setup.ts (which runs first) to isolate the shared

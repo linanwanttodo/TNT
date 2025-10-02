@@ -5,10 +5,16 @@ import { SystemMessageService } from "./SystemMessageService.js";
 import { services } from "./index.js";
 const toolPermissionService = services.toolPermissions;
 
-// Mock the systemMessage module
-vi.mock("../agent/systemMessage.js", () => ({
-  constructSystemMessage: vi.fn(),
-}));
+// Mock the systemMessage module. Only the builder is stubbed - the join and the
+// change report are what the service wires together, so they stay real.
+vi.mock("../agent/systemMessage.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../agent/systemMessage.js")>();
+  return {
+    ...actual,
+    buildSystemMessageSections: vi.fn(),
+  };
+});
 
 // Mock the logger
 vi.mock("../utils/logger.js", () => ({
@@ -22,17 +28,20 @@ vi.mock("../utils/logger.js", () => ({
 
 describe("SystemMessageService", () => {
   let service: SystemMessageService;
-  let constructSystemMessageMock: any;
+  let buildSectionsMock: any;
+
+  /** A stub build: one section carrying the text the assertions expect back. */
+  const builtFrom = (text: string) => [{ name: "test", text, volatile: false }];
 
   beforeEach(async () => {
     // Reset mocks
     vi.clearAllMocks();
 
     // Get mock reference
-    const { constructSystemMessage } = await import(
+    const { buildSystemMessageSections } = await import(
       "../agent/systemMessage.js"
     );
-    constructSystemMessageMock = constructSystemMessage as any;
+    buildSectionsMock = buildSystemMessageSections as any;
 
     // Create new service instance
     service = new SystemMessageService();
@@ -64,20 +73,46 @@ describe("SystemMessageService", () => {
     });
   });
 
+  describe("change attribution", () => {
+    it("reports the section the last rebuild moved", async () => {
+      buildSectionsMock.mockResolvedValueOnce([
+        { name: "base", text: "A", volatile: false },
+      ]);
+      await service.getSystemMessage("agent");
+      expect(service.describeLastSystemMessageChange()).toBe("");
+
+      buildSectionsMock.mockResolvedValueOnce([
+        { name: "base", text: "A", volatile: false },
+        { name: "planMode", text: "P", volatile: true },
+      ]);
+      await service.getSystemMessage("plan");
+      expect(service.describeLastSystemMessageChange()).toBe("planMode added");
+
+      buildSectionsMock.mockResolvedValueOnce([
+        { name: "base", text: "A", volatile: false },
+        { name: "planMode", text: "P2", volatile: true },
+      ]);
+      await service.getSystemMessage("plan");
+      expect(service.describeLastSystemMessageChange()).toBe(
+        "planMode rewritten",
+      );
+    });
+  });
+
   describe("getSystemMessage", () => {
-    it("should call constructSystemMessage with current configuration and mode", async () => {
+    it("builds with the current configuration and mode", async () => {
       const config = {
         additionalRules: ["rule1"],
         format: "json" as const,
         headless: true,
       };
 
-      constructSystemMessageMock.mockResolvedValue("Test system message");
+      buildSectionsMock.mockResolvedValue(builtFrom("Test system message"));
 
       await service.initialize(config);
       const message = await service.getSystemMessage("agent");
 
-      expect(constructSystemMessageMock).toHaveBeenCalledWith(
+      expect(buildSectionsMock).toHaveBeenCalledWith(
         "agent", // Default mode
         ["rule1"],
         "json",
@@ -99,10 +134,10 @@ describe("SystemMessageService", () => {
         format: "json",
       });
 
-      constructSystemMessageMock.mockResolvedValue("Updated message");
+      buildSectionsMock.mockResolvedValue(builtFrom("Updated message"));
       await service.getSystemMessage("agent");
 
-      expect(constructSystemMessageMock).toHaveBeenCalledWith(
+      expect(buildSectionsMock).toHaveBeenCalledWith(
         "agent",
         ["rule1"],
         "json",
@@ -121,10 +156,10 @@ describe("SystemMessageService", () => {
         additionalRules: ["rule2", "rule3"],
       });
 
-      constructSystemMessageMock.mockResolvedValue("Updated message");
+      buildSectionsMock.mockResolvedValue(builtFrom("Updated message"));
       await service.getSystemMessage("agent");
 
-      expect(constructSystemMessageMock).toHaveBeenCalledWith(
+      expect(buildSectionsMock).toHaveBeenCalledWith(
         "agent",
         ["rule2", "rule3"],
         "json",
@@ -135,10 +170,8 @@ describe("SystemMessageService", () => {
   });
 
   describe("error handling", () => {
-    it("should handle constructSystemMessage errors gracefully", async () => {
-      constructSystemMessageMock.mockRejectedValue(
-        new Error("Failed to construct"),
-      );
+    it("lets a build failure reach the caller", async () => {
+      buildSectionsMock.mockRejectedValue(new Error("Failed to construct"));
 
       await service.initialize({});
 
