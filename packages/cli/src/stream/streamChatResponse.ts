@@ -709,13 +709,23 @@ export async function streamChatResponse(
       previous: previousSystemMessage,
       next: nextSystemMessage,
       supportsInHistoryUpdate:
-        model.chatOptions?.supportsInHistorySystemUpdates === true,
+        model.chatOptions?.supportsInHistorySystemUpdates,
+      carriesInHistory:
+        llmApi.carriesInHistorySystemMessages?.(model.model) === true,
       startsSeries: previousSystemMessage === undefined,
     });
     if (promptDecision.action === "append" && promptDecision.appendedPrompt) {
       systemMessageUpdates = [
         ...systemMessageUpdates,
         promptDecision.appendedPrompt,
+      ];
+    } else if (promptDecision.forcesUnsupportedDialect) {
+      logger.warn(
+        `Appending the changed system prompt for ${model.model}: this endpoint is not known to carry a second system message, so the update may be dropped by the provider.`,
+      );
+      systemMessageUpdates = [
+        ...systemMessageUpdates,
+        promptDecision.appendedPrompt as string,
       ];
     } else if (promptDecision.action === "rewrite") {
       systemMessageUpdates = [];
