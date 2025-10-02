@@ -11,6 +11,7 @@ import { listFilesTool } from "./listFiles.js";
 import { readFileTool } from "./readFile.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { searchCodeTool } from "./searchCode.js";
+import { SKILLS_TOOL_META } from "./skills.js";
 import { todoTool } from "./todo.js";
 import { writeFileTool } from "./writeFile.js";
 
@@ -118,6 +119,20 @@ describe("tool-level working rules", () => {
     // Write has to hand the multi-file case over, or the model keeps calling it
     // once per file and pays one approval per file.
     expect(writeFileTool.description).toContain("prefer ApplyPatch");
+  });
+
+  it("sends a task to its skill before the attempt, not after", () => {
+    const skills = SKILLS_TOOL_META.description;
+
+    // Measured against the implementation: the tool only reads the skill file
+    // and returns it, so the copy is the sole place that says what to do with
+    // it, that an invented name fails, and where the skill's extra files come
+    // from (the result's <skill_files>, opened with Read).
+    expect(skills).toContain("before starting the task");
+    expect(skills).toContain("the procedure to follow");
+    expect(skills).toContain("one of the skills listed");
+    expect(skills).toContain("does not need reading again");
+    expect(skills).toContain("open them with Read");
   });
 
   describe("on the tools a run is actually offered", () => {
