@@ -386,6 +386,10 @@ program
   .option("--patch", "Show patches")
   .option("--fail-fast", "Stop on first failure")
   .option("--review-agents <agents...>", "Specific review agents to run")
+  .option(
+    "--review-model <name>",
+    "Run the review agents on this model instead of the session model",
+  )
   .option("--verbose", "Enable verbose logging")
   .action(async (options) => {
     await review(options);

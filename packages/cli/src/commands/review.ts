@@ -36,6 +36,8 @@ export interface ReviewOptions extends ExtendedCommandOptions {
   patch?: boolean;
   failFast?: boolean;
   reviewAgents?: string[];
+  /** Run the agents on a model of their own instead of the session's. */
+  reviewModel?: string;
 }
 
 /**
@@ -92,6 +94,7 @@ async function runReviewInWorker(
             org: options.org,
             rule: options.rule,
             verbose: options.verbose,
+            reviewModel: options.reviewModel,
           },
         };
         child.send({ type: "run-review", config });
