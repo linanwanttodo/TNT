@@ -90,7 +90,7 @@ describe("headerEquals", () => {
         mode: "plan",
         maxTokens: 4096,
       }).differingFields.sort(),
-    ).toEqual(["maxTokens", "mode"]);
+    ).toEqual(["maxTokens"]);
   });
 
   it("is equal for the same header", () => {
@@ -99,9 +99,16 @@ describe("headerEquals", () => {
 });
 
 describe("foldRequestHeader", () => {
+  it("leaves the permission mode out of the identity", () => {
+    // `mode` is this CLI's own state and never reaches the provider, so folding
+    // it in made a mode switch look like a change in the billed bytes.
+    expect(
+      Object.keys(canonicalHeader({ ...base, mode: "plan" })),
+    ).not.toContain("mode");
+  });
+
   it("lists the fields in a stable order", () => {
     expect(foldRequestHeader(base).fields).toEqual([
-      "mode",
       "model",
       "systemMessage",
       "temperature",
