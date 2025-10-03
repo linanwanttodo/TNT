@@ -981,6 +981,39 @@ describe("documentation-only policy", () => {
     expect(result.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
   });
 
+  it("judges every path a patch names, not only an argument", () => {
+    const permissions: ToolPermissions = {
+      policies: [{ tool: "ApplyPatch", permission: "allow", docsOnly: true }],
+    };
+    const check = (patch: string) =>
+      checkToolPermission(
+        { name: "ApplyPatch", arguments: { patch } },
+        permissions,
+      );
+
+    const docsOnlyPatch = [
+      "*** Begin Patch",
+      "*** Update File: docs/plan.md",
+      "+# heading",
+      "*** Add File: docs/notes.md",
+      "+notes",
+      "*** End Patch",
+    ].join("\n");
+    expect(check(docsOnlyPatch).permission).toBe("allow");
+
+    const mixedPatch = [
+      "*** Begin Patch",
+      "*** Update File: docs/plan.md",
+      "+# heading",
+      "*** Update File: src/app.ts",
+      "+export const x = 1;",
+      "*** End Patch",
+    ].join("\n");
+    const result = check(mixedPatch);
+    expect(result.permission).toBe("exclude");
+    expect(result.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
+  });
+
   it("should not narrow write tools that omit the flag", () => {
     const result = checkToolPermission(
       { name: "Write", arguments: { filepath: "src/index.ts" } },
@@ -1047,6 +1080,63 @@ describe("workspace-only policy", () => {
     const result = checkToolPermission(
       { name: "Write", arguments: { content: "x" } },
       permissions,
+    );
+
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toContain("the path this call names");
+  });
+
+  it("escalates a patch whose last path leaves the workspace", () => {
+    const patch = [
+      "*** Begin Patch",
+      "*** Update File: docs/plan.md",
+      "+# heading",
+      `*** Update File: ${outside}`,
+      "+x",
+      "*** End Patch",
+    ].join("\n");
+
+    const result = checkToolPermission(
+      { name: "ApplyPatch", arguments: { patch } },
+      {
+        policies: [
+          { tool: "ApplyPatch", permission: "allow", workspaceOnly: true },
+        ],
+      },
+    );
+
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toContain(outside);
+  });
+
+  it("leaves a patch that stays inside the workspace allowed", () => {
+    const patch = [
+      "*** Begin Patch",
+      "*** Update File: docs/plan.md",
+      "+# heading",
+      "*** End Patch",
+    ].join("\n");
+
+    const result = checkToolPermission(
+      { name: "ApplyPatch", arguments: { patch } },
+      {
+        policies: [
+          { tool: "ApplyPatch", permission: "allow", workspaceOnly: true },
+        ],
+      },
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("escalates a patch it cannot read", () => {
+    const result = checkToolPermission(
+      { name: "ApplyPatch", arguments: { patch: "not a patch" } },
+      {
+        policies: [
+          { tool: "ApplyPatch", permission: "allow", workspaceOnly: true },
+        ],
+      },
     );
 
     expect(result.permission).toBe("ask");

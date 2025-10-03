@@ -159,6 +159,9 @@ export const TOOL_CONCURRENCY: Record<string, Concurrency> = {
   Write: { kind: "keyed", keysFrom: keysFromPathArgument },
   Edit: { kind: "keyed", keysFrom: keysFromPathArgument },
   MultiEdit: { kind: "keyed", keysFrom: keysFromPathArgument },
+  // A patch names its files inside the patch text rather than in an argument,
+  // so no key resolves and the call takes the global slot: a patch never
+  // interleaves with another patch or with an edit to one of its files.
   ApplyPatch: { kind: "keyed", keysFrom: keysFromPathArgument },
   Create: { kind: "keyed", keysFrom: keysFromPathArgument },
 
