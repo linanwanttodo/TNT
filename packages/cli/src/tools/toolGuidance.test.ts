@@ -4,8 +4,10 @@ import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
 import { generateSubagentToolDescription } from "../subagent/get-agents.js";
 
+import { listFilesTool } from "./listFiles.js";
 import { readFileTool } from "./readFile.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
+import { searchCodeTool } from "./searchCode.js";
 import { todoTool } from "./todo.js";
 
 import { getAllAvailableTools } from "./index.js";
@@ -21,6 +23,19 @@ describe("tool-level working rules", () => {
       "Edit, MultiEdit or Write, not sed, awk or 'echo >'",
     );
     expect(bash).toContain("not in echo or printf");
+  });
+
+  it("splits file lookup from content search, and says where List stops", () => {
+    const list = listFilesTool.description;
+    const search = searchCodeTool.description;
+
+    // The pair is the mix-up the reference calls out: listing a tree to find a
+    // string, or grepping for a file name. List has to say it is one level deep,
+    // or a recursive lookup is answered with a single directory.
+    expect(list).toContain("one directory");
+    expect(list).toContain("does not recurse");
+    expect(list).toContain("rg --files");
+    expect(search).toContain("content of files, not their names");
   });
 
   it("states the shell hygiene the reference insists on", () => {

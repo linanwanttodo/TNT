@@ -145,7 +145,7 @@ export const searchCodeTool: Tool = {
   name: "Search",
   displayName: "Search",
   description: `Search the codebase using ripgrep (rg) for a specific pattern.
-Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with head_limit, and drops any match line longer than ${DEFAULT_SEARCH_MAX_RESULT_CHARS} characters - when it drops something, the result says so rather than claiming there were no matches.`,
+Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with head_limit, and drops any match line longer than ${DEFAULT_SEARCH_MAX_RESULT_CHARS} characters - when it drops something, the result says so rather than claiming there were no matches. It searches the content of files, not their names: file names in one directory come from List, and a name lookup across the tree from Bash.`,
   parameters: {
     type: "object",
     required: ["pattern"],
