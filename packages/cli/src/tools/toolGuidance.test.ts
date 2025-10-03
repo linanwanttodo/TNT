@@ -4,6 +4,8 @@ import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
 import { generateSubagentToolDescription } from "../subagent/get-agents.js";
 
+import { fetchTool } from "./fetch.js";
+import { globFilesTool } from "./globFiles.js";
 import { listFilesTool } from "./listFiles.js";
 import { readFileTool } from "./readFile.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
@@ -36,6 +38,24 @@ describe("tool-level working rules", () => {
     expect(list).toContain("does not recurse");
     expect(list).toContain("rg --files");
     expect(search).toContain("content of files, not their names");
+
+    // Glob is the third member of the pair: names at depth, so the sentence that
+    // sends a lookup to it has to be in its own copy as well.
+    expect(globFilesTool.description).toContain("by name pattern at any depth");
+    expect(globFilesTool.description).toContain("honours .gitignore");
+    expect(globFilesTool.description).toContain("newest");
+  });
+
+  it("says what a fetch brings back and what it cannot", () => {
+    const fetchCopy = fetchTool.description;
+
+    // The three things worth knowing before the call: the page arrives as
+    // markdown, a page built by scripts arrives nearly empty, and an empty
+    // answer is about the fetcher, not about the topic.
+    expect(fetchCopy).toContain("markdown");
+    expect(fetchCopy).toContain("Scripts do not run");
+    expect(fetchCopy).toContain("not evidence that the page has nothing");
+    expect(fetchCopy).toContain("truncated");
   });
 
   it("states the shell hygiene the reference insists on", () => {
