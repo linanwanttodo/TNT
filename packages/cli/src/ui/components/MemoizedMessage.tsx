@@ -3,7 +3,10 @@ import React, { memo } from "react";
 
 import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
 
-import type { ChatHistoryItem } from "../../../../../core/index.js";
+import type {
+  ChatHistoryItem,
+  ToolCallState,
+} from "../../../../../core/index.js";
 import { t } from "../../i18n/index.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { ToolResultSummary } from "../ToolResultSummary.js";
@@ -42,6 +45,35 @@ function formatMessageContentForDisplay(
   }
 
   return displayText;
+}
+
+/**
+ * The part of a tool state this component actually renders, as one string.
+ *
+ * The memo comparator used to serialize the entire state, which put the size of
+ * every tool result on the critical path of each frame of a streamed turn. Output
+ * is counted here rather than read, because it is the only field nobody can
+ * bound - and a result arrives once, it is not rewritten in place.
+ */
+export function toolStateSignature(
+  states: ToolCallState[] | undefined,
+): string {
+  if (!states || states.length === 0) return "";
+
+  let signature = "";
+  for (const state of states) {
+    let outputChars = 0;
+    for (const item of state.output ?? []) {
+      outputChars += item.content.length;
+    }
+
+    signature +=
+      `${state.toolCallId}:${state.status}:` +
+      `${state.toolCall.function.name}:` +
+      `${JSON.stringify(state.parsedArgs ?? null)}:${outputChars};`;
+  }
+
+  return signature;
 }
 
 interface MemoizedMessageProps {
@@ -184,7 +216,8 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
     return (
       prevMessage.content === nextMessage.content &&
       prevMessage.role === nextMessage.role &&
-      JSON.stringify(prevToolStates) === JSON.stringify(nextToolStates) &&
+      toolStateSignature(prevToolStates) ===
+        toolStateSignature(nextToolStates) &&
       prevProps.item.conversationSummary ===
         nextProps.item.conversationSummary &&
       prevProps.index === nextProps.index &&
