@@ -30,6 +30,8 @@ import {
 import { formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
 
+import { summarizeWithEngine } from "./summarizeWithEngine.js";
+
 const compactionStateBySession = new WeakMap<Session, AutoCompactionState>();
 
 function getCompactionState(session: Session): AutoCompactionState {
@@ -314,6 +316,7 @@ export async function handleAutoCompaction(
             },
         systemMessageTokens,
         toolResultsCompacted: true,
+        summarize: summarizeWithEngine,
       },
     );
 

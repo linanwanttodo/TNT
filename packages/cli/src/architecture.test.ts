@@ -25,7 +25,6 @@ const KNOWN_MUTUAL_COUPLING = [
   "agent <-> services",
   "commands <-> services",
   "commands <-> ui",
-  "compaction <-> stream",
   "config <-> i18n",
   "config <-> permissions",
   "config <-> platform",

@@ -56,7 +56,22 @@ describe("context percentage after compaction", () => {
     const history = buildLongHistory();
     const before = usagePercentage(history);
 
-    const result = await compactChatHistory(history, model, {} as BaseLlmApi);
+    const result = await compactChatHistory(history, model, {} as BaseLlmApi, {
+      // The wiring production uses: the mocked engine handed down as the
+      // summarizer, so the recap below still comes from `mockImplementation`.
+      summarize: async (request) => {
+        const response = await streamChatResponse(
+          request.history,
+          request.model,
+          request.llmApi,
+          request.abortController,
+          request.callbacks,
+          true,
+        );
+
+        return typeof response === "string" ? response : "";
+      },
+    });
 
     const after = usagePercentage(result.compactedHistory);
 
