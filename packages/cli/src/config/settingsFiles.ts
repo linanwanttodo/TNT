@@ -6,6 +6,8 @@ import { writeFileAtomically } from "core/util/atomicWrite.js";
 
 import { getPluginSettingsBase } from "../plugins/pluginSettings.js";
 
+import { globalDir } from "./globalDir.js";
+
 /**
  * The settings files TNT reads, lowest precedence first. Hooks and the
  * session defaults both come from here, so the list exists once: a second copy
@@ -16,8 +18,7 @@ export function getSettingsFilePaths(
   homeDir?: string,
 ): string[] {
   const home = homeDir ?? os.homedir();
-  const continueHome =
-    process.env.CONTINUE_GLOBAL_DIR || path.join(home, ".tnt");
+  const continueHome = globalDir(home);
 
   return [
     // User-global (lowest precedence)
