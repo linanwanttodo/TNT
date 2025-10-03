@@ -26,6 +26,7 @@ import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
 import { fetchTool } from "./fetch.js";
 import { findSymbolTool } from "./findSymbol.js";
+import { globFilesTool } from "./globFiles.js";
 import { hoverTool } from "./hover.js";
 import { listFilesTool } from "./listFiles.js";
 import { multiEditTool } from "./multiEdit.js";
@@ -84,7 +85,7 @@ const BASE_BUILTIN_TOOLS: Tool[] = [
   exitPlanModeTool,
 ];
 
-const BUILTIN_SEARCH_TOOLS: Tool[] = [searchCodeTool];
+const BUILTIN_SEARCH_TOOLS: Tool[] = [searchCodeTool, globFilesTool];
 
 /**
  * Tools that need nothing outside the workspace to answer. The language-server
