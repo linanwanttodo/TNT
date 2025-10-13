@@ -1,4 +1,8 @@
-import { validateFlags, handleValidationErrors } from "./flagValidator.js";
+import {
+  validateFlags,
+  validateServeFlags,
+  handleValidationErrors,
+} from "./flagValidator.js";
 
 describe("validateFlags", () => {
   describe("format flag validation", () => {
@@ -253,5 +257,31 @@ describe("handleValidationErrors", () => {
       expect(Array.isArray(errorArray)).toBe(true);
       expect(errorArray.every((e) => e.code && e.message)).toBe(true);
     }).not.toThrow();
+  });
+});
+
+describe("validateServeFlags", () => {
+  it("accepts the defaults the option text promises", () => {
+    expect(validateServeFlags({ port: "8000", timeout: "300" })).toEqual({
+      isValid: true,
+      errors: [],
+    });
+    expect(validateServeFlags({}).isValid).toBe(true);
+  });
+
+  it("refuses a port that is not a number the socket layer can use", () => {
+    const result = validateServeFlags({ port: "abc" });
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0].message).toContain("--port expects a whole number");
+    expect(result.errors[0].message).toContain('"abc"');
+
+    expect(validateServeFlags({ port: "65536" }).isValid).toBe(false);
+    expect(validateServeFlags({ port: "0" }).isValid).toBe(false);
+    expect(validateServeFlags({ port: "80.5" }).isValid).toBe(false);
+  });
+
+  it("refuses a timeout that cannot be a duration", () => {
+    expect(validateServeFlags({ timeout: "-1" }).isValid).toBe(false);
+    expect(validateServeFlags({ timeout: "5m" }).isValid).toBe(false);
   });
 });

@@ -12,6 +12,7 @@ import { review } from "./commands/review.js";
 import { serve } from "./commands/serve.js";
 import {
   handleValidationErrors,
+  validateServeFlags,
   validateFlags,
 } from "./config/flagValidator.js";
 import {
@@ -347,6 +348,11 @@ program
   .action(async (prompt, options) => {
     // Merge parent options with subcommand options
     const mergedOptions = mergeParentOptions(program, options);
+
+    const serveValidation = validateServeFlags(mergedOptions);
+    if (!serveValidation.isValid) {
+      handleValidationErrors(serveValidation.errors);
+    }
 
     if (mergedOptions.verbose) {
       logger.setLevel("debug");
