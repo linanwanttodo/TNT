@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Skill } from "../utils/loadMarkdownSkills.js";
 
-import { skillsTool } from "./skills.js";
+import { SKILLS_INTRO, SKILLS_TOOL_META, skillsTool } from "./skills.js";
 
 vi.mock("../utils/loadMarkdownSkills.js");
 vi.mock("../utils/logger.js");
@@ -41,6 +41,32 @@ describe("skillsTool", () => {
     const tool = await skillsTool();
     expect(tool.description).toContain("test-skill");
     expect(tool.description).toContain("skill-with-files");
+  });
+
+  it("is offered as a read-only tool", async () => {
+    // Reading a skill changes nothing in the project, and the metadata is what
+    // the policy coverage guard uses to insist a read-only tool stays allowed in
+    // both agent and plan mode. Marking it writable loses that check.
+    expect(SKILLS_TOOL_META.readonly).toBe(true);
+    expect((await skillsTool()).readonly).toBe(true);
+  });
+
+  it("hands the same rules to the offered tool", async () => {
+    // One source for the copy: the metadata and the dynamic tool must not drift
+    // into two descriptions of the same call.
+    const tool = await skillsTool();
+    expect(tool.description.startsWith(SKILLS_INTRO)).toBe(true);
+    expect(tool.description).toContain("name: test-skill");
+  });
+
+  it("says so when the workspace has no skills", async () => {
+    const { loadMarkdownSkills } = await import(
+      "../utils/loadMarkdownSkills.js"
+    );
+    vi.mocked(loadMarkdownSkills).mockResolvedValue({ skills: [], errors: [] });
+
+    const tool = await skillsTool();
+    expect(tool.description).toContain("No skills are installed");
   });
 
   describe("preprocess", () => {

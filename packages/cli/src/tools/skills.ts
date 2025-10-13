@@ -3,14 +3,26 @@ import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { loadMarkdownSkills } from "../utils/loadMarkdownSkills.js";
 import { logger } from "../utils/logger.js";
 
+import { readFileTool } from "./readFile.js";
 import { Tool } from "./types.js";
+
+/**
+ * The rules that decide whether a skill call is worth making. They live here
+ * rather than in the system prompt because the model reads them at the moment it
+ * picks this call, and the skill registry below is the same static text for the
+ * whole session, so the cached prompt prefix survives it.
+ */
+export const SKILLS_INTRO = `Read a skill before starting the task it describes, not after the attempt has gone wrong: the skill is the procedure to follow, not background reading.
+The skill name has to be one of the skills listed below. A name you invent fails and costs the turn, because the answer is only the list this run has.
+A skill you already read in this session does not need reading again; its text is still in the conversation. When a skill ships extra files, the result names them and you open them with Read.`;
 
 export const SKILLS_TOOL_META: Tool = {
   name: "Skills",
   displayName: "Skills",
-  description:
-    "Use this tool to read the content of a skill by its name. Skills contain detailed instructions for specific tasks.",
-  readonly: false,
+  description: SKILLS_INTRO,
+  // Reading a skill changes nothing in the project, and the policy coverage
+  // guard uses this flag to insist a read-only tool stays allowed in both modes.
+  readonly: true,
   isBuiltIn: true,
   parameters: {
     type: "object",
@@ -32,31 +44,25 @@ export const skillsTool = async (): Promise<Tool> => {
   return {
     ...SKILLS_TOOL_META,
 
-    description: `Use this tool to read the content of a skill by its name. Skills contain detailed instructions for specific tasks. The skill name should match one of the available skills listed below:
-${skills.map((skill) => `\nname: ${skill.name}\ndescription: ${skill.description}\n`)}`,
-
-    preprocess: async (args: any) => {
-      const { skill_name } = args;
-
-      return {
-        args,
-        preview: [
-          {
-            type: "text",
-            content: `Reading skill: ${skill_name}`,
-          },
-        ],
-      };
-    },
-
+    description: `${SKILLS_INTRO}
+${
+  skills.length > 0
+    ? skills
+        .map(
+          (skill) =>
+            `\nname: ${skill.name}\ndescription: ${skill.description}\n`,
+        )
+        .join("")
+    : "No skills are installed for this workspace, so there is nothing for this tool to read."
+}`,
     run: async (args: any, context?: { toolCallId: string }) => {
       const { skill_name } = args;
 
       logger.debug("skill args", { args, context });
 
-      const skill = skills.find((s) => s.name === skill_name);
+      const skill = skills.find((sk) => sk.name === skill_name);
       if (!skill) {
-        const availableSkills = skills.map((s) => s.name).join(", ");
+        const availableSkills = skills.map((sk) => sk.name).join(", ");
         throw new ContinueError(
           ContinueErrorReason.SkillNotFound,
           `Skill "${skill_name}" not found. Available skills: ${availableSkills || "none"}`,
@@ -72,11 +78,25 @@ ${skills.map((skill) => `\nname: ${skill.name}\ndescription: ${skill.description
       if (skill.files.length > 0) {
         content.push(
           `<skill_files>${skill.files.join(",")}</skill_files>`,
-          `<other_instructions>Use the read file tool to access skill files as needed.</other_instructions>`,
+          `<other_instructions>Use the ${readFileTool.name} tool to access skill files as needed.</other_instructions>`,
         );
       }
 
       return content.join("\n");
+    },
+
+    preprocess: async (args: any) => {
+      const { skill_name } = args;
+
+      return {
+        args,
+        preview: [
+          {
+            type: "text",
+            content: `Reading skill: ${skill_name}`,
+          },
+        ],
+      };
     },
   };
 };
