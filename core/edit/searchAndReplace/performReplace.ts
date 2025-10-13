@@ -147,6 +147,14 @@ export function executeFindAndReplace(
   }
 }
 
+/**
+ * Names the cause when an edit cannot find text that the file still holds: the
+ * search runs against the buffer the earlier edits already produced, so "not
+ * found in the file" is the wrong answer and retries the same edit forever.
+ */
+export const EARLY_EDIT_CAUSE_LINE =
+  "An earlier edit in this call changed the text this edit looks for. It is still in the file as you read it, but not after the edits before it - search for the text the earlier edit produced, or move this one ahead of it.";
+
 export function executeMultiFindAndReplace(
   fileContent: string,
   edits: EditOperation[],
@@ -156,13 +164,29 @@ export function executeMultiFindAndReplace(
   // Apply edits in sequence
   for (let editIndex = 0; editIndex < edits.length; editIndex++) {
     const edit = edits[editIndex];
-    result = executeFindAndReplace(
-      result,
-      edit.old_string,
-      edit.new_string,
-      edit.replace_all ?? false,
-      editIndex,
-    );
+    try {
+      result = executeFindAndReplace(
+        result,
+        edit.old_string,
+        edit.new_string,
+        edit.replace_all ?? false,
+        editIndex,
+      );
+    } catch (error) {
+      if (
+        error instanceof ContinueError &&
+        error.reason === ContinueErrorReason.FindAndReplaceOldStringNotFound &&
+        editIndex > 0 &&
+        result !== fileContent &&
+        findSearchMatches(fileContent, edit.old_string).length > 0
+      ) {
+        throw new ContinueError(
+          error.reason,
+          `${error.message}\n${EARLY_EDIT_CAUSE_LINE}`,
+        );
+      }
+      throw error;
+    }
   }
 
   return result;
