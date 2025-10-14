@@ -92,6 +92,16 @@ export class OpenAIApi implements BaseLlmApi {
     return body;
   }
 
+  /**
+   * The chat body forwards every message, so an appended system message arrives.
+   * The Responses route is not declared: its input items do not carry a system
+   * role in the same way, and an unverified claim is exactly what loses an
+   * instruction quietly.
+   */
+  carriesInHistorySystemMessages(model: string): boolean {
+    return !this.shouldUseResponsesEndpoint(model);
+  }
+
   protected shouldUseResponsesEndpoint(model: string): boolean {
     if (this.config.useResponsesApi === false) {
       return false;

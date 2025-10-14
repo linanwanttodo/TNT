@@ -53,8 +53,63 @@ describe("decideSystemPrompt", () => {
         previous: "old",
         next: "new",
         supportsInHistoryUpdate: true,
+        carriesInHistory: true,
         startsSeries: false,
       }),
     ).toEqual({ action: "append", appendedPrompt: "new" });
+  });
+
+  describe("who says the dialect can carry it", () => {
+    it("appends when the adapter declares it and nothing was configured", () => {
+      expect(
+        decideSystemPrompt({
+          previous: "A",
+          next: "B",
+          carriesInHistory: true,
+          startsSeries: false,
+        }),
+      ).toEqual({ action: "append", appendedPrompt: "B" });
+    });
+
+    it("rewrites when the adapter does not declare it and nothing was configured", () => {
+      // The hoisting adapters keep only the first system message, so an append
+      // there would drop the instruction rather than delay it.
+      expect(
+        decideSystemPrompt({
+          previous: "A",
+          next: "B",
+          carriesInHistory: false,
+          startsSeries: false,
+        }).action,
+      ).toBe("rewrite");
+      expect(
+        decideSystemPrompt({ previous: "A", next: "B", startsSeries: false })
+          .action,
+      ).toBe("rewrite");
+    });
+
+    it("appends on a declared false when the configuration insists, and says so", () => {
+      const decision = decideSystemPrompt({
+        previous: "A",
+        next: "B",
+        supportsInHistoryUpdate: true,
+        carriesInHistory: false,
+        startsSeries: false,
+      });
+      expect(decision.action).toBe("append");
+      expect(decision.forcesUnsupportedDialect).toBe(true);
+    });
+
+    it("lets the configuration refuse even a willing dialect", () => {
+      expect(
+        decideSystemPrompt({
+          previous: "A",
+          next: "B",
+          supportsInHistoryUpdate: false,
+          carriesInHistory: true,
+          startsSeries: false,
+        }).action,
+      ).toBe("rewrite");
+    });
   });
 });
