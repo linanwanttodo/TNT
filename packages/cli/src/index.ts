@@ -402,7 +402,21 @@ program
   )
   .option("--verbose", "Enable verbose logging")
   .action(async (options) => {
-    await review(options);
+    // `--format` is declared by the root command as well, and the subcommand's
+    // copy of a colliding value-name is not what commander hands to this action:
+    // `tnt review --format json` used to arrive with no format at all, so the
+    // JSON review output was unreachable from the command line. Read whichever
+    // of the two actually holds a value, and refuse a value no format explains.
+    const requestedFormat = options.format ?? program.opts().format;
+    if (requestedFormat !== undefined && requestedFormat !== "json") {
+      handleValidationErrors([
+        {
+          code: "INVALID_REVIEW_FORMAT",
+          message: `Error: Unsupported --format "${requestedFormat}" for tnt review. Expected: json`,
+        },
+      ]);
+    }
+    await review({ ...options, format: requestedFormat });
   });
 
 // Handle unknown commands
