@@ -212,6 +212,12 @@ export function describePrefixDiff(
       "rewritten between rounds, so the cached messages no longer line up";
   }
 
+  // `mode` is not part of the prefix, but a break that happens while the mode
+  // changed is worth reading with that context, so it is recorded alongside a
+  // real reason rather than counted as one.
+  if (Object.keys(diff).length > 0 && previous.mode !== current.mode) {
+    diff.mode = { before: previous.mode ?? null, after: current.mode ?? null };
+  }
   return diff;
 }
 

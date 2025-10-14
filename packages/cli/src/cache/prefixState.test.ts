@@ -97,10 +97,26 @@ describe("classifyCachePrefix", () => {
     });
   });
 
-  it("blames the mode when the permission mode moved", () => {
+  it("does not blame a permission mode the provider never sees", () => {
+    // The billed prefix is the bytes that were sent. A mode switch that leaves
+    // them alone is not a cache miss, and claiming it was made the metric lie
+    // exactly where the append path now avoids the miss.
     expect(classifyCachePrefix(base, { ...base, mode: "plan" })).toEqual({
+      state: "full",
+      reasons: [],
+    });
+  });
+
+  it("blames the system message when the mode moved the prompt text", () => {
+    expect(
+      classifyCachePrefix(base, {
+        ...base,
+        mode: "plan",
+        systemMessage: `${base.systemMessage} plan rules`,
+      }),
+    ).toEqual({
       state: "invalidated",
-      reasons: ["mode"],
+      reasons: ["systemMessage"],
     });
   });
 
@@ -111,7 +127,7 @@ describe("classifyCachePrefix", () => {
         model: "deepseek-reasoner",
         mode: "plan",
       }),
-    ).toEqual({ state: "invalidated", reasons: ["model", "mode"] });
+    ).toEqual({ state: "invalidated", reasons: ["model"] });
   });
 
   it("reports nothing when neither a previous request nor a rewrite exists", () => {
@@ -142,14 +158,14 @@ describe("classifyCachePrefix", () => {
     expect(
       classifyCachePrefix(
         base,
-        { ...base, mode: "plan" },
+        { ...base, systemMessage: `${base.systemMessage} more` },
         {
           historyRewritten: true,
         },
       ),
     ).toEqual({
       state: "invalidated",
-      reasons: ["mode", HISTORY_REWRITTEN],
+      reasons: ["systemMessage", HISTORY_REWRITTEN],
     });
   });
 });

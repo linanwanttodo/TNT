@@ -53,7 +53,6 @@ const FROZEN_FIELDS = [
   "systemMessage",
   "temperature",
   "maxTokens",
-  "mode",
 ] as const;
 
 const APPENDED_UPDATES = "appended:systemMessageUpdates";

@@ -101,6 +101,18 @@ describe("assessCacheBreak", () => {
 });
 
 describe("describePrefixDiff", () => {
+  it("records the mode as context for a break that really happened", () => {
+    const diff = describePrefixDiff(
+      header({ mode: "agent" }),
+      header({ mode: "plan", systemMessage: "line one\nline two moved" }),
+      ["systemMessage"],
+    ) as any;
+
+    // The mode is not a reason - it never reaches the provider - but a reader of
+    // the break file wants to know the session had switched.
+    expect(diff.mode).toEqual({ before: "agent", after: "plan" });
+  });
+
   it("names the part of the prefix that moved", () => {
     const withRules = (rules: string) =>
       header({

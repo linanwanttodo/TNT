@@ -42,7 +42,6 @@ export function canonicalHeader(header: RequestHeader): CanonicalRequestHeader {
       ? {}
       : { temperature: header.temperature }),
     ...(header.maxTokens === undefined ? {} : { maxTokens: header.maxTokens }),
-    ...(header.mode === undefined ? {} : { mode: header.mode }),
   };
 }
 
@@ -65,7 +64,6 @@ export function headerEquals(
     "tools",
     "temperature",
     "maxTokens",
-    "mode",
   ];
 
   const differingFields = fields.filter(
