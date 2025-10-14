@@ -1,5 +1,10 @@
 import { isPromptProfile } from "../agent/promptProfiles.js";
-import { constructSystemMessage } from "../agent/systemMessage.js";
+import {
+  buildSystemMessageSections,
+  describeSystemMessageChange,
+  joinSystemMessageSections,
+  SystemMessageSection,
+} from "../agent/systemMessage.js";
 import type { OutputFormat } from "../config/outputFormat.js";
 import { PermissionMode } from "../permissions/types.js";
 import { getSessionPromptProfile } from "../session/index.js";
@@ -19,6 +24,9 @@ export interface SystemMessageServiceState {
  * Provides fresh system messages that reflect current mode and configuration
  */
 export class SystemMessageService extends BaseService<SystemMessageServiceState> {
+  private lastSections: readonly SystemMessageSection[] = [];
+  private lastChange = "";
+
   constructor() {
     super("SystemMessageService", {});
   }
@@ -53,7 +61,7 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
     const { additionalRules, format, headless } = this.currentState;
 
     const storedProfile = getSessionPromptProfile();
-    const systemMessage = await constructSystemMessage(
+    const sections = await buildSystemMessageSections(
       currentMode,
       additionalRules,
       format,
@@ -64,6 +72,17 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
         ? storedProfile
         : undefined,
     );
+    const systemMessage = joinSystemMessageSections(sections);
+
+    // Recorded here rather than at the request site because this is the only
+    // place both the previous and the new build exist.
+    // The first build of a session is not a move: there is no cached prefix
+    // before it to rebill.
+    this.lastChange =
+      this.lastSections.length === 0
+        ? ""
+        : describeSystemMessageChange(this.lastSections, sections);
+    this.lastSections = sections;
 
     logger.debug("Generated fresh system message", {
       mode: currentMode,
@@ -71,6 +90,15 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
     });
 
     return systemMessage;
+  }
+
+  /**
+   * The parts of the prefix that changed at the last build, or "" when nothing
+   * did. A rewritten prefix re-bills every cached token after the point it
+   * changed, and the only useful thing to tell a user is which part moved.
+   */
+  public describeLastSystemMessageChange(): string {
+    return this.lastChange;
   }
 
   getDependencies(): string[] {

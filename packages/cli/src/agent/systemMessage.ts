@@ -287,13 +287,29 @@ export function buildOutputStyleSection(
  * @param mode - Current permission mode
  * @returns The comprehensive system message with base message and rules section
  */
-export async function constructSystemMessage(
+export interface SystemMessageSection {
+  readonly name: string;
+  readonly text: string;
+  /**
+   * Whether this part is expected to change while a session runs - the permission
+   * mode, an output style, the rule files a user edits. A volatile part moving is
+   * the user's own change; a stable part moving means the CLI rewrote its own
+   * prompt, which is the kind of thing worth a warning.
+   */
+  readonly volatile: boolean;
+}
+
+/**
+ * Renders the prefix as named parts. The parts are joined in the order they are
+ * built, so a cached prefix only moves when a part actually changes.
+ */
+export async function buildSystemMessageSections(
   mode: PermissionMode,
   additionalRules?: string[],
   format?: OutputFormat,
   headless?: boolean,
   profile?: PromptProfile,
-): Promise<string> {
+): Promise<SystemMessageSection[]> {
   const agentFiles = ["AGENTS.md", "AGENT.md", "CLAUDE.md", "CODEX.md"];
   const layers: string[] = [];
 
@@ -353,48 +369,72 @@ export async function constructSystemMessage(
     }
   }
 
-  // Construct the comprehensive system message
-  let systemMessage = baseSystemMessage;
+  // Each part of the prefix is built as its own section so a later request can
+  // say which part moved instead of only that the system message differs: the
+  // cached prefix is billed as a whole, and the only fix for a move is knowing
+  // what caused it.
+  const sections: SystemMessageSection[] = [
+    { name: "base", text: baseSystemMessage, volatile: false },
+  ];
 
   // Plan is one text, whichever way it was chosen: the permission mode and the
   // profile must not produce two wordings of the same instruction.
   if (mode === "plan") {
-    systemMessage += PLAN_MODE_TEXT;
+    sections.push({ name: "planMode", text: PLAN_MODE_TEXT, volatile: true });
   }
 
   // The profile is the task-shaped axis. It is skipped when the plan text is
   // already in from the mode, and the default profile adds nothing at all.
   if (profile && profile !== "default" && mode !== "plan") {
-    systemMessage += profileSection(profile);
+    sections.push({
+      name: "promptProfile",
+      text: profileSection(profile),
+      volatile: true,
+    });
   }
 
   // In headless mode, add instructions to be concise and only provide final answers
   if (headless) {
-    systemMessage += `
+    sections.push({
+      name: "headless",
+      text: `
 
 IMPORTANT: You are running in headless mode. Provide ONLY your final answer to the user's question. Do not include explanations, reasoning, or additional commentary unless specifically requested. Be direct and concise.
 
-Nobody is watching in real time and no question can be answered mid-task, so asking one blocks the work: for reversible steps that follow from the request, proceed; stop only for destructive actions or a genuine change of scope. Offer follow-ups after the work is done; asking permission before starting it is not the way.`;
+Nobody is watching in real time and no question can be answered mid-task, so asking one blocks the work: for reversible steps that follow from the request, proceed; stop only for destructive actions or a genuine change of scope. Offer follow-ups after the work is done; asking permission before starting it is not the way.`,
+      volatile: false,
+    });
   }
 
   // Add JSON formatting instructions if format is json
   if (format === "json") {
-    systemMessage += `
+    sections.push({
+      name: "jsonOutput",
+      text: `
 
 IMPORTANT: You are operating in JSON output mode. Your final response MUST be valid JSON that can be parsed by JSON.parse(). The JSON should contain properties relevant to answer the user's question. You don't need to include any general "response" or "answer" field. Do not include any text before or after the JSON - the entire response must be parseable JSON.
 
 Example response format:
 {
   "property": "value"
-}`;
+}`,
+      volatile: false,
+    });
   }
 
   // A plugin may force an output style on as soon as it is enabled. Styles a
   // plugin merely offers are left alone: applying one changes every request
   // prefix until it is switched back, so it stays a user decision.
-  systemMessage += buildOutputStyleSection(
+  const outputStyleSection = buildOutputStyleSection(
     selectOutputStyle(loadAllPlugins().outputStyles),
   );
+  if (outputStyleSection) {
+    sections.push({
+      name: "outputStyle",
+      text: outputStyleSection,
+      volatile: true,
+    });
+  }
 
   // The rules block is the last thing in the prefix, so its own wording stays
   // fixed and only the user's text changes.
@@ -403,10 +443,74 @@ Example response format:
     if (agentContent) blocks.push(agentContent);
     blocks.push(...processedRules);
 
-    systemMessage += `\n\n<context name="userRules">\n${blocks.join(
-      "\n\n",
-    )}\n</context>`;
+    sections.push({
+      name: "userRules",
+      text: `\n\n<context name="userRules">\n${blocks.join(
+        "\n\n",
+      )}\n</context>`,
+      volatile: true,
+    });
   }
 
-  return systemMessage;
+  return sections;
+}
+
+/**
+ * The prefix is the concatenation of its sections, each of which already carries
+ * the blank lines that separate it, so joining adds nothing.
+ */
+export function joinSystemMessageSections(
+  sections: readonly SystemMessageSection[],
+): string {
+  return sections.map((section) => section.text).join("");
+}
+
+/**
+ * Names the parts that moved between two builds of the prefix, in the order the
+ * new build has them. This is the whole point of sectioning the system message:
+ * "systemMessage changed" tells a user nothing, "userRules rewritten" tells them
+ * which file to stop editing mid-run.
+ */
+export function describeSystemMessageChange(
+  previous: readonly SystemMessageSection[],
+  next: readonly SystemMessageSection[],
+): string {
+  const before = new Map(previous.map((section) => [section.name, section]));
+  const after = new Set(next.map((section) => section.name));
+
+  const moved: string[] = [];
+  for (const section of next) {
+    const was = before.get(section.name);
+    if (was === undefined) {
+      moved.push(`${section.name} added`);
+    } else if (was.text !== section.text) {
+      moved.push(`${section.name} rewritten`);
+    }
+    before.delete(section.name);
+  }
+  for (const [name] of before) {
+    if (!after.has(name)) {
+      moved.push(`${name} dropped`);
+    }
+  }
+
+  return moved.join("; ");
+}
+
+export async function constructSystemMessage(
+  mode: PermissionMode,
+  additionalRules?: string[],
+  format?: OutputFormat,
+  headless?: boolean,
+  profile?: PromptProfile,
+): Promise<string> {
+  return joinSystemMessageSections(
+    await buildSystemMessageSections(
+      mode,
+      additionalRules,
+      format,
+      headless,
+      profile,
+    ),
+  );
 }
