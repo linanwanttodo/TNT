@@ -105,27 +105,45 @@ export async function runCLI(
     input,
   };
 
+  let stdout = "";
+  let stderr = "";
+  let exitCode = 0;
+  let error: any;
+  // A run the helper killed. Measured through this exact call path, execa marks
+  // it on the *resolved* result (`timedOut`, `isTerminated`, `signal: SIGTERM`,
+  // `exitCode: undefined`), and reporting it as an empty successful run is what
+  // made slow spawns look like product failures. Decided outside the try/catch:
+  // a throw made inside the `try` is swallowed by the `expectError` branch.
+  let killed = false;
+
   try {
     // Run the wrapper via Node for cross-platform consistency
     const result = await execaNode(context.cliPath, args, execOptions);
-
-    return {
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode ?? 0,
-    };
-  } catch (error: any) {
+    stdout = result.stdout;
+    stderr = result.stderr;
+    exitCode = result.exitCode ?? 0;
+    killed = result.timedOut === true || result.isTerminated === true;
+  } catch (thrown: any) {
     if (!expectError) {
-      throw error;
+      throw thrown;
     }
-
-    return {
-      stdout: error.stdout || "",
-      stderr: error.stderr || "",
-      exitCode: error.exitCode ?? 1,
-      error,
-    };
+    stdout = thrown.stdout || "";
+    stderr = thrown.stderr || "";
+    exitCode = thrown.exitCode ?? 1;
+    error = thrown;
+    killed = thrown.timedOut === true || thrown.isTerminated === true;
   }
+
+  if (killed) {
+    throw new Error(
+      `tnt ${args.join(" ")} timed out after ${timeout}ms` +
+        ` (partial output: ${String(stdout).slice(0, 200)})`,
+    );
+  }
+
+  return error === undefined
+    ? { stdout, stderr, exitCode }
+    : { stdout, stderr, exitCode, error };
 }
 
 /**
