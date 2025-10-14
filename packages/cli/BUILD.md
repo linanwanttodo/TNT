@@ -71,5 +71,20 @@ When publishing to npm:
 
 1. The bundled files in `dist/` are included
 2. Users install via `npm install -g @tnt/cli`
-3. The `cn` command becomes available globally
+3. The `tnt` command becomes available globally (`package.json` `bin` points at `dist/tnt.js`)
 4. No local file references or missing dependencies
+
+## Environment
+
+The state directory is `TNT_GLOBAL_DIR`, falling back to the older `CONTINUE_GLOBAL_DIR` and then to
+`~/.tnt`. It holds `settings.json`, `sessions/`, `permissions.yaml` and the `cache-breaks/` report
+directory, so setting it moves all four together. Both names are read in
+`src/config/globalDir.ts`; the older one is kept because it is already present in existing shells and
+CI configuration, where ignoring it would look like a lost configuration rather than a rename.
+
+Logging level is `TNT_LOG_LEVEL`, falling back to `CONTINUE_LOG_LEVEL`; a value the logger does not
+recognize is ignored rather than raised. Telemetry stays off unless asked for: `CONTINUE_METRICS_ENABLED=1`
+(or `CONTINUE_CLI_ENABLE_TELEMETRY=1` with an OTEL endpoint) turns it on, and `=0` turns it off.
+
+The complete set of variable names the CLI reads is not maintained by hand - `src/branding.test.ts`
+scans the sources and fails if a `TNT_` or `CONTINUE_` name is read without being listed there.
