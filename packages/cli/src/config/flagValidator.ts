@@ -254,6 +254,37 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
  * Display validation errors and exit process
  * Provides consistent error formatting across all commands
  */
+/**
+ * The serve subcommand owns its numbers: `--port` and `--timeout` arrive as
+ * strings, and nothing else reads them before the server binds. Commander hands
+ * `--port abc` straight through, so the failure the user sees is a server that
+ * exited for a reason they cannot connect to the flag they typed.
+ */
+export function validateServeFlags(options: {
+  port?: string;
+  timeout?: string;
+}): ValidationResult {
+  const errors: ValidationError[] = [];
+
+  const check = (name: string, raw: string | undefined, max: number) => {
+    if (raw === undefined) {
+      return;
+    }
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1 || value > max) {
+      errors.push({
+        code: `INVALID_SERVE_${name.toUpperCase()}`,
+        message: `Error: --${name} expects a whole number between 1 and ${max}, got "${raw}".`,
+      });
+    }
+  };
+
+  check("port", options.port, 65535);
+  check("timeout", options.timeout, 31536000);
+
+  return { isValid: errors.length === 0, errors };
+}
+
 export function handleValidationErrors(errors: ValidationError[]): never {
   for (const error of errors) {
     safeStderr(error.message + "\n");
