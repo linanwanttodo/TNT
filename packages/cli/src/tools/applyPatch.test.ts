@@ -156,6 +156,55 @@ describe("ApplyPatch", () => {
     expect(read("src/old.ts")).toContain("const added = 2;");
   });
 
+  it("puts every destination in front of the human before anything runs", async () => {
+    write("src/old.ts", "const a = 1;\n");
+    write("src/gone.ts", "nothing here\n");
+
+    const result = await applyPatchTool.preprocess!({
+      patch: [
+        "*** Begin Patch",
+        "*** Add File: src/new.ts",
+        "+export const value = 1;",
+        "*** Update File: src/old.ts",
+        "-const a = 1;",
+        "+const a = 5;",
+        "*** Delete File: src/gone.ts",
+        "*** End Patch",
+      ].join("\n"),
+    });
+
+    // This text is what an approval is for: a grant that cannot name the
+    // destinations is a grant given blind.
+    expect(result.preview?.[0]?.content).toBe(
+      "Will apply a patch to 3 files: add src/new.ts, update src/old.ts, delete src/gone.ts",
+    );
+    // The approved arguments are the arguments that run.
+    expect(result.args).toEqual({
+      patch: expect.stringContaining("*** Begin Patch"),
+    });
+  });
+
+  it("refuses at the preview rather than asking about a patch that cannot land", async () => {
+    await expect(
+      applyPatchTool.preprocess!({ patch: "not a patch" }),
+    ).rejects.toThrow(/Could not read the patch/);
+
+    await expect(
+      applyPatchTool.preprocess!({
+        patch: [
+          "*** Begin Patch",
+          "*** Add File: ../escaped-preview.ts",
+          "+x",
+          "*** End Patch",
+        ].join("\n"),
+      }),
+    ).rejects.toThrow(/workspace/);
+
+    expect(fs.existsSync(path.join(dir, "..", "escaped-preview.ts"))).toBe(
+      false,
+    );
+  });
+
   it("gives the index every file the patch touched", async () => {
     write("src/old.ts", "const a = 1;\n");
 
