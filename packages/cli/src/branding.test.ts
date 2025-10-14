@@ -67,7 +67,8 @@ describe("product naming", () => {
 
 /**
  * The environment names are an interface: CI jobs, hook scripts and users set
- * them. They keep the CONTINUE_ prefix on purpose, so this pins the exact set
+ * them. Both prefixes are pinned, so a new variable under either name has to be
+ * documented before it can be read.
  * rather than letting a rename pass change one and break those callers.
  */
 const ENVIRONMENT_INTERFACE = [
@@ -79,31 +80,35 @@ const ENVIRONMENT_INTERFACE = [
   "CONTINUE_CLI_DIFF_MAX_OUTPUT_LENGTH",
   "CONTINUE_CLI_ENABLE_TELEMETRY",
   "CONTINUE_CLI_FETCH_MAX_OUTPUT_LENGTH",
+  "CONTINUE_CLI_GLOB_MAX_RESULTS",
   "CONTINUE_CLI_MANAGED_RULES_DIR",
   "CONTINUE_CLI_MAX_TOOL_RESULT_CHARS",
   "CONTINUE_CLI_READ_FILE_MAX_OUTPUT_CHARS",
   "CONTINUE_CLI_READ_FILE_MAX_OUTPUT_LINES",
-  "CONTINUE_CLI_SEARCH_CODE_MAX_RESULT_CHARS",
   "CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS",
-  "CONTINUE_CLI_GLOB_MAX_RESULTS",
+  "CONTINUE_CLI_SEARCH_CODE_MAX_RESULT_CHARS",
   "CONTINUE_CLI_TEST",
   "CONTINUE_CLI_TEST_SESSION_ID",
   "CONTINUE_GLOBAL_DIR",
   "CONTINUE_LOG_LEVEL",
   "CONTINUE_METRICS_ENABLED",
   "CONTINUE_REMOTE",
-  "CONTINUE_USE_BEDROCK",
   "CONTINUE_USER_ID",
+  "CONTINUE_USE_BEDROCK",
+  "TNT_API_BASE",
+  "TNT_GLOBAL_DIR",
+  "TNT_LOG_LEVEL",
+  "TNT_PLUGINS_DIR",
 ];
 
 describe("environment interface", () => {
-  it("reads exactly the documented set of CONTINUE_ names", () => {
+  it("reads exactly the documented set of TNT_ and CONTINUE_ names", () => {
     const packageRoot = process.cwd();
     const names = new Set<string>();
     for (const file of sourceFiles(path.join(packageRoot, "src"))) {
       const content = fs.readFileSync(file, "utf-8");
       for (const match of content.matchAll(
-        /process\.env(?:\.|\[")(CONTINUE_[A-Z_]+)/g,
+        /process\.env(?:\.|\[")((?:TNT_|CONTINUE_)[A-Z_]+)/g,
       )) {
         names.add(match[1]);
       }
