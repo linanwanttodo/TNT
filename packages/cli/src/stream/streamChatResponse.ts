@@ -8,6 +8,7 @@ import type {
   ChatCompletionTool,
 } from "openai/resources.mjs";
 
+import { describeSystemMessageTextChange } from "../agent/systemMessage.js";
 import {
   assessCacheBreak,
   recallCacheRound,
@@ -715,21 +716,31 @@ export async function streamChatResponse(
       startsSeries: previousSystemMessage === undefined,
     });
     if (promptDecision.action === "append" && promptDecision.appendedPrompt) {
+      // Said here rather than as its own branch: the action is already "append",
+      // so a branch tested after it could never be reached.
+      if (promptDecision.forcesUnsupportedDialect) {
+        logger.warn(
+          `Appending the changed system prompt for ${model.model}: this endpoint is not known to carry a second system message, so the update may be dropped by the provider.`,
+        );
+      }
       systemMessageUpdates = [
         ...systemMessageUpdates,
         promptDecision.appendedPrompt,
       ];
-    } else if (promptDecision.forcesUnsupportedDialect) {
-      logger.warn(
-        `Appending the changed system prompt for ${model.model}: this endpoint is not known to carry a second system message, so the update may be dropped by the provider.`,
-      );
-      systemMessageUpdates = [
-        ...systemMessageUpdates,
-        promptDecision.appendedPrompt as string,
-      ];
     } else if (promptDecision.action === "rewrite") {
       systemMessageUpdates = [];
       requestSystemMessage = nextSystemMessage;
+      // Named from the bytes that are actually about to be sent, so the line
+      // cannot disagree with what the provider has to rebill.
+      const moved = describeSystemMessageTextChange(
+        previousSystemMessage ?? "",
+        nextSystemMessage,
+      );
+      if (moved) {
+        logger.warn(
+          `System prompt rewritten, cached tokens rebilled: ${moved}`,
+        );
+      }
     }
     previousSystemMessage = nextSystemMessage;
     const systemMessage = requestSystemMessage ?? nextSystemMessage;

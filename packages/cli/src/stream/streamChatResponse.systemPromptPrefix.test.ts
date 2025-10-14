@@ -6,6 +6,7 @@ import type { ChatCompletionChunk } from "openai/resources/chat/completions.mjs"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { services } from "../services/index.js";
+import { logger } from "../utils/logger.js";
 
 import { streamChatResponse } from "./streamChatResponse.js";
 
@@ -191,5 +192,92 @@ describe("streamChatResponse system prompt prefix", () => {
       { role: "system", content: "prompt v1" },
       { role: "system", content: "prompt v2" },
     ]);
+  });
+
+  describe("what the prefix rewrite costs", () => {
+    const plainModel = {
+      provider: "openai",
+      name: "test-model",
+      model: "test-model",
+      defaultCompletionOptions: { contextLength: 8192, maxTokens: 2048 },
+    } as ModelConfig;
+
+    function apiWithoutCapability(requests: any[]): BaseLlmApi {
+      let call = 0;
+      return {
+        chatCompletionStream: vi.fn().mockImplementation(async function* (
+          request: any,
+        ) {
+          requests.push(request);
+          call++;
+          yield call < 3 ? toolCallChunk() : contentChunk("done");
+        }),
+      } as unknown as BaseLlmApi;
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    /**
+     * The outer fixture already staged three prompts, so a test that wants its own
+     * texts has to take the queue over rather than append to it.
+     */
+    function stagePrompts(...prompts: string[]): void {
+      const get = vi.mocked(services.systemMessage.getSystemMessage);
+      get.mockReset();
+      prompts
+        .slice(0, -1)
+        .forEach((prompt) => get.mockResolvedValueOnce(prompt));
+      get.mockResolvedValue(prompts[prompts.length - 1]);
+    }
+
+    it("names the part of the prompt that had to be rebilled", async () => {
+      const requests: any[] = [];
+      chatHistory = convertToUnifiedHistory([
+        { role: "user", content: "Hello" },
+      ]);
+      stagePrompts(
+        `base\n<context name="userRules">\nkeep paths short\n</context>`,
+        `base\n<context name="userRules">\nkeep paths absolute\n</context>`,
+      );
+
+      await streamChatResponse(
+        chatHistory,
+        plainModel,
+        apiWithoutCapability(requests),
+        new AbortController(),
+      );
+
+      // "systemMessage changed" is not something a user can act on; the part that
+      // moved is, because the rules are their own file.
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("userRules rewritten"),
+      );
+    });
+
+    it("says so when an append is forced onto a dialect that would drop it", async () => {
+      const requests: any[] = [];
+      chatHistory = convertToUnifiedHistory([
+        { role: "user", content: "Hello" },
+      ]);
+      vi.mocked(services.systemMessage.getSystemMessage)
+        .mockResolvedValueOnce("prompt v1")
+        .mockResolvedValueOnce("prompt v2");
+
+      await streamChatResponse(
+        chatHistory,
+        {
+          ...plainModel,
+          chatOptions: { supportsInHistorySystemUpdates: true },
+        } as ModelConfig,
+        apiWithoutCapability(requests),
+        new AbortController(),
+      );
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("may be dropped by the provider"),
+      );
+    });
   });
 });
