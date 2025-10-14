@@ -74,4 +74,19 @@ describe("E2E: Basic Commands", () => {
       expect(result.stderr || result.stdout).toContain("error");
     });
   });
+
+  it("refuses an unusable serve port instead of binding it", async () => {
+    const result = await runCLI(context, {
+      args: ["serve", "--port", "abc"],
+      expectError: true,
+    });
+
+    // The point of the check is that a mistyped flag fails as a named flag
+    // error: exit before binding, and say which value was rejected.
+    expect(result.exitCode).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      "--port expects a whole number",
+    );
+    expect(`${result.stdout}\n${result.stderr}`).toContain('"abc"');
+  });
 });
