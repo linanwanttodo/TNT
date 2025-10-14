@@ -101,6 +101,24 @@ describe("assessCacheBreak", () => {
 });
 
 describe("describePrefixDiff", () => {
+  it("names the part of the prefix that moved", () => {
+    const withRules = (rules: string) =>
+      header({
+        systemMessage: `base text\n\n<context name="userRules">\n${rules}\n</context>`,
+      });
+
+    const diff = describePrefixDiff(
+      withRules("keep the paths short"),
+      withRules("keep the paths short and absolute"),
+      ["systemMessage"],
+    ) as any;
+
+    // The cached prefix is billed from the first byte that differs, so "which
+    // part" is the only half of this a user can act on: rules are theirs, the
+    // base text is the CLI's.
+    expect(diff.systemMessageSections).toBe("userRules rewritten");
+  });
+
   it("shows the lines of the system message that moved", () => {
     const diff = describePrefixDiff(
       header(),

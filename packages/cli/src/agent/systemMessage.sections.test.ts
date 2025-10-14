@@ -6,7 +6,9 @@ vi.unmock("./systemMessage.js");
 const {
   buildSystemMessageSections,
   describeSystemMessageChange,
+  describeSystemMessageTextChange,
   joinSystemMessageSections,
+  splitSystemMessageBySections,
 } = await import("./systemMessage.js");
 type SystemMessageSection = import("./systemMessage.js").SystemMessageSection;
 
@@ -99,5 +101,43 @@ describe("system message sections", () => {
     // alphabetical order differ, so a sorted list cannot pass for the right
     // reason.
     expect(change).toBe("userRules rewritten; outputStyle added");
+  });
+
+  it("recovers every part from the text the join produced", async () => {
+    const sections = await buildSystemMessageSections(
+      "plan",
+      ["Rules from tests."],
+      "json",
+      true,
+    );
+    const parts = splitSystemMessageBySections(
+      joinSystemMessageSections(sections),
+    );
+
+    // This is the drift guard for the marker table: if a part stops announcing
+    // itself, or a new part appears unannounced, the split no longer matches the
+    // build and the report would name the wrong thing.
+    expect(Object.keys(parts).sort()).toEqual(
+      sections.map((part) => part.name).sort(),
+    );
+    for (const part of sections) {
+      expect(parts[part.name].trim()).toBe(part.text.trim());
+    }
+  });
+
+  it("reads a change back out of the prefix text", () => {
+    const text = (rules: string, plan = true) =>
+      `base\n${plan ? '<context name="planMode">plan</context>\n' : ""}<context name="userRules">\n${rules}\n</context>`;
+
+    expect(describeSystemMessageTextChange(text("a"), text("a"))).toBe("");
+    expect(describeSystemMessageTextChange(text("a"), text("b"))).toBe(
+      "userRules rewritten",
+    );
+    expect(describeSystemMessageTextChange(text("a"), text("a", false))).toBe(
+      "planMode dropped",
+    );
+    expect(describeSystemMessageTextChange(text("a", false), text("a"))).toBe(
+      "planMode added",
+    );
   });
 });

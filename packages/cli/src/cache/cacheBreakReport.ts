@@ -3,6 +3,7 @@ import * as path from "path";
 
 import { hashString } from "core/util/cacheBreakDetection.js";
 
+import { describeSystemMessageTextChange } from "../agent/systemMessage.js";
 import { getCacheBreaksDir, getCurrentSession } from "../session/index.js";
 import { logger } from "../utils/logger.js";
 
@@ -178,10 +179,13 @@ export function describePrefixDiff(
     reasons.some((reason) => reason.startsWith("systemMessage")) &&
     (previous.systemMessage ?? "") !== (current.systemMessage ?? "")
   ) {
-    diff.systemMessage = diffText(
-      previous.systemMessage ?? "",
-      current.systemMessage ?? "",
-    );
+    const systemBefore = previous.systemMessage ?? "";
+    const systemAfter = current.systemMessage ?? "";
+    diff.systemMessage = diffText(systemBefore, systemAfter);
+    const moved = describeSystemMessageTextChange(systemBefore, systemAfter);
+    if (moved) {
+      diff.systemMessageSections = moved;
+    }
   }
 
   const updatesBefore = previous.systemMessageUpdates ?? [];
