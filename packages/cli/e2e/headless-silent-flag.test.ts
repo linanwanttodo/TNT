@@ -190,7 +190,9 @@ This is a simple script.`;
   it("should fail validation when --silent is used without -p flag", async () => {
     const result = await runCLI(context, {
       args: ["--silent", "Test prompt"],
-      timeout: 5000,
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000,
       expectError: true,
     });
 

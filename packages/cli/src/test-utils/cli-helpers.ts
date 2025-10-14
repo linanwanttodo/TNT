@@ -73,7 +73,10 @@ export async function runCLI(
     args = [],
     input,
     env = {},
-    timeout = 10000,
+    // 20s, not 10s: these suites spawn the CLI, a run measured up to ~8.2s in
+    // isolation, and the old budget was exceeded only when the suite ran in
+    // parallel - which is when a killed child surfaced as empty output.
+    timeout = 20000,
     expectError = false,
   } = options;
 
