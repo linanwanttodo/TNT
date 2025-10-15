@@ -20,6 +20,10 @@ import { describe, expect, it } from "vitest";
  * to serve, so neither can be exercised without the other, and it is why the
  * summarizing tests mock a module two layers above them.
  */
+/**
+ * Test helpers under `src/test-utils` exist only for suites. A production import would
+ * drag test scaffolding into the shipped bundle, so the boundary is pinned here.
+ */
 const KNOWN_MUTUAL_COUPLING = [
   "_root <-> commands",
   "agent <-> services",
@@ -52,7 +56,23 @@ const TEST_ONLY = [
   `${path.sep}e2e${path.sep}`,
 ];
 
-function productionSources(dir: string): string[] {
+const SRC_ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+/** Every `.ts`/`.tsx` under a directory, tests included. */
+function walkSources(dir: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      found.push(...walkSources(full));
+    } else if (/\.tsx?$/.test(entry)) {
+      found.push(full);
+    }
+  }
+  return found;
+}
+
+function productionSources(dir: string = SRC_ROOT): string[] {
   const found: string[] = [];
 
   for (const name of readdirSync(dir)) {
@@ -153,5 +173,15 @@ describe("the dependency direction between module groups", () => {
     );
 
     expect(upwards).toEqual([]);
+  });
+
+  it("keeps test helpers out of production sources", () => {
+    const offenders = productionSources(SRC_ROOT)
+      .filter((file) => readFileSync(file, "utf-8").includes("test-utils"))
+      .map((file) => path.relative(SRC_ROOT, file));
+
+    // A production import would drag test scaffolding into the shipped bundle and
+    // make the pending move of `src/test-utils` out of `src/` harder, not easier.
+    expect(offenders).toEqual([]);
   });
 });
