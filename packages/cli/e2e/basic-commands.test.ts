@@ -117,4 +117,18 @@ describe("E2E: Basic Commands", () => {
       'Unsupported --format "bogus" for tnt review',
     );
   });
+  it("says a spawned CLI timed out instead of returning empty output", async () => {
+    const context = await createTestContext();
+    try {
+      await expect(
+        runCLI(context, {
+          args: ["--version"],
+          timeout: 1,
+          expectError: true,
+        }),
+      ).rejects.toThrow(/timed out after 1ms/);
+    } finally {
+      await cleanupTestContext(context);
+    }
+  });
 });
