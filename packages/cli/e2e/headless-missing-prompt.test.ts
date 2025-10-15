@@ -34,7 +34,9 @@ models:
       args: ["-p", "--config", context.configPath],
       env: { OPENAI_API_KEY: "test-key" },
       expectError: true,
-      timeout: 5000, // Short timeout to avoid hanging
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000, // Short timeout to avoid hanging
     });
 
     // Should exit with non-zero exit code
@@ -68,7 +70,9 @@ models:
       args: ["-p", "--config", context.configPath, "Hello assistant"],
       env: { OPENAI_API_KEY: "test-key" },
       expectError: true, // Will fail due to invalid API key, but should process the prompt
-      timeout: 5000,
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000,
     });
 
     // Should attempt to process the prompt (will fail due to invalid API key)
@@ -103,7 +107,9 @@ models:
       env: { OPENAI_API_KEY: "test-key" },
       input: "Hello from stdin",
       expectError: true, // Will show "prompt required" error because stdin is disabled in tests
-      timeout: 5000,
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000,
     });
 
     // Should exit with error code due to missing prompt (stdin reading is disabled in tests)
@@ -135,7 +141,9 @@ models:
       env: { OPENAI_API_KEY: "test-key" },
       input: "Stdin input that should be ignored",
       expectError: true, // Will fail due to invalid API key
-      timeout: 5000,
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000,
     });
 
     // Should use command line prompt over stdin
@@ -166,7 +174,9 @@ models:
       args: ["-p", "--config", context.configPath, "--agent", "test/agent"],
       env: { OPENAI_API_KEY: "test-key" },
       expectError: true, // Will fail trying to load agent from hub, but should pass prompt validation
-      timeout: 5000,
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000,
     });
 
     // Should NOT show the "prompt required" error message

@@ -67,7 +67,9 @@ models:
         // Run CLI in TUI mode - it should fail quickly but show the branch in output
         const result = await runCLI(context, {
           args: ["--config", context.configPath!, "--help"],
-          timeout: 3000,
+          // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+          // tighter per-call budget only turns parallel load into a killed child.
+          timeout: 20000,
         });
 
         // The help command should succeed
@@ -101,7 +103,9 @@ models:
       // CLI should still work without git
       const result = await runCLI(context, {
         args: ["--help"],
-        timeout: 3000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
       });
 
       expect(result.exitCode).toBe(0);

@@ -112,7 +112,9 @@ describe("E2E: Headless Mode with JSON Format", () => {
   it("should fail validation when --format is used without -p flag", async () => {
     const result = await runCLI(context, {
       args: ["--format", "json", "Test prompt"],
-      timeout: 5000,
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000,
       expectError: true,
     });
 
@@ -125,7 +127,9 @@ describe("E2E: Headless Mode with JSON Format", () => {
   it("should fail validation with invalid format value", async () => {
     const result = await runCLI(context, {
       args: ["-p", "--format", "xml", "Test prompt"],
-      timeout: 5000,
+      // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+      // tighter per-call budget only turns parallel load into a killed child.
+      timeout: 20000,
       expectError: true,
     });
 

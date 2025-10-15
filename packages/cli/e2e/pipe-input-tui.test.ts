@@ -39,7 +39,9 @@ models:
         args: ["-p", "--config", context.configPath!],
         env: testEnv,
         input: "Explicit headless mode",
-        timeout: 5000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
         expectError: true,
       });
 
@@ -57,7 +59,9 @@ models:
       const result = await runCLI(context, {
         args: ["-p", "--config", context.configPath!, "Test prompt"],
         env: testEnv,
-        timeout: 5000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
         expectError: true,
       });
 
@@ -78,7 +82,9 @@ models:
         args: ["--config", context.configPath!],
         env: testEnv,
         input: "This will be ignored in test environment",
-        timeout: 3000, // Shorter timeout since we expect quick failure
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000, // Shorter timeout since we expect quick failure
         expectError: true,
       });
 
@@ -100,7 +106,9 @@ models:
       const result = await runCLI(context, {
         args: ["--config", context.configPath!, "Test cross-platform"],
         env: testEnv,
-        timeout: 3000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
         expectError: true,
       });
 
@@ -126,7 +134,9 @@ models:
       const result = await runCLI(context, {
         args: ["--config", context.configPath!],
         env: testEnv,
-        timeout: 3000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
         expectError: true,
       });
 
@@ -138,7 +148,9 @@ models:
       const result = await runCLI(context, {
         args: ["--config", "/nonexistent/config.yaml"],
         env: testEnv,
-        timeout: 3000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
         expectError: true,
       });
 
@@ -160,7 +172,9 @@ models:
         const result = await runCLI(context, {
           args: ["--config", context.configPath!],
           env,
-          timeout: 3000,
+          // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+          // tighter per-call budget only turns parallel load into a killed child.
+          timeout: 20000,
           expectError: true,
         });
 
@@ -184,7 +198,9 @@ models:
         const result = await runCLI(context, {
           args,
           env: testEnv,
-          timeout: 3000,
+          // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+          // tighter per-call budget only turns parallel load into a killed child.
+          timeout: 20000,
           expectError: true,
         });
 
@@ -197,7 +213,9 @@ models:
       // These should work without config
       const helpResult = await runCLI(context, {
         args: ["--help"],
-        timeout: 3000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
       });
 
       expect(helpResult.exitCode).toBe(0);
@@ -205,7 +223,9 @@ models:
 
       const versionResult = await runCLI(context, {
         args: ["--version"],
-        timeout: 3000,
+        // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
+        // tighter per-call budget only turns parallel load into a killed child.
+        timeout: 20000,
       });
 
       expect(versionResult.exitCode).toBe(0);
