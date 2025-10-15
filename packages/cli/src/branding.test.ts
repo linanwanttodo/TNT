@@ -132,4 +132,46 @@ describe("environment interface", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  /**
+   * A flag name declared by both the root command and a subcommand is not a
+   * harmless duplicate: commander hands the subcommand action the parent's
+   * absence, so `tnt review --format json` reached the review code with no format
+   * at all and silently produced text. `review` is the fix that proves the shape;
+   * this guard keeps the class from coming back.
+   */
+  /**
+   * `review --format` is the one name a subcommand shares with the root command.
+   * The value never arrived on the subcommand's own options, which is the bug that
+   * made `tnt review --format json` print text; the action reads either place
+   * now, so this name is tolerated knowingly. Any new overlap fails the guard.
+   */
+  const ALLOWED_ROOT_NAME_OVERLAPS = ["review --format"];
+
+  describe("commander option names", () => {
+    const flagsOf = (text: string) =>
+      new Set([...text.matchAll(/"--([a-z][a-z0-9-]+)/g)].map((m) => m[1]));
+
+    it("gives no subcommand a flag name the root command already owns", () => {
+      const source = fs.readFileSync(
+        path.join(process.cwd(), "src", "index.ts"),
+        "utf-8",
+      );
+      const parts = source.split(/\.command\(\s*"([a-z][a-z0-9-]*)/);
+      const root = flagsOf(parts[0]);
+
+      const collisions: string[] = [];
+      for (let i = 1; i < parts.length; i += 2) {
+        const command = parts[i];
+        const body = parts[i + 1] ?? "";
+        for (const flag of flagsOf(body)) {
+          if (root.has(flag)) {
+            collisions.push(`${command} --${flag}`);
+          }
+        }
+      }
+
+      expect(collisions).toEqual(ALLOWED_ROOT_NAME_OVERLAPS);
+    });
+  });
 });
