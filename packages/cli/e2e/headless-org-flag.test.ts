@@ -15,6 +15,7 @@ models:
   - name: test-model
     model: gpt-4
     provider: openai
+    apiBase: http://127.0.0.1:9/v1
     apiKey: test-key`;
 
   const testEnv = {
@@ -55,7 +56,9 @@ models:
     it("should accept --org flag with -p flag (headless mode)", async () => {
       await createTestConfig(context, testConfig);
 
-      // This will fail due to missing actual auth, but should get past the flag validation
+      // Port 9 is discard: nothing ever listens there, so the provider
+      // call is refused immediately instead of hanging on outbound access. What is
+      // under test is the flag, not the network.
       const result = await runCLI(context, {
         args: [
           "-p",
@@ -69,7 +72,8 @@ models:
         expectError: true,
       });
 
-      // Should fail for a different reason (no actual auth/API), not because of flag validation
+      // Fails because the provider connection was refused, not because the
+      // flag was rejected.
       expect(result.stderr).not.toContain(
         "--org flag is only supported in headless mode (with -p/--print flag)",
       );
