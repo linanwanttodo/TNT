@@ -285,3 +285,19 @@ describe("validateServeFlags", () => {
     expect(validateServeFlags({ timeout: "5m" }).isValid).toBe(false);
   });
 });
+
+describe("validateFlags --max-steps", () => {
+  it("rejects a value the coercion could not turn into a number of rounds", () => {
+    const result = validateFlags({ print: true, maxSteps: Number.NaN });
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0].message).toContain(
+      "--max-steps expects a whole number of rounds of 1 or more",
+    );
+    expect(result.errors[0].message).toContain('"NaN"');
+  });
+
+  it("accepts a real number of rounds and nothing at all", () => {
+    expect(validateFlags({ print: true, maxSteps: 12 }).isValid).toBe(true);
+    expect(validateFlags({ print: true }).isValid).toBe(true);
+  });
+});

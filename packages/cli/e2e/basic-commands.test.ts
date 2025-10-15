@@ -75,6 +75,20 @@ describe("E2E: Basic Commands", () => {
     });
   });
 
+  it("explains a rejected --max-steps instead of exiting silently", async () => {
+    // It used to throw inside commander's coercion, and commander's own error
+    // path never reached the terminal: the run exited 1 with nothing printed.
+    const result = await runCLI(context, {
+      args: ["-p", "--max-steps", "0", "hi"],
+      expectError: true,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      "--max-steps expects a whole number",
+    );
+  });
+
   it("refuses an unusable serve port instead of binding it", async () => {
     const result = await runCLI(context, {
       args: ["serve", "--port", "abc"],

@@ -13,6 +13,7 @@ export interface ValidationOptions {
   format?: string;
   silent?: boolean;
   outputSchema?: string;
+  maxSteps?: number;
 
   // Common flags
   readonly?: boolean;
@@ -109,6 +110,27 @@ function validateFormatValue(options: ValidationOptions): ValidationError[] {
   }
 
   return errors;
+}
+
+/**
+ * `--max-steps` is coerced by commander, so a rejected value arrives here as
+ * `NaN` rather than throwing during parsing: a throw inside the coercion escapes
+ * through commander's own error path and the run ended with exit 1 and no
+ * message at all. Stating the bad value is what makes it a fixable report.
+ */
+function validateMaxStepsFlag(options: ValidationOptions): ValidationError[] {
+  if (options.maxSteps === undefined) {
+    return [];
+  }
+  if (Number.isInteger(options.maxSteps) && options.maxSteps >= 1) {
+    return [];
+  }
+  return [
+    {
+      code: "INVALID_MAX_STEPS",
+      message: `Error: --max-steps expects a whole number of rounds of 1 or more, got "${String(options.maxSteps)}".`,
+    },
+  ];
 }
 
 /**
@@ -234,6 +256,7 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
     validateSilentFlag,
     validateOutputSchemaFlag,
     validateFormatValue,
+    validateMaxStepsFlag,
     validateModeFlags,
     validateSessionFlags,
     validateConfigPath,
@@ -263,8 +286,11 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
 export function validateServeFlags(options: {
   port?: string;
   timeout?: string;
+  maxSteps?: number;
 }): ValidationResult {
   const errors: ValidationError[] = [];
+
+  errors.push(...validateMaxStepsFlag(options));
 
   const check = (name: string, raw: string | undefined, max: number) => {
     if (raw === undefined) {

@@ -204,11 +204,10 @@ addCommonOptions(program)
     "--max-steps <count>",
     "Maximum model rounds per turn before the turn is cut short",
     (value) => {
+      // `NaN` is the rejection: the message is produced by `validateFlags` with
+      // every other flag error, where a throw here escaped silently.
       const parsed = Number.parseInt(value, 10);
-      if (!Number.isInteger(parsed) || parsed < 1) {
-        throw new Error("--max-steps must be a positive integer");
-      }
-      return parsed;
+      return Number.isInteger(parsed) && parsed >= 1 ? parsed : Number.NaN;
     },
   )
   .option(
@@ -249,6 +248,7 @@ addCommonOptions(program)
       format: options.format,
       silent: options.silent,
       outputSchema: options.outputSchema,
+      maxSteps: options.maxSteps,
       readonly: options.readonly,
       auto: options.auto,
       config: options.config,
@@ -349,7 +349,11 @@ program
     // Merge parent options with subcommand options
     const mergedOptions = mergeParentOptions(program, options);
 
-    const serveValidation = validateServeFlags(mergedOptions);
+    const serveValidation = validateServeFlags({
+      port: mergedOptions.port,
+      timeout: mergedOptions.timeout,
+      maxSteps: mergedOptions.maxSteps,
+    });
     if (!serveValidation.isValid) {
       handleValidationErrors(serveValidation.errors);
     }
