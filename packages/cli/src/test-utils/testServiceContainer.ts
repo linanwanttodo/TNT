@@ -102,8 +102,17 @@ export function createTestServiceContainer(): TestServiceContainer {
     const promises = names.map(
       (name) =>
         new Promise<void>((resolve) => {
-          container.once(`${name}:ready`, () => resolve());
-          container.once(`${name}:error`, () => resolve());
+          // One service settles once: `ready` or `error`, never both. A second
+          // `once` for the other event would stay attached for the life of the
+          // container, so a shared container ends the run with a MaxListeners
+          // warning that hides any real leak behind test-harness noise.
+          const onSettled = () => {
+            container.off(`${name}:ready`, onSettled);
+            container.off(`${name}:error`, onSettled);
+            resolve();
+          };
+          container.once(`${name}:ready`, onSettled);
+          container.once(`${name}:error`, onSettled);
         }),
     );
     await Promise.all(promises);
@@ -112,8 +121,13 @@ export function createTestServiceContainer(): TestServiceContainer {
   // Wait for a specific service and return its value
   container.waitForService = async function (name) {
     return new Promise((resolve) => {
-      container.once(`${name}:ready`, (value) => resolve(value));
-      container.once(`${name}:error`, (error) => resolve(error));
+      const onSettled = (settled: any) => {
+        container.off(`${name}:ready`, onSettled);
+        container.off(`${name}:error`, onSettled);
+        resolve(settled);
+      };
+      container.once(`${name}:ready`, onSettled);
+      container.once(`${name}:error`, onSettled);
     });
   };
 
