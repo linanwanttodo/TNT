@@ -103,4 +103,18 @@ describe("E2E: Basic Commands", () => {
     );
     expect(`${result.stdout}\n${result.stderr}`).toContain('"abc"');
   });
+  it("refuses a review format it cannot honor", async () => {
+    // `--format` is also a root flag, and the subcommand copy of the value was
+    // dropped on the way to the action, so a typo used to review as text in
+    // silence and `json` never reached the command at all.
+    const result = await runCLI(context, {
+      args: ["review", "--format", "bogus"],
+      expectError: true,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      'Unsupported --format "bogus" for tnt review',
+    );
+  });
 });
