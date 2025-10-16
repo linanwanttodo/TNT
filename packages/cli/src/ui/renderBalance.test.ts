@@ -48,7 +48,6 @@ const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/ui/components/SessionSelectorWithLoading.subagents.test.tsx": 1,
   "src/ui/components/SubagentBreadcrumb.test.tsx": 2,
   "src/ui/components/TUIChat.streamStopping.test.tsx": 2,
-  "src/ui/components/TUIChat.toolPermission.test.tsx": 12,
   "src/ui/hooks/useLocale.test.tsx": 1,
   "src/ui/utils/borderLine.test.ts": 3,
 };

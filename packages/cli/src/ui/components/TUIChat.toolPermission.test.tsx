@@ -9,19 +9,31 @@ import type {
 
 import { ToolPermissionSelector } from "./ToolPermissionSelector.js";
 
+// Every rendered tree subscribes to the shared service container, so a test
+// that leaves it mounted keeps those handlers alive for the rest of the run.
+const mounted: { unmount: () => void }[] = [];
+
+function track(ui: React.ReactElement): ReturnType<typeof render> {
+  const tree = render(ui);
+  mounted.push(tree);
+  return tree;
+}
+
 describe("TUIChat - Tool Permission Tests", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
 
   afterEach(() => {
+    for (const tree of mounted) tree.unmount();
+    mounted.length = 0;
     vi.clearAllTimers();
     vi.useRealTimers();
   });
   it("shows ToolPermissionSelector with correct content", async () => {
     const handleResponse = vi.fn();
 
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       <ToolPermissionSelector
         toolName="Edit"
         toolArgs={{
@@ -54,7 +66,7 @@ describe("TUIChat - Tool Permission Tests", () => {
   it("handles keyboard shortcuts for permission approval and rejection", async () => {
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = track(
       <ToolPermissionSelector
         toolName="Write"
         toolArgs={{
@@ -84,7 +96,7 @@ describe("TUIChat - Tool Permission Tests", () => {
   it("handles escape key for rejection", async () => {
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = track(
       <ToolPermissionSelector
         toolName="Bash"
         toolArgs={{
@@ -113,7 +125,7 @@ describe("TUIChat - Tool Permission Tests", () => {
   it("handles 'n' key for rejection", async () => {
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = track(
       <ToolPermissionSelector
         toolName="Delete"
         toolArgs={{
@@ -142,7 +154,7 @@ describe("TUIChat - Tool Permission Tests", () => {
   it("handles arrow key navigation in permission selector", async () => {
     const handleResponse = vi.fn();
 
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = track(
       <ToolPermissionSelector
         toolName="Read"
         toolArgs={{
@@ -175,7 +187,7 @@ describe("TUIChat - Tool Permission Tests", () => {
   it("offers an approval that is held for the session only", async () => {
     const handleResponse = vi.fn();
 
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = track(
       <ToolPermissionSelector
         toolName="Bash"
         toolArgs={{ command: "npm run build" }}
@@ -204,7 +216,7 @@ describe("TUIChat - Tool Permission Tests", () => {
   it("handles shift+tab key for policy creation", async () => {
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = track(
       <ToolPermissionSelector
         toolName="Bash"
         toolArgs={{
@@ -234,7 +246,7 @@ describe("TUIChat - Tool Permission Tests", () => {
   it("shows the new 'No, and tell Continue what to do differently' option in the UI", async () => {
     const handleResponse = vi.fn();
 
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       <ToolPermissionSelector
         toolName="Edit"
         toolArgs={{
@@ -265,7 +277,7 @@ describe("TUIChat - Tool Permission Tests", () => {
     // This test ensures the actual ToolPermissionSelector component correctly handles the escape key
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = track(
       <ToolPermissionSelector
         toolName="Edit"
         toolArgs={{
@@ -298,7 +310,7 @@ describe("TUIChat - Tool Permission Tests", () => {
     // This test ensures the 'n' key also triggers the new stop stream behavior
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = track(
       <ToolPermissionSelector
         toolName="Write"
         toolArgs={{
@@ -332,7 +344,7 @@ describe("TUIChat - Tool Permission Tests", () => {
     const { MemoizedMessage } = await import("./MemoizedMessage.js");
 
     // Test the ToolResultSummary component directly
-    const { lastFrame: summaryFrame } = render(
+    const { lastFrame: summaryFrame } = track(
       <ToolResultSummary toolName="Edit" content="Permission denied by user" />,
     );
 
@@ -380,7 +392,7 @@ describe("TUIChat - Tool Permission Tests", () => {
       toolCallStates: [toolCallState],
     };
 
-    const { lastFrame: messageFrame } = render(
+    const { lastFrame: messageFrame } = track(
       <MemoizedMessage item={historyItem} index={0} />,
     );
 
