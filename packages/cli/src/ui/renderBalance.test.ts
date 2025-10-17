@@ -63,6 +63,14 @@ const PACKAGE_ROOT = path.resolve(
  * limited to `src/ui/*.test.tsx` could not see it. Both trees are checked, with
  * keys produced by the single expression below so the table and the assertions
  * can never disagree about what a path looks like.
+ *
+ * Two limits of counting text, both measured rather than assumed. A pass-through
+ * helper that hands the tree back to its caller (renderWithServices returns
+ * unmount inside its result) reads as one mount never released even though its
+ * consumers print no MaxListeners warning at all, so its row is an allowance, not
+ * a proven leak. And a wrapper is invisible on the other side: a caller of
+ * renderWithServices matches neither pattern, so its own mount is counted only
+ * where the real render call sits.
  */
 const SCAN_TARGETS = [
   { dir: "src/ui", testFilesOnly: true },
