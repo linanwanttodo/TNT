@@ -11,6 +11,19 @@ export type TestMode = "local" | "remote";
  * Helper to run a test in both local and remote modes
  * This creates two test suites - one for each mode
  */
+// AppRoot mounts the whole TUI, and every component inside it subscribes to the
+// shared service container. A case that leaves its tree mounted keeps those
+// handlers alive for every later case in the same worker, so a handful of files
+// is enough to fill the container's fifty-handler allowance.
+const mounted: { unmount: () => void }[] = [];
+
+export function unmountAll(): void {
+  for (const tree of mounted) {
+    tree.unmount();
+  }
+  mounted.length = 0;
+}
+
 export function testBothModes(
   name: string,
   testFn: (mode: TestMode) => void | Promise<void>,
@@ -26,6 +39,7 @@ export function testBothModes(
     });
 
     afterEach(() => {
+      unmountAll();
       context.cleanup();
     });
 
@@ -45,6 +59,7 @@ export function testBothModes(
     });
 
     afterEach(() => {
+      unmountAll();
       context.cleanup();
     });
 
@@ -58,14 +73,16 @@ export function testBothModes(
  * Helper to render TUIChat in the specified mode
  */
 export function renderInMode(mode: TestMode, props?: any) {
-  return render(
+  const tree = render(
     mode === "remote"
       ? React.createElement(AppRoot, {
           remoteUrl: "http://localhost:3000",
           ...props,
         })
       : React.createElement(AppRoot, props),
-  ) as ReturnType<typeof render>; // Explicit type to avoid TypeScript issues
+  );
+  mounted.push(tree);
+  return tree as ReturnType<typeof render>;
 }
 
 /**
@@ -87,6 +104,7 @@ export function testSingleMode(
     });
 
     afterEach(() => {
+      unmountAll();
       context.cleanup();
     });
 
