@@ -31,6 +31,19 @@ export const HOOK_EVENT_NAMES = [
 
 export type HookEventName = (typeof HOOK_EVENT_NAMES)[number];
 
+/**
+ * Accepted in configuration so a hooks file written for another CLI still
+ * loads, but never fired here: no code path has the equivalent moment. Named
+ * explicitly so the loader can say the configuration is inert instead of
+ * leaving it to look active.
+ */
+export const UNFIRED_HOOK_EVENTS: readonly HookEventName[] = [
+  "TeammateIdle",
+  "TaskCompleted",
+  "WorktreeCreate",
+  "WorktreeRemove",
+];
+
 // ---------------------------------------------------------------------------
 // Hook handler configuration (what users write in settings.json)
 // ---------------------------------------------------------------------------
