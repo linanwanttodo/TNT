@@ -4,12 +4,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserInput } from "./UserInput.js";
 
+// AppRoot subscribes a dozen services through useServices, so every case that
+// leaves it mounted keeps those handlers attached to the shared container.
+const mounted: { unmount: () => void }[] = [];
+
+function track(ui: React.ReactElement): ReturnType<typeof render> {
+  const tree = render(ui);
+  mounted.push(tree);
+  return tree;
+}
+
 describe("TUIChat - Interruption UI (Minimal Test)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
 
   afterEach(() => {
+    for (const tree of mounted) tree.unmount();
+    mounted.length = 0;
     vi.clearAllTimers();
     vi.useRealTimers();
   });
@@ -18,7 +30,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     const mockOnSubmit = vi.fn();
     const mockOnInterrupt = vi.fn();
 
-    const { lastFrame, rerender, unmount } = render(
+    const { lastFrame, rerender, unmount } = track(
       React.createElement(UserInput, {
         onSubmit: mockOnSubmit,
         isWaitingForResponse: false,
@@ -60,7 +72,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     const mockOnSubmit = vi.fn();
     const mockOnInterrupt = vi.fn();
 
-    const { lastFrame, rerender, unmount } = render(
+    const { lastFrame, rerender, unmount } = track(
       React.createElement(UserInput, {
         onSubmit: mockOnSubmit,
         isWaitingForResponse: false,
@@ -102,7 +114,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     const mockOnSubmit = vi.fn();
     const mockOnInterrupt = vi.fn();
 
-    const { stdin, unmount } = render(
+    const { stdin, unmount } = track(
       React.createElement(UserInput, {
         onSubmit: mockOnSubmit,
         isWaitingForResponse: false,
@@ -127,7 +139,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     const mockOnSubmit = vi.fn();
     const mockOnInterrupt = vi.fn();
 
-    const { stdin, unmount } = render(
+    const { stdin, unmount } = track(
       React.createElement(UserInput, {
         onSubmit: mockOnSubmit,
         isWaitingForResponse: false,
@@ -156,7 +168,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     const mockOnSubmit = vi.fn();
     const mockOnInterrupt = vi.fn();
 
-    const { lastFrame, unmount } = render(
+    const { lastFrame, unmount } = track(
       React.createElement(UserInput, {
         onSubmit: mockOnSubmit,
         isWaitingForResponse: false,
