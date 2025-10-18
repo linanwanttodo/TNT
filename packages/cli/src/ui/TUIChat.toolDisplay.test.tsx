@@ -5,6 +5,17 @@ import { createUITestContext } from "../test-utils/ui-test-context.js";
 
 import { AppRoot } from "./AppRoot.js";
 
+// Each mounted AppRoot subscribes a dozen services through useServices, so a
+// case that leaves it mounted keeps those handlers on the shared container for
+// the rest of the worker.
+const mounted: { unmount: () => void }[] = [];
+
+function track(ui: React.ReactElement): ReturnType<typeof render> {
+  const tree = render(ui);
+  mounted.push(tree);
+  return tree;
+}
+
 describe("TUIChat - Tool Display Tests", () => {
   let context: any;
 
@@ -16,11 +27,13 @@ describe("TUIChat - Tool Display Tests", () => {
   });
 
   afterEach(() => {
+    for (const tree of mounted) tree.unmount();
+    mounted.length = 0;
     context.cleanup();
   });
 
   it("renders without crashing when tools are available", () => {
-    const { lastFrame } = render(<AppRoot remoteUrl="http://localhost:3000" />);
+    const { lastFrame } = track(<AppRoot remoteUrl="http://localhost:3000" />);
     const frame = lastFrame();
 
     expect(frame).toBeDefined();
@@ -28,7 +41,7 @@ describe("TUIChat - Tool Display Tests", () => {
   });
 
   it("handles UI with no tools configured", () => {
-    const { lastFrame } = render(<AppRoot remoteUrl="http://localhost:3000" />);
+    const { lastFrame } = track(<AppRoot remoteUrl="http://localhost:3000" />);
     const frame = lastFrame();
 
     // Should render normally even without tools
@@ -37,7 +50,7 @@ describe("TUIChat - Tool Display Tests", () => {
   });
 
   it("maintains UI stability during tool operations", async () => {
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = track(
       <AppRoot remoteUrl="http://localhost:3000" />,
     );
 
@@ -56,7 +69,7 @@ describe("TUIChat - Tool Display Tests", () => {
   });
 
   it("shows tool-related slash commands", async () => {
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = track(
       <AppRoot remoteUrl="http://localhost:3000" />,
     );
 
