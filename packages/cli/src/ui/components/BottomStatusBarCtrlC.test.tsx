@@ -25,6 +25,16 @@ vi.mock("../../session/index.js", () => ({
   getSessionUsage: vi.fn(() => undefined),
 }));
 
+// Each mounted status bar subscribes through the service hooks, so a case that
+// leaves it mounted keeps those handlers alive for the rest of the worker.
+const mounted: { unmount: () => void }[] = [];
+
+function track(ui: React.ReactElement): ReturnType<typeof render> {
+  const tree = render(ui);
+  mounted.push(tree);
+  return tree;
+}
+
 describe("BottomStatusBar Ctrl+C message", () => {
   const defaultProps: BottomStatusBarProps = {
     remoteUrl: "github.com/user/repo",
@@ -44,6 +54,8 @@ describe("BottomStatusBar Ctrl+C message", () => {
   });
 
   afterEach(() => {
+    for (const tree of mounted) tree.unmount();
+    mounted.length = 0;
     vi.clearAllMocks();
   });
 
@@ -51,7 +63,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const indexModule = (await vi.importMock("../../index.js")) as any;
     indexModule.shouldShowExitMessage.mockReturnValue(false);
 
-    const { lastFrame } = render(<BottomStatusBar {...defaultProps} />);
+    const { lastFrame } = track(<BottomStatusBar {...defaultProps} />);
 
     expect(lastFrame()).toContain("github.com/user/repo");
     expect(lastFrame()).not.toContain("ctrl+c to exit");
@@ -61,7 +73,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const indexModule = (await vi.importMock("../../index.js")) as any;
     indexModule.shouldShowExitMessage.mockReturnValue(true);
 
-    const { lastFrame } = render(<BottomStatusBar {...defaultProps} />);
+    const { lastFrame } = track(<BottomStatusBar {...defaultProps} />);
 
     expect(lastFrame()).toContain("ctrl+c to exit");
     expect(lastFrame()).not.toContain("github.com/user/repo");
@@ -70,7 +82,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
   it("registers exit message callback on mount", async () => {
     const indexModule = (await vi.importMock("../../index.js")) as any;
 
-    render(<BottomStatusBar {...defaultProps} />);
+    track(<BottomStatusBar {...defaultProps} />);
 
     expect(indexModule.setExitMessageCallback).toHaveBeenCalledWith(
       expect.any(Function),
@@ -82,7 +94,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     gitModule.isGitRepo.mockReturnValue(true);
     gitModule.getGitBranch.mockReturnValue("feature/status");
 
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       <BottomStatusBar
         {...defaultProps}
         remoteUrl={undefined}
@@ -121,7 +133,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
       promptTokensDetails: { cachedTokens: 800, cacheWriteTokens: 0 },
     });
 
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       <BottomStatusBar {...defaultProps} contextPercentage={10} />,
     );
 
@@ -147,7 +159,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
       },
     });
 
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       <BottomStatusBar {...defaultProps} contextPercentage={10} />,
     );
 
@@ -168,7 +180,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
       promptTokensDetails: { cachedTokens: 800, cacheWriteTokens: 0 },
     });
 
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       <BottomStatusBar {...defaultProps} contextPercentage={10} />,
     );
 
@@ -179,7 +191,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const gitModule = (await vi.importMock("../../utils/git.js")) as any;
     gitModule.getGitBranch.mockReturnValue("main");
 
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       <BottomStatusBar
         {...defaultProps}
         remoteUrl={undefined}
