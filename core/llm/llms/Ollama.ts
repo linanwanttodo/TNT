@@ -630,6 +630,22 @@ class Ollama extends BaseLLM implements ModelInstaller {
           }));
         }
 
+        if (res.done) {
+          // The final chunk is the only place Ollama reports counts, and the
+          // caller collects usage off an assistant message, so dropping them
+          // here would leave every native-Ollama request metered as zero.
+        }
+
+        if (res.done) {
+          // The final chunk is the only place Ollama reports counts, and the
+          // caller collects usage off an assistant message, so dropping them
+          // here would leave every native-Ollama request metered as zero.
+          chatMessage.usage = {
+            completionTokens: res.eval_count,
+            promptTokens: res.prompt_eval_count,
+          };
+        }
+
         // Return both thinking and chat messages if applicable
         return thinkingMessage ? [thinkingMessage, chatMessage] : [chatMessage];
       }

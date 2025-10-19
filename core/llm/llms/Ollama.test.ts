@@ -15,6 +15,72 @@ function createOllama(): Ollama {
 }
 
 describe("Ollama", () => {
+  describe("_streamChat usage", () => {
+    it("carries the final chunk's token counts out as usage", async () => {
+      const ollama = createOllama();
+      // Built with Object.create, so class fields are missing: _getModel reads
+      // this.modelMap.
+      (ollama as any).modelMap = {};
+      // Stubbed rather than reconstructed field by field: the endpoint is not
+      // what this case is about.
+      (ollama as any).getEndpoint = () => "http://localhost:11434/api/chat";
+      (ollama as any).ensureModelInfo = jest.fn().mockResolvedValue(undefined);
+      (ollama as any).fetch = jest
+        .fn()
+        .mockResolvedValue({ status: 200, ok: true } as any);
+
+      const lines = [
+        {
+          model: "test-model",
+          created_at: "now",
+          done: false,
+          message: { role: "assistant", content: "hi" },
+        },
+        {
+          model: "test-model",
+          created_at: "now",
+          done: true,
+          done_reason: "stop",
+          message: { role: "assistant", content: "" },
+          prompt_eval_count: 21,
+          eval_count: 7,
+          total_duration: 0,
+          load_duration: 0,
+          prompt_eval_duration: 0,
+          eval_duration: 0,
+          context: [],
+        },
+      ];
+      // The real streamResponse is left in place and fed a Response whose body
+      // yields the provider's own NDJSON lines, so the parse path under test is
+      // the one production uses.
+      (ollama as any).fetch = jest.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        body: (async function* () {
+          const encoder = new TextEncoder();
+          for (const line of lines) {
+            yield encoder.encode(`${JSON.stringify(line)}\n`);
+          }
+        })(),
+      } as any);
+
+      const messages: ChatMessage[] = [];
+      for await (const message of (ollama as any)._streamChat(
+        [{ role: "user", content: "hello" }] as ChatMessage[],
+        new AbortController().signal,
+        {} as any,
+      )) {
+        messages.push(message);
+      }
+
+      const metered = messages.filter((message: any) => message.usage);
+      expect(metered[metered.length - 1]).toMatchObject({
+        role: "assistant",
+        usage: { completionTokens: 7, promptTokens: 21 },
+      });
+    });
+  });
   describe("_convertToOllamaMessage", () => {
     let ollama: Ollama;
 
