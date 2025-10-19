@@ -21,6 +21,7 @@ import {
   ChatCompletionCreateParamsNonStreaming,
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageToolCall,
+  CompletionUsage,
   Completion,
   CompletionCreateParamsNonStreaming,
   CompletionCreateParamsStreaming,
@@ -32,7 +33,13 @@ import {
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { fromStatic } from "@aws-sdk/token-providers";
 import { BedrockConfig } from "../types.js";
-import { chatChunk, chatChunkFromDelta, embedding, rerank } from "../util.js";
+import {
+  chatChunk,
+  chatChunkFromDelta,
+  embedding,
+  rerank,
+  usageChatChunk,
+} from "../util.js";
 import { safeParseArgs } from "../util/parseArgs.js";
 import { parseDataUrl } from "../util/url.js";
 import {
@@ -438,6 +445,7 @@ export class BedrockApi implements BaseLlmApi {
     let completion = "";
     const toolCalls: ChatCompletionMessageToolCall[] = [];
 
+    let usage: CompletionUsage | undefined;
     for await (const chunk of this.chatCompletionStream(
       {
         ...body,
@@ -445,8 +453,14 @@ export class BedrockApi implements BaseLlmApi {
       },
       signal,
     )) {
-      if (chunk.choices[0].delta.content) {
+      // The usage chunk a stream ends with carries no choices at all.
+      if (chunk.choices[0]?.delta?.content) {
         completion += chunk.choices[0].delta.content;
+      }
+      // The stream's trailing metadata event carries the counts; keeping the
+      // last one is what lets a non-streaming call report them too.
+      if (chunk.usage) {
+        usage = chunk.usage;
       }
       // TODO tool calls not supported
     }
@@ -469,7 +483,7 @@ export class BedrockApi implements BaseLlmApi {
           },
         },
       ],
-      usage: undefined,
+      usage,
     };
   }
 
@@ -492,6 +506,25 @@ export class BedrockApi implements BaseLlmApi {
       }
 
       for await (const chunk of response.stream) {
+        // ConverseStream reports the call's only counts in a trailing metadata
+        // event (the SDK types it as TokenUsage), and dropping it left Bedrock
+        // chat metered as nothing.
+        const counts = chunk.metadata?.usage;
+        if (counts) {
+          const promptTokens = counts.inputTokens ?? 0;
+          const completionTokens = counts.outputTokens ?? 0;
+          yield usageChatChunk({
+            model: body.model,
+            usage: {
+              prompt_tokens: promptTokens,
+              completion_tokens: completionTokens,
+              total_tokens:
+                counts.totalTokens ?? promptTokens + completionTokens,
+            },
+          });
+          continue;
+        }
+
         if (chunk.contentBlockDelta?.delta) {
           const delta: any = chunk.contentBlockDelta.delta;
 
