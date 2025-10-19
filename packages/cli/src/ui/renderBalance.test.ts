@@ -40,7 +40,6 @@ const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/ui/TUIChat.transcript.test.tsx": 1,
   "src/ui/ToolResultSummary.test.tsx": 1,
   "src/ui/UpdateNotification.test.tsx": 9,
-  "src/ui/components/BottomStatusBarCtrlC.test.tsx": 8,
   "src/ui/components/ChecklistDisplay.test.tsx": 4,
   "src/ui/components/CompactionBoundary.test.tsx": 2,
   "src/ui/components/GoalIndicator.test.tsx": 2,
