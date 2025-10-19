@@ -10,6 +10,17 @@ export interface MockLLMServerOptions {
   /** Whether to stream the response word by word (true) or send it all at once (false). Default: true
    * Note: The response format is always SSE since the CLI expects streaming responses. */
   streaming?: boolean;
+  /**
+   * Counts to report in a chunk that carries no choices, the way a provider that
+   * ends its stream with a usage-only metadata event does. Sent only for
+   * streaming requests, so the non-streaming title call is untouched. Omitted,
+   * the response is byte-for-byte what it was before this option existed.
+   */
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
   /** Custom handler for requests */
   customHandler?: (req: http.IncomingMessage, res: http.ServerResponse) => void;
 }
@@ -38,6 +49,7 @@ export async function createMockLLMServer(
   const {
     response = "Hello World!",
     streaming = true,
+    usage,
     customHandler,
   } = options;
 
@@ -125,6 +137,10 @@ export async function createMockLLMServer(
           res.write(
             `data: {"choices":[{"delta":{"content":"${escapedContent}"},"index":0}]}\n\n`,
           );
+        }
+
+        if (usage && requestBody?.stream !== false) {
+          res.write(`data: ${JSON.stringify({ choices: [], usage })}\n\n`);
         }
 
         res.write(`data: [DONE]\n\n`);
