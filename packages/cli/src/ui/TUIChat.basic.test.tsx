@@ -7,6 +7,16 @@ import { createUITestContext } from "../test-utils/ui-test-context.js";
 
 import { AppRoot } from "./AppRoot.js";
 
+// AppRoot's components subscribe through useServices, so an abandoned tree
+// keeps a handler per service on the shared container for later cases.
+const mounted: { unmount: () => void }[] = [];
+
+function track(ui: React.ReactElement): ReturnType<typeof render> {
+  const tree = render(ui);
+  mounted.push(tree);
+  return tree;
+}
+
 describe("TUIChat - Basic UI Tests", () => {
   let context: any;
 
@@ -19,12 +29,14 @@ describe("TUIChat - Basic UI Tests", () => {
   });
 
   afterEach(() => {
+    for (const tree of mounted) tree.unmount();
+    mounted.length = 0;
     context.cleanup();
     setLocale("en");
   });
 
   it("renders without crashing", () => {
-    const { lastFrame } = render(React.createElement(AppRoot));
+    const { lastFrame } = track(React.createElement(AppRoot));
     const frame = lastFrame();
 
     expect(frame).toBeDefined();
@@ -42,7 +54,7 @@ describe("TUIChat - Basic UI Tests", () => {
       allReady: false,
     });
 
-    const { lastFrame } = render(React.createElement(AppRoot));
+    const { lastFrame } = track(React.createElement(AppRoot));
     const frame = lastFrame();
 
     expect(frame).toBeDefined();
@@ -53,7 +65,7 @@ describe("TUIChat - Basic UI Tests", () => {
   });
 
   it("handles remote URL prop", () => {
-    const { lastFrame } = render(
+    const { lastFrame } = track(
       React.createElement(AppRoot, { remoteUrl: "http://localhost:3000" }),
     );
     const frame = lastFrame();
@@ -66,7 +78,7 @@ describe("TUIChat - Basic UI Tests", () => {
 
   it("localizes the composer and status labels after /language", async () => {
     setLocale("zh-CN");
-    const { lastFrame } = render(React.createElement(AppRoot));
+    const { lastFrame } = track(React.createElement(AppRoot));
 
     await waitForCondition(() => lastFrame()?.includes("输入内容") ?? false);
 
