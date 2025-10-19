@@ -36,7 +36,6 @@ const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/ui/TUIChat.interruption.minimal.test.tsx": 5,
   "src/ui/TUIChat.layout.test.tsx": 1,
   "src/ui/TUIChat.planModeBug.test.tsx": 3,
-  "src/ui/TUIChat.toolDisplay.test.tsx": 4,
   "src/ui/TUIChat.transcript.test.tsx": 1,
   "src/ui/ToolResultSummary.test.tsx": 1,
   "src/ui/UpdateNotification.test.tsx": 9,
