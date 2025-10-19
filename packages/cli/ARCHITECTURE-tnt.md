@@ -55,6 +55,9 @@ The prefix is assembled in build order, each part announced so it can be attribu
 - When the prefix does move, `cache/cacheBreakReport.ts` writes the reasons, both hit ratios and the
   named section changes (`describeSystemMessageTextChange` in `agent/systemMessage.ts`) to
   `cache-breaks/<session>/` beside the session store.
+- Counts reported in a chunk that carries no choices - the trailing metadata event of a provider like
+  Bedrock - are still metered: `stream/streamChatResponse.ts` reads `chunk.usage` ahead of the choice
+  guard, and `e2e/headless-usage-only-chunk.test.ts` pins it through to the saved session.
 
 ## Tools and permissions
 
