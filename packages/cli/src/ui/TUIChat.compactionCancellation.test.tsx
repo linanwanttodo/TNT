@@ -14,6 +14,16 @@ vi.mock("./hooks/useChat.js", () => ({
   useChat: () => mockUseChat(),
 }));
 
+// The mounted tree subscribes through the service hooks, so a case that leaves
+// it in place keeps those handlers on the shared container for later cases.
+const mounted: { unmount: () => void }[] = [];
+
+function track(ui: React.ReactElement): ReturnType<typeof render> {
+  const tree = render(ui);
+  mounted.push(tree);
+  return tree;
+}
+
 describe("TUIChat - Compaction Cancellation", () => {
   let context: any;
 
@@ -28,6 +38,8 @@ describe("TUIChat - Compaction Cancellation", () => {
   });
 
   afterEach(() => {
+    for (const tree of mounted) tree.unmount();
+    mounted.length = 0;
     context.cleanup();
     vi.clearAllMocks();
   });
@@ -53,7 +65,7 @@ describe("TUIChat - Compaction Cancellation", () => {
       handleToolPermissionResponse: vi.fn(),
     });
 
-    const { stdin, unmount } = render(React.createElement(AppRoot, {}));
+    const { stdin, unmount } = track(React.createElement(AppRoot, {}));
 
     try {
       // Give some time for the component to render and set up input handling
@@ -90,7 +102,7 @@ describe("TUIChat - Compaction Cancellation", () => {
       handleToolPermissionResponse: vi.fn(),
     });
 
-    const { lastFrame, unmount } = render(React.createElement(AppRoot, {}));
+    const { lastFrame, unmount } = track(React.createElement(AppRoot, {}));
 
     try {
       const frame = lastFrame();
@@ -127,7 +139,7 @@ describe("TUIChat - Compaction Cancellation", () => {
       handleToolPermissionResponse: vi.fn(),
     });
 
-    const { stdin, unmount } = render(React.createElement(AppRoot, {}));
+    const { stdin, unmount } = track(React.createElement(AppRoot, {}));
 
     try {
       // Simulate ESC key press when both states are active
