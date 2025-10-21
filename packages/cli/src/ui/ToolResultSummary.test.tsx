@@ -22,10 +22,12 @@ afterEach(() => {
 });
 
 function frameFor(toolName: string, content: string): string {
-  const { lastFrame } = render(
+  const tree = render(
     <ToolResultSummary toolName={toolName} content={content} />,
   );
-  return lastFrame() ?? "";
+  const frame = tree.lastFrame() ?? "";
+  tree.unmount();
+  return frame;
 }
 
 describe("tool result summary labels", () => {

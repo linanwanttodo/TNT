@@ -34,16 +34,12 @@ const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/ui/TUIChat.layout.test.tsx": 1,
   "src/ui/TUIChat.planModeBug.test.tsx": 3,
   "src/ui/TUIChat.transcript.test.tsx": 1,
-  "src/ui/ToolResultSummary.test.tsx": 1,
   "src/ui/UpdateNotification.test.tsx": 9,
   "src/ui/components/ChecklistDisplay.test.tsx": 4,
   "src/ui/components/CompactionBoundary.test.tsx": 2,
-  "src/ui/components/GoalIndicator.test.tsx": 2,
   "src/ui/components/MemoizedMessage.formatDisplay.test.tsx": 8,
   "src/ui/components/SessionSelectorWithLoading.subagents.test.tsx": 1,
-  "src/ui/components/SubagentBreadcrumb.test.tsx": 2,
   "src/ui/components/TUIChat.streamStopping.test.tsx": 2,
-  "src/ui/hooks/useLocale.test.tsx": 1,
   "src/ui/utils/borderLine.test.ts": 3,
 };
 
