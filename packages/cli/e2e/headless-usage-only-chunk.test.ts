@@ -1,9 +1,7 @@
-import fs from "fs";
-import path from "path";
-
 import {
   cleanupTestContext,
   createTestContext,
+  readSession,
   runCLI,
 } from "../src/test-utils/cli-helpers.js";
 import {
@@ -48,13 +46,10 @@ describe("E2E: a usage-only stream chunk is still metered", () => {
     expect(result.stderr).toBe("");
     expect(result.exitCode).toBe(0);
 
-    const sessionDir = path.join(context.testDir, ".tnt", "sessions");
-    const sessionFile = fs
-      .readdirSync(sessionDir)
-      .filter((name) => name !== "sessions.json")[0];
-    const session = JSON.parse(
-      fs.readFileSync(path.join(sessionDir, sessionFile), "utf-8"),
-    );
+    const session = await readSession(context);
+    // The helper picks the session out of the directory that also holds the
+    // `sessions.json` listing; reading that file instead has no history at all.
+    expect(typeof session.sessionId).toBe("string");
     const assistant = session.history.find(
       (entry: any) => entry.message.role === "assistant",
     );

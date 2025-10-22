@@ -184,14 +184,23 @@ export async function readSession(
 ): Promise<any | null> {
   try {
     const sessionDir = path.join(context.testDir, ".tnt", "sessions");
-    const files = await fs.readdir(sessionDir);
+    // `sessions.json` is the listing, not a session, and a session id is a UUID,
+    // so neither "sort and pop" nor the directory order picks the newest run.
+    const files = (await fs.readdir(sessionDir)).filter(
+      (name) => name.endsWith(".json") && name !== "sessions.json",
+    );
 
     if (files.length === 0) {
       return null;
     }
 
-    // Get the most recent session file
-    const sessionFile = files.sort().pop()!;
+    const stamped = await Promise.all(
+      files.map(async (name) => ({
+        name,
+        mtimeMs: (await fs.stat(path.join(sessionDir, name))).mtimeMs,
+      })),
+    );
+    const sessionFile = stamped.sort((a, b) => b.mtimeMs - a.mtimeMs)[0].name;
     const sessionPath = path.join(sessionDir, sessionFile);
     const content = await fs.readFile(sessionPath, "utf-8");
 
