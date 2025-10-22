@@ -7,13 +7,19 @@ import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { CompactionBoundary } from "./CompactionBoundary.js";
 import { MemoizedMessage } from "./MemoizedMessage.js";
 
+function frameOf(element: React.ReactElement): string {
+  const tree = render(element);
+  const frame = tree.lastFrame() ?? "";
+  tree.unmount();
+  return frame;
+}
+
 describe("CompactionBoundary", () => {
   it("labels the boundary and shows the summary", () => {
-    const { lastFrame } = render(
+    const frame = frameOf(
       <CompactionBoundary summary="## recap\n\n- kept the parser change" />,
     );
 
-    const frame = lastFrame() ?? "";
     expect(frame).toContain("context compacted");
     expect(frame).toContain("recap");
     expect(frame).toContain("kept the parser change");
@@ -34,9 +40,8 @@ describe("MemoizedMessage compaction item", () => {
   };
 
   it("renders the compaction summary instead of a bare rule", () => {
-    const { lastFrame } = render(<MemoizedMessage item={item} index={1} />);
+    const frame = frameOf(<MemoizedMessage item={item} index={1} />);
 
-    const frame = lastFrame() ?? "";
     expect(frame).toContain("context compacted");
     expect(frame).toContain(summary);
   });

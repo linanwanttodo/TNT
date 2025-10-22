@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { composeTopBorder } from "./borderLine.js";
 
-const render = (width: number, label?: string) => {
+const buildLine = (width: number, label?: string) => {
   const border = composeTopBorder(width, label);
   return {
     ...border,
@@ -12,7 +12,7 @@ const render = (width: number, label?: string) => {
 
 describe("composeTopBorder", () => {
   it("embeds a mode label at the top-left of a border of the requested width", () => {
-    const { line } = render(20, "[plan]");
+    const { line } = buildLine(20, "[plan]");
 
     expect(line.startsWith("╭─[plan]")).toBe(true);
     expect(line.endsWith("╮")).toBe(true);
@@ -21,7 +21,7 @@ describe("composeTopBorder", () => {
   });
 
   it("produces a plain rounded top edge when no label is present", () => {
-    const { line } = render(12);
+    const { line } = buildLine(12);
     const inner = line.slice(1, -1);
 
     expect(line.startsWith("╭")).toBe(true);
@@ -32,7 +32,7 @@ describe("composeTopBorder", () => {
   });
 
   it("grows the line instead of dropping the label in a tiny terminal", () => {
-    const { line, width } = render(4, "[auto]");
+    const { line, width } = buildLine(4, "[auto]");
 
     expect(width).toBe(10);
     expect(line).toHaveLength(10);
