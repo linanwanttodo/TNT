@@ -20,18 +20,14 @@ import { describe, expect, it } from "vitest";
  * at a time never turns it red.
  */
 const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
-  "src/ui/ColoredDiff.test.ts": 11,
   "src/test-utils/renderWithServices.tsx": 1,
+  "src/ui/ColoredDiff.test.ts": 11,
   "src/ui/CtrlC.test.tsx": 4,
   "src/ui/CtrlCInputClearing.test.tsx": 2,
   "src/ui/EditMessageSelector.test.tsx": 8,
   "src/ui/IntroMessage.test.tsx": 6,
   "src/ui/MarkdownRenderer.thinking.test.tsx": 3,
   "src/ui/SessionSelector.test.tsx": 3,
-  "src/ui/TUIChat.actionStatus.test.tsx": 4,
-  "src/ui/TUIChat.layout.test.tsx": 1,
-  "src/ui/TUIChat.planModeBug.test.tsx": 3,
-  "src/ui/TUIChat.transcript.test.tsx": 1,
   "src/ui/UpdateNotification.test.tsx": 9,
   "src/ui/components/ChecklistDisplay.test.tsx": 4,
   "src/ui/components/MemoizedMessage.formatDisplay.test.tsx": 8,
@@ -83,11 +79,14 @@ function scannedFiles(dir: string, testFilesOnly: boolean): string[] {
 }
 
 /**
- * Renders counted against the calls that give them back, per file. A stray
+ * Renders counted against the calls that give them back, per file. A release is
+ * counted in both call forms: `const { unmount } = render(...)` followed by
+ * `unmount()` hands the tree back exactly like `tree.unmount()` does, and the
+ * dotted-only count charged four suites for debt they had already paid. A stray
  * mention of either in a comment shifts that file's allowance and can only make
  * its ceiling looser, so this cannot fail on its own arithmetic.
  */
-function unmountedRenders(): Record<string, number> {
+export function unmountedRenders(): Record<string, number> {
   const counts: Record<string, number> = {};
 
   for (const target of SCAN_TARGETS) {
@@ -98,7 +97,8 @@ function unmountedRenders(): Record<string, number> {
       const source = fs.readFileSync(file, "utf-8");
       const imbalance =
         (source.match(/\brender\(/g) ?? []).length -
-        (source.match(/\.unmount\(\)/g) ?? []).length;
+        (source.match(/\.unmount\(\)/g) ?? []).length -
+        (source.match(/(?<![.\w])unmount\(\)/g) ?? []).length;
       if (imbalance > 0) {
         counts[path.relative(PACKAGE_ROOT, file).split(path.sep).join("/")] =
           imbalance;
