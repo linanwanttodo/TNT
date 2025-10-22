@@ -20,7 +20,7 @@ vi.mock("../../session/index.js", () => ({
 
 describe("SessionSelectorWithLoading subagent source", () => {
   it("lists the delegated runs of the parent session", async () => {
-    const { lastFrame } = render(
+    const tree = render(
       <SessionSelectorWithLoading
         source="subagents"
         parentSessionId="parent"
@@ -30,8 +30,9 @@ describe("SessionSelectorWithLoading subagent source", () => {
     );
 
     await vi.waitFor(() => {
-      expect(lastFrame() ?? "").toContain("Explore session");
+      expect(tree.lastFrame() ?? "").toContain("Explore session");
     });
+    tree.unmount();
 
     const { listSessions, listSubagentSessions } = await import(
       "../../session/index.js"

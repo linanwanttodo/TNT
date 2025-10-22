@@ -3,6 +3,13 @@ import React from "react";
 
 import { ChecklistDisplay } from "./ChecklistDisplay.js";
 
+function frameOf(element: React.ReactElement): string | undefined {
+  const tree = render(element);
+  const frame = tree.lastFrame();
+  tree.unmount();
+  return frame;
+}
+
 describe("ChecklistDisplay", () => {
   it("should highlight the first incomplete item", () => {
     const content = `Task list status:
@@ -10,8 +17,7 @@ describe("ChecklistDisplay", () => {
 - [ ] First incomplete task
 - [ ] Second incomplete task`;
 
-    const { lastFrame } = render(<ChecklistDisplay content={content} />);
-    const output = lastFrame();
+    const output = frameOf(<ChecklistDisplay content={content} />);
 
     // The output should contain the checkbox symbols and text
     expect(output).toContain("✓");
@@ -24,8 +30,7 @@ describe("ChecklistDisplay", () => {
   it("should handle empty checklist", () => {
     const content = "Task list status:";
 
-    const { lastFrame } = render(<ChecklistDisplay content={content} />);
-    const output = lastFrame();
+    const output = frameOf(<ChecklistDisplay content={content} />);
 
     expect(output).toBeDefined();
   });
@@ -35,8 +40,7 @@ describe("ChecklistDisplay", () => {
 - [x] Completed task 1
 - [x] Completed task 2`;
 
-    const { lastFrame } = render(<ChecklistDisplay content={content} />);
-    const output = lastFrame();
+    const output = frameOf(<ChecklistDisplay content={content} />);
 
     expect(output).toContain("✓");
     expect(output).toContain("Completed task 1");
@@ -52,8 +56,7 @@ describe("ChecklistDisplay", () => {
 ## Other Tasks
 - [ ] Another todo`;
 
-    const { lastFrame } = render(<ChecklistDisplay content={content} />);
-    const output = lastFrame();
+    const output = frameOf(<ChecklistDisplay content={content} />);
 
     expect(output).toContain("Important Tasks");
     expect(output).toContain("Other Tasks");

@@ -7,10 +7,12 @@ describe("MarkdownRenderer - thinking tags", () => {
   it("handles multiple thinking tags", () => {
     const content =
       "Text <think>First thought</think> middle <think>Second thought</think> end";
-    const { lastFrame } = render(<MarkdownRenderer content={content} />);
+    const tree = render(<MarkdownRenderer content={content} />);
+    const frame = tree.lastFrame();
+    tree.unmount();
 
-    expect(lastFrame()).toContain("First thought");
-    expect(lastFrame()).toContain("Second thought");
+    expect(frame).toContain("First thought");
+    expect(frame).toContain("Second thought");
   });
 
   it("handles thinking tags with multiline content", () => {
@@ -18,19 +20,21 @@ describe("MarkdownRenderer - thinking tags", () => {
     This is a multiline
     thinking block
     </think>`;
-    const { lastFrame } = render(<MarkdownRenderer content={content} />);
+    const tree = render(<MarkdownRenderer content={content} />);
+    const frame = tree.lastFrame();
+    tree.unmount();
 
-    expect(lastFrame()).toContain("This is a multiline");
-    expect(lastFrame()).toContain("thinking block");
+    expect(frame).toContain("This is a multiline");
+    expect(frame).toContain("thinking block");
   });
 
   it("ignores thinking tags inside code blocks", () => {
     const content = "```\n<think>This should not be processed</think>\n```";
-    const { lastFrame } = render(<MarkdownRenderer content={content} />);
+    const tree = render(<MarkdownRenderer content={content} />);
+    const frame = tree.lastFrame();
+    tree.unmount();
 
     // The thinking tag should appear as literal text within the code block
-    expect(lastFrame()).toContain(
-      "<think>This should not be processed</think>",
-    );
+    expect(frame).toContain("<think>This should not be processed</think>");
   });
 });
