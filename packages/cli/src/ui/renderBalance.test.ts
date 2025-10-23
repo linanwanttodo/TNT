@@ -21,11 +21,9 @@ import { describe, expect, it } from "vitest";
  */
 const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/test-utils/renderWithServices.tsx": 1,
-  "src/ui/ColoredDiff.test.ts": 11,
   "src/ui/CtrlC.test.tsx": 4,
   "src/ui/CtrlCInputClearing.test.tsx": 2,
   "src/ui/EditMessageSelector.test.tsx": 8,
-  "src/ui/IntroMessage.test.tsx": 6,
   "src/ui/SessionSelector.test.tsx": 3,
   "src/ui/UpdateNotification.test.tsx": 9,
   "src/ui/components/MemoizedMessage.formatDisplay.test.tsx": 8,

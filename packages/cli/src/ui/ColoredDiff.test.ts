@@ -3,6 +3,13 @@ import React from "react";
 
 import { ColoredDiff } from "./ColoredDiff.js";
 
+function frameOf(element: React.ReactElement): string | undefined {
+  const tree = render(element);
+  const frame = tree.lastFrame();
+  tree.unmount();
+  return frame;
+}
+
 describe("ColoredDiff", () => {
   it("renders simple line additions", () => {
     const diffContent = `@@ -1,3 +1,4 @@
@@ -11,10 +18,7 @@ describe("ColoredDiff", () => {
    return "world";
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     expect(frame).toContain('console.log("added line")');
     expect(frame).toContain("+");
@@ -27,10 +31,7 @@ describe("ColoredDiff", () => {
    return "world";
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     expect(frame).toContain('console.log("removed line")');
     expect(frame).toContain("-");
@@ -44,10 +45,7 @@ describe("ColoredDiff", () => {
    return "world";
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     expect(frame).toContain("function hello()");
     expect(frame).toContain('return "world"');
@@ -60,10 +58,7 @@ describe("ColoredDiff", () => {
 +  return "new text";
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     expect(frame).toContain('return "');
     expect(frame).toContain('text"');
@@ -73,10 +68,9 @@ describe("ColoredDiff", () => {
   });
 
   it("handles empty diff content", () => {
-    const { lastFrame } = render(
+    const frame = frameOf(
       React.createElement(ColoredDiff, { diffContent: "" }),
     );
-    const frame = lastFrame();
 
     expect(frame).toContain("No changes detected");
   });
@@ -91,10 +85,7 @@ describe("ColoredDiff", () => {
 ${lines}
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     expect(frame).toContain("more lines");
   });
@@ -109,10 +100,7 @@ ${lines}
    return x + y;
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     // Should render word-level diffs
     expect(frame).toContain('const x = "');
@@ -128,10 +116,7 @@ ${lines}
    return "world";
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     // Should render as normal line additions, not word-level
     expect(frame).toContain('console.log("new line 1")');
@@ -146,10 +131,7 @@ ${lines}
 +  return "new text";
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     // Extract just the line numbers and content, ignoring colors/styling
     // The output should contain these essential elements:
@@ -176,10 +158,7 @@ ${lines}
 +const y = "hello universe";
  const z = 3;`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     // All original text should be preserved
     expect(frame).toContain("const x = 1");
@@ -206,10 +185,7 @@ ${lines}
 +  return result.data;
  }`;
 
-    const { lastFrame } = render(
-      React.createElement(ColoredDiff, { diffContent }),
-    );
-    const frame = lastFrame();
+    const frame = frameOf(React.createElement(ColoredDiff, { diffContent }));
 
     // Check that all unique content appears
     expect(frame).toContain("function calculate()");

@@ -9,6 +9,13 @@ vi.mock("../startup/asciiArt.js", () => ({
   getDisplayableAsciiArt: () => "MOCK ASCII ART",
 }));
 
+function frameOf(element: React.ReactElement): string | undefined {
+  const tree = render(element);
+  const frame = tree.lastFrame();
+  tree.unmount();
+  return frame;
+}
+
 describe("IntroMessage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -19,18 +26,18 @@ describe("IntroMessage", () => {
   });
 
   it("renders ASCII art and basic structure", () => {
-    const { lastFrame } = render(<IntroMessage />);
+    const frame = frameOf(<IntroMessage />);
 
-    expect(lastFrame()).toContain("MOCK ASCII ART");
+    expect(frame).toContain("MOCK ASCII ART");
   });
 
   it("renders config name when config is provided", () => {
     const config = { name: "Test Agent", version: "1.0.0", rules: [] };
 
-    const { lastFrame } = render(<IntroMessage config={config} />);
+    const frame = frameOf(<IntroMessage config={config} />);
 
-    expect(lastFrame()).toContain("Config:");
-    expect(lastFrame()).toContain("Test Agent");
+    expect(frame).toContain("Config:");
+    expect(frame).toContain("Test Agent");
   });
 
   it("renders model information when model is provided", () => {
@@ -40,31 +47,31 @@ describe("IntroMessage", () => {
       model: "test-model",
     };
 
-    const { lastFrame } = render(<IntroMessage model={model} />);
+    const frame = frameOf(<IntroMessage model={model} />);
 
-    expect(lastFrame()).toContain("Model:");
-    expect(lastFrame()).toContain("model-name");
+    expect(frame).toContain("Model:");
+    expect(frame).toContain("model-name");
   });
 
   it("shows loading state when model is not provided", () => {
-    const { lastFrame } = render(<IntroMessage />);
+    const frame = frameOf(<IntroMessage />);
 
-    expect(lastFrame()).toContain("Model:");
-    expect(lastFrame()).toContain("Loading...");
+    expect(frame).toContain("Model:");
+    expect(frame).toContain("Loading...");
   });
 
   it("renders organization name when provided", () => {
-    const { lastFrame } = render(
+    const frame = frameOf(
       <IntroMessage organizationName="Test Organization" />,
     );
 
-    expect(lastFrame()).toContain("Org:");
-    expect(lastFrame()).toContain("Test Organization");
+    expect(frame).toContain("Org:");
+    expect(frame).toContain("Test Organization");
   });
 
   it("does not render organization section when not provided", () => {
-    const { lastFrame } = render(<IntroMessage />);
+    const frame = frameOf(<IntroMessage />);
 
-    expect(lastFrame()).not.toContain("Org:");
+    expect(frame).not.toContain("Org:");
   });
 });
