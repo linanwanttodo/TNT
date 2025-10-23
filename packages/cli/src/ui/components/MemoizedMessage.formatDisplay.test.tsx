@@ -10,6 +10,13 @@ import type {
 
 import { MemoizedMessage } from "./MemoizedMessage.js";
 
+function frameOf(element: React.ReactElement): string | undefined {
+  const tree = render(element);
+  const frame = tree.lastFrame();
+  tree.unmount();
+  return frame;
+}
+
 describe("MemoizedMessage formatMessageContentForDisplay", () => {
   const createTestHistoryItem = (content: MessageContent): ChatHistoryItem => ({
     message: {
@@ -23,11 +30,9 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     const content = "Just a simple text message";
     const historyItem = createTestHistoryItem(content);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    expect(lastFrame()).toContain("Just a simple text message");
+    expect(frame).toContain("Just a simple text message");
   });
 
   it("should display message with images using placeholders", () => {
@@ -38,11 +43,9 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     ];
     const historyItem = createTestHistoryItem(messageParts);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    const output = lastFrame();
+    const output = frame;
     expect(output).toContain("Here is an image: [Image #1] and some more text");
     expect(output).not.toContain("data:image/png;base64,abc123");
     expect(output).not.toContain("imageUrl");
@@ -58,11 +61,9 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     ];
     const historyItem = createTestHistoryItem(messageParts);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    const output = lastFrame();
+    const output = frame;
     expect(output).toContain("First [Image #1] then text [Image #2] end");
     expect(output).not.toContain("data:image/png;base64");
     expect(output).not.toContain("data:image/jpeg;base64");
@@ -75,11 +76,9 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     ];
     const historyItem = createTestHistoryItem(messageParts);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    const output = lastFrame();
+    const output = frame;
     expect(output).toContain("[Image #1][Image #2]");
   });
 
@@ -91,11 +90,9 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     ];
     const historyItem = createTestHistoryItem(messageParts);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    const output = lastFrame();
+    const output = frame;
     expect(output).toContain("[Image #1]");
     expect(output).not.toContain("data:image/png;base64");
   });
@@ -106,11 +103,9 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     ];
     const historyItem = createTestHistoryItem(messageParts);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    expect(lastFrame()).toContain("Just text, no images here");
+    expect(frame).toContain("Just text, no images here");
   });
 
   it("should handle unknown part types by converting to JSON", () => {
@@ -121,11 +116,9 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     ] as MessagePart[];
     const historyItem = createTestHistoryItem(messageParts);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    const output = lastFrame();
+    const output = frame;
     // Verify whitespace preservation - trailing space after "Start" and leading space before "end"
     expect(output).toContain(
       'Start {"type":"unknown","data":{"some":"data"}} end',
@@ -136,10 +129,8 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     const content = { someObject: "data" } as any;
     const historyItem = createTestHistoryItem(content);
 
-    const { lastFrame } = render(
-      <MemoizedMessage item={historyItem} index={1} />,
-    );
+    const frame = frameOf(<MemoizedMessage item={historyItem} index={1} />);
 
-    expect(lastFrame()).toContain('{"someObject":"data"}');
+    expect(frame).toContain('{"someObject":"data"}');
   });
 });
