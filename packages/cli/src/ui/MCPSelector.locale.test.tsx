@@ -39,9 +39,10 @@ describe("MCPSelector locale", () => {
     emptyService();
     setLocale("zh-CN");
 
-    const { lastFrame } = render(<MCPSelector onCancel={() => {}} />);
+    const tree = render(<MCPSelector onCancel={() => {}} />);
+    const lines = contentLines(tree.lastFrame());
+    tree.unmount();
 
-    const lines = contentLines(lastFrame());
     expect(lines).toContain("MCP 服务器");
     expect(lines).toContain("返回");
   });
@@ -66,19 +67,18 @@ describe("MCPSelector locale", () => {
     });
     setLocale("zh-CN");
 
-    const { lastFrame, stdin, unmount } = render(
-      <MCPSelector onCancel={() => {}} />,
-    );
+    const tree = render(<MCPSelector onCancel={() => {}} />);
     // Enter selects the first menu entry, which is the server itself and only
     // moves local state; no MCP service call happens on this path.
-    stdin.write("\r");
+    tree.stdin.write("\r");
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const lines = contentLines(lastFrame());
+    const lines = contentLines(tree.lastFrame());
+    tree.unmount();
+
     expect(lines).toContain("服务器：alpha");
     expect(lines).toContain("工具：2");
     expect(lines).toContain("提示词：1");
     expect(lines.some((line) => line.startsWith("状态："))).toBe(true);
-    unmount();
   });
 });
