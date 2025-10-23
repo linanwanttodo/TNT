@@ -15,20 +15,25 @@ const LocaleText: React.FC = () => {
 
 describe("useLocale", () => {
   const originalLocale: Locale = getLocale();
+  const trees: { unmount: () => void }[] = [];
 
   afterEach(() => {
+    while (trees.length) {
+      trees.pop()?.unmount();
+    }
     act(() => setLocale(originalLocale));
   });
 
   it("re-renders translated UI when the locale changes", () => {
     act(() => setLocale("en"));
-    const { lastFrame } = render(<LocaleText />);
+    const tree = render(<LocaleText />);
+    trees.push(tree);
 
-    expect(lastFrame()).toContain("Config en");
+    expect(tree.lastFrame()).toContain("Config en");
 
     act(() => setLocale("zh-CN"));
 
-    expect(lastFrame()).not.toContain("Config");
-    expect(lastFrame()).toContain("zh-CN");
+    expect(tree.lastFrame()).not.toContain("Config");
+    expect(tree.lastFrame()).toContain("zh-CN");
   });
 });

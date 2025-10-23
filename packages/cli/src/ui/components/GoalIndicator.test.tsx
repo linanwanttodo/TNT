@@ -27,10 +27,16 @@ describe("truncateGoal", () => {
   });
 });
 
+function frameOf(element: React.ReactElement): string {
+  const tree = render(element);
+  const frame = tree.lastFrame() ?? "";
+  tree.unmount();
+  return frame;
+}
+
 describe("GoalIndicator", () => {
   it("renders nothing when no goal is set", async () => {
-    const { lastFrame } = render(<GoalIndicator />);
-    expect(lastFrame()).not.toContain("Goal:");
+    expect(frameOf(<GoalIndicator />)).not.toContain("Goal:");
   });
 
   it("renders the goal line above the composer", async () => {
@@ -41,9 +47,9 @@ describe("GoalIndicator", () => {
       "Ship the TNT cli resume flow",
     );
 
-    const { lastFrame } = render(<GoalIndicator />);
+    const frame = frameOf(<GoalIndicator />);
 
-    expect(lastFrame()).toContain("Goal:");
-    expect(lastFrame()).toContain("Ship the TNT cli resume flow");
+    expect(frame).toContain("Goal:");
+    expect(frame).toContain("Ship the TNT cli resume flow");
   });
 });
