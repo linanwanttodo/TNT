@@ -21,10 +21,6 @@ import { describe, expect, it } from "vitest";
  */
 const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/test-utils/renderWithServices.tsx": 1,
-  "src/ui/CtrlC.test.tsx": 4,
-  "src/ui/CtrlCInputClearing.test.tsx": 2,
-  "src/ui/EditMessageSelector.test.tsx": 8,
-  "src/ui/SessionSelector.test.tsx": 3,
   "src/ui/components/TUIChat.streamStopping.test.tsx": 2,
 };
 
@@ -72,7 +68,10 @@ function scannedFiles(dir: string, testFilesOnly: boolean): string[] {
 }
 
 /**
- * Renders counted against the calls that give them back, per file. A release is
+ * Renders counted against the calls that give them back, per file. Only files that
+ * import `ink-testing-library` are read: this table is about Ink trees, and a
+ * jsdom suite rendering DOM through `@testing-library/react` matched the same
+ * `render(` text and was charged for trees it never mounted. A release is
  * counted in both call forms: `const { unmount } = render(...)` followed by
  * `unmount()` hands the tree back exactly like `tree.unmount()` does, and the
  * dotted-only count charged four suites for debt they had already paid. A stray
@@ -88,6 +87,9 @@ export function unmountedRenders(): Record<string, number> {
       target.testFilesOnly,
     )) {
       const source = fs.readFileSync(file, "utf-8");
+      if (!source.includes('from "ink-testing-library"')) {
+        continue;
+      }
       const imbalance =
         (source.match(/\brender\(/g) ?? []).length -
         (source.match(/\.unmount\(\)/g) ?? []).length -
