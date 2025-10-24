@@ -130,7 +130,7 @@ The ratchet itself:
     npx vitest run src/architecture.test.ts
 
 It counts production sources under `src/` (tests, `test-utils` and `__mocks__` excluded), freezes the
-mutually importing group pairs in `KNOWN_MUTUAL_COUPLING` (21 pairs as of this writing, each listed by
+mutually importing group pairs in `KNOWN_MUTUAL_COUPLING` (22 pairs as of this writing, each listed by
 name in the file), fails on a new pair, allows `utils ->` only for the four exemptions it names, and
 fails if the scan finds fewer than 250 files so an empty scan cannot pass.
 
