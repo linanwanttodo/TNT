@@ -17,6 +17,13 @@ vi.mock("./hooks/useService.js", () => ({
   useServices: () => mockUseServices(),
 }));
 
+function frameOf(element: React.ReactElement): string | undefined {
+  const tree = render(element);
+  const frame = tree.lastFrame();
+  tree.unmount();
+  return frame;
+}
+
 describe("UpdateNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -41,9 +48,9 @@ describe("UpdateNotification", () => {
   });
 
   it("should show default message when no update is available", () => {
-    const { lastFrame } = render(<UpdateNotification />);
+    const frame = frameOf(<UpdateNotification />);
 
-    expect(lastFrame()).toContain("◉ TNT v1.0.0");
+    expect(frame).toContain("◉ TNT v1.0.0");
   });
 
   it("should show update available message when update is available", () => {
@@ -61,9 +68,9 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification />);
+    const frame = frameOf(<UpdateNotification />);
 
-    expect(lastFrame()).toContain("◉ Update available: v1.0.1");
+    expect(frame).toContain("◉ Update available: v1.0.1");
   });
 
   it("should show checking message when checking for updates", () => {
@@ -81,9 +88,9 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification />);
+    const frame = frameOf(<UpdateNotification />);
 
-    expect(lastFrame()).toContain("◉ Checking for updates");
+    expect(frame).toContain("◉ Checking for updates");
   });
 
   it("should show updating message when updating", () => {
@@ -101,9 +108,9 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification />);
+    const frame = frameOf(<UpdateNotification />);
 
-    expect(lastFrame()).toContain("Updating to v1.0.1");
+    expect(frame).toContain("Updating to v1.0.1");
   });
 
   it("should show updated message when update completes", () => {
@@ -121,9 +128,9 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification />);
+    const frame = frameOf(<UpdateNotification />);
 
-    expect(lastFrame()).toContain("◉ Auto-updated to v1.0.1");
+    expect(frame).toContain("◉ Auto-updated to v1.0.1");
   });
 
   it("should show error message when update fails", () => {
@@ -141,9 +148,9 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification />);
+    const frame = frameOf(<UpdateNotification />);
 
-    expect(lastFrame()).toContain("◉ Update failed");
+    expect(frame).toContain("◉ Update failed");
   });
 
   it("should show remote mode when in remote mode and no update available", () => {
@@ -161,9 +168,9 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification isRemoteMode={true} />);
+    const frame = frameOf(<UpdateNotification isRemoteMode={true} />);
 
-    expect(lastFrame()).toContain("◉ Remote Mode");
+    expect(frame).toContain("◉ Remote Mode");
   });
 
   it("should show update message even in remote mode when update is available", () => {
@@ -181,9 +188,9 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification isRemoteMode={true} />);
+    const frame = frameOf(<UpdateNotification isRemoteMode={true} />);
 
-    expect(lastFrame()).toContain("◉ Update available: v1.0.1");
+    expect(frame).toContain("◉ Update available: v1.0.1");
   });
 
   it("should show default message when update service has no message", () => {
@@ -201,8 +208,8 @@ describe("UpdateNotification", () => {
       },
     });
 
-    const { lastFrame } = render(<UpdateNotification />);
+    const frame = frameOf(<UpdateNotification />);
 
-    expect(lastFrame()).toContain("◉ TNT");
+    expect(frame).toContain("◉ TNT");
   });
 });

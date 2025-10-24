@@ -25,8 +25,6 @@ const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/ui/CtrlCInputClearing.test.tsx": 2,
   "src/ui/EditMessageSelector.test.tsx": 8,
   "src/ui/SessionSelector.test.tsx": 3,
-  "src/ui/UpdateNotification.test.tsx": 9,
-  "src/ui/components/MemoizedMessage.formatDisplay.test.tsx": 8,
   "src/ui/components/TUIChat.streamStopping.test.tsx": 2,
 };
 
