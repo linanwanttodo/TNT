@@ -26,9 +26,10 @@ describe("the slash commands the dispatcher can actually run", () => {
   });
 
   it("keeps a working command undocumented on purpose, not by drift", () => {
-    // back's alias, the profile switch and the todo list: dispatched, absent
-    // from the advertised set, and each one is a deliberate choice.
-    const undocumented = ["parent", "profile", "todos"].sort();
+    // Every in-process handler is advertised now: `parent` is listed as the
+    // alias of `back` rather than dropped, because a working command nobody can
+    // see is the failure this guard was written to catch.
+    const undocumented: string[] = [];
 
     const extra = handlerNames.filter((name) => !builtinNames.includes(name));
 
