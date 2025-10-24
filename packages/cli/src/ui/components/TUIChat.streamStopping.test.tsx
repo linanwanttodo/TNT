@@ -17,7 +17,7 @@ describe("TUIChat - Stream Stopping on Tool Rejection", () => {
   it("verifies tool permission rejection flow", async () => {
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const tree = render(
       <ToolPermissionSelector
         toolName="Edit"
         toolArgs={{
@@ -33,9 +33,10 @@ describe("TUIChat - Stream Stopping on Tool Rejection", () => {
     await vi.advanceTimersByTimeAsync(50);
 
     // Simulate user rejecting the tool call (press escape)
-    stdin.write("\x1b"); // ESC key
+    tree.stdin.write("\x1b"); // ESC key
 
     await vi.advanceTimersByTimeAsync(50);
+    tree.unmount();
 
     // Verify that the tool was rejected with stop stream
     expect(handleResponse).toHaveBeenCalledWith(
@@ -49,7 +50,7 @@ describe("TUIChat - Stream Stopping on Tool Rejection", () => {
   it("verifies rejection with 'n' key triggers proper response", async () => {
     const handleResponse = vi.fn();
 
-    const { stdin } = render(
+    const tree = render(
       <ToolPermissionSelector
         toolName="Write"
         toolArgs={{
@@ -64,9 +65,10 @@ describe("TUIChat - Stream Stopping on Tool Rejection", () => {
     await vi.advanceTimersByTimeAsync(50);
 
     // Press 'n' to reject
-    stdin.write("n");
+    tree.stdin.write("n");
 
     await vi.advanceTimersByTimeAsync(50);
+    tree.unmount();
 
     // Verify rejection with stop stream
     expect(handleResponse).toHaveBeenCalledWith(

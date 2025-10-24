@@ -21,7 +21,6 @@ import { describe, expect, it } from "vitest";
  */
 const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
   "src/test-utils/renderWithServices.tsx": 1,
-  "src/ui/components/TUIChat.streamStopping.test.tsx": 2,
 };
 
 const PACKAGE_ROOT = path.resolve(
