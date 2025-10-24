@@ -7,6 +7,13 @@ import type { BaseSessionMetadata } from "../session/index.js";
 
 import { SessionSelector } from "./SessionSelector.js";
 
+function frameOf(element: React.ReactElement): string | undefined {
+  const tree = render(element);
+  const frame = tree.lastFrame();
+  tree.unmount();
+  return frame;
+}
+
 describe("SessionSelector", () => {
   const mockOnSelect = vi.fn();
   const mockOnExit = vi.fn();
@@ -56,7 +63,7 @@ describe("SessionSelector", () => {
       },
     ];
 
-    const { lastFrame } = render(
+    const frame = frameOf(
       <SessionSelector
         sessions={sessions}
         onSelect={mockOnSelect}
@@ -65,22 +72,22 @@ describe("SessionSelector", () => {
     );
 
     // Check that the output contains expected date formats
-    expect(lastFrame()).toContain("2:00 PM"); // Today should show time
-    expect(lastFrame()).toContain("yesterday"); // Yesterday should show "yesterday"
+    expect(frame).toContain("2:00 PM"); // Today should show time
+    expect(frame).toContain("yesterday"); // Yesterday should show "yesterday"
 
     // This week should show day name (we can't predict exact day without knowing when test runs)
     // but we can check it doesn't contain "ago" which was the old format
-    expect(lastFrame()).not.toContain("days ago");
+    expect(frame).not.toContain("days ago");
 
     // This year should show month/day format like "Oct 18" (no "ago")
-    expect(lastFrame()).toMatch(/[A-Z][a-z]{2} \d{1,2}/); // MMM d format
+    expect(frame).toMatch(/[A-Z][a-z]{2} \d{1,2}/); // MMM d format
 
     // Last year should include the year
-    expect(lastFrame()).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{4}/); // MMM d, yyyy format
+    expect(frame).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{4}/); // MMM d, yyyy format
   });
 
   it("handles empty sessions gracefully", () => {
-    const { lastFrame } = render(
+    const frame = frameOf(
       <SessionSelector
         sessions={[]}
         onSelect={mockOnSelect}
@@ -88,8 +95,8 @@ describe("SessionSelector", () => {
       />,
     );
 
-    expect(lastFrame()).toContain("No previous sessions found");
-    expect(lastFrame()).toContain("Start a new conversation with: tnt");
+    expect(frame).toContain("No previous sessions found");
+    expect(frame).toContain("Start a new conversation with: tnt");
   });
 
   it("handles sessions without first user message", () => {
@@ -102,7 +109,7 @@ describe("SessionSelector", () => {
       },
     ];
 
-    const { lastFrame } = render(
+    const frame = frameOf(
       <SessionSelector
         sessions={sessions}
         onSelect={mockOnSelect}
@@ -110,6 +117,6 @@ describe("SessionSelector", () => {
       />,
     );
 
-    expect(lastFrame()).toContain("Empty session");
+    expect(frame).toContain("Empty session");
   });
 });

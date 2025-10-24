@@ -23,7 +23,7 @@ describe("Ctrl+C input clearing", () => {
   });
 
   it("sends SIGINT when Ctrl+C is pressed (input clearing tested implicitly)", () => {
-    const { stdin } = render(
+    const tree = render(
       <UserInput
         onSubmit={mockOnSubmit}
         inputMode={true}
@@ -33,17 +33,18 @@ describe("Ctrl+C input clearing", () => {
     );
 
     // Type some text first
-    stdin.write("hello world");
+    tree.stdin.write("hello world");
 
     // Simulate Ctrl+C using raw character code (like other tests in codebase)
-    stdin.write("\u0003");
+    tree.stdin.write("\u0003");
 
     // Should send SIGINT to process (which handles the two-stage exit)
     expect(mockProcessKill).toHaveBeenCalledWith(process.pid, "SIGINT");
+    tree.unmount();
   });
 
   it("sends SIGINT to main process for two-stage exit handling", () => {
-    const { stdin } = render(
+    const tree = render(
       <UserInput
         onSubmit={mockOnSubmit}
         inputMode={true}
@@ -53,9 +54,10 @@ describe("Ctrl+C input clearing", () => {
     );
 
     // Simulate Ctrl+C using raw character code (like other tests in codebase)
-    stdin.write("\u0003");
+    tree.stdin.write("\u0003");
 
     // Should delegate to main process SIGINT handler
     expect(mockProcessKill).toHaveBeenCalledWith(process.pid, "SIGINT");
+    tree.unmount();
   });
 });

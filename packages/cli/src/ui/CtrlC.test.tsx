@@ -34,7 +34,7 @@ describe("Ctrl+C behavior", () => {
         { id: "2", name: "Option 2" },
       ];
 
-      const { stdin } = render(
+      const tree = render(
         <Selector
           title="Test"
           options={options}
@@ -48,7 +48,8 @@ describe("Ctrl+C behavior", () => {
       );
 
       // Simulate Ctrl+C
-      stdin.write("\u0003");
+      tree.stdin.write("\u0003");
+      tree.unmount();
 
       expect(mockOnCancel).toHaveBeenCalledTimes(1);
       expect(mockOnSelect).not.toHaveBeenCalled();
@@ -57,7 +58,7 @@ describe("Ctrl+C behavior", () => {
     it("calls onCancel when Ctrl+C is pressed during loading", () => {
       const options: any[] = [];
 
-      const { stdin } = render(
+      const tree = render(
         <Selector
           title="Loading Test"
           options={options}
@@ -72,7 +73,8 @@ describe("Ctrl+C behavior", () => {
       );
 
       // Simulate Ctrl+C during loading
-      stdin.write("\u0003");
+      tree.stdin.write("\u0003");
+      tree.unmount();
 
       expect(mockOnCancel).toHaveBeenCalledTimes(1);
     });
@@ -80,7 +82,7 @@ describe("Ctrl+C behavior", () => {
     it("calls onCancel when Ctrl+C is pressed during error state", () => {
       const options: any[] = [];
 
-      const { stdin } = render(
+      const tree = render(
         <Selector
           title="Error Test"
           options={options}
@@ -94,7 +96,8 @@ describe("Ctrl+C behavior", () => {
       );
 
       // Simulate Ctrl+C during error
-      stdin.write("\u0003");
+      tree.stdin.write("\u0003");
+      tree.unmount();
 
       expect(mockOnCancel).toHaveBeenCalledTimes(1);
     });
@@ -102,12 +105,13 @@ describe("Ctrl+C behavior", () => {
 
   describe("ConfigSelector component", () => {
     it("calls onCancel when Ctrl+C is pressed", () => {
-      const { stdin } = render(
+      const tree = render(
         <ConfigSelector onSelect={mockOnSelect} onCancel={mockOnCancel} />,
       );
 
       // Simulate Ctrl+C
-      stdin.write("\u0003");
+      tree.stdin.write("\u0003");
+      tree.unmount();
 
       expect(mockOnCancel).toHaveBeenCalledTimes(1);
     });
