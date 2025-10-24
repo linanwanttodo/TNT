@@ -103,6 +103,41 @@ export function unmountedRenders(): Record<string, number> {
   return counts;
 }
 
+/**
+ * Mounts made through a wrapper are invisible to the count above: a file calling
+ * `renderInMode` matches neither of the two patterns that table counts, so this
+ * suite mounts 28 trees per gate run through a path the table cannot see. They
+ * are released only because the helper tracks them and unmounts them in its own
+ * `afterEach` hooks, which the importing suite inherits. Both halves are pinned:
+ * the set of wrapper-mounting files is frozen, and every hook the helper
+ * declares must release what it tracked.
+ */
+const KNOWN_WRAPPER_MOUNT_FILES = [
+  "src/ui/TUIChat.editMessage.test.tsx",
+  "src/ui/TUIChat.fileSearch.test.tsx",
+  "src/ui/TUIChat.input.test.tsx",
+  "src/ui/TUIChat.messages.test.tsx",
+  "src/ui/TUIChat.slashCommands.test.tsx",
+];
+
+const WRAPPER_HELPER = "src/test-utils/TUIChat.dualModeHelper.tsx";
+
+function wrapperMountFiles(): string[] {
+  const found: string[] = [];
+
+  for (const file of scannedFiles(path.join(PACKAGE_ROOT, "src/ui"), true)) {
+    if (
+      /\b(renderWithServices|renderInMode)\(/.test(
+        fs.readFileSync(file, "utf-8"),
+      )
+    ) {
+      found.push(path.relative(PACKAGE_ROOT, file).split(path.sep).join("/"));
+    }
+  }
+
+  return found.sort();
+}
+
 describe("the Ink trees the UI tests leave mounted", () => {
   it("adds no file that renders without unmounting", () => {
     const offenders = Object.entries(unmountedRenders())
@@ -123,5 +158,38 @@ describe("the Ink trees the UI tests leave mounted", () => {
         (relative) => !(relative in present),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("the Ink trees mounted through the wrapper helper", () => {
+  it("adds no file that mounts through a wrapper", () => {
+    const mounted = wrapperMountFiles();
+
+    // A scan that finds nothing cannot pass: the suites above mount this way.
+    expect(mounted.length).toBeGreaterThanOrEqual(4);
+    expect(
+      mounted.filter((f) => !KNOWN_WRAPPER_MOUNT_FILES.includes(f)),
+    ).toEqual([]);
+  });
+
+  it("keeps the frozen list down to the files that still mount this way", () => {
+    const present = new Set(wrapperMountFiles());
+
+    expect(KNOWN_WRAPPER_MOUNT_FILES.filter((f) => !present.has(f))).toEqual(
+      [],
+    );
+  });
+
+  it("releases what the helper tracked in every hook it declares", () => {
+    const source = fs.readFileSync(
+      path.join(PACKAGE_ROOT, WRAPPER_HELPER),
+      "utf-8",
+    );
+    const hooks = (source.match(/\bafterEach\(/g) ?? []).length;
+
+    expect(hooks).toBeGreaterThanOrEqual(3);
+    expect(
+      (source.match(/afterEach\(\(\) => \{\s*unmountAll\(\);/g) ?? []).length,
+    ).toBe(hooks);
   });
 });
