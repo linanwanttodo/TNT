@@ -92,7 +92,7 @@ const FileSearchUI: React.FC<FileSearchUIProps> = ({
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         if (!errorMessage.includes("search cancelled")) {
-          console.error("Error filtering files:", error);
+          console.error(t("chat.fileFilterFailed"), error);
         }
         setFiles([]);
       }

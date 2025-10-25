@@ -88,7 +88,7 @@ async function loadAndSetSession(
     // Clear the intro message since we're now showing a resumed session
     setShowIntroMessage(false);
   } catch (error) {
-    console.error("Error loading session:", error);
+    console.error(t("chat.sessionLoadFailed"), error);
   }
 }
 

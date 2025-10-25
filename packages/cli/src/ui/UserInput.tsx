@@ -454,7 +454,7 @@ const UserInput: React.FC<UserInputProps> = ({
             const absolutePath = path.resolve(filePath);
             onFileAttached(absolutePath, filePath);
           } else {
-            console.error(`Error reading file ${filePath}:`, error);
+            console.error(t("chat.fileReadFailed", { path: filePath }), error);
           }
         }
       }
