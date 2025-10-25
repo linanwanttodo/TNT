@@ -199,6 +199,8 @@ const en = {
   "chat.resuming": "Resuming previous session...",
   "chat.noPreviousSession": "No previous session found, starting fresh...",
   "chat.fileFilterFailed": "Error filtering files:",
+  "chat.timedOut":
+    "Headless request cut short after {seconds}s (TNT_HEADLESS_TIMEOUT)",
   "chat.sessionLoadFailed": "Error loading session:",
   "chat.fileReadFailed": "Error reading file {path}:",
   "chat.browserOpenFailed": "Failed to open browser:",
@@ -607,6 +609,8 @@ const zhCN: Record<TranslationKey, string> = {
   "chat.resuming": "正在恢复上一个会话...",
   "chat.noPreviousSession": "未找到上一个会话，从头开始...",
   "chat.fileFilterFailed": "筛选文件时出错：",
+  "chat.timedOut":
+    "无头请求在 {seconds} 秒后被中断（TNT_HEADLESS_TIMEOUT 可调）",
   "chat.sessionLoadFailed": "加载会话时出错：",
   "chat.fileReadFailed": "读取文件 {path} 时出错：",
   "chat.browserOpenFailed": "无法打开浏览器：",
