@@ -1,5 +1,6 @@
 import type { AssistantConfig } from "@tnt/sdk";
 
+import { t } from "../../i18n/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import {
   getSkillSlashCommandName,
@@ -89,5 +90,5 @@ export async function handleSlashCommands(
     return null;
   }
 
-  return { output: `Unknown command: ${command}` };
+  return { output: t("common.slashUnknownCommand", { command }) };
 }

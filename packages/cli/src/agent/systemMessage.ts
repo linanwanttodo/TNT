@@ -8,6 +8,7 @@ import { env } from "../config/env.js";
 import { processRule } from "../config/hubLoader.js";
 import type { OutputFormat } from "../config/outputFormat.js";
 import { readSettingsString } from "../config/settingsFiles.js";
+import { t } from "../i18n/index.js";
 import { PermissionMode } from "../permissions/types.js";
 import {
   loadAllPlugins,
@@ -335,7 +336,7 @@ export async function buildSystemMessageSections(
     }
   } catch (error) {
     // If there's any error reading the file, continue without agent content
-    console.warn("Warning: Could not read agent configuration file:", error);
+    console.warn(t("common.agentConfigReadFailed"), error);
   }
 
   const agentContent = layers.join("\n\n");
@@ -349,7 +350,10 @@ export async function buildSystemMessageSections(
         processedRules.push(processedRule);
       } catch (error: any) {
         console.warn(
-          `Warning: Failed to process rule "${ruleSpec}": ${error.message}`,
+          t("common.ruleProcessFailed", {
+            rule: ruleSpec,
+            message: error.message,
+          }),
         );
       }
     }

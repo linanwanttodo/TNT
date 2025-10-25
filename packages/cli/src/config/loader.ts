@@ -20,6 +20,7 @@ import {
   getOrganizationId,
   updateConfigUri,
 } from "../auth/workos.js";
+import { t } from "../i18n/index.js";
 import { CLIPlatformClient } from "../platform/CLIPlatformClient.js";
 
 import { env } from "./env.js";
@@ -169,11 +170,7 @@ async function loadFromSource(
   } catch (error) {
     // If we're trying user assistants and it fails, fall back to default agent
     if (source.type === "user-assistant") {
-      console.warn(
-        chalk.yellow(
-          "Failed to load user assistants, falling back to default agent",
-        ),
-      );
+      console.warn(chalk.yellow(t("common.assistantsFallback")));
       return await loadDefaultConfig(
         organizationId,
         apiClient,
@@ -422,7 +419,9 @@ async function unrollAssistantWithConfig(
       errorDetails?.length > 1
         ? errorDetails.map((d) => `\n- ${d.message}`)
         : errorDetails[0].message;
-    console.warn(chalk.dim(`Warning: ${warnings}`));
+    console.warn(
+      chalk.dim(t("common.warningDetail", { detail: String(warnings) })),
+    );
   }
 
   return unrollResult.config;

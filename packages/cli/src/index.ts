@@ -19,6 +19,7 @@ import {
   addCommonOptions,
   mergeParentOptions,
 } from "./config/sharedOptions.js";
+import { t } from "./i18n/index.js";
 import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
 import { getVersion } from "./startup/version.js";
 import { post } from "./utils/apiClient.js";
@@ -271,11 +272,9 @@ addCommonOptions(program)
       const sessionId = logger.getSessionId();
       // In headless mode, suppress these verbose logs
       if (!isHeadless) {
-        console.log(`Verbose logging enabled (session: ${sessionId})`);
-        console.log(`Logs: ${logPath}`);
-        console.log(
-          `Filter this session: grep '\\[${sessionId}\\]' ${logPath}`,
-        );
+        console.log(t("common.verboseLogging", { session: sessionId }));
+        console.log(t("common.logsAt", { path: logPath }));
+        console.log(t("common.filterSession", { sessionId, path: logPath }));
       }
       logger.debug("Verbose logging enabled");
     }
@@ -421,7 +420,9 @@ program
 
 // Handle unknown commands
 program.on("command:*", () => {
-  console.error(`Error: Unknown command '${program.args.join(" ")}'\n`);
+  console.error(
+    t("common.unknownCommand", { command: program.args.join(" ") }),
+  );
   program.outputHelp();
   void gracefulExit(1);
 });

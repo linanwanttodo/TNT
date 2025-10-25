@@ -17,16 +17,13 @@ const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
  * turning them into a frozen set is what makes the next raw `console.error` a
  * test failure instead of folklore. Translating them changes copy users see, so
  * that is the owner's call, not something to do silently here.
+ *
+ * The rule the owner set on 2026-10-17: translate what a user is meant to read (errors,
+ * hints, interaction copy) and leave pure diagnostics in English. What stays listed here
+ * after a translation round is therefore two kinds - not yet translated, and deliberately
+ * English (watcher, history and component logs). The list is the record of that split.
  */
 const KNOWN_UNTRANSLATED_OUTPUT = [
-  "agent/systemMessage.ts :: Warning: Could not read agent configuration file:",
-  'agent/systemMessage.ts :: Warning: Failed to process rule "":',
-  "config/loader.ts :: Failed to load user assistants, falling back to default agent",
-  "config/loader.ts :: Warning:",
-  "index.ts :: Error: Unknown command ''\\n",
-  "index.ts :: Filter this session: grep '\\\\[\\\\]'",
-  "index.ts :: Logs:",
-  "index.ts :: Verbose logging enabled (session: )",
   "platform/CLIPlatformClient.ts :: Error reading .env file at :",
   "platform/CLIPlatformClient.ts :: Error resolving FQSNs through API:",
   "startup/version.ts :: Warning: Could not read version from package.json",
@@ -72,7 +69,7 @@ function productionSources(dir: string): string[] {
  * `console.warn`, which may sit on the next line and may be wrapped in a colour
  * call. Only its literal part is copy: an interpolation is a value.
  */
-function untranslatedOutput(): string[] {
+export function untranslatedOutput(): string[] {
   const offenders: string[] = [];
 
   for (const file of productionSources(src)) {
