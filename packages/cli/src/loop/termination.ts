@@ -28,7 +28,15 @@ export type TerminationReason =
   /** A caller-supplied hook asked for the turn to end. */
   | "hook_stop"
   /** A tool signalled that the turn should not continue. */
-  | "tool_stop";
+  | "tool_stop"
+  /** The caller's wall-clock bound on the request expired. */
+  | "request_timeout";
+
+/**
+ * What `armTimeout` aborts with, so the loop can tell a deadline from a person
+ * pressing Ctrl+C. It lives here because both ends already import this module.
+ */
+export const REQUEST_TIMEOUT_ABORT = Symbol("tnt request timeout");
 
 /** Terminal states that are not truncations. */
 const NORMAL_ENDINGS: ReadonlySet<TerminationReason> = new Set([
@@ -73,5 +81,7 @@ export function describeTermination(
       return "Stopped because the conversation no longer fits the context window and compaction could not shrink it. The work may be incomplete.";
     case "loop_detected":
       return "Stopped because the output repeated itself without making progress. The work may be incomplete.";
+    case "request_timeout":
+      return "Stopped because the request reached its time limit. The work may be incomplete.";
   }
 }
