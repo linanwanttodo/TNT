@@ -2,6 +2,7 @@ import { exec } from "child_process";
 import * as path from "path";
 
 import { env } from "../../config/env.js";
+import { t } from "../../i18n/index.js";
 import { services } from "../../services/index.js";
 import { useNavigation } from "../context/NavigationContext.js";
 
@@ -51,7 +52,7 @@ export function useConfigSelector({
 
         exec(command, (error) => {
           if (error) {
-            console.error("Failed to open browser:", error);
+            console.error(t("chat.browserOpenFailed"), error);
           }
         });
 
