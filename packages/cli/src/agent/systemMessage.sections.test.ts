@@ -141,3 +141,30 @@ describe("system message sections", () => {
     );
   });
 });
+
+describe("the permission mode's share of the prefix", () => {
+  it("adds nothing for auto, so the billed prefix cannot move", async () => {
+    const agent = await buildSystemMessageSections("agent");
+    const auto = await buildSystemMessageSections("auto");
+
+    expect(auto.map((section) => section.name)).toEqual(
+      agent.map((section) => section.name),
+    );
+    expect(auto.map((section) => section.text)).toEqual(
+      agent.map((section) => section.text),
+    );
+  });
+
+  it("carries the plan text as a volatile section only", async () => {
+    const plan = await buildSystemMessageSections("plan");
+    const planSections = plan.filter((section) => section.name === "planMode");
+
+    expect(planSections.length).toBe(1);
+    expect(planSections.every((section) => section.volatile)).toBe(true);
+    expect(
+      plan
+        .filter((section) => !section.volatile)
+        .map((section) => section.name),
+    ).toEqual(["base"]);
+  });
+});
