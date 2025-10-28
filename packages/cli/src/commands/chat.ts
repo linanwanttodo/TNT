@@ -54,6 +54,7 @@ import {
 } from "../utils/tokenizer.js";
 
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
+import { armTimeout, resolveTimeoutSeconds } from "./headlessTimeout.js";
 import {
   describeSchemaForPrompt,
   enforceOutputSchema,
@@ -227,15 +228,32 @@ async function getStreamingResponse(
       ? services.chatHistory.getHistoryForLLM(compactionIndex)
       : services.chatHistory.getHistory();
 
-  const response = await streamChatResponse(
-    history,
-    model,
-    llmApi,
-    abortController,
-    callbacks,
-    false,
-    turnBudgetLimits,
+  const timeoutSeconds = resolveTimeoutSeconds(
+    process.env.TNT_HEADLESS_TIMEOUT,
   );
+  let timedOut = false;
+  const cancelTimeout = armTimeout(abortController, timeoutSeconds, () => {
+    timedOut = true;
+  });
+
+  let response: string;
+  try {
+    response = await streamChatResponse(
+      history,
+      model,
+      llmApi,
+      abortController,
+      callbacks,
+      false,
+      turnBudgetLimits,
+    );
+  } finally {
+    cancelTimeout();
+  }
+
+  if (timedOut) {
+    safeStderr(`\n[${t("chat.timedOut", { seconds: timeoutSeconds })}]\n`);
+  }
 
   if (truncationNotice) {
     safeStderr(`\n[${truncationNotice}]\n`);
