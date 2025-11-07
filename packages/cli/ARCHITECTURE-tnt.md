@@ -9,12 +9,12 @@ stops agreeing with the text, the text is wrong.
 `src/` is grouped by layer; only entry points sit at the top level. The grouping is what
 `src/architecture.test.ts` measures, so the directory names are load-bearing, not cosmetic.
 
-Test helpers do not belong in a layer the bundle is built from, so they are leaving `src/` one
-consumer group at a time: the `e2e/`-only pair (`cli-helpers.ts`, `mock-llm-server.ts`) and this
-directory's README now live at the package root as `test-utils/`, while the suites under `src/`
-still import theirs from `src/test-utils/`. `tsconfig.build.json` includes `src/**` alone, so what
-moves out stops being a build input the moment it moves; `tsconfig.json` names both, so the type
-gate keeps reading them, and `architecture.test.ts` refuses any production import of either path.
+Test helpers do not belong in a layer the bundle is built from, so none live under `src/` any
+more: every helper, its README and the three nothing refers to (in `test-utils/unreferenced/`, kept
+running but quarantined from use) sit at the package root as `test-utils/`. `tsconfig.build.json`
+includes `src/**` alone, so a helper is out of the build the moment it moves - which is why its
+`src/test-utils` exclude is gone now that the directory is; `tsconfig.json` names both roots, so the
+type gate still reads every helper, and `architecture.test.ts` refuses any production import of one.
 
 | Path                                                                                                    | Role                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |

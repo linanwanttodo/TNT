@@ -1,8 +1,8 @@
 import {
   renderInMode,
   testSingleMode,
-} from "../test-utils/TUIChat.dualModeHelper.js";
-import { waitForCondition } from "../test-utils/TUIChat.testHelper.js";
+} from "../../test-utils/TUIChat.dualModeHelper.js";
+import { waitForCondition } from "../../test-utils/TUIChat.testHelper.js";
 
 describe("TUIChat - @ File Search Tests", () => {
   testSingleMode("shows @ character when user types @", "local", async () => {

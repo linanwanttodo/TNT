@@ -8,7 +8,6 @@
     "src/**/*.spec.tsx",
     "src/**/*.vitest.ts",
     "src/**/*.vitest.tsx",
-    "src/test-utils/**/*",
     "src/**/__tests__/**/*",
     "src/**/__mocks__/**/*"
   ]

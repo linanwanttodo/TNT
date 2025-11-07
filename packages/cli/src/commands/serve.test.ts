@@ -2,8 +2,8 @@ import type { Server } from "http";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createMinimalTestContext } from "../../test-utils/ui-test-context.js";
 import { setLocale } from "../i18n/index.js";
-import { createMinimalTestContext } from "../test-utils/ui-test-context.js";
 
 describe("serve command", () => {
   let context: any;
