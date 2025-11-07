@@ -35,7 +35,7 @@ A bounded headless run reports itself honestly: the loop ends with the
 `request_timeout` termination reason, which the abort marker (`REQUEST_TIMEOUT_ABORT` in
 `loop/termination.ts`, carried on `signal.reason`) is what separates from a person pressing
 Ctrl+C; `--format json` and stream-json both end with an error result and the process exits 1.
-Headless only, the turn also carries a wall-clock bound. By construction it spans every tool round of one prompt - `commands/chat.ts` arms the timer around the single `streamChatResponse` call that contains that loop, and each round checks `signal.aborted` before issuing another request (a multi-round case is not covered by an e2e, only by that structure): `commands/headlessTimeout.ts` resolves it
+Headless only, the turn also carries a wall-clock bound. By construction it spans every tool round of one prompt - `commands/chat.ts` arms the timer around the single `streamChatResponse` call that contains that loop, and each round checks `signal.aborted` before issuing another request (measured by `e2e/headless-request-timeout-multiround.test.ts`, where every round is shorter than the bound and the turn still ends in `request_timeout`): `commands/headlessTimeout.ts` resolves it
 (flag `--request-timeout`, then `TNT_HEADLESS_TIMEOUT`, then 300 s, and 0 means no bound) and
 `commands/chat.ts` arms it on the same `AbortController` the loop already holds, so the engine needs
 no knowledge of it. `e2e/headless-request-timeout.test.ts` pins it against a provider that never
