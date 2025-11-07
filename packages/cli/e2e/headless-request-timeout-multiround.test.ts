@@ -112,4 +112,39 @@ describe("E2E: --request-timeout spans the tool rounds of one turn", () => {
     expect(elapsed).toBeLessThan(20000);
     expect(elapsed).toBeGreaterThanOrEqual(3000);
   }, 70000);
+
+  it("leaves the turn alone when the bound is far away", async () => {
+    const result = await runCLI(context, {
+      args: [
+        "--request-timeout",
+        "60",
+        "--max-steps",
+        "2",
+        "--auto",
+        "-p",
+        "--config",
+        context.configPath,
+        "--format",
+        "stream-json",
+        "keep asking for tools",
+      ],
+      timeout: 60000,
+      expectError: true,
+    });
+
+    const events = result.stdout
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line));
+    const ends = events.filter((event) => event.type === "turn-end");
+
+    // The control: with the bound out of reach the same scripted provider ends
+    // for the step ceiling, so the previous case cannot be a bound that always
+    // fires regardless of its value.
+    expect(ends.length).toBeGreaterThan(0);
+    expect(ends.every((event) => event.reason !== "request_timeout")).toBe(
+      true,
+    );
+    expect(ends.some((event) => event.reason === "max_steps")).toBe(true);
+  }, 70000);
 });
