@@ -119,6 +119,8 @@ export interface ChatOptions extends ExtendedCommandOptions {
   outputSchema?: string;
   /** Model rounds allowed per turn before the turn is cut short. */
   maxSteps?: number;
+  /** Seconds a headless request may run before it is cut short; 0 disables. */
+  requestTimeout?: number;
 }
 
 export async function initializeChatHistory(
@@ -210,6 +212,7 @@ async function getStreamingResponse(
   llmApi: BaseLlmApi,
   turnBudgetLimits?: Partial<TurnBudgetLimits>,
   extraCallbacks?: StreamCallbacks,
+  timeoutSeconds?: number,
 ): Promise<string> {
   const abortController = new AbortController();
   // Captured rather than logged: a truncated turn still returns usable text, so
@@ -228,11 +231,11 @@ async function getStreamingResponse(
       ? services.chatHistory.getHistoryForLLM(compactionIndex)
       : services.chatHistory.getHistory();
 
-  const timeoutSeconds = resolveTimeoutSeconds(
-    process.env.TNT_HEADLESS_TIMEOUT,
-  );
+  // The flag wins over the environment setting; neither present, the default binds.
+  const deadlineSeconds =
+    timeoutSeconds ?? resolveTimeoutSeconds(process.env.TNT_HEADLESS_TIMEOUT);
   let timedOut = false;
-  const cancelTimeout = armTimeout(abortController, timeoutSeconds, () => {
+  const cancelTimeout = armTimeout(abortController, deadlineSeconds, () => {
     timedOut = true;
   });
 
@@ -252,7 +255,7 @@ async function getStreamingResponse(
   }
 
   if (timedOut) {
-    safeStderr(`\n[${t("chat.timedOut", { seconds: timeoutSeconds })}]\n`);
+    safeStderr(`\n[${t("chat.timedOut", { seconds: deadlineSeconds })}]\n`);
   }
 
   if (truncationNotice) {
@@ -415,6 +418,8 @@ interface ProcessMessageOptions {
   outputSchema?: unknown;
   /** Passed through to the loop so a turn can be capped from the CLI. */
   maxSteps?: number;
+  /** Resolved headless deadline in seconds; undefined lets the env setting decide. */
+  timeoutSeconds?: number;
 }
 
 /**
@@ -466,6 +471,7 @@ async function processMessage(
     firstAssistantResponse = false,
     outputSchema,
     maxSteps,
+    timeoutSeconds,
   } = options;
   let compactionIndex = initialCompactionIndex;
   // Check for slash commands in headless mode
@@ -519,6 +525,7 @@ async function processMessage(
       llmApi,
       maxSteps === undefined ? undefined : { maxSteps },
       streamJsonCallbacks,
+      timeoutSeconds,
     );
 
     // A run asked for a schema-shaped answer is not done until the answer
@@ -726,6 +733,7 @@ async function runHeadlessMode(
       firstAssistantResponse: isFirstTurn && !options.resume, // Only generate title for new conversations
       outputSchema,
       maxSteps: options.maxSteps,
+      timeoutSeconds: options.requestTimeout,
     });
 
     // Update compaction index if compaction occurred

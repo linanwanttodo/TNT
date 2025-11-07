@@ -14,6 +14,7 @@ export interface ValidationOptions {
   silent?: boolean;
   outputSchema?: string;
   maxSteps?: number;
+  timeoutSeconds?: number;
 
   // Common flags
   readonly?: boolean;
@@ -129,6 +130,26 @@ function validateMaxStepsFlag(options: ValidationOptions): ValidationError[] {
     {
       code: "INVALID_MAX_STEPS",
       message: `Error: --max-steps expects a whole number of rounds of 1 or more, got "${String(options.maxSteps)}".`,
+    },
+  ];
+}
+
+/**
+ * `--timeout` is a bound, so 0 is a legitimate answer meaning "no bound" and
+ * anything else must be a whole number of seconds. A rejected value reaches the
+ * user as a named flag error instead of an unbounded run.
+ */
+function validateTimeoutFlag(options: ValidationOptions): ValidationError[] {
+  if (options.timeoutSeconds === undefined) {
+    return [];
+  }
+  if (Number.isInteger(options.timeoutSeconds) && options.timeoutSeconds >= 0) {
+    return [];
+  }
+  return [
+    {
+      code: "INVALID_TIMEOUT",
+      message: `Error: --request-timeout expects a whole number of seconds of 0 or more, got "${String(options.timeoutSeconds)}"`,
     },
   ];
 }
@@ -257,6 +278,7 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
     validateOutputSchemaFlag,
     validateFormatValue,
     validateMaxStepsFlag,
+    validateTimeoutFlag,
     validateModeFlags,
     validateSessionFlags,
     validateConfigPath,
@@ -291,6 +313,7 @@ export function validateServeFlags(options: {
   const errors: ValidationError[] = [];
 
   errors.push(...validateMaxStepsFlag(options));
+  errors.push(...validateTimeoutFlag(options));
 
   const check = (name: string, raw: string | undefined, max: number) => {
     if (raw === undefined) {

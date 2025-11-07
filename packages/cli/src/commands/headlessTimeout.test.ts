@@ -92,4 +92,8 @@ describe("the headless stream call is the one holding the deadline", () => {
   it("names the timeout to the user instead of returning a silent truncation", () => {
     expect(body).toContain('t("chat.timedOut"');
   });
+
+  it("lets the flag win over the environment setting", () => {
+    expect(body).toContain("timeoutSeconds ?? resolveTimeoutSeconds");
+  });
 });

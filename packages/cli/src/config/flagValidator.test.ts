@@ -301,3 +301,23 @@ describe("validateFlags --max-steps", () => {
     expect(validateFlags({ print: true }).isValid).toBe(true);
   });
 });
+
+describe("validateFlags --timeout", () => {
+  it("rejects a value that is not a whole number of seconds", () => {
+    const result = validateFlags({ print: true, timeoutSeconds: Number.NaN });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0].message).toContain(
+      "--request-timeout expects a whole number of seconds of 0 or more",
+    );
+  });
+
+  it("accepts a bound and the zero that means no bound at all", () => {
+    expect(validateFlags({ print: true, timeoutSeconds: 45 }).isValid).toBe(
+      true,
+    );
+    expect(validateFlags({ print: true, timeoutSeconds: 0 }).isValid).toBe(
+      true,
+    );
+  });
+});

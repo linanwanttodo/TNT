@@ -199,6 +199,14 @@ addCommonOptions(program)
     "--output-schema <path>",
     "Validate the final answer of a headless run against a JSON Schema file. Only works with -p/--print flag.",
   )
+  .option(
+    "--request-timeout <seconds>",
+    "Cut a headless request short after this many seconds (default: 300, 0 disables). Only works with -p/--print flag.",
+    (value) => {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isInteger(parsed) && parsed >= 0 ? parsed : Number.NaN;
+    },
+  )
   .option("--resume", "Resume from last session")
   .option("--fork <sessionId>", "Fork from an existing session ID")
   .option(
@@ -250,6 +258,7 @@ addCommonOptions(program)
       silent: options.silent,
       outputSchema: options.outputSchema,
       maxSteps: options.maxSteps,
+      timeoutSeconds: options.requestTimeout,
       readonly: options.readonly,
       auto: options.auto,
       config: options.config,
