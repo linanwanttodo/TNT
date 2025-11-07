@@ -1,3 +1,5 @@
+import { REQUEST_TIMEOUT_ABORT } from "../loop/termination.js";
+
 /**
  * A headless run with no deadline waits on the provider forever: CI jobs hang
  * instead of failing, and nothing tells the caller why. The deadline is a
@@ -36,7 +38,7 @@ export function armTimeout(
 
   const timer = setTimeout(() => {
     onFire();
-    controller.abort();
+    controller.abort(REQUEST_TIMEOUT_ABORT);
   }, seconds * 1000);
   timer.unref?.();
 

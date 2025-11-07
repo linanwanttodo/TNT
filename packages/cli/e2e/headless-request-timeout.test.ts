@@ -14,11 +14,11 @@ import {
 } from "../src/test-utils/mock-llm-server.js";
 
 /**
- * A provider that accepts the request and never answers used to leave a headless
- * run waiting indefinitely: the caller's own timeout killed it and said nothing
- * about why. The deadline is the product answer, so this pins it on the built
- * bundle against a server that stalls on purpose. The copy is pinned to English
- * because the message is what the test asserts and the host locale is not.
+ * A provider that accepts the request and never answers is what the bound
+ * exists for. Three things have to be true on the built bundle: the run ends by
+ * itself, the event stream says it was the deadline rather than a person
+ * pressing Ctrl+C, and the result line and exit code call it a failure. Copy is
+ * pinned to English because the host locale leaks into the child process.
  */
 describe("E2E: --request-timeout bounds a stalling provider", () => {
   let context: any;
@@ -45,7 +45,7 @@ describe("E2E: --request-timeout bounds a stalling provider", () => {
     await cleanupTestContext(context);
   });
 
-  it("returns with the deadline named instead of waiting forever", async () => {
+  it("ends the run itself, with the deadline as the reason and a failed result", async () => {
     const started = Date.now();
 
     const result = await runCLI(context, {
@@ -55,14 +55,29 @@ describe("E2E: --request-timeout bounds a stalling provider", () => {
         "-p",
         "--config",
         context.configPath,
+        "--format",
+        "stream-json",
         "hi",
       ],
       timeout: 60000,
       expectError: true,
     });
 
-    expect(result.stderr).toContain("cut short after 2s");
-    // The bound, not the caller's 60s budget, is what ended the run.
+    const events = result.stdout
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line));
+
+    // The bound, not the caller's budget, ended the run.
     expect(Date.now() - started).toBeLessThan(30000);
+    expect(
+      events.some(
+        (e) => e.type === "turn-end" && e.reason === "request_timeout",
+      ),
+    ).toBe(true);
+    expect(
+      events.some((e) => e.type === "result" && e.subtype === "error"),
+    ).toBe(true);
+    expect(result.exitCode).toBe(1);
   }, 70000);
 });

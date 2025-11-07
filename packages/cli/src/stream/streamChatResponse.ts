@@ -40,6 +40,7 @@ import {
   TerminalStopTracker,
 } from "../loop/terminalStop.js";
 import {
+  REQUEST_TIMEOUT_ABORT,
   describeTermination,
   type TerminationReason,
 } from "../loop/termination.js";
@@ -683,7 +684,11 @@ export async function streamChatResponse(
     // The abort signal used to be ignored here, so a cancelled turn kept
     // requesting models until one of them happened to return no tool calls.
     if (abortController?.signal.aborted) {
-      return finish("user_abort");
+      return finish(
+        abortController.signal.reason === REQUEST_TIMEOUT_ABORT
+          ? "request_timeout"
+          : "user_abort",
+      );
     }
 
     // Checked before the round rather than after, so a turn that is already
@@ -857,7 +862,11 @@ export async function streamChatResponse(
     });
 
     if (abortController?.signal.aborted) {
-      return finish("user_abort");
+      return finish(
+        abortController.signal.reason === REQUEST_TIMEOUT_ABORT
+          ? "request_timeout"
+          : "user_abort",
+      );
     }
 
     // A refusal for length is the one fault the agent can fix by changing what

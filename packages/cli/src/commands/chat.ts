@@ -74,6 +74,12 @@ import {
 function processJsonOutput(response: string): string {
   const trimmedResponse = response.trim();
 
+  // Nothing to report is still a report: the wrapped shape below would say the
+  // answer "was not valid JSON", which is a claim about text that is not there.
+  if (trimmedResponse === "") {
+    return JSON.stringify({ response: "", status: "success" });
+  }
+
   try {
     // Try to parse the response as JSON to validate it
     JSON.parse(trimmedResponse);
@@ -213,7 +219,7 @@ async function getStreamingResponse(
   turnBudgetLimits?: Partial<TurnBudgetLimits>,
   extraCallbacks?: StreamCallbacks,
   timeoutSeconds?: number,
-): Promise<string> {
+): Promise<{ text: string; deadlineSeconds: number; timedOut: boolean }> {
   const abortController = new AbortController();
   // Captured rather than logged: a truncated turn still returns usable text, so
   // the caller has to know to label it as incomplete.
@@ -262,7 +268,7 @@ async function getStreamingResponse(
     safeStderr(`\n[${truncationNotice}]\n`);
   }
 
-  return response;
+  return { text: response, deadlineSeconds, timedOut };
 }
 
 // Helper function to process and output response in headless mode
@@ -271,13 +277,14 @@ function processAndOutputResponse(
   isHeadless: boolean,
   silent?: boolean,
   format?: OutputFormat,
+  timeoutNotice?: string,
 ): void {
   // The event stream already carried the text, and the run ends with a result
   // line that repeats the final answer; printing it again would leave a bare
   // text line inside a stream every consumer parses line by line.
   if (format === "stream-json") return;
 
-  if (isHeadless && finalResponse && finalResponse.trim()) {
+  if (isHeadless) {
     let processedResponse = finalResponse;
 
     // Strip think tags if --silent flag is enabled
@@ -285,13 +292,21 @@ function processAndOutputResponse(
       processedResponse = stripThinkTags(processedResponse);
     }
 
-    // Process output based on format
-    const outputResponse =
-      format === "json"
-        ? processJsonOutput(processedResponse)
-        : processedResponse;
-
-    safeStdout(outputResponse + "\n");
+    if (format === "json") {
+      // A consumer pipes this format straight into a parser, so stdout is always
+      // one document; a bounded run says error inside it instead of going quiet.
+      safeStdout(
+        (timeoutNotice
+          ? JSON.stringify({
+              response: processedResponse,
+              status: "error",
+              error: timeoutNotice,
+            })
+          : processJsonOutput(processedResponse)) + "\n",
+      );
+    } else if (processedResponse && processedResponse.trim()) {
+      safeStdout(processedResponse + "\n");
+    }
   }
 }
 
@@ -456,9 +471,11 @@ async function requestSchemaRepair(
   return response.choices?.[0]?.message?.content ?? "";
 }
 
-async function processMessage(
-  options: ProcessMessageOptions,
-): Promise<{ compactionIndex?: number | null; finalText?: string } | void> {
+async function processMessage(options: ProcessMessageOptions): Promise<{
+  compactionIndex?: number | null;
+  finalText?: string;
+  timeoutNotice?: string;
+} | void> {
   const {
     userInput,
     chatHistory,
@@ -519,7 +536,7 @@ async function processMessage(
 
   try {
     // Get AI response with potential tool usage
-    let finalResponse = await getStreamingResponse(
+    const streamed = await getStreamingResponse(
       compactionIndex,
       model,
       llmApi,
@@ -527,6 +544,10 @@ async function processMessage(
       streamJsonCallbacks,
       timeoutSeconds,
     );
+    let finalResponse = streamed.text;
+    const timeoutNotice = streamed.timedOut
+      ? t("chat.timedOut", { seconds: streamed.deadlineSeconds })
+      : undefined;
 
     // A run asked for a schema-shaped answer is not done until the answer
     // matches it: one repair round, and then the run fails instead of
@@ -546,12 +567,18 @@ async function processMessage(
     }
 
     // Process and output response in headless mode
-    processAndOutputResponse(finalResponse, isHeadless, silent, format);
+    processAndOutputResponse(
+      finalResponse,
+      isHeadless,
+      silent,
+      format,
+      timeoutNotice,
+    );
 
     // Save session after each successful response
     updateSessionHistory(services.chatHistory.getHistory());
 
-    return { finalText: finalResponse };
+    return { finalText: finalResponse, timeoutNotice };
   } catch (e: any) {
     const error = e instanceof Error ? e : new Error(String(e));
 
@@ -665,6 +692,7 @@ async function runHeadlessMode(
         safeStdout(streamJsonResultLine("", getSessionUsage()));
       }
       await fireSessionEnd("other").catch(() => {});
+      // Nothing was ever requested here, so nothing was bounded.
       await gracefulExit(0);
       return;
     }
@@ -681,6 +709,7 @@ async function runHeadlessMode(
   // The final text after any schema repair, so the result line and the Stop
   // hook report the answer that was actually accepted.
   let acceptedText: string | undefined;
+  let boundedNotice: string | undefined;
   while (true) {
     // When in headless mode, don't ask for user input
     if (!isFirstMessage && initialUserInput && options.headless) {
@@ -743,6 +772,9 @@ async function runHeadlessMode(
     if (result && result.finalText !== undefined) {
       acceptedText = result.finalText;
     }
+    if (result?.timeoutNotice) {
+      boundedNotice = result.timeoutNotice;
+    }
   }
 
   const lastAssistant = services.chatHistory
@@ -755,7 +787,11 @@ async function runHeadlessMode(
       : undefined;
   const answeredText = acceptedText ?? lastAssistantText;
   if (options.format === "stream-json") {
-    safeStdout(streamJsonResultLine(answeredText ?? "", getSessionUsage()));
+    safeStdout(
+      boundedNotice
+        ? streamJsonErrorLine(boundedNotice)
+        : streamJsonResultLine(answeredText ?? "", getSessionUsage()),
+    );
   }
   await fireStop(answeredText).catch(() => {});
   await fireSessionEnd("other").catch(() => {});
@@ -763,8 +799,8 @@ async function runHeadlessMode(
   // the same payload Codex hands its notifier. It cannot fail the run.
   await runCompletionNotify(answeredText ?? "");
 
-  // exit after headless mode completes
-  await gracefulExit(0);
+  // exit after headless mode completes; a bounded run is a failed run
+  await gracefulExit(boundedNotice ? 1 : 0);
 }
 
 export async function chat(prompt?: string, options: ChatOptions = {}) {
