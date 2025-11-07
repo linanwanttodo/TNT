@@ -32,6 +32,15 @@ function getReadFileMaxLines(): number {
  * by asking for both ends: half a range would read to the end of the file, which
  * is the oversized answer the range exists to avoid.
  */
+/**
+ * Every returned line carries its own number, because a citation the user cannot
+ * check is not evidence: `path:line` asks the reader to open that line, and an
+ * unnumbered dump makes that a guess.
+ */
+function numberLines(lines: string[], firstLine: number): string {
+  return lines.map((line, i) => `${firstLine + i}\t${line}`).join("\n");
+}
+
 export function readRange(
   args: { start_line?: number; end_line?: number },
   lineCount: number,
@@ -143,7 +152,7 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
         // The stamp is the whole file: the edit guard asks whether the file moved
         // since it was read, which a section read answers as well as all of it.
         markFileAsSeen(realPath);
-        return `Content of ${filepath} (lines ${range.start}-${range.end} of ${lineCount}):\n${section.join("\n")}`;
+        return `Content of ${filepath} (lines ${range.start}-${range.end} of ${lineCount}):\n${numberLines(section, range.start)}`;
       }
 
       if (charCount > maxChars || lineCount > maxLines) {
@@ -164,7 +173,7 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
       // Remember the file and its stamp on disk for the edit tools
       markFileAsSeen(realPath);
 
-      return `Content of ${filepath}:\n${content}`;
+      return `Content of ${filepath}:\n${numberLines(allLines, 1)}`;
     } catch (error) {
       if (error instanceof ContinueError) {
         throw error;

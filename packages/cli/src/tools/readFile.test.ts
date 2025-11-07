@@ -68,6 +68,11 @@ describe("Read with a line range", () => {
     expect(result).toContain("line 5");
     expect(result).not.toContain("line 6");
     expect(result).not.toContain("line 2");
+    // Each line arrives prefixed with its own number, which is what makes a
+    // `path:line` citation checkable by the reader.
+    expect(result).toContain("3\tline 3");
+    expect(result).toContain("5\tline 5");
+    expect(result).not.toContain("\nline 4\n");
   });
 
   it("records the file as read, so a later edit is judged against its contents", async () => {
