@@ -31,6 +31,12 @@ keyed by the prompt cache key) and receives its summarizer from the engine
 (`stream/summarizeWithEngine.ts`) instead of importing it, which is what keeps `compaction` and
 `stream` from depending on each other.
 
+Headless only, the turn also carries a wall-clock bound: `commands/headlessTimeout.ts` resolves it
+(flag `--request-timeout`, then `TNT_HEADLESS_TIMEOUT`, then 300 s, and 0 means no bound) and
+`commands/chat.ts` arms it on the same `AbortController` the loop already holds, so the engine needs
+no knowledge of it. `e2e/headless-request-timeout.test.ts` pins it against a provider that never
+answers; the TUI and `tnt serve` are not bounded this way, serve having its own inactivity shutdown.
+
 ## The cached prefix
 
 The prefix is assembled in build order, each part announced so it can be attributed later:
@@ -135,6 +141,11 @@ name in the file), fails on a new pair, allows `utils ->` only for the four exem
 fails if the scan finds fewer than 250 files so an empty scan cannot pass.
 
 ## Open by decision, not by oversight
+
+- What a bounded headless run reports. Today the notice is stderr-only: `--format stream-json` still
+  emits `turn-end` with `reason: "user_abort"` and a `result` with `subtype: "success"`, and the
+  process exits 0 with the partial answer. Measured on the bundle against a stalled provider. Naming
+  the deadline in those two fields and choosing an exit code is the owner's call, not a silent change.
 
 - Three prompt-canon choices are the owner's: citation format, whether `Read` prints line numbers,
   and how auto mode is selected.
