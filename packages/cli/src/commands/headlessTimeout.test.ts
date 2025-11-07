@@ -2,6 +2,8 @@ import { readFileSync } from "fs";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { t } from "../i18n/index.js";
+
 import {
   HEADLESS_DEFAULT_TIMEOUT_SECONDS,
   armTimeout,
@@ -95,5 +97,13 @@ describe("the headless stream call is the one holding the deadline", () => {
 
   it("lets the flag win over the environment setting", () => {
     expect(body).toContain("timeoutSeconds ?? resolveTimeoutSeconds");
+  });
+
+  it("names both switches a user can act on in the notice", () => {
+    const notice = t("chat.timedOut", { seconds: 2 });
+
+    expect(notice).toContain("--request-timeout");
+    expect(notice).toContain("TNT_HEADLESS_TIMEOUT");
+    expect(notice).toContain("2");
   });
 });
