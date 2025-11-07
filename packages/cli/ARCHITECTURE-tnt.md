@@ -39,7 +39,23 @@ Headless only, the turn also carries a wall-clock bound. By construction it span
 (flag `--request-timeout`, then `TNT_HEADLESS_TIMEOUT`, then 300 s, and 0 means no bound) and
 `commands/chat.ts` arms it on the same `AbortController` the loop already holds, so the engine needs
 no knowledge of it. `e2e/headless-request-timeout.test.ts` pins it against a provider that never
-answers; the TUI and `tnt serve` are not bounded this way, serve having its own inactivity shutdown.
+answers. The bound's scope is guarded by where it is armed, not by a test that waits 300 s:
+`commands/headlessBoundScope.test.ts` scans every production source and accepts `armTimeout` in
+`commands/chat.ts` alone, so neither the TUI (a person is reading and approving inside the turn)
+nor `tnt serve` (which keeps its own inactivity shutdown) can acquire a wall clock by accident.
+
+A block of text in the transcript is sized from the terminal, not from a constant:
+`ui/utils/blockBudget.ts` gives one block `min(40, floor(rows / 2))` lines, never fewer than one.
+What does not fit is saved beside the session (`block-overflow/<session>/`, named for its own
+content so a re-render does not rewrite it, pruned to the 50 newest) and the block prints
+`[+3 lines → <path>]` in its place. When the save fails the notice is a bare `... +3 lines`,
+because a count is a fact and a path is a promise. `ui/ToolResultSummary.tsx` applies this to
+command output; the subagent block still shows the tail of a run that is ongoing, where the
+newest lines are the point.
+
+Whether those two layouts read well in a real terminal is not settled here: the budget and the
+file are pinned by tests, the wrapping is not, and `useTerminalSize` falls back to 24 rows when
+the terminal cannot be measured.
 
 ## The cached prefix
 
@@ -62,6 +78,13 @@ The prefix is assembled in build order, each part announced so it can be attribu
   dropped; forcing one through configuration is logged.
 - `mode`, `sessionId` and similar CLI state are not part of the prefix identity
   (`cache/requestHeader.ts` `canonicalHeader`), because they never reach a provider.
+- Switching permission mode mid-turn takes effect on the next tool round and is not announced:
+  `stream/streamChatResponse.ts` re-reads `toolPermissions.getState().currentMode` per round (712
+  for the prompt, 771 for the request header), so nothing freezes the mode and nothing prints that
+  it moved. What keeps the cache is the shape of the sections instead - `auto` adds no section of
+  its own and `plan` adds only the volatile `planMode` one - which is what
+  `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
+  therefore rebills nothing, and immediate effect is what a switch is for.
 - When the prefix does move, `cache/cacheBreakReport.ts` writes the reasons, both hit ratios and the
   named section changes (`describeSystemMessageTextChange` in `agent/systemMessage.ts`) to
   `cache-breaks/<session>/` beside the session store.
@@ -146,9 +169,17 @@ fails if the scan finds fewer than 250 files so an empty scan cannot pass.
 
 ## Open by decision, not by oversight
 
-- Three prompt-canon choices are the owner's: citation format, whether `Read` prints line numbers,
-  and how auto mode is selected.
-- `mode` stays out of the prefix identity until a sticky-prefix scheme needs it back.
+- The three prompt-canon choices are closed: citations are a bare `path:line` (readable, greppable,
+  no fence), `Read` keeps its line-number prefix because a citation has to be checkable, and mode
+  selection is the immediate, unannounced behaviour described above. The prefix cost of the
+  numbering is measured and recorded at `tools/readFile.ts` (`+9.57%` on a 2,000-line file). The
+  ruling is that the size caps are judged on what is actually sent - re-trim the numbered text to
+  100k rather than refusing more files - and that is not implemented yet: the tool still caps the
+  raw content before numbering.
+- The four-group context-usage line (`ctx 18.2k/200k (9%) · cache r/w 92% · out 1.4k · cost $0.31`)
+  is the owner's chosen format and is not shipped yet: it needs the token counts plumbed into
+  `ui/components/BottomStatusBar.tsx`, and whether one line fits his terminal is a read-back, not a
+  test.
 - The `continue-cli` literal in `services/GitAiIntegrationService.ts` is a label handed to git-ai and
   is an external contract.
 - Vendor cache behaviour (whether the provider bills what the prefix model predicts) needs a real key
