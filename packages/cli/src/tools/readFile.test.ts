@@ -125,3 +125,101 @@ describe("Read with a line range", () => {
     expect(result).not.toContain("line 98");
   });
 });
+
+/**
+ * The cap the tool promises in its own description, `DEFAULT_READ_FILE_MAX_CHARS`
+ * at `readFile.ts:13`. The cases below are sized against it on purpose: what is
+ * being tested is that the limit applies to the text that is actually sent, which
+ * is the numbered text, not to the bytes that were on disk.
+ */
+const READ_CHAR_CAP = 100_000;
+
+describe("Read measured against the cap on what it sends", () => {
+  let dir: string;
+  let target: string;
+
+  // 2,000 lines of 46 characters: 93,999 raw, which the refusal at `readFile.ts:210`
+  // passes, and 102,892 once every line carries its number - over the cap by the
+  // line numbers alone.
+  beforeEach(() => {
+    forgetSeenFiles();
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-read-cap-"));
+    target = path.join(dir, "saturated.txt");
+    fs.writeFileSync(
+      target,
+      Array.from({ length: 2000 }, () => "x".repeat(46)).join("\n"),
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    forgetSeenFiles();
+  });
+
+  it("hands over a numbered file that fits the cap it states", async () => {
+    const raw = fs.readFileSync(target, "utf-8");
+    expect(raw.length).toBeLessThan(READ_CHAR_CAP);
+
+    const result = await readFileTool.run({ filepath: target } as any);
+
+    expect(result.length).toBeLessThanOrEqual(READ_CHAR_CAP);
+
+    // The bounds sentence is what says how much came back, and it has to agree
+    // with the last line number actually printed.
+    const stated = result.match(/^\S.*\(lines 1-(\d+) of (\d+)\):/m);
+    expect(stated).not.toBeNull();
+    const lastShown = stated![1];
+    expect(stated![2]).toBe("2000");
+    expect(Number(lastShown)).toBeLessThan(2000);
+    expect(result).toContain(`\n${lastShown}\t`);
+    expect(result.split("\n").slice(1).at(-1)).toMatch(
+      new RegExp(`^${lastShown}\t`),
+    );
+  });
+
+  it("fits a requested section to the same cap without inventing a refusal", async () => {
+    const result = await readFileTool.run({
+      filepath: target,
+      start_line: 1,
+      end_line: 2000,
+    } as any);
+
+    expect(result.length).toBeLessThanOrEqual(READ_CHAR_CAP);
+
+    const stated = result.match(/\(lines 1-(\d+) of (\d+)\)/);
+    expect(stated).not.toBeNull();
+    expect(Number(stated![1])).toBeLessThan(2000);
+    expect(result.split("\n").slice(1).at(-1)).toMatch(
+      new RegExp(`^${stated![1]}\t`),
+    );
+  });
+
+  it("leaves a numbered answer that already fits the header it has always used", async () => {
+    const small = path.join(dir, "small.txt");
+    fs.writeFileSync(small, ["alpha", "beta", "gamma"].join("\n"));
+
+    const result = await readFileTool.run({ filepath: small } as any);
+
+    expect(result).toBe(`Content of ${small}:\n1\talpha\n2\tbeta\n3\tgamma`);
+  });
+
+  it("refuses on the bytes on disk, which the trim does not replace", async () => {
+    // The reverse control: a file over the cap raw is still refused rather than
+    // cut, so no readable file became unreadable when the numbered body got a cap.
+    const oversized = path.join(dir, "oversized.txt");
+    fs.writeFileSync(
+      oversized,
+      Array.from({ length: 2200 }, () => "x".repeat(46)).join("\n"),
+    );
+    expect(fs.readFileSync(oversized, "utf-8").length).toBeGreaterThan(
+      READ_CHAR_CAP,
+    );
+
+    await expect(
+      readFileTool.run({ filepath: oversized } as any),
+    ).rejects.toThrow(/too large to read/);
+    await expect(
+      readFileTool.run({ filepath: oversized } as any),
+    ).rejects.toThrow(/start_line and end_line/);
+  });
+});

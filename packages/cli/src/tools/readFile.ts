@@ -28,26 +28,63 @@ function getReadFileMaxLines(): number {
 }
 
 /**
- * The section a call asked for, clamped to the file. One-sided input is refused
- * by asking for both ends: half a range would read to the end of the file, which
- * is the oversized answer the range exists to avoid.
- */
-/**
  * Every returned line carries its own number, because a citation the user cannot
  * check is not evidence: `path:line` asks the reader to open that line, and an
  * unnumbered dump makes that a guess.
  */
 /**
- * Costs `digits(n) + 1` bytes per line: measured on a 2000-line file, +9.6%.
- * The size and length limits above are decided on the raw content, so what the
- * model is handed can exceed the character cap by roughly that much. Folding the
- * prefixes into the limit math is a behaviour change (more files would be
- * refused outright) and is left for the owner.
+ * Costs `digits(n) + 1` bytes per line: measured on a 2000-line file, +9.57%
+ * (92,889 -> 101,782 bytes). The refusal below is still judged on the raw content
+ * so no file that used to be readable becomes refused; instead the numbered text
+ * is trimmed to the same character cap, which is what sends a saturated read
+ * roughly that 9.6% shorter than it would otherwise be.
  */
 function numberLines(lines: string[], firstLine: number): string {
   return lines.map((line, i) => `${firstLine + i}\t${line}`).join("\n");
 }
 
+/**
+ * The lines whose numbered rendering fits `maxChars` once the header named by
+ * `headerFor` is counted too - the cap applied to what is actually sent, not to
+ * what was on disk. Lines go from the tail, so the section a caller asked for is
+ * answered from its beginning.
+ *
+ * The last line is never dropped: one numbered line longer than the cap is what
+ * the raw-content refusal above is for, and an empty answer would read as an
+ * empty file.
+ */
+function fitNumberedLines(options: {
+  lines: string[];
+  firstLine: number;
+  maxChars: number;
+  headerFor: (lastShown: number) => string;
+}): string[] {
+  const { lines, firstLine, maxChars, headerFor } = options;
+  const sizes = lines.map(
+    (line, index) =>
+      String(firstLine + index).length + 1 /* the tab */ + line.length,
+  );
+
+  let kept = lines.length;
+  let bodyLength =
+    sizes.reduce((total, size) => total + size, 0) + Math.max(0, kept - 1);
+
+  while (
+    kept > 1 &&
+    headerFor(firstLine + kept - 1).length + bodyLength > maxChars
+  ) {
+    bodyLength -= sizes[kept - 1] + 1;
+    kept--;
+  }
+
+  return lines.slice(0, kept);
+}
+
+/**
+ * The section a call asked for, clamped to the file. One-sided input is refused
+ * by asking for both ends: half a range would read to the end of the file, which
+ * is the oversized answer the range exists to avoid.
+ */
 export function readRange(
   args: { start_line?: number; end_line?: number },
   lineCount: number,
@@ -156,10 +193,21 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
       const range = readRange(args, lineCount);
       if (range) {
         const section = allLines.slice(range.start - 1, range.end);
+        const headerFor = (lastShown: number) =>
+          `Content of ${filepath} (lines ${range.start}-${lastShown} of ${lineCount}):`;
+        const kept = fitNumberedLines({
+          lines: section,
+          firstLine: range.start,
+          maxChars,
+          headerFor,
+        });
         // The stamp is the whole file: the edit guard asks whether the file moved
         // since it was read, which a section read answers as well as all of it.
         markFileAsSeen(realPath);
-        return `Content of ${filepath} (lines ${range.start}-${range.end} of ${lineCount}):\n${numberLines(section, range.start)}`;
+        return `${headerFor(range.start + kept.length - 1)}\n${numberLines(
+          kept,
+          range.start,
+        )}`;
       }
 
       if (charCount > maxChars || lineCount > maxLines) {
@@ -177,10 +225,24 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
         );
       }
 
+      // The whole-file header states no bounds, so it stays the plain one unless
+      // the numbered body has to give lines back - then the bounds sentence the
+      // section read already uses says how much of the file is in the answer.
+      const headerFor = (lastShown: number) =>
+        lastShown === lineCount
+          ? `Content of ${filepath}:`
+          : `Content of ${filepath} (lines 1-${lastShown} of ${lineCount}):`;
+      const kept = fitNumberedLines({
+        lines: allLines,
+        firstLine: 1,
+        maxChars,
+        headerFor,
+      });
+
       // Remember the file and its stamp on disk for the edit tools
       markFileAsSeen(realPath);
 
-      return `Content of ${filepath}:\n${numberLines(allLines, 1)}`;
+      return `${headerFor(kept.length)}\n${numberLines(kept, 1)}`;
     } catch (error) {
       if (error instanceof ContinueError) {
         throw error;

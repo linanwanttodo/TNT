@@ -173,9 +173,10 @@ fails if the scan finds fewer than 250 files so an empty scan cannot pass.
   no fence), `Read` keeps its line-number prefix because a citation has to be checkable, and mode
   selection is the immediate, unannounced behaviour described above. The prefix cost of the
   numbering is measured and recorded at `tools/readFile.ts` (`+9.57%` on a 2,000-line file). The
-  ruling is that the size caps are judged on what is actually sent - re-trim the numbered text to
-  100k rather than refusing more files - and that is not implemented yet: the tool still caps the
-  raw content before numbering.
+  ruling is that the caps are judged on what is actually sent: the refusal stays a judgement on the
+  raw bytes on disk, so no readable file becomes refused, while the numbered body is trimmed to the
+  same character cap from the tail and the bounds sentence says how much came back. A saturated read
+  therefore gives roughly 9.6% less body than it used to.
 - The four-group context-usage line (`ctx 18.2k/200k (9%) · cache r/w 92% · out 1.4k · cost $0.31`)
   is the owner's chosen format and is not shipped yet: it needs the token counts plumbed into
   `ui/components/BottomStatusBar.tsx`, and whether one line fits his terminal is a read-back, not a
