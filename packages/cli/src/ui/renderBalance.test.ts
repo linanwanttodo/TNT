@@ -46,6 +46,9 @@ const PACKAGE_ROOT = path.resolve(
 const SCAN_TARGETS = [
   { dir: "src/ui", testFilesOnly: true },
   { dir: "src/test-utils", testFilesOnly: false },
+  // Test helpers are moving out of `src/` a consumer group at a time; the e2e
+  // group already lives here, so a mount planted there has to be visible.
+  { dir: "test-utils", testFilesOnly: false },
 ];
 
 function scannedFiles(dir: string, testFilesOnly: boolean): string[] {

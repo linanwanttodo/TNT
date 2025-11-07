@@ -6,12 +6,12 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import {
   cleanupMockLLMServer,
   setupMockLLMTest,
   type MockLLMServer,
-} from "../src/test-utils/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 /**
  * A provider that accepts the request and never answers is what the bound

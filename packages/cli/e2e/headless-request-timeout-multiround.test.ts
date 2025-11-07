@@ -6,12 +6,12 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import {
   cleanupMockLLMServer,
   setupMockLLMTest,
   type MockLLMServer,
-} from "../src/test-utils/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 /**
  * Every round asks for one more tool call and answers a second and a bit later,

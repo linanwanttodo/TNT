@@ -21,8 +21,9 @@ import { describe, expect, it } from "vitest";
  * summarizing tests mock a module two layers above them.
  */
 /**
- * Test helpers under `src/test-utils` exist only for suites. A production import would
- * drag test scaffolding into the shipped bundle, so the boundary is pinned here.
+ * Test helpers - under `src/test-utils` while they are still moving out, and at the package
+ * root's `test-utils/` once they have - exist only for suites. A production import would drag
+ * test scaffolding into the shipped bundle, so the boundary is pinned here.
  */
 const KNOWN_MUTUAL_COUPLING = [
   "_root <-> commands",
@@ -180,8 +181,8 @@ describe("the dependency direction between module groups", () => {
       .filter((file) => readFileSync(file, "utf-8").includes("test-utils"))
       .map((file) => path.relative(SRC_ROOT, file));
 
-    // A production import would drag test scaffolding into the shipped bundle and
-    // make the pending move of `src/test-utils` out of `src/` harder, not easier.
+    // A production import would drag test scaffolding into the shipped bundle, and it is
+    // how a helper that has moved to the package root gets pulled back into `src/`.
     expect(offenders).toEqual([]);
   });
 });

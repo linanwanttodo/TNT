@@ -10,7 +10,7 @@ import {
   createTestContext,
   runCLI,
   type CLITestContext,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 
 describe("E2E: Git Branch Display", () => {
   let context: CLITestContext;

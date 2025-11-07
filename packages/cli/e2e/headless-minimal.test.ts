@@ -5,7 +5,7 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 
 describe("E2E: Headless Mode (Minimal)", () => {
   let context: any;

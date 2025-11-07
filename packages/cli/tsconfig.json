@@ -28,6 +28,7 @@
   },
   "include": [
     "src/**/*",
+    "test-utils/**/*",
     "e2e/**/*",
     "smoke-api/**/*",
     "vitest.setup.ts",

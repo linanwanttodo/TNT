@@ -3,12 +3,12 @@ import {
   createTestContext,
   readSession,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import {
   cleanupMockLLMServer,
   setupMockLLMTest,
   type MockLLMServer,
-} from "../src/test-utils/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 /**
  * A provider may report a call's counts in an event carrying no choices at all
