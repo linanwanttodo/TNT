@@ -93,6 +93,13 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
+- The built-in tool list is billed inside that prefix too, and its current shape is
+  `44f6665ae3049eab` over 25 tools and 19189 characters (name + description + parameter schema, in
+  `tools/stableOrder.ts` order). `tools/toolPrefixFingerprint.test.ts` freezes it and reads this file
+  for the same digest, so the text cannot move without a line here: a reworded description is not a
+  copy edit, it cold-starts the first request of every new session. Changing it on purpose means
+  updating the digest, the two counts and this sentence together.
+
 - When the prefix does move, `cache/cacheBreakReport.ts` writes the reasons, both hit ratios and the
   named section changes (`describeSystemMessageTextChange` in `agent/systemMessage.ts`) to
   `cache-breaks/<session>/` beside the session store.
