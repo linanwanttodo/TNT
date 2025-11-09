@@ -69,17 +69,20 @@ export function getSessionFilePath(): string {
 }
 
 /**
+ * Session ids arrive from the store and end up in a path, so anything that is
+ * not a plain filename character is dropped rather than trusted.
+ */
+function safeSessionId(sessionId: string): string {
+  return sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
+}
+
+/**
  * Where a tool result too large to hand the model whole is kept: beside the
  * session store, one directory per session, so a resumed session can still
  * reach its own files and pruning can bound what is left behind.
  */
 export function getToolResultsDir(sessionId: string): string {
-  const safeId = sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
-  const dir = path.join(path.dirname(getSessionDir()), "tool-results", safeId);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return ensureSessionScopedDir("tool-results", safeSessionId(sessionId));
 }
 
 /**
@@ -88,8 +91,22 @@ export function getToolResultsDir(sessionId: string): string {
  * a field name cannot be read.
  */
 export function getCacheBreaksDir(sessionId: string): string {
-  const safeId = sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
-  const dir = path.join(path.dirname(getSessionDir()), "cache-breaks", safeId);
+  return ensureSessionScopedDir("cache-breaks", safeSessionId(sessionId));
+}
+
+/**
+ * Where the lines of a transcript block that the terminal could not show are
+ * kept, so the notice printed in its place names a file that exists. Separate
+ * from `tool-results` on purpose: that one holds what the model was given and
+ * is pruned against what the model still needs, while this holds what a person
+ * was not shown and grows with how many long blocks a session renders.
+ */
+export function getBlockOverflowDir(sessionId: string): string {
+  return ensureSessionScopedDir("block-overflow", safeSessionId(sessionId));
+}
+
+function ensureSessionScopedDir(kind: string, safeId: string): string {
+  const dir = path.join(path.dirname(getSessionDir()), kind, safeId);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }

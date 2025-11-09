@@ -6,6 +6,7 @@ import React from "react";
 import { getToolDisplayName } from "src/tools/index.js";
 
 import { t } from "../i18n/index.js";
+import { getCurrentSession } from "../session/index.js";
 import {
   MARKER_FILE_CREATED,
   MARKER_PERMISSION_DENIED,
@@ -13,8 +14,12 @@ import {
 
 import { ColoredDiff } from "./ColoredDiff.js";
 import { ChecklistDisplay } from "./components/ChecklistDisplay.js";
-
-const MAX_BASH_OUTPUT_LINES = 4;
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import {
+  blockLineBudget,
+  blockOverflowNotice,
+  planBlock,
+} from "./utils/blockBudget.js";
 
 const TODO_DETAILS_PREFIX = "tnt-todo:";
 const MAX_TODO_PREVIEW = 5;
@@ -64,6 +69,11 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
   toolName,
   content,
 }) => {
+  // Read before the early returns: a budget has to exist for every block, and a
+  // hook cannot sit behind one.
+  const { rows } = useTerminalSize();
+  const budget = blockLineBudget(rows);
+
   if (!content) {
     return (
       <Box>
@@ -130,48 +140,36 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
   if (toolName === "Bash") {
     const isStderr = content.startsWith("Stderr:");
     const actualOutput = isStderr ? content.slice(7).trim() : content;
-    const outputLines = actualOutput.split("\n");
+    const { shown, overflow } = planBlock(actualOutput.split("\n"), budget);
+    const notice = blockOverflowNotice({
+      sessionId: getCurrentSession().sessionId,
+      toolName,
+      overflow,
+    });
 
-    if (outputLines.length <= MAX_BASH_OUTPUT_LINES) {
-      // Show actual output for MAX_BASH_OUTPUT_LINES lines or fewer
-      return (
-        <Box flexDirection="column">
-          <Box>
-            <Text color="dim">⎿ </Text>
-            <Text color="dim"> Terminal output:</Text>
-          </Box>
-          <Box paddingLeft={2}>
-            <Text color={isStderr ? "red" : "white"}>
-              {actualOutput.trimEnd()}
-            </Text>
-          </Box>
+    return (
+      <Box flexDirection="column">
+        <Box>
+          <Text color="dim">⎿ </Text>
+          <Text color="dim"> Terminal output:</Text>
         </Box>
-      );
-    } else {
-      // Show first MAX_BASH_OUTPUT_LINES lines with ellipsis for more lines
-      const firstLines = outputLines.slice(0, MAX_BASH_OUTPUT_LINES).join("\n");
-      return (
-        <Box flexDirection="column">
-          <Box>
-            <Text color="dim">⎿ </Text>
-            <Text color="dim"> Terminal output:</Text>
-          </Box>
-          <Box paddingLeft={2}>
-            <Text color={isStderr ? "red" : "white"}>
-              {firstLines.trimEnd()}
-            </Text>
-          </Box>
-          <Box paddingLeft={2}>
-            <Text color="dim">
-              ... +{outputLines.length - MAX_BASH_OUTPUT_LINES} lines
-            </Text>
-          </Box>
+        <Box paddingLeft={2}>
+          <Text color={isStderr ? "red" : "white"}>
+            {shown.join("\n").trimEnd()}
+          </Text>
         </Box>
-      );
-    }
+        {overflow.length > 0 && (
+          <Box paddingLeft={2}>
+            <Text color="dim">{notice ?? `... +${overflow.length} lines`}</Text>
+          </Box>
+        )}
+      </Box>
+    );
   }
 
   // show streaming output for subagent tool output
+  // Not put on the block budget: this block shows the tail of a run that is
+  // still going, so the newest lines are the point and a head cut would hide them.
   if (toolName === "Subagent") {
     const metadataIndex = content.indexOf("<task_metadata>");
     const actualOutput =
