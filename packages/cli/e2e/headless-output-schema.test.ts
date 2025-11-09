@@ -5,13 +5,13 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import {
   cleanupMockLLMServer,
   createMockLLMConfig,
   createMockLLMServer,
   type MockLLMServer,
-} from "../src/test-utils/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 const SCHEMA = {
   type: "object",

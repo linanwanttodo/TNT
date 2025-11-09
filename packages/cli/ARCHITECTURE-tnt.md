@@ -9,6 +9,13 @@ stops agreeing with the text, the text is wrong.
 `src/` is grouped by layer; only entry points sit at the top level. The grouping is what
 `src/architecture.test.ts` measures, so the directory names are load-bearing, not cosmetic.
 
+Test helpers do not belong in a layer the bundle is built from, so they are leaving `src/` one
+consumer group at a time: the `e2e/`-only pair (`cli-helpers.ts`, `mock-llm-server.ts`) and this
+directory's README now live at the package root as `test-utils/`, while the suites under `src/`
+still import theirs from `src/test-utils/`. `tsconfig.build.json` includes `src/**` alone, so what
+moves out stops being a build input the moment it moves; `tsconfig.json` names both, so the type
+gate keeps reading them, and `architecture.test.ts` refuses any production import of either path.
+
 | Path                                                                                                    | Role                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `index.ts`, `dev.ts`                                                                                    | bundled entry point and the tsx dev runner                                                                             |
@@ -137,7 +144,7 @@ From `packages/cli`:
 
     npx tsc --noEmit
     npm run lint
-    npx prettier --check "src/**/*.{ts,tsx}"
+    npx prettier --check "src/**/*.{ts,tsx}" "test-utils/**/*.{ts,tsx}"
     npx vitest run
     npm run build
     npx vitest run --config vitest.e2e.config.ts

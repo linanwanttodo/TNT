@@ -5,12 +5,12 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import {
   setupMockLLMTest,
   cleanupMockLLMServer,
   type MockLLMServer,
-} from "../src/test-utils/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 describe("E2E: @-mention context in a headless run", () => {
   let context: any;

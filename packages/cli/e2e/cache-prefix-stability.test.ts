@@ -5,12 +5,12 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 import {
   cleanupMockLLMServer,
   setupMockLLMTest,
   type MockLLMServer,
-} from "../src/test-utils/mock-llm-server.js";
+} from "../test-utils/mock-llm-server.js";
 
 /**
  * The cached prefix is worth money only while it stays byte identical, and it is

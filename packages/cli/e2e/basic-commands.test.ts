@@ -4,7 +4,7 @@ import {
   cleanupTestContext,
   createTestContext,
   runCLI,
-} from "../src/test-utils/cli-helpers.js";
+} from "../test-utils/cli-helpers.js";
 
 /**
  * `getVersion()` resolves package.json relative to `src/startup/`, where there
