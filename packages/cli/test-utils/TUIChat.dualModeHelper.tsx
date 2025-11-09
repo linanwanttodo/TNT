@@ -1,7 +1,7 @@
 import { render } from "ink-testing-library";
 import React from "react";
 
-import { AppRoot } from "../ui/AppRoot.js";
+import { AppRoot } from "../src/ui/AppRoot.js";
 
 import { createUITestContext } from "./ui-test-context.js";
 

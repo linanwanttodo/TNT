@@ -1,7 +1,7 @@
 import { render } from "ink-testing-library";
 import React from "react";
 
-import { ServiceContainerProvider } from "../services/ServiceContainerContext.js";
+import { ServiceContainerProvider } from "../src/services/ServiceContainerContext.js";
 
 import {
   createTestServiceContainer,

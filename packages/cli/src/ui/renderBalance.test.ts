@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
  * at a time never turns it red.
  */
 const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
-  "src/test-utils/renderWithServices.tsx": 1,
+  "test-utils/renderWithServices.tsx": 1,
 };
 
 const PACKAGE_ROOT = path.resolve(
@@ -30,8 +30,8 @@ const PACKAGE_ROOT = path.resolve(
 
 /**
  * A mount does not have to sit in a test file to be debt: the whole suite's
- * accumulation lived in `src/test-utils/TUIChat.dualModeHelper.tsx`, and a scan
- * limited to `src/ui/*.test.tsx` could not see it. Both trees are checked, with
+ * accumulation lived in what is now `test-utils/TUIChat.dualModeHelper.tsx`, and a
+ * scan limited to `src/ui/*.test.tsx` could not see it. Both trees are checked, with
  * keys produced by the single expression below so the table and the assertions
  * can never disagree about what a path looks like.
  *
@@ -45,9 +45,8 @@ const PACKAGE_ROOT = path.resolve(
  */
 const SCAN_TARGETS = [
   { dir: "src/ui", testFilesOnly: true },
-  { dir: "src/test-utils", testFilesOnly: false },
-  // Test helpers are moving out of `src/` a consumer group at a time; the e2e
-  // group already lives here, so a mount planted there has to be visible.
+  // Test helpers live at the package root now; `src/test-utils` is gone, so a
+  // mount planted in either the helpers or their unreferenced corner is visible.
   { dir: "test-utils", testFilesOnly: false },
 ];
 
@@ -123,7 +122,7 @@ const KNOWN_WRAPPER_MOUNT_FILES = [
   "src/ui/TUIChat.slashCommands.test.tsx",
 ];
 
-const WRAPPER_HELPER = "src/test-utils/TUIChat.dualModeHelper.tsx";
+const WRAPPER_HELPER = "test-utils/TUIChat.dualModeHelper.tsx";
 
 function wrapperMountFiles(): string[] {
   const found: string[] = [];

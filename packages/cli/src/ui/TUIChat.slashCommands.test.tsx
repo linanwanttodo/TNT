@@ -1,8 +1,8 @@
 import {
   renderInMode,
   testBothModes,
-} from "../test-utils/TUIChat.dualModeHelper.js";
-import { waitForCondition } from "../test-utils/TUIChat.testHelper.js";
+} from "../../test-utils/TUIChat.dualModeHelper.js";
+import { waitForCondition } from "../../test-utils/TUIChat.testHelper.js";
 
 describe("TUIChat - Slash Commands Tests", () => {
   testBothModes("shows slash when user types /", async (mode) => {

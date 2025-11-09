@@ -2,8 +2,8 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { waitForCondition } from "../../test-utils/TUIChat.testHelper.js";
 import { setLocale } from "../i18n/index.js";
-import { waitForCondition } from "../test-utils/TUIChat.testHelper.js";
 
 import { SlashCommandUI } from "./SlashCommandUI.js";
 
