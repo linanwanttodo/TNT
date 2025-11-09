@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
 import { CACHING_STRATEGIES } from "./AnthropicCachingStrategies.js";
+import { applyAnthropicCachingToOpenRouterBody } from "./OpenRouterCaching.js";
 
 /**
  * Anthropic takes at most four `cache_control` breakpoints per request, and the
@@ -153,5 +154,38 @@ describe("the cache breakpoint cap on an Anthropic request body", () => {
     addCacheControlToLastTwoUserMessages(body.messages);
 
     expect(countBreakpoints(body)).toBe(2);
+  });
+
+  it("does not hand the OpenRouter path a sixth marker when the strategy only marks the system", () => {
+    // Four separate system messages become four system blocks, which is the whole
+    // budget under `systemOnly`. The mirror step then copies markers back onto the
+    // OpenAI-shaped parts, so any extra the messages top-up adds is a fifth or
+    // sixth breakpoint on the request that actually goes out.
+    const openaiBody: any = {
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      messages: [
+        { role: "system", content: "first system block" },
+        { role: "system", content: "second system block" },
+        { role: "system", content: "third system block" },
+        { role: "system", content: "fourth system block" },
+        { role: "user", content: "hello" },
+        { role: "assistant", content: "hi" },
+        { role: "user", content: "again" },
+      ],
+    };
+
+    applyAnthropicCachingToOpenRouterBody(openaiBody, "systemOnly");
+
+    const markers = openaiBody.messages.reduce(
+      (total: number, message: any) =>
+        total +
+        (Array.isArray(message.content)
+          ? message.content.filter((part: any) => part?.cache_control).length
+          : 0),
+      0,
+    );
+    expect(markers).toBeGreaterThan(0);
+    expect(markers).toBeLessThanOrEqual(ANTHROPIC_MAX_BREAKPOINTS);
   });
 });
