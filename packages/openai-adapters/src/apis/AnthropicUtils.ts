@@ -108,12 +108,46 @@ export function getAnthropicHeaders(
 }
 
 /**
+ * Anthropic accepts at most four `cache_control` breakpoints per request, shared by
+ * the system blocks, the tool list and the messages, and a fifth is a 400 rather
+ * than a marker the provider quietly drops. One number for the whole package, so
+ * no placement site can spend a budget it has not looked at.
+ */
+export const ANTHROPIC_MAX_CACHE_BREAKPOINTS = 4;
+
+/**
+ * Count the breakpoints a request body already carries, wherever they sit.
+ *
+ * A caller that wants to mark messages has to know what the system and the tools
+ * already spent; reading it off the body is the only version that cannot drift
+ * from what is about to be sent.
+ */
+export function countCacheBreakpoints(body: {
+  system?: unknown;
+  tools?: unknown;
+  messages?: unknown;
+}): number {
+  const blocksOf = (value: unknown): any[] =>
+    Array.isArray(value) ? (value as any[]) : [];
+  let total = blocksOf(body.system).filter(
+    (block: any) => block?.cache_control,
+  ).length;
+  total += blocksOf(body.tools).filter(
+    (tool: any) => tool?.cache_control,
+  ).length;
+  for (const message of blocksOf(body.messages)) {
+    total += blocksOf(message?.content).filter(
+      (block: any) => block?.cache_control,
+    ).length;
+  }
+  return total;
+}
+
+/**
  * Top the trailing user turns up to `limit` cache breakpoints, newest first.
  *
- * The limit is a parameter because the provider caps breakpoints per request -
- * Anthropic allows four, shared by the system blocks, the tool list and the
- * messages, and a fifth is a 400 rather than a marker it quietly ignores - and
- * the caller has usually spent part of that budget before reaching here.
+ * The limit is a parameter because callers reach here having spent part of
+ * ANTHROPIC_MAX_CACHE_BREAKPOINTS on the system blocks and the tool list.
  *
  * Two properties this file did not have before, both measured:
  *
