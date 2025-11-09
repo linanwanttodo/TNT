@@ -107,23 +107,53 @@ export function getAnthropicHeaders(
   return headers;
 }
 
-export function addCacheControlToLastTwoUserMessages(messages: MessageParam[]) {
-  let userMessages = 0;
-  for (let i = messages.length - 1; i >= 0; i--) {
+/**
+ * Top the trailing user turns up to `limit` cache breakpoints, newest first.
+ *
+ * The limit is a parameter because the provider caps breakpoints per request -
+ * Anthropic allows four, shared by the system blocks, the tool list and the
+ * messages, and a fifth is a 400 rather than a marker it quietly ignores - and
+ * the caller has usually spent part of that budget before reaching here.
+ *
+ * Two properties this file did not have before, both measured:
+ *
+ * - what counts is a breakpoint that exists. A turn whose content is a plain
+ *   string has nowhere to carry one, and the old loop spent an allowance on it,
+ *   so a conversation ending in string turns got no turn-level cache at all
+ *   while leaving budget unused.
+ * - calling it twice changes nothing the second time, because the markers
+ *   already in the messages are counted against the limit. The caching strategy
+ *   runs first and other callers may follow it, so a non-idempotent helper could
+ *   push a request over the cap.
+ */
+export function addCacheControlToLastTwoUserMessages(
+  messages: MessageParam[],
+  limit = 2,
+): void {
+  const countBreakpoints = (msg: MessageParam): number =>
+    Array.isArray(msg.content)
+      ? msg.content.filter((block: any) => block?.cache_control).length
+      : 0;
+
+  let placed = messages.reduce(
+    (total, msg) => total + countBreakpoints(msg),
+    0,
+  );
+
+  for (let i = messages.length - 1; i >= 0 && placed < limit; i--) {
     const msg = messages[i];
-    if (msg.role === "user") {
-      userMessages++;
-      if (typeof msg.content === "string") {
-        continue;
-      }
-      for (let j = msg.content.length - 1; j >= 0; j--) {
-        const part = msg.content[j];
-        if (part.type === "text") {
-          part.cache_control = { type: "ephemeral" };
-          break;
-        }
-      }
-      if (userMessages >= 2) {
+    if (msg.role !== "user" || !Array.isArray(msg.content)) {
+      continue;
+    }
+    if (countBreakpoints(msg) > 0) {
+      placed++;
+      continue;
+    }
+    for (let j = msg.content.length - 1; j >= 0; j--) {
+      const part = msg.content[j];
+      if (part.type === "text") {
+        (part as any).cache_control = { type: "ephemeral" };
+        placed++;
         break;
       }
     }
