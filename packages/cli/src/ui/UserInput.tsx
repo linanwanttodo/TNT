@@ -630,8 +630,25 @@ const UserInput: React.FC<UserInputProps> = ({
     return false;
   };
 
-  const handleEscapeKey = (key: any): boolean => {
-    if (!key.escape) return false;
+  /**
+   * How many Esc presses the bytes of one input event carry.
+   *
+   * Two quick presses reach a terminal reader either as two events or, when the
+   * writes coalesce, as one `escape` event whose input still holds the second ESC
+   * byte - Ink 6.8 delivers the second form. Counting the bytes is what keeps
+   * "double Esc" meaning two presses: a timer that waits for a second *event*
+   * never sees one, and the shortcut dies depending on how the terminal buffered
+   * the keystrokes.
+   */
+  const escapePresses = (input: string, key: any): number => {
+    if (!key.escape) return 0;
+    const extra = (input.match(/\x1b/g) ?? []).length;
+    return 1 + extra;
+  };
+
+  const handleEscapeKey = (input: string, key: any): boolean => {
+    const presses = escapePresses(input, key);
+    if (presses === 0) return false;
 
     escapeEvents.emit("user-escape");
 
@@ -670,13 +687,14 @@ const UserInput: React.FC<UserInputProps> = ({
 
     // Handle double Esc to open edit message selector
     const now = Date.now();
+    const secondPress = presses >= 2 || now - lastEscapePressRef.current < 500;
     if (
       inputMode &&
       !showSlashCommands &&
       !showFileSearch &&
       !showBashMode &&
       onShowEditSelector &&
-      now - lastEscapePressRef.current < 500
+      secondPress
     ) {
       // Double escape detected
       onShowEditSelector();
@@ -742,7 +760,7 @@ const UserInput: React.FC<UserInputProps> = ({
     }
 
     // Handle escape key variations
-    if (handleEscapeKey(key)) {
+    if (handleEscapeKey(input, key)) {
       return;
     }
 
