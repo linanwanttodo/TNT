@@ -2,10 +2,10 @@ import type { MessageParam } from "@anthropic-ai/sdk/resources";
 import { describe, expect, it } from "vitest";
 
 import {
-  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+  ANTHROPIC_BREAKPOINTS_KEPT,
   applyCacheControlFormat,
   capBreakpointsForAnthropic,
-  countCacheBreakpoints,
+  countMessageBreakpoints,
   sanitizeReasoningBlocks,
 } from "./cacheControl.js";
 
@@ -60,16 +60,13 @@ describe("capBreakpointsForAnthropic", () => {
       ],
     };
 
-    const capped = capBreakpointsForAnthropic(
-      four,
-      ANTHROPIC_MAX_CACHE_BREAKPOINTS,
-    );
+    const capped = capBreakpointsForAnthropic(four, ANTHROPIC_BREAKPOINTS_KEPT);
     const remaining =
-      countCacheBreakpoints((capped as any).messages) +
+      countMessageBreakpoints((capped as any).messages) +
       (capped as any).system.filter((b: any) => b.cache_control).length +
       (capped as any).tools.filter((t: any) => t.cache_control).length;
 
-    expect(remaining).toBeLessThanOrEqual(ANTHROPIC_MAX_CACHE_BREAKPOINTS);
+    expect(remaining).toBeLessThanOrEqual(ANTHROPIC_BREAKPOINTS_KEPT);
   });
 
   it("falls back to the system block when there are no tool breakpoints", () => {
@@ -255,7 +252,7 @@ describe("sanitizeReasoningBlocks", () => {
   });
 });
 
-describe("countCacheBreakpoints", () => {
+describe("countMessageBreakpoints", () => {
   it("counts breakpoints across messages", () => {
     const messages: MessageParam[] = [
       {
@@ -267,7 +264,7 @@ describe("countCacheBreakpoints", () => {
       },
       { role: "user", content: "no blocks" },
     ];
-    expect(countCacheBreakpoints(messages)).toBe(1);
+    expect(countMessageBreakpoints(messages)).toBe(1);
   });
 });
 
@@ -329,7 +326,7 @@ describe("applyCacheControlFormat", () => {
 
   it("removes every breakpoint when the budget is zero", () => {
     const result = applyCacheControlFormat(body(), { maxBreakpoints: 0 });
-    expect(countCacheBreakpoints(result.messages)).toBe(0);
+    expect(countMessageBreakpoints(result.messages)).toBe(0);
     expect((result.tools[0] as any).cache_control).toBeUndefined();
     expect((result.system[0] as any).cache_control).toBeUndefined();
   });
