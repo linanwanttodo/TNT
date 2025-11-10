@@ -44,7 +44,7 @@ describe("TUIChat - Compaction Cancellation", () => {
     vi.clearAllMocks();
   });
 
-  it("calls handleInterrupt when ESC is pressed during compaction", () => {
+  it("calls handleInterrupt when ESC is pressed during compaction", async () => {
     const compactionStartTime = Date.now();
 
     mockUseChat.mockReturnValue({
@@ -65,20 +65,16 @@ describe("TUIChat - Compaction Cancellation", () => {
       handleToolPermissionResponse: vi.fn(),
     });
 
-    const { stdin, unmount } = track(React.createElement(AppRoot, {}));
+    const { stdin } = track(React.createElement(AppRoot, {}));
 
-    try {
-      // Give some time for the component to render and set up input handling
-      setTimeout(() => {
-        // Simulate ESC key press during compaction
-        stdin.write("\x1b"); // ESC key
-
-        // The handleInterrupt should be called
-        expect(mockHandleInterrupt).toHaveBeenCalledTimes(1);
-      }, 100);
-    } finally {
-      unmount();
-    }
+    // Simulate ESC key press during compaction. Ink waits a tick for the rest of
+    // an escape sequence before delivering a bare ESC, so the assertion has to
+    // wait for the key to be handled - an assertion inside a setTimeout that the
+    // test never awaited reported nothing either way.
+    stdin.write("\x1b"); // ESC key
+    await vi.waitFor(() =>
+      expect(mockHandleInterrupt).toHaveBeenCalledTimes(1),
+    );
   });
 
   it("shows compaction status with esc to interrupt message", () => {
@@ -116,7 +112,7 @@ describe("TUIChat - Compaction Cancellation", () => {
     }
   });
 
-  it("prioritizes compaction cancellation over response cancellation", () => {
+  it("prioritizes compaction cancellation over response cancellation", async () => {
     // This tests the case where both might be true (theoretical edge case)
     const compactionStartTime = Date.now();
     const responseStartTime = Date.now();
@@ -139,16 +135,14 @@ describe("TUIChat - Compaction Cancellation", () => {
       handleToolPermissionResponse: vi.fn(),
     });
 
-    const { stdin, unmount } = track(React.createElement(AppRoot, {}));
+    const { stdin } = track(React.createElement(AppRoot, {}));
 
-    try {
-      // Simulate ESC key press when both states are active
-      stdin.write("\x1b"); // ESC key
+    // Simulate ESC key press when both states are active
+    stdin.write("\x1b"); // ESC key
 
-      // Should still call handleInterrupt (which will prioritize compaction)
-      expect(mockHandleInterrupt).toHaveBeenCalledTimes(1);
-    } finally {
-      unmount();
-    }
+    // Should still call handleInterrupt (which will prioritize compaction)
+    await vi.waitFor(() =>
+      expect(mockHandleInterrupt).toHaveBeenCalledTimes(1),
+    );
   });
 });
