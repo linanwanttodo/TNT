@@ -85,13 +85,21 @@ The prefix is assembled in build order, each part announced so it can be attribu
 - A mid-session change is delivered as an appended system message when the endpoint can carry one
   and rewritten otherwise: `stream/systemPromptPolicy.ts` decides, `cache/prefixState.ts` classifies
   the result (`full` / `passthrough` / `invalidated` plus reasons).
-- Breakpoints are counted against the provider's cap, not assumed to be free: Anthropic allows four
-  per request across system, tools and messages, and a fifth is a 400. The ceiling lives in one
-  place (`ANTHROPIC_MAX_CACHE_BREAKPOINTS` in `AnthropicUtils.ts`), the Anthropic strategies spend it
-  from a single countdown, and the OpenRouter path - which runs a strategy and then tops the trailing
-  turns up itself - reads what the whole body has already used before adding anything
-  (`countCacheBreakpoints`). `anthropicCacheBreakpointCap.test.ts` counts the finished body for every
-  strategy and for the OpenRouter path, including a system that arrives as several blocks.
+- Two numbers govern breakpoints and they are not the same number. The provider's ceiling is four per
+  request across system, tools and messages, and a fifth is a 400 rather than a marker it quietly drops;
+  it lives in `ANTHROPIC_MAX_CACHE_BREAKPOINTS` (`AnthropicUtils.ts`). What this project sends is two -
+  the newest turn plus one on the head of the prefix, which is the last tool when a request carries tools
+  and the last system block when it does not - because each extra breakpoint bills a cache write at about
+  1.25x for a span a kept one already covers; it lives in `ANTHROPIC_BREAKPOINTS_KEPT` (`cacheControl.ts`).
+  Both routes narrow to it before anything goes out: the Anthropic route with
+  `capBreakpointsForAnthropic(pruned, ANTHROPIC_BREAKPOINTS_KEPT)` in `_convertBody`, and the OpenRouter
+  route - which runs a strategy, tops the trailing turns up from what the body already spent
+  (`countCacheBreakpoints`) and then mirrors markers back onto the OpenAI-shaped parts - with the same
+  call before that mirror. The strategies may still place up to four while they work; the cap is what
+  decides which of them survive. `anthropicCacheBreakpointCap.test.ts` counts finished bodies at all three
+  points (per strategy, the mutated OpenAI body, and the direct route's `_convertBody` output, where a
+  request built with `cachingStrategy: "none"` must ship zero), each with a floor assertion so an empty
+  body cannot pass a "at most two" claim.
 
 - Carrying is declared by the adapter, not assumed from a provider name:
   `packages/openai-adapters/src/apis/base.ts` `carriesInHistorySystemMessages(model)` is implemented
