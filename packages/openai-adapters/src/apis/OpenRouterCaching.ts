@@ -18,6 +18,10 @@ import {
   countCacheBreakpoints,
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
+import {
+  ANTHROPIC_BREAKPOINTS_KEPT,
+  capBreakpointsForAnthropic,
+} from "./cacheControl.js";
 
 interface SystemMapping {
   openaiIndex: number;
@@ -162,7 +166,7 @@ export const applyAnthropicCachingToOpenRouterBody = (
 
   const cachingStrategy =
     CACHING_STRATEGIES[strategy] ?? CACHING_STRATEGIES.systemAndTools;
-  const cachedBody = cachingStrategy({ ...anthropicBody });
+  let cachedBody = cachingStrategy({ ...anthropicBody });
 
   cachedBody.messages = cachedBody.messages ?? [];
   // The strategy has already spent part of the four-breakpoint budget on the
@@ -173,6 +177,16 @@ export const applyAnthropicCachingToOpenRouterBody = (
   addCacheControlToLastTwoUserMessages(
     cachedBody.messages,
     Math.max(0, Math.min(2, ANTHROPIC_MAX_CACHE_BREAKPOINTS - spent)),
+  );
+
+  // Two is what this project sends and the direct route already narrows to it
+  // with this same call. The ceiling only says a fifth marker is refused; it
+  // says nothing about paying a cache write for a span the head already covers,
+  // nor about a body that spent its whole allowance on the system block and left
+  // the newest turn uncached.
+  cachedBody = capBreakpointsForAnthropic(
+    cachedBody,
+    ANTHROPIC_BREAKPOINTS_KEPT,
   );
 
   const cachedSystem = Array.isArray(cachedBody.system)

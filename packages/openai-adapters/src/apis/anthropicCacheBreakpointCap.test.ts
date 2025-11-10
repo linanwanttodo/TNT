@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
 import { CACHING_STRATEGIES } from "./AnthropicCachingStrategies.js";
+import { ANTHROPIC_BREAKPOINTS_KEPT } from "./cacheControl.js";
 import { applyAnthropicCachingToOpenRouterBody } from "./OpenRouterCaching.js";
 
 /**
@@ -187,5 +188,89 @@ describe("the cache breakpoint cap on an Anthropic request body", () => {
     );
     expect(markers).toBeGreaterThan(0);
     expect(markers).toBeLessThanOrEqual(ANTHROPIC_MAX_BREAKPOINTS);
+  });
+});
+
+/**
+ * Two is the number this project sends: the newest message, whose span reaches
+ * back over everything before it, plus one on the stable head. Each extra marker
+ * bills a cache write at about 1.25x for a span a kept one already covers, which
+ * is why the direct Anthropic route narrows its finished body with
+ * `capBreakpointsForAnthropic` before sending.
+ *
+ * The OpenRouter route mirrors the Anthropic-shaped body back onto OpenAI-shaped
+ * parts and had no such narrowing, so the only thing limiting it was the four
+ * breakpoint provider ceiling - a body could go out with twice the policy, and
+ * with the system block instead of the newest turn marked when the strategy spent
+ * its allowance on the head.
+ */
+describe("the OpenRouter route keeps to the two-breakpoint policy", () => {
+  function markersOnOpenAiBody(openaiBody: any): number {
+    let total = 0;
+    for (const message of openaiBody.messages ?? []) {
+      if (Array.isArray(message.content)) {
+        total += message.content.filter(
+          (part: any) => part?.cache_control,
+        ).length;
+      }
+    }
+    total += (openaiBody.tools ?? []).filter(
+      (tool: any) => tool?.cache_control,
+    ).length;
+    return total;
+  }
+
+  function openAiRequest(withTools: boolean): any {
+    return {
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      messages: [
+        { role: "system", content: "the stable head" },
+        { role: "user", content: "first" },
+        { role: "assistant", content: "answer" },
+        { role: "user", content: "second" },
+      ],
+      ...(withTools
+        ? {
+            tools: [
+              {
+                type: "function",
+                function: { name: "Read", parameters: {} },
+              },
+              {
+                type: "function",
+                function: { name: "Search", parameters: {} },
+              },
+            ],
+          }
+        : {}),
+    };
+  }
+
+  it("sends no more than the policy with the default strategy", () => {
+    const body = openAiRequest(true);
+    applyAnthropicCachingToOpenRouterBody(body, "systemAndTools");
+
+    // Floor: the route has to place something, or "at most two" would be
+    // satisfied by a request that caches nothing at all.
+    expect(markersOnOpenAiBody(body)).toBeGreaterThan(0);
+    expect(markersOnOpenAiBody(body)).toBeLessThanOrEqual(
+      ANTHROPIC_BREAKPOINTS_KEPT,
+    );
+  });
+
+  it("keeps the newest turn marked rather than spending the policy on the head", () => {
+    const body = openAiRequest(true);
+    applyAnthropicCachingToOpenRouterBody(body, "systemAndTools");
+
+    const newestUser = [...body.messages]
+      .reverse()
+      .find(
+        (message: any) =>
+          message.role === "user" && Array.isArray(message.content),
+      );
+    expect(newestUser.content.some((part: any) => part?.cache_control)).toBe(
+      true,
+    );
   });
 });
