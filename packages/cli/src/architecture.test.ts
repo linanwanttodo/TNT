@@ -188,6 +188,18 @@ describe("the dependency direction between module groups", () => {
  * declaration. Cross-checked against the compiler rather than trusted: `npx tsc --noEmit
  * --noUnusedLocals` reports 31 sites in this package, 30 of them inside suites, and the
  * single production one is the allowlisted entry below.
+ *
+ * KNOWN BLIND SPOT, measured the same day this guard landed, and the reason it is a ratchet and
+ * not a proof: raw-text counting treats a name that appears only in a comment or a string as
+ * read, so the scan under-reports. In the sibling package the identical scanner reported zero
+ * offenders while `tsc --noEmit --noUnusedLocals` reported five, because the dead Bedrock
+ * cache-point method is also named in a comment. Stripping comments and string literals first
+ * was tried and failed the other way - it ate real code between quote characters and invented
+ * offenders - and making the test shell out to the compiler was dropped after its run reported
+ * three of the five that the same command reports manually, because a guard that quietly sees
+ * less than it claims is worse than no guard. So: a new dead name is caught reliably only when
+ * nothing mentions it in prose, and the agreement with the compiler below is checked, not
+ * assumed.
  */
 const UNREAD_PRODUCTION_DECLARATIONS = [
   "config/index.ts:_mergeUserAgentIntoRequestOptions",
