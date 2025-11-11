@@ -1072,13 +1072,4 @@ export async function streamChatResponse(
       return finish("no_tool_calls");
     }
   }
-
-  logger.debug("streamChatResponse complete", {
-    totalResponseLength: fullResponse.length,
-    totalMessages: chatHistory.length,
-  });
-
-  // For headless mode, we return only the final response
-  // Otherwise, return the full response
-  return finish("no_tool_calls");
 }
