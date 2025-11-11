@@ -1,7 +1,10 @@
 import type { MessageCreateParams } from "@anthropic-ai/sdk/resources";
 import { describe, expect, it } from "vitest";
 
-import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
+import {
+  addCacheControlToLastTwoUserMessages,
+  countCacheBreakpoints,
+} from "./AnthropicUtils.js";
 import { CACHING_STRATEGIES } from "./AnthropicCachingStrategies.js";
 import { ANTHROPIC_BREAKPOINTS_KEPT } from "./cacheControl.js";
 import { applyAnthropicCachingToOpenRouterBody } from "./OpenRouterCaching.js";
@@ -272,5 +275,76 @@ describe("the OpenRouter route keeps to the two-breakpoint policy", () => {
     expect(newestUser.content.some((part: any) => part?.cache_control)).toBe(
       true,
     );
+  });
+});
+
+/**
+ * The strategy places markers freely and `capBreakpointsForAnthropic` narrows the
+ * finished body to what this project sends, so nothing so far counted the body the
+ * direct route actually hands the provider. This is the request-shaped assertion
+ * for that route: place a body that arrives at four and confirm two go out.
+ */
+describe("the direct Anthropic route ships the policy, not the strategy's placement", () => {
+  function oaiRequest(): any {
+    return {
+      model: "claude-sonnet-4-5",
+      max_tokens: 1024,
+      messages: [
+        { role: "system", content: "the stable head" },
+        { role: "user", content: "Alpha" },
+        { role: "assistant", content: "Response" },
+        { role: "user", content: "Beta" },
+        { role: "assistant", content: "Another" },
+        { role: "user", content: "Gamma" },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "toolA",
+            description: "d",
+            parameters: { type: "object", properties: {} },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "toolB",
+            description: "d",
+            parameters: { type: "object", properties: {} },
+          },
+        },
+      ],
+    };
+  }
+
+  it("narrows a body the strategy filled to four down to the two that earn their keep", async () => {
+    const { constructLlmApi } = await import("../index.js");
+    const api = constructLlmApi({
+      provider: "anthropic",
+      apiKey: "test-api-key",
+    } as any) as any;
+
+    const sent = api["_convertBody"](oaiRequest());
+
+    expect(countCacheBreakpoints(sent)).toBeGreaterThan(0);
+    expect(countCacheBreakpoints(sent)).toBeLessThanOrEqual(
+      ANTHROPIC_BREAKPOINTS_KEPT,
+    );
+    // The head is the last tool, and the newest turn keeps its own marker, so the
+    // narrowing spends both of them where a cache read can use them.
+    expect(countCacheBreakpoints({ messages: sent.messages })).toBe(1);
+  });
+
+  it("sends none at all when the strategy is off", async () => {
+    const { constructLlmApi } = await import("../index.js");
+    const api = constructLlmApi({
+      provider: "anthropic",
+      apiKey: "test-api-key",
+      cachingStrategy: "none",
+    } as any) as any;
+
+    const sent = api["_convertBody"](oaiRequest());
+    expect(countCacheBreakpoints(sent)).toBe(0);
   });
 });
