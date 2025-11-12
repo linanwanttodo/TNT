@@ -536,12 +536,13 @@ export function clearSession(): void {
   try {
     const manager = SessionManager.getInstance();
     if (manager.hasSession()) {
-      const sessionFilePath = path.join(
-        getSessionDir(),
-        `${manager.getSessionId()}.json`,
-      );
+      const sessionId = manager.getSessionId();
+      const sessionFilePath = path.join(getSessionDir(), `${sessionId}.json`);
+      // core owns the pair: its delete takes the file and the sessions.json
+      // row together. The unlink this function used to do by hand left the row
+      // behind, so the listing kept offering a session with nothing in it.
       if (fs.existsSync(sessionFilePath)) {
-        fs.unlinkSync(sessionFilePath);
+        historyManager.delete(sessionId);
       }
       manager.clear();
     }
@@ -652,11 +653,10 @@ export async function listSessions(
           });
         }
       } else {
-        // Fall back to basic metadata if file doesn't exist
-        localSessionsWithPreview.push({
-          ...sessionMeta,
-          isRemote: false,
-        });
+        // A row with no file behind it is a session nobody can open. It used to
+        // be listed with fallback metadata, which is how a cleared conversation
+        // stayed on screen.
+        continue;
       }
     }
 
