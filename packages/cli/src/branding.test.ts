@@ -100,6 +100,7 @@ const ENVIRONMENT_INTERFACE = [
   "TNT_HEADLESS_TIMEOUT",
   "TNT_LOG_LEVEL",
   "TNT_PLUGINS_DIR",
+  "TNT_USER_ID",
 ];
 
 describe("environment interface", () => {
