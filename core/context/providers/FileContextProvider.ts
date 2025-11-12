@@ -30,12 +30,18 @@ class FileContextProvider extends BaseContextProvider {
   ): Promise<ContextItem[]> {
     // Assume the query is a filepath
     const fileUri = query.trim();
-    const content = await extras.ide.readFile(fileUri);
 
     const { relativePathOrBasename, last2Parts, baseName } = getUriDescription(
       fileUri,
       await extras.ide.getWorkspaceDirs(),
     );
+
+    const redacted = this.redactSecurityConcern(fileUri, last2Parts, baseName);
+    if (redacted) {
+      return [redacted];
+    }
+
+    const content = await extras.ide.readFile(fileUri);
 
     return [
       {
