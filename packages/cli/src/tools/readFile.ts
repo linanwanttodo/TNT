@@ -171,6 +171,11 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
         filepath = filepath.slice(2);
       }
 
+      // Also enforced here, not only in `preprocess`: `preprocess` has one caller
+      // (`stream/streamChatResponse.helpers.ts`) and shell mode already calls a tool's
+      // `run()` directly, so the check cannot be load-bearing where it was.
+      throwIfFileIsSecurityConcern(filepath);
+
       if (!fs.existsSync(filepath)) {
         throw new ContinueError(
           ContinueErrorReason.Unspecified,
