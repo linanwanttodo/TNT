@@ -26,9 +26,6 @@ import { OpenAIApi } from "./OpenAI.js";
  * through a unified OpenAI-compatible API interface.
  */
 export class CometAPIApi extends OpenAIApi implements BaseLlmApi {
-  // Store the original CometAPI config separately
-  private cometConfig: CometAPIConfig;
-
   constructor(config: CometAPIConfig) {
     // CometAPI uses OpenAI-compatible API, so we can reuse OpenAI adapter
     // Convert CometAPI config to OpenAI-compatible config for the base class
@@ -38,9 +35,6 @@ export class CometAPIApi extends OpenAIApi implements BaseLlmApi {
       apiBase: config.apiBase ?? "https://api.cometapi.com/v1/",
     };
     super(openAICompatibleConfig);
-
-    // Store original config after super() call
-    this.cometConfig = config;
   }
 
   /**
