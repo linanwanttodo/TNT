@@ -584,9 +584,9 @@ cross-cutting suites are named by what they prove.
 - `e2e/` drives the built binary (`npm run test:e2e`) and sits at the package
   root, outside `src/`.
 - `smoke-api/` runs against a real provider (`npm run test:smoke-api`).
-- `src/integration-tests/` holds the one suite that has no single CLI subject.
 - `*.integration.test.ts` files sit beside their subject and run in the default
-  pass.
+  pass; there is no separate integration directory, and each such file is named
+  for what it cross-checks (permissions, model persistence).
 
 `tsconfig.json` includes `src/**/*`, `e2e/**/*` and `smoke-api/**/*` so that the
 suites outside `src/` are still type-checked. Hand-written mocks are only read
