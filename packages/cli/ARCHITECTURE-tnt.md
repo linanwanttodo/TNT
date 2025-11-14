@@ -244,8 +244,9 @@ than 250 files so an empty scan cannot pass.
   that claim: it collects every backticked path with a source extension from `ARCHITECTURE-tnt.md`
   and `docs/ARCHITECTURE-tnt.md`, resolves it against the package, the repository, `core` and
   `packages`, and refuses anything it cannot find unless it is one of the four named external
-  locations (settings paths and the files a plugin ships) or the one build output the notes
-  describe. Measured on the shipped tree, no documented path is unaccounted for.
+  locations (settings paths and the files a plugin ships) or one of the named build outputs the
+  notes describe (`dist/index.js`, `dist/tnt.js`). Measured on the shipped tree, no documented
+  path is unaccounted for, and dropping an entry from either list reddens the guard.
 - Core keeps autocomplete capabilities that nothing calls: four hand-tuned FIM templates
   (`codestralFimTemplate`, `qwenCoderFimTemplate`, `starcoder2FimTemplate`,
   `gptAutocompleteTemplate`), `shouldLanguageSpecificPrefilter`, `getDiffSnippets` and
