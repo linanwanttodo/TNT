@@ -549,16 +549,32 @@ English on purpose:
 
 ## 8. Verification gates
 
-Three commands, run from `packages/cli`, must all pass before a commit:
+Six commands, run from `packages/cli`, must all pass before a commit:
 
 ```
 npx tsc --noEmit
-npx vitest run --reporter=json --outputFile=/tmp/tnt-vitest.json
-npx prettier --check "src/**/*.{ts,tsx}"
+npm run lint
+../../node_modules/.bin/prettier --check "src/**/*.{ts,tsx}" "test-utils/**/*.{ts,tsx}"
+npx vitest run
+npm run build
+npx vitest run --config vitest.e2e.config.ts
 ```
 
-`npm run build` is the fourth check for anything touching the bundle. Green
-vitest does not imply a clean compile and vice versa; the two are verified
+The format gate names the repository root's prettier binary deliberately: `.husky/pre-commit` runs
+lint-staged from the root with prettier 3.5.3, while this package declares `^3.6.2` and resolves
+3.9.10, so the package-local binary would assert a format the repository cannot commit. `e2e`
+spawns the built `dist/tnt.js`, so it is only skipped when nothing in `src/` changed; the e2e lane
+and `npm run build` then still have to be run together, because the suite reads the bundle.
+
+Two packages own their own gates, because the CLI neither runs their tests nor reads their sources:
+
+```
+cd ../../core && npx tsc -p ./ --noEmit && npm run build && npx vitest run
+cd ../../core && IGNORE_API_KEY_TESTS=true npm test
+cd ../packages/openai-adapters && npx tsc --noEmit && npx vitest run
+```
+
+Green vitest does not imply a clean compile and vice versa; the two are verified
 separately, because a missing import in code with no test coverage passes one and
 fails the other.
 
