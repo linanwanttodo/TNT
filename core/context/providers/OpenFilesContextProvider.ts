@@ -3,7 +3,6 @@ import {
   ContextProviderDescription,
   ContextProviderExtras,
 } from "../../index.js";
-import { isSecurityConcern } from "../../indexing/ignore.js";
 import { getUriDescription } from "../../util/uri.js";
 import { BaseContextProvider } from "../index.js";
 
@@ -31,17 +30,13 @@ class OpenFilesContextProvider extends BaseContextProvider {
         const { relativePathOrBasename, last2Parts, baseName } =
           getUriDescription(filepath, workspaceDirs);
 
-        if (isSecurityConcern(filepath)) {
-          return {
-            description: last2Parts,
-            content:
-              "Content redacted, this file cannot be viewed for security reasons",
-            name: baseName,
-            uri: {
-              type: "file",
-              value: filepath,
-            },
-          };
+        const redacted = this.redactSecurityConcern(
+          filepath,
+          last2Parts,
+          baseName,
+        );
+        if (redacted) {
+          return redacted;
         }
         const content = await ide.readFile(filepath);
 
