@@ -189,7 +189,7 @@ From `packages/cli`:
 
     npx tsc --noEmit
     npm run lint
-    npx prettier --check "src/**/*.{ts,tsx}" "test-utils/**/*.{ts,tsx}"
+    ../../node_modules/.bin/prettier --check "src/**/*.{ts,tsx}" "test-utils/**/*.{ts,tsx}"
     npx vitest run
     npm run build
     npx vitest run --config vitest.e2e.config.ts
@@ -237,3 +237,31 @@ fails if the scan finds fewer than 250 files so an empty scan cannot pass.
   is an external contract.
 - Vendor cache behaviour (whether the provider bills what the prefix model predicts) needs a real key
   and two measured rounds; nothing here claims it.
+
+### Which prettier the gate uses
+
+The format gate above is run with the **repository root's** prettier binary, deliberately:
+`.husky/pre-commit` runs `npx lint-staged` from the root, whose config formats with root
+prettier 3.5.3, while `packages/cli` declares `^3.6.2` and resolves 3.9.10. The two disagree
+about 28 files in this package, and anything formatted by the newer one is rewritten back by
+the hook before the commit lands - the hook then refuses the commit as empty. Running the
+package-local binary as the gate would therefore assert a format the repository cannot
+produce, so the gate names the binary that actually decides the shipped bytes.
+
+Re-check this when the root dependencies are next upgraded with authorization: if root
+prettier and `packages/cli`'s declared range resolve to the same version, the gate should go
+back to `npx prettier --check` and the 28-file reformat becomes a normal one-line commit.
+
+### Which prettier the format gate uses
+
+The format gate above runs the **repository root's** prettier on purpose. `.husky/pre-commit`
+executes `npx lint-staged` from the root, and the root's config formats with prettier 3.5.3,
+while `packages/cli` declares `^3.6.2` and resolves 3.9.10. The two disagree about 28 files in
+this package, and content written by the newer binary is rewritten back by the hook before the
+commit lands - the hook then refuses the commit as empty. A gate that asserted the newer
+format would be asserting something the repository cannot produce, so the command names the
+binary that actually decides the shipped bytes.
+
+Revisit when the root dependencies are next upgraded with authorization: once root prettier and
+this package's declared range resolve to the same version, go back to `npx prettier --check`
+and the 28-file reformat becomes an ordinary one-line commit.
