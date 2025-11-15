@@ -235,22 +235,17 @@ fails if the scan finds fewer than 250 files so an empty scan cannot pass.
   test.
 - The `continue-cli` literal in `services/GitAiIntegrationService.ts` is a label handed to git-ai and
   is an external contract.
+- Core keeps autocomplete capabilities that nothing calls: four hand-tuned FIM templates
+  (`codestralFimTemplate`, `qwenCoderFimTemplate`, `starcoder2FimTemplate`,
+  `gptAutocompleteTemplate`), `shouldLanguageSpecificPrefilter`, `getDiffSnippets` and
+  `isMidlineCompletion`. They stay declared and unwired rather than wired or deleted, because core is
+  shared with the IDE extensions and no real model is reachable here to tell a fix from a regression.
+  `core/unreadDeclarations.vitest.ts` makes that choice countable: it asks `tsc --noUnusedLocals` for
+  every unread name, asserts the seven are among them, and refuses any change to the frozen 56-name
+  list that is not a deliberate edit. The guard is compiler-driven because a text scan counts a name
+  mentioned in prose as a read - written that way, it missed all seven.
 - Vendor cache behaviour (whether the provider bills what the prefix model predicts) needs a real key
   and two measured rounds; nothing here claims it.
-
-### Which prettier the gate uses
-
-The format gate above is run with the **repository root's** prettier binary, deliberately:
-`.husky/pre-commit` runs `npx lint-staged` from the root, whose config formats with root
-prettier 3.5.3, while `packages/cli` declares `^3.6.2` and resolves 3.9.10. The two disagree
-about 28 files in this package, and anything formatted by the newer one is rewritten back by
-the hook before the commit lands - the hook then refuses the commit as empty. Running the
-package-local binary as the gate would therefore assert a format the repository cannot
-produce, so the gate names the binary that actually decides the shipped bytes.
-
-Re-check this when the root dependencies are next upgraded with authorization: if root
-prettier and `packages/cli`'s declared range resolve to the same version, the gate should go
-back to `npx prettier --check` and the 28-file reformat becomes a normal one-line commit.
 
 ### Which prettier the format gate uses
 
