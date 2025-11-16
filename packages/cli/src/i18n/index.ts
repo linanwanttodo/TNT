@@ -81,7 +81,6 @@ const en = {
   "mcp.failedHint": "Run /mcp to see the details.",
   "session.empty":
     "No previous sessions found. Start a new conversation with: tnt",
-  "session.newWith": "Start a new conversation with: tnt",
   "session.loading": "Loading sessions...",
   "session.recent": "Recent Sessions",
   "session.local": "(local)",
@@ -343,8 +342,6 @@ const en = {
   "checks.summary.passed": "{count} passed",
   "checks.summary.failing": "{count} failing",
   "checks.summary.pending": "{count} pending",
-  "plugin.marketplace.refreshUsage":
-    "Usage: /plugin marketplace refresh [name]",
   "plugin.marketplace.refreshed":
     "Marketplace {name}: {updated} plugin(s) updated",
   "plugin.marketplace.refreshFailed": "Could not refresh {name}: {message}",
@@ -500,7 +497,6 @@ const zhCN: Record<TranslationKey, string> = {
   "mcp.failed": "MCP 服务器连接失败：{servers}",
   "mcp.failedHint": "输入 /mcp 查看详情。",
   "session.empty": "没有找到历史会话。输入 tnt 开始新会话。",
-  "session.newWith": "输入 tnt 开始新会话：",
   "session.loading": "正在加载会话...",
   "session.recent": "最近的会话",
   "session.local": "（本地）",
@@ -745,7 +741,6 @@ const zhCN: Record<TranslationKey, string> = {
   "checks.summary.passed": "{count} 通过",
   "checks.summary.failing": "{count} 失败",
   "checks.summary.pending": "{count} 待处理",
-  "plugin.marketplace.refreshUsage": "用法：/plugin marketplace refresh [名称]",
   "plugin.marketplace.refreshed": "市场 {name}：已更新 {updated} 个插件",
   "plugin.marketplace.refreshFailed": "刷新 {name} 失败：{message}",
   "plugin.marketplace.unchanged": "市场 {name} 已是最新。",
