@@ -254,4 +254,34 @@ describe("BottomStatusBar Ctrl+C message", () => {
     expect(usage).not.toContain("gpt-5");
     expect(lines.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("shows the token counts the usage line was built to carry", async () => {
+    const sessionModule = (await vi.importMock(
+      "../../session/index.js",
+    )) as any;
+    sessionModule.getSessionUsage.mockReturnValue({
+      completionTokens: 1400,
+    });
+
+    const tree = track(
+      <BottomStatusBar
+        {...defaultProps}
+        contextPercentage={9}
+        contextTokens={18200}
+        totalCost={0.31}
+        services={{
+          model: { model: { name: "gpt-5", model: "gpt-5" } },
+        }}
+      />,
+    );
+
+    const frame = tree.lastFrame() ?? "";
+    const usage = frame.split("\n").find((line) => line.includes("Out 1.4k"));
+    // Wiring, not the formatter: an unpassed count leaves the row at the bare
+    // percentage, and the denominator only appears once the model limit reaches
+    // the line.
+    expect(usage).toContain("18.2k/");
+    expect(usage).toMatch(/\(\d+%\)/);
+    expect(usage).toContain("Cost $0.31");
+  });
 });
