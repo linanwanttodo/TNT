@@ -131,10 +131,14 @@ The prefix is assembled in build order, each part announced so it can be attribu
   rewording one clause in `base` moves all of them.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `44f6665ae3049eab` over 25 tools and 19189 characters (name + description + parameter schema, in
-  `tools/stableOrder.ts` order). `tools/toolPrefixFingerprint.test.ts` freezes it and reads this file
-  for the same digest, so the text cannot move without a line here: a reworded description is not a
-  copy edit, it cold-starts the first request of every new session. Changing it on purpose means
+  `1b399a5fb3d9578a` over 29 tools and 21815 characters (name + description + parameter schema, in
+  `tools/stableOrder.ts` order). The 29 are the registry copy plus the four the request assembles
+  from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`, `ExitPlanMode`,
+  `Glob`), because that surface is what a session is billed, not the copy. `tools/toolPrefixFingerprint.test.ts`
+  freezes it and reads this file for the same digest, so the text cannot move without a line here: a
+  reworded description is not a copy edit, it cold-starts the first request of every new session. The
+  same guard discovers every `Tool` this directory exports, so declaring a built-in tool that the
+  digest does not reach is refused rather than forgotten. Changing the prefix on purpose means
   updating the digest, the two counts and this sentence together.
 
 - When the prefix does move, `cache/cacheBreakReport.ts` writes the reasons, both hit ratios and the
