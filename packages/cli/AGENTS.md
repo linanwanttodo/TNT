@@ -25,7 +25,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 
 2. **Authentication** (`src/auth/`): WorkOS-based authentication system
 
-   - `ensureAuth.ts`: Handles authentication flow
+   - `uriUtils.ts`: path/slug/URI conversions for auth config
    - `workos.ts`: WorkOS configuration and token management
 
 3. **Terminal UI** (`src/ui/`): React/Ink-based TUI components
@@ -100,7 +100,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 - Uses Vitest with TypeScript and ESM support
 - Configuration in `vitest.config.ts`
 - Tests should be written with `.test.ts` extension
-- The suite is large (roughly 200 files). Add tests alongside new behavior; a change is not done until `npx tsc --noEmit`, `npx vitest run` and `npx prettier --check "src/**/*.{ts,tsx}"` all pass
+- The suite is large - count it with `find src -name "*.test.ts*"` instead of trusting a number written here (the "roughly 200 files" that sat here had fallen 67% behind). Add tests alongside new behavior; a change is not done until `npx tsc --noEmit`, `npx vitest run` and `npx prettier --check "src/**/*.{ts,tsx}"` all pass
 - Run tests using `npm run test path/or/pattern`
 
 ### Build System
