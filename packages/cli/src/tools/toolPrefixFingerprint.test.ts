@@ -86,6 +86,7 @@ describe("the tool list as billed prefix", () => {
     const doc = readFileSync(ARCHITECTURE_DOC, "utf-8");
 
     expect(doc).toContain(PREFIX_FINGERPRINT);
+    expect(doc).toContain(`over ${PREFIX_TOOLS} tools`);
     expect(doc).toContain(`${PREFIX_CHARACTERS} characters`);
   });
 
