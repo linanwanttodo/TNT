@@ -120,7 +120,7 @@ All metrics and events share these standard attributes:
 - All [standard attributes](#standard-attributes)
 - `model`: Model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4")
 
-**Implementation:** Calculate costs based on token usage and model pricing in `src/streamChatResponse.ts`
+**Implementation:** Calculate costs based on token usage and model pricing in `src/stream/streamChatResponse.ts`
 
 ---
 
@@ -136,7 +136,7 @@ All metrics and events share these standard attributes:
 - `type`: (`"input"`, `"output"`, `"cacheRead"`, `"cacheCreation"`)
 - `model`: Model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4")
 
-**Implementation:** Track in `src/streamChatResponse.ts` after each API response
+**Implementation:** Track in `src/stream/streamChatResponse.ts` after each API response
 
 ---
 
@@ -183,7 +183,7 @@ All metrics and events share these standard attributes:
 - `prompt_length`: Length of the prompt
 - `prompt`: Prompt content (redacted by default, enable with `OTEL_LOG_USER_PROMPTS=1`)
 
-**Implementation:** Log in `src/streamChatResponse.ts` when user message is added to chat history
+**Implementation:** Log in `src/stream/streamChatResponse.ts` when user message is added to chat history
 
 ---
 
@@ -204,7 +204,7 @@ All metrics and events share these standard attributes:
 - `source`: Decision source - `"config"`, `"user_permanent"`, `"user_temporary"`, `"user_abort"`, or `"user_reject"` (if applicable)
 - `tool_parameters`: JSON string containing tool-specific parameters (when available)
 
-**Implementation:** Log in `src/tools/index.ts` `executeToolCall` function
+**Implementation:** Log in `src/tools/index.tsx` `executeToolCall` function
 
 ---
 
@@ -225,7 +225,7 @@ All metrics and events share these standard attributes:
 - `output_tokens`: Number of output tokens
 - `cost_usd`: Request cost in USD
 
-**Implementation:** Log in `src/streamChatResponse.ts` for each API request
+**Implementation:** Log in `src/stream/streamChatResponse.ts` for each API request
 
 ## Additional Metrics
 
@@ -261,7 +261,7 @@ These metrics are unique to TNT CLI and provide additional insights without conf
 - `server_name`: MCP server identifier
 - `status`: `connected` | `disconnected` | `error`
 
-**Implementation:** Track in `src/mcp.ts`
+**Implementation:** Track in `src/services/MCPService.ts`
 
 ### Performance Metrics
 
@@ -292,7 +292,7 @@ These metrics are unique to TNT CLI and provide additional insights without conf
 - `metric_type`: `time_to_first_token` | `total_response_time`
 - `has_tools`: `true` | `false`
 
-**Implementation:** Track in `src/streamChatResponse.ts`
+**Implementation:** Track in `src/stream/streamChatResponse.ts`
 
 ## Implementation Guidelines
 
@@ -320,8 +320,8 @@ All metrics should include these resource attributes:
 ### Implementation Points
 
 1. **Session Tracking**: Initialize session ID and track lifecycle in `src/commands/chat.ts`
-2. **Token/Cost Tracking**: Implement in `src/streamChatResponse.ts` with model-specific pricing
-3. **Tool Usage**: Track in `src/tools/index.ts` and individual tool implementations
+2. **Token/Cost Tracking**: Implement in `src/stream/streamChatResponse.ts` with model-specific pricing
+3. **Tool Usage**: Track in `src/tools/index.tsx` and individual tool implementations
 4. **File Operations**: Implement diff analysis in `src/tools/writeFile.ts` for LOC tracking
 5. **Command Detection**: Parse git/gh commands in `src/tools/runTerminalCommand.ts`
 6. **Authentication**: Track auth flows in `src/auth/workos.ts`

@@ -222,6 +222,9 @@ The ratchet itself:
 Cross-cutting suites, each naming the claim it enforces rather than the module it
 lives beside:
 
+- `src/moduleDocsAccuracy.test.ts` - every path the remaining module documents (`spec/`,
+  `BUILD.md`, the READMEs) names exists, and a build output is excused only while a
+  document still mentions it.
 - `src/docsAccuracy.test.ts` - every path, place and `npm run` command the two
   architecture notes name resolves, except the named external locations, build
   outputs and removals.
