@@ -66,6 +66,52 @@ interface Offender {
   target: string;
 }
 
+/**
+ * Only an explicit `npm run <script>` counts: a bare `npm <word>` in prose is not an
+ * instruction, and a first version of this scan measured four "unknown scripts" across
+ * the module docs, all of them prose - `npm doesn't`, `npm i`, `npm publish`. `npm i`
+ * and the rest are listed as verbs so a document that really does tell the reader to
+ * run one is not refused for it.
+ */
+const RUN_COMMAND = /npm run ([A-Za-z][\w:-]*)/g;
+const NPM_VERBS = [
+  "ci",
+  "exec",
+  "i",
+  "install",
+  "link",
+  "ls",
+  "pack",
+  "publish",
+  "run",
+  "start",
+  "test",
+];
+
+function scanCommands(docs: string[]): {
+  mentions: string[];
+  offenders: Offender[];
+} {
+  const scripts = Object.keys(
+    JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf-8"))
+      .scripts ?? {},
+  ) as string[];
+  const mentions: string[] = [];
+  const offenders: Offender[] = [];
+  for (const doc of docs) {
+    const text = fs.readFileSync(path.join(packageRoot, doc), "utf-8");
+    for (const command of new Set(
+      [...text.matchAll(RUN_COMMAND)].map((m) => m[1]),
+    )) {
+      mentions.push(command);
+      if (!scripts.includes(command) && !NPM_VERBS.includes(command)) {
+        offenders.push({ doc, target: command });
+      }
+    }
+  }
+  return { mentions, offenders };
+}
+
 function scan(): { docs: string[]; mentions: number; offenders: Offender[] } {
   const docs = markdownFiles(packageRoot).filter(
     (doc) => !OWNED_DOCS.includes(doc) && !GENERATED_PATHS.includes(doc),
@@ -112,6 +158,15 @@ function scan(): { docs: string[]; mentions: number; offenders: Offender[] } {
 
 describe("the module documents name files that exist", () => {
   const { docs, mentions, offenders } = scan();
+  const commands = scanCommands(docs);
+
+  it("names only scripts this package declares", () => {
+    // A document telling a reader to run `npm run build:snapshot` after the script is
+    // renamed costs them a failed command, and the floor keeps a scan that collected
+    // nothing from agreeing with any package.json.
+    expect(commands.mentions.length).toBeGreaterThan(2);
+    expect(commands.offenders).toEqual([]);
+  });
 
   it("reads the documents it is meant to check", () => {
     // A scan of nothing - a moved directory, a broken walk - would agree with any
