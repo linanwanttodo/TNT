@@ -224,7 +224,9 @@ lives beside:
 
 - `src/moduleDocsAccuracy.test.ts` - every path the remaining module documents (`spec/`,
   `BUILD.md`, the READMEs) names exists, every `npm run` script it names is one the package
-  declares, and every markdown link target resolves, and a build output is excused only while a
+  declares, every markdown link target resolves, every file in `spec/` is linked
+  from `spec/index.md`, and no document carries a U+FFFD - a character that was already
+  lost when the file was read, and a build output is excused only while a
   document still mentions it.
 - `src/docsAccuracy.test.ts` - every path, place and `npm run` command the two
   architecture notes name resolves, except the named external locations, build
