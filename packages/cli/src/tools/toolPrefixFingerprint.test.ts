@@ -11,6 +11,9 @@ import {
 } from "../subagent/index.js";
 
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
+import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
+import { globFilesTool } from "./globFiles.js";
+import { enterPlanModeTool, exitPlanModeTool } from "./planMode.js";
 import { SKILLS_TOOL_META } from "./skills.js";
 import { sortToolsByName } from "./stableOrder.js";
 
@@ -20,18 +23,29 @@ import { sortToolsByName } from "./stableOrder.js";
  * of every new session. `toolGuidance.test.ts` holds the working rules that must
  * stay in that text; this guard holds the whole of it.
  *
- * The digest covers exactly what the engine contributes to a request for the
- * built-in tools - name, description and parameter schema, in the order
- * `sortToolsByName` puts them, which is the order the prefix is billed in.
+ * The digest covers every built-in tool the engine can put in a request, in the
+ * order `sortToolsByName` puts them, which is the order the prefix is billed in.
+ * That surface is wider than the registry copy: `src/tools/index.tsx` composes the
+ * request from its own arrays, and these four are declared there rather than in
+ * `ALL_BUILT_IN_TOOLS`. They were outside the digest, so rewording the Glob or
+ * plan-mode description broke the cache for every session that carries them while
+ * this guard stayed green.
  *
  * The frozen values below are also written into `ARCHITECTURE-tnt.md`, and that
  * file is read as text here. So an intentional prefix change cannot be committed
  * without also putting a line about it where the next reader - and the cache-break
  * report's attribution - will find it.
  */
-const PREFIX_FINGERPRINT = "44f6665ae3049eab";
-const PREFIX_CHARACTERS = 19_189;
-const PREFIX_TOOLS = 25;
+const PREFIX_FINGERPRINT = "1b399a5fb3d9578a";
+const PREFIX_CHARACTERS = 21_815;
+const PREFIX_TOOLS = 29;
+
+const OFFERED_OUTSIDE_THE_REGISTRY = [
+  checkBackgroundJobTool,
+  enterPlanModeTool,
+  exitPlanModeTool,
+  globFilesTool,
+];
 
 const ARCHITECTURE_DOC = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -39,7 +53,8 @@ const ARCHITECTURE_DOC = path.resolve(
 );
 
 function builtInToolPrefix(): { text: string; names: string[] } {
-  const ordered = sortToolsByName([...ALL_BUILT_IN_TOOLS]);
+  const all = [...ALL_BUILT_IN_TOOLS, ...OFFERED_OUTSIDE_THE_REGISTRY];
+  const ordered = sortToolsByName(all);
   return {
     names: ordered.map((tool) => tool.name),
     text: ordered
@@ -113,5 +128,67 @@ describe("the tool list as billed prefix", () => {
     for (const name of ["Read", "Edit", "Write", "Bash", "Search"]) {
       expect(names).toContain(name);
     }
+  });
+
+  it("adds the offered tools from a list that cannot overlap the registry", () => {
+    const registry = new Set(ALL_BUILT_IN_TOOLS.map((tool) => tool.name));
+
+    // A duplicated object would silently add a billed copy of the same schema.
+    for (const tool of OFFERED_OUTSIDE_THE_REGISTRY) {
+      expect(registry.has(tool.name), tool.name).toBe(false);
+    }
+    expect(PREFIX_TOOLS).toBe(ALL_BUILT_IN_TOOLS.length + 4);
+  });
+
+  it("digests every tool the engine offers, not only the registry copy", () => {
+    const { names } = builtInToolPrefix();
+
+    // These four are declared in `src/tools/index.tsx`'s own arrays, and each one
+    // really is pushed into a request: the background-job and glob tools sit in
+    // the base and search lists, the plan-mode pair in the base list.
+    for (const tool of OFFERED_OUTSIDE_THE_REGISTRY) {
+      expect(names).toContain(tool.name);
+    }
+  });
+
+  it("refuses a built-in tool whose declaration the digest does not reach", () => {
+    // Every tool this package declares is billed to the prefix in the sessions
+    // that carry it, so a new `Tool` export has to enter the digest too. Read the
+    // values rather than the text: `todo.ts` names itself through a constant, so
+    // a source scan would have to hand-copied the very list this case checks.
+    // The cast is the whole cost of using Vite's glob here: the type gate does not
+    // load `vite/client` ambient types, while the runner that executes this file
+    // supplies `import.meta.glob` itself.
+    const discovered = Object.values(
+      (
+        import.meta as unknown as {
+          glob(
+            patterns: string[],
+            options: { eager: true },
+          ): Record<string, Record<string, unknown>>;
+        }
+      ).glob(["./*.ts", "!./**/*.test.ts"], { eager: true }),
+    )
+      .flatMap((module) =>
+        Object.values(module).filter(
+          (value): value is { name: string } =>
+            typeof value === "object" &&
+            value !== null &&
+            typeof (value as { name?: unknown }).name === "string" &&
+            (typeof (value as { description?: unknown }).description ===
+              "string" ||
+              typeof (value as { parameters?: unknown }).parameters ===
+                "object"),
+        ),
+      )
+      .map((tool) => tool.name);
+
+    // Subagent and Skills metadata is contributed from `src/subagent`, and
+    // `uploadArtifact`/`status` reach the request behind the `--id` flag; the
+    // floor is the measured count of built-in tools in this directory.
+    expect(discovered.length).toBeGreaterThan(25);
+
+    const { names } = builtInToolPrefix();
+    expect(discovered.filter((name) => !names.includes(name))).toEqual([]);
   });
 });
