@@ -560,9 +560,10 @@ npm run build
 npx vitest run --config vitest.e2e.config.ts
 ```
 
-The format gate names the repository root's prettier binary deliberately: `.husky/pre-commit` runs
-lint-staged from the root with prettier 3.5.3, while this package declares `^3.6.2` and resolves
-3.9.10, so the package-local binary would assert a format the repository cannot commit. `e2e`
+The format gate names the repository root's prettier binary deliberately: the hook that formats a
+commit and the binary this package resolves are different builds, so the package-local one would
+assert a format the repository cannot commit. The version pair, what it costs and when to re-check
+it live in one place - "Which prettier the format gate uses" in `ARCHITECTURE-tnt.md`. `e2e`
 spawns the built `dist/tnt.js`, so it is only skipped when nothing in `src/` changed; the e2e lane
 and `npm run build` then still have to be run together, because the suite reads the bundle.
 
