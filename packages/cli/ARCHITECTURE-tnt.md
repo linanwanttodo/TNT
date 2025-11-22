@@ -225,6 +225,9 @@ lives beside:
 - `src/docsAccuracy.test.ts` - every path, place and `npm run` command the two
   architecture notes name resolves, except the named external locations, build
   outputs and removals.
+- `src/agentsDocAccuracy.test.ts` - the commands, scripts and paths `AGENTS.md` tells
+  an agent to use are ones this package really has, and it counts its suite with a
+  command rather than a saved number.
 - `src/tools/builtInToolNames.test.ts` - the permission layer's name list equals
   `ALL_BUILT_IN_TOOLS`, in both directions.
 - `src/permissions/policyNameCoverage.test.ts` - no tool has a policy that the
