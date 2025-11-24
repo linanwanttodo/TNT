@@ -156,9 +156,52 @@ function scan(): { docs: string[]; mentions: number; offenders: Offender[] } {
   return { docs, mentions, offenders };
 }
 
+/**
+ * A markdown link is what a reader clicks, and it is a different claim from a
+ * backticked path: `spec/testing-strategies.md` points at helper files with
+ * `[label](../test-utils/x.ts)`, so a move breaks the navigation while the path scan
+ * above never sees the target at all. Every document is read here, including the ones
+ * with their own path guard, and including `CHANGELOG.md` - a historical entry that
+ * links a moved file is still a dead click.
+ */
+const LINK_TARGET =
+  /\]\(([^)\s#]+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|ya?ml))\)/g;
+
+function scanLinks(allDocs: string[]): {
+  mentions: number;
+  offenders: Offender[];
+} {
+  const offenders: Offender[] = [];
+  let mentions = 0;
+  for (const doc of allDocs) {
+    const text = fs.readFileSync(path.join(packageRoot, doc), "utf-8");
+    for (const target of new Set(
+      [...text.matchAll(LINK_TARGET)].map((m) => m[1]),
+    )) {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(target)) {
+        continue; // a scheme (http, file, slug) is not a path in this repository
+      }
+      mentions += 1;
+      const full = path.resolve(packageRoot, path.dirname(doc), target);
+      if (!full.startsWith(repoRoot) || !fs.existsSync(full)) {
+        offenders.push({ doc, target });
+      }
+    }
+  }
+  return { mentions, offenders };
+}
+
 describe("the module documents name files that exist", () => {
   const { docs, mentions, offenders } = scan();
   const commands = scanCommands(docs);
+  const links = scanLinks(markdownFiles(packageRoot));
+
+  it("links only files that exist", () => {
+    // 29 link targets existed on the tree this case was written on; the floor sits
+    // below that so a narrowed scan cannot pass by collecting nothing.
+    expect(links.mentions).toBeGreaterThan(20);
+    expect(links.offenders).toEqual([]);
+  });
 
   it("names only scripts this package declares", () => {
     // A document telling a reader to run `npm run build:snapshot` after the script is
