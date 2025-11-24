@@ -5,19 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveReviews } from "./resolveReviews.js";
 
-vi.mock("../../auth/workos.js", () => ({
-  loadAuthConfig: vi.fn(() => null),
-  getAccessToken: vi.fn(() => null),
-}));
-
-vi.mock("../../config/env.js", () => ({
-  env: { apiBase: "http://localhost:3001" },
-}));
-
-vi.mock("../../utils/logger.js", () => ({
-  logger: { debug: vi.fn() },
-}));
-
 vi.mock("fs", async () => {
   const actual = await vi.importActual("fs");
   return {
@@ -117,5 +104,13 @@ describe("resolveReviews local discovery", () => {
 
     const reviews = await resolveReviews();
     expect(reviews).toHaveLength(0);
+  });
+
+  it("refuses a hub-shaped name instead of labelling it resolvable", async () => {
+    // There is no hub to resolve against, so this has to fail here; letting it
+    // through would hand the string to a worker that reads it as a file.
+    await expect(resolveReviews(["org/agent-name"])).rejects.toThrow(
+      /hub review sources are not available/,
+    );
   });
 });
