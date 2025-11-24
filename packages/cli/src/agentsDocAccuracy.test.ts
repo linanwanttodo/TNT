@@ -58,7 +58,23 @@ const SEPARATED_PATH =
   /`([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)+\.(?:ts|tsx|js|jsx|mjs|json|md|ya?ml))`/g;
 const BARE_FILE = /`([A-Za-z0-9_.@-]+\.(?:ts|tsx|js|jsx|mjs|json|md|ya?ml))`/g;
 const DIRECTORY = /`([A-Za-z0-9_.@/-]+\/)`/g;
-const NPM_COMMAND = /npm (?:run )?([A-Za-z][\w:-]*)/g;
+const NPM_RUN = /npm run ([A-Za-z][\w:-]*)/g;
+const NPM_VERB = new RegExp(
+  String.raw`npm (${NPM_BUILT_INS.join("|")})\b`,
+  "g",
+);
+
+/**
+ * Two shapes only. A bare `npm <word>` counts when the word is a real npm verb, so
+ * prose that merely contains "npm" cannot be read as an instruction - `npm doesn't
+ * rebuild` would otherwise be collected as a script named `doesn`.
+ */
+function npmCommands(text: string): string[] {
+  return [
+    ...[...text.matchAll(NPM_RUN)].map((m) => m[1]),
+    ...[...text.matchAll(NPM_VERB)].map((m) => m[1]),
+  ];
+}
 
 interface Mention {
   text: string;
@@ -172,13 +188,7 @@ describe("the agent-facing document says what this package really does", () => {
 
   it("names only commands this package declares", () => {
     const scripts = Object.keys(PACKAGE_JSON.scripts ?? {});
-    const commands = [
-      ...new Set(
-        [...fs.readFileSync(DOC, "utf-8").matchAll(NPM_COMMAND)].map(
-          (m) => m[1],
-        ),
-      ),
-    ];
+    const commands = [...new Set(npmCommands(fs.readFileSync(DOC, "utf-8")))];
 
     // The floor is the point of the case: a document whose commands cannot be
     // collected would agree with any package.json.
