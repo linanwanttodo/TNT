@@ -174,7 +174,7 @@ const en = {
   "review.workerNeedsFork":
     "Error: the review worker must be run as a forked process (via tnt review).",
   "review.none":
-    "\\nNo reviews found. To add reviews:\\n  1. Create .tnt/agents/my-review.md with agent instructions\\n  2. Or specify an agent: tnt review --review-agents org/agent-name\\n  3. Or configure reviews on https://github.com/linanwanttodo/TNT\\n",
+    "\\nNo reviews found. To add one:\\n  1. Create .tnt/agents/my-review.md with agent instructions\\n  2. Or point at a file: tnt review --review-agents .tnt/agents/my-review.md\\n",
   "checks.detecting": "Auto-detecting PR from current branch...",
   "checks.noPr":
     "Could not detect a PR for the current branch. Please provide a PR URL.",
@@ -583,7 +583,7 @@ const zhCN: Record<TranslationKey, string> = {
   "review.workerNeedsFork":
     "错误：评审工作进程需要由 tnt review 以子进程方式启动。",
   "review.none":
-    "\\n未找到评审配置。添加方式：\\n  1. 创建 .tnt/agents/my-review.md 并写入智能体指令\\n  2. 或指定智能体：tnt review --review-agents org/agent-name\\n  3. 或在 https://github.com/linanwanttodo/TNT 上配置评审\\n",
+    "\\n未找到评审配置。添加方式：\\n  1. 创建 .tnt/agents/my-review.md 并写入智能体指令\\n  2. 或指向一个文件：tnt review --review-agents .tnt/agents/my-review.md\\n",
   "checks.detecting": "正在根据当前分支自动检测 PR...",
   "checks.noPr": "无法从当前分支检测到 PR，请提供 PR 链接。",
   "checks.foundPr": "已找到 PR：{url}",
