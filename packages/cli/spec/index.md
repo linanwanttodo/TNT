@@ -47,3 +47,20 @@ High level concepts / features should have a spec when possible. Good examples o
 - Always use the [logger](../src/utils/logger.ts) instead of `console.log`.
 - Use commander to define [commands](../src/commands/BaseCommandOptions.ts)
 - `cn remote` is intended to act the same as `cn`'s TUI in almost every way. There is a test helper that allows us to run any e2e test in _both_ remote and normal modes to ensure this is true.
+
+## Specification files
+
+Every document in this directory, so a reader holding one file can find the rest:
+
+- [Configuration Loading Behavior Specification](./config-loading.md)
+- [Ctrl+C Exit Behavior](./ctrl-c-behavior.md)
+- [TNT CLI Model Context Protocol (MCP) integration](./mcp.md)
+- [Modes](./modes.md)
+- [Onboarding](./onboarding.md)
+- [OTLP Metrics Specification for TNT CLI](./otlp-metrics.md)
+- [Permissions](./permissions.md)
+- [shell-mode](./shell-mode.md)
+- [Testing Strategies](./testing-strategies.md)
+- [TTY-less Environment Support](./tty-less-support.md)
+- [TNT CLI Terminal UI spec](./tui.md)
+- [HTTP Wire Protocol: `cn remote` <-> `cn serve`](./wire-format.md)
