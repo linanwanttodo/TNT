@@ -66,7 +66,10 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - `service.ts`: `CommandService.create()` runs every loader in parallel and freezes the result
    - `handlers/`: in-process command implementations, grouped by domain
    - `dispatch.ts`: `handleSlashCommands()` entry point
-   - `src/commands/`: argv subcommands (`chat`, `serve`, `ls`, `review`, `checks`), separate from slash commands
+   - `src/commands/`: argv subcommands (`ls`, `serve` - hidden, `checks`, `review`),
+     separate from slash commands. With no subcommand the default action runs the chat
+     mode and takes its first positional argument as the prompt, so `tnt chat` sends the
+     word `chat` as a prompt.
 
 ### Module Layout
 
@@ -76,7 +79,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `index.ts`, `dev.ts`                                                                                    | CLI entry points (bundled build and the tsx dev runner)                                             |
 | `agent/`                                                                                                | System prompt assembly                                                                              |
-| `commands/`                                                                                             | argv subcommands: `chat`, `serve`, `ls`, `review`, `checks`                                         |
+| `commands/`                                                                                             | argv subcommands: `ls`, `serve`, `checks`, `review`                                                 |
 | `compaction/`                                                                                           | History compaction and prefix preservation                                                          |
 | `config/`                                                                                               | Assistant and configuration loading, env, provider setup, rules, CLI flag parsing, shared constants |
 | `platform/`                                                                                             | TNT platform API client                                                                             |

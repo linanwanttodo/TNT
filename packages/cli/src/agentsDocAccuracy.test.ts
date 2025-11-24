@@ -200,6 +200,42 @@ describe("the agent-facing document says what this package really does", () => {
     ).toEqual([]);
   });
 
+  it("names only subcommands the parser really registers", () => {
+    // `chat` was documented as an argv subcommand while `src/index.ts` registers ls,
+    // serve (hidden), checks and review: with no subcommand the default action runs the
+    // chat mode and takes its first positional argument as the prompt, so `tnt chat`
+    // sends the word "chat" to the model rather than selecting a mode. The registry is
+    // read from the source that builds it, so a rename or a new subcommand cannot leave
+    // the document behind.
+    const source = fs
+      .readdirSync(path.join(packageRoot, "src"))
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) =>
+        fs.readFileSync(path.join(packageRoot, "src", file), "utf-8"),
+      )
+      .join("\n");
+    const registered = [
+      ...new Set(
+        [...source.matchAll(/\.command\(\s*"([a-z][\w-]*)/g)].map((m) => m[1]),
+      ),
+    ].sort();
+    const claimLines = fs
+      .readFileSync(DOC, "utf-8")
+      .split("\n")
+      .filter((line) => line.includes("argv subcommands"));
+
+    expect(registered.length).toBeGreaterThan(3);
+    // Per line, not unioned: the document states the list twice (a bullet and the
+    // module-layout table), and a union let one line carry a name the other dropped.
+    expect(claimLines.length).toBeGreaterThan(1);
+    for (const line of claimLines) {
+      const claimed = [
+        ...new Set([...line.matchAll(/`([a-z][\w-]*)`/g)].map((m) => m[1])),
+      ].sort();
+      expect(claimed, line.trim()).toEqual(registered);
+    }
+  });
+
   it("resolves every directory it names", () => {
     expect(dirs.filter((d) => !resolvesDir(d, dirs))).toEqual([]);
   });
