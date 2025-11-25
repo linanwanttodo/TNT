@@ -388,6 +388,19 @@ program
   .command("checks [action] [pr-url]")
   .description("Show CI check statuses for a PR")
   .action(async (action: string | undefined, prUrl: string | undefined) => {
+    // `--format` is a root option, so commander accepts it here whether or not this
+    // command can honour it. `checks` prints text only, and accepting the flag in
+    // silence is the trap `ls` had: the caller believes it asked for a format it
+    // never got. The only value that is not a lie is the one it already prints.
+    const requestedFormat = program.opts().format;
+    if (requestedFormat !== undefined && requestedFormat !== "text") {
+      handleValidationErrors([
+        {
+          code: "INVALID_CHECKS_FORMAT",
+          message: `Error: Unsupported --format "${requestedFormat}" for tnt checks. Expected: text`,
+        },
+      ]);
+    }
     await checks(action, prUrl);
   });
 
