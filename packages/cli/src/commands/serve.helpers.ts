@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 
 import { describeChangedFiles } from "../agent/changedFiles.js";
@@ -9,11 +10,13 @@ import {
   fireUserPromptSubmit,
   takeSessionStartContext,
 } from "../hooks/fireHook.js";
+import { t } from "../i18n/index.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { updateSessionTitle } from "../session/index.js";
 import { streamChatResponse } from "../stream/streamChatResponse.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
+import { formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -265,4 +268,24 @@ export function checkAgentComplete(
   }
   const toolCalls = (lastItem.message as any).tool_calls;
   return !toolCalls || toolCalls.length === 0;
+}
+
+/**
+ * A failed bind is otherwise an unhandled 'error' event: Node exits without a word
+ * and a caller reads exit 0 as "the server started". This names the address and the
+ * reason, and exits 1 so a script can tell the difference.
+ */
+export function attachBindErrorHandler(
+  server: { on(event: "error", handler: (error: Error) => void): unknown },
+  host: string,
+  port: number,
+): void {
+  server.on("error", (error) => {
+    console.error(
+      chalk.red(
+        t("serve.bindFailed", { host, port, message: formatError(error) }),
+      ),
+    );
+    process.exit(1);
+  });
 }
