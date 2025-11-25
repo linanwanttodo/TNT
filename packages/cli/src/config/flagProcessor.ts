@@ -2,6 +2,7 @@
  * Shared flag processing utilities to eliminate duplication between TUI and headless modes
  */
 
+import { t } from "../i18n/index.js";
 import { PermissionMode } from "../permissions/types.js";
 
 export interface PermissionOverrides {
@@ -31,11 +32,15 @@ export function convertLegacyModeFlags(
 
   if (mode) {
     if (readonly || auto) {
-      throw new Error("Cannot use --mode together with --readonly or --auto");
+      // Same copy as the validator: one key, and the "Error: " prefix is dropped
+      // because this message is wrapped by the caller rather than printed as a line.
+      throw new Error(
+        t("cli.modeConflictsWithReadonlyAuto").replace(/^Error: /, ""),
+      );
     }
     if (mode !== "agent" && mode !== "plan" && mode !== "auto") {
       throw new Error(
-        `Invalid --mode "${mode}". Expected one of: agent, plan, auto`,
+        t("cli.invalidMode", { value: mode }).replace(/^Error: /, ""),
       );
     }
     return mode;
