@@ -31,4 +31,10 @@ export const BUILT_IN_TOOL_NAMES = [
   "Diff",
   "Checklist",
   "Write",
+  // The four the request assembles from `src/tools/index.tsx`; they were outside
+  // this sweep until 2026-10-20, which left them ungoverned by default-deny.
+  "CheckBackgroundJob",
+  "EnterPlanMode",
+  "ExitPlanMode",
+  "Glob",
 ] as const;
