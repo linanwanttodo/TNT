@@ -355,6 +355,10 @@ program
   )
   .option("--port <port>", "Port to run the server on (default: 8000)", "8000")
   .option(
+    "--host <addr>",
+    "Interface to bind (default: 127.0.0.1). 0.0.0.0 exposes an unauthenticated server",
+  )
+  .option(
     "--id <storageId>",
     "Upload session snapshots to Continue-managed storage using the provided identifier",
   )

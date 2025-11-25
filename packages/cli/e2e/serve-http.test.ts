@@ -1,7 +1,5 @@
-import { readFileSync } from "fs";
 import * as net from "net";
-import { join } from "path";
-import { fileURLToPath } from "url";
+import * as os from "os";
 
 import { execaNode } from "execa";
 
@@ -14,10 +12,6 @@ import {
   setupMockLLMTest,
   type MockLLMServer,
 } from "../test-utils/mock-llm-server.js";
-
-// The e2e config runs from this package, but the path is derived from the file so the
-// spec it reads cannot depend on which directory a runner happened to start in.
-const packageRoot = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 /**
  * `tnt serve` is the surface other tools drive, and nothing ran it over HTTP: the
@@ -193,42 +187,88 @@ describe("E2E: the serve HTTP surface", () => {
     expect(exited.status).toBe(200);
   }, 60000);
 
-  it("binds no narrower than the wire-format spec says it does", async () => {
+  it("binds loopback only by default", async () => {
     await waitFor("GET /state to answer", async () => {
       const state = await get("/state");
       return state.status === 200 ? state : undefined;
     });
 
-    // Measured on this box: the unauthenticated server answers `/state` on every
-    // non-loopback IPv4 it has (a LAN address included), because `serve.ts` calls
-    // `app.listen(port, …)` with no host. So "localhost only" cannot be written in the
-    // spec while this stays true, and if the default is ever narrowed to loopback this
-    // case is the thing that says the document may now say so - the two cannot drift.
-    const os = await import("os");
-    const addresses = Object.values(os.networkInterfaces())
-      .flat()
-      .filter((entry) => entry && entry.family === "IPv4" && !entry.internal)
-      .map((entry) => entry!.address);
-    if (addresses.length === 0) return; // nothing to probe beside loopback
-
+    // The default is loopback because this server is unauthenticated. If any
+    // non-loopback address answers here, the default widened without anyone saying so.
+    const addresses = nonLoopbackAddresses();
+    if (addresses.length === 0) return;
     const port = new URL(baseUrl).port;
-    let reachable = false;
+    const reachable: string[] = [];
     for (const address of addresses) {
       try {
-        const response = await fetch(`http://${address}:${port}/state`);
-        if (response.status === 200) reachable = true;
+        const response = await fetch(`http://${address}:${port}/state`, {
+          signal: AbortSignal.timeout(1500),
+        });
+        if (response.status === 200) reachable.push(address);
       } catch {
-        // refused or filtered on this address; the next one decides
+        // refused or filtered: the expected answer everywhere beside loopback
       }
     }
-
-    const spec = readFileSync(
-      join(packageRoot, "spec", "wire-format.md"),
-      "utf-8",
-    );
-    const claimsLoopbackOnly = /binds to `127\.0\.0\.1`|localhost only/i.test(
-      spec,
-    );
-    expect(reachable).toBe(!claimsLoopbackOnly);
+    expect(reachable).toEqual([]);
   }, 60000);
+
+  it("reaches a non-loopback address when --host asks for it", async () => {
+    const addresses = nonLoopbackAddresses();
+    if (addresses.length === 0) return;
+
+    // The documented escape hatch; without it the loopback default would make serve
+    // unreachable from another container.
+    child?.kill("SIGKILL");
+    await child;
+    const port = await freePort();
+    baseUrl = `http://127.0.0.1:${port}`;
+    child = execaNode(
+      context.cliPath,
+      [
+        "serve",
+        "--config",
+        context.configPath,
+        "--port",
+        String(port),
+        "--host",
+        "0.0.0.0",
+      ],
+      {
+        cwd: context.testDir,
+        env: {
+          ...process.env,
+          CONTINUE_CLI_TEST: "true",
+          HOME: context.testDir,
+          CONTINUE_GLOBAL_DIR: context.testDir + "/.tnt",
+        },
+        reject: false,
+      },
+    );
+
+    await waitFor("GET /state to answer on loopback", async () => {
+      const state = await get("/state");
+      return state.status === 200 ? state : undefined;
+    });
+
+    const statuses = await Promise.all(
+      addresses.map(async (address) => {
+        try {
+          const response = await fetch(`http://${address}:${port}/state`, {
+            signal: AbortSignal.timeout(1500),
+          });
+          return response.status;
+        } catch {
+          return 0;
+        }
+      }),
+    );
+    expect(statuses).toContain(200);
+  }, 90000);
 });
+
+function nonLoopbackAddresses(): string[] {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((entry) => entry && entry.family === "IPv4" && !entry.internal)
+    .map((entry) => entry!.address);
+}
