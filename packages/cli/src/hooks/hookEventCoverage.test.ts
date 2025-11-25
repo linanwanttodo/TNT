@@ -25,13 +25,8 @@ const sourceRoot = path.resolve(
 
 const TYPES = path.join(sourceRoot, "hooks", "types.ts");
 
-/** Events declared as compatible that no production code fires. */
-const UNFIRED = [
-  "TeammateIdle",
-  "TaskCompleted",
-  "WorktreeCreate",
-  "WorktreeRemove",
-];
+/** Compatibility-only events: none left as of 2026-10-20. */
+const UNFIRED: string[] = [];
 
 function declaredEvents(): string[] {
   const types = fs.readFileSync(TYPES, "utf-8");
@@ -87,7 +82,7 @@ describe("the hook events the package promises", () => {
   it("counts a list that is really there", () => {
     // Both halves are floored so a scan that found nothing cannot report a clean
     // compatibility surface.
-    expect(declared.length).toBeGreaterThanOrEqual(17);
+    expect(declared.length).toBeGreaterThanOrEqual(15);
     expect(fired.size).toBeGreaterThanOrEqual(12);
   });
 

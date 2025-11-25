@@ -4,6 +4,10 @@ import * as os from "os";
 import * as path from "path";
 import { promisify } from "util";
 
+import {
+  fireWorktreeCreate,
+  fireWorktreeRemove,
+} from "../../hooks/fireHook.js";
 import { logger } from "../../utils/logger.js";
 
 const execFileAsync = promisify(execFile);
@@ -65,6 +69,14 @@ export async function createWorktree(
     options.ref ?? "HEAD",
     "--detach",
   ]);
+
+  // A hook must never fail the review: the worktree exists already, and the
+  // event is an observation, not a gate.
+  try {
+    await fireWorktreeCreate(path.basename(worktreePath));
+  } catch (error) {
+    logger.debug("WorktreeCreate hook failed", { error });
+  }
 
   if (includeWorkingTree) {
     // Apply uncommitted changes (staged + unstaged) to the worktree
@@ -137,6 +149,11 @@ export function captureWorktreeDiff(worktreePath: string): string {
 export async function cleanupWorktree(worktreePath: string): Promise<void> {
   try {
     await execFileAsync("git", ["worktree", "remove", worktreePath, "--force"]);
+    try {
+      await fireWorktreeRemove(worktreePath);
+    } catch (error) {
+      logger.debug("WorktreeRemove hook failed", { error });
+    }
   } catch (e) {
     logger.debug("Could not remove worktree, attempting manual cleanup", {
       worktreePath,
@@ -146,6 +163,13 @@ export async function cleanupWorktree(worktreePath: string): Promise<void> {
     try {
       fs.rmSync(worktreePath, { recursive: true, force: true });
       await execFileAsync("git", ["worktree", "prune"]);
+      try {
+        await fireWorktreeRemove(worktreePath);
+      } catch (error) {
+        logger.debug("WorktreeRemove hook failed after manual cleanup", {
+          error,
+        });
+      }
     } catch {
       // Best effort
     }
