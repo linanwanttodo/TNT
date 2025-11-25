@@ -1,6 +1,8 @@
 # TNT architecture: what changed from Continue, and what was borrowed
 
 Scope: `packages/cli` plus the `core/` engine it drives. The Ink TUI, the VS Code
+The rulings ledger - prompt fingerprint, breakpoint policy, guard index, tool list - is the
+sibling `ARCHITECTURE-tnt.md`; this file is the systematic reference. The VS Code
 extension and the IntelliJ plugin are parked under `ide/` and are not part of
 this design.
 
