@@ -173,6 +173,8 @@ const en = {
   "review.failed": "Error: {message}",
   "review.workerNeedsFork":
     "Error: the review worker must be run as a forked process (via tnt review).",
+  "review.hubUnavailable":
+    "\\n{names} is not a review source this build can read: hub reviews are not available.\\n  Point --review-agents at a file instead, for example .tnt/agents/my-review.md\\n",
   "review.none":
     "\\nNo reviews found. To add one:\\n  1. Create .tnt/agents/my-review.md with agent instructions\\n  2. Or point at a file: tnt review --review-agents .tnt/agents/my-review.md\\n",
   "checks.detecting": "Auto-detecting PR from current branch...",
@@ -582,6 +584,8 @@ const zhCN: Record<TranslationKey, string> = {
   "review.failed": "错误：{message}",
   "review.workerNeedsFork":
     "错误：评审工作进程需要由 tnt review 以子进程方式启动。",
+  "review.hubUnavailable":
+    "\\n{names} 不是本版本可读取的评审来源：hub 评审不可用。\\n  请把 --review-agents 指向文件，例如 .tnt/agents/my-review.md\\n",
   "review.none":
     "\\n未找到评审配置。添加方式：\\n  1. 创建 .tnt/agents/my-review.md 并写入智能体指令\\n  2. 或指向一个文件：tnt review --review-agents .tnt/agents/my-review.md\\n",
   "checks.detecting": "正在根据当前分支自动检测 PR...",
