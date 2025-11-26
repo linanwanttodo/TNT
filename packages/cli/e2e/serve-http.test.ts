@@ -156,4 +156,33 @@ describe("E2E: the serve HTTP surface", () => {
     }
     expect(exitCode).toBe(0);
   }, 60000);
+
+  it("answers the two control endpoints it documents", async () => {
+    await waitFor("GET /state to answer", async () => {
+      const state = await get("/state");
+      return state.status === 200 ? state : undefined;
+    });
+
+    // `spec/wire-format.md` describes these two from the handler, and nothing else in
+    // the package calls them, so this is the only place they are actually executed.
+    // Idle, they refuse rather than pretend: nothing to pause, nothing to answer.
+    const paused = await post("/pause");
+    expect(paused.status).toBe(200);
+    expect(paused.body.success).toBe(false);
+    expect(String(paused.body.message)).toContain(
+      "No active processing to pause",
+    );
+
+    const permission = await post("/permission", {
+      requestId: "req-none",
+      approved: true,
+    });
+    expect(permission.status).toBe(400);
+    expect(String(permission.body.error)).toContain(
+      "No pending permission request",
+    );
+
+    const exited = await post("/exit");
+    expect(exited.status).toBe(200);
+  }, 60000);
 });
