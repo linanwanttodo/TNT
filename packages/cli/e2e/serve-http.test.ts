@@ -1,4 +1,7 @@
+import { readFileSync } from "fs";
 import * as net from "net";
+import { join } from "path";
+import { fileURLToPath } from "url";
 
 import { execaNode } from "execa";
 
@@ -11,6 +14,10 @@ import {
   setupMockLLMTest,
   type MockLLMServer,
 } from "../test-utils/mock-llm-server.js";
+
+// The e2e config runs from this package, but the path is derived from the file so the
+// spec it reads cannot depend on which directory a runner happened to start in.
+const packageRoot = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 /**
  * `tnt serve` is the surface other tools drive, and nothing ran it over HTTP: the
@@ -184,5 +191,44 @@ describe("E2E: the serve HTTP surface", () => {
 
     const exited = await post("/exit");
     expect(exited.status).toBe(200);
+  }, 60000);
+
+  it("binds no narrower than the wire-format spec says it does", async () => {
+    await waitFor("GET /state to answer", async () => {
+      const state = await get("/state");
+      return state.status === 200 ? state : undefined;
+    });
+
+    // Measured on this box: the unauthenticated server answers `/state` on every
+    // non-loopback IPv4 it has (a LAN address included), because `serve.ts` calls
+    // `app.listen(port, …)` with no host. So "localhost only" cannot be written in the
+    // spec while this stays true, and if the default is ever narrowed to loopback this
+    // case is the thing that says the document may now say so - the two cannot drift.
+    const os = await import("os");
+    const addresses = Object.values(os.networkInterfaces())
+      .flat()
+      .filter((entry) => entry && entry.family === "IPv4" && !entry.internal)
+      .map((entry) => entry!.address);
+    if (addresses.length === 0) return; // nothing to probe beside loopback
+
+    const port = new URL(baseUrl).port;
+    let reachable = false;
+    for (const address of addresses) {
+      try {
+        const response = await fetch(`http://${address}:${port}/state`);
+        if (response.status === 200) reachable = true;
+      } catch {
+        // refused or filtered on this address; the next one decides
+      }
+    }
+
+    const spec = readFileSync(
+      join(packageRoot, "spec", "wire-format.md"),
+      "utf-8",
+    );
+    const claimsLoopbackOnly = /binds to `127\.0\.0\.1`|localhost only/i.test(
+      spec,
+    );
+    expect(reachable).toBe(!claimsLoopbackOnly);
   }, 60000);
 });
