@@ -427,6 +427,11 @@ const en = {
     "Error: --exclude requires a tool name (e.g., --exclude Write)",
   "cli.invalidNumericFlag":
     'Error: --{name} expects a whole number between 1 and {max}, got "{value}".',
+  "cli.noModelsFound": "No models were found.",
+  "cli.noApiClient": "No LLM API instance found.",
+  "cli.headlessNeedsPrompt":
+    'Headless mode requires a prompt. Use: tnt -p "your prompt"\nOr pipe input: echo "prompt" | tnt -p\nOr use agent files: tnt -p --agent my-org/my-agent\nNote: Agent files must contain a prompt field.',
+  "serve.servicesUnavailable": "Failed to initialize required services",
   "cli.unsupportedFormat":
     'Error: Unsupported --format "{value}" for tnt {command}. Expected: {expected}',
   "common.slashUnknownCommand": "Unknown command: {command}",
@@ -849,6 +854,11 @@ const zhCN: Record<TranslationKey, string> = {
     "错误：--exclude 需要一个工具名（例如 --exclude Write）",
   "cli.invalidNumericFlag":
     '错误：--{name} 需要 1 到 {max} 之间的整数，得到 "{value}"。',
+  "cli.noModelsFound": "未找到任何模型。",
+  "cli.noApiClient": "未找到 LLM API 实例。",
+  "cli.headlessNeedsPrompt":
+    '无头模式需要一个提示词。用法：tnt -p "你的提示词"\n或者通过管道输入：echo "prompt" | tnt -p\n或者使用 agent 文件：tnt -p --agent my-org/my-agent\n注意：agent 文件必须包含 prompt 字段。',
+  "serve.servicesUnavailable": "无法初始化所需服务。",
   "cli.unsupportedFormat":
     '错误：tnt {command} 不支持 --format "{value}"。期望：{expected}',
   "common.slashUnknownCommand": "未知命令：{command}",
