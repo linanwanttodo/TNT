@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import { renderReport } from "./renderReport.js";
 
 const options = {
-  baseBranch: "main",
-  changedFileCount: 1,
   format: "text" as const,
 };
 
