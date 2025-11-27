@@ -188,7 +188,8 @@ The prefix is assembled in build order, each part announced so it can be attribu
 compile error rather than an English leak. `ui/commands/handlers/localeCoverage.test.ts` switches
 locale and asserts rendered Chinese; `commands/outputCopy.test.ts` scans `src/commands/**` and fails
 on a `console.*` literal with words that never went through `t()`, or on a `throw new …Error("…")`
-whose message is still raw.
+whose message is still raw; `i18n/untranslatedOutput.test.ts` covers the rest of `src`, including
+the `safeStdout`/`safeStderr` writers in `startup/init.ts` that neither of the other two can see.
 
 ## How to verify
 
