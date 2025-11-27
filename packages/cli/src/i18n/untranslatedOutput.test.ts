@@ -12,11 +12,14 @@ const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
  * number: translating one of these must never turn this guard red, and a line
  * that moved for an unrelated reason must not either.
  *
- * The list is a ratchet, not an approval. `src/commands/**` is already held to
- * zero by its own guard; the rest is 25 sites that nothing checked before, and
- * turning them into a frozen set is what makes the next raw `console.error` a
- * test failure instead of folklore. Translating them changes copy users see, so
- * that is the owner's call, not something to do silently here.
+ * The list is a ratchet, not an approval. `src/commands/**` is already held to zero
+ * by its own guard (`src/commands/outputCopy.test.ts`, "sends every console message
+ * through the translation table"); the rest are the sites below, which nothing checked
+ * before, and freezing them is what makes the next raw `console.error` a test failure
+ * instead of folklore. Count them here rather than trusting a number written in prose -
+ * the one that used to sit above said "25 sites" against the thirteen real ones.
+ * Translating them changes copy users see, so that is the owner's call, not something
+ * to do silently here.
  *
  * The rule the owner set on 2026-10-17: translate what a user is meant to read (errors,
  * hints, interaction copy) and leave pure diagnostics in English. What stays listed here
