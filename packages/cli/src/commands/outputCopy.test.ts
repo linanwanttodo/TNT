@@ -120,6 +120,8 @@ const COMMAND_DIR = path.dirname(fileURLToPath(import.meta.url));
  * The `safeStderr`/`safeStdout` writers - the third print surface - are not this file's:
  * `src/i18n/untranslatedOutput.test.ts` walks all of `src` for them, including the
  * `commands/**` files whose console and thrown copy it otherwise leaves to this guard.
+ * Ordering note for whoever reads a `-p ""` run: `index.ts` prints its usage block from
+ * there, so it is met before the `cli.headlessNeedsPrompt` throw in `chat.ts`.
  */
 const RAW_THROWN_COPY = [
   "checks.ts :: unreachable",
