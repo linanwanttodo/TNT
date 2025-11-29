@@ -726,7 +726,7 @@ async function runHeadlessMode(
     const promptHook = await fireUserPromptSubmit(userInput).catch(() => null);
     if (promptHook?.blocked) {
       safeStderr(
-        `Error: ${promptHook.blockReason ?? "blocked by UserPromptSubmit hook"}\n`,
+        `Error: ${promptHook.blockReason ?? t("chat.blockedByPromptHook")}\n`,
       );
       await fireSessionEnd("other").catch(() => {});
       await gracefulExit(1);
