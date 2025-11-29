@@ -329,11 +329,20 @@ program
   .command("ls")
   .description("List recent chat sessions and select one to resume")
   .option("--json", "Output in JSON format")
-  .action(async (options) => {
-    await listSessionsCommand({
-      format: options.json ? "json" : undefined,
-    });
-  });
+  .action(
+    async (
+      options: { json?: boolean },
+      command: { parent?: { opts(): { format?: string } } },
+    ) => {
+      // `--format` is a root option and `ls` never consulted it, so the spelling a
+      // reader is most likely to try (`tnt ls --format json`) was accepted, ignored,
+      // and fell back to the interactive picker. Honour it here.
+      const rootFormat = command.parent?.opts().format;
+      await listSessionsCommand({
+        format: options.json || rootFormat === "json" ? "json" : undefined,
+      });
+    },
+  );
 
 // Serve subcommand
 program

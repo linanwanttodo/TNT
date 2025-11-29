@@ -67,4 +67,22 @@ describe("E2E: ls --format json", () => {
     expect(listed).toBeDefined();
     expect(listed?.title).toBe("written by the e2e");
   }, 60000);
+
+  it("honours the root --format json, which used to open the picker instead", async () => {
+    // Before this wiring, `tnt ls --format json` was accepted by the root parser,
+    // ignored by the subcommand, and rendered the interactive selector onto stdout -
+    // the first version of this file failed parsing a frame that began with "╭".
+    const globalDir = path.join(context.testDir, ".tnt");
+    fs.mkdirSync(path.join(globalDir, "sessions"), { recursive: true });
+
+    const result = await runCLI(context, {
+      args: ["ls", "--format", "json"],
+      env: { CONTINUE_GLOBAL_DIR: globalDir },
+      timeout: 30000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout) as { sessions: unknown[] };
+    expect(Array.isArray(parsed.sessions)).toBe(true);
+  }, 60000);
 });
