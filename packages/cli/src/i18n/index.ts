@@ -435,6 +435,15 @@ const en = {
   "cli.promptRequired":
     "Error: A prompt is required when using the -p/--print flag, unless --prompt, --agent, or --resume is provided.",
   "cli.usageExamples": "Usage examples:",
+  "stream.contextLimitAfterCompaction":
+    "Context limit exceeded even after compaction: {error}",
+  "stream.contextLimitCompactionFailed":
+    "Context limit exceeded and compaction failed. Unable to continue.",
+  "stream.contextValidationFailed": "Context length validation failed: {error}",
+  "auth.loginUnavailable":
+    "Login is not available. Hub authentication has been removed.",
+  "startup.failedToLoadConfigFrom":
+    'Failed to load config from "{path}": {error}',
   "cli.foundValidationErrors": "Found {count} validation errors.",
   "chat.blockedByPromptHook": "blocked by UserPromptSubmit hook",
   "cli.unsupportedFormat":
@@ -867,6 +876,11 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.promptRequired":
     "错误：使用 -p/--print 时必须提供提示词，除非使用 --prompt、--agent 或 --resume。",
   "cli.usageExamples": "用法示例：",
+  "stream.contextLimitAfterCompaction": "压缩后仍超出上下文限制：{error}",
+  "stream.contextLimitCompactionFailed": "超出上下文限制且压缩失败，无法继续。",
+  "stream.contextValidationFailed": "上下文长度校验失败：{error}",
+  "auth.loginUnavailable": "登录不可用。Hub 认证已移除。",
+  "startup.failedToLoadConfigFrom": '无法从 "{path}" 加载配置：{error}',
   "cli.foundValidationErrors": "发现 {count} 个校验错误。",
   "chat.blockedByPromptHook": "已被 UserPromptSubmit 钩子阻止",
   "cli.unsupportedFormat":
