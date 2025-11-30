@@ -397,7 +397,11 @@ program
       handleValidationErrors([
         {
           code: "INVALID_CHECKS_FORMAT",
-          message: `Error: Unsupported --format "${requestedFormat}" for tnt checks. Expected: text`,
+          message: t("cli.unsupportedFormat", {
+            value: requestedFormat,
+            command: "checks",
+            expected: "text",
+          }),
         },
       ]);
     }
@@ -442,7 +446,11 @@ program
       handleValidationErrors([
         {
           code: "INVALID_REVIEW_FORMAT",
-          message: `Error: Unsupported --format "${requestedFormat}" for tnt review. Expected: json`,
+          message: t("cli.unsupportedFormat", {
+            value: requestedFormat,
+            command: "review",
+            expected: "json",
+          }),
         },
       ]);
     }

@@ -395,6 +395,8 @@ const en = {
   "common.filterSession":
     "Filter this session: grep '\\[{sessionId}\\]' {path}",
   "common.unknownCommand": "Error: Unknown command '{command}'\n",
+  "cli.unsupportedFormat":
+    'Error: Unsupported --format "{value}" for tnt {command}. Expected: {expected}',
   "common.slashUnknownCommand": "Unknown command: {command}",
   "debug.overallStatus": "Overall Status:",
   "debug.individualServices": "Individual Services:",
@@ -790,6 +792,8 @@ const zhCN: Record<TranslationKey, string> = {
   "common.logsAt": "日志位置：{path}",
   "common.filterSession": "筛选本次会话：grep '\\[{sessionId}\\]' {path}",
   "common.unknownCommand": "错误：未知命令「{command}」\n",
+  "cli.unsupportedFormat":
+    '错误：tnt {command} 不支持 --format "{value}"。期望：{expected}',
   "common.slashUnknownCommand": "未知命令：{command}",
   "debug.overallStatus": "总体状态：",
   "debug.individualServices": "各服务状态：",
