@@ -56,6 +56,8 @@ import {
 interface ServeOptions extends ExtendedCommandOptions {
   timeout?: string;
   port?: string;
+  /** Interface to bind. Defaults to loopback; an unauthenticated server. */
+  host?: string;
   /** Storage identifier for remote sync */
   id?: string;
   /** Model rounds allowed per turn before the turn is cut short. */
@@ -414,7 +416,10 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
     setTimeout(handleExitResponse, 100);
   });
 
-  const server = app.listen(port, async () => {
+  // Loopback by default: this server is unauthenticated and can post prompts,
+  // answer permission requests and pause a run. Reaching it from another machine
+  // or container is an explicit choice via --host.
+  const server = app.listen(port, options.host ?? "127.0.0.1", async () => {
     for (const line of renderServerStartupHelp(port, timeoutSeconds)) {
       console.log(chalk.dim(line));
     }
