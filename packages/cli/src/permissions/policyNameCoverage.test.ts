@@ -15,16 +15,11 @@ import {
  * mention). A tool governed by a policy but absent from that list can be offered
  * to the model and still never be excluded by a restrictive mode - silently.
  *
- * Names below that list are the measured, deliberate debt: an entry leaves it
- * only by being added to the sweep's list, which the last case refuses to let
- * happen unnoticed.
+ * The allowance below is empty since the four tools the request assembles joined the
+ * sweep on 2026-10-20; an entry leaves it only by being added to the sweep's list,
+ * which the last case refuses to let happen unnoticed.
  */
-const SWEEP_BLIND: string[] = [
-  "CheckBackgroundJob",
-  "EnterPlanMode",
-  "ExitPlanMode",
-  "Glob",
-];
+const SWEEP_BLIND: string[] = [];
 
 function policyNames(): Set<string> {
   const names = new Set<string>();
