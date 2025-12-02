@@ -238,8 +238,10 @@ lives beside:
 - `src/tools/builtInToolNames.test.ts` - the permission layer's name list equals
   `ALL_BUILT_IN_TOOLS`, in both directions.
 - `src/hooks/hookEventCoverage.test.ts` - every Claude-Code hook event the types declare is
-  fired by production code, except the four it names (`TeammateIdle`, `TaskCompleted`,
-  `WorktreeCreate`, `WorktreeRemove`), which a settings file accepts and nothing calls.
+  fired by production code. The four it used to excuse are gone: `WorktreeCreate` and
+  `WorktreeRemove` fire from review's worktree lifecycle (2026-10-20), and
+  `TeammateIdle`/`TaskCompleted` were deleted with the team and task concepts they
+  described, along with the "configured but never fires" warning that only they used.
 - `src/permissions/policyNameCoverage.test.ts` - no tool has a policy that the
   default-deny sweep cannot see. The four names it used to allow were added to the
   sweep on 2026-10-20, so the allowance is empty and a fifth is still refused.
