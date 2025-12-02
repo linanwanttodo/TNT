@@ -199,13 +199,16 @@ describe("the copy the rest of the CLI prints", () => {
  * number, which has to be edited down here in the same commit - the release form, not an
  * accident.
  *
- * Measured 2026-10-20 at this tree after these came out of it: 127 occurrences. The largest
- * buckets are the ones a terminal user meets least - `plugins` and `services` - and the
- * rows worth reading first are `config` 15, `stream` 4, `startup` 1 and `auth` 1, where a
- * refusal does reach the person running the command. Three of the `stream` four, plus the
- * `startup` and `auth` sites, were translated in the round that added this note, so their
- * buckets below are what is left. `flagValidator.ts:353`
- * "Exiting due to validation errors" is one of the `config` fifteen.
+ * Measured 2026-10-20 with the argument read by a paren counter rather than a lazy `);`:
+ * 127 occurrences, and that scan found the two sites the head-only rule could not see - the
+ * `?? "Failed to load assistant."` default in `config/loader.ts` and the ternary arm of
+ * `Tool <name> not found` in `services/MCPService.ts`. Both were translated in the same
+ * commit that widened the scan, so the total came back to where it was while two real
+ * messages left the raw list; the numbers below are what a broken scan or a new raw throw
+ * would move. The largest buckets are the ones a terminal user meets least - `plugins` 45,
+ * `services` 23, `tools` 22, `ui` 14 - and `config` 9 is where a refusal does reach the
+ * person running the command. `flagValidator.ts:353` "Exiting due to validation errors" is
+ * one of those nine.
  */
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   compaction: 4,
@@ -221,6 +224,51 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   utils: 5,
 };
 
+/**
+ * The argument list of every `throw new …Error(`, read with a paren counter rather than a
+ * lazy `);`: a lazy match stops at the first `)` inside the expression, which is how English
+ * sitting in `errors.map(…).join("\n") ?? "Failed to load assistant."` stayed invisible.
+ * A quoted run is skipped as a unit, so a `)` inside a message string cannot unbalance it.
+ */
+function throwArguments(source: string): string[] {
+  const args: string[] = [];
+
+  for (const call of source.matchAll(/throw new (?:[A-Za-z]*Error)\(/g)) {
+    let depth = 1;
+    let quote: string | null = null;
+    let out = "";
+
+    for (let i = (call.index ?? 0) + call[0].length; i < source.length; i++) {
+      const ch = source[i];
+      if (quote) {
+        out += ch;
+        if (ch === "\\") {
+          out += source[i + 1] ?? "";
+          i++;
+        } else if (ch === quote) {
+          quote = null;
+        }
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === "`") {
+        quote = ch;
+        out += ch;
+        continue;
+      }
+      if (ch === "(") depth++;
+      if (ch === ")") {
+        depth--;
+        if (depth === 0) break;
+      }
+      out += ch;
+    }
+
+    args.push(out);
+  }
+
+  return args;
+}
+
 function thrownCopyCountByDirectory(): Record<string, number> {
   const counts: Record<string, number> = {};
 
@@ -230,20 +278,35 @@ function thrownCopyCountByDirectory(): Record<string, number> {
     const bucket = relative.includes(path.sep)
       ? relative.split(path.sep)[0]
       : "(src root)";
-    const source = fs.readFileSync(file, "utf-8");
-    for (const call of source.matchAll(/throw new (?:[A-Za-z]*Error)\(\s*/g)) {
-      const after = source.slice((call.index ?? 0) + call[0].length);
-      const quote = after[0];
+
+    for (const arg of throwArguments(fs.readFileSync(file, "utf-8"))) {
+      const head = arg.trim();
+      const quote = head[0];
       // `t("…")` is already translated, and a re-thrown error is not copy.
-      if (quote === "t" && after[1] === "(") continue;
-      if (quote !== '"' && quote !== "'" && quote !== "`") continue;
-      const literal = after
-        .slice(1, after.indexOf(quote, 1))
-        .replace(/\$\{[^{}]*\}/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (!/[A-Za-z]{4,}/.test(literal)) continue;
-      counts[bucket] = (counts[bucket] ?? 0) + 1;
+      if (quote === "t" && head[1] === "(") continue;
+      if (quote === '"' || quote === "'" || quote === "`") {
+        const literal = head
+          .slice(1, head.indexOf(quote, 1))
+          .replace(/\$\{[^{}]*\}/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (/[A-Za-z]{4,}/.test(literal)) {
+          counts[bucket] = (counts[bucket] ?? 0) + 1;
+        }
+        continue;
+      }
+      // English deeper in the same argument: a `??` / `||` fallback or a ternary branch. Two
+      // words is the floor, so a code, a flag or a single token in quotes does not count.
+      for (const inner of arg.matchAll(
+        /(?:\?\?|\|\||:)\s*(["'`])([\s\S]{1,200}?)\1/g,
+      )) {
+        const literal = (inner[2] ?? "")
+          .replace(/\$\{[^{}]*\}/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!/(?:[A-Za-z]{2,}[\s,.'/:;()-]+){2,}/.test(literal)) continue;
+        counts[bucket] = (counts[bucket] ?? 0) + 1;
+      }
     }
   }
 
