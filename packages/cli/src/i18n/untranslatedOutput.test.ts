@@ -199,7 +199,7 @@ describe("the copy the rest of the CLI prints", () => {
  * number, which has to be edited down here in the same commit - the release form, not an
  * accident.
  *
- * Measured 2026-10-20 at this tree after these five came out of it: 133 occurrences. The largest
+ * Measured 2026-10-20 at this tree after these came out of it: 130 occurrences. The largest
  * buckets are the ones a terminal user meets least - `plugins` and `services` - and the
  * rows worth reading first are `config` 15, `stream` 4, `startup` 1 and `auth` 1, where a
  * refusal does reach the person running the command. Three of the `stream` four, plus the
@@ -209,7 +209,7 @@ describe("the copy the rest of the CLI prints", () => {
  */
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   compaction: 4,
-  config: 15,
+  config: 12,
   lsp: 1,
   permissions: 1,
   plugins: 45,
