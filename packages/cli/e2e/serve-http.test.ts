@@ -214,6 +214,44 @@ describe("E2E: the serve HTTP surface", () => {
     expect(reachable).toEqual([]);
   }, 60000);
 
+  it("says nothing is configured instead of exiting on a drained loop", async () => {
+    // Without a config and without an API base the CLI used to leave with exit 0 and
+    // no output: `program.parse()` did not await the action, the pending promise held
+    // no handle, and the loop drained. It now awaits the action and the loader names
+    // what is missing instead of letting fetch build a relative URL.
+    const globalDir = path.join(context.testDir, ".tnt-unconfigured");
+    fs.mkdirSync(globalDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalDir, "settings.json"),
+      JSON.stringify({ locale: "en" }),
+    );
+
+    const port = await freePort();
+    const result = await execaNode(
+      context.cliPath,
+      ["serve", "--port", String(port)],
+      {
+        cwd: context.testDir,
+        env: {
+          ...process.env,
+          CONTINUE_CLI_TEST: "true",
+          HOME: context.testDir,
+          CONTINUE_GLOBAL_DIR: globalDir,
+          TNT_API_BASE: "",
+          CONTINUE_API_BASE: "",
+        },
+        reject: false,
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    // The wording of this failure is still being located (the platform client builds a
+    // relative URL from an empty base); what this case pins is that the run cannot end
+    // with exit 0 and no output, which is what a starting script would read as success.
+    const output = `${result.stdout}\n${result.stderr}`;
+    expect(output.trim().length).toBeGreaterThan(0);
+  }, 60000);
+
   it("reports a bind it cannot make instead of exiting silently", async () => {
     // A `--host` that is not an address of this machine (TEST-NET-3, reserved for
     // documentation) used to end the process with exit 0 and no output: the listen
