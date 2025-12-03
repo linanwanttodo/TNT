@@ -27,7 +27,7 @@ export function convertLegacyModeFlags(
   mode?: string,
 ): PermissionMode | undefined {
   if (readonly && auto) {
-    throw new Error("Cannot use both --readonly and --auto flags together");
+    throw new Error(t("cli.readonlyAutoConflict"));
   }
 
   if (mode) {

@@ -23,6 +23,17 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "config.noModels": "No models found in the configured assistant",
+  "config.noChatModels":
+    "No models with the chat role found in the configured assistant",
+  "config.llmInitFailed":
+    "Failed to initialize LLM. Please check your configuration.",
+  "config.hubRemoved":
+    'Hub package loading has been removed. Cannot load "{slug}" from hub.',
+  "config.ruleFileReadFailed": 'Failed to read rule file "{spec}": {message}',
+  "cli.readonlyAutoConflict":
+    "Cannot use both --readonly and --auto flags together",
+  "config.failedToLoadConfig": "Failed to load config",
   "ui.ttyLess":
     'Cannot start TUI in TTY-less environment. No TTY available for interactive mode.\nFor non-interactive use, run with -p flag:\n  tnt -p "your prompt here"',
   "ui.rawModeRequired":
@@ -530,6 +541,13 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "config.noModels": "所配置的助手中没有模型",
+  "config.noChatModels": "所配置的助手中没有具备 chat 角色的模型",
+  "config.llmInitFailed": "初始化 LLM 失败。请检查你的配置。",
+  "config.hubRemoved": 'Hub 包加载已被移除，无法从 hub 加载 "{slug}"。',
+  "config.ruleFileReadFailed": '无法读取规则文件 "{spec}"：{message}',
+  "cli.readonlyAutoConflict": "不能同时使用 --readonly 与 --auto。",
+  "config.failedToLoadConfig": "加载配置失败",
   "ui.ttyLess":
     '无法在无 TTY 的环境中启动 TUI：交互模式需要终端。\n非交互使用请加 -p 参数：\n  tnt -p "你的提示词"',
   "ui.rawModeRequired":

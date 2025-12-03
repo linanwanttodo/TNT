@@ -7,6 +7,7 @@
 
 import { AgentFile, ModelConfig, parseAgentFile } from "@tnt/config-yaml";
 
+import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -51,9 +52,7 @@ export async function loadPackageFromHub<T>(
   slug: string,
   _processor: HubPackageProcessor<T>,
 ): Promise<T> {
-  throw new Error(
-    `Hub package loading has been removed. Cannot load "${slug}" from hub.`,
-  );
+  throw new Error(t("config.hubRemoved", { slug }));
 }
 
 /**
@@ -96,7 +95,10 @@ export async function processRule(ruleSpec: string): Promise<string> {
       return fs.readFileSync(absolutePath, "utf-8");
     } catch (error: any) {
       throw new Error(
-        `Failed to read rule file "${ruleSpec}": ${error.message}`,
+        t("config.ruleFileReadFailed", {
+          spec: ruleSpec,
+          message: String(error.message),
+        }),
       );
     }
   }
