@@ -326,6 +326,7 @@ const en = {
   "session.cleared": "Chat history cleared",
   "session.goodbye": "Goodbye!",
   "serve.started": "Server started on http://localhost:{port}",
+  "serve.bindFailed": "Error: could not bind to {host}:{port} - {message}",
   "serve.endpoints": "Endpoints:",
   "serve.endpointList":
     "  GET  /state      - Get current agent state\n  POST /message    - Send a message (body: { message: string })\n  POST /permission - Approve/reject tool (body: { requestId, approved })\n  POST /pause      - Pause the current agent run\n  GET  /diff       - Get git diff against main branch\n  POST /exit       - Gracefully shut down the server",
@@ -763,6 +764,7 @@ const zhCN: Record<TranslationKey, string> = {
   "session.cleared": "聊天记录已清空",
   "session.goodbye": "再见！",
   "serve.started": "服务器已启动：http://localhost:{port}",
+  "serve.bindFailed": "错误：无法绑定 {host}:{port} —— {message}",
   "serve.endpoints": "端点：",
   "serve.endpointList":
     "  GET  /state      - 获取当前智能体状态\n  POST /message    - 发送消息（body: { message: string }）\n  POST /permission - 批准/拒绝工具调用（body: { requestId, approved }）\n  POST /pause      - 暂停当前智能体运行\n  GET  /diff       - 获取相对主分支的 git diff\n  POST /exit       - 优雅关闭服务",
