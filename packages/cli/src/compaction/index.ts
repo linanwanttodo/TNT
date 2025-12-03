@@ -8,6 +8,7 @@ import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import { encode } from "gpt-tokenizer";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
+import { t } from "../i18n/index.js";
 import { buildTodoCarryContextItem, readTodoState } from "../tools/todo.js";
 import { isContextLengthError } from "../utils/contextLength.js";
 import { logger } from "../utils/logger.js";
@@ -227,7 +228,7 @@ async function generateCompactionSummary(
   }
 
   if (!content.trim()) {
-    throw new Error("Compaction summary is empty");
+    throw new Error(t("compaction.summaryEmpty"));
   }
   return { content, summarizedHistory: currentHistory };
 }
@@ -313,15 +314,13 @@ export async function compactChatHistory(
   }
 
   if (countChatHistoryTokens(historyForCompaction, model) > availableForInput) {
-    throw new Error("Compaction request exceeds the available context budget");
+    throw new Error(t("compaction.exceedsBudget"));
   }
 
   const controller = abortController || new AbortController();
 
   if (!summarize) {
-    throw new Error(
-      "Compaction has no summarizer: pass options.summarize to write the summary.",
-    );
+    throw new Error(t("compaction.noSummarizer"));
   }
 
   try {
@@ -367,7 +366,7 @@ export async function compactChatHistory(
     const originalTokens = countChatHistoryTokens(historyToUse, model);
     const compactedTokens = countChatHistoryTokens(compactedHistory, model);
     if (compactedTokens >= originalTokens) {
-      throw new Error("Compaction did not reduce context usage");
+      throw new Error(t("compaction.noReduction"));
     }
 
     return {

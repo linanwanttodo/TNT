@@ -23,6 +23,12 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "compaction.summaryEmpty": "Compaction summary is empty",
+  "compaction.exceedsBudget":
+    "Compaction request exceeds the available context budget",
+  "compaction.noSummarizer":
+    "Compaction has no summarizer: pass options.summarize to write the summary.",
+  "compaction.noReduction": "Compaction did not reduce context usage",
   "config.failedToLoadConfigWithReason": "Failed to load config: {reason}",
   "config.failedToLoadConfigDetails": "Failed to load config:\\n{details}",
   "config.failedToLoadDefaultAgentBody":
@@ -508,6 +514,11 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "compaction.summaryEmpty": "压缩摘要为空",
+  "compaction.exceedsBudget": "压缩请求超出可用的上下文预算",
+  "compaction.noSummarizer":
+    "压缩没有摘要器：请传入 options.summarize 来写入摘要。",
+  "compaction.noReduction": "压缩未能减少上下文占用",
   "config.failedToLoadConfigWithReason": "加载配置失败：{reason}",
   "config.failedToLoadConfigDetails": "加载配置失败：\\n{details}",
   "config.failedToLoadDefaultAgentBody": "加载默认智能体失败。正文：\\n{body}",
