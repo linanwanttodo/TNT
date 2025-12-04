@@ -117,10 +117,9 @@ const COMMAND_DIR = path.dirname(fileURLToPath(import.meta.url));
  * unreachable` stays. The rest name a flag, a file or a schema the user passed, so they
  * are the next candidates and not a decision.
  *
- * What no scan here covers yet: the `safeStderr`/`safeStdout` writers, which are a third
- * print surface. Measured 2026-10-20, ten raw literals go through them: `index.ts` prints
- * the `-p` usage block there, and its "A prompt is required…" line is what a `-p ""` run
- * reads, ahead of the `cli.headlessNeedsPrompt` throw in `chat.ts`.
+ * The `safeStderr`/`safeStdout` writers - the third print surface - are not this file's:
+ * `src/i18n/untranslatedOutput.test.ts` walks all of `src` for them, including the
+ * `commands/**` files whose console and thrown copy it otherwise leaves to this guard.
  */
 const RAW_THROWN_COPY = [
   "checks.ts :: unreachable",
