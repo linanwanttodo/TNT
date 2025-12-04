@@ -187,7 +187,8 @@ The prefix is assembled in build order, each part announced so it can be attribu
 `i18n/index.ts` types the table as `Record<TranslationKey, string>`, so a missing translation is a
 compile error rather than an English leak. `ui/commands/handlers/localeCoverage.test.ts` switches
 locale and asserts rendered Chinese; `commands/outputCopy.test.ts` scans `src/commands/**` and fails
-on a `console.*` literal with words that never went through `t()`.
+on a `console.*` literal with words that never went through `t()`, or on a `throw new …Error("…")`
+whose message is still raw.
 
 ## How to verify
 

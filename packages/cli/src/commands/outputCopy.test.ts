@@ -84,10 +84,10 @@ describe("the checks summary line", () => {
 });
 
 /**
- * An argv subcommand is the one surface where a Chinese user meets the CLI
- * without a terminal UI to lean on, and its failure paths are where the copy
- * was left in English. This scans the sources rather than the rendered output,
- * because a raw literal never reaches a `t()` call to be translated by anyone.
+ * An argv subcommand is the one surface where a Chinese user meets the CLI without a
+ * terminal UI to lean on, and its failure paths are where the copy was left in English.
+ * Both scans below read the sources rather than the rendered output, because a raw
+ * literal never reaches a `t()` call for anyone to translate.
  */
 function commandSources(dir: string): string[] {
   const found: string[] = [];
@@ -102,13 +102,71 @@ function commandSources(dir: string): string[] {
   return found;
 }
 
-describe("the copy an argv subcommand prints", () => {
-  const here = path.join(path.dirname(fileURLToPath(import.meta.url)));
+const COMMAND_DIR = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * A `throw` in a subcommand is printed by the same top-level catch as a
+ * `console.error`, and neither existing guard could see it: `src/i18n/`
+ * `untranslatedOutput.test.ts` skips `src/commands/**` on purpose, and the console scan
+ * above ignores everything that is not `console.*`. The four model, prompt and service
+ * refusals translated in this round were invisible to both.
+ *
+ * Equality rather than an allowlist: translating a line here means deleting it here, and
+ * a new raw throw turns this red. The split the owner set on 2026-10-17 - translate what
+ * a user is meant to read, leave pure diagnostics in English - is why `checks.ts ::
+ * unreachable` stays. The rest name a flag, a file or a schema the user passed, so they
+ * are the next candidates and not a decision.
+ *
+ * What no scan here covers yet: the `safeStderr`/`safeStdout` writers, which are a third
+ * print surface. Measured 2026-10-20, ten raw literals go through them: `index.ts` prints
+ * the `-p` usage block there, and its "A prompt is required…" line is what a `-p ""` run
+ * reads, ahead of the `cli.headlessNeedsPrompt` throw in `chat.ts`.
+ */
+const RAW_THROWN_COPY = [
+  "checks.ts :: unreachable",
+  "outputSchema.ts :: Output schema at is not valid JSON:",
+  "outputSchema.ts :: Output schema at uses keywords this validator cannot enforce:\\n-",
+  "outputSchema.ts :: Output schema file not found:",
+  "outputSchema.ts :: The final response does not match --output-schema after one repair attempt:\\n-",
+  "review/diffContext.ts :: cannot be combined",
+  "review/resolveReviews.ts :: hub review sources are not available: is not a file path",
+  "review/reviewWorker.ts :: Failed to initialize model service",
+];
+
+function rawThrownCopy(): string[] {
+  const offenders: string[] = [];
+
+  for (const file of commandSources(COMMAND_DIR)) {
+    const source = fs.readFileSync(file, "utf-8");
+    for (const call of source.matchAll(/throw new (?:[A-Za-z]*Error)\(\s*/g)) {
+      const after = source.slice((call.index ?? 0) + call[0].length);
+      const quote = after[0];
+      // `t("…")`, a variable and a re-thrown error carry no raw copy.
+      if (quote !== '"' && quote !== "'" && quote !== "`") continue;
+      const literal = after
+        .slice(1, after.indexOf(quote, 1))
+        .replace(/\$\{[^{}]*\}/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!/[A-Za-z]{4,}/.test(literal)) continue;
+      offenders.push(`${path.relative(COMMAND_DIR, file)} :: ${literal}`);
+    }
+  }
+
+  return [...new Set(offenders)].sort();
+}
+
+describe("the copy an argv subcommand throws", () => {
+  it("sends every thrown message through the translation table", () => {
+    expect(rawThrownCopy()).toEqual(RAW_THROWN_COPY);
+  });
+});
+
+describe("the copy an argv subcommand prints", () => {
   it("sends every console message through the translation table", () => {
     const offenders: string[] = [];
 
-    for (const file of commandSources(here)) {
+    for (const file of commandSources(COMMAND_DIR)) {
       const source = fs.readFileSync(file, "utf-8");
       // The message is the first argument, which may sit on the next line and
       // may be wrapped in a colour call. Only its literal part matters: an
@@ -124,7 +182,9 @@ describe("the copy an argv subcommand prints", () => {
             .slice(0, call.index ?? 0)
             .split("\n")
             .length.toString();
-          offenders.push(`${path.relative(here, file)}:${line} ${literal}`);
+          offenders.push(
+            `${path.relative(COMMAND_DIR, file)}:${line} ${literal}`,
+          );
         }
       }
     }
