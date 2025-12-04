@@ -116,7 +116,9 @@ export class MCPService
             (c) => `${c.config?.name}: ${c.error}`,
           );
           throw new Error(
-            `MCP server(s) failed to load:\n${errorMessages.join("\n")}`,
+            t("mcp.serversFailedToLoad", {
+              errors: errorMessages.join("\n"),
+            }),
           );
         }
       }
@@ -262,7 +264,7 @@ export class MCPService
     );
 
     if (!serverConfig) {
-      throw new Error(`Server ${serverName} not found in configuration`);
+      throw new Error(t("mcp.serverNotConfigured", { server: serverName }));
     }
 
     const existingConnection = this.connections.get(serverName);
