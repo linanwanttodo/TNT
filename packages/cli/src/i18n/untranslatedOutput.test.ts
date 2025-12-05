@@ -45,18 +45,16 @@ const KNOWN_UNTRANSLATED_OUTPUT = [
   // seventeenth string from arriving unnoticed.
   //
   // The `safeStdout`/`safeStderr` writers (`src/startup/init.ts`) are a third print
-  // surface and were invisible to both scans until now. Two of these rows are copy a
-  // user is meant to read and are the next candidates; the rest are example command
-  // lines and a bare `Error:` prefix - tokens, not prose. One row is not free to
-  // translate on its own: `index.ts`'s "A prompt is required…" is asserted in English
-  // by six e2e cases, and this box's `LANG=zh_CN.UTF-8` means a spawned CLI resolves
-  // `zh-CN` (`npx tnt --mode bogus -p hi` prints 错误：… with no settings file at all),
-  // so those cases pass today only because the string is still raw. Pinning the locale
-  // in those fixtures is the prerequisite, not an optional cleanup.
+  // surface and were invisible to both scans until now. What is left here is what a
+  // Chinese-speaking user is meant to leave alone: example command lines, whose flags
+  // and arguments are tokens, and a bare `Error:` prefix. Two of the ten rows that first
+  // appeared have been translated - `index.ts`'s prompt refusal and its "Usage examples:"
+  // label. Nine e2e cases assert the English wording of that block, and they stayed green
+  // without pinning a locale, so the spawned CLI does not inherit this box's
+  // `LANG=zh_CN.UTF-8` the way a bare shell run does (proved both ways on the bundle:
+  // `node dist/tnt.js -p ""` answers 错误：… under that LANG and English under C.UTF-8).
   "commands/chat.ts :: Error:",
   "config/flagValidator.ts :: Found validation errors.",
-  "index.ts :: Error: A prompt is required when using the -p/--print flag, unless --prompt, --agent, or --resume is provided.",
-  "index.ts :: Usage examples:",
   'index.ts :: echo "hello" | tnt -p',
   'index.ts :: tnt -p "analyze the code in src/"',
   'index.ts :: tnt -p "please review my current git diff"',

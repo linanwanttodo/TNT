@@ -432,6 +432,9 @@ const en = {
   "cli.headlessNeedsPrompt":
     'Headless mode requires a prompt. Use: tnt -p "your prompt"\nOr pipe input: echo "prompt" | tnt -p\nOr use agent files: tnt -p --agent my-org/my-agent\nNote: Agent files must contain a prompt field.',
   "serve.servicesUnavailable": "Failed to initialize required services",
+  "cli.promptRequired":
+    "Error: A prompt is required when using the -p/--print flag, unless --prompt, --agent, or --resume is provided.",
+  "cli.usageExamples": "Usage examples:",
   "cli.unsupportedFormat":
     'Error: Unsupported --format "{value}" for tnt {command}. Expected: {expected}',
   "common.slashUnknownCommand": "Unknown command: {command}",
@@ -859,6 +862,9 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.headlessNeedsPrompt":
     '无头模式需要一个提示词。用法：tnt -p "你的提示词"\n或者通过管道输入：echo "prompt" | tnt -p\n或者使用 agent 文件：tnt -p --agent my-org/my-agent\n注意：agent 文件必须包含 prompt 字段。',
   "serve.servicesUnavailable": "无法初始化所需服务。",
+  "cli.promptRequired":
+    "错误：使用 -p/--print 时必须提供提示词，除非使用 --prompt、--agent 或 --resume。",
+  "cli.usageExamples": "用法示例：",
   "cli.unsupportedFormat":
     '错误：tnt {command} 不支持 --format "{value}"。期望：{expected}',
   "common.slashUnknownCommand": "未知命令：{command}",
