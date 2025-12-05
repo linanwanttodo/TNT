@@ -23,6 +23,22 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "plugins.unsafeMarketplaceName": "Unsafe marketplace name: {name}",
+  "plugins.pathOutsideCache":
+    "Refusing to touch a path outside the marketplace cache: {path}",
+  "plugins.corruptedRegistry":
+    "Corrupted marketplace registry {file}: {message}",
+  "plugins.installLocationAbsolute": "installLocation must be absolute: {path}",
+  "plugins.notAPluginId": "Not a plugin id: {id}",
+  "plugins.couldNotFetch": "Could not fetch marketplace: {reason}",
+  "plugins.noAttemptMade": "no attempt made",
+  "plugins.npmPackFailed": "npm pack failed for {pkg}: {reason}",
+  "plugins.npmPackNoArchive": "npm pack produced no archive for {pkg}",
+  "plugins.couldNotUnpack": "Could not unpack {archive}: {reason}",
+  "plugins.gitMissingGithub":
+    "git is not installed, so a github marketplace cannot be fetched",
+  "plugins.gitMissingGit":
+    "git is not installed, so a git marketplace cannot be fetched",
   "plugins.noMarketplace": "No marketplace named {name}",
   "plugins.marketplaceNotFetched":
     "Marketplace {name} is not fetched; re-add it to refresh",
@@ -566,6 +582,18 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "plugins.unsafeMarketplaceName": "不安全的插件市场名称：{name}",
+  "plugins.pathOutsideCache": "拒绝操作插件市场缓存之外的路径：{path}",
+  "plugins.corruptedRegistry": "插件市场注册表已损坏 {file}：{message}",
+  "plugins.installLocationAbsolute": "installLocation 必须是绝对路径：{path}",
+  "plugins.notAPluginId": "不是有效的插件 id：{id}",
+  "plugins.couldNotFetch": "无法获取插件市场：{reason}",
+  "plugins.noAttemptMade": "未尝试获取",
+  "plugins.npmPackFailed": "npm pack 失败（{pkg}）：{reason}",
+  "plugins.npmPackNoArchive": "npm pack 未产出归档：{pkg}",
+  "plugins.couldNotUnpack": "无法解包 {archive}：{reason}",
+  "plugins.gitMissingGithub": "未安装 git，无法获取 github 插件市场",
+  "plugins.gitMissingGit": "未安装 git，无法获取 git 插件市场",
   "plugins.noMarketplace": "未找到名为 {name} 的市场",
   "plugins.marketplaceNotFetched": "市场 {name} 尚未抓取；请重新添加以刷新",
   "plugins.marketplaceHasNoPlugin":
