@@ -2,6 +2,7 @@
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
+import { t } from "../i18n/index.js";
 import {
   SERVICE_NAMES,
   serviceContainer,
@@ -140,7 +141,7 @@ export async function getAllAvailableTools(
     SERVICE_NAMES.MODEL,
   );
   if (!modelState.model) {
-    throw new Error("Model service is not initialized");
+    throw new Error(t("tools.modelServiceUninitialized"));
   }
 
   // Both edit tools are offered. Which one a model handles well cannot be
