@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { env } from "../config/env.js";
+import { t } from "../i18n/index.js";
 
 import { logger } from "./logger.js";
 
@@ -117,7 +118,7 @@ export async function makeAuthenticatedRequest<T = any>(
 
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Network/request error: ${errorMessage}`);
-    throw new Error(`Request failed: ${errorMessage}`);
+    throw new Error(t("utils.requestFailed", { message: errorMessage }));
   }
 }
 
