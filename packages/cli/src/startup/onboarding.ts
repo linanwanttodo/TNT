@@ -95,7 +95,10 @@ export async function initializeWithOnboarding(
       );
     } catch (errorMessage) {
       throw new Error(
-        `Failed to load config from "${configPath}": ${errorMessage}`,
+        t("startup.failedToLoadConfigFrom", {
+          path: configPath,
+          error: String(errorMessage),
+        }),
       );
     }
   }

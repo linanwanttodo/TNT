@@ -199,22 +199,22 @@ describe("the copy the rest of the CLI prints", () => {
  * number, which has to be edited down here in the same commit - the release form, not an
  * accident.
  *
- * Measured 2026-10-20 at this tree: 138 occurrences (122 distinct messages). The largest
+ * Measured 2026-10-20 at this tree after these five came out of it: 133 occurrences. The largest
  * buckets are the ones a terminal user meets least - `plugins` and `services` - and the
  * rows worth reading first are `config` 15, `stream` 4, `startup` 1 and `auth` 1, where a
- * refusal does reach the person running the command. `flagValidator.ts:353`
+ * refusal does reach the person running the command. Three of the `stream` four, plus the
+ * `startup` and `auth` sites, were translated in the round that added this note, so their
+ * buckets below are what is left. `flagValidator.ts:353`
  * "Exiting due to validation errors" is one of the `config` fifteen.
  */
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
-  auth: 1,
   compaction: 4,
   config: 15,
   lsp: 1,
   permissions: 1,
   plugins: 45,
   services: 23,
-  startup: 1,
-  stream: 4,
+  stream: 1,
   subagent: 2,
   tools: 22,
   ui: 14,
