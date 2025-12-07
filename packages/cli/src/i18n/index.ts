@@ -23,6 +23,23 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "services.llmInitWithSource": "Failed to initialize LLM with {source} model",
+  "services.modelServiceNotInitialized":
+    "ModelService not initialized - assistant data missing",
+  "services.invalidModelIndex":
+    "Invalid model index: {index}. Available models: 0-{max}",
+  "services.llmInitSelected": "Failed to initialize LLM with selected model",
+  "services.defaultModelNoBlock":
+    "Loaded default model contained no model block",
+  "services.noModelHeadless":
+    "No model specified in headless mode (and failed to load default model)",
+  "services.noConfigPathForReload":
+    "No configuration path available for reload",
+  "services.agentNotMarkdown":
+    "Failed to load agent from {path}. Not a markdown file",
+  "services.agentLoadFailed": "Failed to load agent from {path}: {message}",
+  "services.agentModelUnavailable":
+    "Cannot load agent model, failed to load api client service",
   "plugins.manifestNotObject": "Marketplace manifest must be an object",
   "plugins.manifestNoName": "Marketplace manifest has no name",
   "plugins.manifestImpersonates":
@@ -614,6 +631,17 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "services.llmInitWithSource": "初始化 {source} 模型失败",
+  "services.modelServiceNotInitialized": "ModelService 未初始化：缺少助手数据",
+  "services.invalidModelIndex": "无效的模型索引：{index}。可用模型：0-{max}",
+  "services.llmInitSelected": "初始化所选模型失败",
+  "services.defaultModelNoBlock": "加载的默认模型不含 model 块",
+  "services.noModelHeadless": "无头模式未指定模型（且加载默认模型失败）",
+  "services.noConfigPathForReload": "没有可用于重新加载的配置路径",
+  "services.agentNotMarkdown": "无法从 {path} 加载智能体：不是 Markdown 文件",
+  "services.agentLoadFailed": "无法从 {path} 加载智能体：{message}",
+  "services.agentModelUnavailable":
+    "无法加载智能体模型：API 客户端服务加载失败",
   "plugins.manifestNotObject": "插件市场清单必须是一个对象",
   "plugins.manifestNoName": "插件市场清单缺少 name",
   "plugins.manifestImpersonates": "插件市场名称冒充官方目录：{name}",
