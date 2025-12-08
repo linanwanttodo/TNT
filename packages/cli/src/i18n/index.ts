@@ -23,8 +23,6 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
-  "utils.requestFailed": "Request failed: {message}",
-  "utils.envInstallFailed": "Failed to run environment install script: {error}",
   "services.llmInitWithSource": "Failed to initialize LLM with {source} model",
   "services.modelServiceNotInitialized":
     "ModelService not initialized - assistant data missing",
@@ -633,8 +631,6 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
-  "utils.requestFailed": "请求失败：{message}",
-  "utils.envInstallFailed": "运行环境安装脚本失败：{error}",
   "services.llmInitWithSource": "初始化 {source} 模型失败",
   "services.modelServiceNotInitialized": "ModelService 未初始化：缺少助手数据",
   "services.invalidModelIndex": "无效的模型索引：{index}。可用模型：0-{max}",
