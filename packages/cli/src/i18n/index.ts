@@ -23,6 +23,14 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "ui.ttyLess":
+    'Cannot start TUI in TTY-less environment. No TTY available for interactive mode.\nFor non-interactive use, run with -p flag:\n  tnt -p "your prompt here"',
+  "ui.rawModeRequired":
+    'Terminal does not support raw mode required for interactive UI.\nUse -p flag for headless mode: tnt -p "your prompt"',
+  "ui.remoteTtyLess":
+    "Cannot start remote TUI in TTY-less environment. No TTY available for interactive mode.",
+  "ui.remoteRawMode":
+    "Terminal does not support raw mode required for interactive UI.",
   "tools.globNeedsPattern":
     "Glob needs a pattern: an empty pattern would list the whole tree.",
   "tools.globNeedsRipgrep":
@@ -522,6 +530,12 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "ui.ttyLess":
+    '无法在无 TTY 的环境中启动 TUI：交互模式需要终端。\n非交互使用请加 -p 参数：\n  tnt -p "你的提示词"',
+  "ui.rawModeRequired":
+    '终端不支持交互界面所需的 raw 模式。\n无头模式请加 -p 参数：tnt -p "你的提示词"',
+  "ui.remoteTtyLess": "无法在无 TTY 的环境中启动远程 TUI：交互模式需要终端。",
+  "ui.remoteRawMode": "终端不支持交互界面所需的 raw 模式。",
   "tools.globNeedsPattern": "Glob 需要一个模式：空模式会列出整棵树。",
   "tools.globNeedsRipgrep":
     "Glob 使用 ripgrep (rg) 列出文件，但它未安装。请改用 List 查看单个目录，或安装 rg。",
