@@ -4,6 +4,8 @@
  * can be read without migration.
  */
 
+import { t } from "../i18n/index.js";
+
 export type MarketplaceSource =
   | { source: "url"; url: string; headers?: Record<string, string> }
   | {
@@ -117,7 +119,7 @@ export function splitPluginId(id: string): {
 } {
   const at = id.lastIndexOf("@");
   if (at <= 0) {
-    throw new Error(`Not a plugin id: ${id}`);
+    throw new Error(t("plugins.notAPluginId", { id }));
   }
   return { name: id.slice(0, at), marketplace: id.slice(at + 1) };
 }
