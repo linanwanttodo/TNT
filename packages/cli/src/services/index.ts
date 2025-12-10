@@ -1,4 +1,5 @@
 import { HookService } from "../hooks/HookService.js";
+import { t } from "../i18n/index.js";
 import { initializeWithOnboarding } from "../startup/onboarding.js";
 import {
   setBetaSubagentToolEnabled,
@@ -183,7 +184,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
       ]);
 
       if (!apiClientState.apiClient) {
-        throw new Error("API client not available");
+        throw new Error(t("services.apiClientUnavailable"));
       }
 
       // Use current config path from ConfigService state if available (for reloads),
@@ -218,7 +219,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
       ]);
 
       if (!configState.config) {
-        throw new Error("Config not available");
+        throw new Error(t("services.configUnavailable"));
       }
 
       return modelService.initialize(
@@ -238,7 +239,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
       );
 
       if (!configState.config) {
-        throw new Error("Config not available for MCP service");
+        throw new Error(t("services.configUnavailableForMcp"));
       }
       return mcpService.initialize(
         configState.config,
