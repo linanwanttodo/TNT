@@ -3,6 +3,7 @@ import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
 import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { AuthConfig } from "../auth/workos.js";
+import { t } from "../i18n/index.js";
 import { getUniqueId } from "../utils/uniqueId.js";
 
 import { env } from "./env.js";
@@ -53,7 +54,7 @@ export function getLlmApi(
   authConfig: AuthConfig,
 ): [BaseLlmApi, ModelConfig] {
   if (!assistant.models || assistant.models.length === 0) {
-    throw new Error("No models found in the configured assistant");
+    throw new Error(t("config.noModels"));
   }
 
   const model = assistant.models?.find(
@@ -62,9 +63,7 @@ export function getLlmApi(
   );
 
   if (!model) {
-    throw new Error(
-      "No models with the chat role found in the configured assistant",
-    );
+    throw new Error(t("config.noChatModels"));
   }
 
   // The last gate before a request exists: a model the provider cannot answer
@@ -74,9 +73,7 @@ export function getLlmApi(
   const llmApi = createLlmApi(model, authConfig);
 
   if (!llmApi) {
-    throw new Error(
-      "Failed to initialize LLM. Please check your configuration.",
-    );
+    throw new Error(t("config.llmInitFailed"));
   }
 
   return [llmApi, model];

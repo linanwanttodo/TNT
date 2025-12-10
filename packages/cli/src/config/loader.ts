@@ -389,7 +389,7 @@ export async function unrollPackageIdentifiersAsConfigYaml(
     }
   }
   if (!unrollResult?.config) {
-    throw new Error(`Failed to load config`);
+    throw new Error(t("config.failedToLoadConfig"));
   }
 
   return unrollResult.config;
