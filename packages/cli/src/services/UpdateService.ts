@@ -26,6 +26,23 @@ export function shouldCheckForUpdates(currentVersion: string): boolean {
   return !/-dev\b/.test(currentVersion);
 }
 
+export interface AutoUpdateDecision {
+  autoUpdate: boolean;
+  isUpdateAvailable: boolean;
+  status: string;
+  alreadyAutoUpdated: boolean;
+}
+
+/** Every gate that guards a self-replacing `npm i -g`, in one testable place. */
+export function shouldAutoUpdate(decision: AutoUpdateDecision): boolean {
+  return (
+    decision.autoUpdate &&
+    decision.isUpdateAvailable &&
+    decision.status !== "updating" &&
+    !decision.alreadyAutoUpdated
+  );
+}
+
 /**
  * Service for checking and performing CLI updates
  */
@@ -104,10 +121,13 @@ export class UpdateService extends BaseService<UpdateServiceState> {
 
       // If update is available, automatically update
       if (
-        autoUpdate &&
-        isUpdateAvailable &&
-        this.currentState.status !== "updating" &&
-        !process.env.CONTINUE_CLI_AUTO_UPDATED //Already auto updated, preventing sequential auto-update
+        shouldAutoUpdate({
+          autoUpdate,
+          isUpdateAvailable,
+          status: this.currentState.status,
+          // Already auto updated once, preventing sequential auto-update.
+          alreadyAutoUpdated: Boolean(process.env.CONTINUE_CLI_AUTO_UPDATED),
+        })
       ) {
         await this.performUpdate(true);
       } else {
