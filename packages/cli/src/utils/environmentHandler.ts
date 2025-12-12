@@ -7,6 +7,8 @@ import chalk from "chalk";
 
 const execAsync = promisify(exec);
 
+import { t } from "../i18n/index.js";
+
 import { formatError } from "./formatError.js";
 import { logger } from "./logger.js";
 
@@ -78,7 +80,9 @@ export async function runEnvironmentInstall(): Promise<void> {
   } catch (error) {
     logger.error(`Environment install script failed: ${formatError(error)}`);
     throw new Error(
-      `Failed to run environment install script: ${formatError(error)}`,
+      t("utils.envInstallFailed", {
+        error: formatError(error),
+      }),
     );
   }
 }
