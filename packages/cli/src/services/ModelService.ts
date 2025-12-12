@@ -2,6 +2,7 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 
 import { AuthConfig, getModelName } from "../auth/workos.js";
 import { createLlmApi, getLlmApi } from "../config/index.js";
+import { t } from "../i18n/index.js";
 import { BUILT_IN_AGENTS } from "../subagent/builtInAgents.js";
 import { logger } from "../utils/logger.js";
 
@@ -102,7 +103,9 @@ export class ModelService
 
         const llmApi = createLlmApi(selectedModel, authConfig);
         if (!llmApi) {
-          throw new Error(`Failed to initialize LLM with ${modelSource} model`);
+          throw new Error(
+            t("services.llmInitWithSource", { source: modelSource }),
+          );
         }
 
         return {
@@ -209,7 +212,7 @@ export class ModelService
           hasAuthConfig: !!stateValues.authConfig,
         },
       });
-      throw new Error("ModelService not initialized - assistant data missing");
+      throw new Error(t("services.modelServiceNotInitialized"));
     }
 
     // Get available models from assistant in state
@@ -220,7 +223,10 @@ export class ModelService
 
     if (modelIndex < 0 || modelIndex >= availableModels.length) {
       throw new Error(
-        `Invalid model index: ${modelIndex}. Available models: 0-${availableModels.length - 1}`,
+        t("services.invalidModelIndex", {
+          index: modelIndex,
+          max: availableModels.length - 1,
+        }),
       );
     }
 
@@ -235,7 +241,7 @@ export class ModelService
       const llmApi = createLlmApi(selectedModel, authConfig);
 
       if (!llmApi) {
-        throw new Error("Failed to initialize LLM with selected model");
+        throw new Error(t("services.llmInitSelected"));
       }
 
       this.setState({
