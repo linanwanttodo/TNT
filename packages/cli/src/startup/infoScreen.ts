@@ -73,39 +73,54 @@ function getSessionInfo(): string[] {
   return lines;
 }
 
+/**
+ * The usage block for `/info`. Rendered from whatever the session recorded: a provider that
+ * returns tokens but no price (local or self-hosted models) still has usage to show, so the
+ * whole block must not hinge on the cost being non-zero.
+ */
+export function formatUsageLines(usage: {
+  totalCost: number;
+  promptTokens: number;
+  completionTokens: number;
+  promptTokensDetails?: { cachedTokens?: number; cacheWriteTokens?: number };
+}): string[] {
+  const lines: string[] = [];
+  const hasTokens = usage.promptTokens > 0 || usage.completionTokens > 0;
+  if (usage.totalCost <= 0 && !hasTokens) {
+    return [`  ${chalk.gray("No usage data yet")}`];
+  }
+
+  if (usage.totalCost > 0) {
+    lines.push(
+      `  Total Cost: ${chalk.green(`$${usage.totalCost.toFixed(6)}`)}`,
+    );
+  }
+  lines.push(
+    `  Input Tokens: ${chalk.cyan(usage.promptTokens.toLocaleString())}`,
+    `  Output Tokens: ${chalk.cyan(usage.completionTokens.toLocaleString())}`,
+  );
+
+  if (usage.promptTokensDetails?.cachedTokens) {
+    lines.push(
+      `  Cache Read Tokens: ${chalk.cyan(usage.promptTokensDetails.cachedTokens.toLocaleString())}`,
+    );
+  }
+  if (usage.promptTokensDetails?.cacheWriteTokens) {
+    lines.push(
+      `  Cache Write Tokens: ${chalk.cyan(usage.promptTokensDetails.cacheWriteTokens.toLocaleString())}`,
+    );
+  }
+
+  const totalTokens = usage.promptTokens + usage.completionTokens;
+  lines.push(`  Total Tokens: ${chalk.cyan(totalTokens.toLocaleString())}`);
+  return lines;
+}
+
 function getUsageInfo(): string[] {
   const lines: string[] = ["", chalk.white("Usage:")];
 
   try {
-    const usage = getSessionUsage();
-    if (usage.totalCost > 0) {
-      lines.push(
-        `  Total Cost: ${chalk.green(`$${usage.totalCost.toFixed(6)}`)}`,
-      );
-      lines.push(
-        `  Input Tokens: ${chalk.cyan(usage.promptTokens.toLocaleString())}`,
-      );
-      lines.push(
-        `  Output Tokens: ${chalk.cyan(usage.completionTokens.toLocaleString())}`,
-      );
-
-      if (usage.promptTokensDetails?.cachedTokens) {
-        lines.push(
-          `  Cache Read Tokens: ${chalk.cyan(usage.promptTokensDetails.cachedTokens.toLocaleString())}`,
-        );
-      }
-
-      if (usage.promptTokensDetails?.cacheWriteTokens) {
-        lines.push(
-          `  Cache Write Tokens: ${chalk.cyan(usage.promptTokensDetails.cacheWriteTokens.toLocaleString())}`,
-        );
-      }
-
-      const totalTokens = usage.promptTokens + usage.completionTokens;
-      lines.push(`  Total Tokens: ${chalk.cyan(totalTokens.toLocaleString())}`);
-    } else {
-      lines.push(`  ${chalk.gray("No usage data yet")}`);
-    }
+    lines.push(...formatUsageLines(getSessionUsage()));
   } catch (error) {
     logger.warn("Failed to get session usage:", error);
     lines.push(`  ${chalk.red("Usage data not available")}`);
