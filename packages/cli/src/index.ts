@@ -345,13 +345,11 @@ program
 // Serve subcommand
 program
   .command("serve [prompt]", { hidden: true })
-  .description("Start an HTTP server with /state and /message endpoints")
-  .option(
-    "--timeout <seconds>",
-    "Inactivity timeout in seconds (default: 300)",
-    "300",
+  .description(
+    "Start an HTTP server with /state, /message, /permission, /pause, /diff and /exit endpoints",
   )
-  .option("--port <port>", "Port to run the server on (default: 8000)", "8000")
+  .option("--timeout <seconds>", "Inactivity timeout in seconds", "300")
+  .option("--port <port>", "Port to run the server on", "8000")
   .option(
     "--host <addr>",
     "Interface to bind (default: 127.0.0.1). 0.0.0.0 exposes an unauthenticated server",
