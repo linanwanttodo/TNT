@@ -23,6 +23,20 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "plugins.manifestNotObject": "Marketplace manifest must be an object",
+  "plugins.manifestNoName": "Marketplace manifest has no name",
+  "plugins.manifestImpersonates":
+    "Marketplace name impersonates an official catalogue: {name}",
+  "plugins.manifestNameMismatch":
+    "Marketplace declares {name} but was added as {expected}",
+  "plugins.manifestNoOwner": "Marketplace manifest has no owner",
+  "plugins.manifestPluginsNotList": "Marketplace plugins must be a list",
+  "plugins.manifestEntryNotObject": "Marketplace plugin entry is not an object",
+  "plugins.manifestEntryNeedsNameAndSource":
+    "Marketplace plugin needs both a name and a source",
+  "plugins.manifestNotFound": "Marketplace manifest not found at {path}",
+  "plugins.manifestOfficialOnly":
+    "Marketplace {name} may only be served from the official organization",
   "ui.imageTooLarge":
     "Image size {size}MB exceeds maximum allowed size of {max}MB",
   "ui.tooManyImages": "Cannot add more than {count} images",
@@ -600,6 +614,18 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "plugins.manifestNotObject": "插件市场清单必须是一个对象",
+  "plugins.manifestNoName": "插件市场清单缺少 name",
+  "plugins.manifestImpersonates": "插件市场名称冒充官方目录：{name}",
+  "plugins.manifestNameMismatch":
+    "插件市场声明为 {name}，但添加时名为 {expected}",
+  "plugins.manifestNoOwner": "插件市场清单缺少 owner",
+  "plugins.manifestPluginsNotList": "插件市场的 plugins 必须是列表",
+  "plugins.manifestEntryNotObject": "插件市场中的插件条目不是对象",
+  "plugins.manifestEntryNeedsNameAndSource":
+    "插件市场条目需要同时提供 name 与 source",
+  "plugins.manifestNotFound": "未找到插件市场清单：{path}",
+  "plugins.manifestOfficialOnly": "插件市场 {name} 只能由官方组织提供",
   "ui.imageTooLarge": "图片大小 {size}MB 超过允许的上限 {max}MB",
   "ui.tooManyImages": "最多只能添加 {count} 张图片",
   "ui.imageMemoryLimit":
