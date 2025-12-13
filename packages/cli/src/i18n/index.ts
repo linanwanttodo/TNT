@@ -23,6 +23,10 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "permissions.invalidToolPattern": "Invalid tool pattern: {pattern}",
+  "subagent.depthOverflow":
+    "Delegation depth overflowed: parent was at {depth}.",
+  "subagent.modelUnavailable": "Model or LLM API not available",
   "stream.contextLengthExceededAfterCompactions":
     "Context length exceeded after {count} compactions: {reason}",
   "stream.providerRefusedRequest": "the provider refused the request",
@@ -638,6 +642,9 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "permissions.invalidToolPattern": "无效的工具匹配模式：{pattern}",
+  "subagent.depthOverflow": "委派层级溢出：父级深度为 {depth}。",
+  "subagent.modelUnavailable": "模型或 LLM API 不可用",
   "stream.contextLengthExceededAfterCompactions":
     "经过 {count} 次压缩后仍超出上下文长度：{reason}",
   "stream.providerRefusedRequest": "服务提供方拒绝了该请求",
