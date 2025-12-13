@@ -85,4 +85,21 @@ describe("E2E: ls --format json", () => {
     const parsed = JSON.parse(result.stdout) as { sessions: unknown[] };
     expect(Array.isArray(parsed.sessions)).toBe(true);
   }, 60000);
+
+  it("answers an empty store with an empty list, not with the picker", async () => {
+    // No `sessions/` directory at all: a machine that has never run a chat. The JSON
+    // contract has to hold here too, because a script parsing stdout cannot tell an
+    // empty listing from a rendered picker.
+    const globalDir = path.join(context.testDir, ".tnt");
+    fs.mkdirSync(globalDir, { recursive: true });
+
+    const result = await runCLI(context, {
+      args: ["ls", "--json"],
+      env: { CONTINUE_GLOBAL_DIR: globalDir },
+      timeout: 30000,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ sessions: [] });
+  }, 60000);
 });
