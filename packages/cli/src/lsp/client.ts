@@ -2,6 +2,8 @@ import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import path from "path";
 import { pathToFileURL } from "url";
 
+import { t } from "../i18n/index.js";
+
 /**
  * A plugin declares its language server as a command plus arguments. This is
  * the shape `loadPluginLspServers` already resolves, with
@@ -140,7 +142,7 @@ export class LspClient {
       clientInfo: { name: "tnt", version: "0.0.0-dev" },
     })) as { capabilities?: unknown } | null;
     if (!result || typeof result !== "object") {
-      throw new LspProtocolError("language server did not answer initialize");
+      throw new LspProtocolError(t("lsp.noInitializeResponse"));
     }
     this.notify("initialized", {});
     return this;

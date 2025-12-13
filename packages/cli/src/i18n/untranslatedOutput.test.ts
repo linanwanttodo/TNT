@@ -223,7 +223,6 @@ describe("the copy the rest of the CLI prints", () => {
  */
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   config: 2,
-  lsp: 1,
   plugins: 1,
   services: 6,
   tools: 4,
