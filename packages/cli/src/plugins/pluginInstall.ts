@@ -330,7 +330,12 @@ export async function installPluginWithDependencies(
         )
       ) {
         throw new PluginInstallError(
-          `${id} depends on ${reference}, but ${marketplace} does not allow dependencies on ${dependency.marketplace}`,
+          t("plugins.dependencyNotAllowed", {
+            id,
+            reference,
+            marketplace,
+            target: dependency.marketplace,
+          }),
         );
       }
       visit(dependency.marketplace, dependency.name, [...path, id]);

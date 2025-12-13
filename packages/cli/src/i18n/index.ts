@@ -23,6 +23,13 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "stream.contextLengthExceededAfterCompactions":
+    "Context length exceeded after {count} compactions: {reason}",
+  "stream.providerRefusedRequest": "the provider refused the request",
+  "plugins.dependencyNotAllowed":
+    "{id} depends on {reference}, but {marketplace} does not allow dependencies on {target}",
+  "plugins.unrecognizedMarketplaceSource":
+    "Unrecognized marketplace source: {value}. Use one of {kinds}, or owner/repo.",
   "services.llmInitWithSource": "Failed to initialize LLM with {source} model",
   "services.modelServiceNotInitialized":
     "ModelService not initialized - assistant data missing",
@@ -631,6 +638,13 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "stream.contextLengthExceededAfterCompactions":
+    "经过 {count} 次压缩后仍超出上下文长度：{reason}",
+  "stream.providerRefusedRequest": "服务提供方拒绝了该请求",
+  "plugins.dependencyNotAllowed":
+    "{id} 依赖 {reference}，但 {marketplace} 不允许依赖 {target}",
+  "plugins.unrecognizedMarketplaceSource":
+    "无法识别的插件市场来源：{value}。可用形式：{kinds}，或 owner/repo。",
   "services.llmInitWithSource": "初始化 {source} 模型失败",
   "services.modelServiceNotInitialized": "ModelService 未初始化：缺少助手数据",
   "services.invalidModelIndex": "无效的模型索引：{index}。可用模型：0-{max}",

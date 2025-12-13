@@ -879,7 +879,10 @@ export async function streamChatResponse(
     if (terminalStop === "context_overflow") {
       if (overflowRecoveries >= OVERFLOW_RECOVERIES) {
         throw new Error(
-          `Context length exceeded after ${overflowRecoveries} compactions: ${terminalStopMessage ?? "the provider refused the request"}`,
+          t("stream.contextLengthExceededAfterCompactions", {
+            count: overflowRecoveries,
+            reason: terminalStopMessage ?? t("stream.providerRefusedRequest"),
+          }),
         );
       }
       overflowRecoveries++;
