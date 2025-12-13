@@ -216,15 +216,15 @@ describe("the copy the rest of the CLI prints", () => {
  *   `Rule file not found`, which its own `catch` immediately re-throws as a read failure;
  * - blocked by the layering guard: `utils` may not import `src/i18n` (measured, reverted),
  *   so `Request failed:` and the environment-install failure belong at their call sites;
- * - not established: `subagent`, `lsp` and `permissions` do not import i18n today and the
- *   guard builds its edge names at runtime, so a new edge there is unverified; and
- *   `plugins/marketplaceTypes.ts` has no imports at all, so giving it `t` is structural.
+ * - measured since: only `utils -> <group>` is constrained (except config/services/session/
+ *   telemetry), so `subagent`, `permissions` and this types module took the import with the
+ *   architecture guard green; `lsp` is the one leaf still uninspected.
  * A new raw throw still turns this red; translating one of the above lowers its number here.
  */
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   config: 2,
   lsp: 1,
-  plugins: 2,
+  plugins: 1,
   services: 6,
   tools: 4,
   ui: 7,
