@@ -387,7 +387,9 @@ program
 // Checks subcommand
 program
   .command("checks [action] [pr-url]")
-  .description("Show CI check statuses for a PR")
+  .description(
+    "Show CI check statuses for a PR (actions: list, accept, reject)",
+  )
   .action(async (action: string | undefined, prUrl: string | undefined) => {
     // `--format` is a root option, so commander accepts it here whether or not this
     // command can honour it. `checks` prints text only, and accepting the flag in
