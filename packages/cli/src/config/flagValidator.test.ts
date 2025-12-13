@@ -321,3 +321,40 @@ describe("validateFlags --timeout", () => {
     );
   });
 });
+
+describe("permission flags beside a mode that owns the policy", () => {
+  test("refuses --allow with --auto instead of ignoring it", () => {
+    const result = validateFlags({ auto: true, allow: ["Bash"] } as never);
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors.map((e) => e.code)).toContain(
+      "PERMISSION_FLAGS_IGNORED_BY_MODE",
+    );
+  });
+
+  test("refuses --exclude with --readonly and with --mode plan", () => {
+    for (const options of [
+      { readonly: true, exclude: ["Bash"] },
+      { mode: "plan", exclude: ["Bash"] },
+    ]) {
+      const result = validateFlags(options as never);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.map((e) => e.code)).toContain(
+        "PERMISSION_FLAGS_IGNORED_BY_MODE",
+      );
+    }
+  });
+
+  test("still accepts the same flags in agent mode", () => {
+    const result = validateFlags({
+      allow: ["Bash"],
+      exclude: ["Write"],
+      mode: "agent",
+    } as never);
+
+    expect(result.errors.map((e) => e.code)).not.toContain(
+      "PERMISSION_FLAGS_IGNORED_BY_MODE",
+    );
+  });
+});

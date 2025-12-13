@@ -273,6 +273,38 @@ function validatePermissionFlags(
 /**
  * Run all validation checks on the provided options
  */
+/**
+ * `plan` and `auto` build their policies from the mode alone - `ToolPermissionService
+ * .initializeSync` never reads the command-line overrides in those modes. Accepting
+ * `--allow` beside `--auto` therefore shipped a flag that silently did nothing, so the
+ * combination is refused here instead of being honoured in appearance only.
+ */
+function validatePermissionOverridesWithMode(
+  options: ValidationOptions,
+): ValidationError[] {
+  const mode =
+    options.mode ??
+    (options.readonly ? "plan" : options.auto ? "auto" : "agent");
+  if (mode !== "plan" && mode !== "auto") return [];
+
+  const flags = [
+    options.allow?.length ? "--allow" : "",
+    options.ask?.length ? "--ask" : "",
+    options.exclude?.length ? "--exclude" : "",
+  ].filter(Boolean);
+  if (flags.length === 0) return [];
+
+  return [
+    {
+      code: "PERMISSION_FLAGS_IGNORED_BY_MODE",
+      message: t("cli.permissionFlagsWithMode", {
+        flags: flags.join(", "),
+        mode,
+      }),
+    },
+  ];
+}
+
 export function validateFlags(options: ValidationOptions): ValidationResult {
   const allErrors: ValidationError[] = [];
 
@@ -288,6 +320,7 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
     validateSessionFlags,
     validateConfigPath,
     validatePermissionFlags,
+    validatePermissionOverridesWithMode,
   ];
 
   for (const validator of validators) {
