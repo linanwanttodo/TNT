@@ -18,7 +18,7 @@ export async function retrieveContextItemsFromEmbeddings(
   //   void extras.ide.showToast(
   //     "warning",
   //     "Set up an embeddings model to use this feature. Visit the docs to learn more: " +
-  //       "https://github.com/linanwanttodo/TNT/tree/main/docs/cli/models",
+  //       "https://github.com/linanwanttodo/TNT/tree/main/docs/cli/models.mdx",
   //   );
   //   return [];
   // }
