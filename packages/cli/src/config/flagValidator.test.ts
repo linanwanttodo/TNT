@@ -1,3 +1,6 @@
+import { t } from "../i18n/index.js";
+import { BUILT_IN_TOOL_NAMES } from "../tools/builtInToolNames.js";
+
 import {
   validateFlags,
   validateServeFlags,
@@ -375,6 +378,23 @@ describe("--request-timeout beside the other headless-only flags", () => {
       expect(result.errors.map((e) => e.code)).not.toContain(
         "REQUEST_TIMEOUT_REQUIRES_PRINT",
       );
+    }
+  });
+});
+
+describe("the tool-name hints", () => {
+  test("name tools that actually exist", () => {
+    // `--allow readFile` / `--ask writeFile` taught values no tool answers to, so a user
+    // following the hint configured a policy that could never match.
+    for (const { key, flag } of [
+      { key: "cli.allowRequiresTool" as const, flag: "--allow" },
+      { key: "cli.askRequiresTool" as const, flag: "--ask" },
+      { key: "cli.excludeRequiresTool" as const, flag: "--exclude" },
+    ]) {
+      const example = new RegExp(`${flag} (\\w+)[)）]`).exec(t(key))?.[1];
+
+      expect(example, key).toBeDefined();
+      expect(BUILT_IN_TOOL_NAMES as readonly string[]).toContain(example!);
     }
   });
 });
