@@ -17,14 +17,12 @@ describe("the version module", () => {
     expect(source).not.toMatch(/^getLatestVersion\(\)/m);
   });
 
-  it("still resolves the package version, with its documented fallback", () => {
-    const version = getVersion();
+  it("resolves the package version from the source tree as well as the bundle", () => {
+    const pkg = JSON.parse(
+      readFileSync(path.join(here, "../../package.json"), "utf-8"),
+    ) as { version: string };
 
-    expect(typeof version).toBe("string");
-    expect(version.length).toBeGreaterThan(0);
-    // From `src/startup/` there is no package.json beside it, so the fallback is expected
-    // in tests; in the bundle the path resolves and the real version comes back.
-    expect(["unknown", "0.0.0-dev"]).toContain(version);
+    expect(getVersion()).toBe(pkg.version);
   });
 
   it("compares semver the way UpdateService reads it", () => {

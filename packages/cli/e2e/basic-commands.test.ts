@@ -7,9 +7,8 @@ import {
 } from "../test-utils/cli-helpers.js";
 
 /**
- * `getVersion()` resolves package.json relative to `src/startup/`, where there
- * is none, so it returns its "unknown" fallback while the bundle returns the
- * real version. Read the version the bundle is built from instead.
+ * Read the version the bundle is built from, so the assertion states the expected
+ * value rather than importing the code under test.
  */
 function bundledVersion(): string {
   const { version } = JSON.parse(readFileSync("package.json", "utf8")) as {
