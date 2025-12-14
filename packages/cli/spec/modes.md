@@ -1,83 +1,56 @@
 # Modes
 
-Modes are a system for managing tool permissions in the CLI. They can be set via command-line flags at startup or switched dynamically during chat sessions. The following modes are available:
+A mode decides where tool policies come from. Three modes are available:
 
-## Available Modes
+- `agent` (default) - command-line overrides, then `~/.tnt/permissions.yaml`, then the
+  built-in defaults.
+- `plan` - a fixed list that permits only provably non-writing actions.
+- `auto` - a single `{ tool: "*", permission: "allow" }` policy.
 
-### `normal` (default)
+Set the mode at startup with `--mode <agent|plan|auto>`, `--readonly` (plan), or
+`--auto`. `--readonly` and `--auto` cannot be combined, and neither can a mode flag be
+combined with `--allow`, `--ask`, or `--exclude`: `plan` and `auto` build their policies
+from the mode alone, so the combination is refused at startup with
+`PERMISSION_FLAGS_IGNORED_BY_MODE` rather than accepted and silently ignored.
 
-The default mode that follows configured permission policies from `permissions.yaml` and command-line overrides without any additional restrictions or mode-specific policies.
+## `agent` (default)
 
-- **UI Indicator:** No indicator shown (clean interface for default behavior)
-- **Current directory:** Visible in status bar for context
-- **Permission behavior:** Uses existing permission policies as configured
-- **Backward compatibility:** Existing configurations work unchanged
-
-### `plan`
-
-Planning mode that **completely overrides all user permissions** to enforce read-only access with command execution. This mode prevents file modifications but allows command execution for analysis, regardless of user configuration.
-
-- **Command-line flag:** `--readonly` (for backward compatibility)
-- **UI Indicator:** `[plan]` shown in blue
-- **Current directory:** Hidden to save space and focus on analysis
-- **Permission override:** **Absolute** - excludes write tools (Write, Edit, etc.) and allows read tools (Read, Grep, LS, etc.) and Bash for command execution
-- **User config ignored:** Any user `--allow` flags for write tools are overridden
-
-### `auto`
-
-Auto mode that **completely overrides all user permissions** to allow everything without asking. This mode provides maximum automation by bypassing all permission policies and restrictions, regardless of user configuration.
-
-- **Command-line flag:** `--auto` (starts in auto mode)
-- **UI Indicator:** `[auto]` shown in green
-- **Current directory:** Hidden to save space and focus on automation
-- **Permission override:** **Absolute** - allows all tools with `*: allow` policy
-- **User config ignored:** Any user `--exclude` flags are overridden - everything is allowed
-
-## Usage
-
-### Command-Line Initialization
-
-Modes can be set when starting the CLI:
-
-```bash
-tnt --readonly "Help me analyze this code"  # Starts in plan mode
-tnt --auto "Fix all the linting errors"     # Starts in auto mode
-tnt "Let me implement this feature"         # Starts in normal mode (default)
-```
-
-### Dynamic Mode Switching
-
-Users can switch modes during chat sessions using:
-
-**Keyboard Shortcut:**
-
-- **Shift+Tab** - Cycle through modes: normal → plan → auto → (repeat)
-
-## Implementation
-
-Modes are implemented through the permission system:
-
-- **ToolPermissionService**: Rectifies current mode and tool policies
-- **ModeIndicator**: UI component showing current mode (hidden for normal mode)
-- **Keyboard shortcuts**: Shift+Tab cycles through modes instantly
-- **Backward compatibility**: Existing `--readonly` flag maps to plan mode
-
-### Mode Policy Priority
-
-**Mode policies completely override all other configurations** when in plan or auto mode:
-
-**Plan and Auto modes:**
-
-1. **Mode policies** (absolute override - ignores everything else)
-
-**Normal mode only:**
+Policies are resolved in this order, earlier sources overriding later ones per tool:
 
 1. Command-line overrides (`--allow`, `--ask`, `--exclude`)
-2. Permission configuration from `permissions.yaml`
+2. `~/.tnt/permissions.yaml`
 3. Default tool policies
 
-### Mode-Specific Behaviors
+Reads and searches are allowed; write tools and Bash ask before running. Headless runs
+cannot prompt, so there the ask policies are auto-allowed and `--ask`/`--exclude` still
+narrow them per run. No mode badge is shown.
 
-- **normal**: No mode policies applied, uses existing user configuration; shows current directory
-- **plan**: **Absolute override** - excludes write tools (Write, Edit), allows read tools (Read, Grep, LS) and Bash; hides current directory
-- **auto**: **Absolute override** - allows all tools with `*: allow` policy; hides current directory
+## `plan`
+
+The policy list is `PLAN_MODE_POLICIES`; the configuration file and the command-line
+overrides are not consulted.
+
+- Write tools are allowed only for documentation files inside the workspace. Any other
+  write call is refused.
+- Bash is allowed only for commands the classifier proves non-writing; an unrecognized
+  command is refused rather than sent.
+- Reads, searches, diagnostics, subagents and built-in bookkeeping tools are allowed.
+- MCP and plugin tools fall through to the wildcard allow, because plan mode cannot
+  inspect a third-party tool's effects. Run only trusted MCP servers in plan mode.
+- `EnterPlanMode` is allowed; `ExitPlanMode` asks.
+
+The composer's top border is labelled `[plan]` in blue.
+
+## `auto`
+
+The policy list is `AUTO_MODE_POLICIES`: every tool, including MCP and plugin tools, is
+allowed without asking. The configuration file and the command-line overrides are not
+consulted. The composer's top border is labelled `[auto]` in green.
+
+## Switching
+
+Shift+Tab cycles `agent → plan → auto → agent` during a chat session. Entering `plan`
+or `auto` stores the policies that were active in `agent` mode and replaces them with the
+mode's own list; returning to `agent` restores the stored policies. The workspace name
+stays visible in the status bar in every mode; the mode itself is shown on the composer
+border.
