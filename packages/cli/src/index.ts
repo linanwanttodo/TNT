@@ -268,6 +268,8 @@ addCommonOptions(program)
       allow: options.allow,
       ask: options.ask,
       exclude: options.exclude,
+      model: options.model,
+      mcp: options.mcp,
       isRootCommand: true,
       commandName: "tnt",
     });
