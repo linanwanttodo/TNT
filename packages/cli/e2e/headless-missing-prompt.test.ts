@@ -23,7 +23,8 @@ describe("E2E: Headless Mode - Missing Prompt", () => {
 version: 1.0.0
 schema: v1
 models:
-  - model: gpt-4
+  - name: gpt-4
+    model: gpt-4
     provider: openai
     apiKey: test-key
     roles:
@@ -59,7 +60,8 @@ models:
 version: 1.0.0
 schema: v1
 models:
-  - model: gpt-4
+  - name: gpt-4
+    model: gpt-4
     provider: openai
     apiKey: test-key
     roles:
@@ -75,11 +77,13 @@ models:
       timeout: 20000,
     });
 
-    // Should attempt to process the prompt (will fail due to invalid API key)
+    // Reaching the provider is what this case is about, so the failure has to be the
+    // key one: before the fixture carried the model's required name, the run died at
+    // config parsing and satisfied the old assertion for the wrong reason.
     expect(result.exitCode).not.toBe(0);
 
-    // Should NOT show the "prompt required" error message
     const output = result.stderr + result.stdout;
+    expect(output).toContain("Incorrect API key");
     expect(output).not.toContain(
       "A prompt is required when using the -p/--print flag",
     );
@@ -95,7 +99,8 @@ models:
 version: 1.0.0
 schema: v1
 models:
-  - model: gpt-4
+  - name: gpt-4
+    model: gpt-4
     provider: openai
     apiKey: test-key
     roles:
@@ -129,7 +134,8 @@ models:
 version: 1.0.0
 schema: v1
 models:
-  - model: gpt-4
+  - name: gpt-4
+    model: gpt-4
     provider: openai
     apiKey: test-key
     roles:
@@ -163,7 +169,8 @@ models:
 version: 1.0.0
 schema: v1
 models:
-  - model: gpt-4
+  - name: gpt-4
+    model: gpt-4
     provider: openai
     apiKey: test-key
     roles:
