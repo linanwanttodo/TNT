@@ -248,7 +248,10 @@ describe("the module documents name files that exist", () => {
     // A scan of nothing - a moved directory, a broken walk - would agree with any
     // claim about the docs, so both the file count and the mention count are floored.
     expect(docs.length).toBeGreaterThan(12);
-    expect(mentions).toBeGreaterThan(40);
+    // 40 mentions measured after `spec/otlp-metrics.md` was rewritten down from an
+    // aspirational catalogue; the floor sits below that, matching the link scan, so a
+    // moved directory or broken walk still cannot pass by collecting nothing.
+    expect(mentions).toBeGreaterThan(20);
   });
 
   it("resolves every path the module documents name", () => {
