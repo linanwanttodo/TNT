@@ -24,8 +24,7 @@ const SWEEP_BLIND: string[] = [];
 function policyNames(): Set<string> {
   const names = new Set<string>();
   for (const policies of [
-    getDefaultToolPolicies(false),
-    getDefaultToolPolicies(true),
+    getDefaultToolPolicies(),
     PLAN_MODE_POLICIES,
     AUTO_MODE_POLICIES,
   ]) {

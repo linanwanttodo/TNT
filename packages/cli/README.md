@@ -53,7 +53,7 @@ echo "Review this code" | tnt -p
 tnt -p "Analyze the code" --format json
 
 # Silent mode (strips thinking tags)
-tnt -p "Write a README" --silent
+tnt -p --allow Write "Write a README" --silent
 ```
 
 **TTY-less Environments**: Headless mode is designed to work in environments without a terminal (TTY), such as when called from VSCode/IntelliJ extensions using terminal commands. The CLI will not attempt to read stdin or initialize the interactive UI when running in headless mode with a supplied prompt.
