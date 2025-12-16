@@ -260,6 +260,22 @@ export function checkToolPermission(
       };
     }
 
+    // On an ask policy, the read-only branch is an allow: it is what lets
+    // `git status` run in default mode while `git commit` still asks.
+    if (matchedPolicy?.readOnlyAllow) {
+      const command = toolCall.arguments?.command;
+      if (
+        typeof command === "string" &&
+        command.trim() !== "" &&
+        isReadOnlyCommand(command)
+      ) {
+        return {
+          permission: "allow",
+          matchedPolicy,
+        };
+      }
+    }
+
     // A read-only policy narrows "allow" to commands that cannot write. The
     // tool listing probe carries no command, and refusing there would drop the
     // tool from the request, so only a real call is judged.

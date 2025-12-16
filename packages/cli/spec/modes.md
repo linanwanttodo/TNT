@@ -11,13 +11,17 @@ The configuration layers apply in this order:
 2. `~/.tnt/permissions.yaml`
 3. Default tool policies
 
-Reads and searches are allowed; write tools and Bash ask before running. Headless runs
-drop ask tools and refuse a call that reaches approval.
+Reads and searches are allowed; write tools ask before running. Bash commands that the
+classifier proves non-writing (for example `git status` or `ls`) run from the
+`readOnlyAllow` policy, and every other command asks. Headless runs drop ask tools and
+refuse a call that reaches approval.
 
 ## `acceptEdits`
 
-Reserved for the mode that allows edits inside the workspace automatically. Until its
-policy table lands it uses the `default` table, so it is currently identical in effect.
+`ACCEPT_EDITS_MODE_POLICIES` lets the four write tools run inside the workspace without
+asking (`workspaceOnly` still escalates a write outside it). Reads are allowed, Bash
+keeps the default read-only-allowed / otherwise-ask rule, and MCP and plugin tools
+still ask.
 
 ## `plan`
 
