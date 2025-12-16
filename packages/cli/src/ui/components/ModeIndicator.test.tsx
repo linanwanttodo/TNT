@@ -29,7 +29,7 @@ describe("ModeIndicator", () => {
     await initializeServices({
       headless: true,
       toolPermissionOverrides: {
-        mode: "agent",
+        mode: "default",
       },
     });
   });
@@ -46,8 +46,8 @@ describe("ModeIndicator", () => {
     });
 
     it("displays auto mode", () => {
-      const { lastFrame } = track(<ModeIndicator mode="auto" />);
-      expect(lastFrame()).toContain("auto]");
+      const { lastFrame } = track(<ModeIndicator mode="bypassPermissions" />);
+      expect(lastFrame()).toContain("bypassPermissions]");
     });
 
     it("uses service mode when no mode prop is provided", () => {
@@ -58,8 +58,8 @@ describe("ModeIndicator", () => {
 
     it("prioritizes the mode prop over service mode", () => {
       toolPermissionService.switchMode("plan");
-      const { lastFrame } = track(<ModeIndicator mode="auto" />);
-      expect(lastFrame()).toContain("auto]");
+      const { lastFrame } = track(<ModeIndicator mode="bypassPermissions" />);
+      expect(lastFrame()).toContain("bypassPermissions]");
     });
   });
 
@@ -72,11 +72,11 @@ describe("ModeIndicator", () => {
       rerender(<ModeIndicator />);
       expect(lastFrame()).toContain("plan]");
 
-      toolPermissionService.switchMode("auto");
+      toolPermissionService.switchMode("bypassPermissions");
       rerender(<ModeIndicator />);
-      expect(lastFrame()).toContain("auto]");
+      expect(lastFrame()).toContain("bypassPermissions]");
 
-      toolPermissionService.switchMode("agent");
+      toolPermissionService.switchMode("default");
       rerender(<ModeIndicator />);
       expect(lastFrame()).toBe("");
     });

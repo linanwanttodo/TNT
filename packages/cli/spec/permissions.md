@@ -1,5 +1,8 @@
 # Permissions
 
+Tool policies apply in one of six modes: `default`, `acceptEdits`, `plan`, `auto`,
+`bypassPermissions` and `dontAsk`.
+
 Every tool call is matched against an ordered policy list. A policy carries one of three
 permissions:
 
@@ -18,8 +21,9 @@ In `agent` mode the sources are applied in this order, earlier entries winning p
 
 The `permissions` section of `config.yaml` is not implemented.
 
-`plan` and `auto` do not consult this list. They replace it with their own policy list;
-see [modes.md](./modes.md).
+`plan` and `bypassPermissions` do not consult this list. They replace it with their own
+policy list; see [modes.md](./modes.md). `acceptEdits` and `dontAsk` use the same layers
+until their own behaviour lands.
 
 ## Tool matching
 

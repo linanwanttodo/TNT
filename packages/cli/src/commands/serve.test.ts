@@ -164,7 +164,7 @@ describe("serve command", () => {
         config: { name: "test" },
         llmApi: { chat: vi.fn() },
         model: { provider: "test", model: "test" },
-        currentMode: "agent",
+        currentMode: "default",
       } as any);
 
     const consoleSpy = vi.mocked(console.log);

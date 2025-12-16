@@ -103,7 +103,9 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "*", permission: "allow" },
 ];
 
-// Auto mode: Complete override - allow everything without asking
-export const AUTO_MODE_POLICIES: ToolPermissionPolicy[] = [
+// Bypass permissions: complete override. Entry is gated at flag validation, so
+// this table is only reachable through an explicit --dangerously-skip-permissions
+// (or the legacy --auto alias).
+export const BYPASS_PERMISSIONS_POLICIES: ToolPermissionPolicy[] = [
   { tool: "*", permission: "allow" },
 ];

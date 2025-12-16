@@ -69,7 +69,7 @@ describe("constructSystemMessage output style wiring", () => {
       "---\nname: terse\nforce-for-plugin: true\n---\n\nAnswer in one line.\n",
     );
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).toContain(
       '<context name="outputStyle" source="voice:terse">',

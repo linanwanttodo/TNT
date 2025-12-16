@@ -78,7 +78,7 @@ describe("SystemMessageService", () => {
       buildSectionsMock.mockResolvedValueOnce([
         { name: "base", text: "A", volatile: false },
       ]);
-      await service.getSystemMessage("agent");
+      await service.getSystemMessage("default");
       expect(service.describeLastSystemMessageChange()).toBe("");
 
       buildSectionsMock.mockResolvedValueOnce([
@@ -110,10 +110,10 @@ describe("SystemMessageService", () => {
       buildSectionsMock.mockResolvedValue(builtFrom("Test system message"));
 
       await service.initialize(config);
-      const message = await service.getSystemMessage("agent");
+      const message = await service.getSystemMessage("default");
 
       expect(buildSectionsMock).toHaveBeenCalledWith(
-        "agent", // Default mode
+        "default", // Default mode
         ["rule1"],
         "json",
         true,
@@ -135,10 +135,10 @@ describe("SystemMessageService", () => {
       });
 
       buildSectionsMock.mockResolvedValue(builtFrom("Updated message"));
-      await service.getSystemMessage("agent");
+      await service.getSystemMessage("default");
 
       expect(buildSectionsMock).toHaveBeenCalledWith(
-        "agent",
+        "default",
         ["rule1"],
         "json",
         false,
@@ -157,10 +157,10 @@ describe("SystemMessageService", () => {
       });
 
       buildSectionsMock.mockResolvedValue(builtFrom("Updated message"));
-      await service.getSystemMessage("agent");
+      await service.getSystemMessage("default");
 
       expect(buildSectionsMock).toHaveBeenCalledWith(
-        "agent",
+        "default",
         ["rule2", "rule3"],
         "json",
         undefined,
@@ -175,7 +175,7 @@ describe("SystemMessageService", () => {
 
       await service.initialize({});
 
-      await expect(service.getSystemMessage("agent")).rejects.toThrow(
+      await expect(service.getSystemMessage("default")).rejects.toThrow(
         "Failed to construct",
       );
     });

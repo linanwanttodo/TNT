@@ -55,7 +55,7 @@ describe("instruction layers", () => {
     );
     write(".tnt/rules/style-extra.md", "INCLUDED_STYLE_RULE");
 
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     expect(message).toContain(RULES_PREAMBLE);
     expect(message).toContain("PROJECT_RULE INCLUDED_TESTING_RULE");
@@ -75,7 +75,7 @@ describe("instruction layers", () => {
   it("starts the rules block with what the block is for", async () => {
     write("AGENTS.md", "ONLY_RULE");
 
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
     const block = message.slice(message.indexOf('<context name="userRules">'));
 
     expect(block.startsWith('<context name="userRules">')).toBe(true);
@@ -85,7 +85,7 @@ describe("instruction layers", () => {
   });
 
   it("invents no layer when the project has no instruction file", async () => {
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     expect(message).not.toContain("Rules from");
     expect(message).not.toContain("[Includes:");

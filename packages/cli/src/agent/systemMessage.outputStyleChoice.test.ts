@@ -84,7 +84,7 @@ describe("the project default from settings", () => {
     ]);
     writeDefault("voice:verbose");
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).toContain('source="voice:verbose"');
     expect(message).not.toContain("Answer in one line.");
@@ -98,7 +98,7 @@ describe("the project default from settings", () => {
     writeDefault("voice:verbose");
     chosen.value = "voice:terse";
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).toContain('source="voice:terse"');
     expect(message).not.toContain("Explain every step.");
@@ -113,7 +113,7 @@ describe("the project default from settings", () => {
     ]);
     writeDefault("voice:removed");
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).toContain('source="voice:terse"');
   });
@@ -127,7 +127,7 @@ describe("choosing an output style for the session", () => {
     ]);
     chosen.value = "voice:terse";
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).toContain('source="voice:terse"');
     expect(message).toContain("Answer in one line.");
@@ -144,7 +144,7 @@ describe("choosing an output style for the session", () => {
     ]);
     chosen.value = "voice:verbose";
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).toContain('source="voice:verbose"');
     expect(message).toContain("Explain every step.");
@@ -160,7 +160,7 @@ describe("choosing an output style for the session", () => {
       { file: "verbose.md", body: "Explain every step." },
     ]);
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).toContain('source="voice:terse"');
     expect(message).not.toContain("Explain every step.");
@@ -170,7 +170,7 @@ describe("choosing an output style for the session", () => {
     writeStyles([{ file: "terse.md", body: "Answer in one line." }]);
     chosen.value = "voice:removed";
 
-    const message = await constructSystemMessage("agent");
+    const message = await constructSystemMessage("default");
 
     expect(message).not.toContain('source="voice:removed"');
   });

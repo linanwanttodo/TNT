@@ -18,7 +18,7 @@ function parentContext(): AgentRunContext {
     delegationDepth: 0,
     systemMessage: "You are the parent agent.",
     permissions: agentPermissions(),
-    mode: "agent",
+    mode: "default",
     abortSignal: new AbortController().signal,
   };
 }

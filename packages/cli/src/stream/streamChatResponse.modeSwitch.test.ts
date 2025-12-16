@@ -23,7 +23,7 @@ describe("streamChatResponse - Mode Switch During Streaming", () => {
     await initializeServices({
       headless: false,
       toolPermissionOverrides: {
-        mode: "agent",
+        mode: "default",
       },
     });
   });
@@ -60,7 +60,7 @@ describe("streamChatResponse - Mode Switch During Streaming", () => {
 
   test("getRequestTools reflects current mode immediately", async () => {
     // Start in normal mode
-    expect(toolPermissionService.getCurrentMode()).toBe("agent");
+    expect(toolPermissionService.getCurrentMode()).toBe("default");
     let tools = await getRequestTools(false);
     expect(tools.map((t) => t.function.name)).toContain("Write");
 
@@ -81,10 +81,10 @@ describe("streamChatResponse - Mode Switch During Streaming", () => {
     ).toBe(true);
 
     // Switch to auto mode
-    toolPermissionService.switchMode("auto");
+    toolPermissionService.switchMode("bypassPermissions");
     updatedState = toolPermissionService.getState();
     serviceContainer.set(SERVICE_NAMES.TOOL_PERMISSIONS, updatedState);
-    expect(toolPermissionService.getCurrentMode()).toBe("auto");
+    expect(toolPermissionService.getCurrentMode()).toBe("bypassPermissions");
 
     // getRequestTools should immediately reflect auto mode (all tools allowed)
     tools = await getRequestTools(false);
