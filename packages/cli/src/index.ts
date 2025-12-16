@@ -9,6 +9,7 @@ import { chat } from "./commands/chat.js";
 import { checks } from "./commands/checks.js";
 import { listSessionsCommand } from "./commands/ls.js";
 import { review } from "./commands/review.js";
+import { unsupportedReviewFormat } from "./commands/reviewFormat.js";
 import { serve } from "./commands/serve.js";
 import {
   handleValidationErrors,
@@ -425,7 +426,7 @@ program
     "--range <spec>",
     "Review an arbitrary git range (e.g. main...HEAD, HEAD~3)",
   )
-  .option("--format <format>", "Output format")
+  .option("--format <format>", "Output format (text, json)")
   .option("--fix", "Automatically apply suggested fixes")
   .option("--patch", "Show patches")
   .option("--fail-fast", "Stop on first failure")
@@ -442,14 +443,14 @@ program
     // JSON review output was unreachable from the command line. Read whichever
     // of the two actually holds a value, and refuse a value no format explains.
     const requestedFormat = options.format ?? program.opts().format;
-    if (requestedFormat !== undefined && requestedFormat !== "json") {
+    if (unsupportedReviewFormat(requestedFormat) !== null) {
       handleValidationErrors([
         {
           code: "INVALID_REVIEW_FORMAT",
           message: t("cli.unsupportedFormat", {
             value: requestedFormat,
             command: "review",
-            expected: "json",
+            expected: "text, json",
           }),
         },
       ]);
