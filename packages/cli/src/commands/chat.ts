@@ -615,7 +615,8 @@ async function runHeadlessMode(
   options: ChatOptions,
 ): Promise<void> {
   // Initialize services for headless mode
-  const { permissionOverrides } = processCommandFlags(options);
+  const { permissionOverrides, warnings } = processCommandFlags(options);
+  for (const warning of warnings) console.warn(warning);
 
   // Loaded before the services start so a bad file fails in seconds instead of
   // after a model was picked and a session was set up.
@@ -824,7 +825,8 @@ export async function chat(prompt?: string, options: ChatOptions = {}) {
     // If not in headless mode, use unified initialization with TUI
     if (!options.headless) {
       // Process flags for TUI mode
-      const { permissionOverrides } = processCommandFlags(options);
+      const { permissionOverrides, warnings } = processCommandFlags(options);
+      for (const warning of warnings) console.warn(warning);
       // Initialize services with onboarding handled internally
       await initializeServices({
         options,

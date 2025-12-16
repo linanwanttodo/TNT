@@ -11,10 +11,18 @@ export function addCommonOptions(command: Command): Command {
       "--org <slug>",
       "Organization slug to use for this session (supported only in headless mode)",
     )
-    .option("--readonly", "Start in plan mode (documentation writes only)")
+    .option("--readonly", "Deprecated alias for plan mode")
     .option(
       "--auto",
       "Deprecated alias for bypassPermissions (all tools allowed)",
+    )
+    .option(
+      "--permission-mode <mode>",
+      "Permission mode: default, acceptEdits, plan, auto, bypassPermissions, dontAsk",
+    )
+    .option(
+      "--dangerously-skip-permissions",
+      "Allow bypassPermissions mode: every tool runs without asking",
     )
     .option(
       "--mode <mode>",

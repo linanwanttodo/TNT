@@ -68,6 +68,15 @@ describe("fireHook integration points", () => {
     expect(input.session_id).toBe("sess-1");
     expect(input.transcript_path).toBe("/sessions/sess-1.json");
     expect(input.permission_mode).toBe("default");
+    // Hook input must only ever carry Claude's six mode values.
+    expect([
+      "default",
+      "acceptEdits",
+      "plan",
+      "auto",
+      "bypassPermissions",
+      "dontAsk",
+    ]).toContain(input.permission_mode);
   });
 
   it("fires PostToolUse with the tool response", async () => {
