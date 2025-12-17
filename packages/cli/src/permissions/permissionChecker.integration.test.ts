@@ -2,10 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 
 import { ToolPermissionService } from "../services/ToolPermissionService.js";
 
-import {
-  DOCUMENT_ONLY_MODE_DENIAL,
-  checkToolPermission,
-} from "./permissionChecker.js";
+import { checkToolPermission } from "./permissionChecker.js";
 
 describe("Permission Integration Tests", () => {
   let service: ToolPermissionService;
@@ -92,9 +89,9 @@ describe("Permission Integration Tests", () => {
       expect(editResult.permission).toBe("exclude");
     });
 
-    it("should allow documentation writes in plan mode", () => {
-      // Plan mode writes documentation only, and the mode rule is what
-      // applies even when the user allows Edit outright.
+    it("should refuse every write in plan mode, documentation included", () => {
+      // The mode disables the write tools outright; a user allow for Edit does
+      // not bring them back.
       service.initializeSync({
         mode: "plan",
         allow: ["Edit"],
@@ -103,18 +100,17 @@ describe("Permission Integration Tests", () => {
 
       const state = service.getState();
 
-      const planWrite = checkToolPermission(
+      const docWrite = checkToolPermission(
         { name: "Edit", arguments: { file_path: "notes/implementation.md" } },
         state.permissions,
       );
-      expect(planWrite.permission).toBe("allow");
+      expect(docWrite.permission).toBe("exclude");
 
       const codeWrite = checkToolPermission(
         { name: "Edit", arguments: { file_path: "src/index.ts" } },
         state.permissions,
       );
       expect(codeWrite.permission).toBe("exclude");
-      expect(codeWrite.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
     });
   });
 });

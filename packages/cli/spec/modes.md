@@ -26,9 +26,10 @@ still ask.
 ## `plan`
 
 The policy list is `PLAN_MODE_POLICIES`; the configuration file and the command-line
-overrides are not consulted. The current list allows documentation writes inside the
-workspace and only provably non-writing shell commands; MCP and plugin tools fall
-through to the wildcard allow. The read-only tightening is a separate change.
+overrides are not consulted. The four write tools are `exclude`d, reads stay open, and
+Bash is allowed only for commands the classifier proves non-writing. MCP and plugin
+tools fall through to an `ask`: the TUI asks, while a headless run drops them and
+refuses a call that reaches approval.
 
 The composer's top border is labelled `[Plan]` in blue.
 
