@@ -30,7 +30,7 @@ overrides are not consulted. The current list allows documentation writes inside
 workspace and only provably non-writing shell commands; MCP and plugin tools fall
 through to the wildcard allow. The read-only tightening is a separate change.
 
-The composer's top border is labelled `[plan]` in blue.
+The composer's top border is labelled `[Plan]` in blue.
 
 ## `auto`
 
@@ -43,7 +43,7 @@ with a reason rather than silently falling back, and the legacy `--mode auto` ma
 `BYPASS_PERMISSIONS_POLICIES` allows every tool. `--permission-mode bypassPermissions`
 requires `--dangerously-skip-permissions`, and `TNT_PERMISSION_MODE=bypassPermissions`
 counts as the explicit setting; the legacy `--auto` alias also selects it. It is never
-part of the Shift+Tab cycle. The composer labels it `[bypassPermissions]` in green.
+part of the Shift+Tab cycle. The composer labels it `[Bypass permissions]` in red.
 
 ## `dontAsk`
 

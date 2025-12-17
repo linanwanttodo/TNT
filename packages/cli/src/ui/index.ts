@@ -102,6 +102,7 @@ export async function startTUIChat(
     stderr: process.stderr,
   };
 
+  process.stdout.write("\x1b[2J\x1b[3J\x1b[H");
   const { unmount } = render(
     React.createElement(ServiceContainerProvider, {
       children: React.createElement(AppRoot, {
