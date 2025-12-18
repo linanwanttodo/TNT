@@ -6,6 +6,8 @@ import { gracefulExit } from "../utils/exit.js";
 import { getGitBranch, getGitRemoteUrl } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 
+import { classifyChecksArgument } from "./checksArgs.js";
+
 interface CheckStatus {
   name: string;
   state: "pending" | "success" | "failure";
@@ -303,17 +305,10 @@ export async function checks(
   prUrlArg: string | undefined,
 ): Promise<void> {
   try {
-    // Determine if first arg is an action or a PR URL
-    let action: "list" | "accept" | "reject" = "list";
-    let rawPrUrl: string | undefined = prUrlArg;
-
-    if (actionOrUrl === "accept" || actionOrUrl === "reject") {
-      action = actionOrUrl;
-      // prUrlArg already has the right value from Commander
-    } else if (actionOrUrl) {
-      // First arg is a PR URL, not an action
-      rawPrUrl = actionOrUrl;
-    }
+    const { action, prUrl: rawPrUrl } = classifyChecksArgument(
+      actionOrUrl,
+      prUrlArg,
+    );
 
     const prUrl = await resolvePrUrl(rawPrUrl);
 
