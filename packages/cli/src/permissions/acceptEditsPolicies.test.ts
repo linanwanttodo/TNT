@@ -4,6 +4,7 @@ import { ToolPermissionService } from "../services/ToolPermissionService.js";
 
 import {
   ACCEPT_EDITS_MODE_POLICIES,
+  DONT_ASK_MODE_POLICIES,
   getDefaultToolPolicies,
 } from "./defaultPolicies.js";
 import { checkToolPermission } from "./permissionChecker.js";
@@ -50,6 +51,34 @@ describe("acceptEdits and the default Bash rule", () => {
         accept,
       ).permission,
     ).toBe("ask");
+  });
+
+  it("turns every ask into an exclude in dontAsk", () => {
+    const dontAsk = { policies: DONT_ASK_MODE_POLICIES };
+    for (const permissions of [dontAsk]) {
+      expect(
+        checkToolPermission({ name: "Write", arguments: {} }, permissions)
+          .permission,
+      ).toBe("exclude");
+      expect(
+        checkToolPermission({ name: "Bash", arguments: {} }, permissions)
+          .permission,
+      ).toBe("exclude");
+      expect(
+        checkToolPermission(
+          { name: "unknown_tool", arguments: {} },
+          permissions,
+        ).permission,
+      ).toBe("exclude");
+      expect(
+        checkToolPermission({ name: "Read", arguments: {} }, permissions)
+          .permission,
+      ).toBe("allow");
+    }
+
+    const service = new ToolPermissionService();
+    const state = service.initializeSync({ mode: "dontAsk" });
+    expect(state.permissions.policies).toEqual(DONT_ASK_MODE_POLICIES);
   });
 
   it("replaces the layers when the service starts in acceptEdits", () => {
