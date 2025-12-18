@@ -23,6 +23,8 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "cli.permissionFlagsWithMode":
+    "Error: {flags} cannot be combined with {mode} mode, which applies its own tool policy",
   "lsp.noInitializeResponse": "language server did not answer initialize",
   "permissions.invalidToolPattern": "Invalid tool pattern: {pattern}",
   "subagent.depthOverflow":
@@ -643,6 +645,8 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "cli.permissionFlagsWithMode":
+    "错误：{flags} 不能与 {mode} 模式同时使用，该模式使用自己的工具策略",
   "lsp.noInitializeResponse": "语言服务器未响应 initialize",
   "permissions.invalidToolPattern": "无效的工具匹配模式：{pattern}",
   "subagent.depthOverflow": "委派层级溢出：父级深度为 {depth}。",
