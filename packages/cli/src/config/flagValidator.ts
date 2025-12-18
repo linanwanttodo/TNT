@@ -146,6 +146,16 @@ function validateTimeoutFlag(options: ValidationOptions): ValidationError[] {
   if (options.timeoutSeconds === undefined) {
     return [];
   }
+  // Its three siblings (--format, --silent, --output-schema) already refuse without -p;
+  // a bound that the TUI never arms is the same inert flag in a different coat.
+  if (!options.print) {
+    return [
+      {
+        code: "REQUEST_TIMEOUT_REQUIRES_PRINT",
+        message: t("cli.requestTimeoutRequiresPrint"),
+      },
+    ];
+  }
   if (Number.isInteger(options.timeoutSeconds) && options.timeoutSeconds >= 0) {
     return [];
   }

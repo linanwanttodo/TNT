@@ -23,6 +23,8 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "cli.requestTimeoutRequiresPrint":
+    "Error: --request-timeout only works with -p/--print",
   "cli.permissionFlagsWithMode":
     "Error: {flags} cannot be combined with {mode} mode, which applies its own tool policy",
   "lsp.noInitializeResponse": "language server did not answer initialize",
@@ -645,6 +647,8 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "cli.requestTimeoutRequiresPrint":
+    "错误：--request-timeout 只能与 -p/--print 一起使用",
   "cli.permissionFlagsWithMode":
     "错误：{flags} 不能与 {mode} 模式同时使用，该模式使用自己的工具策略",
   "lsp.noInitializeResponse": "语言服务器未响应 initialize",
