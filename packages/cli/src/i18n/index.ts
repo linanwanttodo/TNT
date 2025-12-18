@@ -566,9 +566,9 @@ const en = {
     "Error: --fork requires a session ID (e.g., --fork abc123)",
   "cli.invalidConfigPath": "Error: --config must be a valid path",
   "cli.allowRequiresTool":
-    "Error: --allow requires a tool name (e.g., --allow readFile)",
+    "Error: --allow requires a tool name (e.g., --allow Read)",
   "cli.askRequiresTool":
-    "Error: --ask requires a tool name (e.g., --ask writeFile)",
+    "Error: --ask requires a tool name (e.g., --ask Write)",
   "cli.excludeRequiresTool":
     "Error: --exclude requires a tool name (e.g., --exclude Write)",
   "cli.invalidNumericFlag":
@@ -1129,9 +1129,8 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.forkRequiresSessionId":
     "错误：--fork 需要一个会话 ID（例如 --fork abc123）",
   "cli.invalidConfigPath": "错误：--config 必须是有效路径",
-  "cli.allowRequiresTool":
-    "错误：--allow 需要一个工具名（例如 --allow readFile）",
-  "cli.askRequiresTool": "错误：--ask 需要一个工具名（例如 --ask writeFile）",
+  "cli.allowRequiresTool": "错误：--allow 需要一个工具名（例如 --allow Read）",
+  "cli.askRequiresTool": "错误：--ask 需要一个工具名（例如 --ask Write）",
   "cli.excludeRequiresTool":
     "错误：--exclude 需要一个工具名（例如 --exclude Write）",
   "cli.invalidNumericFlag":
