@@ -118,12 +118,6 @@ function useTUIChatServices(remoteUrl?: string) {
 }
 
 // Organization names are no longer available (Hub integration removed)
-function useOrganizationName(_organizationId?: string): string | undefined {
-  const organizationName = undefined;
-
-  return organizationName;
-}
-
 // Custom hook for chat handlers
 function useChatHandlers(
   setShowIntroMessage: (show: boolean) => void,
@@ -452,7 +446,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
   const [hasImageInClipboard, setHasImageInClipboard] = useState(false);
 
   // Fetch organization name based on auth state
-  const organizationName = useOrganizationName(services.auth?.organizationId);
 
   // Track if a Bash tool is currently running via events
   const [isBashToolRunning, setIsBashToolRunning] = useState(false);
@@ -477,9 +470,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
     <Box flexDirection="column" flexShrink={0} flexGrow={0}>
       <StaticChatContent
         showIntroMessage={showIntroMessage && !isRemoteMode}
-        config={services.config?.config || undefined}
-        model={services.model?.model || undefined}
-        organizationName={organizationName}
         chatHistory={chatHistory}
         queuedMessages={queuedMessages}
         renderMessage={renderMessage}

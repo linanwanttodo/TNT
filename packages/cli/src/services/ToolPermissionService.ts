@@ -5,7 +5,6 @@ import {
   PLAN_MODE_POLICIES,
 } from "src/permissions/defaultPolicies.js";
 
-import { ensurePermissionsYamlExists } from "../permissions/permissionsYamlLoader.js";
 import { resolvePermissionPrecedence } from "../permissions/precedenceResolver.js";
 import {
   PermissionMode,
@@ -260,9 +259,7 @@ export class ToolPermissionService
     agentFileServiceState?: AgentFileServiceState,
     mcpServiceState?: MCPServiceState,
   ): Promise<ToolPermissionServiceState> {
-    await ensurePermissionsYamlExists();
-
-    // Use the synchronous version after ensuring the file exists
+    // The legacy permissions.yaml is read-only; there is nothing to create.
     return this.initializeSync(
       runtimeOverrides,
       agentFileServiceState,

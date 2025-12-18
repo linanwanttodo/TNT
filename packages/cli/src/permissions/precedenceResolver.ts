@@ -1,8 +1,6 @@
+import { loadPermissionPoliciesFromSettings } from "../config/settings.js";
+
 import { getDefaultToolPolicies } from "./defaultPolicies.js";
-import {
-  loadPermissionsYaml,
-  yamlConfigToPolicies,
-} from "./permissionsYamlLoader.js";
 import { type ToolPermissionPolicy } from "./types.js";
 
 export interface PermissionSources {
@@ -40,12 +38,11 @@ export function resolvePermissionPrecedence(
     policies.push(...cliPolicies);
   }
 
-  // Layer 2: Personal settings from ~/.tnt/permissions.yaml
+  // Layer 2: settings.json permissions, falling back once to permissions.yaml
   if (sources.personalSettings !== false) {
-    const yamlConfig = loadPermissionsYaml();
-    if (yamlConfig) {
-      const yamlPolicies = yamlConfigToPolicies(yamlConfig);
-      policies.push(...yamlPolicies);
+    const settingsPolicies = loadPermissionPoliciesFromSettings();
+    if (settingsPolicies) {
+      policies.push(...settingsPolicies);
     }
   }
 
