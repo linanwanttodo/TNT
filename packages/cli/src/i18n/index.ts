@@ -23,6 +23,10 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "cli.modelFlagRemoved":
+    "Error: --model no longer loads models from the hub; add models to the assistant configuration file",
+  "cli.mcpFlagRemoved":
+    "Error: --mcp no longer loads servers from the hub; add MCP servers to the assistant configuration file",
   "cli.requestTimeoutRequiresPrint":
     "Error: --request-timeout only works with -p/--print",
   "cli.permissionFlagsWithMode":
@@ -647,6 +651,10 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "cli.modelFlagRemoved":
+    "错误：--model 不再从 hub 加载模型；请改为在助手配置文件中添加模型",
+  "cli.mcpFlagRemoved":
+    "错误：--mcp 不再从 hub 加载服务；请改为在助手配置文件中添加 MCP 服务器",
   "cli.requestTimeoutRequiresPrint":
     "错误：--request-timeout 只能与 -p/--print 一起使用",
   "cli.permissionFlagsWithMode":
