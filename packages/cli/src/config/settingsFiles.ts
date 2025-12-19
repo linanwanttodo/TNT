@@ -5,8 +5,10 @@ import path from "path";
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 
 import { getPluginSettingsBase } from "../plugins/pluginSettings.js";
+import { t } from "../i18n/index.js";
 
 import { globalDir } from "./globalDir.js";
+import { isProjectTrusted, projectConfigFiles } from "./trust.js";
 
 /**
  * The settings files TNT reads, lowest precedence first. Hooks and the
@@ -33,6 +35,35 @@ export function getSettingsFilePaths(
     path.join(cwd, ".claude", "settings.local.json"),
     path.join(cwd, ".tnt", "settings.local.json"),
   ];
+}
+
+let warnedUntrustedProject = false;
+
+/**
+ * The settings files that may apply right now. User-global layers always do;
+ * project layers only after `--trust-project` (or TNT_TRUST_PROJECT=1) has
+ * recorded the current contents. An untrusted project gets one notice per
+ * process rather than a per-reader warning.
+ */
+export function getEffectiveSettingsFilePaths(
+  cwd: string = process.cwd(),
+  homeDir?: string,
+): string[] {
+  const paths = getSettingsFilePaths(cwd, homeDir);
+  const trustable = projectConfigFiles(cwd);
+  if (trustable.length === 0 || isProjectTrusted(cwd)) return paths;
+
+  if (!warnedUntrustedProject) {
+    warnedUntrustedProject = true;
+    console.warn(t("settings.untrustedProject", { path: cwd }));
+  }
+
+  const home = homeDir ?? os.homedir();
+  const userOnly = new Set([
+    path.join(home, ".claude", "settings.json"),
+    path.join(globalDir(home), "settings.json"),
+  ]);
+  return paths.filter((filePath) => userOnly.has(filePath));
 }
 
 export function readSettingsFile(
