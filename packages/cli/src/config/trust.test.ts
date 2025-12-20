@@ -4,9 +4,9 @@ import path from "path";
 
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { isProjectTrusted, projectConfigHash, trustProject } from "./trust.js";
-import { getEffectiveSettingsFilePaths } from "./settingsFiles.js";
 import { loadPermissionPoliciesFromSettings } from "./settings.js";
+import { getEffectiveSettingsFilePaths } from "./settingsFiles.js";
+import { isProjectTrusted, projectConfigHash, trustProject } from "./trust.js";
 
 describe("project trust", () => {
   const previousHome = process.env.CONTINUE_GLOBAL_DIR;
