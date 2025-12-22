@@ -558,6 +558,8 @@ const en = {
     "Error: Cannot use both --readonly and --auto flags together",
   "cli.modeConflictsWithReadonlyAuto":
     "Error: Cannot use --mode together with --readonly or --auto",
+  "mcp.legacyConfigServers":
+    "Warning: mcpServers in config.yaml is deprecated; move the server definitions to ~/.tnt/mcp.json.",
   "settings.untrustedProject":
     "Warning: this project's settings, hooks and MCP servers are not trusted; run with --trust-project (or set TNT_TRUST_PROJECT=1) to apply them.",
   "settings.legacyPermissions":
@@ -1137,6 +1139,8 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.conflictingReadonlyAuto": "错误：不能同时使用 --readonly 和 --auto",
   "cli.modeConflictsWithReadonlyAuto":
     "错误：--mode 不能与 --readonly 或 --auto 同时使用",
+  "mcp.legacyConfigServers":
+    "警告：config.yaml 中的 mcpServers 已弃用；请把 server 定义迁移到用户目录下的 mcp.json。",
   "settings.untrustedProject":
     "警告：本项目的设置、hooks 和 MCP server 尚未受信任；请使用 --trust-project（或设置 TNT_TRUST_PROJECT=1）后再应用。",
   "settings.legacyPermissions":
