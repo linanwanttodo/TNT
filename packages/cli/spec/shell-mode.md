@@ -22,7 +22,8 @@ The composer border turns yellow and the prompt becomes `$ `
    text is `Bash command failed: ...`.
 
 The command runs directly from the TUI; shell mode does not consult the permission
-policies. Two-stage Ctrl+C does not interrupt it.
+policies. A single Ctrl+C shows the exit hint and does not stop the command; a second
+Ctrl+C within one second exits the CLI.
 
 ## Exiting shell mode
 
@@ -36,10 +37,11 @@ Output is capped at 50,000 characters and 1,000 lines by default;
 `CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS` and `CONTINUE_CLI_BASH_MAX_OUTPUT_LINES` change the
 caps.
 
-The command is terminated after 180 seconds with no output, and the result carries
+The 180-second timeout measures inactivity: output resets it, so a long-running command
+that keeps printing is not cut off. When it fires, the result carries
 `[Command timed out after 180 seconds of no output]`. A timeout supplied to the tool is
-capped at 600 seconds. `TEST_TERMINAL_TIMEOUT` (test environment only) replaces the
-window.
+capped at 600 seconds. `TEST_TERMINAL_TIMEOUT` replaces the window only when
+`NODE_ENV=test`.
 
 ## Source
 
