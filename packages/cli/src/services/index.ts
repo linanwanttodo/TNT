@@ -233,6 +233,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
         configState.config,
         authState.authConfig,
         agentFileState,
+        configState.selectedModel ?? null,
       );
     },
     [SERVICE_NAMES.CONFIG, SERVICE_NAMES.AUTH, SERVICE_NAMES.AGENT_FILE], // Depends on config, auth, and agentFile

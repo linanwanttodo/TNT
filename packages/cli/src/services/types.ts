@@ -53,6 +53,8 @@ export interface AuthServiceState {
 export interface ConfigServiceState {
   config: AssistantUnrolled | null;
   configPath?: string;
+  /** The `model:` key of the loaded config file, if it has one. */
+  selectedModel?: string | null;
 }
 
 export interface ModelServiceState {

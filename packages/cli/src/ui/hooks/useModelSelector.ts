@@ -1,10 +1,14 @@
-import { updateModelName } from "../../auth/workos.js";
+import {
+  defaultConfigPath,
+  writeSelectedModelName,
+} from "../../config/modelSelection.js";
+import { t } from "../../i18n/index.js";
 import {
   SERVICE_NAMES,
   serviceContainer,
   services,
 } from "../../services/index.js";
-import { AuthServiceState, ModelServiceState } from "../../services/types.js";
+import { ConfigServiceState, ModelServiceState } from "../../services/types.js";
 import { useNavigation } from "../context/NavigationContext.js";
 
 interface ModelOption {
@@ -45,18 +49,28 @@ export function useModelSelector({
         currentState,
       );
 
-      // Persist the model choice using the actual model name
-      // and update the auth service state to reflect the change
+      // The selection lives in the config file, next to the model definitions.
       if (modelInfo?.name) {
-        const updatedAuthConfig = updateModelName(modelInfo.name);
-
-        // Update the AUTH service state in the container with the new config
-        // This ensures that when MODEL service is reloaded, it gets the updated auth config
-        const currentAuthState = services.auth.getState();
-        serviceContainer.set<AuthServiceState>(SERVICE_NAMES.AUTH, {
-          ...currentAuthState,
-          authConfig: updatedAuthConfig,
-        });
+        const configState = services.config.getState();
+        try {
+          writeSelectedModelName(
+            modelInfo.name,
+            configState.configPath ?? defaultConfigPath(),
+          );
+          serviceContainer.set<ConfigServiceState>(SERVICE_NAMES.CONFIG, {
+            ...configState,
+            selectedModel: modelInfo.name,
+          });
+        } catch (error: any) {
+          onMessage({
+            role: "system",
+            content: t("models.selectionSaveFailed", {
+              model: modelInfo.name,
+              reason: error?.message ?? String(error),
+            }),
+            messageType: "system",
+          });
+        }
       }
 
       onMessage({
