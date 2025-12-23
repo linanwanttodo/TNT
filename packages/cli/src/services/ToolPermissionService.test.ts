@@ -59,7 +59,6 @@ describe("ToolPermissionService", () => {
         commandLineFlags: overrides,
         personalSettings: true,
         useDefaults: true,
-        isHeadless: false,
       });
     });
 
@@ -386,29 +385,33 @@ describe("ToolPermissionService", () => {
   });
 
   describe("Headless Mode Behavior", () => {
-    test("should pass isHeadless=true to precedence resolver", () => {
+    test("should keep the headless flag out of the precedence call", () => {
       vi.mocked(precedenceResolver.resolvePermissionPrecedence).mockReturnValue(
         [],
       );
 
       const state = service.initializeSync({ isHeadless: true });
+      const call = vi
+        .mocked(precedenceResolver.resolvePermissionPrecedence)
+        .mock.calls.at(-1)?.[0];
 
-      expect(
-        precedenceResolver.resolvePermissionPrecedence,
-      ).toHaveBeenCalledWith(expect.objectContaining({ isHeadless: true }));
+      // The default table no longer varies by mode; headless is enforced by
+      // dropping ask tools and refusing a call that reaches approval.
+      expect("isHeadless" in (call ?? {})).toBe(false);
       expect(state.isHeadless).toBe(true);
     });
 
-    test("should pass isHeadless=false to precedence resolver", () => {
+    test("should treat an interactive run the same way", () => {
       vi.mocked(precedenceResolver.resolvePermissionPrecedence).mockReturnValue(
         [],
       );
 
       const state = service.initializeSync({ isHeadless: false });
+      const call = vi
+        .mocked(precedenceResolver.resolvePermissionPrecedence)
+        .mock.calls.at(-1)?.[0];
 
-      expect(
-        precedenceResolver.resolvePermissionPrecedence,
-      ).toHaveBeenCalledWith(expect.objectContaining({ isHeadless: false }));
+      expect("isHeadless" in (call ?? {})).toBe(false);
       expect(state.isHeadless).toBe(false);
     });
 
