@@ -72,6 +72,7 @@ describe("product naming", () => {
  * rather than letting a rename pass change one and break those callers.
  */
 const ENVIRONMENT_INTERFACE = [
+  "CLAUDE_CODE_PERMISSION_MODE",
   "CONTINUE_API_BASE",
   "CONTINUE_CLI_AUTO_UPDATED",
   "CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS",
@@ -99,6 +100,7 @@ const ENVIRONMENT_INTERFACE = [
   "TNT_GLOBAL_DIR",
   "TNT_HEADLESS_TIMEOUT",
   "TNT_LOG_LEVEL",
+  "TNT_PERMISSION_MODE",
   "TNT_PLUGINS_DIR",
   "TNT_USER_ID",
 ];
@@ -110,7 +112,7 @@ describe("environment interface", () => {
     for (const file of sourceFiles(path.join(packageRoot, "src"))) {
       const content = fs.readFileSync(file, "utf-8");
       for (const match of content.matchAll(
-        /process\.env(?:\.|\[")((?:TNT_|CONTINUE_)[A-Z_]+)/g,
+        /(?:process\.env(?:\.|\[")|env\.)((?:TNT_|CONTINUE_|CLAUDE_CODE_)[A-Z_]+)/g,
       )) {
         names.add(match[1]);
       }

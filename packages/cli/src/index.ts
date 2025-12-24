@@ -262,6 +262,8 @@ addCommonOptions(program)
       timeoutSeconds: options.requestTimeout,
       readonly: options.readonly,
       auto: options.auto,
+      permissionMode: options.permissionMode,
+      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
       config: options.config,
       resume: options.resume,
       fork: options.fork,

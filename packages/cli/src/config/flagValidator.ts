@@ -21,6 +21,8 @@ export interface ValidationOptions {
   readonly?: boolean;
   auto?: boolean;
   mode?: string;
+  permissionMode?: string;
+  dangerouslySkipPermissions?: boolean;
   config?: string;
 
   // Session flags
@@ -287,6 +289,63 @@ function validatePermissionFlags(
 /**
  * Run all validation checks on the provided options
  */
+const PERMISSION_MODE_VALUES = [
+  "default",
+  "acceptEdits",
+  "plan",
+  "auto",
+  "bypassPermissions",
+  "dontAsk",
+];
+
+function validatePermissionModeFlag(
+  options: ValidationOptions,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const value = options.permissionMode;
+
+  if (value) {
+    if (!PERMISSION_MODE_VALUES.includes(value)) {
+      errors.push({
+        code: "INVALID_MODE",
+        message: t("cli.invalidPermissionMode", { value }),
+      });
+    } else if (value === "auto") {
+      errors.push({
+        code: "AUTO_MODE_UNAVAILABLE",
+        message: t("cli.autoModeUnavailable"),
+      });
+    } else if (
+      value === "bypassPermissions" &&
+      !options.dangerouslySkipPermissions &&
+      process.env.TNT_PERMISSION_MODE !== "bypassPermissions"
+    ) {
+      errors.push({
+        code: "BYPASS_MODE_REQUIRES_FLAG",
+        message: t("cli.bypassModeRequiresFlag"),
+      });
+    }
+  }
+
+  const conflicts =
+    Boolean(value && (options.readonly || options.auto || options.mode)) ||
+    Boolean(
+      options.dangerouslySkipPermissions &&
+        (options.readonly ||
+          options.auto ||
+          options.mode ||
+          (value && value !== "bypassPermissions")),
+    );
+  if (conflicts) {
+    errors.push({
+      code: "CONFLICTING_MODE_FLAGS",
+      message: t("cli.permissionModeConflicts"),
+    });
+  }
+
+  return errors;
+}
+
 /**
  * `plan` and `auto` build their policies from the mode alone - `ToolPermissionService
  * .initializeSync` never reads the command-line overrides in those modes. Accepting
@@ -297,9 +356,19 @@ function validatePermissionOverridesWithMode(
   options: ValidationOptions,
 ): ValidationError[] {
   const mode =
-    options.mode ??
-    (options.readonly ? "plan" : options.auto ? "auto" : "agent");
-  if (mode !== "plan" && mode !== "auto") return [];
+    options.permissionMode ??
+    (options.mode === "agent"
+      ? "default"
+      : options.mode === "auto"
+        ? "bypassPermissions"
+        : options.mode === "plan"
+          ? "plan"
+          : options.readonly
+            ? "plan"
+            : options.auto
+              ? "bypassPermissions"
+              : undefined);
+  if (!mode || mode === "default") return [];
 
   const flags = [
     options.allow?.length ? "--allow" : "",
@@ -351,6 +420,7 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
     validateMaxStepsFlag,
     validateTimeoutFlag,
     validateModeFlags,
+    validatePermissionModeFlag,
     validateSessionFlags,
     validateConfigPath,
     validatePermissionFlags,

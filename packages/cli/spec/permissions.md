@@ -42,8 +42,10 @@ before `--allow`, so the most restrictive flag wins.
 ## Command-line flags
 
 Each of `--allow`, `--ask`, and `--exclude` takes one tool matching pattern per
-occurrence. A mode flag (`--readonly`, `--auto`, `--mode`) combined with any of them is
-refused at startup, because plan and auto build their policies from the mode alone.
+occurrence. Any mode other than `default` refuses them at startup
+(`PERMISSION_FLAGS_IGNORED_BY_MODE`), because those modes build their policies from the
+mode alone; `--allow "*"` is the escape hatch for headless automation that wants
+everything.
 
 ```bash
 # Allow Read, ask before Write, disable Bash

@@ -30,14 +30,16 @@ The composer's top border is labelled `[plan]` in blue.
 
 ## `auto`
 
-The classifier mode is not implemented. No flag selects it: the legacy `--mode auto`
-maps to `bypassPermissions`. It is not part of the Shift+Tab cycle.
+The classifier mode is not implemented. `--permission-mode auto` is refused at startup
+with a reason rather than silently falling back, and the legacy `--mode auto` maps to
+`bypassPermissions`. It is not part of the Shift+Tab cycle.
 
 ## `bypassPermissions`
 
-`BYPASS_PERMISSIONS_POLICIES` allows every tool. Entry requires an explicit opt-in
-(the legacy `--auto` alias, or a dedicated bypass flag once it lands); it is never part
-of the Shift+Tab cycle. The composer labels it `[bypassPermissions]` in green.
+`BYPASS_PERMISSIONS_POLICIES` allows every tool. `--permission-mode bypassPermissions`
+requires `--dangerously-skip-permissions`, and `TNT_PERMISSION_MODE=bypassPermissions`
+counts as the explicit setting; the legacy `--auto` alias also selects it. It is never
+part of the Shift+Tab cycle. The composer labels it `[bypassPermissions]` in green.
 
 ## `dontAsk`
 
@@ -53,6 +55,10 @@ build their policies from the mode alone.
 - `--mode agent` maps to `default`
 - `--readonly` maps to `plan`
 - `--auto` maps to `bypassPermissions`
+
+All three print a deprecation warning. `TNT_PERMISSION_MODE` and
+`CLAUDE_CODE_PERMISSION_MODE` accept the same six values when no flag selects a mode;
+the TNT variable wins.
 
 ## Switching
 
