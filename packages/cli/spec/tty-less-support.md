@@ -74,12 +74,15 @@ The `startTUIChat()` function now includes multiple safeguards:
 ```typescript
 // Critical safeguard: Prevent TUI in headless mode
 if (isHeadlessMode()) {
-  throw new Error("Cannot start TUI in headless mode");
+  throw new Error(
+    "Cannot start TUI in headless mode. This is a programming error - " +
+      "startTUIChat should not be called when -p/--print flag is used.",
+  );
 }
 
 // Critical safeguard: Prevent TUI in TTY-less environment
 if (isTTYless() && !customStdin) {
-  throw new Error("Cannot start TUI in TTY-less environment");
+  throw new Error(t("ui.ttyLess"));
 }
 ```
 
@@ -95,8 +98,8 @@ if (!prompt) {
 
 #### 5. **Logger Configuration** (`src/utils/logger.ts`)
 
-- Sets UTF-8 as the default encoding on stdout and stderr.
-- Leaves stdout/stderr buffering unchanged in headless mode.
+When headless mode runs without any TTY, it sets UTF-8 as the default encoding
+on stdout and stderr. It does not touch stream buffering.
 
 ## Usage Examples
 
@@ -136,8 +139,12 @@ tnt -p "Generate commit message for current changes" --silent
 
 ## Environment Variables
 
-- `FORCE_NO_TTY`: Forces TTY-less mode, prevents stdin reading
-- `CONTINUE_CLI_TEST`: Marks test environment, prevents stdin reading
+- `FORCE_NO_TTY=true`: prevents stdin reading
+- `CONTINUE_CLI_TEST=true`: marks a test environment, prevents stdin reading
+
+The stdin reader also returns immediately under a test runner (`NODE_ENV=test`,
+`VITEST=true`, or a set `JEST_WORKER_ID`), and when `-p` was given a prompt. A
+missing or unreadable stdin resolves to no input rather than hanging.
 
 ## Testing
 
@@ -207,16 +214,12 @@ tnt -p "your prompt"
 4. **Clear Errors**: Provide actionable error messages with examples
 5. **Testing**: Comprehensive tests for TTY-less scenarios
 
-## Implementation Checklist
+## Test coverage
 
-- [x] Add TTY detection utilities
-- [x] Protect stdin reading in headless mode
-- [x] Guard TUI initialization
-- [x] Validate headless mode inputs
-- [x] Configure logger for TTY-less output
-- [x] Update test helpers
-- [x] Add TTY-less tests
-- [x] Document TTY-less support
+`e2e/headless-minimal.test.ts` runs the CLI with `-p` and a supplied prompt in
+an environment without a TTY. `src/utils/stdin.test.ts` pins the early returns
+for the test-runner and `FORCE_NO_TTY` cases. `src/ui/ttyLessDoc.test.ts` reads
+this page against the implementation.
 
 ## Related Files
 
