@@ -16,7 +16,7 @@ vi.mock("../session/index.js", async (importOriginal) => {
 vi.mock("../services/index.js", () => ({
   services: {
     hooks: { isReady: () => false },
-    toolPermissions: { getState: () => ({ currentMode: "agent" }) },
+    toolPermissions: { getState: () => ({ currentMode: "default" }) },
   },
 }));
 

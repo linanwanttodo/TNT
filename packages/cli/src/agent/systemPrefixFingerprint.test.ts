@@ -70,7 +70,7 @@ const ARCHITECTURE_DOC = path.resolve(
 
 async function staticSpine(label: string, headless: boolean, format?: "json") {
   const sections = await buildSystemMessageSections(
-    "agent",
+    "default",
     [],
     format,
     headless,
@@ -132,7 +132,7 @@ describe("the static system-message spine as billed prefix", () => {
     // The mode axis must not touch the static spine: `auto` adds no section and
     // `plan` adds only the volatile plan text, so the billed prefix is identical.
     const agent = await staticSpine("tui", false);
-    for (const mode of ["plan", "auto"] as const) {
+    for (const mode of ["plan", "bypassPermissions"] as const) {
       const sections = await buildSystemMessageSections(
         mode,
         [],
@@ -146,7 +146,7 @@ describe("the static system-message spine as billed prefix", () => {
 
       expect(text.length).toBe(agent.chars);
       expect(text).toBe(
-        (await buildSystemMessageSections("agent", [], undefined, false))
+        (await buildSystemMessageSections("default", [], undefined, false))
           .filter((section) => !section.volatile)
           .map((section) => section.text)
           .join(""),

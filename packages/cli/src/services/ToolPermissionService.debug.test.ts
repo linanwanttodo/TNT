@@ -11,7 +11,7 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
     service = new ToolPermissionService();
   });
 
-  const testModes: PermissionMode[] = ["agent", "plan", "auto"];
+  const testModes: PermissionMode[] = ["default", "plan", "bypassPermissions"];
 
   testModes.forEach((mode) => {
     describe(`${mode} mode`, () => {
@@ -34,10 +34,10 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
           expect(writePolicy?.permission).toBe("allow");
           expect(writePolicy?.docsOnly).toBe(true);
           console.log(`Write tool narrowed to documentation in plan mode`);
-        } else if (mode === "auto") {
-          // Auto mode should allow everything
+        } else if (mode === "bypassPermissions") {
+          // Bypass should allow everything
           expect(wildcardPolicy?.permission).toBe("allow");
-          console.log(`✓ Wildcard allow policy found in auto mode`);
+          console.log(`✓ Wildcard allow policy found in bypass mode`);
         } else {
           // Normal mode behavior depends on user config
           console.log(
@@ -84,7 +84,7 @@ describe("ToolPermissionService - Debug Tool Permissions", () => {
     // Initialize with user config that allows Write
     service.initializeSync({
       allow: ["Write"],
-      mode: "agent",
+      mode: "default",
     });
 
     console.log("\n=== NORMAL MODE WITH USER ALLOW WRITE ===");

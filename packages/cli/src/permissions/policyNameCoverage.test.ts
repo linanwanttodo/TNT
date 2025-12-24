@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
 
 import {
-  AUTO_MODE_POLICIES,
+  BYPASS_PERMISSIONS_POLICIES,
   PLAN_MODE_POLICIES,
   getDefaultToolPolicies,
 } from "./defaultPolicies.js";
@@ -25,7 +25,7 @@ function policyNames(): Set<string> {
   for (const policies of [
     getDefaultToolPolicies(),
     PLAN_MODE_POLICIES,
-    AUTO_MODE_POLICIES,
+    BYPASS_PERMISSIONS_POLICIES,
   ]) {
     for (const policy of policies) {
       // A `*` rule is a catch-all, not a tool name.

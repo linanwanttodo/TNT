@@ -37,7 +37,9 @@ function read(file: string): string {
 }
 
 function declared(type: string): string[] {
-  const match = read(TYPES).match(new RegExp(`export type ${type} = ([^;]+);`));
+  const match = read(TYPES).match(
+    new RegExp(`export type ${type}\\s*=\\s*([^;]+);`),
+  );
   if (!match)
     throw new Error(`the ${type} union moved; this guard must move with it`);
   return [...match[1].matchAll(/"(\w+)"/g)].map((m) => m[1]).filter(Boolean);
@@ -111,9 +113,10 @@ describe("spec/permissions.md agrees with the permission sources", () => {
   });
 
   it("stops consulting the layers in plan and auto while the service replaces them", () => {
-    const replaces = /newMode === "plan" \|\| newMode === "auto"/.test(
-      read(SERVICE),
-    );
+    const replaces =
+      /newMode === "plan" \|\| newMode === "bypassPermissions"/.test(
+        read(SERVICE),
+      );
     expect(/do not consult/i.test(doc)).toBe(replaces);
   });
 

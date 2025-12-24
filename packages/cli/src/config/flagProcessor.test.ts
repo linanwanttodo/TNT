@@ -10,7 +10,7 @@ describe("convertLegacyModeFlags", () => {
   });
 
   test("should return 'auto' when auto is true", () => {
-    expect(convertLegacyModeFlags(false, true)).toBe("auto");
+    expect(convertLegacyModeFlags(false, true)).toBe("bypassPermissions");
   });
 
   test("should return undefined when both flags are false", () => {
@@ -28,9 +28,11 @@ describe("convertLegacyModeFlags", () => {
   });
 
   test("should return the requested mode", () => {
-    expect(convertLegacyModeFlags(false, false, "agent")).toBe("agent");
+    expect(convertLegacyModeFlags(false, false, "agent")).toBe("default");
     expect(convertLegacyModeFlags(false, false, "plan")).toBe("plan");
-    expect(convertLegacyModeFlags(false, false, "auto")).toBe("auto");
+    expect(convertLegacyModeFlags(false, false, "auto")).toBe(
+      "bypassPermissions",
+    );
   });
 
   test("should reject an unknown mode", () => {
@@ -112,12 +114,12 @@ describe("processCommandFlags", () => {
     });
 
     expect(result).toEqual({
-      mode: "auto",
+      mode: "bypassPermissions",
       permissionOverrides: {
         allow: undefined,
         ask: ["writeFile"],
         exclude: undefined,
-        mode: "auto",
+        mode: "bypassPermissions",
       },
     });
   });
@@ -151,12 +153,12 @@ describe("processCommandFlags", () => {
     const result = processCommandFlags({ mode: "agent" });
 
     expect(result).toEqual({
-      mode: "agent",
+      mode: "default",
       permissionOverrides: {
         allow: undefined,
         ask: undefined,
         exclude: undefined,
-        mode: "agent",
+        mode: "default",
       },
     });
   });

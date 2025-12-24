@@ -43,7 +43,11 @@ export function convertLegacyModeFlags(
         t("cli.invalidMode", { value: mode }).replace(/^Error: /, ""),
       );
     }
-    return mode;
+    return mode === "agent"
+      ? "default"
+      : mode === "auto"
+        ? "bypassPermissions"
+        : mode;
   }
 
   if (readonly) {
@@ -51,7 +55,7 @@ export function convertLegacyModeFlags(
   }
 
   if (auto) {
-    return "auto";
+    return "bypassPermissions";
   }
 
   return undefined;

@@ -32,7 +32,7 @@ const section = (
 
 describe("system message sections", () => {
   it("builds the prefix as parts that survive the join untouched", async () => {
-    const sections = await buildSystemMessageSections("agent");
+    const sections = await buildSystemMessageSections("default");
     const joined = joinSystemMessageSections(sections);
 
     // The prefix is exactly its parts, with no separator invented by the join:
@@ -144,7 +144,7 @@ describe("system message sections", () => {
 
 describe("the permission mode's share of the prefix", () => {
   it("adds nothing for auto, so the billed prefix cannot move", async () => {
-    const agent = await buildSystemMessageSections("agent");
+    const agent = await buildSystemMessageSections("default");
     const auto = await buildSystemMessageSections("auto");
 
     expect(auto.map((section) => section.name)).toEqual(

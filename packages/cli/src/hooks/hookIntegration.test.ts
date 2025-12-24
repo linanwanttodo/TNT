@@ -17,7 +17,7 @@ vi.mock("../services/index.js", () => {
       },
       toolPermissions: {
         isReady: () => true,
-        getState: () => ({ currentMode: "agent" }),
+        getState: () => ({ currentMode: "default" }),
       },
     },
     serviceContainer: { get: vi.fn(async () => ({})) },
@@ -67,7 +67,7 @@ describe("fireHook integration points", () => {
     expect(input.tool_use_id).toBe("tool-1");
     expect(input.session_id).toBe("sess-1");
     expect(input.transcript_path).toBe("/sessions/sess-1.json");
-    expect(input.permission_mode).toBe("agent");
+    expect(input.permission_mode).toBe("default");
   });
 
   it("fires PostToolUse with the tool response", async () => {

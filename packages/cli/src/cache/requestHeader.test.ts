@@ -12,7 +12,7 @@ const base: RequestHeader = {
   systemMessage: "base prompt",
   tools: [{ name: "Read" }],
   temperature: 0,
-  mode: "agent",
+  mode: "default",
 };
 
 describe("canonicalHeader", () => {

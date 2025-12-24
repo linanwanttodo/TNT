@@ -25,7 +25,7 @@ const { constructSystemMessage } = await import("./systemMessage.js");
  */
 describe("behaviour clauses in the system message", () => {
   it("tells the agent to look before it claims, read before it edits, verify before it reports", async () => {
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     expect(message).toContain("# Doing tasks");
     expect(message).toMatch(/Look before you claim/);
@@ -41,14 +41,14 @@ describe("behaviour clauses in the system message", () => {
   });
 
   it("produces the same bytes twice, so the prefix stays cacheable", async () => {
-    const first = await constructSystemMessage("agent", [], undefined);
-    const second = await constructSystemMessage("agent", [], undefined);
+    const first = await constructSystemMessage("default", [], undefined);
+    const second = await constructSystemMessage("default", [], undefined);
 
     expect(first).toBe(second);
   });
 
   it("tells the agent when to act, how far the scope reaches, and what a denial means", async () => {
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     expect(message).toMatch(/When you have enough information to act, act/);
     expect(message).toMatch(/The requested scope is the deliverable/);
@@ -65,7 +65,7 @@ describe("behaviour clauses in the system message", () => {
   });
 
   it("says how the answer reads, down to the punctuation", async () => {
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     expect(message).toMatch(/Lead with the answer or the outcome/);
     expect(message).toMatch(/No em dashes, no arrows/);
@@ -75,8 +75,13 @@ describe("behaviour clauses in the system message", () => {
   });
 
   it("tells a headless run to proceed, and says nothing of the sort interactively", async () => {
-    const headless = await constructSystemMessage("agent", [], undefined, true);
-    const interactive = await constructSystemMessage("agent", [], undefined);
+    const headless = await constructSystemMessage(
+      "default",
+      [],
+      undefined,
+      true,
+    );
+    const interactive = await constructSystemMessage("default", [], undefined);
 
     expect(headless).toMatch(/no question can be answered mid-task/);
     expect(headless).toMatch(/stop only for destructive actions/);
@@ -85,16 +90,16 @@ describe("behaviour clauses in the system message", () => {
   });
 
   it("injects the profile it was given, and says plan once whichever way plan was chosen", async () => {
-    const plain = await constructSystemMessage("agent", [], undefined);
+    const plain = await constructSystemMessage("default", [], undefined);
     const debug = await constructSystemMessage(
-      "agent",
+      "default",
       [],
       undefined,
       undefined,
       "debug",
     );
     const byProfile = await constructSystemMessage(
-      "agent",
+      "default",
       [],
       undefined,
       undefined,
@@ -113,7 +118,7 @@ describe("behaviour clauses in the system message", () => {
   });
 
   it("puts the clauses ahead of the environment block", async () => {
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     expect(message.indexOf("# Doing tasks")).toBeLessThan(
       message.indexOf("<env>"),
@@ -121,7 +126,7 @@ describe("behaviour clauses in the system message", () => {
   });
 
   it("carries the clauses the first pass left out", async () => {
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     // Work inside what the repository already has, and size the checking to
     // what the change can reach.
@@ -136,8 +141,13 @@ describe("behaviour clauses in the system message", () => {
   });
 
   it("tells the headless run that follow-ups come after the work", async () => {
-    const interactive = await constructSystemMessage("agent", [], undefined);
-    const headless = await constructSystemMessage("agent", [], undefined, true);
+    const interactive = await constructSystemMessage("default", [], undefined);
+    const headless = await constructSystemMessage(
+      "default",
+      [],
+      undefined,
+      true,
+    );
 
     expect(headless).toMatch(
       /Offer follow-ups after the work is done; asking permission before starting it is not the way/,

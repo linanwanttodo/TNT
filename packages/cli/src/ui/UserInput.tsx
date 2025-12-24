@@ -189,7 +189,7 @@ const UserInput: React.FC<UserInputProps> = ({
     toolPermissions: ToolPermissionServiceState;
   }>([SERVICE_NAMES.TOOL_PERMISSIONS]);
   const currentMode =
-    permissionServices.toolPermissions?.currentMode ?? "agent";
+    permissionServices.toolPermissions?.currentMode ?? "default";
 
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([
     { name: "help", description: t("cmd.help"), category: "system" },
@@ -214,7 +214,7 @@ const UserInput: React.FC<UserInputProps> = ({
 
   // Cycle through permission modes
   const cycleModes = async () => {
-    const modes: PermissionMode[] = ["agent", "plan", "auto"];
+    const modes: PermissionMode[] = ["default", "acceptEdits", "plan"];
     const currentMode = services.toolPermissions.getCurrentMode();
     const currentIndex = modes.indexOf(currentMode);
     const nextIndex = (currentIndex + 1) % modes.length;
@@ -912,7 +912,7 @@ const UserInput: React.FC<UserInputProps> = ({
       {/* Input box */}
       <Box
         borderStyle="round"
-        borderTop={currentMode === "agent"}
+        borderTop={currentMode === "default"}
         paddingX={1}
         borderColor={showBashMode ? "yellow" : isRemoteMode ? "cyan" : "gray"}
       >

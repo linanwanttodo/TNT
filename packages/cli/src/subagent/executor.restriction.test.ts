@@ -46,7 +46,7 @@ vi.mock("../services/index.js", () => ({
     systemMessage: { getSystemMessage: vi.fn(async () => "base prompt") },
     toolPermissions: {
       getState: vi.fn(() => ({
-        currentMode: "agent",
+        currentMode: "default",
         permissions: { policies: [{ tool: "*", permission: "allow" }] },
       })),
     },
@@ -64,7 +64,7 @@ function parentContext(): AgentRunContext {
     delegationDepth: 0,
     systemMessage: "base prompt",
     permissions: { policies: [{ tool: "*", permission: "allow" }] },
-    mode: "agent",
+    mode: "default",
     abortSignal: new AbortController().signal,
   };
 }

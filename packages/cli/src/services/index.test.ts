@@ -11,7 +11,7 @@ describe("initializeServices", () => {
       await initializeServices({
         headless: true, // Skip onboarding
         toolPermissionOverrides: {
-          mode: "auto",
+          mode: "bypassPermissions",
           allow: ["tool1"],
           ask: ["tool2"],
           exclude: ["tool3"],
@@ -23,7 +23,7 @@ describe("initializeServices", () => {
           allow: ["tool1"],
           ask: ["tool2"],
           exclude: ["tool3"],
-          mode: "auto",
+          mode: "bypassPermissions",
           isHeadless: true,
         },
         {

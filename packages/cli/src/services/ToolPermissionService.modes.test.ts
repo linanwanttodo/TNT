@@ -12,7 +12,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
   describe("mode initialization", () => {
     it("should initialize with normal mode by default", () => {
       const state = service.initializeSync();
-      expect(state.currentMode).toBe("agent");
+      expect(state.currentMode).toBe("default");
     });
 
     it("should initialize with specified mode", () => {
@@ -63,7 +63,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should generate correct policies for auto mode", () => {
-      const state = service.initializeSync({ mode: "auto" });
+      const state = service.initializeSync({ mode: "bypassPermissions" });
       const policies = state.permissions.policies;
 
       // First policy should be the mode policy (allow all)
@@ -74,7 +74,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should have mode-specific policy positioning", () => {
-      const normalState = service.initializeSync({ mode: "agent" });
+      const normalState = service.initializeSync({ mode: "default" });
       const planState = service.initializeSync({ mode: "plan" });
 
       // Normal mode may have default policies but no mode-specific wildcard at the start
@@ -106,7 +106,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should switch from normal to plan mode", () => {
-      expect(service.getCurrentMode()).toBe("agent");
+      expect(service.getCurrentMode()).toBe("default");
 
       const newState = service.switchMode("plan");
 
@@ -115,7 +115,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should update policies when switching modes", () => {
-      service.initializeSync({ mode: "agent" });
+      service.initializeSync({ mode: "default" });
       const normalPolicies = service.getPermissions().policies;
 
       service.switchMode("plan");
@@ -164,11 +164,11 @@ describe("ToolPermissionService - Mode Functionality", () => {
       service.switchMode("plan");
       expect(service.getCurrentMode()).toBe("plan");
 
-      service.switchMode("auto");
-      expect(service.getCurrentMode()).toBe("auto");
+      service.switchMode("bypassPermissions");
+      expect(service.getCurrentMode()).toBe("bypassPermissions");
 
-      service.switchMode("agent");
-      expect(service.getCurrentMode()).toBe("agent");
+      service.switchMode("default");
+      expect(service.getCurrentMode()).toBe("default");
     });
 
     it("should preserve original user policies when switching modes", () => {
@@ -202,7 +202,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       expect(planUserPolicyCount).toBe(0);
 
       // Switch back to normal mode (should restore original policies)
-      service.switchMode("agent");
+      service.switchMode("default");
       const restoredPolicies = service.getPermissions().policies;
 
       // Should have user policies restored
@@ -272,7 +272,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       // Initialize with user config that excludes tools
       service.initializeSync({
         exclude: ["Write", "Edit", "Bash"],
-        mode: "auto",
+        mode: "bypassPermissions",
       });
 
       const policies = service.getPermissions().policies;
@@ -305,8 +305,8 @@ describe("ToolPermissionService - Mode Functionality", () => {
       service.initializeSync({ mode: "plan" });
       expect(service.getCurrentMode()).toBe("plan");
 
-      service.switchMode("auto");
-      expect(service.getCurrentMode()).toBe("auto");
+      service.switchMode("bypassPermissions");
+      expect(service.getCurrentMode()).toBe("bypassPermissions");
     });
   });
 
@@ -325,7 +325,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       service.initializeSync();
 
       const initialState = service.getState();
-      expect(initialState.currentMode).toBe("agent");
+      expect(initialState.currentMode).toBe("default");
 
       service.switchMode("plan");
 
