@@ -44,13 +44,13 @@ describe("streamChatResponse - Mode Switch During Streaming", () => {
     const updatedState = toolPermissionService.getState();
     serviceContainer.set(SERVICE_NAMES.TOOL_PERMISSIONS, updatedState);
 
-    // Recompute tools - the write tools stay listed, because plan mode
-    // narrows them at execution time rather than hiding them
+    // Recompute tools - plan mode excludes the write tools, so they leave
+    // the request
     tools = await getRequestTools(true);
     toolNames = tools.map((t) => t.function.name);
 
-    expect(toolNames).toContain("Write");
-    expect(toolNames).toContain("MultiEdit");
+    expect(toolNames).not.toContain("Write");
+    expect(toolNames).not.toContain("MultiEdit");
 
     // Should still include read-only tools
     expect(toolNames).toContain("Read");
@@ -71,14 +71,14 @@ describe("streamChatResponse - Mode Switch During Streaming", () => {
     expect(toolPermissionService.getCurrentMode()).toBe("plan");
 
     // getRequestTools should immediately reflect the new mode: the write
-    // tools remain, narrowed to documentation paths
+    // tools are excluded
     tools = await getRequestTools(false);
-    expect(tools.map((t) => t.function.name)).toContain("Write");
+    expect(tools.map((t) => t.function.name)).not.toContain("Write");
     expect(
       toolPermissionService
         .getPermissions()
-        .policies.find((policy) => policy.tool === "Write")?.docsOnly,
-    ).toBe(true);
+        .policies.find((policy) => policy.tool === "Write")?.permission,
+    ).toBe("exclude");
 
     // Switch to auto mode
     toolPermissionService.switchMode("bypassPermissions");

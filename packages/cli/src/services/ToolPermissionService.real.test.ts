@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import {
-  DOCUMENT_ONLY_MODE_DENIAL,
-  checkToolPermission,
-} from "../permissions/permissionChecker.js";
+import { checkToolPermission } from "../permissions/permissionChecker.js";
 
 import { ToolPermissionService } from "./ToolPermissionService.js";
 
@@ -88,8 +85,8 @@ describe("ToolPermissionService - Real Tool Permission Test", () => {
       const result = checkToolPermission(toolCall, permissions);
 
       console.log(`some_mcp_tool permission check result:`, result);
-      // Plan mode allows MCP and other non-write tools via wildcard
-      expect(result.permission).toBe("allow");
+      // Plan mode leaves MCP and plugin tools at ask; headless refuses them.
+      expect(result.permission).toBe("ask");
     });
   });
 
@@ -165,7 +162,6 @@ describe("ToolPermissionService - Real Tool Permission Test", () => {
         permissions.policies.map((p) => `${p.tool}:${p.permission}`),
       );
       expect(result.permission).toBe("exclude");
-      expect(result.reason).toBe(DOCUMENT_ONLY_MODE_DENIAL);
     });
   });
 });
