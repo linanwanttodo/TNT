@@ -7,7 +7,7 @@ import { createUITestContext } from "../../test-utils/ui-test-context.js";
 import { AppRoot } from "./AppRoot.js";
 
 vi.mock("./hooks/useTerminalSize.js", () => ({
-  useTerminalSize: () => ({ columns: 100, rows: 12, isResizing: false }),
+  useTerminalSize: () => ({ columns: 100, rows: 30, isResizing: false }),
 }));
 
 describe("TUIChat layout", () => {
@@ -23,19 +23,22 @@ describe("TUIChat layout", () => {
 
   afterEach(() => context.cleanup());
 
-  it("anchors the first screen and keeps the composer last", () => {
+  it("pins the composer to the bottom of a fixed viewport", () => {
     const { lastFrame, unmount } = render(<AppRoot />);
 
     try {
-      const lines = (lastFrame() ?? "").split("\n");
-
-      // The anchor is one terminal-height block of blank rows (the mock says
-      // 12); it pushes the banner and the live frame to the bottom so the
-      // composer does not float under a short transcript.
-      expect(lines.length).toBeGreaterThan(12);
-      expect(lines.slice(0, 12).every((line) => line === "")).toBe(true);
-
+      const frame = lastFrame() ?? "";
+      const lines = frame.split("\n");
       const content = lines.filter((line) => line.trim() !== "");
+
+      // The viewport is the terminal height, not a transcript-height block
+      // followed by a screen of blank rows.
+      expect(lines.length).toBeLessThanOrEqual(30);
+      expect(content.length).toBeGreaterThanOrEqual(5);
+
+      // The banner/transcript comes first; the composer is the last block.
+      expect(frame.indexOf("Ask anything")).toBeGreaterThan(0);
+
       const composer = content.slice(-5);
       expect(composer[0]).toContain("╭");
       expect(composer[1]).toContain("Ask anything");

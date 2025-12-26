@@ -1,5 +1,6 @@
 import type { Session } from "core/index.js";
-import { Box, Text } from "ink";
+import { Box, Text, measureElement, useInput } from "ink";
+import type { DOMElement } from "ink";
 import React, {
   useCallback,
   useEffect,
@@ -28,15 +29,17 @@ import { ActionStatus } from "./components/ActionStatus.js";
 import { BottomStatusBar } from "./components/BottomStatusBar.js";
 import { ResourceDebugBar } from "./components/ResourceDebugBar.js";
 import { ScreenContent } from "./components/ScreenContent.js";
-import { StaticChatContent } from "./components/StaticChatContent.js";
+import { TranscriptContent } from "./components/TranscriptContent.js";
 import { useNavigation } from "./context/NavigationContext.js";
 import { useChat } from "./hooks/useChat.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useMessageRenderer } from "./hooks/useMessageRenderer.js";
 import { useServices } from "./hooks/useService.js";
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
 import { collectFailedMcpServerNames } from "./utils/mcpFailures.js";
+import { maxViewportScroll, viewportSpacer } from "./utils/viewport.js";
 
 interface TUIChatProps {
   // Remote mode props
@@ -313,11 +316,8 @@ const TUIChat: React.FC<TUIChatProps> = ({
     ]);
   }, [services.mcp?.connections, setChatHistory]);
 
-  // The transcript is not scrolled inside the UI: finished messages are handed
-  // to Ink's <Static> and land in the terminal scrollback, so scrolling is the
-  // terminal's own. Only an answer that is still being written has to stay in
-  // the live frame, together with the tool call or permission prompt that
-  // belongs to it.
+  // Only the answer still being written is split from the settled items; the
+  // viewport below decides how much of the transcript is visible.
   const liveItemCount =
     isWaitingForResponse || isCompacting || !!activePermissionRequest ? 1 : 0;
 
@@ -459,19 +459,67 @@ const TUIChat: React.FC<TUIChatProps> = ({
     };
   }, []);
 
-  // The frame is only as tall as its content: settled messages are printed
-  // above it and belong to the terminal scrollback, so the composer follows the
-  // newest line instead of sitting inside a fixed-height viewport.
+  // The transcript lives inside a viewport whose height is the terminal minus
+  // the pinned composer and status rows. The spacer below the transcript pushes
+  // short content to the top; once the transcript outgrows the viewport the
+  // spacer is zero and the newest content stays visible.
+  const { rows } = useTerminalSize();
+  const viewportRef = useRef<DOMElement | null>(null);
+  const transcriptRef = useRef<DOMElement | null>(null);
+  const [transcriptSpacer, setTranscriptSpacer] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const page = Math.max(1, Math.floor(rows / 2));
+
+  useInput((_input, key) => {
+    if (key.pageUp) {
+      setScrollOffset((offset) => offset + page);
+    }
+    if (key.pageDown) {
+      setScrollOffset((offset) => Math.max(0, offset - page));
+    }
+  });
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const transcript = transcriptRef.current;
+    if (!viewport || !transcript) return;
+    try {
+      const available = measureElement(viewport).height;
+      const content = measureElement(transcript).height;
+      const maxScroll = maxViewportScroll(available, content);
+      const clamped = Math.min(scrollOffset, maxScroll);
+      if (clamped !== scrollOffset) {
+        setScrollOffset(clamped);
+      }
+      const next = viewportSpacer(available, content, clamped);
+      setTranscriptSpacer((previous) => (previous === next ? previous : next));
+    } catch {
+      // Ink has not measured the nodes yet; the next render will.
+    }
+  });
+
   return (
-    <Box flexDirection="column" flexShrink={0} flexGrow={0}>
-      <StaticChatContent
-        showIntroMessage={showIntroMessage && !isRemoteMode}
-        chatHistory={chatHistory}
-        queuedMessages={queuedMessages}
-        renderMessage={renderMessage}
-        refreshTrigger={staticRefreshTrigger}
-        liveItemCount={liveItemCount}
-      />
+    <Box flexDirection="column" height={rows}>
+      <Box
+        ref={viewportRef}
+        flexDirection="column"
+        flexGrow={1}
+        flexShrink={1}
+        overflowY="hidden"
+        justifyContent="flex-end"
+      >
+        <Box ref={transcriptRef} flexDirection="column" flexShrink={0}>
+          <TranscriptContent
+            showIntroMessage={showIntroMessage && !isRemoteMode}
+            chatHistory={chatHistory}
+            queuedMessages={queuedMessages}
+            renderMessage={renderMessage}
+            refreshTrigger={staticRefreshTrigger}
+            liveItemCount={liveItemCount}
+          />
+        </Box>
+        <Box height={transcriptSpacer} flexShrink={0} />
+      </Box>
 
       {/* Fixed bottom section */}
       <Box flexDirection="column" flexShrink={0}>

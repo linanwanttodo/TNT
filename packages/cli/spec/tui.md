@@ -4,13 +4,15 @@ The CLI renders its interactive surface with Ink.
 
 ## Layout
 
-Finished transcript items go to Ink's `<Static>` and stay in the terminal's
-scrollback. The transcript prints one terminal-height blank anchor before its
-first item (banner or history), so the live frame (status rows and composer)
-ends at the bottom of the screen instead of floating under a short transcript.
-Once the transcript is longer than the screen, ordinary terminal scrolling
-keeps the composer on the last row; the anchor is not reprinted
-(`src/ui/components/StaticChatContent.tsx`).
+The interactive surface is a fixed-height viewport. The transcript occupies the
+rows above the pinned status bars and composer; a spacer below the transcript
+pushes short content to the top of that area, so a fresh screen shows the banner
+at the top and the composer at the bottom, with the empty space between them.
+When the transcript outgrows the viewport the spacer is zero, the oldest rows
+clip at the top, and the newest content stays next to the composer. PgUp and
+PgDn move the transcript by half a screen; scrolling back to the end resumes
+following new output (`src/ui/TUIChat.tsx`,
+`src/ui/components/TranscriptContent.tsx`, `src/ui/utils/viewport.ts`).
 
 ## Status bar
 
