@@ -291,6 +291,16 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowStatusMessage: handleShowStatusMessage,
   });
 
+  // A submitted message returns the view to the live tail, like Pi: sending
+  // while scrolled up would otherwise hide the answer that follows.
+  const handleMessageWithFollow = useCallback(
+    (message: string, imageMap?: Map<string, Buffer>) => {
+      setScrollOffset(0);
+      return handleUserMessage(message, imageMap);
+    },
+    [handleUserMessage],
+  );
+
   // MCP servers connect in the background, so a failure lands after the
   // transcript has started. Report it once, in the transcript, rather than in
   // the startup banner that is already on screen.
@@ -477,6 +487,10 @@ const TUIChat: React.FC<TUIChatProps> = ({
     if (key.pageDown) {
       setScrollOffset((offset) => Math.max(0, offset - page));
     }
+    // End and Ctrl+End return to the live tail, like Pi's jump-to-latest.
+    if (key.end) {
+      setScrollOffset(0);
+    }
   });
 
   useEffect(() => {
@@ -519,6 +533,11 @@ const TUIChat: React.FC<TUIChatProps> = ({
           />
         </Box>
         <Box height={transcriptSpacer} flexShrink={0} />
+        {scrollOffset > 0 && (
+          <Box justifyContent="center" flexShrink={0}>
+            <Text color="cyan">{t("ui.jumpToLatest")}</Text>
+          </Box>
+        )}
       </Box>
 
       {/* Fixed bottom section */}
@@ -564,7 +583,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           activeQuizQuestion={activeQuizQuestion}
           handleToolPermissionResponse={handleToolPermissionResponse}
           handleQuizAnswer={handleQuizAnswer}
-          handleUserMessage={handleUserMessage}
+          handleUserMessage={handleMessageWithFollow}
           isWaitingForResponse={isWaitingForResponse}
           isCompacting={isCompacting}
           inputMode={inputMode}
