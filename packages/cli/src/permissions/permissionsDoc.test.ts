@@ -48,7 +48,7 @@ function declared(type: string): string[] {
 /** The layer labels the page uses, in the order the resolver applies them. */
 const LAYERS: Record<string, string> = {
   commandLineFlags: "Command-line flags",
-  loadPermissionsYaml: "~/.tnt/permissions.yaml",
+  loadPermissionPoliciesFromSettings: "settings.json",
   getDefaultToolPolicies: "Default policies",
 };
 
