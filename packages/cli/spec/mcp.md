@@ -2,7 +2,22 @@
 
 ## Intro
 
-Model Context Protocol is a protocol for giving models access to resources and tools. MCP servers can run locally (stdio) or be remote (http/streamable/etc). See https://modelcontextprotocol.io/specification. The TNT CLI uses MCP to extend model's capabilities with MCP prompts and tools. MCP server configurations are stored in the `mcpServers` field of an assistant/config.yaml configuration.
+Model Context Protocol is a protocol for giving models access to resources and tools. MCP servers can run locally (stdio) or be remote (http/streamable/etc). See https://modelcontextprotocol.io/specification. The TNT CLI uses MCP to extend model's capabilities with MCP prompts and tools.
+
+## Configuration files
+
+Server definitions live in `mcp.json`, not in `config.yaml`:
+
+- `mcp.json` in the user TNT home directory - user servers
+- a project-level `mcp.json` in the project's TNT directory, applied only after
+  the project is trusted
+- `.mcp.json` at the repository root - Claude-compatible project layer,
+  read-only and also trust-gated
+
+Each file is `{ "mcpServers": { "<name>": { "command": ..., "args": [...] } } }`.
+Servers merge by name: a project file replaces a user server with the same name
+and leaves the others alone. `mcpServers` in `config.yaml` is still read for one
+version with a deprecation warning.
 
 ## Secret Resolution
 

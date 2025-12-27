@@ -21,6 +21,7 @@ const PROJECT_FILES = [
   path.join(".tnt", "settings.json"),
   path.join(".tnt", "settings.local.json"),
   path.join(".tnt", "mcp.json"),
+  ".mcp.json",
 ];
 
 export function trustedProjectsPath(home: string = os.homedir()): string {
