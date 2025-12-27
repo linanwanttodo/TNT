@@ -16,7 +16,7 @@
 
 import * as fs from "fs";
 
-import { getSettingsFilePaths } from "../config/settingsFiles.js";
+import { getEffectiveSettingsFilePaths } from "../config/settingsFiles.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { logger } from "../utils/logger.js";
 
@@ -74,7 +74,7 @@ export function loadHooksConfig(
   cwd: string = process.cwd(),
   homeDir?: string,
 ): LoadedHooksConfig {
-  const paths = getSettingsFilePaths(cwd, homeDir);
+  const paths = getEffectiveSettingsFilePaths(cwd, homeDir);
   let mergedHooks: HooksConfig = {};
   let disabled = false;
 

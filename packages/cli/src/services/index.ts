@@ -65,6 +65,13 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
 
   const commandOptions = initOptions.options || {};
 
+  // Trust is recorded before any reader looks at the project layers; the
+  // environment variable covers headless runs that cannot pass the flag.
+  if (commandOptions.trustProject || process.env.TNT_TRUST_PROJECT === "1") {
+    const { trustProject } = await import("../config/trust.js");
+    trustProject(process.cwd());
+  }
+
   // Configure beta tools based on command options
   if (commandOptions.betaUploadArtifactTool) {
     setBetaUploadArtifactToolEnabled(true);

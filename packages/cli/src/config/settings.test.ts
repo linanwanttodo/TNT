@@ -10,6 +10,7 @@ import {
   settingsPermissionsToPolicies,
   settingsPath,
 } from "./settings.js";
+import { trustProject } from "./trust.js";
 
 describe("settings.json", () => {
   const previousHome = process.env.CONTINUE_GLOBAL_DIR;
@@ -85,6 +86,7 @@ describe("settings.json", () => {
       JSON.stringify({ permissions: { deny: ["Bash"] }, locale: "zh-CN" }),
       "utf-8",
     );
+    trustProject(project);
 
     expect(loadPermissionPoliciesFromSettings(project)).toEqual([
       { tool: "Bash", permission: "exclude" },

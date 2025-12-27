@@ -28,6 +28,10 @@ export function addCommonOptions(command: Command): Command {
       "--mode <mode>",
       "Legacy mode entry: agent (default), plan, or auto (bypassPermissions)",
     )
+    .option(
+      "--trust-project",
+      "Trust this project's settings, hooks and MCP servers for their current contents",
+    )
     .option("--verbose", "Enable verbose logging")
     .option("--beta-status-tool", "Enable beta status tool")
     .option(
