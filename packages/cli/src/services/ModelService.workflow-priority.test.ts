@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthConfig } from "../auth/workos.js";
 import * as config from "../config/index.js";
+import { logger } from "../utils/logger.js";
 
 import { ModelService } from "./ModelService.js";
 import { AgentFileServiceState } from "./types.js";
@@ -268,6 +269,103 @@ describe("ModelService agent file model prioritization", () => {
     expect(createLlmApiMock).toHaveBeenCalledWith(
       expect.objectContaining({ name: "gpt-4" }),
       mockAuthConfig,
+    );
+  });
+
+  it("uses the config.yaml selection ahead of the legacy persisted name", async () => {
+    const { getModelName } = await import("../auth/workos.js");
+    vi.mocked(getModelName).mockReturnValue("claude-3-sonnet");
+
+    const createLlmApiMock = vi.mocked(config.createLlmApi);
+    createLlmApiMock.mockImplementation(
+      (model: ModelConfig) =>
+        ({
+          provider: model.provider,
+          name: (model as any).name,
+        }) as any,
+    );
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      mockAuthConfig,
+      undefined,
+      "gpt-4",
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({ name: "gpt-4", provider: "openai" }),
+    );
+    expect(createLlmApiMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "gpt-4" }),
+      mockAuthConfig,
+    );
+  });
+
+  it("keeps the agent file model ahead of the config.yaml selection", async () => {
+    const agentFileServiceState: AgentFileServiceState = {
+      agentFile: {
+        name: "test-agent",
+        prompt: "Test agent",
+        model: "claude-3-haiku",
+      },
+      slug: "test/agent",
+      agentFileModel: {
+        name: "claude-3-haiku",
+        model: "claude-3-haiku",
+        provider: "anthropic",
+      },
+      parsedRules: null,
+      parsedTools: null,
+    };
+
+    const createLlmApiMock = vi.mocked(config.createLlmApi);
+    createLlmApiMock.mockImplementation(
+      (model: ModelConfig) =>
+        ({
+          provider: model.provider,
+          name: (model as any).name,
+        }) as any,
+    );
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      mockAuthConfig,
+      agentFileServiceState,
+      "gpt-4",
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({
+        name: "claude-3-haiku",
+        provider: "anthropic",
+      }),
+    );
+  });
+
+  it("falls back to the default model and warns when the selection is missing", async () => {
+    const getLlmApiMock = vi.mocked(config.getLlmApi);
+    getLlmApiMock.mockReturnValue([
+      { provider: "test" } as any,
+      { provider: "test", name: "default-model" } as any,
+    ]);
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      mockAuthConfig,
+      undefined,
+      "not-configured",
+    );
+
+    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant, mockAuthConfig);
+    expect(result.model).toEqual(
+      expect.objectContaining({ name: "default-model" }),
+    );
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      "Preferred model is not defined in the loaded config",
+      expect.objectContaining({
+        preferredModelName: "not-configured",
+        modelSource: "config",
+      }),
     );
   });
 });
