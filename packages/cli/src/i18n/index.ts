@@ -168,9 +168,6 @@ const en = {
   "compaction.noReduction": "Compaction did not reduce context usage",
   "config.failedToLoadConfigWithReason": "Failed to load config: {reason}",
   "config.failedToLoadConfigDetails": "Failed to load config:\\n{details}",
-  "config.failedToLoadDefaultAgentBody":
-    "Failed to load default agent. Body:\\n{body}",
-  "config.failedToLoadAssistant": "Failed to load assistant.",
   "mcp.toolNotFoundOnServer": "Tool {name} not found on {server}",
   "mcp.toolNotFound": "Tool {name} not found",
   "composer.placeholder":
@@ -534,8 +531,6 @@ const en = {
     "Warning: Could not read agent configuration file:",
   "common.ruleProcessFailed":
     'Warning: Failed to process rule "{rule}": {message}',
-  "common.assistantsFallback":
-    "Failed to load user assistants, falling back to default agent",
   "common.warningDetail": "Warning: {detail}",
   "common.verboseLogging": "Verbose logging enabled (session: {session})",
   "common.logsAt": "Logs: {path}",
@@ -562,6 +557,8 @@ const en = {
     "Warning: mcpServers in config.yaml is deprecated; move the server definitions to ~/.tnt/mcp.json.",
   "settings.untrustedProject":
     "Warning: this project's settings, hooks and MCP servers are not trusted; run with --trust-project (or set TNT_TRUST_PROJECT=1) to apply them.",
+  "config.slugRemoved":
+    "Error: --config accepts a local file path only; hub assistant slugs are no longer supported.",
   "settings.legacyPermissions":
     "Warning: permissions.yaml is deprecated; its rules are read once, and new rules are written to settings.json.",
   "cli.invalidPermissionMode":
@@ -605,10 +602,7 @@ const en = {
     "Login is not available. Hub authentication has been removed.",
   "startup.failedToLoadConfigFrom":
     'Failed to load config from "{path}": {error}',
-  "config.invalidAssistantSlug":
-    'Invalid assistant slug format. Expected "owner/package", got: {slug}',
   "config.unknownConfigSourceType": "Unknown config source type: {type}",
-  "config.invalidSavedConfigUri": "Invalid saved config URI: {uri}",
   "cli.foundValidationErrors": "Found {count} validation errors.",
   "chat.blockedByPromptHook": "blocked by UserPromptSubmit hook",
   "cli.unsupportedFormat":
@@ -780,8 +774,6 @@ const zhCN: Record<TranslationKey, string> = {
   "compaction.noReduction": "压缩未能减少上下文占用",
   "config.failedToLoadConfigWithReason": "加载配置失败：{reason}",
   "config.failedToLoadConfigDetails": "加载配置失败：\\n{details}",
-  "config.failedToLoadDefaultAgentBody": "加载默认智能体失败。正文：\\n{body}",
-  "config.failedToLoadAssistant": "加载智能体失败。",
   "mcp.toolNotFoundOnServer": "在 {server} 上未找到工具 {name}",
   "mcp.toolNotFound": "未找到工具 {name}",
   "composer.placeholder": "输入内容，@ 引用上下文，/ 打开命令，! 执行 shell",
@@ -1121,7 +1113,6 @@ const zhCN: Record<TranslationKey, string> = {
   "common.back": "返回",
   "common.agentConfigReadFailed": "警告：无法读取 agent 配置文件：",
   "common.ruleProcessFailed": "警告：处理规则「{rule}」失败：{message}",
-  "common.assistantsFallback": "无法加载用户助手，已回退到默认 agent",
   "common.warningDetail": "警告：{detail}",
   "common.verboseLogging": "已启用详细日志（会话：{session}）",
   "common.logsAt": "日志位置：{path}",
@@ -1143,6 +1134,8 @@ const zhCN: Record<TranslationKey, string> = {
     "警告：config.yaml 中的 mcpServers 已弃用；请把 server 定义迁移到用户目录下的 mcp.json。",
   "settings.untrustedProject":
     "警告：本项目的设置、hooks 和 MCP server 尚未受信任；请使用 --trust-project（或设置 TNT_TRUST_PROJECT=1）后再应用。",
+  "config.slugRemoved":
+    "错误：--config 只接受本地文件路径；hub assistant slug 支持已移除。",
   "settings.legacyPermissions":
     "警告：permissions.yaml 已弃用；其规则只会被读取一次，新规则写入 settings.json。",
   "cli.invalidPermissionMode":
@@ -1178,10 +1171,7 @@ const zhCN: Record<TranslationKey, string> = {
   "stream.contextValidationFailed": "上下文长度校验失败：{error}",
   "auth.loginUnavailable": "登录不可用。Hub 认证已移除。",
   "startup.failedToLoadConfigFrom": '无法从 "{path}" 加载配置：{error}',
-  "config.invalidAssistantSlug":
-    '智能体 slug 格式无效。应为 "owner/package"，实际：{slug}',
   "config.unknownConfigSourceType": "未知的配置来源类型：{type}",
-  "config.invalidSavedConfigUri": "无效的已保存配置 URI：{uri}",
   "cli.foundValidationErrors": "发现 {count} 个校验错误。",
   "chat.blockedByPromptHook": "已被 UserPromptSubmit 钩子阻止",
   "cli.unsupportedFormat":
