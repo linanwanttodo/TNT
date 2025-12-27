@@ -22,6 +22,10 @@ tool:
 
 `config.yaml` has no permissions section: permissions live in `settings.json`.
 
+Project-level settings, hooks and MCP files are ignored until you trust their
+current contents with `--trust-project` (or `TNT_TRUST_PROJECT=1`); the grant is
+recorded per real path and revoked when any of those files change.
+
 `plan` and `bypassPermissions` do not consult this list. They replace it with their own
 policy list; `acceptEdits` and `dontAsk` have their own tables as well. See
 [modes.md](./modes.md).
