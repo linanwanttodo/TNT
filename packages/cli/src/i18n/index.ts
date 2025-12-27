@@ -153,6 +153,10 @@ const en = {
   "ui.remoteRawMode":
     "Terminal does not support raw mode required for interactive UI.",
   "ui.jumpToLatest": "↓ Jump to latest message · Ctrl+End",
+  "startup.trustTitle":
+    "This project's configuration wants to apply its settings, hooks and MCP servers:",
+  "startup.trustQuestion": "Trust this project's configuration? [y/N]",
+  "startup.trustGranted": "Trusted this project's current configuration.",
   "tools.globNeedsPattern":
     "Glob needs a pattern: an empty pattern would list the whole tree.",
   "tools.globNeedsRipgrep":
@@ -772,6 +776,9 @@ const zhCN: Record<TranslationKey, string> = {
   "ui.remoteTtyLess": "无法在无 TTY 的环境中启动远程 TUI：交互模式需要终端。",
   "ui.remoteRawMode": "终端不支持交互界面所需的 raw 模式。",
   "ui.jumpToLatest": "↓ 跳转到最新消息 · Ctrl+End",
+  "startup.trustTitle": "本项目的配置想要应用其设置、hooks 和 MCP server：",
+  "startup.trustQuestion": "信任本项目的配置吗？[y/N]",
+  "startup.trustGranted": "已信任本项目的当前配置。",
   "tools.globNeedsPattern": "Glob 需要一个模式：空模式会列出整棵树。",
   "tools.globNeedsRipgrep":
     "Glob 使用 ripgrep (rg) 列出文件，但它未安装。请改用 List 查看单个目录，或安装 rg。",
