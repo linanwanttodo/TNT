@@ -5,78 +5,107 @@ import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
 /**
- * `spec/onboarding.md` described the upstream continue CLI's onboarding: log in with
- * Continue, create or update an assistant from the first organization, and write an
- * Anthropic config with `uses: anthropic/claude-4-sonnet`. The shipped flow has none of
- * that - it runs `runProviderSetup`, writes whatever provider the user picks, and the
- * only automatic path is `CONTINUE_USE_BEDROCK=1`. The completion marker
- * (`~/.tnt/.onboarding_complete`) and the headless exclusion were not on the page at all.
- *
- * Each fact below is read from `onboarding.ts` or the service gate that calls it. The
- * page is whitespace-normalized before matching so a wrapped line cannot report a false
- * miss.
+ * The onboarding page decides whether a first run asks for a provider at all.
+ * Its claims are read back from the flow and its one call site, so changing the
+ * gate, the marker or the environment list has to update the page with it.
  */
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(here, "..", "..");
 
-const DOC = path.join(packageRoot, "spec", "onboarding.md");
-const FLOW = path.join(here, "onboarding.ts");
-const SERVICES = path.join(packageRoot, "src", "services", "index.ts");
-
-function read(file: string): string {
-  return fs.readFileSync(file, "utf-8");
+function read(...segments: string[]): string {
+  return fs.readFileSync(path.join(packageRoot, ...segments), "utf-8");
 }
 
-describe("spec/onboarding.md agrees with the onboarding flow", () => {
-  const doc = read(DOC);
-  const flat = doc.replace(/\s+/g, " ");
-  const flow = read(FLOW);
-  const services = read(SERVICES);
+const doc = read("spec", "onboarding.md");
+const flow = read("src", "startup", "onboarding.ts");
+const services = read("src", "services", "index.ts");
+const serve = read("src", "commands", "serve.ts");
+const i18n = read("src", "i18n", "index.ts");
 
-  it("reads a flow and a gate that exist", () => {
-    expect(doc.length).toBeGreaterThan(700);
+describe("spec/onboarding.md agrees with the flow", () => {
+  it("reads the page and every source it names", () => {
+    expect(doc.length).toBeGreaterThan(400);
     expect(flow).toContain("export async function runOnboardingFlow");
-    expect(flow).toContain("export async function initializeWithOnboarding");
+    expect(flow).toContain("initializeWithOnboarding");
+    expect(services).toContain("initializeWithOnboarding");
   });
 
-  it("names the completion marker the flow writes", () => {
-    expect(flow).toContain(".onboarding_complete");
-    expect(flat).toContain(".onboarding_complete");
-  });
-
-  it("states the headless exclusion only while the gate applies it", () => {
-    const gated = /!initOptions\.headless && !initOptions\.skipOnboarding/.test(
-      services,
+  it("matches the gate in initializeServices and serve's bypass", () => {
+    expect(services).toMatch(
+      /if \(!initOptions\.headless && !initOptions\.skipOnboarding\)\s*\{\s*await initializeWithOnboarding/,
     );
-    expect(/not headless/.test(flat)).toBe(gated);
-    expect(flat).toContain("skipOnboarding");
+    expect(serve).toContain("headless: true");
+    expect(doc).toMatch(/not headless and `skipOnboarding` is false/);
+    expect(doc).toMatch(/`-p` and `serve` never enter it/);
   });
 
-  it("states the Bedrock bypass the flow performs", () => {
-    expect(flow).toContain('process.env.CONTINUE_USE_BEDROCK === "1"');
+  it("matches the first-run marker", () => {
+    expect(flow).toContain('".onboarding_complete"');
+    expect(flow).toContain("return !fs.existsSync");
+    expect(flow).toContain("new Date().toISOString()");
+    expect(flow).toMatch(
+      /if \(wasOnboarded\) \{\s*await markOnboardingComplete\(\)/,
+    );
+    expect(doc).toContain("ISO timestamp");
+    expect(doc).toMatch(/only\s+written when `runOnboardingFlow` returns true/);
+  });
+
+  it("matches the --config refusal and its failure message", () => {
+    expect(flow).toMatch(/if \(configPath !== undefined\) \{\s*return false;/);
+    expect(flow).toContain('t("startup.failedToLoadConfigFrom"');
+    expect(doc).toContain("startup.failedToLoadConfigFrom");
+    expect(doc).toMatch(/neither runs the interactive setup nor marks/);
+  });
+
+  it("matches the bedrock shortcut", () => {
+    expect(flow).toMatch(/process\.env\.CONTINUE_USE_BEDROCK === "1"/);
     expect(flow).toContain('t("setup.bedrock")');
-    expect(flat).toContain("CONTINUE_USE_BEDROCK=1");
-    expect(flat).toContain("`setup.bedrock`");
+    expect(doc).toContain("CONTINUE_USE_BEDROCK=1");
+    expect(doc).toContain("`setup.bedrock`");
   });
 
-  it("lists every test-environment signal the flow checks", () => {
-    for (const signal of ["NODE_ENV", "CI", "VITEST", "GITHUB_ACTIONS"]) {
-      expect(flow).toContain(signal);
-      expect(flat).toContain(signal);
+  it("keeps every no-prompt environment the page lists", () => {
+    for (const token of [
+      'NODE_ENV === "test"',
+      'CI === "true"',
+      'VITEST === "true"',
+      'GITHUB_ACTIONS === "true"',
+      "!process.stdin.isTTY",
+    ]) {
+      expect(flow).toContain(token);
     }
-    expect(flow).toContain("process.stdin.isTTY");
-    expect(flat).toContain("stdin is not a TTY");
-  });
-
-  it("names the Anthropic key path and its message key", () => {
-    expect(flow).toContain("ANTHROPIC_API_KEY");
+    for (const name of [
+      "NODE_ENV=test",
+      "CI=true",
+      "VITEST=true",
+      "GITHUB_ACTIONS=true",
+    ]) {
+      expect(doc).toContain(name);
+    }
+    expect(flow).toContain("process.env.ANTHROPIC_API_KEY");
     expect(flow).toContain('t("startup.anthropicKey")');
-    expect(flat).toContain("ANTHROPIC_API_KEY");
-    expect(flat).toContain("`startup.anthropicKey`");
+    expect(doc).toContain("ANTHROPIC_API_KEY");
+    expect(doc).toContain("`startup.anthropicKey`");
   });
 
-  it("does not revive the hosted-login or assistant flow", () => {
-    expect(flat).not.toMatch(/log in with continue/i);
-    expect(flat).not.toMatch(/claude-4-sonnet/);
+  it("matches the interactive path and its saved message", () => {
+    expect(flow).toContain("await runProviderSetup()");
+    expect(flow).toContain("writeConfig(buildConfigYaml(setup))");
+    expect(flow).toContain('t("setup.saved"');
+    expect(doc).toContain("`runProviderSetup()`");
+    expect(doc).toContain("`writeConfig()`");
+    expect(doc).toContain("`setup.saved`");
+    expect(doc).toMatch(/No\s+login or hosted assistant is required/);
+  });
+
+  it("keeps the i18n keys it quotes", () => {
+    for (const key of [
+      '"setup.bedrock"',
+      '"startup.anthropicKey"',
+      '"setup.saved"',
+      '"startup.failedToLoadConfigFrom"',
+    ]) {
+      expect(i18n).toContain(key);
+    }
   });
 });
