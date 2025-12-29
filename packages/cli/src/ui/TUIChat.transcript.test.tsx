@@ -66,17 +66,18 @@ describe("TUIChat transcript", () => {
     vi.clearAllMocks();
   });
 
-  it("prints the whole transcript instead of clipping it to the viewport", () => {
+  it("keeps the newest transcript visible inside the viewport", () => {
     const { lastFrame, unmount } = renderChat();
 
     try {
       const frame = lastFrame() ?? "";
+      const lines = frame.split("\n");
 
-      // The old fixed-height viewport dropped everything above the newest
-      // screenful; nothing may be dropped now.
-      expect(frame).toContain("question 1");
-      expect(frame).toContain("answer 10");
+      // The viewport is one terminal tall; older turns clip at the top and
+      // the newest answer stays above the composer.
       expect(frame).toContain("answer 20");
+      expect(frame).not.toMatch(/\banswer 1\b(?!\d)/);
+      expect(lines.length).toBeLessThanOrEqual(12);
     } finally {
       unmount();
     }
@@ -102,7 +103,7 @@ describe("TUIChat transcript", () => {
     }
   });
 
-  it("has no in-app scroll affordance to fight the terminal scrollback", () => {
+  it("has no in-app scroll affordance", () => {
     const { lastFrame, unmount } = renderChat();
 
     try {

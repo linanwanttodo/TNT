@@ -21,7 +21,8 @@ const packageRoot = path.resolve(here, "..", "..");
 const DOC = path.join(packageRoot, "spec", "tui.md");
 const STATUS = path.join(here, "components", "BottomStatusBar.tsx");
 const MODE = path.join(here, "components", "ModeIndicator.tsx");
-const STATIC = path.join(here, "components", "StaticChatContent.tsx");
+const TRANSCRIPT = path.join(here, "components", "TranscriptContent.tsx");
+const CHAT = path.join(here, "TUIChat.tsx");
 
 function read(file: string): string {
   return fs.readFileSync(file, "utf-8");
@@ -70,15 +71,14 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/blue/.test(flat) && /red/.test(flat)).toBe(true);
   });
 
-  it("states the first-screen anchor only while the transcript prints it", () => {
-    const source = read(STATIC);
-    const anchors =
-      /key="bottom-anchor"/.test(source) &&
-      /height=\{rows\}/.test(source) &&
-      /showIntroMessage/.test(source);
+  it("describes the fixed viewport and leaves the anchor hack out", () => {
+    const transcript = read(TRANSCRIPT);
+    const chat = read(CHAT);
 
-    expect(/terminal-height blank\s+anchor/.test(flat)).toBe(anchors);
-    expect(anchors).toBe(true);
+    expect(transcript).not.toContain("bottom-anchor");
+    expect(/fixed-height viewport/.test(flat)).toBe(true);
+    expect(/measureElement\(viewport\)/.test(chat)).toBe(true);
+    expect(/height=\{rows\}/.test(chat)).toBe(true);
   });
 
   it("claims no owner/repo line only while the component has none", () => {
