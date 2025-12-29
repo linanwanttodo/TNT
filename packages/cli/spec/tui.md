@@ -20,6 +20,27 @@ Ctrl+End return to the live tail, and submitting a message returns there too.
 The first screen's banner is a two-line half-block wordmark with the version
 beside it (`src/startup/asciiArt.ts`).
 
+## Streaming and the working spinner
+
+The answer streams into the transcript as it arrives. Chunks never touch the
+chat history - every history write persists the session - so the live text
+renders from a throttled overlay (`STREAM_RENDER_INTERVAL_MS` in
+`src/ui/hooks/useChat.stream.helpers.ts`) until the turn's message lands. The
+working spinner renders in the transcript flow, directly below the newest
+message, not pinned above the composer
+(`src/ui/components/ActionStatus.tsx` inside the viewport in
+`src/ui/TUIChat.tsx`).
+
+## Command palette
+
+Typing `/` as the first character opens the command window above the composer.
+It shows at most five entries with a sliding selection
+(`MAX_VISIBLE_COMMANDS` in `src/ui/SlashCommandUI.tsx`), filtered by the text
+after the slash and sharing the composer's loaded command list. Enter completes
+the highlighted name into the input; it runs the command only once a prefix has
+been typed, so a bare `/` plus Enter never executes anything
+(`src/ui/UserInput.tsx`).
+
 ## Status bar
 
 Two rows sit under the composer (`src/ui/components/BottomStatusBar.tsx`).
