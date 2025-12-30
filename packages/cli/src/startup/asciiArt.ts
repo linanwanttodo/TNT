@@ -4,20 +4,14 @@ import { getVersion } from "./version.js";
 
 const d = chalk.dim;
 
-// "TNT" in the ANSI Shadow block-letter style. One flat accent keeps the
-// glyphs readable instead of turning the banner into a colour wash.
-export const TNT_ASCII_ART = `${chalk.blue(
-  `████████╗███╗   ██╗████████╗
-╚══██╔══╝████╗  ██║╚══██╔══╝
-   ██║   ██╔██╗ ██║   ██║
-   ██║   ██║╚██╗██║   ██║
-   ██║   ██║ ╚████║   ██║
-   ╚═╝   ╚═╝  ╚═══╝   ╚═╝`,
-)}
-                              ${d("v" + getVersion())}`;
+// "TNT" as a two-line half-block wordmark, small like Pi's logo rather than a
+// full-width banner. Each cell is one pixel column: ▀ draws only the upper
+// pixel, ▄ only the lower, █ both.
+export const TNT_ASCII_ART = `${chalk.blue("▀██▀ █▄ █ ▀██▀")}  ${d("v" + getVersion())}
+${chalk.blue(" ██  █ ▀█  ██")}`;
 
-// Minimum terminal width required to display ASCII art properly
-const MIN_WIDTH_FOR_ASCII_ART = 75;
+// Minimum terminal width required to display the wordmark properly
+const MIN_WIDTH_FOR_ASCII_ART = 30;
 
 /**
  * Returns the TNT ASCII art only if the terminal is wide enough to display it
