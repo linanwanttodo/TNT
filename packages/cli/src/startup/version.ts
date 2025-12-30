@@ -34,30 +34,28 @@ export async function getLatestVersion(): Promise<string | null> {
   // Create and cache the promise
   latestVersionCache = (async () => {
     try {
-      // Prefer the version published to the npm registry; fall back to the
-      // local package version when offline. No external service is contacted.
-      // The probe must stay asynchronous: it runs during service init, and a
-      // synchronous npm call there froze the whole process - and first paint -
-      // for as long as npm took.
-      const { execFile } = await import("node:child_process");
-      return await new Promise<string | null>((resolve) => {
-        execFile(
-          "npm",
-          ["view", "@tnt/cli", "version"],
-          { timeout: 5000 },
-          (error: Error | null, stdout: string) => {
-            // An npm failure means no registry answer at all; an empty one
-            // still falls back to the installed version.
-            resolve(error ? null : stdout.trim() || getVersion());
+      // The CLI is distributed through GitHub Releases, so the probe asks the
+      // releases API rather than a registry. The probe must stay asynchronous:
+      // it runs during service init, and a synchronous call there froze the
+      // whole process - and first paint - for as long as the request took.
+      const response = await fetch(
+        "https://api.github.com/repos/linanwanttodo/TNT/releases/latest",
+        {
+          headers: {
+            "User-Agent": "tnt-cli",
+            Accept: "application/vnd.github+json",
           },
-        );
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        // Request was aborted, don't log
+          signal: AbortSignal.timeout(5000),
+        },
+      );
+      if (!response.ok) {
         return null;
       }
-      // Offline or npm unavailable: rely on the installed version.
+      const body = (await response.json()) as { tag_name?: string };
+      const tag = body.tag_name?.replace(/^v/, "");
+      return tag || getVersion();
+    } catch {
+      // Offline, rate-limited or timed out: rely on the installed version.
       return null;
     }
   })();
