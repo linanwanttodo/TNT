@@ -35,10 +35,22 @@ The composer's top border is labelled `[Plan]` in blue.
 
 ## `auto`
 
-The classifier mode is not implemented. `--permission-mode auto` and a
-`defaultMode: "auto"` in settings.json are refused at startup with a reason
-rather than silently falling back, and the legacy `--mode auto` maps to
-`bypassPermissions`. It is not part of the Shift+Tab cycle.
+The user's rules still apply; what would otherwise open a prompt is decided by
+`src/permissions/autoMode.ts` instead of the human, in this order:
+
+1. read-only and metadata tools in `AUTO_SAFE_TOOLS` run without a classifier
+   call;
+2. a call `acceptEdits` would allow (an edit inside the workspace) runs
+   without one;
+3. the classifier (`classifyAutoAction`) sees the recent transcript and the
+   proposed call and answers allow or block, block denying the call with its
+   reason;
+4. after `AUTO_DENIAL_LIMITS` (3 consecutive or 20 total blocks) the next ask
+   goes back to the human; any allowed call resets the consecutive count.
+
+A failed or unparseable classifier never counts as consent: an interactive run
+prompts, and a headless run refuses. The legacy `--mode auto` still maps to
+`bypassPermissions`.
 
 ## `bypassPermissions`
 
@@ -72,18 +84,17 @@ the TNT variable wins.
 `defaultMode` in `settings.json` selects the startup mode when no flag, legacy
 alias or environment variable names one. The precedence is
 `--permission-mode` and the legacy flags, then the environment variables, then
-the settings key, then `default`. A value that is not one of the six modes, and
-`auto`, are refused at startup with a reason. A persisted
+the settings key, then `default`. A value that is not one of the six modes is
+refused at startup with a reason. A persisted
 `bypassPermissions` counts as the explicit setting, so it does not need
 `--dangerously-skip-permissions`. The key applies to headless and serve runs
 the same way.
 
 ## Switching
 
-Shift+Tab opens the mode menu above the composer (`src/ui/components/ModeMenu.tsx`):
-Manual, Accept edits, Plan, Auto and Bypass permissions, with the current mode
-marked and the selection starting on it. Enter switches, Esc cancels. Selecting
-Auto is refused with the classifier reason instead of switching. dontAsk is
-headless and serve semantics and never appears in the menu. The workspace name
-stays visible in the status bar in every mode; the mode itself is shown on the
-composer border.
+Shift+Tab cycles `Manual → Accept edits → Plan → Auto → Manual`
+(`src/ui/UserInput.tsx`). `bypassPermissions` is not part of the cycle: it is
+reachable only through its explicit flag, because entering it by accident
+allows every tool. `dontAsk` is headless and serve semantics and never reaches
+the TUI. The workspace name stays visible in the status bar in every mode; the
+mode itself is shown on the composer border, each mode in its own colour.

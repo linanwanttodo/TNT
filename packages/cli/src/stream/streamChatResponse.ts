@@ -957,6 +957,8 @@ export async function streamChatResponse(
       usage,
       permissions: runOverrides?.permissions,
       canDelegate: runOverrides?.canDelegate,
+      llmApi,
+      model,
       onToolOutcome: (toolName, succeeded, error) => {
         const notice = toolFailures.record(toolName, succeeded, error);
         if (notice) {

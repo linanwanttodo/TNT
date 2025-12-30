@@ -6,21 +6,14 @@ import { resolveModeFromFlags } from "./flagProcessor.js";
 
 /**
  * The acceptance line for permission-mode parity: every declared value parses,
- * `auto` is refused until its classifier exists, bypass needs its explicit
- * opt-in, the legacy aliases still resolve, and the TNT environment variable
- * wins over the Claude-compatible one.
+ * bypass needs its explicit opt-in, the legacy aliases still resolve, and the
+ * TNT environment variable wins over the Claude-compatible one.
  */
 describe("--permission-mode parsing and gating", () => {
   it("parses every declared value", () => {
     expect(PERMISSION_MODES).toHaveLength(6);
 
     for (const value of PERMISSION_MODES) {
-      if (value === "auto") {
-        expect(() =>
-          resolveModeFromFlags({ permissionMode: value, env: {} }),
-        ).toThrow(/classifier/);
-        continue;
-      }
       const resolved = resolveModeFromFlags({
         permissionMode: value,
         dangerouslySkipPermissions: value === "bypassPermissions",
@@ -116,10 +109,10 @@ describe("settings.json defaultMode as the startup fallback", () => {
     ).toBe("acceptEdits");
   });
 
-  it("refuses auto with a settings-flavored reason", () => {
-    expect(() =>
-      resolveModeFromFlags({ settingsDefaultMode: "auto", env: {} }),
-    ).toThrow(/defaultMode.*classifier/s);
+  it("accepts auto from settings like any other mode", () => {
+    expect(
+      resolveModeFromFlags({ settingsDefaultMode: "auto", env: {} }).mode,
+    ).toBe("auto");
   });
 
   it("refuses an unknown value at startup", () => {

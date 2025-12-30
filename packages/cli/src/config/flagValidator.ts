@@ -310,11 +310,6 @@ function validatePermissionModeFlag(
         code: "INVALID_MODE",
         message: t("cli.invalidPermissionMode", { value }),
       });
-    } else if (value === "auto") {
-      errors.push({
-        code: "AUTO_MODE_UNAVAILABLE",
-        message: t("cli.autoModeUnavailable"),
-      });
     } else if (
       value === "bypassPermissions" &&
       !options.dangerouslySkipPermissions &&
@@ -347,10 +342,12 @@ function validatePermissionModeFlag(
 }
 
 /**
- * `plan` and `auto` build their policies from the mode alone - `ToolPermissionService
- * .initializeSync` never reads the command-line overrides in those modes. Accepting
- * `--allow` beside `--auto` therefore shipped a flag that silently did nothing, so the
+ * Only `plan` builds its policies from the mode alone - `ToolPermissionService
+ * .initializeSync` never reads the command-line overrides there. Accepting
+ * `--allow` beside it shipped a flag that silently did nothing, so the
  * combination is refused here instead of being honoured in appearance only.
+ * `auto` keeps the user's rules (and the classifier sits on top of them), so
+ * overrides stay meaningful there.
  */
 function validatePermissionOverridesWithMode(
   options: ValidationOptions,
@@ -368,7 +365,7 @@ function validatePermissionOverridesWithMode(
             : options.auto
               ? "bypassPermissions"
               : undefined);
-  if (!mode || mode === "default") return [];
+  if (!mode || mode === "default" || mode === "auto") return [];
 
   const flags = [
     options.allow?.length ? "--allow" : "",

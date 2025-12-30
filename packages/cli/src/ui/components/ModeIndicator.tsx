@@ -20,7 +20,7 @@ interface Badge {
 }
 
 const MODE_BADGE: Record<PermissionMode, Badge> = {
-  default: { label: "Manual", color: "gray" },
+  default: { label: "Manual", color: "white" },
   acceptEdits: { label: "Accept edits", color: "cyan" },
   plan: { label: "Plan", color: "blue" },
   auto: { label: "Auto", color: "green" },

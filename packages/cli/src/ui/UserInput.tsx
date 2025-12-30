@@ -5,6 +5,7 @@ import { Box, Text, useApp, useInput } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { t } from "../i18n/index.js";
+import type { PermissionMode } from "../permissions/types.js";
 import type { FileIndexServiceState } from "../services/FileIndexService.js";
 import {
   SERVICE_NAMES,
@@ -19,7 +20,6 @@ import { InputHistory } from "../utils/inputHistory.js";
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator, modeBorderColor } from "./components/ModeIndicator.js";
-import { MODE_MENU_ENTRIES, ModeMenu } from "./components/ModeMenu.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { FileSearchUI } from "./FileSearchUI.js";
 import { useClipboardMonitor } from "./hooks/useClipboardMonitor.js";
@@ -215,34 +215,20 @@ const UserInput: React.FC<UserInputProps> = ({
     void loadCommands();
   }, [assistant?.prompts, assistant?.rules, locale]);
 
-  // Claude's Shift+Tab opens a mode menu; the entry list lives in ModeMenu.
-  const [showModeMenu, setShowModeMenu] = useState(false);
-  const [modeMenuIndex, setModeMenuIndex] = useState(0);
+  // Shift+Tab cycles the interactive modes; bypassPermissions stays behind
+  // its explicit flag because entering it by accident allows everything.
+  const cycleModes = () => {
+    const modes: PermissionMode[] = ["default", "acceptEdits", "plan", "auto"];
+    const currentMode = services.toolPermissions.getCurrentMode();
+    const currentIndex = modes.indexOf(currentMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
 
-  const openModeMenu = () => {
-    const active = services.toolPermissions.getCurrentMode();
-    const index = MODE_MENU_ENTRIES.findIndex((entry) => entry.mode === active);
-    setModeMenuIndex(index === -1 ? 0 : index);
-    setShowModeMenu(true);
-  };
-
-  const selectModeFromMenu = () => {
-    const entry = MODE_MENU_ENTRIES[modeMenuIndex];
-    setShowModeMenu(false);
-    if (!entry) return;
-
-    if (entry.mode === "auto") {
-      // The classifier mode is a stub; switching would silently apply the
-      // wrong policies, so it is refused with its own reason.
-      services.chatHistory.addSystemMessage(t("mode.autoUnavailable"));
-      return;
-    }
-
-    services.toolPermissions.switchMode(entry.mode);
+    services.toolPermissions.switchMode(nextMode);
     serviceContainer.set(
       SERVICE_NAMES.TOOL_PERMISSIONS,
       services.toolPermissions.getState(),
     );
+    return nextMode;
   };
 
   // Update shell mode state based on input
@@ -679,12 +665,6 @@ const UserInput: React.FC<UserInputProps> = ({
       return true;
     }
 
-    // Esc closes the mode menu before anything else reacts
-    if (showModeMenu) {
-      setShowModeMenu(false);
-      return true;
-    }
-
     // Handle escape key to interrupt compaction (higher priority)
     if (isCompacting && onInterrupt) {
       onInterrupt();
@@ -780,41 +760,16 @@ const UserInput: React.FC<UserInputProps> = ({
       return;
     }
 
-    // Shift+Tab toggles Claude's mode menu; the composer's slash and file
-    // helpers stay out of the way while it is open.
+    // Shift+Tab cycles the interactive modes.
     if (key.tab && key.shift) {
-      if (showModeMenu) {
-        setShowModeMenu(false);
-      } else {
-        setShowSlashCommands(false);
-        setShowFileSearch(false);
-        openModeMenu();
-      }
+      setShowSlashCommands(false);
+      setShowFileSearch(false);
+      cycleModes();
       return;
     }
 
     // Handle escape key variations
     if (handleEscapeKey(input, key)) {
-      return;
-    }
-
-    // Mode menu navigation
-    if (showModeMenu) {
-      if (key.upArrow) {
-        setModeMenuIndex((prev) =>
-          prev > 0 ? prev - 1 : MODE_MENU_ENTRIES.length - 1,
-        );
-        return;
-      }
-      if (key.downArrow) {
-        setModeMenuIndex((prev) => (prev + 1) % MODE_MENU_ENTRIES.length);
-        return;
-      }
-      if (key.return && !key.shift) {
-        selectModeFromMenu();
-        return;
-      }
-      // The menu owns the keyboard while it is open.
       return;
     }
 
@@ -953,6 +908,31 @@ const UserInput: React.FC<UserInputProps> = ({
     <Box flexDirection="column">
       <InterruptedBanner wasInterrupted={!!wasInterrupted} />
 
+      {/* The command palette and the file search float above the composer box,
+          outside its border, like other agents' autocomplete. They share
+          UserInput's loaded list so selection and display always agree. */}
+      <SlashCommandsMaybe
+        show={showSlashCommands}
+        inputMode={inputMode}
+        hideNormalUI={!!hideNormalUI}
+        isRemoteMode={!!isRemoteMode}
+        assistant={assistant}
+        commands={slashCommands}
+        filter={slashCommandFilter}
+        selectedIndex={selectedCommandIndex}
+      />
+
+      <FileSearchMaybe
+        show={showFileSearch}
+        inputMode={inputMode}
+        hideNormalUI={!!hideNormalUI}
+        isRemoteMode={!!isRemoteMode}
+        filter={fileSearchFilter}
+        selectedIndex={selectedFileIndex}
+        onSelect={selectFile}
+        onFilesUpdated={setCurrentFiles}
+      />
+
       {/* Active mode is embedded in the composer's top border rule. */}
       <ModeIndicator
         mode={currentMode}
@@ -968,25 +948,6 @@ const UserInput: React.FC<UserInputProps> = ({
       <GoalIndicator />
 
       <TodoIndicator />
-
-      {/* Claude's Shift+Tab mode menu sits above the composer. */}
-      {showModeMenu && (
-        <ModeMenu selectedIndex={modeMenuIndex} currentMode={currentMode} />
-      )}
-
-      {/* The command palette sits above the composer, like Pi's autocomplete.
-          It shares UserInput's loaded list so selection and display always
-          agree. */}
-      <SlashCommandsMaybe
-        show={showSlashCommands}
-        inputMode={inputMode}
-        hideNormalUI={!!hideNormalUI}
-        isRemoteMode={!!isRemoteMode}
-        assistant={assistant}
-        commands={slashCommands}
-        filter={slashCommandFilter}
-        selectedIndex={selectedCommandIndex}
-      />
 
       {/* Input box */}
       <Box
@@ -1009,17 +970,6 @@ const UserInput: React.FC<UserInputProps> = ({
         </Text>
         {renderInputText()}
       </Box>
-
-      <FileSearchMaybe
-        show={showFileSearch}
-        inputMode={inputMode}
-        hideNormalUI={!!hideNormalUI}
-        isRemoteMode={!!isRemoteMode}
-        filter={fileSearchFilter}
-        selectedIndex={selectedFileIndex}
-        onSelect={selectFile}
-        onFilesUpdated={setCurrentFiles}
-      />
     </Box>
   );
 };

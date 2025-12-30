@@ -59,7 +59,7 @@ describe("tail reminder riding a tool result", () => {
       },
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     expect(seen).toEqual(["Read"]);
@@ -75,7 +75,7 @@ describe("tail reminder riding a tool result", () => {
       { onTailReminder: () => undefined },
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     const content = String(chatHistoryEntries[0]?.content);

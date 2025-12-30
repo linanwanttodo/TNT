@@ -10,26 +10,19 @@ const toolPermissionService = services.toolPermissions;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Opens the Shift+Tab menu and switches from one mode index to another. */
-const switchTo = async (
+/** Presses Shift+Tab `times` times, waiting for each render. */
+const cycle = async (
   stdin: { write: (data: string) => void },
-  from: number,
-  to: number,
+  times: number,
 ) => {
-  stdin.write("\x1b[Z"); // Shift+Tab opens the menu on the current mode
-  await sleep(150);
-  const steps = (to - from + 5) % 5;
-  for (let i = 0; i < steps; i += 1) {
-    stdin.write("\x1b[B"); // down
+  for (let i = 0; i < times; i += 1) {
+    stdin.write("\x1b[Z");
+    await sleep(150);
   }
-  await sleep(80);
-  stdin.write("\r"); // select
-  await sleep(200);
 };
 
-// The menu order shared with ModeMenu: default, acceptEdits, plan, auto,
-// bypassPermissions.
-describe("TUIChat - plan mode via the mode menu", () => {
+// The cycle order in UserInput: default, acceptEdits, plan, auto.
+describe("TUIChat - plan mode via the Shift+Tab cycle", () => {
   let context: any;
 
   beforeEach(async () => {
@@ -58,8 +51,8 @@ describe("TUIChat - plan mode via the mode menu", () => {
       expect(frame).toBeDefined();
       expect(frame).toContain("Ask anything");
 
-      // b) Shift+Tab opens the menu; plan is two rows down from Manual
-      await switchTo(stdin, 0, 2);
+      // b) Shift+Tab cycles default -> acceptEdits -> plan
+      await cycle(stdin, 2);
 
       frame = lastFrame();
 
@@ -102,20 +95,20 @@ describe("TUIChat - plan mode via the mode menu", () => {
       expect(frame!).not.toContain("Accept edits]");
 
       // Switch to acceptEdits
-      await switchTo(stdin, 0, 1);
+      await cycle(stdin, 1);
 
       frame = lastFrame();
       expect(frame!).toContain("Accept edits]");
 
       // Switch to plan
-      await switchTo(stdin, 1, 2);
+      await cycle(stdin, 1);
 
       frame = lastFrame();
       expect(frame!).toContain("Plan]");
       expect(frame!).not.toContain("Accept edits]");
 
       // Switch back to default
-      await switchTo(stdin, 2, 0);
+      await cycle(stdin, 2); // plan -> auto -> default
 
       frame = lastFrame();
       expect(frame!).not.toContain("Plan]");
@@ -129,8 +122,8 @@ describe("TUIChat - plan mode via the mode menu", () => {
     const { lastFrame, stdin, unmount } = render(React.createElement(AppRoot));
 
     try {
-      // Menu to plan
-      await switchTo(stdin, 0, 2);
+      // Cycle to plan: default -> acceptEdits -> plan
+      await cycle(stdin, 2);
 
       let frame = lastFrame();
       expect(frame!).toContain("Plan]");
@@ -143,7 +136,7 @@ describe("TUIChat - plan mode via the mode menu", () => {
       frame = lastFrame();
 
       // Try to switch after a message - this is where the bug might occur
-      await switchTo(stdin, 2, 0);
+      await cycle(stdin, 2); // plan -> auto -> default
 
       frame = lastFrame();
 

@@ -68,7 +68,7 @@ describe("PreToolUse decisions at execution time", () => {
       undefined,
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     expect(executeToolCall).toHaveBeenCalledWith(
@@ -97,7 +97,7 @@ describe("PreToolUse decisions at execution time", () => {
       undefined,
       true,
       undefined,
-      askAll,
+      { permissions: askAll },
     );
 
     expect(executeToolCall).toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe("PreToolUse decisions at execution time", () => {
       undefined,
       true,
       undefined,
-      askAll,
+      { permissions: askAll },
     );
 
     expect(executeToolCall).not.toHaveBeenCalled();
@@ -171,7 +171,7 @@ describe("PreToolUse ask escalates to the prompt", () => {
       { onToolPermissionRequest: vi.fn() },
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     expect(requestPermission).toHaveBeenCalledWith(
@@ -203,7 +203,7 @@ describe("PreToolUse ask escalates to the prompt", () => {
       { onToolPermissionRequest: vi.fn() },
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     expect(requestPermission).toHaveBeenCalled();
@@ -225,7 +225,7 @@ describe("PreToolUse ask escalates to the prompt", () => {
       { onToolPermissionRequest: vi.fn() },
       false,
       undefined,
-      excludeAll,
+      { permissions: excludeAll },
     );
 
     expect(requestPermission).not.toHaveBeenCalled();
@@ -243,7 +243,7 @@ describe("PreToolUse ask escalates to the prompt", () => {
       { onToolPermissionRequest: vi.fn() },
       true,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     expect(requestPermission).not.toHaveBeenCalled();
@@ -305,7 +305,7 @@ describe("a write outside the workspace escalates", () => {
       { onToolPermissionRequest: vi.fn() },
       false,
       undefined,
-      writePolicies,
+      { permissions: writePolicies },
     );
 
     expect(requestPermission).toHaveBeenCalledWith(
@@ -334,7 +334,7 @@ describe("a write outside the workspace escalates", () => {
       { onToolPermissionRequest: vi.fn() },
       true,
       undefined,
-      writePolicies,
+      { permissions: writePolicies },
     );
 
     expect(requestPermission).not.toHaveBeenCalled();
@@ -359,7 +359,7 @@ describe("a write outside the workspace escalates", () => {
       { onToolPermissionRequest: vi.fn() },
       false,
       undefined,
-      writePolicies,
+      { permissions: writePolicies },
     );
 
     expect(requestPermission).not.toHaveBeenCalled();

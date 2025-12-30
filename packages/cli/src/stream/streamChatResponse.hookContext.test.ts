@@ -64,7 +64,7 @@ describe("hook additionalContext reaches the model", () => {
       undefined,
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     const content = String(chatHistoryEntries[0]?.content);
@@ -93,7 +93,7 @@ describe("hook additionalContext reaches the model", () => {
       undefined,
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     expect(chatHistoryEntries[0]?.status).toBe("errored");
@@ -116,7 +116,7 @@ describe("hook additionalContext reaches the model", () => {
       undefined,
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     expect(String(chatHistoryEntries[0]?.content)).toBe("file body");
