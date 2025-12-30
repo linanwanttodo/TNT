@@ -1,4 +1,9 @@
-import { t, type TranslationKey } from "../../i18n/index.js";
+import {
+  LOCALES,
+  LOCALE_LABELS,
+  t,
+  type TranslationKey,
+} from "../../i18n/index.js";
 
 import type { SlashCommand, SystemCommand } from "./types.js";
 
@@ -9,6 +14,7 @@ import type { SlashCommand, SystemCommand } from "./types.js";
 export interface BuiltinCommandSpec {
   name: string;
   descriptionKey: TranslationKey;
+  subcommands?: Array<{ name: string; description: string }>;
 }
 
 export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
@@ -42,7 +48,14 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "import-skill", descriptionKey: "cmd.importSkill" },
   { name: "export", descriptionKey: "cmd.export" },
   { name: "import", descriptionKey: "cmd.import" },
-  { name: "language", descriptionKey: "language.title" },
+  {
+    name: "language",
+    descriptionKey: "language.title",
+    subcommands: LOCALES.map((locale) => ({
+      name: locale,
+      description: LOCALE_LABELS[locale],
+    })),
+  },
 ];
 
 export const REMOTE_MODE_SLASH_COMMANDS: BuiltinCommandSpec[] = [
@@ -56,6 +69,7 @@ export function toSystemCommand(spec: BuiltinCommandSpec): SystemCommand {
     name: spec.name,
     description: t(spec.descriptionKey),
     category: "system",
+    ...(spec.subcommands ? { subcommands: spec.subcommands } : {}),
   };
 }
 

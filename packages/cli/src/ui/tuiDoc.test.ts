@@ -114,6 +114,18 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/never executes anything/.test(flat)).toBe(
       /slashCommandFilter !== ""/.test(composer),
     );
+    // The palette's level model and its highlighted row are read from source.
+    expect(/subcommands/.test(flat)).toBe(
+      /subcommands\?: SlashSubcommand\[\]/.test(
+        read(path.join(here, "commands", "types.ts")),
+      ),
+    );
+    expect(/filled\s+background/.test(flat)).toBe(
+      /backgroundColor=\{isSelected \? "cyan"/.test(palette),
+    );
+    expect(/-- \/language --/.test(flat)).toBe(
+      /-- \$\{levelLabel\} --/.test(palette),
+    );
   });
 
   it("claims no owner/repo line only while the component has none", () => {
