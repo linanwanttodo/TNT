@@ -1,4 +1,3 @@
-import type { PermissionMode } from "../../permissions/types.js";
 import { backgroundSignalManager } from "../../utils/backgroundSignalManager.js";
 import {
   checkClipboardForImage,
@@ -12,26 +11,14 @@ interface ControlKeysOptions {
   input: string;
   key: any;
   exit: () => void;
-  showSlashCommands: boolean;
-  showFileSearch: boolean;
-  cycleModes: () => Promise<PermissionMode>;
   clearInput?: () => void;
   textBuffer?: TextBuffer;
   onTextBufferUpdate?: () => void;
 }
 
 export function handleControlKeys(options: ControlKeysOptions): boolean {
-  const {
-    input,
-    key,
-    exit,
-    showSlashCommands,
-    showFileSearch,
-    cycleModes,
-    clearInput,
-    textBuffer,
-    onTextBufferUpdate,
-  } = options;
+  const { input, key, exit, clearInput, textBuffer, onTextBufferUpdate } =
+    options;
 
   // Handle Ctrl+C with two-stage exit, Ctrl+D immediately exits
   if (key.ctrl && input === "c") {
@@ -89,14 +76,6 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
   // Handle Ctrl+B to send current tool execution to background
   if (key.ctrl && input === "b") {
     backgroundSignalManager.signalBackground();
-    return true;
-  }
-
-  // Handle Shift+Tab to cycle through modes
-  if (key.tab && key.shift && !showSlashCommands && !showFileSearch) {
-    cycleModes().catch((error) => {
-      logger.error("Failed to cycle modes:", error);
-    });
     return true;
   }
 
