@@ -567,6 +567,10 @@ const en = {
     'Cannot select "{model}": it is not defined in {path}.',
   "settings.legacyPermissions":
     "Warning: permissions.yaml is deprecated; its rules are read once, and new rules are written to settings.json.",
+  "settings.invalidDefaultMode":
+    'Error: Invalid defaultMode "{value}" in settings.json. Expected one of: default, acceptEdits, plan, auto, bypassPermissions, dontAsk.',
+  "settings.autoDefaultModeUnavailable":
+    "Error: defaultMode auto in settings.json is not available: the classifier is not implemented. Use default, acceptEdits, plan, bypassPermissions, or dontAsk.",
   "cli.invalidPermissionMode":
     'Error: Invalid --permission-mode "{value}". Expected one of: default, acceptEdits, plan, auto, bypassPermissions, dontAsk.',
   "cli.permissionModeConflicts":
@@ -1148,6 +1152,10 @@ const zhCN: Record<TranslationKey, string> = {
   "config.selectedModelUnknown": "无法选择“{model}”：{path} 中没有定义该模型。",
   "settings.legacyPermissions":
     "警告：permissions.yaml 已弃用；其规则只会被读取一次，新规则写入 settings.json。",
+  "settings.invalidDefaultMode":
+    '错误：settings.json 中的 defaultMode "{value}" 无效。可选值：default、acceptEdits、plan、auto、bypassPermissions、dontAsk。',
+  "settings.autoDefaultModeUnavailable":
+    "错误：settings.json 中的 defaultMode auto 暂不可用：分类器模式尚未实现。请使用 default、acceptEdits、plan、bypassPermissions 或 dontAsk。",
   "cli.invalidPermissionMode":
     '错误：无效的 --permission-mode "{value}"。可选值：default、acceptEdits、plan、auto、bypassPermissions、dontAsk。',
   "cli.permissionModeConflicts":

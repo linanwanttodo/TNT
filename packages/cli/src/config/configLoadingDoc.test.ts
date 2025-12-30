@@ -70,4 +70,11 @@ describe("spec/config-loading.md agrees with the loader", () => {
     expect(doc).not.toMatch(/PLACEHOLDER/);
     expect(doc).toContain("TNT_TRUST_PROJECT=1");
   });
+
+  it("points defaultMode at the page that owns the mode table", () => {
+    const resolver = read(path.join(here, "..", "config", "flagProcessor.ts"));
+    expect(doc).toMatch(/defaultMode/);
+    expect(doc).toContain("modes.md");
+    expect(resolver).toContain("settingsDefaultMode");
+  });
 });

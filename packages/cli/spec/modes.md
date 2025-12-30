@@ -35,8 +35,9 @@ The composer's top border is labelled `[Plan]` in blue.
 
 ## `auto`
 
-The classifier mode is not implemented. `--permission-mode auto` is refused at startup
-with a reason rather than silently falling back, and the legacy `--mode auto` maps to
+The classifier mode is not implemented. `--permission-mode auto` and a
+`defaultMode: "auto"` in settings.json are refused at startup with a reason
+rather than silently falling back, and the legacy `--mode auto` maps to
 `bypassPermissions`. It is not part of the Shift+Tab cycle.
 
 ## `bypassPermissions`
@@ -65,6 +66,17 @@ build their policies from the mode alone.
 All three print a deprecation warning. `TNT_PERMISSION_MODE` and
 `CLAUDE_CODE_PERMISSION_MODE` accept the same six values when no flag selects a mode;
 the TNT variable wins.
+
+## Startup default from settings.json
+
+`defaultMode` in `settings.json` selects the startup mode when no flag, legacy
+alias or environment variable names one. The precedence is
+`--permission-mode` and the legacy flags, then the environment variables, then
+the settings key, then `default`. A value that is not one of the six modes, and
+`auto`, are refused at startup with a reason. A persisted
+`bypassPermissions` counts as the explicit setting, so it does not need
+`--dangerously-skip-permissions`. The key applies to headless and serve runs
+the same way.
 
 ## Switching
 

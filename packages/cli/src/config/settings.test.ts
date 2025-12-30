@@ -48,6 +48,7 @@ describe("settings.json", () => {
       deny: ["Bash"],
     });
     expect(settings.locale).toBe("zh-CN");
+    expect(settings.defaultMode).toBe("plan");
   });
 
   it("drops model fields but keeps the rest of the file", () => {
@@ -83,7 +84,11 @@ describe("settings.json", () => {
     fs.mkdirSync(path.join(project, ".tnt"));
     fs.writeFileSync(
       path.join(project, ".tnt", "settings.json"),
-      JSON.stringify({ permissions: { deny: ["Bash"] }, locale: "zh-CN" }),
+      JSON.stringify({
+        permissions: { deny: ["Bash"] },
+        locale: "zh-CN",
+        defaultMode: "acceptEdits",
+      }),
       "utf-8",
     );
     trustProject(project);
@@ -93,6 +98,7 @@ describe("settings.json", () => {
       { tool: "Read", permission: "allow" },
     ]);
     expect(loadSettings(project).locale).toBe("zh-CN");
+    expect(loadSettings(project).defaultMode).toBe("acceptEdits");
   });
 
   it("prefers settings permissions over the legacy YAML", () => {

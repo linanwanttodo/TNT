@@ -9,6 +9,7 @@ import { expandMentions } from "../agent/atMentions.js";
 import { isPromptProfile } from "../agent/promptProfiles.js";
 import { constructSystemMessage } from "../agent/systemMessage.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
+import { loadSettings } from "../config/settings.js";
 import { t } from "../i18n/index.js";
 import { setAgentId } from "../index.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
@@ -107,7 +108,10 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   // Environment install script will be deferred until after server startup to avoid blocking
 
   // Initialize services with tool permission overrides
-  const { permissionOverrides, warnings } = processCommandFlags(options);
+  const { permissionOverrides, warnings } = processCommandFlags(
+    options,
+    loadSettings().defaultMode,
+  );
   for (const warning of warnings) console.warn(warning);
 
   await initializeServices({
