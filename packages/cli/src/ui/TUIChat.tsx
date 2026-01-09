@@ -253,6 +253,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     activeQuizQuestion,
     wasInterrupted,
     queuedMessages,
+    streamingText,
     handleUserMessage,
     handleInterrupt,
     handleFileAttached,
@@ -530,19 +531,12 @@ const TUIChat: React.FC<TUIChatProps> = ({
             renderMessage={renderMessage}
             refreshTrigger={staticRefreshTrigger}
             liveItemCount={liveItemCount}
+            streamingText={streamingText}
           />
         </Box>
-        <Box height={transcriptSpacer} flexShrink={0} />
-        {scrollOffset > 0 && (
-          <Box justifyContent="center" flexShrink={0}>
-            <Text color="cyan">{t("ui.jumpToLatest")}</Text>
-          </Box>
-        )}
-      </Box>
 
-      {/* Fixed bottom section */}
-      <Box flexDirection="column" flexShrink={0}>
-        {/* Status */}
+        {/* The working indicator follows the newest message in the transcript
+            flow instead of hovering above the composer. */}
         <ActionStatus
           visible={isWaitingForResponse && !!responseStartTime}
           startTime={responseStartTime || 0}
@@ -553,7 +547,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
           }
         />
 
-        {/* Compaction Status */}
         <ActionStatus
           visible={isCompacting && !!compactionStartTime}
           startTime={compactionStartTime || 0}
@@ -562,6 +555,16 @@ const TUIChat: React.FC<TUIChatProps> = ({
           loadingColor="grey"
         />
 
+        <Box height={transcriptSpacer} flexShrink={0} />
+        {scrollOffset > 0 && (
+          <Box justifyContent="center" flexShrink={0}>
+            <Text color="cyan">{t("ui.jumpToLatest")}</Text>
+          </Box>
+        )}
+      </Box>
+
+      {/* Fixed bottom section */}
+      <Box flexDirection="column" flexShrink={0}>
         {/* Temporary status message */}
         {statusMessage && (
           <Box paddingX={1} paddingY={0}>

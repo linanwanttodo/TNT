@@ -93,6 +93,29 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     );
   });
 
+  it("describes streaming, the spinner and the palette where they are built", () => {
+    const chat = read(CHAT);
+    const helpers = read(path.join(here, "hooks", "useChat.stream.helpers.ts"));
+    const palette = read(path.join(here, "SlashCommandUI.tsx"));
+    const composer = read(path.join(here, "UserInput.tsx"));
+
+    const spinnerInViewport =
+      chat.indexOf("transcriptRef") < chat.indexOf("<ActionStatus") &&
+      chat.indexOf("<ActionStatus") < chat.indexOf("height={transcriptSpacer}");
+    expect(/spinner renders in the transcript flow/.test(flat)).toBe(
+      spinnerInViewport,
+    );
+    expect(/throttled overlay/.test(flat)).toBe(
+      /STREAM_RENDER_INTERVAL_MS/.test(helpers) && /streamingText/.test(chat),
+    );
+    expect(/at most five entries/.test(flat)).toBe(
+      /MAX_VISIBLE_COMMANDS = 5/.test(palette),
+    );
+    expect(/never executes anything/.test(flat)).toBe(
+      /slashCommandFilter !== ""/.test(composer),
+    );
+  });
+
   it("claims no owner/repo line only while the component has none", () => {
     expect(REPO_LOOKUP.test(flat)).toBe(REPO_LOOKUP.test(status));
   });

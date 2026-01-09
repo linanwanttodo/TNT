@@ -21,17 +21,23 @@ const truncateDescription = (description: string): string => {
 
 interface SlashCommandUIProps {
   assistant?: AssistantConfig;
+  /** The already-loaded command list; omitted, the component loads its own. */
+  commands?: SlashCommand[];
   filter: string;
   selectedIndex: number;
 }
 
+/** How many commands show at once, like Pi's autocomplete window. */
+const MAX_VISIBLE_COMMANDS = 5;
+
 const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
   assistant,
+  commands,
   filter,
   selectedIndex,
 }) => {
   const locale = useLocale();
-  const [allCommands, setAllCommands] = useState<SlashCommand[]>(
+  const [selfLoaded, setSelfLoaded] = useState<SlashCommand[]>(
     // Fallback - basic commands without assistant
     [
       { name: "help", description: t("cmd.help"), category: "system" },
@@ -45,13 +51,15 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
   );
 
   useEffect(() => {
+    if (commands) return;
+
     let stale = false;
 
     const loadCommands = async () => {
       if (assistant) {
-        const commands = await getAllSlashCommands(assistant);
+        const loaded = await getAllSlashCommands(assistant);
         if (!stale) {
-          setAllCommands(commands);
+          setSelfLoaded(loaded);
         }
       }
     };
@@ -61,7 +69,9 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
     return () => {
       stale = true;
     };
-  }, [assistant?.prompts, assistant?.rules, locale]);
+  }, [commands, assistant?.prompts, assistant?.rules, locale]);
+
+  const allCommands = commands ?? selfLoaded;
 
   // Filter commands based on the current filter
   const filteredCommands = allCommands
@@ -84,14 +94,28 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
     );
   }
 
+  // A sliding window keeps the selected command visible while the rest of the
+  // list stays out of the layout.
+  const windowStart = Math.max(
+    0,
+    Math.min(
+      selectedIndex - (MAX_VISIBLE_COMMANDS - 1),
+      filteredCommands.length - MAX_VISIBLE_COMMANDS,
+    ),
+  );
+  const visibleCommands = filteredCommands.slice(
+    windowStart,
+    windowStart + MAX_VISIBLE_COMMANDS,
+  );
+
   return (
     <Box paddingX={1} marginX={1} marginBottom={1} flexDirection="column">
-      {filteredCommands.map((command, index) => {
-        const isSelected = index === selectedIndex;
+      {visibleCommands.map((command, index) => {
+        const isSelected = windowStart + index === selectedIndex;
 
         // Find the longest command name to vertically align command descriptions
         const maxCommandLength = Math.max(
-          ...filteredCommands.map((cmd) => cmd.name.length),
+          ...visibleCommands.map((cmd) => cmd.name.length),
         );
         const paddedCommandName = `/${command.name}`.padEnd(
           maxCommandLength + 1,
@@ -113,7 +137,9 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
 
       <Box marginTop={1}>
         <Text color="gray" dimColor>
-          {t("commands.navigation")}
+          {filteredCommands.length > MAX_VISIBLE_COMMANDS
+            ? `${t("commands.navigation")} (${windowStart + visibleCommands.length}/${filteredCommands.length})`
+            : t("commands.navigation")}
         </Text>
       </Box>
     </Box>

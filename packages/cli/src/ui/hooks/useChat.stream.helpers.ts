@@ -15,7 +15,16 @@ interface CreateStreamCallbacksOptions {
   model?: any;
   /** Receives the final assistant text of each turn, for Stop hooks. */
   onAssistantText?: (text: string) => void;
+  /**
+   * Receives the in-progress answer (null when the turn's text completes).
+   * Chunks never touch the history: every write there persists the session,
+   * so the TUI renders the live text from this overlay instead.
+   */
+  onStreamingText?: (text: string | null) => void;
 }
+
+/** The live answer re-renders at most this often. */
+export const STREAM_RENDER_INTERVAL_MS = 60;
 
 /**
  * Create stream callbacks for chat response
@@ -29,12 +38,40 @@ export function createStreamCallbacks(
     llmApi,
     model,
     onAssistantText,
+    onStreamingText,
   } = options;
 
+  let pendingStreamText: string | null = null;
+  let streamFlushTimer: NodeJS.Timeout | null = null;
+  const flushStreamText = () => {
+    streamFlushTimer = null;
+    onStreamingText?.(pendingStreamText);
+  };
+  const clearStreamOverlay = () => {
+    pendingStreamText = null;
+    if (streamFlushTimer) {
+      clearTimeout(streamFlushTimer);
+      streamFlushTimer = null;
+    }
+    onStreamingText?.(null);
+  };
+
   return {
-    onContent: (_: string) => {},
+    onContent: (text: string) => {
+      if (!onStreamingText) return;
+      // The stream reports deltas, so the overlay accumulates them the same
+      // way streamChatResponse accumulates its final response.
+      pendingStreamText = (pendingStreamText ?? "") + text;
+      if (!streamFlushTimer) {
+        streamFlushTimer = setTimeout(
+          flushStreamText,
+          STREAM_RENDER_INTERVAL_MS,
+        );
+      }
+    },
 
     onContentComplete: async (content: string) => {
+      clearStreamOverlay();
       if (content) {
         onAssistantText?.(content);
       }

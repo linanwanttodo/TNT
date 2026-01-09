@@ -16,6 +16,13 @@ vi.mock("./hooks/useTerminalSize.js", () => ({
   useTerminalSize: () => ({ columns: 80, rows: 12, isResizing: false }),
 }));
 
+// The intro would fill the viewport's leftover rows; hiding it keeps the gap
+// between the transcript and a composer-pinned spinner observable.
+vi.mock("./hooks/useTUIChatHooks.js", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useIntroMessage: () => [false, vi.fn()] as const,
+}));
+
 describe("TUIChat transcript", () => {
   let context: any;
 
@@ -48,6 +55,7 @@ describe("TUIChat transcript", () => {
       handleFileAttached: vi.fn(),
       resetChatHistory: vi.fn(),
       handleToolPermissionResponse: vi.fn(),
+      streamingText: null,
       ...overrides,
     });
 
@@ -98,6 +106,54 @@ describe("TUIChat transcript", () => {
       // The composer box is drawn in full: top border, prompt, bottom border.
       expect(lines[composerIndex - 1]).toContain("╭");
       expect(lines[composerIndex + 1]).toContain("╰");
+    } finally {
+      unmount();
+    }
+  });
+
+  it("renders the working spinner directly below the newest message", async () => {
+    const { lastFrame, unmount } = renderChat({
+      chatHistory: conversation(1),
+      isWaitingForResponse: true,
+      responseStartTime: Date.now(),
+    });
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const lines = (lastFrame() ?? "").split("\n");
+      const messageIndex = lines.findIndex((line) => line.includes("answer 1"));
+      const spinnerIndex = lines.findIndex((line) =>
+        line.includes("esc to interrupt"),
+      );
+
+      expect(messageIndex).toBeGreaterThan(-1);
+      expect(spinnerIndex).toBeGreaterThan(messageIndex);
+      // The spinner lives in the transcript flow, not pinned above the
+      // composer with the leftover rows in between.
+      expect(spinnerIndex - messageIndex).toBeLessThanOrEqual(2);
+    } finally {
+      unmount();
+    }
+  });
+
+  it("renders the streaming answer while it arrives", async () => {
+    const { lastFrame, unmount } = renderChat({
+      chatHistory: conversation(1),
+      streamingText: "half written answer",
+    });
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const lines = (lastFrame() ?? "").split("\n");
+      const streamIndex = lines.findIndex((line) =>
+        line.includes("half written answer"),
+      );
+      const composerIndex = lines.findIndex((line) =>
+        line.includes("Ask anything"),
+      );
+
+      expect(streamIndex).toBeGreaterThan(-1);
+      expect(streamIndex).toBeLessThan(composerIndex);
     } finally {
       unmount();
     }
