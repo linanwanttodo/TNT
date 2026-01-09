@@ -91,11 +91,18 @@ describe("spec/modes.md agrees with the permission sources", () => {
 
   it("states the cycle the composer implements", () => {
     const cycle = cycleOrder();
-    expect(cycle).toEqual(["default", "acceptEdits", "plan", "auto"]);
+    expect(cycle).toEqual([
+      "default",
+      "acceptEdits",
+      "plan",
+      "auto",
+      "bypassPermissions",
+    ]);
     const labels = cycle.map((mode) => MODE_LABELS[mode]);
-    expect(doc).toContain(`${labels.join(" → ")} → ${labels[0]}`);
-    // Bypass and the internal dontAsk are explicitly outside the cycle.
-    expect(cycle).not.toContain("bypassPermissions");
+    expect(doc.replace(/\s+/g, " ")).toContain(
+      `${labels.join(" → ")} → ${labels[0]}`,
+    );
+    // The internal headless mode is the only value outside the cycle.
     expect(cycle).not.toContain("dontAsk");
   });
 

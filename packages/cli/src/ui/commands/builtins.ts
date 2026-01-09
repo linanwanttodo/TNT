@@ -24,7 +24,14 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "info", descriptionKey: "cmd.info" },
   { name: "model", descriptionKey: "cmd.model" },
   { name: "config", descriptionKey: "cmd.config" },
-  { name: "mcp", descriptionKey: "cmd.mcp" },
+  {
+    name: "mcp",
+    descriptionKey: "cmd.mcp",
+    subcommands: [
+      { name: "list", description: t("mcp.sub.list") },
+      { name: "market", description: t("mcp.sub.market") },
+    ],
+  },
   { name: "init", descriptionKey: "cmd.init" },
   { name: "compact", descriptionKey: "cmd.compact" },
   { name: "resume", descriptionKey: "cmd.resume" },
@@ -44,7 +51,6 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "parent", descriptionKey: "cmd.parent" },
   { name: "todos", descriptionKey: "cmd.todos" },
   { name: "profile", descriptionKey: "cmd.profile" },
-  { name: "skills", descriptionKey: "cmd.skills" },
   { name: "import-skill", descriptionKey: "cmd.importSkill" },
   { name: "export", descriptionKey: "cmd.export" },
   { name: "import", descriptionKey: "cmd.import" },

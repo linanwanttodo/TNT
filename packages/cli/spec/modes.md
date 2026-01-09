@@ -92,9 +92,7 @@ the same way.
 
 ## Switching
 
-Shift+Tab cycles `Manual → Accept edits → Plan → Auto → Manual`
-(`src/ui/UserInput.tsx`). `bypassPermissions` is not part of the cycle: it is
-reachable only through its explicit flag, because entering it by accident
-allows every tool. `dontAsk` is headless and serve semantics and never reaches
-the TUI. The workspace name stays visible in the status bar in every mode; the
+Shift+Tab cycles `Manual → Accept edits → Plan → Auto → Bypass permissions →
+Manual` (`src/ui/UserInput.tsx`). `dontAsk` is headless and serve semantics and
+never reaches the TUI. The workspace name stays visible in the status bar in every mode; the
 mode itself is shown on the composer border, each mode in its own colour.

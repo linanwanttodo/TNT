@@ -28,10 +28,15 @@ describe("the slash commands the dispatcher can actually run", () => {
   it("keeps a working command undocumented on purpose, not by drift", () => {
     // Every in-process handler is advertised now: `parent` is listed as the
     // alias of `back` rather than dropped, because a working command nobody can
-    // see is the failure this guard was written to catch.
+    // see is the failure this guard was written to catch. `/skills` is listed
+    // by the skill loader instead of the built-in table, so it appears in the
+    // palette with its skills as children.
+    const loaderProvided = ["skills"];
     const undocumented: string[] = [];
 
-    const extra = handlerNames.filter((name) => !builtinNames.includes(name));
+    const extra = handlerNames.filter(
+      (name) => !builtinNames.includes(name) && !loaderProvided.includes(name),
+    );
 
     expect(extra.sort()).toEqual(undocumented);
   });

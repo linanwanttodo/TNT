@@ -275,6 +275,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowConfigSelector: () => navigateTo("config"),
     onShowModelSelector: () => navigateTo("model"),
     onShowMCPSelector: () => navigateTo("mcp"),
+    onShowMcpMarketplace: () => navigateTo("mcpMarket"),
     onShowUpdateSelector: () => navigateTo("update"),
     onShowSessionSelector: () => navigateTo("session"),
     onShowSubagentsSelector: () => navigateTo("subagents"),

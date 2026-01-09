@@ -20,6 +20,7 @@ export interface UseChatProps {
   additionalPrompts?: string[];
   onShowConfigSelector: () => void;
   onShowMCPSelector: () => void;
+  onShowMcpMarketplace?: () => void;
   onShowUpdateSelector: () => void;
   onShowModelSelector?: () => void;
   onShowSessionSelector?: () => void;
