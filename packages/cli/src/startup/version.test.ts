@@ -2,37 +2,46 @@ import { readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { compareVersions, getLatestVersion, getVersion } from "./version.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-vi.mock("node:child_process", () => ({
-  // A slow npm: the answer arrives long after a short timer would have fired,
-  // which is what tells a blocking probe from an asynchronous one.
-  execFile: (
-    _cmd: string,
-    _args: string[],
-    _opts: unknown,
-    cb: (error: Error | null, stdout: string) => void,
-  ) => {
-    setTimeout(() => cb(null, "9.9.9\n"), 30);
-  },
-}));
-
 describe("the version module", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("answers a version without a network probe on import", () => {
-    // `getLatestVersion()` runs `npm view` with a five-second budget. It used to be called
-    // at module scope, so every importer - the LSP client included - paid for it.
+    // `getLatestVersion()` asks the releases API with a five-second budget. It
+    // used to be called at module scope, so every importer - the LSP client
+    // included - paid for it.
     const source = readFileSync(path.join(here, "version.ts"), "utf-8");
 
     expect(source).not.toMatch(/^getLatestVersion\(\)/m);
   });
 
-  it("probes npm without blocking the event loop", async () => {
-    // The probe ran execFileSync inside the service-init phase, freezing the
+  it("probes the releases API without blocking the event loop", async () => {
+    // The probe used execFileSync inside the service-init phase, freezing the
     // whole process for as long as npm took and delaying first paint.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, _init?: unknown) =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  ok: true,
+                  json: async () => ({ tag_name: "v9.9.9" }),
+                }),
+              30,
+            ),
+          ),
+      ),
+    );
+
     let timersFired = 0;
     const pending = getLatestVersion();
     setTimeout(() => {

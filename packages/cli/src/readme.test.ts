@@ -80,9 +80,12 @@ describe("README quick start agrees with the command surface", () => {
     }
   });
 
-  it("uses the published package name in the install line", () => {
+  it("installs from the GitHub release, not from a registry", () => {
     expect(pkg.name).toBe("@tnt/cli");
-    expect(readme).toContain(`npm i -g ${pkg.name}`);
+    expect(readme).toContain("scripts/install.sh");
+    expect(readme).toContain("releases/latest");
+    // The package is not published to npm; the README must not suggest it.
+    expect(readme).not.toContain("npm i -g");
   });
 
   it("states the session limit the lister uses", () => {

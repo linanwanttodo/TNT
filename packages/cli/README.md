@@ -20,11 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli
 irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
 ```
 
-Or install with npm if you have Node.js 20+:
-
-```bash
-npm i -g @tnt/cli
-```
+The installer downloads the prebuilt CLI from the [latest GitHub Release](https://github.com/linanwanttodo/TNT/releases/latest); only Node.js 20+ is required, npm is not.
 
 ## Usage
 

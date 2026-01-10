@@ -2,11 +2,15 @@
 set -euo pipefail
 
 # TNT CLI Installer - Unix (macOS, Linux, WSL, Git Bash)
-# curl -fsSL https://github.com/linanwanttodo/TNT | bash
+# curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash
+#
+# Installs the prebuilt CLI from GitHub Releases; npm is not required.
 
 REQUIRED_NODE_VERSION="20.20.1"
-PACKAGE_NAME="@tnt/cli"
-CLI_COMMAND="cn"
+CLI_COMMAND="tnt"
+GITHUB_REPO="linanwanttodo/TNT"
+INSTALL_DIR="$HOME/.local/share/tnt-cli"
+BIN_DIR="$HOME/.local/bin"
 NETWORK_TIMEOUT=60
 FNM_INSTALL_DIR="$HOME/.local/share/fnm"
 
@@ -22,12 +26,15 @@ else
 fi
 
 info()    { printf "${BLUE}==>${NC} ${BOLD}%s${NC}\n" "$1"; }
-success() { printf "${GREEN}==>${NC} ${BOLD}%s${NC}\n" "$1"; }
+success() { printf "${GREEN}==>${NC} %s\n" "$1"; }
 warn()    { printf "${YELLOW}==> Warning:${NC} %s\n" "$1"; }
 error()   { printf "${RED}==> Error:${NC} %s\n" "$1" >&2; exit 1; }
 
 cleanup() {
     local exit_code=$?
+    if [ $exit_code -ne 0 ] && [ -n "${TMP_TARBALL:-}" ] && [ -f "$TMP_TARBALL" ]; then
+        rm -f "$TMP_TARBALL"
+    fi
     if [ $exit_code -ne 0 ]; then
         warn "Installation failed. Cleaning up..."
         if [ "$CLEANUP_FNM" = true ] && [ -d "$FNM_INSTALL_DIR" ]; then
@@ -52,10 +59,6 @@ check_dependencies() {
 
     if ! command -v tar &>/dev/null; then
         missing_deps+=("tar")
-    fi
-
-    if ! command -v unzip &>/dev/null; then
-        missing_deps+=("unzip")
     fi
 
     if [ ${#missing_deps[@]} -gt 0 ]; then
@@ -240,55 +243,56 @@ add_to_profile() {
     grep -q "$check" "$SHELL_PROFILE" 2>/dev/null || echo "$line" >> "$SHELL_PROFILE"
 }
 
-setup_npm_path() {
-    local npm_bin
-    npm_bin="$(npm config get prefix 2>/dev/null)/bin"
-    [ -d "$npm_bin" ] && export PATH="$npm_bin:$PATH"
-}
-
-check_npm_permissions() {
-    local npm_prefix
-    npm_prefix="$(npm config get prefix 2>/dev/null)"
-
-    # Check if we can write to npm global directory
-    if [ -d "$npm_prefix/lib" ] && [ ! -w "$npm_prefix/lib" ]; then
-        warn "Cannot write to npm global directory: $npm_prefix/lib"
-        info "Attempting to fix npm permissions..."
-
-        # Try to use npm prefix in user directory
-        local user_npm_dir="$HOME/.npm-global"
-        mkdir -p "$user_npm_dir"
-        npm config set prefix "$user_npm_dir"
-        export PATH="$user_npm_dir/bin:$PATH"
-
-        add_to_profile "export PATH=\"$user_npm_dir/bin:\$PATH\"" ".npm-global/bin"
-        info "Configured npm to use $user_npm_dir"
+# The release version: TNT_VERSION overrides, otherwise the latest release tag.
+resolve_version() {
+    if [ -n "${TNT_VERSION:-}" ]; then
+        VERSION="${TNT_VERSION#v}"
+        info "Installing TNT CLI v$VERSION (requested)"
+        return
     fi
+
+    local tag
+    tag="$(download "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)"
+    [ -n "$tag" ] || error "Could not determine the latest release. Set TNT_VERSION and retry."
+    VERSION="${tag#v}"
+    info "Latest release: v$VERSION"
 }
 
 install_cli() {
-    info "Installing $PACKAGE_NAME..."
+    info "Installing TNT CLI v$VERSION from GitHub Releases..."
 
-    check_npm_permissions
+    TMP_TARBALL="$(mktemp /tmp/tnt-cli-XXXXXX.tar.gz)"
+    local url="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/tnt-cli-v$VERSION.tar.gz"
+    download "$url" "$TMP_TARBALL"
 
-    local npm_output
-    local npm_exit_code=0
+    rm -rf "$INSTALL_DIR"
+    mkdir -p "$INSTALL_DIR"
+    tar -xzf "$TMP_TARBALL" -C "$INSTALL_DIR"
+    rm -f "$TMP_TARBALL"
+    TMP_TARBALL=""
 
-    npm_output=$(npm install -g "$PACKAGE_NAME" 2>&1) || npm_exit_code=$?
-
-    if [ $npm_exit_code -ne 0 ]; then
-        echo "$npm_output" >&2
-        error "Failed to install $PACKAGE_NAME (exit code: $npm_exit_code)"
+    if [ ! -f "$INSTALL_DIR/package/dist/tnt.js" ]; then
+        error "The downloaded archive did not contain dist/tnt.js"
     fi
 
-    # Verify installation
-    setup_npm_path
-    if ! command -v "$CLI_COMMAND" &>/dev/null; then
-        warn "$CLI_COMMAND not found in PATH after installation"
-        warn "You may need to restart your shell or source your profile"
+    # A native binding ships inside the tarball; check it loads before wiring
+    # the command, so a broken install never reaches PATH.
+    if ! (cd "$INSTALL_DIR/package" && node -e "require('sqlite3')") &>/dev/null; then
+        error "The bundled sqlite3 native module failed to load on this platform."
     fi
 
-    success "$PACKAGE_NAME installed!"
+    mkdir -p "$BIN_DIR"
+    ln -sfn "$INSTALL_DIR/package/dist/tnt.js" "$BIN_DIR/$CLI_COMMAND"
+    chmod +x "$INSTALL_DIR/package/dist/tnt.js"
+
+    case ":$PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *) export PATH="$BIN_DIR:$PATH" ;;
+    esac
+
+    add_to_profile "export PATH=\"$BIN_DIR:\$PATH\"" "$BIN_DIR"
+
+    success "TNT CLI v$VERSION installed to $INSTALL_DIR"
 }
 
 finalize() {
@@ -318,7 +322,7 @@ main() {
     detect_platform
     detect_shell_profile
     check_node || install_node
-    setup_npm_path
+    resolve_version
     install_cli
     finalize
 }
