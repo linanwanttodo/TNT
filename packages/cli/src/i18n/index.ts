@@ -153,6 +153,15 @@ const en = {
   "ui.remoteRawMode":
     "Terminal does not support raw mode required for interactive UI.",
   "ui.jumpToLatest": "↓ Jump to latest message · Ctrl+End",
+  "mode.desc.default": "Ask before writes and commands",
+  "mode.desc.acceptEdits": "Edit files without asking",
+  "mode.desc.plan": "Read-only planning; writes are excluded",
+  "mode.desc.auto": "Let a model classifier pick (not implemented)",
+  "mode.desc.bypassPermissions": "Allow every tool without asking",
+  "mode.active": "current",
+  "mode.menuHint": "↑/↓ to navigate, Enter to switch, Esc to cancel",
+  "mode.autoUnavailable":
+    "Auto is not available: the classifier is not implemented. Use Manual, Accept edits, Plan, or Bypass permissions.",
   "startup.trustTitle":
     "This project's configuration wants to apply its settings, hooks and MCP servers:",
   "startup.trustQuestion": "Trust this project's configuration? [y/N]",
@@ -776,6 +785,15 @@ const zhCN: Record<TranslationKey, string> = {
   "ui.remoteTtyLess": "无法在无 TTY 的环境中启动远程 TUI：交互模式需要终端。",
   "ui.remoteRawMode": "终端不支持交互界面所需的 raw 模式。",
   "ui.jumpToLatest": "↓ 跳转到最新消息 · Ctrl+End",
+  "mode.desc.default": "写入与命令先询问",
+  "mode.desc.acceptEdits": "自动接受文件编辑",
+  "mode.desc.plan": "只读规划，写入被排除",
+  "mode.desc.auto": "由模型分类器自动选择（尚未实现）",
+  "mode.desc.bypassPermissions": "所有工具直接放行",
+  "mode.active": "当前",
+  "mode.menuHint": "↑/↓ 选择，Enter 切换，Esc 取消",
+  "mode.autoUnavailable":
+    "Auto 暂不可用：分类器模式尚未实现。请使用 Manual、Accept edits、Plan 或 Bypass permissions。",
   "startup.trustTitle": "本项目的配置想要应用其设置、hooks 和 MCP server：",
   "startup.trustQuestion": "信任本项目的配置吗？[y/N]",
   "startup.trustGranted": "已信任本项目的当前配置。",
