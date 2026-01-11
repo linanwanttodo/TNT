@@ -5,6 +5,7 @@ import {
   PLAN_MODE_POLICIES,
 } from "src/permissions/defaultPolicies.js";
 
+import { resetAutoDenialState } from "../permissions/autoMode.js";
 import { resolvePermissionPrecedence } from "../permissions/precedenceResolver.js";
 import {
   PermissionMode,
@@ -178,14 +179,13 @@ export class ToolPermissionService
         return [...ACCEPT_EDITS_MODE_POLICIES];
       case "bypassPermissions":
         return [...BYPASS_PERMISSIONS_POLICIES];
-      case "auto":
-        // The classifier mode is not implemented; startup validation refuses
-        // it, so reaching here means a caller bypassed that check.
-        return [];
       case "dontAsk":
         return [...DONT_ASK_MODE_POLICIES];
+      case "auto":
       case "default":
       default:
+        // Auto keeps the user's own rules and layers the classifier on top of
+        // the asks, so its policy base is the normal one.
         return [];
     }
   }
@@ -292,6 +292,10 @@ export class ToolPermissionService
   switchMode(newMode: PermissionMode): ToolPermissionServiceState {
     const currentMode = this.currentState.currentMode;
     logger.debug(`Switching from mode '${currentMode}' to '${newMode}'`);
+
+    // A new mode starts with a clean refusal streak; an old one must not make
+    // auto mode hand its decisions straight back to the human.
+    resetAutoDenialState();
 
     // Store original policies when leaving agent mode for the first time
     if (

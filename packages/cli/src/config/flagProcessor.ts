@@ -42,13 +42,10 @@ function stripPrefix(message: string): string {
   return message.replace(/^Error: /, "");
 }
 
-/** A Claude mode value; `auto` parses but is refused until implemented. */
+/** A Claude mode value. */
 function requireKnownMode(value: string): PermissionMode {
   if (!PERMISSION_MODES.includes(value as PermissionMode)) {
     throw new Error(stripPrefix(t("cli.invalidPermissionMode", { value })));
-  }
-  if (value === "auto") {
-    throw new Error(stripPrefix(t("cli.autoModeUnavailable")));
   }
   return value as PermissionMode;
 }
@@ -62,9 +59,6 @@ function modeFromEnv(env: NodeJS.ProcessEnv): PermissionMode | undefined {
 function requireSettingsMode(value: string): PermissionMode {
   if (!PERMISSION_MODES.includes(value as PermissionMode)) {
     throw new Error(stripPrefix(t("settings.invalidDefaultMode", { value })));
-  }
-  if (value === "auto") {
-    throw new Error(stripPrefix(t("settings.autoDefaultModeUnavailable")));
   }
   return value as PermissionMode;
 }

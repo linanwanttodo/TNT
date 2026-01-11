@@ -55,12 +55,12 @@ const MODE_LABELS: Record<string, string> = {
 };
 
 function cycleOrder(): string[] {
-  const match = read(
-    path.join(packageRoot, "src", "ui", "components", "ModeMenu.tsx"),
-  ).match(/mode: "(\w+)"/g);
+  const match = read(COMPOSER).match(
+    /const modes: PermissionMode\[\] = \[([^\]]+)\]/,
+  );
   if (!match)
-    throw new Error("the mode menu moved; this guard must move with it");
-  return match.map((m) => m.match(/"(\w+)"/)![1]);
+    throw new Error("the cycle order moved; this guard must move with it");
+  return [...match[1].matchAll(/"(\w+)"/g)].map((m) => m[1]).filter(Boolean);
 }
 
 function planPolicies(): string {
@@ -89,21 +89,14 @@ describe("spec/modes.md agrees with the permission sources", () => {
     }
   });
 
-  it("states the menu the composer opens", () => {
-    const menu = cycleOrder();
-    expect(menu).toEqual([
-      "default",
-      "acceptEdits",
-      "plan",
-      "auto",
-      "bypassPermissions",
-    ]);
-    for (const mode of menu) {
-      const label = MODE_LABELS[mode as keyof typeof MODE_LABELS];
-      expect(doc).toContain(label);
-    }
-    // dontAsk is internal and never offered.
-    expect(menu).not.toContain("dontAsk");
+  it("states the cycle the composer implements", () => {
+    const cycle = cycleOrder();
+    expect(cycle).toEqual(["default", "acceptEdits", "plan", "auto"]);
+    const labels = cycle.map((mode) => MODE_LABELS[mode]);
+    expect(doc).toContain(`${labels.join(" → ")} → ${labels[0]}`);
+    // Bypass and the internal dontAsk are explicitly outside the cycle.
+    expect(cycle).not.toContain("bypassPermissions");
+    expect(cycle).not.toContain("dontAsk");
   });
 
   it("documents every mode flag the CLI accepts", () => {
@@ -156,6 +149,25 @@ describe("spec/modes.md agrees with the permission sources", () => {
     expect(/settings\.json/.test(doc)).toBe(
       /requireSettingsMode/.test(resolver),
     );
+  });
+
+  it("documents the auto classifier where it is implemented", () => {
+    const auto = read(
+      path.join(packageRoot, "src", "permissions", "autoMode.ts"),
+    );
+    expect(/^## `auto`/m.test(doc)).toBe(true);
+    expect(/AUTO_SAFE_TOOLS/.test(doc)).toBe(
+      /export const AUTO_SAFE_TOOLS/.test(auto),
+    );
+    expect(/AUTO_DENIAL_LIMITS/.test(doc)).toBe(
+      /export const AUTO_DENIAL_LIMITS/.test(auto),
+    );
+    expect(/classifyAutoAction/.test(doc)).toBe(
+      /export async function classifyAutoAction/.test(auto),
+    );
+    // Unknown values are still refused at startup; auto must not be.
+    expect(doc).not.toMatch(/auto[^.]{0,80}refused at startup/);
+    expect(doc).not.toMatch(/refused at startup[^.]{0,80}auto/);
   });
 
   it("does not revive the upstream `normal` mode or the hidden directory", () => {

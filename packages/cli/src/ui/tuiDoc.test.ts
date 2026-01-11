@@ -59,7 +59,7 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
 
   it("states the badge colours the component uses", () => {
     const colours =
-      /default: \{ label: "Manual", color: "gray" \}/.test(mode) &&
+      /default: \{ label: "Manual", color: "white" \}/.test(mode) &&
       /plan: \{ label: "Plan", color: "blue" \}/.test(mode) &&
       /bypassPermissions: \{ label: "Bypass permissions", color: "red" \}/.test(
         mode,
