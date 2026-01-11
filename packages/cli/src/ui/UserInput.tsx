@@ -52,6 +52,7 @@ const SlashCommandsMaybe: React.FC<{
   isRemoteMode: boolean;
   assistant?: AssistantConfig;
   commands: SlashCommand[];
+  levelLabel?: string | null;
   filter: string;
   selectedIndex: number;
 }> = ({
@@ -61,6 +62,7 @@ const SlashCommandsMaybe: React.FC<{
   isRemoteMode: _isRemoteMode,
   assistant,
   commands,
+  levelLabel,
   filter,
   selectedIndex,
 }) => {
@@ -69,6 +71,7 @@ const SlashCommandsMaybe: React.FC<{
     <SlashCommandUI
       assistant={assistant}
       commands={commands}
+      levelLabel={levelLabel}
       filter={filter}
       selectedIndex={selectedIndex}
     />
@@ -174,6 +177,8 @@ const UserInput: React.FC<UserInputProps> = ({
   }, [textBuffer]);
 
   const [slashCommandFilter, setSlashCommandFilter] = useState("");
+  /** Parent command when the palette has descended into its subcommands. */
+  const [slashParent, setSlashParent] = useState<string | null>(null);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [showBashMode, setShowBashMode] = useState(false);
   const [showFileSearch, setShowFileSearch] = useState(false);
@@ -267,7 +272,35 @@ const UserInput: React.FC<UserInputProps> = ({
     }
 
     // Get the complete slash command from the text (not just before cursor)
-    const afterSlash = trimmedText.slice(1).split(/[\s\n]/)[0];
+    const commandText = trimmedText.slice(1);
+    const afterSlash = commandText.split(/[\s\n]/)[0];
+    const tokens = commandText.split(/[\s\n]+/).filter(Boolean);
+    const endsWithSpace = /[\s\n]$/.test(trimmedText);
+
+    // A parent command with subcommands descends once the path reaches it:
+    // "/language" shows the command itself, "/language " (or a second token)
+    // shows its children.
+    if (tokens.length >= 2 || endsWithSpace) {
+      const parent = slashCommands.find((cmd) => cmd.name === tokens[0]);
+      if (parent?.subcommands) {
+        const childFilter = tokens[1] ?? "";
+        const matches = parent.subcommands.filter((child) =>
+          child.name.toLowerCase().includes(childFilter.toLowerCase()),
+        );
+        // Past a known child, or nothing matches: fall back to normal input.
+        if (tokens.length <= 2 && matches.length > 0) {
+          setSlashParent(parent.name);
+          setShowSlashCommands(true);
+          setSlashCommandFilter(childFilter);
+          setSelectedCommandIndex(0);
+          setShowFileSearch(false);
+          return;
+        }
+        setShowSlashCommands(false);
+        return;
+      }
+    }
+    setSlashParent(null);
 
     // We're in a slash command context - check if it's a complete command
     const exactMatch = slashCommands.find((cmd) => cmd.name === afterSlash);
@@ -358,9 +391,20 @@ const UserInput: React.FC<UserInputProps> = ({
     }
   };
 
+  // The list a level offers: the root commands, or a parent's children.
+  const levelCommands = (): SlashCommand[] => {
+    if (!slashParent) return slashCommands;
+    const parent = slashCommands.find((cmd) => cmd.name === slashParent);
+    return (parent?.subcommands ?? []).map((child) => ({
+      name: child.name,
+      description: child.description,
+      category: "system" as const,
+    }));
+  };
+
   // Get filtered commands for navigation - using the same sorting logic as SlashCommandUI
   const getFilteredCommands = () => {
-    return slashCommands
+    return levelCommands()
       .filter((cmd) =>
         cmd.name.toLowerCase().includes(slashCommandFilter.toLowerCase()),
       )
@@ -396,8 +440,9 @@ const UserInput: React.FC<UserInputProps> = ({
       textBuffer.setCursor(newCursorPos);
       setInputText(newText);
       setCursorPosition(newCursorPos);
-      setShowSlashCommands(false);
       setShowBashMode(false);
+      // Recompute the level: completing a parent with children opens them.
+      updateSlashCommandState(newText, newCursorPos);
     }
   };
 
@@ -478,12 +523,36 @@ const UserInput: React.FC<UserInputProps> = ({
 
     if ((key.return && !key.shift) || key.tab) {
       if (filteredCommands.length > 0) {
-        const commandName = filteredCommands[selectedCommandIndex].name;
-        if (
+        const selected = filteredCommands[selectedCommandIndex];
+        const commandName = selected.name;
+        const fullCommand = slashParent
+          ? `${slashParent} ${commandName}`
+          : commandName;
+        // A parent with children is completed (opening them), never submitted
+        // alone; a leaf runs only once a prefix was deliberately typed.
+        const hasChildren = (selected.subcommands?.length ?? 0) > 0;
+        const canRun =
           key.return &&
           slashCommandFilter !== "" &&
-          commandName !== "title"
-        ) {
+          commandName !== "title" &&
+          !hasChildren;
+
+        if (slashParent && canRun) {
+          // A child of the open level: run "/parent child".
+          const commandText = `/${fullCommand}`;
+          inputHistory.addEntry(commandText);
+          if (!isRemoteMode && (isWaitingForResponse || isCompacting)) {
+            void messageQueue.enqueueMessage(commandText);
+          } else {
+            onSubmit(commandText);
+          }
+          textBuffer.clear();
+          setInputText("");
+          setCursorPosition(0);
+          setShowSlashCommands(false);
+          setSlashParent(null);
+          setShowBashMode(false);
+        } else if (!slashParent && canRun) {
           // select and submit the command
           const commandText = "/" + commandName;
           inputHistory.addEntry(commandText);
@@ -502,9 +571,9 @@ const UserInput: React.FC<UserInputProps> = ({
           setShowSlashCommands(false);
           setShowBashMode(false);
         } else {
-          // A bare "/" has no chosen command yet, so Enter only completes the
-          // highlighted name into the input; running it is a second Enter.
-          selectSlashCommand(commandName);
+          // Completing, not running: a parent opens its children, a child
+          // lands its full path in the input.
+          selectSlashCommand(fullCommand);
         }
       }
       return true;
@@ -680,6 +749,7 @@ const UserInput: React.FC<UserInputProps> = ({
     // Handle escape key to close slash command UI
     if (showSlashCommands && inputMode) {
       setShowSlashCommands(false);
+      setSlashParent(null);
       return true;
     }
 
@@ -917,7 +987,8 @@ const UserInput: React.FC<UserInputProps> = ({
         hideNormalUI={!!hideNormalUI}
         isRemoteMode={!!isRemoteMode}
         assistant={assistant}
-        commands={slashCommands}
+        commands={levelCommands()}
+        levelLabel={slashParent ? `/${slashParent}` : null}
         filter={slashCommandFilter}
         selectedIndex={selectedCommandIndex}
       />

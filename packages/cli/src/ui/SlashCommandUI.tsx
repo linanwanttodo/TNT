@@ -6,6 +6,7 @@ import { t } from "../i18n/index.js";
 
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { useLocale } from "./hooks/useLocale.js";
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
 
 const MAX_DESCRIPTION_LENGTH = 80;
 
@@ -23,6 +24,8 @@ interface SlashCommandUIProps {
   assistant?: AssistantConfig;
   /** The already-loaded command list; omitted, the component loads its own. */
   commands?: SlashCommand[];
+  /** Set when a parent command's children are shown, e.g. `/language`. */
+  levelLabel?: string | null;
   filter: string;
   selectedIndex: number;
 }
@@ -33,10 +36,12 @@ const MAX_VISIBLE_COMMANDS = 5;
 const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
   assistant,
   commands,
+  levelLabel,
   filter,
   selectedIndex,
 }) => {
   const locale = useLocale();
+  const { columns } = useTerminalSize();
   const [selfLoaded, setSelfLoaded] = useState<SlashCommand[]>(
     // Fallback - basic commands without assistant
     [
@@ -108,32 +113,54 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
     windowStart + MAX_VISIBLE_COMMANDS,
   );
 
+  const nameWidth = Math.min(
+    Math.max(...visibleCommands.map((cmd) => cmd.name.length)) + 6,
+    Math.floor(columns * 0.45),
+  );
+
   return (
-    <Box paddingX={1} marginX={1} marginBottom={1} flexDirection="column">
+    <Box
+      paddingX={1}
+      marginX={1}
+      marginBottom={1}
+      flexDirection="column"
+      width={columns}
+    >
+      {levelLabel && (
+        <Text color="gray" dimColor>
+          {`-- ${levelLabel} --`}
+        </Text>
+      )}
+      {windowStart > 0 && <Text color="gray">▲</Text>}
+
       {visibleCommands.map((command, index) => {
         const isSelected = windowStart + index === selectedIndex;
-
-        // Find the longest command name to vertically align command descriptions
-        const maxCommandLength = Math.max(
-          ...visibleCommands.map((cmd) => cmd.name.length),
-        );
-        const paddedCommandName = `/${command.name}`.padEnd(
-          maxCommandLength + 1,
-        );
+        const label = `/${command.name}`;
+        const description = truncateDescription(command.description);
 
         return (
-          <Box key={command.name}>
-            <Text color={isSelected ? "blue" : "white"} bold={isSelected}>
-              {"  "}
-              {paddedCommandName}
-              <Text color={isSelected ? "blue" : "gray"}>
-                {"    "}
-                {truncateDescription(command.description)}
+          <Box
+            key={command.name}
+            width={columns}
+            backgroundColor={isSelected ? "cyan" : undefined}
+          >
+            <Box width={nameWidth} flexShrink={0}>
+              <Text color={isSelected ? "black" : "white"} bold={isSelected}>
+                {"  " + label}
               </Text>
-            </Text>
+            </Box>
+            <Box flexGrow={1} paddingLeft={2}>
+              <Text color={isSelected ? "black" : "gray"} wrap="truncate">
+                {description}
+              </Text>
+            </Box>
           </Box>
         );
       })}
+
+      {windowStart + visibleCommands.length < filteredCommands.length && (
+        <Text color="gray">▼</Text>
+      )}
 
       <Box marginTop={1}>
         <Text color="gray" dimColor>
