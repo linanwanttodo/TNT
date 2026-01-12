@@ -15,6 +15,7 @@ export type NavigationScreen =
   | "config" // Config selector
   | "model" // Model selector
   | "mcp" // MCP selector
+  | "mcpMarket" // MCP marketplace
   | "session" // Session selector
   | "subagents" // Delegated transcripts of the current session
   | "diff" // Full-screen diff overlay

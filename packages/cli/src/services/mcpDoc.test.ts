@@ -117,4 +117,13 @@ describe("spec/mcp.md agrees with the implementation", () => {
     expect(doc).toMatch(/red for an error/);
     expect(doc).toMatch(/gray for idle/);
   });
+
+  it("documents the market where it is implemented", () => {
+    const market = read("src", "mcp", "marketplace.ts");
+    expect(/MCP_MARKETPLACE/.test(doc)).toBe(
+      /export const MCP_MARKETPLACE/.test(market),
+    );
+    expect(/mcpServers/.test(doc)).toBe(true);
+    expect(/env/.test(doc)).toBe(/envKeys/.test(market));
+  });
 });

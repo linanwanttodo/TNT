@@ -270,6 +270,7 @@ const en = {
   "setup.saved": "Config file written to {path}",
   "setup.bedrock": "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
   "language.title": "Language",
+  "skills.unknown": 'Unknown skill "{name}". Run /skills to see the list.',
   "skills.none":
     "No skills found. Add skills under .tnt/skills or .claude/skills.",
   "session.forkFailed": "Failed to create fork command: {error}",
@@ -565,6 +566,14 @@ const en = {
     "Error: Cannot use both --readonly and --auto flags together",
   "cli.modeConflictsWithReadonlyAuto":
     "Error: Cannot use --mode together with --readonly or --auto",
+  "mcp.sub.list": "List configured MCP servers",
+  "mcp.sub.market": "Browse and add MCP servers",
+  "mcp.marketTitle": "MCP marketplace",
+  "mcp.marketHint": "↑/↓ to navigate, Enter to add, Esc to close",
+  "mcp.marketInstalled": "installed",
+  "mcp.marketAdded": "Added {name} to {path}. Restart tnt to connect it.",
+  "mcp.marketNeedsEnv": "Set {keys} in {path} before the server can connect.",
+  "mcp.marketFailed": "Could not add {name}: {message}",
   "mcp.legacyConfigServers":
     "Warning: mcpServers in config.yaml is deprecated; move the server definitions to ~/.tnt/mcp.json.",
   "settings.untrustedProject":
@@ -885,6 +894,7 @@ const zhCN: Record<TranslationKey, string> = {
   "setup.saved": "配置文件已写入 {path}",
   "setup.bedrock": "正在使用 AWS Bedrock（检测到 CONTINUE_USE_BEDROCK）",
   "language.title": "语言",
+  "skills.unknown": "未知技能“{name}”。运行 /skills 查看列表。",
   "skills.none": "没有找到技能。把技能放在 .tnt/skills 或 .claude/skills 下。",
   "session.forkFailed": "创建 fork 命令失败：{error}",
   "session.titleUsage": "请提供标题。用法：/title <标题>",
@@ -1155,6 +1165,14 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.conflictingReadonlyAuto": "错误：不能同时使用 --readonly 和 --auto",
   "cli.modeConflictsWithReadonlyAuto":
     "错误：--mode 不能与 --readonly 或 --auto 同时使用",
+  "mcp.sub.list": "列出已配置的 MCP server",
+  "mcp.sub.market": "浏览并添加 MCP server",
+  "mcp.marketTitle": "MCP 市场",
+  "mcp.marketHint": "↑/↓ 选择，Enter 添加，Esc 关闭",
+  "mcp.marketInstalled": "已安装",
+  "mcp.marketAdded": "已将 {name} 添加到 {path}。重启 tnt 后连接。",
+  "mcp.marketNeedsEnv": "连接前请在 {path} 中填写 {keys}。",
+  "mcp.marketFailed": "添加 {name} 失败：{message}",
   "mcp.legacyConfigServers":
     "警告：config.yaml 中的 mcpServers 已弃用；请把 server 定义迁移到用户目录下的 mcp.json。",
   "settings.untrustedProject":
