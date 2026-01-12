@@ -126,8 +126,8 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
         read(path.join(here, "commands", "types.ts")),
       ),
     );
-    expect(/filled\s+background/.test(flat)).toBe(
-      /backgroundColor=\{isSelected \? "cyan"/.test(palette),
+    expect(/description in blue/.test(flat)).toBe(
+      /color=\{isSelected \? "blue" : "white"\}/.test(palette),
     );
     expect(/-- \/language --/.test(flat)).toBe(
       /-- \$\{levelLabel\} --/.test(palette),

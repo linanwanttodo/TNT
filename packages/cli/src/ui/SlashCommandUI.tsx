@@ -139,18 +139,18 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
         const description = truncateDescription(command.description);
 
         return (
-          <Box
-            key={command.name}
-            width={columns}
-            backgroundColor={isSelected ? "cyan" : undefined}
-          >
+          <Box key={command.name} width={columns} flexWrap="nowrap">
             <Box width={nameWidth} flexShrink={0}>
-              <Text color={isSelected ? "black" : "white"} bold={isSelected}>
+              <Text
+                color={isSelected ? "blue" : "white"}
+                bold={isSelected}
+                wrap="truncate"
+              >
                 {"  " + label}
               </Text>
             </Box>
             <Box flexGrow={1} paddingLeft={2}>
-              <Text color={isSelected ? "black" : "gray"} wrap="truncate">
+              <Text color={isSelected ? "blue" : "gray"} wrap="truncate">
                 {description}
               </Text>
             </Box>
