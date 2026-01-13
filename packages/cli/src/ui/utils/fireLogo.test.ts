@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FIRE_ROWS,
+  fireGlyph,
   buildFireMask,
   createFireGrid,
   fireColor,
@@ -42,6 +43,16 @@ describe("the fire banner engine", () => {
     expect(fireColor(0)).toEqual([0, 0, 0]);
     expect(fireHex(0)).toBe("#000000");
     expect(fireHex(0.99)).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it("maps heat onto the ramp, darkest to brightest", () => {
+    expect(fireGlyph(0)).toBe(" ");
+    const ramp = " .:-=+*xX$&%@";
+    const cool = ramp.indexOf(fireGlyph(0.2));
+    const hot = ramp.indexOf(fireGlyph(0.95));
+    expect(cool).toBeGreaterThan(0);
+    expect(hot).toBeGreaterThan(cool);
+    expect(fireGlyph(1)).toBe("@");
   });
 
   it("steps deterministically for a seeded rng and keeps letters hot", () => {
