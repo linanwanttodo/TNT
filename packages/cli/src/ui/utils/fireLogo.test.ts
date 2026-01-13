@@ -26,19 +26,25 @@ describe("the fire banner engine", () => {
     const litRows = mask.map((row) => row.filter(Boolean).length);
     expect(litRows[FIRE_ROWS - 1]).toBeGreaterThan(0);
     expect(litRows[FIRE_ROWS - 1]).toBe(litRows[FIRE_ROWS - 2]);
-    expect(mask[0].every((cell) => !cell)).toBe(true);
-    expect(mask[1].every((cell) => !cell)).toBe(true);
 
-    const topRowLit = mask[3].filter(Boolean).length;
+    // Fourteen glyph rows sit at the bottom; the top of the grid is where
+    // the flames rise.
+    const firstLit = mask.findIndex((row) => row.some(Boolean));
+    expect(firstLit).toBe(FIRE_ROWS - 14);
+    expect(mask[0].every((cell) => !cell)).toBe(true);
+
     // Both T bars (10 px each) plus the N's two stem tips (2 px each).
-    expect(topRowLit).toBe(10 + 4 + 10);
+    expect(mask[firstLit].filter(Boolean).length).toBe(10 + 4 + 10);
   });
 
-  it("keeps every palette step warm - red outranks blue", () => {
+  it("stays blood red and black - no gold, no blue", () => {
     const steps = [0.1, 0.3, 0.5, 0.7, 0.9, 0.99].map(fireColor);
-    for (const [r, , b] of steps) {
+    for (const [r, g, b] of steps) {
       expect(r).toBeGreaterThan(b);
+      // Red channel dominates; green stays low so nothing turns orange/gold.
+      expect(r).toBeGreaterThan(g * 1.5);
     }
+    expect(steps[3][1]).toBeLessThan(80);
     expect(steps[0][0]).toBeLessThan(steps[4][0]);
     expect(fireColor(0)).toEqual([0, 0, 0]);
     expect(fireHex(0)).toBe("#000000");
@@ -55,8 +61,8 @@ describe("the fire banner engine", () => {
     expect(fireGlyph(1)).toBe("@");
   });
 
-  it("steps deterministically for a seeded rng and keeps letters hot", () => {
-    const mask = buildFireMask(FIRE_ROWS, 44);
+  it("steps deterministically and keeps the glyph cells dark", () => {
+    const mask = buildFireMask(FIRE_ROWS, 40);
     const a = createFireGrid(mask, seeded(7));
     const b = createFireGrid(mask, seeded(7));
     expect(a).toEqual(b);
@@ -68,9 +74,13 @@ describe("the fire banner engine", () => {
     expect(nextA).not.toEqual(a);
 
     for (let y = 0; y < FIRE_ROWS; y += 1) {
-      for (let x = 0; x < 44; x += 1) {
-        if (mask[y][x]) expect(nextA[y][x]).toBeGreaterThanOrEqual(0.6);
+      for (let x = 0; x < 40; x += 1) {
+        // The letters are a black silhouette: no fire inside them.
+        if (mask[y][x]) expect(nextA[y][x]).toBe(0);
       }
     }
+    // The field is sparse, not a solid block: plenty of cells stay cold.
+    const lit = nextA.flat().filter((v) => v > 0.05).length;
+    expect(lit).toBeLessThan(FIRE_ROWS * 40 * 0.7);
   });
 });
