@@ -34,15 +34,23 @@ describe("FireLogo", () => {
     }
   });
 
-  it("draws the burning letters as two-pixel block cells", () => {
+  it("draws textured flames with the ramp characters, centred", () => {
     const tree = render(<FireLogo animated rng={seeded(3)} />);
     try {
       const frame = tree.lastFrame() ?? "";
-      const blockLines = frame.split("\n").filter((line) => line.includes("▀"));
-      // Eight rows of pixels; the top row may still be cold on the first
-      // frame because the fire starts at the letters and climbs.
-      expect(blockLines.length).toBeGreaterThanOrEqual(6);
-      expect(frame).toContain("▀▀▀▀");
+      const flameLines = frame
+        .split("\n")
+        .filter((line) => /[%@#&$xX*+=:-]/.test(line));
+      // The fire starts at the letters and climbs, so the coldest top rows
+      // may still be blank on the first frame.
+      expect(flameLines.length).toBeGreaterThanOrEqual(12);
+
+      // Centred: the grid is narrower than the mocked 60 columns, so every
+      // flame line starts with a left margin.
+      const margins = flameLines.map(
+        (line) => line.length - line.trimStart().length,
+      );
+      expect(Math.min(...margins)).toBeGreaterThan(0);
     } finally {
       tree.unmount();
     }
