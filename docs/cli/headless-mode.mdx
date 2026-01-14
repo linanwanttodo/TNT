@@ -27,8 +27,8 @@ cat error.log | tnt -p "Explain what went wrong"
 | `--config <path>` | use a specific config file for this run |
 | `--org <slug>` | organization slug, headless only |
 | `--allow`, `--ask`, `--exclude` | override permission policies for this run |
-| `--mode <agent\|plan\|auto>` | start in a permission mode |
-| `--readonly`, `--auto` | shortcuts for `--mode plan` and `--mode auto` |
+| `--permission-mode <mode>` | start in `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` or `dontAsk` |
+| `--readonly`, `--auto` | legacy aliases for `plan` and `bypassPermissions` |
 
 ## Environments without a TTY
 
@@ -48,6 +48,7 @@ docker run --rm my-image tnt -p "Review the changes" --format json
 | `tnt review` | review changes against a base ref, with `--fix` and `--patch` |
 | `tnt checks` | run the repository check pipeline |
 | `tnt serve` | start the HTTP server mode |
+| `tnt --acp` | run as an Agent Client Protocol agent for an editor; see [ACP](/cli/acp) |
 
 Exit codes follow the run: a completed turn exits `0`, a failed run exits non-zero,
 which makes these commands usable as build steps.

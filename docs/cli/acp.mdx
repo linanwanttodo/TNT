@@ -1,0 +1,156 @@
+---
+title: "ACP (Editor Integration)"
+description: "Run TNT as an Agent Client Protocol agent for Zed and other editors."
+---
+
+TNT can run as an [Agent Client Protocol](https://agentclientprotocol.com/) agent.
+The editor launches `tnt --acp`, sends prompts over stdio, and receives streamed
+messages, tool activity, permission requests and mode or model changes. No HTTP
+listener or extra port is opened.
+
+<Info>
+ACP is for editor integration. For scripts and CI, use
+[Headless mode](/cli/headless-mode).
+</Info>
+
+## Start in an editor
+
+Zed:
+
+```json
+{
+  "agent_servers": {
+    "TNT": {
+      "command": "tnt",
+      "args": ["--acp"]
+    }
+  }
+}
+```
+
+Any ACP client that launches a stdio agent uses the same command and argument.
+`tnt --acp` does not take a prompt; the editor sends prompts through the
+protocol.
+
+## What a session is
+
+Each ACP session gets its own worker process and its own persisted transcript.
+Different sessions can run at the same time; a second prompt in the same session
+is refused while the first is still active.
+
+Closing a session stops its worker but keeps the transcript. Reopening it with
+`session/load` replays the transcript; `session/resume` reconnects without
+replaying it. The files live under `~/.tnt/sessions/` in the format described in
+[Sessions](/cli/sessions).
+
+## Supported methods
+
+| Method | Behaviour |
+| --- | --- |
+| `initialize` | negotiates ACP v1 and reports the agent capabilities |
+| `authenticate` | accepted; when the client supports terminal auth, `initialize` offers a `tnt-setup` method |
+| `session/new` | creates a session and starts its worker |
+| `session/load` | reopens a saved session and replays it |
+| `session/resume` | reopens a saved session without replay |
+| `session/list` | lists saved sessions, optionally filtered by cwd |
+| `session/prompt` | runs one turn and streams updates |
+| `session/cancel` | cancels the active turn |
+| `session/set_mode` | switches the permission mode for this session |
+| `session/set_config_option` | switches the chat model |
+| `session/close` | stops the worker, keeps the transcript |
+| `session/delete` | stops the worker and removes the session |
+
+The agent advertises `loadSession`, the list, delete, resume and close session
+capabilities, and HTTP/SSE MCP support. Prompts accept text, resource links and
+embedded text context. Agent authentication is offered only when the client
+advertises terminal authentication.
+
+## Streaming updates
+
+The editor receives `agent_message_chunk` for answer text,
+`agent_thought_chunk` for reasoning, and `tool_call` / `tool_call_update` for
+tool lifecycles. Tool calls keep the same id from start to finish, so the editor
+can update one row instead of creating duplicates. Notices and compaction
+updates are sent only when the client advertises those capabilities.
+
+## Permissions
+
+Permission requests are the same policy decisions the TUI makes. An ACP client
+is offered three answers:
+
+- allow once,
+- allow for this session (a session-scoped grant; nothing is written to
+  `permissions.yaml`),
+- reject.
+
+A cancelled or failed permission request is a refusal, never an approval.
+Unattended runs still fail closed.
+
+## Modes
+
+The editor can switch the session through `session/set_mode`. The available
+modes are `default` (Manual), `acceptEdits`, `plan`, `auto` and
+`bypassPermissions`; `dontAsk` is headless and serve semantics and is not offered
+over ACP. See [Modes](/cli/modes).
+
+## Model selection
+
+`session/new`, `session/load` and `session/resume` return a model selector as a
+session configuration option. `session/set_config_option` with the `model` id
+switches the model for that session only.
+
+## Editor file buffers
+
+When the client advertises `fs.readTextFile` or `fs.writeTextFile`, TNT routes
+the `Read`, `Write`, `Edit` and `MultiEdit` tools through the editor instead of
+the last saved copy on disk. An edit therefore applies to what the editor
+currently shows, including unsaved changes. If the editor refuses a read or a
+write, the tool falls back to the local file so the change does not disappear.
+`ApplyPatch` still plans and writes against disk.
+
+Oversized tool results stay in the session's `tool-results/` directory, whether
+the read came from the editor or from disk.
+
+## MCP servers
+
+`session/new`, `session/load` and `session/resume` accept `mcpServers`. They are
+added to that session's worker before the first prompt; stdio, Streamable HTTP
+and SSE transports are mapped to TNT's configured-server shape. Servers from
+`mcp.json` and plugins still load as usual. A server that fails to connect is
+logged and does not prevent the session from starting.
+
+## Authentication
+
+TNT reads credentials from its local configuration. When the client advertises
+`auth.terminal`, `initialize` also offers a `tnt-setup` terminal method that
+opens the normal TNT setup in an interactive terminal; the client runs it as a
+separate process. Without that client capability, `authMethods` is empty and
+`session/new` reports a configuration error if no model is available.
+
+## Current limits
+
+The current release covers the session lifecycle, prompts, streaming updates,
+permissions, modes, model selection, editor file buffers, per-session MCP
+servers and the terminal setup method. These are not supported yet:
+
+- an ACP-provided terminal for shell commands,
+- image and audio prompt content,
+- `additionalDirectories` beyond the session cwd,
+- routing `ApplyPatch` through the editor's unsaved buffers.
+
+## Security
+
+- ACP uses stdio only; TNT does not open a network listener for it.
+- The session cwd must match the directory TNT was started in.
+- Project configuration, hooks and MCP files follow the normal trust rules. Use
+  `--trust-project` (or `TNT_TRUST_PROJECT=1`) to trust a project for an ACP
+  session.
+- Session transcripts contain the full conversation and any text the agent read
+  from the repository. Treat `~/.tnt/sessions/` as sensitive.
+
+## Troubleshooting
+
+`initialize` works without a configured model, but `session/new` needs one. If
+the editor reports that no model is available, configure
+`~/.tnt/config.yaml` first. TNT writes diagnostics to stderr and to
+`~/.tnt/logs/tnt.log`; stdout is reserved for ACP messages.

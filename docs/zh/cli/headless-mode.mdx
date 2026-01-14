@@ -1,0 +1,54 @@
+---
+title: "无头模式"
+description: "不启动终端界面，执行一次任务，适合脚本、CI 和编辑器集成。"
+---
+
+无头模式执行一次任务并打印结果：
+
+```bash
+tnt -p "为暂存的改动生成一条提交信息"
+```
+
+管道输入会作为上下文加入：
+
+```bash
+git diff --staged | tnt -p "根据这个 diff 写提交信息"
+cat error.log | tnt -p "解释出了什么问题"
+```
+
+## 参数
+
+| 参数 | 含义 |
+| --- | --- |
+| `-p`、`--print` | 打印结果后退出 |
+| `--format json` | 以 JSON 输出结果，仅与 `-p` 一起使用 |
+| `--silent` | 去掉 `think` 标签和多余空白，仅与 `-p` 一起使用 |
+| `--max-steps <n>` | 限制每轮的模型往返次数 |
+| `--config <path>` | 本次运行使用指定的配置文件 |
+| `--org <slug>` | 组织 slug，仅无头模式使用 |
+| `--allow`、`--ask`、`--exclude` | 覆盖本次运行的权限策略 |
+| `--permission-mode <mode>` | 以 `default`、`acceptEdits`、`plan`、`auto`、`bypassPermissions` 或 `dontAsk` 启动 |
+| `--readonly`、`--auto` | `plan` 和 `bypassPermissions` 的旧别名 |
+
+## 没有 TTY 的环境
+
+提供 prompt 时，TNT 不读取 stdin，也不启动交互界面，因此可以在没有 TTY 的
+Docker、CI runner 和编辑器工具集成中运行。设置 `FORCE_NO_TTY` 可以显式要求
+这种行为。
+
+```bash
+docker run --rm my-image tnt -p "审查这些改动" --format json
+```
+
+## 其他入口
+
+| 命令 | 用途 |
+| --- | --- |
+| `tnt ls [--json]` | 列出已保存的会话 |
+| `tnt review` | 针对某个 base ref 审查改动，支持 `--fix` 和 `--patch` |
+| `tnt checks` | 运行仓库检查流水线 |
+| `tnt serve` | 启动 HTTP 服务器模式 |
+| `tnt --acp` | 作为编辑器的 Agent Client Protocol 智能体运行；见 [ACP](/zh/cli/acp) |
+
+退出码跟随运行结果：完成的回合退出 `0`，失败的运行退出非零，因此这些命令
+可以直接作为构建步骤使用。

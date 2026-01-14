@@ -35,9 +35,13 @@
               "cli/tui",
               "cli/modes",
               "cli/slash-commands",
-              "cli/sessions",
               "cli/context"
             ]
+          },
+          {
+            "group": "Architecture",
+            "icon": "layer-group",
+            "pages": ["cli/architecture", "cli/acp", "cli/sessions"]
           },
           {
             "group": "Extend",

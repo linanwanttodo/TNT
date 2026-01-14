@@ -101,28 +101,26 @@ describe("where the lines a block could not show go", () => {
     const notice = noticeFor(lines(2, 9))!;
     const written = notice.slice(notice.indexOf("→") + 1, -1).trim();
 
-    const scoped = path.join(globalDir, "block-overflow", "session-1");
+    const scoped = path.join(
+      globalDir,
+      "sessions",
+      "session-1",
+      "block-overflow",
+    );
     expect(path.dirname(written)).toBe(scoped);
     // Resolved, not merely prefixed: a session id carrying traversal has to stay
     // inside the directory it was given.
     expect(path.resolve(written).startsWith(path.resolve(scoped))).toBe(true);
   });
 
-  it("sanitizes a session id that is not a plain filename", () => {
+  it("refuses a session id that would escape the session root", () => {
     const notice = blockOverflowNotice({
       sessionId: "../../etc/passwd",
       toolName: "Bash",
       overflow: lines(2, 40),
-    })!;
-    const written = notice.slice(notice.indexOf("→") + 1, -1).trim();
+    });
 
-    // One directory under `block-overflow`, named for the id with every path
-    // separator replaced - so a hostile id cannot reach outside it.
-    const scoped = path.join(globalDir, "block-overflow");
-    const idDir = path.dirname(written);
-    expect(path.basename(idDir)).toBe(".._.._etc_passwd");
-    expect(idDir).toBe(path.join(scoped, ".._.._etc_passwd"));
-    expect(path.resolve(written).startsWith(scoped + path.sep)).toBe(true);
+    expect(notice).toBeUndefined();
   });
 
   it("writes once per distinct overflow", () => {
@@ -168,7 +166,12 @@ describe("where the lines a block could not show go", () => {
       ).toBeDefined();
     }
 
-    const scoped = path.join(globalDir, "block-overflow", "session-1");
+    const scoped = path.join(
+      globalDir,
+      "sessions",
+      "session-1",
+      "block-overflow",
+    );
     expect(fs.readdirSync(scoped)).toHaveLength(50);
   });
 });
@@ -206,10 +209,11 @@ describe("the budget the transcript block actually uses", () => {
     const expectedPath = path.join(
       home,
       "global",
-      "block-overflow",
+      "sessions",
       getCurrentSession()
         .sessionId.replace(/[^A-Za-z0-9._-]/g, "_")
         .slice(0, 64),
+      "block-overflow",
     );
     // Whitespace is dropped on both sides: a path longer than the terminal wraps,
     // and whether it fits is a layout question this round does not claim to answer.
