@@ -16,8 +16,10 @@ function frameOf(element: React.ReactElement): string | undefined {
 }
 
 describe("IntroMessage", () => {
-  it("renders the ASCII art", () => {
-    expect(frameOf(<IntroMessage />)).toContain("MOCK ASCII ART");
+  it("renders the brand plate", () => {
+    const frame = frameOf(<IntroMessage />) ?? "";
+    expect(frame).toContain("██████");
+    expect(frame).not.toContain("Tip:");
   });
 
   it("leaves Org, Config and Model to the status bar", () => {
