@@ -38,9 +38,8 @@ describe("SystemMessageService", () => {
     vi.clearAllMocks();
 
     // Get mock reference
-    const { buildSystemMessageSections } = await import(
-      "../agent/systemMessage.js"
-    );
+    const { buildSystemMessageSections } =
+      await import("../agent/systemMessage.js");
     buildSectionsMock = buildSystemMessageSections as any;
 
     // Create new service instance

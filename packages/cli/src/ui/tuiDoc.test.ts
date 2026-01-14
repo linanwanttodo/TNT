@@ -23,8 +23,6 @@ const STATUS = path.join(here, "components", "BottomStatusBar.tsx");
 const MODE = path.join(here, "components", "ModeIndicator.tsx");
 const TRANSCRIPT = path.join(here, "components", "TranscriptContent.tsx");
 const CHAT = path.join(here, "TUIChat.tsx");
-const COMPOSER = path.join(here, "components", "Composer.tsx");
-const VIEWPORT = path.join(here, "hooks", "useChatViewport.ts");
 
 function read(file: string): string {
   return fs.readFileSync(file, "utf-8");
@@ -73,48 +71,90 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/blue/.test(flat) && /red/.test(flat)).toBe(true);
   });
 
-  it("describes the fixed viewport and its message-level scrolling", () => {
-    const transcript = read(TRANSCRIPT);
+  it("describes the alternate-screen viewport and its in-app scrolling", () => {
     const chat = read(CHAT);
-    const viewport = read(VIEWPORT);
+    const viewport = read(path.join(here, "hooks", "useChatViewport.ts"));
+    const scrollView = read(path.join(here, "components", "ScrollView.tsx"));
+    const screen = read(path.join(here, "utils", "terminalScreen.ts"));
+    const entry = read(path.join(here, "index.ts"));
 
-    expect(transcript).not.toContain("bottom-anchor");
-    expect(/fixed-height viewport/.test(flat)).toBe(true);
-    expect(/height=\{rows\}/.test(chat)).toBe(true);
-    expect(/scroll by\s+messages/.test(flat)).toBe(
-      /setScrollBack\(/.test(viewport) && /chatHistory\.slice\(/.test(viewport),
+    expect(/alternate screen/.test(flat)).toBe(/1049h/.test(screen));
+    expect(/pinned to the bottom/.test(flat)).toBe(
+      /height=\{rows\}/.test(chat),
+    );
+    expect(/useChatViewport/.test(chat)).toBe(true);
+    expect(/measures the rendered transcript/.test(flat)).toBe(
+      /measureElement/.test(scrollView),
+    );
+    expect(/mouse wheel/.test(flat)).toBe(/useMouseEvents/.test(viewport));
+    expect(/move the transcript by whole rows/.test(flat)).toBe(
+      /scrollTop/.test(viewport),
+    );
+    expect(/Jump to latest message/.test(flat)).toBe(
+      /jumpToLatest/.test(read(path.join(here, "components", "Composer.tsx"))),
+    );
+    expect(/restored on every exit path/.test(flat)).toBe(
+      /leaveAlternateScreen/.test(entry),
     );
   });
 
-  it("documents the jump-to-latest hint only while the composer renders it", () => {
-    const composer = read(COMPOSER);
-    const viewport = read(VIEWPORT);
-    const art = read(path.join(here, "..", "startup", "asciiArt.ts"));
+  it("keeps the intro out of the transcript once the conversation starts", () => {
+    const transcript = read(TRANSCRIPT);
 
-    expect(/Jump to latest/.test(flat)).toBe(
-      /jumpToLatest/.test(composer) && /key\.end/.test(viewport),
-    );
+    expect(
+      /only rendered while the conversation has no non-system message/.test(
+        flat,
+      ),
+    ).toBe(/isEmptyConversation/.test(transcript));
     expect(/half-block wordmark/.test(flat)).toBe(
-      /█/.test(art) && /MIN_WIDTH_FOR_ASCII_ART = 30/.test(art),
+      /█/.test(read(path.join(here, "..", "startup", "asciiArt.ts"))) &&
+        /MIN_WIDTH_FOR_ASCII_ART = 30/.test(
+          read(path.join(here, "..", "startup", "asciiArt.ts")),
+        ),
     );
     const banner = read(path.join(here, "components", "BrandBanner.tsx"));
-    expect(/brand plate/.test(flat)).toBe(
-      /GRADIENT/.test(banner) && /PIXEL_N/.test(banner),
-    );
     expect(/NO_COLOR/.test(flat)).toBe(/NO_COLOR/.test(banner));
+  });
+
+  it("describes the tool panels where they are built", () => {
+    const group = read(path.join(here, "components", "ToolGroupDisplay.tsx"));
+
+    expect(/full-width panel/.test(flat)).toBe(/width="100%"/.test(group));
+    expect(/flat background reports the state/.test(flat)).toBe(
+      /backgroundColor/.test(group),
+    );
+    expect(/click to expand/.test(flat)).toBe(/click to expand/.test(group));
+    expect(/folds itself/.test(flat)).toBe(/setExpanded\(false\)/.test(group));
+    expect(/`✓` done/.test(flat)).toBe(/glyph: "✓"/.test(group));
+  });
+
+  it("describes the user and model prefixes where they are drawn", () => {
+    const message = read(path.join(here, "components", "MemoizedMessage.tsx"));
+
+    expect(/blue `>`/.test(flat)).toBe(/theme.user/.test(message));
+    expect(/cyan `✦`/.test(flat)).toBe(
+      /theme.accent/.test(message) && /✦/.test(message),
+    );
+    expect(/muted italic colour/.test(flat)).toBe(
+      /<ThinkingMessage/.test(message),
+    );
   });
 
   it("describes streaming, the spinner and the palette where they are built", () => {
     const chat = read(CHAT);
+    const transcript = read(TRANSCRIPT);
     const helpers = read(path.join(here, "hooks", "useChat.stream.helpers.ts"));
     const palette = read(path.join(here, "SlashCommandUI.tsx"));
     const composer = read(path.join(here, "UserInput.tsx"));
 
-    const spinnerInViewport =
-      chat.indexOf("transcriptRef") < chat.indexOf("<ActionStatus") &&
-      chat.indexOf("<ActionStatus") < chat.indexOf("height={transcriptSpacer}");
-    expect(/spinner renders in the transcript flow/.test(flat)).toBe(
-      spinnerInViewport,
+    // The working indicator sits at the end of the transcript content, after
+    // the newest row, and the transcript is above the dock.
+    const spinnerInLiveFrame =
+      transcript.indexOf("<QueuedMessages") <
+        transcript.indexOf("<ActionStatus") &&
+      chat.indexOf("<MainContent") < chat.indexOf("<Composer");
+    expect(/working indicator renders after the live rows/.test(flat)).toBe(
+      spinnerInLiveFrame,
     );
     expect(/throttled overlay/.test(flat)).toBe(
       /STREAM_RENDER_INTERVAL_MS/.test(helpers) && /streamingText/.test(chat),

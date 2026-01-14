@@ -13,9 +13,8 @@ vi.mock("../config/hubLoader.js", () => ({
     .mockImplementation((spec: string) => Promise.resolve(spec)),
 }));
 
-const { constructSystemMessage, formatGitStatus } = await import(
-  "./systemMessage.js"
-);
+const { constructSystemMessage, formatGitStatus } =
+  await import("./systemMessage.js");
 
 const entry = (index: number, width = 0): string =>
   ` M src/module-${index}.ts${"x".repeat(width)}`;

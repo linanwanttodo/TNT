@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # Builds the CLI and assembles the GitHub Release tarball:
-#   tnt-cli-v<version>.tar.gz
+#   tnt-cli-v<version>-<platform>-<arch>.tar.gz
 # The tarball is self-contained: dist/ (code-split bundle), package.json and a
 # pruned node_modules holding only the native dependency the bundle imports at
 # startup (sqlite3, the full-text index driver). The embeddings runtime is a
 # lazy chunk and ships without its natives; npm installs provide them.
+#
+# Run this on each target OS: the sqlite3 binding inside the tarball is native
+# to the machine that builds it. TNT_PLATFORM overrides the detected label.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 VERSION="$(node -p "require('./package.json').version")"
+PLATFORM="${TNT_PLATFORM:-$(node -p 'process.platform + "-" + process.arch')}"
+ASSET="tnt-cli-v${VERSION}-${PLATFORM}.tar.gz"
 STAGING="$(mktemp -d)"
 trap 'rm -rf "$STAGING"' EXIT
 
 echo "==> Building..."
 npm run build
 
-echo "==> Assembling tnt-cli-v${VERSION}.tar.gz"
+echo "==> Assembling ${ASSET} for ${PLATFORM}"
 mkdir -p "$STAGING/package"
 cp -r dist "$STAGING/package/dist"
 cp package.json "$STAGING/package/package.json"
@@ -40,6 +45,6 @@ EOF
   npm install --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=error && \
   npm rebuild sqlite3 --ignore-scripts=false --no-audit --no-fund --loglevel=error)
 
-tar -czf "tnt-cli-v${VERSION}.tar.gz" -C "$STAGING" package
-ls -lh "tnt-cli-v${VERSION}.tar.gz"
-echo "==> Upload with: gh release upload v${VERSION} tnt-cli-v${VERSION}.tar.gz"
+tar -czf "$ASSET" -C "$STAGING" package
+ls -lh "$ASSET"
+echo "==> Upload with: gh release upload v${VERSION} ${ASSET}"

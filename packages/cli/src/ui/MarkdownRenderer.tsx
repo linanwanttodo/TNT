@@ -1,12 +1,14 @@
 import { Text } from "ink";
 import React from "react";
 
+import { closedThinkBlockPattern } from "../utils/thinkingTags.js";
 import {
   defaultTheme,
   detectLanguage,
   highlightCode,
   SyntaxHighlighterTheme,
 } from "./SyntaxHighlighter.js";
+import { theme as uiTheme } from "./theme/tokens.js";
 
 interface MarkdownRendererProps {
   content: string | null | undefined;
@@ -29,9 +31,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         },
       },
       {
-        regex: /<think>([\s\S]*?)<\/think>/g,
+        regex: closedThinkBlockPattern(),
         render: (content, key) => (
-          <Text key={key} color="dim">
+          <Text key={key} color={uiTheme.text.secondary} italic>
             {content.trim()}
           </Text>
         ),
@@ -79,7 +81,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
       {
         regex: /`([^`\n]+)`/g,
         render: (content, key) => (
-          <Text key={key} color="magentaBright">
+          <Text key={key} color={uiTheme.accent}>
             {content}
           </Text>
         ),

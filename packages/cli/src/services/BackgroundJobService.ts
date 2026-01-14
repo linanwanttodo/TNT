@@ -3,11 +3,7 @@ import { ChildProcess, spawn } from "child_process";
 import { logger } from "../utils/logger.js";
 
 export type BackgroundJobStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
+  "pending" | "running" | "completed" | "failed" | "cancelled";
 
 export interface BackgroundJob {
   id: string;
@@ -23,6 +19,24 @@ export interface BackgroundJob {
 const MAX_CONCURRENT_JOBS = 5;
 const MAX_OUTPUT_LINES = 1000;
 
+export interface PolledJobResult {
+  done: boolean;
+  output: string;
+  exitCode?: number | null;
+  signal?: string | null;
+  error?: string;
+}
+
+/**
+ * A job whose process belongs to someone else, such as the editor's terminal.
+ * Polling replaces the captured output, because the owner already returns the
+ * whole buffer rather than an increment.
+ */
+export interface PolledJob {
+  poll(): Promise<PolledJobResult>;
+  cancel?(): Promise<void>;
+}
+
 /**
  * Service for managing background job execution and lifecycle
  * Handles spawning, tracking, and cleanup of background processes
@@ -32,6 +46,8 @@ let exitHookRegistered = false;
 export class BackgroundJobService {
   private jobs: Map<string, BackgroundJob> = new Map();
   private processes: Map<string, ChildProcess> = new Map();
+  private polled: Map<string, { sessionId: string; job: PolledJob }> =
+    new Map();
 
   constructor() {
     // A background job cannot be checked once the process that tracked it is
@@ -151,6 +167,88 @@ export class BackgroundJobService {
     return job;
   }
 
+  registerPolledJob(
+    command: string,
+    job: PolledJob,
+    sessionId: string,
+    existingOutput: string = "",
+  ): BackgroundJob | null {
+    const runningCount = this.getRunningJobCount();
+    if (runningCount >= MAX_CONCURRENT_JOBS) {
+      logger.warn(
+        `Cannot create background job: limit of ${MAX_CONCURRENT_JOBS} reached`,
+      );
+      return null;
+    }
+
+    const id = `bg-${++this.jobCounter}-${Date.now()}`;
+    const created: BackgroundJob = {
+      id,
+      status: "running",
+      command,
+      output: existingOutput,
+      exitCode: null,
+      startTime: new Date(),
+      endTime: null,
+    };
+
+    this.jobs.set(id, created);
+    this.polled.set(id, { sessionId, job });
+    return created;
+  }
+
+  /** Refresh one polled job before a caller reads its output and status. */
+  async refreshJob(jobId: string): Promise<BackgroundJob | undefined> {
+    const job = this.jobs.get(jobId);
+    const entry = this.polled.get(jobId);
+    if (!job || !entry) return job;
+    if (job.status !== "running" && job.status !== "pending") return job;
+
+    try {
+      const result = await entry.job.poll();
+      this.setOutput(jobId, result.output);
+      if (result.error) {
+        this.failJob(jobId, result.error);
+      } else if (result.done) {
+        this.completeJob(jobId, result.exitCode ?? (result.signal ? 1 : 0));
+      }
+    } catch (error) {
+      this.failJob(
+        jobId,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+
+    return this.jobs.get(jobId);
+  }
+
+  /** Stop polled terminals, optionally only those of one session. */
+  async cancelPolledJobs(sessionId?: string): Promise<void> {
+    const entries = [...this.polled.entries()].filter(
+      ([, entry]) => sessionId === undefined || entry.sessionId === sessionId,
+    );
+    await Promise.all(
+      entries.map(async ([id, entry]) => {
+        try {
+          await entry.job.cancel?.();
+        } catch {
+          // The client may already have closed the terminal.
+        }
+        this.cancelJob(id);
+      }),
+    );
+  }
+
+  private setOutput(jobId: string, output: string): void {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+    const lines = output.split("\n");
+    job.output =
+      lines.length > MAX_OUTPUT_LINES
+        ? lines.slice(-MAX_OUTPUT_LINES).join("\n")
+        : output;
+  }
+
   // todo: improve write efficiency with ring buffer or similar
   appendOutput(jobId: string, data: string): void {
     const job = this.jobs.get(jobId);
@@ -173,6 +271,7 @@ export class BackgroundJobService {
       job.exitCode = exitCode;
       job.endTime = new Date();
       this.processes.delete(jobId);
+      this.polled.delete(jobId);
     }
   }
 
@@ -183,6 +282,7 @@ export class BackgroundJobService {
       job.error = error;
       job.endTime = new Date();
       this.processes.delete(jobId);
+      this.polled.delete(jobId);
     }
   }
 
@@ -197,6 +297,7 @@ export class BackgroundJobService {
       this.processes.delete(jobId);
     }
 
+    this.polled.delete(jobId);
     job.status = "cancelled";
     job.endTime = new Date();
     return true;
@@ -230,6 +331,17 @@ export class BackgroundJobService {
       }
     }
     this.processes.clear();
+
+    for (const [jobId, entry] of this.polled) {
+      const cancelled = entry.job.cancel?.();
+      if (cancelled) void cancelled.catch(() => {});
+      const job = this.jobs.get(jobId);
+      if (job) {
+        job.status = "cancelled";
+        job.endTime = new Date();
+      }
+    }
+    this.polled.clear();
   }
 }
 

@@ -14,7 +14,7 @@ import { t } from "../i18n/index.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
 import { updateSessionTitle } from "../session/index.js";
-import { streamChatResponse } from "../stream/streamChatResponse.js";
+import { runAgentTurn } from "../session/controller.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
@@ -186,15 +186,14 @@ export async function streamServeResponse(
       ? state.session.history.slice(1)
       : state.session.history;
 
-  const response = await streamChatResponse(
-    history,
-    state.model,
+  const response = await runAgentTurn({
+    chatHistory: history,
+    model: state.model,
     llmApi,
     abortController,
     callbacks,
-    false,
     turnBudgetLimits,
-  );
+  });
   return response || "";
 }
 

@@ -176,6 +176,12 @@ export async function handleAutoCompaction(
   chatHistory: ChatHistoryItem[];
   compactionIndex: number | null;
   wasCompacted: boolean;
+  /**
+   * Whether a summarization call actually ran. In-place tool-result trimming
+   * also rewrites the history but costs no model call, so callers must not
+   * count it against the compaction circuit.
+   */
+  summarized: boolean;
 }> {
   const {
     isHeadless = false,
@@ -186,7 +192,12 @@ export async function handleAutoCompaction(
   } = options;
 
   if (!model) {
-    return { chatHistory, compactionIndex: null, wasCompacted: false };
+    return {
+      chatHistory,
+      compactionIndex: null,
+      wasCompacted: false,
+      summarized: false,
+    };
   }
 
   const session = getCurrentSession();
@@ -197,6 +208,37 @@ export async function handleAutoCompaction(
       chatHistory: session.history,
       compactionIndex: findCompactionIndex(session.history),
       wasCompacted: false,
+      summarized: false,
+    };
+  }
+
+  const prefixKey = currentPromptCacheKey();
+  const breakerOpen = isCompactionBreakerTripped(compactionState);
+  // The first decision is taken on the history as it stands, and it gates the
+  // in-place trim too. Trimming every round would rewrite rows the provider has
+  // already cached, which invalidates the prompt prefix and costs far more than
+  // the tokens it saves. A conversation nowhere near its window has nothing to
+  // trim for.
+  const overThreshold =
+    !breakerOpen &&
+    (force === true ||
+      shouldAutoCompact({
+        chatHistory,
+        model,
+        systemMessage: providedSystemMessage,
+        tools,
+        // The provider's own number for the request sent under this same prefix,
+        // refused by `shouldAutoCompact` itself if the history has since shrunk.
+        measured: measuredRequestFor(prefixKey),
+        prefixKey,
+      }));
+
+  if (!overThreshold && !breakerOpen) {
+    return {
+      chatHistory,
+      compactionIndex: null,
+      wasCompacted: false,
+      summarized: false,
     };
   }
 
@@ -216,6 +258,7 @@ export async function handleAutoCompaction(
         chatHistory: latestHistory,
         compactionIndex: findCompactionIndex(latestHistory),
         wasCompacted: false,
+        summarized: false,
       };
     }
     expectedGeneration = getSessionHistoryGeneration();
@@ -223,29 +266,35 @@ export async function handleAutoCompaction(
     callbacks?.setCompactionIndex?.(compactionIndex);
   }
 
-  const prefixKey = currentPromptCacheKey();
+  // Trimming may already have brought the history under the threshold. The
+  // provider's last measurement describes the untrimmed request, so it is not
+  // consulted here.
   const shouldSummarize =
-    !isCompactionBreakerTripped(compactionState) &&
+    !breakerOpen &&
     (force === true ||
       shouldAutoCompact({
         chatHistory: historyAfterToolResultCompaction,
         model,
         systemMessage: providedSystemMessage,
         tools,
-        // The provider's own number for the request sent under this same prefix,
-        // refused by `shouldAutoCompact` itself if the history has since shrunk.
-        measured: measuredRequestFor(prefixKey),
+        measured: undefined,
         prefixKey,
       }));
   if (!shouldSummarize) {
     if (toolResultCompaction.truncatedCount === 0) {
-      return { chatHistory, compactionIndex: null, wasCompacted: false };
+      return {
+        chatHistory,
+        compactionIndex: null,
+        wasCompacted: false,
+        summarized: false,
+      };
     }
 
     return {
       chatHistory: historyAfterToolResultCompaction,
       compactionIndex,
       wasCompacted: true,
+      summarized: false,
     };
   }
 
@@ -265,6 +314,7 @@ export async function handleAutoCompaction(
       chatHistory: historyAfterToolResultCompaction,
       compactionIndex,
       wasCompacted: toolResultCompaction.truncatedCount > 0,
+      summarized: false,
     };
   }
 
@@ -288,9 +338,8 @@ export async function handleAutoCompaction(
     const resolvedSystemMessage =
       typeof systemMessage === "string" ? systemMessage : await systemMessage;
 
-    const { countChatHistoryItemTokens } = await import(
-      "../utils/tokenizer.js"
-    );
+    const { countChatHistoryItemTokens } =
+      await import("../utils/tokenizer.js");
     const systemMessageTokens = countChatHistoryItemTokens(
       {
         message: {
@@ -331,6 +380,7 @@ export async function handleAutoCompaction(
         chatHistory: latestHistory,
         compactionIndex: findCompactionIndex(latestHistory),
         wasCompacted: false,
+        summarized: false,
       };
     }
 
@@ -344,6 +394,7 @@ export async function handleAutoCompaction(
       chatHistory: result.compactedHistory,
       compactionIndex: result.compactionIndex,
       wasCompacted: true,
+      summarized: true,
     };
   } catch (error: any) {
     // Handle error notification
@@ -359,10 +410,16 @@ export async function handleAutoCompaction(
         chatHistory: historyAfterToolResultCompaction,
         compactionIndex,
         wasCompacted: true,
+        summarized: false,
       };
     }
 
     // Continue without compaction on error
-    return { chatHistory, compactionIndex: null, wasCompacted: false };
+    return {
+      chatHistory,
+      compactionIndex: null,
+      wasCompacted: false,
+      summarized: false,
+    };
   }
 }

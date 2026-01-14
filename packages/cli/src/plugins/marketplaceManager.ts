@@ -90,8 +90,8 @@ export function parseMarketplaceManifest(
         ? rawSource.length > 0
         : Boolean(
             rawSource &&
-              typeof rawSource === "object" &&
-              typeof (rawSource as { source?: unknown }).source === "string",
+            typeof rawSource === "object" &&
+            typeof (rawSource as { source?: unknown }).source === "string",
           );
     if (!pluginName || !sourceIsUsable) {
       throw new MarketplaceManifestError(

@@ -35,6 +35,13 @@ Returns the current chat state including message history and processing status.
 }
 ```
 
+### `GET /events`
+
+Streams the engine event contract as server-sent events. Each message carries
+an `event:` line with the event type and a `data:` line with the JSON payload.
+The payload includes `sessionId`, `turnId`, a monotonic `seq`, and a timestamp.
+The polling `/state` endpoint remains for clients that do not consume events.
+
 ### `POST /message`
 
 Sends a user message to the server. Messages are queued and processed sequentially.

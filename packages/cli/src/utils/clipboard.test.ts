@@ -1,44 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock child_process
-vi.mock("child_process", () => ({
-  exec: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  run: vi.fn(),
+  native: vi.fn(),
 }));
 
-// Mock util.promisify - Must use factory function to avoid hoisting issues
-vi.mock("util", () => {
-  const mockExecAsync = vi.fn();
-  return {
-    promisify: vi.fn(() => mockExecAsync),
-    __mockExecAsync: mockExecAsync, // Export for test access
-  };
-});
-
-// Mock fs/promises
-vi.mock("fs/promises", () => ({
-  readFile: vi.fn(),
-  unlink: vi.fn(),
+vi.mock("./clipboardCommand.js", () => ({
+  runClipboardCommand: mocks.run,
 }));
-
-// Mock os
-vi.mock("os", () => ({
-  default: {
-    platform: vi.fn(),
-    tmpdir: vi.fn(),
-  },
-  platform: vi.fn(),
-  tmpdir: vi.fn(),
+vi.mock("./nativeClipboard.js", () => ({
+  getNativeClipboardImage: mocks.native,
 }));
-
-// Mock path
-vi.mock("path", () => ({
-  default: {
-    join: vi.fn(),
-  },
-  join: vi.fn(),
-}));
-
-// Mock logger
 vi.mock("./logger.js", () => ({
   logger: {
     debug: vi.fn(),
@@ -48,191 +20,136 @@ vi.mock("./logger.js", () => ({
   },
 }));
 
-// Import after mocks are set up
-import { checkClipboardForImage, getClipboardImage } from "./clipboard.js";
+const png = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+]);
+const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00, 0x43]);
 
-// Get the mock exec async function
-const getMockExecAsync = () =>
-  (vi.mocked(import("util")) as any).__mockExecAsync;
+let clipboardImage: typeof import("./clipboardImage.js");
+let clipboard: typeof import("./clipboard.js");
 
-describe("clipboard utilities", () => {
-  let mockExecAsync: any;
+beforeEach(async () => {
+  vi.resetModules();
+  mocks.run.mockReset();
+  mocks.native.mockReset();
+  mocks.native.mockResolvedValue(undefined);
+  clipboardImage = await import("./clipboardImage.js");
+  clipboard = await import("./clipboard.js");
+});
 
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    // Get the mock function after module is loaded
-    const util = (await import("util")) as any;
-    mockExecAsync = util.__mockExecAsync;
+describe("clipboard image reads", () => {
+  it("reads a Wayland image through wl-paste", async () => {
+    mocks.run.mockImplementation(async (command: string, args: string[]) => {
+      if (command !== "wl-paste") return undefined;
+      if (args[0] === "--list-types") {
+        return Buffer.from("text/plain\nimage/png\n");
+      }
+      if (args[0] === "--type") return png;
+      return undefined;
+    });
+
+    const image = await clipboardImage.readClipboardImage({
+      env: { WAYLAND_DISPLAY: "wayland-0" },
+      platform: "linux",
+    });
+
+    expect(image).toEqual({ bytes: png, mimeType: "image/png" });
   });
 
-  describe("checkClipboardForImage", () => {
-    it("should detect image on macOS when PNG format is present", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("darwin");
-      mockExecAsync.mockResolvedValue({ stdout: "«class PNGf»", stderr: "" });
+  it("returns null when Wayland has only text on the clipboard", async () => {
+    mocks.run.mockResolvedValue(Buffer.from("text/plain\n"));
 
-      const result = await checkClipboardForImage();
-      expect(result).toBe(true);
+    const image = await clipboardImage.readClipboardImage({
+      env: { WAYLAND_DISPLAY: "wayland-0" },
+      platform: "linux",
     });
 
-    it("should detect image on macOS when TIFF format is present", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("darwin");
-      mockExecAsync.mockResolvedValue({ stdout: "«class TIFF»", stderr: "" });
-
-      const result = await checkClipboardForImage();
-      expect(result).toBe(true);
-    });
-
-    it("should detect no image on macOS when no image format is present", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("darwin");
-      mockExecAsync.mockResolvedValue({ stdout: "text content", stderr: "" });
-
-      const result = await checkClipboardForImage();
-      expect(result).toBe(false);
-    });
-
-    it("should detect image on Windows when count > 0", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("win32");
-      mockExecAsync.mockResolvedValue({ stdout: "1\n", stderr: "" });
-
-      const result = await checkClipboardForImage();
-      expect(result).toBe(true);
-    });
-
-    it("should detect no image on Windows when count is 0", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("win32");
-      mockExecAsync.mockResolvedValue({ stdout: "0\n", stderr: "" });
-
-      const result = await checkClipboardForImage();
-      expect(result).toBe(false);
-    });
-
-    it("should detect image on Linux when xclip succeeds", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("linux");
-      mockExecAsync.mockResolvedValue({ stdout: "", stderr: "" });
-
-      const result = await checkClipboardForImage();
-      expect(result).toBe(true);
-    });
-
-    it("should detect no image on Linux when xclip fails", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("linux");
-      mockExecAsync.mockRejectedValue(new Error("xclip failed"));
-
-      const result = await checkClipboardForImage();
-      expect(result).toBe(false);
-    });
-
-    it("should return false and log error on exception", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("darwin");
-      mockExecAsync.mockRejectedValue(new Error("Unexpected error"));
-
-      const result = await checkClipboardForImage();
-      expect(result).toBe(false);
-    });
+    expect(image).toBeNull();
   });
 
-  describe("getClipboardImage", () => {
-    const mockImageBuffer = Buffer.from("fake-image-data");
-
-    it("should get image from clipboard on macOS", async () => {
-      const os = await import("os");
-      const path = await import("path");
-      const fs = await import("fs/promises");
-
-      vi.mocked(os.default.platform).mockReturnValue("darwin");
-      vi.mocked(os.default.tmpdir).mockReturnValue("/tmp");
-      vi.mocked(path.default.join).mockReturnValue(
-        "/tmp/continue-clipboard-123.png",
-      );
-      mockExecAsync.mockResolvedValue({ stdout: "", stderr: "" });
-      vi.mocked(fs.readFile).mockResolvedValue(mockImageBuffer);
-      vi.mocked(fs.unlink).mockResolvedValue(undefined);
-
-      const result = await getClipboardImage();
-      expect(result).toEqual(mockImageBuffer);
-      expect(fs.unlink).toHaveBeenCalled();
+  it("falls back to xclip when wl-paste is unavailable", async () => {
+    mocks.run.mockImplementation(async (command: string, args: string[]) => {
+      if (command === "wl-paste") return undefined;
+      if (command === "xclip" && args.includes("TARGETS")) {
+        return Buffer.from("image/jpeg\n");
+      }
+      if (command === "xclip" && args.includes("image/jpeg")) return jpeg;
+      return undefined;
     });
 
-    it("should get image from clipboard on Windows", async () => {
-      const os = await import("os");
-      const path = await import("path");
-      const fs = await import("fs/promises");
-
-      vi.mocked(os.default.platform).mockReturnValue("win32");
-      vi.mocked(os.default.tmpdir).mockReturnValue("C:\\temp");
-      vi.mocked(path.default.join).mockReturnValue(
-        "C:\\temp\\continue-clipboard-123.png",
-      );
-      mockExecAsync.mockResolvedValue({ stdout: "", stderr: "" });
-      vi.mocked(fs.readFile).mockResolvedValue(mockImageBuffer);
-      vi.mocked(fs.unlink).mockResolvedValue(undefined);
-
-      const result = await getClipboardImage();
-      expect(result).toEqual(mockImageBuffer);
-      expect(fs.unlink).toHaveBeenCalled();
+    const image = await clipboardImage.readClipboardImage({
+      env: { WAYLAND_DISPLAY: "wayland-0" },
+      platform: "linux",
     });
 
-    it("should get image from clipboard on Linux", async () => {
-      const os = await import("os");
-      const path = await import("path");
-      const fs = await import("fs/promises");
+    expect(image).toEqual({ bytes: jpeg, mimeType: "image/jpeg" });
+  });
 
-      vi.mocked(os.default.platform).mockReturnValue("linux");
-      vi.mocked(os.default.tmpdir).mockReturnValue("/tmp");
-      vi.mocked(path.default.join).mockReturnValue(
-        "/tmp/continue-clipboard-123.png",
-      );
-      mockExecAsync.mockResolvedValue({ stdout: "", stderr: "" });
-      vi.mocked(fs.readFile).mockResolvedValue(mockImageBuffer);
-      vi.mocked(fs.unlink).mockResolvedValue(undefined);
+  it("falls back to the bundled X11 helper when no tools are installed", async () => {
+    mocks.run.mockResolvedValue(undefined);
+    mocks.native.mockResolvedValue(png);
 
-      const result = await getClipboardImage();
-      expect(result).toEqual(mockImageBuffer);
-      expect(fs.unlink).toHaveBeenCalled();
+    const image = await clipboardImage.readClipboardImage({
+      env: { DISPLAY: ":1" },
+      platform: "linux",
     });
 
-    it("should return null for unsupported platforms", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("freebsd");
+    expect(image).toEqual({ bytes: png, mimeType: "image/png" });
+  });
 
-      const result = await getClipboardImage();
-      expect(result).toBeNull();
+  it("rejects an image format the providers do not accept", async () => {
+    mocks.run.mockResolvedValue(undefined);
+    mocks.native.mockResolvedValue(Buffer.from("BM000000000000000000000000"));
+
+    const image = await clipboardImage.readClipboardImage({
+      env: { DISPLAY: ":1" },
+      platform: "linux",
     });
 
-    it("should clean up temp file even if unlink fails", async () => {
-      const os = await import("os");
-      const path = await import("path");
-      const fs = await import("fs/promises");
+    expect(image).toBeNull();
+  });
 
-      vi.mocked(os.default.platform).mockReturnValue("darwin");
-      vi.mocked(os.default.tmpdir).mockReturnValue("/tmp");
-      vi.mocked(path.default.join).mockReturnValue(
-        "/tmp/continue-clipboard-123.png",
-      );
-      mockExecAsync.mockResolvedValue({ stdout: "", stderr: "" });
-      vi.mocked(fs.readFile).mockResolvedValue(mockImageBuffer);
-      vi.mocked(fs.unlink).mockRejectedValue(new Error("Failed to delete"));
+  it("uses the native helper for the cheap status probe when tools are absent", async () => {
+    mocks.run.mockResolvedValue(undefined);
+    mocks.native.mockResolvedValue(png);
 
-      const result = await getClipboardImage();
-      expect(result).toEqual(mockImageBuffer);
-      expect(fs.unlink).toHaveBeenCalled();
+    await expect(
+      clipboardImage.clipboardHasImage({
+        env: { DISPLAY: ":1" },
+        platform: "linux",
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("detects an image from the Wayland type list without reading its bytes", async () => {
+    mocks.run.mockResolvedValue(Buffer.from("text/plain\nimage/webp\n"));
+
+    await expect(
+      clipboardImage.clipboardHasImage({
+        env: { WAYLAND_DISPLAY: "wayland-0" },
+        platform: "linux",
+      }),
+    ).resolves.toBe(true);
+    expect(mocks.native).not.toHaveBeenCalled();
+  });
+});
+
+describe("the compatibility wrappers", () => {
+  it("returns raw bytes from getClipboardImage", async () => {
+    mocks.run.mockImplementation(async (command: string, args: string[]) => {
+      if (command === "wl-paste" && args[0] === "--list-types") {
+        return Buffer.from("image/png\n");
+      }
+      if (command === "wl-paste" && args[0] === "--type") return png;
+      return undefined;
     });
 
-    it("should return null and log error on exception", async () => {
-      const os = await import("os");
-      vi.mocked(os.default.platform).mockReturnValue("darwin");
-      mockExecAsync.mockRejectedValue(new Error("Unexpected error"));
+    await expect(clipboard.getClipboardImage()).resolves.toEqual(png);
+  });
 
-      const result = await getClipboardImage();
-      expect(result).toBeNull();
-    });
+  it("returns false when the probe finds no image", async () => {
+    mocks.run.mockResolvedValue(Buffer.from("text/plain\n"));
+
+    await expect(clipboard.checkClipboardForImage()).resolves.toBe(false);
   });
 });

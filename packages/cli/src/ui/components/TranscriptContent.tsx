@@ -1,12 +1,16 @@
-import { Box, Text } from "ink";
 import React from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
+import { t } from "../../i18n/index.js";
 import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
-import { splitTranscriptSegments } from "../utils/transcriptSegments.js";
+
+import { ActionStatus } from "./ActionStatus.js";
+import { QueuedMessages } from "./QueuedMessages.js";
+import { ScrollView, type ScrollViewMetrics } from "./ScrollView.js";
+import { ThinkingMessage } from "./ThinkingMessage.js";
 
 interface TranscriptContentProps {
   showIntroMessage: boolean;
@@ -17,110 +21,109 @@ interface TranscriptContentProps {
     index: number,
     allMessages?: ChatHistoryItem[],
   ) => React.ReactElement;
-  refreshTrigger?: number;
-  /**
-   * Trailing history items that are still changing: the answer being streamed,
-   * the tool call being run, the message waiting on a permission prompt. They
-   * stay after the settled items so their position never jumps.
-   */
-  liveItemCount?: number;
   /** The answer arriving chunk by chunk, rendered from the stream overlay. */
   streamingText?: string | null;
+  /** The reasoning arriving chunk by chunk, above the live answer. */
+  streamingReasoning?: string | null;
+  /** Rows hidden above the window. */
+  scrollTop: number;
+  onMetrics: (metrics: ScrollViewMetrics) => void;
+  isWaitingForResponse: boolean;
+  responseStartTime: number | null;
+  isCompacting: boolean;
+  compactionStartTime: number | null;
+  isBashToolRunning: boolean;
 }
 
+const isEmptyConversation = (chatHistory: ChatHistoryItem[]): boolean =>
+  !chatHistory.some((item) => item.message.role !== "system");
+
 /**
- * The transcript rendered inside the fixed-height viewport TUIChat owns: the
- * banner, finished messages, the live answer and the queued messages, in that
- * order. This component does not print to the scrollback and does not add a
- * spacer; the viewport decides where it starts and how much of it is visible.
+ * The conversation, drawn inside the app-owned alternate screen.
+ *
+ * The dock below it never moves, so the transcript is what scrolls. Every
+ * message is rendered and measured; the ScrollView clips that column to the
+ * rows the layout gives it. Nothing here guesses how tall a message will be,
+ * which is what made a scroll land on a window that did not fill the screen.
  */
 export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   showIntroMessage,
   chatHistory,
   queuedMessages = [],
   renderMessage,
-  refreshTrigger,
-  liveItemCount = 0,
   streamingText,
+  streamingReasoning,
+  scrollTop,
+  onMetrics,
+  isWaitingForResponse,
+  responseStartTime,
+  isCompacting,
+  compactionStartTime,
+  isBashToolRunning,
 }) => {
   const { columns } = useTerminalSize();
 
-  // Filter out system messages without content and split large messages
+  // Filter out system messages without content and split large messages.
   const processedChatHistory = React.useMemo(() => {
     const filtered = chatHistory.filter(
       (item) => item.message.role !== "system" || item.message.content,
     );
 
-    // Split large messages into multiple history items
     return splitChatHistory(filtered, columns);
   }, [chatHistory, columns]);
 
-  const { settled, live } = React.useMemo(
-    () => splitTranscriptSegments(processedChatHistory, liveItemCount),
-    [processedChatHistory, liveItemCount],
-  );
+  const showIntro =
+    showIntroMessage && isEmptyConversation(processedChatHistory);
 
-  const transcript = React.useMemo(() => {
-    const items: React.ReactElement[] = [];
-
-    if (showIntroMessage) {
-      items.push(<IntroMessage key="intro" />);
-    }
-
-    for (let index = 0; index < settled.length; index += 1) {
-      items.push(renderMessage(settled[index], index, processedChatHistory));
-    }
-
-    for (let index = 0; index < live.length; index += 1) {
-      items.push(
-        renderMessage(
-          live[index],
-          settled.length + index,
-          processedChatHistory,
-        ),
-      );
-    }
-
-    return items;
-  }, [showIntroMessage, settled, live, processedChatHistory, renderMessage]);
-
-  // The live answer is not in the history yet, so it renders straight from
-  // the stream overlay, after everything that is settled.
+  // The live answer is not in the history yet, so it renders straight from the
+  // stream overlay, after everything that has already arrived.
   const streamingItem = React.useMemo(() => {
     if (!streamingText) return null;
+
     return renderMessage(
       {
         message: { role: "assistant", content: streamingText },
         contextItems: [],
       } as ChatHistoryItem,
-      settled.length + live.length,
+      processedChatHistory.length,
       processedChatHistory,
     );
-  }, [
-    streamingText,
-    settled.length,
-    live.length,
-    processedChatHistory,
-    renderMessage,
-  ]);
+  }, [streamingText, processedChatHistory, renderMessage]);
 
   return (
-    <Box
-      key={refreshTrigger ?? 0}
-      flexDirection="column"
-      flexShrink={0}
-      paddingX={0}
-    >
-      {transcript}
-      {streamingItem && <Box key="streaming-live">{streamingItem}</Box>}
+    <ScrollView scrollTop={scrollTop} onMetrics={onMetrics}>
+      {showIntro && <IntroMessage />}
 
-      {queuedMessages.length > 0 && (
-        <Box paddingLeft={2} paddingBottom={1}>
-          <Text color="dim" italic>
-            {queuedMessages.map((message) => message.message).join("\n")}
-          </Text>
-        </Box>
+      {processedChatHistory.map((item, index) =>
+        renderMessage(item, index, processedChatHistory),
       )}
-    </Box>
+
+      {streamingReasoning && (
+        <ThinkingMessage thought={streamingReasoning} isStreaming />
+      )}
+
+      {streamingItem}
+
+      <QueuedMessages messages={queuedMessages} />
+
+      {/* The indicator is the last row of the transcript, so it sits directly
+          under the newest message no matter how tall the viewport is. */}
+      <ActionStatus
+        visible={isWaitingForResponse && !!responseStartTime}
+        startTime={responseStartTime || 0}
+        message={t("action.thinking")}
+        showSpinner={true}
+        loadingColor="gray"
+        additionalHint={isBashToolRunning ? t("action.background") : undefined}
+      />
+
+      <ActionStatus
+        visible={isCompacting && !!compactionStartTime}
+        startTime={compactionStartTime || 0}
+        message={t("action.compacting")}
+        showSpinner={true}
+        loadingColor="grey"
+      />
+    </ScrollView>
   );
 };

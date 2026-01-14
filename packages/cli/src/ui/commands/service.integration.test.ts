@@ -26,7 +26,8 @@ describe("Slash Commands Integration", () => {
       expect(commandNames).toContain("clear");
       expect(commandNames).toContain("exit");
       expect(commandNames).toContain("model");
-      expect(commandNames).toContain("config");
+      // There is one configuration and no switcher, so the command is gone.
+      expect(commandNames).not.toContain("config");
     });
 
     it("should include assistant prompt commands", async () => {
@@ -39,7 +40,7 @@ describe("Slash Commands Integration", () => {
     it("should categorize system commands correctly", async () => {
       const commands = await getAllSlashCommands(mockAssistant);
       const systemCommands = commands.filter((cmd) =>
-        ["help", "clear", "exit", "model", "config"].includes(cmd.name),
+        ["help", "clear", "exit", "model"].includes(cmd.name),
       );
 
       systemCommands.forEach((cmd) => {

@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import fs from "fs";
+/* eslint-disable max-lines */
 import { spawn, type ChildProcess } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import path from "path";
@@ -25,6 +26,7 @@ interface WorkerEntry {
   sessionId: string;
   cwd: string;
   mcpServers: acp.McpServer[];
+  additionalDirectories: string[];
   child: ChildProcess;
   client: acp.ClientConnection;
   ctx: acp.ClientContext;
@@ -37,6 +39,7 @@ interface WorkerEntry {
 interface SessionCatalogEntry {
   cwd: string;
   mcpServers: acp.McpServer[];
+  additionalDirectories: string[];
 }
 
 function workerEntry(): string {
@@ -62,11 +65,16 @@ function waitForExit(child: ChildProcess, timeoutMs: number): Promise<void> {
   });
 }
 
-function assertNoAdditionalDirectories(params: {
-  additionalDirectories?: string[] | null;
-}): void {
-  if ((params.additionalDirectories?.length ?? 0) > 0) {
-    throw invalidParams("additionalDirectories is not supported yet");
+function assertAdditionalDirectories(directories?: string[] | null): void {
+  for (const directory of directories ?? []) {
+    if (!path.isAbsolute(directory)) {
+      throw invalidParams(
+        `additionalDirectories must be absolute: ${directory}`,
+      );
+    }
+    if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
+      throw invalidParams(`additionalDirectories does not exist: ${directory}`);
+    }
   }
 }
 
@@ -85,6 +93,8 @@ export async function runAcpSupervisor(
   const capabilities = (): acp.AgentCapabilities => ({
     loadSession: true,
     promptCapabilities: {
+      image: true,
+      audio: true,
       embeddedContext: true,
     },
     mcpCapabilities: {
@@ -126,6 +136,7 @@ export async function runAcpSupervisor(
     sessionId: string,
     cwd: string,
     mcpServers: acp.McpServer[],
+    additionalDirectories: string[],
   ): Promise<WorkerEntry> => {
     const entryPath = path.resolve(workerEntry());
     const entryDir = path.dirname(entryPath);
@@ -210,6 +221,62 @@ export async function runAcpSupervisor(
         );
       },
     );
+    clientApp.onRequest(acp.methods.client.terminal.create, async (context) => {
+      if (!realConnectionRef.value) {
+        throw internalError("The ACP client is not connected");
+      }
+      return await realConnectionRef.value.client.request(
+        acp.methods.client.terminal.create,
+        context.params,
+        { cancellationSignal: context.signal },
+      );
+    });
+    clientApp.onRequest(acp.methods.client.terminal.output, async (context) => {
+      if (!realConnectionRef.value) {
+        throw internalError("The ACP client is not connected");
+      }
+      return await realConnectionRef.value.client.request(
+        acp.methods.client.terminal.output,
+        context.params,
+        { cancellationSignal: context.signal },
+      );
+    });
+    clientApp.onRequest(
+      acp.methods.client.terminal.waitForExit,
+      async (context) => {
+        if (!realConnectionRef.value) {
+          throw internalError("The ACP client is not connected");
+        }
+        return await realConnectionRef.value.client.request(
+          acp.methods.client.terminal.waitForExit,
+          context.params,
+          { cancellationSignal: context.signal },
+        );
+      },
+    );
+    clientApp.onRequest(acp.methods.client.terminal.kill, async (context) => {
+      if (!realConnectionRef.value) {
+        throw internalError("The ACP client is not connected");
+      }
+      return await realConnectionRef.value.client.request(
+        acp.methods.client.terminal.kill,
+        context.params,
+        { cancellationSignal: context.signal },
+      );
+    });
+    clientApp.onRequest(
+      acp.methods.client.terminal.release,
+      async (context) => {
+        if (!realConnectionRef.value) {
+          throw internalError("The ACP client is not connected");
+        }
+        return await realConnectionRef.value.client.request(
+          acp.methods.client.terminal.release,
+          context.params,
+          { cancellationSignal: context.signal },
+        );
+      },
+    );
 
     const stream = acp.ndJsonStream(
       Writable.toWeb(child.stdin) as unknown as WritableStream<Uint8Array>,
@@ -222,6 +289,7 @@ export async function runAcpSupervisor(
       sessionId,
       cwd,
       mcpServers,
+      additionalDirectories,
       child,
       client,
       ctx,
@@ -255,7 +323,7 @@ export async function runAcpSupervisor(
       );
     }
 
-    catalog.set(sessionId, { cwd, mcpServers });
+    catalog.set(sessionId, { cwd, mcpServers, additionalDirectories });
     return entry;
   };
 
@@ -271,13 +339,20 @@ export async function runAcpSupervisor(
     const cwd = known?.cwd ?? meta!.workspaceDirectory;
     if (!cwd) throw sessionNotFound(sessionId);
     const mcpServers = known?.mcpServers ?? [];
+    const additionalDirectories = known?.additionalDirectories ?? [];
 
-    const entry = await spawnWorker(sessionId, cwd, mcpServers);
+    const entry = await spawnWorker(
+      sessionId,
+      cwd,
+      mcpServers,
+      additionalDirectories,
+    );
     try {
       await entry.ctx.request(acp.methods.agent.session.resume, {
         sessionId,
         cwd,
         mcpServers,
+        additionalDirectories,
       });
       return entry;
     } catch (error) {
@@ -303,7 +378,7 @@ export async function runAcpSupervisor(
   app.onRequest(acp.methods.agent.authenticate, async () => ({}));
 
   app.onRequest(acp.methods.agent.session.new, async (context) => {
-    assertNoAdditionalDirectories(context.params);
+    assertAdditionalDirectories(context.params.additionalDirectories);
     const cwd = path.resolve(context.params.cwd);
     if (!path.isAbsolute(context.params.cwd)) {
       throw invalidParams("session/new cwd must be absolute");
@@ -313,7 +388,13 @@ export async function runAcpSupervisor(
     }
     const sessionId = randomUUID();
     const mcpServers = context.params.mcpServers ?? [];
-    const entry = await spawnWorker(sessionId, cwd, mcpServers);
+    const additionalDirectories = context.params.additionalDirectories ?? [];
+    const entry = await spawnWorker(
+      sessionId,
+      cwd,
+      mcpServers,
+      additionalDirectories,
+    );
     try {
       const response = await entry.ctx.request(acp.methods.agent.session.new, {
         cwd,
@@ -338,7 +419,7 @@ export async function runAcpSupervisor(
 
   app.onRequest(acp.methods.agent.session.load, async (context) => {
     assertSessionId(context.params.sessionId);
-    assertNoAdditionalDirectories(context.params);
+    assertAdditionalDirectories(context.params.additionalDirectories);
     const existing = workers.get(context.params.sessionId);
     if (existing?.alive) {
       return {
@@ -348,7 +429,13 @@ export async function runAcpSupervisor(
     }
     const cwd = path.resolve(context.params.cwd);
     const mcpServers = context.params.mcpServers ?? [];
-    const entry = await spawnWorker(context.params.sessionId, cwd, mcpServers);
+    const additionalDirectories = context.params.additionalDirectories ?? [];
+    const entry = await spawnWorker(
+      context.params.sessionId,
+      cwd,
+      mcpServers,
+      additionalDirectories,
+    );
     try {
       const response = await entry.ctx.request(acp.methods.agent.session.load, {
         sessionId: context.params.sessionId,
@@ -370,7 +457,7 @@ export async function runAcpSupervisor(
 
   app.onRequest(acp.methods.agent.session.resume, async (context) => {
     assertSessionId(context.params.sessionId);
-    assertNoAdditionalDirectories(context.params);
+    assertAdditionalDirectories(context.params.additionalDirectories);
     const existing = workers.get(context.params.sessionId);
     if (existing?.alive) {
       return {
@@ -380,7 +467,13 @@ export async function runAcpSupervisor(
     }
     const cwd = path.resolve(context.params.cwd);
     const mcpServers = context.params.mcpServers ?? [];
-    const entry = await spawnWorker(context.params.sessionId, cwd, mcpServers);
+    const additionalDirectories = context.params.additionalDirectories ?? [];
+    const entry = await spawnWorker(
+      context.params.sessionId,
+      cwd,
+      mcpServers,
+      additionalDirectories,
+    );
     try {
       const response = await entry.ctx.request(
         acp.methods.agent.session.resume,
@@ -460,12 +553,20 @@ export async function runAcpSupervisor(
       includeEmpty: true,
     });
     return {
-      sessions: sessions.map((meta) => ({
-        sessionId: meta.sessionId,
-        cwd: meta.workspaceDirectory,
-        title: meta.title,
-        updatedAt: meta.updatedAt,
-      })),
+      sessions: sessions.map((meta) => {
+        const additionalDirectories = catalog.get(
+          meta.sessionId,
+        )?.additionalDirectories;
+        return {
+          sessionId: meta.sessionId,
+          cwd: meta.workspaceDirectory,
+          title: meta.title,
+          updatedAt: meta.updatedAt,
+          ...(additionalDirectories && additionalDirectories.length > 0
+            ? { additionalDirectories }
+            : {}),
+        };
+      }),
     } satisfies acp.ListSessionsResponse;
   });
 

@@ -24,6 +24,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "CodebaseSearch",
   "Status",
   "Todo",
+  "ToolSearch",
   "Subagent",
   "ListSubagents",
   "Skills",

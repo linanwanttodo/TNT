@@ -343,9 +343,8 @@ async function executePromptHook(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const { chatCompletionStreamWithBackoff } = await import(
-      "../utils/exponentialBackoff.js"
-    );
+    const { chatCompletionStreamWithBackoff } =
+      await import("../utils/exponentialBackoff.js");
 
     const prompt = handler.prompt.replace(
       /\$ARGUMENTS/g,

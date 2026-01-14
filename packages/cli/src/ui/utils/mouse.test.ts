@@ -4,12 +4,20 @@ import {
   drainMouseEvents,
   isIncompleteMouseSequence,
   isJumpHintClick,
+  isTerminalMouseSequence,
   parseSgrMouseEvent,
 } from "./mouse.js";
 
 const click = (col: number, row: number) => `\x1b[<0;${col};${row}M`;
 
 describe("terminal mouse parsing", () => {
+  it("recognises the reports Ink would otherwise type into the prompt", () => {
+    expect(isTerminalMouseSequence("[<64;10;10M")).toBe(true);
+    expect(isTerminalMouseSequence("[<0;1;2m")).toBe(true);
+    expect(isTerminalMouseSequence("hello")).toBe(false);
+    expect(isTerminalMouseSequence("[tag]")).toBe(false);
+  });
+
   it("parses presses, releases and wheel events", () => {
     expect(parseSgrMouseEvent(click(12, 5))?.event).toMatchObject({
       name: "left-press",

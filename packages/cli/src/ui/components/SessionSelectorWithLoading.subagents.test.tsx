@@ -34,9 +34,8 @@ describe("SessionSelectorWithLoading subagent source", () => {
     });
     tree.unmount();
 
-    const { listSessions, listSubagentSessions } = await import(
-      "../../session/index.js"
-    );
+    const { listSessions, listSubagentSessions } =
+      await import("../../session/index.js");
     expect(listSubagentSessions).toHaveBeenCalledWith("parent");
     expect(listSessions).not.toHaveBeenCalled();
   });

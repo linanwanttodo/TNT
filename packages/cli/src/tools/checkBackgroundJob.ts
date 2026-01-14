@@ -23,7 +23,9 @@ If the job is still running, returns partial output with "running" status.`,
   readonly: true,
   isBuiltIn: true,
   run: async ({ job_id }: { job_id: string }): Promise<string> => {
-    const job = services.backgroundJobs.getJob(job_id);
+    // A job owned by the editor's terminal has no local process, so its output
+    // and status only change when this check asks the client.
+    const job = await services.backgroundJobs.refreshJob(job_id);
 
     if (!job) {
       return JSON.stringify({

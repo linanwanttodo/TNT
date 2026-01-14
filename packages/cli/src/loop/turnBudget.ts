@@ -6,6 +6,15 @@
  * walk. The ceiling counts every model round of one user turn, including the
  * rounds a compaction checkpoint adds, because those cost the same tokens and
  * the same wall clock as any other round.
+ *
+ * There is deliberately no "diminishing returns" rule here. An earlier version
+ * ended the turn after three consecutive rounds whose completion_tokens stayed
+ * under 500, but that is what a normal tool round looks like: the model emits a
+ * sentence and a tool call, and the tool may read a large file. The rule
+ * therefore killed the turn after three files no matter how much context was
+ * left. Gemini CLI and Claude Code bound a turn with the round ceiling and with
+ * detection of actually repeated output or identical tool calls, so those are
+ * the only two bounds kept here.
  */
 
 export interface TurnBudgetLimits {
@@ -15,15 +24,6 @@ export interface TurnBudgetLimits {
    * into a visible partial answer.
    */
   maxSteps: number;
-
-  /**
-   * Rounds without new effective content, each adding fewer than
-   * `diminishingTokenThreshold` tokens, before the turn is considered stuck.
-   */
-  diminishingReturnsThreshold: number;
-
-  /** Token delta below which a round counts as adding no effective content. */
-  diminishingTokenThreshold: number;
 
   /**
    * Consecutive failed compaction attempts before automatic compaction stops
@@ -42,8 +42,6 @@ export interface TurnBudgetLimits {
 
 export const DEFAULT_TURN_BUDGET_LIMITS: TurnBudgetLimits = {
   maxSteps: 128,
-  diminishingReturnsThreshold: 3,
-  diminishingTokenThreshold: 500,
   maxConsecutiveCompactionFailures: 3,
   compactionMinReductionRatio: 0.01,
 };
@@ -58,9 +56,6 @@ export class TurnBudget {
 
   /** Model rounds completed so far, including rounds that only compacted. */
   stepsDone = 0;
-
-  /** Consecutive rounds that added fewer than the token threshold. */
-  private diminishingRounds = 0;
 
   /** Consecutive compaction attempts that failed to shrink the history. */
   private consecutiveCompactionFailures = 0;
@@ -82,36 +77,14 @@ export class TurnBudget {
     );
   }
 
-  /** True once enough consecutive rounds have produced no real progress. */
-  get diminishingRoundsStuck(): boolean {
-    return this.diminishingRounds >= this.limits.diminishingReturnsThreshold;
-  }
-
   /**
-   * Record one completed round and report whether the turn has stalled, either
-   * because the ceiling was hit or because progress stopped.
+   * Record one completed round. A round is progress by definition: the loop
+   * only continues when the model asked for a tool, and the tool result is
+   * what moves the task forward.
    */
-  recordStep(tokensAdded: number): TurnBudgetState {
+  recordStep(): TurnBudgetState {
     this.stepsDone += 1;
-
-    if (tokensAdded > this.limits.diminishingTokenThreshold) {
-      this.diminishingRounds = 0;
-    } else {
-      this.diminishingRounds += 1;
-    }
-
-    if (this.stepsExhausted) {
-      return "steps_exhausted";
-    }
-    if (this.diminishingRoundsStuck) {
-      return "diminishing_returns";
-    }
-    return "ok";
-  }
-
-  /** Clear the diminishing-returns tally after the model made real progress. */
-  resetDiminishingRounds(): void {
-    this.diminishingRounds = 0;
+    return this.stepsExhausted ? "steps_exhausted" : "ok";
   }
 
   /**
@@ -136,9 +109,8 @@ export class TurnBudget {
   /** Reset every per-turn counter. A new user turn starts from zero. */
   resetForNewTurn(): void {
     this.stepsDone = 0;
-    this.diminishingRounds = 0;
     this.consecutiveCompactionFailures = 0;
   }
 }
 
-export type TurnBudgetState = "ok" | "steps_exhausted" | "diminishing_returns";
+export type TurnBudgetState = "ok" | "steps_exhausted";

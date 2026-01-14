@@ -45,6 +45,17 @@ function declared(type: string): string[] {
   return [...match[1].matchAll(/"(\w+)"/g)].map((m) => m[1]).filter(Boolean);
 }
 
+function absoluteModes(): string[] {
+  const match = read(TYPES).match(
+    /export const ABSOLUTE_POLICY_MODES[^=]*=\s*\[([^\]]*)\]/,
+  );
+  if (!match)
+    throw new Error(
+      "ABSOLUTE_POLICY_MODES moved; this guard must move with it",
+    );
+  return [...match[1].matchAll(/"(\w+)"/g)].map((m) => m[1]);
+}
+
 /** The layer labels the page uses, in the order the resolver applies them. */
 const LAYERS: Record<string, string> = {
   commandLineFlags: "Command-line flags",
@@ -112,12 +123,30 @@ describe("spec/permissions.md agrees with the permission sources", () => {
     expect(/first matching policy wins/i.test(doc)).toBe(firstWins);
   });
 
-  it("stops consulting the layers in plan and auto while the service replaces them", () => {
-    const replaces =
-      /newMode === "plan" \|\| newMode === "bypassPermissions"/.test(
-        read(SERVICE),
+  it("names every mode that replaces the layers, and only them", () => {
+    // Both the startup path and switchMode must consult the same list, or a
+    // mode can replace the layers at startup but not after a switch.
+    const callSites =
+      read(SERVICE).match(/ABSOLUTE_POLICY_MODES\.includes\(/g) ?? [];
+    expect(callSites.length).toBeGreaterThanOrEqual(2);
+
+    const modes = absoluteModes();
+    expect(modes.length).toBeGreaterThanOrEqual(2);
+    const allModes = declared("PermissionMode");
+    expect(modes.every((mode) => allModes.includes(mode))).toBe(true);
+    expect(modes).not.toContain("default");
+    expect(modes).not.toContain("auto");
+
+    const sentence = doc.replace(/\s+/g, " ");
+    expect(sentence).toContain("do not consult");
+    for (const mode of modes) {
+      expect(sentence).toMatch(new RegExp(`\`${mode}\`[^.]*do not consult`));
+    }
+    for (const mode of allModes.filter((mode) => !modes.includes(mode))) {
+      expect(sentence).not.toMatch(
+        new RegExp(`\`${mode}\`[^.]*do not consult`),
       );
-    expect(/do not consult/i.test(doc)).toBe(replaces);
+    }
   });
 
   it("states the flag order the resolver pushes", () => {

@@ -4,7 +4,12 @@ import { fileURLToPath } from "url";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { compareVersions, getLatestVersion, getVersion } from "./version.js";
+import {
+  compareVersions,
+  getLatestVersion,
+  getVersion,
+  tagFromReleaseUrl,
+} from "./version.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,7 +19,7 @@ describe("the version module", () => {
   });
 
   it("answers a version without a network probe on import", () => {
-    // `getLatestVersion()` asks the releases API with a five-second budget. It
+    // `getLatestVersion()` asks the releases API with a three-second budget. It
     // used to be called at module scope, so every importer - the LSP client
     // included - paid for it.
     const source = readFileSync(path.join(here, "version.ts"), "utf-8");
@@ -65,6 +70,36 @@ describe("the version module", () => {
     expect(compareVersions("1.2.4", "1.2.3")).toBe("newer");
     expect(compareVersions("1.2.3", "1.2.3")).toBe("same");
     expect(compareVersions("unknown", "1.2.3")).toBe("same");
+  });
+
+  it("reads the tag from the release page redirect", async () => {
+    expect(
+      tagFromReleaseUrl("https://github.com/o/r/releases/tag/v2.3.4"),
+    ).toBe("2.3.4");
+    expect(tagFromReleaseUrl("https://github.com/o/r/releases/latest")).toBe(
+      null,
+    );
+
+    // The API is rate-limited to 60 requests an hour; when it refuses, the
+    // page redirect above still names the tag. A fresh module gets a fresh
+    // one-shot cache.
+    vi.resetModules();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("api.github.com")) {
+          return { ok: false, status: 403, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          url: "https://github.com/o/r/releases/tag/v2.3.4",
+        };
+      }),
+    );
+
+    const fresh = await import("./version.js");
+    expect(await fresh.getLatestVersion()).toBe("2.3.4");
   });
 
   it("advertises the resolved version to the language server, not a literal", () => {

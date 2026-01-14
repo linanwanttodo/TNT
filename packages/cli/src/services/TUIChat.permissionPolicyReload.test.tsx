@@ -16,9 +16,8 @@ describe("Permission Policy Reload Workflow", () => {
 
   it("should call reloadPermissions after creating a policy", async () => {
     // Mock the policy writer
-    const { generatePolicyRule, addPolicyRule } = await import(
-      "../permissions/policyWriter.js"
-    );
+    const { generatePolicyRule, addPolicyRule } =
+      await import("../permissions/policyWriter.js");
     vi.mocked(generatePolicyRule).mockReturnValue(
       "tool: Edit\npermission: allow",
     );
@@ -36,9 +35,8 @@ describe("Permission Policy Reload Workflow", () => {
     // Simulate the policy creation flow from useChat
     if (approved && createPolicy && mockActiveRequest) {
       try {
-        const { generatePolicyRule, addPolicyRule } = await import(
-          "../permissions/policyWriter.js"
-        );
+        const { generatePolicyRule, addPolicyRule } =
+          await import("../permissions/policyWriter.js");
         const { services } = await import("./index.js");
 
         const policyRule = generatePolicyRule(
@@ -65,9 +63,8 @@ describe("Permission Policy Reload Workflow", () => {
 
   it("should handle permission reload failure gracefully", async () => {
     // Mock the policy writer
-    const { generatePolicyRule, addPolicyRule } = await import(
-      "../permissions/policyWriter.js"
-    );
+    const { generatePolicyRule, addPolicyRule } =
+      await import("../permissions/policyWriter.js");
     vi.mocked(generatePolicyRule).mockReturnValue(
       "tool: Write\npermission: allow",
     );
@@ -89,9 +86,8 @@ describe("Permission Policy Reload Workflow", () => {
     // Test that error handling works correctly - this should not throw
     let errorCaught = false;
     try {
-      const { generatePolicyRule, addPolicyRule } = await import(
-        "../permissions/policyWriter.js"
-      );
+      const { generatePolicyRule, addPolicyRule } =
+        await import("../permissions/policyWriter.js");
       const { services } = await import("./index.js");
 
       const policyRule = generatePolicyRule(
@@ -117,9 +113,8 @@ describe("Permission Policy Reload Workflow", () => {
 
   it("verifies the expected improvement: policy takes effect immediately", async () => {
     // This test documents what the user should experience
-    const { generatePolicyRule, addPolicyRule } = await import(
-      "../permissions/policyWriter.js"
-    );
+    const { generatePolicyRule, addPolicyRule } =
+      await import("../permissions/policyWriter.js");
     vi.mocked(generatePolicyRule).mockReturnValue(
       "tool: Edit\npermission: allow",
     );
@@ -142,9 +137,8 @@ describe("Permission Policy Reload Workflow", () => {
 
     // The workflow should complete successfully
     if (approved && createPolicy && mockActiveRequest) {
-      const { generatePolicyRule, addPolicyRule } = await import(
-        "../permissions/policyWriter.js"
-      );
+      const { generatePolicyRule, addPolicyRule } =
+        await import("../permissions/policyWriter.js");
       const { services } = await import("./index.js");
 
       const policyRule = generatePolicyRule(

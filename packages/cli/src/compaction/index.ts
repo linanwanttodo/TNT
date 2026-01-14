@@ -69,10 +69,24 @@ export interface CompactionOptions {
   summarize?: SummarizeHistory;
 }
 
-const COMPACTION_PROMPT =
-  "Please provide a concise summary of our conversation so far, capturing the key context, decisions made, and current state. Format this as a single comprehensive message that preserves all important information needed to continue our work. You do not need to recap the system message, as this will remain. Make sure it is clear what the current stream of work was at the very end prior to compaction so that you can continue exactly where you left off without missing any information.";
+const COMPACTION_PROMPT = `Write a handoff brief that lets a fresh assistant continue this work without rereading the conversation. This brief replaces the transcript above it, so anything you leave out is lost.
 
-const COMPACTION_PROMPT_TOKENS = 150; // rough generous token count of ^
+Cover these parts in order, and skip one only when it is genuinely empty:
+1. Goal: what the user is trying to accomplish overall, weighted toward the latest request, including any constraints or success criteria they stated.
+2. User asks: every non-tool user message in order, one line each. Keep corrections, rejections and changes of direction; quote wording that matters and do not merge two turns into one.
+3. Work in progress: the task active immediately before this point. Name the files and functions, describe the exact change being attempted, and paste any unfinished snippet verbatim.
+4. Pending: work the user asked for that is not finished, one bullet per item in the order raised, omitting anything they dropped. Say "None" when nothing is queued.
+5. Files: every file read or changed, with its path, what changed or was learned, and the snippet that matters.
+6. Decisions: choices already settled and the reasoning behind them, so they are not reopened, plus user preferences and things to avoid.
+7. Errors: failures hit, what fixed them, and any correction the user gave, in their own words.
+8. Resume point: the single next action when the current task has an obvious continuation, quoting the user's most recent instruction verbatim. If the task is finished, say so instead of inventing follow-up work.
+
+Write the brief as plain text. No preamble and no closing commentary.`;
+
+// Measured rather than guessed: the prompt shares the window with the history
+// it is appended to, and an undercount here is a request that overflows after
+// the history was already trimmed to fit.
+const COMPACTION_PROMPT_TOKENS = encode(COMPACTION_PROMPT).length;
 
 function messageRole(item: ChatHistoryItem | undefined): string | undefined {
   return item?.message.role;

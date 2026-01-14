@@ -21,6 +21,12 @@ interface CreateStreamCallbacksOptions {
    * so the TUI renders the live text from this overlay instead.
    */
   onStreamingText?: (text: string | null) => void;
+  /**
+   * Receives the in-progress reasoning (null when the round's reasoning
+   * completes). The reasoning is only attached to the history item once the
+   * round ends, so without this overlay it would appear all at once.
+   */
+  onStreamingReasoning?: (text: string | null) => void;
 }
 
 /** The live answer re-renders at most this often. */
@@ -39,6 +45,7 @@ export function createStreamCallbacks(
     model,
     onAssistantText,
     onStreamingText,
+    onStreamingReasoning,
   } = options;
 
   let pendingStreamText: string | null = null;
@@ -56,6 +63,21 @@ export function createStreamCallbacks(
     onStreamingText?.(null);
   };
 
+  let pendingReasoning: string | null = null;
+  let reasoningFlushTimer: NodeJS.Timeout | null = null;
+  const flushReasoning = () => {
+    reasoningFlushTimer = null;
+    onStreamingReasoning?.(pendingReasoning);
+  };
+  const clearReasoningOverlay = () => {
+    pendingReasoning = null;
+    if (reasoningFlushTimer) {
+      clearTimeout(reasoningFlushTimer);
+      reasoningFlushTimer = null;
+    }
+    onStreamingReasoning?.(null);
+  };
+
   return {
     onContent: (text: string) => {
       if (!onStreamingText) return;
@@ -70,8 +92,24 @@ export function createStreamCallbacks(
       }
     },
 
+    onReasoning: (text: string) => {
+      if (!onStreamingReasoning) return;
+      pendingReasoning = (pendingReasoning ?? "") + text;
+      if (!reasoningFlushTimer) {
+        reasoningFlushTimer = setTimeout(
+          flushReasoning,
+          STREAM_RENDER_INTERVAL_MS,
+        );
+      }
+    },
+
+    // Fires for every round, including one that only called tools and so has
+    // no content for onContentComplete to report.
+    onReasoningComplete: clearReasoningOverlay,
+
     onContentComplete: async (content: string) => {
       clearStreamOverlay();
+      clearReasoningOverlay();
       if (content) {
         onAssistantText?.(content);
       }
@@ -340,9 +378,7 @@ export async function executeStreaming({
   maxSteps,
 }: ExecuteStreamingOptions): Promise<void> {
   const { getHistoryForLLM } = await import("../../compaction/index.js");
-  const { streamChatResponse } = await import(
-    "../../stream/streamChatResponse.js"
-  );
+  const { runAgentTurn } = await import("../../session/controller.js");
   const turnBudgetLimits = maxSteps === undefined ? undefined : { maxSteps };
 
   if (model && llmApi) {
@@ -355,27 +391,25 @@ export async function executeStreaming({
         currentCompactionIndex,
       );
 
-      await streamChatResponse(
-        historyForLLM,
+      await runAgentTurn({
+        chatHistory: historyForLLM,
         model,
         llmApi,
-        controller,
-        streamCallbacks,
-        false,
+        abortController: controller,
+        callbacks: streamCallbacks,
         turnBudgetLimits,
-      );
+      });
 
       // Service-driven streaming; history updates occur via ChatHistoryService
     } else {
-      await streamChatResponse(
+      await runAgentTurn({
         chatHistory,
         model,
         llmApi,
-        controller,
-        streamCallbacks,
-        false,
+        abortController: controller,
+        callbacks: streamCallbacks,
         turnBudgetLimits,
-      );
+      });
     }
   }
 }

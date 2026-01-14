@@ -1,9 +1,9 @@
+import { messageQueue } from "../../stream/messageQueue.js";
 import { backgroundSignalManager } from "../../utils/backgroundSignalManager.js";
-import {
-  checkClipboardForImage,
-  getClipboardImage,
-} from "../../utils/clipboard.js";
+import { getClipboardImage } from "../../utils/clipboard.js";
 import { logger } from "../../utils/logger.js";
+import { requestComposerDraft } from "../composerDraft.js";
+import { toggleReasoningExpanded } from "../reasoningFold.js";
 import type { TextBuffer } from "../TextBuffer.js";
 
 // Helper function to handle control keys
@@ -14,11 +14,23 @@ interface ControlKeysOptions {
   clearInput?: () => void;
   textBuffer?: TextBuffer;
   onTextBufferUpdate?: () => void;
+  /**
+   * False while a completion popup owns Ctrl+R or the composer is disabled;
+   * the queued-message shortcuts then fall through to the focused widget.
+   */
+  queueActionsEnabled?: boolean;
 }
 
 export function handleControlKeys(options: ControlKeysOptions): boolean {
-  const { input, key, exit, clearInput, textBuffer, onTextBufferUpdate } =
-    options;
+  const {
+    input,
+    key,
+    exit,
+    clearInput,
+    textBuffer,
+    onTextBufferUpdate,
+    queueActionsEnabled = true,
+  } = options;
 
   // Handle Ctrl+C with two-stage exit, Ctrl+D immediately exits
   if (key.ctrl && input === "c") {
@@ -36,25 +48,23 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
   if (key.ctrl && input === "v" && textBuffer) {
     logger.debug("Handling Ctrl+V clipboard paste");
 
-    // Check clipboard for images immediately on paste event
-    checkClipboardForImage()
-      .then(async (hasImage) => {
-        if (hasImage) {
-          logger.debug("Image found in clipboard during paste event");
-          const imageBuffer = await getClipboardImage();
-          if (imageBuffer) {
-            textBuffer.addImage(imageBuffer);
-            // Trigger UI update
-            if (onTextBufferUpdate) {
-              onTextBufferUpdate();
-            }
-            return;
+    // Read the image directly: the cheap status probe and the full read use
+    // different backends on a Linux box that only has the native X11 helper.
+    getClipboardImage()
+      .then((imageBuffer) => {
+        if (!imageBuffer) return;
+        try {
+          textBuffer.addImage(imageBuffer);
+          // Trigger UI update
+          if (onTextBufferUpdate) {
+            onTextBufferUpdate();
           }
+        } catch (error) {
+          logger.debug("Error adding clipboard image:", error);
         }
-        // If no image, let normal text paste handling continue
       })
       .catch((error) => {
-        logger.debug("Error checking clipboard for image:", error);
+        logger.debug("Error reading clipboard image:", error);
       });
 
     // Don't consume the event - let normal text paste handling continue
@@ -76,6 +86,26 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
   // Handle Ctrl+B to send current tool execution to background
   if (key.ctrl && input === "b") {
     backgroundSignalManager.signalBackground();
+    return true;
+  }
+
+  // Toggle reasoning rows between the first line and the full thought.
+  if (key.ctrl && input === "o") {
+    toggleReasoningExpanded();
+    return true;
+  }
+
+  // Queued-message actions apply to the newest entry: the one a person just
+  // added and is most likely to want back.
+  if (queueActionsEnabled && key.ctrl && (input === "x" || input === "r")) {
+    const queued = messageQueue.getAllMessages();
+    const newest = queued[queued.length - 1];
+    if (newest) {
+      messageQueue.removeMessage(newest.id);
+      if (input === "r") {
+        requestComposerDraft(newest.message);
+      }
+    }
     return true;
   }
 

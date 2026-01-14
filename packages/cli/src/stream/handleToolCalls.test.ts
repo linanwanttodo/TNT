@@ -63,6 +63,43 @@ describe("handleToolCalls - duplicate tool_result prevention", () => {
     vi.mocked(services.chatHistory.isReady).mockReturnValue(true);
   });
 
+  it("passes the reasoning channel to the assistant message", async () => {
+    const toolCalls = [
+      {
+        id: "tool-call-1",
+        name: "Read",
+        arguments: {},
+        argumentsStr: "{}",
+        startNotified: false,
+      },
+    ];
+
+    mockPreprocess.mockResolvedValue({
+      preprocessedCalls: [],
+      errorChatEntries: [],
+    });
+    mockExecute.mockResolvedValue({
+      hasRejection: false,
+      chatHistoryEntries: [],
+    });
+
+    await handleToolCalls({
+      toolCalls,
+      chatHistory,
+      content: "Reading now",
+      callbacks: undefined,
+      isHeadless: false,
+      reasoning: "checking the parser",
+    });
+
+    expect(services.chatHistory.addAssistantMessage).toHaveBeenCalledWith(
+      "Reading now",
+      expect.any(Array),
+      undefined,
+      "checking the parser",
+    );
+  });
+
   /**
    * This test verifies that preprocessing errors are stored in toolCallStates
    * (on the assistant message) rather than as separate tool history items.

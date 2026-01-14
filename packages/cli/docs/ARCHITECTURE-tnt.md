@@ -749,7 +749,9 @@ Stated as gaps, not as intentions:
    services become per-session by construction. It supports v1 `initialize`,
    `session/new|load|resume|list|delete|close|prompt|cancel|set_mode|set_config_option`,
    streaming updates, permission answers and the session permission modes.
-   Client `fs.read|write_text_file` routing, per-session ACP `mcpServers` and a
-   terminal auth method are implemented; client `terminal/*`, image/audio
-   prompts, `additionalDirectories` and client routing for `ApplyPatch` remain
-   deferred. See `spec/acp.md`.
+   Client `fs.read|write_text_file` routing (including `ApplyPatch`), per-session
+   ACP `mcpServers`, a terminal auth method, plan/usage updates, image/audio
+   prompts and `additionalDirectories` are implemented. Client-terminal commands
+   that exceed their timeout stay alive as polled background jobs; ACP v1 has no
+   terminal stdin request, so an interactive prompt is answered by the human in
+   the editor terminal, not by the agent. See `spec/acp.md`.

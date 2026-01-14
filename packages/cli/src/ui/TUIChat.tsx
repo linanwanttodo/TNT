@@ -39,6 +39,7 @@ import {
   useSubagentView,
 } from "./hooks/useTUIChatEffects.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
+import { getTheme, ThemeProvider } from "./theme/tokens.js";
 
 interface TUIChatProps {
   // Remote mode props
@@ -124,6 +125,7 @@ function useTUIChatServices(remoteUrl?: string) {
 function useChatHandlers(
   setShowIntroMessage: (show: boolean) => void,
   setStaticRefreshTrigger: React.Dispatch<React.SetStateAction<number>>,
+  resetTranscript: () => void,
 ) {
   // Temporary refs to avoid circular dependency
   const resetChatHistoryRef = useRef<(() => void) | null>(null);
@@ -131,9 +133,12 @@ function useChatHandlers(
   // Handle clearing chat and resetting intro message
   const handleClear = useCallback(() => {
     setShowIntroMessage(true);
+    // Drop the printed transcript too: `/clear` means the conversation on
+    // screen and in the scrollback is gone, not just the model's context.
+    resetTranscript();
     // Trigger static content refresh by incrementing the trigger
     setStaticRefreshTrigger((prev) => prev + 1);
-  }, [setShowIntroMessage, setStaticRefreshTrigger]);
+  }, [setShowIntroMessage, setStaticRefreshTrigger, resetTranscript]);
 
   // Service reload handlers - these will trigger reactive updates
   const handleReload = useCallback(async () => {
@@ -144,8 +149,8 @@ function useChatHandlers(
       resetChatHistoryRef.current();
     }
     setShowIntroMessage(false);
-    process.stdout.write("\x1b[2J\x1b[H");
-  }, [setShowIntroMessage]);
+    resetTranscript();
+  }, [setShowIntroMessage, resetTranscript]);
 
   return {
     handleClear,
@@ -186,8 +191,15 @@ const TUIChat: React.FC<TUIChatProps> = ({
     allServicesReady,
   );
 
-  // State to trigger static content refresh for /clear command
-  const [staticRefreshTrigger, setStaticRefreshTrigger] = useState(0);
+  // Forces a re-render after a selector changes something the hook's own
+  // state does not track (the selected config or model).
+  const [, setStaticRefreshTrigger] = useState(0);
+
+  // The chat owns the alternate screen, so replacing the conversation can
+  // clear it outright; the reader's normal scrollback is untouched.
+  const resetTranscript = useCallback(() => {
+    process.stdout.write("\x1b[2J\x1b[H");
+  }, []);
 
   // Session currently on screen. Used to label and lock a delegated
   // transcript, which is a record of a finished run rather than a
@@ -205,6 +217,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
   const { handleClear, handleReload, resetChatHistoryRef } = useChatHandlers(
     setShowIntroMessage,
     setStaticRefreshTrigger,
+    resetTranscript,
   );
 
   // State for diff content overlay
@@ -244,6 +257,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     wasInterrupted,
     queuedMessages,
     streamingText,
+    streamingReasoning,
     handleUserMessage,
     handleInterrupt,
     handleFileAttached,
@@ -283,22 +297,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowStatusMessage: handleShowStatusMessage,
   });
 
-  // A submitted message returns the view to the live tail, like Pi: sending
-  // while scrolled up would otherwise hide the answer that follows.
-  const handleMessageWithFollow = useCallback(
-    (message: string, imageMap?: Map<string, Buffer>) => {
-      setScrollBack(0);
-      return handleUserMessage(message, imageMap);
-    },
-    [handleUserMessage],
-  );
-
   useMcpFailureNotice(services.mcp, setChatHistory);
-
-  // Only the answer still being written is split from the settled items; the
-  // viewport below decides how much of the transcript is visible.
-  const liveItemCount =
-    isWaitingForResponse || isCompacting || !!activePermissionRequest ? 1 : 0;
 
   // Update ref after useChat returns
   useEffect(() => {
@@ -332,8 +331,11 @@ const TUIChat: React.FC<TUIChatProps> = ({
         setShowIntroMessage,
         setDisplayedSession,
       );
+      // The resumed conversation is printed from scratch, so drop whatever
+      // the previous one left in the terminal.
+      resetTranscript();
     },
-    [closeCurrentScreen, setChatHistory, setShowIntroMessage],
+    [closeCurrentScreen, setChatHistory, setShowIntroMessage, resetTranscript],
   );
 
   useEffect(() => {
@@ -417,78 +419,88 @@ const TUIChat: React.FC<TUIChatProps> = ({
   // Check if verbose mode is enabled for resource debugging
   const isVerboseMode = useMemo(() => process.argv.includes("--verbose"), []);
 
-  // State for image in clipboard status
-  const [hasImageInClipboard, setHasImageInClipboard] = useState(false);
-
   // Fetch organization name based on auth state
 
   const isBashToolRunning = useBashToolRunning();
 
-  // Scrolling works on messages, not pixels; see useChatViewport.
+  // The dock stays pinned to the bottom of the alternate screen; scrolling
+  // moves the transcript window instead of the terminal, so the composer can
+  // never scroll away from the reader.
   const { rows } = useTerminalSize();
-  const { setScrollBack, following, dockRef, visibleHistory } = useChatViewport(
-    { rows, chatHistory },
-  );
+  const { following, scrollTop, onMetrics, jumpToBottom } = useChatViewport({
+    isActive: navState.currentScreen === "chat",
+  });
+
+  const currentTheme = useMemo(() => {
+    const configured =
+      process.env.TNT_THEME || (services.config?.config as any)?.theme;
+    return getTheme(configured);
+  }, [services.config?.config]);
 
   return (
-    <Box flexDirection="column" height={rows}>
-      <MainContent
-        showIntroMessage={showIntroMessage && !isRemoteMode}
-        chatHistory={visibleHistory}
-        queuedMessages={queuedMessages}
-        renderMessage={renderMessage}
-        refreshTrigger={staticRefreshTrigger}
-        liveItemCount={liveItemCount}
-        streamingText={streamingText}
-        following={following}
-        isWaitingForResponse={isWaitingForResponse}
-        responseStartTime={responseStartTime}
-        isCompacting={isCompacting}
-        compactionStartTime={compactionStartTime}
-        isBashToolRunning={isBashToolRunning}
-      />
+    <ThemeProvider theme={currentTheme}>
+      <Box flexDirection="column" height={rows} overflowY="hidden">
+        <MainContent
+          showIntroMessage={showIntroMessage && !isRemoteMode}
+          chatHistory={chatHistory}
+          queuedMessages={queuedMessages}
+          renderMessage={renderMessage}
+          streamingText={streamingText}
+          streamingReasoning={streamingReasoning}
+          isWaitingForResponse={isWaitingForResponse}
+          responseStartTime={responseStartTime}
+          isCompacting={isCompacting}
+          compactionStartTime={compactionStartTime}
+          isBashToolRunning={isBashToolRunning}
+          scrollTop={scrollTop}
+          onScrollMetrics={onMetrics}
+        />
 
-      <Composer
-        dockRef={dockRef}
-        following={following}
-        statusMessage={statusMessage}
-        isScreenActive={isScreenActive}
-        services={services}
-        handleConfigSelect={handleConfigSelect}
-        handleModelSelect={handleModelSelect}
-        handleSessionSelect={handleSessionSelect}
-        handleExportSession={handleExportSession}
-        handleReload={handleReload}
-        closeCurrentScreen={closeCurrentScreen}
-        activePermissionRequest={activePermissionRequest}
-        activeQuizQuestion={activeQuizQuestion}
-        handleToolPermissionResponse={handleToolPermissionResponse}
-        handleQuizAnswer={handleQuizAnswer}
-        handleUserMessage={handleMessageWithFollow}
-        isWaitingForResponse={isWaitingForResponse}
-        isCompacting={isCompacting}
-        inputMode={inputMode}
-        handleInterrupt={handleInterrupt}
-        handleFileAttached={handleFileAttached}
-        isInputDisabled={isInputDisabled}
-        wasInterrupted={wasInterrupted}
-        isRemoteMode={isRemoteMode}
-        remoteUrl={remoteUrl}
-        onImageInClipboardChange={setHasImageInClipboard}
-        diffContent={diffContent}
-        chatHistory={chatHistory}
-        handleEditMessage={handleEditMessage}
-        onShowEditSelector={() => navigateTo("edit")}
-        subagentView={subagentView}
-        navState={navState}
-        navigateTo={navigateTo}
-        contextPercentage={contextData?.percentage ?? 0}
-        contextTokens={contextData?.tokenCount}
-        hasImageInClipboard={hasImageInClipboard}
-        isVerboseMode={isVerboseMode}
-        totalCost={getTotalSessionCost()}
-      />
-    </Box>
+        <Composer
+          following={following}
+          onJumpToLatest={jumpToBottom}
+          statusMessage={statusMessage}
+          isScreenActive={isScreenActive}
+          services={services}
+          handleConfigSelect={handleConfigSelect}
+          handleModelSelect={handleModelSelect}
+          handleSessionSelect={handleSessionSelect}
+          handleExportSession={handleExportSession}
+          handleReload={handleReload}
+          closeCurrentScreen={closeCurrentScreen}
+          activePermissionRequest={activePermissionRequest}
+          activeQuizQuestion={activeQuizQuestion}
+          handleToolPermissionResponse={handleToolPermissionResponse}
+          handleQuizAnswer={handleQuizAnswer}
+          handleUserMessage={(message, imageMap) => {
+            // Sending always returns to the live tail, the way every reference
+            // CLI resumes following when the user speaks.
+            jumpToBottom();
+            handleUserMessage(message, imageMap);
+          }}
+          isWaitingForResponse={isWaitingForResponse}
+          isCompacting={isCompacting}
+          inputMode={inputMode}
+          handleInterrupt={handleInterrupt}
+          handleFileAttached={handleFileAttached}
+          isInputDisabled={isInputDisabled}
+          wasInterrupted={wasInterrupted}
+          isRemoteMode={isRemoteMode}
+          remoteUrl={remoteUrl}
+          diffContent={diffContent}
+          chatHistory={chatHistory}
+          handleEditMessage={handleEditMessage}
+          onShowEditSelector={() => navigateTo("edit")}
+          subagentView={subagentView}
+          navState={navState}
+          navigateTo={navigateTo}
+          contextPercentage={contextData?.percentage ?? 0}
+          contextTokens={contextData?.tokenCount}
+          isVerboseMode={isVerboseMode}
+          totalCost={getTotalSessionCost()}
+        />
+      </Box>
+    </ThemeProvider>
   );
 };
 

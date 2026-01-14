@@ -326,10 +326,10 @@ function validatePermissionModeFlag(
     Boolean(value && (options.readonly || options.auto || options.mode)) ||
     Boolean(
       options.dangerouslySkipPermissions &&
-        (options.readonly ||
-          options.auto ||
-          options.mode ||
-          (value && value !== "bypassPermissions")),
+      (options.readonly ||
+        options.auto ||
+        options.mode ||
+        (value && value !== "bypassPermissions")),
     );
   if (conflicts) {
     errors.push({

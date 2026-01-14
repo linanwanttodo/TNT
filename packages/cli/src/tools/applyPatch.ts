@@ -1,14 +1,16 @@
 import fs from "fs";
 import path from "path";
 
-import { writeFileAtomically } from "core/util/atomicWrite.js";
-
 import { t } from "../i18n/index.js";
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
 import { changedSinceSeen, markFileAsSeen } from "./fileState.js";
 import { Tool } from "./types.js";
+import {
+  readWorkspaceTextFileIfExists,
+  writeWorkspaceTextFile,
+} from "./workspaceFiles.js";
 
 /**
  * A patch that names several files at once.
@@ -233,52 +235,65 @@ function checkedTargets(files: PatchedFile[]): string[] {
 }
 
 /** Compute the whole patch first, so a failure halfway leaves no file written. */
-function planWrites(
+async function planWrites(
   files: PatchedFile[],
-): { kind: PatchedFile["kind"]; path: string; content?: string }[] {
-  return files.map((file) => {
+): Promise<{ kind: PatchedFile["kind"]; path: string; content?: string }[]> {
+  const planned: {
+    kind: PatchedFile["kind"];
+    path: string;
+    content?: string;
+  }[] = [];
+
+  for (const file of files) {
     const resolved = path.resolve(file.path);
 
     if (file.kind === "delete") {
       if (!fs.existsSync(resolved)) {
         fail(`${file.path}: there is no file to delete`);
       }
-      return { kind: "delete", path: resolved };
+      planned.push({ kind: "delete", path: resolved });
+      continue;
     }
 
     if (file.kind === "add") {
-      if (fs.existsSync(resolved)) {
+      // The editor's unsaved buffer counts as existing even when the file was
+      // never saved, because the client write would overwrite that buffer.
+      if (await readWorkspaceTextFileIfExists(resolved)) {
         fail(
           `${file.path}: already exists, so an Add File section would overwrite it`,
         );
       }
-      return {
+      planned.push({
         kind: "add",
         path: resolved,
         content:
           (file.added ?? []).map((line) => line.slice(1)).join("\n") + "\n",
-      };
+      });
+      continue;
     }
 
-    if (!fs.existsSync(resolved)) {
+    const read = await readWorkspaceTextFileIfExists(resolved);
+    if (!read) {
       fail(
         `${file.path}: does not exist, so an Update File section has nothing to change`,
       );
     }
-    if (changedSinceSeen(resolved)) {
+    if (!read.client && changedSinceSeen(resolved)) {
       fail(
         `${file.path}: changed since it was read; read it again before patching it`,
       );
     }
 
-    const current = fs.readFileSync(resolved, "utf-8").split("\n");
+    const current = read.content.split("\n");
 
-    return {
+    planned.push({
       kind: "update",
       path: resolved,
       content: applyHunks(file.path, current, file.hunks ?? []).join("\n"),
-    };
-  });
+    });
+  }
+
+  return planned;
 }
 
 export const applyPatchTool: Tool = {
@@ -340,11 +355,13 @@ A '@@' line names surrounding context. Lines starting with '-' must be found in 
 
     // Planned before written: a patch that fails on its third file leaves the
     // first two alone, which is the promise the description makes.
-    const planned = planWrites(files);
+    const planned = await planWrites(files);
 
     const done: string[] = [];
     for (const entry of planned) {
       if (entry.kind === "delete") {
+        // ACP's file service has read and write only, so a delete can only be
+        // applied to disk.
         fs.rmSync(entry.path);
         markFileAsSeen(entry.path);
         scheduleFileRefresh(entry.path);
@@ -352,8 +369,9 @@ A '@@' line names surrounding context. Lines starting with '-' must be found in 
         continue;
       }
 
-      fs.mkdirSync(path.dirname(entry.path), { recursive: true });
-      writeFileAtomically(entry.path, entry.content ?? "");
+      await writeWorkspaceTextFile(entry.path, entry.content ?? "", {
+        createParent: true,
+      });
       markFileAsSeen(entry.path);
       scheduleFileRefresh(entry.path);
       done.push(

@@ -26,7 +26,6 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   const color = useMemo(() => {
     switch (services.update?.status) {
       case UpdateStatus.UPDATING:
-      case UpdateStatus.CHECKING:
         return "yellow";
       case UpdateStatus.UPDATED:
         return "green";

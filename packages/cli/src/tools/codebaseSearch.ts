@@ -1,8 +1,6 @@
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { localPathOrUriToPath } from "core/util/pathToUri.js";
 
-import { getRetrievalService } from "../retrieval/service.js";
-
 import { Tool, ToolRunContext } from "./types.js";
 
 const DEFAULT_RESULT_COUNT = 8;
@@ -67,6 +65,9 @@ export const codebaseSearchTool: Tool = {
         ? Math.floor(requested)
         : DEFAULT_RESULT_COUNT;
 
+    // The index stack (LanceDB, the tokenizer, the NLP models) is the largest
+    // graph the CLI can reach; it belongs to this one tool, not to startup.
+    const { getRetrievalService } = await import("../retrieval/service.js");
     const service = getRetrievalService();
     await service.ensureIndexed();
     const hits = await service.search(query, n);

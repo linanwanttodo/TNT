@@ -40,8 +40,8 @@ export function formatCostAmount(cost: number): string {
   return cost >= 0.01 ? `$${cost.toFixed(2)}` : `$${cost.toFixed(4)}`;
 }
 
-function percentText(value: number): string {
-  return `${Math.min(100, Math.max(0, Math.round(value)))}%`;
+function percentText(value: number, fractionDigits = 0): string {
+  return `${Math.min(100, Math.max(0, value)).toFixed(fractionDigits)}%`;
 }
 
 /**
@@ -66,7 +66,7 @@ export function contextUsageLine(input: UsageLineInput): string | undefined {
   }
 
   if (input.cacheHitRatio !== undefined && labels.cache) {
-    groups.push(`${labels.cache} ${percentText(input.cacheHitRatio)}`);
+    groups.push(`${labels.cache} ${percentText(input.cacheHitRatio, 2)}`);
   }
   if (input.outputTokens !== undefined && labels.out) {
     groups.push(`${labels.out} ${compactTokenCount(input.outputTokens)}`);

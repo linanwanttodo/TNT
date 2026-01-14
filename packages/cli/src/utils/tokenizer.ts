@@ -18,8 +18,14 @@ export const DEFAULT_CONTEXT_LENGTH = 200_000;
  * @returns The context length limit in tokens
  */
 export function getModelContextLimit(model: ModelConfig): number {
+  // The schema accepts `contextLength` at the model level as well as inside
+  // `defaultCompletionOptions`; validation already reads the model-level value
+  // first, so the runtime must do the same or a 1M-token model silently runs
+  // with the 200k default.
   return (
-    model.defaultCompletionOptions?.contextLength ?? DEFAULT_CONTEXT_LENGTH
+    model.contextLength ??
+    model.defaultCompletionOptions?.contextLength ??
+    DEFAULT_CONTEXT_LENGTH
   );
 }
 
@@ -54,6 +60,9 @@ function countContentTokens(
       }
       if (part.type === "imageUrl") {
         tokenCount += 1024; // Rough estimate for image tokens
+      }
+      if (part.type === "audio") {
+        tokenCount += 1024; // Rough estimate for audio tokens
       }
     }
     return getAdjustedTokenCountFromModel(tokenCount, model.model ?? "");
@@ -256,8 +265,7 @@ function countSingleToolTokens(tool: ChatCompletionTool): number {
   }
 
   const params = tool.function.parameters as
-    | { properties?: Record<string, unknown> }
-    | undefined;
+    { properties?: Record<string, unknown> } | undefined;
   const props = params?.properties;
 
   if (props) {

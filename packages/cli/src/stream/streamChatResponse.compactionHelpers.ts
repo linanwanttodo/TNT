@@ -44,6 +44,12 @@ export interface CompactionHelperOptions {
 export interface CompactionHelperResult {
   chatHistory: ChatHistoryItem[];
   wasCompacted: boolean;
+  /**
+   * Whether a summarization call actually ran. In-place tool-result trimming
+   * rewrites the history too, but it spends no model call and must not count
+   * against the per-turn compaction circuit.
+   */
+  summarized?: boolean;
   /** Fraction of history entries removed, present only when compaction ran. */
   reductionRatio?: number;
 }
@@ -107,17 +113,20 @@ export async function handlePreApiCompaction(
     }
   }
 
-  const { wasCompacted, chatHistory: preCompactHistory } =
-    await handleAutoCompaction(chatHistory, model, llmApi, {
-      isHeadless,
-      callbacks: {
-        onSystemMessage: callbacks?.onSystemMessage,
-        onContent: callbacks?.onContent,
-      },
-      systemMessage,
-      tools,
-      force,
-    });
+  const {
+    wasCompacted,
+    summarized,
+    chatHistory: preCompactHistory,
+  } = await handleAutoCompaction(chatHistory, model, llmApi, {
+    isHeadless,
+    callbacks: {
+      onSystemMessage: callbacks?.onSystemMessage,
+      onContent: callbacks?.onContent,
+    },
+    systemMessage,
+    tools,
+    force,
+  });
 
   if (wasCompacted) {
     logger.debug("Pre-API compaction occurred, updating chat history");
@@ -131,17 +140,19 @@ export async function handlePreApiCompaction(
       return {
         chatHistory: chatHistorySvc.getHistory(),
         wasCompacted: true,
+        summarized,
         reductionRatio,
       };
     }
     return {
       chatHistory: [...preCompactHistory],
       wasCompacted: true,
+      summarized,
       reductionRatio,
     };
   }
 
-  return { chatHistory, wasCompacted: false };
+  return { chatHistory, wasCompacted: false, summarized: false };
 }
 
 /**
@@ -185,17 +196,20 @@ export async function handlePostToolValidation(
     });
 
     // Force compaction (compaction now accounts for system message during pruning)
-    const { wasCompacted, chatHistory: compactedHistory } =
-      await handleAutoCompaction(chatHistory, model, llmApi, {
-        isHeadless,
-        callbacks: {
-          onSystemMessage: callbacks?.onSystemMessage,
-          onContent: callbacks?.onContent,
-        },
-        systemMessage,
-        tools,
-        force: true,
-      });
+    const {
+      wasCompacted,
+      summarized,
+      chatHistory: compactedHistory,
+    } = await handleAutoCompaction(chatHistory, model, llmApi, {
+      isHeadless,
+      callbacks: {
+        onSystemMessage: callbacks?.onSystemMessage,
+        onContent: callbacks?.onContent,
+      },
+      systemMessage,
+      tools,
+      force: true,
+    });
 
     if (wasCompacted) {
       const reductionRatio = measureReduction(chatHistory, compactedHistory);
@@ -236,7 +250,7 @@ export async function handlePostToolValidation(
         inputTokens: postCompactionValidation.inputTokens,
         contextLimit: postCompactionValidation.contextLimit,
       });
-      return { chatHistory, wasCompacted: true, reductionRatio };
+      return { chatHistory, wasCompacted: true, summarized, reductionRatio };
     } else {
       // Compaction failed, cannot continue
       logger.error("Failed to compact history after tool execution overflow");
@@ -244,7 +258,7 @@ export async function handlePostToolValidation(
     }
   }
 
-  return { chatHistory, wasCompacted: false };
+  return { chatHistory, wasCompacted: false, summarized: false };
 }
 
 /**
@@ -270,16 +284,19 @@ export async function handleNormalAutoCompaction(
     chatHistory = chatHistorySvc.getHistory();
   }
 
-  const { wasCompacted, chatHistory: updatedChatHistory } =
-    await handleAutoCompaction(chatHistory, model, llmApi, {
-      isHeadless,
-      callbacks: {
-        onSystemMessage: callbacks?.onSystemMessage,
-        onContent: callbacks?.onContent,
-      },
-      systemMessage,
-      tools,
-    });
+  const {
+    wasCompacted,
+    summarized,
+    chatHistory: updatedChatHistory,
+  } = await handleAutoCompaction(chatHistory, model, llmApi, {
+    isHeadless,
+    callbacks: {
+      onSystemMessage: callbacks?.onSystemMessage,
+      onContent: callbacks?.onContent,
+    },
+    systemMessage,
+    tools,
+  });
 
   if (wasCompacted) {
     const reductionRatio = measureReduction(chatHistory, updatedChatHistory);
@@ -289,6 +306,7 @@ export async function handleNormalAutoCompaction(
       return {
         chatHistory: chatHistorySvc.getHistory(),
         wasCompacted: true,
+        summarized,
         reductionRatio,
       };
     }
@@ -296,9 +314,10 @@ export async function handleNormalAutoCompaction(
     return {
       chatHistory: updatedChatHistory,
       wasCompacted: true,
+      summarized,
       reductionRatio,
     };
   }
 
-  return { chatHistory, wasCompacted: false };
+  return { chatHistory, wasCompacted: false, summarized: false };
 }

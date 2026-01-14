@@ -107,6 +107,15 @@ export function drainMouseEvents(buffer: string): {
 }
 
 /**
+ * Ink forwards every byte it does not recognise as a key as printable input,
+ * which includes the terminal's mouse reports. The composer uses this to drop
+ * them instead of typing `[<64;10;10M` into the prompt.
+ */
+export function isTerminalMouseSequence(input: string): boolean {
+  return /\[<\d+;\d+;\d+[Mm]/.test(input);
+}
+
+/**
  * The clickable jump target only exists while the reader is scrolled up: the
  * hint is the dock's first row. Coordinates are 1-based rows from the top.
  */

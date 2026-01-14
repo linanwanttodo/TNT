@@ -1,18 +1,20 @@
-import { Box, Text } from "ink";
-import type { DOMElement } from "ink";
-import React from "react";
+import { Box, Text, type DOMElement } from "ink";
+import React, { useRef } from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { t } from "../../i18n/index.js";
+import { useClickRegion } from "../hooks/useClickRegion.js";
+import { theme } from "../theme/tokens.js";
 
 import { BottomStatusBar } from "./BottomStatusBar.js";
 import { ResourceDebugBar } from "./ResourceDebugBar.js";
 import { ScreenContent } from "./ScreenContent.js";
 
 interface ComposerProps {
-  dockRef: React.RefObject<DOMElement | null>;
   /** False while scrolled back: shows the jump hint and pauses the tail. */
   following: boolean;
+  /** Returns the transcript to the live tail. */
+  onJumpToLatest: () => void;
   statusMessage: string;
   isScreenActive: (screen: any) => boolean;
   services: any;
@@ -42,7 +44,6 @@ interface ComposerProps {
   wasInterrupted: boolean;
   isRemoteMode: boolean;
   remoteUrl: string | undefined;
-  onImageInClipboardChange: (hasImage: boolean) => void;
   diffContent: string;
   chatHistory: ChatHistoryItem[];
   handleEditMessage: (messageIndex: number, newContent: string) => void;
@@ -52,24 +53,33 @@ interface ComposerProps {
   navigateTo: (screen: any, data?: any) => void;
   contextPercentage: number;
   contextTokens: number | undefined;
-  hasImageInClipboard: boolean;
   isVerboseMode: boolean;
   totalCost: number;
 }
 
 /**
- * The fixed dock below the transcript: the jump hint, transient notices, the
- * active screen (usually the composer), the verbose debug bar and the two-row
- * status bar.
+ * The dock below the transcript: transient notices, the active screen
+ * (usually the composer), the verbose debug bar and the status bar. It is the
+ * bottom of the Ink frame, directly under the live transcript rows.
  */
 export const Composer: React.FC<ComposerProps> = (props) => {
+  const hintRef = useRef<DOMElement>(null);
+
+  useClickRegion(hintRef, () => {
+    if (!props.following) {
+      props.onJumpToLatest();
+    }
+  });
+
   return (
-    <Box ref={props.dockRef} flexDirection="column" flexShrink={0}>
-      {!props.following && (
-        <Box justifyContent="center" flexShrink={0}>
-          <Text color="cyan">{t("ui.jumpToLatest")}</Text>
-        </Box>
-      )}
+    <Box flexDirection="column" flexShrink={0}>
+      {/* The row is always allocated, so showing the hint cannot move the
+          composer by a row and restart the layout. */}
+      <Box ref={hintRef} justifyContent="center" height={1} flexShrink={0}>
+        <Text color={theme.accent}>
+          {props.following ? " " : t("ui.jumpToLatest")}
+        </Text>
+      </Box>
 
       {props.statusMessage && (
         <Box paddingX={1} paddingY={0}>
@@ -99,7 +109,6 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         isInputDisabled={props.isInputDisabled}
         wasInterrupted={props.wasInterrupted}
         isRemoteMode={props.isRemoteMode}
-        onImageInClipboardChange={props.onImageInClipboardChange}
         diffContent={props.diffContent}
         chatHistory={props.chatHistory}
         handleEditMessage={props.handleEditMessage}
@@ -120,7 +129,6 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         closeCurrentScreen={props.closeCurrentScreen}
         contextPercentage={props.contextPercentage}
         contextTokens={props.contextTokens}
-        hasImageInClipboard={props.hasImageInClipboard}
         isVerboseMode={props.isVerboseMode}
         totalCost={props.totalCost}
       />

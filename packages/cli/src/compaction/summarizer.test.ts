@@ -21,6 +21,32 @@ const history: ChatHistoryItem[] = [
 ];
 
 describe("the summarizer a compaction runs on", () => {
+  it("asks for a structured handoff instead of a recap", async () => {
+    let sent: ChatHistoryItem[] = [];
+
+    await compactChatHistory(history, model, {} as never, {
+      summarize: async ({ history: request }) => {
+        sent = request;
+        return "brief";
+      },
+    });
+
+    const instruction = sent.at(-1)?.message.content;
+    expect(typeof instruction).toBe("string");
+    for (const part of [
+      "Goal",
+      "User asks",
+      "Work in progress",
+      "Pending",
+      "Files",
+      "Decisions",
+      "Errors",
+      "Resume point",
+    ]) {
+      expect(instruction).toContain(part);
+    }
+  });
+
   it("writes the summary with the function it was given", async () => {
     const result = await compactChatHistory(history, model, {} as never, {
       summarize: async ({ callbacks }) => {
