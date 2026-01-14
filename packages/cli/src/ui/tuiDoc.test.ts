@@ -23,6 +23,8 @@ const STATUS = path.join(here, "components", "BottomStatusBar.tsx");
 const MODE = path.join(here, "components", "ModeIndicator.tsx");
 const TRANSCRIPT = path.join(here, "components", "TranscriptContent.tsx");
 const CHAT = path.join(here, "TUIChat.tsx");
+const COMPOSER = path.join(here, "components", "Composer.tsx");
+const VIEWPORT = path.join(here, "hooks", "useChatViewport.ts");
 
 function read(file: string): string {
   return fs.readFileSync(file, "utf-8");
@@ -71,22 +73,26 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/blue/.test(flat) && /red/.test(flat)).toBe(true);
   });
 
-  it("describes the fixed viewport and leaves the anchor hack out", () => {
+  it("describes the fixed viewport and its message-level scrolling", () => {
     const transcript = read(TRANSCRIPT);
     const chat = read(CHAT);
+    const viewport = read(VIEWPORT);
 
     expect(transcript).not.toContain("bottom-anchor");
     expect(/fixed-height viewport/.test(flat)).toBe(true);
-    expect(/measureElement\(viewport\)/.test(chat)).toBe(true);
     expect(/height=\{rows\}/.test(chat)).toBe(true);
+    expect(/scroll by\s+messages/.test(flat)).toBe(
+      /setScrollBack\(/.test(viewport) && /chatHistory\.slice\(/.test(viewport),
+    );
   });
 
-  it("documents the jump-to-latest hint only while TUIChat renders it", () => {
-    const chat = read(CHAT);
+  it("documents the jump-to-latest hint only while the composer renders it", () => {
+    const composer = read(COMPOSER);
+    const viewport = read(VIEWPORT);
     const art = read(path.join(here, "..", "startup", "asciiArt.ts"));
 
     expect(/Jump to latest/.test(flat)).toBe(
-      /jumpToLatest/.test(chat) && /key\.end/.test(chat),
+      /jumpToLatest/.test(composer) && /key\.end/.test(viewport),
     );
     expect(/half-block wordmark/.test(flat)).toBe(
       /█/.test(art) && /MIN_WIDTH_FOR_ASCII_ART = 30/.test(art),
@@ -126,8 +132,8 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
         read(path.join(here, "commands", "types.ts")),
       ),
     );
-    expect(/description in blue/.test(flat)).toBe(
-      /color=\{isSelected \? "blue" : "white"\}/.test(palette),
+    expect(/filled\s+background/.test(flat)).toBe(
+      /backgroundColor=\{isSelected \? "#005f5f"/.test(palette),
     );
     expect(/-- \/language --/.test(flat)).toBe(
       /-- \$\{levelLabel\} --/.test(palette),
