@@ -37,9 +37,7 @@ import {
   updateSessionTitle,
 } from "../session/index.js";
 import { safeStderr, safeStdout } from "../startup/init.js";
-import { streamChatResponse } from "../stream/streamChatResponse.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
-import { summarizeWithEngine } from "../stream/summarizeWithEngine.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { startTUIChat, type StartTUIChatOptions } from "../ui/index.js";
 import { suppressConsoleInfo } from "../utils/console.js";
@@ -49,6 +47,7 @@ import { formatAnthropicError, formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
 import { question } from "../utils/prompt.js";
 import { prependPrompt } from "../utils/promptProcessor.js";
+import { stripThinkTags } from "../utils/thinkingTags.js";
 import {
   calculateContextUsagePercentage,
   countChatHistoryTokens,
@@ -96,24 +95,6 @@ function processJsonOutput(response: string): string {
   }
 }
 
-/**
- * Strips <think></think> tags and excess whitespace from response
- * @param response - The raw response from the LLM
- * @returns Cleaned response
- */
-function stripThinkTags(response: string): string {
-  // Remove <think></think> tags and their content
-  let cleaned = response.replace(/<think>[\s\S]*?<\/think>/g, "");
-
-  // Remove excess whitespace: multiple consecutive newlines become single newlines
-  cleaned = cleaned.replace(/\n\s*\n\s*\n/g, "\n\n");
-
-  // Trim leading and trailing whitespace
-  cleaned = cleaned.trim();
-
-  return cleaned;
-}
-
 export interface ChatOptions extends ExtendedCommandOptions {
   headless?: boolean;
   resume?: boolean;
@@ -137,9 +118,8 @@ export async function initializeChatHistory(
 
   // Fork from an existing session if --fork flag is used
   if (options.fork) {
-    const { loadSessionById, startNewSession } = await import(
-      "../session/index.js"
-    );
+    const { loadSessionById, startNewSession } =
+      await import("../session/index.js");
     const sessionToFork = loadSessionById(options.fork);
     if (sessionToFork) {
       logger.info(chalk.yellow(t("chat.forking")));
@@ -179,7 +159,11 @@ async function handleManualCompaction(
   try {
     const current = services.chatHistory.getHistory();
     const result = await compactChatHistory(current, model, llmApi, {
-      summarize: summarizeWithEngine,
+      summarize: async (request) => {
+        const { summarizeWithEngine } =
+          await import("../stream/summarizeWithEngine.js");
+        return summarizeWithEngine(request);
+      },
     });
 
     // Update service-driven history (persistence handled by service)
@@ -248,15 +232,18 @@ async function getStreamingResponse(
 
   let response: string;
   try {
-    response = await streamChatResponse(
-      history,
+    // The turn controller pulls in the tool registry and the codebase index,
+    // which is tens of megabytes; loading it here keeps the interactive first
+    // paint from paying for a graph only an actual turn needs.
+    const { runAgentTurn } = await import("../session/controller.js");
+    response = await runAgentTurn({
+      chatHistory: history,
       model,
       llmApi,
       abortController,
       callbacks,
-      false,
       turnBudgetLimits,
-    );
+    });
   } finally {
     cancelTimeout();
   }
@@ -319,9 +306,8 @@ async function handleAutoCompaction(
   isHeadless: boolean,
   format?: OutputFormat,
 ): Promise<number | null> {
-  const { handleAutoCompaction: coreAutoCompaction } = await import(
-    "../stream/streamChatResponse.autoCompaction.js"
-  );
+  const { handleAutoCompaction: coreAutoCompaction } =
+    await import("../stream/streamChatResponse.autoCompaction.js");
 
   // Custom callbacks for headless mode console output
   const callbacks = {
@@ -668,9 +654,8 @@ async function runHeadlessMode(
   ).catch(() => {});
 
   // Handle additional prompts from --prompt flags
-  const { processAndCombinePrompts } = await import(
-    "../utils/promptProcessor.js"
-  );
+  const { processAndCombinePrompts } =
+    await import("../utils/promptProcessor.js");
   const agentFileState = await serviceContainer.get<AgentFileServiceState>(
     SERVICE_NAMES.AGENT_FILE,
   );

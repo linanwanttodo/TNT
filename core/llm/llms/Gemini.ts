@@ -209,6 +209,11 @@ class Gemini extends BaseLLM {
     }
 
     let data = "";
+    if (part.type === "audio") {
+      // Gemini audio needs a different inline-data path; keep the text and
+      // image support here and do not send a wrong media type.
+      return { text: "[Audio attachment omitted]" };
+    }
     if (part.imageUrl?.url) {
       const extracted = extractBase64FromDataUrl(part.imageUrl.url);
       if (extracted) {

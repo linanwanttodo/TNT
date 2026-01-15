@@ -88,9 +88,8 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   // layers; headless and serve keep the --trust-project / env gate. The prompt
   // no-ops outside a TTY, so tests and pipes are untouched.
   if (!initOptions.headless) {
-    const { maybePromptForProjectTrust } = await import(
-      "../startup/trustPrompt.js"
-    );
+    const { maybePromptForProjectTrust } =
+      await import("../startup/trustPrompt.js");
     await maybePromptForProjectTrust();
   }
 

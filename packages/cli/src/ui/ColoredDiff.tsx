@@ -2,23 +2,16 @@ import { diffWordsWithSpace, Change } from "diff";
 import { Box, Text } from "ink";
 import React, { useMemo } from "react";
 
-// Color constants for diff display
-const COLORS = {
-  ADDITION_BG: "#325b30",
-  DELETION_BG: "#712f37",
-  ADDITION_HIGHLIGHT: "#59a467",
-  DELETION_HIGHLIGHT: "#a75e6d",
-  LINE_NUMBER: "dim",
-} as const;
+import { useTheme, type Theme } from "./theme/tokens.js";
 
-interface DiffLine {
+export interface DiffLine {
   type: "add" | "del" | "context" | "hunk" | "other";
   oldLine?: number;
   newLine?: number;
   content: string;
 }
 
-function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
+export function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
   const lines = diffContent.split("\n");
   const result: DiffLine[] = [];
   let currentOldLine = 0;
@@ -86,32 +79,39 @@ function useWordLevelDiff(oldContent: string, newContent: string) {
 function renderWordLevelContent(
   changes: Change[],
   showType: "removed" | "added",
+  activeTheme: Theme,
 ): React.ReactNode {
   const segments: React.ReactNode[] = [];
 
   changes.forEach((change, index) => {
     if (showType === "removed") {
       if (change.removed) {
-        // Highlight removed words with darker red
         segments.push(
-          <Text key={index} backgroundColor={COLORS.DELETION_HIGHLIGHT}>
+          <Text
+            key={index}
+            backgroundColor={activeTheme.diff.delBackground}
+            color={activeTheme.diff.delText}
+            bold
+          >
             {change.value}
           </Text>,
         );
       } else if (!change.added) {
-        // Unchanged text - no special styling
         segments.push(change.value);
       }
     } else {
       if (change.added) {
-        // Highlight added words with darker green
         segments.push(
-          <Text key={index} backgroundColor={COLORS.ADDITION_HIGHLIGHT}>
+          <Text
+            key={index}
+            backgroundColor={activeTheme.diff.addBackground}
+            color={activeTheme.diff.addText}
+            bold
+          >
             {change.value}
           </Text>,
         );
       } else if (!change.removed) {
-        // Unchanged text - no special styling
         segments.push(change.value);
       }
     }
@@ -124,7 +124,8 @@ const WordLevelDiffGroup: React.FC<{
   groupIndex: number;
   delLines: DiffLine[];
   addLines: DiffLine[];
-}> = ({ groupIndex, delLines, addLines }) => {
+  activeTheme: Theme;
+}> = ({ groupIndex, delLines, addLines, activeTheme }) => {
   const oldContent = delLines.map((l) => l.content).join("\n");
   const newContent = addLines.map((l) => l.content).join("\n");
   const changes = useWordLevelDiff(oldContent, newContent);
@@ -132,21 +133,37 @@ const WordLevelDiffGroup: React.FC<{
   return (
     <Box key={`group-${groupIndex}`} flexDirection="column">
       <Box flexDirection="row">
-        <Text color={COLORS.LINE_NUMBER}>
+        <Text color={activeTheme.diff.gutterText}>
           {(delLines[0]?.oldLine ?? "").toString().padEnd(4)}{" "}
         </Text>
-        <Text backgroundColor={COLORS.DELETION_BG}>- </Text>
-        <Text backgroundColor={COLORS.DELETION_BG}>
-          {renderWordLevelContent(changes, "removed")}
+        <Text
+          backgroundColor={activeTheme.diff.delBackground}
+          color={activeTheme.diff.delText}
+        >
+          -{" "}
+        </Text>
+        <Text
+          backgroundColor={activeTheme.diff.delBackground}
+          color={activeTheme.diff.delText}
+        >
+          {renderWordLevelContent(changes, "removed", activeTheme)}
         </Text>
       </Box>
       <Box flexDirection="row">
-        <Text color={COLORS.LINE_NUMBER}>
+        <Text color={activeTheme.diff.gutterText}>
           {(addLines[0]?.newLine ?? "").toString().padEnd(4)}{" "}
         </Text>
-        <Text backgroundColor={COLORS.ADDITION_BG}>+ </Text>
-        <Text backgroundColor={COLORS.ADDITION_BG}>
-          {renderWordLevelContent(changes, "added")}
+        <Text
+          backgroundColor={activeTheme.diff.addBackground}
+          color={activeTheme.diff.addText}
+        >
+          +{" "}
+        </Text>
+        <Text
+          backgroundColor={activeTheme.diff.addBackground}
+          color={activeTheme.diff.addText}
+        >
+          {renderWordLevelContent(changes, "added", activeTheme)}
         </Text>
       </Box>
     </Box>
@@ -176,10 +193,11 @@ function processGroup(
 export const ColoredDiff: React.FC<{ diffContent: string }> = ({
   diffContent,
 }) => {
+  const activeTheme = useTheme();
   const parsedLines = parseDiffWithLineNumbers(diffContent);
 
   if (parsedLines.length === 0) {
-    return <Text color="dim">No changes detected.</Text>;
+    return <Text color={activeTheme.text.secondary}>No changes detected.</Text>;
   }
 
   const displayableLines = parsedLines.filter(
@@ -221,22 +239,26 @@ export const ColoredDiff: React.FC<{ diffContent: string }> = ({
           let prefixSymbol = " ";
           let dim = false;
           let backgroundColor: string | undefined = undefined;
+          let textColor = activeTheme.diff.contextText;
 
           switch (line.type) {
             case "add":
               gutterNumStr = (line.newLine ?? "").toString();
-              backgroundColor = COLORS.ADDITION_BG;
+              backgroundColor = activeTheme.diff.addBackground;
+              textColor = activeTheme.diff.addText;
               prefixSymbol = "+";
               break;
             case "del":
               gutterNumStr = (line.oldLine ?? "").toString();
-              backgroundColor = COLORS.DELETION_BG;
+              backgroundColor = activeTheme.diff.delBackground;
+              textColor = activeTheme.diff.delText;
               prefixSymbol = "-";
               break;
             case "context":
               gutterNumStr = (line.newLine ?? "").toString();
               dim = true;
               prefixSymbol = " ";
+              textColor = activeTheme.diff.contextText;
               break;
             default:
               return null;
@@ -244,11 +266,21 @@ export const ColoredDiff: React.FC<{ diffContent: string }> = ({
 
           return (
             <Box key={lineKey} flexDirection="row">
-              <Text color={COLORS.LINE_NUMBER}>{gutterNumStr.padEnd(4)} </Text>
-              <Text backgroundColor={backgroundColor} dimColor={dim}>
+              <Text color={activeTheme.diff.gutterText}>
+                {gutterNumStr.padEnd(4)}{" "}
+              </Text>
+              <Text
+                backgroundColor={backgroundColor}
+                color={textColor}
+                dimColor={dim}
+              >
                 {prefixSymbol}{" "}
               </Text>
-              <Text backgroundColor={backgroundColor} dimColor={dim}>
+              <Text
+                backgroundColor={backgroundColor}
+                color={textColor}
+                dimColor={dim}
+              >
                 {line.content}
               </Text>
             </Box>
@@ -264,12 +296,13 @@ export const ColoredDiff: React.FC<{ diffContent: string }> = ({
               groupIndex={groupIndex}
               delLines={delLines}
               addLines={addLines}
+              activeTheme={activeTheme}
             />
           );
         }
       })}
       {isTruncated && (
-        <Text color="dim" dimColor>
+        <Text color={activeTheme.text.secondary} dimColor>
           ... ({displayableLines.length - 16} more lines)
         </Text>
       )}

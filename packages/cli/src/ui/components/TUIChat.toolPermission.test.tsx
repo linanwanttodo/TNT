@@ -52,11 +52,13 @@ describe("TUIChat - Tool Permission Tests", () => {
 
     // Verify ToolPermissionSelector is shown
     expect(frame).toContain("Edit");
-    expect(frame).toContain("Would you like to continue?");
-    expect(frame).toContain("Continue");
-    expect(frame).toContain("Continue + don't ask again");
-    expect(frame).toContain("No, and tell Continue what to do differently");
-    expect(frame).toContain("(tab)");
+    expect(frame).toContain("Allow this tool call?");
+    expect(frame).toContain("1. Allow once");
+    expect(frame).toContain("2. Allow for this session");
+    expect(frame).toContain("3. Always allow (save a permission rule)");
+    expect(frame).toContain("4. No, and tell it what to do instead");
+    expect(frame).toContain("(enter)");
+    expect(frame).toContain("(s)");
     expect(frame).toContain("(shift+tab)");
     expect(frame).toContain("(esc)");
     // Verify old Cancel option is not shown
@@ -167,9 +169,9 @@ describe("TUIChat - Tool Permission Tests", () => {
 
     await vi.advanceTimersByTimeAsync(50);
 
-    // Initial state should show "> Continue" selected
+    // Initial state should show the first row selected
     const frame = lastFrame();
-    expect(frame).toMatch(/>\s+Continue/);
+    expect(frame).toMatch(/❯ 1\. Allow once/);
 
     // Test that pressing Enter on default selection triggers approval
     stdin.write("\r");
@@ -198,8 +200,8 @@ describe("TUIChat - Tool Permission Tests", () => {
 
     await vi.advanceTimersByTimeAsync(50);
 
-    // Between "continue once" and "don't ask again" (which writes a rule)
-    expect(lastFrame()).toMatch(/don't ask again this session/);
+    // Between "allow once" and "always allow" (which writes a rule)
+    expect(lastFrame()).toMatch(/Allow for this session/);
 
     stdin.write("s");
     await vi.advanceTimersByTimeAsync(50);
@@ -243,7 +245,7 @@ describe("TUIChat - Tool Permission Tests", () => {
     );
   });
 
-  it("shows the new 'No, and tell Continue what to do differently' option in the UI", async () => {
+  it("shows every choice with a distinguishable label", async () => {
     const handleResponse = vi.fn();
 
     const { lastFrame } = track(
@@ -261,16 +263,39 @@ describe("TUIChat - Tool Permission Tests", () => {
 
     await vi.advanceTimersByTimeAsync(50);
 
-    // Verify the new option exists in the rendered output
     const frame = lastFrame();
-    expect(frame).toContain("No, and tell Continue what to do differently");
-
-    // Verify all 3 options are present
-    expect(frame).toContain("Continue");
-    expect(frame).toContain("Continue + don't ask again");
-    expect(frame).toContain("No, and tell Continue what to do differently");
+    expect(frame).toContain("Allow once");
+    expect(frame).toContain("Allow for this session");
+    expect(frame).toContain("Always allow (save a permission rule)");
+    expect(frame).toContain("No, and tell it what to do instead");
     // Verify old Cancel option is not shown
     expect(frame).not.toContain("Cancel");
+  });
+
+  it("picks a choice by its number", async () => {
+    const handleResponse = vi.fn();
+
+    const { stdin } = track(
+      <ToolPermissionSelector
+        toolName="Bash"
+        toolArgs={{ command: "ls -la" }}
+        requestId="test-request-number"
+        onResponse={handleResponse}
+      />,
+    );
+
+    await vi.advanceTimersByTimeAsync(50);
+
+    stdin.write("3");
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(handleResponse).toHaveBeenCalledWith(
+      "test-request-number",
+      true,
+      true,
+      undefined,
+      undefined,
+    );
   });
 
   it("triggers stop stream when escape key is pressed", async () => {
@@ -400,14 +425,16 @@ describe("TUIChat - Tool Permission Tests", () => {
 
     const messageOutput = messageFrame();
 
-    // Verify the red dot appears (for failed tool call)
-    expect(messageOutput).toContain("●");
+    // Verify the failed-status marker appears (the same compact glyph the
+    // tool group uses for a failed call).
+    expect(messageOutput).toContain("x");
 
     // Verify the tool name appears
     expect(messageOutput).toContain("Edit");
+    expect(messageOutput).toContain("Permission denied by user");
 
     // The MemoizedMessage component correctly identifies this as a failure
     // because the tool result includes "Permission denied"
-    // This causes the red dot to be shown
+    // This causes the failure marker to be shown
   });
 });

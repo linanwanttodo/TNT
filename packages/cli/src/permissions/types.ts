@@ -3,12 +3,7 @@ import { ToolCallPreview } from "../tools/types.js";
 export type PermissionPolicy = "allow" | "ask" | "exclude";
 
 export type PermissionMode =
-  | "default"
-  | "acceptEdits"
-  | "plan"
-  | "auto"
-  | "bypassPermissions"
-  | "dontAsk";
+  "default" | "acceptEdits" | "plan" | "auto" | "bypassPermissions" | "dontAsk";
 
 /** Every value `--permission-mode` accepts; `auto` is refused until implemented. */
 export const PERMISSION_MODES: readonly PermissionMode[] = [
@@ -16,6 +11,17 @@ export const PERMISSION_MODES: readonly PermissionMode[] = [
   "acceptEdits",
   "plan",
   "auto",
+  "bypassPermissions",
+  "dontAsk",
+];
+
+/**
+ * Modes whose own policy table replaces the configuration layers. `default`
+ * and `auto` keep the user's rules.
+ */
+export const ABSOLUTE_POLICY_MODES: readonly PermissionMode[] = [
+  "acceptEdits",
+  "plan",
   "bypassPermissions",
   "dontAsk",
 ];

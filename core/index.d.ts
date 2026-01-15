@@ -414,7 +414,12 @@ export type ImageMessagePart = {
   imageUrl: { url: string };
 };
 
-export type MessagePart = TextMessagePart | ImageMessagePart;
+export type AudioMessagePart = {
+  type: "audio";
+  audio: { data: string; format: "wav" | "mp3" };
+};
+
+export type MessagePart = TextMessagePart | ImageMessagePart | AudioMessagePart;
 
 export type MessageContent = string | MessagePart[];
 

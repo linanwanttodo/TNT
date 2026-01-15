@@ -1,8 +1,14 @@
-import type { ChatHistoryItem, ToolStatus } from "core/index.js";
+import type {
+  ChatHistoryItem,
+  MessageContent,
+  ToolStatus,
+} from "core/index.js";
 import { createHistoryItem } from "core/util/messageConversion.js";
 
 import { loadSessionById, updateSessionHistory } from "../session/index.js";
+import { Transcript, type MessageId } from "../session/transcript.js";
 import { logger } from "../utils/logger.js";
+import { completedReasoning } from "../utils/reasoning.js";
 
 import { BaseService } from "./BaseService.js";
 
@@ -24,6 +30,8 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
   // Simple undo/redo stacks for history snapshots
   private past: ChatHistoryItem[][] = [];
   private future: ChatHistoryItem[][] = [];
+  /** Ordered messages, stable ids, and the staging batch. */
+  private transcript = new Transcript();
   // Memoized snapshot for referential stability in getState()
   private _memoSnapshot: {
     stateRef: ChatHistoryState | null;
@@ -49,24 +57,56 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
       persist?: boolean; // set to false to skip persistence (rare)
     } = {},
   ): void {
+    // Every path that hands the service a whole list is a boundary: load,
+    // rewind, or a compaction view. The transcript keeps the ids of unchanged
+    // items and assigns new ones to the rest.
+    this.transcript.replace(history, "sync");
+    this.commitState(this.transcript.snapshot(), options);
+  }
+
+  /** Writes the already-resolved transcript view to state and disk. */
+  private commitState(
+    history: ChatHistoryItem[],
+    options: {
+      recordUndo?: boolean;
+      compactionIndex?: number | null;
+      persist?: boolean;
+    } = {},
+  ): void {
     const { recordUndo = true, compactionIndex, persist } = options;
     const prev = this.currentState.history;
     if (recordUndo) {
       this.past.push([...prev]);
       this.future = [];
     }
+    const resolvedCompactionIndex =
+      compactionIndex === undefined
+        ? this.findCompactionIndex(history)
+        : compactionIndex;
     this.setState({
       history: [...history],
-      compactionIndex:
-        compactionIndex === undefined
-          ? this.findCompactionIndex(history)
-          : compactionIndex,
+      compactionIndex: resolvedCompactionIndex,
     });
+
+    if (resolvedCompactionIndex !== null) {
+      this.transcript.markCompaction(resolvedCompactionIndex);
+    }
 
     if (this.currentState.isRemoteMode) {
       // Skip persistence in remote mode
     } else if (persist !== false) {
       updateSessionHistory(history);
+    }
+  }
+
+  /**
+   * A staged batch that never received a tool result must not sit in front of
+   * the next message. Committing it preserves the old visible behavior; the
+   * alternative was an assistant message with no result between two turns.
+   */
+  private commitPendingStage(): void {
+    if (this.transcript.stagedSnapshot().length > 0) {
+      this.transcript.commitStaged();
     }
   }
 
@@ -85,14 +125,17 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
     });
 
     if (session) {
+      const history = session.history || [];
+      this.transcript.replace(history, "load");
       return {
-        history: session.history || [],
-        compactionIndex: this.findCompactionIndex(session.history || []),
+        history,
+        compactionIndex: this.findCompactionIndex(history),
         sessionId: session.sessionId,
         isRemoteMode,
       };
     }
 
+    this.transcript.replace([], "load");
     return {
       history: [],
       compactionIndex: null,
@@ -104,7 +147,11 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
   /**
    * Add a user message to the history
    */
-  addUserMessage(content: string, contextItems: any[] = []): ChatHistoryItem {
+  addUserMessage(
+    content: MessageContent,
+    contextItems: any[] = [],
+  ): ChatHistoryItem {
+    this.commitPendingStage();
     const newMessage = createHistoryItem(
       {
         role: "user",
@@ -113,11 +160,21 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
       contextItems,
     );
 
-    const newHistory = [...this.currentState.history, newMessage];
-    this.setHistoryInternal(newHistory);
+    this.transcript.append(newMessage);
+    this.commitState(this.transcript.snapshot());
+    const newHistory = this.currentState.history;
+
+    const contentLength =
+      typeof content === "string"
+        ? content.length
+        : content.reduce(
+            (total, part) =>
+              total + (part.type === "text" ? part.text.length : 0),
+            0,
+          );
 
     logger.debug("Added user message", {
-      contentLength: content.length,
+      contentLength,
       contextItemCount: contextItems.length,
       newHistoryLength: newHistory.length,
     });
@@ -132,7 +189,9 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
     content: string,
     toolCalls?: any[],
     usage?: any,
+    reasoning?: string,
   ): ChatHistoryItem {
+    this.commitPendingStage();
     const message: any = {
       role: "assistant",
       content,
@@ -192,8 +251,22 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
     });
 
     const newMessage = createHistoryItem(message, [], toolCallStates);
-    const newHistory = [...this.currentState.history, newMessage];
-    this.setHistoryInternal(newHistory);
+    if (reasoning?.trim()) {
+      // Kept beside the answer, not inside it: the projection folds the thought
+      // and the conversation sent to the model must not gain a second copy.
+      newMessage.reasoning = completedReasoning(reasoning);
+    }
+    const hasToolCalls = Boolean(toolCallStates && toolCallStates.length > 0);
+    if (hasToolCalls) {
+      // Hold the assistant message until its tool results arrive. The state
+      // still shows it, because the reader is watching the tools run.
+      this.transcript.stage([newMessage]);
+      this.commitState(this.transcript.snapshot({ includeStaged: true }));
+    } else {
+      this.transcript.append(newMessage);
+      this.commitState(this.transcript.snapshot());
+    }
+    const newHistory = this.currentState.history;
 
     logger.debug("Added assistant message", {
       contentLength: content.length,
@@ -208,13 +281,15 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
    * Add a system message to the history
    */
   addSystemMessage(content: string): ChatHistoryItem {
+    this.commitPendingStage();
     const newMessage = createHistoryItem({
       role: "system",
       content,
     });
 
-    const newHistory = [...this.currentState.history, newMessage];
-    this.setHistoryInternal(newHistory);
+    this.transcript.append(newMessage);
+    this.commitState(this.transcript.snapshot());
+    const newHistory = this.currentState.history;
 
     logger.debug("Added system message", {
       contentLength: content.length,
@@ -228,12 +303,13 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
    * Add a generic history item
    */
   addHistoryItem(item: ChatHistoryItem): ChatHistoryItem {
-    const newHistory = [...this.currentState.history, item];
-    this.setHistoryInternal(newHistory);
+    this.commitPendingStage();
+    this.transcript.append(item);
+    this.commitState(this.transcript.snapshot());
 
     logger.debug("Added history item", {
       role: item.message.role,
-      newHistoryLength: newHistory.length,
+      newHistoryLength: this.currentState.history.length,
     });
 
     return item;
@@ -299,6 +375,9 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
     result: string,
     status: ToolStatus = "done",
   ): void {
+    // The first result closes the batch opened with the assistant message.
+    this.transcript.commitStaged();
+
     // Find the last assistant message with this tool call
     let targetIndex = -1;
     for (let i = this.currentState.history.length - 1; i >= 0; i--) {
@@ -363,7 +442,9 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
    * Perform compaction on the history
    */
   compact(newHistory: ChatHistoryItem[], compactionIndex: number): void {
-    this.setHistoryInternal(newHistory, { compactionIndex });
+    this.transcript.replace(newHistory, "compaction");
+    this.transcript.markCompaction(compactionIndex);
+    this.commitState(this.transcript.snapshot(), { compactionIndex });
 
     logger.debug("Compacted history", {
       oldLength: this.currentState.history.length,
@@ -376,7 +457,8 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
    * Clear the chat history
    */
   clear(): void {
-    this.setHistoryInternal([], { compactionIndex: null });
+    this.transcript.replace([], "rewind");
+    this.commitState([], { compactionIndex: null });
 
     logger.debug("Cleared chat history");
   }
@@ -388,7 +470,8 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
     const session = loadSessionById(sessionId);
     if (session) {
       // Load new history without recording undo; set sessionId separately
-      this.setHistoryInternal(session.history, { recordUndo: false });
+      this.transcript.replace(session.history, "load");
+      this.commitState(this.transcript.snapshot(), { recordUndo: false });
       this.setState({ sessionId: session.sessionId });
 
       logger.debug("Loaded session", {
@@ -431,6 +514,33 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
     logger.debug("Set entire history", {
       historyLength: history.length,
     });
+  }
+
+  /** The stable id for a message, assigned when it entered the transcript. */
+  getMessageId(item: ChatHistoryItem): MessageId | undefined {
+    return this.transcript.getMessageId(item);
+  }
+
+  /** The ids in transcript order, staged messages excluded. */
+  getMessageIds(): readonly MessageId[] {
+    return this.transcript.entriesSnapshot().map((entry) => entry.id);
+  }
+
+  /** Closes a staged assistant/tool batch without waiting for a result. */
+  commitStagedBatch(): void {
+    this.transcript.commitStaged();
+    this.commitState(this.transcript.snapshot());
+  }
+
+  /** Drops a staged batch when the turn failed before its tools returned. */
+  discardStagedBatch(): void {
+    this.transcript.discardStaged();
+    this.commitState(this.transcript.snapshot());
+  }
+
+  /** The index of the first message a compaction view retains. */
+  getCompactionMarkIndex(): number | null {
+    return this.transcript.getCompactionIndex();
   }
 
   /**

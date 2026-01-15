@@ -30,7 +30,7 @@ const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * The palette used to print every command under the input box, and Enter on a
- * bare "/" ran the first of them. Pi's shape is a short window above the
+ * bare "/" ran the first of them. The palette is a short window above the
  * composer, Enter completing an actual prefix, and an empty filter never
  * executing anything on its own.
  */
@@ -94,7 +94,7 @@ describe("UserInput slash palette", () => {
     }
   });
 
-  it("runs a typed prefix through the palette like Pi", async () => {
+  it("runs a typed prefix through the palette", async () => {
     const tree = await renderInput();
     try {
       tree.stdin.write("/mo");

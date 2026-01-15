@@ -2,10 +2,18 @@ import React, { useCallback } from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { MemoizedMessage } from "../components/MemoizedMessage.js";
+import {
+  SPLIT_CONTINUATION,
+  type SplitChatHistoryItem,
+} from "../utils/historySplitting.js";
 
 export function useMessageRenderer() {
   const renderMessage = useCallback(
-    (item: ChatHistoryItem, index: number, allMessages?: ChatHistoryItem[]) => {
+    (
+      item: ChatHistoryItem,
+      index: number,
+      _allMessages?: ChatHistoryItem[],
+    ) => {
       // Generate a unique key by combining message role, content hash, and timestamp
       // This provides a stable identifier that won't change during re-renders
       const messageContent =
@@ -17,11 +25,12 @@ export function useMessageRenderer() {
         ? item.toolCallStates.map((tc) => tc.toolCallId).join("-")
         : "";
 
-      // Check if this is a continuation of the previous message (same role)
-      const previousMessage =
-        allMessages && index > 0 ? allMessages[index - 1] : null;
-      const isContinuation =
-        previousMessage?.message.role === item.message.role;
+      // Only a chunk produced by splitting one message suppresses the prefix.
+      // A second message with the same role is a new turn and keeps its own
+      // marker, so a model answer after a tool round still reads as the model.
+      const isContinuation = Boolean(
+        (item as SplitChatHistoryItem)[SPLIT_CONTINUATION],
+      );
 
       const uniqueKey = `${item.message.role}-${messageContent.slice(0, 50)}-${toolCallsKey}-${index}`;
 

@@ -5,6 +5,18 @@ import { findLastSafeSplitPoint } from "./messageSplitting.js";
 const MAX_HEIGHT_BEFORE_SPLIT = 20;
 
 /**
+ * Marks a row produced by splitting one message, so the renderer does not
+ * repeat the role prefix on every chunk. A separate message keeps the prefix,
+ * which is how a reader tells a new model turn from the tail of the previous
+ * one.
+ */
+export const SPLIT_CONTINUATION = Symbol("tnt.splitContinuation");
+
+export type SplitChatHistoryItem = ChatHistoryItem & {
+  [SPLIT_CONTINUATION]?: boolean;
+};
+
+/**
  * Splits a chat history item into multiple items if its content is too large.
  *
  * This function prevents UI flickering by breaking large messages into manageable chunks.
@@ -52,21 +64,30 @@ function splitContentIntoHistoryItems(
   content: string,
   terminalWidth: number,
 ): ChatHistoryItem[] {
-  const items: ChatHistoryItem[] = [];
+  const items: SplitChatHistoryItem[] = [];
   let remainingContent = content;
   let itemIndex = 0;
+
+  const pushChunk = (chunk: string) => {
+    // The thought belongs to the message, not to each piece of it: copying it
+    // onto every chunk drew the same reasoning block once per chunk.
+    const { reasoning: _reasoning, ...rest } = originalItem;
+    const chunkItem: SplitChatHistoryItem = {
+      ...(items.length === 0 ? originalItem : rest),
+      message: {
+        ...originalItem.message,
+        content: chunk,
+      },
+      [SPLIT_CONTINUATION]: items.length > 0,
+    };
+    items.push(chunkItem);
+  };
 
   while (remainingContent.length > 0) {
     if (!shouldSplitContent(remainingContent, terminalWidth)) {
       // Remaining content is small enough, add it as the final item
       if (remainingContent.trim()) {
-        items.push({
-          ...originalItem,
-          message: {
-            ...originalItem.message,
-            content: remainingContent,
-          },
-        });
+        pushChunk(remainingContent);
       }
       break;
     }
@@ -77,13 +98,7 @@ function splitContentIntoHistoryItems(
     if (splitPoint === remainingContent.length) {
       // No safe split point found, add as single large item
       if (remainingContent.trim()) {
-        items.push({
-          ...originalItem,
-          message: {
-            ...originalItem.message,
-            content: remainingContent,
-          },
-        });
+        pushChunk(remainingContent);
       }
       break;
     }
@@ -93,13 +108,7 @@ function splitContentIntoHistoryItems(
     remainingContent = remainingContent.slice(splitPoint).trim();
 
     if (beforeText) {
-      items.push({
-        ...originalItem,
-        message: {
-          ...originalItem.message,
-          content: beforeText,
-        },
-      });
+      pushChunk(beforeText);
     }
 
     itemIndex++;
@@ -108,13 +117,7 @@ function splitContentIntoHistoryItems(
     if (itemIndex > 50) {
       console.warn("Message splitting exceeded maximum iterations, stopping");
       if (remainingContent.trim()) {
-        items.push({
-          ...originalItem,
-          message: {
-            ...originalItem.message,
-            content: remainingContent,
-          },
-        });
+        pushChunk(remainingContent);
       }
       break;
     }

@@ -33,9 +33,9 @@ import { sortToolsByName } from "./stableOrder.js";
  * without also putting a line about it where the next reader - and the cache-break
  * report's attribution - will find it.
  */
-const PREFIX_FINGERPRINT = "1b399a5fb3d9578a";
-const PREFIX_CHARACTERS = 21_815;
-const PREFIX_TOOLS = 29;
+const PREFIX_FINGERPRINT = "fddd0b7c530ef75f";
+const PREFIX_CHARACTERS = 22_590;
+const PREFIX_TOOLS = 30;
 
 const ARCHITECTURE_DOC = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

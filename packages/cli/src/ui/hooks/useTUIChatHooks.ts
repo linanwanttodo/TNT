@@ -109,7 +109,10 @@ export function useIntroMessage(
   _services: any,
   _allServicesReady: boolean,
 ) {
-  const [showIntroMessage, setShowIntroMessage] = useState(false);
+  // Start from the same answer the effect below computes: a false first frame
+  // painted the composer at the bottom and then jumped the whole layout when
+  // the header arrived one tick later.
+  const [showIntroMessage, setShowIntroMessage] = useState(!isRemoteMode);
 
   useEffect(() => {
     const shouldShow = !isRemoteMode;

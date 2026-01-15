@@ -73,13 +73,13 @@ describe("UpdateNotification", () => {
     expect(frame).toContain("◉ Update available: v1.0.1");
   });
 
-  it("should show checking message when checking for updates", () => {
+  it("shows the installed version while the check runs", () => {
     mockUseServices.mockReturnValue({
       services: {
         update: {
           autoUpdate: true,
           status: UpdateStatus.CHECKING,
-          message: "Checking for updates",
+          message: "TNT v1.0.0",
           error: null,
           isUpdateAvailable: false,
           latestVersion: null,
@@ -90,7 +90,8 @@ describe("UpdateNotification", () => {
 
     const frame = frameOf(<UpdateNotification />);
 
-    expect(frame).toContain("◉ Checking for updates");
+    expect(frame).toContain("◉ TNT v1.0.0");
+    expect(frame).not.toContain("Checking");
   });
 
   it("should show updating message when updating", () => {

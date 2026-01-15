@@ -199,6 +199,15 @@ export function toChatMessage(
                 },
               };
             }
+            if (part.type === "audio") {
+              return {
+                type: "input_audio" as const,
+                input_audio: {
+                  data: part.audio.data,
+                  format: part.audio.format,
+                },
+              };
+            }
             return part;
           })
         : message.content
@@ -857,6 +866,14 @@ function toResponseInputContentList(
         image_url: part.imageUrl.url,
         detail: "auto",
       });
+    } else if (part.type === "audio") {
+      list.push({
+        type: "input_audio",
+        input_audio: {
+          data: part.audio.data,
+          format: part.audio.format,
+        },
+      } as any);
     }
   }
   return list;

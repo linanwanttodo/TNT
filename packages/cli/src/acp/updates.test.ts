@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { AgentEvent } from "../protocol/events.js";
 
-import { eventToUpdate } from "./updates.js";
+import {
+  eventToUpdate,
+  planUpdateFromTodoResult,
+  planUpdateFromTodos,
+  usageUpdate,
+} from "./updates.js";
 
 const base = {
   sessionId: "session-1",
@@ -85,6 +90,83 @@ describe("ACP updates", () => {
         enabled,
       ),
     ).toBeNull();
+  });
+
+  it("turns a Todo result into a complete plan with done entries completed", () => {
+    const todo = {
+      action: "list",
+      todos: [
+        { id: 1, text: "ship it", done: true },
+        { id: 2, text: "check it", done: false },
+      ],
+      nextId: 3,
+    };
+
+    expect(
+      planUpdateFromTodoResult(
+        `Added todo #1: ship it\n\ntnt-todo:${JSON.stringify(todo)}`,
+      ),
+    ).toEqual({
+      sessionUpdate: "plan",
+      entries: [
+        { content: "ship it", priority: "medium", status: "completed" },
+        { content: "check it", priority: "medium", status: "pending" },
+      ],
+    });
+  });
+
+  it("builds the same plan from replayed Todo entries", () => {
+    expect(
+      planUpdateFromTodos([
+        { text: "ship it", done: true },
+        { text: "check it", done: false },
+      ]),
+    ).toEqual({
+      sessionUpdate: "plan",
+      entries: [
+        { content: "ship it", priority: "medium", status: "completed" },
+        { content: "check it", priority: "medium", status: "pending" },
+      ],
+    });
+  });
+
+  it("clears the plan when the Todo list is empty", () => {
+    expect(
+      planUpdateFromTodoResult(
+        `Cleared todos\n\ntnt-todo:${JSON.stringify({
+          action: "clear",
+          todos: [],
+          nextId: 1,
+        })}`,
+      ),
+    ).toEqual({ sessionUpdate: "plan", entries: [] });
+  });
+
+  it("ignores results that do not carry a Todo payload", () => {
+    expect(planUpdateFromTodoResult("plain tool output")).toBeNull();
+    expect(planUpdateFromTodoResult("tnt-todo:{not json")).toBeNull();
+  });
+
+  it("reports context usage with the session cost", () => {
+    expect(usageUpdate(1200, 200_000, 0.04)).toEqual({
+      sessionUpdate: "usage_update",
+      used: 1200,
+      size: 200_000,
+      cost: { amount: 0.04, currency: "USD" },
+    });
+  });
+
+  it("omits a zero cost but keeps the usage figures", () => {
+    expect(usageUpdate(1200, 200_000, 0)).toEqual({
+      sessionUpdate: "usage_update",
+      used: 1200,
+      size: 200_000,
+    });
+  });
+
+  it("does not invent usage when the context or limit is unknown", () => {
+    expect(usageUpdate(0, 200_000, 0.04)).toBeNull();
+    expect(usageUpdate(1200, 0, 0.04)).toBeNull();
   });
 
   it("only sends notices and compaction updates the client advertised", () => {

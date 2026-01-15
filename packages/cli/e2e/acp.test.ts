@@ -27,6 +27,8 @@ interface Harness {
   permissionRequests: number;
   fsReads: acp.ReadTextFileRequest[];
   fsWrites: acp.WriteTextFileRequest[];
+  terminalCreates: acp.CreateTerminalRequest[];
+  terminalReleases: acp.ReleaseTerminalRequest[];
   updates: Array<{ sessionId: string; update: acp.SessionUpdate }>;
   close: () => Promise<void>;
 }
@@ -54,6 +56,8 @@ async function startHarness(
   options: {
     clientCapabilities?: acp.ClientCapabilities;
     mcpServers?: acp.McpServer[];
+    additionalDirectories?: string[];
+    terminal?: "foreground" | "hang";
   } = {},
 ): Promise<Harness> {
   const home = context.testDir;
@@ -88,6 +92,8 @@ async function startHarness(
   harness.permissionRequests = 0;
   harness.fsReads = [];
   harness.fsWrites = [];
+  harness.terminalCreates = [];
+  harness.terminalReleases = [];
   harness.updates = [];
   app.onNotification(acp.methods.client.session.update, (notification) => {
     harness.updates.push(notification.params);
@@ -102,6 +108,35 @@ async function startHarness(
   });
   app.onRequest(acp.methods.client.fs.writeTextFile, async (request) => {
     harness.fsWrites.push(request.params);
+    return {};
+  });
+  app.onRequest(acp.methods.client.terminal.create, async (request) => {
+    harness.terminalCreates.push(request.params);
+    return { terminalId: "terminal-e2e" };
+  });
+  let backgroundPolls = 0;
+  app.onRequest(acp.methods.client.terminal.output, async () => {
+    if (options.terminal === "hang") {
+      backgroundPolls += 1;
+      return backgroundPolls === 1
+        ? { output: "bg-partial\n", truncated: false }
+        : {
+            output: "bg-done\n",
+            truncated: false,
+            exitStatus: { exitCode: 0, signal: null },
+          };
+    }
+    return { output: "client-terminal-output\n", truncated: false };
+  });
+  app.onRequest(acp.methods.client.terminal.waitForExit, async () => {
+    if (options.terminal === "hang") {
+      return await new Promise<never>(() => {});
+    }
+    return { exitCode: 0, signal: null };
+  });
+  app.onRequest(acp.methods.client.terminal.kill, async () => ({}));
+  app.onRequest(acp.methods.client.terminal.release, async (request) => {
+    harness.terminalReleases.push(request.params);
     return {};
   });
 
@@ -122,6 +157,7 @@ async function startHarness(
     ctx.request(acp.methods.agent.session.new, {
       cwd: project,
       mcpServers: options.mcpServers ?? [],
+      additionalDirectories: options.additionalDirectories,
     }),
     "session/new",
   );
@@ -202,6 +238,8 @@ describe("E2E: ACP agent", () => {
     harnessOptions: {
       clientCapabilities?: acp.ClientCapabilities;
       mcpServers?: acp.McpServer[];
+      additionalDirectories?: string[];
+      terminal?: "foreground" | "hang";
     } = {},
   ): Promise<{ project: string; harness: Harness }> {
     mockServer = await setupMockLLMTest(context, options);
@@ -478,6 +516,100 @@ describe("E2E: ACP agent", () => {
     ).toBe(false);
   }, 60_000);
 
+  it("applies an ApplyPatch to the client's buffer", async () => {
+    mockServer = await setupMockLLMTest(context, {
+      customHandler: (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          if (req.method !== "POST" || req.url !== "/chat/completions") {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          const parsed = JSON.parse(body);
+          const toolMessages = parsed.messages?.filter(
+            (message: { role?: string }) => message.role === "tool",
+          );
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
+          if ((toolMessages?.length ?? 0) === 0) {
+            res.write(
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          index: 0,
+                          id: "patch_virtual",
+                          type: "function",
+                          function: {
+                            name: "ApplyPatch",
+                            arguments: JSON.stringify({
+                              patch: [
+                                "*** Begin Patch",
+                                "*** Update File: acp-patch.txt",
+                                "-from-editor",
+                                "+patched-from-editor",
+                                "*** End Patch",
+                              ].join("\n"),
+                            }),
+                          },
+                        },
+                      ],
+                    },
+                    index: 0,
+                  },
+                ],
+              })}\n\n`,
+            );
+            res.write(
+              `data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"index":0}\n\n`,
+            );
+          } else {
+            res.write(
+              `data: {"choices":[{"delta":{"content":"done"},"index":0}]}\n\n`,
+            );
+          }
+          res.write(`data: [DONE]\n\n`);
+          res.end();
+        });
+      },
+    });
+    const project = path.join(context.testDir, "project");
+    await fs.mkdir(project, { recursive: true });
+    harness = await startHarness(context, project, {
+      clientCapabilities: {
+        fs: { readTextFile: true, writeTextFile: true },
+      },
+    });
+
+    const response = await prompt(
+      harness,
+      sessionId(harness),
+      "Patch the virtual file",
+    );
+
+    expect(response.stopReason).toBe("end_turn");
+    expect(harness.fsWrites).toHaveLength(1);
+    expect(harness.fsWrites[0]).toMatchObject({
+      path: path.join(project, "acp-patch.txt"),
+      content: "patched-from-editor\n",
+    });
+    expect(
+      await fs
+        .access(path.join(project, "acp-patch.txt"))
+        .then(() => true)
+        .catch(() => false),
+    ).toBe(false);
+  }, 60_000);
+
   it("connects ACP session MCP servers before the first prompt", async () => {
     const requests: any[] = [];
     mockServer = await setupMockLLMTest(context, {
@@ -546,6 +678,560 @@ await server.connect(new StdioServerTransport());
         (tool: { function?: { name?: string } }) =>
           tool.function?.name === "mcp__fixture__echo",
       ),
+    ).toBe(true);
+  }, 60_000);
+
+  it("runs foreground Bash through the client's terminal", async () => {
+    const requests: any[] = [];
+    mockServer = await setupMockLLMTest(context, {
+      customHandler: (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          if (req.method !== "POST" || req.url !== "/chat/completions") {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          const parsed = JSON.parse(body);
+          requests.push(parsed);
+          const toolMessages =
+            parsed.messages?.filter(
+              (message: { role?: string }) => message.role === "tool",
+            ) ?? [];
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
+          if (toolMessages.length === 0) {
+            res.write(
+              `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"bash_terminal","type":"function","function":{"name":"Bash","arguments":"{\\"command\\":\\"echo routed\\"}"}}]},"index":0}]}\n\n`,
+            );
+            res.write(
+              `data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"index":0}\n\n`,
+            );
+          } else {
+            res.write(
+              `data: {"choices":[{"delta":{"content":"done"},"index":0}]}\n\n`,
+            );
+          }
+          res.write(`data: [DONE]\n\n`);
+          res.end();
+        });
+      },
+    });
+    const project = path.join(context.testDir, "project");
+    await fs.mkdir(project, { recursive: true });
+    harness = await startHarness(context, project, {
+      clientCapabilities: { terminal: true },
+    });
+
+    const response = await prompt(harness, sessionId(harness), "Run it");
+    expect(response.stopReason).toBe("end_turn");
+    expect(harness.terminalCreates).toHaveLength(1);
+    expect(harness.terminalCreates[0]?.cwd).toBe(project);
+    expect(harness.terminalCreates[0]?.args?.join(" ")).toContain(
+      "echo routed",
+    );
+    expect(harness.terminalReleases).toHaveLength(1);
+    expect(
+      requests[1]?.messages?.some(
+        (message: any) =>
+          message.role === "tool" &&
+          String(message.content).includes("client-terminal-output"),
+      ),
+    ).toBe(true);
+  }, 60_000);
+
+  it("turns a timed-out client terminal into a pollable background job", async () => {
+    const requests: any[] = [];
+    mockServer = await setupMockLLMTest(context, {
+      customHandler: (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          if (req.method !== "POST" || req.url !== "/chat/completions") {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          const parsed = JSON.parse(body);
+          requests.push(parsed);
+          const toolMessages =
+            parsed.messages?.filter(
+              (message: { role?: string }) => message.role === "tool",
+            ) ?? [];
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
+          if (toolMessages.length === 0) {
+            res.write(
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          index: 0,
+                          id: "bash_background",
+                          type: "function",
+                          function: {
+                            name: "Bash",
+                            arguments: JSON.stringify({
+                              command: "npm run dev",
+                              timeout: 1,
+                            }),
+                          },
+                        },
+                      ],
+                    },
+                    index: 0,
+                  },
+                ],
+              })}\n\n`,
+            );
+            res.write(
+              `data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"index":0}\n\n`,
+            );
+          } else if (toolMessages.length === 1) {
+            const jobId = /Job ID: (bg-\S+)/.exec(
+              String(toolMessages[0].content),
+            )?.[1];
+            if (jobId) {
+              res.write(
+                `data: ${JSON.stringify({
+                  choices: [
+                    {
+                      delta: {
+                        tool_calls: [
+                          {
+                            index: 0,
+                            id: "check_background",
+                            type: "function",
+                            function: {
+                              name: "CheckBackgroundJob",
+                              arguments: JSON.stringify({ job_id: jobId }),
+                            },
+                          },
+                        ],
+                      },
+                      index: 0,
+                    },
+                  ],
+                })}\n\n`,
+              );
+              res.write(
+                `data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"index":0}\n\n`,
+              );
+            } else {
+              res.write(
+                `data: {"choices":[{"delta":{"content":"missing job id"},"index":0}]}\n\n`,
+              );
+            }
+          } else {
+            res.write(
+              `data: {"choices":[{"delta":{"content":"background checked"},"index":0}]}\n\n`,
+            );
+          }
+          res.write(`data: [DONE]\n\n`);
+          res.end();
+        });
+      },
+    });
+    const project = path.join(context.testDir, "project");
+    await fs.mkdir(project, { recursive: true });
+    harness = await startHarness(context, project, {
+      clientCapabilities: { terminal: true },
+      terminal: "hang",
+    });
+
+    const response = await prompt(harness, sessionId(harness), "Start it");
+    expect(response.stopReason).toBe("end_turn");
+    expect(harness.terminalCreates).toHaveLength(1);
+    expect(harness.terminalReleases).toHaveLength(1);
+
+    const checked = requests
+      .flatMap((request) => request.messages ?? [])
+      .filter(
+        (message: { role?: string; content?: unknown }) =>
+          message.role === "tool" &&
+          String(message.content).includes("bg-done"),
+      );
+    expect(checked.length).toBeGreaterThan(0);
+    expect(String(checked[0].content)).toContain('"status": "completed"');
+  }, 60_000);
+
+  it("treats additionalDirectories as workspace roots", async () => {
+    const extra = path.join(context.testDir, "extra-root");
+    await fs.mkdir(extra, { recursive: true });
+    const target = path.join(extra, "outside.txt");
+    mockServer = await setupMockLLMTest(context, {
+      customHandler: (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          if (req.method !== "POST" || req.url !== "/chat/completions") {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          const parsed = JSON.parse(body);
+          const hasToolResult = parsed.messages?.some(
+            (message: { role?: string }) => message.role === "tool",
+          );
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
+          if (hasToolResult) {
+            res.write(
+              `data: {"choices":[{"delta":{"content":"done"},"index":0}]}\n\n`,
+            );
+          } else {
+            const args = JSON.stringify({
+              filepath: target,
+              content: "outside-ok",
+            });
+            const chunk = {
+              choices: [
+                {
+                  delta: {
+                    tool_calls: [
+                      {
+                        index: 0,
+                        id: "write_extra",
+                        type: "function",
+                        function: { name: "Write", arguments: args },
+                      },
+                    ],
+                  },
+                  index: 0,
+                },
+              ],
+            };
+            res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+            res.write(
+              `data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"index":0}\n\n`,
+            );
+          }
+          res.write(`data: [DONE]\n\n`);
+          res.end();
+        });
+      },
+    });
+    const project = path.join(context.testDir, "project");
+    await fs.mkdir(project, { recursive: true });
+    harness = await startHarness(context, project, {
+      additionalDirectories: [extra],
+    });
+
+    await harness.ctx.request(acp.methods.agent.session.setMode, {
+      sessionId: sessionId(harness),
+      modeId: "acceptEdits",
+    });
+    const response = await prompt(
+      harness,
+      sessionId(harness),
+      "Write into the extra root",
+    );
+    expect(response.stopReason).toBe("end_turn");
+    expect(await fs.readFile(target, "utf8")).toBe("outside-ok");
+    // acceptEdits allows writes inside a workspace root without asking; the
+    // extra root has to count as one or this would have opened a prompt.
+    expect(harness.permissionRequests).toBe(0);
+  }, 60_000);
+
+  it("accepts an image prompt and sends it as image content", async () => {
+    const requests: any[] = [];
+    mockServer = await setupMockLLMTest(context, {
+      customHandler: (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          if (req.method !== "POST" || req.url !== "/chat/completions") {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          requests.push(JSON.parse(body));
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
+          res.write(
+            `data: {"choices":[{"delta":{"content":"seen"},"index":0}]}\n\n`,
+          );
+          res.write(`data: [DONE]\n\n`);
+          res.end();
+        });
+      },
+    });
+    const project = path.join(context.testDir, "project");
+    await fs.mkdir(project, { recursive: true });
+    harness = await startHarness(context, project);
+    expect(harness.init.agentCapabilities?.promptCapabilities?.image).toBe(
+      true,
+    );
+
+    const response = await withTimeout(
+      harness.ctx.request(acp.methods.agent.session.prompt, {
+        sessionId: sessionId(harness),
+        prompt: [
+          {
+            type: "image",
+            data: "aGVsbG8=",
+            mimeType: "image/png",
+          },
+        ],
+      }),
+      "image prompt",
+    );
+    expect(response.stopReason).toBe("end_turn");
+    const userMessage = requests[0]?.messages
+      ?.filter((message: any) => message.role === "user")
+      .at(-1);
+    expect(Array.isArray(userMessage?.content)).toBe(true);
+    expect(
+      userMessage.content.some(
+        (part: any) =>
+          part.type === "image_url" &&
+          String(part.image_url?.url).startsWith(
+            "data:image/png;base64,aGVsbG8=",
+          ),
+      ),
+    ).toBe(true);
+
+    await harness.ctx.request(acp.methods.agent.session.close, {
+      sessionId: sessionId(harness),
+    });
+    const before = harness.updates.length;
+    await harness.ctx.request(acp.methods.agent.session.load, {
+      sessionId: sessionId(harness),
+      cwd: project,
+      mcpServers: [],
+    });
+    expect(
+      harness.updates
+        .slice(before)
+        .some(
+          (entry) =>
+            entry.update.sessionUpdate === "user_message_chunk" &&
+            entry.update.content.type === "image",
+        ),
+    ).toBe(true);
+  }, 60_000);
+
+  it("accepts an audio prompt and sends it as audio content", async () => {
+    const requests: any[] = [];
+    mockServer = await setupMockLLMTest(context, {
+      customHandler: (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          if (req.method !== "POST" || req.url !== "/chat/completions") {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          requests.push(JSON.parse(body));
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
+          res.write(
+            `data: {"choices":[{"delta":{"content":"heard"},"index":0}]}\n\n`,
+          );
+          res.write(`data: [DONE]\n\n`);
+          res.end();
+        });
+      },
+    });
+    const project = path.join(context.testDir, "project");
+    await fs.mkdir(project, { recursive: true });
+    harness = await startHarness(context, project);
+    expect(harness.init.agentCapabilities?.promptCapabilities?.audio).toBe(
+      true,
+    );
+
+    const response = await withTimeout(
+      harness.ctx.request(acp.methods.agent.session.prompt, {
+        sessionId: sessionId(harness),
+        prompt: [
+          {
+            type: "audio",
+            data: "UklGRg==",
+            mimeType: "audio/wav",
+          },
+        ],
+      }),
+      "audio prompt",
+    );
+    expect(response.stopReason).toBe("end_turn");
+    const userMessage = requests[0]?.messages
+      ?.filter((message: any) => message.role === "user")
+      .at(-1);
+    expect(Array.isArray(userMessage?.content)).toBe(true);
+    expect(
+      userMessage.content.some(
+        (part: any) =>
+          part.type === "input_audio" &&
+          part.input_audio?.data === "UklGRg==" &&
+          part.input_audio?.format === "wav",
+      ),
+    ).toBe(true);
+
+    await harness.ctx.request(acp.methods.agent.session.close, {
+      sessionId: sessionId(harness),
+    });
+    const before = harness.updates.length;
+    await harness.ctx.request(acp.methods.agent.session.load, {
+      sessionId: sessionId(harness),
+      cwd: project,
+      mcpServers: [],
+    });
+    expect(
+      harness.updates
+        .slice(before)
+        .some(
+          (entry) =>
+            entry.update.sessionUpdate === "user_message_chunk" &&
+            entry.update.content.type === "audio",
+        ),
+    ).toBe(true);
+  }, 60_000);
+
+  it("reports context usage after a prompt", async () => {
+    const { harness: h } = await setup({
+      response: "pong",
+      usage: { prompt_tokens: 1200, completion_tokens: 30, total_tokens: 1230 },
+    });
+
+    await prompt(h, sessionId(h), "Reply with pong");
+
+    const usage = h.updates.find(
+      (entry) => entry.update.sessionUpdate === "usage_update",
+    );
+    expect(usage).toBeDefined();
+    if (usage?.update.sessionUpdate === "usage_update") {
+      expect(usage.update.used).toBeGreaterThan(0);
+      expect(usage.update.size).toBe(200_000);
+      if (usage.update.cost) {
+        expect(usage.update.cost.currency).toBe("USD");
+        expect(usage.update.cost.amount).toBeGreaterThan(0);
+      }
+    }
+  }, 60_000);
+
+  it("streams Todo state as an ACP plan and replays it on load", async () => {
+    mockServer = await setupMockLLMTest(context, {
+      customHandler: (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        req.on("end", () => {
+          if (req.method !== "POST" || req.url !== "/chat/completions") {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+          }
+          const parsed = JSON.parse(body);
+          const hasToolResult = parsed.messages?.some(
+            (message: { role?: string }) => message.role === "tool",
+          );
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
+          if (hasToolResult) {
+            res.write(
+              `data: {"choices":[{"delta":{"content":"todo recorded"},"index":0}]}\n\n`,
+            );
+          } else {
+            res.write(
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          index: 0,
+                          id: "call_todo",
+                          type: "function",
+                          function: {
+                            name: "Todo",
+                            arguments: JSON.stringify({
+                              action: "add",
+                              text: "ship the ACP plan",
+                            }),
+                          },
+                        },
+                      ],
+                    },
+                    index: 0,
+                  },
+                ],
+              })}\n\n`,
+            );
+            res.write(
+              `data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"index":0}\n\n`,
+            );
+          }
+          res.write(`data: [DONE]\n\n`);
+          res.end();
+        });
+      },
+    });
+    const project = path.join(context.testDir, "project");
+    await fs.mkdir(project, { recursive: true });
+    harness = await startHarness(context, project);
+
+    await prompt(harness, sessionId(harness), "Track this work");
+
+    const plan = harness.updates.find(
+      (entry) => entry.update.sessionUpdate === "plan",
+    );
+    expect(plan).toBeDefined();
+    if (plan?.update.sessionUpdate === "plan") {
+      expect(plan.update.entries).toEqual([
+        {
+          content: "ship the ACP plan",
+          priority: "medium",
+          status: "pending",
+        },
+      ]);
+    }
+
+    await harness.ctx.request(acp.methods.agent.session.close, {
+      sessionId: sessionId(harness),
+    });
+    const before = harness.updates.length;
+    await harness.ctx.request(acp.methods.agent.session.load, {
+      sessionId: sessionId(harness),
+      cwd: project,
+      mcpServers: [],
+    });
+    expect(
+      harness.updates
+        .slice(before)
+        .some((entry) => entry.update.sessionUpdate === "plan"),
     ).toBe(true);
   }, 60_000);
 

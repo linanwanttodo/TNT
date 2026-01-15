@@ -1,17 +1,17 @@
 import { Box, Text } from "ink";
 import React, { memo } from "react";
 
-import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
-
 import type {
   ChatHistoryItem,
   ToolCallState,
 } from "../../../../../core/index.js";
-import { t } from "../../i18n/index.js";
+import { extractThinkingContent } from "../../utils/thinkingTags.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
-import { ToolResultSummary } from "../ToolResultSummary.js";
+import { useTheme } from "../theme/tokens.js";
 
 import { CompactionBoundary } from "./CompactionBoundary.js";
+import { ThinkingMessage } from "./ThinkingMessage.js";
+import { ToolGroupDisplay } from "./ToolGroupDisplay.js";
 
 /**
  * Formats message content for display, converting message parts array back to
@@ -84,6 +84,7 @@ interface MemoizedMessageProps {
 
 export const MemoizedMessage = memo<MemoizedMessageProps>(
   ({ item, index, hideBullet = false }) => {
+    const theme = useTheme();
     const { message, toolCallStates, conversationSummary } = item;
     const isUser = message.role === "user";
     const isSystem = message.role === "system";
@@ -93,7 +94,7 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
     if (isSystem) {
       return (
         <Box key={index} marginBottom={1}>
-          <Text color="dim" italic>
+          <Text color={theme.text.secondary} dimColor italic>
             {message.content}
           </Text>
         </Box>
@@ -105,117 +106,72 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
       return <CompactionBoundary key={index} summary={conversationSummary} />;
     }
 
-    // Handle tool calls
-    if (toolCallStates && toolCallStates.length > 0) {
-      return (
-        <Box key={index} flexDirection="column">
-          {/* Render assistant message content if any */}
-          {message.content && (
-            <Box marginBottom={1}>
-              <Text color="white">{hideBullet ? " " : ">"}</Text>
-              <Text> </Text>
-              <MarkdownRenderer
-                content={formatMessageContentForDisplay(message.content)}
-              />
-            </Box>
-          )}
+    const rawFormattedContent = formatMessageContentForDisplay(message.content);
+    const { thinking: extractedThought, cleanedText: cleanedBody } = isAssistant
+      ? extractThinkingContent(rawFormattedContent)
+      : { thinking: undefined, cleanedText: rawFormattedContent };
 
-          {/* Render tool calls */}
-          {toolCallStates.map((toolState) => {
-            const toolName = toolState.toolCall.function.name;
-            const toolArgs = toolState.parsedArgs;
-            const isCompleted = toolState.status === "done";
-            const isErrored =
-              toolState.status === "errored" || toolState.status === "canceled";
+    const reasoningText =
+      (item as any).reasoning?.text ||
+      (message as any).reasoning ||
+      extractedThought ||
+      "";
 
-            return (
-              <Box
-                key={toolState.toolCallId}
-                flexDirection="column"
-                marginBottom={1}
-              >
-                <Box width="100%">
-                  <Box flexShrink={0}>
-                    <Text
-                      color={
-                        isErrored
-                          ? "red"
-                          : isCompleted
-                            ? "green"
-                            : toolState.status === "generated"
-                              ? "yellow"
-                              : "white"
-                      }
-                    >
-                      {isCompleted || isErrored ? "●" : "○"}
-                    </Text>
-                  </Box>
-                  <Box flexGrow={1} flexShrink={1} minWidth={0}>
-                    <Text color="white">
-                      {" "}
-                      <ToolCallTitle toolName={toolName} args={toolArgs} />
-                    </Text>
-                  </Box>
-                </Box>
-
-                {isErrored ? (
-                  <Box marginLeft={2}>
-                    <Text color="red">
-                      {toolState.output?.[0].content ??
-                        t("tool.executionFailed")}
-                    </Text>
-                  </Box>
-                ) : (
-                  toolState.output &&
-                  toolState.output.length > 0 && (
-                    <Box marginLeft={2}>
-                      <ToolResultSummary
-                        toolName={toolName}
-                        content={toolState.output
-                          .map((o) => o.content)
-                          .join("\n")}
-                      />
-                    </Box>
-                  )
-                )}
-              </Box>
-            );
-          })}
-        </Box>
-      );
-    }
-
-    // Handle regular messages
-    const isStreaming = isAssistant && !message.content && !toolCallStates;
+    const formattedContent = isAssistant ? cleanedBody : rawFormattedContent;
+    const hasContent = formattedContent.length > 0;
+    const hasTools = !!(toolCallStates && toolCallStates.length > 0);
+    const isStreaming =
+      isAssistant && !hasContent && !hasTools && !reasoningText;
 
     return (
-      <Box key={index} marginBottom={1}>
-        <Text color={isUser ? "blue" : "white"}>{hideBullet ? " " : ">"}</Text>
-        <Text> </Text>
-        {isUser ? (
-          <Text color="dim">
-            {formatMessageContentForDisplay(message.content)}
-          </Text>
-        ) : (
-          <MarkdownRenderer
-            content={formatMessageContentForDisplay(message.content)}
-          />
+      <Box key={index} flexDirection="column" marginBottom={1}>
+        {reasoningText ? (
+          <Box marginBottom={hasContent || hasTools ? 1 : 0}>
+            <ThinkingMessage thought={reasoningText} />
+          </Box>
+        ) : null}
+
+        {(hasContent || isUser || isStreaming) && (
+          <Box>
+            <Text color={isUser ? theme.user : theme.accent}>
+              {hideBullet ? " " : isUser ? ">" : "✦"}
+            </Text>
+            <Text> </Text>
+            {isUser ? (
+              <Text color={theme.text.primary}>{formattedContent}</Text>
+            ) : (
+              <MarkdownRenderer content={formattedContent} />
+            )}
+            {isStreaming && (
+              <Text color={theme.text.secondary} dimColor>
+                ▋
+              </Text>
+            )}
+          </Box>
         )}
-        {isStreaming && <Text color="dim">▋</Text>}
+
+        {hasTools && <ToolGroupDisplay toolStates={toolCallStates} />}
       </Box>
     );
   },
   (prevProps, nextProps) => {
-    // Custom comparison function for better performance
-    // Only re-render if these properties change
     const prevMessage = prevProps.item.message;
     const nextMessage = nextProps.item.message;
     const prevToolStates = prevProps.item.toolCallStates;
     const nextToolStates = nextProps.item.toolCallStates;
+    const prevReasoning =
+      (prevProps.item as any).reasoning?.text ||
+      (prevMessage as any).reasoning ||
+      "";
+    const nextReasoning =
+      (nextProps.item as any).reasoning?.text ||
+      (nextMessage as any).reasoning ||
+      "";
 
     return (
       prevMessage.content === nextMessage.content &&
       prevMessage.role === nextMessage.role &&
+      prevReasoning === nextReasoning &&
       toolStateSignature(prevToolStates) ===
         toolStateSignature(nextToolStates) &&
       prevProps.item.conversationSummary ===

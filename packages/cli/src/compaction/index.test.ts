@@ -593,7 +593,7 @@ describe("compaction", () => {
       expect(capturedHistory).toHaveLength(4);
       expect(capturedHistory[3].message).toEqual({
         role: "user",
-        content: expect.stringContaining("provide a concise summary"),
+        content: expect.stringContaining("handoff brief"),
       });
     });
 

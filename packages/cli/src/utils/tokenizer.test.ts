@@ -49,6 +49,20 @@ describe("tokenizer", () => {
       expect(getModelContextLimit(model)).toBe(8192);
     });
 
+    it("should prefer the model-level contextLength", () => {
+      const model: ModelConfig = {
+        name: "test-model",
+        model: "test",
+        provider: "openai",
+        contextLength: 1_000_000,
+        defaultCompletionOptions: {
+          contextLength: 8192,
+        },
+      };
+
+      expect(getModelContextLimit(model)).toBe(1_000_000);
+    });
+
     it("should return default when no contextLength specified", () => {
       const model: ModelConfig = {
         name: "test-model",

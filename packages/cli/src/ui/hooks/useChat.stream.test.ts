@@ -35,6 +35,60 @@ describe("useChat streaming", () => {
     expect(onStreamingText).toHaveBeenLastCalledWith("Hello");
   });
 
+  it("streams reasoning deltas through its own throttled overlay", () => {
+    const onStreamingReasoning = vi.fn();
+    const callbacks = createStreamCallbacks({
+      setChatHistory: vi.fn(),
+      setActivePermissionRequest: vi.fn(),
+      onStreamingReasoning,
+    });
+
+    callbacks.onReasoning("Let me ");
+    expect(onStreamingReasoning).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(70);
+    expect(onStreamingReasoning).toHaveBeenCalledWith("Let me ");
+
+    callbacks.onReasoning("check the file.");
+    vi.advanceTimersByTime(70);
+    expect(onStreamingReasoning).toHaveBeenLastCalledWith(
+      "Let me check the file.",
+    );
+  });
+
+  it("clears the reasoning overlay when the round completes", () => {
+    const onStreamingReasoning = vi.fn();
+    const callbacks = createStreamCallbacks({
+      setChatHistory: vi.fn(),
+      setActivePermissionRequest: vi.fn(),
+      onStreamingReasoning,
+    });
+
+    callbacks.onReasoning("thinking");
+    vi.advanceTimersByTime(70);
+    expect(onStreamingReasoning).toHaveBeenCalledWith("thinking");
+
+    callbacks.onContentComplete("answer");
+    expect(onStreamingReasoning).toHaveBeenLastCalledWith(null);
+  });
+
+  it("clears the reasoning overlay when a tool-only round ends", () => {
+    const onStreamingReasoning = vi.fn();
+    const callbacks = createStreamCallbacks({
+      setChatHistory: vi.fn(),
+      setActivePermissionRequest: vi.fn(),
+      onStreamingReasoning,
+    });
+
+    callbacks.onReasoning("planning the tool call");
+    vi.advanceTimersByTime(70);
+    expect(onStreamingReasoning).toHaveBeenCalledWith("planning the tool call");
+
+    // The round produced no answer text, so only this callback can end it.
+    callbacks.onReasoningComplete();
+    expect(onStreamingReasoning).toHaveBeenLastCalledWith(null);
+  });
+
   it("clears the overlay when the turn's text completes and keeps chunks out of history", () => {
     const setChatHistory = vi.fn();
     const onStreamingText = vi.fn();

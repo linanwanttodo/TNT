@@ -30,6 +30,7 @@ import {
   getSessionPromptProfile,
   loadOrCreateSessionById,
 } from "../session/index.js";
+import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { reportFailureTool } from "../tools/reportFailure.js";
@@ -256,6 +257,33 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
       state.pendingPermission,
     );
     res.json(stateSnapshot);
+  });
+
+  // GET /events - Stream the engine event contract as server-sent events.
+  // The polling /state endpoint stays for the current remote client; a client
+  // that understands events gets reasoning, tool lifecycle, and approvals
+  // without waiting for the next snapshot.
+  app.get("/events", (req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    const unsubscribe = subscribeAgentEvents((event) => {
+      res.write(`event: ${event.type}\n`);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
+
+    const keepAlive = setInterval(() => {
+      res.write(": keep-alive\n\n");
+    }, 15_000);
+
+    req.on("close", () => {
+      clearInterval(keepAlive);
+      unsubscribe();
+    });
   });
 
   // POST /message - Queue a message and potentially interrupt

@@ -2,10 +2,9 @@ import { Box } from "ink";
 import React from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
-import { t } from "../../i18n/index.js";
 import type { QueuedMessage } from "../../stream/messageQueue.js";
 
-import { ActionStatus } from "./ActionStatus.js";
+import type { ScrollViewMetrics } from "./ScrollView.js";
 import { TranscriptContent } from "./TranscriptContent.js";
 
 interface MainContentProps {
@@ -17,71 +16,64 @@ interface MainContentProps {
     index: number,
     allMessages?: ChatHistoryItem[],
   ) => React.ReactElement;
-  refreshTrigger: number;
-  liveItemCount: number;
   streamingText: string | null;
-  /** False while the reader is scrolled back; the tail stops updating. */
-  following: boolean;
+  streamingReasoning: string | null;
   isWaitingForResponse: boolean;
   responseStartTime: number | null;
   isCompacting: boolean;
   compactionStartTime: number | null;
   isBashToolRunning: boolean;
+  /** Rows hidden above the transcript window. */
+  scrollTop: number;
+  onScrollMetrics: (metrics: ScrollViewMetrics) => void;
 }
 
 /**
- * The transcript area: the fixed-height, bottom-anchored viewport above the
- * dock, with the working indicator following the newest message instead of
- * hovering above the composer.
+ * The transcript area, inside the app-owned screen.
+ *
+ * It takes whatever height the dock leaves. It is not a fixed height computed
+ * from a reserve constant: the root frame is the terminal's height, the dock
+ * keeps its natural height and this box grows into the rest. The working
+ * indicator is part of the transcript content, so it always sits directly
+ * under the newest row instead of under the leftover space of the viewport.
  */
 export const MainContent: React.FC<MainContentProps> = ({
   showIntroMessage,
   chatHistory,
   queuedMessages,
   renderMessage,
-  refreshTrigger,
-  liveItemCount,
   streamingText,
-  following,
+  streamingReasoning,
   isWaitingForResponse,
   responseStartTime,
   isCompacting,
   compactionStartTime,
   isBashToolRunning,
+  scrollTop,
+  onScrollMetrics,
 }) => {
   return (
     <Box
       flexDirection="column"
       flexGrow={1}
       flexShrink={1}
+      minHeight={0}
       overflowY="hidden"
-      justifyContent="flex-end"
     >
       <TranscriptContent
         showIntroMessage={showIntroMessage}
         chatHistory={chatHistory}
         queuedMessages={queuedMessages}
         renderMessage={renderMessage}
-        refreshTrigger={refreshTrigger}
-        liveItemCount={following ? liveItemCount : 0}
-        streamingText={following ? streamingText : null}
-      />
-
-      <ActionStatus
-        visible={isWaitingForResponse && !!responseStartTime && following}
-        startTime={responseStartTime || 0}
-        message={t("action.thinking")}
-        showSpinner={true}
-        loadingColor="gray"
-        additionalHint={isBashToolRunning ? t("action.background") : undefined}
-      />
-
-      <ActionStatus
-        visible={isCompacting && !!compactionStartTime && following}
-        startTime={compactionStartTime || 0}
-        message={t("action.compacting")}
-        showSpinner={true}
-        loadingColor="grey"
+        streamingText={streamingText}
+        streamingReasoning={streamingReasoning}
+        isWaitingForResponse={isWaitingForResponse}
+        responseStartTime={responseStartTime}
+        isCompacting={isCompacting}
+        compactionStartTime={compactionStartTime}
+        isBashToolRunning={isBashToolRunning}
+        scrollTop={scrollTop}
+        onMetrics={onScrollMetrics}
       />
     </Box>
   );

@@ -13,7 +13,7 @@ let previousSessionId: string | undefined;
 
 function resultsDir(sessionId?: string): string {
   const dir = sessionId ?? "test-session";
-  return path.join(globalDir, "tool-results", dir);
+  return path.join(globalDir, "sessions", dir, "tool-results");
 }
 
 beforeEach(() => {
@@ -57,7 +57,7 @@ describe("spillOversizedToolResult", () => {
     });
 
     expect(result).toBe(content);
-    expect(fs.existsSync(path.join(globalDir, "tool-results"))).toBe(false);
+    expect(fs.existsSync(resultsDir())).toBe(false);
   });
 
   it("stores the whole result and hands back the head plus its path", async () => {

@@ -30,7 +30,7 @@ interface SlashCommandUIProps {
   selectedIndex: number;
 }
 
-/** How many commands show at once, like Pi's autocomplete window. */
+/** How many commands show at once in the palette window. */
 const MAX_VISIBLE_COMMANDS = 5;
 
 const SlashCommandUI: React.FC<SlashCommandUIProps> = ({

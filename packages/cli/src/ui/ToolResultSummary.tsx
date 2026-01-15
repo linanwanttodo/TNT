@@ -75,12 +75,7 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
   const budget = blockLineBudget(rows);
 
   if (!content) {
-    return (
-      <Box>
-        <Text color="dim">⎿ </Text>
-        <Text color="dim"> No output</Text>
-      </Box>
-    );
+    return <Text color="dim">No output</Text>;
   }
 
   const lines = content.split("\n").length;
@@ -91,24 +86,14 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
   if (toolName === "Checklist") {
     return (
       <Box flexDirection="column">
-        <Box marginBottom={1}>
-          <Text color="dim">⎿ </Text>
-          <Text color="blue">Task List Updated</Text>
-        </Box>
+        <Text color="blue">Task List Updated</Text>
         <ChecklistDisplay content={t("tool.taskListStatus", { content })} />
       </Box>
     );
   }
 
   if (toolName === "Todo") {
-    return (
-      <Box flexDirection="column">
-        <Box>
-          <Text color="dim">⎿ </Text>
-          <Text color="blue">{todoSummaryLine(content)}</Text>
-        </Box>
-      </Box>
-    );
+    return <Text color="blue">{todoSummaryLine(content)}</Text>;
   }
 
   // Handle Write/Edit/MultiEdit with diff specially
@@ -120,16 +105,11 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
     if (diffSection) {
       return (
         <Box flexDirection="column">
-          <Box>
-            <Text color="dim">⎿ </Text>
-            <Text color="green">
-              {toolName === "Edit"
-                ? " File edited successfully"
-                : toolName === "MultiEdit"
-                  ? " File edited successfully"
-                  : " File written successfully"}
-            </Text>
-          </Box>
+          <Text color="green">
+            {toolName === "Write"
+              ? "File written successfully"
+              : "File edited successfully"}
+          </Text>
           <ColoredDiff diffContent={diffSection} />
         </Box>
       );
@@ -149,19 +129,12 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
 
     return (
       <Box flexDirection="column">
-        <Box>
-          <Text color="dim">⎿ </Text>
-          <Text color="dim"> Terminal output:</Text>
-        </Box>
-        <Box paddingLeft={2}>
-          <Text color={isStderr ? "red" : "white"}>
-            {shown.join("\n").trimEnd()}
-          </Text>
-        </Box>
+        <Text color="dim">Terminal output:</Text>
+        <Text color={isStderr ? "red" : "white"}>
+          {shown.join("\n").trimEnd()}
+        </Text>
         {overflow.length > 0 && (
-          <Box paddingLeft={2}>
-            <Text color="dim">{notice ?? `... +${overflow.length} lines`}</Text>
-          </Box>
+          <Text color="dim">{notice ?? `... +${overflow.length} lines`}</Text>
         )}
       </Box>
     );
@@ -176,12 +149,7 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
       metadataIndex >= 0 ? content.slice(0, metadataIndex).trim() : content;
 
     if (!actualOutput) {
-      return (
-        <Box>
-          <Text color="dim">⎿ </Text>
-          <Text color="dim"> Subagent executing...</Text>
-        </Box>
-      );
+      return <Text color="dim">Subagent executing...</Text>;
     }
 
     const outputLines = actualOutput.split("\n");
@@ -190,31 +158,19 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
     if (outputLines.length <= MAX_TASK_OUTPUT_LINES) {
       return (
         <Box flexDirection="column">
-          <Box>
-            <Text color="dim">⎿ </Text>
-            <Text color="dim"> Subagent output:</Text>
-          </Box>
-          <Box paddingLeft={2}>
-            <Text>{actualOutput.trimEnd()}</Text>
-          </Box>
+          <Text color="dim">Subagent output:</Text>
+          <Text>{actualOutput.trimEnd()}</Text>
         </Box>
       );
     } else {
       const lastLines = outputLines.slice(-MAX_TASK_OUTPUT_LINES).join("\n");
       return (
         <Box flexDirection="column">
-          <Box>
-            <Text color="dim">⎿ </Text>
-            <Text color="dim"> Subagent output:</Text>
-          </Box>
-          <Box paddingLeft={2}>
-            <Text color="dim">
-              ... +{outputLines.length - MAX_TASK_OUTPUT_LINES} lines
-            </Text>
-          </Box>
-          <Box paddingLeft={2}>
-            <Text>{lastLines.trimEnd()}</Text>
-          </Box>
+          <Text color="dim">Subagent output:</Text>
+          <Text color="dim">
+            ... +{outputLines.length - MAX_TASK_OUTPUT_LINES} lines
+          </Text>
+          <Text>{lastLines.trimEnd()}</Text>
         </Box>
       );
     }
@@ -296,12 +252,7 @@ const ToolResultSummary: React.FC<ToolResultSummaryProps> = ({
     }
   };
 
-  return (
-    <Box>
-      <Text color="dim">⎿ </Text>
-      <Text color="dim"> {getSummary()}</Text>
-    </Box>
-  );
+  return <Text color="dim">{getSummary()}</Text>;
 };
 
 export { ToolResultSummary };

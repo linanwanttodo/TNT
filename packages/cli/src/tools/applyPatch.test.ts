@@ -12,6 +12,7 @@ import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
 import { applyPatchTool, parseApplyPatch } from "./applyPatch.js";
 import { forgetSeenFiles, markFileAsSeen } from "./fileState.js";
+import { setWorkspaceFileService } from "./workspaceFiles.js";
 let dir: string;
 const previousCwd = process.cwd();
 
@@ -37,6 +38,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setWorkspaceFileService(null);
   process.chdir(previousCwd);
   fs.rmSync(dir, { recursive: true, force: true });
 });
@@ -103,6 +105,95 @@ describe("ApplyPatch", () => {
 
     expect(String(error)).toContain("already exists");
     expect(read("src/there.ts")).toBe("keep me\n");
+  });
+
+  it("updates the client's buffer and leaves the saved file alone", async () => {
+    write("src/client.ts", "disk copy\n");
+    const readTextFile = vi.fn(async () => "editor copy\n");
+    const writeTextFile = vi.fn(async () => {});
+    setWorkspaceFileService({ readTextFile, writeTextFile });
+
+    const summary = await run(
+      [
+        "*** Begin Patch",
+        "*** Update File: src/client.ts",
+        "-editor copy",
+        "+patched",
+        "*** End Patch",
+      ].join("\n"),
+    );
+
+    const absolute = path.join(dir, "src/client.ts");
+    expect(readTextFile).toHaveBeenCalledWith(absolute);
+    expect(writeTextFile).toHaveBeenCalledWith(absolute, "patched\n");
+    expect(read("src/client.ts")).toBe("disk copy\n");
+    expect(summary).toContain("updated");
+  });
+
+  it("refuses an Add when the client already holds the file", async () => {
+    const writeTextFile = vi.fn(async () => {});
+    setWorkspaceFileService({
+      readTextFile: vi.fn(async () => "already in the editor\n"),
+      writeTextFile,
+    });
+
+    const error = await run(
+      [
+        "*** Begin Patch",
+        "*** Add File: src/editor-only.ts",
+        "+replacement",
+        "*** End Patch",
+      ].join("\n"),
+    ).catch((thrown) => thrown);
+
+    expect(String(error)).toContain("already exists");
+    expect(writeTextFile).not.toHaveBeenCalled();
+  });
+
+  it("does not reject a client buffer for a saved file that moved", async () => {
+    write("src/moved.ts", "first\n");
+    const absolute = path.join(dir, "src/moved.ts");
+    markFileAsSeen(absolute);
+    const later = new Date(Date.now() + 5_000);
+    fs.utimesSync(absolute, later, later);
+
+    const writeTextFile = vi.fn(async () => {});
+    setWorkspaceFileService({
+      readTextFile: vi.fn(async () => "first\n"),
+      writeTextFile,
+    });
+
+    await run(
+      [
+        "*** Begin Patch",
+        "*** Update File: src/moved.ts",
+        "-first",
+        "+second",
+        "*** End Patch",
+      ].join("\n"),
+    );
+
+    expect(writeTextFile).toHaveBeenCalledWith(absolute, "second\n");
+  });
+
+  it("still deletes through local disk because ACP has no delete request", async () => {
+    write("src/local-gone.ts", "remove me\n");
+    const writeTextFile = vi.fn(async () => {});
+    setWorkspaceFileService({
+      readTextFile: vi.fn(async () => "remove me\n"),
+      writeTextFile,
+    });
+
+    await run(
+      [
+        "*** Begin Patch",
+        "*** Delete File: src/local-gone.ts",
+        "*** End Patch",
+      ].join("\n"),
+    );
+
+    expect(fs.existsSync(path.join(dir, "src/local-gone.ts"))).toBe(false);
+    expect(writeTextFile).not.toHaveBeenCalled();
   });
 
   it("keeps a patch inside the workspace", async () => {

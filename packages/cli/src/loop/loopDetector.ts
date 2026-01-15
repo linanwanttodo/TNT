@@ -54,8 +54,7 @@ export const DEFAULT_LOOP_DETECTOR_CONFIG: LoopDetectorConfig = {
 };
 
 export type LoopKind =
-  | "single_message_single_line"
-  | "single_message_multi_line";
+  "single_message_single_line" | "single_message_multi_line";
 
 export interface LoopDetection {
   kind: LoopKind;

@@ -36,9 +36,6 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     exit: () => {
       return { exit: true, output: t("session.goodbye") };
     },
-    config: () => {
-      return { openConfigSelector: true };
-    },
     info: handleInfoSlashCommand,
     model: () => ({ openModelSelector: true }),
     compact: () => {

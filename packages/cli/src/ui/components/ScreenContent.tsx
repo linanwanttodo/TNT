@@ -3,25 +3,15 @@ import React from "react";
 import { UpdateServiceState } from "src/services/types.js";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
-import { ConfigSelector } from "../ConfigSelector.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
-import { DiffViewer } from "../DiffViewer.js";
-import { EditMessageSelector } from "../EditMessageSelector.js";
 import type {
   ActivePermissionRequest,
   ActiveQuizQuestion,
 } from "../hooks/useChat.types.js";
-import { JobsSelector } from "../JobsSelector.js";
-import { MCPMarketplace } from "../MCPMarketplace.js";
-import { MCPSelector } from "../MCPSelector.js";
-import { ModelSelector } from "../ModelSelector.js";
+import { SCREENS } from "../screens/registry.js";
 import type { ConfigOption, ModelOption } from "../types/selectorTypes.js";
-import { UpdateSelector } from "../UpdateSelector.js";
 
-import { ChatScreenContent } from "./ChatScreenContent.js";
-import { SessionSelectorWithLoading } from "./SessionSelectorWithLoading.js";
-
-interface ScreenContentProps {
+export interface ScreenContentProps {
   isScreenActive: (screen: NavigationScreen) => boolean;
   services: any;
   handleConfigSelect: (config: ConfigOption) => Promise<void>;
@@ -49,7 +39,6 @@ interface ScreenContentProps {
   isInputDisabled: boolean;
   wasInterrupted?: boolean;
   isRemoteMode: boolean;
-  onImageInClipboardChange?: (hasImage: boolean) => void;
   diffContent?: string;
   chatHistory?: ChatHistoryItem[];
   handleEditMessage?: (messageIndex: number, newContent: string) => void;
@@ -58,166 +47,28 @@ interface ScreenContentProps {
   subagentView?: { parentSessionId: string; subagentType: string } | null;
 }
 
-function hideScreenContent(state?: UpdateServiceState) {
-  return (
-    (state?.status === "checking" && state?.autoUpdate) ||
-    (state?.isAutoUpdate &&
-      (state?.status === "updating" || state?.status === "updated"))
+/**
+ * Only a replacement in progress hides the dock. A version check used to hide
+ * it too, which kept the composer off screen for as long as the network probe
+ * ran - first paint looked fine while the input box was simply missing.
+ */
+export function hideScreenContent(state?: UpdateServiceState) {
+  return !!(
+    state?.isAutoUpdate &&
+    (state?.status === "updating" || state?.status === "updated")
   );
 }
 
-export const ScreenContent: React.FC<ScreenContentProps> = ({
-  isScreenActive,
-  services,
-  handleConfigSelect,
-  handleModelSelect,
-  handleSessionSelect,
-  handleExportSession,
-  handleReload: _handleReload,
-  closeCurrentScreen,
-  activePermissionRequest,
-  activeQuizQuestion,
-  handleToolPermissionResponse,
-  handleQuizAnswer,
-  handleUserMessage,
-  isWaitingForResponse,
-  isCompacting,
-  inputMode,
-  handleInterrupt,
-  handleFileAttached,
-  isInputDisabled,
-  wasInterrupted = false,
-  isRemoteMode,
-  onImageInClipboardChange,
-  diffContent,
-  chatHistory = [],
-  handleEditMessage,
-  onShowEditSelector,
-  subagentView,
-}) => {
-  if (hideScreenContent(services.update)) {
+/**
+ * The active screen is one lookup in the registry. The branch order that used
+ * to live here made every new screen touch this file; the registry now owns
+ * that list.
+ */
+export const ScreenContent: React.FC<ScreenContentProps> = (props) => {
+  if (hideScreenContent(props.services.update)) {
     return null;
   }
 
-  // Config selector
-  if (isScreenActive("config")) {
-    return (
-      <ConfigSelector
-        onSelect={handleConfigSelect}
-        onCancel={closeCurrentScreen}
-      />
-    );
-  }
-
-  if (isScreenActive("mcp")) {
-    return <MCPSelector onCancel={closeCurrentScreen} />;
-  }
-
-  if (isScreenActive("mcpMarket")) {
-    return <MCPMarketplace onCancel={closeCurrentScreen} />;
-  }
-
-  if (isScreenActive("update")) {
-    return <UpdateSelector onCancel={closeCurrentScreen} />;
-  }
-
-  // Model selector
-  if (isScreenActive("model")) {
-    return (
-      <ModelSelector
-        onSelect={handleModelSelect}
-        onCancel={closeCurrentScreen}
-      />
-    );
-  }
-
-  // Session selector
-  if (isScreenActive("session")) {
-    return (
-      <SessionSelectorWithLoading
-        onSelect={handleSessionSelect}
-        onExit={closeCurrentScreen}
-      />
-    );
-  }
-
-  // Export selector
-  if (isScreenActive("export")) {
-    return (
-      <SessionSelectorWithLoading
-        onSelect={handleExportSession}
-        onExit={closeCurrentScreen}
-      />
-    );
-  }
-
-  // Delegated transcripts of the current session
-  if (isScreenActive("subagents")) {
-    return (
-      <SessionSelectorWithLoading
-        source="subagents"
-        parentSessionId={subagentView?.parentSessionId}
-        onSelect={handleSessionSelect}
-        onExit={closeCurrentScreen}
-      />
-    );
-  }
-
-  // Jobs selector
-  if (isScreenActive("jobs")) {
-    return <JobsSelector onCancel={closeCurrentScreen} />;
-  }
-
-  // Diff viewer overlay
-  if (isScreenActive("diff")) {
-    return (
-      <DiffViewer
-        diffContent={diffContent || ""}
-        onClose={closeCurrentScreen}
-      />
-    );
-  }
-
-  // Edit message selector
-  if (isScreenActive("edit")) {
-    return (
-      <EditMessageSelector
-        chatHistory={chatHistory}
-        onEdit={(messageIndex, newContent) => {
-          if (handleEditMessage) {
-            handleEditMessage(messageIndex, newContent);
-          }
-          closeCurrentScreen();
-        }}
-        onExit={closeCurrentScreen}
-      />
-    );
-  }
-
-  // Chat screen with input area
-  if (isScreenActive("chat")) {
-    return (
-      <ChatScreenContent
-        activePermissionRequest={activePermissionRequest}
-        activeQuizQuestion={activeQuizQuestion}
-        handleToolPermissionResponse={handleToolPermissionResponse}
-        handleQuizAnswer={handleQuizAnswer}
-        handleUserMessage={handleUserMessage}
-        isWaitingForResponse={isWaitingForResponse}
-        isCompacting={isCompacting}
-        inputMode={inputMode}
-        handleInterrupt={handleInterrupt}
-        assistant={services.config?.config || undefined}
-        wasInterrupted={wasInterrupted}
-        handleFileAttached={handleFileAttached}
-        isInputDisabled={isInputDisabled}
-        isRemoteMode={isRemoteMode}
-        onImageInClipboardChange={onImageInClipboardChange}
-        onShowEditSelector={onShowEditSelector}
-        subagentView={subagentView}
-      />
-    );
-  }
-
-  return null;
+  const screen = SCREENS.find((entry) => props.isScreenActive(entry.id));
+  return screen ? screen.render(props) : null;
 };

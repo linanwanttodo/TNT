@@ -26,9 +26,9 @@ Project-level settings, hooks and MCP files are ignored until you trust their
 current contents with `--trust-project` (or `TNT_TRUST_PROJECT=1`); the grant is
 recorded per real path and revoked when any of those files change.
 
-`plan` and `bypassPermissions` do not consult this list. They replace it with their own
-policy list; `acceptEdits` and `dontAsk` have their own tables as well. See
-[modes.md](./modes.md).
+`acceptEdits`, `plan`, `bypassPermissions` and `dontAsk` do not consult this list.
+Each replaces it with its own policy table; `default` and `auto` keep the user's
+rules. See [modes.md](./modes.md).
 
 ## Tool matching
 

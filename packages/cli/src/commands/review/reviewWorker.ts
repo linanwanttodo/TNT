@@ -16,7 +16,7 @@ import {
   SERVICE_NAMES,
 } from "../../services/index.js";
 import type { ModelServiceState } from "../../services/types.js";
-import { streamChatResponse } from "../../stream/streamChatResponse.js";
+import { runAgentTurn } from "../../session/controller.js";
 
 import type { DiffContext } from "./diffContext.js";
 import { FINDINGS_CONTRACT } from "./findings.js";
@@ -183,12 +183,12 @@ export async function runReviewWorker(): Promise<void> {
 
       // Run the agent
       const abortController = new AbortController();
-      const response = await streamChatResponse(
+      const response = await runAgentTurn({
         chatHistory,
-        reviewState.model,
-        reviewState.llmApi,
+        model: reviewState.model,
+        llmApi: reviewState.llmApi,
         abortController,
-      );
+      });
 
       agentOutput = response || "";
 

@@ -7,6 +7,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { streamChatResponse } from "./streamChatResponse.js";
 
+function textOf(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) =>
+      part && typeof part === "object" && "text" in part
+        ? String(part.text ?? "")
+        : "",
+    )
+    .join("");
+}
+
 // Mock all dependencies
 vi.mock("../compaction/index.js", () => ({
   compactChatHistory: vi.fn(),
@@ -134,15 +146,14 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
 
   it("should automatically continue after compaction when no tool calls remain", async () => {
     const { services } = await import("../services/index.js");
-    const { handleNormalAutoCompaction } = await import(
-      "./streamChatResponse.compactionHelpers.js"
-    );
+    const { handleNormalAutoCompaction } =
+      await import("./streamChatResponse.compactionHelpers.js");
     const { logger } = await import("../utils/logger.js");
 
     // Track history modifications
-    const historyUpdates: string[] = [];
+    const historyUpdates: unknown[] = [];
     vi.mocked(services.chatHistory.addUserMessage).mockImplementation((msg) => {
-      historyUpdates.push(msg);
+      historyUpdates.push(textOf(msg));
       return {
         message: { role: "user", content: msg },
         contextItems: [],
@@ -160,6 +171,8 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
         // it removed so the loop can tell a useful compaction from one that
         // barely shrank anything.
         wasCompacted: compactionCallCount === 1,
+        // A continuation only follows a real summarization, not a trim.
+        summarized: compactionCallCount === 1,
         reductionRatio: compactionCallCount === 1 ? 0.5 : undefined,
       });
     });
@@ -203,14 +216,13 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
 
   it("should not auto-continue if compaction occurs with tool calls pending", async () => {
     const { services } = await import("../services/index.js");
-    const { handleNormalAutoCompaction } = await import(
-      "./streamChatResponse.compactionHelpers.js"
-    );
+    const { handleNormalAutoCompaction } =
+      await import("./streamChatResponse.compactionHelpers.js");
     const { handleToolCalls } = await import("./handleToolCalls.js");
 
-    const historyUpdates: string[] = [];
+    const historyUpdates: unknown[] = [];
     vi.mocked(services.chatHistory.addUserMessage).mockImplementation((msg) => {
-      historyUpdates.push(msg);
+      historyUpdates.push(textOf(msg));
       return {
         message: { role: "user", content: msg },
         contextItems: [],
@@ -221,6 +233,7 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
     vi.mocked(handleNormalAutoCompaction).mockResolvedValue({
       chatHistory,
       wasCompacted: true,
+      summarized: true,
     });
 
     // But tool calls are still being processed (shouldContinue = true)
@@ -271,13 +284,12 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
 
   it("should not create infinite loops - flag is reset after continuation", async () => {
     const { services } = await import("../services/index.js");
-    const { handleNormalAutoCompaction } = await import(
-      "./streamChatResponse.compactionHelpers.js"
-    );
+    const { handleNormalAutoCompaction } =
+      await import("./streamChatResponse.compactionHelpers.js");
 
-    const historyUpdates: string[] = [];
+    const historyUpdates: unknown[] = [];
     vi.mocked(services.chatHistory.addUserMessage).mockImplementation((msg) => {
-      historyUpdates.push(msg);
+      historyUpdates.push(textOf(msg));
       return {
         message: { role: "user", content: msg },
         contextItems: [],
@@ -292,6 +304,7 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
       return Promise.resolve({
         chatHistory,
         wasCompacted: normalCompactionCallCount <= 1,
+        summarized: normalCompactionCallCount <= 1,
       });
     });
 
@@ -319,5 +332,115 @@ describe("streamChatResponse - auto-continuation after compaction", () => {
 
     // Should have called the LLM at least once
     expect(streamCallCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does not continue an answer after trimming-only pre-API compaction", async () => {
+    // Pre-request trimming rewrites old tool results on every round. When the
+    // model then answers without a tool call, that answer is the end of the
+    // turn; a trim is not a compaction checkpoint to continue from.
+    const { handlePreApiCompaction } =
+      await import("./streamChatResponse.compactionHelpers.js");
+    const { handleToolCalls } = await import("./handleToolCalls.js");
+    const { services } = await import("../services/index.js");
+    const onTurnTerminated = vi.fn();
+
+    vi.mocked(handleToolCalls).mockResolvedValue(false);
+    const historyUpdates: unknown[] = [];
+    vi.mocked(services.chatHistory.addUserMessage).mockImplementation((msg) => {
+      historyUpdates.push(textOf(msg));
+      return {
+        message: { role: "user", content: msg },
+        contextItems: [],
+      };
+    });
+    vi.mocked(handlePreApiCompaction).mockImplementation((history) =>
+      Promise.resolve({
+        chatHistory: history as ChatHistoryItem[],
+        wasCompacted: true,
+        summarized: false,
+        reductionRatio: undefined,
+      }),
+    );
+
+    await streamChatResponse(
+      chatHistory,
+      mockModel,
+      mockLlmApi,
+      mockAbortController,
+      { onTurnTerminated },
+    );
+
+    expect(historyUpdates).not.toContain("continue");
+    expect(onTurnTerminated).toHaveBeenCalledWith(
+      "no_tool_calls",
+      expect.anything(),
+    );
+  });
+
+  it("does not end the turn when only tool results were trimmed", async () => {
+    // In-place tool-result trimming rewrites history on almost every tool
+    // round and often removes very little. It spends no summarization call,
+    // so three such rounds must not look like three failed compactions and
+    // end a healthy turn.
+    const { handleNormalAutoCompaction } =
+      await import("./streamChatResponse.compactionHelpers.js");
+    const { handleToolCalls } = await import("./handleToolCalls.js");
+    const onTurnTerminated = vi.fn();
+
+    vi.mocked(handleNormalAutoCompaction).mockImplementation((history) =>
+      Promise.resolve({
+        chatHistory: history as ChatHistoryItem[],
+        wasCompacted: true,
+        summarized: false,
+        reductionRatio: undefined,
+      }),
+    );
+    vi.mocked(handleToolCalls).mockResolvedValue(false);
+
+    mockLlmApi.chatCompletionStream = vi
+      .fn()
+      .mockImplementation(async function* () {
+        yield {
+          id: "test",
+          object: "chat.completion.chunk",
+          created: Date.now(),
+          model: "test-model",
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call_1",
+                    type: "function",
+                    function: { name: "Read", arguments: '{"path":"a"}' },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        };
+      }) as any;
+
+    await streamChatResponse(
+      chatHistory,
+      mockModel,
+      mockLlmApi,
+      mockAbortController,
+      { onTurnTerminated },
+      false,
+      { maxSteps: 6 },
+    );
+
+    expect(onTurnTerminated).not.toHaveBeenCalledWith(
+      "compaction_circuit_open",
+      expect.anything(),
+    );
+    expect(onTurnTerminated).toHaveBeenCalledWith(
+      "max_steps",
+      expect.anything(),
+    );
   });
 });

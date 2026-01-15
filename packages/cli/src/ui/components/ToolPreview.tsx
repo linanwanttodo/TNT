@@ -5,6 +5,7 @@ import { t } from "../../i18n/index.js";
 import { getToolDisplayName } from "../../tools/index.js";
 import { ToolCallPreview } from "../../tools/types.js";
 import { ColoredDiff } from "../ColoredDiff.js";
+import { theme } from "../theme/tokens.js";
 
 import { ChecklistDisplay } from "./ChecklistDisplay.js";
 
@@ -15,7 +16,10 @@ interface ToolPreviewProps {
 }
 
 /**
- * Generates a preview of what a tool will do based on its arguments
+ * Generates a preview of what a tool will do based on its arguments.
+ *
+ * The preview is drawn inside the caller's left guide, so it carries no marker
+ * of its own and no leading blank row.
  */
 export const ToolPreview: React.FC<ToolPreviewProps> = ({
   toolCallPreview,
@@ -24,13 +28,14 @@ export const ToolPreview: React.FC<ToolPreviewProps> = ({
 }) => {
   if (toolCallPreview) {
     return (
-      <Box display={"flex"} flexDirection="column" marginTop={1}>
+      <Box display={"flex"} flexDirection="column">
         {toolCallPreview.map((preview, index) => {
           if (preview.type === "text") {
             return (
               <Box key={index} paddingLeft={preview.paddingLeft ?? 0}>
-                {index === 0 && <Text color="dim">⎿ </Text>}
-                <Text color={preview.color ?? "dim"}>{preview.content}</Text>
+                <Text color={preview.color ?? theme.text.secondary}>
+                  {preview.content}
+                </Text>
               </Box>
             );
           } else if (preview.type === "checklist") {
@@ -59,8 +64,7 @@ export const ToolPreview: React.FC<ToolPreviewProps> = ({
 
   return (
     <Box>
-      <Text color="dim">⎿ </Text>
-      <Text color="dim">{message}</Text>
+      <Text color={theme.text.secondary}>{message}</Text>
     </Box>
   );
 };

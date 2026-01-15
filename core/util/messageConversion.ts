@@ -159,6 +159,14 @@ function convertMessageContent(
           type: "imageUrl" as const,
           imageUrl: { url: part.image_url.url },
         };
+      } else if (part.type === "input_audio") {
+        return {
+          type: "audio" as const,
+          audio: {
+            data: part.input_audio.data,
+            format: part.input_audio.format,
+          },
+        };
       }
       throw new Error(`Unsupported content part type: ${part.type}`);
     });
@@ -188,6 +196,14 @@ function convertFromMessageContent(
         return {
           type: "image_url",
           image_url: { url: part.imageUrl.url },
+        };
+      } else if (part.type === "audio") {
+        return {
+          type: "input_audio",
+          input_audio: {
+            data: part.audio.data,
+            format: part.audio.format,
+          },
         };
       }
       throw new Error(`Unsupported content part type: ${part.type}`);

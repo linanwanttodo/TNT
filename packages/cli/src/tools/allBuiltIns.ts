@@ -25,6 +25,7 @@ import { searchCodeTool } from "./searchCode.js";
 import { SKILLS_TOOL_META } from "./skills.js";
 import { statusTool } from "./status.js";
 import { todoTool } from "./todo.js";
+import { toolSearchTool } from "./selection/search.js";
 import { uploadArtifactTool } from "./uploadArtifact.js";
 import { viewDiffTool } from "./viewDiff.js";
 import { writeChecklistTool } from "./writeChecklist.js";
@@ -54,6 +55,7 @@ export const ALL_BUILT_IN_TOOLS = [
   searchCodeTool,
   statusTool,
   todoTool,
+  toolSearchTool,
   SUBAGENT_TOOL_META,
   LIST_SUBAGENTS_TOOL_META,
   SKILLS_TOOL_META,

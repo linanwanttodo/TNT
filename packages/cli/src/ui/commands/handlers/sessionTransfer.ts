@@ -2,10 +2,10 @@ import fs from "fs";
 
 import chalk from "chalk";
 import type { Session } from "core/index.js";
-import historyManager from "core/util/history.js";
 import { v4 as uuidv4 } from "uuid";
 
 import { t } from "../../../i18n/index.js";
+import { historyAdapter } from "../../../session/historyAdapter.js";
 import type { SlashCommandResult } from "../types.js";
 
 const EXPORTED_SESSION_VERSION = 1;
@@ -70,8 +70,13 @@ export function handleImport(args: string[]): SlashCommandResult {
 
     let session = exportedData.session;
 
-    const existing = historyManager.load(session.sessionId);
-    const sessionExists = existing.history.length > 0;
+    let existing: Session | null = null;
+    try {
+      existing = historyAdapter.load(session.sessionId);
+    } catch {
+      existing = null;
+    }
+    const sessionExists = existing !== null && existing.history.length > 0;
 
     if (sessionExists) {
       const originalId = session.sessionId;
@@ -79,7 +84,7 @@ export function handleImport(args: string[]): SlashCommandResult {
         ...session,
         sessionId: uuidv4(),
       };
-      historyManager.save(session);
+      historyAdapter.save(session);
       return {
         exit: false,
         output: chalk.green(
@@ -89,7 +94,7 @@ export function handleImport(args: string[]): SlashCommandResult {
       };
     }
 
-    historyManager.save(session);
+    historyAdapter.save(session);
     return {
       exit: false,
       output: chalk.green(

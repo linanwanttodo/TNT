@@ -80,6 +80,19 @@ vi.mock("core/util/history.js", () => ({
   },
 }));
 
+// Session transfer goes through the v2 store adapter.
+vi.mock("../../session/historyAdapter.js", () => ({
+  historyAdapter: {
+    load: vi.fn(() => {
+      throw new Error("not found");
+    }),
+    save: vi.fn(),
+    list: vi.fn(() => []),
+    delete: vi.fn(),
+    clearAll: vi.fn(),
+  },
+}));
+
 // Mock session functions
 vi.mock("../../session/index.js", () => ({
   getSessionFilePath: vi.fn(
@@ -238,9 +251,8 @@ describe("slashCommands", () => {
 
     it("should use test session directory when in test mode", async () => {
       const { services } = await import("../../services/index.js");
-      const { getSessionFilePath, getCurrentSession } = await import(
-        "../../session/index.js"
-      );
+      const { getSessionFilePath, getCurrentSession } =
+        await import("../../session/index.js");
 
       // Mock the session functions for this specific test
       (getSessionFilePath as any).mockReturnValue(
@@ -450,9 +462,8 @@ describe("slashCommands", () => {
         firstUserMessage?: string;
       }[],
     ) {
-      const { getCurrentSession, listSubagentSessions } = await import(
-        "../../session/index.js"
-      );
+      const { getCurrentSession, listSubagentSessions } =
+        await import("../../session/index.js");
       (getCurrentSession as any).mockReturnValue({ sessionId: parentId });
       (listSubagentSessions as any).mockReturnValue(children);
     }

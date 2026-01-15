@@ -37,9 +37,16 @@ describe("executeStreaming turn budget", () => {
       {},
       {},
       expect.any(AbortController),
-      {},
+      expect.objectContaining({
+        onContent: expect.any(Function),
+        onReasoning: expect.any(Function),
+      }),
       false,
       { maxSteps: 7 },
+      expect.objectContaining({
+        mode: expect.any(String),
+        isHeadless: expect.any(Boolean),
+      }),
     );
   });
 

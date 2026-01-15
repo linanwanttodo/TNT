@@ -125,37 +125,14 @@ describe("streamChatResponse - loop termination", () => {
     } as unknown as ChatCompletionChunk;
   }
 
-  /** A stream that always asks for a tool call, so the loop never self-ends. */
+  /**
+   * A stream that always asks for a tool call, so the loop never self-ends.
+   * It carries no content and no usage: a normal short tool round.
+   */
   function endlessToolCallStream(): BaseLlmApi {
     return {
       chatCompletionStream: vi.fn().mockImplementation(async function* () {
         yield toolCallChunk("noop");
-      }),
-    } as unknown as BaseLlmApi;
-  }
-
-  /**
-   * A stream that asks for a tool call and also returns real content, so the
-   * diminishing-returns check does not fire before the step ceiling does. The
-   * usage block carries a real completion count because the loop reads
-   * progress from the provider's count when it has one, and this test's
-   * history does not actually grow.
-   */
-  function productiveStream(): BaseLlmApi {
-    return {
-      chatCompletionStream: vi.fn().mockImplementation(async function* () {
-        yield contentChunk(
-          "Inspected the module and applied the change to the parser.",
-        );
-        yield toolCallChunk("noop");
-        yield {
-          id: "test",
-          object: "chat.completion.chunk",
-          created: Date.now(),
-          model: "test-model",
-          choices: [],
-          usage: { prompt_tokens: 1000, completion_tokens: 900 },
-        } as unknown as ChatCompletionChunk;
       }),
     } as unknown as BaseLlmApi;
   }
@@ -172,11 +149,30 @@ describe("streamChatResponse - loop termination", () => {
     await streamChatResponse(
       chatHistory,
       mockModel,
-      productiveStream(),
+      endlessToolCallStream(),
       abortController,
       { onTurnTerminated: (reason) => reasons.push(reason) },
       false,
       { maxSteps: 4 },
+    );
+
+    expect(reasons).toEqual(["max_steps"]);
+  });
+
+  it("keeps running short tool rounds instead of stopping as no progress", async () => {
+    // Regression: a round whose model output is a short tool call used to be
+    // counted as "no progress", so the turn died after three rounds no matter
+    // how much context remained. Only the ceiling may end this stream.
+    const reasons: TerminationReason[] = [];
+
+    await streamChatResponse(
+      chatHistory,
+      mockModel,
+      endlessToolCallStream(),
+      abortController,
+      { onTurnTerminated: (reason) => reasons.push(reason) },
+      false,
+      { maxSteps: 6 },
     );
 
     expect(reasons).toEqual(["max_steps"]);

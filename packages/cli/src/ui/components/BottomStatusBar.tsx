@@ -13,6 +13,7 @@ import { getCacheHitRatio } from "../../utils/cacheRatio.js";
 import { getGitBranch } from "../../utils/git.js";
 import { getModelContextLimit } from "../../utils/tokenizer.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
+import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { UpdateNotification } from "../UpdateNotification.js";
 import {
   contextUsageLine,
@@ -28,7 +29,6 @@ export interface BottomStatusBarProps {
   closeCurrentScreen: () => void;
   contextPercentage?: number;
   contextTokens?: number;
-  hasImageInClipboard?: boolean;
   isVerboseMode?: boolean;
   totalCost?: number;
 }
@@ -74,6 +74,35 @@ export function getThinkingDepth(model?: ModelConfig | null): string {
 
 const SEPARATOR = "  ";
 
+/**
+ * Rough width of the composed row, in terminal cells. It decides one thing:
+ * whether the reasoning depth fits next to the usage figures. The count ignores
+ * double-width glyphs, which errs towards dropping the depth earlier rather
+ * than letting the row squeeze the cost out of view.
+ */
+export function estimateStatusRowWidth(input: {
+  workspaceName: string;
+  branch: string | null;
+  prefixState: string | undefined;
+  usageLine: string | undefined;
+  modelName: string;
+  shownModelName: string;
+  thinkingText: string;
+}): number {
+  const workspace = input.workspaceName.length;
+  const branch = input.branch ? 4 + input.branch.length : 0;
+  const prefix = input.prefixState ? 3 + input.prefixState.length : 0;
+  const usage = input.usageLine?.length ?? 0;
+  const model = input.modelName ? 4 + input.shownModelName.length : 0;
+  const thinking = input.thinkingText ? 2 + input.thinkingText.length : 0;
+
+  // Two cells of margin either side, the gap before the usage group, and a
+  // fixed reserve for the update badge on the right.
+  return (
+    2 + workspace + branch + prefix + 2 + usage + model + thinking + 10 + 2
+  );
+}
+
 function joinParts(parts: React.ReactNode[]) {
   return parts.flatMap((part, index) =>
     index === 0
@@ -83,10 +112,81 @@ function joinParts(parts: React.ReactNode[]) {
 }
 
 /**
- * Two rows under the composer: the top one says where the session is (workspace,
- * branch, prefix state, model, reasoning depth) and the second is the usage line
- * on its own, because occupancy, cache ratio and cost are read as one figure and
- * sharing a row with the groups either side of it cost it characters.
+ * Location and prefix state, in that order. Kept out of the component so the
+ * render function stays under the project's complexity cap.
+ */
+function buildLeftParts(input: {
+  workspaceName: string;
+  branch: string | null;
+  prefixState: string | undefined;
+}): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+
+  if (input.workspaceName) {
+    parts.push(
+      <Text key="workspace" color="dim" wrap="truncate-start">
+        {`▸ ${input.workspaceName}`}
+      </Text>,
+    );
+  }
+  if (input.branch) {
+    parts.push(
+      <Text key="branch" color="dim" wrap="truncate-start">
+        {`⊦ ${input.branch}`}
+      </Text>,
+    );
+  }
+  if (input.prefixState) {
+    parts.push(
+      <Text key="prefix" color="dim" wrap="truncate-end">
+        {`⟲ ${input.prefixState}`}
+      </Text>,
+    );
+  }
+  return parts;
+}
+
+/**
+ * The spend figures at the end of the left group: the compaction cost when a
+ * compaction ran, then context/cache/output/cost. Renders nothing when there
+ * is nothing to say.
+ */
+const UsageSegment: React.FC<{
+  compactionCost: number;
+  usageLine?: string;
+}> = ({ compactionCost, usageLine }) => {
+  if (compactionCost <= 0 && !usageLine) {
+    return null;
+  }
+
+  return (
+    <Box
+      flexShrink={1}
+      minWidth={0}
+      overflow="hidden"
+      flexDirection="row"
+      alignItems="center"
+      marginLeft={2}
+    >
+      {compactionCost > 0 && (
+        <Text color="dim" wrap="truncate-end">
+          {`${t("status.compact")} $${compactionCost.toFixed(4)}`}
+          {usageLine ? SEPARATOR : ""}
+        </Text>
+      )}
+      {usageLine && (
+        <Text color="dim" wrap="truncate-end">
+          {usageLine}
+        </Text>
+      )}
+    </Box>
+  );
+};
+
+/**
+ * One row under the composer: where the session is, what it has spent, the
+ * model, its reasoning depth and the update state. Everything shares the row
+ * and the location side truncates first when the terminal is narrow.
  */
 export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   remoteUrl,
@@ -97,11 +197,15 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   closeCurrentScreen: _closeCurrentScreen,
   contextPercentage,
   contextTokens,
-  hasImageInClipboard,
   isVerboseMode,
   totalCost,
 }) => {
   const [_refreshTrigger, setRefreshTrigger] = useState(0);
+  const { columns } = useTerminalSize();
+  // Narrow terminals get a reduced row instead of an overflowing one: any line
+  // wider than the terminal wraps in the terminal but not in Ink's layout, and
+  // the next repaint lands on the wrong rows.
+  const compact = columns < 100;
 
   useEffect(() => {
     setExitMessageCallback(() => {
@@ -119,21 +223,6 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   const cacheHitRatio = getCacheHitRatio(sessionUsage);
   const compactionCost = sessionUsage?.compaction?.cost ?? 0;
 
-  const leftParts: React.ReactNode[] = [];
-  if (workspaceName) {
-    leftParts.push(
-      <Text key="workspace" color="dim" wrap="truncate-start">
-        {`▸ ${workspaceName}`}
-      </Text>,
-    );
-  }
-  if (branch) {
-    leftParts.push(
-      <Text key="branch" color="dim" wrap="truncate-start">
-        {`⊦ ${branch}`}
-      </Text>,
-    );
-  }
   // The cache ratio in the usage row is a session average; this says what the last
   // request did with the prefix, and stays silent while the prefix held.
   const prefixState = cacheStateText(getLastRequestCacheState(), {
@@ -144,45 +233,19 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
       invalidated: t("status.cacheMoved"),
     },
   });
-  if (prefixState) {
-    leftParts.push(
-      <Text key="prefix" color="dim">
-        {`⟲ ${prefixState}`}
-      </Text>,
-    );
-  }
-  if (compactionCost > 0) {
-    leftParts.push(
-      <Text key="compaction" color="dim">
-        {`${t("status.compact")} $${compactionCost.toFixed(4)}`}
-      </Text>,
-    );
-  }
-  if (hasImageInClipboard) {
-    leftParts.push(
-      <Text key="image" color="cyan">
-        {t("status.image")}
-      </Text>,
-    );
-  }
 
-  const rightParts: React.ReactNode[] = [];
-  if (modelName) {
-    rightParts.push(
-      <Text key="model" color="white" wrap="truncate-end">
-        {`◈ ${modelName}`}
-      </Text>,
-    );
-  }
-  if (modelName && thinkingDepth) {
-    rightParts.push(
-      <Text key="thinking" color="cyan">
-        {`◐ ${t("status.think")}:${thinkingDepth}`}
-      </Text>,
-    );
-  }
+  const leftParts = buildLeftParts({
+    workspaceName,
+    branch,
+    prefixState,
+  });
 
-  const usageLine = contextUsageLine({
+  const shownModelName =
+    compact && modelName.length > 22
+      ? `${modelName.slice(0, 21)}...`
+      : modelName;
+
+  const fullUsageLine = contextUsageLine({
     usedTokens: contextTokens,
     limitTokens: model ? getModelContextLimit(model) : undefined,
     contextPercentage,
@@ -199,41 +262,85 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
     },
   });
 
+  const usageLine = compact ? fullUsageLine?.split(" · ")[0] : fullUsageLine;
+
+  const thinkingText =
+    modelName && thinkingDepth && !compact
+      ? `${t("status.think")}:${thinkingDepth}`
+      : "";
+  // The model, reasoning depth, workspace and usage share one row. The depth
+  // is the first field to go: it is explanatory, while the usage figures and
+  // the model name are the ones a reader is actually watching. Without this
+  // check the row silently squeezed the cost and the model name instead.
+  const showThinking =
+    thinkingText.length > 0 &&
+    estimateStatusRowWidth({
+      workspaceName,
+      branch,
+      prefixState,
+      usageLine: fullUsageLine,
+      modelName,
+      shownModelName,
+      thinkingText,
+    }) <= columns;
+
+  const rightParts: React.ReactNode[] = [];
+  if (modelName) {
+    rightParts.push(
+      <Text key="model" color="white" wrap="truncate-end">
+        {`◈ ${shownModelName}`}
+      </Text>,
+    );
+  }
+  if (showThinking) {
+    rightParts.push(
+      <Text key="thinking" color="cyan" wrap="truncate-end">
+        {`◐ ${thinkingText}`}
+      </Text>,
+    );
+  }
+
   return (
-    <Box flexDirection="column">
+    <Box
+      width={columns}
+      height={1}
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      overflow="hidden"
+    >
       <Box
+        marginLeft={2}
         flexDirection="row"
-        justifyContent="space-between"
         alignItems="center"
+        flexShrink={1}
+        minWidth={0}
+        overflow="hidden"
       >
-        <Box marginLeft={2} flexDirection="row" alignItems="center">
-          {showingExitMessage ? (
-            <Text color="dim" wrap="truncate-start">
-              {t("status.exit")}
-            </Text>
-          ) : (
-            joinParts(leftParts)
-          )}
-        </Box>
-        <Box
-          marginRight={2}
-          marginLeft={2}
-          flexDirection="row"
-          alignItems="center"
-        >
-          {joinParts(rightParts)}
-          <Box marginLeft={2}>
-            <UpdateNotification isRemoteMode={isRemoteMode} />
-          </Box>
+        <Text wrap="truncate-end" color="dim">
+          {showingExitMessage ? t("status.exit") : joinParts(leftParts)}
+        </Text>
+      </Box>
+      {!showingExitMessage && (
+        <UsageSegment
+          compactionCost={compact ? 0 : compactionCost}
+          usageLine={usageLine}
+        />
+      )}
+      <Box
+        marginRight={2}
+        marginLeft={2}
+        flexDirection="row"
+        alignItems="center"
+        flexShrink={1}
+        minWidth={0}
+        overflow="hidden"
+      >
+        {joinParts(rightParts)}
+        <Box marginLeft={2}>
+          <UpdateNotification isRemoteMode={isRemoteMode} />
         </Box>
       </Box>
-      {usageLine && (
-        <Box marginLeft={2}>
-          <Text color="dim" wrap="truncate-start">
-            {usageLine}
-          </Text>
-        </Box>
-      )}
     </Box>
   );
 };

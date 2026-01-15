@@ -4,23 +4,40 @@ The CLI renders its interactive surface with Ink.
 
 ## Layout
 
-The interactive surface is a fixed-height viewport. The transcript occupies the
-rows above the pinned status bars and composer, bottom-anchored: a fresh screen
-shows the banner at the top and the composer at the bottom, and a long
-transcript clips its oldest rows above the window. PgUp and PgDn scroll by
-messages (a page is a third of the terminal rows) by hiding that many newest
-messages from the end; the live tail keeps following new output, and hiding
-even one message stops the streaming overlay and the working indicator until
-the reader returns. End and Ctrl+End return to the tail, as does submitting a
-message (`src/ui/TUIChat.tsx`, `src/ui/components/TranscriptContent.tsx`).
+The chat owns the terminal's alternate screen (`ESC[?1049h`), entered before
+the first frame and restored on every exit path, so the shell's own screen and
+scrollback are never rewritten. The frame is exactly the height of the
+terminal: the transcript scrolls inside the app above a dock that stays pinned
+to the bottom, so the composer, the status line and a pending permission
+prompt can never scroll away from the reader
+(`src/ui/utils/terminalScreen.ts`).
 
-While the view is scrolled up, a centred `↓ Jump to latest message · Ctrl+End`
-hint sits in the fixed dock directly above the composer.
-The first screen's banner is a static brand panel in the terminal's top-left
-corner: a bordered box holding a solid light-blue oversized `T` and pixel
-`NT`, with the version and the selected model under the word
-(`src/ui/components/BrandBanner.tsx`). A narrow terminal or `NO_COLOR` falls
-back to the two-line half-block wordmark with the version beside it
+Scrolling is the app's: the mouse wheel, `PageUp`/`PageDown`, `Home` and `End`
+move the transcript by whole rows through a viewport clipped against the dock.
+The viewport measures the rendered transcript with `measureElement` instead of
+estimating message heights, so every scroll is a row offset into real layout;
+at the tail new rows keep arriving at the bottom, and while the reader is
+scrolled back a `↓ Jump to latest message · Ctrl+End` hint sits above the dock.
+That row is clickable as well as a keybinding target: a click on it calls the
+same `jumpToBottom` the shortcut uses (`src/ui/components/Composer.tsx`).
+Sending a message returns to the tail
+(`src/ui/hooks/useChatViewport.ts`, `src/ui/components/ScrollView.tsx`,
+`src/ui/hooks/useMouseEvents.ts`).
+
+A root box as tall as the terminal makes Ink take its fullscreen branch and
+call `clearTerminal` (`ESC[2J ESC[3J`); inside the alternate buffer those
+clears are contained, which is what keeps the shell's scrollback intact on
+exit. `/clear`, a reload and opening another session clear the app's own
+screen.
+
+The first screen's header sits in the terminal's top-left corner: a compact
+four-row `TNT` wordmark in solid light blue, with the name and version
+top-aligned to its right and the selected model one line below
+(`src/ui/components/BrandBanner.tsx`). It belongs to the live frame and is
+only rendered while the conversation has no non-system message, so the first
+submitted message removes it instead of leaving the banner above the
+transcript. A narrow terminal or `NO_COLOR` falls back to the two-line
+half-block wordmark with the version beside it
 (`src/startup/asciiArt.ts`).
 
 ## Streaming and the working spinner
@@ -29,10 +46,71 @@ The answer streams into the transcript as it arrives. Chunks never touch the
 chat history - every history write persists the session - so the live text
 renders from a throttled overlay (`STREAM_RENDER_INTERVAL_MS` in
 `src/ui/hooks/useChat.stream.helpers.ts`) until the turn's message lands. The
-working indicator renders in the transcript flow, directly below the newest
+working indicator renders after the live rows, directly below the newest
 message, as a grey spinner with a `Thinking…` label and the elapsed time
-(`src/ui/components/ActionStatus.tsx` inside the viewport in
-`src/ui/TUIChat.tsx`).
+(`src/ui/components/ActionStatus.tsx`, rendered at the end of
+`src/ui/components/TranscriptContent.tsx`).
+
+## Tool calls
+
+Each tool call is a full-width panel whose flat background reports the state:
+neutral while pending or running, green after a clean exit, red after a failure
+and yellow when cancelled. The title row holds the status glyph, the tool name
+in bold, its subject in the secondary colour and a short `→` summary of what
+the call produced. Output sits below it, folded to its last four rows with the
+number of hidden rows above and a `click to expand` hint; clicking the panel
+shows the whole output and the next click folds it again. A finished call folds
+itself, so the transcript settles without the reader clicking anything. The
+markers are `✓` done, `o` pending, `⊷` running, `x` failed and `-` cancelled
+(`src/ui/components/ToolGroupDisplay.tsx`). Shell calls read as `$ command`,
+the way pi labels them.
+
+## Messages
+
+A user turn starts with a blue `>` and the prompt uses the primary text colour,
+so the reader's own words do not recede behind the answer. A model turn starts
+with a cyan `✦` and renders its markdown. Reasoning that arrives on the
+provider's separate channel is stored beside the assistant message and renders
+above the answer as the thought itself in the muted italic colour, keeping its
+paragraph breaks, with no label or rule. A live thought streams open; when the
+round ends the stored block folds behind a single `Thinking...` line. Clicking
+one block toggles only that block, and `Ctrl+O` sets the default for every
+finished block, the way Claude Code's `Thought for …` summaries work
+(`src/ui/components/MemoizedMessage.tsx`,
+`src/ui/components/ThinkingMessage.tsx`).
+
+## Images
+
+`Ctrl+V` in the composer attaches a clipboard image
+(`src/ui/hooks/useUserInput.ts`). The buffer inserts an `[Image #N]`
+placeholder and keeps the bytes in a map, bounded at 10 MB per image, 20
+images and 50 MB total (`src/ui/TextBuffer.ts`); the paste handler reads the
+clipboard directly when the key is pressed, because a background status probe
+and the full read can use different backends on Linux. On send, each
+placeholder is replaced with the image; sharp scales it to fit 1024×1024 and
+re-encodes it as JPEG at quality 85, falling back to the original bytes when
+sharp is unavailable (`src/ui/hooks/useChat.imageProcessing.ts`). There is no
+clipboard marker in the status bar and no periodic clipboard polling; the
+clipboard is only read for an explicit paste.
+
+Linux reads images from `wl-paste` on Wayland or WSL and from `xclip` on X11,
+then from a bundled X11 helper; the helper covers an XWayland desktop with no
+clipboard utilities installed, while a pure Wayland session without XWayland
+needs `wl-clipboard`. macOS uses `osascript`, Windows uses PowerShell, and both
+fall back to the bundled helper. The prebuilds live in `native/<platform>/`
+and are copied to `dist/native/` by the build
+(`src/utils/clipboardImage.ts`, `src/utils/nativeClipboard.ts`).
+
+## Composer rows
+
+The session goal and the todo list render above the composer box, outside its
+top border, not between the border and the input row. At most five unfinished
+todos are drawn; completed items appear only in the `Todos done/total` count,
+and unfinished items past the fifth collapse into a `· +N` counter on the same
+header, so the panel cannot push the input up by more than six rows. With no
+unfinished todo the panel draws nothing (`src/ui/UserInput.tsx`,
+`src/ui/components/TodoIndicator.tsx`,
+`src/ui/components/GoalIndicator.tsx`).
 
 ## Command palette
 
@@ -53,21 +131,19 @@ a `-- /language --` header, filtered by the next token; picking one runs
 
 Two rows sit under the composer (`src/ui/components/BottomStatusBar.tsx`).
 
-The top row, left to right:
+The status bar is one row. Left to right:
 
 - the workspace name: `remoteUrl` in remote mode, otherwise the last segment of the
   process working directory
 - the git branch, when the process is in a repository and not in remote mode
 - the prefix state, only when the last request invalidated or extended the cache prefix
-- the compaction cost, only when a compaction ran in this session
-- an image-in-clipboard marker while one is present
+- the compaction spend, only when a compaction ran in this session
+- the usage figures: context occupancy, the session cache-hit ratio (printed with two
+  decimals), output tokens and cost when the session has spent anything
 
-The top row, right to left: the model name, then the reasoning depth when the selected
-model declares one.
-
-The second row is the usage line: context occupancy, the session cache-hit ratio, output
-tokens, and cost when the session has spent anything. Occupancy and cache stay on their
-own row because they are read as one figure.
+The right end holds the model name, the reasoning depth when the selected model declares
+one, and the update state. The location side truncates first on a narrow terminal; the
+bar never wraps onto a second row.
 
 No GitHub owner or repository is displayed. The status bar resolves the branch only and
 never looks up the remote.

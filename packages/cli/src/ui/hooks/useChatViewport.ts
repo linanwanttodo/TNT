@@ -1,77 +1,184 @@
-import { measureElement, useInput } from "ink";
-import type { DOMElement } from "ink";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useInput } from "ink";
+import { useCallback, useRef, useState } from "react";
 
-import type { ChatHistoryItem } from "../../../../../core/index.js";
-import { isJumpHintClick } from "../utils/mouse.js";
+import type { ScrollViewMetrics } from "../components/ScrollView.js";
+import { dispatchClick } from "../utils/clickRegions.js";
+import { isTerminalMouseSequence } from "../utils/mouse.js";
+import { WheelScrollAccelerator } from "../utils/wheelScroll.js";
 
+import { useLayoutRevision } from "./layoutDirty.js";
 import { useMouseEvents } from "./useMouseEvents.js";
 
 interface ChatViewportOptions {
-  rows: number;
-  chatHistory: ChatHistoryItem[];
+  /** Only the chat screen owns the mouse wheel and the scroll keys. */
+  isActive: boolean;
+}
+
+interface ViewportState {
+  contentHeight: number;
+  viewportHeight: number;
+  /** Rows hidden above the window; ignored while following the tail. */
+  scrollTop: number;
+  following: boolean;
+}
+
+export interface ChatViewport {
+  /** Rows hidden above the window, already clamped to the content. */
+  scrollTop: number;
+  /** True while the window is at the live tail. */
+  following: boolean;
+  maxScrollTop: number;
+  viewportHeight: number;
+  contentHeight: number;
+  onMetrics: (metrics: ScrollViewMetrics) => void;
+  scrollBy: (rows: number) => void;
+  scrollTo: (row: number) => void;
+  jumpToBottom: () => void;
+}
+
+const INITIAL_STATE: ViewportState = {
+  contentHeight: 0,
+  viewportHeight: 0,
+  scrollTop: 0,
+  following: true,
+};
+
+function maxScrollTopOf(state: ViewportState): number {
+  return Math.max(0, state.contentHeight - state.viewportHeight);
 }
 
 /**
- * The transcript's scroll state. Ink can only clip the bottom of an
- * overflowing box, so scrolling hides the newest messages instead of moving a
- * measured pixel window; the viewport stays bottom-anchored, which also keeps
- * measurement out of the render path. The dock's height decides the hint's
- * row so a click on it can jump back to the live tail.
+ * The transcript's scroll state.
+ *
+ * The offset is measured in terminal rows from the top of the transcript, not
+ * in messages. pi's ScrollView uses the same model: layout reports the real
+ * content height, the viewport clamps the offset to it, and a view that is at
+ * the end keeps following new rows. Whole-message stepping cannot be correct
+ * because a single answer can be taller than the screen.
  */
-export function useChatViewport({ rows, chatHistory }: ChatViewportOptions) {
-  const [scrollBack, setScrollBack] = useState(0);
-  const page = Math.max(1, Math.floor(rows / 3));
-  const following = scrollBack === 0;
-  const historyLength = chatHistory.length;
+export function useChatViewport({
+  isActive,
+}: ChatViewportOptions): ChatViewport {
+  const [state, setState] = useState<ViewportState>(INITIAL_STATE);
+  // A nested panel can change height without rendering this hook; the returned
+  // revision is unused on purpose - its re-render is what lets ScrollView
+  // measure the layout that was just committed.
+  useLayoutRevision();
+  const wheelRef = useRef<WheelScrollAccelerator | null>(null);
+  wheelRef.current ??= new WheelScrollAccelerator("auto");
 
-  const visibleHistory = useMemo(
-    () =>
-      scrollBack > 0
-        ? chatHistory.slice(0, Math.max(0, historyLength - scrollBack))
-        : chatHistory,
-    [chatHistory, historyLength, scrollBack],
+  const onMetrics = useCallback((metrics: ScrollViewMetrics) => {
+    setState((previous) => {
+      if (
+        previous.contentHeight === metrics.contentHeight &&
+        previous.viewportHeight === metrics.viewportHeight
+      ) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        contentHeight: metrics.contentHeight,
+        viewportHeight: metrics.viewportHeight,
+      };
+    });
+  }, []);
+
+  const scrollTo = useCallback((row: number) => {
+    if (!Number.isFinite(row)) return;
+
+    setState((previous) => {
+      const maxScrollTop = maxScrollTopOf(previous);
+      const next = Math.round(Math.max(0, Math.min(maxScrollTop, row)));
+      const following = next >= maxScrollTop;
+
+      if (previous.scrollTop === next && previous.following === following) {
+        return previous;
+      }
+
+      return { ...previous, scrollTop: next, following };
+    });
+  }, []);
+
+  const scrollBy = useCallback((rows: number) => {
+    if (!Number.isFinite(rows) || rows === 0) return;
+
+    setState((previous) => {
+      const maxScrollTop = maxScrollTopOf(previous);
+      // A following view starts from the tail, the way pi's scrollBy treats
+      // the end of the content as the origin of the first wheel notch.
+      const start = previous.following
+        ? maxScrollTop
+        : Math.min(previous.scrollTop, maxScrollTop);
+      const next = Math.round(
+        Math.max(0, Math.min(maxScrollTop, start + rows)),
+      );
+      const following = next >= maxScrollTop;
+
+      if (previous.scrollTop === next && previous.following === following) {
+        return previous;
+      }
+
+      return { ...previous, scrollTop: next, following };
+    });
+  }, []);
+
+  const jumpToBottom = useCallback(() => {
+    setState((previous) => {
+      const maxScrollTop = maxScrollTopOf(previous);
+      if (previous.following && previous.scrollTop === maxScrollTop) {
+        return previous;
+      }
+
+      return { ...previous, scrollTop: maxScrollTop, following: true };
+    });
+  }, []);
+
+  const page = Math.max(1, state.viewportHeight - 1);
+
+  useInput(
+    (input, key) => {
+      // A mouse report also reaches useInput; it must not be read as End or
+      // Home and drag the viewport to the top on a click.
+      if (isTerminalMouseSequence(input)) return;
+
+      if (key.pageUp) {
+        scrollBy(-page);
+      } else if (key.pageDown) {
+        scrollBy(page);
+      } else if (key.end) {
+        jumpToBottom();
+      } else if (key.home) {
+        scrollTo(0);
+      }
+    },
+    { isActive },
   );
-
-  const dockRef = useRef<DOMElement | null>(null);
-  const [dockHeight, setDockHeight] = useState(0);
-
-  useEffect(() => {
-    if (following || !dockRef.current) {
-      setDockHeight(0);
-      return;
-    }
-    try {
-      setDockHeight(measureElement(dockRef.current).height);
-    } catch {
-      // Not laid out yet; the next render measures again.
-    }
-  });
-
-  const scrollUp = () =>
-    setScrollBack((count) =>
-      Math.min(count + page, Math.max(0, historyLength - 1)),
-    );
-  const scrollDown = () => setScrollBack((count) => Math.max(0, count - page));
-
-  useInput((_input, key) => {
-    if (key.pageUp) scrollUp();
-    if (key.pageDown) scrollDown();
-    // End and Ctrl+End return to the live tail, like Pi's jump-to-latest.
-    if (key.end) setScrollBack(0);
-  });
 
   useMouseEvents(
     (event) => {
-      if (event.name === "left-press") {
-        if (isJumpHintClick(event, rows, dockHeight)) setScrollBack(0);
-        return;
+      if (event.name === "scroll-up") {
+        scrollBy(-wheelRef.current!.next(-1, Date.now()));
+      } else if (event.name === "scroll-down") {
+        scrollBy(wheelRef.current!.next(1, Date.now()));
+      } else if (event.name === "left-press") {
+        dispatchClick(event.row, event.col);
       }
-      if (event.name === "scroll-up") scrollUp();
-      if (event.name === "scroll-down") scrollDown();
     },
-    { isActive: !following },
+    { isActive },
   );
 
-  return { scrollBack, setScrollBack, following, dockRef, visibleHistory };
+  return {
+    scrollTop: state.following
+      ? maxScrollTopOf(state)
+      : Math.min(state.scrollTop, maxScrollTopOf(state)),
+    following: state.following,
+    maxScrollTop: maxScrollTopOf(state),
+    viewportHeight: state.viewportHeight,
+    contentHeight: state.contentHeight,
+    onMetrics,
+    scrollBy,
+    scrollTo,
+    jumpToBottom,
+  };
 }
