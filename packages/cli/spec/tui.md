@@ -17,9 +17,10 @@ message (`src/ui/TUIChat.tsx`, `src/ui/components/TranscriptContent.tsx`).
 While the view is scrolled up, a centred `↓ Jump to latest message · Ctrl+End`
 hint sits in the fixed dock directly above the composer.
 The first screen's banner is an animated fire "TNT", centred in the terminal:
-the letters burn as a hot core inside flames that climb upward and flicker
-through a character ramp (`.` to `@`), coloured in a red/orange/yellow palette
-only (`src/ui/components/FireLogo.tsx`, `src/ui/utils/fireLogo.ts`). A narrow
+the letters read as a black silhouette while tall, thin blood-red tongues
+climb around them and flicker through a character ramp (`.` to `@`),
+coloured black-to-crimson with a rare pale ember (`src/ui/components/FireLogo.tsx`,
+`src/ui/utils/fireLogo.ts`). A narrow
 terminal, a pipe, or `NO_COLOR` falls back to the two-line half-block wordmark
 with the version beside it (`src/startup/asciiArt.ts`).
 

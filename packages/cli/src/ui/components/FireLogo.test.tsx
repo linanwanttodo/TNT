@@ -43,7 +43,7 @@ describe("FireLogo", () => {
         .filter((line) => /[%@#&$xX*+=:-]/.test(line));
       // The fire starts at the letters and climbs, so the coldest top rows
       // may still be blank on the first frame.
-      expect(flameLines.length).toBeGreaterThanOrEqual(12);
+      expect(flameLines.length).toBeGreaterThanOrEqual(6);
 
       // Centred: the grid is narrower than the mocked 60 columns, so every
       // flame line starts with a left margin.
@@ -73,7 +73,7 @@ describe("FireLogo", () => {
     const tty = { isTTY: true } as unknown as typeof process.stdout;
     const pipe = { isTTY: false } as unknown as typeof process.stdout;
     expect(supportsFireBanner(60, tty, {})).toBe(true);
-    expect(supportsFireBanner(40, tty, {})).toBe(false);
+    expect(supportsFireBanner(38, tty, {})).toBe(false);
     expect(supportsFireBanner(60, pipe, {})).toBe(false);
     expect(supportsFireBanner(60, tty, { NO_COLOR: "1" })).toBe(false);
   });
