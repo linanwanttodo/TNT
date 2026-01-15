@@ -6,9 +6,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { t } from "../i18n/index.js";
 import { ExtendedSessionMetadata, loadSessionById } from "../session/index.js";
 
+
+import { ScrollBarColumn } from "./components/ScrollBarColumn.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { SessionPreview } from "./SessionPreview.js";
 import { defaultBoxStyles } from "./styles.js";
+import { scrollbarGeometry } from "./utils/scrollbar.js";
 
 interface SessionSelectorProps {
   sessions: ExtendedSessionMetadata[];
@@ -118,9 +121,6 @@ export function SessionSelector({
     );
   }
 
-  const hasMoreAbove = scrollOffset > 0;
-  const hasMoreBelow = scrollOffset + displaySessions.length < sessions.length;
-
   // Determine if we should show preview (only if terminal is wide enough)
   const showPreview = terminalWidth > 100;
   const listWidth = showPreview
@@ -139,47 +139,45 @@ export function SessionSelector({
         <Text color="gray">{t("session.navigate")}</Text>
         <Text> </Text>
 
-        {hasMoreAbove && (
-          <Text color="gray" italic>
-            {t("session.moreAbove", { count: scrollOffset })}
-          </Text>
-        )}
+        <Box flexDirection="row" flexGrow={1} flexShrink={1} minHeight={0}>
+          <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0}>
+            {displaySessions.map((session, index) => {
+              const globalIndex = index + scrollOffset;
+              const isSelected = globalIndex === selectedIndex;
+              const indicator = isSelected ? "➤ " : "  ";
+              const color = isSelected ? "blue" : "white";
 
-        {displaySessions.map((session, index) => {
-          const globalIndex = index + scrollOffset;
-          const isSelected = globalIndex === selectedIndex;
-          const indicator = isSelected ? "➤ " : "  ";
-          const color = isSelected ? "blue" : "white";
-
-          return (
-            <Box key={session.sessionId} flexDirection="column">
-              <Box paddingRight={3}>
-                <Text bold={isSelected} color={color} wrap="truncate-end">
-                  {indicator}
-                  {formatMessage(session.title)}
-                </Text>
-              </Box>
-              <Box marginLeft={2}>
-                <Text color="gray">
-                  {formatTimestamp(new Date(session.dateCreated))}
-                  {session.isRemote
-                    ? ` ${t("session.remote")}`
-                    : ` ${t("session.local")}`}
-                </Text>
-              </Box>
-              {index < displaySessions.length - 1 && (
-                <Text key={`spacer-${session.sessionId}`}> </Text>
-              )}
-            </Box>
-          );
-        })}
-
-        {hasMoreBelow && (
-          <Text color="gray" italic>
-            ⬇ {sessions.length - scrollOffset - displaySessions.length} more
-            sessions below...
-          </Text>
-        )}
+              return (
+                <Box key={session.sessionId} flexDirection="column">
+                  <Box paddingRight={3}>
+                    <Text bold={isSelected} color={color} wrap="truncate-end">
+                      {indicator}
+                      {formatMessage(session.title)}
+                    </Text>
+                  </Box>
+                  <Box marginLeft={2}>
+                    <Text color="gray">
+                      {formatTimestamp(new Date(session.dateCreated))}
+                      {session.isRemote
+                        ? ` ${t("session.remote")}`
+                        : ` ${t("session.local")}`}
+                    </Text>
+                  </Box>
+                  {index < displaySessions.length - 1 && (
+                    <Text key={`spacer-${session.sessionId}`}> </Text>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+          <ScrollBarColumn
+            geometry={scrollbarGeometry(
+              scrollOffset * 3,
+              displaySessions.length * 3,
+              sessions.length * 3,
+            )}
+          />
+        </Box>
       </Box>
 
       {/* Right side: Preview panel */}
