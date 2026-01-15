@@ -1,9 +1,10 @@
 import { useInput } from "ink";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ScrollViewMetrics } from "../components/ScrollView.js";
 import { dispatchClick } from "../utils/clickRegions.js";
 import { isTerminalMouseSequence } from "../utils/mouse.js";
+import { WheelFrameBatch } from "../utils/wheelFrameBatch.js";
 import { WheelScrollAccelerator } from "../utils/wheelScroll.js";
 
 import { useLayoutRevision } from "./layoutDirty.js";
@@ -136,6 +137,12 @@ export function useChatViewport({
 
   const page = Math.max(1, state.viewportHeight - 1);
 
+  // Wheel events arrive in bursts faster than a frame; the batch applies one
+  // net delta per frame instead of one render per notch.
+  const wheelBatchRef = useRef<WheelFrameBatch | null>(null);
+  wheelBatchRef.current ??= new WheelFrameBatch(scrollBy);
+  useEffect(() => () => wheelBatchRef.current?.dispose(), []);
+
   useInput(
     (input, key) => {
       // A mouse report also reaches useInput; it must not be read as End or
@@ -158,9 +165,9 @@ export function useChatViewport({
   useMouseEvents(
     (event) => {
       if (event.name === "scroll-up") {
-        scrollBy(-wheelRef.current!.next(-1, Date.now()));
+        wheelBatchRef.current!.add(-wheelRef.current!.next(-1, Date.now()));
       } else if (event.name === "scroll-down") {
-        scrollBy(wheelRef.current!.next(1, Date.now()));
+        wheelBatchRef.current!.add(wheelRef.current!.next(1, Date.now()));
       } else if (event.name === "left-press") {
         dispatchClick(event.row, event.col);
       }
