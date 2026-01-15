@@ -62,8 +62,18 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        node-version: [18, 20, 22, 24]
+        # The floor (ubuntu + node 20, matching the engines field), the
+        # current LTS on ubuntu, and one LTS job per other OS. Node 18 left
+        # the matrix when engines moved to >=20; widen here, not per-PR.
+        include:
+          - os: ubuntu-latest
+            node-version: 20
+          - os: ubuntu-latest
+            node-version: 22
+          - os: windows-latest
+            node-version: 22
+          - os: macos-latest
+            node-version: 22
       fail-fast: false
     runs-on: ${{ matrix.os }}
 
