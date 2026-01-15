@@ -4,7 +4,6 @@ import path from "path";
 import { validateSingleEdit } from "core/edit/searchAndReplace/findAndReplaceUtils.js";
 import { executeFindAndReplace } from "core/edit/searchAndReplace/performReplace.js";
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
-import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
@@ -19,6 +18,11 @@ import { EditOperation } from "./multiEdit.js";
 import { readFileTool } from "./readFile.js";
 import { MARKER_FILE_EDITED } from "./resultMarkers.js";
 import { Tool } from "./types.js";
+import {
+  isWorkspaceFileServiceActive,
+  readWorkspaceTextFile,
+  writeWorkspaceTextFile,
+} from "./workspaceFiles.js";
 import { generateDiff } from "./writeFile.js";
 
 export function validateAndResolveFilePath(args: any): {
@@ -38,12 +42,14 @@ export function validateAndResolveFilePath(args: any): {
     ? file_path
     : path.resolve(process.cwd(), file_path);
 
-  const resolvedPath = fs.realpathSync(absolutePath);
+  const clientFs = isWorkspaceFileServiceActive();
+  const resolvedPath = clientFs ? absolutePath : fs.realpathSync(absolutePath);
 
   throwIfFileIsSecurityConcern(resolvedPath);
 
-  // Check if file exists
-  if (!fs.existsSync(resolvedPath)) {
+  // Check if file exists. A client-owned buffer can hold a file that is not on
+  // disk yet; the read in preprocess is the authoritative check there.
+  if (!clientFs && !fs.existsSync(resolvedPath)) {
     throw new ContinueError(
       ContinueErrorReason.FileNotFound,
       `File ${file_path} does not exist`,
@@ -59,8 +65,9 @@ export function validateAndResolveFilePath(args: any): {
   }
 
   // What the model read must still be what is on disk, or the edit is written
-  // against a file someone else changed in the meantime.
-  if (changedSinceSeen(resolvedPath)) {
+  // against a file someone else changed in the meantime. A client buffer has no
+  // reliable disk mtime to compare; its write goes through the client anyway.
+  if (!clientFs && changedSinceSeen(resolvedPath)) {
     throw new ContinueError(
       ContinueErrorReason.EditToolFileNotRead,
       `${file_path} changed since you read it. Use the ${readFileTool.name} tool to read it again before editing.`,
@@ -127,7 +134,7 @@ WARNINGS:
       replace_all,
     );
 
-    const oldContent = fs.readFileSync(resolvedPath, "utf-8");
+    const oldContent = (await readWorkspaceTextFile(resolvedPath)).content;
     const newContent = executeFindAndReplace(
       oldContent,
       oldString,
@@ -166,15 +173,19 @@ WARNINGS:
       // The replacement was computed from the file as it was when the call was
       // planned, and a permission prompt can outlast that. The bytes about to be
       // replaced are checked again here instead of trusting the preview.
-      if (fs.readFileSync(args.resolvedPath, "utf-8") !== args.oldContent) {
+      const current = await readWorkspaceTextFile(args.resolvedPath);
+      if (current.content !== args.oldContent) {
         throw new ContinueError(
           ContinueErrorReason.EditToolFileNotRead,
           `${args.resolvedPath} changed while this edit was awaiting approval. Read it again before editing.`,
         );
       }
-      writeFileAtomically(args.resolvedPath, args.newContent);
-      markFileAsSeen(args.resolvedPath);
-      scheduleFileRefresh(args.resolvedPath);
+      const written = await writeWorkspaceTextFile(
+        args.resolvedPath,
+        args.newContent,
+      );
+      markFileAsSeen(written.realPath);
+      scheduleFileRefresh(written.realPath);
 
       // Get lines for telemetry
       const { added, removed } = calculateLinesOfCodeDiff(

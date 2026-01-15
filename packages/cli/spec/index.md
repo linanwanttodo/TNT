@@ -41,7 +41,7 @@ High level concepts / features should have a spec when possible. Good examples o
 
 ## Codebase Design
 
-- We intentionally write different implementations of the "loop" instead of trying to build a single engine that can be used across TUI, headless mode, `tnt serve`, and more. So far, it would be more work than it is worth to add this abstraction.
+- The three surfaces share one engine. `stream/streamChatResponse.ts` runs the turn for the Ink TUI, headless mode, and `tnt serve`; surfaces differ in how they present events, not in how they run a turn. ACP adds a fourth surface at the edge: a supervisor and one worker process per session. See [Architecture](./architecture-boundaries.md), [ACP](./acp.md) and [ARCHITECTURE-tnt.md](../ARCHITECTURE-tnt.md).
 - "Everything is a service." Nobody (human or AI) should need to re-invent a polling mechanism or way to store / update state. This decision has been made already so we can focus on the business logic. The service setup lets us easily keep reactive state and avoid React anti-patterns like `useEffect`.
 - We use `ink` for UI, following the same usual React principles that we do elsewhere. Keep [components](../src/ui/components/) small, avoid `useEffect`, group logic into [hooks](../src/hooks).
 - Always use the [logger](../src/utils/logger.ts) instead of `console.log`.
@@ -52,6 +52,9 @@ High level concepts / features should have a spec when possible. Good examples o
 
 Every document in this directory, so a reader holding one file can find the rest:
 
+- [Engine and UI boundaries](./architecture-boundaries.md)
+- [Agent Client Protocol (ACP)](./acp.md)
+- [Session files](./sessions.md)
 - [Configuration Loading Behavior Specification](./config-loading.md)
 - [Ctrl+C Exit Behavior](./ctrl-c-behavior.md)
 - [TNT CLI Model Context Protocol (MCP) integration](./mcp.md)

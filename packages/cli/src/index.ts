@@ -3,14 +3,8 @@
 // MUST be the first import - intercepts console/stdout/stderr before any dependencies load
 import "./startup/init.js";
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
-import { chat } from "./commands/chat.js";
-import { checks } from "./commands/checks.js";
-import { listSessionsCommand } from "./commands/ls.js";
-import { review } from "./commands/review.js";
-import { unsupportedReviewFormat } from "./commands/reviewFormat.js";
-import { serve } from "./commands/serve.js";
 import {
   handleValidationErrors,
   validateServeFlags,
@@ -174,6 +168,40 @@ process.on("SIGINT", async () => {
   await gracefulExit(130);
 });
 
+interface AcpModeOptions {
+  acp?: boolean;
+  acpWorker?: boolean;
+  sessionId?: string;
+  sessionCwd?: string;
+  config?: string;
+  trustProject?: boolean;
+}
+
+async function runAcpMode(
+  prompt: string | undefined,
+  options: AcpModeOptions,
+): Promise<boolean> {
+  if (options.acpWorker) {
+    const { runAcpWorker } = await import("./acp/index.js");
+    await runAcpWorker(options.sessionId, options.config, options.sessionCwd);
+    return true;
+  }
+  if (options.acp) {
+    if (prompt) {
+      safeStderr("tnt --acp does not accept a prompt argument\n");
+      process.exitCode = 1;
+      return true;
+    }
+    const { runAcpSupervisor } = await import("./acp/index.js");
+    await runAcpSupervisor({
+      configPath: options.config,
+      trustProject: options.trustProject,
+    });
+    return true;
+  }
+  return false;
+}
+
 const program = new Command();
 
 program
@@ -224,7 +252,30 @@ addCommonOptions(program)
     "--beta-subagent-tool",
     "Enable beta Subagent tool for invoking subagents",
   )
+  .option("--acp", "Run as an Agent Client Protocol agent over stdio")
+  .addOption(
+    new Option(
+      "--acp-worker",
+      "Internal: run one ACP session worker",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--session-id <id>",
+      "Internal: session id owned by the ACP worker",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--session-cwd <path>",
+      "Internal: working directory owned by the ACP worker",
+    ).hideHelp(),
+  )
   .action(async (prompt, options) => {
+    // ACP owns stdin/stdout. Branch before the piped-input probe, which would
+    // otherwise eat the first JSON-RPC message.
+    if (await runAcpMode(prompt, options)) return;
+
     // Handle piped input - detect it early and decide on mode
     let stdinInput = null;
 
@@ -324,6 +375,7 @@ addCommonOptions(program)
     // Map --print to headless mode
     options.headless = options.print;
     options.print = undefined;
+    const { chat } = await import("./commands/chat.js");
     await chat(prompt, options);
   });
 
@@ -341,6 +393,7 @@ program
       // reader is most likely to try (`tnt ls --format json`) was accepted, ignored,
       // and fell back to the interactive picker. Honour it here.
       const rootFormat = command.parent?.opts().format;
+      const { listSessionsCommand } = await import("./commands/ls.js");
       await listSessionsCommand({
         format: options.json || rootFormat === "json" ? "json" : undefined,
       });
@@ -351,7 +404,7 @@ program
 program
   .command("serve [prompt]", { hidden: true })
   .description(
-    "Start an HTTP server with /state, /message, /permission, /pause, /diff and /exit endpoints",
+    "Start an HTTP server with /state, /events, /message, /permission, /pause, /diff and /exit endpoints",
   )
   .option("--timeout <seconds>", "Inactivity timeout in seconds", "300")
   .option("--port <port>", "Port to run the server on", "8000")
@@ -385,6 +438,7 @@ program
       logger.debug("Verbose logging enabled");
     }
 
+    const { serve } = await import("./commands/serve.js");
     await serve(prompt, mergedOptions);
   });
 
@@ -412,6 +466,7 @@ program
         },
       ]);
     }
+    const { checks } = await import("./commands/checks.js");
     await checks(action, prUrl);
   });
 
@@ -449,6 +504,8 @@ program
     // JSON review output was unreachable from the command line. Read whichever
     // of the two actually holds a value, and refuse a value no format explains.
     const requestedFormat = options.format ?? program.opts().format;
+    const { unsupportedReviewFormat } =
+      await import("./commands/reviewFormat.js");
     if (unsupportedReviewFormat(requestedFormat) !== null) {
       handleValidationErrors([
         {
@@ -461,6 +518,7 @@ program
         },
       ]);
     }
+    const { review } = await import("./commands/review.js");
     await review({ ...options, format: requestedFormat });
   });
 
@@ -476,9 +534,8 @@ program.on("command:*", () => {
 export async function runCli(): Promise<void> {
   // Handle internal worker subprocess for tnt review
   if (process.argv.includes("--internal-review-worker")) {
-    const { runReviewWorker } = await import(
-      "./commands/review/reviewWorker.js"
-    );
+    const { runReviewWorker } =
+      await import("./commands/review/reviewWorker.js");
     await runReviewWorker();
     return;
   }

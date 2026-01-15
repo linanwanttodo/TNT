@@ -109,8 +109,9 @@ describe("oversized result through the tool loop", () => {
 
     const stored = path.join(
       globalDir,
-      "tool-results",
+      "sessions",
       "test-session",
+      "tool-results",
       "call_spill.txt",
     );
     expect(content).toContain(stored);

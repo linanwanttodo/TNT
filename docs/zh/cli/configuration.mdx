@@ -1,0 +1,112 @@
+---
+title: "配置"
+description: "TNT 从哪里读取模型、MCP 服务器、权限和设置。"
+---
+
+## 解析顺序
+
+TNT 按以下顺序解析配置，先匹配的生效：
+
+1. 启动时传入的 `--config <path>`。
+2. `~/.tnt/config.yaml`，用户级配置。
+3. 没有配置：运行交互式初始化，并写入 `~/.tnt/config.yaml`。
+
+只会读取本地文件。`--config` 的值如果不是路径（例如已发布的 assistant slug），
+会在启动时被拒绝。
+
+`/config` 打开配置选择器，列出本地的 `config.yaml`。
+
+## 配置文件
+
+`config.yaml` 保存模型定义和规则。模型定义和当前选中的模型始终在同一个文件里。
+
+```yaml title="~/.tnt/config.yaml"
+name: TNT
+version: 1.0.0
+schema: v1
+
+models:
+  - name: fast
+    provider: openai
+    model: gpt-4.1-mini
+    apiBase: https://api.openai.com/v1
+    apiKey: ${{ secrets.OPENAI_API_KEY }}
+  - name: deep
+    provider: anthropic
+    model: claude-sonnet-4-5
+    apiKey: ${{ secrets.ANTHROPIC_API_KEY }}
+
+model: fast
+
+rules:
+  - Use the existing test helpers instead of new fixtures.
+```
+
+| 字段 | 内容 |
+| --- | --- |
+| `models` | 智能体可以运行的模型，见[模型](/zh/cli/models) |
+| `model` | 当前选中模型的 `name`；`/model` 会把选择写回这里 |
+| `rules` | 追加到系统消息前面的指令 |
+
+其他内容分别放在自己的文件里：
+
+| 文件 | 内容 |
+| --- | --- |
+| `~/.tnt/settings.json` | 权限、钩子、环境变量、语言、输出风格和默认模式 |
+| `~/.tnt/mcp.json` | MCP 服务器，见 [MCP](/zh/cli/mcp) |
+
+`config.yaml` 不读取 `mcpServers` 和 `permissions`；MCP 服务器属于 `mcp.json`，
+工具策略属于 `settings.json` 的 `permissions` 键。
+
+## 设置文件
+
+设置从六个文件读取，后面的覆盖前面的：
+
+1. `~/.claude/settings.json`
+2. `~/.tnt/settings.json`
+3. 工作区里的 `.claude/settings.json`
+4. 工作区里的 `.tnt/settings.json`
+5. 工作区里的 `.claude/settings.local.json`
+6. 工作区里的 `.tnt/settings.local.json`
+
+项目层只有在项目被信任后才会应用，因为它们可以授予权限并注册钩子。否则 TNT
+会打印警告并忽略它们。运行 `tnt --trust-project`，或设置
+`TNT_TRUST_PROJECT=1`，把当前内容记录为已信任；修改已信任的文件会撤销信任。
+
+当 `settings.json` 没有 `permissions` 段时，仍会读取 `permissions.yaml`，
+并打印弃用警告。它不会再被写入；新规则写入 `settings.json`。
+
+## 目录结构
+
+| 路径 | 用途 |
+| --- | --- |
+| `~/.tnt/config.yaml` | 模型和规则 |
+| `~/.tnt/mcp.json` | MCP 服务器 |
+| `~/.tnt/settings.json` | 权限、钩子和设置 |
+| `~/.tnt/auth.json` | 凭据 |
+| `~/.tnt/trusted-projects.json` | 已信任项目的内容哈希 |
+| `~/.tnt/permissions.yaml` | 旧版权限策略（只读） |
+| `~/.tnt/sessions/` | 已保存的会话 |
+| `~/.tnt/skills/` | 用户技能 |
+| `~/.tnt/plugins/` | 已安装插件 |
+| `~/.tnt/logs/tnt.log` | 日志文件 |
+| `~/.tnt/.env` | `${{ secrets.* }}` 使用的密钥 |
+| `.tnt/` | 项目设置和 MCP 服务器（需信任） |
+
+可以通过全局目录环境变量迁移主目录，`sessions`、`logs` 和插件目录也会一起迁移。
+
+## 密钥
+
+`${{ secrets.NAME }}` 依次从以下位置解析：进程环境、`~/.tnt/.env`、
+`<workspace>/.tnt/.env`、`<workspace>/.env`。把密钥放在 `config.yaml` 之外，
+配置文件就可以安全共享。
+
+## 规则和提示词
+
+额外的指令也可以在命令行传入，并且可以重复：
+
+```bash
+tnt --rule ./docs/style.md --rule "Never disable a test to make it pass"
+```
+
+`tnt init` 会在工作区创建 `AGENTS.md`，该仓库中的每个会话都会自动加载它。

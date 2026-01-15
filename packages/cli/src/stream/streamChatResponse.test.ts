@@ -45,6 +45,23 @@ describe("processStreamingResponse - content preservation", () => {
     };
   }
 
+  // Helper to create a reasoning chunk, the separate channel providers use
+  function reasoningChunk(reasoning: string): ChatCompletionChunk {
+    return {
+      id: "test",
+      object: "chat.completion.chunk",
+      created: Date.now(),
+      model: "test-model",
+      choices: [
+        {
+          index: 0,
+          delta: { reasoning_content: reasoning } as any,
+          finish_reason: null,
+        },
+      ],
+    };
+  }
+
   // Helper to create a tool call chunk
   function toolCallChunk(
     id: string,
@@ -139,6 +156,25 @@ describe("processStreamingResponse - content preservation", () => {
       model: "test-model",
       provider: "test-provider",
     } as unknown as ModelConfig;
+  });
+
+  it("keeps the reasoning channel separate from the answer", async () => {
+    chunks = [
+      reasoningChunk("checking the parser"),
+      reasoningChunk(" and the call sites"),
+      contentChunk("done"),
+    ];
+
+    const result = await processStreamingResponse({
+      chatHistory,
+      model: mockModel,
+      llmApi: mockLlmApi,
+      abortController: mockAbortController,
+      systemMessage: "You are a helpful assistant.",
+    });
+
+    expect(result.content).toBe("done");
+    expect(result.reasoning).toBe("checking the parser and the call sites");
   });
 
   it("content after tool calls is preserved", async () => {
@@ -640,6 +676,7 @@ describe("preprocessStreamedToolCalls", () => {
     expect(callbacks.onToolStart).toHaveBeenCalledWith(
       "Read",
       toolCalls[0].arguments,
+      "call_456",
     );
     expect(callbacks.onToolError).toHaveBeenCalledWith(
       expect.stringContaining("Invalid arguments for tool"),
@@ -687,9 +724,8 @@ describe("executeStreamedToolCalls", () => {
 
   it("executes tool calls with allowed permissions", async () => {
     // Setup spies instead of mocks
-    const permissionsModule = await import(
-      "../permissions/permissionChecker.js"
-    );
+    const permissionsModule =
+      await import("../permissions/permissionChecker.js");
     vi.spyOn(permissionsModule, "checkToolPermission").mockReturnValue({
       permission: "allow",
     });
@@ -725,13 +761,18 @@ describe("executeStreamedToolCalls", () => {
     // Verify results
     expect(chatHistoryEntries).toHaveLength(1);
     expect(chatHistoryEntries[0].content).toBe("Tool execution successful");
-    expect(callbacks.onToolStart).toHaveBeenCalledWith("Read", {
-      filepath: "/test.txt",
-    });
+    expect(callbacks.onToolStart).toHaveBeenCalledWith(
+      "Read",
+      {
+        filepath: "/test.txt",
+      },
+      "call_123",
+    );
     expect(callbacks.onToolResult).toHaveBeenCalledWith(
       "Tool execution successful",
       "Read",
       "done",
+      "call_123",
     );
     // The executor is handed the call it should run - the id and name are the
     // parts this asserts, because the message it runs with may have been
@@ -744,9 +785,8 @@ describe("executeStreamedToolCalls", () => {
 
   it("handles permission denied correctly", async () => {
     // Setup permission to ask
-    const permissionsModule = await import(
-      "../permissions/permissionChecker.js"
-    );
+    const permissionsModule =
+      await import("../permissions/permissionChecker.js");
     vi.spyOn(permissionsModule, "checkToolPermission").mockReturnValue({
       permission: "ask",
     });
@@ -815,28 +855,33 @@ describe("executeStreamedToolCalls", () => {
     // through `hasRejection`, it does not silently rewrite the next call's
     // answer into "cancelled".
     expect(chatHistoryEntries[1].content).toBe("Permission denied by user");
-    expect(callbacks.onToolStart).toHaveBeenCalledWith("Write", {
-      filepath: "/test.txt",
-      content: "data",
-    });
+    expect(callbacks.onToolStart).toHaveBeenCalledWith(
+      "Write",
+      {
+        filepath: "/test.txt",
+        content: "data",
+      },
+      "call_456",
+    );
     expect(callbacks.onToolResult).toHaveBeenCalledWith(
       "Permission denied by user",
       "Write",
       "canceled",
+      "call_456",
     );
     expect(callbacks.onToolPermissionRequest).toHaveBeenCalledWith(
       "Write",
       { filepath: "/test.txt", content: "data" },
       "req_123",
       undefined,
+      "call_456",
     );
   });
 
   it("handles tool execution errors", async () => {
     // Setup spies
-    const permissionsModule = await import(
-      "../permissions/permissionChecker.js"
-    );
+    const permissionsModule =
+      await import("../permissions/permissionChecker.js");
     vi.spyOn(permissionsModule, "checkToolPermission").mockReturnValue({
       permission: "allow",
     });
@@ -874,9 +919,13 @@ describe("executeStreamedToolCalls", () => {
       "Error executing tool search_code",
     );
     expect(chatHistoryEntries[0].content).toContain("Execution failed");
-    expect(callbacks.onToolStart).toHaveBeenCalledWith("search_code", {
-      pattern: "test",
-    });
+    expect(callbacks.onToolStart).toHaveBeenCalledWith(
+      "search_code",
+      {
+        pattern: "test",
+      },
+      "call_789",
+    );
     expect(callbacks.onToolError).toHaveBeenCalledWith(
       expect.stringContaining(
         "Error executing tool search_code: Execution failed",

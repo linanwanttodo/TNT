@@ -47,13 +47,17 @@ and `github.com` for tool and plugin fetches. `api.continue.dev` does not appear
 in `packages/cli/src` or in `core`.
 
 Writes that a crash would leave corrupt go through `core/util/atomicWrite.ts`:
-session files, the global context, the config file and every file the edit
-tools rewrite. It writes a uniquely named temporary file beside the target and
-renames it over the real path, resolving symlinks first and carrying over the
-original mode, so replacing a file keeps its link and its permissions. A
-session file carries every optional `Session` field, not just the ordered core
-keys: the goal, the output style, the delegation link and depth are read back
-from the file, and the writer copies whatever else the session carries. A new
+the session's `meta.json`, the global context, the config file and every file
+the edit tools rewrite. It writes a uniquely named temporary file beside the
+target and renames it over the real path, resolving symlinks first and carrying
+over the original mode, so replacing a file keeps its link and its permissions.
+Session transcripts are append-only (`spec/sessions.md`): a message or tool
+patch is one line, so a crash loses at most the line being written. The v2
+header, metadata cache and legacy migration are the only session-store paths
+that still use the atomic writer. A session carries every optional `Session`
+field - the goal, the output style, the delegation link and depth - through
+session-info records, so the root list hides delegated transcripts, a resumed
+child keeps its depth, and resume restores goal and style. A new
 session is titled on the first assistant response in both the TUI and headless
 runs; headless pays one extra non-streaming completion for it, which the e2e
 suites pin so the cost stays visible. Switching conversations - the `tnt ls`
@@ -101,7 +105,7 @@ policy can carry two argument-scoped constraints:
 
 Runtime enforcement is in `src/permissions/permissionChecker.ts`. When it
 refuses, the reason string is carried to the model as the tool result message
-(`src/stream/streamChatResponse.helpers.ts`), so the model can correct itself
+(`src/stream/permissionFlow.ts`), so the model can correct itself
 instead of retrying blind. This is why `plan` can produce a written plan but not
 touch code. A headless run cannot prompt, so its default policies allow what
 the TUI asks about - Edit, MultiEdit, Write and Bash - and the request carries
@@ -145,7 +149,7 @@ be honest there: `Bash` can write anywhere, and `auto` mode is the user's answer
 of "allow everything".
 
 MCP tools are offered as `mcp__<server>__<tool>` by
-`src/tools/index.tsx`, because two servers can export the same name:
+`src/tools/mcp.ts`, because two servers can export the same name:
 the flat tool list lost the owning server, dispatch took the first name match, and
 the second server's tool could not be reached under any name while the request
 carried the name twice. The name is sanitized to the characters a provider accepts
@@ -267,7 +271,7 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   history was rewritten. Newest 20 per session are kept. A file it cannot write is not
   a reason to lose the numbers, so the path is simply absent from the line.
 - `src/cache/promptCacheKey.ts` produces the key used to compare rounds.
-- `src/stream/streamChatResponse.ts` logs per-request cache usage, so a hit-rate
+- `src/stream/processStreamingResponse.ts` logs per-request cache usage, so a hit-rate
   regression is attributable to a change rather than to the vendor.
 - `src/agent/atMentions.ts` is what `@path` in a prompt means. All three surfaces
   expand it into context items on the user message before the first request, so
@@ -308,7 +312,7 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   `input_tokens` counts only the fresh prefix, with the cached and newly written
   parts reported separately, so a 100k-token cached request would otherwise have been
   metered as twelve tokens. The CLI reads the two spellings through
-  `cacheTokensFrom()` in `src/stream/streamChatResponse.helpers.ts`, which is also
+  `cacheTokensFrom()` in `src/stream/usageTelemetry.ts`, which is also
   where reasoning tokens reach `Usage.completionTokensDetails`. DeepSeek's own
   spelling (`prompt_cache_hit_tokens`, against `prompt_cache_miss_tokens`) is folded
   in too, which matters because DeepSeek takes no cache parameter at all - it caches
@@ -338,6 +342,20 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   it, and when the write itself fails falls back to cutting at the inline budget, so
   a "shortened" answer is never longer than the original.
 
+- MCP servers are the only tool surface this package does not author, and a few of
+  them can contribute more schema text than every built-in tool combined. When the
+  definitions it could hide would take a tenth of the model's context window,
+  `src/tools/selection/deferral.ts` drops those definitions from the request and
+  advertises
+  `ToolSearch` instead; the catalog returns matching names with their full parameter
+  schema, and a returned name is callable even though it was not in the advertised
+  list, because execution resolves against every available tool rather than against
+  the list that was sent. The share is the trigger rather than a tool count because
+  six definitions mean different things on a 32k and a 1M-token model; below the
+  share, loading everything upfront is faster and costs less attention than a search
+  round trip. `CONTINUE_CLI_DEFER_MCP_TOOLS=1` forces the trade and `=0` turns it
+  off; unset (or `auto`) leaves the decision to the share.
+
 Compaction trades against this: summarising history rewrites the prefix. That
 cost is tracked separately - `SessionUsage.compaction` in `core/index.d.ts`,
 accumulated in `src/session/index.ts`, and rendered next to the hit ratio in
@@ -363,7 +381,7 @@ stay where they are - a result without its call is not a history the API accepts
 the shape is preserved and only the bulk goes. The last turn is never touched, since
 that is what the request is about, and a history with nothing before it comes back
 unchanged. The gap is measured from the last request this process sent, or, for a
-session that has sent nothing yet, from the session file's own timestamp: a session
+session that has sent nothing yet, from the session transcript's own mtime: a session
 picked up the next day is the case this exists for.
 
 The threshold that triggers a compaction is a local estimate, so the provider can
@@ -444,7 +462,8 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   context for the model and the session has no message to carry it yet, so it is
   held and prepended to the run's first prompt ahead of any UserPromptSubmit note,
   with the user's own text last. The `transcript_path` in
-  every hook input is the session file itself, because that is what a resumed run
+  every hook input is the session transcript itself (`session.jsonl` for a v2
+  session, or the legacy `.json` file), because that is what a resumed run
   reads; it used to be sent as an empty string, which told an auditing hook there
   was nothing to audit. Thirteen of the seventeen declared events are fired;
   `TeammateIdle`, `TaskCompleted`, `WorktreeCreate` and `WorktreeRemove` are
@@ -712,19 +731,25 @@ Stated as gaps, not as intentions:
    still contain pre-move paths from an earlier directory layout; whether
    they block their own installs has not been verified.
 
-7. Sessions persist as one file per conversation plus a `sessions.json` list.
-   The writer carries every optional `Session` field - the goal, the output
-   style, the delegation link and depth - so the root list hides delegated
-   transcripts, a resumed child keeps its depth, and resume restores goal and
-   style; selecting a conversation (`tnt ls` or the in-TUI picker) loads it
-   and moves the `SessionManager`, with the id travelling through typed
-   options so a dropped hop is a compile error. A plain `--resume` opens the
-   newest root conversation of the current directory only - crossing into
-   another project's transcript is what the picker is for. A new session is
+7. Sessions persist as one append-only JSONL transcript per conversation,
+   beside a derived `meta.json` cache and the session's own sidecars. The v2
+   store keeps every optional `Session` field through `session-info` records, so
+   the root list hides delegated transcripts, a resumed child keeps its depth,
+   and resume restores goal and style; selecting a conversation (`tnt ls` or the
+   in-TUI picker) loads it and moves the `SessionManager`, with the id travelling
+   through typed options so a dropped hop is a compile error. A plain `--resume`
+   opens the newest root conversation of the current directory only - crossing
+   into another project's transcript is what the picker is for. A new session is
    titled on the first assistant response in both the TUI and headless runs.
-   Known
-   limit: `sessions.json` is a read-modify-write file, so two `tnt` processes
-   saving in the same instant can lose one list entry - the session file
-   itself is safe (atomic write) and stays loadable by id. `clearSession`
-   remains a test reset helper: it deletes the session file but not its list
-   entry.
+   The shared `sessions.json` read-modify-write is gone; a writer holds a
+   per-session lease, and a corrupt transcript fails closed instead of becoming
+   an empty session that the next save overwrites. See `spec/sessions.md`.
+8. ACP is a fourth surface: `tnt --acp` is a supervisor that spawns one
+   single-session worker per editor session, so the engine's process-wide
+   services become per-session by construction. It supports v1 `initialize`,
+   `session/new|load|resume|list|delete|close|prompt|cancel|set_mode|set_config_option`,
+   streaming updates, permission answers and the session permission modes.
+   Client `fs.read|write_text_file` routing, per-session ACP `mcpServers` and a
+   terminal auth method are implemented; client `terminal/*`, image/audio
+   prompts, `additionalDirectories` and client routing for `ApplyPatch` remain
+   deferred. See `spec/acp.md`.

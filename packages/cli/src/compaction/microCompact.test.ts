@@ -189,10 +189,12 @@ describe("the gap itself", () => {
   it("measures a resumed session from the session file's own timestamp", async () => {
     const { getSessionFilePath } = await import("../session/index.js");
     process.env.CONTINUE_CLI_CACHE_GAP_MS = "1000";
-    fs.writeFileSync(getSessionFilePath(), "{}", "utf-8");
+    const sessionFile = getSessionFilePath();
+    fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
+    fs.writeFileSync(sessionFile, "{}", "utf-8");
     const written = Date.now();
     fs.utimesSync(
-      getSessionFilePath(),
+      sessionFile,
       new Date(written - 5000),
       new Date(written - 5000),
     );
@@ -204,8 +206,10 @@ describe("the gap itself", () => {
   it("prefers this process's own last request once one has been sent", async () => {
     const { getSessionFilePath } = await import("../session/index.js");
     process.env.CONTINUE_CLI_CACHE_GAP_MS = "1000";
-    fs.writeFileSync(getSessionFilePath(), "{}", "utf-8");
-    fs.utimesSync(getSessionFilePath(), new Date(0), new Date(0));
+    const sessionFile = getSessionFilePath();
+    fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
+    fs.writeFileSync(sessionFile, "{}", "utf-8");
+    fs.utimesSync(sessionFile, new Date(0), new Date(0));
 
     const sent = Date.now();
     noteRequestSent(sent);

@@ -269,7 +269,12 @@ describe("writeCacheBreakReport", () => {
   });
 
   it("keeps the newest reports and prunes the rest", () => {
-    const dir = path.join(globalDir, "cache-breaks", "cache-break-session");
+    const dir = path.join(
+      globalDir,
+      "sessions",
+      "cache-break-session",
+      "cache-breaks",
+    );
     for (let i = 0; i < 3; i++) {
       writeCacheBreakReport({
         verdict: { state: "invalidated", reasons: ["model"] },

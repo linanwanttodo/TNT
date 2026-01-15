@@ -1,7 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
-
-import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { createTwoFilesPatch } from "diff";
 
@@ -17,6 +13,11 @@ import { changedSinceSeen, markFileAsSeen } from "./fileState.js";
 import { readFileTool } from "./readFile.js";
 import { MARKER_FILE_CREATED } from "./resultMarkers.js";
 import { Tool, ToolCallPreview } from "./types.js";
+import {
+  isWorkspaceFileServiceActive,
+  readWorkspaceTextFileIfExists,
+  writeWorkspaceTextFile,
+} from "./workspaceFiles.js";
 
 export function generateDiff(
   oldContent: string,
@@ -65,8 +66,9 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
       throw new Error(t("tools.contentMustBeString"));
     }
     try {
-      if (fs.existsSync(filepath)) {
-        const oldContent = fs.readFileSync(filepath, "utf-8");
+      const existing = await readWorkspaceTextFileIfExists(filepath);
+      if (existing) {
+        const oldContent = existing.content;
 
         const diff = createTwoFilesPatch(
           args.filepath,
@@ -126,20 +128,14 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
   },
   run: async (args: { filepath: string; content: string }): Promise<string> => {
     try {
-      const dirPath = path.dirname(args.filepath);
-      if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true });
-      }
-
       // Read existing file content if it exists
-      let oldContent = "";
-      if (fs.existsSync(args.filepath)) {
-        oldContent = fs.readFileSync(args.filepath, "utf-8");
-      }
+      const existing = await readWorkspaceTextFileIfExists(args.filepath);
+      const oldContent = existing?.content ?? "";
 
       // Write has no read requirement of its own, so this only fires when the
-      // model did read the file - and what it read is no longer there.
-      if (changedSinceSeen(args.filepath)) {
+      // model did read the file - and what it read is no longer there. A
+      // client-owned buffer has no reliable disk mtime to compare.
+      if (!isWorkspaceFileServiceActive() && changedSinceSeen(args.filepath)) {
         throw new ContinueError(
           ContinueErrorReason.EditToolFileNotRead,
           `${args.filepath} changed since you read it. Use the ${readFileTool.name} tool to read it again before overwriting it.`,
@@ -147,9 +143,9 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
       }
 
       // Write new content
-      writeFileAtomically(args.filepath, args.content);
-      markFileAsSeen(args.filepath);
-      scheduleFileRefresh(args.filepath);
+      const written = await writeWorkspaceTextFile(args.filepath, args.content);
+      markFileAsSeen(written.realPath);
+      scheduleFileRefresh(written.realPath);
 
       // Track lines of code changes if file existed before
       if (oldContent) {
