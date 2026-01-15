@@ -28,6 +28,8 @@ interface TranscriptContentProps {
   /** Rows hidden above the window. */
   scrollTop: number;
   onMetrics: (metrics: ScrollViewMetrics) => void;
+  /** Draws the one-column scrollbar on the right edge of the window. */
+  showScrollbar?: boolean;
   isWaitingForResponse: boolean;
   responseStartTime: number | null;
   isCompacting: boolean;
@@ -55,6 +57,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   streamingReasoning,
   scrollTop,
   onMetrics,
+  showScrollbar,
   isWaitingForResponse,
   responseStartTime,
   isCompacting,
@@ -91,7 +94,11 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   }, [streamingText, processedChatHistory, renderMessage]);
 
   return (
-    <ScrollView scrollTop={scrollTop} onMetrics={onMetrics}>
+    <ScrollView
+      scrollTop={scrollTop}
+      onMetrics={onMetrics}
+      showScrollbar={showScrollbar}
+    >
       {showIntro && <IntroMessage />}
 
       {processedChatHistory.map((item, index) =>

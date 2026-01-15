@@ -1,5 +1,7 @@
-import { Box, type DOMElement, measureElement } from "ink";
-import React, { useLayoutEffect, useRef } from "react";
+import { Box, type DOMElement, measureElement, Text } from "ink";
+import React, { useLayoutEffect, useRef, useState } from "react";
+
+import { scrollbarGeometry } from "../utils/scrollbar.js";
 
 export interface ScrollViewMetrics {
   /** Height of the whole transcript, in terminal rows. */
@@ -12,8 +14,13 @@ interface ScrollViewProps {
   /** Rows hidden above the window. Always clamped by the caller. */
   scrollTop: number;
   onMetrics: (metrics: ScrollViewMetrics) => void;
+  /** Draws a one-column scrollbar on the right edge of the window. */
+  showScrollbar?: boolean;
   children: React.ReactNode;
 }
+
+const TRACK_GLYPH = "│";
+const THUMB_GLYPH = "█";
 
 /**
  * A clipped, row-addressed window over its children.
@@ -28,43 +35,85 @@ interface ScrollViewProps {
  * Measurement runs in a layout effect, before Ink writes the frame, so the
  * first paint after a resume already shows the measured tail rather than one
  * frame of the top of the conversation.
+ *
+ * With `showScrollbar` the window is joined by a one-column track whose
+ * position and thumb are derived from the measured geometry, the way every
+ * terminal scrollbar reads: the thumb spans the viewport/content ratio and
+ * slides with the scroll fraction. The column is always reserved, so the bar
+ * never re-wraps the content by appearing.
  */
 export const ScrollView: React.FC<ScrollViewProps> = ({
   scrollTop,
   onMetrics,
+  showScrollbar = false,
   children,
 }) => {
   const viewportRef = useRef<DOMElement>(null);
   const contentRef = useRef<DOMElement>(null);
+  const [metrics, setMetrics] = useState<ScrollViewMetrics>({
+    contentHeight: 0,
+    viewportHeight: 0,
+  });
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     const content = contentRef.current;
     if (!viewport || !content) return;
 
-    onMetrics({
+    const next = {
       contentHeight: measureElement(content).height,
       viewportHeight: measureElement(viewport).height,
-    });
+    };
+    setMetrics((previous) =>
+      previous.contentHeight === next.contentHeight &&
+      previous.viewportHeight === next.viewportHeight
+        ? previous
+        : next,
+    );
+    onMetrics(next);
   });
 
+  const geometry = showScrollbar
+    ? scrollbarGeometry(scrollTop, metrics.viewportHeight, metrics.contentHeight)
+    : null;
+  const trackRows =
+    geometry?.scrollable === true
+      ? Array.from({ length: geometry.trackHeight }, (_, row) => {
+          const inThumb =
+            row >= geometry.thumbTop &&
+            row < geometry.thumbTop + geometry.thumbHeight;
+          return (
+            <Text key={row} dimColor={!inThumb}>
+              {inThumb ? THUMB_GLYPH : TRACK_GLYPH}
+            </Text>
+          );
+        })
+      : null;
+
   return (
-    <Box
-      ref={viewportRef}
-      flexDirection="column"
-      flexGrow={1}
-      flexShrink={1}
-      minHeight={0}
-      overflowY="hidden"
-    >
+    <Box flexDirection="row" flexGrow={1} flexShrink={1} minHeight={0}>
       <Box
-        ref={contentRef}
+        ref={viewportRef}
         flexDirection="column"
-        flexShrink={0}
-        marginTop={-Math.max(0, Math.floor(scrollTop))}
+        flexGrow={1}
+        flexShrink={1}
+        minHeight={0}
+        overflowY="hidden"
       >
-        {children}
+        <Box
+          ref={contentRef}
+          flexDirection="column"
+          flexShrink={0}
+          marginTop={-Math.max(0, Math.floor(scrollTop))}
+        >
+          {children}
+        </Box>
       </Box>
+      {showScrollbar && (
+        <Box flexDirection="column" flexShrink={0} width={1}>
+          {trackRows}
+        </Box>
+      )}
     </Box>
   );
 };
