@@ -13,6 +13,8 @@ on:
 
 jobs:
   check_release_name:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
@@ -27,8 +29,10 @@ jobs:
           fi
 
   build:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     needs: check_release_name
-    if: needs.check_release_name.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
+    # (suspended) if: needs.check_release_name.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -89,6 +93,8 @@ jobs:
           path: "ide/vscode/*.vsix"
 
   release:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -121,10 +127,12 @@ jobs:
           prerelease: true
 
   publish:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ubuntu-latest
     needs:
       - build
-    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish_build == 'true'
+    # (suspended) if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish_build == 'true'
     permissions:
       contents: write
       pull-requests: write

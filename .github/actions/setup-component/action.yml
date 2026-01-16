@@ -36,6 +36,11 @@ runs:
         key: ${{ runner.os }}-npm-cache-${{ inputs.component }}-${{ hashFiles(format('{0}/package-lock.json', steps.component-dir.outputs.dir)) }}
 
     - uses: actions/cache@v4
+      with:
+        path: ${{ steps.component-dir.outputs.dir }}/node_modules
+        key: ${{ runner.os }}-component-node-modules-${{ inputs.component }}-${{ hashFiles(format('{0}/package-lock.json', steps.component-dir.outputs.dir)) }}
+
+    - uses: actions/cache@v4
       if: inputs.include-packages == 'true'
       with:
         path: |
