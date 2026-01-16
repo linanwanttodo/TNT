@@ -1,6 +1,22 @@
+import type { ModelConfig } from "@tnt/config-yaml";
 import type { Usage } from "core/index.js";
 import { calculateRequestCost } from "core/llm/utils/calculateRequestCost.js";
+import type { ChatCompletionTool } from "openai/resources.mjs";
 
+import {
+  assessCacheBreak,
+  recallCacheRound,
+  recordCacheRound,
+  writeCacheBreakReport,
+} from "../cache/cacheBreakReport.js";
+import { rememberLastRequestCacheState } from "../cache/lastRequestCacheState.js";
+import {
+  attributeCacheMiss,
+  COMPACTION_PREFIX_STATE,
+  COLD_PREFIX_STATE,
+  type CachePrefixVerdict,
+} from "../cache/prefixState.js";
+import type { RequestHeader } from "../cache/requestHeader.js";
 import { trackSessionUsage } from "../session/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
@@ -167,6 +183,137 @@ export function recordStreamTelemetry(options: {
   });
 
   return cost;
+}
+
+/**
+ * Closes one request's books: stream telemetry is recorded, the provider usage
+ * object is annotated in place with the model and the computed cost for the
+ * session store, the per-request cache line is logged, a cache break is
+ * assessed and reported to a file, the status-bar state is refreshed, and the
+ * round is recorded so the next request is compared against it.
+ *
+ * The hit ratio is logged for every request rather than only the session
+ * total, because the session total is an average over requests that may have
+ * used entirely different prefixes. A zero here on an otherwise identical
+ * second request is the signal that something in the prefix moved.
+ */
+export function recordRoundAccounting(options: {
+  requestStartTime: number;
+  responseEndTime: number;
+  inputTokens: number;
+  outputTokens: number;
+  model: ModelConfig;
+  tools?: ChatCompletionTool[];
+  fullUsage: any;
+  /** Compaction requests carry their own prefix and are not turn rounds. */
+  isCompacting?: boolean;
+  promptCacheKey?: string;
+  cachePrefixVerdict?: CachePrefixVerdict;
+  cachePrefixComparison?: { previous?: RequestHeader; current: RequestHeader };
+}): {
+  cost: number;
+  cacheTokens: { cacheReadTokens?: number; cacheWriteTokens?: number };
+} {
+  const {
+    requestStartTime,
+    responseEndTime,
+    inputTokens,
+    outputTokens,
+    model,
+    tools,
+    fullUsage,
+    isCompacting,
+    promptCacheKey,
+    cachePrefixVerdict,
+    cachePrefixComparison,
+  } = options;
+
+  const cost = recordStreamTelemetry({
+    requestStartTime,
+    responseEndTime,
+    inputTokens,
+    outputTokens,
+    model,
+    tools,
+    fullUsage,
+    requestKind: isCompacting ? "compaction" : "turn",
+  });
+  const cacheTokens = cacheTokensFrom(fullUsage);
+
+  // Enhance fullUsage with model and cost for saving to session
+  if (fullUsage) {
+    fullUsage.model = model.model;
+    fullUsage.cost_cents = Math.round(cost * 100); // Convert dollars to cents
+  }
+
+  const cacheRead = cacheTokens.cacheReadTokens ?? 0;
+  const cacheWrite = cacheTokens.cacheWriteTokens ?? 0;
+  const reportedInput = fullUsage?.prompt_tokens ?? inputTokens;
+  if (reportedInput > 0) {
+    const missOwner = attributeCacheMiss({
+      verdict: cachePrefixVerdict,
+      cacheReadTokens: cacheRead,
+      inputTokens: reportedInput,
+    });
+    // Logged at info so the line is in the log file without a debug level
+    // set: attribution that only exists in a log nobody turns on is not
+    // attribution.
+    logger.info("Request cache usage", {
+      inputTokens: reportedInput,
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+      cacheHitRatio: Number((cacheRead / reportedInput).toFixed(4)),
+      prefixState:
+        cachePrefixVerdict?.state ??
+        (isCompacting ? COMPACTION_PREFIX_STATE : COLD_PREFIX_STATE),
+      prefixReasons: cachePrefixVerdict?.reasons ?? [],
+      ...(missOwner ? { cacheMissOwner: missOwner } : {}),
+    });
+
+    // A break is called out only when the bill shows it: a drop of a few points,
+    // or one on a request too short for the provider to have cached anything, is
+    // noise and would train nobody to ignore the line. The diff goes to a file
+    // because "the tool list moved" is not something a reader can act on.
+    const round = { inputTokens: reportedInput, cacheReadTokens: cacheRead };
+    const breakAssessment = assessCacheBreak(
+      recallCacheRound(promptCacheKey),
+      round,
+    );
+    let reportPath: string | undefined;
+    if (breakAssessment.report && cachePrefixComparison) {
+      reportPath = writeCacheBreakReport({
+        verdict: cachePrefixVerdict,
+        previous: cachePrefixComparison.previous ?? cachePrefixComparison.current,
+        current: cachePrefixComparison.current,
+        assessment: breakAssessment,
+      });
+      logger.warn("Cache break", {
+        hitRateBefore: Number(breakAssessment.previousRate.toFixed(4)),
+        hitRateAfter: Number(breakAssessment.currentRate.toFixed(4)),
+        dropPoints: Number(breakAssessment.dropPoints.toFixed(2)),
+        prefixState: cachePrefixVerdict?.state ?? COLD_PREFIX_STATE,
+        prefixReasons: cachePrefixVerdict?.reasons ?? [],
+        ...(missOwner ? { cacheMissOwner: missOwner } : {}),
+        ...(reportPath ? { reportPath } : {}),
+      });
+    }
+
+    // Held for the status bar: the session-wide ratio is an average and cannot
+    // say why this round re-read everything. A request with no verdict is the
+    // first of a conversation, so there is nothing to report yet - and nothing
+    // stale to keep either, since the holder starts empty.
+    if (cachePrefixVerdict) {
+      rememberLastRequestCacheState({
+        state: cachePrefixVerdict.state,
+        reasons: cachePrefixVerdict.reasons,
+        hitRate: Number((cacheRead / reportedInput).toFixed(4)),
+        ...(reportPath ? { reportPath } : {}),
+      });
+    }
+    recordCacheRound(promptCacheKey, round);
+  }
+
+  return { cost, cacheTokens };
 }
 
 /**

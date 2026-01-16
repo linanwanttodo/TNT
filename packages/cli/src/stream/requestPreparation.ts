@@ -11,7 +11,10 @@ import {
   type CachePrefixVerdict,
 } from "../cache/prefixState.js";
 import type { RequestHeader } from "../cache/requestHeader.js";
+import { pruneLastMessage } from "../compaction/index.js";
+import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
+import { validateContextLength } from "../utils/tokenizer.js";
 
 import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
@@ -116,4 +119,59 @@ export async function prepareRoundRequest(
     previousHeader,
     verdict,
   };
+}
+
+/**
+ * Prunes trailing messages until the request fits the model's context window,
+ * counting the system message, its updates and the tool list. A request that
+ * still does not fit after pruning throws rather than reaching the provider.
+ *
+ * Returns the possibly shortened history and the token budget the provider
+ * call must carry as `max_tokens`.
+ */
+export function pruneHistoryToContextLimit(options: {
+  chatHistory: ChatHistoryItem[];
+  model: ModelConfig;
+  systemMessage: string;
+  systemMessageUpdates: readonly string[];
+  tools?: ChatCompletionTool[];
+}): { chatHistory: ChatHistoryItem[]; maxTokens?: number } {
+  const { model, systemMessage, systemMessageUpdates, tools } = options;
+  let history = options.chatHistory;
+
+  // Safety buffer to account for tokenization estimation errors
+  const SAFETY_BUFFER = 100;
+  const systemMessageHistory = systemMessageUpdates.map((content) => ({
+    message: { role: "system" as const, content },
+    contextItems: [],
+  }));
+
+  let validation = validateContextLength({
+    chatHistory: [...history, ...systemMessageHistory],
+    model,
+    safetyBuffer: SAFETY_BUFFER,
+    systemMessage,
+    tools,
+  });
+  while (history.length > 1 && !validation.isValid) {
+    const prunedChatHistory = pruneLastMessage(history);
+    if (prunedChatHistory.length === history.length) {
+      break;
+    }
+    history = prunedChatHistory;
+    validation = validateContextLength({
+      chatHistory: [...history, ...systemMessageHistory],
+      model,
+      safetyBuffer: SAFETY_BUFFER,
+      systemMessage,
+      tools,
+    });
+  }
+  if (!validation.isValid) {
+    throw new Error(
+      t("stream.contextValidationFailed", { error: String(validation.error) }),
+    );
+  }
+
+  return { chatHistory: history, maxTokens: validation.maxTokens };
 }

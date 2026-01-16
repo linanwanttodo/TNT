@@ -8,6 +8,7 @@ import { logger } from "../utils/logger.js";
 import {
   processChunkContent,
   processToolCallDelta,
+  trackFirstTokenTime,
 } from "./chunkProcessing.js";
 import { StreamCallbacks } from "./streamChatResponse.types.js";
 
@@ -187,4 +188,86 @@ export function processChunk(options: ProcessChunkOptions): {
   }
 
   return { aiResponse: updatedResponse, shouldContinue: true, reasoningDelta };
+}
+
+/**
+ * The mutable state one streaming round folds its chunks into. The round owns
+ * the object, so a stream that throws mid-way still leaves the partial answer
+ * and usage readable by the caller's error paths.
+ */
+export interface StreamAccumulator {
+  aiResponse: string;
+  reasoningText: string;
+  toolCallsMap: Map<string, ToolCall>;
+  indexToIdMap: Map<number, string>;
+  inputTokens: number;
+  outputTokens: number;
+  fullUsage: any;
+}
+
+/**
+ * Consumes one provider stream: folds each chunk into the accumulator, tracks
+ * the usage payload, and stops on abort or when the chunk processor says the
+ * stream is over. Returns the number of chunks seen.
+ */
+export async function consumeProviderStream(
+  stream: AsyncIterable<any>,
+  state: StreamAccumulator,
+  options: {
+    abortSignal?: AbortSignal;
+    callbacks?: StreamCallbacks;
+    isHeadless?: boolean;
+    model: any;
+    tools?: any[];
+    requestStartTime: number;
+    loopDetector?: LoopDetector;
+  },
+): Promise<number> {
+  let chunkCount = 0;
+  let firstTokenTime: number | null = null;
+
+  for await (const chunk of stream) {
+    chunkCount++;
+
+    logger.debug("Received chunk", { chunkCount, chunk });
+
+    // Track token usage if available
+    if (chunk.usage) {
+      state.inputTokens = chunk.usage.prompt_tokens || 0;
+      state.outputTokens = chunk.usage.completion_tokens || 0;
+      state.fullUsage = chunk.usage; // Capture full usage including cache details
+    }
+
+    // Check if we should abort
+    if (options.abortSignal?.aborted) {
+      logger.debug("Stream aborted");
+      break;
+    }
+
+    // Track first token time
+    firstTokenTime = trackFirstTokenTime(
+      firstTokenTime,
+      chunk,
+      options.requestStartTime,
+      options.model,
+      options.tools,
+    );
+
+    const result = processChunk({
+      chunk,
+      aiResponse: state.aiResponse,
+      toolCallsMap: state.toolCallsMap,
+      indexToIdMap: state.indexToIdMap,
+      callbacks: options.callbacks,
+      isHeadless: options.isHeadless,
+      loopDetector: options.loopDetector,
+    });
+    state.aiResponse = result.aiResponse;
+    if (result.reasoningDelta) {
+      state.reasoningText += result.reasoningDelta;
+    }
+    if (!result.shouldContinue) break;
+  }
+
+  return chunkCount;
 }
