@@ -32,6 +32,8 @@ export interface ProtocolOption {
   defaultApiBase: string;
   exampleApiBase?: string;
   defaultModel: string;
+  /** Placeholder for a model the user must choose, e.g. a local Ollama tag. */
+  exampleModel?: string;
   contextLength: number;
   maxTokens: number;
 }
@@ -71,10 +73,10 @@ export const PROTOCOLS: ProtocolOption[] = [
   },
   {
     id: "openai-compatible",
-    label: "OpenAI-compatible endpoint",
-    defaultApiBase: "",
-    exampleApiBase: "https://api.deepseek.com/",
+    label: "Ollama / local model",
+    defaultApiBase: "http://localhost:11434/v1/",
     defaultModel: "",
+    exampleModel: "llama3.2",
     contextLength: 128_000,
     maxTokens: 8_192,
   },
@@ -104,13 +106,11 @@ function renderProtocolMenu(): void {
 async function askProtocol(): Promise<ProtocolOption> {
   renderProtocolMenu();
   const answer = (
-    await question(
-      chalk.white(`\nProtocol [1-${PROTOCOLS.length}, default 1]: `),
-    )
+    await question(chalk.white(`\nProtocol [1-${PROTOCOLS.length}]: `))
   ).trim();
 
   if (answer === "") {
-    return PROTOCOLS[0];
+    throw new Error(t("setup.protocolRequired"));
   }
 
   const index = Number.parseInt(answer, 10);
