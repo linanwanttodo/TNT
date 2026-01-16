@@ -79,6 +79,37 @@ describe("UserInput slash palette", () => {
     }
   });
 
+  it("updates the palette for input that arrives faster than a tick", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/");
+      tree.stdin.write("he");
+      await tick();
+
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain("/help");
+      expect(frame).not.toContain("/back");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("refreshes the palette when rapid input is finalized", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("/back");
+
+      tree.stdin.write("model " + "x".repeat(60));
+      await tick(350);
+
+      expect(tree.lastFrame() ?? "").not.toContain("/back");
+    } finally {
+      tree.unmount();
+    }
+  });
+
   it("never executes a command from a bare slash plus Enter", async () => {
     const tree = await renderInput();
     try {

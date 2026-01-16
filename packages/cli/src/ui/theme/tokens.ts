@@ -64,9 +64,9 @@ export const darkTheme: Theme = {
   },
   border: {
     default: "gray",
-    focus: "cyanBright",
+    focus: "#5ac8fa",
   },
-  accent: "cyanBright",
+  accent: "#5ac8fa",
   user: "blue",
   tool: {
     pendingBackground: "#1c1c1c",

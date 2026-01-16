@@ -18,6 +18,11 @@ describe("Theme system", () => {
     expect(theme.diff.delBackground).toBe("#3b1a1e");
   });
 
+  it("uses a light blue accent and focus border by default", () => {
+    expect(darkTheme.accent).toBe("#5ac8fa");
+    expect(darkTheme.border.focus).toBe("#5ac8fa");
+  });
+
   it("resolves registered themes by name", () => {
     expect(getTheme("dark")).toBe(darkTheme);
     expect(getTheme("tencent-dark")).toBe(tencentDarkTheme);

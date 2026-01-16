@@ -7,6 +7,7 @@ import { t } from "../i18n/index.js";
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import { useTheme } from "./theme/tokens.js";
 
 const MAX_DESCRIPTION_LENGTH = 80;
 
@@ -41,6 +42,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
   selectedIndex,
 }) => {
   const locale = useLocale();
+  const theme = useTheme();
   const { columns } = useTerminalSize();
   const [selfLoaded, setSelfLoaded] = useState<SlashCommand[]>(
     // Fallback - basic commands without assistant
@@ -142,7 +144,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
           <Box key={command.name} width={columns} flexWrap="nowrap">
             <Box width={nameWidth} flexShrink={0}>
               <Text
-                color={isSelected ? "blue" : "white"}
+                color={isSelected ? theme.accent : "white"}
                 bold={isSelected}
                 wrap="truncate"
               >
@@ -150,7 +152,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
               </Text>
             </Box>
             <Box flexGrow={1} paddingLeft={2}>
-              <Text color={isSelected ? "blue" : "gray"} wrap="truncate">
+              <Text color={isSelected ? theme.accent : "gray"} wrap="truncate">
                 {description}
               </Text>
             </Box>

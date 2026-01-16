@@ -35,8 +35,14 @@ describe("provider setup config generation", () => {
       "OpenAI Responses",
       "Anthropic Messages",
       "Google Generative AI",
-      "OpenAI-compatible endpoint",
+      "Ollama / local model",
     ]);
+  });
+
+  test("offers Ollama and local models as the fifth protocol", () => {
+    const ollama = PROTOCOLS[4];
+    expect(ollama.defaultApiBase).toBe("http://localhost:11434/v1/");
+    expect(ollama.exampleModel).toBe("llama3.2");
   });
 
   test("maps an OpenAI-compatible protocol to the openai adapter provider", () => {
