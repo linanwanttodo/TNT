@@ -40,7 +40,7 @@ description: "在智能体循环的指定位置运行命令或模型回合。"
         "hooks": [
           {
             "type": "command",
-            "command": "npm run format -- $TNT_FILE_PATH"
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
           }
         ]
       }
@@ -48,6 +48,9 @@ description: "在智能体循环的指定位置运行命令或模型回合。"
   }
 }
 ```
+
+每个 hook 都会在 stdin 上收到事件 JSON（上例中的 `tool_input.file_path`），
+环境变量 `CONTINUE_PROJECT_DIR` 指向工作区。
 
 支持四种处理程序：
 
