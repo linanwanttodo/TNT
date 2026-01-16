@@ -4,8 +4,8 @@ import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 import { ModelServiceState } from "../services/types.js";
-import { getCurrentSession, saveSubagentSession } from "../session/index.js";
 import { runAgentTurn } from "../session/controller.js";
+import { getCurrentSession, saveSubagentSession } from "../session/index.js";
 import { escapeEvents } from "../utils/cli.js";
 import { logger } from "../utils/logger.js";
 

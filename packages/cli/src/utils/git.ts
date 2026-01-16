@@ -1,4 +1,4 @@
-import { exec, execSync } from "child_process";
+import { exec, execFileSync, execSync } from "child_process";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
@@ -11,7 +11,7 @@ const LARGE_STDIO_BUFFER_BYTES = 10 * 1024 * 1024; // bump buffer for large git 
  */
 export function getGitRemoteUrl(remote: string = "origin"): string | null {
   try {
-    const result = execSync(`git remote get-url ${remote}`, {
+    const result = execFileSync("git", ["remote", "get-url", remote], {
       encoding: "utf-8",
       cwd: process.cwd(),
       stdio: "pipe",

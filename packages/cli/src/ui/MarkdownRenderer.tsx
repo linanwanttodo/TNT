@@ -2,6 +2,7 @@ import { Text } from "ink";
 import React from "react";
 
 import { closedThinkBlockPattern } from "../utils/thinkingTags.js";
+
 import {
   defaultTheme,
   detectLanguage,

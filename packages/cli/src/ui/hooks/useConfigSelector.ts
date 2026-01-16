@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import * as path from "path";
 
 import { env } from "../../config/env.js";
@@ -36,25 +36,35 @@ export function useConfigSelector({
     closeCurrentScreen();
 
     if (config.type === "create") {
-      // Open the web browser to create new assistant
+      // Open the web browser to create new assistant. Each platform opener
+      // receives the URL as its own argv element, so the value is never
+      // re-parsed by a shell.
       const url = new URL("https://github.com/linanwanttodo/TNT");
       url.searchParams.set("type", "assistant");
 
       try {
-        let command: string;
         if (process.platform === "darwin") {
-          command = `open "${url}"`;
+          spawn("open", [url.toString()], { stdio: "ignore" }).on(
+            "error",
+            (error) => {
+              console.error(t("chat.browserOpenFailed"), error);
+            },
+          );
         } else if (process.platform === "win32") {
-          command = `start "${url}"`;
-        } else {
-          command = `xdg-open "${url}"`;
-        }
-
-        exec(command, (error) => {
-          if (error) {
+          // `start` is a cmd builtin, not an executable of its own.
+          spawn("cmd.exe", ["/c", "start", "", url.toString()], {
+            stdio: "ignore",
+          }).on("error", (error) => {
             console.error(t("chat.browserOpenFailed"), error);
-          }
-        });
+          });
+        } else {
+          spawn("xdg-open", [url.toString()], { stdio: "ignore" }).on(
+            "error",
+            (error) => {
+              console.error(t("chat.browserOpenFailed"), error);
+            },
+          );
+        }
 
         onMessage({
           role: "system",

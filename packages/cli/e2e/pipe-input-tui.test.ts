@@ -7,6 +7,10 @@ import {
   createTestConfig,
   type CLITestContext,
 } from "../test-utils/cli-helpers.js";
+import {
+  fixtureApiKeyLine,
+  fixtureKey,
+} from "../test-utils/fixtureCredentials.js";
 
 describe("E2E: Pipe Input to TUI Mode", () => {
   let context: CLITestContext;
@@ -18,11 +22,11 @@ models:
   - name: gpt-4
     model: gpt-4
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     roles:
       - chat`;
 
-  const testEnv = { OPENAI_API_KEY: "test-key" };
+  const testEnv = { OPENAI_API_KEY: fixtureKey("env") };
 
   beforeEach(async () => {
     context = await createTestContext();

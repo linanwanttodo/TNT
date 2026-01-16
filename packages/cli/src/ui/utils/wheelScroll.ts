@@ -4,8 +4,7 @@
  * A terminal either accelerates the wheel itself - local macOS terminals send
  * one event per row - or sends one event per notch. Treating a notch as one
  * row makes fast spins feel unresponsive, so velocity is used when the
- * terminal does not do the acceleration. This is the same model pi's TUI
- * uses for its alternate-screen viewport.
+ * terminal does not do the acceleration.
  */
 export type WheelScrollLines = number | "auto";
 

@@ -6,7 +6,7 @@ import { logger } from "../utils/logger.js";
 
 /**
  * What a notify command receives as its final argv element, so a script can
- * read it with a single JSON.parse of the last argument (Codex's contract).
+ * read it with a single JSON.parse of the last argument.
  */
 export interface CompletionNotifyPayload {
   type: "agent-turn-complete";
