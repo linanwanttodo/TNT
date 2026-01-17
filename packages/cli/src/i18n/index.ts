@@ -679,7 +679,6 @@ const en = {
   "edit.inputHint": "Enter to submit, Esc to cancel, Shift+Enter for newline",
   "edit.prompt": "Select a message to edit:",
   "tool.executionFailed": "Tool execution failed",
-  "goal.label": "Goal: ",
   "session.you": "You",
   "session.assistant": "Assistant",
   "selector.loading": "Loading...",
@@ -687,7 +686,7 @@ const en = {
   "mcp.none": "No servers configured",
   "mcp.hubOpened": "Opened MCP servers hub in browser",
   "tool.willCall": "Will call {name}",
-  "tool.todosCount": "Todos {done}/{total}",
+  "ui.todoMore": "… {count} more",
   "language.changed": "Language set to {locale}",
 };
 
@@ -1279,7 +1278,6 @@ const zhCN: Record<TranslationKey, string> = {
   "edit.inputHint": "回车提交，Esc 取消，Shift+Enter 换行",
   "edit.prompt": "选择要编辑的消息：",
   "tool.executionFailed": "工具执行失败",
-  "goal.label": "目标：",
   "session.you": "你",
   "session.assistant": "助手",
   "selector.loading": "加载中...",
@@ -1287,7 +1285,7 @@ const zhCN: Record<TranslationKey, string> = {
   "mcp.none": "未配置 MCP 服务器",
   "mcp.hubOpened": "已在浏览器中打开 MCP 服务器中心",
   "tool.willCall": "将调用 {name}",
-  "tool.todosCount": "待办 {done}/{total}",
+  "ui.todoMore": "… 还有 {count} 条",
   "language.changed": "语言已切换为 {locale}",
 };
 

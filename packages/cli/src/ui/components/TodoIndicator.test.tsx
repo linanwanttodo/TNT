@@ -35,10 +35,9 @@ afterEach(() => {
 });
 
 describe("TodoIndicator", () => {
-  it("shows at most five unfinished rows and counts the rest on the header", () => {
+  it("hides finished rows, shows five open rows, and summarizes the rest", () => {
     const frame = frameWith(
       todosOf(
-        { text: "done one", done: true },
         { text: "task 1" },
         { text: "task 2" },
         { text: "task 3" },
@@ -46,30 +45,41 @@ describe("TodoIndicator", () => {
         { text: "task 5" },
         { text: "task 6" },
         { text: "task 7" },
-        { text: "task 8" },
-        { text: "done two", done: true },
+        { text: "finished one", done: true },
+        { text: "finished two", done: true },
       ),
     );
 
-    expect(frame).toContain("Todos 2/10 · +3");
-    for (const visible of ["task 1", "task 5"]) {
-      expect(frame).toContain(visible);
-    }
+    expect(frame).toContain("TODO");
+    expect(frame).toContain("· 2/9");
+    expect(frame).toContain("├─ ☐ task 1");
+    expect(frame).toContain("☐ task 5");
     expect(frame).not.toContain("task 6");
-    expect(frame).not.toContain("task 8");
-    expect(frame).not.toContain("done one");
-    expect(frame).not.toContain("done two");
+    expect(frame).not.toContain("finished one");
+    expect(frame).toContain("└─ … 2 more");
   });
 
-  it("hides completed rows when fewer than five remain", () => {
+  it("shows every open row and closes the spine when five or fewer remain", () => {
     const frame = frameWith(
-      todosOf({ text: "finished", done: true }, { text: "remaining" }),
+      todosOf(
+        { text: "done one", done: true },
+        { text: "done two", done: true },
+        { text: "done three", done: true },
+        { text: "done four", done: true },
+        { text: "done five", done: true },
+        { text: "done six", done: true },
+        { text: "task 1" },
+        { text: "task 2" },
+        { text: "task 3" },
+        { text: "task 4" },
+        { text: "task 5" },
+      ),
     );
 
-    expect(frame).toContain("Todos 1/2");
-    expect(frame).toContain("remaining");
-    expect(frame).not.toContain("finished");
-    expect(frame).not.toContain("+");
+    expect(frame).toContain("· 6/11");
+    expect(frame).toContain("├─ ☐ task 1");
+    expect(frame).toContain("└─ ☐ task 5");
+    expect(frame).not.toContain("…");
   });
 
   it("takes no space once every todo is done", () => {
