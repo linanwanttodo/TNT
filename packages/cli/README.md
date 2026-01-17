@@ -2,7 +2,7 @@
 
 TNT (`tnt`) is a customizable command line coding agent.
 
-This project is a fork derived from [Continue](https://github.com/linanwanttodo/TNT), an open-source AI code agent. TNT builds on Continue's foundation with its own naming, CLI interface and behavior changes.
+This project is a fork derived from [Continue](https://github.com/continuedev/continue), an open-source AI code agent. TNT builds on Continue's foundation with its own naming, CLI interface and behavior changes.
 
 ![TNT Demo](./media/demo.gif)
 

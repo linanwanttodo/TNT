@@ -16,7 +16,11 @@
           {
             "group": "Get started",
             "icon": "rocket-launch",
-            "pages": ["index", "cli/quickstart", "cli/headless-mode"]
+            "pages": [
+              "index",
+              "cli/quickstart",
+              "cli/headless-mode"
+            ]
           },
           {
             "group": "Configure",
@@ -41,7 +45,11 @@
           {
             "group": "Architecture",
             "icon": "layer-group",
-            "pages": ["cli/architecture", "cli/acp", "cli/sessions"]
+            "pages": [
+              "cli/architecture",
+              "cli/acp",
+              "cli/sessions"
+            ]
           },
           {
             "group": "Extend",
@@ -57,7 +65,11 @@
           {
             "group": "Help",
             "icon": "circle-question",
-            "pages": ["cli/troubleshooting"]
+            "pages": [
+              "cli/troubleshooting",
+              "troubleshooting",
+              "reference"
+            ]
           }
         ]
       }
@@ -69,9 +81,18 @@
     }
   },
   "redirects": [
-    { "source": "/customize", "destination": "/" },
-    { "source": "/guides", "destination": "/" },
-    { "source": "/ide-extensions", "destination": "/" }
+    {
+      "source": "/customize",
+      "destination": "/"
+    },
+    {
+      "source": "/guides",
+      "destination": "/"
+    },
+    {
+      "source": "/ide-extensions",
+      "destination": "/"
+    }
   ],
   "navbar": {
     "primary": {
