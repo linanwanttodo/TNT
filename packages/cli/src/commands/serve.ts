@@ -43,6 +43,7 @@ import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import { renderServerStartupHelp } from "./serve.help.js";
 import {
   attachBindErrorHandler,
+  attachBrowserOriginGuard,
   checkAgentComplete,
   endServedSession,
   finishServedTurn,
@@ -244,6 +245,9 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   await startServedSession(resumedSession, model?.model);
 
   const app = express();
+  // Browser-originated requests are rejected before anything else runs, so a
+  // page in the user's browser can neither read the state nor post prompts.
+  attachBrowserOriginGuard(app, port, options.host);
   app.use(express.json());
 
   // GET /state - Return the current state
