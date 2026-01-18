@@ -26,6 +26,8 @@ interface MainContentProps {
   /** Rows hidden above the transcript window. */
   scrollTop: number;
   onScrollMetrics: (metrics: ScrollViewMetrics) => void;
+  /** Draws the one-column scrollbar on the transcript's right edge. */
+  showScrollbar?: boolean;
 }
 
 /**
@@ -51,6 +53,7 @@ export const MainContent: React.FC<MainContentProps> = ({
   isBashToolRunning,
   scrollTop,
   onScrollMetrics,
+  showScrollbar,
 }) => {
   return (
     <Box
@@ -74,6 +77,7 @@ export const MainContent: React.FC<MainContentProps> = ({
         isBashToolRunning={isBashToolRunning}
         scrollTop={scrollTop}
         onMetrics={onScrollMetrics}
+        showScrollbar={showScrollbar}
       />
     </Box>
   );
