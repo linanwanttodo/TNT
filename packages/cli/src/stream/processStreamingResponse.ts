@@ -7,23 +7,9 @@ import type {
   ChatCompletionTool,
 } from "openai/resources.mjs";
 
-import {
-  assessCacheBreak,
-  recallCacheRound,
-  recordCacheRound,
-  writeCacheBreakReport,
-} from "../cache/cacheBreakReport.js";
-import { rememberLastRequestCacheState } from "../cache/lastRequestCacheState.js";
-import {
-  attributeCacheMiss,
-  COMPACTION_PREFIX_STATE,
-  COLD_PREFIX_STATE,
-  type CachePrefixVerdict,
-} from "../cache/prefixState.js";
+import type { CachePrefixVerdict } from "../cache/prefixState.js";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import type { RequestHeader } from "../cache/requestHeader.js";
-import { pruneLastMessage } from "../compaction/index.js";
-import { t } from "../i18n/index.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
   classifyStreamError,
@@ -36,13 +22,14 @@ import {
   withExponentialBackoff,
 } from "../utils/exponentialBackoff.js";
 import { logger } from "../utils/logger.js";
-import { validateContextLength } from "../utils/tokenizer.js";
 
-import { processChunk } from "./responseChunks.js";
+import { pruneHistoryToContextLimit } from "./requestPreparation.js";
 import {
-  cacheTokensFrom,
-  recordStreamTelemetry,
-  trackFirstTokenTime,
+  consumeProviderStream,
+  type StreamAccumulator,
+} from "./responseChunks.js";
+import {
+  recordRoundAccounting,
 } from "./streamChatResponse.helpers.js";
 import {
   getDefaultCompletionOptions,
@@ -118,45 +105,17 @@ export async function processStreamingResponse(
 
   let chatHistory = options.chatHistory;
 
-  // Safety buffer to account for tokenization estimation errors
-  const SAFETY_BUFFER = 100;
-
-  // Validate context length INCLUDING system message and tools
-  const systemMessageHistory = systemMessageUpdates.map((content) => ({
-    message: { role: "system" as const, content },
-    contextItems: [],
-  }));
-  let validation = validateContextLength({
-    chatHistory: [...chatHistory, ...systemMessageHistory],
-    model,
-    safetyBuffer: SAFETY_BUFFER,
-    systemMessage,
-    tools,
-  });
-
-  // Prune last messages until valid (excluding system message)
-  while (chatHistory.length > 1 && !validation.isValid) {
-    const prunedChatHistory = pruneLastMessage(chatHistory);
-    if (prunedChatHistory.length === chatHistory.length) {
-      break;
-    }
-    chatHistory = prunedChatHistory;
-
-    // Re-validate with system message and tools
-    validation = validateContextLength({
-      chatHistory: [...chatHistory, ...systemMessageHistory],
+  // Prune trailing messages until the request fits the window, counting the
+  // system message, its updates and the tool list. Still too large throws here.
+  const { chatHistory: prunedChatHistory, maxTokens } =
+    pruneHistoryToContextLimit({
+      chatHistory,
       model,
-      safetyBuffer: SAFETY_BUFFER,
       systemMessage,
+      systemMessageUpdates,
       tools,
     });
-  }
-
-  if (!validation.isValid) {
-    throw new Error(
-      t("stream.contextValidationFailed", { error: String(validation.error) }),
-    );
-  }
+  chatHistory = prunedChatHistory;
 
   // Create OpenAI format history with validated system message
   const openaiChatHistory = [
@@ -183,25 +142,27 @@ export async function processStreamingResponse(
         stream: true,
         tools,
         ...getDefaultCompletionOptions(model.defaultCompletionOptions),
-        max_tokens: validation.maxTokens,
+        max_tokens: maxTokens,
         ...(promptCacheKey ? { prompt_cache_key: promptCacheKey } : {}),
       },
       retryAbortSignal,
     );
   };
 
-  let aiResponse = "";
-  let finalContent = "";
-  let reasoningText = "";
-  const toolCallsMap = new Map<string, ToolCall>();
-  const indexToIdMap = new Map<number, string>(); // Track index to ID mapping
-  let firstTokenTime: number | null = null;
-  let inputTokens = 0;
-  let outputTokens = 0;
-  let fullUsage: any = null;
   // One detector per assistant message. A repetition spanning two separate
   // messages is a different problem and is not what this catches.
   const loopDetector = new LoopDetector();
+  // The accumulator is mutated by the stream consumer, so a stream that
+  // throws mid-way still leaves the partial answer readable to the catch.
+  const streamState: StreamAccumulator = {
+    aiResponse: "",
+    reasoningText: "",
+    toolCallsMap: new Map<string, ToolCall>(),
+    indexToIdMap: new Map<number, string>(),
+    inputTokens: 0,
+    outputTokens: 0,
+    fullUsage: null,
+  };
 
   try {
     const streamWithBackoff = withExponentialBackoff(
@@ -209,153 +170,47 @@ export async function processStreamingResponse(
       abortController.signal,
     );
 
-    let chunkCount = 0;
-    for await (const chunk of streamWithBackoff) {
-      chunkCount++;
-
-      logger.debug("Received chunk", { chunkCount, chunk });
-
-      // Track token usage if available
-      if (chunk.usage) {
-        inputTokens = chunk.usage.prompt_tokens || 0;
-        outputTokens = chunk.usage.completion_tokens || 0;
-        fullUsage = chunk.usage; // Capture full usage including cache details
-      }
-
-      // Check if we should abort
-      if (abortController?.signal.aborted) {
-        logger.debug("Stream aborted");
-        break;
-      }
-
-      // Track first token time
-      firstTokenTime = trackFirstTokenTime(
-        firstTokenTime,
-        chunk,
-        requestStartTime,
-        model,
-        tools,
-      );
-
-      const result = processChunk({
-        chunk,
-        aiResponse,
-        toolCallsMap,
-        indexToIdMap,
+    const chunkCount = await consumeProviderStream(
+      streamWithBackoff,
+      streamState,
+      {
+        abortSignal: abortController.signal,
         callbacks,
         isHeadless,
+        model,
+        tools,
+        requestStartTime,
         loopDetector,
-      });
-      aiResponse = result.aiResponse;
-      if (result.reasoningDelta) {
-        reasoningText += result.reasoningDelta;
-      }
-      if (!result.shouldContinue) break;
-    }
+      },
+    );
 
     const responseEndTime = Date.now();
-    const cost = recordStreamTelemetry({
+    const { cost, cacheTokens } = recordRoundAccounting({
       requestStartTime,
       responseEndTime,
-      inputTokens,
-      outputTokens,
+      inputTokens: streamState.inputTokens,
+      outputTokens: streamState.outputTokens,
       model,
       tools,
-      fullUsage,
-      requestKind: isCompacting ? "compaction" : "turn",
+      fullUsage: streamState.fullUsage,
+      isCompacting,
+      promptCacheKey,
+      cachePrefixVerdict,
+      cachePrefixComparison,
     });
     const totalDuration = responseEndTime - requestStartTime;
-    const cacheTokens = cacheTokensFrom(fullUsage);
-
-    // Enhance fullUsage with model and cost for saving to session
-    if (fullUsage) {
-      fullUsage.model = model.model;
-      fullUsage.cost_cents = Math.round(cost * 100); // Convert dollars to cents
-    }
 
     logger.debug("Stream complete", {
       chunkCount,
-      responseLength: aiResponse.length,
-      toolCallsCount: toolCallsMap.size,
-      inputTokens,
-      outputTokens,
+      responseLength: streamState.aiResponse.length,
+      toolCallsCount: streamState.toolCallsMap.size,
+      inputTokens: streamState.inputTokens,
+      outputTokens: streamState.outputTokens,
       cacheReadTokens: cacheTokens.cacheReadTokens,
       cacheWriteTokens: cacheTokens.cacheWriteTokens,
       cost,
       duration: totalDuration,
     });
-
-    // The hit ratio is logged for every request rather than only the session
-    // total, because the session total is an average over requests that may
-    // have used entirely different prefixes. A zero here on an otherwise
-    // identical second request is the signal that something in the prefix moved.
-    const cacheRead = cacheTokens.cacheReadTokens ?? 0;
-    const cacheWrite = cacheTokens.cacheWriteTokens ?? 0;
-    const reportedInput = fullUsage?.prompt_tokens ?? inputTokens;
-    if (reportedInput > 0) {
-      const missOwner = attributeCacheMiss({
-        verdict: cachePrefixVerdict,
-        cacheReadTokens: cacheRead,
-        inputTokens: reportedInput,
-      });
-      // Logged at info so the line is in the log file without a debug level
-      // set: attribution that only exists in a log nobody turns on is not
-      // attribution.
-      logger.info("Request cache usage", {
-        inputTokens: reportedInput,
-        cacheReadTokens: cacheRead,
-        cacheWriteTokens: cacheWrite,
-        cacheHitRatio: Number((cacheRead / reportedInput).toFixed(4)),
-        prefixState:
-          cachePrefixVerdict?.state ??
-          (isCompacting ? COMPACTION_PREFIX_STATE : COLD_PREFIX_STATE),
-        prefixReasons: cachePrefixVerdict?.reasons ?? [],
-        ...(missOwner ? { cacheMissOwner: missOwner } : {}),
-      });
-
-      // A break is called out only when the bill shows it: a drop of a few points,
-      // or one on a request too short for the provider to have cached anything, is
-      // noise and would train nobody to ignore the line. The diff goes to a file
-      // because "the tool list moved" is not something a reader can act on.
-      const round = { inputTokens: reportedInput, cacheReadTokens: cacheRead };
-      const breakAssessment = assessCacheBreak(
-        recallCacheRound(promptCacheKey),
-        round,
-      );
-      let reportPath: string | undefined;
-      if (breakAssessment.report && cachePrefixComparison) {
-        reportPath = writeCacheBreakReport({
-          verdict: cachePrefixVerdict,
-          previous:
-            cachePrefixComparison.previous ?? cachePrefixComparison.current,
-          current: cachePrefixComparison.current,
-          assessment: breakAssessment,
-        });
-        logger.warn("Cache break", {
-          hitRateBefore: Number(breakAssessment.previousRate.toFixed(4)),
-          hitRateAfter: Number(breakAssessment.currentRate.toFixed(4)),
-          dropPoints: Number(breakAssessment.dropPoints.toFixed(2)),
-          prefixState: cachePrefixVerdict?.state ?? COLD_PREFIX_STATE,
-          prefixReasons: cachePrefixVerdict?.reasons ?? [],
-          ...(missOwner ? { cacheMissOwner: missOwner } : {}),
-          ...(reportPath ? { reportPath } : {}),
-        });
-      }
-
-      // Held for the status bar: the session-wide ratio is an average and cannot
-      // say why this round re-read everything. A request with no verdict is the
-      // first of a conversation, so there is nothing to report yet - and nothing
-      // stale to keep either, since the holder starts empty.
-      if (cachePrefixVerdict) {
-        rememberLastRequestCacheState({
-          state: cachePrefixVerdict.state,
-          reasons: cachePrefixVerdict.reasons,
-          hitRate: Number((cacheRead / reportedInput).toFixed(4)),
-          ...(reportPath ? { reportPath } : {}),
-        });
-      }
-      recordCacheRound(promptCacheKey, round);
-    }
   } catch (error: any) {
     const errorDuration = Date.now() - requestStartTime;
 
@@ -370,12 +225,12 @@ export async function processStreamingResponse(
     if (error.name === "AbortError" || abortController?.signal.aborted) {
       logger.debug("Stream aborted by user");
       return {
-        content: aiResponse,
-        finalContent: aiResponse,
+        content: streamState.aiResponse,
+        finalContent: streamState.aiResponse,
         toolCalls: [],
         shouldContinue: false,
-        usage: fullUsage,
-        reasoning: reasoningText,
+        usage: streamState.fullUsage,
+        reasoning: streamState.reasoningText,
       };
     }
 
@@ -389,12 +244,12 @@ export async function processStreamingResponse(
         error: error.message || String(error),
       });
       return {
-        content: aiResponse,
-        finalContent: aiResponse,
+        content: streamState.aiResponse,
+        finalContent: streamState.aiResponse,
         toolCalls: [],
         shouldContinue: false,
-        usage: fullUsage,
-        reasoning: reasoningText,
+        usage: streamState.fullUsage,
+        reasoning: streamState.reasoningText,
         terminalStop: stopKind,
         terminalStopMessage: error.message || String(error),
       };
@@ -403,7 +258,7 @@ export async function processStreamingResponse(
     throw error;
   }
 
-  const toolCalls = Array.from(toolCallsMap.values());
+  const toolCalls = Array.from(streamState.toolCallsMap.values());
 
   // Validate tool calls have complete arguments
   const validToolCalls = toolCalls.filter((tc) => {
@@ -420,16 +275,16 @@ export async function processStreamingResponse(
   });
 
   // Always preserve the content - it should be displayed regardless of tool calls
-  finalContent = aiResponse;
+  const finalContent = streamState.aiResponse;
 
   return {
-    content: aiResponse,
+    content: streamState.aiResponse,
     finalContent: finalContent,
     toolCalls: validToolCalls,
     shouldContinue: validToolCalls.length > 0,
-    usage: fullUsage,
+    usage: streamState.fullUsage,
     loopDetection: loopDetector.finish(),
-    reasoning: reasoningText,
+    reasoning: streamState.reasoningText,
   };
 }
 
