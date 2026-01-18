@@ -10,6 +10,11 @@ on:
     branches:
       - main
 
+# One run per ref at a time; superseded runs are cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   track-rerun:
     runs-on: ubuntu-latest
@@ -89,6 +94,8 @@ jobs:
           INCEPTION_API_KEY: ${{ secrets.INCEPTION_API_KEY }}
 
   gui-checks:
+    # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -141,6 +148,8 @@ jobs:
           npx tsc --noEmit
 
   vscode-checks:
+    # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

@@ -18,6 +18,8 @@ permissions:
 
 jobs:
   create-prerelease:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     name: Create VSCode Pre-release
     runs-on: ubuntu-latest
     steps:

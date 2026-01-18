@@ -11,6 +11,8 @@ on:
 
 jobs:
   create-vscode-release:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: write # Needed for creating releases
@@ -40,6 +42,8 @@ jobs:
             --prerelease
 
   create-jetbrains-release:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: write # Needed for creating releases
