@@ -7,6 +7,10 @@ import {
   runCLI,
 } from "../test-utils/cli-helpers.js";
 import {
+  fixtureApiKeyLine,
+  fixtureKey,
+} from "../test-utils/fixtureCredentials.js";
+import {
   cleanupMockLLMServer,
   createMockLLMServer,
   type MockLLMServer,
@@ -43,7 +47,7 @@ models:
   - name: test-model
     model: gpt-4o
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     apiBase: ${mockServer.url}
     roles:
       - chat
@@ -65,7 +69,7 @@ models:
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath, "Hi there"],
       env: {
-        ANTHROPIC_API_KEY: "test-api-key-from-env",
+        ANTHROPIC_API_KEY: fixtureKey("env"),
       },
       timeout: 15000,
     });
@@ -91,7 +95,7 @@ models:
   - name: mismatch
     model: claude-sonnet-4-5
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     apiBase: http://127.0.0.1:1
     roles:
       - chat
@@ -108,7 +112,7 @@ models:
 
     const result = await runCLI(context, {
       args: ["-p", "--config", configPath, "Hi there"],
-      env: { ANTHROPIC_API_KEY: "test-api-key-from-env" },
+      env: { ANTHROPIC_API_KEY: fixtureKey("env") },
       timeout: 15000,
       expectError: true,
     });

@@ -2,14 +2,25 @@ import { Text } from "ink";
 import React, { useEffect, useState } from "react";
 
 /**
- * One braille cell per frame, the spinner pi and most terminal agents draw.
+ * One braille cell per frame.
  *
  * The frame is a single character on purpose: a cluster of cells reads as a
  * block that blinks, which is heavier than the line of text it sits beside.
  */
-export const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+export const SPINNER_FRAMES = [
+  "⠋",
+  "⠙",
+  "⠹",
+  "⠸",
+  "⠼",
+  "⠴",
+  "⠦",
+  "⠧",
+  "⠇",
+  "⠏",
+];
 
-/** Matches pi's cadence; slower looks like a stall, faster like a glitch. */
+/** An 80ms cadence; slower looks like a stall, faster like a glitch. */
 export const SPINNER_INTERVAL_MS = 80;
 
 interface LoadingAnimationProps {

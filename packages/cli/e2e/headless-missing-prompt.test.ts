@@ -4,6 +4,7 @@ import {
   runCLI,
   createTestConfig,
 } from "../test-utils/cli-helpers.js";
+import { fixtureApiKeyLine, fixtureKey } from "../test-utils/fixtureCredentials.js";
 
 describe("E2E: Headless Mode - Missing Prompt", () => {
   let context: any;
@@ -26,14 +27,14 @@ models:
   - name: gpt-4
     model: gpt-4
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     roles:
       - chat`,
     );
 
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath],
-      env: { OPENAI_API_KEY: "test-key" },
+      env: { OPENAI_API_KEY: fixtureKey("env") },
       expectError: true,
       // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
       // tighter per-call budget only turns parallel load into a killed child.
@@ -63,14 +64,14 @@ models:
   - name: gpt-4
     model: gpt-4
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     roles:
       - chat`,
     );
 
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath, "Hello assistant"],
-      env: { OPENAI_API_KEY: "test-key" },
+      env: { OPENAI_API_KEY: fixtureKey("env") },
       expectError: true, // Will fail due to invalid API key, but should process the prompt
       // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
       // tighter per-call budget only turns parallel load into a killed child.
@@ -102,14 +103,14 @@ models:
   - name: gpt-4
     model: gpt-4
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     roles:
       - chat`,
     );
 
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath],
-      env: { OPENAI_API_KEY: "test-key" },
+      env: { OPENAI_API_KEY: fixtureKey("env") },
       input: "Hello from stdin",
       expectError: true, // Will show "prompt required" error because stdin is disabled in tests
       // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
@@ -137,14 +138,14 @@ models:
   - name: gpt-4
     model: gpt-4
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     roles:
       - chat`,
     );
 
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath, "Command line prompt"],
-      env: { OPENAI_API_KEY: "test-key" },
+      env: { OPENAI_API_KEY: fixtureKey("env") },
       input: "Stdin input that should be ignored",
       expectError: true, // Will fail due to invalid API key
       // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
@@ -172,14 +173,14 @@ models:
   - name: gpt-4
     model: gpt-4
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     roles:
       - chat`,
     );
 
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath, "--agent", "test/agent"],
-      env: { OPENAI_API_KEY: "test-key" },
+      env: { OPENAI_API_KEY: fixtureKey("env") },
       expectError: true, // Will fail trying to load agent from hub, but should pass prompt validation
       // inherited from runCLI: a CLI spawn measures 4.5-8.2s here, so a
       // tighter per-call budget only turns parallel load into a killed child.
