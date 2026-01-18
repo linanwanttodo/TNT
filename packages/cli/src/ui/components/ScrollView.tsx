@@ -1,7 +1,9 @@
-import { Box, type DOMElement, measureElement, Text } from "ink";
+import { Box, type DOMElement, measureElement } from "ink";
 import React, { useLayoutEffect, useRef, useState } from "react";
 
 import { scrollbarGeometry } from "../utils/scrollbar.js";
+
+import { ScrollBarColumn } from "./ScrollBarColumn.js";
 
 export interface ScrollViewMetrics {
   /** Height of the whole transcript, in terminal rows. */
@@ -18,9 +20,6 @@ interface ScrollViewProps {
   showScrollbar?: boolean;
   children: React.ReactNode;
 }
-
-const TRACK_GLYPH = "│";
-const THUMB_GLYPH = "█";
 
 /**
  * A clipped, row-addressed window over its children.
@@ -76,19 +75,6 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
   const geometry = showScrollbar
     ? scrollbarGeometry(scrollTop, metrics.viewportHeight, metrics.contentHeight)
     : null;
-  const trackRows =
-    geometry?.scrollable === true
-      ? Array.from({ length: geometry.trackHeight }, (_, row) => {
-          const inThumb =
-            row >= geometry.thumbTop &&
-            row < geometry.thumbTop + geometry.thumbHeight;
-          return (
-            <Text key={row} dimColor={!inThumb}>
-              {inThumb ? THUMB_GLYPH : TRACK_GLYPH}
-            </Text>
-          );
-        })
-      : null;
 
   return (
     <Box flexDirection="row" flexGrow={1} flexShrink={1} minHeight={0}>
@@ -109,11 +95,7 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
           {children}
         </Box>
       </Box>
-      {showScrollbar && (
-        <Box flexDirection="column" flexShrink={0} width={1}>
-          {trackRows}
-        </Box>
-      )}
+      {showScrollbar && <ScrollBarColumn geometry={geometry} />}
     </Box>
   );
 };
