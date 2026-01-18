@@ -305,7 +305,7 @@ describe("TextBuffer", () => {
       buffer.handleInput(longText, { ctrl: false, meta: false } as any);
       buffer.flushPendingInput();
 
-      expect(buffer.text).toBe("[Paste #1]");
+      expect(buffer.text).toBe("[Pasted Text #1 · 501 chars]");
 
       buffer.clear();
       expect(buffer.text).toBe("");
@@ -325,7 +325,7 @@ describe("TextBuffer", () => {
         const longText = "a".repeat(COLLAPSE_SIZE + 1);
         buffer.handleInput(longText, { ctrl: false, meta: false } as any);
         buffer.flushPendingInput();
-        expect(buffer.text).toBe("[Paste #1]");
+        expect(buffer.text).toBe("[Pasted Text #1 · 501 chars]");
       });
 
       it("should count lines correctly in placeholders", () => {
@@ -333,7 +333,48 @@ describe("TextBuffer", () => {
           "line1\nline2\nline3\n" + "a".repeat(COLLAPSE_SIZE);
         buffer.handleInput(multiLineText, { ctrl: false, meta: false } as any);
         buffer.flushPendingInput();
-        expect(buffer.text).toBe("[Paste #1, 4 lines]");
+        expect(buffer.text).toBe("[Pasted Text #1 · 4 lines]");
+      });
+    });
+
+    describe("collapse thresholds", () => {
+      it("folds a paste that reaches the row threshold first", () => {
+        // Eight short rows, far under the character gate.
+        const eightRows = Array.from({ length: 8 }, (_, i) => `row ${i}`).join(
+          "\n",
+        );
+        buffer.handleInput(eightRows, { ctrl: false, meta: false } as any);
+        buffer.flushPendingInput();
+
+        expect(buffer.text).toBe("[Pasted Text #1 · 8 lines]");
+        buffer.expandAllPasteBlocks();
+        expect(buffer.text).toBe(eightRows);
+      });
+
+      it("keeps a seven-row paste unfolded", () => {
+        const sevenRows = Array.from({ length: 7 }, (_, i) => `row ${i}`).join(
+          "\n",
+        );
+        buffer.handleInput(sevenRows, { ctrl: false, meta: false } as any);
+        buffer.flushPendingInput();
+
+        expect(buffer.text).toBe(sevenRows);
+      });
+
+      it("folds a one-line paste that reaches the character gate", () => {
+        const longLine = "a".repeat(500);
+        buffer.handleInput(longLine, { ctrl: false, meta: false } as any);
+        buffer.flushPendingInput();
+
+        expect(buffer.text).toBe("[Pasted Text #1 · 500 chars]");
+      });
+
+      it("keeps a 499-character one-line paste unfolded", () => {
+        const shortLine = "a".repeat(499);
+        buffer.handleInput(shortLine, { ctrl: false, meta: false } as any);
+        buffer.flushPendingInput();
+
+        expect(buffer.text).toBe(shortLine);
       });
     });
 
@@ -343,7 +384,7 @@ describe("TextBuffer", () => {
         buffer.handleInput(longText, { ctrl: false, meta: false } as any);
         buffer.flushPendingInput();
 
-        expect(buffer.text).toBe("[Paste #1]");
+        expect(buffer.text).toBe("[Pasted Text #1 · 508 chars]");
         buffer.expandAllPasteBlocks();
         expect(buffer.text).toBe(longText);
       });
@@ -358,7 +399,9 @@ describe("TextBuffer", () => {
         buffer.handleInput(text2, { ctrl: false, meta: false } as any);
         buffer.flushPendingInput();
 
-        expect(buffer.text).toBe("[Paste #1] [Paste #2]");
+        expect(buffer.text).toBe(
+          "[Pasted Text #1 · 501 chars] [Pasted Text #2 · 501 chars]",
+        );
       });
 
       it("should normalize line endings when expanding", () => {
@@ -406,7 +449,7 @@ describe("TextBuffer", () => {
         buffer.handleInput(chunk2, { ctrl: false, meta: false } as any);
         buffer.flushPendingInput();
 
-        expect(buffer.text).toBe("[Paste #1]");
+        expect(buffer.text).toBe("[Pasted Text #1 · 900 chars]");
         buffer.expandAllPasteBlocks();
         expect(buffer.text).toBe(chunk1 + chunk2);
       });
@@ -421,7 +464,7 @@ describe("TextBuffer", () => {
         buffer.handleInput(largeChunk, { ctrl: false, meta: false } as any);
         buffer.flushPendingInput();
 
-        expect(buffer.text).toBe("[Paste #1]");
+        expect(buffer.text).toBe("[Pasted Text #1 · 860 chars]");
         buffer.expandAllPasteBlocks();
         expect(buffer.text).toBe(smallChunk + largeChunk);
       });
@@ -440,7 +483,7 @@ describe("TextBuffer", () => {
 
         buffer.handleInput("\u001b[201~", { ctrl: false, meta: false } as any);
         expect(buffer.isInPasteMode()).toBe(false);
-        expect(buffer.text).toBe("[Paste #1]");
+        expect(buffer.text).toBe("[Pasted Text #1 · 835 chars]");
 
         buffer.expandAllPasteBlocks();
         expect(buffer.text).toBe(content);
@@ -466,7 +509,7 @@ describe("TextBuffer", () => {
         expect(buffer.isInRapidInputMode()).toBe(false);
 
         buffer.handleInput("\u001b[201~", { ctrl: false, meta: false } as any);
-        expect(buffer.text).toBe("[Paste #1]");
+        expect(buffer.text).toBe("[Pasted Text #1 · 1000 chars]");
       });
     });
   });
@@ -491,7 +534,7 @@ describe("TextBuffer", () => {
 
       vi.advanceTimersByTime(250); // Finalize
 
-      expect(buffer.text).toBe("[Paste #1]");
+      expect(buffer.text).toBe("[Pasted Text #1 · 900 chars]");
       buffer.expandAllPasteBlocks();
       expect(buffer.text).toBe(chunk1 + chunk2);
     });
@@ -516,7 +559,7 @@ describe("TextBuffer", () => {
 
       buffer.handleInput(chunk2, { ctrl: false, meta: false } as any);
       vi.advanceTimersByTime(250);
-      expect(buffer.text).toBe(chunk1 + "[Paste #1]");
+      expect(buffer.text).toBe(chunk1 + "[Pasted Text #1 · 900 chars]");
     });
   });
 
@@ -561,7 +604,7 @@ describe("TextBuffer", () => {
       });
       buffer.flushPendingInput();
 
-      expect(buffer.text).toBe("[Paste #1]");
+      expect(buffer.text).toBe("[Pasted Text #1 · 3000 chars]");
 
       buffer.expandAllPasteBlocks();
       expect(buffer.text).toBe(chunks.join(""));
@@ -573,7 +616,7 @@ describe("TextBuffer", () => {
 
       buffer.handleInput(pastedCode, { ctrl: false, meta: false } as any);
       buffer.flushPendingInput();
-      expect(buffer.text).toBe("[Paste #1]");
+      expect(buffer.text).toBe("[Pasted Text #1 · 820 chars]");
 
       // Simulate Enter key - expand before submission
       buffer.expandAllPasteBlocks();
