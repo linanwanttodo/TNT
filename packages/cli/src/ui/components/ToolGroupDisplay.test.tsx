@@ -52,7 +52,7 @@ describe("ToolItemDisplay", () => {
 
     const firstLine =
       frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/^\s+✓ /);
+    expect(firstLine).toMatch(/╭─ ✓ /);
     expect(firstLine).toContain("$ echo test");
   });
 
@@ -62,7 +62,7 @@ describe("ToolItemDisplay", () => {
 
     const firstLine =
       frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/^\s+⊷ /);
+    expect(firstLine).toMatch(/╭─ ⊷ /);
   });
 
   it("renders a pending call with the pending marker", () => {
@@ -71,7 +71,7 @@ describe("ToolItemDisplay", () => {
 
     const firstLine =
       frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/^\s+o /);
+    expect(firstLine).toMatch(/╭─ o /);
   });
 
   it("renders an errored call with its message", () => {
@@ -90,7 +90,7 @@ describe("ToolItemDisplay", () => {
 
     const firstLine =
       frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/^\s+x /);
+    expect(firstLine).toMatch(/╭─ x /);
     expect(frame).toContain("command not found");
   });
 
@@ -116,7 +116,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
     expect(frame).toContain("Read");
     expect(frame).toContain("src/a.ts");
-    expect(frame).toContain("→ 3 lines");
+    expect(frame).toContain("· 3 lines");
   });
 
   it("keeps the tail of the output and says how many rows are folded", () => {
@@ -169,12 +169,19 @@ describe("ToolItemDisplay", () => {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 20));
-      const headerRow =
+      const findHeaderRow = (): number =>
         (tree.lastFrame() ?? "")
           .split("\n")
           .findIndex((line) => line.includes("$ echo test")) + 1;
 
-      expect(dispatchClick(headerRow, 2)).toBe(true);
+      // The first paints may land before Ink commits the layout the click
+      // regions measure against; retry briefly instead of racing one sleep.
+      let handled = false;
+      for (let attempt = 0; attempt < 25 && !handled; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        handled = dispatchClick(findHeaderRow(), 2);
+      }
+      expect(handled).toBe(true);
       await new Promise((resolve) => setTimeout(resolve, 20));
 
       const frame = tree.lastFrame() ?? "";
@@ -255,7 +262,7 @@ describe("ToolItemDisplay", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
 
       const frame = tree.lastFrame() ?? "";
-      expect(frame).toContain("→ +1 -1");
+      expect(frame).toContain("· +1 -1");
       expect(frame).toContain("click to expand");
     } finally {
       tree.unmount();
@@ -302,7 +309,7 @@ describe("ToolGroupDisplay", () => {
     expect(frame).toContain("WriteFile");
   });
 
-  it("separates consecutive panels with a blank row and no border", () => {
+  it("separates consecutive panels with a blank row and a frame each", () => {
     const toolStates: ToolCallState[] = [
       mockToolState({ toolCallId: "call-1" }),
       mockToolState({ toolCallId: "call-2" }),
@@ -314,8 +321,10 @@ describe("ToolGroupDisplay", () => {
     );
 
     expect(lines.filter((line) => line.includes("✓"))).toHaveLength(3);
-    expect(lines.filter((line) => line.includes("│"))).toHaveLength(0);
-    // Each panel opens with its own blank row and separates header from output.
+    // Each call draws its own rounded frame with the title in the top bar.
+    expect(lines.filter((line) => line.includes("╭─"))).toHaveLength(3);
+    expect(lines.filter((line) => line.includes("╰"))).toHaveLength(3);
+    // Each panel opens with its own blank row before its frame.
     expect(
       lines.filter((line) => line.trim() === "").length,
     ).toBeGreaterThanOrEqual(3);
@@ -355,7 +364,7 @@ describe("ToolGroupDisplay", () => {
     expect(frame).toContain("✓");
     expect(frame).toContain("Edit");
     expect(frame).toContain("src/math.ts");
-    expect(frame).toContain("→ +2 -1");
+    expect(frame).toContain("· +2 -1");
     expect(frame).toContain("return a + b;");
   });
 
