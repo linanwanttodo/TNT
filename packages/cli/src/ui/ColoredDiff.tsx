@@ -2,6 +2,11 @@ import { diffWordsWithSpace, Change } from "diff";
 import { Box, Text } from "ink";
 import React, { useMemo } from "react";
 
+import {
+  diffFilePath,
+  highlightCode,
+  languageFromFileName,
+} from "./SyntaxHighlighter.js";
 import { useTheme, type Theme } from "./theme/tokens.js";
 
 export interface DiffLine {
@@ -195,6 +200,10 @@ export const ColoredDiff: React.FC<{ diffContent: string }> = ({
 }) => {
   const activeTheme = useTheme();
   const parsedLines = parseDiffWithLineNumbers(diffContent);
+  const language = useMemo(() => {
+    const filePath = diffFilePath(diffContent);
+    return filePath ? languageFromFileName(filePath) : undefined;
+  }, [diffContent]);
 
   if (parsedLines.length === 0) {
     return <Text color={activeTheme.text.secondary}>No changes detected.</Text>;
@@ -281,7 +290,11 @@ export const ColoredDiff: React.FC<{ diffContent: string }> = ({
                 color={textColor}
                 dimColor={dim}
               >
-                {line.content}
+                {language && line.type === "context"
+                  ? highlightCode(line.content, language, activeTheme.syntax, {
+                      dimColor: true,
+                    })
+                  : line.content}
               </Text>
             </Box>
           );

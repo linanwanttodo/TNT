@@ -13,6 +13,11 @@ import { theme as uiTheme } from "./theme/tokens.js";
 
 interface MarkdownRendererProps {
   content: string | null | undefined;
+  /**
+   * Code highlight colours. Callers inside the theme provider pass the
+   * active theme's syntax tokens so fenced blocks follow the theme; the
+   * fallback keeps standalone use rendering on the dark baseline.
+   */
   theme?: SyntaxHighlighterTheme;
 }
 

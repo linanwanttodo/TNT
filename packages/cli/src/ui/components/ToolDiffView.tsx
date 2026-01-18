@@ -1,6 +1,11 @@
 import { Box, Text } from "ink";
 import React, { memo, useMemo } from "react";
 
+import {
+  diffFilePath,
+  highlightCode,
+  languageFromFileName,
+} from "../SyntaxHighlighter.js";
 import { useTheme, type Theme } from "../theme/tokens.js";
 
 export interface ParsedDiffLine {
@@ -191,6 +196,13 @@ export const ToolDiffView = memo<ToolDiffViewProps>(
       [diffContent],
     );
 
+    // Diff content is highlighted for the source language of the changed
+    // file, when the header names an extension the highlighter knows.
+    const language = useMemo(() => {
+      const filePath = diffFilePath(diffContent);
+      return filePath ? languageFromFileName(filePath) : undefined;
+    }, [diffContent]);
+
     // Filter displayable rows (exclude file header metadata for compactness)
     const displayRows = useMemo(() => {
       return parsedLines.filter((l) => l.type !== "meta");
@@ -288,7 +300,11 @@ export const ToolDiffView = memo<ToolDiffViewProps>(
                 </Text>
               </Box>
               <Box flexShrink={1}>
-                <Text color={textColor}>{line.content}</Text>
+                <Text color={textColor}>
+                  {language && line.type !== "hunk"
+                    ? highlightCode(line.content, language, activeTheme.syntax)
+                    : line.content}
+                </Text>
               </Box>
             </Box>
           );
