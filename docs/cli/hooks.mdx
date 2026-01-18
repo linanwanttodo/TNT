@@ -42,7 +42,7 @@ Plugins can contribute hooks as well. See [Plugins](/cli/plugins).
         "hooks": [
           {
             "type": "command",
-            "command": "npm run format -- $TNT_FILE_PATH"
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
           }
         ]
       }
@@ -50,6 +50,10 @@ Plugins can contribute hooks as well. See [Plugins](/cli/plugins).
   }
 }
 ```
+
+Every hook receives its event as JSON on stdin (`tool_input.file_path` in the
+example above), with `CONTINUE_PROJECT_DIR` set to the workspace in the
+environment.
 
 Four handler types are supported:
 

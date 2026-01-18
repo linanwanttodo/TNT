@@ -18,7 +18,7 @@
 
 > _TNT is a community fork of Continue, rebuilt around the CLI._
 
-TNT is a coding agent available as a [CLI](#cli), [VS Code extension](#vs-code), and [JetBrains plugin](#jetbrains).
+TNT is a coding agent available as a [CLI](#cli), with the [VS Code extension](#vs-code) and [JetBrains plugin](#jetbrains) from the base release kept but dormant pending a rework — the CLI is the actively developed surface.
 
 ## Documentation
 
@@ -30,7 +30,9 @@ TNT builds on the final Continue 2.0.0 release of the VS Code extension, CLI, an
 
 ### VS Code
 
-[![VS Code Marketplace](https://img.shields.io/badge/VS_Code_Marketplace-007ACC?logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=Continue.continue) [![OpenVSX Registry](https://img.shields.io/badge/OpenVSX_Registry-C160EF?logo=eclipseide&logoColor=white)](https://open-vsx.org/extension/Continue/continue) [![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](ide/vscode)
+> _Dormant: not published while the rework is pending. Build from source below._
+
+[![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](ide/vscode)
 
 ### CLI
 
