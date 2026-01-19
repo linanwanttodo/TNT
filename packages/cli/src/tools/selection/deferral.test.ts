@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Tool } from "../types.js";
 
 import {
+  buildDeferredCatalog,
+  isDeferredTool,
   isMcpTool,
   selectRequestTools,
   shouldDeferMcpTools,
@@ -27,12 +29,18 @@ function mcp(name: string, description?: string, padding = 0): Tool {
 }
 
 const ORIGINAL_OVERRIDE = process.env.CONTINUE_CLI_DEFER_MCP_TOOLS;
+const ORIGINAL_BUILTIN_OVERRIDE = process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS;
 
 afterEach(() => {
   if (ORIGINAL_OVERRIDE === undefined) {
     delete process.env.CONTINUE_CLI_DEFER_MCP_TOOLS;
   } else {
     process.env.CONTINUE_CLI_DEFER_MCP_TOOLS = ORIGINAL_OVERRIDE;
+  }
+  if (ORIGINAL_BUILTIN_OVERRIDE === undefined) {
+    delete process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS;
+  } else {
+    process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS = ORIGINAL_BUILTIN_OVERRIDE;
   }
 });
 
@@ -155,5 +163,88 @@ describe("the tools a request advertises", () => {
 
     expect(selected).toContain("mcp__server__a");
     expect(selected).not.toContain(TOOL_SEARCH_NAME);
+  });
+});
+
+function builtin(
+  name: string,
+  description = "does something",
+  padding = 0,
+): Tool {
+  return {
+    name,
+    displayName: name,
+    description: `${description}${" x".repeat(padding)}`,
+    parameters: { type: "object", properties: {} },
+    readonly: true,
+    isBuiltIn: true,
+    run: async () => "",
+  };
+}
+
+describe("deferred built-ins", () => {
+  const situational = ["WebSearch", "Browser", "Computer", "NotebookEdit"];
+  const core = ["Read", "Edit", "Bash", "Search"];
+
+  it("withholds the situational set behind the catalog", () => {
+    const tools = [
+      ...core.map((name) => builtin(name)),
+      ...situational.map((name) => builtin(name)),
+      toolSearchTool,
+    ];
+
+    const selected = selectRequestTools(tools).map((entry) => entry.name);
+
+    expect(selected).toEqual([...core, TOOL_SEARCH_NAME].sort());
+    for (const name of situational) {
+      expect(selected, name).not.toContain(name);
+    }
+  });
+
+  it("keeps everything inline when the catalog is not permitted", () => {
+    const tools = [
+      ...core.map((name) => builtin(name)),
+      ...situational.map((name) => builtin(name)),
+    ];
+
+    const selected = selectRequestTools(tools).map((entry) => entry.name);
+
+    expect(selected).toEqual([...core, ...situational].sort());
+  });
+
+  it("lets the operator turn built-in deferral off", () => {
+    process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS = "0";
+    const tools = [
+      ...core.map((name) => builtin(name)),
+      builtin("WebSearch"),
+      toolSearchTool,
+    ];
+
+    const selected = selectRequestTools(tools).map((entry) => entry.name);
+
+    expect(selected).toContain("WebSearch");
+    expect(selected).not.toContain(TOOL_SEARCH_NAME);
+  });
+
+  it("builds a compact entry with a signature and one sentence", () => {
+    const search = builtin("WebSearch", "Search the web. More detail follows.");
+    search.parameters = {
+      type: "object",
+      required: ["query"],
+      properties: {
+        query: { type: "string", description: "query" },
+        max_results: { type: "number", description: "limit" },
+      },
+    };
+
+    expect(buildDeferredCatalog([search])).toBe(
+      "- WebSearch{query: string, max_results?: number}: Search the web.",
+    );
+  });
+
+  it("classifies MCP and the situational set, not core tools", () => {
+    expect(isDeferredTool(mcp("x"))).toBe(true);
+    expect(isDeferredTool(builtin("WebSearch"))).toBe(true);
+    expect(isDeferredTool(builtin("Read"))).toBe(false);
   });
 });
