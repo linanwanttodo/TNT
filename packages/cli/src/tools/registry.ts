@@ -9,6 +9,7 @@ import { browserTool } from "./browser.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 import { codebaseSearchTool } from "./codebaseSearch.js";
 import { completionTool } from "./completion.js";
+import { computerTool } from "./computer.js";
 import { deleteFileTool } from "./deleteFile.js";
 import { diagnosticsTool } from "./diagnostics.js";
 import { editTool } from "./edit.js";
@@ -78,6 +79,7 @@ const BASE_BUILTIN_TOOLS: Tool[] = [
   checkBackgroundJobTool,
   askQuestionTool,
   browserTool,
+  computerTool,
   enterPlanModeTool,
   exitPlanModeTool,
   webSearchTool,

@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   CLEARED_TOOL_RESULT_CONTENT,
   DEFAULT_CACHE_GAP_MS,
+  LONG_LIVED_CACHE_GAP_MS,
   cacheGapMs,
+  defaultCacheGapMs,
   forgetLastRequest,
   isCacheCold,
   microCompactHistory,
@@ -161,6 +163,7 @@ describe("the gap itself", () => {
       CONTINUE_GLOBAL_DIR: process.env.CONTINUE_GLOBAL_DIR,
       CONTINUE_CLI_TEST_SESSION_ID: process.env.CONTINUE_CLI_TEST_SESSION_ID,
       CONTINUE_CLI_CACHE_GAP_MS: process.env.CONTINUE_CLI_CACHE_GAP_MS,
+      CONTINUE_CLI_CACHE_RETENTION: process.env.CONTINUE_CLI_CACHE_RETENTION,
     };
     globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-gap-"));
     process.env.CONTINUE_GLOBAL_DIR = globalDir;
@@ -201,6 +204,46 @@ describe("the gap itself", () => {
 
     expect(isCacheCold(written)).toBe(true);
     expect(isCacheCold(written - 5000 + 500)).toBe(false);
+  });
+
+  it("takes the gap from each provider's own cache lifetime", () => {
+    delete process.env.CONTINUE_CLI_CACHE_GAP_MS;
+    delete process.env.CONTINUE_CLI_CACHE_RETENTION;
+
+    expect(defaultCacheGapMs("deepseek", "deepseek-reasoner")).toBe(
+      LONG_LIVED_CACHE_GAP_MS,
+    );
+    expect(LONG_LIVED_CACHE_GAP_MS).toBe(24 * 60 * 60 * 1000);
+    expect(cacheGapMs("deepseek")).toBe(LONG_LIVED_CACHE_GAP_MS);
+    expect(cacheGapMs("anthropic", "claude-sonnet")).toBe(DEFAULT_CACHE_GAP_MS);
+    expect(cacheGapMs("moonshot", "kimi-k3")).toBe(DEFAULT_CACHE_GAP_MS);
+    expect(cacheGapMs("gemini", "gemini-4-pro")).toBe(DEFAULT_CACHE_GAP_MS);
+
+    // Providers with their own retention windows use them, not five minutes.
+    expect(cacheGapMs("openai", "gpt-4")).toBe(30 * 60 * 1000);
+    expect(cacheGapMs("openai", "gpt-5.6-sol")).toBe(30 * 60 * 1000);
+
+    // A provider with no prompt cache has nothing to lose by keeping history.
+    expect(cacheGapMs("ollama", "llama3")).toBe(Number.POSITIVE_INFINITY);
+
+    // Long retention selects the provider's longer window.
+    process.env.CONTINUE_CLI_CACHE_RETENTION = "long";
+    expect(cacheGapMs("anthropic", "claude-sonnet")).toBe(60 * 60 * 1000);
+    expect(cacheGapMs("openai", "gpt-5.6-sol")).toBe(12 * 60 * 60 * 1000);
+    expect(cacheGapMs("deepseek")).toBe(LONG_LIVED_CACHE_GAP_MS);
+
+    // An explicit override still wins over the provider default.
+    process.env.CONTINUE_CLI_CACHE_GAP_MS = "1000";
+    expect(cacheGapMs("deepseek")).toBe(1000);
+  });
+
+  it("does not prune a long-lived cache after six idle minutes", () => {
+    delete process.env.CONTINUE_CLI_CACHE_GAP_MS;
+    const now = Date.now();
+    noteRequestSent(now - 6 * 60 * 1000);
+
+    expect(isCacheCold(now, "deepseek", "deepseek-chat")).toBe(false);
+    expect(isCacheCold(now, "anthropic", "claude-sonnet")).toBe(true);
   });
 
   it("prefers this process's own last request once one has been sent", async () => {

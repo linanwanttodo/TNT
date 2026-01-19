@@ -10,6 +10,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "AskQuestion",
   "Browser",
   "Completion",
+  "Computer",
   "Delete",
   "Diagnostics",
   "Edit",

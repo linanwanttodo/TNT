@@ -55,6 +55,9 @@ const WRITE_TOOL_NAMES: readonly string[] = [
   "Create",
   "Checklist",
   "UploadArtifact",
+  // It does not write the workspace, but it can click and type in anything the
+  // user has open, so a child promised "no writes" must not hold it.
+  "Computer",
 ];
 
 /** Tools that run something outside the process. */
