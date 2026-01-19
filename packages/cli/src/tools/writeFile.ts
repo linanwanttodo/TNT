@@ -1,3 +1,4 @@
+import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { createTwoFilesPatch } from "diff";
 
@@ -65,6 +66,7 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
     if (typeof content !== "string") {
       throw new Error(t("tools.contentMustBeString"));
     }
+    throwIfFileIsSecurityConcern(filepath);
     try {
       const existing = await readWorkspaceTextFileIfExists(filepath);
       if (existing) {
@@ -128,6 +130,11 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
   },
   run: async (args: { filepath: string; content: string }): Promise<string> => {
     try {
+      // Also enforced here, not only in `preprocess`: shell mode and any
+      // serve/SDK route call a tool's `run()` directly, so the refusal cannot
+      // live only on the preprocessing hook.
+      throwIfFileIsSecurityConcern(args.filepath);
+
       // Read existing file content if it exists
       const existing = await readWorkspaceTextFileIfExists(args.filepath);
       const oldContent = existing?.content ?? "";
