@@ -15,7 +15,14 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
     { tool: "MultiEdit", permission: writePermission, workspaceOnly: true },
     { tool: "Write", permission: writePermission, workspaceOnly: true },
     { tool: "ApplyPatch", permission: writePermission, workspaceOnly: true },
+    { tool: "Delete", permission: writePermission, workspaceOnly: true },
+    {
+      tool: "NotebookEdit",
+      permission: writePermission,
+      workspaceOnly: true,
+    },
     { tool: "CheckBackgroundJob", permission: "allow" },
+    { tool: "Browser", permission: "ask" },
     { tool: "AskQuestion", permission: "allow" },
     { tool: "EnterPlanMode", permission: "allow" },
     { tool: "ExitPlanMode", permission: "ask" },
@@ -24,6 +31,7 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
     { tool: "Skills", permission: "allow" },
     { tool: "Exit", permission: "allow" }, // Exit tool is generally safe (headless mode only)
     { tool: "Fetch", permission: "allow" }, // Technically not read only but edge casey to post w query params
+    { tool: "WebSearch", permission: "ask" },
     { tool: "List", permission: "allow" },
     { tool: "Read", permission: "allow" },
     { tool: "Search", permission: "allow" },
@@ -64,12 +72,15 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "MultiEdit", permission: "exclude" },
   { tool: "Write", permission: "exclude" },
   { tool: "ApplyPatch", permission: "exclude" },
+  { tool: "Delete", permission: "exclude" },
+  { tool: "NotebookEdit", permission: "exclude" },
 
   // Plan mode promises the project is not modified, so shell commands are
   // allowed only while they cannot write. A command the classifier does not
   // recognize is refused rather than sent.
   { tool: "Bash", permission: "allow", readOnlyOnly: true },
   { tool: "CheckBackgroundJob", permission: "allow" },
+  { tool: "Browser", permission: "ask" },
   { tool: "AskQuestion", permission: "allow" },
   // Entering plan mode only narrows what may happen, so it needs no prompt;
   // leaving it is what allows changes again, and that one is asked for.
@@ -79,6 +90,7 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Diff", permission: "allow" },
   { tool: "Exit", permission: "allow" },
   { tool: "Fetch", permission: "allow" },
+  { tool: "WebSearch", permission: "allow" },
   { tool: "Completion", permission: "allow" },
   { tool: "Diagnostics", permission: "allow" },
   { tool: "FindSymbol", permission: "allow" },
@@ -108,7 +120,10 @@ export const ACCEPT_EDITS_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "MultiEdit", permission: "allow", workspaceOnly: true },
   { tool: "Write", permission: "allow", workspaceOnly: true },
   { tool: "ApplyPatch", permission: "allow", workspaceOnly: true },
+  { tool: "Delete", permission: "ask", workspaceOnly: true },
+  { tool: "NotebookEdit", permission: "ask", workspaceOnly: true },
   { tool: "CheckBackgroundJob", permission: "allow" },
+  { tool: "Browser", permission: "ask" },
   { tool: "AskQuestion", permission: "allow" },
   { tool: "EnterPlanMode", permission: "allow" },
   { tool: "ExitPlanMode", permission: "ask" },
@@ -117,6 +132,7 @@ export const ACCEPT_EDITS_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Skills", permission: "allow" },
   { tool: "Exit", permission: "allow" },
   { tool: "Fetch", permission: "allow" },
+  { tool: "WebSearch", permission: "ask" },
   { tool: "List", permission: "allow" },
   { tool: "Read", permission: "allow" },
   { tool: "Search", permission: "allow" },
