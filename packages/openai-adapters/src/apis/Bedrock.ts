@@ -48,6 +48,60 @@ import {
   FimCreateParamsStreaming,
   RerankCreateParams,
 } from "./base.js";
+import { resolveCachePolicy } from "./cachePolicy.js";
+
+/** Bedrock reads cache points on its Claude and Nova models. */
+function supportsCachePoints(modelId: string): boolean {
+  return /claude|nova/i.test(modelId);
+}
+
+/** Only the 4.5-generation Claude models and later accept the extended TTL. */
+function supportsExtendedTtl(modelId: string): boolean {
+  const match = /claude-(?:opus|sonnet|haiku)-(\d+)(?:-(\d+))?/i.exec(modelId);
+  if (!match) {
+    return false;
+  }
+  const major = Number(match[1]);
+  const minor = Number(match[2] ?? 0);
+  return major > 4 || (major === 4 && minor >= 5);
+}
+
+/**
+ * Places the cache points a request can earn: the system head, the tool list,
+ * and the end of the newest turn. Those three mark the longest reusable spans
+ * the request has, and Bedrock's budget is counted across all of them.
+ */
+function addCachePoints(body: any, modelId: string): void {
+  if (!supportsCachePoints(modelId)) {
+    return;
+  }
+  const policy = resolveCachePolicy("bedrock", modelId);
+  if (policy.mode !== "explicit" || policy.retention === "none") {
+    return;
+  }
+  const ttl =
+    policy.retention === "long" && supportsExtendedTtl(modelId) ? "1h" : "5m";
+  const point = () => ({ cachePoint: { type: "default" as const, ttl } });
+  let remaining = policy.maxBreakpoints;
+
+  if (remaining > 0 && Array.isArray(body.system)) {
+    body.system.push(point());
+    remaining -= 1;
+  }
+  const tools = body.toolConfig?.tools;
+  if (remaining > 0 && Array.isArray(tools)) {
+    tools.push(point());
+    remaining -= 1;
+  }
+  const newest = (body.messages as any[] | undefined)?.at(-1);
+  if (
+    remaining > 0 &&
+    Array.isArray(newest?.content) &&
+    newest.content.length > 0
+  ) {
+    newest.content.push(point());
+  }
+}
 
 // Utility function to get or generate UUID for prompt caching
 
@@ -378,8 +432,6 @@ export class BedrockApi implements BaseLlmApi {
 
     // Add system message if present
     if (systemMessageText) {
-      // The cache-point branch was disabled by a literal `false` next to a TODO, so
-      // only the plain text ever shipped; keep exactly that shape.
       body.system = [{ text: systemMessageText }];
     }
 
@@ -387,6 +439,8 @@ export class BedrockApi implements BaseLlmApi {
     if (toolConfig) {
       body.toolConfig = toolConfig;
     }
+
+    addCachePoints(body, oaiBody.model);
 
     // Add reasoning if needed
     // TODO REASONING

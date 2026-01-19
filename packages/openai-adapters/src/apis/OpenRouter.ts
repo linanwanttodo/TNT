@@ -3,6 +3,7 @@ import { ChatCompletionCreateParams } from "openai/resources/index";
 import { OpenAIConfig } from "../types.js";
 import { OpenAIApi } from "./OpenAI.js";
 import { applyAnthropicCachingToOpenRouterBody } from "./OpenRouterCaching.js";
+import { resolveCachePolicy } from "./cachePolicy.js";
 
 export interface OpenRouterConfig extends OpenAIConfig {
   cachingStrategy?: import("./AnthropicCachingStrategies.js").CachingStrategyName;
@@ -46,9 +47,23 @@ export class OpenRouterApi extends OpenAIApi {
       return modifiedBody;
     }
 
+    const cachePolicy = resolveCachePolicy(
+      "openrouter",
+      modifiedBody.model,
+      this.apiBase,
+    );
+    if (cachePolicy.retention === "none") {
+      return modifiedBody;
+    }
+
     applyAnthropicCachingToOpenRouterBody(
       modifiedBody as unknown as ChatCompletionCreateParams,
       (this.config as OpenRouterConfig).cachingStrategy ?? "systemAndTools",
+      cachePolicy.mode === "explicit" &&
+        cachePolicy.retention === "long" &&
+        cachePolicy.supportsLongRetention
+        ? "1h"
+        : undefined,
     );
 
     return modifiedBody;

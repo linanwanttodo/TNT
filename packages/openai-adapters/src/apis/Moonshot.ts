@@ -1,9 +1,20 @@
 import { streamSse } from "@tnt/fetch";
-import { ChatCompletionChunk, Model } from "openai/resources/index";
+import {
+  ChatCompletionChunk,
+  ChatCompletionCreateParams,
+  Model,
+} from "openai/resources/index";
 import { MoonshotConfig } from "../types.js";
 import { chatChunk, customFetch } from "../util.js";
+import { resolveCachePolicy } from "./cachePolicy.js";
 import { OpenAIApi } from "./OpenAI.js";
 import { FimCreateParamsStreaming } from "./base.js";
+
+/** The cache-write options are read from K3 onward; older models cache on their own. */
+function supportsCacheOptions(model: string | undefined): boolean {
+  const match = /kimi-k(\d+)/i.exec(model ?? "");
+  return !!match && Number(match[1]) >= 3;
+}
 
 export class MoonshotApi extends OpenAIApi {
   apiBase: string = "https://api.moonshot.cn/";
@@ -12,6 +23,23 @@ export class MoonshotApi extends OpenAIApi {
       ...config,
       provider: "openai",
     });
+  }
+
+  modifyChatBody<T extends ChatCompletionCreateParams>(body: T): T {
+    const modified = super.modifyChatBody(body);
+    if (!supportsCacheOptions(modified.model)) {
+      return modified;
+    }
+    const policy = resolveCachePolicy("moonshot", modified.model);
+    if (policy.retention === "none") {
+      delete (modified as any).prompt_cache_options;
+      return modified;
+    }
+    (modified as any).prompt_cache_options = {
+      mode: "implicit",
+      ttl: policy.retention === "long" ? "1h" : "5m",
+    };
+    return modified;
   }
 
   async *fimStream(
