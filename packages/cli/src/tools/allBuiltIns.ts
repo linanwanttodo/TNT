@@ -6,6 +6,7 @@ import {
 import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
 import { browserTool } from "./browser.js";
+import { callHierarchyTool } from "./callHierarchy.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 import { codebaseSearchTool } from "./codebaseSearch.js";
 import { completionTool } from "./completion.js";
@@ -23,6 +24,7 @@ import { multiEditTool } from "./multiEdit.js";
 import { notebookEditTool } from "./notebookEdit.js";
 import { enterPlanModeTool, exitPlanModeTool } from "./planMode.js";
 import { readFileTool } from "./readFile.js";
+import { referencesTool } from "./references.js";
 import { reportFailureTool } from "./reportFailure.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { searchCodeTool } from "./searchCode.js";
@@ -41,6 +43,7 @@ export const ALL_BUILT_IN_TOOLS = [
   applyPatchTool,
   askQuestionTool,
   browserTool,
+  callHierarchyTool,
   checkBackgroundJobTool,
   codebaseSearchTool,
   completionTool,
@@ -59,6 +62,7 @@ export const ALL_BUILT_IN_TOOLS = [
   multiEditTool,
   notebookEditTool,
   readFileTool,
+  referencesTool,
   reportFailureTool,
   runTerminalCommandTool,
   searchCodeTool,
