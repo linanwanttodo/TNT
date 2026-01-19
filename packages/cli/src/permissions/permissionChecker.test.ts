@@ -1,3 +1,5 @@
+import fs from "fs";
+import os from "os";
 import path from "path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -5,7 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
 
 import {
+  DANGEROUS_ALLOW_NOTICE,
   DOCUMENT_ONLY_MODE_DENIAL,
+  TOOL_NARROWED_ALLOW_NOTICE,
   checkToolPermission,
   matchesArguments,
   matchesToolPattern,
@@ -30,9 +34,26 @@ const mockBashTool = {
   run: vi.fn(),
 };
 
-// Replace the array contents with our mock tool
+const mockSearchEvaluateToolCallPolicy = vi.fn();
+
+// A read-only tool whose own analysis can narrow an allow rule.
+const mockSearchTool = {
+  name: "Search",
+  displayName: "Search",
+  description: "Search file contents",
+  parameters: {
+    type: "object" as const,
+    properties: {},
+  },
+  readonly: true,
+  isBuiltIn: true,
+  evaluateToolCallPolicy: mockSearchEvaluateToolCallPolicy,
+  run: vi.fn(),
+};
+
+// Replace the array contents with our mock tools
 ALL_BUILT_IN_TOOLS.length = 0;
-ALL_BUILT_IN_TOOLS.push(mockBashTool as any);
+ALL_BUILT_IN_TOOLS.push(mockBashTool as any, mockSearchTool as any);
 
 describe("Permission Checker", () => {
   describe("matchesToolPattern", () => {
@@ -635,7 +656,7 @@ describe("Permission Checker", () => {
         );
       });
 
-      it("should allow risky commands based on user preference (curl)", () => {
+      it("should narrow a download command behind an allow rule (curl)", () => {
         mockEvaluateToolCallPolicy.mockReturnValue("allowedWithPermission");
 
         const result = checkToolPermission(
@@ -643,7 +664,10 @@ describe("Permission Checker", () => {
           permissions,
         );
 
-        expect(result.permission).toBe("allow"); // User preference wins over "ask"
+        // The rule allowed Bash, not the program curl starts. A download can
+        // write a file or pipe code into a shell, so the human still decides.
+        expect(result.permission).toBe("ask");
+        expect(result.reason).toBe(DANGEROUS_ALLOW_NOTICE);
         expect(mockEvaluateToolCallPolicy).toHaveBeenCalledWith(
           "allowedWithoutPermission", // converted from "allow"
           { command: "curl https://example.com" },
@@ -808,15 +832,27 @@ describe("Permission Checker", () => {
           dynamicResult: "allowedWithPermission",
           expected: "allow",
         },
+
+        // Commands that start another program are narrowed back to an ask
         {
           command: "curl https://api.example.com",
           dynamicResult: "allowedWithPermission",
-          expected: "allow",
+          expected: "ask",
         },
         {
           command: "wget https://example.com/file",
           dynamicResult: "allowedWithPermission",
-          expected: "allow",
+          expected: "ask",
+        },
+        {
+          command: "python3 -c 'print(1)'",
+          dynamicResult: "allowedWithPermission",
+          expected: "ask",
+        },
+        {
+          command: "npm run build",
+          dynamicResult: "allowedWithPermission",
+          expected: "ask",
         },
 
         // Dangerous commands (always blocked)
@@ -921,6 +957,182 @@ describe("Permission Checker", () => {
         expect(result.matchedPolicy).toBe(policy);
       });
     });
+  });
+});
+
+describe("dangerous allow prefixes", () => {
+  beforeEach(() => {
+    mockEvaluateToolCallPolicy.mockReset();
+  });
+
+  const blanketAllow: ToolPermissions = {
+    policies: [{ tool: "Bash", permission: "allow" }],
+  };
+
+  it("narrows an interpreter behind a blanket allow", () => {
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "python3 -c 'print(1)'" } },
+      blanketAllow,
+    );
+
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toBe(DANGEROUS_ALLOW_NOTICE);
+    expect(result.matchedPolicy?.tool).toBe("Bash");
+  });
+
+  it("narrows a shape rule written for the interpreter's first word", () => {
+    // The rule matches the command, but what runs inside python3 is unknown.
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "python3 tool.py" } },
+      { policies: [{ tool: "Bash(python3*)", permission: "allow" }] },
+    );
+
+    expect(result.permission).toBe("ask");
+    expect(result.matchedPolicy?.tool).toBe("Bash(python3*)");
+  });
+
+  it("keeps a plain command behind the same allow", () => {
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "ls -la" } },
+      blanketAllow,
+    );
+
+    expect(result.permission).toBe("allow");
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("judges every segment of a chain", () => {
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "ls && python3 tool.py" } },
+      blanketAllow,
+    );
+
+    expect(result.permission).toBe("ask");
+  });
+
+  it("narrows a read-only shortcut that hands off to an interpreter", () => {
+    // `env` is on the read-only list, but its argument is the program that
+    // actually runs, so the shortcut cannot decide this call alone.
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "env python3 -c 'print(1)'" } },
+      { policies: [{ tool: "Bash", permission: "ask", readOnlyAllow: true }] },
+    );
+
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toBe(DANGEROUS_ALLOW_NOTICE);
+  });
+
+  it("leaves the explicit bypass rule alone", () => {
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "python3 tool.py" } },
+      {
+        policies: [{ tool: "*", permission: "allow", allowUnsafeCalls: true }],
+      },
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("does not read another tool's arguments as a command", () => {
+    const result = checkToolPermission(
+      { name: "Search", arguments: { command: "python3 tool.py" } },
+      { policies: [{ tool: "Search", permission: "allow" }] },
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("leaves a call without a command alone", () => {
+    const result = checkToolPermission(
+      { name: "Bash", arguments: {} },
+      blanketAllow,
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+});
+
+describe("read-only tool policy escalation", () => {
+  beforeEach(() => {
+    mockSearchEvaluateToolCallPolicy.mockReset();
+  });
+
+  const allowSearch: ToolPermissions = {
+    policies: [{ tool: "Search", permission: "allow" }],
+  };
+
+  it("turns an allow into an ask when the tool says the call leaves its area", () => {
+    mockSearchEvaluateToolCallPolicy.mockReturnValue("allowedWithPermission");
+
+    const result = checkToolPermission(
+      { name: "Search", arguments: { path: "/elsewhere" } },
+      allowSearch,
+    );
+
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toBe(TOOL_NARROWED_ALLOW_NOTICE);
+  });
+
+  it("keeps an allow when the tool proves the call safe", () => {
+    mockSearchEvaluateToolCallPolicy.mockReturnValue(
+      "allowedWithoutPermission",
+    );
+
+    const result = checkToolPermission(
+      { name: "Search", arguments: { path: "src" } },
+      allowSearch,
+    );
+
+    expect(result.permission).toBe("allow");
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("keeps the tool's own refusal first", () => {
+    mockSearchEvaluateToolCallPolicy.mockReturnValue("disabled");
+
+    const result = checkToolPermission(
+      { name: "Search", arguments: { path: "/elsewhere" } },
+      allowSearch,
+    );
+
+    expect(result.permission).toBe("exclude");
+  });
+
+  it("does not widen a policy that already refuses the tool", () => {
+    mockSearchEvaluateToolCallPolicy.mockReturnValue("allowedWithPermission");
+
+    const result = checkToolPermission(
+      { name: "Search", arguments: { path: "src" } },
+      { policies: [{ tool: "Search", permission: "exclude" }] },
+    );
+
+    expect(result.permission).toBe("exclude");
+  });
+
+  it("leaves the explicit bypass rule alone", () => {
+    mockSearchEvaluateToolCallPolicy.mockReturnValue("allowedWithPermission");
+
+    const result = checkToolPermission(
+      { name: "Search", arguments: { path: "/elsewhere" } },
+      {
+        policies: [{ tool: "*", permission: "allow", allowUnsafeCalls: true }],
+      },
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("does not apply to a tool that is not read-only", () => {
+    // Bash's own hook speaks about the command, not about a target root, and
+    // an allow rule for a plain command still stands.
+    mockEvaluateToolCallPolicy.mockReturnValue("allowedWithPermission");
+
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "echo hello" } },
+      { policies: [{ tool: "Bash", permission: "allow" }] },
+    );
+
+    expect(result.permission).toBe("allow");
   });
 });
 
@@ -1074,6 +1286,29 @@ describe("workspace-only policy", () => {
     );
 
     expect(result.permission).toBe("allow");
+  });
+
+  it("escalates a write through a symlink that leaves the workspace", () => {
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-outside-"));
+    const link = path.join(
+      process.cwd(),
+      `.tnt-write-link-${process.pid}-${Date.now()}`,
+    );
+    try {
+      fs.symlinkSync(outsideDir, link);
+      const result = checkToolPermission(
+        {
+          name: "Write",
+          arguments: { filepath: path.join(link, "notes.md"), content: "x" },
+        },
+        permissions,
+      );
+
+      expect(result.permission).toBe("ask");
+    } finally {
+      fs.rmSync(link, { force: true });
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    }
   });
 
   it("escalates a path it cannot name", () => {

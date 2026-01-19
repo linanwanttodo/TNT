@@ -2,9 +2,11 @@ import * as child_process from "child_process";
 import * as fs from "fs";
 import * as util from "util";
 
+import type { ToolPolicy } from "@tnt/terminal-security";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { findUp } from "find-up";
 
+import { isWithinWorkspace } from "../permissions/workspacePath.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { Tool } from "./types.js";
@@ -170,6 +172,23 @@ Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with
   },
   readonly: true,
   isBuiltIn: true,
+  /**
+   * A search reads whatever the pattern matches, including files outside the
+   * project when the caller names a target there. The rule that allows Search
+   * speaks for the workspace, so a call that leaves it still needs the human.
+   */
+  evaluateToolCallPolicy: (
+    basePolicy: ToolPolicy,
+    parsedArgs: Record<string, unknown>,
+  ): ToolPolicy => {
+    if (basePolicy === "disabled") {
+      return basePolicy;
+    }
+    const named = parsedArgs.path;
+    const target =
+      typeof named === "string" && named.trim() !== "" ? named : process.cwd();
+    return isWithinWorkspace(target) ? basePolicy : "allowedWithPermission";
+  },
   preprocess: async (args) => {
     const truncatedPattern =
       args.pattern.length > 50

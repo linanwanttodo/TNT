@@ -141,5 +141,5 @@ export const ACCEPT_EDITS_MODE_POLICIES: ToolPermissionPolicy[] = [
 // this table is only reachable through an explicit --dangerously-skip-permissions
 // (or the legacy --auto alias).
 export const BYPASS_PERMISSIONS_POLICIES: ToolPermissionPolicy[] = [
-  { tool: "*", permission: "allow" },
+  { tool: "*", permission: "allow", allowUnsafeCalls: true },
 ];

@@ -105,6 +105,8 @@ describe("ToolPermissionService", () => {
         exclude: [],
       });
 
+      // A user rule that allows everything is still narrowed by the tool's
+      // own analysis; only the bypass table carries the override.
       expect(state.permissions.policies).toEqual([
         { tool: "*", permission: "allow" },
       ]);
@@ -141,7 +143,7 @@ describe("ToolPermissionService", () => {
       const state = service.initializeSync({ mode: "bypassPermissions" });
 
       expect(state.permissions.policies).toEqual([
-        { tool: "*", permission: "allow" },
+        { tool: "*", permission: "allow", allowUnsafeCalls: true },
       ]);
     });
 
@@ -230,7 +232,7 @@ describe("ToolPermissionService", () => {
       service.switchMode("bypassPermissions");
       expect(service.getCurrentMode()).toBe("bypassPermissions");
       expect(service.getState().permissions.policies).toEqual([
-        { tool: "*", permission: "allow" },
+        { tool: "*", permission: "allow", allowUnsafeCalls: true },
       ]);
 
       service.switchMode("default");
@@ -361,7 +363,7 @@ describe("ToolPermissionService", () => {
 
       // Auto mode should override and allow everything
       expect(state.permissions.policies).toEqual([
-        { tool: "*", permission: "allow" },
+        { tool: "*", permission: "allow", allowUnsafeCalls: true },
       ]);
     });
   });
@@ -427,6 +429,7 @@ describe("ToolPermissionService", () => {
       expect(state.permissions.policies).toContainEqual({
         tool: "*",
         permission: "allow",
+        allowUnsafeCalls: true,
       });
       expect(state.isHeadless).toBe(true);
     });
