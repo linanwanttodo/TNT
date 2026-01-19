@@ -46,6 +46,7 @@ interface ProcessSlashCommandResultOptions {
   onShowConfigSelector: () => void;
   onShowModelSelector?: () => void;
   onShowUpdateSelector?: () => void;
+  onShowThemeSelector?: () => void;
   onShowMCPSelector?: () => void;
   onShowMcpMarketplace?: () => void;
   onShowSessionSelector?: () => void;
@@ -65,6 +66,7 @@ export function processSlashCommandResult({
   setChatHistory,
   onShowConfigSelector,
   onShowUpdateSelector,
+  onShowThemeSelector,
   onShowModelSelector,
   onShowMCPSelector,
   onShowMcpMarketplace,
@@ -79,53 +81,32 @@ export function processSlashCommandResult({
     import("../../utils/exit.js").then(({ gracefulExit }) => gracefulExit(0));
   }
 
-  if (result.openMcpSelector) {
-    onShowMCPSelector?.();
-    return null;
-  }
-
-  if (result.openMcpMarketplace) {
-    onShowMcpMarketplace?.();
-    return null;
-  }
-
-  if (result.openUpdateSelector) {
-    onShowUpdateSelector?.();
-    return null;
-  }
-
-  if (result.openConfigSelector) {
-    onShowConfigSelector();
-    return null;
-  }
-
-  if (result.openModelSelector && onShowModelSelector) {
-    onShowModelSelector();
-    return null;
-  }
-
-  if (result.openSessionSelector && onShowSessionSelector) {
-    onShowSessionSelector();
-    return null;
-  }
-
-  if (result.openSubagentsSelector && onShowSubagentsSelector) {
-    onShowSubagentsSelector();
-    return null;
+  // The selector-open requests are one table: the first flag the result set,
+  // with a handler present, opens its screen. Order is the priority a result
+  // carrying two flags resolves by.
+  const selectorOpeners: Array<
+    [boolean | undefined, (() => void) | undefined]
+  > = [
+    [result.openMcpSelector, onShowMCPSelector],
+    [result.openMcpMarketplace, onShowMcpMarketplace],
+    [result.openUpdateSelector, onShowUpdateSelector],
+    [result.openThemeSelector, onShowThemeSelector],
+    [result.openConfigSelector, onShowConfigSelector],
+    [result.openModelSelector, onShowModelSelector],
+    [result.openSessionSelector, onShowSessionSelector],
+    [result.openSubagentsSelector, onShowSubagentsSelector],
+    [result.openJobsSelector, onShowJobsSelector],
+    [result.openExportSelector, onShowExportSelector],
+  ];
+  for (const [requested, open] of selectorOpeners) {
+    if (requested && open) {
+      open();
+      return null;
+    }
   }
 
   if (result.loadSessionId && onLoadSession) {
     void onLoadSession(result.loadSessionId);
-    return null;
-  }
-
-  if (result.openJobsSelector && onShowJobsSelector) {
-    onShowJobsSelector();
-    return null;
-  }
-
-  if (result.openExportSelector && onShowExportSelector) {
-    onShowExportSelector();
     return null;
   }
 

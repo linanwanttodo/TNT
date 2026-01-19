@@ -21,6 +21,7 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "help", descriptionKey: "cmd.help" },
   { name: "clear", descriptionKey: "cmd.clear" },
   { name: "update", descriptionKey: "cmd.update" },
+  { name: "theme", descriptionKey: "cmd.theme" },
   { name: "info", descriptionKey: "cmd.info" },
   { name: "model", descriptionKey: "cmd.model" },
   {
