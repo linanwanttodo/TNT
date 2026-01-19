@@ -13,12 +13,14 @@ import { completionTool } from "./completion.js";
 import { computerTool } from "./computer.js";
 import { deleteFileTool } from "./deleteFile.js";
 import { diagnosticsTool } from "./diagnostics.js";
+import { documentSymbolTool } from "./documentSymbol.js";
 import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
 import { fetchTool } from "./fetch.js";
 import { findSymbolTool } from "./findSymbol.js";
 import { globFilesTool } from "./globFiles.js";
 import { hoverTool } from "./hover.js";
+import { importGraphTool } from "./importGraph.js";
 import { listFilesTool } from "./listFiles.js";
 import { mcpToolsFromConnections } from "./mcp.js";
 import { multiEditTool } from "./multiEdit.js";
@@ -102,11 +104,13 @@ const WORKSPACE_TOOLS: Tool[] = [
   viewDiffTool,
   codebaseSearchTool,
   diagnosticsTool,
+  documentSymbolTool,
   findSymbolTool,
   hoverTool,
   completionTool,
   referencesTool,
   callHierarchyTool,
+  importGraphTool,
 ];
 
 // Get all builtin tools including dynamic ones, with capability-based filtering

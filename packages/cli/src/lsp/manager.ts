@@ -44,6 +44,15 @@ export interface LspCallHierarchy {
   sites: LspCallSite[];
 }
 
+export interface LspDocumentSymbol {
+  name: string;
+  kind?: number;
+  /** Nesting level; a top-level declaration is 0. */
+  depth: number;
+  line?: number;
+  character?: number;
+}
+
 interface RunningServer {
   name: string;
   client: LspClient;
@@ -310,6 +319,36 @@ export class LspManager {
   }
 
   /**
+   * The declarations in one file. Servers answer with either a hierarchical
+   * DocumentSymbol tree or a flat SymbolInformation list; both become the same
+   * depth-tagged outline.
+   */
+  async documentSymbols(filePath: string): Promise<LspDocumentSymbol[]> {
+    const absolute = path.resolve(filePath);
+    let text: string;
+    try {
+      text = fs.readFileSync(absolute, "utf-8");
+    } catch {
+      return [];
+    }
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    for (const client of clients) {
+      client.openOrUpdate(absolute, text);
+      try {
+        const answer = await client.request("textDocument/documentSymbol", {
+          textDocument: { uri: pathToFileURL(absolute).toString() },
+        });
+        if (Array.isArray(answer) && answer.length > 0) {
+          return flattenDocumentSymbols(answer);
+        }
+      } catch {
+        continue;
+      }
+    }
+    return [];
+  }
+
+  /**
    * Opens a document in every running server and waits a bounded time for the
    * diagnostics. A server that never answers yields the empty list rather than
    * blocking the caller.
@@ -432,6 +471,42 @@ export function renderHover(answer: unknown): string | null {
 }
 
 let manager: LspManager | null = null;
+
+const MAX_OUTLINE_SYMBOLS = 200;
+const MAX_OUTLINE_DEPTH = 6;
+
+function flattenDocumentSymbols(answer: unknown[]): LspDocumentSymbol[] {
+  const outline: LspDocumentSymbol[] = [];
+  const visit = (item: Record<string, any>, depth: number): void => {
+    if (outline.length >= MAX_OUTLINE_SYMBOLS || depth > MAX_OUTLINE_DEPTH) {
+      return;
+    }
+    const start =
+      item.selectionRange?.start ??
+      item.location?.range?.start ??
+      item.range?.start;
+    outline.push({
+      name: String(item.name ?? "unnamed"),
+      kind: typeof item.kind === "number" ? item.kind : undefined,
+      depth,
+      line: oneBased(start?.line),
+      character: oneBased(start?.character),
+    });
+    if (Array.isArray(item.children)) {
+      for (const child of item.children) {
+        if (child && typeof child === "object") {
+          visit(child, depth + 1);
+        }
+      }
+    }
+  };
+  for (const item of answer) {
+    if (item && typeof item === "object") {
+      visit(item as Record<string, any>, 0);
+    }
+  }
+  return outline;
+}
 
 function oneBased(value: unknown): number | undefined {
   return typeof value === "number" ? value + 1 : undefined;

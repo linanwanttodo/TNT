@@ -21,6 +21,26 @@ stdio 服务器（`command`、`args`、`env`）作为子进程运行；HTTP 服�
 和可选的 `headers`。写成 `${{ secrets.NAME }}` 的密钥会从环境变量以及
 [配置](/zh/cli/configuration)中列出的 `.env` 文件解析。
 
+## 代码图服务器
+
+内置工具面已经覆盖模块图和语言服务器图：`ImportGraph` 跟踪工作区内的导入与依赖方，
+`References` 与 `CallHierarchy` 向语言服务器查询引用和调用关系，`DocumentSymbol`
+给出单文件大纲。检索由 FTS5 trigram 索引承担；配置了 embedding 模型时，还会叠加
+向量索引与 reranker。
+
+需要跨全仓库的语义图（定义、跨文件边、超出语言服务器范围的增量索引）时，把它作为
+MCP 服务器接入，而不是塞进 CLI 本体：
+
+```yaml
+mcpServers:
+  - name: code-graph
+    command: <graph-server-command>
+    args: ["<workspace>"]
+```
+
+任何能索引工作区并提供检索/图工具的服务器都可以，CLI 不绑定具体实现。它的工具会
+进入延迟目录，每个只在提示词里占一行，直到模型用 `ToolSearch` 加载。
+
 ## 管理连接
 
 ```
