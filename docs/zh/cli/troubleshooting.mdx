@@ -20,6 +20,12 @@ TNT_LOG_LEVEL=debug tnt
 成功，日志会在启动时报告失败的字段。记住：不存在的 `provider` id 是错误，不会
 回退。
 
+## Claude settings 里的模型字段会被忽略
+
+TNT 会读取 `~/.claude/settings.json` 里的 hooks、权限和环境变量，但模型定义与
+当前模型放在 `~/.tnt/config.yaml`。Claude 文件里的 `model` 或 `models` 键会按设计
+丢弃，只在 debug 级别记录；请通过 onboarding 或 `/model` 配置模型。
+
 ## 密钥被拒绝
 
 `${{ secrets.NAME }}` 从环境变量和[配置](/zh/cli/configuration)中的 `.env`
