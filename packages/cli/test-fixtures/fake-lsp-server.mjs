@@ -95,6 +95,28 @@ function handle(message) {
       });
       break;
     }
+    case "textDocument/definition":
+      respond(message.id, [
+        {
+          uri: "file:///workspace/src/def.ts",
+          range: {
+            start: { line: 1, character: 2 },
+            end: { line: 1, character: 8 },
+          },
+        },
+      ]);
+      break;
+    case "textDocument/implementation":
+      respond(message.id, [
+        {
+          uri: "file:///workspace/src/impl.ts",
+          range: {
+            start: { line: 3, character: 4 },
+            end: { line: 3, character: 10 },
+          },
+        },
+      ]);
+      break;
     case "textDocument/references": {
       const position = message.params?.position;
       respond(message.id, [
