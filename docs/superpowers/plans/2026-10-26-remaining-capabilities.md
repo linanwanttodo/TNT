@@ -35,12 +35,12 @@
 - Consumes: nothing.
 - Produces: `loadSettings()` still drops `model`/`models`; it now logs at debug instead of warn. No signature change.
 
-- [ ] **Step 1: Verify the config fix is green**
+- [x] **Step 1: Verify the config fix is green**
 
 Run: `cd packages/cli && npx vitest run src/config/settings.test.ts`
 Expected: 7 tests pass, including “drops model fields without an alarming warning”.
 
-- [ ] **Step 2: Verify the installed configuration really loads**
+- [x] **Step 2: Verify the installed configuration really loads**
 
 Run the probe against `~/.tnt/config.yaml` (no provider call):
 
@@ -66,12 +66,12 @@ rm .tmp-config.ts
 
 Expected: `errors: []`, one chat model, a selected model.
 
-- [ ] **Step 3: Run the full gates**
+- [x] **Step 3: Run the full gates**
 
 Run: `cd packages/cli && npx vitest run && npx tsc --noEmit && npx eslint . --ignore-pattern 'src/.zcode/**' --ignore-pattern 'src/.mimosa/**' --ignore-pattern '.mimosa/**'`
 Expected: all green.
 
-- [ ] **Step 4: Commit the config fix**
+- [x] **Step 4: Commit the config fix**
 
 ```bash
 git add packages/cli/src/config/settings.ts packages/cli/src/config/settings.test.ts \
@@ -79,14 +79,14 @@ git add packages/cli/src/config/settings.ts packages/cli/src/config/settings.tes
 git commit -m "fix(config): stop warning for model fields in compatible settings"
 ```
 
-- [ ] **Step 5: Commit the capability round**
+- [x] **Step 5: Commit the capability round**
 
 ```bash
 git add packages/cli docs/cli docs/zh/cli
 git commit -m "feat(tools): add document symbols and the persisted import graph"
 ```
 
-- [ ] **Step 6: Push every unpushed commit**
+- [x] **Step 6: Push every unpushed commit**
 
 ```bash
 git push origin refs/heads/main:refs/heads/main
@@ -200,6 +200,8 @@ Run a reduced variant with two dimensions only, on a provider the owner approves
 
 Expected: resume reaches the synthesis phase; no `inputHash differs` error.
 
+> Blocked on 2026-10-26: the script is fixed and syntax-checked at `packages/cli/src/.zcode/workflow-drafts/seven-dimension-review.dwf.ts`, but this session has no workflow host to submit it to and no confirmed provider quota. The manual fallback in Task 3 was executed instead.
+
 - [ ] **Step 6: Run the full seven-chain workflow**
 
 Preconditions: owner approval for its subagents and a provider with quota.
@@ -220,27 +222,27 @@ Expected: `PRODUCT-GAP-ANALYSIS-2026-10-24.md` is rewritten; `artifact.file` pub
 - Consumes: Task 2's output if the workflow ran; otherwise this is the only analysis path.
 - Produces: one section per dimension with inventory, ≤6 findings, TNT `path:line` and reference `path:line` evidence.
 
-- [ ] **Step 1: Write the shared evidence rules**
+- [x] **Step 1: Write the shared evidence rules**
 
 Every finding must carry: TNT path:line, reference path:line, impact (high/medium/low), and a recommendation labelled 直接搬运 / 改造落地 / 需自研.
 
-- [ ] **Step 2: Analyze 检索与代码库理解**
+- [x] **Step 2: Analyze 检索与代码库理解**
 
 Focus: FTS5 trigram + BM25, LanceDB + rerank, LSP References/CallHierarchy/DocumentSymbol, ImportGraph, and what the reference trees do beyond them.
 
-- [ ] **Step 3: Analyze Agent 执行引擎**
+- [x] **Step 3: Analyze Agent 执行引擎**
 
 Focus: `loop/turnBudget.ts`, `stream/streamChatResponse.ts`, tool dispatch, subagents, plan mode, background jobs, interruption/recovery.
 
-- [ ] **Step 4: Analyze 上下文工程**
+- [x] **Step 4: Analyze 上下文工程**
 
 Focus: system-message layers, cache-prefix stability, compaction, context budget, rules/memory, token accounting.
 
-- [ ] **Step 5: Analyze 工具与能力面**
+- [x] **Step 5: Analyze 工具与能力面**
 
 Focus: edit/write, search, shell/background, diagnostics, web, images, todo/plan; compare schema and description engineering.
 
-- [ ] **Step 6: Cross-check every finding against the current tree**
+- [x] **Step 6: Cross-check every finding against the current tree**
 
 Re-open each cited line; mark a finding unconfirmed if the line moved or the behavior differs.
 
@@ -256,19 +258,19 @@ Re-open each cited line; mark a finding unconfirmed if the line moved or the beh
 - Consumes: Task 3's report structure.
 - Produces: a capability table covering prompts, tool inventory/schemas, context/permission policy, retrieval/index behavior, and the gaps TNT still has.
 
-- [ ] **Step 1: Inventory the agent CLI distribution**
+- [x] **Step 1: Inventory the agent CLI distribution**
 
 Resolve the real entry file behind the global bin, then inventory its system prompt strings, tool names and schemas with `rg -a`/`strings`; do not execute it.
 
-- [ ] **Step 2: Inventory the official CLI distribution**
+- [x] **Step 2: Inventory the official CLI distribution**
 
 Inspect the npm package and its platform binary with `rg -a`/`strings` for the same five categories; record the version.
 
-- [ ] **Step 3: Reconcile with the already-finished IDE and npm-distribution passes**
+- [x] **Step 3: Reconcile with the already-finished IDE and npm-distribution passes**
 
 Fold the earlier IDE retrieval/agent findings into the same table; list only differences that are still open.
 
-- [ ] **Step 4: Write the delta**
+- [x] **Step 4: Write the delta**
 
 For each TNT gap, give the mechanism, the TNT entry point, and whether it is transferable, adaptable, or needs original work.
 
@@ -285,6 +287,8 @@ For each TNT gap, give the mechanism, the TNT entry point, and whether it is tra
 **Interfaces:**
 - Consumes: a key the owner supplies or explicitly authorizes.
 - Produces: per-provider cache-read numbers for two consecutive rounds and, if measured, a justified default breakpoint budget.
+
+> Blocked on 2026-10-26: `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY` and `OPENAI_API_KEY` are unset in this session and the config key was not read. Re-run when a key is supplied.
 
 - [ ] **Step 1: Ask for the key/authorization**
 
@@ -321,27 +325,27 @@ Add the measured numbers to the analysis report. If a default changes, update `c
 - Consumes: the handoff's §4.3 P2 list.
 - Produces: one TDD task per still-open item, each with its own failing test and file list.
 
-- [ ] **Step 1: Audit full-screen Static**
+- [x] **Step 1: Audit full-screen Static**
 
 Read `packages/cli/src/ui/components/MainContent.tsx`, `ScreenContent.tsx` and the streaming renderer; mark done/partial/open with evidence.
 
-- [ ] **Step 2: Audit two-axis termination and preemption**
+- [x] **Step 2: Audit two-axis termination and preemption**
 
 Read `loop/turnBudget.ts`, `stream/streamChatResponse.ts`, and the usage callbacks; mark the status of consecutive-failure and total-budget termination plus token preemption.
 
-- [ ] **Step 3: Audit system-message merge-patch**
+- [x] **Step 3: Audit system-message merge-patch**
 
 Read `stream/systemPromptRound.ts` and `services/SystemMessageService.ts`; determine whether section-level updates already exist.
 
-- [ ] **Step 4: Audit context-budget injection and changed-files reinsertion**
+- [x] **Step 4: Audit context-budget injection and changed-files reinsertion**
 
 Read `stream/requestPreparation.ts`, `cache/*`, and the hook/reminder paths; record what is already visible to the model.
 
-- [ ] **Step 5: Audit the recorded-replay layer and Windows headless e2e**
+- [x] **Step 5: Audit the recorded-replay layer and Windows headless e2e**
 
 Read `test-utils/`, `e2e/` and the CI workflow; list the missing fixtures/platforms.
 
-- [ ] **Step 6: Write the sub-plan**
+- [x] **Step 6: Write the sub-plan**
 
 For every open item, write a task with exact files, a failing test, the minimal implementation, the gate commands, and a commit message.
 
