@@ -1,32 +1,31 @@
-## Mintlify Starter Kit
+# TNT Docs
 
-Click on `Use this template` to copy the Mintlify starter kit. The starter kit contains examples including
+The documentation source lives in this directory; the site that renders it is
+`../docs-site` (a Next.js static export, not Mintlify).
 
-- Guide pages
-- Navigation
-- Customizations
-- API Reference pages
-- Use of popular components
+## Editing
 
-### Development
+Pages are MDX. The navigation in `docs.json` is the source of truth for which
+pages are reachable — a file that is not listed there is not in the sidebar and
+is excluded from the search index. `docs.zh.json` mirrors the same structure
+for the Chinese pages under `zh/`.
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview the documentation changes locally. To install, use the following command
+Snippets shared between pages live in `snippets/`.
 
-```
-npm i -g mint
-```
+## Building
 
-Run the following command at the root of your documentation (where docs.json is)
-
-```
-mint dev
+```bash
+cd ../docs-site
+npm ci
+npm run build
 ```
 
-### Publishing Changes
+The build reads `../docs/*.mdx` by slug and writes the static export to
+`docs-site/out`. Deployment to GitHub Pages runs automatically on pushes to
+`main` that touch `docs/**` or `docs-site/**` (`.github/workflows/docs-gh-pages.yml`).
 
-Install our Github App to auto propagate changes from your repo to your deployment. Changes will be deployed to production automatically after pushing to the default branch. Find the link to install on your dashboard.
+## Conventions
 
-#### Troubleshooting
-
-- If the dev environment isn't running - Run `mint update` to ensure you have the most recent version of the CLI.
-- Page loads as a 404 - Make sure you are running in a folder with `docs.json`
+- The product is TNT; paths are `~/.tnt` and the binary is `tnt`.
+- Chinese pages under `zh/` mirror the English navigation one-to-one; when a
+  page is added or renamed, update both `docs.json` and `docs.zh.json`.
