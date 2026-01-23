@@ -17,7 +17,7 @@
 - Task 3 Static: **blocked by structure**. The transcript lives in an alternate-screen `ScrollView` that clips and measures every row (`ui/components/TranscriptContent.tsx`); `<Static>` writes to terminal scrollback, so inserting it would bypass that viewport. This needs a design choice (leave alternate screen, or keep ScrollView and drop Static), not a patch.
 - Task 4 merge-patch: **needs design**. `advanceSystemPrompt` already appends the whole changed prompt as an in-history update (`stream/systemPromptRound.ts`); a section patch changes what the cached prefix and update list mean, so it is not a drop-in.
 - Task 5 context budget: **already implemented**. `loop/contextBudget.ts` is wired through `state.contextBudget.reminder(...)` in `stream/streamChatResponse.ts:329`; no work needed.
-- Task 6 changed-file diff: **blocked by structure**. `tools/fileState.ts` keeps only size/mtime/inode stamps, not content; producing hunks requires storing per-file snapshots and deciding the memory/disk cap first.
+- Task 6 changed-file diff: **done** (`098858b60`). `fileState` keeps bounded snapshots (24 files, 64 KB each); the note shows a capped line diff. A separate flake was fixed: the docs scan now skips a directory that vanished mid-scan.
 - Task 7 retry classification: **already implemented**. `utils/exponentialBackoff.ts` has `isRetryable` and `retryAfterMs` (Retry-After parsing) plus the backoff wrapper.
 - Task 8 task store: **product decision**. `Todo` (session list) and `Checklist` (history marker) already cover task tracking; a third persistent store needs a use case that those two cannot serve.
 - Task 9 recorded replay/Windows e2e: **open**; test/CI work only.
