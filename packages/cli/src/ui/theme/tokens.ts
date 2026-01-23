@@ -1,5 +1,7 @@
 import React, { createContext, useContext, type ReactNode } from "react";
 
+import type { SyntaxHighlighterTheme } from "../SyntaxHighlighter.js";
+
 /**
  * Semantic color tokens for the terminal UI.
  * Strictly adheres to Tencent UI design guidelines:
@@ -27,6 +29,8 @@ export interface Theme {
   };
   accent: string;
   user: string;
+  /** Code highlight colours for fenced blocks and diff context lines. */
+  syntax: SyntaxHighlighterTheme;
   tool: {
     pendingBackground: string;
     successBackground: string;
@@ -86,6 +90,21 @@ export const darkTheme: Theme = {
     hunkBackground: "#1f242c",
     hunkText: "cyan",
   },
+  syntax: {
+    keyword: "magenta",
+    string: "green",
+    comment: "gray",
+    number: "cyan",
+    operator: "white",
+    punctuation: "white",
+    function: "yellow",
+    variable: "white",
+    property: "blue",
+    class: "yellow",
+    constant: "cyan",
+    regex: "red",
+    default: "white",
+  },
 };
 
 /** Tencent Design Dark Theme (Flat solid colors, Tencent Blue brand accent) */
@@ -127,6 +146,21 @@ export const tencentDarkTheme: Theme = {
     hunkBackground: "#1c222b",
     hunkText: "#0052d9",
   },
+  syntax: {
+    keyword: "#6ea6ff",
+    string: "#48d597",
+    comment: "#6e7681",
+    number: "#e3b341",
+    operator: "#c9d1d9",
+    punctuation: "#8b949e",
+    function: "#79c0ff",
+    variable: "#e7e9eb",
+    property: "#9ecbff",
+    class: "#e3b341",
+    constant: "#48d597",
+    regex: "#f56c6c",
+    default: "#e7e9eb",
+  },
 };
 
 /** Tencent Design Light Theme (Flat solid colors, high readability) */
@@ -167,6 +201,21 @@ export const tencentLightTheme: Theme = {
     gutterText: "#999999",
     hunkBackground: "#f0f2f5",
     hunkText: "#0052d9",
+  },
+  syntax: {
+    keyword: "#0052d9",
+    string: "#188050",
+    comment: "#999999",
+    number: "#b26818",
+    operator: "#333333",
+    punctuation: "#666666",
+    function: "#366ef4",
+    variable: "#181818",
+    property: "#0052d9",
+    class: "#b26818",
+    constant: "#188050",
+    regex: "#c0352b",
+    default: "#181818",
   },
 };
 
