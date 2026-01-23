@@ -20,7 +20,7 @@
 - Task 6 changed-file diff: **done** (`098858b60`). `fileState` keeps bounded snapshots (24 files, 64 KB each); the note shows a capped line diff. A separate flake was fixed: the docs scan now skips a directory that vanished mid-scan.
 - Task 7 retry classification: **already implemented**. `utils/exponentialBackoff.ts` has `isRetryable` and `retryAfterMs` (Retry-After parsing) plus the backoff wrapper.
 - Task 8 task store: **product decision**. `Todo` (session list) and `Checklist` (history marker) already cover task tracking; a third persistent store needs a use case that those two cannot serve.
-- Task 9 recorded replay/Windows e2e: **open**; test/CI work only.
+- Task 9 Windows headless e2e: **done** (`5a69a2393`, `93a667d05`, `0d72dce20`). Exit flushes stdio first, the session helper reads the v2 `.jsonl` transcript, and CI runs the headless filter on Windows. A separate recorded-replay fixture layer was **not added**: the existing `headless-mock-llm` and sibling suites already replay scripted SSE frames.
 
 ## Global Constraints
 
