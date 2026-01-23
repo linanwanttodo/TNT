@@ -128,6 +128,28 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/`✓` done/.test(flat)).toBe(/glyph: "✓"/.test(group));
   });
 
+  it("describes the approval card per tool family where it is built", () => {
+    const selector = read(
+      path.join(here, "components", "ToolPermissionSelector.tsx"),
+    );
+
+    expect(/prints the whole command verbatim/.test(flat)).toBe(
+      /toolArgs\?\.command/.test(selector),
+    );
+    expect(/working directory it will run in/.test(flat)).toBe(
+      /process\.cwd\(\)/.test(selector),
+    );
+    expect(/folded to eight rows/.test(flat)).toBe(
+      /COLLAPSED_DIFF_LINES = 8/.test(selector),
+    );
+    expect(/`e` expands and folds/.test(flat)).toBe(
+      /setDiffExpanded/.test(selector),
+    );
+    expect(/every other tool keeps the argument preview/.test(flat)).toBe(
+      /<ToolPreview/.test(selector),
+    );
+  });
+
   it("describes the user and model prefixes where they are drawn", () => {
     const message = read(path.join(here, "components", "MemoizedMessage.tsx"));
 
