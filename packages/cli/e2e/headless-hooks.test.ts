@@ -166,7 +166,7 @@ describe("E2E: Headless lifecycle hooks", () => {
 
     // And the transcript a hook is pointed at is the session file, which exists.
     const seen = await fs.readFile(transcriptRecord, "utf-8");
-    expect(seen).toMatch(/\.json$/);
+    expect(seen).toMatch(/\.jsonl$/);
     await fs.access(seen);
   }, 30000);
 });
