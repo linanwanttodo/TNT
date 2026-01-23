@@ -53,17 +53,17 @@ message, as a grey spinner with a `Thinking…` label and the elapsed time
 
 ## Tool calls
 
-Each tool call is a full-width panel whose flat background reports the state:
-neutral while pending or running, green after a clean exit, red after a failure
-and yellow when cancelled. The title row holds the status glyph, the tool name
-in bold, its subject in the secondary colour and a short `→` summary of what
-the call produced. Output sits below it, folded to its last four rows with the
-number of hidden rows above and a `click to expand` hint; clicking the panel
-shows the whole output and the next click folds it again. A finished call folds
-itself, so the transcript settles without the reader clicking anything. The
-markers are `✓` done, `o` pending, `⊷` running, `x` failed and `-` cancelled
-(`src/ui/components/ToolGroupDisplay.tsx`). Shell calls read as `$ command`,
-the way pi labels them.
+Each tool call is a rounded frame whose border colour reports the state: the
+accent while pending or running, the dim spine colour after a clean exit, red
+after a failure and yellow when cancelled. The title sits inside the top
+border bar: the status glyph, the tool name in the accent colour, its subject
+in the secondary colour and a short `·` summary of what the call produced.
+Output sits below it, folded to its last four rows with the number of hidden
+rows above and a `click to expand` hint; clicking the panel shows the whole
+output and the next click folds it again. A finished call folds itself, so the
+transcript settles without the reader clicking anything. The markers are `✓`
+done, `o` pending, `⊷` running, `x` failed and `-` cancelled
+(`src/ui/components/ToolGroupDisplay.tsx`). Shell calls read as `$ command`.
 
 ## Messages
 
