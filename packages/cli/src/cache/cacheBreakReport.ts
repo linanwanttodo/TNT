@@ -11,13 +11,11 @@ import type { CachePrefixVerdict } from "./prefixState.js";
 import type { RequestHeader } from "./requestHeader.js";
 
 /**
- * A prefix that moved is only worth reporting when the bill shows it: providers
- * round, warm caches expire on their own, and a one-point wobble on a short
- * request is noise. The numbers below come from that - a report has to be both a
- * real drop and big enough that the drop costs something.
+ * Everything in the previous round's prompt should come back as a cache read.
+ * The amount that did not is the miss this module counts; a miss at or below
+ * this floor is cache-breakpoint granularity noise, not a break worth a report.
  */
-export const HIT_RATE_DROP_POINTS = 5;
-export const MIN_REPORTED_INPUT_TOKENS = 2000;
+export const CACHE_MISS_NOISE_FLOOR_TOKENS = 1024;
 const MAX_DIFF_CHARS = 20_000;
 const MAX_STORED_PER_SESSION = 20;
 
@@ -33,8 +31,16 @@ const ALL_PREFIX_FIELDS = [
 ];
 
 export interface CacheRound {
+  /** Billed prompt tokens: uncached input plus cache reads and writes. */
   inputTokens: number;
   cacheReadTokens: number;
+  cacheWriteTokens?: number;
+  /**
+   * Sticky: some earlier round in this session reported cache activity. It
+   * tells a total miss on a cache-read-only provider apart from a provider that
+   * never reports caching at all.
+   */
+  reportedCache?: boolean;
 }
 
 export function cacheHitRate(round: CacheRound): number {
@@ -47,6 +53,15 @@ export interface CacheBreakAssessment {
   previousRate: number;
   currentRate: number;
   dropPoints: number;
+  /** Prompt tokens from the previous round that were not read from the cache. */
+  missedTokens: number;
+}
+
+function reportedCacheActivity(round: CacheRound): boolean {
+  return (
+    round.reportedCache ??
+    round.cacheReadTokens + (round.cacheWriteTokens ?? 0) > 0
+  );
 }
 
 export function assessCacheBreak(
@@ -57,14 +72,24 @@ export function assessCacheBreak(
   const currentRate = cacheHitRate(current);
   const dropPoints = (previousRate - currentRate) * 100;
 
+  // A growing prompt is not a miss: the new turn's tokens were never in the
+  // previous request, so only the overlapping head is expected from the cache.
+  const expectedRead = previous
+    ? Math.min(previous.inputTokens, current.inputTokens)
+    : 0;
+  const missedTokens = previous
+    ? Math.max(0, expectedRead - current.cacheReadTokens)
+    : 0;
+
   return {
     report:
       previous !== undefined &&
-      current.inputTokens >= MIN_REPORTED_INPUT_TOKENS &&
-      dropPoints > HIT_RATE_DROP_POINTS,
+      reportedCacheActivity(previous) &&
+      missedTokens > CACHE_MISS_NOISE_FLOOR_TOKENS,
     previousRate,
     currentRate,
     dropPoints,
+    missedTokens,
   };
 }
 
@@ -75,13 +100,24 @@ export function recordCacheRound(
   scope: string | undefined,
   round: CacheRound,
 ): void {
-  lastRounds.set(scope ?? SCOPE_KEY, round);
+  const key = scope ?? SCOPE_KEY;
+  lastRounds.set(key, {
+    ...round,
+    reportedCache:
+      (lastRounds.get(key)?.reportedCache ?? false) ||
+      round.cacheReadTokens + (round.cacheWriteTokens ?? 0) > 0,
+  });
 }
 
 export function recallCacheRound(
   scope: string | undefined,
 ): CacheRound | undefined {
   return lastRounds.get(scope ?? SCOPE_KEY);
+}
+
+/** A context rewrite makes the next prompt new content, not re-billed content. */
+export function forgetCacheRound(scope: string | undefined): void {
+  lastRounds.delete(scope ?? SCOPE_KEY);
 }
 
 export function forgetCacheRounds(): void {
@@ -267,6 +303,7 @@ export function writeCacheBreakReport(options: {
         current: Number(assessment.currentRate.toFixed(4)),
         dropPoints: Number(assessment.dropPoints.toFixed(2)),
       },
+      missedTokens: assessment.missedTokens,
       diff: describePrefixDiff(previous, current, reasons),
     };
     const file = path.join(

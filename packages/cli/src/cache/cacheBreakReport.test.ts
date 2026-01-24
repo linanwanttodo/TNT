@@ -5,11 +5,11 @@ import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
-  HIT_RATE_DROP_POINTS,
-  MIN_REPORTED_INPUT_TOKENS,
+  CACHE_MISS_NOISE_FLOOR_TOKENS,
   assessCacheBreak,
   cacheHitRate,
   describePrefixDiff,
+  forgetCacheRound,
   forgetCacheRounds,
   recordCacheRound,
   recallCacheRound,
@@ -46,57 +46,113 @@ describe("cacheHitRate", () => {
 });
 
 describe("assessCacheBreak", () => {
-  const warm = { inputTokens: 9000, cacheReadTokens: 8100 }; // 90%
-  const cold = { inputTokens: 9000, cacheReadTokens: 2700 }; // 30%
+  // A round that read its whole prompt back from the cache.
+  const warm = {
+    inputTokens: 100_000,
+    cacheReadTokens: 100_000,
+    reportedCache: true,
+  };
+  const cold = { inputTokens: 9_000, cacheReadTokens: 2_700 };
 
-  it("needs a previous round to call anything a drop", () => {
+  it("needs a previous round to call anything a miss", () => {
     expect(assessCacheBreak(undefined, cold).report).toBe(false);
+    expect(assessCacheBreak(undefined, cold).missedTokens).toBe(0);
   });
 
-  it("stays quiet for a drop smaller than the threshold", () => {
-    const slight = { inputTokens: 9000, cacheReadTokens: 7700 }; // ~85.6%
-    expect(assessCacheBreak(warm, slight).dropPoints).toBeLessThanOrEqual(
-      HIT_RATE_DROP_POINTS,
-    );
-    expect(assessCacheBreak(warm, slight).report).toBe(false);
+  it("does not count a growing prompt as a miss", () => {
+    // The new turn's tokens were never in the previous request, so only the
+    // overlapping head is expected from the cache.
+    const assessment = assessCacheBreak(warm, {
+      inputTokens: 120_000,
+      cacheReadTokens: 100_000,
+    });
+
+    expect(assessment.missedTokens).toBe(0);
+    expect(assessment.report).toBe(false);
   });
 
-  it("stays quiet when the request is too short for the provider to have cached it", () => {
+  it("keeps a miss inside the noise floor quiet", () => {
+    const atFloor = assessCacheBreak(warm, {
+      inputTokens: 100_000,
+      cacheReadTokens: 100_000 - CACHE_MISS_NOISE_FLOOR_TOKENS,
+    });
+    expect(atFloor.missedTokens).toBe(CACHE_MISS_NOISE_FLOOR_TOKENS);
+    expect(atFloor.report).toBe(false);
+
+    const aboveFloor = assessCacheBreak(warm, {
+      inputTokens: 100_000,
+      cacheReadTokens: 100_000 - CACHE_MISS_NOISE_FLOOR_TOKENS - 1,
+    });
+    expect(aboveFloor.report).toBe(true);
+  });
+
+  it("calls a full miss a break and keeps the display rates", () => {
+    const assessment = assessCacheBreak(warm, {
+      inputTokens: 100_000,
+      cacheReadTokens: 0,
+    });
+
+    expect(assessment.report).toBe(true);
+    expect(assessment.missedTokens).toBe(100_000);
+    expect(assessment.previousRate).toBeCloseTo(1, 4);
+    expect(assessment.currentRate).toBe(0);
+    expect(assessment.dropPoints).toBeCloseTo(100, 1);
+  });
+
+  it("does not judge a provider that never reported cache activity", () => {
     expect(
-      assessCacheBreak(warm, {
-        inputTokens: MIN_REPORTED_INPUT_TOKENS - 1,
-        cacheReadTokens: 0,
-      }).report,
+      assessCacheBreak(
+        { inputTokens: 9_000, cacheReadTokens: 0, reportedCache: false },
+        { inputTokens: 9_000, cacheReadTokens: 0 },
+      ).report,
     ).toBe(false);
+
+    // A direct caller without the sticky field: the previous round itself
+    // reported nothing, so there is no evidence the provider has a cache.
     expect(
-      assessCacheBreak(warm, {
-        inputTokens: MIN_REPORTED_INPUT_TOKENS,
-        cacheReadTokens: 0,
-      }).report,
+      assessCacheBreak(
+        { inputTokens: 9_000, cacheReadTokens: 0 },
+        { inputTokens: 9_000, cacheReadTokens: 0 },
+      ).report,
+    ).toBe(false);
+  });
+
+  it("judges a total miss after earlier activity", () => {
+    expect(
+      assessCacheBreak(
+        { inputTokens: 9_000, cacheReadTokens: 0, reportedCache: true },
+        { inputTokens: 9_000, cacheReadTokens: 0 },
+      ).report,
     ).toBe(true);
   });
 
-  it("calls a real drop on a billable request a break", () => {
-    const assessment = assessCacheBreak(warm, cold);
+  it("remembers the round for the key it was given, and keeps activity sticky", () => {
+    forgetCacheRounds();
+    expect(recallCacheRound("a")).toBeUndefined();
 
-    expect(assessment.report).toBe(true);
-    expect(assessment.previousRate).toBeCloseTo(0.9, 4);
-    expect(assessment.currentRate).toBeCloseTo(0.3, 4);
-    expect(assessment.dropPoints).toBeCloseTo(60, 1);
+    recordCacheRound("a", { inputTokens: 1_000, cacheReadTokens: 500 });
+    recordCacheRound("b", { inputTokens: 1_000, cacheReadTokens: 0 });
+
+    expect(recallCacheRound("a")?.reportedCache).toBe(true);
+    expect(recallCacheRound("b")?.reportedCache).toBe(false);
+
+    // A later round that reports nothing does not erase what the session saw.
+    recordCacheRound("a", { inputTokens: 1_000, cacheReadTokens: 0 });
+    expect(recallCacheRound("a")?.reportedCache).toBe(true);
+
+    forgetCacheRounds();
+    expect(recallCacheRound("a")).toBeUndefined();
   });
 
-  it("remembers the round for the key it was given, not for every run", () => {
-    forgetCacheRounds();
-    expect(recallCacheRound("a")).toBeUndefined();
-
+  it("forgets one key when a context rewrite lands", () => {
     recordCacheRound("a", warm);
-    recordCacheRound("b", cold);
+    recordCacheRound("b", warm);
 
-    expect(recallCacheRound("a")).toEqual(warm);
-    expect(recallCacheRound("b")).toEqual(cold);
+    forgetCacheRound("a");
 
-    forgetCacheRounds();
     expect(recallCacheRound("a")).toBeUndefined();
+    expect(recallCacheRound("b")).toBeDefined();
+    forgetCacheRounds();
   });
 });
 
@@ -252,6 +308,7 @@ describe("writeCacheBreakReport", () => {
         previousRate: 0.9,
         currentRate: 0.2,
         dropPoints: 70,
+        missedTokens: 80_000,
       },
     });
 
@@ -265,6 +322,7 @@ describe("writeCacheBreakReport", () => {
       current: 0.2,
       dropPoints: 70,
     });
+    expect(body.missedTokens).toBe(80_000);
     expect(body.diff.systemMessage.added[0]).toContain("became something else");
   });
 
@@ -285,6 +343,7 @@ describe("writeCacheBreakReport", () => {
           previousRate: 1,
           currentRate: 0,
           dropPoints: 100,
+          missedTokens: 100_000,
         },
       });
     }
@@ -312,6 +371,7 @@ describe("writeCacheBreakReport", () => {
         previousRate: 1,
         currentRate: 0,
         dropPoints: 100,
+        missedTokens: 100_000,
       },
     });
 
