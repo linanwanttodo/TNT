@@ -60,6 +60,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       expect(policies[0]).toEqual({
         tool: "*",
         permission: "allow",
+        allowUnsafeCalls: true,
       });
     });
 
@@ -251,7 +252,11 @@ describe("ToolPermissionService - Mode Functionality", () => {
       const policies = service.getPermissions().policies;
 
       // Mode policies should override user config - everything should be allowed
-      expect(policies[0]).toEqual({ tool: "*", permission: "allow" });
+      expect(policies[0]).toEqual({
+        tool: "*",
+        permission: "allow",
+        allowUnsafeCalls: true,
+      });
     });
   });
 

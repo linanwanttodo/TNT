@@ -2,14 +2,17 @@ import type { ToolPolicy } from "@tnt/terminal-security";
 
 import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
 import { parseApplyPatch } from "src/tools/applyPatch.js";
+import type { Tool } from "src/tools/types.js";
 
 import { bashCommandMatches } from "./bashCommandRule.js";
+import { hasDangerousAllowPrefix } from "./dangerousCommandPrefixes.js";
 import { isDocumentPath } from "./documentPath.js";
 import { isReadOnlyCommand } from "./readOnlyCommand.js";
 import {
   PermissionCheckResult,
   PermissionPolicy,
   ToolCallRequest,
+  ToolPermissionPolicy,
   ToolPermissions,
 } from "./types.js";
 import { isWithinWorkspace, workspaceRoot } from "./workspacePath.js";
@@ -29,6 +32,22 @@ export const READ_ONLY_MODE_DENIAL =
  */
 export const DOCUMENT_ONLY_MODE_DENIAL =
   "Blocked: this mode may only write documentation files (.md, .mdx, .markdown, .rst, .txt). Ask the user to switch to agent mode to change code.";
+
+/**
+ * The message the model reads when an allow rule matched a command that starts
+ * another program. The rule approved the command shape, and the program decides
+ * what happens next, so the human stays in front of this one call.
+ */
+export const DANGEROUS_ALLOW_NOTICE =
+  "This command starts a program that can run arbitrary code, so an allow rule for its first word cannot answer for what it does. Approve this call to run it, or narrow the rule to the exact command.";
+
+/**
+ * The message the model reads when a read-only tool's own analysis says this
+ * call leaves the area the tool can prove safe. An allow rule for the tool does
+ * not extend to that call.
+ */
+export const TOOL_NARROWED_ALLOW_NOTICE =
+  "This call reaches outside the area this read-only tool can search without a decision from you, so it needs approval despite an allow rule for the tool. Approve it to run it, or keep the call inside the workspace.";
 
 /**
  * The message that explains a write the policy allows but the workspace does not
@@ -170,6 +189,52 @@ function permissionPolicyToToolPolicy(
 }
 
 /**
+ * An allow rule answers for the command it matched, not for the program that
+ * command starts. Where the matched command begins with an interpreter, a
+ * runner or a shell, the allow is turned back into an ask unless the rule is
+ * the explicit bypass override.
+ */
+function narrowDangerousAllow(
+  toolCall: ToolCallRequest,
+  matchedPolicy: ToolPermissionPolicy | undefined,
+  permission: PermissionPolicy,
+): PermissionPolicy {
+  if (permission !== "allow" || matchedPolicy?.allowUnsafeCalls) {
+    return permission;
+  }
+  if (toolCall.name !== "Bash") {
+    return permission;
+  }
+  return hasDangerousAllowPrefix(toolCall.arguments?.command)
+    ? "ask"
+    : permission;
+}
+
+/**
+ * A read-only tool has no write to ask about, so its own
+ * `allowedWithPermission` says this call leaves what the tool can prove safe.
+ * An allow rule for the tool then becomes an ask; the bypass rule remains the
+ * explicit override.
+ */
+function narrowReadOnlyAllow(
+  tool: Tool | undefined,
+  matchedPolicy: ToolPermissionPolicy | undefined,
+  basePermission: PermissionPolicy,
+  evaluatedPolicy: ToolPolicy,
+): PermissionPolicy {
+  if (
+    basePermission !== "allow" ||
+    evaluatedPolicy !== "allowedWithPermission"
+  ) {
+    return basePermission;
+  }
+  if (tool?.readonly !== true || matchedPolicy?.allowUnsafeCalls) {
+    return basePermission;
+  }
+  return "ask";
+}
+
+/**
  * Evaluates a tool call request against a set of permission policies.
  * Returns the permission for the first matching policy.
  */
@@ -260,6 +325,20 @@ export function checkToolPermission(
       };
     }
 
+    const readOnlyNarrowed = narrowReadOnlyAllow(
+      tool,
+      matchedPolicy,
+      basePermission,
+      evaluatedPolicy,
+    );
+    if (readOnlyNarrowed !== basePermission) {
+      return {
+        permission: readOnlyNarrowed,
+        matchedPolicy,
+        reason: TOOL_NARROWED_ALLOW_NOTICE,
+      };
+    }
+
     // On an ask policy, the read-only branch is an allow: it is what lets
     // `git status` run in default mode while `git commit` still asks.
     if (matchedPolicy?.readOnlyAllow) {
@@ -269,9 +348,11 @@ export function checkToolPermission(
         command.trim() !== "" &&
         isReadOnlyCommand(command)
       ) {
+        const narrowed = narrowDangerousAllow(toolCall, matchedPolicy, "allow");
         return {
-          permission: "allow",
+          permission: narrowed,
           matchedPolicy,
+          reason: narrowed === "allow" ? undefined : DANGEROUS_ALLOW_NOTICE,
         };
       }
     }
@@ -294,16 +375,29 @@ export function checkToolPermission(
       }
     }
 
-    // Otherwise, user preference wins - return the original base permission
-    return {
-      permission: basePermission,
+    // Otherwise, user preference wins - return the base permission, narrowed
+    // only where the matched command starts another program.
+    const narrowed = narrowDangerousAllow(
+      toolCall,
       matchedPolicy,
+      basePermission,
+    );
+    return {
+      permission: narrowed,
+      matchedPolicy,
+      reason: narrowed === basePermission ? undefined : DANGEROUS_ALLOW_NOTICE,
     };
   }
 
   // No dynamic evaluation, return static result
-  return {
-    permission: basePermission,
+  const narrowed = narrowDangerousAllow(
+    toolCall,
     matchedPolicy,
+    basePermission,
+  );
+  return {
+    permission: narrowed,
+    matchedPolicy,
+    reason: narrowed === basePermission ? undefined : DANGEROUS_ALLOW_NOTICE,
   };
 }

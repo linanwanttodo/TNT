@@ -1,3 +1,6 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import * as nodeUtil from "util";
 
 import { vi } from "vitest";
@@ -220,5 +223,65 @@ describe("search result limits", () => {
     const result = await runWith("   ", {});
 
     expect(result).toContain("No matches found for pattern");
+  });
+});
+
+describe("searchCodeTool policy", () => {
+  // Imported after the module mocks above are in place; a top-level import
+  // would load child_process before `execFileMock` exists.
+  let searchCodeTool: (typeof import("./searchCode.js"))["searchCodeTool"];
+
+  beforeAll(async () => {
+    searchCodeTool = (await import("./searchCode.js")).searchCodeTool;
+  });
+
+  const decide = (args: Record<string, unknown>) =>
+    searchCodeTool.evaluateToolCallPolicy!("allowedWithoutPermission", args);
+
+  it("leaves a search inside the workspace to the base policy", () => {
+    expect(decide({ path: "src" })).toBe("allowedWithoutPermission");
+  });
+
+  it("escalates a target outside the workspace", () => {
+    expect(decide({ path: os.tmpdir() })).toBe("allowedWithPermission");
+  });
+
+  it("escalates a relative escape", () => {
+    expect(decide({ path: "../.." })).toBe("allowedWithPermission");
+  });
+
+  it("treats a missing or empty path as the workspace", () => {
+    expect(decide({})).toBe("allowedWithoutPermission");
+    expect(decide({ path: "   " })).toBe("allowedWithoutPermission");
+  });
+
+  it("never loosens a base policy that already refuses", () => {
+    expect(
+      searchCodeTool.evaluateToolCallPolicy!("allowedWithPermission", {
+        path: os.tmpdir(),
+      }),
+    ).toBe("allowedWithPermission");
+    expect(
+      searchCodeTool.evaluateToolCallPolicy!("disabled", {
+        path: os.tmpdir(),
+      }),
+    ).toBe("disabled");
+  });
+
+  it("follows a symlink that points out of the workspace", () => {
+    const outside = fs.mkdtempSync(
+      path.join(os.tmpdir(), "tnt-search-outside-"),
+    );
+    const link = path.join(
+      process.cwd(),
+      `.tnt-search-link-${process.pid}-${Date.now()}`,
+    );
+    try {
+      fs.symlinkSync(outside, link);
+      expect(decide({ path: link })).toBe("allowedWithPermission");
+    } finally {
+      fs.rmSync(link, { force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
   });
 });
