@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  alternateScreenEnabled,
   enterAlternateScreen,
   leaveAlternateScreen,
 } from "./terminalScreen.js";
@@ -51,5 +52,18 @@ describe("alternate screen", () => {
     enterAlternateScreen();
     leaveAlternateScreen();
     expect(writes).toEqual([]);
+  });
+});
+
+describe("alternateScreenEnabled", () => {
+  it("defaults on and accepts the documented off spellings", () => {
+    expect(alternateScreenEnabled({})).toBe(true);
+    expect(alternateScreenEnabled({ CONTINUE_CLI_ALT_SCREEN: "1" })).toBe(true);
+    for (const value of ["0", "false", "off", " OFF "]) {
+      expect(
+        alternateScreenEnabled({ CONTINUE_CLI_ALT_SCREEN: value }),
+        value,
+      ).toBe(false);
+    }
   });
 });

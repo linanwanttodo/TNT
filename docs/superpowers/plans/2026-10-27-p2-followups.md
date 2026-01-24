@@ -14,7 +14,7 @@
 
 - Task 1 Definition: **done** (`d0422f850`). 40 tools, fingerprint `7adf6e7f8f221a81` after Task 2.
 - Task 2 Read images: **done** (`b0462f417`). `Read` returns `ToolResult` for png/jpg/jpeg/webp/gif, 3 MB cap.
-- Task 3 Static: **blocked by structure**. The transcript lives in an alternate-screen `ScrollView` that clips and measures every row (`ui/components/TranscriptContent.tsx`); `<Static>` writes to terminal scrollback, so inserting it would bypass that viewport. This needs a design choice (leave alternate screen, or keep ScrollView and drop Static), not a patch.
+- Task 3 Static: **opt-in done**. `CONTINUE_CLI_ALT_SCREEN=0` now keeps the normal buffer and renders settled history through `<Static>`, leaving only the live tail in the frame; the default alternate-screen `ScrollView` path is unchanged. The content-level safe split / pending buffer from the same reference still needs the streaming-state change and was not added.
 - Task 4 merge-patch: **needs design**. `advanceSystemPrompt` already appends the whole changed prompt as an in-history update (`stream/systemPromptRound.ts`); a section patch changes what the cached prefix and update list mean, so it is not a drop-in.
 - Task 5 context budget: **already implemented**. `loop/contextBudget.ts` is wired through `state.contextBudget.reminder(...)` in `stream/streamChatResponse.ts:329`; no work needed.
 - Task 6 changed-file diff: **done** (`098858b60`). `fileState` keeps bounded snapshots (24 files, 64 KB each); the note shows a capped line diff. A separate flake was fixed: the docs scan now skips a directory that vanished mid-scan.
