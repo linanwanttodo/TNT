@@ -23,9 +23,11 @@ import { ModeIndicator } from "./components/ModeIndicator.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { consumeComposerDraft, useComposerDraft } from "./composerDraft.js";
 import { FileSearchUI } from "./FileSearchUI.js";
+import { useHistorySearch } from "./hooks/useHistorySearch.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useServices } from "./hooks/useService.js";
 import {
+  escapePresses,
   handleControlKeys,
   updateTextBufferState,
 } from "./hooks/useUserInput.js";
@@ -167,17 +169,6 @@ const UserInput: React.FC<UserInputProps> = ({
   const [inputText, setInputText] = useState("");
   const [cursorPosition, setCursorPosition] = useState(0);
   const [showSlashCommands, setShowSlashCommands] = useState(false);
-
-  // Clear input function for Ctrl+C
-  const clearInput = useCallback(() => {
-    textBuffer.clear();
-    setInputText("");
-    setCursorPosition(0);
-    setShowSlashCommands(false);
-    setShowFileSearch(false);
-    setShowBashMode(false);
-    inputHistory.resetNavigation();
-  }, [textBuffer]);
 
   const [slashCommandFilter, setSlashCommandFilter] = useState("");
   /** Parent command when the palette has descended into its subcommands. */
@@ -615,6 +606,38 @@ const UserInput: React.FC<UserInputProps> = ({
     return false;
   };
 
+  // Ctrl+F history search; the hint line reads its state, the key handlers
+  // live in the hook.
+  const historySearch = useHistorySearch({
+    textBuffer,
+    inputHistory,
+    inputText,
+    setInputText,
+    setCursorPosition,
+    setShowSlashCommands,
+    setShowFileSearch,
+    refreshDerivedState: (text: string) => {
+      updateSlashCommandState(text, text.length);
+      updateFileSearchState(text, text.length);
+      updateBashModeState(text);
+    },
+    inputMode,
+    showSlashCommands,
+    showFileSearch,
+  });
+
+  // Clear input function for Ctrl+C
+  const clearInput = useCallback(() => {
+    textBuffer.clear();
+    setInputText("");
+    setCursorPosition(0);
+    setShowSlashCommands(false);
+    setShowFileSearch(false);
+    setShowBashMode(false);
+    inputHistory.resetNavigation();
+    historySearch.reset();
+  }, [textBuffer, historySearch]);
+
   const handleHistoryNavigation = (key: any): boolean => {
     if (!showSlashCommands && !showFileSearch) {
       if (key.upArrow) {
@@ -709,22 +732,6 @@ const UserInput: React.FC<UserInputProps> = ({
       return true;
     }
     return false;
-  };
-
-  /**
-   * How many Esc presses the bytes of one input event carry.
-   *
-   * Two quick presses reach a terminal reader either as two events or, when the
-   * writes coalesce, as one `escape` event whose input still holds the second ESC
-   * byte - Ink 6.8 delivers the second form. Counting the bytes is what keeps
-   * "double Esc" meaning two presses: a timer that waits for a second *event*
-   * never sees one, and the shortcut dies depending on how the terminal buffered
-   * the keystrokes.
-   */
-  const escapePresses = (input: string, key: any): number => {
-    if (!key.escape) return 0;
-    const extra = (input.match(/\x1b/g) ?? []).length;
-    return 1 + extra;
   };
 
   const handleEscapeKey = (input: string, key: any): boolean => {
@@ -839,9 +846,22 @@ const UserInput: React.FC<UserInputProps> = ({
         clearInput,
         textBuffer,
         onTextBufferUpdate: handleTextBufferUpdate,
-        queueActionsEnabled: !disabled && !showFileSearch && !showSlashCommands,
+        queueActionsEnabled:
+          !disabled &&
+          !showFileSearch &&
+          !showSlashCommands &&
+          !historySearch.search.active,
       })
     ) {
+      return;
+    }
+
+    // The history search owns every key while it is open; Ctrl+F opens it.
+    if (historySearch.search.active) {
+      historySearch.handleKeys(input, key);
+      return;
+    }
+    if (historySearch.maybeOpen(input, key)) {
       return;
     }
 
@@ -993,11 +1013,25 @@ const UserInput: React.FC<UserInputProps> = ({
     <Box flexDirection="column">
       <InterruptedBanner wasInterrupted={!!wasInterrupted} />
 
+      {/* One muted row above the composer while the history search is open:
+          the query, the position in the match list, and the keys. */}
+      {historySearch.search.active && (
+        <Box marginLeft={2}>
+          <Text color={theme.text.secondary} dimColor>
+            {t("composer.historySearchHint", {
+              query: historySearch.search.query,
+              current: historySearch.search.matchIndex + 1,
+              total: historySearch.search.matches.length,
+            })}
+          </Text>
+        </Box>
+      )}
+
       {/* The command palette and the file search float above the composer box,
           outside its border, like other agents' autocomplete. They share
           UserInput's loaded list so selection and display always agree. */}
       <SlashCommandsMaybe
-        show={showSlashCommands}
+        show={showSlashCommands && !historySearch.search.active}
         inputMode={inputMode}
         hideNormalUI={!!hideNormalUI}
         isRemoteMode={!!isRemoteMode}
@@ -1009,7 +1043,7 @@ const UserInput: React.FC<UserInputProps> = ({
       />
 
       <FileSearchMaybe
-        show={showFileSearch}
+        show={showFileSearch && !historySearch.search.active}
         inputMode={inputMode}
         hideNormalUI={!!hideNormalUI}
         isRemoteMode={!!isRemoteMode}

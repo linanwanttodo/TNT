@@ -106,6 +106,19 @@ export class InputHistory {
     this.originalInput = "";
   }
 
+  /**
+   * The entries containing `query`, case-insensitive, newest first. The
+   * caller owns the position within the result; this only answers what the
+   * result set is.
+   */
+  searchMatches(query: string): InputHistoryEntry[] {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+    return this.history.filter((entry) =>
+      entry.text.toLowerCase().includes(needle),
+    );
+  }
+
   getHistory(): InputHistoryEntry[] {
     return [...this.history];
   }
