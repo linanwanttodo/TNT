@@ -22,6 +22,7 @@ export interface UseChatProps {
   onShowMCPSelector: () => void;
   onShowMcpMarketplace?: () => void;
   onShowUpdateSelector: () => void;
+  onShowThemeSelector?: () => void;
   onShowModelSelector?: () => void;
   onShowSessionSelector?: () => void;
   onShowSubagentsSelector?: () => void;

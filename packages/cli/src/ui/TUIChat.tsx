@@ -25,6 +25,11 @@ import { logger } from "../utils/logger.js";
 
 import { Composer } from "./components/Composer.js";
 import { MainContent } from "./components/MainContent.js";
+import {
+  persistThemeChoice,
+  readPersistedTheme,
+  themeOfChoice,
+} from "./components/ThemeSelector.js";
 import { useNavigation } from "./context/NavigationContext.js";
 import { useChat } from "./hooks/useChat.js";
 import { useChatViewport } from "./hooks/useChatViewport.js";
@@ -39,7 +44,13 @@ import {
   useSubagentView,
 } from "./hooks/useTUIChatEffects.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
-import { getTheme, ThemeProvider } from "./theme/tokens.js";
+import {
+  detectedTerminalIsDark,
+  normalizeThemeChoice,
+  probeTerminalIsDark,
+  setDetectedTerminalIsDark,
+} from "./theme/terminalAppearance.js";
+import { ThemeProvider, type ThemeName } from "./theme/tokens.js";
 
 interface TUIChatProps {
   // Remote mode props
@@ -284,6 +295,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowMCPSelector: () => navigateTo("mcp"),
     onShowMcpMarketplace: () => navigateTo("mcpMarket"),
     onShowUpdateSelector: () => navigateTo("update"),
+    onShowThemeSelector: () => navigateTo("theme"),
     onShowSessionSelector: () => navigateTo("session"),
     onShowSubagentsSelector: () => navigateTo("subagents"),
     onLoadSession: (sessionId: string) => loadSessionRef.current(sessionId),
@@ -434,11 +446,76 @@ const TUIChat: React.FC<TUIChatProps> = ({
     isActive: navState.currentScreen === "chat",
   });
 
-  const currentTheme = useMemo(() => {
+  // The setting the session opened with, before any picker preview.
+  const configuredChoice = useMemo<ThemeName | "auto">(() => {
     const configured =
-      process.env.TNT_THEME || (services.config?.config as any)?.theme;
-    return getTheme(configured);
+      process.env.TNT_THEME ||
+      readPersistedTheme() ||
+      (services.config?.config as any)?.theme;
+    return normalizeThemeChoice(
+      configured === undefined ? undefined : String(configured),
+    );
   }, [services.config?.config]);
+
+  // The choice, not the resolved palette, is the state: "auto" has to keep
+  // following the probe after the first answer arrives. A preview overrides
+  // it only while the picker is open, and Esc drops the override.
+  const [themeChoice, setThemeChoice] = useState<ThemeName | "auto">(
+    configuredChoice,
+  );
+  const [previewChoice, setPreviewChoice] = useState<ThemeName | "auto" | null>(
+    null,
+  );
+  const [detected, setDetected] = useState<boolean | undefined>(
+    detectedTerminalIsDark(),
+  );
+
+  const activeChoice = previewChoice ?? themeChoice;
+
+  // Only "auto" needs the terminal's own background, and one answer per
+  // process is enough: the module keeps it for any later mount.
+  useEffect(() => {
+    if (activeChoice !== "auto" || detected !== undefined) {
+      return;
+    }
+    let cancelled = false;
+    void probeTerminalIsDark({
+      stdin: process.stdin,
+      stdout: process.stdout,
+    }).then((isDark) => {
+      if (cancelled) return;
+      setDetectedTerminalIsDark(isDark);
+      setDetected(isDark);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChoice, detected]);
+
+  useEffect(() => {
+    setThemeChoice(configuredChoice);
+  }, [configuredChoice]);
+
+  const currentTheme = themeOfChoice(activeChoice, detected);
+
+  const handlePreviewTheme = useCallback((themeName: ThemeName | "auto") => {
+    setPreviewChoice(themeName);
+  }, []);
+
+  const handleCancelThemePreview = useCallback(() => {
+    setPreviewChoice(null);
+    closeCurrentScreen();
+  }, [closeCurrentScreen]);
+
+  const handleSelectTheme = useCallback(
+    (themeName: ThemeName | "auto") => {
+      persistThemeChoice(themeName);
+      setThemeChoice(themeName);
+      setPreviewChoice(null);
+      closeCurrentScreen();
+    },
+    [closeCurrentScreen],
+  );
 
   return (
     <ThemeProvider theme={currentTheme}>
@@ -496,6 +573,9 @@ const TUIChat: React.FC<TUIChatProps> = ({
           chatHistory={chatHistory}
           handleEditMessage={handleEditMessage}
           onShowEditSelector={() => navigateTo("edit")}
+          onPreviewTheme={handlePreviewTheme}
+          onCancelThemePreview={handleCancelThemePreview}
+          onSelectTheme={handleSelectTheme}
           subagentView={subagentView}
           navState={navState}
           navigateTo={navigateTo}
