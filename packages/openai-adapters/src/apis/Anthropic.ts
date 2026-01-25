@@ -50,7 +50,7 @@ import {
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
 import {
-  ANTHROPIC_BREAKPOINTS_KEPT,
+  anthropicBreakpointBudget,
   applyCacheControlFormat,
   capBreakpointsForAnthropic,
   sanitizeReasoningBlocks,
@@ -151,7 +151,7 @@ export class AnthropicApi implements BaseLlmApi {
     if (format) {
       return applyCacheControlFormat(pruned, format);
     }
-    return capBreakpointsForAnthropic(pruned, ANTHROPIC_BREAKPOINTS_KEPT);
+    return capBreakpointsForAnthropic(pruned, anthropicBreakpointBudget());
   }
 
   private maxTokensForModel(model: string): number {

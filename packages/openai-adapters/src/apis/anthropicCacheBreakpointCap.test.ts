@@ -1,12 +1,16 @@
 import type { MessageCreateParams } from "@anthropic-ai/sdk/resources";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   addCacheControlToLastTwoUserMessages,
   countCacheBreakpoints,
 } from "./AnthropicUtils.js";
 import { CACHING_STRATEGIES } from "./AnthropicCachingStrategies.js";
-import { ANTHROPIC_BREAKPOINTS_KEPT } from "./cacheControl.js";
+import {
+  ANTHROPIC_BREAKPOINTS_KEPT,
+  anthropicBreakpointBudget,
+  capBreakpointsForAnthropic,
+} from "./cacheControl.js";
 import { applyAnthropicCachingToOpenRouterBody } from "./OpenRouterCaching.js";
 
 /**
@@ -346,5 +350,71 @@ describe("the direct Anthropic route ships the policy, not the strategy's placem
 
     const sent = api["_convertBody"](oaiRequest());
     expect(countCacheBreakpoints(sent)).toBe(0);
+  });
+});
+
+describe("a measured breakpoint budget", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  const markedTurns = (count: number) =>
+    turns(count).map((message) => ({
+      ...message,
+      content: message.content.map((block: any) => ({
+        ...block,
+        cache_control: { type: "ephemeral" },
+      })),
+    }));
+
+  const markedBody = () =>
+    makeBody({
+      system: [
+        { type: "text", text: "system", cache_control: { type: "ephemeral" } },
+      ],
+      tools: [{ ...tools(1)[0], cache_control: { type: "ephemeral" } }],
+      messages: markedTurns(5),
+    });
+
+  const keptMessageIndexes = (body: Body) =>
+    body.messages
+      .map((message, index) =>
+        Array.isArray(message.content) &&
+        message.content.some((block: any) => block?.cache_control)
+          ? index
+          : -1,
+      )
+      .filter((index) => index >= 0);
+
+  it("keeps the head and the newest at the default of two", () => {
+    const result = capBreakpointsForAnthropic(markedBody(), 2);
+
+    expect(countBreakpoints(result)).toBe(2);
+    expect(keptMessageIndexes(result)).toEqual([4]);
+    expect(result.tools?.[0].cache_control).toBeDefined();
+  });
+
+  it("spends a budget of three on one intermediate message", () => {
+    const result = capBreakpointsForAnthropic(markedBody(), 3);
+
+    expect(countBreakpoints(result)).toBe(3);
+    expect(keptMessageIndexes(result)).toEqual([3, 4]);
+    expect(result.tools?.[0].cache_control).toBeDefined();
+  });
+
+  it("spends a budget of four on two intermediate messages", () => {
+    const result = capBreakpointsForAnthropic(markedBody(), 4);
+
+    expect(countBreakpoints(result)).toBe(4);
+    expect(keptMessageIndexes(result)).toEqual([2, 3, 4]);
+    expect(result.tools?.[0].cache_control).toBeDefined();
+  });
+
+  it("reads the budget from the environment and falls back on nonsense", () => {
+    expect(anthropicBreakpointBudget(undefined)).toBe(2);
+    vi.stubEnv("CONTINUE_CLI_ANTHROPIC_BREAKPOINTS", "4");
+    expect(anthropicBreakpointBudget()).toBe(4);
+    vi.unstubAllEnvs();
+    for (const raw of ["", "0", "5", "1.5", "x"]) {
+      expect(anthropicBreakpointBudget(raw), raw).toBe(2);
+    }
   });
 });
