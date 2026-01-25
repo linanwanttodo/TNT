@@ -21,6 +21,8 @@ export const AUTO_SAFE_TOOLS = new Set([
   "List",
   "Glob",
   "FindSymbol",
+  "References",
+  "CallHierarchy",
   "Hover",
   "Diagnostics",
   "CodebaseSearch",
