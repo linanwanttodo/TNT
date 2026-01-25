@@ -5,8 +5,12 @@ import path from "path";
 import { ContinueError } from "core/util/errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { textRun } from "../../test-utils/toolText.js";
+
 import { changedSinceSeen, forgetSeenFiles } from "./fileState.js";
 import { readFileTool, readRange } from "./readFile.js";
+
+const runText = textRun(readFileTool);
 
 describe("readRange", () => {
   it("is absent when neither end is given", () => {
@@ -57,7 +61,7 @@ describe("Read with a line range", () => {
   });
 
   it("returns only the section asked for, saying which lines they are", async () => {
-    const result = await readFileTool.run({
+    const result = await runText({
       filepath: target,
       start_line: 3,
       end_line: 5,
@@ -76,7 +80,7 @@ describe("Read with a line range", () => {
   });
 
   it("records the file as read, so a later edit is judged against its contents", async () => {
-    await readFileTool.run({
+    await runText({
       filepath: target,
       start_line: 1,
       end_line: 2,
@@ -96,10 +100,10 @@ describe("Read with a line range", () => {
       Array.from({ length: 6000 }, (_, index) => `line ${index}`).join("\n"),
     );
 
-    await expect(readFileTool.run({ filepath: big } as any)).rejects.toThrow(
+    await expect(runText({ filepath: big } as any)).rejects.toThrow(
       ContinueError,
     );
-    await expect(readFileTool.run({ filepath: big } as any)).rejects.toThrow(
+    await expect(runText({ filepath: big } as any)).rejects.toThrow(
       /start_line and end_line/,
     );
   });
@@ -111,7 +115,7 @@ describe("Read with a line range", () => {
       Array.from({ length: 6000 }, (_, index) => `line ${index}`).join("\n"),
     );
 
-    const result = await readFileTool.run({
+    const result = await runText({
       filepath: big,
       start_line: 100,
       end_line: 105,
@@ -160,7 +164,7 @@ describe("Read measured against the cap on what it sends", () => {
     const raw = fs.readFileSync(target, "utf-8");
     expect(raw.length).toBeLessThan(READ_CHAR_CAP);
 
-    const result = await readFileTool.run({ filepath: target } as any);
+    const result = await runText({ filepath: target } as any);
 
     expect(result.length).toBeLessThanOrEqual(READ_CHAR_CAP);
 
@@ -178,7 +182,7 @@ describe("Read measured against the cap on what it sends", () => {
   });
 
   it("fits a requested section to the same cap without inventing a refusal", async () => {
-    const result = await readFileTool.run({
+    const result = await runText({
       filepath: target,
       start_line: 1,
       end_line: 2000,
@@ -198,7 +202,7 @@ describe("Read measured against the cap on what it sends", () => {
     const small = path.join(dir, "small.txt");
     fs.writeFileSync(small, ["alpha", "beta", "gamma"].join("\n"));
 
-    const result = await readFileTool.run({ filepath: small } as any);
+    const result = await runText({ filepath: small } as any);
 
     expect(result).toBe(`Content of ${small}:\n1\talpha\n2\tbeta\n3\tgamma`);
   });
@@ -215,11 +219,11 @@ describe("Read measured against the cap on what it sends", () => {
       READ_CHAR_CAP,
     );
 
-    await expect(
-      readFileTool.run({ filepath: oversized } as any),
-    ).rejects.toThrow(/too large to read/);
-    await expect(
-      readFileTool.run({ filepath: oversized } as any),
-    ).rejects.toThrow(/start_line and end_line/);
+    await expect(runText({ filepath: oversized } as any)).rejects.toThrow(
+      /too large to read/,
+    );
+    await expect(runText({ filepath: oversized } as any)).rejects.toThrow(
+      /start_line and end_line/,
+    );
   });
 });

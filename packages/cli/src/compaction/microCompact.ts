@@ -1,5 +1,6 @@
 import * as fs from "fs";
 
+import { resolveCachePolicy } from "@tnt/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
 
 import { getSessionFilePath } from "../session/index.js";
@@ -8,21 +9,39 @@ import { parseEnvNumber } from "../utils/truncateOutput.js";
 /**
  * A warm prefix is the whole reason old tool results are worth carrying: while the
  * provider still holds the bytes it already read them into, re-sending them costs
- * nothing. Once that cache has expired - Anthropic's default lifetime is five
- * minutes - they are paid for again at the full input rate, on every later request,
- * for a search that finished half an hour ago. So the first request after such a
- * gap drops their content and keeps the shape of the conversation: the message and
- * the tool call stay, because the API requires the pairing, and only the bulk goes.
+ * nothing. Once that cache has expired they are paid for again at the full input
+ * rate, on every later request, for a search that finished half an hour ago. So
+ * the first request after such a gap drops their content and keeps the shape of
+ * the conversation: the message and the tool call stay, because the API requires
+ * the pairing, and only the bulk goes.
+ *
+ * The gap is a property of the provider, not of this client: it is the same
+ * TTL the request declares, so pruning and caching agree on when the prefix
+ * stopped being free. A provider with no cache never has a reason to prune for
+ * cost, and a provider whose cache lives for hours to days must not be pruned
+ * at five minutes - that rewrite throws away a warm prefix that was still free
+ * to re-send. Unknown providers keep the conservative five minutes until their
+ * retention is known.
  *
  * The last turn is never touched. It is what the running request is about.
  */
 export const DEFAULT_CACHE_GAP_MS = 5 * 60 * 1000;
+export const LONG_LIVED_CACHE_GAP_MS = 24 * 60 * 60 * 1000;
 export const CLEARED_TOOL_RESULT_CONTENT = "[Old tool result content cleared]";
 
-export function cacheGapMs(): number {
+export function defaultCacheGapMs(
+  provider?: string,
+  modelName?: string,
+): number {
+  const { ttlMs } = resolveCachePolicy(provider, modelName);
+  // A provider without a cache loses nothing by keeping the history intact.
+  return ttlMs === 0 ? Number.POSITIVE_INFINITY : ttlMs;
+}
+
+export function cacheGapMs(provider?: string, modelName?: string): number {
   return parseEnvNumber(
     process.env.CONTINUE_CLI_CACHE_GAP_MS,
-    DEFAULT_CACHE_GAP_MS,
+    defaultCacheGapMs(provider, modelName),
   );
 }
 
@@ -65,11 +84,15 @@ export function shouldMicroCompact(options: {
   return now - (lastActivity as number) >= gapMs;
 }
 
-export function isCacheCold(now: number = Date.now()): boolean {
+export function isCacheCold(
+  now: number = Date.now(),
+  provider?: string,
+  modelName?: string,
+): boolean {
   return shouldMicroCompact({
     now,
     lastActivity: lastActivityAt(),
-    gapMs: cacheGapMs(),
+    gapMs: cacheGapMs(provider, modelName),
   });
 }
 
