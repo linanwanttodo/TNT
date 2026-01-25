@@ -2,7 +2,10 @@ import {
   renderInMode,
   testBothModes,
 } from "../../test-utils/TUIChat.dualModeHelper.js";
-import { waitForCondition } from "../../test-utils/TUIChat.testHelper.js";
+import {
+  waitForCondition,
+  waitForPromptReady,
+} from "../../test-utils/TUIChat.testHelper.js";
 
 /**
  * Integration tests for the message edit feature in TUIChat
@@ -17,6 +20,7 @@ import { waitForCondition } from "../../test-utils/TUIChat.testHelper.js";
 describe("TUIChat - Message Edit Feature", () => {
   testBothModes("double Esc should open edit selector", async (mode) => {
     const { lastFrame, stdin } = renderInMode(mode);
+    await waitForPromptReady(lastFrame);
 
     // Verify selector is not open initially
     let frame = lastFrame();
@@ -38,6 +42,7 @@ describe("TUIChat - Message Edit Feature", () => {
 
   testBothModes("edit selector should handle navigation", async (mode) => {
     const { lastFrame, stdin } = renderInMode(mode);
+    await waitForPromptReady(lastFrame);
 
     // Open edit selector (double Esc)
     stdin.write("\u001b");
@@ -64,6 +69,7 @@ describe("TUIChat - Message Edit Feature", () => {
 
   testBothModes("edit selector should exit with Esc", async (mode) => {
     const { lastFrame, stdin } = renderInMode(mode);
+    await waitForPromptReady(lastFrame);
 
     // Open edit selector
     stdin.write("\u001b");
@@ -87,6 +93,7 @@ describe("TUIChat - Message Edit Feature", () => {
 
   testBothModes("should handle edit flow without crashing", async (mode) => {
     const { lastFrame, stdin } = renderInMode(mode);
+    await waitForPromptReady(lastFrame);
 
     // This test verifies the basic flow doesn't crash
     // Actual behavior depends on having chat history
@@ -118,6 +125,7 @@ describe("TUIChat - Message Edit Feature", () => {
     "should maintain UI stability during edit operations",
     async (mode) => {
       const { lastFrame, stdin } = renderInMode(mode);
+      await waitForPromptReady(lastFrame);
 
       // Perform various operations
       stdin.write("\u001b");
@@ -156,6 +164,7 @@ describe("TUIChat - Message Edit Feature", () => {
 describe("TUIChat - Edit Selector Navigation", () => {
   testBothModes("should handle rapid navigation commands", async (mode) => {
     const { lastFrame, stdin } = renderInMode(mode);
+    await waitForPromptReady(lastFrame);
 
     // Open edit selector
     stdin.write("\u001b\u001b");
@@ -173,6 +182,7 @@ describe("TUIChat - Edit Selector Navigation", () => {
 
   testBothModes("should handle arrow keys in edit selector", async (mode) => {
     const { lastFrame, stdin } = renderInMode(mode);
+    await waitForPromptReady(lastFrame);
 
     // Open edit selector
     stdin.write("\u001b\u001b");
@@ -197,6 +207,7 @@ describe("TUIChat - Edit Feature Edge Cases", () => {
     "should handle opening edit selector with no chat history",
     async (mode) => {
       const { lastFrame, stdin } = renderInMode(mode);
+      await waitForPromptReady(lastFrame);
 
       // Try to open edit selector immediately (no history)
       stdin.write("\u001b\u001b");
@@ -212,6 +223,7 @@ describe("TUIChat - Edit Feature Edge Cases", () => {
 
   testBothModes("should handle single Esc (not double)", async (mode) => {
     const { lastFrame, stdin } = renderInMode(mode);
+    await waitForPromptReady(lastFrame);
 
     // Single Esc (should not open edit selector)
     stdin.write("\u001b");
@@ -235,6 +247,7 @@ describe("TUIChat - Edit Feature Edge Cases", () => {
     "should prevent triple escape from causing issues",
     async (mode) => {
       const { lastFrame, stdin } = renderInMode(mode);
+      await waitForPromptReady(lastFrame);
 
       // Triple Esc quickly
       stdin.write("\u001b\u001b\u001b");
@@ -253,6 +266,7 @@ describe("TUIChat - Edit Feature Compatibility", () => {
     "edit feature should not interfere with normal input",
     async (mode) => {
       const { lastFrame, stdin } = renderInMode(mode);
+      await waitForPromptReady(lastFrame);
 
       // Type normal input
       stdin.write("Hello world");
@@ -270,6 +284,7 @@ describe("TUIChat - Edit Feature Compatibility", () => {
     "should not conflict with other Esc-based features",
     async (mode) => {
       const { lastFrame, stdin } = renderInMode(mode);
+      await waitForPromptReady(lastFrame);
 
       // Type something
       stdin.write("test");
