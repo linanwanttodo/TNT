@@ -29,7 +29,7 @@ describe("Moonshot cache options", () => {
   });
 
   it("asks for a one-hour cache in long mode", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
 
     const body = api().modifyChatBody(chatBody("kimi-k3"));
     expect((body as any).prompt_cache_options).toEqual({
@@ -44,7 +44,7 @@ describe("Moonshot cache options", () => {
   });
 
   it("sends no options when retention is none", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "none");
+    vi.stubEnv("TNT_CACHE_RETENTION", "none");
 
     const body = api().modifyChatBody({
       ...chatBody("kimi-k3"),

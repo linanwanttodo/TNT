@@ -58,10 +58,10 @@ describe("alternate screen", () => {
 describe("alternateScreenEnabled", () => {
   it("defaults on and accepts the documented off spellings", () => {
     expect(alternateScreenEnabled({})).toBe(true);
-    expect(alternateScreenEnabled({ CONTINUE_CLI_ALT_SCREEN: "1" })).toBe(true);
+    expect(alternateScreenEnabled({ TNT_ALT_SCREEN: "1" })).toBe(true);
     for (const value of ["0", "false", "off", " OFF "]) {
       expect(
-        alternateScreenEnabled({ CONTINUE_CLI_ALT_SCREEN: value }),
+        alternateScreenEnabled({ TNT_ALT_SCREEN: value }),
         value,
       ).toBe(false);
     }

@@ -37,7 +37,7 @@ describe("Responses prompt caching", () => {
   });
 
   it("extends the ttl to twelve hours in long mode", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
 
     const body = request("gpt-5.6-sol");
     expect(body.prompt_cache_options).toEqual({
@@ -54,7 +54,7 @@ describe("Responses prompt caching", () => {
   });
 
   it("sends nothing when retention is none", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "none");
+    vi.stubEnv("TNT_CACHE_RETENTION", "none");
 
     const body = request("gpt-5.6-sol");
     expect(body.prompt_cache_options).toBeUndefined();

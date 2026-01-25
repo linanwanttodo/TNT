@@ -105,7 +105,7 @@ rules:
 | `TNT_API_BASE` | 覆盖配置中的 API base URL |
 | `TNT_HEADLESS_TIMEOUT` | 无头模式的回合墙钟上限（秒），等同 `--request-timeout` |
 | `TNT_PLUGINS_DIR` | 迁移插件目录 |
-| `CONTINUE_CLI_ALT_SCREEN` | 设为 `0` 时使用终端普通缓冲区和滚动历史；已完成的对话只经 `Static` 写入一次，只有实时尾部重绘 |
+| `TNT_ALT_SCREEN` | 设为 `0` 时使用终端普通缓冲区和滚动历史；已完成的对话只经 `Static` 写入一次，只有实时尾部重绘 |
 | `TNT_THEME` | 为本次会话选择界面主题：`auto`（默认，跟随终端自身背景明暗）、`dark`、`tencent-dark`、`tencent-light` 或 `light` |
 
 `CONTINUE_GLOBAL_DIR` 与 `CONTINUE_API_BASE` 会作为对应 `TNT_*` 变量的回退被读取。

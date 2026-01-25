@@ -48,7 +48,7 @@ function convert(api: AnthropicApi, body: unknown = request) {
 
 describe("Anthropic cache retention", () => {
   it("keeps breakpoints on the provider default when retention is unset", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "");
+    vi.stubEnv("TNT_CACHE_RETENTION", "");
     const markers = collectMarkers(convert(makeApi()));
 
     expect(markers.length).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe("Anthropic cache retention", () => {
   });
 
   it("extends every surviving breakpoint to one hour in long mode", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     const markers = collectMarkers(convert(makeApi()));
 
     expect(markers.length).toBeGreaterThan(0);
@@ -69,7 +69,7 @@ describe("Anthropic cache retention", () => {
   });
 
   it("sends no breakpoints at all when retention is none", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "none");
+    vi.stubEnv("TNT_CACHE_RETENTION", "none");
     const api = makeApi();
     const body = convert(api);
 
@@ -78,7 +78,7 @@ describe("Anthropic cache retention", () => {
   });
 
   it("does not extend breakpoints on an endpoint that reads none", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     const api = makeApi({ apiBase: "https://api.deepseek.com/anthropic" });
     const body = convert(api);
 
