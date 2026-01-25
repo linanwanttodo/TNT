@@ -1,7 +1,7 @@
 import { sortToolsByName } from "../stableOrder.js";
 import type { Tool } from "../types.js";
 
-import { isMcpTool, TOOL_SEARCH_NAME } from "./deferral.js";
+import { isDeferredTool, TOOL_SEARCH_NAME } from "./deferral.js";
 
 export const DEFAULT_SEARCH_LIMIT = 5;
 export const MAX_SEARCH_LIMIT = 20;
@@ -84,13 +84,13 @@ export function formatToolMatches(options: {
   const { matches, total, query } = options;
   if (matches.length === 0) {
     return total === 0
-      ? "No MCP tools are connected in this session."
-      : `No MCP tool matches ${JSON.stringify(query)}. ${total} tools are connected; call this again with a broader query or an empty one to list them.`;
+      ? "No deferred tools are available in this session."
+      : `No deferred tool matches ${JSON.stringify(query)}. ${total} tools are deferred; call this again with a broader query or an empty one to list them.`;
   }
 
   const header = query
-    ? `${matches.length} of ${total} MCP tools match ${JSON.stringify(query)}. Call a name below directly with the parameters shown.`
-    : `${matches.length} of ${total} MCP tools, in name order. Call a name below directly with the parameters shown.`;
+    ? `${matches.length} of ${total} deferred tools match ${JSON.stringify(query)}. Call a name below directly with the parameters shown.`
+    : `${matches.length} of ${total} deferred tools, in name order. Call a name below directly with the parameters shown.`;
 
   let output = header;
   for (const tool of matches) {
@@ -108,12 +108,44 @@ export function formatToolMatches(options: {
   return output;
 }
 
+/**
+ * A `select:` query names tools exactly; anything else ranks. The exact form
+ * exists because a model that already knows the name should not have to guess
+ * how the ranker will score it.
+ */
+export function matchDeferredTools(
+  tools: readonly Tool[],
+  query: string,
+  limit: number,
+): Tool[] {
+  const selected = /^select:(.*)$/i.exec(query.trim());
+  if (!selected) {
+    return rankTools(tools, query, limit);
+  }
+  const names = selected[1]
+    .split(",")
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean);
+  const byName = new Map(tools.map((tool) => [tool.name.toLowerCase(), tool]));
+  const matched: Tool[] = [];
+  for (const name of names) {
+    const tool = byName.get(name);
+    if (tool && !matched.includes(tool)) {
+      matched.push(tool);
+    }
+    if (matched.length >= limit) {
+      break;
+    }
+  }
+  return matched;
+}
+
 export const toolSearchTool: Tool = {
   name: TOOL_SEARCH_NAME,
   displayName: "Tool Search",
-  description: `Find the MCP tools connected in this session and get their full parameter schema.
-Several MCP tools are not listed among this request's tool definitions; their names and arguments live behind this tool. Search here before concluding an external capability is missing, then call the returned name directly.
-Query with the capability you need, such as "create an issue" or "search documents". An empty query lists the connected tools by name. Results rank a name match above a description match.`,
+  description: `Find the tools this request withheld and get their full parameter schema.
+Situational built-ins (web, GUI, notebook, LSP and similar) and connected MCP tools are listed under "Deferred tools" instead of being attached to the request. Search here before concluding a capability is missing, then call the returned name directly.
+Query with the capability you need, such as "search the web" or "create an issue". Prefix with select: and comma-separate exact names to load those. An empty query lists the deferred tools by name. Results rank a name match above a description match.`,
   parameters: {
     type: "object",
     required: ["query"],
@@ -138,9 +170,13 @@ Query with the capability you need, such as "create an issue" or "search documen
     // registry `index.tsx` assembles, so a static import would close a cycle.
     const { getAllAvailableTools } = await import("../index.js");
     const available = await getAllAvailableTools(false, true);
-    const mcpTools = available.filter((tool) => isMcpTool(tool.name));
+    const deferred = available.filter(isDeferredTool);
 
-    const matches = rankTools(mcpTools, query, clampLimit(args?.limit));
-    return formatToolMatches({ matches, total: mcpTools.length, query });
+    const matches = matchDeferredTools(
+      deferred,
+      query,
+      clampLimit(args?.limit),
+    );
+    return formatToolMatches({ matches, total: deferred.length, query });
   },
 };
