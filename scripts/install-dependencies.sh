@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# This is used in a task in .vscode/tasks.json
+# Installs the dependencies for the TNT engine and its CLI surface.
 # Start developing with:
-# - Run Task -> Install Dependencies
-# - Debug -> Extension
+# - bash scripts/install-dependencies.sh
+# - cd packages/cli && npm run dev
 set -e
 
 # Check if node version matches .nvmrc
@@ -33,7 +33,7 @@ npm install
 echo "Building packages (fetch, openai-adapters, config-yaml)..."
 node ./scripts/build-packages.js
 
-echo "Installing Core extension dependencies..."
+echo "Installing core dependencies..."
 pushd core
 ## This flag is set because we pull down Chromium at runtime
 export PUPPETEER_SKIP_DOWNLOAD='true'
@@ -41,27 +41,9 @@ npm install
 npm link
 popd
 
-echo "Installing GUI extension dependencies..."
-pushd ide/gui
+echo "Installing CLI dependencies..."
+pushd packages/cli
 npm install
-npm link @tnt/core
-NODE_OPTIONS="--max-old-space-size=4096" npm run build
-popd
-
-# VSCode Extension (will also package GUI)
-echo "Installing VSCode extension dependencies..."
-pushd ide/vscode
-# This does way too many things inline but is the common denominator between many of the scripts
-npm install
-npm link @tnt/core
-# npm run prepackage # not required since npm run package has prescript of prepackage
-npm run package
-popd
-
-echo "Installing binary dependencies..."
-pushd binary
-npm install
-npm run build
 popd
 
 echo "Installing docs dependencies..."
