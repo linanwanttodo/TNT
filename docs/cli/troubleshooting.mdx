@@ -20,6 +20,13 @@ Run `/model` and check the list. A model missing from it means the `models` entr
 was not parsed, which the log reports at startup with the field that failed.
 Remember that a `provider` id that does not exist is an error, not a fallback.
 
+## Model fields in a Claude settings file are ignored
+
+TNT reads `~/.claude/settings.json` for hooks, permissions and environment, but
+model definitions and the current model live in `~/.tnt/config.yaml`. A `model`
+or `models` key in the Claude file is dropped by design and logged at debug
+level; configure the model through onboarding or `/model` instead.
+
 ## A key is rejected
 
 `${{ secrets.NAME }}` resolves from the environment and the `.env` files in
