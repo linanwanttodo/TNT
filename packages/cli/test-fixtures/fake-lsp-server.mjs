@@ -182,6 +182,37 @@ function handle(message) {
         },
       ]);
       break;
+    case "textDocument/documentSymbol":
+      respond(message.id, [
+        {
+          name: "Greeter",
+          kind: 5,
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 3, character: 1 },
+          },
+          selectionRange: {
+            start: { line: 0, character: 6 },
+            end: { line: 0, character: 13 },
+          },
+          children: [
+            {
+              name: "greet",
+              kind: 6,
+              range: {
+                start: { line: 1, character: 2 },
+                end: { line: 2, character: 3 },
+              },
+              selectionRange: {
+                start: { line: 1, character: 2 },
+                end: { line: 1, character: 7 },
+              },
+              children: [],
+            },
+          ],
+        },
+      ]);
+      break;
     case "workspace/symbol":
       // One match per query prefix, so a test can assert both hit and miss.
       respond(

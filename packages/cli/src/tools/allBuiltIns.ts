@@ -13,12 +13,14 @@ import { completionTool } from "./completion.js";
 import { computerTool } from "./computer.js";
 import { deleteFileTool } from "./deleteFile.js";
 import { diagnosticsTool } from "./diagnostics.js";
+import { documentSymbolTool } from "./documentSymbol.js";
 import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
 import { fetchTool } from "./fetch.js";
 import { findSymbolTool } from "./findSymbol.js";
 import { globFilesTool } from "./globFiles.js";
 import { hoverTool } from "./hover.js";
+import { importGraphTool } from "./importGraph.js";
 import { listFilesTool } from "./listFiles.js";
 import { multiEditTool } from "./multiEdit.js";
 import { notebookEditTool } from "./notebookEdit.js";
@@ -50,6 +52,7 @@ export const ALL_BUILT_IN_TOOLS = [
   computerTool,
   deleteFileTool,
   diagnosticsTool,
+  documentSymbolTool,
   editTool,
   exitTool,
   fetchTool,
@@ -58,6 +61,7 @@ export const ALL_BUILT_IN_TOOLS = [
   enterPlanModeTool,
   exitPlanModeTool,
   hoverTool,
+  importGraphTool,
   listFilesTool,
   multiEditTool,
   notebookEditTool,

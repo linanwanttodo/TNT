@@ -3,36 +3,8 @@ import { fileURLToPath } from "url";
 
 import { getLspManager } from "../lsp/manager.js";
 
+import { symbolKindName } from "./lspSymbolKinds.js";
 import { Tool } from "./types.js";
-
-const SYMBOL_KINDS: Record<number, string> = {
-  1: "file",
-  2: "module",
-  3: "namespace",
-  4: "package",
-  5: "class",
-  6: "method",
-  7: "property",
-  8: "field",
-  9: "constructor",
-  10: "enum",
-  11: "interface",
-  12: "function",
-  13: "variable",
-  14: "constant",
-  15: "string",
-  16: "number",
-  17: "boolean",
-  18: "array",
-  19: "object",
-  20: "key",
-  21: "null",
-  22: "enum member",
-  23: "struct",
-  24: "event",
-  25: "operator",
-  26: "type parameter",
-};
 
 function describeLocation(uri: string | undefined): string {
   if (!uri) return "?";
@@ -88,7 +60,7 @@ Returns nothing when the project has no language server configured.`,
         typeof start?.line === "number"
           ? `${describeLocation(symbol.location?.uri)}:${start.line + 1}:${(start.character ?? 0) + 1}`
           : describeLocation(symbol.location?.uri);
-      const kind = SYMBOL_KINDS[symbol.kind ?? 0] ?? "symbol";
+      const kind = symbolKindName(symbol.kind);
       const container = symbol.containerName
         ? ` in ${symbol.containerName}`
         : "";

@@ -29,6 +29,7 @@ const READ_ONLY_LSP_TOOLS = [
   "Completion",
   "References",
   "CallHierarchy",
+  "DocumentSymbol",
 ];
 
 describe("the tool surface the notes describe", () => {
@@ -41,7 +42,7 @@ describe("the tool surface the notes describe", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
-  it("offers the six language-server tools the note names", () => {
+  it("offers the seven language-server tools the note names", () => {
     for (const tool of READ_ONLY_LSP_TOOLS) {
       expect(names, tool).toContain(tool);
     }
