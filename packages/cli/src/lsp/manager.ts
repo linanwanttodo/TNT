@@ -6,6 +6,11 @@ import { loadAllPlugins } from "../plugins/loader.js";
 import { logger } from "../utils/logger.js";
 
 import { LspClient, LspDiagnostic, LspServerConfig } from "./client.js";
+import {
+  flattenDocumentSymbols,
+  normalizeCallHierarchy,
+  normalizeLocations,
+} from "./normalize.js";
 
 const DIAGNOSTIC_TIMEOUT_MS = 3_000;
 const POLL_INTERVAL_MS = 50;
@@ -319,6 +324,48 @@ export class LspManager {
   }
 
   /**
+   * The definition or implementation of the symbol at a position. A server may
+   * answer with Location, Location[], or LocationLink[]; all three become the
+   * same shape so callers do not have to know which dialect answered.
+   */
+  async definitionAt(
+    filePath: string,
+    line: number,
+    character: number,
+    kind: "definition" | "implementation",
+  ): Promise<LspLocation[]> {
+    const absolute = path.resolve(filePath);
+    let text: string;
+    try {
+      text = fs.readFileSync(absolute, "utf-8");
+    } catch {
+      return [];
+    }
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    for (const client of clients) {
+      client.openOrUpdate(absolute, text);
+      try {
+        const answer = await client.request(
+          kind === "definition"
+            ? "textDocument/definition"
+            : "textDocument/implementation",
+          {
+            textDocument: { uri: pathToFileURL(absolute).toString() },
+            position: { line: line - 1, character: character - 1 },
+          },
+        );
+        const locations = normalizeLocations(answer);
+        if (locations.length > 0) {
+          return locations;
+        }
+      } catch {
+        continue;
+      }
+    }
+    return [];
+  }
+
+  /**
    * The declarations in one file. Servers answer with either a hierarchical
    * DocumentSymbol tree or a flat SymbolInformation list; both become the same
    * depth-tagged outline.
@@ -471,84 +518,6 @@ export function renderHover(answer: unknown): string | null {
 }
 
 let manager: LspManager | null = null;
-
-const MAX_OUTLINE_SYMBOLS = 200;
-const MAX_OUTLINE_DEPTH = 6;
-
-function flattenDocumentSymbols(answer: unknown[]): LspDocumentSymbol[] {
-  const outline: LspDocumentSymbol[] = [];
-  const visit = (item: Record<string, any>, depth: number): void => {
-    if (outline.length >= MAX_OUTLINE_SYMBOLS || depth > MAX_OUTLINE_DEPTH) {
-      return;
-    }
-    const start =
-      item.selectionRange?.start ??
-      item.location?.range?.start ??
-      item.range?.start;
-    outline.push({
-      name: String(item.name ?? "unnamed"),
-      kind: typeof item.kind === "number" ? item.kind : undefined,
-      depth,
-      line: oneBased(start?.line),
-      character: oneBased(start?.character),
-    });
-    if (Array.isArray(item.children)) {
-      for (const child of item.children) {
-        if (child && typeof child === "object") {
-          visit(child, depth + 1);
-        }
-      }
-    }
-  };
-  for (const item of answer) {
-    if (item && typeof item === "object") {
-      visit(item as Record<string, any>, 0);
-    }
-  }
-  return outline;
-}
-
-function oneBased(value: unknown): number | undefined {
-  return typeof value === "number" ? value + 1 : undefined;
-}
-
-function normalizeCallHierarchy(
-  item: Record<string, unknown>,
-  answer: unknown,
-  direction: "incoming" | "outgoing",
-): LspCallHierarchy {
-  const sites: LspCallSite[] = [];
-  if (Array.isArray(answer)) {
-    for (const call of answer as Array<Record<string, any>>) {
-      if (direction === "incoming") {
-        const from = call?.from ?? {};
-        const range = Array.isArray(call?.fromRanges)
-          ? call.fromRanges[0]?.start
-          : undefined;
-        sites.push({
-          name: String(from.name ?? "unnamed"),
-          uri: from.uri,
-          line: oneBased(range?.line),
-          character: oneBased(range?.character),
-        });
-      } else {
-        const to = call?.to ?? {};
-        const start = to.selectionRange?.start ?? to.range?.start;
-        sites.push({
-          name: String(to.name ?? "unnamed"),
-          uri: to.uri,
-          line: oneBased(start?.line),
-          character: oneBased(start?.character),
-        });
-      }
-    }
-  }
-  return {
-    symbol: String(item.name ?? "symbol"),
-    direction,
-    sites,
-  };
-}
 
 export function getLspManager(): LspManager {
   if (!manager) {

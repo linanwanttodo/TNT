@@ -30,6 +30,7 @@ export const DEFERRED_BUILTIN_TOOLS: ReadonlySet<string> = new Set([
   "Completion",
   "Computer",
   "Delete",
+  "Definition",
   "Diagnostics",
   "DocumentSymbol",
   "FindSymbol",
