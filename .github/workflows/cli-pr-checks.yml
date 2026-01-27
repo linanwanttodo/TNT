@@ -4,6 +4,18 @@ on:
   pull_request:
     branches: [main]
 
+  # Work lands on main through a direct push as well as through a PR. A gate
+  # that only listens to pull_request would never run for those commits, which
+  # is how a broken install path stayed invisible.
+  push:
+    branches: [main]
+
+paths-ignore:
+  - "docs/**"
+  - "docs-site/**"
+  - "*.md"
+  - "**/*.md"
+
 # One transcript-changing push at a time per ref; superseded runs are cancelled.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,6 +29,7 @@ permissions:
 jobs:
   track-rerun:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.run_attempt > 1
     steps:
       - uses: actions/checkout@v6
@@ -25,6 +38,7 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -62,20 +76,19 @@ jobs:
   test:
     strategy:
       matrix:
-        # The floor (ubuntu + node 20, matching the engines field), the
-        # current LTS on ubuntu, and one LTS job per other OS. Node 18 left
-        # the matrix when engines moved to >=20; widen here, not per-PR.
+        # The floor (ubuntu + node 20, matching the engines field) runs the full
+        # e2e suite; each other operating system runs one current LTS. Node 18
+        # left the matrix when engines moved to >=20; widen here, not per-PR.
         include:
           - os: ubuntu-latest
             node-version: 20
-          - os: ubuntu-latest
-            node-version: 22
           - os: windows-latest
             node-version: 22
           - os: macos-latest
             node-version: 22
       fail-fast: false
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -85,6 +98,8 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: "npm"
+          cache-dependency-path: packages/cli/package-lock.json
 
       - name: Cache CLI node_modules
         uses: actions/cache@v5
@@ -142,9 +157,11 @@ jobs:
           npm run test:e2e
 
   smoke-api:
-    # Only runs when secrets are available (not on fork PRs)
+    # Needs in-repo credentials. On a push event there is no pull_request
+    # context, so this skips and the aggregate job allows the skip.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -181,8 +198,9 @@ jobs:
 
       - name: Run smoke API tests
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The name is the upstream proxy service's contract, not a TNT switch.
           CONTINUE_API_KEY: ${{ secrets.CONTINUE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cd packages/cli
           npm run test:smoke-api
@@ -193,6 +211,7 @@ jobs:
   require-all-checks-to-pass-cli:
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs:
       - lint
       - test

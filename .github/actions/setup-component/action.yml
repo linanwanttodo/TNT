@@ -2,7 +2,7 @@ name: 'Setup Component'
 description: 'Cache and install dependencies for a specific component'
 inputs:
   component:
-    description: 'Component name (core, binary, vscode, intellij, gui)'
+    description: 'Component directory relative to the repository root (core, binary, packages/cli)'
     required: true
   include-packages:
     description: 'Whether to include packages cache (default: true)'
@@ -10,44 +10,29 @@ inputs:
     default: 'true'
   include-root:
     description: 'Whether to include root cache (default: false)'
-    required: false  
+    required: false
     default: 'false'
 
 runs:
   using: 'composite'
   steps:
-    - name: Resolve component directory
-      id: component-dir
-      shell: bash
-      run: |
-        case "${{ inputs.component }}" in
-          vscode) dir="ide/vscode" ;;
-          intellij) dir="ide/intellij" ;;
-          gui) dir="ide/gui" ;;
-          *) dir="${{ inputs.component }}" ;;
-        esac
-        echo "dir=$dir" >> "$GITHUB_OUTPUT"
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version-file: ".nvmrc"
-    - uses: actions/cache@v4
+
+    - uses: actions/cache@v5
       with:
         path: ~/.npm
-        key: ${{ runner.os }}-npm-cache-${{ inputs.component }}-${{ hashFiles(format('{0}/package-lock.json', steps.component-dir.outputs.dir)) }}
+        key: ${{ runner.os }}-npm-cache-${{ inputs.component }}-${{ hashFiles(format('{0}/package-lock.json', inputs.component)) }}
 
-    - uses: actions/cache@v4
-      with:
-        path: ${{ steps.component-dir.outputs.dir }}/node_modules
-        key: ${{ runner.os }}-component-node-modules-${{ inputs.component }}-${{ hashFiles(format('{0}/package-lock.json', steps.component-dir.outputs.dir)) }}
-
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       if: inputs.include-packages == 'true'
       with:
         path: |
           packages/*/node_modules
         key: ${{ runner.os }}-packages-node-modules-${{ hashFiles('packages/*/package-lock.json') }}
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       if: inputs.include-root == 'true'
       id: root-cache
       with:
@@ -59,15 +44,18 @@ runs:
       shell: bash
       run: npm ci
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       id: component-cache
       with:
-        path: ${{ format('{0}/node_modules', steps.component-dir.outputs.dir) }}
-        key: ${{ runner.os }}-${{ inputs.component }}-node-modules-${{ hashFiles(format('{0}/package-lock.json', steps.component-dir.outputs.dir)) }}
+        path: ${{ format('{0}/node_modules', inputs.component) }}
+        key: ${{ runner.os }}-${{ inputs.component }}-node-modules-${{ hashFiles(format('{0}/package-lock.json', inputs.component)) }}
 
     - name: Install component dependencies
       if: steps.component-cache.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        COMPONENT_DIR: ${{ inputs.component }}
       run: |
-        cd ${{ steps.component-dir.outputs.dir }}
+        set -euo pipefail
+        cd "$COMPONENT_DIR"
         npm ci
