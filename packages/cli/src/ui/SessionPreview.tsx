@@ -8,7 +8,6 @@ import React, {
   useState,
 } from "react";
 
-
 import { t } from "../i18n/index.js";
 
 import { ScrollBarColumn } from "./components/ScrollBarColumn.js";

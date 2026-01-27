@@ -71,9 +71,7 @@ describe("session paths", () => {
     expect(path.basename(getLegacySessionPath(id))).toBe(`${id}.json`);
     // A traversal attempt cannot move the root out of the sessions dir:
     // the id is rejected before it is ever joined.
-    expect(() => getSessionRoot("../../escape")).toThrow(
-      InvalidSessionIdError,
-    );
+    expect(() => getSessionRoot("../../escape")).toThrow(InvalidSessionIdError);
     expect(() => getLegacySessionPath("../../escape")).toThrow(
       InvalidSessionIdError,
     );

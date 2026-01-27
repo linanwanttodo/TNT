@@ -311,10 +311,7 @@ export function attachBrowserOriginGuard(
  * that understands events gets reasoning, tool lifecycle, and approvals
  * without waiting for the next snapshot.
  */
-export function registerSseEventRoute(
-  app: Express,
-  state: ServerState,
-): void {
+export function registerSseEventRoute(app: Express, state: ServerState): void {
   app.get("/events", (req: Request, res: Response) => {
     state.lastActivity = Date.now();
 

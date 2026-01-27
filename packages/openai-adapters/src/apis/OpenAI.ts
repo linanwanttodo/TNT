@@ -112,8 +112,7 @@ export class OpenAIApi implements BaseLlmApi {
 
   modifyCompletionBody<
     T extends
-      | CompletionCreateParamsNonStreaming
-      | CompletionCreateParamsStreaming,
+      CompletionCreateParamsNonStreaming | CompletionCreateParamsStreaming,
   >(body: T): T {
     return body;
   }

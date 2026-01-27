@@ -73,7 +73,11 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
   });
 
   const geometry = showScrollbar
-    ? scrollbarGeometry(scrollTop, metrics.viewportHeight, metrics.contentHeight)
+    ? scrollbarGeometry(
+        scrollTop,
+        metrics.viewportHeight,
+        metrics.contentHeight,
+      )
     : null;
 
   return (

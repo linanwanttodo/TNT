@@ -6,7 +6,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { t } from "../i18n/index.js";
 import { ExtendedSessionMetadata, loadSessionById } from "../session/index.js";
 
-
 import { ScrollBarColumn } from "./components/ScrollBarColumn.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { SessionPreview } from "./SessionPreview.js";
