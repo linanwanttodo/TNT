@@ -22,6 +22,7 @@ vi.mock("../telemetry/utils.js", () => ({
 
 import { editTool } from "./edit.js";
 import {
+  changedFilesSinceSeen,
   changedSinceSeen,
   forgetSeenFiles,
   hasSeenFile,
@@ -254,5 +255,22 @@ describe("Write against a file that moved", () => {
     });
 
     expect(changedSinceSeen(target)).toBe(false);
+  });
+});
+
+describe("changed-file snapshots", () => {
+  it("keeps the content the model was shown", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-snapshot-"));
+    const target = path.join(dir, "a.ts");
+    fs.writeFileSync(target, "old\n");
+    markFileAsSeen(target);
+    fs.writeFileSync(target, "new\n");
+
+    expect(changedFilesSinceSeen()).toEqual([
+      { path: fs.realpathSync(target), deleted: false, previous: "old\n" },
+    ]);
+
+    forgetSeenFiles();
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });
