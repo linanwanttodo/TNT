@@ -1,25 +1,31 @@
 ---
-globs: ["ide/gui/**/*", "core/**/*"]
-description: Provides test running instructions for GUI and core folders
+globs: ["core/**/*", "packages/**/*"]
+description: Provides test running instructions for the engine and the CLI
 alwaysApply: false
 ---
 
 When working with test files, use the following commands to run tests:
 
-GUI folder tests:
-
-- Run all tests: `cd ide/gui && npm test`
-
-Core folder tests:
+Core tests:
 
 - Run Jest tests: `cd core && npm test`
 - Run Vitest tests: `cd core && npm run vitest`
 
+CLI tests:
+
+- Run one file: `cd packages/cli && npx vitest run src/path/to/file.test.ts`
+- Run the e2e suite: `cd packages/cli && npx vitest run --config vitest.e2e.config.ts`
+
+Packages tests:
+
+- Run one package: `cd packages/<name> && npx vitest run`
+
 Test file patterns:
 
-- GUI: _.test.ts or_.test.tsx files use Vitest
-- Core: _.test.ts files use Jest,_.vitest.ts files use Vitest
+- Core: `*.test.ts` files use Jest, `*.vitest.ts` files use Vitest
+- CLI and packages: `*.test.ts` use Vitest, `*.e2e.test.ts` run under the e2e config
 
 Best practices:
 
 - We are transitioning to vitest, so use that when creating new tests
+- Build the workspace before an e2e run, since those suites spawn the built bundle

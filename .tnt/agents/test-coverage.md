@@ -37,7 +37,7 @@ Review this pull request to determine if new functionality has adequate test cov
 - Configuration file changes (YAML, JSON, Markdown)
 - CSS/styling changes
 - Dependency updates (unless they change behavior)
-- Agent definition files (`.continue/agents/*.md`)
+- Agent definition files (`.tnt/agents/*.md`)
 - Refactors that don't change behavior (existing tests should still pass)
 - Internal implementation changes fully covered by existing tests
 
@@ -51,6 +51,5 @@ Review this pull request to determine if new functionality has adequate test cov
 ## Test Infrastructure Reference
 
 - **Core**: Jest (`*.test.ts`) + Vitest (`*.vitest.ts`) in `core/`
-- **GUI**: Vitest (`*.test.ts`) in `ide/gui/src/`
 - **CLI**: Vitest (`*.test.ts`, `*.e2e.test.ts`) in `packages/cli/`
 - **Packages**: Vitest in each `packages/*/` directory

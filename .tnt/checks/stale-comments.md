@@ -73,15 +73,15 @@ Check that `@param`, `@returns`, and `@throws` tags in JSDoc comments match the 
  * @param modelName - The model to use
  * @returns The completion text
  */
-async function complete(config: AutocompleteConfig): Promise<Result> {
+async function dispatchApprovedCall(options: {
+  call: PreprocessedToolCall;
+}): Promise<void> {
 ```
 
 ## Key Files to Check
 
-- `core/` — shared logic across all extensions
-- `ide/vscode/src/` — VS Code extension source
+- `core/` — shared logic across the surfaces
 - `packages/cli/src/` — CLI source
-- `ide/gui/src/` — React GUI components
 - `packages/` — shared npm packages
 
 ## Exclusions

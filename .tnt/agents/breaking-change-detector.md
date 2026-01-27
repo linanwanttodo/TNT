@@ -12,14 +12,14 @@ Analyze this pull request for breaking changes that may leave stale references e
 1. **CLI command renames or removals** - If a command registered in `packages/cli/src/commands/` is renamed, removed, or has its flags changed, check that:
 
    - Documentation in `docs/` reflects the new name
-   - Agent definitions in `.continue/agents/` don't reference the old command
+   - Agent definitions in `.tnt/agents/` don't reference the old command
    - Skills in `skills/` are updated
    - README and CONTRIBUTING.md are current
    - GitHub Actions workflows don't invoke the old command
 
 2. **Public API changes** - If exported functions, interfaces, or types in `core/` or `packages/` are renamed or have signature changes, check that:
 
-   - All callers in `ide/gui/`, `packages/cli/`, and `binary/` are updated
+   - All callers in `packages/cli/` and `core/` are updated
    - Type definitions in `packages/config-types/` are consistent
 
 3. **Configuration schema changes** - If config file formats (YAML or JSON) are modified, check that:
@@ -28,7 +28,7 @@ Analyze this pull request for breaking changes that may leave stale references e
    - Documentation examples use the new format
    - Default configs are updated
 
-4. **URL changes** - If any hardcoded URLs (e.g., `hub.TNT`, `github.com/linanwanttodo/TNT`) are changed, scan for stale references across the repo.
+4. **URL changes** - If any hardcoded URL changes (the GitHub Pages docs site, the release download base, `github.com/linanwanttodo/TNT`), scan for stale references across the repo.
 
 ## What to Do
 
