@@ -10,6 +10,18 @@
 
 **Spec:** `PRODUCT-GAP-ANALYSIS-2026-10-26.md` and `CLAUDE.md`/`AGENTS.md` project rules.
 
+## Status (2026-10-26)
+
+- Task 1 Definition: **done** (`d0422f850`). 40 tools, fingerprint `7adf6e7f8f221a81` after Task 2.
+- Task 2 Read images: **done** (`b0462f417`). `Read` returns `ToolResult` for png/jpg/jpeg/webp/gif, 3 MB cap.
+- Task 3 Static: **blocked by structure**. The transcript lives in an alternate-screen `ScrollView` that clips and measures every row (`ui/components/TranscriptContent.tsx`); `<Static>` writes to terminal scrollback, so inserting it would bypass that viewport. This needs a design choice (leave alternate screen, or keep ScrollView and drop Static), not a patch.
+- Task 4 merge-patch: **needs design**. `advanceSystemPrompt` already appends the whole changed prompt as an in-history update (`stream/systemPromptRound.ts`); a section patch changes what the cached prefix and update list mean, so it is not a drop-in.
+- Task 5 context budget: **already implemented**. `loop/contextBudget.ts` is wired through `state.contextBudget.reminder(...)` in `stream/streamChatResponse.ts:329`; no work needed.
+- Task 6 changed-file diff: **blocked by structure**. `tools/fileState.ts` keeps only size/mtime/inode stamps, not content; producing hunks requires storing per-file snapshots and deciding the memory/disk cap first.
+- Task 7 retry classification: **already implemented**. `utils/exponentialBackoff.ts` has `isRetryable` and `retryAfterMs` (Retry-After parsing) plus the backoff wrapper.
+- Task 8 task store: **product decision**. `Todo` (session list) and `Checklist` (history marker) already cover task tracking; a third persistent store needs a use case that those two cannot serve.
+- Task 9 recorded replay/Windows e2e: **open**; test/CI work only.
+
 ## Global Constraints
 
 - No reference-product names in code, comments, docs, filenames or commits.
