@@ -11,6 +11,7 @@ import { logger } from "../utils/logger.js";
 
 import { AppRoot } from "./AppRoot.js";
 import {
+  alternateScreenEnabled,
   enterAlternateScreen,
   leaveAlternateScreen,
 } from "./utils/terminalScreen.js";
@@ -106,7 +107,9 @@ export async function startTUIChat(
     stderr: process.stderr,
   };
 
-  enterAlternateScreen();
+  if (alternateScreenEnabled()) {
+    enterAlternateScreen();
+  }
   const { unmount } = render(
     React.createElement(ServiceContainerProvider, {
       children: React.createElement(AppRoot, {
@@ -164,7 +167,9 @@ export async function startRemoteTUIChat(
   }
 
   // Start the TUI in remote mode - no services needed
-  enterAlternateScreen();
+  if (alternateScreenEnabled()) {
+    enterAlternateScreen();
+  }
   const { unmount } = render(
     React.createElement(ServiceContainerProvider, {
       children: React.createElement(AppRoot, {

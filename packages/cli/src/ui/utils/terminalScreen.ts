@@ -20,6 +20,19 @@ function write(code: string): void {
   process.stdout.write(code);
 }
 
+/**
+ * The alternate buffer is the default because Ink's fullscreen branch clears
+ * the normal buffer. A user who wants terminal scrollback instead can set
+ * `CONTINUE_CLI_ALT_SCREEN=0`; the transcript then renders settled rows through
+ * `<Static>` and keeps only the live tail in the frame.
+ */
+export function alternateScreenEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const value = (env.CONTINUE_CLI_ALT_SCREEN ?? "").trim().toLowerCase();
+  return !(value === "0" || value === "false" || value === "off");
+}
+
 export function enterAlternateScreen(): void {
   if (!exitHookInstalled) {
     // A crash or an unhandled exit path must not leave the shell on the
