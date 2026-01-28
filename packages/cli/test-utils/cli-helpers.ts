@@ -183,28 +183,71 @@ export async function readSession(
   context: CLITestContext,
 ): Promise<any | null> {
   try {
-    const sessionDir = path.join(context.testDir, ".tnt", "sessions");
-    // `sessions.json` is the listing, not a session, and a session id is a UUID,
-    // so neither "sort and pop" nor the directory order picks the newest run.
-    const files = (await fs.readdir(sessionDir)).filter(
-      (name) => name.endsWith(".json") && name !== "sessions.json",
-    );
+    const sessionRoot = path.join(context.testDir, ".tnt", "sessions");
+    const entries = await fs.readdir(sessionRoot, { withFileTypes: true });
 
-    if (files.length === 0) {
+    const candidates: Array<{ path: string; mtimeMs: number }> = [];
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const transcript = path.join(sessionRoot, entry.name, "session.jsonl");
+        try {
+          candidates.push({
+            path: transcript,
+            mtimeMs: (await fs.stat(transcript)).mtimeMs,
+          });
+        } catch {
+          // A directory without a transcript is a half-created session.
+        }
+      } else if (
+        entry.name.endsWith(".json") &&
+        entry.name !== "sessions.json"
+      ) {
+        const legacy = path.join(sessionRoot, entry.name);
+        candidates.push({
+          path: legacy,
+          mtimeMs: (await fs.stat(legacy)).mtimeMs,
+        });
+      }
+    }
+    if (candidates.length === 0) {
       return null;
     }
+    const newest = candidates.sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+    const content = await fs.readFile(newest.path, "utf-8");
 
-    const stamped = await Promise.all(
-      files.map(async (name) => ({
-        name,
-        mtimeMs: (await fs.stat(path.join(sessionDir, name))).mtimeMs,
-      })),
-    );
-    const sessionFile = stamped.sort((a, b) => b.mtimeMs - a.mtimeMs)[0].name;
-    const sessionPath = path.join(sessionDir, sessionFile);
-    const content = await fs.readFile(sessionPath, "utf-8");
+    if (!newest.path.endsWith(".jsonl")) {
+      return JSON.parse(content);
+    }
 
-    return JSON.parse(content);
+    const session: any = { sessionId: "", history: [], usage: undefined };
+    const byId = new Map<string, number>();
+    for (const line of content.split("\n")) {
+      if (!line.trim()) continue;
+      let record: any;
+      try {
+        record = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (record.type === "session") {
+        session.sessionId = record.sessionId;
+      } else if (record.type === "message") {
+        byId.set(record.messageId, session.history.length);
+        session.history.push(record.item);
+      } else if (record.type === "message-patch") {
+        const index = byId.get(record.messageId);
+        if (index !== undefined) session.history[index] = record.item;
+      } else if (record.type === "snapshot" || record.type === "compaction") {
+        session.history = record.history;
+        byId.clear();
+        session.history.forEach((item: any, index: number) => {
+          if (item?.messageId) byId.set(item.messageId, index);
+        });
+      } else if (record.type === "session-info" && record.usage) {
+        session.usage = record.usage;
+      }
+    }
+    return session.sessionId ? session : null;
   } catch {
     return null;
   }
