@@ -7,6 +7,7 @@ import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
+import { findLastSafeSplitPoint } from "../utils/streamSplit.js";
 import { alternateScreenEnabled } from "../utils/terminalScreen.js";
 
 import { ActionStatus } from "./ActionStatus.js";
@@ -80,20 +81,60 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   const showIntro =
     showIntroMessage && isEmptyConversation(processedChatHistory);
 
+  // A long answer is split at the last safe boundary and the settled prefix is
+  // rendered once. Only the tail keeps redrawing, which is both the flicker
+  // fix and what lets the Static path write completed text to the terminal.
+  const [settledChunks, setSettledChunks] = React.useState<string[]>([]);
+  const settledOffset = React.useRef(0);
+  React.useEffect(() => {
+    if (!streamingText) {
+      settledOffset.current = 0;
+      setSettledChunks((current) => (current.length === 0 ? current : []));
+      return;
+    }
+    if (streamingText.length < settledOffset.current) {
+      settledOffset.current = 0;
+      setSettledChunks([]);
+    }
+    const split = findLastSafeSplitPoint(streamingText);
+    if (split > settledOffset.current && split < streamingText.length) {
+      const chunk = streamingText.slice(settledOffset.current, split);
+      settledOffset.current = split;
+      setSettledChunks((current) => [...current, chunk]);
+    }
+  }, [streamingText]);
+
+  const liveText = streamingText
+    ? streamingText.slice(settledOffset.current)
+    : null;
+
   // The live answer is not in the history yet, so it renders straight from the
   // stream overlay, after everything that has already arrived.
   const streamingItem = React.useMemo(() => {
-    if (!streamingText) return null;
+    if (!liveText) return null;
 
     return renderMessage(
       {
-        message: { role: "assistant", content: streamingText },
+        message: { role: "assistant", content: liveText },
         contextItems: [],
       } as ChatHistoryItem,
-      processedChatHistory.length,
+      processedChatHistory.length + settledChunks.length,
       processedChatHistory,
     );
-  }, [streamingText, processedChatHistory, renderMessage]);
+  }, [liveText, settledChunks.length, processedChatHistory, renderMessage]);
+
+  const settledStream = settledChunks.map((chunk, index) => (
+    <React.Fragment key={`stream-${index}`}>
+      {renderMessage(
+        {
+          message: { role: "assistant", content: chunk },
+          contextItems: [],
+        } as ChatHistoryItem,
+        processedChatHistory.length + index,
+        processedChatHistory,
+      )}
+    </React.Fragment>
+  ));
 
   const live = (
     <>
@@ -141,6 +182,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
           items={[
             ...(showIntro ? [<IntroMessage key="intro" />] : []),
             ...history,
+            ...settledStream,
           ]}
         >
           {(item) => item}
@@ -158,6 +200,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     >
       {showIntro && <IntroMessage />}
       {history}
+      {settledStream}
       {live}
     </ScrollView>
   );
