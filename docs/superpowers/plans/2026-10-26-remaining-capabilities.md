@@ -288,7 +288,7 @@ For each TNT gap, give the mechanism, the TNT entry point, and whether it is tra
 - Consumes: a key the owner supplies or explicitly authorizes.
 - Produces: per-provider cache-read numbers for two consecutive rounds and, if measured, a justified default breakpoint budget.
 
-> Blocked on 2026-10-26: `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY` and `OPENAI_API_KEY` are unset in this session and the config key was not read. Re-run when a key is supplied.
+> Partially verified on 2026-10-26 with the configured `deepseek-flash` key: turn 1 prompt 498 / cached 0; turn 2 prompt 542 / cached 384; turn 3 prompt 593 / cached 384. The Anthropic budget comparison still needs an Anthropic key, which is not configured.
 
 - [ ] **Step 1: Ask for the key/authorization**
 
