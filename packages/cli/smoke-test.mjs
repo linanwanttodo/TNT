@@ -1,11 +1,24 @@
 #!/usr/bin/env node
 
 import { execSync } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * The build splits: `dist/index.js` is the entry chunk and the code it pulls in
+ * lands in hashed siblings, so a single file is not the bundle. Anything that
+ * measures or greps the output has to go across the chunks, or it reads a
+ * kilobyte-scale entry file and reports an 854-byte "bundle".
+ */
+function bundleChunks() {
+  const dir = resolve(__dirname, "dist");
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".js"))
+    .map((name) => resolve(dir, name));
+}
 
 // Colors for output
 const colors = {
@@ -47,14 +60,14 @@ runTest("Bundle file exists", () => {
   if (!existsSync(resolve(__dirname, "dist/index.js"))) {
     throw new Error("dist/index.js not found");
   }
-  if (!existsSync(resolve(__dirname, "dist/cn.js"))) {
-    throw new Error("dist/cn.js not found");
+  if (!existsSync(resolve(__dirname, "dist/tnt.js"))) {
+    throw new Error("dist/tnt.js not found");
   }
 });
 
 // Test 2: Check if wrapper script is executable
 runTest("Wrapper script has shebang", () => {
-  const content = readFileSync(resolve(__dirname, "dist/cn.js"), "utf8");
+  const content = readFileSync(resolve(__dirname, "dist/tnt.js"), "utf8");
   if (!content.startsWith("#!/usr/bin/env node")) {
     throw new Error("Wrapper script missing shebang");
   }
@@ -64,9 +77,9 @@ runTest("Wrapper script has shebang", () => {
 function getCLICommand(args = "") {
   const isWindows = process.platform === "win32";
   if (isWindows) {
-    return `node dist/cn.js ${args}`;
+    return `node dist/tnt.js ${args}`;
   } else {
-    return `./dist/cn.js ${args}`;
+    return `./dist/tnt.js ${args}`;
   }
 }
 
@@ -86,55 +99,40 @@ runTest("Version command", () => {
 // Test 4: Help command works
 runTest("Help command", () => {
   const output = execCommand(getCLICommand("--help"));
-  if (!output.includes("TNT CLI") || !output.includes("--version")) {
+  // Asserted against strings the help actually prints. A literal that drifted
+  // out of the usage text fails here as a false alarm, which is what this test
+  // was doing before.
+  if (!output.includes("Usage: tnt") || !output.includes("--version")) {
     throw new Error("Help output missing expected content");
   }
 });
 
 // Test 5: Check bundle size
 runTest("Bundle size is reasonable", () => {
-  const isWindows = process.platform === "win32";
-  const command = isWindows
-    ? `powershell -Command "(Get-Item dist/index.js).length / 1MB"`
-    : `ls -lh dist/index.js`;
-
-  let sizeInMB;
-
-  if (isWindows) {
-    try {
-      const output = execCommand(command);
-      sizeInMB = parseFloat(output.trim());
-    } catch {
-      // Fallback for Windows if PowerShell fails
-      const stats = readFileSync(resolve(__dirname, "dist/index.js"));
-      sizeInMB = stats.length / (1024 * 1024);
-    }
-  } else {
-    const stats = execCommand(command);
-    const sizeMatch = stats.match(/(\d+(?:\.\d+)?[MK])/);
-    if (sizeMatch) {
-      const size = sizeMatch[1];
-      const numSize = parseFloat(size);
-      const unit = size.slice(-1);
-      sizeInMB = unit === "M" ? numSize : numSize / 1024;
-    }
+  const chunks = bundleChunks();
+  if (chunks.length === 0) {
+    throw new Error("No JavaScript output in dist/");
   }
+  const bytes = chunks.reduce((total, file) => total + statSync(file).size, 0);
+  const sizeInMB = bytes / (1024 * 1024);
 
-  console.log(`(${sizeInMB.toFixed(1)}M)`);
+  console.log(`(${sizeInMB.toFixed(1)}M across ${chunks.length} chunks)`);
 
-  // This is arbitrary. We might go over at some point,
-  // in which case you can just increase this.
-  if (sizeInMB > 20) {
+  // A floor, because an output that is nearly empty would pass any ceiling: the
+  // entry chunk alone is under a kilobyte. A full build measures near 30 MB.
+  if (sizeInMB < 10) {
+    throw new Error(`Bundle unexpectedly small: ${sizeInMB.toFixed(1)}M`);
+  }
+  if (sizeInMB > 40) {
     throw new Error(`Bundle too large: ${sizeInMB.toFixed(1)}M`);
   }
 });
 
 // Test 6: Check that local packages are bundled
 runTest("Local packages are bundled", () => {
-  const bundleContent = readFileSync(
-    resolve(__dirname, "dist/index.js"),
-    "utf8",
-  );
+  const bundleContent = bundleChunks()
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
 
   // Check for code from @tnt/config-yaml
   if (
@@ -203,7 +201,7 @@ runTest("No missing runtime dependencies", () => {
 runTest("CLI works via npm link", () => {
   try {
     // Simply test that we can execute with node directly
-    const output = execCommand("node dist/cn.js --version 2>&1");
+    const output = execCommand("node dist/tnt.js --version 2>&1");
     const packageJson = JSON.parse(
       readFileSync(resolve(__dirname, "package.json"), "utf8"),
     );
