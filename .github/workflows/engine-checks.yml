@@ -7,18 +7,24 @@ on:
   pull_request:
     branches:
       - main
+    # Documentation-only commits cannot break the engine, and this repository
+    # takes a lot of them. The filter belongs to each trigger: a workflow-level
+    # paths-ignore is not a key GitHub recognizes, and the whole file fails to
+    # parse with one.
+    paths-ignore:
+      - "docs/**"
+      - "docs-site/**"
+      - "*.md"
+      - "**/*.md"
 
   push:
     branches:
       - main
-
-# Documentation-only commits cannot break the engine, and this repository takes
-# a lot of them.
-paths-ignore:
-  - "docs/**"
-  - "docs-site/**"
-  - "*.md"
-  - "**/*.md"
+    paths-ignore:
+      - "docs/**"
+      - "docs-site/**"
+      - "*.md"
+      - "**/*.md"
 
 # One run per ref at a time; superseded runs are cancelled.
 concurrency:
