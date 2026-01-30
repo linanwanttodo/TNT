@@ -67,6 +67,20 @@ jobs:
           cd core
           npm run build
 
+      - name: Build the SDK that the CLI bundles
+        shell: bash
+        # Installing the CLI also runs its prepare script, which bundles the CLI
+        # and imports the generated SDK. scripts/build-packages.js only runs the
+        # typescript package's own no-op build, so without this step the bundle
+        # cannot resolve @tnt/sdk and npm ci fails on every operating system.
+        run: |
+          cd packages/sdk/typescript
+          npm install --no-audit --no-fund
+          cd api
+          npm install --no-audit --no-fund
+          cd ..
+          npm run build
+
       - name: Install dependencies
         run: |
           cd packages/cli
@@ -124,6 +138,20 @@ jobs:
       - name: Build core
         run: |
           cd core
+          npm run build
+
+      - name: Build the SDK that the CLI bundles
+        shell: bash
+        # Installing the CLI also runs its prepare script, which bundles the CLI
+        # and imports the generated SDK. scripts/build-packages.js only runs the
+        # typescript package's own no-op build, so without this step the bundle
+        # cannot resolve @tnt/sdk and npm ci fails on every operating system.
+        run: |
+          cd packages/sdk/typescript
+          npm install --no-audit --no-fund
+          cd api
+          npm install --no-audit --no-fund
+          cd ..
           npm run build
 
       - name: Install dependencies
@@ -188,6 +216,20 @@ jobs:
       - name: Build core
         run: |
           cd core
+          npm run build
+
+      - name: Build the SDK that the CLI bundles
+        shell: bash
+        # Installing the CLI also runs its prepare script, which bundles the CLI
+        # and imports the generated SDK. scripts/build-packages.js only runs the
+        # typescript package's own no-op build, so without this step the bundle
+        # cannot resolve @tnt/sdk and npm ci fails on every operating system.
+        run: |
+          cd packages/sdk/typescript
+          npm install --no-audit --no-fund
+          cd api
+          npm install --no-audit --no-fund
+          cd ..
           npm run build
 
       - name: Install dependencies
