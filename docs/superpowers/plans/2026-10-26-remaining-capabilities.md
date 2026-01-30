@@ -288,7 +288,7 @@ For each TNT gap, give the mechanism, the TNT entry point, and whether it is tra
 - Consumes: a key the owner supplies or explicitly authorizes.
 - Produces: per-provider cache-read numbers for two consecutive rounds and, if measured, a justified default breakpoint budget.
 
-> Partially verified on 2026-10-26 with the configured `deepseek-flash` key: turn 1 prompt 498 / cached 0; turn 2 prompt 542 / cached 384; turn 3 prompt 593 / cached 384. The Anthropic budget comparison still needs an Anthropic key, which is not configured.
+> Partially verified on 2026-10-26 with the configured `deepseek-flash` key: turn 1 prompt 498 / cached 0; turn 2 prompt 542 / cached 384; turn 3 prompt 593 / cached 384. The Anthropic-format route was measured against the same provider's Anthropic-compatible endpoint: prompt 3293 / cached 3072 on the second turn (93%). A native Anthropic key is still not configured.
 
 - [ ] **Step 1: Ask for the key/authorization**
 
@@ -303,7 +303,7 @@ ANTHROPIC_API_KEY=... npx vitest run src/test/anthropic-caching-scenarios.live.t
 DEEPSEEK_API_KEY=... npx vitest run src/test/deepseek-cache.live.test.ts
 ```
 
-Record prompt, cache read, cache write and hit rate. Repeat the Anthropic pair once with `CONTINUE_CLI_CACHE_RETENTION=long`.
+Record prompt, cache read, cache write and hit rate. Repeat the Anthropic pair once with `TNT_CACHE_RETENTION=long`.
 
 - [ ] **Step 3: Compare the breakpoint budgets**
 
