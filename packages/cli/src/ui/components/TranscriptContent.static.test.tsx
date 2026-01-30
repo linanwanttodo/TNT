@@ -7,11 +7,11 @@ import type { ChatHistoryItem } from "../../../../../core/index.js";
 
 import { TranscriptContent } from "./TranscriptContent.js";
 
-const previous = process.env.CONTINUE_CLI_ALT_SCREEN;
+const previous = process.env.TNT_ALT_SCREEN;
 
 afterEach(() => {
-  if (previous === undefined) delete process.env.CONTINUE_CLI_ALT_SCREEN;
-  else process.env.CONTINUE_CLI_ALT_SCREEN = previous;
+  if (previous === undefined) delete process.env.TNT_ALT_SCREEN;
+  else process.env.TNT_ALT_SCREEN = previous;
 });
 
 const history: ChatHistoryItem[] = [
@@ -40,7 +40,7 @@ function tree(streamingText: string) {
 
 describe("TranscriptContent without the alternate screen", () => {
   it("writes settled history once and keeps only the tail redrawing", () => {
-    process.env.CONTINUE_CLI_ALT_SCREEN = "0";
+    process.env.TNT_ALT_SCREEN = "0";
     const view = render(tree("a"));
     view.rerender(tree("a b"));
     view.rerender(tree("a b c"));

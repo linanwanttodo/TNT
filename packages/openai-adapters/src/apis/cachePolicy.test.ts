@@ -19,7 +19,7 @@ describe("cacheRetention", () => {
   });
 
   it("reads the environment when no argument is given", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     expect(cacheRetention()).toBe("long");
   });
 });
@@ -35,7 +35,7 @@ describe("resolveCachePolicy", () => {
       supportsLongRetention: true,
     });
 
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     expect(resolveCachePolicy("anthropic", "claude-sonnet").ttlMs).toBe(HOUR);
   });
 
@@ -45,7 +45,7 @@ describe("resolveCachePolicy", () => {
     expect(policy.ttlMs).toBe(24 * HOUR);
     expect(policy.maxBreakpoints).toBe(0);
 
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     expect(resolveCachePolicy("deepseek", "deepseek-chat").ttlMs).toBe(
       24 * HOUR,
     );
@@ -67,7 +67,7 @@ describe("resolveCachePolicy", () => {
     expect(explicit.ttlMs).toBe(30 * MINUTE);
     expect(explicit.maxBreakpoints).toBe(4);
 
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     expect(resolveCachePolicy("openai", "gpt-6.1-sol").ttlMs).toBe(12 * HOUR);
 
     const implicit = resolveCachePolicy("openai", "gpt-4o");
@@ -79,7 +79,7 @@ describe("resolveCachePolicy", () => {
   it("gives Moonshot a two-step TTL and Gemini implicit caching", () => {
     const moonshot = resolveCachePolicy("moonshot", "kimi-k3");
     expect(moonshot.ttlMs).toBe(5 * MINUTE);
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     expect(resolveCachePolicy("moonshot", "kimi-k3").ttlMs).toBe(HOUR);
 
     expect(resolveCachePolicy("gemini", "gemini-4-pro")).toMatchObject({
@@ -98,7 +98,7 @@ describe("resolveCachePolicy", () => {
   });
 
   it("turns every provider off when retention is none", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "none");
+    vi.stubEnv("TNT_CACHE_RETENTION", "none");
     for (const provider of ["anthropic", "openai", "deepseek", "moonshot"]) {
       const policy = resolveCachePolicy(provider, "any-model");
       expect(policy.mode, provider).toBe("none");

@@ -42,7 +42,7 @@ const DEEPSEEK_TTL_MS = 24 * HOUR;
  * short window; `none` is for a provider whose cache should not be used at all.
  */
 export function cacheRetention(
-  raw = process.env.CONTINUE_CLI_CACHE_RETENTION,
+  raw = process.env.TNT_CACHE_RETENTION,
 ): CacheRetention {
   const value = (raw ?? "").trim().toLowerCase();
   return value === "long" || value === "none" ? value : "short";

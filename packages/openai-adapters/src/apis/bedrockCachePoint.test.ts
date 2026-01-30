@@ -64,7 +64,7 @@ describe("Bedrock cache points", () => {
   });
 
   it("asks for the extended ttl on a model that supports it", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
 
     const body = convert("anthropic.claude-opus-4-5-20251101-v1:0");
     const points = cachePoints(body);
@@ -74,7 +74,7 @@ describe("Bedrock cache points", () => {
   });
 
   it("keeps the five-minute ttl on a model without extended retention", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
 
     const body = convert("anthropic.claude-3-7-sonnet-20250219-v1:0");
     const points = cachePoints(body);
@@ -84,7 +84,7 @@ describe("Bedrock cache points", () => {
   });
 
   it("sends no cache points when retention is none", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "none");
+    vi.stubEnv("TNT_CACHE_RETENTION", "none");
 
     expect(cachePoints(convert("anthropic.claude-sonnet-4-5"))).toEqual([]);
   });

@@ -55,7 +55,7 @@ describe("OpenRouter cache retention", () => {
   });
 
   it("extends every marker in long mode", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "long");
+    vi.stubEnv("TNT_CACHE_RETENTION", "long");
     const found = markers(api().modifyChatBody(request()));
 
     expect(found.length).toBeGreaterThan(0);
@@ -65,7 +65,7 @@ describe("OpenRouter cache retention", () => {
   });
 
   it("sends no markers when retention is none", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "none");
+    vi.stubEnv("TNT_CACHE_RETENTION", "none");
 
     expect(markers(api().modifyChatBody(request()))).toEqual([]);
   });
