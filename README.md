@@ -18,31 +18,17 @@
 
 > _TNT is a community fork of Continue, rebuilt around the CLI._
 
-TNT is a coding agent available as a [CLI](#cli), with the [VS Code extension](#vs-code) and [JetBrains plugin](#jetbrains) from the base release kept but dormant pending a rework — the CLI is the actively developed surface.
+TNT is a coding agent that runs as a CLI: one engine driving the interactive terminal, headless runs, a local HTTP server, and ACP editors.
 
 ## Documentation
 
 To learn how to configure TNT, how it works, and how to customize it, check out the [TNT Docs](https://github.com/linanwanttodo/TNT/tree/main/docs).
 
-## Base Release
-
-TNT builds on the final Continue 2.0.0 release of the VS Code extension, CLI, and JetBrains plugin.
-
-### VS Code
-
-> _Dormant: not published while the rework is pending. Build from source below._
-
-[![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](ide/vscode)
-
-### CLI
+## Release
 
 [![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=white)](https://github.com/linanwanttodo/TNT) [![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](packages/cli)
 
-### JetBrains
-
-> _Note: We recommend using the TNT CLI instead of the JetBrains plugin._
-
-[![GitHub Releases](https://img.shields.io/badge/GitHub_Releases-181717?logo=github&logoColor=white)](https://github.com/linanwanttodo/TNT/releases) [![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](ide/intellij)
+TNT builds on the final Continue 2.0.0 release and develops the CLI surface only. The editor extensions from that release have been removed.
 
 ## Contributors
 

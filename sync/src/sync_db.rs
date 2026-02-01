@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_nothing_fails() {
         let tag = &sync::Tag {
-            dir: Path::new("../ide/vscode"),
+            dir: Path::new("."),
             branch: "main",
             provider_id: "test",
         };

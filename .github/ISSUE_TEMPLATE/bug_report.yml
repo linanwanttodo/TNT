@@ -11,11 +11,11 @@ body:
     attributes:
       label: Before submitting your bug report
       options:
-        - label: I've tried finding an answer on the [Continue docs site](https://github.com/linanwanttodo/TNT/tree/main/docs/)
+        - label: I've tried finding an answer in the [TNT docs](https://github.com/linanwanttodo/TNT/tree/main/docs/)
           required: false
         - label: I'm not able to find an [open issue](https://github.com/linanwanttodo/TNT/issues?q=is%3Aopen+is%3Aissue) that reports the same bug
           required: false
-        - label: I've seen the [troubleshooting guide](https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting) on the Continue Docs
+        - label: I've read the [troubleshooting guide](https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting.mdx)
           required: false
   - type: textarea
     attributes:
@@ -24,20 +24,25 @@ body:
         Feel free to omit any info that is not relevant to your issue.
 
         - **OS**: macOS
-        - **Continue version**: v0.9.4
-        - **IDE version**:  VSCode 1.85.1
-        - Model: Claude Sonnet 4.5
-        - Agent configuration
+        - **TNT version**: output of `tnt --version`
+        - **Surface**: interactive terminal / headless / serve / ACP
+        - **Terminal and Node.js**: e.g. GNOME Terminal, xterm-256color, v20.20.1
+        - **Model and wire protocol**: e.g. the config entry name and its protocol
+        - **Configuration**: the relevant part of `config.yaml` and `settings.json`
       value: |
         - OS:
-        - Continue version:
-        - IDE version:
+        - TNT version:
+        - Surface:
+        - Terminal and Node.js:
         - Model:
         - config:
           ```yaml
 
           ```
-          OR link to agent in Continue hub:
+        - settings.json:
+          ```json
+
+          ```
       render: Markdown
     validations:
       required: false
@@ -53,12 +58,11 @@ body:
   - type: textarea
     attributes:
       label: To reproduce
-      description: Steps to reproduce the problem. If possible, include a gif, screenshot, or video to better illustrate.
+      description: The exact command you ran, plus the steps. For a terminal UI bug, include a recording or screenshot if you can.
       placeholder: |
-        1. Go to …
-        2. Click on …
-        3. Scroll down to …
-        4. See error
+        1. Run `tnt …`
+        2. Type …
+        3. See error
     validations:
       required: false
   - type: textarea
@@ -66,5 +70,5 @@ body:
     attributes:
       label: Log output
       description: |
-        Please refer to the [troubleshooting guide](https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting) in the Continue Docs for instructions on obtaining the logs. Copy either the relevant lines or the last 100 lines or so.
+        Copy the tail of `~/.tnt/logs/tnt.log` (the newest entries are at the bottom), or the `--output-format stream-json` lines from a headless run. The [troubleshooting guide](https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting.mdx) explains how to raise the log level. Redact anything secret before pasting.
       render: Shell
