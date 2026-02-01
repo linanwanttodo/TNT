@@ -75,6 +75,8 @@ describe("E2E: Headless Mode Permission Errors", () => {
     });
 
     // Run CLI with --auto flag
+    // 30s, not 15s: each call spawns the built bundle, which measures 6.5s on an
+    // idle machine and passes 15s only until the rest of the suite runs beside it.
     const result = await runCLI(context, {
       args: [
         "-p",
@@ -83,13 +85,13 @@ describe("E2E: Headless Mode Permission Errors", () => {
         context.configPath,
         "Create a file test.txt",
       ],
-      timeout: 15000,
+      timeout: 30000,
     });
 
     // Should succeed
     expect(result.exitCode).toBe(0);
     expect(result.stderr).not.toContain("requires permission");
-  }, 20000);
+  }, 60000);
 
   it("should succeed with --allow flag for specific tool", async () => {
     // Set up mock LLM to return a Write tool call
@@ -142,11 +144,11 @@ describe("E2E: Headless Mode Permission Errors", () => {
         context.configPath,
         "Create a file test.txt",
       ],
-      timeout: 15000,
+      timeout: 30000,
     });
 
     // Should succeed
     expect(result.exitCode).toBe(0);
     expect(result.stderr).not.toContain("requires permission");
-  }, 20000);
+  }, 60000);
 });
