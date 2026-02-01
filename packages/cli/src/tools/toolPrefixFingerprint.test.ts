@@ -62,13 +62,30 @@ function fingerprintOf(text: string): string {
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
+/**
+ * Per-tool byte lengths, in the billed order. A bare digest mismatch says the
+ * prefix moved but not where, and a digest that only reproduces on one machine -
+ * which is what a host-dependent description looks like - cannot be tracked down
+ * from a number. Carried on the assertion message so the CI log names the entry.
+ */
+function prefixShape(): string {
+  return sortToolsByName([...ALL_BUILT_IN_TOOLS])
+    .map(
+      (tool) =>
+        `${tool.name}:${(tool.description ?? "").length}+${
+          JSON.stringify(tool.parameters ?? null).length
+        }`,
+    )
+    .join(" ");
+}
+
 describe("the tool list as billed prefix", () => {
   it("has not moved from the digest this file and the architecture doc name", () => {
     const { text } = builtInToolPrefix();
 
     // Red here means the billed prefix changed. Update the digest, the two
     // numbers and the doc line together, and say in the commit what it costs.
-    expect(fingerprintOf(text)).toBe(PREFIX_FINGERPRINT);
+    expect(fingerprintOf(text), prefixShape()).toBe(PREFIX_FINGERPRINT);
     expect(text.length).toBe(PREFIX_CHARACTERS);
   });
 
