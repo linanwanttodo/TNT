@@ -5,7 +5,7 @@ export function addCommonOptions(command: Command): Command {
   return command
     .option(
       "--config <path>",
-      "Configuration file for the assistant (can be a file path or hub slug)",
+      "Configuration file for the assistant (a local file path; hub slugs are refused)",
     )
     .option(
       "--org <slug>",
