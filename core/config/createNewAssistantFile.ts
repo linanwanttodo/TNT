@@ -5,8 +5,6 @@ const DEFAULT_ASSISTANT_FILE = `# This is an example configuration file
 # To learn more, see the full config.yaml reference: https://github.com/linanwanttodo/TNT/blob/main/docs/reference.mdx
 
 name: Example Config
-version: 1.0.0
-schema: v1
 
 # Define which models can be used
 # https://github.com/linanwanttodo/TNT/blob/main/docs/cli/models.mdx

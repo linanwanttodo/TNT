@@ -82,12 +82,14 @@ describe("provider setup config generation", () => {
     expect(yaml).toContain('model: "deepseek-chat"');
   });
 
-  test("writes a minimal schema v1 config without roles or completion options", () => {
+  test("writes a minimal config without roles, completion options or dead keys", () => {
     const yaml = buildConfigYaml(base);
 
     expect(yaml).toContain("name: TNT");
-    expect(yaml).toContain("version: 1.0.0");
-    expect(yaml).toContain("schema: v1");
+    // The hub package format needed a version; nothing in TNT reads one, so the
+    // setup no longer writes either of them into a user's file.
+    expect(yaml).not.toContain("version:");
+    expect(yaml).not.toContain("schema:");
     expect(yaml).toContain("provider: openai");
     expect(yaml).toContain(`model: \"gpt-4.1\"`);
     expect(yaml).toContain(`apiBase: \"https://api.openai.com/v1\"`);

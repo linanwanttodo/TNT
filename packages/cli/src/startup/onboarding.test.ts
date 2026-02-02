@@ -74,12 +74,14 @@ models:
   test("should fail loudly when --config points to file with missing required fields", async () => {
     const configPath = path.join(tempDir, "incomplete.yaml");
 
-    // Create a config file missing required fields
+    // Genuinely invalid against the schema rather than merely sparse: `models`
+    // has to be an array. This used to lean on a missing `version`, which the
+    // config no longer requires, and a sparse-but-valid file loads fine.
     fs.writeFileSync(
       configPath,
       `
 name: "Incomplete Config"
-# Missing models array and other required fields
+models: "not a list"
 `,
     );
 
@@ -291,7 +293,10 @@ describe("interactive provider onboarding writes a real config file", () => {
 
     const written = fs.readFileSync(configPath, "utf8");
     expect(written).toContain("name: TNT");
-    expect(written).toContain("schema: v1");
+    // The setup used to write the hub's version and schema keys; a fresh config
+    // now carries only what the CLI reads.
+    expect(written).not.toContain("schema:");
+    expect(written).not.toContain("version:");
     // openai-compatible is recorded as the openai adapter with a custom URL.
     expect(written).toContain("provider: openai");
     expect(written).toContain('apiBase: "http://127.0.0.1:8080/v1"');
@@ -316,7 +321,8 @@ describe("interactive provider onboarding writes a real config file", () => {
     const parsed = parse(
       fs.readFileSync(path.join(tempDir, "config.yaml"), "utf8"),
     );
-    expect(parsed.schema).toBe("v1");
+    expect(parsed.schema).toBeUndefined();
+    expect(parsed.version).toBeUndefined();
     expect(parsed.models).toHaveLength(1);
     expect(parsed.models[0].provider).toBe("deepseek");
     expect(parsed.models[0].model).toBe("deepseek-chat");
