@@ -70,8 +70,7 @@
   },
   "redirects": [
     { "source": "/customize", "destination": "/" },
-    { "source": "/guides", "destination": "/" },
-    { "source": "/ide-extensions", "destination": "/" }
+    { "source": "/guides", "destination": "/" }
   ],
   "navbar": {
     "primary": {
