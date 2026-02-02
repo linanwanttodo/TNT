@@ -99,7 +99,7 @@ These rules apply to all `.mdx` files in the `docs/` directory, particularly:
 
 ## Automation Note
 
-When using Continue or other AI assistants to generate or modify documentation:
+When using TNT or another coding agent to generate or modify documentation:
 
 - Always format Mintlify components according to these rules
 - Review generated content for proper formatting

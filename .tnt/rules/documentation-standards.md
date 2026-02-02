@@ -1,111 +1,94 @@
 ---
-globs: docs/\*_/_.{md,mdx}
-description: This style guide should be used as a reference for maintaining consistency across all Continue documentation
+globs: "docs/**/*.{md,mdx}"
+description: Style reference for consistency across the TNT documentation
 alwaysApply: false
 ---
 
-# Continue Documentation Style Guide
-
-## Overview
+# TNT Documentation Style Guide
 
 ## Writing Tone & Voice
 
-### Conversational and Direct
+### Conversational and direct
 
-- Follow Mintlify documentation standards
-- Use simple, conversational language that gets straight to the point
-- Avoid overly technical jargon when simpler terms work
-- Write as if speaking directly to the developer using the tool
-- Keep paragraphs concise and scannable
+- Follow Mintlify documentation standards.
+- Use simple language that gets to the point.
+- Prefer a plain term over jargon when the plain term is accurate.
+- Write as if speaking to the developer sitting at the terminal.
+- Keep paragraphs short enough to scan.
 
 **Example:**
-✅ "You send it a question, and it replies with an answer"
+✅ "Type a request, press Enter, and it answers"
 ❌ "The system processes user queries and generates corresponding responses"
 
-### Helpful and Instructional
+### Helpful and instructional
 
-- Focus on helping users accomplish their goals
-- Use active voice and imperative mood for instructions
-- Assume users want to get things done quickly
-- Include relevant Admonition components for tips, warnings, and info
+- Focus on what the reader accomplishes.
+- Active voice and imperative mood for steps.
+- Include the shortcut or flag that the step actually needs.
+- Use admonition components for tips, warnings and caveats.
 
 **Example:**
-✅ "Press cmd/ctrl + L to begin a new session"
-❌ "A new session can be initiated by pressing cmd/ctrl + L"
+✅ "Press `Ctrl+O` to collapse every finished block"
+❌ "Blocks can be collapsed by the user at any time"
 
-### Practical and Task-Oriented
+### Practical and task-oriented
 
-- Emphasize what users can accomplish with each feature
-- Lead with benefits and use cases before diving into mechanics
-- Keep explanations grounded in real-world scenarios
+- Lead with the use case, then the mechanics.
+- Ground explanations in a real command line, not a hypothetical.
 
 ## Content Structure
 
-### Page Organization
+### Page organization
 
-1. **Visual Introduction**: Lead with GIFs or images showing the feature in action
-2. **Purpose Statement**: Brief explanation of what the feature does and when to use it
-3. **Step-by-Step Instructions**: Clear, actionable steps with keyboard shortcuts
-4. **Platform-Specific Notes**: Separate sections for VS Code and JetBrains when needed
-5. **Additional Tips**: Advanced usage or troubleshooting notes
+1. **Purpose first**: what the feature does and when to reach for it.
+2. **Steps**: actionable, with the exact flag, key or config key.
+3. **Surface-specific notes**: separate the interactive TUI, headless `-p`,
+   `serve` and ACP whenever their behavior differs.
+4. **Platform notes**: Linux, macOS and Windows only where they genuinely differ.
+5. **Advanced or troubleshooting pointers**, linked rather than restated.
 
-### Section Headers
+A GIF or screenshot belongs on a TUI page only when the layout is the thing being
+explained; a terminal transcript usually says it better.
 
-- Use consistent heading hierarchy starting with h2 (##)
-- Include YAML frontmatter with title, description, and keywords
-- Use action-oriented headers that describe what users will do
-- Format: "Verb + object" (e.g., "Type a request and press enter")
-- Keep headers concise but descriptive
-- Use title case
+### Section headers
 
-**Examples:**
-✅ "Highlight code and activate"
-✅ "Accept or reject changes"
-✅ "Switch between different models"
+- Heading hierarchy starts at h2 (`##`).
+- Frontmatter carries `title` and `description`; the description is 100-160 characters.
+- Use "verb + object" headers: "Switch models mid-session", "Approve a write outside the workspace".
+- Title case, kept short.
 
-### Lists and Steps
+### Lists and steps
 
-- Use numbered lists for sequential steps
-- Use bullet points for feature lists or options
-- Keep list items parallel in structure
-- Start action items with verbs
+- Numbered lists for sequences, bullets for options.
+- Keep list items parallel; start action items with a verb.
 
 ## Technical Writing Standards
 
-### Code and Keyboard Shortcuts
+### Code and keys
 
-- Use `backticks` for inline code elements
-- Format keyboard shortcuts consistently: `cmd/ctrl + L`
-- Always provide shortcuts for Mac/Windows/Linux
-- Use code blocks for configuration examples with proper syntax highlighting
+- Backticks for inline code, flags, config keys and paths.
+- Write shortcuts as the terminal receives them: `Shift+Tab`, `Ctrl+C`, `Ctrl+V`.
+- Windows and macOS differences go in the step or a note beside it, not a separate page.
+- Configuration examples show a runnable `config.yaml` fragment with syntax highlighting.
 
-### Cross-References
+### Cross-references
 
-- Link to related sections using descriptive anchor text
-- Use relative links to other documentation pages
-- Format: `[descriptive text](/path/to/page)`
-
-### Platform Differences
-
-- Always address both VS Code and JetBrains when applicable
-- Use clear subheadings to separate platform-specific instructions
-- Lead with the more common platform (typically VS Code) when both are covered
-
-## Language Conventions
+- Link with descriptive anchor text, relative to the docs root: `[permissions](/cli/permissions)`.
+- Chinese pages link their Chinese twins (`/zh/cli/...`).
+- Every added page appears in `docs/docs.json` and `docs/docs.zh.json`.
 
 ### Terminology
 
-- **Consistent Terms**: Use the same terms throughout (e.g., "LLM" not "AI model" in some places)
-- **Product Names**: Capitalize product names correctly (VS Code, JetBrains, Continue)
-- **Feature Names**: Use consistent capitalization for Continue features (Chat, Edit, Agent, Autocomplete)
-
-### Abbreviations
-
-- Spell out acronyms on first use, then use abbreviation consistently
-- Common abbreviations: LLM, IDE, API, URL
+- **Stable terms**: the same word for the same thing throughout — "session",
+  "turn", "tool call", "permission mode", "compaction".
+- **Product name**: TNT. The command is `tnt`. Surfaces: the TUI, headless,
+  `serve`, ACP. There is no IDE extension in this product; do not reintroduce one
+  in the copy.
+- **Feature names**: consistent capitalization for named things — Agent, Chat,
+  Plan, and the tool names the CLI prints (`Read`, `Edit`, `ApplyPatch`, `Bash`).
+- Model and provider names keep their vendor spelling (`DeepSeek`, `Moonshot`,
+  `Anthropic`); they are configuration values, not product voice.
 
 ### Pronouns
 
-- Use "you" to address the user directly
-- Use "it" to refer to the tool/model
-- Avoid "we" unless referring to the Continue team
+- "you" for the reader, "it" for the tool or model, "we" only for the maintainers.
