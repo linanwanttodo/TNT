@@ -134,22 +134,7 @@ describe("clipboard image reads", () => {
   });
 });
 
-describe("the compatibility wrappers", () => {
-  it("returns raw bytes from getClipboardImage", async () => {
-    mocks.run.mockImplementation(async (command: string, args: string[]) => {
-      if (command === "wl-paste" && args[0] === "--list-types") {
-        return Buffer.from("image/png\n");
-      }
-      if (command === "wl-paste" && args[0] === "--type") return png;
-      return undefined;
-    });
-
-    await expect(clipboard.getClipboardImage()).resolves.toEqual(png);
-  });
-
-  it("returns false when the probe finds no image", async () => {
-    mocks.run.mockResolvedValue(Buffer.from("text/plain\n"));
-
-    await expect(clipboard.checkClipboardForImage()).resolves.toBe(false);
-  });
-});
+// The two wrappers forward to the reader, so their contract is pinned in
+// clipboardWrappers.test.ts, where the reader is replaced outright. Driving them
+// from here ran the real backend selection, which chose wl-paste on a Wayland
+// desktop and something else everywhere else.
