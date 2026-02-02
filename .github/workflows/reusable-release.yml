@@ -43,8 +43,31 @@ permissions:
   pull-requests: write
 
 jobs:
+  preflight:
+    name: Check release credentials
+    runs-on: ubuntu-latest
+    outputs:
+      has_credentials: ${{ steps.check.outputs.has_credentials }}
+    env:
+      RELEASE_GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE_GITHUB_TOKEN }}
+      RELEASE_NPM_TOKEN: ${{ secrets.SEMANTIC_RELEASE_NPM_TOKEN }}
+    steps:
+      - name: Check for the tokens semantic-release needs
+        id: check
+        shell: bash
+        # A repository without these secrets cannot publish. Skipping is the
+        # honest outcome; failing would put a red check on every package commit.
+        run: |
+          if [ -n "$RELEASE_GITHUB_TOKEN" ] && [ -n "$RELEASE_NPM_TOKEN" ]; then
+            echo "has_credentials=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_credentials=false" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
     name: Release ${{ inputs.package-name }}
+    needs: preflight
+    if: needs.preflight.outputs.has_credentials == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
