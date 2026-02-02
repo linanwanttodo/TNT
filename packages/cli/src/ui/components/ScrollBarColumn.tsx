@@ -16,19 +16,16 @@ export const ScrollBarColumn: React.FC<{
 }> = ({ geometry }) => {
   if (!geometry || !geometry.scrollable) return null;
 
-  const rows = Array.from(
-    { length: geometry.trackHeight },
-    (_, row) => {
-      const inThumb =
-        row >= geometry.thumbTop &&
-        row < geometry.thumbTop + geometry.thumbHeight;
-      return (
-        <Text key={row} dimColor={!inThumb}>
-          {inThumb ? THUMB_GLYPH : TRACK_GLYPH}
-        </Text>
-      );
-    },
-  );
+  const rows = Array.from({ length: geometry.trackHeight }, (_, row) => {
+    const inThumb =
+      row >= geometry.thumbTop &&
+      row < geometry.thumbTop + geometry.thumbHeight;
+    return (
+      <Text key={row} dimColor={!inThumb}>
+        {inThumb ? THUMB_GLYPH : TRACK_GLYPH}
+      </Text>
+    );
+  });
 
   return (
     <Box flexDirection="column" flexShrink={0} width={1}>

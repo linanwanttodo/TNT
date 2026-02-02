@@ -31,7 +31,10 @@ function call(
   };
   const next = vi.fn();
   handler({ headers } as any, res as any, next);
-  return { forbidden: res.statusCode === 403, next: next.mock.calls.length > 0 };
+  return {
+    forbidden: res.statusCode === 403,
+    next: next.mock.calls.length > 0,
+  };
 }
 
 describe("the serve browser-origin guard", () => {
@@ -52,29 +55,33 @@ describe("the serve browser-origin guard", () => {
 
   it("rejects a cross-site origin before it reaches a handler", () => {
     const { handler } = install();
-    expect(
-      call(handler, { origin: "http://evil.example" }),
-    ).toEqual({ forbidden: true, next: false });
+    expect(call(handler, { origin: "http://evil.example" })).toEqual({
+      forbidden: true,
+      next: false,
+    });
   });
 
   it("rejects a rebound host on a loopback bind", () => {
     const { handler } = install();
-    expect(
-      call(handler, { host: "attacker.example:4123" }),
-    ).toEqual({ forbidden: true, next: false });
+    expect(call(handler, { host: "attacker.example:4123" })).toEqual({
+      forbidden: true,
+      next: false,
+    });
   });
 
   it("relaxes the host check when the operator bound a real interface", () => {
     const { handler } = install("0.0.0.0");
-    expect(
-      call(handler, { host: "workspace.lan:4123" }),
-    ).toEqual({ forbidden: false, next: true });
+    expect(call(handler, { host: "workspace.lan:4123" })).toEqual({
+      forbidden: false,
+      next: true,
+    });
   });
 
   it("still rejects cross-site origins on an exposed bind", () => {
     const { handler } = install("0.0.0.0");
-    expect(
-      call(handler, { origin: "http://evil.example" }),
-    ).toEqual({ forbidden: true, next: false });
+    expect(call(handler, { origin: "http://evil.example" })).toEqual({
+      forbidden: true,
+      next: false,
+    });
   });
 });

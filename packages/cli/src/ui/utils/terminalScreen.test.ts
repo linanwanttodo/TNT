@@ -60,10 +60,9 @@ describe("alternateScreenEnabled", () => {
     expect(alternateScreenEnabled({})).toBe(true);
     expect(alternateScreenEnabled({ TNT_ALT_SCREEN: "1" })).toBe(true);
     for (const value of ["0", "false", "off", " OFF "]) {
-      expect(
-        alternateScreenEnabled({ TNT_ALT_SCREEN: value }),
-        value,
-      ).toBe(false);
+      expect(alternateScreenEnabled({ TNT_ALT_SCREEN: value }), value).toBe(
+        false,
+      );
     }
   });
 });
