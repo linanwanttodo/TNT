@@ -146,20 +146,6 @@
       }
     },
     {
-      "label": "binary:build",
-      "type": "npm",
-      "script": "build",
-      "problemMatcher": [],
-      "options": {
-        "cwd": "${workspaceFolder}/binary"
-      },
-      "presentation": {
-        "group": "build-tasks",
-        "panel": "shared",
-        "reveal": "always"
-      }
-    },
-    {
       "label": "docs:start",
       "type": "shell",
       "command": "npm",

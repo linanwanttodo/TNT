@@ -1,7 +1,3 @@
-binary/bin
-binary/build
-binary/out
-binary/tmp
 core/.continue-test
 docs/.docusaurus
 docs/**/*.mdx
