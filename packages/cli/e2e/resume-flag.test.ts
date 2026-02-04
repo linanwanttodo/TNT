@@ -4,6 +4,7 @@ import * as path from "path";
 import {
   cleanupTestContext,
   createTestContext,
+  readSession,
   runCLI,
 } from "../test-utils/cli-helpers.js";
 import {
@@ -11,6 +12,35 @@ import {
   setupMockLLMTest,
   type MockLLMServer,
 } from "../test-utils/mock-llm-server.js";
+
+/**
+ * The v2 store keeps each session in its own directory as `session.jsonl`; the
+ * `sessions/<id>.json` plus `sessions.json` layout these assertions were written
+ * against is gone, which is why they read an empty list. Counting session roots
+ * replaces the old "one .json file" claim with the same statement in the current
+ * layout.
+ */
+async function sessionCount(context: any): Promise<number> {
+  const root = path.join(context.testDir, ".tnt", "sessions");
+  let entries: any[];
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  const listed = entries.filter((entry) => entry.isDirectory());
+  const withTranscripts = await Promise.all(
+    listed.map(async (entry) => {
+      try {
+        await fs.stat(path.join(root, entry.name, "session.jsonl"));
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  );
+  return withTranscripts.filter(Boolean).length;
+}
 
 describe("E2E: Resume Flag", () => {
   let context: any;
@@ -44,28 +74,13 @@ describe("E2E: Resume Flag", () => {
     expect(firstResult.exitCode).toBe(0);
     expect(firstResult.stdout).toContain("Hello! Nice to meet you.");
 
-    // Verify that a session file was created
-    const sessionDir = path.join(context.testDir, ".tnt", "sessions");
+    // Verify that one session was written, then read it back through the store's
+    // own layout instead of globbing the directory.
+    expect(await sessionCount(context)).toBe(1);
 
-    // Ensure session directory exists
-    try {
-      await fs.mkdir(sessionDir, { recursive: true });
-    } catch (error) {
-      // Directory already exists, continue
-    }
-
-    const sessionFiles = (await fs.readdir(sessionDir)).filter(
-      (f) => f.endsWith(".json") && f !== "sessions.json",
-    );
-    expect(sessionFiles).toHaveLength(1);
-
-    // Read the session file to verify it contains our conversation
-    const sessionFile = sessionFiles[0];
-    const sessionPath = path.join(sessionDir, sessionFile);
-    const sessionContent = await fs.readFile(sessionPath, "utf-8");
-    const sessionData = JSON.parse(sessionContent);
-
-    expect(sessionData.history).toBeDefined();
+    const sessionData = await readSession(context);
+    expect(sessionData).not.toBeNull();
+    expect(sessionData.sessionId).toBe("test-session-123");
     expect(sessionData.history.length).toBeGreaterThan(0);
 
     // Should contain the user message and assistant response
@@ -151,24 +166,10 @@ describe("E2E: Resume Flag", () => {
     expect(firstResult.stdout).toContain("First response");
 
     // Verify the first session was saved correctly
-    const sessionDir = path.join(context.testDir, ".tnt", "sessions");
-
-    // Ensure session directory exists
-    try {
-      await fs.mkdir(sessionDir, { recursive: true });
-    } catch (error) {
-      // Directory already exists, continue
-    }
-
-    let sessionFiles = (await fs.readdir(sessionDir)).filter(
-      (f) => f.endsWith(".json") && f !== "sessions.json",
-    );
-    expect(sessionFiles).toHaveLength(1);
-
-    let sessionFile = sessionFiles[0];
-    let sessionPath = path.join(sessionDir, sessionFile);
-    let sessionContent = await fs.readFile(sessionPath, "utf-8");
-    let sessionData = JSON.parse(sessionContent);
+    expect(await sessionCount(context)).toBe(1);
+    const saved = await readSession(context);
+    expect(saved).not.toBeNull();
+    expect(saved.history).toHaveLength(2);
 
     // Resume and add a new message with the SAME session ID
     const resumeResult = await runCLI(context, {
@@ -193,14 +194,9 @@ describe("E2E: Resume Flag", () => {
     // Verify the new-session run (prompt + title) and the resume run (prompt)
     expect(mockServer.requests).toHaveLength(3);
 
-    // Check that the session file contains both messages
-    sessionFiles = (await fs.readdir(sessionDir)).filter(
-      (f) => f.endsWith(".json") && f !== "sessions.json",
-    );
-    sessionFile = sessionFiles[0];
-    sessionPath = path.join(sessionDir, sessionFile);
-    sessionContent = await fs.readFile(sessionPath, "utf-8");
-    sessionData = JSON.parse(sessionContent);
+    // Check that the same session now carries both exchanges
+    expect(await sessionCount(context)).toBe(1);
+    const sessionData = await readSession(context);
 
     const userMessages = sessionData.history.filter(
       (msg: any) => msg.message?.role === "user",
