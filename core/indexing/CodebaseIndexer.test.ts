@@ -29,6 +29,13 @@ import { walkDir, walkDirCache } from "./walkDir.js";
 
 jest.useFakeTimers();
 
+// A named mapper rather than an inline callback: this assertion sits inside
+// describe > describe > describe > test, and a fifth anonymous level breaks the
+// nested-callback limit that the rest of the repository holds to.
+function artifactIds(indexes: CodebaseIndex[]): string[] {
+  return indexes.map((index) => index.artifactId);
+}
+
 const TEST_TS = `\
 function main() {
   console.log("Hello, world!");
@@ -790,10 +797,7 @@ describe("CodebaseIndexer", () => {
           indexer as any
         ).getIndexesToBuild()) as CodebaseIndex[];
 
-        expect(indexes.map((index) => index.artifactId)).toEqual([
-          "chunks",
-          "sqliteFts",
-        ]);
+        expect(artifactIds(indexes)).toEqual(["chunks", "sqliteFts"]);
       });
     });
   });
