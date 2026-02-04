@@ -28,13 +28,19 @@ wants a credential is therefore inert rather than failing:
 | `engine-checks.yml`          | `pull_request` and `push` to `main`    | none - prettier, `core/`, and the npm packages (not the CLI)       |
 | `cli-pr-checks.yml`          | `pull_request` and `push` to `main`    | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` for the `smoke-api` job only |
 | `cla.yaml`                   | `issue_comment`, `pull_request_target` | contributor-assistant action configuration                         |
-| `stale-issue-helper.yaml`    | weekly schedule                        | none                                                               |
-| `delete-stale-branches.yaml` | weekly schedule, manual                | `GITHUB_TOKEN` with `contents: write` - it deletes old branches    |
-| `docs-gh-pages.yml`          | push to `main` touching docs           | Pages enabled with "GitHub Actions" as the source                  |
+| `stale-issue-helper.yaml`    | daily schedule                         | none                                                               |
+| `delete-stale-branches.yaml` | weekday schedule, manual               | `GITHUB_TOKEN` with `contents: write` - it deletes old branches    |
+| `docs-gh-pages.yml`          | push to `main` touching docs, manual   | Pages enabled with "GitHub Actions" as the source                  |
 
 Both gates ignore documentation-only commits (`paths-ignore`), and both fire on a
 direct push to `main`: work lands that way here, and a gate that listens only to
 `pull_request` never sees it.
+
+Every job declares `timeout-minutes`. A hung install or a test process that never
+exits would otherwise bill the six-hour default. The four `release-*.yml`
+workflows call `reusable-release.yml` through `jobs.<id>.uses`, and a job that
+only forwards takes no ceiling of its own, so they inherit the 5 and 40 minutes
+declared inside the reusable workflow.
 
 ## Release paths
 
