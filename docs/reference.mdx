@@ -18,8 +18,6 @@ Below are details for each property that can be set in `config.yaml`.
 The top-level properties in the `config.yaml` configuration file are:
 
 - [`name`](#name) (**required**)
-- [`version`](#version) (**required**)
-- [`schema`](#schema) (**required**)
 - [`models`](#models)
 - [`context`](#context)
 - [`rules`](#rules)
@@ -36,19 +34,16 @@ The `name` property specifies the name of your project or configuration.
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 ```
 
 ---
 
-### `version`
+### Accepted but unused: `version` and `schema`
 
-The `version` property specifies the version of your project or configuration.
-
-### `schema`
-
-The `schema` property specifies the schema version used for the `config.yaml`, e.g. `v1`
+Both keys are inherited from the hub package format, where a version was part of
+the package identifier. Nothing in TNT reads them: a configuration needs only
+`name` plus the sections below. Existing files that carry them keep working, and
+new ones do not need them.
 
 ---
 
@@ -143,8 +138,6 @@ The `models` section defines the language models used in your configuration. Mod
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 models:
   - name: GPT-4o
     provider: openai
@@ -193,8 +186,6 @@ The `context` section defines context providers, which supply additional informa
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 context:
   - provider: file
   - provider: code
@@ -216,8 +207,6 @@ Configuration example:
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 rules:
   - uses: sanity/sanity-opinionated
   - uses: file://user/Desktop/rules.md # rules file stored on local computer
@@ -245,8 +234,6 @@ Configuration example:
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 prompts:
   - uses: supabase/create-functions
   - uses: file://user/Desktop/prompts.md # prompts file stored on local computer
@@ -282,8 +269,6 @@ List of documentation sites to index.
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 docs:
   - name: TNT
     startUrl: https://github.com/linanwanttodo/TNT/tree/main/docs
@@ -310,8 +295,6 @@ The [Model Context Protocol](https://modelcontextprotocol.io/introduction) is a 
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 mcpServers:
   - name: My MCP Server
     command: uvx
@@ -344,8 +327,6 @@ Destinations to which development data will be sent.
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 data:
   - name: Local Data Bank
     destination: file:///home/you/Documents/external-data
@@ -368,8 +349,6 @@ Putting it all together, here's a complete example of a `config.yaml` configurat
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 models:
   - uses: anthropic/claude-sonnet-4-6
     with:
@@ -443,8 +422,6 @@ You can also use node anchors to avoid duplication of properties. To do so, addi
 %YAML 1.1
 ---
 name: My Config
-version: 1.0.0
-schema: v1
 model_defaults: &model_defaults
   provider: openai
   apiKey: my-api-key
