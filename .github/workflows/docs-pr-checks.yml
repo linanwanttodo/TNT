@@ -1,0 +1,49 @@
+name: Docs PR Checks
+
+# The docs site is built on a push to main, so a broken page, a missing import
+# or a type error was only discovered after merge. Both PR workflows ignore
+# documentation paths, which left that change with no check at all. This gate
+# runs only for documentation changes, and checks the types the build skips.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "docs-site/**"
+      - ".github/workflows/docs-pr-checks.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Type check
+        working-directory: docs-site
+        run: npm run tsc:check
+
+      # Same base path the deploy uses, so a bad asset URL fails here rather
+      # than on the published site.
+      - name: Build
+        working-directory: docs-site
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+        run: npm run build
