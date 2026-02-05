@@ -52,7 +52,7 @@ export const SessionSelectorWithLoading: React.FC<
       }
     };
 
-    loadSessions();
+    void loadSessions();
 
     return () => {
       isMounted = false;

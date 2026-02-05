@@ -285,7 +285,9 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
 
     // Process messages if not already processing
     if (!state.isProcessing) {
-      processMessages(state, llmApi);
+      void processMessages(state, llmApi).catch((error) =>
+        logger.error("Serve turn failed", error),
+      );
     }
   });
 
@@ -415,7 +417,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
     }
 
     // Run environment install script after server startup
-    runEnvironmentInstallSafe();
+    void runEnvironmentInstallSafe();
 
     // If initial prompt provided, queue it for processing
     const initialPrompt = prependPrompt(
@@ -436,7 +438,9 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
       if (shouldQueueInitialPrompt(existingHistory, initialPrompt)) {
         logger.info(chalk.dim(t("serve.processingInitialPrompt")));
         await messageQueue.enqueueMessage(initialPrompt);
-        processMessages(state, llmApi);
+        void processMessages(state, llmApi).catch((error) =>
+          logger.error("Serve turn failed", error),
+        );
       } else {
         logger.info(chalk.dim(t("serve.skippingInitialPrompt")));
       }

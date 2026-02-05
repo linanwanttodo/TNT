@@ -598,7 +598,7 @@ const UserInput: React.FC<UserInputProps> = ({
 
     if ((key.return && !key.shift) || key.tab) {
       if (currentFiles.length > 0 && selectedFileIndex < currentFiles.length) {
-        selectFile(currentFiles[selectedFileIndex].path);
+        void selectFile(currentFiles[selectedFileIndex].path);
       }
       return true;
     }

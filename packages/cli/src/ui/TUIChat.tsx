@@ -558,7 +558,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
             // Sending always returns to the live tail, the way every reference
             // CLI resumes following when the user speaks.
             jumpToBottom();
-            handleUserMessage(message, imageMap);
+            void handleUserMessage(message, imageMap);
           }}
           isWaitingForResponse={isWaitingForResponse}
           isCompacting={isCompacting}

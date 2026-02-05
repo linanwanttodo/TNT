@@ -67,7 +67,7 @@ const ConfigSelector: React.FC<ConfigSelectorProps> = ({
       }
     };
 
-    loadConfigs();
+    void loadConfigs();
   }, []);
 
   return (
