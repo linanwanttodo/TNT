@@ -9,42 +9,26 @@ import { describe, expect, it } from "vitest";
  *
  * The text scan in `packages/cli/src/architecture.test.ts` counts mentions in raw source and
  * therefore treats a name mentioned only in prose as read. That blind spot was not theoretical:
- * this file was first written that way and missed the seven below - the exact capabilities the
- * check exists to keep visible. Asking `tsc --noUnusedLocals` costs a compiler run inside the
- * suite and reports every one of them, so the suite pays the seconds.
+ * this file was first written that way and missed what was then seven lines below - the exact
+ * capabilities the check exists to keep visible. Asking `tsc --noUnusedLocals` costs a compiler
+ * run inside the suite and reports every one of them, so the suite pays the seconds.
  *
- * The seven are the reason the list exists. Four models have a hand-tuned FIM prompt that
- * `getTemplateForModel` never references, plus an unwired language-specific prefilter, diff
- * snippets and a multiline-completion branch: declared, unreachable, and invisible to every
- * other gate. They are left in place, not wired, because core is shared with the IDE
- * extensions and no real model is reachable here to tell a fix from a regression (task #38).
+ * Those seven lived in the editor completion engine (`autocomplete/` and `nextEdit/`), which
+ * the CLI never called and which has since been deleted along with the session host that drove
+ * it, so the entries left the list the way the rule says they do: by disappearing. What the
+ * three below stand for is the same shape of problem in the code that remains - a fuzzy matcher,
+ * a token counter branch and a reranker expansion that are declared, unreachable, and invisible
+ * to every other gate. They are left in place, not wired, because none of them has a reachable
+ * model to tell a fix from a regression (task #38).
  */
 const CAPABILITY_CASES: string[] = [
-  "autocomplete/classification/shouldCompleteMultiline.ts:isMidlineCompletion",
-  "autocomplete/prefiltering/index.ts:shouldLanguageSpecificPrefilter",
-  "autocomplete/snippets/getAllSnippets.ts:getDiffSnippets",
-  "autocomplete/templating/AutocompleteTemplate.ts:codestralFimTemplate",
-  "autocomplete/templating/AutocompleteTemplate.ts:gptAutocompleteTemplate",
-  "autocomplete/templating/AutocompleteTemplate.ts:qwenCoderFimTemplate",
-  "autocomplete/templating/AutocompleteTemplate.ts:starcoder2FimTemplate",
+  "edit/searchAndReplace/findSearchMatch.ts:findFuzzyMatch",
+  "llm/countTokens.ts:isUserOrToolMsg",
+  "context/retrieval/pipelines/RerankerRetrievalPipeline.ts:_expandRankedResults",
 ];
 
 const UNREAD_DECLARATIONS: string[] = [
-  "autocomplete/classification/shouldCompleteMultiline.ts:isMidlineCompletion",
-  "autocomplete/context/static-context/StaticContextService.ts:end",
-  "autocomplete/context/static-context/StaticContextService.ts:name",
-  "autocomplete/context/static-context/StaticContextService.ts:start",
   "autocomplete/filtering/BracketMatchingService.ts:allLines",
-  "autocomplete/filtering/test/util.ts:suffix",
-  "autocomplete/prefiltering/index.ts:shouldLanguageSpecificPrefilter",
-  "autocomplete/snippets/getAllSnippets.ts:getDiffSnippets",
-  "autocomplete/templating/AutocompleteTemplate.ts:codestralFimTemplate",
-  "autocomplete/templating/AutocompleteTemplate.ts:gptAutocompleteTemplate",
-  "autocomplete/templating/AutocompleteTemplate.ts:qwenCoderFimTemplate",
-  "autocomplete/templating/AutocompleteTemplate.ts:starcoder2FimTemplate",
-  "autocomplete/templating/getStopTokens.ts:DOUBLE_NEWLINE",
-  "autocomplete/templating/getStopTokens.ts:WINDOWS_DOUBLE_NEWLINE",
-  "autocomplete/util/AutocompleteLoggingService.ts:toLog",
   "codeRenderer/CodeRenderer.ts:CodeRendererOptions",
   "codeRenderer/CodeRenderer.ts:editorBackground",
   "codeRenderer/CodeRenderer.ts:editorForeground",
@@ -74,18 +58,6 @@ const UNREAD_DECLARATIONS: string[] = [
   "llm/logFormatter.ts:lastMessage",
   "llm/openaiTypeConverters.ts:ResponseFunctionCallArgumentsDeltaEvent",
   "llm/openaiTypeConverters.ts:ResponseOutputItem",
-  "nextEdit/NextEditEditableRegionCalculator.ts:doesLowerPartOverlap",
-  "nextEdit/NextEditEditableRegionCalculator.ts:doesRangePartiallyOverlap",
-  "nextEdit/NextEditEditableRegionCalculator.ts:doesUpperPartOverlap",
-  "nextEdit/NextEditEditableRegionCalculator.ts:isRangeWithin",
-  "nextEdit/NextEditEditableRegionCalculator.ts:printChunks",
-  "nextEdit/NextEditProvider.ts:autocompleteCache",
-  "nextEdit/NextEditProvider.ts:bracketMatchingService",
-  "nextEdit/NextEditProvider.ts:completionStreamer",
-  "nextEdit/context/autocompleteContextFetching.ts:completionOptions",
-  "nextEdit/context/autocompleteContextFetching.ts:prompt",
-  "nextEdit/context/autocompleteContextFetching.ts:suffix",
-  "nextEdit/templating/mercuryCoderNextEdit.ts:mercuryNextEditTemplateBuilder",
 ];
 
 /**
@@ -132,7 +104,9 @@ describe("declarations that nothing reads", () => {
   it("ran a compiler that found the unread names it must know about", () => {
     // Floor, and the part that keeps this honest: a crashed or truncated compiler run
     // reports nothing, which a plain "no new unread names" assertion would pass as green.
-    expect(unread.length).toBeGreaterThan(50);
+    // The floor sat at 50 while the editor engine's declarations were still in the tree;
+    // deleting that engine removed 26 of them, so it is set against what remains.
+    expect(unread.length).toBeGreaterThan(25);
     for (const capability of CAPABILITY_CASES) {
       expect(unread).toContain(capability);
     }
