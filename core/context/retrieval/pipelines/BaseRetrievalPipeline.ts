@@ -11,7 +11,7 @@ import {
   Tool,
   ToolExtras,
 } from "../../../";
-import { openedFilesLruCache } from "../../../autocomplete/util/openedFilesLruCache";
+import { openedFilesLruCache } from "../../../util/openedFilesLruCache";
 import { chunkDocument } from "../../../indexing/chunk/chunk";
 import { FullTextSearchCodebaseIndex } from "../../../indexing/FullTextSearchCodebaseIndex";
 import { LanceDbIndex } from "../../../indexing/LanceDbIndex";

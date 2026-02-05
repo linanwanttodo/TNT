@@ -3,7 +3,7 @@ import { ChatMessage, CompletionOptions, LLMOptions } from "../../index.js";
 
 import { ChatCompletionCreateParams } from "@tnt/openai-adapters";
 import { APPLY_UNIQUE_TOKEN } from "../../edit/constants.js";
-import { UNIQUE_TOKEN } from "../../nextEdit/constants.js";
+import { UNIQUE_TOKEN } from "../nextEditConstants.js";
 import OpenAI from "./OpenAI.js";
 
 /**
