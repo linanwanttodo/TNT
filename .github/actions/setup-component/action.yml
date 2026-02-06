@@ -1,20 +1,20 @@
-name: 'Setup Component'
-description: 'Cache and install dependencies for a specific component'
+name: "Setup Component"
+description: "Cache and install dependencies for a specific component"
 inputs:
   component:
-    description: 'Component directory relative to the repository root (core, binary, packages/cli)'
+    description: "Component directory relative to the repository root (core, binary, packages/cli)"
     required: true
   include-packages:
-    description: 'Whether to include packages cache (default: true)'
+    description: "Whether to include packages cache (default: true)"
     required: false
-    default: 'true'
+    default: "true"
   include-root:
-    description: 'Whether to include root cache (default: false)'
+    description: "Whether to include root cache (default: false)"
     required: false
-    default: 'false'
+    default: "false"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - uses: actions/setup-node@v6
       with:
