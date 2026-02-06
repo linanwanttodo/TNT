@@ -152,7 +152,7 @@ export const runTerminalCommandTool: Tool = {
   displayName: "Bash",
   description: `Executes a terminal command and returns the output
 
-Commands are automatically executed from the current working directory (${process.cwd()}), so there's no need to change directories with 'cd' commands.
+Commands are automatically executed from the current working directory, so there's no need to change directories with 'cd' commands.
 
 USE THE DEDICATED TOOL WHEN ONE EXISTS - a shell pipeline loses the guard, the diff and the indexing that the tool gives you:
 - Read a file with Read, not cat, head, tail or sed. A large file is read in sections with start_line/end_line, not with 'sed -n'.
