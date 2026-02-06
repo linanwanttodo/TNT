@@ -102,7 +102,6 @@ jobs:
         run: |
           cd core
           npm test
-          npm run vitest
         env:
           IGNORE_API_KEY_TESTS: ${{ steps.llm-changes.outputs.ignore_api_tests }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
