@@ -1,18 +1,18 @@
 ---
 name: Write Core Unit Test
-description: Generate Jest tests for a file in the core engine layer
+description: Generate Vitest tests for a file in the core engine layer
 ---
 
-Write Jest tests for the code provided.
+Write Vitest tests for the code provided.
 
-- Jest `^29` (core pins `^29.7.0`).
+- Vitest. Import `describe`, `test`/`it`, `expect` and `vi` from `"vitest"`.
 - TypeScript only. If the file under test is not TypeScript, warn and stop.
 - ESM imports everywhere — never `require`.
 - Import from a relative path the way the existing suites do, e.g.
   `import { testIde } from "../test/fixtures";` — depth depends on where the test
   file sits. There is no `@core` path alias.
-- The test goes in an adjacent file named `<same-basename>.test.ts`. Files named
-  `*.vitest.ts` belong to core's separate Vitest run; do not convert them here.
+- The test goes in an adjacent file named `<same-basename>.vitest.ts`, the only
+  test naming core collects.
 - Prefer double quotes (backticks when the string needs them).
 - Aim for full coverage of the behavior that changed; split into several tests
   for clarity rather than one long one.
@@ -28,11 +28,12 @@ and the fixtures provide them:
   `testConfigHandler` (and `ideSettingsPromise` for `IdeSettings` needs)
 - models, through `testLLM` — set `testLLM.completion` to the answer you want
 
-## Jest setup that already exists
+## Vitest setup that already exists
 
-- `core/test/jest.global-setup.ts` — creates the temporary global directory that
+- `core/test/vitest.global-setup.ts` — creates the temporary global directory that
   persisted data lands in.
-- `core/test/jest.setup-after-env.js` — exposes the node and Jest globals.
+- `core/test/vitest.setup.ts` — puts `node-fetch` and the text encoders on
+  `globalThis`.
 - `core/test/testDir.ts` — `setUpTestDir` / `tearDownTestDir`, called explicitly
   in any test that touches workspace files.
 - `core/test/fixtures.ts` — the fixtures above.
@@ -43,7 +44,7 @@ something you need is missing, warn and write no test rather than inventing it.
 ## Rules
 
 - Do not test files under `core/test`; they are helpers for testing the rest.
-- Do not mock the fixtures above beyond `jest.spyOn`. Do mock third-party modules
+- Do not mock the fixtures above beyond `vi.spyOn`. Do mock third-party modules
   when sensible, and prefer generating real files and real data over a mock.
 - A pure mock is for a network response, an error that is hard to reproduce, or
   to keep a test from running long.
