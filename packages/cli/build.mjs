@@ -7,8 +7,10 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "fs";
 import { dirname, join, resolve } from "path";
@@ -221,10 +223,20 @@ const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
   // Make the wrapper script executable
   chmodSync("dist/tnt.js", 0o755);
 
-  // Calculate bundle size
-  const bundleSize = result.metafile.outputs["dist/index.js"].bytes;
+  // `splitting: true` makes `dist/index.js` a stub that imports the chunks, so
+  // reading its byte count printed "0.00 MB" for a bundle that is 29.6M across
+  // 198 files. Measure the directory the way the smoke test does - same
+  // instrument on both sides, so the two numbers cannot drift apart and the
+  // wrapper written outside esbuild is counted too.
+  const bundleFiles = readdirSync("dist").filter((name) =>
+    name.endsWith(".js"),
+  );
+  const bundleBytes = bundleFiles.reduce(
+    (total, name) => total + statSync(join("dist", name)).size,
+    0,
+  );
   console.log(
-    `✓ Build complete! Bundle size: ${(bundleSize / 1024 / 1024).toFixed(2)} MB`,
+    `✓ Build complete! Bundle size: ${(bundleBytes / 1024 / 1024).toFixed(1)}M across ${bundleFiles.length} files`,
   );
 } catch (error) {
   console.error("Build failed:", error);
