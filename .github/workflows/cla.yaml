@@ -14,6 +14,7 @@ permissions:
 jobs:
   CLAAssistant:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Only run this workflow on the main repository (linanwanttodo/TNT)
     if: github.repository == 'linanwanttodo/TNT'
     steps:
