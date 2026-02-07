@@ -6,10 +6,6 @@ import {
 } from "@tnt/config-yaml";
 import { ToolPolicy } from "@tnt/terminal-security";
 
-import {
-  AutocompleteInput,
-  RecentlyEditedRange,
-} from "../autocomplete/util/types";
 import { ProfileDescription } from "../config/ProfileLifecycleManager";
 import { SharedConfigSchema } from "../config/sharedConfig";
 import { GlobalContextModelSelections } from "../util/GlobalContext";
@@ -31,10 +27,8 @@ import {
   LLMFullCompletionOptions,
   McpUiState,
   MessageOption,
-  ModelDescription,
   PromptLog,
   RangeInFile,
-  RangeInFileWithNextEditInfo,
   SerializedContinueConfig,
   Session,
   SiteIndexingConfig,
@@ -42,11 +36,6 @@ import {
   StreamDiffLinesPayload,
   ToolCall,
 } from "../";
-import { AutocompleteCodeSnippet } from "../autocomplete/snippets/types";
-import { GetLspDefinitionsFunction } from "../autocomplete/types";
-import { ConfigHandler } from "../config/ConfigHandler";
-import { ProcessedItem } from "../nextEdit/NextEditPrefetchQueue";
-import { NextEditOutcome } from "../nextEdit/types";
 import { ContinueErrorReason } from "../util/errors";
 
 export enum OnboardingModes {
@@ -165,50 +154,9 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   ];
   "context/getSymbolsForFiles": [{ uris: string[] }, FileSymbolMap];
   "context/loadSubmenuItems": [{ title: string }, ContextSubmenuItem[]];
-  "autocomplete/complete": [AutocompleteInput, string[]];
   "context/addDocs": [SiteIndexingConfig, void];
   "context/removeDocs": [Pick<SiteIndexingConfig, "startUrl">, void];
   "context/indexDocs": [{ reIndex: boolean }, void];
-  "autocomplete/cancel": [undefined, void];
-  "autocomplete/accept": [{ completionId: string }, void];
-  "nextEdit/predict": [
-    {
-      input: AutocompleteInput;
-      options?: {
-        withChain?: boolean;
-        usingFullFileDiff?: boolean;
-      };
-    },
-    NextEditOutcome | undefined,
-  ];
-  "nextEdit/reject": [{ completionId: string }, void];
-  "nextEdit/accept": [{ completionId: string }, void];
-  "nextEdit/startChain": [undefined, void];
-  "nextEdit/deleteChain": [undefined, void];
-  "nextEdit/isChainAlive": [undefined, boolean];
-  "nextEdit/queue/getProcessedCount": [undefined, number];
-  "nextEdit/queue/dequeueProcessed": [undefined, ProcessedItem | null];
-  "nextEdit/queue/processOne": [
-    {
-      ctx: {
-        completionId: string;
-        manuallyPassFileContents?: string;
-        manuallyPassPrefix?: string;
-        selectedCompletionInfo?: {
-          text: string;
-          range: Range;
-        };
-        isUntitledFile: boolean;
-        recentlyVisitedRanges: AutocompleteCodeSnippet[];
-        recentlyEditedRanges: RecentlyEditedRange[];
-      };
-      recentlyVisitedRanges: AutocompleteCodeSnippet[];
-      recentlyEditedRanges: RecentlyEditedRange[];
-    },
-    void,
-  ];
-  "nextEdit/queue/clear": [undefined, void];
-  "nextEdit/queue/abort": [undefined, void];
   "llm/complete": [
     {
       prompt: string;
@@ -286,16 +234,6 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "files/created": [{ uris?: string[] }, void];
   "files/deleted": [{ uris?: string[] }, void];
   "files/closed": [{ uris?: string[] }, void];
-  "files/smallEdit": [
-    {
-      actions: RangeInFileWithNextEditInfo[];
-      configHandler: ConfigHandler;
-      getDefsFromLspFunction: GetLspDefinitionsFunction;
-      recentlyEditedRanges: RecentlyEditedRange[];
-      recentlyVisitedRanges: AutocompleteCodeSnippet[];
-    },
-    void,
-  ];
 
   // Docs etc. Indexing. TODO move codebase to this
   "indexing/reindex": [{ type: string; id: string }, void];
@@ -305,7 +243,6 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "docs/initStatuses": [undefined, void];
   "docs/getDetails": [{ startUrl: string }, DocsIndexingDetails];
   "docs/getIndexedPages": [{ startUrl: string }, string[]];
-  addAutocompleteModel: [{ model: ModelDescription }, void];
 
   "auth/getAuthUrl": [{ useOnboarding: boolean }, { url: string }];
   "tools/call": [
