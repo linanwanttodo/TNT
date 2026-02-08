@@ -224,7 +224,7 @@ class ResourceMonitoringService {
       // Issue: https://github.com/linanwanttodo/TNT/issues/9422
       const now = Date.now();
       if (now - this.lastFdCheckTime >= this.fdCheckIntervalMs) {
-        this.updateFileDescriptorCount();
+        void this.updateFileDescriptorCount();
         this.lastFdCheckTime = now;
       }
 

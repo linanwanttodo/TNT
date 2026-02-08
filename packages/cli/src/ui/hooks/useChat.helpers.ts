@@ -78,7 +78,9 @@ export function processSlashCommandResult({
   onClear,
 }: ProcessSlashCommandResultOptions): string | null {
   if (result.exit) {
-    import("../../utils/exit.js").then(({ gracefulExit }) => gracefulExit(0));
+    void import("../../utils/exit.js").then(({ gracefulExit }) =>
+      gracefulExit(0),
+    );
   }
 
   // The selector-open requests are one table: the first flag the result set,

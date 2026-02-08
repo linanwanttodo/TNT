@@ -302,7 +302,7 @@ export function useChat({
       setIsChatHistoryInitialized(true);
     };
 
-    initializeHistory();
+    void initializeHistory();
     // Note: Using initialRules instead of additionalRules to prevent re-initialization
     // when rules change during the conversation
   }, [
