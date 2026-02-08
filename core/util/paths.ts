@@ -26,8 +26,11 @@ export function setConfigFilePermissions(filePath: string): void {
   }
 }
 
-const CONTINUE_GLOBAL_DIR = (() => {
-  const configPath = process.env.CONTINUE_GLOBAL_DIR;
+const GLOBAL_DIR = (() => {
+  // TNT_GLOBAL_DIR is the current name; CONTINUE_GLOBAL_DIR still resolves so
+  // that an existing shell profile keeps pointing at the same directory.
+  const configPath =
+    process.env.TNT_GLOBAL_DIR ?? process.env.CONTINUE_GLOBAL_DIR;
   if (configPath) {
     // Convert relative path to absolute paths based on current working directory
     return path.isAbsolute(configPath)
@@ -70,7 +73,7 @@ export function getGlobalContinueIgnorePath(): string {
 
 export function getContinueGlobalPath(): string {
   // This is ~/.tnt on mac/linux
-  const continuePath = CONTINUE_GLOBAL_DIR;
+  const continuePath = GLOBAL_DIR;
   if (!fs.existsSync(continuePath)) {
     fs.mkdirSync(continuePath);
   }
