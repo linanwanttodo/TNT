@@ -18,6 +18,15 @@ export default defineConfig({
         "**/types/**",
         "**/__mocks__/**",
       ],
+      // The floor sits a little under the measured numbers (72.9 statements,
+      // 82.6 branches, 83.0 functions) so a platform difference does not fail
+      // the build, while a real slide does. Raise it when the numbers rise.
+      thresholds: {
+        statements: 70,
+        branches: 80,
+        functions: 80,
+        lines: 70,
+      },
     },
     testTimeout: 30000,
     hookTimeout: 30000,
