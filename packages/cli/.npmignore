@@ -15,3 +15,14 @@ TESTING_STRATEGY.md
 package-lock.json
 eslint.config.js
 spec/
+
+# Packaging output that is not the package: local release tarballs, build
+# diagnostics, and agent state directories. The "files" allowlist in
+# package.json is what keeps these out today; this list keeps a future change
+# from quietly re-including them.
+*.tar.gz
+.mimosa/
+.v2c/
+.zion-mcp/
+.vitest/
+build-meta.json
