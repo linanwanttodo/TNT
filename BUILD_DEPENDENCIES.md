@@ -31,6 +31,7 @@ wants a credential is therefore inert rather than failing:
 | `stale-issue-helper.yaml`    | daily schedule                         | none                                                               |
 | `delete-stale-branches.yaml` | weekday schedule, manual               | `GITHUB_TOKEN` with `contents: write` - it deletes old branches    |
 | `docs-gh-pages.yml`          | push to `main` touching docs, manual   | Pages enabled with "GitHub Actions" as the source                  |
+| `docs-pr-checks.yml`         | `pull_request` touching docs           | none - type-checks and builds the docs site without publishing     |
 
 Both gates ignore documentation-only commits (`paths-ignore`), and both fire on a
 direct push to `main`: work lands that way here, and a gate that listens only to
