@@ -1,6 +1,6 @@
 import { ToolImpl } from ".";
 import { ContextItem } from "../..";
-import { getDiffsFromCache } from "../../autocomplete/snippets/gitDiffCache";
+import { getDiffsFromCache } from "../../diff/gitDiffCache";
 
 export const DEFAULT_GIT_DIFF_LINE_LIMIT = 5000;
 

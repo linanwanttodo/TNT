@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, Mock, vi } from "vitest";
 import {
   collectAllLines,
   MarkdownBlockStateTracker,
-} from "../../../utils/markdownUtils";
-import { shouldStopAtMarkdownBlock } from "../../../utils/streamMarkdownUtils";
+} from "../../utils/markdownUtils";
+import { shouldStopAtMarkdownBlock } from "../../utils/streamMarkdownUtils";
 import * as lineStream from "./lineStream";
 
 // eslint-disable-next-line max-lines-per-function

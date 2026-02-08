@@ -4,7 +4,7 @@ import { distance } from "fastest-levenshtein";
 import Parser from "web-tree-sitter";
 
 import { DiffLine } from "../..";
-import { LANGUAGES } from "../../autocomplete/constants/AutocompleteLanguageInfo";
+import { LANGUAGES } from "../../util/languageInfo";
 import { myersDiff } from "../../diff/myers";
 import { getParserForFile } from "../../util/treeSitter";
 

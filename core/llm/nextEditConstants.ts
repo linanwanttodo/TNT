@@ -1,4 +1,4 @@
-import { NEXT_EDIT_MODELS } from "../llm/constants";
+import { NEXT_EDIT_MODELS } from "./constants";
 
 export const IS_NEXT_EDIT_ACTIVE = false;
 export const NEXT_EDIT_EDITABLE_REGION_TOP_MARGIN = 0;

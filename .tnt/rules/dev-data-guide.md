@@ -31,8 +31,8 @@ produces none of it, on any surface.
 The schemas outlive the surfaces that emitted them. `autocomplete`, `quickEdit`,
 `editOutcome`, `nextEditOutcome` and `chatFeedback` belong to editor features that
 were removed from this repository; the completion engine that carried their
-logging services (`core/autocomplete/`, `core/nextEdit/`) was deleted with the
-session host in 2026-10, so those schemas now describe events nothing can emit.
+logging services was deleted with the session host in 2026-10, so those schemas
+now describe events nothing can emit.
 The one emission that exists in `core/` is `tokensGenerated` in
 `core/llm/index.ts`, and the CLI does not import that module — it only uses
 `core/llm/utils/calculateRequestCost.ts`, `core/llm/logger.ts` and
