@@ -32,7 +32,7 @@
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^9.2.6",
     "@semantic-release/npm": "^13.1.5",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.43",
     "semantic-release": "^24.2.7",
     "ts-node": "^10.9.2",
     "vitest": "^3.2.7",
