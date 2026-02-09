@@ -53,7 +53,7 @@ runs:
 
         # Check if any LLM-related files were changed
         LLM_CHANGED=false
-        if echo "$CHANGED_FILES" | grep -E "(^core/llm/|^core/index\.ts|^core/package\.json|^core/jest\.config\.js|^packages/.*/(.*llm.*|.*openai.*|.*anthropic.*)|\.github/workflows/engine-checks\.yml|\.github/actions/check-llm-changes/)" > /dev/null; then
+        if echo "$CHANGED_FILES" | grep -E "(^core/llm/|^core/index\.ts|^core/package\.json|^core/vitest\.config\.ts|^packages/.*/(.*llm.*|.*openai.*|.*anthropic.*)|\.github/workflows/engine-checks\.yml|\.github/actions/check-llm-changes/)" > /dev/null; then
           LLM_CHANGED=true
         fi
 

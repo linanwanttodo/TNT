@@ -1,4 +1,4 @@
-import { jest } from "@jest/globals";
+import { vi } from "vitest";
 
 import { IndexTag } from "../..";
 import { IContinueServerClient } from "../../continueServer/interface";
@@ -34,12 +34,12 @@ export const mockTagString = tagToString(mockTag);
 
 export const testContinueServerClient = {
   connected: false,
-  getFromIndexCache: jest.fn(),
+  getFromIndexCache: vi.fn(),
 } as unknown as IContinueServerClient;
 
 const mockContinueServerClient = {
   connected: false,
-  getFromIndexCache: jest.fn(),
+  getFromIndexCache: vi.fn(),
 } as unknown as IContinueServerClient;
 
 const mockResults: RefreshIndexResults = {
@@ -49,7 +49,7 @@ const mockResults: RefreshIndexResults = {
   del: [],
 };
 
-const mockMarkComplete = jest
+const mockMarkComplete = vi
   .fn()
   .mockImplementation(() => Promise.resolve()) as any;
 
