@@ -245,18 +245,13 @@ a mock model server.
 Two packages own their own gates, because the CLI neither runs their tests nor reads their sources:
 
     cd ../../core && npm run build && npx vitest run
-    cd ../../core && npm test
     cd ../packages/openai-adapters && npm run build && npx vitest run
 
-`core` has two runners and the vitest one sees only half the suite: `vitest.config.ts` includes
-`**/*.vitest.ts` (112 files), while `npm test` runs jest over 59 `*.test.ts` files, so a green
-`npx vitest run` there says nothing about the other half. The jest lane needs `npm test` rather than
-a bare `npx jest` because the script sets `NODE_OPTIONS=--experimental-vm-modules`, without which the
-setup file's `node-fetch` import fails and all 59 suites report a load error. In an environment with
-no provider credentials it also needs `IGNORE_API_KEY_TESTS=true`, the switch `llm/llm.test.ts`
-already documents, because that suite calls the live APIs and otherwise dies on 401. The counts are
-read from the runners, not from this note: `npx vitest run` prints the vitest lane and
-`IGNORE_API_KEY_TESTS=true npm test` the jest lane.
+`core` runs one runner over the whole suite: `vitest.config.ts` includes `**/*.vitest.ts` and
+`npm test` is the same `vitest run`, so there is no second half left to miss. In an environment with
+no provider credentials it needs `IGNORE_API_KEY_TESTS=true`, the switch `llm/llm.vitest.ts`
+documents, because that suite calls the live APIs and otherwise dies on 401. The counts are read
+from the runner, not from this note: `npx vitest run` prints them.
 
 The ratchet itself:
 
