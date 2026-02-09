@@ -131,7 +131,7 @@ npx vitest run src/path/to/file.test.ts    # one file
 npm run lint                               # tsc --noEmit && eslint .
 
 cd packages/openai-adapters && npm test
-cd core && npm test && npm run vitest      # core is mid-migration: *.test.ts is Jest, *.vitest.ts is Vitest
+cd core && npm test                        # one runner: every suite is *.vitest.ts
 ```
 
 Provider-facing tests are named `*.live.test.ts` and are excluded from the default run because they need a real key; run one deliberately:
