@@ -58,13 +58,14 @@ function triggersOf(document: Record<string, any>): Record<string, any> {
 /** The `with:` block of the stale-branches step, which is where the sweeper's
  * safety lives. */
 function sweeperInputs(): Record<string, unknown> {
-  const jobs = workflowDocument("delete-stale-branches.yaml").jobs ?? {};
+  const jobs: Record<string, any> =
+    workflowDocument("delete-stale-branches.yaml").jobs ?? {};
   const [job] = Object.values(jobs);
   const step = (job?.steps ?? []).find((entry: any) =>
     String(entry.uses ?? "").startsWith("crs-k/stale-branches@"),
   );
   if (!step) throw new Error("the sweeper no longer runs crs-k/stale-branches");
-  return (step as any).with ?? {};
+  return step.with ?? {};
 }
 
 /** The table rows that name workflows, with the trigger column beside them. */
