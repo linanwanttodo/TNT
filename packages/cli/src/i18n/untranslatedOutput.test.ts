@@ -95,6 +95,22 @@ function productionSources(dir: string): string[] {
 }
 
 /**
+ * The offender key is `<file> :: <copy>` and the file part comes from
+ * `path.relative`, which yields `acp\worker.ts` on Windows while every frozen row
+ * was authored with `/`. Without this the same tree reports 17 "new" offenders on
+ * `windows-latest` that exist on no other operating system, and the ratchet stops
+ * measuring the code and starts measuring the platform. Both spellings are folded,
+ * so the rule is checkable on any runner instead of only on the one that breaks.
+ */
+function normalizeSeparators(key: string): string {
+  return key.split(/[/\\]/).join("/");
+}
+
+function offenderKey(file: string): string {
+  return normalizeSeparators(path.relative(src, file));
+}
+
+/**
  * `commands/**` belongs to `src/commands/outputCopy.test.ts` for the shapes it owns, but
  * the `safeStdout`/`safeStderr` writers are used in that directory too, and no guard had
  * them at all, so this one walk covers the whole of `src`.
@@ -143,7 +159,7 @@ export function untranslatedOutput(): string[] {
         .replace(/\s+/g, " ")
         .trim();
       if (!/[A-Za-z]{4,}/.test(literal)) continue;
-      offenders.push(`${path.relative(src, file)} :: ${literal}`);
+      offenders.push(`${offenderKey(file)} :: ${literal}`);
     }
     // A validation error's copy is the `message` field, not a console call, so the
     // scan above never saw it: sixteen `Error: ...` values in `config/flagValidator.ts`
@@ -156,7 +172,7 @@ export function untranslatedOutput(): string[] {
         .replace(/\s+/g, " ")
         .trim();
       if (!literal.startsWith("Error: ")) continue;
-      offenders.push(`${path.relative(src, file)} :: ${literal}`);
+      offenders.push(`${offenderKey(file)} :: ${literal}`);
     }
   }
 
@@ -167,7 +183,7 @@ export function untranslatedOutput(): string[] {
     )) {
       const literal = copyOf(call[2] ?? "");
       if (!/[A-Za-z]{4,}/.test(literal)) continue;
-      offenders.push(`${path.relative(src, file)} :: ${literal}`);
+      offenders.push(`${offenderKey(file)} :: ${literal}`);
     }
   }
 
@@ -191,6 +207,15 @@ describe("the copy the rest of the CLI prints", () => {
     expect(
       KNOWN_UNTRANSLATED_OUTPUT.filter((known) => !offenders.has(known)),
     ).toEqual([]);
+  });
+
+  it("writes its site keys with forward slashes on every platform", () => {
+    // The Windows form, fed in directly: `path.sep` on this box is `/`, so the
+    // branch that produced the 17 phantom offenders cannot be reached by running
+    // the scan here. Folding both separators is what makes the rule checkable.
+    expect(normalizeSeparators("acp\\worker.ts")).toBe("acp/worker.ts");
+    expect(normalizeSeparators("commands\\chat.ts")).toBe("commands/chat.ts");
+    expect(normalizeSeparators(path.join("tools", "x.ts"))).toBe("tools/x.ts");
   });
 });
 
