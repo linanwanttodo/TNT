@@ -60,11 +60,8 @@ export function getContinueUtilsPath(): string {
   return utilsPath;
 }
 
-export function getGlobalContinueIgnorePath(): string {
-  const continueIgnorePath = path.join(
-    getContinueGlobalPath(),
-    ".continueignore",
-  );
+export function getGlobalTntIgnorePath(): string {
+  const continueIgnorePath = path.join(getContinueGlobalPath(), ".tntignore");
   if (!fs.existsSync(continueIgnorePath)) {
     fs.writeFileSync(continueIgnorePath, "");
   }
@@ -214,10 +211,10 @@ export function getTsConfigPath(): string {
 
 export function getContinueRcPath(): string {
   // Disable indexing of the config folder to prevent infinite loops
-  const continuercPath = path.join(getContinueGlobalPath(), ".continuerc.json");
-  if (!fs.existsSync(continuercPath)) {
+  const tntrcPath = path.join(getContinueGlobalPath(), ".tntrc.json");
+  if (!fs.existsSync(tntrcPath)) {
     fs.writeFileSync(
-      continuercPath,
+      tntrcPath,
       JSON.stringify(
         {
           disableIndexing: true,
@@ -227,7 +224,7 @@ export function getContinueRcPath(): string {
       ),
     );
   }
-  return continuercPath;
+  return tntrcPath;
 }
 
 function getDevDataPath(): string {

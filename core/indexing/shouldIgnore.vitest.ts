@@ -32,10 +32,10 @@ describe("shouldIgnore", () => {
     ]);
     expect(result).toBe(true);
   });
-  test("should return true if a folder is ignored by .continueignore", async () => {
+  test("should return true if a folder is ignored by .tntignore", async () => {
     addToTestDir([
       ["ignored-folder/file.txt", "content"],
-      [".continueignore", "ignored-folder/"],
+      [".tntignore", "ignored-folder/"],
     ]);
     const result = await shouldIgnore(
       TEST_DIR + "/ignored-folder/file.txt",
@@ -62,11 +62,11 @@ describe("shouldIgnore", () => {
     expect(result).toBe(true);
   });
 
-  test("should return true if a .continueignore override ignores file", async () => {
+  test("should return true if a .tntignore override ignores file", async () => {
     addToTestDir([
       ["override-file.txt", "content"],
       [".gitignore", "override-file.txt"],
-      [".continueignore", "!override-file.txt"],
+      [".tntignore", "!override-file.txt"],
     ]);
     const result = await shouldIgnore(
       TEST_DIR + "/override-file.txt",
@@ -80,7 +80,7 @@ describe("shouldIgnore", () => {
     addToTestDir([
       ["level1/level2/level3/ignored-file.txt", "content"],
       ["level1/.gitignore", "level2/"],
-      ["level1/level2/.continueignore", "level3/"],
+      ["level1/level2/.tntignore", "level3/"],
     ]);
     const result = await shouldIgnore(
       TEST_DIR + "/level1/level2/level3/ignored-file.txt",
