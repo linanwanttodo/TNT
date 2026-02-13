@@ -13,6 +13,7 @@ import {
   getSessionOutputStyle,
   setSessionOutputStyle,
 } from "../../../session/index.js";
+import { toDisplayPath } from "../../../utils/displayPath.js";
 import type { SlashCommandResult } from "../types.js";
 
 /**
@@ -97,7 +98,7 @@ function saveOutputStyle(
   return {
     output: t("outputStyle.saved", {
       name: match.name,
-      path: path.relative(process.cwd(), filePath),
+      path: toDisplayPath(path.relative(process.cwd(), filePath)),
     }),
   };
 }
