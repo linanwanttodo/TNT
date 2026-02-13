@@ -29,7 +29,14 @@ describe("onboarding config flag handling", () => {
   afterEach(() => {
     // Clean up temporary directory
     if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      fs.rmSync(tempDir, {
+        recursive: true,
+        force: true,
+        // Windows holds the directory until the logger's handle closes, which lands
+        // after the flow returns: the runner failed here with `ENOTEMPTY ...\logs`.
+        maxRetries: 10,
+        retryDelay: 100,
+      });
     }
   });
 
@@ -286,7 +293,14 @@ describe("interactive provider onboarding writes a real config file", () => {
     }
     process.stdin.isTTY = originalStdinIsTTY;
     vi.restoreAllMocks();
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, {
+      recursive: true,
+      force: true,
+      // Windows holds the directory until the logger's handle closes, which lands
+      // after the flow returns: the runner failed here with `ENOTEMPTY ...\logs`.
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   });
 
   test("protocol -> url -> key -> model lands a minimal config on disk", async () => {
