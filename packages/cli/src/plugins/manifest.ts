@@ -69,6 +69,41 @@ export function substitutePluginVariables(
     .replace(/\$\{CLAUDE_PLUGIN_DATA\}/g, () => getPluginDataDir(plugin.id));
 }
 
+/**
+ * The same substitution through a nested config value, one string at a time.
+ *
+ * This used to be `JSON.parse(substitute(JSON.stringify(value)))`, which cannot
+ * work on Windows: the plugin root is `C:\Users\...`, splicing it into a JSON
+ * string yields invalid escapes, the parse throws, and the caller's own fallback
+ * handed back the *unsubstituted* config - a plugin's MCP server quietly keeping
+ * `${CLAUDE_PLUGIN_ROOT}` in its args. Walking the structure has no
+ * serialization step to fail, so there is nothing left to fall back to.
+ */
+export function substitutePluginVariablesDeep<T>(
+  value: T,
+  plugin: LoadedPlugin,
+): T {
+  if (typeof value === "string") {
+    return substitutePluginVariables(value, plugin) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) =>
+      substitutePluginVariablesDeep(item, plugin),
+    ) as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
+      out[substitutePluginVariables(key, plugin)] =
+        substitutePluginVariablesDeep(item, plugin);
+    }
+    return out as T;
+  }
+  return value;
+}
+
 function parseManifest(
   filePath: string,
   pluginRoot: string,
