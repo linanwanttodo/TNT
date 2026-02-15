@@ -313,10 +313,15 @@ export class ImportGraphService {
     const uri = localPathToUri(this.root);
     const ide = new FileSystemIde(uri, "cli");
     const found = await walkDir(uri, ide, { include: "files" });
-    return found
-      .map((entry) => path.relative(this.root, fileURLToPath(entry)))
-      .filter((relative) => !relative.startsWith(".."))
-      .filter((relative) => supportedKind(relative) !== undefined);
+    return (
+      found
+        // `relativeToRoot`, not a bare `path.relative`: these strings are the keys
+        // of the persisted graph, and a query arrives in `/` form on every
+        // platform, so a Windows-shaped key would never be found again.
+        .map((entry) => this.relativeToRoot(fileURLToPath(entry)))
+        .filter((relative) => !relative.startsWith(".."))
+        .filter((relative) => supportedKind(relative) !== undefined)
+    );
   }
 
   private edgeFor(

@@ -3,6 +3,8 @@ import * as path from "path";
 
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
+import { toDisplayPath } from "../utils/displayPath.js";
+
 import { formatToolArgument } from "./formatters.js";
 import { Tool } from "./types.js";
 
@@ -37,7 +39,9 @@ export const listFilesTool: Tool = {
     if (!fs.existsSync(dirPath)) {
       throw new ContinueError(
         ContinueErrorReason.DirectoryNotFound,
-        `Directory does not exist: ${dirPath}`,
+        // Display form only: a refusal must name the path the caller gave,
+        // not a cwd-relative one that loses the absolute part.
+        `Directory does not exist: ${toDisplayPath(dirPath)}`,
       );
     }
 
