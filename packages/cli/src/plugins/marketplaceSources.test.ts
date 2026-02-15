@@ -88,9 +88,13 @@ describe("local marketplace sources", () => {
     const resolved = await resolveMarketplaceSource(source, "team", deps);
 
     expect(resolved.manifestPath).toBe(
-      path.join("/srv/team-marketplace", ".claude-plugin", "marketplace.json"),
+      path.resolve(
+        "/srv/team-marketplace",
+        ".claude-plugin",
+        "marketplace.json",
+      ),
     );
-    expect(resolved.cacheDir).toBe("/srv/team-marketplace");
+    expect(resolved.cacheDir).toBe(path.resolve("/srv/team-marketplace"));
     expect(calls).toEqual([]);
   });
 
