@@ -28,7 +28,14 @@ afterEach(async () => {
   for (const client of started.splice(0)) {
     await client.dispose().catch(() => {});
   }
-  fs.rmSync(fixtureDir, { recursive: true, force: true });
+  fs.rmSync(fixtureDir, {
+    recursive: true,
+    force: true,
+    // `dispose()` waits for the kill, yet Windows keeps the directory busy
+    // until the child's handle is gone: all six cases failed there, not here.
+    maxRetries: 10,
+    retryDelay: 100,
+  });
   fs.mkdirSync(fixtureDir, { recursive: true });
 });
 
