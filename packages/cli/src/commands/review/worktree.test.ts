@@ -14,6 +14,10 @@ function makeRepo(): { repo: string; baseSha: string; featureSha: string } {
   git(repo, ["init", "-b", "main"]);
   git(repo, ["config", "user.email", "t@t"]);
   git(repo, ["config", "user.name", "T"]);
+  // GitHub's Windows runners set `core.autocrlf true` globally, which turns a
+  // checkout into `one\r\n`. Pinning the fixture keeps the assertions below
+  // about the worktree's commit, not about the runner's git defaults.
+  git(repo, ["config", "core.autocrlf", "false"]);
   fs.writeFileSync(path.join(repo, "a.txt"), "one\n");
   git(repo, ["add", "a.txt"]);
   git(repo, ["commit", "-m", "base"]);

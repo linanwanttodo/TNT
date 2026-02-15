@@ -4,6 +4,7 @@ import * as path from "path";
 import type { ContextItemWithId } from "core/index.js";
 
 import { markFileAsSeen } from "../tools/fileState.js";
+import { toDisplayPath } from "../utils/displayPath.js";
 
 /**
  * What `@path` in a prompt does. The reference expands a mention into the
@@ -52,7 +53,10 @@ function findMentions(input: string): string[] {
 }
 
 function displayName(cwd: string, resolved: string, range?: string): string {
-  const relative = path.relative(cwd, resolved) || path.basename(resolved);
+  // The name goes into the context item the model reads back, so it is display
+  // text: on Windows `path.relative` would put `src\a.ts` in front of it.
+  const relative =
+    toDisplayPath(path.relative(cwd, resolved)) || path.basename(resolved);
   return range ? `${relative}:${range}` : relative;
 }
 
