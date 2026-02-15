@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
@@ -34,7 +35,9 @@ vi.mock("fs", async () => {
 });
 
 describe("editTool", () => {
-  const testFilePath = "/tmp/test-edit-file.txt";
+  // `/tmp` is not a directory on Windows - the write there died with `ENOENT`
+  // on `D:\tmp\...`, which is a fixture bug and not a tool behaviour.
+  const testFilePath = path.join(os.tmpdir(), "test-edit-file.txt");
   const originalContent = "Hello world\nThis is a test file\nGoodbye world";
 
   beforeEach(() => {
@@ -74,7 +77,7 @@ describe("editTool", () => {
     });
 
     it("should throw error if file does not exist", async () => {
-      const nonExistentFile = "/tmp/non-existent-file.txt";
+      const nonExistentFile = path.join(os.tmpdir(), "non-existent-file.txt");
       markFileAsSeen(nonExistentFile);
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
