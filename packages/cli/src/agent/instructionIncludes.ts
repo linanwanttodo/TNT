@@ -42,7 +42,7 @@ const NON_TEXT_EXTENSIONS = new Set([
 // ending, or a dotted name that is actually on disk. That leaves "@author",
 // "@v2.1" and an address in prose alone, and still refuses "@flow.pdf".
 const INCLUDED_SUFFIXES = [".md", ".markdown", ".mdx", ".txt", ".rst", ".adoc"];
-const INCLUDE = /(^|[\s,([{])@((?:[~/][\w.~/-]*)|[\w.~-][\w.~/-]*)/g;
+const INCLUDE = /(^|[\s,([{])@((?:[~/][\w.~/\\-]*)|[\w.~-][\w.~/\\-]*)/g;
 
 function isIncludeIntent(target: string, resolved: string): boolean {
   return (
