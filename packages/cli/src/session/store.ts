@@ -776,8 +776,15 @@ export class SessionStore {
         }
         if (!options.includeEmpty && meta.entryCount === 0) return false;
         if (targetCwd !== undefined) {
-          const cwd = (meta.workspaceDirectory ?? "").toLowerCase();
-          if (!cwd || path.resolve(cwd) !== targetCwd) return false;
+          // Resolve first, then fold case. `path.resolve` puts the drive letter
+          // back in uppercase on Windows, so lowering the stored string before
+          // resolving compared `d:\project-a` against `D:\project-a` and every
+          // cwd-filtered listing answered empty there - the filter is the one
+          // `tnt ls` and the resume picker use.
+          const cwd = meta.workspaceDirectory
+            ? path.resolve(meta.workspaceDirectory).toLowerCase()
+            : "";
+          if (!cwd || cwd !== targetCwd) return false;
         }
         return true;
       })
