@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
@@ -40,7 +41,7 @@ vi.mock("fs", async () => {
 });
 
 describe("multiEditTool CLI specific", () => {
-  const testFilePath = "/tmp/test-multi-edit-file.txt";
+  const testFilePath = path.join(os.tmpdir(), "test-multi-edit-file.txt");
   const originalContent = "Hello world\nThis is a test file\nGoodbye world";
 
   beforeEach(() => {
@@ -84,7 +85,7 @@ describe("multiEditTool CLI specific", () => {
     });
 
     it("should throw error if file does not exist", async () => {
-      const nonExistentFile = "/tmp/non-existent-file.txt";
+      const nonExistentFile = path.join(os.tmpdir(), "non-existent-file.txt");
       markFileAsSeen(nonExistentFile);
       vi.mocked(fs.existsSync).mockReturnValue(false);
 
@@ -140,7 +141,7 @@ describe("multiEditTool CLI specific", () => {
       expect(result.preview).toHaveLength(2);
       expect(result.preview?.[0]).toEqual({
         type: "text",
-        content: "Will apply 1 edit to /tmp/test-multi-edit-file.txt:",
+        content: `Will apply 1 edit to ${testFilePath}:`,
       });
       expect(result.preview?.[1]).toEqual({
         type: "diff",
@@ -263,7 +264,7 @@ describe("multiEditTool CLI specific", () => {
     });
 
     it("should leave absolute paths unchanged", async () => {
-      const absolutePath = "/tmp/absolute-file.txt";
+      const absolutePath = path.join(os.tmpdir(), "absolute-file.txt");
       markFileAsSeen(absolutePath);
 
       const args = {
