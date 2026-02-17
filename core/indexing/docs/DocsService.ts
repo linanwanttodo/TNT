@@ -118,8 +118,7 @@ const docConfigsAreEqualExceptTitleAndFavicon = (
 ) => {
   return (
     siteConfig1.startUrl === siteConfig2.startUrl &&
-    siteConfig1.maxDepth === siteConfig2.maxDepth &&
-    siteConfig1.useLocalCrawling === siteConfig2.useLocalCrawling
+    siteConfig1.maxDepth === siteConfig2.maxDepth
   );
 };
 
@@ -436,8 +435,7 @@ export default class DocsService {
     siteIndexingConfig: SiteIndexingConfig,
     forceReindex: boolean = false,
   ): Promise<void> {
-    const { startUrl, useLocalCrawling, maxDepth, faviconUrl } =
-      siteIndexingConfig;
+    const { startUrl, maxDepth, faviconUrl } = siteIndexingConfig;
 
     // First, if indexing is already in process, don't attempt
     // This queue is necessary because indexAndAdd is invoked circularly by config edits
@@ -548,7 +546,6 @@ export default class DocsService {
         this.config,
         maxDepth,
         undefined,
-        useLocalCrawling,
         this.githubToken,
       );
       const crawlerGen = docsCrawler.crawl(new URL(startUrl));
