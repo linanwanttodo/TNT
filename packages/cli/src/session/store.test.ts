@@ -1,3 +1,4 @@
+import { spawn } from "child_process";
 import { randomUUID } from "crypto";
 import fs from "fs";
 import os from "os";
@@ -238,17 +239,29 @@ describe("SessionStore", () => {
     sessionStore.ensureSession(session, { persistEmpty: true });
     const lock = getSessionLeasePath(session.sessionId);
 
+    // An alive foreign pid, not `1`: init answers to signal 0 on Linux, but on
+    // Windows there is no process 1 and the lease looked stale, so the case
+    // asserted a refusal that the platform could not see.
+    const holder = spawn(process.execPath, [
+      "-e",
+      "setInterval(() => {}, 1000)",
+    ]);
+    holder.unref();
     fs.writeFileSync(
       lock,
       JSON.stringify({
-        pid: 1,
+        pid: holder.pid,
         writerId: "another-process",
         startedAt: new Date().toISOString(),
       }),
     );
-    expect(() => sessionStore.acquireLease(session.sessionId)).toThrow(
-      SessionLeaseError,
-    );
+    try {
+      expect(() => sessionStore.acquireLease(session.sessionId)).toThrow(
+        SessionLeaseError,
+      );
+    } finally {
+      holder.kill();
+    }
 
     fs.writeFileSync(
       lock,
