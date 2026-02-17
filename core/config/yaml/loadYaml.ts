@@ -212,7 +212,6 @@ export async function configYamlToContinueConfig(options: {
     startUrl: doc.startUrl,
     rootUrl: doc.rootUrl,
     faviconUrl: doc.faviconUrl,
-    useLocalCrawling: doc.useLocalCrawling,
     sourceFile: doc.sourceFile,
   }));
 
