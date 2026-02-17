@@ -37,7 +37,9 @@ afterEach(() => {
 
 const record: KnownMarketplace = {
   source: { source: "directory", path: "/srv/team-marketplace" },
-  installLocation: "/plugins/marketplaces/team/.claude-plugin/marketplace.json",
+  installLocation: path.resolve(
+    "/plugins/marketplaces/team/.claude-plugin/marketplace.json",
+  ),
   lastUpdated: "2026-01-15T10:30:00.000Z",
 };
 
@@ -59,7 +61,9 @@ describe("known marketplaces registry", () => {
     rememberMarketplace("team", record);
     rememberMarketplace("personal", {
       ...record,
-      installLocation: "/plugins/marketplaces/personal/marketplace.json",
+      installLocation: path.resolve(
+        "/plugins/marketplaces/personal/marketplace.json",
+      ),
     });
 
     expect(Object.keys(loadKnownMarketplaces()).sort()).toEqual([
