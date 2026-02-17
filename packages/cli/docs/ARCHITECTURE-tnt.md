@@ -1,10 +1,10 @@
 # TNT architecture: what changed from Continue, and what was borrowed
 
-Scope: `packages/cli` plus the `core/` engine it drives. The Ink TUI, the VS Code
-The rulings ledger - prompt fingerprint, breakpoint policy, guard index, tool list - is the
-sibling `ARCHITECTURE-tnt.md`; this file is the systematic reference. The VS Code
-extension and the IntelliJ plugin are parked under `ide/` and are not part of
-this design.
+Scope: `packages/cli` plus the `core/` engine it drives. The rulings ledger - prompt
+fingerprint, breakpoint policy, guard index, tool list - is
+`packages/cli/ARCHITECTURE-tnt.md`; this file is the systematic reference. The VS Code
+extension, the IntelliJ plugin and the GUI host they sat on were deleted, so this design
+has one host: a terminal process.
 
 Every statement here names a file that exists in this repository. Nothing is
 described as working that is not wired up; open gaps are listed in section 8.
@@ -12,8 +12,9 @@ described as working that is not wired up; open gaps are listed in section 8.
 ## 1. Process shape
 
 Continue's core was written for an IDE host: a protocol server, a browser GUI
-consumer, and a `core/continueServer` HTTP client for cloud features. TNT keeps
-the engine but replaces the host with a terminal process.
+consumer, and a `core/continueServer` HTTP client for cloud features. TNT keeps the
+engine and replaces the host; that client is gone, along with the remote embeddings
+cache it fed and the hosted crawl proxy the docs crawler used to call out to.
 
 | Path                                                                                                                                        | Role                                                    |
 | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -41,10 +42,10 @@ time replaces its callback instead of stacking more handlers. A review worker
 is also stopped as soon as it reports its result, since its work is finished at
 that point.
 
-There is no `core/continueServer` reference anywhere under `src/`. The only
-outbound hosts are model providers, `api.workos.com` for optional account auth,
-and `github.com` for tool and plugin fetches. `api.continue.dev` does not appear
-in `packages/cli/src` or in `core`.
+Nothing under `src/` or `core/` belongs to somebody else's service. The only outbound
+hosts are model providers, `github.com` for tool and plugin fetches, and the docs sites a
+user configures. Hub/WorkOS account authentication was removed, and the trial-proxy
+endpoints that used the deleted client's identity headers went with it.
 
 Writes that a crash would leave corrupt go through `core/util/atomicWrite.ts`:
 the session's `meta.json`, the global context, the config file and every file

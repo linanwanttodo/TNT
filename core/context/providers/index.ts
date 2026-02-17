@@ -31,7 +31,6 @@ import RulesContextProvider from "./RulesContextProvider";
 import SearchContextProvider from "./SearchContextProvider";
 import TerminalContextProvider from "./TerminalContextProvider";
 import URLContextProvider from "./URLContextProvider";
-import WebContextProvider from "./WebContextProvider";
 
 /**
  * Note: We are currently omitting the following providers due to bugs:
@@ -66,7 +65,6 @@ export const Providers: (typeof BaseContextProvider)[] = [
   RepoMapContextProvider,
   DiscordContextProvider,
   GreptileContextProvider,
-  WebContextProvider,
   MCPContextProvider,
   GitCommitContextProvider,
   ClipboardContextProvider,

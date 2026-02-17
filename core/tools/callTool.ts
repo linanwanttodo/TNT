@@ -19,7 +19,6 @@ import { readFileRangeImpl } from "./implementations/readFileRange";
 import { readSkillImpl } from "./implementations/readSkill";
 import { requestRuleImpl } from "./implementations/requestRule";
 import { runTerminalCommandImpl } from "./implementations/runTerminalCommand";
-import { searchWebImpl } from "./implementations/searchWeb";
 import { viewDiffImpl } from "./implementations/viewDiff";
 import { viewRepoMapImpl } from "./implementations/viewRepoMap";
 import { viewSubdirectoryImpl } from "./implementations/viewSubdirectory";
@@ -202,8 +201,6 @@ export async function callBuiltInTool(
       return await fileGlobSearchImpl(args, extras);
     case BuiltInToolNames.RunTerminalCommand:
       return await runTerminalCommandImpl(args, extras);
-    case BuiltInToolNames.SearchWeb:
-      return await searchWebImpl(args, extras);
     case BuiltInToolNames.FetchUrlContent:
       return await fetchUrlContentImpl(args, extras);
     case BuiltInToolNames.ViewDiff:

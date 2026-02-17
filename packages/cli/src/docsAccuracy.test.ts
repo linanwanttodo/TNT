@@ -70,7 +70,7 @@ const UNTRACKED_PREFIXES = ["dist/", "node_modules/"];
  * Places the notes name in order to say they are gone. Asserted absent, so a
  * recreation does not leave the sentence behind as a lie.
  */
-const REMOVED_PLACES: string[] = ["src/test-utils"];
+const REMOVED_PLACES: string[] = ["src/test-utils", "core/continueServer"];
 
 const DOCUMENTED_PATH =
   /`([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@*-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|ya?ml))`/g;
