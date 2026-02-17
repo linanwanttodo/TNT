@@ -3,27 +3,54 @@ import * as path from "path";
 
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
+import { getCurrentSessionId } from "../session/index.js";
+import { ensureSessionScopedDir } from "../session/paths.js";
+import { toDisplayPath } from "../utils/displayPath.js";
 import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
 
-/**
- * Extract the agent ID from the --id command line flag
- */
-function getAgentIdFromArgs(): string | undefined {
-  const args = process.argv;
-  const idIndex = args.indexOf("--id");
-  if (idIndex !== -1 && idIndex + 1 < args.length) {
-    return args[idIndex + 1];
+const MAX_ARTIFACT_BYTES = 50 * 1024 * 1024;
+const MAX_SESSION_BYTES = 500 * 1024 * 1024;
+
+/** The types a reviewer can actually open; anything else is refused by name. */
+const ALLOWED_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".mp4",
+  ".mov",
+  ".avi",
+  ".webm",
+  ".log",
+  ".txt",
+  ".json",
+  ".xml",
+  ".csv",
+  ".html",
+]);
+
+function bytesIn(dir: string, except: string): number {
+  let total = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile()) {
+      continue;
+    }
+    const full = path.join(dir, entry.name);
+    if (full !== except) {
+      total += fs.statSync(full).size;
+    }
   }
-  return undefined;
+  return total;
 }
 
 export const uploadArtifactTool: Tool = {
   name: "UploadArtifact",
   displayName: "Upload Artifact",
   description:
-    "Upload a file (screenshot, video, log) to the session artifacts for user review. Supported formats: images (png, jpg, jpeg, gif, webp), videos (mp4, mov, avi, webm), and text files. Maximum file size: 50MB. If an artifact with the same filename already exists, it will be overwritten with the new file.",
+    "Copy a file (screenshot, video, log) into the current session's artifacts so the user can open it. Supported: images (png, jpg, jpeg, gif, webp), videos (mp4, mov, avi, webm), and text files (log, txt, json, xml, csv, html). Maximum file size: 50MB, maximum session total: 500MB. An artifact with the same name is replaced.",
   parameters: {
     type: "object",
     required: ["filePath"],
@@ -31,110 +58,76 @@ export const uploadArtifactTool: Tool = {
       filePath: {
         type: "string",
         description:
-          "Absolute path to the file to upload (e.g., /tmp/screenshot.png)",
+          "Absolute path to the file to save (e.g., /tmp/screenshot.png)",
       },
     },
   },
   readonly: true,
   isBuiltIn: true,
   run: async (args: { filePath: string }): Promise<string> => {
-    try {
-      // Import services here to avoid circular dependency
-      // services/index.ts -> ToolPermissionService -> allBuiltIns -> uploadArtifact -> services/index.ts
-      const { services } = await import("../services/index.js");
-
-      const trimmedPath = args.filePath?.trim();
-      if (!trimmedPath) {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
-          "filePath is required to upload an artifact.",
-        );
-      }
-
-      // Get agent session ID
-      const agentId = getAgentIdFromArgs();
-      if (!agentId) {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
-          "Agent ID is required. This tool only works with 'tnt serve --id <agentId>'.",
-        );
-      }
-
-      // Auth has been removed - artifact upload requires auth
-      const accessToken: string | null = null;
-      if (!accessToken) {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
-          "Artifact upload requires authentication, which has been removed.",
-        );
-      }
-
-      // Validate file exists
-      if (!fs.existsSync(trimmedPath)) {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
-          `File not found: ${trimmedPath}`,
-        );
-      }
-
-      // Get file stats for logging
-      const stats = fs.statSync(trimmedPath);
-      const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-      const filename = path.basename(trimmedPath);
-
-      logger.info(`Uploading artifact: ${filename} (${fileSizeMB} MB)`);
-
-      // Upload the artifact
-      const result = await services.artifactUpload.uploadArtifact({
-        agentSessionId: agentId,
-        filePath: trimmedPath,
-        accessToken,
-      });
-
-      if (result.success) {
-        logger.info(`Successfully uploaded artifact: ${result.filename}`);
-        return `Artifact uploaded successfully: ${result.filename} (${fileSizeMB} MB). The user can view it in the Artifacts tab of the session.`;
-      } else {
-        // Handle specific error cases with helpful messages
-        const errorMsg = result.error || "Unknown error";
-
-        if (errorMsg.includes("File size exceeds")) {
-          throw new ContinueError(
-            ContinueErrorReason.Unspecified,
-            `File is too large (${fileSizeMB} MB). Maximum allowed size is 50MB. Consider compressing the file or splitting it into smaller parts.`,
-          );
-        } else if (errorMsg.includes("Storage limit exceeded")) {
-          throw new ContinueError(
-            ContinueErrorReason.Unspecified,
-            "Session storage limit exceeded (500MB total). The user may need to delete old artifacts or you may need to reduce the number of uploads.",
-          );
-        } else if (
-          errorMsg.includes("not allowed") ||
-          errorMsg.includes("extension")
-        ) {
-          throw new ContinueError(
-            ContinueErrorReason.Unspecified,
-            `File type not supported. Only images (png, jpg, jpeg, gif, webp), videos (mp4, mov, avi, webm), and text files (log, txt, json, xml, csv, html) are allowed.`,
-          );
-        } else {
-          throw new ContinueError(
-            ContinueErrorReason.Unspecified,
-            `Failed to upload artifact: ${errorMsg}`,
-          );
-        }
-      }
-    } catch (error) {
-      if (error instanceof ContinueError) {
-        throw error;
-      }
-
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(`Error uploading artifact: ${errorMessage}`);
+    const trimmedPath = args.filePath?.trim();
+    if (!trimmedPath) {
       throw new ContinueError(
         ContinueErrorReason.Unspecified,
-        `Error uploading artifact: ${errorMessage}`,
+        "filePath is required to save an artifact.",
       );
     }
+    if (!fs.existsSync(trimmedPath)) {
+      throw new ContinueError(
+        ContinueErrorReason.Unspecified,
+        `File not found: ${trimmedPath}`,
+      );
+    }
+
+    const stats = fs.statSync(trimmedPath);
+    if (!stats.isFile()) {
+      throw new ContinueError(
+        ContinueErrorReason.Unspecified,
+        `Not a file: ${trimmedPath}`,
+      );
+    }
+
+    const filename = path.basename(trimmedPath);
+    const extension = path.extname(filename).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.has(extension)) {
+      throw new ContinueError(
+        ContinueErrorReason.Unspecified,
+        `File type not supported: ${extension || filename}. Only images (png, jpg, jpeg, gif, webp), videos (mp4, mov, avi, webm), and text files (log, txt, json, xml, csv, html) can be saved as artifacts.`,
+      );
+    }
+
+    const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+    if (stats.size > MAX_ARTIFACT_BYTES) {
+      throw new ContinueError(
+        ContinueErrorReason.Unspecified,
+        `File is too large (${sizeMB} MB). Maximum allowed size is 50MB. Consider compressing the file or splitting it into smaller parts.`,
+      );
+    }
+
+    const dir = ensureSessionScopedDir("artifacts", getCurrentSessionId());
+    const target = path.join(dir, filename);
+    if (stats.size + bytesIn(dir, target) > MAX_SESSION_BYTES) {
+      throw new ContinueError(
+        ContinueErrorReason.Unspecified,
+        "Session artifacts are at their 500MB limit. Delete a session you no longer need, or save fewer files.",
+      );
+    }
+
+    // Copied under a temporary name and renamed over the real one, so a crash
+    // mid-copy cannot leave a truncated file carrying the name the user was told.
+    const partial = `${target}.${process.pid}.partial`;
+    try {
+      fs.copyFileSync(trimmedPath, partial);
+      fs.renameSync(partial, target);
+    } catch (error) {
+      fs.rmSync(partial, { force: true });
+      throw new ContinueError(
+        ContinueErrorReason.Unspecified,
+        `Failed to save artifact: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    logger.info(`Saved artifact: ${filename} (${sizeMB} MB)`);
+    return `Artifact saved: ${toDisplayPath(target)} (${sizeMB} MB).`;
   },
 };
