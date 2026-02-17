@@ -16,7 +16,6 @@ import { getIndexSqlitePath, getLanceDbPath } from "../util/paths.js";
 import { findUriInDirs, getUriPathBasename } from "../util/uri.js";
 
 import { ConfigResult } from "@tnt/config-yaml";
-import { ContinueServerClient } from "../continueServer/stubs/client";
 import { LLMError } from "../llm/index.js";
 import { getRootCause } from "../util/errors.js";
 import { ChunkCodebaseIndex } from "./chunk/ChunkCodebaseIndex.js";
@@ -153,11 +152,6 @@ export class CodebaseIndexer {
     }
 
     const embeddingsModel = config.selectedModelByRole.embed;
-    const ideSettings = await this.ide.getIdeSettings();
-    const continueServerClient = new ContinueServerClient(
-      ideSettings?.remoteConfigServerUrl,
-      ideSettings?.userToken,
-    );
 
     const indexTypesToBuild = new Set(
       // use set to remove duplicates
@@ -176,7 +170,6 @@ export class CodebaseIndexer {
       chunk: async () =>
         new ChunkCodebaseIndex(
           this.ide.readFile.bind(this.ide),
-          continueServerClient,
           embeddingsModel?.maxEmbeddingChunkSize ??
             DEFAULT_MAX_EMBEDDING_CHUNK_SIZE,
         ),
