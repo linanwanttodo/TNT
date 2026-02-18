@@ -9,7 +9,6 @@ export enum BuiltInToolNames {
   RunTerminalCommand = "run_terminal_command",
   GrepSearch = "grep_search",
   FileGlobSearch = "file_glob_search",
-  SearchWeb = "search_web",
   ViewDiff = "view_diff",
   LSTool = "ls",
   CreateRuleBlock = "create_rule_block",
