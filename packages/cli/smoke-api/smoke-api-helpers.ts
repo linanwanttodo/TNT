@@ -80,37 +80,6 @@ ${fixtureApiKeyLine("    ", apiKey)}
   return configPath;
 }
 
-// continue-proxy requires a 4-part model name (owner/package/provider/model).
-// Override via SMOKE_PROXY_MODEL env var.
-const SMOKE_PROXY_MODEL = process.env.SMOKE_PROXY_MODEL || "";
-
-/**
- * Writes a YAML config that uses the Continue proxy (CONTINUE_API_KEY).
- * Requires SMOKE_PROXY_MODEL to be set to a valid proxy model name.
- */
-export async function writeContinueProxyConfig(
-  ctx: SmokeTestContext,
-  apiKey: string,
-): Promise<string> {
-  const yaml = `name: Smoke Test
-version: 1.0.0
-schema: v1
-models:
-  - name: smoke-haiku
-    model: ${SMOKE_PROXY_MODEL}
-    provider: continue-proxy
-${fixtureApiKeyLine("    ", apiKey)}
-    defaultCompletionOptions:
-      maxTokens: 1024
-    roles:
-      - chat
-`;
-  const configPath = path.join(ctx.testDir, "smoke-config.yaml");
-  await fs.writeFile(configPath, yaml);
-  ctx.configPath = configPath;
-  return configPath;
-}
-
 /**
  * Runs `tnt` (headless) and returns stdout/stderr/exitCode.
  */

@@ -136,33 +136,6 @@ describe("ModelService", () => {
         "ModelService not initialized",
       );
     });
-
-    test("should handle continue-proxy provider specially", async () => {
-      const proxyModel = {
-        provider: "continue-proxy",
-        model: "proxy-model",
-        name: "Proxy Model",
-        apiBase: "http://localhost:3001",
-        apiKeyLocation: "env.PROXY_KEY",
-        roles: ["chat"],
-      } as ModelConfig;
-
-      mockAssistant.models = [proxyModel];
-      vi.mocked(config.getLlmApi).mockReturnValue([
-        mockLlmApi as any,
-        proxyModel,
-      ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
-
-      vi.mocked(config.createLlmApi).mockReturnValue(mockLlmApi as any);
-
-      await service.switchModel(0);
-
-      expect(vi.mocked(config.createLlmApi)).toHaveBeenCalledWith(
-        proxyModel,
-        mockAuthConfig,
-      );
-    });
   });
 
   describe("getAvailableChatModels()", () => {
