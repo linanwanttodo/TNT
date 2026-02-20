@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   MAX_INSTRUCTION_CHARS,
   MAX_INCLUDE_DEPTH,
+  includeTargets,
   loadInstructionFile,
 } from "./instructionIncludes.js";
 
@@ -36,6 +37,17 @@ describe("instruction file includes", () => {
 
     expect(text).toContain("Run the vitest gate before committing.");
     expect(text).not.toContain("@docs/testing.md");
+  });
+
+  it("reads a Windows absolute include as one token", () => {
+    // The drive colon used to end the token at `C`, so the path never resolved.
+    expect(
+      includeTargets("See @C:\\Users\\me\\docs\\shared.md for the rules"),
+    ).toEqual(["C:\\Users\\me\\docs\\shared.md"]);
+    expect(includeTargets("@docs/testing.md and @author")).toEqual([
+      "docs/testing.md",
+      "author",
+    ]);
   });
 
   it("follows an include written as an absolute path", () => {
