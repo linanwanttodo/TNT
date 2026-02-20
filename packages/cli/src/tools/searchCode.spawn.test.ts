@@ -94,4 +94,31 @@ describe("the Search tool spawns its program without a shell", () => {
     expect(result).toContain("hello in typescript");
     expect(result).not.toContain("hello world");
   });
+
+  it("searches anyway when one ignore line is not a glob it can compile", async () => {
+    // `[[` is an unclosed character class: ripgrep refuses it and exits 2, so
+    // the whole argument vector is rejected before any file is read. Without
+    // the second run, one such line in a repository's .gitignore turns the
+    // Search tool into a permanent error for everyone using it.
+    fs.appendFileSync(path.join(workDir, ".gitignore"), "\n[[\n");
+
+    const result = await searchCodeTool.run({
+      pattern: "hello",
+      path: workDir,
+    });
+
+    expect(result).toContain("hello world");
+    expect(result).toContain("searched without the");
+  });
+
+  it("does not hide a pattern the search program itself rejects", async () => {
+    // The retry is for the filters, not for a broken pattern: swallowing this
+    // would answer "no matches" to a query that never ran.
+    const result = await searchCodeTool
+      .run({ pattern: "hello(", path: workDir })
+      .catch((error: Error) => error.message);
+
+    expect(result).toContain("Error executing search");
+    expect(result).not.toContain("searched without the");
+  });
 });
