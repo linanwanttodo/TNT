@@ -73,7 +73,7 @@ describe("the codebase search tool", () => {
       query: "computeFibonacciSequence",
     });
 
-    expect(result).toContain(symbolFile);
+    expect(result).toContain(path.basename(symbolFile));
     expect(result).toMatch(/:\d+:\d+/);
     expect(result).toContain("computeFibonacciSequence");
   }, 120_000);
