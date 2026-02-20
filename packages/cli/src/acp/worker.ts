@@ -42,6 +42,7 @@ import {
 } from "../tools/terminalRunner.js";
 import { readTodoState } from "../tools/todo.js";
 import { setWorkspaceFileService } from "../tools/workspaceFiles.js";
+import { sameDirectory } from "../utils/canonicalPath.js";
 import { logger } from "../utils/logger.js";
 import {
   countChatHistoryTokens,
@@ -336,12 +337,15 @@ async function prepareSession(
   installTerminalRunner(state, client);
   await injectMcpServers(state, mcpServers);
 
-  const resolved = path.resolve(cwd);
-  if (resolved !== path.resolve(process.cwd())) {
+  // The client names the directory the way it saw it and `process.cwd()` names it the way
+  // the kernel resolved it; on macOS those differ by `/private`. Compare the directory, not
+  // the spelling.
+  if (!sameDirectory(cwd, process.cwd())) {
     throw invalidParams(
       `Session cwd ${cwd} does not match the worker cwd ${process.cwd()}`,
     );
   }
+  const resolved = path.resolve(cwd);
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
     throw invalidParams(`Session cwd does not exist: ${cwd}`);
   }
