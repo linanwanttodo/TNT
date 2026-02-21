@@ -78,12 +78,37 @@ async function searchWithRipgrep(
   }
 
   const ignorePatterns = await getGitignorePatterns();
+  const withIgnores = [...args];
   for (const ignorePattern of ignorePatterns) {
-    args.push("--glob", `!${ignorePattern}`);
+    withIgnores.push("--glob", `!${ignorePattern}`);
   }
+  withIgnores.push("--", pattern, searchPath);
 
-  args.push("--", pattern, searchPath);
-  return await search("rg", args);
+  try {
+    return await search("rg", withIgnores);
+  } catch (error) {
+    // `rg` exits 1 for a search that simply finds nothing, which the caller
+    // reads as an empty answer. Any other failure while the ignore list is
+    // applied is worth a second run without it: one line the glob parser
+    // refuses - `[[`, a Windows path - used to end the whole search, so a
+    // repository nobody can edit .gitignore in lost code search entirely.
+    if (
+      ignorePatterns.length === 0 ||
+      (error as { code?: number }).code === 1
+    ) {
+      throw error;
+    }
+    const results = await search("rg", [...args, "--", pattern, searchPath]);
+    return {
+      ...results,
+      stderr: [
+        `searched without the ${ignorePatterns.length} .gitignore line(s) as filters: ripgrep rejected at least one of them, so ignored paths may appear in these results`,
+        results.stderr,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    };
+  }
 }
 
 // procedure 2: search with grep on unix or findstr on windows
