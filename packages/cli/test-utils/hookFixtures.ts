@@ -40,6 +40,12 @@ fs.writeFileSync(file, String(next));
 `,
     );
     this.write(
+      "fail.mjs",
+      `process.stderr.write(process.argv[2] ?? "");
+process.exit(Number(process.argv[3] ?? 1));
+`,
+    );
+    this.write(
       "spawnTree.mjs",
       `import fs from "node:fs";
 import { spawn } from "node:child_process";
@@ -86,6 +92,16 @@ setInterval(() => {}, 1000);
   /** A command writing `1`, then `2`, ... into `file` - the counter `once` uses. */
   bump(file: string): string {
     return quoted(process.execPath, path.join(this.root, "bump.mjs"), file);
+  }
+
+  /** A command writing `text` to stderr and exiting `code`. */
+  fail(text: string, code: number): string {
+    return quoted(
+      process.execPath,
+      path.join(this.root, "fail.mjs"),
+      text,
+      String(code),
+    );
   }
 
   /**

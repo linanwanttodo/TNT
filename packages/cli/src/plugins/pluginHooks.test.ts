@@ -147,7 +147,7 @@ describe("hooks contributed by a plugin", () => {
               hooks: [
                 {
                   type: "command",
-                  command: "echo 'tnt-blocked by plugin' 1>&2; exit 2",
+                  command: fixtures.fail("tnt-blocked by plugin", 2),
                 },
               ],
             },
@@ -176,7 +176,7 @@ describe("hooks contributed by a plugin", () => {
             {
               matcher: "*",
               hooks: [
-                { type: "command", command: "echo 'tnt-crash' 1>&2; exit 1" },
+                { type: "command", command: fixtures.fail("tnt-crash", 1) },
                 { type: "command", command: "tnt-not-a-real-binary" },
               ],
             },

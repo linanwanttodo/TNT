@@ -119,7 +119,11 @@ describe("Tool preprocess functions", () => {
     it("refuses a path that is not there, with the tool's own reason", async () => {
       await expect(
         listFilesTool.preprocess!({ dirpath: "/no/such/directory" }),
-      ).rejects.toThrow(/Directory does not exist: \/no\/such\/directory/);
+        // The tool reports the path the way the platform resolved it, so on Windows
+        // `/no/such/directory` arrives as `D:\no\such\directory`; compare the same bytes.
+      ).rejects.toThrow(
+        `Directory does not exist: ${path.resolve("/no/such/directory")}`,
+      );
     });
   });
 

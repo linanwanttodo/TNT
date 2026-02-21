@@ -51,7 +51,7 @@ describe("command hook exit codes", () => {
 
   it("blocks on exit 2 and uses stderr as the reason", async () => {
     const result = await runHooks(
-      commands("echo 'not allowed on this branch' 1>&2; exit 2"),
+      commands(fixtures.fail("not allowed on this branch", 2)),
       toolCall(),
       workDir,
     );
@@ -74,7 +74,7 @@ describe("command hook exit codes", () => {
 
   it("treats any other exit code as a non-blocking error", async () => {
     const result = await runHooks(
-      commands("echo 'boom' 1>&2; exit 1"),
+      commands(fixtures.fail("boom", 1)),
       toolCall(),
       workDir,
     );
@@ -98,7 +98,7 @@ describe("command hook exit codes", () => {
 
   it("keeps raw stdout when it is not JSON", async () => {
     const result = await runHooks(
-      commands("echo plain-text"),
+      commands(fixtures.echo("plain-text")),
       toolCall(),
       workDir,
     );
@@ -111,7 +111,7 @@ describe("command hook exit codes", () => {
 describe("one handler failing next to another", () => {
   it("keeps the block raised by the handler that still worked", async () => {
     const result = await runHooks(
-      commands("exit 1", "echo 'no deploy on this branch' 1>&2; exit 2"),
+      commands("exit 1", fixtures.fail("no deploy on this branch", 2)),
       toolCall(),
       workDir,
     );
