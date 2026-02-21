@@ -2,7 +2,16 @@
 
 > **⚠️ EXPERIMENTAL: This package is in early development and subject to frequent breaking changes without notice.**
 
-This SDK provides a drop-in replacement for OpenAI libraries to easily integrate with Continue assistants.
+Two things live here, and neither of them contacts a service on its own:
+
+- `Assistant` — the shape of a resolved assistant (`AssistantConfig` is `AssistantUnrolled`
+  from `@tnt/config-yaml`) with the small helpers the CLI uses to pick a model
+- `dist/api` — the generated client for a TNT platform API, consumed by `tnt serve --id`
+  through whatever base URL the operator sets
+
+There used to be a third: a `Continue.from()` factory that built an OpenAI-compatible client
+pointed at a hosted hub and required an `apiKey`. Nothing in this repository ever constructed
+it, and the hub it spoke to is not part of this product, so it is gone.
 
 ## Installation
 
@@ -10,66 +19,41 @@ This SDK provides a drop-in replacement for OpenAI libraries to easily integrate
 npm install @tnt/sdk
 ```
 
-## Usage
-
-The SDK provides a `Continue.from()` method that initializes an assistant and returns a client you can use as a drop-in replacement for the OpenAI SDK:
+## Assistant
 
 ```typescript
-import { Continue } from "@tnt/sdk";
+import { Assistant } from "@tnt/sdk";
 
-// Initialize the Continue client with your API key and assistant
-const { client, assistant } = await Continue.from({
-  apiKey: process.env.CONTINUE_API_KEY,
-  assistant: "owner-slug/assistant-slug", // The assistant identifier
-});
+const assistant = new Assistant(configFromYaml);
 
-// Use the client just like the OpenAI SDK
-const response = await client.chat.completions.create({
-  model: assistant.getModel("claude-3-7-sonnet-latest"), // Use the assistant's model
-  messages: [
-    { role: "system", content: assistant.systemMessage }, // Use the assistant's system message
-    { role: "user", content: "Hello!" },
-  ],
-});
-
-console.log(response.choices[0].message.content);
+// The model to use for a role, falling back to the assistant's own default.
+const model = assistant.getModel("claude-3-7-sonnet-latest");
 ```
 
-You can also use the SDK without specifying an assistant to just get the Continue API client:
+`Assistant` takes the unrolled config object, not a slug: resolve a `config.yaml` with
+`@tnt/config-yaml` and hand the result over.
+
+## Platform API client
+
+The `DefaultApi` client is generated from `../openapi.yaml` and is exported from
+`@tnt/sdk/dist/api`. The CLI uses its `DefaultApiInterface` type; to talk to it you supply a
+base URL, because there is no default one:
 
 ```typescript
-import { Continue } from "@tnt/sdk";
+import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
-// Initialize just the Continue API client
-const { api } = await Continue.from({
-  apiKey: process.env.CONTINUE_API_KEY,
-});
-
-// Make calls to the Continue API
-const assistants = await api.listAssistants({});
+const api = new DefaultApi(new Configuration({ basePath: process.env.TNT_API_BASE }));
 ```
 
-## API Reference
+## Regenerating the client
 
-### Continue.from(options)
+The generator lives in the parent package (`@tnt/sdk-generator`):
 
-Creates a Continue instance with a pre-configured OpenAI client and assistant.
+```bash
+cd packages/sdk
+npm run generate-client:typescript   # openapi.yaml -> typescript/api
+npm run generate-client:ALL          # and the python client
+```
 
-#### Options
-
-- `apiKey` (string, required): Your Continue API key
-- `assistant` (string, optional): The assistant identifier in the format `owner-slug/assistant-slug`
-- `organizationId` (string, optional): Optional organization ID
-- `baseURL` (string, optional): Base URL for the Continue API (defaults to `https://github.com/linanwanttodo/TNT/`)
-
-#### Returns
-
-When `assistant` is provided, returns an object containing:
-
-- `api`: The Continue API client for direct API access
-- `client`: An OpenAI-compatible client configured to use the Continue API
-- `assistant`: The assistant configuration with utility methods
-
-When assistant is not provided, returns an object containing:
-
-- `api`: The Continue API client for direct API access
+`cd packages/sdk/typescript && npm run build` runs `tsc` over `src/` and the generated
+`api/` tree into `dist/`.
