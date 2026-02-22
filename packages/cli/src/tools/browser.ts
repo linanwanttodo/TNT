@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
 
@@ -42,8 +42,8 @@ const SNAPSHOT_SCRIPT = `(() => ({
 
 function requireText(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim() === "") {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Browser ${field} is required for this action.`,
     );
   }
@@ -99,14 +99,14 @@ async function saveScreenshot(
 ): Promise<string> {
   const absolute = path.resolve(filepath);
   if (!isWithinWorkspace(absolute)) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Screenshots must be written inside the workspace: ${filepath}`,
     );
   }
   if (!absolute.toLowerCase().endsWith(".png")) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "A screenshot filepath must end in .png.",
     );
   }
@@ -114,8 +114,8 @@ async function saveScreenshot(
     format: "png",
   })) as { data?: string };
   if (!result.data) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "The browser returned no screenshot data.",
     );
   }
@@ -136,14 +136,11 @@ export async function executeBrowserAction(
       try {
         parsed = new URL(target);
       } catch {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
-          `Not a URL: ${target}`,
-        );
+        throw new TntError(TntErrorReason.Unspecified, `Not a URL: ${target}`);
       }
       if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
+        throw new TntError(
+          TntErrorReason.Unspecified,
           "The browser tool navigates to http or https URLs only.",
         );
       }
@@ -167,8 +164,8 @@ export async function executeBrowserAction(
         })()`,
       );
       if (!result?.found) {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
+        throw new TntError(
+          TntErrorReason.Unspecified,
           `No element matches ${selector}.`,
         );
       }
@@ -177,8 +174,8 @@ export async function executeBrowserAction(
     case "type": {
       const text = typeof args.text === "string" ? args.text : null;
       if (text === null) {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
+        throw new TntError(
+          TntErrorReason.Unspecified,
           "Browser text is required for a type action.",
         );
       }
@@ -194,8 +191,8 @@ export async function executeBrowserAction(
           })()`,
         );
         if (!focused) {
-          throw new ContinueError(
-            ContinueErrorReason.Unspecified,
+          throw new TntError(
+            TntErrorReason.Unspecified,
             `No element matches ${args.selector}.`,
           );
         }
@@ -212,8 +209,8 @@ export async function executeBrowserAction(
       return saveScreenshot(client, requireText(args.filepath, "filepath"));
     }
     default: {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Unknown browser action: ${String(args.action)}.`,
       );
     }

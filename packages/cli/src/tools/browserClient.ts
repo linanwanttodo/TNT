@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 const DEFAULT_ENDPOINT = "http://127.0.0.1:9222";
 const DISCOVERY_TIMEOUT_MS = 5_000;
@@ -41,8 +41,8 @@ async function pageSocketUrl(endpoint: string): Promise<string> {
     signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
   });
   if (!response.ok) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Could not reach the browser at ${endpoint}: ${response.status} ${response.statusText}. Start it with --remote-debugging-port=9222 or set CONTINUE_CLI_BROWSER_ENDPOINT.`,
     );
   }
@@ -53,8 +53,8 @@ async function pageSocketUrl(endpoint: string): Promise<string> {
       (target) => target.type === "page" && target.webSocketDebuggerUrl,
     ) ?? targets.find((target) => target.webSocketDebuggerUrl);
   if (!page?.webSocketDebuggerUrl) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `The browser at ${endpoint} exposes no page target.`,
     );
   }
@@ -73,8 +73,8 @@ export async function connectBrowser(
   const Constructor = (globalThis as { WebSocket?: WebSocketConstructor })
     .WebSocket;
   if (!Constructor) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "This Node runtime has no WebSocket. Use a Node version with a global WebSocket (22+) or drive the browser through an MCP server.",
     );
   }

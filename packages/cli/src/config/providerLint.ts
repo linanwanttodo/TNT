@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 /**
  * A model name and a provider that cannot answer it is the most common
@@ -105,8 +105,8 @@ export function assertModelChoices(
   const mismatches = lintConfiguredModels(models);
   if (mismatches.length === 0) return;
 
-  throw new ContinueError(
-    ContinueErrorReason.Unspecified,
+  throw new TntError(
+    TntErrorReason.Unspecified,
     mismatches.map((mismatch) => mismatch.message).join("\n"),
   );
 }

@@ -1,5 +1,5 @@
 import { ToolImpl } from ".";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { TntError, TntErrorReason } from "../../util/errors";
 import { getStringArg } from "../parseArgs";
 
 export const requestRuleImpl: ToolImpl = async (args, extras) => {
@@ -9,8 +9,8 @@ export const requestRuleImpl: ToolImpl = async (args, extras) => {
   const rule = extras.config.rules.find((r) => r.name === name);
 
   if (!rule || !rule.sourceFile) {
-    throw new ContinueError(
-      ContinueErrorReason.RuleNotFound,
+    throw new TntError(
+      TntErrorReason.RuleNotFound,
       `Rule with name "${name}" not found or has no file path`,
     );
   }

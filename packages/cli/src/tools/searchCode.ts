@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as util from "util";
 
 import type { ToolPolicy } from "@tnt/terminal-security";
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { findUp } from "find-up";
 
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
@@ -237,8 +237,8 @@ Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with
   }): Promise<string> => {
     const searchPath = args.path || process.cwd();
     if (!fs.existsSync(searchPath)) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Path does not exist: ${searchPath}`,
       );
     }
@@ -311,7 +311,7 @@ Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with
         args.file_pattern ? ` in files matching "${args.file_pattern}"` : ""
       }:\n\n${resultText}${truncationMessage}`;
     } catch (error: any) {
-      if (error instanceof ContinueError) {
+      if (error instanceof TntError) {
         throw error;
       }
       if (error.code === 1) {

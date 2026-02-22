@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { localPathOrUriToPath } from "core/util/pathToUri.js";
 
 import { Tool, ToolRunContext } from "./types.js";
@@ -32,10 +32,7 @@ export const codebaseSearchTool: Tool = {
   preprocess: async (args) => {
     const query = String(args?.query ?? "").trim();
     if (!query) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
-        "query is required",
-      );
+      throw new TntError(TntErrorReason.Unspecified, "query is required");
     }
     const shown = query.length > 50 ? `${query.slice(0, 50)}...` : query;
     return {
@@ -54,10 +51,7 @@ export const codebaseSearchTool: Tool = {
   ) => {
     const query = String(args?.query ?? "").trim();
     if (!query) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
-        "query is required",
-      );
+      throw new TntError(TntErrorReason.Unspecified, "query is required");
     }
     const requested = Number(args?.n);
     const n =

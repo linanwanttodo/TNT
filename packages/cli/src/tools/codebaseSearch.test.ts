@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { ContinueError } from "core/util/errors.js";
+import { TntError } from "core/util/errors.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { env } from "../config/env.js";
@@ -89,10 +89,10 @@ describe("the codebase search tool", () => {
   it("refuses an empty query before running", async () => {
     await expect(
       codebaseSearchTool.preprocess!({ query: "  " }),
-    ).rejects.toBeInstanceOf(ContinueError);
+    ).rejects.toBeInstanceOf(TntError);
     await expect(
       codebaseSearchTool.run({ query: "  " }),
-    ).rejects.toBeInstanceOf(ContinueError);
+    ).rejects.toBeInstanceOf(TntError);
   });
 
   it("picks up a file written by a tool", async () => {

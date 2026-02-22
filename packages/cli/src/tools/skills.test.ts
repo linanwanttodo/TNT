@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Skill } from "../utils/loadMarkdownSkills.js";
@@ -98,13 +98,13 @@ describe("skillsTool", () => {
       expect(result).toContain("<other_instructions>");
     });
 
-    it("should throw ContinueError when skill not found", async () => {
+    it("should throw TntError when skill not found", async () => {
       const tool = await skillsTool();
       const error = await tool
         .run({ skill_name: "nonexistent" })
         .catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(ContinueErrorReason.SkillNotFound);
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.SkillNotFound);
       expect(error.message).toContain("nonexistent");
     });
   });

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
@@ -98,20 +98,17 @@ export function readRange(
   const end = Number(args.end_line);
   if (!Number.isFinite(start) && !Number.isFinite(end)) return null;
   if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "start_line and end_line must both be given, with end_line at or after start_line",
     );
   }
   if (start < 1) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
-      "start_line counts from 1",
-    );
+    throw new TntError(TntErrorReason.Unspecified, "start_line counts from 1");
   }
   if (start > lineCount) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `start_line ${start} is past the end of a ${lineCount}-line file`,
     );
   }
@@ -231,8 +228,8 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
       }
 
       if (!isWorkspaceFileServiceActive() && !fs.existsSync(filepath)) {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
+        throw new TntError(
+          TntErrorReason.Unspecified,
           `File does not exist: ${filepath}`,
         );
       }
@@ -241,8 +238,8 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
         read = await readWorkspaceTextFile(filepath);
       } catch (error) {
         if (!isWorkspaceFileServiceActive() && !fs.existsSync(filepath)) {
-          throw new ContinueError(
-            ContinueErrorReason.Unspecified,
+          throw new TntError(
+            TntErrorReason.Unspecified,
             `File does not exist: ${filepath}`,
           );
         }
@@ -288,8 +285,8 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
             ? ` (Note: limit reduced due to ${parallelCount} parallel tool calls. Single-tool limit: ${baseMaxChars.toLocaleString()} characters or ${baseMaxLines.toLocaleString()} lines.)`
             : "";
 
-        throw new ContinueError(
-          ContinueErrorReason.FileTooLarge,
+        throw new TntError(
+          TntErrorReason.FileTooLarge,
           `File is too large to read: ${filepath} (${charCount.toLocaleString()} characters, ${lineCount.toLocaleString()} lines). ` +
             `Maximum allowed: ${maxChars.toLocaleString()} characters or ${maxLines.toLocaleString()} lines.${parallelNote} ` +
             `Read a section with start_line and end_line, or search within it with Search, instead of shell commands.`,
@@ -315,7 +312,7 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
 
       return `${headerFor(kept.length)}\n${numberLines(kept, 1)}`;
     } catch (error) {
-      if (error instanceof ContinueError) {
+      if (error instanceof TntError) {
         throw error;
       }
       throw new Error(

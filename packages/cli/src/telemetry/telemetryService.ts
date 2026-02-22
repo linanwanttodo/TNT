@@ -17,7 +17,7 @@ import {
 } from "@opentelemetry/semantic-conventions";
 import { v4 as uuidv4 } from "uuid";
 
-import { ContinueErrorReason } from "../../../../core/util/errors.js";
+import { TntErrorReason } from "../../../../core/util/errors.js";
 import { getVersion } from "../startup/version.js";
 import { isHeadlessMode } from "../utils/cli.js";
 import { isContinueRemoteAgent, isGitHubActions } from "../utils/git.js";
@@ -522,7 +522,7 @@ class TelemetryService {
     success: boolean;
     durationMs: number;
     error?: string;
-    errorReason?: ContinueErrorReason;
+    errorReason?: TntErrorReason;
     decision?: "accept" | "reject";
     source?: string;
     toolParameters?: string;

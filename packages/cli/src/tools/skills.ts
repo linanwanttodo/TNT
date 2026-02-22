@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { loadMarkdownSkills } from "../utils/loadMarkdownSkills.js";
 import { logger } from "../utils/logger.js";
@@ -63,8 +63,8 @@ ${
       const skill = skills.find((sk) => sk.name === skill_name);
       if (!skill) {
         const availableSkills = skills.map((sk) => sk.name).join(", ");
-        throw new ContinueError(
-          ContinueErrorReason.SkillNotFound,
+        throw new TntError(
+          TntErrorReason.SkillNotFound,
           `Skill "${skill_name}" not found. Available skills: ${availableSkills || "none"}`,
         );
       }

@@ -1,5 +1,5 @@
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { createTwoFilesPatch } from "diff";
 
 import { t } from "../i18n/index.js";
@@ -143,8 +143,8 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
       // model did read the file - and what it read is no longer there. A
       // client-owned buffer has no reliable disk mtime to compare.
       if (!isWorkspaceFileServiceActive() && changedSinceSeen(args.filepath)) {
-        throw new ContinueError(
-          ContinueErrorReason.EditToolFileNotRead,
+        throw new TntError(
+          TntErrorReason.EditToolFileNotRead,
           `${args.filepath} changed since you read it. Use the ${readFileTool.name} tool to read it again before overwriting it.`,
         );
       }
@@ -191,11 +191,11 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
         return `${MARKER_FILE_CREATED}: ${args.filepath}`;
       }
     } catch (error) {
-      if (error instanceof ContinueError) {
+      if (error instanceof TntError) {
         throw error;
       }
-      throw new ContinueError(
-        ContinueErrorReason.FileWriteError,
+      throw new TntError(
+        TntErrorReason.FileWriteError,
         `Error writing to file: ${
           error instanceof Error ? error.message : String(error)
         }`,

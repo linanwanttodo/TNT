@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import {
   ParameterSchema,
@@ -243,8 +243,8 @@ export function validateToolCallArgs(toolCall: ToolCall, tool: Tool): void {
   const issues = findArgIssues(tool.parameters, toolCall.arguments);
   if (issues.length === 0) return;
 
-  throw new ContinueError(
-    ContinueErrorReason.InvalidToolArgs,
+  throw new TntError(
+    TntErrorReason.InvalidToolArgs,
     `Invalid arguments for tool "${toolCall.name}":\n- ${issues.join(
       "\n- ",
     )}\nExpected: ${describeExpectedArgs(tool.parameters)}`,

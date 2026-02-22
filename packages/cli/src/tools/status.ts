@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { t } from "../i18n/index.js";
 import {
@@ -57,7 +57,7 @@ You should use this tool to notify the user whenever the state of your work chan
         const errorMessage =
           "Agent ID is required. Please use the --id flag with tnt serve.";
         logger.error(errorMessage);
-        throw new ContinueError(ContinueErrorReason.Unspecified, errorMessage);
+        throw new TntError(TntErrorReason.Unspecified, errorMessage);
       }
 
       // Call the API endpoint using shared client
@@ -84,7 +84,7 @@ You should use this tool to notify the user whenever the state of your work chan
 
       return `Status set: ${args.status}`;
     } catch (error) {
-      if (error instanceof ContinueError) {
+      if (error instanceof TntError) {
         throw error;
       }
 
