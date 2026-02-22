@@ -12,6 +12,7 @@ import type {
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import { canonicalPath } from "../utils/canonicalPath.js";
 import { logger } from "../utils/logger.js";
 
 import {
@@ -691,7 +692,7 @@ export class SessionStore {
     const sessions = new Map<string, SessionMeta>();
     const root = getSessionDir();
     const targetCwd = options.cwd
-      ? path.resolve(options.cwd).toLowerCase()
+      ? canonicalPath(options.cwd).toLowerCase()
       : undefined;
 
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -776,13 +777,13 @@ export class SessionStore {
         }
         if (!options.includeEmpty && meta.entryCount === 0) return false;
         if (targetCwd !== undefined) {
-          // Resolve first, then fold case. `path.resolve` puts the drive letter
-          // back in uppercase on Windows, so lowering the stored string before
-          // resolving compared `d:\project-a` against `D:\project-a` and every
-          // cwd-filtered listing answered empty there - the filter is the one
-          // `tnt ls` and the resume picker use.
+          // The canonical form, then case-folded. `path.resolve` fixes neither the
+          // macOS case (`getcwd` says `/private/var`, a caller's `/var` is the same
+          // directory) nor Windows' drive case, and this filter is what `tnt ls`
+          // and the resume picker answer from: a session recorded under one
+          // spelling disappeared when asked with the other.
           const cwd = meta.workspaceDirectory
-            ? path.resolve(meta.workspaceDirectory).toLowerCase()
+            ? canonicalPath(meta.workspaceDirectory).toLowerCase()
             : "";
           if (!cwd || cwd !== targetCwd) return false;
         }
