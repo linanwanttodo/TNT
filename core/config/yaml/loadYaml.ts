@@ -15,7 +15,7 @@ import {
 import { dirname } from "node:path";
 
 import {
-  ContinueConfig,
+  TntConfig,
   IDE,
   IdeInfo,
   IdeSettings,
@@ -40,8 +40,8 @@ import { LocalPlatformClient } from "./LocalPlatformClient";
 import { llmsFromModelConfig } from "./models";
 import {
   convertYamlMcpConfigToInternalMcpOptions,
-  convertYamlRuleToContinueRule,
-} from "./yamlToContinueConfig";
+  convertYamlRuleToTntRule,
+} from "./yamlToTntConfig";
 
 async function loadConfigYaml(options: {
   overrideConfigYaml: AssistantUnrolled | undefined;
@@ -153,18 +153,18 @@ function nonNullifyConfigYaml(
   };
 }
 
-export async function configYamlToContinueConfig(options: {
+export async function configYamlToTntConfig(options: {
   unrolledAssistant: AssistantUnrolled;
   ide: IDE;
   ideInfo: IdeInfo;
   uniqueId: string;
   llmLogger: ILLMLogger;
-}): Promise<{ config: ContinueConfig; errors: ConfigValidationError[] }> {
+}): Promise<{ config: TntConfig; errors: ConfigValidationError[] }> {
   let { unrolledAssistant, ide, ideInfo, uniqueId, llmLogger } = options;
 
   const localErrors: ConfigValidationError[] = [];
 
-  const continueConfig: ContinueConfig = {
+  const continueConfig: TntConfig = {
     slashCommands: [],
     tools: getBaseToolDefinitions(),
     mcpServerStatuses: [],
@@ -196,7 +196,7 @@ export async function configYamlToContinueConfig(options: {
   const config = nonNullifyConfigYaml(unrolledAssistant);
 
   for (const rule of config.rules ?? []) {
-    const convertedRule = convertYamlRuleToContinueRule(rule);
+    const convertedRule = convertYamlRuleToTntRule(rule);
     continueConfig.rules.push(convertedRule);
   }
 
@@ -377,7 +377,7 @@ export async function configYamlToContinueConfig(options: {
   return { config: continueConfig, errors: localErrors };
 }
 
-export async function loadContinueConfigFromYaml(options: {
+export async function loadTntConfigFromYaml(options: {
   ide: IDE;
   ideSettings: IdeSettings;
   ideInfo: IdeInfo;
@@ -385,7 +385,7 @@ export async function loadContinueConfigFromYaml(options: {
   llmLogger: ILLMLogger;
   overrideConfigYaml: AssistantUnrolled | undefined;
   packageIdentifier: PackageIdentifier;
-}): Promise<ConfigResult<ContinueConfig>> {
+}): Promise<ConfigResult<TntConfig>> {
   const {
     ide,
     ideSettings,
@@ -413,7 +413,7 @@ export async function loadContinueConfigFromYaml(options: {
   }
 
   const { config: continueConfig, errors: localErrors } =
-    await configYamlToContinueConfig({
+    await configYamlToTntConfig({
       unrolledAssistant: configYamlResult.config,
       ide,
       ideInfo,

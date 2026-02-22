@@ -5,8 +5,8 @@ import {
 } from "@tnt/config-yaml";
 
 import {
-  BrowserSerializedContinueConfig,
-  ContinueConfig,
+  BrowserSerializedTntConfig,
+  TntConfig,
   IContextProvider,
   IDE,
 } from "../index.js";
@@ -26,9 +26,9 @@ export interface ProfileDescription {
 }
 
 export class ProfileLifecycleManager {
-  private savedConfigResult: ConfigResult<ContinueConfig> | undefined;
-  private savedBrowserConfigResult?: ConfigResult<BrowserSerializedContinueConfig>;
-  private pendingConfigPromise?: Promise<ConfigResult<ContinueConfig>>;
+  private savedConfigResult: ConfigResult<TntConfig> | undefined;
+  private savedBrowserConfigResult?: ConfigResult<BrowserSerializedTntConfig>;
+  private pendingConfigPromise?: Promise<ConfigResult<TntConfig>>;
 
   constructor(
     private readonly profileLoader: IProfileLoader,
@@ -48,7 +48,7 @@ export class ProfileLifecycleManager {
   // Clear saved config and reload
   async reloadConfig(
     additionalContextProviders: IContextProvider[] = [],
-  ): Promise<ConfigResult<ContinueConfig>> {
+  ): Promise<ConfigResult<TntConfig>> {
     this.savedConfigResult = undefined;
     this.savedBrowserConfigResult = undefined;
     this.pendingConfigPromise = undefined;
@@ -59,7 +59,7 @@ export class ProfileLifecycleManager {
   async loadConfig(
     additionalContextProviders: IContextProvider[],
     forceReload: boolean = false,
-  ): Promise<ConfigResult<ContinueConfig>> {
+  ): Promise<ConfigResult<TntConfig>> {
     // If we already have a config, return it
     if (!forceReload) {
       if (this.savedConfigResult) {
@@ -72,7 +72,7 @@ export class ProfileLifecycleManager {
     // Set pending config promise
     this.pendingConfigPromise = new Promise((resolve) => {
       void (async () => {
-        let result: ConfigResult<ContinueConfig>;
+        let result: ConfigResult<TntConfig>;
         // This try catch is expected to catch high-level errors that aren't block-specific
         // Like invalid json, invalid yaml, file read errors, etc.
         // NOT block-specific loading errors
@@ -118,7 +118,7 @@ export class ProfileLifecycleManager {
 
   async getSerializedConfig(
     additionalContextProviders: IContextProvider[],
-  ): Promise<ConfigResult<BrowserSerializedContinueConfig>> {
+  ): Promise<ConfigResult<BrowserSerializedTntConfig>> {
     if (this.savedBrowserConfigResult) {
       return this.savedBrowserConfigResult;
     } else {

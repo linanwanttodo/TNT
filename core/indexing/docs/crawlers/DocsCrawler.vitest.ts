@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import os from "os";
 
-import { ContinueConfig } from "../../..";
+import { TntConfig } from "../../..";
 import { testConfigHandler } from "../../../test/fixtures";
 import FileSystemIde from "../../../util/filesystem";
 
@@ -22,7 +22,7 @@ const TIMEOUT_MS = 1_000_000_000;
 ChromiumInstaller.PCR_CONFIG = { downloadPath: os.tmpdir() };
 
 describe.skip("DocsCrawler", () => {
-  let config: ContinueConfig;
+  let config: TntConfig;
   let mockIde: FileSystemIde;
   let chromiumInstaller: ChromiumInstaller;
   let docsCrawler: DocsCrawler;

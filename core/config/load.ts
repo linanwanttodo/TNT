@@ -12,11 +12,11 @@ import {
 import * as JSONC from "comment-json";
 
 import {
-  BrowserSerializedContinueConfig,
+  BrowserSerializedTntConfig,
   Config,
   ContextProviderWithParams,
-  ContinueConfig,
-  ContinueRcJson,
+  TntConfig,
+  TntRcJson,
   CustomContextProvider,
   EmbeddingsProviderDescription,
   IDE,
@@ -29,7 +29,7 @@ import {
   LLMOptions,
   ModelDescription,
   RerankerDescription,
-  SerializedContinueConfig,
+  SerializedTntConfig,
   SlashCommandWithSource,
 } from "..";
 import { getLegacyBuiltInSlashCommandFromDescription } from "../commands/slash/built-in-legacy";
@@ -70,11 +70,9 @@ import {
 } from "./util";
 import { validateConfig } from "./validation.js";
 
-export function resolveSerializedConfig(
-  filepath: string,
-): SerializedContinueConfig {
+export function resolveSerializedConfig(filepath: string): SerializedTntConfig {
   let content = fs.readFileSync(filepath, "utf8");
-  const config = JSONC.parse(content) as unknown as SerializedContinueConfig;
+  const config = JSONC.parse(content) as unknown as SerializedTntConfig;
   if (config.env && Array.isArray(config.env)) {
     const env = {
       ...process.env,
@@ -91,7 +89,7 @@ export function resolveSerializedConfig(
     });
   }
 
-  return JSONC.parse(content) as unknown as SerializedContinueConfig;
+  return JSONC.parse(content) as unknown as SerializedTntConfig;
 }
 
 const configMergeKeys = {
@@ -109,13 +107,13 @@ const configMergeKeys = {
 };
 
 function loadSerializedConfig(
-  workspaceConfigs: ContinueRcJson[],
+  workspaceConfigs: TntRcJson[],
   ideSettings: IdeSettings,
   ideType: IdeType,
-  overrideConfigJson: SerializedContinueConfig | undefined,
+  overrideConfigJson: SerializedTntConfig | undefined,
   ide: IDE,
-): ConfigResult<SerializedContinueConfig> {
-  let config: SerializedContinueConfig = overrideConfigJson!;
+): ConfigResult<SerializedTntConfig> {
+  let config: SerializedTntConfig = overrideConfigJson!;
   if (!config) {
     try {
       config = resolveSerializedConfig(getConfigJsonPath());
@@ -155,7 +153,7 @@ function loadSerializedConfig(
 }
 
 async function serializedToIntermediateConfig(
-  initial: SerializedContinueConfig,
+  initial: SerializedTntConfig,
   ide: IDE,
 ): Promise<Config> {
   // DEPRECATED - load custom slash commands
@@ -235,7 +233,7 @@ async function intermediateToFinalConfig({
   uniqueId: string;
   llmLogger: ILLMLogger;
   loadPromptFiles?: boolean;
-}): Promise<{ config: ContinueConfig; errors: ConfigValidationError[] }> {
+}): Promise<{ config: TntConfig; errors: ConfigValidationError[] }> {
   const errors: ConfigValidationError[] = [];
   const workspaceDirs = await ide.getWorkspaceDirs();
   const getUriFromPath = (path: string) => {
@@ -458,7 +456,7 @@ async function intermediateToFinalConfig({
   }
   const newReranker = getRerankingILLM(config.reranker);
 
-  const continueConfig: ContinueConfig = {
+  const continueConfig: TntConfig = {
     ...config,
     contextProviders,
     tools: getBaseToolDefinitions(),
@@ -613,9 +611,9 @@ function llmToSerializedModelDescription(llm: ILLM): ModelDescription {
 }
 
 async function finalToBrowserConfig(
-  final: ContinueConfig,
+  final: TntConfig,
   ide: IDE,
-): Promise<BrowserSerializedContinueConfig> {
+): Promise<BrowserSerializedTntConfig> {
   return {
     allowAnonymousTelemetry: final.allowAnonymousTelemetry,
     completionOptions: final.completionOptions,
@@ -775,14 +773,14 @@ async function buildConfigTsandReadConfigJs(ide: IDE, ideType: IdeType) {
   return readConfigJs();
 }
 
-async function loadContinueConfigFromJson(
+async function loadTntConfigFromJson(
   ide: IDE,
   ideSettings: IdeSettings,
   ideInfo: IdeInfo,
   uniqueId: string,
   llmLogger: ILLMLogger,
-  overrideConfigJson: SerializedContinueConfig | undefined,
-): Promise<ConfigResult<ContinueConfig>> {
+  overrideConfigJson: SerializedTntConfig | undefined,
+): Promise<ConfigResult<TntConfig>> {
   const workspaceConfigs = await getWorkspaceRcConfigs(ide);
   // Serialized config
   let {
@@ -867,6 +865,6 @@ async function loadContinueConfigFromJson(
 
 export {
   finalToBrowserConfig,
-  loadContinueConfigFromJson,
-  type BrowserSerializedContinueConfig,
+  loadTntConfigFromJson,
+  type BrowserSerializedTntConfig,
 };

@@ -5,7 +5,7 @@ import {
   BranchAndDir,
   Chunk,
   ContextItem,
-  ContinueConfig,
+  TntConfig,
   IDE,
   ILLM,
   Tool,
@@ -37,7 +37,7 @@ const AVAILABLE_TOOLS: Tool[] = [
 
 export interface RetrievalPipelineOptions {
   llm: ILLM;
-  config: ContinueConfig;
+  config: TntConfig;
   ide: IDE;
   input: string;
   nRetrieve: number;

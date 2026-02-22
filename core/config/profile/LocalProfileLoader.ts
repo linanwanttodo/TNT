@@ -1,6 +1,6 @@
 import { ConfigResult } from "@tnt/config-yaml";
 
-import { ContinueConfig, IDE, ILLMLogger } from "../../index.js";
+import { TntConfig, IDE, ILLMLogger } from "../../index.js";
 import { ProfileDescription } from "../ProfileLifecycleManager.js";
 
 import { getPrimaryConfigFilePath } from "../../util/paths.js";
@@ -39,7 +39,7 @@ export default class LocalProfileLoader implements IProfileLoader {
     };
   }
 
-  async doLoadConfig(): Promise<ConfigResult<ContinueConfig>> {
+  async doLoadConfig(): Promise<ConfigResult<TntConfig>> {
     const result = await doLoadConfig({
       ide: this.ide,
       llmLogger: this.llmLogger,
