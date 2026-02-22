@@ -4,6 +4,8 @@ import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { flushLogs } from "../utils/logger.js";
+
 import { initializeWithOnboarding } from "./onboarding.js";
 
 const questionMock = vi.fn();
@@ -22,17 +24,13 @@ describe("onboarding config flag handling", () => {
     // Auth config is always null after Hub removal
   });
 
-  afterEach(() => {
-    // Clean up temporary directory
+  afterEach(async () => {
+    // The file transport keeps a stream open inside `<global dir>/logs`, and
+    // Windows will not remove a directory with an open handle in it: ten seconds
+    // of retries did not outlast it. Closing the transport is what frees it.
+    await flushLogs();
     if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, {
-        recursive: true,
-        force: true,
-        // Windows holds the directory until the logger's handle closes, which lands
-        // after the flow returns: the runner failed here with `ENOTEMPTY ...\logs`.
-        maxRetries: 40,
-        retryDelay: 250,
-      });
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
 
@@ -271,7 +269,7 @@ describe("interactive provider onboarding writes a real config file", () => {
     vi.resetModules();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     if (originalGlobalDir === undefined) {
       delete process.env.CONTINUE_GLOBAL_DIR;
     } else {
@@ -284,14 +282,8 @@ describe("interactive provider onboarding writes a real config file", () => {
     }
     process.stdin.isTTY = originalStdinIsTTY;
     vi.restoreAllMocks();
-    fs.rmSync(tempDir, {
-      recursive: true,
-      force: true,
-      // Windows holds the directory until the logger's handle closes, which lands
-      // after the flow returns: the runner failed here with `ENOTEMPTY ...\logs`.
-      maxRetries: 40,
-      retryDelay: 250,
-    });
+    await flushLogs();
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
   test("protocol -> url -> key -> model lands a minimal config on disk", async () => {
