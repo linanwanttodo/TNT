@@ -137,7 +137,7 @@ describe("hookConfig", () => {
     let tmpDir: string;
     let fakeHome: string;
     let projectDir: string;
-    let originalContinueGlobalDir: string | undefined;
+    let originalTntGlobalDir: string | undefined;
 
     beforeEach(() => {
       tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hooks-test-"));
@@ -148,15 +148,15 @@ describe("hookConfig", () => {
       fs.mkdirSync(projectDir, { recursive: true });
       // Override CONTINUE_GLOBAL_DIR so that user-global settings
       // from the real ~/.tnt/settings.json don't leak into tests
-      originalContinueGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
+      originalTntGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
       process.env.CONTINUE_GLOBAL_DIR = path.join(fakeHome, ".tnt");
     });
 
     afterEach(() => {
-      if (originalContinueGlobalDir === undefined) {
+      if (originalTntGlobalDir === undefined) {
         delete process.env.CONTINUE_GLOBAL_DIR;
       } else {
-        process.env.CONTINUE_GLOBAL_DIR = originalContinueGlobalDir;
+        process.env.CONTINUE_GLOBAL_DIR = originalTntGlobalDir;
       }
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
