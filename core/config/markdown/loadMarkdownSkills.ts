@@ -5,7 +5,7 @@ import { walkDir } from "../../indexing/walkDir";
 import { localPathToUri } from "../../util/pathToUri";
 import { getGlobalFolderWithName } from "../../util/paths";
 import { findUriInDirs, joinPathsToUri } from "../../util/uri";
-import { getAllDotContinueDefinitionFiles } from "../loadLocalAssistants";
+import { getAllDotTntDefinitionFiles } from "../loadLocalAssistants";
 
 const skillFrontmatterSchema = z.object({
   name: z.string().min(1),
@@ -63,7 +63,7 @@ export async function loadMarkdownSkills(ide: IDE) {
   try {
     const yamlAndMarkdownFileUris = [
       ...(
-        await getAllDotContinueDefinitionFiles(
+        await getAllDotTntDefinitionFiles(
           ide,
           {
             includeGlobal: true,

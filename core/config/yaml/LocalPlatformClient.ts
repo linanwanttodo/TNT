@@ -6,7 +6,7 @@ import {
 } from "@tnt/config-yaml";
 import * as dotenv from "dotenv";
 import { IDE } from "../..";
-import { getContinueDotEnv } from "../../util/paths";
+import { getTntDotEnv } from "../../util/paths";
 import { joinPathsToUri } from "../../util/uri";
 
 export class LocalPlatformClient implements PlatformClient {
@@ -39,7 +39,7 @@ export class LocalPlatformClient implements PlatformClient {
 
   private findSecretInLocalEnvFile(fqsn: FQSN): string | undefined {
     try {
-      const dotEnv = getContinueDotEnv();
+      const dotEnv = getTntDotEnv();
       return dotEnv[fqsn.secretName];
     } catch (error) {
       console.warn(
@@ -51,14 +51,14 @@ export class LocalPlatformClient implements PlatformClient {
 
   private async findSecretInWorkspaceEnvFiles(
     fqsn: FQSN,
-    insideContinue: boolean,
+    insideGlobalDir: boolean,
   ): Promise<string | undefined> {
     try {
       const workspaceDirs = await this.ide.getWorkspaceDirs();
       for (const folder of workspaceDirs) {
         const envFilePath = joinPathsToUri(
           folder,
-          insideContinue ? ".tnt" : "",
+          insideGlobalDir ? ".tnt" : "",
           ".env",
         );
         try {

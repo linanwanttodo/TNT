@@ -53,7 +53,7 @@ export function getChromiumPath(): string {
 }
 
 export function getTntUtilsPath(): string {
-  const utilsPath = path.join(getContinueGlobalPath(), ".utils");
+  const utilsPath = path.join(getTntGlobalPath(), ".utils");
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath);
   }
@@ -61,14 +61,14 @@ export function getTntUtilsPath(): string {
 }
 
 export function getGlobalTntIgnorePath(): string {
-  const continueIgnorePath = path.join(getContinueGlobalPath(), ".tntignore");
+  const continueIgnorePath = path.join(getTntGlobalPath(), ".tntignore");
   if (!fs.existsSync(continueIgnorePath)) {
     fs.writeFileSync(continueIgnorePath, "");
   }
   return continueIgnorePath;
 }
 
-export function getContinueGlobalPath(): string {
+export function getTntGlobalPath(): string {
   // This is ~/.tnt on mac/linux
   const continuePath = GLOBAL_DIR;
   if (!fs.existsSync(continuePath)) {
@@ -78,7 +78,7 @@ export function getContinueGlobalPath(): string {
 }
 
 export function getSessionsFolderPath(): string {
-  const sessionsPath = path.join(getContinueGlobalPath(), "sessions");
+  const sessionsPath = path.join(getTntGlobalPath(), "sessions");
   if (!fs.existsSync(sessionsPath)) {
     fs.mkdirSync(sessionsPath);
   }
@@ -86,7 +86,7 @@ export function getSessionsFolderPath(): string {
 }
 
 export function getIndexFolderPath(): string {
-  const indexPath = path.join(getContinueGlobalPath(), "index");
+  const indexPath = path.join(getTntGlobalPath(), "index");
   if (!fs.existsSync(indexPath)) {
     fs.mkdirSync(indexPath);
   }
@@ -98,7 +98,7 @@ export function getGlobalContextFilePath(): string {
 }
 
 export function getSharedConfigFilePath(): string {
-  return path.join(getContinueGlobalPath(), "sharedConfig.json");
+  return path.join(getTntGlobalPath(), "sharedConfig.json");
 }
 
 export function getSessionFilePath(sessionId: string): string {
@@ -114,12 +114,12 @@ export function getSessionsListPath(): string {
 }
 
 export function getConfigJsonPath(): string {
-  const p = path.join(getContinueGlobalPath(), "config.json");
+  const p = path.join(getTntGlobalPath(), "config.json");
   return p;
 }
 
 export function getConfigYamlPath(ideType?: IdeType): string {
-  const p = path.join(getContinueGlobalPath(), "config.yaml");
+  const p = path.join(getTntGlobalPath(), "config.yaml");
   const exists = fs.existsSync(p);
   const isEmpty = exists && fs.readFileSync(p, "utf8").trim() === "";
   const needsCreation = !exists && !fs.existsSync(getConfigJsonPath());
@@ -140,12 +140,12 @@ export function getPrimaryConfigFilePath(): string {
 }
 
 export function getConfigTsPath(): string {
-  const p = path.join(getContinueGlobalPath(), "config.ts");
+  const p = path.join(getTntGlobalPath(), "config.ts");
   if (!fs.existsSync(p)) {
     fs.writeFileSync(p, DEFAULT_CONFIG_TS_CONTENTS);
   }
 
-  const typesPath = path.join(getContinueGlobalPath(), "types");
+  const typesPath = path.join(getTntGlobalPath(), "types");
   if (!fs.existsSync(typesPath)) {
     fs.mkdirSync(typesPath);
   }
@@ -153,14 +153,14 @@ export function getConfigTsPath(): string {
   if (!fs.existsSync(corePath)) {
     fs.mkdirSync(corePath);
   }
-  const packageJsonPath = path.join(getContinueGlobalPath(), "package.json");
+  const packageJsonPath = path.join(getTntGlobalPath(), "package.json");
   if (!fs.existsSync(packageJsonPath)) {
     fs.writeFileSync(
       packageJsonPath,
       JSON.stringify({
         name: "continue-config",
         version: "1.0.0",
-        description: "My Continue Configuration",
+        description: "My TNT Configuration",
         main: "config.js",
       }),
     );
@@ -172,11 +172,11 @@ export function getConfigTsPath(): string {
 
 export function getConfigJsPath(): string {
   // Do not create automatically
-  return path.join(getContinueGlobalPath(), "out", "config.js");
+  return path.join(getTntGlobalPath(), "out", "config.js");
 }
 
 export function getTsConfigPath(): string {
-  const tsConfigPath = path.join(getContinueGlobalPath(), "tsconfig.json");
+  const tsConfigPath = path.join(getTntGlobalPath(), "tsconfig.json");
   if (!fs.existsSync(tsConfigPath)) {
     fs.writeFileSync(
       tsConfigPath,
@@ -209,9 +209,9 @@ export function getTsConfigPath(): string {
   return tsConfigPath;
 }
 
-export function getContinueRcPath(): string {
+export function getTntRcPath(): string {
   // Disable indexing of the config folder to prevent infinite loops
-  const tntrcPath = path.join(getContinueGlobalPath(), ".tntrc.json");
+  const tntrcPath = path.join(getTntGlobalPath(), ".tntrc.json");
   if (!fs.existsSync(tntrcPath)) {
     fs.writeFileSync(
       tntrcPath,
@@ -228,7 +228,7 @@ export function getContinueRcPath(): string {
 }
 
 function getDevDataPath(): string {
-  const sPath = path.join(getContinueGlobalPath(), "dev_data");
+  const sPath = path.join(getTntGlobalPath(), "dev_data");
   if (!fs.existsSync(sPath)) {
     fs.mkdirSync(sPath);
   }
@@ -293,7 +293,7 @@ export function editConfigFile(
 }
 
 function getMigrationsFolderPath(): string {
-  const migrationsPath = path.join(getContinueGlobalPath(), ".migrations");
+  const migrationsPath = path.join(getTntGlobalPath(), ".migrations");
   if (!fs.existsSync(migrationsPath)) {
     fs.mkdirSync(migrationsPath);
   }
@@ -342,8 +342,8 @@ export function getDocsSqlitePath(): string {
   return path.join(getIndexFolderPath(), "docs.sqlite");
 }
 
-export function getContinueDotEnv(): { [key: string]: string } {
-  const filepath = path.join(getContinueGlobalPath(), ".env");
+export function getTntDotEnv(): { [key: string]: string } {
+  const filepath = path.join(getTntGlobalPath(), ".env");
   if (fs.existsSync(filepath)) {
     return dotenv.parse(fs.readFileSync(filepath));
   }
@@ -351,7 +351,7 @@ export function getContinueDotEnv(): { [key: string]: string } {
 }
 
 export function getLogsDirPath(): string {
-  const logsPath = path.join(getContinueGlobalPath(), "logs");
+  const logsPath = path.join(getTntGlobalPath(), "logs");
   if (!fs.existsSync(logsPath)) {
     fs.mkdirSync(logsPath);
   }
@@ -367,7 +367,7 @@ export function getPromptLogsPath(): string {
 }
 
 export function getGlobalFolderWithName(name: string): string {
-  return path.join(getContinueGlobalPath(), name);
+  return path.join(getTntGlobalPath(), name);
 }
 
 export function getGlobalPromptsPath(): string {
@@ -428,15 +428,15 @@ export function migrateV1DevDataFiles() {
 }
 
 export function getLocalEnvironmentDotFilePath(): string {
-  return path.join(getContinueGlobalPath(), ".local");
+  return path.join(getTntGlobalPath(), ".local");
 }
 
 export function getStagingEnvironmentDotFilePath(): string {
-  return path.join(getContinueGlobalPath(), ".staging");
+  return path.join(getTntGlobalPath(), ".staging");
 }
 
 export function getDiffsDirectoryPath(): string {
-  const diffsPath = path.join(getContinueGlobalPath(), ".diffs"); // .replace(/^C:/, "c:"); ??
+  const diffsPath = path.join(getTntGlobalPath(), ".diffs"); // .replace(/^C:/, "c:"); ??
   if (!fs.existsSync(diffsPath)) {
     fs.mkdirSync(diffsPath, {
       recursive: true,
