@@ -4,8 +4,6 @@ import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import type { AuthConfig } from "../auth/workos.js";
-
 import { initializeWithOnboarding } from "./onboarding.js";
 
 const questionMock = vi.fn();
@@ -16,14 +14,12 @@ vi.mock("../utils/prompt.js", () => ({
 
 describe("onboarding config flag handling", () => {
   let tempDir: string;
-  let mockAuthConfig: AuthConfig;
 
   beforeEach(() => {
     // Create a temporary directory for test config files
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-test-"));
 
     // Auth config is always null after Hub removal
-    mockAuthConfig = null;
   });
 
   afterEach(() => {
@@ -47,9 +43,7 @@ describe("onboarding config flag handling", () => {
     expect(fs.existsSync(configPath)).toBe(false);
 
     // Should throw an error that mentions both the path and the failure
-    await expect(
-      initializeWithOnboarding(mockAuthConfig, configPath),
-    ).rejects.toThrow(
+    await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
       /Failed to load config from ".*non-existent\.yaml": .*ENOENT/,
     );
   });
@@ -73,9 +67,9 @@ models:
     expect(fs.existsSync(configPath)).toBe(true);
 
     // Should throw an error mentioning the path and failure to load
-    await expect(
-      initializeWithOnboarding(mockAuthConfig, configPath),
-    ).rejects.toThrow(/Failed to load config from ".*malformed\.yaml": .+/);
+    await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
+      /Failed to load config from ".*malformed\.yaml": .+/,
+    );
   });
 
   test("should fail loudly when --config points to file with missing required fields", async () => {
@@ -96,9 +90,9 @@ models: "not a list"
     expect(fs.existsSync(configPath)).toBe(true);
 
     // Should throw with our specific error format and include path
-    await expect(
-      initializeWithOnboarding(mockAuthConfig, configPath),
-    ).rejects.toThrow(/^Failed to load config from ".*": .+/);
+    await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
+      /^Failed to load config from ".*": .+/,
+    );
   });
 
   test("should handle different config path formats with proper error messages", async () => {
@@ -110,15 +104,15 @@ models: "not a list"
     ];
 
     for (const configPath of testPaths) {
-      await expect(
-        initializeWithOnboarding(mockAuthConfig, configPath),
-      ).rejects.toThrow(/Failed to load config from ".*": .+/);
+      await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
+        /Failed to load config from ".*": .+/,
+      );
     }
   });
 
   test("should handle empty string config path", async () => {
     // Loads default agent with no error
-    await initializeWithOnboarding(mockAuthConfig, "");
+    await initializeWithOnboarding("");
   });
 
   test("should not fall back to default config when explicit config fails", async () => {
@@ -127,7 +121,7 @@ models: "not a list"
     // Create a bad config file
     fs.writeFileSync(configPath, "invalid: yaml: content: [");
 
-    const promise = initializeWithOnboarding(mockAuthConfig, configPath);
+    const promise = initializeWithOnboarding(configPath);
 
     await expect(promise).rejects.toThrow();
 
@@ -154,13 +148,13 @@ models: "not a list"
     fs.writeFileSync(badConfigPath, "invalid yaml [");
 
     // Case 1: Explicit --config that fails should throw our specific error
-    await expect(
-      initializeWithOnboarding(mockAuthConfig, badConfigPath),
-    ).rejects.toThrow(/^Failed to load config from "/);
+    await expect(initializeWithOnboarding(badConfigPath)).rejects.toThrow(
+      /^Failed to load config from "/,
+    );
 
     // Case 2: No explicit config should follow different logic
     try {
-      await initializeWithOnboarding(mockAuthConfig, undefined);
+      await initializeWithOnboarding(undefined);
       // If it succeeds, that's fine - the point is it's different behavior
     } catch (error) {
       const errorMessage =
@@ -174,7 +168,6 @@ models: "not a list"
 // Separate describe block with its own mocking for BEDROCK tests
 describe("CONTINUE_USE_BEDROCK environment variable", () => {
   const mockConsoleLog = vi.fn();
-  let mockAuthConfig: AuthConfig;
   const originalEnv = process.env.CONTINUE_USE_BEDROCK;
 
   // Mock initialize for these tests only
@@ -195,8 +188,6 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
 
     // Mock the config module
     vi.doMock("../config/index.js", () => ({ initialize: mockInitialize }));
-
-    mockAuthConfig = null;
   });
 
   afterEach(() => {

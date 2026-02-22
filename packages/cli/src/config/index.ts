@@ -2,7 +2,6 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
 import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
-import { AuthConfig } from "../auth/workos.js";
 import { t } from "../i18n/index.js";
 import { getUniqueId } from "../utils/uniqueId.js";
 
@@ -31,12 +30,9 @@ function withCorrelationHeader(
 }
 
 /**
- * Creates an LLM API instance from a ModelConfig and auth configuration
+ * Creates an LLM API instance from a ModelConfig
  */
-export function createLlmApi(
-  model: ModelConfig,
-  _authConfig: AuthConfig,
-): BaseLlmApi | null {
+export function createLlmApi(model: ModelConfig): BaseLlmApi | null {
   const config: LLMConfig = {
     provider: model.provider as any,
     model: model.model,
@@ -51,7 +47,6 @@ export function createLlmApi(
 
 export function getLlmApi(
   assistant: AssistantUnrolled,
-  authConfig: AuthConfig,
 ): [BaseLlmApi, ModelConfig] {
   if (!assistant.models || assistant.models.length === 0) {
     throw new Error(t("config.noModels"));
@@ -70,7 +65,7 @@ export function getLlmApi(
   // fails at the provider with a message about a field the user never wrote.
   assertModelChoices([model]);
 
-  const llmApi = createLlmApi(model, authConfig);
+  const llmApi = createLlmApi(model);
 
   if (!llmApi) {
     throw new Error(t("config.llmInitFailed"));

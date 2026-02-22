@@ -3,19 +3,17 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // Mock dependencies before imports
 vi.mock("../config/index.js");
-vi.mock("../auth/workos.js");
+vi.mock("../utils/modelPersistence.js");
 
 import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
-import * as workos from "../auth/workos.js";
-import { AuthConfig } from "../auth/workos.js";
 import * as config from "../config/index.js";
+import * as modelPersistence from "../utils/modelPersistence.js";
 
 import { ModelService } from "./ModelService.js";
 
 describe("ModelService", () => {
   let service: ModelService;
   let mockAssistant: AssistantUnrolled;
-  let mockAuthConfig: AuthConfig;
   const mockLlmApi = { complete: vi.fn(), stream: vi.fn() };
 
   beforeEach(() => {
@@ -49,8 +47,6 @@ describe("ModelService", () => {
         } as ModelConfig,
       ],
     } as AssistantUnrolled;
-
-    mockAuthConfig = null;
   });
 
   describe("State Management", () => {
@@ -59,36 +55,39 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      vi.mocked(workos.getModelName).mockReturnValue(null);
+      vi.mocked(modelPersistence.getPersistedModelName).mockReturnValue(null);
 
-      const state = await service.initialize(mockAssistant, mockAuthConfig);
+      const state = await service.initialize(mockAssistant);
 
       expect(state).toEqual({
         llmApi: mockLlmApi,
         model: mockAssistant.models![0],
         assistant: mockAssistant,
-        authConfig: mockAuthConfig,
       });
     });
 
     test("should initialize with persisted model if valid", async () => {
-      vi.mocked(workos.getModelName).mockReturnValue("Claude 3");
+      vi.mocked(modelPersistence.getPersistedModelName).mockReturnValue(
+        "Claude 3",
+      );
       vi.mocked(config.createLlmApi).mockReturnValue(mockLlmApi as any);
 
-      const state = await service.initialize(mockAssistant, mockAuthConfig);
+      const state = await service.initialize(mockAssistant);
 
       expect(state.model?.name).toBe("Claude 3");
       expect(state.llmApi).toStrictEqual(mockLlmApi);
     });
 
     test("should fall back to default if persisted model not found", async () => {
-      vi.mocked(workos.getModelName).mockReturnValue("Non-existent Model");
+      vi.mocked(modelPersistence.getPersistedModelName).mockReturnValue(
+        "Non-existent Model",
+      );
       vi.mocked(config.getLlmApi).mockReturnValue([
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
 
-      const state = await service.initialize(mockAssistant, mockAuthConfig);
+      const state = await service.initialize(mockAssistant);
 
       expect(state.model).toBe(mockAssistant.models![0]);
     });
@@ -100,7 +99,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       const newLlmApi = { complete: vi.fn(), stream: vi.fn() };
       vi.mocked(config.createLlmApi).mockReturnValue(newLlmApi as any);
@@ -111,7 +110,6 @@ describe("ModelService", () => {
         llmApi: newLlmApi,
         model: mockAssistant.models![1],
         assistant: mockAssistant,
-        authConfig: mockAuthConfig,
       });
       expect(service.getState()).toEqual(state);
     });
@@ -121,7 +119,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       await expect(service.switchModel(5)).rejects.toThrow(
         "Invalid model index: 5. Available models: 0-1",
@@ -144,7 +142,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       const models = service.getAvailableChatModels();
 
@@ -181,7 +179,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         assistantWithUndefinedRoles.models![0] as ModelConfig,
       ]);
-      await service.initialize(assistantWithUndefinedRoles, mockAuthConfig);
+      await service.initialize(assistantWithUndefinedRoles);
 
       const models = service.getAvailableChatModels();
 
@@ -201,7 +199,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       expect(service.getCurrentModelIndex()).toBe(0);
 
@@ -221,7 +219,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       expect(service.getModelIndexByName("GPT-4")).toBe(0);
       expect(service.getModelIndexByName("Claude 3")).toBe(1);
@@ -233,7 +231,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       expect(service.getModelIndexByName("GPT-4", "openai")).toBe(0);
       expect(service.getModelIndexByName("GPT-4", "anthropic")).toBe(-1);
@@ -246,7 +244,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       expect(service.getModelInfo()).toEqual({
         provider: "openai",
@@ -269,7 +267,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       expect(service.isReady()).toBe(true);
     });
@@ -279,19 +277,15 @@ describe("ModelService", () => {
         null as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       expect(service.isReady()).toBe(false);
     });
   });
 
   describe("getDependencies()", () => {
-    test("should declare auth, config, and agent-file dependencies", () => {
-      expect(service.getDependencies()).toEqual([
-        "auth",
-        "config",
-        "agentFile",
-      ]);
+    test("should declare config and agent-file dependencies", () => {
+      expect(service.getDependencies()).toEqual(["config", "agentFile"]);
     });
   });
 
@@ -301,7 +295,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       const listener = vi.fn();
       service.on("stateChanged", listener);
@@ -327,7 +321,7 @@ describe("ModelService", () => {
         mockLlmApi as any,
         mockAssistant.models![0] as ModelConfig,
       ]);
-      await service.initialize(mockAssistant, mockAuthConfig);
+      await service.initialize(mockAssistant);
 
       const errorListener = vi.fn();
       service.on("error", errorListener);

@@ -5,11 +5,11 @@ import * as path from "path";
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { getPersistedModelName, persistModelName } from "./modelPersistence.js";
+
 import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
-import { getModelName, updateModelName } from "../auth/workos.js";
 import * as config from "../config/index.js";
 import { ModelService } from "../services/ModelService.js";
-import { persistModelName } from "../utils/modelPersistence.js";
 
 // Mock the config module
 vi.mock("../config/index.js");
@@ -94,10 +94,10 @@ describe("Model Persistence User Flow", () => {
     expect(modelInfo?.name).toBe("Claude 3.5 Sonnet");
 
     // updateModelName persists via GlobalContext
-    updateModelName("Claude 3.5 Sonnet");
+    persistModelName("Claude 3.5 Sonnet");
 
     // Verify it was saved
-    expect(getModelName(null)).toBe("Claude 3.5 Sonnet");
+    expect(getPersistedModelName()).toBe("Claude 3.5 Sonnet");
 
     // Session 2: User reopens CLI
     // Initialize ModelService with fresh state (auth is always null)

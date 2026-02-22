@@ -5,14 +5,11 @@ import * as path from "path";
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { getPersistedModelName, persistModelName } from "./modelPersistence.js";
+
 import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
-import { getModelName, updateModelName } from "../auth/workos.js";
 import * as config from "../config/index.js";
 import { ModelService } from "../services/ModelService.js";
-import {
-  getPersistedModelName,
-  persistModelName,
-} from "../utils/modelPersistence.js";
 
 // Mock the config module
 vi.mock("../config/index.js");
@@ -84,14 +81,14 @@ describe("Model Persistence (Hub auth removed)", () => {
 
   test("should persist model selection via GlobalContext", () => {
     // Auth is always null now
-    updateModelName("Claude 3.5 Sonnet");
+    persistModelName("Claude 3.5 Sonnet");
 
     // Verify it was saved to GlobalContext
     const persistedModel = getPersistedModelName();
     expect(persistedModel).toBe("Claude 3.5 Sonnet");
 
     // Verify getModelName returns it for null config
-    expect(getModelName(null)).toBe("Claude 3.5 Sonnet");
+    expect(getPersistedModelName()).toBe("Claude 3.5 Sonnet");
   });
 
   test("should restore model selection on next session", async () => {
@@ -100,7 +97,7 @@ describe("Model Persistence (Hub auth removed)", () => {
     await modelService.initialize(mockAssistant, null);
 
     await modelService.switchModel(1);
-    updateModelName("Claude 3.5 Sonnet");
+    persistModelName("Claude 3.5 Sonnet");
 
     // Session 2: User reopens CLI
     const newModelService = new ModelService();
@@ -113,23 +110,23 @@ describe("Model Persistence (Hub auth removed)", () => {
   test("should handle multiple model switches and persist last one", () => {
     // Perform multiple switches - only verify the final state
     // to avoid race conditions with concurrent test files using the same GlobalContext
-    updateModelName("GPT-4");
-    updateModelName("Claude 3.5 Sonnet");
-    updateModelName("Claude 3 Opus");
-    expect(getModelName(null)).toBe("Claude 3 Opus");
+    persistModelName("GPT-4");
+    persistModelName("Claude 3.5 Sonnet");
+    persistModelName("Claude 3 Opus");
+    expect(getPersistedModelName()).toBe("Claude 3 Opus");
   });
 
   test("should clear model selection when set to null", () => {
-    updateModelName("Claude 3.5 Sonnet");
-    expect(getModelName(null)).toBe("Claude 3.5 Sonnet");
+    persistModelName("Claude 3.5 Sonnet");
+    expect(getPersistedModelName()).toBe("Claude 3.5 Sonnet");
 
-    updateModelName(null);
-    expect(getModelName(null)).toBeNull();
+    persistModelName(null);
+    expect(getPersistedModelName()).toBeNull();
   });
 
   test("should work across config changes", async () => {
     // User switches model with one config
-    updateModelName("Claude 3.5 Sonnet");
+    persistModelName("Claude 3.5 Sonnet");
 
     const modelService = new ModelService();
     let state = await modelService.initialize(mockAssistant, null);
@@ -137,7 +134,7 @@ describe("Model Persistence (Hub auth removed)", () => {
 
     // User switches to a different model
     await modelService.switchModel(2);
-    updateModelName("Claude 3 Opus");
+    persistModelName("Claude 3 Opus");
 
     // Create new service (simulating restart)
     const newModelService = new ModelService();

@@ -13,4 +13,4 @@ export const getLlmApi =
     ) => [any, any]
   >();
 export const getModel = vi.fn<(config: any, modelName: string) => any>();
-export const createLlmApi = vi.fn<(model: any, authConfig: any) => any>();
+export const createLlmApi = vi.fn<(model: any) => any>();
