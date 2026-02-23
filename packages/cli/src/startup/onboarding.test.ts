@@ -2,17 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  test,
-  vi,
-} from "vitest";
-
-import { flushLogs } from "../utils/logger.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { initializeWithOnboarding } from "./onboarding.js";
 
@@ -32,11 +22,9 @@ describe("onboarding config flag handling", () => {
     // Auth config is always null after Hub removal
   });
 
-  // Not deleted between cases: any late log line reopens `<global>/logs`, and
-  // Windows will not remove a directory holding an open or freshly recreated
-  // subtree. One close, one removal, after the last case has logged.
-  afterAll(async () => {
-    await flushLogs();
+  // These cases write config files here and never point the log transport at it,
+  // so the home goes back the way it came, one directory per case.
+  afterEach(() => {
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -278,6 +266,12 @@ describe("interactive provider onboarding writes a real config file", () => {
   });
 
   afterEach(async () => {
+    // The case re-imported the module graph through `resetModules`, so the log
+    // transport it opened points at this case's home and still holds a handle
+    // there. Close that instance - not the one this file imported first - and the
+    // directory below is removable on the first try.
+    const { closeLogs } = await import("../utils/logger.js");
+    await closeLogs();
     if (originalGlobalDir === undefined) {
       delete process.env.CONTINUE_GLOBAL_DIR;
     } else {
@@ -290,11 +284,6 @@ describe("interactive provider onboarding writes a real config file", () => {
     }
     process.stdin.isTTY = originalStdinIsTTY;
     vi.restoreAllMocks();
-  });
-
-  // Same reason as above: close the log transport once, then remove the home.
-  afterAll(async () => {
-    await flushLogs();
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
