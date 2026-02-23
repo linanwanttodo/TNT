@@ -98,17 +98,8 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
 
   serviceContainer.register(
     SERVICE_NAMES.AGENT_FILE,
-    async () => {
-      const apiClientState = await serviceContainer.get<ApiClientServiceState>(
-        SERVICE_NAMES.API_CLIENT,
-      );
-
-      return await agentFileService.initialize(
-        commandOptions.agent,
-        apiClientState,
-      );
-    },
-    [SERVICE_NAMES.API_CLIENT],
+    async () => await agentFileService.initialize(commandOptions.agent),
+    [],
   );
 
   serviceContainer.register(

@@ -60,11 +60,7 @@ describe("ModelService agent file model prioritization", () => {
         prompt: "Test agent",
       },
       slug: "test/agent",
-      agentFileModel: {
-        name: "gpt-4",
-        model: "gpt-4",
-        provider: "openai",
-      },
+      agentFileModel: { name: "gpt-4" },
       parsedRules: null,
       parsedTools: null,
     };
@@ -149,11 +145,7 @@ describe("ModelService agent file model prioritization", () => {
         prompt: "Test agent",
       },
       slug: "test/agent",
-      agentFileModel: {
-        name: "non-existent-model",
-        model: "non-existent",
-        provider: "nonexistent",
-      },
+      agentFileModel: { name: "non-existent-model" },
       parsedRules: null,
       parsedTools: null,
     };
@@ -223,11 +215,7 @@ describe("ModelService agent file model prioritization", () => {
         prompt: "Test agent",
       },
       slug: "test/agent",
-      agentFileModel: {
-        name: "gpt-4",
-        model: "gpt-4",
-        provider: "openai",
-      },
+      agentFileModel: { name: "gpt-4" },
       parsedRules: null,
       parsedTools: null,
     };
@@ -300,11 +288,7 @@ describe("ModelService agent file model prioritization", () => {
         model: "claude-3-haiku",
       },
       slug: "test/agent",
-      agentFileModel: {
-        name: "claude-3-haiku",
-        model: "claude-3-haiku",
-        provider: "anthropic",
-      },
+      agentFileModel: { name: "claude-3-haiku" },
       parsedRules: null,
       parsedTools: null,
     };

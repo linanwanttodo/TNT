@@ -11,21 +11,13 @@ import {
 
 import { getErrorString } from "src/utils/error.js";
 
-import {
-  agentFileProcessor,
-  loadModelFromHub,
-  loadPackageFromHub,
-} from "../config/hubLoader.js";
+import { agentFileProcessor, loadPackageFromHub } from "../config/hubLoader.js";
 import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";
-import {
-  AgentFileServiceState,
-  ApiClientServiceState,
-  SERVICE_NAMES,
-} from "./types.js";
+import { AgentFileServiceState } from "./types.js";
 
 export const EMPTY_AGENT_FILE_STATE: AgentFileServiceState = {
   agentFile: null,
@@ -35,8 +27,9 @@ export const EMPTY_AGENT_FILE_STATE: AgentFileServiceState = {
   agentFileModel: null,
 };
 /**
- * Service for managing agent file state
- * Loads agent files from the hub and extracts model, tools, and prompt information
+ * Service for managing the state of one agent file: the markdown file is read from
+ * disk, and the model, rules and tools it names are recorded for the services that
+ * resolve them against the assistant configuration.
  */
 export class AgentFileService
   extends BaseService<AgentFileServiceState>
@@ -49,7 +42,9 @@ export class AgentFileService
   }
 
   getDependencies(): string[] {
-    return [SERVICE_NAMES.API_CLIENT];
+    // The agent file is read from disk and its model is a name the assistant
+    // configuration resolves, so nothing here waits on the API client.
+    return [];
   }
 
   async getAgentFile(agentPath: string): Promise<AgentFile> {
@@ -99,7 +94,6 @@ export class AgentFileService
    */
   async doInitialize(
     agentFilePath: string | undefined,
-    apiClientState: ApiClientServiceState,
   ): Promise<AgentFileServiceState> {
     if (!agentFilePath) {
       return {
@@ -117,12 +111,11 @@ export class AgentFileService
       });
 
       if (agentFile.model) {
-        if (!apiClientState.apiClient) {
-          throw new Error(t("services.agentModelUnavailable"));
-        }
-        const model = await loadModelFromHub(agentFile.model);
+        // The agent file only names a model; the assistant configuration defines it,
+        // and ModelService matches this name against the models it actually loaded.
+        // Fetching a model package here was a hub call, and the hub is gone.
         this.setState({
-          agentFileModel: model,
+          agentFileModel: { name: agentFile.model },
         });
       }
 
