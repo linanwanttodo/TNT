@@ -58,17 +58,21 @@ describe("FileWatcher", () => {
   });
 
   it("should detect when files are deleted", async () => {
-    // Create a file first
     const testFile = path.join(tempDir, "test.txt");
-    fs.writeFileSync(testFile, "test content");
-
     const callback = vi.fn();
     watcher.onChange(callback);
     watcher.startWatching(tempDir);
 
-    // Delete the file
-    fs.unlinkSync(testFile);
+    // Create the file *after* the watch starts, and wait for that event: it is the
+    // proof the OS handle is live. Deleting straight after `startWatching` raced the
+    // initial scan on macOS, where the unlink landed before anything was being watched
+    // and no event ever arrived.
+    fs.writeFileSync(testFile, "test content");
+    await waitForCall(callback);
+    expect(callback).toHaveBeenCalled();
 
+    callback.mockClear();
+    fs.unlinkSync(testFile);
     await waitForCall(callback);
 
     expect(callback).toHaveBeenCalled();
