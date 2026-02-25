@@ -33,11 +33,6 @@ const KNOWN_UNTRANSLATED_OUTPUT = [
   "ui/FileSearchUI.tsx :: FileSearchUI: Filtered to files",
   'ui/FileSearchUI.tsx :: FileSearchUI: Filtering files with "", total files in state:',
   "ui/utils/historySplitting.ts :: Message splitting exceeded maximum iterations, stopping",
-  "utils/fileWatcher.ts :: Error closing file watcher:",
-  "utils/fileWatcher.ts :: Error in file watcher callback:",
-  "utils/fileWatcher.ts :: Failed to create watcher for :",
-  "utils/fileWatcher.ts :: Failed to watch directory :",
-  "utils/fileWatcher.ts :: File watcher error for :",
   "utils/inputHistory.ts :: Failed to load input history:",
   "utils/inputHistory.ts :: Failed to save input history:",
   // The whole user-facing validation surface, in English; translating it is the
