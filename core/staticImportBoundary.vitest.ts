@@ -5,11 +5,14 @@ import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
 /**
- * The CLI reaches core through `core/config/ConfigHandler.ts`. Whatever those
- * config modules import at runtime decides what ships in a user's installation.
- * Ten runtime imports across two files put 306 core source files in the bundle -
- * every context provider the CLI never calls, every legacy tool definition, 66
- * provider classes and the vendored transformers runtime.
+ * The CLI reaches core's config layer through `core/config/ConfigHandler.ts`,
+ * which sits in the chunk `codebaseSearch` and the `@codebaseIndex` handler
+ * fetch on first use. That chunk is not the process's startup graph - the
+ * entry's eager closure is 442 inputs and holds no registry at all - but
+ * whatever these six files import statically is fetched along with it.
+ * Measured 2026-10-27: 25 registry imports across five files kept 31 provider
+ * modules in that chunk; lazifying `load.ts` and `loadContextProviders.ts`
+ * took the config path's eager graph from 4,452 inputs to 3,806 and left none.
  *
  * `import type` is free: TypeScript erases it and esbuild never sees it. So the
  * rule is not "do not refer to these registries" but "do not load them".
