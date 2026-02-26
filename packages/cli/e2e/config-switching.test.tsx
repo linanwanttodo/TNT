@@ -59,16 +59,6 @@ describe("Config Switching Implementation Test", () => {
     // This is what ConfigService.updateConfigPath uses to load new configs
   });
 
-  test("auth functions exist for assistant slug management", async () => {
-    const authModule = await import("../src/auth/workos.js");
-
-    // Verify auth functions exist for assistant slug handling
-    expect(typeof authModule.loadAuthConfig).toBe("function");
-    expect(typeof authModule.updateAssistantSlug).toBe("function");
-
-    // These are used by ConfigService.updateConfigPath for auth management
-  });
-
   test("expected config switching flow is documented", () => {
     // This test documents the expected behavior:
 

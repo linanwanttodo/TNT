@@ -37,7 +37,7 @@ describe("the CLI identifies a request without replacing the SDK identity", () =
   it("sends the install correlation id on every provider dialect", () => {
     expect(PROVIDERS.length).toBeGreaterThan(4);
     for (const provider of PROVIDERS) {
-      const api: any = createLlmApi({ ...model, provider }, {} as any);
+      const api: any = createLlmApi({ ...model, provider });
       expect(api, provider).toBeTruthy();
       expect(
         api.config.requestOptions.headers["x-tnt-unique-id"],
@@ -48,7 +48,7 @@ describe("the CLI identifies a request without replacing the SDK identity", () =
 
   it("does not send a CLI user-agent over the SDK's own", () => {
     for (const provider of ["openai", "anthropic"]) {
-      const api: any = createLlmApi({ ...model, provider }, {} as any);
+      const api: any = createLlmApi({ ...model, provider });
       expect(api.config.requestOptions.headers, provider).not.toHaveProperty(
         "user-agent",
       );
@@ -56,10 +56,10 @@ describe("the CLI identifies a request without replacing the SDK identity", () =
   });
 
   it("keeps headers the user configured", () => {
-    const api: any = createLlmApi(
-      { ...model, requestOptions: { headers: { "x-team": "platform" } } },
-      {} as any,
-    );
+    const api: any = createLlmApi({
+      ...model,
+      requestOptions: { headers: { "x-team": "platform" } },
+    });
     expect(api.config.requestOptions.headers["x-team"]).toBe("platform");
     expect(api.config.requestOptions.headers["x-tnt-unique-id"]).toBeDefined();
   });

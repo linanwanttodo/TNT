@@ -14,7 +14,6 @@ import { fireConfigChange } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
 import {
   ApiClientServiceState,
-  AuthServiceState,
   ConfigServiceState,
   MCPServiceState,
   ModelServiceState,
@@ -111,22 +110,13 @@ function useTUIChatServices(remoteUrl?: string) {
   const isRemoteMode = useMemo(() => !!remoteUrl, [remoteUrl]);
 
   const { services, allReady: allServicesReady } = useServices<{
-    auth: AuthServiceState;
     config: ConfigServiceState;
     model: ModelServiceState;
     mcp: MCPServiceState;
     apiClient: ApiClientServiceState;
     update: UpdateServiceState;
     toolPermissions: ToolPermissionServiceState;
-  }>([
-    "auth",
-    "config",
-    "model",
-    "mcp",
-    "apiClient",
-    "update",
-    "toolPermissions",
-  ]);
+  }>(["config", "model", "mcp", "apiClient", "update", "toolPermissions"]);
 
   return { services, allServicesReady, isRemoteMode };
 }

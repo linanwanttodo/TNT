@@ -25,7 +25,7 @@ describe("ApiClientService", () => {
       vi.mocked(config.getApiClient).mockReturnValue(mockApiClient as any);
 
       // Auth is always null now; doInitialize ignores the parameter
-      const state = await service.initialize(null);
+      const state = await service.initialize();
 
       expect(state).toEqual({
         apiClient: mockApiClient,
@@ -39,12 +39,12 @@ describe("ApiClientService", () => {
     test("should update api client", async () => {
       // Initialize first
       vi.mocked(config.getApiClient).mockReturnValue(mockApiClient as any);
-      await service.initialize(null);
+      await service.initialize();
 
       // Update
       const newMockApiClient = { ...mockApiClient, extra: true };
       vi.mocked(config.getApiClient).mockReturnValue(newMockApiClient as any);
-      const state = await service.update(null);
+      const state = await service.update();
 
       expect(state).toEqual({
         apiClient: newMockApiClient,
@@ -54,15 +54,13 @@ describe("ApiClientService", () => {
 
     test("should handle update errors", async () => {
       vi.mocked(config.getApiClient).mockReturnValue(mockApiClient as any);
-      await service.initialize(null);
+      await service.initialize();
 
       vi.mocked(config.getApiClient).mockImplementation(() => {
         throw new Error("Failed to create client");
       });
 
-      await expect(service.update(null)).rejects.toThrow(
-        "Failed to create client",
-      );
+      await expect(service.update()).rejects.toThrow("Failed to create client");
     });
   });
 
@@ -73,7 +71,7 @@ describe("ApiClientService", () => {
 
     test("should return true when api client exists", async () => {
       vi.mocked(config.getApiClient).mockReturnValue(mockApiClient as any);
-      await service.initialize(null);
+      await service.initialize();
 
       expect(service.isReady()).toBe(true);
     });
@@ -81,21 +79,21 @@ describe("ApiClientService", () => {
 
   describe("getDependencies()", () => {
     test("should declare auth dependency", () => {
-      expect(service.getDependencies()).toEqual(["auth"]);
+      expect(service.getDependencies()).toEqual([]);
     });
   });
 
   describe("Event Emission", () => {
     test("should emit stateChanged on update", async () => {
       vi.mocked(config.getApiClient).mockReturnValue(mockApiClient as any);
-      await service.initialize(null);
+      await service.initialize();
 
       const listener = vi.fn();
       service.on("stateChanged", listener);
 
       const newMockApiClient = { ...mockApiClient, extra: true };
       vi.mocked(config.getApiClient).mockReturnValue(newMockApiClient as any);
-      await service.update(null);
+      await service.update();
 
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({ apiClient: newMockApiClient }),
@@ -105,7 +103,7 @@ describe("ApiClientService", () => {
 
     test("should emit error on update failure", async () => {
       vi.mocked(config.getApiClient).mockReturnValue(mockApiClient as any);
-      await service.initialize(null);
+      await service.initialize();
 
       const errorListener = vi.fn();
       service.on("error", errorListener);
@@ -115,7 +113,7 @@ describe("ApiClientService", () => {
         throw error;
       });
 
-      await expect(service.update(null)).rejects.toThrow();
+      await expect(service.update()).rejects.toThrow();
       expect(errorListener).toHaveBeenCalledWith(error);
     });
   });

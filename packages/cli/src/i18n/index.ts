@@ -638,8 +638,6 @@ const en = {
   "stream.contextLimitCompactionFailed":
     "Context limit exceeded and compaction failed. Unable to continue.",
   "stream.contextValidationFailed": "Context length validation failed: {error}",
-  "auth.loginUnavailable":
-    "Login is not available. Hub authentication has been removed.",
   "startup.failedToLoadConfigFrom":
     'Failed to load config from "{path}": {error}',
   "config.unknownConfigSourceType": "Unknown config source type: {type}",
@@ -651,7 +649,6 @@ const en = {
   "debug.overallStatus": "Overall Status:",
   "debug.individualServices": "Individual Services:",
   "debug.introConditions": "Intro Message Conditions:",
-  "debug.noAuth": "No auth config",
   "debug.noConfig": "No config",
   "debug.noModel": "No model",
   "debug.noMcp": "No MCP service",
@@ -1246,7 +1243,6 @@ const zhCN: Record<TranslationKey, string> = {
   "stream.contextLimitAfterCompaction": "压缩后仍超出上下文限制：{error}",
   "stream.contextLimitCompactionFailed": "超出上下文限制且压缩失败，无法继续。",
   "stream.contextValidationFailed": "上下文长度校验失败：{error}",
-  "auth.loginUnavailable": "登录不可用。Hub 认证已移除。",
   "startup.failedToLoadConfigFrom": '无法从 "{path}" 加载配置：{error}',
   "config.unknownConfigSourceType": "未知的配置来源类型：{type}",
   "cli.foundValidationErrors": "发现 {count} 个校验错误。",
@@ -1257,7 +1253,6 @@ const zhCN: Record<TranslationKey, string> = {
   "debug.overallStatus": "总体状态：",
   "debug.individualServices": "各服务状态：",
   "debug.introConditions": "欢迎信息条件：",
-  "debug.noAuth": "无认证配置",
   "debug.noConfig": "无配置",
   "debug.noModel": "无模型",
   "debug.noMcp": "无 MCP 服务",
