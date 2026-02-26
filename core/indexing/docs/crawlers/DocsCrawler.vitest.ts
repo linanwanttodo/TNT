@@ -6,11 +6,8 @@ import { TntConfig } from "../../..";
 import { testConfigHandler } from "../../../test/fixtures";
 import FileSystemIde from "../../../util/filesystem";
 
-import DocsCrawler, {
-  ChromiumInstaller,
-  DocsCrawlerType,
-  type PageData,
-} from "./DocsCrawler";
+import DocsCrawler, { DocsCrawlerType, type PageData } from "./DocsCrawler";
+import { ChromiumInstaller } from "./ChromiumCrawler";
 import { commonDocsSites } from "./crawl-test-cases";
 
 // Temporary workaround until we have better caching of Chromium
