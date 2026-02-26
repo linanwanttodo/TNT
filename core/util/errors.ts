@@ -11,17 +11,17 @@ export function getRootCause(err: any): any {
   return err;
 }
 
-export class ContinueError extends Error {
-  reason: ContinueErrorReason;
+export class TntError extends Error {
+  reason: TntErrorReason;
 
-  constructor(reason: ContinueErrorReason, message?: string) {
+  constructor(reason: TntErrorReason, message?: string) {
     super(message);
     this.reason = reason;
-    this.name = "ContinueError";
+    this.name = "TntError";
   }
 }
 
-export enum ContinueErrorReason {
+export enum TntErrorReason {
   // Find and Replace validation errors
   FindAndReplaceIdenticalOldAndNewStrings = "find_and_replace_identical_old_and_new_strings",
   FindAndReplaceMissingOldString = "find_and_replace_missing_old_string",

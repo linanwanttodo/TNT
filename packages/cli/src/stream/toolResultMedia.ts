@@ -1,5 +1,5 @@
 import type { MessageContent } from "core/index.js";
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import type { ToolImage, ToolRunResult } from "../tools/types.js";
 
@@ -29,21 +29,21 @@ export function normalizeToolResult(
     typeof result !== "object" ||
     typeof result.content !== "string"
   ) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "A tool result must be a string or an object with string content.",
     );
   }
   const images = result.images ?? [];
   if (!Array.isArray(images)) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "A tool result's images must be an array.",
     );
   }
   if (images.length > MAX_IMAGES) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `A tool result may carry at most ${MAX_IMAGES} images.`,
     );
   }
@@ -54,14 +54,14 @@ export function normalizeToolResult(
       typeof image.data !== "string" ||
       image.data.trim() === ""
     ) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "Every tool image needs an image/* mime type and base64 data.",
       );
     }
     if ((image.data.length * 3) / 4 > MAX_IMAGE_BYTES) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `A tool image may be at most ${MAX_IMAGE_BYTES / (1024 * 1024)} MB.`,
       );
     }

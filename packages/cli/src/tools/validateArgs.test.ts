@@ -1,4 +1,4 @@
-import { ContinueError } from "core/util/errors.js";
+import { TntError } from "core/util/errors.js";
 import { describe, expect, it } from "vitest";
 
 import { multiEditTool } from "./multiEdit.js";
@@ -57,7 +57,7 @@ describe("validateToolCallArgs", () => {
       throw new Error("expected a rejection");
     })();
 
-    expect(error).toBeInstanceOf(ContinueError);
+    expect(error).toBeInstanceOf(TntError);
     expect(error.message).toContain(
       'Expected: {"filepath": string, "start_line"?: number, "end_line"?: number}',
     );

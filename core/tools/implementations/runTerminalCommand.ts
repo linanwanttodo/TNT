@@ -1,7 +1,7 @@
 import iconv from "iconv-lite";
 import childProcess from "node:child_process";
 import os from "node:os";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { TntError, TntErrorReason } from "../../util/errors";
 import { rewriteCommandWithRtk } from "../../util/rtk";
 
 // Default timeout for terminal commands (2 minutes)
@@ -454,8 +454,8 @@ export const runTerminalCommandImpl: ToolImpl = async (args, extras) => {
                 if (code === 0) {
                   resolve({ stdout, stderr });
                 } else {
-                  const error = new ContinueError(
-                    ContinueErrorReason.CommandExecutionFailed,
+                  const error = new TntError(
+                    TntErrorReason.CommandExecutionFailed,
                     `Command failed with exit code ${code}`,
                   );
                   (error as any).stderr = stderr;

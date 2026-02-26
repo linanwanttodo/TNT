@@ -2,7 +2,7 @@ import generateRepoMap from "../../util/generateRepoMap";
 import { resolveInputPath } from "../../util/pathResolver";
 
 import { ToolImpl } from ".";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { TntError, TntErrorReason } from "../../util/errors";
 import { getStringArg } from "../parseArgs";
 
 export const viewSubdirectoryImpl: ToolImpl = async (args: any, extras) => {
@@ -11,8 +11,8 @@ export const viewSubdirectoryImpl: ToolImpl = async (args: any, extras) => {
   const resolvedPath = await resolveInputPath(extras.ide, directory_path);
 
   if (!resolvedPath) {
-    throw new ContinueError(
-      ContinueErrorReason.DirectoryNotFound,
+    throw new TntError(
+      TntErrorReason.DirectoryNotFound,
       `Directory path "${directory_path}" does not exist or is not accessible.`,
     );
   }
@@ -20,8 +20,8 @@ export const viewSubdirectoryImpl: ToolImpl = async (args: any, extras) => {
   // Check if the resolved path actually exists
   const exists = await extras.ide.fileExists(resolvedPath.uri);
   if (!exists) {
-    throw new ContinueError(
-      ContinueErrorReason.DirectoryNotFound,
+    throw new TntError(
+      TntErrorReason.DirectoryNotFound,
       `Directory path "${directory_path}" does not exist or is not accessible.`,
     );
   }
