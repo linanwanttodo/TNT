@@ -349,7 +349,7 @@ export async function configYamlToTntConfig(options: {
     );
   }
 
-  const { providers, errors: contextErrors } = loadConfigContextProviders(
+  const { providers, errors: contextErrors } = await loadConfigContextProviders(
     config.context,
     !!config.docs?.length,
     ideInfo.ideType,
