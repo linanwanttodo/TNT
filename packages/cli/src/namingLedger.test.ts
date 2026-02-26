@@ -1,3 +1,4 @@
+import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,7 +10,7 @@ import { describe, expect, it } from "vitest";
  * prefix on identifiers. Renaming all of it in one sweep is how a branding change ends up
  * half-done: the files that were missed keep working, so nothing reports them.
  *
- * The ledger below totals 525 tokens across nine areas. It is the number to drive down,
+ * The ledger below totals 520 tokens across nine areas. It is the number to drive down,
  * area by area, with two deliberate holds: `packages/sdk` is dominated by the generated
  * OpenAPI client for the operator's platform API, whose names are the remote contract the
  * generator emits, and a sentence in the past tense about the upstream project stays
@@ -68,25 +69,32 @@ export const RENAMED_DISK_NAMES = [
 // itself as an offender on every run.
 const self = path.relative(repoRoot, fileURLToPath(import.meta.url));
 
-function scannedFiles(dir: string): string[] {
-  const found: string[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      // Hidden directories are tool state (`.mimosa`, `.vite`, `.claude`) and
-      // `.tnt` is guarded by its own accuracy test.
-      if (entry.name.startsWith(".") || SKIP_DIRECTORIES.includes(entry.name))
-        continue;
-      found.push(...scannedFiles(path.join(dir, entry.name)));
-      continue;
-    }
-    if (SKIP_FILENAMES.includes(entry.name)) continue;
-    const extension = entry.name.includes(".")
-      ? entry.name.split(".").pop()
-      : undefined;
-    if (!extension || !SCAN_EXTENSIONS.has(extension)) continue;
-    found.push(path.join(dir, entry.name));
-  }
-  return found;
+/**
+ * Tracked files only. A walk of the working tree counts whatever the local
+ * machine has lying around - a build artifact written into the package was
+ * worth six tokens here and nothing on a fresh checkout, so the frozen numbers
+ * disagreed with CI about the same commit.
+ */
+function scannedFiles(): string[] {
+  const tracked = execFileSync("git", ["ls-files", "-z"], {
+    cwd: repoRoot,
+    maxBuffer: 64 * 1024 * 1024,
+  })
+    .toString()
+    .split("\0")
+    .filter(Boolean);
+
+  return tracked
+    .filter((relative) => {
+      const segments = relative.split("/");
+      const name = segments[segments.length - 1];
+      if (SKIP_FILENAMES.includes(name)) return false;
+      if (segments[0].startsWith(".") || SKIP_DIRECTORIES.includes(segments[0]))
+        return false;
+      const extension = name.includes(".") ? name.split(".").pop() : undefined;
+      return !!extension && SCAN_EXTENSIONS.has(extension);
+    })
+    .map((relative) => path.join(repoRoot, relative));
 }
 
 /** Group by the unit a reviewer owns: one per package, one per top area. */
@@ -104,7 +112,7 @@ export function continueTokenLedger(): {
 } {
   const counts: Record<string, number> = {};
   const staleDiskNames: string[] = [];
-  const files = scannedFiles(repoRoot);
+  const files = scannedFiles();
 
   for (const file of files) {
     if (path.relative(repoRoot, file) === self) continue;
@@ -134,7 +142,7 @@ const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 9,
   actions: 30,
   core: 166,
-  "packages/cli": 98,
+  "packages/cli": 91,
   "packages/config-yaml": 7,
   "packages/llm-info": 1,
   "packages/openai-adapters": 11,
