@@ -8,7 +8,7 @@ import { ConfigYaml, DevEventName } from "@tnt/config-yaml";
 import * as JSONC from "comment-json";
 import dotenv from "dotenv";
 
-import { IdeType, SerializedContinueConfig } from "../";
+import { IdeType, SerializedTntConfig } from "../";
 import { defaultConfig } from "../config/default";
 import Types from "../config/types";
 
@@ -49,10 +49,10 @@ export const DEFAULT_CONFIG_TS_CONTENTS = `export function modifyConfig(config: 
 }`;
 
 export function getChromiumPath(): string {
-  return path.join(getContinueUtilsPath(), ".chromium-browser-snapshots");
+  return path.join(getTntUtilsPath(), ".chromium-browser-snapshots");
 }
 
-export function getContinueUtilsPath(): string {
+export function getTntUtilsPath(): string {
   const utilsPath = path.join(getContinueGlobalPath(), ".utils");
   if (!fs.existsSync(utilsPath)) {
     fs.mkdirSync(utilsPath);
@@ -251,7 +251,7 @@ export function getDevDataFilePath(
 }
 
 function editConfigJson(
-  callback: (config: SerializedContinueConfig) => SerializedContinueConfig,
+  callback: (config: SerializedTntConfig) => SerializedTntConfig,
 ): void {
   const config = fs.readFileSync(getConfigJsonPath(), "utf8");
   let configJson = JSONC.parse(config);
@@ -282,9 +282,7 @@ function editConfigYaml(callback: (config: ConfigYaml) => ConfigYaml): void {
 }
 
 export function editConfigFile(
-  configJsonCallback: (
-    config: SerializedContinueConfig,
-  ) => SerializedContinueConfig,
+  configJsonCallback: (config: SerializedTntConfig) => SerializedTntConfig,
   configYamlCallback: (config: ConfigYaml) => ConfigYaml,
 ): void {
   if (fs.existsSync(getConfigYamlPath())) {
@@ -401,11 +399,11 @@ export function readAllGlobalPromptFiles(
 }
 
 export function getRepoMapFilePath(): string {
-  return path.join(getContinueUtilsPath(), "repo_map.txt");
+  return path.join(getTntUtilsPath(), "repo_map.txt");
 }
 
 export function getEsbuildBinaryPath(): string {
-  return path.join(getContinueUtilsPath(), "esbuild");
+  return path.join(getTntUtilsPath(), "esbuild");
 }
 
 export function migrateV1DevDataFiles() {

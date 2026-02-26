@@ -195,7 +195,7 @@ export interface ContextProviderDescription {
 export type FetchFunction = (url: string | URL, init?: any) => Promise<any>;
 
 export interface ContextProviderExtras {
-  config: ContinueConfig;
+  config: TntConfig;
   fullInput: string;
   embeddingsProvider: ILLM | null;
   reranker: ILLM | null;
@@ -207,7 +207,7 @@ export interface ContextProviderExtras {
 }
 
 export interface LoadSubmenuItemsArgs {
-  config: ContinueConfig;
+  config: TntConfig;
   ide: IDE;
   fetch: FetchFunction;
 }
@@ -1006,7 +1006,7 @@ export interface IDE {
 
 // Slash Commands
 
-export interface ContinueSDK {
+export interface TntSDK {
   ide: IDE;
   llm: ILLM;
   addContextItem: (item: ContextItemWithId) => void;
@@ -1015,7 +1015,7 @@ export interface ContinueSDK {
   params?: { [key: string]: any } | undefined;
   contextItems: ContextItemWithId[];
   selectedCode: RangeInFile[];
-  config: ContinueConfig;
+  config: TntConfig;
   fetch: FetchFunction;
   completionOptions?: LLMFullCompletionOptions;
   abortController: AbortController;
@@ -1030,11 +1030,11 @@ export interface SlashCommandDescription {
 }
 
 export interface SlashCommand extends SlashCommandDescription {
-  run: (sdk: ContinueSDK) => AsyncGenerator<string | undefined>;
+  run: (sdk: TntSDK) => AsyncGenerator<string | undefined>;
 }
 
 export interface SlashCommandWithSource extends SlashCommandDescription {
-  run?: (sdk: ContinueSDK) => AsyncGenerator<string | undefined>; // Optional - only needed for legacy
+  run?: (sdk: TntSDK) => AsyncGenerator<string | undefined>; // Optional - only needed for legacy
   source: SlashCommandSource;
   sourceFile?: string;
   slug?: string;
@@ -1186,7 +1186,7 @@ export interface ToolExtras {
     toolCallId: string;
     contextItems: ContextItem[];
   }) => void;
-  config: ContinueConfig;
+  config: TntConfig;
   codeBaseIndexer?: CodebaseIndexer;
 }
 
@@ -1549,7 +1549,7 @@ export type MCPServerStatus = InternalMcpOptions & {
   sourceFile?: string;
 };
 
-export interface ContinueUIConfig {
+export interface TntUIConfig {
   codeBlockToolbarPosition?: "top" | "bottom";
   fontSize?: number;
   displayRawMarkdown?: boolean;
@@ -1842,7 +1842,7 @@ export interface JSONModelDescription {
 }
 
 // config.json
-export interface SerializedContinueConfig {
+export interface SerializedTntConfig {
   env?: string[];
   allowAnonymousTelemetry?: boolean;
   models: JSONModelDescription[];
@@ -1858,7 +1858,7 @@ export interface SerializedContinueConfig {
   embeddingsProvider?: EmbeddingsProviderDescription;
   tabAutocompleteModel?: JSONModelDescription | JSONModelDescription[];
   tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   reranker?: RerankerDescription;
   experimental?: ExperimentalConfig;
   analytics?: AnalyticsConfig;
@@ -1868,7 +1868,7 @@ export interface SerializedContinueConfig {
 
 export type ConfigMergeType = "merge" | "overwrite";
 
-export type ContinueRcJson = Partial<SerializedContinueConfig> & {
+export type TntRcJson = Partial<SerializedTntConfig> & {
   mergeBehavior: ConfigMergeType;
 };
 
@@ -1907,7 +1907,7 @@ export interface Config {
   /** Options for tab autocomplete */
   tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
   /** UI styles customization */
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   /** Options for the reranker */
   reranker?: RerankerDescription | ILLM;
   /** Experimental configuration */
@@ -1919,7 +1919,7 @@ export interface Config {
 }
 
 // in the actual Continue source code
-export interface ContinueConfig {
+export interface TntConfig {
   allowAnonymousTelemetry?: boolean;
   // systemMessage?: string;
   completionOptions?: BaseCompletionOptions;
@@ -1930,7 +1930,7 @@ export interface ContinueConfig {
   disableIndexing?: boolean;
   userToken?: string;
   tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   experimental?: ExperimentalConfig;
   analytics?: AnalyticsConfig;
   docs?: SiteIndexingConfig[];
@@ -1942,7 +1942,7 @@ export interface ContinueConfig {
   data?: DataDestination[];
 }
 
-export interface BrowserSerializedContinueConfig {
+export interface BrowserSerializedTntConfig {
   allowAnonymousTelemetry?: boolean;
   // systemMessage?: string;
   completionOptions?: BaseCompletionOptions;
@@ -1952,7 +1952,7 @@ export interface BrowserSerializedContinueConfig {
   disableIndexing?: boolean;
   disableSessionTitles?: boolean;
   userToken?: string;
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   experimental?: ExperimentalConfig;
   analytics?: AnalyticsConfig;
   docs?: SiteIndexingConfig[];

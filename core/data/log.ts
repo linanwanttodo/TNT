@@ -12,7 +12,7 @@ import * as URI from "uri-js";
 import { fileURLToPath } from "url";
 import { AnyZodObject } from "zod";
 import type { ConfigHandler } from "../config/ConfigHandler.js";
-import { ContinueConfig, IdeInfo, IdeSettings } from "../index.js";
+import { TntConfig, IdeInfo, IdeSettings } from "../index.js";
 import { getDevDataFilePath } from "../util/paths.js";
 import { joinPathsToUri } from "../util/uri.js";
 
@@ -165,7 +165,7 @@ export class DataLogger {
   }
 
   async logToOneDestination(
-    dataConfig: NonNullable<ContinueConfig["data"]>[number],
+    dataConfig: NonNullable<TntConfig["data"]>[number],
     event: DevDataLogEvent,
   ) {
     try {

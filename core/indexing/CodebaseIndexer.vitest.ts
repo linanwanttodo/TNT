@@ -30,7 +30,7 @@ import { getIndexSqlitePath } from "../util/paths.js";
 
 import { ConfigResult } from "@tnt/config-yaml";
 import CodebaseContextProvider from "../context/providers/CodebaseContextProvider.js";
-import { ContinueConfig } from "../index.js";
+import { TntConfig } from "../index.js";
 import { localPathToUri } from "../util/pathToUri.js";
 import { CodebaseIndexer } from "./CodebaseIndexer.js";
 import { FullTextSearchCodebaseIndex } from "./FullTextSearchCodebaseIndex.js";
@@ -88,9 +88,7 @@ class TestCodebaseIndexer extends CodebaseIndexer {
     return (this as any).hasIndexingContextProvider();
   }
 
-  public async testHandleConfigUpdate(
-    configResult: ConfigResult<ContinueConfig>,
-  ) {
+  public async testHandleConfigUpdate(configResult: ConfigResult<TntConfig>) {
     return (this as any).handleConfigUpdate({ config: configResult.config });
   }
 }
@@ -537,7 +535,7 @@ describe("CodebaseIndexer", () => {
 
     describe("handleConfigUpdate", () => {
       test("should return early when newConfig is null", async () => {
-        const configResult: ConfigResult<ContinueConfig> = {
+        const configResult: ConfigResult<TntConfig> = {
           config: null as any,
           errors: [],
           configLoadInterrupted: false,
@@ -550,7 +548,7 @@ describe("CodebaseIndexer", () => {
       });
 
       test("should return early when newConfig is undefined", async () => {
-        const configResult: ConfigResult<ContinueConfig> = {
+        const configResult: ConfigResult<TntConfig> = {
           config: undefined as any,
           errors: [],
           configLoadInterrupted: false,
@@ -563,7 +561,7 @@ describe("CodebaseIndexer", () => {
       });
 
       test("should return early when no codebase context provider is present", async () => {
-        const configResult: ConfigResult<ContinueConfig> = {
+        const configResult: ConfigResult<TntConfig> = {
           config: {
             contextProviders: [
               {
@@ -578,7 +576,7 @@ describe("CodebaseIndexer", () => {
                 provider: "test-provider",
               },
             },
-          } as unknown as ContinueConfig,
+          } as unknown as TntConfig,
           errors: [],
           configLoadInterrupted: false,
         };
@@ -590,13 +588,13 @@ describe("CodebaseIndexer", () => {
       });
 
       test("should return early when no embed model is configured", async () => {
-        const configResult: ConfigResult<ContinueConfig> = {
+        const configResult: ConfigResult<TntConfig> = {
           config: {
             contextProviders: [new CodebaseContextProvider({})],
             selectedModelByRole: {
               embed: undefined,
             },
-          } as unknown as ContinueConfig,
+          } as unknown as TntConfig,
           errors: [],
           configLoadInterrupted: false,
         };
@@ -608,7 +606,7 @@ describe("CodebaseIndexer", () => {
       });
 
       test("should call refreshCodebaseIndex when all conditions are met", async () => {
-        const configResult: ConfigResult<ContinueConfig> = {
+        const configResult: ConfigResult<TntConfig> = {
           config: {
             contextProviders: [new CodebaseContextProvider({})],
             selectedModelByRole: {
@@ -617,7 +615,7 @@ describe("CodebaseIndexer", () => {
                 provider: "test-provider",
               },
             },
-          } as unknown as ContinueConfig,
+          } as unknown as TntConfig,
           errors: [],
           configLoadInterrupted: false,
         };
@@ -640,9 +638,9 @@ describe("CodebaseIndexer", () => {
               provider: "test-provider",
             },
           },
-        } as unknown as ContinueConfig;
+        } as unknown as TntConfig;
 
-        const configResult: ConfigResult<ContinueConfig> = {
+        const configResult: ConfigResult<TntConfig> = {
           config: testConfig,
           errors: [],
           configLoadInterrupted: false,
@@ -657,7 +655,7 @@ describe("CodebaseIndexer", () => {
       });
 
       test("should handle multiple context providers correctly", async () => {
-        const configResult: ConfigResult<ContinueConfig> = {
+        const configResult: ConfigResult<TntConfig> = {
           config: {
             contextProviders: [
               {
@@ -678,7 +676,7 @@ describe("CodebaseIndexer", () => {
                 provider: "test-provider",
               },
             },
-          } as unknown as ContinueConfig,
+          } as unknown as TntConfig,
           errors: [],
           configLoadInterrupted: false,
         };

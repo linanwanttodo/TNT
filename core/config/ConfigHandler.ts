@@ -1,8 +1,8 @@
 import { ConfigResult, ConfigValidationError } from "@tnt/config-yaml";
 
 import {
-  BrowserSerializedContinueConfig,
-  ContinueConfig,
+  BrowserSerializedTntConfig,
+  TntConfig,
   IContextProvider,
   IDE,
   IdeSettings,
@@ -26,7 +26,7 @@ import {
 
 export type { ProfileDescription };
 
-type ConfigUpdateFunction = (payload: ConfigResult<ContinueConfig>) => void;
+type ConfigUpdateFunction = (payload: ConfigResult<TntConfig>) => void;
 
 export class ConfigHandler {
   private readonly globalContext = new GlobalContext();
@@ -283,7 +283,7 @@ export class ConfigHandler {
   }
 
   // Listeners setup - can listen to current profile updates
-  private notifyConfigListeners(result: ConfigResult<ContinueConfig>) {
+  private notifyConfigListeners(result: ConfigResult<TntConfig>) {
     for (const listener of this.updateListeners) {
       listener(result);
     }
@@ -299,7 +299,7 @@ export class ConfigHandler {
   // Serialized for passing to GUI
   // Load for just awaiting current config load promise for the profile
   async getSerializedConfig(): Promise<
-    ConfigResult<BrowserSerializedContinueConfig>
+    ConfigResult<BrowserSerializedTntConfig>
   > {
     await this.isInitialized;
     if (!this.currentProfile) {
@@ -314,7 +314,7 @@ export class ConfigHandler {
     );
   }
 
-  async loadConfig(): Promise<ConfigResult<ContinueConfig>> {
+  async loadConfig(): Promise<ConfigResult<TntConfig>> {
     await this.isInitialized;
     if (!this.currentProfile) {
       return {
