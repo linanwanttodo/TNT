@@ -37,6 +37,8 @@ const mockExistsSync = vi.mocked(fs.existsSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 const mockCreateTwoFilesPatch = vi.mocked(diff.createTwoFilesPatch);
 
+import { toDisplayPath } from "../utils/displayPath.js";
+
 import { fetchTool } from "./fetch.js";
 import { formatToolArgument } from "./formatters.js";
 import { listFilesTool } from "./listFiles.js";
@@ -119,10 +121,12 @@ describe("Tool preprocess functions", () => {
     it("refuses a path that is not there, with the tool's own reason", async () => {
       await expect(
         listFilesTool.preprocess!({ dirpath: "/no/such/directory" }),
-        // The tool reports the path the way the platform resolved it, so on Windows
-        // `/no/such/directory` arrives as `D:\no\such\directory`; compare the same bytes.
+        // The tool reports the path the platform resolved it to, rendered in the
+        // display spelling: forward slashes even on a Windows drive.
       ).rejects.toThrow(
-        `Directory does not exist: ${path.resolve("/no/such/directory")}`,
+        `Directory does not exist: ${toDisplayPath(
+          path.resolve("/no/such/directory"),
+        )}`,
       );
     });
   });
