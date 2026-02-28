@@ -2,7 +2,15 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest";
 
 import { flushLogs } from "../utils/logger.js";
 
@@ -24,10 +32,10 @@ describe("onboarding config flag handling", () => {
     // Auth config is always null after Hub removal
   });
 
-  afterEach(async () => {
-    // The file transport keeps a stream open inside `<global dir>/logs`, and
-    // Windows will not remove a directory with an open handle in it: ten seconds
-    // of retries did not outlast it. Closing the transport is what frees it.
+  // Not deleted between cases: any late log line reopens `<global>/logs`, and
+  // Windows will not remove a directory holding an open or freshly recreated
+  // subtree. One close, one removal, after the last case has logged.
+  afterAll(async () => {
     await flushLogs();
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
@@ -282,8 +290,14 @@ describe("interactive provider onboarding writes a real config file", () => {
     }
     process.stdin.isTTY = originalStdinIsTTY;
     vi.restoreAllMocks();
+  });
+
+  // Same reason as above: close the log transport once, then remove the home.
+  afterAll(async () => {
     await flushLogs();
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   test("protocol -> url -> key -> model lands a minimal config on disk", async () => {
