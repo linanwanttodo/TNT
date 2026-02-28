@@ -32,7 +32,13 @@ export interface CLIRunResult {
 export async function createTestContext(): Promise<CLITestContext> {
   // Use the wrapper script that invokes runCli(), not the raw bundle entry
   const cliPath = path.resolve("dist/tnt.js");
-  const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "tnt-test-"));
+  // macOS reports the same directory two ways (`/var` is a link to
+  // `/private/var`), and the CLI resolves the cwd it is given before it uses it.
+  // Creating the harness directory in its canonical form keeps every e2e path
+  // comparison about the file rather than the spelling the platform answered with.
+  const testDir = await fs.realpath(
+    await fs.mkdtemp(path.join(os.tmpdir(), "tnt-test-")),
+  );
 
   // Ensure the CLI file exists before returning the context
   try {
