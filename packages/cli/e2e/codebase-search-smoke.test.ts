@@ -245,12 +245,17 @@ context:
       timeout: 90_000,
     });
 
+    // An empty result is the only symptom this suite had for a long time, and
+    // it says nothing about which stage came up short: the tool echoes the
+    // query into "No matches", so the run's own stderr and the requests the
+    // mock actually saw are what make a red run here readable.
+    const detail = `tool result: ${JSON.stringify(toolResult)}\nrequests seen: ${requestPaths.join(", ")}\nstderr: ${result.stderr.slice(-1500)}`;
+
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Cited the search result.");
+    expect(result.stdout, detail).toContain("Cited the search result.");
     expect(chatRequests).toBeGreaterThanOrEqual(2);
     expect(requestPaths).toContain("POST /embeddings");
-    expect(toolResult).toContain("computeFibonacciSequence");
-    expect(toolResult).toContain(path.join("src", "math.ts"));
+    expect(toolResult, detail).toContain(path.join("src", "math.ts"));
     expect(toolResult).toMatch(/:\d+:\d+/);
   }, 120_000);
 });
