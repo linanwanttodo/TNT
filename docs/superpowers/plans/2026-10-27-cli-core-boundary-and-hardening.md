@@ -14,11 +14,11 @@
 
 另一个 agent 正在 `dev/p0-hardening` 上工作，因此本计划**不在主检出目录里改任何文件**。
 
-| 项 | 值 |
-| --- | --- |
-| 主检出（另一个 agent） | `/home/lin/All_projects/GithubProjects/continue`，分支 `dev/p0-hardening` |
-| 本计划的隔离工作区 | `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree`，分支 `test` |
-| 基线提交 | `e532b4971`（与 `origin/main` 同一提交） |
+| 项                     | 值                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| 主检出（另一个 agent） | `/home/lin/All_projects/GithubProjects/continue`，分支 `dev/p0-hardening`      |
+| 本计划的隔离工作区     | `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree`，分支 `test` |
+| 基线提交               | `e532b4971`（与 `origin/main` 同一提交）                                       |
 
 隔离工作区已用 `git worktree add` 建好，位置放在 `.vitest/` 下——该目录在 `.gitignore`、`.prettierignore`（`.vitest`）和 `packages/cli/eslint.config.js`（`**/.vitest/**`）里都已忽略，所以它不会污染主检出的 `git status`、格式化检查和 lint 检查，也不需要在仓库里新增任何忽略条目。
 
@@ -60,16 +60,16 @@ console.log("core sources bundled:", core.length);'
 
 实测结果：
 
-| 指标 | 数值 |
-| --- | --- |
-| `packages/cli/dist` 总计 | **136 MB**（31 MB JS + 78 MB sourcemap） |
-| 单个 `service-*.js` chunk | **16 MB** |
-| 打进包的 core 源文件 | **306 个**（另有 3,531 个 `core/node_modules` 文件） |
-| 其中 `core/context/*` | **44 个文件（全部）** |
-| 其中 `core/tools/*` | **43 个文件** |
-| 其中 `core/llm/llms/*` provider 类 | **66 个** |
-| 其中 `core/vendor/@xenova/transformers` | 14 个文件 |
-| CLI 源码中对 `core/context` 的引用 | **0 次** |
+| 指标                                    | 数值                                                 |
+| --------------------------------------- | ---------------------------------------------------- |
+| `packages/cli/dist` 总计                | **136 MB**（31 MB JS + 78 MB sourcemap）             |
+| 单个 `service-*.js` chunk               | **16 MB**                                            |
+| 打进包的 core 源文件                    | **306 个**（另有 3,531 个 `core/node_modules` 文件） |
+| 其中 `core/context/*`                   | **44 个文件（全部）**                                |
+| 其中 `core/tools/*`                     | **43 个文件**                                        |
+| 其中 `core/llm/llms/*` provider 类      | **66 个**                                            |
+| 其中 `core/vendor/@xenova/transformers` | 14 个文件                                            |
+| CLI 源码中对 `core/context` 的引用      | **0 次**                                             |
 
 也就是说：这 44 个 context provider、43 个遗留工具定义、66 个 provider 类**没有一个是 CLI 源码直接引用的**（见上表「CLI 源码中对 `core/context` 的引用 0 次」），但每一个都进了用户安装包里、并且被配置层的 eager 闭包拉着求值。
 
@@ -86,33 +86,32 @@ packages/cli/src/retrieval/service.ts:1
 
 下表是**改动前 `core/config/load.ts` 的 9 行 + `core/llm/index.ts` 的 1 行**，共 10 处。当时据此写下「就是全部原因」，这句已被推翻：注册表经 5 个文件共 25 处进入配置层，下表只是最大的一处。完整清单与各自状态见交接文档 §3.1。
 
-| 行 | 导入 | 拖进来的东西 |
-| --- | --- | --- |
-| 38 | `{ MCPManagerSingleton } from "../context/mcp/MCPManagerSingleton"` | context/mcp 子树 |
-| 39 | `{ BaseLLM } from "../llm"` | core/llm 索引 |
-| 40 | `{ LLMClasses, llmFromDescription } from "../llm/llms"` | **66 个 provider 类** |
-| 41 | `CustomLLMClass from "../llm/llms/CustomLLM"` | provider 子树 |
-| 42 | `{ LLMReranker } from "../llm/llms/llm"` | provider 子树 |
-| 43 | `TransformersJsEmbeddingsProvider from "../llm/llms/TransformersJsEmbeddingsProvider"` | **vendored transformers 运行时** |
-| 59 | `{ loadJsonMcpConfigs } from "../context/mcp/json/loadJsonMcpConfigs"` | context/mcp 子树 |
-| 60 | `CustomContextProviderClass from "../context/providers/CustomContextProvider"` | context/providers 子树 |
-| 61 | `{ getBaseToolDefinitions, serializeTool } from "../tools"` | **43 个遗留工具定义** |
-| — | `core/llm/index.ts:69` `applyToolOverrides from "../tools/applyToolOverrides.js"` | 遗留工具子树（同方向第二处） |
-
+| 行  | 导入                                                                                   | 拖进来的东西                     |
+| --- | -------------------------------------------------------------------------------------- | -------------------------------- |
+| 38  | `{ MCPManagerSingleton } from "../context/mcp/MCPManagerSingleton"`                    | context/mcp 子树                 |
+| 39  | `{ BaseLLM } from "../llm"`                                                            | core/llm 索引                    |
+| 40  | `{ LLMClasses, llmFromDescription } from "../llm/llms"`                                | **66 个 provider 类**            |
+| 41  | `CustomLLMClass from "../llm/llms/CustomLLM"`                                          | provider 子树                    |
+| 42  | `{ LLMReranker } from "../llm/llms/llm"`                                               | provider 子树                    |
+| 43  | `TransformersJsEmbeddingsProvider from "../llm/llms/TransformersJsEmbeddingsProvider"` | **vendored transformers 运行时** |
+| 59  | `{ loadJsonMcpConfigs } from "../context/mcp/json/loadJsonMcpConfigs"`                 | context/mcp 子树                 |
+| 60  | `CustomContextProviderClass from "../context/providers/CustomContextProvider"`         | context/providers 子树           |
+| 61  | `{ getBaseToolDefinitions, serializeTool } from "../tools"`                            | **43 个遗留工具定义**            |
+| —   | `core/llm/index.ts:69` `applyToolOverrides from "../tools/applyToolOverrides.js"`      | 遗留工具子树（同方向第二处）     |
 
 **关键事实：这些导入全部只在函数体内被使用**（`load.ts:243` 起至 `632`），没有任何一个在模块顶层求值。函数 `intermediateToFinalConfig` 本身是 `async`。所以「改成惰性导入」在这份代码上是安全的，不需要改任何调用方签名。
 
 ### 2.3 `core/index.d.ts` 是手写的中枢类型模块
 
-| 指标 | 数值 |
-| --- | --- |
-| 行数 | **2,142** |
-| `export interface` | 128 |
-| `export type` | 51 |
-| `export class` | 3 |
-| `export enum` | 2 |
-| `export ... from "..."` 再导出 | **0** |
-| 顶部 `import` 行 | 7 |
+| 指标                           | 数值      |
+| ------------------------------ | --------- |
+| 行数                           | **2,142** |
+| `export interface`             | 128       |
+| `export type`                  | 51        |
+| `export class`                 | 3         |
+| `export enum`                  | 2         |
+| `export ... from "..."` 再导出 | **0**     |
+| 顶部 `import` 行               | 7         |
 
 它不是从 core 各模块再导出的桶，而是**手写的集中类型声明**：`ChatHistoryItem`、`ChunkWithoutID`、`IContextProvider`、`IDE`、`ModelDescription` 这些名字在整个 core 里**只**在 `core/index.d.ts` 里声明，core 自己的模块反过来 `import type { ... } from "../index.js"` 取用它们。
 
@@ -174,18 +173,18 @@ packages/cli/src/retrieval/service.ts:1
 
 ## File Structure
 
-| 文件 | 责任 | 动作 |
-| --- | --- | --- |
-| `core/staticImportBoundary.vitest.ts` | 冻结「哪些 core 文件不允许在运行时导入注册表」的边界 | 新建 |
-| `core/indexContract.vitest.ts` | 冻结 `core/index.d.ts` 的规模与结构计数 | 新建 |
-| `core/config/load.ts` | 配置装配；把注册表导入改为惰性 | 修改 |
-| `core/llm/index.ts` | core 的 LLM 索引；把 `../tools` 导入改为惰性 | 修改 |
-| `packages/cli/src/docsLocaleCoverage.test.ts` | 断言每份英文文档都有中文孪生页 | 新建 |
-| `docs/zh/troubleshooting.mdx` | 中文故障排查页 | 新建 |
-| `docs/zh/reference.mdx` | 中文参考页 | 新建 |
-| `docs/zh/snippets/cli-install.mdx` | 中文安装片段 | 新建 |
-| `packages/cli/eslint.config.js` | 把 `no-floating-promises` 提为 error | 修改 |
-| `packages/cli/src/floatingPromises.ratchet.test.ts` | 冻结现存 floating promise 违规清单 | 新建 |
+| 文件                                                | 责任                                                 | 动作 |
+| --------------------------------------------------- | ---------------------------------------------------- | ---- |
+| `core/staticImportBoundary.vitest.ts`               | 冻结「哪些 core 文件不允许在运行时导入注册表」的边界 | 新建 |
+| `core/indexContract.vitest.ts`                      | 冻结 `core/index.d.ts` 的规模与结构计数              | 新建 |
+| `core/config/load.ts`                               | 配置装配；把注册表导入改为惰性                       | 修改 |
+| `core/llm/index.ts`                                 | core 的 LLM 索引；把 `../tools` 导入改为惰性         | 修改 |
+| `packages/cli/src/docsLocaleCoverage.test.ts`       | 断言每份英文文档都有中文孪生页                       | 新建 |
+| `docs/zh/troubleshooting.mdx`                       | 中文故障排查页                                       | 新建 |
+| `docs/zh/reference.mdx`                             | 中文参考页                                           | 新建 |
+| `docs/zh/snippets/cli-install.mdx`                  | 中文安装片段                                         | 新建 |
+| `packages/cli/eslint.config.js`                     | 把 `no-floating-promises` 提为 error                 | 修改 |
+| `packages/cli/src/floatingPromises.ratchet.test.ts` | 冻结现存 floating promise 违规清单                   | 新建 |
 
 ---
 
@@ -198,6 +197,7 @@ packages/cli/src/retrieval/service.ts:1
 ### Task 1: 清理隔离工作区之外仍然存在的构建残留
 
 **Files:**
+
 - Delete（仅限主检出目录，**不经过 git**，因为这些文件本来就没有被跟踪）：
   - `/home/lin/All_projects/GithubProjects/continue/packages/cli/tnt-cli-v1.0.{0,1,2,3,4,5,6}.tar.gz`
   - `/home/lin/All_projects/GithubProjects/continue/core/e2e.log`
@@ -207,6 +207,7 @@ packages/cli/src/retrieval/service.ts:1
   - `/home/lin/All_projects/GithubProjects/continue/eval/`
 
 **Interfaces:**
+
 - Consumes: 无
 - Produces: 无（纯交付面整理，不产出代码）
 
@@ -256,10 +257,12 @@ Expected: `dev/p0-hardening`，且未跟踪条目数量比删除前**减少**，
 ### Task 2: 给 `core/index.d.ts` 加规模与结构棘轮
 
 **Files:**
+
 - Create: `core/indexContract.vitest.ts`
 - Modify: `core/index.d.ts`（仅在需要把某个 `export class` 改成 `export interface` 时；本任务默认不改）
 
 **Interfaces:**
+
 - Consumes: 无
 - Produces: 一个读取 `core/index.d.ts` 的计数函数，以及冻结的 `EXPECTED_CONTRACT_SHAPE` 常量
 
@@ -344,6 +347,7 @@ npx vitest run indexContract.vitest.ts
 ```
 
 Expected: FAIL。
+
 - 「keeps the contract's shape」失败，因为 `EXPECTED_CONTRACT_SHAPE` 全是 0；
 - 「declares no class」也应失败，因为文件里有 3 个 `export class`。
 
@@ -399,12 +403,14 @@ git commit -m "test(core): ratchet the hand-written type contract's shape"
 ### Task 3: 用守卫测试替代「靠自觉」的中英双语同步
 
 **Files:**
+
 - Create: `packages/cli/src/docsLocaleCoverage.test.ts`
 - Create: `docs/zh/troubleshooting.mdx`
 - Create: `docs/zh/reference.mdx`
 - Create: `docs/zh/snippets/cli-install.mdx`
 
 **Interfaces:**
+
 - Consumes: 无
 - Produces: 无导出；这是一个纯守卫测试
 
@@ -520,10 +526,12 @@ git commit -m "docs(zh): translate the reference and troubleshooting pages, and 
 ### Task 4: 把 floating promise 从警告变成被冻结的错误
 
 **Files:**
+
 - Modify: `packages/cli/eslint.config.js:53`
 - Create: `packages/cli/src/floatingPromises.ratchet.test.ts`
 
 **Interfaces:**
+
 - Consumes: 无
 - Produces: 无导出；守卫测试读取 ESLint 的 JSON 输出
 
@@ -583,9 +591,7 @@ function floatingPromises(): string[] {
   for (const file of JSON.parse(raw)) {
     for (const message of file.messages) {
       if (message.ruleId === "@typescript-eslint/no-floating-promises") {
-        hits.push(
-          `${path.relative(CLI_ROOT, file.filePath)}:${message.line}`,
-        );
+        hits.push(`${path.relative(CLI_ROOT, file.filePath)}:${message.line}`);
       }
     }
   }
@@ -652,9 +658,11 @@ git commit -m "chore(lint): make a floating promise an error and freeze the back
 ### Task 5: 写下会失败的 core 静态导入边界守卫
 
 **Files:**
+
 - Create: `core/staticImportBoundary.vitest.ts`
 
 **Interfaces:**
+
 - Consumes: 无
 - Produces: 无导出；守卫测试读取 `core/config/load.ts` 与 `core/llm/index.ts` 的源码文本
 
@@ -778,11 +786,13 @@ Expected: FAIL，第二个测试打印出 **10 条** registry 运行时导入：
 ### Task 6: 让 `core/config/load.ts` 惰性加载注册表
 
 **Files:**
+
 - Modify: `core/config/load.ts:38-43`、`core/config/load.ts:59-61`
 - Modify: `core/llm/index.ts:69`
 - Test: `core/staticImportBoundary.vitest.ts`（Task 5 已建）
 
 **Interfaces:**
+
 - Consumes: Task 5 的守卫测试
 - Produces: 无新的导出签名。`load.ts` 的既有导出（`resolveSerializedConfig`、`isContextProviderWithParams` 等）签名不变
 
@@ -813,17 +823,22 @@ import type { BaseLLM } from "../llm";
 把运行时导入删掉，并在真正使用它们的位置写惰性导入。`TransformersJsEmbeddingsProvider` 有两个使用点（第 393、411 行），`LLMClasses` 有两个（第 395、441 行），所以每个模块在**单个函数作用域内**只 `await import` 一次，把结果放进局部常量：
 
 ```ts
-async function intermediateToFinalConfig({
-  // ...unchanged parameters...
-}: {
-  // ...unchanged types...
-}) {
-  const [{ LLMClasses, llmFromDescription }, { default: CustomLLMClass }, { LLMReranker }] =
-    await Promise.all([
-      import("../llm/llms"),
-      import("../llm/llms/CustomLLM"),
-      import("../llm/llms/llm"),
-    ]);
+async function intermediateToFinalConfig(
+  {
+    // ...unchanged parameters...
+  }: {
+    // ...unchanged types...
+  },
+) {
+  const [
+    { LLMClasses, llmFromDescription },
+    { default: CustomLLMClass },
+    { LLMReranker },
+  ] = await Promise.all([
+    import("../llm/llms"),
+    import("../llm/llms/CustomLLM"),
+    import("../llm/llms/llm"),
+  ]);
 
   // ...unchanged body, now using the local bindings...
 }
@@ -874,10 +889,12 @@ git commit -m "perf(core): load provider, tool and context registries lazily"
 ### Task 7: 测量打包收益，并把冻结清单收紧
 
 **Files:**
+
 - Modify: `core/staticImportBoundary.vitest.ts`（仅在守卫的注释里记录实测数字）
 - Modify: `packages/cli/ARCHITECTURE-tnt.md`（记录这一次的体积变化）
 
 **Interfaces:**
+
 - Consumes: Task 5 的守卫、Task 6 的实现
 - Produces: 一份可以写进 commit message 与 ARCHITECTURE 文档的实测数字
 
