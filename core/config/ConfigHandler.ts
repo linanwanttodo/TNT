@@ -15,7 +15,7 @@ import EventEmitter from "node:events";
 import { Logger } from "../util/Logger.js";
 
 import {
-  getAllDotContinueDefinitionFiles,
+  getAllDotTntDefinitionFiles,
   LoadAssistantFilesOptions,
 } from "./loadLocalAssistants.js";
 import LocalProfileLoader from "./profile/LocalProfileLoader.js";
@@ -172,9 +172,9 @@ export class ConfigHandler {
       const yamlOptions = { ...options, fileExtType: "yaml" } as const;
       const allFiles = (
         await Promise.all([
-          getAllDotContinueDefinitionFiles(this.ide, yamlOptions, "assistants"),
-          getAllDotContinueDefinitionFiles(this.ide, yamlOptions, "agents"),
-          getAllDotContinueDefinitionFiles(this.ide, yamlOptions, "configs"),
+          getAllDotTntDefinitionFiles(this.ide, yamlOptions, "assistants"),
+          getAllDotTntDefinitionFiles(this.ide, yamlOptions, "agents"),
+          getAllDotTntDefinitionFiles(this.ide, yamlOptions, "configs"),
         ])
       ).flat();
       const profiles = allFiles.map((assistant) => {
