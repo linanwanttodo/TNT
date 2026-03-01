@@ -187,7 +187,7 @@ jobs:
       - name: Publish stable to npm
         working-directory: extensions/cli
         run: |
-          npm publish --tag latest
+          npm publish --tag latest --provenance
           echo "Published stable version: ${{ steps.final_version.outputs.stable_version }}"
 
       - name: Create stable release on GitHub
