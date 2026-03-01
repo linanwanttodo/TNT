@@ -61,19 +61,15 @@ describe.skipIf(!ANTHROPIC_API_KEY)(
 
 After all tools complete, say exactly "ALL_TOOLS_DONE" as your final message.`;
 
-    it(
-      "should exercise 10 built-in tools and complete successfully",
-      async () => {
-        const result = await runHeadless(
-          ctx,
-          ["-p", "--auto", "--config", ctx.configPath, PROMPT],
-          { timeout: 120000 },
-        );
+    it("should exercise 10 built-in tools and complete successfully", async () => {
+      const result = await runHeadless(
+        ctx,
+        ["-p", "--auto", "--config", ctx.configPath, PROMPT],
+        { timeout: 120000 },
+      );
 
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("ALL_TOOLS_DONE");
-      },
-      180000,
-    );
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("ALL_TOOLS_DONE");
+    }, 180000);
   },
 );

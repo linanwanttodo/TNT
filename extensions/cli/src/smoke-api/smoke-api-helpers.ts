@@ -19,9 +19,7 @@ export async function createSmokeContext(): Promise<SmokeTestContext> {
   try {
     await fs.access(cliPath);
   } catch {
-    throw new Error(
-      `CLI not found at ${cliPath}. Run 'npm run build' first.`,
-    );
+    throw new Error(`CLI not found at ${cliPath}. Run 'npm run build' first.`);
   }
 
   const testDir = await fs.mkdtemp(path.join(os.tmpdir(), "cn-smoke-"));
@@ -40,7 +38,9 @@ export async function createSmokeContext(): Promise<SmokeTestContext> {
 /**
  * Removes the temp directory created by createSmokeContext.
  */
-export async function cleanupSmokeContext(ctx: SmokeTestContext): Promise<void> {
+export async function cleanupSmokeContext(
+  ctx: SmokeTestContext,
+): Promise<void> {
   try {
     await fs.rm(ctx.testDir, { recursive: true, force: true });
   } catch {
@@ -50,8 +50,7 @@ export async function cleanupSmokeContext(ctx: SmokeTestContext): Promise<void> 
 
 // Override via SMOKE_MODEL env var. Falls back to claude-3-haiku which is
 // widely available and cheap.
-const SMOKE_MODEL =
-  process.env.SMOKE_MODEL || "claude-3-haiku-20240307";
+const SMOKE_MODEL = process.env.SMOKE_MODEL || "claude-3-haiku-20240307";
 
 /**
  * Writes a YAML config that points at the real Anthropic API.

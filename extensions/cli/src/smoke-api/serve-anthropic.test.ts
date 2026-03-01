@@ -51,8 +51,7 @@ describe.skipIf(!ANTHROPIC_API_KEY)(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message:
-            "Reply with exactly the word 'hello' and nothing else.",
+          message: "Reply with exactly the word 'hello' and nothing else.",
         }),
       });
       expect(msgRes.ok).toBe(true);
