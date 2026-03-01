@@ -1,3 +1,4 @@
+import { ChildProcessWithoutNullStreams } from "child_process";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -85,6 +86,22 @@ describe("lsp client lifecycle", () => {
     await expect(client.request("textDocument/hover", {})).rejects.toThrow(
       /closed/,
     );
+  });
+
+  it("waits for a child that killNow already let go of", async () => {
+    const client = await startClient();
+    const child = (
+      client as unknown as { child: ChildProcessWithoutNullStreams }
+    ).child;
+
+    client.killNow();
+    await client.dispose();
+
+    // A caller that clears its temporary directory right after dispose needs the
+    // child actually reaped, not merely signalled: on Windows an unreaped child
+    // keeps that directory locked, and its stdin handle keeps the pipe open.
+    expect(child.exitCode !== null || child.signalCode !== null).toBe(true);
+    expect(child.stdin.destroyed).toBe(true);
   });
 
   it("reports a server error to the listener", async () => {
