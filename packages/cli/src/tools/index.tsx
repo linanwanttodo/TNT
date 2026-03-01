@@ -31,7 +31,7 @@ export {
   MCP_TOOL_NAME_LIMIT,
   mcpToolName,
   mcpToolsFromConnections,
-  convertMcpToolToContinueTool,
+  convertMcpToolToInternalTool,
 } from "./mcp.js";
 
 export function extractToolCalls(

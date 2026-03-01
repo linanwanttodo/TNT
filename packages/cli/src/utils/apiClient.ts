@@ -54,7 +54,7 @@ export class ApiRequestError extends Error implements ApiError {
 }
 
 /**
- * Make an API request to the Continue API.
+ * Make an API request to the platform API.
  * Hub authentication has been removed - requests are made without auth headers.
  */
 export async function makeAuthenticatedRequest<T = any>(

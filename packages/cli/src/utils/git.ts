@@ -62,9 +62,9 @@ export function isGitHubActions(): boolean {
 }
 
 /**
- * Check if running in Continue remote agents
+ * Check if a remote agent runner set its environment flag
  */
-export function isContinueRemoteAgent(): boolean {
+export function isRemoteAgent(): boolean {
   return process.env.CONTINUE_REMOTE === "true";
 }
 

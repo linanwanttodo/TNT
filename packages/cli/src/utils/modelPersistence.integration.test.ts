@@ -8,12 +8,12 @@ import { getPersistedModelName, persistModelName } from "./modelPersistence.js";
 
 describe("Model Persistence Integration", () => {
   let testDir: string;
-  let originalContinueHome: string | undefined;
+  let originalTntHome: string | undefined;
 
   beforeEach(() => {
     // Create a temporary directory for testing
     testDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-test-"));
-    originalContinueHome = process.env.CONTINUE_GLOBAL_DIR;
+    originalTntHome = process.env.CONTINUE_GLOBAL_DIR;
     process.env.CONTINUE_GLOBAL_DIR = testDir;
 
     // Clear GlobalContext for clean test state
@@ -25,8 +25,8 @@ describe("Model Persistence Integration", () => {
     if (fs.existsSync(testDir)) {
       fs.rmSync(testDir, { recursive: true });
     }
-    if (originalContinueHome) {
-      process.env.CONTINUE_GLOBAL_DIR = originalContinueHome;
+    if (originalTntHome) {
+      process.env.CONTINUE_GLOBAL_DIR = originalTntHome;
     } else {
       delete process.env.CONTINUE_GLOBAL_DIR;
     }

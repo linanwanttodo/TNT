@@ -55,7 +55,7 @@ export function mcpToolsFromConnections(
     const serverName = connection.config.name ?? "";
     for (const tool of connection.tools) {
       tools.push(
-        convertMcpToolToContinueTool(
+        convertMcpToolToInternalTool(
           tool,
           serverName,
           uniqueToolName(mcpToolName(serverName, tool.name), taken),
@@ -66,7 +66,7 @@ export function mcpToolsFromConnections(
   return tools;
 }
 
-export function convertMcpToolToContinueTool(
+export function convertMcpToolToInternalTool(
   mcpTool: MCPTool,
   serverName: string,
   toolName: string,
