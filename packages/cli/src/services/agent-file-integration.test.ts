@@ -159,9 +159,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const agentFileState = agentFileService.getState();
       expect(agentFileState.agentFile?.model).toBe("gpt-4-agent");
@@ -185,9 +183,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize(undefined, apiClientState);
+      await agentFileService.initialize(undefined);
 
       const agentFileState = agentFileService.getState();
       expect(agentFileState.agentFile).toBeNull();
@@ -214,9 +210,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       // Test that --model flag and agent file model are both processed
       const baseOptions = { model: ["user-specified-model"] }; // User specified --model
@@ -265,9 +259,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize(undefined, apiClientState);
+      await agentFileService.initialize(undefined);
 
       const baseOptions = {};
       const agentFileState = agentFileService.getState();
@@ -321,9 +313,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       await modelService.initialize(mockAssistant as any);
 
@@ -342,9 +332,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize(undefined, apiClientState);
+      await agentFileService.initialize(undefined);
 
       await modelService.initialize(mockAssistant as any);
 
@@ -365,12 +353,10 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
       // The service should throw the error, not handle it gracefully
-      await expect(
-        agentFileService.initialize("owner/agent", apiClientState),
-      ).rejects.toThrow("Failed to load agent from owner/agent");
+      await expect(agentFileService.initialize("owner/agent")).rejects.toThrow(
+        "Failed to load agent from owner/agent",
+      );
 
       const agentFileState = agentFileService.getState();
       expect(agentFileState.agentFile).toBeNull();
@@ -421,9 +407,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const baseOptions = {};
       const agentFileState = agentFileService.getState();
@@ -451,9 +435,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const baseOptions = {};
       const agentFileState = agentFileService.getState();
@@ -519,9 +501,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const baseOptions = { prompt: ["user-prompt"] };
       const agentFileState = agentFileService.getState();
@@ -554,9 +534,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const agentFileState = agentFileService.getState();
       expect(agentFileState.agentFile?.prompt).toBe("You are an assistant.");
@@ -589,9 +567,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const agentFileState = agentFileService.getState();
       expect(agentFileState.agentFile?.model).toBe("gpt-4-agent");
@@ -617,9 +593,7 @@ describe("Agent file Integration Tests", () => {
       const authServiceState = {
         isAuthenticated: true,
       };
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/partial", apiClientState);
+      await agentFileService.initialize("owner/partial");
 
       const agentFileState = agentFileService.getState();
       expect(agentFileState.agentFile?.model).toBe("gpt-3.5-turbo");

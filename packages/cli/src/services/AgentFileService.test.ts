@@ -47,7 +47,6 @@ vi.mock("url", async () => {
 vi.mock("../config/hubLoader.js", () => ({
   loadPackageFromHub: vi.fn(),
   loadPackagesFromHub: vi.fn(),
-  loadModelFromHub: vi.fn(),
   mcpProcessor: {},
   modelProcessor: {},
   processRule: vi.fn(),
@@ -102,7 +101,6 @@ vi.mock("./ServiceContainer.js", () => ({
 describe("AgentFileService", () => {
   let agentFileService: AgentFileService;
   let mockLoadPackageFromHub: any;
-  let mockLoadModelFromHub: any;
   let mockReadFileSync: any;
   let mockPathResolve: any;
   let mockFileURLToPath: any;
@@ -137,7 +135,6 @@ describe("AgentFileService", () => {
     // Get mock functions
     const hubLoaderModule = await import("../config/hubLoader.js");
     mockLoadPackageFromHub = hubLoaderModule.loadPackageFromHub as any;
-    mockLoadModelFromHub = hubLoaderModule.loadModelFromHub as any;
 
     // Get fs mocks
     mockReadFileSync = vi.mocked(fs.readFileSync);
@@ -150,22 +147,13 @@ describe("AgentFileService", () => {
     // Setup default mocks for initialization tests
     // For getAgentFile tests, mocks should be set in each test
     mockLoadPackageFromHub.mockResolvedValue(mockAgentFile);
-    mockLoadModelFromHub.mockResolvedValue({
-      name: "gpt-4-agent",
-      provider: "openai",
-    });
     // Default file system mocks
     mockPathResolve.mockImplementation((p: string) => `/resolved/${p}`);
   });
 
   describe("initialization", () => {
     it("should initialize with empty state when no agent slug provided", async () => {
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      const result = await agentFileService.initialize(
-        undefined,
-        apiClientState,
-      );
+      const result = await agentFileService.initialize(undefined);
 
       expect(result).toEqual(EMPTY_AGENT_FILE_STATE);
       expect(agentFileService.getState()).toEqual(EMPTY_AGENT_FILE_STATE);
@@ -173,9 +161,7 @@ describe("AgentFileService", () => {
     });
 
     it("should load and parse agent file when slug is provided", async () => {
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       expect(mockLoadPackageFromHub).toHaveBeenCalledWith(
         "owner/agent",
@@ -190,26 +176,19 @@ describe("AgentFileService", () => {
       expect(state.slug).toBe("owner/agent");
     });
 
-    it("should load agent file model when model is specified", async () => {
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
-
-      expect(mockLoadModelFromHub).toHaveBeenCalledWith("gpt-4-agent");
+    it("records the model name the agent file declares", async () => {
+      await agentFileService.initialize("owner/agent");
 
       const state = agentFileService.getState();
-      expect(state.agentFileModel).toEqual({
-        name: "gpt-4-agent",
-        provider: "openai",
-      });
+      // The assistant configuration defines the model, so the service keeps the
+      // name for ModelService to match; no package is fetched for it any more.
+      expect(state.agentFileModel).toEqual({ name: "gpt-4-agent" });
     });
   });
 
   describe("rules parsing", () => {
     it("should parse rules when agent file has rules", async () => {
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const state = agentFileService.getState();
       expect(state.parsedRules).toBeDefined();
@@ -220,9 +199,7 @@ describe("AgentFileService", () => {
       const agentFileWithoutRules = { ...mockAgentFile, rules: undefined };
       mockLoadPackageFromHub.mockResolvedValue(agentFileWithoutRules);
 
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const state = agentFileService.getState();
       expect(state.parsedRules).toBeNull();
@@ -231,9 +208,7 @@ describe("AgentFileService", () => {
 
   describe("tools parsing", () => {
     it("should parse tools when agent file has tools", async () => {
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const state = agentFileService.getState();
       expect(state.parsedTools).toBeDefined();
@@ -245,9 +220,7 @@ describe("AgentFileService", () => {
       const agentFileWithoutTools = { ...mockAgentFile, tools: undefined };
       mockLoadPackageFromHub.mockResolvedValue(agentFileWithoutTools);
 
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const state = agentFileService.getState();
       expect(state.parsedTools).toBeNull();
@@ -259,24 +232,10 @@ describe("AgentFileService", () => {
       const agentFileWithoutModel = { ...mockAgentFile, model: undefined };
       mockLoadPackageFromHub.mockResolvedValue(agentFileWithoutModel);
 
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
-
-      expect(mockLoadModelFromHub).not.toHaveBeenCalled();
+      await agentFileService.initialize("owner/agent");
 
       const state = agentFileService.getState();
       expect(state.agentFileModel).toBeNull();
-    });
-
-    it("should throw error when API client is not available for model loading", async () => {
-      const apiClientState = { apiClient: null };
-
-      await expect(
-        agentFileService.initialize("owner/agent", apiClientState),
-      ).rejects.toThrow(
-        "Cannot load agent model, failed to load api client service",
-      );
     });
   });
 
@@ -288,11 +247,9 @@ describe("AgentFileService", () => {
         throw new Error("File not found");
       });
 
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await expect(
-        agentFileService.initialize("owner/agent", apiClientState),
-      ).rejects.toThrow("Failed to load agent from owner/agent");
+      await expect(agentFileService.initialize("owner/agent")).rejects.toThrow(
+        "Failed to load agent from owner/agent",
+      );
 
       const state = agentFileService.getState();
       expect(state.agentFile).toBeNull();
@@ -304,29 +261,15 @@ describe("AgentFileService", () => {
         throw new Error("File not found");
       });
 
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await expect(
-        agentFileService.initialize("invalid-slug", apiClientState),
-      ).rejects.toThrow("Failed to load agent from invalid-slug");
-    });
-
-    it("should throw error when model loading fails", async () => {
-      mockLoadModelFromHub.mockRejectedValue(new Error("Model load error"));
-
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await expect(
-        agentFileService.initialize("owner/agent", apiClientState),
-      ).rejects.toThrow("Model load error");
+      await expect(agentFileService.initialize("invalid-slug")).rejects.toThrow(
+        "Failed to load agent from invalid-slug",
+      );
     });
   });
 
   describe("state management", () => {
     it("should return correct state after initialization", async () => {
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/agent", apiClientState);
+      await agentFileService.initialize("owner/agent");
 
       const state = agentFileService.getState();
       expect(state.agentFile).toEqual(mockAgentFile);
@@ -334,15 +277,12 @@ describe("AgentFileService", () => {
       expect(state.parsedRules).toEqual(["Always be helpful and concise"]);
       expect(state.parsedTools?.mcpServers).toBeDefined();
       expect(Array.isArray(state.parsedTools?.mcpServers)).toBe(true);
-      expect(state.agentFileModel).toEqual({
-        name: "gpt-4-agent",
-        provider: "openai",
-      });
+      expect(state.agentFileModel).toEqual({ name: "gpt-4-agent" });
     });
 
     it("should have correct dependencies", () => {
       const dependencies = agentFileService.getDependencies();
-      expect(dependencies).toEqual(["apiClient"]);
+      expect(dependencies).toEqual([]);
     });
   });
 
@@ -357,9 +297,7 @@ describe("AgentFileService", () => {
 
       mockLoadPackageFromHub.mockResolvedValue(partialAgentFile);
 
-      const apiClientState = { apiClient: { mock: "apiClient" } };
-
-      await agentFileService.initialize("owner/partial", apiClientState);
+      await agentFileService.initialize("owner/partial");
 
       const state = agentFileService.getState();
       expect(state.agentFile?.name).toBe("Partial Agent File");

@@ -58,8 +58,6 @@ const en = {
   "services.agentNotMarkdown":
     "Failed to load agent from {path}. Not a markdown file",
   "services.agentLoadFailed": "Failed to load agent from {path}: {message}",
-  "services.agentModelUnavailable":
-    "Cannot load agent model, failed to load api client service",
   "plugins.manifestNotObject": "Marketplace manifest must be an object",
   "plugins.manifestNoName": "Marketplace manifest has no name",
   "plugins.manifestImpersonates":
@@ -725,8 +723,6 @@ const zhCN: Record<TranslationKey, string> = {
   "services.noConfigPathForReload": "没有可用于重新加载的配置路径",
   "services.agentNotMarkdown": "无法从 {path} 加载智能体：不是 Markdown 文件",
   "services.agentLoadFailed": "无法从 {path} 加载智能体：{message}",
-  "services.agentModelUnavailable":
-    "无法加载智能体模型：API 客户端服务加载失败",
   "plugins.manifestNotObject": "插件市场清单必须是一个对象",
   "plugins.manifestNoName": "插件市场清单缺少 name",
   "plugins.manifestImpersonates": "插件市场名称冒充官方目录：{name}",
