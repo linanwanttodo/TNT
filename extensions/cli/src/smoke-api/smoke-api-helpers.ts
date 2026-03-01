@@ -180,16 +180,16 @@ export function waitForPattern(
       );
     }, timeout);
 
-    const check = (data: Buffer | string) => {
-      output += data.toString();
+    const check = (data: string) => {
+      output += data;
       if (output.includes(pattern)) {
         clearTimeout(timer);
         resolve(output);
       }
     };
 
-    proc.stdout?.on("data", check);
-    proc.stderr?.on("data", check);
+    proc.stdout?.setEncoding("utf8").on("data", check);
+    proc.stderr?.setEncoding("utf8").on("data", check);
 
     proc.on("exit", () => {
       clearTimeout(timer);
