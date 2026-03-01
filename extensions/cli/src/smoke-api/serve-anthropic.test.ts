@@ -1,3 +1,4 @@
+import type { Subprocess } from "execa";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import {
@@ -10,8 +11,6 @@ import {
   shutdownServe,
   type SmokeTestContext,
 } from "./smoke-api-helpers.js";
-
-import type { Subprocess } from "execa";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
