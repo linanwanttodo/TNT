@@ -4,7 +4,7 @@ import { OpenAIApi } from "./OpenAI.js";
 
 describe("OpenAIApi requestOptions.timeout", () => {
   it("converts timeout from seconds to milliseconds for the OpenAI SDK", () => {
-    // requestOptions.timeout is expressed in seconds throughout Continue
+    // requestOptions.timeout is expressed in seconds throughout TNT
     // (see packages/fetch getAgentOptions, which multiplies by 1000), but the
     // OpenAI JS SDK expects milliseconds. A value of 300 must become 300000.
     const api = new OpenAIApi({

@@ -4,7 +4,7 @@ import { GeminiApi, splitGeminiApiBase } from "./Gemini.js";
 
 describe("splitGeminiApiBase", () => {
   // The SDK composes <baseUrl>/<apiVersion>/..., so these two must be split
-  // out of the single apiBase Continue stores. Getting this wrong either sends
+  // out of the single apiBase TNT stores. Getting this wrong either sends
   // custom endpoints to Google or duplicates the version in the path.
   it("splits the official endpoint", () => {
     expect(

@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
  * prefix on identifiers. Renaming all of it in one sweep is how a branding change ends up
  * half-done: the files that were missed keep working, so nothing reports them.
  *
- * The ledger below totals 362 tokens across the eight areas that still hold one. It is the number to drive down,
+ * The ledger below totals 341 tokens across the seven areas that still hold one. It is the number to drive down,
  * area by area, with two deliberate holds: `packages/sdk` is dominated by the generated
  * OpenAPI client for the operator's platform API, whose names are the remote contract the
  * generator emits, and a sentence in the past tense about the upstream project stays
@@ -140,11 +140,10 @@ export function continueTokenLedger(): {
  */
 const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 9,
-  core: 70,
+  core: 60,
   "packages/cli": 59,
   "packages/config-yaml": 7,
   "packages/llm-info": 1,
-  "packages/openai-adapters": 11,
   "packages/sdk": 203,
   scripts: 2,
 };

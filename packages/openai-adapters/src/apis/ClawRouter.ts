@@ -27,14 +27,14 @@ export class ClawRouterApi extends OpenAIApi {
   }
 
   /**
-   * Override headers to include Continue-specific User-Agent
+   * Override headers to identify the client to the router
    * This helps ClawRouter track integration usage and optimize accordingly
    */
   protected override getHeaders(): Record<string, string> {
     return {
       ...super.getHeaders(),
-      "User-Agent": "Continue/IDE",
-      "X-Continue-Provider": "clawrouter",
+      "User-Agent": "TNT/IDE",
+      "X-TNT-Provider": "clawrouter",
     };
   }
 }
