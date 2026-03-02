@@ -10,11 +10,15 @@ import { describe, expect, it } from "vitest";
  * prefix on identifiers. Renaming all of it in one sweep is how a branding change ends up
  * half-done: the files that were missed keep working, so nothing reports them.
  *
- * The ledger below totals 341 tokens across the seven areas that still hold one. It is the number to drive down,
- * area by area, with two deliberate holds: `packages/sdk` is dominated by the generated
- * OpenAPI client for the operator's platform API, whose names are the remote contract the
- * generator emits, and a sentence in the past tense about the upstream project stays
- * spelled the way history spells it.
+ * The ledger below totals 285 tokens across the five areas that still hold one, and it is
+ * the number to drive down area by area. What is left is counted, not excused, but each
+ * group has a reason: `packages/sdk` is the generated OpenAPI client for the operator's
+ * platform API, whose names are what the generator emits; the CLI's share is mostly English
+ * uses of the verb (`shouldContinue`, `shouldAutoContinue`, PowerShell's `SilentlyContinue`)
+ * where the word means "go on", not the product; `core` holds those verb uses plus the IDE
+ * webview protocol's message names, which belong to a host this product no longer ships and
+ * would be deleted rather than renamed; and the fork attribution in the READMEs is a sentence
+ * in the past tense about the upstream project, which stays spelled the way history spells it.
  *
  * This guard holds two things. The first is zero tolerance for the three names the engine
  * reads off disk (`.continueignore`, `.continuerules`, `.continuerc.json`) - those were
@@ -140,10 +144,8 @@ export function continueTokenLedger(): {
  */
 const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 9,
-  core: 60,
+  core: 12,
   "packages/cli": 59,
-  "packages/config-yaml": 7,
-  "packages/llm-info": 1,
   "packages/sdk": 203,
   scripts: 2,
 };

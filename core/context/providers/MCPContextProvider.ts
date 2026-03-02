@@ -50,7 +50,7 @@ class MCPContextProvider extends BaseContextProvider {
   }
 
   /**
-   * Continue experimentally supports resource templates (https://modelcontextprotocol.io/docs/concepts/resources#resource-templates)
+   * TNT experimentally supports resource templates (https://modelcontextprotocol.io/docs/concepts/resources#resource-templates)
    * by allowing specifically just the "query" variable in the template, which we will update with the full input of the user in the input box
    */
   private insertInputToUriTemplate(uri: string, query: string): string {
@@ -81,7 +81,7 @@ class MCPContextProvider extends BaseContextProvider {
       contents.map(async (resource) => {
         if (!("text" in resource) || typeof resource.text !== "string") {
           throw new Error(
-            "Continue currently only supports text resources from MCP",
+            "TNT currently only supports text resources from MCP",
           );
         }
         return {

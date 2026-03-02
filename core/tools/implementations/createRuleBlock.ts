@@ -30,8 +30,8 @@ export const createRuleBlockImpl: ToolImpl = async (args, extras) => {
     regex,
   });
 
-  const [localContinueDir] = await extras.ide.getWorkspaceDirs();
-  const ruleFilePath = createRuleFilePath(localContinueDir, name);
+  const [workspaceDir] = await extras.ide.getWorkspaceDirs();
+  const ruleFilePath = createRuleFilePath(workspaceDir, name);
 
   await extras.ide.writeFile(ruleFilePath, fileContent);
   await extras.ide.openFile(ruleFilePath);
