@@ -92,17 +92,22 @@ async function describeRunArtifacts(testDir: string): Promise<string> {
       "utf-8",
     );
     const lines = log.split("\n").filter((line) => line.length > 0);
-    // A debug-level run buries the one interesting line under a hundred
-    // token-count ones, so take the tail and anything that names the stages
-    // this suite can fail at.
-    const interesting = lines.filter((line) =>
-      /provider|index|embed|error|warn|unknown/i.test(line),
+    // A debug run buries the two lines that matter - how many files the
+    // workspace walk found, and what the index pipeline decided - under token
+    // and chunk chatter, so keep the pipeline's own voice and drop the stream
+    // noise instead of trusting a tail length.
+    const chatter =
+      /Received chunk|Updated tool call state|Creating chat completion|Stream complete|state updated|initialized successfully|Service loaded|completion stream/;
+    const pipeline = lines.filter(
+      (line) =>
+        !chatter.test(line) &&
+        /index|file|provider|error|unknown|warn|embed|walk|ignore/i.test(line),
     );
-    const shown = [
-      ...new Set([...interesting.slice(-15), ...lines.slice(-10)]),
-    ];
+    const shown = [...new Set([...pipeline.slice(-30), ...lines.slice(-6)])];
 
-    parts.push(`cli log (${lines.length} lines):\n${shown.join("\n")}`);
+    parts.push(
+      `cli log (${lines.length} lines, ${pipeline.length} about the pipeline):\n${shown.join("\n")}`,
+    );
   } catch {
     parts.push("cli log: absent");
   }
@@ -355,6 +360,10 @@ context:
     const detail = [
       `tool result: ${JSON.stringify(toolResult)}`,
       `requests seen: ${requestPaths.join(", ")}`,
+      // Headless prints what the config layer complained about on stdout, ahead
+      // of the answer, and an empty provider list is one of the few ways this
+      // case can end with no index at all.
+      `stdout: ${result.stdout.slice(0, 600)}`,
       `stderr: ${result.stderr.slice(-800)}`,
       await describeRunArtifacts(context.testDir),
     ].join("\n");
