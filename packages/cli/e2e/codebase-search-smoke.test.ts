@@ -56,10 +56,33 @@ function readBody(req: http.IncomingMessage): Promise<any> {
 }
 
 /**
+ * The run's own verdict lines, on their own and first: a CI annotation is
+ * truncated, and in the last red runs everything past the tenth line went away -
+ * which is exactly where "why did it build no index" sits.
+ */
+async function describeLogDecisions(testDir: string): Promise<string> {
+  const decisions =
+    /Not building indexes|asks for indexing|Unknown context provider|search failed|No matches|Indexed \d+ files|Starting file index|indexing/i;
+
+  try {
+    const log = await fs.readFile(
+      path.join(testDir, ".tnt", "logs", "tnt.log"),
+      "utf-8",
+    );
+    const lines = log.split("\n").filter((line) => decisions.test(line));
+
+    return `decisions (${lines.length} of ${log.split("\n").length} lines):\n${lines
+      .slice(-10)
+      .join("\n")}`;
+  } catch {
+    return "cli log: absent";
+  }
+}
+
+/**
  * What the run left behind, as text: whether an index directory was created at
- * all, and the last lines of the CLI's own log. A red lane with this attached
- * distinguishes "never indexed" from "indexed and still missed"; a red lane
- * without it cannot.
+ * all and what it holds. A red lane with this attached distinguishes "never
+ * indexed" from "indexed and still missed"; without it, it cannot.
  */
 async function describeRunArtifacts(testDir: string): Promise<string> {
   const parts: string[] = [];
@@ -84,32 +107,6 @@ async function describeRunArtifacts(testDir: string): Promise<string> {
     parts.push(`lancedb tables: ${tables.join(", ") || "(empty)"}`);
   } catch {
     parts.push("lancedb: absent");
-  }
-
-  try {
-    const log = await fs.readFile(
-      path.join(testDir, ".tnt", "logs", "tnt.log"),
-      "utf-8",
-    );
-    const lines = log.split("\n").filter((line) => line.length > 0);
-    // A debug run buries the two lines that matter - how many files the
-    // workspace walk found, and what the index pipeline decided - under token
-    // and chunk chatter, so keep the pipeline's own voice and drop the stream
-    // noise instead of trusting a tail length.
-    const chatter =
-      /Received chunk|Updated tool call state|Creating chat completion|Stream complete|state updated|initialized successfully|Service loaded|completion stream/;
-    const pipeline = lines.filter(
-      (line) =>
-        !chatter.test(line) &&
-        /index|file|provider|error|unknown|warn|embed|walk|ignore/i.test(line),
-    );
-    const shown = [...new Set([...pipeline.slice(-30), ...lines.slice(-6)])];
-
-    parts.push(
-      `cli log (${lines.length} lines, ${pipeline.length} about the pipeline):\n${shown.join("\n")}`,
-    );
-  } catch {
-    parts.push("cli log: absent");
   }
 
   return parts.join("\n");
@@ -358,13 +355,16 @@ context:
     // run here readable. The CI lanes failed twice with no way to tell whether
     // the index was never built or built and then missed.
     const detail = [
+      // First, because a CI annotation is truncated and the reason is the part
+      // that keeps getting cut off.
+      await describeLogDecisions(context.testDir),
       `tool result: ${JSON.stringify(toolResult)}`,
       `requests seen: ${requestPaths.join(", ")}`,
       // Headless prints what the config layer complained about on stdout, ahead
       // of the answer, and an empty provider list is one of the few ways this
       // case can end with no index at all.
-      `stdout: ${result.stdout.slice(0, 600)}`,
-      `stderr: ${result.stderr.slice(-800)}`,
+      `stdout: ${result.stdout.slice(0, 400)}`,
+      `stderr: ${result.stderr.slice(-300)}`,
       await describeRunArtifacts(context.testDir),
     ].join("\n");
 
