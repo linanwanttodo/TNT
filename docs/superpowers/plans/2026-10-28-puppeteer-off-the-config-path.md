@@ -137,7 +137,9 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 
 ## 四、贯穿所有步骤的门禁
 
-每次提交前：core 全量 `vitest`（带 `IGNORE_API_KEY_TESTS=true`）、`packages/cli` 全量 `vitest`、`npm run test:e2e`、两端 `tsc --noEmit`、`eslint`（core 有 11 条 vendored 既有 error，判定标准是「本次文件是否新增」）、仓库根 `prettier` 检查改动文件。
+每次提交前：core 全量 `vitest`（带 `IGNORE_API_KEY_TESTS=true`）、`packages/cli` 全量 `vitest`、`npm run test:e2e`、两端 `tsc --noEmit`、`eslint`、仓库根 `prettier` 检查改动文件。
+
+`core` 的门禁命令是 `npm run lint`，即 `eslint . --ext ts`，实测 **rc 0（0 errors / 23 warnings）**。裸跑 `npx eslint .` 会额外抓 `.js`，从而报出 11 条 vendored error（`core/vendor/**`、`core/llm/llamaTokenizer.js`），那是既有状态、也不是 CI 用的命令——判断自己有没有引入 lint 问题时，以 `npm run lint` 为准。
 
 改 CLI 产物后必须重建 core 的 `dist`（`cd core && npm run build`），否则 `packages/cli` 的类型门禁读的是 `.d.ts` 旧签名——这是报告 P1-1 的真实复现。
 
@@ -176,15 +178,15 @@ P2 的数字不在配置路径上，而在 **docs 索引路径**自己的闭包�
 
 ### 本轮门禁最终状态
 
-| 门禁                                         | 结果                                                                                                                    |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| core `vitest`（`IGNORE_API_KEY_TESTS=true`） | 146 files / 2,225 tests passed（+1 文件 +4 用例来自 P2）                                                                |
-| packages/cli `vitest`                        | 466 files / 3,764 tests passed                                                                                          |
-| `test:e2e`                                   | **35 files / 123 tests passed**（+1 文件 +3 用例来自 P4）                                                               |
-| `tsc` core / packages/cli                    | exit 0 / exit 0                                                                                                         |
-| `eslint .` packages/cli                      | 0 problems                                                                                                              |
-| `eslint .` core                              | 11 errors / 18 warnings，**与本轮开始前逐条一致**，全在 `core/vendor/**` 与 vendored `llamaTokenizer.js`，改动文件 0 条 |
-| `prettier --check`（仓库根二进制）           | 全部改动文件通过                                                                                                        |
+| 门禁                                         | 结果                                                                                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| core `vitest`（`IGNORE_API_KEY_TESTS=true`） | 146 files / 2,225 tests passed（+1 文件 +4 用例来自 P2）                                                                                                     |
+| packages/cli `vitest`                        | 466 files / 3,764 tests passed                                                                                                                               |
+| `test:e2e`                                   | **35 files / 123 tests passed**（+1 文件 +3 用例来自 P4）                                                                                                    |
+| `tsc` core / packages/cli                    | exit 0 / exit 0                                                                                                                                              |
+| `eslint .` packages/cli                      | 0 problems                                                                                                                                                   |
+| `eslint .` core                              | CI 用的 `npm run lint`（`eslint . --ext ts`）rc 0：0 errors / 23 warnings。裸跑 `npx eslint .` 会多抓 `.js`，报 11 条 vendored error，属既有状态且非门禁命令 |
+| `prettier --check`（仓库根二进制）           | 全部改动文件通过                                                                                                                                             |
 
 ### 顺带发现的两处既有问题（未修，供后续判断）
 
