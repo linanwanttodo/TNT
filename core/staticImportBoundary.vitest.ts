@@ -65,23 +65,14 @@ const isRegistry = (specifier: string, importer: string) => {
 };
 
 /**
- * Runtime registry imports still loaded eagerly. Every entry is a defect with a
- * follow-up recorded in `docs/superpowers/plans/2026-10-27-HANDOFF-startup-chunk.md`
- * §7, not an allowance: adding one fails the guard, and so does a scan that
- * silently reads nothing, because the list would no longer match. Cleared as
- * each one is lazified.
+ * Runtime registry imports still loaded eagerly. Every entry was a defect with
+ * a follow-up, not an allowance; the last of them went in this change, so the
+ * list is empty and stays empty - one added fails the guard. With nothing left
+ * to match against, the proof that the scan still reads the six files is the
+ * size floor below: a scan that read none of them would report no leaks too,
+ * and that is the same green.
  */
-const ALLOWED_RUNTIME_IMPORTS: string[] = [
-  "config/profile/doLoadConfig.ts <- ../../context/mcp/MCPManagerSingleton",
-  "config/profile/doLoadConfig.ts <- ../../context/providers/MCPContextProvider",
-  "config/profile/doLoadConfig.ts <- ../../tools",
-  "config/yaml/loadYaml.ts <- ../../context/mcp/MCPManagerSingleton",
-  "config/yaml/loadYaml.ts <- ../../context/mcp/json/loadJsonMcpConfigs",
-  "config/yaml/loadYaml.ts <- ../../llm/llms/TransformersJsEmbeddingsProvider",
-  "config/yaml/loadYaml.ts <- ../../tools",
-  "config/yaml/models.ts <- ../../llm",
-  "config/yaml/models.ts <- ../../llm/llms",
-];
+const ALLOWED_RUNTIME_IMPORTS: string[] = [];
 
 const CONSUMERS = [
   "config/load.ts",
@@ -168,17 +159,14 @@ function runtimeRegistryImports(file: string, text: string): string[] {
 }
 
 describe("the registry imports core loads on behalf of the CLI", () => {
-  it("reads files that still hold the imports this guard is about", () => {
-    const lazilyLoaded = ["config/load.ts", "config/loadContextProviders.ts"];
-
-    // Floor: a rename or an emptied file would otherwise make the scan report
-    // no registry at all, which is the same green as a clean boundary. Both are
-    // clean by design now, so what proves they are still being read is the
-    // dynamic form that replaced the static one.
-    for (const relative of lazilyLoaded) {
+  it("reads every file the boundary is about", () => {
+    for (const relative of CONSUMERS) {
       const text = readFileSync(path.join(ROOT, relative), "utf8");
 
-      expect(text).toMatch(/import\("\.\.\/context\/providers/);
+      expect(
+        text.length,
+        `${relative} is too small to be the file this guard measures`,
+      ).toBeGreaterThan(1_000);
     }
   });
 
