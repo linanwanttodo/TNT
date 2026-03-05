@@ -203,22 +203,29 @@ cd packages/cli && npm run build      # 重建后用 §6 的脚本复算
 
 上一轮表格里的「16.3 MB → 8.9 MB（−45%）」对 `service` chunk 自身是**可复现的真实数字**（`eac717d5f` 确实把它减半了），只是它测的不是启动。引用时必须配一句「这个 chunk 按需加载」。
 
+> **本节数字已被下一轮刷新**：配置路径 eager 闭包从 3,806 inputs / 21,138,081 B 降到 **1,669 inputs / 14,104,098 B**，puppeteer 归零，进程启动闭包仍是 442 / 844,600 B 一字未动。当前数字以 `2026-10-28-puppeteer-off-the-config-path.md` 为准。
+
 ---
 
 ## 7. 剩余项
 
-1. **`yaml/models.ts` 的 `BaseLLM`**：改成 `import type` 即可（纯类型，不产生运行时边）。守卫已把它记在冻结清单里，改完删那一行即可。
-2. **`yaml/loadYaml.ts` 的 4 条**：都在 `configYamlToTntConfig`（已是 async）里，可以一次性解构。
-3. **`profile/doLoadConfig.ts` 的 3 条**（守卫口径）：同在 async 上下文，可用行内 `(await import(...))`。
-4. **`llm/index.ts` 的 `../tools/applyToolOverrides.js`：不需要改。** 叶子模块，守卫按设计不报它。不要为了「消灭告警」去动它。
-5. **给包体加防回退守卫**：用 metafile 断言 provider/context 代码不出现在 service chunk。
-   ⚠️ `build-meta.json` 是构建产物且被 gitignore，所以这**必须**是「先构建再检查」的 e2e 级测试（参考 `packages/cli/e2e/` 与 `vitest.e2e.config.ts`），**不能**写成普通单元测试——干净检出上没有这个文件。
-   ⚠️ 断言对象选 §6 的第 3 行（配置路径 eager 闭包），不要选「最大 chunk」，后者身份会随改动漂移（本轮改动后最大 chunk 就变成了 `chunk-OIMSHNAI.js`）。
-6. **`DocsService.ts:171` 的静态字段初始化器**：见 §3.3，对首搜有价值，对包体指标无价值。
+**本节 1、2、3、5 已在下一轮做完**，见 `2026-10-28-puppeteer-off-the-config-path.md`（那里有实测数字与变异验证）。留下的清单：
+
+1. ~~`yaml/models.ts` 的 `BaseLLM`~~ ✅ `3dd291f7c`：改 `import type`，`LLMClasses` 移进唯一的 async 路径。
+2. ~~`yaml/loadYaml.ts` 的 4 条~~ ✅ `3dd291f7c`：`configYamlToTntConfig` 顶部一次 `await Promise.all`。
+3. ~~`profile/doLoadConfig.ts` 的 3 条~~ ✅ `3dd291f7c`：同上。**守卫的冻结清单因此已空**，新增一条 eager 注册表导入即失败；地板改成逐文件字节断言（原因见那份文档「与计划的偏离」）。
+4. **`llm/index.ts` 的 `../tools/applyToolOverrides.js`：仍然不需要改。** 叶子模块，守卫按设计不报它。
+5. ~~包体防回退守卫~~ ✅ `ecfc10ade`：`packages/cli/e2e/shipped-graph.test.ts`，按「含 `src/retrieval/service.ts` 的 chunk」锚定配置路径（比「最大 chunk」稳，后者身份会漂移），产物缺失时先构建而不是跳过。
+6. **`DocsService.ts:171` 的静态字段初始化器**：见 §3.3，对首搜有价值，对包体指标无价值。**仍未做。**
+7. **新暴露的一条**：`core/indexing/CodebaseIndexer.ts` 曾经只为一个 5 行纯比较函数引 `DocsService`，从而把 crawlers → ChromiumCrawler → puppeteer（280 模块 / 854,372 B）静态拖进配置路径。已拆（`46a8a555b`、`adb21c612`）。剩下的同类结构性问题是：`dist` 总字节几乎没变（30,760,015 → 30,726,959），因为 `splitting: true` 只挪位置不删代码——真要减交付体积必须走到「把这些模块从 fork 里删掉」那一步，那是产品决策。
 
 ---
 
 ## 8. 验证状态（本轮全跑，含上一轮没跑的两项）
+
+> 本表是 2026-10-27 那轮的门禁快照；下一轮（P1–P4）的数字在 `2026-10-28-puppeteer-off-the-config-path.md` §五，其中 core 全量已变为 146 files / 2,225 tests、`test:e2e` 变为 35 files / 123 tests。
+>
+> 另外一条更正：末行「真实调用一个模型」并非完全无从验证——`.github/workflows/cli-pr-checks.yml` 的 `smoke-api` job 带仓库 secret `ANTHROPIC_API_KEY` 跑 `npm run test:smoke-api`，且只对同仓 PR 启用。所以这一项由 CI 覆盖，不应当地被本地缺 key 就一概写成「未验证」。
 
 | 项                                        | 结果                                                                                                                                                                         |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
