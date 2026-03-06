@@ -20,7 +20,7 @@ import { LLMError } from "../llm/index.js";
 import { getRootCause } from "../util/errors.js";
 import { ChunkCodebaseIndex } from "./chunk/ChunkCodebaseIndex.js";
 import { CodeSnippetsCodebaseIndex } from "./CodeSnippetsIndex.js";
-import { embedModelsAreEqual } from "./docs/DocsService.js";
+import { embedModelsAreEqual } from "./embedModels.js";
 import { FullTextSearchCodebaseIndex } from "./FullTextSearchCodebaseIndex.js";
 import { LanceDbIndex } from "./LanceDbIndex.js";
 import { getComputeDeleteAddRemove, IndexLock } from "./refreshIndex.js";
@@ -148,6 +148,11 @@ export class CodebaseIndexer {
   protected async getIndexesToBuild(): Promise<CodebaseIndex[]> {
     const { config } = await this.configHandler.loadConfig();
     if (!config) {
+      // Nothing is built and nothing is said, which reads downstream as "this
+      // workspace has nothing to find". Both empty outcomes here are worth a
+      // line: this one, and the one below for a config whose providers ask for
+      // no indexing at all.
+      Logger.debug("Not building indexes: no config loaded");
       return [];
     }
 
@@ -160,6 +165,17 @@ export class CodebaseIndexer {
         .filter((indexType) => Array.isArray(indexType)) // remove undefined indexTypes
         .flat(),
     );
+
+    if (indexTypesToBuild.size === 0) {
+      // The other silent empty: a config that loaded, holding no provider that
+      // asks for an index. Names, because "which providers did this load see"
+      // is the question every search that returns nothing raises.
+      Logger.debug("No provider in the loaded config asks for indexing", {
+        contextProviders: config.contextProviders.map(
+          (provider) => provider.description.title,
+        ),
+      });
+    }
 
     const indexTypeToIndexerMapping: Record<
       ContextIndexingType,
@@ -400,6 +416,13 @@ export class CodebaseIndexer {
       })) {
         directoryFiles.push(p);
         if (abortSignal.aborted) {
+          // Everything collected so far is dropped without a word, so a build
+          // cancelled here leaves a workspace that searches as empty. The count
+          // is what distinguishes this from an index that was never asked for.
+          Logger.debug("Codebase index walk cancelled mid-directory", {
+            directory,
+            filesDiscovered: directoryFiles.length,
+          });
           yield {
             progress: 0,
             desc: "Indexing cancelled",
@@ -411,6 +434,11 @@ export class CodebaseIndexer {
           yield* this.yieldUpdateAndPause();
         }
       }
+
+      Logger.debug("Discovered files for the codebase index", {
+        directory,
+        filesDiscovered: directoryFiles.length,
+      });
 
       const branch = await this.ide.getBranch(directory);
       const repoName = await this.ide.getRepoName(directory);

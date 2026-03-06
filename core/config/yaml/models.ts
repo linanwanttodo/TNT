@@ -1,8 +1,7 @@
 import { mergeConfigYamlRequestOptions, ModelConfig } from "@tnt/config-yaml";
 
 import { TntConfig, ILLMLogger, LLMOptions } from "../..";
-import { BaseLLM } from "../../llm";
-import { LLMClasses } from "../../llm/llms";
+import type { BaseLLM } from "../../llm";
 
 const AUTODETECT = "AUTODETECT";
 
@@ -38,9 +37,13 @@ function applyEnvOptions(
   }
 }
 
-function getModelClass(
+async function getModelClass(
   model: ModelConfig,
-): (typeof LLMClasses)[number] | undefined {
+): Promise<
+  (typeof import("../../llm/llms"))["LLMClasses"][number] | undefined
+> {
+  const { LLMClasses } = await import("../../llm/llms");
+
   return LLMClasses.find((llm) => llm.providerName === model.provider);
 }
 
@@ -57,7 +60,7 @@ async function modelConfigToBaseLLM({
   config: TntConfig;
   isFromAutoDetect?: boolean;
 }): Promise<BaseLLM | undefined> {
-  const cls = getModelClass(model);
+  const cls = await getModelClass(model);
 
   if (!cls) {
     return undefined;
