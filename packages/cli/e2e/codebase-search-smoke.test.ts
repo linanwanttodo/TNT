@@ -62,7 +62,7 @@ function readBody(req: http.IncomingMessage): Promise<any> {
  */
 async function describeLogDecisions(testDir: string): Promise<string> {
   const decisions =
-    /Not building indexes|asks for indexing|Unknown context provider|search failed|No matches|Indexed \d+ files|Starting file index|indexing/i;
+    /Not building indexes|asks for indexing|Unknown context provider|search failed|No matches|Indexed \d+ files|Starting file index|filesDiscovered|walk cancelled|indexing/i;
 
   try {
     const log = await fs.readFile(
