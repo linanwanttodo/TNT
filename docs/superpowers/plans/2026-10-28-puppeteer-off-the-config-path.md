@@ -1,15 +1,14 @@
 # 计划：把 puppeteer 与注册表残留从 CLI 的静态图上切掉
 
-**分支**：`test`（工作区 `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree`）
-**起点**：`c8672b613`
-**作者/执行**：本轮由 agent 全权执行，owner 睡觉，完成后开 PR 跑 CI 并修到全绿。
-**为审阅者写**：每一步都给了「复现命令 + 预期数字 + 回滚方式」。任何一步的数字对不上，就是这一步的结论有问题，不是测量方法有问题。
+**分支**：`test`
+**起点**：`1db115dd8`
+**写法**：每一步都给了「复现命令 + 预期数字 + 回滚方式」。任何一步的数字对不上，就是这一步的结论有问题，不是测量方法有问题。
 
 ---
 
 ## 一、要解决的问题
 
-`2026-10-27` 那份分析报告把这件事列为 P0-1，但它给的传导链是**配置层 → 注册表**那一条。那条已经做完了（`ef73fc6c0`），做完之后重新测量发现：**真正还在静态图上压着 854 KB 的是另一条链**，一条为了一个 5 行纯函数而存在的边。
+`2026-10-27` 那份分析报告把这件事列为 P0-1，但它给的传导链是**配置层 → 注册表**那一条。那条已经做完了（`9c6485dc6`），做完之后重新测量发现：**真正还在静态图上压着 854 KB 的是另一条链**，一条为了一个 5 行纯函数而存在的边。
 
 ### 1.1 实测的静态链（6 跳）
 
@@ -34,7 +33,7 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 
 而 `DocsService` 的**入边只有三条**（已核）：`CodebaseIndexer.ts:23`（只为这个函数）、`DocsContextProvider.ts:11`、`migrations.ts:6`（方向相反，是 DocsService 引 migrations）。所以第 2 跳一断，整条链就断。
 
-### 1.2 基线数字（`c8672b613`，重建后实测）
+### 1.2 基线数字（`1db115dd8`，重建后实测）
 
 | 指标                                                  | 值                                                    |
 | ----------------------------------------------------- | ----------------------------------------------------- |
@@ -44,7 +43,7 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 | 其中 `core/context/providers/*` 模块数                | 4                                                     |
 | 进程启动闭包（`dist/index.js`）                       | 442 inputs / 844,600 B，**注册表与 puppeteer 均为 0** |
 
-> 最后一行是上一轮已记录的事实，写明以防审阅者把它当成本计划的目标：**本计划不动、也无法改善进程启动闭包**。改善的是「第一次用到检索/配置时必然求值的那张图」。
+> 最后一行是上一轮已记录的事实，写明以防把它当成本计划的目标：**本计划不动、也无法改善进程启动闭包**。改善的是「第一次用到检索/配置时必然求值的那张图」。
 
 ---
 
@@ -108,7 +107,7 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 
 清完后把 `ALLOWED_RUNTIME_IMPORTS` 改回 `[]`。
 
-**为什么这是棘轮的收尾而不是新规则**：守卫现在按真实路径匹配、覆盖 6 个 consumer，但清单里冻结着 9 条既有缺陷（`b6eab560e` 记录为「每条都是待办缺陷，不是许可」）。留着它们，下一个 AI 无法区分「允许」与「待修」。
+**为什么这是棘轮的收尾而不是新规则**：守卫现在按真实路径匹配、覆盖 6 个 consumer，但清单里冻结着 9 条既有缺陷（`ac7475f96` 记录为「每条都是待办缺陷，不是许可」）。留着它们，读守卫的人无法区分「允许」与「待修」。
 
 **验收**：守卫 2 tests 全绿且清单为空；`config/` 89 passed / 4 skipped；`tsc -p core` exit 0。断言不得放宽——如果哪条测试因动态化而红，按上一轮的教训**先查自己改造步骤是否完整**（调用点数是否全改、`it` 回调是否 async、同步 throw 断言是否需要改成 rejection 断言），再怀疑框架。
 
@@ -123,14 +122,14 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 
 **必须是 e2e 级**：`build-meta.json` 与 `dist/` 都被 gitignore，干净检出上不存在；写成单元测试会在 CI 与本地都以「文件不存在」失败。测试自身要先确认文件存在，并给一句明确的跳过原因（要求先 `npm run build`）。
 
-**断言选图不选大小**：不写「最大 chunk 不得超过 X」——chunk 身份会随边界重划漂移（上一轮实测：改动后最大 chunk 变成了另一个 chunk，且与启动无关）。
+**断言选图不选大小**：不写「最大 chunk 不得超过 X」——chunk 身份会随边界重划漂移（实测：改动后最大 chunk 变成了另一个 chunk，且与启动无关）。
 
 ---
 
 ### P5 — 版本号、推送、CI 修到绿
 
 - `packages/cli/package.json` 版本 1.0.8 → 1.0.9，标记交付产物结构变化。已核：`cli-release.yml` 是 `workflow_dispatch`（要手填版本），`release-*.yml` 只认 **push 到 main** 且按包目录过滤，所以分支推送与 PR **不会发布任何东西**。已核：仓库内没有断言 `1.0.8` 这个字面量的测试。
-- 推 `test` 到 `origin`，开 PR → `main`。**不 rebase**：交接文档引用了 `ef73fc6c0` / `b6eab560e` 这些 hash，rebase 会让引用失效（这正是上一轮被批评的自指陷阱）。已核 `test` 与 `origin/main` 文件集零重叠、`git merge-tree` 干净。
+- 推 `test` 到 `origin`，开 PR → `main`。这几份文档用短 hash 引用 commit，而任何改写历史的操作（rebase、amend、改 message）都会让引用悄悄失效，所以改过历史必须逐条重核：`git grep -nE '\b[0-9a-f]{9}\b' -- docs`，再对每个 hash 跑一次 `git log -1 --format=%s`。已核 `test` 与 `origin/main` 文件集零重叠、`git merge-tree` 干净。
 - 盯 `CLI PR Checks`（lint、ubuntu/win/mac × node20/22 的测试矩阵含覆盖率地板、smoke、e2e、smoke-api）、`Engine Checks`、`Docs PR Checks`。红了就在 `test` 上修、重推，循环到全绿。
 
 ---
@@ -151,11 +150,11 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 
 | commit           | 内容                             | 配置路径 eager 闭包         | 其中 puppeteer       |
 | ---------------- | -------------------------------- | --------------------------- | -------------------- |
-| 基线 `c8672b613` | —                                | 3,806 inputs / 21,138,081 B | 280 模块 / 854,372 B |
-| `46a8a555b` P1   | `embedModelsAreEqual` 独立成模块 | 2,479 / 15,319,691          | **0**                |
-| `adb21c612` P2   | Chromium 爬虫按需加载            | 2,479 / 15,319,691          | 0                    |
-| `3dd291f7c` P3   | 清掉 9 条冻结泄漏，守卫归零      | **1,669 / 14,104,098**      | 0                    |
-| `ecfc10ade` P4   | 交付图 e2e 守卫                  | 1,669 / 14,104,098          | 0                    |
+| 基线 `1db115dd8` | —                                | 3,806 inputs / 21,138,081 B | 280 模块 / 854,372 B |
+| `0cd4477b3` P1   | `embedModelsAreEqual` 独立成模块 | 2,479 / 15,319,691          | **0**                |
+| `f4e4a1b06` P2   | Chromium 爬虫按需加载            | 2,479 / 15,319,691          | 0                    |
+| `b49d5395d` P3   | 清掉 9 条冻结泄漏，守卫归零      | **1,669 / 14,104,098**      | 0                    |
+| `21220d15f` P4   | 交付图 e2e 守卫                  | 1,669 / 14,104,098          | 0                    |
 
 **合计 −2,137 inputs（−56%）、−7,033,983 B（−33%）。**
 
@@ -168,7 +167,7 @@ P2 的数字不在配置路径上，而在 **docs 索引路径**自己的闭包�
 
 ### 与计划的偏离
 
-1. **P4 的锚点换了实现**：计划写「service chunk」，落地按「含 `src/retrieval/service.ts` 的 chunk」定位——实测两者是同一个，但后者不依赖 chunk 大小或命名，chunk 身份会随改动漂移（本会话已两次观察到）。
+1. **P4 的锚点换了实现**：计划写「service chunk」，落地按「含 `src/retrieval/service.ts` 的 chunk」定位——实测两者是同一个，但后者不依赖 chunk 大小或命名，chunk 身份会随改动漂移（已两次观察到）。
 2. **P3 之后守卫的地板换了机制**：原本指望「非空冻结清单」顺带证明扫描读到了文件；清单归零后这个证明消失了。我先尝试用「文件是否提及注册位」做地板，**变异测试证明它无效**——`llm/index.ts` 本身就在 `core/llm` 子树内，它对自身目录的任何导入都算提及，永远非零。改成逐文件字节地板（>1,000，最小者 3,562，有余量）。两条变异都验过：重新加一条 eager import → 泄漏测试红；把某个 consumer 换成小桩 → 地板红。
 3. **P4 额外加了「闭包非空」断言**（两个闭包各 >100 inputs）：否则锚点查找失败会得出空集，空集满足所有「应当为空」的断言。
 
@@ -176,7 +175,7 @@ P2 的数字不在配置路径上，而在 **docs 索引路径**自己的闭包�
 
 `core/context/providers/utils.ts`（被 `context/retrieval/retrieval.ts` 取一个常量）、`core/context/providers/URLContextProvider.ts`（被 `tools/implementations/fetchUrlContent.ts` 取 `getUrlContextItems` 函数）、`context/mcp/MCPConnection|MCPOauth`、`core/tools/` 下 29 个模块。都是**被真实调用**的代码，且守卫的 barrel 规则不把它们算作注册表。合计 ctx 12 模块 / 25,104 B、tools 29 模块 / 23,066 B。
 
-### 本轮门禁最终状态
+### 门禁最终状态
 
 | 门禁                                         | 结果                                                                                                                                                         |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -190,7 +189,7 @@ P2 的数字不在配置路径上，而在 **docs 索引路径**自己的闭包�
 
 ### 顺带发现的两处既有问题（未修，供后续判断）
 
-1. `core/config/profile/LocalProfileLoader.vitest.ts:15` 的 mock 有 TDZ 缺陷，运行时会打 `Cannot access 'mockDoLoadConfig' before initialization`，但**测试仍然通过**——它落入配置加载的错误处理里了。该现象在本轮任何改动之前就存在（已对最早的 core 全量日志核过）。
+1. `core/config/profile/LocalProfileLoader.vitest.ts:15` 的 mock 有 TDZ 缺陷，运行时会打 `Cannot access 'mockDoLoadConfig' before initialization`，但**测试仍然通过**——它落入配置加载的错误处理里了。该现象在这些改动之前就存在（已对最早的 core 全量日志核过）。
 2. `core/indexing/docs/crawlers/DocsCrawler.vitest.ts` **整套位于 `describe.skip`**（要抓真实站点并下载 Chromium）。所以 P2 改的是一条原本无自动化覆盖的路径，P2 为此补了 4 个离线用例。
 
 ---
@@ -223,12 +222,17 @@ lancedb tables: (empty)
 
 - **不是** `TNT_LOG_LEVEL=debug` 把它修好的——第 3 轮 macos 带着 debug 仍然红。别把绿读成「加日志就好了」。
 - **不是** CI 环境变量：本地把 `CI`、`GITHUB_ACTIONS`、`GITHUB_WORKSPACE`、`RUNNER_TEMP`、`ImageOS` 等整套喂进去，仍然绿。
-- **不是** node 版本：本地装 node 20 复现的是另一个现象（CLI 挂起），而在 CI 全绿的 `eac717d5f` 上本地 node 20 **同样挂起**，所以那是本地环境缺可选原生依赖的假信号，与 CI 无关。
+- **不是** node 版本：本地装 node 20 复现的是另一个现象（CLI 挂起），而在 CI 全绿的 `90b22748a` 上本地 node 20 **同样挂起**，所以那是本地环境缺可选原生依赖的假信号，与 CI 无关。
 - **不是** chunk 形态：产物里 emit 出来的是真 `import("./providers-*.js")`，`format: "esm"`，不存在 `require(esm)` 的版本差异。
 
-还缺的最后一块证据已经埋好：诊断现在会把 headless 的 **stdout**（配置层报错打在这儿）和按标记抽取的流水线日志一起带进失败信息。下一次红应当能直接指出是「Unknown context provider codebase」还是「provider 在但没要索引」。
+最新一轮的红里，`getIndexesToBuild` 的两条诊断**一条都没打出来**——配置加载成功、provider 确实要索引，所以嫌疑从「决定不建」移到「建了但中途丢光」。两处窗口对此负责：
 
-责任归属已用二分钉住：CI 在 `eac717d5f`（上一轮的注册表惰性化）绿，在 `b6eab560e` 红，所以**起因是本会话的 `ef73fc6c0` 把 `loadConfigContextProviders` 改成异步**；后续提交把症状从「CLI exit 1」变成「索引为空」并扩到 node22。这**不推翻**该提交的目标与守卫（注册表确实不在静态图里了，P4 的 e2e 断言长期守着），但它把一次异步化与一次时序脆弱绑在了一起，合并前要当作未解项看。
+- [CodebaseIndexer](../../core/indexing/CodebaseIndexer.ts) 的目录 walk 命中 `abortSignal.aborted` 时，把 `directoryFiles` 已经收集的全部文件直接丢掉且不留一行日志；一次 `refreshCodebaseIndex` 会 abort 上一次在途构建，两次请求重叠就走这条路。现在 walk 每停一次都会打 `filesDiscovered`（`b1855a7c2`），失败信息按这条标记抽取。
+- `hasIndex()` 只查 `tag_catalog`，而 `markComplete` 先写 tag 行、chunk 与 fts 表在其后才写，于是「目录里有行」并不等于「搜得到」。`ensureIndexed` 现在先等在途的 `buildPromise` 再问目录（`b711f77d4`），让后台构建与首次检索落在同一次构建上，而不是各自开一次。
+
+这两条都是**结构上确实存在的窗口**，不是已证实的失败原因：还没有一次红跑留下 `filesDiscovered` 或半个索引的证据。诊断已把 headless 的 **stdout**（配置层报错打在这儿）与按标记抽取的流水线日志一起带进失败信息，下一次红应当能直接指出是哪一个。
+
+责任归属已用二分钉住：CI 在 `90b22748a`（较早那次注册表惰性化）绿，在 `ac7475f96` 红，所以**起因是 `9c6485dc6` 把 `loadConfigContextProviders` 改成异步**；后续提交把症状从「CLI exit 1」变成「索引为空」并扩到 node22。这**不推翻**该提交的目标与守卫（注册表确实不在静态图里了，P4 的 e2e 断言长期守着），但它把一次异步化与一次时序脆弱绑在了一起，合并前要当作未解项看。
 
 ### 6.2 Windows lane 的红**先于本分支**
 
@@ -236,4 +240,4 @@ main 的 windows 作业失败在 `src/lsp/managerShutdown.test.ts:64` 的 `EBUSY
 
 ### 6.3 CLA
 
-`CLAAssistant` 红是因为 `cla-signatures` 分支里的 `signedEntities` 为空，需要**提交者本人在 PR 评论**里签署 CLA。这是人的法律性声明，agent 代签不合适。
+`CLAAssistant` 红是因为 `cla-signatures` 分支里的 `signedEntities` 为空，需要**提交者本人在 PR 评论**里签署 CLA。这是法律性声明，只能由提交者本人完成。
