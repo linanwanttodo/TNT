@@ -152,7 +152,7 @@ The prefix is assembled in build order, each part announced so it can be attribu
   rewording one clause in `base` moves all of them.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `980dda75855815d9` over 40 tools and 31891 characters (name + description + parameter schema, in
+  `ffd9a79d97013690` over 40 tools and 31873 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the
