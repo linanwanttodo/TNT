@@ -358,16 +358,24 @@ addCommonOptions(program)
       }
     }
 
-    // In headless mode, ensure we have a prompt unless using --agent flag or --resume flag
-    // Agent files can provide their own prompts, and resume can work without new input
-    if (options.print && !prompt && !options.agent && !options.resume) {
+    // In headless mode, a prompt has to come from somewhere: the positional message,
+    // `--prompt` (text or a local file), an agent file's own body, or a resumed
+    // session. `--prompt` was missing from this check, so `tnt -p --prompt ...` was
+    // refused by the very error that names the flag.
+    if (
+      options.print &&
+      !prompt &&
+      !options.agent &&
+      !options.resume &&
+      !options.prompt?.length
+    ) {
       safeStderr(`${t("cli.promptRequired")}\n\n`);
       safeStderr(`${t("cli.usageExamples")}\n`);
       safeStderr('  tnt -p "please review my current git diff"\n');
       safeStderr('  echo "hello" | tnt -p\n');
       safeStderr('  tnt -p "analyze the code in src/"\n');
-      safeStderr("  tnt -p --agent my-org/my-agent\n");
-      safeStderr("  tnt -p --prompt my-org/my-prompt\n");
+      safeStderr("  tnt -p --agent .tnt/agents/review.md\n");
+      safeStderr("  tnt -p --prompt .tnt/prompts/review.md\n");
       safeStderr("  tnt -p --resume\n");
       await gracefulExit(1);
     }

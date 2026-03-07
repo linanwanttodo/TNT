@@ -626,7 +626,7 @@ const en = {
   "cli.noModelsFound": "No models were found.",
   "cli.noApiClient": "No LLM API instance found.",
   "cli.headlessNeedsPrompt":
-    'Headless mode requires a prompt. Use: tnt -p "your prompt"\nOr pipe input: echo "prompt" | tnt -p\nOr use agent files: tnt -p --agent my-org/my-agent\nNote: Agent files must contain a prompt field.',
+    'Headless mode requires a prompt. Use: tnt -p "your prompt"\nOr pipe input: echo "prompt" | tnt -p\nOr use an agent file: tnt -p --agent .tnt/agents/review.md\nNote: an agent file is local markdown whose frontmatter needs a name; its body is the prompt.',
   "serve.servicesUnavailable": "Failed to initialize required services",
   "cli.promptRequired":
     "Error: A prompt is required when using the -p/--print flag, unless --prompt, --agent, or --resume is provided.",
@@ -1231,7 +1231,7 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.noModelsFound": "未找到任何模型。",
   "cli.noApiClient": "未找到 LLM API 实例。",
   "cli.headlessNeedsPrompt":
-    '无头模式需要一个提示词。用法：tnt -p "你的提示词"\n或者通过管道输入：echo "prompt" | tnt -p\n或者使用 agent 文件：tnt -p --agent my-org/my-agent\n注意：agent 文件必须包含 prompt 字段。',
+    '无头模式需要一个提示词。用法：tnt -p "你的提示词"\n或者通过管道输入：echo "prompt" | tnt -p\n或者使用 agent 文件：tnt -p --agent .tnt/agents/review.md\n注意：agent 文件是本地 markdown，frontmatter 需要 name 字段，正文就是提示词。',
   "serve.servicesUnavailable": "无法初始化所需服务。",
   "cli.promptRequired":
     "错误：使用 -p/--print 时必须提供提示词，除非使用 --prompt、--agent 或 --resume。",
