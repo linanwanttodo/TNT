@@ -6,12 +6,12 @@ import {
   createTestContext,
   runCLI,
 } from "../test-utils/cli-helpers.js";
+import { HookFixtures } from "../test-utils/hookFixtures.js";
 import {
   cleanupMockLLMServer,
   setupMockLLMTest,
   type MockLLMServer,
 } from "../test-utils/mock-llm-server.js";
-import { HookFixtures } from "../test-utils/hookFixtures.js";
 
 describe("E2E: Headless lifecycle hooks", () => {
   let context: any;
