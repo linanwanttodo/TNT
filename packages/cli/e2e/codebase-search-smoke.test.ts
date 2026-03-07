@@ -91,7 +91,18 @@ async function describeRunArtifacts(testDir: string): Promise<string> {
       path.join(testDir, ".tnt", "logs", "tnt.log"),
       "utf-8",
     );
-    parts.push(`cli log tail:\n${log.split("\n").slice(-25).join("\n")}`);
+    const lines = log.split("\n").filter((line) => line.length > 0);
+    // A debug-level run buries the one interesting line under a hundred
+    // token-count ones, so take the tail and anything that names the stages
+    // this suite can fail at.
+    const interesting = lines.filter((line) =>
+      /provider|index|embed|error|warn|unknown/i.test(line),
+    );
+    const shown = [
+      ...new Set([...interesting.slice(-15), ...lines.slice(-10)]),
+    ];
+
+    parts.push(`cli log (${lines.length} lines):\n${shown.join("\n")}`);
   } catch {
     parts.push("cli log: absent");
   }
@@ -322,6 +333,8 @@ context:
   });
 
   it("indexes, searches, and sends the hit to the model", async () => {
+    // The index pipeline records why it built nothing at debug level, so a run
+    // at the default level fails without ever saying so.
     const result = await runCLI(context, {
       args: [
         "-p",
@@ -329,6 +342,7 @@ context:
         context.configPath!,
         "Please search the codebase for computeFibonacciSequence",
       ],
+      env: { TNT_LOG_LEVEL: "debug" },
       timeout: 90_000,
     });
 
