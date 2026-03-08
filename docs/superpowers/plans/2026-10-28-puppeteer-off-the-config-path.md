@@ -192,3 +192,48 @@ P2 的数字不在配置路径上，而在 **docs 索引路径**自己的闭包�
 
 1. `core/config/profile/LocalProfileLoader.vitest.ts:15` 的 mock 有 TDZ 缺陷，运行时会打 `Cannot access 'mockDoLoadConfig' before initialization`，但**测试仍然通过**——它落入配置加载的错误处理里了。该现象在本轮任何改动之前就存在（已对最早的 core 全量日志核过）。
 2. `core/indexing/docs/crawlers/DocsCrawler.vitest.ts` **整套位于 `describe.skip`**（要抓真实站点并下载 Chromium）。所以 P2 改的是一条原本无自动化覆盖的路径，P2 为此补了 4 个离线用例。
+
+---
+
+## 六、CI 实况（本分支推上去了，结论如下）
+
+`test` → `main` 的 PR 上跑了多轮。**core-checks、lint、prettier-check、smoke-api、build、各 packages-checks 全绿**；两处红：
+
+### 6.1 `e2e/codebase-search-smoke` 在 CI 上**间歇性**红，本地 15/15 绿
+
+| 轮次 | head             | ubuntu/node20 | macos/node22 |
+| ---- | ---------------- | ------------- | ------------ |
+| 1    | 未加诊断         | 红            | 红           |
+| 2    | 加行数诊断后重跑 | 红            | 红           |
+| 3    | 带 debug 日志    | **绿**        | 红           |
+| 4    | 同上             | **绿**        | **绿**       |
+
+取证到的事实（失败轮的 CI 注解）：
+
+```
+index tables: tag_catalog=0, sqlite_sequence=1, global_cache=0, indexing_lock=0
+lancedb tables: (empty)
+[debug]: Codebase search failed SQLITE_ERROR: no such table: fts
+[debug]: Vector search failed SQLITE_ERROR: no such table: lance_db_cache
+```
+
+而本地**通过**时的对照特征是 `tag_catalog=6 / chunks=2 / fts=2` 且 lancedb 有表。所以失败态是「**一个索引表都没建**」，不是「建了没搜到」。结合 [CodebaseIndexer.getIndexesToBuild](../../core/indexing/CodebaseIndexer.ts)：它 `if (!config) return []`，否则**由 `config.contextProviders` 的 `dependsOnIndexing` 决定建哪些索引**。测试的 fixture 里写了 `context: [provider: codebase]`，所以「没建任何索引」等价于「那次加载里 codebase provider 不在列表中」。而聊天请求正常，因为**检索服务自带一个独立的 `ConfigHandler`**，与 CLI 主路径那份配置是两次加载。
+
+已排除项（都做过，别再走一遍）：
+
+- **不是** `TNT_LOG_LEVEL=debug` 把它修好的——第 3 轮 macos 带着 debug 仍然红。别把绿读成「加日志就好了」。
+- **不是** CI 环境变量：本地把 `CI`、`GITHUB_ACTIONS`、`GITHUB_WORKSPACE`、`RUNNER_TEMP`、`ImageOS` 等整套喂进去，仍然绿。
+- **不是** node 版本：本地装 node 20 复现的是另一个现象（CLI 挂起），而在 CI 全绿的 `eac717d5f` 上本地 node 20 **同样挂起**，所以那是本地环境缺可选原生依赖的假信号，与 CI 无关。
+- **不是** chunk 形态：产物里 emit 出来的是真 `import("./providers-*.js")`，`format: "esm"`，不存在 `require(esm)` 的版本差异。
+
+还缺的最后一块证据已经埋好：诊断现在会把 headless 的 **stdout**（配置层报错打在这儿）和按标记抽取的流水线日志一起带进失败信息。下一次红应当能直接指出是「Unknown context provider codebase」还是「provider 在但没要索引」。
+
+责任归属已用二分钉住：CI 在 `eac717d5f`（上一轮的注册表惰性化）绿，在 `b6eab560e` 红，所以**起因是本会话的 `ef73fc6c0` 把 `loadConfigContextProviders` 改成异步**；后续提交把症状从「CLI exit 1」变成「索引为空」并扩到 node22。这**不推翻**该提交的目标与守卫（注册表确实不在静态图里了，P4 的 e2e 断言长期守着），但它把一次异步化与一次时序脆弱绑在了一起，合并前要当作未解项看。
+
+### 6.2 Windows lane 的红**先于本分支**
+
+main 的 windows 作业失败在 `src/lsp/managerShutdown.test.ts:64` 的 `EBUSY: resource busy or locked, rmdir '…\tnt-lsp-stop-work-…'`；本分支最新一轮仍是同一族的 LSP `EBUSY`，外加 `src/ui/components/ThemeSelector.test.tsx:82` 偶发拿到 `['dark','dark']`（本地 3/3 稳）。本分支改的 Windows 项（hook 日志按行解析、阻塞 hook 走 `HookFixtures`）已不再出现在失败列表里。LSP 清理与主题渲染这两处不属于本计划的范围，需要单独判断。
+
+### 6.3 CLA
+
+`CLAAssistant` 红是因为 `cla-signatures` 分支里的 `signedEntities` 为空，需要**提交者本人在 PR 评论**里签署 CLA。这是人的法律性声明，agent 代签不合适。
