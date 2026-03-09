@@ -150,11 +150,22 @@ export class RetrievalService {
   /**
    * Builds the index on first use and reuses it afterwards. Two callers that
    * race on an unbuilt workspace share one build.
+   *
+   * A build already in flight is joined before the tag catalog is trusted:
+   * `markComplete` records a file's tag row as the first thing it does, while
+   * the chunk and full-text tables are written after it, so answering from the
+   * catalog alone can report "indexed" for a workspace a search still finds
+   * nothing in.
    */
   async ensureIndexed(): Promise<void> {
+    if (this.buildPromise) {
+      await this.buildPromise;
+    }
+
     if (await this.hasIndex()) {
       return;
     }
+
     this.buildPromise ??= this.update().finally(() => {
       this.buildPromise = null;
     });
