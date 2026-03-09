@@ -416,6 +416,13 @@ export class CodebaseIndexer {
       })) {
         directoryFiles.push(p);
         if (abortSignal.aborted) {
+          // Everything collected so far is dropped without a word, so a build
+          // cancelled here leaves a workspace that searches as empty. The count
+          // is what distinguishes this from an index that was never asked for.
+          Logger.debug("Codebase index walk cancelled mid-directory", {
+            directory,
+            filesDiscovered: directoryFiles.length,
+          });
           yield {
             progress: 0,
             desc: "Indexing cancelled",
@@ -427,6 +434,11 @@ export class CodebaseIndexer {
           yield* this.yieldUpdateAndPause();
         }
       }
+
+      Logger.debug("Discovered files for the codebase index", {
+        directory,
+        filesDiscovered: directoryFiles.length,
+      });
 
       const branch = await this.ide.getBranch(directory);
       const repoName = await this.ide.getRepoName(directory);
