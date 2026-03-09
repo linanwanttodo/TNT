@@ -32,7 +32,9 @@
     "test-utils/**/*",
     "e2e/**/*",
     "smoke-api/**/*",
+    "eval/**/*",
     "vitest.setup.ts",
     "vitest.global-dir-setup.ts"
-  ]
+  ],
+  "exclude": ["eval/retrieval/corpus/**"]
 }
