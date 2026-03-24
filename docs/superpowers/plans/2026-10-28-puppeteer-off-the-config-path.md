@@ -180,7 +180,7 @@ P2 的数字不在配置路径上，而在 **docs 索引路径**自己的闭包�
 | 门禁                                         | 结果                                                                                                                                                         |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | core `vitest`（`IGNORE_API_KEY_TESTS=true`） | 146 files / 2,225 tests passed（+1 文件 +4 用例来自 P2）                                                                                                     |
-| packages/cli `vitest`                        | 466 files / 3,764 tests passed                                                                                                                               |
+| packages/cli `vitest`                        | 466 files / 3,765 tests passed                                                                                                                               |
 | `test:e2e`                                   | **35 files / 123 tests passed**（+1 文件 +3 用例来自 P4）                                                                                                    |
 | `tsc` core / packages/cli                    | exit 0 / exit 0                                                                                                                                              |
 | `eslint .` packages/cli                      | 0 problems                                                                                                                                                   |
@@ -216,23 +216,33 @@ lancedb tables: (empty)
 [debug]: Vector search failed SQLITE_ERROR: no such table: lance_db_cache
 ```
 
-而本地**通过**时的对照特征是 `tag_catalog=6 / chunks=2 / fts=2` 且 lancedb 有表。所以失败态是「**一个索引表都没建**」，不是「建了没搜到」。结合 [CodebaseIndexer.getIndexesToBuild](../../core/indexing/CodebaseIndexer.ts)：它 `if (!config) return []`，否则**由 `config.contextProviders` 的 `dependsOnIndexing` 决定建哪些索引**。测试的 fixture 里写了 `context: [provider: codebase]`，所以「没建任何索引」等价于「那次加载里 codebase provider 不在列表中」。而聊天请求正常，因为**检索服务自带一个独立的 `ConfigHandler`**，与 CLI 主路径那份配置是两次加载。
+而本地**通过**时的对照特征是 `tag_catalog=6 / chunks=2 / fts=2` 且 lancedb 有表。所以失败态是「**一个索引表都没建**」，不是「建了没搜到」。
+
+**先记一件让前面几轮取证全部作废的事：探针是瞎的。** core 的 `Logger` 只读 `CONTINUE_LOG_LEVEL`，而 smoke 设的是 `TNT_LOG_LEVEL`，于是 core 停在 info，`getIndexesToBuild` 与 walk 的 debug 行一条都没落盘；而 core 写的是 `logs/core.log`，smoke 只读 `logs/tnt.log`。所以「core 的诊断一条都没出现」这件事**不能证明任何东西**，此前由它推出的「配置加载成功、provider 确实要索引」一并作废。两处都已修：`ea09b6a8d` 让 core 认 `TNT_LOG_LEVEL`，`92d33deef` 把 `core.log` 一起读进失败信息。
+
+修好之后，本地一次**通过**的运行里就能看到那两次构建互相取消：
+
+```
+[@tnt] debug: Codebase index walk cancelled mid-directory {"filesDiscovered":1}
+[@tnt] debug: Discovered files for the codebase index {"filesDiscovered":2}
+```
+
+机制在 core 里，而且两次构建都真实存在：`CodebaseIndexer.init()` 加载配置后调 `handleConfigUpdate`，后者 `void this.refreshCodebaseIndex(dirs)`（`core/indexing/CodebaseIndexer.ts:906`）——一次**没人 await** 的构建；检索工具的 `ensureIndexed()` 又 awaited 自己那一次。而 `refreshCodebaseIndex` 开头就 abort 在途的 controller（`:763`），walk 命中 abort 分支时把已经收集的 `directoryFiles` 整批丢掉。**同一个目录、同一个 indexer 实例、两次构建，后启动的那个杀掉前一个。**
+
+于是 CI 与本地的差别不是「有没有竞态」（每次都有），而是竞态的哪一边落空：本地被杀的一般是没被 await 的那次，幸存者在搜索发起前跑完，测试照绿；runner 上被杀的是 awaited 的那次，`update()` 带着零写入返回，搜索立刻撞上 `no such table: fts`。这也解释它为什么与 `9c6485dc6`（配置加载改异步）同时出现——那次改动移除了「配置先 settle、构建后启动」的旧顺序。
+
+修法落在 CLI 一侧：`update()` 先 `await this.indexer.initPromise`（`CodebaseIndexer.ts:59` 的 public 字段）再启动自己那次，让 awaited 的那次必然后启动、必然活下来（`26161b673`）。守卫在 `packages/cli/src/retrieval/service.test.ts`：把 `initPromise` 挂在一扇门上，断言门开之前一次构建都没启动；把 `update()` 里那行 `await` 删掉，这条测试立刻红（已实测）。
+
+一处结构性窗口仍然成立，但已不是主要嫌疑：`hasIndex()` 只查 `tag_catalog`，而 `markComplete` 先写 tag 行、chunk 与 fts 表在其后才写，所以「目录里有行」不等于「搜得到」；`ensureIndexed` 现在先等在途的 `buildPromise` 再问目录（`b711f77d4`）。
 
 已排除项（都做过，别再走一遍）：
 
-- **不是** `TNT_LOG_LEVEL=debug` 把它修好的——第 3 轮 macos 带着 debug 仍然红。别把绿读成「加日志就好了」。
+- **不是** `TNT_LOG_LEVEL=debug` 把它修好的——第 3 轮 macos 带着 debug 仍然红。别把绿读成「加日志就好了」；当时的 debug 只作用于 CLI 自己的 logger。
 - **不是** CI 环境变量：本地把 `CI`、`GITHUB_ACTIONS`、`GITHUB_WORKSPACE`、`RUNNER_TEMP`、`ImageOS` 等整套喂进去，仍然绿。
 - **不是** node 版本：本地装 node 20 复现的是另一个现象（CLI 挂起），而在 CI 全绿的 `90b22748a` 上本地 node 20 **同样挂起**，所以那是本地环境缺可选原生依赖的假信号，与 CI 无关。
 - **不是** chunk 形态：产物里 emit 出来的是真 `import("./providers-*.js")`，`format: "esm"`，不存在 `require(esm)` 的版本差异。
 
-最新一轮的红里，`getIndexesToBuild` 的两条诊断**一条都没打出来**——配置加载成功、provider 确实要索引，所以嫌疑从「决定不建」移到「建了但中途丢光」。两处窗口对此负责：
-
-- [CodebaseIndexer](../../core/indexing/CodebaseIndexer.ts) 的目录 walk 命中 `abortSignal.aborted` 时，把 `directoryFiles` 已经收集的全部文件直接丢掉且不留一行日志；一次 `refreshCodebaseIndex` 会 abort 上一次在途构建，两次请求重叠就走这条路。现在 walk 每停一次都会打 `filesDiscovered`（`b1855a7c2`），失败信息按这条标记抽取。
-- `hasIndex()` 只查 `tag_catalog`，而 `markComplete` 先写 tag 行、chunk 与 fts 表在其后才写，于是「目录里有行」并不等于「搜得到」。`ensureIndexed` 现在先等在途的 `buildPromise` 再问目录（`b711f77d4`），让后台构建与首次检索落在同一次构建上，而不是各自开一次。
-
-这两条都是**结构上确实存在的窗口**，不是已证实的失败原因：还没有一次红跑留下 `filesDiscovered` 或半个索引的证据。诊断已把 headless 的 **stdout**（配置层报错打在这儿）与按标记抽取的流水线日志一起带进失败信息，下一次红应当能直接指出是哪一个。
-
-责任归属已用二分钉住：CI 在 `90b22748a`（较早那次注册表惰性化）绿，在 `ac7475f96` 红，所以**起因是 `9c6485dc6` 把 `loadConfigContextProviders` 改成异步**；后续提交把症状从「CLI exit 1」变成「索引为空」并扩到 node22。这**不推翻**该提交的目标与守卫（注册表确实不在静态图里了，P4 的 e2e 断言长期守着），但它把一次异步化与一次时序脆弱绑在了一起，合并前要当作未解项看。
+责任归属仍按二分记：CI 在 `90b22748a`（较早那次注册表惰性化）绿，在 `ac7475f96` 红——现在能说出原因了，就是上面那次异步化把「配置先 settle」的顺序拆掉了。这**不推翻** `9c6485dc6` 的目标与守卫（注册表确实不在静态图里了，P4 的 e2e 断言长期守着），修复也不动它。
 
 ### 6.2 Windows lane 的红**先于本分支**
 
