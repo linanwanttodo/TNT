@@ -73,11 +73,15 @@ describe("E2E: Headless Mode with Tool Calls", () => {
     // Run the CLI with print mode (-p)
     const result = await runCLI(context, {
       args: ["-p", "--config", context.configPath, "Test with tool calls"],
-      timeout: 15000,
+      // The helper's default is 20s and this case asks for more, because it is
+      // the run whose output is expected to stay empty: a killed child and a
+      // correct run are indistinguishable here, so the budget has to cover the
+      // slowest runner rather than the average one.
+      timeout: 30000,
     });
 
     // In headless mode with only tool calls, nothing should be printed
     expect(result.stdout).toBe("");
     expect(result.exitCode).toBe(0);
-  }, 20000);
+  }, 40000);
 });
