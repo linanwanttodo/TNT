@@ -18,10 +18,7 @@ import {
 } from "../../";
 import { stringifyMcpPrompt } from "../../commands/slash/mcpSlashCommand";
 import { convertRuleBlockToSlashCommand } from "../../commands/slash/ruleBlockSlashCommand";
-import { MCPManagerSingleton } from "../../context/mcp/MCPManagerSingleton";
-import MCPContextProvider from "../../context/providers/MCPContextProvider";
 import { initSlashCommand } from "../../promptFiles/initPrompt";
-import { getConfigDependentToolDefinitions } from "../../tools";
 import { encodeMCPToolUri } from "../../tools/callTool";
 import { getMCPToolName } from "../../tools/mcpToolName";
 import { GlobalContext } from "../../util/GlobalContext";
@@ -79,6 +76,19 @@ export default async function doLoadConfig(options: {
     overrideConfigYamlByPath,
     packageIdentifier,
   } = options;
+
+  // Loaded here rather than at module scope: this is the last step of every
+  // config load, and these three carry the mcp manager, its provider and the
+  // tool definitions behind them.
+  const [
+    { MCPManagerSingleton },
+    { default: MCPContextProvider },
+    { getConfigDependentToolDefinitions },
+  ] = await Promise.all([
+    import("../../context/mcp/MCPManagerSingleton"),
+    import("../../context/providers/MCPContextProvider"),
+    import("../../tools"),
+  ]);
 
   const ideInfo = await ide.getIdeInfo();
   const uniqueId = await ide.getUniqueId();

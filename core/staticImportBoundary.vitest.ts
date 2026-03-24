@@ -1,0 +1,182 @@
+import { readFileSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import { describe, expect, it } from "vitest";
+
+/**
+ * The CLI reaches core's config layer through `core/config/ConfigHandler.ts`,
+ * which sits in the chunk `codebaseSearch` and the `@codebaseIndex` handler
+ * fetch on first use. That chunk is not the process's startup graph - the
+ * entry's eager closure is 442 inputs and holds no registry at all - but
+ * whatever these six files import statically is fetched along with it.
+ * Measured 2026-10-27: 25 registry imports across five files kept 31 provider
+ * modules in that chunk; lazifying `load.ts` and `loadContextProviders.ts`
+ * took the config path's eager graph from 4,452 inputs to 3,806 and left none.
+ *
+ * `import type` is free: TypeScript erases it and esbuild never sees it. So the
+ * rule is not "do not refer to these registries" but "do not load them".
+ *
+ * What leaks is the *barrel*, not the directory: `core/tools/index.ts` does
+ * `import * as toolDefinitions from "./definitions"` and pulls the whole tree
+ * in, while `core/tools/applyToolOverrides.ts` imports only a type module and
+ * a package and is a leaf. So the tools barrel is matched exactly and every
+ * module under `llm`, `context/mcp` and `context/providers` is matched as a
+ * subtree, because all of those are part of a registry. Getting this wrong in
+ * either direction makes the guard lie.
+ *
+ * Specifiers are resolved to real paths before matching, not compared as
+ * strings. `../../tools` and `../tools` are the same module seen from
+ * different depths, and a string comparison is depth-sensitive: it reports a
+ * clean boundary while the edge is still there.
+ */
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+const TOOL_BARREL = [
+  path.resolve(ROOT, "tools"),
+  path.resolve(ROOT, "tools", "index"),
+];
+
+const REGISTRY_SUBTREES = [
+  path.resolve(ROOT, "llm"),
+  path.resolve(ROOT, "context", "mcp"),
+  path.resolve(ROOT, "context", "providers"),
+];
+
+/**
+ * A registry reaching into itself is the registry's own business, not the
+ * config layer loading it. Only an importer that lives outside a subtree is
+ * measured against it.
+ */
+const isRegistry = (specifier: string, importer: string) => {
+  const resolved = path.resolve(path.dirname(importer), specifier);
+  const insideTree = REGISTRY_SUBTREES.some((tree) =>
+    importer.startsWith(`${tree}${path.sep}`),
+  );
+
+  return (
+    TOOL_BARREL.includes(resolved) ||
+    (!insideTree &&
+      REGISTRY_SUBTREES.some(
+        (tree) =>
+          resolved === tree || resolved.startsWith(`${tree}${path.sep}`),
+      ))
+  );
+};
+
+/**
+ * Runtime registry imports still loaded eagerly. Every entry was a defect with
+ * a follow-up, not an allowance; the last of them went in this change, so the
+ * list is empty and stays empty - one added fails the guard. With nothing left
+ * to match against, the proof that the scan still reads the six files is the
+ * size floor below: a scan that read none of them would report no leaks too,
+ * and that is the same green.
+ */
+const ALLOWED_RUNTIME_IMPORTS: string[] = [];
+
+const CONSUMERS = [
+  "config/load.ts",
+  "config/loadContextProviders.ts",
+  "config/yaml/loadYaml.ts",
+  "config/yaml/models.ts",
+  "config/profile/doLoadConfig.ts",
+  "llm/index.ts",
+];
+
+type ImportStatement = { bindings: string; specifier: string };
+
+/**
+ * Every top-level `import ... from "<module>"` in `text`. Statements span
+ * multiple lines, so a line scan cannot tell a runtime import from a type-only
+ * one: `import {\n  type A,\n} from "../llm"` is free but opens and closes on
+ * different lines. Only whole statements are returned, which is also what makes
+ * the scan ignore a dynamic `await import(...)` inside a function body.
+ */
+function importStatements(text: string): ImportStatement[] {
+  const lines = text.split("\n");
+  const statements: ImportStatement[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const opening = lines[i].trim();
+
+    if (!opening.startsWith("import ")) continue;
+    // A dynamic `import(...)` or a generic type argument, not a statement.
+    if (/^import\s*[(<]/.test(opening)) continue;
+    if (opening.startsWith("import type ")) continue;
+
+    // The `from` clause can sit several lines down.
+    let last = i;
+    while (
+      last < lines.length &&
+      !/from\s+"[^"]+"/.test(lines.slice(i, last + 1).join(" "))
+    ) {
+      last++;
+    }
+
+    const statement = lines
+      .slice(i, last + 1)
+      .join(" ")
+      .match(/^import\s+(.*?)\s+from\s+"([^"]+)"/s);
+    if (!statement) continue;
+
+    i = last;
+    statements.push({
+      bindings: statement[1],
+      specifier: statement[2],
+    });
+  }
+
+  return statements;
+}
+
+/** True when every named binding is type-only, so the statement loads nothing. */
+function isTypeOnly(bindings: string): boolean {
+  const trimmed = bindings.trim();
+
+  if (trimmed.startsWith("type ") || trimmed === "") return true;
+  if (!trimmed.startsWith("{")) return false;
+
+  const names = trimmed
+    .slice(1, trimmed.lastIndexOf("}"))
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  return names.length > 0 && names.every((name) => name.startsWith("type "));
+}
+
+function runtimeRegistryImports(file: string, text: string): string[] {
+  const hits: string[] = [];
+
+  for (const { bindings, specifier } of importStatements(text)) {
+    if (!isRegistry(specifier, file)) continue;
+    if (isTypeOnly(bindings)) continue;
+
+    hits.push(`${path.relative(ROOT, file)} <- ${specifier}`);
+  }
+
+  return hits.sort();
+}
+
+describe("the registry imports core loads on behalf of the CLI", () => {
+  it("reads every file the boundary is about", () => {
+    for (const relative of CONSUMERS) {
+      const text = readFileSync(path.join(ROOT, relative), "utf8");
+
+      expect(
+        text.length,
+        `${relative} is too small to be the file this guard measures`,
+      ).toBeGreaterThan(1_000);
+    }
+  });
+
+  it("loads no provider, tool or context registry beyond the frozen list", () => {
+    const measured = CONSUMERS.flatMap((relative) => {
+      const file = path.join(ROOT, relative);
+
+      return runtimeRegistryImports(file, readFileSync(file, "utf8"));
+    }).sort();
+
+    expect(measured).toEqual(ALLOWED_RUNTIME_IMPORTS);
+  });
+});

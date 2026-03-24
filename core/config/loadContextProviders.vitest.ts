@@ -71,8 +71,12 @@ beforeEach(() => {
 
 describe("loadConfigContextProviders", () => {
   describe("with empty or undefined config", () => {
-    it("should return only default providers when config is undefined", () => {
-      const result = loadConfigContextProviders(undefined, false, "vscode");
+    it("should return only default providers when config is undefined", async () => {
+      const result = await loadConfigContextProviders(
+        undefined,
+        false,
+        "vscode",
+      );
 
       expect(result.errors).toEqual([]);
       expect(result.providers).toHaveLength(6);
@@ -91,8 +95,8 @@ describe("loadConfigContextProviders", () => {
       );
     });
 
-    it("should return only default providers when config is empty array", () => {
-      const result = loadConfigContextProviders([], false, "vscode");
+    it("should return only default providers when config is empty array", async () => {
+      const result = await loadConfigContextProviders([], false, "vscode");
 
       expect(result.errors).toEqual([]);
       expect(result.providers).toHaveLength(6);
@@ -110,8 +114,8 @@ describe("loadConfigContextProviders", () => {
       );
     });
 
-    it("should exclude problems and terminal in jetbrains", () => {
-      const result = loadConfigContextProviders([], false, "jetbrains");
+    it("should exclude problems and terminal in jetbrains", async () => {
+      const result = await loadConfigContextProviders([], false, "jetbrains");
 
       expect(result.errors).toEqual([]);
       expect(result.providers).toHaveLength(4);
@@ -123,8 +127,8 @@ describe("loadConfigContextProviders", () => {
     });
   });
 
-  it("should return default + docs when has docs is true", () => {
-    const result = loadConfigContextProviders([], true, "vscode");
+  it("should return default + docs when has docs is true", async () => {
+    const result = await loadConfigContextProviders([], true, "vscode");
 
     expect(result.errors).toEqual([]);
     expect(result.providers).toHaveLength(7);
@@ -145,7 +149,7 @@ describe("loadConfigContextProviders", () => {
 });
 
 describe("with valid config", () => {
-  it("should load providers from config with correct parameters", () => {
+  it("should load providers from config with correct parameters", async () => {
     const mockProvider = vi.fn().mockImplementation((options) => ({
       description: { title: "custom-provider" },
       options,
@@ -164,7 +168,7 @@ describe("with valid config", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([]);
     expect(mockedContextProviderClassFromName).toHaveBeenCalledWith(
@@ -190,7 +194,7 @@ describe("with valid config", () => {
     });
   });
 
-  it("should handle multiple providers in config", () => {
+  it("should handle multiple providers in config", async () => {
     const mockProvider1 = vi.fn().mockImplementation((options) => ({
       description: { title: "provider-1" },
       options,
@@ -218,7 +222,7 @@ describe("with valid config", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([]);
     expect(result.providers).toHaveLength(8); // 2 custom + 6 defaults
@@ -234,7 +238,7 @@ describe("with valid config", () => {
     });
   });
 
-  it("should handle config with empty params", () => {
+  it("should handle config with empty params", async () => {
     const mockProvider = vi.fn().mockImplementation((options) => ({
       description: { title: "no-params-provider" },
       options,
@@ -250,7 +254,7 @@ describe("with valid config", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([]);
     expect(mockProvider).toHaveBeenCalledWith({
@@ -258,7 +262,7 @@ describe("with valid config", () => {
     });
   });
 
-  it("should handle config without params property", () => {
+  it("should handle config without params property", async () => {
     const mockProvider = vi.fn().mockImplementation((options) => ({
       description: { title: "provider-without-params" },
       options,
@@ -273,7 +277,7 @@ describe("with valid config", () => {
       } as any, // Cast to bypass type checking for test
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([]);
     expect(mockProvider).toHaveBeenCalledWith({
@@ -283,7 +287,7 @@ describe("with valid config", () => {
 });
 
 describe("error handling", () => {
-  it("should add error for unknown provider", () => {
+  it("should add error for unknown provider", async () => {
     mockedContextProviderClassFromName.mockReturnValue(undefined);
 
     const config = [
@@ -294,7 +298,7 @@ describe("error handling", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([
       {
@@ -310,7 +314,7 @@ describe("error handling", () => {
     );
   });
 
-  it("should handle multiple unknown providers", () => {
+  it("should handle multiple unknown providers", async () => {
     mockedContextProviderClassFromName.mockReturnValue(undefined);
 
     const config = [
@@ -326,7 +330,7 @@ describe("error handling", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([
       {
@@ -342,7 +346,7 @@ describe("error handling", () => {
     expect(result.providers).toHaveLength(6); // Only defaults
   });
 
-  it("should handle mix of valid and invalid providers", () => {
+  it("should handle mix of valid and invalid providers", async () => {
     const mockValidProvider = vi.fn().mockImplementation((options) => ({
       description: { title: "valid-provider" },
       options,
@@ -365,7 +369,7 @@ describe("error handling", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([
       {
@@ -384,7 +388,7 @@ describe("error handling", () => {
 });
 
 describe("default provider merging", () => {
-  it("should not duplicate providers when config matches defaults", () => {
+  it("should not duplicate providers when config matches defaults", async () => {
     // Mock FileContextProvider to be returned by contextProviderClassFromName
     mockedContextProviderClassFromName.mockReturnValue(FileContextProvider);
 
@@ -396,7 +400,7 @@ describe("default provider merging", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([]);
 
@@ -415,7 +419,7 @@ describe("default provider merging", () => {
     });
   });
 
-  it("should add default providers not present in config", () => {
+  it("should add default providers not present in config", async () => {
     const mockCustomProvider = vi.fn().mockImplementation((options) => ({
       description: { title: "custom-only" },
       options,
@@ -431,7 +435,7 @@ describe("default provider merging", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([]);
     expect(result.providers).toHaveLength(7); // 1 custom + 6 defaults
@@ -451,7 +455,7 @@ describe("default provider merging", () => {
     );
   });
 
-  it("should preserve order with configured providers first", () => {
+  it("should preserve order with configured providers first", async () => {
     const mockProvider = vi.fn().mockImplementation((options) => ({
       description: { title: "custom-provider" },
       options,
@@ -467,7 +471,7 @@ describe("default provider merging", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.providers[0].description.title).toBe("custom-provider");
 
@@ -487,7 +491,7 @@ describe("default provider merging", () => {
 });
 
 describe("edge cases", () => {
-  it("should handle provider constructor throwing error", () => {
+  it("should handle provider constructor throwing error", async () => {
     const mockProvider = vi.fn().mockImplementation(() => {
       throw new Error("Provider construction failed");
     }) as any;
@@ -502,12 +506,12 @@ describe("edge cases", () => {
       },
     ];
 
-    expect(() => loadConfigContextProviders(config, false, "vscode")).toThrow(
-      "Provider construction failed",
-    );
+    await expect(
+      loadConfigContextProviders(config, false, "vscode"),
+    ).rejects.toThrow("Provider construction failed");
   });
 
-  it("should handle null provider class", () => {
+  it("should handle null provider class", async () => {
     mockedContextProviderClassFromName.mockReturnValue(undefined);
 
     const config = [
@@ -518,7 +522,7 @@ describe("edge cases", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([
       {
@@ -528,7 +532,7 @@ describe("edge cases", () => {
     ]);
   });
 
-  it("should handle provider with same title as default but different implementation", () => {
+  it("should handle provider with same title as default but different implementation", async () => {
     // Mock a provider with same title as a default
     const mockFileProvider = vi.fn().mockImplementation((options) => ({
       description: { title: "file" }, // Same title as FileContextProvider
@@ -546,7 +550,7 @@ describe("edge cases", () => {
       },
     ];
 
-    const result = loadConfigContextProviders(config, false, "vscode");
+    const result = await loadConfigContextProviders(config, false, "vscode");
 
     expect(result.errors).toEqual([]);
 
@@ -566,8 +570,8 @@ describe("edge cases", () => {
 });
 
 describe("provider instantiation", () => {
-  it("should call default provider constructors with empty options", () => {
-    loadConfigContextProviders([], false, "vscode");
+  it("should call default provider constructors with empty options", async () => {
+    await loadConfigContextProviders([], false, "vscode");
 
     expect(FileContextProvider).toHaveBeenCalledWith({});
     expect(CurrentFileContextProvider).toHaveBeenCalledWith({});
@@ -577,8 +581,8 @@ describe("provider instantiation", () => {
     expect(RulesContextProvider).toHaveBeenCalledWith({});
   });
 
-  it("should call provider constructors exactly once per provider", () => {
-    loadConfigContextProviders([], false, "vscode");
+  it("should call provider constructors exactly once per provider", async () => {
+    await loadConfigContextProviders([], false, "vscode");
 
     expect(FileContextProvider).toHaveBeenCalledTimes(1);
     expect(CurrentFileContextProvider).toHaveBeenCalledTimes(1);

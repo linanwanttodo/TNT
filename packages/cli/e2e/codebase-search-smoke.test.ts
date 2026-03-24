@@ -55,6 +55,121 @@ function readBody(req: http.IncomingMessage): Promise<any> {
   });
 }
 
+/**
+ * Both logs the run can write to. `tnt.log` is the CLI's own; `core.log` is
+ * core's winston file transport, and the index pipeline - the part that decides
+ * whether to build an index at all - only ever speaks there. Reading the first
+ * alone is how a red run came to look like a build that never ran.
+ */
+async function readRunLogs(testDir: string): Promise<string> {
+  const chunks: string[] = [];
+  for (const name of ["tnt.log", "core.log"]) {
+    try {
+      chunks.push(
+        await fs.readFile(path.join(testDir, ".tnt", "logs", name), "utf-8"),
+      );
+    } catch {
+      chunks.push(`# ${name}: absent\n`);
+    }
+  }
+
+  return chunks.join("\n");
+}
+
+/**
+ * The run's own verdict lines, on their own and first: a CI annotation is
+ * truncated, and in the last red runs everything past the tenth line went away -
+ * which is exactly where "why did it build no index" sits.
+ */
+async function describeLogDecisions(testDir: string): Promise<string> {
+  const decisions =
+    /Not building indexes|asks for indexing|Unknown context provider|search failed|No matches|Indexed \d+ files|Starting file index|filesDiscovered|walk cancelled|indexing/i;
+
+  const log = await readRunLogs(testDir);
+  const lines = log.split("\n");
+  const chosen = lines.filter((line) => decisions.test(line));
+
+  return `decisions (${chosen.length} of ${lines.length} lines, tnt.log + core.log):\n${chosen
+    .slice(-10)
+    .join("\n")}`;
+}
+
+/**
+ * What the run left behind, as text: whether an index directory was created at
+ * all and what it holds. A red lane with this attached distinguishes "never
+ * indexed" from "indexed and still missed"; without it, it cannot.
+ */
+async function describeRunArtifacts(testDir: string): Promise<string> {
+  const parts: string[] = [];
+
+  const indexDir = path.join(testDir, ".tnt", "index");
+  try {
+    const entries = await fs.readdir(indexDir, { withFileTypes: true });
+    parts.push(
+      `index dir: ${entries
+        .map((entry) => `${entry.name}${entry.isDirectory() ? "/" : ""}`)
+        .join(", ")}`,
+    );
+  } catch (error) {
+    parts.push(`index dir: none (${(error as Error).message})`);
+  }
+
+  parts.push(await describeIndexDb(path.join(indexDir, "index.sqlite")));
+
+  const lancedb = path.join(indexDir, "lancedb");
+  try {
+    const tables = await fs.readdir(lancedb);
+    parts.push(`lancedb tables: ${tables.join(", ") || "(empty)"}`);
+  } catch {
+    parts.push("lancedb: absent");
+  }
+
+  return parts.join("\n");
+}
+
+/**
+ * Row counts of the index database. "The search found nothing" has at least
+ * three causes behind it - nothing indexed, indexed under a key the query does
+ * not use, indexed and not matched - and only the counts separate them. Never
+ * throws: a diagnostic that can break a run is worse than no diagnostic.
+ */
+async function describeIndexDb(dbPath: string): Promise<string> {
+  try {
+    const sqlite3 = await import("sqlite3");
+    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
+
+    /** The driver is callback-shaped; this is the smallest promise wrapper. */
+    const all = (sql: string) =>
+      new Promise<Record<string, unknown>[]>((resolve, reject) =>
+        db.all(sql, (error, rows) =>
+          error ? reject(error) : resolve(rows as Record<string, unknown>[]),
+        ),
+      );
+
+    try {
+      const tables = await all(
+        "SELECT name FROM sqlite_master WHERE type = 'table'",
+      );
+
+      const counts = await Promise.all(
+        tables.map(async (table) => {
+          const rows = await all(
+            `SELECT COUNT(*) AS n FROM "${String(table.name)}"`,
+          );
+
+          return `${String(table.name)}=${String(rows[0]?.n ?? "?")}`;
+        }),
+      );
+
+      return `index tables: ${counts.join(", ") || "(none)"}`;
+    } finally {
+      await new Promise<void>((resolve) => db.close(() => resolve()));
+    }
+  } catch (error) {
+    return `index tables: unreadable (${(error as Error).message})`;
+  }
+}
+
 describe("E2E: codebase search reaches the model", () => {
   let context: Awaited<ReturnType<typeof createTestContext>>;
   let mockServer: Awaited<ReturnType<typeof createMockLLMServer>>;
@@ -235,6 +350,8 @@ context:
   });
 
   it("indexes, searches, and sends the hit to the model", async () => {
+    // The index pipeline records why it built nothing at debug level, so a run
+    // at the default level fails without ever saying so.
     const result = await runCLI(context, {
       args: [
         "-p",
@@ -242,15 +359,35 @@ context:
         context.configPath!,
         "Please search the codebase for computeFibonacciSequence",
       ],
+      env: { TNT_LOG_LEVEL: "debug" },
       timeout: 90_000,
     });
 
+    // An empty result is the only symptom this suite had for a long time, and
+    // it says nothing about which stage came up short: the tool echoes the
+    // query into "No matches", so the run's own log, the index directory it
+    // left behind and the requests the mock actually saw are what make a red
+    // run here readable. The CI lanes failed twice with no way to tell whether
+    // the index was never built or built and then missed.
+    const detail = [
+      // First, because a CI annotation is truncated and the reason is the part
+      // that keeps getting cut off.
+      await describeLogDecisions(context.testDir),
+      `tool result: ${JSON.stringify(toolResult)}`,
+      `requests seen: ${requestPaths.join(", ")}`,
+      // Headless prints what the config layer complained about on stdout, ahead
+      // of the answer, and an empty provider list is one of the few ways this
+      // case can end with no index at all.
+      `stdout: ${result.stdout.slice(0, 400)}`,
+      `stderr: ${result.stderr.slice(-300)}`,
+      await describeRunArtifacts(context.testDir),
+    ].join("\n");
+
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Cited the search result.");
+    expect(result.stdout, detail).toContain("Cited the search result.");
     expect(chatRequests).toBeGreaterThanOrEqual(2);
     expect(requestPaths).toContain("POST /embeddings");
-    expect(toolResult).toContain("computeFibonacciSequence");
-    expect(toolResult).toContain(path.join("src", "math.ts"));
+    expect(toolResult, detail).toContain(path.join("src", "math.ts"));
     expect(toolResult).toMatch(/:\d+:\d+/);
   }, 120_000);
 });

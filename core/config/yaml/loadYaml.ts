@@ -22,16 +22,12 @@ import {
   ILLMLogger,
   InternalMcpOptions,
 } from "../..";
-import { MCPManagerSingleton } from "../../context/mcp/MCPManagerSingleton";
-import TransformersJsEmbeddingsProvider from "../../llm/llms/TransformersJsEmbeddingsProvider";
 import { getAllPromptFiles } from "../../promptFiles/getPromptFiles";
 import { GlobalContext } from "../../util/GlobalContext";
 import { modifyAnyConfigWithSharedConfig } from "../sharedConfig";
 
 import { convertPromptBlockToSlashCommand } from "../../commands/slash/promptBlockSlashCommand";
 import { slashCommandFromPromptFile } from "../../commands/slash/promptFileSlashCommand";
-import { loadJsonMcpConfigs } from "../../context/mcp/json/loadJsonMcpConfigs";
-import { getBaseToolDefinitions } from "../../tools";
 import { getCleanUriPath } from "../../util/uri";
 import { loadConfigContextProviders } from "../loadContextProviders";
 import { getAllDotTntDefinitionFiles } from "../loadLocalAssistants";
@@ -163,6 +159,21 @@ export async function configYamlToTntConfig(options: {
   let { unrolledAssistant, ide, ideInfo, uniqueId, llmLogger } = options;
 
   const localErrors: ConfigValidationError[] = [];
+
+  // Loaded here rather than at module scope: this file is reached from the
+  // config layer, and each of these four carries the registry behind it - the
+  // tool definitions, the mcp providers, the embeddings runtime.
+  const [
+    { MCPManagerSingleton },
+    { default: TransformersJsEmbeddingsProvider },
+    { loadJsonMcpConfigs },
+    { getBaseToolDefinitions },
+  ] = await Promise.all([
+    import("../../context/mcp/MCPManagerSingleton"),
+    import("../../llm/llms/TransformersJsEmbeddingsProvider"),
+    import("../../context/mcp/json/loadJsonMcpConfigs"),
+    import("../../tools"),
+  ]);
 
   const continueConfig: TntConfig = {
     slashCommands: [],
@@ -349,7 +360,7 @@ export async function configYamlToTntConfig(options: {
     );
   }
 
-  const { providers, errors: contextErrors } = loadConfigContextProviders(
+  const { providers, errors: contextErrors } = await loadConfigContextProviders(
     config.context,
     !!config.docs?.length,
     ideInfo.ideType,
