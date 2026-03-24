@@ -4,7 +4,8 @@ import { fileURLToPath } from "url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { formatReport, runBenchmark } from "./harness.js";
+import { resolveExpectations } from "./adapters.js";
+import { CORPUS, formatReport, runBenchmark } from "./harness.js";
 import type { BenchmarkRun } from "./harness.js";
 import { FLOORS, QUERIES } from "./labels.js";
 
@@ -17,66 +18,24 @@ import { FLOORS, QUERIES } from "./labels.js";
  * merge order, a reranker that is now consulted - has to move a number here
  * before it can reach `main`.
  *
- * The build is the slow part, so it happens once for the whole file.
+ * The scoring half only means something against the chunker production uses, so
+ * a run that could not reach the tree-sitter grammars skips it rather than
+ * measuring a different thing against these floors. The half that checks the
+ * labels, the floor table and this document runs everywhere.
  */
-let run: BenchmarkRun;
-
-beforeAll(async () => {
-  run = await runBenchmark();
-}, 420_000);
-
-afterAll(() => {
-  fs.rmSync(run.root, { recursive: true, force: true });
-});
-
-describe("retrieval benchmark", () => {
+describe("retrieval benchmark setup", () => {
   it("labels a line that still exists in the corpus", () => {
-    expect(run.labelProblems).toEqual([]);
+    const { problems } = resolveExpectations(CORPUS, QUERIES);
+
+    expect(problems.map((problem) => problem.why)).toEqual([]);
   });
 
-  it("scores every tool and track the query set claims to cover", () => {
-    const wanted = [
+  it("floors every bucket the query set covers, and no others", () => {
+    const covered = [
       ...new Set(QUERIES.map((query) => `${query.tool}/${query.track}`)),
     ].sort();
 
-    expect(Object.keys(run.scores).sort()).toEqual(wanted);
-  });
-
-  it("recalls at least as well as the last measured run", () => {
-    const failures: string[] = [];
-
-    for (const [bucket, score] of Object.entries(run.scores)) {
-      const floor = FLOORS[bucket];
-      if (!floor) {
-        failures.push(
-          `${bucket}: no floor recorded - measured recall@8 ${score.recallAt.toFixed(
-            3,
-          )}, mrr ${score.mrr.toFixed(3)}`,
-        );
-        continue;
-      }
-      if (score.recallAt < floor.recallAt) {
-        failures.push(
-          `${bucket}: recall@8 ${score.recallAt.toFixed(3)} below the ${floor.recallAt} floor`,
-        );
-      }
-      if (score.mrr < floor.mrr) {
-        failures.push(
-          `${bucket}: mrr ${score.mrr.toFixed(3)} below the ${floor.mrr} floor`,
-        );
-      }
-    }
-
-    expect(failures, formatReport(run)).toEqual([]);
-  });
-
-  it("is answered well enough to be believed", () => {
-    // A bucket floor can stay green while the whole run collapses into a few
-    // easy tracks; this is the coarse check that the corpus as a whole is being
-    // read, not just the part of it a change happens to still hit.
-    const answered = run.outcomes.filter((outcome) => outcome.recalled);
-
-    expect(answered.length / run.outcomes.length).toBeGreaterThanOrEqual(0.6);
+    expect(Object.keys(FLOORS).sort()).toEqual(covered);
   });
 
   it("documents the floors it enforces", () => {
@@ -110,5 +69,56 @@ describe("retrieval benchmark", () => {
     expect(missing).toEqual([]);
     expect(wrong).toEqual([]);
     expect(documented.size).toBe(Object.keys(FLOORS).length);
+  });
+});
+
+describe("retrieval benchmark", () => {
+  let run: BenchmarkRun;
+
+  beforeAll(async () => {
+    run = await runBenchmark();
+  }, 420_000);
+
+  afterAll(() => {
+    fs.rmSync(run.dir, { recursive: true, force: true });
+  });
+
+  /** Only the tree-sitter chunks are what a shipped CLI ranks with. */
+  function requireRealChunks(ctx: { skip: () => void }): void {
+    if (run.grammars.chunker !== "tree-sitter") {
+      ctx.skip();
+    }
+  }
+
+  it("recalls at least as well as the last measured run", (ctx) => {
+    requireRealChunks(ctx);
+
+    const failures: string[] = [];
+    for (const [bucket, score] of Object.entries(run.scores)) {
+      const floor = FLOORS[bucket];
+      if (score.recallAt < floor.recallAt) {
+        failures.push(
+          `${bucket}: recall@8 ${score.recallAt.toFixed(3)} below the ${floor.recallAt} floor`,
+        );
+      }
+      if (score.mrr < floor.mrr) {
+        failures.push(
+          `${bucket}: mrr ${score.mrr.toFixed(3)} below the ${floor.mrr} floor`,
+        );
+      }
+    }
+
+    expect(failures, formatReport(run)).toEqual([]);
+  });
+
+  it("is answered well enough to be believed", (ctx) => {
+    requireRealChunks(ctx);
+
+    // A bucket floor can stay green while the whole run collapses into a few
+    // easy tracks; this is the coarse check that the corpus as a whole is being
+    // read, not just the part of it a change happens to still hit.
+    const answered = run.outcomes.filter((outcome) => outcome.recalled);
+
+    expect(answered.length / run.outcomes.length).toBeGreaterThanOrEqual(0.6);
   });
 });

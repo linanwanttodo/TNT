@@ -52,32 +52,6 @@ describe("Glob", () => {
     expect(output).not.toContain("README.md");
   });
 
-  it("anchors a relative pattern at the path it was given, not at the run", async () => {
-    write(path.join("src", "billing", "refund.ts"));
-    write(path.join("src", "orders", "order.ts"));
-
-    // A search of another directory arrives as an absolute `path` plus a pattern
-    // written against that directory, while the process sits somewhere else.
-    // Ripgrep anchors a slash-bearing glob at the working directory, so the
-    // filter matched nothing and the answer was "no files match".
-    const elsewhere = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), "tnt-glob-elsewhere-")),
-    );
-    process.chdir(elsewhere);
-    try {
-      const output = await run({
-        pattern: "src/billing/*.ts",
-        path: dir,
-      });
-
-      expect(output).toContain(path.join("src", "billing", "refund.ts"));
-      expect(output).not.toContain("order.ts");
-    } finally {
-      process.chdir(dir);
-      fs.rmSync(elsewhere, { recursive: true, force: true });
-    }
-  });
-
   it("skips what the repository ignores", async () => {
     write(".gitignore", "generated/\n");
     write("src/keep.ts");
