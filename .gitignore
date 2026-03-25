@@ -193,3 +193,8 @@ core/file:/
 # esbuild's analysis output, written next to the CLI package rather than into
 # dist so that it never ships with a release.
 packages/cli/build-meta.json
+
+# Review-round notes about this repository. They are read by whoever is working
+# the open items, not built or shipped, and the format gate cannot tell a note
+# from a product document - so they stay on disk and out of git.
+analysis/
