@@ -38,30 +38,29 @@ direct push to `main`: work lands that way here, and a gate that listens only to
 `pull_request` never sees it.
 
 Every job declares `timeout-minutes`. A hung install or a test process that never
-exits would otherwise bill the six-hour default. The four `release-*.yml`
-workflows call `reusable-release.yml` through `jobs.<id>.uses`, and a job that
-only forwards takes no ceiling of its own, so they inherit the 5 and 40 minutes
-declared inside the reusable workflow.
+exits would otherwise bill the six-hour default.
 
 ## Release paths
 
-| Workflow                                                                                           | Trigger                   | Needs                                                                                        |
-| -------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
-| `cli-release.yml`                                                                                  | manual                    | none beyond `GITHUB_TOKEN`; the version must match `packages/cli/package.json`               |
-| `release-openai-adapters.yml` `release-config-yaml.yml` `release-fetch.yml` `release-llm-info.yml` | push touching the package | `SEMANTIC_RELEASE_GITHUB_TOKEN`, `SEMANTIC_RELEASE_NPM_TOKEN` through `reusable-release.yml` |
+| Workflow          | Trigger | Needs                                                                          |
+| ----------------- | ------- | ------------------------------------------------------------------------------ |
+| `cli-release.yml` | manual  | none beyond `GITHUB_TOKEN`; the version must match `packages/cli/package.json` |
 
-Those four publish `@tnt/*` npm packages. The CLI is not one of them.
+The CLI is the only release. The workspace packages it imports -
+`@tnt/config-yaml`, `@tnt/fetch`, `@tnt/llm-info`, `@tnt/openai-adapters` - are
+consumed as `file:` dependencies (`packages/cli/package.json`), so their four npm
+publish chains and the reusable release workflow they forwarded to were deleted:
+nothing in this product reads the published versions, and the chains only kept a
+`SEMANTIC_RELEASE_*` secret pair alive for a build nobody consumes.
 
 ## Secrets
 
 | Secret                                                                                                                                                                                                                       | Purpose                                                  | Read by                                                                          |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `GITHUB_TOKEN`                                                                                                                                                                                                               | Default per-run token                                    | `cla.yaml`, `delete-stale-branches.yaml`, `docs-gh-pages.yml`, `cli-release.yml` |
-| `SEMANTIC_RELEASE_GITHUB_TOKEN`                                                                                                                                                                                              | Creates the release/tag entries for package releases     | `reusable-release.yml` via the four `release-*.yml` wrappers                     |
-| `SEMANTIC_RELEASE_NPM_TOKEN`                                                                                                                                                                                                 | Publishes the `@tnt/*` packages to npm                   | same                                                                             |
-| `OPENAI_API_KEY`                                                                                                                                                                                                             | Provider tests in `core/` and the adapters               | `engine-checks.yml`, `reusable-release.yml`                                      |
-| `ANTHROPIC_API_KEY`                                                                                                                                                                                                          | Anthropic tests, and the CLI `smoke-api` job             | `engine-checks.yml`, `cli-pr-checks.yml`, `reusable-release.yml`                 |
-| `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `VOYAGE_API_KEY`, `RELACE_API_KEY`, `INCEPTION_API_KEY`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_GPT41_API_KEY`, `AZURE_FOUNDRY_CODESTRAL_API_KEY`, `AZURE_FOUNDRY_MISTRAL_SMALL_API_KEY` | Provider-specific tests that skip when the key is absent | `engine-checks.yml`, `reusable-release.yml`                                      |
+| `OPENAI_API_KEY`                                                                                                                                                                                                             | Provider tests in `core/` and the adapters               | `engine-checks.yml`                                                              |
+| `ANTHROPIC_API_KEY`                                                                                                                                                                                                          | Anthropic tests, and the CLI `smoke-api` job             | `engine-checks.yml`, `cli-pr-checks.yml`                                         |
+| `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `VOYAGE_API_KEY`, `RELACE_API_KEY`, `INCEPTION_API_KEY`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_GPT41_API_KEY`, `AZURE_FOUNDRY_CODESTRAL_API_KEY`, `AZURE_FOUNDRY_MISTRAL_SMALL_API_KEY` | Provider-specific tests that skip when the key is absent | `engine-checks.yml`                                                              |
 
 ## Local environment
 
