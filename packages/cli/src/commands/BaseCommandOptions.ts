@@ -21,7 +21,7 @@ export interface BaseCommandOptions {
   ask?: string[];
   /** Array of tools to exclude from use (--exclude) */
   exclude?: string[];
-  /** Agent file slug from the hub (--agent) */
+  /** Local agent markdown file (--agent) */
   agent?: string;
   /** Trust this project's settings, hooks and MCP servers (--trust-project) */
   trustProject?: boolean;

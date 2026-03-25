@@ -105,7 +105,7 @@ export function addCommonOptions(command: Command): Command {
       [] as string[],
     )
     .option(
-      "--agent <slug>",
+      "--agent <path>",
       "Load an agent from a local markdown path (hub loading has been removed)",
     );
 }
