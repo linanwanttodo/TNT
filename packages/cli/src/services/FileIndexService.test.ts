@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,7 +18,9 @@ describe("FileIndexService", () => {
 
   beforeEach(() => {
     originalCwd = process.cwd();
-    tempDir = fs.mkdtempSync(path.join(process.cwd(), "test-fileindex-"));
+    tempDir = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), "tnt-fileindex-")),
+    );
     process.chdir(tempDir);
 
     service = new FileIndexService();
