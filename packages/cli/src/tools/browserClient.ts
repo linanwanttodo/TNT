@@ -31,9 +31,10 @@ interface WebSocketLike {
 type WebSocketConstructor = new (url: string) => WebSocketLike;
 
 function browserEndpoint(): string {
-  return (
-    process.env.CONTINUE_CLI_BROWSER_ENDPOINT ?? DEFAULT_ENDPOINT
-  ).replace(/\/$/, "");
+  return (process.env.TNT_BROWSER_ENDPOINT ?? DEFAULT_ENDPOINT).replace(
+    /\/$/,
+    "",
+  );
 }
 
 async function pageSocketUrl(endpoint: string): Promise<string> {
@@ -43,7 +44,7 @@ async function pageSocketUrl(endpoint: string): Promise<string> {
   if (!response.ok) {
     throw new TntError(
       TntErrorReason.Unspecified,
-      `Could not reach the browser at ${endpoint}: ${response.status} ${response.statusText}. Start it with --remote-debugging-port=9222 or set CONTINUE_CLI_BROWSER_ENDPOINT.`,
+      `Could not reach the browser at ${endpoint}: ${response.status} ${response.statusText}. Start it with --remote-debugging-port=9222 or set TNT_BROWSER_ENDPOINT.`,
     );
   }
 

@@ -27,10 +27,10 @@ export function setConfigFilePermissions(filePath: string): void {
 }
 
 const GLOBAL_DIR = (() => {
-  // TNT_GLOBAL_DIR is the current name; CONTINUE_GLOBAL_DIR still resolves so
-  // that an existing shell profile keeps pointing at the same directory.
-  const configPath =
-    process.env.TNT_GLOBAL_DIR ?? process.env.CONTINUE_GLOBAL_DIR;
+  // The one name for the home directory. The `CONTINUE_` spelling it replaced is
+  // not read, so a stale variable in a shell profile moves nothing rather than
+  // quietly pointing at a different tree.
+  const configPath = process.env.TNT_GLOBAL_DIR;
   if (configPath) {
     // Convert relative path to absolute paths based on current working directory
     return path.isAbsolute(configPath)

@@ -176,8 +176,8 @@ describe("E2E: the cache guard holds for a growing session", () => {
   }
 
   const runEnv = () => ({
-    CONTINUE_CLI_TEST_SESSION_ID: "cache-guard-session",
-    CONTINUE_GLOBAL_DIR: path.join(context.testDir, ".tnt"),
+    TNT_TEST_SESSION_ID: "cache-guard-session",
+    TNT_GLOBAL_DIR: path.join(context.testDir, ".tnt"),
   });
 
   const hitRateOf = (turn: CapturedTurn) =>

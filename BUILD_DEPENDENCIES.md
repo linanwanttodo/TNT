@@ -65,7 +65,7 @@ nothing in this product reads the published versions, and the chains only kept a
 ## Local environment
 
 `packages/cli` reads its configuration from the TNT global directory, `~/.tnt`
-by default (`TNT_GLOBAL_DIR`, with `CONTINUE_GLOBAL_DIR` accepted as the older
+by default (`TNT_GLOBAL_DIR`, with `TNT_GLOBAL_DIR` accepted as the older
 name). The env example files are at:
 
 - `packages/cli/.env.example`

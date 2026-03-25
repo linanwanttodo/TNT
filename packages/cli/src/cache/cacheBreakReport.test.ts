@@ -277,12 +277,12 @@ describe("writeCacheBreakReport", () => {
 
   beforeEach(() => {
     previousEnv = {
-      CONTINUE_GLOBAL_DIR: process.env.CONTINUE_GLOBAL_DIR,
-      CONTINUE_CLI_TEST_SESSION_ID: process.env.CONTINUE_CLI_TEST_SESSION_ID,
+      TNT_GLOBAL_DIR: process.env.TNT_GLOBAL_DIR,
+      TNT_TEST_SESSION_ID: process.env.TNT_TEST_SESSION_ID,
     };
     globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-cache-breaks-"));
-    process.env.CONTINUE_GLOBAL_DIR = globalDir;
-    process.env.CONTINUE_CLI_TEST_SESSION_ID = "cache-break-session";
+    process.env.TNT_GLOBAL_DIR = globalDir;
+    process.env.TNT_TEST_SESSION_ID = "cache-break-session";
   });
 
   afterEach(() => {
@@ -355,7 +355,7 @@ describe("writeCacheBreakReport", () => {
   it("gives up the path but not the report when nothing can be written", () => {
     // A session store that cannot hold a directory is the failure to test for:
     // the numbers still have to reach the log.
-    process.env.CONTINUE_GLOBAL_DIR = path.join(globalDir, "not-a-directory");
+    process.env.TNT_GLOBAL_DIR = path.join(globalDir, "not-a-directory");
     fs.writeFileSync(
       path.join(globalDir, "not-a-directory"),
       "occupied",

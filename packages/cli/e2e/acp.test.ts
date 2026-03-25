@@ -70,10 +70,9 @@ async function startHarness(
       cwd: home,
       env: {
         ...process.env,
-        CONTINUE_CLI_TEST: "true",
+        TNT_TEST: "true",
         HOME: home,
         USERPROFILE: home,
-        CONTINUE_GLOBAL_DIR: globalDir,
         TNT_GLOBAL_DIR: globalDir,
       },
       stdio: ["pipe", "pipe", "pipe"],

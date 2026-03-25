@@ -17,9 +17,7 @@ export const DEFAULT_CACHE_HIT_FLOOR = 0.95;
  * differ. A value outside (0, 1] is not a ratio and falls back to the default
  * rather than making the guard unfalsifiable.
  */
-export function cacheHitFloor(
-  raw = process.env.CONTINUE_CLI_CACHE_HIT_FLOOR,
-): number {
+export function cacheHitFloor(raw = process.env.TNT_CACHE_HIT_FLOOR): number {
   if (raw === undefined || raw.trim() === "") {
     return DEFAULT_CACHE_HIT_FLOOR;
   }

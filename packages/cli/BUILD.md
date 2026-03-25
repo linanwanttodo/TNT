@@ -76,15 +76,15 @@ When publishing to npm:
 
 ## Environment
 
-The state directory is `TNT_GLOBAL_DIR`, falling back to the older `CONTINUE_GLOBAL_DIR` and then to
+The state directory is `TNT_GLOBAL_DIR`, falling back to the older `TNT_GLOBAL_DIR` and then to
 `~/.tnt`. It holds `settings.json`, `sessions/`, `permissions.yaml` and the `cache-breaks/` report
 directory, so setting it moves all four together. Both names are read in
 `src/config/globalDir.ts`; the older one is kept because it is already present in existing shells and
 CI configuration, where ignoring it would look like a lost configuration rather than a rename.
 
-Logging level is `TNT_LOG_LEVEL`, falling back to `CONTINUE_LOG_LEVEL`; a value the logger does not
-recognize is ignored rather than raised. Telemetry stays off unless asked for: `CONTINUE_METRICS_ENABLED=1`
-(or `CONTINUE_CLI_ENABLE_TELEMETRY=1` with an OTEL endpoint) turns it on, and `=0` turns it off.
+Logging level is `TNT_LOG_LEVEL`, falling back to `TNT_LOG_LEVEL`; a value the logger does not
+recognize is ignored rather than raised. Telemetry stays off unless asked for: `TNT_METRICS_ENABLED=1`
+(or `TNT_ENABLE_TELEMETRY=1` with an OTEL endpoint) turns it on, and `=0` turns it off.
 
 The complete set of variable names the CLI reads is not maintained by hand - `src/branding.test.ts`
 scans the sources and fails if a `TNT_` or `CONTINUE_` name is read without being listed there.

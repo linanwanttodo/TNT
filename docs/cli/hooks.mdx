@@ -52,8 +52,10 @@ Plugins can contribute hooks as well. See [Plugins](/cli/plugins).
 ```
 
 Every hook receives its event as JSON on stdin (`tool_input.file_path` in the
-example above), with `CONTINUE_PROJECT_DIR` set to the workspace in the
-environment.
+example above), with `TNT_PROJECT_DIR` set to the workspace in the
+environment. `CLAUDE_PROJECT_DIR` is set to the same value for scripts written
+against that convention, and so is the older `CONTINUE_PROJECT_DIR` — it stays
+alongside the others for one major version, then stops.
 
 Four handler types are supported:
 

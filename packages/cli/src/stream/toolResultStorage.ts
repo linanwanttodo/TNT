@@ -17,7 +17,7 @@ const MAX_STORED_PER_SESSION = 50;
 
 export function maxInlineToolResultChars(): number {
   return parseEnvNumber(
-    process.env.CONTINUE_CLI_MAX_TOOL_RESULT_CHARS,
+    process.env.TNT_MAX_TOOL_RESULT_CHARS,
     DEFAULT_MAX_INLINE_CHARS,
   );
 }

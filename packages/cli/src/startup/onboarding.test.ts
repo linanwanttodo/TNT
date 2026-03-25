@@ -160,9 +160,9 @@ models: "not a list"
 });
 
 // Separate describe block with its own mocking for BEDROCK tests
-describe("CONTINUE_USE_BEDROCK environment variable", () => {
+describe("TNT_USE_BEDROCK environment variable", () => {
   const mockConsoleLog = vi.fn();
-  const originalEnv = process.env.CONTINUE_USE_BEDROCK;
+  const originalEnv = process.env.TNT_USE_BEDROCK;
 
   // Mock initialize for these tests only
   const mockInitialize = vi.fn().mockResolvedValue({
@@ -186,16 +186,16 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
 
   afterEach(() => {
     if (originalEnv) {
-      process.env.CONTINUE_USE_BEDROCK = originalEnv;
+      process.env.TNT_USE_BEDROCK = originalEnv;
     } else {
-      delete process.env.CONTINUE_USE_BEDROCK;
+      delete process.env.TNT_USE_BEDROCK;
     }
     vi.restoreAllMocks();
     vi.doUnmock("../config/index.js");
   });
 
-  test("should bypass interactive options when CONTINUE_USE_BEDROCK=1", async () => {
-    process.env.CONTINUE_USE_BEDROCK = "1";
+  test("should bypass interactive options when TNT_USE_BEDROCK=1", async () => {
+    process.env.TNT_USE_BEDROCK = "1";
 
     // Re-import to get the mocked version
     vi.resetModules();
@@ -205,14 +205,12 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
 
     expect(result).toBe(true);
     expect(mockConsoleLog).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
-      ),
+      expect.stringContaining("Using AWS Bedrock (TNT_USE_BEDROCK detected)"),
     );
   });
 
-  test("should not bypass when CONTINUE_USE_BEDROCK is not '1'", async () => {
-    process.env.CONTINUE_USE_BEDROCK = "0";
+  test("should not bypass when TNT_USE_BEDROCK is not '1'", async () => {
+    process.env.TNT_USE_BEDROCK = "0";
 
     // Re-import to get the mocked version
     vi.resetModules();
@@ -228,9 +226,7 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
       // Verify the Bedrock message was NOT called by checking all calls
       const allCalls = mockConsoleLog.mock.calls.flat();
       const hasBedrockMessage = allCalls.some((call) =>
-        String(call).includes(
-          "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
-        ),
+        String(call).includes("Using AWS Bedrock (TNT_USE_BEDROCK detected)"),
       );
       expect(hasBedrockMessage).toBe(false);
     } finally {
@@ -241,13 +237,13 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
 
 describe("interactive provider onboarding writes a real config file", () => {
   let tempDir: string;
-  const originalGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
+  const originalGlobalDir = process.env.TNT_GLOBAL_DIR;
   const originalGithubActions = process.env.GITHUB_ACTIONS;
   const originalStdinIsTTY = process.stdin.isTTY;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-onboard-"));
-    process.env.CONTINUE_GLOBAL_DIR = tempDir;
+    process.env.TNT_GLOBAL_DIR = tempDir;
     // Force the interactive branch (not the non-TTY test guard). Every signal
     // the guard reads has to be neutralised here, because GitHub Actions sets
     // GITHUB_ACTIONS in addition to CI and the first cut of this file only
@@ -273,9 +269,9 @@ describe("interactive provider onboarding writes a real config file", () => {
     const { closeLogs } = await import("../utils/logger.js");
     await closeLogs();
     if (originalGlobalDir === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = originalGlobalDir;
+      process.env.TNT_GLOBAL_DIR = originalGlobalDir;
     }
     if (originalGithubActions === undefined) {
       delete process.env.GITHUB_ACTIONS;

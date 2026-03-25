@@ -36,7 +36,7 @@ describe("E2E: checks outside a repository", () => {
 
     const result = await runCLI(context, {
       args: ["checks"],
-      env: { CONTINUE_GLOBAL_DIR: globalDir },
+      env: { TNT_GLOBAL_DIR: globalDir },
       timeout: 30000,
     });
 

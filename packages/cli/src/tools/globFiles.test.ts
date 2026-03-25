@@ -38,7 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   process.chdir(previousCwd);
   fs.rmSync(dir, { recursive: true, force: true });
-  delete process.env.CONTINUE_CLI_GLOB_MAX_RESULTS;
+  delete process.env.TNT_GLOB_MAX_RESULTS;
 });
 
 describe("Glob", () => {
@@ -81,7 +81,7 @@ describe("Glob", () => {
     write("a.ts");
     write("b.ts");
     write("c.ts");
-    process.env.CONTINUE_CLI_GLOB_MAX_RESULTS = "2";
+    process.env.TNT_GLOB_MAX_RESULTS = "2";
 
     const output = await run({ pattern: "**/*.ts" });
 

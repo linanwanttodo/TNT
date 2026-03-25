@@ -23,16 +23,16 @@ beforeEach(() => {
   home = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-settings-home-"));
   project = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-settings-project-"));
   previousHome = process.env.HOME;
-  previousGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
+  previousGlobalDir = process.env.TNT_GLOBAL_DIR;
   process.env.HOME = home;
-  process.env.CONTINUE_GLOBAL_DIR = path.join(home, ".tnt");
+  process.env.TNT_GLOBAL_DIR = path.join(home, ".tnt");
 });
 
 afterEach(() => {
   if (previousHome === undefined) delete process.env.HOME;
   else process.env.HOME = previousHome;
-  if (previousGlobalDir === undefined) delete process.env.CONTINUE_GLOBAL_DIR;
-  else process.env.CONTINUE_GLOBAL_DIR = previousGlobalDir;
+  if (previousGlobalDir === undefined) delete process.env.TNT_GLOBAL_DIR;
+  else process.env.TNT_GLOBAL_DIR = previousGlobalDir;
   fs.rmSync(home, { recursive: true, force: true });
   fs.rmSync(project, { recursive: true, force: true });
 });

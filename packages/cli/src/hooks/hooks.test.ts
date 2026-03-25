@@ -146,17 +146,17 @@ describe("hookConfig", () => {
       projectDir = path.join(tmpDir, "project");
       fs.mkdirSync(fakeHome, { recursive: true });
       fs.mkdirSync(projectDir, { recursive: true });
-      // Override CONTINUE_GLOBAL_DIR so that user-global settings
+      // Override TNT_GLOBAL_DIR so that user-global settings
       // from the real ~/.tnt/settings.json don't leak into tests
-      originalTntGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
-      process.env.CONTINUE_GLOBAL_DIR = path.join(fakeHome, ".tnt");
+      originalTntGlobalDir = process.env.TNT_GLOBAL_DIR;
+      process.env.TNT_GLOBAL_DIR = path.join(fakeHome, ".tnt");
     });
 
     afterEach(() => {
       if (originalTntGlobalDir === undefined) {
-        delete process.env.CONTINUE_GLOBAL_DIR;
+        delete process.env.TNT_GLOBAL_DIR;
       } else {
-        process.env.CONTINUE_GLOBAL_DIR = originalTntGlobalDir;
+        process.env.TNT_GLOBAL_DIR = originalTntGlobalDir;
       }
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
@@ -833,14 +833,14 @@ describeUnix("hookRunner", () => {
   });
 
   describe("runHooks - environment variables", () => {
-    it("sets CONTINUE_PROJECT_DIR and CLAUDE_PROJECT_DIR env vars", async () => {
+    it("sets TNT_PROJECT_DIR and CLAUDE_PROJECT_DIR env vars", async () => {
       const config: HooksConfig = {
         PreToolUse: [
           {
             hooks: [
               {
                 type: "command",
-                command: 'echo "$CONTINUE_PROJECT_DIR|$CLAUDE_PROJECT_DIR"',
+                command: 'echo "$TNT_PROJECT_DIR|$CLAUDE_PROJECT_DIR"',
               },
             ],
           },

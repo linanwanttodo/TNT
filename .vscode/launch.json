@@ -39,7 +39,7 @@
       "runtimeArgs": ["--enable-source-maps"],
       "env": {
         "NODE_ENV": "development",
-        "CONTINUE_USE_BEDROCK": "1"
+        "TNT_USE_BEDROCK": "1"
       },
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",

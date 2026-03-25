@@ -14,7 +14,7 @@ import { maybePromptForProjectTrust } from "./trustPrompt.js";
  * trust applies to the first load.
  */
 describe("maybePromptForProjectTrust", () => {
-  const previousHome = process.env.CONTINUE_GLOBAL_DIR;
+  const previousHome = process.env.TNT_GLOBAL_DIR;
   let project: string;
 
   const askYes = vi.fn(async () => "y");
@@ -22,7 +22,7 @@ describe("maybePromptForProjectTrust", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.CONTINUE_GLOBAL_DIR = fs.mkdtempSync(
+    process.env.TNT_GLOBAL_DIR = fs.mkdtempSync(
       path.join(os.tmpdir(), "tnt-trust-"),
     );
     project = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-project-"));
@@ -36,9 +36,9 @@ describe("maybePromptForProjectTrust", () => {
 
   afterEach(() => {
     if (previousHome === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = previousHome;
+      process.env.TNT_GLOBAL_DIR = previousHome;
     }
   });
 

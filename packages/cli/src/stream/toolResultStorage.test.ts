@@ -17,31 +17,31 @@ function resultsDir(sessionId?: string): string {
 }
 
 beforeEach(() => {
-  previousGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
-  previousLimit = process.env.CONTINUE_CLI_MAX_TOOL_RESULT_CHARS;
-  previousSessionId = process.env.CONTINUE_CLI_TEST_SESSION_ID;
+  previousGlobalDir = process.env.TNT_GLOBAL_DIR;
+  previousLimit = process.env.TNT_MAX_TOOL_RESULT_CHARS;
+  previousSessionId = process.env.TNT_TEST_SESSION_ID;
   globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-tool-results-"));
-  process.env.CONTINUE_GLOBAL_DIR = globalDir;
-  process.env.CONTINUE_CLI_MAX_TOOL_RESULT_CHARS = "100";
+  process.env.TNT_GLOBAL_DIR = globalDir;
+  process.env.TNT_MAX_TOOL_RESULT_CHARS = "100";
   // The session the store files results under.
-  process.env.CONTINUE_CLI_TEST_SESSION_ID = "test-session";
+  process.env.TNT_TEST_SESSION_ID = "test-session";
 });
 
 afterEach(() => {
   if (previousGlobalDir === undefined) {
-    delete process.env.CONTINUE_GLOBAL_DIR;
+    delete process.env.TNT_GLOBAL_DIR;
   } else {
-    process.env.CONTINUE_GLOBAL_DIR = previousGlobalDir;
+    process.env.TNT_GLOBAL_DIR = previousGlobalDir;
   }
   if (previousLimit === undefined) {
-    delete process.env.CONTINUE_CLI_MAX_TOOL_RESULT_CHARS;
+    delete process.env.TNT_MAX_TOOL_RESULT_CHARS;
   } else {
-    process.env.CONTINUE_CLI_MAX_TOOL_RESULT_CHARS = previousLimit;
+    process.env.TNT_MAX_TOOL_RESULT_CHARS = previousLimit;
   }
   if (previousSessionId === undefined) {
-    delete process.env.CONTINUE_CLI_TEST_SESSION_ID;
+    delete process.env.TNT_TEST_SESSION_ID;
   } else {
-    process.env.CONTINUE_CLI_TEST_SESSION_ID = previousSessionId;
+    process.env.TNT_TEST_SESSION_ID = previousSessionId;
   }
   fs.rmSync(globalDir, { recursive: true, force: true });
 });
@@ -94,7 +94,7 @@ describe("spillOversizedToolResult", () => {
     // A path under a plain file cannot be created, so the store fails.
     const blocker = path.join(globalDir, "blocker");
     fs.writeFileSync(blocker, "not a directory");
-    process.env.CONTINUE_GLOBAL_DIR = path.join(blocker, "sub");
+    process.env.TNT_GLOBAL_DIR = path.join(blocker, "sub");
     const content = "z".repeat(500);
 
     const result = await spillOversizedToolResult({

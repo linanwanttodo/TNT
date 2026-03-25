@@ -6,13 +6,13 @@ import { globalDir, globalDirOverride } from "./globalDir.js";
 
 const previous = {
   tnt: process.env.TNT_GLOBAL_DIR,
-  continue: process.env.CONTINUE_GLOBAL_DIR,
+  retired: process.env.CONTINUE_GLOBAL_DIR,
 };
 
 afterEach(() => {
   for (const [name, value] of Object.entries({
     TNT_GLOBAL_DIR: previous.tnt,
-    CONTINUE_GLOBAL_DIR: previous.continue,
+    CONTINUE_GLOBAL_DIR: previous.retired,
   })) {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
@@ -20,19 +20,20 @@ afterEach(() => {
 });
 
 describe("the global directory", () => {
-  it("prefers the TNT name", () => {
+  it("follows the documented name", () => {
     process.env.TNT_GLOBAL_DIR = "/home/lin/.tnt-new";
-    process.env.CONTINUE_GLOBAL_DIR = "/home/lin/.tnt-old";
     expect(globalDirOverride()).toBe("/home/lin/.tnt-new");
     expect(globalDir("/home/lin")).toBe("/home/lin/.tnt-new");
   });
 
-  it("still honors the name users already have set", () => {
-    // Dropping this would not print an error: the affected runs would simply
-    // start with an empty home and lose their settings and sessions.
+  it("does not read the retired spelling", () => {
+    // The rename shipped without a compatibility read, so a stale
+    // `CONTINUE_GLOBAL_DIR` in someone's shell must not silently relocate the
+    // home directory. Reading it again would be the shim this project decided
+    // against - the assertion fails the moment the fallback returns.
     delete process.env.TNT_GLOBAL_DIR;
     process.env.CONTINUE_GLOBAL_DIR = "/home/lin/.tnt-old";
-    expect(globalDir("/home/lin")).toBe("/home/lin/.tnt-old");
+    expect(globalDir("/home/lin")).toBe(path.join("/home/lin", ".tnt"));
   });
 
   it("falls back to the home directory under the given root", () => {

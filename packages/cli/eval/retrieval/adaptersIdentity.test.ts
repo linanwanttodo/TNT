@@ -52,6 +52,20 @@ describe("path identity in the adapters", () => {
     expect(hits).toEqual([expected]);
   });
 
+  it("maps the other direction too, root resolved and hit through the link", () => {
+    // Windows gave one short form and one long form to the two sides in the same
+    // way; which side carries which spelling is not knowable in advance.
+    const hits = fromRetrievalHits(real, [
+      {
+        filepath: path.join(linked, "src", "hit.ts"),
+        startLine: 1,
+        endLine: 1,
+      },
+    ]);
+
+    expect(hits).toEqual([expected]);
+  });
+
   it("maps a hit the index handed back as a file URI", () => {
     const hits = fromRetrievalHits(linked, [
       {

@@ -9,11 +9,11 @@ import { getEffectiveSettingsFilePaths } from "./settingsFiles.js";
 import { isProjectTrusted, projectConfigHash, trustProject } from "./trust.js";
 
 describe("project trust", () => {
-  const previousHome = process.env.CONTINUE_GLOBAL_DIR;
+  const previousHome = process.env.TNT_GLOBAL_DIR;
   let project: string;
 
   beforeEach(() => {
-    process.env.CONTINUE_GLOBAL_DIR = fs.mkdtempSync(
+    process.env.TNT_GLOBAL_DIR = fs.mkdtempSync(
       path.join(os.tmpdir(), "tnt-trust-home-"),
     );
     project = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-trust-project-"));
@@ -27,9 +27,9 @@ describe("project trust", () => {
 
   afterAll(() => {
     if (previousHome === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = previousHome;
+      process.env.TNT_GLOBAL_DIR = previousHome;
     }
   });
 

@@ -40,17 +40,17 @@ describe("a cold cache shrinks the history before the request", () => {
 
   beforeEach(() => {
     globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-micro-"));
-    process.env.CONTINUE_GLOBAL_DIR = globalDir;
-    process.env.CONTINUE_CLI_TEST_SESSION_ID = "micro-session";
-    process.env.CONTINUE_CLI_CACHE_GAP_MS = "1";
+    process.env.TNT_GLOBAL_DIR = globalDir;
+    process.env.TNT_TEST_SESSION_ID = "micro-session";
+    process.env.TNT_CACHE_GAP_MS = "1";
     forgetLastRequest();
   });
 
   afterEach(() => {
     for (const key of [
-      "CONTINUE_GLOBAL_DIR",
-      "CONTINUE_CLI_TEST_SESSION_ID",
-      "CONTINUE_CLI_CACHE_GAP_MS",
+      "TNT_GLOBAL_DIR",
+      "TNT_TEST_SESSION_ID",
+      "TNT_CACHE_GAP_MS",
     ]) {
       delete process.env[key];
     }
