@@ -108,4 +108,29 @@ describe("path identity in the adapters", () => {
     fs.rmSync(base, { recursive: true, force: true });
     expect(hits).toEqual([expected]);
   });
+
+  it("maps a case-folded spelling, which is how a Windows path arrives", () => {
+    // Windows names the same file under either case, so an answer spelled
+    // `...\SRC\HIT.TS` is not a different file and must not be scored as one.
+    const hits = fromRetrievalHits(real, [
+      { filepath: path.join(real, "src", "HIT.TS"), startLine: 1, endLine: 1 },
+    ]);
+
+    expect(hits).toEqual([expected]);
+  });
+
+  it("refuses to score a hit the corpus cannot name", () => {
+    // The failure that started this: an answer that matched nothing was subtracted
+    // against the root and carried on scoring, so a mapper bug printed 0.000 and
+    // read as a retrieval regression.
+    expect(() =>
+      fromRetrievalHits(real, [
+        {
+          filepath: path.join(path.dirname(real), "not-in-the-corpus.ts"),
+          startLine: 1,
+          endLine: 1,
+        },
+      ]),
+    ).toThrow(/cannot name/);
+  });
 });

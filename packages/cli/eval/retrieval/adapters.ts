@@ -143,7 +143,9 @@ function relative(root: string, target: string): string {
 
   // Identity first: both spellings of every corpus file, resolved.
   const indexed = identities(root);
-  const known = indexed.byPath.get(canonical(absolute));
+  const resolved = canonical(absolute);
+  const known =
+    indexed.byPath.get(resolved) ?? indexed.folded.get(resolved.toLowerCase());
   if (known) {
     return known;
   }
@@ -161,7 +163,19 @@ function relative(root: string, target: string): string {
     }
   }
 
-  return forward(path.relative(canonical(root), canonical(absolute)));
+  // Nothing matched, and this is where the old code went wrong: it subtracted
+  // the two paths and carried on scoring. An answer that cannot be named is not
+  // a missed query, it is a broken mapper, and a floor of 0.000 reads like a
+  // retrieval regression - which is exactly how two spelling bugs on two
+  // platforms got read as "search is broken" instead.
+  throw new Error(
+    `Retrieval answered a path the corpus cannot name: ${target}\n` +
+      `  root as created: ${root}\n` +
+      `  root resolved:   ${canonical(root)}\n` +
+      `  answer resolved: ${resolved}\n` +
+      `  was a file URI:  ${target.startsWith("file:") ? "yes" : "no"}\n` +
+      `  expected tail:   ${tail}<label> over ${indexed.names.length} files`,
+  );
 }
 
 function forward(file: string): string {
@@ -170,6 +184,8 @@ function forward(file: string): string {
 
 interface CorpusIdentities {
   byPath: Map<string, string>;
+  /** Case-folded keys, for the platforms where a path is named case-insensitively. */
+  folded: Map<string, string>;
   names: string[];
 }
 
@@ -182,18 +198,22 @@ function identities(root: string): CorpusIdentities {
     return cached;
   }
   const byPath = new Map<string, string>();
+  const folded = new Map<string, string>();
   const names = corpusFiles(root);
   for (const rel of names) {
     const given = path.resolve(root, rel);
     byPath.set(given, rel);
+    folded.set(given.toLowerCase(), rel);
     try {
-      byPath.set(fs.realpathSync(given), rel);
+      const resolved = fs.realpathSync(given);
+      byPath.set(resolved, rel);
+      folded.set(resolved.toLowerCase(), rel);
     } catch {
       // An unresolvable file keeps only the spelling it was given; the suffix
       // rule above still answers for it.
     }
   }
-  const created = { byPath, names };
+  const created = { byPath, folded, names };
   identitiesByRoot.set(root, created);
   return created;
 }

@@ -58,6 +58,23 @@ whose ground truth has quietly rotted is worse than none.
 Multi-line markers do not work: resolution reads line by line. Keep a marker
 inside one line of the fixture.
 
+## What an answer is allowed to name
+
+A tool answers with an absolute path, or with a `file:` URI, or with whatever
+spelling of those the platform handed back - `/private/var` where the run created
+`/var`, `C:\Users\RUNNER~1` where the index says `C:\Users\runneradmin`, a
+lowercase drive letter from a decoded URI. The mapping to a corpus label is
+therefore by identity, in three passes: the resolved path, its case-folded form,
+and finally the tail every spelling agrees on (`<corpusRoot>/<label>`).
+
+If all three fail, the harness **throws**. It does not subtract the two paths and
+carry on scoring, which is how this benchmark reported `0.000` for every
+`CodebaseSearch` track twice over - once on macOS, once on Windows - while the
+index was answering correctly and only the mapper was broken. A floor failure is
+allowed to mean a retrieval regression; a mapping failure has to say so in the
+message, and `adaptersIdentity.test.ts` pins each of the three passes plus the
+throw.
+
 ## Which chunker ran
 
 core looks for its tree-sitter grammars under `<cwd>/node_modules/tree-sitter-wasms/out`
