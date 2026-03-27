@@ -84,8 +84,12 @@ async function searchWithRipgrep(
   }
   withIgnores.push("--", pattern, searchPath);
 
+  // The same anchoring as the file listing: `--glob` filters match against the
+  // working directory, so a search of another directory with a `file_pattern`
+  // like `src/**/*.ts` filtered every file out. Search from the directory the
+  // caller named.
   try {
-    return await search("rg", withIgnores);
+    return await search("rg", withIgnores, searchPath);
   } catch (error) {
     // `rg` exits 1 for a search that simply finds nothing, which the caller
     // reads as an empty answer. Any other failure while the ignore list is
@@ -98,7 +102,11 @@ async function searchWithRipgrep(
     ) {
       throw error;
     }
-    const results = await search("rg", [...args, "--", pattern, searchPath]);
+    const results = await search(
+      "rg",
+      [...args, "--", pattern, searchPath],
+      searchPath,
+    );
     return {
       ...results,
       stderr: [
