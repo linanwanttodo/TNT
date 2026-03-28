@@ -69,57 +69,81 @@ export interface GrammarState {
   note: string;
 }
 
+/** `packages/cli`, so the grammar search does not depend on where the run sits. */
+const packageRoot = path.resolve(here, "..", "..");
+
 /**
  * core looks for the grammar wasm files under `<cwd>/node_modules/tree-sitter-wasms/out`
- * when `NODE_ENV=test` (the bundled CLI carries its own copy next to the
- * bundle). Without them the indexer silently falls back to a line-based
- * chunker, and a benchmark would then be ranking chunks production never
- * produces. Link the workspace's own copy when it is missing, and say which of
- * the two the run actually measured.
+ * when `NODE_ENV=test`; the bundled CLI carries its own copy next to the bundle.
+ * Without them the indexer silently falls back to line-based chunks, and the
+ * benchmark would rank chunks production never produces.
+ *
+ * The link is made inside the run's own working directory rather than the
+ * repository's `node_modules`: creating it there changes how *every other suite*
+ * chunks its fixtures, which is a side effect a benchmark does not get to have.
  */
-export function ensureGrammars(): GrammarState {
-  const wanted = path.join(process.cwd(), "node_modules", "tree-sitter-wasms");
-  if (fs.existsSync(wanted)) {
-    return { chunker: "tree-sitter", note: "grammars already installed here" };
-  }
-  const source = path.resolve(
-    process.cwd(),
+function ensureGrammars(workDir: string): GrammarState {
+  const source = path.join(
+    packageRoot,
     "..",
     "..",
     "core",
     "node_modules",
     "tree-sitter-wasms",
   );
+  if (process.env.TNT_EVAL_GRAMMARS === "0") {
+    return {
+      chunker: "fallback",
+      note: "grammar lookup was turned off for this run",
+    };
+  }
   if (!fs.existsSync(path.join(source, "out"))) {
     return {
       chunker: "fallback",
       note: `no grammar directory at ${source}, so chunks are line-based`,
     };
   }
-  fs.mkdirSync(path.dirname(wanted), { recursive: true });
+  const wanted = path.join(workDir, "node_modules", "tree-sitter-wasms");
   try {
+    fs.mkdirSync(path.dirname(wanted), { recursive: true });
     fs.symlinkSync(source, wanted, "dir");
   } catch (error) {
-    if ((error as { code?: string }).code !== "EEXIST") {
-      throw error;
-    }
-    // Another worker got here first; its link points at the same directory.
+    // A platform that will not let an unprivileged process make the link -
+    // Windows needs the developer mode for that. The run is then measured
+    // against line-based chunks, which is a different thing, and the guard skips
+    // instead of scoring it against a floor from the other one.
+    return {
+      chunker: "fallback",
+      note: `linking ${source} failed: ${(error as Error).message}`,
+    };
   }
   return { chunker: "tree-sitter", note: `linked from ${source}` };
 }
 
-export function stageCorpus(): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-retrieval-eval-"));
+export interface StagedRun {
+  /** Everything the run created - removing this is the whole cleanup. */
+  dir: string;
+  /** The staged copy of the corpus, which is what the tools were pointed at. */
+  root: string;
+  /** A directory whose `node_modules` carries the grammars for this run only. */
+  workDir: string;
+}
+
+function stageCorpus(): StagedRun {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-retrieval-eval-"));
+  const root = path.join(dir, "corpus");
+  const workDir = path.join(dir, "work");
   fs.cpSync(CORPUS, root, { recursive: true });
+  fs.mkdirSync(workDir, { recursive: true });
   corpusFiles(root).forEach((rel, index) => {
     const at = new Date(STAMPED + index * 1_000);
     const full = path.join(root, rel);
     fs.utimesSync(full, at, at);
   });
-  return root;
+  return { dir, root, workDir };
 }
 
-export function writeConfig(semantic: boolean): void {
+function writeConfig(semantic: boolean): void {
   fs.mkdirSync(env.continueHome, { recursive: true });
   fs.writeFileSync(
     path.join(env.continueHome, "config.yaml"),
@@ -128,8 +152,7 @@ export function writeConfig(semantic: boolean): void {
   );
 }
 
-export interface BenchmarkRun {
-  root: string;
+export interface BenchmarkRun extends StagedRun {
   semantic: boolean;
   grammars: GrammarState;
   timings: { indexMs: number; queryMs: number };
@@ -175,32 +198,43 @@ async function openRetrieval(root: string) {
 
 export async function runBenchmark(): Promise<BenchmarkRun> {
   const semantic = process.env.TNT_EVAL_EMBEDDINGS === "1";
-  const grammars = ensureGrammars();
-  const root = stageCorpus();
+  const staged = stageCorpus();
+  const grammars = ensureGrammars(staged.workDir);
   writeConfig(semantic);
 
-  const { resolved, problems } = resolveExpectations(root, QUERIES);
-
-  const indexStart = Date.now();
-  const retrieval = await openRetrieval(root);
-  const indexMs = Date.now() - indexStart;
-
-  const queryStart = Date.now();
+  const { resolved, problems } = resolveExpectations(staged.root, QUERIES);
   const outcomes: QueryOutcome[] = [];
-  for (const query of QUERIES) {
-    const expectations = resolved.get(query.id) ?? [];
-    if (expectations.length === 0) {
-      continue; // already reported as a label problem
+
+  // The grammar lookup is relative to the working directory, so the run sits in
+  // its own for the duration and comes back before anything else is asked.
+  const previousCwd = process.cwd();
+  process.chdir(staged.workDir);
+  const indexStart = Date.now();
+  let indexMs = 0;
+  let queryMs = 0;
+  try {
+    const retrieval = await openRetrieval(staged.root);
+    indexMs = Date.now() - indexStart;
+
+    const queryStart = Date.now();
+    for (const query of QUERIES) {
+      const expectations = resolved.get(query.id) ?? [];
+      if (expectations.length === 0) {
+        continue; // already reported as a label problem
+      }
+      const hits = await ask(query.tool, query.query, staged.root, retrieval);
+      outcomes.push(scoreQuery(query, expectations, hits));
     }
-    const hits = await ask(query.tool, query.query, root, retrieval);
-    outcomes.push(scoreQuery(query, expectations, hits));
+    queryMs = Date.now() - queryStart;
+  } finally {
+    process.chdir(previousCwd);
   }
 
   return {
-    root,
+    ...staged,
     semantic,
     grammars,
-    timings: { indexMs, queryMs: Date.now() - queryStart },
+    timings: { indexMs, queryMs },
     outcomes,
     scores: scoreBuckets(outcomes),
     labelProblems: problems.map((problem) => problem.why),

@@ -338,7 +338,7 @@ export const QUERIES: EvalQuery[] = [
     id: "gb-billing-dir",
     track: "file-pattern",
     tool: "Glob",
-    query: "src/billing/*.ts",
+    query: "**/billing/*.ts",
     expect: [
       { file: refund, marker: "export const PARTIAL_REFUND_LIMIT" },
       { file: gateway, marker: "export class GatewayClient" },
@@ -359,7 +359,7 @@ export const QUERIES: EvalQuery[] = [
     id: "gb-one-file",
     track: "file-pattern",
     tool: "Glob",
-    query: "src/orders/pagination.ts",
+    query: "**/pagination.ts",
     expect: [{ file: paging, marker: "export function cursorFor" }],
   },
 ];

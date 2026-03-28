@@ -32,7 +32,7 @@ if (process.argv.includes("--json")) {
   process.stdout.write(`${formatReport(run)}\n`);
 }
 
-fs.rmSync(run.root, { recursive: true, force: true });
+fs.rmSync(run.dir, { recursive: true, force: true });
 fs.rmSync(home, { recursive: true, force: true });
 
 // The report is written. core's indexer leaves a chunking worker pool behind -
