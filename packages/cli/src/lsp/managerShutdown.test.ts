@@ -4,6 +4,8 @@ import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { removeTreeWithinBudget } from "../../test-utils/tempTree.js";
+
 import { getLspManager } from "./manager.js";
 
 const SERVER = path.join(process.cwd(), "test-fixtures", "fake-lsp-server.mjs");
@@ -61,22 +63,20 @@ afterEach(async () => {
     process.env.TNT_PLUGINS_DIR = previousOverride;
   }
 
-  // The server ran with this directory as its cwd. Windows keeps the handle
-  // alive until the child is fully gone, so the first `rmdir` answers `EBUSY`
-  // there - which `force` does not cover, because it is about `ENOENT`. The
-  // sibling suites already retry for this; this one had not been brought along.
-  fs.rmSync(pluginsDir, {
-    recursive: true,
-    force: true,
-    maxRetries: 40,
-    retryDelay: 250,
-  });
-  fs.rmSync(workDir, {
-    recursive: true,
-    force: true,
-    maxRetries: 40,
-    retryDelay: 250,
-  });
+  // The server ran with `workDir` as its cwd. Windows keeps that directory
+  // locked until it has let go of every handle on the exited child, which is not
+  // something the caller can hasten after `dispose()` - so the budget for the
+  // retry sits on the whole attempt (see test-utils/tempTree.ts) and a directory
+  // the system still owns is named instead of thrown. The two cases above are
+  // what this file proves; a leftover temp entry is not a shutdown failure.
+  for (const dir of [pluginsDir, workDir]) {
+    const leftover = await removeTreeWithinBudget(dir);
+    if (leftover) {
+      console.warn(
+        `language server shutdown cleanup left ${dir}: ${leftover.message}`,
+      );
+    }
+  }
 });
 
 describe("language server shutdown", () => {
