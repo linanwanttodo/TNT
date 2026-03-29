@@ -1,43 +1,38 @@
-# @tnt/sdk
+# packages/sdk
 
-> **⚠️ EXPERIMENTAL: This package is in early development and subject to frequent breaking changes without notice.**
+Two different things share this directory, and only one of them is installed by
+anything.
 
-This SDK provides programmatic access to TNT's Hub APIs and functionality.
+## `typescript/` — `@tnt/sdk`
 
-## Overview
+The package the CLI bundles. It is reached as a file dependency
+(`packages/cli/package.json` → `file:../../packages/sdk/typescript`), which is
+why the CLI's install step builds it before bundling itself. It holds the shape
+of a resolved assistant (`AssistantConfig`, which is `AssistantUnrolled` from
+`@tnt/config-yaml`) and, under `dist/api`, the generated client for a TNT
+platform API — the one `tnt serve --id` and the config loader use against
+whatever base URL the operator configures. See `typescript/README.md`.
 
-The Continue SDK is structured into separate language-specific packages, currently with implementations for TypeScript and Python, with more languages planned for the future:
+## this directory — `@tnt/sdk-generator`
 
-- **TypeScript SDK**: Located in the `/typescript` directory, providing a drop-in replacement for OpenAI's TypeScript client libraries
-- **Python SDK**: Located in the `/python` directory, providing a drop-in replacement for OpenAI's Python client libraries
-- **Additional languages**: More language implementations are planned to be added in the future
-
-Each package includes:
-
-1. OpenAPI-generated clients for the Continue Hub API
-2. A wrapper layer that exposes a `Continue.from()` method to easily initialize and use Continue assistants with an OpenAI-compatible interface
-
-## For End Users
-
-End users should install the published packages directly:
-
-- For TypeScript/JavaScript: `npm install @tnt/sdk`
-- For Python: `pip install continuedev`
-- For other languages: Check back for new language support
-
-Each published package includes its own documentation.
-
-## For Developers
-
-### Development
+A development harness, not a runtime dependency. Its only build and test steps
+are echoes, and nothing imports it. What it is for:
 
 ```bash
-# Install dependencies
-npm install
-
-# Generate API clients
-npm run generate-client:ALL
-
-# Start Swagger UI for API exploration
-npm run swagger-ui
+cd packages/sdk
+npm ci
+npm run generate-client   # openapi.yaml -> typescript/api
+npm run swagger-ui        # browse openapi.yaml locally
 ```
+
+Regenerating replaces the whole `typescript/api` tree, so a regenerated client
+is reviewed as generated code: the diff is what the upstream schema says, not
+what this repository wanted.
+
+## What used to be here
+
+A Python client under `python/` and a `Continue.from()` factory in the
+TypeScript package. Neither was reachable from any command: no code
+constructed the factory, and no script or document outside the generator
+itself referenced the Python tree. A CLI-only product does not carry
+unconsumed SDKs for languages it does not ship, so both are gone.
