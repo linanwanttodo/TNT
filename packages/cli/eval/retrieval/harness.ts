@@ -104,20 +104,79 @@ function ensureGrammars(workDir: string): GrammarState {
     };
   }
   const wanted = path.join(workDir, "node_modules", "tree-sitter-wasms");
-  try {
-    fs.mkdirSync(path.dirname(wanted), { recursive: true });
-    fs.symlinkSync(source, wanted, "dir");
-  } catch (error) {
-    // A platform that will not let an unprivileged process make the link -
-    // Windows needs the developer mode for that. The run is then measured
-    // against line-based chunks, which is a different thing, and the guard skips
-    // instead of scoring it against a floor from the other one.
+  fs.mkdirSync(path.dirname(wanted), { recursive: true });
+
+  const linkError = tryGrammarLink(source, wanted);
+  if (!linkError) {
+    return { chunker: "tree-sitter", note: `linked from ${source}` };
+  }
+
+  // An ordinary user cannot always make a directory link - Windows allows it
+  // only in developer mode - so fall back to copying the handful of grammars the
+  // corpus resolves to. That is a few megabytes, and it keeps the run on the
+  // chunker production uses instead of a line-based one.
+  const copied = copyNeededGrammars(source, wanted);
+  if (copied.length > 0) {
     return {
-      chunker: "fallback",
-      note: `linking ${source} failed: ${(error as Error).message}`,
+      chunker: "tree-sitter",
+      note: `copied ${copied.join(", ")} from ${source} (${linkError})`,
     };
   }
-  return { chunker: "tree-sitter", note: `linked from ${source}` };
+  return {
+    chunker: "fallback",
+    note: `no grammar reached ${wanted}: ${linkError}`,
+  };
+}
+
+/** Returns `undefined` when the link exists, otherwise why it does not. */
+function tryGrammarLink(source: string, wanted: string): string | undefined {
+  // `copy` exercises the copy branch on a machine that would happily take the
+  // link, so the fallback is not a path only a foreign CI gets to run.
+  if (process.env.TNT_EVAL_GRAMMARS === "copy") {
+    return "the environment asked for a copy";
+  }
+  try {
+    fs.symlinkSync(source, wanted, "dir");
+    return undefined;
+  } catch (error) {
+    return (error as Error).message;
+  }
+}
+
+/** The grammar a corpus extension resolves to, in core's own naming. */
+const GRAMMAR_FOR_EXTENSION: Record<string, string> = {
+  ".ts": "typescript",
+  ".tsx": "typescript",
+  ".js": "javascript",
+  ".jsx": "javascript",
+  ".py": "python",
+  ".go": "go",
+  ".rs": "rust",
+  ".java": "java",
+  ".c": "c",
+};
+
+function copyNeededGrammars(source: string, wanted: string): string[] {
+  const languages = [
+    ...new Set(
+      corpusFiles(CORPUS)
+        .map((rel) => GRAMMAR_FOR_EXTENSION[path.extname(rel).toLowerCase()])
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+  const out = path.join(wanted, "out");
+  fs.mkdirSync(out, { recursive: true });
+  const copied: string[] = [];
+  for (const language of languages) {
+    const file = `tree-sitter-${language}.wasm`;
+    const from = path.join(source, "out", file);
+    if (!fs.existsSync(from)) {
+      continue;
+    }
+    fs.copyFileSync(from, path.join(out, file));
+    copied.push(language);
+  }
+  return copied;
 }
 
 export interface StagedRun {
@@ -161,6 +220,16 @@ export interface BenchmarkRun extends StagedRun {
   semantic: boolean;
   grammars: GrammarState;
   timings: { indexMs: number; queryMs: number };
+  /**
+   * Whether the full-text index answered at all, measured apart from the scored
+   * queries: a bucket of zeros means either an empty index or a path mapping
+   * that names no label, and this says which.
+   */
+  indexProbe: {
+    hasIndex: boolean;
+    controlHits: number;
+    controlSample: string[];
+  };
   outcomes: QueryOutcome[];
   scores: Record<string, BucketScore>;
   /** Labels that no longer resolve to one line - the corpus has drifted. */
@@ -217,9 +286,28 @@ export async function runBenchmark(): Promise<BenchmarkRun> {
   const indexStart = Date.now();
   let indexMs = 0;
   let queryMs = 0;
+  let indexProbe: BenchmarkRun["indexProbe"] = {
+    hasIndex: false,
+    controlHits: 0,
+    controlSample: [],
+  };
   try {
     const retrieval = await openRetrieval(staged.root);
     indexMs = Date.now() - indexStart;
+
+    // `TtlCache` is named in three corpus files, so any index that was built at
+    // all answers this. The sample is what separates an empty index from a
+    // workspace whose paths came back spelled differently from the labels - the
+    // two look identical in a bucket of zeros.
+    const control = fromRetrievalHits(
+      staged.root,
+      await retrieval.search("TtlCache", RECALL_AT),
+    );
+    indexProbe = {
+      hasIndex: await retrieval.hasIndex(),
+      controlHits: control.length,
+      controlSample: control.slice(0, 3).map((hit) => hit.file),
+    };
 
     const queryStart = Date.now();
     for (const query of QUERIES) {
@@ -240,6 +328,7 @@ export async function runBenchmark(): Promise<BenchmarkRun> {
     semantic,
     grammars,
     timings: { indexMs, queryMs },
+    indexProbe,
     outcomes,
     scores: scoreBuckets(outcomes),
     labelProblems: problems.map((problem) => problem.why),
@@ -260,11 +349,13 @@ export function formatReport(run: BenchmarkRun): string {
     .filter((outcome) => !outcome.recalled)
     .map(
       (outcome) =>
-        `  miss ${outcome.id}: ${JSON.stringify(outcome.expectations)}`,
+        `  miss ${outcome.id}: ${JSON.stringify(outcome.expectations)}\n` +
+        `    answered ${outcome.returnedFiles} file(s): ${outcome.sample.join(" | ") || "(nothing)"}`,
     );
 
   return [
     `retrieval benchmark (${run.semantic ? "semantic" : "lexical"} track, ${run.grammars.chunker} chunker, index ${run.timings.indexMs}ms, queries ${run.timings.queryMs}ms)`,
+    `index probe: hasIndex=${String(run.indexProbe.hasIndex)} control hits=${run.indexProbe.controlHits} [${run.indexProbe.controlSample.join(" | ")}]`,
     ...rows,
     ...(missed.length > 0 ? ["", "missed queries:", ...missed] : []),
     ...(run.labelProblems.length > 0

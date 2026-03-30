@@ -77,10 +77,29 @@ retrieval benchmark (lexical track, tree-sitter chunker, index 2289ms, queries 5
 ```
 
 Where the link cannot be made - a platform that needs a privilege for it, or an
-install without the grammars - the two scoring cases skip themselves instead of
-measuring line-based chunks against floors from tree-sitter ones; the label and
-documentation cases still run. `TNT_EVAL_GRAMMARS=0` forces that path, which is
-how the skip is checked on a machine where linking would succeed.
+install without the grammars - the run copies the few grammars the corpus
+resolves to instead, and only if that fails too do the two scoring cases skip
+themselves rather than measuring line-based chunks against tree-sitter floors.
+`TNT_EVAL_GRAMMARS=copy` forces the copy path on a machine that would take the
+link; `=0` forces the fallback, which is how the skip is checked here.
+
+The report also carries the index probe on its second line:
+
+```
+index probe: hasIndex=true control hits=4 [src/config/settings.ts | ...]
+```
+
+and every miss prints what the tool actually answered:
+
+```
+  miss cb-ttl-window: [...]
+    answered 0 file(s): (nothing)
+```
+
+That distinction is the point. A bucket of zeros means either an index that
+answered nothing or paths that came back naming no label, and only the returned
+file names tell them apart - which is how the Windows lane's failure is meant to
+be read rather than guessed at.
 
 The semantic track (`TNT_EVAL_EMBEDDINGS=1`) needs a reachable embeddings model
 and is not part of the CI floor. Nothing else here sends a request: the scored
