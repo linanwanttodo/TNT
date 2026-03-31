@@ -5,7 +5,7 @@ import { env } from "../src/config/env.js";
 
 /**
  * A complete config.yaml for tests that initialize services without exercising
- * config loading. The per-worker CONTINUE_GLOBAL_DIR is isolated, so this writes
+ * config loading. The per-worker TNT_GLOBAL_DIR is isolated, so this writes
  * into that worker's temp home and never the real one.
  */
 export const MINIMAL_CONFIG = `name: Test

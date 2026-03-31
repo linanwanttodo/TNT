@@ -288,7 +288,7 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   prefix: `AGENTS.md` (or `AGENT.md`, `CLAUDE.md`, `CODEX.md`, first one wins) with
   `AGENTS.local.md` layered on top as the uncommitted personal file, and the
   always-applied files under the managed rules directory (`/etc/tnt/rules`,
-  `CONTINUE_CLI_MANAGED_RULES_DIR` for an operator who mounts it elsewhere), the
+  `TNT_MANAGED_RULES_DIR` for an operator who mounts it elsewhere), the
   user's own rules directory, then the project's `.tnt/rules/` - least to most
   specific, each listing sorted so the prefix does not move between rounds. Each
   is read through `@path` includes - relative to the including file, `~/`, or
@@ -327,13 +327,13 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   or 8,000 characters - and says how many entries it left out, since a tree with
   thousands of changes would otherwise pay for all of them on every request.
 - `Search` bounds its own output and says what it left out: at most
-  `CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS` match lines (100, or the call's
+  `TNT_SEARCH_CODE_MAX_RESULTS` match lines (100, or the call's
   `head_limit` up to 500), and no line over 1,000 characters, with the omitted
   count named in the answer. Dropping a line used to be invisible, and when every
   line was dropped the tool answered "No matches found" - a pattern that had hit
   was reported as a miss, and the model went and searched for it again.
 - `src/stream/toolResultStorage.ts` bounds what one tool answer costs for the rest
-  of the session. A result over `CONTINUE_CLI_MAX_TOOL_RESULT_CHARS` (25,000 by
+  of the session. A result over `TNT_MAX_TOOL_RESULT_CHARS` (25,000 by
   default) is written whole under `tool-results/<session>/` beside the session
   store, and the model is handed a 2,000-character head plus that path, so the
   remainder stays reachable instead of being cut. The call is made once, when the
@@ -354,7 +354,7 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   the list that was sent. The share is the trigger rather than a tool count because
   six definitions mean different things on a 32k and a 1M-token model; below the
   share, loading everything upfront is faster and costs less attention than a search
-  round trip. `CONTINUE_CLI_DEFER_MCP_TOOLS=1` forces the trade and `=0` turns it
+  round trip. `TNT_DEFER_MCP_TOOLS=1` forces the trade and `=0` turns it
   off; unset (or `auto`) leaves the decision to the share.
 
 Compaction trades against this: summarising history rewrites the prefix. That
@@ -374,7 +374,7 @@ estimate from the tokens counted locally - the two are not the same kind of gues
 
 Not every reduction has to be that expensive. `src/compaction/microCompact.ts` runs
 on the request path before the token estimate is even consulted: when the gap since
-this session's last request is at least `CONTINUE_CLI_CACHE_GAP_MS` (five minutes by
+this session's last request is at least `TNT_CACHE_GAP_MS` (five minutes by
 default, which is Anthropic's cache lifetime), the provider has certainly let the
 prefix go, so the content of tool results from earlier turns is replaced with
 `[Old tool result content cleared]` and the message, the tool call and the result id

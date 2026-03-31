@@ -65,7 +65,7 @@ export function isGitHubActions(): boolean {
  * Check if a remote agent runner set its environment flag
  */
 export function isRemoteAgent(): boolean {
-  return process.env.CONTINUE_REMOTE === "true";
+  return process.env.TNT_REMOTE === "true";
 }
 
 /**

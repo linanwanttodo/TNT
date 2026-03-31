@@ -7,19 +7,19 @@ import { loadSettings, settingsPath } from "../config/settings.js";
 import { addPolicyRule } from "./policyWriter.js";
 
 describe("addPolicyRule", () => {
-  const previousHome = process.env.CONTINUE_GLOBAL_DIR;
+  const previousHome = process.env.TNT_GLOBAL_DIR;
 
   beforeEach(() => {
-    process.env.CONTINUE_GLOBAL_DIR = fs.mkdtempSync(
+    process.env.TNT_GLOBAL_DIR = fs.mkdtempSync(
       path.join(os.tmpdir(), "tnt-policy-"),
     );
   });
 
   afterAll(() => {
     if (previousHome === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = previousHome;
+      process.env.TNT_GLOBAL_DIR = previousHome;
     }
   });
 

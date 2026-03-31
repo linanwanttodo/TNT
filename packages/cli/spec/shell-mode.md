@@ -34,7 +34,7 @@ Ctrl+C within one second exits the CLI.
 ## Limits
 
 Output is capped at 50,000 characters and 1,000 lines by default;
-`CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS` and `CONTINUE_CLI_BASH_MAX_OUTPUT_LINES` change the
+`TNT_BASH_MAX_OUTPUT_CHARS` and `TNT_BASH_MAX_OUTPUT_LINES` change the
 caps.
 
 The 180-second timeout measures inactivity: output resets it, so a long-running command

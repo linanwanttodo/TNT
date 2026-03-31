@@ -58,9 +58,9 @@ describe("spec/onboarding.md agrees with the flow", () => {
   });
 
   it("matches the bedrock shortcut", () => {
-    expect(flow).toMatch(/process\.env\.CONTINUE_USE_BEDROCK === "1"/);
+    expect(flow).toMatch(/process\.env\.TNT_USE_BEDROCK === "1"/);
     expect(flow).toContain('t("setup.bedrock")');
-    expect(doc).toContain("CONTINUE_USE_BEDROCK=1");
+    expect(doc).toContain("TNT_USE_BEDROCK=1");
     expect(doc).toContain("`setup.bedrock`");
   });
 

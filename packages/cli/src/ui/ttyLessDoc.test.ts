@@ -45,7 +45,7 @@ describe("spec/tty-less-support.md agrees with the implementation", () => {
     expect(stdin).toMatch(/NODE_ENV === "test"/);
     expect(stdin).toMatch(/VITEST === "true"/);
     expect(stdin).toContain("JEST_WORKER_ID");
-    expect(stdin).toMatch(/CONTINUE_CLI_TEST === "true"/);
+    expect(stdin).toMatch(/TNT_TEST === "true"/);
     expect(stdin).toMatch(/isHeadlessMode\(\) && hasSuppliedPrompt\(\)/);
     expect(stdin).toMatch(/FORCE_NO_TTY === "true"/);
     expect(stdin).toContain("readFileSync(0");
@@ -86,7 +86,7 @@ describe("spec/tty-less-support.md agrees with the implementation", () => {
 
   it("keeps the documented environment variables and drops the old checklist", () => {
     expect(doc).toContain("FORCE_NO_TTY");
-    expect(doc).toContain("CONTINUE_CLI_TEST");
+    expect(doc).toContain("TNT_TEST");
     expect(doc).toContain("NODE_ENV=test");
     expect(doc).toContain("VITEST=true");
     expect(doc).toContain("JEST_WORKER_ID");

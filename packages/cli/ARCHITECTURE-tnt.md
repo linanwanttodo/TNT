@@ -152,7 +152,7 @@ The prefix is assembled in build order, each part announced so it can be attribu
   rewording one clause in `base` moves all of them.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `ffd9a79d97013690` over 40 tools and 31873 characters (name + description + parameter schema, in
+  `90933ab8c0583f79` over 40 tools and 31864 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the
@@ -188,7 +188,7 @@ The prefix is assembled in build order, each part announced so it can be attribu
   instances for display and policy lookups: `tools/allBuiltIns.ts`.
 - Selection: `tools/selection/` owns what one request advertises. `deferral.ts` decides whether MCP
   schemas are replaced by `ToolSearch` (a tenth of the model's window, or an explicit
-  `CONTINUE_CLI_DEFER_MCP_TOOLS`), `requestTools.ts` applies the policy table and asks for the
+  `TNT_DEFER_MCP_TOOLS`), `requestTools.ts` applies the policy table and asks for the
   window, and `search.ts` is the catalog tool itself. The stream engine only asks for the answer.
 - Policy: `permissions/defaultPolicies.ts` holds the agent, plan and auto lists. Plan mode scopes
   writes to documentation (`permissions/documentPath.ts`) rather than refusing them.

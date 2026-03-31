@@ -178,7 +178,7 @@ function getRuleNameFromPath(filePath: string): string {
  * point it at their own path rather than mounting one at /etc.
  */
 export function managedRulesDir(): string {
-  const fromEnv = process.env.CONTINUE_CLI_MANAGED_RULES_DIR;
+  const fromEnv = process.env.TNT_MANAGED_RULES_DIR;
   if (fromEnv) return fromEnv;
   return process.platform === "win32"
     ? path.join(process.env.PROGRAMDATA ?? "C:\\ProgramData", "TNT", "rules")

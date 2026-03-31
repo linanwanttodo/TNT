@@ -132,13 +132,11 @@ export function resolveLogLevel(
 
 /**
  * Applies the level named by `TNT_LOG_LEVEL` (or the older
- * `CONTINUE_LOG_LEVEL`). Unrecognized values are ignored rather than raising
+ * `TNT_LOG_LEVEL`). Unrecognized values are ignored rather than raising
  * the volume, so a typo cannot flood the log.
  */
 function applyConfiguredLogLevel(): void {
-  const level = resolveLogLevel(
-    process.env.TNT_LOG_LEVEL ?? process.env.CONTINUE_LOG_LEVEL,
-  );
+  const level = resolveLogLevel(process.env.TNT_LOG_LEVEL);
 
   if (level) {
     winstonLogger.level = level;

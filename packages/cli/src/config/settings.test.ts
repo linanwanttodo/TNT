@@ -15,19 +15,19 @@ import {
 import { trustProject } from "./trust.js";
 
 describe("settings.json", () => {
-  const previousHome = process.env.CONTINUE_GLOBAL_DIR;
+  const previousHome = process.env.TNT_GLOBAL_DIR;
 
   beforeEach(() => {
-    process.env.CONTINUE_GLOBAL_DIR = fs.mkdtempSync(
+    process.env.TNT_GLOBAL_DIR = fs.mkdtempSync(
       path.join(os.tmpdir(), "tnt-settings-"),
     );
   });
 
   afterAll(() => {
     if (previousHome === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = previousHome;
+      process.env.TNT_GLOBAL_DIR = previousHome;
     }
   });
 
@@ -115,7 +115,7 @@ describe("settings.json", () => {
 
   it("prefers settings permissions over the legacy YAML", () => {
     fs.writeFileSync(
-      path.join(process.env.CONTINUE_GLOBAL_DIR!, "permissions.yaml"),
+      path.join(process.env.TNT_GLOBAL_DIR!, "permissions.yaml"),
       "allow:\n  - Bash\n",
       "utf-8",
     );
@@ -128,7 +128,7 @@ describe("settings.json", () => {
 
   it("falls back to permissions.yaml for one version", () => {
     fs.writeFileSync(
-      path.join(process.env.CONTINUE_GLOBAL_DIR!, "permissions.yaml"),
+      path.join(process.env.TNT_GLOBAL_DIR!, "permissions.yaml"),
       "exclude:\n  - Bash\n",
       "utf-8",
     );

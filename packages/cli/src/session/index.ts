@@ -133,8 +133,8 @@ class SessionManager {
   getCurrentSession(): Session {
     if (!this.currentSession) {
       // Use test session ID for testing consistency
-      const sessionId = process.env.CONTINUE_CLI_TEST_SESSION_ID
-        ? process.env.CONTINUE_CLI_TEST_SESSION_ID
+      const sessionId = process.env.TNT_TEST_SESSION_ID
+        ? process.env.TNT_TEST_SESSION_ID
         : uuidv4();
 
       this.currentSession = {

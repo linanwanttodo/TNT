@@ -67,54 +67,52 @@ describe("product naming", () => {
 
 /**
  * The environment names are an interface: CI jobs, hook scripts and users set
- * them. Both prefixes are pinned, so a new variable under either name has to be
- * documented before it can be read.
- * rather than letting a rename pass change one and break those callers.
+ * them, so every name read from the environment is pinned here and a new one
+ * has to be documented before it can be read.
+ *
+ * `TNT_` is the only prefix this product reads any more. The single remaining
+ * `CONTINUE_` name is `CONTINUE_PROJECT_DIR`, which is read nowhere: it is
+ * written into the environment of a hook script the user authored, so it goes
+ * out beside `TNT_PROJECT_DIR` for one major version and then stops.
  */
 const ENVIRONMENT_INTERFACE = [
   "CLAUDE_CODE_PERMISSION_MODE",
-  "CONTINUE_API_BASE",
-  "TNT_ALT_SCREEN",
-  "CONTINUE_CLI_AUTO_UPDATED",
-  "CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS",
-  "CONTINUE_CLI_BASH_MAX_OUTPUT_LINES",
-  "CONTINUE_CLI_BROWSER_ENDPOINT",
-  "CONTINUE_CLI_CACHE_GAP_MS",
-  "CONTINUE_CLI_CACHE_HIT_FLOOR",
-  "CONTINUE_CLI_DEFER_MCP_TOOLS",
-  "CONTINUE_CLI_DIFF_MAX_OUTPUT_LENGTH",
-  "CONTINUE_CLI_ENABLE_TELEMETRY",
-  "CONTINUE_CLI_FETCH_MAX_OUTPUT_LENGTH",
-  "CONTINUE_CLI_GLOB_MAX_RESULTS",
-  "CONTINUE_CLI_MANAGED_RULES_DIR",
-  "CONTINUE_CLI_MAX_TOOL_RESULT_CHARS",
-  "CONTINUE_CLI_READ_FILE_MAX_OUTPUT_CHARS",
-  "CONTINUE_CLI_READ_FILE_MAX_OUTPUT_LINES",
-  "CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS",
-  "CONTINUE_CLI_SEARCH_CODE_MAX_RESULT_CHARS",
-  "CONTINUE_CLI_TEST",
-  "TNT_MCP_IDLE_TIMEOUT_MS",
-  "TNT_WEB_SEARCH_KEY",
-  "TNT_WEB_SEARCH_URL",
-  "CONTINUE_CLI_TEST_SESSION_ID",
-  "CONTINUE_GLOBAL_DIR",
-  "CONTINUE_LOG_LEVEL",
-  "CONTINUE_METRICS_ENABLED",
-  "CONTINUE_REMOTE",
-  "CONTINUE_USER_ID",
-  "CONTINUE_USE_BEDROCK",
   "TNT_ACP_WORKER_ENTRY",
+  "TNT_ALT_SCREEN",
   "TNT_API_BASE",
+  "TNT_AUTO_UPDATED",
+  "TNT_BASH_MAX_OUTPUT_CHARS",
+  "TNT_BASH_MAX_OUTPUT_LINES",
+  "TNT_BROWSER_ENDPOINT",
+  "TNT_CACHE_GAP_MS",
+  "TNT_CACHE_HIT_FLOOR",
+  "TNT_DEFER_MCP_TOOLS",
+  "TNT_DIFF_MAX_OUTPUT_LENGTH",
   "TNT_ENABLE_TELEMETRY",
+  "TNT_FETCH_MAX_OUTPUT_LENGTH",
   "TNT_GLOBAL_DIR",
+  "TNT_GLOB_MAX_RESULTS",
   "TNT_HEADLESS_TIMEOUT",
   "TNT_LOG_LEVEL",
+  "TNT_MANAGED_RULES_DIR",
+  "TNT_MAX_TOOL_RESULT_CHARS",
+  "TNT_MCP_IDLE_TIMEOUT_MS",
   "TNT_METRICS_ENABLED",
   "TNT_PERMISSION_MODE",
   "TNT_PLUGINS_DIR",
+  "TNT_READ_FILE_MAX_OUTPUT_CHARS",
+  "TNT_READ_FILE_MAX_OUTPUT_LINES",
+  "TNT_REMOTE",
+  "TNT_SEARCH_CODE_MAX_RESULTS",
+  "TNT_SEARCH_CODE_MAX_RESULT_CHARS",
+  "TNT_TEST",
+  "TNT_TEST_SESSION_ID",
   "TNT_THEME",
   "TNT_TRUST_PROJECT",
   "TNT_USER_ID",
+  "TNT_USE_BEDROCK",
+  "TNT_WEB_SEARCH_KEY",
+  "TNT_WEB_SEARCH_URL",
 ];
 
 describe("environment interface", () => {

@@ -12,24 +12,24 @@ const load = async () => {
 };
 
 describe("getUniqueId", () => {
-  const names = ["TNT_USER_ID", "CONTINUE_USER_ID"];
   afterEach(() => {
-    for (const name of names) {
-      delete process.env[name];
-    }
+    delete process.env.TNT_USER_ID;
+    delete process.env.CONTINUE_USER_ID;
   });
 
-  it("prefers TNT_USER_ID", async () => {
+  it("reads the one name", async () => {
     process.env.TNT_USER_ID = "tnt-id";
-    process.env.CONTINUE_USER_ID = "legacy-id";
     const { getUniqueId } = await load();
     expect(getUniqueId()).toBe("tnt-id");
   });
 
-  it("still honors CONTINUE_USER_ID when the TNT name is absent", async () => {
+  it("does not read the retired spelling", async () => {
+    // The rename shipped without a compatibility read. This fails the moment a
+    // fallback comes back, which is the point: an identity read from a stale
+    // variable would present a different user depending on the shell.
     process.env.CONTINUE_USER_ID = "legacy-id";
     const { getUniqueId } = await load();
-    expect(getUniqueId()).toBe("legacy-id");
+    expect(getUniqueId()).not.toBe("legacy-id");
   });
 
   it("falls back to a stable machine id when neither is set", async () => {

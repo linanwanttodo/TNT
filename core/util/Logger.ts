@@ -7,16 +7,14 @@ type LogLevel = "error" | "warn" | "info" | "debug";
 // Log level is configurable so a session can be turned up for troubleshooting
 // without a rebuild. Defaults to info.
 //
-// `TNT_LOG_LEVEL` is the name this fork uses and `CONTINUE_LOG_LEVEL` the older
+// `TNT_LOG_LEVEL` is the name this fork uses and `TNT_LOG_LEVEL` the older
 // one; both are read, in that order, because the CLI's own logger accepts the
 // same pair. Reading only the older name meant a session turned up with the
 // newer one left core at info, so nothing core logs at debug - including the
 // index pipeline's reason for building nothing - ever reached the log file.
 function resolveLogLevel(): LogLevel {
   const configured = (
-    process.env.TNT_LOG_LEVEL ??
-    process.env.CONTINUE_LOG_LEVEL ??
-    ""
+    process.env.TNT_LOG_LEVEL ?? ""
   ).toLowerCase() as LogLevel;
   return ["error", "warn", "info", "debug"].includes(configured)
     ? configured

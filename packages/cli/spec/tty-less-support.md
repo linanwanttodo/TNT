@@ -140,7 +140,7 @@ tnt -p "Generate commit message for current changes" --silent
 ## Environment Variables
 
 - `FORCE_NO_TTY=true`: prevents stdin reading
-- `CONTINUE_CLI_TEST=true`: marks a test environment, prevents stdin reading
+- `TNT_TEST=true`: marks a test environment, prevents stdin reading
 
 The stdin reader also returns immediately under a test runner (`NODE_ENV=test`,
 `VITEST=true`, or a set `JEST_WORKER_ID`), and when `-p` was given a prompt. A

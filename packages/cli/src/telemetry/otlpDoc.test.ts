@@ -57,10 +57,7 @@ describe("spec/otlp-metrics.md agrees with the telemetry service", () => {
   });
 
   it("names the two enablement variables the service reads", () => {
-    for (const name of [
-      "CONTINUE_METRICS_ENABLED",
-      "CONTINUE_CLI_ENABLE_TELEMETRY",
-    ]) {
+    for (const name of ["TNT_METRICS_ENABLED", "TNT_ENABLE_TELEMETRY"]) {
       expect(service).toContain(name);
       expect(doc).toContain(name);
     }
@@ -118,6 +115,6 @@ describe("spec/otlp-metrics.md agrees with the telemetry service", () => {
   it("keeps the prompt attribute opt-in", () => {
     expect(service).toContain('OTEL_LOG_USER_PROMPTS === "1"');
     expect(doc).toContain("OTEL_LOG_USER_PROMPTS=1");
-    expect(doc).toContain("CONTINUE_METRICS_ENABLED=0");
+    expect(doc).toContain("TNT_METRICS_ENABLED=0");
   });
 });

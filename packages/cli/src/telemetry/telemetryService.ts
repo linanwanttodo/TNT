@@ -78,11 +78,8 @@ class TelemetryService {
     // TNT_* is the current spelling and CONTINUE_* stays readable, so a shell
     // profile written before the rename keeps working. Same rule as the log
     // level in utils/logger.ts.
-    const metricsEnabled =
-      process.env.TNT_METRICS_ENABLED ?? process.env.CONTINUE_METRICS_ENABLED;
-    const telemetryRequested =
-      process.env.TNT_ENABLE_TELEMETRY ??
-      process.env.CONTINUE_CLI_ENABLE_TELEMETRY;
+    const metricsEnabled = process.env.TNT_METRICS_ENABLED;
+    const telemetryRequested = process.env.TNT_ENABLE_TELEMETRY;
 
     let telemetryEnabled = true;
     if (metricsEnabled === "0") {

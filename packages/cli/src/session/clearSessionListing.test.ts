@@ -12,7 +12,7 @@ import { clearSession, getCurrentSession, listSessions } from "./index.js";
  * suite's temporary global dir, because a mocked `fs` cannot tell a stale index
  * row from a deleted session.
  */
-const sessionDir = path.join(process.env.CONTINUE_GLOBAL_DIR!, "sessions");
+const sessionDir = path.join(process.env.TNT_GLOBAL_DIR!, "sessions");
 const listPath = path.join(sessionDir, "sessions.json");
 
 function writeSessionFile(sessionId: string): void {

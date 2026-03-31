@@ -23,7 +23,7 @@ beforeEach(() => {
   );
   process.chdir(workspace);
   trashHome = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-trash-"));
-  vi.stubEnv("CONTINUE_GLOBAL_DIR", trashHome);
+  vi.stubEnv("TNT_GLOBAL_DIR", trashHome);
 });
 
 afterEach(() => {

@@ -244,7 +244,7 @@ ${fixtureApiKeyLine("    ", fixtureKey("default"))}
  * of the test environment. The actual pipe input detection cannot be fully tested
  * here because:
  *
- * 1. readStdinSync() returns null when CONTINUE_CLI_TEST=true to prevent hanging
+ * 1. readStdinSync() returns null when TNT_TEST=true to prevent hanging
  * 2. TUI mode requires real TTY access which isn't available in test subprocesses
  * 3. Cross-platform TTY behavior varies significantly
  *

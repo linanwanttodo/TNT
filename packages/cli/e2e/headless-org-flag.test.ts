@@ -24,7 +24,7 @@ ${fixtureApiKeyLine("    ", fixtureKey("default"))}`;
 
   const testEnv = {
     OPENAI_API_KEY: fixtureKey("env"),
-    CONTINUE_API_KEY: fixtureKey("env"),
+    TNT_API_KEY: fixtureKey("env"),
   };
 
   beforeEach(async () => {
