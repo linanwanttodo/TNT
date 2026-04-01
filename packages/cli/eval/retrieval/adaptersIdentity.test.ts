@@ -86,4 +86,26 @@ describe("path identity in the adapters", () => {
     ).toEqual([expected]);
     expect(fromGlobOutput(linked, absolute)).toEqual([{ file: "src/hit.ts" }]);
   });
+
+  it("falls back to the corpus tail when no spelling resolves", () => {
+    // The Windows shape: the index answered from a temp directory whose name
+    // differs from the one the run made - `C:\Users\RUNNER~1\...` against
+    // `C:\Users\runneradmin\...` - and `realpath` refuses to unify the two, so
+    // nothing resolves and only the tail below can match.
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-eval-tail-"));
+    const staged = path.join(base, "a", "corpus");
+    fs.mkdirSync(path.join(staged, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(staged, "src", "hit.ts"),
+      "export const hit = 1;\n",
+    );
+
+    const elsewhere = path.join(base, "b", "corpus", "src", "hit.ts");
+    const hits = fromRetrievalHits(staged, [
+      { filepath: elsewhere, startLine: 1, endLine: 1 },
+    ]);
+
+    fs.rmSync(base, { recursive: true, force: true });
+    expect(hits).toEqual([expected]);
+  });
 });
