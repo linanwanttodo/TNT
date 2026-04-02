@@ -16,8 +16,16 @@ const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
  * frame still read `history search "" · 0/0` after the query had been written,
  * because the input had not been applied yet. Bounded, so a genuinely broken
  * behaviour still fails rather than hanging.
+ *
+ * A ceiling that runs out says only "not yet", which cannot tell a walk that is
+ * slow from one that never moves, and the two want different fixes. So the
+ * ceiling still decides the verdict and the extra watching only reports: how
+ * long the condition took, or that it did not arrive at all.
  */
-async function until(want: () => boolean, timeoutMs = 4000): Promise<void> {
+const CEILING = 4000;
+const DIAGNOSTIC_CAP = 20_000;
+
+async function until(want: () => boolean, timeoutMs = CEILING): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!want() && Date.now() < deadline) {
     await tick(25);
@@ -28,8 +36,24 @@ async function untilFrame(
   tree: ReturnType<typeof render>,
   want: (frame: string) => boolean,
 ): Promise<string> {
+  const started = Date.now();
   await until(() => want(tree.lastFrame() ?? ""));
-  return tree.lastFrame() ?? "";
+  const frame = tree.lastFrame() ?? "";
+  if (want(frame)) {
+    return frame;
+  }
+
+  // Nothing arrived inside the ceiling. Keep watching, only to say what happens
+  // next, and fail with both numbers rather than a stale frame.
+  const exhausted = Date.now() - started;
+  await until(() => want(tree.lastFrame() ?? ""), DIAGNOSTIC_CAP);
+  const total = Date.now() - started;
+  const arrived = want(tree.lastFrame() ?? "");
+  throw new Error(
+    `no frame matching the condition after ${exhausted}ms of the ${CEILING}ms ceiling\n` +
+      `  it ${arrived ? `did arrive, ${total}ms after the keystroke` : `never arrived in the extra ${DIAGNOSTIC_CAP}ms`}\n` +
+      `  last frame: ${frame.split("\n")[0] ?? "(empty)"}`,
+  );
 }
 
 /**
