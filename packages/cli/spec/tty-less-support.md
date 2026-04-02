@@ -137,6 +137,40 @@ docker run --rm my-image tnt -p "Generate a README"
 tnt -p "Generate commit message for current changes" --silent
 ```
 
+## Termination reasons and exit codes
+
+A headless run reports how its turn ended twice: as the `reason` on the
+`turn-end` event with `--format stream-json`, and as the process exit status. A
+turn that stopped early still printed the work it produced, so the status is the
+signal a script can branch on without parsing output.
+
+There is no round limit by default: the loop keeps going while the model asks
+for tools. `--max-steps <count>` imposes one. `--request-timeout <seconds>`
+bounds the whole turn's wall clock, including its tool rounds; the default is
+300 seconds (`src/commands/headlessTimeout.ts`), and `0` disables the deadline.
+
+| Reason                    | Exit | Partial output kept | Trigger                                                                                     |
+| ------------------------- | ---- | ------------------- | ------------------------------------------------------------------------------------------- |
+| `no_tool_calls`           | 0    | n/a - complete      | The model replied without asking for a tool.                                                |
+| `user_abort`              | 0    | yes                 | The caller aborted the run, including Ctrl+C.                                               |
+| `hook_stop`               | 0    | yes                 | A caller-supplied hook asked for the turn to end.                                           |
+| `tool_stop`               | 0    | yes                 | A tool reported that the turn should not continue.                                          |
+| `max_steps`               | 1    | yes                 | The explicit `--max-steps` ceiling was reached; without that flag this reason cannot occur. |
+| `loop_detected`           | 1    | yes                 | The assistant's output started repeating itself.                                            |
+| `compaction_circuit_open` | 1    | yes                 | Automatic compaction failed to shrink the history too many times in a row.                  |
+| `stream_stall`            | 1    | yes                 | The response stream kept ending before the round finished and retrying stopped helping.     |
+| `context_unrecoverable`   | 1    | yes                 | The conversation no longer fits the context window and compaction could not recover it.     |
+| `request_timeout`         | 1    | yes                 | The `--request-timeout` deadline expired (300 seconds by default).                          |
+
+The exit status is computed from the reason alone: the four normal endings are
+`0` and every other reason is `1`. Interactive mode does not use this mapping
+and keeps its own behaviour.
+
+A truncation is visible in machine-readable output as well: with
+`--format stream-json` the `turn-end` event carries the reason and the final
+`result` line has `subtype: "error"`; with `--format json` the document carries
+`status: "error"` and the notice as `error`.
+
 ## Environment Variables
 
 - `FORCE_NO_TTY=true`: prevents stdin reading
