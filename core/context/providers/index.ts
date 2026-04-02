@@ -74,7 +74,13 @@ export const Providers: (typeof BaseContextProvider)[] = [
 export function contextProviderClassFromName(
   name: ContextProviderName,
 ): typeof BaseContextProvider | undefined {
-  const provider = Providers.find((cls) => cls.description.title === name);
+  // This module imports `BaseContextProvider` from the barrel it also feeds, so
+  // while the cycle is still being evaluated one of the entries below can be
+  // unset. Reading `.description` off it took the whole config load down with
+  // "Cannot read properties of undefined" on the Windows lane, where nothing
+  // else about the run was wrong; an unset entry is a provider this lookup
+  // cannot name, which is what `undefined` already means here.
+  const provider = Providers.find((cls) => cls?.description?.title === name);
 
   return provider;
 }
