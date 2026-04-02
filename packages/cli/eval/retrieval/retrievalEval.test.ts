@@ -80,7 +80,25 @@ describe("retrieval benchmark", () => {
   }, 420_000);
 
   afterAll(() => {
-    fs.rmSync(run.dir, { recursive: true, force: true });
+    // The run sat inside its own working directory to reach the grammars, and on
+    // Windows the copied wasm files are still open by the parser when the last
+    // query returns: the first `rmdir` answers `ENOTEMPTY` for the parent, which
+    // `force` does not cover. The sibling temp-directory cleanups retry for the
+    // same reason. A run that still cannot clear its own directory says so
+    // instead of failing the suite - every scored assertion above has already
+    // been checked, and the next run is handed a fresh directory.
+    try {
+      fs.rmSync(run.dir, {
+        recursive: true,
+        force: true,
+        maxRetries: 40,
+        retryDelay: 250,
+      });
+    } catch (error) {
+      console.warn(
+        `retrieval benchmark left ${run.dir} behind: ${(error as Error).message}`,
+      );
+    }
   });
 
   /** Only the tree-sitter chunks are what a shipped CLI ranks with. */
