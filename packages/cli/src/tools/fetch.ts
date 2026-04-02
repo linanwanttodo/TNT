@@ -5,6 +5,7 @@ import { TntError, TntErrorReason } from "core/util/errors.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { cachedFetch, rememberFetch } from "./fetchCache.js";
+import { urlRefusal } from "./fetchUrlGuard.js";
 import { Tool } from "./types.js";
 
 // Output truncation defaults
@@ -79,6 +80,11 @@ export const fetchTool: Tool = {
     const offset = requested > 0 ? requested : 0;
 
     try {
+      const refusal = urlRefusal(url);
+      if (refusal) {
+        throw new TntError(TntErrorReason.Unspecified, refusal);
+      }
+
       const cached = cachedFetch(url);
       if (cached !== undefined) {
         return pageOf(cached, offset, pageSize);
