@@ -105,6 +105,7 @@ rules:
 | `TNT_PLUGINS_DIR` | 迁移插件目录 |
 | `TNT_ALT_SCREEN` | 设为 `0` 时使用终端普通缓冲区和滚动历史；已完成的对话只经 `Static` 写入一次，只有实时尾部重绘 |
 | `TNT_THEME` | 为本次会话选择界面主题：`auto`（默认，跟随终端自身背景明暗）、`dark`、`tencent-dark`、`tencent-light` 或 `light` |
+| `TNT_WARM_RETRIEVAL` | 设为 `0` 时不在会话开始时构建代码库索引；只有配置里选了 `codebase` provider 才会构建 |
 
 CLI 读取的变量一律是 `TNT_*`，旧的 `CONTINUE_*` 拼写已不再被读取。有一个名字朝相反方向：它不是本程序读取的设置，而是交给用户自己写的脚本的契约，因此 hook 进程会同时收到 `CONTINUE_PROJECT_DIR`、`TNT_PROJECT_DIR` 与 `CLAUDE_PROJECT_DIR`，这份重复在一个大版本后移除。
 
