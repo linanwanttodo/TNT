@@ -12,6 +12,28 @@ describe("TurnBudget", () => {
     expect(budget.stepsExhausted).toBe(true);
   });
 
+  it("has no round ceiling unless one is configured", () => {
+    // The default is the product behaviour: a turn that keeps making tool
+    // calls keeps running. Ten thousand rounds is far past any ceiling the
+    // loop ever had, so a reintroduced default shows up here.
+    const budget = new TurnBudget();
+
+    for (let round = 0; round < 10_000; round += 1) {
+      expect(budget.recordStep()).toBe("ok");
+    }
+    expect(budget.stepsExhausted).toBe(false);
+  });
+
+  it("treats an explicitly undefined limit as no limit", () => {
+    // `--max-steps` absent reaches the budget as `{ maxSteps: undefined }`.
+    const budget = new TurnBudget({ maxSteps: undefined });
+
+    for (let round = 0; round < 500; round += 1) {
+      expect(budget.recordStep()).toBe("ok");
+    }
+    expect(budget.stepsExhausted).toBe(false);
+  });
+
   it("keeps counting short tool rounds as progress", () => {
     // A tool round usually carries less than 500 completion tokens. It is
     // still progress, so the only bound is the step ceiling: 40 rounds in a
