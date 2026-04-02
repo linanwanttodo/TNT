@@ -159,7 +159,7 @@ Semantic names: `text.primary`, `text.secondary`, `text.subtle`,
 `status.idle`, `border.default`, `border.focus`, `accent`, `user`.
 They map to Ink colour names in one place. No gradients and no hover
 effects. The new components use them; `BottomStatusBar`,
-`ToolPermissionRequest`, and `CompactionBoundary` still hold literals.
+and `CompactionBoundary` still hold literals.
 
 A5. Replace the `ScreenContent` if/else chain with
 `src/ui/screens/registry.tsx` (done): a `ScreenDefinition` has an id and a
