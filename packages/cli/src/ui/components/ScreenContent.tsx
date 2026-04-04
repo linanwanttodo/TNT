@@ -44,6 +44,8 @@ export interface ScreenContentProps {
   chatHistory?: ChatHistoryItem[];
   handleEditMessage?: (messageIndex: number, newContent: string) => void;
   onShowEditSelector?: () => void;
+  /** Opens the Ctrl+P command palette. */
+  onOpenPalette?: () => void;
   /** Previews a theme in place while the theme picker is open. */
   onPreviewTheme?: (themeName: ThemeName | "auto") => void;
   /** Rolls the preview back and closes the picker. */
