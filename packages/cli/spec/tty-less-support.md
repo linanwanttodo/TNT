@@ -146,8 +146,17 @@ signal a script can branch on without parsing output.
 
 There is no round limit by default: the loop keeps going while the model asks
 for tools. `--max-steps <count>` imposes one. `--request-timeout <seconds>`
-bounds the whole turn's wall clock, including its tool rounds; the default is
-300 seconds (`src/commands/headlessTimeout.ts`), and `0` disables the deadline.
+bounds the headless turn's wall clock; the default is 300 seconds
+(`src/commands/headlessTimeout.ts`), and `0` disables the deadline.
+
+The deadline is enforced between rounds: it aborts the provider request that is
+in flight, and a tool already executing runs to its own timeout before the loop
+reaches the next round and sees the abort. Tool timeouts are per call (a
+foreground shell command defaults to 180 seconds and caps at 600), so a
+`--request-timeout` smaller than a running tool's own limit can be exceeded by
+that tool. Post-turn work that answers for the turn (schema repair, session
+title generation) runs after the deadline has been checked and is not bounded by
+it.
 
 | Reason                    | Exit | Partial output kept | Trigger                                                                                     |
 | ------------------------- | ---- | ------------------- | ------------------------------------------------------------------------------------------- |
@@ -160,7 +169,7 @@ bounds the whole turn's wall clock, including its tool rounds; the default is
 | `compaction_circuit_open` | 1    | yes                 | Automatic compaction failed to shrink the history too many times in a row.                  |
 | `stream_stall`            | 1    | yes                 | The response stream kept ending before the round finished and retrying stopped helping.     |
 | `context_unrecoverable`   | 1    | yes                 | The conversation no longer fits the context window and compaction could not recover it.     |
-| `request_timeout`         | 1    | yes                 | The `--request-timeout` deadline expired (300 seconds by default).                          |
+| `request_timeout`         | 1    | yes                 | The `--request-timeout` deadline expired; the run stops at the next round boundary.         |
 
 The exit status is computed from the reason alone: the four normal endings are
 `0` and every other reason is `1`. Interactive mode does not use this mapping
