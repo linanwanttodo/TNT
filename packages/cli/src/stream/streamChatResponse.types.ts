@@ -50,9 +50,13 @@ export interface StreamCallbacks {
   /**
    * Consulted once per completed tool result; a returned string is appended
    * to that result as a <system-reminder>, so a reminder travels in the
-   * request tail rather than in the cached prefix.
+   * request tail rather than in the cached prefix. `argumentsJson` is the
+   * document the tool ran with, including any PreToolUse rewrite.
    */
-  onTailReminder?: (toolName: string) => string | undefined;
+  onTailReminder?: (
+    toolName: string,
+    argumentsJson: string,
+  ) => string | undefined;
   /**
    * Called once when the turn ends, with the reason. A turn cut short by a
    * step ceiling or a stalled loop still returns its partial text, so this is
