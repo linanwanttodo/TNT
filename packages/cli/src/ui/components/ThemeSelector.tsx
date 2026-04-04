@@ -1,3 +1,5 @@
+import fs from "fs";
+
 import React, { useEffect, useState } from "react";
 
 import {
@@ -7,7 +9,13 @@ import {
 } from "../../config/settingsFiles.js";
 import { t } from "../../i18n/index.js";
 import { Selector, type SelectorOption } from "../Selector.js";
-import { getTheme, ThemeName, useTheme, type Theme } from "../theme/tokens.js";
+import {
+  getTheme,
+  themeFileFor,
+  useTheme,
+  type Theme,
+  type ThemeName,
+} from "../theme/tokens.js";
 
 export interface ThemeOption extends SelectorOption {
   themeName: ThemeName | "auto";
@@ -109,8 +117,13 @@ export function readPersistedTheme(): ThemeName | "auto" | undefined {
     return undefined;
   }
   const normalized = saved.toLowerCase().trim();
-  return THEME_OPTIONS.some((option) => option.id === normalized)
-    ? (normalized as ThemeName | "auto")
+  if (THEME_OPTIONS.some((option) => option.id === normalized)) {
+    return normalized as ThemeName | "auto";
+  }
+  // A saved name that is not built in is kept when its file is there, so a
+  // theme the user wrote themselves survives a restart.
+  return fs.existsSync(themeFileFor(normalized))
+    ? (normalized as ThemeName)
     : undefined;
 }
 

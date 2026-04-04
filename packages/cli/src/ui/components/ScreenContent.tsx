@@ -9,6 +9,7 @@ import type {
   ActiveQuizQuestion,
 } from "../hooks/useChat.types.js";
 import { SCREENS } from "../screens/registry.js";
+import type { ThemeName } from "../theme/tokens.js";
 import type { ConfigOption, ModelOption } from "../types/selectorTypes.js";
 
 export interface ScreenContentProps {
@@ -44,15 +45,11 @@ export interface ScreenContentProps {
   handleEditMessage?: (messageIndex: number, newContent: string) => void;
   onShowEditSelector?: () => void;
   /** Previews a theme in place while the theme picker is open. */
-  onPreviewTheme?: (
-    themeName: "auto" | "dark" | "tencent-dark" | "tencent-light" | "light",
-  ) => void;
+  onPreviewTheme?: (themeName: ThemeName | "auto") => void;
   /** Rolls the preview back and closes the picker. */
   onCancelThemePreview?: () => void;
   /** Persists the choice and keeps it applied. */
-  onSelectTheme?: (
-    themeName: "auto" | "dark" | "tencent-dark" | "tencent-light" | "light",
-  ) => void;
+  onSelectTheme?: (themeName: ThemeName | "auto") => void;
   /** Set while a delegated transcript is open, so it can be labelled. */
   subagentView?: { parentSessionId: string; subagentType: string } | null;
 }
