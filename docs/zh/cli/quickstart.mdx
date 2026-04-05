@@ -3,26 +3,11 @@ title: "快速开始"
 description: "安装 TNT、配置模型，并开始第一个会话。"
 ---
 
+import CLIInstall from "/snippets/cli-install.mdx";
+
 ## 安装
 
-<Tabs>
-  <Tab title="macOS / Linux">
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash
-    ```
-  </Tab>
-  <Tab title="Windows">
-    ```powershell
-    irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
-    ```
-  </Tab>
-  <Tab title="npm（跨平台）">
-    如果已经安装 Node.js 20 或更高版本：
-    ```bash
-    npm i -g @tnt/cli
-    ```
-  </Tab>
-</Tabs>
+<CLIInstall />
 
 npm 方式需要 Node.js 20 或更高版本。验证安装：
 
