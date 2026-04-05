@@ -195,9 +195,15 @@ function processGroup(
   return group.map((l) => ({ type: "single" as const, lines: [l] }));
 }
 
-export const ColoredDiff: React.FC<{ diffContent: string }> = ({
-  diffContent,
-}) => {
+export const ColoredDiff: React.FC<{
+  diffContent: string;
+  /** Rows to render; the viewer passes its viewport height so it can scroll. */
+  maxLines?: number;
+  /** First displayable row to render. */
+  offset?: number;
+  /** The full-screen viewer prints its own position line. */
+  showFooter?: boolean;
+}> = ({ diffContent, maxLines = 16, offset = 0, showFooter = true }) => {
   const activeTheme = useTheme();
   const parsedLines = parseDiffWithLineNumbers(diffContent);
   const language = useMemo(() => {
@@ -213,8 +219,19 @@ export const ColoredDiff: React.FC<{ diffContent: string }> = ({
     (l) => l.type !== "hunk" && l.type !== "other",
   );
 
-  const truncatedLines = displayableLines.slice(0, 16);
-  const isTruncated = displayableLines.length > 16;
+  const windowStart = Math.min(
+    Math.max(0, offset),
+    Math.max(0, displayableLines.length - 1),
+  );
+  const truncatedLines = displayableLines.slice(
+    windowStart,
+    windowStart + Math.max(1, maxLines),
+  );
+  const hiddenAbove = windowStart;
+  const hiddenBelow = Math.max(
+    0,
+    displayableLines.length - (windowStart + truncatedLines.length),
+  );
 
   // Group consecutive add/delete lines for word-level diffing
   const groupedLines: Array<{ type: "group" | "single"; lines: DiffLine[] }> =
@@ -314,9 +331,11 @@ export const ColoredDiff: React.FC<{ diffContent: string }> = ({
           );
         }
       })}
-      {isTruncated && (
+      {showFooter && (hiddenAbove > 0 || hiddenBelow > 0) && (
         <Text color={activeTheme.text.secondary} dimColor>
-          ... ({displayableLines.length - 16} more lines)
+          {hiddenAbove > 0 ? `... (${hiddenAbove} earlier lines)` : ""}
+          {hiddenAbove > 0 && hiddenBelow > 0 ? " " : ""}
+          {hiddenBelow > 0 ? `... (${hiddenBelow} more lines)` : ""}
         </Text>
       )}
     </Box>
