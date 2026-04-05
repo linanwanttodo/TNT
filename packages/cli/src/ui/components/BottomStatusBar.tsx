@@ -14,6 +14,7 @@ import { getGitBranch } from "../../utils/git.js";
 import { getModelContextLimit } from "../../utils/tokenizer.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { symbols } from "../symbols.js";
 import { UpdateNotification } from "../UpdateNotification.js";
 import {
   contextUsageLine,
@@ -295,7 +296,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   if (showThinking) {
     rightParts.push(
       <Text key="thinking" color="cyan" wrap="truncate-end">
-        {`◐ ${thinkingText}`}
+        {`${symbols().thinking} ${thinkingText}`}
       </Text>,
     );
   }

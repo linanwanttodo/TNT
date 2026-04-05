@@ -2,6 +2,7 @@ import chalk from "chalk";
 
 import { t } from "../../../i18n/index.js";
 import { readTodoState } from "../../../tools/todo.js";
+import { symbols } from "../../symbols.js";
 import type { SlashCommandResult } from "../types.js";
 
 export function handleJobs(): SlashCommandResult {
@@ -17,7 +18,9 @@ export function handleTodos(): SlashCommandResult {
 
   const done = todos.filter((todo) => todo.done).length;
   const lines = todos.map((todo) => {
-    const mark = todo.done ? chalk.green("✓") : chalk.dim("○");
+    const mark = todo.done
+      ? chalk.green(symbols().check)
+      : chalk.dim(symbols().ring);
     const id = chalk.cyan(`#${todo.id}`);
     const text = todo.done ? chalk.dim(todo.text) : todo.text;
     return `  ${mark} ${id} ${text}`;

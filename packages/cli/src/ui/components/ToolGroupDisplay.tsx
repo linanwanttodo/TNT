@@ -13,6 +13,7 @@ import { formatToolArgument } from "../../tools/formatters.js";
 import { getToolDisplayName } from "../../tools/registry.js";
 import { markLayoutDirty } from "../hooks/layoutDirty.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
+import { symbols } from "../symbols.js";
 import { useTheme, type Theme } from "../theme/tokens.js";
 
 import {
@@ -66,7 +67,7 @@ function statusStyle(
   switch (status) {
     case "done":
       return {
-        glyph: "✓",
+        glyph: symbols().check,
         color: activeTheme.status.success,
         borderColor: activeTheme.text.subtle,
       };

@@ -10,6 +10,7 @@ import {
 } from "../services/types.js";
 
 import { defaultBoxStyles } from "./styles.js";
+import { symbols } from "./symbols.js";
 
 interface ServiceDebuggerProps {
   services: {
@@ -36,7 +37,7 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
   const getServiceStatus = (serviceName: string, service: any) => {
     if (!service) return "x Not loaded";
     if (service.error) return `x Error: ${service.error}`;
-    return "✓ Ready";
+    return `${symbols().check} Ready`;
   };
 
   const getServiceDetails = (serviceName: string, service: any) => {
@@ -68,9 +69,11 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
       <Text> </Text>
 
       <Text color="yellow">{t("debug.overallStatus")}</Text>
-      <Text>Loading: {loading ? "~ Yes" : "✓ No"}</Text>
-      <Text>All Ready: {allReady ? "✓ Yes" : "x No"}</Text>
-      <Text>Services Loading: {servicesLoading ? "~ Yes" : "✓ No"}</Text>
+      <Text>Loading: {loading ? "~ Yes" : `${symbols().check} No`}</Text>
+      <Text>All Ready: {allReady ? `${symbols().check} Yes` : "x No"}</Text>
+      <Text>
+        Services Loading: {servicesLoading ? "~ Yes" : `${symbols().check} No`}
+      </Text>
 
       {error && <Text color="red">Error: {String(error)}</Text>}
 
@@ -102,10 +105,12 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
 
       <Text> </Text>
       <Text color="yellow">{t("debug.introConditions")}</Text>
-      <Text>Services ready: {allReady ? "✓" : "x"}</Text>
-      <Text>Has config: {services.config?.config ? "✓" : "x"}</Text>
-      <Text>Has model: {services.model?.model ? "✓" : "x"}</Text>
-      <Text>Has MCP service: {services.mcp?.mcpService ? "✓" : "x"}</Text>
+      <Text>Services ready: {allReady ? symbols().check : "x"}</Text>
+      <Text>Has config: {services.config?.config ? symbols().check : "x"}</Text>
+      <Text>Has model: {services.model?.model ? symbols().check : "x"}</Text>
+      <Text>
+        Has MCP service: {services.mcp?.mcpService ? symbols().check : "x"}
+      </Text>
 
       <Text> </Text>
       <Text color="gray" italic>
