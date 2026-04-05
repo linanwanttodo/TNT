@@ -282,6 +282,20 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   // This avoids race conditions and "service not ready" errors
   await serviceContainer.initializeAll();
 
+  // The indexer walks the workspace the first time something asks it to search,
+  // which puts a repository-sized walk inside the turn that asks the first
+  // question about the code. Starting it here moves that work to the session
+  // opening, where the user is still typing. Only a config that selects the
+  // codebase provider starts a build, and the unit suites are skipped because
+  // they open hundreds of sessions in temporary workspaces.
+  if (process.env.VITEST === undefined) {
+    void import("../retrieval/warmup.js")
+      .then(({ warmRetrieval }) => warmRetrieval())
+      .catch((error) =>
+        logger.debug("Retrieval warm-up failed", error as Error),
+      );
+  }
+
   logger.debug("Service registry initialized");
 }
 
