@@ -148,7 +148,7 @@ export function continueTokenLedger(): {
 const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 8,
   core: 12,
-  "packages/cli": 59,
+  "packages/cli": 56,
   "packages/sdk": 58,
   scripts: 2,
 };

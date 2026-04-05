@@ -138,12 +138,14 @@ describe("slashCommands", () => {
 
       expect(result).toBeDefined();
       expect(result?.output).toContain("Keyboard Shortcuts:");
-      expect(result?.output).toContain("Navigation:");
-      expect(result?.output).toContain("\u2191/\u2193");
+      expect(result?.output).toContain("Up/Down");
       expect(result?.output).toContain("Tab");
       expect(result?.output).toContain("Enter");
       expect(result?.output).toContain("Shift+Enter");
-      expect(result?.output).toContain("Controls:");
+      // The table is `ui/keyBindings.ts`; these two rows are the ones a
+      // hand-written list kept losing.
+      expect(result?.output).toContain("Ctrl+P");
+      expect(result?.output).toContain("Ctrl+F");
       expect(result?.output).toContain("Ctrl+C");
       expect(result?.output).toContain("Ctrl+D");
       expect(result?.output).toContain("Ctrl+L");
