@@ -53,6 +53,12 @@ interface HandleToolCallsOptions {
    * Whether this run may delegate again. False at the depth limit.
    */
   canDelegate?: boolean;
+  /**
+   * The run's abort signal. Forwarded to tool execution so a tool that honours
+   * it stops when the headless deadline fires, instead of running to its own
+   * timeout while nothing waits for the result.
+   */
+  signal?: AbortSignal;
 }
 
 export async function handleToolCalls(
@@ -209,6 +215,7 @@ export async function handleToolCalls(
         model: options.model,
         history: chatHistory,
       },
+      signal: options.signal,
     },
   );
 

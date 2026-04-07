@@ -149,14 +149,15 @@ for tools. `--max-steps <count>` imposes one. `--request-timeout <seconds>`
 bounds the headless turn's wall clock; the default is 300 seconds
 (`src/commands/headlessTimeout.ts`), and `0` disables the deadline.
 
-The deadline is enforced between rounds: it aborts the provider request that is
-in flight, and a tool already executing runs to its own timeout before the loop
-reaches the next round and sees the abort. Tool timeouts are per call (a
-foreground shell command defaults to 180 seconds and caps at 600), so a
-`--request-timeout` smaller than a running tool's own limit can be exceeded by
-that tool. Post-turn work that answers for the turn (schema repair, session
-title generation) runs after the deadline has been checked and is not bounded by
-it.
+The deadline aborts the provider request in flight and carries that abort into
+tool execution: a shell command that is already running is stopped, and a call
+that has not started is reported as not executed instead of spawning work the
+run no longer wants. Two things still finish under their own limits: a tool that
+ignores the abort (tool timeouts are per call — a foreground shell command
+defaults to 180 seconds and caps at 600), and a command running in an editor
+terminal, which the runner owns and this process cannot interrupt. Post-turn work
+that answers for the turn (schema repair, session title generation) is skipped
+once the turn was cut short.
 
 | Reason                    | Exit | Partial output kept | Trigger                                                                                     |
 | ------------------------- | ---- | ------------------- | ------------------------------------------------------------------------------------------- |

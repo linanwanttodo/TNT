@@ -76,6 +76,8 @@ export async function dispatchApprovedCall(options: {
     succeeded: boolean,
     error?: unknown,
   ) => void;
+  /** The run's abort signal: a tool that honours it stops when the deadline fires. */
+  signal?: AbortSignal;
 }): Promise<void> {
   const {
     index,
@@ -87,6 +89,7 @@ export async function dispatchApprovedCall(options: {
     entriesByIndex,
     callbacks,
     onToolOutcome,
+    signal,
   } = options;
 
   try {
@@ -98,6 +101,7 @@ export async function dispatchApprovedCall(options: {
     const toolResult = await executionGate.run(plannedKeys, () =>
       executeToolCall(effectiveCall, {
         parallelToolCallCount: parallelCount,
+        signal,
       }),
     );
     const { content: resultText, images } = normalizeToolResult(toolResult);

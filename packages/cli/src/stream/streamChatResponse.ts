@@ -345,6 +345,7 @@ export async function streamChatResponse(
       canDelegate: runOverrides?.canDelegate,
       llmApi,
       model,
+      signal: abortController?.signal,
       onToolOutcome: (toolName, succeeded, error) => {
         const notice = state.toolFailures.record(toolName, succeeded, error);
         if (notice) {

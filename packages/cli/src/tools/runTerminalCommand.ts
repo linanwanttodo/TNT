@@ -229,6 +229,8 @@ WHAT COMES BACK:
     const maxChars = Math.floor(baseMaxChars / parallelCount);
     const maxLines = Math.floor(baseMaxLines / parallelCount);
 
+    // An editor terminal run cannot be aborted from here: the runner owns the
+    // process and exposes no signal. It still stops at its own timeout.
     const runner = getTerminalRunner();
     if (runner) {
       const { shell, args } = getShellCommand(command);
@@ -373,16 +375,48 @@ WHAT COMES BACK:
         }
       };
 
+      // The run's deadline reaches the command through the abort signal. Without
+      // this the shell keeps running to TIMEOUT_MS after the loop has already
+      // given up, and nothing reads the result; stopping here also frees the
+      // child before the tool returns, so the turn can end promptly.
+      const stopOnAbort = () => {
+        if (isResolved) return;
+        isResolved = true;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        backgroundSignalManager.off("backgroundRequested", moveToBackground);
+        child.kill();
+        let output = stdout + (stderr ? `\nStderr: ${stderr}` : "");
+        output += "\n\n[Command stopped: the run reached its time limit.]";
+        const truncationResult = truncateOutputFromStart(output, {
+          maxChars,
+          maxLines,
+        });
+        resolve(
+          truncationResult.wasTruncated
+            ? appendParallelLimitNote(truncationResult.output)
+            : truncationResult.output,
+        );
+      };
+      if (context?.signal?.aborted) {
+        stopOnAbort();
+      } else {
+        context?.signal?.addEventListener("abort", stopOnAbort, { once: true });
+      }
+
       // Start the initial timeout
       resetTimeout();
 
       const onStdout = (data: Buffer) => {
+        if (isResolved) return;
         stdout += data.toString();
         resetTimeout();
         showCurrentOutput();
       };
 
       const onStderr = (data: Buffer) => {
+        if (isResolved) return;
         stderr += data.toString();
         resetTimeout();
         showCurrentOutput();
