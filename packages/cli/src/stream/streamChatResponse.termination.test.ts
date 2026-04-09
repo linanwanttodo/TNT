@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TerminationReason } from "../loop/termination.js";
 
+import { handleToolCalls } from "./handleToolCalls.js";
 import { streamChatResponse } from "./streamChatResponse.js";
 
 vi.mock("../compaction/index.js", () => ({
@@ -191,6 +192,36 @@ describe("streamChatResponse - loop termination", () => {
     );
 
     expect(reasons).toEqual(["user_abort"]);
+  });
+
+  it("returns and records content received before abort", async () => {
+    const reasons: TerminationReason[] = [];
+    const llmApi = {
+      chatCompletionStream: vi.fn().mockImplementation(async function* () {
+        yield contentChunk("partial answer");
+        abortController.abort();
+        yield contentChunk("discarded after abort");
+      }),
+    } as unknown as BaseLlmApi;
+
+    const response = await streamChatResponse(
+      chatHistory,
+      mockModel,
+      llmApi,
+      abortController,
+      { onTurnTerminated: (reason) => reasons.push(reason) },
+    );
+
+    expect(reasons).toEqual(["user_abort"]);
+    expect(response).toContain("partial answer");
+    expect(response).not.toContain("discarded after abort");
+    expect(handleToolCalls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolCalls: [],
+        chatHistory,
+        content: "partial answer",
+      }),
+    );
   });
 
   it("ends normally when the model stops asking for tools", async () => {
