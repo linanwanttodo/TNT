@@ -1,0 +1,103 @@
+---
+title: "故障排查"
+description: "如何读日志、处理 TNT CLI 常见故障：MCP 服务器连接失败、TLS 证书错误，以及文档没覆盖到的问题该报到哪里。"
+---
+
+1. [先看日志](#先看日志)
+2. [MCP 服务器连不上](#mcp-服务器连不上)
+3. [SSL 证书错误](#ssl-证书错误)
+4. [还是没解决？](#还是没解决)
+
+## 先看日志
+
+很多问题的第一步都是读日志，找到那条真正相关的错误。
+
+CLI 日志在 `~/.tnt/logs/tnt.log`，最新的条目在文件末尾。要看 debug 级别的细节，先把日志级别调高：复现问题前设置 `TNT_LOG_LEVEL=debug`。
+
+每个会话的提示词与工具调用也会写进该会话的记录文件 `~/.tnt/sessions/<session-id>/session.jsonl`；当问题与"模型究竟收到了什么"有关时，看这个文件。
+
+## MCP 服务器连不上
+
+### macOS 上的 "spawn ENAMETOOLONG" 错误
+
+在 macOS 上使用 MCP 服务器时，如果看到 `Failed to connect to "<MCP Server Name>"` 并伴随 `Error: spawn ENAMETOOLONG`，原因是派生 MCP 进程时环境变量太大。
+
+**绕过办法：** 用命令的完整路径，不要依赖 PATH 解析：
+
+```yaml
+mcpServers:
+  - name: Memory MCP server
+    command: /usr/local/bin/npx  # 使用完整路径，而不是只写 "npx"
+    args:
+      - -y
+      - "@modelcontextprotocol/server-memory"
+```
+
+在系统里找命令完整路径的办法：
+- `npx`：运行 `which npx`
+- `docker`：运行 `which docker`
+- `uv`/`uvx`：运行 `which uv` 或 `which uvx`
+
+这个问题通常出现在开发环境特别大的 macOS 机器上。
+
+## SSL 证书错误
+
+如果 TNT 能连到模型端点但验证不了它的 TLS 证书链，你会在 `fetch failed` 旁边看到类似这样的错误：
+
+- `unable to verify the first certificate`
+- `self signed certificate in certificate chain`
+- `certificate verify failed`
+- `CERT_UNTRUSTED`
+
+这通常发生在连接自建模型、企业代理或内部端点时——它们使用私有 CA 或不完整的证书链。
+
+### 快速处理：信任该 CA 证书包
+
+把该端点的根证书或中间证书加进模型的 `requestOptions.caBundlePath`：
+
+```yaml
+models:
+  - name: Secure endpoint
+    provider: openai
+    model: gpt-4.1
+    apiBase: https://llm.example.com/v1
+    requestOptions:
+      caBundlePath: /path/to/ca-chain.pem
+```
+
+如果部署要求双向 TLS，再配置 `requestOptions.clientCertificate`。
+
+### 定位证书问题
+
+1. 先在 TNT 日志里复现错误，确认失败的是哪个主机名。
+2. 用 `curl` 直接测这个端点：
+
+   ```bash
+   curl -v https://llm.example.com/v1/models
+   ```
+
+3. 用 OpenSSL 查看证书链：
+
+   ```bash
+   openssl s_client -showcerts -connect llm.example.com:443 -servername llm.example.com </dev/null
+   ```
+
+4. 把需要的根证书或中间证书存成 PEM 文件，让 `requestOptions.caBundlePath` 指向它。
+5. 先用 curl 验证再回 TNT 重试：
+
+   ```bash
+   curl --cacert /path/to/ca-chain.pem https://llm.example.com/v1/models
+   ```
+
+### 常见部署
+
+自建或企业环境通常用这两个选项就够了：
+
+- 私有 CA 或公司代理：设置 `requestOptions.caBundlePath`
+- 双向 TLS：设置 `requestOptions.clientCertificate`
+
+排查阶段可以临时设置 `requestOptions.verifySsl: false`，确认失败是否与证书有关。日常使用不要一直关着它。
+
+## 还是没解决？
+
+在 [TNT 仓库](https://github.com/linanwanttodo/TNT/issues/new) 提 issue，附上日志片段和复现步骤。
