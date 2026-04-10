@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TerminationReason } from "../loop/termination.js";
 
+import { handleToolCalls } from "./handleToolCalls.js";
 import { streamChatResponse } from "./streamChatResponse.js";
 
 vi.mock("../compaction/index.js", () => ({
@@ -176,6 +177,48 @@ describe("streamChatResponse - loop termination", () => {
     );
 
     expect(reasons).toEqual(["max_steps"]);
+  });
+
+  it("runs past 128 tool rounds when no ceiling is configured", async () => {
+    // Regression: the loop used to stop this run at 128 rounds with
+    // `max_steps` because the budget carried a default ceiling. The model now
+    // keeps asking for tools for 150 rounds and only then answers, so a
+    // reintroduced default has to fail here.
+    const reasons: TerminationReason[] = [];
+    const notices: (string | undefined)[] = [];
+    let rounds = 0;
+    const llmApi = {
+      chatCompletionStream: vi.fn().mockImplementation(async function* () {
+        rounds += 1;
+        if (rounds <= 150) {
+          yield toolCallChunk("noop");
+        } else {
+          yield contentChunk("Finished after 150 tool rounds");
+        }
+      }),
+    } as unknown as BaseLlmApi;
+
+    const response = await streamChatResponse(
+      chatHistory,
+      mockModel,
+      llmApi,
+      abortController,
+      {
+        onTurnTerminated: (reason, detail) => {
+          reasons.push(reason);
+          notices.push(detail?.notice);
+        },
+      },
+    );
+
+    // Each of the 150 rounds reached the tool dispatcher with a call in hand.
+    const dispatchRounds = vi
+      .mocked(handleToolCalls)
+      .mock.calls.filter(([options]) => options.toolCalls.length > 0);
+    expect(dispatchRounds).toHaveLength(150);
+    expect(reasons).toEqual(["no_tool_calls"]);
+    expect(notices).toEqual([undefined]);
+    expect(response).toContain("Finished after 150 tool rounds");
   });
 
   it("stops when the turn is aborted", async () => {

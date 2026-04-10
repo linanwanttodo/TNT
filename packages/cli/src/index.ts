@@ -240,7 +240,7 @@ addCommonOptions(program)
   .option("--fork <sessionId>", "Fork from an existing session ID")
   .option(
     "--max-steps <count>",
-    "Maximum model rounds per turn before the turn is cut short",
+    "Maximum model rounds per turn (default: no limit)",
     (value) => {
       // `NaN` is the rejection: the message is produced by `validateFlags` with
       // every other flag error, where a throw here escaped silently.
