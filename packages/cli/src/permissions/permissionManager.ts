@@ -5,7 +5,11 @@ import { ToolCallRequest } from "./types.js";
 export interface PermissionRequestResult {
   approved: boolean;
   remember?: boolean; // For future implementation - remember this decision
+  /** Set when the request expired unanswered; a timeout never approves. */
+  timedOut?: boolean;
 }
+
+export const DEFAULT_PERMISSION_TIMEOUT_MS = 5 * 60_000;
 
 export class ToolPermissionManager extends EventEmitter {
   private pendingRequests = new Map<
@@ -13,6 +17,7 @@ export class ToolPermissionManager extends EventEmitter {
     {
       toolCall: ToolCallRequest;
       resolve: (result: PermissionRequestResult) => void;
+      timer?: ReturnType<typeof setTimeout>;
     }
   >();
 
@@ -20,17 +25,48 @@ export class ToolPermissionManager extends EventEmitter {
 
   /**
    * Request permission for a tool call. Returns a promise that resolves
-   * when the user approves or rejects the request.
+   * when the user approves or rejects the request, or when the timeout
+   * expires unanswered. A timeout resolves as a refusal and removes the
+   * pending entry, so a surface that lost the prompt can never leave the
+   * engine waiting forever.
    */
   async requestPermission(
     toolCall: ToolCallRequest,
+    timeoutMs: number = DEFAULT_PERMISSION_TIMEOUT_MS,
   ): Promise<PermissionRequestResult> {
     const requestId = `tool-request-${++this.requestCounter}`;
 
     return new Promise<PermissionRequestResult>((resolve) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+
+      // The only settlement path: the first caller to remove the entry wins,
+      // so an approval racing the timeout resolves exactly once.
+      const settle = (result: PermissionRequestResult) => {
+        if (this.pendingRequests.delete(requestId)) {
+          if (timer !== undefined) {
+            clearTimeout(timer);
+          }
+          resolve(result);
+          return true;
+        }
+        return false;
+      };
+
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          if (settle({ approved: false, timedOut: true })) {
+            this.emit("permissionResponse", {
+              requestId,
+              approved: false,
+              timedOut: true,
+            });
+          }
+        }, timeoutMs);
+      }
+
       this.pendingRequests.set(requestId, {
         toolCall,
-        resolve,
+        resolve: settle,
       });
 
       // Emit event for UI to handle
@@ -52,7 +88,6 @@ export class ToolPermissionManager extends EventEmitter {
       return false;
     }
 
-    this.pendingRequests.delete(requestId);
     request.resolve({ approved: true, remember });
 
     // Also emit for the new event-based system
@@ -71,7 +106,6 @@ export class ToolPermissionManager extends EventEmitter {
       return false;
     }
 
-    this.pendingRequests.delete(requestId);
     request.resolve({ approved: false });
 
     // Also emit for the new event-based system
