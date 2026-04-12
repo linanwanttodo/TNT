@@ -324,7 +324,7 @@ export async function streamChatResponse(
       // channel for the same reason.
       callbacks: {
         ...callbacks,
-        onTailReminder: (toolName) => {
+        onTailReminder: (toolName, argumentsJson) => {
           const notes = [
             state.contextBudget.reminder(
               model.defaultCompletionOptions?.contextLength,
@@ -333,6 +333,7 @@ export async function streamChatResponse(
               toolName,
               readTodoState().todos,
             ),
+            state.repeatCallGuard.record(toolName, argumentsJson),
           ].filter((note): note is string => Boolean(note));
           return notes.length > 0 ? notes.join("\n\n") : undefined;
         },
@@ -347,8 +348,8 @@ export async function streamChatResponse(
       onToolOutcome: (toolName, succeeded, error) => {
         const notice = state.toolFailures.record(toolName, succeeded, error);
         if (notice) {
-          // Appended as a tool result rather than a user message so the model
-          // sees it in the place it is working, without a new turn boundary.
+          // Operator-facing only: the model is not told about this streak, and
+          // the tally exists so a log reader can see the repeated failure.
           logger.warn("Tool repeatedly failing", {
             tool: notice.toolName,
             consecutiveFailures: notice.consecutiveFailures,
