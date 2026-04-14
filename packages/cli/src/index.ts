@@ -230,7 +230,7 @@ addCommonOptions(program)
   )
   .option(
     "--request-timeout <seconds>",
-    "Cut a headless turn short after this many seconds, covering all its tool rounds (default: 300, 0 disables). Only works with -p/--print flag.",
+    "Cut a headless turn short after this many seconds; the deadline is checked between rounds, so a running tool finishes first (default: 300, 0 disables). Only works with -p/--print flag.",
     (value) => {
       const parsed = Number.parseInt(value, 10);
       return Number.isInteger(parsed) && parsed >= 0 ? parsed : Number.NaN;
