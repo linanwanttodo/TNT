@@ -53,6 +53,20 @@ export function isNormalTermination(reason: TerminationReason): boolean {
 }
 
 /**
+ * Process status for a run that ended for `reason`.
+ *
+ * A caller that only reads the exit status has no other way to learn that the
+ * answer was cut short, so every truncation is a failure. A normal ending is
+ * success even when it came from the user aborting: the run did what it was
+ * asked to do.
+ */
+export function exitCodeForTermination(
+  reason: TerminationReason | undefined,
+): 0 | 1 {
+  return reason === undefined || isNormalTermination(reason) ? 0 : 1;
+}
+
+/**
  * One-line explanation for the user, phrased for a person watching the
  * session rather than for a log reader, because a truncated answer is the
  * first thing they notice.

@@ -125,7 +125,12 @@ export async function dispatchApprovedCall(options: {
     const withDiagnostics = diagnostics
       ? `${stowed}\n\n${diagnostics}`
       : stowed;
-    const reminder = callbacks?.onTailReminder?.(effectiveCall.name);
+    // The effective call, not the parsed request: a PreToolUse hook can rewrite
+    // the input, and the advice is about the call that actually ran.
+    const reminder = callbacks?.onTailReminder?.(
+      effectiveCall.name,
+      JSON.stringify(effectiveCall.arguments),
+    );
     const content = withHookContext(
       reminder
         ? `${withDiagnostics}\n\n<system-reminder>${reminder}</system-reminder>`

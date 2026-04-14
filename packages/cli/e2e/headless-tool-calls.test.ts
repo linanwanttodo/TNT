@@ -26,9 +26,10 @@ describe("E2E: Headless Mode with Tool Calls", () => {
     await cleanupTestContext(context);
   });
 
-  it("should print nothing when response contains only tool calls in headless mode", async () => {
-    // In headless mode, the CLI makes only one request and exits
-    // If that response contains only tool calls, nothing is printed
+  it("prints nothing when a bounded turn contains only tool calls", async () => {
+    // A mock that answers every round with a tool call has no natural ending,
+    // and a turn has no default round ceiling, so the run is bounded explicitly
+    // here. The turn then stops without text, which is what this case pins.
 
     mockServer = await setupMockLLMTest(context, {
       customHandler: (req: http.IncomingMessage, res: http.ServerResponse) => {
@@ -72,7 +73,14 @@ describe("E2E: Headless Mode with Tool Calls", () => {
 
     // Run the CLI with print mode (-p)
     const result = await runCLI(context, {
-      args: ["-p", "--config", context.configPath, "Test with tool calls"],
+      args: [
+        "--max-steps",
+        "1",
+        "-p",
+        "--config",
+        context.configPath,
+        "Test with tool calls",
+      ],
       // The helper's default is 20s and this case asks for more, because it is
       // the run whose output is expected to stay empty: a killed child and a
       // correct run are indistinguishable here, so the budget has to cover the
@@ -80,8 +88,9 @@ describe("E2E: Headless Mode with Tool Calls", () => {
       timeout: 30000,
     });
 
-    // In headless mode with only tool calls, nothing should be printed
+    // Nothing was answered before the turn was cut short, so nothing is
+    // printed - and a truncated run is a failed run.
     expect(result.stdout).toBe("");
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
   }, 40000);
 });
