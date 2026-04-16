@@ -33,6 +33,7 @@ interface ChatScreenContentProps {
   isInputDisabled: boolean;
   isRemoteMode: boolean;
   onShowEditSelector?: () => void;
+  onOpenPalette?: () => void;
   /** Set while a delegated transcript is open. */
   subagentView?: { parentSessionId: string; subagentType: string } | null;
 }
@@ -53,6 +54,7 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
   isInputDisabled,
   isRemoteMode,
   onShowEditSelector,
+  onOpenPalette,
   subagentView,
 }) => {
   if (activeQuizQuestion) {
@@ -100,6 +102,7 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
         disabled={isInputDisabled}
         isRemoteMode={isRemoteMode}
         onShowEditSelector={onShowEditSelector}
+        onOpenPalette={onOpenPalette}
       />
     </>
   );

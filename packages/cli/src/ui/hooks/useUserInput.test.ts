@@ -37,6 +37,28 @@ describe("handleControlKeys", () => {
     expect(isReasoningExpanded()).toBe(false);
   });
 
+  it("opens the palette on Ctrl+P when the caller has one", () => {
+    const onOpenPalette = vi.fn();
+
+    expect(
+      handleControlKeys({
+        input: "p",
+        key: { ctrl: true },
+        exit: vi.fn(),
+        onOpenPalette,
+      }),
+    ).toBe(true);
+    expect(onOpenPalette).toHaveBeenCalledTimes(1);
+    // Without a palette the key falls through rather than being swallowed.
+    expect(
+      handleControlKeys({
+        input: "p",
+        key: { ctrl: true },
+        exit: vi.fn(),
+      }),
+    ).toBe(false);
+  });
+
   it("removes the newest queued message on Ctrl+X", async () => {
     await messageQueue.enqueueMessage("first");
     await messageQueue.enqueueMessage("second");

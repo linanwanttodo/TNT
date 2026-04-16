@@ -126,6 +126,7 @@ interface UserInputProps {
   hideNormalUI?: boolean;
   isRemoteMode?: boolean;
   onShowEditSelector?: () => void;
+  onOpenPalette?: () => void;
 }
 
 const UserInput: React.FC<UserInputProps> = ({
@@ -142,6 +143,7 @@ const UserInput: React.FC<UserInputProps> = ({
   hideNormalUI = false,
   isRemoteMode = false,
   onShowEditSelector,
+  onOpenPalette,
 }) => {
   const locale = useLocale();
   const theme = useTheme();
@@ -851,6 +853,7 @@ const UserInput: React.FC<UserInputProps> = ({
           !showFileSearch &&
           !showSlashCommands &&
           !historySearch.search.active,
+        onOpenPalette,
       })
     ) {
       return;

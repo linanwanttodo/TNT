@@ -91,6 +91,13 @@ or a value that is not a string, is ignored and the token keeps its built-in
 colour - a typo cannot blank a panel. A file that is not JSON is ignored the same
 way, and a name with no file behind it falls back to `dark`.
 
+## Command palette
+
+`Ctrl+P` lists every command the session can run, with a filter that matches the
+name or the description. Enter runs the highlighted one through the same path as
+typing it, so a command that asks for an argument still asks for it; Esc closes
+the palette without running anything.
+
 ## Keys
 
 | Key | Action |
@@ -107,6 +114,7 @@ way, and a name with no file behind it falls back to `dark`.
 | `Ctrl+End` | jump to the live tail while the composer has focus |
 | mouse wheel | scroll the transcript |
 | click the `↓` hint | jump to the live tail |
+| `Ctrl+P` | open the command palette |
 | `Ctrl+C` | clear the input, twice to exit |
 
 <Tip>

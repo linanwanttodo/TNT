@@ -23,7 +23,8 @@ export type NavigationScreen =
   | "edit" // Edit message selector
   | "jobs" // Background Jobs selector
   | "export" // Export session selector
-  | "theme"; // Theme picker with live preview
+  | "theme" // Theme picker with live preview
+  | "palette"; // Ctrl+P command palette
 
 interface NavigationState {
   currentScreen: NavigationScreen;
