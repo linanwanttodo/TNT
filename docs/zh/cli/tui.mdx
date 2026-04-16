@@ -63,6 +63,27 @@ Linux 下 Wayland 优先用 `wl-paste`，X11 用 `xclip`（需已安装）；都
 安装 `wl-clipboard`。macOS 通过 `osascript`、Windows 通过 PowerShell 读取剪贴板，
 失败时使用内置辅助模块。
 
+## 主题
+
+`/theme` 可以从内置配色里选一个并实时预览：`auto` 跟随终端自身的明暗背景，`dark`、
+`tencent-dark`、`tencent-light`、`light` 是固定配色。也可以用 `TNT_THEME` 或
+`config.yaml` 里的 `theme:` 指定同一个选择。
+
+自己的主题是一个 JSON 文件，放在 `~/.tnt/themes/<名字>.json`，用 `TNT_THEME=<名字>`
+选中：
+
+```json title="~/.tnt/themes/night.json"
+{
+  "accent": "#ff79c6",
+  "text": { "primary": "#f8f8f2" },
+  "diff": { "addText": "#50fa7b" }
+}
+```
+
+只有你写了名的 token 会变，其余继承深色配色，所以只想换强调色的文件只有两行。配色里
+没有的键、或不是字符串的值会被忽略并保留内置颜色——写错一个键不会让面板变空白。不是
+JSON 的文件同样被忽略；名字对应不到文件时回落到 `dark`。
+
 ## 按键
 
 | 按键 | 操作 |
