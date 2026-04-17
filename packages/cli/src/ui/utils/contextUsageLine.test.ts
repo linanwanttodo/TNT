@@ -11,7 +11,6 @@ const TEST_LABELS = {
   cache: "cache r/w",
   out: "out",
   cost: "cost",
-  noUsage: "no usage",
 } as const;
 
 describe("the context-usage line", () => {
@@ -43,24 +42,26 @@ describe("the context-usage line", () => {
     ).toBe("cache r/w 100.00%");
   });
 
-  it("qualifies the ratio with the rounds that produced no usage", () => {
-    // A round the provider billed but never reported is missing from the sums
-    // this ratio is made of, and the line has to say so instead of presenting
-    // a number that quietly covers fewer requests than the session made.
+  it("says what the ratio covers when a round went unreported", () => {
+    // The owner's DeepSeek session: nine rounds reported 167,808 of 196,729
+    // tokens (85.30%), and a tenth was billed with 48,314 in and 12,288 read
+    // from cache without ever sending its counts, which is why the platform
+    // showed 73.5% for the same conversation. The fraction is the difference
+    // the client can still tell the reader about.
     expect(
       contextUsageLine({
         cacheHitRatio: 85.3,
-        unreportedUsage: 2,
+        usageCoverage: { reported: 9, sent: 10 },
         labels: TEST_LABELS,
       }),
-    ).toBe("cache r/w 85.30% (+2 no usage)");
+    ).toBe("cache r/w 85.30% (9/10)");
   });
 
-  it("says nothing about usage when every round reported it", () => {
+  it("says nothing about coverage when every round reported", () => {
     expect(
       contextUsageLine({
         cacheHitRatio: 85.3,
-        unreportedUsage: 0,
+        usageCoverage: { reported: 9, sent: 9 },
         labels: TEST_LABELS,
       }),
     ).toBe("cache r/w 85.30%");

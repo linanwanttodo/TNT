@@ -204,6 +204,20 @@ describe("requests whose usage the provider never reported", () => {
     expect(getSessionUsage().unreportedUsageRequests ?? 0).toBe(0);
   });
 
+  it("keeps both sides so the ratio can say what it covers", () => {
+    trackSessionUsage(0.01, reported, "turn");
+    trackSessionUsage(
+      0.02,
+      { promptTokens: 2_000, completionTokens: 90 },
+      "turn",
+    );
+    noteUnreportedRequest();
+
+    const usageTotals = getSessionUsage();
+    expect(usageTotals.reportedUsageRequests).toBe(2);
+    expect(usageTotals.unreportedUsageRequests).toBe(1);
+  });
+
   it("clears with the session", () => {
     noteUnreportedRequest();
     noteUnreportedRequest();
