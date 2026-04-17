@@ -50,6 +50,21 @@ export type TerminalStopKind =
   | "tool_stop";
 
 /**
+ * Whether the provider answered the request with a refusal instead of working
+ * on it. An HTTP error status or a length complaint means the prompt was never
+ * turned into a completion, so nothing was billed for it and a session must not
+ * count the round as one whose usage went missing. A transport fault, a stall or
+ * an abort is the opposite: the request was taken, and only its token counts
+ * failed to arrive.
+ */
+export function isRefusalBeforeWork(error: unknown): boolean {
+  if (isContextLengthError(error)) {
+    return true;
+  }
+  return typeof (error as any)?.status === "number";
+}
+
+/**
  * How many consecutive times one round kind may be retried within a single
  * user turn. Three keeps a fix-then-retry visible while stopping a fault that
  * is not going to resolve itself. Counters reset when the user sends a new

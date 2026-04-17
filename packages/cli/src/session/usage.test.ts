@@ -13,7 +13,12 @@ vi.mock("../utils/logger.js", () => ({
 
 import { logger } from "../utils/logger.js";
 
-import { clearSession, getSessionUsage, trackSessionUsage } from "./index.js";
+import {
+  clearSession,
+  getSessionUsage,
+  noteUnreportedRequest,
+  trackSessionUsage,
+} from "./index.js";
 
 describe("session cold-start cache attribution", () => {
   beforeEach(() => {
@@ -163,5 +168,47 @@ describe("compaction usage accounting", () => {
     trackSessionUsage(0.01, request(500, 100, 0, 512), "turn");
 
     expect(getSessionUsage().compaction).toBeUndefined();
+  });
+});
+
+/**
+ * A round that was cut off, or a provider that finishes without ever sending
+ * its counts, is billed by the provider and invisible here: the session sums
+ * and therefore the cache ratio are computed over fewer requests than the
+ * session made. The counter is what makes that visible instead of leaving a
+ * confident number beside a silent gap.
+ */
+describe("requests whose usage the provider never reported", () => {
+  beforeEach(() => {
+    clearSession();
+  });
+
+  const silent = { promptTokens: 0, completionTokens: 0 };
+  const reported = { promptTokens: 1200, completionTokens: 80 };
+
+  it("counts a completed round that carried no token counts", () => {
+    trackSessionUsage(0, silent, "turn");
+
+    expect(getSessionUsage().unreportedUsageRequests).toBe(1);
+  });
+
+  it("counts a round that ended before any usage arrived", () => {
+    noteUnreportedRequest();
+
+    expect(getSessionUsage().unreportedUsageRequests).toBe(1);
+  });
+
+  it("does not count a round the provider reported", () => {
+    trackSessionUsage(0.01, reported, "turn");
+
+    expect(getSessionUsage().unreportedUsageRequests ?? 0).toBe(0);
+  });
+
+  it("clears with the session", () => {
+    noteUnreportedRequest();
+    noteUnreportedRequest();
+    clearSession();
+
+    expect(getSessionUsage().unreportedUsageRequests ?? 0).toBe(0);
   });
 });

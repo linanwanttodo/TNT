@@ -11,6 +11,7 @@ const TEST_LABELS = {
   cache: "cache r/w",
   out: "out",
   cost: "cost",
+  noUsage: "no usage",
 } as const;
 
 describe("the context-usage line", () => {
@@ -40,6 +41,29 @@ describe("the context-usage line", () => {
         labels: TEST_LABELS,
       }),
     ).toBe("cache r/w 100.00%");
+  });
+
+  it("qualifies the ratio with the rounds that produced no usage", () => {
+    // A round the provider billed but never reported is missing from the sums
+    // this ratio is made of, and the line has to say so instead of presenting
+    // a number that quietly covers fewer requests than the session made.
+    expect(
+      contextUsageLine({
+        cacheHitRatio: 85.3,
+        unreportedUsage: 2,
+        labels: TEST_LABELS,
+      }),
+    ).toBe("cache r/w 85.30% (+2 no usage)");
+  });
+
+  it("says nothing about usage when every round reported it", () => {
+    expect(
+      contextUsageLine({
+        cacheHitRatio: 85.3,
+        unreportedUsage: 0,
+        labels: TEST_LABELS,
+      }),
+    ).toBe("cache r/w 85.30%");
   });
 
   it("compacts counts without inventing a digit", () => {

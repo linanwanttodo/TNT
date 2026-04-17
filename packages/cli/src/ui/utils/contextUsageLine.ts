@@ -5,6 +5,8 @@ export interface UsageLineLabels {
   cache?: string;
   out?: string;
   cost?: string;
+  /** Names the rounds whose usage never arrived, beside the cache ratio. */
+  noUsage?: string;
 }
 
 export interface UsageLineInput {
@@ -12,6 +14,12 @@ export interface UsageLineInput {
   limitTokens?: number;
   contextPercentage?: number;
   cacheHitRatio?: number;
+  /**
+   * Requests this session made that the provider never reported tokens for. The
+   * ratio is built from the rounds that did report, so this says what it left
+   * out rather than letting the number look like a full account.
+   */
+  unreportedUsage?: number;
   outputTokens?: number;
   cost?: number;
   /** Replaces the whole cost group, for a caller that says more than an amount. */
@@ -66,7 +74,16 @@ export function contextUsageLine(input: UsageLineInput): string | undefined {
   }
 
   if (input.cacheHitRatio !== undefined && labels.cache) {
-    groups.push(`${labels.cache} ${percentText(input.cacheHitRatio, 2)}`);
+    // Only ever a qualifier of a ratio that is being shown: a session whose
+    // provider never reports usage has no ratio to make misleading.
+    const unreported = input.unreportedUsage ?? 0;
+    const qualifier =
+      unreported > 0 && labels.noUsage
+        ? ` (+${unreported} ${labels.noUsage})`
+        : "";
+    groups.push(
+      `${labels.cache} ${percentText(input.cacheHitRatio, 2)}${qualifier}`,
+    );
   }
   if (input.outputTokens !== undefined && labels.out) {
     groups.push(`${labels.out} ${compactTokenCount(input.outputTokens)}`);
