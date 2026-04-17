@@ -249,9 +249,10 @@ Two packages own their own gates, because the CLI neither runs their tests nor r
 
 `core` runs one runner over the whole suite: `vitest.config.ts` includes `**/*.vitest.ts` and
 `npm test` is the same `vitest run`, so there is no second half left to miss. In an environment with
-no provider credentials it needs `IGNORE_API_KEY_TESTS=true`, the switch `llm/llm.vitest.ts`
-documents, because that suite calls the live APIs and otherwise dies on 401. The counts are read
-from the runner, not from this note: `npx vitest run` prints them.
+no provider credentials it needs `IGNORE_API_KEY_TESTS=true`, the switch `llm/llm.live.vitest.ts`
+documents, because that suite calls the live APIs; without the switch or the keys it skips itself
+rather than dying on 401. The counts are read from the runner, not from this note:
+`npx vitest run` prints them.
 
 The ratchet itself:
 
