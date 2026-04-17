@@ -1,6 +1,10 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
+
 import { render } from "ink-testing-library";
 import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserInput } from "./UserInput.js";
 
@@ -99,6 +103,7 @@ async function press(
  */
 describe("UserInput history search", () => {
   let onSubmit: ReturnType<typeof vi.fn>;
+  let historyDir: string;
 
   const renderInput = async () => {
     const tree = render(
@@ -125,6 +130,33 @@ describe("UserInput history search", () => {
 
   beforeEach(() => {
     onSubmit = vi.fn();
+    // Each case mounts its own InputHistory, and without this the shared
+    // per-worker global dir lets one case read what the previous case
+    // submitted - the search then opens with a stale query and a nonzero
+    // count on the Windows lane. A per-case temp dir gives the real load and
+    // save path an empty file to start from.
+    historyDir = fs.mkdtempSync(path.join(os.tmpdir(), "input-history-"));
+    process.env.TNT_INPUT_HISTORY_DIR = historyDir;
+  });
+
+  afterEach(() => {
+    delete process.env.TNT_INPUT_HISTORY_DIR;
+    fs.rmSync(historyDir, { recursive: true, force: true });
+  });
+
+  it("opens the search on an empty history when nothing was submitted yet", async () => {
+    // The guard against cross-case contamination: every case points
+    // InputHistory at its own directory, so a fresh mount must see no
+    // entries at all - not what some other case on this worker submitted.
+    const tree = await renderInput();
+    try {
+      await press(tree, "\x06", (f) => f.includes("history search"));
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain('history search ""');
+      expect(frame).toContain("0/0");
+    } finally {
+      tree.unmount();
+    }
   });
 
   it("filters the history live and walks older matches with ctrl+f", async () => {

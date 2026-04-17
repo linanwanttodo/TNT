@@ -204,10 +204,21 @@ function testLLM(
 }
 
 describe("LLM", () => {
-  if (process.env.IGNORE_API_KEY_TESTS === "true") {
+  // A missing key must read as "not runnable", not as a red run: the tests
+  // below send real requests, and locally there is usually no key at all.
+  // CI sets IGNORE_API_KEY_TESTS=true on forks and keyless runs; the key
+  // checks here cover the remaining case - a local `vitest run` with no
+  // credentials in the environment.
+  const noKeys =
+    process.env.IGNORE_API_KEY_TESTS === "true" ||
+    !process.env.ANTHROPIC_API_KEY ||
+    !process.env.OPENAI_API_KEY;
+  if (noKeys) {
     test("Skipping API key tests", () => {
       console.log(
-        "Skipping API key tests due to IGNORE_API_KEY_TESTS being set",
+        process.env.IGNORE_API_KEY_TESTS === "true"
+          ? "Skipping API key tests due to IGNORE_API_KEY_TESTS being set"
+          : "Skipping API key tests: no provider keys in the environment",
       );
     });
     return;

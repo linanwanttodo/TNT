@@ -5,8 +5,19 @@ import { writeFileAtomically } from "core/util/atomicWrite.js";
 
 import { env } from "../config/env.js";
 
-const HISTORY_FILE = path.join(env.continueHome, "input_history.json");
 const MAX_HISTORY_SIZE = 1000;
+
+/**
+ * The file this process records submitted lines in. Tests set
+ * TNT_INPUT_HISTORY_DIR per case so concurrent cases on one worker never
+ * share a file; unset, it is the user's global dir.
+ */
+function resolveHistoryFile(): string {
+  const dir = process.env.TNT_INPUT_HISTORY_DIR;
+  return dir
+    ? path.join(dir, "input_history.json")
+    : path.join(env.continueHome, "input_history.json");
+}
 
 export interface InputHistoryEntry {
   text: string;
@@ -17,20 +28,22 @@ export class InputHistory {
   private history: InputHistoryEntry[] = [];
   private currentIndex: number = -1;
   private originalInput: string = "";
+  private readonly historyFile: string;
 
-  constructor() {
+  constructor(historyFile: string = resolveHistoryFile()) {
+    this.historyFile = historyFile;
     this.loadHistory();
   }
 
   private loadHistory(): void {
     try {
-      const dir = path.dirname(HISTORY_FILE);
+      const dir = path.dirname(this.historyFile);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      if (fs.existsSync(HISTORY_FILE)) {
-        const data = fs.readFileSync(HISTORY_FILE, "utf8");
+      if (fs.existsSync(this.historyFile)) {
+        const data = fs.readFileSync(this.historyFile, "utf8");
         this.history = JSON.parse(data);
       }
     } catch (error) {
@@ -39,16 +52,50 @@ export class InputHistory {
     }
   }
 
+  /**
+   * Writes this instance's entries over the file, keeping entries another
+   * instance added in the meantime. The file is a shared record, not this
+   * object's private state: a second CLI window that submits a line while
+   * this one runs must still find it in the file after both save. The merged
+   * view is what lands on disk and what this instance keeps navigating.
+   */
   private saveHistory(): void {
     try {
-      const dir = path.dirname(HISTORY_FILE);
+      const dir = path.dirname(this.historyFile);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      writeFileAtomically(HISTORY_FILE, JSON.stringify(this.history, null, 2));
+      const onDisk = this.readEntriesFromDisk();
+      const seen = new Set(this.history.map((entry) => entry.text));
+      const merged = [...this.history];
+      for (const entry of onDisk) {
+        if (!seen.has(entry.text)) {
+          merged.push(entry);
+        }
+      }
+      merged.sort((a, b) => b.timestamp - a.timestamp);
+
+      this.history = merged.slice(0, MAX_HISTORY_SIZE);
+      writeFileAtomically(
+        this.historyFile,
+        JSON.stringify(this.history, null, 2),
+      );
     } catch (error) {
       console.error("Failed to save input history:", error);
+    }
+  }
+
+  private readEntriesFromDisk(): InputHistoryEntry[] {
+    try {
+      if (!fs.existsSync(this.historyFile)) {
+        return [];
+      }
+      const data = fs.readFileSync(this.historyFile, "utf8");
+      const parsed: unknown = JSON.parse(data);
+      return Array.isArray(parsed) ? (parsed as InputHistoryEntry[]) : [];
+    } catch {
+      return [];
     }
   }
 
@@ -126,6 +173,14 @@ export class InputHistory {
   clearHistory(): void {
     this.history = [];
     this.resetNavigation();
-    this.saveHistory();
+    try {
+      const dir = path.dirname(this.historyFile);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      writeFileAtomically(this.historyFile, "[]");
+    } catch (error) {
+      console.error("Failed to save input history:", error);
+    }
   }
 }
