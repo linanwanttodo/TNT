@@ -22,6 +22,7 @@ import {
 } from "./sessions.js";
 import { handleExport, handleImport } from "./sessionTransfer.js";
 import { handleImportSkill, handleSkills } from "./skills.js";
+import { handleThink } from "./think.js";
 
 /**
  * Built-in commands that run in-process. Commands contributed by prompts,
@@ -38,6 +39,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     },
     info: handleInfoSlashCommand,
     model: () => ({ openModelSelector: true }),
+    think: (args) => handleThink(args),
     theme: () => ({ openThemeSelector: true }),
     compact: () => {
       return { compact: true };

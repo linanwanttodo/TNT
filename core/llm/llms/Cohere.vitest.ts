@@ -386,7 +386,7 @@ describe("Cohere", () => {
             { role: "user", content: "hello again" },
           ],
           stream: true,
-          thinking: { type: "enabled", token_budget: 2048 },
+          thinking: { type: "enabled" },
         },
       },
       mockStream: [
@@ -767,7 +767,7 @@ describe("Cohere", () => {
               { role: "user", content: "What's the weather in New York?" },
             ],
             stream: true,
-            thinking: { type: "enabled", token_budget: 2048 },
+            thinking: { type: "enabled" },
             tools: [
               {
                 type: "function",
