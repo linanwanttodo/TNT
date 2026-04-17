@@ -3,6 +3,7 @@ import React, { useState } from "react";
 
 import { t } from "../../i18n/index.js";
 import { defaultBoxStyles } from "../styles.js";
+import { symbols } from "../symbols.js";
 import { theme } from "../theme/tokens.js";
 
 interface QuizPromptProps {
@@ -124,7 +125,7 @@ export const QuizPrompt: React.FC<QuizPromptProps> = ({
                   color={isSelected ? theme.accent : theme.text.primary}
                   bold={isSelected}
                 >
-                  {isSelected ? "❯ " : "  "}
+                  {isSelected ? `${symbols().selected} ` : "  "}
                   {option}
                 </Text>
               </Box>
@@ -141,7 +142,7 @@ export const QuizPrompt: React.FC<QuizPromptProps> = ({
       {isCustomMode && (
         <Box marginLeft={2} flexDirection="column">
           <Box>
-            <Text color={theme.accent}>❯ </Text>
+            <Text color={theme.accent}>{symbols().selected} </Text>
             <Text>{customInput}</Text>
             <Text color="gray">▊</Text>
           </Box>

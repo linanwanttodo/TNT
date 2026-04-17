@@ -10,6 +10,7 @@ import { expandMentions } from "../../agent/atMentions.js";
 import { DEFAULT_SESSION_TITLE } from "../../config/constants.js";
 import { loadSession, startNewSession } from "../../session/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
+import { symbols } from "../symbols.js";
 
 import { processImagePlaceholder } from "./useChat.imageProcessing.js";
 import { SlashCommandResult } from "./useChat.types.js";
@@ -321,7 +322,7 @@ async function handleRemoteApplyCommand(
 
       if (onShowStatusMessage) {
         onShowStatusMessage(
-          "✓ Successfully applied diff to local working tree",
+          `${symbols().check} Successfully applied diff to local working tree`,
         );
       }
     } catch (gitError: any) {

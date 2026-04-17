@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { t } from "../i18n/index.js";
 
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
+import { symbols } from "./symbols.js";
 import { useTheme } from "./theme/tokens.js";
 
 /**
@@ -160,7 +161,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             return (
               <Box key={command.name}>
                 <Text color={isSelected ? theme.accent : theme.text.primary}>
-                  {isSelected ? "❯ " : "  "}
+                  {isSelected ? `${symbols().selected} ` : "  "}
                   {command.name}
                 </Text>
                 <Box marginLeft={1}>

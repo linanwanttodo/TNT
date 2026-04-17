@@ -125,7 +125,9 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     );
     expect(/click to expand/.test(flat)).toBe(/click to expand/.test(group));
     expect(/folds itself/.test(flat)).toBe(/setExpanded\(false\)/.test(group));
-    expect(/`✓` done/.test(flat)).toBe(/glyph: "✓"/.test(group));
+    // The glyph comes from the symbol table now; the page still names the mark
+    // a unicode terminal shows.
+    expect(/`✓` done/.test(flat)).toBe(/glyph: symbols\(\)\.check/.test(group));
   });
 
   it("describes the approval card per tool family where it is built", () => {
