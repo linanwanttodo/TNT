@@ -40,18 +40,18 @@ rules:
   - Use the existing test helpers instead of new fixtures.
 ```
 
-| 字段 | 内容 |
-| --- | --- |
-| `models` | 智能体可以运行的模型，见[模型](/zh/cli/models) |
-| `model` | 当前选中模型的 `name`；`/model` 会把选择写回这里 |
-| `rules` | 追加到系统消息前面的指令 |
+| 字段     | 内容                                             |
+| -------- | ------------------------------------------------ |
+| `models` | 智能体可以运行的模型，见[模型](/zh/cli/models)   |
+| `model`  | 当前选中模型的 `name`；`/model` 会把选择写回这里 |
+| `rules`  | 追加到系统消息前面的指令                         |
 
 其他内容分别放在自己的文件里：
 
-| 文件 | 内容 |
-| --- | --- |
-| `~/.tnt/settings.json` | 权限、钩子、环境变量、语言、输出风格和默认模式 |
-| `~/.tnt/mcp.json` | MCP 服务器，见 [MCP](/zh/cli/mcp) |
+| 文件                    | 内容                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `~/.tnt/settings.json`  | 权限、钩子、环境变量、语言、输出风格和默认模式                                        |
+| `~/.tnt/mcp.json`       | MCP 服务器，见 [MCP](/zh/cli/mcp)                                                     |
 | `<workspace>/.mcp.json` | Claude 兼容格式的项目级 MCP 服务器；此处只读（同 `.claude` 层），仅对已信任的项目生效 |
 
 `config.yaml` 不读取 `mcpServers` 和 `permissions`；MCP 服务器属于 `mcp.json`，
@@ -77,40 +77,57 @@ rules:
 
 ## 目录结构
 
-| 路径 | 用途 |
-| --- | --- |
-| `~/.tnt/config.yaml` | 模型和规则 |
-| `~/.tnt/mcp.json` | MCP 服务器 |
-| `~/.tnt/settings.json` | 权限、钩子和设置 |
-| `~/.tnt/auth.json` | 凭据 |
-| `~/.tnt/trusted-projects.json` | 已信任项目的内容哈希 |
-| `~/.tnt/permissions.yaml` | 旧版权限策略（只读） |
-| `~/.tnt/sessions/` | 已保存的会话 |
-| `~/.tnt/skills/` | 用户技能 |
-| `~/.tnt/plugins/` | 已安装插件 |
-| `~/.tnt/logs/tnt.log` | 日志文件 |
-| `~/.tnt/.env` | `${{ secrets.* }}` 使用的密钥 |
-| `.tnt/` | 项目设置和 MCP 服务器（需信任） |
+| 路径                           | 用途                            |
+| ------------------------------ | ------------------------------- |
+| `~/.tnt/config.yaml`           | 模型和规则                      |
+| `~/.tnt/mcp.json`              | MCP 服务器                      |
+| `~/.tnt/settings.json`         | 权限、钩子和设置                |
+| `~/.tnt/auth.json`             | 凭据                            |
+| `~/.tnt/trusted-projects.json` | 已信任项目的内容哈希            |
+| `~/.tnt/permissions.yaml`      | 旧版权限策略（只读）            |
+| `~/.tnt/sessions/`             | 已保存的会话                    |
+| `~/.tnt/skills/`               | 用户技能                        |
+| `~/.tnt/plugins/`              | 已安装插件                      |
+| `~/.tnt/logs/tnt.log`          | 日志文件                        |
+| `~/.tnt/.env`                  | `${{ secrets.* }}` 使用的密钥   |
+| `.tnt/`                        | 项目设置和 MCP 服务器（需信任） |
 
 可以通过 `TNT_GLOBAL_DIR` 迁移主目录，`sessions`、`logs` 和插件目录也会一起迁移。
 
+## 项目 .tnt 文件夹
+
+仓库里可以放一个 `.tnt/` 文件夹，作为 agent 在这个仓库里读取和写入的工作区：
+
+| 路径             | 用途                                               |
+| ---------------- | -------------------------------------------------- |
+| `.tnt/AGENTS.md` | 项目级 agent 指令，优先于根目录的 `AGENTS.md` 加载 |
+| `.tnt/TNT.md`    | agent 跨会话自动追加的记忆                         |
+| `.tnt/rules/`    | markdown 规则，每个会话自动加载（从通用到具体）    |
+| `.tnt/checks/`   | `tnt review` 运行的检查清单                        |
+| `.tnt/agents/`   | 供 `tnt review` 使用的 agent 定义                  |
+| `.tnt/prompts/`  | 可从输入框调用的 `.prompt` 文件                    |
+
+这个文件夹有意被 gitignore：目录骨架以被追踪的 `.keep` 占位文件随仓库走，
+内容则是每台机器各自维护的。规则和检查文档、记忆文件、agent 指令都由维护者
+本地保存；团队决定共享的话，删掉 `.gitignore` 里对应的行即可。
+
 ## 环境变量
 
-| 变量 | 含义 |
-| --- | --- |
-| `TNT_GLOBAL_DIR` | 迁移主目录；`sessions`、`logs` 和插件目录一起移动 |
-| `TNT_TRUST_PROJECT` | 免提示将当前工作区标记为已信任 |
-| `TNT_API_BASE` | 覆盖配置中的 API base URL |
-| `TNT_HEADLESS_TIMEOUT` | 无头模式的回合墙钟上限（秒），等同 `--request-timeout` |
-| `TNT_STREAM_IDLE_TIMEOUT_MS` | 单次 provider 流式响应允许静默多久（毫秒），默认 `120000`；超时后该次尝试被切断并重试，设为 `0` 取消上限 |
-| `TNT_PLUGINS_DIR` | 迁移插件目录 |
-| `TNT_ALT_SCREEN` | 设为 `0` 时使用终端普通缓冲区和滚动历史；已完成的对话只经 `Static` 写入一次，只有实时尾部重绘 |
-| `TNT_THEME` | 为本次会话选择界面主题：`auto`（默认，跟随终端自身背景明暗）、`dark`、`tencent-dark`、`tencent-light`、`light`，或 `~/.tnt/themes/<名字>.json` 里的文件名 |
-| `TNT_SYMBOLS` | 界面字形预设：`unicode`（默认）、七位终端用 `ascii`、装了 Nerd Font 用 `nerd` |
-| `TNT_HYPERLINKS` | 设为 `0` 时不再输出 OSC 8 链接序列，适用于会把转义原样打出来的终端 |
-| `TNT_NOTIFY` | 设为 `bell` 或 `1` 时，跑满十秒以上的回合结束时给出终端提醒；不设则无提醒 |
-| `TNT_STREAM_REVEAL` | 设为 `1` 时流式回答逐字出现；默认关闭，因为它大约以 30 帧/秒重绘整帧 |
-| `TNT_WARM_RETRIEVAL` | 设为 `0` 时不在会话开始时构建代码库索引；只有配置里选了 `codebase` provider 才会构建 |
+| 变量                         | 含义                                                                                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TNT_GLOBAL_DIR`             | 迁移主目录；`sessions`、`logs` 和插件目录一起移动                                                                                                         |
+| `TNT_TRUST_PROJECT`          | 免提示将当前工作区标记为已信任                                                                                                                            |
+| `TNT_API_BASE`               | 覆盖配置中的 API base URL                                                                                                                                 |
+| `TNT_HEADLESS_TIMEOUT`       | 无头模式的回合墙钟上限（秒），等同 `--request-timeout`                                                                                                    |
+| `TNT_STREAM_IDLE_TIMEOUT_MS` | 单次 provider 流式响应允许静默多久（毫秒），默认 `120000`；超时后该次尝试被切断并重试，设为 `0` 取消上限                                                  |
+| `TNT_PLUGINS_DIR`            | 迁移插件目录                                                                                                                                              |
+| `TNT_ALT_SCREEN`             | 设为 `0` 时使用终端普通缓冲区和滚动历史；已完成的对话只经 `Static` 写入一次，只有实时尾部重绘                                                             |
+| `TNT_THEME`                  | 为本次会话选择界面主题：`auto`（默认，跟随终端自身背景明暗）、`dark`、`tencent-dark`、`tencent-light`、`light`，或 `~/.tnt/themes/<名字>.json` 里的文件名 |
+| `TNT_SYMBOLS`                | 界面字形预设：`unicode`（默认）、七位终端用 `ascii`、装了 Nerd Font 用 `nerd`                                                                             |
+| `TNT_HYPERLINKS`             | 设为 `0` 时不再输出 OSC 8 链接序列，适用于会把转义原样打出来的终端                                                                                        |
+| `TNT_NOTIFY`                 | 设为 `bell` 或 `1` 时，跑满十秒以上的回合结束时给出终端提醒；不设则无提醒                                                                                 |
+| `TNT_STREAM_REVEAL`          | 设为 `1` 时流式回答逐字出现；默认关闭，因为它大约以 30 帧/秒重绘整帧                                                                                      |
+| `TNT_WARM_RETRIEVAL`         | 设为 `0` 时不在会话开始时构建代码库索引；只有配置里选了 `codebase` provider 才会构建                                                                      |
 
 CLI 读取的变量一律是 `TNT_*`，旧的 `CONTINUE_*` 拼写已不再被读取。有一个名字朝相反方向：它不是本程序读取的设置，而是交给用户自己写的脚本的契约，因此 hook 进程会同时收到 `CONTINUE_PROJECT_DIR`、`TNT_PROJECT_DIR` 与 `CLAUDE_PROJECT_DIR`，这份重复在一个大版本后移除。
 
