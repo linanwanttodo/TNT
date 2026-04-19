@@ -22,6 +22,7 @@ import {
   resumeSession,
   updateSessionHistory,
 } from "../../session/index.js";
+import { generatePromptSuggestion } from "../../session/promptSuggestionGenerator.js";
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
@@ -91,6 +92,7 @@ export function useChat({
   // Track service subscription
   const serviceListenerCleanupRef = useRef<null | (() => void)>(null);
   const lastAssistantTextRef = useRef<string | null>(null);
+  const lastUserMessageRef = useRef<string | null>(null);
 
   // Store the current session
   const [currentSession, setCurrentSession] = useState<Session>(() => {
@@ -425,6 +427,15 @@ export function useChat({
       // A turn that ends on a stall or an abort never reaches the round's
       // completion callback, so the overlay is cleared here as well.
       setStreamingReasoning(null);
+
+      // Best-effort next-input prediction, the way a composer hint works: a
+      // short forked call over the last exchange, shown only once the
+      // composer is empty again. Fire-and-forget; a failure costs nothing.
+      if (lastAssistantTextRef.current) {
+        void generatePromptSuggestion(
+          `User: ${lastUserMessageRef.current ?? ""}\nAssistant: ${lastAssistantTextRef.current.slice(0, 2000)}`,
+        );
+      }
 
       // Check if there are queued messages and process them after a microtask delay
       // This ensures the GUI state has been updated before processing the next message
@@ -782,6 +793,7 @@ export function useChat({
     }
 
     // Use the common message processing logic
+    lastUserMessageRef.current = message;
     await processMessage(message, imageMap, false);
   };
 

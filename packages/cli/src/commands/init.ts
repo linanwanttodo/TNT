@@ -48,7 +48,22 @@ Provide specific, actionable feedback for improvements.
 
 This slash command will be invokable using /review and will provide instructions for code review tasks common to this repository.
 
-Please create both the AGENTS.md file and the .tnt/rules/review.md file using the Write tool after analyzing the repository. Focus on providing actionable information that would help both AI agents and human developers understand and work effectively with this codebase. Keep the files concise but informational.`;
+Finally, create the memory file .tnt/TNT.md with exactly this content:
+
+\`\`\`md
+# TNT Memory
+
+Notes TNT accumulates across sessions: build or test commands that fail in
+non-obvious ways, user preferences, conventions the code does not make obvious.
+One short line per note.
+\`\`\`
+
+Create the .tnt directory if it does not exist. Keep .tnt/ out of version
+control WITHOUT touching .gitignore: append ".tnt/" to .git/info/exclude (the
+local exclude file git already reads, which is never committed). Skip this when
+the directory is not a git repository.
+
+Please create all three files using the Write tool after analyzing the repository. Focus on providing actionable information that would help both AI agents and human developers understand and work effectively with this codebase. Keep the files concise but informational.`;
 }
 
 export async function handleInit(

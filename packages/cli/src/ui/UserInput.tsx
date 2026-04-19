@@ -13,6 +13,11 @@ import {
   services,
 } from "../services/index.js";
 import type { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
+import {
+  clearPromptSuggestion,
+  markPromptSuggestionShown,
+  usePromptSuggestion,
+} from "../session/promptSuggestion.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { escapeEvents } from "../utils/cli.js";
 import { InputHistory } from "../utils/inputHistory.js";
@@ -112,6 +117,42 @@ const FileSearchMaybe: React.FC<{
   );
 };
 
+/**
+ * The "@" that opens the file-search context before the cursor, or -1: it must
+ * start a word and carry no space between it and the cursor.
+ */
+function activeFileSearchAtIndex(beforeCursor: string): number {
+  for (let i = beforeCursor.length - 1; i >= 0; i--) {
+    if (beforeCursor[i] !== "@") continue;
+    const beforeAt = beforeCursor.slice(0, i);
+    const lastChar = beforeAt[beforeAt.length - 1];
+    if (i !== 0 && lastChar !== " " && lastChar !== "\n") continue;
+    const afterThis = beforeCursor.slice(i + 1);
+    if (!afterThis.includes(" ") && !afterThis.includes("\n")) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * The suggestion the empty composer should show, or null when something is
+ * running, something is typed, or there is nothing suggested.
+ */
+function visibleSuggestionText(input: {
+  suggestion: { text: string } | null;
+  inputText: string;
+  isWaitingForResponse: boolean;
+  isCompacting: boolean;
+}): string | null {
+  return input.suggestion &&
+    input.inputText.length === 0 &&
+    !input.isWaitingForResponse &&
+    !input.isCompacting
+    ? input.suggestion.text
+    : null;
+}
+
 interface UserInputProps {
   onSubmit: (message: string, imageMap?: Map<string, Buffer>) => void;
   isWaitingForResponse: boolean;
@@ -127,6 +168,30 @@ interface UserInputProps {
   isRemoteMode?: boolean;
   onShowEditSelector?: () => void;
   onOpenPalette?: () => void;
+}
+
+/**
+ * Shift+Tab cycles every interactive mode, bypassPermissions included.
+ * Returns the mode it switched to.
+ */
+function cycleModes(): PermissionMode {
+  const modes: PermissionMode[] = [
+    "default",
+    "acceptEdits",
+    "plan",
+    "auto",
+    "bypassPermissions",
+  ];
+  const currentMode = services.toolPermissions.getCurrentMode();
+  const currentIndex = modes.indexOf(currentMode);
+  const nextMode = modes[(currentIndex + 1) % modes.length];
+
+  services.toolPermissions.switchMode(nextMode);
+  serviceContainer.set(
+    SERVICE_NAMES.TOOL_PERMISSIONS,
+    services.toolPermissions.getState(),
+  );
+  return nextMode;
 }
 
 const UserInput: React.FC<UserInputProps> = ({
@@ -169,6 +234,8 @@ const UserInput: React.FC<UserInputProps> = ({
     };
   }, [textBuffer, onStateChange]);
   const [inputText, setInputText] = useState("");
+  // The post-turn suggestion shown faint in the empty composer; Tab accepts it.
+  const promptSuggestion = usePromptSuggestion();
   const [cursorPosition, setCursorPosition] = useState(0);
   const [showSlashCommands, setShowSlashCommands] = useState(false);
 
@@ -215,27 +282,6 @@ const UserInput: React.FC<UserInputProps> = ({
 
     void loadCommands();
   }, [assistant?.prompts, assistant?.rules, locale]);
-
-  // Shift+Tab cycles every interactive mode, bypassPermissions included.
-  const cycleModes = () => {
-    const modes: PermissionMode[] = [
-      "default",
-      "acceptEdits",
-      "plan",
-      "auto",
-      "bypassPermissions",
-    ];
-    const currentMode = services.toolPermissions.getCurrentMode();
-    const currentIndex = modes.indexOf(currentMode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-
-    services.toolPermissions.switchMode(nextMode);
-    serviceContainer.set(
-      SERVICE_NAMES.TOOL_PERMISSIONS,
-      services.toolPermissions.getState(),
-    );
-    return nextMode;
-  };
 
   // Update shell mode state based on input
   const updateBashModeState = (text: string) => {
@@ -342,54 +388,25 @@ const UserInput: React.FC<UserInputProps> = ({
 
   // Update file search UI state based on input
   const updateFileSearchState = (text: string, cursor: number) => {
-    // Don't show file search in remote mode
-    if (isRemoteMode) {
-      setShowFileSearch(false);
-      return;
-    }
-
-    // Disable file search if we're in shell mode or slash command mode
+    // Remote mode, shell mode and slash command mode all suppress file search
     const trimmed = text.trimStart();
-    if (trimmed.startsWith("!") || trimmed.startsWith("/")) {
-      setShowFileSearch(false);
-      return;
-    }
-
-    // Check if we're in a file search context
-    const beforeCursor = text.slice(0, cursor);
-
-    // Find the first @ symbol that starts a file search context
-    // We need to find the last @ that has no space before it (or is at word boundary)
-    let firstAtIndex = -1;
-    for (let i = beforeCursor.length - 1; i >= 0; i--) {
-      if (beforeCursor[i] === "@") {
-        // Check if this @ is at the start of a word (preceded by space/newline or start of string)
-        const beforeAt = beforeCursor.slice(0, i);
-        const lastChar = beforeAt[beforeAt.length - 1];
-        if (i === 0 || lastChar === " " || lastChar === "\n") {
-          // Check if there's any space/newline between this @ and cursor
-          const afterThis = beforeCursor.slice(i + 1);
-          if (!afterThis.includes(" ") && !afterThis.includes("\n")) {
-            firstAtIndex = i;
-            break;
-          }
-        }
-      }
-    }
+    const suppressed =
+      isRemoteMode || trimmed.startsWith("!") || trimmed.startsWith("/");
+    const firstAtIndex = suppressed
+      ? -1
+      : activeFileSearchAtIndex(text.slice(0, cursor));
 
     if (firstAtIndex === -1) {
       setShowFileSearch(false);
-    } else {
-      // Get ALL text after the @ symbol (including subsequent @ symbols)
-      const afterAt = beforeCursor.slice(firstAtIndex + 1);
-
-      // We're in a file search context
-      setShowFileSearch(true);
-      setFileSearchFilter(afterAt);
-      setSelectedFileIndex(0);
-      setShowSlashCommands(false);
-      setShowBashMode(false);
+      return;
     }
+
+    // Get ALL text after the @ symbol (including subsequent @ symbols)
+    setShowFileSearch(true);
+    setFileSearchFilter(text.slice(firstAtIndex + 1, cursor));
+    setSelectedFileIndex(0);
+    setShowSlashCommands(false);
+    setShowBashMode(false);
   };
 
   // The list a level offers: the root commands, or a parent's children.
@@ -449,25 +466,9 @@ const UserInput: React.FC<UserInputProps> = ({
 
   // Handle file selection
   const selectFile = async (filePath: string) => {
-    const beforeCursor = inputText.slice(0, cursorPosition);
-
-    // Find the first @ symbol that starts a file search context (same logic as updateFileSearchState)
-    let firstAtIndex = -1;
-    for (let i = beforeCursor.length - 1; i >= 0; i--) {
-      if (beforeCursor[i] === "@") {
-        // Check if this @ is at the start of a word (preceded by space/newline or start of string)
-        const beforeAt = beforeCursor.slice(0, i);
-        const lastChar = beforeAt[beforeAt.length - 1];
-        if (i === 0 || lastChar === " " || lastChar === "\n") {
-          // Check if there's any space/newline between this @ and cursor
-          const afterThis = beforeCursor.slice(i + 1);
-          if (!afterThis.includes(" ") && !afterThis.includes("\n")) {
-            firstAtIndex = i;
-            break;
-          }
-        }
-      }
-    }
+    const firstAtIndex = activeFileSearchAtIndex(
+      inputText.slice(0, cursorPosition),
+    );
 
     if (firstAtIndex !== -1) {
       const beforeAt = inputText.slice(0, firstAtIndex);
@@ -640,31 +641,87 @@ const UserInput: React.FC<UserInputProps> = ({
     historySearch.reset();
   }, [textBuffer, historySearch]);
 
-  const handleHistoryNavigation = (key: any): boolean => {
+  /**
+   * Every key the composer answers before the buffer sees the input: the
+   * history search, the open palette, mode cycling, escape, and the post-turn
+   * suggestion. Returns false to hand the key to the buffer.
+   */
+  const dispatchComposerKeys = (input: string, key: any): boolean => {
+    if (historySearch.search.active) {
+      historySearch.handleKeys(input, key);
+      return true;
+    }
+    if (historySearch.maybeOpen(input, key)) {
+      return true;
+    }
+    if (key.tab && key.shift) {
+      cycleModes();
+      return true;
+    }
+    if (handleEscapeKey(input, key)) {
+      return true;
+    }
+    if (showSlashCommands && handleSlashCommandNavigation(key)) {
+      return true;
+    }
+    if (showFileSearch && handleFileSearchNavigation(key)) {
+      return true;
+    }
     if (!showSlashCommands && !showFileSearch) {
+      const navigate = (entry: string | null) => {
+        if (entry === null) return;
+        textBuffer.setText(entry);
+        textBuffer.setCursor(entry.length);
+        setInputText(entry);
+        setCursorPosition(entry.length);
+      };
       if (key.upArrow) {
-        const historyEntry = inputHistory.navigateUp(inputText);
-        if (historyEntry !== null) {
-          textBuffer.setText(historyEntry);
-          textBuffer.setCursor(historyEntry.length);
-          setInputText(historyEntry);
-          setCursorPosition(historyEntry.length);
-        }
+        navigate(inputHistory.navigateUp(inputText));
         return true;
       }
-
       if (key.downArrow) {
-        const historyEntry = inputHistory.navigateDown();
-        if (historyEntry !== null) {
-          textBuffer.setText(historyEntry);
-          textBuffer.setCursor(historyEntry.length);
-          setInputText(historyEntry);
-          setCursorPosition(historyEntry.length);
-        }
+        navigate(inputHistory.navigateDown());
         return true;
       }
     }
+    if (showSlashCommands || showFileSearch) {
+      return false;
+    }
+    if (key.tab && promptSuggestion && inputText.length === 0) {
+      const text = promptSuggestion.text;
+      clearPromptSuggestion();
+      textBuffer.setText(text);
+      setInputText(text);
+      setCursorPosition(text.length);
+      return true;
+    }
+    if (!key.tab && input !== "" && promptSuggestion) {
+      clearPromptSuggestion();
+    }
     return false;
+  };
+
+  /** Enter submits, Shift+Enter breaks the line, the rest goes to the buffer. */
+  const dispatchTextKeys = (input: string, key: any): void => {
+    if (handleEnterKey(key)) {
+      return;
+    }
+    // "\r" and "\"+Enter break the line instead of submitting.
+    const isNewLine = input === "\r" || input === "\\\r";
+    const handled = textBuffer.handleInput(isNewLine ? "\n" : input, key);
+    if (isNewLine && !handled) {
+      return;
+    }
+    updateTextBufferState({
+      handled,
+      textBuffer,
+      setInputText,
+      setCursorPosition,
+      updateSlashCommandState,
+      updateFileSearchState,
+      updateBashModeState,
+      inputHistory,
+    });
   };
 
   const handleEnterKey = (key: any): boolean => {
@@ -714,22 +771,6 @@ const UserInput: React.FC<UserInputProps> = ({
         setCursorPosition(0);
         setShowSlashCommands(false);
         setShowBashMode(false);
-      }
-      return true;
-    }
-    return false;
-  };
-
-  const handleNewLine = (input: string, key: any): boolean => {
-    if (input === "\r" || input === "\\\r") {
-      const handled = textBuffer.handleInput("\n", key);
-      if (handled) {
-        const newText = textBuffer.text;
-        const newCursor = textBuffer.cursor;
-        setInputText(newText);
-        setCursorPosition(newCursor);
-        updateSlashCommandState(newText, newCursor);
-        updateFileSearchState(newText, newCursor);
       }
       return true;
     }
@@ -839,7 +880,7 @@ const UserInput: React.FC<UserInputProps> = ({
       return;
     }
 
-    // Handle control keys
+    // Ctrl+C / Ctrl+D / Ctrl+P and the queued-message keys.
     if (
       handleControlKeys({
         input,
@@ -859,75 +900,29 @@ const UserInput: React.FC<UserInputProps> = ({
       return;
     }
 
-    // The history search owns every key while it is open; Ctrl+F opens it.
-    if (historySearch.search.active) {
-      historySearch.handleKeys(input, key);
-      return;
-    }
-    if (historySearch.maybeOpen(input, key)) {
+    // History search, palettes, modes, escape and the post-turn suggestion
+    // own their keys before the buffer sees anything.
+    if (dispatchComposerKeys(input, key)) {
       return;
     }
 
-    // Shift+Tab cycles the interactive modes.
-    if (key.tab && key.shift) {
-      setShowSlashCommands(false);
-      setShowFileSearch(false);
-      cycleModes();
-      return;
-    }
-
-    // Handle escape key variations
-    if (handleEscapeKey(input, key)) {
-      return;
-    }
-
-    // Handle slash command navigation
-    if (showSlashCommands) {
-      if (handleSlashCommandNavigation(key)) {
-        return;
-      }
-    }
-
-    // Handle file search navigation
-    if (showFileSearch) {
-      if (handleFileSearchNavigation(key)) {
-        return;
-      }
-    }
-
-    // Handle input history navigation
-    if (handleHistoryNavigation(key)) {
-      return;
-    }
-
-    // Handle Enter key
-    if (handleEnterKey(key)) {
-      return;
-    }
-
-    // Handle Shift+Enter (new line)
-    if (handleNewLine(input, key)) {
-      return;
-    }
-
-    // Let TextBuffer handle the input
-    const handled = textBuffer.handleInput(input, key);
-
-    // Update React state to trigger re-render
-    updateTextBufferState({
-      handled,
-      textBuffer,
-      setInputText,
-      setCursorPosition,
-      updateSlashCommandState,
-      updateFileSearchState,
-      updateBashModeState,
-      inputHistory,
-    });
+    dispatchTextKeys(input, key);
   });
 
   const renderInputText = () => {
+    // A post-turn suggestion takes the placeholder's place: it reads as a hint
+    // of what to type next, and disappears the moment anything is typed.
+    const suggestionText = visibleSuggestionText({
+      suggestion: promptSuggestion,
+      inputText,
+      isWaitingForResponse,
+      isCompacting,
+    });
+    if (suggestionText) {
+      markPromptSuggestionShown();
+    }
     const placeholderText =
+      suggestionText ??
       placeholder ??
       (isRemoteMode
         ? t("composer.placeholderRemote")

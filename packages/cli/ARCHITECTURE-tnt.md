@@ -136,12 +136,18 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
-- The static spine of the system message is the other half of that prefix: `cb1d697770476189` for the
-  TUI (4180 characters), `868e0297acbc3bfe` with JSON output (4596), `2882d228b73d731a` headless
-  (4724), `6792d7012e30c376` headless + JSON (5140). Only what the builder marks non-volatile is
+- The static spine of the system message is the other half of that prefix: `ab65594f8041334c` for the
+  TUI (5289 characters), `70c8f40e8f9e1705` with JSON output (5705), `b30e6867de804788` headless
+  (5833), `8ce7c7f193641e82` headless + JSON (6249). Only what the builder marks non-volatile is
   digested - `base`, `headless`, `jsonOutput` - so plan text, a chosen profile, a plugin output
   style, the user's rules and the environment block stay outside it.
   `agent/systemPrefixFingerprint.test.ts` freezes these and reads this file for the same strings.
+- **Prefix changelog, 2026-10-29:** a `# Memory` clause joined the `base` spine. It instructs the
+  agent to append short, selective notes to `.tnt/TNT.md` (project) or `~/.tnt/TNT.md` (global),
+  and to keep the `.tnt` directory out of version control through the local exclude file rather
+  than `.gitignore`. Both files are loaded into the system message when they exist. This costs
+  every session one cold start; after it, edits to the memory files move only the tail because
+  they are read into their own (volatile) layer, not the digest.
 - **Prefix changelog, 2026-10-18:** the `<env>` block (working directory, whether
   the directory is a git repo, platform, today's date) and the `<context name="gitStatus">` snapshot
   moved out of `base` into their own volatile `environment` section, appended last. They used to sit
