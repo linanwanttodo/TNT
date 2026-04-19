@@ -112,6 +112,51 @@ describe("runTerminalCommandTool", () => {
     }
   });
 
+  describe("run deadline", () => {
+    const sleepCommand = isWindows ? "Start-Sleep -Seconds 30" : "sleep 30";
+
+    it("stops a running command when the run is aborted", async () => {
+      const controller = new AbortController();
+      const started = Date.now();
+      const pending = runTerminalCommandTool.run!(
+        { command: sleepCommand },
+        {
+          toolCallId: "call-1",
+          parallelToolCallCount: 1,
+          signal: controller.signal,
+        },
+      );
+      setTimeout(() => controller.abort(), 200);
+
+      const result = String(await pending);
+
+      // The command would run for 30 seconds; stopping on the abort is the only
+      // way this returns in the deadline's neighbourhood instead.
+      expect(Date.now() - started).toBeLessThan(15_000);
+      expect(result).toContain("the run reached its time limit");
+    });
+
+    it("does not start the command when the run was already aborted", async () => {
+      const controller = new AbortController();
+      controller.abort();
+      const started = Date.now();
+
+      const result = String(
+        await runTerminalCommandTool.run!(
+          { command: sleepCommand },
+          {
+            toolCallId: "call-2",
+            parallelToolCallCount: 1,
+            signal: controller.signal,
+          },
+        ),
+      );
+
+      expect(Date.now() - started).toBeLessThan(5_000);
+      expect(result).toContain("the run reached its time limit");
+    });
+  });
+
   describe("WSL detection", () => {
     it("should cache the WSL detection result", () => {
       const firstResult = isRunningInWsl();
