@@ -12,6 +12,7 @@ import { findLastSafeSplitPoint } from "../utils/streamSplit.js";
 import { alternateScreenEnabled } from "../utils/terminalScreen.js";
 
 import { ActionStatus } from "./ActionStatus.js";
+import { BackgroundTasksNotice } from "./BackgroundTasksIndicator.js";
 import { QueuedMessages } from "./QueuedMessages.js";
 import { ScrollView, type ScrollViewMetrics } from "./ScrollView.js";
 import { ThinkingMessage } from "./ThinkingMessage.js";
@@ -146,6 +147,8 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
       {streamingItem}
 
       <QueuedMessages messages={queuedMessages} />
+
+      <BackgroundTasksNotice />
 
       {/* The indicator is the last row of the transcript, so it sits directly
           under the newest message no matter how tall the viewport is. */}

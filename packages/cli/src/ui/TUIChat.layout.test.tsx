@@ -80,13 +80,12 @@ describe("TUIChat layout", () => {
       expect(composerBorder).toBeGreaterThan(-1);
       expect(content[composerBorder + 1]).toContain("Ask anything");
       expect(content[composerBorder + 2]).toContain("╰");
-      // A single status row follows the composer: model and usage share it.
+      // A single status row follows the composer: workspace and model share it.
       const status = content[composerBorder + 3];
       expect(status).toContain("TNT");
-      expect(status).toContain("Context");
 
-      // Nothing follows the usage line: it is the bottom of the screen.
-      expect(content[content.length - 1]).toContain("Context");
+      // Nothing follows the status row: it is the bottom of the screen.
+      expect(content[content.length - 1]).toBe(status);
     } finally {
       unmount();
     }

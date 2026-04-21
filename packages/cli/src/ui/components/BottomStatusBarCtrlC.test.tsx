@@ -89,7 +89,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     );
   });
 
-  it("shows workspace, branch, context, model and thinking depth in one row", async () => {
+  it("shows workspace, branch, model and thinking depth in one row", async () => {
     const gitModule = (await vi.importMock("../../utils/git.js")) as any;
     gitModule.isGitRepo.mockReturnValue(true);
     gitModule.getGitBranch.mockReturnValue("feature/status");
@@ -116,48 +116,21 @@ describe("BottomStatusBar Ctrl+C message", () => {
     expect(frame).toContain("feature/status");
     expect(frame).toContain("deepseek/deepseek-chat");
     expect(frame).toContain("think:high");
-    expect(frame).toContain("34%");
     expect(frame.indexOf("deepseek/deepseek-chat")).toBeLessThan(
       frame.indexOf("think:high"),
     );
     expect(frame.split("\n").filter((line) => line.trim())).toHaveLength(1);
   });
 
-  it("shows the cache hit ratio when the session reported cache tokens", async () => {
-    const sessionModule = (await vi.importMock(
-      "../../session/index.js",
-    )) as any;
-    sessionModule.getSessionUsage.mockReturnValue({
-      totalCost: 0,
-      promptTokens: 1000,
-      completionTokens: 0,
-      promptTokensDetails: { cachedTokens: 800, cacheWriteTokens: 0 },
-    });
-
-    const { lastFrame } = track(
-      <BottomStatusBar {...defaultProps} contextPercentage={10} />,
-    );
-
-    expect(lastFrame()).toContain("80.00%");
-  });
-
-  it("shows the compaction spend and the cache ratio on the one row", async () => {
+  it("keeps the usage figures off the row once the session has spent", async () => {
     const sessionModule = (await vi.importMock(
       "../../session/index.js",
     )) as any;
     sessionModule.getSessionUsage.mockReturnValue({
       totalCost: 1.5,
-      promptTokens: 10000,
+      promptTokens: 1000,
       completionTokens: 0,
-      promptTokensDetails: { cachedTokens: 8000, cacheWriteTokens: 0 },
-      compaction: {
-        requests: 2,
-        inputTokens: 24000,
-        outputTokens: 1000,
-        cachedTokens: 12000,
-        cacheWriteTokens: 0,
-        cost: 0.3125,
-      },
+      promptTokensDetails: { cachedTokens: 800, cacheWriteTokens: 0 },
     });
 
     const { lastFrame } = track(
@@ -165,34 +138,8 @@ describe("BottomStatusBar Ctrl+C message", () => {
     );
 
     const frame = lastFrame() ?? "";
-    expect(frame).toContain("80.00%");
-    expect(frame).toContain("$0.3125");
-    const rows = frame.split("\n");
-    const cacheRow = rows.findIndex((line) => line.includes("80.00%"));
-    const compactionRow = rows.findIndex((line) => line.includes("$0.3125"));
-    expect(cacheRow).toBeGreaterThan(-1);
-    expect(compactionRow).toBeGreaterThan(-1);
-    // One row under the composer: the status bar must not wrap.
-    expect(cacheRow).toBe(compactionRow);
-    expect(rows.filter((line) => line.trim())).toHaveLength(1);
-  });
-
-  it("hides the compaction spend before any compaction ran", async () => {
-    const sessionModule = (await vi.importMock(
-      "../../session/index.js",
-    )) as any;
-    sessionModule.getSessionUsage.mockReturnValue({
-      totalCost: 0,
-      promptTokens: 1000,
-      completionTokens: 0,
-      promptTokensDetails: { cachedTokens: 800, cacheWriteTokens: 0 },
-    });
-
-    const { lastFrame } = track(
-      <BottomStatusBar {...defaultProps} contextPercentage={10} />,
-    );
-
-    expect(lastFrame()).not.toContain("Compaction");
+    expect(frame).not.toContain("80.00%");
+    expect(frame).not.toContain("Cost $1.50");
   });
 
   it("keeps workspace metadata on the left and the model on the right", async () => {
@@ -228,7 +175,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     expect(costLineText(undefined, 0)).toBeUndefined();
   });
 
-  it("puts the usage figures on the single status row", () => {
+  it("keeps the usage figures off the status row", () => {
     const tree = track(
       <BottomStatusBar
         {...defaultProps}
@@ -244,39 +191,8 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const lines = (tree.lastFrame() ?? "")
       .split("\n")
       .filter((line) => line.trim());
-    const usage = lines.find((line) => line.includes("Cost $0.31"));
-    expect(usage).toBeDefined();
-    expect(usage).toContain("Context 9%");
+    expect(lines.find((line) => line.includes("Cost $0.31"))).toBeUndefined();
+    expect(lines.find((line) => line.includes("Context 9%"))).toBeUndefined();
     expect(lines).toHaveLength(1);
-  });
-
-  it("shows the token counts the usage line was built to carry", async () => {
-    const sessionModule = (await vi.importMock(
-      "../../session/index.js",
-    )) as any;
-    sessionModule.getSessionUsage.mockReturnValue({
-      completionTokens: 1400,
-    });
-
-    const tree = track(
-      <BottomStatusBar
-        {...defaultProps}
-        contextPercentage={9}
-        contextTokens={18200}
-        totalCost={0.31}
-        services={{
-          model: { model: { name: "gpt-5", model: "gpt-5" } },
-        }}
-      />,
-    );
-
-    const frame = tree.lastFrame() ?? "";
-    const usage = frame.split("\n").find((line) => line.includes("Out 1.4k"));
-    // Wiring, not the formatter: an unpassed count leaves the row at the bare
-    // percentage, and the denominator only appears once the model limit reaches
-    // the line.
-    expect(usage).toContain("18.2k/");
-    expect(usage).toMatch(/\(\d+%\)/);
-    expect(usage).toContain("Cost $0.31");
   });
 });
