@@ -39,14 +39,12 @@ export class ToolPermissionManager extends EventEmitter {
     return new Promise<PermissionRequestResult>((resolve) => {
       let timer: ReturnType<typeof setTimeout> | undefined;
 
-      // The only settlement path: the first caller to remove the entry wins,
-      // so an approval racing the timeout resolves exactly once.
-      const settle = (result: PermissionRequestResult) => {
+      // Timeout settlement: the delete returning true proves the answer was
+      // never given, so the expiry resolves the promise exactly once, racing
+      // an approval or rejection through the same map entry.
+      const expire = () => {
         if (this.pendingRequests.delete(requestId)) {
-          if (timer !== undefined) {
-            clearTimeout(timer);
-          }
-          resolve(result);
+          resolve({ approved: false, timedOut: true });
           return true;
         }
         return false;
@@ -54,7 +52,7 @@ export class ToolPermissionManager extends EventEmitter {
 
       if (timeoutMs > 0) {
         timer = setTimeout(() => {
-          if (settle({ approved: false, timedOut: true })) {
+          if (expire()) {
             this.emit("permissionResponse", {
               requestId,
               approved: false,
@@ -66,7 +64,8 @@ export class ToolPermissionManager extends EventEmitter {
 
       this.pendingRequests.set(requestId, {
         toolCall,
-        resolve: settle,
+        resolve,
+        timer,
       });
 
       // Emit event for UI to handle
@@ -88,6 +87,8 @@ export class ToolPermissionManager extends EventEmitter {
       return false;
     }
 
+    clearTimeout(request.timer);
+    this.pendingRequests.delete(requestId);
     request.resolve({ approved: true, remember });
 
     // Also emit for the new event-based system
@@ -106,6 +107,8 @@ export class ToolPermissionManager extends EventEmitter {
       return false;
     }
 
+    clearTimeout(request.timer);
+    this.pendingRequests.delete(requestId);
     request.resolve({ approved: false });
 
     // Also emit for the new event-based system
