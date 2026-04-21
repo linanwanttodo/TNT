@@ -253,6 +253,23 @@ export async function streamChatResponse(
     });
 
     if (outcome.kind === "abort") {
+      fullResponse += content;
+      finalResponse = updateFinalResponse(
+        content,
+        false,
+        isHeadless,
+        finalResponse,
+      );
+      handleContentDisplay(content, callbacks, isHeadless);
+      await handleToolCalls({
+        toolCalls: [],
+        chatHistory,
+        content,
+        callbacks,
+        isHeadless,
+        usage,
+        reasoning,
+      });
       return finish(outcome.reason);
     }
 
