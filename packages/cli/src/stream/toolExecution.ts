@@ -192,9 +192,6 @@ async function approveAndDispatchCall(options: {
     noteToolUpdate(callbacks, call.name, "calling", { toolCallId: call.id });
 
     const preHook = await firePreToolUse(call.name, call.arguments, call.id);
-    const effectiveCall = preHook.updatedInput
-      ? { ...call, arguments: preHook.updatedInput }
-      : call;
 
     if (preHook.blocked) {
       const blockMessage = preHook.blockReason ?? `Hook blocked ${call.name}`;
@@ -213,6 +210,22 @@ async function approveAndDispatchCall(options: {
         services.chatHistory.addToolResult(call.id, blockMessage, "canceled");
       } catch {}
       return false;
+    }
+
+    let effectiveCall = call;
+    if (preHook.updatedInput) {
+      effectiveCall = {
+        ...call,
+        arguments: preHook.updatedInput,
+        argumentsStr: JSON.stringify(preHook.updatedInput),
+        preprocessResult: undefined,
+      };
+      validateToolCallArgs(effectiveCall, call.tool);
+      if (call.tool.preprocess) {
+        effectiveCall.preprocessResult = await call.tool.preprocess(
+          preHook.updatedInput,
+        );
+      }
     }
 
     // Check tool permissions using helper

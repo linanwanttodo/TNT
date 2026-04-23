@@ -6,7 +6,7 @@ import type { HookEventResult } from "../hooks/types.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import { workspaceRoot } from "../permissions/workspacePath.js";
 import { readFileTool } from "../tools/readFile.js";
-import type { PreprocessedToolCall } from "../tools/types.js";
+import type { PreprocessedToolCall, Tool } from "../tools/types.js";
 import { writeFileTool } from "../tools/writeFile.js";
 
 import { executeStreamedToolCalls } from "./streamChatResponse.helpers.js";
@@ -52,33 +52,63 @@ describe("PreToolUse decisions at execution time", () => {
     fireHooks.firePreToolUse.mockResolvedValue({ blocked: false, results: [] });
   });
 
-  it("executes the input a hook rewrote", async () => {
+  it("re-preprocesses and executes the input a hook rewrote", async () => {
     fireHooks.firePreToolUse.mockResolvedValueOnce({
       blocked: false,
       updatedInput: { filepath: "/rewritten.txt" },
       results: [],
     });
-    const toolsModule = await import("../tools/index.js");
-    const executeToolCall = vi
-      .spyOn(toolsModule, "executeToolCall")
-      .mockResolvedValue("file body");
+    const preprocess = vi.fn(async (args: { filepath: string }) => ({
+      args: { normalizedPath: args.filepath },
+      preview: [
+        { type: "text" as const, content: `Will read ${args.filepath}` },
+      ],
+    }));
+    const run = vi.fn(
+      async (args: { normalizedPath: string }) => args.normalizedPath,
+    );
+    const tool: Tool = { ...readFileTool, preprocess, run };
+    const initialPreprocess = await tool.preprocess?.({
+      filepath: "/original.txt",
+    });
+    if (!initialPreprocess) {
+      throw new Error("Expected the tool to produce a preprocess result");
+    }
+    const call: PreprocessedToolCall = {
+      ...readCall("/original.txt"),
+      tool,
+      preprocessResult: initialPreprocess,
+    };
+    const requestPermission = vi
+      .spyOn(toolPermissionManager, "requestPermission")
+      .mockResolvedValue({ approved: true } as never);
 
     const { chatHistoryEntries } = await executeStreamedToolCalls(
-      [readCall("/original.txt")],
-      undefined,
+      [call],
+      { onToolPermissionRequest: vi.fn() },
       false,
       undefined,
-      { permissions: allowAll },
+      { permissions: askAll },
     );
 
-    expect(executeToolCall).toHaveBeenCalledWith(
+    expect(preprocess).toHaveBeenNthCalledWith(2, {
+      filepath: "/rewritten.txt",
+    });
+    expect(requestPermission).toHaveBeenCalledWith(
       expect.objectContaining({
-        arguments: { filepath: "/rewritten.txt" },
+        arguments: { normalizedPath: "/rewritten.txt" },
+        preview: [
+          expect.objectContaining({ content: "Will read /rewritten.txt" }),
+        ],
+        toolCallId: "call_1",
       }),
-      expect.anything(),
+      expect.any(Number),
+    );
+    expect(run).toHaveBeenCalledWith(
+      { normalizedPath: "/rewritten.txt" },
+      { toolCallId: "call_1", parallelToolCallCount: 1 },
     );
     expect(chatHistoryEntries[0]?.status).toBe("done");
-    executeToolCall.mockRestore();
   });
 
   it("lets a hook allow a call the policy would deny in headless", async () => {
@@ -180,7 +210,9 @@ describe("PreToolUse ask escalates to the prompt", () => {
         preview: expect.arrayContaining([
           expect.objectContaining({ content: "touching a protected path" }),
         ]),
+        toolCallId: "call_1",
       }),
+      expect.any(Number),
     );
     expect(hasRejection).toBe(true);
     expect(chatHistoryEntries[0]?.status).toBe("canceled");
@@ -316,7 +348,9 @@ describe("a write outside the workspace escalates", () => {
             content: expect.stringContaining("Outside the workspace"),
           }),
         ]),
+        toolCallId: "call_1",
       }),
+      expect.any(Number),
     );
     expect(executeToolCall).toHaveBeenCalled();
     expect(chatHistoryEntries[0]?.status).toBe("done");
