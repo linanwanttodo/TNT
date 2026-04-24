@@ -1,0 +1,40 @@
+/*
+ * The app shell: a 200px rail on the left and the conversation canvas on the
+ * right. The canvas stacks the title bar, the transcript, the composer and
+ * the status strip, so the composer always sits just above the status bar.
+ */
+
+.shell {
+  display: flex;
+  height: 100%;
+  background: var(--dsh-claude-canvas);
+}
+
+.canvas {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsh-claude-canvas);
+}
+
+.conversation {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.banner {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: var(--dsw-alias-state-warn-tertiary);
+  color: var(--dsw-alias-state-warn-primary);
+  font-size: 13px;
+  line-height: 18px;
+}

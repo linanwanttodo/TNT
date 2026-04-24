@@ -1,0 +1,159 @@
+/*
+ * The status strip under the conversation. The reference centres the whole
+ * group under the composer, so the bar is a centred row rather than a
+ * full-width one.
+ */
+
+.statusBar {
+  height: 44px;
+  flex: 0 0 44px;
+  width: 768px;
+  margin: 0 auto;
+  padding: 0 14px 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.entries {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.entryIcon {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.worktree {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  margin-left: -6px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--dsh-shell-worktree-fill);
+  color: var(--dsh-shell-worktree-ink);
+  white-space: nowrap;
+}
+
+.modeAnchor {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pill {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border: none;
+  border-radius: 6px;
+  background: #2a2a2a;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu {
+  position: absolute;
+  bottom: calc(100% + 0px);
+  left: 0;
+  width: 312px;
+  padding: 8px 0;
+  border: 1px solid #3b3b3a;
+  border-radius: 9px;
+  background: #252524;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 10;
+}
+
+.menuTitle {
+  padding: 0 13px 8px;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.menuItem {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 13px 0 13px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.menuItemTexts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.menuItemLabel {
+  font-size: 13px;
+  line-height: 17px;
+  font-variation-settings: var(--dsh-font-axis-semibold);
+  color: #c3c2b7;
+}
+
+.menuItemDescription {
+  font-size: 12px;
+  line-height: 16px;
+  color: #6c6a66;
+  white-space: nowrap;
+}
+
+.menuCheck {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 6px;
+  margin-top: 6px;
+  border-left: 1.6px solid #2f74cf;
+  border-bottom: 1.6px solid #2f74cf;
+  transform: rotate(-45deg);
+}
+
+.model {
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  margin-left: 6px;
+  border: 1.5px solid var(--dsw-alias-label-tertiary);
+  border-radius: 50%;
+  opacity: 0.6;
+}

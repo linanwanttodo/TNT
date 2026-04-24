@@ -1,0 +1,85 @@
+.userRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 4px 0;
+}
+
+.userBubble {
+  max-width: min(748px * 0.702, 82%);
+}
+
+.assistantRow {
+  padding: 4px 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.toolRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.toolDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-idle-primary);
+}
+
+.toolDot[data-kind="running"] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.toolDot[data-kind="done"] {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.toolDot[data-kind="failed"] {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.toolBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.toolName {
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--ds-font-family-code);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.toolResult {
+  margin: 0;
+  overflow: auto;
+  max-height: 160px;
+  padding: 8px 10px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-markdown-code-block);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  line-height: 17px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.errorRow {
+  margin: 4px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-state-error-secondary);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-state-error-tertiary);
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 14px;
+  line-height: 20px;
+}

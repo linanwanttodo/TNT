@@ -1,0 +1,61 @@
+/*
+ * The composer: a 768x44 field centred on the canvas, with the leading plus
+ * button, the placeholder and the send/stop button on the right.
+ */
+
+.frame {
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.box {
+  width: 768px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: var(--dsh-shell-pill-fill);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.leading {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.leading:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  resize: none;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.action {
+  flex: none;
+}
