@@ -25,7 +25,9 @@ describe("Relace", () => {
     // RelaceApi's chatCompletionStream reads the prediction the request
     // carries; without this flag the shell silently loses the apply input.
     expect(
-      llm["supportsPrediction" as keyof Relace].call(llm, "instant-apply"),
+      (
+        llm["supportsPrediction" as keyof Relace] as (model: string) => boolean
+      ).call(llm, "instant-apply"),
     ).toBe(true);
   });
 });
