@@ -99,3 +99,54 @@
 - 位置固定：`docs/worklogs/`（git 跟踪，跨会话可查；`.md` 不进 docsParity 发布站守卫）。
 - 每完成一个优化项并提交后，立即在本文件追加一节：做了什么 / 为什么 / 依据来源 / 验证方式。
 - 一天多项工作可用日期命名的独立文件，长期约定类内容（如 /team 设计决策）写在 `.tnt/superpowers/specs/`（2026-10-31 起；此前误写为 `docs/superpowers/specs/`——该目录被 .gitignore 排除且在 docs 站构建的遍历树里，已整体迁移并写入 `.tnt/AGENTS.md` 的硬性约束）。
+
+### 8. /team v1 Task 1：agent 循环纪律规范（commit 229a...，实际 229ca4ba3）
+
+**做了什么：** 新增 `docs/agent-discipline.md`（中文，七节：证据优先、裁决而非
+停滞、审查门槛、修复循环上限、派发纪律含 brief 背景契约与 files 声明、"报告
+但不修"条款、前缀稳定、结构化收口）+ 派生关系表。
+
+**为什么：** /team 设计第一部分——规范文档是人格提示词的上位依据，先于实现落地。
+"报告但不修"条款来自用户点名的 Claude Code 行为差异（同提示词下 Claude Code 会
+主动指出邻近 bug），TNT 主提示词第 3 条的范围纪律在主动抑制它。
+
+**依据来源：** spec `.tnt/superpowers/specs/2026-10-31-team-design.md` 第一部分；
+内置 verification agent 的 side-effects 条款；dsh writeScopes 的 advisory 语义。
+
+**验证：** `npx prettier --check docs/agent-discipline.md` 通过；纯文档无测试面。
+
+**SDD 说明：** 执行工作区从脚本默认的 `.superpowers/sdd/2026-10-31-team/` 迁移到
+`.tnt/superpowers/sdd/2026-10-31-team/`（`.tnt/AGENTS.md` 硬规则：技能建议路径
+在 `.tnt/superpowers/` 之外时迁移并记录）。ledger 记录了预检扫描的一项裁决：
+Task 4 按"实现注"创建 `defaultTeams.ts`，不创建 dev.md/sec.md。
+
+### 9. /team v1 Task 2：Subagent keyed 并行（commit 134eda278）
+
+**做了什么：** `tools/specs/concurrency.ts` 的 `Subagent` 声明从 `"exclusive"`
+改为 keyed claim（`subagentKeys` 读可选的 `files` 路径数组，逐项
+`normalizePathKey`）；`subagent/index.ts` 的 SUBAGENT_TOOL_META 参数新增可选
+`files: { type: "array", items: { type: "string" } }`（advisory 语义说明写在
+参数描述里）。concurrency.test.ts 追加三条测试（keyed/重叠归一/缺失回落）。
+
+**为什么：** /team 合并模型的核心能力——不重叠的子代理文件范围并行执行，重叠
+自动串行化（planner 既有 barrier 逻辑）；未声明 `files` 回落全局独占槽，与改动
+前行为完全一致（Review Focus 第一条，测试钉死）。preprocess 已原样透传 args，
+subagent.ts 无需改动。
+
+**依据来源：** spec 第三部分第 1 条；dsh writeScopes 的 advisory（提示性范围
+不是锁）语义；既有 `normalizePathKey` 的规范化（`./src/a.ts` 与 `src/a.ts`
+同 shard）。
+
+**验证：** RED（keyed 测试先失败于 exclusive:true）→ GREEN（14/14）；
+`npx vitest run src/tools/specs src/stream/toolExecution` 33 项全绿；prettier
+通过。npm run lint 报 10 个错误全部位于本次未触碰的文件（systemMessage.ts
+504 行、plugins/loader.ts 510 行、requestPreparation/streamChatResponse/
+turnState 的 import 排序），属既有欠账，与 base commit 229ca4ba3 一致，非本
+任务引入。
+
+**执行事故记录：** Task 2 中途误执行 `git checkout stash@{0} -- .`，把一个
+不相关的 TUI 暂存（stash@{0} "tnt-parallel-wip-viewport"）恢复进工作区，覆盖
+了未提交的 Task 2 修改并暂存了数百个文件。已完整恢复：reset 索引、checkout
+HEAD 还原被覆盖的跟踪文件、删除 stash 引入的未跟踪文件、从备份恢复 worklog
+的 Task 1 条目；stash@{0} 本身未被改动。随后重做 Task 2 三处修改并重跑了
+RED→GREEN 与回归套件。
