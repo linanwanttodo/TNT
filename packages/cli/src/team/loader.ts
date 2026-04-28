@@ -16,6 +16,13 @@ export interface TeamMember {
   lead: boolean;
   restriction?: SubagentRestriction;
   deniedTools?: string[];
+  /**
+   * References a built-in agent instead of carrying a prompt. The system
+   * message and restriction resolve at dispatch time from the built-in
+   * registry, so a roster can reuse the shipped personas without copying
+   * their text. Ignored when absent.
+   */
+  builtInRef?: string;
   systemMessage: string;
   source: "project" | "global" | "default";
 }
@@ -208,6 +215,15 @@ function loadAllTeams(cwd: string): TeamDefinition[] {
     teams.push({ name: teamName, members: list, lead: leads[0] });
   }
   return teams.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Load the file-based rosters only, without the compiled-in defaults. This is
+ * the unit the roster-file contract (layering, warnings, lead validation)
+ * applies to; loadTeams layers the defaults on top.
+ */
+export function loadFileTeams(cwd: string): TeamDefinition[] {
+  return loadAllTeams(cwd);
 }
 
 export function loadTeams(cwd: string): TeamDefinition[] {
