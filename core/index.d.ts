@@ -278,6 +278,13 @@ export interface SessionUsage extends Usage {
    */
   unpricedRequests?: number;
   /**
+   * Requests whose token counts never reached this session - the round cut off
+   * mid-stream, or a provider that ends without sending its usage. The provider
+   * still billed them, so the session sums and the cache ratio made from them
+   * cover fewer requests than the session sent.
+   */
+  unreportedUsageRequests?: number;
+  /**
    * Usage of the first request in this session, kept apart from the totals.
    *
    * A session-wide hit rate is diluted by every request after the first, so it

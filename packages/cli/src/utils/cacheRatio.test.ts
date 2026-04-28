@@ -41,6 +41,20 @@ describe("getCacheHitRatio", () => {
     ).toBe(75);
   });
 
+  it("keeps the decimals the provider billed in", () => {
+    // The owner's DeepSeek session: 167,808 of 196,729 prompt tokens read from
+    // the cache. Rounding to a whole percent here and printing two decimals in
+    // the status line is what made the number disagree with the console.
+    expect(
+      getCacheHitRatio(
+        usage({
+          promptTokens: 196_729,
+          promptTokensDetails: { cachedTokens: 167_808, cacheWriteTokens: 0 },
+        }),
+      ),
+    ).toBe(85.3);
+  });
+
   it("falls back to cache totals when the prompt total excludes them", () => {
     expect(
       getCacheHitRatio(
@@ -49,7 +63,7 @@ describe("getCacheHitRatio", () => {
           promptTokensDetails: { cachedTokens: 900, cacheWriteTokens: 100 },
         }),
       ),
-    ).toBe(82);
+    ).toBe(81.82);
   });
 
   it("never exceeds 100 percent", () => {
@@ -60,6 +74,6 @@ describe("getCacheHitRatio", () => {
           promptTokensDetails: { cachedTokens: 1500, cacheWriteTokens: 1000 },
         }),
       ),
-    ).toBe(33);
+    ).toBe(33.33);
   });
 });

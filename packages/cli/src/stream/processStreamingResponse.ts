@@ -13,8 +13,10 @@ import type { RequestHeader } from "../cache/requestHeader.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
   classifyStreamError,
+  isRefusalBeforeWork,
   type TerminalStopKind,
 } from "../loop/terminalStop.js";
+import { noteUnreportedRequest } from "../session/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { ToolCall } from "../tools/index.js";
 import {
@@ -211,6 +213,15 @@ export async function processStreamingResponse(
     });
   } catch (error: any) {
     const errorDuration = Date.now() - requestStartTime;
+
+    // The request happened and the provider read the prompt for it; only its
+    // usage is missing, because the counts ride the chunk that never arrived.
+    // Counting the round is what keeps the session's cache ratio from reading
+    // as a complete account of what the session sent. A refusal is not such a
+    // round: nothing was read, so nothing is missing.
+    if (!isRefusalBeforeWork(error)) {
+      noteUnreportedRequest();
+    }
 
     // Log failed API request
     telemetryService.logApiRequest({

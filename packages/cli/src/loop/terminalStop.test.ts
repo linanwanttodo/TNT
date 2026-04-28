@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   classifyStreamError,
+  isRefusalBeforeWork,
   isRetryableStop,
   MAX_RETRIES_PER_KIND,
   TerminalStopTracker,
@@ -125,5 +126,52 @@ describe("TerminalStopTracker", () => {
     tracker.resetForNewTurn();
     expect(tracker.retriesUsed("stream_stall")).toBe(0);
     expect(tracker.shouldRetry("stream_stall")).toBe(true);
+  });
+});
+
+/**
+ * The session counts a round whose usage never arrived, because the provider
+ * read the prompt and billed it. That is only true when the request was taken;
+ * a refusal never read it, and counting refusals would invent gaps in a session
+ * that did not spend anything.
+ */
+describe("isRefusalBeforeWork", () => {
+  it("counts an http error answer as a refusal", () => {
+    expect(
+      isRefusalBeforeWork(
+        Object.assign(new Error("too fast"), { status: 429 }),
+      ),
+    ).toBe(true);
+    expect(
+      isRefusalBeforeWork(Object.assign(new Error("bad"), { status: 400 })),
+    ).toBe(true);
+  });
+
+  it("counts a length complaint as a refusal", () => {
+    expect(
+      isRefusalBeforeWork(
+        new Error("This model's maximum context length is 8192 tokens"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not count a transport fault, a stall or an abort as a refusal", () => {
+    expect(
+      isRefusalBeforeWork(
+        Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }),
+      ),
+    ).toBe(false);
+    expect(
+      isRefusalBeforeWork(
+        Object.assign(
+          new Error("Provider stream stalled: no chunk within 120000ms"),
+          {
+            code: "ETIMEDOUT",
+          },
+        ),
+      ),
+    ).toBe(false);
+    expect(isRefusalBeforeWork(new Error("Request aborted"))).toBe(false);
+    expect(isRefusalBeforeWork(undefined)).toBe(false);
   });
 });

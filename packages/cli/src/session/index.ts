@@ -221,6 +221,12 @@ class SessionManager {
       this.sessionUsage.unpricedRequests =
         (this.sessionUsage.unpricedRequests ?? 0) + 1;
     }
+    // A round that reported no prompt tokens contributed nothing to the sums
+    // below, so the ratio made from them is not a full account of the session.
+    if (usage.promptTokens <= 0) {
+      this.sessionUsage.unreportedUsageRequests =
+        (this.sessionUsage.unreportedUsageRequests ?? 0) + 1;
+    }
 
     // Accumulate token counts
     this.sessionUsage.promptTokens += usage.promptTokens;
@@ -266,6 +272,21 @@ class SessionManager {
     const session = this.getCurrentSession();
     session.usage = { ...this.sessionUsage };
     saveSession(); // Persist immediately
+  }
+
+  /**
+   * Records a request whose usage never arrived. The round ended before the
+   * provider's final chunk, so there are no tokens to add - but the request
+   * happened and was billed, and a session total that silently omits it is the
+   * difference between this line and the provider's own report.
+   */
+  noteUnreportedUsage(): void {
+    this.sessionUsage.unreportedUsageRequests =
+      (this.sessionUsage.unreportedUsageRequests ?? 0) + 1;
+
+    const session = this.getCurrentSession();
+    session.usage = { ...this.sessionUsage };
+    saveSession();
   }
 
   /**
@@ -845,6 +866,14 @@ export function trackSessionUsage(
   unpriced: boolean = false,
 ): void {
   SessionManager.getInstance().trackUsage(cost, usage, kind, unpriced);
+}
+
+/**
+ * Count a request whose usage never arrived, so the session says how many of
+ * its requests the numbers beside it actually cover.
+ */
+export function noteUnreportedRequest(): void {
+  SessionManager.getInstance().noteUnreportedUsage();
 }
 
 /**
