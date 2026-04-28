@@ -53,14 +53,17 @@ export function costLineText(
 }
 
 /**
- * How many of this session's requests the cache ratio above cannot see. The
+ * How many of this session's requests the cache ratio above is made of. The
  * read lives here because `getSessionUsage` answers nothing before the first
  * request, and the row already carries enough branches of its own.
  */
-function unreportedUsageOf(sessionUsage?: {
+function usageCoverageOf(sessionUsage?: {
+  reportedUsageRequests?: number;
   unreportedUsageRequests?: number;
-}): number | undefined {
-  return sessionUsage?.unreportedUsageRequests;
+}): { reported: number; sent: number } | undefined {
+  const reported = sessionUsage?.reportedUsageRequests ?? 0;
+  const sent = reported + (sessionUsage?.unreportedUsageRequests ?? 0);
+  return sent > 0 ? { reported, sent } : undefined;
 }
 
 function currentDirectory(): string {
@@ -264,7 +267,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
     cacheHitRatio,
     // Not verbose-only, unlike the price count: this says what the always-shown
     // ratio left out, so hiding it would leave the number looking complete.
-    unreportedUsage: unreportedUsageOf(sessionUsage),
+    usageCoverage: usageCoverageOf(sessionUsage),
     outputTokens: sessionUsage?.completionTokens,
     costGroup: costLineText(
       totalCost,
@@ -274,7 +277,6 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
       ctx: t("status.context"),
       cache: t("status.cache"),
       out: t("status.output"),
-      noUsage: t("status.noUsage"),
     },
   });
 

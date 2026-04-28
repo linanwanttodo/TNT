@@ -223,9 +223,14 @@ class SessionManager {
     }
     // A round that reported no prompt tokens contributed nothing to the sums
     // below, so the ratio made from them is not a full account of the session.
+    // Both sides are counted because the reader needs the fraction, not just
+    // the shortfall.
     if (usage.promptTokens <= 0) {
       this.sessionUsage.unreportedUsageRequests =
         (this.sessionUsage.unreportedUsageRequests ?? 0) + 1;
+    } else {
+      this.sessionUsage.reportedUsageRequests =
+        (this.sessionUsage.reportedUsageRequests ?? 0) + 1;
     }
 
     // Accumulate token counts
