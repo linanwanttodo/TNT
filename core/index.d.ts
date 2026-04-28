@@ -362,6 +362,12 @@ export interface Session {
    * by taking the larger of the two.
    */
   delegationDepth?: number;
+  /**
+   * Optional: name of the /team roster activated for this session. In-memory
+   * session state only (v1); the roster's members become dispatchable and the
+   * lead's prompt rides the userRules section.
+   */
+  activeTeam?: string;
 }
 
 export interface BaseSessionMetadata {
