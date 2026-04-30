@@ -32,6 +32,7 @@ export const KEY_BINDINGS: readonly KeyBinding[] = [
   { keys: "Ctrl+X/Ctrl+R", descriptionKey: "help.controlsQueueRemove" },
   { keys: "Ctrl+V", descriptionKey: "help.controlsPaste" },
   { keys: "PageUp/PageDown", descriptionKey: "help.controlsScrollPage" },
+  { keys: "Ctrl+T", descriptionKey: "help.controlsMouse" },
   { keys: "Home/End", descriptionKey: "help.controlsTranscriptHome" },
   { keys: "Ctrl+End", descriptionKey: "help.controlsTranscriptTail" },
   { keys: "Ctrl+L", descriptionKey: "help.controlsClearScreen" },
