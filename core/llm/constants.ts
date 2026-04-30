@@ -2,7 +2,25 @@ const DEFAULT_MAX_TOKENS = 4096;
 const DEFAULT_CONTEXT_LENGTH = 32_768;
 const DEFAULT_TEMPERATURE = 0.5;
 const DEFAULT_PRUNING_LENGTH = 128000;
-const DEFAULT_REASONING_TOKENS = 2048;
+
+/**
+ * Thinking budgets per effort level, for providers whose thinking API takes a
+ * token budget (Anthropic-style) rather than an effort string. A fixed small
+ * default truncates the model mid-thought, so an unset budget scales with the
+ * requested depth instead.
+ */
+const THINKING_BUDGETS_BY_EFFORT: Record<string, number> = {
+  minimal: 1024,
+  low: 2048,
+  medium: 8192,
+  high: 16384,
+  xhigh: 32768,
+  max: 65536,
+};
+
+function thinkingBudgetForEffort(effort?: string): number {
+  return THINKING_BUDGETS_BY_EFFORT[effort ?? ""] ?? 16384;
+}
 
 const DEFAULT_ARGS = {
   maxTokens: DEFAULT_MAX_TOKENS,
@@ -32,6 +50,6 @@ export {
   DEFAULT_MAX_CHUNK_SIZE,
   DEFAULT_MAX_TOKENS,
   DEFAULT_PRUNING_LENGTH,
-  DEFAULT_REASONING_TOKENS,
+  thinkingBudgetForEffort,
   PROXY_URL,
 };

@@ -9,6 +9,10 @@ import {
 import { t } from "../../i18n/index.js";
 import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { getSessionUsage } from "../../session/index.js";
+import {
+  getReasoningOverride,
+  useReasoningOverride,
+} from "../../session/reasoningOverride.js";
 import { getCacheHitRatio } from "../../utils/cacheRatio.js";
 import { getGitBranch } from "../../utils/git.js";
 import { getModelContextLimit } from "../../utils/tokenizer.js";
@@ -72,11 +76,16 @@ function currentDirectory(): string {
 }
 
 /**
- * The configured reasoning depth shown next to the model. An unset depth is
- * reported as "default" instead of hiding the field, so the row always
- * explains how much thinking the model will do.
+ * The configured reasoning depth shown next to the model. A `/think` override
+ * wins over the model's static default, so the row shows what the next request
+ * will actually use; an unset depth is reported as "default" instead of hiding
+ * the field.
  */
 export function getThinkingDepth(model?: ModelConfig | null): string {
+  const override = getReasoningOverride();
+  if (override && override !== "default") {
+    return override;
+  }
   if (!model) {
     return "";
   }
@@ -216,6 +225,8 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   totalCost,
 }) => {
   const [_refreshTrigger, setRefreshTrigger] = useState(0);
+  // Re-renders the row when a /think command changes the session depth.
+  useReasoningOverride();
   const { columns } = useTerminalSize();
   // Narrow terminals get a reduced row instead of an overflowing one: any line
   // wider than the terminal wraps in the terminal but not in Ink's layout, and
