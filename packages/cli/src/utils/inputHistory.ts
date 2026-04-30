@@ -5,7 +5,6 @@ import { writeFileAtomically } from "core/util/atomicWrite.js";
 
 import { env } from "../config/env.js";
 
-const HISTORY_FILE = path.join(env.continueHome, "input_history.json");
 const MAX_HISTORY_SIZE = 1000;
 
 /**
