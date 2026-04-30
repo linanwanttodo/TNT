@@ -1,3 +1,6 @@
+import type { ModelConfig } from "@tnt/config-yaml";
+
+import { createLlmApi } from "../config/index.js";
 import { t } from "../i18n/index.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { services } from "../services/index.js";
@@ -8,7 +11,7 @@ import { getSessionActiveTeam } from "../session/index.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
   generateSubagentToolDescription,
-  getSubagent,
+  resolveDispatchableAgent,
   getAgentNames as getSubagentNames,
 } from "../subagent/get-agents.js";
 import {
@@ -37,6 +40,62 @@ function getPluginAgents(): {
   }
 }
 
+/**
+ * Resolve any dispatchable name to a runnable state.
+ *
+ * Configured agents come straight from the model service. A team member or a
+ * plugin agent was listed but never dispatched: both run on the session's own
+ * model, renamed, with the persona the dispatch chain resolved as their base
+ * system message - the same inherit pattern ModelService uses for built-ins.
+ */
+function resolveAgentState(
+  name: string,
+  modelServiceState: ModelServiceState,
+): ModelServiceState | null {
+  const configured = ModelService.getSubagentModels(modelServiceState).find(
+    (agent) => agent.model.name === name,
+  );
+  if (configured) {
+    return configured;
+  }
+
+  const dispatchable = resolveDispatchableAgent(
+    name,
+    modelServiceState,
+    getActiveTeam(),
+  );
+  if (!dispatchable) {
+    return null;
+  }
+
+  const inheritFrom = modelServiceState.model;
+  if (!inheritFrom || !dispatchable.systemMessage) {
+    return null;
+  }
+
+  const model: ModelConfig = {
+    ...inheritFrom,
+    name,
+    roles: ["subagent"],
+    chatOptions: {
+      ...inheritFrom.chatOptions,
+      baseSystemMessage: dispatchable.systemMessage,
+    },
+  };
+  return {
+    llmApi: createLlmApi(model),
+    model,
+    assistant: modelServiceState.assistant,
+  };
+}
+
+function getActiveTeam() {
+  const activeTeamName = getSessionActiveTeam();
+  return activeTeamName
+    ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
+    : undefined;
+}
+
 export const subagentTool = async (): Promise<Tool> => {
   const modelServiceState = await serviceContainer.get<ModelServiceState>(
     SERVICE_NAMES.MODEL,
@@ -62,7 +121,7 @@ export const subagentTool = async (): Promise<Tool> => {
     preprocess: async (args: any) => {
       const { description, subagent_name } = args;
 
-      const agent = getSubagent(modelServiceState, subagent_name);
+      const agent = resolveAgentState(subagent_name, modelServiceState);
       if (!agent) {
         throw new Error(
           t("tools.unknownAgentTypeWithList", {
@@ -77,7 +136,7 @@ export const subagentTool = async (): Promise<Tool> => {
         preview: [
           {
             type: "text",
-            content: `Spawning ${agent.model.name} to: ${description}`,
+            content: `Spawning ${agent.model?.name} to: ${description}`,
           },
         ],
       };
@@ -89,7 +148,7 @@ export const subagentTool = async (): Promise<Tool> => {
       logger.debug("subagent args", { args, context });
 
       // get agent configuration
-      const agent = getSubagent(modelServiceState, subagent_name);
+      const agent = resolveAgentState(subagent_name, modelServiceState);
       if (!agent) {
         throw new Error(t("tools.unknownAgentType", { name: subagent_name }));
       }

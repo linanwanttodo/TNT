@@ -58,12 +58,17 @@ export interface SubAgentResult {
 async function buildAgentSystemMessage(
   agent: ModelServiceState,
   mode: string,
+  dispatchablePrompt?: string,
 ): Promise<string> {
   const baseMessage = services.systemMessage
     ? await services.systemMessage.getSystemMessage(mode as any)
     : "";
 
-  const agentPrompt = agent.model?.chatOptions?.baseSystemMessage || "";
+  // A configured model agent carries its prompt on the entry itself; a team
+  // member or a plugin agent has none there - the dispatch chain resolved
+  // their persona instead.
+  const agentPrompt =
+    agent.model?.chatOptions?.baseSystemMessage || dispatchablePrompt || "";
 
   // Combine base system message with agent-specific prompt
   if (agentPrompt) {
@@ -118,11 +123,6 @@ export async function executeSubAgent(
       maxDelegationDepth,
     });
 
-    const systemMessage = await buildAgentSystemMessage(
-      subAgent,
-      resolvedParent.mode,
-    );
-
     const agentType = subAgent.model?.name ?? "agent";
     const activeTeamName = getSessionActiveTeam();
     const activeTeam = activeTeamName
@@ -132,6 +132,12 @@ export async function executeSubAgent(
       agentType,
       subAgent,
       activeTeam,
+    );
+
+    const systemMessage = await buildAgentSystemMessage(
+      subAgent,
+      resolvedParent.mode,
+      dispatchable?.systemMessage,
     );
 
     const childContext = createChildContext(resolvedParent, {
