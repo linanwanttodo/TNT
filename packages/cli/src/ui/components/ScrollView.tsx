@@ -54,10 +54,28 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
     viewportHeight: 0,
   });
 
+  const onMetricsRef = useRef(onMetrics);
+  onMetricsRef.current = onMetrics;
+  const lastScrollTopRef = useRef(scrollTop);
+
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     const content = contentRef.current;
     if (!viewport || !content) return;
+
+    // Scrolling only translates the content with a negative margin: the laid
+    // out heights cannot change between two scroll positions, so a tick that
+    // differs from the last one only by scrollTop skips the measure entirely.
+    // Every other commit still measures, which is what keeps streaming
+    // growth, folding and terminal resizes correct.
+    const scrolledOnly =
+      lastScrollTopRef.current !== scrollTop &&
+      metrics.contentHeight > 0 &&
+      metrics.viewportHeight > 0;
+    lastScrollTopRef.current = scrollTop;
+    if (scrolledOnly) {
+      return;
+    }
 
     const next = {
       contentHeight: measureElement(content).height,
@@ -69,7 +87,7 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
         ? previous
         : next,
     );
-    onMetrics(next);
+    onMetricsRef.current(next);
   });
 
   const geometry = showScrollbar
