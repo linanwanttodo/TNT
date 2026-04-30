@@ -608,6 +608,16 @@ function getToolCallState(
   return state.toolCalls.get(byIndex);
 }
 
+/**
+ * Turns one Responses-API stream event into a ChatCompletionChunk, accumulating
+ * text, refusal and tool-call arguments in `state`. The core layer keeps its
+ * own event-to-message mapping (core/llm/openaiTypeConverters.ts
+ * `handleResponsesStreamEvent`) for the legacy self-built stream, because the
+ * two consume different shapes: this yields delta chunks, that one yields whole
+ * messages. The split is deliberate; changing which events carry text here
+ * must be mirrored there, or one path will repeat or drop what the other
+ * handles.
+ */
 export function fromResponsesChunk(
   state: ResponsesStreamState,
   event: ResponseStreamEvent,
