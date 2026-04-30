@@ -203,3 +203,22 @@ analysis/
 # working the items, never built or shipped, and a private work-list does not
 # belong in a documentation tree that the site build walks.
 docs/superpowers/
+
+# The TNT workspace folder. The directory skeleton travels with the repo as
+# tracked `.keep` placeholders so a fresh clone has every group the engine
+# reads (rules, checks, agents, prompts); everything else in it is per-machine
+# and stays local - the rule and check documents themselves, the memory file
+# TNT accumulates, and the agent instructions each maintainer writes.
+.tnt/*
+!.tnt/rules/
+!.tnt/checks/
+!.tnt/agents/
+!.tnt/prompts/
+.tnt/rules/*
+.tnt/checks/*
+.tnt/agents/*
+.tnt/prompts/*
+!.tnt/rules/.keep
+!.tnt/checks/.keep
+!.tnt/agents/.keep
+!.tnt/prompts/.keep

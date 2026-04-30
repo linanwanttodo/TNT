@@ -16,10 +16,22 @@ import * as path from "node:path";
 const globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "continue-cli-test-"));
 process.env.TNT_GLOBAL_DIR = globalDir;
 
-// Best-effort cleanup of this worker's temp dir when the process exits.
+// The plugin loader reads ~/.claude/plugins as a migration source. The real
+// tree of whoever runs the suite must not leak into it: a machine with
+// Claude Code plugins installed would fail every "no plugins" assertion.
+// One empty directory per worker, so the tests that create fixtures there
+// stay isolated from each other as well.
+process.env.TNT_CLAUDE_PLUGINS_DIR = fs.mkdtempSync(
+  path.join(os.tmpdir(), "continue-cli-claude-plugins-"),
+);
+
+const claudePluginsDir = process.env.TNT_CLAUDE_PLUGINS_DIR as string;
+
+// Best-effort cleanup of this worker's temp dirs when the process exits.
 process.on("exit", () => {
   try {
     fs.rmSync(globalDir, { recursive: true, force: true });
+    fs.rmSync(claudePluginsDir, { recursive: true, force: true });
   } catch {
     // Ignore cleanup errors on exit.
   }
