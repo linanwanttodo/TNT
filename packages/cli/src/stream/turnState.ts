@@ -7,6 +7,8 @@ import { TurnBudget, type TurnBudgetLimits } from "../loop/turnBudget.js";
 
 import type { SystemPromptRoundState } from "./systemPromptRound.js";
 
+import { systemPromptSeriesState } from "./systemPromptSeries.js";
+
 /**
  * Everything one user turn counts, and nothing that outlives it.
  *
@@ -46,7 +48,11 @@ export interface TurnState {
   forceNextCompaction: boolean;
 }
 
-export function createTurnState(limits?: Partial<TurnBudgetLimits>): TurnState {
+export function createTurnState(
+  limits?: Partial<TurnBudgetLimits>,
+  promptCacheKey?: string,
+  overrideSystemMessage?: string,
+): TurnState {
   return {
     budget: new TurnBudget(limits),
     toolFailures: new ToolFailureTracker(),
@@ -54,7 +60,17 @@ export function createTurnState(limits?: Partial<TurnBudgetLimits>): TurnState {
     todoReminder: new TodoReminderTracker(),
     contextBudget: new ContextBudgetTracker(),
     repeatCallGuard: new RepeatCallGuard(),
-    systemPrompt: { updates: [] },
+    // Borrowed from the session-scoped series, not created here: the system
+    // field and its in-history updates are the bytes the provider has cached,
+    // so a new turn that reset them would rewrite the head and re-bill every
+    // round of it. The cache key scopes the borrow to one conversation, and a
+    // delegated run's own system message gets its own series so it cannot
+    // corrupt the parent's; the default covers callers without a key (tests,
+    // startup probes).
+    systemPrompt: systemPromptSeriesState(
+      promptCacheKey,
+      overrideSystemMessage,
+    ),
     coldTurn: true,
     historyRewritten: false,
     compactionOccurred: false,
