@@ -115,8 +115,10 @@ describe("the WebUiService token gate", () => {
     for (const [method, route] of [
       ["GET", "/state"],
       ["GET", "/events"],
+      ["GET", "/sessions"],
       ["POST", "/message"],
       ["POST", "/permission"],
+      ["POST", "/permission-mode"],
       ["POST", "/pause"],
       ["POST", "/exit"],
       ["GET", "/app/shell.js"],

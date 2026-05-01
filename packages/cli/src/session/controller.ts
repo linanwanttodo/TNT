@@ -4,7 +4,10 @@ import type { ChatHistoryItem } from "core/index.js";
 
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { captureRunSnapshot } from "../config/snapshot.js";
-import type { TerminationReason } from "../loop/termination.js";
+import {
+  isNormalTermination,
+  type TerminationReason,
+} from "../loop/termination.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { publishAgentEvent } from "../protocol/eventBus.js";
 import type { AgentEvent } from "../protocol/events.js";
@@ -111,11 +114,14 @@ export function startAgentTurn(options: AgentTurnOptions): AgentTurnController {
       );
 
       if (terminationRef.current) {
-        events.publish({
-          type: "turn.interrupted",
-          reason: terminationRef.current.reason,
-          notice: terminationRef.current.notice,
-        });
+        // The stream loop reports its exit reason for every turn, including
+        // the ordinary no-tool-calls ending; only truncations are interrupts.
+        const { reason, notice } = terminationRef.current;
+        if (isNormalTermination(reason as TerminationReason)) {
+          events.publish({ type: "turn.completed", content: response });
+        } else {
+          events.publish({ type: "turn.interrupted", reason, notice });
+        }
       } else if (abortController.signal.aborted) {
         events.publish({ type: "turn.interrupted", reason: "user_abort" });
       } else {
