@@ -5,7 +5,7 @@ import { builtInAgentByName } from "../subagent/builtInAgents.js";
 import { DEFAULT_TEAMS } from "./defaultTeams.js";
 
 describe("DEFAULT_TEAMS", () => {
-  it("exposes the dev team with the spec roster's twelve members", () => {
+  it("exposes the dev team with the spec roster's thirteen members", () => {
     const dev = DEFAULT_TEAMS.find((team) => team.name === "dev");
     expect(dev).toBeDefined();
     expect(dev!.members.map((m) => m.name).sort()).toEqual(
@@ -19,20 +19,22 @@ describe("DEFAULT_TEAMS", () => {
         "implementer",
         "project-manager",
         "requirements-analyst",
+        "research",
         "shell",
         "tester",
         "ui-designer",
       ].sort(),
     );
-    expect(dev!.members).toHaveLength(12);
+    expect(dev!.members).toHaveLength(13);
   });
 
-  it("exposes the sec team with its five members", () => {
+  it("exposes the sec team with its six members", () => {
     const sec = DEFAULT_TEAMS.find((team) => team.name === "sec");
     expect(sec).toBeDefined();
     expect(sec!.members.map((m) => m.name).sort()).toEqual(
       [
         "hacker",
+        "research",
         "reverse-engineer",
         "security-review",
         "shell",
