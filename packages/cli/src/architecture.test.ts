@@ -46,6 +46,9 @@ const KNOWN_MUTUAL_COUPLING = [
   "hooks <-> services",
   "permissions <-> services",
   "permissions <-> tools",
+  // TurnRunnerService arbitrates the drain loop over the shared message
+  // queue, which lives in stream; stream already imports services.
+  "services <-> stream",
   "services <-> startup",
   "services <-> subagent",
   "services <-> tools",
