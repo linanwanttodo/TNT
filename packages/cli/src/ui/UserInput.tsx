@@ -1051,8 +1051,8 @@ const UserInput: React.FC<UserInputProps> = ({
         onFilesUpdated={setCurrentFiles}
       />
 
-      {/* Goal and todo rows belong to the dock above the box; the mode badge
-          below is the box's own top border. */}
+      {/* Goal, todos and running background work belong to the dock above the
+          box; the mode badge below is the box's own top border. */}
       <GoalIndicator />
 
       <TodoIndicator />
