@@ -58,9 +58,16 @@
 
 **验证：** loader.test.ts 20 项全绿（含新增"安装后指纹变化自动重载"测试）；src/plugins 全量 136 项全绿；tsc 通过。安装/卸载路径已接入 invalidatePluginCache()（pluginInstall.ts:253、:361）。
 
+### 5. shouldAutoCompact 去 debug 全量 tokenize（commit 72f54865b）
+
+**做了什么：** `compaction/index.ts` 的 "Context usage check" 日志不再为打印 historyTokens 而对全历史跑 `countChatHistoryTokens`。
+
+**为什么：** 该字段对判定无用（决策已用 measured 或 countTotalInputTokens 的结果），每次压缩检查白白重编码全部消息。
+
+**验证：** src/compaction 100 项 + autoCompaction/measuredCompaction 13 项全绿，tsc 通过。
+
 ## 待办（按报告优先级）
 
-- P1：`shouldAutoCompact` 为 debug 日志全量 tokenize（compaction/index.ts:541）
 - P1：session meta 每次变更全量重写（session/index.ts）
 - P0（已确认就位，无需改）：DeepSeek usage 归一（openai-adapters/util.ts normalizeUsage 已认 `prompt_cache_hit_tokens`，OpenAI.ts 两条路径已接入，有测试）
 - P2：14 个服务启动期急切初始化；headless 阻塞 MCP 握手
