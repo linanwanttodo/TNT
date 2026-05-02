@@ -121,4 +121,5 @@ BLOCKED 四态）；TNT worklog 的"做了什么/为什么/依据/验证"四段�
 | debug / verification / security-review | 1、2、4、7                              |
 | hacker / reverse-engineer              | 1（授权边界写进提示词首段）、7          |
 | explore / shell / best-of-n            | 1                                       |
+| research                               | 1、7                                    |
 | 主 agent（领队注入段）                 | 2、5、6                                 |
