@@ -2,8 +2,6 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
-import { parseMarkdownRule, RuleObject } from "@tnt/config-yaml";
-
 import { env } from "../config/env.js";
 import { processRule } from "../config/hubLoader.js";
 import type { OutputFormat } from "../config/outputFormat.js";
@@ -15,8 +13,6 @@ import {
   selectForcedOutputStyle,
   type PluginOutputStyle,
 } from "../plugins/loader.js";
-import { serviceContainer } from "../services/ServiceContainer.js";
-import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
 import {
   getSessionActiveTeam,
   getSessionOutputStyle,
@@ -27,10 +23,15 @@ import { logger } from "../utils/logger.js";
 
 import { loadInstructionFile } from "./instructionIncludes.js";
 import {
+  getConfigYamlRules,
+  loadMarkdownRulesWithMetadata,
+} from "./markdownRules.js";
+import {
   PLAN_MODE_TEXT,
   profileSection,
   type PromptProfile,
 } from "./promptProfiles.js";
+import { joinSystemMessageSections } from "./systemMessageSections.js";
 
 // Static, because everything ahead of the user's own text is inside the cached
 // prefix of every request in the session.
@@ -90,14 +91,14 @@ export function formatGitStatus(raw: string): string {
 function getGitStatus(): string {
   if (gitStatusSnapshot === undefined) {
     try {
-      if (!isGitRepo()) {
-        gitStatusSnapshot = "Not a git repository";
-      } else {
+      if (isGitRepo()) {
         const result = execSync("git status --porcelain", {
           encoding: "utf-8",
           cwd: process.cwd(),
         });
         gitStatusSnapshot = formatGitStatus(result);
+      } else {
+        gitStatusSnapshot = "Not a git repository";
       }
     } catch {
       gitStatusSnapshot = "Git status not available";
@@ -210,114 +211,11 @@ ${getGitStatus()}
 </context>`;
 }
 
-async function getConfigYamlRules(): Promise<string[]> {
-  const configState = await serviceContainer.get<ConfigServiceState>(
-    SERVICE_NAMES.CONFIG,
-  );
-  if (configState.config?.rules) {
-    // Extract systemMessage from the config if it exists
-    const rules = configState.config.rules;
-    return rules
-      .map((rule) => {
-        return typeof rule === "string" ? rule : rule?.rule;
-      })
-      .filter((rule): rule is string => !!rule);
-  }
-
-  return [];
-}
-
-function getRuleNameFromPath(filePath: string): string {
-  const segments = filePath.split(/[/\\]/);
-  const lastTwoParts = segments.slice(-2);
-  return lastTwoParts.filter(Boolean).join("/").replace(/\.md$/, "");
-}
-
-/**
- * The tier deployed for the whole machine, ahead of any personal file. Operators
- * point it at their own path rather than mounting one at /etc.
- */
-export function managedRulesDir(): string {
-  const fromEnv = process.env.TNT_MANAGED_RULES_DIR;
-  if (fromEnv) return fromEnv;
-  return process.platform === "win32"
-    ? path.join(process.env.PROGRAMDATA ?? "C:\\ProgramData", "TNT", "rules")
-    : "/etc/tnt/rules";
-}
-
-/**
- * Scan the managed, user and project rules directories for markdown rule files
- * and return the rules with metadata that should be always-applied
- */
-export function loadMarkdownRulesWithMetadata(): RuleObject[] {
-  const cwd = process.cwd();
-  // Ordered least to most specific, the way the reference layers them: a rule
-  // deployed for the machine, then the user's own, then the project's.
-  const rulesDirs = [
-    managedRulesDir(),
-    path.join(env.continueHome, "rules"),
-    path.join(cwd, ".tnt", "rules"),
-  ];
-
-  const rules: RuleObject[] = [];
-
-  for (const dir of rulesDirs) {
-    if (!fs.existsSync(dir)) continue;
-
-    let files: string[];
-    try {
-      files = fs.readdirSync(dir, { recursive: true }) as string[];
-    } catch {
-      continue;
-    }
-    // Read order is not promised to be alphabetical, and the rules land in the
-    // cached prefix, so the listing is sorted before it is read.
-    files = files.map(String).sort();
-
-    for (const file of files) {
-      if (!String(file).endsWith(".md")) continue;
-
-      const filePath = path.join(dir, String(file));
-      try {
-        const stat = fs.statSync(filePath);
-        if (!stat.isFile()) continue;
-      } catch {
-        continue;
-      }
-
-      try {
-        const content = loadInstructionFile(filePath);
-        const { frontmatter, markdown } = parseMarkdownRule(content);
-
-        if (frontmatter.invokable) continue;
-
-        const isAlwaysApply =
-          frontmatter.alwaysApply === true ||
-          (frontmatter.alwaysApply === undefined &&
-            !frontmatter.globs &&
-            !frontmatter.regex);
-
-        if (isAlwaysApply && markdown.trim()) {
-          const ruleName =
-            frontmatter.name || getRuleNameFromPath(String(file));
-          rules.push({
-            name: ruleName,
-            rule: markdown,
-            description: frontmatter.description,
-            globs: frontmatter.globs,
-            regex: frontmatter.regex,
-            alwaysApply: true,
-            sourceFile: filePath,
-          });
-        }
-      } catch {
-        // Skip files that can't be read or parsed
-      }
-    }
-  }
-
-  return rules;
-}
+export {
+  getConfigYamlRules,
+  loadMarkdownRulesWithMetadata,
+  managedRulesDir,
+} from "./markdownRules.js";
 
 /**
  * Renders an output style as its own system message section. Returns an empty
@@ -607,126 +505,13 @@ Example response format:
  * The prefix is the concatenation of its sections, each of which already carries
  * the blank lines that separate it, so joining adds nothing.
  */
-/**
- * Each part of the prefix announces itself, and the report reads the prefix back
- * by those announcements instead of keeping a second list of what is where. The
- * drift guard is `systemMessage.sections.test.ts`, which rebuilds the prefix and
- * checks that the split recovers every part.
- */
-export const SYSTEM_SECTION_MARKERS: readonly {
-  name: string;
-  marker: string;
-}[] = [
-  { name: "planMode", marker: '<context name="planMode">' },
-  { name: "promptProfile", marker: '<context name="profile">' },
-  { name: "headless", marker: "IMPORTANT: You are running in headless mode" },
-  {
-    name: "jsonOutput",
-    marker: "IMPORTANT: You are operating in JSON output mode",
-  },
-  { name: "outputStyle", marker: '<context name="outputStyle"' },
-  { name: "userRules", marker: '<context name="userRules">' },
-  {
-    name: "environment",
-    marker:
-      "Here is useful information about the environment you are running in:",
-  },
-];
-
-/** The prefix cut back into its parts, keyed by section name. */
-export function splitSystemMessageBySections(
-  text: string,
-): Record<string, string> {
-  const found = SYSTEM_SECTION_MARKERS.map((entry) => ({
-    ...entry,
-    at: text.indexOf(entry.marker),
-  }))
-    .filter((entry) => entry.at >= 0)
-    .sort((a, b) => a.at - b.at);
-
-  const parts: Record<string, string> = {
-    base: found.length > 0 ? text.slice(0, found[0].at) : text,
-  };
-  found.forEach((entry, index) => {
-    const end = index + 1 < found.length ? found[index + 1].at : text.length;
-    parts[entry.name] = text.slice(entry.at, end);
-  });
-  return parts;
-}
-
-/**
- * Names the parts that differ between two builds of the prefix, in document
- * order. `prefixState` can only say that the system message moved; this is what
- * tells a user which of their own files moved, which is the part they can act
- * on. An empty string means the two texts are the same.
- */
-export function describeSystemMessageTextChange(
-  previous: string,
-  current: string,
-): string {
-  if (previous === current) {
-    return "";
-  }
-
-  const before = splitSystemMessageBySections(previous);
-  const after = splitSystemMessageBySections(current);
-  const names = Object.keys(after);
-  const moved: string[] = [];
-
-  for (const name of names) {
-    const was = before[name];
-    if (was === undefined) {
-      moved.push(`${name} added`);
-    } else if (was.trim() !== after[name].trim()) {
-      moved.push(`${name} rewritten`);
-    }
-  }
-  for (const name of Object.keys(before)) {
-    if (!names.includes(name)) {
-      moved.push(`${name} dropped`);
-    }
-  }
-
-  return moved.join("; ");
-}
-
-export function joinSystemMessageSections(
-  sections: readonly SystemMessageSection[],
-): string {
-  return sections.map((section) => section.text).join("");
-}
-
-/**
- * Names the parts that moved between two builds of the prefix, in the order the
- * new build has them. This is the whole point of sectioning the system message:
- * "systemMessage changed" tells a user nothing, "userRules rewritten" tells them
- * which file to stop editing mid-run.
- */
-export function describeSystemMessageChange(
-  previous: readonly SystemMessageSection[],
-  next: readonly SystemMessageSection[],
-): string {
-  const before = new Map(previous.map((section) => [section.name, section]));
-  const after = new Set(next.map((section) => section.name));
-
-  const moved: string[] = [];
-  for (const section of next) {
-    const was = before.get(section.name);
-    if (was === undefined) {
-      moved.push(`${section.name} added`);
-    } else if (was.text !== section.text) {
-      moved.push(`${section.name} rewritten`);
-    }
-    before.delete(section.name);
-  }
-  for (const [name] of before) {
-    if (!after.has(name)) {
-      moved.push(`${name} dropped`);
-    }
-  }
-
-  return moved.join("; ");
-}
+export {
+  SYSTEM_SECTION_MARKERS,
+  describeSystemMessageChange,
+  describeSystemMessageTextChange,
+  joinSystemMessageSections,
+  splitSystemMessageBySections,
+} from "./systemMessageSections.js";
 
 export async function constructSystemMessage(
   mode: PermissionMode,
