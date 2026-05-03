@@ -48,7 +48,7 @@
 
 **验证：** `ChatHistoryService.test.ts` 35 项全绿，含新增上限测试。
 
-### 4. 插件加载缓存（进行中）
+### 4. 插件加载缓存（commit 4ebaf9ec9）
 
 **做了什么：** `loadAllPlugins()` 按 cache roots 的 mtime 指纹 memoize；新增 `invalidatePluginCache()` 供原地修改插件文件后手动失效。
 
@@ -66,13 +66,21 @@
 
 **验证：** src/compaction 100 项 + autoCompaction/measuredCompaction 13 项全绿，tsc 通过。
 
+### 6. session meta 冗余重写（commit c2a527deb）
+
+**做了什么：** `session/store.ts` 的 `sync()` 在本次 diff 未产生任何 transcript 记录（`records.length === 0`）时提前返回，不再执行 `buildMeta()`（含一次 statSync）和 `writeMeta()`（temp+rename+chmod 的原子重写）。补测试：无变更的 sync 不改 meta.json 字节与 mtime，`updatedAt` 保持最后一次真实变更的时间。
+
+**为什么：** 勘误——最初分析说"session meta 每次变更全量重写"，实际读码后确认 transcript 本身已是 append-only（appendRecords），真正的浪费点是 meta.json 派生缓存：`saveSession()` 会在一个 turn 内被多次调用（ChatHistoryService 每次 stateChanged、useChat 各钩子），turn 内后几次调用往往零 diff，却仍各付一次 statSync + 原子重写。无变更时缓存本就准确，跳过同时让 `updatedAt` 与 `list()` 排序只反映真实变更。
+
+**依据来源：** claude-code 的不变即不写 memoize 模式（同第 1 项）；store.ts 原注释即声明 meta.json 是 "derived cache for listing"，派生缓存无变化不重写是该契约的自然延伸。
+
+**验证：** src/session + ChatHistoryService + ui/hooks 共 21 文件 193 项全绿（含新增第 12 条测试），tsc 通过。
+
 ## 待办（按报告优先级）
 
-- P1：session meta 每次变更全量重写（session/index.ts）
 - P0（已确认就位，无需改）：DeepSeek usage 归一（openai-adapters/util.ts normalizeUsage 已认 `prompt_cache_hit_tokens`，OpenAI.ts 两条路径已接入，有测试）
 - P2：14 个服务启动期急切初始化；headless 阻塞 MCP 握手
 - /team 专家团 v1（等设计评审）：六个人格进 builtInAgents.ts，Claude Code 的开发能力作为提示词与 agent 循环纪律的主要参考；Codex 的 UI 设计能力、pi 的纯净性为辅。
-  EOF
 
 ---
 
