@@ -97,8 +97,33 @@ describe("claimForToolCall", () => {
   });
 
   it("treats delegation and flow tools as exclusive", () => {
-    for (const name of ["Subagent", "Checklist", "Exit", "AskQuestion"]) {
+    for (const name of ["Checklist", "Exit", "AskQuestion"]) {
       expect(claimForToolCall(name, {}).exclusive).toBe(true);
     }
+  });
+
+  it("keys subagent calls by their declared files", () => {
+    const claim = claimForToolCall("Subagent", {
+      files: ["src/a.ts", "src/b.ts"],
+    });
+    expect(claim.exclusive).toBe(false);
+    expect(claim.keys).toEqual(["src/a.ts", "src/b.ts"]);
+  });
+
+  it("overlapping subagent file scopes normalize to the same key", () => {
+    const a = claimForToolCall("Subagent", { files: ["src/a.ts"] });
+    const b = claimForToolCall("Subagent", { files: ["./src/a.ts"] });
+    expect(a.keys).toEqual(b.keys);
+  });
+
+  it("falls back to the exclusive slot when files is absent", () => {
+    expect(claimForToolCall("Subagent", {})).toEqual({
+      exclusive: true,
+      keys: [],
+    });
+    expect(claimForToolCall("Subagent", { files: [] })).toEqual({
+      exclusive: true,
+      keys: [],
+    });
   });
 });
