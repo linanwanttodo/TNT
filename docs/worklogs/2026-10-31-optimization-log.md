@@ -98,4 +98,4 @@
 
 - 位置固定：`docs/worklogs/`（git 跟踪，跨会话可查；`.md` 不进 docsParity 发布站守卫）。
 - 每完成一个优化项并提交后，立即在本文件追加一节：做了什么 / 为什么 / 依据来源 / 验证方式。
-- 一天多项工作可用日期命名的独立文件，长期约定类内容（如 /team 设计决策）写在 `docs/superpowers/specs/`。
+- 一天多项工作可用日期命名的独立文件，长期约定类内容（如 /team 设计决策）写在 `.tnt/superpowers/specs/`（2026-10-31 起；此前误写为 `docs/superpowers/specs/`——该目录被 .gitignore 排除且在 docs 站构建的遍历树里，已整体迁移并写入 `.tnt/AGENTS.md` 的硬性约束）。

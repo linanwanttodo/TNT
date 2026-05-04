@@ -214,6 +214,7 @@ docs/superpowers/
 !.tnt/checks/
 !.tnt/agents/
 !.tnt/prompts/
+!.tnt/superpowers/
 .tnt/rules/*
 .tnt/checks/*
 .tnt/agents/*
