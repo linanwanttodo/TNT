@@ -4,6 +4,7 @@ import { services } from "../services/index.js";
 import { ModelService } from "../services/ModelService.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
+import { getSessionActiveTeam } from "../session/index.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
   generateSubagentToolDescription,
@@ -14,6 +15,7 @@ import {
   LIST_SUBAGENTS_TOOL_META,
   SUBAGENT_TOOL_META,
 } from "../subagent/index.js";
+import { loadTeams } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
@@ -160,7 +162,20 @@ export const listSubagentsTool = async (): Promise<Tool> => {
 
       for (const agent of getPluginAgents()) {
         const firstLine = agent.content.trim().split("\n")[0] ?? "";
-        lines.push(`- ${agent.name}: ${agent.description ?? firstLine}`);
+        lines.push(`- plugin:${agent.name}: ${agent.description ?? firstLine}`);
+      }
+
+      const activeTeamName = getSessionActiveTeam();
+      const activeTeam = activeTeamName
+        ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
+        : undefined;
+      if (activeTeam) {
+        for (const member of activeTeam.members) {
+          if (agents.some((agent) => agent.model.name === member.name)) {
+            continue;
+          }
+          lines.push(`- ${member.name}: ${member.description}`);
+        }
       }
 
       if (lines.length === 0) {

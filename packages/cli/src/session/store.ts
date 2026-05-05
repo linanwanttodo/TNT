@@ -98,6 +98,7 @@ export interface SessionInfoRecord {
   goal?: string;
   outputStyle?: string;
   promptProfile?: string;
+  activeTeam?: string;
 }
 
 export interface SessionRewindRecord {
@@ -169,6 +170,7 @@ interface SessionScalars {
   goal?: string;
   outputStyle?: string;
   promptProfile?: string;
+  activeTeam?: string;
 }
 
 interface BoundSession {
@@ -214,6 +216,7 @@ function scalarOf(session: Session): SessionScalars {
     goal: session.goal,
     outputStyle: session.outputStyle,
     promptProfile: session.promptProfile,
+    activeTeam: session.activeTeam,
   };
 }
 
@@ -369,6 +372,8 @@ function projectRecords(records: SessionRecord[]): {
         scalars.outputStyle = record.outputStyle;
       if (record.promptProfile !== undefined)
         scalars.promptProfile = record.promptProfile;
+      if (record.activeTeam !== undefined)
+        scalars.activeTeam = record.activeTeam;
     }
   }
 
@@ -670,6 +675,7 @@ export class SessionStore {
         goal: scalars.goal,
         outputStyle: scalars.outputStyle,
         promptProfile: scalars.promptProfile,
+        activeTeam: scalars.activeTeam,
       });
     }
 
@@ -954,6 +960,7 @@ export class SessionStore {
         goal: projected.scalars.goal,
         outputStyle: projected.scalars.outputStyle,
         promptProfile: projected.scalars.promptProfile,
+        activeTeam: projected.scalars.activeTeam,
         parentSessionId: projected.header.parentSessionId,
         subagentType: projected.header.subagentType,
         delegationDepth: projected.header.delegationDepth,
@@ -987,6 +994,7 @@ export class SessionStore {
         goal: projected.scalars.goal,
         outputStyle: projected.scalars.outputStyle,
         promptProfile: projected.scalars.promptProfile,
+        activeTeam: projected.scalars.activeTeam,
         parentSessionId: projected.header.parentSessionId,
         subagentType: projected.header.subagentType,
         delegationDepth: projected.header.delegationDepth,
@@ -1040,6 +1048,7 @@ export class SessionStore {
       goal: scalars.goal,
       outputStyle: scalars.outputStyle,
       promptProfile: scalars.promptProfile,
+      activeTeam: scalars.activeTeam,
     });
 
     this.writeTranscript(sessionId, records);
