@@ -17,7 +17,11 @@ import {
 } from "../plugins/loader.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
-import { getSessionOutputStyle } from "../session/index.js";
+import {
+  getSessionActiveTeam,
+  getSessionOutputStyle,
+} from "../session/index.js";
+import { getTeam } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
 import { loadInstructionFile } from "./instructionIncludes.js";
@@ -396,6 +400,22 @@ function memoryLayers(): string[] {
  * built, so a cached prefix only moves when a part actually changes.
  */
 /**
+ * The active team's lead prompt as its own context block, or nothing. The lead's
+ * prompt joins the rules it is supposed to shape, not the head of the prefix:
+ * activating a team or turning it off is a session decision and must not
+ * re-bill the static spine.
+ */
+function activeTeamLeadBlock(): string | undefined {
+  const activeTeamName = getSessionActiveTeam();
+  const activeTeam = activeTeamName
+    ? getTeam(activeTeamName, process.cwd())
+    : undefined;
+  if (!activeTeam) return undefined;
+
+  return `<context name="team-lead" source="${activeTeam.name}">\n${activeTeam.lead.systemMessage.trim()}\n</context>`;
+}
+
+/**
  * The prefix is the concatenation of its sections, each of which already carries
  * the blank lines that separate it, so joining adds nothing.
  */
@@ -547,10 +567,13 @@ Example response format:
 
   // The rules block is the last thing in the prefix, so its own wording stays
   // fixed and only the user's text changes.
-  if (agentContent || processedRules.length > 0) {
+  const teamLeadBlock = activeTeamLeadBlock();
+
+  if (agentContent || processedRules.length > 0 || teamLeadBlock) {
     const blocks = [RULES_PREAMBLE];
     if (agentContent) blocks.push(agentContent);
     blocks.push(...processedRules);
+    if (teamLeadBlock) blocks.push(teamLeadBlock);
 
     sections.push({
       name: "userRules",
