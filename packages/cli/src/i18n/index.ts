@@ -428,6 +428,8 @@ const en = {
   "team.created":
     "Team {name} scaffolded at {path}. Edit the lead prompt, add member files, then /team {name}.",
   "team.createFailed": "Could not write {path}: {message}",
+  "agent.goalAlignmentLine":
+    "Current session goal: {goal}. Align your work and decisions with this goal; confirm before acting on anything outside it.",
   "cmd.diagnostics": "Language server diagnostics",
   "cmd.index": "Codebase index",
   "index.usage": "Usage: /index [status] | /index embed [name]",
@@ -1106,6 +1108,8 @@ const zhCN: Record<TranslationKey, string> = {
   "team.created":
     "团队 {name} 已在 {path} 生成模板。编辑领队提示词、添加成员文件，然后 /team {name} 激活。",
   "team.createFailed": "无法写入 {path}：{message}",
+  "agent.goalAlignmentLine":
+    "当前会话目标：{goal}。你的工作与决策对齐此目标；目标外的事项先确认再动。",
   "cmd.diagnostics": "语言服务器诊断",
   "cmd.index": "代码库索引",
   "index.usage": "用法：/index [status] | /index embed [名称]",
