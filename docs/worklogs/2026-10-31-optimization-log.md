@@ -229,3 +229,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** `.tnt/superpowers/specs/2026-11-01-goal-prd-flow-design.md` 第五部分（九小节清单）与第三部分第 6、7、8 点；dsh-superagent-prototype 的状态词汇表与注意力经济结论已按附录裁决合并进 8.6/8.7。
 
 **验证：** 文档改动，无代码路径；prettier 经 lint-staged 通过；提交 095510cdf。
+
+## 16. goal 对齐行注入（goal-PRD 设计交付顺序第 2 步）
+
+**做了什么：** systemMessage.ts 新增 goalAlignmentBlock()：会话设有 goal 时，userRules volatile 节在 team-lead 块之前追加 `<context name="goal-align">` 块，内容为 i18n 的 `agent.goalAlignmentLine`（en/zh 成对：目标原文 + 对齐/越界先确认两条指令）。无 goal 时块不产生，userRules 节与现状逐字节一致；goal 增删改只重刷 userRules 节，静态 spine 不动。新增 systemMessage.goalAlignment.test.ts 五用例：无 goal 形状不变、有 goal 无团队仅对齐行、激活团队时对齐行与受理内容并存、/goal clear 下一 turn 消失、同 goal 两次构建文本一致（volatile latch）。
+
+**为什么：** 设计的通用层：goal 是会话级锚点，现状下 goal 无任何消费者；这是"主 agent 干活时对 goal 对齐与自检"的落地，未激活团队也生效。
+
+**依据：** spec 第三部分第 1 点（userRules volatile 节 goal 分行、独立成行）与第四部分层次一文本；交付顺序第 2 步。
+
+**验证：** RED：新用例 2 个先行失败（无 goal-align 块）；GREEN：src/agent 三套件 14 用例、src/i18n 19 用例全绿，systemPrefixFingerprint 四 digest 不变，tsc 干净。提交 291aff647。
