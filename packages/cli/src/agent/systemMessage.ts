@@ -21,6 +21,7 @@ import {
   getSessionActiveTeam,
   getSessionOutputStyle,
 } from "../session/index.js";
+import { builtInAgentByName } from "../subagent/builtInAgents.js";
 import { getTeam } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
@@ -412,7 +413,14 @@ function activeTeamLeadBlock(): string | undefined {
     : undefined;
   if (!activeTeam) return undefined;
 
-  return `<context name="team-lead" source="${activeTeam.name}">\n${activeTeam.lead.systemMessage.trim()}\n</context>`;
+  // A default team's lead is a builtInRef with an empty roster prompt; the
+  // prompt lives in the built-in registry, not on the member.
+  const lead = activeTeam.lead;
+  const leadPrompt = lead.builtInRef
+    ? (builtInAgentByName(lead.builtInRef)?.systemMessage ?? lead.systemMessage)
+    : lead.systemMessage;
+
+  return `<context name="team-lead" source="${activeTeam.name}">\n${leadPrompt.trim()}\n</context>`;
 }
 
 /**

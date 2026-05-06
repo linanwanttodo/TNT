@@ -105,4 +105,14 @@ describe("the active team lead prompt in the userRules section", () => {
       sections.find((section) => section.name === "userRules"),
     ).toBeUndefined();
   });
+
+  it("resolves a default team's builtInRef lead to the built-in prompt", async () => {
+    activeTeam.value = "sec";
+
+    const sections = await buildSystemMessageSections("default");
+    const rules = sections.find((section) => section.name === "userRules");
+
+    expect(rules?.text).toContain('source="sec"');
+    expect(rules?.text).toContain("security review agent");
+  });
 });
