@@ -259,3 +259,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec 第三部分第 3 点（受理纪律注入修订 Task 7）、第四部分层次二全文；交付顺序第 4 步（fingerprint 仅在 base 被触碰时同步——本次未触碰）。
 
 **验证：** RED：新受理契约用例 2 个先行失败（无 team-reception 块）；旧领队注入断言按设计更新。GREEN：src/agent 124 用例、src/team 19 用例、src/i18n 19 用例全绿；systemPrefixFingerprint 不变；tsc 干净。提交 700c36c90。
+
+## 19. 召集偏好开关与 /team 转呈语义（goal-PRD 设计交付顺序第 5 步）
+
+**做了什么：** settingsFiles.ts 新增 readSettingsBoolean()：与字符串读取器同优先级规则（六文件自低到高，后写覆盖），只有 JSON true/false 计数——"true" 字符串与数字 1 不猜测转换，未设置返回 undefined。ui/commands/handlers/team.ts 的激活输出追加 goal 语义：未设 goal 时附加 team.goalMissing（显式提示先 /goal，流程不静默启动；激活态本身照常写入，等待目标）；已设 goal 时附加 team.goalActive（引用目标原文 + 注意力转呈说明）。i18n en/zh 成对。对话发起的召集判定条款与 team.autoConvoke 的自动召集语义已编译进 agent-discipline.md 8.2（前置条目 15）与受理纪律注入文本（前置条目 18），偏好键名采用 `team.autoConvoke`（默认 false——读取器返回 undefined 时调用方按关闭处理）。
+
+**为什么：** 设计要求双入口：显式命令路径上"未设 goal → 明确报错不静默"是硬要求；偏好开关是"大目标自动召集"（C 方案）的数据面，默认 false 是反目标守卫（未开启时主 agent 不自动进流程）。
+
+**依据：** spec 第三部分第 2 点（召集判定双入口 + 偏好开关）、第五部分 8.2；交付顺序第 5 步。
+
+**验证：** RED：settingsFiles 布尔读取器 4 用例、team 命令 goal 语义 2 用例先行失败；GREEN 后 12 + 8 用例、src/i18n 19 用例、slashCommandsDoc 守卫 4 用例全绿，tsc 干净。提交 d08049ec5。
