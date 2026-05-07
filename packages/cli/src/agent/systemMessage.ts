@@ -18,7 +18,6 @@ import {
   getSessionGoal,
   getSessionOutputStyle,
 } from "../session/index.js";
-import { builtInAgentByName } from "../subagent/builtInAgents.js";
 import { getTeam } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
@@ -300,10 +299,13 @@ function memoryLayers(): string[] {
  * built, so a cached prefix only moves when a part actually changes.
  */
 /**
- * The active team's lead prompt as its own context block, or nothing. The lead's
- * prompt joins the rules it is supposed to shape, not the head of the prefix:
- * activating a team or turning it off is a session decision and must not
- * re-bill the static spine.
+ * The receptionist discipline for the active team as its own context block, or
+ * nothing. The main agent is the user's proxy arm while a team is active: it
+ * takes the goal in, forwards it to the PM, dispatches per the PM's written
+ * plan, reports back and escalates. It does not plan and does not wear the
+ * lead's hat - the lead prompt flows to the team subagent through the dispatch
+ * chain instead. Activation is a session decision and must not re-bill the
+ * static spine, so the block rides the volatile userRules channel.
  */
 function activeTeamLeadBlock(): string | undefined {
   const activeTeamName = getSessionActiveTeam();
@@ -312,14 +314,10 @@ function activeTeamLeadBlock(): string | undefined {
     : undefined;
   if (!activeTeam) return undefined;
 
-  // A default team's lead is a builtInRef with an empty roster prompt; the
-  // prompt lives in the built-in registry, not on the member.
-  const lead = activeTeam.lead;
-  const leadPrompt = lead.builtInRef
-    ? (builtInAgentByName(lead.builtInRef)?.systemMessage ?? lead.systemMessage)
-    : lead.systemMessage;
-
-  return `<context name="team-lead" source="${activeTeam.name}">\n${leadPrompt.trim()}\n</context>`;
+  return `<context name="team-reception" source="${activeTeam.name}">\n${t(
+    "agent.receptionistDiscipline",
+    { team: activeTeam.name },
+  )}\n</context>`;
 }
 
 /**
