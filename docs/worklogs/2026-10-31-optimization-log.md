@@ -239,3 +239,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec 第三部分第 1 点（userRules volatile 节 goal 分行、独立成行）与第四部分层次一文本；交付顺序第 2 步。
 
 **验证：** RED：新用例 2 个先行失败（无 goal-align 块）；GREEN：src/agent 三套件 14 用例、src/i18n 19 用例全绿，systemPrefixFingerprint 四 digest 不变，tsc 干净。提交 291aff647。
+
+## 17. PM 与需求分析提示词升级到 PRD 契约（goal-PRD 设计交付顺序第 3 步）
+
+**做了什么：** defaultTeams.ts 的 PM_PROMPT 从"领队：拆解、派 brief"改为"管理者：产出 PRD、跑 pre-mortem、写迭代计划、裁决迭代结果、更新 PRD 状态"：九节 PRD 结构与 .tnt/prd/ 位置、验收标准可判定性（PRD ≠ 功能清单）、变更必有记录（PRD ≠ 一次性文档）、pre-mortem 三项式风险条目、迭代闭环最小单位、五条件确定性状态机（8.8 的表格文字化）、六状态收口词汇与 PM 收口格式、dropped 静默关闭但写变更记录、verification 判定行机械转写契约。REQUIREMENTS_PROMPT 对齐 PRD 契约：素材供 PM、验收标准直接进 PRD、补非功能需求与 MoSCoW。TESTER_PROMPT 收口格式改为六状态首行 + 按条目编号引用。PM 成员描述同步，不再自称领队。派发职责未写入 PM 提示词（派发权在主 agent）。
+
+**为什么：** 设计对 Task 7 原设计的修订：主 agent 是受理臂不戴 PM 帽，PM 是产出书面计划的团队子代理；PRD 是团队共享状态板，PM 提示词是它的写入方契约。
+
+**依据：** spec 第一部分（流程总览与 Task 7 修订）、第二部分（PRD 九节格式）、第三部分第 3-6、8 点；docs/agent-discipline.md 第 8 节（上一条目落地的规范）。
+
+**验证：** RED：defaultTeams.test.ts 新增四用例先行失败（PM 无 PRD/pre-mortem/九节、收口无六状态词）；GREEN 后 src/team 两套件 19 用例、src/subagent 九套件 72 用例全绿，tsc 干净。提交 78cc84823。
