@@ -39,4 +39,18 @@ describe("the session-scoped system prompt series", () => {
 
     expect(systemPromptSeriesState("s2").previous).toBeUndefined();
   });
+
+  it("keeps the conversation making rounds and evicts only stale entries", () => {
+    resetSystemPromptSeries("live");
+    const live = systemPromptSeriesState("live");
+    live.previous = "the live head";
+
+    // Every request borrows the series, so the live conversation is read as
+    // the fillers pile up; the eviction must always land on an entry nobody
+    // has touched since.
+    for (let i = 0; i < 40; i++) {
+      systemPromptSeriesState(`filler-${i}`);
+      expect(systemPromptSeriesState("live")).toBe(live);
+    }
+  });
 });
