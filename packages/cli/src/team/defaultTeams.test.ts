@@ -77,4 +77,72 @@ describe("DEFAULT_TEAMS", () => {
       }
     }
   });
+
+  // The goal-PRD design redefines the PM from "lead who dispatches" to
+  // "manager who produces the PRD and the iteration plan"; dispatch stays with
+  // the main agent's receptionist arm.
+  it("defines the PM as the PRD manager, not a dispatcher", () => {
+    const dev = DEFAULT_TEAMS.find((team) => team.name === "dev")!;
+    const pm = dev.members.find((m) => m.name === "project-manager")!;
+
+    expect(pm.systemMessage).toMatch(/PRD/);
+    expect(pm.systemMessage).toContain("pre-mortem");
+    expect(pm.systemMessage).toContain("迭代计划");
+    expect(pm.systemMessage).toContain("变更记录");
+    // Dispatch is not the PM's job anymore.
+    expect(pm.systemMessage).not.toMatch(/派发 brief/);
+    // The PM owns the state vocabulary and the PRD state machine.
+    expect(pm.systemMessage).toMatch(/待开发/);
+    expect(pm.systemMessage).toMatch(/已验收/);
+  });
+
+  it("declares the PRD file contract with its nine sections", () => {
+    const dev = DEFAULT_TEAMS.find((team) => team.name === "dev")!;
+    const pm = dev.members.find((m) => m.name === "project-manager")!;
+
+    for (const section of [
+      "背景与目标",
+      "用户与场景",
+      "功能范围",
+      "详细需求",
+      "非功能需求",
+      "迭代计划",
+      "风险",
+      "变更记录",
+      "验收记录",
+    ]) {
+      expect(pm.systemMessage).toContain(section);
+    }
+    expect(pm.systemMessage).toContain(".tnt/prd/");
+  });
+
+  it("derives the requirements-analyst prompt from the PRD contract", () => {
+    const dev = DEFAULT_TEAMS.find((team) => team.name === "dev")!;
+    const analyst = dev.members.find((m) => m.name === "requirements-analyst")!;
+
+    expect(analyst.systemMessage).toContain("PRD");
+    // Every requirement must carry a decidable acceptance criterion.
+    expect(analyst.systemMessage).toMatch(/验收标准/);
+    expect(analyst.systemMessage).toMatch(/不可判定/);
+  });
+
+  it("closes every flow report with one of the six state words", () => {
+    const dev = DEFAULT_TEAMS.find((team) => team.name === "dev")!;
+    const pm = dev.members.find((m) => m.name === "project-manager")!;
+    const tester = dev.members.find((m) => m.name === "tester")!;
+
+    for (const state of [
+      "progress",
+      "waiting",
+      "ready",
+      "blocked",
+      "failed",
+      "dropped",
+    ]) {
+      expect(pm.systemMessage).toContain(state);
+      expect(tester.systemMessage).toContain(state);
+    }
+    // A draft in flight is not blocked.
+    expect(pm.systemMessage).toMatch(/草稿.*不算|不算.*blocked|未完成草稿/);
+  });
 });
