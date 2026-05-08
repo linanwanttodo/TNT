@@ -279,3 +279,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec 第三部分第 6、8 点；docs/agent-discipline.md 8.6/8.8；交付顺序第 6 步。
 
 **验证：** RED：两套件因模块缺失收集失败、随后 1 用例红（未通过回开发生的循环回接语义）；GREEN 后 src/team 34 用例全绿，tsc 干净。提交 5102c900c。
+
+## 21. 子代理生命周期事件接入 agent 事件总线（goal-PRD 设计交付顺序第 7 步）
+
+**做了什么：** protocol/events.ts 的 AgentEvent 联合类型新增三个 add-only 变体：subagent.started {agentName, prompt}、subagent.reported {agentName, content}、subagent.finished {agentName, content, success, verdict?}。subagent/executor.ts 新增函数级 emit()：publishAgentEvent 封套 {sessionId: 父会话 id, turnId: 子代理类型名, seq: 本生命周期内单调递增, timestamp}；childContext 建立后发 started，fireSubagentStop 后依次发 reported（response 全文）与 finished（success: true，parseVerdict 命中时带 verdict）；catch 块仅在生命周期已开始（nextSeq > 0）时发 finished {success: false, content: error.message}——模型解析失败等 started 之前的中途失败不发事件。事件进 agent 事件总线，webui 的 SSE 转发通道自动获得，WebUiService.ts 与 handlers/webui.ts 零改动。新增 executor.events.test.ts 两用例：成功路径 started/reported/finished 顺序与父会话封套、失败路径 finished success: false。
+
+**为什么：** 目标-PRD 流程的最后一根管道：前端（webui）需要在不进入主会话转写的情况下观察子代理派发、上报与收口；事件走既有总线而非新通道，保持"一个引擎、四个面"的输出词汇表统一。
+
+**依据：** `.tnt/superpowers/specs/2026-11-01-goal-prd-flow-design.md` 交付顺序第 7 步与事件契约（agentName + content 字段、既有封套形状）；AgentEventInput 分布式 Omit 类型复用 events.ts 既有定义。
+
+**验证：** RED：executor.events.test.ts 两用例先行失败（事件联合类型无变体、无事件发出）；GREEN 后 src/subagent + src/protocol + src/session 189 用例全绿，tsc 干净，prettier 经 lint-staged 通过。提交 5286218bc。
