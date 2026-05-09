@@ -79,14 +79,6 @@ export const STATE_TABLE: PrdStateRow[] = [
   },
 ];
 
-function lastIndexPass(entries: PrdEvidence[]): number {
-  let index = -1;
-  entries.forEach((entry, i) => {
-    if (entry.kind === "verification" && entry.verdict === "PASS") index = i;
-  });
-  return index;
-}
-
 export function prdStatusOf(
   requirement: string,
   evidence: PrdEvidence[],
