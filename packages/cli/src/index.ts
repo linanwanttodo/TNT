@@ -450,6 +450,50 @@ program
     await serve(prompt, mergedOptions);
   });
 
+// Web UI subcommand
+program
+  .command("webui [prompt]", { hidden: true })
+  .description(
+    "Host the web view of a session (loopback only); stop a long-running instance with `tnt webui stop`",
+  )
+  .option("--port <port>", "First port to probe (default 47610)")
+  .option(
+    "--host <addr>",
+    "Interface to bind (loopback only in v1: 127.0.0.1 or localhost)",
+  )
+  .option(
+    "--resume-session",
+    "Resume the most recent session instead of a new one",
+  )
+  .option("--no-open", "Print the URL without opening a browser")
+  .action(async (prompt, options) => {
+    const mergedOptions = mergeParentOptions(program, options);
+
+    if (mergedOptions.verbose) {
+      logger.setLevel("debug");
+      logger.debug("Verbose logging enabled");
+    }
+
+    if (prompt === "stop") {
+      const { stopWebuiProcess } = await import("./commands/webui.js");
+      const stopped = await stopWebuiProcess();
+      if (!stopped) {
+        console.error(t("webui.stopNoInstance"));
+        process.exitCode = 1;
+      }
+      return;
+    }
+
+    const { webui } = await import("./commands/webui.js");
+    await webui(prompt, {
+      port: mergedOptions.port,
+      host: mergedOptions.host,
+      resume: mergedOptions.resumeSession,
+      open: mergedOptions.open,
+      persistToken: true,
+    });
+  });
+
 // Checks subcommand
 program
   .command("checks [action] [pr-url]")
