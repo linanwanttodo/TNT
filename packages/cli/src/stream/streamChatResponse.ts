@@ -9,7 +9,6 @@ import { noteMeasuredRequest } from "../compaction/measuredContext.js";
 import { noteRequestSent } from "../compaction/microCompact.js";
 import { t } from "../i18n/index.js";
 import { OVERFLOW_RECOVERIES } from "../loop/terminalStop.js";
-import { getModelContextLimit } from "../utils/tokenizer.js";
 import {
   REQUEST_TIMEOUT_ABORT,
   describeTermination,
@@ -20,6 +19,7 @@ import { services } from "../services/index.js";
 import { applyChatCompletionToolOverrides } from "../tools/applyToolOverrides.js";
 import { readTodoState } from "../tools/todo.js";
 import { logger } from "../utils/logger.js";
+import { getModelContextLimit } from "../utils/tokenizer.js";
 
 import { getRequestTools, handleToolCalls } from "./handleToolCalls.js";
 import { processStreamingResponse } from "./processStreamingResponse.js";
