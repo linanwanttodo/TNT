@@ -15,6 +15,7 @@ import {
 } from "../plugins/loader.js";
 import {
   getSessionActiveTeam,
+  getSessionGoal,
   getSessionOutputStyle,
 } from "../session/index.js";
 import { builtInAgentByName } from "../subagent/builtInAgents.js";
@@ -322,6 +323,21 @@ function activeTeamLeadBlock(): string | undefined {
 }
 
 /**
+ * The session goal as its own context block, or nothing. The goal is generic
+ * session state (it applies with or without a team), so it rides the same
+ * volatile userRules channel as the team block: setting, changing or clearing
+ * it re-renders only that section and never moves the cached spine.
+ */
+function goalAlignmentBlock(): string | undefined {
+  const goal = getSessionGoal();
+  if (!goal) return undefined;
+
+  return `<context name="goal-align">\n${t("agent.goalAlignmentLine", {
+    goal: goal.trim(),
+  })}\n</context>`;
+}
+
+/**
  * The prefix is the concatenation of its sections, each of which already carries
  * the blank lines that separate it, so joining adds nothing.
  */
@@ -474,11 +490,13 @@ Example response format:
   // The rules block is the last thing in the prefix, so its own wording stays
   // fixed and only the user's text changes.
   const teamLeadBlock = activeTeamLeadBlock();
+  const goalBlock = goalAlignmentBlock();
 
-  if (agentContent || processedRules.length > 0 || teamLeadBlock) {
+  if (agentContent || processedRules.length > 0 || teamLeadBlock || goalBlock) {
     const blocks = [RULES_PREAMBLE];
     if (agentContent) blocks.push(agentContent);
     blocks.push(...processedRules);
+    if (goalBlock) blocks.push(goalBlock);
     if (teamLeadBlock) blocks.push(teamLeadBlock);
 
     sections.push({
