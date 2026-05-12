@@ -23,12 +23,19 @@ export function sessionTitle(
   return `${GLYPH[status]}${name ? ` ${name}` : ""}`;
 }
 
+/**
+ * C0 controls and DEL. A title has no use for any of them, and two of them
+ * (BEL and ESC) end an OSC string, so a name that carries one injects
+ * whatever follows into the terminal.
+ */
+const TITLE_CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
+
 /** Writes the OSC 2 title escape. Kept injectable for tests. */
 export function writeTerminalTitle(text: string): void {
   if (!process.stdout.isTTY) {
     return;
   }
-  process.stdout.write(`\x1b]2;${text}\x07`);
+  process.stdout.write(`\x1b]2;${text.replace(TITLE_CONTROL_CHARS, "")}\x07`);
 }
 
 /**
