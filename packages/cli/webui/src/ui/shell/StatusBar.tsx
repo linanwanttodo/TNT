@@ -27,6 +27,8 @@ export interface StatusBarProps {
   model?: string | undefined;
   /** The routing group the model belongs to. */
   modelDetail?: string | undefined;
+  /** Whether a turn is running now; the strip shows its spinner only then. */
+  waiting?: boolean | undefined;
 }
 
 /** Label the pill shows for a mode; unknown modes render verbatim. */
@@ -41,12 +43,13 @@ function modeLabel(mode: string | undefined): string {
  * @returns the status bar element.
  */
 export function StatusBar({
-  host = "This computer",
-  workspace = "continue",
-  worktree = true,
+  host,
+  workspace,
+  worktree,
   permissionMode = "default",
-  model = "",
-  modelDetail = "routing group 1M",
+  model,
+  modelDetail,
+  waiting = false,
 }: StatusBarProps) {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<PermissionMode | string | undefined>(
@@ -94,22 +97,28 @@ export function StatusBar({
 
   return (
     <footer className={css.statusBar}>
-      <span className={css.entries}>
-        <span className={css.entry}>
-          <ShellIcon glyph="laptop" size={14} className={css.entryIcon} />
-          <span>{host}</span>
+      {host || workspace || worktree ? (
+        <span className={css.entries}>
+          {host ? (
+            <span className={css.entry}>
+              <ShellIcon glyph="laptop" size={14} className={css.entryIcon} />
+              <span>{host}</span>
+            </span>
+          ) : null}
+          {workspace ? (
+            <span className={css.entry}>
+              <ShellIcon glyph="folder" size={14} className={css.entryIcon} />
+              <span>{workspace}</span>
+            </span>
+          ) : null}
+          {worktree ? (
+            <span className={css.worktree}>
+              <ShellIcon glyph="branch" size={12} />
+              <span>Worktree</span>
+            </span>
+          ) : null}
         </span>
-        <span className={css.entry}>
-          <ShellIcon glyph="folder" size={14} className={css.entryIcon} />
-          <span>{workspace}</span>
-        </span>
-        {worktree ? (
-          <span className={css.worktree}>
-            <ShellIcon glyph="branch" size={12} />
-            <span>Worktree</span>
-          </span>
-        ) : null}
-      </span>
+      ) : null}
       <span className={css.right}>
         <span className={css.modeAnchor} ref={menuRef}>
           {open ? (
@@ -144,12 +153,16 @@ export function StatusBar({
             {modeLabel(current)}
           </button>
         </span>
-        <span className={css.model}>
-          {model}
-          {model ? " · " : ""}
-          {modelDetail}
-        </span>
-        <span className={css.spinner} aria-hidden="true" />
+        {model || modelDetail ? (
+          <span className={css.model}>
+            {model}
+            {model && modelDetail ? " · " : ""}
+            {modelDetail}
+          </span>
+        ) : null}
+        {waiting ? (
+          <span className={css.spinner} data-waiting="" aria-hidden="true" />
+        ) : null}
       </span>
     </footer>
   );

@@ -71,4 +71,20 @@ describe("status bar", () => {
     rerender(<StatusBar permissionMode="plan" />);
     expect(screen.getByRole("button", { name: "Plan" })).toBeTruthy();
   });
+
+  it("shows no host, worktree or routing group it was not told", () => {
+    const { container } = render(<StatusBar permissionMode="default" />);
+    // The strip used to default these to invented text, so it stated facts
+    // the session never reported.
+    expect(screen.queryByText("This computer")).toBeNull();
+    expect(screen.queryByText("Worktree")).toBeNull();
+    expect(container.textContent).not.toContain("routing group");
+  });
+
+  it("shows the spinner only while a turn runs", () => {
+    const { container, rerender } = render(<StatusBar permissionMode="auto" />);
+    expect(container.querySelector("[data-waiting]")).toBeNull();
+    rerender(<StatusBar permissionMode="auto" waiting />);
+    expect(container.querySelector("[data-waiting]")).toBeTruthy();
+  });
 });
