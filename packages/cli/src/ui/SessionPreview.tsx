@@ -13,6 +13,7 @@ import { t } from "../i18n/index.js";
 import { ScrollBarColumn } from "./components/ScrollBarColumn.js";
 import { defaultBoxStyles } from "./styles.js";
 import { scrollbarGeometry } from "./utils/scrollbar.js";
+import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 
 interface SessionPreviewProps {
   chatHistory: ChatHistoryItem[];
@@ -97,7 +98,9 @@ export function SessionPreview({
 
         // Skip empty assistant messages
         if (item.message.role === "assistant") {
-          const content = formatMessageContent(item.message.content);
+          const content = sanitizeTerminalText(
+            formatMessageContent(item.message.content),
+          );
           if (!content || content.trim() === "") return false;
         }
 
@@ -105,7 +108,9 @@ export function SessionPreview({
       })
       .map((item) => ({
         role: item.message.role,
-        content: formatMessageContent(item.message.content),
+        content: sanitizeTerminalText(
+          formatMessageContent(item.message.content),
+        ),
       }));
   }, [chatHistory]);
 

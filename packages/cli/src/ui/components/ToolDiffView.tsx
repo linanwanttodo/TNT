@@ -7,6 +7,7 @@ import {
   languageFromFileName,
 } from "../SyntaxHighlighter.js";
 import { useTheme, type Theme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 export interface ParsedDiffLine {
   type: "add" | "del" | "context" | "hunk" | "meta";
@@ -184,13 +185,19 @@ export interface ToolDiffViewProps {
  */
 export const ToolDiffView = memo<ToolDiffViewProps>(
   ({
-    diffContent,
+    diffContent: untrustedDiffContent,
     expanded,
     maxExpandedLines = 60,
     collapsedLines = 4,
     customTheme,
   }) => {
     const activeTheme = customTheme ?? useTheme();
+    // A diff's lines are file contents: an escape inside a changed line would
+    // otherwise reach the terminal as soon as the row is drawn.
+    const diffContent = useMemo(
+      () => sanitizeTerminalText(untrustedDiffContent),
+      [untrustedDiffContent],
+    );
     const parsedLines = useMemo(
       () => parseDiffLines(diffContent),
       [diffContent],
