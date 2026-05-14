@@ -8,7 +8,10 @@ import { create } from "zustand";
 import type { AgentEvent, ToolStatusName } from "../types/agent-events.js";
 import {
   approve as postApproval,
+  fetchState,
   sendMessage as postMessage,
+  startSession as postStartSession,
+  switchSession as postSwitchSession,
 } from "../api/client.js";
 import type { ConnStatus } from "../api/client.js";
 
@@ -49,6 +52,11 @@ export interface PendingPermission {
 }
 
 interface SessionState {
+  sessionId: string | null;
+  /** Title the server gave the conversation, or null before the first turn. */
+  title: string | null;
+  /** Model label the server reports for the session. */
+  chatModelTitle: string | null;
   items: ChatItem[];
   /** Assistant text still arriving; null between turns. */
   streaming: string | null;
@@ -63,14 +71,28 @@ interface SessionState {
   applyEvent: (event: AgentEvent) => void;
   hydrate: (state: {
     history?: unknown[];
+    session?: { history?: unknown[] } | unknown;
     pendingPermission?: unknown;
   }) => void;
   send: (text: string) => Promise<void>;
   approve: (approved: boolean) => Promise<void>;
+  /**
+   * Point the server at a saved conversation. Resolves with the session id
+   * on success, or null when the server refused (the transcript stays).
+   */
+  switchTo: (sessionId: string) => Promise<string | null>;
+  /**
+   * Start a fresh conversation. Resolves with the new session id, or null
+   * when the server refused (the transcript stays).
+   */
+  startNew: () => Promise<string | null>;
   setStatus: (status: ConnStatus) => void;
 }
 
 export const useSessionStore = create<SessionState>()((set, get) => ({
+  sessionId: null,
+  title: null,
+  chatModelTitle: null,
   items: [],
   streaming: null,
   reasoning: null,
@@ -182,7 +204,16 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         set({ streaming: null, reasoning: null, isWaiting: false });
         break;
       case "session.changed":
-        set({ items: [], streaming: null, isWaiting: false });
+        // Another tab pointed the process at a different conversation; this
+        // tab re-pulls the snapshot rather than trusting the bare event.
+        set({ items: [], streaming: null, isWaiting: false, sessionId: null });
+        void fetchState()
+          .then((snapshot) => {
+            const current = get();
+            // Only apply if no local switch landed in between.
+            if (current.sessionId === null) get().hydrate(snapshot);
+          })
+          .catch(() => {});
         break;
     }
   },
@@ -229,7 +260,16 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   },
 
   hydrate: (state) => {
-    const items = (state.history ?? []).flatMap((item): ChatItem[] => {
+    // /state nests the transcript under session.history; some callers pass a
+    // bare {history} shape. Both must seed the transcript.
+    const session = (state.session ?? {}) as {
+      sessionId?: unknown;
+      title?: unknown;
+      chatModelTitle?: unknown;
+      history?: unknown[];
+    };
+    const history = state.history ?? session.history ?? [];
+    const items = history.flatMap((item): ChatItem[] => {
       const message = (
         item as { message?: { role?: string; content?: unknown } }
       ).message;
@@ -249,6 +289,15 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       | null
       | undefined;
     set({
+      sessionId:
+        typeof session.sessionId === "string"
+          ? session.sessionId
+          : get().sessionId,
+      title: typeof session.title === "string" ? session.title : get().title,
+      chatModelTitle:
+        typeof session.chatModelTitle === "string"
+          ? session.chatModelTitle
+          : get().chatModelTitle,
       items,
       pendingPermission:
         pending &&
@@ -262,6 +311,56 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             }
           : null,
     });
+  },
+
+  switchTo: async (sessionId) => {
+    try {
+      const snapshot = await postSwitchSession(sessionId);
+      get().hydrate(snapshot);
+      set({
+        // A stale watermark from the old conversation must not swallow the
+        // new session's first turn events.
+        streaming: null,
+        reasoning: null,
+        isWaiting: false,
+        notices: [],
+        seenTurnId: null,
+        seenSeq: -1,
+      });
+      return (snapshot.session as { sessionId?: string }).sessionId ?? null;
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+      return null;
+    }
+  },
+
+  startNew: async () => {
+    try {
+      const snapshot = await postStartSession();
+      get().hydrate(snapshot);
+      set({
+        streaming: null,
+        reasoning: null,
+        isWaiting: false,
+        notices: [],
+        seenTurnId: null,
+        seenSeq: -1,
+      });
+      return (snapshot.session as { sessionId?: string }).sessionId ?? null;
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+      return null;
+    }
   },
 
   setStatus: (status) => set({ status }),

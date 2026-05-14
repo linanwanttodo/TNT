@@ -28,15 +28,21 @@ const { approveSpy, rejectSpy, startDrainingSpy, requestStopSpy } = vi.hoisted(
   }),
 );
 
-const { listSessionsSpy } = vi.hoisted(() => ({
-  listSessionsSpy: vi.fn(async () => [] as unknown[]),
-}));
+const { listSessionsSpy, startNewSessionSpy, selectSessionSpy } = vi.hoisted(
+  () => ({
+    listSessionsSpy: vi.fn(async () => [] as unknown[]),
+    startNewSessionSpy: vi.fn(),
+    selectSessionSpy: vi.fn(() => null as unknown),
+  }),
+);
 
 vi.mock("../session/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../session/index.js")>();
   return {
     ...actual,
     listSessions: listSessionsSpy,
+    startNewSession: startNewSessionSpy,
+    selectSession: selectSessionSpy,
   };
 });
 
@@ -405,6 +411,99 @@ describe("WebUiService", () => {
     });
     expect(body.sessions[1]?.updatedAt).toBeUndefined();
     expect(listSessionsSpy).toHaveBeenCalled();
+  });
+
+  it("refuses the session routes when the process does not own its session", async () => {
+    const { base, auth } = await started();
+
+    const created = await fetch(`${base}/session/new`, {
+      method: "POST",
+      headers: auth,
+    });
+    expect(created.status).toBe(403);
+
+    const selected = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "session-b" }),
+    });
+    expect(selected.status).toBe(403);
+    expect(startNewSessionSpy).not.toHaveBeenCalled();
+    expect(selectSessionSpy).not.toHaveBeenCalled();
+  });
+
+  it("starts a new session on POST /session/new and returns its snapshot", async () => {
+    const created = {
+      sessionId: "session-fresh",
+      title: "",
+      workspaceDirectory: process.cwd(),
+      history: [
+        { message: { role: "system", content: "sys" }, contextItems: [] },
+      ],
+    };
+    startNewSessionSpy.mockReturnValueOnce(created);
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/new`, {
+      method: "POST",
+      headers: auth,
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      session: { sessionId: string; title: string };
+    };
+    expect(body.session.sessionId).toBe("session-fresh");
+    expect(startNewSessionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an empty sessionId on POST /session/select", async () => {
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "" }),
+    });
+    expect(response.status).toBe(400);
+    expect(selectSessionSpy).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 when the requested session does not exist", async () => {
+    selectSessionSpy.mockReturnValueOnce(null);
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "session-gone" }),
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it("selects an existing session and returns its snapshot", async () => {
+    const selected = {
+      sessionId: "session-b",
+      title: "Second conversation",
+      workspaceDirectory: "/work/beta",
+      history: [
+        { message: { role: "user", content: "earlier" }, contextItems: [] },
+      ],
+    };
+    selectSessionSpy.mockReturnValueOnce(selected);
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "session-b" }),
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      session: { sessionId: string; title: string };
+    };
+    expect(body.session.sessionId).toBe("session-b");
+    expect(body.session.title).toBe("Second conversation");
+    expect(selectSessionSpy).toHaveBeenCalledWith("session-b");
   });
 
   it("reports the first pending permission in GET /state", async () => {
