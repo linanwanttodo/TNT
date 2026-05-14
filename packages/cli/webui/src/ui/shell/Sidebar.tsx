@@ -1,19 +1,23 @@
 /**
- * The left rail: the icon row, the Cowork/Code switch, the New button, the
- * navigation rows, the conversation list and the account row.
+ * The left rail: the panel toggle, the Code view label, the New button, the
+ * conversation list and the account row.
  *
  * The geometry is the one the Claude Code desktop shell draws, measured off a
  * 1x capture: a 200px rail, an 8px gutter, a 28px segmented switch and a
  * 30px conversation row.
+ *
+ * Everything rendered here is wired: the toggle collapses the rail, New and
+ * the group plus start conversations, a row selects its session, a group
+ * header folds its list, and the account row opens the settings menu.
+ * Controls the v1 engine does not back (Cowork, Routines, Customize, More,
+ * the back and forward arrows) are left out rather than drawn dead.
  */
-import {
-  IconChevronDownOutlineRegular,
-  IconEllipsisOutlineRegular,
-  IconSearchOutlineRegular,
-} from "../primitives/icons/index.tsx";
+import { useState } from "react";
+import { IconChevronDownOutlineRegular } from "../primitives/icons/index.tsx";
 
-import type { SessionSummary } from "../../api/client.ts";
+import type { PermissionMode, SessionSummary } from "../../api/client.ts";
 import { ShellIcon } from "./icons.tsx";
+import { SettingsMenu } from "./SettingsMenu.tsx";
 import css from "./Sidebar.module.css";
 
 /** One group of conversations in the sidebar list. */
@@ -30,8 +34,17 @@ export interface SidebarProps {
   activeSessionId?: string | undefined;
   onSelectSession?: ((sessionId: string) => void) | undefined;
   onNewSession?: (() => void) | undefined;
+  /** Collapse or expand the rail; the panel toggle drives it. */
+  collapsed?: boolean | undefined;
+  onToggleCollapsed?: (() => void) | undefined;
   /** Connection state, shown as a dot beside the account name. */
   status?: "live" | "reconnecting" | "offline" | undefined;
+  /** Mode the settings menu checks; undefined until /state lands. */
+  permissionMode?: string | undefined;
+  onSetPermissionMode?: ((mode: PermissionMode) => void) | undefined;
+  /** Facts the settings menu shows. */
+  model?: string | undefined;
+  workspaceDirectory?: string | undefined;
 }
 
 /**
@@ -77,15 +90,40 @@ export function Sidebar({
   activeSessionId,
   onSelectSession,
   onNewSession,
+  collapsed = false,
+  onToggleCollapsed,
   status = "live",
+  permissionMode,
+  onSetPermissionMode,
+  model,
+  workspaceDirectory,
 }: SidebarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [folded, setFolded] = useState<Set<string>>(new Set());
+
+  const toggleFold = (name: string) => {
+    setFolded((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  };
+
   return (
-    <aside className={css.sidebar}>
+    <aside className={css.sidebar} data-collapsed={collapsed}>
       <div className={css.iconRow}>
-        <ShellIcon glyph="menu" className={css.iconButton} />
-        <ShellIcon glyph="panel-left" className={css.iconButton} />
-        <ShellIcon glyph="arrow-left" className={css.iconButton} />
-        <ShellIcon glyph="arrow-right" className={css.iconButton} />
+        <button
+          type="button"
+          className={css.iconButton}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={onToggleCollapsed}
+        >
+          <ShellIcon glyph="panel-left" />
+        </button>
       </div>
 
       <div className={css.segmented} role="tablist" aria-label="Workspace">
@@ -93,15 +131,6 @@ export function Sidebar({
           type="button"
           role="tab"
           className={css.segment}
-          aria-selected={false}
-        >
-          <ShellIcon glyph="cowork" size={12} />
-          <span>Cowork</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`${css.segment} ${css.segmentActive}`}
           aria-selected={true}
         >
           <ShellIcon glyph="code-brackets" size={12} />
@@ -114,75 +143,85 @@ export function Sidebar({
         <span>New</span>
       </button>
 
-      <nav className={css.nav}>
-        <button type="button" className={css.navRow}>
-          <ShellIcon glyph="clock" size={12} />
-          <span>Routines</span>
-        </button>
-        <button type="button" className={css.navRow}>
-          <ShellIcon glyph="toolbox" size={12} />
-          <span>Customize</span>
-        </button>
-        <button type="button" className={css.navRow}>
-          <ShellIcon glyph="dots" size={12} />
-          <span>More</span>
-        </button>
-      </nav>
-
       <div className={css.sessionList}>
-        {groups.map((group) => (
-          <section key={group.name} className={css.group}>
-            <header className={css.groupHeader}>
-              <span className={css.groupName}>
-                {group.name}
-                <IconChevronDownOutlineRegular
-                  size={14}
-                  className={css.groupChevron}
-                />
-              </span>
-              <button
-                type="button"
-                className={css.groupAdd}
-                aria-label={`New session in ${group.name}`}
-              >
-                <ShellIcon glyph="plus" size={12} />
-              </button>
-            </header>
-            {group.sessions.map((session) => (
-              <button
-                type="button"
-                key={session.sessionId}
-                className={css.sessionRow}
-                data-active={session.sessionId === activeSessionId}
-                onClick={() => onSelectSession?.(session.sessionId)}
-              >
-                <span className={css.sessionTitle}>{session.title}</span>
-                <ShellIcon
-                  glyph="branch"
-                  size={12}
-                  className={css.sessionBadge}
-                />
-                <IconEllipsisOutlineRegular
-                  size={14}
-                  className={css.sessionMenu}
-                />
-              </button>
-            ))}
-          </section>
-        ))}
+        {groups.map((group) => {
+          const isFolded = folded.has(group.name);
+          return (
+            <section key={group.name} className={css.group}>
+              <header className={css.groupHeader}>
+                <button
+                  type="button"
+                  className={css.groupNameButton}
+                  aria-expanded={!isFolded}
+                  onClick={() => toggleFold(group.name)}
+                >
+                  <IconChevronDownOutlineRegular
+                    size={14}
+                    className={css.groupChevron}
+                    data-folded={isFolded}
+                  />
+                  <span className={css.groupName}>{group.name}</span>
+                </button>
+                <button
+                  type="button"
+                  className={css.groupAdd}
+                  aria-label={`New session in ${group.name}`}
+                  onClick={onNewSession}
+                >
+                  <ShellIcon glyph="plus" size={12} />
+                </button>
+              </header>
+              {isFolded
+                ? null
+                : group.sessions.map((session) => (
+                    <button
+                      type="button"
+                      key={session.sessionId}
+                      className={css.sessionRow}
+                      data-active={session.sessionId === activeSessionId}
+                      onClick={() => onSelectSession?.(session.sessionId)}
+                    >
+                      <span className={css.sessionTitle}>{session.title}</span>
+                      <ShellIcon
+                        glyph="branch"
+                        size={12}
+                        className={css.sessionBadge}
+                      />
+                    </button>
+                  ))}
+            </section>
+          );
+        })}
       </div>
 
-      <div className={css.account}>
-        <ShellIcon glyph="sunburst" size={16} className={css.accountMark} />
-        <span className={css.accountName}>lin</span>
-        <span className={css.accountSeparator}>·</span>
-        <span className={css.accountGateway}>Gateway</span>
-        <IconChevronDownOutlineRegular
-          size={14}
-          className={css.accountChevron}
-        />
-        <span className={css.accountStatus} data-status={status} />
-        <IconSearchOutlineRegular size={14} className={css.accountSearch} />
+      <div className={css.accountWrap}>
+        {menuOpen ? (
+          <SettingsMenu
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            permissionMode={permissionMode}
+            onSetPermissionMode={onSetPermissionMode}
+            model={model ?? ""}
+            workspaceDirectory={workspaceDirectory ?? null}
+          />
+        ) : null}
+        <button
+          type="button"
+          className={css.account}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <ShellIcon glyph="sunburst" size={16} className={css.accountMark} />
+          <span className={css.accountName}>lin</span>
+          <span className={css.accountSeparator}>·</span>
+          <span className={css.accountGateway}>Gateway</span>
+          <IconChevronDownOutlineRegular
+            size={14}
+            className={css.accountChevron}
+          />
+          <span className={css.accountStatus} data-status={status} />
+        </button>
       </div>
     </aside>
   );

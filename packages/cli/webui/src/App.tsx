@@ -9,7 +9,9 @@ import {
   connectEvents,
   fetchSessions,
   fetchState,
+  setPermissionMode,
   stopTurn,
+  type PermissionMode,
   type SessionSummary,
 } from "./api/client.js";
 import { useSessionStore } from "./stores/session-store.js";
@@ -17,6 +19,7 @@ import { ChatView } from "./ui/chat/ChatView.tsx";
 import { Composer } from "./ui/chat/Composer.tsx";
 import { chatLabels } from "./ui/chat/labels.js";
 import { EmptyState } from "./ui/shell/EmptyState.tsx";
+import { SettingsMenu } from "./ui/shell/SettingsMenu.tsx";
 import { Sidebar, groupSessions } from "./ui/shell/Sidebar.tsx";
 import { StatusBar } from "./ui/shell/StatusBar.tsx";
 import { TitleBar } from "./ui/shell/TitleBar.tsx";
@@ -29,6 +32,9 @@ const DEFAULT_TITLE = "New session";
 const DEFAULT_MODEL = "Deepseek-V4.1-Flash";
 
 export function App() {
+  const sessionId = useSessionStore((s) => s.sessionId);
+  const title = useSessionStore((s) => s.title);
+  const chatModelTitle = useSessionStore((s) => s.chatModelTitle);
   const items = useSessionStore((s) => s.items);
   const streaming = useSessionStore((s) => s.streaming);
   const reasoning = useSessionStore((s) => s.reasoning);
@@ -43,9 +49,9 @@ export function App() {
   const setStatus = useSessionStore((s) => s.setStatus);
 
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [title, setTitle] = useState(DEFAULT_TITLE);
-  const [model, setModel] = useState(DEFAULT_MODEL);
-  const [permissionMode, setPermissionMode] = useState<string | undefined>();
+  const [collapsed, setCollapsed] = useState(false);
+  const [permissionMode, setMode] = useState<string | undefined>();
+  const [composerMenuOpen, setComposerMenuOpen] = useState(false);
 
   const hydrate = useSessionStore((s) => s.hydrate);
 
@@ -57,18 +63,9 @@ export function App() {
     void fetchState()
       .then((state) => {
         hydrate(state);
-        const session = state.session;
-        if (!session) return;
-        if (typeof session.title === "string" && session.title !== "") {
-          setTitle(session.title);
-        }
-        const chatModel = session.chatModelTitle;
-        if (typeof chatModel === "string" && chatModel !== "") {
-          setModel(chatModel);
-        }
         const mode = (state as { permissionMode?: unknown }).permissionMode;
         if (typeof mode === "string" && mode !== "") {
-          setPermissionMode(mode);
+          setMode(mode);
         }
       })
       .catch(() => {});
@@ -95,14 +92,59 @@ export function App() {
   const groups = useMemo(() => groupSessions(sessions), [sessions]);
   const isEmpty = items.length === 0 && streaming === null && !isWaiting;
 
+  const onNewSession = () => void useSessionStore.getState().startNew();
+  const onSelectSession = (id: string) =>
+    void useSessionStore.getState().switchTo(id);
+  const onPickSuggestion = () => {
+    setMode("auto");
+    void setPermissionMode("auto")
+      .then((next) => setMode(next))
+      .catch(() => setMode(permissionMode));
+  };
+
+  const applyMode = (mode: PermissionMode) => {
+    setMode(mode);
+    void setPermissionMode(mode)
+      .then((next) => setMode(next))
+      .catch(() => setMode(permissionMode));
+  };
+
   return (
     <div className={css.shell}>
-      <Sidebar groups={groups} status={status} />
-      <main className={css.canvas}>
-        <TitleBar title={title} />
+      <Sidebar
+        groups={groups}
+        status={status}
+        activeSessionId={sessionId ?? undefined}
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((c) => !c)}
+        onNewSession={onNewSession}
+        onSelectSession={onSelectSession}
+        permissionMode={permissionMode}
+        onSetPermissionMode={applyMode}
+        model={chatModelTitle ?? DEFAULT_MODEL}
+        workspaceDirectory={
+          sessions.find((s) => s.sessionId === sessionId)?.workspaceDirectory ??
+          sessions[0]?.workspaceDirectory
+        }
+      />
+      <main className={css.canvas} data-collapsed={collapsed}>
+        <TitleBar
+          title={title ?? DEFAULT_TITLE}
+          permissionMode={permissionMode}
+          onSetPermissionMode={applyMode}
+          onNewSession={onNewSession}
+          model={chatModelTitle ?? DEFAULT_MODEL}
+          workspaceDirectory={
+            sessions.find((s) => s.sessionId === sessionId)
+              ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
+          }
+        />
         <div className={css.conversation}>
           {isEmpty ? (
-            <EmptyState label={chatLabels.autoModeSuggestion} />
+            <EmptyState
+              label={chatLabels.autoModeSuggestion}
+              onPick={onPickSuggestion}
+            />
           ) : (
             <ChatView
               items={items}
@@ -119,12 +161,31 @@ export function App() {
             {chatLabels.disconnected}
           </div>
         ) : null}
-        <Composer
-          waiting={isWaiting}
-          onSend={(text) => void send(text)}
-          onStop={() => void stopTurn()}
+        <div className={css.composerWrap}>
+          <SettingsMenu
+            open={composerMenuOpen}
+            onClose={() => setComposerMenuOpen(false)}
+            permissionMode={permissionMode}
+            onSetPermissionMode={applyMode}
+            model={chatModelTitle ?? DEFAULT_MODEL}
+            workspaceDirectory={
+              sessions.find((s) => s.sessionId === sessionId)
+                ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
+            }
+            onNewSession={onNewSession}
+            className={css.menuAboveComposer}
+          />
+          <Composer
+            waiting={isWaiting}
+            onSend={(text) => void send(text)}
+            onStop={() => void stopTurn()}
+            onOpenMenu={() => setComposerMenuOpen((open) => !open)}
+          />
+        </div>
+        <StatusBar
+          model={chatModelTitle ?? DEFAULT_MODEL}
+          permissionMode={permissionMode}
         />
-        <StatusBar model={model} permissionMode={permissionMode} />
       </main>
     </div>
   );
