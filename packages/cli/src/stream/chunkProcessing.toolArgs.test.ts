@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ToolCall } from "../tools/types.js";
+
 import { processToolCallDelta } from "./chunkProcessing.js";
 
 /** Feeds one tool call's argument fragments the way a stream delivers them. */
