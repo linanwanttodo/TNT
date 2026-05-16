@@ -14,6 +14,7 @@ import type {
 } from "../../api/client.ts";
 import {
   IconEllipsisOutlineRegular,
+  IconPanelLeftOutlineRegular,
   IconPlusOutlineRegular,
 } from "../primitives/icons/index.tsx";
 import { ShellIcon } from "./icons.tsx";
@@ -52,6 +53,8 @@ export interface TitleBarProps {
   view?: ChatViewId | undefined;
   /** Switch the main-canvas view. */
   onViewChange?: ((view: ChatViewId) => void) | undefined;
+  /** Toggle the workspace rail. */
+  onToggleRail?: (() => void) | undefined;
 }
 
 /**
@@ -74,6 +77,7 @@ export function TitleBar({
   hasPendingPermission = false,
   view = "chat",
   onViewChange,
+  onToggleRail,
 }: TitleBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -96,6 +100,18 @@ export function TitleBar({
         </div>
       ) : null}
       <div className={css.actions}>
+        {onToggleRail ? (
+          <button
+            type="button"
+            className={css.actionButton}
+            aria-label="Toggle workspace rail"
+            onClick={onToggleRail}
+          >
+            <span style={{ display: "inline-flex", transform: "scaleX(-1)" }}>
+              <IconPanelLeftOutlineRegular size={14} />
+            </span>
+          </button>
+        ) : null}
         <StatusMenu
           title={title}
           model={model ?? ""}
