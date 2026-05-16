@@ -1,6 +1,6 @@
+import { execFileSync } from "child_process";
 import fs from "fs";
 
-import { execFileSync } from "child_process";
 import type { Express, Request, Response } from "express";
 
 import { registerSseEventRoute } from "../commands/serve.helpers.js";
