@@ -6,7 +6,9 @@ import type {
   ToolCallState,
 } from "../../../../../core/index.js";
 import { extractThinkingContent } from "../../utils/thinkingTags.js";
+import { splitServedPrompt } from "../../utils/promptNotes.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
+import { symbols } from "../symbols.js";
 import { useTheme } from "../theme/tokens.js";
 
 import { CompactionBoundary } from "./CompactionBoundary.js";
@@ -94,7 +96,8 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
     if (isSystem) {
       return (
         <Box key={index} marginBottom={1}>
-          <Text color={theme.text.secondary} dimColor italic>
+          <Text color={theme.text.primary}>
+            <Text color={theme.text.secondary}>{symbols().bullet} </Text>
             {message.content}
           </Text>
         </Box>
@@ -106,7 +109,11 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
       return <CompactionBoundary key={index} summary={conversationSummary} />;
     }
 
-    const rawFormattedContent = formatMessageContentForDisplay(message.content);
+    const rawFormattedContent = isUser
+      ? splitServedPrompt(
+          formatMessageContentForDisplay(message.content),
+        ).userText
+      : formatMessageContentForDisplay(message.content);
     const { thinking: extractedThought, cleanedText: cleanedBody } = isAssistant
       ? extractThinkingContent(rawFormattedContent)
       : { thinking: undefined, cleanedText: rawFormattedContent };

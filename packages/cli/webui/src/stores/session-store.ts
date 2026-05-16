@@ -5,13 +5,28 @@
  */
 import { create } from "zustand";
 
-import type { AgentEvent, ToolStatusName } from "../types/agent-events.js";
+import type {
+  AgentEvent,
+  SubagentState,
+  ToolStatusName,
+} from "../types/agent-events.js";
+import {
+  changedPaths,
+  summarizeChangedFiles,
+} from "../ui/chat/changedFiles.js";
+import { splitServedPrompt } from "../utils/transcript.js";
 import {
   approve as postApproval,
+  chooseModel as postChooseModel,
+  chooseWorktree as postChooseWorktree,
+  fetchModels as postFetchModels,
   fetchState,
+  fetchWorktrees as postFetchWorktrees,
   sendMessage as postMessage,
   startSession as postStartSession,
   switchSession as postSwitchSession,
+  type ChatModelOption,
+  type WorktreeInfo,
 } from "../api/client.js";
 import type { ConnStatus } from "../api/client.js";
 
@@ -25,6 +40,8 @@ export interface AssistantMessageItem {
   kind: "message";
   role: "assistant";
   text: string;
+  streaming?: boolean | undefined;
+  changedFiles?: string[] | undefined;
 }
 
 export interface ToolCardItem {
@@ -41,8 +58,21 @@ export interface ErrorItem {
   text: string;
 }
 
+/**
+ * A finished block of model reasoning, kept in the transcript in the order it
+ * arrived: thinking that led a tool call belongs before it, not at the bottom.
+ */
+export interface ReasoningItem {
+  kind: "reasoning";
+  text: string;
+}
+
 export type ChatItem =
-  UserMessageItem | AssistantMessageItem | ToolCardItem | ErrorItem;
+  | UserMessageItem
+  | AssistantMessageItem
+  | ToolCardItem
+  | ReasoningItem
+  | ErrorItem;
 
 export interface PendingPermission {
   requestId: string;
@@ -57,15 +87,32 @@ interface SessionState {
   title: string | null;
   /** Model label the server reports for the session. */
   chatModelTitle: string | null;
+  /** The chat models the session may run on, from GET /models. */
+  models: ChatModelOption[];
+  /** The model in use, or null before the session reports one. */
+  currentModel: ChatModelOption | null;
+  /** The repository's checkouts, from GET /worktrees. */
+  worktrees: WorktreeInfo[];
+  /** The checkout the process is in, or null outside a repository. */
+  currentWorktree: WorktreeInfo | null;
+  /** Whether the page may move the process into another checkout. */
+  worktreeSwitchable: boolean;
+  /** True once a checkout has been picked in this page session. */
+  worktreeChosen: boolean;
+  /** True while the server is running a turn. */
+  isProcessing: boolean;
   items: ChatItem[];
   /** Assistant text still arriving; null between turns. */
   streaming: string | null;
+  /** Reasoning still arriving; settled into an item when anything follows it. */
   reasoning: string | null;
   isWaiting: boolean;
   pendingPermission: PendingPermission | null;
   notices: string[];
   status: ConnStatus;
   queueLength: number;
+  subagents: SubagentState[];
+  pendingChangedFiles: string[];
   seenTurnId: string | null;
   seenSeq: number;
   applyEvent: (event: AgentEvent) => void;
@@ -73,6 +120,8 @@ interface SessionState {
     history?: unknown[];
     session?: { history?: unknown[] } | unknown;
     pendingPermission?: unknown;
+    isProcessing?: unknown;
+    subagents?: SubagentState[];
   }) => void;
   send: (text: string) => Promise<void>;
   approve: (approved: boolean) => Promise<void>;
@@ -86,13 +135,56 @@ interface SessionState {
    * when the server refused (the transcript stays).
    */
   startNew: () => Promise<string | null>;
+  /** Re-pull the model list and the model in use. */
+  refreshModels: () => Promise<void>;
+  /** Switch the session to the model at this position in the list. */
+  pickModel: (index: number) => Promise<void>;
+  /** Re-pull the checkouts and the one the process is in. */
+  refreshWorktrees: () => Promise<void>;
+  /** Move the process into this checkout, marking the chip as chosen. */
+  pickWorktree: (path: string) => Promise<void>;
   setStatus: (status: ConnStatus) => void;
+}
+
+/**
+ * Closes the reasoning scratch into the transcript. Reasoning is only ever
+ * shown in order, so whatever follows it - an answer, a tool call, the end of
+ * the turn - settles it first.
+ */
+function settleReasoning(state: {
+  items: ChatItem[];
+  reasoning: string | null;
+}): { items: ChatItem[]; reasoning: null } {
+  const text = state.reasoning;
+  if (text === null || text.trim() === "") {
+    return { items: state.items, reasoning: null };
+  }
+  return {
+    items: [...state.items, { kind: "reasoning", text }],
+    reasoning: null,
+  };
+}
+
+/** The text a stored tool result carries, for the card a reload rebuilds. */
+function toolResultText(output: unknown): string | undefined {
+  if (!Array.isArray(output)) return undefined;
+  const texts = output
+    .map((entry) => (entry as { text?: unknown }).text)
+    .filter((text): text is string => typeof text === "string" && text !== "");
+  return texts.length > 0 ? texts.join("\n") : undefined;
 }
 
 export const useSessionStore = create<SessionState>()((set, get) => ({
   sessionId: null,
   title: null,
   chatModelTitle: null,
+  models: [],
+  currentModel: null,
+  worktrees: [],
+  currentWorktree: null,
+  worktreeSwitchable: false,
+  worktreeChosen: false,
+  isProcessing: false,
   items: [],
   streaming: null,
   reasoning: null,
@@ -101,6 +193,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   notices: [],
   status: "live",
   queueLength: 0,
+  subagents: [],
+  pendingChangedFiles: [],
   /** The seq watermark per turn; late SSE retries must not replay old events. */
   seenTurnId: null,
   seenSeq: -1,
@@ -116,11 +210,16 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     switch (event.type) {
       case "turn.started":
-        set({ isWaiting: true, pendingPermission: null });
+        set({ isWaiting: true, isProcessing: true, pendingPermission: null, seenTurnId: event.turnId });
         break;
-      case "content.delta":
-        set({ streaming: (get().streaming ?? "") + event.delta });
+      case "content.delta": {
+        const settled = settleReasoning(get());
+        set({
+          ...settled,
+          streaming: (get().streaming ?? "") + event.delta,
+        });
         break;
+      }
       case "reasoning.delta":
         set({ reasoning: (get().reasoning ?? "") + event.delta });
         break;
@@ -132,7 +231,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           status: "calling",
           args: event.args,
         };
-        set({ items: [...items, card] });
+        const settled = settleReasoning(get());
+        set({ items: [...settled.items, card], reasoning: settled.reasoning });
         break;
       }
       case "tool.updated": {
@@ -150,6 +250,12 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             ? { ...item, status: event.status, result: event.result }
             : item,
         );
+        const paths =
+          event.status === "done" ? changedPaths(event.toolName, event.args) : [];
+        if (paths.length > 0) {
+          const pending = [...get().pendingChangedFiles, ...paths];
+          set({ pendingChangedFiles: [...new Set(pending)] });
+        }
         set({ items: next });
         break;
       }
@@ -161,6 +267,42 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             toolArgs: event.toolArgs,
             preview: event.preview,
           },
+        });
+        break;
+      case "subagent.started":
+        set({
+          subagents: [
+            ...get().subagents,
+            {
+              name: event.agentName,
+              prompt: event.prompt,
+              status: "running",
+            },
+          ],
+        });
+        break;
+      case "subagent.reported":
+        set({
+          subagents: get().subagents.map((agent) =>
+            agent.name === event.agentName
+              ? { ...agent, content: event.content }
+              : agent,
+          ),
+        });
+        break;
+      case "subagent.finished":
+        set({
+          subagents: get().subagents.map((agent) =>
+            agent.name === event.agentName
+              ? {
+                  ...agent,
+                  status: "finished",
+                  content: event.content,
+                  success: event.success,
+                  verdict: event.verdict,
+                }
+              : agent,
+          ),
         });
         break;
       case "question.requested":
@@ -179,29 +321,63 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         break;
       case "turn.completed": {
         const text = event.content ?? get().streaming ?? "";
+        const changedFiles = summarizeChangedFiles(get().pendingChangedFiles);
         const message: AssistantMessageItem = {
           kind: "message",
           role: "assistant",
           text,
+          changedFiles,
         };
+        const settled = settleReasoning(get());
         set({
-          items: [...items, message],
+          pendingChangedFiles: [],
+          items: [...settled.items, message],
           streaming: null,
           reasoning: null,
           isWaiting: false,
+          isProcessing: false,
         });
         break;
       }
-      case "turn.failed":
+      case "turn.failed": {
+        const settled = settleReasoning(get());
         set({
-          items: [...items, { kind: "error", text: event.message }],
+          items: [...settled.items, { kind: "error", text: event.message }],
           streaming: null,
           reasoning: null,
           isWaiting: false,
+          isProcessing: false,
         });
         break;
-      case "turn.interrupted":
-        set({ streaming: null, reasoning: null, isWaiting: false });
+      }
+      case "turn.interrupted": {
+        const settled = settleReasoning(get());
+        const changedFiles = summarizeChangedFiles(get().pendingChangedFiles);
+        if (changedFiles.length > 0) {
+          const message: AssistantMessageItem = {
+            kind: "message",
+            role: "assistant",
+            text: get().streaming ?? "",
+            changedFiles,
+          };
+          set({ items: [...settled.items, message] });
+        }
+        set({ pendingChangedFiles: [] });
+        set({
+          ...settled,
+          streaming: null,
+          isWaiting: false,
+          isProcessing: false,
+        });
+        break;
+      }
+      case "model.changed":
+        // Another surface switched the model; the chip re-pulls the list.
+        void get().refreshModels();
+        break;
+      case "workspace.changed":
+        // Another surface moved the process; the chip re-pulls the checkouts.
+        void get().refreshWorktrees();
         break;
       case "session.changed":
         // Another tab pointed the process at a different conversation; this
@@ -262,6 +438,10 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   hydrate: (state) => {
     // /state nests the transcript under session.history; some callers pass a
     // bare {history} shape. Both must seed the transcript.
+    const isProcessing = (state as { isProcessing?: unknown }).isProcessing;
+    const isWaiting = (state as { isWaiting?: unknown }).isWaiting;
+    const queueLength = (state as { messageQueueLength?: unknown })
+      .messageQueueLength;
     const session = (state.session ?? {}) as {
       sessionId?: unknown;
       title?: unknown;
@@ -269,15 +449,51 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       history?: unknown[];
     };
     const history = state.history ?? session.history ?? [];
-    const items = history.flatMap((item): ChatItem[] => {
-      const message = (
-        item as { message?: { role?: string; content?: unknown } }
-      ).message;
-      if (!message || typeof message.content !== "string") return [];
-      if (message.role === "user" || message.role === "assistant") {
-        return [{ kind: "message", role: message.role, text: message.content }];
+    // Everything a stored turn carried is shown: the thinking that led it, the
+    // tool calls it made and their results, and only the user's own words in
+    // place of the notes the harness led their message with.
+    const items = history.flatMap((raw): ChatItem[] => {
+      const item = raw as {
+        message?: { role?: string; content?: unknown };
+        reasoning?: { text?: unknown };
+        toolCallStates?: unknown[];
+      };
+      const out: ChatItem[] = [];
+      const reasoning =
+        typeof item.reasoning?.text === "string" ? item.reasoning.text : "";
+      if (reasoning.trim() !== "")
+        out.push({ kind: "reasoning", text: reasoning });
+      const message = item.message;
+      if (message && typeof message.content === "string") {
+        const stored = message.content;
+        const text =
+          message.role === "user" ? splitServedPrompt(stored).userText : stored;
+        if (message.role === "user" || message.role === "assistant") {
+          if (text.trim() !== "")
+            out.push({ kind: "message", role: message.role, text });
+        }
       }
-      return [];
+      for (const entry of item.toolCallStates ?? []) {
+        const state = entry as {
+          toolCallId?: unknown;
+          status?: unknown;
+          parsedArgs?: unknown;
+          output?: unknown;
+          toolCall?: { function?: { name?: unknown } };
+        };
+        const toolName = state.toolCall?.function?.name;
+        if (typeof toolName !== "string" || toolName === "") continue;
+        out.push({
+          kind: "tool",
+          toolCallId:
+            typeof state.toolCallId === "string" ? state.toolCallId : undefined,
+          toolName,
+          status: (state.status ?? "done") as ToolStatusName,
+          args: state.parsedArgs,
+          result: toolResultText(state.output),
+        });
+      }
+      return out;
     });
     const pending = state.pendingPermission as
       | {
@@ -285,6 +501,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           toolName?: unknown;
           toolArgs?: unknown;
           toolCallPreview?: unknown;
+          question?: unknown;
         }
       | null
       | undefined;
@@ -298,18 +515,31 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         typeof session.chatModelTitle === "string"
           ? session.chatModelTitle
           : get().chatModelTitle,
+      isProcessing: isProcessing === true,
+      isWaiting: isWaiting === true || isProcessing === true,
+      queueLength:
+        typeof queueLength === "number" ? queueLength : get().queueLength,
       items,
       pendingPermission:
         pending &&
         typeof pending.requestId === "string" &&
-        typeof pending.toolName === "string"
+        (typeof pending.toolName === "string" ||
+          typeof pending.question === "string")
           ? {
               requestId: pending.requestId,
-              toolName: pending.toolName,
+              toolName:
+                typeof pending.toolName === "string"
+                  ? pending.toolName
+                  : "Question",
               toolArgs: pending.toolArgs,
-              preview: pending.toolCallPreview,
+              preview:
+                pending.toolCallPreview ??
+                (typeof pending.question === "string"
+                  ? pending.question
+                  : undefined),
             }
           : null,
+      subagents: Array.isArray(state.subagents) ? state.subagents : [],
     });
   },
 
@@ -360,6 +590,83 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         ],
       });
       return null;
+    }
+  },
+
+  refreshModels: async () => {
+    try {
+      const body = await postFetchModels();
+      const current = body.current ?? null;
+      set({
+        models: body.models,
+        currentModel: current,
+        chatModelTitle: current?.name ?? get().chatModelTitle,
+      });
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+    }
+  },
+
+  pickModel: async (index) => {
+    try {
+      const model = await postChooseModel(index);
+      set({
+        currentModel: model,
+        chatModelTitle: model.name,
+        models: get().models.map((option) => ({
+          ...option,
+          current: option.index === model.index,
+        })),
+      });
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+    }
+  },
+
+  refreshWorktrees: async () => {
+    try {
+      const body = await postFetchWorktrees();
+      set({
+        worktrees: body.worktrees,
+        currentWorktree: body.current ?? null,
+        worktreeSwitchable: body.switchable,
+      });
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+    }
+  },
+
+  pickWorktree: async (path) => {
+    try {
+      const worktree = await postChooseWorktree(path);
+      set({
+        currentWorktree: worktree,
+        // The chip carries the accent once the user has picked a checkout;
+        // grey is the resting state, not "attached to a worktree".
+        worktreeChosen: true,
+      });
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
     }
   },
 

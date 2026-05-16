@@ -129,6 +129,15 @@ export class ToolPermissionManager extends EventEmitter {
   getPendingRequestIds(): string[] {
     return Array.from(this.pendingRequests.keys());
   }
+
+  getPendingRequests() {
+    return Array.from(this.pendingRequests.entries()).map(
+      ([requestId, request]) => ({
+        requestId,
+        toolCall: request.toolCall,
+      }),
+    );
+  }
 }
 
 // Global instance

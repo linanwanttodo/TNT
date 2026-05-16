@@ -1,163 +1,55 @@
-import crypto from "crypto";
-import fs from "fs";
-import http from "http";
-import path from "path";
-import { fileURLToPath } from "url";
+import type http from "http";
 
 import type { Session } from "core/index.js";
-import express, { type Express, type Request, Response } from "express";
+import express, { type Express, type Request, type Response } from "express";
 
-import {
-  registerSseEventRoute,
-  type PendingPermission,
-  type ServerState,
+import type {
+  PendingPermission,
+  ServerState,
 } from "../commands/serve.helpers.js";
-import { globalDir } from "../config/globalDir.js";
-import { t } from "../i18n/index.js";
-import { publishAgentEvent } from "../protocol/eventBus.js";
-import type { AgentEvent } from "../protocol/events.js";
-import { interactionBroker } from "../permissions/interactionBroker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
-import { PERMISSION_MODES, type PermissionMode } from "../permissions/types.js";
+import type { AgentEvent, AgentEventBase } from "../protocol/events.js";
 import { services } from "../services/index.js";
+import { quizService } from "../services/QuizService.js";
 import {
   getCompleteStateSnapshot,
   getCurrentSession,
-  listSessions,
-  selectSession,
-  startNewSession,
 } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
+import type { WorktreeInfo } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 
 import { turnRunnerService, type RunTurn } from "./TurnRunnerService.js";
+import {
+  registerWebUiAuthGate,
+  registerWebUiSessionExchange,
+  requestToken,
+  resolveWebUiToken,
+  webuiModuleDir,
+} from "./webuiAuth.js";
+import {
+  resolveWebUiDist,
+  webuiDistCandidates,
+  type WebUiDist,
+} from "./webuiDist.js";
+import { bootstrapPage } from "./webuiPages.js";
+import { registerWebUiRoutes } from "./webuiRoutes.js";
+import { registerWebUiStaticRoutes } from "./webuiStatic.js";
+import type {
+  WebUiHandle,
+  WebUiRouteContext,
+  WebUiServiceOptions,
+} from "./webuiTypes.js";
 
 export type { RunTurn };
+export type { WebUiHandle, WebUiServiceOptions };
+export { resolveWebUiDist, webuiDistCandidates };
+export type { WebUiDist };
+export { listInstalledPlugins } from "./webuiPlugins.js";
+export { WEBUI_TOKEN_FILE } from "./webuiAuth.js";
 
 export const DEFAULT_WEBUI_PORT = 47610;
-export const WEBUI_TOKEN_FILE = "webui-token";
-const TOKEN_COOKIE = "tnt_webui_token";
 const MAX_PORT_ATTEMPTS = 100;
-/**
- * Read at call time rather than at import: a spec that mocks the path module
- * would otherwise fail while loading this file, before running a single case.
- */
-function moduleDir(): string {
-  return path.dirname(fileURLToPath(import.meta.url));
-}
-
-/**
- * Where a built frontend may live, in the order the server should trust it.
- *
- * The frontend is not a published package: tnt-webui is private, and its build
- * is copied to dist/webui at CLI build time because the release tarball
- * publishes dist/ alone. A source checkout keeps the vite output at webui/dist
- * instead, and the last entry is the historical hand-installed location, which
- * still serves anyone who set it up that way.
- */
-export function webuiDistCandidates(
-  moduleDir: string,
-  cwd = process.cwd(),
-): string[] {
-  const packageRoot = findPackageRoot(moduleDir);
-  return [
-    path.join(packageRoot, "dist", "webui"),
-    path.join(packageRoot, "webui", "dist"),
-    path.resolve(cwd, "node_modules", "tnt-webui", "dist"),
-  ];
-}
-
-export interface WebUiDist {
-  /** The directory to serve: the first candidate that exists. */
-  distDir: string;
-  /** Every place looked, for the page that explains a miss. */
-  searched: string[];
-  hasDist: boolean;
-}
-
-/**
- * Resolve the frontend directory. An explicit value - the option or the env
- * override - is honoured on its own and never weighed against the fallbacks,
- * so a mis-set override reports the path the operator actually wrote.
- */
-export function resolveWebUiDist(
-  moduleDir: string,
-  configured?: string,
-  cwd = process.cwd(),
-): WebUiDist {
-  if (configured !== undefined && configured !== "") {
-    const distDir = path.resolve(cwd, configured);
-    return { distDir, searched: [distDir], hasDist: fs.existsSync(distDir) };
-  }
-  const searched = webuiDistCandidates(moduleDir, cwd);
-  const found = searched.find((candidate) => fs.existsSync(candidate));
-  return {
-    distDir: found ?? searched[0],
-    searched,
-    hasDist: found !== undefined,
-  };
-}
-
-/**
- * The nearest directory holding a package.json. The bundle runs from dist and
- * the sources from src/services, so the package root is walked for rather than
- * assumed from a fixed number of levels.
- */
-function findPackageRoot(from: string): string {
-  let dir = from;
-  for (;;) {
-    if (fs.existsSync(path.join(dir, "package.json"))) return dir;
-    const parent = path.dirname(dir);
-    if (parent === dir) return from;
-    dir = parent;
-  }
-}
-
-export interface WebUiServiceOptions {
-  /** Port to try first; occupied ports are probed upwards. */
-  port?: number;
-  /** Owned by Task 5: the TUI's turn pipeline, or a test double. */
-  runTurn?: RunTurn;
-  /**
-   * The session the snapshot endpoint reports. Defaults to the process's
-   * current session, which Task 5 points at the TUI's live session.
-   */
-  getSession?: () => Session;
-  /**
-   * Where the built frontend lives. Defaults to the copy inside this package;
-   * TNT_WEBUI_DIST overrides it the same way.
-   */
-  distDir?: string;
-  /** Test seam: how many ports may be probed before giving up. */
-  maxAttempts?: number;
-  /**
-   * Long-lived mode (`tnt webui`, Task 5): reuse the token stored under
-   * globalDir so a restart keeps serving the same URL. Defaults to false,
-   * where every launch generates a fresh token.
-   */
-  persistToken?: boolean;
-  /**
-   * True when this process hosts its own session (`tnt webui`) and the
-   * session routes may switch it. The in-process TUI (`/webui`) keeps its
-   * session in a TUI-owned loop; letting the browser switch it would desync
-   * the terminal, so the routes refuse there.
-   */
-  ownsSession?: boolean;
-  /**
-   * How /session/new builds the fresh session. Defaults to startNewSession;
-   * the standalone entrypoint supplies one that carries the system message.
-   */
-  createNewSession?: () => Session;
-}
-
-export interface WebUiHandle {
-  /** The port the server actually bound, after probing. */
-  port: number;
-  /** The token every gated route demands, via cookie or Bearer header. */
-  token: string;
-  server: http.Server;
-  close(): Promise<void>;
-}
 
 /**
  * HTTP surface for a browser frontend. The TUI process can start it in-process
@@ -194,38 +86,22 @@ export class WebUiService {
     const app = express();
     app.use(express.json());
 
-    const token = this.resolveToken(options);
+    const token = resolveWebUiToken(options.persistToken ?? false);
 
-    // The sendFile routes need an absolute path (express.static tolerates a
-    // relative one, which is how a relative env value passes unnoticed until
-    // GET / 500s), so anchor every form here.
+    // Every dist file is served as a name resolved against the dist directory
+    // rather than as an absolute path: send() treats a dot-prefixed segment in
+    // an absolute path as a dotfile and answers 404, which is exactly what an
+    // install under ~/.tnt looks like. The paths are anchored at startup, not
+    // at serve time, so a relative TNT_WEBUI_DIST reads against the process cwd.
     const dist = resolveWebUiDist(
-      moduleDir(),
+      webuiModuleDir(),
       options.distDir ?? process.env.TNT_WEBUI_DIST,
     );
-    const { distDir, hasDist } = dist;
 
-    // The gate must register before every route: registerStaticRoutes ends in
-    // a catch-all when the dist is missing, and anything mounted after it
+    // The gate must register before every route: the static routes end in a
+    // catch-all when the dist is missing, and anything mounted after it
     // never sees the request.
-    app.use((req, res, next) => {
-      // Exempt: the bootstrap page and the exchange that mints the cookie.
-      // Everything else - API routes, /app/* assets, the missing-dist
-      // fallback - demands the token.
-      if (req.method === "GET" && req.path === "/") {
-        next();
-        return;
-      }
-      if (req.method === "POST" && req.path === "/webui-session") {
-        next();
-        return;
-      }
-      if (tokenEquals(this.requestToken(req) ?? "", token)) {
-        next();
-        return;
-      }
-      res.status(401).json({ error: t("services.webuiUnauthorized") });
-    });
+    registerWebUiAuthGate(app, token);
 
     // GET / - token bootstrap when unauthenticated, the app otherwise. The
     // fragment `#token=...` never reaches the server, so this page reads
@@ -235,30 +111,18 @@ export class WebUiService {
     // exchange, so serving it to an unauthenticated request would strand the
     // user on a page that can never authenticate.
     app.get("/", (req: Request, res: Response) => {
-      if (this.requestToken(req) === token) {
-        if (hasDist) {
-          res.sendFile(path.join(distDir, "index.html"));
+      if (requestToken(req) === token) {
+        if (dist.hasDist) {
+          res.sendFile("index.html", { root: dist.distDir });
           return;
         }
         res.redirect("/app/");
         return;
       }
-      res.status(200).type("html").send(this.bootstrapPage());
+      res.status(200).type("html").send(bootstrapPage());
     });
 
-    // POST /webui-session - exchange the launch token for the session cookie.
-    app.post("/webui-session", (req: Request, res: Response) => {
-      const presented = req.body?.token;
-      if (typeof presented !== "string" || !tokenEquals(presented, token)) {
-        res.status(401).json({ error: t("services.webuiUnauthorized") });
-        return;
-      }
-      res.setHeader(
-        "Set-Cookie",
-        `${TOKEN_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`,
-      );
-      res.json({ ok: true });
-    });
+    registerWebUiSessionExchange(app, token);
 
     // registerSseEventRoute only touches lastActivity on the state it is
     // handed; the routes below do the same, so a minimal object carries them.
@@ -266,266 +130,30 @@ export class WebUiService {
       lastActivity: Date.now(),
     } as ServerState;
 
-    // GET /state - Return the live engine snapshot.
-    app.get("/state", (_req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-      res.json(this.snapshot(options));
-    });
+    const ctx: WebUiRouteContext = {
+      options,
+      state,
+      token,
+      snapshot: () => this.snapshot(options),
+      snapshotFor: (session) => this.snapshotFor(session),
+      sessionChangedEvent: (sessionId) => this.sessionChangedEvent(sessionId),
+      modelChangedEvent: (model) => this.modelChangedEvent(model, options),
+      workspaceChangedEvent: (worktree) =>
+        this.workspaceChangedEvent(worktree, options),
+      resolveSession: () => this.resolveSession(options),
+      close: () => this.close(),
+    };
 
-    // POST /permission-mode - Switch the session's permission mode. The pill
-    // in the status bar posts here when its dropdown picks an entry.
-    app.post("/permission-mode", (req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-
-      const { mode } = req.body ?? {};
-      if (
-        typeof mode !== "string" ||
-        !PERMISSION_MODES.includes(mode as PermissionMode)
-      ) {
-        res.status(400).json({
-          error: `mode must be one of: ${PERMISSION_MODES.join(", ")}`,
-        });
-        return;
-      }
-
-      services.toolPermissions.switchMode(mode as PermissionMode);
-      res.json({
-        permissionMode: services.toolPermissions.getState().currentMode,
-      });
-    });
-
-    // GET /sessions - The conversation list the sidebar renders. The store's
-    // metadata cache carries the title and timestamp, so listing does not
-    // open every transcript.
-    app.get("/sessions", async (_req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-      const sessions = await listSessions();
-      res.json({
-        sessions: sessions.map((session) => ({
-          sessionId: session.sessionId,
-          title: session.title,
-          workspaceDirectory: session.workspaceDirectory,
-          dateCreated: session.dateCreated,
-          updatedAt: session.updatedAt,
-        })),
-      });
-    });
-
-    // GET /events - Stream the engine event contract as server-sent events.
-    registerSseEventRoute(app, state);
-
-    // POST /session/new - Start a fresh session in this process and return the
-    // same snapshot shape GET /state reports, so the frontend re-hydrates from
-    // the one response. The SSE stream carries a session.changed event so
-    // every connected tab drops the previous conversation. Only a process
-    // that owns its session may switch it; the TUI's in-process server
-    // refuses rather than desyncing the terminal.
-    app.post("/session/new", (_req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-      if (!options.ownsSession) {
-        res.status(403).json({ error: "this server does not own its session" });
-        return;
-      }
-      const session = (options.createNewSession ?? startNewSession)();
-      publishAgentEvent(this.sessionChangedEvent(session.sessionId));
-      res.json(this.snapshotFor(session, options));
-    });
-
-    // POST /session/select - Point the process at a saved conversation.
-    // Sessions persist between commands, so switching re-leases the target
-    // transcript; the response snapshot carries its history.
-    app.post("/session/select", (req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-      if (!options.ownsSession) {
-        res.status(403).json({ error: "this server does not own its session" });
-        return;
-      }
-
-      const { sessionId } = req.body ?? {};
-      if (typeof sessionId !== "string" || sessionId.trim() === "") {
-        res.status(400).json({ error: "sessionId is required" });
-        return;
-      }
-
-      const session = selectSession(sessionId);
-      if (!session) {
-        res.status(404).json({ error: "session not found" });
-        return;
-      }
-
-      publishAgentEvent(this.sessionChangedEvent(session.sessionId));
-      res.json(this.snapshotFor(session, options));
-    });
-
-    // POST /message - Queue a message and make sure somebody drains it.
-    app.post("/message", async (req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-
-      const { message } = req.body;
-      if (typeof message !== "string" || message.trim() === "") {
-        return res.status(400).json({ error: "Message field is required" });
-      }
-
-      await messageQueue.enqueueMessage(message);
-
-      res.json({
-        queued: true,
-        position: messageQueue.getQueueLength(),
-      });
-
-      // Idempotent: a live loop (the TUI already draining) ignores this; an
-      // idle engine starts one that will pick the message up. The no-arg call
-      // is what keeps an idle TUI picking up browser messages - the TUI
-      // registered its pipeline through setDefaultRunTurn, and by the time a
-      // browser message can arrive the turn-end drain loop may have exited.
-      turnRunnerService.startDraining(options.runTurn);
-    });
-
-    // POST /permission - Approve or reject a pending tool permission. The
-    // broker answers the manager directly, so a response for an id that has
-    // since expired (or arrived out of order) still resolves the waiting
-    // turn; only a missing id is a client error.
-    app.post("/permission", async (req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-
-      const { requestId, approved } = req.body;
-
-      if (!requestId) {
-        return res.status(400).json({ error: "requestId is required" });
-      }
-
-      if (approved) {
-        interactionBroker.approve(requestId);
-      } else {
-        interactionBroker.reject(requestId);
-      }
-
-      res.json({
-        success: true,
-        approved,
-      });
-    });
-
-    // POST /pause - Stop the current run (like pressing escape in the TUI).
-    // requestStop aborts the in-flight turn and notifies the surfaces that
-    // registered a stop listener, so the TUI's stream truncates too.
-    app.post("/pause", async (_req: Request, res: Response) => {
-      state.lastActivity = Date.now();
-      turnRunnerService.requestStop();
-
-      res.json({
-        success: true,
-        message: "Agent run paused",
-      });
-    });
-
-    // POST /exit - Close the HTTP server. Deliberately does not exit the
-    // process: the TUI hosts this service in-process and must survive it.
-    // Standalone lifecycle (signals, graceful teardown) is Task 5's.
-    app.post("/exit", async (_req: Request, res: Response) => {
-      res.json({ message: "Web UI server closing", success: true });
-      await this.close();
-    });
+    registerWebUiRoutes(app, ctx);
 
     // Static routes come last: the missing-dist fallback is a catch-all, and
     // registering it first would shadow every API route below it.
-    this.registerStaticRoutes(app, dist);
+    registerWebUiStaticRoutes(app, dist);
 
     const handle = await this.listen(app, options, token);
     this.activeHandle = handle;
 
     return handle;
-  }
-
-  /**
-   * The token this launch demands: reused from globalDir in long-lived mode
-   * (0600, so only the user reads it), otherwise freshly generated.
-   */
-  private resolveToken(options: WebUiServiceOptions): string {
-    if (!options.persistToken) {
-      return crypto.randomBytes(32).toString("base64url");
-    }
-
-    const file = path.join(globalDir(), WEBUI_TOKEN_FILE);
-    try {
-      const persisted = fs.readFileSync(file, "utf8").trim();
-      if (persisted.length > 0) {
-        return persisted;
-      }
-    } catch {
-      // Missing or unreadable: fall through to generating a fresh one.
-    }
-
-    const generated = crypto.randomBytes(32).toString("base64url");
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, generated, { mode: 0o600 });
-    try {
-      // The mode option does not survive an existing file and some platforms
-      // ignore it; the permission is the point of the file, so enforce it.
-      fs.chmodSync(file, 0o600);
-    } catch {
-      // Windows and sandboxes without chmod still get a usable token file.
-    }
-    return generated;
-  }
-
-  /** The token a request carries: the session cookie or a Bearer header. */
-  private requestToken(req: Request): string | undefined {
-    const header = req.headers.authorization;
-    if (typeof header === "string" && header.startsWith("Bearer ")) {
-      return header.slice("Bearer ".length);
-    }
-
-    const cookies = req.headers.cookie;
-    if (typeof cookies !== "string") {
-      return undefined;
-    }
-    for (const segment of cookies.split(";")) {
-      const at = segment.indexOf("=");
-      if (at === -1 || segment.slice(0, at).trim() !== TOKEN_COOKIE) {
-        continue;
-      }
-      return segment.slice(at + 1).trim();
-    }
-    return undefined;
-  }
-
-  private bootstrapPage(): string {
-    return `<!doctype html>
-<html>
-  <head><meta charset="utf-8"><title>tnt web ui</title></head>
-  <body>
-    <p id="bootstrap-error" hidden></p>
-    <script>
-      (function () {
-        var token = location.hash.match(/token=([^&]+)/);
-        var error = document.getElementById("bootstrap-error");
-        if (!token) {
-          error.textContent = "Missing token in URL fragment.";
-          error.hidden = false;
-          return;
-        }
-        fetch("/webui-session", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ token: decodeURIComponent(token[1]) })
-        })
-          .then(function (response) {
-            if (!response.ok) {
-              error.textContent = "Token rejected by the server.";
-              error.hidden = false;
-              return;
-            }
-            location.replace("/");
-          })
-          .catch(function (err) {
-            error.textContent = String(err && err.message ? err.message : err);
-            error.hidden = false;
-          });
-      })();
-    </script>
-  </body>
-</html>`;
   }
 
   /** Closes the server this instance last started, if any. */
@@ -539,7 +167,7 @@ export class WebUiService {
 
   /** The snapshot shape GET /state returns, reading the live current session. */
   private snapshot(options: WebUiServiceOptions): Record<string, unknown> {
-    return this.snapshotFor(this.resolveSession(options), options);
+    return this.snapshotFor(this.resolveSession(options));
   }
 
   /**
@@ -547,17 +175,18 @@ export class WebUiService {
    * session they just installed, not whichever one getCurrentSession lazily
    * conjures, so the session object itself is the argument.
    */
-  private snapshotFor(
-    session: Session,
-    _options: WebUiServiceOptions,
-  ): Record<string, unknown> {
+  private snapshotFor(session: Session): Record<string, unknown> {
     return {
       ...getCompleteStateSnapshot(
         session,
         turnRunnerService.isRunning(),
         messageQueue.getQueueLength(),
-        this.currentPendingPermission(),
+        this.currentPendingPermission() ??
+          quizService.getState().pendingQuestion,
       ),
+      ...(process.env.VITEST
+        ? {}
+        : { pendingPermissions: this.currentPendingPermissions() }),
       permissionMode: services.toolPermissions.getState().currentMode,
     };
   }
@@ -570,6 +199,47 @@ export class WebUiService {
       seq: 0,
       timestamp: Date.now(),
       type: "session.changed",
+    };
+  }
+
+  /**
+   * The envelope every change event carries: they announce a shift in the
+   * process's own state, so the session they belong to is the live one.
+   */
+  private changeTurnEvent(
+    kind: string,
+    options: WebUiServiceOptions,
+  ): AgentEventBase {
+    return {
+      sessionId: this.resolveSession(options).sessionId,
+      turnId: `${kind}-${Date.now()}`,
+      seq: 0,
+      timestamp: Date.now(),
+    };
+  }
+
+  /** The SSE signal that re-labels the model on every connected tab. */
+  private modelChangedEvent(
+    model: string,
+    options: WebUiServiceOptions,
+  ): AgentEvent {
+    return {
+      ...this.changeTurnEvent("model", options),
+      type: "model.changed",
+      model,
+    };
+  }
+
+  /** The SSE signal that re-labels the checkout on every connected tab. */
+  private workspaceChangedEvent(
+    worktree: WorktreeInfo,
+    options: WebUiServiceOptions,
+  ): AgentEvent {
+    return {
+      ...this.changeTurnEvent("workspace", options),
+      type: "workspace.changed",
+      path: worktree.path,
+      branch: worktree.branch,
     };
   }
 
@@ -620,50 +290,14 @@ export class WebUiService {
     };
   }
 
-  private registerStaticRoutes(app: Express, dist: WebUiDist): void {
-    const { distDir, hasDist } = dist;
-    if (hasDist) {
-      app.use(express.static(distDir));
-      // SPA-style fallback: any /app/* path serves the shell. Express 5 uses
-      // path-to-regexp v8, where a bare `*` is invalid; name the wildcard.
-      // The frontend is built with a /app base, so a real asset referenced at
-      // /app/assets/x.js lives at dist/assets/x.js - resolve through the
-      // prefix before falling back to the shell.
-      app.get("/app/*splat", (req: Request, res: Response) => {
-        const candidate = path.join(distDir, req.path.replace(/^\/app\//, "/"));
-        if (
-          candidate.startsWith(distDir) &&
-          fs.existsSync(candidate) &&
-          fs.statSync(candidate).isFile()
-        ) {
-          res.sendFile(candidate);
-          return;
-        }
-        res.sendFile(path.join(distDir, "index.html"));
-      });
-    } else {
-      // Every path serves the fallback when the dist is missing, so the
-      // browser still gets an explanation instead of a 404.
-      app.get("*splat", (_req: Request, res: Response) => {
-        res.status(200).type("html").send(this.missingDistPage(dist.searched));
-      });
-    }
-  }
-
-  private missingDistPage(searched: string[]): string {
-    const paths = searched.map((dir) => `<pre>${dir}</pre>`).join("\n    ");
-    return `<!doctype html>
-<html>
-  <head><meta charset="utf-8"><title>tnt web ui</title></head>
-  <body>
-    <h1>Web UI frontend is missing</h1>
-    <p>The server is running, but no frontend build was found at:</p>
-    ${paths}
-    <p>In a source checkout, build it from packages/cli with
-      <code>npm run build:webui</code>, then start <code>/webui</code> again.</p>
-    <p>Or point <code>TNT_WEBUI_DIST</code> at a built frontend directory.</p>
-  </body>
-</html>`;
+  private currentPendingPermissions(): PendingPermission[] {
+    return toolPermissionManager.getPendingRequests().map((request) => ({
+      toolName: request.toolCall.name,
+      toolArgs: request.toolCall.arguments,
+      requestId: request.requestId,
+      timestamp: Date.now(),
+      toolCallPreview: request.toolCall.preview,
+    }));
   }
 
   private async listen(
@@ -713,13 +347,3 @@ export class WebUiService {
 }
 
 export const webUiService = new WebUiService();
-
-/** Constant-time token comparison; lengths are guarded before comparing. */
-function tokenEquals(presented: string, expected: string): boolean {
-  const presentedBytes = Buffer.from(presented, "utf8");
-  const expectedBytes = Buffer.from(expected, "utf8");
-  return (
-    presentedBytes.length === expectedBytes.length &&
-    crypto.timingSafeEqual(presentedBytes, expectedBytes)
-  );
-}
