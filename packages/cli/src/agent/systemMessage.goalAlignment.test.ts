@@ -30,7 +30,7 @@ const { buildSystemMessageSections } =
   await vi.importActual<typeof import("./systemMessage.js")>(
     "./systemMessage.js",
   );
-const { mkdtempSync, rmSync } = await import("fs");
+const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import("fs");
 const { tmpdir } = await import("os");
 const { join } = await import("path");
 
@@ -51,6 +51,15 @@ afterEach(() => {
   sessionState.goal = undefined;
   sessionState.activeTeam = undefined;
 });
+
+function writeProjectSetting(key: string, value: unknown): void {
+  const dir = join(projectDir, ".tnt");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "settings.json"),
+    `${JSON.stringify({ [key]: value }, null, 2)}\n`,
+  );
+}
 
 const GOAL = "让 /goal 命令的输出带上下文";
 
@@ -107,5 +116,54 @@ describe("the goal alignment line in the userRules section", () => {
     const second = await buildSystemMessageSections("default");
 
     expect(first).toEqual(second);
+  });
+});
+
+describe("the autoConvoke instruction in the userRules section", () => {
+  it("is absent when the switch is unset or false: no auto-convoke is the anti-goal guard", async () => {
+    sessionState.goal = GOAL;
+
+    const unset = await buildSystemMessageSections("default");
+    expect(
+      unset
+        .find((section) => section.name === "userRules")
+        ?.text.includes("convoke"),
+    ).toBe(false);
+
+    writeProjectSetting("team.autoConvoke", false);
+    const off = await buildSystemMessageSections("default");
+    expect(
+      off
+        .find((section) => section.name === "userRules")
+        ?.text.includes("convoke"),
+    ).toBe(false);
+  });
+
+  it("carries the convoke instruction when the switch is true, riding the volatile section", async () => {
+    sessionState.goal = GOAL;
+    writeProjectSetting("team.autoConvoke", true);
+
+    const sections = await buildSystemMessageSections("default");
+    const rules = sections.find((section) => section.name === "userRules");
+
+    expect(rules).toBeDefined();
+    expect(rules?.volatile).toBe(true);
+    expect(rules?.text).toContain("goal-align");
+    expect(rules?.text).toContain("team-convoke");
+  });
+
+  it("vanishes on the next turn when the switch turns off", async () => {
+    sessionState.goal = GOAL;
+    writeProjectSetting("team.autoConvoke", true);
+    await buildSystemMessageSections("default");
+
+    writeProjectSetting("team.autoConvoke", false);
+    const after = await buildSystemMessageSections("default");
+
+    expect(
+      after
+        .find((section) => section.name === "userRules")
+        ?.text.includes("team-convoke"),
+    ).toBe(false);
   });
 });
