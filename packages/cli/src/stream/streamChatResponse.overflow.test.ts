@@ -23,6 +23,12 @@ vi.mock("../session/index.js", () => ({
 }));
 
 vi.mock("../utils/tokenizer.js", () => ({
+  getModelMaxTokens: vi.fn(() => 70_000),
+
+  getModelContextLimit: vi.fn(() => 200_000),
+
+  countToolDefinitionTokens: vi.fn(() => 50),
+
   countChatHistoryItemTokens: vi.fn(() => 100),
   validateContextLength: vi.fn(() => ({ isValid: true })),
 }));

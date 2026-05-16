@@ -145,6 +145,7 @@ export const SERVICE_NAMES = {
   BACKGROUND_JOBS: "backgroundJobs",
   QUIZ: "quiz",
   HOOKS: "hooks",
+  TEAM: "team",
 } as const;
 
 /**

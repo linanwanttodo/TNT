@@ -1,5 +1,11 @@
+import type { PluginAgents } from "../plugins/loader.js";
+import { loadAllPlugins } from "../plugins/loader.js";
 import { ModelService } from "../services/ModelService.js";
 import type { ModelServiceState } from "../services/types.js";
+import type { TeamDefinition } from "../team/loader.js";
+import { logger } from "../utils/logger.js";
+
+import { builtInAgentByName } from "./builtInAgents.js";
 
 /**
  * Get an agent by name
@@ -10,6 +16,89 @@ export function getSubagent(modelState: ModelServiceState, name: string) {
       (model) => model.model.name === name,
     ) ?? null
   );
+}
+
+/**
+ * One dispatchable agent resolved to a uniform shape, whatever layer it came
+ * from. `restriction`/`deniedTools` are the run-time narrowing the executor
+ * applies to the child context; a configured model agent has none, exactly as
+ * before.
+ */
+export interface DispatchableAgent {
+  systemMessage: string;
+  restriction?: "readonly" | "no-writes";
+  deniedTools?: string[];
+  kind: "model" | "team" | "plugin";
+}
+
+function pluginAgentByName(name: string): PluginAgents | undefined {
+  let agents: PluginAgents[];
+  try {
+    agents = loadAllPlugins().agents;
+  } catch (error) {
+    logger.warn("Failed to load plugin agents:", error);
+    return undefined;
+  }
+  return agents.find((agent) => agent.name === name);
+}
+
+/**
+ * Resolve any name the dispatch chain can run, in one place.
+ *
+ * Lookup order: ModelService (configured agents and built-in roles, where a
+ * configured entry wins its name) → an active team's members → a plugin agent
+ * under its `plugin:name`. Plugin agents were listed for turns before this
+ * existed but could never be dispatched; they run restricted to no-writes
+ * because nothing in their provenance vouches for what they may do.
+ */
+export function resolveDispatchableAgent(
+  name: string,
+  modelState: ModelServiceState,
+  activeTeam?: TeamDefinition,
+): DispatchableAgent | null {
+  const configured = getSubagent(modelState, name);
+  if (configured) {
+    // Built-in roles run through ModelService as synthesized model entries,
+    // but their narrowing lives in the registry, not on the entry; the
+    // executor used to re-look it up by name, and this carries it instead.
+    const builtIn = builtInAgentByName(name);
+    return {
+      systemMessage: configured.model.chatOptions?.baseSystemMessage ?? "",
+      restriction: builtIn?.restriction,
+      deniedTools: builtIn?.deniedTools ? [...builtIn.deniedTools] : undefined,
+      kind: "model",
+    };
+  }
+
+  const member = activeTeam?.members.find((m) => m.name === name);
+  if (member) {
+    const builtIn = member.builtInRef
+      ? builtInAgentByName(member.builtInRef)
+      : undefined;
+    return {
+      systemMessage: builtIn ? builtIn.systemMessage : member.systemMessage,
+      restriction: builtIn?.restriction ?? member.restriction,
+      deniedTools: builtIn?.deniedTools
+        ? [...builtIn.deniedTools]
+        : member.deniedTools,
+      kind: "team",
+    };
+  }
+
+  if (name.startsWith("plugin:")) {
+    // The listing tool shows plugin agents under their "plugin:"-prefixed
+    // dispatch name; the loader stores them by bare "plugin:file" name.
+    const pluginAgent = pluginAgentByName(name.slice("plugin:".length));
+    if (pluginAgent) {
+      return {
+        systemMessage: pluginAgent.content,
+        restriction: "no-writes",
+        kind: "plugin",
+      };
+    }
+  }
+
+  return null;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   CI_INVESTIGATOR_AGENT,
   DEBUG_AGENT,
   EXPLORE_AGENT,
+  RESEARCH_AGENT,
   SECURITY_REVIEW_AGENT,
   SHELL_AGENT,
   VERIFICATION_AGENT,
@@ -20,7 +21,7 @@ import {
 } from "./builtInAgents.js";
 
 describe("built-in agents", () => {
-  it("offers the eight roles by the names the listing tool shows", () => {
+  it("offers the nine roles by the names the listing tool shows", () => {
     expect(BUILT_IN_AGENTS.map((agent) => agent.name)).toEqual([
       "verification",
       "explore",
@@ -30,6 +31,7 @@ describe("built-in agents", () => {
       "ci-investigator",
       "browser",
       "best-of-n",
+      "research",
     ]);
     expect(builtInAgentByName("verification")).toBe(VERIFICATION_AGENT);
     expect(builtInAgentByName("explore")).toBe(EXPLORE_AGENT);
@@ -39,6 +41,7 @@ describe("built-in agents", () => {
     expect(builtInAgentByName("ci-investigator")).toBe(CI_INVESTIGATOR_AGENT);
     expect(builtInAgentByName("browser")).toBe(BROWSER_AGENT);
     expect(builtInAgentByName("best-of-n")).toBe(BEST_OF_N_AGENT);
+    expect(builtInAgentByName("research")).toBe(RESEARCH_AGENT);
     expect(builtInAgentByName("configured-agent")).toBeUndefined();
   });
 
@@ -141,6 +144,18 @@ describe("built-in agents", () => {
     expect(BEST_OF_N_AGENT.systemMessage).toContain("diff sketch");
     expect(BEST_OF_N_AGENT.systemMessage).toContain("Ranking");
     expect(BEST_OF_N_AGENT.description).toContain("Applies nothing");
+  });
+
+  it("answers research questions with cited sources and marked inference", () => {
+    expect(RESEARCH_AGENT.restriction).toBe("no-writes");
+    expect(RESEARCH_AGENT.systemMessage).toMatch(
+      /cannot create or modify files/,
+    );
+    // Every finding carries where it came from; a claim without a source is
+    // not reported.
+    expect(RESEARCH_AGENT.systemMessage).toContain("Source");
+    expect(RESEARCH_AGENT.systemMessage).toContain("Confidence");
+    expect(RESEARCH_AGENT.description).toContain("sources");
   });
 
   it("keeps AskQuestion and Exit away from every role", () => {
