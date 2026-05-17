@@ -41,6 +41,7 @@ export interface StreamCallbacks {
     toolName: string,
     status: ToolStatus,
     toolCallId?: string,
+    toolArgs?: unknown,
   ) => void;
   onToolError?: (error: string, toolName?: string) => void;
   onToolPermissionRequest?: (

@@ -191,7 +191,7 @@ describe("the WebUiService token gate", () => {
     });
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain("npm install");
+    expect(html).toContain("TNT_WEBUI_DIST");
     expect(html).not.toContain("webui-session");
   });
 

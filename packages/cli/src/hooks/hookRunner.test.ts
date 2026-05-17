@@ -7,7 +7,12 @@ import { afterAll, describe, expect, it } from "vitest";
 import { HookFixtures } from "../../test-utils/hookFixtures.js";
 
 import { runHooks } from "./hookRunner.js";
-import type { HookHandler, HooksConfig, PreToolUseInput } from "./types.js";
+import type {
+  HookHandler,
+  HooksConfig,
+  PreToolUseInput,
+  SessionStartInput,
+} from "./types.js";
 
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-hooks-"));
 const fixtures = new HookFixtures(workDir);
@@ -357,4 +362,47 @@ describe("once handlers", () => {
 
     expect(await readCounter(counter)).toBe(1);
   }, 30_000);
+});
+
+/** The hook payload a session start carries. */
+function sessionStart(): SessionStartInput {
+  return {
+    hook_event_name: "SessionStart",
+    source: "startup",
+    session_id: "sess-1",
+    transcript_path: path.join(workDir, "transcript.jsonl"),
+    cwd: workDir,
+  };
+}
+
+function sessionStartCommands(...command: string[]): HooksConfig {
+  const handlers: HookHandler[] = command.map((cmd) => ({
+    type: "command",
+    command: cmd,
+  }));
+  return { SessionStart: [{ matcher: "*", hooks: handlers }] };
+}
+
+describe("the context a session hook writes", () => {
+  it("keeps the note and drops the envelope around it", async () => {
+    const result = await runHooks(
+      sessionStartCommands(
+        fixtures.echo('{"additionalContext":"read TNT.md first"}'),
+      ),
+      sessionStart(),
+      workDir,
+    );
+
+    expect(result.additionalContext).toBe("read TNT.md first");
+  });
+
+  it("keeps plain text a hook echoed without JSON around it", async () => {
+    const result = await runHooks(
+      sessionStartCommands(fixtures.echo("just a note")),
+      sessionStart(),
+      workDir,
+    );
+
+    expect(result.additionalContext).toBe("just a note");
+  });
 });
