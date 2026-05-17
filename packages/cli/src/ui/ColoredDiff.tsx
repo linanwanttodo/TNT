@@ -8,6 +8,7 @@ import {
   languageFromFileName,
 } from "./SyntaxHighlighter.js";
 import { useTheme, type Theme } from "./theme/tokens.js";
+import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 
 export interface DiffLine {
   type: "add" | "del" | "context" | "hunk" | "other";
@@ -203,8 +204,16 @@ export const ColoredDiff: React.FC<{
   offset?: number;
   /** The full-screen viewer prints its own position line. */
   showFooter?: boolean;
-}> = ({ diffContent, maxLines = 16, offset = 0, showFooter = true }) => {
+}> = ({
+  diffContent: untrustedDiffContent,
+  maxLines = 16,
+  offset = 0,
+  showFooter = true,
+}) => {
   const activeTheme = useTheme();
+  // A diff row is file content: an escape inside it would reach the terminal
+  // as soon as the row is drawn.
+  const diffContent = sanitizeTerminalText(untrustedDiffContent);
   const parsedLines = parseDiffWithLineNumbers(diffContent);
   const language = useMemo(() => {
     const filePath = diffFilePath(diffContent);

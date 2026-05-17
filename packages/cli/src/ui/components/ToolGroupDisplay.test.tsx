@@ -408,3 +408,46 @@ describe("ToolGroupDisplay", () => {
     expect(frameLight).toContain("hello world");
   });
 });
+
+describe("ToolGroupDisplay terminal safety", () => {
+  const ESC = String.fromCharCode(0x1b);
+  const BEL = String.fromCharCode(0x07);
+
+  it("does not pass a control sequence from tool output through", () => {
+    const frame = frameOf(
+      <ToolGroupDisplay
+        toolStates={[
+          mockToolState({
+            output: [
+              {
+                id: "out-1",
+                name: "Bash Output",
+                description: "",
+                content: `ran ok${ESC}]0;pwned${BEL} tail`,
+              } as never,
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    expect(frame).not.toContain(`${ESC}]0;`);
+    expect(frame).toContain("ran ok");
+    expect(frame).toContain("tail");
+  });
+
+  it("does not pass a control sequence from the call arguments through", () => {
+    const frame = frameOf(
+      <ToolGroupDisplay
+        toolStates={[
+          mockToolState({
+            parsedArgs: { command: `echo ${ESC}[?1049h done` },
+          }),
+        ]}
+      />,
+    );
+
+    expect(frame).not.toContain(`${ESC}[?1049`);
+    expect(frame).toContain("done");
+  });
+});
