@@ -6,6 +6,7 @@ import { markLayoutDirty } from "../hooks/layoutDirty.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
 import { useReasoningExpanded } from "../reasoningFold.js";
 import { useTheme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 export interface ThinkingMessageProps {
   thought: string;
@@ -61,7 +62,10 @@ export const ThinkingMessage: React.FC<ThinkingMessageProps> = ({
   const [override, setOverride] = useState<boolean | null>(null);
   const expanded = override ?? (isStreaming || globalExpanded);
   const blockRef = useRef<DOMElement>(null);
-  const lines = useMemo(() => normalizeThoughtLines(thought), [thought]);
+  const lines = useMemo(
+    () => normalizeThoughtLines(sanitizeTerminalText(thought)),
+    [thought],
+  );
 
   useClickRegion(blockRef, () => {
     setOverride(!expanded);
