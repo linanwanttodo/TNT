@@ -63,4 +63,29 @@ describe("writeTerminalTitle", () => {
 
     expect(stdoutWrite).not.toHaveBeenCalled();
   });
+
+  it("keeps control characters out of the title payload", () => {
+    setIsTTY(true);
+    stdoutWrite = vi
+      .spyOn(process.stdout, "write")
+      .mockReturnValue(true as never);
+
+    // The session name is model-chosen, and both BEL and ESC end an OSC
+    // string: either one inside the name lets it close the title and hand the
+    // remainder to the terminal as control.
+    writeTerminalTitle("🟢 ok\u0007\u001b]0;pwned\u0007");
+
+    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]2;🟢 ok]0;pwned\x07");
+  });
+
+  it("keeps newlines out of the title payload", () => {
+    setIsTTY(true);
+    stdoutWrite = vi
+      .spyOn(process.stdout, "write")
+      .mockReturnValue(true as never);
+
+    writeTerminalTitle("🟢 a\u0009b\u000ac");
+
+    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]2;🟢 abc\x07");
+  });
 });
