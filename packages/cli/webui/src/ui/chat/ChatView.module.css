@@ -11,14 +11,19 @@
   min-height: 0;
   overflow-x: clip;
   overflow-y: auto;
-  padding: 16px 24px;
+  /* 19px + the 5px reserved gutter equals the 24px canvas gutter the
+     composer and the status strip centre inside. */
+  padding: 16px 19px;
+  /* The composer and the status strip centre on the full canvas; reserving
+     the bar on both edges keeps the transcript column on the same pixel. */
+  scrollbar-gutter: stable both-edges;
 }
 
 .content {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: 748px;
+  max-width: var(--dsh-column);
   margin: 0 auto;
 }
 
