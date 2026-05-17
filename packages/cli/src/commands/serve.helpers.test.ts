@@ -203,6 +203,84 @@ describe("serve session titles", () => {
     expect(title).toBeUndefined();
     expect(llmApi.chatCompletionNonStream).not.toHaveBeenCalled();
   });
+
+  it("falls back to the first prompt when the describer fails", async () => {
+    const session = createSession(userTurn);
+    const llmApi = {
+      chatCompletionNonStream: vi.fn(async () => {
+        throw new Error("rate limited");
+      }),
+    };
+
+    const title = await titleServeSessionIfUntitled(
+      session,
+      "The assistant replied.",
+      llmApi as never,
+      { model: "test-model" } as never,
+    );
+
+    expect(title).toBe("hi");
+    expect(getCurrentSession().title).toBe("hi");
+  });
+
+  it("names the session from the served prompt's own words, not the notes", async () => {
+    const noteTurn = [
+      {
+        message: {
+          role: "user",
+          content:
+            "<system-reminder>\nrepo uses pnpm\n</system-reminder>\n\nfix the login bug",
+        },
+        contextItems: [],
+      },
+    ] as unknown as ChatHistoryItem[];
+    const session = createSession(noteTurn);
+    const llmApi = {
+      chatCompletionNonStream: vi.fn(async () => {
+        throw new Error("rate limited");
+      }),
+    };
+
+    const title = await titleServeSessionIfUntitled(
+      session,
+      "The assistant replied.",
+      llmApi as never,
+      { model: "test-model" } as never,
+    );
+
+    expect(title).toBe("fix the login bug");
+  });
+
+  it("truncates a long first prompt to one line", async () => {
+    const longTurn = [
+      {
+        message: {
+          role: "user",
+          content:
+            "please investigate the flaky e2e test that fails on the first run and passes on the second",
+        },
+        contextItems: [],
+      },
+    ] as unknown as ChatHistoryItem[];
+    const session = createSession(longTurn);
+    const llmApi = {
+      chatCompletionNonStream: vi.fn(async () => {
+        throw new Error("rate limited");
+      }),
+    };
+
+    const title = await titleServeSessionIfUntitled(
+      session,
+      "The assistant replied.",
+      llmApi as never,
+      { model: "test-model" } as never,
+    );
+
+    expect(title).toBe(
+      "please investigate the flaky e2e test that fails on the f...",
+    );
+    expect(title?.includes("\n")).toBe(false);
+  });
 });
 
 /**
@@ -251,7 +329,9 @@ describe("serve lifecycle hooks", () => {
 
     expect(hooks.userPromptSubmit).toHaveBeenCalledWith("fix the file");
     expect(prepared.blocked).toBe(false);
-    expect(prepared.text).toBe("style: two spaces\n\nfix the file");
+    expect(prepared.text).toBe(
+      "<system-reminder>\nstyle: two spaces\n</system-reminder>\n\nfix the file",
+    );
   });
 
   it("leads with the session note on the first prompt only", async () => {
@@ -265,8 +345,13 @@ describe("serve lifecycle hooks", () => {
     const first = await prepareServedPrompt("one");
     const second = await prepareServedPrompt("two");
 
-    expect(first.text).toBe("repo uses pnpm\n\nstyle: two spaces\n\none");
-    expect(second.text).toBe("style: two spaces\n\ntwo");
+    expect(first.text).toBe(
+      "<system-reminder>\nrepo uses pnpm\n</system-reminder>\n\n" +
+        "<system-reminder>\nstyle: two spaces\n</system-reminder>\n\none",
+    );
+    expect(second.text).toBe(
+      "<system-reminder>\nstyle: two spaces\n</system-reminder>\n\ntwo",
+    );
   });
 
   it("surfaces a refused prompt instead of running the turn", async () => {

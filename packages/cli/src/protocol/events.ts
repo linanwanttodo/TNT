@@ -40,6 +40,7 @@ export type AgentEvent = AgentEventBase &
         type: "tool.finished";
         toolCallId?: string;
         toolName: string;
+        args?: unknown;
         status: ToolStatusName;
         result?: string;
       }
@@ -87,6 +88,10 @@ export type AgentEvent = AgentEventBase &
         success: boolean;
         verdict?: string;
       }
+    /** The chat model this process now runs. */
+    | { type: "model.changed"; model: string }
+    /** The checkout the session now works in. */
+    | { type: "workspace.changed"; path: string; branch: string | null }
   );
 
 export type AgentEventType = AgentEvent["type"];

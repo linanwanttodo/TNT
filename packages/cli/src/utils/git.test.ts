@@ -1,9 +1,16 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { execFileSync } from "child_process";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
   getGitBranch,
   getGitHubActionsRepoUrl,
+  isGitRepo,
   isGitHubActions,
+  listWorktrees,
 } from "./git.js";
 
 describe("git utilities - GitHub Actions detection", () => {
@@ -86,5 +93,56 @@ describe("git utilities - GitHub Actions detection", () => {
       const result = getGitBranch();
       expect(typeof result === "string" || result === null).toBe(true);
     });
+  });
+});
+
+describe("the worktrees of a repository", () => {
+  let root = "";
+  let linked = "";
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), "tnt-worktrees-"));
+    const git = (args: string[], cwd = root) =>
+      execFileSync("git", args, { cwd, encoding: "utf-8", stdio: "pipe" });
+    git(["init", "-b", "main"]);
+    git(["config", "user.email", "test@example.com"]);
+    git(["config", "user.name", "Test"]);
+    writeFileSync(join(root, "README.md"), "hello\n");
+    git(["add", "README.md"]);
+    git(["commit", "-m", "first"]);
+    linked = mkdtempSync(join(tmpdir(), "tnt-worktrees-linked-"));
+    rmSync(linked, { recursive: true, force: true });
+    git(["worktree", "add", "-b", "side", linked]);
+  });
+
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(linked, { recursive: true, force: true });
+  });
+
+  it("names every worktree with the branch it holds", () => {
+    const found = listWorktrees(root);
+    expect(found.length).toBeGreaterThanOrEqual(2);
+    const at = (p: string) => realpathSync(p);
+    const main = found.find((w) => at(w.path) === at(root));
+    const side = found.find((w) => at(w.path) === at(linked));
+    expect(main?.branch).toBe("main");
+    expect(side?.branch).toBe("side");
+    expect(side?.head).toMatch(/^[0-9a-f]{7,40}$/);
+  });
+
+  it("reads the same repository from a linked worktree", () => {
+    const found = listWorktrees(linked);
+    expect(found.map((w) => w.branch)).toContain("main");
+  });
+
+  it("says there is nothing to switch when the folder is not a repository", () => {
+    const plain = mkdtempSync(join(tmpdir(), "tnt-plain-"));
+    try {
+      expect(isGitRepo(plain)).toBe(false);
+      expect(listWorktrees(plain)).toEqual([]);
+    } finally {
+      rmSync(plain, { recursive: true, force: true });
+    }
   });
 });
