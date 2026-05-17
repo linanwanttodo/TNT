@@ -174,7 +174,7 @@ export const TOOL_CONCURRENCY: Record<string, Concurrency> = {
       isMutatingCommand(String(args?.command ?? "")) ? [] : ["shell:read"],
   },
 
-  Subagent: "exclusive",
+  Subagent: { kind: "keyed", keysFrom: subagentKeys },
   Checklist: "exclusive",
   Exit: "exclusive",
   AskQuestion: "exclusive",
@@ -209,6 +209,23 @@ function keysFromPathArgument(args: any): string[] {
     }
   }
   return [];
+}
+
+/**
+ * A subagent names the paths it will read and write in an advisory `files`
+ * list. Scopes that do not overlap run in parallel; overlapping scopes land on
+ * the same shard and serialize. A subagent that declares nothing takes the
+ * global exclusive slot, the same conservative behavior as before the `files`
+ * argument existed.
+ */
+function subagentKeys(args: any): string[] {
+  const files = args?.files;
+  if (!Array.isArray(files)) {
+    return [];
+  }
+  return files
+    .filter((file): file is string => typeof file === "string")
+    .map(normalizePathKey);
 }
 
 /**

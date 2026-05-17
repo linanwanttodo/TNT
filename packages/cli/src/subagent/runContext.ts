@@ -3,6 +3,9 @@ import type {
   ToolPermissionPolicy,
   ToolPermissions,
 } from "../permissions/types.js";
+import type { SubagentRestriction } from "../team/restrictions.js";
+
+export type { SubagentRestriction };
 
 /**
  * Everything a delegated agent needs that differs from the process-wide
@@ -37,14 +40,10 @@ export const NO_WRITE_SUBAGENT_NOTICE =
   "This agent was started with a restricted tool set. It cannot create or modify files, but running commands and reading the workspace are available, and the approval policy is fixed: it cannot be widened from inside this session.";
 
 /**
- * How a delegated agent may be narrower than the session that started it.
- *
- * A verifier has to run the build and the tests, so the only restriction that
- * makes sense for one is "no file writes" - dropping `Bash` as well would leave
- * it reading code and reporting a guess, which is the failure mode the whole
- * role exists to avoid.
+ * How a delegated agent may be narrower than the session that started it. The
+ * type itself lives in `team/restrictions.js`; re-exported here for the
+ * run-context consumers.
  */
-export type SubagentRestriction = "readonly" | "no-writes";
 
 /** Tools that can change files or session state. */
 const WRITE_TOOL_NAMES: readonly string[] = [

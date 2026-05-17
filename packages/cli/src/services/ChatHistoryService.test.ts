@@ -482,6 +482,22 @@ describe("ChatHistoryService", () => {
         before[0].toolCallStates?.[0].status,
       );
     });
+
+    it("caps the undo stack so a long session cannot accumulate unbounded copies", () => {
+      for (let i = 0; i < 25; i++) {
+        service.addUserMessage(`step ${i}`);
+      }
+
+      // Twenty steps survive; anything older was dropped from the stack.
+      // Snapshot n holds the history before step n's commit, so twenty
+      // undos from a twenty-five step session land on "step 4".
+      for (let i = 0; i < 20; i++) {
+        expect(service.canUndo()).toBe(true);
+        service.undo();
+      }
+      expect(service.canUndo()).toBe(false);
+      expect(service.getState().history.at(-1)?.message.content).toBe("step 4");
+    });
   });
 
   describe("immutability", () => {
