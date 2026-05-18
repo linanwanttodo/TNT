@@ -239,6 +239,43 @@ jobs:
           cd packages/cli
           npm run test:e2e
 
+  # The browser front end is excluded from the CLI's eslint, vitest, coverage
+  # and tsc scopes on purpose (it has its own vite/jsdom toolchain), so without
+  # this job nothing in CI compiles or tests those 20k lines at all.
+  webui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: packages/cli/webui/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/cli/webui
+          npm ci --no-audit --no-fund
+
+      - name: Type check
+        run: |
+          cd packages/cli/webui
+          npx tsc --noEmit
+
+      - name: Run tests
+        run: |
+          cd packages/cli/webui
+          npx vitest run
+
+      - name: Build
+        run: |
+          cd packages/cli/webui
+          npm run build
+
   smoke-api:
     # Needs in-repo credentials. On a push event there is no pull_request
     # context, so this skips and the aggregate job allows the skip.
@@ -315,6 +352,7 @@ jobs:
     needs:
       - lint
       - test
+      - webui
       - smoke-api
 
     steps:
