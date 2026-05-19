@@ -8,7 +8,7 @@ export function ApprovalCard({
   onAnswer,
 }: {
   pending: { requestId: string; toolName: string; toolArgs: unknown };
-  onAnswer: (approved: boolean) => void;
+  onAnswer: (approved: boolean, remember?: boolean) => void;
 }) {
   const detail = summarizeArgs(pending.toolArgs);
   return (
@@ -32,6 +32,9 @@ export function ApprovalCard({
           onClick={() => onAnswer(false)}
         >
           {chatLabels.reject}
+        </Button>
+        <Button variant="outline" onClick={() => onAnswer(true, true)}>
+          {chatLabels.allowAlways}
         </Button>
         <Button variant="primary" onClick={() => onAnswer(true)}>
           {chatLabels.allow}
