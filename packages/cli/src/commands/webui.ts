@@ -2,11 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 
 import chalk from "chalk";
-import type { ChatHistoryItem } from "core/index.js";
 import type { Session } from "core/index.js";
 
 import { expandMentions } from "../agent/atMentions.js";
-import { constructSystemMessage } from "../agent/systemMessage.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
 import { globalDir } from "../config/globalDir.js";
 import { loadSettings } from "../config/settings.js";
@@ -44,6 +42,7 @@ import { formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
 
 import {
+  buildServedStreamCallbacks,
   checkAgentComplete,
   finishServedTurn,
   prepareServedPrompt,
@@ -185,9 +184,13 @@ export async function runStandaloneTurn(
         model: turnModel,
         llmApi: turnLlmApi,
         abortController,
+        callbacks: buildServedStreamCallbacks(state),
       });
     } finally {
       signal.removeEventListener("abort", onAbort);
+      // The permission prompt is answered (or timed out) inside the turn;
+      // once the turn is over there is nothing left to answer.
+      state.pendingPermission = null;
     }
 
     await titleServeSessionIfUntitled(
@@ -276,23 +279,16 @@ export async function webui(
     model: modelState.model,
   };
 
-  const initialHistory: ChatHistoryItem[] = [];
-  const systemMessage = await constructSystemMessage(
-    "default",
-    undefined,
-    undefined,
-    true,
-    undefined,
-  );
-  if (systemMessage) {
-    initialHistory.push({
-      message: { role: "system" as const, content: systemMessage },
-      contextItems: [],
-    });
-  }
-
+  // No system item is preloaded into the history: the engine re-injects the
+  // same constructSystemMessage inputs at request time, so a leading system
+  // item would be sent twice.
   const resumed = options.resume ? loadSession() : null;
+<<<<<<< HEAD
   const session: Session = resumed ?? createSession(initialHistory);
+=======
+  const session: Session = resumed ?? createSession([]);
+
+>>>>>>> 85000a83a (fix(webui): wire permission callbacks into standalone turns)
   try {
     await services.chatHistory.initialize(session, false);
   } catch {
