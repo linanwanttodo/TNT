@@ -427,6 +427,13 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.accountName {
+  color: var(--dsw-alias-label-tertiary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .accountStatus {
   width: 6px;
   height: 6px;
