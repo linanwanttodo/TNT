@@ -4,7 +4,6 @@ import React from "react";
 import { closedThinkBlockPattern } from "../utils/thinkingTags.js";
 
 import { hyperlink } from "./hyperlink.js";
-import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 import {
   defaultTheme,
   detectLanguage,
@@ -12,6 +11,7 @@ import {
   SyntaxHighlighterTheme,
 } from "./SyntaxHighlighter.js";
 import { theme as uiTheme } from "./theme/tokens.js";
+import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 
 interface MarkdownRendererProps {
   content: string | null | undefined;
