@@ -90,8 +90,8 @@ export interface ToolCall {
   argumentsStr: string;
   startNotified: boolean;
   /**
-   * How much of the streamed arguments has been scanned for structure, so a
-   * fragment is read once instead of re-reading the whole buffer per delta.
+   * The structural position reached in the streamed arguments, carried between
+   * fragments so each one is read once instead of re-reading the whole buffer.
    */
   argScan?: { depth: number; inString: boolean; escaped: boolean };
   extra_content?: Record<string, unknown>;
