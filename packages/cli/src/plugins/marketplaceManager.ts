@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 
 import { t } from "../i18n/index.js";
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
 
 import {
   isBlockedMarketplaceName,
@@ -187,6 +188,9 @@ export function createDefaultDeps(): MarketplaceDeps {
   return {
     run: runCommand,
     async fetchJson(url, headers) {
+      // The marketplace URL comes from the operator's marketplace source
+      // configuration; the guard accepts a deliberate self-hosted endpoint.
+      await assertConfiguredHttpUrl(url);
       const response = await fetch(url, { headers });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status} from ${url}`);
