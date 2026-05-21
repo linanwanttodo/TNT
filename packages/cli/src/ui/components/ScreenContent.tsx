@@ -1,6 +1,6 @@
 import React from "react";
 
-import { UpdateServiceState } from "src/services/types.js";
+import { UpdateServiceState } from "../../services/types.js";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";

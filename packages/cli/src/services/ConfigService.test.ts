@@ -18,7 +18,7 @@ vi.mock("../config/loader.js", () => ({
 vi.mock("../utils/logger.js");
 vi.mock("./ServiceContainer.js");
 vi.mock("@tnt/config-yaml");
-vi.mock("src/agent/systemMessage.js", () => ({
+vi.mock("../agent/systemMessage.js", () => ({
   loadMarkdownRulesWithMetadata: vi.fn().mockReturnValue([]),
 }));
 

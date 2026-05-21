@@ -2,8 +2,8 @@ import chalk from "chalk";
 import type { ChatHistoryItem } from "core/index.js";
 import express, { Request, Response } from "express";
 
-import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
-import { prependPrompt } from "src/utils/promptProcessor.js";
+import { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
+import { prependPrompt } from "../utils/promptProcessor.js";
 
 import { expandMentions } from "../agent/atMentions.js";
 import { isPromptProfile } from "../agent/promptProfiles.js";
