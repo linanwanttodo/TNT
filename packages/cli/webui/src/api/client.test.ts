@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { connectEvents, fetchState, sendMessage, stopTurn } from "./client.js";
+import {
+  connectEvents,
+  fetchState,
+  sendMessage,
+  startSession,
+  stopTurn,
+  switchSession,
+} from "./client.js";
 import type { AgentEvent } from "../types/agent-events.js";
 
 class MockEventSource {
@@ -166,6 +173,57 @@ describe("api client", () => {
       "/pause",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("startSession posts to /session/new and returns the snapshot", async () => {
+    const snapshot = {
+      session: { sessionId: "fresh", title: "", history: [] },
+      isProcessing: false,
+      messageQueueLength: 0,
+      pendingPermission: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(snapshot), { status: 200 }),
+        ),
+    );
+
+    const state = await startSession();
+    expect(fetch).toHaveBeenCalledWith(
+      "/session/new",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(state.session.sessionId).toBe("fresh");
+  });
+
+  it("switchSession posts the sessionId and returns the snapshot", async () => {
+    const snapshot = {
+      session: { sessionId: "old", title: "Old", history: [] },
+      isProcessing: false,
+      messageQueueLength: 0,
+      pendingPermission: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(snapshot), { status: 200 }),
+        ),
+    );
+
+    const state = await switchSession("old");
+    expect(fetch).toHaveBeenCalledWith(
+      "/session/select",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ sessionId: "old" }),
+      }),
+    );
+    expect(state.session.sessionId).toBe("old");
   });
 
   it("fetchState parses the /state snapshot", async () => {

@@ -215,3 +215,32 @@ export async function approve(
 export async function stopTurn(): Promise<void> {
   await post("/pause");
 }
+
+/**
+ * Start a fresh conversation in the server process.
+ * @returns the snapshot to hydrate from; the response carries the new
+ * session's (empty) history, so no second GET /state is needed.
+ */
+export async function startSession(): Promise<StateSnapshot> {
+  const res = await fetch("/session/new", { method: "POST" });
+  if (!res.ok) {
+    throw new Error(`POST /session/new failed: ${res.status}`);
+  }
+  return (await res.json()) as StateSnapshot;
+}
+
+/**
+ * Switch the server process to a saved conversation.
+ * @returns the snapshot carrying the selected session's history.
+ */
+export async function switchSession(sessionId: string): Promise<StateSnapshot> {
+  const res = await fetch("/session/select", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId }),
+  });
+  if (!res.ok) {
+    throw new Error(`POST /session/select failed: ${res.status}`);
+  }
+  return (await res.json()) as StateSnapshot;
+}

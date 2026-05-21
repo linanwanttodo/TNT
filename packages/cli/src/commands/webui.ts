@@ -22,7 +22,11 @@ import {
 import { turnRunnerService } from "../services/TurnRunnerService.js";
 import { webUiService } from "../services/WebUiService.js";
 import { runAgentTurn } from "../session/controller.js";
-import { createSession, loadSession } from "../session/index.js";
+import {
+  createSession,
+  getCurrentSession,
+  loadSession,
+} from "../session/index.js";
 import { messageQueue, type QueuedMessage } from "../stream/messageQueue.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { gracefulExit, updateAgentMetadata } from "../utils/exit.js";
@@ -110,6 +114,12 @@ export async function stopWebuiProcess(): Promise<boolean> {
  * One turn of the standalone webui session, mirroring serve's processMessages
  * body: hook gating, mention expansion, streaming with tool calls, session
  * naming. Interruption belongs to the abort signal the drain loop provides.
+ *
+ * The turn reads the session the process currently holds, not a captured one:
+ * POST /session/select or /session/new can re-point the process between
+ * queued messages, and the next turn must land on the session now current.
+ * The session object stays stable, but ChatHistoryService replaces the
+ * history array on every commit, so `.history` is re-read at each use.
  */
 export async function runStandaloneTurn(
   state: ServerState,
@@ -118,6 +128,7 @@ export async function runStandaloneTurn(
   queued: QueuedMessage,
   signal: AbortSignal,
 ): Promise<void> {
+  const session = getCurrentSession();
   const prepared = await prepareServedPrompt(queued.message);
   if (prepared.blocked) {
     const reason = prepared.blockReason ?? "blocked by UserPromptSubmit hook";
@@ -125,7 +136,7 @@ export async function runStandaloneTurn(
     try {
       services.chatHistory.addAssistantMessage(reason);
     } catch {
-      state.session.history.push({
+      session.history.push({
         message: { role: "assistant", content: reason },
         contextItems: [],
       });
@@ -137,7 +148,7 @@ export async function runStandaloneTurn(
   try {
     services.chatHistory.addUserMessage(prepared.text, mentionItems);
   } catch {
-    state.session.history.push({
+    session.history.push({
       message: { role: "user", content: prepared.text },
       contextItems: mentionItems,
     });
@@ -153,7 +164,7 @@ export async function runStandaloneTurn(
     let response: string;
     try {
       response = await runAgentTurn({
-        chatHistory: state.session.history,
+        chatHistory: session.history,
         model,
         llmApi,
         abortController,
@@ -162,12 +173,7 @@ export async function runStandaloneTurn(
       signal.removeEventListener("abort", onAbort);
     }
 
-    await titleServeSessionIfUntitled(
-      state.session,
-      response,
-      llmApi,
-      state.model,
-    );
+    await titleServeSessionIfUntitled(session, response, llmApi, state.model);
     await finishServedTurn(response);
 
     try {
@@ -187,14 +193,14 @@ export async function runStandaloneTurn(
     // "Premature close", so the drain signal is the reliable interrupt test.
     if (e.name === "AbortError" || signal.aborted) {
       logger.debug("Response interrupted");
-      removePartialAssistantMessage(state.session.history);
+      removePartialAssistantMessage(session.history);
     } else {
       logger.error(`Error: ${formatError(e)}`);
       const errorMessage = `Error: ${formatError(e)}`;
       try {
         services.chatHistory.addAssistantMessage(errorMessage);
       } catch {
-        state.session.history.push({
+        session.history.push({
           message: { role: "assistant", content: errorMessage },
           contextItems: [],
         });
@@ -265,7 +271,6 @@ export async function webui(
 
   const resumed = options.resume ? loadSession() : null;
   const session: Session = resumed ?? createSession(initialHistory);
-
   try {
     await services.chatHistory.initialize(session, false);
   } catch {
@@ -290,6 +295,10 @@ export async function webui(
   const handle = await webUiService.start({
     port: options.port ? Number.parseInt(options.port, 10) : undefined,
     persistToken: options.persistToken,
+    ownsSession: true,
+    // POST /session/new must produce a session shaped like the startup one,
+    // system message included, or the first turn on it would run without one.
+    createNewSession: () => createSession(initialHistory),
     runTurn: (queued, signal) =>
       runStandaloneTurn(state, llmApi, model, queued, signal),
   });

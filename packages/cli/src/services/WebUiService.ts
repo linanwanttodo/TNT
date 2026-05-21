@@ -13,6 +13,8 @@ import {
 } from "../commands/serve.helpers.js";
 import { globalDir } from "../config/globalDir.js";
 import { t } from "../i18n/index.js";
+import { publishAgentEvent } from "../protocol/eventBus.js";
+import type { AgentEvent } from "../protocol/events.js";
 import { interactionBroker } from "../permissions/interactionBroker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import { PERMISSION_MODES, type PermissionMode } from "../permissions/types.js";
@@ -21,6 +23,8 @@ import {
   getCompleteStateSnapshot,
   getCurrentSession,
   listSessions,
+  selectSession,
+  startNewSession,
 } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { logger } from "../utils/logger.js";
@@ -54,6 +58,18 @@ export interface WebUiServiceOptions {
    * where every launch generates a fresh token.
    */
   persistToken?: boolean;
+  /**
+   * True when this process hosts its own session (`tnt webui`) and the
+   * session routes may switch it. The in-process TUI (`/webui`) keeps its
+   * session in a TUI-owned loop; letting the browser switch it would desync
+   * the terminal, so the routes refuse there.
+   */
+  ownsSession?: boolean;
+  /**
+   * How /session/new builds the fresh session. Defaults to startNewSession;
+   * the standalone entrypoint supplies one that carries the system message.
+   */
+  createNewSession?: () => Session;
 }
 
 export interface WebUiHandle {
@@ -176,17 +192,7 @@ export class WebUiService {
     // GET /state - Return the live engine snapshot.
     app.get("/state", (_req: Request, res: Response) => {
       state.lastActivity = Date.now();
-      const session = this.resolveSession(options);
-      const pending = this.currentPendingPermission();
-      res.json({
-        ...getCompleteStateSnapshot(
-          session,
-          turnRunnerService.isRunning(),
-          messageQueue.getQueueLength(),
-          pending,
-        ),
-        permissionMode: services.toolPermissions.getState().currentMode,
-      });
+      res.json(this.snapshot(options));
     });
 
     // POST /permission-mode - Switch the session's permission mode. The pill
@@ -230,6 +236,49 @@ export class WebUiService {
 
     // GET /events - Stream the engine event contract as server-sent events.
     registerSseEventRoute(app, state);
+
+    // POST /session/new - Start a fresh session in this process and return the
+    // same snapshot shape GET /state reports, so the frontend re-hydrates from
+    // the one response. The SSE stream carries a session.changed event so
+    // every connected tab drops the previous conversation. Only a process
+    // that owns its session may switch it; the TUI's in-process server
+    // refuses rather than desyncing the terminal.
+    app.post("/session/new", (_req: Request, res: Response) => {
+      state.lastActivity = Date.now();
+      if (!options.ownsSession) {
+        res.status(403).json({ error: "this server does not own its session" });
+        return;
+      }
+      const session = (options.createNewSession ?? startNewSession)();
+      publishAgentEvent(this.sessionChangedEvent(session.sessionId));
+      res.json(this.snapshotFor(session, options));
+    });
+
+    // POST /session/select - Point the process at a saved conversation.
+    // Sessions persist between commands, so switching re-leases the target
+    // transcript; the response snapshot carries its history.
+    app.post("/session/select", (req: Request, res: Response) => {
+      state.lastActivity = Date.now();
+      if (!options.ownsSession) {
+        res.status(403).json({ error: "this server does not own its session" });
+        return;
+      }
+
+      const { sessionId } = req.body ?? {};
+      if (typeof sessionId !== "string" || sessionId.trim() === "") {
+        res.status(400).json({ error: "sessionId is required" });
+        return;
+      }
+
+      const session = selectSession(sessionId);
+      if (!session) {
+        res.status(404).json({ error: "session not found" });
+        return;
+      }
+
+      publishAgentEvent(this.sessionChangedEvent(session.sessionId));
+      res.json(this.snapshotFor(session, options));
+    });
 
     // POST /message - Queue a message and make sure somebody drains it.
     app.post("/message", async (req: Request, res: Response) => {
@@ -409,6 +458,42 @@ export class WebUiService {
       this.activeHandle = null;
       await handle.close();
     }
+  }
+
+  /** The snapshot shape GET /state returns, reading the live current session. */
+  private snapshot(options: WebUiServiceOptions): Record<string, unknown> {
+    return this.snapshotFor(this.resolveSession(options), options);
+  }
+
+  /**
+   * The snapshot for an explicit session: the session routes must report the
+   * session they just installed, not whichever one getCurrentSession lazily
+   * conjures, so the session object itself is the argument.
+   */
+  private snapshotFor(
+    session: Session,
+    _options: WebUiServiceOptions,
+  ): Record<string, unknown> {
+    return {
+      ...getCompleteStateSnapshot(
+        session,
+        turnRunnerService.isRunning(),
+        messageQueue.getQueueLength(),
+        this.currentPendingPermission(),
+      ),
+      permissionMode: services.toolPermissions.getState().currentMode,
+    };
+  }
+
+  /** The SSE signal that makes every connected tab drop the old transcript. */
+  private sessionChangedEvent(sessionId: string): AgentEvent {
+    return {
+      sessionId,
+      turnId: `session-${Date.now()}`,
+      seq: 0,
+      timestamp: Date.now(),
+      type: "session.changed",
+    };
   }
 
   private resolveSession(options: WebUiServiceOptions): Session {
