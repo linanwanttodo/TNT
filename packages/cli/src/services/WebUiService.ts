@@ -2,6 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import http from "http";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import type { Session } from "core/index.js";
 import express, { type Express, type Request, Response } from "express";
@@ -37,6 +38,80 @@ export const DEFAULT_WEBUI_PORT = 47610;
 export const WEBUI_TOKEN_FILE = "webui-token";
 const TOKEN_COOKIE = "tnt_webui_token";
 const MAX_PORT_ATTEMPTS = 100;
+/**
+ * Read at call time rather than at import: a spec that mocks the path module
+ * would otherwise fail while loading this file, before running a single case.
+ */
+function moduleDir(): string {
+  return path.dirname(fileURLToPath(import.meta.url));
+}
+
+/**
+ * Where a built frontend may live, in the order the server should trust it.
+ *
+ * The frontend is not a published package: tnt-webui is private, and its build
+ * is copied to dist/webui at CLI build time because the release tarball
+ * publishes dist/ alone. A source checkout keeps the vite output at webui/dist
+ * instead, and the last entry is the historical hand-installed location, which
+ * still serves anyone who set it up that way.
+ */
+export function webuiDistCandidates(
+  moduleDir: string,
+  cwd = process.cwd(),
+): string[] {
+  const packageRoot = findPackageRoot(moduleDir);
+  return [
+    path.join(packageRoot, "dist", "webui"),
+    path.join(packageRoot, "webui", "dist"),
+    path.resolve(cwd, "node_modules", "tnt-webui", "dist"),
+  ];
+}
+
+export interface WebUiDist {
+  /** The directory to serve: the first candidate that exists. */
+  distDir: string;
+  /** Every place looked, for the page that explains a miss. */
+  searched: string[];
+  hasDist: boolean;
+}
+
+/**
+ * Resolve the frontend directory. An explicit value - the option or the env
+ * override - is honoured on its own and never weighed against the fallbacks,
+ * so a mis-set override reports the path the operator actually wrote.
+ */
+export function resolveWebUiDist(
+  moduleDir: string,
+  configured?: string,
+  cwd = process.cwd(),
+): WebUiDist {
+  if (configured !== undefined && configured !== "") {
+    const distDir = path.resolve(cwd, configured);
+    return { distDir, searched: [distDir], hasDist: fs.existsSync(distDir) };
+  }
+  const searched = webuiDistCandidates(moduleDir, cwd);
+  const found = searched.find((candidate) => fs.existsSync(candidate));
+  return {
+    distDir: found ?? searched[0],
+    searched,
+    hasDist: found !== undefined,
+  };
+}
+
+/**
+ * The nearest directory holding a package.json. The bundle runs from dist and
+ * the sources from src/services, so the package root is walked for rather than
+ * assumed from a fixed number of levels.
+ */
+function findPackageRoot(from: string): string {
+  let dir = from;
+  for (;;) {
+    if (fs.existsSync(path.join(dir, "package.json"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return from;
+    dir = parent;
+  }
+}
 
 export interface WebUiServiceOptions {
   /** Port to try first; occupied ports are probed upwards. */
@@ -48,7 +123,10 @@ export interface WebUiServiceOptions {
    * current session, which Task 5 points at the TUI's live session.
    */
   getSession?: () => Session;
-  /** Where the built frontend lives; overridden by TNT_WEBUI_DIST. */
+  /**
+   * Where the built frontend lives. Defaults to the copy inside this package;
+   * TNT_WEBUI_DIST overrides it the same way.
+   */
   distDir?: string;
   /** Test seam: how many ports may be probed before giving up. */
   maxAttempts?: number;
@@ -121,12 +199,11 @@ export class WebUiService {
     // The sendFile routes need an absolute path (express.static tolerates a
     // relative one, which is how a relative env value passes unnoticed until
     // GET / 500s), so anchor every form here.
-    const configuredDist = options.distDir ?? process.env.TNT_WEBUI_DIST;
-    const distDir =
-      configuredDist === undefined
-        ? path.resolve(process.cwd(), "node_modules", "tnt-webui", "dist")
-        : path.resolve(process.cwd(), configuredDist);
-    const hasDist = fs.existsSync(distDir);
+    const dist = resolveWebUiDist(
+      moduleDir(),
+      options.distDir ?? process.env.TNT_WEBUI_DIST,
+    );
+    const { distDir, hasDist } = dist;
 
     // The gate must register before every route: registerStaticRoutes ends in
     // a catch-all when the dist is missing, and anything mounted after it
@@ -352,7 +429,7 @@ export class WebUiService {
 
     // Static routes come last: the missing-dist fallback is a catch-all, and
     // registering it first would shadow every API route below it.
-    this.registerStaticRoutes(app, distDir, hasDist);
+    this.registerStaticRoutes(app, dist);
 
     const handle = await this.listen(app, options, token);
     this.activeHandle = handle;
@@ -543,11 +620,8 @@ export class WebUiService {
     };
   }
 
-  private registerStaticRoutes(
-    app: Express,
-    distDir: string,
-    hasDist: boolean,
-  ): void {
+  private registerStaticRoutes(app: Express, dist: WebUiDist): void {
+    const { distDir, hasDist } = dist;
     if (hasDist) {
       app.use(express.static(distDir));
       // SPA-style fallback: any /app/* path serves the shell. Express 5 uses
@@ -571,22 +645,23 @@ export class WebUiService {
       // Every path serves the fallback when the dist is missing, so the
       // browser still gets an explanation instead of a 404.
       app.get("*splat", (_req: Request, res: Response) => {
-        res.status(200).type("html").send(this.missingDistPage(distDir));
+        res.status(200).type("html").send(this.missingDistPage(dist.searched));
       });
     }
   }
 
-  private missingDistPage(distDir: string): string {
+  private missingDistPage(searched: string[]): string {
+    const paths = searched.map((dir) => `<pre>${dir}</pre>`).join("\n    ");
     return `<!doctype html>
 <html>
   <head><meta charset="utf-8"><title>tnt web ui</title></head>
   <body>
-    <h1>Web UI frontend is not installed</h1>
-    <p>The server is running, but no frontend bundle was found at:</p>
-    <pre>${distDir}</pre>
-    <p>Install it with:</p>
-    <pre>npm install tnt-webui</pre>
-    <p>Or point TNT_WEBUI_DIST at a built frontend directory.</p>
+    <h1>Web UI frontend is missing</h1>
+    <p>The server is running, but no frontend build was found at:</p>
+    ${paths}
+    <p>In a source checkout, build it from packages/cli with
+      <code>npm run build:webui</code>, then start <code>/webui</code> again.</p>
+    <p>Or point <code>TNT_WEBUI_DIST</code> at a built frontend directory.</p>
   </body>
 </html>`;
   }
