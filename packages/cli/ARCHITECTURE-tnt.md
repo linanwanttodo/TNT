@@ -136,12 +136,16 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
-- The static spine of the system message is the other half of that prefix: `61314b4e4101cd8e` for the
-  TUI (5269 characters), `d0ff19d5735947fb` with JSON output (5685), `5d61ed68eb37c938` headless
-  (5813), `5411da0d13528c3e` headless + JSON (6229). Only what the builder marks non-volatile is
+- The static spine of the system message is the other half of that prefix: `cbe14346d198d77f` for the
+  TUI (5547 characters), `d05de1ee981fad93` with JSON output (5963), `3ca0017995cbccd3` headless
+  (6091), `0147c96e2ff76c0b` headless + JSON (6507). Only what the builder marks non-volatile is
   digested - `base`, `headless`, `jsonOutput` - so plan text, a chosen profile, a plugin output
   style, the user's rules and the environment block stay outside it.
   `agent/systemPrefixFingerprint.test.ts` freezes these and reads this file for the same strings.
+- **Prefix changelog, 2026-10-31:** a report-don't-fix clause joined the `base` spine (the team
+  plan's Task 1 discipline): when a change touches code with an unrelated bug, the final report
+  lists its location and one sentence of impact instead of fixing it. 278 characters of prompt,
+  `61314b4e4101cd8e`/5269 became `cbe14346d198d77f`/5547 (TUI shape) - one cold start per session.
 - **Prefix changelog, 2026-10-29:** a `# Memory` clause joined the `base` spine. It instructs the
   agent to append short, selective notes to `.tnt/TNT.md` (project) or `~/.tnt/TNT.md` (global),
   and to keep the `.tnt` directory out of version control through `.gitignore`. Both files are
@@ -157,8 +161,14 @@ The prefix is assembled in build order, each part announced so it can be attribu
   split holds: adding and removing an untracked file no longer moves any of the four digests, while
   rewording one clause in `base` moves all of them.
 
+- **Prefix changelog, 2026-10-31:** the `Subagent` tool's `parameters.properties`
+  gained the advisory `files` array (keyed parallelism, Task 2 of the team plan) and the
+  `subagent_name` property description moved into the tool file. Digest
+  `e691729a9be4f3a9`/32559 characters became `e643e3597265f28b` over 40 tools and 32838
+  characters - 279 characters of schema, a one-time cold start per session.
+
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `e691729a9be4f3a9` over 40 tools and 32559 characters (name + description + parameter schema, in
+  `e643e3597265f28b` over 40 tools and 32838 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the

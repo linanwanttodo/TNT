@@ -159,7 +159,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
 
   serviceContainer.register(
     SERVICE_NAMES.UPDATE,
-    () => updateService.initialize(),
+    () => updateService.initialize(initOptions.headless),
     [], // No dependencies
   );
 
@@ -278,9 +278,34 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
     [], // No dependencies
   );
 
-  // Eagerly initialize all services to ensure they're ready when needed
-  // This avoids race conditions and "service not ready" errors
-  await serviceContainer.initializeAll();
+  // Headless runs (-p, ACP workers, review workers) never open the file
+  // search UI, ask quiz questions, or need git-ai probed before the first
+  // edit, and their startup latency is user-visible; those services load on
+  // first request instead of at boot. Interactive TUI keeps the eager set so
+  // the UI has every state subscribed before first render.
+  if (initOptions.headless) {
+    await Promise.all(
+      [
+        SERVICE_NAMES.API_CLIENT,
+        SERVICE_NAMES.AGENT_FILE,
+        SERVICE_NAMES.CONFIG,
+        SERVICE_NAMES.MODEL,
+        SERVICE_NAMES.MCP,
+        SERVICE_NAMES.TOOL_PERMISSIONS,
+        SERVICE_NAMES.SYSTEM_MESSAGE,
+        SERVICE_NAMES.CHAT_HISTORY,
+        SERVICE_NAMES.HOOKS,
+      ].map((name) =>
+        serviceContainer.load(name).catch((error) => {
+          logger.debug(`Failed to initialize service ${name}:`, error);
+        }),
+      ),
+    );
+  } else {
+    // Eagerly initialize all services to ensure they're ready when needed
+    // This avoids race conditions and "service not ready" errors
+    await serviceContainer.initializeAll();
+  }
 
   // The indexer walks the workspace the first time something asks it to search,
   // which puts a repository-sized walk inside the turn that asks the first

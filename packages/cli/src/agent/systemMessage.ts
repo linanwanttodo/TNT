@@ -2,12 +2,13 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
-import { parseMarkdownRule, RuleObject } from "@tnt/config-yaml";
-
 import { env } from "../config/env.js";
 import { processRule } from "../config/hubLoader.js";
 import type { OutputFormat } from "../config/outputFormat.js";
-import { readSettingsString } from "../config/settingsFiles.js";
+import {
+  readSettingsBoolean,
+  readSettingsString,
+} from "../config/settingsFiles.js";
 import { t } from "../i18n/index.js";
 import { PermissionMode } from "../permissions/types.js";
 import {
@@ -15,17 +16,25 @@ import {
   selectForcedOutputStyle,
   type PluginOutputStyle,
 } from "../plugins/loader.js";
-import { serviceContainer } from "../services/ServiceContainer.js";
-import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
-import { getSessionOutputStyle } from "../session/index.js";
+import {
+  getSessionActiveTeam,
+  getSessionGoal,
+  getSessionOutputStyle,
+} from "../session/index.js";
+import { getTeam } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
 import { loadInstructionFile } from "./instructionIncludes.js";
+import {
+  getConfigYamlRules,
+  loadMarkdownRulesWithMetadata,
+} from "./markdownRules.js";
 import {
   PLAN_MODE_TEXT,
   profileSection,
   type PromptProfile,
 } from "./promptProfiles.js";
+import { joinSystemMessageSections } from "./systemMessageSections.js";
 
 // Static, because everything ahead of the user's own text is inside the cached
 // prefix of every request in the session.
@@ -33,16 +42,22 @@ export const RULES_PREAMBLE =
   "These instructions come from the user's own files for this project and override how you would otherwise choose to work. Follow each one. Where two of them conflict, the one closer to the project and to the file being changed wins; say which you followed when the choice mattered. When a request cannot be met under them, say so instead of quietly dropping the rule.";
 
 /**
- * Check if current directory is a git repository
+ * Check if current directory is a git repository. Memoized per process: the
+ * answer cannot change while the CLI runs, and re-running it per round would
+ * cost one subprocess per round on the prefix's critical path.
  */
 function isGitRepo(): boolean {
-  try {
-    execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
+  if (gitRepoChecked === undefined) {
+    try {
+      execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
+      gitRepoChecked = true;
+    } catch {
+      gitRepoChecked = false;
+    }
   }
+  return gitRepoChecked;
 }
+let gitRepoChecked: boolean | undefined;
 
 // A large tree can be thousands of entries, and this block rides along with
 // every request in the session, so it is bounded and says what it dropped.
@@ -71,22 +86,30 @@ export function formatGitStatus(raw: string): string {
 }
 
 /**
- * Get git status
+ * Get git status. Cached per process: the block's own wording promises the
+ * model a snapshot from the start of the conversation, and re-running the
+ * subprocess per round would both betray that promise and move the cached
+ * prefix whenever the user touches a file mid-session.
  */
 function getGitStatus(): string {
-  try {
-    if (!isGitRepo()) {
-      return "Not a git repository";
+  if (gitStatusSnapshot === undefined) {
+    try {
+      if (isGitRepo()) {
+        const result = execSync("git status --porcelain", {
+          encoding: "utf-8",
+          cwd: process.cwd(),
+        });
+        gitStatusSnapshot = formatGitStatus(result);
+      } else {
+        gitStatusSnapshot = "Not a git repository";
+      }
+    } catch {
+      gitStatusSnapshot = "Git status not available";
     }
-    const result = execSync("git status --porcelain", {
-      encoding: "utf-8",
-      cwd: process.cwd(),
-    });
-    return formatGitStatus(result);
-  } catch {
-    return "Git status not available";
   }
+  return gitStatusSnapshot;
 }
+let gitStatusSnapshot: string | undefined;
 
 const baseSystemMessage = `You are an agent in TNT. Given the user's prompt, you should use the tools available to you to answer the user's question.
 
@@ -121,6 +144,8 @@ Notes:
 5. Reference a location as path:line.
 6. Stop when the content stops: no closing offer, and no restating what the user can already see.
 7. Do not narrate your own reasoning, and do not announce that a task needed no tools.
+
+When you find an unrelated bug in code your change touches, report it: the final report gets a short section naming its location and one sentence on its impact. Do not fix it, and do not expand on it. A problem on the shared path of this task is different - fix it or flag it.
 `;
 
 /**
@@ -157,6 +182,20 @@ never stage anything in it, never remove that ignore rule.`;
  * one thing the cached prefix is supposed to survive. It is its own volatile
  * section now, and it is appended last, so it moves the tail only.
  */
+/**
+ * The session's start date, frozen for the process. The environment section is
+ * part of the volatile tail, but a midnight rollover would still rewrite it
+ * mid-session and rebill the tail every round of a long-running CLI, so the
+ * date is the day the session started, which is also the honest one.
+ */
+function sessionDate(): string {
+  if (sessionStartDate === undefined) {
+    sessionStartDate = new Date().toISOString().split("T")[0];
+  }
+  return sessionStartDate;
+}
+let sessionStartDate: string | undefined;
+
 export function environmentSection(): string {
   return `
 Here is useful information about the environment you are running in:
@@ -164,7 +203,7 @@ Here is useful information about the environment you are running in:
 Working directory: ${process.cwd()}
 Is directory a git repo: ${isGitRepo()}
 Platform: ${process.platform}
-Today's date: ${new Date().toISOString().split("T")[0]}
+Today's date: ${sessionDate()}
 </env>
 
 As you answer the user's questions, you can use the following context:
@@ -175,114 +214,11 @@ ${getGitStatus()}
 </context>`;
 }
 
-async function getConfigYamlRules(): Promise<string[]> {
-  const configState = await serviceContainer.get<ConfigServiceState>(
-    SERVICE_NAMES.CONFIG,
-  );
-  if (configState.config?.rules) {
-    // Extract systemMessage from the config if it exists
-    const rules = configState.config.rules;
-    return rules
-      .map((rule) => {
-        return typeof rule === "string" ? rule : rule?.rule;
-      })
-      .filter((rule): rule is string => !!rule);
-  }
-
-  return [];
-}
-
-function getRuleNameFromPath(filePath: string): string {
-  const segments = filePath.split(/[/\\]/);
-  const lastTwoParts = segments.slice(-2);
-  return lastTwoParts.filter(Boolean).join("/").replace(/\.md$/, "");
-}
-
-/**
- * The tier deployed for the whole machine, ahead of any personal file. Operators
- * point it at their own path rather than mounting one at /etc.
- */
-export function managedRulesDir(): string {
-  const fromEnv = process.env.TNT_MANAGED_RULES_DIR;
-  if (fromEnv) return fromEnv;
-  return process.platform === "win32"
-    ? path.join(process.env.PROGRAMDATA ?? "C:\\ProgramData", "TNT", "rules")
-    : "/etc/tnt/rules";
-}
-
-/**
- * Scan the managed, user and project rules directories for markdown rule files
- * and return the rules with metadata that should be always-applied
- */
-export function loadMarkdownRulesWithMetadata(): RuleObject[] {
-  const cwd = process.cwd();
-  // Ordered least to most specific, the way the reference layers them: a rule
-  // deployed for the machine, then the user's own, then the project's.
-  const rulesDirs = [
-    managedRulesDir(),
-    path.join(env.continueHome, "rules"),
-    path.join(cwd, ".tnt", "rules"),
-  ];
-
-  const rules: RuleObject[] = [];
-
-  for (const dir of rulesDirs) {
-    if (!fs.existsSync(dir)) continue;
-
-    let files: string[];
-    try {
-      files = fs.readdirSync(dir, { recursive: true }) as string[];
-    } catch {
-      continue;
-    }
-    // Read order is not promised to be alphabetical, and the rules land in the
-    // cached prefix, so the listing is sorted before it is read.
-    files = files.map(String).sort();
-
-    for (const file of files) {
-      if (!String(file).endsWith(".md")) continue;
-
-      const filePath = path.join(dir, String(file));
-      try {
-        const stat = fs.statSync(filePath);
-        if (!stat.isFile()) continue;
-      } catch {
-        continue;
-      }
-
-      try {
-        const content = loadInstructionFile(filePath);
-        const { frontmatter, markdown } = parseMarkdownRule(content);
-
-        if (frontmatter.invokable) continue;
-
-        const isAlwaysApply =
-          frontmatter.alwaysApply === true ||
-          (frontmatter.alwaysApply === undefined &&
-            !frontmatter.globs &&
-            !frontmatter.regex);
-
-        if (isAlwaysApply && markdown.trim()) {
-          const ruleName =
-            frontmatter.name || getRuleNameFromPath(String(file));
-          rules.push({
-            name: ruleName,
-            rule: markdown,
-            description: frontmatter.description,
-            globs: frontmatter.globs,
-            regex: frontmatter.regex,
-            alwaysApply: true,
-            sourceFile: filePath,
-          });
-        }
-      } catch {
-        // Skip files that can't be read or parsed
-      }
-    }
-  }
-
-  return rules;
-}
+export {
+  getConfigYamlRules,
+  loadMarkdownRulesWithMetadata,
+  managedRulesDir,
+} from "./markdownRules.js";
 
 /**
  * Renders an output style as its own system message section. Returns an empty
@@ -365,13 +301,65 @@ function memoryLayers(): string[] {
  * Renders the prefix as named parts. The parts are joined in the order they are
  * built, so a cached prefix only moves when a part actually changes.
  */
-export async function buildSystemMessageSections(
-  mode: PermissionMode,
+/**
+ * The receptionist discipline for the active team as its own context block, or
+ * nothing. The main agent is the user's proxy arm while a team is active: it
+ * takes the goal in, forwards it to the PM, dispatches per the PM's written
+ * plan, reports back and escalates. It does not plan and does not wear the
+ * lead's hat - the lead prompt flows to the team subagent through the dispatch
+ * chain instead. Activation is a session decision and must not re-bill the
+ * static spine, so the block rides the volatile userRules channel.
+ */
+function activeTeamLeadBlock(): string | undefined {
+  const activeTeamName = getSessionActiveTeam();
+  const activeTeam = activeTeamName
+    ? getTeam(activeTeamName, process.cwd())
+    : undefined;
+  if (!activeTeam) return undefined;
+
+  return `<context name="team-reception" source="${activeTeam.name}">\n${t(
+    "agent.receptionistDiscipline",
+    { team: activeTeam.name },
+  )}\n</context>`;
+}
+
+/**
+ * The session goal as its own context block, or nothing. The goal is generic
+ * session state (it applies with or without a team), so it rides the same
+ * volatile userRules channel as the team block: setting, changing or clearing
+ * it re-renders only that section and never moves the cached spine.
+ */
+function goalAlignmentBlock(): string | undefined {
+  const goal = getSessionGoal();
+  if (!goal) return undefined;
+
+  return `<context name="goal-align">\n${t("agent.goalAlignmentLine", {
+    goal: goal.trim(),
+  })}\n</context>`;
+}
+
+/**
+ * The auto-convoke instruction as its own context block, or nothing. The
+ * `team.autoConvoke` switch declares that a goal carrying the convoke signals
+ * (multi-part work, multi-role collaboration, an explicit team callout) may
+ * start the flow without the user naming a team; when it is off or unset the
+ * block is absent, so the main agent never convenes a team on its own. The
+ * switch is a settings-file decision, so the block rides the same volatile
+ * userRules channel and flips on the next turn without moving the spine.
+ */
+function autoConvokeBlock(): string | undefined {
+  if (readSettingsBoolean("team.autoConvoke") !== true) return undefined;
+
+  return `<context name="team-convoke">\n${t("agent.autoConvoke")}\n</context>`;
+}
+
+/**
+ * The rule material the userRules section carries: the memory/agent-file
+ * layers as one content string, plus every processed rule source in order.
+ */
+async function collectRuleMaterial(
   additionalRules?: string[],
-  format?: OutputFormat,
-  headless?: boolean,
-  profile?: PromptProfile,
-): Promise<SystemMessageSection[]> {
+): Promise<{ agentContent: string; processedRules: string[] }> {
   const agentFiles = [
     ".tnt/AGENTS.md",
     "AGENTS.md",
@@ -439,6 +427,23 @@ export async function buildSystemMessageSections(
       existingRulesSet.add(rule.rule);
     }
   }
+
+  return { agentContent, processedRules };
+}
+
+/**
+ * The prefix is the concatenation of its sections, each of which already carries
+ * the blank lines that separate it, so joining adds nothing.
+ */
+export async function buildSystemMessageSections(
+  mode: PermissionMode,
+  additionalRules?: string[],
+  format?: OutputFormat,
+  headless?: boolean,
+  profile?: PromptProfile,
+): Promise<SystemMessageSection[]> {
+  const { agentContent, processedRules } =
+    await collectRuleMaterial(additionalRules);
 
   // Each part of the prefix is built as its own section so a later request can
   // say which part moved instead of only that the system message differs: the
@@ -513,10 +518,23 @@ Example response format:
 
   // The rules block is the last thing in the prefix, so its own wording stays
   // fixed and only the user's text changes.
-  if (agentContent || processedRules.length > 0) {
+  const teamLeadBlock = activeTeamLeadBlock();
+  const goalBlock = goalAlignmentBlock();
+  const convokeBlock = autoConvokeBlock();
+
+  if (
+    agentContent ||
+    processedRules.length > 0 ||
+    teamLeadBlock ||
+    goalBlock ||
+    convokeBlock
+  ) {
     const blocks = [RULES_PREAMBLE];
     if (agentContent) blocks.push(agentContent);
     blocks.push(...processedRules);
+    if (goalBlock) blocks.push(goalBlock);
+    if (convokeBlock) blocks.push(convokeBlock);
+    if (teamLeadBlock) blocks.push(teamLeadBlock);
 
     sections.push({
       name: "userRules",
@@ -542,126 +560,13 @@ Example response format:
  * The prefix is the concatenation of its sections, each of which already carries
  * the blank lines that separate it, so joining adds nothing.
  */
-/**
- * Each part of the prefix announces itself, and the report reads the prefix back
- * by those announcements instead of keeping a second list of what is where. The
- * drift guard is `systemMessage.sections.test.ts`, which rebuilds the prefix and
- * checks that the split recovers every part.
- */
-export const SYSTEM_SECTION_MARKERS: readonly {
-  name: string;
-  marker: string;
-}[] = [
-  { name: "planMode", marker: '<context name="planMode">' },
-  { name: "promptProfile", marker: '<context name="profile">' },
-  { name: "headless", marker: "IMPORTANT: You are running in headless mode" },
-  {
-    name: "jsonOutput",
-    marker: "IMPORTANT: You are operating in JSON output mode",
-  },
-  { name: "outputStyle", marker: '<context name="outputStyle"' },
-  { name: "userRules", marker: '<context name="userRules">' },
-  {
-    name: "environment",
-    marker:
-      "Here is useful information about the environment you are running in:",
-  },
-];
-
-/** The prefix cut back into its parts, keyed by section name. */
-export function splitSystemMessageBySections(
-  text: string,
-): Record<string, string> {
-  const found = SYSTEM_SECTION_MARKERS.map((entry) => ({
-    ...entry,
-    at: text.indexOf(entry.marker),
-  }))
-    .filter((entry) => entry.at >= 0)
-    .sort((a, b) => a.at - b.at);
-
-  const parts: Record<string, string> = {
-    base: found.length > 0 ? text.slice(0, found[0].at) : text,
-  };
-  found.forEach((entry, index) => {
-    const end = index + 1 < found.length ? found[index + 1].at : text.length;
-    parts[entry.name] = text.slice(entry.at, end);
-  });
-  return parts;
-}
-
-/**
- * Names the parts that differ between two builds of the prefix, in document
- * order. `prefixState` can only say that the system message moved; this is what
- * tells a user which of their own files moved, which is the part they can act
- * on. An empty string means the two texts are the same.
- */
-export function describeSystemMessageTextChange(
-  previous: string,
-  current: string,
-): string {
-  if (previous === current) {
-    return "";
-  }
-
-  const before = splitSystemMessageBySections(previous);
-  const after = splitSystemMessageBySections(current);
-  const names = Object.keys(after);
-  const moved: string[] = [];
-
-  for (const name of names) {
-    const was = before[name];
-    if (was === undefined) {
-      moved.push(`${name} added`);
-    } else if (was.trim() !== after[name].trim()) {
-      moved.push(`${name} rewritten`);
-    }
-  }
-  for (const name of Object.keys(before)) {
-    if (!names.includes(name)) {
-      moved.push(`${name} dropped`);
-    }
-  }
-
-  return moved.join("; ");
-}
-
-export function joinSystemMessageSections(
-  sections: readonly SystemMessageSection[],
-): string {
-  return sections.map((section) => section.text).join("");
-}
-
-/**
- * Names the parts that moved between two builds of the prefix, in the order the
- * new build has them. This is the whole point of sectioning the system message:
- * "systemMessage changed" tells a user nothing, "userRules rewritten" tells them
- * which file to stop editing mid-run.
- */
-export function describeSystemMessageChange(
-  previous: readonly SystemMessageSection[],
-  next: readonly SystemMessageSection[],
-): string {
-  const before = new Map(previous.map((section) => [section.name, section]));
-  const after = new Set(next.map((section) => section.name));
-
-  const moved: string[] = [];
-  for (const section of next) {
-    const was = before.get(section.name);
-    if (was === undefined) {
-      moved.push(`${section.name} added`);
-    } else if (was.text !== section.text) {
-      moved.push(`${section.name} rewritten`);
-    }
-    before.delete(section.name);
-  }
-  for (const [name] of before) {
-    if (!after.has(name)) {
-      moved.push(`${name} dropped`);
-    }
-  }
-
-  return moved.join("; ");
-}
+export {
+  SYSTEM_SECTION_MARKERS,
+  describeSystemMessageChange,
+  describeSystemMessageTextChange,
+  joinSystemMessageSections,
+  splitSystemMessageBySections,
+} from "./systemMessageSections.js";
 
 export async function constructSystemMessage(
   mode: PermissionMode,
