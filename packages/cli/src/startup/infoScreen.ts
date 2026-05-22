@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 
 import chalk from "chalk";
 
@@ -136,7 +136,7 @@ function getDiagnosticInfo(): string[] {
   // Get npm version
   let npmVersion = "unknown";
   try {
-    npmVersion = execSync("npm --version", {
+    npmVersion = execFileSync("npm", ["--version"], {
       encoding: "utf8",
       timeout: 5000,
       stdio: ["pipe", "pipe", "ignore"],
