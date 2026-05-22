@@ -12,6 +12,7 @@ import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
 import { applyPatchTool, parseApplyPatch } from "./applyPatch.js";
 import { forgetSeenFiles, markFileAsSeen } from "./fileState.js";
+import { resolveWithin } from "../utils/pathGuard.js";
 import { setWorkspaceFileService } from "./workspaceFiles.js";
 let dir: string;
 const previousCwd = process.cwd();
@@ -20,7 +21,7 @@ const run = async (patch: string): Promise<string> =>
   (await applyPatchTool.run!({ patch })) as string;
 
 function write(relative: string, content: string): void {
-  const full = path.join(dir, relative);
+  const full = resolveWithin(dir, relative);
   fs.mkdirSync(path.dirname(full), { recursive: true });
   fs.writeFileSync(full, content);
 }

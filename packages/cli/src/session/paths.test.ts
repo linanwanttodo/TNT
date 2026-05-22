@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertSessionId,
+  ensureSessionScopedDir,
   fsSessionName,
   getLegacySessionPath,
   getSessionDir,
@@ -79,5 +80,34 @@ describe("session paths", () => {
 
   it("keeps the transcript file name fixed", () => {
     expect(path.basename(getTranscriptPath("b14c0a71"))).toBe("session.jsonl");
+  });
+});
+
+describe("session paths stay inside the sessions directory", () => {
+  it("rejects a traversal-shaped session id before it reaches a path", () => {
+    expect(() => assertSessionId("../escape")).toThrow(InvalidSessionIdError);
+    expect(() => assertSessionId("..")).toThrow(InvalidSessionIdError);
+    expect(() => assertSessionId("a/../b")).toThrow(InvalidSessionIdError);
+    expect(() => getSessionRoot("../escape")).toThrow(InvalidSessionIdError);
+    expect(() => getTranscriptPath("../escape")).toThrow(InvalidSessionIdError);
+    expect(() => ensureSessionScopedDir("tool-results", "../escape")).toThrow(
+      InvalidSessionIdError,
+    );
+  });
+
+  it("anchors every artifact under the sessions directory", () => {
+    const sessionsDir = path.resolve(getSessionDir());
+    const id = "b14c0a71";
+
+    for (const candidate of [
+      getSessionRoot(id),
+      getTranscriptPath(id),
+      getLegacySessionPath(id),
+      ensureSessionScopedDir("tool-results", id),
+    ]) {
+      const relative = path.relative(sessionsDir, path.resolve(candidate));
+      expect(relative.startsWith("..")).toBe(false);
+      expect(path.isAbsolute(relative)).toBe(false);
+    }
   });
 });

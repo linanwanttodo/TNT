@@ -486,17 +486,33 @@ const UserInput: React.FC<UserInputProps> = ({
 
       // Read the file content and notify parent component
       if (onFileAttached) {
+        // The default keeps an @ attachment inside the workspace; that is the
+        // security baseline. Reading an arbitrary local path is the user's
+        // explicit decision, made by setting TNT_ALLOW_ANY_ATTACHMENT_PATH=1.
+        const allowAny = process.env.TNT_ALLOW_ANY_ATTACHMENT_PATH === "1";
+        const path = await import("path");
+        let absolutePath: string;
+        if (allowAny) {
+          absolutePath = path.resolve(filePath);
+        } else {
+          try {
+            const { resolveWithin } = await import("../utils/pathGuard.js");
+            absolutePath = resolveWithin(process.cwd(), filePath);
+          } catch (error) {
+            console.error(
+              `@${filePath} is outside the workspace; reading it requires TNT_ALLOW_ANY_ATTACHMENT_PATH=1`,
+              error,
+            );
+            return;
+          }
+        }
         try {
           const fs = await import("fs/promises");
-          const path = await import("path");
-          const absolutePath = path.resolve(filePath);
           const content = await fs.readFile(absolutePath, "utf-8");
           onFileAttached(absolutePath, content);
         } catch (error) {
           // If file doesn't exist, just attach the filename without content
           if (error instanceof Error && (error as any).code === "ENOENT") {
-            const path = await import("path");
-            const absolutePath = path.resolve(filePath);
             onFileAttached(absolutePath, filePath);
           } else {
             console.error(t("chat.fileReadFailed", { path: filePath }), error);
