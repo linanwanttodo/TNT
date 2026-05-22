@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { AssistantUnrolled } from "../schemas/index.js";
 import { mergeUnrolledAssistants } from "./merge.js";
 
+const TEST_BASE_API_KEY = process.env.TNT_TEST_BASE_API_KEY ?? "base-test-key";
+const TEST_INCOMING_API_KEY =
+  process.env.TNT_TEST_INCOMING_API_KEY ?? "incoming-test-key";
+
 describe("mergeUnrolledAssistants", () => {
   const createBaseConfig = (): AssistantUnrolled => ({
     name: "Base Assistant",
@@ -55,7 +59,7 @@ describe("mergeUnrolledAssistants", () => {
       },
     ],
     env: {
-      API_KEY: "base-key",
+      API_KEY: TEST_BASE_API_KEY,
     },
     requestOptions: {
       timeout: 5000,
@@ -115,7 +119,7 @@ describe("mergeUnrolledAssistants", () => {
     ],
     env: {
       API_TOKEN: "incoming-token",
-      API_KEY: "incoming-key", // This will override base via object spread
+      API_KEY: TEST_INCOMING_API_KEY, // This will override base via object spread
     },
     requestOptions: {
       timeout: 3000,
@@ -500,7 +504,7 @@ describe("mergeUnrolledAssistants", () => {
     const result = mergeUnrolledAssistants(base, incoming);
 
     expect(result.env).toEqual({
-      API_KEY: "incoming-key", // Should be overridden by incoming
+      API_KEY: TEST_INCOMING_API_KEY, // Should be overridden by incoming
       API_TOKEN: "incoming-token", // New from incoming
     });
   });

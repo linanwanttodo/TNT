@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { ILLM } from "../../index.js";
 import Anthropic from "./Anthropic.js";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 interface LlmTestCase {
   llm: ILLM;
   methodToTest: keyof ILLM;
@@ -133,7 +135,7 @@ describe("Anthropic", () => {
 
   test("streamChat should send a valid request", async () => {
     const anthropic = new Anthropic({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "claude-sonnet-4-5",
       apiBase: "https://api.anthropic.com/v1/",
     });
@@ -152,7 +154,7 @@ describe("Anthropic", () => {
           "Content-Type": "application/json",
           Accept: "application/json",
           "anthropic-version": "2023-06-01",
-          "x-api-key": "test-api-key",
+          "x-api-key": TEST_API_KEY,
         },
         body: {
           model: "claude-sonnet-4-5",
@@ -176,7 +178,7 @@ describe("Anthropic", () => {
 
   test("chat should send a valid request", async () => {
     const anthropic = new Anthropic({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "claude-sonnet-4-5",
       apiBase: "https://api.anthropic.com/v1/",
     });
@@ -195,7 +197,7 @@ describe("Anthropic", () => {
           "Content-Type": "application/json",
           Accept: "application/json",
           "anthropic-version": "2023-06-01",
-          "x-api-key": "test-api-key",
+          "x-api-key": TEST_API_KEY,
         },
         body: {
           model: "claude-sonnet-4-5",
@@ -219,7 +221,7 @@ describe("Anthropic", () => {
 
   test("streamComplete should send a valid request", async () => {
     const anthropic = new Anthropic({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "claude-sonnet-4-5",
       apiBase: "https://api.anthropic.com/v1/",
     });
@@ -235,7 +237,7 @@ describe("Anthropic", () => {
           "Content-Type": "application/json",
           Accept: "application/json",
           "anthropic-version": "2023-06-01",
-          "x-api-key": "test-api-key",
+          "x-api-key": TEST_API_KEY,
         },
         body: {
           model: "claude-sonnet-4-5",
@@ -259,7 +261,7 @@ describe("Anthropic", () => {
 
   test("complete should send a valid request", async () => {
     const anthropic = new Anthropic({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "claude-sonnet-4-5",
       apiBase: "https://api.anthropic.com/v1/",
     });
@@ -275,7 +277,7 @@ describe("Anthropic", () => {
           "Content-Type": "application/json",
           Accept: "application/json",
           "anthropic-version": "2023-06-01",
-          "x-api-key": "test-api-key",
+          "x-api-key": TEST_API_KEY,
         },
         body: {
           model: "claude-sonnet-4-5",
@@ -300,7 +302,7 @@ describe("Anthropic", () => {
   describe("Different configurations", () => {
     test("should handle system message", async () => {
       const anthropic = new Anthropic({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "claude-sonnet-4-5",
         apiBase: "https://api.anthropic.com/v1/",
       });
@@ -322,7 +324,7 @@ describe("Anthropic", () => {
             "Content-Type": "application/json",
             Accept: "application/json",
             "anthropic-version": "2023-06-01",
-            "x-api-key": "test-api-key",
+            "x-api-key": TEST_API_KEY,
           },
           body: {
             model: "claude-sonnet-4-5",
@@ -346,7 +348,7 @@ describe("Anthropic", () => {
 
     test("should handle tool calls", async () => {
       const anthropic = new Anthropic({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "claude-sonnet-4-5",
         apiBase: "https://api.anthropic.com/v1/",
       });
@@ -383,7 +385,7 @@ describe("Anthropic", () => {
             "Content-Type": "application/json",
             Accept: "application/json",
             "anthropic-version": "2023-06-01",
-            "x-api-key": "test-api-key",
+            "x-api-key": TEST_API_KEY,
           },
           body: {
             model: "claude-sonnet-4-5",
@@ -423,7 +425,7 @@ describe("Anthropic", () => {
 
     test("should handle custom max tokens", async () => {
       const anthropic = new Anthropic({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "claude-sonnet-4-5",
         apiBase: "https://api.anthropic.com/v1/",
       });
@@ -443,7 +445,7 @@ describe("Anthropic", () => {
             "Content-Type": "application/json",
             Accept: "application/json",
             "anthropic-version": "2023-06-01",
-            "x-api-key": "test-api-key",
+            "x-api-key": TEST_API_KEY,
           },
           body: {
             model: "claude-sonnet-4-5",

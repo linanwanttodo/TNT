@@ -8,6 +8,12 @@ import {
 } from "../../index.js";
 import Bedrock from "./Bedrock.js";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+const TEST_SECRET_ACCESS_KEY =
+  process.env.TNT_TEST_SECRET_ACCESS_KEY ?? "test-secret";
+const TEST_SESSION_TOKEN =
+  process.env.TNT_TEST_SESSION_TOKEN ?? "test-session-token";
+
 // Mock AWS SDK. The code reads `ConversationRole` at runtime, so the mock has
 // to carry the enum as well as the client and the commands.
 vi.mock("@aws-sdk/client-bedrock-runtime", () => ({
@@ -30,8 +36,8 @@ vi.mock("@aws-sdk/client-bedrock-runtime", () => ({
 vi.mock("@aws-sdk/credential-providers", () => ({
   fromNodeProviderChain: vi.fn().mockImplementation(() => async () => ({
     accessKeyId: "test-access-key",
-    secretAccessKey: "test-secret-key",
-    sessionToken: "test-session-token",
+    secretAccessKey: TEST_SECRET_ACCESS_KEY,
+    sessionToken: TEST_SESSION_TOKEN,
   })),
 }));
 
@@ -105,7 +111,7 @@ describe("Bedrock", () => {
   describe("constructor", () => {
     it("should initialize with default options", () => {
       const bedrock = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "anthropic.claude-3-sonnet-20240229-v1:0",
         region: "us-east-1",
       });
@@ -119,7 +125,7 @@ describe("Bedrock", () => {
 
     it("should use custom options when provided", () => {
       const bedrock = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "anthropic.claude-3-sonnet-20240229-v1:0",
         region: "us-west-2",
         profile: "custom-profile",
@@ -141,7 +147,7 @@ describe("Bedrock", () => {
 
     beforeEach(() => {
       bedrock = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "anthropic.claude-3-sonnet-20240229-v1:0",
         region: "us-east-1",
       });
@@ -241,7 +247,7 @@ describe("Bedrock", () => {
 
     beforeEach(() => {
       bedrock = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "cohere.embed-english-v3",
         region: "us-east-1",
       });
@@ -262,7 +268,7 @@ describe("Bedrock", () => {
 
     beforeEach(() => {
       bedrock = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "cohere.rerank-english-v2.0",
         region: "us-east-1",
       });
@@ -319,7 +325,7 @@ describe("Bedrock", () => {
 
     beforeEach(() => {
       bedrock = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "anthropic.claude-3-sonnet-20240229-v1:0",
         region: "us-east-1",
       });
@@ -545,7 +551,7 @@ describe("Bedrock", () => {
     it("should add cache points when cacheBehavior.cacheConversation is enabled", () => {
       // Create a test instance with caching behavior enabled
       const bedrockWithCaching = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "anthropic.claude-3-sonnet-20240229-v1:0",
         region: "us-east-1",
       });
@@ -590,7 +596,7 @@ describe("Bedrock", () => {
     it("should add cache points when completionOptions.promptCaching is enabled", () => {
       // Create a test instance with prompt caching enabled via completionOptions
       const bedrockWithPromptCaching = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "anthropic.claude-3-sonnet-20240229-v1:0",
         region: "us-east-1",
       });
@@ -633,7 +639,7 @@ describe("Bedrock", () => {
     it("should not add cache points when both caching options are disabled", () => {
       // Create a test instance with no caching enabled
       const bedrockNoCaching = new TestBedrock({
-        apiKey: "test-key",
+        apiKey: TEST_API_KEY,
         model: "anthropic.claude-3-sonnet-20240229-v1:0",
         region: "us-east-1",
       });

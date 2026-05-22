@@ -8,6 +8,8 @@ import RulesContextProvider from "../context/providers/RulesContextProvider";
 import TerminalContextProvider from "../context/providers/TerminalContextProvider";
 import { loadConfigContextProviders } from "./loadContextProviders";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 // Mock the contextProviderClassFromName function
 vi.mock("../context/providers", () => ({
   contextProviderClassFromName: vi.fn(),
@@ -162,7 +164,7 @@ describe("with valid config", () => {
         provider: "custom-provider",
         name: "my-custom-provider",
         params: {
-          apiKey: "test-key",
+          apiKey: TEST_API_KEY,
           baseUrl: "https://api.example.com",
         },
       },
@@ -176,7 +178,7 @@ describe("with valid config", () => {
     );
     expect(mockProvider).toHaveBeenCalledWith({
       name: "my-custom-provider",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       baseUrl: "https://api.example.com",
     });
 
@@ -189,7 +191,7 @@ describe("with valid config", () => {
     expect(customProvider).toBeDefined();
     expect((customProvider as any)?.options).toEqual({
       name: "my-custom-provider",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       baseUrl: "https://api.example.com",
     });
   });
