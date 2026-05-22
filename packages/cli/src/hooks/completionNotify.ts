@@ -61,6 +61,10 @@ export async function runCompletionNotify(
   const spawnFn = options.spawnFn ?? spawn;
   const timeoutMs = options.timeoutMs ?? NOTIFY_TIMEOUT_MS;
 
+  // Trust model: the notify command comes from the user's own settings
+  // cascade (settings files), the same act as running it themselves. It
+  // spawns array-form without a shell; the JSON payload is the last argv
+  // element, so it stays data.
   try {
     const child = spawnFn(executable, [...args, JSON.stringify(payload)], {
       stdio: "ignore",

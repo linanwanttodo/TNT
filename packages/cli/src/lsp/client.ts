@@ -102,6 +102,10 @@ export class LspClient {
     config: LspServerConfig,
     options: LspClientOptions,
   ): Promise<LspClient> {
+    // Trust model: the server command comes from the user's own language
+    // server configuration, the same act as launching it themselves. It runs
+    // array-form without a shell, so config values are argv elements, never
+    // shell syntax.
     const client = new LspClient(
       spawn(config.command, config.args ?? [], {
         cwd: options.rootPath,

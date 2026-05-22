@@ -1,4 +1,4 @@
-import { exec, ChildProcess } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import os from "node:os";
 
 import { removeCodeBlocksAndTrim } from ".";
@@ -11,9 +11,10 @@ import type { FromCoreProtocol, ToCoreProtocol } from "../protocol";
 const ttsKillTimeout: number = 5000;
 
 /**
- * Cleans a message text to safely be used in 'exec' context on host.
- *
- * Return modified message text.
+ * Normalizes a message for text-to-speech: strips code blocks and the
+ * characters that used to be dangerous inside shell-quoted command strings.
+ * Speech output no longer goes through a shell at all (see TTS.read), but the
+ * trimming and whitespace collapse keep spoken output tidy.
  */
 export function sanitizeMessageForTTS(message: string): string {
   message = removeCodeBlocksAndTrim(message);
@@ -47,21 +48,31 @@ export class TTS {
       return;
     }
 
+    // Array form without a shell in every branch: the message (model/user
+    // text) is one argv element, or one environment value - never part of a
+    // shell command line, so metacharacters in it stay inert.
     switch (TTS.os) {
       case "darwin":
-        TTS.handle = exec(`say "${message}"`);
+        TTS.handle = spawn("say", [message]);
         break;
-      case "win32":
-        // Replace single quotes on windows
-        TTS.handle = exec(
-          `powershell -Command "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('${message.replace(
-            /'/g,
-            "''",
-          )}')"`,
+      case "win32": {
+        // The text reaches PowerShell through an environment variable: an
+        // env value is data for `$env:TTS_MESSAGE`, so it can never become
+        // part of the script. The -Command string itself is a constant.
+        const script =
+          "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak($env:TTS_MESSAGE)";
+        TTS.handle = spawn(
+          "powershell.exe",
+          ["-NoProfile", "-Command", script],
+          {
+            env: { ...process.env, TTS_MESSAGE: message },
+            windowsHide: true,
+          },
         );
         break;
+      }
       case "linux":
-        TTS.handle = exec(`espeak "${message}"`);
+        TTS.handle = spawn("espeak", [message]);
         break;
       default:
         console.log(
