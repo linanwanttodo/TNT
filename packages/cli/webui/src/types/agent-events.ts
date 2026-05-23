@@ -40,6 +40,7 @@ export type AgentEvent = AgentEventBase &
         type: "tool.finished";
         toolCallId?: string;
         toolName: string;
+        args?: unknown;
         status: ToolStatusName;
         result?: string;
       }
@@ -70,6 +71,17 @@ export type AgentEvent = AgentEventBase &
       }
     | { type: "queue.changed"; length: number }
     | { type: "session.changed"; sessionId: string }
+    | { type: "model.changed"; model: string }
+    | { type: "workspace.changed"; path: string; branch: string | null }
+    | { type: "subagent.started"; agentName: string; prompt: string }
+    | { type: "subagent.reported"; agentName: string; content: string }
+    | {
+        type: "subagent.finished";
+        agentName: string;
+        content: string;
+        success: boolean;
+        verdict?: string;
+      }
   );
 
 export type AgentEventType = AgentEvent["type"];
@@ -85,4 +97,14 @@ export interface StateSnapshot {
   isProcessing: boolean;
   messageQueueLength: number;
   pendingPermission: unknown;
+  subagents?: SubagentState[];
+}
+
+export interface SubagentState {
+  name: string;
+  prompt: string;
+  status: "running" | "finished";
+  content?: string;
+  success?: boolean;
+  verdict?: string;
 }

@@ -79,9 +79,10 @@ export function createAgentEventStream(
       inner?.onToolUpdate?.(update);
     },
 
-    onToolResult: (result, toolName, status, toolCallId) => {
+    onToolResult: (result, toolName, status, toolCallId, toolArgs) => {
       publish({
         type: "tool.finished",
+        args: toolArgs,
         toolName,
         status,
         result,

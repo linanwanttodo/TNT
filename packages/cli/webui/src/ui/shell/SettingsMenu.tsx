@@ -23,6 +23,8 @@ export interface SettingsMenuProps {
   /** Mode the server currently reports; undefined until /state lands. */
   permissionMode: string | undefined;
   onSetPermissionMode: ((mode: PermissionMode) => void) | undefined;
+  /** Permission modes belong at the composer; other menus hide them. */
+  showPermissionModes?: boolean | undefined;
   /** Model label shown as a fact line. */
   model: string;
   /** Workspace directory shown as a fact line. */
@@ -43,6 +45,7 @@ export function SettingsMenu({
   onClose,
   permissionMode,
   onSetPermissionMode,
+  showPermissionModes = true,
   model,
   workspaceDirectory,
   onNewSession,
@@ -89,39 +92,43 @@ export function SettingsMenu({
           <div className={css.divider} />
         </>
       ) : null}
-      <div className={css.heading}>
-        <IconSettingsOutlineRegular size={12} className={css.headingIcon} />
-        Permission mode
-      </div>
-      {PERMISSION_MODE_OPTIONS.map((option) => {
-        const selected = option.mode === permissionMode;
-        return (
-          <button
-            type="button"
-            key={option.mode}
-            role="menuitemradio"
-            aria-checked={selected}
-            className={css.option}
-            data-selected={selected}
-            onClick={() => {
-              onSetPermissionMode?.(option.mode);
-              onClose();
-            }}
-          >
-            <span className={css.optionLabel}>
-              {option.label}
-              {selected ? (
-                <IconCheckOutlineRegular
-                  size={14}
-                  className={css.optionCheck}
-                />
-              ) : null}
-            </span>
-            <span className={css.optionDesc}>{option.description}</span>
-          </button>
-        );
-      })}
-      <div className={css.divider} />
+      {showPermissionModes ? (
+        <>
+          <div className={css.heading}>
+            <IconSettingsOutlineRegular size={12} className={css.headingIcon} />
+            Permission mode
+          </div>
+          {PERMISSION_MODE_OPTIONS.map((option) => {
+            const selected = option.mode === permissionMode;
+            return (
+              <button
+                type="button"
+                key={option.mode}
+                role="menuitemradio"
+                aria-checked={selected}
+                className={css.option}
+                data-selected={selected}
+                onClick={() => {
+                  onSetPermissionMode?.(option.mode);
+                  onClose();
+                }}
+              >
+                <span className={css.optionLabel}>
+                  {option.label}
+                  {selected ? (
+                    <IconCheckOutlineRegular
+                      size={14}
+                      className={css.optionCheck}
+                    />
+                  ) : null}
+                </span>
+                <span className={css.optionDesc}>{option.description}</span>
+              </button>
+            );
+          })}
+          <div className={css.divider} />
+        </>
+      ) : null}
       <div className={css.info} title={workspaceDirectory ?? undefined}>
         Workspace: {workspaceDirectory ?? "—"}
       </div>

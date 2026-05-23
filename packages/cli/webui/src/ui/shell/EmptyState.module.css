@@ -1,6 +1,6 @@
 /*
- * The empty state. The reference centres a 320x40 pill and parks the mascot
- * on its top edge, flush with the pill's right corner.
+ * The empty state. A centred stack: the wordmark, one greeting line, and a
+ * row of suggestion cards that each fill the composer with a starter prompt.
  */
 
 .emptyState {
@@ -9,40 +9,77 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 6px;
+  padding-bottom: 64px;
 }
 
-.pill {
-  position: relative;
-  width: 320px;
-  height: 40px;
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 0 24px;
+}
+
+.mark {
+  color: var(--dsw-alias-brand-primary);
+  margin-bottom: 6px;
+}
+
+.greeting {
+  margin: 0;
+  font-size: 22px;
+  line-height: 30px;
+  font-variation-settings: var(--dsh-font-axis-semibold);
+  color: var(--dsw-alias-label-primary);
+  text-align: center;
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.card {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
+  height: 34px;
   padding: 0 14px;
   border: 1px solid var(--dsh-shell-pill-border);
-  border-radius: 20px;
-  background: transparent;
-}
-
-.pillIcon {
-  flex: 0 0 auto;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.pillLabel {
-  border: none;
+  border-radius: var(--dsw-radius-full);
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
   font-size: 13px;
-  text-align: left;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
 }
 
-.mascot {
-  position: absolute;
-  right: 9px;
-  bottom: 100%;
+.card:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.cardIcon {
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.card:hover .cardIcon {
   color: var(--dsw-alias-brand-primary);
+}
+
+.cardLabel {
+  line-height: 1;
+}
+
+.picked {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
 }

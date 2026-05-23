@@ -111,6 +111,18 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
           </Text>
         ),
       },
+      {
+        // A bare URL in a command's answer is a place to go: it becomes a
+        // terminal hyperlink the same way a written link does, so a wrapped
+        // address still opens with a click.
+        regex: /(?<![(\w])https?:\/\/[^\s)\]]+/g,
+        contentOf: (match) => hyperlink(match[0], match[0]),
+        render: (content, key) => (
+          <Text key={key} color={uiTheme.accent} underline>
+            {content}
+          </Text>
+        ),
+      },
     ];
 
     const renderMarkdown = (text: string | null | undefined) => {

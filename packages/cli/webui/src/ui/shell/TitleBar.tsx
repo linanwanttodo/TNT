@@ -7,18 +7,30 @@
  */
 import { useState } from "react";
 
-import type { PermissionMode } from "../../api/client.ts";
+import type {
+  ContextBreakdown,
+  GitStatus,
+  PermissionMode,
+} from "../../api/client.ts";
 import {
   IconEllipsisOutlineRegular,
   IconPlusOutlineRegular,
 } from "../primitives/icons/index.tsx";
+import { ShellIcon } from "./icons.tsx";
+import {
+  ChatViewTabs,
+  type ChatViewId,
+} from "../chat/ChatViewTabs.tsx";
 import { SettingsMenu } from "./SettingsMenu.tsx";
+import { StatusMenu } from "./StatusMenu.tsx";
 import css from "./TitleBar.module.css";
 
 /** Props the title bar renders from. */
 export interface TitleBarProps {
   /** Title of the conversation on screen. */
   title: string;
+  /** Return to the conversation from a full-page view. */
+  onBack?: (() => void) | undefined;
   /** Mode the menu checks; undefined until /state lands. */
   permissionMode?: string | undefined;
   onSetPermissionMode?: ((mode: PermissionMode) => void) | undefined;
@@ -26,6 +38,20 @@ export interface TitleBarProps {
   /** Facts the menu shows. */
   model?: string | undefined;
   workspaceDirectory?: string | undefined;
+  /** Token budget shown by the top status button. */
+  context?: ContextBreakdown | null | undefined;
+  /** Repository facts shown by the top status button. */
+  git?: GitStatus | null | undefined;
+  /** Whether a turn is running. */
+  isProcessing?: boolean | undefined;
+  /** Messages waiting in the queue. */
+  queueLength?: number | undefined;
+  /** Whether a permission request is waiting. */
+  hasPendingPermission?: boolean | undefined;
+  /** Active main-canvas view. */
+  view?: ChatViewId | undefined;
+  /** Switch the main-canvas view. */
+  onViewChange?: ((view: ChatViewId) => void) | undefined;
 }
 
 /**
@@ -35,18 +61,51 @@ export interface TitleBarProps {
  */
 export function TitleBar({
   title,
+  onBack,
   permissionMode,
   onSetPermissionMode,
   onNewSession,
   model,
   workspaceDirectory,
+  context,
+  git,
+  isProcessing = false,
+  queueLength = 0,
+  hasPendingPermission = false,
+  view = "chat",
+  onViewChange,
 }: TitleBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <header className={css.titleBar}>
+      {onBack ? (
+        <button
+          type="button"
+          className={css.backButton}
+          aria-label="Back to chat"
+          onClick={onBack}
+        >
+          <ShellIcon glyph="arrow-left" size={14} />
+        </button>
+      ) : null}
       <span className={css.title}>{title}</span>
+      {onViewChange ? (
+        <div className={css.viewTabs}>
+          <ChatViewTabs active={view} onChange={onViewChange} />
+        </div>
+      ) : null}
       <div className={css.actions}>
+        <StatusMenu
+          title={title}
+          model={model ?? ""}
+          permissionMode={permissionMode}
+          context={context ?? null}
+          git={git ?? null}
+          isProcessing={isProcessing}
+          queueLength={queueLength}
+          hasPendingPermission={hasPendingPermission}
+        />
         <button
           type="button"
           className={css.actionButton}
@@ -69,6 +128,7 @@ export function TitleBar({
           <SettingsMenu
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
+            showPermissionModes={false}
             permissionMode={permissionMode}
             onSetPermissionMode={onSetPermissionMode}
             model={model ?? ""}
