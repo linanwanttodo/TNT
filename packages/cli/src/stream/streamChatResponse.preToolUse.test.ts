@@ -6,6 +6,7 @@ import type { HookEventResult } from "../hooks/types.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import { workspaceRoot } from "../permissions/workspacePath.js";
 import { readFileTool } from "../tools/readFile.js";
+import { runTerminalCommandTool } from "../tools/runTerminalCommand.js";
 import type { PreprocessedToolCall, Tool } from "../tools/types.js";
 import { writeFileTool } from "../tools/writeFile.js";
 
@@ -111,18 +112,16 @@ describe("PreToolUse decisions at execution time", () => {
     expect(chatHistoryEntries[0]?.status).toBe("done");
   });
 
-  it("lets a hook allow a call the policy would deny in headless", async () => {
+  it("no longer lets a hook allow rescue a policy ask in headless", async () => {
     fireHooks.firePreToolUse.mockResolvedValueOnce({
       blocked: false,
       permissionDecision: "allow",
       results: [],
     });
     const toolsModule = await import("../tools/index.js");
-    const executeToolCall = vi
-      .spyOn(toolsModule, "executeToolCall")
-      .mockResolvedValue("file body");
+    const executeToolCall = vi.spyOn(toolsModule, "executeToolCall");
 
-    const { chatHistoryEntries } = await executeStreamedToolCalls(
+    const { chatHistoryEntries, hasRejection } = await executeStreamedToolCalls(
       [readCall("/x.txt")],
       undefined,
       true,
@@ -130,8 +129,10 @@ describe("PreToolUse decisions at execution time", () => {
       { permissions: askAll },
     );
 
-    expect(executeToolCall).toHaveBeenCalled();
-    expect(chatHistoryEntries[0]?.status).toBe("done");
+    expect(executeToolCall).not.toHaveBeenCalled();
+    expect(hasRejection).toBe(true);
+    expect(chatHistoryEntries[0]?.status).toBe("canceled");
+    expect(String(chatHistoryEntries[0]?.content)).toContain("security policy");
     executeToolCall.mockRestore();
   });
 
@@ -399,5 +400,132 @@ describe("a write outside the workspace escalates", () => {
     expect(requestPermission).not.toHaveBeenCalled();
     expect(executeToolCall).toHaveBeenCalled();
     expect(chatHistoryEntries[0]?.status).toBe("done");
+  });
+});
+
+/**
+ * The permission-tiering invariant: a PreToolUse "allow" is a prompt waiver,
+ * not a policy override. The rules layer (permissions.yaml) decides first, so
+ * its deny refuses outright and its "ask" still reaches the human - the hook
+ * can rescue neither, matching the reference where a hook allow must still
+ * pass the rule-based permission check.
+ */
+describe("a PreToolUse allow does not override the rules layer", () => {
+  const denyCommand = {
+    policies: [
+      { tool: "Bash(rm -rf dist)", permission: "exclude" as const },
+      { tool: "*", permission: "allow" as const },
+    ],
+  };
+  const askCommand = {
+    policies: [
+      { tool: "Bash(rm -rf dist)", permission: "ask" as const },
+      { tool: "*", permission: "allow" as const },
+    ],
+  };
+
+  beforeEach(() => {
+    fireHooks.firePreToolUse.mockReset();
+    fireHooks.firePreToolUse.mockResolvedValue({ blocked: false, results: [] });
+    vi.spyOn(toolPermissionManager, "on").mockImplementation(
+      () => toolPermissionManager as never,
+    );
+    vi.spyOn(toolPermissionManager, "off").mockImplementation(
+      () => toolPermissionManager as never,
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function bashCall(command: string): PreprocessedToolCall {
+    return {
+      id: "call_1",
+      name: "Bash",
+      arguments: { command },
+      argumentsStr: JSON.stringify({ command }),
+      startNotified: false,
+      tool: runTerminalCommandTool,
+    };
+  }
+
+  function hookAllows() {
+    fireHooks.firePreToolUse.mockResolvedValueOnce({
+      blocked: false,
+      permissionDecision: "allow",
+      results: [],
+    });
+  }
+
+  it("refuses a denied command even though the hook allowed it", async () => {
+    hookAllows();
+    const toolsModule = await import("../tools/index.js");
+    const executeToolCall = vi.spyOn(toolsModule, "executeToolCall");
+
+    const { chatHistoryEntries, hasRejection } = await executeStreamedToolCalls(
+      [bashCall("rm -rf dist")],
+      undefined,
+      true,
+      undefined,
+      { permissions: denyCommand },
+    );
+
+    expect(executeToolCall).not.toHaveBeenCalled();
+    expect(hasRejection).toBe(true);
+    expect(chatHistoryEntries[0]?.status).toBe("canceled");
+    expect(String(chatHistoryEntries[0]?.content)).toContain("security policy");
+    executeToolCall.mockRestore();
+  });
+
+  it("still sends an asked command to the human despite the hook allow", async () => {
+    hookAllows();
+    const requestPermission = vi
+      .spyOn(toolPermissionManager, "requestPermission")
+      .mockResolvedValue({ approved: true } as never);
+    const toolsModule = await import("../tools/index.js");
+    const executeToolCall = vi
+      .spyOn(toolsModule, "executeToolCall")
+      .mockResolvedValue("done");
+
+    const { chatHistoryEntries } = await executeStreamedToolCalls(
+      [bashCall("rm -rf dist")],
+      { onToolPermissionRequest: vi.fn() },
+      false,
+      undefined,
+      { permissions: askCommand },
+    );
+
+    expect(requestPermission).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Bash", toolCallId: "call_1" }),
+      expect.any(Number),
+    );
+    expect(executeToolCall).toHaveBeenCalled();
+    expect(chatHistoryEntries[0]?.status).toBe("done");
+    executeToolCall.mockRestore();
+  });
+
+  it("refuses the same asked command in headless, where nobody answers", async () => {
+    hookAllows();
+    const requestPermission = vi
+      .spyOn(toolPermissionManager, "requestPermission")
+      .mockResolvedValue({ approved: true } as never);
+    const toolsModule = await import("../tools/index.js");
+    const executeToolCall = vi.spyOn(toolsModule, "executeToolCall");
+
+    const { chatHistoryEntries, hasRejection } = await executeStreamedToolCalls(
+      [bashCall("rm -rf dist")],
+      undefined,
+      true,
+      undefined,
+      { permissions: askCommand },
+    );
+
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(executeToolCall).not.toHaveBeenCalled();
+    expect(hasRejection).toBe(true);
+    expect(chatHistoryEntries[0]?.status).toBe("canceled");
+    expect(String(chatHistoryEntries[0]?.content)).toContain("security policy");
+    executeToolCall.mockRestore();
   });
 });

@@ -126,9 +126,25 @@ export async function dispatchApprovedCall(options: {
       effectiveCall.name,
       effectiveCall.arguments,
     );
-    const withDiagnostics = diagnostics
-      ? `${stowed}\n\n${diagnostics}`
-      : stowed;
+    let withDiagnostics = diagnostics ? `${stowed}\n\n${diagnostics}` : stowed;
+
+    // A PostToolUse hook may rewrite an MCP tool's output (the reference's
+    // updatedMCPToolOutput): an MCP result is opaque to us, so the hook's
+    // version is what the model reads. A non-MCP tool has no such contract,
+    // and its rewrite is ignored with a note.
+    const rewritten = postHook.updatedMCPToolOutput;
+    if (rewritten !== undefined) {
+      if (effectiveCall.name.startsWith("mcp__")) {
+        const text =
+          typeof rewritten === "string" ? rewritten : JSON.stringify(rewritten);
+        withDiagnostics = `<system-reminder>MCP tool output rewritten by PostToolUse hook</system-reminder>\n${text}`;
+      } else {
+        logger.warn(
+          "PostToolUse hook returned updatedMCPToolOutput for a non-MCP tool; ignoring it",
+          { tool: effectiveCall.name },
+        );
+      }
+    }
     // The effective call, not the parsed request: a PreToolUse hook can rewrite
     // the input, and the advice is about the call that actually ran.
     const reminder = callbacks?.onTailReminder?.(

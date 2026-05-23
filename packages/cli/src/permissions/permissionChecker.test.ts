@@ -2,9 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
+import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
 
 import {
   DANGEROUS_ALLOW_NOTICE,
@@ -1399,6 +1399,73 @@ describe("workspace-only policy", () => {
     const result = checkToolPermission(
       { name: "Write", arguments: { filepath: outside } },
       widened,
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+});
+
+/**
+ * The rule layer a PreToolUse "allow" must pass through: the hook decision is
+ * only a prompt waiver, so these checkToolPermission verdicts are what the
+ * execution path consults on every call, hook or no hook. A command-scoped
+ * deny refuses outright and a command-scoped ask escalates - neither is
+ * something the hook may overwrite.
+ */
+describe("the rule layer a hook allow cannot bypass", () => {
+  beforeEach(() => {
+    mockEvaluateToolCallPolicy.mockImplementation(
+      (basePolicy: string) => basePolicy,
+    );
+  });
+
+  afterEach(() => {
+    mockEvaluateToolCallPolicy.mockReset();
+  });
+
+  it("denies a command an explicit deny rule names", () => {
+    const permissions: ToolPermissions = {
+      policies: [
+        { tool: "Bash(rm -rf dist)", permission: "exclude" },
+        { tool: "*", permission: "allow" },
+      ],
+    };
+
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "rm -rf dist" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("exclude");
+  });
+
+  it("keeps a command an ask rule names on the ask path", () => {
+    const permissions: ToolPermissions = {
+      policies: [
+        { tool: "Bash(rm -rf dist)", permission: "ask" },
+        { tool: "*", permission: "allow" },
+      ],
+    };
+
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "rm -rf dist" } },
+      permissions,
+    );
+
+    expect(result.permission).toBe("ask");
+  });
+
+  it("still lets the star rule allow what no specific rule touched", () => {
+    const permissions: ToolPermissions = {
+      policies: [
+        { tool: "Bash(rm -rf dist)", permission: "exclude" },
+        { tool: "*", permission: "allow" },
+      ],
+    };
+
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "ls -la" } },
+      permissions,
     );
 
     expect(result.permission).toBe("allow");
