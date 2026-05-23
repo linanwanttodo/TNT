@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { connectEvents, fetchState, sendMessage, stopTurn } from "./client.js";
+import {
+  chooseModel,
+  chooseWorktree,
+  connectEvents,
+  fetchModels,
+  fetchState,
+  fetchWorktrees,
+  sendMessage,
+  startSession,
+  stopTurn,
+  switchSession,
+} from "./client.js";
 import type { AgentEvent } from "../types/agent-events.js";
 
 class MockEventSource {
@@ -168,6 +179,57 @@ describe("api client", () => {
     );
   });
 
+  it("startSession posts to /session/new and returns the snapshot", async () => {
+    const snapshot = {
+      session: { sessionId: "fresh", title: "", history: [] },
+      isProcessing: false,
+      messageQueueLength: 0,
+      pendingPermission: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(snapshot), { status: 200 }),
+        ),
+    );
+
+    const state = await startSession();
+    expect(fetch).toHaveBeenCalledWith(
+      "/session/new",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(state.session.sessionId).toBe("fresh");
+  });
+
+  it("switchSession posts the sessionId and returns the snapshot", async () => {
+    const snapshot = {
+      session: { sessionId: "old", title: "Old", history: [] },
+      isProcessing: false,
+      messageQueueLength: 0,
+      pendingPermission: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(snapshot), { status: 200 }),
+        ),
+    );
+
+    const state = await switchSession("old");
+    expect(fetch).toHaveBeenCalledWith(
+      "/session/select",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ sessionId: "old" }),
+      }),
+    );
+    expect(state.session.sessionId).toBe("old");
+  });
+
   it("fetchState parses the /state snapshot", async () => {
     const snapshot = {
       session: { sessionId: "s1", title: "t", history: [] },
@@ -186,5 +248,144 @@ describe("api client", () => {
     const state = await fetchState();
     expect(state.isProcessing).toBe(true);
     expect(state.session.sessionId).toBe("s1");
+  });
+});
+
+describe("model and worktree api", () => {
+  const modelsBody = {
+    available: true,
+    models: [
+      {
+        index: 0,
+        name: "Deepseek-V4.1-Flash",
+        provider: "deepseek",
+        current: true,
+      },
+      { index: 1, name: "gpt-5.2", provider: "openai", current: false },
+    ],
+    current: {
+      index: 0,
+      name: "Deepseek-V4.1-Flash",
+      provider: "deepseek",
+      current: true,
+    },
+  };
+  const worktreesBody = {
+    available: true,
+    worktrees: [
+      {
+        path: "/repo/main",
+        branch: "main",
+        head: "a".repeat(40),
+        detached: false,
+        bare: false,
+      },
+      {
+        path: "/repo/side",
+        branch: "side",
+        head: "b".repeat(40),
+        detached: false,
+        bare: false,
+      },
+    ],
+    current: {
+      path: "/repo/main",
+      branch: "main",
+      head: "a".repeat(40),
+      detached: false,
+      bare: false,
+    },
+    switchable: true,
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal(
+      "EventSource",
+      MockEventSource as unknown as typeof EventSource,
+    );
+    MockEventSource.instances = [];
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("delivers model.changed and workspace.changed SSE events", () => {
+    const events: AgentEvent[] = [];
+    connectEvents(
+      (e) => events.push(e),
+      () => {},
+    );
+    const source = MockEventSource.last!;
+    source.emit("model.changed", {
+      ...base,
+      type: "model.changed",
+      model: "gpt-5.2",
+    });
+    source.emit("workspace.changed", {
+      ...base,
+      type: "workspace.changed",
+      path: "/repo/side",
+      branch: "side",
+    });
+    expect(events.map((e) => e.type)).toEqual([
+      "model.changed",
+      "workspace.changed",
+    ]);
+  });
+
+  it("fetchModels gets the /models list and its current entry", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify(modelsBody), { status: 200 }),
+    );
+    const body = await fetchModels();
+    expect(fetch).toHaveBeenCalledWith("/models");
+    expect(body.models).toHaveLength(2);
+    expect(body.current?.name).toBe("Deepseek-V4.1-Flash");
+  });
+
+  it("chooseModel posts the index and returns the model now in use", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ model: modelsBody.models[1] }), {
+        status: 200,
+      }),
+    );
+    const model = await chooseModel(1);
+    expect(fetch).toHaveBeenCalledWith(
+      "/model",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ index: 1 }),
+      }),
+    );
+    expect(model.name).toBe("gpt-5.2");
+  });
+
+  it("fetchWorktrees gets the /worktrees list and switchability", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify(worktreesBody), { status: 200 }),
+    );
+    const body = await fetchWorktrees();
+    expect(fetch).toHaveBeenCalledWith("/worktrees");
+    expect(body.worktrees).toHaveLength(2);
+    expect(body.switchable).toBe(true);
+  });
+
+  it("chooseWorktree posts the checkout path and returns the new one", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ worktree: worktreesBody.worktrees[1] }), {
+        status: 200,
+      }),
+    );
+    const worktree = await chooseWorktree("/repo/side");
+    expect(fetch).toHaveBeenCalledWith(
+      "/worktree",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ path: "/repo/side" }),
+      }),
+    );
+    expect(worktree.branch).toBe("side");
   });
 });

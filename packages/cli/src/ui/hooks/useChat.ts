@@ -28,6 +28,7 @@ import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
+import { composeServedPrompt } from "../../utils/promptNotes.js";
 import { handleSlashCommands } from "../commands/index.js";
 import { notifyTurnComplete } from "../notify.js";
 
@@ -646,10 +647,10 @@ export function useChat({
       describeChangedFiles(),
       model ? describeContextBudget(currentHistory, model) : undefined,
     ];
-    const leading = hookNotes.filter((note): note is string => Boolean(note));
-    if (leading.length > 0) {
-      message = `${leading.join("\n\n")}\n\n${message}`;
-    }
+    message = composeServedPrompt(
+      message,
+      hookNotes.filter((note): note is string => Boolean(note)),
+    );
 
     // Track telemetry
     trackUserMessage(message, model);

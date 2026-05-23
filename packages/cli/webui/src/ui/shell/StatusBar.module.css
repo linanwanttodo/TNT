@@ -34,6 +34,19 @@
   align-items: center;
   gap: 7px;
   white-space: nowrap;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.entry[data-clickable="true"] {
+  cursor: pointer;
+}
+
+.entry[data-clickable="true"]:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
 }
 
 .entryIcon {
@@ -46,11 +59,24 @@
   gap: 4px;
   height: 24px;
   margin-left: -6px;
-  padding: 0 8px;
-  border-radius: 6px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--dsw-radius-full);
+  corner-shape: round;
+  background: #2a2a2a;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+/* The chip carries its accent only after a checkout has been picked; grey by
+ * default is the resting state, not the "attached to a worktree" state. */
+.worktree[data-chosen="true"] {
   background: var(--dsh-shell-worktree-fill);
   color: var(--dsh-shell-worktree-ink);
-  white-space: nowrap;
+  cursor: pointer;
 }
 
 .modeAnchor {
@@ -66,12 +92,17 @@
   padding: 0 6px;
   border: none;
   border-radius: 6px;
-  background: #2a2a2a;
+  background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.pill:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
 }
 
 .menu {
@@ -144,8 +175,17 @@
 }
 
 .model {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
   color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 12px;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .spinner {
@@ -155,5 +195,108 @@
   margin-left: 6px;
   border: 1.5px solid var(--dsw-alias-label-tertiary);
   border-radius: 50%;
+  corner-shape: round;
   opacity: 0.6;
+}
+
+.contextButton {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.contextButton:hover {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.contextRing {
+  transform: rotate(-90deg);
+}
+
+.contextRingTrack,
+.contextRingValue {
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.contextRingTrack {
+  stroke: #3a3a39;
+}
+
+.contextRingValue {
+  stroke: #2f74cf;
+}
+
+.contextPercent {
+  line-height: 1;
+}
+
+.contextHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 13px 10px;
+  border-bottom: 1px solid #3b3b3a;
+  margin-bottom: 6px;
+}
+
+.contextTotal {
+  font-size: 20px;
+  line-height: 24px;
+  font-variation-settings: var(--dsh-font-axis-semibold);
+  color: #c3c2b7;
+}
+
+.contextHeadTexts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.contextHeadLabel {
+  font-size: 12.5px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.contextHeadDescription {
+  font-size: 12px;
+  line-height: 16px;
+  color: #6c6a66;
+}
+
+.contextRows {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 4px;
+}
+
+.contextRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 13px;
+  min-height: 28px;
+}
+
+.contextRowLabel {
+  font-size: 12.5px;
+  line-height: 17px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.contextRowValue {
+  font-size: 12.5px;
+  line-height: 17px;
+  color: #6c6a66;
 }

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,7 +12,7 @@ import { useSessionStore } from "../../stores/session-store.js";
 import { ApprovalCard } from "./ApprovalCard.tsx";
 import { ChatItemView } from "./ChatItemView.tsx";
 import { ChatView } from "./ChatView.tsx";
-import { Composer } from "./Composer.tsx";
+import { Composer, composerShape } from "./Composer.tsx";
 import { ReasoningRow } from "./ReasoningRow.tsx";
 
 describe("chat view", () => {
@@ -43,14 +45,85 @@ describe("chat view", () => {
 
   it("renders the composer with a send button that flips to stop", () => {
     const { rerender } = render(
-      <Composer waiting={false} onSend={() => {}} onStop={() => {}} />,
+      <Composer
+        waiting={false}
+        onSend={() => {}}
+        onStop={() => {}}
+        onOpenMenu={() => {}}
+      />,
     );
-    // The reference hides the send button on an empty input; it appears with text.
-    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    // The arrow is always drawn; it only lights up once there is text.
+    expect(screen.queryByRole("button", { name: "Send" })).toBeTruthy();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "hi" } });
     expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
-    rerender(<Composer waiting onSend={() => {}} onStop={() => {}} />);
+    rerender(
+      <Composer
+        waiting
+        onSend={() => {}}
+        onStop={() => {}}
+        onOpenMenu={() => {}}
+      />,
+    );
     expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
+  });
+
+  it("keeps the composer a pill while the text fits one line", () => {
+    const { container } = render(
+      <Composer
+        waiting={false}
+        onSend={() => {}}
+        onStop={() => {}}
+        onOpenMenu={() => {}}
+      />,
+    );
+    const input = screen.getByRole("textbox");
+    Object.defineProperty(input, "scrollHeight", {
+      value: 24,
+      configurable: true,
+    });
+    fireEvent.change(input, { target: { value: "one line" } });
+    expect(
+      container.querySelector("[data-shape]")?.getAttribute("data-shape"),
+    ).toBe("pill");
+  });
+
+  it("squares the composer off once the text needs a second line", () => {
+    const { container } = render(
+      <Composer
+        waiting={false}
+        onSend={() => {}}
+        onStop={() => {}}
+        onOpenMenu={() => {}}
+      />,
+    );
+    const input = screen.getByRole("textbox");
+    Object.defineProperty(input, "scrollHeight", {
+      value: 48,
+      configurable: true,
+    });
+    fireEvent.change(input, { target: { value: "two lines of text" } });
+    expect(
+      container.querySelector("[data-shape]")?.getAttribute("data-shape"),
+    ).toBe("card");
+    // The frame stops centring the actions against a taller text block.
+    expect(input.parentElement?.getAttribute("data-shape")).toBe("card");
+  });
+
+  it("derives the composer shape from the line height alone", () => {
+    expect(composerShape(24, 24)).toBe("pill");
+    expect(composerShape(23, 24)).toBe("pill");
+    expect(composerShape(25, 24)).toBe("card");
+    expect(composerShape(120, 24)).toBe("card");
+  });
+
+  it("keeps the composer radius on one token standard", () => {
+    const theme = readFileSync("src/ui/theme/base.css", "utf8");
+    const composer = readFileSync("src/ui/chat/Composer.module.css", "utf8");
+    expect(theme).toContain("--dsw-radius-full: 9999px");
+    expect(composer).toContain("border-radius: var(--dsw-radius-full)");
+    expect(composer).toContain('[data-shape="card"]');
+    expect(composer).toContain("border-radius: var(--dsw-radius-xl)");
+    expect(composer).not.toMatch(/border-radius:\s*\d/);
   });
 
   it("renders a reasoning row collapsed by default", () => {
@@ -116,5 +189,61 @@ describe("chat view", () => {
     expect(screen.getByText("list files")).toBeTruthy();
     expect(screen.getByText("bash")).toBeTruthy();
     expect(screen.getByText("done")).toBeTruthy();
+  });
+
+  it("collapses a finished tool card and expands it on click", () => {
+    render(
+      <ChatItemView
+        item={{ kind: "tool", toolName: "bash", status: "done", result: "out" }}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /bash/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    const panel = toggle.nextElementSibling as HTMLElement;
+    expect(panel.getAttribute("data-open")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(panel.getAttribute("data-open")).toBe("true");
+    expect(screen.getAllByText("out").length).toBeGreaterThan(0);
+  });
+
+  it("starts a running tool card expanded", () => {
+    render(
+      <ChatItemView item={{ kind: "tool", toolName: "npm", status: "calling" }} />,
+    );
+    const toggle = screen.getByRole("button", { name: /npm/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("collapses a tool card when its operation finishes", () => {
+    const { rerender } = render(
+      <ChatItemView
+        item={{ kind: "tool", toolName: "git", status: "calling", result: "ok" }}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /git/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    rerender(
+      <ChatItemView
+        item={{ kind: "tool", toolName: "git", status: "done", result: "ok" }}
+      />,
+    );
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("keeps a reader-closed tool card closed when the operation finishes", () => {
+    const { rerender } = render(
+      <ChatItemView
+        item={{ kind: "tool", toolName: "grep", status: "calling", result: "hit" }}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /grep/ });
+    fireEvent.click(toggle);
+    rerender(
+      <ChatItemView
+        item={{ kind: "tool", toolName: "grep", status: "done", result: "hit" }}
+      />,
+    );
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 });
