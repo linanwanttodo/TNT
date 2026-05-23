@@ -60,7 +60,7 @@ export function EmptyState({
   return (
     <div className={css.emptyState}>
       <div className={css.stack}>
-        <ShellIcon glyph="sunburst" size={28} className={css.mark} />
+        <img src="/tnt-logo.svg" alt="" className={css.mark} />
         <h1 className={css.greeting}>{greeting}</h1>
         {picked ? (
           <div className={css.picked}>{picked}</div>

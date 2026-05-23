@@ -213,15 +213,6 @@ export function Sidebar({
     [groups, normalizedQuery],
   );
 
-  const recents = useMemo(
-    () =>
-      groups
-        .flatMap((group) => group.sessions)
-        .filter(matches)
-        .sort((left, right) => sessionTime(right) - sessionTime(left)),
-    [groups, normalizedQuery],
-  );
-
   const toggleSearch = () => {
     setSearchOpen((open) => {
       if (open) setQuery("");
@@ -334,7 +325,7 @@ export function Sidebar({
     <aside className={css.sidebar} data-collapsed={collapsed}>
       <div className={css.topBar}>
         <div className={css.appTitle}>
-          <ShellIcon glyph="sunburst" size={16} className={css.appMark} />
+          <img src="/tnt-logo.svg" alt="" className={css.appMark} />
           <span className={css.appName}>TNT</span>
         </div>
         <div className={css.topActions}>
@@ -454,16 +445,6 @@ export function Sidebar({
           })
         )}
 
-        <div className={css.sectionHeader}>{copy.recents}</div>
-        {recents.length === 0 ? (
-          <div className={css.noChats}>
-            {normalizedQuery === "" ? copy.noChats : copy.noMatchingChats}
-          </div>
-        ) : (
-          <div className={css.recentList}>
-            {recents.map((session) => renderSessionRow(session, "recent"))}
-          </div>
-        )}
       </div>
 
       <div className={css.accountWrap}>

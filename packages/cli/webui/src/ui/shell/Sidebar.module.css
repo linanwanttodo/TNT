@@ -37,7 +37,9 @@
 
 .appMark {
   flex: 0 0 auto;
-  color: var(--dsw-alias-brand-primary);
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
 .appName {
