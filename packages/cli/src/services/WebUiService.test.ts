@@ -15,9 +15,15 @@ import {
   vi,
 } from "vitest";
 
+import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import { messageQueue, type QueuedMessage } from "../stream/messageQueue.js";
 
-import { WebUiService } from "./WebUiService.js";
+import { turnRunnerService } from "./TurnRunnerService.js";
+import {
+  WebUiService,
+  resolveWebUiDist,
+  webuiDistCandidates,
+} from "./WebUiService.js";
 
 const { approveSpy, rejectSpy, startDrainingSpy, requestStopSpy } = vi.hoisted(
   () => ({
@@ -28,15 +34,21 @@ const { approveSpy, rejectSpy, startDrainingSpy, requestStopSpy } = vi.hoisted(
   }),
 );
 
-const { listSessionsSpy } = vi.hoisted(() => ({
-  listSessionsSpy: vi.fn(async () => [] as unknown[]),
-}));
+const { listSessionsSpy, startNewSessionSpy, selectSessionSpy } = vi.hoisted(
+  () => ({
+    listSessionsSpy: vi.fn(async () => [] as unknown[]),
+    startNewSessionSpy: vi.fn(),
+    selectSessionSpy: vi.fn(() => null as unknown),
+  }),
+);
 
 vi.mock("../session/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../session/index.js")>();
   return {
     ...actual,
     listSessions: listSessionsSpy,
+    startNewSession: startNewSessionSpy,
+    selectSession: selectSessionSpy,
   };
 });
 
@@ -210,6 +222,34 @@ describe("WebUiService", () => {
     }
   });
 
+  it("serves the dist when its path runs through a dot directory", async () => {
+    // The published CLI installs under ~/.tnt, and send() answers 404 for any
+    // absolute path containing a dot-prefixed segment unless the file is
+    // resolved against a root, so shipping dist inside the package broke the
+    // frontend for every install while every /tmp-based test stayed green.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "webui-home-"));
+    const distDir = path.join(root, ".tnt", "cli", "package", "dist", "webui");
+    fs.mkdirSync(path.join(distDir, "assets"), { recursive: true });
+    fs.writeFileSync(path.join(distDir, "index.html"), "<html>app</html>");
+    fs.writeFileSync(
+      path.join(distDir, "assets", "index.js"),
+      "console.log(1)",
+    );
+    try {
+      const { base, auth } = await started({ distDir });
+      const shell = await fetch(`${base}/app/`, { headers: auth });
+      expect(shell.status).toBe(200);
+      expect(await shell.text()).toContain("<html>app</html>");
+      const asset = await fetch(`${base}/app/assets/index.js`, {
+        headers: auth,
+      });
+      expect(asset.status).toBe(200);
+      expect(await asset.text()).toContain("console.log(1)");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("resolves a relative TNT_WEBUI_DIST against the process cwd", async () => {
     // res.sendFile demands an absolute path, so a relative env value must be
     // anchored at startup, not at serve time (express.static tolerates the
@@ -224,6 +264,76 @@ describe("WebUiService", () => {
       expect(await response.text()).toContain("<html>app</html>");
     } finally {
       fs.rmSync(distDir, { recursive: true, force: true });
+    }
+  });
+
+  it("takes the package's own dist when nothing is configured", () => {
+    // The tarball publishes dist/ alone, so the frontend has to be copied to
+    // dist/webui at build time; a source checkout keeps the vite output at
+    // webui/dist instead. Both sit under the package root, which is found by
+    // walking up from the module rather than assumed from the layout, because
+    // the bundle and the sources live at different depths.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "webui-pkg-"));
+    const moduleDir = path.join(root, "src", "services");
+    fs.mkdirSync(moduleDir, { recursive: true });
+    fs.writeFileSync(path.join(root, "package.json"), "{}");
+    const bundled = path.join(root, "dist", "webui");
+    const source = path.join(root, "webui", "dist");
+    try {
+      expect(webuiDistCandidates(moduleDir, "/cwd")).toEqual([
+        bundled,
+        source,
+        path.resolve("/cwd", "node_modules", "tnt-webui", "dist"),
+      ]);
+
+      // Nothing built: the first candidate is reported as the place looked in.
+      const empty = resolveWebUiDist(moduleDir, undefined, "/cwd");
+      expect(empty.hasDist).toBe(false);
+      expect(empty.distDir).toBe(bundled);
+      expect(empty.searched).toEqual(webuiDistCandidates(moduleDir, "/cwd"));
+
+      // The source-tree build wins over a hand-installed package.
+      fs.mkdirSync(source, { recursive: true });
+      expect(resolveWebUiDist(moduleDir, undefined, "/cwd").distDir).toBe(
+        source,
+      );
+
+      // And the bundled copy outranks it, which is what an installed CLI has.
+      fs.mkdirSync(bundled, { recursive: true });
+      expect(resolveWebUiDist(moduleDir, undefined, "/cwd").distDir).toBe(
+        bundled,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses only the configured directory when one is given", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "webui-pkg-"));
+    const moduleDir = path.join(root, "src", "services");
+    fs.mkdirSync(moduleDir, { recursive: true });
+    fs.writeFileSync(path.join(root, "package.json"), "{}");
+    const configured = path.join(root, "elsewhere");
+    try {
+      const resolved = resolveWebUiDist(moduleDir, configured, "/cwd");
+      expect(resolved.distDir).toBe(configured);
+      // A deliberate override is not reported against the fallback chain: the
+      // page must name the path the operator actually set.
+      expect(resolved.searched).toEqual([configured]);
+      expect(resolved.hasDist).toBe(false);
+
+      fs.mkdirSync(configured);
+      expect(resolveWebUiDist(moduleDir, configured, "/cwd").hasDist).toBe(
+        true,
+      );
+
+      // An empty override is a slip of the hand, not a request to serve the
+      // working directory as a frontend.
+      expect(resolveWebUiDist(moduleDir, "", "/cwd").searched).toEqual(
+        webuiDistCandidates(moduleDir, "/cwd"),
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
     }
   });
 
@@ -407,6 +517,99 @@ describe("WebUiService", () => {
     expect(listSessionsSpy).toHaveBeenCalled();
   });
 
+  it("refuses the session routes when the process does not own its session", async () => {
+    const { base, auth } = await started();
+
+    const created = await fetch(`${base}/session/new`, {
+      method: "POST",
+      headers: auth,
+    });
+    expect(created.status).toBe(403);
+
+    const selected = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "session-b" }),
+    });
+    expect(selected.status).toBe(403);
+    expect(startNewSessionSpy).not.toHaveBeenCalled();
+    expect(selectSessionSpy).not.toHaveBeenCalled();
+  });
+
+  it("starts a new session on POST /session/new and returns its snapshot", async () => {
+    const created = {
+      sessionId: "session-fresh",
+      title: "",
+      workspaceDirectory: process.cwd(),
+      history: [
+        { message: { role: "system", content: "sys" }, contextItems: [] },
+      ],
+    };
+    startNewSessionSpy.mockReturnValueOnce(created);
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/new`, {
+      method: "POST",
+      headers: auth,
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      session: { sessionId: string; title: string };
+    };
+    expect(body.session.sessionId).toBe("session-fresh");
+    expect(startNewSessionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an empty sessionId on POST /session/select", async () => {
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "" }),
+    });
+    expect(response.status).toBe(400);
+    expect(selectSessionSpy).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 when the requested session does not exist", async () => {
+    selectSessionSpy.mockReturnValueOnce(null);
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "session-gone" }),
+    });
+    expect(response.status).toBe(404);
+  });
+
+  it("selects an existing session and returns its snapshot", async () => {
+    const selected = {
+      sessionId: "session-b",
+      title: "Second conversation",
+      workspaceDirectory: "/work/beta",
+      history: [
+        { message: { role: "user", content: "earlier" }, contextItems: [] },
+      ],
+    };
+    selectSessionSpy.mockReturnValueOnce(selected);
+    const { base, auth } = await started({ ownsSession: true });
+
+    const response = await fetch(`${base}/session/select`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: "session-b" }),
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      session: { sessionId: string; title: string };
+    };
+    expect(body.session.sessionId).toBe("session-b");
+    expect(body.session.title).toBe("Second conversation");
+    expect(selectSessionSpy).toHaveBeenCalledWith("session-b");
+  });
+
   it("reports the first pending permission in GET /state", async () => {
     const { base, auth } = await started();
 
@@ -452,15 +655,23 @@ describe("WebUiService", () => {
   });
 
   it("serves the missing-dist fallback page on an authenticated GET /", async () => {
+    const missing = path.join(
+      os.tmpdir(),
+      `no-such-dist-${crypto.randomUUID()}`,
+    );
     const { base, auth } = await started({
-      distDir: path.join(os.tmpdir(), `no-such-dist-${crypto.randomUUID()}`),
+      distDir: missing,
     });
 
     const response = await fetch(`${base}/`, { headers: auth });
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain("tnt-webui");
-    expect(html).toContain("npm install");
+    // The page names the path it looked in and the override that would fix it.
+    expect(html).toContain(missing);
+    expect(html).toContain("TNT_WEBUI_DIST");
+    // It must not send the user to the registry: the frontend package is
+    // private and was never published, so that install can never succeed.
+    expect(html).not.toContain("npm install");
   });
 
   it("answers 404 outside the fallback when a dist is served", async () => {
@@ -556,5 +767,351 @@ describe("WebUiService", () => {
 
     await handle.close();
     await expect(fetch(`${base}/state`)).rejects.toThrow();
+  });
+});
+
+describe("WebUiService model and workspace routes", () => {
+  const models = [
+    {
+      index: 0,
+      name: "Deepseek-V4.1-Flash",
+      provider: "deepseek",
+      current: true,
+    },
+    { index: 1, name: "gpt-5.2", provider: "openai", current: false },
+  ];
+  const worktrees = [
+    {
+      path: "/repo/main",
+      branch: "main",
+      head: "a".repeat(40),
+      detached: false,
+      bare: false,
+    },
+    {
+      path: "/repo/side",
+      branch: "side",
+      head: "b".repeat(40),
+      detached: false,
+      bare: false,
+    },
+  ];
+
+  // The module mock answers "a turn is running" because most routes read that
+  // to decide whether they may act; these routes need both answers.
+  beforeEach(() => {
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(true);
+  });
+  afterEach(() => {
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(true);
+  });
+
+  it("lists the chat models the surface offers on GET /models", async () => {
+    const { base, auth } = await started({ listModels: () => models });
+
+    const response = await fetch(`${base}/models`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      available: true,
+      models,
+      current: models[0],
+    });
+  });
+
+  it("says there is no model choice when the surface offers none", async () => {
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/models`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      available: false,
+      models: [],
+      current: null,
+    });
+  });
+
+  it("switches the model on POST /model and answers with what is now in use", async () => {
+    const switchModel = vi.fn(async () => models[1]);
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel,
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 1 }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ model: models[1] });
+    expect(switchModel).toHaveBeenCalledWith(1);
+  });
+
+  it("answers a bad model index with the reason the switch gave", async () => {
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel: async () => {
+        throw new Error("No chat model at index 7 (2 available)");
+      },
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 7 }),
+    });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/index 7/);
+  });
+
+  it("needs a number for the model index on POST /model", async () => {
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel: vi.fn(),
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: "one" }),
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses to switch a model the surface never offered", async () => {
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 0 }),
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it("lists the repository's checkouts on GET /worktrees", async () => {
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+    });
+
+    const response = await fetch(`${base}/worktrees`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      available: true,
+      worktrees,
+      current: worktrees[0],
+      switchable: true,
+    });
+  });
+
+  it("says the workspace has no other checkout when the process is hosted", async () => {
+    const { base, auth } = await started({
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+    });
+
+    const response = await fetch(`${base}/worktrees`, { headers: auth });
+    expect(await response.json()).toMatchObject({ switchable: false });
+  });
+
+  it("says the workspace is not a repository when there is nothing to list", async () => {
+    const { base, auth } = await started({
+      listWorktrees: () => [],
+      currentWorktree: () => null,
+    });
+
+    const response = await fetch(`${base}/worktrees`, { headers: auth });
+    expect(await response.json()).toEqual({
+      available: false,
+      worktrees: [],
+      current: null,
+      switchable: false,
+    });
+  });
+
+  it("moves the session's workspace on POST /worktree when the process owns it", async () => {
+    const switchWorktree = vi.fn(async () => worktrees[1]);
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ worktree: worktrees[1] });
+    expect(switchWorktree).toHaveBeenCalledWith("/repo/side");
+  });
+
+  it("refuses to move a server that does not own its session", async () => {
+    const switchWorktree = vi.fn();
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(403);
+    expect(switchWorktree).not.toHaveBeenCalled();
+  });
+
+  it("waits for the running turn before moving the workspace", async () => {
+    const switchWorktree = vi.fn();
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(409);
+    expect(switchWorktree).not.toHaveBeenCalled();
+  });
+
+  it("refuses to move into a directory the repository does not have", async () => {
+    const switchWorktree = vi.fn();
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/somewhere/else" }),
+    });
+    expect(response.status).toBe(400);
+    expect(switchWorktree).not.toHaveBeenCalled();
+  });
+
+  it("reports the failure when the move itself goes wrong", async () => {
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree: async () => {
+        throw new Error("the directory vanished");
+      },
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toMatch(/vanished/);
+  });
+
+  it("tells every open tab about the workspace the browser moved", async () => {
+    const events: string[] = [];
+    const unsubscribe = subscribeAgentEvents((event) => {
+      events.push(event.type);
+    });
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree: async () => worktrees[1],
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    unsubscribe();
+
+    expect(response.status).toBe(200);
+    expect(events).toContain("workspace.changed");
+  });
+
+  it("tells every open tab about the model the browser chose", async () => {
+    const events: string[] = [];
+    const unsubscribe = subscribeAgentEvents((event) => {
+      events.push(event.type);
+    });
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel: async () => models[1],
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 1 }),
+    });
+    unsubscribe();
+
+    expect(response.status).toBe(200);
+    expect(events).toContain("model.changed");
+  });
+
+  it("reports the context breakdown from the getContextBreakdown seam", async () => {
+    const breakdown = {
+      usedTokens: 1200,
+      contextLimit: 100_000,
+      freeTokens: 98_800,
+      percentUsed: 1,
+      categories: {
+        systemPrompt: 400,
+        tools: 300,
+        conversation: 300,
+        toolResults: 100,
+        contextItems: 100,
+      },
+    };
+    const { base, auth } = await started({
+      getContextBreakdown: () => breakdown,
+    });
+
+    const response = await fetch(`${base}/context`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(breakdown);
+  });
+
+  it("requires authentication for GET /context", async () => {
+    const { base } = await started({
+      getContextBreakdown: () => ({
+        usedTokens: 0,
+        contextLimit: 200_000,
+        freeTokens: 200_000,
+        percentUsed: 0,
+        categories: {
+          systemPrompt: 0,
+          tools: 0,
+          conversation: 0,
+          toolResults: 0,
+          contextItems: 0,
+        },
+      }),
+    });
+
+    const response = await fetch(`${base}/context`);
+    expect(response.status).toBe(401);
   });
 });

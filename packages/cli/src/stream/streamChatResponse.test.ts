@@ -794,6 +794,8 @@ describe("executeStreamedToolCalls", () => {
       "Read",
       "done",
       "call_123",
+      // The arguments ride along so a reloaded transcript can rebuild the card.
+      { filepath: "/test.txt" },
     );
     // The executor is handed the call it should run - the id and name are the
     // parts this asserts, because the message it runs with may have been

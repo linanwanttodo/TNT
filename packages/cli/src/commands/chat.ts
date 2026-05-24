@@ -53,6 +53,7 @@ import { gracefulExit } from "../utils/exit.js";
 import { formatAnthropicError, formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
 import { question } from "../utils/prompt.js";
+import { composeServedPrompt } from "../utils/promptNotes.js";
 import { prependPrompt } from "../utils/promptProcessor.js";
 import { stripThinkTags } from "../utils/thinkingTags.js";
 import {
@@ -776,10 +777,10 @@ async function runHeadlessMode(
       describeContextBudget(chatHistory, model),
       schemaNote,
     ];
-    const leading = hookNotes.filter((note): note is string => Boolean(note));
-    if (leading.length > 0) {
-      effectiveInput = `${leading.join("\n\n")}\n\n${userInput}`;
-    }
+    effectiveInput = composeServedPrompt(
+      userInput,
+      hookNotes.filter((note): note is string => Boolean(note)),
+    );
 
     const result = await processMessage({
       userInput: effectiveInput,

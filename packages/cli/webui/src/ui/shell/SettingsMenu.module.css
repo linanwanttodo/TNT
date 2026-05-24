@@ -1,0 +1,108 @@
+/*
+ * The account-row popover: mode options with their descriptions, then the
+ * read-only session facts.
+ */
+
+.menu {
+  position: absolute;
+  bottom: 52px;
+  left: 8px;
+  right: 8px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsh-shell-popover-fill, #1c1c1c);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 6px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.headingIcon {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.actionItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.actionItem:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.actionIcon {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.optionLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.optionCheck {
+  color: var(--dsw-alias-label-primary);
+}
+
+.optionDesc {
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.option[data-selected="true"] .optionDesc {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.divider {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--dsw-alias-border-l1);
+}
+
+.info {
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
