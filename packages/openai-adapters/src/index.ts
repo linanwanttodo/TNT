@@ -15,6 +15,7 @@ import { JinaApi } from "./apis/Jina.js";
 import { LlamastackApi } from "./apis/LlamaStack.js";
 import { MiniMaxApi } from "./apis/MiniMax.js";
 import { MockApi } from "./apis/Mock.js";
+import { OllamaApi } from "./apis/Ollama.js";
 import { MoonshotApi } from "./apis/Moonshot.js";
 import { OpenAIApi } from "./apis/OpenAI.js";
 import { OpenRouterApi } from "./apis/OpenRouter.js";
@@ -190,7 +191,10 @@ export function constructLlmApi(config: LLMConfig): BaseLlmApi | undefined {
       // this is required for cli (for core, endpoints are overriden by core/llm/llms/Ollama.ts)
       if (config.apiBase)
         config.apiBase = appendPathToUrlIfNotPresent(config.apiBase, "v1");
-      return openAICompatible("http://localhost:11434/v1/", config);
+      return new OllamaApi({
+        ...config,
+        apiBase: config.apiBase ?? "http://localhost:11434/v1/",
+      });
     case "mock":
       return new MockApi();
     case "huggingface-inference-api":
@@ -241,6 +245,13 @@ export {
 } from "./apis/AnthropicUtils.js";
 
 export { isResponsesModel } from "./apis/openaiResponses.js";
+export {
+  DEFAULT_OLLAMA_CONTEXT_LENGTH,
+  extractOllamaContextLength,
+  fetchOllamaContextLength,
+  OllamaApi,
+  ollamaShowUrl,
+} from "./apis/Ollama.js";
 export {
   cacheRetention,
   resolveCachePolicy,
