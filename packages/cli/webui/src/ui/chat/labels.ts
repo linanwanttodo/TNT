@@ -1,5 +1,6 @@
 /** Labels the chat view passes down; one stable object per locale. */
 import type { MarkdownLabels } from "../primitives/markdown/render.tsx";
+import type { DiffBlockLabels } from "../primitives/DiffBlock.tsx";
 
 export const markdownLabels: MarkdownLabels = {
   code: {
@@ -26,4 +27,17 @@ export const chatLabels = {
   menuLabel: "Settings",
   disconnected: "Connection lost — reconnecting…",
   inputAria: "Message input",
+};
+
+/** Chrome for the diff surface a file-mutating tool card renders into. */
+export const diffLabels: DiffBlockLabels = {
+  codeLabel: "Diff",
+  wrapLabel: "Wrap",
+  unwrapLabel: "Unwrap",
+  copy: "Copy",
+  copied: "Copied",
+  collapseAria: "Collapse the diff",
+  collapse: "Collapse",
+  expandAria: (hidden) => `Show ${hidden} more diff lines`,
+  expand: (hidden) => `Show ${hidden} more lines`,
 };
