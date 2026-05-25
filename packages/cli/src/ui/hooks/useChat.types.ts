@@ -21,6 +21,7 @@ export interface UseChatProps {
   onShowConfigSelector: () => void;
   onShowMCPSelector: () => void;
   onShowMcpMarketplace?: () => void;
+  onShowPluginsBrowser?: () => void;
   onShowUpdateSelector: () => void;
   onShowThemeSelector?: () => void;
   onShowModelSelector?: () => void;
