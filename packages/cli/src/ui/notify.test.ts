@@ -20,6 +20,12 @@ describe("the terminal notification", () => {
     expect(notifySequence("off", "x")).toBeUndefined();
     expect(notifySequence("bell", "x")).toBe("\u0007");
     expect(notifySequence("osc9", "done")).toBe("\u001B]9;done\u0007");
+
+    // A title change inside the text would end the OSC early and hand the
+    // remainder to the terminal; the whole sequence goes, payload included.
+    expect(notifySequence("osc9", "done\u0007\u001B]0;pwned\u0007")).toBe(
+      "\u001B]9;done\u0007",
+    );
   });
 
   it("stays quiet for a turn short enough that nobody looked away", () => {
