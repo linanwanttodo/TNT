@@ -51,6 +51,42 @@ export interface PolledJob {
  */
 let exitHookRegistered = false;
 
+/**
+ * Ends a job's whole process tree. The job leads its own group, so the signal
+ * goes to the group: otherwise the processes it started outlive it.
+ *
+ * `escalate` waits five seconds before SIGKILL, which only an alive event loop
+ * can do. The exit sweep passes false — there is no loop left to run a timer,
+ * so the group gets TERM and then KILL back to back.
+ * @param child - the job's process.
+ * @param escalate - whether to wait before escalating to SIGKILL.
+ */
+function terminateJob(child: ChildProcess, escalate: boolean): void {
+  const signalGroup = (signal: NodeJS.Signals) => {
+    if (child.pid !== undefined && process.platform !== "win32") {
+      try {
+        process.kill(-child.pid, signal);
+        return;
+      } catch {
+        // The group is already gone; the direct kill is then a no-op.
+      }
+    }
+    child.kill(signal);
+  };
+
+  signalGroup("SIGTERM");
+  if (!escalate) {
+    signalGroup("SIGKILL");
+    return;
+  }
+
+  const timer = setTimeout(() => signalGroup("SIGKILL"), 5_000);
+  timer.unref();
+  // A group id can be reused once the job is gone; a pending escalation must
+  // not aim at whatever owns it then.
+  child.once("exit", () => clearTimeout(timer));
+}
+
 export class BackgroundJobService {
   private jobs: Map<string, BackgroundJob> = new Map();
   private processes: Map<string, ChildProcess> = new Map();
@@ -131,7 +167,12 @@ export class BackgroundJobService {
 
     job.status = "running";
 
-    const child = spawn(shell, args, { stdio: "pipe" });
+    // Its own process group, so cancelling the job reaches what the job
+    // started. Windows has no process groups.
+    const child = spawn(shell, args, {
+      stdio: "pipe",
+      detached: process.platform !== "win32",
+    });
     this.processes.set(jobId, child);
     this.notify();
 
@@ -335,12 +376,12 @@ export class BackgroundJobService {
 
   cancelJob(jobId: string): boolean {
     const job = this.jobs.get(jobId);
-    const process = this.processes.get(jobId);
+    const jobProcess = this.processes.get(jobId);
 
     if (!job) return false;
 
-    if (process) {
-      process.kill();
+    if (jobProcess) {
+      terminateJob(jobProcess, true);
       this.processes.delete(jobId);
     }
 
@@ -370,8 +411,9 @@ export class BackgroundJobService {
   }
 
   killAllJobs(): void {
-    for (const [jobId, process] of this.processes) {
-      process.kill();
+    for (const [jobId, jobProcess] of this.processes) {
+      // Runs on the way out: nothing will be left to wait five seconds.
+      terminateJob(jobProcess, false);
       const job = this.jobs.get(jobId);
       if (job) {
         job.status = "cancelled";
