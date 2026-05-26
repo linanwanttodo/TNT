@@ -10,11 +10,11 @@ import { splitServedPrompt } from "../../utils/promptNotes.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { symbols } from "../symbols.js";
 import { useTheme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { CompactionBoundary } from "./CompactionBoundary.js";
 import { ThinkingMessage } from "./ThinkingMessage.js";
 import { ToolGroupDisplay } from "./ToolGroupDisplay.js";
-import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 /**
  * Formats message content for display, converting message parts array back to
