@@ -819,7 +819,8 @@ const zhCN: Record<TranslationKey, string> = {
   "services.agentNotMarkdown": "无法从 {path} 加载智能体：不是 Markdown 文件",
   "services.agentLoadFailed": "无法从 {path} 加载智能体：{message}",
   "services.webuiUnauthorized": "需要有效的 Web UI 令牌。",
-  "services.noChatModelAtIndex": "索引 {index} 处没有聊天模型（共有 {count} 个）",
+  "services.noChatModelAtIndex":
+    "索引 {index} 处没有聊天模型（共有 {count} 个）",
   "services.noWorktreeAt": "{path} 处没有工作树",
   "services.cannotEnterWorktree": "无法进入 {path}：{message}",
   "plugins.manifestNotObject": "插件市场清单必须是一个对象",

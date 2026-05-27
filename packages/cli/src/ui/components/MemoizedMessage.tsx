@@ -111,9 +111,8 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
     }
 
     const rawFormattedContent = isUser
-      ? splitServedPrompt(
-          formatMessageContentForDisplay(message.content),
-        ).userText
+      ? splitServedPrompt(formatMessageContentForDisplay(message.content))
+          .userText
       : formatMessageContentForDisplay(message.content);
     const { thinking: extractedThought, cleanedText: cleanedBody } = isAssistant
       ? extractThinkingContent(rawFormattedContent)

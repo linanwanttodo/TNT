@@ -259,7 +259,7 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   config: 2,
   mcp: 1,
   plugins: 1,
-  services: 6,
+  services: 7,
   session: 6,
   tools: 6,
   ui: 8,
