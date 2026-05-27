@@ -106,6 +106,12 @@ interface SessionState {
   streaming: string | null;
   /** Reasoning still arriving; settled into an item when anything follows it. */
   reasoning: string | null;
+  /**
+   * Whether this turn already settled streamed prose into items: once it has,
+   * the turn-completed payload repeats those segments and only the tail after
+   * the last card is new.
+   */
+  flushedSegments: boolean;
   isWaiting: boolean;
   pendingPermission: PendingPermission | null;
   notices: string[];
@@ -188,6 +194,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   items: [],
   streaming: null,
   reasoning: null,
+  flushedSegments: false,
   isWaiting: false,
   pendingPermission: null,
   notices: [],
@@ -210,7 +217,13 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     switch (event.type) {
       case "turn.started":
-        set({ isWaiting: true, isProcessing: true, pendingPermission: null, seenTurnId: event.turnId });
+        set({
+          isWaiting: true,
+          isProcessing: true,
+          pendingPermission: null,
+          seenTurnId: event.turnId,
+          flushedSegments: false,
+        });
         break;
       case "content.delta": {
         const settled = settleReasoning(get());
@@ -232,7 +245,24 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           args: event.args,
         };
         const settled = settleReasoning(get());
-        set({ items: [...settled.items, card], reasoning: settled.reasoning });
+        // Prose streamed before this call settles above its card. Left in the
+        // buffer it would only land at turn.completed, i.e. below every card
+        // of the turn.
+        const streamed = get().streaming;
+        const proseSettled =
+          streamed === null || streamed === ""
+            ? settled.items
+            : [
+                ...settled.items,
+                { kind: "message", role: "assistant", text: streamed } as const,
+              ];
+        set({
+          items: [...proseSettled, card],
+          streaming: streamed === null || streamed === "" ? streamed : null,
+          reasoning: settled.reasoning,
+          flushedSegments:
+            proseSettled !== settled.items ? true : get().flushedSegments,
+        });
         break;
       }
       case "tool.updated": {
@@ -251,7 +281,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             : item,
         );
         const paths =
-          event.status === "done" ? changedPaths(event.toolName, event.args) : [];
+          event.status === "done"
+            ? changedPaths(event.toolName, event.args)
+            : [];
         if (paths.length > 0) {
           const pending = [...get().pendingChangedFiles, ...paths];
           set({ pendingChangedFiles: [...new Set(pending)] });
@@ -320,7 +352,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         }
         break;
       case "turn.completed": {
-        const text = event.content ?? get().streaming ?? "";
+        // Once segments are settled, the server's full-turn content repeats
+        // them; only the tail after the last card is new.
+        const text = get().flushedSegments
+          ? (get().streaming ?? "")
+          : (event.content ?? get().streaming ?? "");
         const changedFiles = summarizeChangedFiles(get().pendingChangedFiles);
         const message: AssistantMessageItem = {
           kind: "message",
@@ -336,6 +372,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           reasoning: null,
           isWaiting: false,
           isProcessing: false,
+          flushedSegments: false,
         });
         break;
       }

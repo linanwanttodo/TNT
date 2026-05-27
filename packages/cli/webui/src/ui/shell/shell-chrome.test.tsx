@@ -6,6 +6,7 @@ import { TitleBar } from "./TitleBar.tsx";
 
 const groups = [
   {
+    path: "/home/lin/continue",
     name: "continue",
     sessions: [
       {
@@ -24,14 +25,20 @@ describe("shell chrome", () => {
   it("gives the title bar no window controls", () => {
     render(<TitleBar title="Retrieval review" />);
     // A browser tab cannot minimize, maximize or close itself; the desktop
-    // shell drew these and the port kept them as decoration.
-    expect(screen.queryByRole("button")).toBeNull();
+    // shell drew these and the port kept them as decoration. The bar does
+    // carry its own navigation actions, so the assertion names the window
+    // controls rather than counting buttons.
+    expect(
+      screen.queryByRole("button", { name: /minimize|maximize|close/i }),
+    ).toBeNull();
     expect(screen.getByText("Retrieval review")).toBeTruthy();
   });
 
-  it("gives the sidebar no controls it cannot act on", () => {
-    render(<Sidebar groups={groups} />);
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  it("wires the session rows as actionable buttons", () => {
+    render(<Sidebar groups={groups} activeSessionId="s1" />);
+    // The rows, their menus and the collapse control are all real buttons;
+    // nothing in the rail is decoration.
+    expect(screen.getAllByRole("button").length).toBeGreaterThan(0);
     for (const label of ["Cowork", "Code", "Routines", "Customize", "More"]) {
       expect(screen.queryByText(label)).toBeNull();
     }
