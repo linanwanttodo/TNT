@@ -83,6 +83,17 @@ describe("built-in agents", () => {
     );
   });
 
+  it("confines PARTIAL to what the environment made impossible (T3.5)", () => {
+    // "I am not sure" is not an environment limit; the prompt has to say so,
+    // or a hedging verifier reports PARTIAL for checks it simply did not run.
+    expect(VERIFICATION_AGENT.systemMessage).toContain(
+      "It is not for uncertainty",
+    );
+    expect(VERIFICATION_AGENT.systemMessage).toContain(
+      "If a check can be run, decide PASS or FAIL",
+    );
+  });
+
   it("is described well enough to be chosen on", () => {
     expect(VERIFICATION_AGENT.description).toContain("verdict");
   });
