@@ -18,7 +18,10 @@ import {
   toolPermissionManager,
   ToolPermissionManager,
 } from "../permissions/permissionManager.js";
-import { hasSessionApproval } from "../permissions/sessionApprovals.js";
+import {
+  hasSessionApproval,
+  rememberSessionApproval,
+} from "../permissions/sessionApprovals.js";
 import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
 import {
   SERVICE_NAMES,
@@ -132,6 +135,13 @@ export async function requestUserPermission(
     });
   }
 
+  // "Don't ask again this session" is decided at the prompt and held in the
+  // engine's approval cache, so every surface (TUI, serve, webui, ACP) gets
+  // the same scope without each one reimplementing the store.
+  if (permissionResult.approved && permissionResult.remember) {
+    rememberSessionApproval(toolCall.name, toolCall.arguments);
+  }
+
   return permissionResult.approved;
 }
 
@@ -221,9 +231,13 @@ export async function checkToolPermissionApproval(
   /**
    * Ask-path context: `hookAskReason` is set when a PreToolUse hook answered
    * "ask" (escalation outranks the policy), and `autoContext` carries the model
-   * used by the auto-mode classifier.
+   * used by the auto-mode classifier. `hookAllowSkipPrompt` marks a hook that
+   * answered "allow": the rule layer below still decides first, so it only
+   * waives the prompt a hook escalation would have added - never a deny, an
+   * exclude or a policy "ask".
    */
   options?: {
+    hookAllowSkipPrompt?: boolean;
     hookAskReason?: string;
     autoContext?: { llmApi?: any; model?: any; history?: any[] };
   },
@@ -233,10 +247,19 @@ export async function checkToolPermissionApproval(
   message?: string;
 }> {
   const hookAskReason = options?.hookAskReason;
+  const hookAllowSkipPrompt = options?.hookAllowSkipPrompt === true;
   const autoContext = options?.autoContext;
+  // The rules layer runs before any hook verdict is honored, so a PreToolUse
+  // "allow" cannot reach past a deny or an exclude. The allow counts only as
+  // "no hook escalation" - exactly what an unset hookAskReason means - which
+  // is why a policy "ask" still goes to the human (or fails closed in
+  // headless) even when the hook said allow.
   const permissionCheck = checkToolPermission(toolCall, permissions);
 
-  if (permissionCheck.permission === "allow" && !hookAskReason) {
+  if (
+    permissionCheck.permission === "allow" &&
+    (hookAllowSkipPrompt || !hookAskReason)
+  ) {
     return { approved: true };
   } else if (
     permissionCheck.permission === "ask" ||

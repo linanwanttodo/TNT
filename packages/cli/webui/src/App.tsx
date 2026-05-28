@@ -405,7 +405,9 @@ export function App() {
               reasoning={reasoning}
               pendingPermission={pendingPermission}
               notices={notices}
-              onAnswer={(approved) => void approve(approved)}
+              onAnswer={(approved, remember) =>
+                void approve(approved, remember)
+              }
             />
           )}
         </div>

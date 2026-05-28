@@ -29,9 +29,17 @@ export function generatePolicyRule(toolName: string, toolArgs: any): string {
     if (isCommandRiskyAlone(segments[0])) {
       return `Bash(${command})`;
     }
-    // Extract just the command name (before spaces or flags)
-    const commandName = segments[0].split(/\s+/)[0];
-    return `Bash(${commandName}*)`;
+    // The shape carries the leading words that are not flags, up to two, and
+    // stops at the first flag: `git status` writes `Bash(git status*)` so the
+    // grant cannot reach `git push`, while `ls -la` and `grep -r test .` still
+    // write the one-word shape because a flag is not the part that names what
+    // the command acts on.
+    const shapeWords: string[] = [];
+    for (const word of segments[0].split(/\s+/)) {
+      if (word.startsWith("-") || shapeWords.length === 2) break;
+      shapeWords.push(word);
+    }
+    return `Bash(${shapeWords.join(" ")}*)`;
   }
 
   // For all other tools, return the display name
