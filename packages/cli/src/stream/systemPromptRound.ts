@@ -1,6 +1,10 @@
 import { describeSystemMessageTextChange } from "../agent/systemMessage.js";
 
-import { decideSystemPrompt } from "./systemPromptPolicy.js";
+import {
+  decideSystemPrompt,
+  type SystemPromptAction,
+} from "./systemPromptPolicy.js";
+import type { SectionBaselineState } from "./systemMessageReinjection.js";
 
 /**
  * The system prompt is the head of every cached prefix, so a change to it is
@@ -22,6 +26,8 @@ export interface SystemPromptRoundState {
   request?: string;
   /** In-history updates appended since that rewrite. */
   updates: string[];
+  /** Per-section prefix/told facts for the reinjection planner. */
+  sections?: SectionBaselineState;
 }
 
 export interface AdvanceSystemPromptInput {
@@ -35,6 +41,8 @@ export interface AdvanceSystemPromptInput {
 export interface AdvancedSystemPrompt {
   /** What this request sends as its system field. */
   readonly systemMessage: string;
+  /** The policy action this round took, for callers that reset section state on a rewrite. */
+  readonly action: SystemPromptAction;
   /** Warnings the caller should log, already worded for the log. */
   readonly warnings: readonly string[];
 }
@@ -79,6 +87,7 @@ export function advanceSystemPrompt(
 
   return {
     systemMessage: state.request ?? next,
+    action: decision.action,
     warnings,
   };
 }
