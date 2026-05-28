@@ -4,6 +4,7 @@ import path from "path";
 import util from "util";
 
 import { t } from "../i18n/index.js";
+import { policySearchIgnorePatterns } from "../permissions/searchIgnore.js";
 
 import { formatToolArgument } from "./formatters.js";
 import { checkIfRipgrepIsInstalled } from "./searchCode.js";
@@ -96,11 +97,30 @@ export const globFilesTool: Tool = {
     const root = args.path ? path.resolve(args.path) : process.cwd();
     const limit = maxResults();
 
+    // The permission policies' own path refusals join the listing: a rule
+    // that denies reading a file must not let the file list hand the same
+    // path over. Service-less processes (bare unit tests) get no rules.
+    let deniedGlobs: string[] = [];
+    try {
+      const { services } = await import("../services/index.js");
+      deniedGlobs = policySearchIgnorePatterns(
+        services.toolPermissions.getState().permissions,
+      );
+    } catch {
+      deniedGlobs = [];
+    }
+
     let listed: string;
     try {
       const { stdout } = await execFilePromise(
         "rg",
-        ["--files", "--glob", pattern, root],
+        [
+          "--files",
+          "--glob",
+          pattern,
+          ...deniedGlobs.flatMap((denied) => ["--glob", `!${denied}`]),
+          root,
+        ],
         {
           maxBuffer: 10 * 1024 * 1024,
           // A glob with a slash in it is anchored to the working directory, not
