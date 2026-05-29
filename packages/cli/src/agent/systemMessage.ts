@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -34,7 +34,11 @@ import {
   profileSection,
   type PromptProfile,
 } from "./promptProfiles.js";
-import { joinSystemMessageSections } from "./systemMessageSections.js";
+import {
+  createSectionRegistry,
+  joinSystemMessageSections,
+  type SectionKind,
+} from "./systemMessageSections.js";
 
 // Static, because everything ahead of the user's own text is inside the cached
 // prefix of every request in the session.
@@ -49,7 +53,9 @@ export const RULES_PREAMBLE =
 function isGitRepo(): boolean {
   if (gitRepoChecked === undefined) {
     try {
-      execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
+      execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+        stdio: "ignore",
+      });
       gitRepoChecked = true;
     } catch {
       gitRepoChecked = false;
@@ -95,7 +101,7 @@ function getGitStatus(): string {
   if (gitStatusSnapshot === undefined) {
     try {
       if (isGitRepo()) {
-        const result = execSync("git status --porcelain", {
+        const result = execFileSync("git", ["status", "--porcelain"], {
           encoding: "utf-8",
           cwd: process.cwd(),
         });
@@ -435,6 +441,164 @@ async function collectRuleMaterial(
  * The prefix is the concatenation of its sections, each of which already carries
  * the blank lines that separate it, so joining adds nothing.
  */
+
+/** What one section build needs: the request shape plus the rule material. */
+interface SectionBuildContext {
+  readonly mode: PermissionMode;
+  readonly format?: OutputFormat;
+  readonly headless?: boolean;
+  readonly profile?: PromptProfile;
+  readonly agentContent: string;
+  readonly processedRules: string[];
+}
+
+interface SectionDefinition {
+  /** The section name as every consumer and the marker table know it. */
+  readonly id: string;
+  readonly kind: SectionKind;
+  /** Null when the section does not apply to this request shape. */
+  build(ctx: SectionBuildContext): SystemMessageSection | null;
+}
+
+/**
+ * The frozen registry, exported for the drift guards: a test that builds the
+ * prefix can check every emitted section against the definition that owns it.
+ */
+export const SECTION_REGISTRY = createSectionRegistry<SectionDefinition>([
+  {
+    id: "base",
+    kind: "stable",
+    build: () => ({
+      name: "base",
+      text: `${baseSystemMessage}${memoryClause}`,
+      volatile: false,
+    }),
+  },
+  {
+    // Plan is one text, whichever way it was chosen: the permission mode and
+    // the profile must not produce two wordings of the same instruction.
+    id: "planMode",
+    kind: "diffable",
+    build: (ctx) =>
+      ctx.mode === "plan"
+        ? { name: "planMode", text: PLAN_MODE_TEXT, volatile: true }
+        : null,
+  },
+  {
+    // The profile is the task-shaped axis. It is skipped when the plan text is
+    // already in from the mode, and the default profile adds nothing at all.
+    id: "promptProfile",
+    kind: "diffable",
+    build: (ctx) =>
+      ctx.profile && ctx.profile !== "default" && ctx.mode !== "plan"
+        ? {
+            name: "promptProfile",
+            text: profileSection(ctx.profile),
+            volatile: true,
+          }
+        : null,
+  },
+  {
+    // In headless mode, add instructions to be concise and only provide final answers
+    id: "headless",
+    kind: "stable",
+    build: (ctx) =>
+      ctx.headless
+        ? {
+            name: "headless",
+            text: `
+
+IMPORTANT: You are running in headless mode. Provide ONLY your final answer to the user's question. Do not include explanations, reasoning, or additional commentary unless specifically requested. Be direct and concise.
+
+Nobody is watching in real time and no question can be answered mid-task, so asking one blocks the work: for reversible steps that follow from the request, proceed; stop only for destructive actions or a genuine change of scope. Offer follow-ups after the work is done; asking permission before starting it is not the way.`,
+            volatile: false,
+          }
+        : null,
+  },
+  {
+    // Add JSON formatting instructions if format is json
+    id: "jsonOutput",
+    kind: "stable",
+    build: (ctx) =>
+      ctx.format === "json"
+        ? {
+            name: "jsonOutput",
+            text: `
+
+IMPORTANT: You are operating in JSON output mode. Your final response MUST be valid JSON that can be parsed by JSON.parse(). The JSON should contain properties relevant to answer the user's question. You don't need to include any general "response" or "answer" field. Do not include any text before or after the JSON - the entire response must be parseable JSON.
+
+Example response format:
+{
+  "property": "value"
+}`,
+            volatile: false,
+          }
+        : null,
+  },
+  {
+    // A plugin may force an output style on as soon as it is enabled. Styles a
+    // plugin merely offers are left alone: applying one changes every request
+    // prefix until it is switched back, so it stays a user decision.
+    id: "outputStyle",
+    kind: "diffable",
+    build: () => {
+      const outputStyleSection = buildOutputStyleSection(
+        selectOutputStyle(loadAllPlugins().outputStyles),
+      );
+      return outputStyleSection
+        ? { name: "outputStyle", text: outputStyleSection, volatile: true }
+        : null;
+    },
+  },
+  {
+    // The rules block is the last thing in the prefix, so its own wording stays
+    // fixed and only the user's text changes.
+    id: "userRules",
+    kind: "diffable",
+    build: (ctx) => {
+      const teamLeadBlock = activeTeamLeadBlock();
+      const goalBlock = goalAlignmentBlock();
+      const convokeBlock = autoConvokeBlock();
+
+      if (
+        !ctx.agentContent &&
+        ctx.processedRules.length === 0 &&
+        !teamLeadBlock &&
+        !goalBlock &&
+        !convokeBlock
+      ) {
+        return null;
+      }
+
+      const blocks = [RULES_PREAMBLE];
+      if (ctx.agentContent) blocks.push(ctx.agentContent);
+      blocks.push(...ctx.processedRules);
+      if (goalBlock) blocks.push(goalBlock);
+      if (convokeBlock) blocks.push(convokeBlock);
+      if (teamLeadBlock) blocks.push(teamLeadBlock);
+
+      return {
+        name: "userRules",
+        text: `\n\n<context name="userRules">\n${blocks.join(
+          "\n\n",
+        )}\n</context>`,
+        volatile: true,
+      };
+    },
+  },
+  {
+    // Last, and volatile: the date turns over on its own and the status tracks
+    // uncommitted work, so neither is allowed to move the cached head of the prefix.
+    id: "environment",
+    kind: "diffable",
+    build: () => ({
+      name: "environment",
+      text: environmentSection(),
+      volatile: true,
+    }),
+  },
+]);
+
 export async function buildSystemMessageSections(
   mode: PermissionMode,
   additionalRules?: string[],
@@ -448,111 +612,23 @@ export async function buildSystemMessageSections(
   // Each part of the prefix is built as its own section so a later request can
   // say which part moved instead of only that the system message differs: the
   // cached prefix is billed as a whole, and the only fix for a move is knowing
-  // what caused it.
-  const sections: SystemMessageSection[] = [
-    {
-      name: "base",
-      text: `${baseSystemMessage}${memoryClause}`,
-      volatile: false,
-    },
-  ];
+  // what caused it. A section that does not apply to this request shape is
+  // omitted entirely rather than emitted empty, which is what keeps the prefix
+  // bytes free of conditional husks.
+  const ctx: SectionBuildContext = {
+    mode,
+    format,
+    headless,
+    profile,
+    agentContent,
+    processedRules,
+  };
 
-  // Plan is one text, whichever way it was chosen: the permission mode and the
-  // profile must not produce two wordings of the same instruction.
-  if (mode === "plan") {
-    sections.push({ name: "planMode", text: PLAN_MODE_TEXT, volatile: true });
+  const sections: SystemMessageSection[] = [];
+  for (const definition of SECTION_REGISTRY) {
+    const section = definition.build(ctx);
+    if (section !== null) sections.push(section);
   }
-
-  // The profile is the task-shaped axis. It is skipped when the plan text is
-  // already in from the mode, and the default profile adds nothing at all.
-  if (profile && profile !== "default" && mode !== "plan") {
-    sections.push({
-      name: "promptProfile",
-      text: profileSection(profile),
-      volatile: true,
-    });
-  }
-
-  // In headless mode, add instructions to be concise and only provide final answers
-  if (headless) {
-    sections.push({
-      name: "headless",
-      text: `
-
-IMPORTANT: You are running in headless mode. Provide ONLY your final answer to the user's question. Do not include explanations, reasoning, or additional commentary unless specifically requested. Be direct and concise.
-
-Nobody is watching in real time and no question can be answered mid-task, so asking one blocks the work: for reversible steps that follow from the request, proceed; stop only for destructive actions or a genuine change of scope. Offer follow-ups after the work is done; asking permission before starting it is not the way.`,
-      volatile: false,
-    });
-  }
-
-  // Add JSON formatting instructions if format is json
-  if (format === "json") {
-    sections.push({
-      name: "jsonOutput",
-      text: `
-
-IMPORTANT: You are operating in JSON output mode. Your final response MUST be valid JSON that can be parsed by JSON.parse(). The JSON should contain properties relevant to answer the user's question. You don't need to include any general "response" or "answer" field. Do not include any text before or after the JSON - the entire response must be parseable JSON.
-
-Example response format:
-{
-  "property": "value"
-}`,
-      volatile: false,
-    });
-  }
-
-  // A plugin may force an output style on as soon as it is enabled. Styles a
-  // plugin merely offers are left alone: applying one changes every request
-  // prefix until it is switched back, so it stays a user decision.
-  const outputStyleSection = buildOutputStyleSection(
-    selectOutputStyle(loadAllPlugins().outputStyles),
-  );
-  if (outputStyleSection) {
-    sections.push({
-      name: "outputStyle",
-      text: outputStyleSection,
-      volatile: true,
-    });
-  }
-
-  // The rules block is the last thing in the prefix, so its own wording stays
-  // fixed and only the user's text changes.
-  const teamLeadBlock = activeTeamLeadBlock();
-  const goalBlock = goalAlignmentBlock();
-  const convokeBlock = autoConvokeBlock();
-
-  if (
-    agentContent ||
-    processedRules.length > 0 ||
-    teamLeadBlock ||
-    goalBlock ||
-    convokeBlock
-  ) {
-    const blocks = [RULES_PREAMBLE];
-    if (agentContent) blocks.push(agentContent);
-    blocks.push(...processedRules);
-    if (goalBlock) blocks.push(goalBlock);
-    if (convokeBlock) blocks.push(convokeBlock);
-    if (teamLeadBlock) blocks.push(teamLeadBlock);
-
-    sections.push({
-      name: "userRules",
-      text: `\n\n<context name="userRules">\n${blocks.join(
-        "\n\n",
-      )}\n</context>`,
-      volatile: true,
-    });
-  }
-
-  // Last, and volatile: the date turns over on its own and the status tracks
-  // uncommitted work, so neither is allowed to move the cached head of the prefix.
-  sections.push({
-    name: "environment",
-    text: environmentSection(),
-    volatile: true,
-  });
-
   return sections;
 }
 
