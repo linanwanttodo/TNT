@@ -14,10 +14,12 @@ import {
   fireUserPromptSubmit,
   takeSessionStartContext,
 } from "../../hooks/fireHook.js";
+import { currentPromptCacheKey } from "../../cache/promptCacheKey.js";
 import { t } from "../../i18n/index.js";
 import { interactionBroker } from "../../permissions/interactionBroker.js";
 import { services } from "../../services/index.js";
 import { turnRunnerService } from "../../services/TurnRunnerService.js";
+import { clearSeriesSectionBaselines } from "../../stream/systemPromptSeries.js";
 import {
   createSession,
   resumeSession,
@@ -929,6 +931,11 @@ export function useChat({
 
     // Clear any queued messages
     messageQueue.clearMessages();
+
+    // The per-section prefix facts were measured against a history window the
+    // rewind just removed, so they are dropped: the next round reinjects the
+    // sections whole. Safe to call when no series or baselines exist.
+    clearSeriesSectionBaselines(currentPromptCacheKey());
 
     // Clear attached files
     setAttachedFiles([]);
