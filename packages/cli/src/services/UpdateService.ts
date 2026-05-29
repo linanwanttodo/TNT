@@ -3,13 +3,12 @@ import { promisify } from "util";
 
 import { GlobalContext } from "core/util/GlobalContext.js";
 
-import { logger } from "../utils/logger.js";
-
 import {
   compareVersions,
   getLatestVersion,
   getVersion,
 } from "../startup/version.js";
+import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";

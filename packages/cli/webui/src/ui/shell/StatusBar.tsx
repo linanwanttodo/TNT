@@ -281,7 +281,9 @@ export function StatusBar({
               className={css.model}
               onClick={() => setOpen((v) => (v === "model" ? null : "model"))}
             >
-              {modelLabel}
+              <span key={modelLabel} className="zcode-roll-label">
+                {modelLabel}
+              </span>
             </button>
           </span>
         ) : modelLabel ? (
@@ -370,10 +372,10 @@ export function StatusBar({
                   cx="10"
                   cy="10"
                   r="8"
-                  strokeDasharray={`${Math.max(
-                    0,
-                    Math.min(100, contextBreakdown.percentUsed),
-                  ) * 0.5027} 50.27`}
+                  strokeDasharray={`${
+                    Math.max(0, Math.min(100, contextBreakdown.percentUsed)) *
+                    0.5027
+                  } 50.27`}
                 />
               </svg>
               <span className={css.contextPercent}>

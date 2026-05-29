@@ -9,10 +9,10 @@ vi.mock("../retrieval/writeRefresh.js", () => ({
 }));
 
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
+import { resolveWithin } from "../utils/pathGuard.js";
 
 import { applyPatchTool, parseApplyPatch } from "./applyPatch.js";
 import { forgetSeenFiles, markFileAsSeen } from "./fileState.js";
-import { resolveWithin } from "../utils/pathGuard.js";
 import { setWorkspaceFileService } from "./workspaceFiles.js";
 let dir: string;
 const previousCwd = process.cwd();

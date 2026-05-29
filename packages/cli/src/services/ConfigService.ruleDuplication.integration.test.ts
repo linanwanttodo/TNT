@@ -1,9 +1,8 @@
 import { decodePackageIdentifier } from "@tnt/config-yaml";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isStringRule } from "../config/hubLoader.js";
-
 import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";
+import { isStringRule } from "../config/hubLoader.js";
 import { ConfigService } from "../services/ConfigService.js";
 
 // Mock the required functions - need to match the import path used by ConfigService

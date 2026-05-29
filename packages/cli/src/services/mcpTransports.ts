@@ -10,6 +10,7 @@ import {
 } from "node_modules/@tnt/config-yaml/dist/schemas/mcp/index.js";
 
 import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
+
 import { MCPConnectionInfo } from "./types.js";
 
 export function constructSseTransport(

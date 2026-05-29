@@ -7,8 +7,8 @@ import {
 } from "@tnt/openai-adapters";
 import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
-import { logger } from "../utils/logger.js";
 import { t } from "../i18n/index.js";
+import { logger } from "../utils/logger.js";
 import { getUniqueId } from "../utils/uniqueId.js";
 
 import { env } from "./env.js";

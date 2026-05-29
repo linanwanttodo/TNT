@@ -1,8 +1,7 @@
 import { execFile, spawn } from "child_process";
 
-import { PreprocessedToolCall } from "../tools/types.js";
-
 import { getCurrentSession, getSessionFilePath } from "../session/index.js";
+import { PreprocessedToolCall } from "../tools/types.js";
 import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";

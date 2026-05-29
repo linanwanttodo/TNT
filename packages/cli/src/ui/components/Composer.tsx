@@ -19,7 +19,6 @@ interface ComposerProps {
   statusMessage: string;
   isScreenActive: (screen: any) => boolean;
   services: any;
-  handleConfigSelect: (config: any) => Promise<void>;
   handleModelSelect: (model: any) => Promise<void>;
   handleSessionSelect: (sessionId: string) => Promise<void>;
   handleExportSession: (sessionId: string) => Promise<void>;
@@ -100,7 +99,6 @@ export const Composer: React.FC<ComposerProps> = (props) => {
       <ScreenContent
         isScreenActive={props.isScreenActive}
         services={props.services}
-        handleConfigSelect={props.handleConfigSelect}
         handleModelSelect={props.handleModelSelect}
         handleSessionSelect={props.handleSessionSelect}
         handleExportSession={props.handleExportSession}

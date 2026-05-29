@@ -12,10 +12,9 @@ TNT resolves its configuration in this order, first match wins:
 3. No configuration: the interactive setup runs and writes `~/.tnt/config.yaml`.
 
 Only local files are read. A `--config` value that is not a path, such as a
-published assistant slug, is refused at startup.
-
-`/config` opens the configuration selector, which lists the local
-`config.yaml`.
+published assistant slug, is refused at startup. Pass `--config <path>` to run
+against another file; `/model` switches the active model inside the one you
+started with.
 
 ## The config file
 

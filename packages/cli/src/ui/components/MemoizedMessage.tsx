@@ -5,8 +5,8 @@ import type {
   ChatHistoryItem,
   ToolCallState,
 } from "../../../../../core/index.js";
-import { extractThinkingContent } from "../../utils/thinkingTags.js";
 import { splitServedPrompt } from "../../utils/promptNotes.js";
+import { extractThinkingContent } from "../../utils/thinkingTags.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { symbols } from "../symbols.js";
 import { useTheme } from "../theme/tokens.js";

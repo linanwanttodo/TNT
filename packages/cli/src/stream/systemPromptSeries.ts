@@ -1,5 +1,5 @@
-import type { SystemPromptRoundState } from "./systemPromptRound.js";
 import { clearSectionBaselines } from "./systemMessageReinjection.js";
+import type { SystemPromptRoundState } from "./systemPromptRound.js";
 
 /**
  * The system prompt series outlives the turn that started it.

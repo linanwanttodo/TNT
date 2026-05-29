@@ -2,6 +2,7 @@ import { execFileSync } from "child_process";
 import * as fs from "fs";
 import os from "os";
 import path from "path";
+import { pathToFileURL } from "url";
 
 import {
   ConfigResult,
@@ -734,14 +735,21 @@ async function handleEsbuildInstallation(
   } catch {
     // Try resolving from the global config dir's node_modules as a courtesy
     try {
-      const userEsbuild = path.join(
-        getTntGlobalPath(),
-        "node_modules",
-        "esbuild",
-      );
+      // The global path comes from the operator's environment, but the
+      // resolution root is still anchored: node_modules/esbuild must land
+      // inside the global config directory.
+      const globalRoot = path.resolve(getTntGlobalPath());
+      const userEsbuild = path.resolve(globalRoot, "node_modules", "esbuild");
+      if (
+        userEsbuild !== globalRoot &&
+        !userEsbuild.startsWith(globalRoot + path.sep)
+      ) {
+        throw new Error("esbuild path escapes the global config directory");
+      }
       const candidate = require.resolve("esbuild", { paths: [userEsbuild] });
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require(candidate);
+      // Probe that the resolved esbuild actually loads. Dynamic import through
+      // a file URL: no shell, no eval, and the module cache is not needed.
+      await import(pathToFileURL(candidate).href);
       return true; // available via the global config dir
     } catch {
       // Not available → show friendly instructions and opt out of building

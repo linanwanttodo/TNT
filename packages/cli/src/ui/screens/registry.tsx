@@ -5,7 +5,6 @@ import { ChatScreenContent } from "../components/ChatScreenContent.js";
 import type { ScreenContentProps } from "../components/ScreenContent.js";
 import { SessionSelectorWithLoading } from "../components/SessionSelectorWithLoading.js";
 import { ThemeSelector } from "../components/ThemeSelector.js";
-import { ConfigSelector } from "../ConfigSelector.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { DiffViewer } from "../DiffViewer.js";
 import { EditMessageSelector } from "../EditMessageSelector.js";
@@ -27,15 +26,6 @@ export interface ScreenDefinition {
 }
 
 export const SCREENS: readonly ScreenDefinition[] = [
-  {
-    id: "config",
-    render: (props) => (
-      <ConfigSelector
-        onSelect={props.handleConfigSelect}
-        onCancel={props.closeCurrentScreen}
-      />
-    ),
-  },
   {
     id: "mcp",
     render: (props) => <MCPSelector onCancel={props.closeCurrentScreen} />,

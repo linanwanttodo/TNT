@@ -2,16 +2,6 @@ import { Box, Text, useInput } from "ink";
 import React, { useEffect, useMemo, useState } from "react";
 
 import { t } from "../i18n/index.js";
-import { symbols } from "./symbols.js";
-import { loadKnownMarketplaces } from "../plugins/marketplaceRegistry.js";
-import {
-  refreshMarketplace,
-  createDefaultDeps,
-} from "../plugins/marketplaceManager.js";
-import {
-  installPluginWithDependencies,
-  uninstallPlugin,
-} from "../plugins/pluginInstall.js";
 import {
   CatalogEntry,
   ensureDefaultMarketplace,
@@ -19,6 +9,17 @@ import {
   searchCatalogPlugins,
 } from "../plugins/discover.js";
 import { loadAllPlugins } from "../plugins/loader.js";
+import {
+  refreshMarketplace,
+  createDefaultDeps,
+} from "../plugins/marketplaceManager.js";
+import { loadKnownMarketplaces } from "../plugins/marketplaceRegistry.js";
+import {
+  installPluginWithDependencies,
+  uninstallPlugin,
+} from "../plugins/pluginInstall.js";
+
+import { symbols } from "./symbols.js";
 
 const TABS = ["installed", "discover", "marketplaces"] as const;
 type Tab = (typeof TABS)[number];

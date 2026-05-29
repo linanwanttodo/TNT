@@ -310,7 +310,16 @@ export async function migrate(
   }
 
   const migrationsPath = getMigrationsFolderPath();
-  const migrationPath = path.join(migrationsPath, id);
+  // The id is a migration marker name; anchor the marker file to the
+  // migrations directory so a `../` inside an id cannot write outside it.
+  const migrationsRoot = path.resolve(migrationsPath);
+  const migrationPath = path.resolve(migrationsRoot, id);
+  if (
+    migrationPath !== migrationsRoot &&
+    !migrationPath.startsWith(migrationsRoot + path.sep)
+  ) {
+    throw new Error(`Migration id escapes the migrations root: ${id}`);
+  }
 
   if (!fs.existsSync(migrationPath)) {
     try {

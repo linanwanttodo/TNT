@@ -3,9 +3,11 @@ import * as os from "os";
 import * as path from "path";
 
 import type { ChatHistoryItem } from "core/index.js";
+
 import { checkToolPermission } from "../permissions/permissionChecker.js";
 import { services } from "../services/index.js";
 import type { MCPConnectionInfo, MCPTool } from "../services/types.js";
+
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import {
   clearMcpSharedTools,

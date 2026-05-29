@@ -3,7 +3,7 @@
  * greeting, and a row of suggestion cards, each with its own icon and the
  * prompt it fills. A card click hands the text to the composer.
  */
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 
 import { ShellIcon, type ShellGlyph } from "./icons.tsx";
 import css from "./EmptyState.module.css";
@@ -66,23 +66,29 @@ export function EmptyState({
           <div className={css.picked}>{picked}</div>
         ) : (
           <div className={css.cards}>
-            {(suggestions.length > 0 ? suggestions : [{ glyph: "lightning" as const, label }]).map(
-              (suggestion) => (
-                <button
-                  key={suggestion.label}
-                  type="button"
-                  className={css.card}
-                  onClick={() => pick(suggestion)}
-                >
-                  <ShellIcon
-                    glyph={suggestion.glyph}
-                    size={14}
-                    className={css.cardIcon}
-                  />
-                  <span className={css.cardLabel}>{suggestion.label}</span>
-                </button>
-              ),
-            )}
+            {(suggestions.length > 0
+              ? suggestions
+              : [{ glyph: "lightning" as const, label }]
+            ).map((suggestion, index) => (
+              <button
+                key={suggestion.label}
+                type="button"
+                className={`${css.card} zcode-draft-prompt-waterfall`}
+                style={
+                  {
+                    "--zcode-draft-prompt-waterfall-delay": `${index * 80}ms`,
+                  } as CSSProperties
+                }
+                onClick={() => pick(suggestion)}
+              >
+                <ShellIcon
+                  glyph={suggestion.glyph}
+                  size={14}
+                  className={css.cardIcon}
+                />
+                <span className={css.cardLabel}>{suggestion.label}</span>
+              </button>
+            ))}
           </div>
         )}
       </div>

@@ -6,6 +6,7 @@ import {
   IconLinkOutlineRegular,
   IconSettingsOutlineRegular,
 } from "../primitives/icons/index.tsx";
+import { closeWebUi } from "../../api/client.js";
 
 import {
   useUiPreferences,
@@ -100,7 +101,6 @@ export function AccountMenu({
         <span>{copy.accountSettings}</span>
         <span className={css.shortcut}>Ctrl+,</span>
       </button>
-      
 
       <div className={css.divider} />
 
@@ -194,6 +194,28 @@ export function AccountMenu({
       </div>
 
       <div className={css.divider} />
+
+      <button
+        type="button"
+        role="menuitem"
+        className={css.item}
+        onClick={() => {
+          // The /exit route closes the HTTP server: in the TUI the terminal
+          // keeps running, standalone (`tnt webui`) the process ends. Confirm
+          // first - the browser cannot undo it.
+          if (
+            window.confirm(
+              "Close the web UI server? The page will stop responding.",
+            )
+          ) {
+            void closeWebUi().catch(() => {});
+            onClose();
+          }
+        }}
+      >
+        <IconLinkOutlineRegular size={15} className={css.icon} />
+        <span>Close web UI</span>
+      </button>
 
       <button
         type="button"
