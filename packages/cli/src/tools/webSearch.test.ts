@@ -10,6 +10,16 @@ import {
   webSearchTool,
 } from "./webSearch.js";
 
+// The suite drives a real loopback server, which the guard exists to keep
+// production traffic away from; the guard's own behavior is covered in
+// urlGuard.test.ts, so here it passes the configured endpoint through.
+vi.mock("../utils/urlGuard.js", () => ({
+  assertPublicHttpUrl: (raw: string) => Promise.resolve(new URL(raw)),
+  resolveConfiguredSearchEndpoint: () =>
+    Promise.resolve(new URL(process.env.TNT_WEB_SEARCH_URL ?? "")),
+  hasConfiguredSearchEndpoint: () => Boolean(process.env.TNT_WEB_SEARCH_URL),
+}));
+
 let server: http.Server;
 let base: string;
 let lastUrl: URL | undefined;
