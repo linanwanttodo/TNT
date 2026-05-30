@@ -577,6 +577,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           chatHistory={chatHistory}
           handleEditMessage={handleEditMessage}
           onShowEditSelector={() => navigateTo("edit")}
+          onShowAddModelSelector={() => navigateTo("addModel")}
           onOpenPalette={() => navigateTo("palette")}
           onOpenJobs={() => navigateTo("jobs")}
           onPreviewTheme={handlePreviewTheme}

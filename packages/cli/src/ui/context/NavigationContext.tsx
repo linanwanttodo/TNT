@@ -13,6 +13,7 @@ import React, {
 export type NavigationScreen =
   | "chat" // Normal chat interface
   | "model" // Model selector
+  | "addModel" // Add-model form
   | "mcp" // MCP selector
   | "mcpMarket" // MCP marketplace
   | "plugins" // Plugin browser
