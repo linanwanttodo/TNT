@@ -11,7 +11,9 @@ import { BaseContextProvider } from "../index.js";
 
 const runGitCommand = (args: string[], cwd: string): Promise<string> => {
   return new Promise((resolve, reject) => {
-    // First argument is the command, rest are arguments
+    // First argument is the command, rest are arguments. Fixed "git" binary,
+    // array form without a shell; every element is one argv value, so no
+    // shell metacharacter in a path or branch name is re-parsed.
     const gitProcess = spawn("git", args, {
       cwd,
     });
