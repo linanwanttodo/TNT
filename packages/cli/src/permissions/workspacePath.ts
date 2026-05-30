@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { resolveWithin } from "../utils/pathGuard.js";
+
 /**
  * The workspace a run belongs to. This is the directory the process was started
  * in, which is what the user sees as the project, and it is resolved once per
@@ -72,4 +74,21 @@ export function isWithinWorkspace(filePath: unknown, root?: string): boolean {
     (candidate) =>
       resolved === candidate || resolved.startsWith(candidate + path.sep),
   );
+}
+
+/**
+ * Resolve a model-supplied path against each workspace root with the string
+ * guard, so the resolution itself cannot land outside a root. Undefined when
+ * the path fits no root. Symlink escaping is not judged here; pair the result
+ * with isWithinWorkspace when a write must not traverse a link out.
+ */
+export function resolveWithinWorkspace(filePath: string): string | undefined {
+  for (const root of [workspaceRoot(), ...additionalRoots]) {
+    try {
+      return resolveWithin(root, filePath);
+    } catch {
+      // Not under this root; the next one may claim it.
+    }
+  }
+  return undefined;
 }
