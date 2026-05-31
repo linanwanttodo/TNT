@@ -18,6 +18,7 @@ export const markdownLabels: MarkdownLabels = {
 export const chatLabels = {
   waiting: "Waiting for approval",
   allow: "Allow",
+  allowAlways: "Always this session",
   reject: "Reject",
   reasoningTitle: "Thinking",
   sendLabel: "Send",
@@ -27,6 +28,10 @@ export const chatLabels = {
   menuLabel: "Settings",
   disconnected: "Connection lost — reconnecting…",
   inputAria: "Message input",
+  toolRunning: "Running",
+  toolOk: "Done",
+  toolFailed: "Failed",
+  toolCanceled: "Canceled",
 };
 
 /** Chrome for the diff surface a file-mutating tool card renders into. */

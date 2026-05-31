@@ -2,6 +2,8 @@ import { createOpenAISubclassTests } from "./test-utils/openai-test-utils.js";
 
 // Import core OpenAI-compatible providers
 import OpenAI from "./OpenAI.js";
+
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
 import Groq from "./Groq.js";
 import Fireworks from "./Fireworks.js";
 import Together from "./Together.js";
@@ -153,7 +155,7 @@ describe("OpenAI", () => {
 
   test("streamChat should send a valid request", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "gpt-4",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -170,8 +172,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "gpt-4",
@@ -272,7 +274,7 @@ createOpenAISubclassTests(DeepInfra, {
   customEmbeddingsUrl:
     "https://api.deepinfra.com/v1/inference/text-embedding-ada-002",
   customEmbeddingsHeaders: {
-    Authorization: "bearer test-api-key",
+    Authorization: `bearer ${TEST_API_KEY}`,
   },
   customEmbeddingsBody: {
     inputs: ["Hello", "World"],
@@ -283,7 +285,7 @@ createOpenAISubclassTests(Nvidia, {
   providerName: "nvidia",
   defaultApiBase: "https://integrate.api.nvidia.com/v1/",
   customEmbeddingsHeaders: {
-    Authorization: "Bearer test-api-key",
+    Authorization: `Bearer ${TEST_API_KEY}`,
     "Content-Type": "application/json",
   },
   customEmbeddingsBody: {

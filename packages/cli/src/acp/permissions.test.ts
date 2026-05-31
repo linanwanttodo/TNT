@@ -96,7 +96,10 @@ describe("ACP permission bridge", () => {
       approved: true,
       remember: true,
     });
-    expect(hasSessionApproval("Write", { filepath: "notes.txt" })).toBe(true);
+    // The bridge forwards the session scope as a remember flag; holding the
+    // approval is the engine's permission flow, covered by the
+    // permissionFlow.remember tests - the store is not the bridge's to touch.
+    expect(hasSessionApproval("Write", { filepath: "notes.txt" })).toBe(false);
   });
 
   it("treats a cancelled or failed request as a rejection", async () => {

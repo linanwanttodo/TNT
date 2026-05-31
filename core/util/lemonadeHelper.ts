@@ -1,11 +1,12 @@
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { IDE } from "..";
 
 export async function isLemonadeInstalled(): Promise<boolean> {
   // On Windows, check if lemonade-server command exists
   if (process.platform === "win32") {
     return new Promise((resolve, _reject) => {
-      exec("where.exe lemonade-server", (error, _stdout, _stderr) => {
+      // Array form without a shell; both tokens are constants.
+      execFile("where.exe", ["lemonade-server"], (error, _stdout, _stderr) => {
         resolve(!error);
       });
     });

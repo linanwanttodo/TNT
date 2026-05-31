@@ -11,8 +11,15 @@ import {
   defaultConfigPath,
   writeSelectedModelName,
 } from "../config/modelSelection.js";
+import {
+  DEFAULT_CONTEXT_LENGTH,
+  mapProtocolToProvider,
+  normalizeApiBase,
+  type ProviderSetup,
+} from "../config/providerSetup.js";
 import { t } from "../i18n/index.js";
 
+import { addDeclaredModel } from "./modelConfigStore.js";
 import type { ConfigServiceState, ModelServiceState } from "./types.js";
 
 import { SERVICE_NAMES, serviceContainer } from "./index.js";
@@ -83,4 +90,40 @@ export async function switchChatModel(index: number): Promise<ChatModelOption> {
   }
 
   return { ...target, current: true };
+}
+
+/**
+ * The model ids a provider setup names. The field takes several ids separated
+ * by spaces, so one setup can register a whole family under one provider.
+ */
+export function providerSetupModelIds(setup: ProviderSetup): string[] {
+  return setup.model.split(/\s+/).filter((id) => id !== "");
+}
+
+/**
+ * Write every model a setup names into config.yaml and move the chat onto the
+ * first of them. The store validates, writes and reloads the model service, so
+ * the entries are selectable the moment this resolves.
+ */
+export async function applyProviderSetup(setup: ProviderSetup): Promise<void> {
+  const apiBase = normalizeApiBase(setup.protocol, setup.apiBase);
+  const provider = mapProtocolToProvider(setup.protocol, apiBase);
+  const ids = providerSetupModelIds(setup);
+
+  for (const id of ids) {
+    await addDeclaredModel({
+      name: id,
+      model: id,
+      provider,
+      ...(apiBase ? { apiBase } : {}),
+      ...(setup.apiKey ? { apiKey: setup.apiKey } : {}),
+      roles: ["chat"],
+      contextLength: DEFAULT_CONTEXT_LENGTH,
+    });
+  }
+
+  const index = listChatModels().findIndex((entry) => ids.includes(entry.name));
+  if (index >= 0) {
+    await switchChatModel(index);
+  }
 }

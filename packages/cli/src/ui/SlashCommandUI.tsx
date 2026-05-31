@@ -133,7 +133,6 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
           {`-- ${levelLabel} --`}
         </Text>
       )}
-      {windowStart > 0 && <Text color="gray">▲</Text>}
 
       {visibleCommands.map((command, index) => {
         const isSelected = windowStart + index === selectedIndex;
@@ -159,10 +158,6 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
           </Box>
         );
       })}
-
-      {windowStart + visibleCommands.length < filteredCommands.length && (
-        <Text color="gray">▼</Text>
-      )}
 
       <Box marginTop={1}>
         <Text color="gray" dimColor>

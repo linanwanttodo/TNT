@@ -1,6 +1,11 @@
 import chalk from "chalk";
 
 import { t } from "../../../i18n/index.js";
+import {
+  ensureDefaultMarketplace,
+  loadMarketplaceCatalogs,
+  searchCatalogPlugins,
+} from "../../../plugins/discover.js";
 import { loadAllPlugins } from "../../../plugins/loader.js";
 import { runMarketplaceCommand } from "../../../plugins/marketplaceCommand.js";
 import { createDefaultDeps } from "../../../plugins/marketplaceManager.js";
@@ -45,6 +50,14 @@ function resolveMarketplace(
 async function handleInstall(reference: string | undefined) {
   if (!reference) {
     return { output: t("plugin.installUsage") };
+  }
+  // A bare install with nothing registered auto-adds the official catalogue
+  // instead of dead-ending on "add a marketplace first".
+  if (Object.keys(loadKnownMarketplaces()).length === 0) {
+    const ensured = await ensureDefaultMarketplace();
+    if (!ensured.registered) {
+      return { output: ensured.message };
+    }
   }
   const { name, marketplace } = splitPluginReference(reference);
   const resolved = resolveMarketplace(name, marketplace);
@@ -102,6 +115,33 @@ function handleUninstall(reference: string | undefined) {
   };
 }
 
+/** `/plugins search <keyword>`: keyword filter over every registered catalog. */
+async function handleSearch(keyword: string | undefined) {
+  const ensured = await ensureDefaultMarketplace();
+  const notes = ensured.registered ? [chalk.dim(ensured.message)] : [];
+  const matches = searchCatalogPlugins(
+    loadMarketplaceCatalogs(),
+    keyword ?? "",
+  );
+  if (matches.length === 0) {
+    return { output: [...notes, t("plugin.searchNoMatches")].join("\n") };
+  }
+  const lines = matches.slice(0, 30).map((match) => {
+    const category = match.plugin.category ? ` [${match.plugin.category}]` : "";
+    return `  ${chalk.cyan(match.plugin.name)}${chalk.dim(`@${match.marketplace}`)}${category} - ${match.plugin.description ?? ""}`;
+  });
+  const more =
+    matches.length > 30 ? chalk.dim(`\n${t("plugin.searchTruncated")}`) : "";
+  return {
+    output:
+      [
+        ...notes,
+        t("plugin.searchHeader", { count: matches.length }),
+        ...lines,
+      ].join("\n") + more,
+  };
+}
+
 export async function handlePlugins(
   args: string[] = [],
 ): Promise<SlashCommandResult> {
@@ -114,6 +154,15 @@ export async function handlePlugins(
   }
   if (args[0] === "uninstall") {
     return handleUninstall(args[1]);
+  }
+  if (args[0] === "search") {
+    return await handleSearch(args.slice(1).join(" "));
+  }
+
+  // No recognized subcommand opens the browser, the way the reference client
+  // treats a bare /plugin; text mode stays reachable through the subcommands.
+  if (args.length === 0) {
+    return { openPluginsBrowser: true };
   }
 
   const result = loadAllPlugins();
@@ -147,6 +196,8 @@ export async function handlePlugins(
       ...lines,
       "",
       chalk.dim(t("plugin.marketplacesRegistered", { count: marketplaces })),
+      "",
+      chalk.dim(t("plugin.usageHint")),
     ].join("\n"),
   };
 }

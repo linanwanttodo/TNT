@@ -8,6 +8,7 @@ vi.mock("../plugins/loader.js", () => ({
 vi.mock("../config/index.js", () => ({
   createLlmApi: vi.fn(() => ({ id: "api" })),
   getLlmApi: vi.fn(() => ({ id: "api" })),
+  applyOllamaContextWindow: vi.fn(async (model: any) => model),
 }));
 
 import type { ModelServiceState } from "../services/types.js";

@@ -789,4 +789,45 @@ describe("tokenizer", () => {
       });
     });
   });
+
+  /**
+   * An ollama model without a configured window must not inherit the 200k
+   * generic default: the 8k window a local server actually runs with would be
+   * overshot by every budgeting decision made on the fake number.
+   */
+  describe("getModelContextLimit for ollama", () => {
+    it("falls back to 8192 and warns when no window is known", () => {
+      const model: ModelConfig = {
+        name: "local",
+        model: "qwen3:8b",
+        provider: "ollama",
+      };
+
+      expect(getModelContextLimit(model)).toBe(8192);
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("8192"));
+    });
+
+    it("uses the window the /api/show discovery filled in", () => {
+      const model: ModelConfig = {
+        name: "local",
+        model: "qwen3:8b",
+        provider: "ollama",
+        contextLength: 16384,
+      };
+
+      expect(getModelContextLimit(model)).toBe(16384);
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it("leaves cloud providers on the generic default", () => {
+      const model: ModelConfig = {
+        name: "cloud",
+        model: "gpt-4",
+        provider: "openai",
+      };
+
+      expect(getModelContextLimit(model)).toBe(DEFAULT_CONTEXT_LENGTH);
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+  });
 });

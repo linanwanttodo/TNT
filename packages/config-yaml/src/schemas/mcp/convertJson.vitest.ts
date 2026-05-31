@@ -13,6 +13,8 @@ import {
   type StdioMcpJsonConfig,
 } from "./json.js";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 describe("convertJsonMcpConfigToYamlMcpConfig", () => {
   describe("STDIO configurations", () => {
     test("converts basic stdio config", () => {
@@ -41,7 +43,7 @@ describe("convertJsonMcpConfigToYamlMcpConfig", () => {
         command: "python",
         args: ["-m", "server"],
         env: {
-          API_KEY: "test-key",
+          API_KEY: TEST_API_KEY,
           DEBUG: "true",
         },
       };
@@ -57,7 +59,7 @@ describe("convertJsonMcpConfigToYamlMcpConfig", () => {
         command: "python",
         args: ["-m", "server"],
         env: {
-          API_KEY: "test-key",
+          API_KEY: TEST_API_KEY,
           DEBUG: "true",
         },
       });
@@ -240,7 +242,7 @@ describe("convertYamlMcpConfigToJsonMcpConfig", () => {
         command: "python",
         args: ["-m", "server"],
         env: {
-          API_KEY: "test-key",
+          API_KEY: TEST_API_KEY,
           DEBUG: "true",
         },
         connectionTimeout: 30000,
@@ -254,7 +256,7 @@ describe("convertYamlMcpConfigToJsonMcpConfig", () => {
         command: "python",
         args: ["-m", "server"],
         env: {
-          API_KEY: "test-key",
+          API_KEY: TEST_API_KEY,
           DEBUG: "true",
         },
       });

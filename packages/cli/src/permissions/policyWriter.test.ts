@@ -17,10 +17,10 @@ describe("policyWriter", () => {
         "Bash(ls*)",
       );
       expect(generatePolicyRule("Bash", { command: "git status" })).toBe(
-        "Bash(git*)",
+        "Bash(git status*)",
       );
       expect(generatePolicyRule("Bash", { command: "npm install" })).toBe(
-        "Bash(npm*)",
+        "Bash(npm install*)",
       );
     });
 
@@ -40,6 +40,18 @@ describe("policyWriter", () => {
       ).toBe("Bash(grep*)");
     });
 
+    it("keeps a subcommand shape from reaching a sibling subcommand", () => {
+      // Approving `git status` used to write Bash(git*), which the rule
+      // matcher would then apply to `git push --force`. The shape carries the
+      // subcommand, so status never speaks for push.
+      expect(generatePolicyRule("Bash", { command: "git status" })).toBe(
+        "Bash(git status*)",
+      );
+      expect(generatePolicyRule("Bash", { command: "npm run build" })).toBe(
+        "Bash(npm run*)",
+      );
+    });
+
     it("writes the exact line when the command can do more than its name says", () => {
       // Bash(git*) here would grant git reset and git push on the strength of an
       // approval for one push, so the rule is the line the user read.
@@ -54,7 +66,7 @@ describe("policyWriter", () => {
       );
       // An ordinary command still gets the reusable shape.
       expect(generatePolicyRule("Bash", { command: "git status" })).toBe(
-        "Bash(git*)",
+        "Bash(git status*)",
       );
     });
 

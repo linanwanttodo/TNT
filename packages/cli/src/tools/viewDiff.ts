@@ -19,7 +19,9 @@ function getDiffMaxChars(): number {
   );
 }
 
-const execPromise = util.promisify(child_process.exec);
+// Array form without a shell for both git calls; the command words are
+// constants and the repo path goes through the cwd option, never the argv.
+const execFilePromise = util.promisify(child_process.execFile);
 
 export const viewDiffTool: Tool = {
   name: "Diff",
@@ -56,14 +58,14 @@ export const viewDiffTool: Tool = {
       }
 
       try {
-        await execPromise("git rev-parse --is-inside-work-tree", {
+        await execFilePromise("git", ["rev-parse", "--is-inside-work-tree"], {
           cwd: repoPath,
         });
       } catch {
         return `Error: The specified path is not a git repository: ${repoPath}`;
       }
 
-      const { stdout, stderr } = await execPromise("git diff", {
+      const { stdout, stderr } = await execFilePromise("git", ["diff"], {
         cwd: repoPath,
       });
 

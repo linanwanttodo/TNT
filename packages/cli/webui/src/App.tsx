@@ -10,10 +10,12 @@ import {
   deleteSession,
   fetchContextBreakdown,
   fetchGitStatus,
+  fetchGoal,
   fetchSessions,
   fetchState,
   renameSession,
   setPermissionMode,
+  setSessionGoalText,
   stopTurn,
   type ContextBreakdown,
   type GitStatus,
@@ -24,13 +26,14 @@ import { useSessionStore } from "./stores/session-store.js";
 import { ChatView } from "./ui/chat/ChatView.tsx";
 import { ChatViewTabs, type ChatViewId } from "./ui/chat/ChatViewTabs.tsx";
 import { ContextView } from "./ui/chat/ContextView.tsx";
-import { SquadView } from "./ui/chat/SquadView.tsx";
 import { TrajectoryView } from "./ui/chat/TrajectoryView.tsx";
 import { Composer } from "./ui/chat/Composer.tsx";
 import { ChangedFilesPill } from "./ui/chat/ChangedFilesPill.tsx";
 import { chatLabels } from "./ui/chat/labels.js";
 import { GoalPill, type Goal } from "./ui/chat/GoalPill.tsx";
 import { SettingsPage } from "./ui/shell/settings/SettingsPage.tsx";
+import { MarketplacePage } from "./ui/shell/settings/MarketplacePage.tsx";
+import { SubagentDirectoryPane } from "./ui/shell/workspace-rail/SubagentDirectoryPane.tsx";
 import { SettingsSidebar } from "./ui/shell/settings/SettingsSidebar.tsx";
 import type { SettingsSectionId } from "./ui/shell/settings/types.ts";
 import { EmptyState } from "./ui/shell/EmptyState.tsx";
@@ -59,6 +62,12 @@ function isSettingsHash(): boolean {
   );
 }
 
+function isMarketplaceHash(): boolean {
+  return (
+    typeof window !== "undefined" && window.location.hash === "#marketplace"
+  );
+}
+
 export function App() {
   const sessionId = useSessionStore((s) => s.sessionId);
   const title = useSessionStore((s) => s.title);
@@ -77,6 +86,7 @@ export function App() {
   const isWaiting = useSessionStore((s) => s.isWaiting);
   const pendingChangedFiles = useSessionStore((s) => s.pendingChangedFiles);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
+  const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
   const notices = useSessionStore((s) => s.notices);
   const status = useSessionStore((s) => s.status);
 
@@ -207,6 +217,7 @@ export function App() {
   const isEmpty = items.length === 0 && streaming === null && !isWaiting;
 
   const [settingsOpen, setSettingsOpen] = useState(isSettingsHash);
+  const [marketplaceOpen, setMarketplaceOpen] = useState(isMarketplaceHash);
   const [settingsSection, setSettingsSection] =
     useState<SettingsSectionId>("plugins");
   const [draft, setDraft] = useState<string | null>(null);
@@ -224,7 +235,30 @@ export function App() {
   useEffect(() => {
     if (goal === null) localStorage.removeItem("tnt-webui-goal");
     else localStorage.setItem("tnt-webui-goal", JSON.stringify(goal));
+    // The goal is engine state, not local decoration: the system message
+    // reads it each turn, so every change posts to the server. An empty
+    // string clears it there.
+    void setSessionGoalText(goal?.text ?? "").catch(() => {});
   }, [goal]);
+
+  // A tab that opens later (or after a page reload) shows the goal the
+  // engine holds - the server's goal outranks the localStorage copy.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchGoal()
+      .then((serverGoal) => {
+        if (cancelled || serverGoal === null) return;
+        setGoal((current) =>
+          current?.text === serverGoal
+            ? current
+            : { text: serverGoal, startedAt: Date.now() },
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const pauseGoal = () => {
     setGoal((current) => {
@@ -243,7 +277,10 @@ export function App() {
   };
 
   useEffect(() => {
-    const sync = () => setSettingsOpen(isSettingsHash());
+    const sync = () => {
+      setSettingsOpen(isSettingsHash());
+      setMarketplaceOpen(isMarketplaceHash());
+    };
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
@@ -266,14 +303,25 @@ export function App() {
     if (window.location.hash !== "#settings") {
       window.location.hash = "settings";
     }
+    setMarketplaceOpen(false);
     setSettingsOpen(true);
+  };
+
+  const openMarketplace = () => {
+    if (window.location.hash !== "#marketplace") {
+      window.location.hash = "marketplace";
+    }
+    setSettingsOpen(false);
+    setMarketplaceOpen(true);
   };
 
   const closeSettings = () => {
     setSettingsOpen(false);
+    setMarketplaceOpen(false);
     if (
       window.location.hash === "#settings" ||
-      window.location.hash === "#customize"
+      window.location.hash === "#customize" ||
+      window.location.hash === "#marketplace"
     ) {
       window.history.replaceState(
         null,
@@ -344,6 +392,7 @@ export function App() {
           groups={groups}
           status={status}
           activeSessionId={sessionId ?? undefined}
+          runningSessionId={isProcessing ? (sessionId ?? undefined) : undefined}
           collapsed={collapsed}
           onToggleCollapsed={() => setCollapsed((c) => !c)}
           onNewSession={onNewSession}
@@ -361,6 +410,7 @@ export function App() {
             permissionMode={permissionMode}
             onSetPermissionMode={applyMode}
             onNewSession={onNewSession}
+            onOpenMarketplace={openMarketplace}
             model={modelLabel}
             workspaceDirectory={
               sessions.find((s) => s.sessionId === sessionId)
@@ -377,12 +427,14 @@ export function App() {
           />
         )}
         <div className={css.conversation}>
-          {settingsOpen ? (
+          {marketplaceOpen ? (
+            <MarketplacePage />
+          ) : settingsOpen ? (
             <SettingsPage section={settingsSection} />
           ) : view === "context" ? (
             <ContextView context={context} />
           ) : view === "squad" ? (
-            <SquadView />
+            <SubagentDirectoryPane />
           ) : view === "trajectory" ? (
             <TrajectoryView />
           ) : isEmpty ? (
@@ -404,8 +456,13 @@ export function App() {
               isStreaming={streaming !== null}
               reasoning={reasoning}
               pendingPermission={pendingPermission}
+              pendingQuestion={pendingQuestion}
               notices={notices}
+              isWaiting={isWaiting && !isProcessing}
               onAnswer={(approved) => void approve(approved)}
+              onAnswerQuestion={(answer) =>
+                void useSessionStore.getState().answerPendingQuestion(answer)
+              }
             />
           )}
         </div>

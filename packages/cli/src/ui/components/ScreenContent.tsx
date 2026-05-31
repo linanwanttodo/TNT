@@ -1,8 +1,7 @@
 import React from "react";
 
-import { UpdateServiceState } from "src/services/types.js";
-
 import type { ChatHistoryItem } from "../../../../../core/index.js";
+import { UpdateServiceState } from "../../services/types.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import type {
   ActivePermissionRequest,
@@ -10,12 +9,11 @@ import type {
 } from "../hooks/useChat.types.js";
 import { SCREENS } from "../screens/registry.js";
 import type { ThemeName } from "../theme/tokens.js";
-import type { ConfigOption, ModelOption } from "../types/selectorTypes.js";
+import type { ModelOption } from "../types/selectorTypes.js";
 
 export interface ScreenContentProps {
   isScreenActive: (screen: NavigationScreen) => boolean;
   services: any;
-  handleConfigSelect: (config: ConfigOption) => Promise<void>;
   handleModelSelect: (model: ModelOption) => Promise<void>;
   handleSessionSelect: (sessionId: string) => Promise<void>;
   handleExportSession: (sessionId: string) => Promise<void>;
@@ -44,6 +42,8 @@ export interface ScreenContentProps {
   chatHistory?: ChatHistoryItem[];
   handleEditMessage?: (messageIndex: number, newContent: string) => void;
   onShowEditSelector?: () => void;
+  /** Opens the provider setup form for adding models to config.yaml. */
+  onShowAddModelSelector?: () => void;
   /** Opens the Ctrl+P command palette. */
   onOpenPalette?: () => void;
   /** Opens the background-jobs list. */

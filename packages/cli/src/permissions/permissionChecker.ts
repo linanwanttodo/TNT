@@ -1,8 +1,8 @@
 import type { ToolPolicy } from "@tnt/terminal-security";
 
-import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
-import { parseApplyPatch } from "src/tools/applyPatch.js";
-import type { Tool } from "src/tools/types.js";
+import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
+import { parseApplyPatch } from "../tools/applyPatch.js";
+import type { Tool } from "../tools/types.js";
 
 import { bashCommandMatches } from "./bashCommandRule.js";
 import { hasDangerousAllowPrefix } from "./dangerousCommandPrefixes.js";

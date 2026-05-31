@@ -18,9 +18,9 @@ export interface UseChatProps {
   maxSteps?: number;
   additionalRules?: string[];
   additionalPrompts?: string[];
-  onShowConfigSelector: () => void;
   onShowMCPSelector: () => void;
   onShowMcpMarketplace?: () => void;
+  onShowPluginsBrowser?: () => void;
   onShowUpdateSelector: () => void;
   onShowThemeSelector?: () => void;
   onShowModelSelector?: () => void;

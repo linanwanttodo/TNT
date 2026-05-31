@@ -1,8 +1,7 @@
-import { exec, spawn } from "child_process";
-
-import { PreprocessedToolCall } from "src/tools/types.js";
+import { execFile, spawn } from "child_process";
 
 import { getCurrentSession, getSessionFilePath } from "../session/index.js";
+import { PreprocessedToolCall } from "../tools/types.js";
 import { logger } from "../utils/logger.js";
 
 import { BaseService } from "./BaseService.js";
@@ -45,7 +44,8 @@ export class GitAiIntegrationService extends BaseService<GitAiIntegrationService
   private async checkGitAiAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
       try {
-        exec("git-ai --version", (error) => {
+        // Array form without a shell; both tokens are constants.
+        execFile("git-ai", ["--version"], (error) => {
           if (error) {
             resolve(false);
             return;
@@ -53,7 +53,7 @@ export class GitAiIntegrationService extends BaseService<GitAiIntegrationService
           resolve(true);
         });
       } catch {
-        // Handle edge case where exec throws synchronously
+        // Handle edge case where execFile throws synchronously
         resolve(false);
       }
     });

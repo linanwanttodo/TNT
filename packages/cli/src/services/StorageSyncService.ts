@@ -4,6 +4,7 @@ import { env } from "../config/env.js";
 import { formatError } from "../utils/formatError.js";
 import { getGitDiffSnapshot } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
 
 import type { StorageSyncServiceState } from "./types.js";
 
@@ -162,6 +163,7 @@ export class StorageSyncService {
     );
 
     try {
+      await assertConfiguredHttpUrl(url);
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -222,6 +224,7 @@ export class StorageSyncService {
     const url = new URL("agents/storage/presigned-url", env.apiBase);
 
     try {
+      await assertConfiguredHttpUrl(url);
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -329,6 +332,10 @@ export class StorageSyncService {
       headers["x-amz-server-side-encryption"] = "AES256";
     }
 
+    // The presigned URL is issued by the configured API, so the configured
+    // guard applies to it. No local catch: performUpload records the failure
+    // as lastError, exactly as it did for network errors before this guard.
+    await assertConfiguredHttpUrl(url);
     const response = await fetch(url, {
       method: "PUT",
       headers,

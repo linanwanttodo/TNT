@@ -283,7 +283,9 @@ export function StatusBar({
               className={css.model}
               onClick={() => setOpen((v) => (v === "model" ? null : "model"))}
             >
-              {modelLabel}
+              <span key={modelLabel} className="zcode-roll-label">
+                {modelLabel}
+              </span>
             </button>
           </span>
         ) : modelLabel ? (

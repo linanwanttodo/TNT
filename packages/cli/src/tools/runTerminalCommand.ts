@@ -95,6 +95,11 @@ function parallelLimitNote(
 }
 
 // Helper function to use login shell on Unix/macOS and PowerShell on Windows and available shell in WSL
+// Trust model: `command` is the model/user terminal tool call, which the CLI
+// is explicitly asked to execute - running it through a shell IS the product.
+// The spawn is array-form around a fixed shell binary with the command as a
+// single argument, so the shell sees exactly the one command and nothing else
+// is concatenated around it.
 function getShellCommand(command: string): { shell: string; args: string[] } {
   if (process.platform === "win32") {
     // Windows: Use PowerShell

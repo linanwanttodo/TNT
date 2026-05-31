@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -132,7 +132,10 @@ class GreptileContextProvider extends BaseContextProvider {
     try {
       const currentDir = process.cwd();
       if (this.isGitRepository(currentDir)) {
-        const workspaceDir = execSync("git rev-parse --show-toplevel")
+        const workspaceDir = execFileSync("git", [
+          "rev-parse",
+          "--show-toplevel",
+        ])
           .toString()
           .trim();
         return workspaceDir;
@@ -162,7 +165,15 @@ class GreptileContextProvider extends BaseContextProvider {
 // Helper functions
 function getRemoteUrl(absPath: string): string {
   try {
-    const remote = execSync(`git -C ${absPath} remote get-url origin`)
+    // Array form without a shell: absPath is a workspace path and must stay a
+    // single argument, never re-parsed by a shell.
+    const remote = execFileSync("git", [
+      "-C",
+      absPath,
+      "remote",
+      "get-url",
+      "origin",
+    ])
       .toString()
       .trim();
     return remote;
@@ -174,7 +185,13 @@ function getRemoteUrl(absPath: string): string {
 
 function getCurrentBranch(absPath: string): string {
   try {
-    const branch = execSync(`git -C ${absPath} rev-parse --abbrev-ref HEAD`)
+    const branch = execFileSync("git", [
+      "-C",
+      absPath,
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ])
       .toString()
       .trim();
     return branch;

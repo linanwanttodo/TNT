@@ -45,9 +45,20 @@ export class RegistryClient implements Registry {
       if (fs.existsSync(resolvedPath)) {
         return fs.readFileSync(resolvedPath, "utf8");
       }
-      // Fall back to rootPath if file doesn't exist relative to cwd
+      // Fall back to rootPath if file doesn't exist relative to cwd. The
+      // fallback stays anchored to rootPath: a `../` inside a relative
+      // package reference cannot resolve the read outside of it.
       if (this.rootPath) {
-        return fs.readFileSync(path.join(this.rootPath, filepath), "utf8");
+        const rooted = path.resolve(this.rootPath, filepath);
+        if (
+          rooted !== this.rootPath &&
+          !rooted.startsWith(path.resolve(this.rootPath) + path.sep)
+        ) {
+          throw new Error(
+            `Package file path escapes the registry root: ${filepath}`,
+          );
+        }
+        return fs.readFileSync(rooted, "utf8");
       }
       throw new Error("No rootPath provided for relative file path");
     }

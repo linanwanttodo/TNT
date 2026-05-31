@@ -3,6 +3,7 @@ import { ChildProcess, spawn } from "child_process";
 import { SERVICE_NAMES, services } from "../services/index.js";
 import type { ModelServiceState } from "../services/types.js";
 import { logger } from "../utils/logger.js";
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
 
 import { getMatchingHookGroups } from "./hookConfig.js";
 import { MATCHER_FIELD_MAP, NO_MATCHER_EVENTS } from "./types.js";
@@ -104,10 +105,17 @@ async function resolveHookModel(
 }
 
 function tryParseJson(str: string): HookOutput | null {
+  if (typeof str !== "string") return null;
   const trimmed = str.trim();
   if (!trimmed || !trimmed.startsWith("{")) return null;
   try {
-    return JSON.parse(trimmed) as HookOutput;
+    const parsed: unknown = JSON.parse(trimmed);
+    // A hook output is an object; an array or a primitive that happens to
+    // parse is not a protocol this consumer can read.
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as HookOutput;
   } catch {
     return null;
   }
@@ -123,6 +131,12 @@ function tryParseJson(str: string): HookOutput | null {
  * quotes the user wrote. `windowsVerbatimArguments` is what stops Node from escaping those
  * inner quotes with backslashes, which cmd.exe does not read as escapes; without it the
  * first and last arguments arrive glued to their quotes and the hook runs the wrong thing.
+ * Trust model: the command string comes from the user's own hook settings
+ * (project or global), the same act as running it in a terminal, so it is run
+ * through the shell verbatim - that is the product semantics, not a gap. The
+ * spawn is array-form around one fixed shell binary and the command is always
+ * a single argument after `-c` / `/c`; no other input is concatenated around
+ * it.
  */
 export function hookShellCommand(
   command: string,
@@ -291,6 +305,9 @@ async function executeHttpHook(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
+    // The hook endpoint is operator-configured, so the guard accepts a
+    // deliberate loopback endpoint and rejects only non-HTTP(S) targets.
+    await assertConfiguredHttpUrl(handler.url);
     const response = await fetch(handler.url, {
       method: "POST",
       headers,
@@ -514,13 +531,25 @@ async function executeHandler(
 ): Promise<HookExecutionResult> {
   switch (handler.type) {
     case "command":
-      return executeCommandHook(handler, input, cwd);
+      return {
+        ...(await executeCommandHook(handler, input, cwd)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
     case "http":
-      return executeHttpHook(handler, input);
+      return {
+        ...(await executeHttpHook(handler, input)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
     case "prompt":
-      return executePromptHook(handler, input);
+      return {
+        ...(await executePromptHook(handler, input)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
     case "agent":
-      return executeAgentHook(handler, input);
+      return {
+        ...(await executeAgentHook(handler, input)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
     default:
       logger.warn(`Unknown hook handler type: ${(handler as any).type}`);
       return {
@@ -529,6 +558,7 @@ async function executeHandler(
         stderr: "",
         exitCode: 0,
         blocked: false,
+        hookSource: getHandlerDedupeKey(handler),
       };
   }
 }
@@ -637,6 +667,20 @@ export async function runHooks(
   return aggregateResults(results, eventName);
 }
 
+/**
+ * A PermissionRequest decision is whatever the hook wrote, so it is read only
+ * when it is actually the shape the protocol promises.
+ */
+function isPermissionRequestDecision(
+  value: unknown,
+): value is NonNullable<HookEventResult["permissionRequestDecision"]> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const behavior = (value as { behavior?: unknown }).behavior;
+  return behavior === "allow" || behavior === "deny";
+}
+
 function aggregateResults(
   results: HookExecutionResult[],
   eventName: string,
@@ -681,6 +725,19 @@ function aggregateResults(
       additionalContextParts.push(specific.additionalContext);
     }
 
+    // A hook answering a different event than the one fired is speaking out
+    // of turn: its event-specific fields describe a shape this event does not
+    // have, and reading them as this event's would apply another event's
+    // fields by name alone. The context above is shared by every event and
+    // still applies.
+    if (specific.hookEventName !== eventName) {
+      logger.warn(
+        `Hook answered ${String(specific.hookEventName)} for a ${eventName} event; ignoring its event-specific fields`,
+        { hook: result.hookSource ?? "unknown" },
+      );
+      continue;
+    }
+
     // Event-specific aggregation
     switch (specific.hookEventName) {
       case "PreToolUse":
@@ -701,14 +758,33 @@ function aggregateResults(
         }
         break;
 
-      case "PermissionRequest":
-        eventResult.permissionRequestDecision = specific.decision;
-        if (specific.decision.behavior === "deny") {
-          eventResult.blocked = true;
-          eventResult.blockReason =
-            "message" in specific.decision
-              ? specific.decision.message || "Denied by hook"
-              : "Denied by hook";
+      case "PermissionRequest": {
+        // The decision is whatever the hook wrote; a missing or non-object
+        // shape is skipped rather than dereferenced - a TypeError here would
+        // mark an already-successful tool call as errored.
+        if (isPermissionRequestDecision(specific.decision)) {
+          eventResult.permissionRequestDecision = specific.decision;
+          if (specific.decision.behavior === "deny") {
+            eventResult.blocked = true;
+            eventResult.blockReason =
+              "message" in specific.decision &&
+              typeof specific.decision.message === "string" &&
+              specific.decision.message
+                ? specific.decision.message
+                : "Denied by hook";
+          }
+        } else {
+          logger.warn(
+            "PermissionRequest hook returned no usable decision; ignoring it",
+            { hook: result.hookSource ?? "unknown" },
+          );
+        }
+        break;
+      }
+
+      case "PostToolUse":
+        if (specific.updatedMCPToolOutput !== undefined) {
+          eventResult.updatedMCPToolOutput = specific.updatedMCPToolOutput;
         }
         break;
 

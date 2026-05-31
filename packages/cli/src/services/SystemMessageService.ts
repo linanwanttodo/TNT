@@ -58,6 +58,19 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
    * Get a fresh system message with current mode and configuration
    */
   public async getSystemMessage(currentMode: PermissionMode): Promise<string> {
+    return joinSystemMessageSections(
+      await this.getSystemMessageSections(currentMode),
+    );
+  }
+
+  /**
+   * The same build as getSystemMessage, as named sections: the reinjection
+   * planner needs the parts, not only the join, to decide which section's
+   * bytes a request can keep.
+   */
+  public async getSystemMessageSections(
+    currentMode: PermissionMode,
+  ): Promise<SystemMessageSection[]> {
     const { additionalRules, format, headless } = this.currentState;
 
     const storedProfile = getSessionPromptProfile();
@@ -72,7 +85,6 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
         ? storedProfile
         : undefined,
     );
-    const systemMessage = joinSystemMessageSections(sections);
 
     // Recorded here rather than at the request site because this is the only
     // place both the previous and the new build exist.
@@ -86,10 +98,10 @@ export class SystemMessageService extends BaseService<SystemMessageServiceState>
 
     logger.debug("Generated fresh system message", {
       mode: currentMode,
-      messageLength: systemMessage.length,
+      sectionCount: sections.length,
     });
 
-    return systemMessage;
+    return sections;
   }
 
   /**

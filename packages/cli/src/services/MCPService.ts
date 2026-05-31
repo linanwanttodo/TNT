@@ -1,10 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
 import { type AssistantConfig } from "@tnt/sdk";
 
 import { loadMcpJsonServers } from "../config/mcpConfig.js";
 import { t } from "../i18n/index.js";
-import { loadAllPlugins } from "../plugins/loader.js";
 import { getErrorString } from "../utils/error.js";
 import { logger } from "../utils/logger.js";
 import { registerShutdownCallback } from "../utils/processShutdown.js";
@@ -16,11 +14,21 @@ import {
   ReclaimableConnection,
 } from "./mcpIdleReclaim.js";
 import {
+  getPluginMcpServers,
+  warnLegacyMcpConfigOnce,
+} from "./mcpPluginServers.js";
+import {
   constructHttpTransport,
   constructSseTransport,
   constructStdioTransport,
 } from "./mcpTransports.js";
-import { isAuthError } from "./mcpUtils.js";
+import {
+  isAuthError,
+  isTransient,
+  mcpRequestOptions,
+  mcpRetryDelayMs,
+  unresolvedSecretsWarning,
+} from "./mcpUtils.js";
 import { serviceContainer } from "./ServiceContainer.js";
 import {
   MCPConnectionInfo,
@@ -31,33 +39,6 @@ import {
 
 interface ServerConnection extends MCPConnectionInfo, ReclaimableConnection {
   client: Client | null;
-}
-
-/**
- * MCP servers declared by installed plugins. Names are namespaced with the
- * plugin name so two plugins never collide on a server id.
- */
-function getPluginMcpServers(): MCPServerConfig[] {
-  try {
-    return Object.entries(loadAllPlugins().mcpServers).map(
-      ([name, config]) =>
-        ({
-          name,
-          ...(config as object),
-        }) as MCPServerConfig,
-    );
-  } catch (error) {
-    logger.warn("Failed to load plugin MCP servers:", error);
-    return [];
-  }
-}
-
-let warnedLegacyMcpConfig = false;
-
-function warnLegacyMcpConfigOnce(): void {
-  if (warnedLegacyMcpConfig) return;
-  warnedLegacyMcpConfig = true;
-  console.warn(t("mcp.legacyConfigServers"));
 }
 
 export const EMPTY_MCP_STATE: MCPServiceState = {
@@ -312,10 +293,7 @@ export class MCPService
           if (!conn?.client) {
             throw new Error(`Client for ${owner} not available`);
           }
-          return await conn.client.callTool({
-            name,
-            arguments: args,
-          });
+          return await this.callToolWithRetry(conn.client, name, args);
         });
       } finally {
         const done = this.connections.get(owner);
@@ -329,6 +307,42 @@ export class MCPService
         ? t("mcp.toolNotFoundOnServer", { name, server: serverName })
         : t("mcp.toolNotFound", { name }),
     );
+  }
+
+  /**
+   * One call with the shared SDK options, plus a single retry when the failure
+   * is the transient kind (a reset socket, a 429, a timeout). The retry
+   * catches the blip between a server restarting behind its URL; the second
+   * failure is reported as-is, because a call that fails twice in a row is
+   * telling the model something a third attempt would only hide.
+   */
+  private async callToolWithRetry(
+    client: Client,
+    name: string,
+    args: Record<string, any>,
+  ) {
+    const options = mcpRequestOptions();
+    try {
+      return await client.callTool(
+        { name, arguments: args },
+        undefined,
+        options,
+      );
+    } catch (error) {
+      if (!isTransient(error)) {
+        throw error;
+      }
+      logger.warn("Transient MCP tool failure, retrying once", {
+        name,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await new Promise((resolve) => setTimeout(resolve, mcpRetryDelayMs()));
+      return await client.callTool(
+        { name, arguments: args },
+        undefined,
+        options,
+      );
+    }
   }
 
   /**
@@ -380,22 +394,13 @@ export class MCPService
     this.connections.set(serverName, connection);
     this.updateState();
 
-    const vars = getTemplateVariables(JSON.stringify(serverConfig));
-    const secretVars = vars.filter((v) => v.startsWith("secrets."));
-    const unrendered = secretVars.map((v) => {
-      return decodeFQSN(v.replace("secrets.", "")).secretName;
-    });
-
     try {
-      if (unrendered.length > 0) {
-        const message = `${serverConfig.name} MCP Server has unresolved secrets: ${unrendered.join(", ")}
-For personal use you can set the secret as an environment variable (e.g. in your shell profile or .tnt config) or pass it directly to the CLI environment.
-TNT stores secrets locally and does not use an external hub.`;
+      const secretsWarning = unresolvedSecretsWarning(serverConfig);
+      if (secretsWarning) {
         if (this.isHeadless) {
-          throw new Error(message);
-        } else {
-          connection.warnings.push(message);
+          throw new Error(secretsWarning);
         }
+        connection.warnings.push(secretsWarning);
       }
 
       const client = await this.getConnectedClient(serverConfig, connection);
@@ -417,7 +422,10 @@ TNT stores secrets locally and does not use an external hub.`;
               if (!conn?.client) {
                 throw new Error(`Client for ${serverName} not available`);
               }
-              return (await conn.client.listPrompts()).prompts;
+              // Listing a big catalog can outlive the SDK's short default.
+              return (
+                await conn.client.listPrompts(undefined, mcpRequestOptions())
+              ).prompts;
             },
           );
         } catch (error) {
@@ -439,7 +447,9 @@ TNT stores secrets locally and does not use an external hub.`;
               if (!conn?.client) {
                 throw new Error(`Client for ${serverName} not available`);
               }
-              return (await conn.client.listTools()).tools;
+              return (
+                await conn.client.listTools(undefined, mcpRequestOptions())
+              ).tools;
             },
           );
         } catch (error) {
@@ -556,7 +566,7 @@ TNT stores secrets locally and does not use an external hub.`;
     if ("command" in serverConfig) {
       // STDIO: no need to check type, just if command is present
       const transport = constructStdioTransport(serverConfig, connection);
-      await client.connect(transport, {});
+      await client.connect(transport, mcpRequestOptions());
     } else {
       // SSE/HTTP: if type isn't explicit: try http and fall back to sse
       try {
@@ -567,20 +577,20 @@ TNT stores secrets locally and does not use an external hub.`;
           const apiKey = this.apiKeyCache.get(serverConfig.name);
           if (serverConfig.type === "sse") {
             const transport = constructSseTransport(serverConfig, apiKey);
-            await client.connect(transport, {});
+            await client.connect(transport, mcpRequestOptions());
           } else if (serverConfig.type === "streamable-http") {
             const transport = constructHttpTransport(serverConfig, apiKey);
-            await client.connect(transport, {});
+            await client.connect(transport, mcpRequestOptions());
           } else {
             try {
               const transport = constructHttpTransport(serverConfig, apiKey);
-              await client.connect(transport, {});
+              await client.connect(transport, mcpRequestOptions());
             } catch (e) {
               if (isAuthError(e)) {
                 throw e;
               }
               const transport = constructSseTransport(serverConfig, apiKey);
-              await client.connect(transport, {});
+              await client.connect(transport, mcpRequestOptions());
             }
           }
         });
@@ -617,7 +627,7 @@ TNT stores secrets locally and does not use an external hub.`;
             },
             connection,
           );
-          await client.connect(transport, {});
+          await client.connect(transport, mcpRequestOptions());
         } else {
           throw error;
         }

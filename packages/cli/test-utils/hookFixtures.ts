@@ -1,5 +1,8 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
+
+import { resolveWithin } from "../src/utils/pathGuard.js";
 
 /**
  * Hook fixtures that run on every supported operating system.
@@ -20,6 +23,9 @@ export class HookFixtures {
   private readonly printScript: string;
 
   constructor(dir: string) {
+    // Every caller roots its fixtures under os.tmpdir(); holding the fixture to
+    // that here keeps the scripts it writes out of the repository tree.
+    resolveWithin(os.tmpdir(), dir);
     this.root = path.join(dir, "hook-fixtures");
     fs.mkdirSync(this.root, { recursive: true });
     this.printScript = this.write(
@@ -67,7 +73,7 @@ setInterval(() => {}, 1000);
   }
 
   private write(name: string, contents: string): string {
-    const file = path.join(this.root, name);
+    const file = resolveWithin(this.root, name);
     fs.writeFileSync(file, contents);
     return file;
   }

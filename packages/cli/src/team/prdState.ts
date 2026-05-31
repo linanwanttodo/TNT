@@ -3,6 +3,12 @@
  * (agent-discipline.md 8.8). A status is derived from evidence, never from an
  * agent's own wording: the table runs top-down over the newest evidence for
  * one requirement and the first matching row wins.
+ *
+ * SPEC-ONLY for now: there is no PRD store in this tree, so nothing derives a
+ * status at run time. The table is the written contract a future PRD reader
+ * must satisfy - the tests are its executable form. Wiring it in means adding
+ * evidence collection first; deriving a status from evidence nothing produces
+ * would be a fiction.
  */
 
 /**

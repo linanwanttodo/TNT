@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 
 import OpenRouter from "./OpenRouter";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 describe("OpenRouter Anthropic Caching", () => {
   it("should detect Anthropic models correctly", () => {
     const openRouter = new OpenRouter({
       model: "claude-sonnet-4-5",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
     });
 
     // Test private method through modifyChatBody
@@ -23,7 +25,7 @@ describe("OpenRouter Anthropic Caching", () => {
   it("should add cache_control to user messages when caching is enabled", () => {
     const openRouter = new OpenRouter({
       model: "anthropic/claude-sonnet-4.5",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       cacheBehavior: {
         cacheConversation: true,
         cacheSystemMessage: false,
@@ -72,7 +74,7 @@ describe("OpenRouter Anthropic Caching", () => {
   it("should correctly handle cache_control with system messages present", () => {
     const openRouter = new OpenRouter({
       model: "claude-sonnet-4-5",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       cacheBehavior: {
         cacheConversation: true,
         cacheSystemMessage: true,
@@ -138,7 +140,7 @@ describe("OpenRouter Anthropic Caching", () => {
   it("should add cache_control to system message when caching is enabled", () => {
     const openRouter = new OpenRouter({
       model: "claude-sonnet-4-5",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       cacheBehavior: {
         cacheConversation: false,
         cacheSystemMessage: true,
@@ -177,7 +179,7 @@ describe("OpenRouter Anthropic Caching", () => {
   it("should handle array content correctly", () => {
     const openRouter = new OpenRouter({
       model: "claude-sonnet-4-5",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       cacheBehavior: {
         cacheConversation: true,
         cacheSystemMessage: false,
@@ -213,7 +215,7 @@ describe("OpenRouter Anthropic Caching", () => {
   it("should not modify messages for non-Anthropic models", () => {
     const openRouter = new OpenRouter({
       model: "gpt-4o",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       cacheBehavior: {
         cacheConversation: true,
         cacheSystemMessage: true,

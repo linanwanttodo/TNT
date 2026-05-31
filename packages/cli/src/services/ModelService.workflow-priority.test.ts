@@ -19,6 +19,7 @@ vi.mock("../config/index.js", () => ({
     { provider: "test" },
     { provider: "test", name: "default-model" },
   ]),
+  applyOllamaContextWindow: vi.fn(async (model: any) => model),
 }));
 
 vi.mock("../utils/logger.js", () => ({
