@@ -20,6 +20,7 @@ import {
   getLegacySessionPath,
   getTranscriptPath,
 } from "./paths.js";
+import { repairDanglingToolCalls } from "./repairDanglingToolCalls.js";
 import { sessionStore, type SessionSource } from "./store.js";
 
 // Re-export BaseSessionMetadata for external consumers
@@ -482,6 +483,10 @@ export function loadSession(): Session | null {
     const session = loadSessionById(newest.sessionId);
     if (!session) return null;
 
+    // A crash can leave a declared tool call without its result on disk, and
+    // a provider refuses that history; close the gaps before anything reads it.
+    session.history = repairDanglingToolCalls(session.history);
+
     acquireActiveLease(session.sessionId);
     SessionManager.getInstance().setSession(session);
     return session;
@@ -627,6 +632,9 @@ export function selectSession(sessionId: string): Session | null {
   if (!session) {
     return null;
   }
+  // Same repair as loadSession: a resumed transcript must not carry a tool
+  // call the provider never saw answered.
+  session.history = repairDanglingToolCalls(session.history);
   try {
     acquireActiveLease(sessionId);
   } catch (error) {
