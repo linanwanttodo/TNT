@@ -20,7 +20,12 @@ import {
   constructSseTransport,
   constructStdioTransport,
 } from "./mcpTransports.js";
-import { isAuthError } from "./mcpUtils.js";
+import {
+  isAuthError,
+  isTransient,
+  mcpRequestOptions,
+  mcpRetryDelayMs,
+} from "./mcpUtils.js";
 import { serviceContainer } from "./ServiceContainer.js";
 import {
   MCPConnectionInfo,
@@ -312,10 +317,7 @@ export class MCPService
           if (!conn?.client) {
             throw new Error(`Client for ${owner} not available`);
           }
-          return await conn.client.callTool({
-            name,
-            arguments: args,
-          });
+          return await this.callToolWithRetry(conn.client, name, args);
         });
       } finally {
         const done = this.connections.get(owner);
@@ -329,6 +331,42 @@ export class MCPService
         ? t("mcp.toolNotFoundOnServer", { name, server: serverName })
         : t("mcp.toolNotFound", { name }),
     );
+  }
+
+  /**
+   * One call with the shared SDK options, plus a single retry when the failure
+   * is the transient kind (a reset socket, a 429, a timeout). The retry
+   * catches the blip between a server restarting behind its URL; the second
+   * failure is reported as-is, because a call that fails twice in a row is
+   * telling the model something a third attempt would only hide.
+   */
+  private async callToolWithRetry(
+    client: Client,
+    name: string,
+    args: Record<string, any>,
+  ) {
+    const options = mcpRequestOptions();
+    try {
+      return await client.callTool(
+        { name, arguments: args },
+        undefined,
+        options,
+      );
+    } catch (error) {
+      if (!isTransient(error)) {
+        throw error;
+      }
+      logger.warn("Transient MCP tool failure, retrying once", {
+        name,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await new Promise((resolve) => setTimeout(resolve, mcpRetryDelayMs()));
+      return await client.callTool(
+        { name, arguments: args },
+        undefined,
+        options,
+      );
+    }
   }
 
   /**
@@ -417,7 +455,10 @@ TNT stores secrets locally and does not use an external hub.`;
               if (!conn?.client) {
                 throw new Error(`Client for ${serverName} not available`);
               }
-              return (await conn.client.listPrompts()).prompts;
+              // Listing a big catalog can outlive the SDK's short default.
+              return (
+                await conn.client.listPrompts(undefined, mcpRequestOptions())
+              ).prompts;
             },
           );
         } catch (error) {
@@ -439,7 +480,9 @@ TNT stores secrets locally and does not use an external hub.`;
               if (!conn?.client) {
                 throw new Error(`Client for ${serverName} not available`);
               }
-              return (await conn.client.listTools()).tools;
+              return (
+                await conn.client.listTools(undefined, mcpRequestOptions())
+              ).tools;
             },
           );
         } catch (error) {
@@ -556,7 +599,7 @@ TNT stores secrets locally and does not use an external hub.`;
     if ("command" in serverConfig) {
       // STDIO: no need to check type, just if command is present
       const transport = constructStdioTransport(serverConfig, connection);
-      await client.connect(transport, {});
+      await client.connect(transport, mcpRequestOptions());
     } else {
       // SSE/HTTP: if type isn't explicit: try http and fall back to sse
       try {
@@ -567,20 +610,20 @@ TNT stores secrets locally and does not use an external hub.`;
           const apiKey = this.apiKeyCache.get(serverConfig.name);
           if (serverConfig.type === "sse") {
             const transport = constructSseTransport(serverConfig, apiKey);
-            await client.connect(transport, {});
+            await client.connect(transport, mcpRequestOptions());
           } else if (serverConfig.type === "streamable-http") {
             const transport = constructHttpTransport(serverConfig, apiKey);
-            await client.connect(transport, {});
+            await client.connect(transport, mcpRequestOptions());
           } else {
             try {
               const transport = constructHttpTransport(serverConfig, apiKey);
-              await client.connect(transport, {});
+              await client.connect(transport, mcpRequestOptions());
             } catch (e) {
               if (isAuthError(e)) {
                 throw e;
               }
               const transport = constructSseTransport(serverConfig, apiKey);
-              await client.connect(transport, {});
+              await client.connect(transport, mcpRequestOptions());
             }
           }
         });
@@ -617,7 +660,7 @@ TNT stores secrets locally and does not use an external hub.`;
             },
             connection,
           );
-          await client.connect(transport, {});
+          await client.connect(transport, mcpRequestOptions());
         } else {
           throw error;
         }
