@@ -354,6 +354,8 @@ export interface HookExecutionResult {
   blocked: boolean;
   /** The blocking error message (from stderr or output.reason) */
   blockReason?: string;
+  /** Which hook produced this result, for diagnostics that name the source */
+  hookSource?: string;
 }
 
 /**
@@ -375,6 +377,11 @@ export interface HookEventResult {
   updatedInput?: Record<string, unknown>;
   /** For PermissionRequest: the decision */
   permissionRequestDecision?: PermissionRequestHookOutput["decision"];
+  /**
+   * For PostToolUse: an MCP tool output a hook rewrote. Only consumed for
+   * tools whose name carries the mcp__ prefix; anything else is ignored.
+   */
+  updatedMCPToolOutput?: unknown;
   /** All individual hook results */
   results: HookExecutionResult[];
 }
