@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { ILLM } from "../../index.js";
 import Cohere from "./Cohere.js";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 interface LlmTestCase {
   llm: ILLM;
   methodToTest: keyof ILLM;
@@ -133,7 +135,7 @@ describe("Cohere", () => {
 
   test("streamChat should send a valid request", async () => {
     const cohere = new Cohere({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "command-a-03-2025",
       apiBase: "https://api.cohere.com/v2/",
     });
@@ -149,7 +151,7 @@ describe("Cohere", () => {
         url: "https://api.cohere.com/v2/chat",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: {
@@ -173,7 +175,7 @@ describe("Cohere", () => {
 
   test("streamChat should send a valid request with tool calls messages", async () => {
     const cohere = new Cohere({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "command-a-03-2025",
       apiBase: "https://api.cohere.com/v2/",
     });
@@ -213,7 +215,7 @@ describe("Cohere", () => {
         url: "https://api.cohere.com/v2/chat",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: {
@@ -263,7 +265,7 @@ describe("Cohere", () => {
 
   test("streamChat should send a valid request with images", async () => {
     const cohere = new Cohere({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "command-a-vision-07-2025",
       apiBase: "https://api.cohere.com/v2/",
     });
@@ -295,7 +297,7 @@ describe("Cohere", () => {
         url: "https://api.cohere.com/v2/chat",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: {
@@ -335,7 +337,7 @@ describe("Cohere", () => {
 
   test("streamChat should send a valid request with thinking messages", async () => {
     const cohere = new Cohere({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "command-a-reasoning-08-2025",
       apiBase: "https://api.cohere.com/v2/",
       completionOptions: {
@@ -364,7 +366,7 @@ describe("Cohere", () => {
         url: "https://api.cohere.com/v2/chat",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: {
@@ -406,7 +408,7 @@ describe("Cohere", () => {
 
   test("chat should send a valid request", async () => {
     const cohere = new Cohere({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "command-a-03-2025",
       apiBase: "https://api.cohere.com/v2/",
     });
@@ -422,7 +424,7 @@ describe("Cohere", () => {
         url: "https://api.cohere.com/v2/chat",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: {
@@ -446,7 +448,7 @@ describe("Cohere", () => {
 
   test("streamComplete should send a valid request", async () => {
     const cohere = new Cohere({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "command-a-03-2025",
       apiBase: "https://api.cohere.com/v2/",
     });
@@ -459,7 +461,7 @@ describe("Cohere", () => {
         url: "https://api.cohere.com/v2/chat",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: {
@@ -482,7 +484,7 @@ describe("Cohere", () => {
 
   test("complete should send a valid request", async () => {
     const cohere = new Cohere({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "command-a-03-2025",
       apiBase: "https://api.cohere.com/v2/",
     });
@@ -495,7 +497,7 @@ describe("Cohere", () => {
         url: "https://api.cohere.com/v2/chat",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: {
@@ -519,7 +521,7 @@ describe("Cohere", () => {
   describe("Different configurations", () => {
     test("should handle system message", async () => {
       const cohere = new Cohere({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "command-a-03-2025",
         apiBase: "https://api.cohere.com/v2/",
       });
@@ -538,7 +540,7 @@ describe("Cohere", () => {
           url: "https://api.cohere.com/v2/chat",
           method: "POST",
           headers: {
-            Authorization: "Bearer test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: {
@@ -565,7 +567,7 @@ describe("Cohere", () => {
 
     test("should handle tool calls with tool plan (legacy)", async () => {
       const cohere = new Cohere({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "command-a-03-2025",
         apiBase: "https://api.cohere.com/v2/",
       });
@@ -599,7 +601,7 @@ describe("Cohere", () => {
           url: "https://api.cohere.com/v2/chat",
           method: "POST",
           headers: {
-            Authorization: "Bearer test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: {
@@ -643,7 +645,7 @@ describe("Cohere", () => {
 
     test("should handle tool calls with thinking disabled", async () => {
       const cohere = new Cohere({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "command-a-reasoning-08-2025",
         apiBase: "https://api.cohere.com/v2/",
       });
@@ -677,7 +679,7 @@ describe("Cohere", () => {
           url: "https://api.cohere.com/v2/chat",
           method: "POST",
           headers: {
-            Authorization: "Bearer test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: {
@@ -719,7 +721,7 @@ describe("Cohere", () => {
 
     test("should handle tool calls with thinking enabled", async () => {
       const cohere = new Cohere({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "command-a-reasoning-08-2025",
         apiBase: "https://api.cohere.com/v2/",
         completionOptions: {
@@ -757,7 +759,7 @@ describe("Cohere", () => {
           url: "https://api.cohere.com/v2/chat",
           method: "POST",
           headers: {
-            Authorization: "Bearer test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: {
@@ -803,7 +805,7 @@ describe("Cohere", () => {
 
     test("should handle custom max tokens", async () => {
       const cohere = new Cohere({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "command-a-03-2025",
         apiBase: "https://api.cohere.com/v2/",
       });
@@ -820,7 +822,7 @@ describe("Cohere", () => {
           url: "https://api.cohere.com/v2/chat",
           method: "POST",
           headers: {
-            Authorization: "Bearer test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: {
