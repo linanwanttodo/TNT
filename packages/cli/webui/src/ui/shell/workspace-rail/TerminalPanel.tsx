@@ -33,7 +33,10 @@ export function TerminalPanel() {
         body: JSON.stringify({ command }),
       });
       const body = (await res.json()) as { output?: string; error?: string };
-      setLines((current) => [...current, body.output ?? body.error ?? "(no output)"]);
+      setLines((current) => [
+        ...current,
+        body.output ?? body.error ?? "(no output)",
+      ]);
     } catch (error) {
       setLines((current) => [
         ...current,

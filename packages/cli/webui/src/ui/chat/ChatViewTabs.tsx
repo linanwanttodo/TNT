@@ -1,4 +1,7 @@
-import { useUiPreferences, type UiLanguage } from "../../stores/ui-preferences.js";
+import {
+  useUiPreferences,
+  type UiLanguage,
+} from "../../stores/ui-preferences.js";
 import css from "./ChatViewTabs.module.css";
 
 export type ChatViewId = "chat" | "trajectory" | "context" | "squad";

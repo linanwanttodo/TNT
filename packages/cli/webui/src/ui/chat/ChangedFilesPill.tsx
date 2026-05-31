@@ -21,7 +21,8 @@ export function ChangedFilesPill({
           onClick={() => setOpen((value) => !value)}
         >
           <span>
-            {files.length} {files.length === 1 ? "file changed" : "files changed"}
+            {files.length}{" "}
+            {files.length === 1 ? "file changed" : "files changed"}
           </span>
         </button>
         {open ? (
