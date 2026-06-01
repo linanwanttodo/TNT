@@ -23,6 +23,7 @@ import {
   type SessionSummary,
 } from "./api/client.js";
 import { useSessionStore } from "./stores/session-store.js";
+import { useTheme } from "./ui/zcode/useTheme.js";
 import { ChatView } from "./ui/chat/ChatView.tsx";
 import { ChatViewTabs, type ChatViewId } from "./ui/chat/ChatViewTabs.tsx";
 import { ContextView } from "./ui/chat/ContextView.tsx";
@@ -69,6 +70,8 @@ function isMarketplaceHash(): boolean {
 }
 
 export function App() {
+  // ZCode 主题挂载：给 <html> 打 dark / theme-zai-* class，供搬运的 zcode 样式读取。
+  useTheme();
   const sessionId = useSessionStore((s) => s.sessionId);
   const title = useSessionStore((s) => s.title);
   const chatModelTitle = useSessionStore((s) => s.chatModelTitle);
@@ -84,6 +87,7 @@ export function App() {
   const streaming = useSessionStore((s) => s.streaming);
   const reasoning = useSessionStore((s) => s.reasoning);
   const isWaiting = useSessionStore((s) => s.isWaiting);
+  const turnStartedAt = useSessionStore((s) => s.turnStartedAt);
   const pendingChangedFiles = useSessionStore((s) => s.pendingChangedFiles);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
   const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
@@ -459,6 +463,7 @@ export function App() {
               pendingQuestion={pendingQuestion}
               notices={notices}
               isWaiting={isWaiting && !isProcessing}
+              turnStartedAt={turnStartedAt}
               onAnswer={(approved) => void approve(approved)}
               onAnswerQuestion={(answer) =>
                 void useSessionStore.getState().answerPendingQuestion(answer)
