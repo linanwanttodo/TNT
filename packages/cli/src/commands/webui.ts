@@ -283,12 +283,7 @@ export async function webui(
   // same constructSystemMessage inputs at request time, so a leading system
   // item would be sent twice.
   const resumed = options.resume ? loadSession() : null;
-<<<<<<< HEAD
-  const session: Session = resumed ?? createSession(initialHistory);
-=======
   const session: Session = resumed ?? createSession([]);
-
->>>>>>> 85000a83a (fix(webui): wire permission callbacks into standalone turns)
   try {
     await services.chatHistory.initialize(session, false);
   } catch {
@@ -316,7 +311,7 @@ export async function webui(
     ownsSession: true,
     // POST /session/new must produce a session shaped like the startup one,
     // system message included, or the first turn on it would run without one.
-    createNewSession: () => createSession(initialHistory),
+    createNewSession: () => createSession([]),
     // The browser's model chip posts here; the switch is the /model screen's
     // recipe, so the next turn runs on the model chosen in the page.
     listModels: listChatModels,
@@ -336,7 +331,7 @@ export async function webui(
       const checkout = moveToCheckout(target);
       // A transcript belongs to the checkout it was written in: the move
       // starts a fresh session rather than carrying the old one across.
-      const session = createSession(initialHistory);
+      const session = createSession([]);
       state.session = session;
       try {
         await services.chatHistory.initialize(session, false);

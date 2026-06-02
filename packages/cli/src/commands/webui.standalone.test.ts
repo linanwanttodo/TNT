@@ -145,14 +145,24 @@ describe("webui standalone permission wiring", () => {
     try {
       runAgentTurnMock.mockResolvedValue("ok");
       const state = makeState();
+      // The turn writes history through the process's current session, so the
+      // test pins that lookup to the state under assertion.
+      const sessionModule = await import("../session/index.js");
+      const currentSession = vi
+        .spyOn(sessionModule, "getCurrentSession")
+        .mockReturnValue(state.session);
 
-      await runStandaloneTurn(
-        state,
-        {} as any,
-        { model: "m" },
-        makeQueued(),
-        new AbortController().signal,
-      );
+      try {
+        await runStandaloneTurn(
+          state,
+          {} as any,
+          { model: "m" },
+          makeQueued(),
+          new AbortController().signal,
+        );
+      } finally {
+        currentSession.mockRestore();
+      }
 
       // Only the user message lands; the engine injects the system prompt at
       // request time, so the request cannot carry two copies of it.

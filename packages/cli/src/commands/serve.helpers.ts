@@ -21,7 +21,10 @@ import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { formatError } from "../utils/formatError.js";
 import { getGitDiffSnapshot } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
-import { composeServedPrompt, splitServedPrompt } from "../utils/promptNotes.js";
+import {
+  composeServedPrompt,
+  splitServedPrompt,
+} from "../utils/promptNotes.js";
 
 /**
  * Remove partial assistant message if the last message is an empty assistant message.
