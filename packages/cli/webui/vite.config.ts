@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vitest/config";
 
 const webuiRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -23,10 +24,8 @@ export default defineConfig({
   base: "/app/",
   plugins: [
     react(),
-    // P1 待办：`npm install` 装好 tailwindcss + @tailwindcss/vite 后取消下一行注释，
-    // 并在 main.tsx 引入 src/ui/zcode/styles.css（@theme 主题 + 工具类），
-    // 届时可删除 zcode-bridge.css。
-    // tailwindcss(),
+    // P1：Tailwind v4 已安装，接入与 ZCode packages/ui 相同的处理管线。
+    tailwindcss(),
   ],
   resolve: {
     alias: reactAlias,
