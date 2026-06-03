@@ -5,7 +5,8 @@ import path from "path";
 
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { canonicalPath, sameDirectory } from "../utils/canonicalPath.js";
+import { sameDirectory } from "../utils/canonicalPath.js";
+
 import {
   currentCheckout,
   listCheckouts,

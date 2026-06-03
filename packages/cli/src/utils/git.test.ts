@@ -1,12 +1,11 @@
 import { execFileSync } from "child_process";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { canonicalPath } from "./canonicalPath.js";
-
 import {
   getGitBranch,
   getGitHubActionsRepoUrl,
