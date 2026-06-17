@@ -83,6 +83,8 @@ describe("chat view", () => {
         }}
       />,
     );
+    // A finished card collapses its output; expand it before reading.
+    fireEvent.click(container.querySelector("button[aria-expanded]")!);
     expect(container.querySelector("[data-diff]")).toBeTruthy();
     const texts = (selector: string) =>
       [...container.querySelectorAll(selector)].map((el) => el.textContent);
@@ -306,7 +308,9 @@ describe("chat view", () => {
 
   it("starts a running tool card expanded", () => {
     render(
-      <ChatItemView item={{ kind: "tool", toolName: "npm", status: "calling" }} />,
+      <ChatItemView
+        item={{ kind: "tool", toolName: "npm", status: "calling" }}
+      />,
     );
     const toggle = screen.getByRole("button", { name: /npm/ });
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
@@ -315,7 +319,12 @@ describe("chat view", () => {
   it("collapses a tool card when its operation finishes", () => {
     const { rerender } = render(
       <ChatItemView
-        item={{ kind: "tool", toolName: "git", status: "calling", result: "ok" }}
+        item={{
+          kind: "tool",
+          toolName: "git",
+          status: "calling",
+          result: "ok",
+        }}
       />,
     );
     const toggle = screen.getByRole("button", { name: /git/ });
@@ -331,7 +340,12 @@ describe("chat view", () => {
   it("keeps a reader-closed tool card closed when the operation finishes", () => {
     const { rerender } = render(
       <ChatItemView
-        item={{ kind: "tool", toolName: "grep", status: "calling", result: "hit" }}
+        item={{
+          kind: "tool",
+          toolName: "grep",
+          status: "calling",
+          result: "hit",
+        }}
       />,
     );
     const toggle = screen.getByRole("button", { name: /grep/ });

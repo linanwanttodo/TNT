@@ -1,6 +1,8 @@
 /** One settled conversation item; the streaming tail is rendered separately. */
 import { memo, useEffect, useState } from "react";
 
+import { parsePatch } from "diff";
+
 import type {
   AssistantMessageItem,
   ChatItem,
@@ -12,11 +14,47 @@ import { ChangedFilesPill } from "./ChangedFilesPill.tsx";
 import { MarkdownText } from "../primitives/markdown/MarkdownText.tsx";
 import { ReasoningRow } from "./ReasoningRow.tsx";
 import { UserMessageBubble } from "../primitives/UserMessageBubble.tsx";
+import { DiffBlock, type DiffHunk } from "../primitives/DiffBlock.tsx";
+import { diffLabels } from "./labels.js";
 import { IconChevronRightOutlineRegular } from "../primitives/icons/index.tsx";
 import css from "./ChatItemView.module.css";
 import { markdownLabels } from "./labels.js";
 import { changedPaths } from "./changedFiles.js";
 import { toolArguments } from "./changedFiles.js";
+
+/**
+ * Rebuild both sides of every hunk so the diff surface owns the rendering.
+ * parsePatch reads non-patch text as one file with no hunks, so the hunk count
+ * is what separates a real diff from command output.
+ */
+function hunksFromDiff(result: string): DiffHunk[] {
+  try {
+    return parsePatch(result).flatMap((file) =>
+      file.hunks.map((hunk) => {
+        const oldSide: string[] = [];
+        const newSide: string[] = [];
+        for (const line of hunk.lines) {
+          const body = line.slice(1);
+          if (line.startsWith("+")) newSide.push(body);
+          else if (line.startsWith("-")) oldSide.push(body);
+          else {
+            oldSide.push(body);
+            newSide.push(body);
+          }
+        }
+        return {
+          path: (file.newFileName ?? "").replace(/^b\//, ""),
+          oldText: oldSide.join("\n"),
+          newText: newSide.join("\n"),
+        };
+      }),
+    );
+  } catch {
+    // A truncated or hand-written header that disagrees with its own lines is
+    // common in tool output; losing the coloring beats losing the transcript.
+    return [];
+  }
+}
 
 // Settled items never change once landed; memo keeps a streaming reply from
 // re-rendering the whole transcript on every delta.
@@ -78,10 +116,10 @@ function ToolRow({ item }: { item: ToolCardItem }) {
   const summary =
     changed.length > 0
       ? `${changed.length} ${changed.length === 1 ? "file" : "files"}`
-      : toolArguments(item.toolName, item.args) ??
+      : (toolArguments(item.toolName, item.args) ??
         (item.result && item.result.length > 80
           ? `${item.result.slice(0, 80)}...`
-          : item.result);
+          : item.result));
 
   // A running card shows its output as it lands; the desktop collapses the
   // row once the operation finishes, unless the reader opened or closed it.
@@ -117,9 +155,15 @@ function ToolRow({ item }: { item: ToolCardItem }) {
         </button>
         <div className={css.toolPanel} data-open={open}>
           <div className={css.toolPanelInner}>
-            {item.result !== undefined && (
-              <pre className={css.toolResult}>{item.result}</pre>
-            )}
+            {item.result !== undefined &&
+              (() => {
+                const diffs = hunksFromDiff(item.result);
+                return diffs.length > 0 ? (
+                  <DiffBlock diffs={diffs} labels={diffLabels} />
+                ) : (
+                  <pre className={css.toolResult}>{item.result}</pre>
+                );
+              })()}
           </div>
         </div>
       </div>

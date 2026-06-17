@@ -8,6 +8,20 @@ vi.mock("./api/client.js", () => ({
   connectEvents: () => () => {},
   fetchState: () => fetchState(),
   fetchSessions: () => fetchSessions(),
+  fetchGitStatus: vi.fn(async () => ({
+    repo: false,
+    path: "",
+    branch: null,
+    head: "",
+    detached: false,
+    dirty: false,
+    changedFiles: 0,
+    changes: [],
+  })),
+  fetchContextBreakdown: vi.fn(async () => ({})),
+  deleteSession: vi.fn(async () => undefined),
+  renameSession: vi.fn(async () => undefined),
+  fetchWorktrees: vi.fn(async () => ({ worktrees: [], current: null })),
   stopTurn: vi.fn(),
   sendMessage: vi.fn().mockResolvedValue(undefined),
   approve: vi.fn().mockResolvedValue(undefined),
@@ -58,9 +72,14 @@ describe("app shell", () => {
   it("marks the session the server reports as the active row", async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText("Older thread")).toBeTruthy());
-    expect(document.querySelector('[data-active="true"]')?.textContent).toBe(
-      "Retrieval review",
-    );
+    // The row also carries a relative timestamp next to the title, so the
+    // assertion reads the row through its title instead of the whole text.
+    // The title appears more than once (row and its actions menu), so take
+    // the first and climb to the row.
+    const activeRow = screen
+      .getAllByText("Retrieval review")[0]
+      .closest("[data-active]");
+    expect(activeRow?.getAttribute("data-active")).toBe("true");
   });
 
   it("shows the workspace the session reports", async () => {
