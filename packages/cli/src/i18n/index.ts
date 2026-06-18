@@ -134,6 +134,7 @@ const en = {
   "automations.paused": "paused",
   "automations.retrying": "retrying (attempt {attempt}) at {at}",
   "services.cannotEnterWorktree": "Cannot enter {path}: {message}",
+  "services.pluginNotInstalled": "Plugin not installed: {name}",
   "plugins.manifestNotObject": "Marketplace manifest must be an object",
   "plugins.manifestNoName": "Marketplace manifest has no name",
   "plugins.manifestImpersonates":
@@ -959,6 +960,7 @@ const zhCN: Record<TranslationKey, string> = {
   "automations.paused": "已暂停",
   "automations.retrying": "重试中（第 {attempt} 次）{at}",
   "services.cannotEnterWorktree": "无法进入 {path}：{message}",
+  "services.pluginNotInstalled": "插件未安装：{name}",
   "plugins.manifestNotObject": "插件市场清单必须是一个对象",
   "plugins.manifestNoName": "插件市场清单缺少 name",
   "plugins.manifestImpersonates": "插件市场名称冒充官方目录：{name}",

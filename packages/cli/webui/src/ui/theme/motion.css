@@ -67,6 +67,12 @@
   animation: zcode-loading-pixel-on 650ms ease-in-out infinite;
 }
 
+/* ZCode styles.css：暗色主题下像素峰值更亮。 */
+.dark .zcode-loading-pixel,
+.theme-zai-dark .zcode-loading-pixel {
+  --loading-pixel-peak: 1;
+}
+
 /* Shimmer text: a highlight sweeping through a gradient-clipped label. */
 @keyframes zcode-loading-shimmer {
   from {
@@ -82,9 +88,9 @@
   font-weight: 500;
   background-image: linear-gradient(
     90deg,
-    var(--dsw-alias-label-tertiary) 35%,
-    var(--dsw-alias-label-primary) 50%,
-    var(--dsw-alias-label-tertiary) 65%
+    var(--color-foreground-subtle) 35%,
+    var(--color-foreground) 50%,
+    var(--color-foreground-subtle) 65%
   );
   background-position: 200% 0;
   background-size: 200% 100%;

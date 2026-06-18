@@ -33,6 +33,7 @@ export function ChatView({
   pendingQuestion = null,
   notices,
   isWaiting = false,
+  turnStartedAt = null,
   onAnswer,
   onAnswerQuestion = () => {},
 }: {
@@ -44,6 +45,7 @@ export function ChatView({
   pendingQuestion?: PendingQuestionState | null;
   notices: string[];
   isWaiting?: boolean | undefined;
+  turnStartedAt?: number | null | undefined;
   onAnswer: (approved: boolean) => void;
   onAnswerQuestion?: ((answer: string) => void) | undefined;
 }) {
@@ -149,7 +151,14 @@ export function ChatView({
             </div>
           )}
           {isWaiting && streaming === null && reasoning === null ? (
-            <ChatLoading />
+            <ChatLoading
+              loading={isWaiting}
+              initialElapsedMs={
+                turnStartedAt !== null
+                  ? Math.max(0, Date.now() - turnStartedAt)
+                  : 0
+              }
+            />
           ) : null}
           {pendingQuestion !== null && (
             <QuestionCard

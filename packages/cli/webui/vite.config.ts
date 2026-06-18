@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vitest/config";
 
 const webuiRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -21,7 +22,11 @@ const reactAlias = {
 
 export default defineConfig({
   base: "/app/",
-  plugins: [react()],
+  plugins: [
+    react(),
+    // P1：Tailwind v4 已安装，接入与 ZCode packages/ui 相同的处理管线。
+    tailwindcss(),
+  ],
   resolve: {
     alias: reactAlias,
     dedupe: ["react", "react-dom"],

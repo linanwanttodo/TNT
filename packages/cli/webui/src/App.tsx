@@ -23,6 +23,9 @@ import {
   type SessionSummary,
 } from "./api/client.js";
 import { useSessionStore } from "./stores/session-store.js";
+import { useTheme } from "./ui/zcode/useTheme.js";
+import { DesktopWindowFrame } from "./ui/zcode/shell/DesktopWindowFrame.js";
+import { DesktopTopOverlay } from "./ui/zcode/shell/DesktopTopOverlay.js";
 import { ChatView } from "./ui/chat/ChatView.tsx";
 import { ChatViewTabs, type ChatViewId } from "./ui/chat/ChatViewTabs.tsx";
 import { ContextView } from "./ui/chat/ContextView.tsx";
@@ -69,6 +72,8 @@ function isMarketplaceHash(): boolean {
 }
 
 export function App() {
+  // ZCode 主题挂载：给 <html> 打 dark / theme-zai-* class，供搬运的 zcode 样式读取。
+  useTheme();
   const sessionId = useSessionStore((s) => s.sessionId);
   const title = useSessionStore((s) => s.title);
   const chatModelTitle = useSessionStore((s) => s.chatModelTitle);
@@ -84,6 +89,7 @@ export function App() {
   const streaming = useSessionStore((s) => s.streaming);
   const reasoning = useSessionStore((s) => s.reasoning);
   const isWaiting = useSessionStore((s) => s.isWaiting);
+  const turnStartedAt = useSessionStore((s) => s.turnStartedAt);
   const pendingChangedFiles = useSessionStore((s) => s.pendingChangedFiles);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
   const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
@@ -380,172 +386,205 @@ export function App() {
   };
 
   return (
-    <div className={css.shell}>
-      {settingsOpen ? (
-        <SettingsSidebar
-          activeSection={settingsSection}
-          onSelectSection={setSettingsSection}
-          onBack={closeSettings}
-        />
-      ) : (
-        <Sidebar
-          groups={groups}
-          status={status}
-          activeSessionId={sessionId ?? undefined}
-          runningSessionId={isProcessing ? (sessionId ?? undefined) : undefined}
-          collapsed={collapsed}
-          onToggleCollapsed={() => setCollapsed((c) => !c)}
-          onNewSession={onNewSession}
-          onSelectSession={onSelectSession}
-          onOpenSettings={openSettings}
-          settingsActive={false}
-          onRenameSession={onRenameSession}
-          onDeleteSession={onDeleteSession}
-        />
-      )}
-      <main className={css.canvas} data-collapsed={collapsed}>
-        {settingsOpen ? null : (
-          <TitleBar
-            title={title ?? DEFAULT_TITLE}
-            permissionMode={permissionMode}
-            onSetPermissionMode={applyMode}
-            onNewSession={onNewSession}
-            onOpenMarketplace={openMarketplace}
-            model={modelLabel}
-            workspaceDirectory={
-              sessions.find((s) => s.sessionId === sessionId)
-                ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
+    <DesktopWindowFrame title={title ?? DEFAULT_TITLE}>
+      <div className={css.shell}>
+        {settingsOpen ? (
+          <SettingsSidebar
+            activeSection={settingsSection}
+            onSelectSection={setSettingsSection}
+            onBack={closeSettings}
+          />
+        ) : (
+          <Sidebar
+            groups={groups}
+            status={status}
+            activeSessionId={sessionId ?? undefined}
+            runningSessionId={
+              isProcessing ? (sessionId ?? undefined) : undefined
             }
-            context={context}
-            git={git}
-            isProcessing={isProcessing}
-            queueLength={queueLength}
-            hasPendingPermission={pendingPermission !== null}
-            view={view}
-            onViewChange={setView}
-            onToggleRail={() => setRailOpen((open) => !open)}
+            collapsed={collapsed}
+            onToggleCollapsed={() => setCollapsed((c) => !c)}
+            onNewSession={onNewSession}
+            onSelectSession={onSelectSession}
+            onOpenSettings={openSettings}
+            settingsActive={false}
+            onRenameSession={onRenameSession}
+            onDeleteSession={onDeleteSession}
           />
         )}
-        <div className={css.conversation}>
-          {marketplaceOpen ? (
-            <MarketplacePage />
-          ) : settingsOpen ? (
-            <SettingsPage section={settingsSection} />
-          ) : view === "context" ? (
-            <ContextView context={context} />
-          ) : view === "squad" ? (
-            <SubagentDirectoryPane />
-          ) : view === "trajectory" ? (
-            <TrajectoryView />
-          ) : isEmpty ? (
-            <EmptyState
-              label={chatLabels.autoModeSuggestion}
-              onPick={onPickSuggestion}
+        <main className={css.canvas} data-collapsed={collapsed}>
+          {settingsOpen ? null : (
+            <DesktopTopOverlay
+              workspaceAbsPath={
+                sessions.find((s) => s.sessionId === sessionId)
+                  ?.workspaceDirectory ??
+                sessions[0]?.workspaceDirectory ??
+                ""
+              }
+              isSidebarVisible={!collapsed}
+              updateReadyVersion={null}
+              updateState={null}
+              toggleSidebarShortcutLabel=""
+              newTaskShortcutLabel=""
+              goBackShortcutLabel=""
+              goForwardShortcutLabel=""
+              canTaskNavBack={false}
+              canTaskNavForward={false}
+              canGoBack={false}
+              canGoForward={false}
+              showNewTaskButton={false}
+              appLogoUrl=""
+              platform={null}
+              onToggleSidebar={() => setCollapsed((c) => !c)}
+              onCreateTask={onNewSession}
+              onGoBack={() => {}}
+              onGoForward={() => {}}
+            />
+          )}
+          {settingsOpen ? null : (
+            <TitleBar
+              title={title ?? DEFAULT_TITLE}
+              permissionMode={permissionMode}
+              onSetPermissionMode={applyMode}
+              onNewSession={onNewSession}
+              onOpenMarketplace={openMarketplace}
+              model={modelLabel}
+              workspaceDirectory={
+                sessions.find((s) => s.sessionId === sessionId)
+                  ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
+              }
+              context={context}
+              git={git}
+              isProcessing={isProcessing}
+              queueLength={queueLength}
+              hasPendingPermission={pendingPermission !== null}
+              view={view}
+              onViewChange={setView}
+              onToggleRail={() => setRailOpen((open) => !open)}
+            />
+          )}
+          <div className={css.conversation}>
+            {marketplaceOpen ? (
+              <MarketplacePage />
+            ) : settingsOpen ? (
+              <SettingsPage section={settingsSection} />
+            ) : view === "context" ? (
+              <ContextView context={context} />
+            ) : view === "squad" ? (
+              <SubagentDirectoryPane />
+            ) : view === "trajectory" ? (
+              <TrajectoryView />
+            ) : isEmpty ? (
+              <EmptyState
+                label={chatLabels.autoModeSuggestion}
+                onPick={onPickSuggestion}
+                workspace={folderName(
+                  sessions.find((s) => s.sessionId === sessionId)
+                    ?.workspaceDirectory ??
+                    sessions[0]?.workspaceDirectory ??
+                    "",
+                )}
+                onSuggest={(prompt) => setDraft(prompt === "" ? null : prompt)}
+              />
+            ) : (
+              <ChatView
+                items={items}
+                streaming={streaming}
+                isStreaming={streaming !== null}
+                reasoning={reasoning}
+                pendingPermission={pendingPermission}
+                pendingQuestion={pendingQuestion}
+                notices={notices}
+                isWaiting={isWaiting && !isProcessing}
+                turnStartedAt={turnStartedAt}
+                onAnswer={(approved) => void approve(approved)}
+                onAnswerQuestion={(answer) =>
+                  void useSessionStore.getState().answerPendingQuestion(answer)
+                }
+              />
+            )}
+          </div>
+          {status !== "live" ? (
+            <div className={css.banner} role="status">
+              {chatLabels.disconnected}
+            </div>
+          ) : null}
+          {settingsOpen ? null : (
+            <div className={css.composerWrap}>
+              {isProcessing && pendingChangedFiles.length > 0 ? (
+                <ChangedFilesPill files={pendingChangedFiles} compact />
+              ) : null}
+              {goal ? (
+                <GoalPill
+                  goal={goal}
+                  onChange={(text) =>
+                    setGoal((current) =>
+                      current ? { ...current, text } : current,
+                    )
+                  }
+                  onPause={pauseGoal}
+                  onDelete={() => setGoal(null)}
+                />
+              ) : null}
+              <SettingsMenu
+                open={composerMenuOpen}
+                onClose={() => setComposerMenuOpen(false)}
+                showPermissionModes={false}
+                permissionMode={permissionMode}
+                onSetPermissionMode={applyMode}
+                model={modelLabel}
+                workspaceDirectory={
+                  sessions.find((s) => s.sessionId === sessionId)
+                    ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
+                }
+                onNewSession={onNewSession}
+                className={css.menuAboveComposer}
+              />
+              <Composer
+                waiting={isWaiting || isProcessing}
+                idle={
+                  !isWaiting &&
+                  !isProcessing &&
+                  items.length > 0 &&
+                  streaming === null
+                }
+                onSend={(text) => void send(text)}
+                onStop={() => void stopTurn()}
+                onOpenMenu={() => setComposerMenuOpen((open) => !open)}
+                draft={draft}
+                onDraftUsed={() => setDraft(null)}
+              />
+            </div>
+          )}
+          {settingsOpen ? null : (
+            <StatusBar
               workspace={folderName(
                 sessions.find((s) => s.sessionId === sessionId)
                   ?.workspaceDirectory ??
                   sessions[0]?.workspaceDirectory ??
                   "",
               )}
-              onSuggest={(prompt) => setDraft(prompt === "" ? null : prompt)}
-            />
-          ) : (
-            <ChatView
-              items={items}
-              streaming={streaming}
-              isStreaming={streaming !== null}
-              reasoning={reasoning}
-              pendingPermission={pendingPermission}
-              pendingQuestion={pendingQuestion}
-              notices={notices}
-              isWaiting={isWaiting && !isProcessing}
-              onAnswer={(approved) => void approve(approved)}
-              onAnswerQuestion={(answer) =>
-                void useSessionStore.getState().answerPendingQuestion(answer)
-              }
-            />
-          )}
-        </div>
-        {status !== "live" ? (
-          <div className={css.banner} role="status">
-            {chatLabels.disconnected}
-          </div>
-        ) : null}
-        {settingsOpen ? null : (
-          <div className={css.composerWrap}>
-            {isProcessing && pendingChangedFiles.length > 0 ? (
-              <ChangedFilesPill files={pendingChangedFiles} compact />
-            ) : null}
-            {goal ? (
-              <GoalPill
-                goal={goal}
-                onChange={(text) =>
-                  setGoal((current) =>
-                    current ? { ...current, text } : current,
-                  )
-                }
-                onPause={pauseGoal}
-                onDelete={() => setGoal(null)}
-              />
-            ) : null}
-            <SettingsMenu
-              open={composerMenuOpen}
-              onClose={() => setComposerMenuOpen(false)}
-              showPermissionModes={false}
+              models={models}
+              currentModel={currentModel}
+              onPickModel={(index) => void pickModel(index)}
+              worktrees={worktrees}
+              currentWorktree={currentWorktree}
+              worktreeSwitchable={worktreeSwitchable}
+              worktreeChosen={worktreeChosen}
+              onPickWorktree={(path) => void pickWorktree(path)}
               permissionMode={permissionMode}
-              onSetPermissionMode={applyMode}
-              model={modelLabel}
+              isProcessing={isProcessing}
+              contextBreakdown={context}
               workspaceDirectory={
                 sessions.find((s) => s.sessionId === sessionId)
                   ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
               }
-              onNewSession={onNewSession}
-              className={css.menuAboveComposer}
+              onOpenWorkspace={onOpenWorkspace}
             />
-            <Composer
-              waiting={isWaiting || isProcessing}
-              idle={
-                !isWaiting &&
-                !isProcessing &&
-                items.length > 0 &&
-                streaming === null
-              }
-              onSend={(text) => void send(text)}
-              onStop={() => void stopTurn()}
-              onOpenMenu={() => setComposerMenuOpen((open) => !open)}
-              draft={draft}
-              onDraftUsed={() => setDraft(null)}
-            />
-          </div>
-        )}
-        {settingsOpen ? null : (
-          <StatusBar
-            workspace={folderName(
-              sessions.find((s) => s.sessionId === sessionId)
-                ?.workspaceDirectory ??
-                sessions[0]?.workspaceDirectory ??
-                "",
-            )}
-            models={models}
-            currentModel={currentModel}
-            onPickModel={(index) => void pickModel(index)}
-            worktrees={worktrees}
-            currentWorktree={currentWorktree}
-            worktreeSwitchable={worktreeSwitchable}
-            worktreeChosen={worktreeChosen}
-            onPickWorktree={(path) => void pickWorktree(path)}
-            permissionMode={permissionMode}
-            isProcessing={isProcessing}
-            contextBreakdown={context}
-            workspaceDirectory={
-              sessions.find((s) => s.sessionId === sessionId)
-                ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
-            }
-            onOpenWorkspace={onOpenWorkspace}
-          />
-        )}
-      </main>
-      {settingsOpen || !railOpen ? null : <WorkspaceRail />}
-    </div>
+          )}
+        </main>
+        {settingsOpen || !railOpen ? null : <WorkspaceRail />}
+      </div>
+    </DesktopWindowFrame>
   );
 }

@@ -189,7 +189,7 @@
 }
 
 .changeStatus[data-status="deleted"] {
-  color: var(--dsh-status-danger);
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .changeMore {

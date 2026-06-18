@@ -122,6 +122,8 @@ interface SessionState {
    */
   flushedSegments: boolean;
   isWaiting: boolean;
+  /** Wall-clock ms timestamp of the current turn's start; null between turns. */
+  turnStartedAt: number | null;
   pendingPermission: PendingPermission | null;
   /** A question the engine is waiting on (the askQuestion tool). */
   pendingQuestion: PendingQuestionState | null;
@@ -184,6 +186,30 @@ function settleReasoning(state: {
   };
 }
 
+/**
+ * Settles the streamed prose into an item so it lands above whatever follows
+ * it. Left in the buffer it would only appear at turn.completed, i.e. below
+ * every tool card the same turn produced.
+ */
+function settleStreaming(state: {
+  items: ChatItem[];
+  streaming: string | null;
+}): { items: ChatItem[]; streaming: string | null; flushed: boolean } {
+  const text = state.streaming;
+  if (text === null || text.trim() === "") {
+    return {
+      items: state.items,
+      streaming: state.streaming,
+      flushed: false,
+    };
+  }
+  return {
+    items: [...state.items, { kind: "message", role: "assistant", text }],
+    streaming: null,
+    flushed: true,
+  };
+}
+
 /** The text a stored tool result carries, for the card a reload rebuilds. */
 function toolResultText(output: unknown): string | undefined {
   if (!Array.isArray(output)) return undefined;
@@ -209,6 +235,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   reasoning: null,
   flushedSegments: false,
   isWaiting: false,
+  turnStartedAt: null,
   pendingPermission: null,
   pendingQuestion: null,
   notices: [],
@@ -234,6 +261,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         set({
           isWaiting: true,
           isProcessing: true,
+          turnStartedAt: Date.now(),
           pendingPermission: null,
           pendingQuestion: null,
           seenTurnId: event.turnId,
@@ -260,23 +288,17 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           args: event.args,
         };
         const settled = settleReasoning(get());
-        // Prose streamed before this call settles above its card. Left in the
-        // buffer it would only land at turn.completed, i.e. below every card
-        // of the turn.
-        const streamed = get().streaming;
-        const proseSettled =
-          streamed === null || streamed === ""
-            ? settled.items
-            : [
-                ...settled.items,
-                { kind: "message", role: "assistant", text: streamed } as const,
-              ];
+        // Prose streamed before this call settles above its card, so the
+        // answer reads in the order the model produced it.
+        const withText = settleStreaming({
+          items: settled.items,
+          streaming: get().streaming,
+        });
         set({
-          items: [...proseSettled, card],
-          streaming: streamed === null || streamed === "" ? streamed : null,
+          items: [...withText.items, card],
           reasoning: settled.reasoning,
-          flushedSegments:
-            proseSettled !== settled.items ? true : get().flushedSegments,
+          streaming: withText.streaming,
+          flushedSegments: withText.flushed ? true : get().flushedSegments,
         });
         break;
       }
@@ -402,6 +424,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           streaming: null,
           reasoning: null,
           isWaiting: false,
+          turnStartedAt: null,
           isProcessing: false,
           flushedSegments: false,
         });
@@ -414,6 +437,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           streaming: null,
           reasoning: null,
           isWaiting: false,
+          turnStartedAt: null,
           isProcessing: false,
         });
         break;
@@ -435,6 +459,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           ...settled,
           streaming: null,
           isWaiting: false,
+          turnStartedAt: null,
           isProcessing: false,
         });
         break;
@@ -450,7 +475,13 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       case "session.changed":
         // Another tab pointed the process at a different conversation; this
         // tab re-pulls the snapshot rather than trusting the bare event.
-        set({ items: [], streaming: null, isWaiting: false, sessionId: null });
+        set({
+          items: [],
+          streaming: null,
+          isWaiting: false,
+          turnStartedAt: null,
+          sessionId: null,
+        });
         void fetchState()
           .then((snapshot) => {
             const current = get();
@@ -468,12 +499,14 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     set({
       items: [...get().items, { kind: "message", role: "user", text: trimmed }],
       isWaiting: true,
+      turnStartedAt: Date.now(),
     });
     try {
       await postMessage(trimmed);
     } catch (error) {
       set({
         isWaiting: false,
+        turnStartedAt: null,
         items: [
           ...get().items,
           {
@@ -628,6 +661,10 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           : get().chatModelTitle,
       isProcessing: isProcessing === true,
       isWaiting: isWaiting === true || isProcessing === true,
+      turnStartedAt:
+        isWaiting === true || isProcessing === true
+          ? Date.now()
+          : get().turnStartedAt,
       queueLength:
         typeof queueLength === "number" ? queueLength : get().queueLength,
       items,
@@ -657,9 +694,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         streaming: null,
         reasoning: null,
         isWaiting: false,
+        turnStartedAt: null,
         notices: [],
         seenTurnId: null,
         seenSeq: -1,
+        flushedSegments: false,
       });
       return (snapshot.session as { sessionId?: string }).sessionId ?? null;
     } catch (error) {
@@ -681,9 +720,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         streaming: null,
         reasoning: null,
         isWaiting: false,
+        turnStartedAt: null,
         notices: [],
         seenTurnId: null,
         seenSeq: -1,
+        flushedSegments: false,
       });
       return (snapshot.session as { sessionId?: string }).sessionId ?? null;
     } catch (error) {

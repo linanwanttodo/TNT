@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+import { canonicalPath } from "../src/utils/canonicalPath.js";
 import { resolveWithin } from "../src/utils/pathGuard.js";
 
 /**
@@ -23,9 +24,13 @@ export class HookFixtures {
   private readonly printScript: string;
 
   constructor(dir: string) {
-    // Every caller roots its fixtures under os.tmpdir(); holding the fixture to
-    // that here keeps the scripts it writes out of the repository tree.
-    resolveWithin(os.tmpdir(), dir);
+    // macOS exposes its temporary directory as /var, while Node returns the
+    // aliased /private/var path; Windows hands out the 8.3 short form
+    // (RUNNER~1) from os.tmpdir() while git-style callers spell the long one.
+    // path.resolve() alone compares those spellings as different roots, so
+    // canonicalize both - the native realpath expands the short names and
+    // settles case - before the guard.
+    resolveWithin(canonicalPath(os.tmpdir()), canonicalPath(dir));
     this.root = path.join(dir, "hook-fixtures");
     fs.mkdirSync(this.root, { recursive: true });
     this.printScript = this.write(

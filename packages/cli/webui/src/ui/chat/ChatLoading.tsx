@@ -1,18 +1,31 @@
-/** Working indicator ported from ZCode's ChatLoadingPixels + shimmer label. */
-import { useEffect, useState } from "react";
+"use client";
 
-import css from "./ChatLoading.module.css";
+// ZCode 原版 `components/ai-elements/chat-loading.tsx` 逐字搬运；
+// 仅适配了三处：import 路径（cn / workDuration / i18n）、i18n 文案层（TNT webui 无
+// IntlProvider，用 src/ui/zcode/i18n.ts 的同名 useZCodeIntl 兜底）。
+import { useEffect, useState, type ComponentPropsWithoutRef } from "react";
+import { cn } from "../zcode/lib/utils.js";
+import { formatRunningWorkDuration } from "../zcode/lib/workDuration.js";
+import { useZCodeIntl } from "../zcode/i18n.js";
 
-/** The orbit the 3x3 grid lights up in; the center cell stays dim. */
+export interface ChatLoadingProps extends ComponentPropsWithoutRef<"div"> {
+  loading: boolean;
+  initialElapsedMs?: number;
+  size?: "default" | "sm";
+}
+
 const ORBIT_ORDER = [0, 1, 2, 5, 8, 7, 6, 3];
 
 export function ChatLoadingPixels() {
   return (
-    <span aria-hidden="true" className={css.pixelGrid}>
+    <span
+      aria-hidden="true"
+      className="text-foreground grid size-[13px] shrink-0 grid-cols-3 grid-rows-3 gap-[1.3px]"
+    >
       {Array.from({ length: 9 }, (_, index) => (
         <span
           key={index}
-          className={css.pixel}
+          className="zcode-loading-pixel size-full rounded-[1px] bg-current"
           style={{
             opacity: index === 4 ? 0.07 : 0.15,
             animationName: index === 4 ? "none" : undefined,
@@ -25,38 +38,47 @@ export function ChatLoadingPixels() {
   );
 }
 
-function formatElapsed(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return minutes > 0
-    ? `${minutes}m ${String(seconds).padStart(2, "0")}s`
-    : `${seconds}s`;
-}
-
-/**
- * The "working" row: orbiting pixel grid, shimmer label, and an elapsed-time
- * counter that refreshes on its own timer so the transcript does not
- * re-render every 100ms with it.
- */
-export function ChatLoading({ startedAt }: { startedAt?: number }) {
-  const [start] = useState(() => startedAt ?? Date.now());
-  const [elapsedMs, setElapsedMs] = useState(() => Date.now() - start);
+export function ChatLoading({
+  loading,
+  initialElapsedMs = 0,
+  className,
+  size: _size,
+  ...props
+}: ChatLoadingProps) {
+  const { intl, locale } = useZCodeIntl();
+  const [elapsedMs, setElapsedMs] = useState(initialElapsedMs);
   useEffect(() => {
+    if (!loading) return;
+    // 本轮已有耗时作为起点；独立刷新小组件，避免整个对话每 100ms 重渲染。
+    const started = performance.now();
     const timer = window.setInterval(() => {
-      setElapsedMs(Date.now() - start);
+      setElapsedMs(initialElapsedMs + performance.now() - started);
     }, 100);
     return () => window.clearInterval(timer);
-  }, [start]);
+  }, [loading, initialElapsedMs]);
+  if (!loading) return null;
   return (
     <div
       role="status"
-      className={css.row}
+      aria-label={intl.formatMessage({ id: "common.loading" })}
       data-zcode-chat-loading-animate="true"
+      {...props}
+      className={cn("inline-flex w-fit items-center gap-2.5", className)}
     >
       <ChatLoadingPixels />
-      <span className="zcode-loading-label">Working</span>
-      <span className={css.elapsed}>{formatElapsed(elapsedMs)}</span>
+      <span className="zcode-loading-label text-ui-base font-medium">
+        {intl.formatMessage({ id: "chat.loading.working" })}
+      </span>
+      <span
+        aria-hidden="true"
+        className="text-ui-caption text-foreground-subtle font-mono tabular-nums"
+      >
+        {formatRunningWorkDuration(
+          elapsedMs,
+          (descriptor) => intl.formatMessage(descriptor),
+          locale,
+        )}
+      </span>
     </div>
   );
 }
