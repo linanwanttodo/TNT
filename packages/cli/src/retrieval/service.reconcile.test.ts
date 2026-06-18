@@ -66,15 +66,20 @@ beforeAll(() => {
 });
 
 afterAll(async () => {
-  // The connection holds the sqlite file; Windows cannot unlink an open one.
-  await SqliteDb.close();
   indexHome = process.env.TNT_GLOBAL_DIR ?? indexHome;
-  fs.rmSync(indexHome, {
-    recursive: true,
-    force: true,
-    maxRetries: 10,
-    retryDelay: 100,
-  });
+  // The cached connection holds the sqlite file, and a background indexing
+  // task may reopen it between the close and the unlink; Windows refuses to
+  // delete an open handle, so close again on every retry until the tree goes.
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await SqliteDb.close();
+    try {
+      fs.rmSync(indexHome, { recursive: true, force: true });
+      break;
+    } catch (error) {
+      if (attempt === 19) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
   for (const workspace of workspaces) {
     fs.rmSync(workspace, { recursive: true, force: true });
   }
