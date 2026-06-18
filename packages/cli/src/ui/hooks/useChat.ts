@@ -5,6 +5,7 @@ import { useApp } from "ink";
 import { useEffect, useRef, useState } from "react";
 
 import { describeChangedFiles } from "../../agent/changedFiles.js";
+import { currentPromptCacheKey } from "../../cache/promptCacheKey.js";
 import { describeContextBudget } from "../../compaction/contextBudget.js";
 import { findCompactionIndex } from "../../compaction/index.js";
 import {
@@ -14,12 +15,10 @@ import {
   fireUserPromptSubmit,
   takeSessionStartContext,
 } from "../../hooks/fireHook.js";
-import { currentPromptCacheKey } from "../../cache/promptCacheKey.js";
 import { t } from "../../i18n/index.js";
 import { interactionBroker } from "../../permissions/interactionBroker.js";
 import { services } from "../../services/index.js";
 import { turnRunnerService } from "../../services/TurnRunnerService.js";
-import { clearSeriesSectionBaselines } from "../../stream/systemPromptSeries.js";
 import {
   createSession,
   resumeSession,
@@ -27,6 +26,7 @@ import {
 } from "../../session/index.js";
 import { generatePromptSuggestion } from "../../session/promptSuggestionGenerator.js";
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
+import { clearSeriesSectionBaselines } from "../../stream/systemPromptSeries.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
@@ -106,7 +106,6 @@ export function useChat({
   maxSteps,
   additionalRules,
   additionalPrompts,
-  onShowConfigSelector,
   onShowModelSelector,
   onShowUpdateSelector,
   onShowThemeSelector,
@@ -549,7 +548,6 @@ export function useChat({
       result: commandResult,
       chatHistory,
       setChatHistory,
-      onShowConfigSelector,
       onShowModelSelector,
       onShowMCPSelector,
       onShowMcpMarketplace,
@@ -598,7 +596,6 @@ export function useChat({
       message,
       isRemoteMode,
       remoteUrl,
-      onShowConfigSelector,
       exit,
       onShowDiff,
       onShowStatusMessage,

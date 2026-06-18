@@ -39,13 +39,13 @@ import {
   StreamCallbacks,
   StreamRunOverrides,
 } from "./streamChatResponse.types.js";
-import { advanceSystemPrompt } from "./systemPromptRound.js";
 import {
   clearSectionBaselines,
   createSectionBaselines,
   hashSectionText,
   planSectionReinjection,
 } from "./systemMessageReinjection.js";
+import { advanceSystemPrompt } from "./systemPromptRound.js";
 import {
   createTurnState,
   noteCompaction,

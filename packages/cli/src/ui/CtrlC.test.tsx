@@ -2,7 +2,6 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-import { ConfigSelector } from "./ConfigSelector.js";
 import { Selector } from "./Selector.js";
 
 describe("Ctrl+C behavior", () => {
@@ -96,20 +95,6 @@ describe("Ctrl+C behavior", () => {
       );
 
       // Simulate Ctrl+C during error
-      tree.stdin.write("\u0003");
-      tree.unmount();
-
-      expect(mockOnCancel).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("ConfigSelector component", () => {
-    it("calls onCancel when Ctrl+C is pressed", () => {
-      const tree = render(
-        <ConfigSelector onSelect={mockOnSelect} onCancel={mockOnCancel} />,
-      );
-
-      // Simulate Ctrl+C
       tree.stdin.write("\u0003");
       tree.unmount();
 

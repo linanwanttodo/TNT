@@ -61,7 +61,78 @@ const en = {
   "services.webuiUnauthorized": "A valid web UI token is required.",
   "services.noChatModelAtIndex":
     "No chat model at index {index} ({count} available)",
+  "services.modelConfig.nameRequired": "name is required",
+  "services.modelConfig.modelRequired": "model is required",
+  "services.modelConfig.providerRequired": "provider is required",
+  "services.modelConfig.apiKeyString": "apiKey must be a string",
+  "services.modelConfig.apiBaseInvalid": "apiBase must be a valid URL",
+  "services.modelConfig.rolesInvalid": "roles must be a subset of: {roles}",
+  "services.modelConfig.contextLengthInvalid":
+    "contextLength must be a positive integer",
+  "services.modelConfig.nameExists": 'a model named "{name}" already exists',
+  "services.modelConfig.noModelNamed": 'no model named "{name}" in {path}',
+  "services.modelConfig.noConfigFile": "no config file at {path}",
+  "services.modelConfig.parseFailed":
+    "config.yaml could not be parsed: {reason}",
+  "services.modelConfig.providerUnsupported":
+    'provider "{provider}" is not supported',
   "services.noWorktreeAt": "No worktree at {path}",
+  "cmd.loop":
+    "Schedule a recurring agent run: /loop every 20 minutes <prompt>, /loop 0 9 * * * <prompt>, /loop, /loop off",
+  "cmd.ide":
+    "IDE integration: /ide (status), /ide connect jetbrains (bridge JetBrains' MCP Server), /ide tools <server>, /ide diagnostics <file>",
+  "ide.statusHeader": "IDE integration:",
+  "ide.terminalUnknown": "No IDE terminal detected (plain shell).",
+  "ide.jetbrainsMcp": "JetBrains MCP Server:",
+  "ide.channelDown":
+    "not reachable (install the JetBrains MCP Server plugin or start the IDE)",
+  "ide.jetbrainsPluginHint":
+    "Start the IDE with its built-in MCP Server plugin enabled, then /ide again.",
+  "ide.lspChannel": "LSP (static errors):",
+  "ide.serversRunning": "{count} language server(s) running",
+  "ide.lspNone": "no language servers (declared by plugins)",
+  "ide.dynamicHint":
+    "Dynamic errors: run the app or tests through Bash and background jobs (/jobs); the transcript captures stderr for the agent.",
+  "ide.vscodeNote":
+    "VS Code live diagnostics need an extension-side API; none is open to a terminal process today — the JetBrains MCP bridge and the LSP stack are the working channels.",
+  "ide.unknownConnectTarget":
+    "Unknown connect target: {target}. Try: jetbrains",
+  "ide.unknownSubcommand":
+    "Unknown /ide subcommand: {sub}. Try /ide, /ide connect jetbrains, /ide tools <server>, /ide diagnostics <file>",
+  "ide.mcpUnavailable": "The MCP service is not initialized in this session.",
+  "ide.connected": "Connected:",
+  "ide.toolsHint": "{count} tool(s) exposed by the IDE:",
+  "ide.toolsErrorsNote":
+    "★ tools report IDE inspections/errors — ask the agent to call them for real-time static errors.",
+  "ide.connectFailed":
+    "Could not connect to {url}. Is the IDE running with its MCP Server plugin enabled?",
+  "ide.serverNotConnected":
+    'Server "{server}" is not connected. Connect it first.',
+  "ide.serverNoTools": 'Server "{server}" is connected but exposes no tools.',
+  "ide.toolsHeader": 'Tools on "{server}":',
+  "automations.titleRequired": "A title is required",
+  "automations.promptRequired": "A prompt is required",
+  "automations.invalidCron": "Invalid cron expression: {expr}",
+  "automations.invalidInterval":
+    "The interval must be a whole number between 1 and 1000",
+  "automations.invalidDelay": "The delay must be a positive number of minutes",
+  "automations.invalidOnce": "The one-shot time must be in the future",
+  "automations.noSchedule": "Provide a schedule: cron, an interval, or a delay",
+  "automations.notFound": "No automation with id {id}",
+  "automations.disabledAll": "Disabled {count} automation(s)",
+  "automations.disabledOne": "Disabled {id}",
+  "automations.missingPrompt": "Add the prompt: /loop <schedule> <prompt>",
+  "automations.invalidEvery": "The interval must be at least 1",
+  "automations.invalidSchedule":
+    "Unrecognized schedule: {spec}. Try every 20 minutes, a five-field cron expression, or a plain number of minutes.",
+  "automations.created":
+    "Scheduled. The run lands in this session at every occurrence.",
+  "automations.nextUnknown": "next occurrence unknown",
+  "automations.listEmpty":
+    "No scheduled runs. Create one with /loop every 20 minutes <prompt>.",
+  "automations.listTitle": "Scheduled runs:",
+  "automations.paused": "paused",
+  "automations.retrying": "retrying (attempt {attempt}) at {at}",
   "services.cannotEnterWorktree": "Cannot enter {path}: {message}",
   "plugins.manifestNotObject": "Marketplace manifest must be an object",
   "plugins.manifestNoName": "Marketplace manifest has no name",
@@ -266,10 +337,6 @@ const en = {
   "compaction.done": "Chat history compacted successfully.",
   "compaction.cancelled": "Compaction cancelled.",
   "compaction.failed": "Compaction failed: {error}",
-  "config.loading": "Loading configurations...",
-  "config.select": "Select Configuration",
-  "config.local": "Local config.yaml",
-  "config.loadFailed": "Failed to load configurations",
   "setup.intro":
     "A provider is needed before the first request can be sent. Nothing is sent anywhere while you answer these four questions.",
   "setup.title": "Model configuration",
@@ -410,9 +477,11 @@ const en = {
   "chat.fileFilterFailed": "Error filtering files:",
   "chat.timedOut":
     "Headless turn cut short after {seconds}s (--request-timeout or TNT_HEADLESS_TIMEOUT)",
+  "chat.commandCleared": "Chat history cleared.",
+  "chat.commandNeedsTui":
+    "{command} needs the interactive terminal: it opens a screen this run has nowhere to put.",
   "chat.sessionLoadFailed": "Error loading session:",
   "chat.fileReadFailed": "Error reading file {path}:",
-  "chat.browserOpenFailed": "Failed to open browser:",
   "serve.shuttingDown": "\\nShutting down server...",
   "startup.anthropicKey": "Using ANTHROPIC_API_KEY from the environment",
   "cmd.outputStyle": "Output style",
@@ -821,7 +890,70 @@ const zhCN: Record<TranslationKey, string> = {
   "services.webuiUnauthorized": "需要有效的 Web UI 令牌。",
   "services.noChatModelAtIndex":
     "索引 {index} 处没有聊天模型（共有 {count} 个）",
+  "services.modelConfig.nameRequired": "必须提供 name",
+  "services.modelConfig.modelRequired": "必须提供 model",
+  "services.modelConfig.providerRequired": "必须提供 provider",
+  "services.modelConfig.apiKeyString": "apiKey 必须是字符串",
+  "services.modelConfig.apiBaseInvalid": "apiBase 必须是有效的 URL",
+  "services.modelConfig.rolesInvalid": "roles 必须是以下值的子集：{roles}",
+  "services.modelConfig.contextLengthInvalid": "contextLength 必须是正整数",
+  "services.modelConfig.nameExists": "已存在名为“{name}”的模型",
+  "services.modelConfig.noModelNamed": "{path} 中没有名为“{name}”的模型",
+  "services.modelConfig.noConfigFile": "{path} 处没有配置文件",
+  "services.modelConfig.parseFailed": "config.yaml 无法解析：{reason}",
+  "services.modelConfig.providerUnsupported": "不支持“{provider}”这个 provider",
   "services.noWorktreeAt": "{path} 处没有工作树",
+  "cmd.loop":
+    "定时执行：/loop every 20 minutes <提示词>、/loop 0 9 * * * <提示词>、/loop、/loop off",
+  "cmd.ide":
+    "IDE 集成：/ide（状态）、/ide connect jetbrains（桥接 JetBrains MCP Server）、/ide tools <server>、/ide diagnostics <文件>",
+  "ide.statusHeader": "IDE 集成：",
+  "ide.terminalUnknown": "未检测到 IDE 终端（普通 shell）。",
+  "ide.jetbrainsMcp": "JetBrains MCP Server：",
+  "ide.channelDown": "不可达（请安装 JetBrains MCP Server 插件或启动 IDE）",
+  "ide.jetbrainsPluginHint":
+    "启动 IDE 并启用其内置 MCP Server 插件后再试 /ide。",
+  "ide.lspChannel": "LSP（静态报错）：",
+  "ide.serversRunning": "{count} 个语言服务器运行中",
+  "ide.lspNone": "无语言服务器（由插件声明）",
+  "ide.dynamicHint":
+    "动态报错：通过 Bash 与后台任务（/jobs）运行应用或测试，transcript 会捕获 stderr 供 agent 阅读。",
+  "ide.vscodeNote":
+    "VS Code 的实时 diagnostics 需要扩展端 API；终端进程今天没有开放接口 —— JetBrains MCP 桥和 LSP 栈是当前可用的通道。",
+  "ide.unknownConnectTarget": "未知的连接目标：{target}。可选：jetbrains",
+  "ide.unknownSubcommand":
+    "未知的 /ide 子命令：{sub}。可用：/ide、/ide connect jetbrains、/ide tools <server>、/ide diagnostics <文件>",
+  "ide.mcpUnavailable": "本会话未初始化 MCP 服务。",
+  "ide.connected": "已连接：",
+  "ide.toolsHint": "该 IDE 暴露了 {count} 个工具：",
+  "ide.toolsErrorsNote":
+    "★ 工具可读取 IDE 的检查/错误 —— 让 agent 调用它们即可获得实时静态报错。",
+  "ide.connectFailed":
+    "无法连接 {url}。请确认 IDE 已启动且启用了 MCP Server 插件。",
+  "ide.serverNotConnected": "服务器“{server}”未连接。请先连接。",
+  "ide.serverNoTools": "服务器“{server}”已连接但没有暴露工具。",
+  "ide.toolsHeader": "“{server}”上的工具：",
+  "automations.titleRequired": "必须提供标题",
+  "automations.promptRequired": "必须提供提示词",
+  "automations.invalidCron": "无效的 cron 表达式：{expr}",
+  "automations.invalidInterval": "间隔必须是 1 到 1000 的整数",
+  "automations.invalidDelay": "延迟必须是正的分钟数",
+  "automations.invalidOnce": "一次性执行时间必须在未来",
+  "automations.noSchedule": "请提供计划：cron、间隔或延迟",
+  "automations.notFound": "没有 id 为 {id} 的定时任务",
+  "automations.disabledAll": "已停用 {count} 个定时任务",
+  "automations.disabledOne": "已停用 {id}",
+  "automations.missingPrompt": "请补充提示词：/loop <计划> <提示词>",
+  "automations.invalidEvery": "间隔至少为 1",
+  "automations.invalidSchedule":
+    "无法识别的计划：{spec}。可用 every 20 minutes、五段式 cron 表达式，或纯分钟数。",
+  "automations.created": "已创建。到点后会自动在本会话中执行。",
+  "automations.nextUnknown": "下次执行时间未知",
+  "automations.listEmpty":
+    "暂无定时任务。用 /loop every 20 minutes <提示词> 创建。",
+  "automations.listTitle": "定时任务：",
+  "automations.paused": "已暂停",
+  "automations.retrying": "重试中（第 {attempt} 次）{at}",
   "services.cannotEnterWorktree": "无法进入 {path}：{message}",
   "plugins.manifestNotObject": "插件市场清单必须是一个对象",
   "plugins.manifestNoName": "插件市场清单缺少 name",
@@ -999,10 +1131,6 @@ const zhCN: Record<TranslationKey, string> = {
   "compaction.done": "上下文压缩完成。",
   "compaction.cancelled": "已取消压缩。",
   "compaction.failed": "压缩失败：{error}",
-  "config.loading": "正在加载配置...",
-  "config.select": "选择配置",
-  "config.local": "本地配置 config.yaml",
-  "config.loadFailed": "加载配置失败",
   "setup.intro":
     "发送第一个请求前需要先配置模型服务。回答这四个问题不会向任何服务发送数据。",
   "setup.title": "模型配置",
@@ -1132,9 +1260,11 @@ const zhCN: Record<TranslationKey, string> = {
   "chat.fileFilterFailed": "筛选文件时出错：",
   "chat.timedOut":
     "无头这一轮在 {seconds} 秒后被中断（--request-timeout 或 TNT_HEADLESS_TIMEOUT）",
+  "chat.commandCleared": "聊天历史已清空。",
+  "chat.commandNeedsTui":
+    "{command} 需要交互终端：它会打开一个本次运行无法承载的界面。",
   "chat.sessionLoadFailed": "加载会话时出错：",
   "chat.fileReadFailed": "读取文件 {path} 时出错：",
-  "chat.browserOpenFailed": "无法打开浏览器：",
   "serve.shuttingDown": "\\n正在关闭服务器...",
   "startup.anthropicKey": "使用环境变量中的 ANTHROPIC_API_KEY",
   "cmd.outputStyle": "输出风格",

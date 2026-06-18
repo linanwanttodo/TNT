@@ -9,6 +9,7 @@ import { installIconSprite } from "./ui/primitives/icons/sprite.ts";
 import "./ui/theme/tokens.css";
 import "./ui/theme/fonts.css";
 import "./ui/theme/base.css";
+import "./ui/theme/motion.css";
 import "./ui/theme/scrollbar.css";
 import "./ui/theme/focus.css";
 import "./ui/theme/corner-shape.css";

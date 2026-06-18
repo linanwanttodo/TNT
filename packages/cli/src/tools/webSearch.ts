@@ -5,6 +5,7 @@ import {
   hasConfiguredSearchEndpoint,
   resolveConfiguredSearchEndpoint,
 } from "../utils/urlGuard.js";
+
 import { Tool } from "./types.js";
 
 const DEFAULT_SEARCH_URL = "https://lite.duckduckgo.com/lite/";

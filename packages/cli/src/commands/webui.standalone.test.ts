@@ -34,8 +34,8 @@ vi.mock("../utils/logger.js", () => ({
   logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
-import { runStandaloneTurn } from "./webui.js";
 import { buildServedStreamCallbacks } from "./serve.helpers.js";
+import { runStandaloneTurn } from "./webui.js";
 
 const runAgentTurnMock = vi.hoisted(() => vi.fn());
 

@@ -182,9 +182,22 @@ export function loadPluginCommands(plugins: LoadedPlugin[]): PluginCommands[] {
       declared.length > 0 ? declared : [path.join(plugin.path, "commands")];
 
     for (const entry of dirs) {
-      const dir = path.isAbsolute(entry)
-        ? entry
-        : path.join(plugin.path, entry.replace(/^\.\//, ""));
+      // A manifest entry is installed-plugin content; anchor a relative entry
+      // to the plugin's directory so a `../` inside it cannot resolve the
+      // contribution scan to a directory outside the plugin.
+      let dir: string;
+      if (path.isAbsolute(entry)) {
+        dir = entry;
+      } else {
+        const pluginRoot = path.resolve(plugin.path);
+        dir = path.resolve(pluginRoot, entry.replace(/^\.\//, ""));
+        if (dir !== pluginRoot && !dir.startsWith(pluginRoot + path.sep)) {
+          logger.warn(
+            `Plugin contribution entry escapes the plugin directory: ${entry}`,
+          );
+          continue;
+        }
+      }
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
 
       for (const file of sortedMarkdownFiles(dir)) {
@@ -227,9 +240,22 @@ export function loadPluginAgents(plugins: LoadedPlugin[]): PluginAgents[] {
       declared.length > 0 ? declared : [path.join(plugin.path, "agents")];
 
     for (const entry of dirs) {
-      const dir = path.isAbsolute(entry)
-        ? entry
-        : path.join(plugin.path, entry.replace(/^\.\//, ""));
+      // A manifest entry is installed-plugin content; anchor a relative entry
+      // to the plugin's directory so a `../` inside it cannot resolve the
+      // contribution scan to a directory outside the plugin.
+      let dir: string;
+      if (path.isAbsolute(entry)) {
+        dir = entry;
+      } else {
+        const pluginRoot = path.resolve(plugin.path);
+        dir = path.resolve(pluginRoot, entry.replace(/^\.\//, ""));
+        if (dir !== pluginRoot && !dir.startsWith(pluginRoot + path.sep)) {
+          logger.warn(
+            `Plugin contribution entry escapes the plugin directory: ${entry}`,
+          );
+          continue;
+        }
+      }
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
 
       for (const file of sortedMarkdownFiles(dir)) {
@@ -305,9 +331,22 @@ export function loadPluginSkills(plugins: LoadedPlugin[]): PluginSkills[] {
       declared.length > 0 ? declared : [path.join(plugin.path, "skills")];
 
     for (const entry of dirs) {
-      const dir = path.isAbsolute(entry)
-        ? entry
-        : path.join(plugin.path, entry.replace(/^\.\//, ""));
+      // A manifest entry is installed-plugin content; anchor a relative entry
+      // to the plugin's directory so a `../` inside it cannot resolve the
+      // contribution scan to a directory outside the plugin.
+      let dir: string;
+      if (path.isAbsolute(entry)) {
+        dir = entry;
+      } else {
+        const pluginRoot = path.resolve(plugin.path);
+        dir = path.resolve(pluginRoot, entry.replace(/^\.\//, ""));
+        if (dir !== pluginRoot && !dir.startsWith(pluginRoot + path.sep)) {
+          logger.warn(
+            `Plugin contribution entry escapes the plugin directory: ${entry}`,
+          );
+          continue;
+        }
+      }
       if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
 
       for (const fullPath of findSkillFiles(dir)) {

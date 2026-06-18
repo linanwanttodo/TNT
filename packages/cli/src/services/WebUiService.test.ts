@@ -444,6 +444,7 @@ describe("WebUiService", () => {
     const body = (await response.json()) as Record<string, unknown>;
 
     expect(Object.keys(body).sort()).toEqual([
+      "goal",
       "isProcessing",
       "messageQueueLength",
       "pendingPermission",
@@ -832,6 +833,8 @@ describe("WebUiService model and workspace routes", () => {
       available: true,
       models,
       current: models[0],
+      declared: [],
+      configPath: null,
     });
   });
 
@@ -844,6 +847,8 @@ describe("WebUiService model and workspace routes", () => {
       available: false,
       models: [],
       current: null,
+      declared: [],
+      configPath: null,
     });
   });
 

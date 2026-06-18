@@ -504,7 +504,417 @@
   font-family: var(--dsh-font-mono);
 }
 
+/* ---- Models settings: config CRUD surface ---- */
+
+.modelsWrap {
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.providerBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 999px;
+  corner-shape: round;
+  background: color-mix(
+    in srgb,
+    hsl(var(--provider-hue) 45% 55% / 0.14),
+    transparent
+  );
+  color: hsl(var(--provider-hue) 45% 70%);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.providerDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: hsl(var(--provider-hue) 55% 60%);
+}
+
+.modelsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modelsToolbar .resultCount {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--dsh-font-mono);
+  font-size: 11px;
+}
+
+.modelForm {
+  padding: 16px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: model-form-in 0.22s var(--ds-ease-in-out);
+}
+
+@keyframes model-form-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modelFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.modelField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.modelFieldLabel {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.modelInput {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 100ms var(--ds-ease-in-out);
+}
+
+.modelInput::placeholder {
+  color: var(--dsw-alias-label-caption);
+}
+
+.modelInput:focus {
+  border-color: var(--dsw-alias-brand-primary);
+}
+
+.modelFieldError {
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.modelRolesRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.modelRoleChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 100ms var(--ds-ease-in-out),
+    color 100ms var(--ds-ease-in-out);
+}
+
+.modelRoleChip:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.modelRoleChip:has(input:checked) {
+  border-color: var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-label-primary);
+}
+
+.modelRoleChip input {
+  accent-color: var(--dsw-alias-brand-primary);
+  margin: 0;
+}
+
+.modelTestResult {
+  padding: 8px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsh-font-mono);
+  font-size: 11px;
+  line-height: 17px;
+  overflow-wrap: anywhere;
+  animation: model-form-in 0.2s var(--ds-ease-in-out);
+}
+
+.modelTestResult[data-ok="true"] {
+  border-color: var(--dsw-alias-state-success-secondary);
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.modelTestResult[data-ok="false"] {
+  border-color: var(--dsw-alias-state-error-secondary);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* Template grid, ported from ZCode's ProviderTemplatePicker: the add flow
+   opens on a grid of known providers, one click pre-fills the form. */
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  animation: model-form-in 0.22s var(--ds-ease-in-out);
+}
+
+.templateCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 100ms var(--ds-ease-in-out),
+    background 100ms var(--ds-ease-in-out);
+}
+
+.templateCard:hover {
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.templateBase {
+  overflow: hidden;
+  width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-caption);
+  font-family: var(--dsh-font-mono);
+  font-size: 10.5px;
+  line-height: 15px;
+}
+
+/* Declared-model cards, ported from ZCode's InlineEditableProviderCard +
+   SortableProviderModelList: grip-dragged cards with an inline-editable
+   name, provider badge, role chips and row actions. */
+.modelCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modelCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  transition:
+    border-color 100ms var(--ds-ease-in-out),
+    background 100ms var(--ds-ease-in-out);
+}
+
+.modelCard:hover {
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.modelCard[data-current="true"] {
+  border-color: var(--dsw-alias-brand-primary);
+}
+
+.modelCardGrip {
+  flex: 0 0 auto;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--dsw-alias-label-caption);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: -2px;
+  cursor: grab;
+}
+
+.modelCardGrip:hover {
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.modelCardBody {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modelCardTitleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modelCardName {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19px;
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+}
+
+.modelCardName:hover:not(:disabled) {
+  border-bottom-color: var(--dsw-alias-border-l3);
+}
+
+.modelCardRename {
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--dsw-alias-brand-primary);
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.modelCardDetail {
+  overflow: hidden;
+  color: var(--dsw-alias-label-caption);
+  font-size: 11px;
+  line-height: 16px;
+  font-family: var(--dsh-font-mono);
+}
+
+.modelCardMetaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modelCardModel {
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsh-font-mono);
+  font-size: 11.5px;
+  line-height: 16px;
+}
+
+.modelCardRole {
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 10.5px;
+  line-height: 15px;
+}
+
+.modelCardActions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Marketplace page sections (reuses the settings page chrome). */
+.marketplace {
+  max-width: 980px;
+  margin-bottom: 22px;
+}
+
+.marketplaceHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.marketplaceName {
+  margin: 0;
+  font-size: 15px;
+  line-height: 21px;
+  font-variation-settings: var(--dsh-font-axis-semibold);
+  color: var(--dsw-alias-label-primary);
+}
+
+.marketplaceUpdated {
+  color: var(--dsw-alias-label-caption);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.marketplace .muted {
+  padding: 10px 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12.5px;
+}
+
+.modelFormActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modelFormSpacer {
+  flex: 1 1 auto;
+}
+
 @media (max-width: 760px) {
+  .modelFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .templateGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .header {
     flex-wrap: wrap;
     gap: 12px;

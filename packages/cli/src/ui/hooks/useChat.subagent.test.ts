@@ -21,7 +21,6 @@ describe("processSlashCommandResult delegation actions", () => {
       result: { openSubagentsSelector: true },
       chatHistory,
       setChatHistory,
-      onShowConfigSelector: vi.fn(),
       onShowSubagentsSelector,
     });
 
@@ -37,7 +36,6 @@ describe("processSlashCommandResult delegation actions", () => {
       result: { loadSessionId: "parent-session" },
       chatHistory,
       setChatHistory: vi.fn(),
-      onShowConfigSelector: vi.fn(),
       onLoadSession,
     });
 
@@ -52,7 +50,6 @@ describe("processSlashCommandResult delegation actions", () => {
       result: { loadSessionId: "parent-session", output: "no parent" },
       chatHistory,
       setChatHistory,
-      onShowConfigSelector: vi.fn(),
     });
 
     expect(setChatHistory).toHaveBeenCalledOnce();
