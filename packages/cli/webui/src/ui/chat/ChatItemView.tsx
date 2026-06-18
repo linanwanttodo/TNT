@@ -20,7 +20,7 @@ import {
 } from "../primitives/icons/index.tsx";
 import { ShellIcon } from "../shell/icons.tsx";
 import { ReasoningRow } from "./ReasoningRow.tsx";
-import { UserMessageBubble } from "../primitives/UserMessageBubble.tsx";
+import { ConversationUserInputBubble } from "../zcode/chat/ConversationUserInputBubble.tsx";
 import { DiffBlock, type DiffHunk } from "../primitives/DiffBlock.tsx";
 import { chatLabels, diffLabels } from "./labels.js";
 import css from "./ChatItemView.module.css";
@@ -88,9 +88,7 @@ export const ChatItemView = memo(function ChatItemView({
 function UserRow({ item }: { item: UserMessageItem }) {
   return (
     <div className={css.userRow}>
-      <UserMessageBubble className={css.userBubble}>
-        {item.text}
-      </UserMessageBubble>
+      <ConversationUserInputBubble text={item.text} rowId={item.text} />
     </div>
   );
 }
