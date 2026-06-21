@@ -25,3 +25,4 @@ packages/config-yaml/schema/
 # e2e
 packages/sdk
 .conductor
+packages/zcode-ui/**

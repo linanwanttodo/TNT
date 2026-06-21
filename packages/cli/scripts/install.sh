@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # Installs the prebuilt CLI from GitHub Releases; npm is not required.
 
-REQUIRED_NODE_VERSION="20.20.1"
+REQUIRED_NODE_VERSION="24.0.0"
 CLI_COMMAND="tnt"
 GITHUB_REPO="linanwanttodo/TNT"
 # TNT owns ~/.tnt (config, logs, sessions), so the installed CLI lives there

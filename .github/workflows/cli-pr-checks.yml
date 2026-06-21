@@ -50,7 +50,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
           cache-dependency-path: packages/cli/package-lock.json
 
@@ -99,16 +99,16 @@ jobs:
   test:
     strategy:
       matrix:
-        # The floor (ubuntu + node 20, matching the engines field) runs the full
-        # e2e suite; each other operating system runs one current LTS. Node 18
-        # left the matrix when engines moved to >=20; widen here, not per-PR.
+        # The floor (ubuntu + node 24, matching the engines field) runs the full
+        # e2e suite; every operating system runs that same floor. Widen here,
+        # not per-PR.
         include:
           - os: ubuntu-latest
-            node-version: 20
+            node-version: 24
           - os: windows-latest
-            node-version: 22
+            node-version: 24
           - os: macos-latest
-            node-version: 22
+            node-version: 24
       fail-fast: false
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -252,7 +252,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
           cache-dependency-path: packages/cli/webui/package-lock.json
 
@@ -289,7 +289,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
           cache-dependency-path: packages/cli/package-lock.json
 
