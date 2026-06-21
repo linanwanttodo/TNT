@@ -26,6 +26,7 @@ import { useSessionStore } from "./stores/session-store.js";
 import { useTheme } from "./ui/zcode/useTheme.js";
 import { DesktopWindowFrame } from "./ui/zcode/shell/DesktopWindowFrame.js";
 import { DesktopTopOverlay } from "./ui/zcode/shell/DesktopTopOverlay.js";
+import { WorkspaceHeader } from "./ui/zcode/shell/WorkspaceHeader.js";
 import { ChatView } from "./ui/chat/ChatView.tsx";
 import { ChatViewTabs, type ChatViewId } from "./ui/chat/ChatViewTabs.tsx";
 import { ContextView } from "./ui/chat/ContextView.tsx";
@@ -43,7 +44,6 @@ import { EmptyState } from "./ui/shell/EmptyState.tsx";
 import { SettingsMenu } from "./ui/shell/SettingsMenu.tsx";
 import { Sidebar, groupSessions } from "./ui/shell/Sidebar.tsx";
 import { StatusBar } from "./ui/shell/StatusBar.tsx";
-import { TitleBar } from "./ui/shell/TitleBar.tsx";
 import { WorkspaceRail } from "./ui/shell/WorkspaceRail.tsx";
 import css from "./App.module.css";
 
@@ -442,25 +442,54 @@ export function App() {
             />
           )}
           {settingsOpen ? null : (
-            <TitleBar
-              title={title ?? DEFAULT_TITLE}
-              permissionMode={permissionMode}
-              onSetPermissionMode={applyMode}
-              onNewSession={onNewSession}
-              onOpenMarketplace={openMarketplace}
-              model={modelLabel}
-              workspaceDirectory={
+            <WorkspaceHeader
+              variant={isEmpty ? "draft" : "task"}
+              workspaceAbsPath={
                 sessions.find((s) => s.sessionId === sessionId)
-                  ?.workspaceDirectory ?? sessions[0]?.workspaceDirectory
+                  ?.workspaceDirectory ??
+                sessions[0]?.workspaceDirectory ??
+                ""
               }
-              context={context}
-              git={git}
-              isProcessing={isProcessing}
-              queueLength={queueLength}
-              hasPendingPermission={pendingPermission !== null}
-              view={view}
-              onViewChange={setView}
-              onToggleRail={() => setRailOpen((open) => !open)}
+              projectName={folderName(
+                sessions.find((s) => s.sessionId === sessionId)
+                  ?.workspaceDirectory ??
+                  sessions[0]?.workspaceDirectory ??
+                  "",
+              )}
+              activeTaskTitle={title ?? ""}
+              hasUpdateReady={false}
+              activeTraceId={null}
+              activeTaskId={sessionId ?? null}
+              activeSessionId={sessionId ?? null}
+              activeTaskProvider={modelLabel ? { name: modelLabel } : null}
+              resolvedActiveTaskMeta={
+                title ? { taskId: sessionId ?? undefined, title } : null
+              }
+              workspaceHeaderState={{ selectedProvider: { name: modelLabel } }}
+              gitSummary={{
+                isRepository: Boolean(git?.repo),
+                branchName: git?.branch ?? null,
+                headRefType: git?.detached ? "detached" : "branch",
+              }}
+              gitDirtyFileCount={git?.changedFiles ?? 0}
+              sessionLogPath={null}
+              nativeSessionLogProvider={null}
+              nativeSessionLogPath={null}
+              nativeSessionLogExists={false}
+              nativeSessionLogLoading={false}
+              providerWorkspaceConfigPath={null}
+              providerWorkspaceConfigExists={false}
+              providerWorkspaceConfigLoading={false}
+              isSidebarVisible={!collapsed}
+              isTerminalOpen={false}
+              isSidePaneOpen={railOpen}
+              onRefreshGit={() => {}}
+              onToggleTerminal={() => {}}
+              onToggleBrowser={() => {}}
+              onToggleSidePane={() => setCollapsed((c) => !c)}
+              onReloadSession={() => {}}
+              onCreateTask={onNewSession}
+              onOpenWorkspace={onOpenWorkspace}
             />
           )}
           <div className={css.conversation}>

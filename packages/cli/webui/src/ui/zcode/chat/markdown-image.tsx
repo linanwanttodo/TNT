@@ -6,16 +6,16 @@ import { ImageIcon, ImageOffIcon } from "lucide-react";
 import { Children, isValidElement } from "react";
 import type { ComponentProps, MouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePreviewDialog } from "./image-preview-dialog.ts";
+import { ImagePreviewDialog } from "./image-preview-dialog.tsx";
 import {
   sanitizeImageSourceForLog,
   type ImagePreviewDialogItem,
-} from "./image-preview-dialog.ts";
+} from "./image-preview-dialog.tsx";
 import {
   ImageThumbnailGallery,
   imageThumbnailClassName,
   imageThumbnailTriggerClassName,
-} from "./image-thumbnail-gallery.ts";
+} from "./image-thumbnail-gallery.tsx";
 import { cn } from "../lib/utils.ts";
 import { useOptionalServices } from "../lib/platformBridge.tsx";
 import { useZCodeIntl } from "../i18n.ts";
@@ -23,7 +23,7 @@ import { isImagePreviewPath } from "../lib/codeViewer.js";
 import { resolveMarkdownFileLink } from "../lib/markdownFileLink.js";
 import { logger } from "../lib/logger.ts";
 
-export { clampImagePreviewOffset as clampMarkdownImagePreviewOffset } from "./image-preview-dialog.ts";
+export { clampImagePreviewOffset as clampMarkdownImagePreviewOffset } from "./image-preview-dialog.tsx";
 
 export type MarkdownImageProps = ComponentProps<"img"> & {
   node?: unknown;

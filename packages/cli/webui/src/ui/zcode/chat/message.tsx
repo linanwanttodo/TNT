@@ -56,7 +56,7 @@ import {
   Streamdown,
 } from "streamdown";
 import type { Pluggable, PluggableList } from "unified";
-import { CodeBlock, CodeBlockHeader } from "./code-block.ts";
+import { CodeBlock, CodeBlockHeader } from "./code-block.tsx";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -64,12 +64,12 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../shell/context-menu.js";
-import { MarkdownBlockquote } from "./markdown-blockquote.ts";
+import { MarkdownBlockquote } from "./markdown-blockquote.tsx";
 import {
   MarkdownListItem,
   MarkdownOrderedList,
   MarkdownUnorderedList,
-} from "./markdown-list.ts";
+} from "./markdown-list.tsx";
 import {
   MarkdownTable,
   MarkdownTableBody,
@@ -77,13 +77,13 @@ import {
   MarkdownTableHead,
   MarkdownTableHeader,
   MarkdownTableRow,
-} from "./markdown-table.ts";
+} from "./markdown-table.tsx";
 import {
   MarkdownImage,
   MarkdownImageParagraph,
   normalizeConsecutiveMarkdownImageBlocks,
   type MarkdownImageProps,
-} from "./markdown-image.ts";
+} from "./markdown-image.tsx";
 import { STREAMDOWN_CONTROLS } from "./streamdown-controls.ts";
 import { resolveMessageLinkOpenTarget } from "../lib/embeddedBrowserHelpers.ts";
 import type { CodeViewerSource } from "../lib/codeViewer.js";
