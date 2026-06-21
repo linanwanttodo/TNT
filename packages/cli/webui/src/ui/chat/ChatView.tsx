@@ -150,7 +150,10 @@ export function ChatView({
               />
             </div>
           )}
-          {isWaiting && streaming === null && reasoning === null ? (
+          {isWaiting &&
+          items.length === 0 &&
+          streaming === null &&
+          reasoning === null ? (
             <ChatLoading
               loading={isWaiting}
               initialElapsedMs={
