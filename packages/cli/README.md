@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli
 irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
 ```
 
-The installer downloads the prebuilt CLI from the [latest GitHub Release](https://github.com/linanwanttodo/TNT/releases/latest); only Node.js 20+ is required, npm is not. It installs to `~/.tnt/cli` (`%LOCALAPPDATA%\tnt\cli` on Windows) and links the `tnt` command into `~/.local/bin`, which keeps the CLI out of any package manager's directory.
+The installer downloads the prebuilt CLI from the [latest GitHub Release](https://github.com/linanwanttodo/TNT/releases/latest); only Node.js 24+ is required, npm is not. It installs to `~/.tnt/cli` (`%LOCALAPPDATA%\tnt\cli` on Windows) and links the `tnt` command into `~/.local/bin`, which keeps the CLI out of any package manager's directory.
 
 **From a checkout (development):**
 
