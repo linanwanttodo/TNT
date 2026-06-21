@@ -631,6 +631,19 @@ export function useChat({
       return;
     }
 
+    // Nothing can answer without a chat model: say so instead of taking the
+    // message and going quiet. The headless path fails the same way, loudly.
+    if (!model || !llmApi) {
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          message: { role: "system", content: t("chat.noModelConfigured") },
+          contextItems: [],
+        },
+      ]);
+      return;
+    }
+
     const promptHook = await fireUserPromptSubmit(message);
     if (promptHook.blocked) {
       onShowStatusMessage?.(
@@ -640,6 +653,9 @@ export function useChat({
     }
     // The session note leads, then the prompt note, then the files that moved;
     // the user's text stays last, and a note is taken once so it cannot repeat.
+    // The uncomposed text is kept for the transcript: surfaces render what the
+    // user typed, while the composed prompt is what the model is served.
+    const userText = message;
     const hookNotes = [
       takeSessionStartContext(),
       promptHook.additionalContext,
@@ -673,6 +689,7 @@ export function useChat({
         message,
         [], // No attached files for queued messages
         imageMap,
+        userText,
       );
 
       // Check if auto-compacting is needed with current history
@@ -684,7 +701,7 @@ export function useChat({
       // Add the queued message to queue display during compaction
       const queuedMessageForDisplay: QueuedMessage = {
         id: `processing-${Date.now()}`,
-        message,
+        message: userText,
         imageMap,
         timestamp: Date.now(),
       };
@@ -736,6 +753,7 @@ export function useChat({
         message,
         attachedFiles,
         imageMap,
+        userText,
       );
       logger.debug("Message formatted successfully");
 
@@ -752,7 +770,7 @@ export function useChat({
       // Add the triggering message to queue display during compaction
       const compactionQueuedMessage: QueuedMessage = {
         id: `compacting-${Date.now()}`,
-        message,
+        message: userText,
         imageMap,
         timestamp: Date.now(),
       };
