@@ -11,7 +11,8 @@ export interface Goal {
 
 function elapsed(goal: Goal, now: number): string {
   const base = goal.accumulatedMs ?? 0;
-  const running = goal.pausedAt === undefined ? Math.max(0, now - goal.startedAt) : 0;
+  const running =
+    goal.pausedAt === undefined ? Math.max(0, now - goal.startedAt) : 0;
   const seconds = Math.floor((base + running) / 1000);
   return `${seconds}s`;
 }

@@ -157,8 +157,13 @@ export function StatusMenu({
                   <div className={css.changeList}>
                     {git.changes.slice(0, 8).map((change) => (
                       <div className={css.changeRow} key={change.path}>
-                        <span className={css.changeStatus} data-status={change.status}>
-                          {change.status === "untracked" ? "U" : change.status[0]?.toUpperCase()}
+                        <span
+                          className={css.changeStatus}
+                          data-status={change.status}
+                        >
+                          {change.status === "untracked"
+                            ? "U"
+                            : change.status[0]?.toUpperCase()}
                         </span>
                         <span title={change.path}>{change.path}</span>
                       </div>

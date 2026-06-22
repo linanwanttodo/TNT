@@ -41,7 +41,9 @@ describe("a stored user message", () => {
 
   it("keeps a JSON note that carries no context field as-is", () => {
     expect(
-      splitServedPrompt('<system-reminder>\n{"answer": 42}\n</system-reminder>\n\nhi'),
+      splitServedPrompt(
+        '<system-reminder>\n{"answer": 42}\n</system-reminder>\n\nhi',
+      ),
     ).toEqual({ userText: "hi", notes: ['{"answer": 42}'] });
   });
 });
