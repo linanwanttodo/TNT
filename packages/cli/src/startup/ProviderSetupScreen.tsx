@@ -17,6 +17,12 @@ type Step = "protocol" | "baseUrl" | "apiKey" | "model";
 interface ProviderSetupScreenProps {
   onComplete: (setup: ProviderSetup) => void;
   onCancel: () => void;
+  /**
+   * True when this screen owns its Ink app (first-run onboarding). Embedded in
+   * the main TUI it must unmount through navigation instead, so `exit()` -
+   * which tears down whichever app is mounted - is skipped.
+   */
+  standalone?: boolean;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -31,6 +37,7 @@ function isHttpUrl(value: string): boolean {
 export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
   onComplete,
   onCancel,
+  standalone = true,
 }) => {
   const { exit } = useApp();
   const [step, setStep] = useState<Step>("protocol");
@@ -46,12 +53,12 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
 
   const finish = (setup: ProviderSetup) => {
     onComplete(setup);
-    exit();
+    if (standalone) exit();
   };
 
   const cancel = () => {
     onCancel();
-    exit();
+    if (standalone) exit();
   };
 
   const valueFor = (current: Step): string => {

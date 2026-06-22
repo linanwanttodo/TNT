@@ -1,5 +1,8 @@
 import React from "react";
 
+import { applyProviderSetup } from "../../services/modelCatalog.js";
+import { ProviderSetupScreen } from "../../startup/ProviderSetupScreen.js";
+import { logger } from "../../utils/logger.js";
 import { CommandPalette } from "../CommandPalette.js";
 import { ChatScreenContent } from "../components/ChatScreenContent.js";
 import type { ScreenContentProps } from "../components/ScreenContent.js";
@@ -70,6 +73,26 @@ export const SCREENS: readonly ScreenDefinition[] = [
     render: (props) => (
       <ModelSelector
         onSelect={props.handleModelSelect}
+        onAdd={props.onShowAddModelSelector ?? props.closeCurrentScreen}
+        onCancel={props.closeCurrentScreen}
+      />
+    ),
+  },
+  {
+    id: "addModel",
+    render: (props) => (
+      <ProviderSetupScreen
+        standalone={false}
+        onComplete={(setup) => {
+          void applyProviderSetup(setup)
+            .catch((error: unknown) => {
+              logger.error(
+                "Adding the model from the setup screen failed",
+                error,
+              );
+            })
+            .finally(() => props.closeCurrentScreen());
+        }}
         onCancel={props.closeCurrentScreen}
       />
     ),

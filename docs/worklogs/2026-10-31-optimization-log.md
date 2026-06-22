@@ -393,3 +393,19 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** 参考实现四家一致的"隐藏 provider 可见上下文 + 预算截断 + 技能惰性加载"模式；TNT 既有 `userText` 设计注释（"surfaces render userText so the terminal matches the webui"）——本条目是把已设计未接线的机制接完。
 
 **验证：** `fireHook.cap.test.ts` 3 用例（短文本不动、整份手册被截断并带指引、截断点在预算内）；src/hooks + 消息渲染相关 17 文件 126 用例全绿；`tsc --noEmit` 与 eslint 干净；headless 在无模型时维持响亮的显式报错。技能惰性加载本身 TNT 已有（Skills 工具 + 技能斜杠命令），泄漏源是 hook 上下文处理而非技能系统。
+
+## 31. 添加模型接线：/model 复用首装配置界面，多模型 + 200k 默认上下文（2026-11-07）
+
+**做了什么：**
+
+- `/model`（`ModelSelector`）末尾常驻"添加模型…"条目，空配置时它也是唯一条目（此前零模型只显示 `models.none` 就死路）；选中后跳到新的 `addModel` 导航屏幕。
+- 该屏幕**直接复用首装引导界面** `ProviderSetupScreen`：协议 → 地址 → 密钥 → 模型 ID。为嵌入主 TUI 增加 `standalone` 开关——独立引导时 `exit()` 卸载自己的 Ink 应用，嵌入时只走导航卸载，不再冒掉主应用的风险。
+- 模型 ID 输入支持**空格分隔批量添加**：`buildConfigYaml` 与新的 `applyProviderSetup()`（services/modelCatalog.ts）都按 `/\s+/` 拆分，每个 ID 生成一条 `models` 条目，共享同一 provider/apiBase/apiKey。
+- 新条目默认写入 `contextLength: 200000`（`DEFAULT_CONTEXT_LENGTH`），可在 `config.yaml` 里逐条改。
+- `/model` 的添加流程走 `addDeclaredModel` → 校验、写盘、重载模型服务，然后 `switchChatModel` 切到第一个新模型：从零到可用对话不离开终端。
+
+**为什么：** 审计发现 `/model` 只能选不能加——`addDeclaredModel` 的唯一调用方是 WebUI 的 `POST /models`，TUI 用户没有任何添加模型的路径；配合已修复的"无模型显式报错"，用户会被明确告知没模型却没有地方加，等于死循环。用户裁决：复用首装界面、空格分隔多模型、默认 200k。
+
+**依据：** 用户指令（复用首装配置界面 / 空格分隔 / 200k 可在文件里改）；`ProviderSetupScreen` 既有四步流程与 `buildConfigYaml` 的单模型实现。
+
+**验证：** `tsc --noEmit` 干净；src/config/providerSetup、src/startup（含 onboarding 11 用例）、src/ui/ModelSelector、i18n 守卫共 12 文件 70 用例全绿；`npm run build` 打包通过。

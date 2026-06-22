@@ -48,6 +48,7 @@ interface ComposerProps {
   chatHistory: ChatHistoryItem[];
   handleEditMessage: (messageIndex: number, newContent: string) => void;
   onShowEditSelector: () => void;
+  onShowAddModelSelector?: () => void;
   onOpenPalette?: () => void;
   /** Opens the background-jobs list. */
   onOpenJobs?: () => void;
@@ -121,6 +122,7 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         chatHistory={props.chatHistory}
         handleEditMessage={props.handleEditMessage}
         onShowEditSelector={props.onShowEditSelector}
+        onShowAddModelSelector={props.onShowAddModelSelector}
         onOpenPalette={props.onOpenPalette}
         onOpenJobs={props.onOpenJobs}
         onPreviewTheme={props.onPreviewTheme}
