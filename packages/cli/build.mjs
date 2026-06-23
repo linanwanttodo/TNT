@@ -234,6 +234,20 @@ const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
   });
   console.log("✓ Copied webui frontend to dist/webui");
 
+  // The notices are distribution obligations, not cosmetic: ship them beside
+  // the bundle and inside the served frontend directory.
+  for (const [source, destination] of [
+    ["../zcode-ui/NOTICE.md", "dist/NOTICE.md"],
+    ["../zcode-ui/THIRD-PARTY-NOTICES.md", "dist/webui/THIRD-PARTY-NOTICES.md"],
+  ]) {
+    const sourcePath = resolve(__dirname, source);
+    if (!existsSync(sourcePath)) {
+      throw new Error(`Missing ${sourcePath}; the build must ship its notices`);
+    }
+    copyFileSync(sourcePath, resolve(__dirname, destination));
+  }
+  console.log("✓ Copied NOTICE.md and THIRD-PARTY-NOTICES.md");
+
   // Make the wrapper script executable
   chmodSync("dist/tnt.js", 0o755);
 
