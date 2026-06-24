@@ -8,12 +8,14 @@ import type {
   ServerState,
 } from "../commands/serve.helpers.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
+import { publishAgentEvent } from "../protocol/eventBus.js";
 import type { AgentEvent, AgentEventBase } from "../protocol/events.js";
 import { services } from "../services/index.js";
 import { quizService } from "../services/QuizService.js";
 import {
   getCompleteStateSnapshot,
   getCurrentSession,
+  getSessionGoal,
 } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import type { WorktreeInfo } from "../utils/git.js";
@@ -76,6 +78,8 @@ const MAX_PORT_ATTEMPTS = 100;
  */
 export class WebUiService {
   private activeHandle: WebUiHandle | null = null;
+  private questionListener: ((event: unknown) => void) | null = null;
+  private questionAnsweredListener: ((event: unknown) => void) | null = null;
 
   async start(options: WebUiServiceOptions = {}): Promise<WebUiHandle> {
     // One server at a time: a second /webui in the same TUI would otherwise
@@ -150,14 +154,66 @@ export class WebUiService {
     // registering it first would shadow every API route below it.
     registerWebUiStaticRoutes(app, dist);
 
+    this.listenForQuestions(options);
+
     const handle = await this.listen(app, options, token);
     this.activeHandle = handle;
 
     return handle;
   }
 
+  /**
+   * The engine asks questions through quizService (the askQuestion tool);
+   * the TUI hears them by subscribing, so the browser surface subscribes the
+   * same way and the event reaches the stream as question.requested. The
+   * answered signal clears the card on every other connected tab.
+   */
+  private listenForQuestions(options: WebUiServiceOptions): void {
+    this.stopListeningForQuestions();
+    this.questionListener = (event: unknown) => {
+      const { requestId, question } = event as {
+        requestId: string;
+        question: {
+          question?: string;
+          options?: string[];
+          defaultAnswer?: string;
+        };
+      };
+      publishAgentEvent({
+        ...this.changeTurnEvent("question", options),
+        type: "question.requested",
+        requestId,
+        question: question?.question ?? "",
+        options: question?.options,
+        defaultAnswer: question?.defaultAnswer,
+      });
+    };
+    this.questionAnsweredListener = (event: unknown) => {
+      const { requestId } = event as { requestId?: string };
+      publishAgentEvent({
+        ...this.changeTurnEvent("question", options),
+        type: "question.answered",
+        requestId: requestId ?? "",
+      });
+    };
+    quizService.on("questionRequested", this.questionListener);
+    quizService.on("questionAnswered", this.questionAnsweredListener);
+  }
+
+  private stopListeningForQuestions(): void {
+    if (this.questionListener) {
+      quizService.off("questionRequested", this.questionListener);
+      this.questionListener = null;
+    }
+    if (this.questionAnsweredListener) {
+      quizService.off("questionAnswered", this.questionAnsweredListener);
+      this.questionAnsweredListener = null;
+    }
+  }
+
   /** Closes the server this instance last started, if any. */
   async close(): Promise<void> {
+    this.stopListeningForQuestions();
     if (this.activeHandle) {
       const handle = this.activeHandle;
       this.activeHandle = null;
@@ -188,6 +244,7 @@ export class WebUiService {
         ? {}
         : { pendingPermissions: this.currentPendingPermissions() }),
       permissionMode: services.toolPermissions.getState().currentMode,
+      goal: getSessionGoal() ?? null,
     };
   }
 

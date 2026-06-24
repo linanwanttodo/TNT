@@ -6,6 +6,7 @@ import type { ToolPolicy } from "@tnt/terminal-security";
 import { TntError, TntErrorReason } from "core/util/errors.js";
 import { findUp } from "find-up";
 
+import { policySearchIgnorePatterns } from "../permissions/searchIgnore.js";
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
@@ -66,12 +67,36 @@ export function resetRipgrepProbeCache(): void {
   ripgrepProbe = undefined;
 }
 
+/**
+ * The path globs the permission policies refuse, read from the permission
+ * service when one is running. A bare test process has no service; that is
+ * no rules, not a failure.
+ */
+async function deniedSearchGlobs(): Promise<string[]> {
+  try {
+    const { services } = await import("../services/index.js");
+    return policySearchIgnorePatterns(
+      services.toolPermissions.getState().permissions,
+    );
+  } catch {
+    return [];
+  }
+}
+
 async function searchWithRipgrep(
   pattern: string,
   searchPath: string,
   filePattern?: string,
+  deniedGlobs: string[] = [],
 ) {
   const args = ["--line-number", "--with-filename", "--color", "never"];
+
+  // The policy's own refusals ride in the base arguments, so the fallback run
+  // that drops the .gitignore lines still keeps them: a deny rule is the
+  // user's decision, not a best-effort filter.
+  for (const denied of deniedGlobs) {
+    args.push("--glob", `!${denied}`);
+  }
 
   if (filePattern) {
     args.push("--glob", filePattern);
@@ -124,6 +149,7 @@ async function searchWithGrepOrFindstr(
   pattern: string,
   searchPath: string,
   filePattern?: string,
+  deniedGlobs: string[] = [],
 ) {
   const isWindows = process.platform === "win32";
   const ignorePatterns = await getGitignorePatterns();
@@ -140,6 +166,11 @@ async function searchWithGrepOrFindstr(
   for (const ignorePattern of ignorePatterns) {
     // use both exclude and exclude-dir because ignorePattern can be a file or directory
     args.push(`--exclude=${ignorePattern}`, `--exclude-dir=${ignorePattern}`);
+  }
+  // The policy's own refusals survive the fallback for the same reason they
+  // ride in the base rg arguments: a deny rule is a decision, not a filter.
+  for (const denied of deniedGlobs) {
+    args.push(`--exclude=${denied}`);
   }
   // --include matches file names, not whole paths: the path-shaped form the
   // shell pipeline used needs a second program fed by a pipe.
@@ -254,11 +285,13 @@ Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with
     let stdout = "",
       stderr = "";
     try {
+      const deniedGlobs = await deniedSearchGlobs();
       if (await checkIfRipgrepIsInstalled()) {
         const results = await searchWithRipgrep(
           args.pattern,
           searchPath,
           args.file_pattern,
+          deniedGlobs,
         );
         stdout = results.stdout;
         stderr = results.stderr;
@@ -267,6 +300,7 @@ Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with
           args.pattern,
           searchPath,
           args.file_pattern,
+          deniedGlobs,
         );
         stdout = results.stdout;
         stderr = results.stderr;

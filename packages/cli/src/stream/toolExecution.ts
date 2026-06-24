@@ -236,23 +236,24 @@ async function approveAndDispatchCall(options: {
           SERVICE_NAMES.TOOL_PERMISSIONS,
         )
       ).permissions;
-    const permissionResult =
-      preHook.permissionDecision === "allow"
-        ? { approved: true as const }
-        : await checkToolPermissionApproval(
-            permissionState,
-            effectiveCall,
-            callbacks,
-            isHeadless,
-            {
-              hookAskReason:
-                preHook.permissionDecision === "ask"
-                  ? preHook.permissionDecisionReason ||
-                    "A PreToolUse hook asked you to confirm this call."
-                  : undefined,
-              autoContext: execution?.autoContext,
-            },
-          );
+    // A hook's "allow" never replaces the rules layer: the policy is consulted
+    // either way, so its deny and exclude verdicts stand and the allow only
+    // spares the prompt layer a hook escalation would have added.
+    const permissionResult = await checkToolPermissionApproval(
+      permissionState,
+      effectiveCall,
+      callbacks,
+      isHeadless,
+      {
+        hookAllowSkipPrompt: preHook.permissionDecision === "allow",
+        hookAskReason:
+          preHook.permissionDecision === "ask"
+            ? preHook.permissionDecisionReason ||
+              "A PreToolUse hook asked you to confirm this call."
+            : undefined,
+        autoContext: execution?.autoContext,
+      },
+    );
 
     if (!permissionResult.approved) {
       // Permission denied: create entry with canceled status

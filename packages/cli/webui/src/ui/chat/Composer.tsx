@@ -126,11 +126,11 @@ export function Composer({
             type="button"
             className={css.action}
             aria-label={
-              idle && !hasText ? "Resume session" : chatLabels.sendLabel
+              idle && !hasText ? "Continue session" : chatLabels.sendLabel
             }
             data-ready={idle && !hasText ? true : hasText}
             data-play={idle && !hasText ? "" : undefined}
-            onClick={idle && !hasText ? () => onSend("Keep going") : submit}
+            onClick={idle && !hasText ? () => onSend("Continue") : submit}
           >
             {idle && !hasText ? (
               <svg

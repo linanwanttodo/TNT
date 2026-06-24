@@ -1,4 +1,4 @@
-import { ALL_BUILT_IN_TOOLS } from "src/tools/allBuiltIns.js";
+import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
 
 import { ToolPermissionService } from "./ToolPermissionService.js";
 import { AgentFileServiceState, MCPServiceState } from "./types.js";

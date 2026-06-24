@@ -1,0 +1,126 @@
+/*
+ * Motion library ported from ZCode's ui/styles.css - the keyframes and
+ * easings its chat surface animates with. Names keep the zcode- prefix so
+ * the provenance is visible and nothing collides with the dsw/dsw tokens.
+ * Every animation carries a prefers-reduced-motion fallback, like the
+ * original.
+ */
+
+/* Streaming entrance: fade in with a long ease-out, staggerable through
+   --zcode-stream-animation-delay. */
+@keyframes zcode-stream-text-in {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+[data-zcode-stream-animate="true"] {
+  animation: zcode-stream-text-in 900ms cubic-bezier(0.16, 1, 0.3, 1)
+    var(--zcode-stream-animation-delay, 0ms) both;
+  will-change: opacity;
+}
+
+[data-zcode-tool-stream-animate="true"],
+[data-zcode-chat-loading-animate="true"] {
+  animation: zcode-stream-text-in 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: opacity;
+}
+
+/* Suggested-prompt cascade: a top-down reveal, one card after another. */
+@keyframes zcode-draft-prompt-waterfall {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+  }
+}
+
+.zcode-draft-prompt-waterfall {
+  animation: zcode-draft-prompt-waterfall 260ms cubic-bezier(0.22, 1, 0.36, 1)
+    var(--zcode-draft-prompt-waterfall-delay, 0ms) both;
+}
+
+/* Working pixels: the 3x3 grid lights up around its orbit. */
+@keyframes zcode-loading-pixel-on {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  35% {
+    opacity: var(--loading-pixel-peak, 0.75);
+    transform: scale(1.08);
+  }
+}
+
+.zcode-loading-pixel {
+  animation: zcode-loading-pixel-on 650ms ease-in-out infinite;
+}
+
+/* Shimmer text: a highlight sweeping through a gradient-clipped label. */
+@keyframes zcode-loading-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.zcode-loading-label {
+  display: inline-block;
+  font-weight: 500;
+  background-image: linear-gradient(
+    90deg,
+    var(--dsw-alias-label-tertiary) 35%,
+    var(--dsw-alias-label-primary) 50%,
+    var(--dsw-alias-label-tertiary) 65%
+  );
+  background-position: 200% 0;
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: zcode-loading-shimmer 1.4s linear infinite;
+}
+
+/* Rolling toolbar label: the y-roll the composer trigger plays when its
+   text changes (ported from RollingToolbarLabel: 0.2s, [0.4,0,0.2,1]). */
+@keyframes zcode-roll-label-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.zcode-roll-label {
+  display: inline-block;
+  animation: zcode-roll-label-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zcode-draft-prompt-waterfall,
+  .zcode-loading-pixel,
+  .zcode-loading-label,
+  .zcode-roll-label,
+  [data-zcode-stream-animate="true"],
+  [data-zcode-tool-stream-animate="true"],
+  [data-zcode-chat-loading-animate="true"] {
+    animation: none;
+  }
+}

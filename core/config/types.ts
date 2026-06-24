@@ -1199,7 +1199,7 @@ declare global {
     disableSessionTitles?: boolean;
     /** An optional token to identify a user. Not used by TNT unless you write custom configuration that requires such a token */
     userToken?: string;
-    /** The provider used to calculate embeddings. If left empty, TNT will use transformers.js to calculate the embeddings with all-MiniLM-L6-v2 */
+    /** The provider used to calculate embeddings. If left empty, TNT will use transformers.js to calculate the embeddings with the default local MiniLM model */
     embeddingsProvider?: EmbeddingsProviderDescription | ILLM;
     /** The model that TNT will use for tab autocompletions. */
     tabAutocompleteModel?:

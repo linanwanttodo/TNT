@@ -15,7 +15,6 @@
   --dsw-alias-bg-layer-2: #262626;
   --dsw-alias-bg-layer-3: #3a3a3a;
   --dsw-alias-bg-overlay: #2c2c2b;
-  --dsw-alias-bg-primary: #141413;
 
   /* Borders */
   --dsw-alias-border-l1: #303030;
@@ -49,7 +48,6 @@
 
   /* State */
   --dsw-alias-state-success-primary: #8cbf96;
-  --dsw-alias-state-success-secondary: #4ac25c;
   --dsw-alias-state-warn-primary: #e2a45f;
   --dsw-alias-state-warn-secondary: #57452a;
   --dsw-alias-state-warn-tertiary: #2e2718;
@@ -68,11 +66,27 @@
   --dsw-alias-markdown-inline-code: rgba(255, 255, 255, 0.05);
 
   /* Shell specifics */
-  --dsw-specific-bubble: rgba(255, 255, 255, 0.06);
+  /* User-message bubble wash, ZCode's --color-user-message-bubble. */
+  --dsw-specific-bubble: rgba(255, 255, 255, 0.08);
   --dsw-specific-input-major: #252524;
   --dsw-specific-selector: #3a3a3a;
   --dsw-specific-sidebar-fill: #181818;
   --dsw-specific-menu: #2c2c2b;
+
+  /* Trajectory roles, ZCode's ModelTrajectoryRoleStyles palette. */
+  --dsh-trajectory-user: #60a5fa;
+  --dsh-trajectory-assistant: #2dd4bf;
+  --dsh-trajectory-reasoning: #a78bfa;
+  --dsh-trajectory-tool-call: #f59e0b;
+  --dsh-trajectory-tool-result: #38bdf8;
+
+  /* Context breakdown's single-blue ramp, ZCode's --color-context-breakdown-*
+     (one hue in five steps instead of a saturated rainbow). */
+  --dsh-context-breakdown-1: #0284c7;
+  --dsh-context-breakdown-2: #0ea5e9;
+  --dsh-context-breakdown-3: #38bdf8;
+  --dsh-context-breakdown-4: #7dd3fc;
+  --dsh-context-breakdown-5: #bae6fd;
   --dsw-shadow-lv2:
     0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.14);
 
@@ -164,7 +178,6 @@
   --dsw-alias-bg-layer-2: #f2f1ed;
   --dsw-alias-bg-layer-3: #e9e7e0;
   --dsw-alias-bg-overlay: #ffffff;
-  --dsw-alias-bg-primary: #fcfcfb;
   --dsw-alias-border-l1: #e8e6dc;
   --dsw-alias-border-l2: #dedcd2;
   --dsw-alias-border-l3: #d0cdc1;
@@ -188,7 +201,6 @@
   --dsw-alias-label-caption: #a6a094;
   --dsw-alias-label-shimmer: color-mix(in srgb, #141413 30%, transparent);
   --dsw-alias-state-success-primary: #3d7550;
-  --dsw-alias-state-success-secondary: #2e8b46;
   --dsw-alias-state-warn-primary: #a4621d;
   --dsw-alias-state-warn-secondary: #e0c9a0;
   --dsw-alias-state-warn-tertiary: #f7efe0;
@@ -203,11 +215,25 @@
   --dsw-alias-markdown-code-block: #ffffff;
   --dsw-alias-markdown-code-block-banner: #ffffff;
   --dsw-alias-markdown-inline-code: rgba(0, 0, 0, 0.05);
-  --dsw-specific-bubble: #f0f0ef;
+  --dsw-specific-bubble: rgba(13, 13, 13, 0.05);
   --dsw-specific-input-major: #ffffff;
   --dsw-specific-selector: #fbfbf9;
   --dsw-specific-sidebar-fill: #fbfbf9;
   --dsw-specific-menu: #ffffff;
+
+  /* Trajectory roles, light theme (ZCode's :root palette). */
+  --dsh-trajectory-user: #2563eb;
+  --dsh-trajectory-assistant: #0f766e;
+  --dsh-trajectory-reasoning: #7c3aed;
+  --dsh-trajectory-tool-call: #d97706;
+  --dsh-trajectory-tool-result: #0284c7;
+
+  /* Context breakdown ramp, light theme. */
+  --dsh-context-breakdown-1: #0284c7;
+  --dsh-context-breakdown-2: #0ea5e9;
+  --dsh-context-breakdown-3: #38bdf8;
+  --dsh-context-breakdown-4: #7dd3fc;
+  --dsh-context-breakdown-5: #bae6fd;
   --dsw-shadow-lv2:
     0 4px 18px rgba(20, 20, 19, 0.1), 0 1px 3px rgba(20, 20, 19, 0.05);
   --dsh-claude-canvas: #fcfcfb;
@@ -308,8 +334,6 @@
  * once. `neutral-bluish-00` is the near-white a dark tooltip writes with.
  */
 :root {
-  --dsw-static-neutral-00: #fcfcfb;
-  --dsw-static-neutral-400: #8b8a83;
   --dsw-static-neutral-bluish-00: #fcfcfb;
   --dsw-static-neutral-bluish-300: #a6a094;
   --dsw-static-deepseek-400: #e08a6d;
@@ -317,9 +341,6 @@
   --dsw-static-deepseek-500: #d97757;
   --dsw-static-amber-400: #e2a45f;
   --dsw-static-amber-500: #d9903f;
-  --dsw-static-blue-400: #6da5eb;
-  --dsw-static-blue-500: #57c0d6;
-  --dsw-static-blue-600: #2f9fb5;
   --dsw-static-green-500: #35b148;
   --dsw-static-red-600: #b3261e;
 }

@@ -116,10 +116,15 @@ describe("MCP idle reclaim", () => {
     expect(mockClient.connect.mock.calls.length).toBeGreaterThan(
       connectsBefore,
     );
-    expect(mockClient.callTool).toHaveBeenCalledWith({
-      name: "reclaim-me",
-      arguments: {},
-    });
+    expect(mockClient.callTool).toHaveBeenCalledWith(
+      {
+        name: "reclaim-me",
+        arguments: {},
+      },
+      undefined,
+      // The shared per-request SDK options (timeout + progress reset).
+      expect.anything(),
+    );
     expect(service.getState().connections[0].status).toBe("connected");
   });
 

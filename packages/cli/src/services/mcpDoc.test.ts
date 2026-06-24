@@ -20,6 +20,13 @@ function read(...segments: string[]): string {
 const doc = read("spec", "mcp.md");
 const config = read("src", "config", "mcpConfig.ts");
 const service = read("src", "services", "MCPService.ts");
+// The legacy-config warning and the secret handling moved into their own
+// modules; the spec's claims are checked against wherever they now live.
+const serviceSources = [
+  service,
+  read("src", "services", "mcpPluginServers.ts"),
+  read("src", "services", "mcpUtils.ts"),
+].join("\n");
 const transports = read("src", "services", "mcpTransports.ts");
 const reclaim = read("src", "services", "mcpIdleReclaim.ts");
 const selector = read("src", "ui", "MCPSelector.tsx");
@@ -50,15 +57,15 @@ describe("spec/mcp.md agrees with the implementation", () => {
   });
 
   it("keeps the legacy config.yaml path and its warning", () => {
-    expect(service).toContain("warnLegacyMcpConfigOnce");
-    expect(service).toContain('t("mcp.legacyConfigServers")');
+    expect(serviceSources).toContain("warnLegacyMcpConfigOnce");
+    expect(serviceSources).toContain('t("mcp.legacyConfigServers")');
     expect(i18n).toContain('"mcp.legacyConfigServers"');
     expect(doc).toMatch(/deprecation\s+warning/);
   });
 
   it("matches the secret handling on both paths", () => {
-    expect(service).toContain("getTemplateVariables");
-    expect(service).toContain("secrets.");
+    expect(serviceSources).toContain("getTemplateVariables");
+    expect(serviceSources).toContain("secrets.");
     expect(service).toContain("if (this.isHeadless) {");
     expect(transports).toMatch(/Object\.entries\(process\.env\)/);
     expect(doc).toMatch(/connected exactly as written/);

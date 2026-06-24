@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { ILLM } from "../../index.js";
 import OpenAI from "./OpenAI.js";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 interface LlmTestCase {
   llm: ILLM;
   methodToTest: keyof ILLM;
@@ -136,7 +138,7 @@ describe("OpenAI", () => {
 
   test("streamChat should send a valid request", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "gpt-4",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -153,8 +155,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "gpt-4",
@@ -172,7 +174,7 @@ describe("OpenAI", () => {
 
   test("chat should send a valid request", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "gpt-4",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -189,8 +191,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "gpt-4",
@@ -208,7 +210,7 @@ describe("OpenAI", () => {
 
   test("streamComplete should send a valid request", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "gpt-4",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -222,8 +224,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "gpt-4",
@@ -241,7 +243,7 @@ describe("OpenAI", () => {
 
   test("complete should send a valid request", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "gpt-4",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -255,8 +257,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "gpt-4",
@@ -274,7 +276,7 @@ describe("OpenAI", () => {
 
   test("should handle O1 models correctly", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "o3-mini",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -292,8 +294,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "o3-mini",
@@ -308,7 +310,7 @@ describe("OpenAI", () => {
 
   test("should handle tools", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "gpt-4",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -337,8 +339,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "gpt-4",
@@ -363,7 +365,7 @@ describe("OpenAI", () => {
 
   test("should handle custom max tokens", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "gpt-4",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -381,8 +383,8 @@ describe("OpenAI", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer test-api-key",
-          "api-key": "test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
+          "api-key": TEST_API_KEY,
         },
         body: {
           model: "gpt-4",
@@ -397,7 +399,7 @@ describe("OpenAI", () => {
 
   test("should handle embeddings", async () => {
     const openai = new OpenAI({
-      apiKey: "test-api-key",
+      apiKey: TEST_API_KEY,
       model: "text-embedding-ada-002",
       apiBase: "https://api.openai.com/v1/",
     });
@@ -410,9 +412,9 @@ describe("OpenAI", () => {
         url: "https://api.openai.com/v1/embeddings",
         method: "POST",
         headers: {
-          Authorization: "Bearer test-api-key",
+          Authorization: `Bearer ${TEST_API_KEY}`,
           "Content-Type": "application/json",
-          "api-key": "test-api-key",
+          "api-key": TEST_API_KEY,
         },
         body: {
           input: ["Hello", "World"],

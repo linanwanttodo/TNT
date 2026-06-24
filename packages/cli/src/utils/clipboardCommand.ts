@@ -3,6 +3,11 @@ import { spawn } from "node:child_process";
 interface ClipboardCommandOptions {
   timeoutMs?: number;
   maxBufferBytes?: number;
+  /**
+   * Extra environment variables for the child. A value passed here is data
+   * for the child process, so it cannot become part of a command line.
+   */
+  env?: Record<string, string>;
 }
 
 /**
@@ -21,6 +26,7 @@ export function runClipboardCommand(
       child = spawn(command, args, {
         stdio: ["ignore", "pipe", "ignore"],
         windowsHide: true,
+        ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
       });
     } catch {
       resolve(undefined);

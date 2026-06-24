@@ -1,7 +1,6 @@
 /* eslint-disable max-classes-per-file, max-lines */
 import { randomUUID } from "crypto";
 import fs from "fs";
-import path from "path";
 import { isDeepStrictEqual } from "util";
 
 import type {
@@ -14,6 +13,7 @@ import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import { canonicalPath } from "../utils/canonicalPath.js";
 import { logger } from "../utils/logger.js";
+import { resolveWithin } from "../utils/pathGuard.js";
 
 import {
   assertSessionId,
@@ -709,9 +709,18 @@ export class SessionStore {
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       if (entry.name === "tool-results") continue;
-      const dirPath = path.join(root, entry.name);
-      const transcriptPath = path.join(dirPath, "session.jsonl");
-      const metaPath = path.join(dirPath, "meta.json");
+      // The directory name comes from the filesystem, so it is anchored to
+      // the sessions root before anything is opened under it. A name that
+      // somehow does not stay inside is skipped, not fatal: one odd entry
+      // must not empty the whole listing.
+      let dirPath: string;
+      try {
+        dirPath = resolveWithin(root, entry.name);
+      } catch {
+        continue;
+      }
+      const transcriptPath = resolveWithin(dirPath, "session.jsonl");
+      const metaPath = resolveWithin(dirPath, "meta.json");
 
       if (!fs.existsSync(metaPath)) {
         // A crash between the append and the metadata write leaves a valid

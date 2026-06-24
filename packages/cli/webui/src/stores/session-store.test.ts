@@ -132,18 +132,19 @@ describe("session store", () => {
       ev(6, { type: "turn.completed", content: "Let me read it.Done." }),
     );
     // Without the flush the prose only lands at turn.completed, i.e. below
-    // the card it caused. Only the sequence is at stake here, so the items are
-    // read as their own labels rather than matched whole against fields the
-    // cards never claim to carry.
-    expect(
-      useSessionStore
-        .getState()
-        .items.map((item) =>
-          item.kind === "tool"
-            ? `tool ${item.toolCallId}`
-            : `${item.kind} ${item.text}`,
-        ),
-    ).toEqual(["message Let me read it.", "tool c1", "message Done."]);
+    // the card it caused.
+    expect(useSessionStore.getState().items).toEqual([
+      { kind: "message", role: "assistant", text: "Let me read it." },
+      {
+        kind: "tool",
+        toolCallId: "c1",
+        toolName: "Read",
+        status: "done",
+        result: "42 lines",
+        args: undefined,
+      },
+      { kind: "message", role: "assistant", text: "Done.", changedFiles: [] },
+    ]);
   });
 
   it("tracks reasoning deltas separately from content", () => {

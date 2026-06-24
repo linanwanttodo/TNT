@@ -10,6 +10,7 @@ import {
   isWithinWorkspace,
   workspaceRoot,
 } from "../permissions/workspacePath.js";
+import { resolveWithin } from "../utils/pathGuard.js";
 
 import { Tool } from "./types.js";
 
@@ -34,7 +35,17 @@ export function assertDeletablePath(
   }
 
   const resolvedRoot = path.resolve(root);
-  const absolute = path.resolve(filepath);
+  // The resolution itself is anchored to the given root, so a path can only be
+  // named inside it; the checks below keep the symlink and existence rules.
+  let absolute: string;
+  try {
+    absolute = resolveWithin(resolvedRoot, filepath);
+  } catch {
+    throw new TntError(
+      TntErrorReason.Unspecified,
+      `Delete only removes paths inside the workspace: ${filepath}`,
+    );
+  }
   if (absolute === resolvedRoot) {
     throw new TntError(
       TntErrorReason.Unspecified,

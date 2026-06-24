@@ -7,10 +7,8 @@ import { ChatDescriber } from "core/util/chatDescriber.js";
 import { expandMentions } from "../agent/atMentions.js";
 import { describeChangedFiles } from "../agent/changedFiles.js";
 import { describeContextBudget } from "../compaction/contextBudget.js";
-import {
-  compactChatHistory,
-  findCompactionIndex,
-} from "../compaction/index.js";
+import { findCompactionIndex } from "../compaction/index.js";
+import { compactHistoryOnce } from "../compaction/manual.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
 import type { OutputFormat } from "../config/outputFormat.js";
 import { loadSettings } from "../config/settings.js";
@@ -46,6 +44,7 @@ import {
 import { safeStderr, safeStdout } from "../startup/init.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
+import { handleSlashCommands } from "../ui/commands/index.js";
 import { startTUIChat, type StartTUIChatOptions } from "../ui/index.js";
 import { suppressConsoleInfo } from "../utils/console.js";
 import * as logging from "../utils/console.js";
@@ -68,6 +67,7 @@ import {
   enforceOutputSchema,
   loadOutputSchema,
 } from "./outputSchema.js";
+import { classifySlashResult } from "./slashCommandResult.js";
 import {
   createStreamJsonCallbacks,
   streamJsonErrorLine,
@@ -165,19 +165,12 @@ async function handleManualCompaction(
   }
 
   try {
-    const current = services.chatHistory.getHistory();
-    const result = await compactChatHistory(current, model, llmApi, {
-      summarize: async (request) => {
-        const { summarizeWithEngine } =
-          await import("../stream/summarizeWithEngine.js");
-        return summarizeWithEngine(request);
-      },
-    });
-
-    // Update service-driven history (persistence handled by service)
-    services.chatHistory.compact(
-      result.compactedHistory,
-      result.compactionIndex,
+    const result = await compactHistoryOnce(
+      services.chatHistory.getHistory(),
+      model,
+      llmApi,
+      (compacted, compactionIndex) =>
+        services.chatHistory.compact(compacted, compactionIndex),
     );
 
     if (isHeadless) {
@@ -501,13 +494,40 @@ async function processMessage(options: ProcessMessageOptions): Promise<{
     timeoutSeconds,
   } = options;
   let compactionIndex = initialCompactionIndex;
-  // Check for slash commands in headless mode
-  if (userInput.trim() === "/compact") {
-    return handleManualCompaction(chatHistory, model, llmApi, isHeadless);
+  let prompt = userInput;
+
+  // A prompt that starts with a slash is a command, not text. The terminal has
+  // always dispatched these; a headless run that asks for /help or /cost should
+  // get the answer instead of a model call about the word. The commands whose
+  // result needs a picker are reported rather than silently swallowed.
+  const assistant = services.config.getState().config;
+  if (assistant) {
+    const commandResult = await handleSlashCommands(prompt, assistant);
+    if (commandResult) {
+      const outcome = classifySlashResult(commandResult);
+      switch (outcome.kind) {
+        case "compact":
+          return handleManualCompaction(chatHistory, model, llmApi, isHeadless);
+        case "clear":
+          services.chatHistory.clear();
+          return { finalText: t("chat.commandCleared") };
+        case "exit":
+          return { finalText: t("session.goodbye") };
+        case "print":
+          return { finalText: outcome.output };
+        case "prompt":
+          prompt = outcome.prompt;
+          break;
+        case "unsupported":
+          return {
+            finalText: t("chat.commandNeedsTui", { command: prompt.trim() }),
+          };
+      }
+    }
   }
 
   // Track user prompt
-  telemetryService.logUserPrompt(userInput.length, userInput);
+  telemetryService.logUserPrompt(prompt.length, prompt);
 
   // Check if auto-compacting is needed BEFORE adding user message
   // The handleAutoCompaction function decides whether compaction is actually needed
@@ -528,8 +548,8 @@ async function processMessage(options: ProcessMessageOptions): Promise<{
   // otherwise `tnt -p "@src/x.ts why does this fail"` leaves the model reading
   // a literal token.
   services.chatHistory.addUserMessage(
-    userInput,
-    expandMentions(userInput).contextItems,
+    prompt,
+    expandMentions(prompt).contextItems,
   );
 
   // Get AI response with potential tool usage

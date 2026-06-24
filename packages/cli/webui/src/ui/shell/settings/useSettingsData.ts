@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  addModel,
   chooseModel,
+  deleteModel,
   fetchModels,
   fetchPlugins,
   fetchState,
   openPath,
+  reorderModels,
   reloadPlugins,
   setPluginEnabled,
+  testModel,
+  updateModel,
+  type ModelConfigInput,
+  type ModelTestResult,
   type ModelsResponse,
   type PluginsResponse,
 } from "../../../api/client.js";
@@ -27,6 +34,17 @@ export interface SettingsDataState {
   selectModel: (index: number) => Promise<void>;
   copyPath: (target: string) => void;
   revealPath: (target: string) => void;
+  /** Create or edit a declared model; resolves with an error message or null. */
+  saveModel: (
+    input: ModelConfigInput,
+    editName: string | null,
+  ) => Promise<string | null>;
+  /** Remove one declared model; resolves with an error message or null. */
+  removeModel: (name: string) => Promise<string | null>;
+  /** Persist a drag-reorder of the declared models. */
+  reorderDeclaredModels: (names: string[]) => Promise<string | null>;
+  /** One real provider round trip from the model form. */
+  testModelConnection: (input: ModelConfigInput) => Promise<ModelTestResult>;
 }
 
 /**
@@ -134,6 +152,78 @@ export function useSettingsData(): SettingsDataState {
       .catch(() => setNotice("Could not copy the path."));
   }, []);
 
+  const saveModel = useCallback(
+    async (
+      input: ModelConfigInput,
+      editName: string | null,
+    ): Promise<string | null> => {
+      setNotice(null);
+      try {
+        if (editName === null) {
+          await addModel(input);
+          setNotice(`Model ${input.name} added and loaded.`);
+        } else {
+          const next = await updateModel(editName, input);
+          if (next.declared.length > 0) {
+            setModels((current) =>
+              current === null
+                ? current
+                : { ...current, declared: next.declared },
+            );
+          }
+          setNotice(`Model ${input.name} saved.`);
+        }
+        await loadModels();
+        return null;
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        setNotice(message);
+        return message;
+      }
+    },
+    [loadModels],
+  );
+
+  const removeModel = useCallback(
+    async (name: string): Promise<string | null> => {
+      setNotice(null);
+      try {
+        await deleteModel(name);
+        setNotice(`Model ${name} removed.`);
+        await loadModels();
+        return null;
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        setNotice(message);
+        return message;
+      }
+    },
+    [loadModels],
+  );
+
+  const testModelConnection = useCallback(
+    (input: ModelConfigInput) => testModel(input),
+    [],
+  );
+
+  const reorderDeclaredModels = useCallback(
+    async (names: string[]): Promise<string | null> => {
+      setNotice(null);
+      try {
+        const next = await reorderModels(names);
+        setModels((current) =>
+          current === null ? current : { ...current, declared: next.declared },
+        );
+        return null;
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause);
+        setNotice(message);
+        return message;
+      }
+    },
+    [],
+  );
+
   const revealPath = useCallback((target: string) => {
     void openPath(target).catch((cause: unknown) => {
       setNotice(cause instanceof Error ? cause.message : String(cause));
@@ -154,5 +244,9 @@ export function useSettingsData(): SettingsDataState {
     selectModel,
     copyPath,
     revealPath,
+    saveModel,
+    removeModel,
+    reorderDeclaredModels,
+    testModelConnection,
   };
 }

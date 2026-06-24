@@ -15,6 +15,7 @@ import {
   mergeParentOptions,
 } from "./config/sharedOptions.js";
 import { t } from "./i18n/index.js";
+import { captureCliLaunchSpec } from "./services/UpdateService.js";
 import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
 import { getVersion } from "./startup/version.js";
 import { post } from "./utils/apiClient.js";
@@ -594,6 +595,27 @@ export async function runCli(): Promise<void> {
 
   // Parse arguments and handle errors
   try {
+    // Capture the parsed invocation so UpdateService can rebuild the same
+    // command after a self-update. By the time this hook runs, commander has
+    // matched every token against declared flags and rejected unknown ones,
+    // so the spec holds parsed values only - raw argv never reaches the
+    // restart path (see buildRestartArgs in services/UpdateService.ts).
+    program.hook("preAction", (_thisCommand, actionCommand) => {
+      captureCliLaunchSpec({
+        command: actionCommand.parent ? actionCommand.name() : null,
+        options: {
+          ...(actionCommand.parent?.opts() ?? {}),
+          ...actionCommand.opts(),
+        },
+        declaredOptions: actionCommand.options.map((option) =>
+          option.attributeName(),
+        ),
+        operands: actionCommand.args.filter(
+          (operand) => typeof operand === "string",
+        ),
+      });
+    });
+
     // parseAsync awaits the action, so a rejection reaches the catch below and a
     // pending action keeps the process alive instead of draining the loop.
     await program.parseAsync();

@@ -11,6 +11,13 @@ const DEFAULT_MAX_TOKENS_RATIO = 0.35;
 const MAX_MAX_TOKENS = 64_000;
 // Default context length when model config doesn't specify one
 export const DEFAULT_CONTEXT_LENGTH = 200_000;
+/**
+ * The floor an Ollama model is assumed to run with when neither the config nor
+ * the server's /api/show probe produced a window. The 200k generic default
+ * would have an 8k-window local model planning prompts far over its budget.
+ */
+export const DEFAULT_OLLAMA_CONTEXT_LENGTH = 8192;
+let warnedOllamaFallback = false;
 
 /**
  * Get the context length limit for a model
@@ -22,11 +29,21 @@ export function getModelContextLimit(model: ModelConfig): number {
   // `defaultCompletionOptions`; validation already reads the model-level value
   // first, so the runtime must do the same or a 1M-token model silently runs
   // with the 200k default.
-  return (
-    model.contextLength ??
-    model.defaultCompletionOptions?.contextLength ??
-    DEFAULT_CONTEXT_LENGTH
-  );
+  const explicit =
+    model.contextLength ?? model.defaultCompletionOptions?.contextLength;
+  if (explicit !== undefined) {
+    return explicit;
+  }
+  if (model.provider === "ollama") {
+    if (!warnedOllamaFallback) {
+      warnedOllamaFallback = true;
+      logger.warn(
+        "Ollama context window is unknown (the /api/show probe found nothing); assuming 8192. Set contextLength in config.yaml to override.",
+      );
+    }
+    return DEFAULT_OLLAMA_CONTEXT_LENGTH;
+  }
+  return DEFAULT_CONTEXT_LENGTH;
 }
 
 export function getModelMaxTokens(model: ModelConfig): number {

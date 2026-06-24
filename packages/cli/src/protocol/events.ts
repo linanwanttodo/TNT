@@ -59,6 +59,7 @@ export type AgentEvent = AgentEventBase &
         options?: readonly string[];
         defaultAnswer?: string;
       }
+    | { type: "question.answered"; requestId: string }
     | { type: "notice"; message: string }
     | { type: "compaction.started" }
     | { type: "compaction.finished"; reductionRatio?: number }

@@ -15,15 +15,15 @@ const UNCAPPED = /(?:^|[\s,(])(?:50%|100%|var\(--dsw-radius-full\)|\d{3,}px)/;
 
 /** True when the rule's own box says a corner is fully rounded. */
 function isUncapped(body: string): boolean {
-  const radius = /(?:^|;)\s*border-radius:\s*([^;]+)/.exec(body)?.[1];
+  const radius = body.match(/(?:^|;)\s*border-radius:\s*([^;]+)/)?.[1];
   if (!radius) return false;
   if (UNCAPPED.test(radius)) return true;
   // A px radius is a circle only in relation to its box, which the rule states.
-  const px = /^\s*(\d+)px/.exec(radius);
+  const px = radius.match(/^\s*(\d+)px/);
   if (!px) return false;
   const sides = ["height", "width"]
     .map((side) =>
-      Number(new RegExp(`(?:^|;)\\s*${side}:\\s*(\\d+)px`).exec(body)?.[1]),
+      Number(body.match(new RegExp(`(?:^|;)\\s*${side}:\\s*(\\d+)px`))?.[1]),
     )
     .filter((n) => Number.isFinite(n));
   return sides.some((side) => Number(px[1]) * 2 >= side);

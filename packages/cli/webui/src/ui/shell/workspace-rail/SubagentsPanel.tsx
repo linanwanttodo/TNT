@@ -1,11 +1,13 @@
 import { useState } from "react";
 
 import type { SubagentState } from "../../../types/agent-events.js";
+import { useSidePaneStore } from "../../../stores/side-pane-store.js";
 import { ShellIcon } from "../icons.tsx";
 import css from "../WorkspaceRail.module.css";
 
 function AgentCard({ agent }: { agent: SubagentState }) {
   const [open, setOpen] = useState(agent.status === "running");
+  const openTab = useSidePaneStore((state) => state.openTab);
   const hasBody = agent.prompt !== "" || agent.content !== undefined;
   return (
     <div className={css.approval}>
@@ -25,9 +27,38 @@ function AgentCard({ agent }: { agent: SubagentState }) {
           />
         ) : null}
         <span>{agent.name}</span>
-        <span className={css.agentStatus} data-status={agent.status}>
-          {agent.status}
-        </span>
+        {/* Status badge in ZCode's task-row style: a live spinner while
+            running, a green success pill or a red failure pill once done. */}
+        {agent.status === "running" ? (
+          <span className={css.agentSpinner} aria-label="Running" />
+        ) : (
+          <span
+            className={css.agentPill}
+            data-success={
+              agent.status === "finished"
+                ? agent.success
+                  ? "true"
+                  : "false"
+                : undefined
+            }
+          >
+            {agent.status === "finished"
+              ? agent.success
+                ? "Success"
+                : "Failed"
+              : agent.status}
+          </span>
+        )}
+      </button>
+      <button
+        type="button"
+        className={css.agentOpenTab}
+        title={`Open ${agent.name} in a tab`}
+        onClick={() =>
+          openTab({ kind: "subagent", title: agent.name, path: agent.name })
+        }
+      >
+        <ShellIcon glyph="arrow-right" size={10} />
       </button>
       {open ? (
         <>

@@ -19,15 +19,26 @@ const packageRoot = path.resolve(here, "..", "..");
 
 const DOC = path.join(packageRoot, "spec", "otlp-metrics.md");
 const SERVICE = path.join(here, "telemetryService.ts");
+/**
+ * The exporter, endpoint and resource-attribute construction moved to their own
+ * module so the SDK stays out of the eager startup graph; the page describes
+ * the service as a whole, so the guard reads both halves.
+ */
+const OTEL_SETUP = path.join(here, "otelSetup.ts");
 
 function read(file: string): string {
   return fs.readFileSync(file, "utf-8");
 }
 
+/** Everything the telemetry service is made of, for marker checks. */
+function readService(): string {
+  return `${read(SERVICE)}\n${read(OTEL_SETUP)}`;
+}
+
 function instruments(): string[] {
   return [
     ...new Set(
-      [...read(SERVICE).matchAll(/"continue_cli_[a-z_]+"/g)].map((m) =>
+      [...readService().matchAll(/"continue_cli_[a-z_]+"/g)].map((m) =>
         m[0].slice(1, -1),
       ),
     ),
@@ -36,7 +47,7 @@ function instruments(): string[] {
 
 describe("spec/otlp-metrics.md agrees with the telemetry service", () => {
   const doc = read(DOC);
-  const service = read(SERVICE);
+  const service = readService();
 
   it("reads a service that registers a full instrument set", () => {
     expect(doc.length).toBeGreaterThan(800);

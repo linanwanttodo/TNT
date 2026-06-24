@@ -18,6 +18,10 @@ import {
   LIST_SUBAGENTS_TOOL_META,
   SUBAGENT_TOOL_META,
 } from "../subagent/index.js";
+import {
+  formatSubagentToolResult,
+  noteVerificationOutcome,
+} from "../subagent/report.js";
 import { loadTeams } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
@@ -182,15 +186,11 @@ export const subagentTool = async (): Promise<Tool> => {
 
       logger.debug("subagent result", { result });
 
-      const output = [
-        result.response,
-        "<task_metadata>",
-        `status: ${result.success ? "completed" : "failed"}`,
-        ...(result.verdict ? [`verdict: ${result.verdict}`] : []),
-        "</task_metadata>",
-      ]
-        .filter(Boolean)
-        .join("\n");
+      // A PASS nobody re-ran is a claim, not a verification: the outcome
+      // feeds the unverified-streak reminder, and PASS reports carry the
+      // spot-check guidance on their tail.
+      const unverifiedNudge = noteVerificationOutcome(result.verdict);
+      const output = formatSubagentToolResult(result, unverifiedNudge);
 
       return output;
     },

@@ -1,3 +1,4 @@
+import { clearSectionBaselines } from "./systemMessageReinjection.js";
 import type { SystemPromptRoundState } from "./systemPromptRound.js";
 
 /**
@@ -63,6 +64,25 @@ export function systemPromptSeriesState(
   }
   seriesStates.set(key, state);
   return state;
+}
+
+/**
+ * Drop the per-section facts of one series, after a rollback or a history
+ * edit: the window the next round shows the model no longer contains the
+ * messages the section baselines were measured against. Idempotent, and safe
+ * to call for a series that never planned sections.
+ */
+export function clearSeriesSectionBaselines(
+  cacheKey = "default",
+  overrideSystemMessage?: string,
+): void {
+  const key = overrideSystemMessage
+    ? `${cacheKey}::run::${overrideSystemMessage}`
+    : cacheKey;
+  const state = seriesStates.get(key);
+  if (state?.sections) {
+    clearSectionBaselines(state.sections);
+  }
 }
 
 /**

@@ -13,10 +13,11 @@ vi.mock("./commands/index.js", () => ({
     { name: "help", description: "d5", category: "system" },
     { name: "model", description: "d6", category: "system" },
     { name: "plan", description: "d7", category: "system" },
-    { name: "tools", description: "d8", category: "system" },
+    { name: "plugins", description: "d8", category: "system" },
+    { name: "tools", description: "d9", category: "system" },
     {
       name: "language",
-      description: "d9",
+      description: "d10",
       category: "system",
       subcommands: [
         { name: "en", description: "English" },
@@ -134,6 +135,20 @@ describe("UserInput slash palette", () => {
       await tick();
 
       expect(onSubmit).toHaveBeenCalledWith("/model");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("runs /plugins so it can open the browser", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/plugins");
+      await tick();
+      tree.stdin.write("\r");
+      await tick();
+
+      expect(onSubmit).toHaveBeenCalledWith("/plugins");
     } finally {
       tree.unmount();
     }

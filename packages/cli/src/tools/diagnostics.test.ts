@@ -5,6 +5,7 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getLspManager } from "../lsp/manager.js";
+import { resolveWithin } from "../utils/pathGuard.js";
 
 import { diagnosticsTool } from "./diagnostics.js";
 
@@ -27,7 +28,7 @@ function writePlugin(): void {
 }
 
 function file(content: string, name = "sample.ts"): string {
-  const target = path.join(workDir, name);
+  const target = resolveWithin(workDir, name);
   fs.writeFileSync(target, content);
   return target;
 }

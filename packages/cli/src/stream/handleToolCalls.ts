@@ -2,8 +2,7 @@ import type { ChatHistoryItem, ToolStatus } from "core/index.js";
 import { stripImages } from "core/util/messageContent.js";
 import { createHistoryItem } from "core/util/messageConversion.js";
 
-import type { ToolPermissions } from "src/permissions/types.js";
-
+import type { ToolPermissions } from "../permissions/types.js";
 import { services } from "../services/index.js";
 import { ToolCall } from "../tools/index.js";
 import { logger } from "../utils/logger.js";

@@ -24,6 +24,19 @@ const SUPPORTED_IMAGE_MIME_TYPES = [
   "image/gif",
 ] as const;
 
+/**
+ * The PowerShell script that saves the clipboard image. The destination path
+ * arrives in `TNT_CLIPBOARD_PATH`, not in the script, so the script is a
+ * constant and the path stays data.
+ */
+const POWERSHELL_SAVE_SCRIPT = [
+  "Add-Type -AssemblyName System.Windows.Forms",
+  "Add-Type -AssemblyName System.Drawing",
+  "$path = $env:TNT_CLIPBOARD_PATH",
+  "$img = [System.Windows.Forms.Clipboard]::GetImage()",
+  "if ($img) { $img.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); Write-Output 'ok' } else { Write-Output 'empty' }",
+].join("; ");
+
 function baseMimeType(mimeType: string): string {
   return mimeType.split(";")[0]?.trim().toLowerCase() ?? mimeType.toLowerCase();
 }
@@ -102,6 +115,9 @@ function splitTypes(output: Buffer | undefined): string[] | undefined {
 }
 
 async function readViaWlPaste(): Promise<ClipboardImage | null | undefined> {
+  // The helper name and its flags are constants; the MIME type is one of a
+  // fixed set read back from the clipboard itself, and it travels as an argv
+  // element, so no shell ever sees it.
   const types = splitTypes(
     await runClipboardCommand("wl-paste", ["--list-types"], {
       timeoutMs: 1000,
@@ -123,6 +139,8 @@ async function readViaWlPaste(): Promise<ClipboardImage | null | undefined> {
 }
 
 async function readViaXclip(): Promise<ClipboardImage | null | undefined> {
+  // As with wl-paste: constants for the helper and its flags, and the MIME
+  // type arrives as one argv element rather than as part of a command line.
   const types = splitTypes(
     await runClipboardCommand(
       "xclip",
@@ -148,6 +166,8 @@ async function readViaXclip(): Promise<ClipboardImage | null | undefined> {
 async function readViaPowerShell(): Promise<ClipboardImage | null | undefined> {
   const tmpFile = path.join(tmpdir(), `tnt-wsl-clip-${randomUUID()}.png`);
   try {
+    // The temporary path is generated here (a UUID under the OS temp dir), so
+    // it is not an external input; it travels as an argv element anyway.
     const winPath = await runClipboardCommand("wslpath", ["-w", tmpFile], {
       timeoutMs: 1000,
     });
@@ -156,18 +176,13 @@ async function readViaPowerShell(): Promise<ClipboardImage | null | undefined> {
     const psPath = winPath.toString("utf-8").trim();
     if (!psPath) return null;
 
-    const script = [
-      "Add-Type -AssemblyName System.Windows.Forms",
-      "Add-Type -AssemblyName System.Drawing",
-      `$path = '${psPath.replaceAll("'", "''")}'`,
-      "$img = [System.Windows.Forms.Clipboard]::GetImage()",
-      "if ($img) { $img.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); Write-Output 'ok' } else { Write-Output 'empty' }",
-    ].join("; ");
-
+    // The path reaches PowerShell through an environment variable: an env
+    // value is data for `$env:TNT_CLIPBOARD_PATH`, so it can never become
+    // part of the script. The -Command string itself is a constant.
     const result = await runClipboardCommand(
       "powershell.exe",
-      ["-NoProfile", "-Command", script],
-      { timeoutMs: 5000 },
+      ["-NoProfile", "-Command", POWERSHELL_SAVE_SCRIPT],
+      { timeoutMs: 5000, env: { TNT_CLIPBOARD_PATH: psPath } },
     );
     if (result === undefined) return undefined;
     if (result.toString("utf-8").trim() !== "ok") return null;
@@ -182,24 +197,27 @@ async function readViaPowerShell(): Promise<ClipboardImage | null | undefined> {
   }
 }
 
+/**
+ * The AppleScript that writes the clipboard image to a file. The destination
+ * arrives as the script's `argv`, not inside the source, so the source is a
+ * constant and the path stays data.
+ */
+const APPLESCRIPT_SAVE_SCRIPT = [
+  "on run argv",
+  "set the clipboard to (the clipboard as «class PNGf»)",
+  "set png_data to (the clipboard as «class PNGf»)",
+  "set file_ref to open for access (item 1 of argv) with write permission",
+  "write png_data to file_ref",
+  "close access file_ref",
+  "end run",
+].join("\n");
+
 async function readViaMacOS(): Promise<ClipboardImage | null | undefined> {
   const tmpFile = path.join(tmpdir(), `tnt-macos-clip-${randomUUID()}.png`);
-  const escapedPath = tmpFile.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   try {
     const result = await runClipboardCommand(
       "osascript",
-      [
-        "-e",
-        "set the clipboard to (the clipboard as «class PNGf»)",
-        "-e",
-        "set png_data to (the clipboard as «class PNGf»)",
-        "-e",
-        `set file_ref to open for access "${escapedPath}" with write permission`,
-        "-e",
-        "write png_data to file_ref",
-        "-e",
-        "close access file_ref",
-      ],
+      ["-e", APPLESCRIPT_SAVE_SCRIPT, tmpFile],
       { timeoutMs: 5000 },
     );
     if (result === undefined) return undefined;
@@ -215,17 +233,10 @@ async function readViaMacOS(): Promise<ClipboardImage | null | undefined> {
 async function readViaWindows(): Promise<ClipboardImage | null | undefined> {
   const tmpFile = path.join(tmpdir(), `tnt-win-clip-${randomUUID()}.png`);
   try {
-    const script = [
-      "Add-Type -AssemblyName System.Windows.Forms",
-      "Add-Type -AssemblyName System.Drawing",
-      `$path = '${tmpFile.replaceAll("'", "''")}'`,
-      "$img = [System.Windows.Forms.Clipboard]::GetImage()",
-      "if ($img) { $img.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); Write-Output 'ok' } else { Write-Output 'empty' }",
-    ].join("; ");
     const result = await runClipboardCommand(
       "powershell.exe",
-      ["-NoProfile", "-Command", script],
-      { timeoutMs: 5000 },
+      ["-NoProfile", "-Command", POWERSHELL_SAVE_SCRIPT],
+      { timeoutMs: 5000, env: { TNT_CLIPBOARD_PATH: tmpFile } },
     );
     if (result === undefined) return undefined;
     if (result.toString("utf-8").trim() !== "ok") return null;
@@ -296,6 +307,9 @@ export async function readClipboardImage(
 async function clipboardTypes(
   env: NodeJS.ProcessEnv,
 ): Promise<string[] | undefined> {
+  // The helper names and their flags are constants, so nothing here is
+  // external input: the only thing the environment decides is which helper
+  // is tried, and both spellings are fixed.
   if (isWaylandSession(env) || isWSL(env)) {
     const types = splitTypes(
       await runClipboardCommand("wl-paste", ["--list-types"], {
@@ -344,6 +358,7 @@ export async function clipboardHasImage(
     }
 
     if (platform === "darwin") {
+      // A constant script with no arguments: nothing to inject.
       const info = await runClipboardCommand(
         "osascript",
         ["-e", "clipboard info"],
@@ -361,6 +376,7 @@ export async function clipboardHasImage(
     }
 
     if (platform === "win32") {
+      // A constant script with no arguments: nothing to inject.
       const count = await runClipboardCommand(
         "powershell.exe",
         [
