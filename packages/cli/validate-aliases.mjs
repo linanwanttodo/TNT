@@ -105,26 +105,30 @@ function findLocalPackages(startPath, visited = new Set()) {
       };
 
       for (const [depName, depVersion] of Object.entries(allDeps)) {
+        if (
+          typeof depVersion !== "string" ||
+          !depVersion.startsWith("file:")
+        ) {
+          continue;
+        }
         // The vendored ZCode closure is a normal installed dependency: its
         // package exports maps point at TypeScript sources, and esbuild
         // resolves the whole graph through the node_modules links, subpaths
         // included. An alias here would replace those maps and break exports
         // such as "@zcode/zcode-cua/broker/ports", whose file is flattened to
-        // broker-ports.js rather than living at the subpath.
-        if (depName.startsWith("@zcode/")) {
-          continue;
-        }
-        if (typeof depVersion === "string" && depVersion.startsWith("file:")) {
-          // This is a local package
+        // broker-ports.js rather than living at the subpath. Skip only the
+        // alias; still recurse so a non-@zcode file: dep inside a vendored
+        // manifest is checked.
+        if (!depName.startsWith("@zcode/")) {
           localPackages.add(depName);
+        }
 
-          // Recursively check this package's dependencies
-          const depPath = resolve(packageDir, depVersion.replace("file:", ""));
-          const depPackageJson = resolve(depPath, "package.json");
+        // Recursively check this package's dependencies
+        const depPath = resolve(packageDir, depVersion.replace("file:", ""));
+        const depPackageJson = resolve(depPath, "package.json");
 
-          if (existsSync(depPackageJson)) {
-            scanPackageJson(depPackageJson, depth + 1);
-          }
+        if (existsSync(depPackageJson)) {
+          scanPackageJson(depPackageJson, depth + 1);
         }
       }
     } catch (error) {
