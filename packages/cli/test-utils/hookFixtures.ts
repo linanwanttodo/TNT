@@ -23,9 +23,12 @@ export class HookFixtures {
   private readonly printScript: string;
 
   constructor(dir: string) {
-    // Every caller roots its fixtures under os.tmpdir(); holding the fixture to
-    // that here keeps the scripts it writes out of the repository tree.
-    resolveWithin(os.tmpdir(), dir);
+    // macOS exposes its temporary directory as /var, while Node returns the
+    // aliased /private/var path. path.resolve() alone compares those spellings
+    // as different roots, so canonicalize both before the guard.
+    const canonicalRoot = fs.realpathSync(os.tmpdir());
+    const canonicalDir = fs.realpathSync(dir);
+    resolveWithin(canonicalRoot, canonicalDir);
     this.root = path.join(dir, "hook-fixtures");
     fs.mkdirSync(this.root, { recursive: true });
     this.printScript = this.write(
