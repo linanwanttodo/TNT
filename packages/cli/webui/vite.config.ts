@@ -21,7 +21,13 @@ const reactAlias = {
 
 export default defineConfig({
   base: "/app/",
-  plugins: [react()],
+  plugins: [
+    react(),
+    // P1 待办：`npm install` 装好 tailwindcss + @tailwindcss/vite 后取消下一行注释，
+    // 并在 main.tsx 引入 src/ui/zcode/styles.css（@theme 主题 + 工具类），
+    // 届时可删除 zcode-bridge.css。
+    // tailwindcss(),
+  ],
   resolve: {
     alias: reactAlias,
     dedupe: ["react", "react-dom"],
