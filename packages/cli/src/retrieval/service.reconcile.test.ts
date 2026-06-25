@@ -17,6 +17,7 @@ process.env.TNT_GLOBAL_DIR = fs.mkdtempSync(
 
 const { env } = await import("../config/env.js");
 const { RetrievalService } = await import("./service.js");
+const { SqliteDb } = await import("core/indexing/refreshIndex.js");
 
 /**
  * The index outlives the process that built it, but the workspace does not sit
@@ -64,9 +65,16 @@ beforeAll(() => {
   fs.writeFileSync(path.join(env.continueHome, "config.yaml"), CONFIG);
 });
 
-afterAll(() => {
+afterAll(async () => {
+  // The connection holds the sqlite file; Windows cannot unlink an open one.
+  await SqliteDb.close();
   indexHome = process.env.TNT_GLOBAL_DIR ?? indexHome;
-  fs.rmSync(indexHome, { recursive: true, force: true });
+  fs.rmSync(indexHome, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
   for (const workspace of workspaces) {
     fs.rmSync(workspace, { recursive: true, force: true });
   }
