@@ -178,7 +178,8 @@ export function resolveThemeName(name?: string): ThemeName {
       normalized === "dark" ||
       normalized === "tencent-dark" ||
       normalized === "tencent-light" ||
-      normalized === "light"
+      normalized === "light" ||
+      normalized === "claude"
     ) {
       return normalized;
     }

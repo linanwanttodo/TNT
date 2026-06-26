@@ -22,6 +22,16 @@ export interface ThemeFile {
 
 const GROUPS = ["text", "status", "border", "syntax", "tool", "diff"] as const;
 
+/** Top-level tokens whose value is a single colour rather than a group. */
+const SCALAR_TOKENS = new Set([
+  "accent",
+  "user",
+  "claude",
+  "claudeShimmer",
+  "permission",
+  "suggestion",
+]);
+
 export function readThemeOverrides(value: unknown): ThemeFile {
   const rejected: string[] = [];
   const overrides: Record<string, Record<string, string> | string> = {};
@@ -48,7 +58,7 @@ export function readThemeOverrides(value: unknown): ThemeFile {
       }
       continue;
     }
-    if ((key === "accent" || key === "user") && typeof entry === "string") {
+    if (SCALAR_TOKENS.has(key) && typeof entry === "string") {
       overrides[key] = entry;
       continue;
     }

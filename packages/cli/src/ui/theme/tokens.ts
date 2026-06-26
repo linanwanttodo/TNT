@@ -36,6 +36,14 @@ export interface Theme {
   };
   accent: string;
   user: string;
+  /** The assistant identity colour, e.g. the tool-call dot. */
+  claude: string;
+  /** The lighter tint the working indicator alternates to. */
+  claudeShimmer: string;
+  /** Permission prompts and question navigation. */
+  permission: string;
+  /** Inline suggestions in the composer. */
+  suggestion: string;
   /** Code highlight colours for fenced blocks and diff context lines. */
   syntax: SyntaxHighlighterTheme;
   tool: {
@@ -79,6 +87,10 @@ export const darkTheme: Theme = {
   },
   accent: "#5ac8fa",
   user: "blue",
+  claude: "#5ac8fa",
+  claudeShimmer: "#8ad9fb",
+  permission: "#5ac8fa",
+  suggestion: "#5ac8fa",
   tool: {
     pendingBackground: "#1c1c1c",
     successBackground: "#10261a",
@@ -135,6 +147,10 @@ export const tencentDarkTheme: Theme = {
   },
   accent: "#0052d9",
   user: "#366ef4",
+  claude: "#0052d9",
+  claudeShimmer: "#6ea6ff",
+  permission: "#6ea6ff",
+  suggestion: "#366ef4",
   tool: {
     pendingBackground: "#1a1f2c",
     successBackground: "#12291e",
@@ -191,6 +207,10 @@ export const tencentLightTheme: Theme = {
   },
   accent: "#0052d9",
   user: "#0052d9",
+  claude: "#0052d9",
+  claudeShimmer: "#366ef4",
+  permission: "#0052d9",
+  suggestion: "#0052d9",
   tool: {
     pendingBackground: "#f2f3f5",
     successBackground: "#e8f8f2",
@@ -226,8 +246,43 @@ export const tencentLightTheme: Theme = {
   },
 };
 
+/**
+ * Claude Code Theme. The accent family is taken from the reference TUI:
+ * the orange assistant colour, its shimmer, and the blue-purple shared by
+ * permission prompts and suggestions. Tool, diff and syntax tokens follow the
+ * dark terminal palette so code blocks stay legible without a second palette.
+ */
+export const claudeTheme: Theme = {
+  text: {
+    primary: "rgb(255,255,255)",
+    secondary: "rgb(153,153,153)",
+    subtle: "rgb(80,80,80)",
+    inverse: "rgb(0,0,0)",
+  },
+  status: {
+    success: "rgb(78,186,101)",
+    error: "rgb(255,107,128)",
+    warning: "rgb(255,193,7)",
+    running: "rgb(215,119,87)",
+    idle: "rgb(153,153,153)",
+  },
+  border: {
+    default: "rgb(80,80,80)",
+    focus: "rgb(177,185,249)",
+  },
+  accent: "rgb(215,119,87)",
+  user: "rgb(177,185,249)",
+  claude: "rgb(215,119,87)",
+  claudeShimmer: "rgb(245,149,117)",
+  permission: "rgb(177,185,249)",
+  suggestion: "rgb(177,185,249)",
+  tool: { ...darkTheme.tool },
+  diff: { ...darkTheme.diff },
+  syntax: { ...darkTheme.syntax },
+};
+
 export type BuiltInThemeName =
-  "dark" | "tencent-dark" | "tencent-light" | "light";
+  "dark" | "tencent-dark" | "tencent-light" | "light" | "claude";
 
 /**
  * A built-in name, or the name of a file under `<home>/themes/<name>.json`.
@@ -241,6 +296,7 @@ export const themes: Record<BuiltInThemeName, Theme> = {
   "tencent-dark": tencentDarkTheme,
   "tencent-light": tencentLightTheme,
   light: tencentLightTheme,
+  claude: claudeTheme,
 };
 
 /**
