@@ -11,7 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
-import { DesktopTopOverlayActionButton } from "./DesktopTopOverlayActionButton.js";
+import { DesktopTopOverlayActionButton } from "./DesktopTopOverlayActionButton.tsx";
 
 interface DesktopTopOverlayProps {
   workspaceAbsPath: string;

@@ -2,7 +2,7 @@
  * 轻量 toast 提示
  *
  * 不引入第三方库，用 React portal 渲染到 body，3 秒自动消失。
- * 调用方式：`import { toast } from "./toast.ts"; toast("message");`
+ * 调用方式：`import { toast } from "./toast.tsx"; toast("message");`
  */
 import { createRoot } from "react-dom/client";
 import { useEffect, useState } from "react";
@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../lib/utils.ts";
-import { Progress } from "./progress.ts";
+import { Progress } from "./progress.tsx";
 
 export type ToastPosition =
   "top-center" | "top-right" | "bottom-left" | "bottom-center";
