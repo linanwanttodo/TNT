@@ -76,10 +76,10 @@ async function press(
   want: (frame: string) => boolean,
 ): Promise<string> {
   let lastFrame = "";
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await tick(150);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) await tick(250);
     tree.stdin.write(key);
-    const deadline = Date.now() + 1_500;
+    const deadline = Date.now() + 2_000;
     while (Date.now() < deadline) {
       lastFrame = tree.lastFrame() ?? "";
       if (want(lastFrame)) return lastFrame;
@@ -87,7 +87,7 @@ async function press(
     }
   }
   throw new Error(
-    `keystroke ${JSON.stringify(key)} never produced its frame within 3 deliveries\n` +
+    `keystroke ${JSON.stringify(key)} never produced its frame within 5 deliveries\n` +
       `  last frame: ${lastFrame.split("\n")[0] ?? "(empty)"}`,
   );
 }

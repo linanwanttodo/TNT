@@ -4,6 +4,7 @@ import {
   getProjectSettingsPath,
   writeSettingsValue,
 } from "../config/settingsFiles.js";
+import { t } from "../i18n/index.js";
 import {
   getPluginSearchRoots,
   getPluginsDirectory,
@@ -158,7 +159,7 @@ export function setPluginEnabled(
     (plugin) => plugin.name === name || plugin.id === name,
   );
   if (!target) {
-    throw new Error(`plugin not installed: ${name}`);
+    throw new Error(t("services.pluginNotInstalled", { name }));
   }
 
   const configured = configuredEnabledPlugins(cwd);

@@ -31,8 +31,10 @@ const DROPPED_ATTRIBUTES = new Set([
  * @returns a symbol element ready to be appended to the sprite.
  */
 function toSymbol(id: string, markup: string): SVGSymbolElement {
-  const root = new DOMParser().parseFromString(markup, "image/svg+xml")
-    .documentElement;
+  const root = new DOMParser().parseFromString(
+    markup,
+    "image/svg+xml",
+  ).documentElement;
   const symbol = document.createElementNS(SVG_NS, "symbol");
   for (const { name, value } of root.attributes) {
     if (!DROPPED_ATTRIBUTES.has(name)) {

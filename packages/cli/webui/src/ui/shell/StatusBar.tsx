@@ -17,7 +17,7 @@ import css from "./StatusBar.module.css";
 
 /** Props the status bar renders from. */
 export interface StatusBarProps {
-  /** Workspace folder the session runs in. */
+  /** Workspace folder the session runs in; absent hides the chip rather than naming a folder the session never reported. */
   workspace?: string | undefined;
   /** The chat models the session may run on; empty hides the picker. */
   models?: ChatModelOption[] | undefined;
@@ -71,7 +71,7 @@ function compactTokens(tokens: number): string {
  * @returns the status bar element.
  */
 export function StatusBar({
-  workspace = "continue",
+  workspace,
   models = [],
   currentModel = null,
   onPickModel,
@@ -148,16 +148,18 @@ export function StatusBar({
   return (
     <footer className={css.statusBar}>
       <span className={css.entries}>
-        <span
-          className={css.entry}
-          title={workspaceDirectory}
-          onClick={onOpenWorkspace}
-          role={onOpenWorkspace ? "button" : undefined}
-          data-clickable={onOpenWorkspace ? "true" : undefined}
-        >
-          <ShellIcon glyph="folder" size={14} className={css.entryIcon} />
-          <span>{workspace}</span>
-        </span>
+        {workspace ? (
+          <span
+            className={css.entry}
+            title={workspaceDirectory}
+            onClick={onOpenWorkspace}
+            role={onOpenWorkspace ? "button" : undefined}
+            data-clickable={onOpenWorkspace ? "true" : undefined}
+          >
+            <ShellIcon glyph="folder" size={14} className={css.entryIcon} />
+            <span>{workspace}</span>
+          </span>
+        ) : null}
         {showWorktree ? (
           worktreeSwitchable ? (
             <span className={css.modeAnchor} ref={worktreeRef}>
