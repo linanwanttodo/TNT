@@ -13,7 +13,7 @@ import {
   statSync,
   writeFileSync,
 } from "fs";
-import { dirname, join, resolve } from "path";
+import { basename, dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 
 // Parse command line arguments
@@ -219,6 +219,74 @@ const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
     recursive: true,
   });
   console.log("✓ Copied native clipboard helpers");
+
+  // esbuild inlines node-pty's JavaScript but not its native addon. The loader
+  // (node-pty/lib/utils.js) probes relative to the bundle, and the release
+  // tarball ships dist/ alone, so the addons have to sit at
+  // dist/prebuilds/<platform>-<arch>/ for a built CLI to open a terminal.
+  const nodePtyDir = resolve(
+    __dirname,
+    "../zcode-ui/services/node_modules/node-pty",
+  );
+  if (!existsSync(nodePtyDir)) {
+    throw new Error(
+      `Missing node-pty at ${nodePtyDir}; run npm install in packages/zcode-ui/services before bundling`,
+    );
+  }
+  const nodePtyPrebuilds = resolve(nodePtyDir, "prebuilds");
+  const distPrebuilds = resolve(distDir, "prebuilds");
+  const targetPlatform = `${process.platform}-${process.arch}`;
+  const targetPrebuildDir = resolve(distPrebuilds, targetPlatform);
+
+  // Upstream prebuilds cover win32 and darwin; debug symbols (*.pdb) are not
+  // loadable artifacts and add tens of megabytes.
+  if (existsSync(nodePtyPrebuilds)) {
+    cpSync(nodePtyPrebuilds, distPrebuilds, {
+      recursive: true,
+      filter: (source) => !source.endsWith(".pdb"),
+    });
+    console.log("✓ Copied node-pty prebuilds (excluding *.pdb)");
+  }
+
+  // No published prebuild covers linux, so a source build supplies the addon
+  // for the current platform. On darwin the spawn-helper must travel with it.
+  mkdirSync(targetPrebuildDir, { recursive: true });
+  const localArtifacts = [
+    "build/Release/pty.node",
+    ...(process.platform === "darwin" ? ["build/Release/spawn-helper"] : []),
+  ];
+  for (const artifact of localArtifacts) {
+    const source = resolve(nodePtyDir, artifact);
+    if (!existsSync(source)) continue;
+    const destination = resolve(targetPrebuildDir, basename(artifact));
+    cpSync(source, destination);
+    if (basename(artifact) === "spawn-helper") {
+      chmodSync(destination, 0o755);
+    }
+    console.log(
+      `✓ Copied node-pty ${basename(artifact)} for ${targetPlatform}`,
+    );
+  }
+
+  // The prebuilds carry spawn-helper for every darwin architecture; keep it
+  // executable even if the installed copy lost its mode bits.
+  if (existsSync(distPrebuilds)) {
+    for (const entry of readdirSync(distPrebuilds)) {
+      const helper = resolve(distPrebuilds, entry, "spawn-helper");
+      if (existsSync(helper)) {
+        chmodSync(helper, 0o755);
+      }
+    }
+  }
+
+  const ptyAddon = resolve(targetPrebuildDir, "pty.node");
+  if (!existsSync(ptyAddon)) {
+    throw new Error(
+      `Missing ${ptyAddon}. The build must ship a node-pty addon for ${targetPlatform}; ` +
+        "run npm rebuild node-pty in packages/zcode-ui/services or provide a matching prebuild.",
+    );
+  }
+  console.log(`✓ Verified node-pty addon for ${targetPlatform}: ${ptyAddon}`);
 
   // The frontend is built from the vendored zcode-ui tree, but the release
   // tarball publishes dist/ alone, so the browser bundle has to sit inside it.
