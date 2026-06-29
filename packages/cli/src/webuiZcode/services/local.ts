@@ -3,6 +3,8 @@ import type {
   IFileService,
   IFileWatcherService,
   IGitService,
+  IPluginManagementService,
+  IPluginsService,
   ISettingService,
   ISystemService,
   ITerminalService,
@@ -16,6 +18,8 @@ import {
   createSystemService,
   createTerminalService,
 } from "@zcode/services/node";
+
+import { createZcodePluginServices } from "./plugins.js";
 
 interface DisposableAll {
   disposeAll(): void;
@@ -45,6 +49,8 @@ export interface LocalZcodeServices {
   readonly terminalService: ITerminalService;
   readonly fileWatcherService: IFileWatcherService;
   readonly broadcastService: IBroadcastService;
+  readonly pluginsService: IPluginsService;
+  readonly pluginManagementService: IPluginManagementService;
   dispose(): void;
 }
 
@@ -56,6 +62,7 @@ export function createLocalZcodeServices(): LocalZcodeServices {
   const gitService = createGitService();
   const systemService = createSystemService();
   const broadcastService = createBroadcastService(null);
+  const pluginServices = createZcodePluginServices();
   let disposed = false;
 
   return {
@@ -66,9 +73,12 @@ export function createLocalZcodeServices(): LocalZcodeServices {
     terminalService,
     fileWatcherService,
     broadcastService,
+    pluginsService: pluginServices.pluginsService,
+    pluginManagementService: pluginServices.pluginManagementService,
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      pluginServices.dispose();
       // The interfaces do not expose their teardown, but the node factories
       // implement disposeAll to kill ptys and close fs.watch handles.
       if (hasDisposeAll(terminalService)) terminalService.disposeAll();
