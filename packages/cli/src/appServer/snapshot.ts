@@ -1,8 +1,10 @@
+/* eslint-disable max-lines -- the message projection keeps every part shape in one place */
 import { ZCODE_PROTOCOL_NAME, ZCODE_PROTOCOL_VERSION } from "@zcode/shared";
 import type {
   ModelSelection,
   ZCodeMessagePart,
   ZCodeMessageWithParts,
+  ZCodeSessionKind,
   ZCodeSessionInfo,
   ZCodeSessionMode,
   ZCodeSessionStateSnapshot,
@@ -13,11 +15,13 @@ import type {
   ChatHistoryItem,
   MessageContent,
   Session,
+  ThinkingChatMessage,
   ToolCallDelta,
   ToolCallState,
 } from "core/index.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import { messageTimestampOf, type SessionMeta } from "../session/store.js";
 
 const DEFAULT_AGENT = "tnt";
 
@@ -25,7 +29,7 @@ export type SessionStatus =
   "idle" | "running" | "waiting" | "paused" | "completed" | "error";
 
 export interface SessionInfoContext {
-  meta?: { dateCreated?: string; updatedAt?: string } | null;
+  meta?: Partial<SessionMeta> | null;
   model?: ModelSelection;
   status?: SessionStatus;
 }
@@ -36,13 +40,26 @@ export interface SnapshotContext extends SessionInfoContext {
 }
 
 type ItemWithMessageId = ChatHistoryItem & { messageId?: string };
+type ItemWithUserText = ChatHistoryItem & { userText?: string };
 
 interface MessageContext {
   session: Session;
   messageId: string;
   parentMessageId: string;
+  created: number;
   model?: ModelSelection;
   results: Map<string, string>;
+}
+
+interface FileProjection {
+  mime: string;
+  url: string;
+  filename?: string;
+}
+
+interface ContentProjection {
+  text: string;
+  files: FileProjection[];
 }
 
 function workspacePathOf(session: Session): string {
@@ -55,8 +72,68 @@ function timestampOf(value: string | undefined): number {
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
 }
 
+function itemTimestampOf(item: ChatHistoryItem): number {
+  return timestampOf(messageTimestampOf(item));
+}
+
+function mimeFromDataUrl(url: string, fallback: string): string {
+  const match = /^data:([^;,]+)[;,]/.exec(url);
+  return match?.[1] ?? fallback;
+}
+
+function contentProjection(
+  content: MessageContent,
+  displayText?: string,
+): ContentProjection {
+  if (typeof content === "string") {
+    return { text: displayText ?? content, files: [] };
+  }
+  if (!Array.isArray(content)) {
+    return { text: displayText ?? "", files: [] };
+  }
+  const texts: string[] = [];
+  const files: FileProjection[] = [];
+  content.forEach((part, index) => {
+    if (part.type === "text") {
+      texts.push(part.text);
+      return;
+    }
+    if (part.type === "imageUrl") {
+      const url = part.imageUrl.url;
+      files.push({
+        mime: mimeFromDataUrl(url, "image/*"),
+        url,
+        filename: `attachment-${index + 1}`,
+      });
+      return;
+    }
+    if (part.type === "audio") {
+      const mime = `audio/${part.audio.format}`;
+      files.push({
+        mime,
+        url: `data:${mime};base64,${part.audio.data}`,
+        filename: `attachment-${index + 1}`,
+      });
+    }
+  });
+  return {
+    text: displayText === undefined ? texts.join("") : displayText,
+    files,
+  };
+}
+
 function toZcodeMode(mode: Session["mode"]): ZCodeSessionMode {
   return mode === "plan" ? "plan" : "build";
+}
+
+function sessionKindOf(
+  session: Session,
+  meta: Partial<SessionMeta> | null | undefined,
+): ZCodeSessionKind {
+  if (session.subagentType || meta?.source === "subagent") {
+    return "subagent_child";
+  }
+  return "interactive";
 }
 
 function messageIdFor(
@@ -237,7 +314,7 @@ function assistantInfo(
     messageId: context.messageId,
     sessionId: context.session.sessionId,
     role: "assistant",
-    time: { created: 0 },
+    time: { created: context.created },
     parentMessageId: context.parentMessageId,
     agent: DEFAULT_AGENT,
     path: { cwd: workspacePath, root: workspacePath },
@@ -264,13 +341,16 @@ function userMessage(
   synthetic: boolean,
 ): ZCodeMessageWithParts {
   const partId = `${context.messageId}:part-text`;
-  const text = contentText(item.message.content);
+  const projection = contentProjection(
+    item.message.content,
+    (item as ItemWithUserText).userText,
+  );
   const info: ZCodeMessageWithParts["info"] = synthetic
     ? {
         messageId: context.messageId,
         sessionId: context.session.sessionId,
         role: "user",
-        time: { created: 0 },
+        time: { created: context.created },
         agent: DEFAULT_AGENT,
         synthetic: true,
       }
@@ -278,44 +358,64 @@ function userMessage(
         messageId: context.messageId,
         sessionId: context.session.sessionId,
         role: "user",
-        time: { created: 0 },
+        time: { created: context.created },
         agent: DEFAULT_AGENT,
       };
-  const part: ZCodeMessagePart = synthetic
-    ? {
-        type: "text",
-        partId,
-        sessionId: context.session.sessionId,
-        messageId: context.messageId,
-        text,
-        synthetic: true,
-      }
-    : {
-        type: "text",
-        partId,
-        sessionId: context.session.sessionId,
-        messageId: context.messageId,
-        text,
-      };
-  return { info, parts: [part] };
+  const parts: ZCodeMessagePart[] = [
+    synthetic
+      ? {
+          type: "text",
+          partId,
+          sessionId: context.session.sessionId,
+          messageId: context.messageId,
+          text: projection.text,
+          synthetic: true,
+        }
+      : {
+          type: "text",
+          partId,
+          sessionId: context.session.sessionId,
+          messageId: context.messageId,
+          text: projection.text,
+        },
+  ];
+  projection.files.forEach((file, index) => {
+    parts.push({
+      type: "file",
+      partId: `${context.messageId}:part-file-${index}`,
+      sessionId: context.session.sessionId,
+      messageId: context.messageId,
+      mime: file.mime,
+      url: file.url,
+      ...(file.filename ? { filename: file.filename } : {}),
+    });
+  });
+  return { info, parts };
 }
 
 function thinkingMessage(
   item: ChatHistoryItem,
   context: MessageContext,
 ): ZCodeMessageWithParts {
-  const text = contentText(item.message.content);
+  const message = item.message as ThinkingChatMessage;
+  const parts: ZCodeMessagePart[] = [
+    {
+      type: "reasoning",
+      partId: `${context.messageId}:part-reasoning`,
+      sessionId: context.session.sessionId,
+      messageId: context.messageId,
+      text: contentText(message.content),
+    },
+  ];
+  const states = item.toolCallStates ?? [];
+  if (states.length > 0) {
+    parts.push(...toolPartsFromStates(states, context));
+  } else {
+    parts.push(...toolPartsFromCalls(message.toolCalls ?? [], context));
+  }
   return {
     info: assistantInfo(context, undefined),
-    parts: [
-      {
-        type: "reasoning",
-        partId: `${context.messageId}:part-reasoning`,
-        sessionId: context.session.sessionId,
-        messageId: context.messageId,
-        text,
-      },
-    ],
+    parts,
   };
 }
 
@@ -361,6 +461,7 @@ export function toZcodeMessages(session: Session): ZCodeMessageWithParts[] {
   const results = collectToolResults(session.history);
   const messages: ZCodeMessageWithParts[] = [];
   let lastUserMessageId: string | undefined;
+  let lastMessageId: string | undefined;
 
   session.history.forEach((item, index) => {
     const role = item.message.role;
@@ -371,10 +472,13 @@ export function toZcodeMessages(session: Session): ZCodeMessageWithParts[] {
     const context: MessageContext = {
       session,
       messageId,
-      parentMessageId: lastUserMessageId ?? messageId,
+      parentMessageId:
+        lastUserMessageId ?? lastMessageId ?? `${session.sessionId}:root`,
+      created: itemTimestampOf(item),
       model: undefined,
       results,
     };
+    lastMessageId = messageId;
     if (role === "user") {
       lastUserMessageId = messageId;
       messages.push(userMessage(item, context, false));
@@ -399,10 +503,16 @@ export function toZcodeSessionInfo(
   context: SessionInfoContext = {},
 ): ZCodeSessionInfo {
   const workspacePath = workspacePathOf(session);
+  const workspaceIdentity = context.meta?.workspaceIdentity?.trim();
+  const workspaceKey = workspaceIdentity || workspacePath;
   const info: ZCodeSessionInfo = {
     sessionId: session.sessionId,
-    workspace: { workspacePath, workspaceKey: workspacePath },
-    sessionKind: "interactive",
+    workspace: {
+      workspacePath,
+      ...(workspaceIdentity ? { workspaceIdentity } : {}),
+      workspaceKey,
+    },
+    sessionKind: sessionKindOf(session, context.meta),
     title: session.title || DEFAULT_SESSION_TITLE,
     mode: toZcodeMode(session.mode),
     status: context.status ?? "idle",
@@ -418,6 +528,22 @@ export function toZcodeSessionInfo(
   return info;
 }
 
+function markLastAssistantCompleted(
+  messages: ZCodeMessageWithParts[],
+  fallbackTimestamp: number,
+): void {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const info = messages[index]?.info;
+    if (info?.role !== "assistant") {
+      continue;
+    }
+    if (info.time.completed === undefined) {
+      info.time.completed = Math.max(info.time.created, fallbackTimestamp);
+    }
+    return;
+  }
+}
+
 function totalTokenCount(session: Session): number {
   return (
     (session.usage?.promptTokens ?? 0) + (session.usage?.completionTokens ?? 0)
@@ -429,6 +555,10 @@ export function toZcodeSnapshot(
   context: SnapshotContext = {},
 ): ZCodeSessionStateSnapshot {
   const info = toZcodeSessionInfo(session, context);
+  const messages = context.messages ?? toZcodeMessages(session);
+  if (info.status === "idle" || info.status === "completed") {
+    markLastAssistantCompleted(messages, timestampOf(context.meta?.updatedAt));
+  }
   return {
     protocol: { name: ZCODE_PROTOCOL_NAME, version: ZCODE_PROTOCOL_VERSION },
     session: info,
@@ -457,6 +587,6 @@ export function toZcodeSnapshot(
       stateRevision: context.runtime?.stateRevision ?? 0,
       pendingRequestIds: [],
     },
-    messages: context.messages ?? toZcodeMessages(session),
+    messages,
   };
 }
