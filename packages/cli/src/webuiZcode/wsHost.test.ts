@@ -1,5 +1,8 @@
 import http from "http";
 import type { AddressInfo } from "net";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import {
   ChannelClient,
@@ -15,7 +18,7 @@ import {
   ISettingService,
   ServiceCollection,
 } from "@zcode/services";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { WebSocket, type RawData } from "ws";
 
 import {
@@ -29,6 +32,24 @@ import { ZCODE_UNAVAILABLE_PREFIX } from "./services/stubs.js";
 import { startWebUiZcodeHost, type ZcodeServicesSource } from "./wsHost.js";
 
 const TOKEN = "test-webui-token";
+
+let testGlobalDir: string;
+let previousGlobalDir: string | undefined;
+
+beforeAll(() => {
+  previousGlobalDir = process.env.TNT_GLOBAL_DIR;
+  testGlobalDir = mkdtempSync(path.join(tmpdir(), "tnt-zcode-wshost-"));
+  process.env.TNT_GLOBAL_DIR = testGlobalDir;
+});
+
+afterAll(() => {
+  if (previousGlobalDir === undefined) {
+    delete process.env.TNT_GLOBAL_DIR;
+  } else {
+    process.env.TNT_GLOBAL_DIR = previousGlobalDir;
+  }
+  rmSync(testGlobalDir, { recursive: true, force: true });
+});
 
 interface ZcodeClient {
   ws: WebSocket;
@@ -200,7 +221,7 @@ async function waitFor(
 
 describe("startWebUiZcodeHost", () => {
   it("answers an upgrade without a token with HTTP 401", async () => {
-    const { port } = await startTestServer(
+    const { port } = await startTestServer(() =>
       buildZcodeServiceCollection({ workspacePath: process.cwd() }),
     );
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
@@ -218,7 +239,7 @@ describe("startWebUiZcodeHost", () => {
   });
 
   it("stays open with the session cookie and answers Initialize", async () => {
-    const { port } = await startTestServer(
+    const { port } = await startTestServer(() =>
       buildZcodeServiceCollection({ workspacePath: process.cwd() }),
     );
     const handle = openClient(`ws://127.0.0.1:${port}/ws`, {
@@ -230,7 +251,7 @@ describe("startWebUiZcodeHost", () => {
   });
 
   it("accepts the token from the query string", async () => {
-    const { port } = await startTestServer(
+    const { port } = await startTestServer(() =>
       buildZcodeServiceCollection({ workspacePath: process.cwd() }),
     );
     const handle = openClient(
@@ -315,6 +336,33 @@ describe("startWebUiZcodeHost", () => {
     // One factory run per accepted upgrade: a shared scope would have built
     // once and let the second connection inherit the first's subscriptions.
     expect(factoryCalls).toBe(2);
+  });
+
+  it("disposes each connection scope when its socket closes", async () => {
+    let disposals = 0;
+    const services = (): ServiceCollection => {
+      const collection = new ServiceCollection() as ServiceCollection & {
+        dispose(): void;
+      };
+      collection.dispose = () => {
+        disposals += 1;
+      };
+      return collection;
+    };
+    const { port } = await startTestServer(services);
+    const url = `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TOKEN)}`;
+
+    for (let index = 1; index <= 2; index += 1) {
+      const handle = openClient(url);
+      await handle.initialized;
+      await handle.closeTransport();
+      await waitFor(
+        () => disposals === index,
+        `connection ${index} scope disposal`,
+      );
+    }
+
+    expect(disposals).toBe(2);
   });
 
   it("rejects every stubbed required service with ZCODE_UNAVAILABLE", async () => {
