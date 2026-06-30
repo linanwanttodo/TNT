@@ -498,7 +498,7 @@ program
 // App-server subcommand
 program
   .command("app-server", { hidden: true })
-  .description("Run the TNT app-server NDJSON protocol host")
+  .description("Run the TNT app-server NDJSON protocol host (stderr muted)")
   .option("--stdio", "Serve the protocol over stdin/stdout")
   .action(async (options: { stdio?: boolean }) => {
     await (await import("./commands/appServer.js")).appServer(options);
