@@ -34,6 +34,26 @@ import type { WebUiRouteContext } from "./webuiTypes.js";
 import { services } from "./index.js";
 
 /**
+ * The roots a browser may browse: the session's workspace directory and the
+ * process cwd, de-duplicated, with trailing separators stripped. Both
+ * /workspaces and /api/server-info derive their workspace list from here so
+ * the two surfaces cannot disagree about which checkout is open.
+ */
+function resolveWorkspaceEntries(
+  workspaceDirectory: string | undefined,
+): Array<{ path: string; name: string }> {
+  const paths = new Set(
+    [workspaceDirectory, process.cwd()]
+      .filter((root): root is string => Boolean(root))
+      .map((root) => root.replace(/[/\\]+$/, "")),
+  );
+  return [...paths].map((path) => ({
+    path,
+    name: path.split("/").pop() ?? path,
+  }));
+}
+
+/**
  * The engine routes the browser talks to. Every handler answers with JSON
  * except the event stream, and every handler stamps the state's activity
  * clock so the SSE keep-alive has something to measure against.
@@ -82,9 +102,7 @@ export function registerWebUiRoutes(
   app.get("/workspaces", (_req: Request, res: Response) => {
     state.lastActivity = Date.now();
     const session = ctx.resolveSession();
-    const roots = [...new Set([session.workspaceDirectory, process.cwd()])]
-      .filter((root): root is string => Boolean(root))
-      .map((root) => root.replace(/[/\\]+$/, ""));
+    const workspaces = resolveWorkspaceEntries(session.workspaceDirectory);
     const walk = (directory: string, depth: number): string[] => {
       if (depth > 3) return [];
       let entries: fs.Dirent[] = [];
@@ -107,11 +125,21 @@ export function registerWebUiRoutes(
       return files;
     };
     res.json({
-      workspaces: roots.map((root) => ({
-        path: root,
-        name: root.split("/").pop() ?? root,
-        files: walk(root, 0).slice(0, 300),
+      workspaces: workspaces.map((workspace) => ({
+        ...workspace,
+        files: walk(workspace.path, 0).slice(0, 300),
       })),
+    });
+  });
+
+  // GET /api/server-info - The vendored ZCode web entry fetches this before it
+  // connects to /ws to learn which workspace to open first. It shares
+  // /workspaces' roots but not its file walk: the entry only needs the paths.
+  app.get("/api/server-info", (_req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+    const session = ctx.resolveSession();
+    res.json({
+      workspaces: resolveWorkspaceEntries(session.workspaceDirectory),
     });
   });
 

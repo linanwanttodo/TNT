@@ -3,38 +3,54 @@ import {
   IBroadcastService,
   IClientConfigService,
   IClientScenesService,
+  ICloudContentService,
   ICodingPlanSubscriptionService,
   ICommandsService,
   IConversationShareService,
   ICredentialService,
+  ICuaPermissionService,
+  IDeviceSyncStateService,
   IFeedbackService,
   IFileService,
   IFileWatcherService,
+  IGenUiService,
   IGitCheckpointService,
   IGitService,
   IHooksService,
   IHighspeedCardService,
+  IMarketingTouchService,
   IMcpSyncService,
+  IMediaPreviewService,
   IMemoryService,
   IModelSelectionService,
   IOAuthService,
   IOffPeakTaskService,
+  IOnboardingRecordService,
   IOutputStyleService,
   IPluginManagementService,
+  IPluginUiAppToolsService,
+  IPluginUiBridgeService,
+  IPluginUiSamplingService,
   IPluginsService,
   IPluginSyncService,
   IPromptAttachmentTransferService,
+  IProjectService,
+  IProviderProvisioningStatusService,
   IProviderSettingsService,
+  IRemoteProjectService,
   ISettingService,
   ISettingsSyncService,
   ISkillSyncService,
   ISkillsService,
+  ISourceServerManagementService,
   ISourceServerWorkspaceService,
   ISubagentsService,
   ISystemService,
+  ITaskGroupService,
   ITerminalService,
   IUsageStatsService,
   IUserConfigSyncService,
+  IWindowControllerService,
   IZCodeAgentService,
   IZCodeSessionService,
   IZCodeTaskService,
@@ -45,7 +61,11 @@ import {
 
 import { logger } from "../utils/logger.js";
 
-import { stubService } from "./services/stubs.js";
+import {
+  stubBroadcastService,
+  stubService,
+  stubSettingService,
+} from "./services/stubs.js";
 
 export interface ZcodeServiceCollectionDeps {
   /** The checkout the UI shell is showing; later tasks hand it to real services. */
@@ -53,12 +73,22 @@ export interface ZcodeServiceCollectionDeps {
 }
 
 type OptionalAccessorKey = {
-  [K in keyof IServiceAccessor]: undefined extends IServiceAccessor[K]
+  [K in keyof IServiceAccessor]-?: undefined extends IServiceAccessor[K]
     ? K
     : never;
 }[keyof IServiceAccessor];
 
 type RequiredAccessorKey = Exclude<keyof IServiceAccessor, OptionalAccessorKey>;
+
+/**
+ * Optional accessor members that are themselves a single service channel.
+ * `windowProjectDirectory` is a container grouping three descriptors rather
+ * than a channel of its own, so it is not registered here.
+ */
+type OptionalServiceAccessorKey = Exclude<
+  OptionalAccessorKey,
+  "windowProjectDirectory"
+>;
 
 /**
  * Every service `IServiceAccessor` declares as required. Tasks 9-11 replace
@@ -114,6 +144,37 @@ const ZCODE_REQUIRED_SERVICE_DESCRIPTORS_BY_KEY = {
 export const ZCODE_REQUIRED_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
   Object.values(ZCODE_REQUIRED_SERVICE_DESCRIPTORS_BY_KEY);
 
+/**
+ * Every optional accessor member backed by a descriptor `@zcode/services`
+ * exports as a value. These channels exist so a mounted hook calling one gets
+ * an immediate `ZCODE_UNAVAILABLE` rejection instead of waiting out the
+ * ChannelServer's 1000 ms unknown-channel timeout on first paint.
+ *
+ * The Record pins coverage the same way the required one does: a new optional
+ * descriptor member fails `tsc` until it is registered here.
+ */
+const ZCODE_OPTIONAL_SERVICE_DESCRIPTORS_BY_KEY = {
+  taskGroupService: ITaskGroupService,
+  projectService: IProjectService,
+  remoteProjectService: IRemoteProjectService,
+  mediaPreviewService: IMediaPreviewService,
+  cloudContentService: ICloudContentService,
+  marketingTouchService: IMarketingTouchService,
+  onboardingRecordService: IOnboardingRecordService,
+  windowControllerService: IWindowControllerService,
+  cuaPermissionService: ICuaPermissionService,
+  sourceServerManagementService: ISourceServerManagementService,
+  deviceSyncStateService: IDeviceSyncStateService,
+  providerProvisioningStatusService: IProviderProvisioningStatusService,
+  genUiService: IGenUiService,
+  pluginUiBridgeService: IPluginUiBridgeService,
+  pluginUiSamplingService: IPluginUiSamplingService,
+  pluginUiAppToolsService: IPluginUiAppToolsService,
+} satisfies Record<OptionalServiceAccessorKey, ServiceDescriptor<unknown>>;
+
+export const ZCODE_OPTIONAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
+  Object.values(ZCODE_OPTIONAL_SERVICE_DESCRIPTORS_BY_KEY);
+
 export function buildZcodeServiceCollection(
   deps: ZcodeServiceCollectionDeps,
 ): ServiceCollection {
@@ -122,11 +183,20 @@ export function buildZcodeServiceCollection(
   );
 
   const collection = new ServiceCollection();
-  for (const descriptor of ZCODE_REQUIRED_SERVICE_DESCRIPTORS) {
-    collection.register(
-      descriptor,
-      stubService<unknown>(descriptor.channelName),
-    );
+  for (const descriptor of [
+    ...ZCODE_REQUIRED_SERVICE_DESCRIPTORS,
+    ...ZCODE_OPTIONAL_SERVICE_DESCRIPTORS,
+  ]) {
+    // Two required services have first-paint callers that attach no
+    // rejection handler, so they answer their read paths instead of
+    // rejecting like the rest of the stubs.
+    const instance =
+      descriptor === ISettingService
+        ? stubSettingService()
+        : descriptor === IBroadcastService
+          ? stubBroadcastService()
+          : stubService<unknown>(descriptor.channelName);
+    collection.register(descriptor, instance);
   }
   return collection;
 }

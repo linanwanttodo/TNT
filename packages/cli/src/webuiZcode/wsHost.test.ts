@@ -10,12 +10,18 @@ import {
   type IDisposable,
   type ISocket,
 } from "@zcode/rpc";
-import { IZCodeAgentService, ServiceCollection } from "@zcode/services";
+import {
+  IZCodeAgentService,
+  ISettingService,
+  ServiceCollection,
+} from "@zcode/services";
+import { DEFAULT_LOCALE } from "@zcode/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket, type RawData } from "ws";
 
 import {
   buildZcodeServiceCollection,
+  ZCODE_OPTIONAL_SERVICE_DESCRIPTORS,
   ZCODE_REQUIRED_SERVICE_DESCRIPTORS,
 } from "./serviceCollection.js";
 import { ZCODE_UNAVAILABLE_PREFIX } from "./services/stubs.js";
@@ -328,6 +334,49 @@ describe("startWebUiZcodeHost", () => {
       ).toBe(true);
     }
     expect(seen.size).toBe(ZCODE_REQUIRED_SERVICE_DESCRIPTORS.length);
+  });
+
+  it("resolves settingService.get through the channel", async () => {
+    // ZCodeIntlProvider calls get() without a catch on first paint; the stub
+    // must answer the required AppSettings defaults rather than reject.
+    const { port } = await startTestServer(() =>
+      buildZcodeServiceCollection({ workspacePath: process.cwd() }),
+    );
+    const handle = openClient(
+      `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TOKEN)}`,
+    );
+    await handle.initialized;
+
+    await expect(
+      channel(handle.client, ISettingService.channelName).call("get"),
+    ).resolves.toEqual({ recentProjects: [], locale: DEFAULT_LOCALE });
+  });
+
+  it("registers optional channels so a stub call rejects without the timeout", async () => {
+    // An unregistered channel waits out ChannelServer's 1000 ms timeout before
+    // failing with "Unknown channel"; a mounted hook calling an optional
+    // service on first paint pays that cost once per channel if it is missing.
+    const { port } = await startTestServer(() =>
+      buildZcodeServiceCollection({ workspacePath: process.cwd() }),
+    );
+    const handle = openClient(
+      `ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(TOKEN)}`,
+    );
+    await handle.initialized;
+
+    for (const descriptor of ZCODE_OPTIONAL_SERVICE_DESCRIPTORS) {
+      const startedAt = Date.now();
+      const error = await rejection(
+        channel(handle.client, descriptor.channelName).call("__stubProbe__"),
+      );
+
+      expect(
+        error.message.startsWith(
+          `${ZCODE_UNAVAILABLE_PREFIX}${descriptor.channelName}`,
+        ),
+      ).toBe(true);
+      expect(Date.now() - startedAt).toBeLessThan(1000);
+    }
   });
 });
 

@@ -1139,3 +1139,38 @@ describe("WebUiService model and workspace routes", () => {
     expect(response.status).toBe(401);
   });
 });
+
+describe("WebUiService server-info route", () => {
+  const sessionAt = (workspaceDirectory: string) => () => ({
+    sessionId: "session-info",
+    title: "",
+    workspaceDirectory,
+    history: [],
+  });
+
+  it("answers the workspace shape the vendored ZCode entry reads", async () => {
+    // The entry takes workspaces[0].path as its initial workspace. A trailing
+    // separator must not survive, and the session's cwd duplicate collapses.
+    const { base, auth } = await started({
+      getSession: sessionAt(`${process.cwd()}${path.sep}`),
+    });
+
+    const response = await fetch(`${base}/api/server-info`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      workspaces: [
+        {
+          path: process.cwd(),
+          name: process.cwd().split("/").pop(),
+        },
+      ],
+    });
+  });
+
+  it("requires authentication for GET /api/server-info", async () => {
+    const { base } = await started();
+
+    const response = await fetch(`${base}/api/server-info`);
+    expect(response.status).toBe(401);
+  });
+});
