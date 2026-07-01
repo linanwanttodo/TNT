@@ -7,9 +7,15 @@ import type { Express, Request } from "express";
 
 import { globalDir } from "../config/globalDir.js";
 import { t } from "../i18n/index.js";
+import {
+  TOKEN_COOKIE,
+  requestToken,
+  tokenEquals,
+} from "../utils/webuiToken.js";
+
+export { requestToken, tokenEquals };
 
 export const WEBUI_TOKEN_FILE = "webui-token";
-const TOKEN_COOKIE = "tnt_webui_token";
 
 /**
  * Read at call time rather than at import: a spec that mocks the path module
@@ -49,37 +55,6 @@ export function resolveWebUiToken(persistToken: boolean): string {
     // Windows and sandboxes without chmod still get a usable token file.
   }
   return generated;
-}
-
-/** The token a request carries: the session cookie or a Bearer header. */
-export function requestToken(req: Request): string | undefined {
-  const header = req.headers.authorization;
-  if (typeof header === "string" && header.startsWith("Bearer ")) {
-    return header.slice("Bearer ".length);
-  }
-
-  const cookies = req.headers.cookie;
-  if (typeof cookies !== "string") {
-    return undefined;
-  }
-  for (const segment of cookies.split(";")) {
-    const at = segment.indexOf("=");
-    if (at === -1 || segment.slice(0, at).trim() !== TOKEN_COOKIE) {
-      continue;
-    }
-    return segment.slice(at + 1).trim();
-  }
-  return undefined;
-}
-
-/** Constant-time token comparison; lengths are guarded before comparing. */
-export function tokenEquals(presented: string, expected: string): boolean {
-  const presentedBytes = Buffer.from(presented, "utf8");
-  const expectedBytes = Buffer.from(expected, "utf8");
-  return (
-    presentedBytes.length === expectedBytes.length &&
-    crypto.timingSafeEqual(presentedBytes, expectedBytes)
-  );
 }
 
 /**
