@@ -29,8 +29,11 @@ vi.mock("../services/index.js", () => ({
 import { serviceContainer } from "../services/ServiceContainer.js";
 import type { ModelServiceState } from "../services/types.js";
 import { executeSubAgent } from "../subagent/executor.js";
+import { DEFAULT_TEAMS } from "../team/defaultTeams.js";
+import type { TeamDefinition } from "../team/loader.js";
+import { logger } from "../utils/logger.js";
 
-import { subagentTool } from "./subagent.js";
+import { resolveAgentState, subagentTool } from "./subagent.js";
 
 const sessionModel = {
   name: "work-model",
@@ -45,6 +48,38 @@ function stateOf(): ModelServiceState {
     model: sessionModel,
     assistant: null,
   } as unknown as ModelServiceState;
+}
+
+const cheapModel = {
+  name: "cheap-model",
+  provider: "openai",
+  model: "haiku",
+  roles: ["chat"],
+  chatOptions: {},
+};
+
+function stateWithModels(
+  models: unknown[],
+  overrides: Record<string, unknown> = {},
+): ModelServiceState {
+  return {
+    llmApi: {} as any,
+    model: sessionModel,
+    assistant: { models },
+    ...overrides,
+  } as unknown as ModelServiceState;
+}
+
+function devTeamWithImplementerModel(model?: string): TeamDefinition {
+  const dev = DEFAULT_TEAMS.find((team) => team.name === "dev")!;
+  return {
+    ...dev,
+    members: dev.members.map((member) =>
+      member.name === "implementer"
+        ? { ...member, ...(model ? { model } : {}) }
+        : member,
+    ),
+  };
 }
 
 describe("dispatching a listed team member", () => {
@@ -94,5 +129,86 @@ describe("dispatching a listed team member", () => {
         subagent_name: "no-such-agent",
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("a team member's assigned model", () => {
+  it("runs the member on the model its roster names", () => {
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([cheapModel]),
+      devTeamWithImplementerModel("cheap-model"),
+    );
+
+    expect(agent?.model?.name).toBe("implementer");
+    expect(agent?.model?.model).toBe("haiku");
+    expect(agent?.model?.provider).toBe("openai");
+    // The roster persona stays the base system message on the assigned model.
+    expect(agent?.model?.chatOptions?.baseSystemMessage).toContain(
+      "先写失败的测试",
+    );
+  });
+
+  it("matches the assigned name against the model id as well as the entry name", () => {
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([cheapModel]),
+      devTeamWithImplementerModel("haiku"),
+    );
+
+    expect(agent?.model?.model).toBe("haiku");
+    expect(agent?.model?.chatOptions?.baseSystemMessage).toContain(
+      "先写失败的测试",
+    );
+  });
+
+  it("inherits the session model when the member names none", () => {
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([cheapModel]),
+      devTeamWithImplementerModel(),
+    );
+
+    expect(agent?.model?.model).toBe("gpt-x");
+    expect(agent?.model?.chatOptions?.baseSystemMessage).toContain(
+      "先写失败的测试",
+    );
+  });
+
+  it("falls back to the session model when the named model is unknown", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([cheapModel]),
+      devTeamWithImplementerModel("ghost-model"),
+    );
+
+    expect(agent?.model?.model).toBe("gpt-x");
+    expect(agent?.model?.chatOptions?.baseSystemMessage).toContain(
+      "先写失败的测试",
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ghost-model"));
+  });
+
+  it("lets a configured agent of the same name shadow the member and its model", () => {
+    const configured = {
+      name: "implementer",
+      provider: "anthropic",
+      model: "claude-configured",
+      roles: ["subagent"],
+      chatOptions: { baseSystemMessage: "configured implementer persona" },
+    };
+
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([configured]),
+      devTeamWithImplementerModel("cheap-model"),
+    );
+
+    expect(agent?.model?.model).toBe("claude-configured");
+    expect(agent?.model?.chatOptions?.baseSystemMessage).toBe(
+      "configured implementer persona",
+    );
   });
 });

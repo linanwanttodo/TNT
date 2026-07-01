@@ -92,6 +92,24 @@ describe("resolveDispatchableAgent", () => {
     expect(agent!.systemMessage).toBe("implementer prompt");
   });
 
+  it("carries the model an active team member was assigned", () => {
+    const dev = teamWith("dev", [
+      {
+        name: "implementer",
+        description: "writes code",
+        team: "dev",
+        lead: false,
+        model: "cheap-model",
+        systemMessage: "implementer prompt",
+      },
+    ]);
+
+    const agent = resolveDispatchableAgent("implementer", stateOf(), dev);
+
+    expect(agent!.kind).toBe("team");
+    expect(agent!.model).toBe("cheap-model");
+  });
+
   it("resolves a team member that references a built-in from the registry", () => {
     const dev = teamWith("dev", [
       {

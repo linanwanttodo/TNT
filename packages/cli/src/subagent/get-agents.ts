@@ -28,6 +28,12 @@ export interface DispatchableAgent {
   systemMessage: string;
   restriction?: "readonly" | "no-writes";
   deniedTools?: string[];
+  /**
+   * The model the roster assigned this member, still unresolved: dispatch
+   * resolves it against the configured models and falls back to the session
+   * model when it names nothing there.
+   */
+  model?: string;
   kind: "model" | "team" | "plugin";
 }
 
@@ -81,6 +87,7 @@ export function resolveDispatchableAgent(
       deniedTools: builtIn?.deniedTools
         ? [...builtIn.deniedTools]
         : member.deniedTools,
+      model: member.model,
       kind: "team",
     };
   }

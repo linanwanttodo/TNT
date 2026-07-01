@@ -170,6 +170,105 @@ deniedTools: Exit, AskQuestion
     expect(lead.restriction).toBeUndefined();
   });
 
+  it("parses a member's model from the frontmatter", () => {
+    writeMember(
+      projectDir,
+      "dev",
+      "lead.md",
+      `name: lead
+description: Leads the team
+team: dev
+lead: true
+model: cheap-model
+`,
+      "body",
+    );
+
+    const lead = loadTeams(projectDir).find(
+      (team) => team.name === "dev",
+    )!.lead;
+    expect(lead.model).toBe("cheap-model");
+  });
+
+  it("leaves an empty model undefined", () => {
+    writeMember(
+      projectDir,
+      "dev",
+      "lead.md",
+      `name: lead
+description: Leads the team
+team: dev
+lead: true
+model: ""
+`,
+      "body",
+    );
+
+    const lead = loadTeams(projectDir).find(
+      (team) => team.name === "dev",
+    )!.lead;
+    expect(lead.model).toBeUndefined();
+  });
+
+  it("ignores a non-string model and warns", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    writeMember(
+      projectDir,
+      "dev",
+      "lead.md",
+      `name: lead
+description: Leads the team
+team: dev
+lead: true
+model: 42
+`,
+      "body",
+    );
+
+    const lead = loadTeams(projectDir).find(
+      (team) => team.name === "dev",
+    )!.lead;
+    expect(lead.model).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("invalid model"));
+  });
+
+  it("keeps the model through the default/global/project layering", () => {
+    const implementer = () =>
+      loadTeams(projectDir)
+        .find((team) => team.name === "dev")!
+        .members.find((member) => member.name === "implementer")!;
+
+    writeGlobalMember(
+      "dev",
+      "implementer.md",
+      `name: implementer
+description: Global implementer
+team: dev
+lead: false
+model: global-model
+`,
+      "global body",
+    );
+    expect(implementer().model).toBe("global-model");
+    expect(implementer().source).toBe("global");
+
+    writeMember(
+      projectDir,
+      "dev",
+      "implementer.md",
+      `name: implementer
+description: Project implementer
+team: dev
+lead: false
+model: project-model
+`,
+      "project body",
+    );
+    expect(implementer().model).toBe("project-model");
+    expect(implementer().systemMessage).toBe("project body");
+    expect(implementer().source).toBe("project");
+  });
+
   it("sees a file added after invalidateTeamCache", () => {
     const dev = () => getTeam("dev", projectDir);
     writeMember(projectDir, "dev", "lead.md", LEAD_MEMBER, "lead body");
