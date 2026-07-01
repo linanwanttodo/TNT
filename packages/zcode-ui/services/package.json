@@ -14,7 +14,8 @@
   },
   "scripts": {
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "postinstall": "node ../scripts/apply-vendor-patches.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.21.1",

@@ -28,14 +28,14 @@ for arg in "$@"; do
 done
 
 if ! command -v "$NODE_BIN" &>/dev/null; then
-    echo "Error: node was not found. Install Node.js 20 or newer." >&2
+    echo "Error: node was not found. Install Node.js 24 or newer." >&2
     exit 1
 fi
 
 "$NODE_BIN" -e '
 const major = Number(process.versions.node.split(".")[0]);
-if (major < 20) {
-  console.error(`Error: Node.js 20 or newer is required, found ${process.versions.node}.`);
+if (major < 24) {
+  console.error(`Error: Node.js 24 or newer is required, found ${process.versions.node}.`);
   process.exit(1);
 }
 '
