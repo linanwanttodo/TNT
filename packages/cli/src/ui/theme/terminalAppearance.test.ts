@@ -99,10 +99,38 @@ describe("probeTerminalIsDark", () => {
     expect(await probing).toBe(false);
   });
 
+  it("removes its listeners once the terminal answers", async () => {
+    const { stdin, stdout } = fakeStreams();
+    const probing = probeTerminalIsDark({ stdin, stdout }, 500);
+    stdin.emit("data", "\x1b]11;rgb:ffff/ffff/ffff\x1b\\");
+    await probing;
+
+    expect(stdin.listenerCount("data")).toBe(0);
+    expect(stdin.listenerCount("close")).toBe(0);
+  });
+
   it("falls back to dark when the terminal stays silent", async () => {
     const { stdin, stdout } = fakeStreams();
 
     expect(await probeTerminalIsDark({ stdin, stdout }, 30)).toBe(true);
+  });
+
+  it("removes its listeners after the timeout", async () => {
+    const { stdin, stdout } = fakeStreams();
+    await probeTerminalIsDark({ stdin, stdout }, 30);
+
+    expect(stdin.listenerCount("data")).toBe(0);
+    expect(stdin.listenerCount("close")).toBe(0);
+  });
+
+  it("settles when stdin closes before an answer", async () => {
+    const { stdin, stdout } = fakeStreams();
+    const probing = probeTerminalIsDark({ stdin, stdout }, 500);
+    stdin.emit("close");
+
+    expect(await probing).toBe(true);
+    expect(stdin.listenerCount("data")).toBe(0);
+    expect(stdin.listenerCount("close")).toBe(0);
   });
 });
 

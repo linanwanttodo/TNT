@@ -511,6 +511,21 @@ describe("TextBuffer", () => {
         buffer.handleInput("\u001b[201~", { ctrl: false, meta: false } as any);
         expect(buffer.text).toBe("[Pasted Text #1 · 1000 chars]");
       });
+
+      it("should accept the ESC-stripped markers Ink 6 delivers", () => {
+        const content = "Hello world!";
+
+        buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+        expect(buffer.isInPasteMode()).toBe(true);
+        expect(buffer.text).toBe("");
+
+        buffer.handleInput(content, { ctrl: false, meta: false } as any);
+        expect(buffer.text).toBe("");
+
+        buffer.handleInput("[201~", { ctrl: false, meta: false } as any);
+        expect(buffer.isInPasteMode()).toBe(false);
+        expect(buffer.text).toBe(content);
+      });
     });
   });
 
