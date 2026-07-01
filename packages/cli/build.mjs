@@ -220,17 +220,6 @@ const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
   });
   console.log("✓ Copied native clipboard helpers");
 
-  // The /webui frontend travels inside this package: the release tarball copies
-  // dist wholesale and publishes nothing else, so the vite output has to land
-  // in dist/webui or the command serves a working server with no client. A
-  // missing build fails here instead of shipping that hole again.
-  const webuiDist = resolve(__dirname, "webui", "dist");
-  if (!existsSync(resolve(webuiDist, "index.html"))) {
-    throw new Error(`No webui frontend at ${webuiDist} - npm run build:webui`);
-  }
-  cpSync(webuiDist, resolve(distDir, "webui"), { recursive: true });
-  console.log("✓ Copied webui frontend to dist/webui");
-
   // Make the wrapper script executable
   chmodSync("dist/tnt.js", 0o755);
 

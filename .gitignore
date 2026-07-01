@@ -16,7 +16,6 @@ eggs/
 .eggs/
 lib/
 !docs-site/lib/
-!packages/cli/webui/src/ui/zcode/lib/
 lib64/
 parts/
 sdist/
