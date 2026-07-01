@@ -4,11 +4,13 @@ import path from "path";
 /**
  * Where a built frontend may live, in the order the server should trust it.
  *
- * The frontend is not a published package: tnt-webui is private, and its build
- * is copied to dist/webui at CLI build time because the release tarball
- * publishes dist/ alone. A source checkout keeps the vite output at webui/dist
- * instead, and the last entry is the historical hand-installed location, which
- * still serves anyone who set it up that way.
+ * The frontend is not a published package: the vendored zcode-ui web app builds
+ * into packages/zcode-ui/web/dist, and that build is copied to dist/webui at
+ * CLI build time because the release tarball publishes dist/ alone. A source
+ * checkout prefers the live build so a rebuilt frontend is served without a
+ * second copy step, while an installed CLI only has the copy. The last entry is
+ * the historical hand-installed location, which still serves anyone who set it
+ * up that way.
  */
 export function webuiDistCandidates(
   moduleDir: string,
@@ -16,8 +18,8 @@ export function webuiDistCandidates(
 ): string[] {
   const packageRoot = findPackageRoot(moduleDir);
   return [
+    path.resolve(packageRoot, "..", "zcode-ui", "web", "dist"),
     path.join(packageRoot, "dist", "webui"),
-    path.join(packageRoot, "webui", "dist"),
     path.resolve(cwd, "node_modules", "tnt-webui", "dist"),
   ];
 }
