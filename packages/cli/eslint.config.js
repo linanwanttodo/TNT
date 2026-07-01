@@ -207,6 +207,7 @@ export default [
     ignores: [
       "dist/**",
       "node_modules/**",
+      "../zcode-ui/**",
       "coverage/**",
       "*.d.ts",
       "src/__mocks__/**",
