@@ -254,10 +254,25 @@ function permissionDeltas(
               detail: payload.input ?? {},
               options: [
                 {
-                  optionId: "allow",
-                  label: "Allow",
+                  optionId: "allow_once",
+                  label: "Allow once",
                   kind: "allowOnce",
                   response: { decision: "allow" },
+                },
+                {
+                  optionId: "allow_always",
+                  label: "Allow for this session",
+                  kind: "allowAlways",
+                  response: {
+                    decision: "allow",
+                    permissionUpdates: [
+                      {
+                        type: "addRules",
+                        behavior: "allow",
+                        rules: [{ toolName: asText(payload.toolName) }],
+                      },
+                    ],
+                  },
                 },
                 {
                   optionId: "deny",

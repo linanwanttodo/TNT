@@ -7,7 +7,14 @@ import {
 import { V4_METHODS } from "@zcode/shared/zcode-protocol-v4";
 
 import type { InteractionBroker } from "../permissions/interactionBroker.js";
+import type { ToolPermissionManager } from "../permissions/permissionManager.js";
+import type { QuizService } from "../services/QuizService.js";
 
+import {
+  InteractionBridge,
+  type InteractionRequestHandle,
+  type InteractionSender,
+} from "./interactions.js";
 import { SessionRuntimeStore } from "./runtime.js";
 import {
   isSessionRequestError,
@@ -48,6 +55,15 @@ export interface AppServerProtocolOptions {
   events?: TurnSources;
   ensureServices?: () => Promise<void>;
   interactionBroker?: InteractionBroker;
+  permissionManager?: ToolPermissionManager;
+  quizService?: QuizService;
+  resolveSessionId?: () => string | null;
+  interactions?: boolean;
+}
+
+interface PendingServerRequest {
+  resolve(value: unknown): void;
+  reject(error: Error): void;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -62,8 +78,11 @@ function isRequestId(value: unknown): value is ProtocolRequestId {
 
 export class AppServerProtocol {
   private readonly handlers = new Map<string, ProtocolHandler>();
+  private readonly serverRequests = new Map<string, PendingServerRequest>();
+  private nextServerRequestId = 0;
   readonly sessions: SessionHandlers;
   readonly turns: TurnHandlers;
+  readonly interactions: InteractionBridge | null;
   readonly v4: V4Handlers;
 
   constructor(
@@ -86,12 +105,27 @@ export class AppServerProtocol {
       events: options.events,
       ensureServices: options.ensureServices,
     });
+    this.interactions =
+      options.interactions === false
+        ? null
+        : new InteractionBridge({
+            sender: this.interactionSender(),
+            runtimes,
+            permissionManager: options.permissionManager,
+            quizService: options.quizService,
+            broker: options.interactionBroker,
+            events: options.events,
+            resolveSessionId:
+              options.resolveSessionId ??
+              (() => this.turns.getActiveSessionId()),
+          });
     this.v4 = new V4Handlers({
       sender: transport,
       runtimes,
       sessions: this.sessions,
       turns: this.turns,
       interactionBroker: options.interactionBroker,
+      interactions: this.interactions,
     });
     this.handlers.set(zcodeProtocolMethods.runtimeCapabilities, () =>
       this.capabilities(),
@@ -157,6 +191,11 @@ export class AppServerProtocol {
   dispose(): void {
     this.turns.dispose();
     this.v4.dispose();
+    this.interactions?.dispose();
+    for (const pending of this.serverRequests.values()) {
+      pending.reject(new Error("App-server protocol disposed"));
+    }
+    this.serverRequests.clear();
   }
 
   async handle(message: unknown): Promise<void> {
@@ -177,6 +216,12 @@ export class AppServerProtocol {
         PROTOCOL_INVALID_REQUEST,
         "Invalid request id",
       );
+      return;
+    }
+    // A message with no method but a result or error is the client answering a
+    // request this server started (an interaction bridge prompt).
+    if (!("method" in message) && ("result" in message || "error" in message)) {
+      this.settleServerRequest(message);
       return;
     }
     if (typeof message.method !== "string") {
@@ -214,6 +259,62 @@ export class AppServerProtocol {
       PROTOCOL_PARSE_ERROR,
       `Parse error: ${error.message}`,
     );
+  }
+
+  private interactionSender(): InteractionSender {
+    return {
+      request: (method, params) => this.outboundRequest(method, params),
+      respond: (requestId, result) => this.respondToClient(requestId, result),
+    };
+  }
+
+  private outboundRequest(
+    method: string,
+    params: unknown,
+  ): InteractionRequestHandle {
+    this.nextServerRequestId += 1;
+    const requestId = `app-server-${this.nextServerRequestId}`;
+    const result = new Promise<unknown>((resolve, reject) => {
+      this.serverRequests.set(requestId, { resolve, reject });
+    });
+    void this.transport
+      .send({ id: requestId, method, params })
+      .catch((error: unknown) => {
+        this.rejectServerRequest(requestId, error);
+      });
+    return { requestId, result };
+  }
+
+  private respondToClient(requestId: string, result: unknown): Promise<void> {
+    return this.transport.send({ id: requestId, result });
+  }
+
+  private rejectServerRequest(requestId: string, error: unknown): void {
+    const pending = this.serverRequests.get(requestId);
+    if (!pending) {
+      return;
+    }
+    this.serverRequests.delete(requestId);
+    pending.reject(error instanceof Error ? error : new Error(String(error)));
+  }
+
+  private settleServerRequest(message: Record<string, unknown>): void {
+    const requestId = String(message.id);
+    const pending = this.serverRequests.get(requestId);
+    if (!pending) {
+      return;
+    }
+    this.serverRequests.delete(requestId);
+    if (message.error !== undefined) {
+      const record = isRecord(message.error) ? message.error : {};
+      const text =
+        typeof record.message === "string"
+          ? record.message
+          : `Interaction request ${requestId} failed`;
+      pending.reject(new Error(text));
+      return;
+    }
+    pending.resolve(message.result);
   }
 
   private async sendError(
