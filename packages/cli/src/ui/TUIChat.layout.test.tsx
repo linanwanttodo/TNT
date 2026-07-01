@@ -79,8 +79,13 @@ describe("TUIChat layout", () => {
       const composerBorder = content.findIndex((line) => line.includes("╭"));
       expect(composerBorder).toBeGreaterThan(-1);
       expect(content[composerBorder + 1]).toContain("Ask anything");
-      expect(content[composerBorder + 2]).toContain("╰");
-      // A single status row follows the composer: workspace and model share it.
+      // The input has a single top rule: no bottom rule and no side rails.
+      expect(content.some((line) => line.includes("╰"))).toBe(false);
+      expect(content.some((line) => line.includes("│"))).toBe(false);
+      // The composer footer carries the transient hint row.
+      expect(content[composerBorder + 2]).toContain("? for shortcuts");
+      // A single status row follows the composer footer: workspace and model
+      // share it.
       const status = content[composerBorder + 3];
       expect(status).toContain("TNT");
 
