@@ -119,6 +119,7 @@ describe("resolveThemeName", () => {
   it("passes explicit names through", () => {
     expect(resolveThemeName("dark")).toBe("dark");
     expect(resolveThemeName("tencent-light")).toBe("tencent-light");
+    expect(resolveThemeName("claude")).toBe("claude");
     expect(resolveThemeName("SOMETHING-odd")).toBe("dark");
   });
 
