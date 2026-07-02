@@ -62,14 +62,16 @@ import {
 import { logger } from "../utils/logger.js";
 
 import {
-  stubBroadcastService,
-  stubService,
-  stubSettingService,
-} from "./services/stubs.js";
+  getLocalZcodeServices,
+  type LocalZcodeServices,
+} from "./services/local.js";
+import { stubService } from "./services/stubs.js";
 
 export interface ZcodeServiceCollectionDeps {
-  /** The checkout the UI shell is showing; later tasks hand it to real services. */
+  /** The checkout the UI shell is showing. */
   workspacePath: string;
+  /** Test/host seam; defaults to the process-wide bundle. */
+  localServices?: LocalZcodeServices;
 }
 
 type OptionalAccessorKey = {
@@ -175,11 +177,33 @@ const ZCODE_OPTIONAL_SERVICE_DESCRIPTORS_BY_KEY = {
 export const ZCODE_OPTIONAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
   Object.values(ZCODE_OPTIONAL_SERVICE_DESCRIPTORS_BY_KEY);
 
+/**
+ * The channels answered by the process-wide local bundle. Every other
+ * descriptor still resolves to a `ZCODE_UNAVAILABLE` stub. Tasks 10-11 move
+ * the remaining agent, session and plugin channels here.
+ */
+const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
+  ServiceDescriptor<unknown>,
+  (local: LocalZcodeServices) => unknown
+>([
+  [IFileService, (local) => local.fileService],
+  [IGitService, (local) => local.gitService],
+  [ISettingService, (local) => local.settingService],
+  [ISystemService, (local) => local.systemService],
+  [ITerminalService, (local) => local.terminalService],
+  [IFileWatcherService, (local) => local.fileWatcherService],
+  [IBroadcastService, (local) => local.broadcastService],
+]);
+
+export const ZCODE_LOCAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
+  [...ZCODE_LOCAL_SERVICE_ACCESSORS.keys()];
+
 export function buildZcodeServiceCollection(
   deps: ZcodeServiceCollectionDeps,
 ): ServiceCollection {
+  const local = deps.localServices ?? getLocalZcodeServices();
   logger.debug(
-    `webui-zcode: building stub service scope for ${deps.workspacePath}`,
+    `webui-zcode: building service scope for ${deps.workspacePath} (local instances shared process-wide)`,
   );
 
   const collection = new ServiceCollection();
@@ -187,15 +211,10 @@ export function buildZcodeServiceCollection(
     ...ZCODE_REQUIRED_SERVICE_DESCRIPTORS,
     ...ZCODE_OPTIONAL_SERVICE_DESCRIPTORS,
   ]) {
-    // Two required services have first-paint callers that attach no
-    // rejection handler, so they answer their read paths instead of
-    // rejecting like the rest of the stubs.
-    const instance =
-      descriptor === ISettingService
-        ? stubSettingService()
-        : descriptor === IBroadcastService
-          ? stubBroadcastService()
-          : stubService<unknown>(descriptor.channelName);
+    const resolveLocal = ZCODE_LOCAL_SERVICE_ACCESSORS.get(descriptor);
+    const instance = resolveLocal
+      ? resolveLocal(local)
+      : stubService<unknown>(descriptor.channelName);
     collection.register(descriptor, instance);
   }
   return collection;
