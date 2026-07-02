@@ -26,6 +26,7 @@ export class NdjsonTransport {
   private started = false;
   private stopped = false;
   private callbacks: NdjsonTransportCallbacks | null = null;
+  private writeChain: Promise<void> = Promise.resolve();
 
   constructor(options: NdjsonTransportOptions) {
     this.input = options.input;
@@ -59,19 +60,46 @@ export class NdjsonTransport {
     this.callbacks = null;
   }
 
-  async send(message: unknown): Promise<void> {
-    if (this.stopped) {
-      return;
-    }
+  /**
+   * Serialize writes so concurrent handlers cannot interleave, and resolve the
+   * returned promise only once the bytes have left the stream (after `drain`
+   * when `write()` reports backpressure). Sends already accepted by shutdown
+   * still reach stdout: `stop()` only detaches the input side.
+   */
+  send(message: unknown): Promise<void> {
     const line = `${JSON.stringify(message)}\n`;
-    await new Promise<void>((resolve, reject) => {
-      this.output.write(line, (error?: Error | null) => {
-        if (error) {
-          reject(error);
+    const write = this.writeChain.then(() => this.writeLine(line));
+    this.writeChain = write.then(
+      () => undefined,
+      () => undefined,
+    );
+    return write;
+  }
+
+  flush(): Promise<void> {
+    return this.writeChain;
+  }
+
+  private writeLine(line: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error | null): void => {
+        if (settled) {
           return;
         }
-        resolve();
+        settled = true;
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
+      const accepted = this.output.write(line, (error?: Error | null) => {
+        finish(error);
       });
+      if (!accepted) {
+        this.output.once("drain", () => finish(null));
+      }
     });
   }
 

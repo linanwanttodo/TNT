@@ -104,7 +104,7 @@ export class AppServerProtocol {
     }
     try {
       const result = await handler(message.params);
-      await this.transport.send({ id: message.id, result });
+      await this.transport.send({ id: message.id, result: result ?? null });
     } catch (error) {
       await this.sendError(
         message.id,
