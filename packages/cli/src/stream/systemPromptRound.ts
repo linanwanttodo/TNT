@@ -26,8 +26,54 @@ export interface SystemPromptRoundState {
   request?: string;
   /** In-history updates appended since that rewrite. */
   updates: string[];
+  /**
+   * The history length each update was produced at, parallel to `updates`.
+   * Recorded at production time so the update keeps the prompt position it
+   * first occupied: re-appending it after the whole history every round moves
+   * its bytes down the prompt, and the provider rebills everything after the
+   * old position. Absent on state that never recorded one; those updates stay
+   * at the end.
+   */
+  updateAnchors?: number[];
   /** Per-section prefix/told facts for the reinjection planner. */
   sections?: SectionBaselineState;
+}
+
+/**
+ * An update whose anchor is unknown belongs at the current end of the history,
+ * which is where the old tail-append put every update.
+ */
+const TAIL_ANCHOR = Number.MAX_SAFE_INTEGER;
+
+/**
+ * Record updates together with the history position they were produced at.
+ * The two arrays are written in one place so they cannot drift out of step.
+ */
+export function appendSystemPromptUpdates(
+  state: SystemPromptRoundState,
+  texts: readonly string[],
+  historyLength: number,
+): void {
+  if (texts.length === 0) return;
+  const anchors = state.updates.map(
+    (_, index) => state.updateAnchors?.[index] ?? TAIL_ANCHOR,
+  );
+  state.updates = [...state.updates, ...texts];
+  state.updateAnchors = [...anchors, ...texts.map(() => historyLength)];
+}
+
+/**
+ * Re-point existing updates at the end of a rewritten history. Compaction
+ * re-prices the whole prefix, so keeping the old offsets would place the
+ * updates inside a history they no longer belong to; the next round is free to
+ * place them at its new tail.
+ */
+export function reanchorSystemPromptUpdates(
+  state: SystemPromptRoundState,
+  historyLength: number,
+): void {
+  if (state.updates.length === 0) return;
+  state.updateAnchors = state.updates.map(() => historyLength);
 }
 
 export interface AdvanceSystemPromptInput {
@@ -36,6 +82,11 @@ export interface AdvanceSystemPromptInput {
   readonly modelName: string;
   readonly supportsInHistoryUpdate?: boolean;
   readonly carriesInHistory: boolean;
+  /**
+   * Where the next update belongs, in history items. Omitted by callers that
+   * only model the prompt state; the update then stays at the end.
+   */
+  readonly historyLength?: number;
 }
 
 export interface AdvancedSystemPrompt {
@@ -69,9 +120,14 @@ export function advanceSystemPrompt(
     }
     // A fresh array, not a push: a header remembered from the previous request
     // must keep describing the updates that request actually sent.
-    state.updates = [...state.updates, decision.appendedPrompt];
+    appendSystemPromptUpdates(
+      state,
+      [decision.appendedPrompt],
+      input.historyLength ?? TAIL_ANCHOR,
+    );
   } else if (decision.action === "rewrite") {
     state.updates = [];
+    if (state.updateAnchors) state.updateAnchors = [];
     state.request = next;
     // Named from the bytes that are actually about to be sent, so the line
     // cannot disagree with what the provider has to rebill.

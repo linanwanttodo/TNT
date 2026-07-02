@@ -1,7 +1,6 @@
 import { ModelConfig } from "@tnt/config-yaml";
 import { BaseLlmApi } from "@tnt/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
-import { convertFromUnifiedHistoryWithSystemMessage } from "core/util/messageConversion.js";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,
@@ -25,6 +24,7 @@ import {
 } from "../utils/exponentialBackoff.js";
 import { logger } from "../utils/logger.js";
 
+import { composeRequestMessages } from "./requestMessages.js";
 import { pruneHistoryToContextLimit } from "./requestPreparation.js";
 import {
   consumeProviderStream,
@@ -46,6 +46,16 @@ interface ProcessStreamingResponseOptions {
   tools?: ChatCompletionTool[];
   systemMessage: string;
   systemMessageUpdates?: readonly string[];
+  /**
+   * The history position each update was produced at, parallel to
+   * `systemMessageUpdates`. Missing entries keep the update at the end.
+   */
+  systemMessageUpdateAnchors?: readonly number[];
+  /**
+   * The session environment, delivered in the first user message instead of
+   * the system field so it cannot rewrite the head of the cached prefix.
+   */
+  environmentContext?: string;
   /** True when this request is a compaction, whose prefix is not the session's. */
   isCompacting?: boolean;
   /**
@@ -98,6 +108,8 @@ export async function processStreamingResponse(
     tools,
     systemMessage,
     systemMessageUpdates = [],
+    systemMessageUpdateAnchors,
+    environmentContext,
     isCompacting,
     cachePrefixVerdict,
     cachePrefixComparison,
@@ -106,25 +118,31 @@ export async function processStreamingResponse(
   let chatHistory = options.chatHistory;
 
   // Prune trailing messages until the request fits the window, counting the
-  // system message, its updates and the tool list. Still too large throws here.
+  // system message, its updates, the environment and the tool list. Still too
+  // large throws here.
   const { chatHistory: prunedChatHistory, maxTokens } =
     pruneHistoryToContextLimit({
       chatHistory,
       model,
       systemMessage,
       systemMessageUpdates,
+      environmentContext,
       tools,
     });
   chatHistory = prunedChatHistory;
 
-  // Create OpenAI format history with validated system message
-  const openaiChatHistory = [
-    ...convertFromUnifiedHistoryWithSystemMessage(chatHistory, systemMessage),
-    ...systemMessageUpdates.map((content): ChatCompletionMessageParam => ({
-      role: "system",
-      content,
+  // Create OpenAI format history with validated system message. In-history
+  // updates are placed at the history position they were produced at, and the
+  // environment travels in the first user message.
+  const openaiChatHistory = composeRequestMessages({
+    chatHistory,
+    systemMessage,
+    updates: systemMessageUpdates.map((text, index) => ({
+      text,
+      at: systemMessageUpdateAnchors?.[index] ?? Number.MAX_SAFE_INTEGER,
     })),
-  ] as ChatCompletionMessageParam[];
+    environmentContext,
+  }) as ChatCompletionMessageParam[];
   const requestStartTime = Date.now();
   const promptCacheKey = currentPromptCacheKey();
 

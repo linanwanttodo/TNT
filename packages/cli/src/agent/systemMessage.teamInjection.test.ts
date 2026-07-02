@@ -60,22 +60,33 @@ afterEach(() => {
   activeTeam.value = undefined;
 });
 
+/**
+ * The rules block is split into per-source sections, so its text is the join
+ * of every section that carries the `userRules` id or one of its children.
+ */
+function rulesText(
+  sections: readonly { name: string; text: string }[],
+): string {
+  return sections
+    .filter((section) => section.name.startsWith("userRules"))
+    .map((section) => section.text)
+    .join("");
+}
+
 describe("the active team lead prompt in the userRules section", () => {
   it("carries the reception block for the active team, and drops it when none is active", async () => {
     activeTeam.value = "dev";
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
+    const rules = rulesText(sections);
 
-    expect(rules).toBeDefined();
-    expect(rules?.volatile).toBe(true);
-    expect(rules?.text).toContain("team-reception");
-    expect(rules?.text).toContain('source="dev"');
+    expect(sections.some((section) => section.name === "userRules")).toBe(true);
+    expect(rules).toContain("team-reception");
+    expect(rules).toContain('source="dev"');
 
     activeTeam.value = undefined;
     const off = await buildSystemMessageSections("default");
-    const offRules = off.find((section) => section.name === "userRules");
-    expect(offRules?.text ?? "").not.toContain("team-reception");
+    expect(rulesText(off)).not.toContain("team-reception");
   });
 
   it("resolves through getTeam so the block names the roster's own team", async () => {
@@ -85,8 +96,7 @@ describe("the active team lead prompt in the userRules section", () => {
     expect(team?.name).toBe("dev");
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
-    expect(rules?.text).toContain(`source="${team?.name}"`);
+    expect(rulesText(sections)).toContain(`source="${team?.name}"`);
   });
 
   it("latches: two calls with the same active team produce the same text", async () => {
@@ -102,7 +112,7 @@ describe("the active team lead prompt in the userRules section", () => {
     const sections = await buildSystemMessageSections("default");
 
     expect(
-      sections.find((section) => section.name === "userRules"),
+      sections.find((section) => section.name.startsWith("userRules")),
     ).toBeUndefined();
   });
 
@@ -110,10 +120,10 @@ describe("the active team lead prompt in the userRules section", () => {
     activeTeam.value = "sec";
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
+    const rules = rulesText(sections);
 
-    expect(rules?.text).toContain('source="sec"');
-    expect(rules?.text).toContain("the sec team is active");
+    expect(rules).toContain('source="sec"');
+    expect(rules).toContain("the sec team is active");
   });
 
   // The goal-PRD design replaces the lead injection: the main agent's block is
@@ -123,12 +133,12 @@ describe("the active team lead prompt in the userRules section", () => {
     activeTeam.value = "dev";
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
+    const rules = rulesText(sections);
 
-    expect(rules?.text).toContain("team-reception");
-    expect(rules?.text).toContain("the dev team is active");
+    expect(rules).toContain("team-reception");
+    expect(rules).toContain("the dev team is active");
     // The lead's own prompt stays out: the lead is a team subagent now.
-    expect(rules?.text).not.toContain("You lead the dev team");
+    expect(rules).not.toContain("You lead the dev team");
   });
 
   it("keeps the discipline beside the goal alignment block", async () => {
@@ -140,8 +150,7 @@ describe("the active team lead prompt in the userRules section", () => {
     expect(getSessionGoal()).toBeDefined();
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
-    const text = rules?.text ?? "";
+    const text = rulesText(sections);
 
     expect(text).toContain("goal-align");
     expect(text).toContain("team-reception");

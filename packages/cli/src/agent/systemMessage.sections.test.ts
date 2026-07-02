@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  createSectionBaselines,
+  planSectionReinjection,
+} from "../stream/systemMessageReinjection.js";
+
 // The suite-wide mock of this module answers with one fixed string; the section
 // helpers are what is under test here, so the real module is used.
 vi.unmock("./systemMessage.js");
@@ -110,18 +115,36 @@ describe("system message sections", () => {
       "json",
       true,
     );
-    const parts = splitSystemMessageBySections(
-      joinSystemMessageSections(sections),
+    const joined = joinSystemMessageSections(sections);
+    const parts = splitSystemMessageBySections(joined);
+
+    // The rules block is announced once but built from many source sections.
+    // The splitter recovers the announced block, and that block is exactly the
+    // concatenation of its sources in build order.
+    const rulesSections = sections.filter((part) =>
+      part.name.startsWith("userRules"),
+    );
+    expect(parts.userRules.trim()).toBe(
+      rulesSections
+        .map((part) => part.text)
+        .join("")
+        .trim(),
     );
 
-    // This is the drift guard for the marker table: if a part stops announcing
-    // itself, or a new part appears unannounced, the split no longer matches the
-    // build and the report would name the wrong thing.
-    expect(Object.keys(parts).sort()).toEqual(
-      sections.map((part) => part.name).sort(),
-    );
-    for (const part of sections) {
-      expect(parts[part.name].trim()).toBe(part.text.trim());
+    // This is the drift guard for the marker table: every announced top-level
+    // part is recovered and every source section falls inside one of them.
+    const announced = sections
+      .filter(
+        (part) =>
+          part.name === "userRules" || !part.name.startsWith("userRules"),
+      )
+      .map((part) => part.name)
+      .sort();
+    expect(Object.keys(parts).sort()).toEqual(announced);
+    for (const name of announced.filter((name) => name !== "userRules")) {
+      expect(parts[name].trim()).toBe(
+        sections.find((part) => part.name === name)?.text.trim(),
+      );
     }
   });
 
@@ -139,6 +162,75 @@ describe("system message sections", () => {
     expect(describeSystemMessageTextChange(text("a", false), text("a"))).toBe(
       "planMode added",
     );
+  });
+});
+
+describe("rule sources as separate sections", () => {
+  it("emits one section per rule source inside the announced block", async () => {
+    const sections = await buildSystemMessageSections("default", [
+      "RULE-A",
+      "RULE-B",
+    ]);
+    const names = sections.map((section) => section.name);
+
+    expect(names).toContain("userRules");
+    expect(names).toContain("userRules:agent:AGENTS.md");
+    expect(names).toContain("userRules:cli:0");
+    expect(names).toContain("userRules:cli:1");
+    expect(names).toContain("userRules:end");
+    // The wrapper is still one announced block: every source section sits
+    // between the opening id and the closing footer.
+    expect(names.indexOf("userRules:end")).toBeGreaterThan(
+      names.indexOf("userRules:cli:1"),
+    );
+    expect(names.indexOf("environment")).toBeGreaterThan(
+      names.indexOf("userRules:end"),
+    );
+  });
+
+  it("restates only the edited rule when one source changes", async () => {
+    const before = await buildSystemMessageSections("default", [
+      "RULE-A",
+      "RULE-B",
+    ]);
+    const after = await buildSystemMessageSections("default", [
+      "RULE-A",
+      "RULE-B EDITED",
+    ]);
+    const baselines = createSectionBaselines();
+    const sectionsOf = (sections: typeof before) =>
+      sections.map((section) => ({
+        id: section.name,
+        text: section.text,
+      }));
+
+    planSectionReinjection({
+      sections: sectionsOf(before),
+      baselines,
+      retainedHistory: "",
+      existingUpdates: [],
+      carriesInHistory: true,
+    });
+    const plan = planSectionReinjection({
+      sections: sectionsOf(after),
+      baselines,
+      retainedHistory: "",
+      existingUpdates: [],
+      carriesInHistory: true,
+    });
+
+    // The prefix keeps the old build byte for byte, so only the edited rule's
+    // new bytes ride in-history.
+    expect(plan.prefixText).toBe(
+      before.map((section) => section.text).join(""),
+    );
+    expect(plan.appends).toHaveLength(1);
+    expect(plan.appends[0]).toContain("RULE-B EDITED");
+    expect(plan.appends[0]).not.toContain("RULE-A");
+    expect(plan.appends[0]).not.toContain("AGENTS.md");
+    expect(
+      plan.perSection.filter((verdict) => verdict.action === "diff"),
+    ).toEqual([{ id: "userRules:cli:1", action: "diff" }]);
   });
 });
 

@@ -1,10 +1,6 @@
 import crypto from "crypto";
 
-import {
-  canonicalHeader,
-  headerEquals,
-  type RequestHeader,
-} from "./requestHeader.js";
+import { canonicalHeader, type RequestHeader } from "./requestHeader.js";
 
 /**
  * Whether the prompt prefix the provider already cached still applies to the
@@ -47,13 +43,12 @@ export type CacheMissOwner = "prefix" | "provider";
 /**
  * Fields that sit at the head of the request. Moving any of them shifts the
  * bytes the provider cached, so a change here is never a passthrough.
+ *
+ * `maxTokens` is not one of them: the output budget is recomputed from the
+ * remaining window on every round and is not part of the prompt the provider
+ * caches. Counting it made a shrinking history look like a rewritten prefix.
  */
-const FROZEN_FIELDS = [
-  "model",
-  "systemMessage",
-  "temperature",
-  "maxTokens",
-] as const;
+const FROZEN_FIELDS = ["model", "systemMessage", "temperature"] as const;
 
 const APPENDED_UPDATES = "appended:systemMessageUpdates";
 const APPENDED_TOOLS = "appended:tools";
@@ -85,12 +80,22 @@ function compareHeaderPrefix(
   previous: RequestHeader,
   current: RequestHeader,
 ): CachePrefixVerdict {
-  if (headerEquals(previous, current).equal) {
+  const before = canonicalHeader(previous);
+  const after = canonicalHeader(current);
+  // Compared field by field rather than with `headerEquals`, because that
+  // helper also reports per-round fields (the output budget) that never enter
+  // the cached prompt.
+  const promptFields: Array<keyof RequestHeader> = [
+    "model",
+    "systemMessage",
+    "systemMessageUpdates",
+    "tools",
+    "temperature",
+  ];
+  if (promptFields.every((field) => sameValue(before[field], after[field]))) {
     return { state: "full", reasons: [] };
   }
 
-  const before = canonicalHeader(previous);
-  const after = canonicalHeader(current);
   const frozenChanges = FROZEN_FIELDS.filter(
     (field) => !sameValue(before[field], after[field]),
   );

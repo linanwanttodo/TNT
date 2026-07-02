@@ -120,6 +120,18 @@ describe("classifyCachePrefix", () => {
     });
   });
 
+  it("does not invalidate a prefix because the output budget moved", () => {
+    // The window shrinks as the history grows, so the computed max_tokens moves
+    // on ordinary rounds. It is not part of the cached prompt and must not be
+    // reported as a rewritten prefix.
+    expect(
+      classifyCachePrefix(
+        { ...base, maxTokens: 2048 },
+        { ...base, maxTokens: 1024 },
+      ),
+    ).toEqual({ state: "full", reasons: [] });
+  });
+
   it("names every field that moved", () => {
     expect(
       classifyCachePrefix(base, {
