@@ -39,6 +39,7 @@ import { skillsTool } from "./skills.js";
 import { sortToolsByName } from "./stableOrder.js";
 import { statusTool } from "./status.js";
 import { listSubagentsTool, subagentTool } from "./subagent.js";
+import { summonTeamTool } from "./team.js";
 import { todoTool } from "./todo.js";
 import {
   isBetaSubagentToolEnabled,
@@ -172,6 +173,9 @@ export async function getAllAvailableTools(
     // the tool without one would cost schema tokens for a call that must fail.
     if (getSessionActiveTeam()) {
       tools.push(await assignTeamModelTool());
+      // Summoning is the whole-team counterpart of individual dispatch: it
+      // needs both the delegation gate above and a roster to lead.
+      tools.push(await summonTeamTool());
     }
   }
 

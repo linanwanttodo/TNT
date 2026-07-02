@@ -245,6 +245,16 @@ const en = {
     "Unknown agent type: {name}. Available agents: {agents}",
   "tools.unknownAgentType": "Unknown agent type: {name}",
   "tools.noActiveSession": "No active session found",
+  "tools.summonTeamGoalMissing":
+    "SummonTeam needs a goal: say what the whole team should accomplish.",
+  "tools.summonTeamNoActiveTeam":
+    "No team is active. Activate one with /team <name> before summoning the whole team.",
+  "tools.summonTeamNoLead":
+    "Team {team} has no lead, so it cannot be summoned. Fix its roster so exactly one member has lead: true.",
+  "tools.summonTeamUnresolvedLead":
+    "Could not resolve the lead {name} for team {team}.",
+  "tools.summonTeamFailed":
+    "The {team} lead failed before reporting: {message}",
   "compaction.summaryEmpty": "Compaction summary is empty",
   "compaction.exceedsBudget":
     "Compaction request exceeds the available context budget",
@@ -605,7 +615,7 @@ const en = {
   "agent.goalAlignmentLine":
     "Current session goal: {goal}. Align your work and decisions with this goal; confirm before acting on anything outside it.",
   "agent.receptionistDiscipline":
-    "You are the user's proxy while the {team} team is active: take the goal in, forward it to project-manager as a brief, dispatch per the PM's written plan, report back and escalate. Do not plan yourself - the plan comes from the PM, and deviations go back to the PM. Do not answer off-flow requests as a general assistant; surface them to the user instead. The PRD (.tnt/prd/<topic>.md) is the single source of truth: briefs cite R numbers, your reports cite the PRD path and status. Attention discipline: surface to the user only when a result is ready, a decision is needed, or the work failed; intermediate progress stays in the PRD and the role reports; confirm each request once. When a subagent closes abnormally, verification fails, or a new requirement arrives, act on the goal-development flow (agent-discipline.md section 8). The flow discipline is compiled there; do not load external planning skills on top of it. Without a session goal the flow does not start: tell the user to set one with /goal first.",
+    "You are the user's proxy while the {team} team is active: take the goal in, forward it to project-manager as a brief, dispatch per the PM's written plan, report back and escalate. Do not plan yourself - the plan comes from the PM, and deviations go back to the PM. Do not answer off-flow requests as a general assistant; surface them to the user instead. The PRD (.tnt/prd/<topic>.md) is the single source of truth: briefs cite R numbers, your reports cite the PRD path and status. Attention discipline: surface to the user only when a result is ready, a decision is needed, or the work failed; intermediate progress stays in the PRD and the role reports; confirm each request once. When a subagent closes abnormally, verification fails, or a new requirement arrives, act on the goal-development flow (agent-discipline.md section 8). The flow discipline is compiled there; do not load external planning skills on top of it. Without a session goal the flow does not start: tell the user to set one with /goal first. When SummonTeam is available and the user asks for the whole team, call it with the goal: it runs the lead, who plans and dispatches the roster, and returns the lead's report. For a single expert, dispatch that member with Subagent yourself. You remain the user's proxy and the lead remains the planner - do not plan in its place.",
   "agent.autoConvoke":
     "The user has enabled auto-convoke for large goals. When a session goal carries the convoke signals - work that must be broken into several deliverable subtasks, collaboration across roles, or the user naming the team - activate the team flow as if the user had run /team, and tell the user once which team you convened and how to stop it with /team off. Small single-piece work stays with you: never convene a team for it.",
   "cmd.diagnostics": "Language server diagnostics",
@@ -1120,6 +1130,14 @@ const zhCN: Record<TranslationKey, string> = {
     "未知的智能体类型：{name}。可用智能体：{agents}",
   "tools.unknownAgentType": "未知的智能体类型：{name}",
   "tools.noActiveSession": "未找到活动会话",
+  "tools.summonTeamGoalMissing":
+    "SummonTeam 需要一个目标：说明整个团队要完成什么。",
+  "tools.summonTeamNoActiveTeam":
+    "当前没有活动团队。先用 /team <名称> 激活团队，再召集整个团队。",
+  "tools.summonTeamNoLead":
+    "团队 {team} 没有领队，无法召集。请修正名册，使恰好一名成员带有 lead: true。",
+  "tools.summonTeamUnresolvedLead": "无法解析团队 {team} 的领队 {name}。",
+  "tools.summonTeamFailed": "团队 {team} 的领队在汇报前失败：{message}",
   "compaction.summaryEmpty": "压缩摘要为空",
   "compaction.exceedsBudget": "压缩请求超出可用的上下文预算",
   "compaction.noSummarizer":
@@ -1458,7 +1476,7 @@ const zhCN: Record<TranslationKey, string> = {
   "agent.goalAlignmentLine":
     "当前会话目标：{goal}。你的工作与决策对齐此目标；目标外的事项先确认再动。",
   "agent.receptionistDiscipline":
-    "你是使用者的代理，{team} 团队激活期间：受理目标、转派 project-manager、按 PM 的书面计划派发执行、向使用者转呈与求助。流程期间不自行规划：计划由 PM 产出，你执行；执行中的偏差回到 PM 裁决。流程期间不以通用助手身份处理流程外请求：转呈用户，由用户决定是否中断流程。PRD（.tnt/prd/<topic>.md）是唯一事实来源：派发 brief 引用 R 编号；你的报告引用 PRD 路径与状态。注意力纪律：只在结果就绪、需要用户决定、确定无法完成三种情况转呈用户；中间进展留在 PRD 与各角色收口记录里，不进对话；每个请求只确认一次。收口异常、验证未通过、新需求——按目标开发流程（agent-discipline.md 第 8 节）行动。流程纪律已编译进该文档；不调用外部规划类插件技能。未设 goal 时流程不启动：提示用户先 /goal。",
+    "你是使用者的代理，{team} 团队激活期间：受理目标、转派 project-manager、按 PM 的书面计划派发执行、向使用者转呈与求助。流程期间不自行规划：计划由 PM 产出，你执行；执行中的偏差回到 PM 裁决。流程期间不以通用助手身份处理流程外请求：转呈用户，由用户决定是否中断流程。PRD（.tnt/prd/<topic>.md）是唯一事实来源：派发 brief 引用 R 编号；你的报告引用 PRD 路径与状态。注意力纪律：只在结果就绪、需要用户决定、确定无法完成三种情况转呈用户；中间进展留在 PRD 与各角色收口记录里，不进对话；每个请求只确认一次。收口异常、验证未通过、新需求——按目标开发流程（agent-discipline.md 第 8 节）行动。流程纪律已编译进该文档；不调用外部规划类插件技能。未设 goal 时流程不启动：提示用户先 /goal。当 SummonTeam 可用且用户要求整个团队时，用它携带目标召集：它运行领队，由领队规划并派发名册成员，并返回领队报告。单一专家则用 Subagent 自行派发。你仍是使用者的代理，领队仍是规划者——不要代替领队规划。",
   "agent.autoConvoke":
     "用户已开启大目标自动召集。当会话目标带有召集信号——需要拆解成多个可交付子任务、涉及多角色协作、或用户点名团队——按等价于 /team 的方式进入团队流程，并转呈告知一次你召集了哪个团队、如何用 /team off 停止。小活不召集：单一交付物的任务由你自己完成。",
   "cmd.diagnostics": "语言服务器诊断",
