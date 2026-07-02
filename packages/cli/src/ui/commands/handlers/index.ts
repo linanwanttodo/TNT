@@ -3,6 +3,7 @@ import { t } from "../../../i18n/index.js";
 import { handleInfoSlashCommand } from "../../../startup/infoScreen.js";
 import type { CommandHandler } from "../types.js";
 
+import { handleBrief } from "./brief.js";
 import { handleIndex } from "./codebaseIndex.js";
 import { handleCost } from "./cost.js";
 import { handleDiagnostics } from "./diagnostics.js";
@@ -44,6 +45,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     },
     info: handleInfoSlashCommand,
     model: () => ({ openModelSelector: true }),
+    brief: (args) => handleBrief(args),
     think: (args) => handleThink(args),
     theme: () => ({ openThemeSelector: true }),
     compact: () => {
