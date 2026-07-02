@@ -21,6 +21,7 @@ import {
   parseParams,
   SessionHandlers,
   type ModelLookup,
+  type SessionWorkspaceRegistrar,
 } from "./session.js";
 import type { SessionRegistry } from "./sessionRegistry.js";
 import {
@@ -59,6 +60,10 @@ export interface AppServerProtocolOptions {
   quizService?: QuizService;
   resolveSessionId?: () => string | null;
   interactions?: boolean;
+  /** The host registers workspaces named on the wire; a child does not. */
+  workspaces?: SessionWorkspaceRegistrar;
+  /** The one workspace this process serves; omitted when it serves any. */
+  workspacePath?: string;
 }
 
 interface PendingServerRequest {
@@ -95,6 +100,8 @@ export class AppServerProtocol {
       sender: transport,
       modelLookup: options.modelLookup,
       runtimes,
+      workspaces: options.workspaces,
+      workspacePath: options.workspacePath,
     });
     this.turns = new TurnHandlers({
       sender: transport,
