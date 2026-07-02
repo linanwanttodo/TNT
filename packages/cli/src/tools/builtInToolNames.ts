@@ -36,6 +36,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "ToolSearch",
   "Subagent",
   "ListSubagents",
+  "AssignTeamModel",
   "Skills",
   "UploadArtifact",
   "Diff",

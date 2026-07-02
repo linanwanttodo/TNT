@@ -48,6 +48,8 @@ describe("tool policy coverage", () => {
     UploadArtifact: "needs the beta flag",
     Subagent: "needs the beta flag and a run below the depth limit",
     ListSubagents: "needs the beta flag and a run below the depth limit",
+    AssignTeamModel:
+      "needs the beta flag, a run below the depth limit and an active team",
   };
 
   /** Withheld in every mode of this test's flags, so its absence is checkable. */
