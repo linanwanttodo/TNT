@@ -23,6 +23,7 @@ import {
 } from "../session/index.js";
 import { sessionStore, type SessionMeta } from "../session/store.js";
 
+import { SessionRuntimeStore } from "./runtime.js";
 import {
   toZcodeMessages,
   toZcodeSessionInfo,
@@ -69,6 +70,7 @@ export interface SessionNotificationSender {
 export interface SessionHandlerOptions {
   sender: SessionNotificationSender;
   modelLookup?: ModelLookup | null;
+  runtimes?: SessionRuntimeStore;
 }
 
 export type TitleSource = "default" | "first_input" | "generated" | "custom";
@@ -89,7 +91,7 @@ interface ParseableSchema<T> {
   parse(value: unknown): T;
 }
 
-function parseParams<T>(schema: ParseableSchema<T>, params: unknown): T {
+export function parseParams<T>(schema: ParseableSchema<T>, params: unknown): T {
   try {
     return schema.parse(params ?? {});
   } catch (error) {
@@ -103,10 +105,12 @@ export class SessionHandlers {
   private readonly models = new Map<string, ModelSelection>();
   private readonly sender: SessionNotificationSender;
   private readonly configuredLookup: ModelLookup | null | undefined;
+  private readonly runtimes: SessionRuntimeStore;
 
   constructor(options: SessionHandlerOptions) {
     this.sender = options.sender;
     this.configuredLookup = options.modelLookup;
+    this.runtimes = options.runtimes ?? new SessionRuntimeStore();
   }
 
   async create(params: unknown): Promise<ZCodeSessionStateSnapshot> {
@@ -208,9 +212,12 @@ export class SessionHandlers {
     if (previousTitle !== title) {
       session.title = title;
       sessionStore.sync(session);
-      await this.sender.send({
-        method: "session/titleUpdated",
-        params: { sessionId, previousTitle, title, source },
+      // The vendored client only consumes `session/event`; a bare
+      // `session/titleUpdated` notification is dropped silently.
+      this.runtimes.append(sessionId, "session.titleUpdated", {
+        previousTitle,
+        title,
+        source,
       });
     }
     return this.snapshot(session);
@@ -239,6 +246,7 @@ export class SessionHandlers {
     return toZcodeSnapshot(session, {
       meta: sessionStore.getMeta(session.sessionId),
       model: this.modelFor(session),
+      runtime: this.runtimes.cursor(session.sessionId),
     });
   }
 
