@@ -41,9 +41,15 @@ import { sortToolsByName } from "./stableOrder.js";
  * first appears there; a session that never enables it bills the same bytes as
  * before. This is a deliberate addition, not a wording edit, and the guard
  * stays exact.
+ *
+ * 2026-11-09: `SummonTeam` gained `mode` and `members`, so the main agent can
+ * choose the run strategy and the roster subset in the tool call. That is a
+ * deliberate schema change: 478 more characters, moving the digest from
+ * 973748ebc5cddf7a/33989 to a71d2947f1555c76/34467 over the same 42 tools.
+ * It still only lands in sessions that activate a team behind the beta flag.
  */
-const PREFIX_FINGERPRINT = "973748ebc5cddf7a";
-const PREFIX_CHARACTERS = 33_989;
+const PREFIX_FINGERPRINT = "a71d2947f1555c76";
+const PREFIX_CHARACTERS = 34_467;
 const PREFIX_TOOLS = 42;
 
 const ARCHITECTURE_DOC = path.resolve(

@@ -35,15 +35,16 @@ describe("the public type surface the CLI compiles against", () => {
     // A floor, because every count below would be zero on the wrong file - or
     // on an empty one - and zero reads as a clean pass.
     expect(lines.length).toBeGreaterThanOrEqual(2_000);
-    expect(lines.length).toBeLessThanOrEqual(2_200);
+    expect(lines.length).toBeLessThanOrEqual(2_300);
   });
 
   it("keeps its declaration counts where the last round left them", () => {
-    // Measured 2026-10-28: 128 interfaces, 51 type aliases, 3 classes, 2 enums.
-    // The kinds are pinned separately so a rewrite that swaps an interface for a
-    // class (or folds types into one) moves a number instead of passing silently.
-    expect(declarations("interface")).toBe(128);
-    expect(declarations("type")).toBe(51);
+    // Measured 2026-11-09: the team-run ledger added two interfaces and three
+    // type aliases (128 -> 130, 51 -> 54). The kinds are pinned separately so a
+    // rewrite that swaps an interface for a class moves a number instead of
+    // passing silently.
+    expect(declarations("interface")).toBe(130);
+    expect(declarations("type")).toBe(54);
     expect(declarations("class")).toBe(3);
     expect(declarations("enum")).toBe(2);
   });

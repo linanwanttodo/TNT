@@ -255,6 +255,28 @@ const en = {
     "Could not resolve the lead {name} for team {team}.",
   "tools.summonTeamFailed":
     "The {team} lead failed before reporting: {message}",
+  "tools.summonTeamUnknownMode":
+    'Unknown run mode "{mode}". Use auto, parallel or serial.',
+  "tools.summonTeamUnknownMember":
+    'Team member "{name}" is not a dispatchable member of team {team}. Members: {members}.',
+  "tools.summonTeamNoMembers":
+    "No members to run. Name at least one member of {team}, or leave members unset to run every non-lead member.",
+  "tools.summonTeamTooManyMembers":
+    "{count} members were requested, but a team run may dispatch at most {max}.",
+  "tools.assignTeamModelMemberRequired":
+    "A team member name is required to assign a model.",
+  "tools.assignTeamModelNoActiveTeam":
+    "No team is active: activate a team before assigning a member model.",
+  "tools.assignTeamModelUnknownMember":
+    'Team member "{member}" is not in the active team "{team}". Members: {members}.',
+  "tools.assignTeamModelModelRequired":
+    "A model name is required to assign a model to {member}.",
+  "tools.assignTeamModelUnknownModel":
+    'Unknown model "{model}". Configured models: {models}.',
+  "tools.assignTeamModelNoModels":
+    'Unknown model "{model}". No models are configured.',
+  "subagent.teamMemberTimeout":
+    "Team member {name} timed out after {minutes} minutes.",
   "compaction.summaryEmpty": "Compaction summary is empty",
   "compaction.exceedsBudget":
     "Compaction request exceeds the available context budget",
@@ -1138,6 +1160,25 @@ const zhCN: Record<TranslationKey, string> = {
     "团队 {team} 没有领队，无法召集。请修正名册，使恰好一名成员带有 lead: true。",
   "tools.summonTeamUnresolvedLead": "无法解析团队 {team} 的领队 {name}。",
   "tools.summonTeamFailed": "团队 {team} 的领队在汇报前失败：{message}",
+  "tools.summonTeamUnknownMode":
+    '未知的运行模式 "{mode}"。请使用 auto、parallel 或 serial。',
+  "tools.summonTeamUnknownMember":
+    '团队成员 "{name}" 不是团队 {team} 中可派发的成员。成员：{members}。',
+  "tools.summonTeamNoMembers":
+    "没有可运行的成员。请指定 {team} 的至少一名成员，或省略 members 以运行所有非领队成员。",
+  "tools.summonTeamTooManyMembers":
+    "请求了 {count} 名成员，但一次团队运行最多派发 {max} 名。",
+  "tools.assignTeamModelMemberRequired": "分配模型需要团队成员的名称。",
+  "tools.assignTeamModelNoActiveTeam":
+    "当前没有活动团队：请先激活团队，再为成员分配模型。",
+  "tools.assignTeamModelUnknownMember":
+    '团队成员 "{member}" 不在活动团队 "{team}" 中。成员：{members}。',
+  "tools.assignTeamModelModelRequired":
+    "为 {member} 分配模型需要提供模型名称。",
+  "tools.assignTeamModelUnknownModel":
+    '未知模型 "{model}"。已配置的模型：{models}。',
+  "tools.assignTeamModelNoModels": '未知模型 "{model}"。当前没有配置任何模型。',
+  "subagent.teamMemberTimeout": "团队成员 {name} 在 {minutes} 分钟后超时。",
   "compaction.summaryEmpty": "压缩摘要为空",
   "compaction.exceedsBudget": "压缩请求超出可用的上下文预算",
   "compaction.noSummarizer":

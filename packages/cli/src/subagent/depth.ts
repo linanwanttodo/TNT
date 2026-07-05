@@ -10,6 +10,15 @@ import { t } from "../i18n/index.js";
 
 export const DEFAULT_MAX_SUBAGENT_DEPTH = 1;
 
+/**
+ * The depth ceiling for a summoned team run. The lead runs at depth 1 and must
+ * be able to dispatch members, which then sit at depth 2. Members at depth 2
+ * cannot delegate further, so a team run is a two-level tree rather than an
+ * unbounded one. This is deliberately not the process-wide default: an
+ * ordinary Subagent dispatch still stops at depth 1.
+ */
+export const TEAM_RUN_MAX_SUBAGENT_DEPTH = 2;
+
 export interface DelegationDepthHeader {
   /** Depth recorded when this session was created. */
   readonly delegationDepth?: number;

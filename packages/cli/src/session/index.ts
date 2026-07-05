@@ -5,15 +5,17 @@ import type {
   ChatHistoryItem,
   Session,
   SessionUsage,
+  TeamMemberRunStatus,
+  TeamRunMemberRecord,
+  TeamRunMode,
+  TeamRunRecord,
+  TeamRunStatus,
   Usage,
 } from "core/index.js";
 import { v4 as uuidv4 } from "uuid";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
-import { ModelService } from "../services/ModelService.js";
-import type { ModelServiceState } from "../services/types.js";
 import { delegationDepthOf } from "../subagent/depth.js";
-import type { TeamDefinition } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
 import { historyAdapter } from "./historyAdapter.js";
@@ -796,65 +798,22 @@ export function getSessionTeamModelOverride(
   return value?.trim() || undefined;
 }
 
-export interface TeamModelAssignmentContext {
-  /** The roster the session has active, or undefined when none is. */
-  activeTeam: TeamDefinition | undefined;
-  /** The configured models an assignment may name. */
-  modelState: ModelServiceState;
-}
-
-function configuredModelNames(modelState: ModelServiceState): string[] {
-  const names = (modelState.assistant?.models ?? [])
-    .filter((model) => !!model)
-    .map((model) => model.name || model.model)
-    .filter((name): name is string => !!name);
-  return [...new Set(names)];
-}
-
 /**
  * Record that a member runs on `modelName` for subsequent dispatches.
  *
- * Validation lives here, at the write, rather than at dispatch: an unknown
- * member or model is a mistake in the assignment call, and admitting it would
- * leave a session that silently ignores what the main agent asked for. The
- * model resolves the way dispatch resolves it (configured entry name or model
- * id), and the roster's persona is untouched.
+ * Storage only: the caller validates the member against the active roster and
+ * the model against the configuration before it gets here. Keeping that
+ * validation in the tools layer is what lets the session module stay free of
+ * service and roster imports, so `session` never reaches up into `services`.
+ * The model resolves the way dispatch resolves it (configured entry name or
+ * model id), and the roster's persona is untouched.
  */
 export function setSessionTeamModelOverride(
   memberName: string,
   modelName: string,
-  context: TeamModelAssignmentContext,
 ): void {
   const member = typeof memberName === "string" ? memberName.trim() : "";
-  if (!member) {
-    throw new Error("A team member name is required to assign a model.");
-  }
-  const team = context.activeTeam;
-  if (!team) {
-    throw new Error(
-      "No team is active: activate a team before assigning a member model.",
-    );
-  }
-  if (!team.members.some((candidate) => candidate.name === member)) {
-    throw new Error(
-      `Team member "${member}" is not in the active team "${team.name}". ` +
-        `Members: ${team.members.map((candidate) => candidate.name).join(", ")}.`,
-    );
-  }
-
   const model = typeof modelName === "string" ? modelName.trim() : "";
-  if (!model) {
-    throw new Error(`A model name is required to assign a model to ${member}.`);
-  }
-  if (!ModelService.findConfiguredModel(context.modelState, model)) {
-    const available = configuredModelNames(context.modelState);
-    throw new Error(
-      `Unknown model "${model}". ` +
-        (available.length > 0
-          ? `Configured models: ${available.join(", ")}.`
-          : "No models are configured."),
-    );
-  }
 
   const manager = SessionManager.getInstance();
   const session = manager.getCurrentSession();
@@ -884,6 +843,192 @@ export function clearSessionTeamModelOverride(memberName?: string): void {
     session.teamModelOverrides = next;
   }
   manager.updateHistory(session.history);
+}
+
+/**
+ * Bound on the run history a session keeps. A ledger is a record of what ran,
+ * not an archive of the conversation; twenty runs is enough to show the current
+ * work and the recent past while keeping the persisted scalar small.
+ */
+export const MAX_TEAM_RUNS = 20;
+
+/**
+ * Bound on the members one summon may dispatch. A roster larger than this is a
+ * mistake (or an attempt to fan out without a plan) and is refused rather than
+ * truncated, so the caller learns why nothing ran.
+ */
+export const MAX_TEAM_RUN_MEMBERS = 16;
+
+/**
+ * The run a member dispatch belongs to. SummonTeam sets it before dispatching
+ * the lead and clears it when the lead finishes, so the executor can attribute
+ * every Subagent call the lead makes without either tool passing a context
+ * through the model's tool arguments.
+ */
+let currentTeamRunId: string | undefined;
+
+export interface BeginTeamRunOptions {
+  team: string;
+  goal: string;
+  mode: TeamRunMode;
+  /** Member names, already validated against the roster by the caller. */
+  members: string[];
+}
+
+function saveSessionScalars(): void {
+  // The ledger is a session scalar, so the store's scalar diff is the save
+  // path. saveSession() is used rather than updateHistory() because bumping
+  // the history generation would invalidate an in-flight auto-compaction.
+  saveSession();
+}
+
+function mutateTeamRuns(
+  mutate: (runs: TeamRunRecord[]) => TeamRunRecord[],
+): void {
+  const manager = SessionManager.getInstance();
+  const session = manager.getCurrentSession();
+  session.teamRuns = mutate(session.teamRuns ?? []).slice(-MAX_TEAM_RUNS);
+  saveSessionScalars();
+}
+
+/**
+ * Open a team run and make it the current one. Returns the record so the
+ * caller can finish it by id even if the session is replaced meanwhile.
+ */
+export function beginTeamRun(options: BeginTeamRunOptions): TeamRunRecord {
+  const run: TeamRunRecord = {
+    runId: `team-${uuidv4().slice(0, 8)}`,
+    team: options.team.trim(),
+    goal: options.goal.trim(),
+    mode: options.mode,
+    startedAt: new Date().toISOString(),
+    status: "running",
+    members: options.members
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .slice(0, MAX_TEAM_RUN_MEMBERS)
+      .map((name) => ({ name, status: "pending" as TeamMemberRunStatus })),
+  };
+
+  mutateTeamRuns((runs) => [...runs, run]);
+  currentTeamRunId = run.runId;
+  return run;
+}
+
+/** A copy: callers read the ledger, the setter owns the persisted object. */
+export function getSessionTeamRuns(): TeamRunRecord[] {
+  const runs = SessionManager.getInstance().getCurrentSession().teamRuns ?? [];
+  return runs.map((run) => ({
+    ...run,
+    members: run.members.map((member) => ({ ...member })),
+  }));
+}
+
+export function getCurrentTeamRunId(): string | undefined {
+  return currentTeamRunId;
+}
+
+function currentRun(): TeamRunRecord | undefined {
+  if (!currentTeamRunId) return undefined;
+  return SessionManager.getInstance()
+    .getCurrentSession()
+    .teamRuns?.find((run) => run.runId === currentTeamRunId);
+}
+
+/**
+ * The current run when `memberName` is one of its members. The lead is not a
+ * member, so the lead's own dispatch is not attributed as member work.
+ */
+export function getCurrentTeamRunMember(
+  memberName: string,
+): { runId: string } | undefined {
+  const run = currentRun();
+  if (!run) return undefined;
+  const name = memberName?.trim();
+  return run.members.some((member) => member.name === name)
+    ? { runId: run.runId }
+    : undefined;
+}
+
+export function startTeamMemberRun(
+  runId: string,
+  memberName: string,
+  model?: string,
+): void {
+  mutateTeamRuns((runs) =>
+    runs.map((run) => {
+      if (run.runId !== runId || run.status !== "running") return run;
+      return {
+        ...run,
+        members: run.members.map((member) => {
+          if (member.name !== memberName) return member;
+          return {
+            name: member.name,
+            ...(model ? { model } : {}),
+            status: "running" as TeamMemberRunStatus,
+            startedAt: new Date().toISOString(),
+          };
+        }),
+      };
+    }),
+  );
+}
+
+export function finishTeamMemberRun(
+  runId: string,
+  memberName: string,
+  outcome: {
+    success: boolean;
+    subagentSessionId?: string;
+    error?: string;
+  },
+): void {
+  mutateTeamRuns((runs) =>
+    runs.map((run) => {
+      if (run.runId !== runId || run.status !== "running") return run;
+      return {
+        ...run,
+        members: run.members.map((member) => {
+          if (member.name !== memberName) return member;
+          const finished: TeamRunMemberRecord = {
+            ...member,
+            status: (outcome.success
+              ? "completed"
+              : "failed") as TeamMemberRunStatus,
+            finishedAt: new Date().toISOString(),
+          };
+          if (outcome.subagentSessionId) {
+            finished.subagentSessionId = outcome.subagentSessionId;
+          }
+          if (!outcome.success && outcome.error) {
+            finished.error = outcome.error;
+          } else {
+            delete finished.error;
+          }
+          return finished;
+        }),
+      };
+    }),
+  );
+}
+
+/**
+ * Settle a run. Called on every exit from SummonTeam, so a failed lead does not
+ * leave the ledger claiming the run is still active.
+ */
+export function finishTeamRun(runId: string, status: TeamRunStatus): void {
+  mutateTeamRuns((runs) =>
+    runs.map((run) => (run.runId === runId ? { ...run, status } : run)),
+  );
+  if (currentTeamRunId === runId) {
+    currentTeamRunId = undefined;
+  }
+}
+
+/** Test and /clear seam: forget the ledger and any in-flight run id. */
+export function clearSessionTeamRuns(): void {
+  currentTeamRunId = undefined;
+  mutateTeamRuns(() => []);
 }
 
 /**
@@ -926,6 +1071,12 @@ export function saveSubagentSession(options: {
   parentSessionId: string;
   subagentType: string;
   history: ChatHistoryItem[];
+  /**
+   * The depth the dispatch actually ran at. A team member is dispatched from
+   * inside the lead's run, so reading the live session's depth here would
+   * record the lead's parent rather than the member's own level.
+   */
+  delegationDepth?: number;
 }): Session {
   const { parentSessionId, subagentType, history } = options;
   const child: Session = {
@@ -936,6 +1087,7 @@ export function saveSubagentSession(options: {
     parentSessionId,
     subagentType,
     delegationDepth:
+      options.delegationDepth ??
       delegationDepthOf({
         delegationDepth: getCurrentSession().delegationDepth,
       }) + 1,

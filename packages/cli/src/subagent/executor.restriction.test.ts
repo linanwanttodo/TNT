@@ -32,6 +32,9 @@ vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => ({ sessionId: "parent", history: [] })),
   saveSubagentSession: vi.fn(),
   getSessionActiveTeam: vi.fn(() => undefined),
+  getCurrentTeamRunMember: vi.fn(() => undefined),
+  startTeamMemberRun: vi.fn(),
+  finishTeamMemberRun: vi.fn(),
 }));
 
 vi.mock("../utils/cli.js", () => ({
