@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { executeSubAgent } from "../subagent/executor.js";
-import { getAgentNames } from "../subagent/get-agents.js";
+import {
+  getAgentNames,
+  resolveDispatchableAgent,
+} from "../subagent/get-agents.js";
+import { SUBAGENT_TOOL_META } from "../subagent/index.js";
 
 import { subagentTool } from "./subagent.js";
 
@@ -44,6 +48,7 @@ describe("subagentTool", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(resolveDispatchableAgent).mockReset();
     vi.mocked(serviceContainer.get).mockResolvedValue(modelServiceState);
   });
 
@@ -92,6 +97,8 @@ describe("subagentTool", () => {
 
     const result = await tool.run(
       {
+        description: "Test task",
+        files: ["src/example.ts"],
         prompt: "Subagent prompt",
         subagent_name: "test-model",
       },
@@ -102,7 +109,12 @@ describe("subagentTool", () => {
     const [options] = vi.mocked(executeSubAgent).mock.calls[0];
     expect(options.agent.model?.name).toBe("test-model");
 
-    expect(options.prompt).toBe("Subagent prompt");
+    // A terse prompt is expanded, with the caller's text kept verbatim.
+    expect(options.prompt).toContain(
+      "Objective (verbatim from the caller):\nSubagent prompt",
+    );
+    expect(options.prompt).toContain("Scope (files): src/example.ts");
+    expect(options.prompt).toContain("Report:");
     expect(options.parentSessionId).toBe("parent-session-id");
     expect(typeof options.onOutputUpdate).toBe("function");
 
@@ -113,8 +125,71 @@ describe("subagentTool", () => {
       "calling",
     );
 
-    expect(result).toBe(
-      "subagent-output\n<task_metadata>\nstatus: completed\n</task_metadata>",
+    expect(result).toContain("subagent-output");
+    expect(result).toContain(
+      "<task_metadata>\nstatus: completed\n</task_metadata>",
+    );
+    // The caller can inspect what the child was actually sent.
+    expect(result).toContain("Brief:\n");
+    expect(result).toContain("Objective (verbatim from the caller):");
+  });
+
+  it("passes a structured prompt through unchanged and does not echo it", async () => {
+    const structured = [
+      "Objective: fix the parser bug.",
+      "",
+      "Scope:",
+      "- src/parser.ts",
+      "",
+      "Report: what changed and the test output.",
+    ].join("\n");
+    vi.mocked(executeSubAgent).mockResolvedValue({
+      success: true,
+      response: "subagent-output",
+    } as any);
+
+    const tool = await subagentTool();
+    const result = await tool.run(
+      { prompt: structured, subagent_name: "test-model" },
+      { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
+    );
+
+    const [options] = vi.mocked(executeSubAgent).mock.calls[0];
+    expect(options.prompt).toBe(structured);
+    expect(result).not.toContain("Brief:");
+  });
+
+  it("puts the member's restriction and denied tools in the brief", async () => {
+    vi.mocked(resolveDispatchableAgent).mockReturnValue({
+      systemMessage: "persona",
+      restriction: "no-writes",
+      deniedTools: ["AskQuestion", "Exit"],
+      kind: "model",
+    });
+    vi.mocked(executeSubAgent).mockResolvedValue({
+      success: true,
+      response: "subagent-output",
+    } as any);
+
+    const tool = await subagentTool();
+    await tool.run(
+      { prompt: "run the parser tests", subagent_name: "test-model" },
+      { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
+    );
+
+    const [options] = vi.mocked(executeSubAgent).mock.calls[0];
+    expect(options.prompt).toContain("No file writes:");
+    expect(options.prompt).toContain("Unavailable tools: AskQuestion, Exit.");
+  });
+
+  it("does not change the delegation schema or required parameters", async () => {
+    const tool = await subagentTool();
+
+    expect(tool.parameters.required).toEqual(
+      SUBAGENT_TOOL_META.parameters.required,
+    );
+    expect(Object.keys(tool.parameters.properties).sort()).toEqual(
+      Object.keys(SUBAGENT_TOOL_META.parameters.properties).sort(),
     );
   });
 
