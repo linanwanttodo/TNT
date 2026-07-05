@@ -488,8 +488,9 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
   const currentTheme = themeOfChoice(activeChoice, detected);
 
-  // The terminal tab as a status light: green idle, yellow working, red
-  // waiting for an approval or quiz answer. The name is the workspace the
+  // The terminal title keeps TNT's status semantics (idle, working while the
+  // model streams, waiting for an approval or quiz answer) as its animation
+  // gate: the prefix spins only while working. The name is the workspace the
   // session runs in; a session id refines it when one exists.
   const sessionStatus: SessionStatus = activePermissionRequest
     ? "waiting"
