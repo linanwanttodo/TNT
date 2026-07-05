@@ -176,9 +176,3 @@ export function setPluginEnabled(
   invalidatePluginCache();
   return listInstalledPlugins(cwd);
 }
-
-/** Drop the loader's memo and re-read the plugin tree. */
-export function reloadPlugins(cwd: string = process.cwd()): PluginsSnapshot {
-  invalidatePluginCache();
-  return listInstalledPlugins(cwd);
-}

@@ -1,64 +1,13 @@
 import crypto from "crypto";
 import fs from "fs";
-import http from "http";
 import os from "os";
 import path from "path";
 
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-
-import { messageQueue } from "../stream/messageQueue.js";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import { WebUiService } from "./WebUiService.js";
 
-const { approveSpy, rejectSpy, startDrainingSpy, requestStopSpy } = vi.hoisted(
-  () => ({
-    approveSpy: vi.fn(() => true),
-    rejectSpy: vi.fn(() => true),
-    startDrainingSpy: vi.fn(),
-    requestStopSpy: vi.fn(),
-  }),
-);
-
-vi.mock("../permissions/interactionBroker.js", () => ({
-  interactionBroker: {
-    approve: approveSpy,
-    reject: rejectSpy,
-    answerQuestion: vi.fn(() => true),
-  },
-}));
-
-vi.mock("./TurnRunnerService.js", () => ({
-  turnRunnerService: {
-    startDraining: startDrainingSpy,
-    requestStop: requestStopSpy,
-    isRunning: vi.fn(() => true),
-  },
-  RunTurn: {},
-}));
-
-vi.mock("../permissions/permissionManager.js", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("../permissions/permissionManager.js")
-    >();
-  return {
-    ...actual,
-    toolPermissionManager: {
-      getPendingRequestIds: vi.fn(() => []),
-      getPendingRequest: vi.fn(() => undefined),
-    },
-  };
-});
-
-const liveServers: http.Server[] = [];
+const liveServices: WebUiService[] = [];
 
 async function started(
   options: Parameters<WebUiService["start"]>[0] = {},
@@ -66,8 +15,9 @@ async function started(
   handle: Awaited<ReturnType<WebUiService["start"]>>;
   base: string;
 }> {
-  const handle = await new WebUiService().start({ port: 0, ...options });
-  liveServers.push(handle.server);
+  const service = new WebUiService();
+  const handle = await service.start({ port: 0, ...options });
+  liveServices.push(service);
   return { handle, base: `http://127.0.0.1:${handle.port}` };
 }
 
@@ -82,22 +32,15 @@ const emptySession = () => ({
   history: [],
 });
 
-beforeEach(() => {
-  approveSpy.mockClear();
-  rejectSpy.mockClear();
-  startDrainingSpy.mockClear();
-  requestStopSpy.mockClear();
-  messageQueue.clearMessages();
-});
-
-afterEach(() => {
-  messageQueue.clearMessages();
+afterEach(async () => {
+  for (const service of liveServices.splice(0)) {
+    await service.close();
+  }
 });
 
 afterAll(async () => {
-  for (const server of liveServers.splice(0)) {
-    server.closeAllConnections?.();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+  for (const service of liveServices.splice(0)) {
+    await service.close();
   }
 });
 
@@ -105,22 +48,15 @@ describe("the WebUiService token gate", () => {
   it("answers 401 when no token is presented", async () => {
     const { base } = await started({ distDir: missingDist() });
 
-    const response = await fetch(`${base}/state`);
+    const response = await fetch(`${base}/api/server-info`);
     expect(response.status).toBe(401);
   });
 
-  it("gates every engine route and the missing-dist catch-all", async () => {
+  it("gates every remaining route and the missing-dist catch-all", async () => {
     const { base } = await started({ distDir: missingDist() });
 
     for (const [method, route] of [
-      ["GET", "/state"],
-      ["GET", "/events"],
-      ["GET", "/sessions"],
-      ["POST", "/message"],
-      ["POST", "/permission"],
-      ["POST", "/permission-mode"],
-      ["POST", "/pause"],
-      ["POST", "/exit"],
+      ["GET", "/api/server-info"],
       ["GET", "/app/shell.js"],
       ["GET", "/any/other/path"],
     ] as const) {
@@ -135,7 +71,7 @@ describe("the WebUiService token gate", () => {
       getSession: emptySession,
     });
 
-    const response = await fetch(`${base}/state`, {
+    const response = await fetch(`${base}/api/server-info`, {
       headers: { cookie: `tnt_webui_token=${handle.token}` },
     });
     expect(response.status).toBe(200);
@@ -147,7 +83,7 @@ describe("the WebUiService token gate", () => {
       getSession: emptySession,
     });
 
-    const response = await fetch(`${base}/state`, {
+    const response = await fetch(`${base}/api/server-info`, {
       headers: { authorization: `Bearer ${handle.token}` },
     });
     expect(response.status).toBe(200);
@@ -159,11 +95,11 @@ describe("the WebUiService token gate", () => {
     const short = "x".repeat(4);
 
     for (const wrong of [sameLength, short]) {
-      const asCookie = await fetch(`${base}/state`, {
+      const asCookie = await fetch(`${base}/api/server-info`, {
         headers: { cookie: `tnt_webui_token=${wrong}` },
       });
       expect(asCookie.status).toBe(401);
-      const asBearer = await fetch(`${base}/state`, {
+      const asBearer = await fetch(`${base}/api/server-info`, {
         headers: { authorization: `Bearer ${wrong}` },
       });
       expect(asBearer.status).toBe(401);
@@ -213,7 +149,9 @@ describe("the WebUiService token gate", () => {
     expect(cookie).toContain("SameSite=Strict");
     expect(cookie).toContain("Path=/");
 
-    const state = await fetch(`${base}/state`, { headers: { cookie } });
+    const state = await fetch(`${base}/api/server-info`, {
+      headers: { cookie },
+    });
     expect(state.status).toBe(200);
   });
 
