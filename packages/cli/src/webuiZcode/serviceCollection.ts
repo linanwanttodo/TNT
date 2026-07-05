@@ -207,6 +207,8 @@ interface ResolvedZcodeServices {
   local: LocalZcodeServices;
   connection: ConnectionZcodeServices;
   fileService: IFileService;
+  agentService?: IZCodeAgentService;
+  sessionService?: IZCodeSessionService;
 }
 
 const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
@@ -276,6 +278,19 @@ export async function buildZcodeServiceCollection(
     ),
   };
 
+  let disposeAgent: (() => void) | null = null;
+  if (deps.workspaceEngines) {
+    const [{ createZcodeAgentService }, { createZcodeSessionService }] =
+      await Promise.all([
+        import("./services/agent.js"),
+        import("./services/session.js"),
+      ]);
+    const agent = createZcodeAgentService(deps.workspaceEngines);
+    services.agentService = agent.service;
+    services.sessionService = createZcodeSessionService(agent.service);
+    disposeAgent = () => agent.dispose();
+  }
+
   logger.debug(
     `webui-zcode: building service scope for ${deps.workspacePath} (per-connection terminal and watcher)`,
   );
@@ -289,9 +304,16 @@ export async function buildZcodeServiceCollection(
     ...ZCODE_OPTIONAL_SERVICE_DESCRIPTORS,
   ]) {
     const resolveLocal = ZCODE_LOCAL_SERVICE_ACCESSORS.get(descriptor);
-    const instance = resolveLocal
-      ? resolveLocal(services)
-      : stubService<unknown>(descriptor.channelName);
+    const engineService =
+      descriptor === IZCodeAgentService
+        ? services.agentService
+        : descriptor === IZCodeSessionService
+          ? services.sessionService
+          : undefined;
+    const instance =
+      engineService ??
+      (resolveLocal ? resolveLocal(services) : undefined) ??
+      stubService<unknown>(descriptor.channelName);
     collection.register(descriptor, instance);
   }
 
@@ -299,6 +321,7 @@ export async function buildZcodeServiceCollection(
   collection.dispose = (): void => {
     if (disposed) return;
     disposed = true;
+    disposeAgent?.();
     connection.dispose();
   };
   return collection;
