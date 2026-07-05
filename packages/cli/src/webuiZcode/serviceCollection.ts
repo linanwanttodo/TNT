@@ -179,8 +179,8 @@ export const ZCODE_OPTIONAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unkn
 
 /**
  * The channels answered by the process-wide local bundle. Every other
- * descriptor still resolves to a `ZCODE_UNAVAILABLE` stub. Tasks 10-11 move
- * the remaining agent, session and plugin channels here.
+ * descriptor still resolves to a `ZCODE_UNAVAILABLE` stub. Task 11 moves the
+ * remaining agent and session channels here.
  */
 const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   ServiceDescriptor<unknown>,
@@ -193,6 +193,8 @@ const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   [ITerminalService, (local) => local.terminalService],
   [IFileWatcherService, (local) => local.fileWatcherService],
   [IBroadcastService, (local) => local.broadcastService],
+  [IPluginsService, (local) => local.pluginsService],
+  [IPluginManagementService, (local) => local.pluginManagementService],
 ]);
 
 export const ZCODE_LOCAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
