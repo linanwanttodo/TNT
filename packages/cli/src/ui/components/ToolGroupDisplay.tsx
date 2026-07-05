@@ -12,8 +12,9 @@ import { t } from "../../i18n/index.js";
 import { formatToolArgument } from "../../tools/formatters.js";
 import { getToolDisplayName } from "../../tools/registry.js";
 import { markLayoutDirty } from "../hooks/layoutDirty.js";
+import { useBlink } from "../hooks/useBlink.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
-import { symbols } from "../symbols.js";
+import { claudeGlyphs } from "../symbols.js";
 import { useTheme, type Theme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
@@ -24,6 +25,7 @@ import {
   separateDiffAndNotes,
   ToolDiffView,
 } from "./ToolDiffView.js";
+import { ToolResultBlock } from "./ToolResultBlock.js";
 
 /** Shell tools read as `$ command`. */
 const SHELL_TOOLS = new Set([
@@ -49,56 +51,66 @@ export interface ToolItemDisplayProps {
   isFirst?: boolean;
 }
 
-interface ToolStatusStyle {
+export interface ToolDotStyle {
   glyph: string;
   color: string;
-  borderColor: string;
+  dim: boolean;
 }
 
 /**
- * The glyph and frame colour that report a tool call's state. The border
- * carries the state the way the reference cards do: a running call lights up
- * in the accent colour, a finished one fades to the dim spine colour, and
- * only failures and cancellations keep a loud hue.
+ * The dot and colour that report a tool call's state. A queued call waits as
+ * a dim dot, a running one wears the assistant colour and blinks, a clean exit
+ * turns green, a failure red, and a cancellation fades back to the dim spine.
  */
-function statusStyle(
+export function toolDotStyle(
   status: ToolCallState["status"],
   activeTheme: Theme,
-): ToolStatusStyle {
+): ToolDotStyle {
+  const { filledDot } = claudeGlyphs();
   switch (status) {
     case "done":
       return {
-        glyph: symbols().check,
+        glyph: filledDot,
         color: activeTheme.status.success,
-        borderColor: activeTheme.text.subtle,
+        dim: false,
       };
     case "errored":
       return {
-        glyph: "x",
+        glyph: filledDot,
         color: activeTheme.status.error,
-        borderColor: activeTheme.status.error,
+        dim: false,
       };
     case "canceled":
       return {
-        glyph: "-",
-        color: activeTheme.status.warning,
-        borderColor: activeTheme.status.warning,
+        glyph: filledDot,
+        color: activeTheme.text.subtle,
+        dim: true,
       };
     case "calling":
       return {
-        glyph: "⊷",
-        color: activeTheme.status.running,
-        borderColor: activeTheme.accent,
+        glyph: filledDot,
+        color: activeTheme.claude,
+        dim: false,
       };
     case "generated":
     case "generating":
     default:
       return {
-        glyph: "o",
-        color: activeTheme.status.success,
-        borderColor: activeTheme.accent,
+        glyph: filledDot,
+        color: activeTheme.text.subtle,
+        dim: true,
       };
   }
+}
+
+/** Only an executing call animates; a queued or finished dot stays still. */
+export function toolDotIsLive(status: ToolCallState["status"]): boolean {
+  return status === "calling";
+}
+
+/** The dot with the blink applied; the off frame is a space, not a gap. */
+export function toolDotGlyph(style: ToolDotStyle, visible: boolean): string {
+  return visible ? style.glyph : " ";
 }
 
 function isTerminalStatus(status: ToolCallState["status"]): boolean {
@@ -244,24 +256,20 @@ function planOutput(output: string, expanded: boolean): OutputPreview {
   };
 }
 
-/** Source for the border fill: long enough for any terminal, clipped by flex. */
-const BORDER_FILL = "─".repeat(500);
-
 /**
- * One tool call: a rounded frame whose border colour carries the state (a
- * running call lights up in the accent colour, a finished one fades to the
- * dim spine colour, failures stay loud). The title lives inside the top
- * border bar the way the reference cards draw it; the output or diff preview
- * sits in the body and collapses by itself when the call finishes.
+ * One tool call: a two-column dot gutter, then the name and its subject, with
+ * the output hanging underneath behind the U+23BF result gutter. Clicking the
+ * call folds or unfolds the output; a finished call folds itself so the
+ * transcript settles on its own.
  */
 export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
   const activeTheme = useTheme();
   const toolName = toolState.toolCall.function.name;
   const args = toolState.parsedArgs;
-  const { glyph, color, borderColor } = statusStyle(
-    toolState.status,
-    activeTheme,
-  );
+  const dot = toolDotStyle(toolState.status, activeTheme);
+  const live = toolDotIsLive(toolState.status);
+  const blinkVisible = useBlink(live);
+  const dotGlyph = toolDotGlyph(dot, blinkVisible);
   const displayName = getToolDisplayName(toolName);
   const description = sanitizeTerminalText(describeCall(toolName, args));
   const rawOutput = sanitizeTerminalText(
@@ -337,9 +345,6 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
 
   const titleRow = (
     <Text wrap="truncate-end">
-      <Text color={color} bold>
-        {glyph}{" "}
-      </Text>
       {shell && description ? (
         <>
           <Text color={activeTheme.text.secondary}>$ </Text>
@@ -358,34 +363,27 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
       {summary ? (
         <Text color={activeTheme.text.subtle}> · {summary}</Text>
       ) : null}
+      {duration ? (
+        <Text color={activeTheme.tool.hint}> · ({duration})</Text>
+      ) : null}
     </Text>
   );
 
   return (
     <Box ref={panelRef} flexDirection="column" width="100%" marginTop={1}>
-      <Box flexDirection="row" width="100%" flexShrink={0}>
-        <Text color={borderColor}>╭─ </Text>
-        <Box flexShrink={1} minWidth={0}>
-          {titleRow}
-        </Box>
-        <Text color={borderColor}> </Text>
-        <Box flexGrow={1} flexShrink={1} flexBasis={0} minWidth={0}>
-          <Text color={borderColor} wrap="truncate-end">
-            {BORDER_FILL}
+      <Box flexDirection="row" width="100%">
+        <Box minWidth={2} flexShrink={0}>
+          <Text color={dot.color} dimColor={dot.dim}>
+            {dotGlyph}
           </Text>
         </Box>
-        <Text color={borderColor}>╮</Text>
+        <Box flexGrow={1} flexShrink={1} flexBasis={0} minWidth={0}>
+          {titleRow}
+        </Box>
       </Box>
 
-      <Box
-        flexDirection="column"
-        width="100%"
-        borderStyle="round"
-        borderTop={false}
-        borderColor={borderColor}
-        paddingX={1}
-      >
-        {hasDiff ? (
+      {hasDiff ? (
+        <ToolResultBlock>
           <Box flexDirection="column">
             {notes ? (
               <Box marginBottom={1}>
@@ -398,7 +396,9 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
               customTheme={activeTheme}
             />
           </Box>
-        ) : output ? (
+        </ToolResultBlock>
+      ) : output ? (
+        <ToolResultBlock>
           <Box flexDirection="column">
             {preview.hiddenAbove > 0 ? (
               <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
@@ -415,12 +415,8 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
               <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
             ) : null}
           </Box>
-        ) : null}
-
-        {duration ? (
-          <Text color={activeTheme.tool.hint}>({duration})</Text>
-        ) : null}
-      </Box>
+        </ToolResultBlock>
+      ) : null}
     </Box>
   );
 });
@@ -432,8 +428,8 @@ export interface ToolGroupDisplayProps {
 }
 
 /**
- * The tool calls of one assistant step, each as its own panel. The blank row
- * before a panel is the margin the panel carries, so consecutive calls read as
+ * The tool calls of one assistant step, each as its own row. The blank row
+ * before a call is the margin it carries, so consecutive calls read as
  * separate executions rather than one dense list.
  */
 export const ToolGroupDisplay = memo<ToolGroupDisplayProps>(

@@ -116,7 +116,7 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/NO_COLOR/.test(flat)).toBe(/NO_COLOR/.test(banner));
   });
 
-  it("describes the tool panels where they are built", () => {
+  it("describes the tool rows where they are built", () => {
     const group = read(path.join(here, "components", "ToolGroupDisplay.tsx"));
 
     expect(/rounded frame/.test(flat)).toBe(/borderStyle="round"/.test(group));
@@ -125,9 +125,13 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     );
     expect(/click to expand/.test(flat)).toBe(/click to expand/.test(group));
     expect(/folds itself/.test(flat)).toBe(/setExpanded\(false\)/.test(group));
-    // The glyph comes from the symbol table now; the page still names the mark
-    // a unicode terminal shows.
-    expect(/`✓` done/.test(flat)).toBe(/glyph: symbols\(\)\.check/.test(group));
+    // The state machine and the result gutter are named after the code that
+    // draws them: the status dot, the 600 ms blink and the `⎿` gutter token.
+    expect(/status dot/.test(flat)).toBe(/toolDotStyle/.test(group));
+    expect(/600 ms while running/.test(flat)).toBe(/useBlink/.test(group));
+    expect(/gutter of two spaces, `⎿` and one space/.test(flat)).toBe(
+      /<ToolResultBlock/.test(group),
+    );
   });
 
   it("describes the approval card per tool family where it is built", () => {
