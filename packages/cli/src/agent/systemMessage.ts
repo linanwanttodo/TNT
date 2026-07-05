@@ -29,6 +29,7 @@ import {
   getConfigYamlRules,
   loadMarkdownRulesWithMetadata,
 } from "./markdownRules.js";
+import { loadProjectDocs } from "./projectDocs.js";
 import {
   PLAN_MODE_TEXT,
   profileSection,
@@ -43,7 +44,7 @@ import {
 // Static, because everything ahead of the user's own text is inside the cached
 // prefix of every request in the session.
 export const RULES_PREAMBLE =
-  "These instructions come from the user's own files for this project and override how you would otherwise choose to work. Follow each one. Where two of them conflict, the one closer to the project and to the file being changed wins; say which you followed when the choice mattered. When a request cannot be met under them, say so instead of quietly dropping the rule.";
+  "These instructions come from the user's own files for this project and override how you would otherwise choose to work. Follow each one. They are listed from the project root to the working directory; where two of them conflict, the one closer to the project and to the file being changed wins, and AGENTS.override.md wins over the other instruction files in its directory. Say which you followed when the choice mattered. When a request cannot be met under them, say so instead of quietly dropping the rule.";
 
 /**
  * Check if current directory is a git repository. Memoized per process: the
@@ -141,6 +142,15 @@ Notes:
 14. Work inside the patterns and helpers the repository already has. A new abstraction has to remove real complexity, not just give code a shape.
 15. Scale the checking to the blast radius: a narrow change needs a narrow test, and once shared behaviour moves, run the broad suite.
 16. Never undo a change you did not make. Work with it, or say when it makes the task impossible.
+17. Use the plan tools for work that needs several dependent steps. A request that is already one edit, one command or one lookup does not get a plan.
+
+# Escalation
+Some actions need the user's decision every time, even when the surrounding task is approved:
+- a destructive command the request did not name: rewriting history, a forced clean, or deleting and overwriting files outside the task;
+- a write that lands outside the workspace;
+- sending content outside this machine when the user did not approve that content leaving;
+- launching a GUI application or opening a window on the user's desktop.
+Ask with what the action changes and why the request needs it. Size is not the trigger: a large edit inside the workspace that can be reverted is the task, not an escalation.
 
 # Communication style
 1. Lead with the answer or the outcome. When something could not be verified, say that first.
@@ -151,7 +161,7 @@ Notes:
 6. Stop when the content stops: no closing offer, and no restating what the user can already see.
 7. Do not narrate your own reasoning, and do not announce that a task needed no tools.
 
-When you find an unrelated bug in code your change touches, report it: the final report gets a short section naming its location and one sentence on its impact. Do not fix it, and do not expand on it. A problem on the shared path of this task is different - fix it or flag it.
+When you find an unrelated bug or issue while working, report it: the final report gets a short section naming its location and one sentence on its impact. Do not fix it, and do not expand on it. A problem on the shared path of this task is different - fix it or flag it.
 `;
 
 /**
@@ -379,28 +389,24 @@ function autoConvokeBlock(): string | undefined {
 async function collectRuleMaterial(
   additionalRules?: string[],
 ): Promise<RuleSource[]> {
-  const agentFiles = [
-    ".tnt/AGENTS.md",
-    "AGENTS.md",
-    "AGENT.md",
-    "CLAUDE.md",
-    "CODEX.md",
-  ];
   const sources: RuleSource[] = [...memoryLayers()];
 
   try {
-    for (const fileName of agentFiles) {
-      const filePath = path.join(process.cwd(), fileName);
+    // Root to working directory, one file per directory: the override wins,
+    // then the names this CLI has always read.
+    for (const doc of loadProjectDocs(process.cwd())) {
+      sources.push({ id: `userRules:agent:${doc.label}`, text: doc.text });
+    }
 
-      if (fs.existsSync(filePath)) {
-        // The local file is the personal layer over the committed one, so both
-        // are read when both exist, and each says which it is.
-        sources.push({
-          id: `userRules:agent:${fileName}`,
-          text: `Rules from ${fileName}:\n${loadInstructionFile(filePath)}`,
-        });
-        break; // Use the first found agent file
-      }
+    // The CLI does not go through core's config loader, so the workspace's
+    // `.tntrules` dotfile is read here, once, at the same level as the other
+    // project rules.
+    const tntRulesPath = path.join(process.cwd(), ".tntrules");
+    if (fs.existsSync(tntRulesPath)) {
+      sources.push({
+        id: "userRules:tntrules",
+        text: `Rules from .tntrules:\n${loadInstructionFile(tntRulesPath)}`,
+      });
     }
 
     const localPath = path.join(process.cwd(), "AGENTS.local.md");
@@ -411,7 +417,7 @@ async function collectRuleMaterial(
       });
     }
   } catch (error) {
-    // If there's any error reading the file, continue without agent content
+    // If there's any error reading a file, continue without agent content
     console.warn(t("common.agentConfigReadFailed"), error);
   }
 

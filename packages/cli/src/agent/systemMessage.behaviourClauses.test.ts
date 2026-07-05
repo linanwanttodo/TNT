@@ -148,6 +148,33 @@ describe("behaviour clauses in the system message", () => {
     expect(message).toMatch(/one sentence/i);
   });
 
+  it("names the escalation classes and what is not one", async () => {
+    const message = await constructSystemMessage("default", [], undefined);
+
+    expect(message).toContain("# Escalation");
+    expect(message).toMatch(/destructive command the request did not name/);
+    expect(message).toMatch(/rewriting history, a forced clean/);
+    expect(message).toMatch(/write that lands outside the workspace/);
+    expect(message).toMatch(/sending content outside this machine/);
+    expect(message).toMatch(/launching a GUI application/);
+    // The boundary is the class of action, not its size.
+    expect(message).toMatch(/Size is not the trigger/);
+    expect(message).toMatch(
+      /large edit inside the workspace that can be reverted is the task, not an escalation/,
+    );
+  });
+
+  it("keeps plans for multi-step work and leaves a single step alone", async () => {
+    const message = await constructSystemMessage("default", [], undefined);
+
+    expect(message).toMatch(
+      /plan tools for work that needs several dependent steps/,
+    );
+    expect(message).toMatch(
+      /already one edit, one command or one lookup does not get a plan/,
+    );
+  });
+
   it("tells the headless run that follow-ups come after the work", async () => {
     const interactive = await constructSystemMessage("default", [], undefined);
     const headless = await constructSystemMessage(
