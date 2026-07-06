@@ -21,7 +21,6 @@ import { messageQueue } from "../stream/messageQueue.js";
 import type { WorktreeInfo } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 import { buildZcodeServiceCollection } from "../webuiZcode/serviceCollection.js";
-import { disposeLocalZcodeServices } from "../webuiZcode/services/local.js";
 import { startWebUiZcodeHost } from "../webuiZcode/wsHost.js";
 
 import { turnRunnerService, type RunTurn } from "./TurnRunnerService.js";
@@ -255,9 +254,11 @@ export class WebUiService {
       this.activeHandle = null;
       await handle.close();
     }
-    // The ZCode services own OS handles (fs watchers, ptys) and outlive every
-    // connection's collection by design; tearing them down with the server
-    // keeps a closed /webui from leaving them attached.
+    // The ZCode services own OS handles and a heavy node dependency graph, so
+    // the bundle is loaded lazily per connection; close is the only place the
+    // host has to reach it directly.
+    const { disposeLocalZcodeServices } =
+      await import("../webuiZcode/services/local.js");
     disposeLocalZcodeServices();
   }
 
