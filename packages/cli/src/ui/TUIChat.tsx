@@ -49,8 +49,6 @@ import {
 import {
   detectedTerminalIsDark,
   normalizeThemeChoice,
-  probeTerminalIsDark,
-  setDetectedTerminalIsDark,
 } from "./theme/terminalAppearance.js";
 import { ThemeProvider, type ThemeName } from "./theme/tokens.js";
 
@@ -456,31 +454,11 @@ const TUIChat: React.FC<TUIChatProps> = ({
   const [previewChoice, setPreviewChoice] = useState<ThemeName | "auto" | null>(
     null,
   );
-  const [detected, setDetected] = useState<boolean | undefined>(
-    detectedTerminalIsDark(),
-  );
+  // Resolved once before Ink owns stdin in startTUIChat; a terminal that never
+  // answers leaves this undefined and the auto theme stays dark.
+  const detected = detectedTerminalIsDark();
 
   const activeChoice = previewChoice ?? themeChoice;
-
-  // Only "auto" needs the terminal's own background, and one answer per
-  // process is enough: the module keeps it for any later mount.
-  useEffect(() => {
-    if (activeChoice !== "auto" || detected !== undefined) {
-      return;
-    }
-    let cancelled = false;
-    void probeTerminalIsDark({
-      stdin: process.stdin,
-      stdout: process.stdout,
-    }).then((isDark) => {
-      if (cancelled) return;
-      setDetectedTerminalIsDark(isDark);
-      setDetected(isDark);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeChoice, detected]);
 
   useEffect(() => {
     setThemeChoice(configuredChoice);
