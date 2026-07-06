@@ -13,6 +13,11 @@ import type { Session } from "core/index.js";
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 
 import { toZcodeMessages } from "./snapshot.js";
+import {
+  activeTeamRun,
+  teamRunsToWorkflowRuns,
+  teamRunWorkflowDisplay,
+} from "./workflowRuns.js";
 
 export interface FrameSubscription {
   subscriptionId: string;
@@ -121,6 +126,10 @@ function rowsFromSession(session: Session): ConversationRow[] {
         });
       } else if (part.type === "tool") {
         const status = toolStatusOf(part.state.status);
+        const run =
+          part.tool === "SummonTeam"
+            ? activeTeamRun(session.teamRuns)
+            : undefined;
         rows.push({
           ...base,
           kind: "toolCall",
@@ -128,6 +137,14 @@ function rowsFromSession(session: Session): ConversationRow[] {
           toolName: part.tool,
           status,
           inputText: JSON.stringify(part.state.input ?? {}),
+          ...(run
+            ? {
+                display: teamRunWorkflowDisplay(
+                  run,
+                  part.state.status !== "error",
+                ),
+              }
+            : {}),
           ...(part.state.status === "completed"
             ? { output: { text: part.state.output } }
             : {}),
@@ -353,7 +370,11 @@ export function derivePendingInteractions(
 export function buildConversationSnapshot(
   session: Session,
   frame: FrameSubscription,
-  cursor: { eventSeq: number; stateRevision: number },
+  cursor: {
+    eventSeq: number;
+    stateRevision: number;
+    workflowRevision?: number;
+  },
   running: boolean,
   pendingInteractions: PendingInteraction[] = [],
 ): ConversationSnapshot {
@@ -417,6 +438,10 @@ export function buildConversationSnapshot(
       totalCount: rows.length,
       firstRowId: rows[0]?.rowId ?? null,
     },
+    workflowRuns: teamRunsToWorkflowRuns(
+      session.teamRuns ?? [],
+      cursor.workflowRevision ?? 0,
+    ),
   };
 }
 
