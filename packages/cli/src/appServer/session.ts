@@ -1,4 +1,5 @@
 import {
+  elideSessionSnapshotForIndex,
   zcodeSessionCloseParamsSchema,
   zcodeSessionCreateParamsSchema,
   zcodeSessionListParamsSchema,
@@ -10,28 +11,41 @@ import {
 import type {
   ModelSelection,
   ZCodeMessageWithParts,
+  ZCodeSessionCreateParams,
   ZCodeSessionInfo,
   ZCodeSessionStateSnapshot,
 } from "@zcode/shared";
-import type { Session } from "core/index.js";
+import type { ChatHistoryItem, Session } from "core/index.js";
 
 import { serviceContainer } from "../services/ServiceContainer.js";
+import type { ModelServiceState } from "../services/types.js";
 import {
   createSession,
   loadSessionById,
   resumeSession,
 } from "../session/index.js";
-import { sessionStore, type SessionMeta } from "../session/store.js";
+import {
+  sessionStore,
+  setMessageTimestamp,
+  type SessionMeta,
+} from "../session/store.js";
 
 import { SessionRuntimeStore } from "./runtime.js";
 import {
   toZcodeMessages,
   toZcodeSessionInfo,
   toZcodeSnapshot,
+  type SessionStatus,
 } from "./snapshot.js";
 
 const MODEL_SERVICE_NAME = "model";
 const INVALID_PARAMS_CODE = -32602;
+const INTERNAL_ERROR_CODE = -32603;
+const REQUEST_ERROR_CODES = new Set([
+  -32601,
+  INVALID_PARAMS_CODE,
+  INTERNAL_ERROR_CODE,
+]);
 
 export interface SessionRequestError extends Error {
   code: number;
@@ -49,18 +63,23 @@ export function sessionRequestError(
 export function isSessionRequestError(
   error: unknown,
 ): error is SessionRequestError {
-  return (
-    error instanceof Error &&
-    typeof (error as { code?: unknown }).code === "number"
-  );
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const code = (error as Error & { code?: unknown }).code;
+  return typeof code === "number" && REQUEST_ERROR_CODES.has(code);
+}
+
+export interface AvailableChatModel {
+  provider: string;
+  name: string;
+  index: number;
+  /** The configured model id (`model.model`), when the lookup exposes it. */
+  model?: string;
 }
 
 export interface ModelLookup {
-  getAvailableChatModels(): Array<{
-    provider: string;
-    name: string;
-    index: number;
-  }>;
+  getAvailableChatModels(): AvailableChatModel[];
 }
 
 export interface SessionNotificationSender {
@@ -100,8 +119,37 @@ export function parseParams<T>(schema: ParseableSchema<T>, params: unknown): T {
   }
 }
 
+type ImportedHistory = NonNullable<ZCodeSessionCreateParams["importedHistory"]>;
+
+/**
+ * Imported conversations become ordinary history items, so the snapshot and
+ * the message projection map them exactly like a locally recorded session.
+ */
+function importedHistoryItems(imported: ImportedHistory): ChatHistoryItem[] {
+  if (imported.source === "claudeCode") {
+    return imported.messages.map((message) => {
+      const item: ChatHistoryItem = {
+        message: { role: message.role, content: message.content },
+        contextItems: [],
+      };
+      const timestamp = message.timestamp ?? imported.createdAt;
+      if (timestamp !== undefined) {
+        setMessageTimestamp(item, new Date(timestamp).toISOString());
+      }
+      return item;
+    });
+  }
+  const item: ChatHistoryItem = {
+    message: { role: "user", content: imported.markdown },
+    contextItems: [],
+  };
+  if (imported.createdAt !== undefined) {
+    setMessageTimestamp(item, new Date(imported.createdAt).toISOString());
+  }
+  return [item];
+}
+
 export class SessionHandlers {
-  private readonly closed = new Set<string>();
   private readonly models = new Map<string, ModelSelection>();
   private readonly sender: SessionNotificationSender;
   private readonly configuredLookup: ModelLookup | null | undefined;
@@ -118,11 +166,20 @@ export class SessionHandlers {
     if (input.sessionId && sessionStore.getMeta(input.sessionId)) {
       throw sessionRequestError(`Session already exists: ${input.sessionId}`);
     }
+    if (input.model) {
+      this.assertKnownModel(input.model);
+    }
     const session = createSession([], input.sessionId, {
-      source: "serve",
+      source: input.importedHistory ? "import" : "serve",
       persistEmpty: false,
     });
     session.workspaceDirectory = input.workspace.workspacePath;
+    (session as Session & { workspaceIdentity?: string }).workspaceIdentity =
+      input.workspace.workspaceIdentity;
+    session.mode = input.mode === "plan" ? "plan" : "agent";
+    session.history = input.importedHistory
+      ? importedHistoryItems(input.importedHistory)
+      : [];
     const importedTitle = input.importedHistory?.title;
     if (importedTitle) {
       session.title = importedTitle;
@@ -140,32 +197,64 @@ export class SessionHandlers {
     if (!session) {
       throw sessionRequestError(`Session not found: ${input.sessionId}`);
     }
-    this.closed.delete(session.sessionId);
+    sessionStore.setArchived(session.sessionId, false);
     return this.snapshot(session);
   }
 
   async list(params: unknown): Promise<SessionListResult> {
     const input = parseParams(zcodeSessionListParamsSchema, params);
+    // The store hides archived sessions and applies its own limit, so the
+    // request limit is applied after the id filter and only here.
     const metas = sessionStore.list({
       cwd: input.workspace?.workspacePath,
       includeEmpty: true,
       includeSubagents: false,
-      limit: input.sessionIds ? undefined : input.limit,
     });
     const sessions = metas
-      .filter((meta) => !this.closed.has(meta.sessionId))
       .filter(
         (meta) =>
           !input.sessionIds || input.sessionIds.includes(meta.sessionId),
       )
       .map((meta) => this.infoFromMeta(meta))
       .filter((info): info is ZCodeSessionInfo => info !== null);
-    return { sessions };
+    return {
+      sessions: input.limit ? sessions.slice(0, input.limit) : sessions,
+    };
   }
 
   async read(params: unknown): Promise<ZCodeSessionStateSnapshot> {
     const input = parseParams(zcodeSessionReadParamsSchema, params);
-    return this.snapshot(this.loadSession(input.sessionId));
+    const session = this.loadSession(input.sessionId);
+    const snapshot =
+      input.contentProfile === "index"
+        ? elideSessionSnapshotForIndex(this.snapshot(session))
+        : this.snapshot(session);
+    let messages = snapshot.messages;
+    if (input.afterSeq !== undefined && input.afterSeq > 0) {
+      const cursor = this.runtimes.cursor(input.sessionId);
+      if (cursor.eventSeq > 0 && input.afterSeq > cursor.eventSeq) {
+        throw sessionRequestError(
+          `afterSeq ${input.afterSeq} is ahead of the session event sequence`,
+        );
+      }
+      const cursorTimestamp = this.runtimes.eventTimestampAt(
+        input.sessionId,
+        input.afterSeq,
+      );
+      // A retained cursor gives a real relative window; when the event has
+      // rolled out of the retained log, returning nothing is honest and the
+      // client must resync. The full transcript is never returned silently.
+      messages =
+        cursorTimestamp === null
+          ? []
+          : messages.filter(
+              (message) => message.info.time.created > cursorTimestamp,
+            );
+    }
+    if (input.messageLimit) {
+      messages = messages.slice(-input.messageLimit);
+    }
+    return { ...snapshot, messages };
   }
 
   async messages(params: unknown): Promise<SessionMessagesResult> {
@@ -185,12 +274,11 @@ export class SessionHandlers {
 
   async close(params: unknown): Promise<SessionCloseResult> {
     const input = parseParams(zcodeSessionCloseParamsSchema, params);
-    const exists = sessionStore.getMeta(input.sessionId) !== null;
-    if (exists) {
-      this.closed.add(input.sessionId);
+    const archived = sessionStore.setArchived(input.sessionId, true);
+    if (archived) {
       sessionStore.releaseLease(input.sessionId);
     }
-    return { closed: exists };
+    return { closed: archived };
   }
 
   async setModel(params: unknown): Promise<ZCodeSessionStateSnapshot> {
@@ -247,7 +335,12 @@ export class SessionHandlers {
       meta: sessionStore.getMeta(session.sessionId),
       model: this.modelFor(session),
       runtime: this.runtimes.cursor(session.sessionId),
+      status: this.statusFor(session.sessionId),
     });
+  }
+
+  private statusFor(sessionId: string): SessionStatus {
+    return this.runtimes.isTurnActive(sessionId) ? "running" : "idle";
   }
 
   private rememberModel(session: Session, model: ModelSelection): void {
@@ -277,13 +370,17 @@ export class SessionHandlers {
   private assertKnownModel(model: ModelSelection): void {
     const lookup = this.resolveModelLookup();
     if (!lookup) {
-      throw sessionRequestError("Model service is not ready");
+      throw sessionRequestError(
+        "Model service is not ready",
+        INTERNAL_ERROR_CODE,
+      );
     }
     const known = lookup
       .getAvailableChatModels()
       .some(
         (entry) =>
-          entry.provider === model.providerId && entry.name === model.modelId,
+          entry.provider === model.providerId &&
+          (entry.model === model.modelId || entry.name === model.modelId),
       );
     if (!known) {
       throw sessionRequestError(
@@ -296,7 +393,25 @@ export class SessionHandlers {
     if (this.configuredLookup !== undefined) {
       return this.configuredLookup;
     }
-    const state = serviceContainer.getSync<ModelLookup>(MODEL_SERVICE_NAME);
-    return state.state === "ready" && state.value ? state.value : null;
+    const state =
+      serviceContainer.getSync<ModelServiceState>(MODEL_SERVICE_NAME);
+    if (state.state !== "ready" || !state.value) {
+      return null;
+    }
+    // The container holds the initialized model state, not the service
+    // instance, so the fallback reads the configured models directly and
+    // matches a selection the same way ModelService.findModelByName does.
+    const models = (state.value.assistant?.models ?? []).filter(
+      (model): model is NonNullable<typeof model> => Boolean(model),
+    );
+    return {
+      getAvailableChatModels: () =>
+        models.map((model, index) => ({
+          provider: model.provider,
+          name: model.name ?? model.model ?? "unnamed",
+          model: model.model,
+          index,
+        })),
+    };
   }
 }

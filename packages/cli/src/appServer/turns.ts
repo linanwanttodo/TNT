@@ -321,6 +321,9 @@ export class TurnHandlers {
         meta: sessionStore.getMeta(input.sessionId),
         model: splitModelTitle(session.chatModelTitle ?? undefined),
         runtime: cursor,
+        status: this.runtimes.isTurnActive(input.sessionId)
+          ? "running"
+          : "idle",
       });
     }
     return result;
