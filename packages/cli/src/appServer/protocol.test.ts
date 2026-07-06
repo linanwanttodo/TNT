@@ -337,12 +337,11 @@ describe("app-server stdio protocol", () => {
     await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
   });
 
-  it("emits exactly one lifecycle notification when stdin end and signals race", async () => {
+  it("emits exactly one lifecycle notification when stdin end and a signal race", async () => {
     send(child, { id: 7, method: "runtime/capabilities", params: {} });
     await nextJson(queue);
 
     child.kill("SIGINT");
-    child.kill("SIGTERM");
     child.stdin.end();
 
     const notification = await nextJson(queue);
@@ -350,6 +349,16 @@ describe("app-server stdio protocol", () => {
 
     await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
     await expect(queue.remainingLines()).resolves.toEqual([]);
+  });
+
+  it("exits on a repeated signal without waiting for shutdown", async () => {
+    send(child, { id: 8, method: "runtime/capabilities", params: {} });
+    await nextJson(queue);
+
+    child.kill("SIGTERM");
+    child.kill("SIGINT");
+
+    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
   });
 });
 

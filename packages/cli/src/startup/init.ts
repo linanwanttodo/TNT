@@ -118,6 +118,34 @@ export function safeStdoutRaw(chunk: Uint8Array | string): boolean {
 }
 
 /**
+ * Flush bytes already handed to stdout through the saved raw writer. The
+ * headless interceptor replaces `process.stdout.write` with a stub whose
+ * callback fires synchronously, so `flushStream(process.stdout)` cannot see
+ * the real queue; this waits on the original stream instead and gives up after
+ * `timeoutMs` so a stalled pipe cannot block exit forever.
+ */
+export function safeStdoutFlush(timeoutMs = 500): Promise<void> {
+  if (process.stdout.writableLength === 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    try {
+      originalStdoutWrite("", finish);
+    } catch {
+      finish();
+    }
+  });
+}
+
+/**
  * Safe stderr output that bypasses all overrides
  * Use this for error messages that should always be visible
  */
