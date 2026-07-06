@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable max-lines -- the argv command registry lives in this entrypoint */
 
 // MUST be the first import - intercepts console/stdout/stderr before any dependencies load
 import "./startup/init.js";
@@ -413,10 +414,13 @@ program
 program
   .command("serve [prompt]", { hidden: true })
   .description(
-    "Start an HTTP server with /state, /events, /message, /permission, /pause, /diff and /exit endpoints",
+    "Start an HTTP server with /state, /events, /message, /permission, /pause, /diff and /exit endpoints (add --json for the Web UI daemon)",
   )
   .option("--timeout <seconds>", "Inactivity timeout in seconds", "300")
-  .option("--port <port>", "Port to run the server on", "8000")
+  .option(
+    "--port <port>",
+    "Port to bind (daemon: ephemeral when omitted; legacy server: 8000)",
+  )
   .option(
     "--host <addr>",
     "Interface to bind (default: 127.0.0.1). 0.0.0.0 exposes an unauthenticated server",
@@ -429,9 +433,44 @@ program
     "--beta-upload-artifact-tool",
     "Enable beta UploadArtifact tool for uploading screenshots, videos, and logs",
   )
+  .option(
+    "--workspace <path>",
+    "Workspace to serve in daemon mode (default: the process working directory)",
+  )
+  .option(
+    "--json",
+    "Daemon mode: print one machine-readable handshake line to stdout after listening",
+  )
+  .option(
+    "--handshake-file <path>",
+    "Daemon mode: atomically write the handshake JSON to this path",
+  )
+  .option("--no-tui", "Daemon mode: run without a TUI")
   .action(async (prompt, options) => {
     // Merge parent options with subcommand options
     const mergedOptions = mergeParentOptions(program, options);
+
+    if (mergedOptions.verbose) {
+      logger.setLevel("debug");
+      logger.debug("Verbose logging enabled");
+    }
+
+    // The daemon owns the flags the legacy HTTP server never had. Routing on
+    // them keeps `tnt serve` payload-compatible for existing callers while
+    // giving host clients a stable machine-readable entrypoint.
+    const { isServeDaemonMode, serveDaemon } =
+      await import("./commands/serveDaemon.js");
+    if (isServeDaemonMode(mergedOptions)) {
+      await serveDaemon({
+        port: mergedOptions.port,
+        host: mergedOptions.host,
+        workspace: mergedOptions.workspace,
+        json: mergedOptions.json,
+        handshakeFile: mergedOptions.handshakeFile,
+        tui: mergedOptions.tui,
+      });
+      return;
+    }
 
     const serveValidation = validateServeFlags({
       port: mergedOptions.port,
@@ -440,11 +479,6 @@ program
     });
     if (!serveValidation.isValid) {
       handleValidationErrors(serveValidation.errors);
-    }
-
-    if (mergedOptions.verbose) {
-      logger.setLevel("debug");
-      logger.debug("Verbose logging enabled");
     }
 
     const { serve } = await import("./commands/serve.js");
