@@ -95,6 +95,7 @@ describe("V4 team-run workflow wiring", () => {
       topic: `conversation/${sessionId}`,
       connectionId: "conn-1",
       clientMode: "desktop-continuous",
+      workflowRunDeltas: true,
     });
   });
 
@@ -145,11 +146,31 @@ describe("V4 team-run workflow wiring", () => {
     }
     const firstUpdate = afterStart.find(
       (delta) => (delta as { op?: string }).op === "workflowRun.updated",
-    ) as { revision?: number; actors?: Array<{ status: string }> } | undefined;
+    ) as
+      | {
+          revision?: number;
+          actors?: Array<{ status: string; siteId: string; name: string }>;
+          nodes?: Array<{ actorSiteId: string }>;
+        }
+      | undefined;
     expect(firstUpdate?.revision).toBe(1);
     expect(firstUpdate?.actors?.map((actor) => actor.status)).toEqual([
       "waiting",
       "waiting",
+    ]);
+    // Run actors join the static graph by lane id; the human names stay on the
+    // actor so the overlay can light `member-1` / `member-2`.
+    expect(firstUpdate?.actors?.map((actor) => actor.siteId)).toEqual([
+      "member-1",
+      "member-2",
+    ]);
+    expect(firstUpdate?.actors?.map((actor) => actor.name)).toEqual([
+      "implementer",
+      "tester",
+    ]);
+    expect(firstUpdate?.nodes?.map((node) => node.actorSiteId)).toEqual([
+      "member-1",
+      "member-2",
     ]);
     const row = toolRows(sender)
       .filter(

@@ -10,6 +10,8 @@ import type { WorkflowRunsState } from "@zcode/shared/zcode-protocol-v4";
 import type { Session, TeamRunRecord } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
+import { buildTeamWorkflowGraph } from "../session/teamWorkflow.js";
+
 import { deltasForEvent } from "./v4Deltas.js";
 import { createFrameSubscription } from "./v4Frames.js";
 import {
@@ -94,7 +96,7 @@ describe("workflowRuns projection", () => {
     });
     expect(projected.actors).toEqual([
       {
-        siteId: "implementer",
+        siteId: "member-1",
         ordinal: 0,
         name: "implementer",
         model: "anthropic/claude-sonnet-4-5",
@@ -103,7 +105,7 @@ describe("workflowRuns projection", () => {
         phaseName: "wave-1",
       },
       {
-        siteId: "tester",
+        siteId: "member-2",
         ordinal: 1,
         name: "tester",
         model: "openai/gpt-5",
@@ -117,9 +119,30 @@ describe("workflowRuns projection", () => {
     ]);
     expect(projected.nodes.map((node) => node.outcome)).toEqual(["ok", "ok"]);
     expect(projected.nodes.map((node) => node.actorSiteId)).toEqual([
-      "implementer",
-      "tester",
+      "member-1",
+      "member-2",
     ]);
+
+    // The live overlay joins a node to the static graph by lane id, so every
+    // actor/node site must exist in the graph and the human name stays on the
+    // actor rather than becoming the join key.
+    const graph = buildTeamWorkflowGraph({
+      team: "dev",
+      goal: "Ship the feature",
+      mode: "parallel",
+      members: [{ name: "implementer" }, { name: "tester" }],
+    });
+    const laneIds = new Set(graph.lanes.map((lane) => lane.id));
+    for (const actor of projected.actors) {
+      expect(laneIds.has(actor.siteId)).toBe(true);
+    }
+    for (const node of projected.nodes) {
+      const actorSiteId = node.actorSiteId ?? "";
+      expect(laneIds.has(actorSiteId)).toBe(true);
+      expect(node.actorSiteId).toBe(
+        projected.actors[node.actorOrdinal ?? -1]?.siteId,
+      );
+    }
   });
 
   it("maps a failed run and its member to an errored run and failed node", () => {
@@ -281,6 +304,56 @@ describe("workflowRun deltas", () => {
     expect(
       deltas.filter((delta) => delta.op === "workflowRun.updated"),
     ).toHaveLength(1);
+  });
+});
+
+describe("workflowRun delta capability", () => {
+  const run = teamRun({ status: "completed" });
+
+  it("sends key-level deltas to a subscriber that declared the capability", () => {
+    const frame = createFrameSubscription(
+      fixtureSession,
+      "sub-1",
+      "epoch-1",
+      true,
+    );
+    const deltas = deltasForEvent(
+      frame,
+      sessionEvent(1, "session.updated", {
+        workflowRunDeltas: [
+          { op: "workflowRun.removed", runId: "team-1", revision: 3 },
+        ],
+        workflowRuns: teamRunsToWorkflowRuns([run], 3),
+      }),
+    );
+
+    expect(deltas).toEqual([
+      { op: "workflowRun.removed", runId: "team-1", revision: 3 },
+    ]);
+  });
+
+  it("sends the clamped whole key to a legacy subscriber", () => {
+    const frame = createFrameSubscription(
+      fixtureSession,
+      "sub-1",
+      "epoch-1",
+      false,
+    );
+    const whole = teamRunsToWorkflowRuns([run], 3);
+    const deltas = deltasForEvent(
+      frame,
+      sessionEvent(1, "session.updated", {
+        workflowRunDeltas: [
+          { op: "workflowRun.removed", runId: "team-1", revision: 3 },
+        ],
+        workflowRuns: whole,
+      }),
+    );
+
+    expect(deltas).toEqual([
+      { op: "state.updated", patch: { workflowRuns: whole } },
+    ]);
+    expect(() => conversationDeltaSchema.parse(deltas[0])).not.toThrow();
   });
 });
 

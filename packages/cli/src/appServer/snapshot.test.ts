@@ -13,9 +13,13 @@ import type {
 } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
+import { serviceContainer } from "../services/ServiceContainer.js";
+import { SERVICE_NAMES } from "../services/types.js";
 import { setMessageTimestamp } from "../session/store.js";
 
 import {
+  contextWindowForSession,
+  lastPromptTokens,
   toZcodeMessages,
   toZcodeSessionInfo,
   toZcodeSnapshot,
@@ -296,12 +300,174 @@ describe("toZcodeSnapshot", () => {
     expect(snapshot.settings.mode.current).toBe("build");
     expect(snapshot.projection.turnCount).toBe(1);
     expect(snapshot.projection.pendingPermissions).toEqual([]);
+    expect(snapshot.session.target).toBeUndefined();
+    expect(snapshot.projection.target).toBeUndefined();
+    expect(snapshot).not.toHaveProperty("todos");
     expect(snapshot.runtime).toEqual({
       eventSeq: 0,
       stateRevision: 0,
       pendingRequestIds: [],
     });
     expect(snapshot.messages).toHaveLength(expectedMessages.length);
+  });
+
+  it("maps cumulative usage and the last prompt into the projection", () => {
+    const usageSession: Session = {
+      sessionId: "session-usage",
+      title: "Usage",
+      workspaceDirectory: "/workspace",
+      history: [
+        item({ role: "user", content: "hi" }),
+        item({
+          role: "assistant",
+          content: "hello",
+          usage: {
+            promptTokens: 111,
+            completionTokens: 22,
+            promptTokensDetails: { cachedTokens: 60, cacheWriteTokens: 7 },
+            completionTokensDetails: { reasoningTokens: 3 },
+          },
+        }),
+      ],
+      usage: {
+        promptTokens: 300,
+        completionTokens: 50,
+        totalCost: 0,
+        promptTokensDetails: { cachedTokens: 150, cacheWriteTokens: 15 },
+      },
+    };
+
+    const snapshot = toZcodeSnapshot(usageSession, { contextWindow: 200_000 });
+
+    expect(lastPromptTokens(usageSession)).toBe(111);
+    expect(snapshot.projection).toMatchObject({
+      totalTokenCount: 350,
+      contextUsed: 111,
+      contextWindow: 200_000,
+    });
+    expect(() => zcodeSessionStateSnapshotSchema.parse(snapshot)).not.toThrow();
+  });
+
+  it("omits the goal target until the runtime observed a real lifecycle", () => {
+    const goal = {
+      targetId: "session-fixture:goal",
+      objective: "Ship the feature",
+      status: "active" as const,
+      iteration: 2,
+      timeUsedSeconds: 12,
+      activeRunStartedAtMs: null,
+      verifications: [
+        {
+          iteration: 1,
+          outcome: "pass" as const,
+          at: 1_234,
+          anchorRowId: null,
+        },
+      ],
+      createdAt: 1_000,
+      updatedAt: 2_000,
+    };
+
+    const snapshot = toZcodeSnapshot(
+      { ...fixture, goal: "Ship the feature" },
+      {
+        contextWindow: 0,
+        runtime: { eventSeq: 0, stateRevision: 0, goal },
+      },
+    );
+
+    expect(snapshot.session.target).toMatchObject({
+      sessionId: "session-fixture",
+      targetId: "session-fixture:goal",
+      objective: "Ship the feature",
+      status: "active",
+      tokensUsed: 0,
+      timeUsedSeconds: 12,
+    });
+    expect(snapshot.projection.target).toEqual(snapshot.session.target);
+    expect(() => zcodeSessionStateSnapshotSchema.parse(snapshot)).not.toThrow();
+  });
+
+  it("maps the replayed Todo state into todos and omits an empty list", () => {
+    const todoState: ToolCallState = {
+      toolCallId: "todo-1",
+      toolCall: {
+        id: "todo-1",
+        type: "function",
+        function: {
+          name: "Todo",
+          arguments: '{"action":"add","text":"Write tests"}',
+        },
+      },
+      status: "done",
+      parsedArgs: { action: "add", text: "Write tests" },
+      output: [
+        {
+          content: `Added todo #1\n\ntnt-todo:${JSON.stringify({
+            action: "add",
+            todos: [
+              { id: 1, text: "Write tests", done: true },
+              { id: 2, text: "Ship it", done: false },
+            ],
+            nextId: 3,
+          })}`,
+          name: "todo",
+          description: "todo state",
+        },
+      ],
+    };
+    const todoSession: Session = {
+      ...fixture,
+      history: [
+        item({ role: "user", content: "start" }),
+        item(
+          {
+            role: "assistant",
+            content: "planning",
+            toolCalls: [
+              {
+                id: "todo-1",
+                type: "function",
+                function: {
+                  name: "Todo",
+                  arguments: '{"action":"add","text":"Write tests"}',
+                },
+              },
+            ],
+          },
+          { toolCallStates: [todoState] },
+        ),
+      ],
+    };
+
+    const snapshot = toZcodeSnapshot(todoSession, { contextWindow: 0 });
+
+    expect(snapshot.todos).toEqual([
+      { content: "Write tests", status: "completed", priority: "medium" },
+      { content: "Ship it", status: "pending", priority: "medium" },
+    ]);
+    expect(() => zcodeSessionStateSnapshotSchema.parse(snapshot)).not.toThrow();
+  });
+
+  it("resolves the configured model's context window without inventing one", () => {
+    expect(contextWindowForSession(fixture)).toBeNull();
+
+    serviceContainer.registerValue(SERVICE_NAMES.MODEL, {
+      llmApi: null,
+      model: {
+        provider: "anthropic",
+        model: "claude-sonnet-4-5",
+        contextLength: 200_000,
+      },
+      assistant: null,
+    } as never);
+
+    expect(
+      contextWindowForSession({
+        ...fixture,
+        chatModelTitle: "anthropic/claude-sonnet-4-5",
+      }),
+    ).toBe(200_000);
   });
 });
 

@@ -78,9 +78,12 @@ function memberError(run: TeamRunRecord): string | undefined {
  * Projects one team-run ledger entry into the `workflowRuns` vocabulary.
  *
  * One member = one actor + one ask node. TNT dispatches each member at most
- * once per run, so the member index is the instance ordinal and the graph's
- * `step-<n>` site is the join key. The wave (built with the same helper as the
- * static graph) is both the node's `phaseName` and its actor's birth phase.
+ * once per run, so the member index is the instance ordinal. The graph names
+ * the lane `member-<n>` and the step `step-<n>`; actors join lanes and nodes
+ * join steps, which is what lets the live overlay light the static graph. The
+ * human roster name stays in `actor.name`. The wave (built with the same helper
+ * as the static graph) is both the node's `phaseName` and its actor's birth
+ * phase.
  */
 export function projectTeamRun(
   run: TeamRunRecord,
@@ -89,7 +92,9 @@ export function projectTeamRun(
   const waveIds = teamRunWaveIds(run.mode, run.members.length);
 
   const actors: WorkflowRunActor[] = run.members.map((member, index) => ({
-    siteId: bounded(member.name, 64, `member-${index + 1}`),
+    // The join key is the static graph's lane, not the human name: the UI
+    // narrows a node to a lane with `node.actorSiteId === lane.id`.
+    siteId: `member-${index + 1}`,
     ordinal: index,
     name: bounded(
       member.name,
@@ -126,7 +131,7 @@ export function projectTeamRun(
       : member.status === "failed"
         ? { outcome: "failed" as const }
         : {}),
-    actorSiteId: bounded(member.name, 64, `member-${index + 1}`),
+    actorSiteId: `member-${index + 1}`,
     actorOrdinal: index,
     phaseName: waveIds[index] ?? "wave-1",
     instructionsHead: bounded(
