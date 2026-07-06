@@ -1,7 +1,9 @@
 import type { ZCodeSessionEvent } from "@zcode/shared";
 import {
+  conversationDeltaSchema,
   conversationSnapshotSchema,
   pendingInteractionSchema,
+  subagentRowSchema,
   workflowRunsStateSchema,
 } from "@zcode/shared/zcode-protocol-v4";
 import type { Session, TeamRunRecord, ToolCallState } from "core/index.js";
@@ -11,6 +13,7 @@ import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
 
 import type { GoalLifecycleState } from "./events.js";
+import { deltasForEvent } from "./v4Deltas.js";
 import {
   buildConversationSnapshot,
   createFrameSubscription,
@@ -419,5 +422,291 @@ describe("usage, goal and plan on the conversation snapshot", () => {
 
     expect(snapshot.goal).toBeNull();
     expect(snapshot.plan).toBeNull();
+  });
+});
+
+function subagentEvent(
+  seq: number,
+  subagent: Record<string, unknown>,
+): ZCodeSessionEvent {
+  return {
+    eventId: `session-1:event-${seq}`,
+    sessionId: "session-1",
+    seq,
+    timestamp: 1_000 + seq,
+    type: "session.updated",
+    payload: { sessionId: "session-1", subagent },
+  } as unknown as ZCodeSessionEvent;
+}
+
+describe("subagent rows and projection", () => {
+  const childSession = {
+    sessionId: "child-1",
+    history: [
+      {
+        message: {
+          role: "assistant",
+          content: "the report",
+          toolCalls: [
+            {
+              id: "call-child-1",
+              type: "function",
+              function: { name: "read_file", arguments: "{}" },
+            },
+          ],
+          usage: { promptTokens: 20, completionTokens: 10 },
+        },
+        contextItems: [],
+      },
+    ],
+  } as unknown as Session;
+
+  it("streams a started row then upserts it through reported and finished", () => {
+    const frame = createFrameSubscription(session, "sub-1", "epoch-1");
+    const started = deltasForEvent(
+      frame,
+      subagentEvent(1, {
+        event: "started",
+        id: "subagent-1",
+        agentName: "code-reviewer",
+        turnId: "turn-1",
+        status: "running",
+        summary: "Review the patch",
+        startedAt: 1_000,
+      }),
+    );
+    expect(started[0]).toMatchObject({
+      op: "row.appended",
+      row: {
+        kind: "subagent",
+        turnId: "turn-1",
+        subagentType: "code-reviewer",
+        status: "running",
+        summaryText: "Review the patch",
+      },
+    });
+    expect(started[1]).toMatchObject({
+      op: "state.updated",
+      patch: { subagents: { childSessionIds: [], running: [], endedTotal: 0 } },
+    });
+
+    const reported = deltasForEvent(
+      frame,
+      subagentEvent(2, {
+        event: "reported",
+        id: "subagent-1",
+        agentName: "code-reviewer",
+        turnId: "turn-1",
+        status: "running",
+        summary: "Found one regression",
+        startedAt: 1_000,
+      }),
+    );
+    expect(reported[0]).toMatchObject({
+      op: "row.upserted",
+      row: { summaryText: "Found one regression", status: "running" },
+    });
+
+    const finished = deltasForEvent(
+      frame,
+      subagentEvent(3, {
+        event: "finished",
+        id: "subagent-1",
+        agentName: "code-reviewer",
+        turnId: "turn-1",
+        status: "success",
+        summary: "Found one regression · 1 tool uses · 30 tokens",
+        startedAt: 1_000,
+        endedAt: 1_300,
+        childSessionId: "child-1",
+      }),
+    );
+    expect(finished[0]).toMatchObject({
+      op: "row.upserted",
+      row: {
+        kind: "subagent",
+        subagentType: "code-reviewer",
+        status: "success",
+        endedAt: 1_300,
+        childSessionId: "child-1",
+      },
+    });
+    expect(finished[1]).toMatchObject({
+      op: "state.updated",
+      patch: {
+        subagents: {
+          childSessionIds: ["child-1"],
+          running: [],
+          endedTotal: 1,
+        },
+      },
+    });
+    expect(finished[0]).toBeDefined();
+    const rowDelta = finished[0] as { row?: unknown };
+    expect(rowDelta.row).toBeDefined();
+    expect(() => subagentRowSchema.parse(rowDelta.row)).not.toThrow();
+    for (const delta of [...started, ...reported, ...finished]) {
+      expect(() => conversationDeltaSchema.parse(delta)).not.toThrow();
+    }
+  });
+
+  it("replays a row from a saved child session and measures its counters", () => {
+    const toolState: ToolCallState = {
+      toolCallId: "call-1",
+      toolCall: {
+        id: "call-1",
+        type: "function",
+        function: {
+          name: "Subagent",
+          arguments:
+            '{"subagent_name":"code-reviewer","description":"Review the patch"}',
+        },
+      },
+      status: "done",
+      parsedArgs: {
+        subagent_name: "code-reviewer",
+        description: "Review the patch",
+      },
+      output: [
+        { content: "the report", name: "report", description: "report" },
+      ],
+    };
+    const parent = {
+      sessionId: "session-replay",
+      title: "Parent",
+      workspaceDirectory: "/workspace",
+      history: [
+        { message: { role: "user", content: "start" }, contextItems: [] },
+        {
+          message: {
+            role: "assistant",
+            content: "delegating",
+            toolCalls: [toolState.toolCall],
+          },
+          contextItems: [],
+          toolCallStates: [toolState],
+        },
+      ],
+    } as unknown as Session;
+
+    const frame = createFrameSubscription(parent, "sub-1", "epoch-1", true, {
+      childSessions: [
+        {
+          sessionId: "child-1",
+          subagentType: "code-reviewer",
+          dateCreated: "2026-11-09T00:00:00.000Z",
+          updatedAt: "2026-11-09T00:00:05.000Z",
+        },
+      ],
+      teamRuns: [],
+      loadChildSession: () => childSession,
+    });
+    const row = frame.rows.find((candidate) => candidate.kind === "subagent");
+    expect(row).toMatchObject({
+      turnId: "session-replay:turn-1",
+      subagentType: "code-reviewer",
+      status: "success",
+      childSessionId: "child-1",
+    });
+    expect(String(row?.summaryText)).toContain("the report");
+    expect(String(row?.summaryText)).toContain("1 tool uses");
+    expect(String(row?.summaryText)).toContain("30 tokens");
+    expect(() => subagentRowSchema.parse(row)).not.toThrow();
+
+    const snapshot = buildConversationSnapshot(
+      parent,
+      frame,
+      { eventSeq: 1, stateRevision: 1 },
+      false,
+    );
+    expect(snapshot.subagents).toMatchObject({
+      childSessionIds: ["child-1"],
+      running: [],
+      endedTotal: 1,
+    });
+    expect(() => conversationSnapshotSchema.parse(snapshot)).not.toThrow();
+  });
+
+  it("replays a team member from the ledger and keeps its run link", () => {
+    const teamRun: TeamRunRecord = {
+      runId: "team-1",
+      team: "dev",
+      goal: "Ship it",
+      mode: "serial",
+      startedAt: "2026-11-09T00:00:00.000Z",
+      status: "completed",
+      members: [
+        {
+          name: "implementer",
+          status: "completed",
+          subagentSessionId: "child-1",
+          startedAt: "2026-11-09T00:00:01.000Z",
+          finishedAt: "2026-11-09T00:00:04.000Z",
+        },
+      ],
+    };
+    const parent = {
+      sessionId: "session-team",
+      title: "Parent",
+      workspaceDirectory: "/workspace",
+      teamRuns: [teamRun],
+      history: [
+        {
+          message: { role: "user", content: "run the team" },
+          contextItems: [],
+        },
+        {
+          message: {
+            role: "assistant",
+            content: "summoning",
+            toolCalls: [
+              {
+                id: "call-team",
+                type: "function",
+                function: {
+                  name: "SummonTeam",
+                  arguments: '{"goal":"Ship it"}',
+                },
+              },
+            ],
+          },
+          contextItems: [],
+        },
+      ],
+    } as unknown as Session;
+
+    const frame = createFrameSubscription(parent, "sub-1", "epoch-1", true, {
+      childSessions: [],
+      teamRuns: [teamRun],
+      loadChildSession: () => childSession,
+    });
+    const row = frame.rows.find((candidate) => candidate.kind === "subagent");
+    expect(row).toMatchObject({
+      turnId: "session-team:turn-1",
+      subagentType: "implementer",
+      status: "success",
+      childSessionId: "child-1",
+    });
+    expect(() => subagentRowSchema.parse(row)).not.toThrow();
+  });
+
+  it("omits counters when no child transcript exists", () => {
+    const parent = {
+      sessionId: "session-no-child",
+      title: "Parent",
+      workspaceDirectory: "/workspace",
+      history: [
+        { message: { role: "user", content: "start" }, contextItems: [] },
+      ],
+    } as unknown as Session;
+    const frame = createFrameSubscription(parent, "sub-1", "epoch-1", true, {
+      childSessions: [{ sessionId: "child-1", subagentType: "code-reviewer" }],
+      teamRuns: [],
+      loadChildSession: () => null,
+    });
+    const row = frame.rows.find((candidate) => candidate.kind === "subagent");
+    expect(row).toBeDefined();
+    expect(row?.summaryText).not.toContain("tool uses");
+    expect(row?.summaryText).not.toContain("tokens");
   });
 });

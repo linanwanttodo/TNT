@@ -1,10 +1,21 @@
 /* eslint-disable max-lines -- event translation and the goal/usage observations share one per-session state machine */
 import type { ZCodeSessionEvent, ZCodeSessionEventType } from "@zcode/shared";
-import type { Usage } from "core/index.js";
+import type { Session, TeamRunRecord, Usage } from "core/index.js";
 
 import type { AgentEvent } from "../protocol/events.js";
 import { sessionStore } from "../session/store.js";
 import { logger } from "../utils/logger.js";
+
+import {
+  deriveSubagentCounts,
+  firstLine,
+  listChildSessions,
+  loadChildSession,
+  readTeamRuns,
+  subagentWireEvent,
+  type SubagentLifecycle,
+  type SubagentSessionRef,
+} from "./subagents.js";
 
 export interface TurnUsageSnapshot {
   promptTokens: number;
@@ -48,6 +59,14 @@ export interface TranslationOptions {
   readGoal?: (sessionId: string) => string | null;
   /** The session's cumulative usage, used to derive one turn's share. */
   readUsage?: (sessionId: string) => TurnUsageSnapshot | null;
+  /** The session's team-run ledger, or null when it cannot be read. */
+  readTeamRuns?: (sessionId: string) => readonly TeamRunRecord[] | null;
+  /** The direct child sessions of a parent, or null when unreadable. */
+  readChildSessions?: (
+    parentSessionId: string,
+  ) => readonly SubagentSessionRef[] | null;
+  /** Load one saved child transcript for measured counters. */
+  loadChildSession?: (sessionId: string) => Session | null;
 }
 
 function storedSession(sessionId: string) {
@@ -102,8 +121,17 @@ export interface TranslationState {
   turnUsageBaseline: TurnUsageSnapshot | null;
   /** Goal lifecycle observed in this process, or null when there is none. */
   goal: GoalLifecycleState | null;
+  /** Delegated runs observed in this process, in dispatch order. */
+  subagents: SubagentLifecycle[];
+  /** Stable counter for subagent row identities. */
+  subagentSeq: number;
   readonly readGoal: (sessionId: string) => string | null;
   readonly readUsage: (sessionId: string) => TurnUsageSnapshot | null;
+  readonly readTeamRuns: (sessionId: string) => readonly TeamRunRecord[] | null;
+  readonly readChildSessions: (
+    parentSessionId: string,
+  ) => readonly SubagentSessionRef[] | null;
+  readonly loadChild: (sessionId: string) => Session | null;
 }
 
 export function createTranslationState(
@@ -128,8 +156,13 @@ export function createTranslationState(
     summonTeamToolCallId: null,
     turnUsageBaseline: null,
     goal: null,
+    subagents: [],
+    subagentSeq: 0,
     readGoal: options.readGoal ?? readStoredGoal,
     readUsage: options.readUsage ?? readStoredUsage,
+    readTeamRuns: options.readTeamRuns ?? readTeamRuns,
+    readChildSessions: options.readChildSessions ?? listChildSessions,
+    loadChild: options.loadChildSession ?? loadChildSession,
   };
 }
 
@@ -489,6 +522,197 @@ function finishTurn(
   return events;
 }
 
+/** The parent turn the delegation belongs to; subagent events carry the agent name. */
+function parentTurnId(state: TranslationState): string {
+  return (
+    state.turnId ?? `${state.sessionId}:turn-${Math.max(1, state.turnNumber)}`
+  );
+}
+
+function runningSubagent(
+  state: TranslationState,
+  agentName: string,
+): SubagentLifecycle | undefined {
+  return state.subagents.find(
+    (candidate) =>
+      candidate.agentName === agentName && candidate.status === "running",
+  );
+}
+
+/**
+ * A dispatch joins a team run only when exactly one still-running run has a
+ * running member with that name. Two candidates mean the join would be a guess.
+ */
+function teamRunIdFor(
+  state: TranslationState,
+  agentName: string,
+): string | null {
+  const runs = state.readTeamRuns(state.sessionId) ?? [];
+  const matches = runs.filter(
+    (run) =>
+      run.status === "running" &&
+      run.members.filter(
+        (member) =>
+          member.name === agentName &&
+          member.status === "running" &&
+          !member.subagentSessionId,
+      ).length === 1,
+  );
+  return matches.length === 1 ? matches[0].runId : null;
+}
+
+function claimedChildSessionIds(state: TranslationState): Set<string> {
+  const claimed = new Set<string>();
+  for (const run of state.subagents) {
+    if (run.childSessionId) {
+      claimed.add(run.childSessionId);
+    }
+  }
+  return claimed;
+}
+
+/**
+ * The saved transcript this dispatch produced. The team ledger wins when the
+ * dispatch joined a run; otherwise the TUI's derivation is reused: the first
+ * direct child with the same agent type that existed neither at start nor was
+ * already claimed by an earlier dispatch.
+ */
+function childSessionFor(
+  state: TranslationState,
+  run: SubagentLifecycle,
+): string | null {
+  if (run.childSessionId) {
+    return run.childSessionId;
+  }
+  if (run.runId) {
+    const member = (state.readTeamRuns(state.sessionId) ?? [])
+      .find((candidate) => candidate.runId === run.runId)
+      ?.members.find((candidate) => candidate.name === run.agentName);
+    if (member?.subagentSessionId) {
+      return member.subagentSessionId;
+    }
+  }
+  const claimed = claimedChildSessionIds(state);
+  const candidate = (state.readChildSessions(state.sessionId) ?? []).find(
+    (session) =>
+      session.subagentType === run.agentName &&
+      !run.childIdsAtStart.has(session.sessionId) &&
+      !claimed.has(session.sessionId),
+  );
+  return candidate?.sessionId ?? null;
+}
+
+function startSubagent(
+  state: TranslationState,
+  event: Extract<AgentEvent, { type: "subagent.started" }>,
+): ZCodeSessionEvent[] {
+  const childIdsAtStart = new Set(
+    (state.readChildSessions(state.sessionId) ?? []).map(
+      (session) => session.sessionId,
+    ),
+  );
+  state.subagentSeq += 1;
+  const run: SubagentLifecycle = {
+    id: `${state.sessionId}:subagent-${state.subagentSeq}`,
+    agentName: event.agentName,
+    turnId: parentTurnId(state),
+    description: firstLine(event.prompt),
+    startedAt: event.timestamp,
+    status: "running",
+    reported: "",
+    endedAt: null,
+    childSessionId: null,
+    runId: teamRunIdFor(state, event.agentName),
+    childIdsAtStart,
+  };
+  state.subagents.push(run);
+  return [
+    stamp(
+      state,
+      "session.updated",
+      {
+        sessionId: state.sessionId,
+        subagent: subagentWireEvent(run, "started"),
+      },
+      event.timestamp,
+      run.turnId,
+    ),
+  ];
+}
+
+function reportSubagent(
+  state: TranslationState,
+  event: Extract<AgentEvent, { type: "subagent.reported" }>,
+): ZCodeSessionEvent[] {
+  const run = runningSubagent(state, event.agentName);
+  if (!run) {
+    logger.debug("AppServer: dropped a report with no matching subagent", {
+      sessionId: event.sessionId,
+      agentName: event.agentName,
+    });
+    return [];
+  }
+  run.reported = event.content;
+  return [
+    stamp(
+      state,
+      "session.updated",
+      {
+        sessionId: state.sessionId,
+        subagent: subagentWireEvent(run, "reported"),
+      },
+      event.timestamp,
+      run.turnId,
+    ),
+  ];
+}
+
+function finishSubagent(
+  state: TranslationState,
+  event: Extract<AgentEvent, { type: "subagent.finished" }>,
+): ZCodeSessionEvent[] {
+  observeGoalVerdict(state, event.verdict, event.timestamp);
+  const run = runningSubagent(state, event.agentName);
+  if (!run) {
+    logger.debug("AppServer: dropped a finish with no matching subagent", {
+      sessionId: event.sessionId,
+      agentName: event.agentName,
+    });
+    return [];
+  }
+  run.status = event.success ? "success" : "failed";
+  run.endedAt = event.timestamp;
+  if (event.content.length > 0) {
+    run.reported = event.content;
+  }
+  if (event.verdict) {
+    run.verdict = event.verdict;
+  }
+  const childSessionId = childSessionFor(state, run);
+  if (childSessionId) {
+    run.childSessionId = childSessionId;
+    const counts = deriveSubagentCounts(childSessionId, state.loadChild);
+    if (counts.toolUses !== undefined) {
+      run.toolUses = counts.toolUses;
+    }
+    if (counts.tokens !== undefined) {
+      run.tokens = counts.tokens;
+    }
+  }
+  return [
+    stamp(
+      state,
+      "session.updated",
+      {
+        sessionId: state.sessionId,
+        subagent: subagentWireEvent(run, "finished"),
+      },
+      event.timestamp,
+      run.turnId,
+    ),
+  ];
+}
+
 /**
  * Translates one engine event into the ZCode session-event vocabulary. Pure:
  * the only mutable input is `state`, and every returned event is stamped with
@@ -703,14 +927,12 @@ export function translateAgentEvent(
           event.turnId,
         ),
       ];
+    case "subagent.started":
+      return startSubagent(state, event);
+    case "subagent.reported":
+      return reportSubagent(state, event);
     case "subagent.finished":
-      observeGoalVerdict(state, event.verdict, event.timestamp);
-      logger.debug("AppServer: dropped unsupported agent event", {
-        type: event.type,
-        sessionId: event.sessionId,
-        turnId: event.turnId,
-      });
-      return [];
+      return finishSubagent(state, event);
     default:
       logger.debug("AppServer: dropped unsupported agent event", {
         type: event.type,
