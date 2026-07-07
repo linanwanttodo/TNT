@@ -10,13 +10,13 @@ describe("QuizService", () => {
   it("keeps the legacy single-question string contract", async () => {
     const service = new QuizService();
     const asked = service.askQuestion({
-      question: "Continue?",
+      question: "Proceed?",
       options: ["yes", "no"],
     });
 
     const pending = service.getState().pendingQuestion;
     expect(pending?.questions).toEqual([
-      { question: "Continue?", options: ["yes", "no"] },
+      { question: "Proceed?", options: ["yes", "no"] },
     ]);
 
     expect(service.answerQuestion(pending?.requestId ?? "", "yes")).toBe(true);
