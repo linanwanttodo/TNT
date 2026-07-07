@@ -23,6 +23,8 @@ interface MainContentProps {
   isCompacting: boolean;
   compactionStartTime: number | null;
   isBashToolRunning: boolean;
+  /** Verbose sessions show the spinner's token counter before the 30 s gate. */
+  verbose?: boolean;
   /** Rows hidden above the transcript window. */
   scrollTop: number;
   onScrollMetrics: (metrics: ScrollViewMetrics) => void;
@@ -51,6 +53,7 @@ export const MainContent: React.FC<MainContentProps> = ({
   isCompacting,
   compactionStartTime,
   isBashToolRunning,
+  verbose = false,
   scrollTop,
   onScrollMetrics,
   showScrollbar,
@@ -75,6 +78,7 @@ export const MainContent: React.FC<MainContentProps> = ({
         isCompacting={isCompacting}
         compactionStartTime={compactionStartTime}
         isBashToolRunning={isBashToolRunning}
+        verbose={verbose}
         scrollTop={scrollTop}
         onMetrics={onScrollMetrics}
         showScrollbar={showScrollbar}

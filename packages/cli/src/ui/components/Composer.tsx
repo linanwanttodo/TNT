@@ -8,6 +8,7 @@ import { theme } from "../theme/tokens.js";
 import type { ThemeName } from "../theme/tokens.js";
 
 import { BottomStatusBar } from "./BottomStatusBar.js";
+import { ComposerHints } from "./ComposerHints.js";
 import { ResourceDebugBar } from "./ResourceDebugBar.js";
 import { ScreenContent } from "./ScreenContent.js";
 
@@ -37,6 +38,8 @@ interface ComposerProps {
   handleUserMessage: (message: string, imageMap?: Map<string, Buffer>) => void;
   isWaitingForResponse: boolean;
   isCompacting: boolean;
+  /** Messages waiting behind the current turn; drives the queue hint. */
+  queuedCount?: number;
   inputMode: boolean;
   handleInterrupt: () => void;
   handleFileAttached: (filePath: string, content: string) => void;
@@ -129,6 +132,12 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         onCancelThemePreview={props.onCancelThemePreview}
         onSelectTheme={props.onSelectTheme}
         subagentView={props.subagentView}
+      />
+
+      <ComposerHints
+        wasInterrupted={props.wasInterrupted}
+        queuedCount={props.queuedCount}
+        working={props.isWaitingForResponse || props.isCompacting}
       />
 
       {props.isVerboseMode && !props.isRemoteMode && (
