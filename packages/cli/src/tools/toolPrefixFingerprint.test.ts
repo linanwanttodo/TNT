@@ -47,9 +47,16 @@ import { sortToolsByName } from "./stableOrder.js";
  * deliberate schema change: 478 more characters, moving the digest from
  * 973748ebc5cddf7a/33989 to a71d2947f1555c76/34467 over the same 42 tools.
  * It still only lands in sessions that activate a team behind the beta flag.
+ * 2026-11-09: `AskQuestion` gained an optional `questions` array (up to eight
+ * entries, each with optional options/multiSelect/freeText/header) so one tool
+ * call can collect a whole form. The legacy `question`/`options` pair is still
+ * accepted. This is a schema addition, not a wording edit: 849 more characters
+ * move the digest from a71d2947f1555c76/34467 to 56d3989dd2fb855c/35316 over
+ * the same 42 tools. It sits in every session's prefix, so the cold start is
+ * paid once on the next request, not only behind a flag.
  */
-const PREFIX_FINGERPRINT = "a71d2947f1555c76";
-const PREFIX_CHARACTERS = 34_467;
+const PREFIX_FINGERPRINT = "56d3989dd2fb855c";
+const PREFIX_CHARACTERS = 35_316;
 const PREFIX_TOOLS = 42;
 
 const ARCHITECTURE_DOC = path.resolve(

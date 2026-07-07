@@ -4,10 +4,12 @@ import {
 } from "@zcode/shared";
 import { describe, expect, it, vi } from "vitest";
 
+import { t } from "../i18n/index.js";
 import { ToolPermissionManager } from "../permissions/permissionManager.js";
 import type { AgentEvent } from "../protocol/events.js";
 import { QuizService, type QuizQuestion } from "../services/QuizService.js";
 
+import { FREE_TEXT_OPTION_VALUE } from "./interactionPayload.js";
 import {
   InteractionBridge,
   type InteractionBridgeOptions,
@@ -201,7 +203,9 @@ describe("question interactions", () => {
     );
     await expect(asked).resolves.toBe("b");
     expect(answerQuestion).toHaveBeenCalledTimes(1);
-    expect(answerQuestion).toHaveBeenCalledWith(requestId, "b", false);
+    expect(answerQuestion).toHaveBeenCalledWith(requestId, "b", false, [
+      { question: "Which model?", answer: "b", isCustomAnswer: false },
+    ]);
     await flush();
 
     const resolved = runtimes
@@ -326,6 +330,164 @@ describe("question interactions", () => {
         .eventsAfter("session-tui", 0)
         .filter((event) => event.type === "userInput.resolved"),
     ).toHaveLength(1);
+    bridge.dispose();
+  });
+
+  it("bridges a question set and maps answers back per question", async () => {
+    const { sender, quiz, runtimes, bridge } = createBridge();
+    const asked = quiz.askQuestions([
+      { question: "Which model?", options: ["a", "b"], header: "Model" },
+      {
+        question: "Which extras?",
+        options: ["x", "y", "z"],
+        multiSelect: true,
+        header: "Extras",
+      },
+    ]);
+    await flush();
+
+    const params = zcodeUserInputRequestParamsSchema.parse(
+      sender.requests[0]?.params,
+    );
+    expect(params.prompt).toBe("Model. Which model?\nExtras. Which extras?");
+    expect(params.questions).toEqual([
+      {
+        question: "Which model?",
+        header: "Model",
+        options: [
+          { value: "a", label: "a" },
+          { value: "b", label: "b" },
+        ],
+      },
+      {
+        question: "Which extras?",
+        header: "Extras",
+        options: [
+          { value: "x", label: "x" },
+          { value: "y", label: "y" },
+          { value: "z", label: "z" },
+        ],
+        multiSelect: true,
+      },
+    ]);
+
+    const requestId = quiz.getState().pendingQuestion?.requestId ?? "";
+    expect(
+      bridge.resolveInteraction(requestId, {
+        action: "accept",
+        content: {
+          answers: { "Which model?": "b", "Which extras?": "x, z" },
+          answer_0: "b",
+          answer_1: ["x", "z"],
+        },
+      }),
+    ).toBe(true);
+
+    const result = await asked;
+    expect(result.answers).toEqual([
+      { question: "Which model?", answer: "b", isCustomAnswer: false },
+      {
+        question: "Which extras?",
+        answer: "x, z",
+        isCustomAnswer: false,
+        selected: ["x", "z"],
+      },
+    ]);
+    expect(result.answer).toBe(
+      "Q: Which model?\nA: b\n\nQ: Which extras?\nA: x, z",
+    );
+
+    expect(
+      bridge.resolveInteraction(requestId, {
+        action: "accept",
+        content: { answer: "late" },
+      }),
+    ).toBe(false);
+    expect(
+      runtimes
+        .eventsAfter("session-1", 0)
+        .filter((event) => event.type === "userInput.resolved"),
+    ).toHaveLength(1);
+    bridge.dispose();
+  });
+
+  it("maps a host response to a question set back per question", async () => {
+    const { sender, quiz, bridge } = createBridge();
+    const asked = quiz.askQuestions([
+      { question: "Which model?", options: ["a", "b"] },
+      {
+        question: "Which extras?",
+        options: ["x", "y"],
+        multiSelect: true,
+      },
+    ]);
+    await flush();
+
+    sender.complete(0, {
+      action: "accept",
+      content: {
+        answers: { "Which model?": "a", "Which extras?": "y" },
+        answer_0: "a",
+        answer_1: ["y"],
+      },
+    });
+
+    const result = await asked;
+    expect(result.answers).toEqual([
+      { question: "Which model?", answer: "a", isCustomAnswer: false },
+      {
+        question: "Which extras?",
+        answer: "y",
+        isCustomAnswer: false,
+        selected: ["y"],
+      },
+    ]);
+    expect(
+      bridge.resolveInteraction(result.requestId, { optionId: "option-0" }),
+    ).toBe(false);
+    bridge.dispose();
+  });
+
+  it("keeps a lone free-text question as a plain prompt and gives a set's free-text question an option", async () => {
+    const { sender, quiz, bridge } = createBridge();
+    const asked = quiz.askQuestions([{ question: "Describe the change" }]);
+    await flush();
+
+    const plain = zcodeUserInputRequestParamsSchema.parse(
+      sender.requests[0]?.params,
+    );
+    expect(plain.questions).toBeUndefined();
+    expect(plain.prompt).toBe("Describe the change");
+
+    const requestId = quiz.getState().pendingQuestion?.requestId ?? "";
+    expect(quiz.answerQuestion(requestId, "typed", true)).toBe(true);
+    await expect(asked).resolves.toMatchObject({
+      answer: "typed",
+      answers: [
+        {
+          question: "Describe the change",
+          answer: "typed",
+          isCustomAnswer: true,
+        },
+      ],
+    });
+
+    const set = quiz.askQuestions([
+      { question: "Pick one", options: ["a"] },
+      { question: "Describe it" },
+    ]);
+    await flush();
+    const mapped = zcodeUserInputRequestParamsSchema.parse(
+      sender.requests[1]?.params,
+    );
+    expect(mapped.questions?.[1]?.options).toEqual([
+      { value: FREE_TEXT_OPTION_VALUE, label: t("quiz.freeTextOption") },
+    ]);
+    quiz.answerQuestion(
+      quiz.getState().pendingQuestion?.requestId ?? "",
+      "Q: Pick one\nA: a\n\nQ: Describe it\nA: text",
+    );
+    await set;
     bridge.dispose();
   });
 });

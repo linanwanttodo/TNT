@@ -7,6 +7,8 @@ export interface ParameterSchema {
   enum?: string[];
   required?: string[];
   properties?: Record<string, ParameterSchema>;
+  /** An array schema may bound its length; the reader validates the type. */
+  maxItems?: number;
   items?: {
     type: string;
     properties?: Record<string, ParameterSchema>;

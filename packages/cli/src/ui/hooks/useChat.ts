@@ -18,6 +18,7 @@ import {
 import { t } from "../../i18n/index.js";
 import { interactionBroker } from "../../permissions/interactionBroker.js";
 import { services } from "../../services/index.js";
+import type { QuizItemAnswer } from "../../services/QuizService.js";
 import { turnRunnerService } from "../../services/TurnRunnerService.js";
 import {
   createSession,
@@ -1050,9 +1051,19 @@ export function useChat({
     }
   };
 
-  const handleQuizAnswer = (requestId: string, answer: string) => {
+  const handleQuizAnswer = (
+    requestId: string,
+    answer: string,
+    isCustomAnswer = false,
+    answers?: QuizItemAnswer[],
+  ) => {
     setActiveQuizQuestion(null);
-    interactionBroker.answerQuestion(requestId, answer);
+    interactionBroker.answerQuestion(
+      requestId,
+      answer,
+      isCustomAnswer,
+      answers,
+    );
   };
 
   // A stop request from another surface (the web UI) truncates the in-flight

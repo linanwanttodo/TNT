@@ -1,17 +1,17 @@
+/* eslint-disable max-lines */
 import { Box, Text, useInput, type Key } from "ink";
 import React, { useEffect, useState } from "react";
 
 import { t } from "../../i18n/index.js";
+import type { QuizItemAnswer } from "../../services/QuizService.js";
 import { defaultBoxStyles } from "../styles.js";
 import { symbols } from "../symbols.js";
 import { theme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 /**
- * A question as the UI understands it. The engine's QuizService still sends a
- * single question with `question`/`options`/`defaultAnswer`; this richer shape
- * only exists at the prompt boundary so a surface can describe a question set
- * without changing the service contract.
+ * A question as the UI understands it. It mirrors the QuizService question
+ * shape so a surface can render a question set without importing the service.
  */
 export interface QuizPromptQuestion {
   question: string;
@@ -36,6 +36,7 @@ interface QuizPromptProps {
     requestId: string,
     answer: string,
     isCustomAnswer: boolean,
+    answers?: QuizItemAnswer[],
   ) => void;
   /** Called instead of onAnswer when Esc cancels the whole set. */
   onCancel?: (requestId: string) => void;
@@ -50,6 +51,8 @@ interface QuestionState {
   editingOther: boolean;
   answer: string | null;
   answerIsCustom: boolean;
+  /** Labels chosen for a multi-select answer, before comma folding. */
+  selected: string[];
   showRequired: boolean;
 }
 
@@ -67,6 +70,7 @@ function initialState(question: QuizPromptQuestion): QuestionState {
     editingOther: freeText,
     answer: null,
     answerIsCustom: false,
+    selected: [],
     showRequired: false,
   };
 }
@@ -102,6 +106,22 @@ function formatAnswer(
       return `Q: ${question.question}\nA: ${answer}`;
     })
     .join("\n\n");
+}
+
+/** The per-question answer the service keeps beside the folded string. */
+function answersFor(
+  questions: QuizPromptQuestion[],
+  states: QuestionState[],
+): QuizItemAnswer[] {
+  return questions.map((question, index) => {
+    const state = states[index];
+    return {
+      question: question.question,
+      answer: state?.answer ?? "",
+      isCustomAnswer: state?.answerIsCustom ?? false,
+      ...(state?.selected.length ? { selected: [...state.selected] } : {}),
+    };
+  });
 }
 
 function nextUnanswered(states: QuestionState[], from: number): number {
@@ -168,16 +188,22 @@ export const QuizPrompt: React.FC<QuizPromptProps> = (props) => {
       requestId,
       formatAnswer(questions, nextStates),
       nextStates.some((state) => state.answerIsCustom),
+      answersFor(questions, nextStates),
     );
   };
 
-  const commit = (answer: string, isCustom: boolean) => {
+  const commit = (
+    answer: string,
+    isCustom: boolean,
+    selected: string[] = [],
+  ) => {
     const nextStates = states.map((state, index) =>
       index === activeIndex
         ? {
             ...state,
             answer,
             answerIsCustom: isCustom,
+            selected,
             editingOther: false,
             showRequired: false,
           }
@@ -237,7 +263,7 @@ export const QuizPrompt: React.FC<QuizPromptProps> = (props) => {
     }
     const usesOther =
       activeState.checked[otherIndex] && activeState.otherText.trim() !== "";
-    commit(labels.join(", "), usesOther);
+    commit(labels.join(", "), usesOther, labels);
   };
 
   const commitOther = () => {
@@ -301,7 +327,11 @@ export const QuizPrompt: React.FC<QuizPromptProps> = (props) => {
       submitSelection();
       return;
     }
-    commit(options[activeState.cursor], false);
+    commit(
+      options[activeState.cursor],
+      false,
+      multi ? [options[activeState.cursor]] : [],
+    );
   };
 
   const handleOtherEdit = (input: string, key: Key) => {
@@ -389,7 +419,16 @@ export const QuizPrompt: React.FC<QuizPromptProps> = (props) => {
       if (onCancel) {
         onCancel(requestId);
       } else {
-        onAnswer(requestId, t("quiz.cancelled"), true);
+        onAnswer(
+          requestId,
+          t("quiz.cancelled"),
+          true,
+          questions.map((question) => ({
+            question: question.question,
+            answer: t("quiz.cancelled"),
+            isCustomAnswer: true,
+          })),
+        );
       }
       return;
     }
