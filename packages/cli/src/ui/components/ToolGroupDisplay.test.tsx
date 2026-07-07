@@ -403,7 +403,9 @@ describe("ToolItemDisplay", () => {
     const state = mockToolState({ status: "done" });
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
 
-    expect(frame).not.toMatch(/\p{Extended_Pictographic}/u);
+    // The leading dot is Claude Code's tool marker (U+23FA), not an emoji;
+    // strip it before checking that no decorative pictograph slipped in.
+    expect(frame.replaceAll("⏺", "")).not.toMatch(/\p{Extended_Pictographic}/u);
     expect(frame).not.toContain("️");
   });
 });
