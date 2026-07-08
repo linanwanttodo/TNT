@@ -12,6 +12,11 @@ export {
   matchesToolPattern,
 } from "./permissionChecker.js";
 export {
+  DESTRUCTIVE_COMMAND_NOTICE,
+  isDestructiveCall,
+  isDestructiveCommand,
+} from "./destructiveCommands.js";
+export {
   toolPermissionManager,
   ToolPermissionManager,
 } from "./permissionManager.js";

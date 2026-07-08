@@ -136,12 +136,17 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
-- The static spine of the system message is the other half of that prefix: `cbe14346d198d77f` for the
-  TUI (5547 characters), `d05de1ee981fad93` with JSON output (5963), `3ca0017995cbccd3` headless
-  (6091), `0147c96e2ff76c0b` headless + JSON (6507). Only what the builder marks non-volatile is
+- The static spine of the system message is the other half of that prefix: `105b2362f755ecf3` for the
+  TUI (6321 characters), `9dde09b4fcefbd9f` with JSON output (6737), `3651b9d5dccf9cef` headless
+  (6865), `f87d27b9c8d7c657` headless + JSON (7281). Only what the builder marks non-volatile is
   digested - `base`, `headless`, `jsonOutput` - so plan text, a chosen profile, a plugin output
   style, the user's rules and the environment block stay outside it.
   `agent/systemPrefixFingerprint.test.ts` freezes these and reads this file for the same strings.
+- **Prefix changelog, 2026-11-09:** the base spine gained the escalation contract and the
+  small-fix wording: the four classes that always need the user's decision, the statement that
+  size alone is not a trigger, a plan threshold for multi-step work, and locating an unrelated
+  issue with one sentence of impact. It adds 774 characters to every shape, `cbe14346d198d77f`/
+  5547 became `105b2362f755ecf3`/6321 (TUI shape) - one cold start per session.
 - **Prefix changelog, 2026-10-31:** a report-don't-fix clause joined the `base` spine (the team
   plan's Task 1 discipline): when a change touches code with an unrelated bug, the final report
   lists its location and one sentence of impact instead of fixing it. 278 characters of prompt,
