@@ -1,10 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const activeTeam = vi.hoisted(() => ({
   value: "dev" as string | undefined,
 }));
+const sessionOverrides = vi.hoisted(() => ({
+  value: {} as Record<string, string>,
+}));
 vi.mock("../session/index.js", () => ({
   getSessionActiveTeam: vi.fn(() => activeTeam.value),
+  getSessionTeamModelOverride: vi.fn(
+    (name: string) => sessionOverrides.value[name],
+  ),
+  getSessionTeamModelOverrides: vi.fn(() =>
+    Object.keys(sessionOverrides.value).length > 0
+      ? { ...sessionOverrides.value }
+      : undefined,
+  ),
 }));
 vi.mock("../subagent/executor.js", () => ({
   executeSubAgent: vi.fn(async () => ({
@@ -81,6 +92,10 @@ function devTeamWithImplementerModel(model?: string): TeamDefinition {
     ),
   };
 }
+
+beforeEach(() => {
+  sessionOverrides.value = {};
+});
 
 describe("dispatching a listed team member", () => {
   it("preprocess accepts a team member name the model service does not know", async () => {
@@ -210,5 +225,70 @@ describe("a team member's assigned model", () => {
     expect(agent?.model?.chatOptions?.baseSystemMessage).toBe(
       "configured implementer persona",
     );
+  });
+
+  it("runs the member on a model the main agent assigned for this session", () => {
+    sessionOverrides.value = { implementer: "cheap-model" };
+    const rosterPersona = devTeamWithImplementerModel().members.find(
+      (member) => member.name === "implementer",
+    )!.systemMessage;
+
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([cheapModel]),
+      devTeamWithImplementerModel(),
+    );
+
+    expect(agent?.model?.model).toBe("haiku");
+    // The assignment changes the model, never the roster persona.
+    expect(agent?.model?.chatOptions?.baseSystemMessage).toBe(rosterPersona);
+  });
+
+  it("puts the session assignment ahead of the roster's model", () => {
+    sessionOverrides.value = { implementer: "cheap-model" };
+
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([cheapModel]),
+      devTeamWithImplementerModel("work-model"),
+    );
+
+    expect(agent?.model?.model).toBe("haiku");
+  });
+
+  it("keeps the configured same-name agent ahead of a session assignment", () => {
+    const configured = {
+      name: "implementer",
+      provider: "anthropic",
+      model: "claude-configured",
+      roles: ["subagent"],
+      chatOptions: { baseSystemMessage: "configured implementer persona" },
+    };
+    sessionOverrides.value = { implementer: "cheap-model" };
+
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([configured, cheapModel]),
+      devTeamWithImplementerModel(),
+    );
+
+    expect(agent?.model?.model).toBe("claude-configured");
+    expect(agent?.model?.chatOptions?.baseSystemMessage).toBe(
+      "configured implementer persona",
+    );
+  });
+
+  it("falls back to the session model when an assignment outlives its model", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    sessionOverrides.value = { implementer: "retired-model" };
+
+    const agent = resolveAgentState(
+      "implementer",
+      stateWithModels([cheapModel]),
+      devTeamWithImplementerModel(),
+    );
+
+    expect(agent?.model?.model).toBe("gpt-x");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("retired-model"));
   });
 });

@@ -104,6 +104,7 @@ export interface SessionInfoRecord {
   outputStyle?: string;
   promptProfile?: string;
   activeTeam?: string;
+  teamModelOverrides?: Record<string, string>;
 }
 
 export interface SessionRewindRecord {
@@ -176,6 +177,7 @@ interface SessionScalars {
   outputStyle?: string;
   promptProfile?: string;
   activeTeam?: string;
+  teamModelOverrides?: Record<string, string>;
 }
 
 interface BoundSession {
@@ -259,6 +261,7 @@ function scalarOf(session: Session): SessionScalars {
     outputStyle: session.outputStyle,
     promptProfile: session.promptProfile,
     activeTeam: session.activeTeam,
+    teamModelOverrides: session.teamModelOverrides,
   };
 }
 
@@ -429,6 +432,8 @@ function projectRecords(records: SessionRecord[]): {
         scalars.promptProfile = record.promptProfile;
       if (record.activeTeam !== undefined)
         scalars.activeTeam = record.activeTeam;
+      if (record.teamModelOverrides !== undefined)
+        scalars.teamModelOverrides = record.teamModelOverrides;
     }
   }
 
@@ -737,6 +742,7 @@ export class SessionStore {
         outputStyle: scalars.outputStyle,
         promptProfile: scalars.promptProfile,
         activeTeam: scalars.activeTeam,
+        teamModelOverrides: scalars.teamModelOverrides,
       });
     }
 
@@ -1054,6 +1060,7 @@ export class SessionStore {
         outputStyle: projected.scalars.outputStyle,
         promptProfile: projected.scalars.promptProfile,
         activeTeam: projected.scalars.activeTeam,
+        teamModelOverrides: projected.scalars.teamModelOverrides,
         parentSessionId: projected.header.parentSessionId,
         subagentType: projected.header.subagentType,
         delegationDepth: projected.header.delegationDepth,
@@ -1091,6 +1098,7 @@ export class SessionStore {
       outputStyle: projected.scalars.outputStyle,
       promptProfile: projected.scalars.promptProfile,
       activeTeam: projected.scalars.activeTeam,
+      teamModelOverrides: projected.scalars.teamModelOverrides,
       parentSessionId: projected.header.parentSessionId,
       subagentType: projected.header.subagentType,
       delegationDepth: projected.header.delegationDepth,
@@ -1155,6 +1163,7 @@ export class SessionStore {
       outputStyle: scalars.outputStyle,
       promptProfile: scalars.promptProfile,
       activeTeam: scalars.activeTeam,
+      teamModelOverrides: scalars.teamModelOverrides,
     });
 
     this.writeTranscript(sessionId, records);

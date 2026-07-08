@@ -368,6 +368,14 @@ export interface Session {
    * lead's prompt rides the userRules section.
    */
   activeTeam?: string;
+  /**
+   * Optional: model assignments made at run time for the active team's
+   * members, keyed by member name. The value is a configured model name or id,
+   * as written to the session; dispatch resolves it and the roster's persona
+   * stays the member's system message. Persisted with the session so a resume
+   * keeps the assignment.
+   */
+  teamModelOverrides?: Record<string, string>;
 }
 
 export interface BaseSessionMetadata {

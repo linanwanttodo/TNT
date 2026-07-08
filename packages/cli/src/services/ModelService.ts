@@ -309,6 +309,23 @@ export class ModelService
   }
 
   /**
+   * The configured entry a name refers to, without building an API for it.
+   * Matches either the entry's name or its model id, because hook and plugin
+   * authors write both. Dispatch and assignment validation share this match so
+   * a model the tool accepts is the one dispatch will find.
+   */
+  static findConfiguredModel(
+    modelState: ModelServiceState,
+    name: string,
+  ): ModelConfig | null {
+    return (
+      (modelState.assistant?.models ?? []).find(
+        (model) => !!model && (model.name === name || model.model === name),
+      ) ?? null
+    );
+  }
+
+  /**
    * A configured model by name, as a caller that has only a state object can
    * ask for one. Matches either the entry's name or its model id, because hook
    * and plugin authors write both.
@@ -317,9 +334,7 @@ export class ModelService
     modelState: ModelServiceState,
     name: string,
   ): ModelServiceState | null {
-    const match = (modelState.assistant?.models ?? []).find(
-      (model) => !!model && (model.name === name || model.model === name),
-    );
+    const match = ModelService.findConfiguredModel(modelState, name);
     if (!match) {
       return null;
     }
