@@ -10,10 +10,60 @@ export interface DisposableTerminalService extends ITerminalService {
   disposeAll(): void;
 }
 
+/**
+ * One workspace path, a set of them, or a live provider so a workspace added
+ * at runtime grows the allowed roots without rebuilding the service.
+ */
+export type WorkspaceRoots =
+  string | readonly string[] | (() => readonly string[]);
+
 function boundaryError(label: string, candidate: string): Error {
   return new Error(
     `${WORKSPACE_BOUNDARY_PREFIX}${label} is outside the workspace: ${candidate}`,
   );
+}
+
+function isWithinRoot(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
+}
+
+async function resolvedRoots(
+  source: WorkspaceRoots,
+): Promise<{ primary: string; roots: string[] }> {
+  const paths =
+    typeof source === "function"
+      ? source()
+      : typeof source === "string"
+        ? [source]
+        : source;
+  const unique: string[] = [];
+  for (const entry of paths) {
+    if (!entry) {
+      continue;
+    }
+    const absolute = path.resolve(entry);
+    if (!unique.includes(absolute)) {
+      unique.push(absolute);
+    }
+  }
+  if (unique.length === 0) {
+    unique.push(process.cwd());
+  }
+  const canonical = await Promise.all(unique.map(realpathNearest));
+  return { primary: canonical[0] as string, roots: canonical };
+}
+
+/** Canonical form of a workspace path; a missing tail is kept unchanged. */
+export async function canonicalWorkspacePath(
+  candidate: string,
+): Promise<string> {
+  return realpathNearest(path.resolve(candidate));
 }
 
 /**
@@ -51,36 +101,42 @@ async function realpathNearest(candidate: string): Promise<string> {
 }
 
 /**
- * Resolves `candidate` (absolute, or relative to the workspace) and rejects it
- * when the canonical result is not the workspace or below it. Symlinks are
- * followed on both sides before the comparison, so an in-workspace link that
- * points outside is rejected.
+ * Resolves `candidate` (absolute, or relative to the primary root) and rejects
+ * it when the canonical result is not one of the registered roots or below
+ * one. Symlinks are followed on both sides before the comparison, so an
+ * in-workspace link that points outside is rejected.
  */
-export async function resolveWithinWorkspace(
-  workspacePath: string,
+export async function resolveWithinRoots(
+  roots: WorkspaceRoots,
   candidate: string,
   label: string,
 ): Promise<string> {
-  const root = await realpathNearest(path.resolve(workspacePath));
+  const { primary, roots: allowed } = await resolvedRoots(roots);
   const absolute = path.isAbsolute(candidate)
     ? path.resolve(candidate)
-    : path.resolve(root, candidate);
+    : path.resolve(primary, candidate);
   const resolved = await realpathNearest(absolute);
-  const relative = path.relative(root, resolved);
-  const escapes =
-    relative === ".." ||
-    relative.startsWith(`..${path.sep}`) ||
-    path.isAbsolute(relative);
-  if (escapes) {
+  if (!allowed.some((root) => isWithinRoot(root, resolved))) {
     throw boundaryError(label, candidate);
   }
   return resolved;
 }
 
 /**
+ * The single-root form kept for callers that never grow their workspace set.
+ */
+export async function resolveWithinWorkspace(
+  workspacePath: string,
+  candidate: string,
+  label: string,
+): Promise<string> {
+  return resolveWithinRoots(workspacePath, candidate, label);
+}
+
+/**
  * The file service with every caller-supplied path checked against the
- * connection's workspace. Writes are checked too, so a path through a symlink
- * cannot land outside the checkout.
+ * connection's registered workspace roots. Writes are checked too, so a path
+ * through a symlink cannot land outside a checkout.
  *
  * `ensureConversationWorkspace`, `createDefaultWorkspace` and
  * `createScratchWorkspace` take no path from the caller: they provision
@@ -89,10 +145,10 @@ export async function resolveWithinWorkspace(
  */
 export function createWorkspaceScopedFileService(
   base: IFileService,
-  workspacePath: string,
+  workspaceRoots: WorkspaceRoots,
 ): IFileService {
   const check = (candidate: string): Promise<string> =>
-    resolveWithinWorkspace(workspacePath, candidate, "file path");
+    resolveWithinRoots(workspaceRoots, candidate, "file path");
 
   return {
     async searchWorkspaceFiles(params) {
@@ -170,18 +226,18 @@ export function createWorkspaceScopedFileService(
 
 /**
  * Terminal creation is the one place this service takes an OS path. A missing
- * cwd defaults to the workspace (instead of the host's home directory) and an
- * explicit cwd must resolve inside it.
+ * cwd defaults to the primary workspace (instead of the host's home directory)
+ * and an explicit cwd must resolve inside one of the registered roots.
  */
 export function createWorkspaceScopedTerminalService(
   base: DisposableTerminalService,
-  workspacePath: string,
+  workspaceRoots: WorkspaceRoots,
 ): DisposableTerminalService {
   return {
     async create(params) {
-      const cwd = await resolveWithinWorkspace(
-        workspacePath,
-        params.cwd ?? workspacePath,
+      const cwd = await resolveWithinRoots(
+        workspaceRoots,
+        params.cwd ?? (await resolvedRoots(workspaceRoots)).primary,
         "terminal cwd",
       );
       return base.create({ ...params, cwd });

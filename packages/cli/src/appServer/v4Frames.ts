@@ -1,8 +1,10 @@
+import type { ZCodeSessionEvent } from "@zcode/shared";
 import type {
   ConversationRow,
   ConversationSnapshot,
   ConversationTopicFrame,
   ConversationTopicWireFrame,
+  PendingInteraction,
   ToolCallRow,
 } from "@zcode/shared/zcode-protocol-v4";
 import { V4_WIRE_PROTOCOL_VERSION } from "@zcode/shared/zcode-protocol-v4";
@@ -181,11 +183,179 @@ export function controlState(running: boolean, startedAt: number) {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function stringField(
+  record: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = record[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+type PermissionOption = PendingInteraction["payload"] & {
+  kind: "permission";
+};
+
+function permissionOption(
+  value: unknown,
+): PermissionOption["options"][number] | null {
+  const record = asRecord(value);
+  const optionId = stringField(record, "optionId");
+  if (!optionId) {
+    return null;
+  }
+  const kind =
+    record.kind === "allowOnce" ||
+    record.kind === "allowAlways" ||
+    record.kind === "deny" ||
+    record.kind === "custom"
+      ? record.kind
+      : "custom";
+  const label =
+    stringField(record, "label") ?? stringField(record, "name") ?? optionId;
+  const response = asRecord(record.response);
+  return {
+    optionId,
+    label,
+    kind,
+    ...(Object.keys(response).length > 0
+      ? {
+          response: response as PermissionOption["options"][number]["response"],
+        }
+      : {}),
+  };
+}
+
+/**
+ * Projects the retained permission and question events into the snapshot's
+ * `pendingInteractions`. A request is pending until a matching `.resolved`
+ * event appears; without this the snapshot could never show a blocking prompt
+ * to a client that subscribes after the prompt was raised.
+ */
+export function derivePendingInteractions(
+  events: readonly ZCodeSessionEvent[],
+  rows: readonly ConversationRow[] = [],
+): PendingInteraction[] {
+  const rowIdForToolCall = new Map<string, number>();
+  for (const row of rows) {
+    if (row.kind === "toolCall") {
+      rowIdForToolCall.set(row.toolCallId, row.rowId);
+    }
+  }
+
+  const pending = new Map<
+    string,
+    { order: number; interaction: PendingInteraction }
+  >();
+  events.forEach((event, order) => {
+    const payload = asRecord(
+      "payload" in event ? (event as { payload?: unknown }).payload : null,
+    );
+    const requestId = stringField(payload, "requestId");
+    if (event.type === "permission.requested") {
+      const toolCallId = stringField(payload, "toolCallId");
+      if (!toolCallId) {
+        return;
+      }
+      const toolName = stringField(payload, "toolName") ?? "tool";
+      const options = Array.isArray(payload.options)
+        ? payload.options
+            .map(permissionOption)
+            .filter(
+              (
+                option,
+              ): option is NonNullable<PermissionOption["options"][number]> =>
+                option !== null,
+            )
+        : [];
+      const interactionId = requestId ?? toolCallId;
+      const reason = stringField(payload, "reason");
+      pending.set(interactionId, {
+        order,
+        interaction: {
+          interactionId,
+          kind: "permission",
+          anchorRowId: rowIdForToolCall.get(toolCallId) ?? null,
+          createdAt: event.timestamp,
+          payload: {
+            kind: "permission",
+            toolCallId,
+            toolName,
+            summary:
+              reason && reason.length > 0
+                ? reason
+                : `${toolName} requires permission`,
+            detail: payload.input ?? null,
+            options,
+          },
+        },
+      });
+      return;
+    }
+    if (event.type === "permission.resolved") {
+      if (requestId) {
+        pending.delete(requestId);
+      }
+      const toolCallId = stringField(payload, "toolCallId");
+      if (toolCallId) {
+        pending.delete(toolCallId);
+      }
+      return;
+    }
+    if (event.type === "userInput.requested") {
+      if (!requestId) {
+        return;
+      }
+      const choices = Array.isArray(payload.choices)
+        ? payload.choices.filter(
+            (choice): choice is string => typeof choice === "string",
+          )
+        : [];
+      pending.set(requestId, {
+        order,
+        interaction: {
+          interactionId: requestId,
+          kind: "userInput",
+          anchorRowId: null,
+          createdAt: event.timestamp,
+          payload: {
+            kind: "userInput",
+            prompt: stringField(payload, "prompt") ?? "",
+            freeText: payload.inputType !== "choice" || choices.length === 0,
+            ...(choices.length > 0
+              ? {
+                  options: choices.map((choice) => ({
+                    optionId: choice,
+                    label: choice,
+                  })),
+                }
+              : {}),
+          },
+        },
+      });
+      return;
+    }
+    if (event.type === "userInput.resolved" && requestId) {
+      pending.delete(requestId);
+    }
+  });
+
+  return [...pending.values()]
+    .sort((left, right) => left.order - right.order)
+    .map((entry) => entry.interaction);
+}
+
 export function buildConversationSnapshot(
   session: Session,
   frame: FrameSubscription,
   cursor: { eventSeq: number; stateRevision: number },
   running: boolean,
+  pendingInteractions: PendingInteraction[] = [],
 ): ConversationSnapshot {
   const { provider, model } = modelParts(session.chatModelTitle ?? undefined);
   const rows = [...frame.rows].sort((left, right) => left.rowId - right.rowId);
@@ -236,7 +406,7 @@ export function buildConversationSnapshot(
       },
     },
     queue: { items: [], autoDrain: true },
-    pendingInteractions: [],
+    pendingInteractions,
     pendingCommands: [],
     backgroundWorks: [],
     goal: null,
