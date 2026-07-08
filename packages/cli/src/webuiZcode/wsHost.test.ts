@@ -395,7 +395,9 @@ describe("startWebUiZcodeHost", () => {
       ).toBe(true);
     }
     expect(seen.size).toBe(
-      ZCODE_REQUIRED_SERVICE_DESCRIPTORS.length - localChannels.size,
+      ZCODE_REQUIRED_SERVICE_DESCRIPTORS.filter(
+        (descriptor) => !localChannels.has(descriptor.channelName),
+      ).length,
     );
   });
 
@@ -430,7 +432,15 @@ describe("startWebUiZcodeHost", () => {
     );
     await handle.initialized;
 
+    const localChannels = new Set(
+      ZCODE_LOCAL_SERVICE_DESCRIPTORS.map(
+        (descriptor) => descriptor.channelName,
+      ),
+    );
     for (const descriptor of ZCODE_OPTIONAL_SERVICE_DESCRIPTORS) {
+      // Model selection, local projects and the empty remote directory are
+      // real local channels now, not stubs.
+      if (localChannels.has(descriptor.channelName)) continue;
       const startedAt = Date.now();
       const error = await rejection(
         channel(handle.client, descriptor.channelName).call("__stubProbe__"),
