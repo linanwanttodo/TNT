@@ -68,6 +68,34 @@ export const ASSIGN_TEAM_MODEL_TOOL_META: Tool = {
 };
 
 /**
+ * Summons the whole active team through its lead.
+ *
+ * The description is static for the same reason the assignment tool's is: it
+ * sits in the cached prompt prefix, so naming the active team or its roster
+ * here would rewrite the tool schema whenever the roster changes.
+ */
+export const SUMMON_TEAM_TOOL_META: Tool = {
+  name: "SummonTeam",
+  displayName: "Summon Team",
+  description:
+    "Run the active team's lead with a goal. The lead plans the work and dispatches the team's members according to the roster, then reports back; this tool returns the lead's report. Use it when the user asks for the whole team, not for a single expert - dispatch one expert with Subagent instead. Only works while a team is active.",
+  readonly: false,
+  isBuiltIn: true,
+  parameters: {
+    type: "object",
+    required: ["goal"],
+    properties: {
+      goal: {
+        type: "string",
+        description:
+          "What the whole team should accomplish. State the objective, the constraints, and anything already ruled out.",
+      },
+    },
+  },
+  run: async () => "",
+};
+
+/**
  * Lists the agents available for delegation.
  *
  * This is a separate tool rather than part of the delegation tool's

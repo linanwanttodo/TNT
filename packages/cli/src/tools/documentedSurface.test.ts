@@ -71,6 +71,8 @@ const GATED_TOOLS: Record<string, string> = {
   ListSubagents: "the beta delegation flag and a run below the depth limit",
   AssignTeamModel:
     "the beta delegation flag, a run below the depth limit and an active team",
+  SummonTeam:
+    "the beta delegation flag, a run below the depth limit and an active team",
 };
 
 /** Names no shipped configuration offers. An entry is a reviewed absence. */
@@ -179,9 +181,11 @@ describe("the composed tool surface is a partition", () => {
     expect(beta.has("Subagent")).toBe(true);
     expect(beta.has("ListSubagents")).toBe(true);
     expect(beta.has("AssignTeamModel")).toBe(false);
+    expect(beta.has("SummonTeam")).toBe(false);
 
     const team = new Set(await offered({ betaSubagent: true, team: true }));
     expect(team.has("AssignTeamModel")).toBe(true);
+    expect(team.has("SummonTeam")).toBe(true);
 
     const noDelegate = new Set(
       await offered({ betaSubagent: true, canDelegate: false }),
@@ -189,6 +193,7 @@ describe("the composed tool surface is a partition", () => {
     expect(noDelegate.has("Subagent")).toBe(false);
     expect(noDelegate.has("ListSubagents")).toBe(false);
     expect(noDelegate.has("AssignTeamModel")).toBe(false);
+    expect(noDelegate.has("SummonTeam")).toBe(false);
   });
 
   it("keeps every declared gate a real built-in name", () => {
