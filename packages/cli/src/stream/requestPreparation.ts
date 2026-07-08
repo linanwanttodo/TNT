@@ -23,6 +23,7 @@ import {
   getModelMaxTokens,
 } from "../utils/tokenizer.js";
 
+import { formatInHistoryUpdate } from "./requestMessages.js";
 import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
 
@@ -141,9 +142,17 @@ export function pruneHistoryToContextLimit(options: {
   model: ModelConfig;
   systemMessage: string;
   systemMessageUpdates: readonly string[];
+  /** Environment text that rides in the first user message, not the system field. */
+  environmentContext?: string;
   tools?: ChatCompletionTool[];
 }): { chatHistory: ChatHistoryItem[]; maxTokens?: number } {
-  const { model, systemMessage, systemMessageUpdates, tools } = options;
+  const {
+    model,
+    systemMessage,
+    systemMessageUpdates,
+    environmentContext,
+    tools,
+  } = options;
   let history = options.chatHistory;
 
   // Safety buffer to account for tokenization estimation errors
@@ -157,9 +166,12 @@ export function pruneHistoryToContextLimit(options: {
   // structure overhead the history count would have added).
   const systemTokens = systemMessage ? encode(systemMessage).length + 4 : 0;
   const updateTokens = systemMessageUpdates.reduce(
-    (sum, content) => sum + encode(content).length + 5,
+    (sum, content) => sum + encode(formatInHistoryUpdate(content)).length + 5,
     0,
   );
+  const environmentTokens = environmentContext
+    ? encode(environmentContext).length + 4
+    : 0;
   const toolTokens = tools?.length ? countToolDefinitionTokens(tools) : 0;
   // Per-item counts are computed once too. validateContextLength re-encodes
   // the whole history, which made the prune loop quadratic on long sessions;
@@ -187,7 +199,8 @@ export function pruneHistoryToContextLimit(options: {
     };
   };
 
-  const fixedTokens = systemTokens + updateTokens + toolTokens;
+  const fixedTokens =
+    systemTokens + updateTokens + environmentTokens + toolTokens;
   let historyCount = historyTokens;
   let validation = totalWith(historyCount + fixedTokens);
   while (history.length > 1 && !validation.isValid) {

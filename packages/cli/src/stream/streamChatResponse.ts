@@ -45,7 +45,11 @@ import {
   hashSectionText,
   planSectionReinjection,
 } from "./systemMessageReinjection.js";
-import { advanceSystemPrompt } from "./systemPromptRound.js";
+import {
+  advanceSystemPrompt,
+  appendSystemPromptUpdates,
+  reanchorSystemPromptUpdates,
+} from "./systemPromptRound.js";
 import {
   createTurnState,
   noteCompaction,
@@ -59,13 +63,20 @@ import {
  * Compaction re-prices the cached prefix, so keeping the section baselines
  * would only postpone the reinjection: the next round rebuilds every section
  * into the prefix at no extra cache cost, and the appended-update list stops
- * growing. Idempotent - the baselines may not exist yet on a turn that
- * compacted before its first planned round.
+ * growing. The updates themselves are re-pointed at the new tail: their old
+ * offsets described a history that no longer exists, and compaction is already
+ * the one accepted cache miss, so the next round is free to place them at its
+ * end. Idempotent - the baselines may not exist yet on a turn that compacted
+ * before its first planned round.
  */
-function resetSectionBaselinesAfterCompaction(state: TurnState): void {
+function resetSectionBaselinesAfterCompaction(
+  state: TurnState,
+  historyLength: number,
+): void {
   if (state.systemPrompt.sections) {
     clearSectionBaselines(state.systemPrompt.sections);
   }
+  reanchorSystemPromptUpdates(state.systemPrompt, historyLength);
 }
 
 // Re-exported because the per-request seam is tested through this module.
@@ -112,6 +123,21 @@ export async function streamChatResponse(
     turnBudgetLimits,
     promptCacheKey,
     runOverrides?.systemMessage,
+  );
+
+  // The tool array is part of the cached prefix, so it is pinned for the whole
+  // turn and rebuilt only when the turn itself starts again. A mid-turn mode
+  // switch cannot reach this request anyway: the mode above is frozen for the
+  // same reason, and a tool list that changed under the cached bytes would
+  // rewrite the prefix while the prompt field stayed identical.
+  const rawTools = await getRequestTools(
+    isHeadless,
+    runOverrides?.permissions,
+    runOverrides?.canDelegate,
+  );
+  const tools = applyChatCompletionToolOverrides(
+    rawTools,
+    model.chatOptions?.toolOverrides,
   );
 
   /**
@@ -168,6 +194,10 @@ export async function streamChatResponse(
     // double of the service may not build sections at all - both skip it.
     let prefixNext = nextSystemMessage;
     let sectionAppends: readonly string[] = [];
+    // The environment is delivered in the first user message, not the system
+    // field, so a changed snapshot cannot rewrite the head of the prefix.
+    let environmentContext: string | undefined;
+    let plannedSections: readonly { id: string; text: string }[] = [];
     const sectionSource = services.systemMessage as
       | {
           getSystemMessageSections?: (
@@ -179,6 +209,15 @@ export async function streamChatResponse(
       sectionSource?.getSystemMessageSections?.bind(sectionSource);
     if (!runOverrides?.systemMessage && sectionBuilder) {
       const sections = await sectionBuilder(mode);
+      environmentContext = sections.find(
+        (section) => section.name === "environment",
+      )?.text;
+      plannedSections = sections
+        .filter((section) => section.name !== "environment")
+        .map((section) => ({
+          id: section.name,
+          text: section.text,
+        }));
       state.systemPrompt.sections ??= createSectionBaselines();
       const retainedHistory = chatHistory
         .map((item) => {
@@ -193,10 +232,7 @@ export async function streamChatResponse(
         })
         .join("\n");
       const plan = planSectionReinjection({
-        sections: sections.map((section) => ({
-          id: section.name,
-          text: section.text,
-        })),
+        sections: plannedSections,
         baselines: state.systemPrompt.sections,
         retainedHistory,
         existingUpdates: state.systemPrompt.updates,
@@ -210,11 +246,13 @@ export async function streamChatResponse(
       }
     }
     // The round advances the prompt state in place; the loop only reads what
-    // this request sends.
+    // this request sends. The history length is the position a new update is
+    // produced at, so its bytes stay there instead of following the tail.
     const advancedPrompt = advanceSystemPrompt({
       state: state.systemPrompt,
       next: prefixNext,
       modelName: model.model,
+      historyLength: chatHistory.length,
       supportsInHistoryUpdate:
         model.chatOptions?.supportsInHistorySystemUpdates,
       carriesInHistory:
@@ -225,41 +263,29 @@ export async function streamChatResponse(
       // per-section facts restart from this build.
       if (state.systemPrompt.sections) {
         clearSectionBaselines(state.systemPrompt.sections);
-        const sections =
-          await services.systemMessage.getSystemMessageSections(mode);
-        for (const section of sections) {
+        for (const section of plannedSections) {
           const snapshot = {
-            id: section.name,
+            id: section.id,
             hash: hashSectionText(section.text),
             text: section.text,
           };
-          state.systemPrompt.sections.byId.set(section.name, {
+          state.systemPrompt.sections.byId.set(section.id, {
             prefix: { snapshot },
             told: { snapshot, via: "prefix" },
           });
         }
       }
     } else if (sectionAppends.length > 0) {
-      state.systemPrompt.updates = [
-        ...state.systemPrompt.updates,
-        ...sectionAppends,
-      ];
+      appendSystemPromptUpdates(
+        state.systemPrompt,
+        sectionAppends,
+        chatHistory.length,
+      );
     }
     for (const warning of advancedPrompt.warnings) {
       logger.warn(warning);
     }
     const systemMessage = advancedPrompt.systemMessage;
-
-    // Recompute tools on each iteration to handle mode changes during streaming
-    const rawTools = await getRequestTools(
-      isHeadless,
-      runOverrides?.permissions,
-      runOverrides?.canDelegate,
-    );
-    const tools = applyChatCompletionToolOverrides(
-      rawTools,
-      model.chatOptions?.toolOverrides,
-    );
 
     const requestHeader: RequestHeader = {
       model: model.model,
@@ -293,7 +319,7 @@ export async function streamChatResponse(
     chatHistory = prepared.chatHistory;
     if (prepared.compacted) {
       noteCompaction(state);
-      resetSectionBaselinesAfterCompaction(state);
+      resetSectionBaselinesAfterCompaction(state, chatHistory.length);
     }
     const preApiReductionRatio = prepared.reductionRatio;
     const preApiSummarized = prepared.summarized === true;
@@ -329,6 +355,8 @@ export async function streamChatResponse(
       tools,
       systemMessage,
       systemMessageUpdates: state.systemPrompt.updates,
+      systemMessageUpdateAnchors: state.systemPrompt.updateAnchors,
+      environmentContext,
       isCompacting,
       cachePrefixVerdict,
       cachePrefixComparison: {
@@ -500,7 +528,7 @@ export async function streamChatResponse(
     chatHistory = postToolResult.chatHistory;
     if (postToolResult.wasCompacted) {
       noteCompaction(state);
-      resetSectionBaselinesAfterCompaction(state);
+      resetSectionBaselinesAfterCompaction(state, chatHistory.length);
     }
     const postToolReductionRatio = postToolResult.reductionRatio;
 
@@ -521,7 +549,7 @@ export async function streamChatResponse(
     chatHistory = compactionResult.chatHistory;
     if (compactionResult.wasCompacted) {
       noteCompaction(state);
-      resetSectionBaselinesAfterCompaction(state);
+      resetSectionBaselinesAfterCompaction(state, chatHistory.length);
     }
 
     // A compaction is only progress if it actually removed something. The

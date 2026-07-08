@@ -170,7 +170,7 @@ describe("streamChatResponse system prompt prefix", () => {
     } as unknown as BaseLlmApi;
   });
 
-  it("keeps the original system field and appends a changed prompt after history", async () => {
+  it("keeps the original system field and restates a changed prompt in history", async () => {
     await streamChatResponse(chatHistory, model, llmApi, new AbortController());
 
     expect(requests).toHaveLength(3);
@@ -182,22 +182,26 @@ describe("streamChatResponse system prompt prefix", () => {
       role: "system",
       content: "prompt v1",
     });
+    // A second system message mid-history is hoisted or dropped by several
+    // dialects, so the update rides as a user-role fragment instead.
     expect(
       requests[1].messages.filter(
         (message: { role: string }) => message.role === "system",
       ),
+    ).toEqual([{ role: "system", content: "prompt v1" }]);
+    expect(
+      requests[1].messages.filter(
+        (message: { role: string }) => message.role === "user",
+      ),
     ).toEqual([
-      { role: "system", content: "prompt v1" },
-      { role: "system", content: "prompt v2" },
+      { role: "user", content: "Hello" },
+      { role: "user", content: "<system-update>\nprompt v2\n</system-update>" },
     ]);
     expect(
       requests[2].messages.filter(
         (message: { role: string }) => message.role === "system",
       ),
-    ).toEqual([
-      { role: "system", content: "prompt v1" },
-      { role: "system", content: "prompt v2" },
-    ]);
+    ).toEqual([{ role: "system", content: "prompt v1" }]);
   });
 
   describe("what the prefix rewrite costs", () => {
