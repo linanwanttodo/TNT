@@ -540,7 +540,7 @@ describe("ZCode agent service adapter", () => {
     ).rejects.toThrow(ZCODE_UNAVAILABLE_PREFIX);
 
     handle.dispose();
-    expect(registry.unsubscribed).toContain(WORKSPACE);
+    expect(registry.unsubscribed).toContain(path.resolve(WORKSPACE));
     expect(handle.service.disposeAll()).toBeUndefined();
   });
 
