@@ -12,6 +12,7 @@ import {
   getSessionTeamModelOverride,
   getSessionTeamModelOverrides,
 } from "../session/index.js";
+import { composeSubagentBrief } from "../subagent/brief.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
   generateSubagentToolDescription,
@@ -179,7 +180,7 @@ export const subagentTool = async (): Promise<Tool> => {
     },
 
     run: async (args: any, context?: { toolCallId: string }) => {
-      const { prompt, subagent_name } = args;
+      const { description, files, prompt, subagent_name } = args;
 
       logger.debug("subagent args", { args, context });
 
@@ -195,10 +196,33 @@ export const subagentTool = async (): Promise<Tool> => {
         throw new Error(t("tools.noActiveSession"));
       }
 
+      // The dispatch chain already resolved what this member may not do; reuse
+      // that answer so the brief states exactly the restrictions in force.
+      const dispatchable = resolveDispatchableAgent(
+        subagent_name,
+        modelServiceState,
+        getActiveTeam(),
+      );
+      const brief = composeSubagentBrief({
+        memberName: subagent_name,
+        description: typeof description === "string" ? description : undefined,
+        prompt: typeof prompt === "string" ? prompt : "",
+        restriction: dispatchable?.restriction,
+        deniedTools: dispatchable?.deniedTools,
+        files: Array.isArray(files)
+          ? files.filter((file): file is string => typeof file === "string")
+          : undefined,
+      });
+      logger.debug("subagent brief", {
+        agent: subagent_name,
+        composed: brief.composed,
+        prompt: brief.prompt,
+      });
+
       // Execute subagent with output streaming
       const result = await executeSubAgent({
         agent,
-        prompt,
+        prompt: brief.prompt,
         parentSessionId,
         abortController: new AbortController(),
         onOutputUpdate: context?.toolCallId
@@ -224,7 +248,10 @@ export const subagentTool = async (): Promise<Tool> => {
       const unverifiedNudge = noteVerificationOutcome(result.verdict);
       const output = formatSubagentToolResult(result, unverifiedNudge);
 
-      return output;
+      // The composed brief is visible to the caller so it can see exactly what
+      // instructions were sent. A structured prompt is already the caller's
+      // text, so echoing it back would only duplicate context.
+      return brief.composed ? `${output}\n\nBrief:\n${brief.prompt}` : output;
     },
   };
 };
