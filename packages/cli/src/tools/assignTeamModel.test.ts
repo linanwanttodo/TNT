@@ -128,14 +128,8 @@ describe("AssignTeamModel registration", () => {
 
 describe("the session override map", () => {
   it("clears one member without disturbing the others", () => {
-    setSessionTeamModelOverride("implementer", "cheap-model", {
-      activeTeam: devTeam(),
-      modelState: modelState(),
-    });
-    setSessionTeamModelOverride("tester", "cheap-model", {
-      activeTeam: devTeam(),
-      modelState: modelState(),
-    });
+    setSessionTeamModelOverride("implementer", "cheap-model");
+    setSessionTeamModelOverride("tester", "cheap-model");
 
     clearSessionTeamModelOverride("implementer");
 
@@ -146,10 +140,7 @@ describe("the session override map", () => {
 
 describe("ListSubagents after an assignment", () => {
   it("shows the member's effective model and the override marker", async () => {
-    setSessionTeamModelOverride("implementer", "cheap-model", {
-      activeTeam: devTeam(),
-      modelState: modelState(),
-    });
+    setSessionTeamModelOverride("implementer", "cheap-model");
 
     const tool = await listSubagentsTool();
     const output = await tool.run({});

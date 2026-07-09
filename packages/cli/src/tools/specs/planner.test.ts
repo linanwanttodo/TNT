@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { GLOBAL_SLOT } from "./concurrency.js";
 import { planToolCalls } from "./planner.js";
 
 function call(name: string, args: any = {}) {
@@ -62,5 +63,40 @@ describe("planToolCalls", () => {
 
   it("handles an empty batch", () => {
     expect(planToolCalls([]).steps).toEqual([]);
+  });
+});
+
+describe("team member scopes in a batch", () => {
+  const member = (name: string, files: string[]) => ({
+    name: "Subagent",
+    arguments: { subagent_name: name, files },
+  });
+
+  it("gives non-overlapping members different keys, so the gate can overlap them", () => {
+    const plan = planToolCalls([
+      member("implementer", ["src/a.ts"]),
+      member("tester", ["src/b.ts"]),
+    ]);
+
+    expect(plan.all[0].keys).toEqual(["src/a.ts"]);
+    expect(plan.all[1].keys).toEqual(["src/b.ts"]);
+    expect(plan.all[0].keys).not.toEqual(plan.all[1].keys);
+  });
+
+  it("gives overlapping members the same key, so the gate serializes them", () => {
+    const plan = planToolCalls([
+      member("implementer", ["./src/a.ts"]),
+      member("tester", ["src/a.ts"]),
+    ]);
+
+    expect(plan.all[0].keys).toEqual(plan.all[1].keys);
+  });
+
+  it("keeps a member with no declared files exclusive", () => {
+    const plan = planToolCalls([member("implementer", [])]);
+
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0].barrier).toBe(true);
+    expect(plan.all[0].keys).toEqual([GLOBAL_SLOT]);
   });
 });

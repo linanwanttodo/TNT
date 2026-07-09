@@ -78,7 +78,7 @@ export const SUMMON_TEAM_TOOL_META: Tool = {
   name: "SummonTeam",
   displayName: "Summon Team",
   description:
-    "Run the active team's lead with a goal. The lead plans the work and dispatches the team's members according to the roster, then reports back; this tool returns the lead's report. Use it when the user asks for the whole team, not for a single expert - dispatch one expert with Subagent instead. Only works while a team is active.",
+    "Run the active team's lead with a goal. The lead plans the work and dispatches the team's members according to the roster, then reports back; this tool returns the lead's report. Choose the run strategy with mode, and narrow the roster with members. Use it when the user asks for the whole team, not for a single expert - dispatch one expert with Subagent instead. Only works while a team is active.",
   readonly: false,
   isBuiltIn: true,
   parameters: {
@@ -89,6 +89,18 @@ export const SUMMON_TEAM_TOOL_META: Tool = {
         type: "string",
         description:
           "What the whole team should accomplish. State the objective, the constraints, and anything already ruled out.",
+      },
+      mode: {
+        type: "string",
+        enum: ["auto", "parallel", "serial"],
+        description:
+          "How the lead should run the members. auto lets the lead decide; parallel runs non-overlapping members together; serial runs them one at a time in order. Defaults to auto.",
+      },
+      members: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Member names to dispatch, in order. Defaults to every non-lead member of the active team.",
       },
     },
   },
