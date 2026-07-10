@@ -16,6 +16,8 @@ import {
   ISettingService,
   ISystemService,
   ITerminalService,
+  IZCodeAgentService,
+  IZCodeSessionService,
   type ServiceCollection,
 } from "@zcode/services";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -30,6 +32,7 @@ import {
 } from "./services/local.js";
 import { ZCODE_UNAVAILABLE_PREFIX } from "./services/stubs.js";
 import { WORKSPACE_BOUNDARY_PREFIX } from "./services/workspaceScope.js";
+import type { WorkspaceEngines } from "./workspaceEngines.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -179,6 +182,39 @@ describe("buildZcodeServiceCollection", () => {
     await expect(checkpoint.__stubProbe__()).rejects.toThrow(
       `${ZCODE_UNAVAILABLE_PREFIX}${IGitCheckpointService.channelName}`,
     );
+  });
+
+  it("registers engine-backed agent and session services", async () => {
+    const calls: { method: string; params: unknown }[] = [];
+    const engines = {
+      dispatch: async (method: string, params: unknown) => {
+        calls.push({ method, params });
+        return { version: 3 };
+      },
+      subscribe: async () => () => undefined,
+      setRequestHandler: async () => undefined,
+    } as unknown as WorkspaceEngines;
+    const collection = await buildZcodeServiceCollection({
+      workspacePath: process.cwd(),
+      localServices: createBundle(),
+      workspaceEngines: engines,
+    });
+    registerCleanup(() => collection.dispose());
+
+    const agent = collection.get(IZCodeAgentService);
+    const hello = await agent.helloConversationV4();
+    expect(hello.kind).toBe("hello");
+    expect(hello.connectionId.length).toBeGreaterThan(0);
+
+    const session = collection.get(IZCodeSessionService);
+    const initialized = await session.initializeWorkspace({
+      workspacePath: process.cwd(),
+    });
+    expect(initialized.available).toBe(true);
+    expect(calls).toContainEqual({
+      method: "runtime/capabilities",
+      params: { workspacePath: process.cwd() },
+    });
   });
 
   it("lists a temporary directory through fileService", async () => {
