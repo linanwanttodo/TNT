@@ -309,47 +309,59 @@ describe("app-server stdio protocol", () => {
     await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
   });
 
-  it("emits session/lifecycle/changed on SIGTERM before exiting", async () => {
-    send(child, { id: 5, method: "runtime/capabilities", params: {} });
-    await nextJson(queue);
+  // Windows has no POSIX signal delivery: libuv terminates the child and no JS
+  // handler runs, so there is no lifecycle notification to observe. Hosts on
+  // Windows close stdin instead (covered by the stdin-end tests above).
+  it.skipIf(process.platform === "win32")(
+    "emits session/lifecycle/changed on SIGTERM before exiting",
+    async () => {
+      send(child, { id: 5, method: "runtime/capabilities", params: {} });
+      await nextJson(queue);
 
-    child.kill("SIGTERM");
+      child.kill("SIGTERM");
 
-    const notification = await nextJson(queue);
-    expect(notification).toEqual({
-      method: "session/lifecycle/changed",
-      params: { state: "stopping", cwd: fs.realpathSync(fixtureCwd) },
-    });
-    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
-  });
+      const notification = await nextJson(queue);
+      expect(notification).toEqual({
+        method: "session/lifecycle/changed",
+        params: { state: "stopping", cwd: fs.realpathSync(fixtureCwd) },
+      });
+      await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+    },
+  );
 
-  it("emits session/lifecycle/changed on SIGINT before exiting", async () => {
-    send(child, { id: 6, method: "runtime/capabilities", params: {} });
-    await nextJson(queue);
+  it.skipIf(process.platform === "win32")(
+    "emits session/lifecycle/changed on SIGINT before exiting",
+    async () => {
+      send(child, { id: 6, method: "runtime/capabilities", params: {} });
+      await nextJson(queue);
 
-    child.kill("SIGINT");
+      child.kill("SIGINT");
 
-    const notification = await nextJson(queue);
-    expect(notification).toEqual({
-      method: "session/lifecycle/changed",
-      params: { state: "stopping", cwd: fs.realpathSync(fixtureCwd) },
-    });
-    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
-  });
+      const notification = await nextJson(queue);
+      expect(notification).toEqual({
+        method: "session/lifecycle/changed",
+        params: { state: "stopping", cwd: fs.realpathSync(fixtureCwd) },
+      });
+      await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+    },
+  );
 
-  it("emits exactly one lifecycle notification when stdin end and a signal race", async () => {
-    send(child, { id: 7, method: "runtime/capabilities", params: {} });
-    await nextJson(queue);
+  it.skipIf(process.platform === "win32")(
+    "emits exactly one lifecycle notification when stdin end and a signal race",
+    async () => {
+      send(child, { id: 7, method: "runtime/capabilities", params: {} });
+      await nextJson(queue);
 
-    child.kill("SIGINT");
-    child.stdin.end();
+      child.kill("SIGINT");
+      child.stdin.end();
 
-    const notification = await nextJson(queue);
-    expect(notification.method).toBe("session/lifecycle/changed");
+      const notification = await nextJson(queue);
+      expect(notification.method).toBe("session/lifecycle/changed");
 
-    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
-    await expect(queue.remainingLines()).resolves.toEqual([]);
-  });
+      await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+      await expect(queue.remainingLines()).resolves.toEqual([]);
+    },
+  );
 
   it("exits on a repeated signal without waiting for shutdown", async () => {
     send(child, { id: 8, method: "runtime/capabilities", params: {} });
