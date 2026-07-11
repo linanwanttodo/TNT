@@ -1,11 +1,13 @@
 /* eslint-disable max-lines -- permission and question requests share the bridge's pending maps */
 import { zcodeProtocolMethods } from "@zcode/shared";
+import { PERMISSION_FULL_ACCESS_OPTION_ID } from "@zcode/shared/zcode-protocol-v4";
 
 import type { InteractionBroker } from "../permissions/interactionBroker.js";
 import {
   toolPermissionManager,
   type ToolPermissionManager,
 } from "../permissions/permissionManager.js";
+import { grantSessionFullAccess } from "../permissions/sessionApprovals.js";
 import type { ToolCallRequest } from "../permissions/types.js";
 import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import type { AgentEvent } from "../protocol/events.js";
@@ -274,6 +276,7 @@ export class InteractionBridge {
       });
       return;
     }
+    pending.sessionId = sessionId;
     const outgoing = this.sender.request(
       zcodeProtocolMethods.interactionRequestPermission,
       permissionParams(pending, sessionId),
@@ -397,6 +400,16 @@ export class InteractionBridge {
     answer: InteractionAnswer,
   ): boolean {
     const optionId = answer.optionId;
+    if (optionId === PERMISSION_FULL_ACCESS_OPTION_ID) {
+      // The grant follows the approval, not the request to make it: a late or
+      // duplicate answer must not leave a session with access nobody approved.
+      const pending = this.permissions.get(requestId);
+      const approved = this.broker.approve(requestId, false);
+      if (approved && pending?.sessionId) {
+        grantSessionFullAccess(pending.sessionId);
+      }
+      return approved;
+    }
     if (optionId === "allow_always") {
       return this.broker.approve(requestId, true);
     }

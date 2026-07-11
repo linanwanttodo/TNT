@@ -6,7 +6,10 @@ import { getCurrentSessionId, startNewSession } from "../session/index.js";
 
 import {
   clearSessionApprovals,
+  clearSessionFullAccess,
+  grantSessionFullAccess,
   hasSessionApproval,
+  hasSessionFullAccess,
   rememberSessionApproval,
   sessionApprovalKey,
   sessionApprovalKeys,
@@ -151,5 +154,48 @@ describe("the session's approval store", () => {
     clearSessionApprovals();
 
     expect(hasSessionApproval("Edit", { filepath: "src/a.ts" })).toBe(false);
+  });
+});
+
+describe("a session's full-access grant", () => {
+  beforeEach(() => {
+    startNewSession();
+    clearSessionApprovals();
+  });
+
+  afterEach(() => {
+    clearSessionApprovals();
+    startNewSession();
+  });
+
+  it("answers only for the session it was granted in", () => {
+    expect(hasSessionFullAccess()).toBe(false);
+
+    grantSessionFullAccess();
+    expect(hasSessionFullAccess()).toBe(true);
+    const granted = getCurrentSessionId();
+
+    startNewSession();
+
+    expect(getCurrentSessionId()).not.toBe(granted);
+    expect(hasSessionFullAccess()).toBe(false);
+  });
+
+  it("is revoked together with the session approvals", () => {
+    grantSessionFullAccess();
+    expect(hasSessionFullAccess()).toBe(true);
+
+    clearSessionApprovals();
+
+    expect(hasSessionFullAccess()).toBe(false);
+  });
+
+  it("can be cleared for one named session", () => {
+    const session = getCurrentSessionId();
+    grantSessionFullAccess();
+
+    clearSessionFullAccess(session);
+
+    expect(hasSessionFullAccess()).toBe(false);
   });
 });
