@@ -8,13 +8,14 @@ import type {
   GoalState,
   PendingInteraction,
   PlanState,
+  SubagentRow,
   ToolCallRow,
 } from "@zcode/shared/zcode-protocol-v4";
 import {
   clampWorkflowRunsForLegacy,
   V4_WIRE_PROTOCOL_VERSION,
 } from "@zcode/shared/zcode-protocol-v4";
-import type { Session } from "core/index.js";
+import type { Session, TeamRunRecord } from "core/index.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 
@@ -26,6 +27,16 @@ import {
   sessionTodoUpdatedAt,
   toZcodeMessages,
 } from "./snapshot.js";
+import {
+  listChildSessions,
+  readTeamRuns,
+  replayedSubagents,
+  SUBAGENT_TOOL_NAMES,
+  subagentProjectionFromRows,
+  type ReplaySubagentCall,
+  type ReplaySubagentToolCall,
+  type SubagentSessionRef,
+} from "./subagents.js";
 import {
   activeTeamRun,
   teamRunsToWorkflowRuns,
@@ -52,8 +63,16 @@ export interface FrameSubscription {
     "running" | "completedSuccess" | "completedInterrupted" | "failed";
   turnStartedAt: number;
   readonly toolRows: Map<string, ToolCallRow>;
+  /** Live subagent rows keyed by the lifecycle id carried on the wire event. */
+  readonly subagentRows: Map<string, SubagentRow>;
   /** Whether this subscriber asked for `workflowRun.*` key-level deltas. */
   readonly workflowRunDeltas: boolean;
+}
+
+export interface FrameSubscriptionOptions {
+  childSessions?: readonly SubagentSessionRef[];
+  teamRuns?: readonly TeamRunRecord[];
+  loadChildSession?: (sessionId: string) => Session | null;
 }
 
 function modelParts(title: string | undefined): {
@@ -92,8 +111,13 @@ function toolStatusOf(state: string): ToolCallRow["status"] {
   return "pendingApproval";
 }
 
-function rowsFromSession(session: Session): ConversationRow[] {
+function rowsFromSession(
+  session: Session,
+  options: FrameSubscriptionOptions,
+): ConversationRow[] {
   const rows: ConversationRow[] = [];
+  const summonTeamCalls: ReplaySubagentCall[] = [];
+  const subagentCalls: ReplaySubagentToolCall[] = [];
   let rowId = 0;
   let turnNumber = 0;
   let turnId = `${session.sessionId}:turn-1`;
@@ -140,6 +164,7 @@ function rowsFromSession(session: Session): ConversationRow[] {
           state: "complete",
         });
       } else if (part.type === "tool") {
+        collectToolCall(part, turnId, summonTeamCalls, subagentCalls);
         const status = toolStatusOf(part.state.status);
         const run =
           part.tool === "SummonTeam"
@@ -170,7 +195,73 @@ function rowsFromSession(session: Session): ConversationRow[] {
       }
     }
   }
+
+  const replayed = replayedSubagents({
+    childSessions:
+      options.childSessions ?? listChildSessions(session.sessionId),
+    teamRuns:
+      options.teamRuns ??
+      readTeamRuns(session.sessionId) ??
+      session.teamRuns ??
+      [],
+    summonTeamCalls,
+    subagentCalls,
+    fallbackTurnId: `${session.sessionId}:delegated`,
+    ...(options.loadChildSession
+      ? { loadChildSession: options.loadChildSession }
+      : {}),
+  });
+  for (const entry of replayed) {
+    rowId += 1;
+    rows.push({
+      rowId,
+      turnId: entry.turnId,
+      createdAt: 0,
+      createdAtSeq: 0,
+      kind: "subagent",
+      subagentType: entry.agentName,
+      status: entry.status,
+      summaryText: entry.summaryText,
+      ...(entry.childSessionId ? { childSessionId: entry.childSessionId } : {}),
+      ...(entry.startedAt === undefined ? {} : { startedAt: entry.startedAt }),
+      ...(entry.endedAt === undefined ? {} : { endedAt: entry.endedAt }),
+    });
+  }
   return rows;
+}
+
+interface ToolPartForReplay {
+  tool: string;
+  state: { input: unknown };
+}
+
+function collectToolCall(
+  part: ToolPartForReplay,
+  turnId: string,
+  summonTeamCalls: ReplaySubagentCall[],
+  subagentCalls: ReplaySubagentToolCall[],
+): void {
+  const input = asRecord(part.state.input);
+  if (part.tool === "SummonTeam") {
+    const goal = typeof input.goal === "string" ? input.goal : undefined;
+    const members = Array.isArray(input.members)
+      ? input.members.filter(
+          (member): member is string => typeof member === "string",
+        )
+      : undefined;
+    summonTeamCalls.push({
+      turnId,
+      ...(goal === undefined ? {} : { goal }),
+      ...(members === undefined ? {} : { members }),
+    });
+  }
+  if (SUBAGENT_TOOL_NAMES.has(part.tool)) {
+    const type =
+      typeof input.subagent_name === "string" ? input.subagent_name : undefined;
+    if (type) {
+      subagentCalls.push({ turnId, type });
+    }
+  }
 }
 
 export function createFrameSubscription(
@@ -178,8 +269,9 @@ export function createFrameSubscription(
   subscriptionId: string,
   logEpoch: string,
   workflowRunDeltas = true,
+  options: FrameSubscriptionOptions = {},
 ): FrameSubscription {
-  const rows = rowsFromSession(session);
+  const rows = rowsFromSession(session, options);
   const turnNumber = rows.filter((row) => row.kind === "turnHeader").length;
   return {
     subscriptionId,
@@ -200,6 +292,7 @@ export function createFrameSubscription(
     turnHeaderState: "completedSuccess",
     turnStartedAt: 0,
     toolRows: new Map(),
+    subagentRows: new Map(),
     workflowRunDeltas,
   };
 }
@@ -445,6 +538,7 @@ export function buildConversationSnapshot(
   const rows = [...frame.rows].sort((left, right) => left.rowId - right.rowId);
   const contextWindow = contextWindowForSession(session);
   const goal = cursor.goal ? goalStateOf(cursor.goal) : null;
+  const subagents = subagentProjectionFromRows(rows, cursor.eventSeq);
   const workflowRuns = teamRunsToWorkflowRuns(
     session.teamRuns ?? [],
     cursor.workflowRevision ?? 0,
@@ -501,6 +595,7 @@ export function buildConversationSnapshot(
     pendingInteractions,
     pendingCommands: [],
     backgroundWorks: [],
+    subagents,
     goal,
     plan: planStateOf(session),
     workspaceHookAdmission: null,
