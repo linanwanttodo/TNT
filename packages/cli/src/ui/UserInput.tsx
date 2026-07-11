@@ -25,6 +25,7 @@ import { InputHistory } from "../utils/inputHistory.js";
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator } from "./components/ModeIndicator.js";
+import { SuggestionOverlay } from "./components/SuggestionOverlay.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { consumeComposerDraft, useComposerDraft } from "./composerDraft.js";
 import { FileSearchUI } from "./FileSearchUI.js";
@@ -37,6 +38,20 @@ import {
   updateTextBufferState,
 } from "./hooks/useUserInput.js";
 import { SlashCommandUI } from "./SlashCommandUI.js";
+import {
+  agentSourcesFromModelState,
+  agentSuggestionItems,
+  commandSuggestionItems,
+  fileSuggestionFromPath,
+  fileSuggestionItems,
+  filterSuggestionItems,
+  mcpResourcesFromState,
+  mcpSuggestionItems,
+  mergeSuggestionGroups,
+  type AgentSuggestionSource,
+  type McpResourceSuggestionSource,
+  type SuggestionItem,
+} from "./suggestionSources.js";
 import { claudeGlyphs } from "./symbols.js";
 import { TextBuffer } from "./TextBuffer.js";
 import { useTheme } from "./theme/tokens.js";
@@ -105,6 +120,112 @@ const FileSearchMaybe: React.FC<{
     />
   );
 };
+
+interface ComposerSuggestionSources {
+  available: boolean;
+  agents: AgentSuggestionSource[];
+  mcp: McpResourceSuggestionSource[];
+}
+
+/** Agents and MCP resources are read once per render from the live services. */
+function composerSuggestionSources(
+  assistant?: AssistantConfig,
+): ComposerSuggestionSources {
+  if (!assistant) {
+    return { available: false, agents: [], mcp: [] };
+  }
+  return {
+    available: true,
+    agents: agentSourcesFromModelState(services.model.getState()),
+    mcp: mcpResourcesFromState(services.mcp.getState()),
+  };
+}
+
+/** Case-insensitive over name and description, prefixes first. */
+function filterCommandList(
+  commands: readonly SlashCommand[],
+  filter: string,
+): SlashCommand[] {
+  const needle = filter.toLowerCase();
+  return commands
+    .filter(
+      (cmd) =>
+        cmd.name.toLowerCase().includes(needle) ||
+        cmd.description.toLowerCase().includes(needle),
+    )
+    .sort((a, b) => {
+      const aStartsWith = a.name.toLowerCase().startsWith(needle);
+      const bStartsWith = b.name.toLowerCase().startsWith(needle);
+
+      if (aStartsWith && !bStartsWith) return -1;
+      if (!aStartsWith && bStartsWith) return 1;
+
+      return a.name.localeCompare(b.name);
+    });
+}
+
+interface AtSuggestionInput {
+  unified: boolean;
+  files: readonly { path: string }[];
+  fallbackFiles: readonly { path: string }[];
+  query: string;
+  agents: readonly AgentSuggestionSource[];
+  mcp: readonly McpResourceSuggestionSource[];
+}
+
+/** The `@` list: files first, then agents, then MCP resources. */
+function buildAtSuggestions(input: AtSuggestionInput): SuggestionItem[] {
+  if (!input.unified) {
+    return input.fallbackFiles.map((file) => fileSuggestionFromPath(file.path));
+  }
+  return mergeSuggestionGroups(
+    fileSuggestionItems(input.files, input.query),
+    filterSuggestionItems(agentSuggestionItems(input.agents), input.query),
+    filterSuggestionItems(mcpSuggestionItems(input.mcp), input.query),
+  );
+}
+
+/** Read an accepted file and hand it to the transcript as an attachment. */
+async function attachFileContent(
+  onFileAttached: ((filePath: string, content: string) => void) | undefined,
+  filePath: string,
+): Promise<void> {
+  if (!onFileAttached) {
+    return;
+  }
+  // The default keeps an @ attachment inside the workspace; that is the
+  // security baseline. Reading an arbitrary local path is the user's explicit
+  // decision, made by setting TNT_ALLOW_ANY_ATTACHMENT_PATH=1.
+  const allowAny = process.env.TNT_ALLOW_ANY_ATTACHMENT_PATH === "1";
+  const path = await import("path");
+  let absolutePath: string;
+  if (allowAny) {
+    absolutePath = path.resolve(filePath);
+  } else {
+    try {
+      const { resolveWithin } = await import("../utils/pathGuard.js");
+      absolutePath = resolveWithin(process.cwd(), filePath);
+    } catch (error) {
+      console.error(
+        `@${filePath} is outside the workspace; reading it requires TNT_ALLOW_ANY_ATTACHMENT_PATH=1`,
+        error,
+      );
+      return;
+    }
+  }
+  try {
+    const fs = await import("fs/promises");
+    const content = await fs.readFile(absolutePath, "utf-8");
+    onFileAttached(absolutePath, content);
+  } catch (error) {
+    // If file doesn't exist, just attach the filename without content
+    if (error instanceof Error && (error as any).code === "ENOENT") {
+      onFileAttached(absolutePath, filePath);
+    } else {
+      console.error(t("chat.fileReadFailed", { path: filePath }), error);
+    }
+  }
+}
 
 /**
  * The "@" that opens the file-search context before the cursor, or -1: it must
@@ -298,14 +419,23 @@ const UserInput: React.FC<UserInputProps> = ({
   const { exit } = useApp();
 
   // Get file index service state for reactive updates (unused but needed for service initialization)
-  useServices<{
+  const fileIndexState = useServices<{
     fileIndex: FileIndexServiceState;
-  }>(["fileIndex"]);
+  }>(["fileIndex"]).services.fileIndex;
   const { services: permissionServices } = useServices<{
     toolPermissions: ToolPermissionServiceState;
   }>([SERVICE_NAMES.TOOL_PERMISSIONS]);
   const currentMode =
     permissionServices.toolPermissions?.currentMode ?? "default";
+
+  // The unified list needs the loaded assistant context. Without it the two
+  // established pickers stay in charge, so an early screen or a failed load
+  // still offers commands and files.
+  const {
+    available: unifiedSuggestionsAvailable,
+    agents: agentSources,
+    mcp: mcpResources,
+  } = composerSuggestionSources(assistant);
 
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([
     { name: "help", description: t("cmd.help"), category: "system" },
@@ -376,8 +506,10 @@ const UserInput: React.FC<UserInputProps> = ({
       const parent = slashCommands.find((cmd) => cmd.name === tokens[0]);
       if (parent?.subcommands) {
         const childFilter = tokens[1] ?? "";
-        const matches = parent.subcommands.filter((child) =>
-          child.name.toLowerCase().includes(childFilter.toLowerCase()),
+        const matches = parent.subcommands.filter(
+          (child) =>
+            child.name.toLowerCase().includes(childFilter.toLowerCase()) ||
+            child.description.toLowerCase().includes(childFilter.toLowerCase()),
         );
         // Past a known child, or nothing matches: fall back to normal input.
         if (tokens.length <= 2 && matches.length > 0) {
@@ -414,8 +546,10 @@ const UserInput: React.FC<UserInputProps> = ({
     }
 
     // Check if there are any matching commands
-    const filteredCommands = slashCommands.filter((cmd) =>
-      cmd.name.toLowerCase().includes(afterSlash.toLowerCase()),
+    const filteredCommands = slashCommands.filter(
+      (cmd) =>
+        cmd.name.toLowerCase().includes(afterSlash.toLowerCase()) ||
+        cmd.description.toLowerCase().includes(afterSlash.toLowerCase()),
     );
 
     // If no commands match, hide the dropdown to allow normal Enter behavior
@@ -465,26 +599,8 @@ const UserInput: React.FC<UserInputProps> = ({
     }));
   };
 
-  // Get filtered commands for navigation - using the same sorting logic as SlashCommandUI
-  const getFilteredCommands = () => {
-    return levelCommands()
-      .filter((cmd) =>
-        cmd.name.toLowerCase().includes(slashCommandFilter.toLowerCase()),
-      )
-      .sort((a, b) => {
-        const aStartsWith = a.name
-          .toLowerCase()
-          .startsWith(slashCommandFilter.toLowerCase());
-        const bStartsWith = b.name
-          .toLowerCase()
-          .startsWith(slashCommandFilter.toLowerCase());
-
-        if (aStartsWith && !bStartsWith) return -1;
-        if (!aStartsWith && bStartsWith) return 1;
-
-        return a.name.localeCompare(b.name);
-      });
-  };
+  // The `@` list: files first, then agents, then MCP resources, built from the
+  // live index and service state at the two points that need it.
 
   // Handle slash command selection
   const selectSlashCommand = (commandName: string) => {
@@ -509,66 +625,45 @@ const UserInput: React.FC<UserInputProps> = ({
     }
   };
 
-  // Handle file selection
-  const selectFile = async (filePath: string) => {
+  /**
+   * Accept one row of the `@` list: replace the token before the cursor with
+   * `@value`, keep one separating space after it, and attach a file when the
+   * row names one. A directory completes without a space so the reader can
+   * keep typing the rest of the path.
+   */
+  const acceptAtSuggestion = async (item: SuggestionItem) => {
     const firstAtIndex = activeFileSearchAtIndex(
       inputText.slice(0, cursorPosition),
     );
+    if (firstAtIndex === -1) {
+      return;
+    }
 
-    if (firstAtIndex !== -1) {
-      const beforeAt = inputText.slice(0, firstAtIndex);
-      const afterCursor = inputText.slice(cursorPosition);
+    const beforeAt = inputText.slice(0, firstAtIndex);
+    const afterCursor = inputText.slice(cursorPosition);
+    const atEnd = afterCursor === "";
+    const separator =
+      item.isDirectory || (!atEnd && /^\s/.test(afterCursor)) ? "" : " ";
+    const newText = beforeAt + "@" + item.insertText + separator + afterCursor;
+    const newCursorPos =
+      firstAtIndex + 1 + item.insertText.length + separator.length;
 
-      // Replace the partial file reference with the full file path
-      const newText = beforeAt + "@" + filePath + " " + afterCursor;
-      const newCursorPos = firstAtIndex + 1 + filePath.length + 1;
+    textBuffer.setText(newText);
+    textBuffer.setCursor(newCursorPos);
+    setInputText(newText);
+    setCursorPosition(newCursorPos);
+    setShowFileSearch(false);
 
-      textBuffer.setText(newText);
-      textBuffer.setCursor(newCursorPos);
-      setInputText(newText);
-      setCursorPosition(newCursorPos);
-      setShowFileSearch(false);
-
-      // Read the file content and notify parent component
-      if (onFileAttached) {
-        // The default keeps an @ attachment inside the workspace; that is the
-        // security baseline. Reading an arbitrary local path is the user's
-        // explicit decision, made by setting TNT_ALLOW_ANY_ATTACHMENT_PATH=1.
-        const allowAny = process.env.TNT_ALLOW_ANY_ATTACHMENT_PATH === "1";
-        const path = await import("path");
-        let absolutePath: string;
-        if (allowAny) {
-          absolutePath = path.resolve(filePath);
-        } else {
-          try {
-            const { resolveWithin } = await import("../utils/pathGuard.js");
-            absolutePath = resolveWithin(process.cwd(), filePath);
-          } catch (error) {
-            console.error(
-              `@${filePath} is outside the workspace; reading it requires TNT_ALLOW_ANY_ATTACHMENT_PATH=1`,
-              error,
-            );
-            return;
-          }
-        }
-        try {
-          const fs = await import("fs/promises");
-          const content = await fs.readFile(absolutePath, "utf-8");
-          onFileAttached(absolutePath, content);
-        } catch (error) {
-          // If file doesn't exist, just attach the filename without content
-          if (error instanceof Error && (error as any).code === "ENOENT") {
-            onFileAttached(absolutePath, filePath);
-          } else {
-            console.error(t("chat.fileReadFailed", { path: filePath }), error);
-          }
-        }
-      }
+    if (item.filePath) {
+      await attachFileContent(onFileAttached, item.filePath);
     }
   };
 
   const handleSlashCommandNavigation = (key: any): boolean => {
-    const filteredCommands = getFilteredCommands();
+    const filteredCommands = filterCommandList(
+      levelCommands(),
+      slashCommandFilter,
+    );
 
     if (key.upArrow) {
       setSelectedCommandIndex((prev) =>
@@ -645,24 +740,37 @@ const UserInput: React.FC<UserInputProps> = ({
     return false;
   };
 
-  const handleFileSearchNavigation = (key: any): boolean => {
+  const handleFileSearchNavigation = (input: string, key: any): boolean => {
+    const items = buildAtSuggestions({
+      unified: unifiedSuggestionsAvailable,
+      files: fileIndexState?.files ?? [],
+      fallbackFiles: currentFiles,
+      query: fileSearchFilter,
+      agents: agentSources,
+      mcp: mcpResources,
+    });
+
+    if (key.ctrl && input === "r") {
+      void services.fileIndex.refreshIndex(true);
+      return true;
+    }
+
     if (key.upArrow) {
       setSelectedFileIndex((prev) =>
-        prev > 0 ? prev - 1 : Math.max(0, Math.min(currentFiles.length - 1, 9)),
+        prev > 0 ? prev - 1 : Math.max(0, items.length - 1),
       );
       return true;
     }
 
     if (key.downArrow) {
-      setSelectedFileIndex((prev) =>
-        prev < Math.min(currentFiles.length - 1, 9) ? prev + 1 : 0,
-      );
+      setSelectedFileIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
       return true;
     }
 
     if ((key.return && !key.shift) || key.tab) {
-      if (currentFiles.length > 0 && selectedFileIndex < currentFiles.length) {
-        void selectFile(currentFiles[selectedFileIndex].path);
+      const item = items[selectedFileIndex];
+      if (item) {
+        void acceptAtSuggestion(item);
       }
       return true;
     }
@@ -725,7 +833,7 @@ const UserInput: React.FC<UserInputProps> = ({
     if (showSlashCommands && handleSlashCommandNavigation(key)) {
       return true;
     }
-    if (showFileSearch && handleFileSearchNavigation(key)) {
+    if (showFileSearch && handleFileSearchNavigation(input, key)) {
       return true;
     }
     if (!showSlashCommands && !showFileSearch) {
@@ -1084,31 +1192,74 @@ const UserInput: React.FC<UserInputProps> = ({
         </Box>
       )}
 
-      {/* The command palette and the file search float above the composer box,
-          outside its border, like other agents' autocomplete. They share
-          UserInput's loaded list so selection and display always agree. */}
-      <SlashCommandsMaybe
-        show={showSlashCommands && !historySearch.search.active}
-        inputMode={inputMode}
-        hideNormalUI={!!hideNormalUI}
-        isRemoteMode={!!isRemoteMode}
-        assistant={assistant}
-        commands={levelCommands()}
-        levelLabel={slashParent ? `/${slashParent}` : null}
-        filter={slashCommandFilter}
-        selectedIndex={selectedCommandIndex}
-      />
+      {/* One suggestion list floats above the composer: commands for a `/`
+          token, and files, agents and MCP resources for `@`. The established
+          pickers remain the fallback until the assistant context loads. */}
+      {unifiedSuggestionsAvailable ? (
+        <>
+          <SuggestionOverlay
+            show={
+              showSlashCommands &&
+              inputMode &&
+              !hideNormalUI &&
+              !historySearch.search.active
+            }
+            items={commandSuggestionItems(
+              filterCommandList(levelCommands(), slashCommandFilter),
+            )}
+            selectedIndex={selectedCommandIndex}
+            emptyText={t("commands.noMatches")}
+            levelLabel={slashParent ? `/${slashParent}` : null}
+          />
 
-      <FileSearchMaybe
-        show={showFileSearch && !historySearch.search.active}
-        inputMode={inputMode}
-        hideNormalUI={!!hideNormalUI}
-        isRemoteMode={!!isRemoteMode}
-        filter={fileSearchFilter}
-        selectedIndex={selectedFileIndex}
-        onSelect={selectFile}
-        onFilesUpdated={setCurrentFiles}
-      />
+          <SuggestionOverlay
+            show={
+              showFileSearch &&
+              inputMode &&
+              !hideNormalUI &&
+              !isRemoteMode &&
+              !historySearch.search.active
+            }
+            items={buildAtSuggestions({
+              unified: unifiedSuggestionsAvailable,
+              files: fileIndexState?.files ?? [],
+              fallbackFiles: currentFiles,
+              query: fileSearchFilter,
+              agents: agentSources,
+              mcp: mcpResources,
+            })}
+            selectedIndex={selectedFileIndex}
+            emptyText={t("files.noMatches")}
+          />
+        </>
+      ) : (
+        <>
+          <SlashCommandsMaybe
+            show={showSlashCommands && !historySearch.search.active}
+            inputMode={inputMode}
+            hideNormalUI={!!hideNormalUI}
+            isRemoteMode={!!isRemoteMode}
+            assistant={assistant}
+            commands={levelCommands()}
+            levelLabel={slashParent ? `/${slashParent}` : null}
+            filter={slashCommandFilter}
+            selectedIndex={selectedCommandIndex}
+          />
+
+          <FileSearchMaybe
+            show={showFileSearch && !historySearch.search.active}
+            inputMode={inputMode}
+            hideNormalUI={!!hideNormalUI}
+            isRemoteMode={!!isRemoteMode}
+            filter={fileSearchFilter}
+            selectedIndex={selectedFileIndex}
+            onSelect={(filePath) =>
+              acceptAtSuggestion(fileSuggestionFromPath(filePath))
+            }
+            onFilesUpdated={setCurrentFiles}
+          />
+        </>
+      )}
 
       {/* Goal, todos and running background work belong to the dock above the
           rule; the mode badge is embedded in that single top rule. */}
