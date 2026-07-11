@@ -1,7 +1,81 @@
+/* eslint-disable max-lines -- event translation and the goal/usage observations share one per-session state machine */
 import type { ZCodeSessionEvent, ZCodeSessionEventType } from "@zcode/shared";
+import type { Usage } from "core/index.js";
 
 import type { AgentEvent } from "../protocol/events.js";
+import { sessionStore } from "../session/store.js";
 import { logger } from "../utils/logger.js";
+
+export interface TurnUsageSnapshot {
+  promptTokens: number;
+  completionTokens: number;
+  cachedTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
+}
+
+export type GoalVerificationOutcome = "pass" | "notSatisfied" | "failed";
+
+export interface GoalVerificationRecord {
+  iteration: number;
+  outcome: GoalVerificationOutcome;
+  at: number;
+  anchorRowId: number | null;
+  reason?: string;
+}
+
+/**
+ * The goal lifecycle the app-server can derive from events it actually sees.
+ * TNT persists only the objective string, so nothing here is inferred from it:
+ * a turn starting under a goal makes it active, a user stop pauses it, and a
+ * delegated verifier's verdict settles it. A goal with no observed lifecycle
+ * stays null rather than being projected with invented states.
+ */
+export interface GoalLifecycleState {
+  targetId: string;
+  objective: string;
+  status: "active" | "paused" | "verified" | "notSatisfied" | "failed";
+  iteration: number;
+  timeUsedSeconds: number;
+  activeRunStartedAtMs: number | null;
+  verifications: GoalVerificationRecord[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface TranslationOptions {
+  /** The persisted goal objective, or null when the session has none. */
+  readGoal?: (sessionId: string) => string | null;
+  /** The session's cumulative usage, used to derive one turn's share. */
+  readUsage?: (sessionId: string) => TurnUsageSnapshot | null;
+}
+
+function storedSession(sessionId: string) {
+  try {
+    return sessionStore.load(sessionId)?.session ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredGoal(sessionId: string): string | null {
+  const goal = storedSession(sessionId)?.goal?.trim();
+  return goal && goal.length > 0 ? goal : null;
+}
+
+function readStoredUsage(sessionId: string): TurnUsageSnapshot | null {
+  const usage = storedSession(sessionId)?.usage;
+  if (!usage) {
+    return null;
+  }
+  return {
+    promptTokens: usage.promptTokens ?? 0,
+    completionTokens: usage.completionTokens ?? 0,
+    cachedTokens: usage.promptTokensDetails?.cachedTokens ?? 0,
+    cacheWriteTokens: usage.promptTokensDetails?.cacheWriteTokens ?? 0,
+    reasoningTokens: usage.completionTokensDetails?.reasoningTokens ?? 0,
+  };
+}
 
 export interface TranslationState {
   readonly sessionId: string;
@@ -24,9 +98,18 @@ export interface TranslationState {
    * run opens, before the result event arrives.
    */
   summonTeamToolCallId: string | null;
+  /** Cumulative session usage when this turn started; null if it was missed. */
+  turnUsageBaseline: TurnUsageSnapshot | null;
+  /** Goal lifecycle observed in this process, or null when there is none. */
+  goal: GoalLifecycleState | null;
+  readonly readGoal: (sessionId: string) => string | null;
+  readonly readUsage: (sessionId: string) => TurnUsageSnapshot | null;
 }
 
-export function createTranslationState(sessionId: string): TranslationState {
+export function createTranslationState(
+  sessionId: string,
+  options: TranslationOptions = {},
+): TranslationState {
   return {
     sessionId,
     seq: 0,
@@ -43,6 +126,10 @@ export function createTranslationState(sessionId: string): TranslationState {
     turnTerminal: false,
     toolStartedAt: new Map(),
     summonTeamToolCallId: null,
+    turnUsageBaseline: null,
+    goal: null,
+    readGoal: options.readGoal ?? readStoredGoal,
+    readUsage: options.readUsage ?? readStoredUsage,
   };
 }
 
@@ -50,6 +137,152 @@ function asObject(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function usageSnapshot(usage: Usage): TurnUsageSnapshot {
+  return {
+    promptTokens: usage.promptTokens ?? 0,
+    completionTokens: usage.completionTokens ?? 0,
+    cachedTokens: usage.promptTokensDetails?.cachedTokens ?? 0,
+    cacheWriteTokens: usage.promptTokensDetails?.cacheWriteTokens ?? 0,
+    reasoningTokens: usage.completionTokensDetails?.reasoningTokens ?? 0,
+  };
+}
+
+function usageDelta(
+  baseline: TurnUsageSnapshot | null,
+  current: TurnUsageSnapshot | null,
+): TurnUsageSnapshot | null {
+  if (!baseline || !current) {
+    return null;
+  }
+  const share = (end: number, start: number): number =>
+    Math.max(0, end - start);
+  return {
+    promptTokens: share(current.promptTokens, baseline.promptTokens),
+    completionTokens: share(
+      current.completionTokens,
+      baseline.completionTokens,
+    ),
+    cachedTokens: share(current.cachedTokens, baseline.cachedTokens),
+    cacheWriteTokens: share(
+      current.cacheWriteTokens,
+      baseline.cacheWriteTokens,
+    ),
+    reasoningTokens: share(current.reasoningTokens, baseline.reasoningTokens),
+  };
+}
+
+/**
+ * The turn's own usage: what the producer attached when it knew, otherwise the
+ * session's cumulative growth across this turn. Both are measurements; a turn
+ * whose start was missed returns null instead of the whole session total.
+ */
+function turnUsageOf(
+  state: TranslationState,
+  event: AgentEvent,
+): TurnUsageSnapshot | null {
+  if (event.type !== "turn.completed" && event.type !== "turn.interrupted") {
+    return null;
+  }
+  if (event.usage) {
+    return usageSnapshot(event.usage);
+  }
+  return usageDelta(state.turnUsageBaseline, state.readUsage(state.sessionId));
+}
+
+/** The `usage` shape the desktop's turn-completed mapper reads. */
+function zcodeUsagePayload(usage: TurnUsageSnapshot): Record<string, number> {
+  const totalTokens = usage.promptTokens + usage.completionTokens;
+  return {
+    inputTokens: usage.promptTokens,
+    outputTokens: usage.completionTokens,
+    totalTokens,
+    cachedReadTokens: usage.cachedTokens,
+    cachedWriteTokens: usage.cacheWriteTokens,
+    cacheWriteTokens: usage.cacheWriteTokens,
+    ...(usage.reasoningTokens > 0
+      ? { reasoningTokens: usage.reasoningTokens }
+      : {}),
+  };
+}
+
+function startGoalTurn(state: TranslationState, timestamp: number): void {
+  const objective = state.readGoal(state.sessionId);
+  if (!objective) {
+    state.goal = null;
+    return;
+  }
+  const previous = state.goal;
+  if (previous && previous.objective === objective) {
+    previous.iteration += 1;
+    previous.status = "active";
+    previous.activeRunStartedAtMs = timestamp;
+    previous.updatedAt = timestamp;
+    return;
+  }
+  state.goal = {
+    targetId: `${state.sessionId}:goal`,
+    objective,
+    status: "active",
+    iteration: 1,
+    timeUsedSeconds: 0,
+    activeRunStartedAtMs: timestamp,
+    verifications: [],
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function closeGoalTurn(
+  state: TranslationState,
+  timestamp: number,
+  interrupted: boolean,
+): void {
+  const goal = state.goal;
+  if (!goal) {
+    return;
+  }
+  if (goal.activeRunStartedAtMs !== null) {
+    goal.timeUsedSeconds += Math.max(
+      0,
+      Math.round((timestamp - goal.activeRunStartedAtMs) / 1_000),
+    );
+    goal.activeRunStartedAtMs = null;
+  }
+  if (interrupted && goal.status === "active") {
+    goal.status = "paused";
+  }
+  goal.updatedAt = timestamp;
+}
+
+function observeGoalVerdict(
+  state: TranslationState,
+  verdict: string | undefined,
+  timestamp: number,
+): void {
+  const goal = state.goal;
+  const normalized = verdict?.toLowerCase();
+  if (
+    !goal ||
+    (normalized !== "pass" && normalized !== "fail" && normalized !== "partial")
+  ) {
+    return;
+  }
+  const outcome: GoalVerificationOutcome =
+    normalized === "pass"
+      ? "pass"
+      : normalized === "fail"
+        ? "failed"
+        : "notSatisfied";
+  goal.status = outcome === "pass" ? "verified" : outcome;
+  goal.verifications.push({
+    iteration: goal.iteration,
+    outcome,
+    at: timestamp,
+    anchorRowId: null,
+  });
+  goal.updatedAt = timestamp;
 }
 
 function toolIdentity(event: AgentEvent & { toolCallId?: string }): string {
@@ -223,6 +456,7 @@ function finishTurn(
   resultType: "success" | "cancelled",
 ): ZCodeSessionEvent[] {
   const events: ZCodeSessionEvent[] = [];
+  closeGoalTurn(state, event.timestamp, resultType === "cancelled");
   if (state.assistantMessageId && state.textPartId) {
     events.push(
       stamp(
@@ -234,15 +468,17 @@ function finishTurn(
       ),
     );
   }
+  const usage = turnUsageOf(state, event);
   events.push(
     stamp(
       state,
       "turn.completed",
       {
         response,
-        tokenCount: 0,
+        tokenCount: usage ? usage.promptTokens + usage.completionTokens : 0,
         toolCallCount: state.toolCallCount,
         duration: Math.max(0, event.timestamp - state.turnStartedAt),
+        ...(usage ? { usage: zcodeUsagePayload(usage) } : {}),
         resultType,
       },
       event.timestamp,
@@ -273,6 +509,8 @@ export function translateAgentEvent(
       state.turnStartedAt = event.timestamp;
       state.turnTerminal = false;
       state.toolStartedAt.clear();
+      state.turnUsageBaseline = state.readUsage(state.sessionId);
+      startGoalTurn(state, event.timestamp);
       return [
         stamp(
           state,
@@ -360,6 +598,7 @@ export function translateAgentEvent(
       return finishTurn(state, event, state.text, "cancelled");
     case "turn.failed": {
       state.turnTerminal = true;
+      closeGoalTurn(state, event.timestamp, false);
       return [
         stamp(
           state,
@@ -464,6 +703,14 @@ export function translateAgentEvent(
           event.turnId,
         ),
       ];
+    case "subagent.finished":
+      observeGoalVerdict(state, event.verdict, event.timestamp);
+      logger.debug("AppServer: dropped unsupported agent event", {
+        type: event.type,
+        sessionId: event.sessionId,
+        turnId: event.turnId,
+      });
+      return [];
     default:
       logger.debug("AppServer: dropped unsupported agent event", {
         type: event.type,

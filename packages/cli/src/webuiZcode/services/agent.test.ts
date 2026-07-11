@@ -6,6 +6,7 @@ import {
 } from "@zcode/shared";
 import {
   V4_METHODS,
+  V4_WIRE_PROTOCOL_VERSION,
   type CommandAck,
   type CommandEnvelope,
   type ConversationTopicWireCandidate,
@@ -444,6 +445,43 @@ describe("ZCode agent service adapter", () => {
     });
 
     stop.dispose();
+  });
+
+  it("declares workflowRunDeltas and honors the clientHello capability", async () => {
+    const registry = buildRegistry();
+    const handle = createZcodeAgentService(registry);
+    const { service } = handle;
+
+    const hello = await service.helloConversationV4();
+    expect(hello.capabilities.workflowRunDeltas).toBe(true);
+
+    // A legacy client that declares nothing stays on the clamped whole-key path.
+    await service.subscribeConversationV4({
+      ...workspaceTarget(),
+      sessionId: SESSION,
+    });
+    const legacySubscribe = registry.calls
+      .filter((call) => call.method === V4_METHODS.conversationSubscribe)
+      .at(-1);
+    expect(legacySubscribe?.params).not.toHaveProperty("workflowRunDeltas");
+
+    await service.initializeConversationV4({
+      kind: "clientHello",
+      protocolVersion: V4_WIRE_PROTOCOL_VERSION,
+      clientId: "desktop-test",
+      appVersion: "1.0.0",
+      capabilities: { workflowRunDeltas: true },
+    });
+    await service.subscribeConversationV4({
+      ...workspaceTarget(),
+      sessionId: SESSION,
+    });
+    const capableSubscribe = registry.calls
+      .filter((call) => call.method === V4_METHODS.conversationSubscribe)
+      .at(-1);
+    expect(capableSubscribe?.params).toMatchObject({
+      workflowRunDeltas: true,
+    });
   });
 
   it("routes conversation subscriptions and answers unavailable methods", async () => {
