@@ -4,6 +4,7 @@ import {
   applyWorkflowRunUpdated,
   conversationDeltaSchema,
   toolCallRowSchema,
+  workflowRunSchema,
   workflowRunsStateSchema,
 } from "@zcode/shared/zcode-protocol-v4";
 import type { WorkflowRunsState } from "@zcode/shared/zcode-protocol-v4";
@@ -11,6 +12,7 @@ import type { Session, TeamRunRecord } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
 import { buildTeamWorkflowGraph } from "../session/teamWorkflow.js";
+import { MAX_CONCURRENT_TEAM_MEMBERS } from "../subagent/memberLimiter.js";
 
 import { deltasForEvent } from "./v4Deltas.js";
 import { createFrameSubscription } from "./v4Frames.js";
@@ -47,6 +49,27 @@ const fixtureSession = {
   workspaceDirectory: "/workspace",
   history: [],
 } as unknown as Session;
+
+/** A saved child session whose assistant turn reported 40 prompt + 2 completion tokens. */
+const childSession = {
+  sessionId: "child-session-1",
+  title: "implementer session",
+  workspaceDirectory: "/workspace",
+  history: [
+    {
+      message: {
+        role: "assistant",
+        content: "the member report",
+        usage: { promptTokens: 40, completionTokens: 2 },
+      },
+      contextItems: [],
+    },
+  ],
+} as unknown as Session;
+
+function loadChildSession(sessionId: string): Session | null {
+  return sessionId === "child-session-1" ? childSession : null;
+}
 
 function sessionEvent(
   seq: number,
@@ -143,6 +166,100 @@ describe("workflowRuns projection", () => {
         projected.actors[node.actorOrdinal ?? -1]?.siteId,
       );
     }
+  });
+
+  it("projects a member's final report into the schema's reports table", () => {
+    const run = teamRun({
+      status: "completed",
+      members: [
+        member("implementer", "completed", {
+          report: "implemented the feature",
+        }),
+        member("tester", "completed"),
+      ],
+    });
+
+    const projected = projectTeamRun(run, 4);
+    expect(projected.reports).toEqual([
+      {
+        siteId: "step-1",
+        ordinal: 0,
+        preview: "implemented the feature",
+      },
+    ]);
+    expect(() => workflowRunSchema.parse(projected)).not.toThrow();
+  });
+
+  it("bounds a long report to the schema's preview length", () => {
+    const run = teamRun({
+      status: "completed",
+      members: [
+        member("implementer", "completed", { report: "x".repeat(3_000) }),
+      ],
+    });
+
+    const projected = projectTeamRun(run, 4);
+    expect(projected.reports?.[0]?.preview).toHaveLength(2_048);
+    expect(() => workflowRunSchema.parse(projected)).not.toThrow();
+  });
+
+  it("reads spent tokens from each member's saved child session", () => {
+    const run = teamRun({
+      status: "completed",
+      members: [
+        member("implementer", "completed", {
+          subagentSessionId: "child-session-1",
+        }),
+        member("tester", "completed", {
+          subagentSessionId: "missing-session",
+        }),
+      ],
+    });
+
+    const projected = projectTeamRun(run, 5, { loadChildSession });
+    expect(projected.usage.spentTokens).toBe(42);
+    expect(projected.usage.nodesUsed).toBe(2);
+    expect(() => workflowRunSchema.parse(projected)).not.toThrow();
+  });
+
+  it("counts no member tokens when no child session is saved", () => {
+    const run = teamRun({
+      status: "completed",
+      members: [
+        member("implementer", "completed"),
+        member("tester", "completed", { subagentSessionId: "missing-session" }),
+      ],
+    });
+
+    const projected = projectTeamRun(run, 5, { loadChildSession: () => null });
+    expect(projected.usage.spentTokens).toBe(0);
+    expect(() => workflowRunSchema.parse(projected)).not.toThrow();
+  });
+
+  it("projects the scheduler concurrency and leaves auto without a claim", () => {
+    const serial = projectTeamRun(
+      teamRun({ mode: "serial", concurrency: 1 }),
+      1,
+    );
+    expect(serial.concurrency).toEqual({
+      cap: 1,
+      ceiling: MAX_CONCURRENT_TEAM_MEMBERS,
+    });
+    expect(serial.concurrencyCeiling).toBe(MAX_CONCURRENT_TEAM_MEMBERS);
+
+    const parallel = projectTeamRun(
+      teamRun({ mode: "parallel", concurrency: 2 }),
+      1,
+    );
+    expect(parallel.concurrency).toEqual({
+      cap: 2,
+      ceiling: MAX_CONCURRENT_TEAM_MEMBERS,
+    });
+    expect(parallel.concurrencyCeiling).toBe(MAX_CONCURRENT_TEAM_MEMBERS);
+
+    const auto = projectTeamRun(teamRun({ mode: "auto" }), 1);
+    expect(auto.concurrency).toBeUndefined();
+    expect(auto.concurrencyCeiling).toBeUndefined();
   });
 
   it("maps a failed run and its member to an errored run and failed node", () => {
@@ -285,6 +402,52 @@ describe("workflowRun deltas", () => {
     expect(fourth.nodes?.map((node) => node.outcome)).toEqual(["ok", "ok"]);
   });
 
+  it("carries reports, child-session tokens and concurrency on the update", () => {
+    const before = teamRun({
+      status: "running",
+      concurrency: 2,
+      members: [
+        member("implementer", "completed", {
+          subagentSessionId: "child-session-1",
+        }),
+        member("tester", "running"),
+      ],
+    });
+    const after = teamRun({
+      status: "running",
+      concurrency: 2,
+      members: [
+        member("implementer", "completed", {
+          subagentSessionId: "child-session-1",
+          report: "the member report",
+        }),
+        member("tester", "running", { report: "tests pass" }),
+      ],
+    });
+
+    const deltas = buildWorkflowRunDeltas([before], [after], 2, {
+      loadChildSession,
+    });
+    expect(deltas).toHaveLength(1);
+    const delta = deltas[0];
+    if (delta?.op !== "workflowRun.updated") throw new Error("expected update");
+
+    expect(delta.run).toMatchObject({
+      usage: { spentTokens: 42, nodesUsed: 2 },
+      reports: [
+        { siteId: "step-1", ordinal: 0, preview: "the member report" },
+        { siteId: "step-2", ordinal: 1, preview: "tests pass" },
+      ],
+      concurrency: { cap: 2, ceiling: MAX_CONCURRENT_TEAM_MEMBERS },
+      concurrencyCeiling: MAX_CONCURRENT_TEAM_MEMBERS,
+    });
+    expect(() => conversationDeltaSchema.parse(delta)).not.toThrow();
+
+    const state = applyWorkflowRunUpdated(undefined, delta);
+    expect(state).toEqual(
+      teamRunsToWorkflowRuns([after], 2, { loadChildSession }),
+    );
+  });
   it("removes a run that falls out of the window", () => {
     const runs = Array.from({ length: 8 }, (_, index) =>
       teamRun({ runId: `team-${index + 1}`, status: "completed" }),

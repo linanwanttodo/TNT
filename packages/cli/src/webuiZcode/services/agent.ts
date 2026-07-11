@@ -219,10 +219,16 @@ function sendPromptParams(
 ): Record<string, unknown> {
   // The app-server send schema is strict and only models the fields it can
   // execute; host-only attribution fields are dropped at this boundary.
+  // `thoughtLevel` is a host extension the send boundary peels off, so it is
+  // forwarded by hand rather than through the shared protocol type.
+  const thoughtLevel = (params as { thoughtLevel?: unknown }).thoughtLevel;
   return {
     sessionId: params.sessionId,
     content: params.content,
     ...(params.modelSelection ? { modelSelection: params.modelSelection } : {}),
+    ...(typeof thoughtLevel === "string" && thoughtLevel.trim().length > 0
+      ? { thoughtLevel: thoughtLevel.trim() }
+      : {}),
     ...(params.modelExecution ? { modelExecution: params.modelExecution } : {}),
     ...(params.inputId ? { inputId: params.inputId } : {}),
     ...(params.queryId ? { queryId: params.queryId } : {}),

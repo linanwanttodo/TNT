@@ -297,6 +297,10 @@ describe("toZcodeSnapshot", () => {
     });
     expect(snapshot.session.model).toEqual(model);
     expect(snapshot.settings.model.current).toEqual(model);
+    expect(snapshot.settings.thoughtLevel.enabled).toBe(true);
+    expect(
+      snapshot.settings.thoughtLevel.available.map((option) => option.value),
+    ).toEqual(["off", "low", "medium", "high", "xhigh", "max"]);
     expect(snapshot.settings.mode.current).toBe("build");
     expect(snapshot.projection.turnCount).toBe(1);
     expect(snapshot.projection.pendingPermissions).toEqual([]);
@@ -309,6 +313,33 @@ describe("toZcodeSnapshot", () => {
       pendingRequestIds: [],
     });
     expect(snapshot.messages).toHaveLength(expectedMessages.length);
+  });
+
+  it("reports the config's selected model when the session has none", () => {
+    serviceContainer.registerValue(SERVICE_NAMES.CONFIG, {
+      config: {
+        models: [
+          {
+            name: "claude",
+            provider: "anthropic",
+            model: "claude-sonnet-5-5",
+          },
+        ],
+      },
+      selectedModel: "claude",
+    } as never);
+
+    const snapshot = toZcodeSnapshot(fixture);
+
+    expect(snapshot.session.model).toEqual({
+      providerId: "anthropic",
+      modelId: "claude",
+    });
+    expect(snapshot.settings.model.current).toEqual({
+      providerId: "anthropic",
+      modelId: "claude",
+    });
+    expect(() => zcodeSessionStateSnapshotSchema.parse(snapshot)).not.toThrow();
   });
 
   it("maps cumulative usage and the last prompt into the projection", () => {

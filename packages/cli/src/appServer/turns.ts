@@ -30,6 +30,7 @@ import { logger } from "../utils/logger.js";
 import type { SessionRuntimeStore } from "./runtime.js";
 import { parseParams, sessionRequestError } from "./session.js";
 import { toZcodeSnapshot } from "./snapshot.js";
+import { applyTurnSelection, type TurnSelection } from "./turnSelection.js";
 
 export interface TurnSender {
   send(message: unknown): Promise<void>;
@@ -53,7 +54,7 @@ export interface TurnPump {
   requestStop(): void;
 }
 
-export interface PendingTurn {
+export interface PendingTurn extends TurnSelection {
   id: string;
   sessionId: string;
   text: string;
@@ -105,6 +106,29 @@ function splitModelTitle(
   return {
     providerId: title.slice(0, slash),
     modelId: title.slice(slash + 1),
+  };
+}
+
+/**
+ * The strict send schema has no `thoughtLevel`; the agent service forwards one
+ * when a host sets it. Pull it out before the strict parse so a known
+ * extension does not reject the whole send.
+ */
+function splitThoughtLevel(params: unknown): {
+  params: unknown;
+  thoughtLevel?: string;
+} {
+  if (typeof params !== "object" || params === null || Array.isArray(params)) {
+    return { params };
+  }
+  if (!("thoughtLevel" in params)) {
+    return { params };
+  }
+  const { thoughtLevel, ...rest } = params as Record<string, unknown>;
+  const value = typeof thoughtLevel === "string" ? thoughtLevel.trim() : "";
+  return {
+    params: rest,
+    ...(value.length > 0 ? { thoughtLevel: value } : {}),
   };
 }
 
@@ -173,7 +197,7 @@ export function createHeadlessExecutor(
       );
       return;
     }
-    const modelState = await getService<ModelServiceState>(SERVICE_NAMES.MODEL);
+    let modelState = await getService<ModelServiceState>(SERVICE_NAMES.MODEL);
     if (!modelState.llmApi || !modelState.model) {
       terminalEvent(
         runtimes,
@@ -189,6 +213,26 @@ export function createHeadlessExecutor(
         runtimes,
         turn.sessionId,
         `Session not found: ${turn.sessionId}`,
+      );
+      return;
+    }
+    try {
+      await applyTurnSelection(session, turn);
+    } catch (error) {
+      terminalEvent(
+        runtimes,
+        turn.sessionId,
+        error instanceof Error ? error.message : String(error),
+      );
+      return;
+    }
+    // A switch replaced the container's model state; run on what is live now.
+    modelState = await getService<ModelServiceState>(SERVICE_NAMES.MODEL);
+    if (!modelState.llmApi || !modelState.model) {
+      terminalEvent(
+        runtimes,
+        turn.sessionId,
+        "No chat model is configured for the app-server",
       );
       return;
     }
@@ -296,9 +340,13 @@ export class TurnHandlers {
   }
 
   async send(params: unknown): Promise<SessionSendResult> {
-    const input = parseParams(zcodeSessionSendParamsSchema, params);
+    const split = splitThoughtLevel(params);
+    const input = parseParams(zcodeSessionSendParamsSchema, split.params);
     this.requireSession(input.sessionId);
-    const revision = await this.enqueue(input.sessionId, input.content, false);
+    const revision = await this.enqueue(input.sessionId, input.content, false, {
+      ...(input.modelSelection ? { modelSelection: input.modelSelection } : {}),
+      ...(split.thoughtLevel ? { thoughtLevel: split.thoughtLevel } : {}),
+    });
     return {
       sessionId: input.sessionId,
       accepted: true,
@@ -336,9 +384,13 @@ export class TurnHandlers {
     return {};
   }
 
-  async sendText(sessionId: string, text: string): Promise<number> {
+  async sendText(
+    sessionId: string,
+    text: string,
+    selection: TurnSelection = {},
+  ): Promise<number> {
     this.requireSession(sessionId);
-    return this.enqueue(sessionId, text, false);
+    return this.enqueue(sessionId, text, false, selection);
   }
 
   async stopSession(sessionId: string): Promise<void> {
@@ -433,10 +485,11 @@ export class TurnHandlers {
     sessionId: string,
     text: string,
     compact: boolean,
+    selection: TurnSelection = {},
   ): Promise<number> {
     this.runtimes.ensure(sessionId);
     const revision = this.runtimes.bumpRevision(sessionId);
-    this.pendingInsert = { sessionId, text, compact };
+    this.pendingInsert = { sessionId, text, compact, ...selection };
     await this.queue.enqueueMessage(text);
     this.pendingInsert = null;
     this.startTurn();

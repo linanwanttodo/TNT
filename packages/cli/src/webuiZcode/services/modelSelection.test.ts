@@ -51,6 +51,10 @@ describe("buildModelSelectionView", () => {
       "local-deepseek",
     ]);
     expect(openai?.models[0]?.config.properties.contextWindow).toBe(200_000);
+    expect(openai?.models[0]?.config.optionSpecs.reasoningLevel).toEqual({
+      values: ["off", "low", "medium", "high", "xhigh", "max"],
+      map: "{}",
+    });
     expect(openai?.models[0]?.config.optionSpecs.maxOutputTokens.max).toBe(
       64_000,
     );
