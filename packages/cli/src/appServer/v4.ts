@@ -11,12 +11,13 @@ import {
   v4ConversationSubscribeParamsSchema,
   v4ConversationUnsubscribeParamsSchema,
 } from "@zcode/shared/zcode-protocol-v4";
+import type { TeamRunRecord } from "core/index.js";
 
 import {
   interactionBroker as defaultBroker,
   type InteractionBroker,
 } from "../permissions/interactionBroker.js";
-import { loadSessionById } from "../session/index.js";
+import { loadSessionById, subscribeTeamRunChanges } from "../session/index.js";
 import { logger } from "../utils/logger.js";
 
 import type { InteractionBridge } from "./interactions.js";
@@ -34,6 +35,10 @@ import {
   derivePendingInteractions,
   type FrameSubscription,
 } from "./v4Frames.js";
+import {
+  buildWorkflowRunDeltas,
+  teamRunWorkflowDisplay,
+} from "./workflowRuns.js";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -84,6 +89,8 @@ export class V4Handlers {
   private readonly broker: InteractionBroker;
   private readonly interactions: InteractionBridge | null;
   private readonly subscriptions = new Map<string, SubscriptionRecord>();
+  private readonly teamRunsBySession = new Map<string, TeamRunRecord[]>();
+  private readonly unsubscribeTeamRuns: () => void;
 
   constructor(options: V4HandlerOptions) {
     this.sender = options.sender;
@@ -92,6 +99,9 @@ export class V4Handlers {
     this.turns = options.turns;
     this.broker = options.interactionBroker ?? defaultBroker;
     this.interactions = options.interactions ?? null;
+    this.unsubscribeTeamRuns = subscribeTeamRunChanges((sessionId, runs) =>
+      this.teamRunsChanged(sessionId, runs),
+    );
   }
 
   async subscribe(params: unknown): Promise<unknown> {
@@ -105,6 +115,7 @@ export class V4Handlers {
       throw sessionRequestError(`Session not found: ${sessionId}`);
     }
     this.runtimes.ensure(sessionId);
+    this.teamRunsBySession.set(sessionId, session.teamRuns ?? []);
     subscriptionCounter += 1;
     const subscriptionId = `sub-${subscriptionCounter}-${sessionId}`;
     const logEpoch = `epoch-${sessionId}`;
@@ -114,7 +125,9 @@ export class V4Handlers {
       if (event.seq <= frame.lastFrameSeq) {
         return;
       }
-      const deltas = deltasForEvent(frame, event);
+      const deltas = deltasForEvent(frame, event, {
+        teamRuns: this.teamRunsBySession.get(sessionId),
+      });
       const wire = buildConversationFrame(
         frame,
         frame.lastFrameSeq,
@@ -244,10 +257,51 @@ export class V4Handlers {
   }
 
   dispose(): void {
+    this.unsubscribeTeamRuns();
     for (const record of this.subscriptions.values()) {
       record.unsubscribe();
     }
     this.subscriptions.clear();
+  }
+
+  /**
+   * One ledger mutation becomes one `session.updated` event carrying the run
+   * deltas (and, when a run first opens, the static graph for the SummonTeam
+   * row). Appending the event is what advances the conversation seq, so the
+   * client applies it like any other frame instead of re-reading state.
+   */
+  private teamRunsChanged(sessionId: string, runs: TeamRunRecord[]): void {
+    const previous = this.teamRunsBySession.get(sessionId);
+    const previousIds = new Set((previous ?? []).map((run) => run.runId));
+    const newest = runs[runs.length - 1];
+    const newRun =
+      newest !== undefined && !previousIds.has(newest.runId)
+        ? newest
+        : undefined;
+    this.teamRunsBySession.set(sessionId, runs);
+
+    const candidate = this.runtimes.workflowRevision(sessionId) + 1;
+    const deltas = buildWorkflowRunDeltas(previous, runs, candidate);
+    if (deltas.length === 0 && newRun === undefined) {
+      return;
+    }
+    this.runtimes.bumpWorkflowRevision(sessionId);
+
+    const payload: Record<string, unknown> = {};
+    if (deltas.length > 0) {
+      payload.workflowRunDeltas = deltas;
+    }
+    if (newRun) {
+      const toolCallId =
+        this.runtimes.ensure(sessionId).state.summonTeamToolCallId;
+      if (toolCallId) {
+        payload.teamWorkflowDisplay = {
+          toolCallId,
+          display: teamRunWorkflowDisplay(newRun, newRun.status !== "failed"),
+        };
+      }
+    }
+    this.runtimes.append(sessionId, "session.updated", payload);
   }
 
   private async sendText(envelope: CommandEnvelope): Promise<CommandAck> {

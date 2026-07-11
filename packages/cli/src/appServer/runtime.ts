@@ -15,11 +15,17 @@ export interface SessionRuntime {
   readonly state: TranslationState;
   readonly events: ZCodeSessionEvent[];
   readonly listeners: Set<(event: ZCodeSessionEvent) => void>;
+  /**
+   * Monotonic revision of the projected `workflowRuns` state key. It moves only
+   * when a team run changes, not on every conversation event.
+   */
+  workflowRevision: number;
 }
 
 export interface SessionRuntimeCursor {
   eventSeq: number;
   stateRevision: number;
+  workflowRevision: number;
 }
 
 /**
@@ -39,6 +45,7 @@ export class SessionRuntimeStore {
       state: createTranslationState(sessionId),
       events: [],
       listeners: new Set(),
+      workflowRevision: 0,
     };
     this.runtimes.set(sessionId, created);
     return created;
@@ -53,7 +60,18 @@ export class SessionRuntimeStore {
     return {
       eventSeq: runtime?.state.seq ?? 0,
       stateRevision: runtime?.state.stateRevision ?? 0,
+      workflowRevision: runtime?.workflowRevision ?? 0,
     };
+  }
+
+  workflowRevision(sessionId: string): number {
+    return this.runtimes.get(sessionId)?.workflowRevision ?? 0;
+  }
+
+  bumpWorkflowRevision(sessionId: string): number {
+    const runtime = this.ensure(sessionId);
+    runtime.workflowRevision += 1;
+    return runtime.workflowRevision;
   }
 
   eventsAfter(sessionId: string, afterSeq: number): ZCodeSessionEvent[] {
