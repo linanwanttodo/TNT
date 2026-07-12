@@ -263,10 +263,32 @@ jobs:
           cd packages/zcode-ui/web
           npx tsc -b
 
+  # A job-level `if` cannot read `secrets`, so this gate job reports whether
+  # the key exists. Without it the smoke job could only run on a same-repo PR:
+  # the old condition had no true branch on a push, so the gate that is supposed
+  # to measure the shipped CLI never ran for anything landing on main.
+  smoke-key:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY is not configured; the smoke API gate skips."
+          fi
+
   smoke-api:
-    # Needs in-repo credentials. On a push event there is no pull_request
-    # context, so this skips and the aggregate job allows the skip.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    needs: smoke-key
+    # Pushes to main and same-repo PRs carry the repository's secrets; a fork PR
+    # does not. The job is only meaningful when the key exists.
+    if: needs.smoke-key.outputs.present == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -340,12 +362,14 @@ jobs:
       - lint
       - test
       - webui
+      - smoke-key
       - smoke-api
 
     steps:
       - name: Decide whether the needed jobs succeeded or failed
         uses: re-actors/alls-green@release/v1
         with:
-          # smoke-api is allowed to skip for fork PRs that lack secrets
+          # smoke-api may skip only when its key is absent or the PR is a fork;
+          # the gate job's notice says which. A failed smoke run still fails.
           allowed-skips: smoke-api
           jobs: ${{ toJSON(needs) }}
