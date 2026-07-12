@@ -120,7 +120,7 @@ tnt ls --json
 - `tnt ls`: List recent sessions with TUI selector to choose one to resume
 - `tnt checks [action] [pr-url]`: Run or inspect the checks for a pull request
 - `tnt review`: Run AI reviews on your changes (`--base`, `--format`, `--fix` and others)
-- `tnt serve` (hidden): Start HTTP server mode (binds loopback by default; `tnt serve --host 0.0.0.0` exposes an unauthenticated server to the network)
+- `tnt serve` (hidden): Start the legacy HTTP server, or the Web UI daemon when a daemon flag is present. The daemon binds loopback only and prints a JSON handshake with `--json` (`--port` 0 picks an ephemeral port, `--workspace` selects the project, `--handshake-file` writes the handshake atomically). See [docs/CLIENTS.md](../../docs/CLIENTS.md) for the client contract.
 - `tnt app-server` (hidden): Run the NDJSON app-server protocol host the web UI and per-workspace children use (`tnt app-server --stdio`)
 
 ### Session Listing (`tnt ls`)

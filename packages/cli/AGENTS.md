@@ -70,6 +70,11 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
      mode and takes its first positional argument as the prompt, so `tnt chat` sends the
      word `chat` as a prompt.
 
+   `tnt serve` is both the legacy HTTP server and, when a daemon flag is present, the
+   Web UI daemon for editor/desktop hosts (`--json` handshake, loopback token,
+   per-workspace engines). See [CLIENTS.md](../../docs/CLIENTS.md) for the integration
+   contract; the daemon lives in `src/commands/serveDaemon.ts`.
+
 ### Module Layout
 
 `src/` is grouped by layer; only the entry points sit at the top level.

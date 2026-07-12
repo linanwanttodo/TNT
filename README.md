@@ -48,6 +48,12 @@ takes it from there.
 
 To learn how to configure TNT, how it works, and how to customize it, check out the [TNT Docs](https://github.com/linanwanttodo/TNT/tree/main/docs).
 
+## Editor and desktop clients
+
+VS Code, JetBrains and Electron hosts embed the same engine, protocol and web UI.
+See [docs/CLIENTS.md](docs/CLIENTS.md) for the `tnt serve` daemon handshake,
+authentication, embedding recipes and the host/native boundary.
+
 ## Release
 
 [![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=white)](https://github.com/linanwanttodo/TNT) [![View source](https://img.shields.io/badge/View_source-181717?logo=github&logoColor=white)](packages/cli)
