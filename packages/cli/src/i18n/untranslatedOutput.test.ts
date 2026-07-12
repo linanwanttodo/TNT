@@ -274,8 +274,9 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   ui: 8,
   utils: 16,
   // The web UI host and its services answer an RPC peer; these are JSON-RPC and
-  // auth errors read by a client, not composer copy.
-  webuiZcode: 38,
+  // auth errors read by a client, not composer copy. 39: the task-group admit
+  // names the group id it could not find.
+  webuiZcode: 39,
 };
 
 /**

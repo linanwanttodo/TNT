@@ -60,7 +60,15 @@ export async function withPermissionWriteLock<T>(
         await fs.promises.unlink(lockPath).catch(() => {});
       };
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      // Windows reports a sharing violation on the open handle as EPERM or
+      // EACCES where POSIX reports EEXIST; both mean the same thing here, that
+      // another writer holds the lock.
+      const code = (error as NodeJS.ErrnoException).code;
+      const lockHeld =
+        code === "EEXIST" ||
+        (process.platform === "win32" &&
+          (code === "EPERM" || code === "EACCES"));
+      if (!lockHeld) throw error;
       if (await lockIsStale(lockPath, staleMs)) {
         logger.debug("Breaking a stale permissions lock");
         await fs.promises.unlink(lockPath).catch(() => {});

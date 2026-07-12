@@ -152,10 +152,20 @@ export function buildModelSelectionView(
   const preferredModel = source.models.find(
     (model) => model.name === preferredName,
   );
+  // The shell's draft initialization only accepts a preferredSelection whose
+  // options.reasoningLevel is one of the model's offered values; a bare
+  // identity is rejected and the composer stays empty. Complete it with the
+  // highest offered level, the reference host's own fresh-draft rule.
   const preferredSelection = preferredModel
     ? {
         providerId: preferredModel.provider || "tnt",
         modelId: preferredModel.name,
+        options: {
+          reasoningLevel:
+            registryModelConfig(
+              preferredModel,
+            ).optionSpecs.reasoningLevel.values.at(-1)!,
+        },
       }
     : undefined;
   const available = new Set(

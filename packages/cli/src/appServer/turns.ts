@@ -9,11 +9,10 @@ import type { Session } from "core/index.js";
 import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import type { AgentEvent } from "../protocol/events.js";
 import {
+  ensureServicesInitialized,
   getService,
-  initializeServices,
   services,
   SERVICE_NAMES,
-  serviceContainer,
 } from "../services/index.js";
 import {
   turnRunnerService,
@@ -132,32 +131,14 @@ function splitThoughtLevel(params: unknown): {
   };
 }
 
-let servicesReady: Promise<void> | null = null;
-
 /**
  * The app-server process starts without the service container, so the first
- * turn (or setModel) brings config/model up through the same headless
- * initialization `serve` and `webui` use. `sessionStore` and the event bus are
+ * turn (or setModel) brings config/model up through the same shared headless
+ * initialization the serve daemon uses. `sessionStore` and the event bus are
  * process singletons and need no initialization.
  */
 export function ensureAppServerServices(): Promise<void> {
-  const current = serviceContainer.getSync<ModelServiceState>(
-    SERVICE_NAMES.MODEL,
-  );
-  if (
-    current.state === "ready" &&
-    current.value?.llmApi &&
-    current.value.model
-  ) {
-    return Promise.resolve();
-  }
-  servicesReady ??= initializeServices({ headless: true })
-    .then(() => undefined)
-    .catch((error) => {
-      servicesReady = null;
-      throw error;
-    });
-  return servicesReady;
+  return ensureServicesInitialized();
 }
 
 function terminalEvent(

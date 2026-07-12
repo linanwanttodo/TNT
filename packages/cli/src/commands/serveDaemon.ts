@@ -30,6 +30,8 @@ export interface ServeDaemonOptions {
   handshakeFile?: string;
   /** Commander sets this to false for `--no-tui`. */
   tui?: boolean;
+  /** Config file for the lazy initialization the first connection triggers. */
+  config?: string;
 }
 
 export interface ServeHandshake {
@@ -277,14 +279,16 @@ export async function serveDaemon(options: ServeDaemonOptions): Promise<void> {
   let handle: WebUiHandle;
   try {
     // The service container is deliberately not initialized here. The daemon
-    // is a transport host, like `app-server --stdio`: the first turn brings
-    // config/model up through the same lazy headless initialization and
-    // reports the existing "no chat model" error when none is configured.
-    // Eager initialization would make startup wait on a model/config fetch and
-    // would fail on a machine that has no config yet.
+    // is a transport host, like `app-server --stdio`: the first model-list
+    // read or turn brings config/model up through the shared lazy headless
+    // initialization (honoring --config) and reports the existing "no chat
+    // model" error when none is configured. Eager initialization would make
+    // startup wait on a model/config fetch and would fail on a machine that
+    // has no config yet.
     handle = await webUiService.start({
       port: portResult.port,
       persistToken: true,
+      config: options.config,
     });
   } catch (error) {
     stdoutCapture?.restore();

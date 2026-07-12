@@ -145,7 +145,7 @@ function publishTurn(sessionId: string, turnId: string): void {
 }
 
 function commandEnvelope(
-  sessionId: string,
+  sessionId: string | null,
   type: string,
   payload: unknown,
   extra: Record<string, unknown> = {},
@@ -465,6 +465,188 @@ describe("app-server turns and v4 conversation frames", () => {
     });
     expect(sender.responses("rename")[0]?.result).toMatchObject({
       status: "accepted",
+    });
+  });
+
+  it("projects the turn's user input as a userInput row", async () => {
+    const live = new AppServerProtocol(sender, new SessionRegistry(root), {
+      modelLookup: {
+        getAvailableChatModels: () => [
+          { provider: "test", name: "fake", index: 0 },
+        ],
+      },
+      runTurn: async (turn) => {
+        publishAgentEvent({
+          sessionId: turn.sessionId,
+          turnId: "turn-input",
+          seq: 1,
+          timestamp: 1_000,
+          type: "turn.started",
+          model: "test-model",
+          historyLength: 1,
+          userInput: "只回复数字 51",
+        });
+        publishAgentEvent({
+          sessionId: turn.sessionId,
+          turnId: "turn-input",
+          seq: 2,
+          timestamp: 1_010,
+          type: "turn.completed",
+          content: "51",
+        });
+      },
+      pump,
+      ensureServices: async () => undefined,
+    });
+    protocol.dispose();
+    protocol = live;
+    const sessionId = await createSession();
+
+    await protocol.handle({
+      id: "sub",
+      method: "v4/conversation/subscribe",
+      params: {
+        topic: `conversation/${sessionId}`,
+        connectionId: "conn-1",
+        clientMode: "desktop-continuous",
+      },
+    });
+    await protocol.handle({
+      id: "send",
+      method: "v4/command",
+      params: commandEnvelope(sessionId, "sendText", {
+        text: "只回复数字 51",
+      }),
+    });
+    await pump.whenIdle();
+
+    const rows = sender
+      .notifications(V4_NOTIFICATIONS.conversationFrame)
+      .map((message) => conversationTopicWireFrameSchema.parse(message.params))
+      .flatMap((wire) =>
+        wire.kind === "complete" && wire.frame.payload.kind === "deltas"
+          ? wire.frame.payload.deltas
+          : [],
+      )
+      .flatMap((delta) => (delta.op === "row.appended" ? [delta.row] : []))
+      .filter((row) => row.kind === "userInput");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kind: "userInput",
+      origin: "realUser",
+      text: "只回复数字 51",
+    });
+  });
+
+  it("creates a v4 draft session that serves commands before its first turn", async () => {
+    await protocol.handle({
+      id: "v4create",
+      method: "v4/command",
+      params: commandEnvelope(null, "createSession", {
+        workspaceId: workspace,
+        config: {
+          modelSelection: {
+            providerId: "test",
+            modelId: "fake",
+            options: { reasoningLevel: "max" },
+          },
+          mode: "build",
+          planEnabled: false,
+        },
+      }),
+    });
+    const created = sender.responses("v4create")[0]?.error
+      ? undefined
+      : (sender.responses("v4create")[0]?.result as {
+          status: string;
+          result: { type: string; sessionId: string };
+        });
+    expect(sender.responses("v4create")[0]?.error).toBeUndefined();
+    expect(created).toMatchObject({
+      status: "accepted",
+      result: { type: "createSession" },
+    });
+    const sessionId = created!.result.sessionId;
+
+    // An unused draft stays in memory: no header reaches the session store.
+    expect(sessionStore.getMeta(sessionId)).toBeNull();
+
+    // The same connection can subscribe to and send on the draft.
+    await protocol.handle({
+      id: "v4sub",
+      method: "v4/conversation/subscribe",
+      params: {
+        topic: `conversation/${sessionId}`,
+        connectionId: "conn-1",
+        clientMode: "desktop-continuous",
+      },
+    });
+    expect(sender.responses("v4sub")[0]?.error).toBeUndefined();
+
+    await protocol.handle({
+      id: "v4send",
+      method: "v4/command",
+      params: commandEnvelope(sessionId, "sendText", { text: "hi" }),
+    });
+    await pump.whenIdle();
+
+    expect(sender.responses("v4send")[0]?.result).toMatchObject({
+      status: "accepted",
+      result: { type: "inputAccepted" },
+    });
+    // The first input turns the draft into a real task: the header is
+    // persisted before the ACK, so a tree read right after it lists the row.
+    expect(sessionStore.getMeta(sessionId)).not.toBeNull();
+  });
+
+  it("runs a createSession firstInput as the session's first turn", async () => {
+    const captured: PendingTurn[] = [];
+    const live = new AppServerProtocol(sender, new SessionRegistry(root), {
+      modelLookup: {
+        getAvailableChatModels: () => [
+          { provider: "test", name: "fake", index: 0 },
+        ],
+      },
+      runTurn: async (turn) => {
+        captured.push(turn);
+      },
+      pump,
+      ensureServices: async () => undefined,
+    });
+    protocol.dispose();
+    protocol = live;
+
+    await protocol.handle({
+      id: "v4create",
+      method: "v4/command",
+      params: commandEnvelope(null, "createSession", {
+        workspaceId: workspace,
+        config: {
+          modelSelection: { providerId: "test", modelId: "fake" },
+        },
+        firstInput: { text: "hello" },
+      }),
+    });
+    await pump.whenIdle();
+
+    const ack = sender.responses("v4create")[0]?.result as {
+      status: string;
+      result: {
+        type: string;
+        sessionId: string;
+        input?: { delivery: string; inputId: string };
+      };
+    };
+    expect(ack.status).toBe("accepted");
+    expect(ack.result).toMatchObject({
+      type: "createSession",
+      input: { delivery: "startNow", inputId: "cmd-createSession" },
+    });
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({
+      sessionId: ack.result.sessionId,
+      text: "hello",
+      modelSelection: { providerId: "test", modelId: "fake" },
     });
   });
 
