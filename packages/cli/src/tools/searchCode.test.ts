@@ -314,7 +314,7 @@ describe("searchCodeTool policy", () => {
       fs.symlinkSync(outside, link);
       expect(decide({ path: link })).toBe("allowedWithPermission");
     } finally {
-      fs.rmSync(link, { force: true });
+      fs.rmSync(link, { force: true, recursive: true });
       fs.rmSync(outside, { recursive: true, force: true });
     }
   });

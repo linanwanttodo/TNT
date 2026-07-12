@@ -1379,7 +1379,7 @@ describe("workspace-only policy", () => {
 
       expect(result.permission).toBe("ask");
     } finally {
-      fs.rmSync(link, { force: true });
+      fs.rmSync(link, { force: true, recursive: true });
       fs.rmSync(outsideDir, { recursive: true, force: true });
     }
   });
