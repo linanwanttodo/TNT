@@ -499,8 +499,15 @@ function goalStateOf(goal: GoalLifecycleState): GoalState {
       anchorRowId: verification.anchorRowId,
       ...(verification.reason ? { reason: verification.reason } : {}),
     })),
-    // TNT has no goal-iteration step detail; an empty list is the honest shape.
-    iterations: [],
+    iterations: goal.iterations.map((iteration) => ({
+      iteration: iteration.iteration,
+      items: iteration.items.map((item) => ({
+        id: item.id,
+        content: item.content,
+        status: item.status,
+      })),
+      updatedAt: iteration.updatedAt,
+    })),
   };
 }
 

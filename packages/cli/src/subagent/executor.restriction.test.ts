@@ -30,7 +30,10 @@ vi.mock("../hooks/fireHook.js", () => ({
 
 vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => ({ sessionId: "parent", history: [] })),
-  saveSubagentSession: vi.fn(),
+  saveSubagentSession: vi.fn(() => ({ sessionId: "child-session" })),
+  updateSubagentSession: vi.fn((options: { sessionId: string }) => ({
+    sessionId: options.sessionId,
+  })),
   getSessionActiveTeam: vi.fn(() => undefined),
   getCurrentTeamRunMember: vi.fn(() => undefined),
   startTeamMemberRun: vi.fn(),

@@ -5,6 +5,7 @@ import type {
   BaseSessionMetadata,
   ChatHistoryItem,
   Session,
+  SessionGoalState,
   SessionUsage,
   TeamMemberRunStatus,
   TeamRunMemberRecord,
@@ -622,6 +623,12 @@ export async function listSessions(
 export function loadSessionById(sessionId: string): Session | null {
   try {
     assertSessionId(sessionId);
+    // A draft session lives in memory until its first turn writes a
+    // transcript, and the live copy is the truth before that write.
+    const live = getLiveSession(sessionId);
+    if (live) {
+      return live;
+    }
     return historyAdapter.load(sessionId);
   } catch (error) {
     // A missing session and a corrupt transcript are both "cannot open"; the
@@ -1075,6 +1082,11 @@ export function finishTeamMemberRun(
     subagentSessionId?: string;
     error?: string;
     /**
+     * A user stop (or an aborted run) is its own terminal state: the member did
+     * not fail on its own work, and the ledger must say so.
+     */
+    cancelled?: boolean;
+    /**
      * The member's final response text. The executor passes it only for a
      * successful finish, so a failed member's ledger entry carries no report.
      */
@@ -1090,9 +1102,11 @@ export function finishTeamMemberRun(
           if (member.name !== memberName) return member;
           const finished: TeamRunMemberRecord = {
             ...member,
-            status: (outcome.success
-              ? "completed"
-              : "failed") as TeamMemberRunStatus,
+            status: (outcome.cancelled
+              ? "cancelled"
+              : outcome.success
+                ? "completed"
+                : "failed") as TeamMemberRunStatus,
             finishedAt: new Date().toISOString(),
           };
           if (outcome.subagentSessionId) {
@@ -1155,12 +1169,60 @@ export function setSessionGoal(goal: string | undefined): void {
   const manager = SessionManager.getInstance();
   const session = manager.getCurrentSession();
   const normalized = goal?.trim();
+  const previous = session.goal?.trim();
   if (normalized) {
     session.goal = normalized;
   } else {
     delete session.goal;
   }
+  // A lifecycle belongs to one objective. Clearing the goal drops it, and a
+  // different objective must start at iteration 1 rather than inherit the old
+  // iterations.
+  if (normalized !== previous) {
+    delete session.goalState;
+  }
   manager.updateHistory(session.history);
+}
+
+/**
+ * The live session this process is running, or null when `sessionId` is not the
+ * current one. The app-server translator reads this first so the Todo plan it
+ * records is the in-flight array, not the transcript as it was at turn start.
+ */
+export function getLiveSession(sessionId: string): Session | null {
+  const manager = SessionManager.getInstance();
+  return manager.hasSession() && manager.getSessionId() === sessionId
+    ? manager.getCurrentSession()
+    : null;
+}
+
+/**
+ * Persist the observed goal lifecycle on the session that owns it.
+ *
+ * The live session is mutated in place so the app-server's own end-of-turn
+ * `sessionStore.sync(session)` writes the same object this function does;
+ * writing to a separately loaded copy would let that later save revert it.
+ * A null writes the clear, not a partial object the v4 schema would reject.
+ */
+export function persistSessionGoalState(
+  sessionId: string,
+  goalState: SessionGoalState | null,
+): void {
+  const live = getLiveSession(sessionId);
+  const session = live ?? loadSessionById(sessionId);
+  if (!session) {
+    return;
+  }
+  if (goalState) {
+    session.goalState = goalState;
+  } else {
+    delete session.goalState;
+  }
+  try {
+    sessionStore.sync(session);
+  } catch (error) {
+    logger.error("Error persisting goal state:", error);
+  }
 }
 
 /**
@@ -1206,6 +1268,82 @@ export function saveSubagentSession(options: {
   };
 
   historyAdapter.save(getSessionPersistenceSnapshot(child));
+  return child;
+}
+
+/**
+ * The child's cumulative token usage, summed the same way the parent's
+ * `SessionManager.trackUsage` sums its requests. Only assistant messages that
+ * reported usage contribute; a run that reported nothing leaves zeros rather
+ * than a guess. Pricing is not available inside the child run, so cost stays 0.
+ */
+function usageFromChildHistory(
+  history: readonly ChatHistoryItem[],
+): SessionUsage {
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let cachedTokens = 0;
+  let cacheWriteTokens = 0;
+  for (const item of history) {
+    const message = item.message;
+    if (message.role !== "assistant" || !message.usage) {
+      continue;
+    }
+    promptTokens += message.usage.promptTokens ?? 0;
+    completionTokens += message.usage.completionTokens ?? 0;
+    cachedTokens += message.usage.promptTokensDetails?.cachedTokens ?? 0;
+    cacheWriteTokens +=
+      message.usage.promptTokensDetails?.cacheWriteTokens ?? 0;
+  }
+  return {
+    totalCost: 0,
+    promptTokens,
+    completionTokens,
+    promptTokensDetails: { cachedTokens, cacheWriteTokens },
+  };
+}
+
+/**
+ * Update the child session a dispatch created at start, so a running or failed
+ * transcript is real and its pending/settled counters are measured from it.
+ * A `notice` is a host message (cancellation or failure) and is appended once.
+ */
+export function updateSubagentSession(options: {
+  sessionId: string;
+  history: ChatHistoryItem[];
+  /** Append a host notice when the transcript does not already end with it. */
+  notice?: string;
+  /** Use a measured usage; otherwise the transcript's reported usage is summed. */
+  usage?: SessionUsage;
+}): Session | null {
+  const child = loadSessionById(options.sessionId);
+  if (!child) {
+    return null;
+  }
+  const history = [...options.history];
+  if (options.notice) {
+    // The escape handler already records the same notice; a later item between
+    // the two writes must not turn it into a second one.
+    const alreadyNoted = history.some(
+      (item) =>
+        item.message?.role === "user" &&
+        item.message.content === options.notice,
+    );
+    if (!alreadyNoted) {
+      history.push({
+        message: { role: "user", content: options.notice },
+        contextItems: [],
+      } as ChatHistoryItem);
+    }
+  }
+  child.history = history;
+  child.usage = options.usage ?? usageFromChildHistory(history);
+  try {
+    sessionStore.sync(getSessionPersistenceSnapshot(child));
+  } catch (error) {
+    logger.error("Error updating subagent session:", error);
+    return null;
+  }
   return child;
 }
 

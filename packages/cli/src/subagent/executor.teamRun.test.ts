@@ -16,6 +16,11 @@ const finishTeamMemberRun = vi.hoisted(() => vi.fn());
 const saveSubagentSession = vi.hoisted(() =>
   vi.fn(() => ({ sessionId: "member-session" })),
 );
+const updateSubagentSession = vi.hoisted(() =>
+  vi.fn((options: { sessionId: string }) => ({
+    sessionId: options.sessionId,
+  })),
+);
 
 vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => ({
@@ -25,6 +30,7 @@ vi.mock("../session/index.js", () => ({
   })),
   getSessionActiveTeam: vi.fn(() => undefined),
   saveSubagentSession,
+  updateSubagentSession,
   getCurrentTeamRunMember,
   startTeamMemberRun,
   finishTeamMemberRun,
@@ -67,6 +73,7 @@ beforeEach(() => {
   startTeamMemberRun.mockReset();
   finishTeamMemberRun.mockReset();
   saveSubagentSession.mockClear();
+  updateSubagentSession.mockClear();
 });
 
 describe("a summoned lead dispatching a member", () => {
@@ -175,6 +182,37 @@ describe("the member wall-clock timeout", () => {
       "run-1",
       "implementer",
       expect.objectContaining({ success: false }),
+    );
+  });
+
+  it("marks the member cancelled when the parent controller aborts", async () => {
+    getCurrentTeamRunMember.mockImplementation((name: string) =>
+      name === "implementer" ? { runId: "run-1" } : undefined,
+    );
+    const controller = new AbortController();
+    runAgentTurn.mockImplementation(async () => {
+      controller.abort();
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    });
+
+    const result = await executeSubAgent({
+      agent: state("implementer"),
+      prompt: "do the work",
+      parentSessionId: "root",
+      abortController: controller,
+    });
+
+    expect(result.success).toBe(false);
+    expect(finishTeamMemberRun).toHaveBeenCalledWith(
+      "run-1",
+      "implementer",
+      expect.objectContaining({
+        success: false,
+        cancelled: true,
+        subagentSessionId: "member-session",
+      }),
     );
   });
 });

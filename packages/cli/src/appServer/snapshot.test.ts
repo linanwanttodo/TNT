@@ -395,6 +395,7 @@ describe("toZcodeSnapshot", () => {
           anchorRowId: null,
         },
       ],
+      iterations: [],
       createdAt: 1_000,
       updatedAt: 2_000,
     };

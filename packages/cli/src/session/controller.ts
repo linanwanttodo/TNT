@@ -51,6 +51,27 @@ function nextTurnId(): string {
   return `turn-${Date.now()}-${turnCounter}`;
 }
 
+/** The text of the history item this turn answers, when it has one. */
+function lastUserInput(
+  history: readonly ChatHistoryItem[],
+): string | undefined {
+  for (let index = history.length - 1; index >= 0; index--) {
+    const message = history[index]?.message;
+    if (message?.role !== "user") {
+      continue;
+    }
+    if (typeof message.content === "string") {
+      return message.content || undefined;
+    }
+    const text = message.content
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n");
+    return text || undefined;
+  }
+  return undefined;
+}
+
 /**
  * Starts one engine turn behind the event contract.
  *
@@ -79,10 +100,12 @@ export function startAgentTurn(options: AgentTurnOptions): AgentTurnController {
   };
 
   const events = createAgentEventStream({ sessionId, turnId, emit });
+  const userInput = lastUserInput(options.chatHistory);
   events.publish({
     type: "turn.started",
     model: options.model.model,
     historyLength: options.chatHistory.length,
+    ...(userInput ? { userInput } : {}),
   });
 
   const terminationRef: {

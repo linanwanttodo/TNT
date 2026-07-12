@@ -384,12 +384,62 @@ export interface Session {
    * without replaying the transcript.
    */
   teamRuns?: TeamRunRecord[];
+  /**
+   * Optional: the goal lifecycle this session's last observed turns produced.
+   *
+   * The app-server derives it from events it actually saw (a turn starting
+   * under a goal, a stop, a delegated verifier's verdict) and persists it so a
+   * restart continues the same iteration, timings and verifications instead of
+   * resetting to iteration 1. Iterations carry the Todo tool's real plan for
+   * that iteration; nothing is synthesized when no plan exists.
+   */
+  goalState?: SessionGoalState;
+}
+
+/** One plan item as the Todo-tool projection reports it. */
+export interface SessionGoalPlanItem {
+  id: string;
+  content: string;
+  status: "pending" | "inProgress" | "completed";
+}
+
+/** The real Todo plan an active goal iteration ran with. */
+export interface SessionGoalIteration {
+  iteration: number;
+  items: SessionGoalPlanItem[];
+  updatedAt: number;
+}
+
+export interface SessionGoalVerification {
+  iteration: number;
+  outcome: "pass" | "notSatisfied" | "failed";
+  at: number;
+  anchorRowId: number | null;
+  reason?: string;
+}
+
+/**
+ * The persisted goal lifecycle. Every field is either observed or the Todo
+ * projection's own value; an absent measurement stays absent rather than
+ * being replaced by a zero.
+ */
+export interface SessionGoalState {
+  /** The objective text this lifecycle belongs to; a changed goal starts over. */
+  objective: string;
+  status: "active" | "paused" | "verified" | "notSatisfied" | "failed";
+  iteration: number;
+  timeUsedSeconds: number;
+  activeRunStartedAtMs: number | null;
+  verifications: SessionGoalVerification[];
+  iterations: SessionGoalIteration[];
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type TeamRunMode = "auto" | "parallel" | "serial";
 export type TeamRunStatus = "running" | "completed" | "failed";
 export type TeamMemberRunStatus =
-  "pending" | "running" | "completed" | "failed";
+  "pending" | "running" | "completed" | "failed" | "cancelled";
 
 export interface TeamRunMemberRecord {
   name: string;
