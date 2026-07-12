@@ -40,28 +40,42 @@ const DCS_PAYLOAD = /^(?:\d+\$r|[>|])/;
  * ordinary key; callers flush it with `flushHeld` when no follow-up arrives.
  */
 export class TerminalResponseFilter {
-  private held: { text: string; payload: RegExp } | null = null;
+  private held: { text: string; payload: RegExp; since: number } | null = null;
   private awaitingTerminator = false;
+  private waitingSince = 0;
 
-  consume(input: string): FilteredInput {
+  /**
+   * A reply that never terminates must not swallow the keyboard: after this
+   * window the filter gives up on the pending shape and treats input as text.
+   */
+  constructor(private readonly retentionMs = 500) {}
+
+  consume(input: string, now = Date.now()): FilteredInput {
     if (this.awaitingTerminator) {
-      // The payload may carry a BEL terminator; the ST backslash is its own
-      // event because Ink split at that ESC.
-      const bel = input.indexOf("\x07");
-      if (bel >= 0) {
+      if (now - this.waitingSince > this.retentionMs) {
         this.awaitingTerminator = false;
-        const rest = input.slice(bel + 1);
-        return rest ? { kind: "text", text: rest } : { kind: "drop" };
+      } else {
+        // The payload may carry a BEL terminator; the ST backslash is its own
+        // event because Ink split at that ESC.
+        const bel = input.indexOf("\x07");
+        if (bel >= 0) {
+          this.awaitingTerminator = false;
+          const rest = input.slice(bel + 1);
+          return rest ? { kind: "text", text: rest } : { kind: "drop" };
+        }
+        if (input.endsWith("\\")) {
+          this.awaitingTerminator = false;
+        }
+        return { kind: "drop" };
       }
-      if (input.endsWith("\\")) {
-        this.awaitingTerminator = false;
-      }
-      return { kind: "drop" };
     }
 
     if (this.held) {
       const held = this.held;
       this.held = null;
+      if (now - held.since > this.retentionMs) {
+        return { kind: "text", flush: held.text };
+      }
       if (held.payload.test(input)) {
         const bel = input.indexOf("\x07");
         if (bel >= 0) {
@@ -72,6 +86,7 @@ export class TerminalResponseFilter {
           return { kind: "drop" };
         }
         this.awaitingTerminator = true;
+        this.waitingSince = now;
         return { kind: "drop" };
       }
       // Not a reply after all: the held prefix is ordinary text. Flush it and
@@ -84,11 +99,11 @@ export class TerminalResponseFilter {
     }
 
     if (input === "]") {
-      this.held = { text: "]", payload: OSC_PAYLOAD };
+      this.held = { text: "]", payload: OSC_PAYLOAD, since: now };
       return { kind: "hold" };
     }
     if (input === "P") {
-      this.held = { text: "P", payload: DCS_PAYLOAD };
+      this.held = { text: "P", payload: DCS_PAYLOAD, since: now };
       return { kind: "hold" };
     }
 
