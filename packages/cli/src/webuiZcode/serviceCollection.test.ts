@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import {
@@ -284,9 +284,18 @@ describe("buildZcodeServiceCollection", () => {
       .get(IGitService)
       .getRepositorySummary({ workspacePath: repo });
 
+    // Git reports forward slashes and Windows may hand back an 8.3 short
+    // name, so compare the filesystem identity rather than the spelling.
+    const canonical = (value: string): string => {
+      try {
+        return realpathSync.native(resolve(value));
+      } catch {
+        return resolve(value);
+      }
+    };
     expect(summary.isRepository).toBe(true);
-    expect(summary.workspacePath).toBe(repo);
-    expect(summary.repoRoot).toBe(repo);
+    expect(canonical(summary.workspacePath)).toBe(canonical(repo));
+    expect(canonical(summary.repoRoot)).toBe(canonical(repo));
     expect(typeof summary.branchName).toBe("string");
     expect(summary.branchName?.length).toBeGreaterThan(0);
   });
