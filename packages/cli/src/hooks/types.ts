@@ -41,6 +41,8 @@ interface HookHandlerBase {
   statusMessage?: string;
   /** Runs one time per process, then is spent for every later event. */
   once?: boolean;
+  /** False skips this handler without deleting its declaration. */
+  enabled?: boolean;
 }
 
 /** Command hook handler — runs a shell command */

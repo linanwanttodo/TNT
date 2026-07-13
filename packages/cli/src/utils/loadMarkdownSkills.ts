@@ -8,6 +8,8 @@ import { z } from "zod";
 
 import { env } from "../config/env.js";
 
+import { isSkillEnabled } from "./skillsState.js";
+
 // ignore-walk ships as CommonJS and Node cannot synthesize a named export for
 // it, so the walker has to come off the default import instead.
 const { WalkerSync } = ignoreWalk;
@@ -16,8 +18,12 @@ export interface Skill {
   name: string;
   description: string;
   path: string;
+  /** Absolute SKILL.md path; `path` stays relative for display. */
+  absolutePath?: string;
   content: string;
   files: string[];
+  /** False when the operator disabled it in settings. */
+  enabled?: boolean;
 }
 
 export interface LoadSkillsResult {
@@ -89,11 +95,13 @@ async function getSkillFilesFromDir(dirPath: string): Promise<string[]> {
   ).filter((path) => typeof path === "string");
 }
 
-export async function loadMarkdownSkills(): Promise<LoadSkillsResult> {
+export async function loadMarkdownSkills(
+  cwdOverride?: string,
+): Promise<LoadSkillsResult> {
   const errors: { fatal: boolean; message: string }[] = [];
   const skills: Skill[] = [];
 
-  const cwd = process.cwd();
+  const cwd = cwdOverride ?? process.cwd();
 
   try {
     const skillsDirs = [
@@ -129,7 +137,9 @@ export async function loadMarkdownSkills(): Promise<LoadSkillsResult> {
             ...validatedFrontmatter,
             content: markdown,
             path: getRelativePath(cwd, skillFilePath),
+            absolutePath: path.resolve(skillFilePath),
             files: filesInSkillsDirectory,
+            enabled: isSkillEnabled(skillFilePath),
           });
         } catch (error) {
           errors.push({
@@ -166,8 +176,10 @@ async function loadPluginSkills(): Promise<Skill[]> {
       name: skill.name,
       description: skill.description,
       path: getRelativePath(cwd, skill.path),
+      absolutePath: path.resolve(skill.path),
       content: fs.readFileSync(skill.path, "utf-8"),
       files: [],
+      enabled: isSkillEnabled(skill.path),
     }));
   } catch {
     // Plugin skills are best-effort: a missing or broken plugin cache must

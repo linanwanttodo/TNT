@@ -67,6 +67,14 @@ export class ServiceContainer extends EventEmitter {
   }
 
   /**
+   * Whether a factory or value exists for this service, without logging the
+   * "not found" warning `getSync` emits for a name nothing registered.
+   */
+  has(serviceName: string): boolean {
+    return this.services.has(serviceName) || this.factories.has(serviceName);
+  }
+
+  /**
    * Get current service result (synchronous)
    */
   getSync<T>(serviceName: string): ServiceResult<T> {

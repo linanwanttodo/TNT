@@ -12,7 +12,13 @@ import {
   getSessionTeamModelOverride,
   getSessionTeamModelOverrides,
 } from "../session/index.js";
+import {
+  getSubagentPreference,
+  isSubagentEnabled,
+  subagentStateKey,
+} from "../subagent/agentState.js";
 import { composeSubagentBrief } from "../subagent/brief.js";
+import { builtInAgentByName } from "../subagent/builtInAgents.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
   generateSubagentToolDescription,
@@ -23,6 +29,10 @@ import {
   LIST_SUBAGENTS_TOOL_META,
   SUBAGENT_TOOL_META,
 } from "../subagent/index.js";
+import {
+  loadMarkdownAgents,
+  markdownAgentIsEnabled,
+} from "../subagent/markdownAgents.js";
 import {
   formatSubagentToolResult,
   noteVerificationOutcome,
@@ -89,10 +99,28 @@ export function resolveAgentState(
     return null;
   }
 
-  const override =
+  // A per-agent model choice made in settings beats the roster's field. Team
+  // assignments already validated at write time; a markdown agent's frontmatter
+  // model and a built-in/plugin override are resolved the same way, falling
+  // back to the session model when the name no longer exists.
+  const overrideKey =
     dispatchable.kind === "team"
+      ? null
+      : dispatchable.kind === "plugin"
+        ? subagentStateKey("plugin", name.slice("plugin:".length))
+        : dispatchable.kind === "markdown"
+          ? subagentStateKey(
+              "markdown",
+              name,
+              loadMarkdownAgents().find(
+                (agent) => agent.name.toLowerCase() === name.toLowerCase(),
+              )?.scope,
+            )
+          : subagentStateKey("builtin", name);
+  const override =
+    overrideKey === null
       ? getSessionTeamModelOverride(name)
-      : undefined;
+      : getSubagentPreference(overrideKey).model;
   const requestedModel = override ?? dispatchable.model;
   const assigned = requestedModel
     ? ModelService.findModelByName(modelServiceState, requestedModel)
@@ -271,16 +299,34 @@ export const listSubagentsTool = async (): Promise<Tool> => {
     ...LIST_SUBAGENTS_TOOL_META,
     run: async () => {
       const agents = ModelService.getSubagentModels(modelServiceState);
-      const lines = agents.map((agent) => {
-        const description =
-          agent.model.chatOptions?.baseSystemMessage?.trim().split("\n")[0] ??
-          "no description";
-        return `- ${agent.model.name}: ${description}`;
-      });
+      const lines = agents
+        .filter(
+          (agent) =>
+            !builtInAgentByName(agent.model.name) ||
+            isSubagentEnabled(subagentStateKey("builtin", agent.model.name)),
+        )
+        .map((agent) => {
+          const description =
+            agent.model.chatOptions?.baseSystemMessage?.trim().split("\n")[0] ??
+            "no description";
+          return `- ${agent.model.name}: ${description}`;
+        });
 
       for (const agent of getPluginAgents()) {
         const firstLine = agent.content.trim().split("\n")[0] ?? "";
         lines.push(`- plugin:${agent.name}: ${agent.description ?? firstLine}`);
+      }
+
+      for (const agent of loadMarkdownAgents()) {
+        if (
+          lines.some((line) => line.startsWith(`- ${agent.name}:`)) ||
+          !markdownAgentIsEnabled(agent)
+        ) {
+          continue;
+        }
+        const description =
+          agent.description || agent.systemMessage.split("\n")[0] || "agent";
+        lines.push(`- ${agent.name}: ${description}`);
       }
 
       const activeTeamName = getSessionActiveTeam();

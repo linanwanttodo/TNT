@@ -7,8 +7,14 @@ import { promisify } from "node:util";
 
 import {
   IBroadcastService,
+  ICommandsService,
   ICredentialService,
   IFileService,
+  IHooksService,
+  IMemoryService,
+  ISkillsService,
+  IUsageStatsService,
+  ISubagentsService,
   IFileWatcherService,
   IGitCheckpointService,
   IGitService,
@@ -180,6 +186,12 @@ describe("buildZcodeServiceCollection", () => {
         ITaskGroupService.channelName,
         IProviderSettingsService.channelName,
         ICredentialService.channelName,
+        ISubagentsService.channelName,
+        ISkillsService.channelName,
+        ICommandsService.channelName,
+        IHooksService.channelName,
+        IMemoryService.channelName,
+        IUsageStatsService.channelName,
       ]),
     );
   });

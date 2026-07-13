@@ -17,7 +17,6 @@ import {
   type AgentsCapability,
   type AgentsListResult,
   type AgentSummary,
-  type BuiltInSubagentName,
   type ModelSelection,
   type SubAgentConfig,
 } from "@zcode/shared";
@@ -165,11 +164,13 @@ function supportsModelOverride(agent: AgentSummary): boolean {
   return getBuiltInSubagentName(agent) !== null || agent.source === "plugin";
 }
 
-function getBuiltInSubagentName(agent: AgentSummary): BuiltInSubagentName | null {
+function getBuiltInSubagentName(agent: AgentSummary): string | null {
   if (!isBuiltInAgent(agent)) {
     return null;
   }
-  return agent.name === "general-purpose" || agent.name === "Explore" ? agent.name : null;
+  // Every built-in is overridable by name; TNT ships its own set (explore,
+  // debug, verification, ...) rather than ZCode's general-purpose/Explore.
+  return agent.name;
 }
 
 function getKnownTools(values: readonly string[] | undefined): string[] {

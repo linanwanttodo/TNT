@@ -5,6 +5,7 @@ import { logger } from "../../utils/logger.js";
 import { AssistantPromptLoader } from "./loaders/assistantPromptLoader.js";
 import { BuiltinCommandLoader } from "./loaders/builtinCommands.js";
 import { InvokableRuleLoader } from "./loaders/invokableRuleLoader.js";
+import { LocalCommandLoader } from "./loaders/localCommandLoader.js";
 import { PluginCommandLoader } from "./loaders/pluginCommands.js";
 import { RemoteCommandLoader } from "./loaders/remoteCommands.js";
 import { SkillCommandLoader } from "./loaders/skillCommands.js";
@@ -34,6 +35,7 @@ function createLoaders(isRemoteMode: boolean): CommandLoader[] {
     new BuiltinCommandLoader(),
     new AssistantPromptLoader(),
     new InvokableRuleLoader(),
+    new LocalCommandLoader(),
     new SkillCommandLoader(),
     new PluginCommandLoader(),
   ];
