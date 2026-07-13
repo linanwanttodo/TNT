@@ -146,8 +146,10 @@ export function resolveProviderModelDraftCommit({
   }
 
   const reasoningLevelValues = draft.reasoningLevelValuesValue.map((value) => value.trim());
+  // An empty list is a real answer for a local provider: the model exposes no
+  // reasoning levels, so there is nothing to map. Only a blank or duplicated
+  // entry is invalid.
   if (
-    reasoningLevelValues.length === 0 ||
     reasoningLevelValues.some((value) => !value) ||
     new Set(reasoningLevelValues).size !== reasoningLevelValues.length
   ) {
@@ -155,15 +157,17 @@ export function resolveProviderModelDraftCommit({
   }
   const inheritedReasoning = inherited?.optionSpecs?.reasoningLevel;
   const reasoningLevelMap = draft.reasoningLevelMapValue.trim();
-  const effectiveReasoningMap = reasoningLevelMap || inheritedReasoning?.map;
-  if (
-    !effectiveReasoningMap ||
-    new EnumOptionSpecConfig({
-      values: reasoningLevelValues,
-      map: effectiveReasoningMap,
-    }).validateComplete(["optionSpecs", "reasoningLevel"]).length > 0
-  ) {
-    return { status: "invalid", field: "reasoningLevelMap" };
+  if (reasoningLevelValues.length > 0) {
+    const effectiveReasoningMap = reasoningLevelMap || inheritedReasoning?.map;
+    if (
+      !effectiveReasoningMap ||
+      new EnumOptionSpecConfig({
+        values: reasoningLevelValues,
+        map: effectiveReasoningMap,
+      }).validateComplete(["optionSpecs", "reasoningLevel"]).length > 0
+    ) {
+      return { status: "invalid", field: "reasoningLevelMap" };
+    }
   }
   const effectiveEnabled = draft.enabledValue ?? currentModel.config.enabled ?? true;
   const currentEffectiveEnabled = currentModel.config.enabled ?? true;
@@ -248,14 +252,16 @@ export function resolveProviderModelDraftCommit({
           max: maxOutputTokens,
         };
   const personalOptionSpecs = { ...currentModel.personalConfig.optionSpecs };
-  applyPersonalReasoning({
-    target: personalOptionSpecs,
-    values: reasoningLevelValues,
-    map: reasoningLevelMap,
-    currentEffective: currentModel.config.optionSpecs?.reasoningLevel?.values ?? undefined,
-    inherited: inheritedReasoning,
-    currentPersonal: currentModel.personalConfig.optionSpecs?.reasoningLevel,
-  });
+  if (reasoningLevelValues.length > 0) {
+    applyPersonalReasoning({
+      target: personalOptionSpecs,
+      values: reasoningLevelValues,
+      map: reasoningLevelMap,
+      currentEffective: currentModel.config.optionSpecs?.reasoningLevel?.values ?? undefined,
+      inherited: inheritedReasoning,
+      currentPersonal: currentModel.personalConfig.optionSpecs?.reasoningLevel,
+    });
+  }
   if (draft.overriddenFieldsValue?.includes("reasoningLevelValuesValue")) {
     personalOptionSpecs.reasoningLevel = {
       ...personalOptionSpecs.reasoningLevel,
@@ -284,10 +290,12 @@ export function resolveProviderModelDraftCommit({
     deleteMutable(sparsePersonalConfig, "optionSpecs");
   }
   const effectiveOptionSpecs = { ...currentModel.config.optionSpecs };
-  effectiveOptionSpecs.reasoningLevel = {
-    values: [...reasoningLevelValues],
-    map: effectiveReasoningMap,
-  };
+  if (reasoningLevelValues.length > 0) {
+    effectiveOptionSpecs.reasoningLevel = {
+      values: [...reasoningLevelValues],
+      map: reasoningLevelMap || inheritedReasoning?.map,
+    };
+  }
   if (resolvedMaxOutputSpec !== undefined) {
     effectiveOptionSpecs.maxOutputTokens = resolvedMaxOutputSpec;
   } else if (inheritedMaxOption !== undefined) {

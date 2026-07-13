@@ -22,6 +22,7 @@ import {
   type PresetProviderSpec,
 } from "@/settings/model-provider-section/constants.js";
 import { pickCodingPlanEntitlementProvider } from "@/lib/codingPlanProvider.js";
+import { getHostCapabilities } from "@/host-capabilities.js";
 import {
   createCodingPlanProviderNodeKey,
   createCustomProviderNodeKey,
@@ -91,8 +92,14 @@ export function useModelProviderNavigation({
 
   const codingPlanItems = useMemo(
     () =>
-      CODING_PLAN_PROVIDER_SPECS.filter((spec) =>
-        shouldShowCodingPlanForProviderFamilyDomain(spec.oauthProviderId, providerFamilyDomain),
+      (getHostCapabilities().codingPlan
+        ? CODING_PLAN_PROVIDER_SPECS.filter((spec) =>
+            shouldShowCodingPlanForProviderFamilyDomain(
+              spec.oauthProviderId,
+              providerFamilyDomain,
+            ),
+          )
+        : []
       ).map((spec) => {
         const provider = modelProviders.find((item) => item.providerId === spec.id) ?? null;
         const accountEntitled = entitledAccountProviderIds.has(spec.id);
