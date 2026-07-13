@@ -21,7 +21,15 @@ shared schema files unless the protocol itself changes.
 
 | File | Change | Reason | TNT contract |
 |---|---|---|---|
-| (none yet - populated by the native adaptation tasks) | | | |
+| `web/src/main.tsx` | Replaced the upstream entry (cloud auth, login/callback, conversation sharing, remote control relay, telemetry boot) with a call to `bootstrapTntWebUi` and `createWebPlatform`; the connection URL comes from the host, not `window.location`. | TNT has no cloud, accounts, billing, sharing or relay; the shell must run against a local engine. | `docs/CLIENTS.md`, `webuiBootstrap` options (`wsUrl`, `initialWorkspaceAbsPath`, `IPlatformService`). |
+| `web/src/webuiBootstrap.tsx` | New host entry: mounts the shell with an explicit socket URL, workspace and platform service, and exposes the bootstrap for VS Code/JetBrains/Electron hosts. | One UI, many hosts: the browser path and native hosts share the same mount code. | `TNT_WEBUI_*` handshake in `docs/CLIENTS.md`; `webuiDist.ts`. |
+| `web/vite.config.ts` | Added React/React-DOM dedupe; removed cloud/notice/OAuth env resolution and the upstream repo-root version read; keeps the vendored source aliases and frontend version. | Per-package installs (file: links) give `ui` and `web` separate React copies, which breaks hooks; the upstream config imports modules that only exist in the ZCode cloud build. | `packages/cli/build.mjs` copies `web/dist` into `dist/webui`. |
+| `ui/src/Root.tsx` | The provider-availability login gate is disabled unless the root is the web remote-control surface. | TNT serves models from its own config; there is no ZCode account to connect, so the startup gate must not open the cloud login screen. | `modelSelectionService` in `src/webuiZcode/services/modelSelection.ts`. |
+| `*/package.json`, `*/package-lock.json` | Vendored packages are linked with `file:` and installed per package instead of the upstream workspace. | The TNT repo is not the ZCode monorepo. | `validate-aliases.mjs`; `npm run build:webui`. |
+| `patches/`, `scripts/apply-vendor-patches.mjs` | Upstream patch files moved into `patches/` and applied by the vendored build script. | Keeps upstream patches reproducible without the upstream repo root. | `web/ui` postinstall. |
+
+The remaining UI source is the upstream tree verbatim; changes to it must be recorded in
+this table and paired with a test.
 
 ## Rules
 

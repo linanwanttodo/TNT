@@ -57,7 +57,6 @@ import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/laun
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
 import {
   isProviderStartupSyncPending,
-  shouldEnableProviderAvailabilityLoginEntryGuard,
   shouldResolveProviderStartupState,
   shouldBlockRootRender,
   shouldShowRootStartupLoading,
@@ -584,10 +583,10 @@ function RootInner({
       rootProviderAvailability.hydrated || rootModelSelectionRead.state.status === "error",
   });
   const isWebRemoteControlRoot = Boolean(webRemoteControlWorkspaceSwitcher);
-  const providerAvailabilityLoginEntryGuardEnabled =
-    shouldEnableProviderAvailabilityLoginEntryGuard({
-      isWebRemoteControlRoot,
-    });
+  // TNT serves models from its own `models:` config: there is no ZCode account
+  // to connect, so the "open the login screen when no provider is available"
+  // startup gate never applies. The web remote-control root keeps its own flow.
+  const providerAvailabilityLoginEntryGuardEnabled = isWebRemoteControlRoot;
   const { startupCheckCompleted: providerAvailabilityStartupCheckCompleted } =
     useProviderAvailabilityLoginEntryGuard({
       enabled: providerAvailabilityLoginEntryGuardEnabled,
