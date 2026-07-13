@@ -44,18 +44,22 @@ describe("E2E: Headless Mode with Mock Server", () => {
 
     expect(result.stdout).toContain("Hello World!");
     expect(result.exitCode).toBe(0);
-    // The prompt request plus the title request for the new session
+    // The prompt request plus the title request for the new session; they run
+    // concurrently, so identify them by content instead of arrival order.
     expect(mockServer.requests).toHaveLength(2);
-    // The title call is the small non-streaming completion
-    expect(mockServer.requests[1].body.stream).toBe(false);
-    expect(mockServer.requests[1].body.messages[0].content).toContain(
-      "title for the chat",
+    const titleRequest = mockServer.requests.find((request: any) =>
+      String(request.body.messages[0]?.content ?? "").includes(
+        "title for the chat",
+      ),
     );
-    // Find the user message (system message is first)
-    const userMessage = mockServer.requests[0].body.messages.find(
-      (m: any) => m.role === "user",
+    expect(titleRequest?.body.stream).toBe(false);
+    const mainRequest = mockServer.requests.find((request: any) =>
+      request.body.messages.some(
+        (m: any) =>
+          m.role === "user" && String(m.content ?? "").includes("Say hello"),
+      ),
     );
-    expect(userMessage.content).toBe("Say hello");
+    expect(mainRequest).toBeDefined();
   }, 20000);
 
   it("should work with longer prompts", async () => {
@@ -71,14 +75,17 @@ describe("E2E: Headless Mode with Mock Server", () => {
 
     expect(result.stdout).toContain("Hello World!");
     expect(result.exitCode).toBe(0);
-    // The prompt request plus the title request for the new session
+    // The prompt request plus the title request for the new session. The two
+    // run concurrently, so find the prompt by its content rather than by order.
     expect(mockServer.requests).toHaveLength(2);
-    // Find the user message (system message is first)
-    const userMessage = mockServer.requests[0].body.messages.find(
-      (m: any) => m.role === "user",
+    const prompt =
+      "Please respond with exactly 'Hello World!' and nothing else";
+    const mainRequest = mockServer.requests.find((request: any) =>
+      request.body.messages.some(
+        (m: any) =>
+          m.role === "user" && String(m.content ?? "").includes(prompt),
+      ),
     );
-    expect(userMessage.content).toBe(
-      "Please respond with exactly 'Hello World!' and nothing else",
-    );
+    expect(mainRequest).toBeDefined();
   }, 20000);
 });
