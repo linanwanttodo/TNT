@@ -62,7 +62,7 @@ describe("E2E: Headless Mode with Dynamic Responses", () => {
       response: (prompt: string) => {
         if (prompt.includes("weather")) {
           return "It's sunny and 72°F today!";
-        } else if (prompt.includes("time")) {
+        } else if (prompt.includes("What time is it")) {
           return "The current time is 3:30 PM.";
         } else {
           return "I don't understand your question.";
