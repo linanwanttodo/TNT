@@ -65,6 +65,7 @@ import type {
   ConnectionZcodeServices,
   LocalZcodeServices,
 } from "./services/local.js";
+import type { TntModelSource } from "./services/modelSelection.js";
 import { stubService } from "./services/stubs.js";
 import type { WorkspaceRoots } from "./services/workspaceScope.js";
 import type { WorkspaceEngines } from "./workspaceEngines.js";
@@ -83,6 +84,12 @@ export interface ZcodeServiceCollectionDeps {
   connectionServices?: ConnectionZcodeServices;
   /** The process-wide workspace engine registry, when the host provides one. */
   workspaceEngines?: WorkspaceEngines;
+  /**
+   * Reads the models the shell may pick. Injected by WebUiService from the
+   * services group, which keeps the service registry out of this module's
+   * import graph (services already imports the web UI host).
+   */
+  modelSelectionSource?: () => Promise<TntModelSource>;
 }
 
 /**
@@ -289,7 +296,9 @@ export async function buildZcodeServiceCollection(
     local,
     connection,
     fileService,
-    modelSelectionService: createTntModelSelectionService(),
+    modelSelectionService: createTntModelSelectionService(
+      deps.modelSelectionSource ?? (async () => ({ models: [] })),
+    ),
     remoteProjectService: createTntRemoteProjectService(),
     projectService: createTntProjectService({
       workspacePath: deps.workspacePath,
