@@ -1,8 +1,5 @@
-import {
-  COLLAPSE_SIZE,
-  RAPID_INPUT_THRESHOLD,
-  TextBuffer,
-} from "./TextBuffer.js";
+import { RAPID_INPUT_THRESHOLD, TextBuffer } from "./TextBuffer.js";
+import { COLLAPSE_SIZE } from "./utils/bufferLimits.js";
 
 describe("TextBuffer", () => {
   let buffer: TextBuffer;

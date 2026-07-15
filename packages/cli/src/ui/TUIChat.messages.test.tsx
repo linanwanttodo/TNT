@@ -3,8 +3,15 @@ import {
   renderInMode,
 } from "../../test-utils/TUIChat.dualModeHelper.js";
 import { createUITestContext } from "../../test-utils/ui-test-context.js";
+import { services } from "../services/index.js";
 
 describe("TUIChat - Message Display Tests", () => {
+  beforeEach(() => {
+    // The badge assertions below pin the default-mode frame; auto is the
+    // startup mode and would render [Auto] instead.
+    services.toolPermissions.switchMode("default");
+  });
+
   testBothModes("displays empty chat correctly", (mode) => {
     const { lastFrame } = renderInMode(mode);
 
