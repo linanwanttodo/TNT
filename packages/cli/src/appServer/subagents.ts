@@ -283,9 +283,9 @@ export function subagentProjectionFromRows(
       childSessionIds.push(row.childSessionId);
     }
     if (row.status === "running") {
-      // The running summary requires a child session id; a live subagent has
-      // none until the executor saves the transcript. Omitting it is better
-      // than inventing an identity.
+      // A started dispatch now carries the child session the executor created
+      // before the run, so its live transcript is addressable. An older event
+      // with no id stays out rather than being given an invented identity.
       if (row.childSessionId) {
         running.push({
           childSessionId: row.childSessionId,
@@ -307,6 +307,7 @@ function memberStatus(
 ): SubagentStatus | null {
   if (status === "completed") return "success";
   if (status === "failed") return "failed";
+  if (status === "cancelled") return "cancelled";
   if (status === "running") return "running";
   return null;
 }

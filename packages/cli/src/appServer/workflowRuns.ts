@@ -61,7 +61,9 @@ function actorStatus(status: TeamMemberRunStatus): WorkflowRunActor["status"] {
       return "waiting";
     case "completed":
     case "failed":
-      // The schema has no actor-level failure: the outcome lives on the node.
+    case "cancelled":
+      // The schema has no actor-level failure or cancellation: the outcome
+      // lives on the node.
       return "completed";
   }
 }
@@ -74,6 +76,7 @@ function nodePhase(status: TeamMemberRunStatus): WorkflowRunNode["phase"] {
       return "executing";
     case "completed":
     case "failed":
+    case "cancelled":
       return "settled";
   }
 }

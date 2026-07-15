@@ -1,12 +1,21 @@
 /* eslint-disable max-lines -- event translation and the goal/usage observations share one per-session state machine */
 import type { ZCodeSessionEvent, ZCodeSessionEventType } from "@zcode/shared";
-import type { Session, TeamRunRecord, Usage } from "core/index.js";
+import type {
+  Session,
+  SessionGoalIteration,
+  SessionGoalState,
+  SessionGoalVerification,
+  TeamRunRecord,
+  Usage,
+} from "core/index.js";
 
 import type { AgentEvent } from "../protocol/events.js";
+import { getLiveSession, persistSessionGoalState } from "../session/index.js";
 import { sessionStore } from "../session/store.js";
 import { logger } from "../utils/logger.js";
 
 import { fullAccessPermissionOption } from "./interactionPayload.js";
+import { sessionTodoList, sessionTodoUpdatedAt } from "./snapshot.js";
 import {
   deriveSubagentCounts,
   firstLine,
@@ -38,12 +47,14 @@ export interface GoalVerificationRecord {
 
 /**
  * The goal lifecycle the app-server can derive from events it actually sees.
- * TNT persists only the objective string, so nothing here is inferred from it:
- * a turn starting under a goal makes it active, a user stop pauses it, and a
- * delegated verifier's verdict settles it. A goal with no observed lifecycle
- * stays null rather than being projected with invented states.
+ * TNT persists the objective string separately, so nothing here is inferred
+ * from it: a turn starting under a goal makes it active, a user stop pauses it,
+ * a delegated verifier's verdict settles it, and each active turn records the
+ * real Todo plan as an iteration. A goal with no observed lifecycle stays null
+ * rather than being projected with invented states.
  */
 export interface GoalLifecycleState {
+  /** `${sessionId}:goal`; the v4 schema requires a nonempty target identity. */
   targetId: string;
   objective: string;
   status: "active" | "paused" | "verified" | "notSatisfied" | "failed";
@@ -51,6 +62,7 @@ export interface GoalLifecycleState {
   timeUsedSeconds: number;
   activeRunStartedAtMs: number | null;
   verifications: GoalVerificationRecord[];
+  iterations: SessionGoalIteration[];
   createdAt: number;
   updatedAt: number;
 }
@@ -68,6 +80,16 @@ export interface TranslationOptions {
   ) => readonly SubagentSessionRef[] | null;
   /** Load one saved child transcript for measured counters. */
   loadChildSession?: (sessionId: string) => Session | null;
+  /**
+   * The session whose persisted goalState and Todo plan seed and refresh the
+   * in-process lifecycle. Defaults to the live session, else its transcript.
+   */
+  readStoredSession?: (sessionId: string) => Session | null;
+  /** Persist a lifecycle change; null clears the stored state. */
+  persistGoalState?: (
+    sessionId: string,
+    state: SessionGoalState | null,
+  ) => void;
 }
 
 function storedSession(sessionId: string) {
@@ -76,6 +98,15 @@ function storedSession(sessionId: string) {
   } catch {
     return null;
   }
+}
+
+/**
+ * The session as the runtime can see it: the live in-process object first (its
+ * Todo history is the one the running turn is still appending to), then the
+ * persisted transcript. `getLiveSession` returns null for any other session.
+ */
+function liveOrStoredSession(sessionId: string): Session | null {
+  return getLiveSession(sessionId) ?? storedSession(sessionId);
 }
 
 function readStoredGoal(sessionId: string): string | null {
@@ -122,6 +153,8 @@ export interface TranslationState {
   turnUsageBaseline: TurnUsageSnapshot | null;
   /** Goal lifecycle observed in this process, or null when there is none. */
   goal: GoalLifecycleState | null;
+  /** False until the persisted lifecycle was consulted once. */
+  goalSeeded: boolean;
   /** Delegated runs observed in this process, in dispatch order. */
   subagents: SubagentLifecycle[];
   /** Stable counter for subagent row identities. */
@@ -133,13 +166,18 @@ export interface TranslationState {
     parentSessionId: string,
   ) => readonly SubagentSessionRef[] | null;
   readonly loadChild: (sessionId: string) => Session | null;
+  readonly readStoredSession: (sessionId: string) => Session | null;
+  readonly persistGoalState: (
+    sessionId: string,
+    state: SessionGoalState | null,
+  ) => void;
 }
 
 export function createTranslationState(
   sessionId: string,
   options: TranslationOptions = {},
 ): TranslationState {
-  return {
+  const state: TranslationState = {
     sessionId,
     seq: 0,
     stateRevision: 0,
@@ -157,6 +195,7 @@ export function createTranslationState(
     summonTeamToolCallId: null,
     turnUsageBaseline: null,
     goal: null,
+    goalSeeded: false,
     subagents: [],
     subagentSeq: 0,
     readGoal: options.readGoal ?? readStoredGoal,
@@ -164,7 +203,11 @@ export function createTranslationState(
     readTeamRuns: options.readTeamRuns ?? readTeamRuns,
     readChildSessions: options.readChildSessions ?? listChildSessions,
     loadChild: options.loadChildSession ?? loadChildSession,
+    readStoredSession: options.readStoredSession ?? liveOrStoredSession,
+    persistGoalState: options.persistGoalState ?? persistSessionGoalState,
   };
+  seedGoalState(state);
+  return state;
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -241,21 +284,157 @@ function zcodeUsagePayload(usage: TurnUsageSnapshot): Record<string, number> {
   };
 }
 
-function startGoalTurn(state: TranslationState, timestamp: number): void {
-  const objective = state.readGoal(state.sessionId);
-  if (!objective) {
-    state.goal = null;
+/** A lifecycle is a record of current work, not an archive; keep it bounded. */
+const MAX_GOAL_ITERATIONS = 20;
+
+/** The Todo plan in the exact shape `planStateOf` projects. */
+function goalPlanItems(session: Session | null): SessionGoalIteration["items"] {
+  if (!session) {
+    return [];
+  }
+  return sessionTodoList(session).map((todo) => ({
+    id: String(todo.id),
+    content: todo.text,
+    status: todo.done ? ("completed" as const) : ("pending" as const),
+  }));
+}
+
+/**
+ * Record the real Todo plan for `iteration`. The items come from the same
+ * projection the snapshot's `plan` uses; the timestamp is that projection's
+ * own (the last Todo write), never the turn clock standing in for it. An empty
+ * list is recorded as an empty list rather than omitted or filled.
+ */
+function recordGoalIteration(
+  goal: GoalLifecycleState,
+  session: Session | null,
+  iteration: number,
+): void {
+  const record: SessionGoalIteration = {
+    iteration,
+    items: goalPlanItems(session),
+    updatedAt: session ? sessionTodoUpdatedAt(session) : 0,
+  };
+  const next = goal.iterations.filter(
+    (candidate) => candidate.iteration !== iteration,
+  );
+  next.push(record);
+  next.sort((left, right) => left.iteration - right.iteration);
+  goal.iterations = next.slice(-MAX_GOAL_ITERATIONS);
+}
+
+function toStoredGoalState(goal: GoalLifecycleState): SessionGoalState {
+  return {
+    objective: goal.objective,
+    status: goal.status,
+    iteration: goal.iteration,
+    timeUsedSeconds: goal.timeUsedSeconds,
+    activeRunStartedAtMs: goal.activeRunStartedAtMs,
+    verifications: goal.verifications.map((verification) => ({
+      iteration: verification.iteration,
+      outcome: verification.outcome,
+      at: verification.at,
+      anchorRowId: verification.anchorRowId,
+      ...(verification.reason ? { reason: verification.reason } : {}),
+    })),
+    iterations: goal.iterations.map((iteration) => ({
+      iteration: iteration.iteration,
+      items: iteration.items.map((item) => ({ ...item })),
+      updatedAt: iteration.updatedAt,
+    })),
+    createdAt: goal.createdAt,
+    updatedAt: goal.updatedAt,
+  };
+}
+
+/** Write a complete lifecycle (or the clear); never a partial object. */
+function persistGoal(
+  state: TranslationState,
+  goal: GoalLifecycleState | null,
+): void {
+  try {
+    state.persistGoalState(
+      state.sessionId,
+      goal ? toStoredGoalState(goal) : null,
+    );
+  } catch (error) {
+    logger.debug("AppServer: could not persist the goal lifecycle", {
+      sessionId: state.sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Resume the lifecycle a previous process persisted, once. The stored
+ * objective must still match the session's goal: a goal that changed while the
+ * process was gone starts a new lifecycle at iteration 1 instead of adopting
+ * the old iteration numbers.
+ */
+function seedGoalState(state: TranslationState): void {
+  if (state.goalSeeded) {
     return;
   }
+  // A lifecycle already observed in this process is newer than the stored one.
+  if (state.goal) {
+    state.goalSeeded = true;
+    return;
+  }
+  const stored = state.readStoredSession(state.sessionId);
+  if (!stored) {
+    // The session has not been persisted yet; look again next time.
+    return;
+  }
+  state.goalSeeded = true;
+  const persisted = stored.goalState;
+  const objective = stored.goal?.trim();
+  if (!persisted || !objective || persisted.objective !== objective) {
+    return;
+  }
+  state.goal = {
+    targetId: `${state.sessionId}:goal`,
+    objective,
+    status: persisted.status,
+    iteration: persisted.iteration,
+    timeUsedSeconds: persisted.timeUsedSeconds,
+    activeRunStartedAtMs: persisted.activeRunStartedAtMs,
+    verifications: persisted.verifications.map((verification) => ({
+      ...verification,
+    })),
+    iterations: persisted.iterations.map((iteration) => ({
+      iteration: iteration.iteration,
+      items: iteration.items.map((item) => ({ ...item })),
+      updatedAt: iteration.updatedAt,
+    })),
+    createdAt: persisted.createdAt ?? persisted.updatedAt,
+    updatedAt: persisted.updatedAt,
+  };
+}
+
+function startGoalTurn(state: TranslationState, timestamp: number): void {
+  seedGoalState(state);
+  const objective = state.readGoal(state.sessionId);
+  if (!objective) {
+    if (state.goal) {
+      state.goal = null;
+      persistGoal(state, null);
+    }
+    return;
+  }
+  const session = state.readStoredSession(state.sessionId);
   const previous = state.goal;
   if (previous && previous.objective === objective) {
     previous.iteration += 1;
     previous.status = "active";
     previous.activeRunStartedAtMs = timestamp;
     previous.updatedAt = timestamp;
+    recordGoalIteration(previous, session, previous.iteration);
+    persistGoal(state, previous);
     return;
   }
-  state.goal = {
+  const goal: GoalLifecycleState = {
+    // The v4 schema requires a nonempty target identity, and the session id
+    // is the only stable one this process has.
     targetId: `${state.sessionId}:goal`,
     objective,
     status: "active",
@@ -263,9 +442,13 @@ function startGoalTurn(state: TranslationState, timestamp: number): void {
     timeUsedSeconds: 0,
     activeRunStartedAtMs: timestamp,
     verifications: [],
+    iterations: [],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+  recordGoalIteration(goal, session, 1);
+  state.goal = goal;
+  persistGoal(state, goal);
 }
 
 function closeGoalTurn(
@@ -288,6 +471,13 @@ function closeGoalTurn(
     goal.status = "paused";
   }
   goal.updatedAt = timestamp;
+  // Refresh the saved iteration with the plan the turn actually ended with.
+  recordGoalIteration(
+    goal,
+    state.readStoredSession(state.sessionId),
+    goal.iteration,
+  );
+  persistGoal(state, goal);
 }
 
 function observeGoalVerdict(
@@ -310,13 +500,15 @@ function observeGoalVerdict(
         ? "failed"
         : "notSatisfied";
   goal.status = outcome === "pass" ? "verified" : outcome;
-  goal.verifications.push({
+  const verification: SessionGoalVerification = {
     iteration: goal.iteration,
     outcome,
     at: timestamp,
     anchorRowId: null,
-  });
+  };
+  goal.verifications.push(verification);
   goal.updatedAt = timestamp;
+  persistGoal(state, goal);
 }
 
 function toolIdentity(event: AgentEvent & { toolCallId?: string }): string {
@@ -613,6 +805,7 @@ function startSubagent(
     ),
   );
   state.subagentSeq += 1;
+  const childSessionId = event.childSessionId ?? null;
   const run: SubagentLifecycle = {
     id: `${state.sessionId}:subagent-${state.subagentSeq}`,
     agentName: event.agentName,
@@ -622,10 +815,13 @@ function startSubagent(
     status: "running",
     reported: "",
     endedAt: null,
-    childSessionId: null,
+    childSessionId,
     runId: teamRunIdFor(state, event.agentName),
     childIdsAtStart,
   };
+  if (childSessionId) {
+    applyChildCounts(state, run);
+  }
   state.subagents.push(run);
   return [
     stamp(
@@ -641,6 +837,23 @@ function startSubagent(
   ];
 }
 
+/** Refresh a run's counters from its current child transcript, when measured. */
+function applyChildCounts(
+  state: TranslationState,
+  run: SubagentLifecycle,
+): void {
+  if (!run.childSessionId) {
+    return;
+  }
+  const counts = deriveSubagentCounts(run.childSessionId, state.loadChild);
+  if (counts.toolUses !== undefined) {
+    run.toolUses = counts.toolUses;
+  }
+  if (counts.tokens !== undefined) {
+    run.tokens = counts.tokens;
+  }
+}
+
 function reportSubagent(
   state: TranslationState,
   event: Extract<AgentEvent, { type: "subagent.reported" }>,
@@ -654,6 +867,8 @@ function reportSubagent(
     return [];
   }
   run.reported = event.content;
+  // The transcript was updated before this event, so its counters are real.
+  applyChildCounts(state, run);
   return [
     stamp(
       state,
@@ -681,7 +896,11 @@ function finishSubagent(
     });
     return [];
   }
-  run.status = event.success ? "success" : "failed";
+  run.status = event.cancelled
+    ? "cancelled"
+    : event.success
+      ? "success"
+      : "failed";
   run.endedAt = event.timestamp;
   if (event.content.length > 0) {
     run.reported = event.content;
@@ -692,13 +911,7 @@ function finishSubagent(
   const childSessionId = childSessionFor(state, run);
   if (childSessionId) {
     run.childSessionId = childSessionId;
-    const counts = deriveSubagentCounts(childSessionId, state.loadChild);
-    if (counts.toolUses !== undefined) {
-      run.toolUses = counts.toolUses;
-    }
-    if (counts.tokens !== undefined) {
-      run.tokens = counts.tokens;
-    }
+    applyChildCounts(state, run);
   }
   return [
     stamp(
@@ -724,6 +937,9 @@ export function translateAgentEvent(
   event: AgentEvent,
   state: TranslationState,
 ): ZCodeSessionEvent[] {
+  // A state created before its session was persisted retries here once, so the
+  // lifecycle is seeded the first time the session is actually observed.
+  seedGoalState(state);
   switch (event.type) {
     case "turn.started": {
       ensureTurnIdentity(state, event);
@@ -742,7 +958,7 @@ export function translateAgentEvent(
           "turn.started",
           {
             turnNumber: state.turnNumber,
-            input: "",
+            input: event.userInput ?? "",
             messageId: state.assistantMessageId,
             executionStartedAt: event.timestamp,
           },

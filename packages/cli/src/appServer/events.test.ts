@@ -1,5 +1,16 @@
 import { zcodeSessionEventSchema } from "@zcode/shared";
-import type { Session, TeamRunRecord } from "core/index.js";
+import {
+  conversationSnapshotSchema,
+  goalStateSchema,
+  subagentRowSchema,
+} from "@zcode/shared/zcode-protocol-v4";
+import type {
+  ChatHistoryItem,
+  Session,
+  SessionGoalState,
+  TeamRunRecord,
+  ToolCallState,
+} from "core/index.js";
 import { describe, expect, it } from "vitest";
 
 import { t } from "../i18n/index.js";
@@ -7,7 +18,11 @@ import type { AgentEvent } from "../protocol/events.js";
 
 import { createTranslationState, translateAgentEvent } from "./events.js";
 import { SessionRuntimeStore } from "./runtime.js";
-import type { SubagentSessionRef } from "./subagents.js";
+import { subagentRowFromWire, type SubagentSessionRef } from "./subagents.js";
+import {
+  buildConversationSnapshot,
+  createFrameSubscription,
+} from "./v4Frames.js";
 
 const sessionId = "session-1";
 const turnId = "turn-1";
@@ -120,6 +135,25 @@ describe("translateAgentEvent", () => {
       toolCallCount: 1,
       resultType: "success",
     });
+  });
+
+  it("carries the turn's user input into the translated turn.started payload", () => {
+    const state = createTranslationState(sessionId);
+    const [started] = translateAgentEvent(
+      {
+        sessionId,
+        turnId,
+        seq: 1,
+        timestamp: 1_000,
+        type: "turn.started",
+        model: "test-model",
+        historyLength: 1,
+        userInput: "只回复数字 51",
+      },
+      state,
+    ).filter((event) => event.type === "turn.started");
+
+    expect(started?.payload).toMatchObject({ input: "只回复数字 51" });
   });
 
   it("ends an interrupted turn with turn.completed resultType cancelled", () => {
@@ -722,5 +756,503 @@ describe("translateAgentEvent", () => {
       (ambiguousStart[0].payload as { subagent: Record<string, unknown> })
         .subagent,
     ).not.toHaveProperty("runId");
+  });
+});
+
+function todoToolState(
+  todos: Array<{ id: number; text: string; done: boolean }>,
+): ToolCallState {
+  return {
+    toolCallId: "todo-1",
+    toolCall: {
+      id: "todo-1",
+      type: "function",
+      function: { name: "Todo", arguments: "{}" },
+    },
+    status: "done",
+    parsedArgs: { action: "list" },
+    output: [
+      {
+        content: `tnt-todo:${JSON.stringify({
+          action: "list",
+          todos,
+          nextId: todos.length + 1,
+        })}`,
+        name: "todo",
+        description: "todo state",
+      },
+    ],
+  } as unknown as ToolCallState;
+}
+
+function fixtureSession(overrides: Partial<Session> = {}): Session {
+  return {
+    sessionId,
+    title: "Fixture",
+    workspaceDirectory: "/workspace",
+    history: [],
+    ...overrides,
+  } as Session;
+}
+
+function subagentPayload(events: ReturnType<typeof translateAgentEvent>) {
+  return (events[0].payload as { subagent: Record<string, unknown> }).subagent;
+}
+
+describe("goal lifecycle persistence and iterations", () => {
+  const turnStarted = (seq: number, timestamp: number): AgentEvent => ({
+    sessionId,
+    turnId,
+    seq,
+    timestamp,
+    type: "turn.started",
+    model: "test-model",
+    historyLength: 0,
+  });
+
+  const baseOptions = {
+    readUsage: () => null,
+    readTeamRuns: () => null,
+    readChildSessions: () => [],
+    loadChildSession: () => null,
+  };
+
+  it("seeds from the stored lifecycle instead of resetting to iteration 1", () => {
+    const persisted: Array<SessionGoalState | null> = [];
+    const stored = fixtureSession({
+      goal: "Ship the feature",
+      goalState: {
+        objective: "Ship the feature",
+        status: "paused",
+        iteration: 3,
+        timeUsedSeconds: 42,
+        activeRunStartedAtMs: null,
+        verifications: [
+          { iteration: 2, outcome: "notSatisfied", at: 900, anchorRowId: null },
+        ],
+        iterations: [
+          {
+            iteration: 3,
+            items: [{ id: "1", content: "Write tests", status: "pending" }],
+            updatedAt: 950,
+          },
+        ],
+        createdAt: 100,
+        updatedAt: 1_000,
+      },
+    });
+    const state = createTranslationState(sessionId, {
+      ...baseOptions,
+      readStoredSession: () => stored,
+      readGoal: () => "Ship the feature",
+      persistGoalState: (_id, value) => persisted.push(value),
+    });
+
+    expect(state.goal).toMatchObject({
+      targetId: `${sessionId}:goal`,
+      status: "paused",
+      iteration: 3,
+      timeUsedSeconds: 42,
+      verifications: [
+        { iteration: 2, outcome: "notSatisfied", at: 900, anchorRowId: null },
+      ],
+      iterations: [{ iteration: 3, updatedAt: 950 }],
+    });
+
+    translateAgentEvent(turnStarted(1, 2_000), state);
+
+    expect(state.goal).toMatchObject({
+      status: "active",
+      iteration: 4,
+      timeUsedSeconds: 42,
+      activeRunStartedAtMs: 2_000,
+    });
+    expect(persisted.at(-1)).toMatchObject({
+      objective: "Ship the feature",
+      status: "active",
+      iteration: 4,
+      timeUsedSeconds: 42,
+    });
+    expect(() => goalStateSchema.parse(persisted.at(-1))).not.toThrow();
+  });
+
+  it("records each iteration with the real Todo plan and its real timestamp", () => {
+    const updatedIso = "2026-11-09T00:00:05.000Z";
+    const todo = todoToolState([
+      { id: 1, text: "Write tests", done: false },
+      { id: 2, text: "Ship it", done: true },
+    ]);
+    const history = [
+      {
+        message: {
+          role: "assistant",
+          content: "planning",
+          toolCalls: [todo.toolCall],
+        },
+        contextItems: [],
+        toolCallStates: [todo],
+        messageTimestamp: updatedIso,
+      },
+    ] as unknown as ChatHistoryItem[];
+    const stored = fixtureSession({ goal: "Ship the feature", history });
+    const state = createTranslationState(sessionId, {
+      ...baseOptions,
+      readStoredSession: () => stored,
+      readGoal: () => "Ship the feature",
+      persistGoalState: () => {},
+    });
+
+    translateAgentEvent(turnStarted(1, 1_000), state);
+
+    expect(state.goal?.iterations).toEqual([
+      {
+        iteration: 1,
+        items: [
+          { id: "1", content: "Write tests", status: "pending" },
+          { id: "2", content: "Ship it", status: "completed" },
+        ],
+        updatedAt: Date.parse(updatedIso),
+      },
+    ]);
+  });
+
+  it("records an empty plan when the Todo list is real but empty", () => {
+    const updatedIso = "2026-11-09T00:00:06.000Z";
+    const todo = todoToolState([]);
+    const history = [
+      {
+        message: { role: "assistant", content: "cleared" },
+        contextItems: [],
+        toolCallStates: [todo],
+        messageTimestamp: updatedIso,
+      },
+    ] as unknown as ChatHistoryItem[];
+    const stored = fixtureSession({ goal: "Ship the feature", history });
+    const state = createTranslationState(sessionId, {
+      ...baseOptions,
+      readStoredSession: () => stored,
+      readGoal: () => "Ship the feature",
+      persistGoalState: () => {},
+    });
+
+    translateAgentEvent(turnStarted(1, 1_000), state);
+
+    expect(state.goal?.iterations).toEqual([
+      { iteration: 1, items: [], updatedAt: Date.parse(updatedIso) },
+    ]);
+  });
+
+  it("never synthesizes plan items when the history carries none", () => {
+    const stored = fixtureSession({ goal: "Ship the feature" });
+    const state = createTranslationState(sessionId, {
+      ...baseOptions,
+      readStoredSession: () => stored,
+      readGoal: () => "Ship the feature",
+      persistGoalState: () => {},
+    });
+
+    translateAgentEvent(turnStarted(1, 1_000), state);
+
+    expect(state.goal?.iterations).toEqual([
+      { iteration: 1, items: [], updatedAt: 0 },
+    ]);
+  });
+
+  it("clears the stored lifecycle when the goal is cleared", () => {
+    let objective: string | null = "Ship the feature";
+    const persisted: Array<SessionGoalState | null> = [];
+    const state = createTranslationState(sessionId, {
+      ...baseOptions,
+      readStoredSession: () =>
+        fixtureSession({ goal: "Ship the feature", history: [] }),
+      readGoal: () => objective,
+      persistGoalState: (_id, value) => persisted.push(value),
+    });
+
+    translateAgentEvent(turnStarted(1, 1_000), state);
+    expect(state.goal).not.toBeNull();
+
+    objective = null;
+    translateAgentEvent(turnStarted(2, 2_000), state);
+
+    expect(state.goal).toBeNull();
+    expect(persisted.at(-1)).toBeNull();
+  });
+
+  it("starts a fresh lifecycle at iteration 1 when the goal text changes", () => {
+    let objective = "Ship feature A";
+    const persisted: Array<SessionGoalState | null> = [];
+    const state = createTranslationState(sessionId, {
+      ...baseOptions,
+      readStoredSession: () =>
+        fixtureSession({ goal: "Ship feature A", history: [] }),
+      readGoal: () => objective,
+      persistGoalState: (_id, value) => persisted.push(value),
+    });
+
+    translateAgentEvent(turnStarted(1, 1_000), state);
+    translateAgentEvent(turnStarted(2, 2_000), state);
+    expect(state.goal?.iteration).toBe(2);
+
+    objective = "Ship feature B";
+    translateAgentEvent(turnStarted(3, 3_000), state);
+
+    expect(state.goal).toMatchObject({
+      objective: "Ship feature B",
+      iteration: 1,
+      iterations: [{ iteration: 1 }],
+    });
+    expect(
+      state.goal?.iterations.map((iteration) => iteration.iteration),
+    ).toEqual([1]);
+    expect(persisted.at(-1)).toMatchObject({
+      objective: "Ship feature B",
+      iteration: 1,
+    });
+  });
+
+  it("projects the reloaded lifecycle into a snapshot the schema accepts", () => {
+    const stored = fixtureSession({
+      goal: "Ship the feature",
+      goalState: {
+        objective: "Ship the feature",
+        status: "verified",
+        iteration: 2,
+        timeUsedSeconds: 9,
+        activeRunStartedAtMs: null,
+        verifications: [
+          { iteration: 2, outcome: "pass", at: 1_500, anchorRowId: null },
+        ],
+        iterations: [
+          {
+            iteration: 2,
+            items: [{ id: "1", content: "Write tests", status: "completed" }],
+            updatedAt: 1_400,
+          },
+        ],
+        createdAt: 1_000,
+        updatedAt: 2_000,
+      },
+    });
+    const state = createTranslationState(sessionId, {
+      ...baseOptions,
+      readStoredSession: () => stored,
+      readGoal: () => "Ship the feature",
+      persistGoalState: () => {},
+    });
+    const frame = createFrameSubscription(stored, "sub-1", "epoch-1");
+    const snapshot = buildConversationSnapshot(
+      stored,
+      frame,
+      { eventSeq: 0, stateRevision: 0, goal: state.goal },
+      false,
+    );
+
+    expect(snapshot.goal).toMatchObject({
+      targetId: `${sessionId}:goal`,
+      iteration: 2,
+      iterations: [
+        {
+          iteration: 2,
+          items: [{ id: "1", content: "Write tests", status: "completed" }],
+          updatedAt: 1_400,
+        },
+      ],
+    });
+    expect(() => conversationSnapshotSchema.parse(snapshot)).not.toThrow();
+  });
+});
+
+describe("subagent live rows, child transcripts and cancellation", () => {
+  const turnStarted = (seq: number, timestamp: number): AgentEvent => ({
+    sessionId,
+    turnId,
+    seq,
+    timestamp,
+    type: "turn.started",
+    model: "test-model",
+    historyLength: 0,
+  });
+
+  function childWithWork(): Session {
+    return {
+      sessionId: "child-1",
+      history: [
+        {
+          message: {
+            role: "assistant",
+            content: "working",
+            toolCalls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: { name: "read_file", arguments: "{}" },
+              },
+            ],
+            usage: { promptTokens: 20, completionTokens: 10 },
+          },
+          contextItems: [],
+        },
+      ],
+    } as unknown as Session;
+  }
+
+  function stateWithChild(loadChild: (id: string) => Session | null) {
+    const state = createTranslationState(sessionId, {
+      readGoal: () => null,
+      readUsage: () => null,
+      readTeamRuns: () => null,
+      readChildSessions: () => [],
+      loadChildSession: loadChild,
+      persistGoalState: () => {},
+    });
+    translateAgentEvent(turnStarted(1, 1_000), state);
+    return state;
+  }
+
+  it("carries the child session and live counts on a started row", () => {
+    const state = stateWithChild((id) =>
+      id === "child-1" ? childWithWork() : null,
+    );
+    const started = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 1,
+        timestamp: 1_100,
+        type: "subagent.started",
+        agentName: "code-reviewer",
+        prompt: "Review the patch\nLook for regressions",
+        childSessionId: "child-1",
+      },
+      state,
+    );
+    const subagent = subagentPayload(started);
+
+    expect(subagent).toMatchObject({
+      event: "started",
+      status: "running",
+      childSessionId: "child-1",
+      toolUses: 1,
+      tokens: 30,
+    });
+    expect(String(subagent.summary)).toContain("1 tool uses");
+
+    const row = subagentRowFromWire(subagent, 1, turnId);
+    expect(row).toMatchObject({
+      kind: "subagent",
+      status: "running",
+      childSessionId: "child-1",
+    });
+    expect(() => subagentRowSchema.parse(row)).not.toThrow();
+  });
+
+  it("does not invent counts when the child transcript is unreadable", () => {
+    const state = stateWithChild(() => null);
+    const started = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 1,
+        timestamp: 1_100,
+        type: "subagent.started",
+        agentName: "code-reviewer",
+        prompt: "Review the patch",
+        childSessionId: "child-missing",
+      },
+      state,
+    );
+    const subagent = subagentPayload(started);
+
+    expect(subagent).toHaveProperty("childSessionId", "child-missing");
+    expect(subagent).not.toHaveProperty("toolUses");
+    expect(subagent).not.toHaveProperty("tokens");
+    expect(String(subagent.summary)).not.toContain("tool uses");
+  });
+
+  it("marks an aborted run cancelled rather than failed", () => {
+    const state = stateWithChild((id) =>
+      id === "child-1" ? childWithWork() : null,
+    );
+    translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 1,
+        timestamp: 1_100,
+        type: "subagent.started",
+        agentName: "code-reviewer",
+        prompt: "Review the patch",
+        childSessionId: "child-1",
+      },
+      state,
+    );
+    const finished = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 2,
+        timestamp: 1_200,
+        type: "subagent.finished",
+        agentName: "code-reviewer",
+        content: "Subagent execution was cancelled by the user.",
+        success: false,
+        cancelled: true,
+      },
+      state,
+    );
+    const subagent = subagentPayload(finished);
+
+    expect(subagent.status).toBe("cancelled");
+    const row = subagentRowFromWire(subagent, 1, turnId);
+    expect(row?.status).toBe("cancelled");
+    expect(() => subagentRowSchema.parse(row)).not.toThrow();
+  });
+
+  it("keeps replay working for old starts that carried no child id", () => {
+    let children: SubagentSessionRef[] = [];
+    const state = createTranslationState(sessionId, {
+      readGoal: () => null,
+      readUsage: () => null,
+      readTeamRuns: () => null,
+      readChildSessions: () => children,
+      loadChildSession: () => childWithWork(),
+      persistGoalState: () => {},
+    });
+    translateAgentEvent(turnStarted(1, 1_000), state);
+    const started = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 1,
+        timestamp: 1_100,
+        type: "subagent.started",
+        agentName: "code-reviewer",
+        prompt: "Review the patch",
+      },
+      state,
+    );
+    expect(subagentPayload(started)).not.toHaveProperty("childSessionId");
+
+    children = [{ sessionId: "child-1", subagentType: "code-reviewer" }];
+    const finished = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 2,
+        timestamp: 1_200,
+        type: "subagent.finished",
+        agentName: "code-reviewer",
+        content: "done",
+        success: true,
+      },
+      state,
+    );
+    expect(subagentPayload(finished)).toMatchObject({
+      status: "success",
+      childSessionId: "child-1",
+      toolUses: 1,
+      tokens: 30,
+    });
   });
 });

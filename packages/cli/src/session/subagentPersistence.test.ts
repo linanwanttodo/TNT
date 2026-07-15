@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import type { ChatHistoryItem } from "core/index.js";
+import type { ChatHistoryItem, SessionGoalState } from "core/index.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -10,11 +10,14 @@ import {
   listSubagentSessions,
   loadSession,
   loadSessionById,
+  persistSessionGoalState,
   resumeSession,
   saveSubagentSession,
   selectSession,
+  setSessionGoal,
   startNewSession,
   updateSessionHistory,
+  updateSubagentSession,
 } from "./index.js";
 
 /**
@@ -107,6 +110,38 @@ describe("delegated session persistence", () => {
     expect(resumed?.sessionId).toBe(rootId);
   });
 
+  it("does not append the cancellation notice twice when it is not the last item", () => {
+    const child = saveSubagentSession({
+      parentSessionId: "root-notice",
+      subagentType: "Explore",
+      history: childHistory,
+    });
+    const notice = "Subagent execution was cancelled by the user.";
+
+    updateSubagentSession({
+      sessionId: child.sessionId,
+      history: [
+        ...childHistory,
+        // The escape handler already recorded the notice, and the aborted run
+        // left an assistant item after it.
+        {
+          message: { role: "user", content: notice },
+          contextItems: [],
+        },
+        {
+          message: { role: "assistant", content: "partial work" },
+          contextItems: [],
+        },
+      ] as ChatHistoryItem[],
+      notice,
+    });
+
+    const reloaded = loadSessionById(child.sessionId);
+    expect(
+      reloaded?.history.filter((item) => item.message.content === notice),
+    ).toHaveLength(1);
+  });
+
   it("reports an unknown session id as missing", () => {
     expect(loadSessionById(`missing-${Date.now()}`)).toBeNull();
   });
@@ -183,5 +218,65 @@ describe("delegated session persistence", () => {
     expect(resumeSession(older)?.sessionId).toBe(older);
     expect(resumeSession()?.sessionId).toBe(newer);
     expect(resumeSession("missing-id")).toBeNull();
+  });
+});
+
+describe("goal lifecycle persistence", () => {
+  const lifecycle: SessionGoalState = {
+    objective: "Ship the feature",
+    status: "paused",
+    iteration: 3,
+    timeUsedSeconds: 42,
+    activeRunStartedAtMs: null,
+    verifications: [
+      { iteration: 2, outcome: "notSatisfied", at: 900, anchorRowId: null },
+    ],
+    iterations: [
+      {
+        iteration: 3,
+        items: [{ id: "1", content: "Write tests", status: "pending" }],
+        updatedAt: 950,
+      },
+    ],
+    createdAt: 100,
+    updatedAt: 1_000,
+  };
+
+  it("round-trips the observed lifecycle through the store", () => {
+    updateSessionHistory(childHistory);
+    const sessionId = getCurrentSession().sessionId;
+    setSessionGoal("Ship the feature");
+    persistSessionGoalState(sessionId, lifecycle);
+
+    const reloaded = loadSessionById(sessionId);
+
+    expect(reloaded?.goal).toBe("Ship the feature");
+    expect(reloaded?.goalState).toEqual(lifecycle);
+  });
+
+  it("clears the stored lifecycle when the goal is cleared", () => {
+    updateSessionHistory(childHistory);
+    const sessionId = getCurrentSession().sessionId;
+    setSessionGoal("Ship the feature");
+    persistSessionGoalState(sessionId, lifecycle);
+
+    setSessionGoal(undefined);
+
+    const reloaded = loadSessionById(sessionId);
+    expect(reloaded?.goal).toBeUndefined();
+    expect(reloaded?.goalState).toBeUndefined();
+  });
+
+  it("restarts the lifecycle when the goal text changes", () => {
+    updateSessionHistory(childHistory);
+    const sessionId = getCurrentSession().sessionId;
+    setSessionGoal("Ship the feature");
+    persistSessionGoalState(sessionId, lifecycle);
+
+    setSessionGoal("Ship something else");
+
+    const reloaded = loadSessionById(sessionId);
+    expect(reloaded?.goal).toBe("Ship something else");
+    expect(reloaded?.goalState).toBeUndefined();
   });
 });

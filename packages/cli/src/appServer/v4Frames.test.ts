@@ -373,6 +373,7 @@ describe("usage, goal and plan on the conversation snapshot", () => {
         anchorRowId: null,
       },
     ],
+    iterations: [],
     createdAt: 1_000,
     updatedAt: 2_000,
   };
@@ -826,5 +827,98 @@ describe("subagent rows and projection", () => {
     expect(row).toBeDefined();
     expect(row?.summaryText).not.toContain("tool uses");
     expect(row?.summaryText).not.toContain("tokens");
+  });
+
+  it("projects a running subagent with the child session it now carries", () => {
+    const frame = createFrameSubscription(session, "sub-1", "epoch-1");
+    const started = deltasForEvent(
+      frame,
+      subagentEvent(1, {
+        event: "started",
+        id: "subagent-live",
+        agentName: "code-reviewer",
+        turnId: "turn-1",
+        status: "running",
+        summary: "Review the patch",
+        startedAt: 1_000,
+        childSessionId: "child-live",
+      }),
+    );
+
+    expect(started[0]).toMatchObject({
+      op: "row.appended",
+      row: {
+        kind: "subagent",
+        status: "running",
+        childSessionId: "child-live",
+      },
+    });
+    expect(started[1]).toMatchObject({
+      op: "state.updated",
+      patch: {
+        subagents: {
+          childSessionIds: ["child-live"],
+          running: [
+            {
+              childSessionId: "child-live",
+              subagentType: "code-reviewer",
+              title: "Review the patch",
+              status: "running",
+              startedAt: 1_000,
+            },
+          ],
+          endedTotal: 0,
+        },
+      },
+    });
+    for (const delta of started) {
+      expect(() => conversationDeltaSchema.parse(delta)).not.toThrow();
+    }
+  });
+
+  it("replays a cancelled team member as a cancelled row", () => {
+    const teamRun: TeamRunRecord = {
+      runId: "team-cancelled",
+      team: "dev",
+      goal: "Ship it",
+      mode: "serial",
+      startedAt: "2026-11-09T00:00:00.000Z",
+      status: "completed",
+      members: [
+        {
+          name: "implementer",
+          status: "cancelled",
+          subagentSessionId: "child-1",
+          startedAt: "2026-11-09T00:00:01.000Z",
+          finishedAt: "2026-11-09T00:00:04.000Z",
+        },
+      ],
+    };
+    const parent = {
+      sessionId: "session-cancelled",
+      title: "Parent",
+      workspaceDirectory: "/workspace",
+      teamRuns: [teamRun],
+      history: [
+        {
+          message: { role: "user", content: "run the team" },
+          contextItems: [],
+        },
+      ],
+    } as unknown as Session;
+
+    const frame = createFrameSubscription(parent, "sub-1", "epoch-1", true, {
+      childSessions: [],
+      teamRuns: [teamRun],
+      loadChildSession: () => childSession,
+    });
+    const row = frame.rows.find((candidate) => candidate.kind === "subagent");
+
+    expect(row).toMatchObject({
+      subagentType: "implementer",
+      status: "cancelled",
+      childSessionId: "child-1",
+    });
+    expect(() => subagentRowSchema.parse(row)).not.toThrow();
   });
 });
