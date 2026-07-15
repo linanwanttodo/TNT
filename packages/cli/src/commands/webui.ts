@@ -18,6 +18,7 @@ import {
   type ModelServiceState,
 } from "../services/index.js";
 import { turnRunnerService } from "../services/TurnRunnerService.js";
+import { lanAddresses } from "../services/webuiAccess.js";
 import { webUiService } from "../services/WebUiService.js";
 import { runAgentTurn } from "../session/controller.js";
 import {
@@ -51,20 +52,29 @@ export interface WebuiCommandOptions {
   persistToken?: boolean;
 }
 
+/** The addresses that mean "every interface" when the server binds a LAN. */
+const LAN_BIND_HOSTS = new Set(["0.0.0.0", "::", "::0"]);
+
 /**
- * Validates that a --host value keeps the server on loopback. The v1 surface
- * is a local dev tool with a bearer-equivalent token; a LAN bind is the
- * /mobile phase's work, together with TLS.
+ * Validates that a --host value is one the server may bind. Loopback is the
+ * default; a LAN bind is opt-in and only the web UI offers it, because the
+ * phone pairing flow is the reason to reach the server from another device.
+ * The token is the only protection there is, so the caller has to ask for it
+ * explicitly.
  */
 export function validateWebuiHost(
   host: string | undefined,
+  options: { allowLan?: boolean } = {},
 ): { valid: true } | { valid: false; error: string } {
   if (host === undefined || host === "127.0.0.1" || host === "localhost") {
     return { valid: true };
   }
+  if (options.allowLan && LAN_BIND_HOSTS.has(host)) {
+    return { valid: true };
+  }
   return {
     valid: false,
-    error: `webui binds loopback only in v1 (got "${host}"). Use 127.0.0.1 or localhost; LAN exposure arrives with the /mobile phase.`,
+    error: `webui binds loopback only (got "${host}"). Use 127.0.0.1 or localhost, or 0.0.0.0 to reach the web UI from a phone on the same network.`,
   };
 }
 
@@ -235,7 +245,7 @@ export async function webui(
   prompt: string | undefined,
   options: WebuiCommandOptions,
 ): Promise<void> {
-  const hostCheck = validateWebuiHost(options.host);
+  const hostCheck = validateWebuiHost(options.host, { allowLan: true });
   if (!hostCheck.valid) {
     console.error(chalk.red(hostCheck.error));
     await gracefulExit(1);
@@ -299,10 +309,21 @@ export async function webui(
   const handle = await webUiService.start({
     port: options.port ? Number.parseInt(options.port, 10) : undefined,
     persistToken: options.persistToken,
+    host: options.host,
   });
 
   const url = `http://127.0.0.1:${handle.port}/#token=${handle.token}`;
   console.log(chalk.green(t("webui.listening", { url: hyperlink(url, url) })));
+  if (options.host && LAN_BIND_HOSTS.has(options.host)) {
+    // A phone on the same network needs an address that is not loopback.
+    for (const host of lanAddresses()) {
+      const lanUrl = `http://${host}:${handle.port}/#token=${handle.token}`;
+      console.log(
+        chalk.green(t("webui.listening", { url: hyperlink(lanUrl, lanUrl) })),
+      );
+    }
+    console.log(chalk.yellow(t("webui.lanWarning")));
+  }
   console.log(chalk.dim(t("webui.stopHint")));
   // commander's --no-open makes this false; absence leaves it true.
   if (options.open !== false) {

@@ -6,7 +6,7 @@ import {
   ComposerHints,
   composerHintText,
   selectComposerHint,
-  SHORTCUTS_HINT_MIN_COLUMNS,
+  HELP_HINT_MIN_COLUMNS,
 } from "./ComposerHints.js";
 
 function frameOf(element: React.ReactElement): string {
@@ -39,7 +39,7 @@ describe("selectComposerHint", () => {
     expect(hint).toEqual({ kind: "queued", count: 2 });
   });
 
-  it("falls back from working to the shortcuts hint", () => {
+  it("falls back from working to the help hint", () => {
     expect(
       selectComposerHint({
         wasInterrupted: false,
@@ -55,16 +55,16 @@ describe("selectComposerHint", () => {
         working: false,
         columns: 120,
       }),
-    ).toEqual({ kind: "shortcuts" });
+    ).toEqual({ kind: "help" });
   });
 
-  it("drops the shortcuts hint when there is no room", () => {
+  it("drops the help hint when there is no room", () => {
     expect(
       selectComposerHint({
         wasInterrupted: false,
         queuedCount: 0,
         working: false,
-        columns: SHORTCUTS_HINT_MIN_COLUMNS - 1,
+        columns: HELP_HINT_MIN_COLUMNS - 1,
       }),
     ).toBeNull();
     expect(
@@ -72,9 +72,9 @@ describe("selectComposerHint", () => {
         wasInterrupted: false,
         queuedCount: 0,
         working: false,
-        columns: SHORTCUTS_HINT_MIN_COLUMNS,
+        columns: HELP_HINT_MIN_COLUMNS,
       }),
-    ).toEqual({ kind: "shortcuts" });
+    ).toEqual({ kind: "help" });
   });
 
   it("has no text for a missing hint", () => {
@@ -91,7 +91,7 @@ describe("ComposerHints", () => {
     expect(frame).toContain("Interrupted by user");
     expect(frame).not.toContain("queued");
     expect(frame).not.toContain("esc to interrupt");
-    expect(frame).not.toContain("? for shortcuts");
+    expect(frame).not.toContain("/help");
   });
 
   it("draws the queue controls instead of the interrupt hint", () => {
@@ -103,7 +103,7 @@ describe("ComposerHints", () => {
     expect(frame).toContain("ctrl+x remove");
     expect(frame).toContain("ctrl+r edit");
     expect(frame).not.toContain("esc to interrupt");
-    expect(frame).not.toContain("? for shortcuts");
+    expect(frame).not.toContain("/help");
   });
 
   it("draws the interrupt hint while a turn runs", () => {
@@ -112,14 +112,14 @@ describe("ComposerHints", () => {
     );
 
     expect(frame).toContain("esc to interrupt");
-    expect(frame).not.toContain("? for shortcuts");
+    expect(frame).not.toContain("/help");
   });
 
-  it("draws the shortcuts hint when idle", () => {
+  it("draws the help command when idle", () => {
     const frame = frameOf(
       <ComposerHints wasInterrupted={false} queuedCount={0} working={false} />,
     );
 
-    expect(frame).toContain("? for shortcuts");
+    expect(frame).toContain("/help");
   });
 });

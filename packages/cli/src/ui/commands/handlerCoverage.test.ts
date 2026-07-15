@@ -17,6 +17,13 @@ const builtinNames = BUILTIN_SLASH_COMMANDS.map((command) => command.name);
 const handlerNames = Object.keys(createCommandHandlers());
 
 describe("the slash commands the dispatcher can actually run", () => {
+  it("keeps the JetBrains integration under /ide only", () => {
+    expect(builtinNames).toContain("ide");
+    expect(builtinNames).not.toContain("idea");
+    expect(handlerNames).toContain("ide");
+    expect(handlerNames).not.toContain("idea");
+  });
+
   it("handles every command the built-in list advertises", () => {
     const unhandled = builtinNames.filter(
       (name) => !handlerNames.includes(name),

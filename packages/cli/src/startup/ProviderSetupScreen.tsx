@@ -10,7 +10,11 @@ import {
 import { t } from "../i18n/index.js";
 import { splitTrailingEnter } from "../utils/coalescedEnter.js";
 
-/** Matches the dark theme accent; onboarding renders before its provider. */
+/**
+ * Onboarding renders before the theme provider exists, so it borrows the
+ * default palette. The value is the default theme's accent; keeping a copy
+ * here avoids a startup -> ui import cycle for one colour.
+ */
 const ACCENT = "#5ac8fa";
 
 type Step = "protocol" | "baseUrl" | "apiKey" | "model";

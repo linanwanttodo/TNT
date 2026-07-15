@@ -59,16 +59,20 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
 
   it("states the badge colours the component uses", () => {
     const colours =
-      /default: \{ label: "Manual", color: "white" \}/.test(mode) &&
-      /plan: \{ label: "Plan", color: "blue" \}/.test(mode) &&
-      /bypassPermissions: \{ label: "Bypass permissions", color: "red" \}/.test(
+      /default: \{ label: "Manual", color: \(theme\) => theme\.text\.primary \}/.test(
+        mode,
+      ) &&
+      /plan: \{ label: "Plan", color: \(theme\) => theme\.accent \}/.test(
+        mode,
+      ) &&
+      /bypassPermissions: \{[\s\S]*color: \(theme\) => theme\.status\.error/.test(
         mode,
       );
     expect(colours).toBe(true);
     expect(/\[Manual\]/.test(flat)).toBe(true);
     expect(/\[Plan\]/.test(flat)).toBe(true);
     expect(/\[Bypass permissions\]/.test(flat)).toBe(true);
-    expect(/blue/.test(flat) && /red/.test(flat)).toBe(true);
+    expect(/theme/.test(flat)).toBe(true);
   });
 
   it("describes the alternate-screen viewport and its in-app scrolling", () => {

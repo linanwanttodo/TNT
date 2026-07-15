@@ -533,6 +533,22 @@ function RootInner({
   const handleOpenDirectoryBrowser = useCallback(() => {
     setDirectoryBrowserOpen(true);
   }, []);
+  // The picker browses the machine, not the current workspace, so it goes
+  // through the project service: the general file service is scoped to the
+  // open workspace and refuses every folder outside it.
+  const directoryBrowserServices = useMemo(() => {
+    const projectService = services.projectService;
+    if (!projectService) {
+      return services;
+    }
+    return {
+      systemService: services.systemService,
+      fileService: {
+        readdir: async (params: { path: string; includeHidden?: boolean }) =>
+          (await projectService.readDirectory(params)).entries,
+      },
+    };
+  }, [services]);
   const {
     setWorkspaceActionError,
     startDraftInWorkspace,
@@ -1199,7 +1215,7 @@ function RootInner({
       variant="silent"
     >
       <DirectoryBrowser
-        services={services}
+        services={directoryBrowserServices}
         onCancel={() => setDirectoryBrowserOpen(false)}
         onSelect={(path) => {
           setDirectoryBrowserOpen(false);

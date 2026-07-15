@@ -29,6 +29,7 @@ import {
   Maximize,
   Palette,
   Settings,
+  Smartphone,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -38,6 +39,7 @@ import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { normalizeInterfaceMode } from "@/lib/interfaceMode.js";
 import type { Theme } from "@/useTheme.js";
+import { MobileRemoteDialog } from "@/MobileRemoteDialog.js";
 
 const DESKTOP_ZOOM_MIN_LEVEL = -3;
 const DESKTOP_ZOOM_MAX_LEVEL = 5;
@@ -78,7 +80,10 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
   const zoomInShortcutLabel = useShortcutCommandLabel("zoomIn");
   const zoomOutShortcutLabel = useShortcutCommandLabel("zoomOut");
   const resetZoomShortcutLabel = useShortcutCommandLabel("resetZoom");
-  const profileBadge = intl.formatMessage({ id: "settings.title" });
+  // The trigger opens language, theme, interface mode and zoom - preferences,
+  // not the settings page. The gear next to it opens the settings page, so the
+  // two labels must not both read "设置".
+  const profileBadge = intl.formatMessage({ id: "sidebar.footer.preferences" });
   const profileContent = (
     <>
       <div className="min-w-0 flex-1 overflow-hidden text-left">
@@ -95,6 +100,7 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
       ? intl.formatMessage({ id: "workspace.backToWorkspace" })
       : intl.formatMessage({ id: "settings.title" });
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [mobileRemoteOpen, setMobileRemoteOpen] = useState(false);
   const [desktopZoomLevel, setDesktopZoomLevel] = useState(0);
   const runDesktopZoomCommand = useCallback(
     (command: (typeof DesktopCommandIds)["ZoomIn" | "ZoomOut" | "ResetZoom"]) => {
@@ -272,6 +278,22 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
           </DropdownMenuContent>
         </DropdownMenu>
         <div className="flex shrink-0 items-center gap-1.5">
+          <ControlHintTooltip
+            title={intl.formatMessage({ id: "sidebar.footer.mobileRemote" })}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-lg"
+              data-testid="sidebar-footer-mobile-remote"
+              aria-label={intl.formatMessage({
+                id: "sidebar.footer.mobileRemote",
+              })}
+              onClick={() => setMobileRemoteOpen(true)}
+            >
+              <Smartphone className="size-4" />
+            </Button>
+          </ControlHintTooltip>
           <ControlHintTooltip title={settingsButtonLabel}>
             <Button
               type="button"
@@ -287,6 +309,10 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
           </ControlHintTooltip>
         </div>
       </div>
+      <MobileRemoteDialog
+        open={mobileRemoteOpen}
+        onOpenChange={setMobileRemoteOpen}
+      />
     </footer>
   );
 });

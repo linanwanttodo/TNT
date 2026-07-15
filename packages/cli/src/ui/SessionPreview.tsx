@@ -11,7 +11,8 @@ import React, {
 import { t } from "../i18n/index.js";
 
 import { ScrollBarColumn } from "./components/ScrollBarColumn.js";
-import { defaultBoxStyles } from "./styles.js";
+import { themedBoxStyles } from "./styles.js";
+import { useTheme } from "./theme/tokens.js";
 import { scrollbarGeometry } from "./utils/scrollbar.js";
 import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 
@@ -44,6 +45,7 @@ export function SessionPreview({
   chatHistory,
   sessionTitle,
 }: SessionPreviewProps) {
+  const theme = useTheme();
   const viewportRef = useRef<DOMElement>(null);
   const contentRef = useRef<DOMElement>(null);
   const [metrics, setMetrics] = useState({
@@ -123,18 +125,18 @@ export function SessionPreview({
 
   if (previewMessages.length === 0) {
     return (
-      <Box {...defaultBoxStyles("blue")} flexDirection="column" width="100%">
-        <Text color="blue" bold>
+      <Box {...themedBoxStyles(theme)} flexDirection="column" width="100%">
+        <Text color={theme.accent} bold>
           Preview
         </Text>
-        <Text color="gray">(no messages)</Text>
+        <Text color={theme.text.secondary}>(no messages)</Text>
       </Box>
     );
   }
 
   return (
-    <Box {...defaultBoxStyles("blue")} flexDirection="column" width="100%">
-      <Text color="blue" bold>
+    <Box {...themedBoxStyles(theme)} flexDirection="column" width="100%">
+      <Text color={theme.accent} bold>
         {sessionTitle}
       </Text>
       <Text> </Text>
@@ -154,7 +156,8 @@ export function SessionPreview({
             marginTop={-clampedScrollTop}
           >
             {previewMessages.map((msg, index) => {
-              const roleColor = msg.role === "user" ? "green" : "cyan";
+              const roleColor =
+                msg.role === "user" ? theme.status.success : theme.border.focus;
               const roleLabel =
                 msg.role === "user" ? t("session.you") : t("session.assistant");
 

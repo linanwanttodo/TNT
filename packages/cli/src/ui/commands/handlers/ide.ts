@@ -16,11 +16,11 @@ const JETBRAINS_MCP_PORTS = [64342, 64343];
 const JETBRAINS_SERVER_NAME = "jetbrains-ide";
 
 /**
- * `/ide` - the IDE integration surface, honest about what each channel can
+ * `/ide` - the JetBrains IDE integration surface, honest about what each channel can
  * and cannot do today:
  *
  *   /ide                        environment detection + channel status
- *   /ide connect jetbrains      bridge JetBrains' built-in MCP Server
+ *   /ide connect jetbrains      bridge any JetBrains IDE's built-in MCP Server
  *   /ide tools <server>         list the tools a bridged IDE exposes
  *   /ide diagnostics <file>     LSP diagnostics for one file
  *

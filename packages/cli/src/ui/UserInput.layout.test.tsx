@@ -28,7 +28,7 @@ vi.mock("../tools/todo.js", async (importOriginal) => {
 const tick = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
 
 beforeAll(async () => {
-  await services.toolPermissions.doInitialize({ mode: "default" });
+  await services.toolPermissions.doInitialize({ mode: "auto" });
 });
 
 describe("UserInput above-composer rows", () => {
@@ -45,7 +45,7 @@ describe("UserInput above-composer rows", () => {
     try {
       await tick();
       const lines = (tree.lastFrame() ?? "").split("\n");
-      const border = lines.findIndex((line) => line.includes("[Manual]"));
+      const border = lines.findIndex((line) => line.includes("[Auto]"));
       const goal = lines.findIndex((line) =>
         line.includes("ship the composer layout"),
       );
@@ -64,7 +64,7 @@ describe("UserInput above-composer rows", () => {
     }
   });
 
-  it("frames the input between the mode rule and a closing rule", async () => {
+  it("uses only horizontal rules around the input", async () => {
     const tree = render(
       <UserInput
         onSubmit={vi.fn()}
@@ -77,10 +77,10 @@ describe("UserInput above-composer rows", () => {
     try {
       await tick();
       const lines = (tree.lastFrame() ?? "").split("\n");
-      const rule = lines.findIndex((line) => line.includes("[Manual]"));
+      const rule = lines.findIndex((line) => line.includes("[Auto]"));
 
       expect(rule).toBeGreaterThan(-1);
-      expect(lines[rule].startsWith("─[Manual]")).toBe(true);
+      expect(lines[rule].startsWith("─[Auto]")).toBe(true);
       expect(lines[rule].endsWith("─")).toBe(true);
 
       const inputLine = lines.findIndex(
@@ -89,7 +89,6 @@ describe("UserInput above-composer rows", () => {
       expect(inputLine).toBe(rule + 1);
       expect(lines[inputLine]).not.toContain("│");
 
-      // The rule below closes the frame; there are no side rails.
       expect(lines[inputLine + 1].replace(/─/g, "").trim()).toBe("");
       expect(lines.some((line) => line.includes("│"))).toBe(false);
     } finally {
