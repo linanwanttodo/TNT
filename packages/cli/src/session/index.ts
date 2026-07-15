@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import { delegationDepthOf } from "../subagent/depth.js";
+import { MAX_CONCURRENT_TEAM_MEMBERS } from "../subagent/memberLimiter.js";
 import { logger } from "../utils/logger.js";
 
 import { historyAdapter } from "./historyAdapter.js";
@@ -773,6 +774,20 @@ export function setSessionActiveTeam(name: string | undefined): void {
 }
 
 /**
+ * Record the chat model a session now runs on.
+ *
+ * This is the same `chatModelTitle` field the app-server's `session/setModel`
+ * writes and the snapshot projection reads, so callers that switch a model do
+ * not need a second per-session store. The title is persisted with the session
+ * immediately, before the next turn, so a snapshot taken while the turn is
+ * starting already reports the new model.
+ */
+export function setSessionChatModel(session: Session, title: string): void {
+  session.chatModelTitle = title;
+  sessionStore.sync(session);
+}
+
+/**
  * Run-time model assignments for the active team, keyed by member name. Kept
  * beside activeTeam and persisted with the session, so a resumed conversation
  * dispatches each member on the model the main agent chose. A getter returns a
@@ -943,10 +958,34 @@ function mutateTeamRuns(
 }
 
 /**
+ * The concurrency the scheduler runs a new run with. `serial` runs one member
+ * at a time; `parallel` fans out the whole roster, capped by the process-wide
+ * member limiter. `auto` leaves ordering to the lead, so the ledger records no
+ * claim rather than a number the scheduler did not use.
+ */
+function teamRunConcurrency(
+  mode: TeamRunMode,
+  memberCount: number,
+): number | undefined {
+  if (memberCount <= 0) return undefined;
+  if (mode === "serial") return 1;
+  if (mode === "parallel") {
+    return Math.min(memberCount, MAX_CONCURRENT_TEAM_MEMBERS);
+  }
+  return undefined;
+}
+
+/**
  * Open a team run and make it the current one. Returns the record so the
  * caller can finish it by id even if the session is replaced meanwhile.
  */
 export function beginTeamRun(options: BeginTeamRunOptions): TeamRunRecord {
+  const members = options.members
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .slice(0, MAX_TEAM_RUN_MEMBERS)
+    .map((name) => ({ name, status: "pending" as TeamMemberRunStatus }));
+  const concurrency = teamRunConcurrency(options.mode, members.length);
   const run: TeamRunRecord = {
     runId: `team-${uuidv4().slice(0, 8)}`,
     team: options.team.trim(),
@@ -954,11 +993,8 @@ export function beginTeamRun(options: BeginTeamRunOptions): TeamRunRecord {
     mode: options.mode,
     startedAt: new Date().toISOString(),
     status: "running",
-    members: options.members
-      .map((name) => name.trim())
-      .filter(Boolean)
-      .slice(0, MAX_TEAM_RUN_MEMBERS)
-      .map((name) => ({ name, status: "pending" as TeamMemberRunStatus })),
+    ...(concurrency === undefined ? {} : { concurrency }),
+    members,
   };
 
   if (options.workflowGraph) {
@@ -1038,6 +1074,11 @@ export function finishTeamMemberRun(
     success: boolean;
     subagentSessionId?: string;
     error?: string;
+    /**
+     * The member's final response text. The executor passes it only for a
+     * successful finish, so a failed member's ledger entry carries no report.
+     */
+    report?: string;
   },
 ): void {
   mutateTeamRuns((runs) =>
@@ -1056,6 +1097,11 @@ export function finishTeamMemberRun(
           };
           if (outcome.subagentSessionId) {
             finished.subagentSessionId = outcome.subagentSessionId;
+          }
+          if (outcome.success && outcome.report !== undefined) {
+            finished.report = outcome.report;
+          } else {
+            delete finished.report;
           }
           if (!outcome.success && outcome.error) {
             finished.error = outcome.error;

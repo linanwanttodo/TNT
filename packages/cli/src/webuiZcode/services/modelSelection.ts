@@ -5,6 +5,8 @@ import {
   type ModelSelectionViewInput,
 } from "@zcode/services";
 
+import { REASONING_DEPTH_VALUES } from "../../session/reasoningOverride.js";
+
 /** The part of a TNT model entry the picker needs. */
 export interface TntModelEntry {
   name: string;
@@ -89,7 +91,12 @@ function registryModelConfig(model: TntModelEntry) {
       supportsMidConversationSystem: false,
     },
     optionSpecs: {
-      reasoningLevel: { values: ["default"], map: "{}" },
+      // TNT carries reasoning as a process-wide override, not as a per-model
+      // request option, so the value maps to no request field.
+      reasoningLevel: {
+        values: [...REASONING_DEPTH_VALUES],
+        map: "{}",
+      },
       maxOutputTokens: {
         max: maxOutputTokens(model),
         map: "{'max_tokens': maxOutputTokens}",

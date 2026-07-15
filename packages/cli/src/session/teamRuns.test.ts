@@ -94,6 +94,69 @@ describe("the team-run ledger", () => {
     expect(getCurrentTeamRunId()).toBeUndefined();
   });
 
+  it("records the scheduler concurrency the run was planned with", () => {
+    const serial = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "serial",
+      members: ["implementer", "tester"],
+    });
+    expect(serial.concurrency).toBe(1);
+    finishTeamRun(serial.runId, "completed");
+
+    const parallel = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "parallel",
+      members: ["implementer", "tester"],
+    });
+    expect(parallel.concurrency).toBe(2);
+    finishTeamRun(parallel.runId, "completed");
+
+    const auto = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "auto",
+      members: ["implementer", "tester"],
+    });
+    expect(auto.concurrency).toBeUndefined();
+    finishTeamRun(auto.runId, "completed");
+  });
+
+  it("keeps a successful member's report and drops it on failure", () => {
+    const run = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "serial",
+      members: ["implementer", "tester"],
+    });
+
+    startTeamMemberRun(run.runId, "implementer");
+    finishTeamMemberRun(run.runId, "implementer", {
+      success: true,
+      subagentSessionId: "child-session",
+      report: "implemented and tested",
+    });
+    startTeamMemberRun(run.runId, "tester");
+    finishTeamMemberRun(run.runId, "tester", {
+      success: false,
+      error: "tests failed",
+    });
+
+    const [stored] = getSessionTeamRuns();
+    expect(stored.members[0]).toMatchObject({
+      name: "implementer",
+      status: "completed",
+      report: "implemented and tested",
+    });
+    expect(stored.members[1]).toMatchObject({
+      name: "tester",
+      status: "failed",
+      error: "tests failed",
+    });
+    expect(stored.members[1].report).toBeUndefined();
+  });
+
   it("survives a reload of the session", () => {
     const sessionId = getCurrentSession().sessionId;
     const run = beginTeamRun({
