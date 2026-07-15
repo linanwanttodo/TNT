@@ -25,6 +25,8 @@ import {
 } from "@zcode/services";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { createWebUiProjectCatalog } from "../services/webuiProjectCatalog.js";
+
 import {
   buildZcodeServiceCollection,
   ZCODE_LOCAL_SERVICE_DESCRIPTORS,
@@ -174,6 +176,42 @@ describe("buildZcodeServiceCollection", () => {
         IProjectService.channelName,
       ]),
     );
+  });
+
+  it("injects the project catalog and workspace registry into the project service", async () => {
+    const dir = await tempDir("tnt-zcode-project-");
+    const catalog = createWebUiProjectCatalog(
+      join(testGlobalDir, "webui-projects.json"),
+    );
+    const added: string[] = [];
+    const engines = {
+      add: async (candidate: string) => {
+        added.push(candidate);
+        return realpathSync(candidate);
+      },
+      closeWorkspace: async () => undefined,
+      dispatch: async () => ({ version: 3 }),
+      subscribe: async () => () => undefined,
+      setRequestHandler: async () => undefined,
+    } as unknown as WorkspaceEngines;
+    const collection = await buildZcodeServiceCollection({
+      workspacePath: process.cwd(),
+      localServices: createBundle(),
+      projectCatalog: catalog,
+      workspaceEngines: engines,
+    });
+    registerCleanup(() => collection.dispose());
+
+    const projectService = collection.get(IProjectService);
+    const saved = await projectService.saveProject({ roots: [dir] });
+
+    expect(saved.id).toBe(`local:${realpathSync(dir)}`);
+    expect(added).toContain(resolve(dir));
+    expect(catalog.findByPath(dir)?.path).toBe(realpathSync(dir));
+
+    const tree = await projectService.readTree();
+    expect(tree.projects.map((project) => project.id)).toContain(saved.id);
+    expect(tree.tasks).toEqual([]);
   });
 
   it("shares process services but not per-connection OS resources", async () => {

@@ -26,6 +26,7 @@ import {
 } from "./webuiDist.js";
 import { readWebUiModelSource } from "./webuiModelSource.js";
 import { bootstrapPage } from "./webuiPages.js";
+import { getWebUiProjectCatalog } from "./webuiProjectCatalog.js";
 import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
 import type { WebUiHandle, WebUiServiceOptions } from "./webuiTypes.js";
@@ -140,6 +141,25 @@ export class WebUiService {
       const engines = new WorkspaceEngines({ hostWorkspacePath });
       this.engines = engines;
 
+      // Projects the operator opened in an earlier run must be allowed roots
+      // again before the file and terminal services see them. Registration
+      // only validates and records the directory; a child engine starts on
+      // first use. A workspace that has since disappeared is skipped here and
+      // reported as missing by the project surface instead.
+      const projectCatalog = getWebUiProjectCatalog();
+      for (const record of projectCatalog.all()) {
+        if (record.deleted) {
+          continue;
+        }
+        try {
+          await engines.add(record.path);
+        } catch (error) {
+          logger.debug(
+            `WebUiService: catalog workspace unavailable ${record.path} (${String(error)})`,
+          );
+        }
+      }
+
       const zcodeHost = startWebUiZcodeHost({
         server: handle.server,
         token,
@@ -150,6 +170,7 @@ export class WebUiService {
               hostWorkspacePath,
             workspaceRoots: () => engines.roots(),
             workspaceEngines: engines,
+            projectCatalog,
             modelSelectionSource: readWebUiModelSource,
           }),
       });

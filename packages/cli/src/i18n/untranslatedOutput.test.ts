@@ -264,7 +264,9 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   plugins: 1,
   // 7, not the earlier 6: the terminal-safety work translated one raw throw in
   // this directory, and `QuizService.askQuestions` now refuses an empty set.
-  services: 7,
+  // 8: the web shell's project catalog rejects malformed storage and invalid
+  // roots with protocol messages a host decodes, not composer copy.
+  services: 8,
   session: 6,
   // 14, not 6: `AskQuestion` validates the new `questions` array field by
   // field, and those messages are read by the model, not the composer.
@@ -273,7 +275,7 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   utils: 16,
   // The web UI host and its services answer an RPC peer; these are JSON-RPC and
   // auth errors read by a client, not composer copy.
-  webuiZcode: 23,
+  webuiZcode: 38,
 };
 
 /**
