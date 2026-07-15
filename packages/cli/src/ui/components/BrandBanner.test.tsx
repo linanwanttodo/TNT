@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("BrandBanner", () => {
-  it("draws the T wordmark, the version and the model", () => {
+  it("draws the wordmark, the name and the version", () => {
     // The shell that runs the suite may export NO_COLOR; the plate is the
     // colour path, so the test asks for it explicitly.
     vi.stubEnv("NO_COLOR", "");

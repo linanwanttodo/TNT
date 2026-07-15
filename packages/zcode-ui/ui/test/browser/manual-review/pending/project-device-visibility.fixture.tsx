@@ -100,7 +100,6 @@ function Fixture() {
               remoteHost={host}
               deviceLabel={`Device ${project.id}`}
               isDesktop={!mobile}
-              isWebRemoteControl={mobile}
               availability={availability}
               hasUnread
               tasks={[]}

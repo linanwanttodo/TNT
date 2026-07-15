@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+/* eslint-disable max-statements -- the composer's key state machine is one flat dispatch; every branch is a key or mode it must own, and splitting it further hides the order the keys are claimed in. */
 
 import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text, useApp, useInput } from "ink";
@@ -20,6 +21,10 @@ import {
 } from "../session/promptSuggestion.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { escapeEvents } from "../utils/cli.js";
+import {
+  splitTrailingEnter,
+  type CoalescedEnter,
+} from "../utils/coalescedEnter.js";
 import { InputHistory } from "../utils/inputHistory.js";
 
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
@@ -32,6 +37,7 @@ import { FileSearchUI } from "./FileSearchUI.js";
 import { useHistorySearch } from "./hooks/useHistorySearch.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useServices } from "./hooks/useService.js";
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import {
   escapePresses,
   handleControlKeys,
@@ -53,8 +59,9 @@ import {
   type SuggestionItem,
 } from "./suggestionSources.js";
 import { claudeGlyphs } from "./symbols.js";
-import { TextBuffer } from "./TextBuffer.js";
+import { RAPID_INPUT_THRESHOLD, TextBuffer } from "./TextBuffer.js";
 import { useTheme } from "./theme/tokens.js";
+import { composeRule } from "./utils/borderLine.js";
 import { isTerminalMouseSequence } from "./utils/mouse.js";
 
 // Small presentational helper to reduce cyclomatic complexity in UserInput
@@ -139,6 +146,25 @@ function composerSuggestionSources(
     agents: agentSourcesFromModelState(services.model.getState()),
     mcp: mcpResourcesFromState(services.mcp.getState()),
   };
+}
+
+/**
+ * The text-plus-Enter chunk, when this chunk is one. A chunk typed into the
+ * paste fallback or the rapid-input buffer keeps its line breaks; a burst long
+ * enough to be a paste is left to that path too.
+ */
+function coalescedEnterFor(
+  input: string,
+  key: any,
+  textBuffer: TextBuffer,
+): CoalescedEnter | null {
+  if (key.shift || textBuffer.isInPasteMode()) {
+    return null;
+  }
+  if (input.length > RAPID_INPUT_THRESHOLD + 2) {
+    return null;
+  }
+  return splitTrailingEnter(input);
 }
 
 /** Case-insensitive over name and description, prefixes first. */
@@ -378,6 +404,7 @@ const UserInput: React.FC<UserInputProps> = ({
 }) => {
   const locale = useLocale();
   const theme = useTheme();
+  const { columns } = useTerminalSize();
   const [textBuffer] = useState(() => new TextBuffer());
   const [inputHistory] = useState(() => new InputHistory());
   const lastEscapePressRef = useRef<number>(0);
@@ -680,6 +707,12 @@ const UserInput: React.FC<UserInputProps> = ({
     }
 
     if ((key.return && !key.shift) || key.tab) {
+      // A bare "/" has an empty filter: Enter belongs to the prompt line, not
+      // the first palette entry. Treat it as no selection so dispatch falls
+      // through and nothing executes.
+      if (slashCommandFilter === "") {
+        return false;
+      }
       if (filteredCommands.length > 0) {
         const selected = filteredCommands[selectedCommandIndex];
         const commandName = selected.name;
@@ -833,6 +866,11 @@ const UserInput: React.FC<UserInputProps> = ({
     if (showSlashCommands && handleSlashCommandNavigation(key)) {
       return true;
     }
+    // A coalesced "text + Enter" read must not have its Enter left in the
+    // buffer by a palette branch that declined to own it.
+    if (coalescedEnterFor(input, key, textBuffer) && input === "/") {
+      return false;
+    }
     if (showFileSearch && handleFileSearchNavigation(input, key)) {
       return true;
     }
@@ -875,6 +913,28 @@ const UserInput: React.FC<UserInputProps> = ({
     if (handleEnterKey(key)) {
       return;
     }
+    // A terminal can deliver the typed run and the Enter together, and some
+    // terminals send Enter as a bare "\n", which Ink also reports as not a
+    // return key. Both must submit rather than insert a line break. Paste
+    // mode and the rapid-input paste fallback own their newlines.
+    const split = coalescedEnterFor(input, key, textBuffer);
+    if (split) {
+      if (split.body) {
+        const handled = textBuffer.handleInput(split.body, key);
+        updateTextBufferState({
+          handled,
+          textBuffer,
+          setInputText,
+          setCursorPosition,
+          updateSlashCommandState,
+          updateFileSearchState,
+          updateBashModeState,
+          inputHistory,
+        });
+      }
+      handleEnterKey({ ...key, return: true, shift: false });
+      return;
+    }
     // "\r" and "\"+Enter break the line instead of submitting.
     const isNewLine = input === "\r" || input === "\\\r";
     const handled = textBuffer.handleInput(isNewLine ? "\n" : input, key);
@@ -895,6 +955,9 @@ const UserInput: React.FC<UserInputProps> = ({
 
   const handleEnterKey = (key: any): boolean => {
     if (key.return && !key.shift) {
+      if (textBuffer.text.trim() === "/") {
+        return true;
+      }
       // Check for backslash continuation
       const beforeCursor = textBuffer.text.slice(0, cursorPosition);
       const trimmedBeforeCursor = beforeCursor.trimEnd();
@@ -1037,7 +1100,7 @@ const UserInput: React.FC<UserInputProps> = ({
     // draft id is the only trigger.
   }, [pendingDraft, textBuffer]);
 
-  useInput((input, key) => {
+  const handleKeystroke = (input: string, key: any): void => {
     // Don't handle any input when disabled; the filter also stands down.
     // Ink splits a terminal reply at every ESC, so it consumes events one at
     // a time and decides whether they are a reply or ordinary keys.
@@ -1076,7 +1139,16 @@ const UserInput: React.FC<UserInputProps> = ({
     }
 
     dispatchTextKeys(currentInput, key);
-  });
+  };
+
+  // Ink re-subscribes its input listener in an effect, so for a moment after a
+  // render the listener still closes over the previous palette state. Enter
+  // arriving in that window used to submit the raw "/language z" instead of
+  // running the selected "zh-CN" child. The ref holds the closure from the
+  // latest render, which is the state the frame on screen was drawn from.
+  const handleKeystrokeRef = useRef(handleKeystroke);
+  handleKeystrokeRef.current = handleKeystroke;
+  useInput((input, key) => handleKeystrokeRef.current(input, key));
 
   const renderInputText = () => {
     // A post-turn suggestion takes the placeholder's place: it reads as a hint
@@ -1176,6 +1248,12 @@ const UserInput: React.FC<UserInputProps> = ({
     return null;
   }
 
+  const composerColor = showBashMode
+    ? "yellow"
+    : isRemoteMode
+      ? "cyan"
+      : theme.accent;
+
   return (
     <Box flexDirection="column">
       {/* One muted row above the composer while the history search is open:
@@ -1262,22 +1340,18 @@ const UserInput: React.FC<UserInputProps> = ({
       )}
 
       {/* Goal, todos and running background work belong to the dock above the
-          rule; the mode badge is embedded in that single top rule. */}
+          rule; the mode badge is embedded in the top rule. */}
       <GoalIndicator />
 
       <TodoIndicator />
 
-      {/* Active mode is embedded in the composer's single top rule. */}
-      <ModeIndicator
-        mode={currentMode}
-        borderColor={
-          showBashMode ? "yellow" : isRemoteMode ? "cyan" : theme.accent
-        }
-      />
+      {/* Active mode is embedded in the composer's top rule; the rule below
+          closes the frame, as in the reference CLI. */}
+      <ModeIndicator mode={currentMode} borderColor={composerColor} />
 
-      {/* The input has no sides, no bottom rule and its own padding: the rule
-          above is the whole frame, as in Claude Code. */}
-      <Box paddingX={1}>
+      {/* The prompt sits flush with the rules above and below, as in the
+          reference CLI; wrapped rows align under the text after the pointer. */}
+      <Box>
         {/* A running turn fades the pointer, the same state as the spinner. */}
         <ComposerPrompt
           bash={showBashMode}
@@ -1287,6 +1361,8 @@ const UserInput: React.FC<UserInputProps> = ({
         />
         {renderInputText()}
       </Box>
+
+      <Text color={composerColor}>{composeRule(columns)}</Text>
     </Box>
   );
 };

@@ -32,7 +32,6 @@ import {
   type OffPeakAutomationTemplate,
 } from "@/settings/automationTemplateCatalog.js";
 import { useAutomationTemplates } from "@/settings/useAutomationTemplates.js";
-import { useOptionalCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useOffPeakTaskStore, type OffPeakCreateDraft } from "@/store/offPeakTaskStore.js";
 import { useMemo } from "react";
 
@@ -54,7 +53,6 @@ export function OffPeakNewTaskEntry({ onOpenAutomations }: OffPeakNewTaskEntryPr
   const providerSettingsView =
     providerSettingsRead.state.status === "ready" ? providerSettingsRead.state.view : null;
   useOffPeakEligibility(sharedSettings, providerSettingsView?.revision);
-  const codingPlanUpgradeDialog = useOptionalCodingPlanUpgradeDialog();
   const entryGate = useCodingPlanEntryGate();
   const grayConfig = useOffPeakTaskStore((state) => state.grayConfig);
   const dismissed = useOffPeakTaskStore((state) => state.newTaskBannerDismissed);
@@ -76,36 +74,6 @@ export function OffPeakNewTaskEntry({ onOpenAutomations }: OffPeakNewTaskEntryPr
       durationMs: 8000,
       position: "top-center",
       variant: "info",
-      actionLabel:
-        entryGate.status === "loading"
-          ? undefined
-          : (entryGate.label ??
-            intl.formatMessage({
-              id: "settings.modelProvider.codingPlan.upgrade",
-            })),
-      onAction:
-        entryGate.status === "error"
-          ? entryGate.retry
-          : () => {
-              const providerId =
-                sharedSettings?.providerFamilyDomain === "bigmodel"
-                  ? BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan
-                  : BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan;
-              const eventText = intl.formatMessage({
-                id: "settings.modelProvider.codingPlan.upgrade",
-              });
-              // 埋点缺失原因：闲时入口此前只传 providerId，购买面板无法建立来源明确的漏斗，
-              // OAuth 前后也没有可延续的归因上下文。点击时冻结一次 context，由全局弹窗跨登录持有。
-              codingPlanUpgradeDialog?.openCodingPlanUpgrade({
-                providerId,
-                initialAudience: "personal",
-                funnelContext: createIdleTimeCodingPlanFunnelContext({
-                  providerId,
-                  eventText,
-                  entryPlanState,
-                }),
-              });
-            },
       dismissible: true,
       dismissLabel: intl.formatMessage({ id: "common.close" }),
     });

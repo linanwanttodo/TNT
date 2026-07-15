@@ -1,4 +1,11 @@
-import { mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -8,6 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createWorkspaceScopedFileService,
   createWorkspaceScopedTerminalService,
+  resolveReadableDirectory,
   resolveWithinWorkspace,
   WORKSPACE_BOUNDARY_PREFIX,
   type DisposableTerminalService,
@@ -96,6 +104,25 @@ describe("the workspace boundary", () => {
     await expect(
       fileService.readTextFile({ path: path.join(outside, "secret.txt") }),
     ).rejects.toThrow(`${WORKSPACE_BOUNDARY_PREFIX}file path`);
+  });
+
+  it("allows a directory browser to read a registered workspace's parent", async () => {
+    const workspace = await tempDir("tnt-ws-scope-parent-ws-");
+    const project = path.join(workspace, "project");
+    await mkdir(project, { recursive: true });
+    const fileService = createWorkspaceScopedFileService(
+      createFileService(),
+      project,
+    );
+
+    expect(
+      await resolveReadableDirectory(project, workspace, "file path"),
+    ).toBe(await realpath(workspace));
+    await expect(fileService.readdir({ path: workspace })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "project", type: "directory" }),
+      ]),
+    );
   });
 
   it("rejects a `..` escape and a symlink that points outside", async () => {

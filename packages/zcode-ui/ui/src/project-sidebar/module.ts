@@ -9,7 +9,6 @@ export const projectSidebarModule = {
     "shared",
     "ui",
     "conversation-workspace-target",
-    "web-remote-control-ui",
     "remote-connection-flow",
     "data-sync",
   ],

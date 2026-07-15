@@ -24,21 +24,48 @@ export function getGitRemoteUrl(remote: string = "origin"): string | null {
   }
 }
 
+const BRANCH_CACHE_TTL_MS = 5_000;
+let branchCache: { cwd: string; branch: string | null; at: number } | null =
+  null;
+
 /**
- * Get the current git branch name
+ * Get the current git branch name.
+ *
+ * The status row re-renders on every streamed chunk, and this lookup spawns
+ * git synchronously on the thread that delivers keystrokes. Caching the answer
+ * for a few seconds turns a long answer from hundreds of spawns into a handful
+ * while still showing a checkout shortly after it happens.
+ *
  * @returns The current branch name or null if not found
  */
-export function getGitBranch(): string | null {
+export function getGitBranch(now = Date.now()): string | null {
+  const cwd = process.cwd();
+  if (
+    branchCache &&
+    branchCache.cwd === cwd &&
+    now - branchCache.at < BRANCH_CACHE_TTL_MS
+  ) {
+    return branchCache.branch;
+  }
+
+  let branch: string | null = null;
   try {
     const result = execFileSync("git", ["branch", "--show-current"], {
       encoding: "utf-8",
-      cwd: process.cwd(),
+      cwd,
       stdio: "pipe",
     });
-    return result.trim() || null;
+    branch = result.trim() || null;
   } catch {
-    return null;
+    branch = null;
   }
+  branchCache = { cwd, branch, at: now };
+  return branch;
+}
+
+/** Drops the cached branch; the next call asks git again. */
+export function resetGitBranchCache(): void {
+  branchCache = null;
 }
 
 /**

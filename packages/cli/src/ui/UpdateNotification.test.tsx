@@ -47,10 +47,10 @@ describe("UpdateNotification", () => {
     vi.clearAllMocks();
   });
 
-  it("should show default message when no update is available", () => {
+  it("hides the installed version when no update is available", () => {
     const frame = frameOf(<UpdateNotification />);
 
-    expect(frame).toContain("◉ TNT v1.0.0");
+    expect(frame ?? "").toBe("");
   });
 
   it("should show update available message when update is available", () => {
@@ -73,7 +73,7 @@ describe("UpdateNotification", () => {
     expect(frame).toContain("◉ Update available: v1.0.1");
   });
 
-  it("shows the installed version while the check runs", () => {
+  it("stays hidden while the check runs", () => {
     mockUseServices.mockReturnValue({
       services: {
         update: {
@@ -90,8 +90,7 @@ describe("UpdateNotification", () => {
 
     const frame = frameOf(<UpdateNotification />);
 
-    expect(frame).toContain("◉ TNT v1.0.0");
-    expect(frame).not.toContain("Checking");
+    expect(frame ?? "").toBe("");
   });
 
   it("should show updating message when updating", () => {
@@ -194,7 +193,7 @@ describe("UpdateNotification", () => {
     expect(frame).toContain("◉ Update available: v1.0.1");
   });
 
-  it("should show default message when update service has no message", () => {
+  it("hides the fallback text when update service has no update", () => {
     mockUseServices.mockReturnValue({
       services: {
         update: {
@@ -211,6 +210,6 @@ describe("UpdateNotification", () => {
 
     const frame = frameOf(<UpdateNotification />);
 
-    expect(frame).toContain("◉ TNT");
+    expect(frame ?? "").toBe("");
   });
 });

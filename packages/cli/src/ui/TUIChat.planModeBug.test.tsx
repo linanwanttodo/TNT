@@ -58,8 +58,8 @@ describe("TUIChat - plan mode via the Shift+Tab cycle", () => {
 
       // c) Make sure the string "[Plan]" is on the screen
       expect(frame!).toContain("Plan]");
-      // The mode label is embedded in the composer's top border line.
-      expect(frame!).toMatch(/╭─\[Plan\]/);
+      // The mode label is embedded in the composer's top rule.
+      expect(frame!).toContain("─[Plan]");
 
       // d) Successfully send a message without error
       const testMessage = "Can you help me analyze this code?";

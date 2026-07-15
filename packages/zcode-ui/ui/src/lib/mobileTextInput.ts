@@ -68,32 +68,12 @@ export function useIsMobileCompactViewport(): boolean {
   return isMobileCompactViewport;
 }
 
-export function resolveChatEnterSubmits({
-  isMobileTextInputViewport,
-  preferEnterNewline,
-}: {
-  isMobileTextInputViewport: boolean;
-  preferEnterNewline: boolean;
-}): boolean {
-  return !(preferEnterNewline && isMobileTextInputViewport);
-}
-
 export function resolveChatEnterShortcut({
   enterSubmits,
 }: {
   enterSubmits: boolean;
 }): "Enter" | undefined {
   return enterSubmits ? "Enter" : undefined;
-}
-
-export function shouldAvoidIosInputFocusZoom({
-  isMobileTextInputViewport,
-  isWebRemoteControl,
-}: {
-  isMobileTextInputViewport: boolean;
-  isWebRemoteControl: boolean;
-}): boolean {
-  return isWebRemoteControl && isMobileTextInputViewport;
 }
 
 export function resolveMobileInputTextSizeClassName({

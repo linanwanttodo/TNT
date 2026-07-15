@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 import { cn } from "@/components/lib/utils.js";
+import { childDirectoryPath, parentDirectoryPath } from "./DirectoryBrowser.path.js";
 
 export function createDirectoryBrowserReadParams(
   path: string,
@@ -175,9 +176,7 @@ export function DirectoryBrowser({
   }, [initialPath, navigationRevision]);
 
   const handleGoUp = () => {
-    // 提取父目录路径
-    const parent = currentPath.replace(/\/[^/]+\/?$/, "") || "/";
-    navigateTo(parent);
+    void navigateTo(parentDirectoryPath(currentPath));
   };
 
   const handleInputSubmit = (e: React.FormEvent) => {
@@ -310,7 +309,9 @@ export function DirectoryBrowser({
             return (
               <button
                 key={entry.path}
-                onClick={() => navigateTo(entry.path)}
+                onClick={() =>
+                  void navigateTo(childDirectoryPath(currentPath || ".", entry.name))
+                }
                 className="flex w-full shrink-0 cursor-pointer items-center gap-2 px-3 py-2 text-left text-ui-base transition hover:bg-hover/50"
               >
                 <EntryIcon className="size-4 shrink-0 text-foreground-subtle" />

@@ -11,32 +11,28 @@ const buildLine = (width: number, label?: string) => {
 };
 
 describe("composeTopBorder", () => {
-  it("embeds a mode label at the top-left of a border of the requested width", () => {
+  it("embeds a mode label after the first cell of a rule of the requested width", () => {
     const { line } = buildLine(20, "[plan]");
 
-    expect(line.startsWith("╭─[plan]")).toBe(true);
-    expect(line.endsWith("╮")).toBe(true);
+    expect(line.startsWith("─[plan]")).toBe(true);
+    expect(line.endsWith("─")).toBe(true);
     expect(line).toHaveLength(20);
-    expect(line.slice("╭─[plan]".length, -1)).toHaveLength(11);
+    expect(line.slice("─[plan]".length)).toHaveLength(13);
+    expect(line.slice("─[plan]".length).replace(/─/g, "")).toBe("");
   });
 
-  it("produces a plain rounded top edge when no label is present", () => {
+  it("produces a plain rule when no label is present", () => {
     const { line } = buildLine(12);
-    const inner = line.slice(1, -1);
 
-    expect(line.startsWith("╭")).toBe(true);
-    expect(line.endsWith("╮")).toBe(true);
     expect(line).toHaveLength(12);
-    expect(inner).toHaveLength(10);
-    expect(inner.replace(/─/g, "")).toBe("");
+    expect(line.replace(/─/g, "")).toBe("");
   });
 
   it("grows the line instead of dropping the label in a tiny terminal", () => {
     const { line, width } = buildLine(4, "[auto]");
 
-    expect(width).toBe(10);
-    expect(line).toHaveLength(10);
-    expect(line.startsWith("╭─[auto]")).toBe(true);
-    expect(line.endsWith("╮")).toBe(true);
+    expect(width).toBe(7);
+    expect(line).toHaveLength(7);
+    expect(line.startsWith("─[auto]")).toBe(true);
   });
 });

@@ -132,7 +132,6 @@ const common = {
   workspacePath: "/example",
   theme,
   isDesktop: !mobile,
-  isWebRemoteControl: mobile,
   onSelectTask: (...args: unknown[]) => Object.assign(window, { __selectedTask: args }),
   onStartDraftInWorkspace: noop,
   onOpenFolderFromWorkspaceMenu: noop,

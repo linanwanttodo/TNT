@@ -32,13 +32,12 @@ screen.
 
 The first screen's header sits in the terminal's top-left corner: a compact
 four-row `TNT` wordmark in solid light blue, with the name and version
-top-aligned to its right and the selected model one line below
-(`src/ui/components/BrandBanner.tsx`). It belongs to the live frame and is
-only rendered while the conversation has no non-system message, so the first
-submitted message removes it instead of leaving the banner above the
-transcript. A narrow terminal or `NO_COLOR` falls back to the two-line
-half-block wordmark with the version beside it
-(`src/startup/asciiArt.ts`).
+top-aligned to its right (`src/ui/components/BrandBanner.tsx`). The selected
+model is in the status row, not the header. It is the first row of the
+transcript and stays there as the conversation grows, scrolling up with the
+content the way the reference CLI's header does. A narrow terminal or
+`NO_COLOR` falls back to the two-line half-block wordmark with the version
+beside it (`src/startup/asciiArt.ts`).
 
 ## Terminal title
 
@@ -109,12 +108,13 @@ built. The choices below keep their numbers and shortcuts
 
 ## Composer
 
-The input has one rounded rule above it and no sides or bottom rule. The mode
-badge is embedded in that rule, and the rule's colour reports the mode. The
-prompt marker is `❯` in the subtle text colour, `$` in shell mode and `◉` in
-remote mode; while a turn runs the marker dims instead of moving. The session
-goal and the todo list render above the rule, not between it and the input. At
-most five unfinished todos are drawn; completed items appear only in the
+The input is framed by a full-width rule above and a full-width rule below,
+with no side rails, as in the reference CLI. The mode badge is embedded in the
+top rule, and both rules' colour reports the mode. The prompt marker is `❯` in
+the subtle text colour, `$` in shell mode and `◉` in remote mode; while a turn
+runs the marker dims instead of moving. The session goal and the todo list
+render above the top rule, not between it and the input. At most five
+unfinished todos are drawn; completed items appear only in the
 `Todos done/total` count, and unfinished items past the fifth collapse into a
 `· +N` counter on the same header, so the panel cannot push the input up by
 more than six rows (`src/ui/UserInput.tsx`,
@@ -208,18 +208,19 @@ The status bar is one row. Left to right:
 - the count of running background jobs, clickable and collapsed per job kind, when
   any job is live
 
-The right end holds the model name, the reasoning depth when the selected model declares
-one, and the update state. The context occupancy, cache ratio, output tokens and cost
-are not on the row: `/cost` prints them on demand
-(`src/ui/commands/handlers/cost.ts`). The location side truncates first on a narrow
-terminal; the bar never wraps onto a second row.
+The right end holds the model name and the reasoning depth when the selected model
+declares one. The update badge appears only while an update is available or being
+applied; the installed version is not repeated here, the header carries it. The
+context occupancy, cache ratio, output tokens and cost are not on the row: `/cost`
+prints them on demand (`src/ui/commands/handlers/cost.ts`). The location side
+truncates first on a narrow terminal; the bar never wraps onto a second row.
 
 No GitHub owner or repository is displayed. The status bar resolves the branch only and
 never looks up the remote.
 
 ## Mode badge
 
-The composer's single top rule carries `[Manual]` in white, `[Accept edits]` in cyan,
+The composer's top rule carries `[Manual]` in white, `[Accept edits]` in cyan,
 `[Plan]` in blue, `[Auto]` in green, or `[Bypass permissions]` in red
 (`src/ui/components/ModeIndicator.tsx`). Agent mode draws no badge and the plain rule.
 The mode does not change the status bar.

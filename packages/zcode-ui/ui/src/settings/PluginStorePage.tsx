@@ -5,10 +5,7 @@ import { reportAppTelemetryEvent } from "@/lib/appTelemetry.js";
 /* eslint-disable max-lines -- 插件商店容器统一编排列表/详情、市场源对话框、卸载确认、试用跳转与技能刷新收尾，集中维护保证交互一致。 */
 import { PluginAddMenu } from "@/conversation-workspace-target/PluginAddMenu.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useStore } from "zustand";
 import { useOptionalTabStore } from "@/store/TabStoreProvider.js";
-import { isWorkspaceTab } from "@/store/tabStore.js";
-import { marketingNavigation, finishMarketingNavigation } from "@/lib/marketingNavigation.js";
 import { ArrowLeft, RefreshCw, Store } from "lucide-react";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { Button } from "@/components/ui/button.js";
@@ -60,7 +57,6 @@ interface PluginStorePageProps {
   isDesktop?: boolean;
   isMacDesktop?: boolean;
   isWindowsDesktop?: boolean;
-  isWebRemoteControl?: boolean;
   workspacePath?: string | null;
   workspaceIdentity?: string;
   onCreateTask?: (request?: CreateTaskRequest) => void;
@@ -78,7 +74,6 @@ export function PluginStorePage({
   isDesktop = false,
   isMacDesktop = false,
   isWindowsDesktop = false,
-  isWebRemoteControl = false,
   workspacePath,
   workspaceIdentity,
   onCreateTask,
@@ -137,10 +132,10 @@ export function PluginStorePage({
         : view === "detail"
           ? ("store_detail" as const)
           : ("store_list" as const),
-      client_kind: isWebRemoteControl ? ("mobile" as const) : ("desktop" as const),
+      client_kind: "desktop" as const,
     };
     return withPluginTelemetry(pluginManagementService, telemetry);
-  }, [pluginManagementService, embedded, isWebRemoteControl, view]);
+  }, [pluginManagementService, embedded, view]);
 
   const [detailPluginId, setDetailPluginId] = useState<string | null>(null);
   const [segment, setSegment] = useState<PluginStoreSegment>("public");
@@ -187,11 +182,11 @@ export function PluginStorePage({
         ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
         withPluginTelemetry(pluginManagementService, {
           trigger: "automatic",
-          client_kind: isWebRemoteControl ? "mobile" : "desktop",
+          client_kind: "desktop",
         }),
       );
     }
-  }, [marketplaces, isWebRemoteControl, pluginManagementService, updateMarketplace]);
+  }, [marketplaces, pluginManagementService, updateMarketplace]);
 
   const items = useMemo(
     () =>
@@ -214,16 +209,6 @@ export function PluginStorePage({
   );
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const detailItem = detailPluginId ? (itemById.get(detailPluginId) ?? null) : null;
-  const marketingRequest = useStore(marketingNavigation, (state) => state.request);
-  const isMarketingDestinationVisible = useOptionalTabStore((state) => {
-    const tab = state.tabs.find((tab) => tab.id === state.activeTabId);
-    return Boolean(
-      tab &&
-      isWorkspaceTab(tab) &&
-      (tab.workspaceIdentity?.trim() || tab.workspacePath) ===
-        (workspaceIdentity?.trim() || workspacePath),
-    );
-  });
   useEffect(() => {
     const root = rootRef.current;
     if (!root || view === "manage" || typeof IntersectionObserver === "undefined") return;
@@ -245,7 +230,7 @@ export function PluginStorePage({
                 : view === "detail"
                   ? "store_detail"
                   : "store_list",
-              client_kind: isWebRemoteControl ? "mobile" : "desktop",
+              client_kind: "desktop",
               ...(view === "detail" && detailPluginId ? { plugin_id: detailPluginId } : {}),
             },
           },
@@ -256,44 +241,7 @@ export function PluginStorePage({
     });
     observer.observe(root);
     return () => observer.disconnect();
-  }, [platform, view, detailPluginId, embedded, isWebRemoteControl]);
-  useEffect(() => {
-    if (embedded || marketingRequest?.target.page !== "plugin_marketplace") return;
-    if (!isMarketingDestinationVisible) return;
-    const pluginId = marketingRequest.target.plugin_id;
-    if (!workspacePath) {
-      finishMarketingNavigation(marketingRequest.id, new Error("marketing_navigation_unavailable"));
-      return;
-    }
-    if (
-      loading ||
-      loadedWorkspacePath !== workspacePath ||
-      loadedWorkspaceIdentity !== normalizedWorkspaceIdentity
-    )
-      return;
-    if (error || (pluginId && !itemById.has(pluginId))) {
-      finishMarketingNavigation(marketingRequest.id, new Error("marketing_plugin_unavailable"));
-    } else if (pluginId ? view === "detail" && detailPluginId === pluginId : view === "store") {
-      finishMarketingNavigation(marketingRequest.id);
-    } else {
-      setDetailPluginId(pluginId ?? null);
-      setView(pluginId ? "detail" : "store");
-      setQuery("");
-    }
-  }, [
-    embedded,
-    marketingRequest,
-    isMarketingDestinationVisible,
-    workspacePath,
-    loading,
-    loadedWorkspacePath,
-    loadedWorkspaceIdentity,
-    normalizedWorkspaceIdentity,
-    error,
-    itemById,
-    view,
-    detailPluginId,
-  ]);
+  }, [platform, view, detailPluginId, embedded]);
   // 插件自身 warning 诊断（如声明的技能路径扫描为空）：详情高级区展示，避免静默失败。
   const detailPluginInfo = detailItem?.info;
   const detailPluginWarnings = detailPluginInfo
@@ -634,7 +582,6 @@ export function PluginStorePage({
               testId="plugin-store-create"
               variant="secondary"
               size="lg"
-              isWebRemoteControl={isWebRemoteControl}
               onCreateTask={onCreateTask}
               onAddMarketplace={() => {
                 setAddMarketplaceError(null);
@@ -688,7 +635,6 @@ export function PluginStorePage({
             isWindowsDesktop={isWindowsDesktop}
             workspacePath={workspacePath}
             workspaceIdentity={workspaceIdentity}
-            isWebRemoteControl={isWebRemoteControl}
             initialScopeKey={managementScope}
             onScopeChange={setManagementScope}
             onCreateTask={onCreateTask}
@@ -807,7 +753,7 @@ export function PluginStorePage({
                   schema_version: "1",
                   action: "search",
                   entry: embedded ? "side_pane_market" : "store_list",
-                  client_kind: isWebRemoteControl ? "mobile" : "desktop",
+                  client_kind: "desktop",
                 },
               },
               "plugin-discovery",

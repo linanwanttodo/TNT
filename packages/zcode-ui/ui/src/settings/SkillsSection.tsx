@@ -148,7 +148,6 @@ interface SkillsSectionProps {
   workspaceIdentity?: string;
   remoteSessionId?: string;
   remoteTarget?: RemoteTarget;
-  isWebRemoteControl?: boolean;
   scopeFilter: "user" | "workspace";
   searchQuery: string;
   onVisibleCountChange?: (count: number) => void;
@@ -168,7 +167,6 @@ export function SkillsSection({
   workspaceIdentity,
   remoteSessionId,
   remoteTarget,
-  isWebRemoteControl = false,
   scopeFilter,
   searchQuery,
   onVisibleCountChange,
@@ -253,7 +251,7 @@ export function SkillsSection({
   const workspaceLabel = getWorkspaceBasename(activeWorkspacePath);
   const connectedRemoteSyncTarget =
     targetServiceResolution.rpcReady &&
-    shouldShowRemoteSyncActions({ remoteSessionId, remoteTarget, isWebRemoteControl }) &&
+    shouldShowRemoteSyncActions({ remoteSessionId, remoteTarget }) &&
     activeWorkspacePath
       ? remoteTarget
       : null;

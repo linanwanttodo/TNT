@@ -190,6 +190,29 @@ describe("provider settings mutations", () => {
     expect(readDocument().rules).toEqual([{ name: "keep me", rule: "stay" }]);
   });
 
+  it("maps every API format choice to a stable local family", async () => {
+    const settings = service();
+    for (const templateId of ["openai", "anthropic", "gemini", "ollama"]) {
+      await expect(
+        settings.createPersonalProvider({ templateId }),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          providerId: expect.any(String),
+        }),
+      );
+    }
+
+    await expect(
+      settings.savePersonalProviderOverlay("openai", {
+        api: { type: "openai-responses" },
+        access: { type: "api-key", apiKey: "key" },
+      } as never),
+    ).resolves.toBeDefined();
+    expect(readModels().find((model) => model.name === "local")).toMatchObject({
+      useResponsesApi: true,
+    });
+  });
+
   it("updates every model of a provider when its overlay changes", async () => {
     const settings = service();
 

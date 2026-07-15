@@ -5,7 +5,6 @@ import type {
   EditorInfo,
   GitRepositorySummary,
   RemoteTarget,
-  UserInfo,
 } from "@zcode/shared";
 import { useState } from "react";
 import { TID_WORKSPACE_HEADER } from "@zcode/shared/test-ids";
@@ -56,7 +55,6 @@ export function WorkspaceHeader({
   activeTaskChangeSummary,
   hasUpdateReady,
   activeTaskId,
-  user,
   activeTraceId,
   activeSessionId,
   activeTaskProvider,
@@ -75,7 +73,6 @@ export function WorkspaceHeader({
   isMacDesktop,
   isMacFullscreen,
   isWindowsDesktop,
-  isWebRemoteControl = false,
 
   isDesktop,
   simplifyForNarrowRemote = false,
@@ -103,7 +100,6 @@ export function WorkspaceHeader({
   activeTaskChangeSummary?: ZCodeTaskChangeSummary | null;
   hasUpdateReady: boolean;
   activeTaskId: string | null;
-  user?: UserInfo | null;
   activeTraceId: string | null;
   activeSessionId: string | null;
   activeTaskProvider: ZCodeProvider | null;
@@ -123,7 +119,6 @@ export function WorkspaceHeader({
   isMacFullscreen?: boolean;
   isWindowsDesktop?: boolean;
   reserveWindowControls?: boolean;
-  isWebRemoteControl?: boolean;
   windowsWindowControlsRightPaddingPx?: number;
   isDesktop?: boolean;
   simplifyForNarrowRemote?: boolean;
@@ -213,7 +208,6 @@ export function WorkspaceHeader({
             isMacDesktop={isMacDesktop}
             isMacFullscreen={isMacFullscreen}
             isWindowsDesktop={isWindowsDesktop}
-            isWebRemoteControl={isWebRemoteControl}
             simplifyForNarrowRemote={simplifyForNarrowRemote}
             selectedEditor={selectedEditor}
             onReloadSession={onReloadSession}
@@ -227,13 +221,11 @@ export function WorkspaceHeader({
         <WorkspaceHeaderActionSection
           variant={variant}
           activeTaskId={activeTaskId}
-          user={user}
           readOnlyReason={readOnlyReason}
           workspaceAbsPath={workspaceAbsPath}
           workspaceIdentity={workspaceIdentity}
           remoteSessionId={remoteSessionId}
           remoteTarget={remoteTarget}
-          isWebRemoteControl={isWebRemoteControl}
           isDesktop={isDesktop}
           isTerminalOpen={isTerminalOpen}
           isSidePaneOpen={isSidePaneOpen}

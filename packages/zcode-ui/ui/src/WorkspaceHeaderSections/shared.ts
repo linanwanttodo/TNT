@@ -5,7 +5,6 @@ import type {
   EditorInfo,
   GitRepositorySummary,
   RemoteTarget,
-  UserInfo,
 } from "@zcode/shared";
 
 export interface WorkspaceHeaderState {
@@ -53,7 +52,6 @@ export interface WorkspaceHeaderTitleSectionProps {
   isMacDesktop?: boolean;
   isMacFullscreen?: boolean;
   isWindowsDesktop?: boolean;
-  isWebRemoteControl?: boolean;
   simplifyForNarrowRemote?: boolean;
   selectedEditor: EditorInfo | null;
   compact?: boolean;
@@ -62,13 +60,11 @@ export interface WorkspaceHeaderTitleSectionProps {
 export interface WorkspaceHeaderActionSectionProps {
   variant?: WorkspaceHeaderVariant;
   activeTaskId?: string | null;
-  user?: UserInfo | null;
   readOnlyReason?: string;
   workspaceAbsPath: string;
   workspaceIdentity?: string;
   remoteSessionId?: string;
   remoteTarget?: RemoteTarget;
-  isWebRemoteControl?: boolean;
   isDesktop?: boolean;
   isTerminalOpen: boolean;
   isSidePaneOpen: boolean;

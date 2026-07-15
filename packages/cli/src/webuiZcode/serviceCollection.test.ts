@@ -24,6 +24,7 @@ import {
   IProjectService,
   IProviderSettingsService,
   IRemoteProjectService,
+  ISettingsSyncService,
   ISettingService,
   ISystemService,
   ITaskGroupService,
@@ -160,6 +161,9 @@ describe("buildZcodeServiceCollection", () => {
     expect(
       await collection.get(IModelSelectionService).getView(),
     ).toBeDefined();
+    expect(collection.get(ISettingsSyncService)).toBe(
+      bundle.settingsSyncService,
+    );
     expect(await collection.get(IRemoteProjectService).readDirectory()).toEqual(
       { hosts: [], entries: [] },
     );
@@ -192,6 +196,7 @@ describe("buildZcodeServiceCollection", () => {
         IHooksService.channelName,
         IMemoryService.channelName,
         IUsageStatsService.channelName,
+        ISettingsSyncService.channelName,
       ]),
     );
   });

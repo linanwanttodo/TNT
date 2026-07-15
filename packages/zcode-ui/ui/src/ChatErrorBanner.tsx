@@ -1,7 +1,6 @@
 import { resolveRequestSecurityErrorMessageId } from "@/request-security-edition/errors.js";
 import { getRemoteConnectionFailureCode } from "@/lib/remoteWorkspaceServiceError.js";
 import { formatRemoteConnectionError } from "@/lib/remoteConnectionPresentation.js";
-import { CodingPlanEntryButton } from "@/settings/CodingPlanEntryButton.js";
 /**
  * ChatErrorBanner — 错误提示组件
  *
@@ -18,7 +17,7 @@ import {
   TID_CHAT_ERROR_BANNER,
   TID_CHAT_ERROR_HOOK_ICON,
 } from "@zcode/shared/test-ids";
-import { AnchorIcon, CopyIcon, InfoIcon, RocketIcon, SettingsIcon, X } from "lucide-react";
+import { AnchorIcon, CopyIcon, InfoIcon, SettingsIcon, X } from "lucide-react";
 import { useZCodeIntl } from "./i18n/IntlProvider.js";
 import type { IntlInstance } from "./i18n/IntlProvider.js";
 import { Button } from "./components/ui/button.js";
@@ -33,7 +32,6 @@ import { cn } from "./components/lib/utils.js";
 import { toast } from "./components/ui/toast.js";
 import { useFeedbackStore } from "@/feedback/feedbackStore.js";
 import { getProviderBusinessErrorMessageId } from "@/lib/providerBusinessError.js";
-import { getHostCapabilities } from "@/host-capabilities.js";
 import { buildErrorFeedbackDescription } from "@/lib/errorFeedbackDraft.js";
 import {
   isSuspiciousEmptyModelResultMessage,
@@ -109,15 +107,7 @@ export function resolveChatErrorBannerDisplayMessage(
       formatMessage: intl.formatMessage,
     });
   if (isModelConfigMissingError(error)) {
-    if (!getHostCapabilities().codingPlan) {
-      return intl.formatMessage({ id: "chat.error.noAvailableModel.local" });
-    }
-    return intl.formatMessage({
-      id:
-        modelConfigTarget === "remote"
-          ? "chat.error.remoteNoAvailableModel"
-          : "chat.error.noAvailableModel",
-    });
+    return intl.formatMessage({ id: "chat.error.noAvailableModel.local" });
   }
 
   if (error.code === "CLAUDE_UNKNOWN_COMMAND") {
@@ -178,7 +168,6 @@ export function ChatErrorBanner({
   retryDisabled,
   onDismiss,
   onOpenModelSettings,
-  onOpenUpgrade,
   modelConfigTarget = "local",
   onReconnect,
   remoteKind,
@@ -191,7 +180,6 @@ export function ChatErrorBanner({
   retryDisabled?: boolean;
   onDismiss?: () => void;
   onOpenModelSettings?: () => void;
-  onOpenUpgrade?: () => void;
   modelConfigTarget?: ChatErrorBannerModelConfigTarget;
 }) {
   const { intl } = useZCodeIntl();
@@ -307,24 +295,6 @@ export function ChatErrorBanner({
 
         {modelConfigMissing ? (
           <>
-            {onOpenUpgrade && getHostCapabilities().codingPlan ? (
-              <CodingPlanEntryButton
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={onOpenUpgrade}
-                className={cn(
-                  actionButtonClassName,
-                  "button-gradient gap-1.5 text-white hover:bg-transparent hover:opacity-90 dark:bg-[#484A58] dark:hover:bg-[#484A58]",
-                )}
-                aria-label={intl.formatMessage({
-                  id: "chat.quota.action.upgrade",
-                })}
-              >
-                <RocketIcon className="size-3.5" />
-                {intl.formatMessage({ id: "chat.quota.action.upgrade" })}
-              </CodingPlanEntryButton>
-            ) : null}
             <Button
               type="button"
               variant="outline"
