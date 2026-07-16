@@ -23,6 +23,12 @@ export interface WebUiServiceOptions {
    * launch generates a fresh token.
    */
   persistToken?: boolean;
+  /**
+   * Config file for the lazy service initialization a transport host (the
+   * serve daemon) runs on first use. An eager host that already initialized
+   * the registry ignores it.
+   */
+  config?: string;
 }
 
 export interface WebUiHandle {

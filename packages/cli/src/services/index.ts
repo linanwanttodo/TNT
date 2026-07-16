@@ -31,6 +31,7 @@ import {
   ApiClientServiceState,
   ConfigServiceState,
   MCPServiceState,
+  ModelServiceState,
   SERVICE_NAMES,
   ServiceInitOptions,
 } from "./types.js";
@@ -325,6 +326,37 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   logger.debug("Service registry initialized");
 
   startAutomationScheduler();
+}
+
+let lazyServicesReady: Promise<void> | null = null;
+
+/**
+ * The shared lazy entry for hosts that start without the registry (the serve
+ * daemon, the app-server). A ready model means this process already ran
+ * initialization (TUI, `tnt webui`); running it again would re-run every
+ * factory, because `load` does not skip ready services. Concurrent callers
+ * share the one attempt, and a throw resets it so the next caller can retry.
+ */
+export function ensureServicesInitialized(
+  initOptions: ServiceInitOptions = { headless: true },
+): Promise<void> {
+  const current = serviceContainer.getSync<ModelServiceState>(
+    SERVICE_NAMES.MODEL,
+  );
+  if (
+    current.state === "ready" &&
+    current.value?.llmApi &&
+    current.value.model
+  ) {
+    return Promise.resolve();
+  }
+  lazyServicesReady ??= initializeServices(initOptions)
+    .then(() => undefined)
+    .catch((error) => {
+      lazyServicesReady = null;
+      throw error;
+    });
+  return lazyServicesReady;
 }
 
 /**

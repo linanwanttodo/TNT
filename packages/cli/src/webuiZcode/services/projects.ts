@@ -7,12 +7,14 @@ import {
   IProjectService,
   type IFileService,
   type ProjectDirectories,
+  type ProjectTask,
   type ProjectTaskRef,
   type ProjectTree,
   type SaveProjectInput,
   type VirtualProject,
 } from "@zcode/services";
 
+import { sessionStore, type SessionMeta } from "../../session/store.js";
 import { logger } from "../../utils/logger.js";
 
 import { canonicalWorkspacePath } from "./workspaceScope.js";
@@ -117,6 +119,35 @@ function byPosition(
 }
 
 /**
+ * A TNT session is the shell's task. The sidebar and the first-send promotion
+ * both read tasks from this tree, so a session that is not projected here is
+ * invisible: the pane never leaves its draft even though the turn ran.
+ */
+function toProjectTask(
+  meta: SessionMeta,
+  record: LocalProjectRecord,
+): ProjectTask {
+  const createdAt = Date.parse(meta.dateCreated);
+  const updatedAt = Date.parse(meta.updatedAt ?? meta.dateCreated);
+  return {
+    taskId: meta.sessionId,
+    traceId: meta.sessionId as ProjectTask["traceId"],
+    title: meta.title || meta.firstUserMessage || meta.sessionId,
+    workspacePath: meta.workspaceDirectory || record.path,
+    ...(meta.workspaceIdentity
+      ? { workspaceIdentity: meta.workspaceIdentity }
+      : {}),
+    createdAt: Number.isFinite(createdAt) ? createdAt : 0,
+    updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+    mode: "default",
+    archived: meta.archived === true,
+    projectId: record.id,
+    hostId: HOST_ID,
+    pinned: false,
+  };
+}
+
+/**
  * The fallback for callers that do not inject a catalog (tests, a bare host).
  * It behaves like the persisted one but keeps records for this instance only.
  */
@@ -211,13 +242,12 @@ function unknownProject(id: string): Error {
 /**
  * The shell's project surface backed by the real local workspaces the operator
  * opened. The served workspace is always the host project; every other entry
- * is a directory in the process-wide catalog.
- *
- * TNT has no project task database: its sessions are shown by the session list
- * and are not shell tasks, so `tasks` stays empty and `moveTask` rejects with
- * that reason rather than inventing a mapping. Directory reads still go
- * through the workspace-scoped file service, so a path outside the registered
- * roots (or through a symlink that leaves them) is rejected there.
+ * is a directory in the process-wide catalog. Tasks are the workspace's
+ * sessions, read from the session store; there is no separate task database,
+ * so moving a task between projects rejects rather than inventing a mapping.
+ * Directory reads still go through the workspace-scoped file service, so a
+ * path outside the registered roots (or through a symlink that leaves them) is
+ * rejected there.
  */
 export function createTntProjectService(
   options: TntProjectServiceOptions,
@@ -383,11 +413,19 @@ export function createTntProjectService(
     },
     async readTree(params): Promise<ProjectTree> {
       assertLocalHost(params?.hostId);
+      const records = activeRecords(params?.includeDeleted === true);
       return {
-        projects: activeRecords(params?.includeDeleted === true).map(toProject),
-        // TNT sessions are not shell tasks; there is no task/project mapping
-        // to report until one is implemented.
-        tasks: [],
+        projects: records.map(toProject),
+        tasks: records.flatMap((record) =>
+          sessionStore
+            .list({
+              cwd: record.path,
+              includeEmpty: true,
+              includeSubagents: false,
+              includeArchived: true,
+            })
+            .map((meta) => toProjectTask(meta, record)),
+        ),
       };
     },
     async saveProject(input) {

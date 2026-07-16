@@ -1,10 +1,8 @@
+import { logger } from "../utils/logger.js";
+
 import type { ConfigServiceState } from "./types.js";
 
-import {
-  initializeServices,
-  serviceContainer,
-  SERVICE_NAMES,
-} from "./index.js";
+import { serviceContainer, SERVICE_NAMES } from "./index.js";
 
 /**
  * The model list the web shell renders. It lives in the services group so the
@@ -26,16 +24,33 @@ export interface WebUiModelSource {
   selected?: string | null;
 }
 
+/**
+ * Reads the config the host process already loaded. It must not call
+ * initializeServices again: `load` runs a factory even when the service is
+ * ready, so a second pass re-ran ConfigService.initialize inside the live
+ * serve process, which failed and left CONFIG in its error state - the shell
+ * then saw no models at all. `get` returns a ready value as-is and only loads
+ * a service that has not started yet.
+ */
 export async function readWebUiModelSource(): Promise<WebUiModelSource> {
-  await initializeServices({ headless: true });
-  const result = serviceContainer.getSync<ConfigServiceState>(
-    SERVICE_NAMES.CONFIG,
-  );
-  const config = result.state === "ready" ? result.value?.config : null;
-  const models = (config?.models ?? []).filter(
+  let config: ConfigServiceState | null = null;
+  try {
+    config = await serviceContainer.get<ConfigServiceState>(
+      SERVICE_NAMES.CONFIG,
+    );
+  } catch (error) {
+    logger.debug("webui model source: config is unavailable", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  const models = (config?.config?.models ?? []).filter(
     (model): model is NonNullable<typeof model> =>
       typeof model?.name === "string" && model.name.length > 0,
   );
+  logger.debug("webui model source read", {
+    configPath: config?.configPath,
+    models: models.length,
+  });
   return {
     models: models.map((model) => ({
       name: model.name,
@@ -47,7 +62,6 @@ export async function readWebUiModelSource(): Promise<WebUiModelSource> {
       useResponsesApi: model.useResponsesApi,
       roles: model.roles,
     })),
-    selected:
-      result.state === "ready" ? result.value?.selectedModel : undefined,
+    selected: config?.selectedModel,
   };
 }

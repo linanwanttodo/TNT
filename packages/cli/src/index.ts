@@ -468,6 +468,7 @@ program
         json: mergedOptions.json,
         handshakeFile: mergedOptions.handshakeFile,
         tui: mergedOptions.tui,
+        config: mergedOptions.config,
       });
       return;
     }

@@ -31,6 +31,8 @@ import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
 import type { WebUiHandle, WebUiServiceOptions } from "./webuiTypes.js";
 
+import { ensureServicesInitialized } from "./index.js";
+
 export type { WebUiHandle, WebUiServiceOptions };
 export { resolveWebUiDist, webuiDistCandidates };
 export type { WebUiDist };
@@ -136,9 +138,21 @@ export class WebUiService {
     try {
       const hostWorkspacePath =
         this.resolveSession(options).workspaceDirectory || process.cwd();
+      // A transport host (the serve daemon) starts without the registry: the
+      // first model-list read or turn brings it up here, honoring --config.
+      // An eager host (`tnt webui`) already holds a ready model, so this is a
+      // no-op there.
+      const ensureServices = (): Promise<void> =>
+        ensureServicesInitialized({
+          headless: true,
+          options: { config: options.config },
+        });
       const { WorkspaceEngines } =
         await import("../webuiZcode/workspaceEngines.js");
-      const engines = new WorkspaceEngines({ hostWorkspacePath });
+      const engines = new WorkspaceEngines({
+        hostWorkspacePath,
+        hostProtocolOptions: { ensureServices },
+      });
       this.engines = engines;
 
       // Projects the operator opened in an earlier run must be allowed roots
@@ -171,7 +185,10 @@ export class WebUiService {
             workspaceRoots: () => engines.roots(),
             workspaceEngines: engines,
             projectCatalog,
-            modelSelectionSource: readWebUiModelSource,
+            modelSelectionSource: async () => {
+              await ensureServices();
+              return readWebUiModelSource();
+            },
           }),
       });
 
