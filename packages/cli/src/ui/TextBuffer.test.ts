@@ -523,6 +523,78 @@ describe("TextBuffer", () => {
         expect(buffer.isInPasteMode()).toBe(false);
         expect(buffer.text).toBe(content);
       });
+
+      // The terminal coalesces reads and ink only splits at ESC, so a marker
+      // arrives glued to the text around it as often as alone. An end marker
+      // matched by whole-string equality used to be swallowed into the paste
+      // buffer and strand paste mode with the keyboard silently buffered.
+      it("should split a glued start marker from its payload", () => {
+        buffer.handleInput("[200~abc", { ctrl: false, meta: false } as any);
+
+        expect(buffer.isInPasteMode()).toBe(true);
+        expect(buffer.text).toBe(""); // Still buffered silently
+
+        buffer.handleInput("[201~", { ctrl: false, meta: false } as any);
+        expect(buffer.text).toBe("abc");
+      });
+
+      it("should insert text glued to an end marker in one event", () => {
+        buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+        buffer.handleInput("abc", { ctrl: false, meta: false } as any);
+
+        buffer.handleInput("[201~def", { ctrl: false, meta: false } as any);
+
+        expect(buffer.isInPasteMode()).toBe(false);
+        expect(buffer.text).toBe("abcdef");
+      });
+
+      it("should echo CJK text glued around an end marker", () => {
+        buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+
+        buffer.handleInput("你[201~好", { ctrl: false, meta: false } as any);
+
+        expect(buffer.isInPasteMode()).toBe(false);
+        expect(buffer.text).toBe("你好");
+      });
+
+      it("should flush the buffer when the end marker never arrives", () => {
+        vi.useFakeTimers();
+        try {
+          buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+          buffer.handleInput("abc", { ctrl: false, meta: false } as any);
+          expect(buffer.text).toBe("");
+
+          vi.advanceTimersByTime(300);
+
+          expect(buffer.isInPasteMode()).toBe(false);
+          expect(buffer.text).toBe("abc");
+
+          // A late end marker finds an empty buffer and is a no-op.
+          buffer.handleInput("[201~", { ctrl: false, meta: false } as any);
+          expect(buffer.text).toBe("abc");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("should keep buffering silently within the silence window", () => {
+        vi.useFakeTimers();
+        try {
+          buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+          buffer.handleInput("ab", { ctrl: false, meta: false } as any);
+
+          vi.advanceTimersByTime(200); // Chunks arrive inside the window
+          buffer.handleInput("cd", { ctrl: false, meta: false } as any);
+          vi.advanceTimersByTime(100);
+
+          expect(buffer.text).toBe(""); // Not flushed early
+
+          buffer.handleInput("[201~", { ctrl: false, meta: false } as any);
+          expect(buffer.text).toBe("abcd");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
     });
   });
 

@@ -49,10 +49,8 @@ const en = {
   "services.invalidModelIndex":
     "Invalid model index: {index}. Available models: 0-{max}",
   "services.llmInitSelected": "Failed to initialize LLM with selected model",
-  "services.defaultModelNoBlock":
-    "Loaded default model contained no model block",
   "services.noModelHeadless":
-    "No model specified in headless mode (and failed to load default model)",
+    "No model specified in headless mode; configure one in config.yaml",
   "services.noConfigPathForReload":
     "No configuration path available for reload",
   "services.agentNotMarkdown":
@@ -295,7 +293,6 @@ const en = {
     "Ask anything, / for slash commands, ! for shell mode",
   "composer.interruptHint": "esc to interrupt",
   "composer.queuedHint": "{count} queued · ctrl+x remove · ctrl+r edit",
-  "composer.helpHint": "/help",
   "commands.noMatches": "No matching commands found",
   "commands.navigation": "↑/↓ to navigate, Enter to select, Tab to complete",
   "cmd.help": "Show help message",
@@ -1008,8 +1005,7 @@ const zhCN: Record<TranslationKey, string> = {
   "services.modelServiceNotInitialized": "ModelService 未初始化：缺少助手数据",
   "services.invalidModelIndex": "无效的模型索引：{index}。可用模型：0-{max}",
   "services.llmInitSelected": "初始化所选模型失败",
-  "services.defaultModelNoBlock": "加载的默认模型不含 model 块",
-  "services.noModelHeadless": "无头模式未指定模型（且加载默认模型失败）",
+  "services.noModelHeadless": "无头模式未指定模型；请在 config.yaml 中配置",
   "services.noConfigPathForReload": "没有可用于重新加载的配置路径",
   "services.agentNotMarkdown": "无法从 {path} 加载智能体：不是 Markdown 文件",
   "services.agentLoadFailed": "无法从 {path} 加载智能体：{message}",
@@ -1213,7 +1209,6 @@ const zhCN: Record<TranslationKey, string> = {
   "composer.placeholderRemote": "输入内容，/ 打开命令，! 执行 shell",
   "composer.interruptHint": "esc 中断",
   "composer.queuedHint": "{count} 条待发送 · ctrl+x 移除 · ctrl+r 编辑",
-  "composer.helpHint": "/help",
   "commands.noMatches": "没有匹配的命令",
   "commands.navigation": "↑/↓ 选择，Enter 确认，Tab 补全",
   "cmd.help": "显示帮助信息",
