@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 
 import {
   IBroadcastService,
+  ICredentialService,
   IFileService,
   IFileWatcherService,
   IGitCheckpointService,
@@ -15,6 +16,7 @@ import {
   IPluginManagementService,
   IPluginsService,
   IProjectService,
+  IProviderSettingsService,
   IRemoteProjectService,
   ISettingService,
   ISystemService,
@@ -176,6 +178,8 @@ describe("buildZcodeServiceCollection", () => {
         IRemoteProjectService.channelName,
         IProjectService.channelName,
         ITaskGroupService.channelName,
+        IProviderSettingsService.channelName,
+        ICredentialService.channelName,
       ]),
     );
   });
