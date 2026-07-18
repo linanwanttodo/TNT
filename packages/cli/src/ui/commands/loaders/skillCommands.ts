@@ -19,15 +19,16 @@ export class SkillCommandLoader implements CommandLoader {
 
   async loadCommands(_context: CommandLoadContext): Promise<SlashCommand[]> {
     const { skills } = await loadMarkdownSkills();
+    const enabled = skills.filter((skill) => skill.enabled !== false);
 
     return [
       {
         name: "skills",
         description: t("cmd.skills"),
         category: "system" as const,
-        ...(skills.length
+        ...(enabled.length
           ? {
-              subcommands: skills.map((skill) => ({
+              subcommands: enabled.map((skill) => ({
                 name: getSkillSlashCommandName(skill),
                 description: skill.description,
               })),

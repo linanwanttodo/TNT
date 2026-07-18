@@ -266,8 +266,11 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   // this directory, and `QuizService.askQuestions` now refuses an empty set.
   // 8: the web shell's project catalog rejects malformed storage and invalid
   // roots with protocol messages a host decodes, not composer copy. 9: the
-  // credential store rejects an empty key.
-  services: 9,
+  // credential store rejects an empty key. 40: the native agent-surface
+  // adapters (subagents, skills, commands, hooks, memory, usage stats) reject
+  // with `ZCODE_UNAVAILABLE: <operation>: <reason>`; that string is the
+  // channel's structured refusal for the shell, not copy a reader sees.
+  services: 40,
   session: 6,
   // 14, not 6: `AskQuestion` validates the new `questions` array field by
   // field, and those messages are read by the model, not the composer.

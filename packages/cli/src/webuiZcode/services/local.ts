@@ -22,6 +22,7 @@ import {
 import type { AppSettings } from "@zcode/shared";
 
 import { globalDir } from "../../config/globalDir.js";
+import { isMemoryEnabled, setMemoryEnabled } from "../../utils/memoryState.js";
 
 import { createZcodePluginServices } from "./plugins.js";
 import {
@@ -92,7 +93,12 @@ export function createWebShellSettingService(
   base: ISettingService,
 ): ISettingService {
   return {
-    get: () => base.get(),
+    get: async () => ({
+      ...(await base.get()),
+      // The engine's own switch, so the page shows the state the system
+      // prompt actually reads rather than a shell-local copy.
+      memoryEnabled: isMemoryEnabled(),
+    }),
     async update(patch, expectedAccountSettings) {
       const rejected = Object.keys(patch).filter(
         (key) => !WEB_SHELL_SETTING_UPDATE_KEY_SET.has(key),
@@ -102,7 +108,15 @@ export function createWebShellSettingService(
           `${ZCODE_SETTING_WRITE_REJECTED_PREFIX}${rejected.join(",")}`,
         );
       }
-      return base.update(patch, expectedAccountSettings);
+      if (typeof patch.memoryEnabled === "boolean") {
+        setMemoryEnabled(patch.memoryEnabled);
+      }
+      const enginePatch = { ...patch } as Record<string, unknown>;
+      delete enginePatch.memoryEnabled;
+      return base.update(
+        enginePatch as Parameters<ISettingService["update"]>[0],
+        expectedAccountSettings,
+      );
     },
     async updateDataBaseDir() {
       throw new Error(`${ZCODE_SETTING_WRITE_REJECTED_PREFIX}dataBaseDir`);

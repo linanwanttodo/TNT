@@ -5,7 +5,13 @@ import type { ModelServiceState } from "../services/types.js";
 import type { TeamDefinition } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
+import { isSubagentEnabled, subagentStateKey } from "./agentState.js";
 import { builtInAgentByName } from "./builtInAgents.js";
+import {
+  findMarkdownAgent,
+  loadMarkdownAgents,
+  markdownAgentIsEnabled,
+} from "./markdownAgents.js";
 
 /**
  * Get an agent by name
@@ -34,7 +40,7 @@ export interface DispatchableAgent {
    * model when it names nothing there.
    */
   model?: string;
-  kind: "model" | "team" | "plugin";
+  kind: "model" | "team" | "plugin" | "markdown";
 }
 
 function pluginAgentByName(name: string): PluginAgents | undefined {
@@ -68,11 +74,35 @@ export function resolveDispatchableAgent(
     // but their narrowing lives in the registry, not on the entry; the
     // executor used to re-look it up by name, and this carries it instead.
     const builtIn = builtInAgentByName(name);
+    if (
+      builtIn &&
+      !isSubagentEnabled(subagentStateKey("builtin", builtIn.name))
+    ) {
+      return null;
+    }
     return {
       systemMessage: configured.model.chatOptions?.baseSystemMessage ?? "",
       restriction: builtIn?.restriction,
       deniedTools: builtIn?.deniedTools ? [...builtIn.deniedTools] : undefined,
       kind: "model",
+    };
+  }
+
+  // A markdown agent is a file the operator owns; it sits between configured
+  // agents and team members so a project-level document can be delegated to
+  // by name without a config entry.
+  const markdownAgent = findMarkdownAgent(name);
+  if (markdownAgent) {
+    if (!markdownAgentIsEnabled(markdownAgent)) {
+      return null;
+    }
+    return {
+      systemMessage: markdownAgent.systemMessage,
+      deniedTools: markdownAgent.disallowedTools
+        ? [...markdownAgent.disallowedTools]
+        : undefined,
+      model: markdownAgent.model,
+      kind: "markdown",
     };
   }
 
@@ -96,6 +126,12 @@ export function resolveDispatchableAgent(
     // The listing tool shows plugin agents under their "plugin:"-prefixed
     // dispatch name; the loader stores them by bare "plugin:file" name.
     const pluginAgent = pluginAgentByName(name.slice("plugin:".length));
+    if (
+      pluginAgent &&
+      !isSubagentEnabled(subagentStateKey("plugin", pluginAgent.name))
+    ) {
+      return null;
+    }
     if (pluginAgent) {
       return {
         systemMessage: pluginAgent.content,
@@ -136,7 +172,16 @@ duplicated work costs the context both of you are sharing.
 }
 
 export function getAgentNames(modelState: ModelServiceState): string[] {
-  return ModelService.getSubagentModels(modelState).map(
+  const configured = ModelService.getSubagentModels(modelState).map(
     (model) => model.model.name,
   );
+  const declared = new Set(configured.map((name) => name.toLowerCase()));
+  const markdown = loadMarkdownAgents()
+    .filter(
+      (agent) =>
+        !declared.has(agent.name.toLowerCase()) &&
+        markdownAgentIsEnabled(agent),
+    )
+    .map((agent) => agent.name);
+  return [...configured, ...markdown];
 }

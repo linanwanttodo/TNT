@@ -9,6 +9,10 @@ import {
 
 import { createCommandHandlers } from "./handlers/index.js";
 import {
+  buildLocalCommandInput,
+  findLocalCommand,
+} from "./loaders/localCommandLoader.js";
+import {
   buildPluginCommandInput,
   findPluginCommand,
 } from "./loaders/pluginCommands.js";
@@ -59,10 +63,18 @@ export async function handleSlashCommands(
     return { newInput };
   }
 
+  // Prompt commands stored as markdown files are forwarded as new input, the
+  // same way plugin commands are.
+  const localCommand = findLocalCommand(command);
+  if (localCommand?.enabled) {
+    return { newInput: buildLocalCommandInput(localCommand, args) };
+  }
+
   const { skills } = await loadMarkdownSkills();
-  if (skills.length) {
+  const enabledSkills = skills.filter((skill) => skill.enabled !== false);
+  if (enabledSkills.length) {
     const normalizedCommand = command.trim().toLowerCase();
-    const matchingSkill = skills.find(
+    const matchingSkill = enabledSkills.find(
       (skill) => getSkillSlashCommandName(skill) === normalizedCommand,
     );
 

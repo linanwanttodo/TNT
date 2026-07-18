@@ -11,7 +11,8 @@ import type { SlashCommandResult } from "../types.js";
 export async function handleSkills(
   args: string[] = [],
 ): Promise<SlashCommandResult> {
-  const { skills } = await loadMarkdownSkills();
+  const { skills: allSkills } = await loadMarkdownSkills();
+  const skills = allSkills.filter((skill) => skill.enabled !== false);
 
   // "/skills <name>" runs the skill, the way the dispatch path does for a
   // bare "/<name>".
