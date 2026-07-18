@@ -25,7 +25,8 @@ export class TextBuffer {
   private _pasteCounter: number = 0;
 
   // The bracketed-paste state machine; see utils/pasteMode.ts. Field order
-  // matters: the collapse callback reads _pasteMap, declared above.
+  // matters: the collapse callback reads _pasteMap, declared above, and the
+  // silence onChange reads _onStateChange, declared above that.
   private _paste = new PasteModeHandler(
     (text) => this.insertText(text),
     (buffered) => {
@@ -39,6 +40,7 @@ export class TextBuffer {
         this._rapidInputTimer = null;
       }
     },
+    () => this._onStateChange?.(),
   );
   private _imageMap = new Map<string, Buffer>(); // placeholder -> image buffer
   private _imageCounter: number = 0;
@@ -316,6 +318,11 @@ export class TextBuffer {
       return true;
     }
     return false;
+  }
+
+  /** Flushes a stranded/open paste into text, e.g. before Enter submits. */
+  flushPasteMode(): boolean {
+    return this._paste.flush();
   }
 
   private escapeRegex(str: string): string {
