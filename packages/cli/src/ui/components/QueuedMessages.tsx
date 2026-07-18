@@ -1,6 +1,7 @@
 import { Box, Text } from "ink";
 import React from "react";
 
+import { t } from "../../i18n/index.js";
 import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { theme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
@@ -29,16 +30,24 @@ export const QueuedMessages: React.FC<QueuedMessagesProps> = ({ messages }) => {
 
   return (
     <Box flexDirection="column" paddingLeft={2} paddingBottom={1}>
-      {messages.map((message) => (
-        <Box key={message.id}>
-          <Text color={theme.text.secondary} dimColor>
-            {"[queued] "}
-          </Text>
-          <Text color={theme.text.primary}>
-            {sanitizeTerminalText(preview(message.message))}
-          </Text>
-        </Box>
-      ))}
+      {messages.map((message, index) => {
+        const isLast = index === messages.length - 1;
+        return (
+          <Box key={message.id}>
+            <Text color={theme.text.secondary} dimColor>
+              {"[queued] "}
+            </Text>
+            <Text color={theme.text.primary}>
+              {sanitizeTerminalText(preview(message.message))}
+            </Text>
+            {isLast && (
+              <Text color={theme.text.secondary} dimColor>
+                {`  ${t("composer.queuedHint", { count: messages.length })}`}
+              </Text>
+            )}
+          </Box>
+        );
+      })}
     </Box>
   );
 };

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { t } from "../../i18n/index.js";
 import { services } from "../../services/index.js";
 import { ResourceUsage } from "../../services/ResourceMonitoringService.js";
+import { useTheme } from "../theme/tokens.js";
 
 interface ResourceDebugBarProps {
   visible: boolean;
@@ -24,6 +25,7 @@ function formatTime(ms: number): string {
 }
 
 export function ResourceDebugBar({ visible }: ResourceDebugBarProps) {
+  const theme = useTheme();
   const [resourceData, setResourceData] = useState<ResourceUsage | null>(null);
   const [isError, setIsError] = useState(false);
 
@@ -76,19 +78,19 @@ export function ResourceDebugBar({ visible }: ResourceDebugBarProps) {
   // Color coding based on usage levels
   const getMemoryColor = () => {
     if (memoryPercent > 80) return "red";
-    if (memoryPercent > 60) return "yellow";
+    if (memoryPercent > 60) return theme.status.warning;
     return "green";
   };
 
   const getCpuColor = () => {
     if (cpuPercent > 80) return "red";
-    if (cpuPercent > 60) return "yellow";
+    if (cpuPercent > 60) return theme.status.warning;
     return "green";
   };
 
   const getEventLoopColor = () => {
     if (resourceData.eventLoop.lag > 100) return "red";
-    if (resourceData.eventLoop.lag > 50) return "yellow";
+    if (resourceData.eventLoop.lag > 50) return theme.status.warning;
     return "green";
   };
 

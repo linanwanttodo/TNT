@@ -10,6 +10,7 @@ import {
 import { useServices } from "./hooks/useService.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { LoadingAnimation } from "./LoadingAnimation.js";
+import { useTheme } from "./theme/tokens.js";
 
 interface UpdateNotificationProps {
   isRemoteMode?: boolean;
@@ -18,6 +19,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   isRemoteMode = false,
 }) => {
   const { columns } = useTerminalSize();
+  const theme = useTheme();
 
   const { services } = useServices<{
     update: UpdateServiceState;
@@ -26,7 +28,7 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
   const color = useMemo(() => {
     switch (services.update?.status) {
       case UpdateStatus.UPDATING:
-        return "yellow";
+        return theme.status.running;
       case UpdateStatus.UPDATED:
         return "green";
       case UpdateStatus.ERROR:

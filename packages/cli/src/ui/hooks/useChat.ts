@@ -131,6 +131,9 @@ export function useChat({
   const serviceListenerCleanupRef = useRef<null | (() => void)>(null);
   const lastAssistantTextRef = useRef<string | null>(null);
   const lastUserMessageRef = useRef<string | null>(null);
+  // The state setter lags a frame behind; the command gate needs the truth
+  // the moment a mid-turn slash command submits.
+  const turnRunningRef = useRef(false);
 
   // Store the current session
   const [currentSession, setCurrentSession] = useState<Session>(() => {
@@ -392,14 +395,18 @@ export function useChat({
     const controller = new AbortController();
     setAbortController(controller);
     setIsWaitingForResponse(true);
+    turnRunningRef.current = true;
     setResponseStartTime(Date.now());
     setInputMode(false);
     logger.debug("Starting chat response stream", {
       historyLength: newHistory.length,
     });
 
+    // Hoisted so the interruption record below can read what the reader was
+    // watching when the round died.
+    let streamCallbacks: any = null;
     try {
-      const streamCallbacks = createStreamCallbacks({
+      streamCallbacks = createStreamCallbacks({
         setChatHistory: setChatHistory,
         setActivePermissionRequest,
         llmApi,
@@ -435,17 +442,39 @@ export function useChat({
         return currentHistory;
       });
     } catch (error: any) {
-      const errorMessage = `Error: ${formatError(error)}`;
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          message: {
-            role: "system",
-            content: errorMessage,
+      // An interrupted turn is not a failure. The partial answer and the
+      // reasoning the reader was watching are their transcript: record them,
+      // as in the reference CLI, so the next message continues from them
+      // instead of the round vanishing. A failure additionally appends the
+      // error notice.
+      const accumulated = streamCallbacks?.getAccumulated() ?? {
+        text: "",
+        reasoning: "",
+      };
+      if (accumulated.text || accumulated.reasoning) {
+        services.chatHistory.addAssistantMessage(
+          accumulated.text,
+          undefined,
+          undefined,
+          accumulated.reasoning || undefined,
+        );
+      }
+
+      if (controller.signal.aborted) {
+        setWasInterrupted(true);
+      } else {
+        const errorMessage = `Error: ${formatError(error)}`;
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            message: {
+              role: "system",
+              content: errorMessage,
+            },
+            contextItems: [],
           },
-          contextItems: [],
-        },
-      ]);
+        ]);
+      }
     } finally {
       // Stop active time tracking
       if (typeof responseStartTime === "number") {
@@ -459,6 +488,7 @@ export function useChat({
 
       setAbortController(null);
       setIsWaitingForResponse(false);
+      turnRunningRef.current = false;
       setResponseStartTime(null);
       setInputMode(true);
       setStreamingText(null);
@@ -530,6 +560,13 @@ export function useChat({
     }
 
     if (commandResult.compact) {
+      // Compaction rewrites the history a running turn is reading. Reached
+      // mid-turn it defers back to the queue and runs at the boundary, as in
+      // the reference CLI.
+      if (turnRunningRef.current) {
+        void messageQueue.enqueueMessage(message);
+        return null;
+      }
       await handleCompactCommand({
         chatHistory,
         model,
@@ -561,6 +598,13 @@ export function useChat({
       onShowExportSelector,
       onClear,
     });
+
+    // A prompt command falls through to start a turn of its own; mid-turn
+    // that would race the running stream, so it defers to the boundary too.
+    if (newInput && turnRunningRef.current) {
+      void messageQueue.enqueueMessage(message);
+      return null;
+    }
 
     return newInput || null;
   };

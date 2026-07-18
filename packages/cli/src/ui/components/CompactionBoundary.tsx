@@ -26,7 +26,9 @@ const CompactionBoundary: React.FC<CompactionBoundaryProps> = ({ summary }) => {
         <Text color="gray" dimColor>
           {"── "}
         </Text>
-        <Text color="yellow">{t("compaction.boundary")}</Text>
+        <Text color={theme.text.subtle} dimColor>
+          {t("compaction.boundary")}
+        </Text>
         <Text color="gray" dimColor>
           {" ──"}
         </Text>

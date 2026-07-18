@@ -73,10 +73,16 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
 
   // The provider reports exact usage only at the end of a turn; while it
   // streams, the visible answer is the only signal. Four characters per token
-  // is the usual estimate, and it keeps the counter moving with output.
-  const streamingTokens = streamingText
-    ? Math.round(streamingText.length / 4)
-    : 0;
+  // is the usual estimate, and it keeps the counter moving with output. The
+  // streamed reasoning counts too, so a turn that is still thinking already
+  // shows the consumption instead of a bare timer.
+  const streamingTokens =
+    streamingText || streamingReasoning
+      ? Math.round(
+          ((streamingText?.length ?? 0) + (streamingReasoning?.length ?? 0)) /
+            4,
+        )
+      : 0;
 
   // Filter out system messages without content and split large messages.
   const processedChatHistory = React.useMemo(() => {
@@ -170,7 +176,14 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         tokenCount={streamingTokens}
         verbose={verbose}
         hasActiveTools={isBashToolRunning}
-        additionalHint={isBashToolRunning ? t("action.background") : undefined}
+        additionalHint={
+          [
+            t("composer.interruptHint"),
+            isBashToolRunning ? t("action.background") : null,
+          ]
+            .filter(Boolean)
+            .join("  ") || undefined
+        }
       />
 
       <ActionStatus

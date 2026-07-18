@@ -23,6 +23,7 @@ import {
   type StatusKind,
 } from "./pluginsBrowserModel.js";
 import { symbols } from "./symbols.js";
+import { useTheme } from "./theme/tokens.js";
 
 const TABS = ["installed", "discover", "marketplaces"] as const;
 type Tab = (typeof TABS)[number];
@@ -63,6 +64,7 @@ function rowStatus(
  * per-plugin details and install/update/enable/disable/uninstall in place.
  */
 export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
+  const theme = useTheme();
   const [tab, setTab] = useState<Tab>("installed");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
@@ -311,14 +313,14 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
         {"_"}
       </Text>
       {catalogFailures.length > 0 && (
-        <Text color="yellow">
+        <Text color={theme.status.warning}>
           {t("plugins.browser.catalogWarning", {
             names: catalogFailures.join(", "),
           })}
         </Text>
       )}
       {tab === "installed" && snapshot.unknownEnabled.length > 0 && (
-        <Text color="yellow">
+        <Text color={theme.status.warning}>
           {t("plugins.browser.unknownEnabledWarning", {
             names: snapshot.unknownEnabled.join(", "),
           })}

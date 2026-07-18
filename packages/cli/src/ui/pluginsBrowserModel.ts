@@ -22,6 +22,8 @@ import type {
   PluginSource,
 } from "../plugins/marketplaceTypes.js";
 
+import { theme } from "./theme/tokens.js";
+
 export type StatusKind =
   "enabled" | "disabled" | "update" | "pending" | "error" | "not-installed";
 
@@ -355,11 +357,11 @@ export function statusColor(kind: StatusKind): string {
     case "enabled":
       return "green";
     case "disabled":
-      return "yellow";
+      return theme.status.idle;
     case "update":
       return "cyan";
     case "pending":
-      return "yellow";
+      return theme.status.idle;
     case "error":
       return "red";
     case "not-installed":
