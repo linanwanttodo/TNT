@@ -485,7 +485,7 @@ describe("ConfigService", () => {
   });
 
   describe("addDefaultChatModelIfNone()", () => {
-    test("should add default model when no chat models exist", async () => {
+    test("should return config unchanged when no chat models exist (interactive)", async () => {
       const config = {
         name: "test-config",
         version: "1.0.0",
@@ -498,40 +498,14 @@ describe("ConfigService", () => {
         ],
       } as any;
 
-      // Mock the default model loading
-      vi.mocked(
-        configLoader.unrollPackageIdentifiersAsConfigYaml,
-      ).mockResolvedValue({
-        name: "default",
-        version: "1.0.0",
-        models: [defaultModel],
-      });
+      const result = await service.addDefaultChatModelIfNone(config);
 
-      const result = await service.addDefaultChatModelIfNone(
-        config,
-        mockApiClient as any,
-      );
-
+      // The slug fallback resolved through the package hub, which no longer
+      // exists; interactive runs surface the provider setup instead.
       expect(
         vi.mocked(configLoader.unrollPackageIdentifiersAsConfigYaml),
-      ).toHaveBeenCalledWith(
-        [
-          {
-            uriType: "slug",
-            fullSlug: {
-              ownerSlug: "anthropic",
-              packageSlug: "claude-sonnet-4-6",
-              versionSlug: "1.0.0",
-            },
-          },
-        ],
-        null,
-        null,
-        mockApiClient,
-      );
-
-      expect(result.models).toHaveLength(2);
-      expect(result.models![1]).toEqual(defaultModel);
+      ).not.toHaveBeenCalled();
+      expect(result).toBe(config);
     });
 
     test("should not add default model when chat model already exists", async () => {
@@ -547,10 +521,7 @@ describe("ConfigService", () => {
         ],
       } as any;
 
-      const result = await service.addDefaultChatModelIfNone(
-        config,
-        mockApiClient as any,
-      );
+      const result = await service.addDefaultChatModelIfNone(config);
 
       // Should not call the unroll function since chat model exists
       expect(
@@ -572,10 +543,7 @@ describe("ConfigService", () => {
         ],
       } as any;
 
-      const result = await service.addDefaultChatModelIfNone(
-        config,
-        mockApiClient as any,
-      );
+      const result = await service.addDefaultChatModelIfNone(config);
 
       expect(
         vi.mocked(configLoader.unrollPackageIdentifiersAsConfigYaml),
@@ -583,128 +551,70 @@ describe("ConfigService", () => {
       expect(result).toBe(config);
     });
 
-    test("should handle empty models array by adding default model", async () => {
+    test("should return config unchanged for an empty models array (interactive)", async () => {
       const config = {
         name: "test-config",
         version: "1.0.0",
         models: [],
       } as any;
 
-      vi.mocked(
-        configLoader.unrollPackageIdentifiersAsConfigYaml,
-      ).mockResolvedValue({
-        name: "default",
-        version: "1.0.0",
-        models: [defaultModel],
-      });
+      const result = await service.addDefaultChatModelIfNone(config);
 
-      const result = await service.addDefaultChatModelIfNone(
-        config,
-        mockApiClient as any,
-      );
-
-      expect(result.models).toHaveLength(1);
-      expect(result.models![0]).toEqual(defaultModel);
+      expect(
+        vi.mocked(configLoader.unrollPackageIdentifiersAsConfigYaml),
+      ).not.toHaveBeenCalled();
+      expect(result).toBe(config);
     });
 
-    test("should handle undefined models by adding default model", async () => {
+    test("should return config unchanged for undefined models (interactive)", async () => {
       const config = {
         name: "test-config",
         version: "1.0.0",
         // models is undefined
       } as any;
 
-      vi.mocked(
-        configLoader.unrollPackageIdentifiersAsConfigYaml,
-      ).mockResolvedValue({
-        name: "default",
-        version: "1.0.0",
-        models: [defaultModel],
-      });
-
-      const result = await service.addDefaultChatModelIfNone(
-        config,
-        mockApiClient as any,
-      );
-
-      expect(result.models).toHaveLength(1);
-      expect(result.models![0]).toEqual(defaultModel);
-    });
-
-    test("should throw error when default model fails to load", async () => {
-      const config = {
-        name: "test-config",
-        version: "1.0.0",
-        models: [],
-      } as any;
-
-      const error = new Error("Failed to load default model");
-      vi.mocked(
-        configLoader.unrollPackageIdentifiersAsConfigYaml,
-      ).mockRejectedValue(error);
-
-      await expect(
-        service.addDefaultChatModelIfNone(config, mockApiClient as any, true),
-      ).rejects.toThrow(
-        "No model specified in headless mode (and failed to load default model)",
-      );
-    });
-
-    test("should throw error when loaded default model is empty in headless", async () => {
-      const config = {
-        name: "test-config",
-        version: "1.0.0",
-        models: [],
-      } as any;
-
-      // Mock empty model config
-      vi.mocked(
-        configLoader.unrollPackageIdentifiersAsConfigYaml,
-      ).mockResolvedValue({
-        name: "default",
-        version: "1.0.0",
-        models: [], // Empty models array
-      });
-
-      await expect(
-        service.addDefaultChatModelIfNone(config, mockApiClient as any, true),
-      ).rejects.toThrow(
-        "No model specified in headless mode (and failed to load default model)",
-      );
-    });
-
-    test("should work with null access token", async () => {
-      const config = {
-        name: "test-config",
-        version: "1.0.0",
-        models: [],
-      } as any;
-
-      vi.mocked(
-        configLoader.unrollPackageIdentifiersAsConfigYaml,
-      ).mockResolvedValue({
-        name: "default",
-        version: "1.0.0",
-        models: [defaultModel],
-      });
-
-      const result = await service.addDefaultChatModelIfNone(
-        config,
-        mockApiClient as any,
-        undefined, // No auth config
-      );
+      const result = await service.addDefaultChatModelIfNone(config);
 
       expect(
         vi.mocked(configLoader.unrollPackageIdentifiersAsConfigYaml),
-      ).toHaveBeenCalledWith(
-        expect.any(Array),
-        null, // Should pass null for access token
-        null, // Should pass null for organization ID
-        mockApiClient,
-      );
+      ).not.toHaveBeenCalled();
+      expect(result).toBe(config);
+    });
 
-      expect(result.models).toHaveLength(1);
-      expect(result.models![0]).toEqual(defaultModel);
+    test("should throw in headless when no chat model exists", async () => {
+      const config = {
+        name: "test-config",
+        version: "1.0.0",
+        models: [],
+      } as any;
+
+      // Headless has nobody to answer the provider setup, so it fails loudly
+      // instead of landing on it.
+      await expect(
+        service.addDefaultChatModelIfNone(config, true),
+      ).rejects.toThrow(
+        "No model specified in headless mode; configure one in config.yaml",
+      );
+    });
+
+    test("should throw in headless even when a non-chat model exists", async () => {
+      const config = {
+        name: "test-config",
+        version: "1.0.0",
+        models: [
+          {
+            name: "non-chat-model",
+            model: "test-model",
+            roles: ["embed"],
+          },
+        ],
+      } as any;
+
+      await expect(
+        service.addDefaultChatModelIfNone(config, true),
+      ).rejects.toThrow(
+        "No model specified in headless mode; configure one in config.yaml",
+      );
     });
   });
 

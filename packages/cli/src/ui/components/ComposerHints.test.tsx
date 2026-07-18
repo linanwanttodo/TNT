@@ -6,7 +6,6 @@ import {
   ComposerHints,
   composerHintText,
   selectComposerHint,
-  HELP_HINT_MIN_COLUMNS,
 } from "./ComposerHints.js";
 
 function frameOf(element: React.ReactElement): string {
@@ -22,7 +21,6 @@ describe("selectComposerHint", () => {
       wasInterrupted: true,
       queuedCount: 2,
       working: true,
-      columns: 120,
     });
 
     expect(hint).toEqual({ kind: "interrupted" });
@@ -33,48 +31,28 @@ describe("selectComposerHint", () => {
       wasInterrupted: false,
       queuedCount: 2,
       working: true,
-      columns: 120,
     });
 
     expect(hint).toEqual({ kind: "queued", count: 2 });
   });
 
-  it("falls back from working to the help hint", () => {
+  it("falls back from working to nothing", () => {
     expect(
       selectComposerHint({
         wasInterrupted: false,
         queuedCount: 0,
         working: true,
-        columns: 120,
       }),
     ).toEqual({ kind: "working" });
+    // Idle renders nothing: command discovery lives in the "/" slash menu,
+    // and the allocated hints row carries no occupancy filler.
     expect(
       selectComposerHint({
         wasInterrupted: false,
         queuedCount: 0,
         working: false,
-        columns: 120,
-      }),
-    ).toEqual({ kind: "help" });
-  });
-
-  it("drops the help hint when there is no room", () => {
-    expect(
-      selectComposerHint({
-        wasInterrupted: false,
-        queuedCount: 0,
-        working: false,
-        columns: HELP_HINT_MIN_COLUMNS - 1,
       }),
     ).toBeNull();
-    expect(
-      selectComposerHint({
-        wasInterrupted: false,
-        queuedCount: 0,
-        working: false,
-        columns: HELP_HINT_MIN_COLUMNS,
-      }),
-    ).toEqual({ kind: "help" });
   });
 
   it("has no text for a missing hint", () => {
@@ -115,11 +93,14 @@ describe("ComposerHints", () => {
     expect(frame).not.toContain("/help");
   });
 
-  it("draws the help command when idle", () => {
+  it("leaves the hints row blank when idle", () => {
     const frame = frameOf(
       <ComposerHints wasInterrupted={false} queuedCount={0} working={false} />,
     );
 
-    expect(frame).toContain("/help");
+    // The row stays allocated so a transient hint cannot move the input, but
+    // idle carries no occupancy filler.
+    expect(frame).not.toContain("/help");
+    expect(frame.trim()).toBe("");
   });
 });
