@@ -2,7 +2,11 @@ import { logger } from "../utils/logger.js";
 
 import type { ConfigServiceState } from "./types.js";
 
-import { serviceContainer, SERVICE_NAMES } from "./index.js";
+import {
+  ensureServicesInitialized,
+  serviceContainer,
+  SERVICE_NAMES,
+} from "./index.js";
 
 /**
  * The model list the web shell renders. It lives in the services group so the
@@ -33,6 +37,11 @@ export interface WebUiModelSource {
  * a service that has not started yet.
  */
 export async function readWebUiModelSource(): Promise<WebUiModelSource> {
+  // The serve daemon starts without the registry; this is the first reader a
+  // browser triggers. The shared lazy entry initializes once and a process
+  // that already initialized (TUI, `tnt webui`) returns without re-running
+  // the factories.
+  await ensureServicesInitialized();
   let config: ConfigServiceState | null = null;
   try {
     config = await serviceContainer.get<ConfigServiceState>(

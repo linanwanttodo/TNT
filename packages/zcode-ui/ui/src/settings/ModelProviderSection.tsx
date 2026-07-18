@@ -23,6 +23,7 @@ import {
   ZAI_PROVIDER_ID,
 } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { getHostCapabilities } from "@/host-capabilities.js";
 import { Button } from "@/components/ui/button.js";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
 import { useModelProviders } from "@/hooks/useModelProviders.js";
@@ -610,8 +611,11 @@ export function ModelProviderSection({
 
   const presetProviders = useMemo(
     () =>
-      PRESET_PROVIDER_SPECS.filter((preset) =>
-        shouldShowPresetProviderForActiveOAuth(preset.id, effectiveProviderFamilyDomain),
+      (getHostCapabilities().localProvidersOnly
+        ? []
+        : PRESET_PROVIDER_SPECS.filter((preset) =>
+            shouldShowPresetProviderForActiveOAuth(preset.id, effectiveProviderFamilyDomain),
+          )
       ).map((preset) => ({
         ...preset,
         provider: modelProviders.find((provider) => provider.providerId === preset.id) ?? null,

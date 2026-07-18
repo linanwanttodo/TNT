@@ -33,6 +33,7 @@ import { cn } from "./components/lib/utils.js";
 import { toast } from "./components/ui/toast.js";
 import { useFeedbackStore } from "@/feedback/feedbackStore.js";
 import { getProviderBusinessErrorMessageId } from "@/lib/providerBusinessError.js";
+import { getHostCapabilities } from "@/host-capabilities.js";
 import { buildErrorFeedbackDescription } from "@/lib/errorFeedbackDraft.js";
 import {
   isSuspiciousEmptyModelResultMessage,
@@ -108,6 +109,9 @@ export function resolveChatErrorBannerDisplayMessage(
       formatMessage: intl.formatMessage,
     });
   if (isModelConfigMissingError(error)) {
+    if (!getHostCapabilities().codingPlan) {
+      return intl.formatMessage({ id: "chat.error.noAvailableModel.local" });
+    }
     return intl.formatMessage({
       id:
         modelConfigTarget === "remote"
@@ -303,7 +307,7 @@ export function ChatErrorBanner({
 
         {modelConfigMissing ? (
           <>
-            {onOpenUpgrade ? (
+            {onOpenUpgrade && getHostCapabilities().codingPlan ? (
               <CodingPlanEntryButton
                 type="button"
                 variant="default"

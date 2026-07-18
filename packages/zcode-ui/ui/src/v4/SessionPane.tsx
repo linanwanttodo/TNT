@@ -1,4 +1,5 @@
 import { V4_PRIMARY_PANE_ID } from "@/v4/paneLayoutStore.js";
+import { getHostCapabilities } from "@/host-capabilities.js";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
 import { useSessionRuntimeRestart } from "@/app-shell/useWorkspaceSessionReload.js";
 import { isRequestVerificationConfigNetworkError } from "@/request-security-edition/errors.js";
@@ -5728,7 +5729,9 @@ export function SessionPane({
       onRetryInitialization={handleRetrySubscribe}
       onRetryError={retryConfigReadEnabled ? handleRetryConfigRead : undefined}
       onOpenModelSettings={handleOpenModelSettings}
-      onOpenModelUpgrade={handleOpenModelUpgrade}
+      onOpenModelUpgrade={
+        getHostCapabilities().codingPlan ? handleOpenModelUpgrade : undefined
+      }
       modelConfigTarget={modelConfigTarget}
       onOpenCodeViewer={onOpenCodeViewer}
       suppressGoalCommands={selectionSideChat}
