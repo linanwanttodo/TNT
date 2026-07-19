@@ -4,8 +4,9 @@ import React, { useMemo, useState } from "react";
 import type { ChatHistoryItem } from "../../../../core/index.js";
 import { t } from "../i18n/index.js";
 
-import { defaultBoxStyles } from "./styles.js";
+import { themedBoxStyles } from "./styles.js";
 import { TextBuffer } from "./TextBuffer.js";
+import { useTheme } from "./theme/tokens.js";
 import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 
 // Infer the Key type from useInput's callback parameters
@@ -23,6 +24,7 @@ export function EditMessageSelector({
   onEdit,
   onExit,
 }: EditMessageSelectorProps) {
+  const theme = useTheme();
   // Filter to only show user messages
   const userMessages = useMemo(() => {
     return chatHistory
@@ -174,9 +176,9 @@ export function EditMessageSelector({
 
   if (userMessages.length === 0) {
     return (
-      <Box {...defaultBoxStyles("yellow")}>
-        <Text color="yellow">{t("edit.none")}</Text>
-        <Text color="gray">{t("edit.exitHint")}</Text>
+      <Box {...themedBoxStyles(theme, "focus")}>
+        <Text color={theme.status.warning}>{t("edit.none")}</Text>
+        <Text color={theme.text.secondary}>{t("edit.exitHint")}</Text>
       </Box>
     );
   }
@@ -184,7 +186,7 @@ export function EditMessageSelector({
   const renderEditText = () => {
     if (editText.length === 0) {
       return (
-        <Text italic color="gray">
+        <Text italic color={theme.text.secondary}>
           ▋(empty message)
         </Text>
       );
@@ -238,11 +240,11 @@ export function EditMessageSelector({
   };
 
   return (
-    <Box {...defaultBoxStyles("yellow")}>
-      <Text color="yellow" bold>
+    <Box {...themedBoxStyles(theme, "focus")}>
+      <Text color={theme.border.focus} bold>
         Edit Message (Rewind Conversation)
       </Text>
-      <Text color="gray">
+      <Text color={theme.text.secondary}>
         {isEditing
           ? t("edit.inputHint")
           : "↑/↓ to navigate, Enter to edit, Esc to exit"}
@@ -251,12 +253,12 @@ export function EditMessageSelector({
 
       {!isEditing && (
         <>
-          <Text color="blue">{t("edit.prompt")}</Text>
+          <Text color={theme.accent}>{t("edit.prompt")}</Text>
           <Text> </Text>
           {userMessages.map((msg, index) => {
             const isSelected = index === selectedIndex;
             const indicator = isSelected ? "➤ " : "  ";
-            const color = isSelected ? "yellow" : "white";
+            const color = isSelected ? theme.border.focus : theme.text.primary;
             const content =
               typeof msg.item.message.content === "string"
                 ? msg.item.message.content
@@ -278,13 +280,13 @@ export function EditMessageSelector({
 
       {isEditing && (
         <>
-          <Text color="blue">
+          <Text color={theme.accent}>
             Editing Message {selectedIndex + 1} (will rewind to this point):
           </Text>
           <Text> </Text>
           <Box
             borderStyle="round"
-            borderColor="yellow"
+            borderColor={theme.border.focus}
             paddingX={1}
             flexDirection="column"
           >

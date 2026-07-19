@@ -7,7 +7,7 @@ message.
 
 ## Indicator
 
-The composer border turns yellow and the prompt becomes `$ `
+The composer border turns the theme's warning colour and the prompt becomes `$ `
 (`src/ui/UserInput.tsx`).
 
 ## Submission

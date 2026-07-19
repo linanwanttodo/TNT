@@ -3,6 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { initializeServices, services } from "../../services/index.js";
+import { darkTheme } from "../theme/tokens.js";
 
 import { ModeIndicator, modeBadge, modeBorderColor } from "./ModeIndicator.js";
 
@@ -29,15 +30,15 @@ describe("ModeIndicator", () => {
     await initializeServices({
       headless: true,
       toolPermissionOverrides: {
-        mode: "default",
+        mode: "auto",
       },
     });
   });
 
   describe("mode display", () => {
-    it("shows Manual for the default mode", () => {
+    it("shows Auto for the startup mode", () => {
       const { lastFrame } = track(<ModeIndicator />);
-      expect(lastFrame()).toContain("[Manual]");
+      expect(lastFrame()).toContain("[Auto]");
     });
 
     it("labels every menu mode", () => {
@@ -49,11 +50,17 @@ describe("ModeIndicator", () => {
     });
 
     it("gives each badge its mode colour for the border", () => {
-      expect(modeBorderColor("default")).toBe("white");
-      expect(modeBorderColor("acceptEdits")).toBe("cyan");
-      expect(modeBorderColor("plan")).toBe("blue");
-      expect(modeBorderColor("auto")).toBe("green");
-      expect(modeBorderColor("bypassPermissions")).toBe("red");
+      expect(modeBorderColor("default", darkTheme)).toBe(
+        darkTheme.text.primary,
+      );
+      expect(modeBorderColor("acceptEdits", darkTheme)).toBe(
+        darkTheme.border.focus,
+      );
+      expect(modeBorderColor("plan", darkTheme)).toBe(darkTheme.accent);
+      expect(modeBorderColor("auto", darkTheme)).toBe(darkTheme.status.success);
+      expect(modeBorderColor("bypassPermissions", darkTheme)).toBe(
+        darkTheme.status.error,
+      );
     });
 
     it("displays plan mode", () => {
@@ -82,7 +89,7 @@ describe("ModeIndicator", () => {
   describe("mode changes", () => {
     it("updates when the service mode changes", () => {
       const { lastFrame, rerender } = track(<ModeIndicator />);
-      expect(lastFrame()).toContain("[Manual]");
+      expect(lastFrame()).toContain("[Auto]");
 
       toolPermissionService.switchMode("plan");
       rerender(<ModeIndicator />);

@@ -10,9 +10,9 @@ describe("ToolPermissionService - Mode Functionality", () => {
   });
 
   describe("mode initialization", () => {
-    it("should initialize with normal mode by default", () => {
+    it("should initialize with auto mode by default", () => {
       const state = service.initializeSync();
-      expect(state.currentMode).toBe("default");
+      expect(state.currentMode).toBe("auto");
     });
 
     it("should initialize with specified mode", () => {
@@ -94,7 +94,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
     });
 
     it("should switch from normal to plan mode", () => {
-      expect(service.getCurrentMode()).toBe("default");
+      expect(service.getCurrentMode()).toBe("auto");
 
       const newState = service.switchMode("plan");
 
@@ -303,7 +303,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       service.initializeSync();
 
       const initialState = service.getState();
-      expect(initialState.currentMode).toBe("default");
+      expect(initialState.currentMode).toBe("auto");
 
       service.switchMode("plan");
 

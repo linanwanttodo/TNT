@@ -66,7 +66,11 @@ describe("i18n runtime locale switching", () => {
     ];
     // Keys whose Chinese and English text are legitimately the same, e.g. a
     // value that is only a symbol or a URL. Adding one here is a deliberate act.
-    const intentionallyIdentical = new Set<string>();
+    const intentionallyIdentical = new Set<string>([
+      // The idle composer hint names a command, not prose: the same string in
+      // every locale is the point.
+      "composer.helpHint",
+    ]);
     // Every key, not a hand-picked set of groups: the list this replaces named
     // 23 of the dictionary's 39 groups, which is how `status.` - the composer
     // bar - went value-checked by nothing, and a group added tomorrow would do

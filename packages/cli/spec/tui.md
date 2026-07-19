@@ -220,7 +220,10 @@ never looks up the remote.
 
 ## Mode badge
 
-The composer's top rule carries `[Manual]` in white, `[Accept edits]` in cyan,
-`[Plan]` in blue, `[Auto]` in green, or `[Bypass permissions]` in red
-(`src/ui/components/ModeIndicator.tsx`). Agent mode draws no badge and the plain rule.
-The mode does not change the status bar.
+The composer's top rule carries `[Auto]` by default; Shift+Tab can select
+`[Manual]`, `[Accept edits]`, `[Plan]`, or `[Bypass permissions]`. Every badge colour comes from the active
+theme - the primary text colour, the focus border, the accent, the success
+and the error colour - so a palette change reaches the badge instead of
+leaving a fixed ANSI name behind
+(`src/ui/components/ModeIndicator.tsx`). Agent mode draws no badge and the
+plain rule. The mode does not change the status bar.

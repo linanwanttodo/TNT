@@ -9,8 +9,9 @@ import {
   ModelServiceState,
 } from "../services/types.js";
 
-import { defaultBoxStyles } from "./styles.js";
+import { themedBoxStyles } from "./styles.js";
 import { symbols } from "./symbols.js";
+import { useTheme } from "./theme/tokens.js";
 
 interface ServiceDebuggerProps {
   services: {
@@ -34,6 +35,7 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
   servicesLoading,
   servicesError,
 }) => {
+  const theme = useTheme();
   const getServiceStatus = (serviceName: string, service: any) => {
     if (!service) return "x Not loaded";
     if (service.error) return `x Error: ${service.error}`;
@@ -62,27 +64,29 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
   };
 
   return (
-    <Box {...defaultBoxStyles("cyan")}>
-      <Text bold color="cyan">
+    <Box {...themedBoxStyles(theme)}>
+      <Text bold color={theme.accent}>
         🔧 Service Debug Info
       </Text>
       <Text> </Text>
 
-      <Text color="yellow">{t("debug.overallStatus")}</Text>
+      <Text color={theme.status.warning}>{t("debug.overallStatus")}</Text>
       <Text>Loading: {loading ? "~ Yes" : `${symbols().check} No`}</Text>
       <Text>All Ready: {allReady ? `${symbols().check} Yes` : "x No"}</Text>
       <Text>
         Services Loading: {servicesLoading ? "~ Yes" : `${symbols().check} No`}
       </Text>
 
-      {error && <Text color="red">Error: {String(error)}</Text>}
+      {error && <Text color={theme.status.error}>Error: {String(error)}</Text>}
 
       {servicesError && (
-        <Text color="red">Services Error: {String(servicesError)}</Text>
+        <Text color={theme.status.error}>
+          Services Error: {String(servicesError)}
+        </Text>
       )}
 
       <Text> </Text>
-      <Text color="yellow">{t("debug.individualServices")}</Text>
+      <Text color={theme.status.warning}>{t("debug.individualServices")}</Text>
 
       {["config", "model", "mcp", "apiClient"].map((serviceName) => {
         const service = services[serviceName as keyof typeof services];
@@ -92,11 +96,11 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
         return (
           <Box key={serviceName} flexDirection="column" marginLeft={2}>
             <Text>
-              <Text color="white">{serviceName}:</Text> {status}
+              <Text color={theme.text.primary}>{serviceName}:</Text> {status}
             </Text>
             {details && (
               <Box marginLeft={2}>
-                <Text color="gray">{details}</Text>
+                <Text color={theme.text.secondary}>{details}</Text>
               </Box>
             )}
           </Box>
@@ -104,7 +108,7 @@ const ServiceDebugger: React.FC<ServiceDebuggerProps> = ({
       })}
 
       <Text> </Text>
-      <Text color="yellow">{t("debug.introConditions")}</Text>
+      <Text color={theme.status.warning}>{t("debug.introConditions")}</Text>
       <Text>Services ready: {allReady ? symbols().check : "x"}</Text>
       <Text>Has config: {services.config?.config ? symbols().check : "x"}</Text>
       <Text>Has model: {services.model?.model ? symbols().check : "x"}</Text>

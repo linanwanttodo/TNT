@@ -3152,6 +3152,20 @@ const enUS: Record<string, string> = {
 
   // Settings
   "settings.title": "Settings",
+  // Sidebar footer: preferences (language, theme, interface) and the settings
+  // page are two different surfaces and need two different names.
+  "sidebar.footer.preferences": "Preferences",
+  "sidebar.footer.mobileRemote": "Mobile remote",
+  // Mobile remote: scan the code to open the web UI from a phone.
+  "mobileRemote.title": "Mobile remote access",
+  "mobileRemote.description":
+    "When the phone and the computer share a network, scanning the code opens this web UI on the phone and keeps the current session.",
+  "mobileRemote.qrAlt": "Mobile remote access QR code",
+  "mobileRemote.loading": "Reading the access address...",
+  "mobileRemote.unavailable": "This environment does not offer mobile remote access.",
+  "mobileRemote.loopbackTitle": "The server listens on this machine only",
+  "mobileRemote.loopbackHint":
+    "Start the web UI with the command below and the phone can scan the code.",
   "settings.breadcrumbLabel": "Settings path",
   "settings.subtitle":
     "Switch major settings on the left and edit the details in the panel on the right.",
