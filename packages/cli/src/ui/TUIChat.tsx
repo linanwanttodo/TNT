@@ -18,9 +18,11 @@ import {
   ModelServiceState,
   UpdateServiceState,
 } from "../services/types.js";
-import { getTotalSessionCost } from "../session/index.js";
+import { getCurrentSession, getTotalSessionCost } from "../session/index.js";
 import { logger } from "../utils/logger.js";
+import { liveHub, type LiveRuntime } from "../webuiZcode/liveHub.js";
 
+import { handleSlashCommands } from "./commands/index.js";
 import { Composer } from "./components/Composer.js";
 import { MainContent } from "./components/MainContent.js";
 import {
@@ -51,6 +53,7 @@ import {
   normalizeThemeChoice,
 } from "./theme/terminalAppearance.js";
 import { ThemeProvider, type ThemeName } from "./theme/tokens.js";
+import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 
 interface TUIChatProps {
   // Remote mode props
@@ -133,6 +136,7 @@ function useChatHandlers(
 
   // Handle clearing chat and resetting intro message
   const handleClear = useCallback(() => {
+    liveHub.notifySessionChanged();
     setShowIntroMessage(true);
     // Drop the printed transcript too: `/clear` means the conversation on
     // screen and in the scrollback is gone, not just the model's context.
@@ -301,6 +305,58 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowStatusMessage: handleShowStatusMessage,
   });
 
+  // The live handle stays stable across renders while the handler it wraps
+  // follows the latest one, so the browser always reaches the current turn.
+  const handleUserMessageRef = useRef(handleUserMessage);
+  handleUserMessageRef.current = handleUserMessage;
+
+  // One live runtime per TUI process: /webui shares the conversation the
+  // screen is running, not a second engine. Remote mode talks to another
+  // process and binds nothing.
+  useEffect(() => {
+    if (isRemoteMode) return;
+    const runtime: LiveRuntime = {
+      runtimeId: `tui-${process.pid}`,
+      handleUserMessage: (text: string) => {
+        void handleUserMessageRef.current(text);
+      },
+      session: () => {
+        const current = getCurrentSession();
+        return {
+          sessionId: current.sessionId,
+          title: current.title,
+          workspaceDirectory: current.workspaceDirectory || process.cwd(),
+        };
+      },
+      workingDir: () => process.cwd(),
+      providerInfo: () => {
+        const model = services.model?.model;
+        return {
+          provider: (model as any)?.provider || "local",
+          model: model?.name || model?.model || "local",
+        };
+      },
+      // The browser asks the screen to run `/status` and friends; the answer
+      // is screen output and stays out of the shared history.
+      runCommand: async (name: string, args: string[]) => {
+        const assistant = services.config?.config || undefined;
+        if (!assistant) return null;
+        const composed = `/${name}${args.length ? ` ${args.join(" ")}` : ""}`;
+        const result = await handleSlashCommands(composed, assistant);
+        if (!result) return null;
+        const output = sanitizeTerminalText(result.output ?? "");
+        return output.length > 0 ? output : null;
+      },
+      selectSession: (sessionId) => {
+        loadSessionRef.current(sessionId);
+      },
+    };
+    liveHub.bind(runtime);
+    return () => liveHub.unbind(runtime.runtimeId);
+    // The runtime reads services and handlers through refs and live state,
+    // so it binds once per mount.
+  }, [isRemoteMode]);
+
   useMcpFailureNotice(services.mcp, setChatHistory);
 
   // Update ref after useChat returns
@@ -334,6 +390,8 @@ const TUIChat: React.FC<TUIChatProps> = ({
         setShowIntroMessage,
         setDisplayedSession,
       );
+      // The browser follows the screen to the picked conversation.
+      liveHub.notifySessionChanged();
       // The resumed conversation is printed from scratch, so drop whatever
       // the previous one left in the terminal.
       resetTranscript();

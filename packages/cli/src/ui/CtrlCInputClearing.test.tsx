@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 describe("Ctrl+C input clearing", () => {
@@ -24,12 +25,14 @@ describe("Ctrl+C input clearing", () => {
 
   it("sends SIGINT when Ctrl+C is pressed (input clearing tested implicitly)", () => {
     const tree = render(
-      <UserInput
-        onSubmit={mockOnSubmit}
-        inputMode={true}
-        disabled={false}
-        isWaitingForResponse={false}
-      />,
+      <KeypressProvider>
+        <UserInput
+          onSubmit={mockOnSubmit}
+          inputMode={true}
+          disabled={false}
+          isWaitingForResponse={false}
+        />
+      </KeypressProvider>,
     );
 
     // Type some text first
@@ -45,12 +48,14 @@ describe("Ctrl+C input clearing", () => {
 
   it("sends SIGINT to main process for two-stage exit handling", () => {
     const tree = render(
-      <UserInput
-        onSubmit={mockOnSubmit}
-        inputMode={true}
-        disabled={false}
-        isWaitingForResponse={false}
-      />,
+      <KeypressProvider>
+        <UserInput
+          onSubmit={mockOnSubmit}
+          inputMode={true}
+          disabled={false}
+          isWaitingForResponse={false}
+        />
+      </KeypressProvider>,
     );
 
     // Simulate Ctrl+C using raw character code (like other tests in codebase)

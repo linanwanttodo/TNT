@@ -158,19 +158,23 @@ export const Composer: React.FC<ComposerProps> = (props) => {
 
       <InterruptedNotice visible={props.wasInterrupted} />
 
-      <BottomStatusBar
-        remoteUrl={props.remoteUrl}
-        isRemoteMode={props.isRemoteMode}
-        services={props.services}
-        navState={props.navState}
-        navigateTo={props.navigateTo}
-        closeCurrentScreen={props.closeCurrentScreen}
-        onOpenJobs={props.onOpenJobs}
-        contextPercentage={props.contextPercentage}
-        contextTokens={props.contextTokens}
-        isVerboseMode={props.isVerboseMode}
-        totalCost={props.totalCost}
-      />
+      {/* The chat screen's composer carries its own footer row (mode,
+          directory, model); the status bar remains for the other screens. */}
+      {props.navState?.currentScreen !== "chat" && (
+        <BottomStatusBar
+          remoteUrl={props.remoteUrl}
+          isRemoteMode={props.isRemoteMode}
+          services={props.services}
+          navState={props.navState}
+          navigateTo={props.navigateTo}
+          closeCurrentScreen={props.closeCurrentScreen}
+          onOpenJobs={props.onOpenJobs}
+          contextPercentage={props.contextPercentage}
+          contextTokens={props.contextTokens}
+          isVerboseMode={props.isVerboseMode}
+          totalCost={props.totalCost}
+        />
+      )}
     </Box>
   );
 };

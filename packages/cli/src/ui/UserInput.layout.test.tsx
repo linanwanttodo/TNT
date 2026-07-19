@@ -2,116 +2,83 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { services } from "../services/index.js";
-
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { promptMarker, UserInput } from "./UserInput.js";
 
-vi.mock("../session/index.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../session/index.js")>();
-  return {
-    ...actual,
-    getSessionGoal: () => "ship the composer layout",
-  };
-});
+/**
+ * Frame-internal counting tests for the gemini-style composer: a solid
+ * surface band around `> ` and the buffer's lines, and one footer row below
+ * with the mode, directory, model and reasoning depth. There are no rule
+ * lines and no side rails any more.
+ */
 
-vi.mock("../tools/todo.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../tools/todo.js")>();
-  return {
-    ...actual,
-    readTodoState: () => ({
-      todos: [{ id: 1, text: "finish the composer layout", done: false }],
-      nextId: 2,
-    }),
-  };
-});
+const tick = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const tick = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
-
-beforeAll(async () => {
-  await services.toolPermissions.doInitialize({ mode: "auto" });
-});
-
-describe("UserInput above-composer rows", () => {
-  it("draws the goal and todo rows outside the input border", async () => {
-    const tree = render(
+const renderInput = async () => {
+  const tree = render(
+    <KeypressProvider>
       <UserInput
         onSubmit={vi.fn()}
         inputMode={true}
         isWaitingForResponse={false}
         assistant={{} as any}
-      />,
-    );
+      />
+    </KeypressProvider>,
+  );
+  await tick();
+  return tree;
+};
 
+describe("gemini composer layout", () => {
+  beforeAll(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("reserves exactly two rows: the input band and the footer", async () => {
+    const tree = await renderInput();
     try {
-      await tick();
       const lines = (tree.lastFrame() ?? "").split("\n");
-      const border = lines.findIndex((line) => line.includes("[Auto]"));
-      const goal = lines.findIndex((line) =>
-        line.includes("ship the composer layout"),
-      );
-      const todo = lines.findIndex((line) =>
-        line.includes("finish the composer layout"),
-      );
-
-      expect(border).toBeGreaterThan(-1);
-      expect(goal).toBeGreaterThan(-1);
-      expect(todo).toBeGreaterThan(-1);
-      expect(goal).toBeLessThan(border);
-      expect(todo).toBeLessThan(border);
-      expect(goal).toBeLessThan(todo);
+      // No blank filler rows between the composer and the footer: the dock
+      // is two lines, not a stack of rules and hints.
+      expect(lines).toHaveLength(2);
+      expect(lines.filter((line) => line.trim() === "")).toHaveLength(0);
+      expect(lines[0]).toContain(">");
+      expect(lines[1]).toContain("Auto");
     } finally {
       tree.unmount();
     }
   });
 
-  it("uses only horizontal rules around the input", async () => {
-    const tree = render(
-      <UserInput
-        onSubmit={vi.fn()}
-        inputMode={true}
-        isWaitingForResponse={false}
-        assistant={{} as any}
-      />,
-    );
-
+  it("drops the claude-code rule frame and shows the mode once", async () => {
+    const tree = await renderInput();
     try {
-      await tick();
-      const lines = (tree.lastFrame() ?? "").split("\n");
-      const rule = lines.findIndex((line) => line.includes("[Auto]"));
-
-      expect(rule).toBeGreaterThan(-1);
-      expect(lines[rule].startsWith("─[Auto]")).toBe(true);
-      expect(lines[rule].endsWith("─")).toBe(true);
-
-      const inputLine = lines.findIndex(
-        (line) => line.includes("Ask anything") || line.includes("输入内容"),
-      );
-      expect(inputLine).toBe(rule + 1);
-      expect(lines[inputLine]).not.toContain("│");
-
-      expect(lines[inputLine + 1].replace(/─/g, "").trim()).toBe("");
-      expect(lines.some((line) => line.includes("│"))).toBe(false);
-    } finally {
-      tree.unmount();
-    }
-  });
-
-  it("marks the prompt with the Claude pointer", async () => {
-    const tree = render(
-      <UserInput
-        onSubmit={vi.fn()}
-        inputMode={true}
-        isWaitingForResponse={false}
-        assistant={{} as any}
-      />,
-    );
-
-    try {
-      await tick();
       const frame = tree.lastFrame() ?? "";
+      expect(frame).not.toContain("─");
+      expect(frame).not.toContain("│");
+      expect(frame).not.toContain("[Auto]");
+      expect(frame.split("Auto")).toHaveLength(2);
+    } finally {
+      tree.unmount();
+    }
+  });
 
-      expect(frame).toContain("❯ ");
-      expect(frame).not.toContain("> ");
+  it("shows the working directory on the same footer row as the mode", async () => {
+    const tree = await renderInput();
+    try {
+      const [, footer] = (tree.lastFrame() ?? "").split("\n");
+      expect(footer).toContain("Auto");
+      // The home prefix collapses to `~`, the same format as the status bar.
+      expect(footer).toMatch(/~|\//);
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("uses the gemini pointer, not the claude pointer", async () => {
+    const tree = await renderInput();
+    try {
+      expect(tree.lastFrame()).toContain("> ");
+      expect(tree.lastFrame()).not.toContain("❯ ");
     } finally {
       tree.unmount();
     }
@@ -119,21 +86,21 @@ describe("UserInput above-composer rows", () => {
 });
 
 describe("promptMarker", () => {
-  it("uses the subtle Claude pointer at rest", () => {
+  it("uses the gemini pointer at rest", () => {
     expect(promptMarker({ bash: false, remote: false, busy: false })).toEqual({
-      glyph: "❯ ",
+      glyph: "> ",
       tone: "subtle",
       dim: false,
     });
   });
 
-  it("dims the pointer while a turn runs", () => {
+  it("dims the pointer while a turn is running", () => {
     expect(promptMarker({ bash: false, remote: false, busy: true }).dim).toBe(
       true,
     );
   });
 
-  it("keeps the shell and remote marks", () => {
+  it("keeps the shell and remote marks distinct", () => {
     expect(promptMarker({ bash: true, remote: false, busy: false }).glyph).toBe(
       "$ ",
     );

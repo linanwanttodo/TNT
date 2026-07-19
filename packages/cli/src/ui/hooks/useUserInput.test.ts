@@ -4,12 +4,25 @@ import { messageQueue } from "../../stream/messageQueue.js";
 import { getComposerDraft, resetComposerDraft } from "../composerDraft.js";
 import { isReasoningExpanded, resetReasoningFold } from "../reasoningFold.js";
 
+import type { Key } from "./useKeypress.js";
 import { handleControlKeys } from "./useUserInput.js";
 
 function drainQueue(): void {
   while (messageQueue.getNextMessage()) {
     // drain the singleton between cases
   }
+}
+
+function ctrlKey(name: string, ctrl = true): Key {
+  return {
+    name,
+    shift: false,
+    alt: false,
+    ctrl,
+    cmd: false,
+    insertable: false,
+    sequence: ctrl ? `\x18${name}` : name,
+  };
 }
 
 beforeEach(() => {
@@ -25,8 +38,7 @@ afterEach(() => {
 describe("handleControlKeys", () => {
   it("toggles the reasoning fold on Ctrl+O", () => {
     const options = {
-      input: "o",
-      key: { ctrl: true },
+      key: ctrlKey("o"),
       exit: vi.fn(),
     };
 
@@ -42,8 +54,7 @@ describe("handleControlKeys", () => {
 
     expect(
       handleControlKeys({
-        input: "p",
-        key: { ctrl: true },
+        key: ctrlKey("p"),
         exit: vi.fn(),
         onOpenPalette,
       }),
@@ -52,8 +63,7 @@ describe("handleControlKeys", () => {
     // Without a palette the key falls through rather than being swallowed.
     expect(
       handleControlKeys({
-        input: "p",
-        key: { ctrl: true },
+        key: ctrlKey("p"),
         exit: vi.fn(),
       }),
     ).toBe(false);
@@ -65,8 +75,7 @@ describe("handleControlKeys", () => {
 
     expect(
       handleControlKeys({
-        input: "x",
-        key: { ctrl: true },
+        key: ctrlKey("x"),
         exit: vi.fn(),
       }),
     ).toBe(true);
@@ -82,8 +91,7 @@ describe("handleControlKeys", () => {
 
     expect(
       handleControlKeys({
-        input: "r",
-        key: { ctrl: true },
+        key: ctrlKey("r"),
         exit: vi.fn(),
       }),
     ).toBe(true);
@@ -99,8 +107,7 @@ describe("handleControlKeys", () => {
 
     expect(
       handleControlKeys({
-        input: "x",
-        key: { ctrl: true },
+        key: ctrlKey("x"),
         exit: vi.fn(),
         queueActionsEnabled: false,
       }),
@@ -111,8 +118,7 @@ describe("handleControlKeys", () => {
   it("leaves an unhandled key to the input buffer", () => {
     expect(
       handleControlKeys({
-        input: "o",
-        key: { ctrl: false },
+        key: ctrlKey("o", false),
         exit: vi.fn(),
       }),
     ).toBe(false);

@@ -1,8 +1,10 @@
-/* eslint-disable max-lines */
+/* eslint-disable max-lines, complexity */
 /* eslint-disable max-statements -- the composer's key state machine is one flat dispatch; every branch is a key or mode it must own, and splitting it further hides the order the keys are claimed in. */
 
+import os from "node:os";
+
 import { type AssistantConfig } from "@tnt/sdk";
-import { Box, Text, useApp, useInput } from "ink";
+import { Box, Text, useApp } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { t } from "../i18n/index.js";
@@ -21,28 +23,34 @@ import {
 } from "../session/promptSuggestion.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { escapeEvents } from "../utils/cli.js";
-import {
-  splitTrailingEnter,
-  type CoalescedEnter,
-} from "../utils/coalescedEnter.js";
+import { getClipboardImage } from "../utils/clipboard.js";
 import { InputHistory } from "../utils/inputHistory.js";
+import { logger } from "../utils/logger.js";
 
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
+import {
+  formatWorkspaceLocation,
+  getThinkingDepth,
+} from "./components/BottomStatusBar.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
-import { ModeIndicator } from "./components/ModeIndicator.js";
+import { HalfLinePaddedBox } from "./components/HalfLinePaddedBox.js";
+import { modeBadge } from "./components/ModeIndicator.js";
 import { SuggestionOverlay } from "./components/SuggestionOverlay.js";
+import {
+  expandPastePlaceholders,
+  useTextBuffer,
+} from "./components/text-buffer.js";
+import { TextInput } from "./components/TextInput.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { consumeComposerDraft, useComposerDraft } from "./composerDraft.js";
 import { FileSearchUI } from "./FileSearchUI.js";
 import { useHistorySearch } from "./hooks/useHistorySearch.js";
+import { useKeypress, type Key } from "./hooks/useKeypress.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useServices } from "./hooks/useService.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
-import {
-  escapePresses,
-  handleControlKeys,
-  updateTextBufferState,
-} from "./hooks/useUserInput.js";
+import { handleControlKeys } from "./hooks/useUserInput.js";
+import { filterSlashLevel, parseSlashInput } from "./slashCommandParser.js";
 import { SlashCommandUI } from "./SlashCommandUI.js";
 import {
   agentSourcesFromModelState,
@@ -58,11 +66,8 @@ import {
   type McpResourceSuggestionSource,
   type SuggestionItem,
 } from "./suggestionSources.js";
-import { claudeGlyphs } from "./symbols.js";
-import { RAPID_INPUT_THRESHOLD, TextBuffer } from "./TextBuffer.js";
 import { useTheme } from "./theme/tokens.js";
-import { composeRule } from "./utils/borderLine.js";
-import { isTerminalMouseSequence } from "./utils/mouse.js";
+import { UpdateNotification } from "./UpdateNotification.js";
 
 // Small presentational helper to reduce cyclomatic complexity in UserInput
 const SlashCommandsMaybe: React.FC<{
@@ -146,25 +151,6 @@ function composerSuggestionSources(
     agents: agentSourcesFromModelState(services.model.getState()),
     mcp: mcpResourcesFromState(services.mcp.getState()),
   };
-}
-
-/**
- * The text-plus-Enter chunk, when this chunk is one. A chunk typed into the
- * paste fallback or the rapid-input buffer keeps its line breaks; a burst long
- * enough to be a paste is left to that path too.
- */
-function coalescedEnterFor(
-  input: string,
-  key: any,
-  textBuffer: TextBuffer,
-): CoalescedEnter | null {
-  if (key.shift || textBuffer.isInPasteMode()) {
-    return null;
-  }
-  if (input.length > RAPID_INPUT_THRESHOLD + 2) {
-    return null;
-  }
-  return splitTrailingEnter(input);
 }
 
 /** Case-insensitive over name and description, prefixes first. */
@@ -314,11 +300,7 @@ export function promptMarker(input: {
   if (input.remote) {
     return { glyph: "◉ ", tone: "remote", dim: input.busy };
   }
-  return {
-    glyph: `${claudeGlyphs().promptPointer} `,
-    tone: "subtle",
-    dim: input.busy,
-  };
+  return { glyph: "> ", tone: "subtle", dim: input.busy };
 }
 
 const ComposerPrompt: React.FC<{
@@ -387,6 +369,51 @@ function cycleModes(): PermissionMode {
   return nextMode;
 }
 
+/** One row under the input box: mode and directory left, model right. */
+const ComposerFooter: React.FC<{
+  mode: PermissionMode;
+  isRemoteMode: boolean;
+  remoteUrl?: string;
+}> = ({ mode, isRemoteMode, remoteUrl }) => {
+  const theme = useTheme();
+  const badge = modeBadge(mode, theme);
+  const directory =
+    remoteUrl ?? formatWorkspaceLocation(process.cwd(), os.homedir());
+  const model = services?.model?.getState?.().model as
+    | { name?: string; model?: string; defaultCompletionOptions?: unknown }
+    | null
+    | undefined;
+  const modelName = model?.name || model?.model || "";
+  const thinkingDepth = getThinkingDepth(model as any);
+
+  return (
+    <Box flexDirection="row" justifyContent="space-between" width="100%">
+      <Box flexDirection="row">
+        <Text color={badge.color} bold>
+          {badge.label}
+        </Text>
+        {!isRemoteMode && directory ? (
+          <Text color={theme.text.subtle}> {directory}</Text>
+        ) : null}
+      </Box>
+      <Box flexDirection="row">
+        {modelName ? <Text color={theme.text.primary}>{modelName}</Text> : null}
+        {modelName && thinkingDepth ? (
+          <Text color={theme.border.focus}>
+            {" "}
+            {t("status.think")}:{thinkingDepth}
+          </Text>
+        ) : null}
+        <Box marginLeft={1}>
+          <UpdateNotification isRemoteMode={isRemoteMode} />
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+const MAX_INPUT_VIEWPORT_HEIGHT = 8;
+
 const UserInput: React.FC<UserInputProps> = ({
   onSubmit,
   isWaitingForResponse,
@@ -406,36 +433,46 @@ const UserInput: React.FC<UserInputProps> = ({
   const locale = useLocale();
   const theme = useTheme();
   const { columns } = useTerminalSize();
-  const [textBuffer] = useState(() => new TextBuffer());
   const [inputHistory] = useState(() => new InputHistory());
   const lastEscapePressRef = useRef<number>(0);
-  const handleTextBufferUpdateRef = useRef<() => void>(() => {});
+  const imageCounterRef = useRef(0);
+  const imageMapRef = useRef<Map<string, Buffer>>(new Map());
 
-  // Stable callback for TextBuffer state changes to prevent race conditions.
-  // Finalized rapid input replaces the buffer wholesale, so it has to refresh
-  // the slash palette and every other derived state, not just the text.
-  const onStateChange = useCallback(() => {
-    handleTextBufferUpdateRef.current();
+  // The gemini text buffer owns the text, the visual wrapping and the caret.
+  // Derived composer state (palette, file search, shell mode) follows the
+  // committed buffer text: the onChange hook fires after React commits, so it
+  // always reads the state the keys produced, even for bursts inside one
+  // stdin read.
+  const syncDerivedStateRef = useRef<() => void>(() => {});
+  const onBufferChange = useCallback(() => {
+    syncDerivedStateRef.current();
   }, []);
 
-  // Set up callback for when TextBuffer state changes (e.g., rapid input finalized)
-  React.useEffect(() => {
-    textBuffer.setStateChangeCallback(onStateChange);
+  const buffer = useTextBuffer({
+    initialText: "",
+    viewport: {
+      width: Math.max(20, columns - 4),
+      height: MAX_INPUT_VIEWPORT_HEIGHT,
+    },
+    singleLine: false,
+    onChange: onBufferChange,
+  });
 
-    // Cleanup on unmount: clear any pending timers
-    return () => {
-      textBuffer.clear();
-    };
-  }, [textBuffer, onStateChange]);
+  // Reads go through a ref: dispatches inside one stdin batch flush before
+  // the next key is handled, and the ref then exposes the committed buffer
+  // without waiting for this component's render.
+  const bufferRef = useRef(buffer);
+  bufferRef.current = buffer;
+
   const [inputText, setInputText] = useState("");
   // The post-turn suggestion shown faint in the empty composer; Tab accepts it.
   const promptSuggestion = usePromptSuggestion();
-  const [cursorPosition, setCursorPosition] = useState(0);
   const [showSlashCommands, setShowSlashCommands] = useState(false);
 
   const [slashCommandFilter, setSlashCommandFilter] = useState("");
   /** Parent command when the palette has descended into its subcommands. */
   const [slashParent, setSlashParent] = useState<string | null>(null);
+  const [slashLevel, setSlashLevel] = useState<SlashCommand[]>([]);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [showBashMode, setShowBashMode] = useState(false);
   const [showFileSearch, setShowFileSearch] = useState(false);
@@ -485,6 +522,26 @@ const UserInput: React.FC<UserInputProps> = ({
     void loadCommands();
   }, [assistant?.prompts, assistant?.rules, locale]);
 
+  // The command list arrives asynchronously; re-derive the palette level for
+  // whatever is already in the box once it lands.
+  useEffect(() => {
+    syncDerivedStateRef.current();
+  }, [slashCommands]);
+
+  const syncDerivedState = () => {
+    const live = bufferRef.current;
+    const text = live.text;
+    const cursor = live.getOffset();
+    setInputText(text);
+    updateSlashCommandState(text, cursor);
+    updateFileSearchState(text, cursor);
+    updateBashModeState(text);
+    inputHistory.resetNavigation();
+  };
+  // Stable access for callbacks registered outside the render loop: the
+  // derived-state machines read the palette state of the frame on screen.
+  syncDerivedStateRef.current = syncDerivedState;
+
   // Update shell mode state based on input
   const updateBashModeState = (text: string) => {
     const trimmed = text.trimStart();
@@ -497,99 +554,19 @@ const UserInput: React.FC<UserInputProps> = ({
     }
   };
 
-  // Update slash command UI state based on input
+  // Update slash command UI state based on input, walking the command tree
+  // the way gemini-cli's completion hook does. Any depth of subcommands works,
+  // and a leaf with free-form arguments closes the palette.
   const updateSlashCommandState = (text: string, cursor: number) => {
-    // Only show slash commands if slash is the very first character
-    if (!text.trimStart().startsWith("/")) {
-      setShowSlashCommands(false);
-      return;
-    }
-
-    // When using slash commands, disable file search
-    setShowFileSearch(false);
-
-    const trimmedText = text.trimStart();
-    const beforeCursor = trimmedText.slice(
-      0,
-      cursor - (text.length - trimmedText.length),
-    );
-
-    // Only show if cursor is after the slash and before any whitespace
-    if (beforeCursor.length === 0 || !beforeCursor.startsWith("/")) {
-      setShowSlashCommands(false);
-      return;
-    }
-
-    // Get the complete slash command from the text (not just before cursor)
-    const commandText = trimmedText.slice(1);
-    const afterSlash = commandText.split(/[\s\n]/)[0];
-    const tokens = commandText.split(/[\s\n]+/).filter(Boolean);
-    const endsWithSpace = /[\s\n]$/.test(trimmedText);
-
-    // A parent command with subcommands descends once the path reaches it:
-    // "/language" shows the command itself, "/language " (or a second token)
-    // shows its children.
-    if (tokens.length >= 2 || endsWithSpace) {
-      const parent = slashCommands.find((cmd) => cmd.name === tokens[0]);
-      if (parent?.subcommands) {
-        const childFilter = tokens[1] ?? "";
-        const matches = parent.subcommands.filter(
-          (child) =>
-            child.name.toLowerCase().includes(childFilter.toLowerCase()) ||
-            child.description.toLowerCase().includes(childFilter.toLowerCase()),
-        );
-        // Past a known child, or nothing matches: fall back to normal input.
-        if (tokens.length <= 2 && matches.length > 0) {
-          setSlashParent(parent.name);
-          setShowSlashCommands(true);
-          setSlashCommandFilter(childFilter);
-          setSelectedCommandIndex(0);
-          setShowFileSearch(false);
-          return;
-        }
-        setShowSlashCommands(false);
-        return;
-      }
-    }
-    setSlashParent(null);
-
-    // We're in a slash command context - check if it's a complete command
-    const exactMatch = slashCommands.find((cmd) => cmd.name === afterSlash);
-
-    // Hide selector if we have an exact match and there's any additional content
-    if (exactMatch) {
-      // Check if there's anything after the command name (space + args)
-      const commandWithSlash = "/" + exactMatch.name;
-      const textAfterCommand = trimmedText.slice(commandWithSlash.length);
-
-      // If there's any content after the command name (space + args), hide dropdown
-      if (
-        textAfterCommand.trim().length > 0 &&
-        beforeCursor.length >= commandWithSlash.length
-      ) {
-        setShowSlashCommands(false);
-        return;
-      }
-    }
-
-    // Check if there are any matching commands
-    const filteredCommands = slashCommands.filter(
-      (cmd) =>
-        cmd.name.toLowerCase().includes(afterSlash.toLowerCase()) ||
-        cmd.description.toLowerCase().includes(afterSlash.toLowerCase()),
-    );
-
-    // If no commands match, hide the dropdown to allow normal Enter behavior
-    if (filteredCommands.length === 0) {
-      setShowSlashCommands(false);
-      return;
-    }
-
-    // Show selector for partial matches
-    setShowSlashCommands(true);
-    setSlashCommandFilter(afterSlash);
+    const parsed = parseSlashInput(text, cursor, slashCommands);
+    setShowSlashCommands(parsed.active);
+    setSlashParent(parsed.path.length > 0 ? parsed.path.join(" ") : null);
+    setSlashLevel(parsed.level);
+    setSlashCommandFilter(parsed.filter);
     setSelectedCommandIndex(0);
-    setShowFileSearch(false);
+    if (parsed.active) {
+      setShowFileSearch(false);
+    }
   };
 
   // Update file search UI state based on input
@@ -607,7 +584,6 @@ const UserInput: React.FC<UserInputProps> = ({
       return;
     }
 
-    // Get ALL text after the @ symbol (including subsequent @ symbols)
     setShowFileSearch(true);
     setFileSearchFilter(text.slice(firstAtIndex + 1, cursor));
     setSelectedFileIndex(0);
@@ -616,39 +592,27 @@ const UserInput: React.FC<UserInputProps> = ({
   };
 
   // The list a level offers: the root commands, or a parent's children.
-  const levelCommands = (): SlashCommand[] => {
-    if (!slashParent) return slashCommands;
-    const parent = slashCommands.find((cmd) => cmd.name === slashParent);
-    return (parent?.subcommands ?? []).map((child) => ({
-      name: child.name,
-      description: child.description,
-      category: "system" as const,
-    }));
-  };
-
-  // The `@` list: files first, then agents, then MCP resources, built from the
-  // live index and service state at the two points that need it.
+  const levelCommands = (): SlashCommand[] =>
+    slashLevel.length > 0 ? slashLevel : slashCommands;
 
   // Handle slash command selection
   const selectSlashCommand = (commandName: string) => {
-    const beforeCursor = inputText.slice(0, cursorPosition);
+    const beforeCursor = inputText.slice(0, bufferRef.current.getOffset());
     const lastSlashIndex = beforeCursor.lastIndexOf("/");
 
     if (lastSlashIndex !== -1) {
-      const beforeSlash = inputText.slice(0, lastSlashIndex);
-      const afterCursor = inputText.slice(cursorPosition);
+      const beforeSlash = bufferRef.current.text.slice(0, lastSlashIndex);
+      const afterCursor = bufferRef.current.text.slice(
+        bufferRef.current.getOffset(),
+      );
 
       // Replace the partial command with the full command
       const newText = beforeSlash + "/" + commandName + " " + afterCursor;
       const newCursorPos = lastSlashIndex + 1 + commandName.length + 1;
 
-      textBuffer.setText(newText);
-      textBuffer.setCursor(newCursorPos);
-      setInputText(newText);
-      setCursorPosition(newCursorPos);
+      buffer.setText(newText, newCursorPos);
       setShowBashMode(false);
-      // Recompute the level: completing a parent with children opens them.
-      updateSlashCommandState(newText, newCursorPos);
+      syncDerivedState();
     }
   };
 
@@ -659,15 +623,16 @@ const UserInput: React.FC<UserInputProps> = ({
    * keep typing the rest of the path.
    */
   const acceptAtSuggestion = async (item: SuggestionItem) => {
+    const cursorOffset = bufferRef.current.getOffset();
     const firstAtIndex = activeFileSearchAtIndex(
-      inputText.slice(0, cursorPosition),
+      bufferRef.current.text.slice(0, cursorOffset),
     );
     if (firstAtIndex === -1) {
       return;
     }
 
-    const beforeAt = inputText.slice(0, firstAtIndex);
-    const afterCursor = inputText.slice(cursorPosition);
+    const beforeAt = bufferRef.current.text.slice(0, firstAtIndex);
+    const afterCursor = bufferRef.current.text.slice(cursorOffset);
     const atEnd = afterCursor === "";
     const separator =
       item.isDirectory || (!atEnd && /^\s/.test(afterCursor)) ? "" : " ";
@@ -675,10 +640,7 @@ const UserInput: React.FC<UserInputProps> = ({
     const newCursorPos =
       firstAtIndex + 1 + item.insertText.length + separator.length;
 
-    textBuffer.setText(newText);
-    textBuffer.setCursor(newCursorPos);
-    setInputText(newText);
-    setCursorPosition(newCursorPos);
+    buffer.setText(newText, newCursorPos);
     setShowFileSearch(false);
 
     if (item.filePath) {
@@ -686,27 +648,27 @@ const UserInput: React.FC<UserInputProps> = ({
     }
   };
 
-  const handleSlashCommandNavigation = (key: any): boolean => {
-    const filteredCommands = filterCommandList(
+  const handleSlashCommandNavigation = (key: Key): boolean => {
+    const filteredCommands = filterSlashLevel(
       levelCommands(),
       slashCommandFilter,
     );
 
-    if (key.upArrow) {
+    if (key.name === "up") {
       setSelectedCommandIndex((prev) =>
         prev > 0 ? prev - 1 : filteredCommands.length - 1,
       );
       return true;
     }
 
-    if (key.downArrow) {
+    if (key.name === "down") {
       setSelectedCommandIndex((prev) =>
         prev < filteredCommands.length - 1 ? prev + 1 : 0,
       );
       return true;
     }
 
-    if ((key.return && !key.shift) || key.tab) {
+    if ((key.name === "enter" && !key.shift) || key.name === "tab") {
       // A bare "/" has an empty filter: Enter belongs to the prompt line, not
       // the first palette entry. Treat it as no selection so dispatch falls
       // through and nothing executes.
@@ -719,16 +681,17 @@ const UserInput: React.FC<UserInputProps> = ({
         const fullCommand = slashParent
           ? `${slashParent} ${commandName}`
           : commandName;
+        const hasParent = !!slashParent;
         // A parent with children is completed (opening them), never submitted
         // alone; a leaf runs only once a prefix was deliberately typed.
         const hasChildren = (selected.subcommands?.length ?? 0) > 0;
         const canRun =
-          key.return &&
+          key.name === "enter" &&
           slashCommandFilter !== "" &&
           commandName !== "title" &&
           !hasChildren;
 
-        if (slashParent && canRun) {
+        if (hasParent && canRun) {
           // A child of the open level: run "/parent child".
           const commandText = `/${fullCommand}`;
           inputHistory.addEntry(commandText);
@@ -737,13 +700,11 @@ const UserInput: React.FC<UserInputProps> = ({
           } else {
             onSubmit(commandText);
           }
-          textBuffer.clear();
-          setInputText("");
-          setCursorPosition(0);
+          buffer.setText("");
           setShowSlashCommands(false);
           setSlashParent(null);
           setShowBashMode(false);
-        } else if (!slashParent && canRun) {
+        } else if (!hasParent && canRun) {
           // select and submit the command
           const commandText = "/" + commandName;
           inputHistory.addEntry(commandText);
@@ -755,10 +716,7 @@ const UserInput: React.FC<UserInputProps> = ({
             onSubmit(commandText);
           }
 
-          // reset after submitting command
-          textBuffer.clear();
-          setInputText("");
-          setCursorPosition(0);
+          buffer.setText("");
           setShowSlashCommands(false);
           setShowBashMode(false);
         } else {
@@ -773,7 +731,7 @@ const UserInput: React.FC<UserInputProps> = ({
     return false;
   };
 
-  const handleFileSearchNavigation = (input: string, key: any): boolean => {
+  const handleFileSearchNavigation = (key: Key): boolean => {
     const items = buildAtSuggestions({
       unified: unifiedSuggestionsAvailable,
       files: fileIndexState?.files ?? [],
@@ -783,24 +741,24 @@ const UserInput: React.FC<UserInputProps> = ({
       mcp: mcpResources,
     });
 
-    if (key.ctrl && input === "r") {
+    if (key.ctrl && key.name === "r") {
       void services.fileIndex.refreshIndex(true);
       return true;
     }
 
-    if (key.upArrow) {
+    if (key.name === "up") {
       setSelectedFileIndex((prev) =>
         prev > 0 ? prev - 1 : Math.max(0, items.length - 1),
       );
       return true;
     }
 
-    if (key.downArrow) {
+    if (key.name === "down") {
       setSelectedFileIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
       return true;
     }
 
-    if ((key.return && !key.shift) || key.tab) {
+    if ((key.name === "enter" && !key.shift) || key.name === "tab") {
       const item = items[selectedFileIndex];
       if (item) {
         void acceptAtSuggestion(item);
@@ -814,18 +772,13 @@ const UserInput: React.FC<UserInputProps> = ({
   // Ctrl+F history search; the hint line reads its state, the key handlers
   // live in the hook.
   const historySearch = useHistorySearch({
-    textBuffer,
+    buffer,
     inputHistory,
     inputText,
     setInputText,
-    setCursorPosition,
     setShowSlashCommands,
     setShowFileSearch,
-    refreshDerivedState: (text: string) => {
-      updateSlashCommandState(text, text.length);
-      updateFileSearchState(text, text.length);
-      updateBashModeState(text);
-    },
+    refreshDerivedState: syncDerivedState,
     inputMode,
     showSlashCommands,
     showFileSearch,
@@ -833,60 +786,59 @@ const UserInput: React.FC<UserInputProps> = ({
 
   // Clear input function for Ctrl+C
   const clearInput = useCallback(() => {
-    textBuffer.clear();
-    setInputText("");
-    setCursorPosition(0);
+    buffer.setText("");
+    imageMapRef.current.clear();
     setShowSlashCommands(false);
     setShowFileSearch(false);
     setShowBashMode(false);
     inputHistory.resetNavigation();
     historySearch.reset();
-  }, [textBuffer, historySearch]);
+  }, [buffer, historySearch]);
 
   /**
    * Every key the composer answers before the buffer sees the input: the
    * history search, the open palette, mode cycling, escape, and the post-turn
    * suggestion. Returns false to hand the key to the buffer.
    */
-  const dispatchComposerKeys = (input: string, key: any): boolean => {
+  const dispatchComposerKeys = (key: Key): boolean => {
     if (historySearch.search.active) {
-      historySearch.handleKeys(input, key);
+      historySearch.handleKeys(key);
       return true;
     }
-    if (historySearch.maybeOpen(input, key)) {
+    if (historySearch.maybeOpen(key)) {
       return true;
     }
-    if (key.tab && key.shift) {
+    if (key.name === "tab" && key.shift) {
       cycleModes();
       return true;
     }
-    if (handleEscapeKey(input, key)) {
+    if (handleEscapeKey(key)) {
       return true;
     }
     if (showSlashCommands && handleSlashCommandNavigation(key)) {
       return true;
     }
-    // A coalesced "text + Enter" read must not have its Enter left in the
-    // buffer by a palette branch that declined to own it.
-    if (coalescedEnterFor(input, key, textBuffer) && input === "/") {
-      return false;
-    }
-    if (showFileSearch && handleFileSearchNavigation(input, key)) {
+    if (showFileSearch && handleFileSearchNavigation(key)) {
       return true;
     }
     if (!showSlashCommands && !showFileSearch) {
       const navigate = (entry: string | null) => {
         if (entry === null) return;
-        textBuffer.setText(entry);
-        textBuffer.setCursor(entry.length);
+        buffer.setText(entry, "end");
         setInputText(entry);
-        setCursorPosition(entry.length);
       };
-      if (key.upArrow) {
+      // History navigation only claims the arrows when the caret cannot move
+      // any further in its own line: a multi-line buffer moves the caret first.
+      const [cursorRow] = bufferRef.current.cursor;
+      const canMoveUp = cursorRow > 0 || bufferRef.current.lines.length > 1;
+      const canMoveDown =
+        cursorRow < bufferRef.current.lines.length - 1 ||
+        bufferRef.current.lines.length > 1;
+      if (key.name === "up" && !canMoveUp) {
         navigate(inputHistory.navigateUp(inputText));
         return true;
       }
-      if (key.downArrow) {
+      if (key.name === "down" && !canMoveDown) {
         navigate(inputHistory.navigateDown());
         return true;
       }
@@ -894,143 +846,83 @@ const UserInput: React.FC<UserInputProps> = ({
     if (showSlashCommands || showFileSearch) {
       return false;
     }
-    if (key.tab && promptSuggestion && inputText.length === 0) {
+    if (
+      key.name === "tab" &&
+      !key.shift &&
+      promptSuggestion &&
+      inputText.length === 0
+    ) {
       const text = promptSuggestion.text;
       clearPromptSuggestion();
-      textBuffer.setText(text);
+      buffer.setText(text, "end");
       setInputText(text);
-      setCursorPosition(text.length);
       return true;
     }
-    if (!key.tab && input !== "" && promptSuggestion) {
+    if (key.name !== "tab" && key.insertable && promptSuggestion) {
       clearPromptSuggestion();
     }
     return false;
   };
 
-  /** Enter submits, Shift+Enter breaks the line, the rest goes to the buffer. */
-  const dispatchTextKeys = (input: string, key: any): void => {
-    if (handleEnterKey(key)) {
-      return;
-    }
-    // A terminal can deliver the typed run and the Enter together, and some
-    // terminals send Enter as a bare "\n", which Ink also reports as not a
-    // return key. Both must submit rather than insert a line break. Paste
-    // mode and the rapid-input paste fallback own their newlines.
-    const split = coalescedEnterFor(input, key, textBuffer);
-    if (split) {
-      if (split.body) {
-        const handled = textBuffer.handleInput(split.body, key);
-        updateTextBufferState({
-          handled,
-          textBuffer,
-          setInputText,
-          setCursorPosition,
-          updateSlashCommandState,
-          updateFileSearchState,
-          updateBashModeState,
-          inputHistory,
-        });
+  /** The images whose placeholder is still in the submitted text. */
+  const collectImages = (text: string): Map<string, Buffer> => {
+    const map = new Map<string, Buffer>();
+    for (const [id, data] of imageMapRef.current) {
+      if (text.includes(id)) {
+        map.set(id, data);
       }
-      handleEnterKey({ ...key, return: true, shift: false });
-      return;
     }
-    // "\r" and "\"+Enter break the line instead of submitting.
-    const isNewLine = input === "\r" || input === "\\\r";
-    const handled = textBuffer.handleInput(isNewLine ? "\n" : input, key);
-    if (isNewLine && !handled) {
-      return;
-    }
-    updateTextBufferState({
-      handled,
-      textBuffer,
-      setInputText,
-      setCursorPosition,
-      updateSlashCommandState,
-      updateFileSearchState,
-      updateBashModeState,
-      inputHistory,
-    });
+    return map;
   };
 
-  const handleEnterKey = (key: any): boolean => {
-    if (key.return && !key.shift) {
-      // Flush a stranded paste before submit so Enter does not send a blank
-      // line while the silence timer still holds the real content.
-      if (textBuffer.flushPasteMode()) {
-        handleTextBufferUpdateRef.current();
-      }
-      if (textBuffer.text.trim() === "/") {
-        return true;
-      }
-      // Check for backslash continuation
-      const beforeCursor = textBuffer.text.slice(0, cursorPosition);
-      const trimmedBeforeCursor = beforeCursor.trimEnd();
-
-      if (trimmedBeforeCursor.endsWith("\\")) {
-        // Handle backslash continuation: remove the trailing "\" and add newline
-        const beforeBackslash = trimmedBeforeCursor.slice(0, -1);
-        const afterCursor = textBuffer.text.slice(cursorPosition);
-        const newText = beforeBackslash + "\n" + afterCursor;
-        const newCursorPos = beforeBackslash.length + 1;
-
-        textBuffer.setText(newText);
-        textBuffer.setCursor(newCursorPos);
-        setInputText(newText);
-        setCursorPosition(newCursorPos);
-        updateSlashCommandState(newText, newCursorPos);
-        updateFileSearchState(newText, newCursorPos);
-        return true;
-      }
-
-      // Normal Enter behavior - submit if there's content
-      if (textBuffer.text.trim() || wasInterrupted) {
-        // Get images before expanding paste blocks
-        const imageMap = textBuffer.getAllImages();
-
-        // Expand all paste blocks before submitting
-        textBuffer.expandAllPasteBlocks();
-        const submittedText = textBuffer.text.trim();
-
-        inputHistory.addEntry(submittedText);
-
-        // We don't queue, we just send in remote mode because the server handles queueing
-        if (
-          !isRemoteMode &&
-          (isWaitingForResponse || isCompacting) &&
-          !submittedText.startsWith("/")
-        ) {
-          // Process message later when LLM has responded or compaction is complete
-          void messageQueue.enqueueMessage(submittedText, imageMap);
-        } else {
-          // A slash command submits the moment Enter lands, as in the
-          // reference CLI: UI commands run immediately; turn-scoped ones the
-          // hook defers back to the queue at its own boundary.
-          onSubmit(submittedText, imageMap);
-        }
-
-        textBuffer.clear();
-        setInputText("");
-        setCursorPosition(0);
-        setShowSlashCommands(false);
-        setShowBashMode(false);
-      }
-      return true;
+  /** Enter submits; Shift+Enter (and the parser's backslash-Enter) newline. */
+  const handleEnterKey = (): void => {
+    const live = bufferRef.current;
+    // A lone "/" belongs to no command: keep it in the box.
+    if (live.text.trim() === "/") {
+      return;
     }
-    return false;
+
+    const rawText = live.text;
+    const expandedText = expandPastePlaceholders(rawText, live.pastedContent);
+    const submittedText = expandedText.trim();
+    const imageMap = collectImages(expandedText);
+
+    if (submittedText || wasInterrupted) {
+      inputHistory.addEntry(submittedText);
+
+      // We don't queue, we just send in remote mode because the server handles queueing
+      if (
+        !isRemoteMode &&
+        (isWaitingForResponse || isCompacting) &&
+        !submittedText.startsWith("/")
+      ) {
+        // Process message later when LLM has responded or compaction is complete
+        void messageQueue.enqueueMessage(submittedText, imageMap);
+      } else {
+        // A slash command submits the moment Enter lands, as in the
+        // reference CLI: UI commands run immediately; turn-scoped ones the
+        // hook defers back to the queue at its own boundary.
+        onSubmit(submittedText, imageMap);
+      }
+
+      buffer.setText("");
+      imageMapRef.current.clear();
+      setShowSlashCommands(false);
+      setShowBashMode(false);
+      setInputText("");
+    }
   };
 
-  const handleEscapeKey = (input: string, key: any): boolean => {
-    const presses = escapePresses(input, key);
-    if (presses === 0) return false;
+  const handleEscapeKey = (key: Key): boolean => {
+    if (key.name !== "escape") return false;
 
     escapeEvents.emit("user-escape");
 
     // If only "!" is present, clear shell mode
     if (inputMode && showBashMode && inputText.trim() === "!") {
-      textBuffer.clear();
+      buffer.setText("");
       setInputText("");
-      setCursorPosition(0);
       setShowBashMode(false);
       return true;
     }
@@ -1060,9 +952,10 @@ const UserInput: React.FC<UserInputProps> = ({
       return true;
     }
 
-    // Handle double Esc to open edit message selector
+    // Double escape opens the edit message selector. The gemini parser emits
+    // one escape event per press, so the time window is the counter.
     const now = Date.now();
-    const secondPress = presses >= 2 || now - lastEscapePressRef.current < 500;
+    const secondPress = now - lastEscapePressRef.current < 500;
     if (
       inputMode &&
       !showSlashCommands &&
@@ -1071,30 +964,14 @@ const UserInput: React.FC<UserInputProps> = ({
       onShowEditSelector &&
       secondPress
     ) {
-      // Double escape detected
       onShowEditSelector();
-      lastEscapePressRef.current = 0; // Reset to prevent triple-escape
+      lastEscapePressRef.current = 0;
       return true;
     }
 
-    // Track single escape press
     lastEscapePressRef.current = now;
-
     return false;
   };
-
-  // Handle text buffer updates for async operations like image pasting
-  const handleTextBufferUpdate = () => {
-    const newText = textBuffer.text;
-    const newCursor = textBuffer.cursor;
-    setInputText(newText);
-    setCursorPosition(newCursor);
-    updateSlashCommandState(newText, newCursor);
-    updateFileSearchState(newText, newCursor);
-    updateBashModeState(newText);
-    inputHistory.resetNavigation();
-  };
-  handleTextBufferUpdateRef.current = handleTextBufferUpdate;
 
   // A queued message moved back for editing arrives as a one-shot draft.
   const pendingDraft = useComposerDraft();
@@ -1103,35 +980,48 @@ const UserInput: React.FC<UserInputProps> = ({
       return;
     }
 
-    textBuffer.setText(pendingDraft.text);
-    textBuffer.setCursor(pendingDraft.text.length);
-    handleTextBufferUpdate();
+    buffer.setText(pendingDraft.text, "end");
+    syncDerivedStateRef.current();
     consumeComposerDraft(pendingDraft.id);
-    // handleTextBufferUpdate reads the buffer that was just replaced; the
-    // draft id is the only trigger.
-  }, [pendingDraft, textBuffer]);
+  }, [pendingDraft, buffer]);
 
-  const handleKeystroke = (input: string, key: any): void => {
-    // Don't handle any input when disabled; the filter also stands down.
-    // Ink splits a terminal reply at every ESC, so it consumes events one at
-    // a time and decides whether they are a reply or ordinary keys.
-    const currentInput = textBuffer.filterTerminalInput(input, disabled);
+  /** Ctrl+V pastes a clipboard image as a placeholder in the buffer. */
+  const handleImagePaste = (): boolean => {
+    logger.debug("Handling Ctrl+V clipboard paste");
+    getClipboardImage()
+      .then((imageBuffer) => {
+        if (!imageBuffer) return;
+        try {
+          imageCounterRef.current += 1;
+          const placeholder = `[Image #${imageCounterRef.current}]`;
+          imageMapRef.current.set(placeholder, imageBuffer);
+          buffer.insert(placeholder);
+          syncDerivedStateRef.current();
+        } catch (error) {
+          logger.debug("Error adding clipboard image:", error);
+        }
+      })
+      .catch((error) => {
+        logger.debug("Error reading clipboard image:", error);
+      });
+    return true;
+  };
 
-    // Mouse reports are handled by useMouseEvents; Ink also hands the raw
-    // sequence to every useInput listener, where it would land in the prompt.
-    if (currentInput === null || isTerminalMouseSequence(currentInput)) {
-      return;
+  const handleKey = (key: Key): boolean => {
+    // Don't handle any input when disabled.
+    if (disabled) {
+      return true;
     }
 
-    // Ctrl+C / Ctrl+D / Ctrl+P and the queued-message keys.
+    if (key.ctrl && key.name === "v" && !isRemoteMode) {
+      handleImagePaste();
+    }
+
     if (
       handleControlKeys({
-        input: currentInput,
         key,
         exit,
         clearInput,
-        textBuffer,
-        onTextBufferUpdate: handleTextBufferUpdate,
         queueActionsEnabled:
           !disabled &&
           !showFileSearch &&
@@ -1140,130 +1030,57 @@ const UserInput: React.FC<UserInputProps> = ({
         onOpenPalette,
       })
     ) {
-      return;
+      return true;
     }
 
-    // History search, palettes, modes, escape and the post-turn suggestion
-    // own their keys before the buffer sees anything.
-    if (dispatchComposerKeys(currentInput, key)) {
-      return;
+    if (dispatchComposerKeys(key)) {
+      return true;
     }
 
-    dispatchTextKeys(currentInput, key);
+    if (
+      key.name === "enter" &&
+      !key.shift &&
+      !showSlashCommands &&
+      !showFileSearch
+    ) {
+      handleEnterKey();
+      return true;
+    }
+
+    buffer.handleInput(key);
+    return true;
   };
 
-  // Ink re-subscribes its input listener in an effect, so for a moment after a
-  // render the listener still closes over the previous palette state. Enter
-  // arriving in that window used to submit the raw "/language z" instead of
-  // running the selected "zh-CN" child. The ref holds the closure from the
-  // latest render, which is the state the frame on screen was drawn from.
-  const handleKeystrokeRef = useRef(handleKeystroke);
-  handleKeystrokeRef.current = handleKeystroke;
-  useInput((input, key) => handleKeystrokeRef.current(input, key));
-
-  const renderInputText = () => {
-    // A post-turn suggestion takes the placeholder's place: it reads as a hint
-    // of what to type next, and disappears the moment anything is typed.
-    const suggestionText = visibleSuggestionText({
-      suggestion: promptSuggestion,
-      inputText,
-      isWaitingForResponse,
-      isCompacting,
-    });
-    if (suggestionText) {
-      markPromptSuggestionShown();
-    }
-    const placeholderText =
-      suggestionText ??
-      placeholder ??
-      (isRemoteMode
-        ? t("composer.placeholderRemote")
-        : t("composer.placeholder"));
-    if (inputText.length === 0) {
-      return (
-        <>
-          {(inputMode || isWaitingForResponse) && (
-            <Text italic color="gray">
-              ▋{placeholderText}
-            </Text>
-          )}
-          {!inputMode && !isWaitingForResponse && (
-            <Text italic color="gray">
-              {placeholderText}
-            </Text>
-          )}
-        </>
-      );
-    }
-
-    if (inputMode || isWaitingForResponse) {
-      // Handle multi-line text with cursor
-      const lines = inputText.split("\n");
-      let charCount = 0;
-      let cursorLine = 0;
-      let cursorCol = 0;
-
-      // Find which line and column the cursor is on
-      for (let i = 0; i < lines.length; i++) {
-        if (cursorPosition <= charCount + lines[i].length) {
-          cursorLine = i;
-          cursorCol = cursorPosition - charCount;
-          break;
-        }
-        charCount += lines[i].length + 1; // +1 for the newline character
-      }
-
-      // Handle cursor at the very end
-      if (cursorPosition >= inputText.length) {
-        cursorLine = lines.length - 1;
-        cursorCol = lines[cursorLine].length;
-      }
-
-      return (
-        <Box flexDirection="column">
-          {lines.map((line, lineIndex) => {
-            if (lineIndex === cursorLine) {
-              // Line with cursor
-              const beforeCursor = line.slice(0, cursorCol);
-              const atCursor = line.slice(cursorCol, cursorCol + 1);
-              const afterCursor = line.slice(cursorCol + 1);
-
-              return (
-                <Text key={lineIndex}>
-                  {beforeCursor}
-                  <Text inverse>{atCursor || " "}</Text>
-                  {afterCursor}
-                </Text>
-              );
-            } else {
-              // Regular line - ensure empty lines still render
-              return <Text key={lineIndex}>{line || " "}</Text>;
-            }
-          })}
-        </Box>
-      );
-    } else {
-      // Not in input mode, just display the text
-      return (
-        <Box flexDirection="column">
-          {inputText.split("\n").map((line, index) => (
-            <Text key={index}>{line || " "}</Text>
-          ))}
-        </Box>
-      );
-    }
-  };
+  // The dispatch is re-created per render: every branch reads the palette
+  // and mode state the current frame was drawn from. The ref hands the
+  // latest closure to the stable subscription.
+  const handleKeyRef = useRef(handleKey);
+  handleKeyRef.current = handleKey;
+  useKeypress((key: Key) => handleKeyRef.current(key), {
+    isActive: true,
+    priority: true,
+  });
 
   // Don't render anything when disabled
   if (disabled) {
     return null;
   }
 
-  const composerColor = showBashMode
-    ? theme.status.warning
-    : isRemoteMode
-      ? theme.border.focus
-      : theme.accent;
+  const suggestionText = visibleSuggestionText({
+    suggestion: promptSuggestion,
+    inputText,
+    isWaitingForResponse,
+    isCompacting,
+  });
+  if (suggestionText) {
+    markPromptSuggestionShown();
+  }
+  const placeholderText =
+    suggestionText ??
+    placeholder ??
+    (isRemoteMode
+      ? t("composer.placeholderRemote")
+      : t("composer.placeholder"));
 
   return (
     <Box flexDirection="column">
@@ -1306,7 +1123,6 @@ const UserInput: React.FC<UserInputProps> = ({
               showFileSearch &&
               inputMode &&
               !hideNormalUI &&
-              !isRemoteMode &&
               !historySearch.search.active
             }
             items={buildAtSuggestions({
@@ -1350,31 +1166,38 @@ const UserInput: React.FC<UserInputProps> = ({
         </>
       )}
 
-      {/* Goal, todos and running background work belong to the dock above the
-          rule; the mode badge is embedded in the top rule. */}
+      {/* Goal and todos stay above the box; the mode moves to the footer. */}
       <GoalIndicator />
 
       <TodoIndicator />
 
-      {/* Active mode is embedded in the composer's top rule; the rule below
-          closes the frame. */}
-      <ModeIndicator mode={currentMode} borderColor={composerColor} />
+      {/* The gemini-style input box: a solid surface band with half-line
+          padding, the prompt pointer and the buffer's visual lines. */}
+      <HalfLinePaddedBox backgroundBaseColor={theme.background.composer}>
+        <Box flexGrow={1} flexDirection="row" paddingX={1}>
+          <ComposerPrompt
+            bash={showBashMode}
+            remote={isRemoteMode}
+            busy={isWaitingForResponse || isCompacting}
+            subtle={theme.text.primary}
+            warning={theme.status.warning}
+          />
+          <Box flexGrow={1} flexDirection="column">
+            <TextInput
+              buffer={buffer}
+              placeholder={placeholderText}
+              focus={inputMode || isWaitingForResponse}
+            />
+          </Box>
+        </Box>
+      </HalfLinePaddedBox>
 
-      {/* Keep the composer open on the sides; the mode and closing rules are
-          the only frame lines. */}
-      <Box>
-        {/* A running turn fades the pointer, the same state as the spinner. */}
-        <ComposerPrompt
-          bash={showBashMode}
-          remote={isRemoteMode}
-          busy={isWaitingForResponse || isCompacting}
-          subtle={theme.text.subtle}
-          warning={theme.status.warning}
-        />
-        {renderInputText()}
-      </Box>
-
-      <Text color={composerColor}>{composeRule(columns)}</Text>
+      {/* Mode and directory left, model and reasoning depth right. */}
+      <ComposerFooter
+        mode={currentMode}
+        isRemoteMode={isRemoteMode}
+        remoteUrl={undefined}
+      />
     </Box>
   );
 };

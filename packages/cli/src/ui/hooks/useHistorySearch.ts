@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { InputHistory } from "../../utils/inputHistory.js";
-import type { TextBuffer } from "../TextBuffer.js";
+import type { TextBuffer } from "../components/text-buffer.js";
+
+import type { Key } from "./useKeypress.js";
 
 interface HistorySearchState {
   active: boolean;
@@ -20,12 +22,11 @@ const INACTIVE: HistorySearchState = {
 };
 
 interface HistorySearchOptions {
-  textBuffer: TextBuffer;
+  buffer: TextBuffer;
   inputHistory: InputHistory;
   /** The box's current text, read when the search opens. */
   inputText: string;
   setInputText: (text: string) => void;
-  setCursorPosition: (position: number) => void;
   setShowSlashCommands: (show: boolean) => void;
   setShowFileSearch: (show: boolean) => void;
   /** Re-derive the palette, file search and shell mode from the kept text. */
@@ -47,11 +48,10 @@ interface HistorySearchOptions {
  */
 export function useHistorySearch(options: HistorySearchOptions) {
   const {
-    textBuffer,
+    buffer,
     inputHistory,
     inputText,
     setInputText,
-    setCursorPosition,
     setShowSlashCommands,
     setShowFileSearch,
     refreshDerivedState,
@@ -60,19 +60,26 @@ export function useHistorySearch(options: HistorySearchOptions) {
     showFileSearch,
   } = options;
   const [search, setSearch] = useState<HistorySearchState>(INACTIVE);
+  // A single stdin read can carry a whole word: React commits once, so
+  // handlers must accumulate the query against a live ref instead of the
+  // render-time state snapshot.
+  const liveRef = useRef(search);
+  liveRef.current = search;
+  const apply = (next: HistorySearchState) => {
+    liveRef.current = next;
+    setSearch(next);
+  };
 
   const showMatch = (entry: string) => {
-    textBuffer.setText(entry);
-    textBuffer.setCursor(entry.length);
+    buffer.setText(entry, "end");
     setInputText(entry);
-    setCursorPosition(entry.length);
   };
 
   const open = () => {
     const matches = inputHistory
       .searchMatches(inputText)
       .map((entry) => entry.text);
-    setSearch({
+    apply({
       active: true,
       query: inputText,
       matches,
@@ -88,7 +95,7 @@ export function useHistorySearch(options: HistorySearchOptions) {
 
   const exit = (kept: string) => {
     showMatch(kept);
-    setSearch(INACTIVE);
+    apply(INACTIVE);
     refreshDerivedState(kept);
   };
 
@@ -96,22 +103,22 @@ export function useHistorySearch(options: HistorySearchOptions) {
     const matches = inputHistory
       .searchMatches(query)
       .map((entry) => entry.text);
-    setSearch((previous) => ({
-      ...previous,
+    apply({
+      ...liveRef.current,
       query,
       matches,
       matchIndex: matches.length > 0 ? 0 : -1,
-    }));
+    });
     // No match leaves the pre-search text in the box: the hint line says
     // 0/0, and the box keeps showing what a cancel would restore.
     showMatch(matches.length > 0 ? matches[0] : fallback);
   };
 
   /** Opens the search from an idle composer; false when the key was not it. */
-  const maybeOpen = (input: string, key: any): boolean => {
+  const maybeOpen = (key: Key): boolean => {
     if (
       key.ctrl &&
-      input === "f" &&
+      key.name === "f" &&
       inputMode &&
       !showSlashCommands &&
       !showFileSearch
@@ -123,39 +130,41 @@ export function useHistorySearch(options: HistorySearchOptions) {
   };
 
   const reset = () => {
-    setSearch(INACTIVE);
+    apply(INACTIVE);
   };
 
   /** Handles one key while active; every key is consumed. */
-  const handleKeys = (input: string, key: any) => {
+  const handleKeys = (key: Key) => {
+    const current = liveRef.current;
+
     // Ctrl+F walks to the next-older match, stopping at the oldest.
-    if (key.ctrl && input === "f") {
+    if (key.ctrl && key.name === "f") {
       if (
-        search.matches.length > 0 &&
-        search.matchIndex < search.matches.length - 1
+        current.matches.length > 0 &&
+        current.matchIndex < current.matches.length - 1
       ) {
-        const next = search.matchIndex + 1;
-        showMatch(search.matches[next]);
-        setSearch({ ...search, matchIndex: next });
+        const next = current.matchIndex + 1;
+        showMatch(current.matches[next]);
+        apply({ ...current, matchIndex: next });
       }
       return;
     }
 
-    if (key.escape) {
-      exit(search.original);
+    if (key.name === "escape") {
+      exit(current.original);
       return;
     }
 
     // Enter keeps whatever the box shows: the selected match, or the
     // original when nothing matched. Selecting is not submitting.
-    if (key.return && !key.shift) {
+    if (key.name === "enter" && !key.shift) {
       exit(inputText);
       return;
     }
 
-    if (key.backspace || key.delete) {
-      if (search.query.length > 0) {
-        refresh(search.query.slice(0, -1), search.original);
+    if (key.name === "backspace" || key.name === "delete") {
+      if (current.query.length > 0) {
+        refresh(current.query.slice(0, -1), current.original);
       }
       return;
     }
@@ -164,15 +173,18 @@ export function useHistorySearch(options: HistorySearchOptions) {
     // swallowed so they cannot move the box out from under the match.
     if (
       !key.ctrl &&
-      !key.meta &&
-      !key.tab &&
-      !key.upArrow &&
-      !key.downArrow &&
-      !key.leftArrow &&
-      !key.rightArrow &&
-      input.length >= 1
+      !key.cmd &&
+      !key.alt &&
+      key.name !== "tab" &&
+      key.name !== "up" &&
+      key.name !== "down" &&
+      key.name !== "left" &&
+      key.name !== "right" &&
+      key.insertable &&
+      key.sequence.length >= 1
     ) {
-      refresh(search.query + input, search.original);
+      refresh(current.query + key.sequence, current.original);
+      return;
     }
   };
 

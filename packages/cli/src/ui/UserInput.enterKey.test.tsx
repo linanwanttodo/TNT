@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { splitTrailingEnter } from "../utils/coalescedEnter.js";
 
+const tick = (ms = 80) => new Promise((resolve) => setTimeout(resolve, ms));
+
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 describe("splitTrailingEnter", () => {
@@ -28,20 +31,30 @@ describe("UserInput coalesced return", () => {
 
   const mount = (onSubmit: (text: string) => void) =>
     render(
-      <UserInput
-        onSubmit={onSubmit}
-        inputMode={true}
-        disabled={false}
-        isWaitingForResponse={false}
-      />,
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          disabled={false}
+          isWaitingForResponse={false}
+        />
+      </KeypressProvider>,
     );
 
-  it("submits when the terminal delivers text and Enter in one read", () => {
+  it("keeps a burst of text and Enter in the buffer, the fast-return guard", async () => {
+    // A read that carries typed text plus its Enter is treated as an
+    // unbracketed paste: the trailing Enter becomes a newline and the
+    // content stays in the composer until a deliberate Enter sends it.
     const onSubmit = vi.fn();
     const tree = mount(onSubmit);
 
     try {
       tree.stdin.write("hello\r");
+      await tick(60);
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(tree.lastFrame()).toContain("hello");
+      tree.stdin.write("\r");
+      await tick(60);
       expect(onSubmit).toHaveBeenCalledTimes(1);
       expect(onSubmit.mock.calls[0][0]).toBe("hello");
     } finally {
@@ -49,15 +62,17 @@ describe("UserInput coalesced return", () => {
     }
   });
 
-  it("submits a lone newline as Enter, the way some terminals send it", () => {
+  it("inserts a bare newline as a line break, the way gemini's parser does", async () => {
     const onSubmit = vi.fn();
     const tree = mount(onSubmit);
 
     try {
       tree.stdin.write("hello");
+      await tick(60);
       tree.stdin.write("\n");
-      expect(onSubmit).toHaveBeenCalledTimes(1);
-      expect(onSubmit.mock.calls[0][0]).toBe("hello");
+      await tick(60);
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(tree.lastFrame()).toContain("hello");
     } finally {
       tree.unmount();
     }

@@ -1,0 +1,1 @@
+export const LRU_BUFFER_PERF_CACHE_LIMIT = 20000;

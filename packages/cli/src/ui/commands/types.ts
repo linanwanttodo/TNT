@@ -20,6 +20,13 @@ export interface SystemCommand extends SlashCommand {
 
 export interface SlashCommandResult {
   output?: string;
+  /**
+   * Screen-only output: a command answer that belongs to the terminal, not to
+   * the conversation. It is shown as a transient status row and is never
+   * appended to chat history, so a shared web view never sees it. Mirrors
+   * atomcode's separate publish_command_output channel.
+   */
+  localOnly?: boolean;
   exit?: boolean;
   newInput?: string;
   clear?: boolean;

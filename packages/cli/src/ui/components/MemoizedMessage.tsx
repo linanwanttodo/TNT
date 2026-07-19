@@ -13,6 +13,7 @@ import { useTheme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { CompactionBoundary } from "./CompactionBoundary.js";
+import { HalfLinePaddedBox } from "./HalfLinePaddedBox.js";
 import { ThinkingMessage } from "./ThinkingMessage.js";
 import { ToolGroupDisplay } from "./ToolGroupDisplay.js";
 
@@ -165,27 +166,35 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
           </Box>
         ) : null}
 
-        {(hasContent || isUser || isStreaming) && (
-          <Box>
-            <Text color={isUser ? theme.user : theme.accent}>
-              {hideBullet ? " " : isUser ? ">" : "✦"}
-            </Text>
-            <Text> </Text>
-            {isUser ? (
-              <Text color={theme.text.primary}>{formattedContent}</Text>
-            ) : (
+        {(hasContent || isUser || isStreaming) &&
+          (isUser ? (
+            // The user's turn reads like the input box it was typed into: the
+            // same solid surface band, the `>` pointer and the raw text.
+            <HalfLinePaddedBox backgroundBaseColor={theme.background.composer}>
+              <Box flexDirection="row" paddingX={1}>
+                <Text color={theme.user}>{" > "}</Text>
+                <Box flexGrow={1}>
+                  <Text wrap="wrap" color={theme.text.primary}>
+                    {formattedContent}
+                  </Text>
+                </Box>
+              </Box>
+            </HalfLinePaddedBox>
+          ) : (
+            <Box>
+              <Text color={theme.accent}>{hideBullet ? " " : "✦"}</Text>
+              <Text> </Text>
               <MarkdownRenderer
                 content={formattedContent}
                 theme={theme.syntax}
               />
-            )}
-            {isStreaming && (
-              <Text color={theme.text.secondary} dimColor>
-                ▋
-              </Text>
-            )}
-          </Box>
-        )}
+              {isStreaming && (
+                <Text color={theme.text.secondary} dimColor>
+                  ▋
+                </Text>
+              )}
+            </Box>
+          ))}
 
         {hasTools && <ToolGroupDisplay toolStates={toolCallStates} />}
       </Box>
