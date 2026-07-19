@@ -758,6 +758,7 @@ const en = {
   "serve.inactivityShutdown":
     "\nShutting down due to {seconds} seconds of inactivity",
   "webui.listening": "Web UI listening on {url}",
+  "webui.scanQr": "Scan to open on your phone:",
   "webui.stopHint": "Stop with /webui stop (TUI) or `tnt webui stop`.",
   "webui.openManually": "Open the URL above to view this session.",
   "webui.lanWarning":
@@ -1646,6 +1647,7 @@ const zhCN: Record<TranslationKey, string> = {
   "serve.skippingInitialPrompt": "已存在会话历史，跳过初始提示词。",
   "serve.inactivityShutdown": "\n已闲置 {seconds} 秒，正在关闭服务器",
   "webui.listening": "Web UI 已启动：{url}",
+  "webui.scanQr": "手机扫码打开：",
   "webui.stopHint": "用 /webui stop（TUI 内）或 `tnt webui stop` 停止。",
   "webui.openManually": "打开上方链接查看本会话。",
   "webui.lanWarning":

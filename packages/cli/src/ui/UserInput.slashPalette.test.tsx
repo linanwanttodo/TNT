@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 vi.mock("./commands/index.js", () => ({
@@ -60,12 +61,14 @@ describe("UserInput slash palette", () => {
 
   const renderInput = async () => {
     const tree = render(
-      <UserInput
-        onSubmit={onSubmit}
-        inputMode={true}
-        isWaitingForResponse={false}
-        assistant={{} as any}
-      />,
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
     );
     // The command list loads asynchronously; typing in the same synchronous
     // batch as the render would race it.
@@ -92,7 +95,7 @@ describe("UserInput slash palette", () => {
       expect(frame).not.toContain("/tools");
 
       const paletteIndex = frame.indexOf("/back");
-      const composerIndex = frame.indexOf("❯ /");
+      const composerIndex = frame.indexOf("> /");
       expect(paletteIndex).toBeGreaterThan(-1);
       expect(composerIndex).toBeGreaterThan(paletteIndex);
     } finally {
@@ -120,7 +123,7 @@ describe("UserInput slash palette", () => {
     try {
       tree.stdin.write("/");
       await tick();
-      expect(tree.lastFrame() ?? "").toContain("❯ /");
+      expect(tree.lastFrame() ?? "").toContain("> /");
 
       tree.stdin.write("model " + "x".repeat(60));
       await tick(350);
@@ -140,7 +143,7 @@ describe("UserInput slash palette", () => {
       await tick();
 
       expect(onSubmit).not.toHaveBeenCalled();
-      expect(tree.lastFrame() ?? "").toContain("❯ /");
+      expect(tree.lastFrame() ?? "").toContain("> /");
     } finally {
       tree.unmount();
     }
@@ -203,6 +206,10 @@ describe("UserInput slash palette", () => {
         () => (tree.lastFrame() ?? "").includes("zh-CN"),
         "the filtered child entry",
       );
+      // The parser rewrites an Enter arriving within 30ms of the last
+      // insertable key into a newline (unbracketed-paste guard). A real
+      // pause between typing and confirming is longer than that.
+      await tick(50);
       tree.stdin.write("\r");
       await waitFor(
         () => onSubmit.mock.calls.length > 0,

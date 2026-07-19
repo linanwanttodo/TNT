@@ -77,6 +77,13 @@ export interface TurnHandlerOptions {
   pump?: TurnPump;
   events?: TurnSources;
   ensureServices?: () => Promise<void>;
+  /**
+   * A live TUI runtime shares this process: the browser's words join the
+   * conversation the screen is running instead of starting a second headless
+   * engine. Returns false when no runtime is bound and the queue should own
+   * the text.
+   */
+  acceptRemoteText?: (text: string) => Promise<boolean>;
 }
 
 export interface SessionSendResult {
@@ -291,6 +298,8 @@ export class TurnHandlers {
   private readonly runtimes: SessionRuntimeStore;
   private readonly queue: TurnQueue;
   private readonly pump: TurnPump;
+  private readonly acceptRemoteText:
+    ((text: string) => Promise<boolean>) | undefined;
   private readonly executor: TurnExecutor;
   private readonly unsubscribeBus: () => void;
   private readonly pending = new Map<string, PendingTurn>();
@@ -303,6 +312,7 @@ export class TurnHandlers {
     this.runtimes = options.runtimes;
     this.queue = options.queue ?? messageQueue;
     this.pump = options.pump ?? turnRunnerService;
+    this.acceptRemoteText = options.acceptRemoteText;
     this.executor =
       options.executor ??
       createHeadlessExecutor(this.runtimes, options.ensureServices);
@@ -323,6 +333,19 @@ export class TurnHandlers {
   async send(params: unknown): Promise<SessionSendResult> {
     const split = splitThoughtLevel(params);
     const input = parseParams(zcodeSessionSendParamsSchema, split.params);
+    // The live runtime owns the turn regardless of which id the browser
+    // still holds: a stale id after a directory switch must not fork the
+    // conversation into a second engine.
+    if (this.acceptRemoteText) {
+      const handled = await this.acceptRemoteText(input.content);
+      if (handled) {
+        return {
+          sessionId: input.sessionId,
+          accepted: true,
+          stateRevision: this.runtimes.cursor(input.sessionId).stateRevision,
+        };
+      }
+    }
     this.requireSession(input.sessionId);
     const revision = await this.enqueue(input.sessionId, input.content, false, {
       ...(input.modelSelection ? { modelSelection: input.modelSelection } : {}),
@@ -360,6 +383,14 @@ export class TurnHandlers {
 
   async stop(params: unknown): Promise<Record<string, never>> {
     const input = parseParams(zcodeSessionStopParamsSchema, params);
+    // A browser can hold a stale or workspace-scoped id after a directory
+    // switch. When this engine has one turn in flight, resolve the request to
+    // that turn before requireSession rejects an id it no longer knows.
+    const active = this.getActiveSessionId();
+    if (active && !this.runtimes.has(input.sessionId)) {
+      await this.stopSession(active);
+      return {};
+    }
     this.requireSession(input.sessionId);
     await this.stopSession(input.sessionId);
     return {};
@@ -375,7 +406,12 @@ export class TurnHandlers {
   }
 
   async stopSession(sessionId: string): Promise<void> {
-    if (this.activeSessionId !== sessionId) {
+    // One process runs at most one turn at a time. A browser can send a stale
+    // or workspace-scoped sessionId (a directory switch, a resumed task); when
+    // a turn is in flight, stopping it is the only meaningful action. With no
+    // active turn of its own this engine stays idle, so another workspace's
+    // in-flight turn is never stopped by a request addressed elsewhere.
+    if (this.activeSessionId !== sessionId && !this.activeSessionId) {
       return;
     }
     this.pump.requestStop();

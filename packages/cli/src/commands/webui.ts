@@ -3,6 +3,7 @@ import * as path from "path";
 
 import chalk from "chalk";
 import type { Session } from "core/index.js";
+import qrcode from "qrcode-terminal";
 
 import { expandMentions } from "../agent/atMentions.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
@@ -79,6 +80,24 @@ export function validateWebuiHost(
 }
 
 /** Writes the pid of the long-running webui process for `tnt webui stop`. */
+/**
+ * Renders the first LAN URL as a terminal QR code, with the address beside
+ * it. The QR uses half-block rows so it keeps its square shape in a terminal
+ * whose line height is roughly twice the character width.
+ */
+function printLanQrCode(url: string): void {
+  qrcode.generate(url, { small: true }, (qr: string) => {
+    const qrLines = qr.replace(/\n+$/, "").split("\n");
+    const qrWidth = Math.max(...qrLines.map((line) => line.length), 0);
+    const labels = [t("webui.scanQr"), url];
+    const rows = Math.max(qrLines.length, labels.length);
+    for (let row = 0; row < rows; row += 1) {
+      const left = (qrLines[row] ?? "").padEnd(qrWidth + 2);
+      console.log(`${left}${labels[row] ?? ""}`);
+    }
+  });
+}
+
 function writePidFile(pid: number): string {
   const file = path.join(globalDir(), "webui.pid");
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -316,13 +335,18 @@ export async function webui(
   console.log(chalk.green(t("webui.listening", { url: hyperlink(url, url) })));
   if (options.host && LAN_BIND_HOSTS.has(options.host)) {
     // A phone on the same network needs an address that is not loopback.
-    for (const host of lanAddresses()) {
+    const addresses = lanAddresses();
+    for (const host of addresses) {
       const lanUrl = `http://${host}:${handle.port}/#token=${handle.token}`;
       console.log(
         chalk.green(t("webui.listening", { url: hyperlink(lanUrl, lanUrl) })),
       );
     }
-    console.log(chalk.yellow(t("webui.lanWarning")));
+    const first = addresses[0];
+    if (first) {
+      printLanQrCode(`http://${first}:${handle.port}/#token=${handle.token}`);
+    }
+    console.log(chalk.bold(t("webui.lanWarning")));
   }
   console.log(chalk.dim(t("webui.stopHint")));
   // commander's --no-open makes this false; absence leaves it true.

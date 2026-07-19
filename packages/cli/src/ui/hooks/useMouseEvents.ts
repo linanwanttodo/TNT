@@ -13,10 +13,12 @@ import {
  * the way out so the reader's normal drag-to-select comes back. Sequences are
  * buffered because a single read can end mid-sequence.
  *
- * Staying ON is deliberate: a 1.2.9 attempt to drop the mode entirely broke
- * IME composition commits in JetBrains terminals — the reader could not type
- * Chinese at all. The invisible pre-edit string is the lesser cost; fixing it
- * belongs to cursor placement, not to the reporting mode.
+ * Staying ON is deliberate: a 1.2.9 attempt to drop the mode entirely
+ * coincided with input regressions (Chinese commits not landing, lagging
+ * letters) across terminal emulators. The mode is not an input-method switch,
+ * so it stays as shipped and is not changed without cross-terminal evidence.
+ * Pre-edit visibility comes from the terminal cursor placement in the forked
+ * ink renderer, not from any terminal mode.
  */
 export function useMouseEvents(
   onEvent: (event: MouseEvent) => void,

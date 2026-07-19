@@ -15,11 +15,18 @@ import {
   probeTerminalIsDark,
   setDetectedTerminalIsDark,
 } from "./theme/terminalAppearance.js";
+import { terminalCapabilityManager } from "./utils/terminalCapabilityManager.js";
+import {
+  disableLineWrapping,
+  enableLineWrapping,
+  shouldDisableLineWrapping,
+} from "./utils/terminalModes.js";
 import {
   alternateScreenEnabled,
   enterAlternateScreen,
   leaveAlternateScreen,
 } from "./utils/terminalScreen.js";
+import { setAmbiguousCharactersWide } from "./utils/textUtils.js";
 
 export { MarkdownRenderer } from "./MarkdownRenderer.js";
 
@@ -119,6 +126,25 @@ export async function startTUIChat(
     );
   }
 
+  // Capability probe: kitty keyboard support, modifyOtherKeys and the
+  // ambiguous-width answer that drives the anti-ghosting width fix.
+  await terminalCapabilityManager.detectCapabilities();
+  setAmbiguousCharactersWide(
+    terminalCapabilityManager.areAmbiguousCharactersWide(),
+  );
+
+  // Auto-wrap stays off while the alternate buffer is active and on
+  // terminals that render ambiguous-width characters in two cells: a
+  // two-cell border glyph in the last column soft-wraps the row and leaves
+  // stale copies of the previous frame behind on every render.
+  const lineWrappingDisabled = shouldDisableLineWrapping(
+    alternateScreenEnabled(),
+    terminalCapabilityManager.areAmbiguousCharactersWide(),
+  );
+  if (lineWrappingDisabled) {
+    disableLineWrapping();
+  }
+
   // Start the TUI immediately - it will handle loading states
   const renderOptions: RenderOptions = {
     exitOnCtrlC: false, // Disable Ink's default Ctrl+C handling so we can implement two-stage exit
@@ -156,6 +182,9 @@ export async function startTUIChat(
   const restoreAndUnmount = () => {
     unmount();
     leaveAlternateScreen();
+    if (lineWrappingDisabled) {
+      enableLineWrapping();
+    }
   };
 
   // Register unmount function with main process for two-stage Ctrl+C exit

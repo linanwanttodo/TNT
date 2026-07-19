@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 vi.mock("./commands/index.js", () => ({
@@ -22,12 +23,14 @@ describe("UserInput terminal responses", () => {
 
   const renderInput = () => {
     return render(
-      <UserInput
-        onSubmit={onSubmit}
-        inputMode={true}
-        isWaitingForResponse={false}
-        assistant={{} as any}
-      />,
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
     );
   };
 

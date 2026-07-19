@@ -56,15 +56,16 @@ describe("TUIChat - plan mode via the Shift+Tab cycle", () => {
 
       frame = lastFrame();
 
-      // c) Make sure the string "[Plan]" is on the screen
-      expect(frame!).toContain("Plan]");
-      // The mode label is embedded in the composer's top rule.
-      expect(frame!).toContain("─[Plan]");
+      // c) The mode label is a plain footer label under the input box.
+      expect(frame!).toContain("Plan");
+      expect(frame!).not.toContain("[Plan]");
 
       // d) Successfully send a message without error
       const testMessage = "Can you help me analyze this code?";
       stdin.write(testMessage);
+      await sleep(60);
       stdin.write("\r");
+      await sleep(60);
 
       // Wait for message processing
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -76,7 +77,7 @@ describe("TUIChat - plan mode via the Shift+Tab cycle", () => {
       expect(frame!.length).toBeGreaterThan(0);
 
       // Should still be in plan mode after sending message
-      expect(frame!).toContain("Plan]");
+      expect(frame!).toContain("Plan");
 
       // Should still show the input prompt
       expect(frame!).toContain("Ask anything");
@@ -91,28 +92,28 @@ describe("TUIChat - plan mode via the Shift+Tab cycle", () => {
     try {
       // Start in default mode
       let frame = lastFrame();
-      expect(frame!).not.toContain("Plan]");
-      expect(frame!).not.toContain("Accept edits]");
+      expect(frame!).not.toContain("Plan");
+      expect(frame!).not.toContain("Accept edits");
 
       // Switch to acceptEdits
       await cycle(stdin, 1);
 
       frame = lastFrame();
-      expect(frame!).toContain("Accept edits]");
+      expect(frame!).toContain("Accept edits");
 
       // Switch to plan
       await cycle(stdin, 1);
 
       frame = lastFrame();
-      expect(frame!).toContain("Plan]");
-      expect(frame!).not.toContain("Accept edits]");
+      expect(frame!).toContain("Plan");
+      expect(frame!).not.toContain("Accept edits");
 
       // Switch back to default
       await cycle(stdin, 2); // plan -> auto -> default
 
       frame = lastFrame();
-      expect(frame!).not.toContain("Plan]");
-      expect(frame!).not.toContain("Accept edits]");
+      expect(frame!).not.toContain("Plan");
+      expect(frame!).not.toContain("Accept edits");
     } finally {
       unmount();
     }
@@ -126,7 +127,7 @@ describe("TUIChat - plan mode via the Shift+Tab cycle", () => {
       await cycle(stdin, 2);
 
       let frame = lastFrame();
-      expect(frame!).toContain("Plan]");
+      expect(frame!).toContain("Plan");
 
       // Send a message while in plan mode
       stdin.write("Test message");
@@ -141,7 +142,7 @@ describe("TUIChat - plan mode via the Shift+Tab cycle", () => {
       frame = lastFrame();
 
       // This should work - if it fails, we've reproduced the "can't switch back" bug
-      expect(frame!).not.toContain("Plan]");
+      expect(frame!).not.toContain("Plan");
     } finally {
       unmount();
     }

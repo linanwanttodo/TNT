@@ -38,8 +38,8 @@ describe("spec/shell-mode.md agrees with the implementation", () => {
     expect(doc).toMatch(/trimmed text is only `!`/);
   });
 
-  it("matches the yellow border and the `$ ` prompt", () => {
-    expect(input).toMatch(/showBashMode\s*\?\s*theme\.status\.warning/);
+  it("matches the warning-colour prompt and the `$ ` prompt", () => {
+    expect(input).toContain("warning={theme.status.warning}");
     expect(input).toContain('"$ "');
     expect(input).toContain("bash={showBashMode}");
     expect(doc).toContain("warning colour");

@@ -158,15 +158,22 @@ export function useChatViewport({
       // Home and drag the viewport to the top on a click.
       if (isTerminalMouseSequence(input)) return;
 
+      // The forked ink (6.6.9) does not expose end/home on the Key type, so
+      // match the raw sequences for the End/Home keys.
+      const isEnd =
+        input === "\x1b[F" || input === "\x1bOF" || input === "\x1b[4~";
+      const isHome =
+        input === "\x1b[H" || input === "\x1bOH" || input === "\x1b[1~";
+
       if (key.ctrl && input === "t") {
         setMouseCapture((previous) => !previous);
       } else if (key.pageUp) {
         scrollBy(-page);
       } else if (key.pageDown) {
         scrollBy(page);
-      } else if (key.end) {
+      } else if (isEnd) {
         jumpToBottom();
-      } else if (key.home) {
+      } else if (isHome) {
         scrollTo(0);
       }
     },

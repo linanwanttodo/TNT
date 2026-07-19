@@ -6,6 +6,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 vi.mock("./commands/index.js", () => ({
@@ -107,12 +108,14 @@ describe("UserInput history search", () => {
 
   const renderInput = async () => {
     const tree = render(
-      <UserInput
-        onSubmit={onSubmit}
-        inputMode={true}
-        isWaitingForResponse={false}
-        assistant={{} as any}
-      />,
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
     );
     await untilFrame(tree, (frame) => frame.length > 0);
     return tree;
