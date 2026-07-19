@@ -1,14 +1,22 @@
 import { useStdin } from "ink";
 import { useEffect, useRef } from "react";
 
-import { drainMouseEvents, type MouseEvent } from "../utils/mouse.js";
+import {
+  MOUSE_DISABLE,
+  MOUSE_ENABLE,
+  drainMouseEvents,
+  type MouseEvent,
+} from "../utils/mouse.js";
 
 /**
- * Receives terminal mouse reports while `isActive`. The reporting mode itself
- * is deliberately NOT enabled: forcing DECSET 1000/1006 on suppresses the
- * inline IME pre-edit in JetBrains terminals, so the reader loses their
- * composition string while typing Chinese. Sequences are still drained
- * defensively in case a surface reports them anyway.
+ * Enables terminal mouse reporting only while `isActive`, and disables it on
+ * the way out so the reader's normal drag-to-select comes back. Sequences are
+ * buffered because a single read can end mid-sequence.
+ *
+ * Staying ON is deliberate: a 1.2.9 attempt to drop the mode entirely broke
+ * IME composition commits in JetBrains terminals — the reader could not type
+ * Chinese at all. The invisible pre-edit string is the lesser cost; fixing it
+ * belongs to cursor placement, not to the reporting mode.
  */
 export function useMouseEvents(
   onEvent: (event: MouseEvent) => void,
@@ -21,6 +29,7 @@ export function useMouseEvents(
   useEffect(() => {
     if (!isActive) return;
 
+    process.stdout.write(MOUSE_ENABLE);
     let buffer = "";
 
     const onData = (data: Buffer | string) => {
@@ -33,6 +42,7 @@ export function useMouseEvents(
     stdin.on("data", onData);
     return () => {
       stdin.removeListener("data", onData);
+      process.stdout.write(MOUSE_DISABLE);
     };
   }, [isActive, stdin]);
 }
