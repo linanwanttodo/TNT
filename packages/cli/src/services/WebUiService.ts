@@ -13,6 +13,7 @@ import { buildZcodeServiceCollection } from "../webuiZcode/serviceCollection.js"
 import type { WorkspaceEngines } from "../webuiZcode/workspaceEngines.js";
 import { startWebUiZcodeHost } from "../webuiZcode/wsHost.js";
 
+import { registerWebUiAccessRoute } from "./webuiAccess.js";
 import {
   registerWebUiAuthGate,
   registerWebUiSessionExchange,
@@ -34,7 +35,6 @@ import { bootstrapPage } from "./webuiPages.js";
 import { getWebUiProjectCatalog } from "./webuiProjectCatalog.js";
 import { createWebUiProviderSettingsService } from "./webuiProviderSettings.js";
 import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
-import { registerWebUiAccessRoute } from "./webuiAccess.js";
 import { createTntSkillsService } from "./webuiSkills.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
 import { createTntSubagentsService } from "./webuiSubagents.js";
