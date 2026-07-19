@@ -77,7 +77,7 @@ describe("TranscriptContent", () => {
     }
   });
 
-  it("removes the banner after the first message", () => {
+  it("keeps the banner above the first message", () => {
     const { lastFrame, unmount } = renderTranscript(
       [item("user", "first question")],
       { showIntroMessage: true },
@@ -85,8 +85,11 @@ describe("TranscriptContent", () => {
 
     try {
       const frame = lastFrame() ?? "";
-      expect(frame).not.toContain("TNT banner");
+      expect(frame).toContain("TNT banner");
       expect(frame).toContain("first question");
+      expect(frame.indexOf("TNT banner")).toBeLessThan(
+        frame.indexOf("first question"),
+      );
     } finally {
       unmount();
     }

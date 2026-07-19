@@ -218,7 +218,7 @@ docs/superpowers/
 !.tnt/checks/
 !.tnt/agents/
 !.tnt/prompts/
-!.tnt/superpowers/
+.tnt/superpowers/*
 .tnt/rules/*
 .tnt/checks/*
 .tnt/agents/*
@@ -227,3 +227,10 @@ docs/superpowers/
 !.tnt/checks/.keep
 !.tnt/agents/.keep
 !.tnt/prompts/.keep
+
+# IDE, design-review and static-analysis scratch files.
+.idea/
+.impeccable/
+qodana.yaml
+qodana.sarif.json
+**/tsconfig.tsbuildinfo

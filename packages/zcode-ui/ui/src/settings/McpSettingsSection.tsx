@@ -563,7 +563,6 @@ interface McpSettingsSectionProps {
   workspaceIdentity?: string;
   remoteSessionId?: string;
   remoteTarget?: RemoteTarget;
-  isWebRemoteControl?: boolean;
   scopeFilter: "user" | "workspace";
   parentScopeKey: string;
   workspaceTabs: ConfigWorkspaceTarget[];
@@ -584,7 +583,6 @@ export function McpSettingsSection({
   workspaceIdentity,
   remoteSessionId,
   remoteTarget,
-  isWebRemoteControl = false,
   scopeFilter,
   parentScopeKey,
   workspaceTabs,
@@ -1179,7 +1177,7 @@ export function McpSettingsSection({
     [query, scopedServers],
   );
   const connectedRemoteSyncTarget =
-    shouldShowRemoteSyncActions({ remoteSessionId, remoteTarget, isWebRemoteControl }) &&
+    shouldShowRemoteSyncActions({ remoteSessionId, remoteTarget }) &&
     activeWorkspacePath
       ? remoteTarget
       : null;

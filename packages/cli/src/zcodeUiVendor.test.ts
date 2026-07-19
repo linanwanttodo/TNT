@@ -38,6 +38,6 @@ describe("vendored zcode-ui closure", () => {
         const text = fs.readFileSync(path.join(vendorRoot, entry), "utf8");
         return sum + (text.split("Continue").length - 1);
       }, 0);
-    expect(total).toBe(138);
+    expect(total).toBe(133);
   });
 });

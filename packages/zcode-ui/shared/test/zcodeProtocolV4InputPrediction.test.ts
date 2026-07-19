@@ -1,4 +1,3 @@
-// 手机远控输入预测线格式（docs/web-remote-control/mobile-input-prediction.md）。
 import { describe, expect, it } from "vitest";
 import {
   V4_METHODS,

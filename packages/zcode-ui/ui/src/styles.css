@@ -12,21 +12,6 @@
 @plugin "@tailwindcss/typography";
 @plugin "../lucide-colors.mjs";
 
-/* Hero 可为任意图片/视频/iframe，不能用 App 主题推断关闭图标对比度。 */
-.cloud-content-dialog {
-  --media-close-surface: rgb(0 0 0 / 50%);
-  --media-close-surface-hover: rgb(0 0 0 / 65%);
-  --media-close-foreground: #fff;
-}
-.cloud-content-dialog [data-slot="dialog-close"] {
-  background-color: var(--media-close-surface);
-  color: var(--media-close-foreground);
-  border: 0;
-}
-.cloud-content-dialog [data-slot="dialog-close"]:hover {
-  background-color: var(--media-close-surface-hover);
-}
-
 /* Bugfix: KaTeX 会同时输出 MathML 辅助层和 HTML 视觉层；缺少 katex CSS 时两层都会显示，
  * 行内公式和块级公式就会看起来“渲染一遍又普通文本一遍”。 */
 
@@ -1163,7 +1148,7 @@ html[data-document-hidden] *::after {
 }
 
 .zcode-reaction-burst > svg {
-  animation: zcode-reaction-pop 450ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: zcode-reaction-pop 450ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .zcode-reaction-burst::after {
@@ -1601,14 +1586,14 @@ html[data-document-hidden] *::after {
 .wf-more-face {
   border-radius: 35%;
   box-shadow: 0 0 0 1.5px var(--color-background);
-  transition: margin-left var(--wf-t-base) var(--wf-ease);
+  transition: transform var(--wf-t-base) var(--wf-ease);
 }
 .wf-more-deck > * + * {
   margin-left: -5px;
 }
-.wf-more-row:hover .wf-more-deck > * + *,
-.wf-more-row:focus-visible .wf-more-deck > * + * {
-  margin-left: -2px;
+.wf-more-row:hover .wf-more-deck > * + *:not(:last-child),
+.wf-more-row:focus-visible .wf-more-deck > * + *:not(:last-child) {
+  transform: translateX(3px);
 }
 .wf-pill-go-rest {
   opacity: 1;
@@ -1834,7 +1819,7 @@ html[data-document-hidden] *::after {
 /* 轮尾摘要（追记「轮尾摘要」）：展开 / 收起时外框高度在两个值之间过渡；展开时药丸挂载、依次
  * 落地（wf-arrive + 30 ms 错位），收起时只收高度。 */
 .wf-digest-plot {
-  transition: height var(--wf-t-ink) var(--wf-ease);
+  transition: grid-template-rows var(--wf-t-ink) var(--wf-ease);
 }
 /* 边檐（docs/dynamic-workflow/presentation.md「Overflow: the ledge」）：时间线自由滚动，原生滚动条隐藏；
  * 折到檐上的站在内容里淡出（160 ms 后 visibility 才切，淡出期间不可点也不可聚焦）；檐上的灯悬停

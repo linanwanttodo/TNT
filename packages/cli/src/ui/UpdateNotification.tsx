@@ -48,6 +48,18 @@ const UpdateNotification: React.FC<UpdateNotificationProps> = ({
     return <Text color="cyan">◉ Remote Mode</Text>;
   }
 
+  // The installed version is not a notice: the intro header carries it. The
+  // badge appears only while an update is available or being applied, so the
+  // status row ends at the model instead of at a version nobody asked for.
+  const updateVisible =
+    !!services.update?.isUpdateAvailable ||
+    services.update?.status === UpdateStatus.UPDATING ||
+    services.update?.status === UpdateStatus.UPDATED ||
+    services.update?.status === UpdateStatus.ERROR;
+  if (!updateVisible) {
+    return null;
+  }
+
   if (services.update?.status === UpdateStatus.UPDATING) {
     return (
       <Box columnGap={1}>

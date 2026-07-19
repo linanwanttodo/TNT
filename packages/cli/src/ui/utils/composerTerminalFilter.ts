@@ -26,6 +26,31 @@ export class ComposerTerminalFilter {
       return null;
     }
 
+    if (input.startsWith("\x1b")) {
+      const filtered = this.filter.consume(input);
+      if (this.flush) {
+        clearImmediate(this.flush);
+        this.flush = null;
+      }
+      if (filtered.flush) {
+        this.insertText(filtered.flush);
+        this.onChange();
+      }
+      if (filtered.kind === "drop") return null;
+      if (filtered.kind === "hold") {
+        this.flush = setImmediate(() => {
+          this.flush = null;
+          const held = this.filter.flushHeld();
+          if (held) {
+            this.insertText(held);
+            this.onChange();
+          }
+        });
+        return null;
+      }
+      return input;
+    }
+
     const filtered = this.filter.consume(input);
     if (this.flush) {
       clearImmediate(this.flush);
@@ -42,15 +67,15 @@ export class ComposerTerminalFilter {
       this.flush = setImmediate(() => {
         this.flush = null;
         const held = this.filter.flushHeld();
-        if (!held) {
-          return;
+        if (held) {
+          this.insertText(held);
+          this.onChange();
         }
-        this.insertText(held);
-        this.onChange();
       });
       return null;
     }
-    return filtered.text ?? input;
+    if (filtered.text !== undefined) return filtered.text;
+    return input;
   }
 
   reset(): void {

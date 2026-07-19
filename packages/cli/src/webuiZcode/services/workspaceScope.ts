@@ -33,6 +33,16 @@ function isWithinRoot(root: string, candidate: string): boolean {
   );
 }
 
+function containsRoot(root: string, candidate: string): boolean {
+  const relative = path.relative(candidate, root);
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
+}
+
 async function resolvedRoots(
   source: WorkspaceRoots,
 ): Promise<{ primary: string; roots: string[] }> {
@@ -122,6 +132,26 @@ export async function resolveWithinRoots(
   return resolved;
 }
 
+export async function resolveReadableDirectory(
+  roots: WorkspaceRoots,
+  candidate: string,
+  label: string,
+): Promise<string> {
+  const { primary, roots: allowed } = await resolvedRoots(roots);
+  const absolute = path.isAbsolute(candidate)
+    ? path.resolve(candidate)
+    : path.resolve(primary, candidate);
+  const resolved = await realpathNearest(absolute);
+  if (
+    !allowed.some(
+      (root) => isWithinRoot(root, resolved) || containsRoot(root, resolved),
+    )
+  ) {
+    throw boundaryError(label, candidate);
+  }
+  return resolved;
+}
+
 /**
  * The single-root form kept for callers that never grow their workspace set.
  */
@@ -149,6 +179,8 @@ export function createWorkspaceScopedFileService(
 ): IFileService {
   const check = (candidate: string): Promise<string> =>
     resolveWithinRoots(workspaceRoots, candidate, "file path");
+  const checkReadableDirectory = (candidate: string): Promise<string> =>
+    resolveReadableDirectory(workspaceRoots, candidate, "file path");
 
   return {
     async searchWorkspaceFiles(params) {
@@ -158,7 +190,10 @@ export function createWorkspaceScopedFileService(
       });
     },
     async readdir(params) {
-      return base.readdir({ ...params, path: await check(params.path) });
+      return base.readdir({
+        ...params,
+        path: await checkReadableDirectory(params.path),
+      });
     },
     async stat(params) {
       return base.stat({ path: await check(params.path) });

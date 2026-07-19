@@ -2,12 +2,6 @@ import { DataSyncSection } from "@/data-sync/index.js";
 import { getWorkspaceSourceServerId } from "@/conversation-workspace-target/sourceIdentity.js";
 /* oxlint-disable eslint(max-lines) */
 import { ArrowLeft, type LucideIcon } from "lucide-react";
-import { useStore } from "zustand";
-import {
-  marketingNavigation,
-  finishMarketingNavigation,
-  marketingSettingsSections,
-} from "@/lib/marketingNavigation.js";
 import {
   useCallback,
   useEffect,
@@ -23,7 +17,6 @@ import type {
   IntegratedTerminalShellSelection,
   Locale,
   UsageEntitlementSnapshot,
-  UserInfo,
   ZCodeInteractionBehavior,
 } from "@zcode/shared";
 import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
@@ -74,7 +67,6 @@ import {
 } from "@/project-sidebar/index.js";
 import { resolveRecentRemoteProjectPreference } from "@/project-sidebar/remote-project-connection.js";
 import { ModelProviderSection } from "@/settings/ModelProviderSection.js";
-import { useCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
 import { UsageStatsSection, type UsageStatsSectionTab } from "@/settings/UsageStatsSection.js";
 import {
@@ -87,6 +79,8 @@ import { AutomationsSection } from "@/settings/AutomationsSection.js";
 import { SegmentPill } from "@/settings/PluginStoreListView.js";
 import { PluginsSection } from "@/settings/PluginsSection.js";
 import { HooksSection } from "@/settings/HooksSection.js";
+import { SkillsSection } from "@/settings/SkillsSection.js";
+import { CommandsSection } from "@/settings/CommandsSection.js";
 import { WorkspaceFileSearchSection } from "@/settings/WorkspaceFileSearchSection.js";
 import { MemorySettingsSection } from "@/settings/MemorySettingsSection.js";
 import { PersonalizationSection } from "@/settings/PersonalizationSection.js";
@@ -297,7 +291,6 @@ export function SettingsPage({
   isDesktop,
   isWindowsDesktop,
   isMacDesktop,
-  isWebRemoteControl = false,
   windowsWindowControlsRightPaddingPx: _windowsWindowControlsRightPaddingPx,
   captionWorkspacePath,
   onBack,
@@ -305,14 +298,10 @@ export function SettingsPage({
   onOpenWorkspace,
   onOpenRemoteWorkspace,
   allowOpenWorkspace = true,
-  onLogin,
-  onLogout,
-  user,
 }: {
   isDesktop?: boolean;
   isWindowsDesktop?: boolean;
   isMacDesktop?: boolean;
-  isWebRemoteControl?: boolean;
   windowsWindowControlsRightPaddingPx?: number;
   captionWorkspacePath?: string | null;
   onBack?: () => void;
@@ -321,9 +310,6 @@ export function SettingsPage({
   onOpenRemoteWorkspace?: (preference?: RemoteConnectionOpenPreference) => void;
   /** 远程设备卡「新任务」：激活该设备已打开的 tab 并开新草稿（Root 注入）。 */
   allowOpenWorkspace?: boolean;
-  onLogin?: () => void;
-  onLogout?: () => void;
-  user?: UserInfo | null;
 }) {
   const { intl, localePreference, setLocalePreference } = useZCodeIntl();
   const { settingsSectionGroups, settingsSections } = useMemo(
@@ -389,17 +375,6 @@ export function SettingsPage({
           linuxCloseToTrayCapability.gnomeLikeWithoutTray,
       }
     : undefined;
-  const marketingRequest = useStore(marketingNavigation, (state) => state.request);
-  useEffect(() => {
-    if (marketingRequest?.target.page !== "settings") return;
-    const target = marketingRequest.target;
-    const section = target.section ? marketingSettingsSections[target.section] : activeSection;
-    if (!settingsSections.some((item) => item.id === section)) {
-      finishMarketingNavigation(marketingRequest.id, new Error("marketing_navigation_unavailable"));
-    } else if (activeSection === section && !target.provider_id) {
-      finishMarketingNavigation(marketingRequest.id);
-    }
-  }, [activeSection, marketingRequest, settingsSections]);
   const [pluginNavigationOrigin, setPluginNavigationOrigin] = useState(() =>
     consumePendingSettingsPluginOrigin(),
   );
@@ -633,7 +608,6 @@ export function SettingsPage({
     usageBigmodelEnterpriseProducts.loading ||
     usageZaiEnterpriseProducts.loading;
   const [initialModelProviderTarget] = useState(() => consumePendingSettingsModelProviderTarget());
-  const { openCodingPlanUpgrade } = useCodingPlanUpgradeDialog();
   const [pendingModelProviderTarget, setPendingModelProviderTarget] = useState<
     SettingsModelProviderTarget | undefined
   >(() => initialModelProviderTarget);
@@ -672,10 +646,6 @@ export function SettingsPage({
         : "app",
     );
   }, [selectedUsageCodingPlanSource, usageActiveTab, usageCodingPlanSources]);
-  const setNewUserOnboardingOpen = useZCodeStore((state) => state.setNewUserOnboardingOpen);
-  // 「通用」页「打开引导」打开职业引导；迁移向导只从数据同步页「迁移」进入。
-  const openOccupationOnboarding = () => setNewUserOnboardingOpen(true);
-  const requestMigrationDialog = useZCodeStore((state) => state.requestOnboardingDialog);
   const setActiveSettingsSection = useCallback(
     (section: SettingsSectionId, fallbackSection: SettingsSectionId = activeSection) => {
       const resolvedSection = resolveSettingsSection(section, fallbackSection);
@@ -689,18 +659,7 @@ export function SettingsPage({
       setActiveSettingsSection("general");
     }
   }, [activeSection, isDesktop, setActiveSettingsSection]);
-  const handleOpenCodingPlanUpgradeSettings = useCallback(
-    (
-      providerId: string,
-      funnelContext?: import("@/lib/codingPlanFunnelTelemetry.js").CodingPlanFunnelContext,
-    ) => {
-      openCodingPlanUpgrade({
-        providerId,
-        funnelContext,
-      });
-    },
-    [openCodingPlanUpgrade],
-  );
+  const requestMigrationDialog = useZCodeStore((state) => state.requestOnboardingDialog);
   const handleOpenModelProviderSettings = useCallback(() => {
     setActiveSettingsSection("modelProvider");
   }, [setActiveSettingsSection]);
@@ -1666,12 +1625,7 @@ export function SettingsPage({
                   onLocaleChange={handleFooterLocaleChange}
                   onThemeChange={handleFooterThemeChange}
                   onSettingsButtonClick={onBack}
-                  onUsageClick={handleOpenUsageSettings}
-                  onUpgradeClick={handleOpenCodingPlanUpgradeSettings}
-                  onLogin={onLogin}
-                  onLogout={onLogout}
                   settingsButtonMode="back"
-                  user={user}
                   // 头像菜单是 WorkspaceSidebarFooter 的共享菜单，Settings 场景不能丢失桌面平台能力。
                   // 之前这里没透传 isDesktop，导致同一个头像菜单在设置页缺少界面缩放入口。
                   isDesktop={isDesktop}
@@ -1912,18 +1866,6 @@ export function SettingsPage({
                               onAskUserQuestionAutoResolutionEnabledChange={
                                 handleAskUserQuestionAutoResolutionEnabledChange
                               }
-                              onOpenOnboardingDialog={() =>
-                                runUserAction({
-                                  input: {
-                                    featureId: "settings.navigation",
-                                    action: "open_onboarding",
-                                    trigger: "button",
-                                  },
-                                  operation: openOccupationOnboarding,
-                                  completed: { resultSource: "local_commit" },
-                                  failureStage: "dialog_open",
-                                })
-                              }
                             />
                           ) : activeSection === "dataSync" ? (
                             isDesktop ? (
@@ -2121,7 +2063,6 @@ export function SettingsPage({
                               isDesktop={Boolean(isDesktop)}
                               isMacDesktop={Boolean(isMacDesktop)}
                               isWindowsDesktop={Boolean(isWindowsDesktop)}
-                              isWebRemoteControl={isWebRemoteControl}
                               initialTab={pluginTab}
                               initialScopeKey={pluginScopeKey}
                               workspacePath={activeWorkspacePath}
@@ -2139,7 +2080,6 @@ export function SettingsPage({
                               key={`mcp:${settingsSectionNavigationVersion}`}
                               mode="mcp"
                               initialScopeKey={pluginScopeKey}
-                              isWebRemoteControl={isWebRemoteControl}
                               workspacePath={activeWorkspacePath}
                               workspaceIdentity={activeWorkspaceIdentity}
                               onCreateTask={onCreateTask}
@@ -2150,18 +2090,13 @@ export function SettingsPage({
                               }}
                             />
                           ) : activeSection === "skill" ? (
-                            <PluginsSection
+                            <SkillsSection
                               key={`skill:${settingsSectionNavigationVersion}`}
-                              mode="skill"
-                              isWebRemoteControl={isWebRemoteControl}
+                              scopeFilter="workspace"
+                              searchQuery=""
                               workspacePath={activeWorkspacePath}
                               workspaceIdentity={activeWorkspaceIdentity}
                               onCreateTask={onCreateTask}
-                              onOpenPluginStore={(_returnScopeKey, intent) => {
-                                // 添加市场与浏览插件都先离开设置层，再显示商店。
-                                requestPluginStoreOpen({ returnScopeKey: "user", intent });
-                                onBack?.();
-                              }}
                             />
                           ) : activeSection === "migration" ? (
                             <MigrationSection
@@ -2203,17 +2138,14 @@ export function SettingsPage({
                               workspaceIdentity={activeWorkspaceIdentity}
                             />
                           ) : activeSection === "commands" ? (
-                            <PluginsSection
-                              mode="command"
-                              isWebRemoteControl={isWebRemoteControl}
+                            <CommandsSection
+                              key={`commands:${settingsSectionNavigationVersion}`}
+                              scopeFilter="workspace"
+                              parentScopeKey={activeWorkspaceIdentity?.trim() || activeWorkspacePath || "user"}
+                              workspaceTabs={workspaceTabs}
+                              searchQuery=""
                               workspacePath={activeWorkspacePath}
                               workspaceIdentity={activeWorkspaceIdentity}
-                              onCreateTask={onCreateTask}
-                              onOpenPluginStore={(_returnScopeKey, intent) => {
-                                // 添加市场与浏览插件都先离开设置层，再显示商店。
-                                requestPluginStoreOpen({ returnScopeKey: "user", intent });
-                                onBack?.();
-                              }}
                             />
                           ) : activeSection === "hooks" ? (
                             <HooksSection

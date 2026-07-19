@@ -8,6 +8,7 @@ import type {
   IPluginManagementService,
   IPluginsService,
   ISettingService,
+  ISettingsSyncService,
   ISystemService,
 } from "@zcode/services";
 import {
@@ -16,6 +17,7 @@ import {
   createFileWatcherService,
   createGitService,
   createSettingService,
+  createSettingsSyncService,
   createSystemService,
   createTerminalService,
 } from "@zcode/services/node";
@@ -70,6 +72,7 @@ export const WEB_SHELL_SETTING_UPDATE_KEYS: readonly (keyof AppSettings)[] = [
   "proactiveSuggestionsEnabled",
   "memoryEnabled",
   "onboardingOccupation",
+  "settingsSyncFirstRunPromptHandled",
   "lastWorkspaceSession",
   "lastActiveWorkspace",
   "lastActiveTabIndex",
@@ -147,6 +150,7 @@ export interface LocalZcodeServices {
   readonly broadcastService: IBroadcastService;
   readonly pluginsService: IPluginsService;
   readonly pluginManagementService: IPluginManagementService;
+  readonly settingsSyncService: ISettingsSyncService;
   dispose(): void;
 }
 
@@ -198,6 +202,7 @@ export function createLocalZcodeServices(
   const systemService = createSystemService();
   const broadcastService = createBroadcastService(null);
   const pluginServices = createZcodePluginServices();
+  const settingsSyncService = createSettingsSyncService({ settingService });
   let disposed = false;
 
   return {
@@ -208,6 +213,7 @@ export function createLocalZcodeServices(
     broadcastService,
     pluginsService: pluginServices.pluginsService,
     pluginManagementService: pluginServices.pluginManagementService,
+    settingsSyncService,
     dispose(): void {
       if (disposed) return;
       disposed = true;

@@ -33,6 +33,21 @@ function renderScreen() {
   return { tree, onComplete, onCancel };
 }
 
+/** One write, one wait: the screen moves on its own after the chunk. */
+async function waitForFrame(
+  tree: ReturnType<typeof render>,
+  predicate: (frame: string) => boolean,
+  timeoutMs = 2000,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate(tree.lastFrame() ?? "")) {
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out waiting for the next step`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 /**
  * Enter and the protocol digits set state absolutely, so a lost one is simply
  * sent again. Typed text appends, so it is typed through `typeIntoField`, which
@@ -105,5 +120,23 @@ describe("ProviderSetupScreen", () => {
 
     expect(onCancel).toHaveBeenCalledOnce();
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("takes typed text and Enter delivered in one read", async () => {
+    const { tree } = renderScreen();
+
+    await pressUntil(tree, "1", (frame) => frame.includes("❯ 1)"));
+    await pressUntil(tree, "\r", (frame) => frame.includes("Base URL"));
+
+    tree.stdin.write("http://127.0.0.1:9000/v1\r");
+    await waitForFrame(tree, (frame) => frame.includes("API key"));
+  });
+
+  it("takes a bare newline as Enter", async () => {
+    const { tree } = renderScreen();
+
+    await pressUntil(tree, "2", (frame) => frame.includes("❯ 2)"));
+    tree.stdin.write("\n");
+    await waitForFrame(tree, (frame) => frame.includes("Base URL"));
   });
 });

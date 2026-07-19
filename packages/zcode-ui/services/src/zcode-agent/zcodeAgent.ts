@@ -442,7 +442,6 @@ export interface ZCodeAgentConversationRowsRangeParams extends ZCodeAgentSession
 /** 当前有效分支里的终态 ExitPlanMode 目录。 */
 export type ZCodeAgentConversationPlansParams = ZCodeAgentSessionTarget;
 
-/** 手机远控输入预测（ghost hint）；线格式见 docs/web-remote-control/mobile-input-prediction.md。 */
 export interface ZCodeAgentConversationInputPredictionParams extends ZCodeAgentSessionTarget {
   /** 手机当前看到的会话 revision；参与 CLI 侧缓存键，回包据此丢弃过期结果。 */
   revision: number;

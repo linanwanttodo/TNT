@@ -96,7 +96,6 @@ import {
 } from "@/lib/codingPlanFunnelTelemetry.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
 import { logger } from "@/logger.js";
-import { useCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useCodingPlanEntitlements } from "@/settings/model-provider-section/useCodingPlanEntitlements.js";
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
@@ -392,8 +391,6 @@ export interface V4ComposerToolbarProps {
   sessionId: string | null;
   phase: SessionPhase | null;
   provider?: ZCodeProvider;
-  /** 当前工具条是否运行在 Web 远控壳中。 */
-  isWebRemoteControl?: boolean;
   /** 当前视口是否为手机输入布局。 */
   isMobileViewport?: boolean;
   /** 草稿态（sessionId=null），仅区分新任务呈现，不改变选择来源。 */
@@ -448,7 +445,6 @@ function V4ComposerModelControlsImpl({
   modelSelectionRefresh,
   sessionId,
   provider,
-  isWebRemoteControl = false,
   isMobileViewport = false,
   draftMode = false,
   draftConfig,
@@ -468,7 +464,6 @@ function V4ComposerModelControlsImpl({
   onRecoverCustomModelSelection,
 }: V4ComposerToolbarProps) {
   const { intl, locale } = useZCodeIntl();
-  const { openCodingPlanUpgrade } = useCodingPlanUpgradeDialog();
   const displayProvider = provider ?? ZCODE_AGENT_PROVIDER;
   // 配置面读取：workspace 缺省目录（taskId=null），不读旧会话态。
   const { error: configOptionsError } = useToolbarConfigOptions(
@@ -532,25 +527,6 @@ function V4ComposerModelControlsImpl({
     return resolveDraftDisplayedConfig(draftConfig ?? {});
   }, [draftConfig]);
 
-  const handleOpenStartPlanUpgrade = useCallback(
-    (providerId: string) => {
-      openCodingPlanUpgrade({
-        providerId,
-        funnelContext: createCodingPlanFunnelContext({
-          providerId,
-          upgradeSource: "session_token_usage",
-          eventRegion: "app.session",
-          eventText: intl.formatMessage({ id: "chat.quota.action.upgrade" }),
-          entryPlanState: resolveCodingPlanEntryPlanState({
-            providerId,
-            displayStatus: "purchased",
-            planLevel: "start",
-          }),
-        }),
-      });
-    },
-    [intl, openCodingPlanUpgrade],
-  );
   const handleOpenUsageDetails = useCallback(
     (sourceId?: SidebarUsageCodingPlanSourceId) => {
       if (sourceId) {
@@ -602,7 +578,6 @@ function V4ComposerModelControlsImpl({
             onAccess: () => refreshCodingPlanEntitlements({ silent: true, reason: "access" }),
           }
         : {}),
-      onUpgradeClick: () => handleOpenStartPlanUpgrade(contextPlanConnection.providerId),
       snapshot:
         entitlement?.snapshot?.provider?.id === contextPlanConnection.providerId
           ? entitlement.snapshot
@@ -612,7 +587,6 @@ function V4ComposerModelControlsImpl({
     contextPlanConnection,
     enabledStartPlanProviderIds,
     entitlements,
-    handleOpenStartPlanUpgrade,
     providerSourcesLoading,
     refreshCodingPlanEntitlements,
   ]);
@@ -1219,10 +1193,7 @@ function V4ComposerModelControlsImpl({
   const sessionConfigPending = sessionId !== null && draftConfig?.mode === undefined;
   // Bug 根因：手机端固定宽度的二级菜单没有消费 Radix 测得的当前方向可用宽度，
   // 共享 min-w-32 还会阻止极窄空间继续收缩。保持二级交互，同时把窗口边缘作为硬上限。
-  const providerSubmenuClassName =
-    isWebRemoteControl && isMobileViewport
-      ? "w-40 min-w-0 max-w-(--radix-dropdown-menu-content-available-width)"
-      : undefined;
+  const providerSubmenuClassName = undefined;
   useToolbarShortcutBindings({
     hasAnyOption: Boolean(modelOption) || Boolean(thoughtOption),
     toolbarDisabled: disabled || recoveryPending || connectionSwitch.pending,

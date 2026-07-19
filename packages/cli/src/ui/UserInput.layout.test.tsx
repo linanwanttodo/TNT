@@ -64,7 +64,7 @@ describe("UserInput above-composer rows", () => {
     }
   });
 
-  it("draws one rounded top rule and no bottom rule", async () => {
+  it("frames the input between the mode rule and a closing rule", async () => {
     const tree = render(
       <UserInput
         onSubmit={vi.fn()}
@@ -80,9 +80,17 @@ describe("UserInput above-composer rows", () => {
       const rule = lines.findIndex((line) => line.includes("[Manual]"));
 
       expect(rule).toBeGreaterThan(-1);
-      expect(lines[rule].trimStart().startsWith("╭")).toBe(true);
-      expect(lines[rule].trimEnd().endsWith("╮")).toBe(true);
-      expect(lines.some((line) => line.includes("╰"))).toBe(false);
+      expect(lines[rule].startsWith("─[Manual]")).toBe(true);
+      expect(lines[rule].endsWith("─")).toBe(true);
+
+      const inputLine = lines.findIndex(
+        (line) => line.includes("Ask anything") || line.includes("输入内容"),
+      );
+      expect(inputLine).toBe(rule + 1);
+      expect(lines[inputLine]).not.toContain("│");
+
+      // The rule below closes the frame; there are no side rails.
+      expect(lines[inputLine + 1].replace(/─/g, "").trim()).toBe("");
       expect(lines.some((line) => line.includes("│"))).toBe(false);
     } finally {
       tree.unmount();
