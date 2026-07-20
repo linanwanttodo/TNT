@@ -20,16 +20,16 @@ describe("BrandBanner", () => {
     const tree = render(<BrandBanner version="1.2.3" />);
     try {
       const frame = tree.lastFrame() ?? "";
-      // Four-row wordmark on the left, no border.
-      expect(frame).toContain("███████  ██   ██  ███████");
-      expect(frame).not.toContain("╭");
-      // Name and version share the top metadata line (marginTop leaves a
-      // blank first line).
-      const firstLine = frame.split("\n").find((line) => line.trim()) ?? "";
-      expect(firstLine).toContain("TNT CLI");
-      expect(firstLine).toContain("v1.2.3");
-      // Top-left: the wordmark starts at the first column (after padding).
-      expect(firstLine.indexOf("█")).toBeLessThanOrEqual(2);
+      // The welcome facts live inside a rounded frame.
+      expect(frame).toContain("╭");
+      expect(frame).toContain("Welcome to TNT CLI!");
+      expect(frame).toContain("Version:");
+      expect(frame).toContain("v1.2.3");
+      expect(frame).toContain("GitHub:");
+      // A vertical rule separates the facts from the hint pane.
+      expect(frame).toContain("│");
+      // Hints fill the right pane.
+      expect(frame).toContain("shift+tab 切换模式");
     } finally {
       tree.unmount();
     }
