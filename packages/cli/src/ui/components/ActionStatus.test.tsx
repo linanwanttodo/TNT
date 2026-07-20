@@ -1,5 +1,4 @@
 import { render } from "ink-testing-library";
-import { act } from "react";
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,8 +9,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ActionStatus,
   isOutputStalled,
-  SHOW_TOKEN_COUNT_AFTER_MS,
-  shouldShowTokenCount,
   STALL_THRESHOLD_MS,
   statusColors,
 } from "./ActionStatus.js";
@@ -66,69 +63,23 @@ describe("ActionStatus token gating", () => {
     vi.useRealTimers();
   });
 
-  it("keeps the counter hidden for a short turn", () => {
-    expect(shouldShowTokenCount({ elapsedMs: 1_000, tokenCount: 40 })).toBe(
-      false,
+  it("shows the counter as soon as the stream produced tokens", () => {
+    const frame = frameOf(
+      <ActionStatus
+        visible={true}
+        startTime={0}
+        message="Thinking"
+        tokenCount={400}
+      />,
     );
-    expect(
-      shouldShowTokenCount({
-        elapsedMs: SHOW_TOKEN_COUNT_AFTER_MS - 1,
-        tokenCount: 40,
-      }),
-    ).toBe(false);
+    expect(frame).toContain("400 tokens");
   });
 
-  it("shows the counter once the 30 second gate passes", () => {
-    expect(
-      shouldShowTokenCount({
-        elapsedMs: SHOW_TOKEN_COUNT_AFTER_MS,
-        tokenCount: 40,
-      }),
-    ).toBe(true);
-  });
-
-  it("lets verbose output skip the gate", () => {
-    expect(
-      shouldShowTokenCount({ elapsedMs: 0, tokenCount: 40, verbose: true }),
-    ).toBe(true);
-  });
-
-  it("never shows a counter with no tokens behind it", () => {
-    expect(shouldShowTokenCount({ elapsedMs: 60_000, tokenCount: 0 })).toBe(
-      false,
+  it("hides the counter while the stream is silent", () => {
+    const frame = frameOf(
+      <ActionStatus visible={true} startTime={0} message="Thinking" />,
     );
-    expect(shouldShowTokenCount({ elapsedMs: 60_000 })).toBe(false);
-  });
-
-  it("reveals the counter when the clock crosses the gate", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-11-09T00:00:00Z"));
-    const startTime = Date.now();
-    let tree!: ReturnType<typeof render>;
-    await act(async () => {
-      tree = render(
-        <ActionStatus
-          visible
-          startTime={startTime}
-          message="Thinking"
-          tokenCount={400}
-        />,
-      );
-    });
-
-    try {
-      expect(tree.lastFrame() ?? "").not.toContain("tokens");
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(SHOW_TOKEN_COUNT_AFTER_MS + 600);
-      });
-
-      expect(tree.lastFrame() ?? "").toContain("↓ 400 tokens");
-    } finally {
-      await act(async () => {
-        tree.unmount();
-      });
-    }
+    expect(frame).not.toContain("tokens");
   });
 
   it("shows the counter immediately in verbose mode", () => {

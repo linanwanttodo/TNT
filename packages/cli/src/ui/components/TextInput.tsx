@@ -41,8 +41,8 @@ export function TextInput({
       <Box>
         {focus ? (
           <Text terminalCursorFocus={focus} terminalCursorPosition={0}>
-            {chalk.inverse(cpSlice(placeholder, 0, 1) || " ")}
-            <Text color={theme.text.secondary}>{cpSlice(placeholder, 1)}</Text>
+            {chalk.inverse(" ")}
+            <Text color={theme.text.secondary}>{` ${placeholder}`}</Text>
           </Text>
         ) : (
           <Text color={theme.text.secondary}>{placeholder}</Text>

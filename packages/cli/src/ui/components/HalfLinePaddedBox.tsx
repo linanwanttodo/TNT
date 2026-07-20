@@ -50,7 +50,12 @@ export const HalfLinePaddedBox: React.FC<HalfLinePaddedBoxProps> = ({
       <Box width={safeWidth} flexDirection="row">
         <Text>{colorize(safeRepeat("▄", safeWidth))}</Text>
       </Box>
-      <Box width={safeWidth} flexDirection="column" flexShrink={0}>
+      <Box
+        width={safeWidth}
+        flexDirection="column"
+        flexShrink={0}
+        backgroundColor={backgroundBaseColor}
+      >
         {children}
       </Box>
       <Box width={safeWidth} flexDirection="row">

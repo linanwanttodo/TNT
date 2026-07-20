@@ -25,8 +25,9 @@ export function shouldShowTokenCount(input: {
   verbose?: boolean;
   tokenCount?: number;
 }): boolean {
-  if (input.tokenCount === undefined || input.tokenCount <= 0) return false;
-  return input.verbose === true || input.elapsedMs >= SHOW_TOKEN_COUNT_AFTER_MS;
+  // The bracket is the consumption readout while the turn streams, so the
+  // counter shows as soon as the stream has produced anything.
+  return input.tokenCount !== undefined && input.tokenCount > 0;
 }
 
 /**
@@ -61,6 +62,8 @@ interface ActionStatusProps {
   showSpinner?: boolean;
   color?: string;
   loadingColor?: string;
+  /** The cancel hint sits first in the bracket, gemini style. */
+  cancelHint?: string;
   additionalHint?: string;
   /** Tokens produced this turn, when the caller knows them. */
   tokenCount?: number;
@@ -77,6 +80,7 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
   showSpinner = false,
   color = "dim",
   loadingColor = "green",
+  cancelHint,
   additionalHint,
   tokenCount,
   verbose = false,
@@ -129,22 +133,34 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
       {showSpinner && (
         <LoadingAnimation color={colors.spinner} visible={true} />
       )}
-      <Text color={colors.message}>{sanitizeTerminalText(message)}</Text>
-      <Text color="dim">(</Text>
-      <Timer startTime={startTime} />
-      {tokenLabel && (
+      <Text color={colors.message} italic>
+        {sanitizeTerminalText(message)}
+      </Text>
+      {(cancelHint || tokenLabel || additionalHint) && (
         <>
-          <Text color="dim">·</Text>
-          <Text color="dim">{tokenLabel}</Text>
+          <Text color="dim">(</Text>
+          {cancelHint && (
+            <>
+              <Text color="dim">{sanitizeTerminalText(cancelHint)}</Text>
+              <Text color="dim">,</Text>
+            </>
+          )}
+          <Timer startTime={startTime} />
+          {tokenLabel && (
+            <>
+              <Text color="dim">·</Text>
+              <Text color="dim">{tokenLabel}</Text>
+            </>
+          )}
+          {additionalHint && (
+            <>
+              <Text color="dim">·</Text>
+              <Text color="dim">{sanitizeTerminalText(additionalHint)}</Text>
+            </>
+          )}
+          <Text color="dim">)</Text>
         </>
       )}
-      {additionalHint && (
-        <>
-          <Text color="dim">·</Text>
-          <Text color="dim">{sanitizeTerminalText(additionalHint)}</Text>
-        </>
-      )}
-      <Text color="dim">)</Text>
     </Box>
   );
 };
