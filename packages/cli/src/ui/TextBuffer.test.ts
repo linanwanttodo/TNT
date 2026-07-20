@@ -557,6 +557,103 @@ describe("TextBuffer", () => {
         expect(buffer.text).toBe("你好");
       });
 
+      // codex never holds a non-ASCII character: an IME commit wrapped in
+      // paste markers must echo at once, not after the silence window.
+      it("should echo an IME commit wrapped in paste markers at once", () => {
+        vi.useFakeTimers();
+        try {
+          buffer.handleInput("[200~你好", { ctrl: false, meta: false } as any);
+
+          // codex never holds a non-ASCII character, so the commit echoes at
+          // once; the end marker never arrived and paste mode is still open.
+          expect(buffer.text).toBe("你好");
+          expect(buffer.isInPasteMode()).toBe(true);
+
+          vi.advanceTimersByTime(300);
+          expect(buffer.isInPasteMode()).toBe(false);
+          expect(buffer.text).toBe("你好");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("should not drop payload when a start marker re-enters paste mode", () => {
+        vi.useFakeTimers();
+        try {
+          buffer.handleInput("[200~ab", { ctrl: false, meta: false } as any);
+          buffer.handleInput("[200~cd", { ctrl: false, meta: false } as any);
+
+          // The end marker for "ab" never arrived; the re-echo shows it
+          // before the fresh payload buffers.
+          expect(buffer.text).toBe("ab");
+
+          vi.advanceTimersByTime(300);
+          expect(buffer.text).toBe("abcd");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      // A stranded paste mode used to swallow every keystroke into the silent
+      // buffer and re-arm the silence timer, so continuous typing never
+      // appeared until the user paused - the "can't type / laggy /" report.
+      it("should echo single-key typing while paste mode is stranded", () => {
+        vi.useFakeTimers();
+        try {
+          buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+
+          buffer.handleInput("/", { ctrl: false, meta: false } as any);
+          expect(buffer.text).toBe("/");
+
+          buffer.handleInput("h", { ctrl: false, meta: false } as any);
+          buffer.handleInput("e", { ctrl: false, meta: false } as any);
+          expect(buffer.text).toBe("/he");
+          expect(buffer.isInPasteMode()).toBe(true);
+
+          vi.advanceTimersByTime(300);
+          expect(buffer.isInPasteMode()).toBe(false);
+          expect(buffer.text).toBe("/he");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("should notify state change when silence flushes the paste buffer", () => {
+        vi.useFakeTimers();
+        try {
+          const onChange = vi.fn();
+          buffer.setStateChangeCallback(onChange);
+
+          buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+          buffer.handleInput("abc", { ctrl: false, meta: false } as any);
+          expect(buffer.text).toBe("");
+          expect(onChange).not.toHaveBeenCalled();
+
+          vi.advanceTimersByTime(300);
+
+          expect(buffer.isInPasteMode()).toBe(false);
+          expect(buffer.text).toBe("abc");
+          expect(onChange).toHaveBeenCalled();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it("should flush a pending paste into text before submit", () => {
+        vi.useFakeTimers();
+        try {
+          buffer.handleInput("[200~", { ctrl: false, meta: false } as any);
+          buffer.handleInput("hello", { ctrl: false, meta: false } as any);
+          expect(buffer.text).toBe("");
+
+          expect(buffer.flushPasteMode()).toBe(true);
+          expect(buffer.isInPasteMode()).toBe(false);
+          expect(buffer.text).toBe("hello");
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
       it("should flush the buffer when the end marker never arrives", () => {
         vi.useFakeTimers();
         try {

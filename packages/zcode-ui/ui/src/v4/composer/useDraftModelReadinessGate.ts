@@ -22,7 +22,7 @@ export interface DraftModelReadinessGate {
   dismissError(): void;
   /** 首发 admission 的权威复查；false 表示应保留 composer 并返回 blocked。 */
   ensureReadyForSend(): Promise<boolean>;
-  /** Host 门禁在 UI 复查后竞态命中时，将同一错误重新投影到草稿横幅。 */
+  /** Host 门禁在 UI 复查后竞态命中时，将同一错误重新投影到 pane 横幅。 */
   markProviderNotReady(): void;
 }
 
@@ -46,10 +46,14 @@ export function useDraftModelReadinessGate(params: {
   sessionId: string | null;
   modelSelectionService: Pick<IModelSelectionService, "getView" | "onDidChange">;
 }): DraftModelReadinessGate {
-  const { workspacePath, workspaceIdentity, provider, sessionId, modelSelectionService } = params;
+  const { workspacePath, workspaceIdentity, provider, modelSelectionService } = params;
   const workspaceKey = workspaceIdentity?.trim() || workspacePath;
   const displayProvider = provider ?? ZCODE_AGENT_PROVIDER;
-  const enabled = sessionId === null && isZCodeAgentProvider(displayProvider);
+  // The gate serves every pane of the zcode agent provider, drafts and live
+  // sessions alike: an existing session whose registry lost its provider
+  // must project the same banner instead of failing its send as a silent
+  // dead click. Non-agent providers stay ungated.
+  const enabled = isZCodeAgentProvider(displayProvider);
   const gateKey = `${workspaceKey}\u0000${displayProvider}`;
   const scope = useMemo(() => ({ gateKey }), [enabled, gateKey, modelSelectionService]);
   const [state, setState] = useState<DraftModelReadinessState>(() => ({
