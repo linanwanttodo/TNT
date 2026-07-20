@@ -326,13 +326,14 @@ const ComposerPrompt: React.FC<{
   remote: boolean;
   busy: boolean;
   subtle: string;
-}> = ({ bash, remote, busy, subtle }) => {
+  warning: string;
+}> = ({ bash, remote, busy, subtle, warning }) => {
   const marker = promptMarker({ bash, remote, busy });
   return (
     <Text
       color={
         marker.tone === "bash"
-          ? "yellow"
+          ? warning
           : marker.tone === "remote"
             ? "cyan"
             : subtle
@@ -994,11 +995,17 @@ const UserInput: React.FC<UserInputProps> = ({
         inputHistory.addEntry(submittedText);
 
         // We don't queue, we just send in remote mode because the server handles queueing
-        if (!isRemoteMode && (isWaitingForResponse || isCompacting)) {
+        if (
+          !isRemoteMode &&
+          (isWaitingForResponse || isCompacting) &&
+          !submittedText.startsWith("/")
+        ) {
           // Process message later when LLM has responded or compaction is complete
           void messageQueue.enqueueMessage(submittedText, imageMap);
         } else {
-          // Submit with images
+          // A slash command submits the moment Enter lands, as in the
+          // reference CLI: UI commands run immediately; turn-scoped ones the
+          // hook defers back to the queue at its own boundary.
           onSubmit(submittedText, imageMap);
         }
 
@@ -1362,6 +1369,7 @@ const UserInput: React.FC<UserInputProps> = ({
           remote={isRemoteMode}
           busy={isWaitingForResponse || isCompacting}
           subtle={theme.text.subtle}
+          warning={theme.status.warning}
         />
         {renderInputText()}
       </Box>

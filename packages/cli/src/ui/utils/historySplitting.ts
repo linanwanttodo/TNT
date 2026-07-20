@@ -23,13 +23,17 @@ export type SplitChatHistoryItem = ChatHistoryItem & {
  * It only splits at safe markdown boundaries (paragraph breaks: \n\n) to preserve formatting.
  *
  * Splitting behavior:
- * - User messages: Split only when they have natural paragraph breaks (\n\n)
+ * - User messages: Never split. The served prompt leads with injected
+ *   reminders (skill notes, context), which alone can exceed the height
+ *   threshold; splitting copied the typed userText onto every chunk, so the
+ *   reader saw the message once per chunk. The marker split already surfaces
+ *   what the user typed.
  * - Assistant messages: Split when content exceeds height threshold
  * - System messages: Never split
  * - Messages with tool calls: Never split
  *
  * Common use cases:
- * - User pastes multiple paragraphs of text -> Split at paragraph boundaries
+ * - User pastes multiple paragraphs of text -> Keep as single message
  * - User writes one long paragraph -> Keep as single message
  * - Assistant generates long response -> Split at paragraph breaks (\n\n)
  */
@@ -44,6 +48,13 @@ function splitChatHistoryItem(
 
   // Don't split system messages
   if (item.message.role === "system") {
+    return [item];
+  }
+
+  // Don't split user messages. The served prompt's injected reminders bloat
+  // the content past the threshold; a split copied the typed userText onto
+  // every chunk and the message displayed once per chunk.
+  if (item.message.role === "user") {
     return [item];
   }
 

@@ -85,6 +85,15 @@ interface MemoizedMessageProps {
   hideBullet?: boolean;
 }
 
+/** A tool-only item sits tight between its neighbours, as in the reference CLI. */
+function itemBottomMargin(input: {
+  hasTools: boolean;
+  hasContent: boolean;
+  hasReasoning: boolean;
+}): 0 | 1 {
+  return input.hasTools && !input.hasContent && !input.hasReasoning ? 0 : 1;
+}
+
 export const MemoizedMessage = memo<MemoizedMessageProps>(
   ({ item, index, hideBullet = false }) => {
     const theme = useTheme();
@@ -141,7 +150,15 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
       isAssistant && !hasContent && !hasTools && !reasoningText;
 
     return (
-      <Box key={index} flexDirection="column" marginBottom={1}>
+      <Box
+        key={index}
+        flexDirection="column"
+        marginBottom={itemBottomMargin({
+          hasTools,
+          hasContent,
+          hasReasoning: reasoningText !== "",
+        })}
+      >
         {reasoningText ? (
           <Box marginBottom={hasContent || hasTools ? 1 : 0}>
             <ThinkingMessage thought={reasoningText} />

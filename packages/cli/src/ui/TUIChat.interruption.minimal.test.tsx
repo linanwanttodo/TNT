@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ComposerHints } from "./components/ComposerHints.js";
+import { InterruptedNotice } from "./components/Composer.js";
 import { UserInput } from "./UserInput.js";
 
 // AppRoot subscribes a dozen services through useServices, so every case that
@@ -29,7 +29,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
 
   it("shows interruption message when wasInterrupted is true", () => {
     const { lastFrame, rerender, unmount } = track(
-      <ComposerHints wasInterrupted={false} queuedCount={0} working={false} />,
+      <InterruptedNotice visible={false} />,
     );
 
     try {
@@ -40,9 +40,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
       expect(frame).not.toContain("Press enter to continue");
 
       // Re-render with wasInterrupted: true
-      rerender(
-        <ComposerHints wasInterrupted queuedCount={0} working={false} />,
-      );
+      rerender(<InterruptedNotice visible />);
 
       // Should show interruption message
       frame = lastFrame();
@@ -56,7 +54,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
 
   it("hides interruption message when wasInterrupted is false", () => {
     const { lastFrame, rerender, unmount } = track(
-      <ComposerHints wasInterrupted queuedCount={0} working={false} />,
+      <InterruptedNotice visible />,
     );
 
     try {
@@ -67,13 +65,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
       expect(frame).toContain("Press enter to continue");
 
       // Re-render with wasInterrupted: false
-      rerender(
-        <ComposerHints
-          wasInterrupted={false}
-          queuedCount={0}
-          working={false}
-        />,
-      );
+      rerender(<InterruptedNotice visible={false} />);
 
       // Should not show interruption message
       frame = lastFrame();
@@ -152,7 +144,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
           onInterrupt={mockOnInterrupt}
           wasInterrupted
         />
-        <ComposerHints wasInterrupted queuedCount={0} working={false} />
+        <InterruptedNotice visible />
       </>,
     );
 

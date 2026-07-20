@@ -3,6 +3,7 @@ import React from "react";
 
 import { MARKER_TASK_LIST } from "../../tools/resultMarkers.js";
 import { symbols } from "../symbols.js";
+import { useTheme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 interface ChecklistDisplayProps {
@@ -15,6 +16,7 @@ interface ChecklistDisplayProps {
 export const ChecklistDisplay: React.FC<ChecklistDisplayProps> = ({
   content,
 }) => {
+  const theme = useTheme();
   const lines = content.split("\n");
 
   // Find the index of the first incomplete checkbox item
@@ -45,7 +47,9 @@ export const ChecklistDisplay: React.FC<ChecklistDisplayProps> = ({
           return (
             <Box key={index}>
               <Text>{indent}</Text>
-              <Text color={isCompleted ? "green" : "yellow"}>
+              <Text
+                color={isCompleted ? theme.status.success : theme.status.idle}
+              >
                 {isCompleted ? symbols().check : symbols().ring}
               </Text>
               <Text> </Text>
