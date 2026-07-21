@@ -404,7 +404,6 @@ const ComposerFooter: React.FC<{
             {t("status.think")}:{thinkingDepth}
           </Text>
         ) : null}
-        <Text color={theme.text.subtle}> · ctrl+t 复制</Text>
         <Box marginLeft={1}>
           <UpdateNotification isRemoteMode={isRemoteMode} />
         </Box>

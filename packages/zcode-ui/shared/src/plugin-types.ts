@@ -36,6 +36,14 @@ export interface AvailablePluginSummary {
   version?: string;
   installed: boolean;
   componentTypes?: PluginComponentType[];
+  /** Storefront fields the UI uses for the card avatar and labels. */
+  listing?: {
+    displayName?: string;
+    icon?: string;
+    category?: string;
+    author?: string;
+    homepage?: string;
+  };
 }
 
 export interface InstalledPluginSummary {

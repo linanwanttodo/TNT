@@ -61,7 +61,7 @@ describe("TUIChat layout", () => {
     }
   });
 
-  it("fills the alternate screen and pins the dock to the bottom", () => {
+  it("keeps the dock together in the normal buffer", () => {
     const { lastFrame, unmount } = render(<AppRoot />);
 
     try {
@@ -69,12 +69,12 @@ describe("TUIChat layout", () => {
       const lines = frame.split("\n");
       const content = lines.filter((line) => line.trim() !== "");
 
-      // The app owns the whole screen, so the frame is the terminal's height.
-      expect(lines.length).toBeLessThanOrEqual(30);
-      expect(lines.length).toBeGreaterThanOrEqual(28);
+      // The normal buffer hands settled transcript rows to the terminal's
+      // scrollback through <Static>; the frame is not pinned to the terminal
+      // height any more, so scrolling and native selection are the terminal's.
       expect(content.length).toBeGreaterThanOrEqual(5);
 
-      // The banner/transcript comes first; the composer is the last block.
+      // The banner/transcript comes first; the composer stays together.
       expect(frame.indexOf("Ask anything")).toBeGreaterThan(0);
 
       const composerIndex = content.findIndex((line) =>
