@@ -41,6 +41,13 @@ const NOOP_RESULT: HookEventResult = { blocked: false, results: [] };
  * what survives the cap is the pointer, not the manual.
  */
 const MAX_HOOK_CONTEXT_CHARS = 4_000;
+/**
+ * A UserPromptSubmit hook runs on every message, so its context is attached
+ * to every user turn. A long note there is billed each round and can read as
+ * a standing instruction. SessionStart notes are one-shot and keep the larger
+ * budget.
+ */
+const MAX_PROMPT_HOOK_CONTEXT_CHARS = 1_000;
 
 /**
  * A SessionStart hook that inlines a whole skill manual (superpowers does)
@@ -69,19 +76,26 @@ export function compactSkillReminder(text: string): string {
   ].join(" ");
 }
 
-export function capHookContext(text: string): string {
-  if (text.length <= MAX_HOOK_CONTEXT_CHARS) return text;
-  const head = text.slice(0, MAX_HOOK_CONTEXT_CHARS).trimEnd();
-  return `${head}\n\n[... hook context truncated at ${MAX_HOOK_CONTEXT_CHARS} characters; read the full document through the Skills tool or the filesystem when the task needs it ...]`;
+export function capHookContext(
+  text: string,
+  maxChars: number = MAX_HOOK_CONTEXT_CHARS,
+): string {
+  if (text.length <= maxChars) return text;
+  const head = text.slice(0, maxChars).trimEnd();
+  return `${head}\n\n[... hook context truncated at ${maxChars} characters; read the full document through the Skills tool or the filesystem when the task needs it ...]`;
 }
 
 /** Cap one result's additionalContext in place, when the hook wrote any. */
-function withCappedContext(result: HookEventResult): HookEventResult {
+function withCappedContext(
+  result: HookEventResult,
+  maxChars: number = MAX_HOOK_CONTEXT_CHARS,
+): HookEventResult {
   if (typeof result.additionalContext === "string") {
     return {
       ...result,
       additionalContext: capHookContext(
         compactSkillReminder(result.additionalContext),
+        maxChars,
       ),
     };
   }
@@ -262,7 +276,10 @@ export async function fireUserPromptSubmit(
     prompt,
   };
 
-  return withCappedContext(await services.hooks.fireEvent(input));
+  return withCappedContext(
+    await services.hooks.fireEvent(input),
+    MAX_PROMPT_HOOK_CONTEXT_CHARS,
+  );
 }
 
 /**
