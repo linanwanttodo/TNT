@@ -30,9 +30,12 @@ describe("IntroMessage", () => {
   it("leaves Org, Config and Model to the status bar", () => {
     const frame = frameOf(<IntroMessage />) ?? "";
 
+    // The frame carries the session facts the other CLIs show on entry.
+    expect(frame).toContain("Directory:");
+    expect(frame).toContain("Model:");
+    expect(frame).toContain("Version:");
     expect(frame).not.toContain("Org:");
     expect(frame).not.toContain("Config:");
-    expect(frame).not.toContain("Model:");
     expect(frame).not.toContain("Loading...");
   });
 });
