@@ -2,6 +2,7 @@ import { Box, Text } from "ink";
 import React, { useEffect, useRef, useState } from "react";
 
 import { LoadingAnimation } from "../LoadingAnimation.js";
+import { useTheme } from "../theme/tokens.js";
 import { Timer } from "../Timer.js";
 import { compactTokenCount } from "../utils/contextUsageLine.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
@@ -79,13 +80,14 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
   message,
   showSpinner = false,
   color = "dim",
-  loadingColor = "green",
+  loadingColor: _loadingColor = "green",
   cancelHint,
   additionalHint,
   tokenCount,
   verbose = false,
   hasActiveTools = false,
 }) => {
+  const theme = useTheme();
   const [now, setNow] = useState(() => Date.now());
   const lastOutputAt = useRef(startTime);
   const lastTokenCount = useRef(tokenCount);
@@ -123,7 +125,13 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
     tokenCount,
     hasActiveTools,
   });
-  const colors = statusColors({ stalled, messageColor: color, loadingColor });
+  // The status row keeps the theme's calm accent while it thinks. A long
+  // round is reported by the timer in the bracket, not by painting the row
+  // red: red reads as an error where nothing has failed.
+  const colors = {
+    message: stalled ? color : theme.accent,
+    spinner: theme.accent,
+  };
   const tokenLabel = shouldShowTokenCount({ elapsedMs, verbose, tokenCount })
     ? `↓ ${compactTokenCount(tokenCount ?? 0)} tokens`
     : null;

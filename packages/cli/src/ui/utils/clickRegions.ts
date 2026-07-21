@@ -13,7 +13,8 @@ import type { DOMElement } from "ink";
 interface ClickRegion {
   id: number;
   getNode: () => DOMElement | null | undefined;
-  onClick: () => void;
+  /** Click position relative to the region's top-left, in cells. */
+  onClick: (relativeX: number, relativeY: number) => void;
 }
 
 const regions = new Map<number, ClickRegion>();
@@ -45,7 +46,7 @@ function absolutePosition(node: DOMElement): Point {
 /** Registers a click handler for the node `getNode` returns. */
 export function registerClickRegion(
   getNode: () => DOMElement | null | undefined,
-  onClick: () => void,
+  onClick: (relativeX: number, relativeY: number) => void,
 ): () => void {
   const id = nextId++;
   regions.set(id, { id, getNode, onClick });
@@ -65,6 +66,8 @@ export function dispatchClick(row: number, col: number): boolean {
   const x = col - 1;
   let winner: ClickRegion | undefined;
   let winnerTop = Number.NEGATIVE_INFINITY;
+  let winnerLeft = Number.NEGATIVE_INFINITY;
+  let winnerTop2 = { top: 0, left: 0 };
 
   for (const region of regions.values()) {
     const node = region.getNode();
@@ -81,6 +84,8 @@ export function dispatchClick(row: number, col: number): boolean {
     if (top >= winnerTop) {
       winner = region;
       winnerTop = top;
+      winnerLeft = left;
+      winnerTop2 = { top, left };
     }
   }
 
@@ -88,8 +93,7 @@ export function dispatchClick(row: number, col: number): boolean {
     return false;
   }
 
-  winner.onClick();
-
+  winner.onClick(x - winnerLeft, y - winnerTop2.top);
   return true;
 }
 

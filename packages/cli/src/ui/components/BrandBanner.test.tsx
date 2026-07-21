@@ -20,16 +20,12 @@ describe("BrandBanner", () => {
     const tree = render(<BrandBanner version="1.2.3" />);
     try {
       const frame = tree.lastFrame() ?? "";
-      // The welcome facts live inside a rounded frame.
-      expect(frame).toContain("╭");
-      expect(frame).toContain("Welcome to TNT CLI!");
-      expect(frame).toContain("Version:");
-      expect(frame).toContain("v1.2.3");
-      expect(frame).toContain("GitHub:");
-      // A vertical rule separates the facts from the hint pane.
-      expect(frame).toContain("│");
-      // Hints fill the right pane.
-      expect(frame).toContain("shift+tab 切换模式");
+      // Bare header: wordmark, version, model and the help pointer only.
+      expect(frame).toContain("███████  ██   ██  ███████");
+      expect(frame).toContain("TNT CLI v1.2.3");
+      expect(frame).toContain("Send /help for help information.");
+      expect(frame).not.toContain("╭");
+      expect(frame).not.toContain("Directory:");
     } finally {
       tree.unmount();
     }

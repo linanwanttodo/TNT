@@ -30,10 +30,11 @@ describe("IntroMessage", () => {
   it("leaves Org, Config and Model to the status bar", () => {
     const frame = frameOf(<IntroMessage />) ?? "";
 
-    // The frame carries the session facts the other CLIs show on entry.
-    expect(frame).toContain("Directory:");
-    expect(frame).toContain("Model:");
-    expect(frame).toContain("Version:");
+    // Only the version, model and help pointer stay in the header.
+    expect(frame).toContain("TNT CLI v");
+    expect(frame).toContain("/help");
+    expect(frame).not.toContain("Directory:");
+    expect(frame).not.toContain("GitHub:");
     expect(frame).not.toContain("Org:");
     expect(frame).not.toContain("Config:");
     expect(frame).not.toContain("Loading...");

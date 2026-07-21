@@ -404,6 +404,7 @@ const ComposerFooter: React.FC<{
             {t("status.think")}:{thinkingDepth}
           </Text>
         ) : null}
+        <Text color={theme.text.subtle}> · ctrl+t 复制</Text>
         <Box marginLeft={1}>
           <UpdateNotification isRemoteMode={isRemoteMode} />
         </Box>
@@ -468,6 +469,10 @@ const UserInput: React.FC<UserInputProps> = ({
   // The post-turn suggestion shown faint in the empty composer; Tab accepts it.
   const promptSuggestion = usePromptSuggestion();
   const [showSlashCommands, setShowSlashCommands] = useState(false);
+  // While the reader is walking submitted messages, up/down belong to the
+  // history until it returns to the blank composer - a recalled line starting
+  // with "/" or "@" must not hand the next down key to a suggestion list.
+  const historyNavigationRef = useRef(false);
 
   const [slashCommandFilter, setSlashCommandFilter] = useState("");
   /** Parent command when the palette has descended into its subcommands. */
@@ -536,7 +541,8 @@ const UserInput: React.FC<UserInputProps> = ({
     updateSlashCommandState(text, cursor);
     updateFileSearchState(text, cursor);
     updateBashModeState(text);
-    inputHistory.resetNavigation();
+    // Navigation position survives programmatic fills (history walk,
+    // completion, drafts); only a typed key resets it in handleKey.
   };
   // Stable access for callbacks registered outside the render loop: the
   // derived-state machines read the palette state of the frame on screen.
@@ -670,9 +676,9 @@ const UserInput: React.FC<UserInputProps> = ({
 
     if ((key.name === "enter" && !key.shift) || key.name === "tab") {
       // A bare "/" has an empty filter: Enter belongs to the prompt line, not
-      // the first palette entry. Treat it as no selection so dispatch falls
-      // through and nothing executes.
-      if (slashCommandFilter === "") {
+      // the first palette entry. Tab still completes the highlighted row -
+      // that is how a reader picks a command after moving the selection.
+      if (slashCommandFilter === "" && key.name === "enter") {
         return false;
       }
       if (filteredCommands.length > 0) {
@@ -815,10 +821,18 @@ const UserInput: React.FC<UserInputProps> = ({
     if (handleEscapeKey(key)) {
       return true;
     }
-    if (showSlashCommands && handleSlashCommandNavigation(key)) {
+    if (
+      !historyNavigationRef.current &&
+      showSlashCommands &&
+      handleSlashCommandNavigation(key)
+    ) {
       return true;
     }
-    if (showFileSearch && handleFileSearchNavigation(key)) {
+    if (
+      !historyNavigationRef.current &&
+      showFileSearch &&
+      handleFileSearchNavigation(key)
+    ) {
       return true;
     }
     if (!showSlashCommands && !showFileSearch) {
@@ -826,6 +840,9 @@ const UserInput: React.FC<UserInputProps> = ({
         if (entry === null) return;
         buffer.setText(entry, "end");
         setInputText(entry);
+        setShowSlashCommands(false);
+        setShowFileSearch(false);
+        historyNavigationRef.current = entry.length > 0;
       };
       // History navigation only claims the arrows when the caret cannot move
       // any further in its own line: a multi-line buffer moves the caret first.
@@ -835,7 +852,9 @@ const UserInput: React.FC<UserInputProps> = ({
         cursorRow < bufferRef.current.lines.length - 1 ||
         bufferRef.current.lines.length > 1;
       if (key.name === "up" && !canMoveUp) {
-        navigate(inputHistory.navigateUp(inputText));
+        const entry = inputHistory.navigateUp(inputText);
+        if (entry !== null) historyNavigationRef.current = true;
+        navigate(entry);
         return true;
       }
       if (key.name === "down" && !canMoveDown) {
@@ -858,8 +877,12 @@ const UserInput: React.FC<UserInputProps> = ({
       setInputText(text);
       return true;
     }
-    if (key.name !== "tab" && key.insertable && promptSuggestion) {
-      clearPromptSuggestion();
+    if (key.insertable) {
+      historyNavigationRef.current = false;
+      inputHistory.resetNavigation();
+      if (key.name !== "tab" && promptSuggestion) {
+        clearPromptSuggestion();
+      }
     }
     return false;
   };
