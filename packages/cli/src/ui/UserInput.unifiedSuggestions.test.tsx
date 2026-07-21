@@ -79,7 +79,10 @@ describe("UserInput unified suggestions", () => {
       const frame = frameOf(tree);
       expect(frame).toContain("/model");
       expect(frame).not.toContain("-- /");
-      expect(frame).toContain("↑/↓ to navigate");
+      // The footer shows only the position counter now; the key legend lives
+      // in /help, not on every palette frame.
+      expect(frame).toMatch(/\(\d+\/\d+\)/);
+      expect(frame).not.toContain("↑/↓ to navigate");
 
       tree.stdin.write("\r");
       await tick();

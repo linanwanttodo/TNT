@@ -9,7 +9,7 @@ import { registerClickRegion } from "../utils/clickRegions.js";
  */
 export function useClickRegion(
   ref: RefObject<DOMElement | null>,
-  onClick: () => void,
+  onClick: (relativeX: number, relativeY: number) => void,
 ): void {
   const handlerRef = useRef(onClick);
   handlerRef.current = onClick;
@@ -18,7 +18,8 @@ export function useClickRegion(
     () =>
       registerClickRegion(
         () => ref.current,
-        () => handlerRef.current(),
+        (relativeX: number, relativeY: number) =>
+          handlerRef.current(relativeX, relativeY),
       ),
     [ref],
   );

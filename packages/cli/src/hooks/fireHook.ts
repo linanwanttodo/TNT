@@ -42,6 +42,33 @@ const NOOP_RESULT: HookEventResult = { blocked: false, results: [] };
  */
 const MAX_HOOK_CONTEXT_CHARS = 4_000;
 
+/**
+ * A SessionStart hook that inlines a whole skill manual (superpowers does)
+ * turns the first prompt into "invoke a skill BEFORE ANY response", and a
+ * simple "what model are you?" burns a tool call and a thousand tokens of
+ * deliberation. claude code keeps hook context as a background message, not
+ * as an instruction inside the user's words. TNT keeps the same separation
+ * with a one-line pointer: the Skills tool is there when a task needs it.
+ */
+export function compactSkillReminder(text: string): string {
+  const inlinedManual =
+    /Below is the full content of your .* skill/i.test(text) ||
+    /using-superpowers/i.test(text);
+  if (!inlinedManual || text.length < 1200) return text;
+  // claude code ships SessionStart context as a separate
+  // `hook_additional_context` attachment message. TNT's history has no
+  // attachment role, so the same separation is stated in the note itself:
+  // background context, never an instruction the user just gave.
+  return [
+    "<system-reminder>",
+    "Background context from a SessionStart hook, not a user instruction.",
+    "Skills are available through the Skills tool; read one only when the",
+    "task needs it. Questions about identity, greetings or plain facts need",
+    "no skill invocation.",
+    "</system-reminder>",
+  ].join(" ");
+}
+
 export function capHookContext(text: string): string {
   if (text.length <= MAX_HOOK_CONTEXT_CHARS) return text;
   const head = text.slice(0, MAX_HOOK_CONTEXT_CHARS).trimEnd();
@@ -53,7 +80,9 @@ function withCappedContext(result: HookEventResult): HookEventResult {
   if (typeof result.additionalContext === "string") {
     return {
       ...result,
-      additionalContext: capHookContext(result.additionalContext),
+      additionalContext: capHookContext(
+        compactSkillReminder(result.additionalContext),
+      ),
     };
   }
   return result;
@@ -265,7 +294,9 @@ export async function fireSessionStart(
 
   const result = await services.hooks.fireEvent(input);
   if (result.additionalContext) {
-    pendingSessionContext = capHookContext(result.additionalContext);
+    pendingSessionContext = capHookContext(
+      compactSkillReminder(result.additionalContext),
+    );
   }
   return result;
 }

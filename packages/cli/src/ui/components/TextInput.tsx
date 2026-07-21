@@ -12,9 +12,10 @@
  */
 
 import chalk from "chalk";
-import { Text, Box } from "ink";
-import React from "react";
+import { Text, Box, type DOMElement } from "ink";
+import React, { useRef } from "react";
 
+import { useClickRegion } from "../hooks/useClickRegion.js";
 import { theme } from "../theme/tokens.js";
 import { cpSlice, cpIndexToOffset } from "../utils/textUtils.js";
 
@@ -34,11 +35,21 @@ export function TextInput({
   const { text, visualCursor, viewportVisualLines, visualScrollRow } = buffer;
   const [cursorVisualRowAbsolute, cursorVisualColAbsolute] = visualCursor;
 
+  // Clicking inside the box moves the caret to the clicked cell, exactly like
+  // editing in a text area; the buffer converts the visual cell back to its
+  // logical position, wide characters included.
+  const containerRef = useRef<DOMElement>(null);
+  useClickRegion(containerRef, (relativeX: number, relativeY: number) => {
+    if (focus) {
+      buffer.moveToVisualPosition(visualScrollRow + relativeY, relativeX);
+    }
+  });
+
   const showPlaceholder = text.length === 0 && placeholder;
 
   if (showPlaceholder) {
     return (
-      <Box>
+      <Box ref={containerRef}>
         {focus ? (
           <Text terminalCursorFocus={focus} terminalCursorPosition={0}>
             {chalk.inverse(" ")}
@@ -52,7 +63,7 @@ export function TextInput({
   }
 
   return (
-    <Box flexDirection="column">
+    <Box ref={containerRef} flexDirection="column">
       {viewportVisualLines.map((lineText, idx) => {
         const currentVisualRow = visualScrollRow + idx;
         const isCursorLine =

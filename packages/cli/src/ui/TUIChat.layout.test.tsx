@@ -50,12 +50,11 @@ describe("TUIChat layout", () => {
       const logoIndex = lines.findIndex((line) => line.includes("███████"));
 
       expect(logoIndex).toBeGreaterThan(-1);
-      // Top-left: the welcome frame is the first thing on screen — its top
-      // border opens the frame, the wordmark sits just below it — far above
+      // Top-left: the bare wordmark is the first thing on screen, far above
       // the composer.
-      expect(firstContent).toBeLessThanOrEqual(2);
-      expect(logoIndex).toBe(firstContent + 1);
-      expect(lines[firstContent]).toContain("╭");
+      expect(logoIndex).toBe(firstContent);
+      expect(logoIndex).toBeLessThanOrEqual(2);
+      expect(lines[logoIndex].search(/█/)).toBeLessThanOrEqual(2);
       expect(composerIndex).toBeGreaterThan(logoIndex + 2);
     } finally {
       unmount();
@@ -87,9 +86,8 @@ describe("TUIChat layout", () => {
       expect(frame).not.toContain("[Auto]");
       const footer = content[composerIndex + 1];
       expect(footer).toContain("Auto");
-      // The welcome frame owns a vertical rule; the composer band itself
-      // carries no side rails of its own.
-      expect(frame).toContain("│");
+      // No frame and no side rails anywhere in the composer.
+      expect(content.some((line) => line.includes("│"))).toBe(false);
       // The dock itself carries no "/help" filler row; command discovery
       // lives in the "/" menu. The greeting inside the welcome frame is the
       // only place the word appears.
