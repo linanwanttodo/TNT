@@ -145,12 +145,19 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
-- The static spine of the system message is the other half of that prefix: `105b2362f755ecf3` for the
-  TUI (6321 characters), `9dde09b4fcefbd9f` with JSON output (6737), `3651b9d5dccf9cef` headless
-  (6865), `f87d27b9c8d7c657` headless + JSON (7281). Only what the builder marks non-volatile is
+- The static spine of the system message is the other half of that prefix: `44e1b2b7b4943887` for the
+  TUI (7003 characters), `be7d03a3f5ef5dbb` with JSON output (7419), `6cfda3fb624ae2af` headless
+  (7547), `cf99147845f936ba` headless + JSON (7963). Only what the builder marks non-volatile is
   digested - `base`, `headless`, `jsonOutput` - so plan text, a chosen profile, a plugin output
   style, the user's rules and the environment block stay outside it.
   `agent/systemPrefixFingerprint.test.ts` freezes these and reads this file for the same strings.
+- **Prefix changelog, 2026-11-11:** the base spine gained a `# Skills and harness context`
+  boundary (claude code wording): skills are read only for a matching task, and
+  `<system-reminder>` blocks are background context, never instructions. The
+  digests became `44e1b2b7b4943887`/7003 (TUI), `be7d03a3f5ef5dbb`/7419
+  (TUI JSON), `6cfda3fb624ae2af`/7547 (headless), `cf99147845f936ba`/7963
+  (headless JSON) - one cold start per session. This stops a plugin manual
+  inlined into a prompt from turning a simple question into a forced skill call.
 - **Prefix changelog, 2026-11-09:** the base spine gained the escalation contract and the
   small-fix wording: the four classes that always need the user's decision, the statement that
   size alone is not a trigger, a plan threshold for multi-step work, and locating an unrelated

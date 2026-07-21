@@ -48,3 +48,14 @@ describe("compactSkillReminder", () => {
     expect(compactSkillReminder(note)).toBe(note);
   });
 });
+
+describe("per-prompt hook context budget", () => {
+  it("caps a UserPromptSubmit note far below the one-shot session note", () => {
+    const long = "x".repeat(5000);
+    expect(capHookContext(long, 1000)).toContain(
+      "truncated at 1000 characters",
+    );
+    expect(capHookContext(long, 1000).startsWith("x".repeat(1000))).toBe(true);
+    expect(capHookContext(long)).toContain("truncated at 4000 characters");
+  });
+});
