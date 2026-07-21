@@ -1,11 +1,31 @@
 import { render } from "ink-testing-library";
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { createUITestContext } from "../../test-utils/ui-test-context.js";
 import { services } from "../services/index.js";
 
 import { AppRoot } from "./AppRoot.js";
+
+// These cases pin the viewport-scrolling contract, which belongs to the
+// alternate-buffer mode. The default normal buffer hands scrollback to the
+// terminal through <Static> and has no in-app viewport to clip.
+beforeAll(() => {
+  vi.stubEnv("TNT_ALT_SCREEN", "1");
+  vi.stubEnv("TNT_ENABLE_MOUSE", "1");
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
 
 const mockUseChat = vi.fn();
 

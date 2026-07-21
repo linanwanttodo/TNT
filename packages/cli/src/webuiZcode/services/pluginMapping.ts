@@ -365,6 +365,18 @@ export function legacyAvailableSummary(
   installedIds: ReadonlySet<string>,
 ): AvailablePluginSummary {
   const id = `${entry.name}@${catalog.name}`;
+  // The store card reads listing.icon, displayName, author and category. A
+  // catalogue that omits them gets the neutral avatar; one that declares them
+  // must reach the page or every plugin looks identical.
+  const listing = {
+    ...(entry.displayName ? { displayName: entry.displayName } : {}),
+    ...(entry.icon && /^https:\/\//.test(entry.icon)
+      ? { icon: entry.icon }
+      : {}),
+    ...(entry.category ? { category: entry.category } : {}),
+    ...(entry.author?.name ? { author: entry.author.name } : {}),
+    ...(entry.homepage ? { homepage: entry.homepage } : {}),
+  };
   return {
     id,
     name: entry.name,
@@ -372,6 +384,7 @@ export function legacyAvailableSummary(
     ...(entry.description ? { description: entry.description } : {}),
     ...(entry.version ? { version: entry.version } : {}),
     installed: installedIds.has(id),
+    ...(Object.keys(listing).length > 0 ? { listing } : {}),
   };
 }
 

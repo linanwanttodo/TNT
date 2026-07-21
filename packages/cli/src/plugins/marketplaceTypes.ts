@@ -91,6 +91,10 @@ export interface MarketplacePluginEntry {
   source: PluginSource;
   version?: string;
   description?: string;
+  /** Storefront fields the web UI renders when a catalogue declares them. */
+  icon?: string;
+  displayName?: string;
+  homepage?: string;
   category?: string;
   tags?: string[];
   author?: MarketplaceAuthor;
