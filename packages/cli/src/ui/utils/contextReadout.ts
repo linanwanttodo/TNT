@@ -71,6 +71,39 @@ export function emptyUsageTotals(): UsageTotals {
 }
 
 /**
+ * The status-line readout, in pi's order: the session's cumulative arrows,
+ * the cache hit rate of the last round, the session's cost and the measured
+ * context share. `output` carries the live streaming estimate, so the line
+ * ticks while the answer streams instead of waiting for the round to end.
+ */
+export function formatSessionReadout(
+  totals: {
+    promptTokens: number;
+    completionTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    totalCost: number;
+  },
+  streamingTokens: number,
+  rate: number | undefined,
+  context: string,
+): string {
+  const parts: string[] = [];
+  const prompt = totals.promptTokens;
+  const output = totals.completionTokens + streamingTokens;
+  if (prompt > 0) parts.push(`\u2191${formatTokens(prompt)}`);
+  if (output > 0) parts.push(`\u2193${formatTokens(output)}`);
+  if (totals.cacheReadTokens > 0)
+    parts.push(`R${formatTokens(totals.cacheReadTokens)}`);
+  if (totals.cacheWriteTokens > 0)
+    parts.push(`W${formatTokens(totals.cacheWriteTokens)}`);
+  if (rate && rate > 0) parts.push(`CH${(rate * 100).toFixed(1)}%`);
+  if (totals.totalCost > 0) parts.push(`$${totals.totalCost.toFixed(3)}`);
+  if (context) parts.push(context);
+  return parts.join(" ");
+}
+
+/**
  * The per-turn readout, in pi's order: what was read, what was written, what
  * the cache saved, what the cache stored, the hit rate, and the cost.
  */

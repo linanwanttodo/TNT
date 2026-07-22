@@ -404,10 +404,19 @@ export async function streamChatResponse(
     noteRequestCompleted(state);
     // What the provider measured for this request is the honest fullness of the
     // window; a local count of the whole history is neither measured nor cheap.
-    state.contextBudget.recordRequest(usage?.promptTokens);
-    noteMeasuredRequest(promptCacheKey, usage ?? {}, {
-      historyLength: chatHistory.length,
-    });
+    state.contextBudget.recordRequest(
+      usage?.promptTokens ?? usage?.prompt_tokens,
+    );
+    // Providers report snake_case usage (prompt_tokens); the record is keyed
+    // camelCase, so the raw payload has to be normalized here or the readout
+    // below never sees a measurement.
+    noteMeasuredRequest(
+      promptCacheKey,
+      { promptTokens: usage?.promptTokens ?? usage?.prompt_tokens },
+      {
+        historyLength: chatHistory.length,
+      },
+    );
 
     const outcome = classifyRoundOutcome({
       aborted: abortController?.signal.aborted === true,
