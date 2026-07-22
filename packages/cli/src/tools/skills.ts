@@ -12,9 +12,9 @@ import { Tool } from "./types.js";
  * picks this call, and the skill registry below is the same static text for the
  * whole session, so the cached prompt prefix survives it.
  */
-export const SKILLS_INTRO = `Read a skill before starting the task it describes, not after the attempt has gone wrong: the skill is the procedure to follow, not background reading.
-The skill name has to be one of the skills listed below. A name you invent fails and costs the turn, because the answer is only the list this run has.
-A skill you already read in this session does not need reading again; its text is still in the conversation. When a skill ships extra files, the result names them and you open them with Read.`;
+export const SKILLS_INTRO = `Read a listed skill when you choose its procedure for a matching task, or the user requests it. Calling no skill is valid; a greeting, identity question or simple fact does not require one.
+After selecting a skill, read its instructions before applying the procedure. Skills do not create unrelated work or override the user's scope and applicable project rules. Never invent a skill name.
+Reuse a skill already read while its content remains in context. When it references supporting files needed for the task, open them with Read.`;
 
 export const SKILLS_TOOL_META: Tool = {
   name: "Skills",

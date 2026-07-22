@@ -125,7 +125,7 @@ function renderTable(block: TableBlock, key: string): React.ReactNode {
     " ".repeat(Math.max(0, width - stringWidth(truncate(value, width))));
   const rule = (left: string, mid: string, right: string) =>
     left + widths.map((width) => "\u2500".repeat(width + 2)).join(mid) + right;
-  const line = (row: string[], bold: boolean) => {
+  const line = (row: string[], bold: boolean, rowKey: string) => {
     const text =
       "\u2502" +
       row
@@ -133,7 +133,7 @@ function renderTable(block: TableBlock, key: string): React.ReactNode {
         .join("\u2502") +
       "\u2502";
     return (
-      <Text key={`${key}-r${bold ? "h" : "b"}`} bold={bold}>
+      <Text key={`${key}-r${rowKey}`} bold={bold}>
         {text + "\n"}
       </Text>
     );
@@ -148,16 +148,17 @@ function renderTable(block: TableBlock, key: string): React.ReactNode {
       <Text color={uiTheme.text.subtle}>
         {rule("\u250c", "\u252c", "\u2510") + "\n"}
       </Text>
-      {line(headerRow, true)}
+      {line(headerRow, true, "h")}
       <Text color={uiTheme.text.subtle}>
         {rule("\u251c", "\u253c", "\u2524") + "\n"}
       </Text>
-      {block.rows.map((row) =>
+      {block.rows.map((row, index) =>
         line(
           Array.from({ length: columns }, (_, cellIndex) =>
             cell(row, cellIndex),
           ),
           false,
+          String(index),
         ),
       )}
       <Text color={uiTheme.text.subtle}>

@@ -27,7 +27,7 @@ const DEBUG_TEXT =
   '\n<context name="profile">You are in a debugging turn. Find the cause before proposing a fix: reproduce the failure, read the code the failure runs through, and say what mechanism produces it. A change that makes the symptom disappear without explaining it is not a fix here. Keep the reproduction command in your answer so the user can run it too.</context>\n';
 
 const REVIEW_TEXT =
-  '\n<context name="profile">You are in a review. Findings come first, ordered by severity, each with the file and line it lives at and what goes wrong. Open questions and assumptions come after the findings. The change summary is secondary context, and it is fine to leave it out. If nothing is wrong, say that plainly and name the test gaps or residual risk you can see.</context>\n';
+  '\n<context name="profile">You are in a review, not an implementation task. Apply the review coverage and evidence rules in the base instructions. Findings come first, ordered by severity, each with the file and line, triggering conditions and concrete consequence. Inspect relevant declarations, dependencies, configuration and callers before judging a block. Distinguish missing evidence from a confirmed defect and introduced defects from pre-existing ones. State the reviewed scope, open questions and unverified behavior after the findings. If nothing is wrong within that scope, say no findings and name material test gaps or residual risk; do not certify the entire project. Keep the change summary secondary. Do not modify files unless the user requests fixes.</context>\n';
 
 /** Static text for the profile, empty for the default so nothing changes there. */
 export function profileSection(profile: PromptProfile): string {

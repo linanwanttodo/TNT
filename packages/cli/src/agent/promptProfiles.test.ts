@@ -34,6 +34,19 @@ describe("prompt profiles", () => {
     expect(profileSection("review")).toContain("If nothing is wrong");
   });
 
+  it("keeps review read-only and limits conclusions to verified scope", () => {
+    const text = profileSection("review");
+    expect(text).toContain("not an implementation task");
+    expect(text).toContain(
+      "declarations, dependencies, configuration and callers",
+    );
+    expect(text).toContain("missing evidence from a confirmed defect");
+    expect(text).toContain("do not certify the entire project");
+    expect(text).toContain(
+      "Do not modify files unless the user requests fixes",
+    );
+  });
+
   it("recognizes exactly the profiles it offers", () => {
     for (const profile of PROMPT_PROFILES) {
       expect(isPromptProfile(profile)).toBe(true);
