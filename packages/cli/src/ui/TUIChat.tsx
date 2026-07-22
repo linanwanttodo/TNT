@@ -19,6 +19,7 @@ import {
   UpdateServiceState,
 } from "../services/types.js";
 import { getCurrentSession, getTotalSessionCost } from "../session/index.js";
+import { alternateScreenEnabled } from "./utils/terminalScreen.js";
 import { logger } from "../utils/logger.js";
 import { liveHub, type LiveRuntime } from "../webuiZcode/liveHub.js";
 
@@ -559,9 +560,19 @@ const TUIChat: React.FC<TUIChatProps> = ({
     [closeCurrentScreen],
   );
 
+  // The alternate buffer is a fixed-height viewport the app scrolls itself;
+  // the normal buffer streams settled rows into the terminal's scrollback, so
+  // the frame must grow with its content. A fixed height there would show a
+  // screenful of nothing above the composer and push the banner off-screen.
+  const frameHeight = alternateScreenEnabled() ? rows : undefined;
+
   return (
     <ThemeProvider theme={currentTheme}>
-      <Box flexDirection="column" height={rows} overflowY="hidden">
+      <Box
+        flexDirection="column"
+        height={frameHeight}
+        overflowY={alternateScreenEnabled() ? "hidden" : undefined}
+      >
         <MainContent
           key={transcriptEpoch}
           showIntroMessage={showIntroMessage && !isRemoteMode}
