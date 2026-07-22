@@ -156,6 +156,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
     id: "chat",
     render: (props) => (
       <ChatScreenContent
+        contextReadout={props.contextReadout}
         activePermissionRequest={props.activePermissionRequest}
         activeQuizQuestion={props.activeQuizQuestion}
         handleToolPermissionResponse={props.handleToolPermissionResponse}

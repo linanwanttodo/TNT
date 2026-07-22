@@ -1,11 +1,11 @@
 import { ModelConfig } from "@tnt/config-yaml";
 import type { ChatHistoryItem } from "core/index.js";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import {
-  calculateContextUsagePercentage,
-  countChatHistoryTokens,
-} from "../../utils/tokenizer.js";
+import { currentPromptCacheKey } from "../../cache/promptCacheKey.js";
+import { measuredRequestFor } from "../../compaction/measuredContext.js";
+import { getModelContextLimit } from "../../utils/tokenizer.js";
+import { contextUsage, type ContextUsage } from "../utils/contextReadout.js";
 
 interface UseContextPercentageProps {
   chatHistory: ChatHistoryItem[];
@@ -13,29 +13,44 @@ interface UseContextPercentageProps {
 }
 
 /**
- * Hook to calculate the current context usage percentage
- * This uses the same logic as the compaction trigger to show users
- * how close they are to the context limit
+ * The context readout, measured the way pi measures it: the provider's own
+ * prompt-token count for the last request, divided by the model's context
+ * window. A local re-count of the history is neither measured nor cheap, and
+ * it is the number that decides when the session compacts - so the screen and
+ * the trigger must agree.
+ *
+ * Before the first request of a session there is no measured number, and the
+ * readout says so rather than inventing one.
  */
 export function useContextPercentage({
   chatHistory,
   model,
 }: UseContextPercentageProps) {
+  const [, setRevision] = useState(0);
+
+  // The measurement arrives with the response; the chat history is what
+  // changes when it lands, so the history is the signal to re-read it.
+  const measured = useMemo(() => {
+    if (!model) return undefined;
+    return measuredRequestFor(currentPromptCacheKey())?.promptTokens;
+  }, [chatHistory, model]);
+
+  useEffect(() => {
+    setRevision((revision) => revision + 1);
+  }, [chatHistory, model]);
+
   const contextData = useMemo(() => {
-    // Return null if no model is available
     if (!model) {
       return null;
     }
-
-    // Calculate token count and percentage
-    const tokenCount = countChatHistoryTokens(chatHistory, model);
-    const percentage = calculateContextUsagePercentage(tokenCount, model);
-
+    const limit = getModelContextLimit(model);
+    const usage: ContextUsage = contextUsage(measured, limit);
     return {
-      tokenCount,
-      percentage,
+      tokenCount: usage.tokens,
+      percentage: usage.percent,
+      contextWindow: usage.contextWindow,
     };
-  }, [chatHistory, model]);
+  }, [measured, model]);
 
   return contextData;
 }

@@ -14,6 +14,8 @@ import { SubagentTreeIndicator } from "./SubagentTreeIndicator.js";
 import { ToolPermissionSelector } from "./ToolPermissionSelector.js";
 
 interface ChatScreenContentProps {
+  /** Context share and session cost, shown centred under the input box. */
+  contextReadout?: string;
   activePermissionRequest: ActivePermissionRequest | null;
   activeQuizQuestion: ActiveQuizQuestion | null;
   handleToolPermissionResponse: (
@@ -46,6 +48,7 @@ interface ChatScreenContentProps {
 }
 
 export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
+  contextReadout,
   activePermissionRequest,
   activeQuizQuestion,
   handleToolPermissionResponse,
@@ -97,6 +100,7 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
       )}
       <SubagentTreeIndicator active={isWaitingForResponse} />
       <UserInput
+        contextReadout={contextReadout}
         onSubmit={handleUserMessage}
         isWaitingForResponse={isWaitingForResponse}
         isCompacting={isCompacting}

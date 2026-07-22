@@ -68,6 +68,8 @@ interface ActionStatusProps {
   additionalHint?: string;
   /** Tokens produced this turn, when the caller knows them. */
   tokenCount?: number;
+  /** Approximate output token rate while streaming. */
+  tokenRate?: number;
   /** Shows the counter before the 30 s gate, for verbose sessions. */
   verbose?: boolean;
   /** A running tool explains silence; it must not read as a stall. */
@@ -84,6 +86,7 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
   cancelHint,
   additionalHint,
   tokenCount,
+  tokenRate,
   verbose = false,
   hasActiveTools = false,
 }) => {
@@ -135,6 +138,8 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
   const tokenLabel = shouldShowTokenCount({ elapsedMs, verbose, tokenCount })
     ? `↓ ${compactTokenCount(tokenCount ?? 0)} tokens`
     : null;
+  const speedLabel =
+    tokenRate && tokenRate > 0 ? `~${Math.round(tokenRate)} tok/s` : null;
 
   return (
     <Box paddingX={1} flexDirection="row" gap={1}>
@@ -154,6 +159,12 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
             </>
           )}
           <Timer startTime={startTime} />
+          {speedLabel && (
+            <>
+              <Text color="dim">·</Text>
+              <Text color="dim">{speedLabel}</Text>
+            </>
+          )}
           {tokenLabel && (
             <>
               <Text color="dim">·</Text>

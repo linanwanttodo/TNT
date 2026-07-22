@@ -13,6 +13,8 @@ import type { ModelOption } from "../types/selectorTypes.js";
 
 export interface ScreenContentProps {
   isScreenActive: (screen: NavigationScreen) => boolean;
+  /** Context share and session cost, shown under the input box. */
+  contextReadout?: string;
   services: any;
   handleModelSelect: (model: ModelOption) => Promise<void>;
   handleSessionSelect: (sessionId: string) => Promise<void>;
