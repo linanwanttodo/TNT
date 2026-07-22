@@ -72,9 +72,9 @@ folds itself, so the transcript settles without the reader clicking anything
 
 ## Messages
 
-A user turn starts with a blue `>` and the prompt uses the primary text colour,
-so the reader's own words do not recede behind the answer. A model turn starts
-with a cyan `✦` and renders its markdown. Reasoning that arrives on the
+A user turn starts with the same muted `>` pointer the composer uses, and the
+message text uses the primary text colour, so the reader's own words do not
+recede behind the answer. A model turn renders its markdown with no glyph. Reasoning that arrives on the
 provider's separate channel is stored beside the assistant message and renders
 above the answer as the thought itself in the muted italic colour, keeping its
 paragraph breaks, with no label or rule. A live thought streams open; when the

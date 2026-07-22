@@ -63,12 +63,12 @@ export function useChatViewport({
   isActive,
 }: ChatViewportOptions): ChatViewport {
   const [state, setState] = useState<ViewportState>(INITIAL_STATE);
-  // In the normal buffer the terminal owns the mouse: dragging selects and
-  // copying is native. Ctrl+T lends it to the app for click-to-place-caret,
-  // click to expand a folded thought and app-side wheel scrolling; another
-  // Ctrl+T gives it back. TNT_ENABLE_MOUSE=1 starts in app mode.
+  // The mouse belongs to the app by default: the wheel scrolls the
+  // transcript viewport and a click expands a folded thought or places the
+  // caret. Ctrl+T lends it back to the terminal for native drag-select;
+  // TNT_ENABLE_MOUSE=0 starts with the terminal owning it.
   const [mouseCapture, setMouseCapture] = useState(
-    process.env.TNT_ENABLE_MOUSE === "1",
+    process.env.TNT_ENABLE_MOUSE !== "0",
   );
   // A nested panel can change height without rendering this hook; the returned
   // revision is unused on purpose - its re-render is what lets ScrollView

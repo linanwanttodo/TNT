@@ -217,17 +217,14 @@ const TUIChat: React.FC<TUIChatProps> = ({
   // Session switching lives here, so /back reaches it through a ref.
   const loadSessionRef = useRef<(sessionId: string) => void>(() => {});
 
-  // Use chat handlers hook
   const { handleClear, handleReload, resetChatHistoryRef } = useChatHandlers(
     setShowIntroMessage,
     setStaticRefreshTrigger,
     resetTranscript,
   );
 
-  // State for diff content overlay
   const [diffContent, setDiffContent] = useState<string>("");
 
-  // State for temporary status message
   const [statusMessage, setStatusMessage] = useState<string>("");
 
   // Handler to show diff overlay
@@ -351,14 +348,10 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
   useMcpFailureNotice(services.mcp, setChatHistory);
 
-  // Update ref after useChat returns
   useEffect(() => {
     resetChatHistoryRef.current = resetChatHistory;
   }, [resetChatHistory]);
 
-  // Memoize the chat history conversion to avoid expensive recalculation on every render
-
-  // Calculate context percentage
   const contextData = useContextPercentage({
     chatHistory,
     model: services.model?.model || undefined,
@@ -382,7 +375,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
     setStaticRefreshTrigger,
   );
 
-  // Session selection handler
   const handleSessionSelect = useCallback(
     async (sessionId: string) => {
       await loadAndSetSession(
@@ -407,7 +399,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
     };
   }, [handleSessionSelect]);
 
-  // Export session handler
   const handleExportSession = useCallback(
     async (sessionId: string) => {
       try {
@@ -472,7 +463,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
     [closeCurrentScreen, setChatHistory],
   );
 
-  // Determine if input should be disabled
   // Allow input even when services are loading, but disable for UI overlays
   const isInputDisabled =
     navState.currentScreen !== "chat" ||
@@ -486,9 +476,8 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
   const isBashToolRunning = useBashToolRunning();
 
-  // The dock stays pinned to the bottom of the alternate screen; scrolling
-  // moves the transcript window instead of the terminal, so the composer can
-  // never scroll away from the reader.
+  // The dock stays pinned to the bottom; scrolling moves the transcript
+  // window instead of the terminal, so the composer never scrolls away.
   const { rows } = useTerminalSize();
   const { following, scrollTop, onMetrics, jumpToBottom } = useChatViewport({
     isActive: navState.currentScreen === "chat",

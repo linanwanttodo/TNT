@@ -10,7 +10,6 @@ import { useRevealedText } from "../streamReveal.js";
 import { useTheme } from "../theme/tokens.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
 import { findLastSafeSplitPoint } from "../utils/streamSplit.js";
-import { alternateScreenEnabled } from "../utils/terminalScreen.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { ActionStatus } from "./ActionStatus.js";
@@ -49,7 +48,7 @@ interface TranscriptContentProps {
 }
 
 /**
- * The conversation, drawn inside the app-owned alternate screen.
+ * The conversation, drawn inside the app-owned viewport.
  *
  * The dock below it never moves, so the transcript is what scrolls. Every
  * message is rendered and measured; the ScrollView clips that column to the
@@ -109,13 +108,6 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   const [settledChunks, setSettledChunks] = React.useState<string[]>([]);
   const settledOffset = React.useRef(0);
   React.useEffect(() => {
-    if (!alternateScreenEnabled()) {
-      // Nothing settles in the normal buffer: the answer stays live until it
-      // lands in the history, which prints it exactly once.
-      settledOffset.current = 0;
-      setSettledChunks((current) => (current.length === 0 ? current : []));
-      return;
-    }
     if (!streamingText) {
       settledOffset.current = 0;
       setSettledChunks((current) => (current.length === 0 ? current : []));
@@ -133,15 +125,11 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     }
   }, [streamingText]);
 
-  // In the fullscreen viewport the settled prefix is rendered once and only
-  // the tail redraws; in the normal buffer nothing settles, so the live frame
-  // carries the whole answer.
+  // The settled prefix is rendered once and only the tail redraws, which is
+  // both the flicker fix and what keeps the writer from repainting a
+  // completed answer on every frame.
   const liveText = useRevealedText(
-    streamingText
-      ? alternateScreenEnabled()
-        ? streamingText.slice(settledOffset.current)
-        : streamingText
-      : null,
+    streamingText ? streamingText.slice(settledOffset.current) : null,
   );
 
   // The live answer is not in the history yet, so it renders straight from the
@@ -233,21 +221,10 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     </React.Fragment>
   ));
 
-  if (!alternateScreenEnabled()) {
-    // The terminal-buffer renderer owns scrollback and redraws only changed
-    // rows. Keep the whole transcript in its tree so the intro, history and
-    // live thinking/tool rows share one coordinate space and are never
-    // duplicated by Static plus the next frame.
-    return (
-      <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0}>
-        {showIntro && <IntroMessage />}
-        {history}
-        {settledStream}
-        {live}
-      </Box>
-    );
-  }
-
+  // Both buffers share one viewport: the frame is screen-sized, the dock
+  // below the transcript never moves, and the ScrollView clips the column to
+  // the rows the layout gives it. Wheel scrolling and clicks are handled by
+  // the app, so folded thoughts stay clickable while the reader scrolls.
   return (
     <ScrollView
       scrollTop={scrollTop}

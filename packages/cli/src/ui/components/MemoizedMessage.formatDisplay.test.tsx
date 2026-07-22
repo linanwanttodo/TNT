@@ -51,8 +51,8 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     );
 
     expect(userFrame).toContain("> my question");
-    expect(userFrame).not.toContain("✦");
-    expect(assistantFrame).toContain("✦");
+    expect(assistantFrame).toContain("my answer");
+    expect(assistantFrame).not.toContain("✦");
     expect(assistantFrame).not.toContain("> my answer");
   });
 
