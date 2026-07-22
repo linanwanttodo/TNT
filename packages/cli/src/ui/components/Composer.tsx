@@ -14,6 +14,8 @@ import { ScreenContent } from "./ScreenContent.js";
 interface ComposerProps {
   /** False while scrolled back: shows the jump hint and pauses the tail. */
   following: boolean;
+  /** Context share and session cost, shown centred under the input box. */
+  contextReadout?: string;
   /** Returns the transcript to the live tail. */
   onJumpToLatest: () => void;
   statusMessage: string;
@@ -63,7 +65,7 @@ interface ComposerProps {
   subagentView: { parentSessionId: string; subagentType: string } | null;
   navState: any;
   navigateTo: (screen: any, data?: any) => void;
-  contextPercentage: number;
+  contextPercentage?: number;
   contextTokens: number | undefined;
   isVerboseMode: boolean;
   totalCost: number;
@@ -100,6 +102,7 @@ export const Composer: React.FC<ComposerProps> = (props) => {
       )}
 
       <ScreenContent
+        contextReadout={props.contextReadout}
         isScreenActive={props.isScreenActive}
         services={props.services}
         handleModelSelect={props.handleModelSelect}

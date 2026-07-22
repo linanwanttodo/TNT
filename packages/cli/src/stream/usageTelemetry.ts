@@ -248,6 +248,65 @@ export function recordStreamTelemetry(options: {
  * used entirely different prefixes. A zero here on an otherwise identical
  * second request is the signal that something in the prefix moved.
  */
+export interface TurnUsageSnapshot {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  cost: number;
+  rounds: number;
+}
+
+let turnUsage: TurnUsageSnapshot | null = null;
+
+/** A user turn begins; the per-round ledger restarts. */
+export function beginTurnUsage(): void {
+  turnUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    cost: 0,
+    rounds: 0,
+  };
+}
+
+/** One provider round inside the turn joins the ledger. */
+function addRoundUsage(
+  inputTokens: number,
+  outputTokens: number,
+  cacheRead: number,
+  cacheWrite: number,
+  cost: number,
+): void {
+  if (!turnUsage) {
+    turnUsage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      cost: 0,
+      rounds: 0,
+    };
+  }
+  turnUsage.inputTokens += inputTokens;
+  turnUsage.outputTokens += outputTokens;
+  turnUsage.cacheReadTokens += cacheRead;
+  turnUsage.cacheWriteTokens += cacheWrite;
+  turnUsage.cost += cost;
+  turnUsage.rounds += 1;
+}
+
+/** The turn ended; the ledger is read once and cleared. */
+export function endTurnUsage(): TurnUsageSnapshot | null {
+  const snapshot = turnUsage;
+  turnUsage = null;
+  return snapshot;
+}
+
+// The accounting below is one long branch of provider shapes; the rules
+// themselves are the point, and splitting them would hide the order.
+// eslint-disable-next-line complexity
 export function recordRoundAccounting(options: {
   requestStartTime: number;
   responseEndTime: number;
@@ -290,6 +349,13 @@ export function recordRoundAccounting(options: {
     requestKind: isCompacting ? "compaction" : "turn",
   });
   const cacheTokens = cacheTokensFrom(fullUsage);
+  addRoundUsage(
+    fullUsage?.prompt_tokens ?? inputTokens,
+    fullUsage?.completion_tokens ?? outputTokens,
+    cacheTokens.cacheReadTokens ?? 0,
+    cacheTokens.cacheWriteTokens ?? 0,
+    cost,
+  );
 
   // Enhance fullUsage with model and cost for saving to session
   if (fullUsage) {

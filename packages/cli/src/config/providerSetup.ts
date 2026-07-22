@@ -75,16 +75,64 @@ export const PROTOCOLS: ProtocolOption[] = [
     label: "Google Generative AI",
     defaultApiBase: "https://generativelanguage.googleapis.com/v1beta",
     defaultModel: "gemini-2.5-pro",
-    contextLength: 1_000_000,
+    contextLength: 200_000,
     maxTokens: 65_536,
   },
   {
     id: "openai-compatible",
-    label: "Ollama / local model",
+    label: "OpenAI compatible / local model",
     defaultApiBase: "http://localhost:11434/v1/",
     defaultModel: "",
     exampleModel: "llama3.2",
-    contextLength: 128_000,
+    contextLength: 200_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "deepseek-preset",
+    label: "DeepSeek",
+    defaultApiBase: "https://api.deepseek.com",
+    defaultModel: "deepseek-chat",
+    contextLength: 200_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "zhipu-preset",
+    label: "Zhipu GLM",
+    defaultApiBase: "https://open.bigmodel.cn/api/paas/v4",
+    defaultModel: "glm-4.5",
+    contextLength: 200_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "moonshot-preset",
+    label: "Moonshot Kimi",
+    defaultApiBase: "https://api.moonshot.cn/v1",
+    defaultModel: "kimi-k2.5",
+    contextLength: 200_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "qwen-preset",
+    label: "Qwen / DashScope",
+    defaultApiBase: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    defaultModel: "qwen3.5-plus",
+    contextLength: 200_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "siliconflow-preset",
+    label: "SiliconFlow",
+    defaultApiBase: "https://api.siliconflow.cn/v1",
+    defaultModel: "deepseek-ai/DeepSeek-V3.2",
+    contextLength: 200_000,
+    maxTokens: 8_192,
+  },
+  {
+    id: "minimax-preset",
+    label: "MiniMax",
+    defaultApiBase: "https://api.minimax.io/v1",
+    defaultModel: "MiniMax-M2.5",
+    contextLength: 200_000,
     maxTokens: 8_192,
   },
 ];
@@ -218,7 +266,8 @@ export function normalizeApiBase(protocolId: string, apiBase: string): string {
 export function getDefaultModel(protocolId: string, apiBase: string): string {
   if (
     (protocolId === "openai-compatible" ||
-      protocolId === "openai-chat-completions") &&
+      protocolId === "openai-chat-completions" ||
+      protocolId === "deepseek-preset") &&
     isDeepSeekBase(apiBase)
   ) {
     return "deepseek-chat";
@@ -245,6 +294,15 @@ export function mapProtocolToProvider(
       return "anthropic";
     case "google-generative-ai":
       return "gemini";
+    case "deepseek-preset":
+      return "deepseek";
+    case "moonshot-preset":
+      return "moonshot";
+    case "zhipu-preset":
+    case "qwen-preset":
+    case "siliconflow-preset":
+    case "minimax-preset":
+      return "openai";
     case "openai-chat-completions":
     case "openai-responses":
     case "openai-compatible":
@@ -281,7 +339,8 @@ export function buildConfigYaml(setup: ProviderSetup): string {
     if (
       setup.protocol === "openai-chat-completions" ||
       setup.protocol === "openai-responses" ||
-      setup.protocol === "openai-compatible"
+      setup.protocol === "openai-compatible" ||
+      setup.protocol.endsWith("-preset")
     ) {
       lines.push(
         `    useResponsesApi: ${setup.protocol === "openai-responses"}`,

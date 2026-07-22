@@ -125,6 +125,26 @@ describe("liveHub", () => {
     expect(turn?.sessionId).toBe("after-clear");
   });
 
+  it("carries the turn ledger through the terminal event", () => {
+    const { events, stop } = captureEvents();
+    liveHub.bind(runtime());
+    liveHub.publishTurnCompleted({
+      usage: {
+        inputTokens: 1200,
+        outputTokens: 300,
+        cacheReadTokens: 900,
+        cost: 0.0042,
+        rounds: 2,
+      },
+    });
+    stop();
+    const completed = events.find((event) => event.type === "turn.completed");
+    expect(completed).toMatchObject({
+      type: "turn.completed",
+      turnTotals: { inputTokens: 1200, outputTokens: 300, cost: 0.0042 },
+    });
+  });
+
   it("marks a session switch on the browser side", () => {
     const { events, stop } = captureEvents();
     liveHub.bind(runtime());

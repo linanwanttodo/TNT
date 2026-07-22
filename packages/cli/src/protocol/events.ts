@@ -72,6 +72,14 @@ export type AgentEvent = AgentEventBase &
         content?: string;
         /** The turn's own usage, when the producer knows it. */
         usage?: Usage;
+        /** Whole-turn ledger: every round summed, for the completion notice. */
+        turnTotals?: {
+          inputTokens: number;
+          outputTokens: number;
+          cacheReadTokens: number;
+          cost: number;
+          rounds: number;
+        };
       }
     | { type: "turn.failed"; message: string }
     | {
@@ -80,6 +88,14 @@ export type AgentEvent = AgentEventBase &
         notice?: string;
         /** The turn's own usage, when the producer knows it. */
         usage?: Usage;
+        /** Whole-turn ledger up to the interruption. */
+        turnTotals?: {
+          inputTokens: number;
+          outputTokens: number;
+          cacheReadTokens: number;
+          cost: number;
+          rounds: number;
+        };
       }
     | { type: "queue.changed"; length: number }
     | { type: "session.changed"; sessionId: string }
