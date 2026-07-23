@@ -61,8 +61,8 @@ import { sortToolsByName } from "./stableOrder.js";
  * 34b64aa4cb3faffd/35482 over the same 42 tools. This is a one-time cold start
  * paid to stop stale-approval failures from consuming extra Read and Edit rounds.
  */
-const PREFIX_FINGERPRINT = "34b64aa4cb3faffd";
-const PREFIX_CHARACTERS = 35_482;
+const PREFIX_FINGERPRINT = "11370bf898bf1ca1";
+const PREFIX_CHARACTERS = 35_481;
 const PREFIX_TOOLS = 42;
 
 const ARCHITECTURE_DOC = path.resolve(
