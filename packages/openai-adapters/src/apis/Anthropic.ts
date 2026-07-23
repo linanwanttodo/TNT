@@ -514,6 +514,16 @@ export class AnthropicApi implements BaseLlmApi {
                 model,
               });
               break;
+            case "thinking_delta":
+              yield chatChunkFromDelta({
+                model,
+                delta: {
+                  reasoning_content: blockDeltaEvent.delta.thinking,
+                },
+              });
+              break;
+            case "signature_delta":
+              break;
             case "input_json_delta":
               if (!lastToolUseId || !lastToolUseName) {
                 throw new Error("No tool use found");

@@ -5,8 +5,10 @@ import { TntError, TntErrorReason } from "core/util/errors.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { cachedFetch, rememberFetch } from "./fetchCache.js";
-import { urlRefusal } from "./fetchUrlGuard.js";
+import { createGuardedFetch, urlRefusal } from "./fetchUrlGuard.js";
 import { Tool } from "./types.js";
+
+const guardedFetch = createGuardedFetch();
 
 // Output truncation defaults
 const DEFAULT_FETCH_MAX_CHARS = 20000;
@@ -90,7 +92,10 @@ export const fetchTool: Tool = {
         return pageOf(cached, offset, pageSize);
       }
 
-      const contextItems = await fetchUrlContentImpl({ url }, { fetch });
+      const contextItems = await fetchUrlContentImpl(
+        { url },
+        { fetch: guardedFetch },
+      );
 
       if (contextItems.length === 0) {
         throw new TntError(

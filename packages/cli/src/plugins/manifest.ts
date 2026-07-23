@@ -121,7 +121,13 @@ function parseManifest(
       path: pluginRoot,
       version: manifest.version,
       description: manifest.description,
-      manifest,
+      manifest: {
+        ...manifest,
+        ...(manifest.mcpServers === undefined &&
+        fs.existsSync(path.join(pluginRoot, ".mcp.json"))
+          ? { mcpServers: ".mcp.json" }
+          : {}),
+      },
     };
   } catch {
     return null;
@@ -138,6 +144,7 @@ export function loadPluginFromDirectory(
 ): LoadedPlugin | null {
   const candidates = [
     path.join(pluginRoot, ".claude-plugin", "plugin.json"),
+    path.join(pluginRoot, ".zcode-plugin", "plugin.json"),
     path.join(pluginRoot, "plugin.json"),
   ];
 

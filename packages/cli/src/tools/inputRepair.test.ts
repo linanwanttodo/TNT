@@ -20,6 +20,7 @@ const schema: ToolParametersSchema = {
         type: "object",
         properties: {
           old_string: { type: "string", description: "old" },
+          new_string: { type: "string", description: "new" },
           replace_all: { type: "boolean", description: "all" },
         },
       },
@@ -154,12 +155,83 @@ describe("repairToolInput", () => {
     expect(repaired.repairs[0].rule).toBe("coerceStringToBoolean");
   });
 
-  it("does not rename a near-miss key", () => {
-    // Validation owns that answer: it names the arrived key and the wanted one,
-    // which teaches the model; silently guessing could write the wrong field.
-    const repaired = repairToolInput({ path: "a.ts" }, schema);
+  it("renames a known path alias to the schema's field", () => {
+    const repaired = repairToolInput({ file_path: "a.ts" }, schema);
 
-    expect(repaired.input).toEqual({ path: "a.ts" });
+    expect(repaired.input).toEqual({ filepath: "a.ts" });
+    expect(repaired.repairs[0]?.rule).toBe("canonicalizeKnownAlias");
+  });
+
+  it("renames known aliases inside an array of edit objects", () => {
+    const repaired = repairToolInput(
+      {
+        filepath: "a.ts",
+        edits: [{ oldString: "a", newString: "b", replaceAll: "true" }],
+      },
+      schema,
+    );
+
+    expect((repaired.input.edits as any[])[0]).toMatchObject({
+      old_string: "a",
+      new_string: "b",
+      replace_all: true,
+    });
+    expect(
+      repaired.repairs.some((note) => note.rule === "canonicalizeKnownAlias"),
+    ).toBe(true);
+  });
+
+  it("keeps the explicit canonical field and ignores a duplicate alias", () => {
+    const repaired = repairToolInput(
+      { filepath: "canonical.ts", file_path: "alias.ts" },
+      schema,
+    );
+
+    expect(repaired.input.filepath).toBe("canonical.ts");
+    expect(repaired.input).not.toHaveProperty("file_path");
+  });
+
+  it("converts Claude Code's offset and limit to a one-based line range", () => {
+    const repaired = repairToolInput(
+      { file_path: "a.ts", offset: 9, limit: 20 },
+      schema,
+    );
+
+    expect(repaired.input).toEqual({
+      filepath: "a.ts",
+      start_line: 9,
+      end_line: 28,
+    });
+    expect(
+      repaired.repairs.some(
+        (note) => note.rule === "convertOffsetLimitToLineRange",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps an explicit line range and drops duplicate pagination aliases", () => {
+    const repaired = repairToolInput(
+      {
+        filepath: "a.ts",
+        start_line: 3,
+        end_line: 7,
+        offset: 9,
+        limit: 20,
+      },
+      schema,
+    );
+
+    expect(repaired.input).toEqual({
+      filepath: "a.ts",
+      start_line: 3,
+      end_line: 7,
+    });
+  });
+
+  it("does not rename an unknown near-miss key", () => {
+    const repaired = repairToolInput({ fliepath: "a.ts" }, schema);
+
+    expect(repaired.input).toEqual({ fliepath: "a.ts" });
     expect(repaired.repairs).toEqual([]);
   });
 

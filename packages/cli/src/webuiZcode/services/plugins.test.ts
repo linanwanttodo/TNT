@@ -165,6 +165,70 @@ describe("zcode plugin services", () => {
     expect(overview.capability).toEqual({ supported: true });
   });
 
+  it("preserves public and community storefront metadata through both services", async () => {
+    writeMarketplace(marketplaceDir, [
+      {
+        name: "alpha",
+        source: "./plugins/alpha",
+        version: "1.0.0",
+        displayName: "Alpha Tools",
+        displayName_i18n: { en: "Alpha Tools" },
+        description_i18n: { en: "Localized description" },
+        icon: "https://cdn.example.com/alpha.png",
+        homepage: "https://example.com/alpha",
+        publisherType: "official",
+        componentTypes: ["skill", "mcp"],
+      },
+      {
+        name: "beta",
+        source: "./plugins/beta",
+        publisherType: "community",
+        icon: "http://unsafe.example.com/icon.png",
+      },
+    ]);
+    const manifestPath = path.join(
+      marketplaceDir,
+      ".claude-plugin",
+      "marketplace.json",
+    );
+    const raw = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    raw.name = "zcode-plugins-official";
+    fs.writeFileSync(manifestPath, JSON.stringify(raw));
+    const { rememberMarketplace } =
+      await import("../../plugins/marketplaceRegistry.js");
+    rememberMarketplace("zcode-plugins-official", {
+      source: { source: "file", path: manifestPath },
+      installLocation: manifestPath,
+      lastUpdated: "2026-01-01T00:00:00.000Z",
+    });
+    const overview = await services.pluginManagementService.getPluginsOverview({
+      workspacePath: projectDir,
+    });
+    expect(overview.availablePlugins[0]).toMatchObject({
+      id: "alpha@zcode-plugins-official",
+      componentTypes: ["skill", "mcp"],
+      listing: {
+        displayName: "Alpha Tools",
+        displayNameI18n: { en: "Alpha Tools" },
+        descriptionI18n: { en: "Localized description" },
+        publisherType: "official",
+        icon: "https://cdn.example.com/alpha.png",
+        homepage: "https://example.com/alpha",
+      },
+    });
+    expect(overview.availablePlugins[1]?.listing).toMatchObject({
+      publisherType: "community",
+    });
+    expect(overview.availablePlugins[1]?.listing?.icon).toBeUndefined();
+    const legacy = await services.pluginsService.getOverview({
+      workspacePath: projectDir,
+    });
+    expect(legacy.availablePlugins[0]?.listing).toMatchObject({
+      displayName: "Alpha Tools",
+      publisherType: "official",
+    });
+  });
+
   it("installs from a local marketplace and lists the installed plugin", async () => {
     await addMarketplace();
     const installPath = await installAlpha();

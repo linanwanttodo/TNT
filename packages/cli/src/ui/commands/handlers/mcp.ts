@@ -20,7 +20,32 @@ export async function handleMcp(
   if (sub === "install") {
     return await handleMcpInstall(args[1]);
   }
+  // `/mcp` alone lists the configured servers from mcp.json, like Claude Code:
+  // the reader sees what is set up before deciding to search or install.
+  const { loadMcpJsonServers } = await import("../../../config/mcpConfig.js");
+  const servers = loadMcpJsonServers(process.cwd());
+  if (servers.length > 0) {
+    const lines = servers.map(
+      (server) => `  ${server.name}: ${serverTarget(server)}`,
+    );
+    return {
+      output: [
+        t("cmd.mcpListHeader"),
+        "",
+        lines.join("\n"),
+        "",
+        t("cmd.mcpListHint"),
+      ].join("\n"),
+    };
+  }
   return { openMcpSelector: true };
+}
+
+/** What a server entry launches: its command, its URL, or neither. */
+function serverTarget(server: Record<string, unknown>): string {
+  if (typeof server.command === "string") return server.command;
+  if (typeof server.url === "string") return server.url;
+  return t("cmd.mcpListUnknown");
 }
 
 /**

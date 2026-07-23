@@ -1,6 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { handleContentDisplay } from "./responseChunks.js";
+import { handleContentDisplay, processChunk } from "./responseChunks.js";
+
+describe("processChunk", () => {
+  it("forwards a provider's reasoning_content to onReasoning", () => {
+    const onReasoning = vi.fn();
+
+    const result = processChunk({
+      chunk: {
+        choices: [{ delta: { reasoning_content: "weighing the options" } }],
+      },
+      aiResponse: "",
+      toolCallsMap: new Map(),
+      indexToIdMap: new Map(),
+      callbacks: { onReasoning },
+    });
+
+    expect(onReasoning).toHaveBeenCalledWith("weighing the options");
+    expect(result.reasoningDelta).toBe("weighing the options");
+    expect(result.aiResponse).toBe("");
+  });
+});
 
 describe("handleContentDisplay", () => {
   it("announces the end of the round's reasoning even with no content", () => {

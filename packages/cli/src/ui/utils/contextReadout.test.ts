@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   contextUsage,
   formatContextUsage,
-  formatSessionReadout,
+  formatStatusReadout,
   formatTokens,
   formatTurnUsage,
 } from "./contextReadout.js";
@@ -30,55 +30,24 @@ describe("provider-measured context readout", () => {
   });
 });
 
-describe("status line readout", () => {
-  it("reads pi's order and omits zero segments", () => {
+describe("footer readout", () => {
+  it("keeps only the cache rate and the measured context share", () => {
     expect(
-      formatSessionReadout(
-        {
-          promptTokens: 47_000,
-          completionTokens: 524,
-          cacheReadTokens: 447_000,
-          cacheWriteTokens: 635,
-          totalCost: 21.246,
-        },
-        0,
-        0.998,
-        "13.8%/1.0M",
-      ),
-    ).toBe("↑47k ↓524 R447k W635 CH99.8% $21.246 13.8%/1.0M");
+      formatStatusReadout({
+        rate: 0.998,
+        context: "13.8%/1.0M",
+        cacheLabel: "cache",
+      }),
+    ).toBe("cache 99.8% 13.8%/1.0M");
   });
 
-  it("ticks the output arrow with the streaming estimate", () => {
+  it("shows the context share alone before a cache measurement exists", () => {
     expect(
-      formatSessionReadout(
-        {
-          promptTokens: 12_000,
-          completionTokens: 500,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-          totalCost: 0,
-        },
-        250,
-        undefined,
-        "",
-      ),
-    ).toBe("↑12k ↓750");
-  });
-
-  it("says nothing before the first round beyond the context share", () => {
-    expect(
-      formatSessionReadout(
-        {
-          promptTokens: 0,
-          completionTokens: 0,
-          cacheReadTokens: 0,
-          cacheWriteTokens: 0,
-          totalCost: 0,
-        },
-        0,
-        undefined,
-        "?/200k",
-      ),
+      formatStatusReadout({
+        rate: undefined,
+        context: "?/200k",
+        cacheLabel: "缓存",
+      }),
     ).toBe("?/200k");
   });
 });

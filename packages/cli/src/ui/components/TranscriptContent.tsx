@@ -4,6 +4,8 @@ import React from "react";
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { t } from "../../i18n/index.js";
 import type { QueuedMessage } from "../../stream/messageQueue.js";
+import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { useTurnProgress } from "../hooks/useTurnProgress.js";
 import { IntroMessage } from "../IntroMessage.js";
 import { useRevealedText } from "../streamReveal.js";
 import { useTheme } from "../theme/tokens.js";
@@ -12,8 +14,50 @@ import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 import { ActionStatus } from "./ActionStatus.js";
 import { BackgroundTasksNotice } from "./BackgroundTasksIndicator.js";
 import { QueuedMessages } from "./QueuedMessages.js";
-import { ScrollView, type ScrollViewMetrics } from "./ScrollView.js";
+import type { ScrollViewMetrics } from "./ScrollView.js";
 import { ThinkingMessage } from "./ThinkingMessage.js";
+import { VirtualTranscript, type VirtualItem } from "./VirtualTranscript.js";
+
+/** Rows a block of text occupies once wrapped to `width` columns. */
+function wrappedRows(text: string, width: number): number {
+  if (!text) return 0;
+  const explicit = text.split("\n").length;
+  const wrapped = Math.ceil(text.length / Math.max(1, width));
+  return Math.max(explicit, wrapped);
+}
+
+function contentRows(content: ChatHistoryItem["message"]["content"]): number {
+  if (typeof content === "string") return content.length;
+  if (!Array.isArray(content)) return 0;
+  return content.reduce(
+    (total, part) => total + (part.type === "text" ? part.text.length : 1),
+    0,
+  );
+}
+
+/**
+ * A cheap first guess at a message's height, replaced by the measured height
+ * as soon as the item is on screen. It only has to decide which nodes to
+ * mount, so tool output is capped rather than measured exactly.
+ */
+function estimateRows(item: ChatHistoryItem, width: number): number {
+  const chars = contentRows(item.message.content);
+  const reasoning = (item as { reasoning?: { text?: string } }).reasoning?.text;
+  let rows =
+    2 +
+    wrappedRows("x".repeat(chars), width) +
+    wrappedRows(reasoning ?? "", width);
+
+  for (const state of item.toolCallStates ?? []) {
+    const output = (state.output ?? []).reduce(
+      (total, part) => total + part.content.length,
+      0,
+    );
+    rows += 1 + Math.min(12, Math.ceil(output / Math.max(1, width)));
+  }
+
+  return Math.max(1, Math.min(4000, rows));
+}
 
 interface TranscriptContentProps {
   showIntroMessage: boolean;
@@ -31,6 +75,8 @@ interface TranscriptContentProps {
   /** Rows hidden above the window. */
   scrollTop: number;
   onMetrics: (metrics: ScrollViewMetrics) => void;
+  /** Compensates the offset when a measured height replaces an estimate. */
+  onContentShift?: (rows: number) => void;
   /** Draws the one-column scrollbar on the right edge of the window. */
   showScrollbar?: boolean;
   isWaitingForResponse: boolean;
@@ -61,6 +107,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   streamingReasoning,
   scrollTop,
   onMetrics,
+  onContentShift,
   showScrollbar,
   isWaitingForResponse,
   turnSummary,
@@ -70,6 +117,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   isBashToolRunning,
   verbose = false,
 }) => {
+  const { columns } = useTerminalSize();
   // The provider reports exact usage only at the end of a turn; while it
   // streams, the visible answer is the only signal. Four characters per token
   // is the usual estimate, and it keeps the counter moving with output. The
@@ -81,6 +129,17 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
           ((streamingText?.length ?? 0) + (streamingReasoning?.length ?? 0)) /
             4,
         )
+      : 0;
+
+  const turnProgress = useTurnProgress({
+    isWaiting: isWaitingForResponse,
+    responseStartTime,
+    chatHistory,
+    streamingTokens,
+  });
+  const elapsedSeconds =
+    responseStartTime && isWaitingForResponse
+      ? Math.max(1, (Date.now() - responseStartTime) / 1000)
       : 0;
 
   const processedChatHistory = React.useMemo(
@@ -136,11 +195,11 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         loadingColor="gray"
         tokenCount={streamingTokens}
         tokenRate={
-          responseStartTime && isWaitingForResponse
-            ? streamingTokens /
-              Math.max(1, (Date.now() - responseStartTime) / 1000)
+          turnProgress && elapsedSeconds > 0
+            ? turnProgress.outputTokens / elapsedSeconds
             : undefined
         }
+        turnProgress={turnProgress}
         verbose={verbose}
         hasActiveTools={isBashToolRunning}
         cancelHint={t("composer.interruptHint")}
@@ -163,29 +222,60 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         message={t("action.compacting")}
         showSpinner={true}
         loadingColor="grey"
+        cancelHint={t("composer.interruptHint")}
       />
     </>
   );
 
-  const history = processedChatHistory.map((item, index) => (
-    <React.Fragment key={`history-${index}`}>
-      {renderMessage(item, index, processedChatHistory)}
-    </React.Fragment>
-  ));
+  // History rows are rebuilt only when the history or the width changes.
+  // The live overlay below is a fresh element on every render (streaming
+  // deltas, wheel notches, spinner ticks), so keeping it in this memo's
+  // dependencies would rebuild every row's node each frame and put the whole
+  // transcript back on the per-frame render path.
+  const historyItems = React.useMemo(() => {
+    const width = Math.max(20, columns - 4);
+    const list: VirtualItem[] = [];
+    if (showIntro) {
+      list.push({ key: "intro", node: <IntroMessage />, estimate: 8 });
+    }
+    processedChatHistory.forEach((item, index) => {
+      const messageId = (item as ChatHistoryItem & { messageId?: string })
+        .messageId;
+      list.push({
+        key: messageId ?? `history-${index}`,
+        node: renderMessage(item, index, processedChatHistory),
+        estimate: estimateRows(item, width),
+      });
+    });
+    return list;
+  }, [columns, processedChatHistory, renderMessage, showIntro]);
 
-  // Both buffers share one viewport: the frame is screen-sized, the dock
-  // below the transcript never moves, and the ScrollView clips the column to
-  // the rows the layout gives it. Wheel scrolling and clicks are handled by
-  // the app, so folded thoughts stay clickable while the reader scrolls.
+  const liveItem = React.useMemo(
+    () => ({
+      key: "live",
+      node: live,
+      estimate:
+        4 +
+        wrappedRows(streamingText ?? "", Math.max(20, columns - 4)) +
+        wrappedRows(streamingReasoning ?? "", Math.max(20, columns - 4)) +
+        queuedMessages.length,
+    }),
+    [columns, live, queuedMessages.length, streamingReasoning, streamingText],
+  );
+
+  const items = React.useMemo(
+    () => [...historyItems, liveItem],
+    [historyItems, liveItem],
+  );
+
   return (
-    <ScrollView
+    <VirtualTranscript
+      items={items}
       scrollTop={scrollTop}
       onMetrics={onMetrics}
+      onContentShift={onContentShift}
       showScrollbar={showScrollbar}
-    >
-      {showIntro && <IntroMessage />}
-      {history}
-      {live}
-    </ScrollView>
+      width={columns}
+    />
   );
 };

@@ -151,7 +151,7 @@ describe("TUIChat transcript", () => {
       // The window has moved back: an earlier answer becomes reachable.
       expect(frame).toMatch(/answer (1[0-9]|[1-9])\b/);
 
-      stdin.write("\x1b[4~"); // End returns to the live tail
+      stdin.write("\x1b[4;5~"); // Ctrl+End returns to the live tail
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(lastFrame() ?? "").not.toContain("Jump to latest message");
     } finally {
@@ -322,7 +322,7 @@ describe("TUIChat transcript", () => {
       expect(lastFrame() ?? "").toContain(marker!);
       expect(lastFrame() ?? "").not.toContain("streaming tail marker");
 
-      stdin.write("\x1b[4~"); // End
+      stdin.write("\x1b[4;5~"); // Ctrl+End
       await tick();
       expect(lastFrame() ?? "").toContain("streaming tail marker");
     } finally {

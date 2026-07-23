@@ -134,22 +134,21 @@ describe("Read with a line range", () => {
  * being tested is that the limit applies to the text that is actually sent, which
  * is the numbered text, not to the bytes that were on disk.
  */
-const READ_CHAR_CAP = 100_000;
+const READ_CHAR_CAP = 50_000;
 
 describe("Read measured against the cap on what it sends", () => {
   let dir: string;
   let target: string;
 
-  // 2,000 lines of 46 characters: 93,999 raw, which the refusal at `readFile.ts:210`
-  // passes, and 102,892 once every line carries its number - over the cap by the
-  // line numbers alone.
+  // 1,000 lines of 46 characters: 46,999 raw, under the cap, and 51,893 once
+  // every line carries its number - over the cap by the line numbers alone.
   beforeEach(() => {
     forgetSeenFiles();
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-read-cap-"));
     target = path.join(dir, "saturated.txt");
     fs.writeFileSync(
       target,
-      Array.from({ length: 2000 }, () => "x".repeat(46)).join("\n"),
+      Array.from({ length: 1000 }, () => "x".repeat(46)).join("\n"),
     );
   });
 
@@ -171,8 +170,8 @@ describe("Read measured against the cap on what it sends", () => {
     const stated = result.match(/^\S.*\(lines 1-(\d+) of (\d+)\):/m);
     expect(stated).not.toBeNull();
     const lastShown = stated![1];
-    expect(stated![2]).toBe("2000");
-    expect(Number(lastShown)).toBeLessThan(2000);
+    expect(stated![2]).toBe("1000");
+    expect(Number(lastShown)).toBeLessThan(1000);
     expect(result).toContain(`\n${lastShown}\t`);
     expect(result.split("\n").slice(1).at(-1)).toMatch(
       new RegExp(`^${lastShown}\t`),
@@ -183,14 +182,14 @@ describe("Read measured against the cap on what it sends", () => {
     const result = await runText({
       filepath: target,
       start_line: 1,
-      end_line: 2000,
+      end_line: 1000,
     } as any);
 
     expect(result.length).toBeLessThanOrEqual(READ_CHAR_CAP);
 
     const stated = result.match(/\(lines 1-(\d+) of (\d+)\)/);
     expect(stated).not.toBeNull();
-    expect(Number(stated![1])).toBeLessThan(2000);
+    expect(Number(stated![1])).toBeLessThan(1000);
     expect(result.split("\n").slice(1).at(-1)).toMatch(
       new RegExp(`^${stated![1]}\t`),
     );

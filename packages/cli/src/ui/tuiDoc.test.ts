@@ -106,7 +106,7 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     const transcript = read(TRANSCRIPT);
 
     expect(/first row of the transcript/.test(flat)).toBe(
-      /showIntro && <IntroMessage/.test(transcript),
+      /if \(showIntro\)[\s\S]{0,120}<IntroMessage/.test(transcript),
     );
     expect(/half-block wordmark/.test(flat)).toBe(
       /█/.test(read(path.join(here, "..", "startup", "asciiArt.ts"))) &&
@@ -126,7 +126,7 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
       /borderColor/.test(group),
     );
     expect(/click to expand/.test(flat)).toBe(/click to expand/.test(group));
-    expect(/folds itself/.test(flat)).toBe(/setExpanded\(false\)/.test(group));
+    expect(/folds itself/.test(flat)).toBe(/setOverride\(false\)/.test(group));
     // The state machine and the result gutter are named after the code that
     // draws them: the status dot, the 600 ms blink and the `⎿` gutter token.
     expect(/status dot/.test(flat)).toBe(/toolDotStyle/.test(group));

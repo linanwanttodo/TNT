@@ -14,8 +14,9 @@ import {
   readWorkspaceTextFile,
 } from "./workspaceFiles.js";
 
-// Output truncation defaults
-const DEFAULT_READ_FILE_MAX_CHARS = 100000; // ~25k tokens
+// Output truncation defaults. 50k chars ≈ 12.5k tokens: the old 100k cap let
+// a single Read add ~25k tokens that then ride in every later request.
+const DEFAULT_READ_FILE_MAX_CHARS = 50000;
 const DEFAULT_READ_FILE_MAX_LINES = 5000;
 
 function getReadFileMaxChars(): number {

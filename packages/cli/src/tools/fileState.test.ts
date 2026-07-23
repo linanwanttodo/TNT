@@ -91,18 +91,20 @@ describe("read state", () => {
 });
 
 describe("Edit against a file that moved", () => {
-  it("refuses an edit whose read is no longer current", async () => {
+  it("replays an edit against the file's current contents", async () => {
     writeOnDisk("const value = 1;\n");
     await readWithTool();
-    writeOnDisk("const value = 222;\n");
+    writeOnDisk("const injected = 2;\nconst value = 1;\n");
 
-    const error = await editTool.preprocess!(
-      editArgs("const value = 222;", "const value = 3;"),
-    ).catch((e) => e);
+    const planned = await editTool.preprocess!(
+      editArgs("const value = 1;", "const value = 3;"),
+    );
+    const result = await editTool.run!(planned.args);
 
-    expect(error).toBeInstanceOf(TntError);
-    expect(error.reason).toBe(TntErrorReason.EditToolFileNotRead);
-    expect(error.message).toContain("changed since you read it");
+    expect(result).toContain("Successfully edited");
+    expect(fs.readFileSync(target, "utf-8")).toBe(
+      "const injected = 2;\nconst value = 3;\n",
+    );
   });
 
   it("accepts the edit once the model has read the change", async () => {
@@ -119,19 +121,35 @@ describe("Edit against a file that moved", () => {
     expect(fs.readFileSync(target, "utf-8")).toContain("const value = 3;");
   });
 
-  it("refuses at write time when the file changed while approval was pending", async () => {
+  it("replays an approved edit when the file changed during approval", async () => {
     writeOnDisk("const value = 1;\n");
     await readWithTool();
     const planned = await editTool.preprocess!(
       editArgs("const value = 1;", "const value = 3;"),
     );
 
-    // Someone else wins the race between planning and writing.
+    writeOnDisk("const injected = 2;\nconst value = 1;\n");
+    const result = await editTool.run!(planned.args);
+
+    expect(result).toContain("Reapplied the approved edit");
+    expect(fs.readFileSync(target, "utf-8")).toBe(
+      "const injected = 2;\nconst value = 3;\n",
+    );
+  });
+
+  it("returns current context when a stale edit's anchor disappeared", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+    const planned = await editTool.preprocess!(
+      editArgs("const value = 1;", "const value = 3;"),
+    );
+
     writeOnDisk("const value = 222;\n");
     const error = await editTool.run!(planned.args).catch((e) => e);
 
     expect(error).toBeInstanceOf(TntError);
-    expect(error.message).toContain("awaiting approval");
+    expect(error.reason).toBe(TntErrorReason.FindAndReplaceOldStringNotFound);
+    expect(error.message).toContain("const value = 222");
     expect(fs.readFileSync(target, "utf-8")).toBe("const value = 222;\n");
   });
 
@@ -185,18 +203,19 @@ describe("MultiEdit against a file that moved", () => {
     expect(fs.readFileSync(target, "utf-8")).toBe(original);
   });
 
-  it("refuses at write time when the file changed while approval was pending", async () => {
+  it("replays an approved multi-edit when the file changed during approval", async () => {
     writeOnDisk("const value = 1;\nexport const flag = 2;\n");
     await readWithTool();
     const planned = await multiEditTool.preprocess!(
       multiEditArgs("const value = 1;", "const value = 3;"),
     );
     writeOnDisk("const value = 1;\nexport const flag = 222;\n");
-    const error = await multiEditTool.run!(planned.args).catch((e) => e);
+    const result = await multiEditTool.run!(planned.args);
 
-    expect(error).toBeInstanceOf(TntError);
-    expect(error.message).toContain("awaiting approval");
-    expect(fs.readFileSync(target, "utf-8")).toContain("flag = 222");
+    expect(result).toContain("Reapplied the approved edit");
+    expect(fs.readFileSync(target, "utf-8")).toBe(
+      "const value = 3;\nexport const flag = 222;\n",
+    );
   });
 
   it("does not mistake its own edit for somebody else's", async () => {
@@ -230,7 +249,8 @@ describe("Write against a file that moved", () => {
     }).catch((e) => e);
 
     expect(error).toBeInstanceOf(TntError);
-    expect(error.message).toContain("changed since you read it");
+    expect(error.message).toContain("current content");
+    expect(error.message).toContain("const value = 222");
     expect(fs.readFileSync(target, "utf-8")).toBe("const value = 222;\n");
   });
 

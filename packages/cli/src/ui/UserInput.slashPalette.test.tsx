@@ -230,8 +230,11 @@ describe("UserInput slash palette", () => {
       expect(tree.lastFrame() ?? "").toContain("English");
 
       tree.stdin.write("\x1b");
-      await tick();
-      expect(tree.lastFrame() ?? "").not.toContain("English");
+      // A slow runner can need more than one frame for the palette to close.
+      await waitFor(
+        () => !(tree.lastFrame() ?? "").includes("English"),
+        "the second-level palette to close",
+      );
     } finally {
       tree.unmount();
     }

@@ -198,6 +198,29 @@ describe("permissionsYamlLoader", () => {
       });
     });
 
+    it("keeps a shell command that contains a subshell intact", () => {
+      const command =
+        "cd /repo && (git log -1 --format='%H %s' 2>&1; git status --porcelain | head -20)";
+      const policy = parseToolPattern(`Bash(${command})`, "allow");
+
+      expect(policy).toEqual({
+        tool: "Bash",
+        permission: "allow",
+        argumentMatches: { command },
+      });
+    });
+
+    it("keeps one unreadable rule from dropping the rest", () => {
+      const config = {
+        allow: ["Read", "Write(unclosed", "List"],
+      };
+
+      expect(yamlConfigToPolicies(config)).toEqual([
+        { tool: "Read", permission: "allow" },
+        { tool: "List", permission: "allow" },
+      ]);
+    });
+
     it("should throw error for invalid pattern", () => {
       expect(() => parseToolPattern("Write(unclosed", "allow")).toThrow(
         "Invalid tool pattern: Write(unclosed",

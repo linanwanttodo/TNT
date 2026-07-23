@@ -6,6 +6,7 @@ import { executeFindAndReplace } from "core/edit/searchAndReplace/performReplace
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
 import { TntError, TntErrorReason } from "core/util/errors.js";
 
+import { t } from "../i18n/index.js";
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import {
@@ -13,7 +14,8 @@ import {
   getLanguageFromFilePath,
 } from "../telemetry/utils.js";
 
-import { changedSinceSeen, hasSeenFile, markFileAsSeen } from "./fileState.js";
+import { rebaseSingleEdit } from "./editRebase.js";
+import { hasSeenFile, markFileAsSeen } from "./fileState.js";
 import { EditOperation } from "./multiEdit.js";
 import { readFileTool } from "./readFile.js";
 import { MARKER_FILE_EDITED } from "./resultMarkers.js";
@@ -61,16 +63,6 @@ export function validateAndResolveFilePath(args: any): {
     throw new TntError(
       TntErrorReason.EditToolFileNotRead,
       `You must use the ${readFileTool.name} tool to read ${file_path} before editing it.`,
-    );
-  }
-
-  // What the model read must still be what is on disk, or the edit is written
-  // against a file someone else changed in the meantime. A client buffer has no
-  // reliable disk mtime to compare; its write goes through the client anyway.
-  if (!clientFs && changedSinceSeen(resolvedPath)) {
-    throw new TntError(
-      TntErrorReason.EditToolFileNotRead,
-      `${file_path} changed since you read it. Use the ${readFileTool.name} tool to read it again before editing.`,
     );
   }
 
@@ -151,6 +143,9 @@ WARNINGS:
         resolvedPath,
         newContent,
         oldContent,
+        oldString,
+        newString,
+        replaceAll: replaceAll ?? false,
       },
       preview: [
         {
@@ -168,29 +163,38 @@ WARNINGS:
     resolvedPath: string;
     newContent: string;
     oldContent: string;
+    oldString?: string;
+    newString?: string;
+    replaceAll?: boolean;
   }) => {
     try {
-      // The replacement was computed from the file as it was when the call was
-      // planned, and a permission prompt can outlast that. The bytes about to be
-      // replaced are checked again here instead of trusting the preview.
       const current = await readWorkspaceTextFile(args.resolvedPath);
-      if (current.content !== args.oldContent) {
-        throw new TntError(
-          TntErrorReason.EditToolFileNotRead,
-          `${args.resolvedPath} changed while this edit was awaiting approval. Read it again before editing.`,
-        );
-      }
+      const rebased = current.content !== args.oldContent;
+      const nextContent = rebaseSingleEdit({
+        currentContent: current.content,
+        baseContent: args.oldContent,
+        plannedContent: args.newContent,
+        ...(typeof args.oldString === "string" &&
+        typeof args.newString === "string"
+          ? {
+              recipe: {
+                oldString: args.oldString,
+                newString: args.newString,
+                replaceAll: args.replaceAll ?? false,
+              },
+            }
+          : {}),
+      });
       const written = await writeWorkspaceTextFile(
         args.resolvedPath,
-        args.newContent,
+        nextContent,
       );
       markFileAsSeen(written.realPath);
       scheduleFileRefresh(written.realPath);
 
-      // Get lines for telemetry
       const { added, removed } = calculateLinesOfCodeDiff(
-        args.oldContent,
-        args.newContent,
+        current.content,
+        nextContent,
       );
       const language = getLanguageFromFilePath(args.resolvedPath);
 
@@ -207,12 +211,16 @@ WARNINGS:
 
       // Generate diff for result display
       const diff = generateDiff(
-        args.oldContent,
-        args.newContent,
+        current.content,
+        nextContent,
         args.resolvedPath,
       );
 
-      return `${MARKER_FILE_EDITED} ${args.resolvedPath}\nDiff:\n${diff}`;
+      return [
+        `${MARKER_FILE_EDITED} ${args.resolvedPath}`,
+        ...(rebased ? [t("tools.editReapplied")] : []),
+        `Diff:\n${diff}`,
+      ].join("\n");
     } catch (error) {
       if (error instanceof TntError) {
         throw error;

@@ -29,7 +29,11 @@ import {
   getTranscriptPath,
 } from "./paths.js";
 import { repairDanglingToolCalls } from "./repairDanglingToolCalls.js";
-import { sessionStore, type SessionSource } from "./store.js";
+import {
+  SessionLeaseError,
+  sessionStore,
+  type SessionSource,
+} from "./store.js";
 import { rememberTeamWorkflowGraph } from "./teamWorkflow.js";
 
 // Re-export BaseSessionMetadata for external consumers
@@ -482,9 +486,13 @@ export function loadSession(): Session | null {
     // A delegated run is reachable from its parent, so resume must land on a
     // root conversation even when the child transcript was written last, and
     // a resume without an explicit id stays inside the current workspace.
+    // A session another window is writing is skipped rather than leased and
+    // failed: two terminals in one project is ordinary, and the second one
+    // should resume its own previous conversation, not the first one's.
     const candidates = sessionStore.list({
       cwd: process.cwd(),
-      limit: 1,
+      limit: 5,
+      excludeLeased: true,
     });
     const newest = candidates[0];
     if (!newest) return null;
@@ -639,6 +647,24 @@ export function loadSessionById(sessionId: string): Session | null {
   }
 }
 
+export interface SessionLeaseConflict {
+  sessionId: string;
+  pid?: number;
+}
+
+let lastLeaseConflict: SessionLeaseConflict | null = null;
+
+/**
+ * The lease conflict that made the last open fail, consumed once. A surface
+ * reads it after a null result so the reader is told which window owns the
+ * conversation instead of seeing "could not load".
+ */
+export function takeSessionLeaseConflict(): SessionLeaseConflict | null {
+  const conflict = lastLeaseConflict;
+  lastLeaseConflict = null;
+  return conflict;
+}
+
 /**
  * Load a specific session and make it the one later saves append to.
  */
@@ -653,7 +679,18 @@ export function selectSession(sessionId: string): Session | null {
   try {
     acquireActiveLease(sessionId);
   } catch (error) {
-    logger.error("Could not lease session:", error);
+    if (error instanceof SessionLeaseError) {
+      lastLeaseConflict = {
+        sessionId,
+        pid: error.holder?.pid,
+      };
+      logger.warn("Session is open in another TNT process", {
+        sessionId,
+        pid: error.holder?.pid,
+      });
+    } else {
+      logger.error("Could not lease session:", error);
+    }
     return null;
   }
   SessionManager.getInstance().setSession(session);

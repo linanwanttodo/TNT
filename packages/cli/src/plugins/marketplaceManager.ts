@@ -30,6 +30,21 @@ import { installPlugin } from "./pluginInstall.js";
 
 export class MarketplaceManifestError extends Error {}
 
+/**
+ * A locale map from an untrusted manifest: kept only when every value is a
+ * string. A half-shaped value would otherwise reach the store listings typed as
+ * `Record<string, string>` while holding something else.
+ */
+function readI18nMap(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) return undefined;
+  if (!entries.every(([, text]) => typeof text === "string")) return undefined;
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
 /** Only the upstream organization may claim the reserved catalogue names. */
 function isOfficialSource(source: MarketplaceSource): boolean {
   if (source.source === "github") {
@@ -111,6 +126,22 @@ export function parseMarketplaceManifest(
         ? (entry.dependencies as string[])
         : undefined,
       author: entry.author as MarketplacePluginEntry["author"],
+      displayName:
+        typeof entry.displayName === "string" ? entry.displayName : undefined,
+      displayNameI18n: readI18nMap(entry.displayName_i18n),
+      descriptionI18n: readI18nMap(entry.description_i18n),
+      icon: typeof entry.icon === "string" ? entry.icon : undefined,
+      homepage: typeof entry.homepage === "string" ? entry.homepage : undefined,
+      publisherType:
+        entry.publisherType === "community"
+          ? "community"
+          : entry.publisherType === "official"
+            ? "official"
+            : undefined,
+      componentTypes: Array.isArray(entry.componentTypes)
+        ? (entry.componentTypes as string[])
+        : undefined,
+      requiresPaidPlan: entry.requiresPaidPlan === true ? true : undefined,
     });
   }
   return {

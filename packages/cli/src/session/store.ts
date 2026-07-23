@@ -203,6 +203,11 @@ export interface SessionStoreListOptions {
   includeEmpty?: boolean;
   /** Archived sessions are hidden unless the caller explicitly asks for them. */
   includeArchived?: boolean;
+  /**
+   * Hide sessions another live process is writing. A resume that picks one
+   * would fail on the lease, and every TNT window shares this list.
+   */
+  excludeLeased?: boolean;
 }
 
 type ItemWithId = ChatHistoryItem & { messageId?: string };
@@ -878,6 +883,12 @@ export class SessionStore {
           return false;
         }
         if (!options.includeEmpty && meta.entryCount === 0) return false;
+        if (
+          options.excludeLeased &&
+          this.isLeasedByAnotherProcess(meta.sessionId)
+        ) {
+          return false;
+        }
         if (targetCwd !== undefined) {
           // The canonical form, then case-folded. `path.resolve` fixes neither the
           // macOS case (`getcwd` says `/private/var`, a caller's `/var` is the same

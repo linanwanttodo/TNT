@@ -55,6 +55,15 @@ class MessageQueue extends EventEmitter {
   }
 
   /**
+   * The oldest waiting entry, without removing it. A caller that must decide
+   * whether it can take the message yet (a slash command waits for the turn
+   * boundary) peeks first and only then dequeues.
+   */
+  public peekNextMessage(): QueuedMessage | undefined {
+    return this.queue[0];
+  }
+
+  /**
    * Dequeues and returns the next message to be processed (FIFO - oldest
    * first). Emits the dequeue so a view removes that row rather than guessing
    * that the whole queue was consumed.

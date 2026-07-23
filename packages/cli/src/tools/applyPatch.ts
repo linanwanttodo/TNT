@@ -1,5 +1,7 @@
 import fs from "fs";
 
+import { describeSearchFailure } from "core/edit/searchAndReplace/findSearchMatch.js";
+
 import { t } from "../i18n/index.js";
 import {
   isWithinWorkspace,
@@ -7,7 +9,7 @@ import {
 } from "../permissions/workspacePath.js";
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
-import { changedSinceSeen, markFileAsSeen } from "./fileState.js";
+import { markFileAsSeen } from "./fileState.js";
 import { Tool } from "./types.js";
 import {
   readWorkspaceTextFileIfExists,
@@ -40,6 +42,20 @@ class PatchFormatError extends Error {}
 
 function fail(message: string): never {
   throw new PatchFormatError(message);
+}
+
+function hunkFailure(
+  filePath: string,
+  current: string[],
+  anchor: string,
+  reason: string,
+): never {
+  return fail(
+    t("tools.patchRebaseFailed", {
+      reason,
+      context: describeSearchFailure(current.join("\n"), anchor),
+    }),
+  );
 }
 
 /**
@@ -188,7 +204,10 @@ export function applyHunks(
         line.includes(hunk.context as string),
       );
       if (at === -1) {
-        fail(
+        hunkFailure(
+          filePath,
+          result,
+          hunk.context,
           `${filePath}: no line matches the context '${hunk.context}' - nothing was changed in this file`,
         );
       }
@@ -198,7 +217,10 @@ export function applyHunks(
 
     const at = findSequence(result, hunk.remove);
     if (at === -1) {
-      fail(
+      hunkFailure(
+        filePath,
+        result,
+        hunk.remove[0],
         `${filePath}: the lines to remove were not found, starting at '${hunk.remove[0]}' - nothing was changed in this file`,
       );
     }
@@ -285,12 +307,6 @@ async function planWrites(
         `${file.path}: does not exist, so an Update File section has nothing to change`,
       );
     }
-    if (!read.client && changedSinceSeen(resolved)) {
-      fail(
-        `${file.path}: changed since it was read; read it again before patching it`,
-      );
-    }
-
     const current = read.content.split("\n");
 
     planned.push({
@@ -318,7 +334,7 @@ export const applyPatchTool: Tool = {
 *** Delete File: src/gone.ts
 *** End Patch
 
-A '@@' line names surrounding context. Lines starting with '-' must be found in the file and are replaced by the '+' lines that follow them; '+' lines with no '-' lines are inserted after the context, or appended when there is none. When a hunk cannot be located the result names it and no file is touched. Paths stay inside the workspace, an Add never overwrites, and a file that changed since you read it is refused rather than written over.`,
+A '@@' line names surrounding context. Lines starting with '-' must be found in the file and are replaced by the '+' lines that follow them; '+' lines with no '-' lines are inserted after the context, or appended when there is none. When a hunk cannot be located the result names it, includes the current context and no file is touched. Paths stay inside the workspace, an Add never overwrites, and approved hunks are replayed against the current file contents.`,
   parameters: {
     type: "object",
     required: ["patch"],

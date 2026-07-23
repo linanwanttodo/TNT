@@ -343,13 +343,14 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
     preview.hiddenAbove > 0
       ? `... (${preview.hiddenAbove} earlier ${
           preview.hiddenAbove === 1 ? "line" : "lines"
-        }, ctrl+o to expand)`
+        }, click to expand)`
       : expanded && output
-        ? "ctrl+o to collapse"
+        ? "click to collapse"
         : "";
 
   const titleRow = (
     <Text wrap="truncate-end">
+      <Text color={activeTheme.text.subtle}>{expanded ? "▾ " : "▸ "}</Text>
       {shell && description ? (
         <>
           <Text color={activeTheme.text.secondary}>$ </Text>

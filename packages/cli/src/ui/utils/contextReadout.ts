@@ -71,35 +71,22 @@ export function emptyUsageTotals(): UsageTotals {
 }
 
 /**
- * The status-line readout, in pi's order: the session's cumulative arrows,
- * the cache hit rate of the last round, the session's cost and the measured
- * context share. `output` carries the live streaming estimate, so the line
- * ticks while the answer streams instead of waiting for the round to end.
+ * The footer readout: the cache hit rate of the last round and the measured
+ * context share. Those are the two numbers a reader watches; the session's
+ * token arrows and its cost are reported by `/cost` on demand, so the footer
+ * does not spend width on them every frame.
  */
-export function formatSessionReadout(
-  totals: {
-    promptTokens: number;
-    completionTokens: number;
-    cacheReadTokens: number;
-    cacheWriteTokens: number;
-    totalCost: number;
-  },
-  streamingTokens: number,
-  rate: number | undefined,
-  context: string,
-): string {
+export function formatStatusReadout(input: {
+  rate: number | undefined;
+  context: string;
+  /** The localized label in front of the cache rate. */
+  cacheLabel: string;
+}): string {
   const parts: string[] = [];
-  const prompt = totals.promptTokens;
-  const output = totals.completionTokens + streamingTokens;
-  if (prompt > 0) parts.push(`\u2191${formatTokens(prompt)}`);
-  if (output > 0) parts.push(`\u2193${formatTokens(output)}`);
-  if (totals.cacheReadTokens > 0)
-    parts.push(`R${formatTokens(totals.cacheReadTokens)}`);
-  if (totals.cacheWriteTokens > 0)
-    parts.push(`W${formatTokens(totals.cacheWriteTokens)}`);
-  if (rate && rate > 0) parts.push(`CH${(rate * 100).toFixed(1)}%`);
-  if (totals.totalCost > 0) parts.push(`$${totals.totalCost.toFixed(3)}`);
-  if (context) parts.push(context);
+  if (input.rate !== undefined && input.rate > 0) {
+    parts.push(`${input.cacheLabel} ${(input.rate * 100).toFixed(1)}%`);
+  }
+  if (input.context) parts.push(input.context);
   return parts.join(" ");
 }
 

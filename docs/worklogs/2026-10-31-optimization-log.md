@@ -426,3 +426,18 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** 读源码对照参考实现的系统提示分节、工具说明与输出隔离机制；TNT 的 guard-test 文化要求静态提示词、工具描述和缓存指纹一起更新。
 
 **验证：** `tsc --noEmit` 干净；`eslint src --quiet` 零问题；提示词与工具相关 21 文件 180 用例全绿；全量 vitest 为 617 文件通过、13 文件失败、7 个失败用例，失败集合与干净 HEAD 的存量基线一致。`npm run build` 通过，本地安装版本为 1.2.13。真实 PTY 验证：流式段落与完成态行号一致；console、debug、stderr 诊断不覆盖输入草稿；工具错误留在对话区；滚轮滚动与点击召回可用。提示词快照只证明规则送达与字节稳定，不能证明模型质量提升，仍需真实模型实测。
+
+## 33. 工具调用失败恢复：参数别名、审批期重放、当前上下文回传（2026-11-13）
+
+**做了什么：**
+
+- `tools/inputRepair.ts` 增加已知别名归一化：`file_path`/`filePath`/`path` 归一到工具声明字段，`oldString`/`newString`/`replaceAll`、`startLine`/`endLine` 在嵌套 edit 数组中也能归一；Claude Code 风格的 `offset`/`limit` 转成 TNT 的 1-based `start_line`/`end_line`，仅给 `offset` 时沿用 Claude Code 默认 2000 行。`stream/toolExecution.ts` 在初始校验和 PreToolUse hook 改写输入后都执行修复，并同步 `argumentsStr`。
+- `tools/editRebase.ts` 新增重放层：`Edit`/`MultiEdit` 预处理保存精确替换配方，执行时若文件内容已变则对最新内容重放，保留外部插入的行；锚点消失时抛带当前上下文的 `TntError`，不再让模型只看到一句 "read it again"。
+- `ApplyPatch` 删除 changed-since-read 的硬拒绝，按执行时的当前内容重放 hunk；hunk 失败信息附当前上下文。整文件 `Write` 仍拒绝覆盖外部变化，但错误带截断后的当前内容，模型可以一次重发完整文件，无需再调用 `Read`。
+- 新增 `editRebase.test.ts`、`inputRepair`/`streamChatResponse`/`preToolUse`/`fileState`/`applyPatch`/`edit`/`multiEdit` 回归；更新工具前缀指纹、架构记录与 i18n 文案。
+
+**为什么：** 终端截图显示一次 `Edit` 在等待批准期间因文件变化失败，紧接着 `Read` 又因 `file_path`/`filepath` 参数名不兼容失败，最后才读成功。两轮失败都是可恢复的结构性问题：Claude Code 风格参数与 TNT schema 不同；审批期文件变化可以安全地重放精确替换，而不是让模型重新读取整个文件。整文件覆盖不能重放，但可以把当前内容一次带回，避免再花一轮读取。
+
+**依据：** Claude Code 的 `FileReadTool` 使用 1-based `offset` 和 2000 行默认读取窗口；TNT 既有 `validateToolCallArgs` 明确要求把错误字段名和预期 schema 一次说完；`fileState.ts` 的快照机制原本用于防止覆盖外部改动，重放精确替换满足同一安全边界。
+
+**验证：** 9 个工具/stream 测试文件 121 用例全绿；i18n、unusedKeys、toolPrefixFingerprint、toolGuidance 守卫 26 用例全绿；`tsc --noEmit` 干净；`eslint src --quiet` 干净。工具前缀从 `ed4738cde6061749`/35354 变为 `34b64aa4cb3faffd`/35482，冷启动一次，成本记录在 `ARCHITECTURE-tnt.md`。

@@ -19,6 +19,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { globalDir } from "../config/globalDir.js";
 import { createLlmApi } from "../config/index.js";
 import { CONFIG_PATH } from "../config/providerSetup.js";
+import { fetchModelIds, PROTOCOLS } from "../config/providerSetup.js";
 import { logger } from "../utils/logger.js";
 import {
   registryModelConfig,
@@ -787,6 +788,32 @@ export function createWebUiProviderSettingsService(
           return { ...entry, roles: enabled ? ["chat", ...roles] : roles };
         }),
       );
+    },
+    async fetchProviderModels(providerId: string) {
+      const state = snapshotState();
+      const family =
+        state.drafts.find((item) => item.id === providerId)?.family ??
+        providerId;
+      const snapshot = await io.read();
+      const entry = snapshot?.models.find(
+        (candidate) => (candidate.provider || "tnt") === family,
+      );
+      const overlay = pendingOverlays.get(providerId) ?? state.overlays[family];
+      const apiBase = overlay?.baseUrl ?? entry?.apiBase ?? "";
+      if (!apiBase) return { models: [] as string[] };
+      const preset = PROTOCOLS.find(
+        (protocol) =>
+          protocol.id === providerId ||
+          (protocol.defaultApiBase &&
+            apiBase.startsWith(protocol.defaultApiBase.replace(/\/+$/, ""))),
+      );
+      return {
+        models: await fetchModelIds({
+          apiBase,
+          apiKey: overlay?.apiKey ?? entry?.apiKey ?? "",
+          modelsPath: preset?.modelsPath,
+        }),
+      };
     },
     async testModelConnectivity(input) {
       const state = snapshotState();

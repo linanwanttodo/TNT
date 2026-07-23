@@ -2,6 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+import { safeExtractTarball } from "core/util/safeTarball.js";
+
 import { t } from "../i18n/index.js";
 
 import { getMarketplacesDirectory } from "./directories.js";
@@ -32,6 +34,7 @@ export type FetchJson = (
 export interface MarketplaceDeps {
   run: CommandRunner;
   fetchJson: FetchJson;
+  fetchArchive?: (url: string, init: RequestInit) => Promise<Response>;
   gitAvailable: () => boolean;
   sshConfiguredForGitHub: () => Promise<boolean>;
 }
@@ -170,6 +173,14 @@ async function fetchToCache(
   return manifestPath;
 }
 
+/**
+ * Extract a packed npm tarball into the cache.
+ *
+ * `npm pack` runs locally, but the archive's contents are still not ours:
+ * `core/util/safeTarball` reads every entry before writing, rejects links and
+ * paths outside `package/`, and bounds the uncompressed size, so a hostile
+ * tarball cannot write outside the cache or fill the disk.
+ */
 export async function unpackNpm(
   deps: MarketplaceDeps,
   pkg: string,
@@ -199,17 +210,13 @@ export async function unpackNpm(
     if (!archive) {
       throw new MarketplaceFetchError(t("plugins.npmPackNoArchive", { pkg }));
     }
-    fs.mkdirSync(cacheDir, { recursive: true });
-    const extracted = await deps.run(
-      "tar",
-      ["-xzf", path.join(workDir, archive), "-C", cacheDir],
-      { cwd: cacheDir, env: {} },
-    );
-    if (extracted.code !== 0) {
+    try {
+      await safeExtractTarball(path.join(workDir, archive), cacheDir);
+    } catch (error) {
       throw new MarketplaceFetchError(
         t("plugins.couldNotUnpack", {
           archive,
-          reason: extracted.stderr.trim(),
+          reason: error instanceof Error ? error.message : String(error),
         }),
       );
     }

@@ -75,7 +75,7 @@ export async function dispatchApprovedCall(options: {
     toolName: string,
     succeeded: boolean,
     error?: unknown,
-  ) => void;
+  ) => string | undefined;
   /** The run's abort signal: a tool that honours it stops when the deadline fires. */
   signal?: AbortSignal;
 }): Promise<void> {
@@ -192,7 +192,10 @@ export async function dispatchApprovedCall(options: {
     const errorMessage = `Error executing tool ${call.name}: ${
       error instanceof Error ? error.message : String(error)
     }`;
-    onToolOutcome?.(call.name, false, error);
+    // The failure tally may promote this failure to a streak notice; its text
+    // rides in the same tool result so the model reads the guidance exactly
+    // where it would otherwise retry the identical call.
+    const streakNotice = onToolOutcome?.(call.name, false, error);
     logger.error("Tool execution failed", {
       name: call.name,
       error: errorMessage,
@@ -203,13 +206,18 @@ export async function dispatchApprovedCall(options: {
       call.id,
       errorMessage,
     );
-    const content = withHookContext(errorMessage, [
-      [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
+    const content = withHookContext(
+      streakNotice
+        ? `${errorMessage}\n\n<system-reminder>${streakNotice}</system-reminder>`
+        : errorMessage,
       [
-        `PostToolUseFailure:${effectiveCall.name}`,
-        failureHook.additionalContext,
+        [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
+        [
+          `PostToolUseFailure:${effectiveCall.name}`,
+          failureHook.additionalContext,
+        ],
       ],
-    ]);
+    );
     entriesByIndex.set(index, {
       role: "tool",
       tool_call_id: call.id,

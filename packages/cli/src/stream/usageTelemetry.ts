@@ -269,6 +269,7 @@ export interface TurnUsageSnapshot {
 }
 
 let turnUsage: TurnUsageSnapshot | null = null;
+let lastTurnUsage: TurnUsageSnapshot | null = null;
 
 /** A user turn begins; the per-round ledger restarts. */
 export function beginTurnUsage(): void {
@@ -312,7 +313,22 @@ function addRoundUsage(
 export function endTurnUsage(): TurnUsageSnapshot | null {
   const snapshot = turnUsage;
   turnUsage = null;
+  if (snapshot) lastTurnUsage = snapshot;
   return snapshot;
+}
+
+/**
+ * The running turn's ledger, for a surface that renders it while the turn
+ * streams. Reading it does not consume it: `endTurnUsage` remains the one
+ * place the ledger is closed.
+ */
+export function peekTurnUsage(): TurnUsageSnapshot | null {
+  return turnUsage;
+}
+
+/** The last turn's closed ledger, for a footer that keeps showing its cost. */
+export function getLastTurnUsage(): TurnUsageSnapshot | null {
+  return lastTurnUsage;
 }
 
 // The accounting below is one long branch of provider shapes; the rules

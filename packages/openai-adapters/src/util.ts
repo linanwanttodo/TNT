@@ -206,7 +206,9 @@ export function usageChatChunk(options: {
 }
 
 export function chatChunkFromDelta(options: {
-  delta: ChatCompletionChunk.Choice["delta"];
+  delta: ChatCompletionChunk.Choice["delta"] & {
+    reasoning_content?: string;
+  };
   model: string;
   finish_reason?: ChatCompletionChunk.Choice["finish_reason"];
   id?: string | null;

@@ -40,7 +40,7 @@ interface HandleToolCallsOptions {
     toolName: string,
     succeeded: boolean,
     error?: unknown,
-  ) => void;
+  ) => string | undefined;
   /**
    * Permissions to enforce. Left unset, the process-wide policy is used.
    */

@@ -60,6 +60,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     rename: handleTitle,
     goal: handleGoal,
     plugins: handlePlugins,
+    plugin: handlePlugins,
     "output-style": handleOutputStyle,
     team: handleTeamCommand,
     loop: handleLoop,

@@ -10,6 +10,7 @@ import type {
   ZCodePluginsUninstallResult,
 } from "@zcode/shared";
 
+import { ensureDefaultMarketplace } from "../../plugins/discover.js";
 import {
   addMarketplace,
   createDefaultDeps,
@@ -293,8 +294,27 @@ export function createZcodePluginServices(): ZcodePluginServices {
     }
   };
 
+  // The shell's public/community segments read the same marketplace registry
+  // as the terminal. Seed the official sources once: the first list call waits
+  // for that seeding so it cannot show an empty store, and every later call
+  // reuses the resolved promise.
+  // Unit tests own a temporary registry and must not reach the network.
+  const seedingAllowed =
+    process.env.NODE_ENV !== "test" && process.env.VITEST !== "true";
+  let seeded: Promise<void> | null = null;
+  const seedMarketplaces = (): Promise<void> => {
+    if (seeded === null) {
+      seeded = seedingAllowed
+        ? ensureDefaultMarketplace().then(() => undefined)
+        : Promise.resolve();
+    }
+    return seeded;
+  };
+  void seedMarketplaces();
+
   const pluginManagementService: IPluginManagementService = {
     async listPlugins(params) {
+      await seedMarketplaces();
       return listCatalog(params.workspacePath);
     },
     async getPluginReferenceCatalog(params) {
@@ -318,6 +338,7 @@ export function createZcodePluginServices(): ZcodePluginServices {
       return emitterFor(operationId).event;
     },
     async getPluginsOverview(params) {
+      await seedMarketplaces();
       return overviewCatalog(params.workspacePath);
     },
     async addPluginMarketplace(params) {

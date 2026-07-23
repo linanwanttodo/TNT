@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe("TodoIndicator", () => {
-  it("hides finished rows, shows five open rows, and summarizes the rest", () => {
+  it("keeps finished rows with a checkmark, shows five open rows, and summarizes the rest", () => {
     const frame = frameWith(
       todosOf(
         { text: "task 1" },
@@ -52,11 +52,28 @@ describe("TodoIndicator", () => {
 
     expect(frame).toContain("TODO");
     expect(frame).toContain("· 2/9");
+    expect(frame).toContain("☑ finished one");
+    expect(frame).toContain("☑ finished two");
     expect(frame).toContain("├─ ☐ task 1");
     expect(frame).toContain("☐ task 5");
     expect(frame).not.toContain("task 6");
-    expect(frame).not.toContain("finished one");
     expect(frame).toContain("└─ … 2 more");
+  });
+
+  it("folds to the header counter and back", async () => {
+    const { toggleTodoExpanded } = await import("../todoFold.js");
+    toggleTodoExpanded();
+    try {
+      const folded = frameWith(todosOf({ text: "task 1" }));
+      expect(folded).toContain("· 0/1");
+      expect(folded).toContain("▸");
+      expect(folded).not.toContain("task 1");
+    } finally {
+      toggleTodoExpanded();
+    }
+    const expanded = frameWith(todosOf({ text: "task 1" }));
+    expect(expanded).toContain("▾");
+    expect(expanded).toContain("☐ task 1");
   });
 
   it("shows every open row and closes the spine when five or fewer remain", () => {
