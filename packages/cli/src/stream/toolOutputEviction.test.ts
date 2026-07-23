@@ -1,3 +1,4 @@
+import type { ChatHistoryItem } from "core/index.js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -5,7 +6,6 @@ import {
   evictionTokenThreshold,
   evictOldToolResults,
 } from "./toolOutputEviction.js";
-import type { ChatHistoryItem } from "core/index.js";
 
 const previousThreshold = process.env.TNT_TOOL_EVICTION_TOKENS;
 const previousKeep = process.env.TNT_TOOL_EVICTION_KEEP;
