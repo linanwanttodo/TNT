@@ -35,6 +35,20 @@ const EFFORT_VALUES: ReasoningDepth[] = [
   "max",
 ];
 
+/**
+ * The zh labels `/think` prints back, so a reader can type what it showed.
+ * Matched before the ASCII tokens, which stay the canonical form.
+ */
+const DEPTH_ALIASES: Record<string, ReasoningDepth> = {
+  关闭: "off",
+  默认: "default",
+  低: "low",
+  中: "medium",
+  高: "high",
+  极高: "xhigh",
+  最高: "max",
+};
+
 let override: ReasoningDepth | null = null;
 let restored = false;
 const listeners = new Set<() => void>();
@@ -64,7 +78,10 @@ export function getReasoningOverride(): ReasoningDepth | null {
 
 /** Parses a `/think` argument, or undefined when it is not a known depth. */
 export function parseReasoningDepth(value: string): ReasoningDepth | undefined {
-  const normalized = value.trim().toLowerCase();
+  const trimmed = value.trim();
+  const alias = DEPTH_ALIASES[trimmed];
+  if (alias) return alias;
+  const normalized = trimmed.toLowerCase();
   if (normalized === "default") return "default";
   if (normalized === "off") return "off";
   if ((EFFORT_VALUES as string[]).includes(normalized)) {

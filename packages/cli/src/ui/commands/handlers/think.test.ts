@@ -60,6 +60,31 @@ describe("handleThink", () => {
     expect(writeSettingsValue).not.toHaveBeenCalled();
   });
 
+  it("accepts the zh label it printed as the depth", () => {
+    const result = handleThink(["高"]);
+    expect(result.output).toContain("high");
+    expect(writeSettingsValue).toHaveBeenCalledWith(
+      "/tmp/settings.json",
+      "reasoningEffort",
+      "high",
+    );
+  });
+
+  it("lists every depth in the rejection message", () => {
+    const result = handleThink(["super"]);
+    for (const value of [
+      "off",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "default",
+    ]) {
+      expect(result.output).toContain(value);
+    }
+  });
+
   it("effectiveReasoningDepth prefers the override", () => {
     expect(
       effectiveReasoningDepth({ defaultCompletionOptions: {} } as any),

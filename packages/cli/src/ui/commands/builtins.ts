@@ -25,7 +25,21 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "info", descriptionKey: "cmd.info" },
   { name: "model", descriptionKey: "cmd.model" },
   { name: "brief", descriptionKey: "cmd.brief" },
-  { name: "think", descriptionKey: "cmd.think" },
+  {
+    name: "think",
+    descriptionKey: "cmd.think",
+    // The depth is a fixed vocabulary, so the palette completes it: typing
+    // `/think ` and Tab is how a reader switches without guessing the words.
+    subcommands: [
+      { name: "off", description: t("thought.level.off") },
+      { name: "low", description: t("thought.level.low") },
+      { name: "medium", description: t("thought.level.medium") },
+      { name: "high", description: t("thought.level.high") },
+      { name: "xhigh", description: t("thought.level.xhigh") },
+      { name: "max", description: t("thought.level.max") },
+      { name: "default", description: t("think.default") },
+    ],
+  },
   {
     name: "mcp",
     descriptionKey: "cmd.mcp",
