@@ -7,8 +7,10 @@ import {
 
 describe("calculateContextBudget", () => {
   it("uses the lower of the proportional and output-reserved thresholds", () => {
+    // 0.8 × 128k is 102.4k, but the absolute ceiling is 100k, so the ceiling
+    // wins: the working set stays at the same budget whatever the window is.
     expect(calculateContextBudget(128_000, 8_000)).toEqual({
-      compactAtTokens: 102_400,
+      compactAtTokens: 100_000,
       retainTokens: 19_200,
     });
 
@@ -20,9 +22,11 @@ describe("calculateContextBudget", () => {
 
   it("caps compaction and retention absolutely for very large windows", () => {
     // A 1M window must not turn 0.8× into an 800k compaction threshold, nor
-    // keep a 150k tail after summarizing: both are absolute caps.
+    // keep a 150k tail after summarizing: both are absolute caps. The 100k
+    // ceiling is what keeps a request's input tokens near a fixed budget
+    // instead of drifting to the window size.
     expect(calculateContextBudget(1_000_000, 64_000)).toEqual({
-      compactAtTokens: 200_000,
+      compactAtTokens: 100_000,
       retainTokens: 32_000,
     });
   });
