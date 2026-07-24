@@ -240,3 +240,74 @@ describe("UserInput slash palette", () => {
     }
   });
 });
+
+describe("UserInput slash palette Tab completion", () => {
+  const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
+
+  it("completes the highlighted command on Tab", async () => {
+    const onSubmit = vi.fn();
+    const tree = render(
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
+    );
+    try {
+      await tick();
+      tree.stdin.write("/");
+      await tick();
+      tree.stdin.write("he");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("/help");
+
+      tree.stdin.write("\t");
+      await tick(200);
+
+      const frame = tree.lastFrame() ?? "";
+      // Tab fills the buffer with the highlighted name instead of submitting.
+      expect(frame).toContain("> /help");
+      expect(onSubmit).not.toHaveBeenCalled();
+    } finally {
+      tree.unmount();
+    }
+  });
+});
+
+describe("UserInput slash palette Tab while a turn runs", () => {
+  const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
+
+  it("completes the highlighted command on Tab mid-turn", async () => {
+    const onSubmit = vi.fn();
+    const tree = render(
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={true}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
+    );
+    try {
+      await tick();
+      tree.stdin.write("/");
+      await tick();
+      tree.stdin.write("he");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("/help");
+
+      tree.stdin.write("\t");
+      await tick(200);
+
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain("> /help");
+      expect(onSubmit).not.toHaveBeenCalled();
+    } finally {
+      tree.unmount();
+    }
+  });
+});
