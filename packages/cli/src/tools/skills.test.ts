@@ -58,6 +58,19 @@ describe("skillsTool", () => {
     expect(tool.description).toContain("name: test-skill");
   });
 
+  it("offers optional activation without overriding task boundaries", async () => {
+    const tool = await skillsTool();
+    expect(tool.description).toContain("Calling no skill is valid");
+    expect(tool.description).toContain("before applying the procedure");
+    expect(tool.description).toContain(
+      "do not create unrelated work or override",
+    );
+    expect(tool.description).toContain("while its content remains in context");
+    expect(tool.description).not.toContain(
+      "Read a skill before starting the task it describes",
+    );
+  });
+
   it("says so when the workspace has no skills", async () => {
     const { loadMarkdownSkills } =
       await import("../utils/loadMarkdownSkills.js");

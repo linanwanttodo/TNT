@@ -1,4 +1,4 @@
-import { render, RenderOptions } from "ink";
+import { RenderOptions } from "ink";
 import React from "react";
 
 import { t } from "../i18n/index.js";
@@ -27,6 +27,7 @@ import {
   leaveAlternateScreen,
 } from "./utils/terminalScreen.js";
 import { setAmbiguousCharactersWide } from "./utils/textUtils.js";
+import { renderGuardedTui } from "./utils/tuiOutput.js";
 
 export { MarkdownRenderer } from "./MarkdownRenderer.js";
 
@@ -168,7 +169,7 @@ export async function startTUIChat(
   if (alternateScreenEnabled()) {
     enterAlternateScreen();
   }
-  const { unmount } = render(
+  const { unmount } = renderGuardedTui(
     React.createElement(ServiceContainerProvider, {
       children: React.createElement(AppRoot, {
         configPath: config,
@@ -231,7 +232,7 @@ export async function startRemoteTUIChat(
   if (alternateScreenEnabled()) {
     enterAlternateScreen();
   }
-  const { unmount } = render(
+  const { unmount } = renderGuardedTui(
     React.createElement(ServiceContainerProvider, {
       children: React.createElement(AppRoot, {
         remoteUrl,

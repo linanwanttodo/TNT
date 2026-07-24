@@ -55,8 +55,8 @@ import { sortToolsByName } from "./stableOrder.js";
  * the same 42 tools. It sits in every session's prefix, so the cold start is
  * paid once on the next request, not only behind a flag.
  */
-const PREFIX_FINGERPRINT = "56d3989dd2fb855c";
-const PREFIX_CHARACTERS = 35_316;
+const PREFIX_FINGERPRINT = "ed4738cde6061749";
+const PREFIX_CHARACTERS = 35_354;
 const PREFIX_TOOLS = 42;
 
 const ARCHITECTURE_DOC = path.resolve(

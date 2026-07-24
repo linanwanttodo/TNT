@@ -123,17 +123,18 @@ describe("tool-level working rules", () => {
     expect(writeFileTool.description).toContain("prefer ApplyPatch");
   });
 
-  it("sends a task to its skill before the attempt, not after", () => {
+  it("keeps skill activation optional and the selected procedure ordered", () => {
     const skills = SKILLS_TOOL_META.description;
 
-    // Measured against the implementation: the tool only reads the skill file
-    // and returns it, so the copy is the sole place that says what to do with
-    // it, that an invented name fails, and where the skill's extra files come
-    // from (the result's <skill_files>, opened with Read).
-    expect(skills).toContain("before starting the task");
-    expect(skills).toContain("the procedure to follow");
-    expect(skills).toContain("one of the skills listed");
-    expect(skills).toContain("does not need reading again");
+    // The tool only reads the skill file and returns it, so this copy is the
+    // sole place that says when to read, what the procedure may change, and how
+    // supporting files are reached.
+    expect(skills).toContain("Calling no skill is valid");
+    expect(skills).toContain("After selecting a skill, read its instructions");
+    expect(skills).toContain("before applying the procedure");
+    expect(skills).toContain("do not create unrelated work or override");
+    expect(skills).toContain("Never invent a skill name");
+    expect(skills).toContain("while its content remains in context");
     expect(skills).toContain("open them with Read");
   });
 

@@ -49,11 +49,13 @@ describe("constructSystemMessage", () => {
     expect(result).toContain('<context name="gitStatus">');
   });
 
-  it("should keep emoji out of decorative roles in answers", async () => {
+  it("should keep emoji and decorative headings out of answers", async () => {
     const result = await constructSystemMessage("default");
 
-    expect(result).toContain("Emoji are allowed in prose");
-    expect(result).toContain("never as decoration");
+    expect(result).toContain(
+      "Use plain Markdown without emoji or decorative headings",
+    );
+    expect(result).toContain("or decorative headings");
   });
 
   it("should handle whitespace-only rules message", async () => {
@@ -139,10 +141,8 @@ Rule 3: Third rule`;
 
     expect(result).toContain("You are an agent in TNT");
     expect(result).toContain("IMPORTANT: You are running in headless mode");
-    expect(result).toContain("Provide ONLY your final answer");
-    expect(result).toContain(
-      "Do not include explanations, reasoning, or additional commentary",
-    );
+    expect(result).toContain("Provide only the final answer");
+    expect(result).toContain("Omit progress commentary and private reasoning");
   });
 
   it("should not add headless mode instructions when headless is false", async () => {
@@ -155,7 +155,7 @@ Rule 3: Third rule`;
 
     expect(result).toContain("You are an agent in TNT");
     expect(result).not.toContain("IMPORTANT: You are running in headless mode");
-    expect(result).not.toContain("Provide ONLY your final answer");
+    expect(result).not.toContain("Provide only the final answer");
   });
 
   it("should not add headless mode instructions when headless is undefined", async () => {
@@ -163,7 +163,7 @@ Rule 3: Third rule`;
 
     expect(result).toContain("You are an agent in TNT");
     expect(result).not.toContain("IMPORTANT: You are running in headless mode");
-    expect(result).not.toContain("Provide ONLY your final answer");
+    expect(result).not.toContain("Provide only the final answer");
   });
 
   it("should add JSON format instructions when format is json", async () => {

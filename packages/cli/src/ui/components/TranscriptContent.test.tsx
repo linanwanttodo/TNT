@@ -1,10 +1,11 @@
-import { Text } from "ink";
+import { Box, Text } from "ink";
 import { render } from "ink-testing-library";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { useMessageRenderer } from "../hooks/useMessageRenderer.js";
+import { dispatchClick } from "../utils/clickRegions.js";
 
 import { TranscriptContent } from "./TranscriptContent.js";
 
@@ -139,6 +140,168 @@ describe("TranscriptContent", () => {
       expect(first).toContain("TNT banner");
     } finally {
       unmount();
+    }
+  });
+});
+
+describe("streaming paragraph layout", () => {
+  const Probe: React.FC<{ streaming: string; finished?: boolean }> = ({
+    streaming,
+    finished = false,
+  }) => {
+    const { renderMessage } = useMessageRenderer();
+    return (
+      <Box flexDirection="column" height={30}>
+        <TranscriptContent
+          showIntroMessage={false}
+          chatHistory={finished ? [item("assistant", streaming)] : []}
+          renderMessage={renderMessage}
+          streamingText={finished ? null : streaming}
+          streamingReasoning={null}
+          scrollTop={0}
+          onMetrics={noMetrics}
+          isWaitingForResponse={false}
+          responseStartTime={null}
+          isCompacting={false}
+          compactionStartTime={null}
+          isBashToolRunning={false}
+        />
+        <Text>COMPOSER_DRAFT</Text>
+      </Box>
+    );
+  };
+
+  it("keeps paragraph rows stable across stream chunks and completion", async () => {
+    const view = render(<Probe streaming="alpha" />);
+    const firstFrame = view.frames.length;
+
+    try {
+      for (const streaming of [
+        "alpha\n\nbe",
+        "alpha\n\nbeta\n\nga",
+        "alpha\n\nbeta\n\ngamma",
+      ]) {
+        view.rerender(<Probe streaming={streaming} />);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      view.rerender(<Probe streaming={"alpha\n\nbeta\n\ngamma"} finished />);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      let completeFrames = 0;
+      for (const frame of view.frames.slice(firstFrame)) {
+        const lines = frame.split("\n");
+        const alpha = lines.findIndex((line) => line.includes("alpha"));
+        const beta = lines.findIndex((line) => line.includes("beta"));
+        const gamma = lines.findIndex((line) => line.includes("gamma"));
+        expect(lines.findIndex((line) => line.includes("COMPOSER_DRAFT"))).toBe(
+          29,
+        );
+        if (beta >= 0) expect(beta - alpha).toBe(2);
+        if (gamma >= 0) {
+          completeFrames++;
+          expect(gamma - beta).toBe(2);
+        }
+      }
+      expect(completeFrames).toBeGreaterThan(1);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("keeps a live thinking click override when the first text grows", async () => {
+    const LiveMessage: React.FC<{ content: string }> = ({ content }) => {
+      const { renderMessage } = useMessageRenderer();
+      return renderMessage(
+        {
+          message: { role: "assistant", content, isStreaming: true },
+          contextItems: [],
+          reasoning: { active: true, text: "inspect the cache", startAt: 0 },
+        } as ChatHistoryItem,
+        0,
+      );
+    };
+    const view = render(<LiveMessage content="alpha" />);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(view.lastFrame()).toContain("inspect the cache");
+      expect(dispatchClick(1, 3)).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(view.lastFrame()).not.toContain("inspect the cache");
+      view.rerender(<LiveMessage content="alpha beta" />);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(view.lastFrame()).not.toContain("inspect the cache");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("keeps a table grid intact as later rows stream in", async () => {
+    const view = render(
+      <Probe streaming={"| File | Size |\n|---|---|\n| alpha | 1 |"} />,
+    );
+    try {
+      view.rerender(
+        <Probe
+          streaming={
+            "| File | Size |\n|---|---|\n| alpha | 1 |\n| beta | 2 |\n\nDone"
+          }
+        />,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const frame = view.lastFrame() ?? "";
+      expect(frame).toContain("File");
+      expect(frame).toContain("alpha");
+      expect(frame).toContain("beta");
+      expect(frame).not.toContain("|---|");
+      expect(frame).toContain("Done");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("keeps a blank-line code fence intact across stream updates", async () => {
+    const view = render(<Probe streaming={"```ts\nconst first = 1;\n"} />);
+
+    try {
+      const content =
+        "```ts\nconst first = 1;\n\nconst second = 2;\n```\n\nDone";
+      view.rerender(<Probe streaming={content} />);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(view.lastFrame()).not.toContain("```ts");
+      expect(view.lastFrame()).not.toContain("```");
+      expect(view.lastFrame()).toContain("Done");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("does not show provider boundary whitespace as extra message spacing", async () => {
+    const view = render(<Probe streaming={"\n\nalpha\n\nbe"} />);
+
+    try {
+      view.rerender(<Probe streaming={"\n\nalpha\n\nbeta\n\n"} />);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      view.rerender(<Probe streaming={"\n\nalpha\n\nbeta\n\n"} />);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const lines = (view.lastFrame() ?? "").split("\n");
+      expect(lines[0].trim()).toBe("alpha");
+      expect(lines[2].trim()).toBe("beta");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("keeps a completed code fence intact when later paragraphs arrive", async () => {
+    const view = render(<Probe streaming={"```ts\nconst answer = 42;\n"} />);
+
+    try {
+      const content = "```ts\nconst answer = 42;\n```\n\nDone";
+      view.rerender(<Probe streaming={content} />);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(view.lastFrame()).toContain("const answer = 42;");
+      expect(view.lastFrame()).not.toContain("```ts");
+    } finally {
+      view.unmount();
     }
   });
 });

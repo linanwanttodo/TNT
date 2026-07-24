@@ -42,24 +42,24 @@ vi.mock("../config/hubLoader.js", () => ({
  * change cannot be committed without a line saying so.
  */
 const FROZEN_SPINE = [
-  { label: "tui", names: "base", chars: 7133, digest: "eb91d81a8853eeff" },
+  { label: "tui", names: "base", chars: 9137, digest: "81a6092e2a935e97" },
   {
     label: "tui-json",
     names: "base,jsonOutput",
-    chars: 7549,
-    digest: "292c475bc48e09b4",
+    chars: 9553,
+    digest: "22bd6daaf8701059",
   },
   {
     label: "headless",
     names: "base,headless",
-    chars: 7677,
-    digest: "b4d724150855372f",
+    chars: 9644,
+    digest: "339cda392f12a90e",
   },
   {
     label: "headless-json",
     names: "base,headless,jsonOutput",
-    chars: 8093,
-    digest: "4183c5516d15a737",
+    chars: 10060,
+    digest: "1c420a34ddc25a7c",
   },
 ];
 
