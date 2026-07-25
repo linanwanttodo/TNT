@@ -41,8 +41,13 @@ export function isShellTool(displayName: string): boolean {
   return SHELL_TOOLS.has(displayName.toLowerCase());
 }
 
-/** Rows of output kept in the collapsed view. The tail is what a failure is. */
-const COLLAPSED_OUTPUT_LINES = 4;
+/**
+ * Collapsed calls show the command row and nothing else, the way the reference
+ * client does: the output is what made a long transcript unreadable and every
+ * byte of it is still one click away. A failed call keeps its tail, because
+ * the reason is the one thing a reader needs without asking.
+ */
+const COLLAPSED_ERROR_TAIL_LINES = 3;
 
 /** A single expanded block stops being readable well before this. */
 const MAX_EXPANDED_OUTPUT_LINES = 60;
@@ -88,9 +93,10 @@ export function toolDotStyle(
         dim: true,
       };
     case "calling":
+      // A running call blinks gray and white; the base colour is the off half.
       return {
         glyph: filledDot,
-        color: activeTheme.claude,
+        color: activeTheme.text.subtle,
         dim: false,
       };
     case "generated":
@@ -109,9 +115,12 @@ export function toolDotIsLive(status: ToolCallState["status"]): boolean {
   return status === "calling";
 }
 
-/** The dot with the blink applied; the off frame is a space, not a gap. */
-export function toolDotGlyph(style: ToolDotStyle, visible: boolean): string {
-  return visible ? style.glyph : " ";
+/**
+ * The dot glyph. The blink no longer removes it: a running call alternates
+ * gray and white so the line keeps its shape instead of the dot blinking out.
+ */
+export function toolDotGlyph(style: ToolDotStyle, _visible: boolean): string {
+  return style.glyph;
 }
 
 function isTerminalStatus(status: ToolCallState["status"]): boolean {
@@ -233,7 +242,11 @@ interface OutputPreview {
   hiddenBelow: number;
 }
 
-function planOutput(output: string, expanded: boolean): OutputPreview {
+function planOutput(
+  output: string,
+  expanded: boolean,
+  keepTail: boolean,
+): OutputPreview {
   const lines = output.replace(/\s+$/, "").split("\n");
   if (expanded) {
     if (lines.length <= MAX_EXPANDED_OUTPUT_LINES) {
@@ -246,15 +259,19 @@ function planOutput(output: string, expanded: boolean): OutputPreview {
     };
   }
 
-  if (lines.length <= COLLAPSED_OUTPUT_LINES) {
+  // Collapsed: only a failed call keeps a few lines, so the reason is on
+  // screen. A successful call is its command row and a line count.
+  if (keepTail && lines.length > COLLAPSED_ERROR_TAIL_LINES) {
+    return {
+      lines: lines.slice(-COLLAPSED_ERROR_TAIL_LINES),
+      hiddenAbove: lines.length - COLLAPSED_ERROR_TAIL_LINES,
+      hiddenBelow: 0,
+    };
+  }
+  if (keepTail) {
     return { lines, hiddenAbove: 0, hiddenBelow: 0 };
   }
-
-  return {
-    lines: lines.slice(-COLLAPSED_OUTPUT_LINES),
-    hiddenAbove: lines.length - COLLAPSED_OUTPUT_LINES,
-    hiddenBelow: 0,
-  };
+  return { lines: [], hiddenAbove: lines.length, hiddenBelow: 0 };
 }
 
 /**
@@ -271,6 +288,13 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
   const live = toolDotIsLive(toolState.status);
   const blinkVisible = useBlink(live);
   const dotGlyph = toolDotGlyph(dot, blinkVisible);
+  // Gray on the off half, white on the on half, so a running call reads as
+  // alive without the dot disappearing from the line.
+  const dotColor = live
+    ? blinkVisible
+      ? activeTheme.text.primary
+      : activeTheme.text.subtle
+    : dot.color;
   const displayName = getToolDisplayName(toolName);
   const description = sanitizeTerminalText(describeCall(toolName, args));
   const rawOutput = sanitizeTerminalText(
@@ -337,7 +361,7 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
     ? separateDiffAndNotes(output)
     : { notes: "", diff: "" };
 
-  const preview = planOutput(output, expanded);
+  const preview = planOutput(output, expanded, toolState.status === "errored");
   const duration = durationMs === null ? undefined : formatDuration(durationMs);
   const toggleHint =
     preview.hiddenAbove > 0
@@ -379,7 +403,7 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
     <Box ref={panelRef} flexDirection="column" width="100%">
       <Box flexDirection="row" width="100%">
         <Box minWidth={2} flexShrink={0}>
-          <Text color={dot.color} dimColor={dot.dim}>
+          <Text color={dotColor} dimColor={dot.dim}>
             {dotGlyph}
           </Text>
         </Box>

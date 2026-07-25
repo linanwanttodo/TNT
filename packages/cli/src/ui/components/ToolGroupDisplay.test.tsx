@@ -76,7 +76,9 @@ describe("the tool dot state machine", () => {
     });
     expect(toolDotStyle("calling", darkTheme)).toEqual({
       glyph: DOT,
-      color: darkTheme.claude,
+      // The running dot blinks between gray and white; the style carries the
+      // off half, the component paints the on half.
+      color: darkTheme.text.subtle,
       dim: false,
     });
     expect(toolDotStyle("done", darkTheme)).toEqual({
@@ -104,7 +106,7 @@ describe("the tool dot state machine", () => {
     expect(toolDotIsLive("canceled")).toBe(false);
   });
 
-  it("blinks the running dot to a space every 600 ms", () => {
+  it("keeps the running dot on screen while its colour blinks", () => {
     expect(BLINK_INTERVAL_MS).toBe(600);
     expect(blinkVisibleAt(0)).toBe(true);
     expect(blinkVisibleAt(599)).toBe(true);
@@ -113,8 +115,10 @@ describe("the tool dot state machine", () => {
     expect(blinkVisibleAt(1200)).toBe(true);
 
     const style = toolDotStyle("calling", darkTheme);
+    // The glyph never disappears: the alternation is the colour, so the line
+    // keeps its shape while a call runs.
     expect(toolDotGlyph(style, true)).toBe(DOT);
-    expect(toolDotGlyph(style, false)).toBe(" ");
+    expect(toolDotGlyph(style, false)).toBe(DOT);
   });
 });
 
@@ -186,7 +190,8 @@ describe("ToolItemDisplay", () => {
 
   it("hangs a result below the call behind exactly one gutter", () => {
     const state = mockToolState({
-      status: "done",
+      // A failed call keeps its tail, which is what the gutter rows are for.
+      status: "errored",
       output: [
         {
           id: "out",
@@ -270,10 +275,11 @@ describe("ToolItemDisplay", () => {
       />,
     );
 
-    expect(frame).toContain("output-line-10");
-    expect(frame).toContain("output-line-7");
+    // A finished call shows its command row and a count; the output itself is
+    // one click away, which is what keeps a long transcript readable.
+    expect(frame).not.toContain("output-line-10");
     expect(frame).not.toContain("output-line-1\n");
-    expect(frame).toContain("... (6 earlier lines, click to expand)");
+    expect(frame).toContain("... (10 earlier lines, click to expand)");
   });
 
   it("expands the folded output when the panel is clicked", async () => {
@@ -344,9 +350,8 @@ describe("ToolItemDisplay", () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
 
       const frame = tree.lastFrame() ?? "";
-      expect(frame).toContain("output-line-10");
+      expect(frame).not.toContain("output-line-10");
       expect(frame).toContain("earlier lines, click to expand");
-      expect(frame).not.toContain("output-line-1\n");
     } finally {
       tree.unmount();
     }
@@ -393,7 +398,7 @@ describe("ToolItemDisplay", () => {
 
       const frame = tree.lastFrame() ?? "";
       expect(frame).toContain("· +1 -1");
-      expect(frame).toContain("ctrl+o to expand");
+      expect(frame).toContain("click to expand");
     } finally {
       tree.unmount();
     }
@@ -579,6 +584,9 @@ describe("ToolGroupDisplay terminal safety", () => {
       <ToolGroupDisplay
         toolStates={[
           mockToolState({
+            // A failed call keeps its tail on screen, which is what this
+            // guard needs to see the sanitized text.
+            status: "errored",
             output: [
               {
                 id: "out-1",

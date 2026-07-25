@@ -287,11 +287,13 @@ describe("TUIChat transcript", () => {
       await tick();
       expect(lastFrame() ?? "").toContain("earlier lines, click to expand");
 
-      await clickRow("output-line-10");
+      // The title row can sit above the window once the panel folds; the
+      // hint row is the stable click target in both states.
+      await clickRow("click to expand");
       await tick();
       expect(lastFrame() ?? "").toContain("click to collapse");
 
-      await clickRow("output-line-10");
+      await clickRow("click to collapse");
       expect(lastFrame() ?? "").toContain("earlier lines, click to expand");
     } finally {
       unmount();

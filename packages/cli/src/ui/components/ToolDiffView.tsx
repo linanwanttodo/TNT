@@ -188,7 +188,7 @@ export const ToolDiffView = memo<ToolDiffViewProps>(
     diffContent: untrustedDiffContent,
     expanded,
     maxExpandedLines = 60,
-    collapsedLines = 4,
+    collapsedLines = 3,
     customTheme,
   }) => {
     const activeTheme = customTheme ?? useTheme();
@@ -238,9 +238,9 @@ export const ToolDiffView = memo<ToolDiffViewProps>(
       hiddenAbove > 0
         ? `... (${hiddenAbove} earlier ${
             hiddenAbove === 1 ? "line" : "lines"
-          }, ctrl+o to expand)`
+          }, click to expand)`
         : expanded
-          ? "ctrl+o to collapse"
+          ? "click to collapse"
           : "";
 
     if (total === 0) {
