@@ -91,6 +91,11 @@ export interface UpdateServiceState {
   isAutoUpdate: boolean;
   status: UpdateStatus;
   message: string;
+  /**
+   * Installer step progress, 0..100. Null while idle, and while the installer
+   * has not printed a step the reader can anchor on yet.
+   */
+  progress: number | null;
   error?: Error | null;
   isUpdateAvailable: boolean;
   latestVersion: string | null;
