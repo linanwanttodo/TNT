@@ -64,7 +64,7 @@ describe("MemoizedMessage formatMessageContentForDisplay", () => {
     } as ChatHistoryItem;
 
     const folded = frameOf(<MemoizedMessage item={item} index={0} />) ?? "";
-    expect(folded).toContain("Thinking...");
+    expect(folded).toContain("Thinking  click to expand");
     expect(folded).not.toContain("checking the parser");
 
     toggleReasoningExpanded();

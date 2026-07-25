@@ -264,6 +264,13 @@ export function useChat({
 
   // Track interrupted state for resume functionality
   const [wasInterrupted, setWasInterrupted] = useState(false);
+  /**
+   * What the session dot in the status bar reports: a turn in flight, a turn
+   * that failed (a dead connection, an empty balance), or an idle session.
+   */
+  const [turnStatus, setTurnStatus] = useState<"idle" | "running" | "error">(
+    "idle",
+  );
 
   // Track queued messages for immediate display. The queue is the authority;
   // every event resyncs from a snapshot so a remove or edit cannot leave a
@@ -406,6 +413,7 @@ export function useChat({
     const controller = new AbortController();
     setAbortController(controller);
     setIsWaitingForResponse(true);
+    setTurnStatus("running");
     turnRunningRef.current = true;
     // The per-round ledger restarts; the turn-end notice reads it once.
     beginTurnUsage();
@@ -568,6 +576,7 @@ export function useChat({
         setWasInterrupted(true);
       } else {
         const errorMessage = `Error: ${formatError(error)}`;
+        setTurnStatus("error");
         liveHub.publishTurnFailed(errorMessage);
         endTurnUsage();
         setChatHistory((prev) => [
@@ -594,6 +603,7 @@ export function useChat({
 
       setAbortController(null);
       setIsWaitingForResponse(false);
+      setTurnStatus("idle");
       turnRunningRef.current = false;
       setResponseStartTime(null);
       setInputMode(true);
@@ -1227,6 +1237,7 @@ export function useChat({
     activePermissionRequest,
     activeQuizQuestion,
     wasInterrupted,
+    turnStatus,
     queuedMessages,
     streamingText,
     streamingReasoning,
