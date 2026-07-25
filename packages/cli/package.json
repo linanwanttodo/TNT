@@ -1,6 +1,6 @@
 {
   "name": "@tnt/cli",
-  "version": "1.2.15",
+  "version": "1.2.16",
   "description": "TNT CLI",
   "engines": {
     "node": ">=24"
