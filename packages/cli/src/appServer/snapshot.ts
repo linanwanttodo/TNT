@@ -1,5 +1,9 @@
 /* eslint-disable max-lines -- the message projection keeps every part shape in one place */
-import { ZCODE_PROTOCOL_NAME, ZCODE_PROTOCOL_VERSION } from "@zcode/shared";
+import {
+  ZCODE_PROTOCOL_NAME,
+  ZCODE_PROTOCOL_VERSION,
+  ZCodeSlashCommand,
+} from "@zcode/shared";
 import type {
   ModelSelection,
   ZCodeMessagePart,
@@ -35,6 +39,8 @@ import {
 } from "../session/reasoningOverride.js";
 import { messageTimestampOf, type SessionMeta } from "../session/store.js";
 import { readTodoState, type Todo } from "../tools/todo.js";
+import { getAllSlashCommands } from "../ui/commands/index.js";
+import type { AssistantConfig } from "@tnt/sdk";
 
 import type { GoalLifecycleState } from "./events.js";
 
@@ -51,8 +57,31 @@ export interface SessionInfoContext {
   goal?: GoalLifecycleState | null;
 }
 
+/**
+ * The slash-command registry loads from disk (skills, plugins), so it is read
+ * once at boot and reused by every sync snapshot call. The async subscribe
+ * path re-reads it fresh instead.
+ */
+let cachedSlashCommands: ZCodeSlashCommand[] = [];
+void getAllSlashCommands({} as AssistantConfig)
+  .then((commands) => {
+    cachedSlashCommands = commands.map((command) => ({
+      name: command.name,
+      description: command.description ?? "",
+      source: "builtin" as const,
+    }));
+  })
+  .catch(() => {
+    cachedSlashCommands = [];
+  });
+
 export interface SnapshotContext extends SessionInfoContext {
   messages?: ZCodeMessageWithParts[];
+  /**
+   * The slash commands the webui palette lists (`/` 的技能与命令)。zcode 的
+   * session/read 协议会返回它们；不透传时 webui 的调色板只能拿到空列表。
+   */
+  slashCommands?: ZCodeSlashCommand[];
   runtime?: {
     eventSeq: number;
     stateRevision: number;
@@ -828,6 +857,7 @@ export function toZcodeSnapshot(
   }
   return {
     protocol: { name: ZCODE_PROTOCOL_NAME, version: ZCODE_PROTOCOL_VERSION },
+    slashCommands: context.slashCommands ?? cachedSlashCommands,
     session: info,
     settings: {
       model: model

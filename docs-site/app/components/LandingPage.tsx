@@ -1,10 +1,10 @@
 import "./landing.css";
-import { LandingParticles } from "./components/LandingParticles";
+import { LandingParticles } from "./LandingParticles";
 
 /**
- * The landing page. One screen, no decoration: the block wordmark types
- * itself in like a terminal boot, one tagline, and the way into the docs.
- * Everything is server-rendered; the only motion is CSS steps().
+ * The landing page. One screen, no decoration: a field of particles settles
+ * into the TNT wordmark, one tagline, and the way into the docs. Everything is
+ * server-rendered; the only motion is the canvas and a blinking block cursor.
  */
 
 const GITHUB_URL = "https://github.com/linanwanttodo/TNT";
@@ -13,7 +13,7 @@ export const metadata = {
   title: "TNT — 终端里的智能体工作台",
 };
 
-export default function LandingPage() {
+export function LandingPage() {
   return (
     <div className="landing">
       <header className="landing-nav">
