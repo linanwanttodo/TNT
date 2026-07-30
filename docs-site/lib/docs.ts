@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import GithubSlugger from "github-slugger";
 import type { NavItem, NavTab } from "@/config/docsNav";
 import { DEFAULT_LOCALE, type Locale } from "./i18n";
 
@@ -106,6 +107,10 @@ export async function loadMdxFile(
   slug: string[],
   locale: Locale = DEFAULT_LOCALE,
 ): Promise<DocFile | null> {
+  // Cheap denylist before resolution: a slug segment may never be "..".
+  if (slug.some((segment) => segment === "..")) {
+    return null;
+  }
   const slugPath = slug.join("/");
   const base = docsLocaleDir(locale);
   // Slugs come from URL route params: anchor every read to the docs tree so
@@ -154,6 +159,10 @@ export async function loadRawMdxFile(
   slug: string[],
   locale: Locale = DEFAULT_LOCALE,
 ): Promise<{ raw: string; fileName: string } | null> {
+  // Cheap denylist before resolution: a slug segment may never be "..".
+  if (slug.some((segment) => segment === "..")) {
+    return null;
+  }
   const slugPath = slug.join("/");
   const base = docsLocaleDir(locale);
 
@@ -299,17 +308,18 @@ export interface Heading {
 
 export function getHeadings(content: string): Heading[] {
   const regex = /^(#{2,4})\s+(.+)$/gm;
+  const slugger = new GithubSlugger();
   const headings: Heading[] = [];
   let match;
 
   while ((match = regex.exec(content)) !== null) {
     const level = match[1]!.length;
     const text = match[2]!.trim();
-    const id = text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/\s+/g, "-");
-    headings.push({ level, text, id });
+    // github-slugger keeps CJK and dedupes, matching the ids rehype-slug
+    // generates for the rendered page (the old ASCII-only slugify stripped
+    // Chinese entirely and left every zh heading with an empty id).
+    if (!text) continue;
+    headings.push({ level, text, id: slugger.slug(text) });
   }
 
   return headings;
