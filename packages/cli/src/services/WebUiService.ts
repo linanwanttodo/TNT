@@ -13,7 +13,7 @@ import { buildZcodeServiceCollection } from "../webuiZcode/serviceCollection.js"
 import type { WorkspaceEngines } from "../webuiZcode/workspaceEngines.js";
 import { startWebUiZcodeHost } from "../webuiZcode/wsHost.js";
 
-import { registerWebUiAccessRoute } from "./webuiAccess.js";
+import { LAN_BIND_HOSTS, registerWebUiAccessRoute } from "./webuiAccess.js";
 import {
   registerWebUiAuthGate,
   registerWebUiSessionExchange,
@@ -70,6 +70,14 @@ export class WebUiService {
   private engines: WorkspaceEngines | null = null;
   private questionListener: ((event: unknown) => void) | null = null;
   private questionAnsweredListener: ((event: unknown) => void) | null = null;
+  /** The interface the active listener is bound to; tracked for rebinds. */
+  private boundHost = "127.0.0.1";
+  /** What a mid-life LAN rebind needs: the app, its options and the token. */
+  private dyn: {
+    options: WebUiServiceOptions;
+    token: string;
+    app: Express;
+  } | null = null;
 
   async start(options: WebUiServiceOptions = {}): Promise<WebUiHandle> {
     // One server at a time: a second /webui in the same TUI would otherwise
@@ -81,6 +89,8 @@ export class WebUiService {
     app.use(express.json());
 
     const token = resolveWebUiToken(options.persistToken ?? false);
+    this.boundHost = options.host ?? "127.0.0.1";
+    this.dyn = { options, token, app };
 
     // Every dist file is served as a name resolved against the dist directory
     // rather than as an absolute path: send() treats a dot-prefixed segment in
@@ -134,7 +144,8 @@ export class WebUiService {
     // known once the listener is bound.
     registerWebUiAccessRoute(app, {
       getHandle: () => this.activeHandle,
-      getBoundHost: () => options.host ?? "127.0.0.1",
+      getBoundHost: () => this.boundHost,
+      enableLan: () => this.enableLan(),
     });
 
     // Static routes come last: the missing-dist fallback is a catch-all, and
@@ -195,63 +206,155 @@ export class WebUiService {
       // The shell's settings surface edits TNT's own model list: the provider
       // settings service rewrites the active config.yaml (and the credential
       // channel keeps the shell-side secrets) so a model added in the browser
-      // is the same model a turn runs on.
-      const providerSettingsService = createWebUiProviderSettingsService({
-        configPath: () => options.config ?? CONFIG_PATH,
-      });
-      const credentialService = createWebUiCredentialService();
-      const subagentsService = createTntSubagentsService();
-      const skillsService = createTntSkillsService();
-      const commandsService = createTntCommandsService();
-      const hooksService = createTntHooksService();
-      const usageStatsService = createTntUsageStatsService();
-      const zcodeHost = startWebUiZcodeHost({
-        server: handle.server,
+      // is the same model a turn runs on. Everything below is rebuilt by a
+      // mid-life LAN rebind too — only the HTTP listener and the per-server
+      // WS upgrade host change, the workspace engines live on.
+      await this.attachShell(
+        handle,
+        options,
         token,
-        services: () =>
-          buildZcodeServiceCollection({
-            workspacePath:
-              this.resolveSession(options).workspaceDirectory ||
-              hostWorkspacePath,
-            workspaceRoots: () => engines.roots(),
-            workspaceEngines: engines,
-            projectCatalog,
-            providerSettingsService,
-            credentialService,
-            subagentsService,
-            skillsService,
-            commandsService,
-            hooksService,
-            usageStatsService,
-            memoryService: createTntMemoryService(
-              this.resolveSession(options).workspaceDirectory ||
-                hostWorkspacePath,
-            ),
-            modelSelectionSource: async () => {
-              await ensureServices();
-              return readWebUiModelSource();
-            },
-          }),
-      });
-
-      // The handle owns the whole teardown, so callers cannot close the HTTP
-      // server and leave the upgrade listener attached. Memoized to stay
-      // idempotent when both the caller and WebUiService.close() run it.
-      const closeServer = handle.close;
-      let closed: Promise<void> | null = null;
-      handle.close = (): Promise<void> => {
-        closed ??= (async () => {
-          await zcodeHost.close();
-          await closeServer();
-        })();
-        return closed;
-      };
+        engines,
+        hostWorkspacePath,
+      );
     } catch (error) {
       await this.close();
       throw error;
     }
 
     return handle;
+  }
+
+  /**
+   * Wires the ZCode RPC host onto a freshly bound listener: the service
+   * facades, the /ws upgrade host, and a handle whose close() tears both
+   * down together. Called by start() and again by enableLan() after a
+   * rebind — the engines are shared and must not be recreated here.
+   */
+  private async attachShell(
+    handle: WebUiHandle,
+    options: WebUiServiceOptions,
+    token: string,
+    engines: WorkspaceEngines,
+    hostWorkspacePath: string,
+  ): Promise<void> {
+    const projectCatalog = getWebUiProjectCatalog();
+    const providerSettingsService = createWebUiProviderSettingsService({
+      configPath: () => options.config ?? CONFIG_PATH,
+    });
+    const credentialService = createWebUiCredentialService();
+    const subagentsService = createTntSubagentsService();
+    const skillsService = createTntSkillsService();
+    const commandsService = createTntCommandsService();
+    const hooksService = createTntHooksService();
+    const usageStatsService = createTntUsageStatsService();
+    const zcodeHost = startWebUiZcodeHost({
+      server: handle.server,
+      token,
+      services: () =>
+        buildZcodeServiceCollection({
+          workspacePath:
+            this.resolveSession(options).workspaceDirectory ||
+            hostWorkspacePath,
+          workspaceRoots: () => engines.roots(),
+          workspaceEngines: engines,
+          projectCatalog,
+          providerSettingsService,
+          credentialService,
+          subagentsService,
+          skillsService,
+          commandsService,
+          hooksService,
+          usageStatsService,
+          memoryService: createTntMemoryService(
+            this.resolveSession(options).workspaceDirectory ||
+              hostWorkspacePath,
+          ),
+          modelSelectionSource: async () => {
+            await this.ensureShellServices(options);
+            return readWebUiModelSource();
+          },
+        }),
+    });
+
+    // The handle owns the whole teardown, so callers cannot close the HTTP
+    // server and leave the upgrade listener attached. Memoized to stay
+    // idempotent when both the caller and WebUiService.close() run it.
+    const closeServer = handle.close;
+    let closed: Promise<void> | null = null;
+    handle.close = (): Promise<void> => {
+      closed ??= (async () => {
+        await zcodeHost.close();
+        await closeServer();
+      })();
+      return closed;
+    };
+  }
+
+  private ensureShellServices(options: WebUiServiceOptions): Promise<void> {
+    return ensureServicesInitialized({
+      headless: true,
+      options: { config: options.config },
+    });
+  }
+
+  /**
+   * Rebinds the running server onto every interface so a phone on the same
+   * network can pair. Only the HTTP listener and the per-server WS upgrade
+   * host are rebuilt — workspace engines and their children live on, and the
+   * operator's browser reconnects to the new listener transparently.
+   */
+  async enableLan(): Promise<WebUiHandle | null> {
+    const dyn = this.dyn;
+    const handle = this.activeHandle;
+    if (!dyn || !handle) {
+      return null;
+    }
+    if (LAN_BIND_HOSTS.has(this.boundHost)) {
+      return handle;
+    }
+    await handle.close();
+    this.activeHandle = null;
+    this.boundHost = "0.0.0.0";
+    try {
+      const fresh = await this.listen(
+        dyn.app,
+        { ...dyn.options, host: "0.0.0.0" },
+        dyn.token,
+      );
+      await this.attachShell(
+        fresh,
+        dyn.options,
+        dyn.token,
+        this.engines!,
+        this.resolveSession(dyn.options).workspaceDirectory || process.cwd(),
+      );
+      this.activeHandle = fresh;
+      return fresh;
+    } catch (error) {
+      // Restore the loopback listener so the operator keeps a working URL.
+      this.boundHost = "127.0.0.1";
+      try {
+        const restored = await this.listen(
+          dyn.app,
+          { ...dyn.options, host: "127.0.0.1" },
+          dyn.token,
+        );
+        await this.attachShell(
+          restored,
+          dyn.options,
+          dyn.token,
+          this.engines!,
+          this.resolveSession(dyn.options).workspaceDirectory || process.cwd(),
+        );
+        this.activeHandle = restored;
+      } catch (restoreError) {
+        this.activeHandle = null;
+        logger.warn(
+          `WebUiService: loopback restore failed (${String(restoreError)})`,
+        );
+      }
+      throw error;
+    }
   }
 
   /**

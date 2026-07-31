@@ -88,11 +88,6 @@ interface TranscriptContentProps {
   isBashToolRunning: boolean;
   /** Shows the token counter before the 30 s gate. */
   verbose?: boolean;
-  /**
-   * Terminal-only notices (`/webui`'s URL and similar). They belong to the
-   * session, not the conversation: rendered here, never sent to the model.
-   */
-  notices?: readonly string[];
 }
 
 /**
@@ -121,7 +116,6 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   compactionStartTime,
   isBashToolRunning,
   verbose = false,
-  notices = [],
 }) => {
   const { columns } = useTerminalSize();
   // The provider reports exact usage only at the end of a turn; while it
@@ -195,14 +189,6 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
 
         <BackgroundTasksNotice />
 
-        {notices.map((notice, index) => (
-          <Box key={`notice-${index}`} paddingX={1}>
-            <Text color={theme.text.secondary}>
-              {sanitizeTerminalText(notice)}
-            </Text>
-          </Box>
-        ))}
-
         {/* The indicator is the last row of the transcript, so it sits directly
           under the newest message no matter how tall the viewport is. */}
         <ActionStatus
@@ -259,7 +245,6 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
       isCompacting,
       compactionStartTime,
       theme,
-      notices,
     ],
   );
 

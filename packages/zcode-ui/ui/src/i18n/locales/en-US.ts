@@ -3165,7 +3165,9 @@ const enUS: Record<string, string> = {
   "mobileRemote.unavailable": "This environment does not offer mobile remote access.",
   "mobileRemote.loopbackTitle": "The server listens on this machine only",
   "mobileRemote.loopbackHint":
-    "Start the web UI with the command below and the phone can scan the code.",
+    "Press the button below and the server opens itself to the LAN, then shows the QR code.",
+  "mobileRemote.enableLan": "Open to the local network",
+  "mobileRemote.enabling": "Opening...",
   "settings.breadcrumbLabel": "Settings path",
   "settings.subtitle":
     "Switch major settings on the left and edit the details in the panel on the right.",

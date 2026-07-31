@@ -31,6 +31,30 @@ export function createWebPlatform(): IPlatformService {
         return null;
       }
     },
+    // 手机远程：服务器只监听回环时，让它在原端口直接重绑到局域网，
+    // 配对面板随即给出二维码，不必再手动敲启动命令。重绑会关闭本次请求
+    // 所在的监听器，所以 POST 只表示受理，随后轮询 /api/access 等结果。
+    async enableWebUiLan() {
+      try {
+        const response = await fetch("/api/access/lan", {
+          method: "POST",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          return null;
+        }
+        for (let attempt = 0; attempt < 20; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          const access = await this.getWebUiAccessInfo?.();
+          if (access?.lanEnabled) {
+            return access;
+          }
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    },
     // Web 端无法打开系统文件选择框
     selectFile: () => Promise.resolve(null),
     selectFiles: () => Promise.resolve([]),

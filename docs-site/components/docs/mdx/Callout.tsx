@@ -3,9 +3,9 @@ import { Info, Lightbulb, AlertTriangle, FileText } from "lucide-react";
 const variants = {
   info: {
     icon: Info,
-    borderColor: "border-blue-400",
-    bgColor: "bg-blue-50 dark:bg-blue-950",
-    iconColor: "text-blue-500",
+    borderColor: "border-accent",
+    bgColor: "bg-accent/[0.06] dark:bg-accent/[0.09]",
+    iconColor: "text-accent-deep dark:text-accent-light",
   },
   tip: {
     icon: Lightbulb,

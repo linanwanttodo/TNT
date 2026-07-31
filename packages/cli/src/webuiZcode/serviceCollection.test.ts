@@ -325,18 +325,20 @@ describe("buildZcodeServiceCollection", () => {
     ).rejects.toThrow(WORKSPACE_BOUNDARY_PREFIX);
   });
 
-  it("rejects a terminal cwd outside the connection workspace", async () => {
+  it("falls a terminal cwd outside back to the connection workspace", async () => {
     const workspace = await tempDir("tnt-zcode-term-ws-");
     const outside = await tempDir("tnt-zcode-term-out-");
 
     const collection = await buildCollection(workspace, createBundle());
+    // Out-of-root cwds degrade to the primary workspace so the panel still
+    // opens; the boundary itself keeps guarding file access (see readdir).
     await expect(
       collection.get(ITerminalService).create({
         cols: 80,
         rows: 24,
         cwd: outside,
       }),
-    ).rejects.toThrow(`${WORKSPACE_BOUNDARY_PREFIX}terminal cwd`);
+    ).resolves.toBeTruthy();
   });
 
   it("summarizes a temporary git repository through gitService", async () => {

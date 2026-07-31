@@ -10,8 +10,6 @@ import { loadSession, startNewSession } from "../../session/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { logger } from "../../utils/logger.js";
 import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
-import { liveHub } from "../../webuiZcode/liveHub.js";
-import { appendSessionNotice } from "../sessionNotices.js";
 import { symbols } from "../symbols.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
@@ -74,7 +72,7 @@ export function processSlashCommandResult({
   onShowJobsSelector,
   onShowExportSelector,
   onClear,
-  onShowStatusMessage: _onShowStatusMessage,
+  onShowStatusMessage,
 }: ProcessSlashCommandResultOptions): string | null {
   if (result.exit) {
     void import("../../utils/exit.js").then(({ gracefulExit }) =>
@@ -84,15 +82,12 @@ export function processSlashCommandResult({
 
   // Screen-only answers stay out of the conversation: writing them into chat
   // history would persist a URL with its token into the session file and
-  // replay it in every shared web view. They go to the session's notice rows
-  // instead, which outlive the transient status line but never reach a prompt.
+  // replay it in every shared web view. They surface on the status line —
+  // visible where the user is looking, never glued to the transcript tail,
+  // and never projected into a browser session.
   if (result.localOnly) {
-    if (result.output) {
-      const output = sanitizeTerminalText(result.output);
-      appendSessionNotice(output);
-      // The browser view renders the same answer as a short turn: it is a
-      // screen projection, not a message in the shared conversation.
-      liveHub.publishCommandOutput("", output);
+    if (result.output && onShowStatusMessage) {
+      onShowStatusMessage(sanitizeTerminalText(result.output));
     }
     return null;
   }

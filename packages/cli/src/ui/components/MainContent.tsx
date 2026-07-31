@@ -34,8 +34,6 @@ interface MainContentProps {
   onContentShift?: (rows: number) => void;
   /** Draws the one-column scrollbar on the transcript's right edge. */
   showScrollbar?: boolean;
-  /** Terminal-only notices; never part of the conversation. */
-  notices?: readonly string[];
 }
 
 /**
@@ -65,7 +63,6 @@ export const MainContent: React.FC<MainContentProps> = ({
   onScrollMetrics,
   onContentShift,
   showScrollbar,
-  notices,
 }) => {
   return (
     <Box
@@ -93,7 +90,6 @@ export const MainContent: React.FC<MainContentProps> = ({
         onMetrics={onScrollMetrics}
         onContentShift={onContentShift}
         showScrollbar={showScrollbar}
-        notices={notices}
       />
     </Box>
   );

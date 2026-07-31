@@ -58,7 +58,7 @@ export function CodeBlock({
         {children}
       </pre>
       {/* Overlay: inset matches pre's border (1px) so gradient fills to the edge */}
-      <div className="pointer-events-none absolute inset-[1px] flex items-start justify-end overflow-hidden rounded-[5px]">
+      <div className="pointer-events-none absolute inset-[1px] flex items-start justify-end overflow-hidden rounded-[9px]">
         <div
           className="pointer-events-auto flex items-start pl-8 pt-2"
           style={{
@@ -68,7 +68,7 @@ export function CodeBlock({
         >
           <button
             onClick={handleCopy}
-            className="mr-2 rounded-md p-1.5 text-black/30 transition-colors hover:bg-black/[0.06] hover:text-black/60 dark:text-white/30 dark:hover:bg-white/[0.08] dark:hover:text-white/60"
+            className="hover:bg-accent/[0.08] hover:text-accent-deep dark:hover:bg-accent/[0.14] dark:hover:text-accent-light mr-2 rounded-md p-1.5 text-black/30 transition-colors dark:text-white/30"
             aria-label="Copy code"
           >
             {copied ? checkIcon : copyIcon}

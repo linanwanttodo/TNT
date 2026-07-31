@@ -41,16 +41,16 @@ export function TableOfContents({
         {UI[locale].onThisPage}
       </h4>
       <nav className="space-y-1">
-        {headings.map((heading) => (
+        {headings.map((heading, i) => (
           <a
-            key={heading.id}
+            key={`${heading.id}-${i}`}
             href={`#${heading.id}`}
             className={`block py-1 text-[13px] transition-colors ${
               heading.level === 3 ? "pl-3" : heading.level === 4 ? "pl-6" : ""
             } ${
               activeId === heading.id
-                ? "font-medium text-black/80 dark:text-white/80"
-                : "text-black/35 hover:text-black/60 dark:text-white/35 dark:hover:text-white/60"
+                ? "text-accent-deep dark:text-accent-light font-medium"
+                : "hover:text-accent/80 dark:hover:text-accent-light/80 text-black/35 dark:text-white/35"
             }`}
           >
             {heading.text}
