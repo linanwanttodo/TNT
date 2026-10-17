@@ -1,9 +1,9 @@
 import { render } from "ink-testing-library";
 import React from "react";
 
+import { waitForCondition } from "../../test-utils/TUIChat.testHelper.js";
+import { createUITestContext } from "../../test-utils/ui-test-context.js";
 import { setLocale } from "../i18n/index.js";
-import { waitForCondition } from "../test-utils/TUIChat.testHelper.js";
-import { createUITestContext } from "../test-utils/ui-test-context.js";
 
 import { AppRoot } from "./AppRoot.js";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createTestServiceContainer } from "../test-utils/testServiceContainer.js";
+import { createTestServiceContainer } from "../../test-utils/testServiceContainer.js";
 
 /**
  * A service settles exactly once, so every waiter that listens for both the

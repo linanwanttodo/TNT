@@ -21,9 +21,8 @@ import { describe, expect, it } from "vitest";
  * summarizing tests mock a module two layers above them.
  */
 /**
- * Test helpers - under `src/test-utils` while they are still moving out, and at the package
- * root's `test-utils/` once they have - exist only for suites. A production import would drag
- * test scaffolding into the shipped bundle, so the boundary is pinned here.
+ * Test helpers live at the package root's `test-utils/` and exist only for suites. A production
+ * import would drag test scaffolding into the shipped bundle, so the boundary is pinned here.
  */
 const KNOWN_MUTUAL_COUPLING = [
   "_root <-> commands",

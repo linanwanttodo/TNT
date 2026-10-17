@@ -1,8 +1,8 @@
 import {
   testBothModes,
   renderInMode,
-} from "../test-utils/TUIChat.dualModeHelper.js";
-import { createUITestContext } from "../test-utils/ui-test-context.js";
+} from "../../test-utils/TUIChat.dualModeHelper.js";
+import { createUITestContext } from "../../test-utils/ui-test-context.js";
 
 describe("TUIChat - Message Display Tests", () => {
   testBothModes("displays empty chat correctly", (mode) => {

@@ -1,5 +1,5 @@
-import { ServiceContainer } from "../services/ServiceContainer.js";
-import { ServiceState } from "../services/types.js";
+import { ServiceContainer } from "../src/services/ServiceContainer.js";
+import { ServiceState } from "../src/services/types.js";
 
 export interface TestServiceContainer extends ServiceContainer {
   waitForReady(...serviceNames: string[]): Promise<void>;
