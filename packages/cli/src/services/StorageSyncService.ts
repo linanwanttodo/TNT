@@ -45,7 +45,6 @@ export class StorageSyncService {
   private missingRepoLogged = false;
   private targets: StorageTargets | null = null;
   private options: StorageSyncStartOptions | null = null;
-  private targetsExpiresAt: number | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
   private isRefreshing = false;
 
@@ -115,7 +114,6 @@ export class StorageSyncService {
     }
 
     this.targets = targets;
-    this.targetsExpiresAt = Date.now() + 60 * 60 * 1000; // Track 60-minute expiration
     this.options = options;
     this.stopped = false;
     this.uploadInFlight = false;
@@ -189,7 +187,6 @@ export class StorageSyncService {
   stop(): void {
     this.stopped = true;
     this.targets = null;
-    this.targetsExpiresAt = null;
     this.options = null;
     this.uploadInFlight = false;
 
@@ -285,7 +282,6 @@ export class StorageSyncService {
       }
 
       this.targets = newTargets;
-      this.targetsExpiresAt = Date.now() + 60 * 60 * 1000; // 60 minutes from now
       logger.info("Storage URLs refreshed successfully");
 
       // Schedule next proactive refresh at 50-minute mark
