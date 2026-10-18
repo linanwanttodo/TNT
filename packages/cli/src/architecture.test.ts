@@ -59,19 +59,6 @@ const TEST_ONLY = [
 const SRC_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 /** Every `.ts`/`.tsx` under a directory, tests included. */
-function walkSources(dir: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = path.join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      found.push(...walkSources(full));
-    } else if (/\.tsx?$/.test(entry)) {
-      found.push(full);
-    }
-  }
-  return found;
-}
-
 function productionSources(dir: string = SRC_ROOT): string[] {
   const found: string[] = [];
 
