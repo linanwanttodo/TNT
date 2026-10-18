@@ -187,7 +187,9 @@ describe("the dependency direction between module groups", () => {
  * from another module, so one occurrence means the only thing that mentions it is its own
  * declaration. Cross-checked against the compiler rather than trusted: `npx tsc --noEmit
  * --noUnusedLocals` reports 31 sites in this package, 30 of them inside suites, and the
- * single production one is the allowlisted entry below.
+ * single production one was `config/index.ts:_mergeUserAgentIntoRequestOptions`, now deleted: the
+ * header it built is sent (`x-tnt-unique-id`), and the `user-agent` half was dropped rather
+ * than wired, because the SDKs already send their own and per-request headers override them.
  *
  * KNOWN BLIND SPOT, measured the same day this guard landed, and the reason it is a ratchet and
  * not a proof: raw-text counting treats a name that appears only in a comment or a string as
@@ -201,9 +203,7 @@ describe("the dependency direction between module groups", () => {
  * nothing mentions it in prose, and the agreement with the compiler below is checked, not
  * assumed.
  */
-const UNREAD_PRODUCTION_DECLARATIONS = [
-  "config/index.ts:_mergeUserAgentIntoRequestOptions",
-];
+const UNREAD_PRODUCTION_DECLARATIONS: string[] = [];
 
 const declarationPatterns = [
   /(?:^|\n) *(?:(export) +)?(?:async +)?function +([A-Za-z_$][\w$]*)/g,

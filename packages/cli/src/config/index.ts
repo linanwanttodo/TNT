@@ -3,31 +3,27 @@ import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
 import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { AuthConfig } from "../auth/workos.js";
-import { getVersion } from "../startup/version.js";
 import { getUniqueId } from "../utils/uniqueId.js";
 
 import { env } from "./env.js";
 import { assertModelChoices } from "./providerLint.js";
 
 /**
- * Creates user-agent header value for CLI requests
+ * Adds the header that lets a support request tie provider-side logs back to one install.
+ *
+ * Only this header is sent. The SDK clients already put their own transport identity in
+ * `User-Agent` (`OpenAI/JS <version>`, `Anthropic/JS <version>`) and merge per-request headers
+ * last, so a CLI-authored `user-agent` would have replaced the value vendors key rate limits
+ * and support triage on rather than adding to it; the earlier helper that built one was never
+ * called, and is gone rather than wired.
  */
-function getUserAgent(): string {
-  const version = getVersion();
-  return `TNT-CLI/${version}`;
-}
-
-/**
- * Merges user-agent header into request options
- */
-function _mergeUserAgentIntoRequestOptions(
+function withCorrelationHeader(
   requestOptions: ModelConfig["requestOptions"],
 ): ModelConfig["requestOptions"] {
   return {
     ...requestOptions,
     headers: {
       ...requestOptions?.headers,
-      "user-agent": getUserAgent(),
       "x-tnt-unique-id": getUniqueId(),
     },
   };
@@ -45,7 +41,7 @@ export function createLlmApi(
     model: model.model,
     apiKey: model.apiKey,
     apiBase: model.apiBase,
-    requestOptions: model.requestOptions,
+    requestOptions: withCorrelationHeader(model.requestOptions),
     env: model.env,
   };
 
