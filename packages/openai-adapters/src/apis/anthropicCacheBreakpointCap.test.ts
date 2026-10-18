@@ -1,0 +1,157 @@
+import type { MessageCreateParams } from "@anthropic-ai/sdk/resources";
+import { describe, expect, it } from "vitest";
+
+import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
+import { CACHING_STRATEGIES } from "./AnthropicCachingStrategies.js";
+
+/**
+ * Anthropic takes at most four `cache_control` breakpoints per request, and the
+ * budget is shared by the system blocks, the tool list and the messages: a fifth
+ * marker is a 400, not a marker the provider quietly ignores. Nothing in this
+ * package counted what the strategies add together, so a request whose system
+ * arrived as several blocks asked for six.
+ *
+ * The cases count the finished body instead of trusting what each helper meant to
+ * do. `model` and `max_tokens` fill the two fields no strategy reads.
+ */
+const ANTHROPIC_MAX_BREAKPOINTS = 4;
+
+type Body = {
+  model: string;
+  max_tokens: number;
+  system?: any[];
+  tools?: any[];
+  messages: any[];
+};
+
+function makeBody(parts: Partial<Body>): Body {
+  return {
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1024,
+    messages: [],
+    ...parts,
+  };
+}
+
+function applyStrategy(name: string, body: Body): Body {
+  const strategy = (CACHING_STRATEGIES as Record<string, any>)[name];
+  return strategy(body as unknown as MessageCreateParams) as Body;
+}
+
+function countBreakpoints(body: Body): number {
+  let total = 0;
+  total += (body.system ?? []).filter((block) => block?.cache_control).length;
+  total += (body.tools ?? []).filter((tool) => tool?.cache_control).length;
+  for (const message of body.messages) {
+    if (Array.isArray(message.content)) {
+      total += message.content.filter(
+        (block: any) => block?.cache_control,
+      ).length;
+    }
+  }
+  return total;
+}
+
+function turns(count: number, chars = 30): any[] {
+  return Array.from({ length: count }, (_, index) => ({
+    role: index % 2 === 0 ? "user" : "assistant",
+    content: [{ type: "text", text: `turn ${index} ${"x".repeat(chars)}` }],
+  }));
+}
+
+function systemBlocks(count: number): any[] {
+  return Array.from({ length: count }, (_, index) => ({
+    type: "text",
+    text: `system block ${index}`,
+  }));
+}
+
+function tools(count: number): any[] {
+  return Array.from({ length: count }, (_, index) => ({
+    name: `tool_${index}`,
+    description: "does something",
+    input_schema: { type: "object", properties: {} },
+  }));
+}
+
+describe("the cache breakpoint cap on an Anthropic request body", () => {
+  it("uses the whole budget of four when the system is one block and tools exist", () => {
+    const result = applyStrategy(
+      "systemAndTools",
+      makeBody({
+        system: systemBlocks(1),
+        tools: tools(3),
+        messages: turns(6),
+      }),
+    );
+
+    // system 1 + the last tool 1 + the two newest user turns: the four the
+    // provider allows, which is what the shipped shape is meant to look like.
+    expect(countBreakpoints(result)).toBe(ANTHROPIC_MAX_BREAKPOINTS);
+  });
+
+  it("stays inside the cap when the system arrives as several blocks", () => {
+    const result = applyStrategy(
+      "systemAndTools",
+      makeBody({
+        system: systemBlocks(4),
+        tools: tools(2),
+        messages: turns(5),
+      }),
+    );
+
+    // Four system blocks alone consume the budget. Before the trailing-turn
+    // placement was told what was left, this body asked for six.
+    expect(countBreakpoints(result)).toBeLessThanOrEqual(
+      ANTHROPIC_MAX_BREAKPOINTS,
+    );
+  });
+
+  it("is idempotent, because a strategy and a later caller both place markers", () => {
+    const body = applyStrategy(
+      "systemAndTools",
+      makeBody({
+        system: systemBlocks(1),
+        tools: tools(2),
+        messages: turns(6),
+      }),
+    );
+    const afterStrategy = countBreakpoints(body);
+
+    addCacheControlToLastTwoUserMessages(body.messages);
+    addCacheControlToLastTwoUserMessages(body.messages);
+
+    expect(countBreakpoints(body)).toBe(afterStrategy);
+  });
+
+  it("keeps every strategy inside the cap on one over-budget body", () => {
+    const hostile = makeBody({
+      system: systemBlocks(5),
+      tools: tools(4),
+      messages: turns(8, 900),
+    });
+
+    for (const name of Object.keys(CACHING_STRATEGIES)) {
+      expect(
+        countBreakpoints(applyStrategy(name, structuredClone(hostile))),
+      ).toBeLessThanOrEqual(ANTHROPIC_MAX_BREAKPOINTS);
+    }
+  });
+
+  it("skips a turn that cannot carry a marker instead of wasting the budget", () => {
+    const body = makeBody({
+      messages: [
+        { role: "user", content: [{ type: "text", text: "first" }] },
+        { role: "assistant", content: [{ type: "text", text: "answer" }] },
+        { role: "user", content: [{ type: "text", text: "second" }] },
+        // The newest user turn has no text block, so it is not a candidate: the
+        // old loop spent an allowance on it and cached nothing there.
+        { role: "user", content: [{ type: "image", source: {} }] },
+      ],
+    });
+
+    addCacheControlToLastTwoUserMessages(body.messages);
+
+    expect(countBreakpoints(body)).toBe(2);
+  });
+});

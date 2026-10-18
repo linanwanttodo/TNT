@@ -79,6 +79,12 @@ The prefix is assembled in build order, each part announced so it can be attribu
 - A mid-session change is delivered as an appended system message when the endpoint can carry one
   and rewritten otherwise: `stream/systemPromptPolicy.ts` decides, `cache/prefixState.ts` classifies
   the result (`full` / `passthrough` / `invalidated` plus reasons).
+- Breakpoints are counted against the provider's cap, not assumed to be free: Anthropic allows four
+  per request across system, tools and messages, and a fifth is a 400. The strategies share one
+  budget (`packages/openai-adapters/src/apis/AnthropicCachingStrategies.ts`) and
+  `anthropicCacheBreakpointCap.test.ts` counts the finished body for every strategy, including a
+  system that arrives as several blocks.
+
 - Carrying is declared by the adapter, not assumed from a provider name:
   `packages/openai-adapters/src/apis/base.ts` `carriesInHistorySystemMessages(model)` is implemented
   only by `OpenAIApi`'s chat route. `Anthropic`, `Bedrock`, `AiSdk`, `Cohere` and `Gemini` lift a

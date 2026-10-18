@@ -2,6 +2,8 @@ import { MessageCreateParams } from "@anthropic-ai/sdk/resources";
 
 import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
 
+// Anthropic accepts at most four cache_control breakpoints per request, shared by
+// system, tools and messages; a fifth is a 400, not a silently dropped marker.
 const MAX_CACHING_MESSAGES = 4;
 
 // Caching strategy type - transforms a clean Anthropic body by adding cache_control
@@ -78,7 +80,11 @@ const systemAndToolsStrategy: CachingStrategy = (body) => {
       ? msg.content.map((block) => ({ ...block }))
       : msg.content,
   }));
-  addCacheControlToLastTwoUserMessages(result.messages);
+  // What is left after the system blocks and the tool list, or the cap is overshot.
+  addCacheControlToLastTwoUserMessages(
+    result.messages,
+    Math.min(2, availableCacheMessages),
+  );
 
   return result;
 };
