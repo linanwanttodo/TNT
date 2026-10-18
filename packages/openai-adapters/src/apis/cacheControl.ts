@@ -111,7 +111,7 @@ export function sanitizeReasoningBlocks(
   );
 }
 
-export function countCacheBreakpoints(messages: MessageParam[]): number {
+export function countMessageBreakpoints(messages: MessageParam[]): number {
   return messages.reduce((total, message) => {
     if (!Array.isArray(message.content)) {
       return total;
@@ -131,8 +131,13 @@ export function countCacheBreakpoints(messages: MessageParam[]): number {
  * turns. The rest would each pay a write for a span that a kept breakpoint already
  * covers. (The 1,024-token minimum and the five-minute lifetime are Anthropic's;
  * nothing here can tell whether a prefix is long enough or still warm.)
+ *
+ * This is the number we send, not the number the provider accepts: that ceiling
+ * is four and lives in `AnthropicUtils.ts` as `ANTHROPIC_MAX_CACHE_BREAKPOINTS`.
+ * The two were once declared under one name, so asking this package for "the cap"
+ * returned whichever of 2 and 4 the importer happened to reach.
  */
-export const ANTHROPIC_MAX_CACHE_BREAKPOINTS = 2;
+export const ANTHROPIC_BREAKPOINTS_KEPT = 2;
 
 /**
  * Keeps the breakpoint on the newest message and the one on the stable head, and
@@ -142,7 +147,7 @@ export const ANTHROPIC_MAX_CACHE_BREAKPOINTS = 2;
  */
 export function capBreakpointsForAnthropic<T extends Record<string, any>>(
   body: T,
-  max: number = ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+  max: number = ANTHROPIC_BREAKPOINTS_KEPT,
 ): T {
   const sections: Array<readonly any[] | undefined> = [
     Array.isArray(body.system) ? body.system : undefined,

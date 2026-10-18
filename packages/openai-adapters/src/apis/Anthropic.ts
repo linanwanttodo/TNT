@@ -50,7 +50,7 @@ import {
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
 import {
-  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+  ANTHROPIC_BREAKPOINTS_KEPT,
   applyCacheControlFormat,
   capBreakpointsForAnthropic,
   sanitizeReasoningBlocks,
@@ -151,7 +151,7 @@ export class AnthropicApi implements BaseLlmApi {
     if (format) {
       return applyCacheControlFormat(pruned, format);
     }
-    return capBreakpointsForAnthropic(pruned, ANTHROPIC_MAX_CACHE_BREAKPOINTS);
+    return capBreakpointsForAnthropic(pruned, ANTHROPIC_BREAKPOINTS_KEPT);
 
     // Narrow only when the caller declared what the endpoint accepts. No
     // declaration means today's behavior is sent unchanged.
