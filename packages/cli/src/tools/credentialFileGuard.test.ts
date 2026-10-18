@@ -23,7 +23,7 @@ import { readFileTool } from "./readFile.js";
  * The refused filename comes from the same list the guard consults, so editing that list keeps
  * testing something real rather than testing a hard-coded guess about it.
  */
-describe("the engine's tool preprocessing refuses credential files", () => {
+describe("the credential-file guard holds at both tool boundaries", () => {
   let dir: string;
   let secretPath: string;
   let ordinaryPath: string;
@@ -76,5 +76,12 @@ describe("the engine's tool preprocessing refuses credential files", () => {
 
     expect(message).toMatch(/not allowed/i);
     expect(message).not.toContain("super-secret-value");
+  });
+  it("refuses through Read's own run(), not only the preprocessing hook", async () => {
+    // The engine calls `preprocess`, but shell mode (`ui/hooks/useChat.shellMode.ts`) and any
+    // future serve/SDK route call `run()` directly, so the tool boundary has to hold on its own.
+    await expect(
+      readFileTool.run({ filepath: secretPath } as any),
+    ).rejects.toThrow(/security concern/i);
   });
 });
