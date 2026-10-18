@@ -152,10 +152,6 @@ export class AnthropicApi implements BaseLlmApi {
       return applyCacheControlFormat(pruned, format);
     }
     return capBreakpointsForAnthropic(pruned, ANTHROPIC_BREAKPOINTS_KEPT);
-
-    // Narrow only when the caller declared what the endpoint accepts. No
-    // declaration means today's behavior is sent unchanged.
-    return applyCacheControlFormat(pruned, this.config.cacheControlFormat);
   }
 
   private maxTokensForModel(model: string): number {
