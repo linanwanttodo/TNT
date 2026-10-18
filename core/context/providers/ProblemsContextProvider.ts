@@ -29,6 +29,14 @@ class ProblemsContextProvider extends BaseContextProvider {
           problem.filepath,
           workspaceDirs,
         );
+        const redacted = this.redactSecurityConcern(
+          problem.filepath,
+          "Problems in current file",
+          `Warnings in ${baseName}`,
+        );
+        if (redacted) {
+          return redacted;
+        }
         const content = await ide.readFile(problem.filepath);
         const lines = content.split("\n");
         const rangeContent = lines
