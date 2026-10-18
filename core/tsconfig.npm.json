@@ -21,5 +21,13 @@
     "declarationMap": true
   },
   "include": ["./**/*.ts", "**/*.js", "./**/*.d.ts"],
-  "exclude": ["test", "dist"]
+  "exclude": [
+    "test",
+    "dist",
+    "**/__mocks__",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.vitest.ts",
+    "**/*.spec.ts"
+  ]
 }
