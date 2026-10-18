@@ -226,7 +226,13 @@ export function convertVercelStreamPart(
       return null;
 
     default:
-      const _exhaustive: never = part;
+      // Compile-time exhaustiveness only: reaching this branch with a handled variant
+      // narrowed away means `part` must be `never`, so adding a delta type above without
+      // handling it stops the build. The call discards its argument, which keeps runtime
+      // identical (this case returned null before and still does) while leaving no unread
+      // binding behind - the unused `const _exhaustive` was one of five names blocking
+      // `noUnusedLocals` in this package.
+      ((unhandled: never) => unhandled)(part);
       return null;
   }
 }
