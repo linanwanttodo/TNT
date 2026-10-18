@@ -10,11 +10,12 @@ stops agreeing with the text, the text is wrong.
 `src/architecture.test.ts` measures, so the directory names are load-bearing, not cosmetic.
 
 Test helpers do not belong in a layer the bundle is built from, so none live under `src/` any
-more: every helper, its README and the three nothing refers to (in `test-utils/unreferenced/`, kept
-running but quarantined from use) sit at the package root as `test-utils/`. `tsconfig.build.json`
-includes `src/**` alone, so a helper is out of the build the moment it moves - which is why its
-`src/test-utils` exclude is gone now that the directory is; `tsconfig.json` names both roots, so the
-type gate still reads every helper, and `architecture.test.ts` refuses any production import of one.
+more: every helper and this directory's README sit at the package root as `test-utils/`. Three
+helpers that no suite, mock specifier or config glob named were deleted rather than left to rot in
+there. `tsconfig.build.json` includes `src/**` alone, so a helper is out of the build the moment it
+moves - which is why its `src/test-utils` exclude is gone now that the directory is;
+`tsconfig.json` names both roots, so the type gate still reads every helper, and
+`architecture.test.ts` refuses any production import of one.
 
 | Path                                                                                                    | Role                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
