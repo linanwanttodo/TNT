@@ -1,7 +1,6 @@
 import {
   ChatCompletion,
   ChatCompletionChunk,
-  ChatCompletionCreateParams,
   ChatCompletionCreateParamsNonStreaming,
   ChatCompletionCreateParamsStreaming,
   Completion,

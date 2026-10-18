@@ -12,7 +12,6 @@ import {
   ChatCompletionCreateParams,
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
-  ChatCompletionMessageToolCall,
   ChatCompletionTool,
 } from "openai/resources/index.js";
 import {
