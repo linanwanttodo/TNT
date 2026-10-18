@@ -52,6 +52,12 @@ answers. The bound's scope is guarded by where it is armed, not by a test that w
 `commands/chat.ts` alone, so neither the TUI (a person is reading and approving inside the turn)
 nor `tnt serve` (which keeps its own inactivity shutdown) can acquire a wall clock by accident.
 
+Esc is counted from bytes, not from events: a real terminal can deliver a quick double tap as one
+`\x1b\x1b` read, and Ink 6.8 folds that into a single `escape` event carrying the second byte, so the
+double-Esc shortcut in `ui/UserInput.tsx` counts the ESC bytes in the event (`escapePresses`) instead
+of waiting for a second event inside a 500 ms window. Waiting for the event alone made the shortcut
+depend on how the terminal buffered the keystrokes.
+
 A block of text in the transcript is sized from the terminal, not from a constant:
 `ui/utils/blockBudget.ts` gives one block `min(40, floor(rows / 2))` lines, never fewer than one.
 What does not fit is saved beside the session (`block-overflow/<session>/`, named for its own
