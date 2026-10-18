@@ -121,6 +121,19 @@ Notes:
 5. Reference a location as path:line.
 6. Stop when the content stops: no closing offer, and no restating what the user can already see.
 7. Do not narrate your own reasoning, and do not announce that a task needed no tools.
+`;
+
+/**
+ * The machine-shaped half of the prompt: where the CLI was started, what the
+ * working tree looked like when it started, and today's date.
+ *
+ * This used to be welded to the head of `base`, so the entire billed prefix moved
+ * at midnight and again whenever an uncommitted file appeared or went away - the
+ * one thing the cached prefix is supposed to survive. It is its own volatile
+ * section now, and it is appended last, so it moves the tail only.
+ */
+export function environmentSection(): string {
+  return `
 Here is useful information about the environment you are running in:
 <env>
 Working directory: ${process.cwd()}
@@ -135,6 +148,7 @@ As you answer the user's questions, you can use the following context:
 
 ${getGitStatus()}
 </context>`;
+}
 
 async function getConfigYamlRules(): Promise<string[]> {
   const configState = await serviceContainer.get<ConfigServiceState>(
@@ -456,6 +470,14 @@ Example response format:
     });
   }
 
+  // Last, and volatile: the date turns over on its own and the status tracks
+  // uncommitted work, so neither is allowed to move the cached head of the prefix.
+  sections.push({
+    name: "environment",
+    text: environmentSection(),
+    volatile: true,
+  });
+
   return sections;
 }
 
@@ -482,6 +504,11 @@ export const SYSTEM_SECTION_MARKERS: readonly {
   },
   { name: "outputStyle", marker: '<context name="outputStyle"' },
   { name: "userRules", marker: '<context name="userRules">' },
+  {
+    name: "environment",
+    marker:
+      "Here is useful information about the environment you are running in:",
+  },
 ];
 
 /** The prefix cut back into its parts, keyed by section name. */

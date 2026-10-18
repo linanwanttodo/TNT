@@ -93,6 +93,21 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
+- The static spine of the system message is the other half of that prefix: `cb1d697770476189` for the
+  TUI (4180 characters), `868e0297acbc3bfe` with JSON output (4596), `2882d228b73d731a` headless
+  (4724), `6792d7012e30c376` headless + JSON (5140). Only what the builder marks non-volatile is
+  digested - `base`, `headless`, `jsonOutput` - so plan text, a chosen profile, a plugin output
+  style, the user's rules and the environment block stay outside it.
+  `agent/systemPrefixFingerprint.test.ts` freezes these and reads this file for the same strings.
+- **Prefix changelog, 2026-10-18:** the `<env>` block (working directory, whether
+  the directory is a git repo, platform, today's date) and the `<context name="gitStatus">` snapshot
+  moved out of `base` into their own volatile `environment` section, appended last. They used to sit
+  at the head of the prefix, so the entire cached prompt - guidance, tools, everything - was re-billed
+  at midnight and again whenever an uncommitted file appeared or disappeared. This costs one cold
+  start per session and after it a status or date change moves only the tail. The guard proves the
+  split holds: adding and removing an untracked file no longer moves any of the four digests, while
+  rewording one clause in `base` moves all of them.
+
 - The built-in tool list is billed inside that prefix too, and its current shape is
   `44f6665ae3049eab` over 25 tools and 19189 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). `tools/toolPrefixFingerprint.test.ts` freezes it and reads this file
