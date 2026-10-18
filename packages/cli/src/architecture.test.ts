@@ -172,3 +172,81 @@ describe("the dependency direction between module groups", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * A declaration nothing reads is not clutter - it is a capability that was written and
+ * never wired. This rule exists because two real findings looked like dead code and were
+ * not: `_mergeUserAgentIntoRequestOptions` is the only code anywhere that builds
+ * `user-agent: TNT-CLI/<version>` and `x-tnt-unique-id` and has no caller, so no model
+ * request identifies the CLI today; and `StorageSyncService.targetsExpiresAt` was written
+ * three times as a "60-minute expiration" that nothing compared against, while the real
+ * mechanism was a refresh scheduled at the 50-minute mark (that one was bookkeeping and
+ * went away in `refactor(storage)`).
+ *
+ * Counting stays inside the file on purpose: a name that is not exported cannot be read
+ * from another module, so one occurrence means the only thing that mentions it is its own
+ * declaration. Cross-checked against the compiler rather than trusted: `npx tsc --noEmit
+ * --noUnusedLocals` reports 31 sites in this package, 30 of them inside suites, and the
+ * single production one is the allowlisted entry below.
+ */
+const UNREAD_PRODUCTION_DECLARATIONS = [
+  "config/index.ts:_mergeUserAgentIntoRequestOptions",
+];
+
+const declarationPatterns = [
+  /(?:^|\n) *(?:(export) +)?(?:async +)?function +([A-Za-z_$][\w$]*)/g,
+  /(?:^|\n) *(?:(export) +)?(?:const|let|var) +([A-Za-z_$][\w$]*) *=/g,
+  /(?:^|\n) *(?:(export) +)?interface +([A-Za-z_$][\w$]*)/g,
+  /(?:^|\n) *(?:(export) +)?type +([A-Za-z_$][\w$]*) *=/g,
+  /(?:^|\n) *private +(?:readonly +)?([A-Za-z_$][\w$]*) *[=(:]/g,
+];
+
+const declaredNames = (text: string): string[] => {
+  const names = new Set<string>();
+  for (const pattern of declarationPatterns) {
+    let match = pattern.exec(text);
+    while (match) {
+      const exported = match[1];
+      const name = match[2] ?? match[1];
+      if (!exported) {
+        names.add(name);
+      }
+      match = pattern.exec(text);
+    }
+    pattern.lastIndex = 0;
+  }
+  return [...names];
+};
+
+const timesMentioned = (text: string, name: string): number => {
+  const escaped = name.replace(/[$]/g, "\$&");
+  return (text.match(new RegExp(`\\b${escaped}\\b`, "g")) ?? []).length;
+};
+
+describe("declarations that nothing reads", () => {
+  const files = productionSources(SRC_ROOT);
+  const unread: string[] = [];
+  let candidates = 0;
+
+  for (const file of files) {
+    const text = readFileSync(file, "utf8");
+    const relativePath = path.relative(SRC_ROOT, file);
+    for (const name of declaredNames(text)) {
+      candidates += 1;
+      if (timesMentioned(text, name) <= 1) {
+        unread.push(`${relativePath}:${name}`);
+      }
+    }
+  }
+
+  it("reads a tree big enough for the answer to mean something", () => {
+    // Floor: a scan that found no candidates would also "find" no offenders, which is
+    // how a guard goes mute while reporting green.
+    expect(files.length).toBeGreaterThan(300);
+    expect(candidates).toBeGreaterThan(500);
+  });
+
+  it("keeps the unread set to what is already accounted for", () => {
+    expect(unread.sort()).toEqual([...UNREAD_PRODUCTION_DECLARATIONS].sort());
+  });
+});
