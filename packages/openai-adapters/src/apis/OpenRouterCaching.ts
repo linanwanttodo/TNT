@@ -14,6 +14,8 @@ import {
 } from "./AnthropicCachingStrategies.js";
 import {
   addCacheControlToLastTwoUserMessages,
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+  countCacheBreakpoints,
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
 
@@ -163,7 +165,15 @@ export const applyAnthropicCachingToOpenRouterBody = (
   const cachedBody = cachingStrategy({ ...anthropicBody });
 
   cachedBody.messages = cachedBody.messages ?? [];
-  addCacheControlToLastTwoUserMessages(cachedBody.messages);
+  // The strategy has already spent part of the four-breakpoint budget on the
+  // system blocks and the tool list. Reading what is there beats trusting it: a
+  // strategy that only marks the system leaves the messages untouched, and
+  // topping those up by two on its heels asked for six.
+  const spent = countCacheBreakpoints(cachedBody);
+  addCacheControlToLastTwoUserMessages(
+    cachedBody.messages,
+    Math.max(0, Math.min(2, ANTHROPIC_MAX_CACHE_BREAKPOINTS - spent)),
+  );
 
   const cachedSystem = Array.isArray(cachedBody.system)
     ? cachedBody.system

@@ -80,10 +80,12 @@ The prefix is assembled in build order, each part announced so it can be attribu
   and rewritten otherwise: `stream/systemPromptPolicy.ts` decides, `cache/prefixState.ts` classifies
   the result (`full` / `passthrough` / `invalidated` plus reasons).
 - Breakpoints are counted against the provider's cap, not assumed to be free: Anthropic allows four
-  per request across system, tools and messages, and a fifth is a 400. The strategies share one
-  budget (`packages/openai-adapters/src/apis/AnthropicCachingStrategies.ts`) and
-  `anthropicCacheBreakpointCap.test.ts` counts the finished body for every strategy, including a
-  system that arrives as several blocks.
+  per request across system, tools and messages, and a fifth is a 400. The ceiling lives in one
+  place (`ANTHROPIC_MAX_CACHE_BREAKPOINTS` in `AnthropicUtils.ts`), the Anthropic strategies spend it
+  from a single countdown, and the OpenRouter path - which runs a strategy and then tops the trailing
+  turns up itself - reads what the whole body has already used before adding anything
+  (`countCacheBreakpoints`). `anthropicCacheBreakpointCap.test.ts` counts the finished body for every
+  strategy and for the OpenRouter path, including a system that arrives as several blocks.
 
 - Carrying is declared by the adapter, not assumed from a provider name:
   `packages/openai-adapters/src/apis/base.ts` `carriesInHistorySystemMessages(model)` is implemented

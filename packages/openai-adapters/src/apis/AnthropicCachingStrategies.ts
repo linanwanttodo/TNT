@@ -1,10 +1,11 @@
 import { MessageCreateParams } from "@anthropic-ai/sdk/resources";
 
-import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
+import {
+  addCacheControlToLastTwoUserMessages,
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+} from "./AnthropicUtils.js";
 
-// Anthropic accepts at most four cache_control breakpoints per request, shared by
-// system, tools and messages; a fifth is a 400, not a silently dropped marker.
-const MAX_CACHING_MESSAGES = 4;
+const MAX_CACHING_MESSAGES = ANTHROPIC_MAX_CACHE_BREAKPOINTS;
 
 // Caching strategy type - transforms a clean Anthropic body by adding cache_control
 export type CachingStrategy = (
