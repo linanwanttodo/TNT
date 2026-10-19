@@ -240,6 +240,12 @@ fails if the scan finds fewer than 250 files so an empty scan cannot pass.
   read-back, not a test.
 - The `continue-cli` literal in `services/GitAiIntegrationService.ts` is a label handed to git-ai and
   is an external contract.
+- Both architecture notes claim that every path they name exists. `src/docsAccuracy.test.ts` runs
+  that claim: it collects every backticked path with a source extension from `ARCHITECTURE-tnt.md`
+  and `docs/ARCHITECTURE-tnt.md`, resolves it against the package, the repository, `core` and
+  `packages`, and refuses anything it cannot find unless it is one of the four named external
+  locations (settings paths and the files a plugin ships) or the one build output the notes
+  describe. Measured on the shipped tree, no documented path is unaccounted for.
 - Core keeps autocomplete capabilities that nothing calls: four hand-tuned FIM templates
   (`codestralFimTemplate`, `qwenCoderFimTemplate`, `starcoder2FimTemplate`,
   `gptAutocompleteTemplate`), `shouldLanguageSpecificPrefilter`, `getDiffSnippets` and
