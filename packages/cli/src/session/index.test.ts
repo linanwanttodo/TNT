@@ -57,6 +57,7 @@ const mockHistoryManager: any = vi.hoisted(() => ({
     history: [],
   })),
   list: vi.fn(() => []),
+  delete: vi.fn(),
 }));
 vi.mock("core/util/history.js", () => ({
   default: mockHistoryManager,
@@ -524,17 +525,18 @@ describe("SessionManager", () => {
   });
 
   describe("clearSession", () => {
-    it("should delete session file if it exists", () => {
+    it("hands the file and its index row to core's delete", () => {
       // Set up a current session
       createSession();
       mockFs.existsSync.mockReturnValue(true);
-      mockFs.unlinkSync.mockReturnValue(undefined);
 
       clearSession();
 
-      expect(mockFs.unlinkSync).toHaveBeenCalledWith(
-        expect.stringContaining("test-uuid-123.json"),
-      );
+      // The row is the half the hand-rolled unlink could not reach, so the
+      // delegation is the thing to pin. Real file+row behaviour is covered by
+      // `clearSessionListing.test.ts`, which runs against actual files.
+      expect(mockHistoryManager.delete).toHaveBeenCalledWith("test-uuid-123");
+      expect(mockFs.unlinkSync).not.toHaveBeenCalled();
     });
 
     it("should not delete file if it doesn't exist", () => {
@@ -544,6 +546,8 @@ describe("SessionManager", () => {
       clearSession();
 
       expect(mockFs.unlinkSync).not.toHaveBeenCalled();
+      // Nothing to delete means nothing to take out of the index either.
+      expect(mockHistoryManager.delete).not.toHaveBeenCalled();
     });
 
     it("should clear the current session from memory", () => {
