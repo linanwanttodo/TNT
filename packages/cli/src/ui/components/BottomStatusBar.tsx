@@ -14,7 +14,10 @@ import { getGitBranch } from "../../utils/git.js";
 import { getModelContextLimit } from "../../utils/tokenizer.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { UpdateNotification } from "../UpdateNotification.js";
-import { contextUsageLine } from "../utils/contextUsageLine.js";
+import {
+  contextUsageLine,
+  formatCostAmount,
+} from "../utils/contextUsageLine.js";
 
 export interface BottomStatusBarProps {
   remoteUrl?: string;
@@ -42,7 +45,7 @@ export function costLineText(
   const cost = totalCost ?? 0;
   if (cost <= 0 && unpricedRequests <= 0) return undefined;
 
-  const amount = cost >= 0.01 ? `$${cost.toFixed(2)}` : `$${cost.toFixed(4)}`;
+  const amount = formatCostAmount(cost);
   return unpricedRequests > 0
     ? `${t("status.cost")} ${amount} (+${unpricedRequests} ${t("status.unpriced")})`
     : `${t("status.cost")} ${amount}`;
