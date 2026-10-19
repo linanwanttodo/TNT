@@ -11,6 +11,7 @@ import { setExitMessageCallback, shouldShowExitMessage } from "../../index.js";
 import { getSessionUsage } from "../../session/index.js";
 import { getCacheHitRatio } from "../../utils/cacheRatio.js";
 import { getGitBranch } from "../../utils/git.js";
+import { getModelContextLimit } from "../../utils/tokenizer.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { UpdateNotification } from "../UpdateNotification.js";
 import { contextUsageLine } from "../utils/contextUsageLine.js";
@@ -23,6 +24,7 @@ export interface BottomStatusBarProps {
   navigateTo: (screen: NavigationScreen, data?: any) => void;
   closeCurrentScreen: () => void;
   contextPercentage?: number;
+  contextTokens?: number;
   hasImageInClipboard?: boolean;
   isVerboseMode?: boolean;
   totalCost?: number;
@@ -91,6 +93,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   navigateTo: _navigateTo,
   closeCurrentScreen: _closeCurrentScreen,
   contextPercentage,
+  contextTokens,
   hasImageInClipboard,
   isVerboseMode,
   totalCost,
@@ -177,8 +180,11 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   }
 
   const usageLine = contextUsageLine({
+    usedTokens: contextTokens,
+    limitTokens: model ? getModelContextLimit(model) : undefined,
     contextPercentage,
     cacheHitRatio,
+    outputTokens: sessionUsage?.completionTokens,
     costGroup: costLineText(
       totalCost,
       isVerboseMode ? (sessionUsage?.unpricedRequests ?? 0) : 0,
@@ -186,6 +192,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
     labels: {
       ctx: t("status.context"),
       cache: t("status.cache"),
+      out: t("status.output"),
     },
   });
 

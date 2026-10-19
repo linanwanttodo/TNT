@@ -561,6 +561,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           navigateTo={navigateTo}
           closeCurrentScreen={closeCurrentScreen}
           contextPercentage={contextData?.percentage ?? 0}
+          contextTokens={contextData?.tokenCount}
           hasImageInClipboard={hasImageInClipboard}
           isVerboseMode={isVerboseMode}
           totalCost={getTotalSessionCost()}

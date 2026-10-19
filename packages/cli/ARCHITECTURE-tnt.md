@@ -230,13 +230,14 @@ fails if the scan finds fewer than 250 files so an empty scan cannot pass.
   same character cap from the tail and the bounds sentence says how much came back. A saturated read
   therefore gives roughly 9.6% less body than it used to.
 - The four-group context-usage line (`ctx 18.2k/200k (9%) · cache r/w 92% · out 1.4k · cost $0.31`)
-  is the owner's chosen format. The formatter is `ui/utils/contextUsageLine.ts`, its tests reproduce
-  that string character for character, and the line now owns the second row of
-  `ui/components/BottomStatusBar.tsx` instead of competing for the first one. Two halves stay open:
-  the token-count groups (`used/limit`, `out`) are not plumbed, so the shipped row shows the
-  percentage it already had, the session cache ratio and the cost; and the localized labels are
-  `status.context` / `status.cache` / `status.cost` rather than his compact `ctx` / `cache r/w` / `out`,
-  which is a wording call. Whether the row fits his terminal is a read-back, not a test.
+  is the owner's chosen format and is now shipped. The formatter is `ui/utils/contextUsageLine.ts`
+  and its test reproduces that string character for character; `ui/components/BottomStatusBar.tsx`
+  gives it the second row of the bar, alone, and feeds it the token count the composer already
+  computes, the model's context limit through `getModelContextLimit`, the session cache ratio, the
+  session output count and the cost group from `costLineText`. Two halves stay his: the shipped
+  labels are the localized `status.context` / `status.cache` / `status.output` / `status.cost`
+  rather than his compact `ctx` / `cache r/w` / `out`, and whether the row fits his terminal is a
+  read-back, not a test.
 - The `continue-cli` literal in `services/GitAiIntegrationService.ts` is a label handed to git-ai and
   is an external contract.
 - Core keeps autocomplete capabilities that nothing calls: four hand-tuned FIM templates
