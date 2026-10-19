@@ -213,6 +213,7 @@ read from the runners, not from this note: `npx vitest run` prints the vitest la
 The ratchet itself:
 
     npx vitest run src/architecture.test.ts
+    npx vitest run src/tools/documentedSurface.test.ts
 
 It counts production sources under `src/` (tests, `test-utils` and `__mocks__` excluded), freezes the
 mutually importing group pairs in `KNOWN_MUTUAL_COUPLING` (the file's own list is the count), fails on
