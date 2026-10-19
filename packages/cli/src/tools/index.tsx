@@ -171,8 +171,23 @@ export async function getAllAvailableTools(
   return sortToolsByName(tools);
 }
 
+/**
+ * A tool's own `displayName` is the label the UI is meant to show, and the
+ * registry copy does not cover every tool this module offers: the plan-mode,
+ * glob and background-job tools are declared here with their arrays. Search the
+ * composed surface first, then the registry copy, then fall back to the name -
+ * in that order, so a declared label is never silently discarded.
+ */
 export function getToolDisplayName(toolName: string): string {
-  const tool = ALL_BUILT_IN_TOOLS.find((t) => t.name === toolName);
+  const tool = (
+    [
+      ...BASE_BUILTIN_TOOLS,
+      ...BUILTIN_SEARCH_TOOLS,
+      ...WORKSPACE_TOOLS,
+    ] as Tool[]
+  )
+    .concat(ALL_BUILT_IN_TOOLS)
+    .find((t) => t.name === toolName);
   return tool?.displayName || toolName;
 }
 
