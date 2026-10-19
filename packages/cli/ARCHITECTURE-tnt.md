@@ -231,6 +231,8 @@ lives beside:
   UI resolves for it.
 - `src/i18n/index.test.ts` - every dictionary key has a Chinese value that differs
   from its English one.
+- `src/i18n/unusedKeys.test.ts` - and no key is carried that no caller asks for,
+  with the one dynamic key prefix it must skip named and re-checked.
 
 It counts production sources under `src/` (tests, `test-utils` and `__mocks__` excluded), freezes the
 mutually importing group pairs in `KNOWN_MUTUAL_COUPLING` (the file's own list is the count), fails on
