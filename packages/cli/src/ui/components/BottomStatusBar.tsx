@@ -13,6 +13,7 @@ import { getCacheHitRatio } from "../../utils/cacheRatio.js";
 import { getGitBranch } from "../../utils/git.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { UpdateNotification } from "../UpdateNotification.js";
+import { contextUsageLine } from "../utils/contextUsageLine.js";
 
 export interface BottomStatusBarProps {
   remoteUrl?: string;
@@ -39,7 +40,7 @@ export function costLineText(
   const cost = totalCost ?? 0;
   if (cost <= 0 && unpricedRequests <= 0) return undefined;
 
-  const amount = `$${cost.toFixed(4)}`;
+  const amount = cost >= 0.01 ? `$${cost.toFixed(2)}` : `$${cost.toFixed(4)}`;
   return unpricedRequests > 0
     ? `${t("status.cost")} ${amount} (+${unpricedRequests} ${t("status.unpriced")})`
     : `${t("status.cost")} ${amount}`;
@@ -77,8 +78,10 @@ function joinParts(parts: React.ReactNode[]) {
 }
 
 /**
- * Single line of composer metadata: workspace, git branch, context usage and
- * cache hit ratio on the left, model and reasoning depth on the right.
+ * Two rows under the composer: the top one says where the session is (workspace,
+ * branch, prefix state, model, reasoning depth) and the second is the usage line
+ * on its own, because occupancy, cache ratio and cost are read as one figure and
+ * sharing a row with the groups either side of it cost it characters.
  */
 export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   remoteUrl,
@@ -109,7 +112,6 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   const sessionUsage = getSessionUsage();
   const cacheHitRatio = getCacheHitRatio(sessionUsage);
   const compactionCost = sessionUsage?.compaction?.cost ?? 0;
-  const costLine = costLineText(totalCost, sessionUsage?.unpricedRequests ?? 0);
 
   const leftParts: React.ReactNode[] = [];
   if (workspaceName) {
@@ -126,22 +128,8 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
       </Text>,
     );
   }
-  if (contextPercentage !== undefined) {
-    leftParts.push(
-      <Text key="context" color="dim">
-        {`◷ ${t("status.context")} ${contextPercentage}%`}
-      </Text>,
-    );
-  }
-  if (cacheHitRatio !== undefined) {
-    leftParts.push(
-      <Text key="cache" color="dim">
-        {`☰ ${t("status.cache")} ${cacheHitRatio}%`}
-      </Text>,
-    );
-  }
-  // The ratio above is a session average; this says what the last request did
-  // with the prefix, and stays silent while the prefix held.
+  // The cache ratio in the usage row is a session average; this says what the last
+  // request did with the prefix, and stays silent while the prefix held.
   const prefixState = cacheStateText(getLastRequestCacheState(), {
     prefix: t("status.prefix"),
     states: {
@@ -171,13 +159,6 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
       </Text>,
     );
   }
-  if (isVerboseMode && costLine) {
-    leftParts.push(
-      <Text key="cost" color="dim">
-        {costLine}
-      </Text>,
-    );
-  }
 
   const rightParts: React.ReactNode[] = [];
   if (modelName) {
@@ -195,28 +176,54 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
     );
   }
 
+  const usageLine = contextUsageLine({
+    contextPercentage,
+    cacheHitRatio,
+    costGroup: costLineText(
+      totalCost,
+      isVerboseMode ? (sessionUsage?.unpricedRequests ?? 0) : 0,
+    ),
+    labels: {
+      ctx: t("status.context"),
+      cache: t("status.cache"),
+    },
+  });
+
   return (
-    <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-      <Box marginLeft={2} flexDirection="row" alignItems="center">
-        {showingExitMessage ? (
-          <Text color="dim" wrap="truncate-start">
-            {t("status.exit")}
-          </Text>
-        ) : (
-          joinParts(leftParts)
-        )}
-      </Box>
+    <Box flexDirection="column">
       <Box
-        marginRight={2}
-        marginLeft={2}
         flexDirection="row"
+        justifyContent="space-between"
         alignItems="center"
       >
-        {joinParts(rightParts)}
-        <Box marginLeft={2}>
-          <UpdateNotification isRemoteMode={isRemoteMode} />
+        <Box marginLeft={2} flexDirection="row" alignItems="center">
+          {showingExitMessage ? (
+            <Text color="dim" wrap="truncate-start">
+              {t("status.exit")}
+            </Text>
+          ) : (
+            joinParts(leftParts)
+          )}
+        </Box>
+        <Box
+          marginRight={2}
+          marginLeft={2}
+          flexDirection="row"
+          alignItems="center"
+        >
+          {joinParts(rightParts)}
+          <Box marginLeft={2}>
+            <UpdateNotification isRemoteMode={isRemoteMode} />
+          </Box>
         </Box>
       </Box>
+      {usageLine && (
+        <Box marginLeft={2}>
+          <Text color="dim" wrap="truncate-start">
+            {usageLine}
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 };

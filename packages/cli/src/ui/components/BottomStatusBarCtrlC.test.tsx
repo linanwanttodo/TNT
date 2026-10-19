@@ -140,7 +140,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     expect(lastFrame()).toContain("80%");
   });
 
-  it("shows the compaction spend next to the cache hit ratio", async () => {
+  it("shows the compaction spend and the cache ratio on their own rows", async () => {
     const sessionModule = (await vi.importMock(
       "../../session/index.js",
     )) as any;
@@ -166,7 +166,15 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const frame = lastFrame() ?? "";
     expect(frame).toContain("80%");
     expect(frame).toContain("$0.3125");
-    expect(frame.indexOf("80%")).toBeLessThan(frame.indexOf("$0.3125"));
+    const rows = frame.split("\n");
+    const cacheRow = rows.findIndex((line) => line.includes("80%"));
+    const compactionRow = rows.findIndex((line) => line.includes("$0.3125"));
+    // They stopped sharing a row when the usage line took one of its own: the
+    // cache ratio is a usage figure, the compaction spend stays with location.
+    expect(cacheRow).toBeGreaterThan(-1);
+    expect(compactionRow).toBeGreaterThan(-1);
+    expect(cacheRow).not.toBe(compactionRow);
+    expect(compactionRow).toBeLessThan(cacheRow);
   });
 
   it("hides the compaction spend before any compaction ran", async () => {
@@ -210,12 +218,40 @@ describe("BottomStatusBar Ctrl+C message", () => {
   });
 
   it("says how many requests the cost line cannot account for", () => {
-    // Asserted as text rather than through a frame: the bar is one row, and an
-    // 80-column test frame truncates before the number of interest.
-    expect(costLineText(1.5, 2)).toBe("Cost $1.5000 (+2 unpriced)");
+    // Asserted as text rather than through a frame: an 80-column test frame
+    // truncates before the number of interest.
+    expect(costLineText(1.5, 2)).toBe("Cost $1.50 (+2 unpriced)");
     expect(costLineText(0, 1)).toBe("Cost $0.0000 (+1 unpriced)");
-    expect(costLineText(1.5, 0)).toBe("Cost $1.5000");
+    expect(costLineText(1.5, 0)).toBe("Cost $1.50");
+    expect(costLineText(0.0042, 0)).toBe("Cost $0.0042");
     expect(costLineText(0, 0)).toBeUndefined();
     expect(costLineText(undefined, 0)).toBeUndefined();
+  });
+
+  it("gives the usage line a row of its own", () => {
+    const tree = track(
+      <BottomStatusBar
+        {...defaultProps}
+        remoteUrl={"github.com/user/repo"}
+        contextPercentage={9}
+        totalCost={0.31}
+        services={{
+          model: { model: { name: "gpt-5", model: "gpt-5" } },
+        }}
+      />,
+    );
+
+    const lines = (tree.lastFrame() ?? "")
+      .split("\n")
+      .filter((line) => line.trim());
+    const usage = lines.find((line) => line.includes("Cost $0.31"));
+    expect(usage).toBeDefined();
+    expect(usage).toContain("Context 9%");
+    // The row holds only usage figures: neither the workspace it used to share a
+    // row with nor the model on its right end belongs here.
+    expect(usage).not.toContain("▸");
+    expect(usage).not.toContain("◈");
+    expect(usage).not.toContain("gpt-5");
+    expect(lines.length).toBeGreaterThanOrEqual(2);
   });
 });
