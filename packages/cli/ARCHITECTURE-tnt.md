@@ -233,6 +233,9 @@ lives beside:
   own permission is reachable through the copy the check reads.
 - `src/tools/toolDisplayNames.test.ts` - the label a tool declares is the label the
   UI resolves for it.
+- `src/tools/toolPrefixFingerprint.test.ts` - the billed tool prefix is the digest
+  named in this file, over the number of tools it names, and no built-in tool this
+  package exports sits outside that digest.
 - `src/i18n/index.test.ts` - every dictionary key has a Chinese value that differs
   from its English one.
 - `src/i18n/unusedKeys.test.ts` - and no key is carried that no caller asks for,
