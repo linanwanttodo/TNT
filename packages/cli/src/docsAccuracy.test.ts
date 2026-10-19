@@ -55,11 +55,11 @@ const DOCUMENTED_PATH =
   /`([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@*-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|ya?ml))`/g;
 
 /**
- * `dist/index.js` is what `npm run build` produces, so the notes may name it
+ * `dist` is what `npm run build` produces, so the notes may name the bundle
  * without that being a claim about tracked source. It is neither proof nor an
- * error, and the entry is only useful while the docs still mention it.
+ * error, and an entry is only useful while the docs still mention it.
  */
-const GENERATED_PATHS: string[] = ["dist/index.js"];
+const GENERATED_PATHS: string[] = ["dist/index.js", "dist/tnt.js"];
 
 function isGenerated(candidate: string): boolean {
   return GENERATED_PATHS.some(

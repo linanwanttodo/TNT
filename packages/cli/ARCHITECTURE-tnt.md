@@ -201,23 +201,23 @@ Two packages own their own gates, because the CLI neither runs their tests nor r
     cd ../packages/openai-adapters && npm run build && npx vitest run
 
 `core` has two runners and the vitest one sees only half the suite: `vitest.config.ts` includes
-`**/*.vitest.ts` (109 files), while `npm test` runs jest over 59 `*.test.ts` files, so a green
+`**/*.vitest.ts` (112 files), while `npm test` runs jest over 59 `*.test.ts` files, so a green
 `npx vitest run` there says nothing about the other half. The jest lane needs `npm test` rather than
 a bare `npx jest` because the script sets `NODE_OPTIONS=--experimental-vm-modules`, without which the
 setup file's `node-fetch` import fails and all 59 suites report a load error. In an environment with
 no provider credentials it also needs `IGNORE_API_KEY_TESTS=true`, the switch `llm/llm.test.ts`
-already documents, because that suite calls the live APIs and otherwise dies on 401. Measured at
-this writing: vitest lane 447 suites / 1737 passed / 0 failed / 16 pending; jest lane 51 passed
-suites / 8 skipped / 0 failed and 850 passed / 95 skipped.
+already documents, because that suite calls the live APIs and otherwise dies on 401. The counts are
+read from the runners, not from this note: `npx vitest run` prints the vitest lane and
+`IGNORE_API_KEY_TESTS=true npm test` the jest lane.
 
 The ratchet itself:
 
     npx vitest run src/architecture.test.ts
 
 It counts production sources under `src/` (tests, `test-utils` and `__mocks__` excluded), freezes the
-mutually importing group pairs in `KNOWN_MUTUAL_COUPLING` (22 pairs as of this writing, each listed by
-name in the file), fails on a new pair, allows `utils ->` only for the four exemptions it names, and
-fails if the scan finds fewer than 250 files so an empty scan cannot pass.
+mutually importing group pairs in `KNOWN_MUTUAL_COUPLING` (the file's own list is the count), fails on
+a new pair, allows `utils ->` only for the four exemptions it names, and fails if the scan finds fewer
+than 250 files so an empty scan cannot pass.
 
 ## Open by decision, not by oversight
 
