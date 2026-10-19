@@ -144,6 +144,49 @@ function scan(): {
   return { paths, places };
 }
 
+const PACKAGE_ROOTS = {
+  cli: packageRoot,
+  adapters: path.resolve(packageRoot, "..", "openai-adapters"),
+  core: path.join(repoRoot, "core"),
+};
+
+/**
+ * A command line belongs to whichever package it changes directory into first;
+ * anything that does not move is about this package.
+ */
+function packageFor(line: string): string {
+  if (line.includes("openai-adapters")) {
+    return PACKAGE_ROOTS.adapters;
+  }
+  if (/(?:\.\.\/)+core\b/.test(line)) {
+    return PACKAGE_ROOTS.core;
+  }
+  return PACKAGE_ROOTS.cli;
+}
+
+const scriptCache = new Map<string, Set<string>>();
+
+function readScripts(root: string): Set<string> {
+  if (!scriptCache.has(root)) {
+    const text = fs.readFileSync(path.join(root, "package.json"), "utf8");
+    const parsed = JSON.parse(text) as { scripts?: Record<string, string> };
+    scriptCache.set(root, new Set(Object.keys(parsed.scripts ?? {})));
+  }
+  return scriptCache.get(root) as Set<string>;
+}
+
+function collectedCommands(): { script: string; packageRoot: string }[] {
+  const found: { script: string; packageRoot: string }[] = [];
+  for (const doc of DOCS) {
+    for (const line of fs.readFileSync(doc, "utf8").split("\n")) {
+      for (const match of line.matchAll(/npm run ([A-Za-z0-9:_-]+)/g)) {
+        found.push({ script: match[1], packageRoot: packageFor(line) });
+      }
+    }
+  }
+  return found;
+}
+
 describe("the architecture notes name files that exist", () => {
   const { paths, places } = scan();
   const present = [...paths.keys()].filter(existsAsFile);
@@ -197,5 +240,20 @@ describe("the architecture notes name files that exist", () => {
     for (const entry of REMOVED_PLACES) {
       expect(resolve(entry), entry).toBe(false);
     }
+  });
+
+  it("runs only commands the package it names declares", () => {
+    // A command line in a note is a claim with the same half-life as a path: the
+    // section that used to teach three commands named a format gate the
+    // repository cannot satisfy. Whichever package the line `cd`s into is the one
+    // that has to declare the script.
+    const commands = collectedCommands();
+    expect(commands.length).toBeGreaterThanOrEqual(5);
+    const offenders = commands.filter(
+      ({ script, packageRoot: root }) => !readScripts(root).has(script),
+    );
+    expect(
+      offenders.map(({ script, packageRoot: root }) => `${root}:${script}`),
+    ).toEqual([]);
   });
 });
