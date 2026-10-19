@@ -16,16 +16,42 @@ describe("the CLI identifies a request without replacing the SDK identity", () =
     apiKey: "test-key",
   };
 
-  it("sends the install correlation id", () => {
-    const api: any = createLlmApi(model, {} as any);
-    expect(api.config.requestOptions.headers["x-tnt-unique-id"]).toBe(
-      getUniqueId(),
-    );
+  /**
+   * The header is added before the factory dispatches, so it should reach every
+   * dialect rather than the one the CLI happens to test against. These are the
+   * providers whose client builds successfully here; a dialect that quietly drops
+   * `requestOptions` would fail its own row.
+   */
+  const PROVIDERS = [
+    "openai",
+    "anthropic",
+    "deepseek",
+    "openrouter",
+    "azure",
+    "gemini",
+    "bedrock",
+    "ollama",
+  ];
+
+  it("sends the install correlation id on every provider dialect", () => {
+    expect(PROVIDERS.length).toBeGreaterThan(4);
+    for (const provider of PROVIDERS) {
+      const api: any = createLlmApi({ ...model, provider }, {} as any);
+      expect(api, provider).toBeTruthy();
+      expect(
+        api.config.requestOptions.headers["x-tnt-unique-id"],
+        provider,
+      ).toBe(getUniqueId());
+    }
   });
 
   it("does not send a CLI user-agent over the SDK's own", () => {
-    const api: any = createLlmApi(model, {} as any);
-    expect(api.config.requestOptions.headers).not.toHaveProperty("user-agent");
+    for (const provider of ["openai", "anthropic"]) {
+      const api: any = createLlmApi({ ...model, provider }, {} as any);
+      expect(api.config.requestOptions.headers, provider).not.toHaveProperty(
+        "user-agent",
+      );
+    }
   });
 
   it("keeps headers the user configured", () => {
