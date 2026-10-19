@@ -143,7 +143,7 @@ be honest there: `Bash` can write anywhere, and `auto` mode is the user's answer
 of "allow everything".
 
 MCP tools are offered as `mcp__<server>__<tool>` by
-`src/tools/mcpToolsFromConnections`, because two servers can export the same name:
+`src/tools/index.tsx`, because two servers can export the same name:
 the flat tool list lost the owning server, dispatch took the first name match, and
 the second server's tool could not be reached under any name while the request
 carried the name twice. The name is sanitized to the characters a provider accepts
