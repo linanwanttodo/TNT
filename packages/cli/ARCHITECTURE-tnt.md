@@ -215,6 +215,23 @@ The ratchet itself:
     npx vitest run src/architecture.test.ts
     npx vitest run src/tools/documentedSurface.test.ts
 
+Cross-cutting suites, each naming the claim it enforces rather than the module it
+lives beside:
+
+- `src/docsAccuracy.test.ts` - every path, place and `npm run` command the two
+  architecture notes name resolves, except the named external locations, build
+  outputs and removals.
+- `src/tools/builtInToolNames.test.ts` - the permission layer's name list equals
+  `ALL_BUILT_IN_TOOLS`, in both directions.
+- `src/permissions/policyNameCoverage.test.ts` - no tool has a policy that the
+  default-deny sweep cannot see, beyond the four it names.
+- `src/permissions/dynamicPolicyReachability.test.ts` - a tool that evaluates its
+  own permission is reachable through the copy the check reads.
+- `src/tools/toolDisplayNames.test.ts` - the label a tool declares is the label the
+  UI resolves for it.
+- `src/i18n/index.test.ts` - every dictionary key has a Chinese value that differs
+  from its English one.
+
 It counts production sources under `src/` (tests, `test-utils` and `__mocks__` excluded), freezes the
 mutually importing group pairs in `KNOWN_MUTUAL_COUPLING` (the file's own list is the count), fails on
 a new pair, allows `utils ->` only for the four exemptions it names, and fails if the scan finds fewer
