@@ -250,7 +250,8 @@ than 250 files so an empty scan cannot pass.
   path is unaccounted for, and dropping an entry from either list reddens the guard. It holds extension-less mentions - a place - to the same bar, with one
   inversion: a path the notes name in order to say it is gone (`src/test-utils`) must stay gone. And every
   `npm run <script>` the notes print has to be a script the package that line changes into actually
-  declares. Measured on the shipped tree: 19 places, 5 documented commands, nothing unaccounted for.
+  declares. What it checks is reproducible rather than quoted: `npx vitest run src/docsAccuracy.test.ts` counts the
+  mentions and refuses any that resolve to neither the tree nor a named exception.
 - Core keeps autocomplete capabilities that nothing calls: four hand-tuned FIM templates
   (`codestralFimTemplate`, `qwenCoderFimTemplate`, `starcoder2FimTemplate`,
   `gptAutocompleteTemplate`), `shouldLanguageSpecificPrefilter`, `getDiffSnippets` and
