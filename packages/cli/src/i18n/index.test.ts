@@ -67,37 +67,14 @@ describe("i18n runtime locale switching", () => {
     // Keys whose Chinese and English text are legitimately the same, e.g. a
     // value that is only a symbol or a URL. Adding one here is a deliberate act.
     const intentionallyIdentical = new Set<string>();
-    const groups = [
-      "review.",
-      "checks.",
-      "chat.",
-      "serve.",
-      "startup.",
-      "plugin.",
-      "session.",
-      "skills.",
-      "outputStyle.",
-      "diagnostics.",
-      "tool.",
-      "models.",
-      "mcp.",
-      "common.",
-      "update.",
-      "debug.",
-      "jobs.",
-      "permission.",
-      "edit.",
-      "goal.",
-      "selector.",
-      "quiz.",
-      "status.",
-    ];
-    const targeted = keys.filter((key) =>
-      groups.some((group) => key.startsWith(group)),
-    );
-    expect(targeted.length).toBeGreaterThan(50);
+    // Every key, not a hand-picked set of groups: the list this replaces named
+    // 23 of the dictionary's 39 groups, which is how `status.` - the composer
+    // bar - went value-checked by nothing, and a group added tomorrow would do
+    // the same. Measured across all keys, no two translations match today, so
+    // the wider net costs no dictionary edit.
+    expect(keys.length).toBeGreaterThan(300);
 
-    for (const key of targeted) {
+    for (const key of keys) {
       if (intentionallyIdentical.has(key)) continue;
       setLocale("en");
       const english = t(key as never);
