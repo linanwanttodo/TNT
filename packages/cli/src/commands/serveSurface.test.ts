@@ -72,4 +72,19 @@ describe("the serve HTTP surface agrees with its client and its spec", () => {
     expect(called.length).toBeGreaterThanOrEqual(4);
     expect(called.filter((route) => !served.includes(route))).toEqual([]);
   });
+
+  it("claims no narrower bind than the server performs", () => {
+    // The spec used to state that the server "binds to `127.0.0.1` (localhost only)"
+    // while `serve.ts` calls `app.listen(port, …)` with no host argument, which binds
+    // every interface - and the same section says no authentication is implemented. A
+    // reader trusting the first sentence would leave an unauthenticated remote driver
+    // reachable from the network, so the claim and the call have to move together.
+    const source = readFileSync(SERVE, "utf-8");
+    const claimsLoopback = /binds to `127\.0\.0\.1`|localhost only/i.test(spec);
+    const bindsLoopback =
+      /app\.listen\(\s*[^,]+,\s*["'`]?(?:127\.0\.0\.1|localhost)/.test(source);
+
+    expect(/app\.listen\(/.test(source)).toBe(true);
+    expect(claimsLoopback).toBe(bindsLoopback);
+  });
 });

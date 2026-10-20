@@ -166,8 +166,10 @@ Messages in the chat history can have different types:
 
 ## Security Considerations
 
-- Server binds to `127.0.0.1` (localhost only)
-- No authentication implemented (local use only)
+- `src/commands/serve.ts` calls `app.listen(port, …)` with no host argument, so the
+  server binds every interface the machine has, not only loopback
+- No authentication implemented, which means an exposed port is an unauthenticated
+  remote driver: keep it behind a local interface or a firewall you control
 - File system access through tool execution
 
 ## Control endpoints
