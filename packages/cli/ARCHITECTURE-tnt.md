@@ -223,8 +223,8 @@ Cross-cutting suites, each naming the claim it enforces rather than the module i
 lives beside:
 
 - `src/moduleDocsAccuracy.test.ts` - every path the remaining module documents (`spec/`,
-  `BUILD.md`, the READMEs) names exists and every `npm run` script it names is one the package
-  declares, and a build output is excused only while a
+  `BUILD.md`, the READMEs) names exists, every `npm run` script it names is one the package
+  declares, and every markdown link target resolves, and a build output is excused only while a
   document still mentions it.
 - `src/docsAccuracy.test.ts` - every path, place and `npm run` command the two
   architecture notes name resolves, except the named external locations, build
