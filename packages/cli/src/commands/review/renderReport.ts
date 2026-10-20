@@ -20,8 +20,6 @@ export interface ReviewResult {
 }
 
 export interface RenderOptions {
-  baseBranch: string;
-  changedFileCount: number;
   format: "text" | "json";
 }
 
@@ -33,15 +31,12 @@ export function renderReport(
   options: RenderOptions,
 ): string {
   if (options.format === "json") {
-    return renderJsonReport(results, options);
+    return renderJsonReport(results);
   }
   return renderTextReport(results);
 }
 
-function renderJsonReport(
-  results: ReviewResult[],
-  _options: RenderOptions,
-): string {
+function renderJsonReport(results: ReviewResult[]): string {
   const passed = results.filter((r) => r.status === "pass").length;
   const failed = results.filter((r) => r.status === "fail").length;
   const errored = results.filter((r) => r.status === "error").length;

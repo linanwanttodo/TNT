@@ -243,11 +243,7 @@ function outputResultsAndExit(
   options: ReviewOptions,
 ): void {
   const format = options.format === "json" ? "json" : "text";
-  const report = renderReport(results, {
-    baseBranch: diffContext.baseBranch,
-    changedFileCount: diffContext.changedFiles.length,
-    format,
-  });
+  const report = renderReport(results, { format });
 
   if (options.patch) {
     const allPatches = results
