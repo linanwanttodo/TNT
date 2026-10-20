@@ -305,10 +305,8 @@ addCommonOptions(program)
     // In headless mode, ensure we have a prompt unless using --agent flag or --resume flag
     // Agent files can provide their own prompts, and resume can work without new input
     if (options.print && !prompt && !options.agent && !options.resume) {
-      safeStderr(
-        "Error: A prompt is required when using the -p/--print flag, unless --prompt, --agent, or --resume is provided.\n\n",
-      );
-      safeStderr("Usage examples:\n");
+      safeStderr(`${t("cli.promptRequired")}\n\n`);
+      safeStderr(`${t("cli.usageExamples")}\n`);
       safeStderr('  tnt -p "please review my current git diff"\n');
       safeStderr('  echo "hello" | tnt -p\n');
       safeStderr('  tnt -p "analyze the code in src/"\n');
