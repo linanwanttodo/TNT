@@ -482,9 +482,12 @@ export async function runCli(): Promise<void> {
 
   // Parse arguments and handle errors
   try {
-    program.parse();
+    // parseAsync awaits the action, so a rejection reaches the catch below and a
+    // pending action keeps the process alive instead of draining the loop.
+    await program.parseAsync();
   } catch (error) {
-    console.error(error);
+    // A stack from the bundle tells a user nothing; the message is the error.
+    console.error(error instanceof Error ? error.message : error);
     process.exit(1);
   }
 

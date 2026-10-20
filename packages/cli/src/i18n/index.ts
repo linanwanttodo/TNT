@@ -917,14 +917,18 @@ function detectLocale(): Locale {
   return fromEnv.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
 }
 
-const SETTINGS_PATH = path.join(env.continueHome, "settings.json");
+// Resolved on use: importing this module must not require the global directory to be
+// readable yet (the API transport imports `t` and runs before any settings load).
+function settingsPath(): string {
+  return path.join(env.continueHome, "settings.json");
+}
 
 function readStoredLocale(): Locale | undefined {
   try {
-    if (!fs.existsSync(SETTINGS_PATH)) {
+    if (!fs.existsSync(settingsPath())) {
       return undefined;
     }
-    const parsed = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(settingsPath(), "utf8"));
     const stored = parsed?.locale;
     return LOCALES.includes(stored) ? stored : undefined;
   } catch {
@@ -934,16 +938,16 @@ function readStoredLocale(): Locale | undefined {
 
 function writeStoredLocale(locale: Locale): void {
   try {
-    const dir = path.dirname(SETTINGS_PATH);
+    const dir = path.dirname(settingsPath());
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
     let existing: Record<string, unknown> = {};
-    if (fs.existsSync(SETTINGS_PATH)) {
-      existing = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
+    if (fs.existsSync(settingsPath())) {
+      existing = JSON.parse(fs.readFileSync(settingsPath(), "utf8"));
     }
     writeFileAtomically(
-      SETTINGS_PATH,
+      settingsPath(),
       JSON.stringify({ ...existing, locale }, null, 2),
     );
   } catch {
