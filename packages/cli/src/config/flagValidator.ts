@@ -3,6 +3,7 @@
  * Provides consistent validation across all commands and proper error reporting
  */
 
+import { t } from "../i18n/index.js";
 import { safeStderr } from "../startup/init.js";
 
 import { isOutputFormat, OUTPUT_FORMATS } from "./outputFormat.js";
@@ -55,7 +56,7 @@ function validateFormatFlag(options: ValidationOptions): ValidationError[] {
   if (options.format && !options.print) {
     errors.push({
       code: "FORMAT_REQUIRES_PRINT",
-      message: "Error: --format flag can only be used with -p/--print flag",
+      message: t("cli.formatRequiresPrint"),
     });
   }
 
@@ -71,7 +72,7 @@ function validateSilentFlag(options: ValidationOptions): ValidationError[] {
   if (options.silent && !options.print) {
     errors.push({
       code: "SILENT_REQUIRES_PRINT",
-      message: "Error: --silent flag can only be used with -p/--print flag",
+      message: t("cli.silentRequiresPrint"),
     });
   }
 
@@ -89,8 +90,7 @@ function validateOutputSchemaFlag(
   if (options.outputSchema && !options.print) {
     errors.push({
       code: "OUTPUT_SCHEMA_REQUIRES_PRINT",
-      message:
-        "Error: --output-schema flag can only be used with -p/--print flag",
+      message: t("cli.outputSchemaRequiresPrint"),
     });
   }
 
@@ -106,7 +106,10 @@ function validateFormatValue(options: ValidationOptions): ValidationError[] {
   if (options.format && !isOutputFormat(options.format)) {
     errors.push({
       code: "INVALID_FORMAT_VALUE",
-      message: `Error: Unsupported --format "${options.format}". Expected one of: ${OUTPUT_FORMATS.join(", ")}`,
+      message: t("cli.invalidFormat", {
+        value: options.format,
+        expected: OUTPUT_FORMATS.join(", "),
+      }),
     });
   }
 
@@ -129,7 +132,7 @@ function validateMaxStepsFlag(options: ValidationOptions): ValidationError[] {
   return [
     {
       code: "INVALID_MAX_STEPS",
-      message: `Error: --max-steps expects a whole number of rounds of 1 or more, got "${String(options.maxSteps)}".`,
+      message: t("cli.invalidMaxSteps", { value: String(options.maxSteps) }),
     },
   ];
 }
@@ -149,7 +152,9 @@ function validateTimeoutFlag(options: ValidationOptions): ValidationError[] {
   return [
     {
       code: "INVALID_TIMEOUT",
-      message: `Error: --request-timeout expects a whole number of seconds of 0 or more, got "${String(options.timeoutSeconds)}"`,
+      message: t("cli.invalidRequestTimeout", {
+        value: String(options.timeoutSeconds),
+      }),
     },
   ];
 }
@@ -164,7 +169,7 @@ function validateModeFlags(options: ValidationOptions): ValidationError[] {
   if (options.readonly && options.auto) {
     errors.push({
       code: "CONFLICTING_MODE_FLAGS",
-      message: "Error: Cannot use both --readonly and --auto flags together",
+      message: t("cli.conflictingReadonlyAuto"),
     });
   }
 
@@ -172,7 +177,7 @@ function validateModeFlags(options: ValidationOptions): ValidationError[] {
     if (options.readonly || options.auto) {
       errors.push({
         code: "CONFLICTING_MODE_FLAGS",
-        message: "Error: Cannot use --mode together with --readonly or --auto",
+        message: t("cli.modeConflictsWithReadonlyAuto"),
       });
     }
 
@@ -183,7 +188,7 @@ function validateModeFlags(options: ValidationOptions): ValidationError[] {
     ) {
       errors.push({
         code: "INVALID_MODE",
-        message: `Error: Invalid --mode "${options.mode}". Expected one of: agent, plan, auto`,
+        message: t("cli.invalidMode", { value: options.mode }),
       });
     }
   }
@@ -200,14 +205,14 @@ function validateSessionFlags(options: ValidationOptions): ValidationError[] {
   if (options.resume && options.fork) {
     errors.push({
       code: "CONFLICTING_SESSION_FLAGS",
-      message: "Error: Cannot use both --resume and --fork flags together",
+      message: t("cli.conflictingResumeFork"),
     });
   }
 
   if (options.fork !== undefined && (!options.fork || !options.fork.trim())) {
     errors.push({
       code: "FORK_REQUIRES_SESSION_ID",
-      message: "Error: --fork requires a session ID (e.g., --fork abc123)",
+      message: t("cli.forkRequiresSessionId"),
     });
   }
 
@@ -225,7 +230,7 @@ function validateConfigPath(options: ValidationOptions): ValidationError[] {
   if (options.config && typeof options.config !== "string") {
     errors.push({
       code: "INVALID_CONFIG_PATH",
-      message: "Error: --config must be a valid path",
+      message: t("cli.invalidConfigPath"),
     });
   }
 
@@ -244,21 +249,21 @@ function validatePermissionFlags(
   if (options.allow?.some((tool) => !tool.trim())) {
     errors.push({
       code: "EMPTY_ALLOW_TOOL",
-      message: "Error: --allow requires a tool name (e.g., --allow readFile)",
+      message: t("cli.allowRequiresTool"),
     });
   }
 
   if (options.ask?.some((tool) => !tool.trim())) {
     errors.push({
       code: "EMPTY_ASK_TOOL",
-      message: "Error: --ask requires a tool name (e.g., --ask writeFile)",
+      message: t("cli.askRequiresTool"),
     });
   }
 
   if (options.exclude?.some((tool) => !tool.trim())) {
     errors.push({
       code: "EMPTY_EXCLUDE_TOOL",
-      message: "Error: --exclude requires a tool name (e.g., --exclude Write)",
+      message: t("cli.excludeRequiresTool"),
     });
   }
 
@@ -323,7 +328,7 @@ export function validateServeFlags(options: {
     if (!Number.isInteger(value) || value < 1 || value > max) {
       errors.push({
         code: `INVALID_SERVE_${name.toUpperCase()}`,
-        message: `Error: --${name} expects a whole number between 1 and ${max}, got "${raw}".`,
+        message: t("cli.invalidNumericFlag", { name, max, value: raw }),
       });
     }
   };

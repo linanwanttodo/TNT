@@ -395,6 +395,37 @@ const en = {
   "common.filterSession":
     "Filter this session: grep '\\[{sessionId}\\]' {path}",
   "common.unknownCommand": "Error: Unknown command '{command}'\n",
+  "cli.formatRequiresPrint":
+    "Error: --format flag can only be used with -p/--print flag",
+  "cli.silentRequiresPrint":
+    "Error: --silent flag can only be used with -p/--print flag",
+  "cli.outputSchemaRequiresPrint":
+    "Error: --output-schema flag can only be used with -p/--print flag",
+  "cli.invalidFormat":
+    'Error: Unsupported --format "{value}". Expected one of: {expected}',
+  "cli.invalidMaxSteps":
+    'Error: --max-steps expects a whole number of rounds of 1 or more, got "{value}".',
+  "cli.invalidRequestTimeout":
+    'Error: --request-timeout expects a whole number of seconds of 0 or more, got "{value}"',
+  "cli.conflictingReadonlyAuto":
+    "Error: Cannot use both --readonly and --auto flags together",
+  "cli.modeConflictsWithReadonlyAuto":
+    "Error: Cannot use --mode together with --readonly or --auto",
+  "cli.invalidMode":
+    'Error: Invalid --mode "{value}". Expected one of: agent, plan, auto',
+  "cli.conflictingResumeFork":
+    "Error: Cannot use both --resume and --fork flags together",
+  "cli.forkRequiresSessionId":
+    "Error: --fork requires a session ID (e.g., --fork abc123)",
+  "cli.invalidConfigPath": "Error: --config must be a valid path",
+  "cli.allowRequiresTool":
+    "Error: --allow requires a tool name (e.g., --allow readFile)",
+  "cli.askRequiresTool":
+    "Error: --ask requires a tool name (e.g., --ask writeFile)",
+  "cli.excludeRequiresTool":
+    "Error: --exclude requires a tool name (e.g., --exclude Write)",
+  "cli.invalidNumericFlag":
+    'Error: --{name} expects a whole number between 1 and {max}, got "{value}".',
   "cli.unsupportedFormat":
     'Error: Unsupported --format "{value}" for tnt {command}. Expected: {expected}',
   "common.slashUnknownCommand": "Unknown command: {command}",
@@ -792,6 +823,30 @@ const zhCN: Record<TranslationKey, string> = {
   "common.logsAt": "日志位置：{path}",
   "common.filterSession": "筛选本次会话：grep '\\[{sessionId}\\]' {path}",
   "common.unknownCommand": "错误：未知命令「{command}」\n",
+  "cli.formatRequiresPrint": "错误：--format 只能与 -p/--print 一起使用",
+  "cli.silentRequiresPrint": "错误：--silent 只能与 -p/--print 一起使用",
+  "cli.outputSchemaRequiresPrint":
+    "错误：--output-schema 只能与 -p/--print 一起使用",
+  "cli.invalidFormat": '错误：不支持 --format "{value}"。可选值：{expected}',
+  "cli.invalidMaxSteps":
+    '错误：--max-steps 需要 1 或更大的整数轮数，得到 "{value}"。',
+  "cli.invalidRequestTimeout":
+    '错误：--request-timeout 需要 0 或更大的整数秒数，得到 "{value}"',
+  "cli.conflictingReadonlyAuto": "错误：不能同时使用 --readonly 和 --auto",
+  "cli.modeConflictsWithReadonlyAuto":
+    "错误：--mode 不能与 --readonly 或 --auto 同时使用",
+  "cli.invalidMode": '错误：无效的 --mode "{value}"。可选值：agent, plan, auto',
+  "cli.conflictingResumeFork": "错误：不能同时使用 --resume 和 --fork",
+  "cli.forkRequiresSessionId":
+    "错误：--fork 需要一个会话 ID（例如 --fork abc123）",
+  "cli.invalidConfigPath": "错误：--config 必须是有效路径",
+  "cli.allowRequiresTool":
+    "错误：--allow 需要一个工具名（例如 --allow readFile）",
+  "cli.askRequiresTool": "错误：--ask 需要一个工具名（例如 --ask writeFile）",
+  "cli.excludeRequiresTool":
+    "错误：--exclude 需要一个工具名（例如 --exclude Write）",
+  "cli.invalidNumericFlag":
+    '错误：--{name} 需要 1 到 {max} 之间的整数，得到 "{value}"。',
   "cli.unsupportedFormat":
     '错误：tnt {command} 不支持 --format "{value}"。期望：{expected}',
   "common.slashUnknownCommand": "未知命令：{command}",
