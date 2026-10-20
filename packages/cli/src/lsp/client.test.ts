@@ -135,7 +135,20 @@ describe("documents and diagnostics", () => {
   });
 
   it("rejects rather than hanging when the server never answers", async () => {
-    const client = await startClient({ rootPath: fixtureDir, timeoutMs: 300 });
+    // One budget serves both promises: `start` asks for `initialize` through the
+    // same `request`, so 300ms was a race against spawning a real child process,
+    // and losing it failed the case with "did not answer initialize" - naming the
+    // handshake instead of the slow request. The fixture never answers `test/slow`
+    // at all, so any number below its silence exercises the timeout path.
+    const client = await startClient({ rootPath: fixtureDir, timeoutMs: 2000 });
+
+    // The handshake alone does not prove the client can answer: ask for a method
+    // the fixture serves, so a red on the next line can only be the timeout.
+    await expect(
+      client.request("textDocument/hover", {
+        position: { line: 4, character: 2 },
+      }),
+    ).resolves.toBeTruthy();
 
     await expect(client.request("test/slow", {})).rejects.toThrow(
       /did not answer test\/slow/,
