@@ -21,8 +21,8 @@ This document provides an overview of the different testing strategies used in t
 
 - [`src/utils/formatError.test.ts`](../src/utils/formatError.test.ts) - Tests error formatting utility
 - [`src/utils/exponentialBackoff.test.ts`](../src/utils/exponentialBackoff.test.ts) - Tests backoff logic
-- [`src/logging.test.ts`](../src/logging.test.ts) - Tests logging functionality
-- [`src/args.test.ts`](../src/args.test.ts) - Tests argument parsing
+- [`src/utils/logger.test.ts`](../src/utils/logger.test.ts) - Tests logging functionality
+- [`src/config/flagProcessor.test.ts`](../src/config/flagProcessor.test.ts) - Tests argument parsing
 
 **How to run**: `npm test` (includes linting)
 
@@ -90,12 +90,12 @@ This document provides an overview of the different testing strategies used in t
 
 **Service Container Testing**:
 
-- [`src/test-utils/testServiceContainer.ts`](../src/test-utils/testServiceContainer.ts) - Mock service container setup
-- [`src/test-utils/ui-test-context.ts`](../src/test-utils/ui-test-context.ts) - UI test context setup
+- [`test-utils/testServiceContainer.ts`](../test-utils/testServiceContainer.ts) - Mock service container setup
+- [`test-utils/ui-test-context.ts`](../test-utils/ui-test-context.ts) - UI test context setup
 
 **CLI Testing**:
 
-- Test helpers in [`src/test-utils/`](../src/test-utils/) for CLI command execution
+- Test helpers in [`test-utils/`](../test-utils/) for CLI command execution
 
 ### Mocks
 

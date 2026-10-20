@@ -137,7 +137,7 @@ Messages in the chat history can have different types:
 
 ### Testing
 
-- **Mock server**: `src/test-utils/mockRemoteServer.ts`
+- **Mock server**: `test-utils/mockRemoteServer.ts`
   - Complete mock implementation for testing
   - Simulates streaming and message processing
 
