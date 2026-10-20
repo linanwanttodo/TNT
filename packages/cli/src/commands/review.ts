@@ -16,7 +16,7 @@ import {
 } from "./review/diffContext.js";
 import type { ReviewResult } from "./review/renderReport.js";
 import { renderReport } from "./review/renderReport.js";
-import { resolveReviews } from "./review/resolveReviews.js";
+import { isLocalPath, resolveReviews } from "./review/resolveReviews.js";
 import { ReviewProgress } from "./review/ReviewProgress.js";
 import type { ReviewState } from "./review/ReviewProgress.js";
 import type { WorkerConfig, WorkerResult } from "./review/reviewWorker.js";
@@ -280,6 +280,20 @@ function outputResultsAndExit(
  */
 export async function review(options: ReviewOptions = {}): Promise<void> {
   configureConsoleForHeadless(false);
+
+  // A hub-shaped name can only work if hub review resolution exists, and it does not:
+  // `resolveReviews` labels such a value `hub` and the worker then hands it to
+  // `readFileSync`, which fails with ENOENT inside a worktree - after a diff and a
+  // spinner, with no hint about what to do. Refuse it before any of that.
+  const hubShaped = (options.reviewAgents ?? []).filter(
+    (agent) => !isLocalPath(agent),
+  );
+  if (hubShaped.length > 0) {
+    console.log(
+      chalk.red(t("review.hubUnavailable", { names: hubShaped.join(", ") })),
+    );
+    process.exit(1);
+  }
 
   if (options.verbose) {
     logger.setLevel("debug");

@@ -88,7 +88,7 @@ function resolveFromLocal(): ResolvedReview[] {
   return results;
 }
 
-function isLocalPath(agent: string): boolean {
+export function isLocalPath(agent: string): boolean {
   return (
     agent.startsWith(".") ||
     agent.startsWith("/") ||
