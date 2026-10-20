@@ -11,9 +11,6 @@ import {
 } from "../subagent/index.js";
 
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
-import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
-import { globFilesTool } from "./globFiles.js";
-import { enterPlanModeTool, exitPlanModeTool } from "./planMode.js";
 import { SKILLS_TOOL_META } from "./skills.js";
 import { sortToolsByName } from "./stableOrder.js";
 
@@ -40,20 +37,13 @@ const PREFIX_FINGERPRINT = "1b399a5fb3d9578a";
 const PREFIX_CHARACTERS = 21_815;
 const PREFIX_TOOLS = 29;
 
-const OFFERED_OUTSIDE_THE_REGISTRY = [
-  checkBackgroundJobTool,
-  enterPlanModeTool,
-  exitPlanModeTool,
-  globFilesTool,
-];
-
 const ARCHITECTURE_DOC = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../ARCHITECTURE-tnt.md",
 );
 
 function builtInToolPrefix(): { text: string; names: string[] } {
-  const all = [...ALL_BUILT_IN_TOOLS, ...OFFERED_OUTSIDE_THE_REGISTRY];
+  const all = [...ALL_BUILT_IN_TOOLS];
   const ordered = sortToolsByName(all);
   return {
     names: ordered.map((tool) => tool.name),
@@ -131,24 +121,20 @@ describe("the tool list as billed prefix", () => {
     }
   });
 
-  it("adds the offered tools from a list that cannot overlap the registry", () => {
-    const registry = new Set(ALL_BUILT_IN_TOOLS.map((tool) => tool.name));
-
-    // A duplicated object would silently add a billed copy of the same schema.
-    for (const tool of OFFERED_OUTSIDE_THE_REGISTRY) {
-      expect(registry.has(tool.name), tool.name).toBe(false);
-    }
-    expect(PREFIX_TOOLS).toBe(ALL_BUILT_IN_TOOLS.length + 4);
-  });
-
-  it("digests every tool the engine offers, not only the registry copy", () => {
+  it("digests the registry itself, which now holds every built-in tool", () => {
+    // The four tools this file used to append beside the registry were moved into
+    // `allBuiltIns`, so the list a request assembles and the list this digest reads
+    // are the same array; the discovery case below refuses an exported tool the
+    // digest does not reach.
+    expect(ALL_BUILT_IN_TOOLS.length).toBe(PREFIX_TOOLS);
     const { names } = builtInToolPrefix();
-
-    // These four are declared in `src/tools/index.tsx`'s own arrays, and each one
-    // really is pushed into a request: the background-job and glob tools sit in
-    // the base and search lists, the plan-mode pair in the base list.
-    for (const tool of OFFERED_OUTSIDE_THE_REGISTRY) {
-      expect(names).toContain(tool.name);
+    for (const name of [
+      "CheckBackgroundJob",
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "Glob",
+    ]) {
+      expect(names).toContain(name);
     }
   });
 

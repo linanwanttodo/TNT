@@ -132,9 +132,10 @@ The prefix is assembled in build order, each part announced so it can be attribu
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
   `1b399a5fb3d9578a` over 29 tools and 21815 characters (name + description + parameter schema, in
-  `tools/stableOrder.ts` order). The 29 are the registry copy plus the four the request assembles
-  from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`, `ExitPlanMode`,
-  `Glob`), because that surface is what a session is billed, not the copy. `tools/toolPrefixFingerprint.test.ts`
+  `tools/stableOrder.ts` order). All 29 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
+  `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
+  default-deny name list now read the same set. `tools/toolPrefixFingerprint.test.ts`
   freezes it and reads this file for the same digest, so the text cannot move without a line here: a
   reworded description is not a copy edit, it cold-starts the first request of every new session. The
   same guard discovers every `Tool` this directory exports, so declaring a built-in tool that the
@@ -240,7 +241,8 @@ lives beside:
   fired by production code, except the four it names (`TeammateIdle`, `TaskCompleted`,
   `WorktreeCreate`, `WorktreeRemove`), which a settings file accepts and nothing calls.
 - `src/permissions/policyNameCoverage.test.ts` - no tool has a policy that the
-  default-deny sweep cannot see, beyond the four it names.
+  default-deny sweep cannot see. The four names it used to allow were added to the
+  sweep on 2026-10-20, so the allowance is empty and a fifth is still refused.
 - `src/permissions/dynamicPolicyReachability.test.ts` - a tool that evaluates its
   own permission is reachable through the copy the check reads.
 - `src/tools/toolDisplayNames.test.ts` - the label a tool declares is the label the

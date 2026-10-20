@@ -5,6 +5,7 @@ import {
 
 import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
+import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 import { codebaseSearchTool } from "./codebaseSearch.js";
 import { completionTool } from "./completion.js";
 import { diagnosticsTool } from "./diagnostics.js";
@@ -12,9 +13,11 @@ import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
 import { fetchTool } from "./fetch.js";
 import { findSymbolTool } from "./findSymbol.js";
+import { globFilesTool } from "./globFiles.js";
 import { hoverTool } from "./hover.js";
 import { listFilesTool } from "./listFiles.js";
 import { multiEditTool } from "./multiEdit.js";
+import { enterPlanModeTool, exitPlanModeTool } from "./planMode.js";
 import { readFileTool } from "./readFile.js";
 import { reportFailureTool } from "./reportFailure.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
@@ -31,6 +34,7 @@ import { writeFileTool } from "./writeFile.js";
 export const ALL_BUILT_IN_TOOLS = [
   applyPatchTool,
   askQuestionTool,
+  checkBackgroundJobTool,
   codebaseSearchTool,
   completionTool,
   diagnosticsTool,
@@ -38,6 +42,9 @@ export const ALL_BUILT_IN_TOOLS = [
   exitTool,
   fetchTool,
   findSymbolTool,
+  globFilesTool,
+  enterPlanModeTool,
+  exitPlanModeTool,
   hoverTool,
   listFilesTool,
   multiEditTool,
