@@ -378,9 +378,9 @@ export class BedrockApi implements BaseLlmApi {
 
     // Add system message if present
     if (systemMessageText) {
-      body.system = false // this.config.cacheBehavior?.cacheSystemMessage // TODO
-        ? [{ text: systemMessageText }, { cachePoint: { type: "default" } }]
-        : [{ text: systemMessageText }];
+      // The cache-point branch was disabled by a literal `false` next to a TODO, so
+      // only the plain text ever shipped; keep exactly that shape.
+      body.system = [{ text: systemMessageText }];
     }
 
     // Add tool config if present

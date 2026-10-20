@@ -527,9 +527,8 @@ export class GeminiApi implements BaseLlmApi {
           })),
         }),
         headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
           "x-goog-api-key": this.config.apiKey,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
+
           "Content-Type": "application/json",
         },
       },
