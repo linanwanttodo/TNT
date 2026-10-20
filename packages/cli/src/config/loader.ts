@@ -165,7 +165,9 @@ async function loadFromSource(
           apiClient,
         );
       default:
-        throw new Error(`Unknown config source type: ${(source as any).type}`);
+        throw new Error(
+          t("config.unknownConfigSourceType", { type: (source as any).type }),
+        );
     }
   } catch (error) {
     // If we're trying user assistants and it fails, fall back to default agent
@@ -246,7 +248,7 @@ async function loadFromSavedUri(
     );
   }
 
-  throw new Error(`Invalid saved config URI: ${uri}`);
+  throw new Error(t("config.invalidSavedConfigUri", { uri }));
 }
 
 /**
@@ -458,9 +460,7 @@ async function loadAssistantSlug(
 ): Promise<AssistantUnrolled> {
   const [ownerSlug, packageSlug] = slug.split("/");
   if (!ownerSlug || !packageSlug) {
-    throw new Error(
-      `Invalid assistant slug format. Expected "owner/package", got: ${slug}`,
-    );
+    throw new Error(t("config.invalidAssistantSlug", { slug }));
   }
   // Unroll locally if not logged in
   if (!(apiClient as any).configuration.accessToken) {

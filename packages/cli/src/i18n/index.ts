@@ -444,6 +444,10 @@ const en = {
     "Login is not available. Hub authentication has been removed.",
   "startup.failedToLoadConfigFrom":
     'Failed to load config from "{path}": {error}',
+  "config.invalidAssistantSlug":
+    'Invalid assistant slug format. Expected "owner/package", got: {slug}',
+  "config.unknownConfigSourceType": "Unknown config source type: {type}",
+  "config.invalidSavedConfigUri": "Invalid saved config URI: {uri}",
   "cli.foundValidationErrors": "Found {count} validation errors.",
   "chat.blockedByPromptHook": "blocked by UserPromptSubmit hook",
   "cli.unsupportedFormat":
@@ -881,6 +885,10 @@ const zhCN: Record<TranslationKey, string> = {
   "stream.contextValidationFailed": "上下文长度校验失败：{error}",
   "auth.loginUnavailable": "登录不可用。Hub 认证已移除。",
   "startup.failedToLoadConfigFrom": '无法从 "{path}" 加载配置：{error}',
+  "config.invalidAssistantSlug":
+    '智能体 slug 格式无效。应为 "owner/package"，实际：{slug}',
+  "config.unknownConfigSourceType": "未知的配置来源类型：{type}",
+  "config.invalidSavedConfigUri": "无效的已保存配置 URI：{uri}",
   "cli.foundValidationErrors": "发现 {count} 个校验错误。",
   "chat.blockedByPromptHook": "已被 UserPromptSubmit 钩子阻止",
   "cli.unsupportedFormat":
