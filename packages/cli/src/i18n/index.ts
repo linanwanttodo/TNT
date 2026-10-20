@@ -23,6 +23,11 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "config.failedToLoadConfigWithReason": "Failed to load config: {reason}",
+  "config.failedToLoadConfigDetails": "Failed to load config:\\n{details}",
+  "config.failedToLoadDefaultAgentBody":
+    "Failed to load default agent. Body:\\n{body}",
+  "config.failedToLoadAssistant": "Failed to load assistant.",
   "intro.config": "Config",
   "intro.model": "Model",
   "intro.org": "Org",
@@ -501,6 +506,10 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "config.failedToLoadConfigWithReason": "加载配置失败：{reason}",
+  "config.failedToLoadConfigDetails": "加载配置失败：\\n{details}",
+  "config.failedToLoadDefaultAgentBody": "加载默认智能体失败。正文：\\n{body}",
+  "config.failedToLoadAssistant": "加载智能体失败。",
   "intro.config": "配置",
   "intro.model": "模型",
   "intro.org": "组织",

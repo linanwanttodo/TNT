@@ -275,7 +275,7 @@ async function loadUserAssistantWithFallback(
     if (errors?.some((e: any) => e.fatal)) {
       throw new Error(
         errors.map((e: any) => e.message).join("\n") ??
-          "Failed to load assistant.",
+          t("config.failedToLoadAssistant"),
       );
     }
     let apiConfig = result.config as AssistantUnrolled;
@@ -337,7 +337,7 @@ async function loadDefaultConfig(
 
   if (!resp.configResult.config) {
     throw new Error(
-      `Failed to load default agent. Body:\n${JSON.stringify(resp)}`,
+      t("config.failedToLoadDefaultAgentBody", { body: JSON.stringify(resp) }),
     );
   }
   let apiConfig = resp.configResult.config as AssistantUnrolled;
@@ -379,7 +379,11 @@ export async function unrollPackageIdentifiersAsConfigYaml(
   if (unrollResult.errors) {
     const fatalError = unrollResult.errors?.find((e) => e.fatal);
     if (fatalError) {
-      throw new Error(`Failed to load config: ${fatalError.message}`);
+      throw new Error(
+        t("config.failedToLoadConfigWithReason", {
+          reason: fatalError.message,
+        }),
+      );
     }
   }
   if (!unrollResult?.config) {
@@ -415,7 +419,9 @@ async function unrollAssistantWithConfig(
 
   const errorDetails = unrollResult.errors;
   if (!unrollResult.config) {
-    throw new Error(`Failed to load config:\n${errorDetails}`);
+    throw new Error(
+      t("config.failedToLoadConfigDetails", { details: String(errorDetails) }),
+    );
   } else if (errorDetails?.length) {
     const warnings =
       errorDetails?.length > 1
@@ -488,7 +494,7 @@ async function loadAssistantSlug(
   if (errors?.some((e: any) => e.fatal)) {
     throw new Error(
       errors.map((e: any) => e.message).join("\n") ??
-        "Failed to load assistant.",
+        t("config.failedToLoadAssistant"),
     );
   }
   let apiConfig = result.config as AssistantUnrolled;
