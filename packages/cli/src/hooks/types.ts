@@ -23,26 +23,11 @@ export const HOOK_EVENT_NAMES = [
   "SubagentStop",
   "PreCompact",
   "ConfigChange",
-  "TeammateIdle",
-  "TaskCompleted",
   "WorktreeCreate",
   "WorktreeRemove",
 ] as const;
 
 export type HookEventName = (typeof HOOK_EVENT_NAMES)[number];
-
-/**
- * Accepted in configuration so a hooks file written for another CLI still
- * loads, but never fired here: no code path has the equivalent moment. Named
- * explicitly so the loader can say the configuration is inert instead of
- * leaving it to look active.
- */
-export const UNFIRED_HOOK_EVENTS: readonly HookEventName[] = [
-  "TeammateIdle",
-  "TaskCompleted",
-  "WorktreeCreate",
-  "WorktreeRemove",
-];
 
 // ---------------------------------------------------------------------------
 // Hook handler configuration (what users write in settings.json)
@@ -236,21 +221,6 @@ export interface ConfigChangeInput extends HookInputBase {
   file_path?: string;
 }
 
-export interface TeammateIdleInput extends HookInputBase {
-  hook_event_name: "TeammateIdle";
-  teammate_name: string;
-  team_name: string;
-}
-
-export interface TaskCompletedInput extends HookInputBase {
-  hook_event_name: "TaskCompleted";
-  task_id: string;
-  task_subject: string;
-  task_description?: string;
-  teammate_name?: string;
-  team_name?: string;
-}
-
 export interface WorktreeCreateInput extends HookInputBase {
   hook_event_name: "WorktreeCreate";
   name: string;
@@ -275,8 +245,6 @@ export type HookInput =
   | SubagentStopInput
   | PreCompactInput
   | ConfigChangeInput
-  | TeammateIdleInput
-  | TaskCompletedInput
   | WorktreeCreateInput
   | WorktreeRemoveInput;
 
@@ -436,8 +404,6 @@ export const MATCHER_FIELD_MAP: Partial<Record<HookEventName, string>> = {
 export const NO_MATCHER_EVENTS: HookEventName[] = [
   "UserPromptSubmit",
   "Stop",
-  "TeammateIdle",
-  "TaskCompleted",
   "WorktreeCreate",
   "WorktreeRemove",
 ];

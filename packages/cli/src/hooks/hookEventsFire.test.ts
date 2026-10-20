@@ -4,17 +4,16 @@ import { fileURLToPath } from "url";
 
 import { describe, expect, it } from "vitest";
 
-import { HOOK_EVENT_NAMES, UNFIRED_HOOK_EVENTS } from "./types.js";
+import { HOOK_EVENT_NAMES } from "./types.js";
 
 const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * Naming an event in `HOOK_EVENT_NAMES` is a promise that a plugin or a
- * settings file can hang a hook on it. Four names are accepted only for
- * cross-CLI compatibility and are listed in `UNFIRED_HOOK_EVENTS`, which keeps
- * them honest; every other name has to have a `fire<Name>` wrapper in
- * fireHook.ts and a caller outside the tests, or it is a configuration that
- * silently does nothing.
+ * settings file can hang a hook on it, so every name has to have a
+ * `fire<Name>` wrapper in fireHook.ts and a caller outside the tests. The
+ * compatibility-only names this file used to excuse are gone: the worktree
+ * pair is fired by review, and the team pair was deleted with its concepts.
  */
 function productionSources(dir: string): string[] {
   const found: string[] = [];
@@ -48,10 +47,7 @@ describe("the hook events the CLI claims to support", () => {
   });
 
   it("routes every declared event to a wrapper that something calls", () => {
-    const unfired = new Set<string>(UNFIRED_HOOK_EVENTS);
-
     const inert = HOOK_EVENT_NAMES.filter((event) => {
-      if (unfired.has(event)) return false;
       const declared = new RegExp(`export (?:async )?function fire${event}\\b`);
       if (!declared.test(fireHookSource)) return true;
       const called = new RegExp(`\\bfire${event}\\(`);
@@ -61,15 +57,5 @@ describe("the hook events the CLI claims to support", () => {
     });
 
     expect(inert).toEqual([]);
-  });
-
-  it("keeps the unfired list inside the declared vocabulary", () => {
-    const declared = new Set<string>(HOOK_EVENT_NAMES);
-    expect(UNFIRED_HOOK_EVENTS.filter((event) => !declared.has(event))).toEqual(
-      [],
-    );
-    expect(UNFIRED_HOOK_EVENTS.length).toBeLessThan(
-      HOOK_EVENT_NAMES.length / 2,
-    );
   });
 });

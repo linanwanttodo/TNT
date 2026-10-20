@@ -20,12 +20,7 @@ import { getSettingsFilePaths } from "../config/settingsFiles.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { logger } from "../utils/logger.js";
 
-import {
-  HookMatcherGroup,
-  HooksConfig,
-  HookSettingsFile,
-  UNFIRED_HOOK_EVENTS,
-} from "./types.js";
+import { HookMatcherGroup, HooksConfig, HookSettingsFile } from "./types.js";
 
 /**
  * Load and parse a settings JSON file, returning only the hooks portion.
@@ -106,16 +101,6 @@ export function loadHooksConfig(
     mergedHooks = mergeHooksConfigs(mergedHooks, plugins.hooks.config);
   } catch (error) {
     logger.warn("Failed to load plugin hooks:", error);
-  }
-
-  // A configured event that nothing fires is not something the user can spot
-  // in the file, so it is said here rather than left to do nothing forever.
-  for (const event of UNFIRED_HOOK_EVENTS) {
-    if (mergedHooks[event]) {
-      logger.warn(
-        `Hook event "${event}" is configured, but this CLI never fires it, so no hook will run for it.`,
-      );
-    }
   }
 
   return { hooks: mergedHooks, disabled };

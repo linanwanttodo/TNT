@@ -26,6 +26,8 @@ import type {
   SubagentStopInput,
   StopInput,
   UserPromptSubmitInput,
+  WorktreeCreateInput,
+  WorktreeRemoveInput,
 } from "./types.js";
 
 const NOOP_RESULT: HookEventResult = { blocked: false, results: [] };
@@ -329,6 +331,38 @@ export async function fireConfigChange(
     hook_event_name: "ConfigChange",
     source,
     file_path: filePath,
+  };
+
+  return services.hooks.fireEvent(input);
+}
+
+// ---------------------------------------------------------------------------
+// Worktree events: review runs each agent in its own worktree
+// ---------------------------------------------------------------------------
+
+export async function fireWorktreeCreate(
+  name: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+
+  const input: WorktreeCreateInput = {
+    ...getCommonFields(),
+    hook_event_name: "WorktreeCreate",
+    name,
+  };
+
+  return services.hooks.fireEvent(input);
+}
+
+export async function fireWorktreeRemove(
+  worktreePath: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+
+  const input: WorktreeRemoveInput = {
+    ...getCommonFields(),
+    hook_event_name: "WorktreeRemove",
+    worktree_path: worktreePath,
   };
 
   return services.hooks.fireEvent(input);
