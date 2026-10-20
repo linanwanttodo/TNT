@@ -6,7 +6,6 @@ const options = {
   baseBranch: "main",
   changedFileCount: 1,
   format: "text" as const,
-  checksFromHub: false,
 };
 
 const reviewed = (output: string) => ({

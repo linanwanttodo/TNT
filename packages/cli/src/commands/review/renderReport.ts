@@ -23,7 +23,6 @@ export interface RenderOptions {
   baseBranch: string;
   changedFileCount: number;
   format: "text" | "json";
-  checksFromHub: boolean;
 }
 
 /**
@@ -36,7 +35,7 @@ export function renderReport(
   if (options.format === "json") {
     return renderJsonReport(results, options);
   }
-  return renderTextReport(results, options);
+  return renderTextReport(results);
 }
 
 function renderJsonReport(
@@ -87,10 +86,7 @@ function findingLine(finding: Finding): string {
   return `${finding.severity}  ${where}  ${finding.message}`;
 }
 
-function renderTextReport(
-  results: ReviewResult[],
-  options: RenderOptions,
-): string {
+function renderTextReport(results: ReviewResult[]): string {
   const isTTY = process.stdout.isTTY;
   const lines: string[] = [];
 
@@ -164,21 +160,13 @@ function renderTextReport(
   }
 
   // Migration nudge
-  if (options.checksFromHub) {
-    lines.push(
-      isTTY
-        ? chalk.dim("These reviews also run on your PRs via Continue CI.")
-        : "These reviews also run on your PRs via Continue CI.",
-    );
-  } else {
-    lines.push(
-      isTTY
-        ? chalk.dim(
-            "Tip: Run these automatically on every PR → https://github.com/linanwanttodo/TNT",
-          )
-        : "Tip: Run these automatically on every PR → https://github.com/linanwanttodo/TNT",
-    );
-  }
+  lines.push(
+    isTTY
+      ? chalk.dim(
+          "Tip: Run these automatically on every PR → https://github.com/linanwanttodo/TNT",
+        )
+      : "Tip: Run these automatically on every PR → https://github.com/linanwanttodo/TNT",
+  );
 
   return lines.join("\n");
 }

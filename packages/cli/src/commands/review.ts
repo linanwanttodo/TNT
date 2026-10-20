@@ -241,14 +241,12 @@ function outputResultsAndExit(
   results: ReviewResult[],
   diffContext: DiffContext,
   options: ReviewOptions,
-  checksFromHub: boolean,
 ): void {
   const format = options.format === "json" ? "json" : "text";
   const report = renderReport(results, {
     baseBranch: diffContext.baseBranch,
     changedFileCount: diffContext.changedFiles.length,
     format,
-    checksFromHub,
   });
 
   if (options.patch) {
@@ -340,8 +338,6 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
     console.log(chalk.yellow(t("review.none")));
     process.exit(0);
   }
-
-  const checksFromHub = reviews.some((c) => c.sourceType === "hub");
 
   // Build mutable state for the live UI and stop loading
   const reviewStates: ReviewState[] = reviews.map((c) => ({
@@ -443,5 +439,5 @@ export async function review(options: ReviewOptions = {}): Promise<void> {
   }
 
   unmountUI();
-  outputResultsAndExit(results, diffContext, options, checksFromHub);
+  outputResultsAndExit(results, diffContext, options);
 }
