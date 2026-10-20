@@ -169,3 +169,15 @@ Messages in the chat history can have different types:
 - Server binds to `127.0.0.1` (localhost only)
 - No authentication implemented (local use only)
 - File system access through tool execution
+
+## Control endpoints
+
+Two routes exist for clients that drive a session from outside the TUI. Nothing in
+this package calls them; they are part of the HTTP surface a remote client uses.
+
+- `POST /pause` - pauses the run that is in flight. Answers
+  `{ success: false, message: "No active processing to pause" }` when nothing is
+  processing, and refreshes the idle timer either way.
+- `POST /permission` - answers a pending permission request. Body:
+  `{ requestId, approved }`. Answers 400 `{ error: "No pending permission request" }`
+  when there is nothing to answer.
