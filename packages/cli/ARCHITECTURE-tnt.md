@@ -236,6 +236,9 @@ lives beside:
   command rather than a saved number.
 - `src/tools/builtInToolNames.test.ts` - the permission layer's name list equals
   `ALL_BUILT_IN_TOOLS`, in both directions.
+- `src/hooks/hookEventCoverage.test.ts` - every Claude-Code hook event the types declare is
+  fired by production code, except the four it names (`TeammateIdle`, `TaskCompleted`,
+  `WorktreeCreate`, `WorktreeRemove`), which a settings file accepts and nothing calls.
 - `src/permissions/policyNameCoverage.test.ts` - no tool has a policy that the
   default-deny sweep cannot see, beyond the four it names.
 - `src/permissions/dynamicPolicyReachability.test.ts` - a tool that evaluates its
