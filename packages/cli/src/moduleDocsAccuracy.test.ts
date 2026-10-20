@@ -196,6 +196,39 @@ describe("the module documents name files that exist", () => {
   const commands = scanCommands(docs);
   const links = scanLinks(markdownFiles(packageRoot));
 
+  it("indexes every specification file", () => {
+    // A spec nobody links is a spec no reader or agent finds, and the directory is the
+    // surface that knows - the index cannot agree with a list someone keeps by hand.
+    const specs = fs
+      .readdirSync(path.join(packageRoot, "spec"))
+      .filter((f) => f.endsWith(".md") && f !== "index.md")
+      .sort();
+    const index = fs.readFileSync(
+      path.join(packageRoot, "spec", "index.md"),
+      "utf-8",
+    );
+    const linked = new Set(
+      [...index.matchAll(/\]\(\.\/([A-Za-z0-9_-]+\.md)\)/g)].map((m) => m[1]),
+    );
+
+    expect(specs.length).toBeGreaterThan(8);
+    expect(specs.filter((f) => !linked.has(f))).toEqual([]);
+  });
+
+  it("carries no character that was already lost when the file was read", () => {
+    // A U+FFFD in a committed document means the bytes arrived as something else: the
+    // heading of `spec/wire-format.md` carried one where an arrow used to be, and the
+    // only trace of the original is the replacement character itself.
+    const broken = markdownFiles(packageRoot)
+      .filter((doc) =>
+        fs
+          .readFileSync(path.join(packageRoot, doc), "utf-8")
+          .includes("\uFFFD"),
+      )
+      .sort();
+    expect(broken).toEqual([]);
+  });
+
   it("links only files that exist", () => {
     // 29 link targets existed on the tree this case was written on; the floor sits
     // below that so a narrowed scan cannot pass by collecting nothing.

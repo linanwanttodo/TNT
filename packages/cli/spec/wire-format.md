@@ -1,4 +1,4 @@
-# HTTP Wire Protocol: `cn remote` � `cn serve`
+# HTTP Wire Protocol: `cn remote` <-> `cn serve`
 
 This document describes the HTTP protocol used for communication between the `cn remote` client and `cn serve` server
 
