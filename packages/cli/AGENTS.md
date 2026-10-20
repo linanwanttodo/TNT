@@ -67,6 +67,8 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - `handlers/`: in-process command implementations, grouped by domain
    - `dispatch.ts`: `handleSlashCommands()` entry point
    - `src/commands/`: argv subcommands (`ls`, `serve` - hidden, `checks`, `review`),
+     with `tnt ls --json` as the machine-readable listing (the root `--format` is not
+     consulted by `ls`, so passing it silently falls back to the interactive picker),
      separate from slash commands. With no subcommand the default action runs the chat
      mode and takes its first positional argument as the prompt, so `tnt chat` sends the
      word `chat` as a prompt.
