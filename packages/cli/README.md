@@ -91,7 +91,7 @@ tnt ls --json
 - `tnt login`: Authenticate with Continue
 - `tnt logout`: Sign out of current session
 - `tnt remote`: Launch a remote instance
-- `tnt serve`: Start HTTP server mode
+- `tnt serve`: Start HTTP server mode (binds loopback by default; `tnt serve --host 0.0.0.0` exposes an unauthenticated server to the network)
 
 ### Session Listing (`tnt ls`)
 

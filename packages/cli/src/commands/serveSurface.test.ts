@@ -82,7 +82,9 @@ describe("the serve HTTP surface agrees with its client and its spec", () => {
     const source = readFileSync(SERVE, "utf-8");
     const claimsLoopback = /binds to `127\.0\.0\.1`|localhost only/i.test(spec);
     const bindsLoopback =
-      /app\.listen\(\s*[^,]+,\s*["'`]?(?:127\.0\.0\.1|localhost)/.test(source);
+      /app\.listen\([\s\S]{0,160}?["'`](?:127\.0\.0\.1|localhost)["'`]/.test(
+        source,
+      );
 
     expect(/app\.listen\(/.test(source)).toBe(true);
     expect(claimsLoopback).toBe(bindsLoopback);

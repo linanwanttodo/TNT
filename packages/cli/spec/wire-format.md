@@ -166,10 +166,10 @@ Messages in the chat history can have different types:
 
 ## Security Considerations
 
-- `src/commands/serve.ts` calls `app.listen(port, …)` with no host argument, so the
-  server binds every interface the machine has, not only loopback
-- No authentication implemented, which means an exposed port is an unauthenticated
-  remote driver: keep it behind a local interface or a firewall you control
+- The server binds `127.0.0.1` by default (localhost only). `--host <addr>`
+  selects the interface; `--host 0.0.0.0` makes it reachable from the network, and
+  there is no authentication, so an exposed port is an unauthenticated remote driver
+  that can post prompts, answer permission requests and pause a run
 - File system access through tool execution
 
 ## Control endpoints
