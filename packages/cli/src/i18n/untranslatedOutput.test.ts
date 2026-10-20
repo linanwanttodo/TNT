@@ -40,6 +40,25 @@ const KNOWN_UNTRANSLATED_OUTPUT = [
   "utils/fileWatcher.ts :: File watcher error for :",
   "utils/inputHistory.ts :: Failed to load input history:",
   "utils/inputHistory.ts :: Failed to save input history:",
+  // The whole user-facing validation surface, in English; translating it is the
+  // owner's call like the rest of this list, and freezing it is what stops a
+  // seventeenth string from arriving unnoticed.
+  "config/flagValidator.ts :: Error: --allow requires a tool name (e.g., --allow readFile)",
+  "config/flagValidator.ts :: Error: --ask requires a tool name (e.g., --ask writeFile)",
+  "config/flagValidator.ts :: Error: --config must be a valid path",
+  "config/flagValidator.ts :: Error: --exclude requires a tool name (e.g., --exclude Write)",
+  "config/flagValidator.ts :: Error: --fork requires a session ID (e.g., --fork abc123)",
+  "config/flagValidator.ts :: Error: --format flag can only be used with -p/--print flag",
+  "config/flagValidator.ts :: Error: --output-schema flag can only be used with -p/--print flag",
+  "config/flagValidator.ts :: Error: --silent flag can only be used with -p/--print flag",
+  "config/flagValidator.ts :: Error: Cannot use --mode together with --readonly or --auto",
+  "config/flagValidator.ts :: Error: Cannot use both --readonly and --auto flags together",
+  "config/flagValidator.ts :: Error: Cannot use both --resume and --fork flags together",
+  'config/flagValidator.ts :: Error: -- expects a whole number between 1 and , got "".',
+  'config/flagValidator.ts :: Error: --max-steps expects a whole number of rounds of 1 or more, got "".',
+  'config/flagValidator.ts :: Error: --request-timeout expects a whole number of seconds of 0 or more, got ""',
+  'config/flagValidator.ts :: Error: Invalid --mode "". Expected one of: agent, plan, auto',
+  'config/flagValidator.ts :: Error: Unsupported --format "". Expected one of:',
 ];
 
 const SKIP_DIRS = new Set(["node_modules", "dist", "test-utils", "__mocks__"]);
@@ -81,6 +100,19 @@ export function untranslatedOutput(): string[] {
         .replace(/\s+/g, " ")
         .trim();
       if (!/[A-Za-z]{4,}/.test(literal)) continue;
+      offenders.push(`${path.relative(src, file)} :: ${literal}`);
+    }
+    // A validation error's copy is the `message` field, not a console call, so the
+    // scan above never saw it: sixteen `Error: ...` values in `config/flagValidator.ts`
+    // reached the user in English while this guard stayed green.
+    for (const call of source.matchAll(
+      /(?:message|error):\s*(["'\`])([\s\S]{0,200}?)\1/g,
+    )) {
+      const literal = (call[2] ?? "")
+        .replace(/\$\{[\s\S]*?\}/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!literal.startsWith("Error: ")) continue;
       offenders.push(`${path.relative(src, file)} :: ${literal}`);
     }
   }
