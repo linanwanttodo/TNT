@@ -58,8 +58,8 @@ const KNOWN_UNTRANSLATED_OUTPUT = [
   // that lives *inside* one is hidden from the entry. `flagValidator.ts:348` reads
   // "Found validation errors." here but really prints "Found 3 validation errors.", and
   // `chat.ts:729` shows a bare "Error:" while the sentence sat in the `??` default. The
-  // throw shape outside `src/commands/**` is likewise nobody's guard yet - measured one
-  // site, `flagValidator.ts:353` "Exiting due to validation errors".
+  // throw shape outside `src/commands/**` is counted by the ratchet below, which measures 138
+  // raw sites there today. `flagValidator.ts:353` "Exiting due to validation errors".
   "commands/chat.ts :: Error:",
   'index.ts :: echo "hello" | tnt -p',
   'index.ts :: tnt -p "analyze the code in src/"',
@@ -187,5 +187,73 @@ describe("the copy the rest of the CLI prints", () => {
     expect(
       KNOWN_UNTRANSLATED_OUTPUT.filter((known) => !offenders.has(known)),
     ).toEqual([]);
+  });
+});
+
+/**
+ * Thrown copy outside `src/commands/**`. That directory is held to zero raw throws by
+ * `src/commands/outputCopy.test.ts`, which lists every message there by text; the rest of
+ * `src` holds far too many to freeze one row per string, so the ratchet here is a count per
+ * top-level directory. Equality makes it self-flooring: a scan that broke would report an
+ * empty object rather than a passing one, and translating a message lowers its directory's
+ * number, which has to be edited down here in the same commit - the release form, not an
+ * accident.
+ *
+ * Measured 2026-10-20 at this tree: 138 occurrences (122 distinct messages). The largest
+ * buckets are the ones a terminal user meets least - `plugins` and `services` - and the
+ * rows worth reading first are `config` 15, `stream` 4, `startup` 1 and `auth` 1, where a
+ * refusal does reach the person running the command. `flagValidator.ts:353`
+ * "Exiting due to validation errors" is one of the `config` fifteen.
+ */
+const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
+  auth: 1,
+  compaction: 4,
+  config: 15,
+  lsp: 1,
+  permissions: 1,
+  plugins: 45,
+  services: 23,
+  startup: 1,
+  stream: 4,
+  subagent: 2,
+  tools: 22,
+  ui: 14,
+  utils: 5,
+};
+
+function thrownCopyCountByDirectory(): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const file of everyProductionSource(src)) {
+    const relative = path.relative(src, file);
+    if (relative.startsWith("commands" + path.sep)) continue;
+    const bucket = relative.includes(path.sep)
+      ? relative.split(path.sep)[0]
+      : "(src root)";
+    const source = fs.readFileSync(file, "utf-8");
+    for (const call of source.matchAll(/throw new (?:[A-Za-z]*Error)\(\s*/g)) {
+      const after = source.slice((call.index ?? 0) + call[0].length);
+      const quote = after[0];
+      // `t("…")` is already translated, and a re-thrown error is not copy.
+      if (quote === "t" && after[1] === "(") continue;
+      if (quote !== '"' && quote !== "'" && quote !== "`") continue;
+      const literal = after
+        .slice(1, after.indexOf(quote, 1))
+        .replace(/\$\{[^{}]*\}/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (!/[A-Za-z]{4,}/.test(literal)) continue;
+      counts[bucket] = (counts[bucket] ?? 0) + 1;
+    }
+  }
+
+  return counts;
+}
+
+describe("the copy the rest of the CLI throws", () => {
+  it("adds no raw thrown message outside the counted directories", () => {
+    expect(thrownCopyCountByDirectory()).toEqual(
+      RAW_THROWN_COPY_OUTSIDE_COMMANDS,
+    );
   });
 });
