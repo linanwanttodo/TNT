@@ -435,6 +435,8 @@ const en = {
   "cli.promptRequired":
     "Error: A prompt is required when using the -p/--print flag, unless --prompt, --agent, or --resume is provided.",
   "cli.usageExamples": "Usage examples:",
+  "cli.foundValidationErrors": "Found {count} validation errors.",
+  "chat.blockedByPromptHook": "blocked by UserPromptSubmit hook",
   "cli.unsupportedFormat":
     'Error: Unsupported --format "{value}" for tnt {command}. Expected: {expected}',
   "common.slashUnknownCommand": "Unknown command: {command}",
@@ -865,6 +867,8 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.promptRequired":
     "错误：使用 -p/--print 时必须提供提示词，除非使用 --prompt、--agent 或 --resume。",
   "cli.usageExamples": "用法示例：",
+  "cli.foundValidationErrors": "发现 {count} 个校验错误。",
+  "chat.blockedByPromptHook": "已被 UserPromptSubmit 钩子阻止",
   "cli.unsupportedFormat":
     '错误：tnt {command} 不支持 --format "{value}"。期望：{expected}',
   "common.slashUnknownCommand": "未知命令：{command}",

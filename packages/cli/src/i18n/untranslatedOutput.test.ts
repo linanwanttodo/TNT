@@ -47,14 +47,20 @@ const KNOWN_UNTRANSLATED_OUTPUT = [
   // The `safeStdout`/`safeStderr` writers (`src/startup/init.ts`) are a third print
   // surface and were invisible to both scans until now. What is left here is what a
   // Chinese-speaking user is meant to leave alone: example command lines, whose flags
-  // and arguments are tokens, and a bare `Error:` prefix. Two of the ten rows that first
-  // appeared have been translated - `index.ts`'s prompt refusal and its "Usage examples:"
-  // label. Nine e2e cases assert the English wording of that block, and they stayed green
-  // without pinning a locale, so the spawned CLI does not inherit this box's
-  // `LANG=zh_CN.UTF-8` the way a bare shell run does (proved both ways on the bundle:
-  // `node dist/tnt.js -p ""` answers 错误：… under that LANG and English under C.UTF-8).
+  // and arguments are tokens, and the `Error:` label that prefixes a hook's own reason.
+  // Two rows that first appeared here have been translated - `index.ts`'s prompt refusal
+  // with its "Usage examples:" label, and `flagValidator.ts`'s count-bearing summary - and
+  // nine e2e cases assert the English wording of the former while staying green without a
+  // locale pin, because the harness's child does not inherit this box's
+  // `LANG=zh_CN.UTF-8` the way a bare `node dist/tnt.js` run does.
+  //
+  // Read a row as a site, not as printed text: an interpolation is stripped, so English
+  // that lives *inside* one is hidden from the entry. `flagValidator.ts:348` reads
+  // "Found validation errors." here but really prints "Found 3 validation errors.", and
+  // `chat.ts:729` shows a bare "Error:" while the sentence sat in the `??` default. The
+  // throw shape outside `src/commands/**` is likewise nobody's guard yet - measured one
+  // site, `flagValidator.ts:353` "Exiting due to validation errors".
   "commands/chat.ts :: Error:",
-  "config/flagValidator.ts :: Found validation errors.",
   'index.ts :: echo "hello" | tnt -p',
   'index.ts :: tnt -p "analyze the code in src/"',
   'index.ts :: tnt -p "please review my current git diff"',

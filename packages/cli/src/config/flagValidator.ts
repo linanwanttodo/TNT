@@ -345,7 +345,9 @@ export function handleValidationErrors(errors: ValidationError[]): never {
   }
 
   if (errors.length > 1) {
-    safeStderr(`\nFound ${errors.length} validation errors.\n`);
+    safeStderr(
+      `\n${t("cli.foundValidationErrors", { count: errors.length })}\n`,
+    );
   }
 
   // Use async graceful exit without awaiting (we must satisfy never)
