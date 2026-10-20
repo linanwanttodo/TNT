@@ -125,7 +125,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
     ]);
 
   if (!configState.config || !modelState.llmApi || !modelState.model) {
-    throw new Error("Failed to initialize required services");
+    throw new Error(t("serve.servicesUnavailable"));
   }
 
   const { config, llmApi, model } = {

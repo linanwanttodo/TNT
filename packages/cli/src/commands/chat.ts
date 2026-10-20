@@ -640,11 +640,11 @@ async function runHeadlessMode(
   const { llmApi, model } = modelState;
 
   if (!model) {
-    throw new Error("No models were found.");
+    throw new Error(t("cli.noModelsFound"));
   }
 
   if (!llmApi) {
-    throw new Error("No LLM API instance found.");
+    throw new Error(t("cli.noApiClient"));
   }
 
   // Initialize service-driven history (resume if requested)
@@ -697,12 +697,7 @@ async function runHeadlessMode(
       return;
     }
 
-    throw new Error(
-      'Headless mode requires a prompt. Use: tnt -p "your prompt"\n' +
-        'Or pipe input: echo "prompt" | tnt -p\n' +
-        "Or use agent files: tnt -p --agent my-org/my-agent\n" +
-        "Note: Agent files must contain a prompt field.",
-    );
+    throw new Error(t("cli.headlessNeedsPrompt"));
   }
 
   let isFirstMessage = true;

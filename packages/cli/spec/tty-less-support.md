@@ -89,7 +89,7 @@ Ensures headless mode has all required inputs:
 
 ```typescript
 if (!prompt) {
-  throw new Error("Headless mode requires a prompt");
+  throw new Error(t("cli.headlessNeedsPrompt"));
 }
 ```
 
