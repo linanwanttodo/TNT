@@ -31,6 +31,7 @@ import { type RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
 import { noteMeasuredRequest } from "../compaction/measuredContext.js";
 import { noteRequestSent } from "../compaction/microCompact.js";
+import { t } from "../i18n/index.js";
 import { ContextBudgetTracker } from "../loop/contextBudget.js";
 import { LoopDetector, type LoopDetection } from "../loop/loopDetector.js";
 import {
@@ -331,7 +332,9 @@ export async function processStreamingResponse(
   }
 
   if (!validation.isValid) {
-    throw new Error(`Context length validation failed: ${validation.error}`);
+    throw new Error(
+      t("stream.contextValidationFailed", { error: String(validation.error) }),
+    );
   }
 
   // Create OpenAI format history with validated system message

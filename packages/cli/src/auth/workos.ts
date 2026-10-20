@@ -6,6 +6,7 @@
  * every import site.
  */
 
+import { t } from "../i18n/index.js";
 import {
   getPersistedModelName,
   persistModelName,
@@ -125,9 +126,7 @@ export async function isAuthenticated(): Promise<boolean> {
 }
 
 export async function login(): Promise<AuthConfig> {
-  throw new Error(
-    "Login is not available. Hub authentication has been removed.",
-  );
+  throw new Error(t("auth.loginUnavailable"));
 }
 
 export function logout(): void {

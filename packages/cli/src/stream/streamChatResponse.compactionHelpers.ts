@@ -8,6 +8,7 @@ import {
   isCacheCold,
   microCompactHistory,
 } from "../compaction/microCompact.js";
+import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 import { ToolCall } from "../tools/index.js";
 import { logger } from "../utils/logger.js";
@@ -225,7 +226,9 @@ export async function handlePostToolValidation(
           },
         );
         throw new Error(
-          `Context limit exceeded even after compaction: ${postCompactionValidation.error}`,
+          t("stream.contextLimitAfterCompaction", {
+            error: String(postCompactionValidation.error),
+          }),
         );
       }
 
@@ -237,9 +240,7 @@ export async function handlePostToolValidation(
     } else {
       // Compaction failed, cannot continue
       logger.error("Failed to compact history after tool execution overflow");
-      throw new Error(
-        "Context limit exceeded and compaction failed. Unable to continue.",
-      );
+      throw new Error(t("stream.contextLimitCompactionFailed"));
     }
   }
 
