@@ -4,49 +4,46 @@ import * as path from "path";
 export interface ResolvedReview {
   /** Display name for the review */
   name: string;
-  /** Hub slug (org/agent) or local file path */
+  /** Path to the review file */
   source: string;
-  /** 'hub' | 'local' */
-  sourceType: "hub" | "local";
+  /** Every resolvable source is a local file */
+  sourceType: "local";
 }
 
 /**
- * Determine which reviews to run, using three sources in order:
- * 1. CLI --agent flags (highest priority)
- * 2. Hub API (if logged in and no --agent flags)
- * 3. Local .tnt/agents/*.md and .tnt/checks/*.md (fallback)
+ * Determine which reviews to run, in one order:
+ * 1. The paths or names given on the CLI, each of which has to be a readable file
+ * 2. Local .tnt/agents/*.md and .tnt/checks/*.md
+ *
+ * There is no hub to fall back to: review resolution from the platform was removed,
+ * so a name that is not a path cannot resolve to anything and is refused here rather
+ * than carried into a worker that would try to read it as a file.
  */
 export async function resolveReviews(
   agentFlags?: string[],
 ): Promise<ResolvedReview[]> {
   // Source 1: CLI --agent flags
   if (agentFlags && agentFlags.length > 0) {
+    for (const agent of agentFlags) {
+      if (!isLocalPath(agent)) {
+        throw new Error(
+          `hub review sources are not available: ${agent} is not a file path`,
+        );
+      }
+    }
     return agentFlags.map((agent) => ({
       name: agentDisplayName(agent),
       source: agent,
-      sourceType: isLocalPath(agent) ? "local" : "hub",
+      sourceType: "local" as const,
     }));
   }
 
-  // Source 2: Hub API (silent failure if not logged in)
-  const hubReviews = await resolveFromHub();
-  if (hubReviews.length > 0) {
-    return hubReviews;
-  }
-
-  // Source 3: Local .tnt/agents/*.md and .tnt/checks/*.md
+  // Source 2: Local .tnt/agents/*.md and .tnt/checks/*.md
   const localReviews = resolveFromLocal();
   if (localReviews.length > 0) {
     return localReviews;
   }
 
-  return [];
-}
-
-/**
- * Hub review resolution has been removed.
- */
-async function resolveFromHub(): Promise<ResolvedReview[]> {
   return [];
 }
 
