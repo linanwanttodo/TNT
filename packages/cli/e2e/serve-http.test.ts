@@ -1,5 +1,7 @@
+import fs from "fs";
 import * as net from "net";
 import * as os from "os";
+import * as path from "path";
 
 import { execaNode } from "execa";
 
@@ -210,6 +212,46 @@ describe("E2E: the serve HTTP surface", () => {
       }
     }
     expect(reachable).toEqual([]);
+  }, 60000);
+
+  it("reports a bind it cannot make instead of exiting silently", async () => {
+    // A `--host` that is not an address of this machine (TEST-NET-3, reserved for
+    // documentation) used to end the process with exit 0 and no output: the listen
+    // error had no listener, so a script read "started". It has to say so and fail.
+    const globalDir = path.join(context.testDir, ".tnt");
+    fs.mkdirSync(globalDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalDir, "settings.json"),
+      JSON.stringify({ locale: "en" }),
+    );
+
+    const port = await freePort();
+    const result = await execaNode(
+      context.cliPath,
+      [
+        "serve",
+        "--config",
+        context.configPath,
+        "--port",
+        String(port),
+        "--host",
+        "203.0.113.7",
+      ],
+      {
+        cwd: context.testDir,
+        env: {
+          ...process.env,
+          CONTINUE_CLI_TEST: "true",
+          HOME: context.testDir,
+          CONTINUE_GLOBAL_DIR: globalDir,
+        },
+        reject: false,
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    const output = `${result.stdout}\n${result.stderr}`;
+    expect(output).toContain(`could not bind to 203.0.113.7:${port}`);
   }, 60000);
 
   it("reaches a non-loopback address when --host asks for it", async () => {

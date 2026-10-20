@@ -42,6 +42,7 @@ import { readStdinSync } from "../utils/stdin.js";
 import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
 import { renderServerStartupHelp } from "./serve.help.js";
 import {
+  attachBindErrorHandler,
   checkAgentComplete,
   endServedSession,
   finishServedTurn,
@@ -452,6 +453,8 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
       }
     }
   });
+
+  attachBindErrorHandler(server, options.host ?? "127.0.0.1", port);
 
   async function processMessages(state: ServerState, llmApi: any) {
     let processedMessage = false;
