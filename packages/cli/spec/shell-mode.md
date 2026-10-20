@@ -1,4 +1,4 @@
-Shell Mode (CLI TUI)
+# Shell Mode (CLI TUI)
 
 Overview
 

@@ -40,13 +40,13 @@ Each of the `--allow`, `--ask`, and `--exclude` flags allow you to set the permi
 
 ```bash
 # Allow Read, Ask Write, and Exclude Bash
-cn --allow Read --ask Write --exclude Bash
+tnt --allow Read --ask Write --exclude Bash
 
 # Start in plan mode (read-only tools only)
-cn --readonly "Help me understand this codebase"
+tnt --readonly "Help me understand this codebase"
 
 # Use mode switching during chat
-cn "Let me work on this feature"  # Starts in normal mode
+tnt "Let me work on this feature"  # Starts in normal mode
 # Then use Shift+Tab to cycle through modes
 ```
 
@@ -100,13 +100,13 @@ To use tools that normally require confirmation in headless mode, you must expli
 
 ```bash
 # Headless mode with explicit permissions for write operations
-cn -p --allow write_file "Write a hello world script"
+tnt -p --allow write_file "Write a hello world script"
 
 # Headless mode with wildcard permission (allow all tools)
-cn -p --allow "*" "Write and run a script"
+tnt -p --allow "*" "Write and run a script"
 
 # Headless mode with specific restrictions
-cn -p --exclude run_terminal_command "Clean up the codebase"
+tnt -p --exclude run_terminal_command "Clean up the codebase"
 ```
 
 This approach ensures that headless mode is secure by default while providing clear guidance on how to enable the needed permissions.

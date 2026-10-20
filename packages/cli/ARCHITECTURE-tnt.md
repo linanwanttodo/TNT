@@ -1,7 +1,8 @@
 # TNT CLI architecture
 
 Scope: `packages/cli`, `core/`, `packages/*`. The IDE extensions and the GUI under `ide/` are not part of this
-engine. Every number below is produced by a command in "How to verify", not by hand: if a command
+engine. The systematic reference - modes, cache-prefix engineering, hooks, subagents, known gaps - is
+`docs/ARCHITECTURE-tnt.md`; this file is the rulings ledger and the numbers. Every number below is produced by a command in "How to verify", not by hand: if a command
 stops agreeing with the text, the text is wrong.
 
 ## Layout
