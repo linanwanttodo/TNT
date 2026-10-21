@@ -200,7 +200,7 @@ describe("the copy the rest of the CLI prints", () => {
  * accident.
  *
  * Measured 2026-10-20 with the argument read by a paren counter rather than a lazy `);`:
- * 71 occurrences, and that scan found the two sites the head-only rule could not see - the
+ * 59 occurrences, and that scan found the two sites the head-only rule could not see - the
  * `?? "Failed to load assistant."` default in `config/loader.ts` and the ternary arm of
  * `Tool <name> not found` in `services/MCPService.ts`. Both were translated in the same
  * commit that widened the scan, so the total came back to where it was while two real
@@ -218,7 +218,7 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   services: 17,
   stream: 1,
   subagent: 2,
-  tools: 16,
+  tools: 4,
   ui: 10,
   utils: 5,
 };

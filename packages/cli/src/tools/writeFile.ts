@@ -5,6 +5,7 @@ import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 import { createTwoFilesPatch } from "diff";
 
+import { t } from "../i18n/index.js";
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import {
@@ -58,10 +59,10 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
     const filepath = args?.filepath;
     const content = args?.content ?? "";
     if (typeof filepath !== "string") {
-      throw new Error("Filepath must be a string");
+      throw new Error(t("tools.filepathMustBeString"));
     }
     if (typeof content !== "string") {
-      throw new Error("New file content must be a string");
+      throw new Error(t("tools.contentMustBeString"));
     }
     try {
       if (fs.existsSync(filepath)) {

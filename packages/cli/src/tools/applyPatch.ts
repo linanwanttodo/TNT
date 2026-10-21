@@ -3,6 +3,7 @@ import path from "path";
 
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 
+import { t } from "../i18n/index.js";
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
@@ -225,9 +226,7 @@ function checkedTargets(files: PatchedFile[]): string[] {
   return files.map((file) => {
     const resolved = path.resolve(file.path);
     if (!isWithinWorkspace(resolved)) {
-      throw new Error(
-        `ApplyPatch writes inside the workspace only; '${file.path}' is outside it.`,
-      );
+      throw new Error(t("tools.patchOutsideWorkspace", { path: file.path }));
     }
     return resolved;
   });
@@ -319,9 +318,9 @@ A '@@' line names surrounding context. Lines starting with '-' must be found in 
       checkedTargets(files);
     } catch (error) {
       throw new Error(
-        `Could not read the patch: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        t("tools.couldNotReadPatch", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
       );
     }
 

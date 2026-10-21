@@ -1,5 +1,6 @@
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
+import { t } from "../i18n/index.js";
 import {
   ApiRequestError,
   AuthenticationRequiredError,
@@ -83,19 +84,22 @@ export const reportFailureTool: Tool = {
 
       if (error instanceof AuthenticationRequiredError) {
         logger.error(error.message);
-        throw new Error("Error: Authentication required");
+        throw new Error(t("tools.authRequired"));
       }
 
       if (error instanceof ApiRequestError) {
         throw new Error(
-          `Error reporting failure: ${error.status} ${error.response || error.statusText}`,
+          t("tools.reportFailureStatus", {
+            status: error.status,
+            detail: error.response || error.statusText,
+          }),
         );
       }
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logger.error(`Error reporting failure: ${errorMessage}`);
-      throw new Error(`Error reporting failure: ${errorMessage}`);
+      throw new Error(t("tools.reportFailure", { message: errorMessage }));
     }
   },
 };

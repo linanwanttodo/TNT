@@ -6,6 +6,7 @@ import {
   type ToolPolicy,
 } from "@tnt/terminal-security";
 
+import { t } from "../i18n/index.js";
 import { backgroundJobService } from "../services/BackgroundJobService.js";
 import { services } from "../services/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
@@ -166,7 +167,7 @@ WHAT COMES BACK:
   preprocess: async (args) => {
     const command = args.command;
     if (!command || typeof command !== "string") {
-      throw new Error("command arg is required and must be a non-empty string");
+      throw new Error(t("tools.commandArgRequired"));
     }
     const truncatedCmd =
       command.length > 60 ? command.substring(0, 60) + "..." : command;

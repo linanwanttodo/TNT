@@ -1,5 +1,6 @@
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
+import { t } from "../i18n/index.js";
 import {
   ApiRequestError,
   AuthenticationRequiredError,
@@ -89,19 +90,22 @@ You should use this tool to notify the user whenever the state of your work chan
 
       if (error instanceof AuthenticationRequiredError) {
         logger.error(error.message);
-        throw new Error("Error: Authentication required");
+        throw new Error(t("tools.authRequired"));
       }
 
       if (error instanceof ApiRequestError) {
         throw new Error(
-          `Error setting status: ${error.status} ${error.response || error.statusText}`,
+          t("tools.setStatusFailedStatus", {
+            status: error.status,
+            detail: error.response || error.statusText,
+          }),
         );
       }
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logger.error(`Error setting status: ${errorMessage}`);
-      throw new Error(`Error setting status: ${errorMessage}`);
+      throw new Error(t("tools.setStatusFailed", { message: errorMessage }));
     }
   },
 };

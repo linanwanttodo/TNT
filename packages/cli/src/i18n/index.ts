@@ -23,6 +23,19 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "tools.patchOutsideWorkspace":
+    "ApplyPatch writes inside the workspace only; '{path}' is outside it.",
+  "tools.couldNotReadPatch": "Could not read the patch: {message}",
+  "tools.authRequired": "Error: Authentication required",
+  "tools.reportFailureStatus": "Error reporting failure: {status} {detail}",
+  "tools.reportFailure": "Error reporting failure: {message}",
+  "tools.setStatusFailedStatus": "Error setting status: {status} {detail}",
+  "tools.setStatusFailed": "Error setting status: {message}",
+  "tools.modelServiceUninitialized": "Model service is not initialized",
+  "tools.filepathMustBeString": "Filepath must be a string",
+  "tools.contentMustBeString": "New file content must be a string",
+  "tools.commandArgRequired":
+    "command arg is required and must be a non-empty string",
   "plugins.unsafeMarketplaceName": "Unsafe marketplace name: {name}",
   "plugins.pathOutsideCache":
     "Refusing to touch a path outside the marketplace cache: {path}",
@@ -582,6 +595,18 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "tools.patchOutsideWorkspace":
+    "ApplyPatch 只能写入工作区内部；'{path}' 在工作区之外。",
+  "tools.couldNotReadPatch": "无法读取补丁：{message}",
+  "tools.authRequired": "错误：需要身份验证",
+  "tools.reportFailureStatus": "上报失败时出错：{status} {detail}",
+  "tools.reportFailure": "上报失败时出错：{message}",
+  "tools.setStatusFailedStatus": "设置状态失败：{status} {detail}",
+  "tools.setStatusFailed": "设置状态失败：{message}",
+  "tools.modelServiceUninitialized": "模型服务尚未初始化",
+  "tools.filepathMustBeString": "filepath 必须是字符串",
+  "tools.contentMustBeString": "新文件内容必须是字符串",
+  "tools.commandArgRequired": "command 参数必填，且必须是非空字符串",
   "plugins.unsafeMarketplaceName": "不安全的插件市场名称：{name}",
   "plugins.pathOutsideCache": "拒绝操作插件市场缓存之外的路径：{path}",
   "plugins.corruptedRegistry": "插件市场注册表已损坏 {file}：{message}",
