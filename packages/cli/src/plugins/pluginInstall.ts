@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+import { t } from "../i18n/index.js";
+
 import { getPluginCacheDirectory } from "./directories.js";
 import { parseMarketplaceManifest } from "./marketplaceManager.js";
 import {
@@ -44,12 +46,12 @@ function classifyPluginSource(source: PluginSource): {
     switch (detail.source) {
       case "npm":
         if (typeof detail.package !== "string" || !detail.package) {
-          throw new PluginInstallError("An npm plugin source needs a package");
+          throw new PluginInstallError(t("plugins.npmNeedsPackage"));
         }
         return { kind: "npm", value: detail.package };
       case "github":
         if (typeof detail.repo !== "string" || !detail.repo) {
-          throw new PluginInstallError("A github plugin source needs a repo");
+          throw new PluginInstallError(t("plugins.githubNeedsRepo"));
         }
         return {
           kind: "github",
@@ -58,7 +60,7 @@ function classifyPluginSource(source: PluginSource): {
         };
       case "url":
         if (typeof detail.url !== "string" || !detail.url) {
-          throw new PluginInstallError("A url plugin source needs a url");
+          throw new PluginInstallError(t("plugins.urlNeedsUrl"));
         }
         // A url source is fetched as a git repository, which is what the name
         // means wherever it appears.
@@ -74,9 +76,7 @@ function classifyPluginSource(source: PluginSource): {
           !detail.url ||
           !detail.path
         ) {
-          throw new PluginInstallError(
-            "A git-subdir plugin source needs a url and a path",
-          );
+          throw new PluginInstallError(t("plugins.gitSubdirNeedsUrlAndPath"));
         }
         return {
           kind: "gitSubdir",
@@ -85,12 +85,10 @@ function classifyPluginSource(source: PluginSource): {
           subPath: detail.path,
         };
       case "pip":
-        throw new PluginInstallError(
-          "Python package plugins are not supported",
-        );
+        throw new PluginInstallError(t("plugins.pipUnsupported"));
       default:
         throw new PluginInstallError(
-          `Unsupported plugin source type ${String(detail.source)}`,
+          t("plugins.unsupportedSourceType", { type: String(detail.source) }),
         );
     }
   }
@@ -108,9 +106,7 @@ function classifyPluginSource(source: PluginSource): {
     return { kind: "npm", value: source.slice("npm:".length) };
   }
   if (/^[a-z][a-z0-9+.-]*:/i.test(source)) {
-    throw new PluginInstallError(
-      `Unsupported plugin source ${source}; supported forms are a relative path, github:<owner>/<repo>, git:<url>, url:<git-url> and npm:<package>`,
-    );
+    throw new PluginInstallError(t("plugins.unsupportedSource", { source }));
   }
   return { kind: "relative", value: source };
 }
@@ -145,11 +141,13 @@ export async function installPlugin(
   const marketplaces = loadKnownMarketplaces();
   const record = marketplaces[marketplaceName];
   if (!record) {
-    throw new PluginInstallError(`No marketplace named ${marketplaceName}`);
+    throw new PluginInstallError(
+      t("plugins.noMarketplace", { name: marketplaceName }),
+    );
   }
   if (!fs.existsSync(record.installLocation)) {
     throw new PluginInstallError(
-      `Marketplace ${marketplaceName} is not fetched; re-add it to refresh`,
+      t("plugins.marketplaceNotFetched", { name: marketplaceName }),
     );
   }
   const manifest = parseMarketplaceManifest(
@@ -160,7 +158,10 @@ export async function installPlugin(
   );
   if (!entry) {
     throw new PluginInstallError(
-      `Marketplace ${marketplaceName} has no plugin named ${pluginName}`,
+      t("plugins.marketplaceHasNoPlugin", {
+        marketplace: marketplaceName,
+        plugin: pluginName,
+      }),
     );
   }
 
@@ -191,7 +192,10 @@ export async function installPlugin(
     );
     if (!fs.existsSync(source)) {
       throw new PluginInstallError(
-        `Plugin source ${value} is missing from marketplace ${marketplaceName}`,
+        t("plugins.sourceMissing", {
+          source: value,
+          marketplace: marketplaceName,
+        }),
       );
     }
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -199,9 +203,7 @@ export async function installPlugin(
     fs.cpSync(source, target, { recursive: true });
   } else if (kind === "github" || kind === "git" || kind === "gitSubdir") {
     if (!deps.gitAvailable()) {
-      throw new PluginInstallError(
-        `Plugin ${id} needs git to be installed and on PATH`,
-      );
+      throw new PluginInstallError(t("plugins.needsGit", { id }));
     }
     const urls =
       kind === "github" ? await githubCloneUrls(deps, value) : [value];
@@ -216,7 +218,7 @@ export async function installPlugin(
       if (!fs.existsSync(inner)) {
         fs.rmSync(cloneTarget, { recursive: true, force: true });
         throw new PluginInstallError(
-          `Plugin ${id} declares the subdirectory ${subPath}, which the repository does not contain`,
+          t("plugins.subdirMissing", { id, path: subPath }),
         );
       }
       fs.rmSync(target, { recursive: true, force: true });
@@ -286,11 +288,13 @@ export async function installPluginWithDependencies(
   const manifestFor = (marketplace: string) => {
     const record = loadKnownMarketplaces()[marketplace];
     if (!record) {
-      throw new PluginInstallError(`No marketplace named ${marketplace}`);
+      throw new PluginInstallError(
+        t("plugins.noMarketplace", { name: marketplace }),
+      );
     }
     if (!fs.existsSync(record.installLocation)) {
       throw new PluginInstallError(
-        `Marketplace ${marketplace} is not fetched; re-add it to refresh`,
+        t("plugins.marketplaceNotFetched", { name: marketplace }),
       );
     }
     return parseMarketplaceManifest(
@@ -303,14 +307,17 @@ export async function installPluginWithDependencies(
     if (visited.has(id)) return;
     if (visiting.has(id)) {
       throw new PluginInstallError(
-        `Dependency cycle: ${[...path, id].join(" -> ")}`,
+        t("plugins.dependencyCycle", { path: [...path, id].join(" -> ") }),
       );
     }
     const manifest = manifestFor(marketplace);
     const entry = manifest.plugins.find((candidate) => candidate.name === name);
     if (!entry) {
       throw new PluginInstallError(
-        `Marketplace ${marketplace} has no plugin named ${name}`,
+        t("plugins.marketplaceHasNoPlugin", {
+          marketplace,
+          plugin: name,
+        }),
       );
     }
     visiting.add(id);

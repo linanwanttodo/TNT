@@ -23,6 +23,26 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "plugins.noMarketplace": "No marketplace named {name}",
+  "plugins.marketplaceNotFetched":
+    "Marketplace {name} is not fetched; re-add it to refresh",
+  "plugins.marketplaceHasNoPlugin":
+    "Marketplace {marketplace} has no plugin named {plugin}",
+  "plugins.sourceMissing":
+    "Plugin source {source} is missing from marketplace {marketplace}",
+  "plugins.needsGit": "Plugin {id} needs git to be installed and on PATH",
+  "plugins.subdirMissing":
+    "Plugin {id} declares the subdirectory {path}, which the repository does not contain",
+  "plugins.unsupportedSource":
+    "Unsupported plugin source {source}; supported forms are a relative path, github:<owner>/<repo>, git:<url>, url:<git-url> and npm:<package>",
+  "plugins.unsupportedSourceType": "Unsupported plugin source type {type}",
+  "plugins.npmNeedsPackage": "An npm plugin source needs a package",
+  "plugins.githubNeedsRepo": "A github plugin source needs a repo",
+  "plugins.urlNeedsUrl": "A url plugin source needs a url",
+  "plugins.gitSubdirNeedsUrlAndPath":
+    "A git-subdir plugin source needs a url and a path",
+  "plugins.pipUnsupported": "Python package plugins are not supported",
+  "plugins.dependencyCycle": "Dependency cycle: {path}",
   "services.apiClientUnavailable": "API client not available",
   "services.configUnavailable": "Config not available",
   "services.configUnavailableForMcp": "Config not available for MCP service",
@@ -546,6 +566,22 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "plugins.noMarketplace": "未找到名为 {name} 的市场",
+  "plugins.marketplaceNotFetched": "市场 {name} 尚未抓取；请重新添加以刷新",
+  "plugins.marketplaceHasNoPlugin":
+    "市场 {marketplace} 中没有名为 {plugin} 的插件",
+  "plugins.sourceMissing": "插件来源 {source} 在市场 {marketplace} 中不存在",
+  "plugins.needsGit": "插件 {id} 需要安装 git 并加入 PATH",
+  "plugins.subdirMissing": "插件 {id} 声明的子目录 {path} 在仓库中不存在",
+  "plugins.unsupportedSource":
+    "不支持的插件来源 {source}；支持的形式为相对路径、github:<owner>/<repo>、git:<url>、url:<git-url> 与 npm:<package>",
+  "plugins.unsupportedSourceType": "不支持的插件来源类型 {type}",
+  "plugins.npmNeedsPackage": "npm 插件来源需要 package",
+  "plugins.githubNeedsRepo": "github 插件来源需要 repo",
+  "plugins.urlNeedsUrl": "url 插件来源需要 url",
+  "plugins.gitSubdirNeedsUrlAndPath": "git-subdir 插件来源需要 url 与 path",
+  "plugins.pipUnsupported": "不支持 Python 包插件",
+  "plugins.dependencyCycle": "依赖环：{path}",
   "services.apiClientUnavailable": "API 客户端不可用",
   "services.configUnavailable": "配置不可用",
   "services.configUnavailableForMcp": "MCP 服务不可用：配置缺失",
