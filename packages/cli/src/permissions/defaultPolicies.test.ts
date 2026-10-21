@@ -63,16 +63,20 @@ describe("defaultPolicies", () => {
     expect(catchAllIndex).toBe(DEFAULT_TOOL_POLICIES.length - 1);
   });
 
-  it("should offer and allow the write tools in headless runs", () => {
-    const headless = getDefaultToolPolicies(true);
+  it("should default-deny write tools and Bash, with no headless exception", () => {
+    // The table does not vary by mode: a headless run cannot answer an ask,
+    // so the same ask policies are what keep writes and shell commands out of
+    // a -p request until the caller passes --allow.
+    const defaults = getDefaultToolPolicies();
 
     for (const tool of ["Write", "Edit", "MultiEdit", "Bash", "*"]) {
-      const policy = headless.find((p) => p.tool === tool);
+      const policy = defaults.find((p) => p.tool === tool);
       expect(policy, `Policy should exist for ${tool}`).toBeDefined();
-      expect(policy?.permission, `${tool} should be allowed`).toBe("allow");
+      expect(policy?.permission, `${tool} should require permission`).toBe(
+        "ask",
+      );
     }
 
-    // Read-only tools keep their allow policies.
-    expect(headless.find((p) => p.tool === "Read")?.permission).toBe("allow");
+    expect(defaults.find((p) => p.tool === "Read")?.permission).toBe("allow");
   });
 });

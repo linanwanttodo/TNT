@@ -224,7 +224,6 @@ export class ToolPermissionService
         commandLineFlags: runtimeOverrides,
         personalSettings: true, // Enable loading from ~/.tnt/permissions.yaml
         useDefaults: true,
-        isHeadless: this.currentState.isHeadless,
       });
       allPolicies = [...compiledPolicies];
     }

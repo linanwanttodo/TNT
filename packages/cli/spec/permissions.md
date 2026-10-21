@@ -71,12 +71,15 @@ entry.
 
 ## Headless mode permissions
 
-Headless runs do not prompt. `getDefaultToolPolicies(true)` gives write tools and `Bash`
-the `allow` permission instead of `ask`, and its fallback rule is `allow` as well, so a
-`-p` run may write files and run commands without asking. `--exclude` still narrows
-individual tools per run:
+Headless runs cannot answer an `ask`. The default table is the same ask baseline used in
+the TUI, so write tools, `Bash`, and the wildcard fallback are `ask`; the request builder
+excludes `ask` tools in a headless run, which means `-p` does not even offer them to the
+model. Opt a tool back in explicitly:
 
 ```bash
-# Headless run that may edit files but not run shell commands
-tnt -p --exclude Bash "Rename the helper module"
+# Allow file edits but keep shell commands unavailable
+tnt -p --allow Write --allow Edit "Rename the helper module"
+
+# Automation escape hatch: every tool, including Bash
+tnt -p --allow "*" "Run the test suite and fix what fails"
 ```

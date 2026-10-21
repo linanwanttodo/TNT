@@ -183,7 +183,7 @@ describe("getRequestTools - Tool Filtering", () => {
     expect(second).toEqual(first);
   });
 
-  test("offers the write tools in headless mode", async () => {
+  test("withholds ask tools in headless mode", async () => {
     await initializeServices({
       headless: true,
     });
@@ -191,11 +191,24 @@ describe("getRequestTools - Tool Filtering", () => {
     const tools = await getRequestTools(true);
     const toolNames = tools.map((t) => t.function.name);
 
-    // A headless run cannot prompt, so the ask-in-TUI tools behave like Bash:
-    // offered and auto-allowed. Without them a -p task could not edit files.
-    expect(toolNames).toContain("Edit");
+    // A headless run cannot answer an ask, so those tools are not offered at
+    // all. A caller that needs one opts it back in with --allow.
+    expect(toolNames).not.toContain("Edit");
+    expect(toolNames).not.toContain("Write");
+    expect(toolNames).not.toContain("MultiEdit");
+    expect(toolNames).not.toContain("Bash");
+    expect(toolNames).toContain("Read");
+  });
+
+  test("offers a write tool in headless when --allow names it", async () => {
+    await initializeServices({
+      headless: true,
+      toolPermissionOverrides: { allow: ["Write"] },
+    });
+
+    const toolNames = (await getRequestTools(true)).map((t) => t.function.name);
+
     expect(toolNames).toContain("Write");
-    expect(toolNames).toContain("MultiEdit");
-    expect(toolNames).toContain("Bash");
+    expect(toolNames).not.toContain("Bash");
   });
 });

@@ -15,7 +15,6 @@ export interface PermissionSources {
   /** ~/.tnt/permissions.yaml - third precedence */
   personalSettings?: boolean; // Whether to load from permissions.yaml
   /** Default policies - lowest precedence */
-  isHeadless?: boolean;
   useDefaults?: boolean;
 }
 
@@ -52,7 +51,7 @@ export function resolvePermissionPrecedence(
 
   // Layer 3: Default policies (lowest precedence)
   if (sources.useDefaults !== false) {
-    const defaultPolicies = getDefaultToolPolicies(sources.isHeadless);
+    const defaultPolicies = getDefaultToolPolicies();
     policies.push(...defaultPolicies);
   }
 

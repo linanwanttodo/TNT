@@ -4,13 +4,11 @@ import { ToolPermissionPolicy } from "./types.js";
  * Default permission policies for all built-in tools.
  * These policies are applied in order - first match wins.
  */
-export function getDefaultToolPolicies(
-  isHeadless = false,
-): ToolPermissionPolicy[] {
-  // Headless runs cannot prompt, so the tools that ask in the TUI behave like
-  // Bash there: offered to the model and auto-allowed. --ask/--exclude still
-  // narrow them per run.
-  const writePermission = isHeadless ? "allow" : "ask";
+export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
+  // A headless run cannot answer an "ask", and the request builder drops ask
+  // tools in that mode, so this table is the default-deny baseline for both
+  // runs. A headless caller opts a tool back in with --allow (or --allow "*").
+  const writePermission = "ask";
   const policies: ToolPermissionPolicy[] = [
     // Write tools
     { tool: "Edit", permission: writePermission, workspaceOnly: true },
@@ -43,14 +41,8 @@ export function getDefaultToolPolicies(
     { tool: "UploadArtifact", permission: "allow" },
   ];
 
-  // MCP and Bash are ask in TUI mode, auto in headless
-  if (isHeadless) {
-    policies.push({ tool: "Bash", permission: "allow" });
-    policies.push({ tool: "*", permission: "allow" });
-  } else {
-    policies.push({ tool: "Bash", permission: "ask" });
-    policies.push({ tool: "*", permission: "ask" });
-  }
+  policies.push({ tool: "Bash", permission: "ask" });
+  policies.push({ tool: "*", permission: "ask" });
 
   return policies;
 }

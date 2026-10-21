@@ -9,8 +9,9 @@ import { describe, expect, it } from "vitest";
  * asking. It carried the upstream continue CLI's shape: a `normal` mode, argument globs
  * on every tool, `write_file`/`run_terminal_command` tool names, and a headless section
  * claiming that writes require confirmation and the run exits when one is needed. The
- * measured headless default is the opposite - `getDefaultToolPolicies(true)` allows
- * writes and Bash - which is exactly the kind of sentence a reader would rely on.
+ * measured headless default now keeps that promise from the other side: ask tools are
+ * dropped from a headless request and a call that reaches approval is refused, so the
+ * page has to say that `--allow` is the way in rather than promise an automatic allow.
  *
  * Each claim is read back from the source that keeps it, and the safety-relevant ones
  * (headless defaults, exclude -> disabled, plan/auto replacing the list) are asserted in
@@ -89,11 +90,14 @@ describe("spec/permissions.md agrees with the permission sources", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  it("claims headless allows writes only while the defaults do", () => {
-    const allowsWrites = /writePermission = isHeadless \? "allow" : "ask"/.test(
-      read(POLICIES),
+  it("claims headless default-denies writes only while the defaults do", () => {
+    // The same ask table serves both modes; a headless run drops ask tools and
+    // refuses a call that reaches approval, so the page must not promise an
+    // automatic allow. Silence about the mode would hide a refusal.
+    const defaultDenies = /const writePermission = "ask"/.test(read(POLICIES));
+    expect(/Headless runs cannot answer an `ask`/.test(doc)).toBe(
+      defaultDenies,
     );
-    expect(/Headless runs do not prompt/i.test(doc)).toBe(allowsWrites);
   });
 
   it("calls excluded tools disabled while core maps them there", () => {
