@@ -33,6 +33,21 @@ export interface AutoUpdateDecision {
   alreadyAutoUpdated: boolean;
 }
 
+/**
+ * The first line of npm output that means the install failed. npm writes warnings and a
+ * debugger banner to stderr on success, so those are not failures; everything else is.
+ */
+export function firstFatalStderrLine(stderr: string): string | null {
+  for (const line of stderr.split("\n")) {
+    const lower = line.toLowerCase().trim();
+    if (!lower || lower.includes("debugger") || lower.includes("npm warn")) {
+      continue;
+    }
+    return line;
+  }
+  return null;
+}
+
 /** Every gate that guards a self-replacing `npm i -g`, in one testable place. */
 export function shouldAutoUpdate(decision: AutoUpdateDecision): boolean {
   return (
@@ -182,24 +197,14 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       const { stdout, stderr } = await execAsync("npm i -g @tnt/cli");
       logger.debug("Update output:", { stdout, stderr });
 
-      if (stderr) {
-        const errLines = stderr.split("\n");
-        for (const line of errLines) {
-          const lower = line.toLowerCase().trim();
-          if (
-            !line ||
-            lower.includes("debugger") ||
-            lower.includes("npm warn")
-          ) {
-            continue;
-          }
-          this.setState({
-            status: UpdateStatus.ERROR,
-            message: `Error updating to v${this.currentState.latestVersion}`,
-            error: new Error(stderr),
-          });
-          return;
-        }
+      const fatal = firstFatalStderrLine(stderr);
+      if (fatal) {
+        this.setState({
+          status: UpdateStatus.ERROR,
+          message: `Error updating to v${this.currentState.latestVersion}`,
+          error: new Error(stderr),
+        });
+        return;
       }
 
       this.setState({
