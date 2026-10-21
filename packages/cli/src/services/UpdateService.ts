@@ -17,6 +17,16 @@ import { UpdateServiceState, UpdateStatus } from "./types.js";
 const execAsync = promisify(exec);
 
 /**
+ * A dev build must not ask npm whether it is out of date: the published version is always
+ * "newer" than `0.0.0-dev`, and with auto-update on that comparison would try to replace
+ * the checkout the build came from. `unknown` still checks, because there is nothing to
+ * compare and the comparison comes out as "same".
+ */
+export function shouldCheckForUpdates(currentVersion: string): boolean {
+  return !/-dev\b/.test(currentVersion);
+}
+
+/**
  * Service for checking and performing CLI updates
  */
 export class UpdateService extends BaseService<UpdateServiceState> {
@@ -54,8 +64,8 @@ export class UpdateService extends BaseService<UpdateServiceState> {
     });
 
     try {
-      // skip checking for updates in dev
-      if (this.currentState.currentVersion === "0.0.0-dev") {
+      // Skip checking for updates in dev.
+      if (!shouldCheckForUpdates(this.currentState.currentVersion)) {
         this.setState({
           status: UpdateStatus.IDLE,
           message: `TNT`,
