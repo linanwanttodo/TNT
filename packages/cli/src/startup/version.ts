@@ -1,18 +1,23 @@
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 export function getVersion(): string {
   try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const packageJsonPath = join(__dirname, "../package.json");
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-    return packageJson.version;
+    const here = dirname(fileURLToPath(import.meta.url));
+    // From `dist/` the package root is one level up; from `src/startup/` it is two, so a
+    // fixed `../package.json` answered "unknown" for every caller running the sources.
+    for (const up of ["..", "../..", "../../.."]) {
+      const candidate = join(here, up, "package.json");
+      if (!existsSync(candidate)) continue;
+      const { version } = JSON.parse(readFileSync(candidate, "utf8"));
+      if (typeof version === "string" && version) return version;
+    }
   } catch {
-    console.warn("Warning: Could not read version from package.json");
-    return "unknown";
+    // A missing or malformed package.json falls through to the warning below.
   }
+  console.warn("Warning: Could not read version from package.json");
+  return "unknown";
 }
 
 // Singleton to cache the latest version result
