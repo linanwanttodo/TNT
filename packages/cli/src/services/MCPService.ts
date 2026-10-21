@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
 import { type AssistantConfig } from "@tnt/sdk";
 
+import { t } from "../i18n/index.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { getErrorString } from "../utils/error.js";
 import { logger } from "../utils/logger.js";
@@ -235,8 +236,8 @@ export class MCPService
     }
     throw new Error(
       serverName
-        ? `Tool ${name} not found on ${serverName}`
-        : `Tool ${name} not found`,
+        ? t("mcp.toolNotFoundOnServer", { name, server: serverName })
+        : t("mcp.toolNotFound", { name }),
     );
   }
 

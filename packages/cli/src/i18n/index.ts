@@ -28,6 +28,8 @@ const en = {
   "config.failedToLoadDefaultAgentBody":
     "Failed to load default agent. Body:\\n{body}",
   "config.failedToLoadAssistant": "Failed to load assistant.",
+  "mcp.toolNotFoundOnServer": "Tool {name} not found on {server}",
+  "mcp.toolNotFound": "Tool {name} not found",
   "intro.config": "Config",
   "intro.model": "Model",
   "intro.org": "Org",
@@ -510,6 +512,8 @@ const zhCN: Record<TranslationKey, string> = {
   "config.failedToLoadConfigDetails": "加载配置失败：\\n{details}",
   "config.failedToLoadDefaultAgentBody": "加载默认智能体失败。正文：\\n{body}",
   "config.failedToLoadAssistant": "加载智能体失败。",
+  "mcp.toolNotFoundOnServer": "在 {server} 上未找到工具 {name}",
+  "mcp.toolNotFound": "未找到工具 {name}",
   "intro.config": "配置",
   "intro.model": "模型",
   "intro.org": "组织",
