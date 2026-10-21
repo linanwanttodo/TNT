@@ -843,7 +843,7 @@ export function useChat({
     // Update the session with the rewound history
     updateSessionHistory(rewindedHistory);
 
-    // Force refresh of StaticChatContent to show truncated history
+    // Force refresh of the transcript to show truncated history
     if (onRefreshStatic) {
       onRefreshStatic();
     }
