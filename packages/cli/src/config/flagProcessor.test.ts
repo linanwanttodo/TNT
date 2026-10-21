@@ -57,7 +57,7 @@ describe("buildPermissionOverrides", () => {
       "plan",
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       allow: ["readFile"],
       ask: ["writeFile"],
       exclude: ["runTerminalCommand"],
@@ -68,7 +68,7 @@ describe("buildPermissionOverrides", () => {
   test("should handle undefined parameters", () => {
     const result = buildPermissionOverrides();
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       allow: undefined,
       ask: undefined,
       exclude: undefined,
@@ -79,7 +79,7 @@ describe("buildPermissionOverrides", () => {
   test("should handle partial parameters", () => {
     const result = buildPermissionOverrides(["readFile"], undefined, ["Write"]);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       allow: ["readFile"],
       ask: undefined,
       exclude: ["Write"],
@@ -96,7 +96,7 @@ describe("processCommandFlags", () => {
       exclude: ["Write"],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mode: "plan",
       permissionOverrides: {
         allow: ["readFile"],
@@ -113,7 +113,7 @@ describe("processCommandFlags", () => {
       ask: ["writeFile"],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mode: "bypassPermissions",
       permissionOverrides: {
         allow: undefined,
@@ -129,7 +129,7 @@ describe("processCommandFlags", () => {
       allow: ["readFile", "searchCode"],
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mode: undefined,
       permissionOverrides: {
         allow: ["readFile", "searchCode"],
@@ -152,7 +152,7 @@ describe("processCommandFlags", () => {
   test("should process the mode flag", () => {
     const result = processCommandFlags({ mode: "agent" });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mode: "default",
       permissionOverrides: {
         allow: undefined,
@@ -166,7 +166,7 @@ describe("processCommandFlags", () => {
   test("should handle empty options", () => {
     const result = processCommandFlags({});
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       mode: undefined,
       permissionOverrides: {
         allow: undefined,

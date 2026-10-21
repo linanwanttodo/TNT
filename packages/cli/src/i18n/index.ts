@@ -562,6 +562,15 @@ const en = {
     "Error: Cannot use both --readonly and --auto flags together",
   "cli.modeConflictsWithReadonlyAuto":
     "Error: Cannot use --mode together with --readonly or --auto",
+  "cli.invalidPermissionMode":
+    'Error: Invalid --permission-mode "{value}". Expected one of: default, acceptEdits, plan, auto, bypassPermissions, dontAsk.',
+  "cli.permissionModeConflicts":
+    "Error: --permission-mode cannot be combined with --readonly, --auto, or --mode.",
+  "cli.autoModeUnavailable":
+    "Error: --permission-mode auto is not available: the classifier is not implemented. Use default, acceptEdits, plan, bypassPermissions, or dontAsk.",
+  "cli.bypassModeRequiresFlag":
+    "Error: bypassPermissions requires --dangerously-skip-permissions (or TNT_PERMISSION_MODE=bypassPermissions).",
+  "cli.deprecatedModeAlias": "Warning: {from} is deprecated; using {to}.",
   "cli.invalidMode":
     'Error: Invalid --mode "{value}". Expected one of: agent, plan, auto',
   "cli.conflictingResumeFork":
@@ -1132,6 +1141,15 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.conflictingReadonlyAuto": "错误：不能同时使用 --readonly 和 --auto",
   "cli.modeConflictsWithReadonlyAuto":
     "错误：--mode 不能与 --readonly 或 --auto 同时使用",
+  "cli.invalidPermissionMode":
+    '错误：无效的 --permission-mode "{value}"。可选值：default、acceptEdits、plan、auto、bypassPermissions、dontAsk。',
+  "cli.permissionModeConflicts":
+    "错误：--permission-mode 不能与 --readonly、--auto 或 --mode 同时使用。",
+  "cli.autoModeUnavailable":
+    "错误：--permission-mode auto 暂不可用：分类器模式尚未实现。请使用 default、acceptEdits、plan、bypassPermissions 或 dontAsk。",
+  "cli.bypassModeRequiresFlag":
+    "错误：bypassPermissions 需要显式传入 --dangerously-skip-permissions（或设置 TNT_PERMISSION_MODE=bypassPermissions）。",
+  "cli.deprecatedModeAlias": "警告：{from} 已弃用；改用 {to}。",
   "cli.invalidMode": '错误：无效的 --mode "{value}"。可选值：agent, plan, auto',
   "cli.conflictingResumeFork": "错误：不能同时使用 --resume 和 --fork",
   "cli.forkRequiresSessionId":

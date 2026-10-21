@@ -107,7 +107,8 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   // Environment install script will be deferred until after server startup to avoid blocking
 
   // Initialize services with tool permission overrides
-  const { permissionOverrides } = processCommandFlags(options);
+  const { permissionOverrides, warnings } = processCommandFlags(options);
+  for (const warning of warnings) console.warn(warning);
 
   await initializeServices({
     options,
