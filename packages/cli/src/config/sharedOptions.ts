@@ -91,7 +91,7 @@ export function addCommonOptions(command: Command): Command {
     )
     .option(
       "--agent <slug>",
-      "Load agent file from the hub (slug in format 'owner/package')",
+      "Load an agent from a local markdown path or from the hub (slug in format 'owner/package')",
     );
 }
 
