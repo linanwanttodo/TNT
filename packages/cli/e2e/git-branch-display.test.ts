@@ -20,7 +20,8 @@ describe("E2E: Git Branch Display", () => {
 version: 1.0.0
 schema: v1
 models:
-  - model: gpt-4
+  - name: gpt-4
+    model: gpt-4
     provider: openai
     apiKey: test-key
     roles:
