@@ -16,6 +16,7 @@ import {
   loadModelFromHub,
   loadPackageFromHub,
 } from "../config/hubLoader.js";
+import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
@@ -76,9 +77,7 @@ export class AgentFileService
 
       // Only load from file path for markdown files
       if (!isMarkdownPath) {
-        throw new Error(
-          `Failed to load agent from ${agentPath}. Not a markdown file`,
-        );
+        throw new Error(t("services.agentNotMarkdown", { path: agentPath }));
       }
 
       const resolvedPath = agentPath.startsWith("file:/")
@@ -88,7 +87,10 @@ export class AgentFileService
       return parseAgentFile(content);
     } catch (e) {
       throw new Error(
-        `Failed to load agent from ${agentPath}: ${getErrorString(e)}`,
+        t("services.agentLoadFailed", {
+          path: agentPath,
+          message: getErrorString(e),
+        }),
       );
     }
   }
@@ -118,9 +120,7 @@ export class AgentFileService
 
       if (agentFile.model) {
         if (!apiClientState.apiClient) {
-          throw new Error(
-            "Cannot load agent model, failed to load api client service",
-          );
+          throw new Error(t("services.agentModelUnavailable"));
         }
         const model = await loadModelFromHub(agentFile.model);
         this.setState({
