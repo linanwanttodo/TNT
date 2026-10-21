@@ -3,6 +3,8 @@ import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 
+import { t } from "../i18n/index.js";
+
 import {
   isBlockedMarketplaceName,
   isReservedMarketplaceName,
@@ -48,38 +50,37 @@ export function parseMarketplaceManifest(
   expectedName?: string,
 ): MarketplaceManifest {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new MarketplaceManifestError(
-      "Marketplace manifest must be an object",
-    );
+    throw new MarketplaceManifestError(t("plugins.manifestNotObject"));
   }
   const value = raw as Record<string, unknown>;
   const name = typeof value.name === "string" ? value.name : "";
   if (!name) {
-    throw new MarketplaceManifestError("Marketplace manifest has no name");
+    throw new MarketplaceManifestError(t("plugins.manifestNoName"));
   }
   if (isBlockedMarketplaceName(name)) {
     throw new MarketplaceManifestError(
-      `Marketplace name impersonates an official catalogue: ${name}`,
+      t("plugins.manifestImpersonates", { name }),
     );
   }
   if (expectedName && expectedName !== name) {
     throw new MarketplaceManifestError(
-      `Marketplace declares ${name} but was added as ${expectedName}`,
+      t("plugins.manifestNameMismatch", {
+        name,
+        expected: expectedName,
+      }),
     );
   }
   const owner = value.owner as Record<string, unknown> | undefined;
   if (!owner || typeof owner.name !== "string" || !owner.name) {
-    throw new MarketplaceManifestError("Marketplace manifest has no owner");
+    throw new MarketplaceManifestError(t("plugins.manifestNoOwner"));
   }
   if (!Array.isArray(value.plugins)) {
-    throw new MarketplaceManifestError("Marketplace plugins must be a list");
+    throw new MarketplaceManifestError(t("plugins.manifestPluginsNotList"));
   }
   const plugins: MarketplacePluginEntry[] = [];
   for (const candidate of value.plugins) {
     if (!candidate || typeof candidate !== "object") {
-      throw new MarketplaceManifestError(
-        "Marketplace plugin entry is not an object",
-      );
+      throw new MarketplaceManifestError(t("plugins.manifestEntryNotObject"));
     }
     const entry = candidate as Record<string, unknown>;
     const pluginName = typeof entry.name === "string" ? entry.name : "";
@@ -94,7 +95,7 @@ export function parseMarketplaceManifest(
           );
     if (!pluginName || !sourceIsUsable) {
       throw new MarketplaceManifestError(
-        "Marketplace plugin needs both a name and a source",
+        t("plugins.manifestEntryNeedsNameAndSource"),
       );
     }
     plugins.push({
@@ -227,7 +228,7 @@ export async function addMarketplace(
   const resolved = await resolveMarketplaceSource(source, name, deps);
   if (!fs.existsSync(resolved.manifestPath)) {
     throw new MarketplaceManifestError(
-      `Marketplace manifest not found at ${resolved.manifestPath}`,
+      t("plugins.manifestNotFound", { path: resolved.manifestPath }),
     );
   }
   const manifest = parseMarketplaceManifest(
@@ -238,7 +239,7 @@ export async function addMarketplace(
   );
   if (isReservedMarketplaceName(manifest.name) && !isOfficialSource(source)) {
     throw new MarketplaceManifestError(
-      `Marketplace ${manifest.name} may only be served from the official organization`,
+      t("plugins.manifestOfficialOnly", { name: manifest.name }),
     );
   }
   const entry: KnownMarketplace = {
@@ -276,13 +277,13 @@ export async function refreshMarketplace(
 ): Promise<MarketplaceRefresh> {
   const record = loadKnownMarketplaces()[name];
   if (!record) {
-    throw new MarketplaceManifestError(`No marketplace named ${name}`);
+    throw new MarketplaceManifestError(t("plugins.noMarketplace", { name }));
   }
   // Resolved without the reuse shortcut: a refresh exists to see what changed.
   const resolved = await resolveMarketplaceSource(record.source, name, deps);
   if (!fs.existsSync(resolved.manifestPath)) {
     throw new MarketplaceManifestError(
-      `Marketplace manifest not found at ${resolved.manifestPath}`,
+      t("plugins.manifestNotFound", { path: resolved.manifestPath }),
     );
   }
   const manifest = parseMarketplaceManifest(
