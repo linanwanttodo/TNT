@@ -200,15 +200,26 @@ describe("the copy the rest of the CLI prints", () => {
  * accident.
  *
  * Measured 2026-10-20 with the argument read by a paren counter rather than a lazy `);`:
- * 33 occurrences, and that scan found the two sites the head-only rule could not see - the
- * `?? "Failed to load assistant."` default in `config/loader.ts` and the ternary arm of
- * `Tool <name> not found` in `services/MCPService.ts`. Both were translated in the same
- * commit that widened the scan, so the total came back to where it was while two real
- * messages left the raw list; the numbers below are what a broken scan or a new raw throw
- * would move. The largest buckets are the ones a terminal user meets least - `plugins` 45,
- * `services` 23, `tools` 22, `ui` 14 - and `config` 9 is where a refusal does reach the
- * person running the command. `flagValidator.ts:353` "Exiting due to validation errors" is
- * one of those nine.
+ * 33 occurrences left, after the translation lane took this total down from 138. The two
+ * sites the head-only rule could not see are in - the `?? "Failed to load assistant."`
+ * default in `config/loader.ts` and the ternary arm of `Tool <name> not found` in
+ * `services/MCPService.ts` - and both were translated in the commit that widened the scan.
+ *
+ * What is left is deliberate English under the owner's 2026-10-17 split, or structurally
+ * blocked, and this list is the whole record of that:
+ * - diagnostics: the `Error reading/list/searching` prefixes in `tools`, the
+ *   `Failed to fetch diff/state: <status>` throws in the remote hooks, the storage and
+ *   artifact `... failed ():` lines, `HTTP <status> from <url>`, `Client for <name> not
+ *   available` / `Connection <name> not found` (internal state), and the three
+ *   `Request aborted` markers in `utils/exponentialBackoff.ts`, which a test asserts by text;
+ * - control flow that never reaches a reader: `Exiting due to validation errors`, and
+ *   `Rule file not found`, which its own `catch` immediately re-throws as a read failure;
+ * - blocked by the layering guard: `utils` may not import `src/i18n` (measured, reverted),
+ *   so `Request failed:` and the environment-install failure belong at their call sites;
+ * - not established: `subagent`, `lsp` and `permissions` do not import i18n today and the
+ *   guard builds its edge names at runtime, so a new edge there is unverified; and
+ *   `plugins/marketplaceTypes.ts` has no imports at all, so giving it `t` is structural.
+ * A new raw throw still turns this red; translating one of the above lowers its number here.
  */
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   config: 2,
