@@ -1,32 +1,32 @@
-# Ctrl+C Exit Behavior
+# Ctrl+C exit behavior
 
-## Overview
+`enableSigintHandler()` in `src/index.ts` installs the SIGINT handler that governs
+leaving the interactive app. It is a two-stage exit over a 1 second window.
 
-Ctrl+C operates on two levels:
+## First press
 
-1. **Menus/Selectors**: Immediate cancellation and return to previous state
-2. **Main Application**: Two-stage exit requiring double Ctrl+C within 1 second
+- Records the time of the press.
+- Sets the exit-message flag. While the flag is set, the left side of the status bar
+  shows the `status.exit` message instead of its usual parts
+  (`BottomStatusBar.tsx`).
+- Schedules the flag to clear after 1 second.
 
-## Two-Stage Exit (Main Application)
+The app does not exit and no tool call is interrupted by this press.
 
-### First Ctrl+C
+## Second press within 1 second
 
-- Shows temporary status message "ctrl+c to exit" in bottom-left status bar
-- Message automatically disappears after 1 second
-- Clears any text in the input field (if focused)
-- Does **not** exit the application
+- Unmounts the TUI through the registered `setTUIUnmount` callback.
+- Calls `gracefulExit(0)`.
 
-### Second Ctrl+C (within 1 second)
+## Press after the window
 
-- Exits the application immediately
-- Performs graceful shutdown
+A press more than 1 second after the first is treated as a new first press: the message
+appears again and the window restarts. Leaving therefore takes two presses inside one
+second.
 
-### Second Ctrl+C (after 1 second)
+## Source
 
-- Treated as a new "first Ctrl+C"
-- Shows exit message again
-- User must press Ctrl+C twice within 1 second window to actually exit
-
-## Menu/Selector Cancellation
-
-Ctrl+C immediately cancels and returns to the previous state in all interactive menus and selectors.
+- Handler and window: `enableSigintHandler()` in `src/index.ts`
+- Message rendering: `shouldShowExitMessage()` in `src/index.ts`, read by
+  `BottomStatusBar.tsx`
+- Shutdown: `gracefulExit()` in `src/utils/exit.ts`
