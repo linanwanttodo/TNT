@@ -65,12 +65,13 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
   const settledItems = React.useMemo(() => {
     const items: React.ReactElement[] = [];
 
+    // The composer sits on the last row instead of floating under a short
+    // transcript: printing a screenful of blank lines first pushes the banner
+    // and the live frame down to the bottom, and terminal scrollback takes
+    // over once the transcript outgrows the screen.
+    items.push(<Box key="bottom-anchor" height={rows} />);
+
     if (showIntroMessage) {
-      // A fresh screen starts with the composer on the last row instead of
-      // floating under the banner: printing a screenful of blank lines first
-      // pushes the intro and the live frame down to the bottom, and terminal
-      // scrollback takes over once the transcript outgrows the screen.
-      items.push(<Box key="bottom-anchor" height={rows} />);
       items.push(<IntroMessage key="intro" />);
     }
 

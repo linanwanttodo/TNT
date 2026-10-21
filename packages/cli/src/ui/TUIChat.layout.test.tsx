@@ -23,26 +23,28 @@ describe("TUIChat layout", () => {
 
   afterEach(() => context.cleanup());
 
-  it("sizes the frame to its content and keeps the composer last", () => {
+  it("anchors the first screen and keeps the composer last", () => {
     const { lastFrame, unmount } = render(<AppRoot />);
 
     try {
       const lines = (lastFrame() ?? "").split("\n");
-      const lastLine = lines.length - 1;
 
-      // No blank rows are inserted to fill the terminal: the frame is only as
-      // tall as the composer and the two status rows, so everything the
-      // transcript prints above them stays on screen.
-      expect(lines).toHaveLength(5);
-      expect(lines.filter((line) => line.trim() === "")).toHaveLength(0);
+      // The anchor is one terminal-height block of blank rows (the mock says
+      // 12); it pushes the banner and the live frame to the bottom so the
+      // composer does not float under a short transcript.
+      expect(lines.length).toBeGreaterThan(12);
+      expect(lines.slice(0, 12).every((line) => line === "")).toBe(true);
 
-      // The usage line is the bottom of the screen, and it is alone there.
-      expect(lines[lastLine]).toContain("Context");
-      expect(lines[lastLine]).not.toContain("╰");
-      expect(lines[lastLine - 1]).toContain("TNT");
-      expect(lines[lastLine - 2]).toContain("╰");
-      expect(lines[lastLine - 3]).toContain("Ask anything");
-      expect(lines[lastLine - 4]).toContain("╭");
+      const content = lines.filter((line) => line.trim() !== "");
+      const composer = content.slice(-5);
+      expect(composer[0]).toContain("╭");
+      expect(composer[1]).toContain("Ask anything");
+      expect(composer[2]).toContain("╰");
+      expect(composer[3]).toContain("TNT");
+      expect(composer[4]).toContain("Context");
+
+      // Nothing follows the usage line: it is the bottom of the screen.
+      expect(lines[lines.length - 1]).toContain("Context");
     } finally {
       unmount();
     }
