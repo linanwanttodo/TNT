@@ -27,6 +27,10 @@ export interface ValidationOptions {
   resume?: boolean;
   fork?: string;
 
+  // Hub-backed flags whose loader has been removed
+  model?: string[];
+  mcp?: string[];
+
   // Permission flags
   allow?: string[];
   ask?: string[];
@@ -315,6 +319,26 @@ function validatePermissionOverridesWithMode(
   ];
 }
 
+/**
+ * `--model` and `--mcp` only ever loaded packages from the hub, and `loadPackageFromHub`
+ * has thrown since hub loading was removed. Measured on the bundle: both flags were accepted
+ * and silently ignored - a configured model answered the request. They are refused now, the
+ * way a flag that cannot do its job should be.
+ */
+function validateHubFlags(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+  if (options.model?.length) {
+    errors.push({
+      code: "MODEL_FLAG_REMOVED",
+      message: t("cli.modelFlagRemoved"),
+    });
+  }
+  if (options.mcp?.length) {
+    errors.push({ code: "MCP_FLAG_REMOVED", message: t("cli.mcpFlagRemoved") });
+  }
+  return errors;
+}
+
 export function validateFlags(options: ValidationOptions): ValidationResult {
   const allErrors: ValidationError[] = [];
 
@@ -331,6 +355,7 @@ export function validateFlags(options: ValidationOptions): ValidationResult {
     validateConfigPath,
     validatePermissionFlags,
     validatePermissionOverridesWithMode,
+    validateHubFlags,
   ];
 
   for (const validator of validators) {

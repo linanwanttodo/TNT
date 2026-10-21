@@ -398,3 +398,24 @@ describe("the tool-name hints", () => {
     }
   });
 });
+
+describe("flags whose hub loader was removed", () => {
+  test("refuse --model and --mcp instead of ignoring them", () => {
+    const result = validateFlags({
+      model: ["owner/pkg"],
+      mcp: ["owner/pkg"],
+    } as never);
+
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).toContain("MODEL_FLAG_REMOVED");
+    expect(codes).toContain("MCP_FLAG_REMOVED");
+  });
+
+  test("say nothing when neither flag is given", () => {
+    const result = validateFlags({} as never);
+
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).not.toContain("MODEL_FLAG_REMOVED");
+    expect(codes).not.toContain("MCP_FLAG_REMOVED");
+  });
+});

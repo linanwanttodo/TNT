@@ -31,7 +31,7 @@ export function addCommonOptions(command: Command): Command {
     )
     .option(
       "--mcp <slug>",
-      "Add an MCP server from the hub (slug in format 'owner/package'). Can be specified multiple times.",
+      "Deprecated: MCP servers were loaded from the hub, which has been removed. Add MCP servers to the assistant configuration file instead.",
       (value: string, previous: string[] | undefined) => {
         const array = Array.isArray(previous) ? previous : [];
         array.push(value);
@@ -41,7 +41,7 @@ export function addCommonOptions(command: Command): Command {
     )
     .option(
       "--model <slug>",
-      "Add a model from the hub (slug in format 'owner/package'). Can be specified multiple times.",
+      "Deprecated: model packages were loaded from the hub, which has been removed. Add models to the assistant configuration file instead.",
       (value: string, previous: string[] | undefined) => {
         const array = Array.isArray(previous) ? previous : [];
         array.push(value);
