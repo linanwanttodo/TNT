@@ -1,56 +1,42 @@
 # Onboarding
 
-When a user first runs `tnt` in interactive mode, they will be taken through "onboarding". After they have completed onboarding once, they will follow a normal config loading flow.
+Onboarding runs once per installation. `initializeWithOnboarding` is called from
+`initializeServices` only when the run is not headless and `skipOnboarding` is false, so
+`-p` and `serve` never enter it (`src/services/index.ts`).
 
-## Onboarding flow
+## First-run check
 
-**The onboarding flow runs when the user hasn't completed onboarding before, regardless of whether they have a valid config.yaml file.**
+Completion is recorded by `~/.tnt/.onboarding_complete` - `isFirstTime` checks for the
+file and `markOnboardingComplete` writes an ISO timestamp into it. The marker is only
+written when `runOnboardingFlow` returns true.
 
-1. If the --config flag is provided, load this config
-2. If the CONTINUE_USE_BEDROCK environment variable is set to "1", automatically use AWS Bedrock configuration and skip interactive prompts
-3. Present the user with available options:
+## When `--config` is given
 
-   - Log in with Continue: log them in, which will automatically create their assistant and then we can load the first assistant from the first org
-   - Enter your Anthropic API key: let them enter the key, and then either create a ~/.tnt/config.yaml with the following contents OR update the existing config.yaml to add the model
+The config is loaded and validated first; a failure throws
+`startup.failedToLoadConfigFrom` with the path and the error. `runOnboardingFlow` then
+returns false, so a supplied config neither runs the interactive setup nor marks
+onboarding complete.
 
-   ```yaml
-   name: Local Config
-   version: 1.0.0
-   schema: v1
+## `CONTINUE_USE_BEDROCK=1`
 
-   models:
-     - uses: anthropic/claude-4-sonnet
-       with:
-         ANTHROPIC_API_KEY: <THEIR_ANTHROPIC_API_KEY>
-   ```
+Before any prompt, the flow prints the `setup.bedrock` message and returns true, so
+onboarding is marked complete. AWS credentials must already be available through the
+standard credential chain.
 
-   When CONTINUE_USE_BEDROCK=1 is detected, it will use AWS Bedrock configuration. The user must have AWS credentials configured through the standard AWS credential chain (AWS CLI, environment variables, IAM roles, etc.).
+## Test, CI, and non-TTY runs
 
-When something in the onboarding flow is done automatically, we should tell the user what happened. For example, when CONTINUE_USE_BEDROCK=1 is detected, the CLI displays: "✓ Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)"
+When `NODE_ENV=test`, `CI=true`, `VITEST=true`, `GITHUB_ACTIONS=true`, or stdin is not a
+TTY, no prompt runs. If `ANTHROPIC_API_KEY` is set the flow prints
+`startup.anthropicKey`; either way it returns false and does not write the marker.
 
-### AWS Bedrock Environment Variable
+## Interactive runs
 
-Users can bypass the interactive onboarding menu by setting the `CONTINUE_USE_BEDROCK` environment variable to "1":
+`runProviderSetup()` asks for the provider, its base URL, key and model; `writeConfig()`
+writes the resulting configuration and the flow prints `setup.saved` with the path. No
+login or hosted assistant is required.
 
-```bash
-export CONTINUE_USE_BEDROCK=1
-tnt <command>
-```
+## Source
 
-This will:
-
-- Skip the interactive onboarding prompts
-- Automatically configure the CLI to use AWS Bedrock
-- Require that AWS credentials are already configured through the standard AWS credential chain
-- Display a confirmation message to the user
-- Mark onboarding as completed
-
-## Normal flow
-
-**The normal flow runs when the user has already completed onboarding.**
-
-1. If the --config flag is provided, load this config
-2. If the user is logged in, look for the first assistant in the selected org
-3. If there are no assistants in that org, then look for a local ~/.tnt/config.yaml
-4. If there is no config.yaml, look for an ANTHROPIC_API_KEY in the environment and manually construct the config object to include just the claude-4-sonnet model with that API key
-5. If none of the above, then bring the user to step 3 of the onboarding flow
+- `src/startup/onboarding.ts` - the flow, first-run check and marker
+- `src/config/providerSetup.ts` - provider prompt and config writing
+- `src/services/index.ts` - when onboarding is invoked
