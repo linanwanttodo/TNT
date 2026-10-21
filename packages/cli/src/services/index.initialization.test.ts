@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { writeMinimalConfig } from "../../test-utils/minimalConfig.js";
+
 import { serviceContainer } from "./ServiceContainer.js";
 import type { ToolPermissionServiceState } from "./ToolPermissionService.js";
 
@@ -7,6 +9,7 @@ import { getServiceSync, initializeServices, SERVICE_NAMES } from "./index.js";
 
 describe("Service Initialization", () => {
   beforeEach(() => {
+    writeMinimalConfig();
     // Clean up service container state
 
     Object.keys(SERVICE_NAMES).forEach((service) => {

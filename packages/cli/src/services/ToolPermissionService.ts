@@ -185,7 +185,6 @@ export class ToolPermissionService
       case "dontAsk":
         return [...DONT_ASK_MODE_POLICIES];
       case "default":
-      case "acceptEdits":
       default:
         return [];
     }

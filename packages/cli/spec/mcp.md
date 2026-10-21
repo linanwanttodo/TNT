@@ -15,27 +15,27 @@ Server definitions live in `mcp.json`, not in `config.yaml`:
   read-only and also trust-gated
 
 Each file is `{ "mcpServers": { "<name>": { "command": ..., "args": [...] } } }`.
-Servers merge by name: a project file replaces a user server with the same name
-and leaves the others alone. `mcpServers` in `config.yaml` is still read for one
-version with a deprecation warning.
+Files apply in the order listed above, and servers merge by name: a later file
+replaces an earlier server with the same name and leaves the others alone. The
+root `.mcp.json` therefore wins over a TNT project server of the same name.
+`mcpServers` in `config.yaml` is still read for one version with a deprecation
+warning.
 
 ## Secret Resolution
 
-MCP server configurations often require secrets (API keys, tokens, etc.) referenced using template variables like `${{ secrets.API_KEY }}`. The CLI resolves these secrets in the following order:
+MCP server entries in `mcp.json` are connected exactly as written: template
+variables are not expanded there. A server whose configuration still contains a
+`${{ secrets.NAME }}` reference gets an unresolved-secret warning, and in
+headless mode it fails to start instead of running with the literal text.
 
-1. **Organization/Package Secrets**: First attempts to resolve secrets through the Continue API for organization or package-level secrets
-2. **Local Environment Variables**: Falls back to local environment variables if:
-   - The API secret exists but isn't accessible locally (e.g., in devboxes or restricted environments)
-   - The secret isn't found in organization/package secrets
+For a stdio server, export the value in the parent environment: the CLI passes
+its own environment through to the child process, so a server that reads
+`API_KEY` from its environment works without any templating.
 
-Local environment variables are checked in this priority order:
-
-- `process.env` (runtime environment variables)
-- `~/.tnt/.env`
-- `<workspace>/.tnt/.env`
-- `<workspace>/.env`
-
-This fallback mechanism ensures MCP servers can start successfully in environments where organization secrets aren't accessible, such as development containers or CI/CD pipelines, by allowing environment variables to provide the required credentials.
+The deprecated `config.yaml:mcpServers` path is different: those entries are
+expanded during config unrolling against the process environment, then
+`~/.tnt/.env`, then `<workspace>/.tnt/.env`, then `<workspace>/.env`. Move
+server definitions to `mcp.json` and use one of the two approaches above.
 
 ## MCP Service
 

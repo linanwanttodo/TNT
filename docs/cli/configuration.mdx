@@ -9,12 +9,18 @@ TNT resolves its configuration in this order, first match wins:
 
 1. `--config <path>` passed at launch.
 2. `~/.tnt/config.yaml`, the user-level configuration.
-3. The built-in default configuration.
+3. No configuration: the interactive setup runs and writes `~/.tnt/config.yaml`.
 
-`/config` switches configuration inside a session; the choice is remembered for
-the next launch.
+Only local files are read. A `--config` value that is not a path, such as a
+published assistant slug, is refused at startup.
+
+`/config` opens the configuration selector, which lists the local
+`config.yaml`.
 
 ## The config file
+
+`config.yaml` holds the model definitions and the rules. Model definitions and
+the selected model always live in this one file.
 
 ```yaml title="~/.tnt/config.yaml"
 name: TNT
@@ -32,11 +38,6 @@ models:
     model: claude-sonnet-4-5
     apiKey: ${{ secrets.ANTHROPIC_API_KEY }}
 
-mcpServers:
-  - name: filesystem
-    command: npx
-    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
-
 rules:
   - Use the existing test helpers instead of new fixtures.
 ```
@@ -44,17 +45,49 @@ rules:
 | Field | Contents |
 | --- | --- |
 | `models` | the models the agent can run, see [Models](/cli/models) |
-| `mcpServers` | MCP servers to connect, see [MCP](/cli/mcp) |
 | `rules` | instructions prepended to the system message |
-| `permissions` | tool policies, see [Permissions](/cli/permissions) |
+
+Everything else lives in its own file:
+
+| File | Contents |
+| --- | --- |
+| `~/.tnt/settings.json` | permissions, hooks, environment, locale, output style, default mode |
+| `~/.tnt/mcp.json` | MCP servers, see [MCP](/cli/mcp) |
+
+`mcpServers` and `permissions` are not read from `config.yaml`; MCP servers
+belong in `mcp.json` and tool policies in the `permissions` key of
+`settings.json`.
+
+## Settings files
+
+Settings are read from six files, later files winning:
+
+1. `~/.claude/settings.json`
+2. `~/.tnt/settings.json`
+3. `.claude/settings.json` in the workspace
+4. `.tnt/settings.json` in the workspace
+5. `.claude/settings.local.json` in the workspace
+6. `.tnt/settings.local.json` in the workspace
+
+The project layers are applied only after the project is trusted, because they
+can grant permissions and register hooks. TNT prints a warning and ignores them
+otherwise. Run `tnt --trust-project`, or set `TNT_TRUST_PROJECT=1`, to record
+the current contents as trusted; editing a trusted file revokes trust.
+
+`permissions.yaml` is still read when `settings.json` has no `permissions`
+section, with a deprecation warning. It is never written again; new rules go to
+`settings.json`.
 
 ## Directory layout
 
 | Path | Purpose |
 | --- | --- |
-| `~/.tnt/config.yaml` | user configuration |
-| `~/.tnt/permissions.yaml` | permission policies |
-| `~/.tnt/settings.json` | hooks and settings |
+| `~/.tnt/config.yaml` | models and rules |
+| `~/.tnt/mcp.json` | MCP servers |
+| `~/.tnt/settings.json` | permissions, hooks and settings |
+| `~/.tnt/auth.json` | credentials |
+| `~/.tnt/trusted-projects.json` | content hashes of trusted projects |
+| `~/.tnt/permissions.yaml` | legacy permission policies (read-only) |
 | `~/.tnt/sessions/` | saved sessions |
 | `~/.tnt/skills/` | user skills |
 | `~/.tnt/plugins/` | installed plugins |

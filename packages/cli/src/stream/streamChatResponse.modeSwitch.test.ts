@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { writeMinimalConfig } from "../../test-utils/minimalConfig.js";
 import {
   SERVICE_NAMES,
   initializeServices,
@@ -12,6 +13,8 @@ import { getRequestTools } from "./handleToolCalls.js";
 describe("streamChatResponse - Mode Switch During Streaming", () => {
   const toolPermissionService = services.toolPermissions;
   beforeEach(async () => {
+    writeMinimalConfig();
+
     // Clean up service container state before each test
     Object.values(SERVICE_NAMES).forEach((service) => {
       (serviceContainer as any).services.delete(service);

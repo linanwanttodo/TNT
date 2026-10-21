@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { writeMinimalConfig } from "../../test-utils/minimalConfig.js";
 import {
   getServiceSync,
   initializeServices,
@@ -12,6 +13,7 @@ import { getRequestTools } from "./handleToolCalls.js";
 
 describe("getRequestTools - Tool Filtering", () => {
   beforeEach(() => {
+    writeMinimalConfig();
     // Clean up service container state before each test
     Object.values(SERVICE_NAMES).forEach((service) => {
       // Reset service state
