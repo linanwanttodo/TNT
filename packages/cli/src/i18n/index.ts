@@ -23,6 +23,11 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "services.apiClientUnavailable": "API client not available",
+  "services.configUnavailable": "Config not available",
+  "services.configUnavailableForMcp": "Config not available for MCP service",
+  "mcp.serversFailedToLoad": "MCP server(s) failed to load:\n{errors}",
+  "mcp.serverNotConfigured": "Server {server} not found in configuration",
   "config.noModels": "No models found in the configured assistant",
   "config.noChatModels":
     "No models with the chat role found in the configured assistant",
@@ -541,6 +546,11 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "services.apiClientUnavailable": "API 客户端不可用",
+  "services.configUnavailable": "配置不可用",
+  "services.configUnavailableForMcp": "MCP 服务不可用：配置缺失",
+  "mcp.serversFailedToLoad": "MCP 服务器加载失败：\n{errors}",
+  "mcp.serverNotConfigured": "配置中未找到服务器 {server}",
   "config.noModels": "所配置的助手中没有模型",
   "config.noChatModels": "所配置的助手中没有具备 chat 角色的模型",
   "config.llmInitFailed": "初始化 LLM 失败。请检查你的配置。",
