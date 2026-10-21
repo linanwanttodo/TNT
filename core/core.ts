@@ -1466,7 +1466,7 @@ export class Core {
         //     .then((userSelection) => {
         //       if (userSelection === toastOption) {
         //         void this.ide.openUrl(
-        //           "https://github.com/linanwanttodo/TNT/tree/main/docs/cli/models",
+        //           "https://github.com/linanwanttodo/TNT/tree/main/docs/cli/models.mdx",
         //         );
         //       }
         //     });
