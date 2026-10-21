@@ -1,3 +1,4 @@
+import { t } from "../i18n/index.js";
 /**
  * Delegation depth bookkeeping.
  *
@@ -51,9 +52,7 @@ export function resolveChildDepth(
   const parentDepth = delegationDepthOf(header, parent.delegationDepth);
   const childDepth = parentDepth + 1;
   if (!Number.isSafeInteger(childDepth)) {
-    throw new RangeError(
-      `Delegation depth overflowed: parent was at ${parentDepth}.`,
-    );
+    throw new RangeError(t("subagent.depthOverflow", { depth: parentDepth }));
   }
   if (childDepth > parent.maxDelegationDepth) {
     throw new SubagentDepthError(childDepth, parent.maxDelegationDepth);

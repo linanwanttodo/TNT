@@ -5,6 +5,7 @@ import { writeFileAtomically } from "core/util/atomicWrite.js";
 import YAML from "yaml";
 
 import { env } from "../config/env.js";
+import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
 
 import { PermissionPolicy, ToolPermissionPolicy } from "./types.js";
@@ -87,7 +88,7 @@ export function parseToolPattern(
 ): ToolPermissionPolicy {
   const match = pattern.match(/^([^(]+)(?:\(([^)]*)\))?$/);
   if (!match) {
-    throw new Error(`Invalid tool pattern: ${pattern}`);
+    throw new Error(t("permissions.invalidToolPattern", { pattern }));
   }
 
   const [, toolName, args] = match;

@@ -1,6 +1,7 @@
 import type { ChatHistoryItem } from "core";
 
 import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
+import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 import { ModelServiceState } from "../services/types.js";
 import { getCurrentSession, saveSubagentSession } from "../session/index.js";
@@ -92,7 +93,7 @@ export async function executeSubAgent(
 
     const { model, llmApi } = subAgent;
     if (!model || !llmApi) {
-      throw new Error("Model or LLM API not available");
+      throw new Error(t("subagent.modelUnavailable"));
     }
 
     const maxDelegationDepth =
