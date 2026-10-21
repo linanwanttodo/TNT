@@ -12,6 +12,7 @@ import {
 } from "../compaction/index.js";
 import { processCommandFlags } from "../config/flagProcessor.js";
 import type { OutputFormat } from "../config/outputFormat.js";
+import { loadSettings } from "../config/settings.js";
 import { runCompletionNotify } from "../hooks/completionNotify.js";
 import {
   fireSessionEnd,
@@ -615,7 +616,10 @@ async function runHeadlessMode(
   options: ChatOptions,
 ): Promise<void> {
   // Initialize services for headless mode
-  const { permissionOverrides, warnings } = processCommandFlags(options);
+  const { permissionOverrides, warnings } = processCommandFlags(
+    options,
+    loadSettings().defaultMode,
+  );
   for (const warning of warnings) console.warn(warning);
 
   // Loaded before the services start so a bad file fails in seconds instead of
@@ -825,7 +829,10 @@ export async function chat(prompt?: string, options: ChatOptions = {}) {
     // If not in headless mode, use unified initialization with TUI
     if (!options.headless) {
       // Process flags for TUI mode
-      const { permissionOverrides, warnings } = processCommandFlags(options);
+      const { permissionOverrides, warnings } = processCommandFlags(
+        options,
+        loadSettings().defaultMode,
+      );
       for (const warning of warnings) console.warn(warning);
       // Initialize services with onboarding handled internally
       await initializeServices({

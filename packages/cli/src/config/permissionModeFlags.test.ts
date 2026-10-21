@@ -92,3 +92,48 @@ describe("--permission-mode parsing and gating", () => {
     ).toThrow(/cannot be combined/);
   });
 });
+
+describe("settings.json defaultMode as the startup fallback", () => {
+  it("selects the mode when no flag or env names one", () => {
+    expect(
+      resolveModeFromFlags({ settingsDefaultMode: "plan", env: {} }).mode,
+    ).toBe("plan");
+  });
+
+  it("keeps the flag and the environment above settings", () => {
+    expect(
+      resolveModeFromFlags({
+        permissionMode: "default",
+        settingsDefaultMode: "plan",
+        env: {},
+      }).mode,
+    ).toBe("default");
+    expect(
+      resolveModeFromFlags({
+        settingsDefaultMode: "plan",
+        env: { TNT_PERMISSION_MODE: "acceptEdits" },
+      }).mode,
+    ).toBe("acceptEdits");
+  });
+
+  it("refuses auto with a settings-flavored reason", () => {
+    expect(() =>
+      resolveModeFromFlags({ settingsDefaultMode: "auto", env: {} }),
+    ).toThrow(/defaultMode.*classifier/s);
+  });
+
+  it("refuses an unknown value at startup", () => {
+    expect(() =>
+      resolveModeFromFlags({ settingsDefaultMode: "yolo", env: {} }),
+    ).toThrow(/defaultMode/);
+  });
+
+  it("counts a persisted bypassPermissions as the explicit setting", () => {
+    expect(
+      resolveModeFromFlags({
+        settingsDefaultMode: "bypassPermissions",
+        env: {},
+      }).mode,
+    ).toBe("bypassPermissions");
+  });
+});

@@ -27,6 +27,8 @@ export interface ModeInput {
   mode?: string;
   /** Explicit opt-in for bypassPermissions. */
   dangerouslySkipPermissions?: boolean;
+  /** settings.json's defaultMode, consulted only after the flags and the env. */
+  settingsDefaultMode?: string;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -54,6 +56,17 @@ function requireKnownMode(value: string): PermissionMode {
 function modeFromEnv(env: NodeJS.ProcessEnv): PermissionMode | undefined {
   const value = env.TNT_PERMISSION_MODE ?? env.CLAUDE_CODE_PERMISSION_MODE;
   return value ? requireKnownMode(value) : undefined;
+}
+
+/** settings.json's defaultMode obeys the same mode table as the flag. */
+function requireSettingsMode(value: string): PermissionMode {
+  if (!PERMISSION_MODES.includes(value as PermissionMode)) {
+    throw new Error(stripPrefix(t("settings.invalidDefaultMode", { value })));
+  }
+  if (value === "auto") {
+    throw new Error(stripPrefix(t("settings.autoDefaultModeUnavailable")));
+  }
+  return value as PermissionMode;
 }
 
 /**
@@ -137,6 +150,12 @@ export function resolveModeFromFlags(input: ModeInput): {
     return { mode: envMode, warnings };
   }
 
+  if (input.settingsDefaultMode) {
+    // A persisted bypassPermissions is an explicit setting, like
+    // TNT_PERMISSION_MODE, so it does not need the flag opt-in.
+    return { mode: requireSettingsMode(input.settingsDefaultMode), warnings };
+  }
+
   return { mode: undefined, warnings };
 }
 
@@ -174,17 +193,23 @@ export function buildPermissionOverrides(
  * Processes all command line flags into a consistent structure
  * Eliminates duplication and provides single source of truth for flag processing
  */
-export function processCommandFlags(options: {
-  permissionMode?: string;
-  readonly?: boolean;
-  auto?: boolean;
-  mode?: string;
-  dangerouslySkipPermissions?: boolean;
-  allow?: string[];
-  ask?: string[];
-  exclude?: string[];
-}): ProcessedFlags {
-  const { mode, warnings } = resolveModeFromFlags(options);
+export function processCommandFlags(
+  options: {
+    permissionMode?: string;
+    readonly?: boolean;
+    auto?: boolean;
+    mode?: string;
+    dangerouslySkipPermissions?: boolean;
+    allow?: string[];
+    ask?: string[];
+    exclude?: string[];
+  },
+  settingsDefaultMode?: string,
+): ProcessedFlags {
+  const { mode, warnings } = resolveModeFromFlags({
+    ...options,
+    settingsDefaultMode,
+  });
 
   const permissionOverrides = buildPermissionOverrides(
     options.allow,

@@ -24,9 +24,10 @@ in `mcp.json`; see [permissions.md](./permissions.md) and [mcp.md](./mcp.md).
 ## Settings that are not part of model loading
 
 `settings.json` supplies permissions, hooks, non-secret environment variables,
-locale, output style and the default mode. Project-level settings, hooks and MCP
-files are ignored until trusted with `--trust-project` (or
-`TNT_TRUST_PROJECT=1`), and the grant is revoked when their contents change.
+locale, output style and the default mode (`defaultMode`, see
+[modes.md](./modes.md)). Project-level settings, hooks and MCP files are ignored
+until trusted with `--trust-project` (or `TNT_TRUST_PROJECT=1`), and the grant
+is revoked when their contents change.
 
 ## Errors
 

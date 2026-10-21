@@ -32,6 +32,7 @@ const STATUS_BAR = path.join(
 );
 const FLAGS = path.join(packageRoot, "src", "config", "sharedOptions.ts");
 const VALIDATOR = path.join(packageRoot, "src", "config", "flagValidator.ts");
+const RESOLVER = path.join(packageRoot, "src", "config", "flagProcessor.ts");
 
 function read(file: string): string {
   return fs.readFileSync(file, "utf-8");
@@ -125,6 +126,14 @@ describe("spec/modes.md agrees with the permission sources", () => {
   it("explains the override refusal the validator performs", () => {
     expect(/PERMISSION_FLAGS_IGNORED_BY_MODE/.test(doc)).toBe(
       /PERMISSION_FLAGS_IGNORED_BY_MODE/.test(read(VALIDATOR)),
+    );
+  });
+
+  it("documents the settings defaultMode only while the resolver reads it", () => {
+    const resolver = read(RESOLVER);
+    expect(/defaultMode/.test(doc)).toBe(/settingsDefaultMode/.test(resolver));
+    expect(/settings\.json/.test(doc)).toBe(
+      /requireSettingsMode/.test(resolver),
     );
   });
 
