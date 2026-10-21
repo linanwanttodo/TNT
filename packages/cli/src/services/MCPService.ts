@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
 import { type AssistantConfig } from "@tnt/sdk";
 
+import { loadMcpJsonServers } from "../config/mcpConfig.js";
 import { t } from "../i18n/index.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { getErrorString } from "../utils/error.js";
@@ -46,6 +47,14 @@ function getPluginMcpServers(): MCPServerConfig[] {
   }
 }
 
+let warnedLegacyMcpConfig = false;
+
+function warnLegacyMcpConfigOnce(): void {
+  if (warnedLegacyMcpConfig) return;
+  warnedLegacyMcpConfig = true;
+  console.warn(t("mcp.legacyConfigServers"));
+}
+
 export const EMPTY_MCP_STATE: MCPServiceState = {
   mcpService: null,
   connections: [],
@@ -59,6 +68,8 @@ export class MCPService
 {
   private connections: Map<string, ServerConnection> = new Map();
   private assistant: AssistantConfig | null = null;
+  /** config.yaml + mcp.json + plugins, keyed by server name. */
+  private configuredServers: MCPServerConfig[] = [];
   private isShuttingDown = false;
   private isHeadless: boolean | undefined;
   private apiKeyCache: Map<string, string> = new Map();
@@ -94,7 +105,24 @@ export class MCPService
     this.connections.clear();
 
     const pluginServers = getPluginMcpServers();
-    const allServers = [...(assistant.mcpServers ?? []), ...pluginServers];
+    const legacyServers = (assistant.mcpServers ?? []).filter(
+      (server): server is NonNullable<typeof server> => Boolean(server),
+    );
+    if (legacyServers.length > 0) {
+      warnLegacyMcpConfigOnce();
+    }
+
+    // Later sources win per server name: config.yaml is the transitional
+    // source, mcp.json is the current one, plugins are namespaced already.
+    const byName = new Map<string, MCPServerConfig>();
+    [...legacyServers, ...loadMcpJsonServers()].forEach((server, index) => {
+      const name = server.name || `server-${index}`;
+      byName.set(name, { ...server, name } as MCPServerConfig);
+    });
+    for (const server of pluginServers) byName.set(server.name, server);
+
+    const allServers = [...byName.values()];
+    this.configuredServers = allServers;
 
     const connectionPromises = allServers.map(async (config) => {
       if (config) {
@@ -257,10 +285,10 @@ export class MCPService
    * Restart a specific server
    */
   public async restartServer(serverName: string): Promise<void> {
-    if (!this.assistant || !this.assistant.mcpServers) return;
+    if (!this.assistant) return;
 
-    const serverConfig = this.assistant.mcpServers.find(
-      (s, index) => s && (s.name || `server-${index}`) === serverName,
+    const serverConfig = this.configuredServers.find(
+      (s) => s.name === serverName,
     );
 
     if (!serverConfig) {
