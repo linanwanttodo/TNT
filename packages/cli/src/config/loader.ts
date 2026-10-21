@@ -18,10 +18,12 @@ import { t } from "../i18n/index.js";
 import { CLIPlatformClient } from "../platform/CLIPlatformClient.js";
 
 import { env } from "./env.js";
+import { readSelectedModelName } from "./modelSelection.js";
 
 export interface ConfigLoadResult {
   config: AssistantUnrolled;
   source: ConfigSource;
+  selectedModel?: string | null;
 }
 
 export type ConfigSource =
@@ -59,7 +61,21 @@ export async function loadConfiguration(
     injectBlocks,
   );
 
-  return { config, source: configSource };
+  return {
+    config,
+    source: configSource,
+    selectedModel: selectedModelOf(configSource),
+  };
+}
+
+/**
+ * The selected model is the `model:` key of the file that was loaded. A config
+ * assembled from injected blocks has no file, so it has no selection either.
+ */
+function selectedModelOf(source: ConfigSource): string | null {
+  if (source.type === "cli-flag") return readSelectedModelName(source.path);
+  if (source.type === "local-config-yaml") return readSelectedModelName();
+  return null;
 }
 
 /**

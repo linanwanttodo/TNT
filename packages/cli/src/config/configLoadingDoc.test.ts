@@ -50,4 +50,24 @@ describe("spec/config-loading.md agrees with the loader", () => {
     );
     expect(doc).toContain("mcp.json");
   });
+
+  it("documents the model selection where the code implements it", () => {
+    const selector = read(
+      path.join(here, "..", "ui", "hooks", "useModelSelector.ts"),
+    );
+    const modelService = read(
+      path.join(here, "..", "services", "ModelService.ts"),
+    );
+
+    expect(doc).toContain("`model:`");
+    expect(doc).toMatch(/\/model` rewrites that key/);
+    expect(loader).toContain("readSelectedModelName");
+    expect(selector).toContain("writeSelectedModelName");
+    expect(modelService).toContain("selectedModelName");
+  });
+
+  it("leaves no placeholder in the published page", () => {
+    expect(doc).not.toMatch(/PLACEHOLDER/);
+    expect(doc).toContain("TNT_TRUST_PROJECT=1");
+  });
 });

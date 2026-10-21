@@ -44,6 +44,7 @@ export class ModelService
     assistant: AssistantUnrolled,
     authConfig: AuthConfig,
     agentFileServiceState: AgentFileServiceState | undefined,
+    selectedModelName: string | null = null,
   ): Promise<ModelServiceState> {
     logger.debug("ModelService.doInitialize called", {
       hasAssistant: !!assistant,
@@ -61,10 +62,13 @@ export class ModelService
     let preferredModelName: string | null | undefined = null;
     let modelSource = "default";
 
-    // Priority = agentFile -> last selected model
+    // Priority = agentFile -> config.yaml's `model:` -> legacy persisted key
     if (agentFileServiceState?.agentFileModel?.name) {
       preferredModelName = agentFileServiceState.agentFileModel?.name;
       modelSource = "agentFile";
+    } else if (selectedModelName) {
+      preferredModelName = selectedModelName;
+      modelSource = "config";
     } else {
       const persistedName = getModelName(authConfig);
       if (persistedName) {
@@ -81,6 +85,10 @@ export class ModelService
         return name === preferredModelName;
       });
       if (modelIndex === -1) {
+        logger.warn("Preferred model is not defined in the loaded config", {
+          preferredModelName,
+          modelSource,
+        });
         // Preferred model not found, use default model selection
         const [llmApi, model] = getLlmApi(assistant, authConfig);
         return {

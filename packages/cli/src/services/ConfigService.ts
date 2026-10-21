@@ -58,6 +58,7 @@ export class ConfigService
     super("ConfigService", {
       config: null,
       configPath: undefined,
+      selectedModel: null,
     });
   }
 
@@ -299,6 +300,7 @@ export class ConfigService
     const state = {
       config: withModel,
       configPath,
+      selectedModel: result.selectedModel ?? null,
     };
     this.setState(state);
 

@@ -95,6 +95,7 @@ describe("ConfigService", () => {
       expect(state).toEqual({
         config: mockConfig as any,
         configPath: "/path/to/config.yaml",
+        selectedModel: null,
       });
       expect(vi.mocked(mergeUnrolledAssistants)).toHaveBeenCalledWith(
         mockConfig,
@@ -124,6 +125,7 @@ describe("ConfigService", () => {
       expect(state).toEqual({
         config: mockConfig as any,
         configPath: undefined,
+        selectedModel: null,
       });
     });
 
@@ -196,6 +198,7 @@ describe("ConfigService", () => {
       expect(state).toEqual({
         config: newConfig,
         configPath: "/new.yaml",
+        selectedModel: null,
       });
       expect(service.getState()).toEqual(state);
     });
@@ -254,6 +257,7 @@ describe("ConfigService", () => {
       expect(state).toEqual({
         config: updatedConfig,
         configPath: "/config.yaml",
+        selectedModel: null,
       });
     });
 
@@ -316,6 +320,7 @@ describe("ConfigService", () => {
       expect(service.getState()).toEqual({
         config: newConfig,
         configPath: "/new.yaml",
+        selectedModel: null,
       });
       expect(vi.mocked(serviceContainer.set)).toHaveBeenCalledWith(
         SERVICE_NAMES.CONFIG,

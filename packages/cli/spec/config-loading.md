@@ -14,16 +14,19 @@ network during a load.
 3. No config: interactive runs go through the provider setup, which writes that
    file. Embedders and tests that skip onboarding get the injected blocks alone.
 
-The loaded config carries models, rules and prompts. Permissions live in
-`settings.json`, MCP servers in `mcp.json`, and credentials in `auth.json`; see
-[permissions.md](./permissions.md) and [mcp.md](./mcp.md).
+The loaded config carries models, rules and prompts. The top-level `model:` key
+names the selected model and must match a `models[].name` in the same file;
+`/model` rewrites that key in the file the CLI loaded, preserving comments and
+ordering. A selection that names a missing model falls back to the default chat
+model with a logged warning. Permissions live in `settings.json` and MCP servers
+in `mcp.json`; see [permissions.md](./permissions.md) and [mcp.md](./mcp.md).
 
 ## Settings that are not part of model loading
 
 `settings.json` supplies permissions, hooks, non-secret environment variables,
 locale, output style and the default mode. Project-level settings, hooks and MCP
 files are ignored until trusted with `--trust-project` (or
-`TNT_TRUST_PLACEHOLDER`), and the grant is revoked when their contents change.
+`TNT_TRUST_PROJECT=1`), and the grant is revoked when their contents change.
 
 ## Errors
 

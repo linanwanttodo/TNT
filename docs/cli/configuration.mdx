@@ -38,21 +38,24 @@ models:
     model: claude-sonnet-4-5
     apiKey: ${{ secrets.ANTHROPIC_API_KEY }}
 
+model: fast
+
 rules:
   - Use the existing test helpers instead of new fixtures.
 ```
 
-| Field | Contents |
-| --- | --- |
-| `models` | the models the agent can run, see [Models](/cli/models) |
-| `rules` | instructions prepended to the system message |
+| Field    | Contents                                                  |
+| -------- | --------------------------------------------------------- |
+| `models` | the models the agent can run, see [Models](/cli/models)   |
+| `model`  | the `name` of the selected model; `/model` writes it here |
+| `rules`  | instructions prepended to the system message              |
 
 Everything else lives in its own file:
 
-| File | Contents |
-| --- | --- |
+| File                   | Contents                                                            |
+| ---------------------- | ------------------------------------------------------------------- |
 | `~/.tnt/settings.json` | permissions, hooks, environment, locale, output style, default mode |
-| `~/.tnt/mcp.json` | MCP servers, see [MCP](/cli/mcp) |
+| `~/.tnt/mcp.json`      | MCP servers, see [MCP](/cli/mcp)                                    |
 
 `mcpServers` and `permissions` are not read from `config.yaml`; MCP servers
 belong in `mcp.json` and tool policies in the `permissions` key of
@@ -80,20 +83,20 @@ section, with a deprecation warning. It is never written again; new rules go to
 
 ## Directory layout
 
-| Path | Purpose |
-| --- | --- |
-| `~/.tnt/config.yaml` | models and rules |
-| `~/.tnt/mcp.json` | MCP servers |
-| `~/.tnt/settings.json` | permissions, hooks and settings |
-| `~/.tnt/auth.json` | credentials |
-| `~/.tnt/trusted-projects.json` | content hashes of trusted projects |
-| `~/.tnt/permissions.yaml` | legacy permission policies (read-only) |
-| `~/.tnt/sessions/` | saved sessions |
-| `~/.tnt/skills/` | user skills |
-| `~/.tnt/plugins/` | installed plugins |
-| `~/.tnt/logs/tnt.log` | log file |
-| `~/.tnt/.env` | secrets for `${{ secrets.* }}` |
-| `.tnt/` | repository-level overrides |
+| Path                           | Purpose                                |
+| ------------------------------ | -------------------------------------- |
+| `~/.tnt/config.yaml`           | models and rules                       |
+| `~/.tnt/mcp.json`              | MCP servers                            |
+| `~/.tnt/settings.json`         | permissions, hooks and settings        |
+| `~/.tnt/auth.json`             | credentials                            |
+| `~/.tnt/trusted-projects.json` | content hashes of trusted projects     |
+| `~/.tnt/permissions.yaml`      | legacy permission policies (read-only) |
+| `~/.tnt/sessions/`             | saved sessions                         |
+| `~/.tnt/skills/`               | user skills                            |
+| `~/.tnt/plugins/`              | installed plugins                      |
+| `~/.tnt/logs/tnt.log`          | log file                               |
+| `~/.tnt/.env`                  | secrets for `${{ secrets.* }}`         |
+| `.tnt/`                        | repository-level overrides             |
 
 The home directory can be relocated with the global directory environment
 variable, which also moves `sessions`, `logs` and the plugin tree with it.

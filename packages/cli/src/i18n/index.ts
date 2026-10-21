@@ -521,6 +521,8 @@ const en = {
   "models.none": "No chat models available in the configuration",
   "models.loadFailed": "Failed to load models",
   "models.loading": "Loading available models...",
+  "models.selectionSaveFailed":
+    "Switched to {model}, but saving it to config.yaml failed: {reason}",
   "mcp.restarted": "All servers restarted",
   "mcp.stopped": "All servers stopped",
   "session.exportMissing": "Failed to export: Session {id} not found",
@@ -559,6 +561,10 @@ const en = {
     "Warning: this project's settings, hooks and MCP servers are not trusted; run with --trust-project (or set TNT_TRUST_PROJECT=1) to apply them.",
   "config.slugRemoved":
     "Error: --config accepts a local file path only; hub assistant slugs are no longer supported.",
+  "config.selectedModelFileMissing":
+    "Cannot save the model selection: {path} does not exist.",
+  "config.selectedModelUnknown":
+    'Cannot select "{model}": it is not defined in {path}.',
   "settings.legacyPermissions":
     "Warning: permissions.yaml is deprecated; its rules are read once, and new rules are written to settings.json.",
   "cli.invalidPermissionMode":
@@ -1105,6 +1111,8 @@ const zhCN: Record<TranslationKey, string> = {
   "models.none": "配置中没有可用的对话模型",
   "models.loadFailed": "加载模型失败",
   "models.loading": "正在加载可用模型...",
+  "models.selectionSaveFailed":
+    "已切换到 {model}，但写入 config.yaml 失败：{reason}",
   "mcp.restarted": "已重启所有服务器",
   "mcp.stopped": "已停止所有服务器",
   "session.exportMissing": "导出失败：未找到会话 {id}",
@@ -1136,6 +1144,8 @@ const zhCN: Record<TranslationKey, string> = {
     "警告：本项目的设置、hooks 和 MCP server 尚未受信任；请使用 --trust-project（或设置 TNT_TRUST_PROJECT=1）后再应用。",
   "config.slugRemoved":
     "错误：--config 只接受本地文件路径；hub assistant slug 支持已移除。",
+  "config.selectedModelFileMissing": "无法保存模型选择：{path} 不存在。",
+  "config.selectedModelUnknown": "无法选择“{model}”：{path} 中没有定义该模型。",
   "settings.legacyPermissions":
     "警告：permissions.yaml 已弃用；其规则只会被读取一次，新规则写入 settings.json。",
   "cli.invalidPermissionMode":
