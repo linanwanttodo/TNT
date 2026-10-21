@@ -48,8 +48,9 @@ part of the Shift+Tab cycle. The composer labels it `[Bypass permissions]` in re
 
 ## `dontAsk`
 
-Headless and serve semantics: the same table as `default`, with every ask turned into a
-denial because there is nobody to prompt.
+`DONT_ASK_MODE_POLICIES` is the `default` table with every ask replaced by `exclude`:
+the tool is not offered and a call is refused, because there is nobody to prompt. It is
+the headless and serve semantics and is not part of the Shift+Tab cycle.
 
 Entry to `plan` and `bypassPermissions` is refused when `--allow`, `--ask` or
 `--exclude` is also present (`PERMISSION_FLAGS_IGNORED_BY_MODE`): those modes

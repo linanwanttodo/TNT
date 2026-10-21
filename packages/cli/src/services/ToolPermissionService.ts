@@ -1,6 +1,7 @@
 import {
   ACCEPT_EDITS_MODE_POLICIES,
   BYPASS_PERMISSIONS_POLICIES,
+  DONT_ASK_MODE_POLICIES,
   PLAN_MODE_POLICIES,
 } from "src/permissions/defaultPolicies.js";
 
@@ -182,9 +183,10 @@ export class ToolPermissionService
         // The classifier mode is not implemented; startup validation refuses
         // it, so reaching here means a caller bypassed that check.
         return [];
+      case "dontAsk":
+        return [...DONT_ASK_MODE_POLICIES];
       case "default":
       case "acceptEdits":
-      case "dontAsk":
       default:
         return [];
     }
@@ -223,9 +225,10 @@ export class ToolPermissionService
     } else if (
       this.currentState.currentMode === "plan" ||
       this.currentState.currentMode === "acceptEdits" ||
-      this.currentState.currentMode === "bypassPermissions"
+      this.currentState.currentMode === "bypassPermissions" ||
+      this.currentState.currentMode === "dontAsk"
     ) {
-      // For plan, acceptEdits and bypass, use ONLY mode policies
+      // For plan, acceptEdits, bypass and dontAsk, use ONLY mode policies
       allPolicies = [...modePolicies];
     } else {
       // Normal mode: combine headless + mode policies with user configuration

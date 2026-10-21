@@ -47,6 +47,13 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
   return policies;
 }
 
+// dontAsk: the default table with every ask turned into an exclude, so a tool
+// that would prompt is simply unavailable. Used by headless and serve runs.
+export const DONT_ASK_MODE_POLICIES: ToolPermissionPolicy[] =
+  getDefaultToolPolicies().map((policy) =>
+    policy.permission === "ask" ? { ...policy, permission: "exclude" } : policy,
+  );
+
 // Plan mode: the four write tools are disabled outright, reads stay open, and
 // shell commands must be provably non-writing. MCP and plugin tools fall
 // through to an ask: the TUI asks, and a headless run drops the tool and
