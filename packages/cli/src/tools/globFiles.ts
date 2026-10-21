@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import util from "util";
 
+import { t } from "../i18n/index.js";
+
 import { formatToolArgument } from "./formatters.js";
 import { checkIfRipgrepIsInstalled } from "./searchCode.js";
 import { Tool } from "./types.js";
@@ -65,9 +67,7 @@ export const globFilesTool: Tool = {
     const pattern =
       typeof args?.pattern === "string" ? args.pattern.trim() : "";
     if (!pattern) {
-      throw new Error(
-        "Glob needs a pattern: an empty pattern would list the whole tree.",
-      );
+      throw new Error(t("tools.globNeedsPattern"));
     }
 
     return {
@@ -83,18 +83,14 @@ export const globFilesTool: Tool = {
   run: async (args: { pattern: string; path?: string }): Promise<string> => {
     const pattern = (args.pattern ?? "").trim();
     if (!pattern) {
-      throw new Error(
-        "Glob needs a pattern: an empty pattern would list the whole tree.",
-      );
+      throw new Error(t("tools.globNeedsPattern"));
     }
 
     if (!(await checkIfRipgrepIsInstalled())) {
       // Falling back to a hand-rolled walk would answer with a different set of
       // files than the repository's own ignore rules describe, so it says what
       // is missing instead. List works without ripgrep.
-      throw new Error(
-        "Glob lists files with ripgrep (rg), which is not installed. Use List for one directory, or install rg.",
-      );
+      throw new Error(t("tools.globNeedsRipgrep"));
     }
 
     const root = args.path ? path.resolve(args.path) : process.cwd();

@@ -23,6 +23,14 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "tools.globNeedsPattern":
+    "Glob needs a pattern: an empty pattern would list the whole tree.",
+  "tools.globNeedsRipgrep":
+    "Glob lists files with ripgrep (rg), which is not installed. Use List for one directory, or install rg.",
+  "tools.unknownAgentTypeWithList":
+    "Unknown agent type: {name}. Available agents: {agents}",
+  "tools.unknownAgentType": "Unknown agent type: {name}",
+  "tools.noActiveSession": "No active session found",
   "compaction.summaryEmpty": "Compaction summary is empty",
   "compaction.exceedsBudget":
     "Compaction request exceeds the available context budget",
@@ -514,6 +522,13 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "tools.globNeedsPattern": "Glob 需要一个模式：空模式会列出整棵树。",
+  "tools.globNeedsRipgrep":
+    "Glob 使用 ripgrep (rg) 列出文件，但它未安装。请改用 List 查看单个目录，或安装 rg。",
+  "tools.unknownAgentTypeWithList":
+    "未知的智能体类型：{name}。可用智能体：{agents}",
+  "tools.unknownAgentType": "未知的智能体类型：{name}",
+  "tools.noActiveSession": "未找到活动会话",
   "compaction.summaryEmpty": "压缩摘要为空",
   "compaction.exceedsBudget": "压缩请求超出可用的上下文预算",
   "compaction.noSummarizer":

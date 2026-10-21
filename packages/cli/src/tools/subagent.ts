@@ -1,3 +1,4 @@
+import { t } from "../i18n/index.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { services } from "../services/index.js";
 import { ModelService } from "../services/ModelService.js";
@@ -62,9 +63,10 @@ export const subagentTool = async (): Promise<Tool> => {
       const agent = getSubagent(modelServiceState, subagent_name);
       if (!agent) {
         throw new Error(
-          `Unknown agent type: ${subagent_name}. Available agents: ${getSubagentNames(
-            modelServiceState,
-          ).join(", ")}`,
+          t("tools.unknownAgentTypeWithList", {
+            name: subagent_name,
+            agents: getSubagentNames(modelServiceState).join(", "),
+          }),
         );
       }
 
@@ -87,13 +89,13 @@ export const subagentTool = async (): Promise<Tool> => {
       // get agent configuration
       const agent = getSubagent(modelServiceState, subagent_name);
       if (!agent) {
-        throw new Error(`Unknown agent type: ${subagent_name}`);
+        throw new Error(t("tools.unknownAgentType", { name: subagent_name }));
       }
 
       const chatHistoryService = services.chatHistory;
       const parentSessionId = chatHistoryService.getSessionId();
       if (!parentSessionId) {
-        throw new Error("No active session found");
+        throw new Error(t("tools.noActiveSession"));
       }
 
       // Execute subagent with output streaming
