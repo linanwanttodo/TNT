@@ -24,7 +24,6 @@ const FIRST_TIME_DEFAULT_PROMPT_FILE = `# This is an example ".prompt" file
   # @os
   # @repo-map
 
-# To learn more, see the full .prompt file reference: https://github.com/linanwanttodo/TNT/tree/main/docs/features/prompt-files
 name: Example
 description: Example prompt file
 ---

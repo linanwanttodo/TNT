@@ -177,17 +177,10 @@ export function isSupportedLanceDbCpuTargetForLinux(ide?: IDE) {
 }
 
 async function showUnsupportedCpuToast(ide: IDE) {
-  const shouldOpenLink = await ide.showToast(
+  await ide.showToast(
     "warning",
     "Codebase indexing disabled - Your Linux system lacks required CPU features (AVX2, FMA)",
-    "Learn more",
   );
-
-  if (shouldOpenLink) {
-    void ide.openUrl(
-      "https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting#i-received-a-codebase-indexing-disabled---your-linux-system-lacks-required-cpu-features-avx2-fma-notification",
-    );
-  }
 }
 
 /**

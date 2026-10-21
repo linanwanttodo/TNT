@@ -10,22 +10,16 @@ import { describe, expect, it } from "vitest";
  * workspace. Nine of these pointed at paths that do not exist (`docs/cli/models` instead of
  * `.mdx`, docs pages this repo never had), and nothing noticed until a scan did.
  *
- * The five `KNOWN_DEAD` entries name documentation the repository does not contain, so they
- * cannot be repaired mechanically; whether they point at the external docs site or go away is
- * a docs-placement decision. They stay listed, with the equality assertion making the list the
- * release form: repairing or removing one means editing the list in the same commit.
+ * Four of the dead links pointed at documentation this repository does not contain and one at
+ * a section no page carries; they were removed rather than frozen, so the list below is empty
+ * and any new dead link is a failure. The scanned-link count is floored because an empty walk
+ * would otherwise agree with the empty list.
  */
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 const SCANNED = ["core", "packages/cli"];
 
-const KNOWN_DEAD = [
-  "core/config/types.ts -> docs/telemetry",
-  "core/index.d.ts -> docs/telemetry",
-  "core/config/util.ts -> docs/troubleshooting#i-received-a-codebase-indexing-disabled---your-linux-system-lacks-required-cpu-features-avx2-fma-notification",
-  "core/config/validation.ts -> docs/features/tab-autocomplete#i-want-better-completions-should-i-use-gpt-4",
-  "core/promptFiles/createNewPromptFile.ts -> docs/features/prompt-files",
-];
+const KNOWN_DEAD: string[] = [];
 
 function sources(dir: string): string[] {
   const found: string[] = [];
@@ -45,7 +39,7 @@ function sources(dir: string): string[] {
   return found;
 }
 
-function deadRepoLinks(): string[] {
+function deadRepoLinks(): { dead: string[]; total: number } {
   const dead: string[] = [];
   let total = 0;
 
@@ -64,14 +58,14 @@ function deadRepoLinks(): string[] {
     }
   }
 
-  return dead;
+  return { dead, total };
 }
 
 describe("the repository links in the sources", () => {
-  it("name paths that exist, except the five frozen docs decisions", () => {
-    const dead = deadRepoLinks();
+  it("name paths that exist", () => {
+    const { dead, total } = deadRepoLinks();
 
-    // The floor is the frozen list itself: an empty scan cannot equal it.
+    expect(total).toBeGreaterThan(5);
     expect(dead.sort()).toEqual([...KNOWN_DEAD].sort());
   });
 });
