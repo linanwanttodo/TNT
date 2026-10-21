@@ -193,16 +193,23 @@ export class UpdateService extends BaseService<UpdateServiceState> {
         message: `${isAutoUpdate ? "Auto-updating" : "Updating"} to v${this.currentState.latestVersion}`,
       });
 
-      // Install the update
-      const { stdout, stderr } = await execAsync("npm i -g @tnt/cli");
-      logger.debug("Update output:", { stdout, stderr });
-
-      const fatal = firstFatalStderrLine(stderr);
+      // The CLI is distributed through GitHub Releases; the installer
+      // downloads and replaces the local copy, then restartCLI relaunched the
+      // process. No npm involved.
+      const installer = await execAsync(
+        "curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash",
+        { timeout: 300000 },
+      );
+      logger.debug("Update output:", {
+        stdout: installer.stdout,
+        stderr: installer.stderr,
+      });
+      const fatal = firstFatalStderrLine(installer.stderr);
       if (fatal) {
         this.setState({
           status: UpdateStatus.ERROR,
           message: `Error updating to v${this.currentState.latestVersion}`,
-          error: new Error(stderr),
+          error: new Error(installer.stderr),
         });
         return;
       }

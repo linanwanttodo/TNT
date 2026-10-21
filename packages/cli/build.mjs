@@ -71,7 +71,12 @@ try {
     platform: "node",
     target: "node18",
     format: "esm",
-    outfile: "dist/index.js",
+    // Code splitting keeps lazily imported graphs (the vendored transformers
+    // runtime and its onnxruntime bindings) in their own chunks, so their
+    // native externals are only resolved when embeddings are actually used
+    // instead of at startup. The tarball therefore ships without them.
+    splitting: true,
+    outdir: "dist",
     external,
     sourcemap: true,
     minify: !noMinify, // Use --no-minify flag to control minification
