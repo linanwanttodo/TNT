@@ -133,7 +133,7 @@ function getDiagnosticInfo(): string[] {
   return [
     "",
     chalk.white("Diagnostic Info"),
-    `  Currently running: npm-global (${chalk.green(npmVersion)})`,
+    `  Currently running: tnt ${chalk.green(getVersion())} (npm ${chalk.green(npmVersion)})`,
     `  Path: ${chalk.blue(nodePath)}`,
     `  Invoked: ${chalk.blue(invokedPath)}`,
   ];
