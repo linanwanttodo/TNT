@@ -23,6 +23,7 @@ const packageRoot = path.resolve(
 );
 
 const SERVE = path.join(packageRoot, "src", "commands", "serve.ts");
+const ENTRY = path.join(packageRoot, "src", "index.ts");
 const CLIENT = path.join(
   packageRoot,
   "src",
@@ -71,6 +72,19 @@ describe("the serve HTTP surface agrees with its client and its spec", () => {
   it("serves every endpoint the remote client calls", () => {
     expect(called.length).toBeGreaterThanOrEqual(4);
     expect(called.filter((route) => !served.includes(route))).toEqual([]);
+  });
+
+  it("names every route in the help line a user reads", () => {
+    // The description used to name two of the six routes, so `tnt serve --help` described a
+    // server smaller than the one it starts. It is a fourth artifact for the same promise.
+    const description = readFileSync(ENTRY, "utf-8").match(
+      /\.description\(\s*"([^"]*\/state[^"]*)"\s*,?\s*\)/,
+    )?.[1];
+
+    expect(description).toBeDefined();
+    expect(
+      served.filter((route) => !(description ?? "").includes(`/${route}`)),
+    ).toEqual([]);
   });
 
   it("claims no narrower bind than the server performs", () => {
