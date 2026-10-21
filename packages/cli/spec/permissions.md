@@ -1,112 +1,82 @@
 # Permissions
 
-## Permission types
+Every tool call is matched against an ordered policy list. A policy carries one of three
+permissions:
 
-To make sure that users can oversee the actions of the LLM, we implement a permissions system. Every tool has one of the following permissions:
-
-- `allow`: The tool will be automatically called without asking
-- `ask`: We will ask the user before calling the tool, giving them the options to accept or reject
-- `exclude`: This tool will be completely excluded, so the model won't even know it exists
+- `allow` - the call runs without asking.
+- `ask` - the call is shown to the user, who accepts or rejects it.
+- `exclude` - the tool is mapped to core's `disabled` policy, so it is not offered.
 
 ## Rule precedence
 
-There is a default set of permissions for the builtin tools in [`src/permissions/defaultPolicies.ts`](../src/permissions/defaultPolicies.ts). But these policies can be overriden by multiple layers. The order of precedence is as follows, which the earlier items taking precedence:
+In `agent` mode the sources are applied in this order, earlier entries winning per tool:
 
-1. **Mode policies** (highest priority - see [modes.md](./modes.md))
-2. Command line flags (`--allow`, `--ask`, `--exclude`)
-3. Permissions in `config.yaml` / configuration
-4. Permissions in `~/.tnt/permissions.yaml`
-5. Default policies
+1. Command-line flags (`--allow`, `--ask`, `--exclude`)
+2. `~/.tnt/permissions.yaml`
+3. Default policies from `getDefaultToolPolicies()` in
+   [`src/permissions/defaultPolicies.ts`](../src/permissions/defaultPolicies.ts)
 
-**Note:** Mode policies **completely override all other permission settings** in plan and auto modes. Available modes:
+The `permissions` section of `config.yaml` is not implemented.
 
-- `normal`: No mode policies (uses existing configuration)
-- `plan`: **Absolute override** - excludes all write tools, allows only read tools (ignores user config)
-- `auto`: **Absolute override** - allows all tools without asking (ignores user config)
+`plan` and `auto` do not consult this list. They replace it with their own policy list;
+see [modes.md](./modes.md).
 
-## Tool matching patterns
+## Tool matching
 
-We use a tool matching pattern to match tools to permissions. This format looks like the following:
+Policies match tool names, and the first matching policy wins:
 
-- `Read` matches any call to the `Read` tool
-- `Read(*)` also matches any call to the `Read` tool
-- `Read(**/*.ts)` matches any call to the `Read` tool where the primary parameter matches the glob pattern `**/*.ts`.
+- `Read` matches the `Read` tool exactly.
+- `mcp__github__*` and `external_?` match names with wildcards.
+- `*` matches every tool and is used as the fallback.
+- `Bash(git status*)` matches `Bash` calls whose `command` argument matches the glob.
+  Command matching exists only for `Bash`; a pattern with parentheses on any other tool
+  is matched against the tool name and will not match a bare name like `Read`.
 
-Note that for an `exclude` policy, it doesn't make sense to have argument matching.
+When several command-line flags match one tool, `--exclude` is pushed before `--ask`
+before `--allow`, so the most restrictive flag wins.
 
-## Command line flags
+## Command-line flags
 
-Each of the `--allow`, `--ask`, and `--exclude` flags allow you to set the permission for a tool. Usage must be a "tool matching pattern" as described above for each flag, with each providing a policy that will be added to the list of policies in order.
+Each of `--allow`, `--ask`, and `--exclude` takes one tool matching pattern per
+occurrence. A mode flag (`--readonly`, `--auto`, `--mode`) combined with any of them is
+refused at startup, because plan and auto build their policies from the mode alone.
 
 ```bash
-# Allow Read, Ask Write, and Exclude Bash
+# Allow Read, ask before Write, disable Bash
 tnt --allow Read --ask Write --exclude Bash
 
-# Start in plan mode (read-only tools only)
+# Plan mode: documentation writes only, non-writing commands only
 tnt --readonly "Help me understand this codebase"
-
-# Use mode switching during chat
-tnt "Let me work on this feature"  # Starts in normal mode
-# Then use Shift+Tab to cycle through modes
-```
-
-## `config.yaml` / Configuration (implement later)
-
-::: info
-This should not be implemented yet.
-:::
-
-To let users define their permissions as a part of their custom assistant, they can do so in the permissions section of `config.yaml` or their configuration:
-
-```yaml
-permissions:
-  allow:
-    - Read(*)
-
-  ask:
-    - Write(**/*.py)
-
-  exclude:
-    - Write
 ```
 
 ## `~/.tnt/permissions.yaml` (personal settings)
 
-It would be frustrating for users to have to set the same permissions across all of their assistants, so we provide them a file for personal settings. It should be basically equivalent to the `permissions` section of `config.yaml`:
+A personal file holds the same three lists:
 
 ```yaml title="~/.tnt/permissions.yaml"
 allow:
-  - Read(*)
+  - Read
 
 ask:
-  - Write(**/*.py)
+  - Write
 
 exclude:
-  - Write
+  - Bash
 ```
 
-Except that it's important to understand that this file is _not_ intended to be edited by the user. It is only for persistence, and users should interact with their permissions by using the TUI.
-
-This file should be created the first time that the CLI starts.
+The file is created on the first start. The TUI writes to it when the user accepts a
+decision with the "always" option, so users normally change it through the TUI rather
+than by hand. Entries are matched in `exclude` → `ask` → `allow` order, one tool per
+entry.
 
 ## Headless mode permissions
 
-When running in headless mode (using the `-p` or `--print` flag), the CLI uses the same default policies as normal mode, but with different behavior for tools that require confirmation:
-
-- **Normal mode**: Write operations and terminal commands require confirmation (`ask`) - user is prompted
-- **Headless mode**: Same default policies, but tools requiring confirmation (`ask`) will cause the process to exit with an error message
-
-To use tools that normally require confirmation in headless mode, you must explicitly allow them:
+Headless runs do not prompt. `getDefaultToolPolicies(true)` gives write tools and `Bash`
+the `allow` permission instead of `ask`, and its fallback rule is `allow` as well, so a
+`-p` run may write files and run commands without asking. `--exclude` still narrows
+individual tools per run:
 
 ```bash
-# Headless mode with explicit permissions for write operations
-tnt -p --allow write_file "Write a hello world script"
-
-# Headless mode with wildcard permission (allow all tools)
-tnt -p --allow "*" "Write and run a script"
-
-# Headless mode with specific restrictions
-tnt -p --exclude run_terminal_command "Clean up the codebase"
+# Headless run that may edit files but not run shell commands
+tnt -p --exclude Bash "Rename the helper module"
 ```
-
-This approach ensures that headless mode is secure by default while providing clear guidance on how to enable the needed permissions.
