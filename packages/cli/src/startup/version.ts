@@ -2,8 +2,6 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-import { logger } from "../utils/logger.js";
-
 export function getVersion(): string {
   try {
     const __filename = fileURLToPath(import.meta.url);
@@ -53,15 +51,9 @@ export async function getLatestVersion(): Promise<string | null> {
   return latestVersionCache;
 }
 
-getLatestVersion()
-  .then((version) => {
-    if (version) {
-      logger?.info(`Latest version: ${version}`);
-    }
-  })
-  .catch(() => {
-    logger?.debug("Warning: Could not check latest version from npm");
-  });
+// No module-scope update probe. `getLatestVersion()` shells out to `npm view` with a
+// five-second budget, and calling it here made importing `getVersion` - the LSP client now
+// does - pay for a network check nobody asked for. `UpdateService` calls it when it checks.
 
 export function compareVersions(
   current: string,

@@ -3,6 +3,7 @@ import path from "path";
 import { pathToFileURL } from "url";
 
 import { t } from "../i18n/index.js";
+import { getVersion } from "../startup/version.js";
 
 /**
  * A plugin declares its language server as a command plus arguments. This is
@@ -139,7 +140,7 @@ export class LspClient {
       rootUri: pathToFileURL(options.rootPath).toString(),
       capabilities: { textDocument: { publishDiagnostics: {} } },
       initializationOptions: config.initializationOptions,
-      clientInfo: { name: "tnt", version: "0.0.0-dev" },
+      clientInfo: { name: "tnt", version: getVersion() },
     })) as { capabilities?: unknown } | null;
     if (!result || typeof result !== "object") {
       throw new LspProtocolError(t("lsp.noInitializeResponse"));
