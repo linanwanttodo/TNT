@@ -358,3 +358,23 @@ describe("permission flags beside a mode that owns the policy", () => {
     );
   });
 });
+
+describe("--request-timeout beside the other headless-only flags", () => {
+  test("refuses without -p, like --format, --silent and --output-schema", () => {
+    const result = validateFlags({ timeoutSeconds: 5 } as never);
+
+    expect(result.errors.map((e) => e.code)).toContain(
+      "REQUEST_TIMEOUT_REQUIRES_PRINT",
+    );
+  });
+
+  test("accepts with -p, including the 0 that means no bound", () => {
+    for (const timeoutSeconds of [5, 0]) {
+      const result = validateFlags({ print: true, timeoutSeconds } as never);
+
+      expect(result.errors.map((e) => e.code)).not.toContain(
+        "REQUEST_TIMEOUT_REQUIRES_PRINT",
+      );
+    }
+  });
+});
