@@ -4,8 +4,8 @@ import path from "path";
 
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 
-import { getPluginSettingsBase } from "../plugins/pluginSettings.js";
 import { t } from "../i18n/index.js";
+import { getPluginSettingsBase } from "../plugins/pluginSettings.js";
 
 import { globalDir } from "./globalDir.js";
 import { isProjectTrusted, projectConfigFiles } from "./trust.js";
