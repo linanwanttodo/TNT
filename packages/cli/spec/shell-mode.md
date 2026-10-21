@@ -1,71 +1,48 @@
 # Shell Mode (CLI TUI)
 
-Overview
+In the interactive input, text whose leading whitespace is followed by `!` is a shell
+command. `!git status` and ` !ls -la` both enter shell mode; the text after `!` is
+trimmed and becomes the command. An input whose trimmed text is only `!` stays a normal
+message.
 
-- Shell mode lets users run shell commands directly from the chat input by starting their input with an exclamation mark (!).
-- It is intended for quick terminal command execution without leaving the TUI.
+## Indicator
 
-Activation
+The composer border turns yellow and the prompt becomes `$ `
+(`src/ui/UserInput.tsx`).
 
-- Shell mode is activated when the current input (trimmed) starts with !
-  - Example: "!git status" or " !ls -la" both activate Shell mode.
-- Visual indicator:
-  - Input border color changes to yellow.
-  - The input prompt indicator changes to a yellow "$".
-  - The input placeholder includes "! for shell mode".
+## Submission
 
-Deactivation / Exiting Shell Mode
+`handleBashModeProcessing` in `src/ui/hooks/useChat.shellMode.ts`:
 
-- Pressing Enter to submit the input exits shell mode immediately after submission, regardless of the command result.
-- Pressing Esc when the input (trimmed) is exactly ! clears the input and exits shell mode.
-- Editing the input so it no longer starts with ! also exits shell mode and restores normal input behavior.
+1. Adds an assistant message carrying a tool call named `Bash` with
+   `{"command": "<text after !>"}`, marked `calling`.
+2. Returns `null`, so the text is not sent to the model.
+3. Runs the command asynchronously through `runTerminalCommandTool`. On success the
+   result is attached with status `done`; on failure the status is `errored` and the
+   text is `Bash command failed: ...`.
 
-Interaction with other input helpers
+The command runs directly from the TUI; shell mode does not consult the permission
+policies. Two-stage Ctrl+C does not interrupt it.
 
-- When in shell mode (input starts with !):
-  - "@" file search suggestions are disabled.
-  - "/" slash command UI is disabled.
-- When in slash command mode (input starts with /):
-  - "@" file search suggestions are disabled.
-  - Enter submits the highlighted slash command directly (except /title, which requires Tab to select first).
-  - Tab selects the highlighted command without submitting.
+## Exiting shell mode
 
-Submission behavior
+- Submitting sends the command and the next input starts outside shell mode.
+- Esc while the trimmed input is exactly `!` clears the input and exits.
+- Editing the text so it no longer starts with `!` exits.
 
-- On submit (Enter) with a shell-mode input:
-  - The leading ! is removed and the remainder is treated as the shell command to run.
-  - The TUI immediately appends an assistant message representing a Shell tool call, with status set to calling, so users can see that the command is in progress.
-  - The shell command is executed asynchronously; when it completes, the tool call status is updated to done (or error) and the output is populated.
+## Limits
 
-Execution semantics
+Output is capped at 50,000 characters and 1,000 lines by default;
+`CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS` and `CONTINUE_CLI_BASH_MAX_OUTPUT_LINES` change the
+caps.
 
-- The command is executed in the same way as terminal tool commands, minus permissions, and inserted into the chat history the same.
+The command is terminated after 180 seconds with no output, and the result carries
+`[Command timed out after 180 seconds of no output]`. A timeout supplied to the tool is
+capped at 600 seconds. `TEST_TERMINAL_TIMEOUT` (test environment only) replaces the
+window.
 
-Output handling
+## Source
 
-- Stdout is streamed into memory; Stderr is captured and appended as a trailing "Stderr: ..." section on success.
-- If the process exits non-zero and Stderr contains content, the tool call is marked as error and the error text is shown.
-- Output is truncated to the first 5000 lines if exceeded.
-- Timeout behavior: If no output is received for 120 seconds (configurable in tests), the process is terminated and the result includes a note like:
-  "[Command timed out after 120 seconds of no output]".
-
-Keyboard behaviors (summary)
-
-- Enter: submit input. If in shell mode, exits shell mode after submission and shows the pending Shell tool call immediately.
-- Shift+Enter: new line.
-- Backslash (\) at end-of-line: inserts a new line (line continuation) as usual.
-- Esc: if only ! (trimmed) is present, clears input and exits shell mode; otherwise cancels streaming or closes suggestions depending on context.
-
-Scope / Modes
-
-- Shell mode applies to interactive (TUI/standard) CLI usage. It is not part of headless (-p/--print) processing.
-
-Error handling
-
-- Command execution errors are captured and surfaced in the tool call as status error with human-readable error text (including Stderr when available).
-
-Examples
-
-- "!git status" → shows a Shell tool call immediately, then populates with the git status output.
-- "!echo hello" → shows a Shell tool call immediately, then output "hello".
-- "!some-unknown-cmd" → shows a Shell tool call immediately, then sets status to error with an error message.
+- `src/ui/hooks/useChat.shellMode.ts` - activation and tool-call lifecycle
+- `src/tools/runTerminalCommand.ts` - execution, truncation and timeout
+- `src/ui/UserInput.tsx` - indicator and Esc handling
