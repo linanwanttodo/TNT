@@ -12,18 +12,19 @@ permissions:
 
 ## Rule precedence
 
-In `agent` mode the sources are applied in this order, earlier entries winning per tool:
+In `default` mode the sources are applied in this order, earlier entries winning per
+tool:
 
 1. Command-line flags (`--allow`, `--ask`, `--exclude`)
-2. `~/.tnt/permissions.yaml`
+2. `~/.tnt/settings.json` `permissions` (legacy `permissions.yaml` is read once)
 3. Default policies from `getDefaultToolPolicies()` in
    [`src/permissions/defaultPolicies.ts`](../src/permissions/defaultPolicies.ts)
 
-The `permissions` section of `config.yaml` is not implemented.
+`config.yaml` has no permissions section: permissions live in `settings.json`.
 
 `plan` and `bypassPermissions` do not consult this list. They replace it with their own
-policy list; see [modes.md](./modes.md). `acceptEdits` and `dontAsk` use the same layers
-until their own behaviour lands.
+policy list; `acceptEdits` and `dontAsk` have their own tables as well. See
+[modes.md](./modes.md).
 
 ## Tool matching
 

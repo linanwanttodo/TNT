@@ -25,9 +25,9 @@ const MODE_BADGE: Record<PermissionMode, Badge> = {
   plan: { label: "Plan", color: "blue" },
   auto: { label: "Auto", color: "green" },
   bypassPermissions: { label: "Bypass permissions", color: "red" },
-  // dontAsk is headless/serve semantics and never reaches the TUI; this keeps
-  // the map total without inventing a badge for it.
-  dontAsk: { label: "Manual", color: "gray" },
+  // dontAsk is headless/serve semantics and never reaches the TUI; the label
+  // stays honest if a caller renders it anyway.
+  dontAsk: { label: "Don't ask", color: "gray" },
 };
 
 export function modeBadge(mode: PermissionMode): Badge {

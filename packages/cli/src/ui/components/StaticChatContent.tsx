@@ -1,4 +1,3 @@
-import type { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { Box, Static, Text } from "ink";
 import React from "react";
 
@@ -11,9 +10,6 @@ import { splitTranscriptSegments } from "../utils/transcriptSegments.js";
 
 interface StaticChatContentProps {
   showIntroMessage: boolean;
-  config?: AssistantUnrolled;
-  model?: ModelConfig;
-  organizationName?: string;
   chatHistory: ChatHistoryItem[];
   queuedMessages?: QueuedMessage[];
   renderMessage: (
@@ -33,9 +29,6 @@ interface StaticChatContentProps {
 
 export const StaticChatContent: React.FC<StaticChatContentProps> = ({
   showIntroMessage,
-  config,
-  model,
-  organizationName,
   chatHistory,
   queuedMessages = [],
   renderMessage,
@@ -73,14 +66,7 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
     const items: React.ReactElement[] = [];
 
     if (showIntroMessage) {
-      items.push(
-        <IntroMessage
-          key="intro"
-          config={config}
-          model={model}
-          organizationName={organizationName}
-        />,
-      );
+      items.push(<IntroMessage key="intro" />);
     }
 
     for (let index = 0; index < settled.length; index += 1) {
@@ -88,15 +74,7 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
     }
 
     return items;
-  }, [
-    showIntroMessage,
-    config,
-    model,
-    organizationName,
-    settled,
-    processedChatHistory,
-    renderMessage,
-  ]);
+  }, [showIntroMessage, settled, processedChatHistory, renderMessage]);
 
   // The live frame: whatever is still being written, plus the message queue.
   // Kept out of <Static> because Ink may not redraw anything it has printed.

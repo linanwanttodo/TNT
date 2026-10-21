@@ -1,21 +1,6 @@
-import { writeFileAtomically } from "core/util/atomicWrite.js";
-import YAML from "yaml";
-
-import { logger } from "../utils/logger.js";
+import { addSettingsPolicyRule } from "../config/settings.js";
 
 import { commandSegments, isCommandRiskyAlone } from "./bashCommandRule.js";
-import {
-  PermissionsYamlConfig,
-  loadPermissionsYaml,
-  permissionsYamlPath,
-} from "./permissionsYamlLoader.js";
-import { withPermissionWriteLock } from "./permissionWriteLock.js";
-
-const PERMISSIONS_HEADER = `# TNT Permissions Configuration
-# This file is managed by the TNT and should not be edited manually.
-# Use the TUI to modify permissions interactively.
-
-`;
 
 /**
  * Generates a policy rule for a given tool call
@@ -54,37 +39,11 @@ export function generatePolicyRule(toolName: string, toolArgs: any): string {
 }
 
 /**
- * Adds a policy rule to the permissions.yaml file.
+ * Adds a permanent allow rule to settings.json permissions.allow.
  *
- * The read-modify-write runs under a lock file and the write replaces the file
- * atomically: two sessions granting a permanent rule at the same moment used
- * to lose one of them, and a crash mid-write left a half-parsed file through
- * which every rule on it disappeared for the session that read it.
+ * settings.json is the only file this writes; permissions.yaml is read-only
+ * legacy input. The lock and atomic write live in the settings module.
  */
-export async function addPolicyToYaml(policyRule: string): Promise<void> {
-  try {
-    const filePath = permissionsYamlPath();
-    await withPermissionWriteLock(`${filePath}.lock`, async () => {
-      // Read inside the lock: another writer may have appended a rule between
-      // this approval being granted and its write landing.
-      const config: PermissionsYamlConfig = loadPermissionsYaml() || {};
-      const allow = config.allow ?? [];
-      if (allow.includes(policyRule)) {
-        logger.debug(`Policy rule already exists: ${policyRule}`);
-        return;
-      }
-      const yamlContent = YAML.stringify({
-        ...config,
-        allow: [...allow, policyRule],
-      });
-      writeFileAtomically(filePath, `${PERMISSIONS_HEADER}${yamlContent}`);
-      logger.info(`Added policy rule to permissions.yaml: ${policyRule}`);
-    });
-  } catch (error) {
-    logger.error("Failed to add policy to permissions.yaml", {
-      error,
-      policyRule,
-    });
-    throw error;
-  }
+export async function addPolicyRule(policyRule: string): Promise<void> {
+  await addSettingsPolicyRule(policyRule);
 }

@@ -886,7 +886,7 @@ export function useChat({
     // Handle policy creation if requested
     if (approved && createPolicy && currentRequest) {
       try {
-        const { generatePolicyRule, addPolicyToYaml } = await import(
+        const { generatePolicyRule, addPolicyRule } = await import(
           "../../permissions/policyWriter.js"
         );
 
@@ -895,7 +895,7 @@ export function useChat({
           currentRequest.toolArgs,
         );
 
-        await addPolicyToYaml(policyRule);
+        await addPolicyRule(policyRule);
         logger.debug(`Policy created: ${policyRule}`);
 
         // Reload permissions to pick up the new policy without requiring restart

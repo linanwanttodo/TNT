@@ -2,13 +2,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import {
-  loadPermissionsYaml,
-  permissionsYamlPath,
-} from "./permissionsYamlLoader.js";
-import { addPolicyToYaml } from "./policyWriter.js";
+import { loadSettings, settingsPath } from "../config/settings.js";
 
-describe("addPolicyToYaml", () => {
+import { addPolicyRule } from "./policyWriter.js";
+
+describe("addPolicyRule", () => {
   const previousHome = process.env.CONTINUE_GLOBAL_DIR;
 
   beforeEach(() => {
@@ -25,46 +23,48 @@ describe("addPolicyToYaml", () => {
     }
   });
 
-  it("appends the rule to a file the loader can read back", async () => {
-    await addPolicyToYaml("Bash(ls*)");
+  it("appends the rule to settings.json", async () => {
+    await addPolicyRule("Bash(ls*)");
 
-    const config = loadPermissionsYaml();
-    expect(config?.allow).toEqual(["Bash(ls*)"]);
-    expect(fs.readFileSync(permissionsYamlPath(), "utf-8")).toContain(
-      "# TNT Permissions Configuration",
-    );
+    expect(loadSettings().permissions?.allow).toEqual(["Bash(ls*)"]);
+    const written = JSON.parse(fs.readFileSync(settingsPath(), "utf-8"));
+    expect(written.permissions.allow).toEqual(["Bash(ls*)"]);
   });
 
   it("does not add a rule that is already there", async () => {
-    await addPolicyToYaml("Bash(ls*)");
-    await addPolicyToYaml("Bash(ls*)");
+    await addPolicyRule("Bash(ls*)");
+    await addPolicyRule("Bash(ls*)");
 
-    expect(loadPermissionsYaml()?.allow).toEqual(["Bash(ls*)"]);
+    expect(loadSettings().permissions?.allow).toEqual(["Bash(ls*)"]);
   });
 
   it("keeps every rule when two writers run at once", async () => {
     await Promise.all([
-      addPolicyToYaml("Bash(ls*)"),
-      addPolicyToYaml("Bash(pwd*)"),
+      addPolicyRule("Bash(ls*)"),
+      addPolicyRule("Bash(pwd*)"),
     ]);
 
-    expect(loadPermissionsYaml()?.allow?.sort()).toEqual([
+    expect(loadSettings().permissions?.allow?.sort()).toEqual([
       "Bash(ls*)",
       "Bash(pwd*)",
     ]);
   });
 
-  it("keeps the keys it did not touch", async () => {
+  it("keeps the settings it did not touch", async () => {
     fs.writeFileSync(
-      permissionsYamlPath(),
-      "ask:\n  - Write\nexclude: []\n",
+      settingsPath(),
+      JSON.stringify({
+        permissions: { ask: ["Write"] },
+        env: { TNT_LOG_LEVEL: "debug" },
+      }),
       "utf-8",
     );
 
-    await addPolicyToYaml("Bash(ls*)");
+    await addPolicyRule("Bash(ls*)");
 
-    const config = loadPermissionsYaml();
-    expect(config?.ask).toEqual(["Write"]);
-    expect(config?.allow).toEqual(["Bash(ls*)"]);
+    const settings = loadSettings();
+    expect(settings.permissions?.ask).toEqual(["Write"]);
+    expect(settings.permissions?.allow).toEqual(["Bash(ls*)"]);
+    expect(settings.env).toEqual({ TNT_LOG_LEVEL: "debug" });
   });
 });

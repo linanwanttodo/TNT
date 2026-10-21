@@ -558,6 +558,8 @@ const en = {
     "Error: Cannot use both --readonly and --auto flags together",
   "cli.modeConflictsWithReadonlyAuto":
     "Error: Cannot use --mode together with --readonly or --auto",
+  "settings.legacyPermissions":
+    "Warning: permissions.yaml is deprecated; its rules are read once, and new rules are written to settings.json.",
   "cli.invalidPermissionMode":
     'Error: Invalid --permission-mode "{value}". Expected one of: default, acceptEdits, plan, auto, bypassPermissions, dontAsk.',
   "cli.permissionModeConflicts":
@@ -1133,6 +1135,8 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.conflictingReadonlyAuto": "错误：不能同时使用 --readonly 和 --auto",
   "cli.modeConflictsWithReadonlyAuto":
     "错误：--mode 不能与 --readonly 或 --auto 同时使用",
+  "settings.legacyPermissions":
+    "警告：permissions.yaml 已弃用；其规则只会被读取一次，新规则写入 settings.json。",
   "cli.invalidPermissionMode":
     '错误：无效的 --permission-mode "{value}"。可选值：default、acceptEdits、plan、auto、bypassPermissions、dontAsk。',
   "cli.permissionModeConflicts":
