@@ -45,13 +45,22 @@ function declaredModes(): string[] {
   return [...match[1].matchAll(/"(\w+)"/g)].map((m) => m[1]).filter(Boolean);
 }
 
+const MODE_LABELS: Record<string, string> = {
+  default: "Manual",
+  acceptEdits: "Accept edits",
+  plan: "Plan",
+  auto: "Auto",
+  bypassPermissions: "Bypass permissions",
+  dontAsk: "Don't ask",
+};
+
 function cycleOrder(): string[] {
-  const match = read(COMPOSER).match(
-    /const modes: PermissionMode\[\] = \[([^\]]+)\]/,
-  );
+  const match = read(
+    path.join(packageRoot, "src", "ui", "components", "ModeMenu.tsx"),
+  ).match(/mode: "(\w+)"/g);
   if (!match)
-    throw new Error("the cycle order moved; this guard must move with it");
-  return [...match[1].matchAll(/"(\w+)"/g)].map((m) => m[1]).filter(Boolean);
+    throw new Error("the mode menu moved; this guard must move with it");
+  return match.map((m) => m.match(/"(\w+)"/)![1]);
 }
 
 function planPolicies(): string {
@@ -80,9 +89,21 @@ describe("spec/modes.md agrees with the permission sources", () => {
     }
   });
 
-  it("states the cycle the composer implements", () => {
-    const cycle = cycleOrder();
-    expect(doc).toContain(`${cycle.join(" → ")} → ${cycle[0]}`);
+  it("states the menu the composer opens", () => {
+    const menu = cycleOrder();
+    expect(menu).toEqual([
+      "default",
+      "acceptEdits",
+      "plan",
+      "auto",
+      "bypassPermissions",
+    ]);
+    for (const mode of menu) {
+      const label = MODE_LABELS[mode as keyof typeof MODE_LABELS];
+      expect(doc).toContain(label);
+    }
+    // dontAsk is internal and never offered.
+    expect(menu).not.toContain("dontAsk");
   });
 
   it("documents every mode flag the CLI accepts", () => {

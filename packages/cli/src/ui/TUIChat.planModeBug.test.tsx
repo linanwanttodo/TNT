@@ -7,7 +7,29 @@ import { services } from "../services/index.js";
 
 import { AppRoot } from "./AppRoot.js";
 const toolPermissionService = services.toolPermissions;
-describe("TUIChat - Plan Mode Bug Reproduction", () => {
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Opens the Shift+Tab menu and switches from one mode index to another. */
+const switchTo = async (
+  stdin: { write: (data: string) => void },
+  from: number,
+  to: number,
+) => {
+  stdin.write("\x1b[Z"); // Shift+Tab opens the menu on the current mode
+  await sleep(150);
+  const steps = (to - from + 5) % 5;
+  for (let i = 0; i < steps; i += 1) {
+    stdin.write("\x1b[B"); // down
+  }
+  await sleep(80);
+  stdin.write("\r"); // select
+  await sleep(200);
+};
+
+// The menu order shared with ModeMenu: default, acceptEdits, plan, auto,
+// bypassPermissions.
+describe("TUIChat - plan mode via the mode menu", () => {
   let context: any;
 
   beforeEach(async () => {
@@ -27,7 +49,7 @@ describe("TUIChat - Plan Mode Bug Reproduction", () => {
     context.cleanup();
   });
 
-  it("a) start up b) shift+tab to plan c) [Plan] visible d) send message", async () => {
+  it("a) start up b) menu to plan c) [Plan] visible d) send message", async () => {
     const { lastFrame, stdin, unmount } = render(React.createElement(AppRoot));
 
     try {
@@ -36,11 +58,8 @@ describe("TUIChat - Plan Mode Bug Reproduction", () => {
       expect(frame).toBeDefined();
       expect(frame).toContain("Ask anything");
 
-      // b) Shift+Tab cycles default -> acceptEdits -> plan
-      stdin.write("\x1b[Z");
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      stdin.write("\x1b[Z");
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // b) Shift+Tab opens the menu; plan is two rows down from Manual
+      await switchTo(stdin, 0, 2);
 
       frame = lastFrame();
 
@@ -83,23 +102,20 @@ describe("TUIChat - Plan Mode Bug Reproduction", () => {
       expect(frame!).not.toContain("Accept edits]");
 
       // Switch to acceptEdits
-      stdin.write("\x1b[Z");
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await switchTo(stdin, 0, 1);
 
       frame = lastFrame();
       expect(frame!).toContain("Accept edits]");
 
       // Switch to plan
-      stdin.write("\x1b[Z");
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await switchTo(stdin, 1, 2);
 
       frame = lastFrame();
       expect(frame!).toContain("Plan]");
       expect(frame!).not.toContain("Accept edits]");
 
       // Switch back to default
-      stdin.write("\x1b[Z");
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await switchTo(stdin, 2, 0);
 
       frame = lastFrame();
       expect(frame!).not.toContain("Plan]");
@@ -113,11 +129,8 @@ describe("TUIChat - Plan Mode Bug Reproduction", () => {
     const { lastFrame, stdin, unmount } = render(React.createElement(AppRoot));
 
     try {
-      // Cycle to plan (default -> acceptEdits -> plan)
-      stdin.write("\x1b[Z");
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      stdin.write("\x1b[Z");
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Menu to plan
+      await switchTo(stdin, 0, 2);
 
       let frame = lastFrame();
       expect(frame!).toContain("Plan]");
@@ -130,8 +143,7 @@ describe("TUIChat - Plan Mode Bug Reproduction", () => {
       frame = lastFrame();
 
       // Try to switch after a message - this is where the bug might occur
-      stdin.write("\x1b[Z]"); // plan -> default
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await switchTo(stdin, 2, 0);
 
       frame = lastFrame();
 

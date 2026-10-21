@@ -5,7 +5,6 @@ import { Box, Text, useApp, useInput } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { t } from "../i18n/index.js";
-import type { PermissionMode } from "../permissions/types.js";
 import type { FileIndexServiceState } from "../services/FileIndexService.js";
 import {
   SERVICE_NAMES,
@@ -20,6 +19,7 @@ import { InputHistory } from "../utils/inputHistory.js";
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator, modeBorderColor } from "./components/ModeIndicator.js";
+import { MODE_MENU_ENTRIES, ModeMenu } from "./components/ModeMenu.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { FileSearchUI } from "./FileSearchUI.js";
 import { useClipboardMonitor } from "./hooks/useClipboardMonitor.js";
@@ -215,25 +215,34 @@ const UserInput: React.FC<UserInputProps> = ({
     void loadCommands();
   }, [assistant?.prompts, assistant?.rules, locale]);
 
-  // Cycle through permission modes
-  const cycleModes = async () => {
-    const modes: PermissionMode[] = ["default", "acceptEdits", "plan"];
-    const currentMode = services.toolPermissions.getCurrentMode();
-    const currentIndex = modes.indexOf(currentMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    const nextMode = modes[nextIndex];
+  // Claude's Shift+Tab opens a mode menu; the entry list lives in ModeMenu.
+  const [showModeMenu, setShowModeMenu] = useState(false);
+  const [modeMenuIndex, setModeMenuIndex] = useState(0);
 
-    services.toolPermissions.switchMode(nextMode);
+  const openModeMenu = () => {
+    const active = services.toolPermissions.getCurrentMode();
+    const index = MODE_MENU_ENTRIES.findIndex((entry) => entry.mode === active);
+    setModeMenuIndex(index === -1 ? 0 : index);
+    setShowModeMenu(true);
+  };
 
-    // Update the service container with the new tool permissions state
-    // Since TOOL_PERMISSIONS was registered with registerValue(), we need to
-    // update its value directly rather than reloading from a factory
-    const updatedState = services.toolPermissions.getState();
-    serviceContainer.set(SERVICE_NAMES.TOOL_PERMISSIONS, updatedState);
+  const selectModeFromMenu = () => {
+    const entry = MODE_MENU_ENTRIES[modeMenuIndex];
+    setShowModeMenu(false);
+    if (!entry) return;
 
-    // Show a brief indicator of the mode change
-    // This will be reflected in the ModeIndicator component
-    return nextMode;
+    if (entry.mode === "auto") {
+      // The classifier mode is a stub; switching would silently apply the
+      // wrong policies, so it is refused with its own reason.
+      services.chatHistory.addSystemMessage(t("mode.autoUnavailable"));
+      return;
+    }
+
+    services.toolPermissions.switchMode(entry.mode);
+    serviceContainer.set(
+      SERVICE_NAMES.TOOL_PERMISSIONS,
+      services.toolPermissions.getState(),
+    );
   };
 
   // Update shell mode state based on input
@@ -670,6 +679,12 @@ const UserInput: React.FC<UserInputProps> = ({
       return true;
     }
 
+    // Esc closes the mode menu before anything else reacts
+    if (showModeMenu) {
+      setShowModeMenu(false);
+      return true;
+    }
+
     // Handle escape key to interrupt compaction (higher priority)
     if (isCompacting && onInterrupt) {
       onInterrupt();
@@ -757,9 +772,6 @@ const UserInput: React.FC<UserInputProps> = ({
         input,
         key,
         exit,
-        showSlashCommands,
-        showFileSearch,
-        cycleModes,
         clearInput,
         textBuffer,
         onTextBufferUpdate: handleTextBufferUpdate,
@@ -768,8 +780,41 @@ const UserInput: React.FC<UserInputProps> = ({
       return;
     }
 
+    // Shift+Tab toggles Claude's mode menu; the composer's slash and file
+    // helpers stay out of the way while it is open.
+    if (key.tab && key.shift) {
+      if (showModeMenu) {
+        setShowModeMenu(false);
+      } else {
+        setShowSlashCommands(false);
+        setShowFileSearch(false);
+        openModeMenu();
+      }
+      return;
+    }
+
     // Handle escape key variations
     if (handleEscapeKey(input, key)) {
+      return;
+    }
+
+    // Mode menu navigation
+    if (showModeMenu) {
+      if (key.upArrow) {
+        setModeMenuIndex((prev) =>
+          prev > 0 ? prev - 1 : MODE_MENU_ENTRIES.length - 1,
+        );
+        return;
+      }
+      if (key.downArrow) {
+        setModeMenuIndex((prev) => (prev + 1) % MODE_MENU_ENTRIES.length);
+        return;
+      }
+      if (key.return && !key.shift) {
+        selectModeFromMenu();
+        return;
+      }
+      // The menu owns the keyboard while it is open.
       return;
     }
 
@@ -923,6 +968,11 @@ const UserInput: React.FC<UserInputProps> = ({
       <GoalIndicator />
 
       <TodoIndicator />
+
+      {/* Claude's Shift+Tab mode menu sits above the composer. */}
+      {showModeMenu && (
+        <ModeMenu selectedIndex={modeMenuIndex} currentMode={currentMode} />
+      )}
 
       {/* The command palette sits above the composer, like Pi's autocomplete.
           It shares UserInput's loaded list so selection and display always

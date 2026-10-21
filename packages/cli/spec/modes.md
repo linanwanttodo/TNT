@@ -80,6 +80,10 @@ the same way.
 
 ## Switching
 
-Shift+Tab cycles `default → acceptEdits → plan → default`. The workspace name stays
-visible in the status bar in every mode; the mode itself is shown on the composer
-border.
+Shift+Tab opens the mode menu above the composer (`src/ui/components/ModeMenu.tsx`):
+Manual, Accept edits, Plan, Auto and Bypass permissions, with the current mode
+marked and the selection starting on it. Enter switches, Esc cancels. Selecting
+Auto is refused with the classifier reason instead of switching. dontAsk is
+headless and serve semantics and never appears in the menu. The workspace name
+stays visible in the status bar in every mode; the mode itself is shown on the
+composer border.
