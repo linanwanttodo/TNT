@@ -10,12 +10,18 @@ that control export. The instruments and defaults below are the ones the service
 it is unset, `CONTINUE_CLI_ENABLE_TELEMETRY=1` enables telemetry. When neither is set,
 telemetry is off.
 
+The switch alone does not start anything. Telemetry is only on when it is enabled **and**
+at least one of `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` or
+`OTEL_METRICS_EXPORTER` is set.
+
 ## Export
 
-- `OTEL_METRICS_EXPORTER` selects the exporter; the default is `console`, and `otlp`
-  builds an `OTLPMetricExporter`.
-- The OTLP endpoint is `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`, falling back to
-  `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- `OTEL_METRICS_EXPORTER` selects the exporters, comma-separated; `otlp` builds an
+  `OTLPMetricExporter` and `console` a `ConsoleMetricExporter`; the default is `console`,
+  and an unrecognized name is ignored.
+- The OTLP URL is `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`; when it is absent,
+  `OTEL_EXPORTER_OTLP_ENDPOINT` is used with `/v1/metrics` appended. With neither,
+  the exporter posts to `http://localhost:4318/v1/metrics`.
 - `OTEL_EXPORTER_OTLP_HEADERS` supplies exporter headers.
 - `OTEL_METRIC_EXPORT_INTERVAL` sets the export interval in milliseconds; the default
   is 20000.
@@ -46,11 +52,13 @@ Observable gauge:
 
 ## Attributes
 
-- `OTEL_METRICS_INCLUDE_VERSION=true` adds the CLI version attribute; it is off by
-  default.
+- `OTEL_METRICS_INCLUDE_VERSION=true` adds `app.version`; it is off by default.
 - `OTEL_METRICS_INCLUDE_ACCOUNT_UUID` defaults to on; set it to `false` to omit the
   account UUID.
-- `os.type` is attached as a resource attribute.
+- `ORGANIZATION_ID` adds `organization.id`, and the detected terminal type adds
+  `terminal.type`.
+- The resource carries `service.name`, `service.version`, `host.name`,
+  `deployment.environment`, and `os.type`.
 
 ## Logs and events
 

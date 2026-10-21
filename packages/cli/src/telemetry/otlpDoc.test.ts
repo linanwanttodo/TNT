@@ -76,4 +76,48 @@ describe("spec/otlp-metrics.md agrees with the telemetry service", () => {
       /not implemented/.test(doc),
     );
   });
+
+  it("says that the enablement switch alone starts nothing", () => {
+    expect(service).toContain("const hasOtelConfig = !!(");
+    expect(service).toContain("telemetryEnabled && hasOtelConfig");
+    expect(doc).toMatch(/switch alone does not start anything/);
+    for (const name of [
+      "OTEL_EXPORTER_OTLP_ENDPOINT",
+      "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+      "OTEL_METRICS_EXPORTER",
+    ]) {
+      expect(service).toContain(name);
+      expect(doc).toContain(name);
+    }
+  });
+
+  it("states the endpoint fallbacks the exporter builds", () => {
+    expect(service).toContain("`${normalized}/v1/metrics`");
+    expect(service).toContain("http://localhost:4318/v1/metrics");
+    expect(service).toContain('.split(",")');
+    expect(doc).toContain("comma-separated");
+    expect(doc).toContain("`/v1/metrics` appended");
+    expect(doc).toContain("http://localhost:4318/v1/metrics");
+  });
+
+  it("matches the attribute keys and their defaults", () => {
+    expect(service).toContain('OTEL_METRICS_INCLUDE_VERSION === "true"');
+    expect(service).toContain('attributes["app.version"]');
+    expect(service).toContain('OTEL_METRICS_INCLUDE_ACCOUNT_UUID !== "false"');
+    expect(service).toContain('attributes["organization.id"]');
+    expect(service).toContain('attributes["user.account_uuid"]');
+    expect(service).toContain('attributes["terminal.type"]');
+    expect(service).toContain("SEMRESATTRS_OS_TYPE");
+
+    expect(doc).toContain("app.version");
+    expect(doc).toContain("organization.id");
+    expect(doc).toContain("terminal.type");
+    expect(doc).toContain("os.type");
+  });
+
+  it("keeps the prompt attribute opt-in", () => {
+    expect(service).toContain('OTEL_LOG_USER_PROMPTS === "1"');
+    expect(doc).toContain("OTEL_LOG_USER_PROMPTS=1");
+    expect(doc).toContain("CONTINUE_METRICS_ENABLED=0");
+  });
 });
