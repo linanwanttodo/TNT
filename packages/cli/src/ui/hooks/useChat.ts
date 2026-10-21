@@ -162,6 +162,9 @@ export function useChat({
   }, []);
 
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  // The in-progress answer, rendered from this overlay instead of the history:
+  // history writes persist the session, so per-chunk updates would hit disk.
+  const [streamingText, setStreamingText] = useState<string | null>(null);
   const [responseStartTime, setResponseStartTime] = useState<number | null>(
     null,
   );
@@ -346,6 +349,7 @@ export function useChat({
         onAssistantText: (text: string) => {
           lastAssistantTextRef.current = text;
         },
+        onStreamingText: setStreamingText,
       });
 
       // Execute streaming chat response
@@ -392,6 +396,7 @@ export function useChat({
       setIsWaitingForResponse(false);
       setResponseStartTime(null);
       setInputMode(true);
+      setStreamingText(null);
 
       // Check if there are queued messages and process them after a microtask delay
       // This ensures the GUI state has been updated before processing the next message
@@ -955,6 +960,7 @@ export function useChat({
     activeQuizQuestion,
     wasInterrupted,
     queuedMessages,
+    streamingText,
     handleUserMessage,
     handleInterrupt,
     handleFileAttached,

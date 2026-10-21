@@ -24,6 +24,8 @@ interface TranscriptContentProps {
    * stay after the settled items so their position never jumps.
    */
   liveItemCount?: number;
+  /** The answer arriving chunk by chunk, rendered from the stream overlay. */
+  streamingText?: string | null;
 }
 
 /**
@@ -39,6 +41,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   renderMessage,
   refreshTrigger,
   liveItemCount = 0,
+  streamingText,
 }) => {
   const { columns } = useTerminalSize();
 
@@ -81,6 +84,26 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     return items;
   }, [showIntroMessage, settled, live, processedChatHistory, renderMessage]);
 
+  // The live answer is not in the history yet, so it renders straight from
+  // the stream overlay, after everything that is settled.
+  const streamingItem = React.useMemo(() => {
+    if (!streamingText) return null;
+    return renderMessage(
+      {
+        message: { role: "assistant", content: streamingText },
+        contextItems: [],
+      } as ChatHistoryItem,
+      settled.length + live.length,
+      processedChatHistory,
+    );
+  }, [
+    streamingText,
+    settled.length,
+    live.length,
+    processedChatHistory,
+    renderMessage,
+  ]);
+
   return (
     <Box
       key={refreshTrigger ?? 0}
@@ -89,6 +112,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
       paddingX={0}
     >
       {transcript}
+      {streamingItem && <Box key="streaming-live">{streamingItem}</Box>}
 
       {queuedMessages.length > 0 && (
         <Box paddingLeft={2} paddingBottom={1}>

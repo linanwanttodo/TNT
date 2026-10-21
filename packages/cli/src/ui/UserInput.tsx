@@ -51,6 +51,7 @@ const SlashCommandsMaybe: React.FC<{
   hideNormalUI: boolean;
   isRemoteMode: boolean;
   assistant?: AssistantConfig;
+  commands: SlashCommand[];
   filter: string;
   selectedIndex: number;
 }> = ({
@@ -59,6 +60,7 @@ const SlashCommandsMaybe: React.FC<{
   hideNormalUI,
   isRemoteMode: _isRemoteMode,
   assistant,
+  commands,
   filter,
   selectedIndex,
 }) => {
@@ -66,6 +68,7 @@ const SlashCommandsMaybe: React.FC<{
   return (
     <SlashCommandUI
       assistant={assistant}
+      commands={commands}
       filter={filter}
       selectedIndex={selectedIndex}
     />
@@ -481,7 +484,11 @@ const UserInput: React.FC<UserInputProps> = ({
     if ((key.return && !key.shift) || key.tab) {
       if (filteredCommands.length > 0) {
         const commandName = filteredCommands[selectedCommandIndex].name;
-        if (key.return && commandName !== "title") {
+        if (
+          key.return &&
+          slashCommandFilter !== "" &&
+          commandName !== "title"
+        ) {
           // select and submit the command
           const commandText = "/" + commandName;
           inputHistory.addEntry(commandText);
@@ -500,6 +507,8 @@ const UserInput: React.FC<UserInputProps> = ({
           setShowSlashCommands(false);
           setShowBashMode(false);
         } else {
+          // A bare "/" has no chosen command yet, so Enter only completes the
+          // highlighted name into the input; running it is a second Enter.
           selectSlashCommand(commandName);
         }
       }
@@ -915,6 +924,20 @@ const UserInput: React.FC<UserInputProps> = ({
 
       <TodoIndicator />
 
+      {/* The command palette sits above the composer, like Pi's autocomplete.
+          It shares UserInput's loaded list so selection and display always
+          agree. */}
+      <SlashCommandsMaybe
+        show={showSlashCommands}
+        inputMode={inputMode}
+        hideNormalUI={!!hideNormalUI}
+        isRemoteMode={!!isRemoteMode}
+        assistant={assistant}
+        commands={slashCommands}
+        filter={slashCommandFilter}
+        selectedIndex={selectedCommandIndex}
+      />
+
       {/* Input box */}
       <Box
         borderStyle="round"
@@ -936,16 +959,6 @@ const UserInput: React.FC<UserInputProps> = ({
         </Text>
         {renderInputText()}
       </Box>
-
-      <SlashCommandsMaybe
-        show={showSlashCommands}
-        inputMode={inputMode}
-        hideNormalUI={!!hideNormalUI}
-        isRemoteMode={!!isRemoteMode}
-        assistant={assistant}
-        filter={slashCommandFilter}
-        selectedIndex={selectedCommandIndex}
-      />
 
       <FileSearchMaybe
         show={showFileSearch}

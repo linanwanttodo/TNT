@@ -1,9 +1,60 @@
 import type { ChatHistoryItem } from "core/index.js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createStreamCallbacks } from "./useChat.stream.helpers.js";
 
 describe("useChat streaming", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("flushes accumulated stream deltas through the throttled overlay sink", () => {
+    const onStreamingText = vi.fn();
+    const callbacks = createStreamCallbacks({
+      setChatHistory: vi.fn(),
+      setActivePermissionRequest: vi.fn(),
+      onStreamingText,
+    });
+
+    callbacks.onContent("Hel");
+    expect(onStreamingText).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(70);
+    expect(onStreamingText).toHaveBeenCalledWith("Hel");
+
+    // Deltas accumulate: a second chunk inside the window renders the whole
+    // answer so far, still at most once per interval.
+    callbacks.onContent("lo");
+    vi.advanceTimersByTime(30);
+    expect(onStreamingText).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(40);
+    expect(onStreamingText).toHaveBeenLastCalledWith("Hello");
+  });
+
+  it("clears the overlay when the turn's text completes and keeps chunks out of history", () => {
+    const setChatHistory = vi.fn();
+    const onStreamingText = vi.fn();
+    const callbacks = createStreamCallbacks({
+      setChatHistory,
+      setActivePermissionRequest: vi.fn(),
+      onStreamingText,
+    });
+
+    callbacks.onContent("partial");
+    vi.advanceTimersByTime(70);
+    expect(onStreamingText).toHaveBeenCalledWith("partial");
+
+    // The overlay sink, not the history, carries the per-chunk updates.
+    expect(setChatHistory).not.toHaveBeenCalled();
+
+    callbacks.onContentComplete("final");
+    expect(onStreamingText).toHaveBeenLastCalledWith(null);
+  });
+
   it("should handle content completion", () => {
     let chatHistory: ChatHistoryItem[] = [];
 
