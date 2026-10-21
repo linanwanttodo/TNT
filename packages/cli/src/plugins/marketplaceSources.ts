@@ -2,6 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+import { t } from "../i18n/index.js";
+
 import { getMarketplacesDirectory } from "./directories.js";
 import {
   KnownMarketplace,
@@ -126,7 +128,9 @@ export async function ensureGitCheckout(
     fs.rmSync(target, { recursive: true, force: true });
   }
   throw new MarketplaceFetchError(
-    `Could not fetch marketplace: ${(last?.stderr || "no attempt made").trim()}`,
+    t("plugins.couldNotFetch", {
+      reason: (last?.stderr || t("plugins.noAttemptMade")).trim(),
+    }),
   );
 }
 
@@ -179,7 +183,10 @@ export async function unpackNpm(
     });
     if (packed.code !== 0) {
       throw new MarketplaceFetchError(
-        `npm pack failed for ${pkg}: ${packed.stderr.trim() || packed.stdout.trim()}`,
+        t("plugins.npmPackFailed", {
+          pkg,
+          reason: packed.stderr.trim() || packed.stdout.trim(),
+        }),
       );
     }
     const archive =
@@ -190,9 +197,7 @@ export async function unpackNpm(
         .sort()
         .pop();
     if (!archive) {
-      throw new MarketplaceFetchError(
-        `npm pack produced no archive for ${pkg}`,
-      );
+      throw new MarketplaceFetchError(t("plugins.npmPackNoArchive", { pkg }));
     }
     fs.mkdirSync(cacheDir, { recursive: true });
     const extracted = await deps.run(
@@ -202,7 +207,10 @@ export async function unpackNpm(
     );
     if (extracted.code !== 0) {
       throw new MarketplaceFetchError(
-        `Could not unpack ${archive}: ${extracted.stderr.trim()}`,
+        t("plugins.couldNotUnpack", {
+          archive,
+          reason: extracted.stderr.trim(),
+        }),
       );
     }
     return path.join(cacheDir, "package", MANIFEST_RELPATH);
@@ -272,9 +280,7 @@ export async function resolveMarketplaceSource(
     }
     case "github": {
       if (!deps.gitAvailable()) {
-        throw new MarketplaceFetchError(
-          "git is not installed, so a github marketplace cannot be fetched",
-        );
+        throw new MarketplaceFetchError(t("plugins.gitMissingGithub"));
       }
       const candidates = await githubCloneUrls(deps, source.repo);
       const { reused } = await ensureGitCheckout(deps, candidates, cacheDir, {
@@ -288,9 +294,7 @@ export async function resolveMarketplaceSource(
     }
     case "git": {
       if (!deps.gitAvailable()) {
-        throw new MarketplaceFetchError(
-          "git is not installed, so a git marketplace cannot be fetched",
-        );
+        throw new MarketplaceFetchError(t("plugins.gitMissingGit"));
       }
       const { reused } = await ensureGitCheckout(
         deps,

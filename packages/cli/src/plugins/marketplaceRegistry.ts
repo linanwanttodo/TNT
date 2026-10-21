@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+import { t } from "../i18n/index.js";
+
 import {
   getInstalledPluginsPath,
   getKnownMarketplacesPath,
@@ -21,7 +23,7 @@ export class MarketplaceRegistryError extends Error {}
 function assertMarketplaceName(name: string): void {
   if (!MARKETPLACE_NAME_PATTERN.test(name) || name.includes("..")) {
     throw new MarketplaceRegistryError(
-      `Unsafe marketplace name: ${JSON.stringify(name)}`,
+      t("plugins.unsafeMarketplaceName", { name: JSON.stringify(name) }),
     );
   }
 }
@@ -39,7 +41,7 @@ export function assertInsideCache(root: string, target: string): void {
     !resolvedTarget.startsWith(resolvedRoot + path.sep)
   ) {
     throw new MarketplaceRegistryError(
-      `Refusing to touch a path outside the marketplace cache: ${target}`,
+      t("plugins.pathOutsideCache", { path: target }),
     );
   }
 }
@@ -51,7 +53,10 @@ function readJsonFile<T>(file: string): T | null {
     return JSON.parse(raw) as T;
   } catch (error) {
     throw new MarketplaceRegistryError(
-      `Corrupted marketplace registry ${file}: ${(error as Error).message}`,
+      t("plugins.corruptedRegistry", {
+        file,
+        message: String((error as Error).message),
+      }),
     );
   }
 }
@@ -95,7 +100,7 @@ export function rememberMarketplace(
   assertMarketplaceName(name);
   if (!path.isAbsolute(entry.installLocation)) {
     throw new MarketplaceRegistryError(
-      `installLocation must be absolute: ${entry.installLocation}`,
+      t("plugins.installLocationAbsolute", { path: entry.installLocation }),
     );
   }
   const all = loadKnownMarketplaces();
@@ -133,7 +138,7 @@ export function loadInstalledPlugins(): {
   }
   for (const [id, value] of Object.entries(parsed.plugins)) {
     if (!isPluginId(id)) {
-      throw new MarketplaceRegistryError(`Not a plugin id: ${id}`);
+      throw new MarketplaceRegistryError(t("plugins.notAPluginId", { id }));
     }
     if (Array.isArray(value)) {
       plugins[id] = value;
@@ -165,7 +170,7 @@ export function recordPluginInstallation(
   entry: PluginInstallationEntry,
 ): void {
   if (!isPluginId(id)) {
-    throw new MarketplaceRegistryError(`Not a plugin id: ${id}`);
+    throw new MarketplaceRegistryError(t("plugins.notAPluginId", { id }));
   }
   const file = loadInstalledPlugins();
   const existing = file.plugins[id] ?? [];
