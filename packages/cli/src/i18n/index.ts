@@ -23,6 +23,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "lsp.noInitializeResponse": "language server did not answer initialize",
   "permissions.invalidToolPattern": "Invalid tool pattern: {pattern}",
   "subagent.depthOverflow":
     "Delegation depth overflowed: parent was at {depth}.",
@@ -642,6 +643,7 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "lsp.noInitializeResponse": "语言服务器未响应 initialize",
   "permissions.invalidToolPattern": "无效的工具匹配模式：{pattern}",
   "subagent.depthOverflow": "委派层级溢出：父级深度为 {depth}。",
   "subagent.modelUnavailable": "模型或 LLM API 不可用",
