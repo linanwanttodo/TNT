@@ -26,8 +26,9 @@ in `mcp.json`; see [permissions.md](./permissions.md) and [mcp.md](./mcp.md).
 `settings.json` supplies permissions, hooks, non-secret environment variables,
 locale, output style and the default mode (`defaultMode`, see
 [modes.md](./modes.md)). Project-level settings, hooks and MCP files are ignored
-until trusted with `--trust-project` (or `TNT_TRUST_PROJECT=1`), and the grant
-is revoked when their contents change.
+until trusted. An interactive run asks before they are first applied, and a
+grant covers the loaded contents and is revoked when they change; headless runs
+grant only through `--trust-project` (or `TNT_TRUST_PROJECT=1`).
 
 ## Errors
 
