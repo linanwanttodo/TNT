@@ -39,39 +39,32 @@ server definitions to `mcp.json` and use one of the two approaches above.
 
 ## MCP Service
 
-The CLI has an MCP Service should manage connections to MCP servers and provide state to the terminal app regarding MCP server connections.
-Service initialization for MCP servers can take especially long, so it should not block service initialization. Instead, initialization should kick off server connections and then resolve.
-All configured server connections can be initialized simultaneously using Promise.all
-Each server configuration should have its own connection and state separated, but the service should also have an easy way to retrieve all tools and prompts from all servers to pass to the model.
-Servers should have a status "idle", "connecting", "connected", or "error". Only "connected" servers contribute prompts and tools.
-If a server successfully connects but there is an error retrieving prompts or tools, it should have an array of warning messages that can be accessed in the terminal app.
-When the process exits, all servers should be shut down and disconnected.
-Only MCP servers for the CURRENT config should be loaded
+The MCP service manages connections and publishes their state to the TUI.
+Connecting never blocks service initialization: connections start together and
+initialization resolves without waiting for them. Each server keeps its own
+connection and state, and the service exposes the tools and prompts of all
+connected servers to the model.
 
-- Logs from MCP servers should be routed through the winston logger, not the standard console.log (since this is a terminal app)
+A server is `idle`, `connecting`, `connected` or `error`; only `connected`
+servers contribute prompts and tools. A server that connects but fails to list
+prompts or tools records warnings for the TUI instead of failing the whole
+service. On exit every connection is shut down.
+
+Only servers from the loaded configuration files are connected. MCP logging goes
+through the winston logger, never `console.log`.
 
 ## MCP slash command
 
-Users can manage MCP connections using the /mcp slash command.
-/mcp shows a menu with the following options
+`/mcp` opens the server manager. The main menu lists one row per configured
+server (status icon, name, and tool/prompt counts when connected), then offers
+`Restart all servers` and `Stop all servers` when at least one connection
+exists, then `Explore MCP Servers` and `Back` (`esc` also goes back).
+`Explore MCP Servers` opens the install/discovery flow.
 
-- "No servers" if there are no servers
-- Restart all servers
-- Stop all servers
-- View servers
-- Back (esc also goes back)
+Selecting a server opens its detail view. The header keeps the icon, name and
+status; the actions are `Restart server`, and `Stop server` only while the
+server is connected. Below them the view shows the server's error, its warnings,
+and the prompts and tools it contributes.
 
-View servers should open a submenu that has each server name with its status icon
-
-- red if error, yellow if warnings, green if connected, gray if idle
-- "No Servers" if there are none
-- Back (esc also goes back)
-
-Finally, selecting a server opens a sub-submenu that keeps the name/icon as header and lists
-
-- Back (esc also goes back)
-- Restart server
-- Stop server
-- warnings the server currently has
-- prompts the server contributes
-- tools the server contributes
+Status icons are green for a connected server, yellow while connecting or when
+a connected server has warnings, red for an error, and gray for idle.
