@@ -5,77 +5,81 @@ import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
 /**
- * `spec/shell-mode.md` promised a `Shell` tool call, a 120 second timeout, a 5000-line
- * cap, and separate slash-command key behavior. The implementation names the tool
- * `Bash`, times out after 180 seconds of silence, caps output at 50,000 characters and
- * 1,000 lines, and never enters the permission layer at all - the command runs directly.
- * That last point is the one a reader must not miss, so it is asserted both ways.
- *
- * The numbers and the tool name are read from the sources that hold them; changing a
- * cap or routing the call through the permission checker reddens the page.
+ * `spec/shell-mode.md` describes behaviour a user can trigger with one
+ * keystroke and no confirmation prompt: `!` runs a command outside the
+ * permission layer. The claims are read back from the implementation, so a
+ * change to activation, the indicator, the tool lifecycle or the limits has to
+ * update the page in the same change.
  */
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(here, "..", "..");
 
-const DOC = path.join(packageRoot, "spec", "shell-mode.md");
-const SHELL = path.join(here, "hooks", "useChat.shellMode.ts");
-const TERMINAL = path.join(
-  packageRoot,
-  "src",
-  "tools",
-  "runTerminalCommand.ts",
-);
-const INPUT = path.join(here, "UserInput.tsx");
-
-function read(file: string): string {
-  return fs.readFileSync(file, "utf-8");
+function read(...segments: string[]): string {
+  return fs.readFileSync(path.join(packageRoot, ...segments), "utf-8");
 }
 
-function constant(source: string, name: string): number {
-  const match = source.match(new RegExp(`${name} = (\\d+)`));
-  if (!match) throw new Error(`${name} moved; this guard must move with it`);
-  return Number(match[1]);
-}
+const doc = read("spec", "shell-mode.md");
+const activation = read("src", "ui", "hooks", "useChat.shellMode.ts");
+const runner = read("src", "tools", "runTerminalCommand.ts");
+const input = read("src", "ui", "UserInput.tsx");
+const entry = read("src", "index.ts");
 
-describe("spec/shell-mode.md agrees with the shell-mode sources", () => {
-  const doc = read(DOC).replace(/\s+/g, " ");
-  const shell = read(SHELL);
-  const terminal = read(TERMINAL);
-
-  it("reads sources that really implement shell mode", () => {
-    expect(doc.length).toBeGreaterThan(400);
-    expect(shell).toContain('message.trimStart().startsWith("!")');
-    expect(terminal.length).toBeGreaterThan(5_000);
+describe("spec/shell-mode.md agrees with the implementation", () => {
+  it("reads the page and every source it names", () => {
+    expect(doc.length).toBeGreaterThan(500);
+    expect(activation).toContain("handleBashModeProcessing");
+    expect(runner).toContain("runTerminalCommandTool");
+    expect(input).toContain("showBashMode");
   });
 
-  it("names the tool the handler actually creates", () => {
-    expect(shell).toContain('name: "Bash"');
-    expect(doc).toContain("`Bash`");
-    expect(doc).not.toMatch(/Shell tool/i);
+  it("matches the activation rule and the empty-command exception", () => {
+    expect(activation).toMatch(/trimStart\(\)\.startsWith\("!"\)/);
+    expect(activation).toContain("if (!bashCommand)");
+    expect(doc).toMatch(/trimmed text is only `!`/);
   });
 
-  it("states the output caps the terminal tool defaults to", () => {
-    const chars = constant(terminal, "DEFAULT_BASH_MAX_CHARS");
-    const lines = constant(terminal, "DEFAULT_BASH_MAX_LINES");
-    expect(doc).toContain(`${chars.toLocaleString("en-US")} characters`);
-    expect(doc).toContain(`${lines.toLocaleString("en-US")} lines`);
+  it("matches the yellow border and the `$ ` prompt", () => {
+    expect(input).toMatch(/showBashMode\s*\?\s*"yellow"/);
+    expect(input).toMatch(/showBashMode\s*\?\s*"\$ "/);
+    expect(doc).toContain("yellow");
+    expect(doc).toContain("`$ `");
   });
 
-  it("states the timeout the terminal tool defaults to", () => {
-    const timeout = Number(
-      terminal.match(/let TIMEOUT_MS = (\d+);/)?.[1] ?? NaN,
+  it("matches the tool-call lifecycle and the result statuses", () => {
+    expect(activation).toContain('name: "Bash"');
+    expect(activation).toContain('"calling"');
+    expect(activation).toContain('"done"');
+    expect(activation).toContain('"errored"');
+    expect(activation).toContain("return null");
+    expect(doc).toMatch(/does not consult the permission\s+policies/);
+    expect(activation).not.toMatch(/permissions\//);
+  });
+
+  it("matches the output caps and the inactivity timeout", () => {
+    expect(runner).toContain("DEFAULT_BASH_MAX_CHARS = 50000");
+    expect(runner).toContain("DEFAULT_BASH_MAX_LINES = 1000");
+    expect(runner).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS");
+    expect(runner).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_LINES");
+    expect(runner).toContain("TIMEOUT_MS = 180000");
+    expect(runner).toContain("Math.min(timeout, 600)");
+    expect(runner).toContain("seconds of no output");
+    expect(runner).toContain("TEST_TERMINAL_TIMEOUT");
+
+    expect(doc).toContain("50,000");
+    expect(doc).toContain("1,000");
+    expect(doc).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS");
+    expect(doc).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_LINES");
+    expect(doc).toContain("180 seconds");
+    expect(doc).toContain("600 seconds");
+    expect(doc).toContain("TEST_TERMINAL_TIMEOUT");
+    expect(doc).toMatch(/output resets it/);
+  });
+
+  it("matches the two-stage Ctrl+C claim", () => {
+    expect(entry).toContain("timeSinceLastCtrlC <= 1000");
+    expect(doc).toMatch(
+      /single\s+Ctrl\+C shows the exit hint and does not stop/,
     );
-    expect(Number.isFinite(timeout)).toBe(true);
-    expect(doc).toContain(`${timeout / 1000} seconds`);
-  });
-
-  it("warns that the TUI bypasses permissions only while it does", () => {
-    const bypasses = !/checkToolPermission/.test(shell);
-    expect(/does not consult the permission policies/.test(doc)).toBe(bypasses);
-  });
-
-  it("states the Esc rule the input implements", () => {
-    expect(read(INPUT)).toContain('inputText.trim() === "!"');
-    expect(doc).toMatch(/trimmed input is exactly `!`/);
+    expect(activation).not.toContain("SIGINT");
   });
 });
