@@ -2,7 +2,6 @@ import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { Box, Text } from "ink";
 import React from "react";
 
-import { t } from "../i18n/index.js";
 import { getDisplayableAsciiArt } from "../startup/asciiArt.js";
 
 interface IntroMessageProps {
@@ -11,46 +10,11 @@ interface IntroMessageProps {
   organizationName?: string;
 }
 
-const IntroMessage: React.FC<IntroMessageProps> = ({
-  config,
-  model,
-  organizationName,
-}) => {
+const IntroMessage: React.FC<IntroMessageProps> = () => {
   return (
     <Box flexDirection="column" paddingX={1} paddingY={1}>
-      {/* ASCII Art */}
+      {/* The model and workspace are already in the status bar. */}
       <Text>{getDisplayableAsciiArt()}</Text>
-      <Text> </Text>
-
-      {/* Organization name */}
-      {organizationName && (
-        <Text color="blue">
-          <Text bold>{t("intro.org")}:</Text>{" "}
-          <Text color="white">{organizationName}</Text>
-        </Text>
-      )}
-
-      {/* Agent name */}
-      {config && (
-        <Text color="blue">
-          <Text bold>{t("intro.config")}:</Text>{" "}
-          <Text color="white">{config.name}</Text>
-        </Text>
-      )}
-
-      {/* Model */}
-      {model ? (
-        <Text color="blue">
-          <Text bold>{t("intro.model")}:</Text>{" "}
-          <Text color="white">{model.name.split("/").pop()}</Text>
-        </Text>
-      ) : (
-        <Text color="blue">
-          <Text bold>{t("intro.model")}:</Text>{" "}
-          <Text color="dim">{t("intro.loading")}</Text>
-        </Text>
-      )}
-
       <Text> </Text>
     </Box>
   );

@@ -173,10 +173,6 @@ const en = {
   "config.failedToLoadAssistant": "Failed to load assistant.",
   "mcp.toolNotFoundOnServer": "Tool {name} not found on {server}",
   "mcp.toolNotFound": "Tool {name} not found",
-  "intro.config": "Config",
-  "intro.model": "Model",
-  "intro.org": "Org",
-  "intro.loading": "Loading...",
   "composer.placeholder":
     "Ask anything, @ for context, / for slash commands, ! for shell mode",
   "composer.placeholderRemote":
@@ -782,10 +778,6 @@ const zhCN: Record<TranslationKey, string> = {
   "config.failedToLoadAssistant": "加载智能体失败。",
   "mcp.toolNotFoundOnServer": "在 {server} 上未找到工具 {name}",
   "mcp.toolNotFound": "未找到工具 {name}",
-  "intro.config": "配置",
-  "intro.model": "模型",
-  "intro.org": "组织",
-  "intro.loading": "加载中...",
   "composer.placeholder": "输入内容，@ 引用上下文，/ 打开命令，! 执行 shell",
   "composer.placeholderRemote": "输入内容，/ 打开命令，! 执行 shell",
   "commands.noMatches": "没有匹配的命令",

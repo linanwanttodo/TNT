@@ -56,11 +56,17 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
   });
 
   it("states the badge colours the component uses", () => {
-    const colours = /currentMode === "plan" \? "blue" : "green"/.test(mode);
+    const colours =
+      /default: \{ label: "Manual", color: "gray" \}/.test(mode) &&
+      /plan: \{ label: "Plan", color: "blue" \}/.test(mode) &&
+      /bypassPermissions: \{ label: "Bypass permissions", color: "red" \}/.test(
+        mode,
+      );
     expect(colours).toBe(true);
-    expect(/\[plan\]/.test(flat)).toBe(true);
-    expect(/\[auto\]/.test(flat)).toBe(true);
-    expect(/blue/.test(flat) && /green/.test(flat)).toBe(true);
+    expect(/\[Manual\]/.test(flat)).toBe(true);
+    expect(/\[Plan\]/.test(flat)).toBe(true);
+    expect(/\[Bypass permissions\]/.test(flat)).toBe(true);
+    expect(/blue/.test(flat) && /red/.test(flat)).toBe(true);
   });
 
   it("claims no owner/repo line only while the component has none", () => {

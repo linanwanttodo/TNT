@@ -10,7 +10,7 @@ import { useLocale } from "./useLocale.js";
 
 const LocaleText: React.FC = () => {
   const locale = useLocale();
-  return <Text>{`${t("intro.config")} ${locale}`}</Text>;
+  return <Text>{`${t("status.think")} ${locale}`}</Text>;
 };
 
 describe("useLocale", () => {
@@ -29,11 +29,11 @@ describe("useLocale", () => {
     const tree = render(<LocaleText />);
     trees.push(tree);
 
-    expect(tree.lastFrame()).toContain("Config en");
+    expect(tree.lastFrame()).toContain("think en");
 
     act(() => setLocale("zh-CN"));
 
-    expect(tree.lastFrame()).not.toContain("Config");
+    expect(tree.lastFrame()).not.toContain("think");
     expect(tree.lastFrame()).toContain("zh-CN");
   });
 });

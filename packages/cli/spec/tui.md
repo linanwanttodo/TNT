@@ -27,6 +27,7 @@ never looks up the remote.
 
 ## Mode badge
 
-The composer's top border carries `[plan]` in blue or `[auto]` in green
+The composer's top border carries `[Manual]` in gray, `[Accept edits]` in cyan, `[Plan]` in blue,
+`[Auto]` in green, or `[Bypass permissions]` in red
 (`src/ui/components/ModeIndicator.tsx`). Agent mode draws no badge and the plain border.
 The mode does not change the status bar.
