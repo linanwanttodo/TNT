@@ -60,7 +60,10 @@ export function parseMarketplaceSource(value: string): {
     return { source: { source: "github", repo: value } };
   }
   throw new Error(
-    `Unrecognized marketplace source: ${value}. Use one of ${SOURCE_KINDS.map((k) => `${k}:<value>`).join(", ")}, or owner/repo.`,
+    t("plugins.unrecognizedMarketplaceSource", {
+      value,
+      kinds: SOURCE_KINDS.map((k) => `${k}:<value>`).join(", "),
+    }),
   );
 }
 
