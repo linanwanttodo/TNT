@@ -2,11 +2,24 @@ import { readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { compareVersions, getVersion } from "./version.js";
+import { compareVersions, getLatestVersion, getVersion } from "./version.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+vi.mock("node:child_process", () => ({
+  // A slow npm: the answer arrives long after a short timer would have fired,
+  // which is what tells a blocking probe from an asynchronous one.
+  execFile: (
+    _cmd: string,
+    _args: string[],
+    _opts: unknown,
+    cb: (error: Error | null, stdout: string) => void,
+  ) => {
+    setTimeout(() => cb(null, "9.9.9\n"), 30);
+  },
+}));
 
 describe("the version module", () => {
   it("answers a version without a network probe on import", () => {
@@ -15,6 +28,19 @@ describe("the version module", () => {
     const source = readFileSync(path.join(here, "version.ts"), "utf-8");
 
     expect(source).not.toMatch(/^getLatestVersion\(\)/m);
+  });
+
+  it("probes npm without blocking the event loop", async () => {
+    // The probe ran execFileSync inside the service-init phase, freezing the
+    // whole process for as long as npm took and delaying first paint.
+    let timersFired = 0;
+    const pending = getLatestVersion();
+    setTimeout(() => {
+      timersFired += 1;
+    }, 5);
+
+    expect(await pending).toBe("9.9.9");
+    expect(timersFired).toBe(1);
   });
 
   it("resolves the package version from the source tree as well as the bundle", () => {

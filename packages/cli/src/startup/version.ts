@@ -36,13 +36,22 @@ export async function getLatestVersion(): Promise<string | null> {
     try {
       // Prefer the version published to the npm registry; fall back to the
       // local package version when offline. No external service is contacted.
-      const { execFileSync } = await import("node:child_process");
-      const latest = execFileSync("npm", ["view", "@tnt/cli", "version"], {
-        encoding: "utf8",
-        timeout: 5000,
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
-      return latest || getVersion();
+      // The probe must stay asynchronous: it runs during service init, and a
+      // synchronous npm call there froze the whole process - and first paint -
+      // for as long as npm took.
+      const { execFile } = await import("node:child_process");
+      return await new Promise<string | null>((resolve) => {
+        execFile(
+          "npm",
+          ["view", "@tnt/cli", "version"],
+          { timeout: 5000 },
+          (error: Error | null, stdout: string) => {
+            // An npm failure means no registry answer at all; an empty one
+            // still falls back to the installed version.
+            resolve(error ? null : stdout.trim() || getVersion());
+          },
+        );
+      });
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         // Request was aborted, don't log
