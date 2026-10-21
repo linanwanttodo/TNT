@@ -8,16 +8,17 @@ object of a settings file.
 
 ## Events
 
-| Event | Fires |
-| --- | --- |
-| `SessionStart`, `SessionEnd` | session boundaries |
-| `UserPromptSubmit` | a prompt was submitted, before it reaches the model |
-| `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | around a tool call |
-| `PermissionRequest` | a tool needs a permission decision |
-| `Stop` | the agent finished a turn |
-| `PreCompact` | before the history is compacted |
-| `SubagentStart`, `SubagentStop` | around a delegated run |
-| `Notification`, `ConfigChange`, `TeammateIdle` | notices and state changes |
+| Event                                             | Fires                                               |
+| ------------------------------------------------- | --------------------------------------------------- |
+| `SessionStart`, `SessionEnd`                      | session boundaries                                  |
+| `UserPromptSubmit`                                | a prompt was submitted, before it reaches the model |
+| `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | around a tool call                                  |
+| `PermissionRequest`                               | a tool needs a permission decision                  |
+| `Stop`                                            | the agent finished a turn                           |
+| `PreCompact`                                      | before the history is compacted                     |
+| `SubagentStart`, `SubagentStop`                   | around a delegated run                              |
+| `Notification`, `ConfigChange`                    | notices and state changes                           |
+| `WorktreeCreate`, `WorktreeRemove`                | around the review worktree                          |
 
 ## Where hooks are configured
 
@@ -52,20 +53,20 @@ Plugins can contribute hooks as well. See [Plugins](/cli/plugins).
 
 Four handler types are supported:
 
-| Type | Runs |
-| --- | --- |
-| `command` | a shell command, 600 second default timeout |
-| `http` | a POST request, 30 second default timeout |
-| `prompt` | a single model turn, 30 second default timeout |
-| `agent` | a delegated multi-turn run, 60 second default timeout |
+| Type      | Runs                                                  |
+| --------- | ----------------------------------------------------- |
+| `command` | a shell command, 600 second default timeout           |
+| `http`    | a POST request, 30 second default timeout             |
+| `prompt`  | a single model turn, 30 second default timeout        |
+| `agent`   | a delegated multi-turn run, 60 second default timeout |
 
 ## Exit codes
 
-| Code | Effect |
-| --- | --- |
-| `0` | the action proceeds |
-| `2` | the action is blocked and stderr is fed back to the model |
-| anything else | the hook failed, the action still proceeds |
+| Code          | Effect                                                    |
+| ------------- | --------------------------------------------------------- |
+| `0`           | the action proceeds                                       |
+| `2`           | the action is blocked and stderr is fed back to the model |
+| anything else | the hook failed, the action still proceeds                |
 
 A handler can also return JSON on stdout with `hookSpecificOutput` for finer
 control than an exit code allows.

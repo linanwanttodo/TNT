@@ -4,6 +4,8 @@ import { fileURLToPath } from "url";
 
 import { describe, expect, it } from "vitest";
 
+import { HOOK_EVENT_NAMES } from "./types.js";
+
 /**
  * `src/hooks/types.ts` opens with "These types match the exact schemas from Claude
  * Code so that any hook written for `claude` works with `tnt` out of the box", and it
@@ -94,5 +96,27 @@ describe("the hook events the package promises", () => {
     for (const event of UNFIRED) {
       expect(declared.includes(event), event).toBe(true);
     }
+  });
+});
+
+const HOOKS_PAGE = path.resolve(
+  sourceRoot,
+  "..",
+  "..",
+  "..",
+  "docs",
+  "cli",
+  "hooks.mdx",
+);
+
+describe("the hooks page", () => {
+  it("names every registered event and none that was deleted", () => {
+    const page = fs.readFileSync(HOOKS_PAGE, "utf-8");
+
+    expect(HOOK_EVENT_NAMES.filter((name) => !page.includes(name))).toEqual([]);
+    // `TeammateIdle` and `TaskCompleted` were removed from the registry; a page that still
+    // lists them teaches a hook nobody runs.
+    expect(page).not.toContain("TeammateIdle");
+    expect(page).not.toContain("TaskCompleted");
   });
 });
