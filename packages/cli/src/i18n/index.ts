@@ -558,6 +558,8 @@ const en = {
     "Error: Cannot use both --readonly and --auto flags together",
   "cli.modeConflictsWithReadonlyAuto":
     "Error: Cannot use --mode together with --readonly or --auto",
+  "settings.untrustedProject":
+    "Warning: this project's settings, hooks and MCP servers are not trusted; run with --trust-project (or set TNT_TRUST_PROJECT=1) to apply them.",
   "settings.legacyPermissions":
     "Warning: permissions.yaml is deprecated; its rules are read once, and new rules are written to settings.json.",
   "cli.invalidPermissionMode":
@@ -1135,6 +1137,8 @@ const zhCN: Record<TranslationKey, string> = {
   "cli.conflictingReadonlyAuto": "错误：不能同时使用 --readonly 和 --auto",
   "cli.modeConflictsWithReadonlyAuto":
     "错误：--mode 不能与 --readonly 或 --auto 同时使用",
+  "settings.untrustedProject":
+    "警告：本项目的设置、hooks 和 MCP server 尚未受信任；请使用 --trust-project（或设置 TNT_TRUST_PROJECT=1）后再应用。",
   "settings.legacyPermissions":
     "警告：permissions.yaml 已弃用；其规则只会被读取一次，新规则写入 settings.json。",
   "cli.invalidPermissionMode":

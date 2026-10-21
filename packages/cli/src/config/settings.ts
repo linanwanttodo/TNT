@@ -14,7 +14,10 @@ import type { ToolPermissionPolicy } from "../permissions/types.js";
 import { logger } from "../utils/logger.js";
 
 import { env } from "./env.js";
-import { getSettingsFilePaths, readSettingsFile } from "./settingsFiles.js";
+import {
+  getEffectiveSettingsFilePaths,
+  readSettingsFile,
+} from "./settingsFiles.js";
 
 export interface SettingsPermissions {
   allow?: string[];
@@ -135,7 +138,7 @@ function sanitizeSettings(parsed: unknown, file: string): TntSettings | null {
  */
 export function loadSettings(cwd = process.cwd()): TntSettings {
   let merged: TntSettings = {};
-  for (const file of getSettingsFilePaths(cwd)) {
+  for (const file of getEffectiveSettingsFilePaths(cwd)) {
     const parsed = readSettingsFile(file);
     if (!parsed) continue;
     const settings = sanitizeSettings(parsed, file);
@@ -175,7 +178,7 @@ export function loadPermissionPoliciesFromSettings(
   // beats a user rule for the same tool, while unmentioned tools keep falling
   // through to the lower layers.
   const layered: ToolPermissionPolicy[] = [];
-  for (const file of getSettingsFilePaths(cwd).reverse()) {
+  for (const file of getEffectiveSettingsFilePaths(cwd).reverse()) {
     const parsed = readSettingsFile(file);
     if (!parsed) continue;
     const settings = sanitizeSettings(parsed, file);

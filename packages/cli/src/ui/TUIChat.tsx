@@ -152,10 +152,6 @@ function useChatHandlers(
   };
 }
 
-/* eslint-disable complexity -- this component is where every screen state is composed, so its
-   JSX carries the conditional rendering of all of them. The directive was on the declaration line,
-   where eslint 9.33 reported; 9.39 reports on the arrow function instead, so it is placed here
-   around the component and re-enabled below rather than chasing a line number. */
 const TUIChat: React.FC<TUIChatProps> = ({
   remoteUrl,
   configPath,
@@ -560,6 +556,5 @@ const TUIChat: React.FC<TUIChatProps> = ({
     </Box>
   );
 };
-/* eslint-enable complexity */
 
 export { TUIChat };

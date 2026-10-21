@@ -10,6 +10,8 @@ import * as path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { trustProject } from "../config/trust.js";
+
 import { getMatchingHookGroups, loadHooksConfig } from "./hookConfig.js";
 import { runHooks } from "./hookRunner.js";
 import type {
@@ -161,7 +163,9 @@ describe("hookConfig", () => {
 
     // Helper: call loadHooksConfig with isolated homeDir and project cwd
     function loadIsolated(cwd?: string) {
-      return loadHooksConfig(cwd ?? projectDir, fakeHome);
+      const project = cwd ?? projectDir;
+      trustProject(project);
+      return loadHooksConfig(project, fakeHome);
     }
 
     it("returns empty config when no settings files exist", () => {

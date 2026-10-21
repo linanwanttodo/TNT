@@ -23,6 +23,8 @@ export interface BaseCommandOptions {
   exclude?: string[];
   /** Agent file slug from the hub (--agent) */
   agent?: string;
+  /** Trust this project's settings, hooks and MCP servers (--trust-project) */
+  trustProject?: boolean;
   /** Enable beta UploadArtifact tool */
   betaUploadArtifactTool?: boolean;
   /** Enable beta Subagent tool */
