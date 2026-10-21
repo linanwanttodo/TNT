@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BUILT_IN_TOOL_NAMES } from "../tools/builtInToolNames.js";
+import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
 
 import {
   AUTO_MODE_POLICIES,
@@ -9,15 +9,14 @@ import {
 } from "./defaultPolicies.js";
 
 /**
- * The permission layer works on names, and two of its lists are maintained by
- * hand: the default policies, and the built-in name list the default-deny sweep
- * reads (`ToolPermissionService` excludes every name on it that a mode does not
- * mention). A tool governed by a policy but absent from that list can be offered
- * to the model and still never be excluded by a restrictive mode - silently.
+ * The permission layer works on names, and the sweep is derived from the tool
+ * registry (`ALL_BUILT_IN_TOOLS`), so a new tool is compared against the policy
+ * lists without anyone updating a copy of its name. A governed name that is not
+ * in the registry can still be offered to the model and never be excluded by a
+ * restrictive mode - silently.
  *
- * The allowance below is empty since the four tools the request assembles joined the
- * sweep on 2026-10-20; an entry leaves it only by being added to the sweep's list,
- * which the last case refuses to let happen unnoticed.
+ * The allowance is empty; an entry would mean a governed name nobody ships,
+ * which the last case refuses to let sit unnoticed.
  */
 const SWEEP_BLIND: string[] = [];
 
@@ -40,7 +39,7 @@ function policyNames(): Set<string> {
 
 describe("the names the permission policies govern", () => {
   const governed = policyNames();
-  const swept = new Set<string>(BUILT_IN_TOOL_NAMES);
+  const swept = new Set<string>(ALL_BUILT_IN_TOOLS.map((tool) => tool.name));
   const blind = [...governed].filter(
     (name) => !swept.has(name) && !SWEEP_BLIND.includes(name),
   );

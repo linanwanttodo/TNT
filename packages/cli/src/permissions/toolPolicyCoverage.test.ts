@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
 import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
-import { BUILT_IN_TOOL_NAMES } from "../tools/builtInToolNames.js";
 import { getAllAvailableTools } from "../tools/index.js";
 import { setBetaSubagentToolEnabled } from "../tools/toolsConfig.js";
 
@@ -35,6 +34,10 @@ function policyFor(
 describe("tool policy coverage", () => {
   const agent = getDefaultToolPolicies();
   const plan = PLAN_MODE_POLICIES;
+  // Derived from the registry instead of a hand-copied list: a tool added to
+  // ALL_BUILT_IN_TOOLS is swept by these cases without anyone remembering to
+  // add its name here.
+  const BUILT_IN_NAMES: string[] = ALL_BUILT_IN_TOOLS.map((tool) => tool.name);
 
   /** Names a plain TUI run may or may not be offered, and why. */
   const CONDITIONALLY_OFFERED: Record<string, string> = {
@@ -115,7 +118,7 @@ describe("tool policy coverage", () => {
         ).toBe(false);
       }
       const stale = Object.keys(CONDITIONALLY_OFFERED).filter(
-        (name) => !(BUILT_IN_TOOL_NAMES as readonly string[]).includes(name),
+        (name) => !BUILT_IN_NAMES.includes(name),
       );
       expect(stale).toEqual([]);
     });
@@ -139,17 +142,14 @@ describe("tool policy coverage", () => {
   });
 
   it("gives every built-in tool a policy in agent mode", () => {
-    const uncovered = BUILT_IN_TOOL_NAMES.filter(
-      (name) => !policyFor(agent, name),
-    );
+    expect(BUILT_IN_NAMES.length).toBeGreaterThanOrEqual(20);
+    const uncovered = BUILT_IN_NAMES.filter((name) => !policyFor(agent, name));
 
     expect(uncovered).toEqual([]);
   });
 
   it("gives every built-in tool a policy in plan mode", () => {
-    const uncovered = BUILT_IN_TOOL_NAMES.filter(
-      (name) => !policyFor(plan, name),
-    );
+    const uncovered = BUILT_IN_NAMES.filter((name) => !policyFor(plan, name));
 
     expect(uncovered).toEqual([]);
   });
