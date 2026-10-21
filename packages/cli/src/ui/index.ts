@@ -1,6 +1,7 @@
 import { render, RenderOptions } from "ink";
 import React from "react";
 
+import { t } from "../i18n/index.js";
 import { enableSigintHandler, setTUIUnmount } from "../index.js";
 import { PermissionMode } from "../permissions/types.js";
 import { initializeServices } from "../services/index.js";
@@ -61,11 +62,7 @@ export async function startTUIChat(
 
   // Critical safeguard: Prevent TUI initialization in TTY-less environment
   if (isTTYless() && !customStdin) {
-    throw new Error(
-      "Cannot start TUI in TTY-less environment. No TTY available for interactive mode.\n" +
-        "For non-interactive use, run with -p flag:\n" +
-        '  tnt -p "your prompt here"',
-    );
+    throw new Error(t("ui.ttyLess"));
   }
 
   // Initialize services only if not already done (skipOnboarding means already initialized)
@@ -91,10 +88,7 @@ export async function startTUIChat(
       (stdinToUse as any).setRawMode(false);
       logger.debug("Raw mode test passed - TTY is suitable for Ink");
     } catch {
-      throw new Error(
-        "Terminal does not support raw mode required for interactive UI.\n" +
-          'Use -p flag for headless mode: tnt -p "your prompt"',
-      );
+      throw new Error(t("ui.rawModeRequired"));
     }
   } else if (!customStdin) {
     logger.warn("stdin is not a TTY or does not support setRawMode");
@@ -139,9 +133,7 @@ export async function startRemoteTUIChat(
 ) {
   // Critical safeguard: Prevent TUI initialization in TTY-less environment
   if (isTTYless()) {
-    throw new Error(
-      "Cannot start remote TUI in TTY-less environment. No TTY available for interactive mode.",
-    );
+    throw new Error(t("ui.remoteTtyLess"));
   }
 
   // Test raw mode capability for remote TUI
@@ -154,9 +146,7 @@ export async function startRemoteTUIChat(
       (process.stdin as any).setRawMode(false);
       logger.debug("Raw mode test passed for remote TUI");
     } catch {
-      throw new Error(
-        "Terminal does not support raw mode required for interactive UI.",
-      );
+      throw new Error(t("ui.remoteRawMode"));
     }
   }
 
