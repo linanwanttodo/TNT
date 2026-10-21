@@ -21,6 +21,7 @@ const packageRoot = path.resolve(here, "..", "..");
 const DOC = path.join(packageRoot, "spec", "tui.md");
 const STATUS = path.join(here, "components", "BottomStatusBar.tsx");
 const MODE = path.join(here, "components", "ModeIndicator.tsx");
+const STATIC = path.join(here, "components", "StaticChatContent.tsx");
 
 function read(file: string): string {
   return fs.readFileSync(file, "utf-8");
@@ -67,6 +68,17 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/\[Plan\]/.test(flat)).toBe(true);
     expect(/\[Bypass permissions\]/.test(flat)).toBe(true);
     expect(/blue/.test(flat) && /red/.test(flat)).toBe(true);
+  });
+
+  it("states the first-screen anchor only while the transcript prints it", () => {
+    const source = read(STATIC);
+    const anchors =
+      /key="bottom-anchor"/.test(source) &&
+      /height=\{rows\}/.test(source) &&
+      /showIntroMessage/.test(source);
+
+    expect(/terminal-height blank\s+anchor/.test(flat)).toBe(anchors);
+    expect(anchors).toBe(true);
   });
 
   it("claims no owner/repo line only while the component has none", () => {

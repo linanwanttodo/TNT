@@ -2,6 +2,16 @@
 
 The CLI renders its interactive surface with Ink.
 
+## Layout
+
+Finished transcript items go to Ink's `<Static>` and stay in the terminal's
+scrollback. On a fresh screen the transcript prints one terminal-height blank
+anchor before the banner, so the banner and the live frame (status rows and
+composer) end at the bottom of the screen instead of floating under it. Once
+the transcript is longer than the screen, ordinary terminal scrolling keeps the
+composer on the last row; the anchor is not reprinted
+(`src/ui/components/StaticChatContent.tsx`).
+
 ## Status bar
 
 Two rows sit under the composer (`src/ui/components/BottomStatusBar.tsx`).

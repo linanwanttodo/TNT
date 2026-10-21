@@ -35,7 +35,7 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
   refreshTrigger,
   liveItemCount = 0,
 }) => {
-  const { columns } = useTerminalSize();
+  const { columns, rows } = useTerminalSize();
 
   // /clear remounts this subtree through the refresh trigger key, so the
   // printed state restarts from the banner instead of keeping the old
@@ -66,6 +66,11 @@ export const StaticChatContent: React.FC<StaticChatContentProps> = ({
     const items: React.ReactElement[] = [];
 
     if (showIntroMessage) {
+      // A fresh screen starts with the composer on the last row instead of
+      // floating under the banner: printing a screenful of blank lines first
+      // pushes the intro and the live frame down to the bottom, and terminal
+      // scrollback takes over once the transcript outgrows the screen.
+      items.push(<Box key="bottom-anchor" height={rows} />);
       items.push(<IntroMessage key="intro" />);
     }
 
