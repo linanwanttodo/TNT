@@ -2,7 +2,23 @@ import { ToolCallPreview } from "../tools/types.js";
 
 export type PermissionPolicy = "allow" | "ask" | "exclude";
 
-export type PermissionMode = "agent" | "plan" | "auto";
+export type PermissionMode =
+  | "default"
+  | "acceptEdits"
+  | "plan"
+  | "auto"
+  | "bypassPermissions"
+  | "dontAsk";
+
+/** Every value `--permission-mode` accepts; `auto` is refused until implemented. */
+export const PERMISSION_MODES: readonly PermissionMode[] = [
+  "default",
+  "acceptEdits",
+  "plan",
+  "auto",
+  "bypassPermissions",
+  "dontAsk",
+];
 
 export interface ToolPermissionPolicy {
   /** The tool name to match against */

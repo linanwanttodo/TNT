@@ -10,26 +10,27 @@ describe("UserInput Keyboard Shortcuts", () => {
 
   describe("mode cycling logic", () => {
     it("should cycle through modes in correct order", () => {
-      // Initially should be normal mode
-      expect(toolPermissionService.getCurrentMode()).toBe("agent");
+      // Initially the default mode
+      expect(toolPermissionService.getCurrentMode()).toBe("default");
+
+      // Cycle to acceptEdits
+      toolPermissionService.switchMode("acceptEdits");
+      expect(toolPermissionService.getCurrentMode()).toBe("acceptEdits");
 
       // Cycle to plan
       toolPermissionService.switchMode("plan");
       expect(toolPermissionService.getCurrentMode()).toBe("plan");
 
-      // Cycle to auto
-      toolPermissionService.switchMode("auto");
-      expect(toolPermissionService.getCurrentMode()).toBe("auto");
-
-      // Cycle back to normal
-      toolPermissionService.switchMode("agent");
-      expect(toolPermissionService.getCurrentMode()).toBe("agent");
+      // Cycle back to default
+      toolPermissionService.switchMode("default");
+      expect(toolPermissionService.getCurrentMode()).toBe("default");
     });
 
-    it("should cycle through all modes sequentially", () => {
-      const modes = ["agent", "plan", "auto"] as const;
+    it("should cycle through the menu modes sequentially", () => {
+      // Auto is refused until its classifier exists, and bypass is never in
+      // the cycle, so the menu is these three modes.
+      const modes = ["default", "acceptEdits", "plan"] as const;
 
-      // Test cycling through all modes
       for (let i = 0; i < modes.length * 2; i++) {
         const expectedMode = modes[i % modes.length];
         toolPermissionService.switchMode(expectedMode);

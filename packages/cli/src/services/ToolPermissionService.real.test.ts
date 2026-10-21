@@ -95,7 +95,7 @@ describe("ToolPermissionService - Real Tool Permission Test", () => {
 
   describe("Auto Mode Real Tool Tests", () => {
     beforeEach(() => {
-      service.initializeSync({ mode: "auto" });
+      service.initializeSync({ mode: "bypassPermissions" });
     });
 
     it("should allow Write tool in auto mode", () => {
@@ -140,7 +140,7 @@ describe("ToolPermissionService - Real Tool Permission Test", () => {
       // Start with user explicitly allowing Write
       service.initializeSync({
         allow: ["Write"],
-        mode: "agent",
+        mode: "default",
       });
 
       // Verify Write is allowed in normal mode

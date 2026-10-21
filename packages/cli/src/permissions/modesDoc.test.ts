@@ -38,7 +38,7 @@ function read(file: string): string {
 }
 
 function declaredModes(): string[] {
-  const match = read(TYPES).match(/export type PermissionMode = ([^;]+);/);
+  const match = read(TYPES).match(/export type PermissionMode\s*=\s*([^;]+);/);
   if (!match)
     throw new Error("the mode union moved; this guard must move with it");
   return [...match[1].matchAll(/"(\w+)"/g)].map((m) => m[1]).filter(Boolean);
@@ -56,7 +56,7 @@ function cycleOrder(): string[] {
 function planPolicies(): string {
   const source = read(POLICIES);
   const start = source.indexOf("PLAN_MODE_POLICIES");
-  const end = source.indexOf("AUTO_MODE_POLICIES", start);
+  const end = source.indexOf("BYPASS_PERMISSIONS_POLICIES", start);
   if (start < 0 || end < 0) {
     throw new Error("the plan policy list moved; this guard must move with it");
   }

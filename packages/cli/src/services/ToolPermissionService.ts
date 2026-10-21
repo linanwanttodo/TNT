@@ -1,5 +1,5 @@
 import {
-  AUTO_MODE_POLICIES,
+  BYPASS_PERMISSIONS_POLICIES,
   PLAN_MODE_POLICIES,
 } from "src/permissions/defaultPolicies.js";
 
@@ -47,7 +47,7 @@ export class ToolPermissionService
   constructor() {
     super("ToolPermissionService", {
       permissions: { policies: [] },
-      currentMode: "agent",
+      currentMode: "default",
       isHeadless: false,
       modePolicyCount: 0,
     });
@@ -173,11 +173,16 @@ export class ToolPermissionService
     switch (this.currentState.currentMode) {
       case "plan":
         return [...PLAN_MODE_POLICIES];
+      case "bypassPermissions":
+        return [...BYPASS_PERMISSIONS_POLICIES];
       case "auto":
-        return [...AUTO_MODE_POLICIES];
-      case "agent":
+        // The classifier mode is not implemented; startup validation refuses
+        // it, so reaching here means a caller bypassed that check.
+        return [];
+      case "default":
+      case "acceptEdits":
+      case "dontAsk":
       default:
-        // Agent mode uses the more nuanced policy loading
         return [];
     }
   }
@@ -214,9 +219,9 @@ export class ToolPermissionService
       );
     } else if (
       this.currentState.currentMode === "plan" ||
-      this.currentState.currentMode === "auto"
+      this.currentState.currentMode === "bypassPermissions"
     ) {
-      // For plan and auto modes, use ONLY mode policies (absolute override)
+      // For plan and bypass modes, use ONLY mode policies (absolute override)
       allPolicies = [...modePolicies];
     } else {
       // Normal mode: combine headless + mode policies with user configuration
@@ -287,8 +292,8 @@ export class ToolPermissionService
 
     // Store original policies when leaving agent mode for the first time
     if (
-      currentMode === "agent" &&
-      newMode !== "agent" &&
+      currentMode === "default" &&
+      newMode !== "default" &&
       !this.currentState.originalPolicies
     ) {
       // Deep copy the policies array to preserve the original state
@@ -312,11 +317,11 @@ export class ToolPermissionService
     // For plan and auto modes, use ONLY mode policies (absolute override)
     // For agent mode, restore original policies if available
     let allPolicies: ToolPermissionPolicy[];
-    if (newMode === "plan" || newMode === "auto") {
+    if (newMode === "plan" || newMode === "bypassPermissions") {
       // Absolute override: ignore all user configuration
       allPolicies = [...modePolicies];
     } else {
-      // Normal mode: restore original policies if we have them
+      // Default mode: restore original policies if we have them
       if (this.currentState.originalPolicies) {
         // Restore the original user policies
         // When original policies were stored in agent mode, they had 0 mode policies
@@ -374,7 +379,7 @@ export class ToolPermissionService
    */
   async reloadPermissions(): Promise<void> {
     // Only reload if we're in agent mode - other modes have absolute overrides
-    if (this.currentState.currentMode !== "agent") {
+    if (this.currentState.currentMode !== "default") {
       logger.debug("Skipping permission reload in non-agent mode");
       return;
     }

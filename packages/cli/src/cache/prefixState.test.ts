@@ -20,7 +20,7 @@ const base: RequestHeader = {
   systemMessage: "base prompt",
   tools: [{ function: { name: "Read" } }],
   temperature: 0,
-  mode: "agent",
+  mode: "default",
 };
 
 describe("classifyCachePrefix", () => {

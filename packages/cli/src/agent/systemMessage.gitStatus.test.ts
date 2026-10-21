@@ -52,7 +52,7 @@ describe("the git status block", () => {
   });
 
   it("tells the model the block is a snapshot that will not update", async () => {
-    const message = await constructSystemMessage("agent", [], undefined);
+    const message = await constructSystemMessage("default", [], undefined);
 
     expect(message).toContain('<context name="gitStatus">');
     expect(message).toContain(

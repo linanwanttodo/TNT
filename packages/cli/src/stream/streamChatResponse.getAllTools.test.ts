@@ -61,7 +61,7 @@ describe("getRequestTools - Tool Filtering", () => {
     await initializeServices({
       headless: false,
       toolPermissionOverrides: {
-        mode: "agent",
+        mode: "default",
       },
     });
 
@@ -70,7 +70,7 @@ describe("getRequestTools - Tool Filtering", () => {
       SERVICE_NAMES.TOOL_PERMISSIONS,
     );
     expect(serviceResult.state).toBe("ready");
-    expect(serviceResult.value?.currentMode).toBe("agent");
+    expect(serviceResult.value?.currentMode).toBe("default");
 
     // Get available tools - Bash should be available in normal mode
     const tools = await getRequestTools(false);
@@ -88,7 +88,7 @@ describe("getRequestTools - Tool Filtering", () => {
     await initializeServices({
       headless: false,
       toolPermissionOverrides: {
-        mode: "auto",
+        mode: "bypassPermissions",
       },
     });
 
@@ -97,7 +97,7 @@ describe("getRequestTools - Tool Filtering", () => {
       SERVICE_NAMES.TOOL_PERMISSIONS,
     );
     expect(serviceResult.state).toBe("ready");
-    expect(serviceResult.value?.currentMode).toBe("auto");
+    expect(serviceResult.value?.currentMode).toBe("bypassPermissions");
 
     // Get available tools - all tools should be available in auto mode
     const tools = await getRequestTools(false);
@@ -115,7 +115,7 @@ describe("getRequestTools - Tool Filtering", () => {
     await initializeServices({
       headless: false,
       toolPermissionOverrides: {
-        mode: "agent",
+        mode: "default",
         exclude: ["Read"],
       },
     });
@@ -171,7 +171,7 @@ describe("getRequestTools - Tool Filtering", () => {
     await initializeServices({
       headless: false,
       toolPermissionOverrides: {
-        mode: "agent",
+        mode: "default",
       },
     });
 

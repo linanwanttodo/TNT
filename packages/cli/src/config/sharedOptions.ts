@@ -12,10 +12,13 @@ export function addCommonOptions(command: Command): Command {
       "Organization slug to use for this session (supported only in headless mode)",
     )
     .option("--readonly", "Start in plan mode (documentation writes only)")
-    .option("--auto", "Start in auto mode (all tools allowed)")
+    .option(
+      "--auto",
+      "Deprecated alias for bypassPermissions (all tools allowed)",
+    )
     .option(
       "--mode <mode>",
-      "Start in a specific permission mode: agent, plan, or auto",
+      "Legacy mode entry: agent (default), plan, or auto (bypassPermissions)",
     )
     .option("--verbose", "Enable verbose logging")
     .option("--beta-status-tool", "Enable beta status tool")

@@ -22,7 +22,7 @@ export function enterPlanProfile(): void {
 /** Leave plan: changes are allowed again and the profile goes back to default. */
 export function exitPlanProfile(): void {
   try {
-    services.toolPermissions.switchMode("agent");
+    services.toolPermissions.switchMode("default");
   } catch {
     // A missing permission service must not strand the session in plan mode.
   }

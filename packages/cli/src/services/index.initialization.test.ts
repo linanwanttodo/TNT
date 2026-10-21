@@ -26,7 +26,7 @@ describe("Service Initialization", () => {
     await initializeServices({
       headless: true,
       toolPermissionOverrides: {
-        mode: "agent",
+        mode: "default",
       },
     });
 
@@ -36,7 +36,7 @@ describe("Service Initialization", () => {
     );
     expect(afterInit.state).toBe("ready");
     expect(afterInit.value).toBeDefined();
-    expect(afterInit.value?.currentMode).toBe("agent");
+    expect(afterInit.value?.currentMode).toBe("default");
     expect(afterInit.value?.isHeadless).toBe(true);
   });
 

@@ -69,7 +69,7 @@ vi.mock("../services/index.js", () => ({
       getSystemMessage: vi.fn(),
     },
     toolPermissions: {
-      getState: vi.fn(() => ({ currentMode: "agent" })),
+      getState: vi.fn(() => ({ currentMode: "default" })),
       isHeadless: vi.fn(() => false),
     },
     chatHistory: {

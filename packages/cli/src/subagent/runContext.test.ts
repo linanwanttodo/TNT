@@ -19,7 +19,7 @@ function parent(
     delegationDepth: 0,
     systemMessage: "base",
     permissions,
-    mode: "agent",
+    mode: "default",
     abortSignal: new AbortController().signal,
     ...overrides,
   };

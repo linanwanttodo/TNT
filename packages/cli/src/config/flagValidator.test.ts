@@ -353,7 +353,7 @@ describe("permission flags beside a mode that owns the policy", () => {
     const result = validateFlags({
       allow: ["Bash"],
       exclude: ["Write"],
-      mode: "agent",
+      mode: "default",
     } as never);
 
     expect(result.errors.map((e) => e.code)).not.toContain(
