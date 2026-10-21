@@ -170,18 +170,16 @@ describe("tool policy coverage", () => {
     for (const name of ["ApplyPatch", "Edit", "MultiEdit", "Write"]) {
       const policy = policyFor(plan, name);
       expect(policy, name).toBeDefined();
-      // Plan mode may write documentation, so these are scoped rather than
-      // refused; the scope itself is enforced at call time.
-      expect(policy?.docsOnly, name).toBe(true);
+      expect(policy?.permission, name).toBe("exclude");
     }
   });
 
   it("keeps a write that leaves the workspace in front of a human", () => {
-    // Headless allows the write tools, so the destination check is the only
-    // thing standing between a runaway run and someone else's directory.
+    // The default table scopes the write tools to the workspace, so the
+    // destination check is the only thing standing between a runaway run and
+    // someone else's directory.
     for (const name of ["ApplyPatch", "Edit", "MultiEdit", "Write"]) {
       expect(policyFor(agent, name)?.workspaceOnly, `agent ${name}`).toBe(true);
-      expect(policyFor(plan, name)?.workspaceOnly, `plan ${name}`).toBe(true);
     }
   });
 });

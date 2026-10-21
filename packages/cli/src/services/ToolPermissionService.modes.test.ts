@@ -26,20 +26,10 @@ describe("ToolPermissionService - Mode Functionality", () => {
 
       // Write tools are allowed but narrowed to documentation paths
       expect(
-        policies.some(
-          (p) =>
-            p.tool === "Write" &&
-            p.permission === "allow" &&
-            p.docsOnly === true,
-        ),
+        policies.some((p) => p.tool === "Write" && p.permission === "exclude"),
       ).toBe(true);
       expect(
-        policies.some(
-          (p) =>
-            p.tool === "Edit" &&
-            p.permission === "allow" &&
-            p.docsOnly === true,
-        ),
+        policies.some((p) => p.tool === "Edit" && p.permission === "exclude"),
       ).toBe(true);
       expect(
         policies.some((p) => p.tool === "Bash" && p.permission === "allow"),
@@ -56,9 +46,9 @@ describe("ToolPermissionService - Mode Functionality", () => {
         policies.some((p) => p.tool === "List" && p.permission === "allow"),
       ).toBe(true);
 
-      // Plan mode allows all other tools (including MCP) with wildcard
+      // Plan mode leaves MCP and other tools at ask
       expect(
-        policies.some((p) => p.tool === "*" && p.permission === "allow"),
+        policies.some((p) => p.tool === "*" && p.permission === "ask"),
       ).toBe(true);
     });
 
@@ -88,10 +78,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       const planPolicies = planState.permissions.policies;
       expect(
         planPolicies.some(
-          (p) =>
-            p.tool === "Write" &&
-            p.permission === "allow" &&
-            p.docsOnly === true,
+          (p) => p.tool === "Write" && p.permission === "exclude",
         ),
       ).toBe(true);
       expect(
@@ -124,10 +111,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       expect(planPolicies).not.toEqual(normalPolicies);
       expect(
         planPolicies.some(
-          (p) =>
-            p.tool === "Write" &&
-            p.permission === "allow" &&
-            p.docsOnly === true,
+          (p) => p.tool === "Write" && p.permission === "exclude",
         ),
       ).toBe(true);
     });
@@ -148,8 +132,7 @@ describe("ToolPermissionService - Mode Functionality", () => {
       // Plan mode should use ONLY mode policies (absolute override)
       // Should contain Write exclude policy for plan mode
       const writePolicy = newPolicies.find((p) => p.tool === "Write");
-      expect(writePolicy?.permission).toBe("allow");
-      expect(writePolicy?.docsOnly).toBe(true);
+      expect(writePolicy?.permission).toBe("exclude");
 
       // Should not contain any user-defined policies from the initial setup
       const userAllowPolicy = newPolicies.find((p) => p.tool === "allowedTool");
@@ -243,20 +226,10 @@ describe("ToolPermissionService - Mode Functionality", () => {
 
       // Mode policies should override user config - Write should be excluded despite being in allow list
       expect(
-        policies.some(
-          (p) =>
-            p.tool === "Write" &&
-            p.permission === "allow" &&
-            p.docsOnly === true,
-        ),
+        policies.some((p) => p.tool === "Write" && p.permission === "exclude"),
       ).toBe(true);
       expect(
-        policies.some(
-          (p) =>
-            p.tool === "Edit" &&
-            p.permission === "allow" &&
-            p.docsOnly === true,
-        ),
+        policies.some((p) => p.tool === "Edit" && p.permission === "exclude"),
       ).toBe(true);
       expect(
         policies.some((p) => p.tool === "Bash" && p.permission === "allow"),
@@ -293,9 +266,9 @@ describe("ToolPermissionService - Mode Functionality", () => {
       // Mode policies should come first, and there should be policies
       expect(policies.length).toBeGreaterThan(0);
 
-      // Plan mode has wildcard allow policy for MCP and other tools
+      // Plan mode leaves MCP and other tools at ask
       expect(
-        policies.some((p) => p.tool === "*" && p.permission === "allow"),
+        policies.some((p) => p.tool === "*" && p.permission === "ask"),
       ).toBe(true);
     });
   });

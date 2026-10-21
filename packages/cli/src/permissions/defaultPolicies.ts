@@ -47,26 +47,15 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
   return policies;
 }
 
-// Plan mode: writes are allowed for documentation only, reads stay open, and
-// shell commands must be provably non-writing. The path decides whether a
-// write call is safe, so the write tools stay listed and the check runs at
-// execution time.
+// Plan mode: the four write tools are disabled outright, reads stay open, and
+// shell commands must be provably non-writing. MCP and plugin tools fall
+// through to an ask: the TUI asks, and a headless run drops the tool and
+// refuses a call that reaches approval.
 export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
-  // Documentation only, and only inside the project the plan is about.
-  { tool: "Edit", permission: "allow", docsOnly: true, workspaceOnly: true },
-  {
-    tool: "MultiEdit",
-    permission: "allow",
-    docsOnly: true,
-    workspaceOnly: true,
-  },
-  { tool: "Write", permission: "allow", docsOnly: true, workspaceOnly: true },
-  {
-    tool: "ApplyPatch",
-    permission: "allow",
-    docsOnly: true,
-    workspaceOnly: true,
-  },
+  { tool: "Edit", permission: "exclude" },
+  { tool: "MultiEdit", permission: "exclude" },
+  { tool: "Write", permission: "exclude" },
+  { tool: "ApplyPatch", permission: "exclude" },
 
   // Plan mode promises the project is not modified, so shell commands are
   // allowed only while they cannot write. A command the classifier does not
@@ -99,8 +88,8 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Todo", permission: "allow" },
   { tool: "UploadArtifact", permission: "allow" },
 
-  // Allow MCP tools
-  { tool: "*", permission: "allow" },
+  // MCP and plugin tools ask; headless refuses them.
+  { tool: "*", permission: "ask" },
 ];
 
 // acceptEdits: the default table with the four write tools allowed inside the

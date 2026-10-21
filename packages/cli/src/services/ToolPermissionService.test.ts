@@ -74,9 +74,7 @@ describe("ToolPermissionService", () => {
       expect(state.permissions.policies.length).toBeGreaterThan(0);
       expect(state.permissions.policies).toContainEqual({
         tool: "Write",
-        permission: "allow",
-        docsOnly: true,
-        workspaceOnly: true,
+        permission: "exclude",
       });
     });
   });
@@ -98,7 +96,7 @@ describe("ToolPermissionService", () => {
 
     test("should handle empty overrides", () => {
       vi.mocked(precedenceResolver.resolvePermissionPrecedence).mockReturnValue(
-        [{ tool: "*", permission: "ask" }],
+        [{ tool: "*", permission: "allow" }],
       );
 
       const state = service.initializeSync({
@@ -108,7 +106,7 @@ describe("ToolPermissionService", () => {
       });
 
       expect(state.permissions.policies).toEqual([
-        { tool: "*", permission: "ask" },
+        { tool: "*", permission: "allow" },
       ]);
     });
   });
@@ -119,18 +117,8 @@ describe("ToolPermissionService", () => {
       const policies = state.permissions.policies;
 
       // Write tools stay available for documentation and are narrowed by path
-      expect(policies).toContainEqual({
-        tool: "Write",
-        permission: "allow",
-        docsOnly: true,
-        workspaceOnly: true,
-      });
-      expect(policies).toContainEqual({
-        tool: "Edit",
-        permission: "allow",
-        docsOnly: true,
-        workspaceOnly: true,
-      });
+      expect(policies).toContainEqual({ tool: "Write", permission: "exclude" });
+      expect(policies).toContainEqual({ tool: "Edit", permission: "exclude" });
 
       // Should allow read tools and inspecting shell commands, and only those
       expect(policies).toContainEqual({
@@ -142,10 +130,10 @@ describe("ToolPermissionService", () => {
       expect(policies).toContainEqual({ tool: "Search", permission: "allow" });
       expect(policies).toContainEqual({ tool: "List", permission: "allow" });
 
-      // Plan mode has wildcard allow at the end for MCP and other tools
+      // Plan mode leaves MCP and other tools at ask
       expect(policies[policies.length - 1]).toEqual({
         tool: "*",
-        permission: "allow",
+        permission: "ask",
       });
     });
 
@@ -195,9 +183,7 @@ describe("ToolPermissionService", () => {
       // Should only have plan mode policies
       expect(state.permissions.policies).toContainEqual({
         tool: "Write",
-        permission: "allow",
-        docsOnly: true,
-        workspaceOnly: true,
+        permission: "exclude",
       });
       // Should not have user policies
       expect(state.permissions.policies).not.toContainEqual({
@@ -358,15 +344,11 @@ describe("ToolPermissionService", () => {
       // to documentation paths
       expect(state.permissions.policies).toContainEqual({
         tool: "Write",
-        permission: "allow",
-        docsOnly: true,
-        workspaceOnly: true,
+        permission: "exclude",
       });
       expect(state.permissions.policies).toContainEqual({
         tool: "Edit",
-        permission: "allow",
-        docsOnly: true,
-        workspaceOnly: true,
+        permission: "exclude",
       });
     });
 
@@ -423,14 +405,14 @@ describe("ToolPermissionService", () => {
 
       // Plan mode should narrow write tools to documentation paths
       const writeDocsOnlyIndex = state.permissions.policies.findIndex(
-        (p) => p.tool === "Write" && p.docsOnly === true,
+        (p) => p.tool === "Write" && p.permission === "exclude",
       );
       expect(writeDocsOnlyIndex).toBeGreaterThanOrEqual(0);
 
-      // Plan mode allows all other tools via wildcard
+      // Plan mode leaves all other tools at ask
       expect(state.permissions.policies).toContainEqual({
         tool: "*",
-        permission: "allow",
+        permission: "ask",
       });
       expect(state.isHeadless).toBe(true);
     });

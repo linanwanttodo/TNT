@@ -108,11 +108,12 @@ describe("spec/modes.md agrees with the permission sources", () => {
     );
   });
 
-  it("warns about the wildcard allow while plan mode grants it", () => {
-    const grantsWildcard = /tool: "\*", permission: "allow"/.test(
-      planPolicies(),
-    );
-    expect(/MCP/.test(doc)).toBe(grantsWildcard);
+  it("states that the wildcard asks, not allows, in plan mode", () => {
+    const wildcard = planPolicies().match(
+      /tool: "\*", permission: "(\w+)"/,
+    )?.[1];
+    expect(wildcard).toBe("ask");
+    expect(/MCP/.test(doc)).toBe(true);
   });
 
   it("claims the workspace name stays visible only while the status bar shows it", () => {
