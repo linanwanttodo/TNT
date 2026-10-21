@@ -56,7 +56,7 @@ function cycleOrder(): string[] {
 function planPolicies(): string {
   const source = read(POLICIES);
   const start = source.indexOf("PLAN_MODE_POLICIES");
-  const end = source.indexOf("BYPASS_PERMISSIONS_POLICIES", start);
+  const end = source.indexOf("ACCEPT_EDITS_MODE_POLICIES", start);
   if (start < 0 || end < 0) {
     throw new Error("the plan policy list moved; this guard must move with it");
   }

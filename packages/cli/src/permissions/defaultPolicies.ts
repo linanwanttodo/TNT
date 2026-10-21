@@ -41,7 +41,7 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
     { tool: "UploadArtifact", permission: "allow" },
   ];
 
-  policies.push({ tool: "Bash", permission: "ask" });
+  policies.push({ tool: "Bash", permission: "ask", readOnlyAllow: true });
   policies.push({ tool: "*", permission: "ask" });
 
   return policies;
@@ -101,6 +101,41 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
 
   // Allow MCP tools
   { tool: "*", permission: "allow" },
+];
+
+// acceptEdits: the default table with the four write tools allowed inside the
+// workspace. Bash keeps the default read-only-allowed / otherwise-ask rule.
+export const ACCEPT_EDITS_MODE_POLICIES: ToolPermissionPolicy[] = [
+  { tool: "Edit", permission: "allow", workspaceOnly: true },
+  { tool: "MultiEdit", permission: "allow", workspaceOnly: true },
+  { tool: "Write", permission: "allow", workspaceOnly: true },
+  { tool: "ApplyPatch", permission: "allow", workspaceOnly: true },
+  { tool: "CheckBackgroundJob", permission: "allow" },
+  { tool: "AskQuestion", permission: "allow" },
+  { tool: "EnterPlanMode", permission: "allow" },
+  { tool: "ExitPlanMode", permission: "ask" },
+  { tool: "Checklist", permission: "allow" },
+  { tool: "Diff", permission: "allow" },
+  { tool: "Skills", permission: "allow" },
+  { tool: "Exit", permission: "allow" },
+  { tool: "Fetch", permission: "allow" },
+  { tool: "List", permission: "allow" },
+  { tool: "Read", permission: "allow" },
+  { tool: "Search", permission: "allow" },
+  { tool: "Glob", permission: "allow" },
+  { tool: "CodebaseSearch", permission: "allow" },
+  { tool: "Completion", permission: "allow" },
+  { tool: "Diagnostics", permission: "allow" },
+  { tool: "Subagent", permission: "allow" },
+  { tool: "ListSubagents", permission: "allow" },
+  { tool: "FindSymbol", permission: "allow" },
+  { tool: "Hover", permission: "allow" },
+  { tool: "Status", permission: "allow" },
+  { tool: "Todo", permission: "allow" },
+  { tool: "ReportFailure", permission: "allow" },
+  { tool: "UploadArtifact", permission: "allow" },
+  { tool: "Bash", permission: "ask", readOnlyAllow: true },
+  { tool: "*", permission: "ask" },
 ];
 
 // Bypass permissions: complete override. Entry is gated at flag validation, so

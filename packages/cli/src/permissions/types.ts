@@ -33,6 +33,11 @@ export interface ToolPermissionPolicy {
    */
   readOnlyOnly?: boolean;
   /**
+   * On an ask policy: a command the classifier proves non-writing is allowed,
+   * and every other command keeps the ask. This is the default-mode Bash rule.
+   */
+  readOnlyAllow?: boolean;
+  /**
    * Only documentation files may be modified. Set by planning modes, which
    * are allowed to produce plans and notes but must not touch code. The
    * arguments decide whether the call is safe.

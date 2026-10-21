@@ -1,4 +1,5 @@
 import {
+  ACCEPT_EDITS_MODE_POLICIES,
   BYPASS_PERMISSIONS_POLICIES,
   PLAN_MODE_POLICIES,
 } from "src/permissions/defaultPolicies.js";
@@ -173,6 +174,8 @@ export class ToolPermissionService
     switch (this.currentState.currentMode) {
       case "plan":
         return [...PLAN_MODE_POLICIES];
+      case "acceptEdits":
+        return [...ACCEPT_EDITS_MODE_POLICIES];
       case "bypassPermissions":
         return [...BYPASS_PERMISSIONS_POLICIES];
       case "auto":
@@ -219,9 +222,10 @@ export class ToolPermissionService
       );
     } else if (
       this.currentState.currentMode === "plan" ||
+      this.currentState.currentMode === "acceptEdits" ||
       this.currentState.currentMode === "bypassPermissions"
     ) {
-      // For plan and bypass modes, use ONLY mode policies (absolute override)
+      // For plan, acceptEdits and bypass, use ONLY mode policies
       allPolicies = [...modePolicies];
     } else {
       // Normal mode: combine headless + mode policies with user configuration
