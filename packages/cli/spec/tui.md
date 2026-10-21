@@ -14,6 +14,12 @@ PgDn move the transcript by half a screen; scrolling back to the end resumes
 following new output (`src/ui/TUIChat.tsx`,
 `src/ui/components/TranscriptContent.tsx`, `src/ui/utils/viewport.ts`).
 
+While the view is scrolled up, a centred `↓ Jump to latest message · Ctrl+End`
+hint sits on the last row of the viewport, directly above the composer; End and
+Ctrl+End return to the live tail, and submitting a message returns there too.
+The first screen's banner is a two-line half-block wordmark with the version
+beside it (`src/startup/asciiArt.ts`).
+
 ## Status bar
 
 Two rows sit under the composer (`src/ui/components/BottomStatusBar.tsx`).

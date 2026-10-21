@@ -17,18 +17,18 @@ describe("asciiArt", () => {
     }
   });
 
-  it("draws TNT as compact block letters", () => {
+  it("draws TNT as a compact two-line half-block wordmark", () => {
     const plain = TNT_ASCII_ART.replace(/\u001b\[[0-9;]*m/g, "");
     const lines = plain.split("\n").filter((line) => line.trim().length > 0);
 
-    // Six rows of glyphs plus the version line.
-    expect(lines).toHaveLength(7);
-    expect(lines[0]).toContain("████████╗");
-    expect(lines[2]).toContain("██╔██╗");
-    expect(lines[5]).toContain("╚═╝");
-    expect(
-      Math.max(...lines.slice(0, 6).map((line) => line.length)),
-    ).toBeLessThanOrEqual(30);
+    // One glyph row with the version beside it, one glyph row below.
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain("▀██▀");
+    expect(lines[0]).toMatch(/v\d/);
+    expect(lines[1]).toContain(" ██ ");
+    expect(Math.max(...lines.map((line) => line.length))).toBeLessThanOrEqual(
+      40,
+    );
   });
 
   describe("getDisplayableAsciiArt", () => {
@@ -43,7 +43,7 @@ describe("asciiArt", () => {
 
     it("should return just the version string when terminal is too narrow", () => {
       // Set process.stdout.columns to simulate narrow terminal
-      process.stdout.columns = 60;
+      process.stdout.columns = 20;
 
       const result = getDisplayableAsciiArt();
 
@@ -52,8 +52,8 @@ describe("asciiArt", () => {
     });
 
     it("should return just the version string when terminal is below threshold", () => {
-      // Test the edge case at exactly 74 columns (below our threshold of 75)
-      process.stdout.columns = 74;
+      // Test the edge case just below the wordmark's 30-column threshold
+      process.stdout.columns = 29;
 
       const result = getDisplayableAsciiArt();
 
@@ -62,8 +62,8 @@ describe("asciiArt", () => {
     });
 
     it("should return TNT ASCII art when terminal is exactly at threshold", () => {
-      // Test the edge case at exactly 75 columns (our threshold)
-      process.stdout.columns = 75;
+      // Test the edge case at exactly 30 columns (our threshold)
+      process.stdout.columns = 30;
 
       const result = getDisplayableAsciiArt();
 

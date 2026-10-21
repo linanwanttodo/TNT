@@ -152,6 +152,7 @@ const en = {
     "Cannot start remote TUI in TTY-less environment. No TTY available for interactive mode.",
   "ui.remoteRawMode":
     "Terminal does not support raw mode required for interactive UI.",
+  "ui.jumpToLatest": "↓ Jump to latest message · Ctrl+End",
   "tools.globNeedsPattern":
     "Glob needs a pattern: an empty pattern would list the whole tree.",
   "tools.globNeedsRipgrep":
@@ -770,6 +771,7 @@ const zhCN: Record<TranslationKey, string> = {
     '终端不支持交互界面所需的 raw 模式。\n无头模式请加 -p 参数：tnt -p "你的提示词"',
   "ui.remoteTtyLess": "无法在无 TTY 的环境中启动远程 TUI：交互模式需要终端。",
   "ui.remoteRawMode": "终端不支持交互界面所需的 raw 模式。",
+  "ui.jumpToLatest": "↓ 跳转到最新消息 · Ctrl+End",
   "tools.globNeedsPattern": "Glob 需要一个模式：空模式会列出整棵树。",
   "tools.globNeedsRipgrep":
     "Glob 使用 ripgrep (rg) 列出文件，但它未安装。请改用 List 查看单个目录，或安装 rg。",

@@ -81,6 +81,18 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/height=\{rows\}/.test(chat)).toBe(true);
   });
 
+  it("documents the jump-to-latest hint only while TUIChat renders it", () => {
+    const chat = read(CHAT);
+    const art = read(path.join(here, "..", "startup", "asciiArt.ts"));
+
+    expect(/Jump to latest/.test(flat)).toBe(
+      /jumpToLatest/.test(chat) && /key\.end/.test(chat),
+    );
+    expect(/half-block wordmark/.test(flat)).toBe(
+      /█/.test(art) && /MIN_WIDTH_FOR_ASCII_ART = 30/.test(art),
+    );
+  });
+
   it("claims no owner/repo line only while the component has none", () => {
     expect(REPO_LOOKUP.test(flat)).toBe(REPO_LOOKUP.test(status));
   });

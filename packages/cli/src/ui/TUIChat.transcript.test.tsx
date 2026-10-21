@@ -103,10 +103,18 @@ describe("TUIChat transcript", () => {
     }
   });
 
-  it("has no in-app scroll affordance", () => {
-    const { lastFrame, unmount } = renderChat();
+  it("shows the jump-to-latest hint above the composer only while scrolled up", async () => {
+    const { lastFrame, stdin, unmount } = renderChat();
 
     try {
+      expect(lastFrame() ?? "").not.toContain("Jump to latest");
+
+      stdin.write("\x1b[5~"); // PageUp
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(lastFrame() ?? "").toContain("Jump to latest");
+
+      stdin.write("\x1b[F"); // End returns to the live tail
+      await new Promise((resolve) => setTimeout(resolve, 100));
       expect(lastFrame() ?? "").not.toContain("Jump to latest");
     } finally {
       unmount();
