@@ -23,6 +23,11 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const en = {
+  "ui.imageTooLarge":
+    "Image size {size}MB exceeds maximum allowed size of {max}MB",
+  "ui.tooManyImages": "Cannot add more than {count} images",
+  "ui.imageMemoryLimit":
+    "Adding image would exceed total memory limit. Current usage: {current}MB, Maximum: {max}MB",
   "tools.patchOutsideWorkspace":
     "ApplyPatch writes inside the workspace only; '{path}' is outside it.",
   "tools.couldNotReadPatch": "Could not read the patch: {message}",
@@ -595,6 +600,10 @@ const en = {
 export type TranslationKey = keyof typeof en;
 
 const zhCN: Record<TranslationKey, string> = {
+  "ui.imageTooLarge": "图片大小 {size}MB 超过允许的上限 {max}MB",
+  "ui.tooManyImages": "最多只能添加 {count} 张图片",
+  "ui.imageMemoryLimit":
+    "添加图片会超出总内存上限。当前用量：{current}MB，上限：{max}MB",
   "tools.patchOutsideWorkspace":
     "ApplyPatch 只能写入工作区内部；'{path}' 在工作区之外。",
   "tools.couldNotReadPatch": "无法读取补丁：{message}",

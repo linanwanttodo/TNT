@@ -1,5 +1,7 @@
 import { Key } from "ink";
 
+import { t } from "../i18n/index.js";
+
 export const COLLAPSE_SIZE = 800; // Characters threshold for collapsing pasted content
 export const RAPID_INPUT_THRESHOLD = 200; // Minimum characters to trigger rapid input detection
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB per image
@@ -233,13 +235,16 @@ export class TextBuffer {
     // Validate image size
     if (imageBuffer.length > MAX_IMAGE_SIZE) {
       throw new Error(
-        `Image size ${(imageBuffer.length / 1024 / 1024).toFixed(1)}MB exceeds maximum allowed size of ${MAX_IMAGE_SIZE / 1024 / 1024}MB`,
+        t("ui.imageTooLarge", {
+          size: (imageBuffer.length / 1024 / 1024).toFixed(1),
+          max: MAX_IMAGE_SIZE / 1024 / 1024,
+        }),
       );
     }
 
     // Check image count limit
     if (this._imageMap.size >= MAX_IMAGE_COUNT) {
-      throw new Error(`Cannot add more than ${MAX_IMAGE_COUNT} images`);
+      throw new Error(t("ui.tooManyImages", { count: MAX_IMAGE_COUNT }));
     }
 
     // Check total memory usage
@@ -252,7 +257,10 @@ export class TextBuffer {
       const currentUsageMB = (currentMemoryUsage / 1024 / 1024).toFixed(1);
       const maxUsageMB = MAX_TOTAL_IMAGE_MEMORY / 1024 / 1024;
       throw new Error(
-        `Adding image would exceed total memory limit. Current usage: ${currentUsageMB}MB, Maximum: ${maxUsageMB}MB`,
+        t("ui.imageMemoryLimit", {
+          current: currentUsageMB,
+          max: maxUsageMB,
+        }),
       );
     }
 
