@@ -4,7 +4,7 @@
 
 The TNT CLI supports running in TTY-less environments (environments without a terminal/TTY), which is essential for:
 
-- VSCode and IntelliJ extensions using the `run_terminal_command` tool
+- VSCode and IntelliJ extensions using the `Bash` tool
 - Docker containers without TTY allocation
 - CI/CD pipelines
 - Automated scripts and tools
@@ -95,20 +95,20 @@ if (!prompt) {
 
 #### 5. **Logger Configuration** (`src/utils/logger.ts`)
 
-Configures output handling for TTY-less environments:
-
-- Sets UTF-8 encoding
+- Sets UTF-8 as the default encoding on stdout and stderr.
 - Leaves stdout/stderr buffering unchanged in headless mode.
-- Disables progress indicators
 
 ## Usage Examples
 
 ### From VSCode/IntelliJ Extension
 
 ```typescript
-// Using the run_terminal_command tool
-const command = 'tnt -p "Analyze the current git diff"';
-const result = await runTerminalCommand(command);
+import { exec } from "child_process";
+
+exec('tnt -p "Analyze the current git diff"', (error, stdout) => {
+  if (error) throw error;
+  console.log(stdout);
+});
 ```
 
 ### From Docker Container
@@ -163,23 +163,13 @@ const result = await runCLI(context, {
 
 ### Attempting TUI in TTY-less Environment
 
-```
-Error: Cannot start TUI in TTY-less environment. No TTY available for interactive mode.
-For non-interactive use, run with -p flag:
-  tnt -p "your prompt here"
-```
+The start-up guard throws `t("ui.ttyLess")`; the raw-mode guard throws
+`t("ui.rawModeRequired")`. Both messages end with the `-p` command to use instead.
 
 ### Missing Prompt in Headless Mode
 
-```
-Error: A prompt is required when using the -p/--print flag, unless --prompt or --agent is provided.
-
-Usage examples:
-  tnt -p "please review my current git diff"
-  echo "hello" | tnt -p
-  tnt -p "analyze the code in src/"
-  tnt -p --agent my-org/my-agent
-```
+The chat command throws `t("cli.headlessNeedsPrompt")`, which names the accepted forms:
+`-p "prompt"`, piping stdin, and `-p --agent <file>`.
 
 ## Troubleshooting
 
