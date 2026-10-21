@@ -214,8 +214,13 @@ describe("the copy the rest of the CLI prints", () => {
  *   `Request aborted` markers in `utils/exponentialBackoff.ts`, which a test asserts by text;
  * - control flow that never reaches a reader: `Exiting due to validation errors`, and
  *   `Rule file not found`, which its own `catch` immediately re-throws as a read failure;
- * - blocked by the layering guard: `utils` may not import `src/i18n` (measured, reverted),
- *   so `Request failed:` and the environment-install failure belong at their call sites;
+ * - the two `utils` wrappers, which stay English by measurement, not by blockage:
+ *   `Request failed:` only wraps what the typed `AuthenticationRequiredError` /
+ *   `ApiRequestError` let through, so it is shown wherever a caller prints a cause and has no
+ *   single display point to translate at; the environment-install throw sits beside an
+ *   identical `logger.error` and is a setup diagnostic. (`utils` still may not import the
+ *   table - see `architecture.test.ts` - but moving these to call sites would be a structural
+ *   rewrite for two prefixes);
  * - measured since: only `utils -> <group>` is constrained (except config/services/session/
  *   telemetry), so `subagent`, `permissions` and this types module took the import with the
  *   architecture guard green; `lsp` is the one leaf still uninspected.
