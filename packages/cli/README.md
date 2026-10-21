@@ -2,7 +2,7 @@
 
 TNT (`tnt`) is a customizable command line coding agent.
 
-This project is a fork derived from [Continue](https://github.com/linanwanttodo/TNT), an open-source AI code agent. TNT builds on TNT's foundation with its own naming, CLI interface and behavior changes.
+This project is a fork derived from [Continue](https://github.com/linanwanttodo/TNT), an open-source AI code agent. TNT builds on Continue's foundation with its own naming, CLI interface and behavior changes.
 
 ![TNT Demo](./media/demo.gif)
 
@@ -56,6 +56,10 @@ tnt -p "Analyze the code" --format json
 tnt -p --allow Write "Write a README" --silent
 ```
 
+A headless run cannot ask for approval, so write tools and Bash are denied by
+default. Grant them explicitly with `--allow <tool>` (repeatable) or
+`--allow '*'` when the pipeline already isolates the workspace.
+
 **TTY-less Environments**: Headless mode is designed to work in environments without a terminal (TTY), such as when called from VSCode/IntelliJ extensions using terminal commands. The CLI will not attempt to read stdin or initialize the interactive UI when running in headless mode with a supplied prompt.
 
 ### Session Management
@@ -76,8 +80,9 @@ tnt ls --json
 ## Command Line Options
 
 - `-p`: Run in headless mode (no TUI)
-- `--config <path>`: Specify agent configuration path
+- `--config <path>`: Load a local config file; hub slugs are refused
 - `--resume`: Resume the last session for this terminal
+- `--allow <tool>` / `--ask <tool>` / `--exclude <tool>`: Tool policies for this run
 - `<prompt>`: Optional prompt to start with
 
 ## Environment Variables
@@ -88,16 +93,15 @@ tnt ls --json
 
 - `tnt`: Start an interactive chat session
 - `tnt ls`: List recent sessions with TUI selector to choose one to resume
-- `tnt login`: Authenticate with Continue
-- `tnt logout`: Sign out of current session
-- `tnt remote`: Launch a remote instance
-- `tnt serve`: Start HTTP server mode (binds loopback by default; `tnt serve --host 0.0.0.0` exposes an unauthenticated server to the network)
+- `tnt checks [action] [pr-url]`: Run or inspect the checks for a pull request
+- `tnt review`: Run AI reviews on your changes (`--base`, `--format`, `--fix` and others)
+- `tnt serve` (hidden): Start HTTP server mode (binds loopback by default; `tnt serve --host 0.0.0.0` exposes an unauthenticated server to the network)
 
 ### Session Listing (`tnt ls`)
 
 Shows recent sessions, limited by screen height to ensure it fits on your terminal.
 
-- `--json`: Output in JSON format for scripting (always shows 10 sessions)
+- `--json`: Output in JSON format for scripting (up to 100 sessions)
 
 ## TTY-less Support
 
