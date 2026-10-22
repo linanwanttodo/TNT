@@ -16,13 +16,12 @@ message (`src/ui/TUIChat.tsx`, `src/ui/components/TranscriptContent.tsx`).
 
 While the view is scrolled up, a centred `↓ Jump to latest message · Ctrl+End`
 hint sits in the fixed dock directly above the composer.
-The first screen's banner is an animated fire "TNT", centred in the terminal:
-the letters read as a black silhouette while tall, thin blood-red tongues
-climb around them and flicker through a character ramp (`.` to `@`),
-coloured black-to-crimson with a rare pale ember (`src/ui/components/FireLogo.tsx`,
-`src/ui/utils/fireLogo.ts`). A narrow
-terminal, a pipe, or `NO_COLOR` falls back to the two-line half-block wordmark
-with the version beside it (`src/startup/asciiArt.ts`).
+The first screen's banner is a static brand panel in the terminal's top-left
+corner: a bordered box holding a solid light-blue oversized `T` and pixel
+`NT`, with the version and the selected model under the word
+(`src/ui/components/BrandBanner.tsx`). A narrow terminal or `NO_COLOR` falls
+back to the two-line half-block wordmark with the version beside it
+(`src/startup/asciiArt.ts`).
 
 ## Streaming and the working spinner
 
