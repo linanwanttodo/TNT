@@ -7,6 +7,7 @@ import { handleIndex } from "./codebaseIndex.js";
 import { handleDiagnostics } from "./diagnostics.js";
 import { handleHelp } from "./help.js";
 import { handleLanguage } from "./language.js";
+import { handleMcp } from "./mcp.js";
 import { handleJobs, handleTodos } from "./misc.js";
 import { handleOutputStyle } from "./outputStyle.js";
 import { handlePlugins } from "./plugins.js";
@@ -43,9 +44,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     compact: () => {
       return { compact: true };
     },
-    mcp: () => {
-      return { openMcpSelector: true };
-    },
+    mcp: (args) => handleMcp(args),
     resume: () => {
       return { openSessionSelector: true };
     },

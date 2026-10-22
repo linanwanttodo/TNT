@@ -75,7 +75,7 @@ describe("localized system commands", () => {
     expect(promptCommand?.description).toBe("Test prompt description");
   });
 
-  it("keeps the built-in command when a skill claims the same name", async () => {
+  it("lists skills under /skills instead of colliding with built-ins", async () => {
     vi.mocked(loadMarkdownSkills).mockResolvedValueOnce({
       skills: [{ name: "help", description: "Skill help", path: "/tmp/help" }],
     } as any);
@@ -84,12 +84,12 @@ describe("localized system commands", () => {
     const helpCommands = service
       .getCommands()
       .filter((command) => command.name === "help");
-
     expect(helpCommands).toHaveLength(1);
     expect(helpCommands[0].category).toBe("system");
-    expect(service.getConflicts()).toEqual([
-      expect.objectContaining({ name: "help", winner: "builtin" }),
-    ]);
+
+    const skills = service.getCommands().find((c) => c.name === "skills");
+    expect(skills?.subcommands?.map((child) => child.name)).toEqual(["help"]);
+    expect(service.getConflicts()).toEqual([]);
   });
 
   it("exposes only remote commands in remote mode", async () => {

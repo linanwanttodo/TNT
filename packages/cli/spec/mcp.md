@@ -55,7 +55,11 @@ through the winston logger, never `console.log`.
 
 ## MCP slash command
 
-`/mcp` opens the server manager. The main menu lists one row per configured
+`/mcp` is a two-level command: completing it lists two children,
+`/mcp list` and `/mcp market`. `list` (also what a bare `/mcp` runs) opens the
+server manager; `market` opens the marketplace described below.
+
+`/mcp list` opens the server manager. The main menu lists one row per configured
 server (status icon, name, and tool/prompt counts when connected), then offers
 `Restart all servers` and `Stop all servers` when at least one connection
 exists, then `Explore MCP Servers` and `Back` (`esc` also goes back).
@@ -68,3 +72,15 @@ and the prompts and tools it contributes.
 
 Status icons are green for a connected server, yellow while connecting or when
 a connected server has warnings, red for an error, and gray for idle.
+
+## Marketplace
+
+`/mcp market` lists the curated catalog in `src/mcp/marketplace.ts`
+(`MCP_MARKETPLACE`): filesystem, GitHub, memory, sequential thinking, fetch,
+time and puppeteer. Enter writes the highlighted server into
+`<TNT home>/mcp.json` under `mcpServers.<name>` with `command`, `args` and -
+when the server needs credentials - an `env` object of empty placeholders. That
+is the same shape another Claude-compatible client reads and writes, so the
+file is interchangeable; other servers and unknown top-level keys in the file
+are preserved, and the write is atomic. Installed servers are marked in the
+list, and a restart of `tnt` is what connects a newly added server.

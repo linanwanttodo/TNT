@@ -47,6 +47,7 @@ interface ProcessSlashCommandResultOptions {
   onShowModelSelector?: () => void;
   onShowUpdateSelector?: () => void;
   onShowMCPSelector?: () => void;
+  onShowMcpMarketplace?: () => void;
   onShowSessionSelector?: () => void;
   onShowSubagentsSelector?: () => void;
   onLoadSession?: (sessionId: string) => void | Promise<void>;
@@ -66,6 +67,7 @@ export function processSlashCommandResult({
   onShowUpdateSelector,
   onShowModelSelector,
   onShowMCPSelector,
+  onShowMcpMarketplace,
   onShowSessionSelector,
   onShowSubagentsSelector,
   onLoadSession,
@@ -79,6 +81,11 @@ export function processSlashCommandResult({
 
   if (result.openMcpSelector) {
     onShowMCPSelector?.();
+    return null;
+  }
+
+  if (result.openMcpMarketplace) {
+    onShowMcpMarketplace?.();
     return null;
   }
 

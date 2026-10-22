@@ -26,6 +26,7 @@ export interface SlashCommandResult {
   openConfigSelector?: boolean;
   openModelSelector?: boolean;
   openMcpSelector?: boolean;
+  openMcpMarketplace?: boolean;
   openUpdateSelector?: boolean;
   openSessionSelector?: boolean;
   openSubagentsSelector?: boolean;

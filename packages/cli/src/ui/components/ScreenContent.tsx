@@ -12,6 +12,7 @@ import type {
   ActiveQuizQuestion,
 } from "../hooks/useChat.types.js";
 import { JobsSelector } from "../JobsSelector.js";
+import { MCPMarketplace } from "../MCPMarketplace.js";
 import { MCPSelector } from "../MCPSelector.js";
 import { ModelSelector } from "../ModelSelector.js";
 import type { ConfigOption, ModelOption } from "../types/selectorTypes.js";
@@ -110,6 +111,10 @@ export const ScreenContent: React.FC<ScreenContentProps> = ({
 
   if (isScreenActive("mcp")) {
     return <MCPSelector onCancel={closeCurrentScreen} />;
+  }
+
+  if (isScreenActive("mcpMarket")) {
+    return <MCPMarketplace onCancel={closeCurrentScreen} />;
   }
 
   if (isScreenActive("update")) {

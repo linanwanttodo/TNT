@@ -220,10 +220,15 @@ const UserInput: React.FC<UserInputProps> = ({
     void loadCommands();
   }, [assistant?.prompts, assistant?.rules, locale]);
 
-  // Shift+Tab cycles the interactive modes; bypassPermissions stays behind
-  // its explicit flag because entering it by accident allows everything.
+  // Shift+Tab cycles every interactive mode, bypassPermissions included.
   const cycleModes = () => {
-    const modes: PermissionMode[] = ["default", "acceptEdits", "plan", "auto"];
+    const modes: PermissionMode[] = [
+      "default",
+      "acceptEdits",
+      "plan",
+      "auto",
+      "bypassPermissions",
+    ];
     const currentMode = services.toolPermissions.getCurrentMode();
     const currentIndex = modes.indexOf(currentMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
