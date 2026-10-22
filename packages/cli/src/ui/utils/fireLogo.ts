@@ -131,3 +131,20 @@ export function fireHex(intensity: number): string {
     .map((part) => part.toString(16).padStart(2, "0"))
     .join("")}`;
 }
+
+/**
+ * The character ramp the flames are textured with, dark to white-hot. This is
+ * the classic full-screen ASCII fire look: the flame front flickers between
+ * these glyphs as the heat changes, instead of rendering solid pixels.
+ */
+export const FIRE_RAMP = " .:-=+*xX$&%@";
+
+/** The ramp glyph for one cell; a space means "nothing burns here". */
+export function fireGlyph(intensity: number): string {
+  if (intensity <= 0.05) return " ";
+  const index = Math.min(
+    FIRE_RAMP.length - 1,
+    Math.max(1, Math.round(intensity * (FIRE_RAMP.length - 1))),
+  );
+  return FIRE_RAMP[index];
+}

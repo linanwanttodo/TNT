@@ -11,6 +11,7 @@ import {
   type Rng,
   buildFireMask,
   createFireGrid,
+  fireGlyph,
   fireHex,
   stepFire,
 } from "../utils/fireLogo.js";
@@ -62,35 +63,51 @@ export const FireLogo: React.FC<FireLogoProps> = ({ animated, rng }) => {
     return <Text>{getDisplayableAsciiArt()}</Text>;
   }
 
+  // One character per cell from the ramp, coloured by heat. Consecutive cells
+  // of the same colour share one Text span, which keeps the node count low
+  // enough to redraw at the frame rate.
   const lines: React.ReactElement[] = [];
-  for (let row = 0; row < FIRE_ROWS; row += 2) {
+  for (let row = 0; row < FIRE_ROWS; row += 1) {
     const cells: React.ReactElement[] = [];
-    let spaces = 0;
+    let runText = "";
+    let runColor: string | null = null;
+
+    const flushRun = () => {
+      if (runColor && runText) {
+        cells.push(
+          <Text key={cells.length} color={runColor}>
+            {runText}
+          </Text>,
+        );
+      }
+      runText = "";
+      runColor = null;
+    };
 
     for (let x = 0; x < width; x += 1) {
-      const top = grid[row][x];
-      const bottom = grid[row + 1]?.[x] ?? 0;
-      if (top <= 0.05 && bottom <= 0.05) {
-        spaces += 1;
+      const intensity = grid[row][x];
+      const glyph = fireGlyph(intensity);
+      if (glyph === " ") {
+        flushRun();
+        cells.push(<Text key={cells.length}> </Text>);
         continue;
       }
-      if (spaces > 0) {
-        cells.push(<Text key={cells.length}>{" ".repeat(spaces)}</Text>);
-        spaces = 0;
+      const color = fireHex(intensity);
+      if (color !== runColor) {
+        flushRun();
+        runColor = color;
       }
-      cells.push(
-        <Text
-          key={cells.length}
-          color={fireHex(top)}
-          backgroundColor={fireHex(bottom)}
-        >
-          ▀
-        </Text>,
-      );
+      runText += glyph;
     }
+    flushRun();
 
     lines.push(<Text key={row}>{cells}</Text>);
   }
 
-  return <Box flexDirection="column">{lines}</Box>;
+  // Centred in the terminal, not pinned to the left edge.
+  return (
+    <Box flexDirection="column" width={columns} alignItems="center">
+      {lines}
+    </Box>
+  );
 };
