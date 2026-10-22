@@ -91,6 +91,12 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/half-block wordmark/.test(flat)).toBe(
       /█/.test(art) && /MIN_WIDTH_FOR_ASCII_ART = 30/.test(art),
     );
+    const fire = read(path.join(here, "components", "FireLogo.tsx"));
+    const engine = read(path.join(here, "utils", "fireLogo.ts"));
+    expect(/animated fire/.test(flat)).toBe(
+      /setInterval\(/.test(fire) && /function fireColor/.test(engine),
+    );
+    expect(/NO_COLOR/.test(flat)).toBe(/NO_COLOR/.test(fire));
   });
 
   it("describes streaming, the spinner and the palette where they are built", () => {

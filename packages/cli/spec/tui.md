@@ -17,8 +17,12 @@ following new output (`src/ui/TUIChat.tsx`,
 While the view is scrolled up, a centred `↓ Jump to latest message · Ctrl+End`
 hint sits on the last row of the viewport, directly above the composer; End and
 Ctrl+End return to the live tail, and submitting a message returns there too.
-The first screen's banner is a two-line half-block wordmark with the version
-beside it (`src/startup/asciiArt.ts`).
+The first screen's banner is an animated fire "TNT": block letters drawn as
+two-pixel cells (`▀` with a foreground and a background colour) over a fire
+field that climbs upward, in a red/orange/yellow palette only
+(`src/ui/components/FireLogo.tsx`, `src/ui/utils/fireLogo.ts`). A narrow
+terminal, a pipe, or `NO_COLOR` falls back to the two-line half-block wordmark
+with the version beside it (`src/startup/asciiArt.ts`).
 
 ## Streaming and the working spinner
 
