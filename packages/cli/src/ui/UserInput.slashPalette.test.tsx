@@ -14,6 +14,15 @@ vi.mock("./commands/index.js", () => ({
     { name: "model", description: "d6", category: "system" },
     { name: "plan", description: "d7", category: "system" },
     { name: "tools", description: "d8", category: "system" },
+    {
+      name: "language",
+      description: "d9",
+      category: "system",
+      subcommands: [
+        { name: "en", description: "English" },
+        { name: "zh-CN", description: "简体中文" },
+      ],
+    },
   ]),
 }));
 
@@ -94,6 +103,54 @@ describe("UserInput slash palette", () => {
       await tick();
 
       expect(onSubmit).toHaveBeenCalledWith("/model");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("opens a parent's children instead of running it", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/language");
+      await tick();
+      tree.stdin.write("\r");
+      await tick();
+
+      // Not submitted; completed with a space, which opens the second level.
+      expect(onSubmit).not.toHaveBeenCalled();
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain("-- /language --");
+      expect(frame).toContain("English");
+      expect(frame).toContain("简体中文");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("runs a second-level entry as /parent child", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/language z");
+      await tick();
+      tree.stdin.write("\r");
+      await tick();
+
+      expect(onSubmit).toHaveBeenCalledWith("/language zh-CN");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("escape closes the second level", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/language ");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("English");
+
+      tree.stdin.write("\x1b");
+      await tick();
+      expect(tree.lastFrame() ?? "").not.toContain("English");
     } finally {
       tree.unmount();
     }

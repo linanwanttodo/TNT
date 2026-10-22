@@ -1,9 +1,17 @@
 import type { AssistantConfig } from "@tnt/sdk";
 
+export interface SlashSubcommand {
+  /** The token typed after the parent command (`/parent token`). */
+  name: string;
+  description: string;
+}
+
 export interface SlashCommand {
   name: string;
   description: string;
   category: "system" | "assistant";
+  /** Commands that take a fixed set of tokens instead of free-form args. */
+  subcommands?: SlashSubcommand[];
 }
 
 export interface SystemCommand extends SlashCommand {
