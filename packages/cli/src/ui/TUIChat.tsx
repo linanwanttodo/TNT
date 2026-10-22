@@ -1,6 +1,5 @@
 import type { Session } from "core/index.js";
-import { Box, Text, measureElement, useInput } from "ink";
-import type { DOMElement } from "ink";
+import { Box } from "ink";
 import React, {
   useCallback,
   useEffect,
@@ -22,24 +21,24 @@ import {
   UpdateServiceState,
 } from "../services/types.js";
 import { getTotalSessionCost } from "../session/index.js";
-import { bashToolEvents } from "../utils/cli.js";
 import { logger } from "../utils/logger.js";
 
-import { ActionStatus } from "./components/ActionStatus.js";
-import { BottomStatusBar } from "./components/BottomStatusBar.js";
-import { ResourceDebugBar } from "./components/ResourceDebugBar.js";
-import { ScreenContent } from "./components/ScreenContent.js";
-import { TranscriptContent } from "./components/TranscriptContent.js";
+import { Composer } from "./components/Composer.js";
+import { MainContent } from "./components/MainContent.js";
 import { useNavigation } from "./context/NavigationContext.js";
 import { useChat } from "./hooks/useChat.js";
+import { useChatViewport } from "./hooks/useChatViewport.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useMessageRenderer } from "./hooks/useMessageRenderer.js";
 import { useServices } from "./hooks/useService.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import {
+  useBashToolRunning,
+  useMcpFailureNotice,
+  useSubagentView,
+} from "./hooks/useTUIChatEffects.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
-import { collectFailedMcpServerNames } from "./utils/mcpFailures.js";
-import { maxViewportScroll, viewportSpacer } from "./utils/viewport.js";
 
 interface TUIChatProps {
   // Remote mode props
@@ -196,16 +195,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
   const [displayedSession, setDisplayedSession] = useState<Session | null>(
     null,
   );
-  const subagentView = useMemo(() => {
-    const parentSessionId = displayedSession?.parentSessionId;
-    if (!parentSessionId) {
-      return null;
-    }
-    return {
-      parentSessionId,
-      subagentType: displayedSession?.subagentType ?? t("subagent.unlabeled"),
-    };
-  }, [displayedSession]);
+  const subagentView = useSubagentView(displayedSession);
 
   // Slash commands are dispatched inside useChat, but session switching lives
   // here, so /back reaches the handler through a ref.
@@ -297,36 +287,13 @@ const TUIChat: React.FC<TUIChatProps> = ({
   // while scrolled up would otherwise hide the answer that follows.
   const handleMessageWithFollow = useCallback(
     (message: string, imageMap?: Map<string, Buffer>) => {
-      setScrollOffset(0);
+      setScrollBack(0);
       return handleUserMessage(message, imageMap);
     },
     [handleUserMessage],
   );
 
-  // MCP servers connect in the background, so a failure lands after the
-  // transcript has started. Report it once, in the transcript, rather than in
-  // the startup banner that is already on screen.
-  const mcpFailuresReported = useRef(false);
-  useEffect(() => {
-    const names = collectFailedMcpServerNames(services.mcp?.connections);
-
-    if (names.length === 0 || mcpFailuresReported.current) {
-      return;
-    }
-
-    mcpFailuresReported.current = true;
-
-    setChatHistory((prev) => [
-      ...prev,
-      {
-        message: {
-          role: "system",
-          content: `${t("mcp.failed", { servers: names.join(", ") })}\n${t("mcp.failedHint")}`,
-        },
-        contextItems: [],
-      },
-    ]);
-  }, [services.mcp?.connections, setChatHistory]);
+  useMcpFailureNotice(services.mcp, setChatHistory);
 
   // Only the answer still being written is split from the settled items; the
   // viewport below decides how much of the transcript is visible.
@@ -455,175 +422,72 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
   // Fetch organization name based on auth state
 
-  // Track if a Bash tool is currently running via events
-  const [isBashToolRunning, setIsBashToolRunning] = useState(false);
+  const isBashToolRunning = useBashToolRunning();
 
-  useEffect(() => {
-    const handleStarted = () => setIsBashToolRunning(true);
-    const handleEnded = () => setIsBashToolRunning(false);
-
-    bashToolEvents.on("started", handleStarted);
-    bashToolEvents.on("ended", handleEnded);
-
-    return () => {
-      bashToolEvents.off("started", handleStarted);
-      bashToolEvents.off("ended", handleEnded);
-    };
-  }, []);
-
-  // The transcript lives inside a viewport whose height is the terminal minus
-  // the pinned composer and status rows. The spacer below the transcript pushes
-  // short content to the top; once the transcript outgrows the viewport the
-  // spacer is zero and the newest content stays visible.
+  // Scrolling works on messages, not pixels; see useChatViewport.
   const { rows } = useTerminalSize();
-  const viewportRef = useRef<DOMElement | null>(null);
-  const transcriptRef = useRef<DOMElement | null>(null);
-  const [transcriptSpacer, setTranscriptSpacer] = useState(0);
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const page = Math.max(1, Math.floor(rows / 2));
-
-  useInput((_input, key) => {
-    if (key.pageUp) {
-      setScrollOffset((offset) => offset + page);
-    }
-    if (key.pageDown) {
-      setScrollOffset((offset) => Math.max(0, offset - page));
-    }
-    // End and Ctrl+End return to the live tail, like Pi's jump-to-latest.
-    if (key.end) {
-      setScrollOffset(0);
-    }
-  });
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    const transcript = transcriptRef.current;
-    if (!viewport || !transcript) return;
-    try {
-      const available = measureElement(viewport).height;
-      const content = measureElement(transcript).height;
-      const maxScroll = maxViewportScroll(available, content);
-      const clamped = Math.min(scrollOffset, maxScroll);
-      if (clamped !== scrollOffset) {
-        setScrollOffset(clamped);
-      }
-      const next = viewportSpacer(available, content, clamped);
-      setTranscriptSpacer((previous) => (previous === next ? previous : next));
-    } catch {
-      // Ink has not measured the nodes yet; the next render will.
-    }
-  });
+  const { setScrollBack, following, dockRef, visibleHistory } = useChatViewport(
+    { rows, chatHistory },
+  );
 
   return (
     <Box flexDirection="column" height={rows}>
-      <Box
-        ref={viewportRef}
-        flexDirection="column"
-        flexGrow={1}
-        flexShrink={1}
-        overflowY="hidden"
-        justifyContent="flex-end"
-      >
-        <Box ref={transcriptRef} flexDirection="column" flexShrink={0}>
-          <TranscriptContent
-            showIntroMessage={showIntroMessage && !isRemoteMode}
-            chatHistory={chatHistory}
-            queuedMessages={queuedMessages}
-            renderMessage={renderMessage}
-            refreshTrigger={staticRefreshTrigger}
-            liveItemCount={liveItemCount}
-            streamingText={streamingText}
-          />
-        </Box>
+      <MainContent
+        showIntroMessage={showIntroMessage && !isRemoteMode}
+        chatHistory={visibleHistory}
+        queuedMessages={queuedMessages}
+        renderMessage={renderMessage}
+        refreshTrigger={staticRefreshTrigger}
+        liveItemCount={liveItemCount}
+        streamingText={streamingText}
+        following={following}
+        isWaitingForResponse={isWaitingForResponse}
+        responseStartTime={responseStartTime}
+        isCompacting={isCompacting}
+        compactionStartTime={compactionStartTime}
+        isBashToolRunning={isBashToolRunning}
+      />
 
-        {/* The working indicator follows the newest message in the transcript
-            flow instead of hovering above the composer. */}
-        <ActionStatus
-          visible={isWaitingForResponse && !!responseStartTime}
-          startTime={responseStartTime || 0}
-          message=""
-          showSpinner={true}
-          additionalHint={
-            isBashToolRunning ? t("action.background") : undefined
-          }
-        />
-
-        <ActionStatus
-          visible={isCompacting && !!compactionStartTime}
-          startTime={compactionStartTime || 0}
-          message={t("action.compacting")}
-          showSpinner={true}
-          loadingColor="grey"
-        />
-
-        <Box height={transcriptSpacer} flexShrink={0} />
-        {scrollOffset > 0 && (
-          <Box justifyContent="center" flexShrink={0}>
-            <Text color="cyan">{t("ui.jumpToLatest")}</Text>
-          </Box>
-        )}
-      </Box>
-
-      {/* Fixed bottom section */}
-      <Box flexDirection="column" flexShrink={0}>
-        {/* Temporary status message */}
-        {statusMessage && (
-          <Box paddingX={1} paddingY={0}>
-            <Text color="green">{statusMessage}</Text>
-          </Box>
-        )}
-
-        {/* All screen-specific content */}
-        <ScreenContent
-          isScreenActive={isScreenActive}
-          services={services}
-          handleConfigSelect={handleConfigSelect}
-          handleModelSelect={handleModelSelect}
-          handleSessionSelect={handleSessionSelect}
-          handleExportSession={handleExportSession}
-          handleReload={handleReload}
-          closeCurrentScreen={closeCurrentScreen}
-          activePermissionRequest={activePermissionRequest}
-          activeQuizQuestion={activeQuizQuestion}
-          handleToolPermissionResponse={handleToolPermissionResponse}
-          handleQuizAnswer={handleQuizAnswer}
-          handleUserMessage={handleMessageWithFollow}
-          isWaitingForResponse={isWaitingForResponse}
-          isCompacting={isCompacting}
-          inputMode={inputMode}
-          handleInterrupt={handleInterrupt}
-          handleFileAttached={handleFileAttached}
-          isInputDisabled={isInputDisabled}
-          wasInterrupted={wasInterrupted}
-          isRemoteMode={isRemoteMode}
-          onImageInClipboardChange={setHasImageInClipboard}
-          diffContent={diffContent}
-          chatHistory={chatHistory}
-          handleEditMessage={handleEditMessage}
-          onShowEditSelector={() => navigateTo("edit")}
-          subagentView={subagentView}
-        />
-
-        {/* Resource debug bar - only in verbose mode */}
-        {isVerboseMode && !isRemoteMode && (
-          <ResourceDebugBar visible={navState.currentScreen === "chat"} />
-        )}
-
-        {/* Bottom status bar */}
-        <BottomStatusBar
-          remoteUrl={remoteUrl}
-          isRemoteMode={isRemoteMode}
-          services={services}
-          navState={navState}
-          navigateTo={navigateTo}
-          closeCurrentScreen={closeCurrentScreen}
-          contextPercentage={contextData?.percentage ?? 0}
-          contextTokens={contextData?.tokenCount}
-          hasImageInClipboard={hasImageInClipboard}
-          isVerboseMode={isVerboseMode}
-          totalCost={getTotalSessionCost()}
-        />
-      </Box>
+      <Composer
+        dockRef={dockRef}
+        following={following}
+        statusMessage={statusMessage}
+        isScreenActive={isScreenActive}
+        services={services}
+        handleConfigSelect={handleConfigSelect}
+        handleModelSelect={handleModelSelect}
+        handleSessionSelect={handleSessionSelect}
+        handleExportSession={handleExportSession}
+        handleReload={handleReload}
+        closeCurrentScreen={closeCurrentScreen}
+        activePermissionRequest={activePermissionRequest}
+        activeQuizQuestion={activeQuizQuestion}
+        handleToolPermissionResponse={handleToolPermissionResponse}
+        handleQuizAnswer={handleQuizAnswer}
+        handleUserMessage={handleMessageWithFollow}
+        isWaitingForResponse={isWaitingForResponse}
+        isCompacting={isCompacting}
+        inputMode={inputMode}
+        handleInterrupt={handleInterrupt}
+        handleFileAttached={handleFileAttached}
+        isInputDisabled={isInputDisabled}
+        wasInterrupted={wasInterrupted}
+        isRemoteMode={isRemoteMode}
+        remoteUrl={remoteUrl}
+        onImageInClipboardChange={setHasImageInClipboard}
+        diffContent={diffContent}
+        chatHistory={chatHistory}
+        handleEditMessage={handleEditMessage}
+        onShowEditSelector={() => navigateTo("edit")}
+        subagentView={subagentView}
+        navState={navState}
+        navigateTo={navigateTo}
+        contextPercentage={contextData?.percentage ?? 0}
+        contextTokens={contextData?.tokenCount}
+        hasImageInClipboard={hasImageInClipboard}
+        isVerboseMode={isVerboseMode}
+        totalCost={getTotalSessionCost()}
+      />
     </Box>
   );
 };

@@ -5,18 +5,17 @@ The CLI renders its interactive surface with Ink.
 ## Layout
 
 The interactive surface is a fixed-height viewport. The transcript occupies the
-rows above the pinned status bars and composer; a spacer below the transcript
-pushes short content to the top of that area, so a fresh screen shows the banner
-at the top and the composer at the bottom, with the empty space between them.
-When the transcript outgrows the viewport the spacer is zero, the oldest rows
-clip at the top, and the newest content stays next to the composer. PgUp and
-PgDn move the transcript by half a screen; scrolling back to the end resumes
-following new output (`src/ui/TUIChat.tsx`,
-`src/ui/components/TranscriptContent.tsx`, `src/ui/utils/viewport.ts`).
+rows above the pinned status bars and composer, bottom-anchored: a fresh screen
+shows the banner at the top and the composer at the bottom, and a long
+transcript clips its oldest rows above the window. PgUp and PgDn scroll by
+messages (a page is a third of the terminal rows) by hiding that many newest
+messages from the end; the live tail keeps following new output, and hiding
+even one message stops the streaming overlay and the working indicator until
+the reader returns. End and Ctrl+End return to the tail, as does submitting a
+message (`src/ui/TUIChat.tsx`, `src/ui/components/TranscriptContent.tsx`).
 
 While the view is scrolled up, a centred `↓ Jump to latest message · Ctrl+End`
-hint sits on the last row of the viewport, directly above the composer; End and
-Ctrl+End return to the live tail, and submitting a message returns there too.
+hint sits in the fixed dock directly above the composer.
 The first screen's banner is an animated fire "TNT": block letters drawn as
 two-pixel cells (`▀` with a foreground and a background colour) over a fire
 field that climbs upward, in a red/orange/yellow palette only
@@ -30,8 +29,8 @@ The answer streams into the transcript as it arrives. Chunks never touch the
 chat history - every history write persists the session - so the live text
 renders from a throttled overlay (`STREAM_RENDER_INTERVAL_MS` in
 `src/ui/hooks/useChat.stream.helpers.ts`) until the turn's message lands. The
-working spinner renders in the transcript flow, directly below the newest
-message, not pinned above the composer
+working indicator renders in the transcript flow, directly below the newest
+message, as a grey spinner with a `Thinking…` label and the elapsed time
 (`src/ui/components/ActionStatus.tsx` inside the viewport in
 `src/ui/TUIChat.tsx`).
 

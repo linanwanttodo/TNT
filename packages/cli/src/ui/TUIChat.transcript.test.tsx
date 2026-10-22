@@ -176,4 +176,29 @@ describe("TUIChat transcript", () => {
       unmount();
     }
   });
+
+  it("reveals older rows when scrolling up and follows again at the live end", async () => {
+    const { lastFrame, stdin, unmount } = renderChat();
+
+    try {
+      expect(lastFrame() ?? "").toContain("answer 20");
+      expect(lastFrame() ?? "").not.toContain("question 1\n");
+
+      // Scrolling hides the newest messages; a page is terminal-rows/3.
+      for (let i = 0; i < 12; i += 1) {
+        stdin.write("\x1b[5~"); // PageUp
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      expect(lastFrame() ?? "").toContain("question 1");
+      expect(lastFrame() ?? "").not.toContain("answer 20");
+      expect(lastFrame() ?? "").toContain("Jump to latest");
+
+      stdin.write("\x1b[F"); // End back to the live tail
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(lastFrame() ?? "").toContain("answer 20");
+    } finally {
+      unmount();
+    }
+  });
 });
