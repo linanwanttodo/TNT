@@ -111,6 +111,29 @@ describe("getRequestTools - Tool Filtering", () => {
     expect(toolNames).toContain("MultiEdit");
   });
 
+  test("offers ask tools to a headless run only in auto mode", async () => {
+    // Default headless: the write tools ask, and nobody can answer, so the
+    // model never sees them.
+    await initializeServices({
+      headless: true,
+      toolPermissionOverrides: { mode: "default" },
+    });
+    const defaultTools = await getRequestTools(true);
+    const defaultNames = defaultTools.map((t) => t.function.name);
+    expect(defaultNames).not.toContain("Write");
+
+    // Headless auto: the classifier answers the asks, so the tools are listed
+    // and a call can actually reach it.
+    await initializeServices({
+      headless: true,
+      toolPermissionOverrides: { mode: "auto" },
+    });
+    const autoTools = await getRequestTools(true);
+    const autoNames = autoTools.map((t) => t.function.name);
+    expect(autoNames).toContain("Write");
+    expect(autoNames).toContain("Bash");
+  });
+
   test("should respect explicit exclude in normal mode", async () => {
     // Initialize services in normal mode with Read tool explicitly excluded
     await initializeServices({

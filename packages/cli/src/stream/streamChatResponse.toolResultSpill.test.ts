@@ -97,7 +97,7 @@ describe("oversized result through the tool loop", () => {
       undefined,
       false,
       undefined,
-      allowAll,
+      { permissions: allowAll },
     );
 
     const content = String(chatHistoryEntries[0]?.content);

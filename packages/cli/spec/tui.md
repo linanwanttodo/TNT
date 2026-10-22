@@ -33,7 +33,8 @@ message, not pinned above the composer
 
 ## Command palette
 
-Typing `/` as the first character opens the command window above the composer.
+Typing `/` as the first character opens the command window above the composer
+box, outside its border.
 It shows at most five entries with a sliding selection
 (`MAX_VISIBLE_COMMANDS` in `src/ui/SlashCommandUI.tsx`), filtered by the text
 after the slash and sharing the composer's loaded command list. Enter completes
@@ -66,7 +67,7 @@ never looks up the remote.
 
 ## Mode badge
 
-The composer's top border carries `[Manual]` in gray, `[Accept edits]` in cyan, `[Plan]` in blue,
+The composer's top border carries `[Manual]` in white, `[Accept edits]` in cyan, `[Plan]` in blue,
 `[Auto]` in green, or `[Bypass permissions]` in red
 (`src/ui/components/ModeIndicator.tsx`). Agent mode draws no badge and the plain border.
 The mode does not change the status bar.

@@ -46,6 +46,9 @@ interface HandleToolCallsOptions {
    * Permissions to enforce. Left unset, the process-wide policy is used.
    */
   permissions?: ToolPermissions;
+  /** Model context forwarded to the auto-mode classifier. */
+  llmApi?: any;
+  model?: any;
   /**
    * Whether this run may delegate again. False at the depth limit.
    */
@@ -178,7 +181,14 @@ export async function handleToolCalls(
     callbacks,
     isHeadless,
     options.onToolOutcome,
-    options.permissions,
+    {
+      permissions: options.permissions,
+      autoContext: {
+        llmApi: options.llmApi,
+        model: options.model,
+        history: chatHistory,
+      },
+    },
   );
 
   if (isHeadless && hasRejection) {
@@ -219,6 +229,9 @@ export async function getRequestTools(
     ).permissions;
 
   const allowedTools: Tool[] = [];
+  // In auto mode the classifier answers the asks, so a headless run must still
+  // see those tools; without this the model has nothing to call.
+  const autoModeActive = services.toolPermissions.getCurrentMode() === "auto";
   for (const tool of availableTools) {
     const result = checkToolPermission(
       { name: tool.name, arguments: {} },
@@ -227,7 +240,7 @@ export async function getRequestTools(
 
     if (
       result.permission === "allow" ||
-      (result.permission === "ask" && !isHeadless)
+      (result.permission === "ask" && (!isHeadless || autoModeActive))
     ) {
       allowedTools.push(tool);
     }

@@ -49,7 +49,7 @@ describe("ModeIndicator", () => {
     });
 
     it("gives each badge its mode colour for the border", () => {
-      expect(modeBorderColor("default")).toBe("gray");
+      expect(modeBorderColor("default")).toBe("white");
       expect(modeBorderColor("acceptEdits")).toBe("cyan");
       expect(modeBorderColor("plan")).toBe("blue");
       expect(modeBorderColor("auto")).toBe("green");

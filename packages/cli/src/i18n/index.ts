@@ -153,15 +153,11 @@ const en = {
   "ui.remoteRawMode":
     "Terminal does not support raw mode required for interactive UI.",
   "ui.jumpToLatest": "↓ Jump to latest message · Ctrl+End",
-  "mode.desc.default": "Ask before writes and commands",
-  "mode.desc.acceptEdits": "Edit files without asking",
-  "mode.desc.plan": "Read-only planning; writes are excluded",
-  "mode.desc.auto": "Let a model classifier pick (not implemented)",
-  "mode.desc.bypassPermissions": "Allow every tool without asking",
-  "mode.active": "current",
-  "mode.menuHint": "↑/↓ to navigate, Enter to switch, Esc to cancel",
-  "mode.autoUnavailable":
-    "Auto is not available: the classifier is not implemented. Use Manual, Accept edits, Plan, or Bypass permissions.",
+  "auto.denied": "Auto mode blocked this action: {reason}",
+  "auto.fallback":
+    "Auto mode blocked too many actions in a row; this one needs your decision.",
+  "auto.unavailable":
+    "The auto mode classifier is unavailable; this one needs your decision.",
   "startup.trustTitle":
     "This project's configuration wants to apply its settings, hooks and MCP servers:",
   "startup.trustQuestion": "Trust this project's configuration? [y/N]",
@@ -583,14 +579,10 @@ const en = {
     "Warning: permissions.yaml is deprecated; its rules are read once, and new rules are written to settings.json.",
   "settings.invalidDefaultMode":
     'Error: Invalid defaultMode "{value}" in settings.json. Expected one of: default, acceptEdits, plan, auto, bypassPermissions, dontAsk.',
-  "settings.autoDefaultModeUnavailable":
-    "Error: defaultMode auto in settings.json is not available: the classifier is not implemented. Use default, acceptEdits, plan, bypassPermissions, or dontAsk.",
   "cli.invalidPermissionMode":
     'Error: Invalid --permission-mode "{value}". Expected one of: default, acceptEdits, plan, auto, bypassPermissions, dontAsk.',
   "cli.permissionModeConflicts":
     "Error: --permission-mode cannot be combined with --readonly, --auto, or --mode.",
-  "cli.autoModeUnavailable":
-    "Error: --permission-mode auto is not available: the classifier is not implemented. Use default, acceptEdits, plan, bypassPermissions, or dontAsk.",
   "cli.bypassModeRequiresFlag":
     "Error: bypassPermissions requires --dangerously-skip-permissions (or TNT_PERMISSION_MODE=bypassPermissions).",
   "cli.deprecatedModeAlias": "Warning: {from} is deprecated; using {to}.",
@@ -785,15 +777,9 @@ const zhCN: Record<TranslationKey, string> = {
   "ui.remoteTtyLess": "无法在无 TTY 的环境中启动远程 TUI：交互模式需要终端。",
   "ui.remoteRawMode": "终端不支持交互界面所需的 raw 模式。",
   "ui.jumpToLatest": "↓ 跳转到最新消息 · Ctrl+End",
-  "mode.desc.default": "写入与命令先询问",
-  "mode.desc.acceptEdits": "自动接受文件编辑",
-  "mode.desc.plan": "只读规划，写入被排除",
-  "mode.desc.auto": "由模型分类器自动选择（尚未实现）",
-  "mode.desc.bypassPermissions": "所有工具直接放行",
-  "mode.active": "当前",
-  "mode.menuHint": "↑/↓ 选择，Enter 切换，Esc 取消",
-  "mode.autoUnavailable":
-    "Auto 暂不可用：分类器模式尚未实现。请使用 Manual、Accept edits、Plan 或 Bypass permissions。",
+  "auto.denied": "Auto 模式已拦截该操作：{reason}",
+  "auto.fallback": "Auto 模式连续拦截了太多操作；这一项需要你决定。",
+  "auto.unavailable": "Auto 模式分类器不可用；这一项需要你决定。",
   "startup.trustTitle": "本项目的配置想要应用其设置、hooks 和 MCP server：",
   "startup.trustQuestion": "信任本项目的配置吗？[y/N]",
   "startup.trustGranted": "已信任本项目的当前配置。",
@@ -1181,14 +1167,10 @@ const zhCN: Record<TranslationKey, string> = {
     "警告：permissions.yaml 已弃用；其规则只会被读取一次，新规则写入 settings.json。",
   "settings.invalidDefaultMode":
     '错误：settings.json 中的 defaultMode "{value}" 无效。可选值：default、acceptEdits、plan、auto、bypassPermissions、dontAsk。',
-  "settings.autoDefaultModeUnavailable":
-    "错误：settings.json 中的 defaultMode auto 暂不可用：分类器模式尚未实现。请使用 default、acceptEdits、plan、bypassPermissions 或 dontAsk。",
   "cli.invalidPermissionMode":
     '错误：无效的 --permission-mode "{value}"。可选值：default、acceptEdits、plan、auto、bypassPermissions、dontAsk。',
   "cli.permissionModeConflicts":
     "错误：--permission-mode 不能与 --readonly、--auto 或 --mode 同时使用。",
-  "cli.autoModeUnavailable":
-    "错误：--permission-mode auto 暂不可用：分类器模式尚未实现。请使用 default、acceptEdits、plan、bypassPermissions 或 dontAsk。",
   "cli.bypassModeRequiresFlag":
     "错误：bypassPermissions 需要显式传入 --dangerously-skip-permissions（或设置 TNT_PERMISSION_MODE=bypassPermissions）。",
   "cli.deprecatedModeAlias": "警告：{from} 已弃用；改用 {to}。",
