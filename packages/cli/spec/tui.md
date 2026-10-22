@@ -40,8 +40,9 @@ message, not pinned above the composer
 Typing `/` as the first character opens the command window above the composer
 box, outside its border. It shows at most five entries with a sliding selection
 and ▲/▼ overflow markers (`MAX_VISIBLE_COMMANDS` in
-`src/ui/SlashCommandUI.tsx`), and the highlighted row carries a filled
-background so the selection is unmistakable. The window follows the typed path:
+`src/ui/SlashCommandUI.tsx`), and the highlighted row draws its name and
+description in blue, so the selection reads clearly without a marker or a
+full-row colour band. The window follows the typed path:
 a command with `subcommands` (for example `/language`) is completed with a
 trailing space instead of running, and its children then replace the list under
 a `-- /language --` header, filtered by the next token; picking one runs
