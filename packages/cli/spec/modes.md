@@ -96,3 +96,10 @@ Shift+Tab cycles `Manual → Accept edits → Plan → Auto → Bypass permissio
 Manual` (`src/ui/UserInput.tsx`). `dontAsk` is headless and serve semantics and
 never reaches the TUI. The workspace name stays visible in the status bar in every mode; the
 mode itself is shown on the composer border, each mode in its own colour.
+
+## ACP
+
+An ACP client sees the same five modes through `session/set_mode` and
+`current_mode_update`; `dontAsk` is not offered. The worker starts in
+`defaultMode` from `settings.json`, or `default` when none is set. A mode change
+applies to that worker only, so two sessions can run in different modes.

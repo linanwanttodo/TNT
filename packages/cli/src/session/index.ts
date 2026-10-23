@@ -1,5 +1,4 @@
 import fs from "fs";
-import path from "path";
 
 import type {
   BaseSessionMetadata,
@@ -8,13 +7,20 @@ import type {
   SessionUsage,
   Usage,
 } from "core/index.js";
-import historyManager from "core/util/history.js";
 import { v4 as uuidv4 } from "uuid";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
-import { globalDir } from "../config/globalDir.js";
 import { delegationDepthOf } from "../subagent/depth.js";
 import { logger } from "../utils/logger.js";
+
+import { historyAdapter } from "./historyAdapter.js";
+import {
+  assertSessionId,
+  ensureSessionScopedDir,
+  getLegacySessionPath,
+  getTranscriptPath,
+} from "./paths.js";
+import { sessionStore, type SessionSource } from "./store.js";
 
 // Re-export BaseSessionMetadata for external consumers
 export type { BaseSessionMetadata };
@@ -26,6 +32,28 @@ export interface ExtendedSessionMetadata extends BaseSessionMetadata {
   remoteId?: string; // For remote sessions, this is the agent ID
   parentSessionId?: string;
   subagentType?: string;
+  updatedAt?: string;
+  source?: SessionSource;
+}
+
+/**
+ * The session this process currently owns. Keeping it beside the session
+ * manager means a resume in another terminal cannot silently write the same
+ * transcript.
+ */
+let activeLeaseId: string | null = null;
+
+function releaseActiveLease(): void {
+  if (activeLeaseId === null) return;
+  sessionStore.releaseLease(activeLeaseId);
+  activeLeaseId = null;
+}
+
+function acquireActiveLease(sessionId: string): void {
+  if (activeLeaseId === sessionId) return;
+  sessionStore.acquireLease(sessionId);
+  if (activeLeaseId !== null) sessionStore.releaseLease(activeLeaseId);
+  activeLeaseId = sessionId;
 }
 
 // Note: We now use UUID-based session IDs instead of terminal-based IDs.
@@ -33,84 +61,43 @@ export interface ExtendedSessionMetadata extends BaseSessionMetadata {
 // The --resume flag loads the most recent session.
 
 /**
- * Get the session storage directory
- */
-function getSessionDir(): string {
-  // For tests, use the test directory if we're in test mode
-  if (process.env.CONTINUE_CLI_TEST && process.env.HOME) {
-    const sessionDir = path.join(process.env.HOME, ".tnt", "sessions");
-
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(sessionDir)) {
-      fs.mkdirSync(sessionDir, { recursive: true });
-    }
-
-    return sessionDir;
-  }
-
-  const continueHome = globalDir();
-  const sessionDir = path.join(continueHome, "sessions");
-
-  // Create directory if it doesn't exist
-  if (!fs.existsSync(sessionDir)) {
-    fs.mkdirSync(sessionDir, { recursive: true });
-  }
-
-  return sessionDir;
-}
-
-/**
- * Get the session file path for the current session
+ * Get the session file path for the current session.
+ *
+ * The v2 transcript is the live file; a legacy flat JSON session that has not
+ * been migrated yet is still the file hooks should see.
  */
 export function getSessionFilePath(): string {
   const sessionId = getCurrentSessionId();
-  const sessionDir = getSessionDir();
-  return path.join(sessionDir, `${sessionId}.json`);
+  const transcript = getTranscriptPath(sessionId);
+  if (fs.existsSync(transcript)) return transcript;
+  const legacy = getLegacySessionPath(sessionId);
+  if (fs.existsSync(legacy)) return legacy;
+  return transcript;
 }
 
 /**
- * Session ids arrive from the store and end up in a path, so anything that is
- * not a plain filename character is dropped rather than trusted.
- */
-function safeSessionId(sessionId: string): string {
-  return sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
-}
-
-/**
- * Where a tool result too large to hand the model whole is kept: beside the
- * session store, one directory per session, so a resumed session can still
- * reach its own files and pruning can bound what is left behind.
+ * Where a tool result too large to hand the model whole is kept: inside the
+ * session's own directory, so deleting the session removes its sidecars too.
  */
 export function getToolResultsDir(sessionId: string): string {
-  return ensureSessionScopedDir("tool-results", safeSessionId(sessionId));
+  return ensureSessionScopedDir("tool-results", sessionId);
 }
 
 /**
- * Where the prefix that moved between two rounds is written, beside the session
- * store like the tool results: a cache break that only exists as a log line with
- * a field name cannot be read.
+ * Where the prefix that moved between two rounds is written, beside the
+ * transcript: a cache break that only exists as a log line with a field name
+ * cannot be read.
  */
 export function getCacheBreaksDir(sessionId: string): string {
-  return ensureSessionScopedDir("cache-breaks", safeSessionId(sessionId));
+  return ensureSessionScopedDir("cache-breaks", sessionId);
 }
 
 /**
  * Where the lines of a transcript block that the terminal could not show are
- * kept, so the notice printed in its place names a file that exists. Separate
- * from `tool-results` on purpose: that one holds what the model was given and
- * is pruned against what the model still needs, while this holds what a person
- * was not shown and grows with how many long blocks a session renders.
+ * kept, so the notice printed in its place names a file that exists.
  */
 export function getBlockOverflowDir(sessionId: string): string {
-  return ensureSessionScopedDir("block-overflow", safeSessionId(sessionId));
-}
-
-function ensureSessionScopedDir(kind: string, safeId: string): string {
-  const dir = path.join(path.dirname(getSessionDir()), kind, safeId);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  return dir;
+  return ensureSessionScopedDir("block-overflow", sessionId);
 }
 
 // Singleton for current session management
@@ -442,7 +429,10 @@ export function saveSession(): void {
     }
 
     const sessionToSave = getSessionPersistenceSnapshot(session);
-    historyManager.save(sessionToSave);
+    // The live session owns its transcript while this process is writing it;
+    // a detached save (import, subagent) only checks the lease in the store.
+    acquireActiveLease(session.sessionId);
+    historyAdapter.save(sessionToSave);
   } catch (error) {
     logger.error("Error saving session:", error);
   }
@@ -453,48 +443,20 @@ export function saveSession(): void {
  */
 export function loadSession(): Session | null {
   try {
-    // For resume, we need to find the most recent session
-    const sessionDir = getSessionDir();
-    if (!fs.existsSync(sessionDir)) {
-      return null;
-    }
-
-    const files = fs
-      .readdirSync(sessionDir)
-      .filter((f) => f.endsWith(".json") && f !== "sessions.json")
-      .map((f) => ({
-        name: f,
-        path: path.join(sessionDir, f),
-        mtime: fs.statSync(path.join(sessionDir, f)).mtime,
-      }))
-      .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-
     // A delegated run is reachable from its parent, so resume must land on a
     // root conversation even when the child transcript was written last, and
-    // a resume without an explicit id stays inside the current workspace: the
-    // picker is the cross-directory path, so a plain --resume in one project
-    // must not open another project's conversation.
-    const currentWorkspace = process.cwd().toLowerCase();
-    let session: Session | null = null;
-    for (const file of files) {
-      const parsed: Session = JSON.parse(fs.readFileSync(file.path, "utf8"));
-      if (parsed.parentSessionId) {
-        continue;
-      }
-      if (
-        (parsed.workspaceDirectory ?? "").toLowerCase() !== currentWorkspace
-      ) {
-        continue;
-      }
-      session = parsed;
-      break;
-    }
+    // a resume without an explicit id stays inside the current workspace.
+    const candidates = sessionStore.list({
+      cwd: process.cwd(),
+      limit: 1,
+    });
+    const newest = candidates[0];
+    if (!newest) return null;
 
-    if (!session) {
-      return null;
-    }
+    const session = loadSessionById(newest.sessionId);
+    if (!session) return null;
 
-    // Set this as the current session for future saves
+    acquireActiveLease(session.sessionId);
     SessionManager.getInstance().setSession(session);
     return session;
   } catch (error) {
@@ -503,12 +465,21 @@ export function loadSession(): Session | null {
   }
 }
 
+export interface CreateSessionOptions {
+  source?: SessionSource;
+  /** Write the header immediately, before the first message. ACP needs this. */
+  persistEmpty?: boolean;
+  /** Hold the file lease for this session. */
+  lease?: boolean;
+}
+
 /**
  * Create a new session
  */
 export function createSession(
   history: ChatHistoryItem[] = [],
   sessionId?: string,
+  options: CreateSessionOptions = {},
 ): Session {
   const session: Session = {
     sessionId: sessionId ?? uuidv4(),
@@ -525,7 +496,12 @@ export function createSession(
       },
     },
   };
+  sessionStore.ensureSession(session, {
+    source: options.source,
+    persistEmpty: options.persistEmpty,
+  });
   SessionManager.getInstance().setSession(session);
+  if (options.lease) acquireActiveLease(session.sessionId);
   return session;
 }
 
@@ -537,13 +513,10 @@ export function clearSession(): void {
     const manager = SessionManager.getInstance();
     if (manager.hasSession()) {
       const sessionId = manager.getSessionId();
-      const sessionFilePath = path.join(getSessionDir(), `${sessionId}.json`);
-      // core owns the pair: its delete takes the file and the sessions.json
-      // row together. The unlink this function used to do by hand left the row
-      // behind, so the listing kept offering a session with nothing in it.
-      if (fs.existsSync(sessionFilePath)) {
-        historyManager.delete(sessionId);
-      }
+      releaseActiveLease();
+      // The store removes the transcript, sidecars and any legacy row; the
+      // old unlink left sidecar directories behind.
+      historyAdapter.delete(sessionId);
       manager.clear();
     }
   } catch (error) {
@@ -559,58 +532,11 @@ export function hasSession(): boolean {
   if (!manager.hasSession()) {
     return false;
   }
-  const sessionFilePath = path.join(
-    getSessionDir(),
-    `${manager.getSessionId()}.json`,
+  const sessionId = manager.getSessionId();
+  return (
+    fs.existsSync(getTranscriptPath(sessionId)) ||
+    fs.existsSync(getLegacySessionPath(sessionId))
   );
-  return fs.existsSync(sessionFilePath);
-}
-
-/**
- * Get metadata from a session file with first user message preview
- */
-function getSessionMetadataWithPreview(
-  filePath: string,
-): ExtendedSessionMetadata | null {
-  try {
-    const sessionData: Session = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    const stats = fs.statSync(filePath);
-
-    // Find the first user message for preview
-    let firstUserMessage: string | undefined;
-    for (const item of sessionData.history || []) {
-      if (item.message.role === "user") {
-        const content = item.message.content;
-        // Handle both string and array content types
-        if (typeof content === "string") {
-          firstUserMessage = content;
-        } else if (Array.isArray(content)) {
-          // For array content, find the first text part
-          const textPart = content.find((part) => part.type === "text");
-          firstUserMessage =
-            textPart && "text" in textPart
-              ? textPart.text
-              : "(multimodal message)";
-        } else {
-          firstUserMessage = "(unknown content type)";
-        }
-        break;
-      }
-    }
-
-    return {
-      sessionId: sessionData.sessionId,
-      title: sessionData.title || DEFAULT_SESSION_TITLE,
-      dateCreated: stats.birthtime.toISOString(),
-      workspaceDirectory: sessionData.workspaceDirectory || "",
-      firstUserMessage,
-      parentSessionId: sessionData.parentSessionId,
-      subagentType: sessionData.subagentType,
-    };
-  } catch (error) {
-    logger.error(`Error reading session file ${filePath}:`, error);
-    return null;
-  }
 }
 
 /**
@@ -627,51 +553,24 @@ export async function listSessions(
   limit: number = 100,
 ): Promise<ExtendedSessionMetadata[]> {
   try {
-    // Get local sessions
-    const localSessions = historyManager.list({ limit });
+    // The store's meta cache already carries the title, preview and timestamp,
+    // so listing no longer opens every transcript.
+    const localSessions = historyAdapter.list({
+      limit,
+    }) as ExtendedSessionMetadata[];
 
-    // Add first user message preview to each local session
-    const localSessionsWithPreview: ExtendedSessionMetadata[] = [];
-
-    for (const sessionMeta of localSessions) {
-      const sessionFilePath = path.join(
-        getSessionDir(),
-        `${sessionMeta.sessionId}.json`,
-      );
-
-      if (fs.existsSync(sessionFilePath)) {
-        const metadata = getSessionMetadataWithPreview(sessionFilePath);
-        // A delegated run is reachable from its parent, so it is kept out of
-        // the root list to avoid mixing transcripts of different scopes.
-        if (metadata && metadata.parentSessionId) {
-          continue;
-        }
-        if (metadata) {
-          localSessionsWithPreview.push({
-            ...metadata,
-            isRemote: false,
-          });
-        }
-      } else {
-        // A row with no file behind it is a session nobody can open. It used to
-        // be listed with fallback metadata, which is how a cleared conversation
-        // stayed on screen.
-        continue;
-      }
-    }
-
-    // Get remote sessions
     const remoteSessions = await getRemoteSessions();
 
-    // Combine and sort by date (most recent first)
-    const allSessions = [...localSessionsWithPreview, ...remoteSessions]
+    return [
+      ...localSessions.map((session) => ({ ...session, isRemote: false })),
+      ...remoteSessions,
+    ]
       .sort(
         (a, b) =>
-          new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
+          new Date(b.updatedAt ?? b.dateCreated).getTime() -
+          new Date(a.updatedAt ?? a.dateCreated).getTime(),
       )
       .slice(0, limit);
-
-    return allSessions;
   } catch (error) {
     logger.error("Error listing sessions:", error);
     return [];
@@ -683,14 +582,12 @@ export async function listSessions(
  */
 export function loadSessionById(sessionId: string): Session | null {
   try {
-    // The core loader fabricates an empty session for a missing file, so the
-    // existence check happens here; every caller treats null as "not found".
-    if (!fs.existsSync(path.join(getSessionDir(), `${sessionId}.json`))) {
-      return null;
-    }
-    const session = historyManager.load(sessionId);
-    return session;
+    assertSessionId(sessionId);
+    return historyAdapter.load(sessionId);
   } catch (error) {
+    // A missing session and a corrupt transcript are both "cannot open"; the
+    // old loader turned the corrupt case into an empty session and the next
+    // save overwrote the file.
     logger.error("Error loading session by ID:", error);
     return null;
   }
@@ -702,6 +599,12 @@ export function loadSessionById(sessionId: string): Session | null {
 export function selectSession(sessionId: string): Session | null {
   const session = loadSessionById(sessionId);
   if (!session) {
+    return null;
+  }
+  try {
+    acquireActiveLease(sessionId);
+  } catch (error) {
+    logger.error("Could not lease session:", error);
     return null;
   }
   SessionManager.getInstance().setSession(session);
@@ -724,14 +627,20 @@ export function resumeSession(sessionId?: string): Session | null {
 export function loadOrCreateSessionById(
   sessionId: string,
   history: ChatHistoryItem[] = [],
+  options: CreateSessionOptions = {},
 ): Session {
   const existing = loadSessionById(sessionId);
   if (existing) {
+    acquireActiveLease(sessionId);
     SessionManager.getInstance().setSession(existing);
     return existing;
   }
 
-  return createSession(history, sessionId);
+  return createSession(history, sessionId, {
+    source: options.source ?? "serve",
+    persistEmpty: options.persistEmpty ?? true,
+    lease: options.lease ?? true,
+  });
 }
 
 /**
@@ -862,7 +771,7 @@ export function saveSubagentSession(options: {
     },
   };
 
-  historyManager.save(getSessionPersistenceSnapshot(child));
+  historyAdapter.save(getSessionPersistenceSnapshot(child));
   return child;
 }
 
@@ -874,35 +783,12 @@ export function listSubagentSessions(
   parentSessionId: string,
 ): ExtendedSessionMetadata[] {
   try {
-    const sessionDir = getSessionDir();
-    if (!fs.existsSync(sessionDir)) {
-      return [];
-    }
-
-    return fs
-      .readdirSync(sessionDir)
-      .filter((file) => file.endsWith(".json") && file !== "sessions.json")
-      .map((file): ExtendedSessionMetadata | null => {
-        try {
-          const session: Session = JSON.parse(
-            fs.readFileSync(path.join(sessionDir, file), "utf8"),
-          );
-          if (session.parentSessionId !== parentSessionId) {
-            return null;
-          }
-          const metadata = getSessionMetadataWithPreview(
-            path.join(sessionDir, file),
-          );
-          return metadata ? { ...metadata, isRemote: false } : null;
-        } catch {
-          return null;
-        }
+    return sessionStore
+      .list({
+        parentSessionId,
+        includeSubagents: true,
       })
-      .filter((entry): entry is ExtendedSessionMetadata => entry !== null)
-      .sort(
-        (a, b) =>
-          new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime(),
-      );
+      .map((metadata) => ({ ...metadata, isRemote: false }));
   } catch (error) {
     logger.error("Error listing subagent sessions:", error);
     return [];
@@ -922,7 +808,9 @@ export function getCurrentSession(): Session {
 export function startNewSession(history: ChatHistoryItem[] = []): Session {
   const manager = SessionManager.getInstance();
 
-  // Clear the current session from memory (don't delete the file)
+  // Clear the current session from memory (don't delete the file) and stop
+  // owning its transcript before switching to the new one.
+  releaseActiveLease();
   manager.clear();
 
   // Create a new session with a new sessionId
@@ -942,6 +830,7 @@ export function startNewSession(history: ChatHistoryItem[] = []): Session {
     },
   };
 
+  sessionStore.ensureSession(newSession);
   manager.setSession(newSession);
   return newSession;
 }

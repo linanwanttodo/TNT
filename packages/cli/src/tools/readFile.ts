@@ -8,6 +8,10 @@ import { parseEnvNumber } from "../utils/truncateOutput.js";
 import { markFileAsSeen } from "./fileState.js";
 import { formatToolArgument } from "./formatters.js";
 import { Tool, ToolRunContext } from "./types.js";
+import {
+  isWorkspaceFileServiceActive,
+  readWorkspaceTextFile,
+} from "./workspaceFiles.js";
 
 // Output truncation defaults
 const DEFAULT_READ_FILE_MAX_CHARS = 100000; // ~25k tokens
@@ -176,14 +180,26 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
       // `run()` directly, so the check cannot be load-bearing where it was.
       throwIfFileIsSecurityConcern(filepath);
 
-      if (!fs.existsSync(filepath)) {
+      if (!isWorkspaceFileServiceActive() && !fs.existsSync(filepath)) {
         throw new ContinueError(
           ContinueErrorReason.Unspecified,
           `File does not exist: ${filepath}`,
         );
       }
-      const realPath = fs.realpathSync(filepath);
-      const content = fs.readFileSync(realPath, "utf-8");
+      let read: Awaited<ReturnType<typeof readWorkspaceTextFile>>;
+      try {
+        read = await readWorkspaceTextFile(filepath);
+      } catch (error) {
+        if (!isWorkspaceFileServiceActive() && !fs.existsSync(filepath)) {
+          throw new ContinueError(
+            ContinueErrorReason.Unspecified,
+            `File does not exist: ${filepath}`,
+          );
+        }
+        throw error;
+      }
+      const realPath = read.realPath;
+      const content = read.content;
 
       // Divide limits by parallel tool call count to avoid context overflow
       const parallelCount = context?.parallelToolCallCount ?? 1;

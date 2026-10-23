@@ -21,6 +21,7 @@ moves - which is why its `src/test-utils` exclude is gone now that the directory
 | Path                                                                                                    | Role                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `index.ts`, `dev.ts`                                                                                    | bundled entry point and the tsx dev runner                                                                             |
+| `acp/`                                                                                                  | ACP supervisor, one worker per session, update and permission bridges                                                  |
 | `agent/`                                                                                                | system prompt assembly (`systemMessage.ts` builds the prefix as named sections)                                        |
 | `stream/`, `loop/`, `tools/`, `permissions/`, `cache/`, `plugins/`, `hooks/`, `subagent/`, `telemetry/` | the agent engine                                                                                                       |
 | `commands/`, `ui/commands/`                                                                             | argv subcommands (`chat`, `serve`, `ls`, `review`, `checks`) and the slash-command pipeline - two separate dispatchers |
@@ -29,10 +30,29 @@ moves - which is why its `src/test-utils` exclude is gone now that the directory
 | `i18n/`                                                                                                 | translations and locale switching                                                                                      |
 | `utils/`                                                                                                | leaf helpers; it may not reach upward except through the exemptions the ratchet lists                                  |
 
-## One engine, three surfaces
+## One engine, four surfaces
 
-`stream/streamChatResponse.ts` runs the turn loop for all three surfaces: the Ink TUI
-(`ui/hooks/useChat.ts`), headless `-p` (`commands/chat.ts`) and `tnt serve`. Per-turn guards live
+`stream/streamChatResponse.ts` runs the turn loop for all four surfaces: the Ink TUI
+(`ui/hooks/useChat.ts`), headless `-p` (`commands/chat.ts`), `tnt serve`, and each
+ACP session worker. Every surface reaches
+it through `session/controller.ts`, which is the only production importer of the loop (the
+summarizer is the documented exception). The controller stamps each turn with a session id, a turn
+id, and a monotonic sequence, then maps `StreamCallbacks` to the typed events in
+`protocol/events.ts` through `stream/eventAdapter.ts`. `tnt serve` exposes that contract at
+`GET /events` as server-sent events while keeping the polling endpoints for the current remote
+client. `tnt --acp` runs a supervisor that spawns one single-session worker process per editor
+session; the supervisor forwards the same event contract as ACP session/update and forwards
+permission answers through the same `toolPermissionManager`.
+
+The transcript in `session/transcript.ts` owns message identity and the staging batch behind
+`ChatHistoryService`: append methods assign ids, an assistant message with tool calls is staged
+until its first tool result commits it, and a compaction records a mark on the retained window.
+Replay keeps the ids because they are written onto the persisted item. One request's
+streaming-and-tool-batch seam is `stream/processStreamingResponse.ts`. The loop's own decisions
+live beside it: `systemPromptRound.ts` advances the cached system-prompt state, `requestPreparation.ts`
+runs the pre-API compaction and the cache-prefix verdict, and `roundOutcome.ts` classifies an early
+stream end. The remaining helper modules split by job (`permissionFlow.ts`, `chunkProcessing.ts`,
+`usageTelemetry.ts`, `toolExecution.ts`, `responseChunks.ts`). Per-turn guards live
 next to it as their own trackers (`loop/turnBudget.ts`, `loop/toolFailureTracker.ts`,
 `loop/terminalStop.ts`, `loop/contextBudget.ts`, `loop/todoReminder.ts`) and are passed in through `StreamCallbacks`, so no surface re-implements a
 stop condition. Compaction is driven by measured provider usage (`compaction/measuredContext.ts`,
@@ -110,8 +130,8 @@ The prefix is assembled in build order, each part announced so it can be attribu
 - `mode`, `sessionId` and similar CLI state are not part of the prefix identity
   (`cache/requestHeader.ts` `canonicalHeader`), because they never reach a provider.
 - Switching permission mode mid-turn takes effect on the next tool round and is not announced:
-  `stream/streamChatResponse.ts` re-reads `toolPermissions.getState().currentMode` per round (712
-  for the prompt, 771 for the request header), so nothing freezes the mode and nothing prints that
+  `stream/streamChatResponse.ts` re-reads `toolPermissions.getState().currentMode` per round (172
+  for the prompt, 231 for the request header), so nothing freezes the mode and nothing prints that
   it moved. What keeps the cache is the shape of the sections instead - `auto` adds no section of
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
@@ -132,11 +152,12 @@ The prefix is assembled in build order, each part announced so it can be attribu
   rewording one clause in `base` moves all of them.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `1b399a5fb3d9578a` over 29 tools and 21815 characters (name + description + parameter schema, in
-  `tools/stableOrder.ts` order). All 29 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  `fddd0b7c530ef75f` over 30 tools and 22590 characters (name + description + parameter schema, in
+  `tools/stableOrder.ts` order). All 30 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
-  default-deny name list now read the same set. `tools/toolPrefixFingerprint.test.ts`
+  default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is
+  advertised only while MCP tool schemas are being deferred. `tools/toolPrefixFingerprint.test.ts`
   freezes it and reads this file for the same digest, so the text cannot move without a line here: a
   reworded description is not a copy edit, it cold-starts the first request of every new session. The
   same guard discovers every `Tool` this directory exports, so declaring a built-in tool that the
@@ -147,14 +168,19 @@ The prefix is assembled in build order, each part announced so it can be attribu
   named section changes (`describeSystemMessageTextChange` in `agent/systemMessage.ts`) to
   `cache-breaks/<session>/` beside the session store.
 - Counts reported in a chunk that carries no choices - the trailing metadata event of a provider like
-  Bedrock - are still metered: `stream/streamChatResponse.ts` reads `chunk.usage` ahead of the choice
-  guard, and `e2e/headless-usage-only-chunk.test.ts` pins it through to the saved session.
+  Bedrock - are still metered: `stream/processStreamingResponse.ts` reads `chunk.usage` ahead of the
+  choice guard, and `e2e/headless-usage-only-chunk.test.ts` pins it through to the saved session.
 
 ## Tools and permissions
 
-- Registration: `tools/builtInToolNames.ts` (names), `tools/allBuiltIns.ts` (instances, used for
-  display names and policy lookups), `tools/index.tsx` `getAllAvailableTools` (what a run is
-  actually offered, sorted by name because the tool list is part of the cached prefix).
+- Registration: `tools/registry.ts` composes what exists (capability gates and the stable order the
+  request is billed in), `tools/mcp.ts` owns MCP naming and translation, and `tools/index.tsx` is the
+  public facade that parses, converts and executes a call. Names: `tools/builtInToolNames.ts`;
+  instances for display and policy lookups: `tools/allBuiltIns.ts`.
+- Selection: `tools/selection/` owns what one request advertises. `deferral.ts` decides whether MCP
+  schemas are replaced by `ToolSearch` (a tenth of the model's window, or an explicit
+  `CONTINUE_CLI_DEFER_MCP_TOOLS`), `requestTools.ts` applies the policy table and asks for the
+  window, and `search.ts` is the catalog tool itself. The stream engine only asks for the answer.
 - Policy: `permissions/defaultPolicies.ts` holds the agent, plan and auto lists. Plan mode scopes
   writes to documentation (`permissions/documentPath.ts`) rather than refusing them.
 - Two independent guards make an omission impossible: `permissions/toolPolicyCoverage.test.ts`
@@ -201,6 +227,11 @@ From `packages/cli`:
     npx vitest run
     npm run build
     npx vitest run --config vitest.e2e.config.ts
+    npx vitest run --config vitest.e2e.config.ts e2e/acp.test.ts
+
+The ACP case needs the built `dist/tnt.js` and covers a prompt, two concurrent
+sessions, load/resume/delete, a permission request and an ACP session cancel notification against
+a mock model server.
 
 Two packages own their own gates, because the CLI neither runs their tests nor reads their sources:
 

@@ -42,25 +42,26 @@ vi.mock("../utils/logger.js", () => ({
     error: vi.fn(),
   },
 }));
-const mockHistoryManager: any = vi.hoisted(() => ({
-  save: vi.fn((session: any) => {
+const mockSessionStore: any = vi.hoisted(() => ({
+  ensureSession: vi.fn(),
+  sync: vi.fn((session: any) => {
     // Mimic writing the session payload to disk so expectations on fs still work
     fs.writeFileSync(
       `/home/test/.tnt/sessions/${session.sessionId}.json`,
       JSON.stringify(session),
     );
   }),
-  load: vi.fn(() => ({
-    sessionId: "test-session-id",
-    title: "Test Session",
-    workspaceDirectory: "/test/workspace",
-    history: [],
-  })),
+  load: vi.fn(() => {
+    throw new Error("not found");
+  }),
   list: vi.fn(() => []),
   delete: vi.fn(),
+  acquireLease: vi.fn(),
+  releaseLease: vi.fn(),
+  clearAll: vi.fn(),
 }));
-vi.mock("core/util/history.js", () => ({
-  default: mockHistoryManager,
+vi.mock("./store.js", () => ({
+  sessionStore: mockSessionStore,
 }));
 
 const mockFs = vi.mocked(fs);
@@ -365,42 +366,36 @@ describe("SessionManager", () => {
     });
 
     it("returns only the children of the requested parent, newest first", () => {
-      mockFs.readdirSync.mockReturnValue([
-        "sessions.json",
-        "older.json",
-        "newer.json",
-        "other.json",
-        "broken.json",
-      ] as any);
-      mockFs.readFileSync.mockImplementation(((file: any) => {
-        const name = String(file);
-        if (name.endsWith("older.json")) {
-          return sessionFile({
-            sessionId: "parent:older",
-            parentSessionId: "parent",
-            subagentType: "Explore",
-          });
-        }
-        if (name.endsWith("newer.json")) {
-          return sessionFile({
-            sessionId: "parent:newer",
-            parentSessionId: "parent",
-            subagentType: "Plan",
-          });
-        }
-        if (name.endsWith("other.json")) {
-          return sessionFile({ sessionId: "no-parent" });
-        }
-        return "{ not json";
-      }) as any);
-      mockFs.statSync.mockImplementation(((file: any) => ({
-        birthtime: String(file).endsWith("newer.json")
-          ? new Date("2026-01-02T00:00:00Z")
-          : new Date("2026-01-01T00:00:00Z"),
-      })) as any);
+      const meta = (
+        sessionId: string,
+        subagentType: string,
+        updatedAt: string,
+      ) => ({
+        sessionId,
+        title: "agent session",
+        dateCreated: "2026-01-01T00:00:00Z",
+        workspaceDirectory: "/test/workspace",
+        messageCount: 1,
+        entryCount: 1,
+        updatedAt,
+        source: "subagent",
+        parentSessionId: "parent",
+        subagentType,
+        schemaVersion: 2,
+        sizeBytes: 1,
+      });
+
+      mockSessionStore.list.mockReturnValue([
+        meta("parent:newer", "Plan", "2026-01-02T00:00:00Z"),
+        meta("parent:older", "Explore", "2026-01-01T00:00:00Z"),
+      ]);
 
       const children = listSubagentSessions("parent");
 
+      expect(mockSessionStore.list).toHaveBeenCalledWith({
+        parentSessionId: "parent",
+        includeSubagents: true,
+      });
       expect(children.map((child) => child.sessionId)).toEqual([
         "parent:newer",
         "parent:older",
@@ -410,34 +405,33 @@ describe("SessionManager", () => {
     });
 
     it("returns an empty list when nothing has been delegated", () => {
-      mockFs.readdirSync.mockReturnValue([] as any);
+      mockSessionStore.list.mockReturnValue([]);
       expect(listSubagentSessions("parent")).toEqual([]);
     });
 
     it("returns an empty list when the session dir is missing", () => {
-      mockFs.existsSync.mockReturnValue(false);
+      mockSessionStore.list.mockReturnValue([]);
       expect(listSubagentSessions("parent")).toEqual([]);
     });
 
     it("hides delegated sessions from the root session list", async () => {
-      mockHistoryManager.list.mockReturnValue([
-        { sessionId: "root" },
-        { sessionId: "child" },
+      mockSessionStore.list.mockReturnValue([
+        {
+          sessionId: "root",
+          title: "Root",
+          dateCreated: "2026-01-01T00:00:00Z",
+          workspaceDirectory: "/test/workspace",
+          messageCount: 1,
+          entryCount: 1,
+          updatedAt: "2026-01-01T00:00:00Z",
+          source: "cli",
+          schemaVersion: 2,
+          sizeBytes: 1,
+        },
       ]);
-      mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockImplementation((file: any) =>
-        String(file).endsWith("child.json")
-          ? sessionFile({
-              sessionId: "child",
-              parentSessionId: "root",
-              subagentType: "Explore",
-            })
-          : sessionFile({ sessionId: "root" }),
-      );
-      mockFs.statSync.mockReturnValue({ birthtime: new Date() } as any);
 
       const sessions = await listSessions();
-      mockHistoryManager.list.mockReturnValue([]);
+      mockSessionStore.list.mockReturnValue([]);
 
       expect(sessions.map((session) => session.sessionId)).toEqual(["root"]);
     });
@@ -457,17 +451,32 @@ describe("SessionManager", () => {
         ],
       };
 
-      mockHistoryManager.load.mockReturnValue(existingSession);
+      mockSessionStore.load.mockReturnValue({
+        session: existingSession,
+        meta: {
+          sessionId: "existing-id",
+          title: "Existing",
+          dateCreated: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          workspaceDirectory: "/test/workspace",
+          messageCount: 1,
+          entryCount: 1,
+          source: "cli",
+          schemaVersion: 2,
+          sizeBytes: 1,
+        },
+        origin: "v2",
+      });
 
       const session = loadOrCreateSessionById("existing-id");
 
       expect(session).toBe(existingSession);
-      expect(mockHistoryManager.load).toHaveBeenCalledWith("existing-id");
+      expect(mockSessionStore.load).toHaveBeenCalledWith("existing-id");
       expect(getCurrentSession()).toBe(existingSession);
     });
 
     it("should create a new session when none exists for the id", () => {
-      mockHistoryManager.load.mockImplementation(() => {
+      mockSessionStore.load.mockImplementation(() => {
         throw new Error("not found");
       });
 
@@ -481,7 +490,7 @@ describe("SessionManager", () => {
 
   describe("loadSession", () => {
     it("should return null if session directory doesn't exist", () => {
-      mockFs.existsSync.mockReturnValue(false);
+      mockSessionStore.list.mockReturnValue([]);
 
       const result = loadSession();
 
@@ -489,7 +498,7 @@ describe("SessionManager", () => {
     });
 
     it("should return null if no session files exist", () => {
-      mockFs.readdirSync.mockReturnValue([]);
+      mockSessionStore.list.mockReturnValue([]);
 
       const result = loadSession();
 
@@ -505,17 +514,36 @@ describe("SessionManager", () => {
         history: [],
       };
 
-      mockFs.readdirSync.mockReturnValue([
-        "old-session.json" as any,
-        "sessions.json" as any, // Should be filtered out
-        "recent-session.json" as any,
+      mockSessionStore.list.mockReturnValue([
+        {
+          sessionId: "loaded-session-id",
+          title: "Loaded Session",
+          dateCreated: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-02T00:00:00Z",
+          workspaceDirectory: process.cwd(),
+          messageCount: 0,
+          entryCount: 1,
+          source: "cli",
+          schemaVersion: 2,
+          sizeBytes: 1,
+        },
       ]);
-
-      mockFs.statSync
-        .mockReturnValueOnce({ mtime: new Date("2023-01-01") } as any)
-        .mockReturnValueOnce({ mtime: new Date("2023-01-02") } as any);
-
-      mockFs.readFileSync.mockReturnValue(JSON.stringify(mockSession));
+      mockSessionStore.load.mockReturnValue({
+        session: mockSession,
+        meta: {
+          sessionId: "loaded-session-id",
+          title: "Loaded Session",
+          dateCreated: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-02T00:00:00Z",
+          workspaceDirectory: process.cwd(),
+          messageCount: 0,
+          entryCount: 1,
+          source: "cli",
+          schemaVersion: 2,
+          sizeBytes: 1,
+        },
+        origin: "v2",
+      });
 
       const result = loadSession();
 
@@ -525,29 +553,24 @@ describe("SessionManager", () => {
   });
 
   describe("clearSession", () => {
-    it("hands the file and its index row to core's delete", () => {
+    it("hands the transcript and its sidecars to the session store", () => {
       // Set up a current session
       createSession();
-      mockFs.existsSync.mockReturnValue(true);
 
       clearSession();
 
-      // The row is the half the hand-rolled unlink could not reach, so the
-      // delegation is the thing to pin. Real file+row behaviour is covered by
-      // `clearSessionListing.test.ts`, which runs against actual files.
-      expect(mockHistoryManager.delete).toHaveBeenCalledWith("test-uuid-123");
+      expect(mockSessionStore.delete).toHaveBeenCalledWith("test-uuid-123");
       expect(mockFs.unlinkSync).not.toHaveBeenCalled();
     });
 
-    it("should not delete file if it doesn't exist", () => {
+    it("delegates a missing session to the store without a hand-rolled unlink", () => {
       createSession();
       mockFs.existsSync.mockReturnValue(false);
 
       clearSession();
 
       expect(mockFs.unlinkSync).not.toHaveBeenCalled();
-      // Nothing to delete means nothing to take out of the index either.
-      expect(mockHistoryManager.delete).not.toHaveBeenCalled();
+      expect(mockSessionStore.delete).toHaveBeenCalledWith("test-uuid-123");
     });
 
     it("should clear the current session from memory", () => {

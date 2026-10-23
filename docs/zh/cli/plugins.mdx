@@ -1,0 +1,61 @@
+---
+title: "插件"
+description: "安装 Claude Code 兼容插件，并查看它们贡献了什么。"
+---
+
+插件把命令、智能体、技能、钩子、MCP 服务器、输出风格和语言服务器打包成一个可
+安装单元。TNT 读取 Claude Code 插件格式，因此已有的插件树可以继续工作。
+
+## 目录结构
+
+```
+~/.tnt/plugins/
+  known_marketplaces.json
+  installed_plugins.json
+  marketplaces/<marketplace>/
+  cache/<marketplace>/<plugin>/<version>/
+  data/<plugin-id>/
+```
+
+`~/.claude/plugins/cache/` 会作为迁移来源读取，因此已经安装在别处的插件无需复制
+就能被发现。可以通过插件缓存目录环境变量把整个目录移到别处。
+
+## 清单
+
+插件是一个带 `plugin.json` 的目录：
+
+```json title="plugin.json"
+{
+  "name": "my-plugin",
+  "version": "1.0.0",
+  "commands": ["commands"],
+  "skills": ["skills"],
+  "hooks": "hooks/hooks.json",
+  "mcpServers": {},
+  "outputStyles": ["styles"],
+  "lspServers": []
+}
+```
+
+| 字段 | 贡献 |
+| --- | --- |
+| `commands` | markdown 命令，显示为斜杠命令 |
+| `agents` | 智能体定义，可供 Subagent 工具使用 |
+| `skills` | 技能文件夹，格式与[技能](/zh/cli/skills)相同 |
+| `hooks` | 钩子配置，与设置文件合并 |
+| `mcpServers` | MCP 服务器，与配置文件合并 |
+| `outputStyles` | 会话可以采用的回答风格 |
+| `lspServers` | 智能体可以查询的语言服务器 |
+
+省略每个字段时也会接受默认目录（`commands/`、`skills/` 等）；未知字段会被忽略
+而不是拒绝，因此为更新版本宿主编写的清单仍然可以加载。
+
+## 查看已安装内容
+
+```
+/plugins
+```
+
+列出每个已安装插件及其贡献的部件，这是查找某个斜杠命令或钩子来源的最快方式。
+上游目录保留的 marketplace 名称会被拒绝，因此第三方 marketplace 不能遮蔽官方
+marketplace。

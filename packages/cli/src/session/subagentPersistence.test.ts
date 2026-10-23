@@ -25,6 +25,7 @@ import {
  * temporary global directory.
  */
 const sessionDir = path.join(process.env.CONTINUE_GLOBAL_DIR!, "sessions");
+const listPath = path.join(sessionDir, "sessions.json");
 
 const childHistory = [
   {
@@ -40,17 +41,18 @@ beforeEach(() => {
   filesBefore = new Set(
     fs.existsSync(sessionDir) ? fs.readdirSync(sessionDir) : [],
   );
-  const listPath = path.join(sessionDir, "sessions.json");
   listBefore = fs.existsSync(listPath)
     ? fs.readFileSync(listPath, "utf-8")
     : null;
 });
 
 afterEach(() => {
-  const listPath = path.join(sessionDir, "sessions.json");
   for (const file of fs.readdirSync(sessionDir)) {
     if (file !== "sessions.json" && !filesBefore.has(file)) {
-      fs.rmSync(path.join(sessionDir, file), { force: true });
+      fs.rmSync(path.join(sessionDir, file), {
+        recursive: true,
+        force: true,
+      });
     }
   }
   if (listBefore === null) {
@@ -99,15 +101,7 @@ describe("delegated session persistence", () => {
       history: childHistory,
     });
 
-    // Make the child strictly newer so the pick would land on it without the
-    // root-only filter.
-    const future = new Date(Date.now() + 10_000);
-    fs.utimesSync(
-      path.join(sessionDir, `${child.sessionId}.json`),
-      future,
-      future,
-    );
-
+    expect(child.parentSessionId).toBe(rootId);
     const resumed = loadSession();
 
     expect(resumed?.sessionId).toBe(rootId);
@@ -135,7 +129,8 @@ describe("delegated session persistence", () => {
     updateSessionHistory(childHistory);
     const mine = getCurrentSession().sessionId;
 
-    // A newer conversation that belongs to another project.
+    // A newer legacy conversation that belongs to another project. It needs a
+    // visible message and an index row to be a candidate at all.
     const foreignId = `foreign-${Date.now()}`;
     const foreignPath = path.join(sessionDir, `${foreignId}.json`);
     fs.writeFileSync(
@@ -144,11 +139,29 @@ describe("delegated session persistence", () => {
         sessionId: foreignId,
         title: "Other project",
         workspaceDirectory: "/some/other/project",
-        history: [],
+        history: [
+          {
+            message: { role: "user", content: "other project work" },
+            contextItems: [],
+          },
+        ],
       }),
     );
     const future = new Date(Date.now() + 10_000);
     fs.utimesSync(foreignPath, future, future);
+    const rows = listBefore ? JSON.parse(listBefore) : [];
+    fs.writeFileSync(
+      listPath,
+      JSON.stringify([
+        ...rows,
+        {
+          sessionId: foreignId,
+          title: "Other project",
+          workspaceDirectory: "/some/other/project",
+          dateCreated: Date.now(),
+        },
+      ]),
+    );
 
     expect(loadSession()?.sessionId).toBe(mine);
   });
@@ -160,9 +173,12 @@ describe("delegated session persistence", () => {
     startNewSession([]);
     updateSessionHistory(childHistory);
     const newer = getCurrentSession().sessionId;
-    // The two writes can land in the same millisecond; make the order explicit.
-    const future = new Date(Date.now() + 5_000);
-    fs.utimesSync(path.join(sessionDir, `${newer}.json`), future, future);
+    // The two writes can land in the same millisecond; make the order explicit
+    // in the metadata the list is sorted by.
+    const metaPath = path.join(sessionDir, newer, "meta.json");
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+    meta.updatedAt = new Date(Date.now() + 5_000).toISOString();
+    fs.writeFileSync(metaPath, JSON.stringify(meta));
 
     expect(resumeSession(older)?.sessionId).toBe(older);
     expect(resumeSession()?.sessionId).toBe(newer);

@@ -158,6 +158,25 @@ export class MCPService
   }
 
   /**
+   * Add one server after initialization. ACP sessions own their worker, so the
+   * per-session server set can be connected at session creation without
+   * re-reading the process-wide config.
+   */
+  public async addServer(serverConfig: MCPServerConfig): Promise<void> {
+    if (!serverConfig?.name || this.connections.has(serverConfig.name)) {
+      return;
+    }
+    this.configuredServers = [
+      ...this.configuredServers.filter(
+        (server) => server.name !== serverConfig.name,
+      ),
+      serverConfig,
+    ];
+    await this.connectServer(serverConfig);
+    this.updateState();
+  }
+
+  /**
    * Update internal state based on current connections
    */
   private updateState() {

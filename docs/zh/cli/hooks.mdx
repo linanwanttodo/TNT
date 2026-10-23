@@ -1,0 +1,70 @@
+---
+title: "钩子"
+description: "在智能体循环的指定位置运行命令或模型回合。"
+---
+
+钩子可以观察并拦截智能体循环。它们在设置文件的 `hooks` 对象中配置。
+
+## 事件
+
+| 事件 | 触发时机 |
+| --- | --- |
+| `SessionStart`、`SessionEnd` | 会话边界 |
+| `UserPromptSubmit` | prompt 已提交、尚未到达模型时 |
+| `PreToolUse`、`PostToolUse`、`PostToolUseFailure` | 工具调用前后 |
+| `PermissionRequest` | 工具需要权限决定时 |
+| `Stop` | 智能体完成一个回合 |
+| `PreCompact` | 压缩历史之前 |
+| `SubagentStart`、`SubagentStop` | 委派运行前后 |
+| `Notification`、`ConfigChange` | 通知和状态变化 |
+| `WorktreeCreate`、`WorktreeRemove` | review worktree 前后 |
+
+## 钩子的配置位置
+
+所有来源都会合并，并且都会运行；后面的文件是追加到前面的文件，而不是替换：
+
+1. `~/.claude/settings.json`、`~/.tnt/settings.json`
+2. `.claude/settings.json`、`.tnt/settings.json`
+3. `.claude/settings.local.json`、`.tnt/settings.local.json`
+
+插件也可以提供钩子。见[插件](/zh/cli/plugins)。
+
+## 结构
+
+```json title="~/.tnt/settings.json"
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm run format -- $TNT_FILE_PATH"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+支持四种处理程序：
+
+| 类型 | 运行内容 |
+| --- | --- |
+| `command` | shell 命令，默认超时 600 秒 |
+| `http` | POST 请求，默认超时 30 秒 |
+| `prompt` | 单个模型回合，默认超时 30 秒 |
+| `agent` | 委派的多回合运行，默认超时 60 秒 |
+
+## 退出码
+
+| 退出码 | 效果 |
+| --- | --- |
+| `0` | 操作继续 |
+| `2` | 操作被阻止，stderr 会反馈给模型 |
+| 其他 | 钩子失败，操作仍然继续 |
+
+处理程序还可以在 stdout 返回带 `hookSpecificOutput` 的 JSON，以便进行比退出码更
+精细的控制。

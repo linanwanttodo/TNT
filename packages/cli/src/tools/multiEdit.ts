@@ -1,8 +1,5 @@
-import * as fs from "fs";
-
 import { validateMultiEdit } from "core/edit/searchAndReplace/multiEditValidation.js";
 import { executeMultiFindAndReplace } from "core/edit/searchAndReplace/performReplace.js";
-import { writeFileAtomically } from "core/util/atomicWrite.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
 
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
@@ -17,6 +14,10 @@ import { markFileAsSeen } from "./fileState.js";
 import { readFileTool } from "./readFile.js";
 import { MARKER_FILE_EDITED } from "./resultMarkers.js";
 import { Tool } from "./types.js";
+import {
+  readWorkspaceTextFile,
+  writeWorkspaceTextFile,
+} from "./workspaceFiles.js";
 import { generateDiff } from "./writeFile.js";
 
 export interface EditOperation {
@@ -111,7 +112,7 @@ WARNINGS:
 
     const { edits } = validateMultiEdit(args);
 
-    const currentContent = fs.readFileSync(resolvedPath, "utf-8");
+    const currentContent = (await readWorkspaceTextFile(resolvedPath)).content;
     const newContent = executeMultiFindAndReplace(currentContent, edits);
 
     // Generate diff for preview
@@ -145,15 +146,19 @@ WARNINGS:
     try {
       // Same re-check as Edit: the edits were applied to a snapshot taken while
       // planning, and approval can take longer than that snapshot is true.
-      if (fs.readFileSync(args.file_path, "utf-8") !== args.originalContent) {
+      const current = await readWorkspaceTextFile(args.file_path);
+      if (current.content !== args.originalContent) {
         throw new ContinueError(
           ContinueErrorReason.EditToolFileNotRead,
           `${args.file_path} changed while this edit was awaiting approval. Read it again before editing.`,
         );
       }
-      writeFileAtomically(args.file_path, args.newContent);
-      markFileAsSeen(args.file_path);
-      scheduleFileRefresh(args.file_path);
+      const written = await writeWorkspaceTextFile(
+        args.file_path,
+        args.newContent,
+      );
+      markFileAsSeen(written.realPath);
+      scheduleFileRefresh(written.realPath);
 
       // Get lines for telemetry
       const { added, removed } = calculateLinesOfCodeDiff(

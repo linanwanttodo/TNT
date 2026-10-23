@@ -48,7 +48,7 @@ composer.
 | Key | Action |
 | --- | --- |
 | `Enter` | send the message |
-| `Shift+Tab` | cycle the permission mode (`agent`, `plan`, `auto`) |
+| `Shift+Tab` | cycle the permission mode (Manual, Accept edits, Plan, Auto, Bypass) |
 | `Esc` | interrupt the running turn |
 | `Up` / `Down` | recall earlier input |
 | `Ctrl+C` | cancel the input, press twice to exit |
@@ -59,8 +59,8 @@ composer.
 | --- | --- |
 | One shot answer in a script | `tnt -p "summarize the staged diff"` |
 | Machine readable output | `tnt -p "list the failing tests" --format json` |
-| Read only exploration | `tnt --readonly "explain the request path"` |
-| Unattended run | `tnt --auto "fix the lint errors"` |
+| Read only exploration | `tnt --permission-mode plan "explain the request path"` |
+| Unattended run | `tnt --permission-mode auto "fix the lint errors"` |
 | Resume the last session here | `tnt --resume` |
 | Pick any saved session | `tnt ls` |
 
@@ -69,3 +69,4 @@ composer.
 - [Configuration](/cli/configuration) for the full resolution order.
 - [TUI](/cli/tui) for the layout and the interactive controls.
 - [Slash commands](/cli/slash-commands) for everything reachable from `/`.
+- [ACP](/cli/acp) to use TNT from Zed or another ACP editor.

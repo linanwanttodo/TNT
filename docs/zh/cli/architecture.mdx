@@ -1,0 +1,94 @@
+---
+title: "架构"
+description: "一个引擎、四个界面，以及编辑器到会话记录之间的分层。"
+---
+
+TNT 是一个引擎、四个界面：Ink TUI、无头模式 `-p`、`tnt serve` 和 ACP
+编辑器集成。界面之间只差事件的呈现方式；回合循环、工具、权限和会话存储
+是共享的。
+
+## 分层
+
+```text
+编辑器 / 客户端
+      │  ACP v1，基于 stdio 的 NDJSON JSON-RPC
+      ▼
+ACP supervisor                        每个 `tnt --acp` 进程一个
+      │  协议连接、会话注册表、worker 生命周期
+      ▼
+ACP worker                            每个会话一个
+      │  cwd、服务、模型、模式、MCP 集合、权限桥
+      ▼
+session/controller.ts                 一个回合
+      │  中断句柄、会话 id、回合 id、事件序号
+      ▼
+stream/streamChatResponse.ts          智能体循环
+      │  provider 请求、工具轮次、压缩
+      ▼
+tools · permissions · services · hooks
+      │
+      ▼
+会话存储                             追加式会话记录 + 元数据 + 租约
+```
+
+| 层 | 负责 | 不负责 |
+| --- | --- | --- |
+| 界面 | 渲染或传输事件 | 引擎状态 |
+| ACP supervisor | 客户端连接、会话 id、`session/list`、delete/close、worker 启停 | 回合或会话记录 |
+| ACP worker | 单个会话的 cwd、服务、模型、模式和 MCP 连接；权限应答；ACP 更新 | 其他会话 |
+| 回合控制器 | 一次运行、中断句柄和有序事件序列 | 传输细节 |
+| 智能体循环 | provider 请求、工具轮次、压缩 | UI 或线格式 |
+| 工具与服务 | 文件、shell、搜索、MCP、provider 和会话服务 | 协议 |
+| 会话存储 | `session.jsonl`、`meta.json`、sidecars 和写入者租约 | 模型或工具状态 |
+
+## 一个引擎，四个界面
+
+每个界面都通过 `session/controller.ts` 进入循环；它是
+`streamChatResponse.ts` 唯一的生产调用方。控制器给回合打上会话 id、回合 id
+和单调递增的序号，再把引擎回调映射为 `protocol/events.ts` 中的类型化事件。
+
+TUI 用 Ink 渲染这些事件。无头模式打印一次结果或 NDJSON 流。`tnt serve`
+通过 SSE 暴露同一组事件。ACP worker 把它们映射为 `session/update` 通知。
+任何界面都不自己执行工具。
+
+## ACP 为什么每个会话一个 worker
+
+引擎仍有进程级服务单例：一份聊天历史、一个模型服务、一个 MCP 服务、一个
+权限管理器。要让它们全部在进程内按会话隔离，等于重写引擎。ACP 因此选择
+进程边界：
+
+- supervisor 持有编辑器连接，并按会话 id 路由；
+- 每个会话启动一个 worker，拥有自己的 cwd 和自己的服务副本；
+- 不同会话可以同时运行；
+- 同一会话的回合仍在执行时，第二个 prompt 会被拒绝；
+- 一个 worker 崩溃只影响一个会话，下一次 prompt 可以恢复它。
+
+这与 opencode 的 ACP 客户端/服务端拆分、reasonix 的每会话控制器是同一个
+分离思路；因为 TNT 的服务还不是每会话对象，所以这里用进程来实现。
+
+## 文件放在哪里
+
+会话存储是架构的一部分，不是事后补上的：
+
+- `session.jsonl` 是追加式的唯一事实来源；
+- `meta.json` 是列表使用的派生缓存；
+- 每个会话的 `lock` 是写入者租约；
+- 工具结果、缓存差异报告和溢出文件都与会话记录放在同一目录，删除会话时
+  一并删除。
+
+记录格式和迁移路径见[会话](/zh/cli/sessions)。
+
+<Info>
+内部的[引擎与 UI 边界](https://github.com/linanwanttodo/TNT/blob/main/packages/cli/spec/architecture-boundaries.md)
+记录了依赖规则和守卫命令。上面的公开分层是新界面应当依赖的契约。
+</Info>
+
+## 新增一个界面
+
+新界面应当：
+
+1. 调用 `session/controller.ts`，不要直接调用 `streamChatResponse.ts`；
+2. 把 `AgentEvent` 转成自己的线格式；
+3. 通过 `toolPermissionManager` 或 ACP 风格的桥回答权限请求；
+4. 使用会话存储，而不是自己写会话记录；
+5. 当传输占用 stdout 时，保持 stdout 干净。

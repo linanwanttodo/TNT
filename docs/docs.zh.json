@@ -1,0 +1,82 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "TNT",
+  "colors": {
+    "primary": "#4D6BFE",
+    "light": "#ffffff",
+    "dark": "#000000"
+  },
+  "favicon": "/favicon.png",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "TNT CLI",
+        "groups": [
+          {
+            "group": "开始使用",
+            "icon": "rocket-launch",
+            "pages": ["index", "cli/quickstart", "cli/headless-mode"]
+          },
+          {
+            "group": "配置",
+            "icon": "sliders",
+            "pages": [
+              "cli/configuration",
+              "cli/models",
+              "cli/permissions",
+              "cli/i18n"
+            ]
+          },
+          {
+            "group": "使用",
+            "icon": "terminal",
+            "pages": [
+              "cli/tui",
+              "cli/modes",
+              "cli/slash-commands",
+              "cli/context"
+            ]
+          },
+          {
+            "group": "架构",
+            "icon": "layer-group",
+            "pages": ["cli/architecture", "cli/acp", "cli/sessions"]
+          },
+          {
+            "group": "扩展",
+            "icon": "puzzle-piece",
+            "pages": [
+              "cli/mcp",
+              "cli/hooks",
+              "cli/skills",
+              "cli/plugins",
+              "cli/subagents"
+            ]
+          },
+          {
+            "group": "帮助",
+            "icon": "circle-question",
+            "pages": ["cli/troubleshooting"]
+          }
+        ]
+      }
+    ]
+  },
+  "background": {
+    "color": {
+      "dark": "#1a1a1a"
+    }
+  },
+  "redirects": [
+    { "source": "/customize", "destination": "/" },
+    { "source": "/guides", "destination": "/" },
+    { "source": "/ide-extensions", "destination": "/" }
+  ],
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/linanwanttodo/TNT"
+    }
+  }
+}

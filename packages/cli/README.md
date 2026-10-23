@@ -20,13 +20,42 @@ curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli
 irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
 ```
 
-The installer downloads the prebuilt CLI from the [latest GitHub Release](https://github.com/linanwanttodo/TNT/releases/latest); only Node.js 20+ is required, npm is not.
+The installer downloads the prebuilt CLI from the [latest GitHub Release](https://github.com/linanwanttodo/TNT/releases/latest); only Node.js 20+ is required, npm is not. It installs to `~/.tnt/cli` (`%LOCALAPPDATA%\tnt\cli` on Windows) and links the `tnt` command into `~/.local/bin`, which keeps the CLI out of any package manager's directory.
+
+**From a checkout (development):**
+
+```bash
+bash packages/cli/scripts/install-local.sh
+```
+
+This builds the working tree with the node scripts and installs it to the same `~/.tnt/cli` layout; npm is not invoked. Pass `--no-build` to reinstall the existing `dist/` without rebuilding.
 
 ## Usage
 
 ```bash
 tnt
 ```
+
+### ACP (Zed and other editors)
+
+`tnt --acp` runs the [Agent Client Protocol](https://agentclientprotocol.com/)
+over stdio. Each ACP session gets its own worker process and persisted
+transcript, so several editor threads can run independently.
+
+Zed configuration:
+
+```json
+{
+  "agent_servers": {
+    "TNT": {
+      "command": "tnt",
+      "args": ["--acp"]
+    }
+  }
+}
+```
+
+See [the ACP spec](./spec/acp.md) and [session files](./spec/sessions.md).
 
 ### Headless Mode
 

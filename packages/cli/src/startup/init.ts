@@ -105,6 +105,19 @@ export function safeStdout(message: string): void {
 }
 
 /**
+ * Safe stdout output that bypasses the headless overrides and preserves the
+ * bytes. ACP transports write NDJSON through this rather than through the
+ * console wrapper, which only knows about strings.
+ */
+export function safeStdoutRaw(chunk: Uint8Array | string): void {
+  if (isHeadlessMode || isHeadlessModeConfigured) {
+    originalStdoutWrite(chunk as never);
+  } else {
+    process.stdout.write(chunk as never);
+  }
+}
+
+/**
  * Safe stderr output that bypasses all overrides
  * Use this for error messages that should always be visible
  */

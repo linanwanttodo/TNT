@@ -1,0 +1,48 @@
+---
+title: "MCP"
+description: "连接 Model Context Protocol 服务器，获得额外工具和提示词。"
+---
+
+MCP 服务器为智能体提供内置工具之外的扩展工具和提示词。它们在 `config.yaml`
+的 `mcpServers` 列表中声明。
+
+```yaml
+mcpServers:
+  - name: filesystem
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+  - name: remote
+    url: https://example.com/mcp
+    headers:
+      Authorization: Bearer ${{ secrets.MCP_TOKEN }}
+```
+
+stdio 服务器（`command`、`args`、`env`）作为子进程运行；HTTP 服务器使用 `url`
+和可选的 `headers`。写成 `${{ secrets.NAME }}` 的密钥会从环境变量以及
+[配置](/zh/cli/configuration)中列出的 `.env` 文件解析。
+
+## 管理连接
+
+```
+/mcp
+```
+
+打开一个菜单，列出每个已配置服务器及其状态，并允许重启或停止它们。状态包括：
+
+| 状态 | 含义 |
+| --- | --- |
+| `connecting` | 正在握手 |
+| `connected` | 工具和提示词可供模型使用 |
+| `error` | 无法连接，会显示原因 |
+
+只加载当前配置中的服务器，它们会并行连接，因此慢服务器不会拖慢会话。
+
+## 服务器失败时
+
+无法连接的服务器会在启动时报告一次名称，而不是在每个回合重复报告。失败服务器的
+工具会直接缺席，会话继续使用其余服务器。
+
+<Tip>
+MCP 服务器暴露的提示词会作为斜杠命令出现在内置命令旁边，因此服务器不仅能贡献
+工具，还能贡献可复用的工作流。
+</Tip>

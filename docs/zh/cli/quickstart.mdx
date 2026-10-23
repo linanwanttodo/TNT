@@ -1,0 +1,86 @@
+---
+title: "快速开始"
+description: "安装 TNT、配置模型，并开始第一个会话。"
+---
+
+## 安装
+
+<Tabs>
+  <Tab title="macOS / Linux">
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```powershell
+    irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
+    ```
+  </Tab>
+  <Tab title="npm（跨平台）">
+    如果已经安装 Node.js 20 或更高版本：
+    ```bash
+    npm i -g @tnt/cli
+    ```
+  </Tab>
+</Tabs>
+
+npm 方式需要 Node.js 20 或更高版本。验证安装：
+
+```bash
+tnt --version
+```
+
+## 配置模型
+
+TNT 读取 `~/.tnt/config.yaml`。可以从一个 OpenAI 兼容端点开始：
+
+```yaml title="~/.tnt/config.yaml"
+name: TNT
+version: 1.0.0
+schema: v1
+models:
+  - name: my-model
+    provider: openai
+    model: gpt-4.1
+    apiBase: https://api.openai.com/v1
+    apiKey: ${{ secrets.OPENAI_API_KEY }}
+```
+
+写成 `${{ secrets.NAME }}` 的密钥会依次从环境变量、`~/.tnt/.env`、
+`<workspace>/.tnt/.env` 和 `<workspace>/.env` 中解析。provider 列表和其他
+模型选项见[模型](/zh/cli/models)。
+
+## 开始会话
+
+```bash
+tnt
+```
+
+输入请求后按 Enter 发送。对话会留在终端回滚缓冲区里：完成的消息只打印一次，
+最新内容显示在输入框上方。
+
+| 按键 | 操作 |
+| --- | --- |
+| `Enter` | 发送消息 |
+| `Shift+Tab` | 循环切换权限模式（手动、接受编辑、计划、自动、绕过） |
+| `Esc` | 中断当前运行 |
+| `Up` / `Down` | 调出之前的输入 |
+| `Ctrl+C` | 取消当前输入，按两次退出 |
+
+## 常用参数组合
+
+| 任务 | 命令 |
+| --- | --- |
+| 脚本里的一次性回答 | `tnt -p "总结暂存的 diff"` |
+| 机器可读输出 | `tnt -p "列出失败的测试" --format json` |
+| 只读探索 | `tnt --permission-mode plan "解释请求链路"` |
+| 无人值守运行 | `tnt --permission-mode auto "修复 lint 错误"` |
+| 恢复当前目录最近的会话 | `tnt --resume` |
+| 选择任意已保存的会话 | `tnt ls` |
+
+## 下一步
+
+- [配置](/zh/cli/configuration)：完整的配置优先级。
+- [TUI](/zh/cli/tui)：界面布局和交互控制。
+- [斜杠命令](/zh/cli/slash-commands)：所有可以从 `/` 触发的功能。
+- [ACP](/zh/cli/acp)：在 Zed 或其他 ACP 编辑器中使用 TNT。

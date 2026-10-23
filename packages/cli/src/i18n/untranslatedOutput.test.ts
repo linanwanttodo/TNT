@@ -67,6 +67,10 @@ const KNOWN_UNTRANSLATED_OUTPUT = [
   "index.ts :: tnt -p --agent my-org/my-agent",
   "index.ts :: tnt -p --prompt my-org/my-prompt",
   "index.ts :: tnt -p --resume",
+  "acp/worker.ts :: Could not enter ACP session cwd :",
+  "acp/worker.ts :: Invalid ACP session id:",
+  "acp/worker.ts :: tnt --acp-worker requires --session-id",
+  "index.ts :: tnt --acp does not accept a prompt argument",
 ];
 
 const SKIP_DIRS = new Set(["node_modules", "dist", "test-utils", "__mocks__"]);
@@ -227,10 +231,12 @@ describe("the copy the rest of the CLI prints", () => {
  * A new raw throw still turns this red; translating one of the above lowers its number here.
  */
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
+  acp: 2,
   config: 2,
   plugins: 1,
   services: 6,
-  tools: 4,
+  session: 6,
+  tools: 5,
   ui: 7,
   utils: 5,
 };

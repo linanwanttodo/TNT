@@ -1,0 +1,60 @@
+---
+title: "TNT"
+description: "终端里的编码智能体：交互式 TUI、无头运行器，以及可扩展的工具、权限、钩子、技能和插件核心。"
+---
+
+TNT 是一个命令行编码智能体。它读取仓库、运行工具、修改文件并回答问题，
+整个过程都不需要离开终端。同一套引擎也被编辑器集成复用，所以智能体学会的
+能力在终端和编辑器里都可用。
+
+<CardGroup cols={2}>
+  <Card title="快速开始" href="/zh/cli/quickstart">
+    安装 TNT、配置模型，并开始第一个会话。
+  </Card>
+  <Card title="配置" href="/zh/cli/configuration">
+    配置从哪里读取，以及各层如何覆盖。
+  </Card>
+  <Card title="权限" href="/zh/cli/permissions">
+    决定智能体可以不询问就执行哪些操作。
+  </Card>
+  <Card title="编辑器集成" href="/zh/cli/acp">
+    在 Zed 或其他编辑器中以 ACP 智能体运行 TNT。
+  </Card>
+  <Card title="扩展" href="/zh/cli/mcp">
+    MCP 服务器、钩子、技能和插件。
+  </Card>
+</CardGroup>
+
+## 三种运行方式
+
+| | 交互式 | 无头模式 | ACP |
+| --- | --- | --- | --- |
+| 命令 | `tnt` | `tnt -p "..."` | `tnt --acp` |
+| 界面 | 终端里的对话、输入框和状态栏 | 仅 stdout | 基于 stdio 的 JSON-RPC |
+| 典型场景 | 在仓库里连续工作 | 脚本和 CI | Zed 及其他 ACP 编辑器 |
+
+## 智能体能做什么
+
+- 读取、写入和编辑工作区中的文件。
+- 搜索代码库并运行 shell 命令，每一步都受权限策略约束。
+- 使用 MCP 服务器提供的工具、提示词和资源。
+- 把工作委派给运行在同一引擎上的子智能体。
+- 加载为 Claude Code 插件格式编写的 Markdown 技能和插件。
+
+每个操作都会经过权限系统。`default`（手动）模式会在高风险操作前询问，
+`plan` 模式只读，`auto` 模式由分类器决定原本需要询问的调用。
+详见[模式](/zh/cli/modes)。
+
+## 文件位置
+
+| 路径 | 内容 |
+| --- | --- |
+| `~/.tnt/config.yaml` | 模型、MCP 服务器和规则 |
+| `~/.tnt/permissions.yaml` | 权限策略 |
+| `~/.tnt/settings.json` | 钩子和其他设置 |
+| `~/.tnt/skills/` | Markdown 技能 |
+| `~/.tnt/plugins/` | 已安装插件 |
+| `~/.tnt/sessions/` | 会话记录和元数据 |
+| `~/.tnt/logs/tnt.log` | 调试日志 |
+
+仓库里的 `.tnt/` 目录可以覆盖其中大部分配置。
