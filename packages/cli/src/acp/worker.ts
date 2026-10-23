@@ -5,11 +5,16 @@ import path from "path";
 import * as acp from "@agentclientprotocol/sdk";
 import type { ModelConfig } from "@tnt/config-yaml";
 import type { BaseLlmApi } from "@tnt/openai-adapters";
-import type { ChatHistoryItem } from "core/index.js";
+import type {
+  ChatHistoryItem,
+  MessageContent,
+  MessagePart,
+} from "core/index.js";
 
 import { expandMentions } from "../agent/atMentions.js";
 import { loadSettings } from "../config/settings.js";
 import type { PermissionMode } from "../permissions/types.js";
+import { setAdditionalWorkspaceDirectories } from "../permissions/workspacePath.js";
 import {
   initializeServices,
   serviceContainer,
@@ -25,19 +30,37 @@ import {
   selectSession,
   loadOrCreateSessionById,
   loadSessionById,
+  getSessionUsage,
 } from "../session/index.js";
 import { assertSessionId } from "../session/paths.js";
 import { sessionStore } from "../session/store.js";
 import { configureConsoleForHeadless, safeStderr } from "../startup/init.js";
 import { getVersion } from "../startup/version.js";
+import {
+  getTerminalRunner,
+  setTerminalRunner,
+} from "../tools/terminalRunner.js";
+import { readTodoState } from "../tools/todo.js";
 import { setWorkspaceFileService } from "../tools/workspaceFiles.js";
 import { logger } from "../utils/logger.js";
+import {
+  countChatHistoryTokens,
+  getModelContextLimit,
+} from "../utils/tokenizer.js";
 
 import { invalidParams, internalError, sessionNotFound } from "./errors.js";
 import { toMcpServerConfig } from "./mcp.js";
 import { requestToolPermission } from "./permissions.js";
+import { createAcpTerminalRunner } from "./terminal.js";
 import { createStdioStream } from "./transport.js";
-import { eventToUpdate, sendUpdate, toolTitle } from "./updates.js";
+import {
+  eventToUpdate,
+  planUpdateFromTodoResult,
+  planUpdateFromTodos,
+  sendUpdate,
+  toolTitle,
+  usageUpdate,
+} from "./updates.js";
 
 const MODES: Array<{ id: PermissionMode; name: string }> = [
   { id: "default", name: "Manual" },
@@ -82,23 +105,70 @@ function textOfContent(content: unknown): string {
     .join("\n\n");
 }
 
-function promptText(blocks: acp.ContentBlock[]): string {
-  return blocks
-    .map((block) => {
-      if (block.type === "text") return block.text;
-      if (block.type === "resource_link") return `@${block.uri}`;
-      if (block.type === "resource") {
-        const resource = block.resource;
-        return resource &&
-          "text" in resource &&
-          typeof resource.text === "string"
+function audioFormat(mimeType: string): "wav" | "mp3" {
+  const mime = mimeType.toLowerCase();
+  if (mime.includes("wav")) return "wav";
+  if (mime.includes("mpeg") || mime.includes("mp3")) return "mp3";
+  throw invalidParams(`Unsupported audio MIME type: ${mimeType}`);
+}
+
+function promptContent(blocks: acp.ContentBlock[]): {
+  content: MessageContent;
+  text: string;
+} {
+  const parts: MessagePart[] = [];
+  const textParts: string[] = [];
+
+  for (const block of blocks) {
+    if (block.type === "text") {
+      parts.push({ type: "text", text: block.text });
+      textParts.push(block.text);
+      continue;
+    }
+    if (block.type === "resource_link") {
+      const text = `@${block.uri}`;
+      parts.push({ type: "text", text });
+      textParts.push(text);
+      continue;
+    }
+    if (block.type === "resource") {
+      const resource = block.resource;
+      const text =
+        resource && "text" in resource && typeof resource.text === "string"
           ? resource.text
           : `@${resource?.uri ?? ""}`;
-      }
-      return "";
-    })
-    .filter(Boolean)
-    .join("\n\n");
+      parts.push({ type: "text", text });
+      textParts.push(text);
+      continue;
+    }
+    if (block.type === "image") {
+      parts.push({
+        type: "imageUrl",
+        imageUrl: {
+          url: `data:${block.mimeType};base64,${block.data}`,
+        },
+      });
+      continue;
+    }
+    if (block.type === "audio") {
+      parts.push({
+        type: "audio",
+        audio: {
+          data: block.data,
+          format: audioFormat(block.mimeType),
+        },
+      });
+      continue;
+    }
+  }
+
+  if (parts.length === 0) {
+    throw invalidParams("Prompt contains no content");
+  }
+  if (parts.length === 1 && parts[0].type === "text") {
+    return { content: parts[0].text, text: textParts[0] ?? "" };
+  }
+  return { content: parts, text: textParts.join("\n\n") };
 }
 
 function modeState(mode: PermissionMode): acp.SessionModeState {
@@ -161,6 +231,12 @@ async function ensureBooted(state: WorkerState): Promise<void> {
     services.agentFile.getState(),
     services.mcp.getState(),
   );
+  // initializeSync updates the service instance; the engine reads the
+  // container snapshot in toolExecution, so publish the new policies too.
+  serviceContainer.set(
+    SERVICE_NAMES.TOOL_PERMISSIONS,
+    services.toolPermissions.getState(),
+  );
 
   // Resolve the model once so a missing key fails at session creation rather
   // than halfway through the first prompt.
@@ -202,6 +278,17 @@ function installWorkspaceFileService(
   });
 }
 
+function installTerminalRunner(
+  state: WorkerState,
+  client: acp.AgentContext,
+): void {
+  setTerminalRunner(
+    state.clientCapabilities?.terminal
+      ? createAcpTerminalRunner(client, state.sessionId)
+      : null,
+  );
+}
+
 async function injectMcpServers(
   state: WorkerState,
   servers: acp.McpServer[],
@@ -220,12 +307,23 @@ async function injectMcpServers(
   }
 }
 
+interface PrepareSessionOptions {
+  kind: "new" | "load" | "resume";
+  cwd: string;
+  mcpServers?: acp.McpServer[];
+  additionalDirectories?: string[];
+  client: acp.AgentContext;
+}
+
 async function prepareSession(
   state: WorkerState,
-  kind: "new" | "load" | "resume",
-  cwd: string,
-  mcpServers: acp.McpServer[] = [],
-  client: acp.AgentContext,
+  {
+    kind,
+    cwd,
+    mcpServers = [],
+    additionalDirectories = [],
+    client,
+  }: PrepareSessionOptions,
 ): Promise<void> {
   // A load/resume of a missing transcript is a protocol error, not a reason to
   // boot services (and possibly fail on model configuration first).
@@ -235,6 +333,7 @@ async function prepareSession(
 
   await ensureBooted(state);
   installWorkspaceFileService(state, client);
+  installTerminalRunner(state, client);
   await injectMcpServers(state, mcpServers);
 
   const resolved = path.resolve(cwd);
@@ -246,6 +345,18 @@ async function prepareSession(
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
     throw invalidParams(`Session cwd does not exist: ${cwd}`);
   }
+
+  for (const directory of additionalDirectories) {
+    if (!path.isAbsolute(directory)) {
+      throw invalidParams(
+        `additionalDirectories must be absolute: ${directory}`,
+      );
+    }
+    if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
+      throw invalidParams(`additionalDirectories does not exist: ${directory}`);
+    }
+  }
+  setAdditionalWorkspaceDirectories(additionalDirectories);
 
   const session =
     kind === "new"
@@ -262,6 +373,33 @@ async function prepareSession(
   state.prepared = true;
 }
 
+function userContentBlocks(content: MessageContent): acp.ContentBlock[] {
+  if (typeof content === "string") {
+    return content ? [{ type: "text", text: content }] : [];
+  }
+  return content.flatMap((part: MessagePart): acp.ContentBlock[] => {
+    if (part.type === "text") {
+      return [{ type: "text", text: part.text }];
+    }
+    if (part.type === "imageUrl") {
+      const match = /^data:([^;]+);base64,(.*)$/s.exec(part.imageUrl.url);
+      return match
+        ? [{ type: "image", mimeType: match[1], data: match[2] }]
+        : [];
+    }
+    if (part.type === "audio") {
+      return [
+        {
+          type: "audio",
+          mimeType: `audio/${part.audio.format}`,
+          data: part.audio.data,
+        },
+      ];
+    }
+    return [];
+  });
+}
+
 async function replayHistory(
   client: acp.AgentContext,
   sessionId: string,
@@ -270,11 +408,10 @@ async function replayHistory(
   for (const item of history) {
     const role = item.message.role;
     if (role === "user") {
-      const text = textOfContent(item.message.content);
-      if (text) {
+      for (const content of userContentBlocks(item.message.content)) {
         await sendUpdate(client, sessionId, {
           sessionUpdate: "user_message_chunk",
-          content: { type: "text", text },
+          content,
         });
       }
       continue;
@@ -381,6 +518,8 @@ export async function runAcpWorker(
       agentCapabilities: {
         loadSession: true,
         promptCapabilities: {
+          image: true,
+          audio: true,
           embeddedContext: true,
         },
       },
@@ -393,9 +532,16 @@ export async function runAcpWorker(
     kind: "new" | "load" | "resume",
     cwd: string,
     mcpServers: acp.McpServer[] = [],
+    additionalDirectories: string[] = [],
     client: acp.AgentContext,
   ): Promise<acp.NewSessionResponse> => {
-    await prepareSession(state, kind, cwd, mcpServers, client);
+    await prepareSession(state, {
+      kind,
+      cwd,
+      mcpServers,
+      additionalDirectories,
+      client,
+    });
     return {
       sessionId,
       modes: modeState(state.mode),
@@ -408,23 +554,45 @@ export async function runAcpWorker(
       "new",
       context.params.cwd,
       context.params.mcpServers ?? [],
+      context.params.additionalDirectories ?? [],
       context.client,
     );
   });
 
   app.onRequest(acp.methods.agent.session.load, async (context) => {
-    await prepareSession(
-      state,
-      "load",
-      context.params.cwd,
-      context.params.mcpServers ?? [],
-      context.client,
-    );
-    await replayHistory(
-      context.client,
-      sessionId,
-      services.chatHistory.getHistory(),
-    );
+    await prepareSession(state, {
+      kind: "load",
+      cwd: context.params.cwd,
+      mcpServers: context.params.mcpServers ?? [],
+      additionalDirectories: context.params.additionalDirectories ?? [],
+      client: context.client,
+    });
+    const history = services.chatHistory.getHistory();
+    await replayHistory(context.client, sessionId, history);
+
+    const { todos } = readTodoState(history);
+    if (todos.length > 0) {
+      await sendUpdate(
+        context.client,
+        sessionId,
+        planUpdateFromTodos(todos),
+      ).catch((error) => {
+        logger.warn("Could not replay the ACP plan", { error });
+      });
+    }
+
+    try {
+      const { model } = modelState();
+      const usage = usageUpdate(
+        countChatHistoryTokens(history, model),
+        getModelContextLimit(model),
+        getSessionUsage().totalCost,
+      );
+      if (usage) await sendUpdate(context.client, sessionId, usage);
+    } catch (error) {
+      logger.warn("Could not send the loaded ACP usage", { error });
+    }
+
     return {
       modes: modeState(state.mode),
       configOptions: configOptions(),
@@ -436,6 +604,7 @@ export async function runAcpWorker(
       "resume",
       context.params.cwd,
       context.params.mcpServers ?? [],
+      context.params.additionalDirectories ?? [],
       context.client,
     );
   });
@@ -452,10 +621,7 @@ export async function runAcpWorker(
       throw invalidParams("Session already has an active prompt");
     }
 
-    const text = promptText(context.params.prompt);
-    if (!text.trim()) {
-      throw invalidParams("Prompt contains no text");
-    }
+    const prompt = promptContent(context.params.prompt);
 
     const { model, llmApi } = modelState();
     const abortController = new AbortController();
@@ -463,9 +629,17 @@ export async function runAcpWorker(
     let interrupted = false;
 
     services.chatHistory.addUserMessage(
-      text,
-      expandMentions(text).contextItems,
+      prompt.content,
+      prompt.text ? expandMentions(prompt.text).contextItems : [],
     );
+
+    const queueUpdate = (update: acp.SessionUpdate): void => {
+      state.updateChain = state.updateChain
+        .then(() => sendUpdate(context.client, sessionId, update))
+        .catch((error) => {
+          logger.warn("Could not send an ACP session update", { error });
+        });
+    };
 
     const controller = startAgentTurn({
       sessionId,
@@ -501,12 +675,16 @@ export async function runAcpWorker(
           notices: Boolean(state.clientCapabilities?.session?.notices),
           compaction: Boolean(state.clientCapabilities?.session?.compaction),
         });
-        if (!update) return;
-        state.updateChain = state.updateChain
-          .then(() => sendUpdate(context.client, sessionId, update))
-          .catch((error) => {
-            logger.warn("Could not send an ACP session update", { error });
-          });
+        if (update) queueUpdate(update);
+
+        // Every Todo result carries the complete list, so it is also the
+        // moment the client's plan changes.
+        if (event.type === "tool.finished" && event.toolName === "Todo") {
+          const plan = event.result
+            ? planUpdateFromTodoResult(event.result)
+            : null;
+          if (plan) queueUpdate(plan);
+        }
       },
     });
 
@@ -527,6 +705,20 @@ export async function runAcpWorker(
     }
 
     await state.updateChain;
+
+    const usage = usageUpdate(
+      countChatHistoryTokens(services.chatHistory.getHistoryForLLM(), model),
+      getModelContextLimit(model),
+      getSessionUsage().totalCost,
+    );
+    if (usage) {
+      try {
+        await sendUpdate(context.client, sessionId, usage);
+      } catch (error) {
+        logger.warn("Could not send an ACP usage update", { error });
+      }
+    }
+
     saveSession();
     if (interrupted && stopReason === "end_turn") stopReason = "cancelled";
     return { stopReason } satisfies acp.PromptResponse;
@@ -539,6 +731,10 @@ export async function runAcpWorker(
     }
     state.mode = mode;
     services.toolPermissions.switchMode(mode);
+    serviceContainer.set(
+      SERVICE_NAMES.TOOL_PERMISSIONS,
+      services.toolPermissions.getState(),
+    );
     await sendUpdate(context.client, sessionId, {
       sessionUpdate: "current_mode_update",
       currentModeId: mode,
@@ -557,6 +753,7 @@ export async function runAcpWorker(
       );
     }
     await services.model.switchModel(index);
+    serviceContainer.set(SERVICE_NAMES.MODEL, services.model.getState());
     const options = configOptions();
     await sendUpdate(context.client, sessionId, {
       sessionUpdate: "config_option_update",
@@ -583,12 +780,14 @@ export async function runAcpWorker(
 
   app.onRequest(acp.methods.agent.session.close, async () => {
     state.active?.interrupt("user_abort");
+    await getTerminalRunner()?.dispose?.();
     sessionStore.releaseLease(sessionId);
     return {};
   });
 
   app.onRequest(acp.methods.agent.session.delete, async () => {
     state.active?.interrupt("user_abort");
+    await getTerminalRunner()?.dispose?.();
     sessionStore.delete(sessionId, { force: true });
     return {};
   });
@@ -601,6 +800,11 @@ export async function runAcpWorker(
   } finally {
     state.active?.interrupt("shutdown");
     setWorkspaceFileService(null);
+    await getTerminalRunner()
+      ?.dispose?.()
+      .catch(() => {});
+    setTerminalRunner(null);
+    setAdditionalWorkspaceDirectories([]);
     await services.mcp.cleanup().catch(() => {});
     sessionStore.releaseLease(sessionId);
     // The parent closed the pipe. Nothing else is allowed to keep this worker

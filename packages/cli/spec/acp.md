@@ -84,16 +84,17 @@ has process-wide service singletons.
 
 - `loadSession: true`
 - `sessionCapabilities: { list, delete, resume, close }`
-- `promptCapabilities: { embeddedContext: true }` (text and resource links are
-  the ACP baseline; image/audio are not advertised)
+- `promptCapabilities: { image: true, audio: true, embeddedContext: true }`
+  (text and resource links are the ACP baseline; audio is wav/mp3)
 - `mcpCapabilities: { http: true, sse: true }` (stdio is always available)
 - `authMethods: []`, or a terminal `tnt-setup` method when the client advertises
   `auth.terminal`. The method opens the normal TNT setup in a terminal; the
   agent's `authenticate` has no additional agent method.
 
-Deferred: client `terminal/*` routing, image/audio prompts,
-`additionalDirectories` (rejected with a clear error), plan/usage update kinds,
-and routing `ApplyPatch` through the client file service.
+Audio is only meaningful when the configured model/provider accepts OpenAI
+`input_audio`; a provider that does not may reject or omit it. ACP v1 has no
+terminal stdin request, so input for an interactive command can only come from
+the human typing in the editor's terminal, not from the agent.
 
 ## Lifecycle
 
@@ -114,7 +115,18 @@ and routing `ApplyPatch` through the client file service.
 
 `session/new`, `load` and `resume` require an absolute cwd equal to the worker's
 process cwd (the supervisor sets it). A mismatched cwd is an invalid-params
-error; per-session `additionalDirectories` is not implemented.
+error. `additionalDirectories` entries must be absolute, existing directories;
+they are added to the session's workspace roots for the write policy and are
+returned in `session/list` while the session is live.
+
+## Prompt content
+
+Text, resource links and embedded resource text become text parts. An image
+block becomes an `imageUrl` data URL; an audio block becomes an OpenAI
+`input_audio` part with `wav` or `mp3` format. Image/audio parts are persisted in
+the transcript and replayed as `user_message_chunk` content on `session/load`.
+Audio support depends on the selected model/provider accepting `input_audio`;
+Anthropic and Gemini paths do not process it as audio.
 
 ## Streaming updates
 
@@ -134,6 +146,16 @@ events already carry the lifecycle the client renders. Tool call ids are
 threaded through `StreamCallbacks` and `AgentEvent` so the start and finish
 updates match.
 
+Two updates are derived from session state rather than one engine event:
+
+- every finished `Todo` result becomes a complete `plan` update, with done
+  entries marked `completed` and the rest `pending` at `medium` priority; an
+  empty list clears the plan, and `session/load` replays the latest plan;
+- after a prompt settles, the worker sends `usage_update` with the history's
+  token count, the model's context limit and the session's cumulative USD cost
+  when it is non-zero. `session/load` sends the same snapshot after replaying
+  the transcript; `session/resume` sends no updates.
+
 ## Permissions
 
 `session/request_permission` is the engine's ask path. The worker sends the
@@ -151,12 +173,14 @@ console is headless; otherwise ask tools would be dropped. Modes map as:
 ## Client file service
 
 When the client advertises `fs.readTextFile` and/or `fs.writeTextFile`, the
-worker installs a `WorkspaceFileService`. `Read`, `Write`, `Edit` and
-`MultiEdit` then use it: reads see the editor's unsaved buffer, edits apply
-against that content, and writes update the buffer. A client request that fails
-falls back to the saved file on disk. Paths sent to the client are absolute.
-`ApplyPatch`, list/search/glob and the shell tools remain local because they
-need directory access rather than a text file.
+worker installs a `WorkspaceFileService`. `Read`, `Write`, `Edit`, `MultiEdit`
+and `ApplyPatch` then use it: reads see the editor's unsaved buffer, edits and
+patches apply against that content, and writes update the buffer. A client
+request that fails falls back to the saved file on disk. Paths sent to the
+client are absolute. An `ApplyPatch` Delete section still removes the saved file
+locally, because ACP's file service has no delete request; list/search/glob and
+the shell tools remain local because they need directory access rather than a
+text file.
 
 ## Per-session MCP servers
 
@@ -165,6 +189,23 @@ config shape (stdio `command`/`args`/`env`; HTTP/SSE `url`/`headers`) and
 connected through `MCPService.addServer` before the first prompt. One worker
 owns one session, so the server set is isolated from every other session. A
 server that fails to connect is logged and does not remove the rest.
+
+## Client terminal
+
+When the client advertises `terminal`, the Bash tool runs commands through
+`terminal/create`, reads `terminal/output` and waits for
+`terminal/wait_for_exit`. A command that exits is released immediately. A
+command that exceeds its timeout is not killed: the terminal stays open,
+`BackgroundJobService` registers a polled job, and `CheckBackgroundJob` refreshes
+`terminal/output` until the exit status appears and then releases the terminal.
+`session/close` and `session/delete` cancel and release any terminals still
+owned by that session.
+
+ACP v1 has no terminal stdin request. The agent cannot type into the terminal,
+so an interactive prompt can only be answered by the human in the editor's
+visible terminal; the Bash result names the background job and says the terminal
+remains open. The shell and arguments come from the same `getShellCommand` the
+local Bash tool uses.
 
 ## Authentication
 
@@ -185,10 +226,14 @@ config/model error when the agent is unconfigured.
 
 ## Tests
 
-- `npx vitest run src/acp src/tools/workspaceFiles.test.ts` covers update
-  mapping, the permission bridge, auth method selection, MCP config mapping and
-  the file-service fallback.
+- `npx vitest run src/acp src/tools/workspaceFiles.test.ts
+src/tools/terminalRunner.test.ts src/permissions/workspacePath.test.ts`
+  covers update mapping, the permission bridge, auth method selection, MCP
+  config mapping, the file-service fallback, the terminal runner and extra
+  workspace roots.
 - `npx vitest run --config vitest.e2e.config.ts e2e/acp.test.ts` covers a prompt,
   two concurrent sessions, load/resume/delete, a tool permission request,
-  client-owned file reads/writes, per-session MCP discovery and `session/cancel`
-  against the built `dist/tnt.js` and a mock model server.
+  client-owned file reads/writes, per-session MCP discovery, foreground Bash in
+  the client terminal, additional workspace roots, image/audio prompts with
+  replay and `session/cancel` against the built `dist/tnt.js` and a mock model
+  server.

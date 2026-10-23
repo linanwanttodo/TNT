@@ -120,6 +120,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     expect(frame.indexOf("deepseek/deepseek-chat")).toBeLessThan(
       frame.indexOf("think:high"),
     );
+    expect(frame.split("\n").filter((line) => line.trim())).toHaveLength(1);
   });
 
   it("shows the cache hit ratio when the session reported cache tokens", async () => {
@@ -137,10 +138,10 @@ describe("BottomStatusBar Ctrl+C message", () => {
       <BottomStatusBar {...defaultProps} contextPercentage={10} />,
     );
 
-    expect(lastFrame()).toContain("80%");
+    expect(lastFrame()).toContain("80.00%");
   });
 
-  it("shows the compaction spend and the cache ratio on their own rows", async () => {
+  it("shows the compaction spend and the cache ratio on the one row", async () => {
     const sessionModule = (await vi.importMock(
       "../../session/index.js",
     )) as any;
@@ -164,17 +165,16 @@ describe("BottomStatusBar Ctrl+C message", () => {
     );
 
     const frame = lastFrame() ?? "";
-    expect(frame).toContain("80%");
+    expect(frame).toContain("80.00%");
     expect(frame).toContain("$0.3125");
     const rows = frame.split("\n");
-    const cacheRow = rows.findIndex((line) => line.includes("80%"));
+    const cacheRow = rows.findIndex((line) => line.includes("80.00%"));
     const compactionRow = rows.findIndex((line) => line.includes("$0.3125"));
-    // They stopped sharing a row when the usage line took one of its own: the
-    // cache ratio is a usage figure, the compaction spend stays with location.
     expect(cacheRow).toBeGreaterThan(-1);
     expect(compactionRow).toBeGreaterThan(-1);
-    expect(cacheRow).not.toBe(compactionRow);
-    expect(compactionRow).toBeLessThan(cacheRow);
+    // One row under the composer: the status bar must not wrap.
+    expect(cacheRow).toBe(compactionRow);
+    expect(rows.filter((line) => line.trim())).toHaveLength(1);
   });
 
   it("hides the compaction spend before any compaction ran", async () => {
@@ -228,7 +228,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     expect(costLineText(undefined, 0)).toBeUndefined();
   });
 
-  it("gives the usage line a row of its own", () => {
+  it("puts the usage figures on the single status row", () => {
     const tree = track(
       <BottomStatusBar
         {...defaultProps}
@@ -247,12 +247,7 @@ describe("BottomStatusBar Ctrl+C message", () => {
     const usage = lines.find((line) => line.includes("Cost $0.31"));
     expect(usage).toBeDefined();
     expect(usage).toContain("Context 9%");
-    // The row holds only usage figures: neither the workspace it used to share a
-    // row with nor the model on its right end belongs here.
-    expect(usage).not.toContain("▸");
-    expect(usage).not.toContain("◈");
-    expect(usage).not.toContain("gpt-5");
-    expect(lines.length).toBeGreaterThanOrEqual(2);
+    expect(lines).toHaveLength(1);
   });
 
   it("shows the token counts the usage line was built to carry", async () => {

@@ -7,28 +7,16 @@ import { useServices } from "../hooks/useService.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 
 /**
- * The intro banner: a small bordered info panel in the top-left corner with a
- * solid light-blue wordmark, the version and the selected model. Static on
- * purpose - the banner must vanish into the transcript, not hold attention.
+ * The intro header, laid out like the reference CLI's: a compact four-row
+ * wordmark on the left with the name, version and selected model to its
+ * right, top-aligned, in the terminal's top-left corner. Static on purpose.
  */
-const GIANT_T_ROWS = [
-  "██████",
-  "██████",
-  "██████",
-  "  ██  ",
-  "  ██  ",
-  "  ██  ",
-  "  ██  ",
-  "  ██  ",
-  "  ██  ",
-  "  ██  ",
+const LOGO_ROWS = [
+  "███████  ██   ██  ███████",
+  " █████   ███  ██   █████ ",
+  "  ███    ██ █ ██    ███  ",
+  "  ███    ██  ███    ███  ",
 ];
-
-const PIXEL_N = ["█   █", "██  █", "█ █ █", "█  ██", "█   █"];
-
-const PIXEL_T = ["█████", "  █  ", "  █  ", "  █  ", "  █  "];
-
-const WORD_ROWS = PIXEL_N.map((row, index) => `${row}  ${PIXEL_T[index]}`);
 
 const BRAND_BLUE = "#7dd3fc";
 
@@ -41,44 +29,26 @@ export const BrandBanner: React.FC<BrandBannerProps> = ({ version }) => {
   const { services } = useServices<{ model: ModelServiceState }>(["model"]);
   const modelName = services.model?.model?.name;
 
-  const needed = 6 + 2 + 5 + 2 + 5 + 4;
-
-  if (columns < needed || process.env.NO_COLOR) {
+  if (columns < 44 || process.env.NO_COLOR) {
     return <Text>{getDisplayableAsciiArt()}</Text>;
   }
 
   return (
-    <Box
-      borderStyle="round"
-      borderColor="gray"
-      paddingX={1}
-      flexDirection="column"
-      alignSelf="flex-start"
-      marginLeft={1}
-    >
-      <Box flexDirection="row">
-        <Box flexDirection="column">
-          {GIANT_T_ROWS.map((row, index) => (
-            <Text key={index} color={BRAND_BLUE}>
-              {row}
-            </Text>
-          ))}
-        </Box>
-        <Box flexDirection="column" marginLeft={2}>
-          {WORD_ROWS.map((row, index) => (
-            <Text key={index} color={BRAND_BLUE} bold>
-              {row}
-            </Text>
-          ))}
-          <Text color="gray" dimColor>
-            {`v${version}`}
+    <Box flexDirection="row" paddingLeft={1} marginTop={1} marginBottom={1}>
+      <Box flexShrink={0} flexDirection="column">
+        {LOGO_ROWS.map((row, index) => (
+          <Text key={index} color={BRAND_BLUE}>
+            {row}
           </Text>
-          {modelName && (
-            <Text color="gray" dimColor>
-              {modelName}
-            </Text>
-          )}
+        ))}
+      </Box>
+      <Box marginLeft={2} flexDirection="column">
+        <Box>
+          <Text bold>TNT CLI</Text>
+          <Text color="gray"> v{version}</Text>
         </Box>
+        <Box height={1} />
+        {modelName && <Text color="gray">{modelName}</Text>}
       </Box>
     </Box>
   );

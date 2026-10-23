@@ -4,7 +4,7 @@ import { getVersion } from "./version.js";
 
 const d = chalk.dim;
 
-// "TNT" as a two-line half-block wordmark, small like Pi's logo rather than a
+// "TNT" as a two-line half-block wordmark, small rather than a
 // full-width banner. Each cell is one pixel column: ▀ draws only the upper
 // pixel, ▄ only the lower, █ both.
 export const TNT_ASCII_ART = `${chalk.blue("▀██▀ █▄ █ ▀██▀")}  ${d("v" + getVersion())}

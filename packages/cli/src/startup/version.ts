@@ -23,6 +23,16 @@ export function getVersion(): string {
 // Singleton to cache the latest version result
 let latestVersionCache: Promise<string | null> | null = null;
 
+const RELEASE_API =
+  "https://api.github.com/repos/linanwanttodo/TNT/releases/latest";
+const RELEASE_PAGE = "https://github.com/linanwanttodo/TNT/releases/latest";
+
+/** `.../releases/tag/v1.2.3` -> `1.2.3`; anything else -> null. */
+export function tagFromReleaseUrl(url: string): string | null {
+  const match = /\/releases\/tag\/v?([^/?#]+)/.exec(url);
+  return match ? match[1] : null;
+}
+
 // A parameter that no caller passes and the body ignores is a promise the
 // function does not keep, so the check is simply not cancellable.
 export async function getLatestVersion(): Promise<string | null> {
@@ -38,33 +48,47 @@ export async function getLatestVersion(): Promise<string | null> {
       // releases API rather than a registry. The probe must stay asynchronous:
       // it runs during service init, and a synchronous call there froze the
       // whole process - and first paint - for as long as the request took.
-      const response = await fetch(
-        "https://api.github.com/repos/linanwanttodo/TNT/releases/latest",
-        {
-          headers: {
-            "User-Agent": "tnt-cli",
-            Accept: "application/vnd.github+json",
-          },
-          signal: AbortSignal.timeout(5000),
+      const response = await fetch(RELEASE_API, {
+        headers: {
+          "User-Agent": "tnt-cli",
+          Accept: "application/vnd.github+json",
         },
-      );
-      if (!response.ok) {
-        return null;
+        signal: AbortSignal.timeout(3000),
+      });
+      if (response.ok) {
+        const body = (await response.json()) as { tag_name?: string };
+        const tag = body.tag_name?.replace(/^v/, "");
+        if (tag) {
+          return tag;
+        }
       }
-      const body = (await response.json()) as { tag_name?: string };
-      const tag = body.tag_name?.replace(/^v/, "");
-      return tag || getVersion();
     } catch {
-      // Offline, rate-limited or timed out: rely on the installed version.
-      return null;
+      // Offline, rate-limited or timed out: try the page below.
     }
+
+    try {
+      // The API allows 60 unauthenticated requests an hour; the release page
+      // redirect carries the same tag without spending that quota.
+      const response = await fetch(RELEASE_PAGE, {
+        headers: { "User-Agent": "tnt-cli" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(3000),
+      });
+      if (response.ok) {
+        return tagFromReleaseUrl(response.url);
+      }
+    } catch {
+      // Offline or timed out: rely on the installed version.
+    }
+
+    return null;
   })();
 
   return latestVersionCache;
 }
 
 // No module-scope update probe. `getLatestVersion()` shells out to `npm view` with a
-// five-second budget, and calling it here made importing `getVersion` - the LSP client now
+// three-second budget, and calling it here made importing `getVersion` - the LSP client now
 // does - pay for a network check nobody asked for. `UpdateService` calls it when it checks.
 
 export function compareVersions(

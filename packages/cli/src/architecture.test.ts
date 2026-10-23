@@ -27,12 +27,19 @@ import { describe, expect, it } from "vitest";
 const KNOWN_MUTUAL_COUPLING = [
   "_root <-> commands",
   "agent <-> services",
+  // The turn controller is the bridge the event boundary introduced: session
+  // owns the run while the stream owns the loop. The reverse edges are the
+  // existing session-tracking imports inside the engine.
+  "cache <-> session",
+  "session <-> stream",
   "commands <-> services",
   "commands <-> ui",
   "config <-> i18n",
   "config <-> permissions",
   "config <-> platform",
   "config <-> plugins",
+  // The run snapshot reads services, and services read configuration.
+  "config <-> services",
   "config <-> startup",
   "config <-> utils",
   "hooks <-> plugins",

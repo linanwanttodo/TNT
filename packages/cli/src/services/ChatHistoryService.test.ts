@@ -189,6 +189,21 @@ describe("ChatHistoryService", () => {
       expect(message.toolCallStates![0].toolCallId).toBe("tool-123");
       expect(message.toolCallStates![0].status).toBe("generated");
     });
+
+    it("should keep the reasoning channel beside the answer", () => {
+      const message = service.addAssistantMessage(
+        "Here is the answer",
+        undefined,
+        undefined,
+        "checking the parser",
+      );
+
+      expect(message.message.content).toBe("Here is the answer");
+      expect(message.reasoning?.text).toBe("checking the parser");
+
+      const stored = service.getHistory().at(-1);
+      expect(stored?.reasoning?.text).toBe("checking the parser");
+    });
   });
 
   describe("addSystemMessage", () => {
@@ -544,6 +559,96 @@ describe("ChatHistoryService", () => {
           history: [],
         }),
       );
+    });
+  });
+
+  describe("transcript identity", () => {
+    it("assigns one id per appended message", () => {
+      const user = service.addUserMessage("hello");
+      const assistant = service.addAssistantMessage("hi");
+
+      const ids = service.getMessageIds();
+      expect(ids).toHaveLength(2);
+      expect(service.getMessageId(user)).toBe(ids[0]);
+      expect(service.getMessageId(assistant)).toBe(ids[1]);
+    });
+
+    it("keeps the assistant visible while its tool batch is staged", () => {
+      service.addAssistantMessage("", [
+        {
+          id: "call-1",
+          type: "function",
+          function: { name: "Read", arguments: "{}" },
+        },
+      ]);
+
+      expect(service.getHistory()).toHaveLength(1);
+      expect(service.getMessageIds()).toHaveLength(0);
+      expect(service.getHistory()[0].toolCallStates?.[0].status).toBe(
+        "generated",
+      );
+    });
+
+    it("commits the staged batch with the first tool result", () => {
+      service.addAssistantMessage("", [
+        {
+          id: "call-1",
+          type: "function",
+          function: { name: "Read", arguments: "{}" },
+        },
+      ]);
+
+      service.addToolResult("call-1", "body", "done");
+
+      expect(service.getMessageIds()).toHaveLength(1);
+      expect(service.getHistory()[0].toolCallStates?.[0].status).toBe("done");
+      expect(
+        service.getHistory()[0].toolCallStates?.[0].output?.[0].content,
+      ).toBe("body");
+    });
+
+    it("records the compaction mark without deleting bodies", () => {
+      const first = service.addUserMessage("one");
+      service.addAssistantMessage("two");
+      service.addUserMessage("three");
+
+      service.compact(service.getHistory(), 1);
+
+      expect(service.getCompactionMarkIndex()).toBe(1);
+      expect(service.getHistory()).toHaveLength(3);
+      expect(service.getMessageId(first)).toBe(service.getMessageIds()[0]);
+    });
+
+    it("commits an orphaned staged batch before the next message", () => {
+      service.addAssistantMessage("", [
+        {
+          id: "call-1",
+          type: "function",
+          function: { name: "Read", arguments: "{}" },
+        },
+      ]);
+      service.addUserMessage("next");
+
+      expect(service.getMessageIds()).toHaveLength(2);
+      expect(service.getHistory().map((item) => item.message.role)).toEqual([
+        "assistant",
+        "user",
+      ]);
+    });
+
+    it("keeps ids across a persisted reload", async () => {
+      service.addUserMessage("one");
+      service.addAssistantMessage("two");
+      const ids = service.getMessageIds();
+      const persisted = JSON.parse(JSON.stringify(service.getHistory()));
+
+      const reloaded = new ChatHistoryService();
+      await reloaded.initialize({
+        sessionId: "replay",
+        history: persisted,
+      });
+
+      expect(reloaded.getMessageIds()).toEqual(ids);
     });
   });
 });

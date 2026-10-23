@@ -17,6 +17,25 @@ export function workspaceRoot(): string {
 }
 
 /**
+ * ACP can hand a session extra absolute roots. They are workspace for the same
+ * run, so the write policy treats them like the primary cwd; the list is
+ * process-wide because an ACP worker owns exactly one session.
+ */
+let additionalRoots: string[] = [];
+
+export function setAdditionalWorkspaceDirectories(
+  directories: readonly string[],
+): void {
+  additionalRoots = directories.map((directory) =>
+    resolveExistingPrefix(path.resolve(directory)),
+  );
+}
+
+export function additionalWorkspaceDirectories(): string[] {
+  return [...additionalRoots];
+}
+
+/**
  * Resolves a path that may not exist yet, following symlinks as far as the
  * filesystem allows: a link inside the project that points outside it is
  * outside, and a not-yet-created file is measured at its real directory.
@@ -43,13 +62,14 @@ function resolveExistingPrefix(target: string): string {
  * path is treated as outside, because a write whose destination cannot be named
  * is not a write that can be trusted.
  */
-export function isWithinWorkspace(
-  filePath: unknown,
-  root: string = workspaceRoot(),
-): boolean {
+export function isWithinWorkspace(filePath: unknown, root?: string): boolean {
   if (typeof filePath !== "string" || filePath.trim() === "") {
     return false;
   }
   const resolved = resolveExistingPrefix(path.resolve(filePath));
-  return resolved === root || resolved.startsWith(root + path.sep);
+  const roots = root ? [root] : [workspaceRoot(), ...additionalRoots];
+  return roots.some(
+    (candidate) =>
+      resolved === candidate || resolved.startsWith(candidate + path.sep),
+  );
 }

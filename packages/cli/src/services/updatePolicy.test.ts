@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   firstFatalStderrLine,
+  installerCommand,
   shouldAutoUpdate,
   shouldCheckForUpdates,
 } from "./UpdateService.js";
 
-describe("whether the CLI asks npm for updates", () => {
+describe("whether the CLI asks GitHub for updates", () => {
   it("never asks from a dev build", () => {
     expect(shouldCheckForUpdates("0.0.0-dev")).toBe(false);
     expect(shouldCheckForUpdates("0.1.0-dev")).toBe(false);
@@ -46,7 +47,7 @@ describe("whether the CLI replaces itself", () => {
   });
 });
 
-describe("which npm output means the update failed", () => {
+describe("which installer output means the update failed", () => {
   it("ignores warnings, debugger banners and blank lines", () => {
     const stderr = [
       "",
@@ -64,5 +65,22 @@ describe("which npm output means the update failed", () => {
     );
 
     expect(firstFatalStderrLine(stderr)).toBe("npm error code EACCES");
+  });
+});
+
+describe("which installer replaces the running copy", () => {
+  it("runs the PowerShell installer on Windows", () => {
+    const command = installerCommand("win32");
+
+    expect(command).toContain("powershell.exe");
+    expect(command).toContain("install.ps1");
+    expect(command).not.toContain("install.sh");
+  });
+
+  it("runs the shell installer on Unix", () => {
+    for (const platform of ["linux", "darwin"] as NodeJS.Platform[]) {
+      expect(installerCommand(platform)).toContain("curl");
+      expect(installerCommand(platform)).toContain("install.sh");
+    }
   });
 });

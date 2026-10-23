@@ -104,6 +104,9 @@ async function countTokensAsync(
       if (part.type === "imageUrl") {
         return countImageTokens(part);
       }
+      if (part.type === "audio") {
+        return 1024;
+      }
       return (await encoding.encode(part.text ?? "")).length;
     });
     return (await Promise.all(promises)).reduce((sum, val) => sum + val, 0);
@@ -124,7 +127,9 @@ function countTokens(
         acc +
         (part.type === "text"
           ? encoding.encode(part.text ?? "", "all", []).length
-          : countImageTokens(part))
+          : part.type === "audio"
+            ? 1024
+            : countImageTokens(part))
       );
     }, 0);
   } else {

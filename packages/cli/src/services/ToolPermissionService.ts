@@ -8,6 +8,7 @@ import {
 import { resetAutoDenialState } from "../permissions/autoMode.js";
 import { resolvePermissionPrecedence } from "../permissions/precedenceResolver.js";
 import {
+  ABSOLUTE_POLICY_MODES,
   PermissionMode,
   ToolPermissionPolicy,
   ToolPermissions,
@@ -220,13 +221,9 @@ export class ToolPermissionService
         agentFileServiceState,
         mcpServiceState,
       );
-    } else if (
-      this.currentState.currentMode === "plan" ||
-      this.currentState.currentMode === "acceptEdits" ||
-      this.currentState.currentMode === "bypassPermissions" ||
-      this.currentState.currentMode === "dontAsk"
-    ) {
-      // For plan, acceptEdits, bypass and dontAsk, use ONLY mode policies
+    } else if (ABSOLUTE_POLICY_MODES.includes(this.currentState.currentMode)) {
+      // These modes use ONLY their own table; the configuration layers are
+      // not consulted.
       allPolicies = [...modePolicies];
     } else {
       // Normal mode: combine headless + mode policies with user configuration
@@ -321,11 +318,10 @@ export class ToolPermissionService
 
     const modePolicies = this.generateModePolicies();
 
-    // For plan and auto modes, use ONLY mode policies (absolute override)
-    // For agent mode, restore original policies if available
+    // These modes replace the layers with their own table; default and auto
+    // keep the user's original policies.
     let allPolicies: ToolPermissionPolicy[];
-    if (newMode === "plan" || newMode === "bypassPermissions") {
-      // Absolute override: ignore all user configuration
+    if (ABSOLUTE_POLICY_MODES.includes(newMode)) {
       allPolicies = [...modePolicies];
     } else {
       // Default mode: restore original policies if we have them

@@ -14,7 +14,7 @@ import {
   takeSessionStartContext,
 } from "../../hooks/fireHook.js";
 import { t } from "../../i18n/index.js";
-import { toolPermissionManager } from "../../permissions/permissionManager.js";
+import { interactionBroker } from "../../permissions/interactionBroker.js";
 import { services } from "../../services/index.js";
 import {
   createSession,
@@ -166,6 +166,9 @@ export function useChat({
   // The in-progress answer, rendered from this overlay instead of the history:
   // history writes persist the session, so per-chunk updates would hit disk.
   const [streamingText, setStreamingText] = useState<string | null>(null);
+  const [streamingReasoning, setStreamingReasoning] = useState<string | null>(
+    null,
+  );
   const [responseStartTime, setResponseStartTime] = useState<number | null>(
     null,
   );
@@ -205,19 +208,31 @@ export function useChat({
   // Track interrupted state for resume functionality
   const [wasInterrupted, setWasInterrupted] = useState(false);
 
-  // Track queued messages for immediate display
-  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  // Track queued messages for immediate display. The queue is the authority;
+  // every event resyncs from a snapshot so a remove or edit cannot leave a
+  // stale row.
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>(() => [
+    ...messageQueue.getAllMessages(),
+  ]);
 
-  // Set up message queue listeners
   useEffect(() => {
-    const onMessageQueued = (queuedMessage: QueuedMessage) => {
-      setQueuedMessages((prev) => [...prev, queuedMessage]);
+    const sync = () => {
+      setQueuedMessages([...messageQueue.getAllMessages()]);
     };
 
-    messageQueue.on("messageQueued", onMessageQueued);
+    messageQueue.on("messageQueued", sync);
+    messageQueue.on("messageDequeued", sync);
+    messageQueue.on("messageRemoved", sync);
+    messageQueue.on("messageUpdated", sync);
+    messageQueue.on("messageCleared", sync);
+    sync();
 
     return () => {
-      messageQueue.off("messageQueued", onMessageQueued);
+      messageQueue.off("messageQueued", sync);
+      messageQueue.off("messageDequeued", sync);
+      messageQueue.off("messageRemoved", sync);
+      messageQueue.off("messageUpdated", sync);
+      messageQueue.off("messageCleared", sync);
     };
   }, []);
 
@@ -305,9 +320,8 @@ export function useChat({
       isChatHistoryInitialized
     ) {
       const processPrompts = async () => {
-        const { processAndCombinePrompts } = await import(
-          "../../utils/promptProcessor.js"
-        );
+        const { processAndCombinePrompts } =
+          await import("../../utils/promptProcessor.js");
         const finalMessage = await processAndCombinePrompts(
           additionalPrompts,
           initialPrompt,
@@ -351,6 +365,7 @@ export function useChat({
           lastAssistantTextRef.current = text;
         },
         onStreamingText: setStreamingText,
+        onStreamingReasoning: setStreamingReasoning,
       });
 
       // Execute streaming chat response
@@ -398,6 +413,9 @@ export function useChat({
       setResponseStartTime(null);
       setInputMode(true);
       setStreamingText(null);
+      // A turn that ends on a stall or an abort never reaches the round's
+      // completion callback, so the overlay is cleared here as well.
+      setStreamingReasoning(null);
 
       // Check if there are queued messages and process them after a microtask delay
       // This ensures the GUI state has been updated before processing the next message
@@ -406,10 +424,7 @@ export function useChat({
         const { message: latestQueuedMessage, imageMap } = queuedMessageData;
         logger.debug("processing queued message", { latestQueuedMessage });
 
-        // Clear queued messages from display since they're about to be processed
-        // Note: messageQueue.getNextMessage() already cleared the actual queue
-        setQueuedMessages([]);
-
+        // The dequeue event already removed this row from the view.
         await new Promise((resolve) => setTimeout(resolve, 100)); // add timeout for react to render the tui
 
         // Process the queued message - it will handle adding to history and compaction display
@@ -618,6 +633,7 @@ export function useChat({
 
       // Add the queued message to queue display during compaction
       const queuedMessageForDisplay: QueuedMessage = {
+        id: `processing-${Date.now()}`,
         message,
         imageMap,
         timestamp: Date.now(),
@@ -685,6 +701,7 @@ export function useChat({
 
       // Add the triggering message to queue display during compaction
       const compactionQueuedMessage: QueuedMessage = {
+        id: `compacting-${Date.now()}`,
         message,
         imageMap,
         timestamp: Date.now(),
@@ -783,7 +800,7 @@ export function useChat({
       setCompactionAbortController(null);
       setInputMode(true);
       // Clear any queued messages (including the triggering message) when compaction is interrupted
-      setQueuedMessages([]);
+      messageQueue.clearMessages();
       return;
     }
 
@@ -821,7 +838,7 @@ export function useChat({
     );
     setChatHistory(newHistory);
     // Clear any queued messages when resetting chat
-    setQueuedMessages([]);
+    messageQueue.clearMessages();
   };
 
   const handleEditMessage = async (
@@ -842,7 +859,7 @@ export function useChat({
     });
 
     // Clear any queued messages
-    setQueuedMessages([]);
+    messageQueue.clearMessages();
 
     // Clear attached files
     setAttachedFiles([]);
@@ -876,9 +893,8 @@ export function useChat({
     // Held in memory for this session only: no file is written and no
     // permission reload is needed, because nothing outside this process changes.
     if (approved && forSession && currentRequest) {
-      const { rememberSessionApproval } = await import(
-        "../../permissions/sessionApprovals.js"
-      );
+      const { rememberSessionApproval } =
+        await import("../../permissions/sessionApprovals.js");
       const key = rememberSessionApproval(
         currentRequest.toolName,
         currentRequest.toolArgs,
@@ -893,9 +909,8 @@ export function useChat({
     // Handle policy creation if requested
     if (approved && createPolicy && currentRequest) {
       try {
-        const { generatePolicyRule, addPolicyRule } = await import(
-          "../../permissions/policyWriter.js"
-        );
+        const { generatePolicyRule, addPolicyRule } =
+          await import("../../permissions/policyWriter.js");
 
         const policyRule = generatePolicyRule(
           currentRequest.toolName,
@@ -919,9 +934,9 @@ export function useChat({
     // The streamChatResponse will handle showing the appropriate message
     // through its normal onToolStart/onToolError flow
     if (approved) {
-      toolPermissionManager.approveRequest(requestId);
+      interactionBroker.approve(requestId);
     } else {
-      toolPermissionManager.rejectRequest(requestId);
+      interactionBroker.reject(requestId);
 
       // If this is a "stop stream" rejection, abort the current request
       if (stopStream && abortController && isWaitingForResponse) {
@@ -946,7 +961,7 @@ export function useChat({
 
   const handleQuizAnswer = (requestId: string, answer: string) => {
     setActiveQuizQuestion(null);
-    services.quiz.answerQuestion(requestId, answer);
+    interactionBroker.answerQuestion(requestId, answer);
   };
 
   return {
@@ -963,6 +978,7 @@ export function useChat({
     wasInterrupted,
     queuedMessages,
     streamingText,
+    streamingReasoning,
     handleUserMessage,
     handleInterrupt,
     handleFileAttached,

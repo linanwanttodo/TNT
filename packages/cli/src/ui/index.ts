@@ -10,6 +10,10 @@ import { isHeadlessMode, isTTYless } from "../utils/cli.js";
 import { logger } from "../utils/logger.js";
 
 import { AppRoot } from "./AppRoot.js";
+import {
+  enterAlternateScreen,
+  leaveAlternateScreen,
+} from "./utils/terminalScreen.js";
 
 export { MarkdownRenderer } from "./MarkdownRenderer.js";
 
@@ -102,7 +106,7 @@ export async function startTUIChat(
     stderr: process.stderr,
   };
 
-  process.stdout.write("\x1b[2J\x1b[3J\x1b[H");
+  enterAlternateScreen();
   const { unmount } = render(
     React.createElement(ServiceContainerProvider, {
       children: React.createElement(AppRoot, {
@@ -119,13 +123,21 @@ export async function startTUIChat(
     renderOptions,
   );
 
+  // Leaving the alternate buffer is part of teardown, not an afterthought: the
+  // shell prompt must come back on the normal screen even when the app exits
+  // through the two-stage Ctrl+C path.
+  const restoreAndUnmount = () => {
+    unmount();
+    leaveAlternateScreen();
+  };
+
   // Register unmount function with main process for two-stage Ctrl+C exit
-  setTUIUnmount(unmount);
+  setTUIUnmount(restoreAndUnmount);
 
   // Enable the two-stage SIGINT handler for TUI mode
   enableSigintHandler();
 
-  return { unmount };
+  return { unmount: restoreAndUnmount };
 }
 
 export async function startRemoteTUIChat(
@@ -152,6 +164,7 @@ export async function startRemoteTUIChat(
   }
 
   // Start the TUI in remote mode - no services needed
+  enterAlternateScreen();
   const { unmount } = render(
     React.createElement(ServiceContainerProvider, {
       children: React.createElement(AppRoot, {
@@ -166,8 +179,13 @@ export async function startRemoteTUIChat(
     },
   );
 
-  // Register unmount function with main process for two-stage Ctrl+C exit
-  setTUIUnmount(unmount);
+  const restoreAndUnmount = () => {
+    unmount();
+    leaveAlternateScreen();
+  };
 
-  return { unmount };
+  // Register unmount function with main process for two-stage Ctrl+C exit
+  setTUIUnmount(restoreAndUnmount);
+
+  return { unmount: restoreAndUnmount };
 }

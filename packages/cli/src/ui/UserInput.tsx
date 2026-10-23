@@ -21,8 +21,8 @@ import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator, modeBorderColor } from "./components/ModeIndicator.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
+import { consumeComposerDraft, useComposerDraft } from "./composerDraft.js";
 import { FileSearchUI } from "./FileSearchUI.js";
-import { useClipboardMonitor } from "./hooks/useClipboardMonitor.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useServices } from "./hooks/useService.js";
 import {
@@ -31,6 +31,7 @@ import {
 } from "./hooks/useUserInput.js";
 import { SlashCommandUI } from "./SlashCommandUI.js";
 import { TextBuffer } from "./TextBuffer.js";
+import { isTerminalMouseSequence } from "./utils/mouse.js";
 
 // Small presentational helpers to reduce cyclomatic complexity in UserInput
 const InterruptedBanner: React.FC<{ wasInterrupted: boolean }> = ({
@@ -121,7 +122,6 @@ interface UserInputProps {
   placeholder?: string;
   hideNormalUI?: boolean;
   isRemoteMode?: boolean;
-  onImageInClipboardChange?: (hasImage: boolean) => void;
   onShowEditSelector?: () => void;
 }
 
@@ -138,7 +138,6 @@ const UserInput: React.FC<UserInputProps> = ({
   placeholder,
   hideNormalUI = false,
   isRemoteMode = false,
-  onImageInClipboardChange,
   onShowEditSelector,
 }) => {
   const locale = useLocale();
@@ -799,25 +798,30 @@ const UserInput: React.FC<UserInputProps> = ({
     inputHistory.resetNavigation();
   };
 
-  // State for showing image paste hint
-  const [_hasImageInClipboard, _setHasImageInClipboard] = useState(false);
+  // A queued message moved back for editing arrives as a one-shot draft.
+  const pendingDraft = useComposerDraft();
+  useEffect(() => {
+    if (!pendingDraft) {
+      return;
+    }
 
-  // Monitor clipboard for images and show helpful hints
-  const { checkNow: _checkClipboardNow } = useClipboardMonitor({
-    onImageStatusChange: (hasImage) => {
-      _setHasImageInClipboard(hasImage);
-      // Also notify parent component
-      if (onImageInClipboardChange) {
-        onImageInClipboardChange(hasImage);
-      }
-    },
-    enabled: !disabled && inputMode,
-    pollInterval: 2000,
-  });
+    textBuffer.setText(pendingDraft.text);
+    textBuffer.setCursor(pendingDraft.text.length);
+    handleTextBufferUpdate();
+    consumeComposerDraft(pendingDraft.id);
+    // handleTextBufferUpdate reads the buffer that was just replaced; the
+    // draft id is the only trigger.
+  }, [pendingDraft, textBuffer]);
 
   useInput((input, key) => {
     // Don't handle any input when disabled
     if (disabled) {
+      return;
+    }
+
+    // Mouse reports are handled by useMouseEvents; Ink also hands the raw
+    // sequence to every useInput listener, where it would land in the prompt.
+    if (isTerminalMouseSequence(input)) {
       return;
     }
 
@@ -830,6 +834,7 @@ const UserInput: React.FC<UserInputProps> = ({
         clearInput,
         textBuffer,
         onTextBufferUpdate: handleTextBufferUpdate,
+        queueActionsEnabled: !disabled && !showFileSearch && !showSlashCommands,
       })
     ) {
       return;
@@ -1009,6 +1014,12 @@ const UserInput: React.FC<UserInputProps> = ({
         onFilesUpdated={setCurrentFiles}
       />
 
+      {/* Goal and todo rows belong to the dock above the box; the mode badge
+          below is the box's own top border. */}
+      <GoalIndicator />
+
+      <TodoIndicator />
+
       {/* Active mode is embedded in the composer's top border rule. */}
       <ModeIndicator
         mode={currentMode}
@@ -1020,10 +1031,6 @@ const UserInput: React.FC<UserInputProps> = ({
               : modeBorderColor(currentMode)
         }
       />
-
-      <GoalIndicator />
-
-      <TodoIndicator />
 
       {/* Input box */}
       <Box

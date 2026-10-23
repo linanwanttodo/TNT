@@ -60,9 +60,8 @@ export async function spillOversizedToolResult(options: {
   try {
     // Loaded on demand: this runs on every tool result, and the session module
     // pulls in the store that not every entry point needs.
-    const { getCurrentSession, getToolResultsDir } = await import(
-      "../session/index.js"
-    );
+    const { getCurrentSession, getToolResultsDir } =
+      await import("../session/index.js");
     const dir = getToolResultsDir(getCurrentSession().sessionId);
     const candidate = path.join(dir, `${safeFileName(callId)}.txt`);
     fs.writeFileSync(candidate, content, "utf-8");

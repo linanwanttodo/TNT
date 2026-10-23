@@ -24,7 +24,22 @@ describe("the context-usage line", () => {
         cost: 0.31,
         labels: TEST_LABELS,
       }),
-    ).toBe("ctx 18.2k/200k (9%) · cache r/w 92% · out 1.4k · cost $0.31");
+    ).toBe("ctx 18.2k/200k (9%) · cache r/w 92.00% · out 1.4k · cost $0.31");
+  });
+
+  it("prints the cache ratio with two decimals and caps it", () => {
+    expect(
+      contextUsageLine({
+        cacheHitRatio: 92.3456,
+        labels: TEST_LABELS,
+      }),
+    ).toBe("cache r/w 92.35%");
+    expect(
+      contextUsageLine({
+        cacheHitRatio: 140,
+        labels: TEST_LABELS,
+      }),
+    ).toBe("cache r/w 100.00%");
   });
 
   it("compacts counts without inventing a digit", () => {

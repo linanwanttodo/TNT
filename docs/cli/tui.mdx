@@ -12,10 +12,13 @@ Running `tnt` with no arguments opens the interactive session.
 | finished messages live in the terminal scrollback           |
 | the message still being written is redrawn in place         |
 +-------------------------------------------------------------+
-| composer                                                    |
-|   mode indicator | goal (when set)                          |
-|   > your input                                              |
-|   workspace | context | cache | model | thinking            |
+| jump hint (only while scrolled back)                        |
+| goal (when set)                                             |
+| todo rows (up to five unfinished)                           |
+| ┌─[mode]───────────────────────────────────────────────────┐ |
+| │ > your input                                            │ |
+| └─────────────────────────────────────────────────────────┘ |
+| workspace | context | cache | model | thinking              |
 +-------------------------------------------------------------+
 ```
 
@@ -31,7 +34,7 @@ The line under the composer reports, from left to right:
 | --- | --- |
 | workspace | current directory and git branch |
 | context | share of the context window already used |
-| cache | prompt cache reads reported by the provider |
+| cache | share of prompt tokens served from cache, to two decimals |
 | model | selected model |
 | thinking | reasoning effort when the model exposes it |
 
@@ -39,6 +42,30 @@ The line under the composer reports, from left to right:
 
 The placeholder lists what the input understands: plain text, `@` to attach
 context, `/` for commands, `!` to run a shell command directly.
+
+The session goal and the todo list render above the box. Only unfinished todos
+are listed, at most five; completed items appear in the `Todos done/total`
+header, and further unfinished ones collapse into `· +N` there. The todo panel
+disappears when nothing is left unfinished.
+
+## Thinking
+
+Reasoning streams into the transcript as it arrives and folds behind
+`Thinking...` when the turn ends. Click a folded block to open it, or press
+`Ctrl+O` to toggle every finished block. Open blocks stay open.
+
+## Images
+
+Press `Ctrl+V` in the composer to attach an image from the clipboard. The image
+is inserted as an `[Image #N]` placeholder and sent with the next message;
+images larger than 1024×1024 are scaled down first. The clipboard is read only
+when you press the key; there is no clipboard marker or background polling.
+
+On Linux the image is read with `wl-paste` on Wayland and `xclip` on X11 when
+they are installed. Otherwise TNT falls back to a bundled X11 helper that also
+works under XWayland; a pure Wayland session without XWayland needs
+`wl-clipboard` installed. macOS reads the clipboard through `osascript` and
+Windows through PowerShell, with the bundled helper as the fallback.
 
 ## Keys
 
@@ -50,6 +77,12 @@ context, `/` for commands, `!` to run a shell command directly.
 | `Esc` | interrupt the current turn |
 | `Up` / `Down` | move through earlier input |
 | `Tab` | accept the highlighted completion |
+| `Ctrl+V` | attach an image from the clipboard |
+| `PageUp` / `PageDown` | scroll the transcript one page |
+| `Home` / `End` | jump to the start / live tail |
+| `Ctrl+End` | jump to the live tail while the composer has focus |
+| mouse wheel | scroll the transcript |
+| click the `↓` hint | jump to the live tail |
 | `Ctrl+C` | clear the input, twice to exit |
 
 <Tip>

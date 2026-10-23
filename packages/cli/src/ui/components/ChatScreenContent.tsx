@@ -32,7 +32,6 @@ interface ChatScreenContentProps {
   handleFileAttached: (filePath: string, content: string) => void;
   isInputDisabled: boolean;
   isRemoteMode: boolean;
-  onImageInClipboardChange?: (hasImage: boolean) => void;
   onShowEditSelector?: () => void;
   /** Set while a delegated transcript is open. */
   subagentView?: { parentSessionId: string; subagentType: string } | null;
@@ -53,7 +52,6 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
   handleFileAttached,
   isInputDisabled,
   isRemoteMode,
-  onImageInClipboardChange,
   onShowEditSelector,
   subagentView,
 }) => {
@@ -101,7 +99,6 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
         onFileAttached={handleFileAttached}
         disabled={isInputDisabled}
         isRemoteMode={isRemoteMode}
-        onImageInClipboardChange={onImageInClipboardChange}
         onShowEditSelector={onShowEditSelector}
       />
     </>

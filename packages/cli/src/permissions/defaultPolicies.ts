@@ -37,6 +37,7 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
     { tool: "Hover", permission: "allow" },
     { tool: "Status", permission: "allow" },
     { tool: "Todo", permission: "allow" },
+    { tool: "ToolSearch", permission: "allow" },
     { tool: "ReportFailure", permission: "allow" },
     { tool: "UploadArtifact", permission: "allow" },
   ];
@@ -93,6 +94,7 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "ListSubagents", permission: "allow" },
   { tool: "Status", permission: "allow" },
   { tool: "Todo", permission: "allow" },
+  { tool: "ToolSearch", permission: "allow" },
   { tool: "UploadArtifact", permission: "allow" },
 
   // MCP and plugin tools ask; headless refuses them.
@@ -128,6 +130,7 @@ export const ACCEPT_EDITS_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Hover", permission: "allow" },
   { tool: "Status", permission: "allow" },
   { tool: "Todo", permission: "allow" },
+  { tool: "ToolSearch", permission: "allow" },
   { tool: "ReportFailure", permission: "allow" },
   { tool: "UploadArtifact", permission: "allow" },
   { tool: "Bash", permission: "ask", readOnlyAllow: true },

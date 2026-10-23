@@ -70,6 +70,78 @@ function resultContent(result: string): acp.ToolCallContent[] {
   ];
 }
 
+interface TodoPayload {
+  todos?: Array<{ text?: unknown; done?: unknown }>;
+}
+
+export interface PlanTodo {
+  text: string;
+  done: boolean;
+}
+
+export function planUpdateFromTodos(
+  todos: ReadonlyArray<PlanTodo>,
+): acp.SessionUpdate {
+  return {
+    sessionUpdate: "plan",
+    entries: todos.map((todo) => ({
+      content: todo.text,
+      priority: "medium",
+      status: todo.done ? "completed" : "pending",
+    })),
+  };
+}
+
+/**
+ * The Todo tool carries its whole list in every result, so one finished call is
+ * enough to send ACP the complete plan it replaces atomically.
+ */
+export function planUpdateFromTodoResult(
+  result: string,
+): acp.SessionUpdate | null {
+  const marker = "tnt-todo:";
+  const at = result.lastIndexOf(marker);
+  if (at === -1) return null;
+
+  try {
+    const details = JSON.parse(result.slice(at + marker.length)) as TodoPayload;
+    if (!Array.isArray(details.todos)) return null;
+    return planUpdateFromTodos(
+      details.todos.flatMap((todo) =>
+        typeof todo?.text === "string"
+          ? [{ text: todo.text, done: Boolean(todo.done) }]
+          : [],
+      ),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Context occupancy and session cost; absent figures stay absent. */
+export function usageUpdate(
+  used: number,
+  size: number,
+  cost: number,
+): acp.SessionUpdate | null {
+  if (
+    !Number.isFinite(used) ||
+    !Number.isFinite(size) ||
+    used <= 0 ||
+    size <= 0
+  ) {
+    return null;
+  }
+  return {
+    sessionUpdate: "usage_update",
+    used,
+    size,
+    ...(Number.isFinite(cost) && cost > 0
+      ? { cost: { amount: cost, currency: "USD" } }
+      : {}),
+  };
+}
+
 export interface UpdateOptions {
   /** The client advertised live notices. */
   notices: boolean;

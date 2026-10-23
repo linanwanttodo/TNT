@@ -21,6 +21,7 @@ import {
   truncateOutputFromStart,
 } from "../utils/truncateOutput.js";
 
+import { getTerminalRunner } from "./terminalRunner.js";
 import { Tool, ToolRunContext } from "./types.js";
 
 // Output truncation defaults
@@ -60,6 +61,36 @@ function getBashMaxLines(): number {
   return parseEnvNumber(
     process.env.CONTINUE_CLI_BASH_MAX_OUTPUT_LINES,
     DEFAULT_BASH_MAX_LINES,
+  );
+}
+
+function resolveBashTimeoutMs(timeout?: number): number {
+  // The spec's shell-mode timeout: 180 seconds of no output by default,
+  // capped at ten minutes when the call supplies one.
+  let TIMEOUT_MS = 180000;
+  if (timeout !== undefined) {
+    const cappedTimeout = Math.min(timeout, 600);
+    TIMEOUT_MS = cappedTimeout * 1000;
+  } else if (
+    process.env.NODE_ENV === "test" &&
+    process.env.TEST_TERMINAL_TIMEOUT
+  ) {
+    TIMEOUT_MS = parseInt(process.env.TEST_TERMINAL_TIMEOUT, 10);
+  }
+  return TIMEOUT_MS;
+}
+
+function parallelLimitNote(
+  output: string,
+  parallelCount: number,
+  baseMaxChars: number,
+  baseMaxLines: number,
+): string {
+  if (parallelCount <= 1) return output;
+  return (
+    output +
+    `\n\n(Note: output limit reduced due to ${parallelCount} parallel tool calls. ` +
+    `Single-tool limit: ${baseMaxChars.toLocaleString()} characters or ${baseMaxLines.toLocaleString()} lines.)`
   );
 }
 
@@ -198,6 +229,53 @@ WHAT COMES BACK:
     const maxChars = Math.floor(baseMaxChars / parallelCount);
     const maxLines = Math.floor(baseMaxLines / parallelCount);
 
+    const runner = getTerminalRunner();
+    if (runner) {
+      const { shell, args } = getShellCommand(command);
+      const timeoutMs = resolveBashTimeoutMs(timeout);
+      emitBashToolStarted();
+      try {
+        const result = await runner.run({
+          shell,
+          args,
+          cwd: process.cwd(),
+          timeoutMs,
+        });
+        const truncation = truncateOutputFromStart(result.output, {
+          maxChars,
+          maxLines,
+        });
+        let output = truncation.wasTruncated
+          ? parallelLimitNote(
+              truncation.output,
+              parallelCount,
+              baseMaxChars,
+              baseMaxLines,
+            )
+          : truncation.output;
+        if (result.backgroundJobId) {
+          return `Command moved to background. Job ID: ${result.backgroundJobId}\nOutput so far:\n${output}\nUse CheckBackgroundJob("${result.backgroundJobId}") to check status. The editor terminal stays open, so answer any prompt there.`;
+        }
+        if (result.signal) {
+          output += `\n\nTerminated by signal ${result.signal}.`;
+        } else if (
+          result.exitCode !== undefined &&
+          result.exitCode !== null &&
+          result.exitCode !== 0
+        ) {
+          output = `Exit code ${result.exitCode}\n${output}`;
+        }
+        if (result.timedOut) {
+          output += `\n\nCommand timed out after ${Math.round(
+            timeoutMs / 1000,
+          )} seconds.`;
+        }
+        return output;
+      } finally {
+        emitBashToolEnded();
+      }
+    }
+
     emitBashToolStarted();
 
     const terminalOutput: string = await new Promise((resolve, reject) => {
@@ -209,32 +287,14 @@ WHAT COMES BACK:
       let timeoutId: NodeJS.Timeout;
       let isResolved = false;
 
-      // Determine timeout: use provided timeout (capped at 600s), test env variable, or default 120s
-      let TIMEOUT_MS = 180000; // 180 seconds default
-      if (timeout !== undefined) {
-        // Cap at 600 seconds (10 minutes)
-        const cappedTimeout = Math.min(timeout, 600);
-        TIMEOUT_MS = cappedTimeout * 1000;
-      } else if (
-        process.env.NODE_ENV === "test" &&
-        process.env.TEST_TERMINAL_TIMEOUT
-      ) {
-        TIMEOUT_MS = parseInt(process.env.TEST_TERMINAL_TIMEOUT, 10);
-      }
+      // Determine timeout: use provided timeout (capped at 600s), test env variable, or default 180s
+      const TIMEOUT_MS = resolveBashTimeoutMs(timeout);
 
       /**
        * Appends a note about reduced limits when parallel tool calls are in effect.
        */
-      const appendParallelLimitNote = (output: string): string => {
-        if (parallelCount > 1) {
-          return (
-            output +
-            `\n\n(Note: output limit reduced due to ${parallelCount} parallel tool calls. ` +
-            `Single-tool limit: ${baseMaxChars.toLocaleString()} characters or ${baseMaxLines.toLocaleString()} lines.)`
-          );
-        }
-        return output;
-      };
+      const appendParallelLimitNote = (output: string): string =>
+        parallelLimitNote(output, parallelCount, baseMaxChars, baseMaxLines);
 
       const moveToBackground = () => {
         if (isResolved) return;

@@ -77,6 +77,10 @@ describe("serve stream turn budget", () => {
       expect.any(Object),
       false,
       { maxSteps: 5 },
+      expect.objectContaining({
+        mode: expect.any(String),
+        isHeadless: expect.any(Boolean),
+      }),
     );
   });
 

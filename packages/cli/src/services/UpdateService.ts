@@ -48,7 +48,7 @@ export function firstFatalStderrLine(stderr: string): string | null {
   return null;
 }
 
-/** Every gate that guards a self-replacing `npm i -g`, in one testable place. */
+/** Every gate that guards a self-replacing install, in one testable place. */
 export function shouldAutoUpdate(decision: AutoUpdateDecision): boolean {
   return (
     decision.autoUpdate &&
@@ -56,6 +56,23 @@ export function shouldAutoUpdate(decision: AutoUpdateDecision): boolean {
     decision.status !== "updating" &&
     !decision.alreadyAutoUpdated
   );
+}
+
+const INSTALLER_BASE =
+  "https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts";
+
+/**
+ * The installer that replaces the running copy on this platform. Windows has
+ * neither bash nor the tarball symlink the Unix installer wires, so it runs
+ * the PowerShell installer instead.
+ */
+export function installerCommand(
+  platform: NodeJS.Platform = process.platform,
+): string {
+  if (platform === "win32") {
+    return `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "irm ${INSTALLER_BASE}/install.ps1 | iex"`;
+  }
+  return `curl -fsSL ${INSTALLER_BASE}/install.sh | bash`;
 }
 
 /**
@@ -67,7 +84,10 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       autoUpdate: true,
       isAutoUpdate: true,
       status: UpdateStatus.IDLE,
-      message: "",
+      // The installed version is known without a network round trip; showing
+      // it immediately keeps the status row from advertising a pending check
+      // for however long DNS and TLS take.
+      message: `TNT v${getVersion()}`,
       error: null,
       isUpdateAvailable: false,
       latestVersion: null,
@@ -108,7 +128,7 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       // Check for updates
       this.setState({
         status: UpdateStatus.CHECKING,
-        message: "Checking for updates",
+        message: `TNT v${this.currentState.currentVersion}`,
       });
 
       const latestVersion = await getLatestVersion();
@@ -196,10 +216,9 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       // The CLI is distributed through GitHub Releases; the installer
       // downloads and replaces the local copy, then restartCLI relaunched the
       // process. No npm involved.
-      const installer = await execAsync(
-        "curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash",
-        { timeout: 300000 },
-      );
+      const installer = await execAsync(installerCommand(), {
+        timeout: 300000,
+      });
       logger.debug("Update output:", {
         stdout: installer.stdout,
         stderr: installer.stderr,

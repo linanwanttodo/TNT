@@ -15,8 +15,6 @@ export type TerminationReason =
   | "user_abort"
   /** The round ceiling was reached. */
   | "max_steps"
-  /** Enough consecutive rounds produced no effective new content. */
-  | "diminishing_returns"
   /** Automatic compaction failed too many times in a row. */
   | "compaction_circuit_open"
   /** The stream kept ending early and retrying no longer helped. */
@@ -71,8 +69,6 @@ export function describeTermination(
       return undefined;
     case "max_steps":
       return `Stopped after reaching the step limit of ${detail?.maxSteps ?? "the configured maximum"}. The work may be incomplete.`;
-    case "diminishing_returns":
-      return "Stopped because recent steps stopped making progress. The work may be incomplete.";
     case "compaction_circuit_open":
       return "Stopped because automatic context compaction kept failing. The work may be incomplete.";
     case "stream_stall":

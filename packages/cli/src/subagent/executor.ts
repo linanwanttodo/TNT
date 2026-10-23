@@ -5,7 +5,7 @@ import { t } from "../i18n/index.js";
 import { services } from "../services/index.js";
 import { ModelServiceState } from "../services/types.js";
 import { getCurrentSession, saveSubagentSession } from "../session/index.js";
-import { streamChatResponse } from "../stream/streamChatResponse.js";
+import { runAgentTurn } from "../session/controller.js";
 import { escapeEvents } from "../utils/cli.js";
 import { logger } from "../utils/logger.js";
 
@@ -166,12 +166,12 @@ export async function executeSubAgent(
       let accumulatedOutput = "";
 
       // Execute the chat stream with child session
-      await streamChatResponse(
+      await runAgentTurn({
         chatHistory,
         model,
         llmApi,
         abortController,
-        {
+        callbacks: {
           onContent: (content: string) => {
             accumulatedOutput += content;
             if (onOutputUpdate) {
@@ -186,9 +186,7 @@ export async function executeSubAgent(
             }
           },
         },
-        false, // Not compacting
-        undefined,
-        {
+        runOverrides: {
           systemMessage: childContext.systemMessage,
           isHeadless: true,
           permissions: childContext.permissions,
@@ -197,7 +195,7 @@ export async function executeSubAgent(
             maxDelegationDepth,
           }),
         },
-      );
+      });
 
       // The last message (mostly) contains the important output to be submitted back to the main agent
       const lastMessage = chatHistory.at(-1);

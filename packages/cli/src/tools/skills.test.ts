@@ -28,9 +28,8 @@ const mockSkills: Skill[] = [
 describe("skillsTool", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    const { loadMarkdownSkills } = await import(
-      "../utils/loadMarkdownSkills.js"
-    );
+    const { loadMarkdownSkills } =
+      await import("../utils/loadMarkdownSkills.js");
     vi.mocked(loadMarkdownSkills).mockResolvedValue({
       skills: mockSkills,
       errors: [],
@@ -60,9 +59,8 @@ describe("skillsTool", () => {
   });
 
   it("says so when the workspace has no skills", async () => {
-    const { loadMarkdownSkills } = await import(
-      "../utils/loadMarkdownSkills.js"
-    );
+    const { loadMarkdownSkills } =
+      await import("../utils/loadMarkdownSkills.js");
     vi.mocked(loadMarkdownSkills).mockResolvedValue({ skills: [], errors: [] });
 
     const tool = await skillsTool();

@@ -49,12 +49,7 @@ export type CommandHandler = (
  * source is never taken over by a later one.
  */
 export type CommandSource =
-  | "builtin"
-  | "remote"
-  | "prompt"
-  | "rule"
-  | "skill"
-  | "plugin";
+  "builtin" | "remote" | "prompt" | "rule" | "skill" | "plugin";
 
 export interface CommandLoadContext {
   assistant: AssistantConfig;

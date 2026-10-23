@@ -91,4 +91,13 @@ describe("acceptEdits and the default Bash rule", () => {
     expect(state.currentMode).toBe("acceptEdits");
     expect(state.permissions.policies).toEqual(ACCEPT_EDITS_MODE_POLICIES);
   });
+
+  it("replaces the layers when switching to acceptEdits", () => {
+    const service = new ToolPermissionService();
+    service.initializeSync({ mode: "default" });
+    const state = service.switchMode("acceptEdits");
+
+    expect(state.currentMode).toBe("acceptEdits");
+    expect(state.permissions.policies).toEqual(ACCEPT_EDITS_MODE_POLICIES);
+  });
 });

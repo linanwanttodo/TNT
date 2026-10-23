@@ -288,9 +288,10 @@ declare global {
   export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
   
   export interface MessagePart {
-    type: "text" | "imageUrl";
+    type: "text" | "imageUrl" | "audio";
     text?: string;
     imageUrl?: { url: string };
+    audio?: { data: string; format: "wav" | "mp3" };
   }
   
   export type MessageContent = string | MessagePart[];

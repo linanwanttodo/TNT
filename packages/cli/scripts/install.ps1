@@ -21,8 +21,9 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # Faster downloads
 
 $script:RequiredNodeVersion = [version]"20.20.1"
-$script:PackageName = "@tnt/cli"
-$script:CliCommand = "cn"
+$script:CliCommand = "tnt"
+$script:GithubRepo = "linanwanttodo/TNT"
+$script:InstallDir = if ($env:TNT_CLI_HOME) { $env:TNT_CLI_HOME } else { "$env:LOCALAPPDATA\tnt\cli" }
 $script:FnmInstalled = $false
 $script:FnmPath = "$env:LOCALAPPDATA\fnm"
 
@@ -33,7 +34,7 @@ function Write-Err { param($Message) Write-Host "==> Error: " -ForegroundColor R
 
 function Test-InternetConnection {
     try {
-        $request = [System.Net.WebRequest]::Create("https://registry.npmjs.org")
+        $request = [System.Net.WebRequest]::Create("https://api.github.com")
         $request.Timeout = 5000
         $request.Method = "HEAD"
         $response = $request.GetResponse()
@@ -256,55 +257,98 @@ function Add-ToProfile {
     }
 }
 
-function Install-Cli {
-    Write-Info "Installing $PackageName..."
-
-    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-        Write-Err "npm not found. Please restart PowerShell and try again."
-        exit 1
+function Resolve-Version {
+    if ($env:TNT_VERSION) {
+        $requested = $env:TNT_VERSION.Trim()
+        return $requested.TrimStart('v')
     }
 
-    # Check npm global directory permissions
-    $npmPrefix = npm config get prefix 2>$null
-    if ($npmPrefix -and (Test-Path $npmPrefix)) {
-        try {
-            $testFile = Join-Path $npmPrefix "_continue_test_write"
-            [IO.File]::WriteAllText($testFile, "test")
-            Remove-Item $testFile -Force
-        } catch {
-            Write-Warn "Cannot write to npm global directory. Configuring user-local prefix..."
-            $userNpmDir = "$env:USERPROFILE\.npm-global"
-            if (-not (Test-Path $userNpmDir)) {
-                New-Item -ItemType Directory -Path $userNpmDir -Force | Out-Null
-            }
-            npm config set prefix $userNpmDir
-            $env:PATH = "$userNpmDir;$env:PATH"
-            
-            # Persist npm global bin to user PATH
-            $userPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
-            if ($userPath -notlike "*$userNpmDir*") {
-                Write-Info "Adding npm global directory to user PATH for future sessions..."
-                [Environment]::SetEnvironmentVariable('PATH', "$userNpmDir;$userPath", 'User')
-            }
+    $headers = @{
+        'User-Agent' = 'tnt-cli'
+        'Accept'     = 'application/vnd.github+json'
+    }
+    try {
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$script:GithubRepo/releases/latest" -Headers $headers -TimeoutSec 20
+        if ($release.tag_name) {
+            return $release.tag_name.TrimStart('v')
         }
+    } catch {
+        Write-Warn "GitHub API check failed: $($_.Exception.Message)"
     }
 
-    $npmOutput = npm install -g $PackageName 2>&1
-    $npmExitCode = $LASTEXITCODE
-
-    if ($npmExitCode -ne 0) {
-        Write-Host $npmOutput -ForegroundColor Red
-        Write-Err "Failed to install $PackageName (exit code: $npmExitCode)"
-        exit 1
+    # The API allows 60 unauthenticated requests an hour; the release page
+    # redirect carries the same tag without spending that quota.
+    try {
+        $request = [System.Net.HttpWebRequest]::Create("https://github.com/$script:GithubRepo/releases/latest")
+        $request.AllowAutoRedirect = $false
+        $request.UserAgent = "tnt-cli"
+        $response = $request.GetResponse()
+        $location = $response.Headers["Location"]
+        $response.Close()
+        if ($location -match '/releases/tag/v?([^/?#]+)') {
+            return $Matches[1]
+        }
+    } catch {
+        Write-Warn "Release page check failed: $($_.Exception.Message)"
     }
 
-    # Verify the CLI was installed
-    $npmBinPath = npm config get prefix 2>$null
-    if ($npmBinPath) {
-        $env:PATH = "$npmBinPath;$env:PATH"
+    throw "Could not determine the latest release. Set `$env:TNT_VERSION and retry."
+}
+
+function Install-Cli {
+    $version = Resolve-Version
+    Write-Info "Installing TNT CLI v$version..."
+
+    $asset = "tnt-cli-v$version-win32-x64.tar.gz"
+    $url = "https://github.com/$script:GithubRepo/releases/download/v$version/$asset"
+    $archive = Join-Path $env:TEMP $asset
+
+    try {
+        Invoke-SafeWebRequest -Uri $url -OutFile $archive
+    } catch {
+        # v1.0.6 and earlier published one unsuffixed Linux asset; name the
+        # failure clearly instead of leaving a half-extracted install.
+        Write-Err "No Windows x64 asset in v$version ($asset)."
+        throw
     }
 
-    Write-Success "$PackageName installed!"
+    if (Test-Path $script:InstallDir) {
+        Remove-Item -Path $script:InstallDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType Directory -Path $script:InstallDir -Force | Out-Null
+
+    if (-not (Get-Command tar -ErrorAction SilentlyContinue)) {
+        throw "tar.exe not found. Windows 10 1803 or later is required."
+    }
+    tar -xzf $archive -C $script:InstallDir
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$script:InstallDir\package\dist\tnt.js")) {
+        throw "The downloaded archive did not contain dist/tnt.js"
+    }
+
+    # The tarball carries the sqlite3 binding for Windows; prove it loads
+    # before wiring the command onto PATH.
+    Push-Location "$script:InstallDir\package"
+    try {
+        node -e "require('sqlite3')" | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "The bundled sqlite3 native module failed to load on this platform."
+        }
+    } finally {
+        Pop-Location
+    }
+
+    $shim = "@echo off`r`nnode `"$script:InstallDir\package\dist\tnt.js`" %*`r`n"
+    Set-Content -Path (Join-Path $script:InstallDir "tnt.cmd") -Value $shim -Encoding ASCII
+
+    $env:PATH = "$script:InstallDir;$env:PATH"
+    $userPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
+    if ($userPath -notlike "*$script:InstallDir*") {
+        Write-Info "Adding $script:InstallDir to the user PATH..."
+        [Environment]::SetEnvironmentVariable('PATH', "$script:InstallDir;$userPath", 'User')
+    }
+
+    Remove-Item -Path $archive -Force -ErrorAction SilentlyContinue
+    Write-Success "TNT CLI v$version installed to $script:InstallDir"
 }
 
 function Show-Complete {
@@ -342,7 +386,7 @@ function Main {
     # Check internet connectivity
     Write-Info "Checking internet connectivity..."
     if (-not (Test-InternetConnection)) {
-        Write-Err "Cannot reach npm registry. Please check your internet connection and try again."
+        Write-Err "Cannot reach GitHub. Please check your internet connection and try again."
         exit 1
     }
 

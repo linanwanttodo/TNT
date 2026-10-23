@@ -1,5 +1,3 @@
-import { JSDOM } from "jsdom";
-
 export async function findFaviconPath(url: URL): Promise<string | undefined> {
   const baseUrl = `${url.protocol}//${url.hostname}`;
 
@@ -10,6 +8,7 @@ export async function findFaviconPath(url: URL): Promise<string | undefined> {
     }
 
     const html = await response.text();
+    const { JSDOM } = await import("jsdom");
     const dom = new JSDOM(html);
     const document = dom.window.document;
 

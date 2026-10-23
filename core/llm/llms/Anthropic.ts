@@ -149,7 +149,7 @@ class Anthropic extends BaseLLM {
               text: part.text,
             });
           }
-        } else {
+        } else if (part.type === "imageUrl") {
           const base64Data = extractBase64FromDataUrl(part.imageUrl.url);
           if (base64Data) {
             parts.push({

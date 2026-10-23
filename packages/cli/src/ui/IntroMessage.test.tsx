@@ -1,12 +1,16 @@
 import { render } from "ink-testing-library";
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { IntroMessage } from "./IntroMessage.js";
 
-vi.mock("../startup/asciiArt.js", () => ({
-  getDisplayableAsciiArt: () => "MOCK ASCII ART",
+vi.mock("./hooks/useTerminalSize.js", () => ({
+  useTerminalSize: () => ({ columns: 80, rows: 24, isResizing: false }),
 }));
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function frameOf(element: React.ReactElement): string | undefined {
   const tree = render(element);
@@ -17,6 +21,7 @@ function frameOf(element: React.ReactElement): string | undefined {
 
 describe("IntroMessage", () => {
   it("renders the brand plate", () => {
+    vi.stubEnv("NO_COLOR", "");
     const frame = frameOf(<IntroMessage />) ?? "";
     expect(frame).toContain("██████");
     expect(frame).not.toContain("Tip:");

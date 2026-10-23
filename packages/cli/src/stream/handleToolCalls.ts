@@ -2,28 +2,22 @@ import type { ChatHistoryItem, ToolStatus } from "core/index.js";
 import { stripImages } from "core/util/messageContent.js";
 import { createHistoryItem } from "core/util/messageConversion.js";
 
-import { checkToolPermission } from "src/permissions/permissionChecker.js";
 import type { ToolPermissions } from "src/permissions/types.js";
 
-import {
-  SERVICE_NAMES,
-  serviceContainer,
-  services,
-} from "../services/index.js";
-import type { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
-import {
-  convertToolToChatCompletionTool,
-  getAllAvailableTools,
-  Tool,
-  ToolCall,
-} from "../tools/index.js";
+import { services } from "../services/index.js";
+import { ToolCall } from "../tools/index.js";
 import { logger } from "../utils/logger.js";
+import { completedReasoning } from "../utils/reasoning.js";
 
 import {
   executeStreamedToolCalls,
   preprocessStreamedToolCalls,
 } from "./streamChatResponse.helpers.js";
 import { StreamCallbacks } from "./streamChatResponse.types.js";
+
+// The selection policy lives with the tool layer; exported here because the
+// stream engine and its mocks already import it through this module.
+export { getRequestTools } from "../tools/selection/requestTools.js";
 
 interface HandleToolCallsOptions {
   toolCalls: ToolCall[];
@@ -32,6 +26,12 @@ interface HandleToolCallsOptions {
   callbacks: StreamCallbacks | undefined;
   isHeadless: boolean;
   usage?: any;
+  /**
+   * The provider's reasoning channel for this round. It is stored beside the
+   * assistant message so the transcript can show the thought; it is never
+   * appended to the answer text.
+   */
+  reasoning?: string;
   /**
    * Forwarded to the executor so the caller can keep a per-tool failure tally.
    * A permission denial is not a tool failure, so it is deliberately not
@@ -58,16 +58,28 @@ interface HandleToolCallsOptions {
 export async function handleToolCalls(
   options: HandleToolCallsOptions,
 ): Promise<boolean> {
-  const { toolCalls, chatHistory, content, callbacks, isHeadless, usage } =
-    options;
+  const {
+    toolCalls,
+    chatHistory,
+    content,
+    callbacks,
+    isHeadless,
+    usage,
+    reasoning,
+  } = options;
   const chatHistorySvc = services.chatHistory;
   const useService =
     typeof chatHistorySvc?.isReady === "function" && chatHistorySvc.isReady();
   if (toolCalls.length === 0) {
-    if (content) {
+    if (content || reasoning) {
       if (useService) {
         // Service-driven: write assistant message via service
-        chatHistorySvc.addAssistantMessage(content, undefined, usage);
+        chatHistorySvc.addAssistantMessage(
+          content,
+          undefined,
+          usage,
+          reasoning,
+        );
       } else {
         // Fallback only when service is unavailable
         const message: any = {
@@ -77,7 +89,11 @@ export async function handleToolCalls(
         if (usage) {
           message.usage = usage;
         }
-        chatHistory.push(createHistoryItem(message));
+        const item = createHistoryItem(message);
+        if (reasoning?.trim()) {
+          item.reasoning = completedReasoning(reasoning);
+        }
+        chatHistory.push(item);
       }
     }
     return false;
@@ -119,13 +135,18 @@ export async function handleToolCalls(
       assistantMessage.content || "",
       assistantMessage.toolCalls,
       usage,
+      reasoning,
     );
   } else {
     // Fallback only when service is unavailable
     const messageWithUsage = usage
       ? { ...assistantMessage, usage }
       : assistantMessage;
-    chatHistory.push(createHistoryItem(messageWithUsage, [], toolCallStates));
+    const item = createHistoryItem(messageWithUsage, [], toolCallStates);
+    if (reasoning?.trim()) {
+      item.reasoning = completedReasoning(reasoning);
+    }
+    chatHistory.push(item);
   }
 
   // First preprocess the tool calls
@@ -203,48 +224,4 @@ export async function handleToolCalls(
   // Adding them again would be redundant (and previously caused duplicate tool_result messages
   // when combined with separate tool history items).
   return false;
-}
-
-export async function getRequestTools(
-  isHeadless: boolean,
-  /**
-   * Permissions to evaluate against. Left unset, the process-wide policy is
-   * used, which is what a top-level turn wants.
-   */
-  permissions?: ToolPermissions,
-  /**
-   * Whether this run may delegate again. A run at its depth limit does not see
-   * the delegation tool at all.
-   */
-  canDelegate: boolean = true,
-) {
-  const availableTools = await getAllAvailableTools(isHeadless, canDelegate);
-
-  const permissionsState =
-    permissions ??
-    (
-      await serviceContainer.get<ToolPermissionServiceState>(
-        SERVICE_NAMES.TOOL_PERMISSIONS,
-      )
-    ).permissions;
-
-  const allowedTools: Tool[] = [];
-  // In auto mode the classifier answers the asks, so a headless run must still
-  // see those tools; without this the model has nothing to call.
-  const autoModeActive = services.toolPermissions.getCurrentMode() === "auto";
-  for (const tool of availableTools) {
-    const result = checkToolPermission(
-      { name: tool.name, arguments: {} },
-      permissionsState,
-    );
-
-    if (
-      result.permission === "allow" ||
-      (result.permission === "ask" && (!isHeadless || autoModeActive))
-    ) {
-      allowedTools.push(tool);
-    }
-  }
-
-  return allowedTools.map(convertToolToChatCompletionTool);
 }

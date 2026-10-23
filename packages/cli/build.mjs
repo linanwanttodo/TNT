@@ -4,10 +4,10 @@ import * as esbuild from "esbuild";
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   rmSync,
   writeFileSync,
 } from "fs";
@@ -40,18 +40,14 @@ const external = [
 
 console.log("Building CLI with esbuild...");
 
-// Remove launcher shims left behind by earlier builds (for example the old
-// "cn" command before the rename to "tnt"). They are untracked, so nothing
-// else cleans them up, and a stale one would still ship inside the npm
-// tarball and keep exposing a command that no longer exists.
+// Each build hashes its chunks, so a rebuild otherwise leaves the previous
+// generation in dist. The release tarball copies dist wholesale, which turned
+// a 30 MB bundle into hundreds of megabytes of dead chunks.
 const distDir = resolve(__dirname, "dist");
 if (existsSync(distDir)) {
-  for (const entry of readdirSync(distDir, { withFileTypes: true })) {
-    if (entry.isFile() && /^(cn|tnt)\.js$/.test(entry.name)) {
-      rmSync(join(distDir, entry.name));
-    }
-  }
+  rmSync(distDir, { recursive: true, force: true });
 }
+mkdirSync(distDir, { recursive: true });
 
 // Plugin to handle optional react-devtools-core
 const optionalDevtoolsPlugin = {
@@ -201,6 +197,14 @@ const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
     );
   }
   console.log(`✓ Copied tree-sitter.wasm and ${languages.length} grammars`);
+
+  // The native clipboard helper is loaded by path; esbuild cannot inline a
+  // .node binary. Ship all platform prebuilds because the release tarball is
+  // built on one OS per artifact and the loader also runs from source.
+  cpSync(resolve(__dirname, "native"), resolve(__dirname, "dist", "native"), {
+    recursive: true,
+  });
+  console.log("✓ Copied native clipboard helpers");
 
   // Make the wrapper script executable
   chmodSync("dist/tnt.js", 0o755);

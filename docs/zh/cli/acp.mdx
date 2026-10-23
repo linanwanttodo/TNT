@@ -8,7 +8,7 @@ TNT 可以作为 [Agent Client Protocol](https://agentclientprotocol.com/) 智�
 权限请求以及模式和模型变更。不会打开 HTTP 监听端口。
 
 <Info>
-ACP 用于编辑器集成。脚本和 CI 请使用[无头模式](/zh/cli/headless-mode)。
+  ACP 用于编辑器集成。脚本和 CI 请使用[无头模式](/zh/cli/headless-mode)。
 </Info>
 
 ## 在编辑器中启动
@@ -40,24 +40,25 @@ Zed：
 
 ## 支持的方法
 
-| 方法 | 行为 |
-| --- | --- |
-| `initialize` | 协商 ACP v1 并报告智能体能力 |
-| `authenticate` | 接受请求；客户端支持终端认证时，`initialize` 会提供 `tnt-setup` 方法 |
-| `session/new` | 创建会话并启动对应 worker |
-| `session/load` | 重新打开已保存的会话并回放 |
-| `session/resume` | 重新打开已保存的会话，不回放 |
-| `session/list` | 列出已保存的会话，可按 cwd 过滤 |
-| `session/prompt` | 运行一个回合并流式发送更新 |
-| `session/cancel` | 取消当前回合 |
-| `session/set_mode` | 切换该会话的权限模式 |
-| `session/set_config_option` | 切换聊天模型 |
-| `session/close` | 停止 worker，保留会话记录 |
-| `session/delete` | 停止 worker 并删除会话 |
+| 方法                        | 行为                                                                 |
+| --------------------------- | -------------------------------------------------------------------- |
+| `initialize`                | 协商 ACP v1 并报告智能体能力                                         |
+| `authenticate`              | 接受请求；客户端支持终端认证时，`initialize` 会提供 `tnt-setup` 方法 |
+| `session/new`               | 创建会话并启动对应 worker                                            |
+| `session/load`              | 重新打开已保存的会话并回放                                           |
+| `session/resume`            | 重新打开已保存的会话，不回放                                         |
+| `session/list`              | 列出已保存的会话，可按 cwd 过滤                                      |
+| `session/prompt`            | 运行一个回合并流式发送更新                                           |
+| `session/cancel`            | 取消当前回合                                                         |
+| `session/set_mode`          | 切换该会话的权限模式                                                 |
+| `session/set_config_option` | 切换聊天模型                                                         |
+| `session/close`             | 停止 worker，保留会话记录                                            |
+| `session/delete`            | 停止 worker 并删除会话                                               |
 
 智能体会声明 `loadSession`、list/delete/resume/close 会话能力，以及 HTTP/SSE
-MCP 支持。Prompt 支持文本、资源链接和内嵌文本上下文。只有在客户端声明终端
-认证能力时，智能体才会提供认证方法。
+MCP 支持。Prompt 支持文本、资源链接、内嵌文本上下文、图片和 wav/mp3 音频。
+音频只在接受 OpenAI `input_audio` 的模型上生效。只有在客户端声明终端认证能力
+时，智能体才会提供认证方法。
 
 ## 流式更新
 
@@ -65,6 +66,10 @@ MCP 支持。Prompt 支持文本、资源链接和内嵌文本上下文。只有
 `agent_thought_chunk`，以及工具生命周期的 `tool_call` / `tool_call_update`。
 工具调用从开始到结束保持同一个 id，因此编辑器可以更新同一行而不是创建重复行。
 只有在客户端声明相应能力时，才会发送 notice 和压缩更新。
+
+每次 `Todo` 调用后，完整的待办列表会作为 `plan` 更新发送；`session/load` 会
+回放最新的计划。一个回合结束后，TNT 会发送 `usage_update`，包含当前上下文
+token 数、模型上下文上限和会话累计美元成本。
 
 ## 权限
 
@@ -75,6 +80,11 @@ MCP 支持。Prompt 支持文本、资源链接和内嵌文本上下文。只有
 - 拒绝。
 
 被取消或失败的权限请求一律视为拒绝，而不是批准。无人值守运行仍然失败关闭。
+
+当编辑器声明支持终端时，Bash 命令会在编辑器终端中运行；TNT 通过 ACP 读取
+输出和退出状态。超过超时时间的命令不会被杀掉，而是保留为可轮询的后台任务；
+`CheckBackgroundJob` 会在命令退出后释放终端。终端保持可见，你可以直接在
+其中回答交互式提示；ACP v1 没有 stdin 请求，所以智能体无法替你输入。
 
 ## 模式
 
@@ -90,13 +100,27 @@ serve 的语义，不会通过 ACP 提供。详见[模式](/zh/cli/modes)。
 ## 编辑器文件缓冲区
 
 当客户端声明 `fs.readTextFile` 或 `fs.writeTextFile` 时，TNT 会让 `Read`、
-`Write`、`Edit` 和 `MultiEdit` 通过编辑器读写，而不是读取磁盘上最后一次保存
-的副本。因此编辑会应用到编辑器当前显示的内容，包括未保存的修改。如果编辑器
-拒绝读取或写入，工具会回退到本地文件，避免修改无声消失。`ApplyPatch` 仍然
-基于磁盘规划和写入。
+`Write`、`Edit`、`MultiEdit` 和 `ApplyPatch` 通过编辑器读写，而不是读取磁盘
+上最后一次保存的副本。因此编辑和补丁会应用到编辑器当前显示的内容，包括未保存
+的修改。如果编辑器拒绝读取或写入，工具会回退到本地文件，避免修改无声消失。
+`ApplyPatch` 的删除段仍会删除磁盘文件，因为 ACP 没有删除请求。
 
 无论读取来自编辑器还是磁盘，超大工具结果都保存在会话自己的
 `tool-results/` 目录中。
+
+## 图片与音频
+
+图片 prompt 会转换为 `data:` URL 的图片内容。音频块会转换为 OpenAI
+`input_audio` 内容，格式为 `wav` 或 `mp3`。两者都会写入会话记录，并在
+`session/load` 时回放。所选模型必须接受对应内容：音频需要支持音频输入的
+OpenAI 兼容模型，无法承载音频的 provider 会拒绝或忽略它。
+
+## 附加工作区目录
+
+`session/new`、`session/load` 和 `session/resume` 接受
+`additionalDirectories`。每一项必须是绝对路径且目录存在。该会话的写入策略
+会把这些目录视为工作区，因此 `acceptEdits` 可以在其中写入而无需询问；
+会话仍存活时，`session/list` 会返回这些目录。
 
 ## MCP 服务器
 

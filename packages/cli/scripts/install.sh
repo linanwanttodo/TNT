@@ -9,8 +9,11 @@ set -euo pipefail
 REQUIRED_NODE_VERSION="20.20.1"
 CLI_COMMAND="tnt"
 GITHUB_REPO="linanwanttodo/TNT"
-INSTALL_DIR="$HOME/.local/share/tnt-cli"
-BIN_DIR="$HOME/.local/bin"
+# TNT owns ~/.tnt (config, logs, sessions), so the installed CLI lives there
+# too instead of a generic XDG data directory or npm's global prefix.
+INSTALL_DIR="${TNT_CLI_HOME:-$HOME/.tnt/cli}"
+BIN_DIR="${TNT_CLI_BIN_DIR:-$HOME/.local/bin}"
+LEGACY_INSTALL_DIR="$HOME/.local/share/tnt-cli"
 NETWORK_TIMEOUT=60
 FNM_INSTALL_DIR="$HOME/.local/share/fnm"
 
@@ -47,6 +50,7 @@ trap cleanup EXIT
 
 PLATFORM=""
 ARCH=""
+ASSET_PLATFORM=""
 SHELL_PROFILE=""
 SHELL_TYPE=""
 
@@ -105,6 +109,12 @@ detect_platform() {
         armv7l)        ARCH="armv7l" ;;
         i386|i686)     error "32-bit systems are not supported" ;;
         *)             error "Unsupported architecture: $arch" ;;
+    esac
+
+    # Release assets are named with Node's platform label.
+    case "$PLATFORM" in
+        windows) ASSET_PLATFORM="win32" ;;
+        *)       ASSET_PLATFORM="$PLATFORM" ;;
     esac
 
     info "Detected platform: $PLATFORM-$ARCH"
@@ -253,6 +263,13 @@ resolve_version() {
 
     local tag
     tag="$(download "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)"
+    if [ -z "$tag" ]; then
+        # The API allows 60 unauthenticated requests an hour; the release page
+        # redirect carries the same tag without spending that quota.
+        local page
+        page="$(download "https://github.com/$GITHUB_REPO/releases/latest" || true)"
+        tag="$(printf '%s' "$page" | grep -o 'releases/tag/v[0-9][^"<]*' | head -n1 | sed 's#releases/tag/##')"
+    fi
     [ -n "$tag" ] || error "Could not determine the latest release. Set TNT_VERSION and retry."
     VERSION="${tag#v}"
     info "Latest release: v$VERSION"
@@ -261,9 +278,20 @@ resolve_version() {
 install_cli() {
     info "Installing TNT CLI v$VERSION from GitHub Releases..."
 
+    local asset="tnt-cli-v${VERSION}-${ASSET_PLATFORM}-${ARCH}.tar.gz"
+    local url="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$asset"
     TMP_TARBALL="$(mktemp /tmp/tnt-cli-XXXXXX.tar.gz)"
-    local url="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/tnt-cli-v$VERSION.tar.gz"
-    download "$url" "$TMP_TARBALL"
+    if ! download "$url" "$TMP_TARBALL"; then
+        # v1.0.6 and earlier published a single Linux x64 tarball without a
+        # platform suffix; keep those releases installable.
+        if [ "$ASSET_PLATFORM-$ARCH" = "linux-x64" ]; then
+            warn "No $asset in v$VERSION; falling back to the legacy asset."
+            url="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/tnt-cli-v$VERSION.tar.gz"
+            download "$url" "$TMP_TARBALL" || error "No downloadable asset for $PLATFORM-$ARCH in v$VERSION."
+        else
+            error "No downloadable asset for $PLATFORM-$ARCH in v$VERSION."
+        fi
+    fi
 
     rm -rf "$INSTALL_DIR"
     mkdir -p "$INSTALL_DIR"
@@ -293,6 +321,13 @@ install_cli() {
     add_to_profile "export PATH=\"$BIN_DIR:\$PATH\"" "$BIN_DIR"
 
     success "TNT CLI v$VERSION installed to $INSTALL_DIR"
+
+    # Earlier releases installed to the XDG data directory. Once the new copy
+    # is wired up, drop the old tree so there is only one CLI on disk.
+    if [ -d "$LEGACY_INSTALL_DIR" ]; then
+        rm -rf "$LEGACY_INSTALL_DIR"
+        info "Removed the previous install at $LEGACY_INSTALL_DIR"
+    fi
 }
 
 finalize() {

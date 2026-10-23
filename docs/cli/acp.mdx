@@ -9,8 +9,8 @@ messages, tool activity, permission requests and mode or model changes. No HTTP
 listener or extra port is opened.
 
 <Info>
-ACP is for editor integration. For scripts and CI, use
-[Headless mode](/cli/headless-mode).
+  ACP is for editor integration. For scripts and CI, use [Headless
+  mode](/cli/headless-mode).
 </Info>
 
 ## Start in an editor
@@ -45,25 +45,26 @@ replaying it. The files live under `~/.tnt/sessions/` in the format described in
 
 ## Supported methods
 
-| Method | Behaviour |
-| --- | --- |
-| `initialize` | negotiates ACP v1 and reports the agent capabilities |
-| `authenticate` | accepted; when the client supports terminal auth, `initialize` offers a `tnt-setup` method |
-| `session/new` | creates a session and starts its worker |
-| `session/load` | reopens a saved session and replays it |
-| `session/resume` | reopens a saved session without replay |
-| `session/list` | lists saved sessions, optionally filtered by cwd |
-| `session/prompt` | runs one turn and streams updates |
-| `session/cancel` | cancels the active turn |
-| `session/set_mode` | switches the permission mode for this session |
-| `session/set_config_option` | switches the chat model |
-| `session/close` | stops the worker, keeps the transcript |
-| `session/delete` | stops the worker and removes the session |
+| Method                      | Behaviour                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `initialize`                | negotiates ACP v1 and reports the agent capabilities                                       |
+| `authenticate`              | accepted; when the client supports terminal auth, `initialize` offers a `tnt-setup` method |
+| `session/new`               | creates a session and starts its worker                                                    |
+| `session/load`              | reopens a saved session and replays it                                                     |
+| `session/resume`            | reopens a saved session without replay                                                     |
+| `session/list`              | lists saved sessions, optionally filtered by cwd                                           |
+| `session/prompt`            | runs one turn and streams updates                                                          |
+| `session/cancel`            | cancels the active turn                                                                    |
+| `session/set_mode`          | switches the permission mode for this session                                              |
+| `session/set_config_option` | switches the chat model                                                                    |
+| `session/close`             | stops the worker, keeps the transcript                                                     |
+| `session/delete`            | stops the worker and removes the session                                                   |
 
 The agent advertises `loadSession`, the list, delete, resume and close session
-capabilities, and HTTP/SSE MCP support. Prompts accept text, resource links and
-embedded text context. Agent authentication is offered only when the client
-advertises terminal authentication.
+capabilities, and HTTP/SSE MCP support. Prompts accept text, resource links,
+embedded text context, images and wav/mp3 audio. Audio only works with a model
+that accepts OpenAI `input_audio`. Agent authentication is offered only when the
+client advertises terminal authentication.
 
 ## Streaming updates
 
@@ -72,6 +73,11 @@ The editor receives `agent_message_chunk` for answer text,
 tool lifecycles. Tool calls keep the same id from start to finish, so the editor
 can update one row instead of creating duplicates. Notices and compaction
 updates are sent only when the client advertises those capabilities.
+
+The `Todo` tool's list is sent as a complete `plan` update after every Todo
+call, and `session/load` replays the latest plan. After a prompt settles, TNT
+sends `usage_update` with the tokens currently in context, the model's context
+limit and the session's USD cost.
 
 ## Permissions
 
@@ -85,6 +91,13 @@ is offered three answers:
 
 A cancelled or failed permission request is a refusal, never an approval.
 Unattended runs still fail closed.
+
+When the editor advertises terminal support, Bash commands run in the editor's
+terminal; TNT reads their output and exit status over ACP. A command that
+exceeds its timeout stays alive as a pollable background job, and
+`CheckBackgroundJob` releases the terminal once it exits. The terminal remains
+visible, so you can answer an interactive prompt there; ACP v1 has no stdin
+request, so the agent cannot type for you.
 
 ## Modes
 
@@ -102,14 +115,31 @@ switches the model for that session only.
 ## Editor file buffers
 
 When the client advertises `fs.readTextFile` or `fs.writeTextFile`, TNT routes
-the `Read`, `Write`, `Edit` and `MultiEdit` tools through the editor instead of
-the last saved copy on disk. An edit therefore applies to what the editor
-currently shows, including unsaved changes. If the editor refuses a read or a
-write, the tool falls back to the local file so the change does not disappear.
-`ApplyPatch` still plans and writes against disk.
+`Read`, `Write`, `Edit`, `MultiEdit` and `ApplyPatch` through the editor instead
+of the last saved copy on disk. An edit or patch therefore applies to what the
+editor currently shows, including unsaved changes. If the editor refuses a read
+or a write, the tool falls back to the local file so the change does not
+disappear. An `ApplyPatch` delete still removes the saved file, because ACP has
+no delete request.
 
 Oversized tool results stay in the session's `tool-results/` directory, whether
 the read came from the editor or from disk.
+
+## Images and audio
+
+Image prompt blocks become image content with a `data:` URL. Audio blocks become
+OpenAI `input_audio` parts in `wav` or `mp3` format. Both are stored in the
+transcript and replayed on `session/load`. The selected model has to accept the
+content: audio needs an audio-capable OpenAI-compatible model, and providers
+whose path cannot carry audio will reject or omit it.
+
+## Additional workspace roots
+
+`session/new`, `session/load` and `session/resume` accept
+`additionalDirectories`. Each entry must be an absolute, existing directory. The
+write policy treats those directories as workspace for that session, so
+`acceptEdits` can write there without asking, and `session/list` reports them
+while the session is live.
 
 ## MCP servers
 

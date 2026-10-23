@@ -6,37 +6,22 @@ describe("TurnBudget", () => {
   it("reports steps exhausted once the round ceiling is reached", () => {
     const budget = new TurnBudget({ maxSteps: 3 });
 
-    expect(budget.recordStep(1000)).toBe("ok");
-    expect(budget.recordStep(1000)).toBe("ok");
-    expect(budget.recordStep(1000)).toBe("steps_exhausted");
+    expect(budget.recordStep()).toBe("ok");
+    expect(budget.recordStep()).toBe("ok");
+    expect(budget.recordStep()).toBe("steps_exhausted");
     expect(budget.stepsExhausted).toBe(true);
   });
 
-  it("stops after enough rounds add almost nothing", () => {
-    const budget = new TurnBudget({
-      diminishingReturnsThreshold: 3,
-      diminishingTokenThreshold: 500,
-    });
+  it("keeps counting short tool rounds as progress", () => {
+    // A tool round usually carries less than 500 completion tokens. It is
+    // still progress, so the only bound is the step ceiling: 40 rounds in a
+    // row must not end the turn early.
+    const budget = new TurnBudget({ maxSteps: 100 });
 
-    expect(budget.recordStep(10)).toBe("ok");
-    expect(budget.recordStep(10)).toBe("ok");
-    expect(budget.recordStep(10)).toBe("diminishing_returns");
-  });
-
-  it("clears the stalling tally as soon as a round makes real progress", () => {
-    const budget = new TurnBudget({
-      diminishingReturnsThreshold: 3,
-      diminishingTokenThreshold: 500,
-    });
-
-    budget.recordStep(10);
-    budget.recordStep(10);
-    expect(budget.diminishingRoundsStuck).toBe(false);
-
-    // A round that produced real content resets the run of stalled rounds.
-    budget.recordStep(5000);
-    expect(budget.diminishingRoundsStuck).toBe(false);
-    expect(budget.recordStep(10)).toBe("ok");
+    for (let round = 0; round < 40; round += 1) {
+      expect(budget.recordStep()).toBe("ok");
+    }
+    expect(budget.stepsExhausted).toBe(false);
   });
 
   it("treats a compaction that barely shrank history as a failure", () => {
@@ -63,11 +48,10 @@ describe("TurnBudget", () => {
   it("starts from zero on reset", () => {
     const budget = new TurnBudget({ maxSteps: 1 });
 
-    budget.recordStep(0);
+    budget.recordStep();
     expect(budget.stepsExhausted).toBe(true);
 
     budget.resetForNewTurn();
     expect(budget.stepsExhausted).toBe(false);
-    expect(budget.diminishingRoundsStuck).toBe(false);
   });
 });
