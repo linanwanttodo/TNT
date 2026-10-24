@@ -177,6 +177,12 @@ Messages in the chat history can have different types:
   selects the interface; `--host 0.0.0.0` makes it reachable from the network, and
   there is no authentication, so an exposed port is an unauthenticated remote driver
   that can post prompts, answer permission requests and pause a run
+- A browser page in the same machine can still reach a loopback port, so every
+  request passes a browser-origin guard before any handler runs: a Host header
+  naming anything but the loopback host on the served port is rejected (DNS
+  rebinding), and a request whose Origin header is not a loopback origin is
+  rejected (cross-site writes). Command-line clients send neither header and
+  are unaffected
 - File system access through tool execution
 
 ## Control endpoints

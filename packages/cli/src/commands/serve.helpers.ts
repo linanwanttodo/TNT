@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
-import type { Express, Request, Response } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 
 import { describeChangedFiles } from "../agent/changedFiles.js";
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
@@ -252,6 +252,57 @@ export interface ServerState {
   serverRunning: boolean;
   pendingPermission: PendingPermission | null;
   systemMessage?: string;
+}
+
+/**
+ * Guards the unauthenticated HTTP surface against browser-originated
+ * requests. A page the user is reading can reach a loopback server, so the
+ * guard closes both routes in:
+ *
+ * - DNS rebinding, by rejecting any Host header that is not one of the
+ *   loopback hosts on the served port (a rebound page sends its own domain).
+ *   Relaxed when the operator bound a non-loopback interface with `--host`,
+ *   since that exposure was chosen explicitly.
+ * - cross-site writes, by rejecting requests that carry an Origin header
+ *   other than a loopback origin. Browsers attach Origin on cross-origin
+ *   POSTs; command-line clients typically send none and are unaffected.
+ */
+export function attachBrowserOriginGuard(
+  app: Express,
+  port: number,
+  boundHost?: string,
+): void {
+  const loopbackHosts = new Set([
+    `127.0.0.1:${port}`,
+    `localhost:${port}`,
+    `[::1]:${port}`,
+  ]);
+  const loopback =
+    !boundHost ||
+    ["127.0.0.1", "localhost", "::1"].includes(boundHost.toLowerCase());
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin;
+    if (typeof origin === "string" && origin.length > 0) {
+      const originHost = origin.replace(/^https?:\/\//i, "").toLowerCase();
+      if (!loopbackHosts.has(originHost)) {
+        return res
+          .status(403)
+          .json({ error: "Cross-origin requests are not accepted" });
+      }
+    }
+
+    if (loopback) {
+      const host = (req.headers.host || "").toString().toLowerCase();
+      if (host.length > 0 && !loopbackHosts.has(host)) {
+        return res
+          .status(403)
+          .json({ error: "Host header does not match the loopback server" });
+      }
+    }
+
+    next();
+  });
 }
 
 /**
