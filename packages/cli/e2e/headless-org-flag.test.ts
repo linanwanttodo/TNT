@@ -4,6 +4,10 @@ import {
   runCLI,
   createTestConfig,
 } from "../test-utils/cli-helpers.js";
+import {
+  fixtureApiKeyLine,
+  fixtureKey,
+} from "../test-utils/fixtureCredentials.js";
 
 describe("E2E: Headless Mode with --org flag", () => {
   let context: any;
@@ -16,11 +20,11 @@ models:
     model: gpt-4
     provider: openai
     apiBase: http://127.0.0.1:9/v1
-    apiKey: test-key`;
+${fixtureApiKeyLine("    ", fixtureKey("default"))}`;
 
   const testEnv = {
-    OPENAI_API_KEY: "test-key",
-    CONTINUE_API_KEY: "test-api-key",
+    OPENAI_API_KEY: fixtureKey("env"),
+    CONTINUE_API_KEY: fixtureKey("env"),
   };
 
   beforeEach(async () => {

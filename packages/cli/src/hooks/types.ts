@@ -1,8 +1,8 @@
 /**
- * Claude Code-compatible hooks system for TNT.
+ * Hooks system for TNT.
  *
- * These types match the exact schemas from Claude Code so that any hook
- * written for `claude` works with `tnt` out of the box.
+ * The schemas follow the external-agent hook settings format, so hooks
+ * written against that format work with `tnt` out of the box.
  */
 
 // ---------------------------------------------------------------------------

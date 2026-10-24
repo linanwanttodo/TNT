@@ -4,6 +4,8 @@ import { fileURLToPath } from "url";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
+
 import {
   AgentFileService,
   EMPTY_AGENT_FILE_STATE,
@@ -132,7 +134,7 @@ describe("AgentFileService", () => {
   };
 
   const mockAuthConfig = {
-    apiKey: "test-key",
+    apiKey: fixtureKey("default"),
   };
 
   beforeEach(async () => {

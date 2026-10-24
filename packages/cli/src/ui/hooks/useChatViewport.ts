@@ -51,10 +51,10 @@ function maxScrollTopOf(state: ViewportState): number {
  * The transcript's scroll state.
  *
  * The offset is measured in terminal rows from the top of the transcript, not
- * in messages. pi's ScrollView uses the same model: layout reports the real
- * content height, the viewport clamps the offset to it, and a view that is at
- * the end keeps following new rows. Whole-message stepping cannot be correct
- * because a single answer can be taller than the screen.
+ * in messages. Layout reports the real content height, the viewport clamps
+ * the offset to it, and a view that is at the end keeps following new rows.
+ * Whole-message stepping cannot be correct because a single answer can be
+ * taller than the screen.
  */
 export function useChatViewport({
   isActive,
@@ -105,8 +105,8 @@ export function useChatViewport({
 
     setState((previous) => {
       const maxScrollTop = maxScrollTopOf(previous);
-      // A following view starts from the tail, the way pi's scrollBy treats
-      // the end of the content as the origin of the first wheel notch.
+      // A following view starts from the tail, so the end of the content is
+      // the origin of the first wheel notch.
       const start = previous.following
         ? maxScrollTop
         : Math.min(previous.scrollTop, maxScrollTop);

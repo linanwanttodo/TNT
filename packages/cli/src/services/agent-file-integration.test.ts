@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
+
 import { AgentFileService } from "./AgentFileService.js";
 import { ConfigService } from "./ConfigService.js";
 import { ModelService } from "./ModelService.js";
@@ -107,7 +109,7 @@ describe("Agent file Integration Tests", () => {
   };
 
   const mockAuthConfig = {
-    apiKey: "test-key",
+    apiKey: fixtureKey("default"),
   };
 
   beforeEach(async () => {

@@ -257,12 +257,30 @@ export class UpdateService extends BaseService<UpdateServiceState> {
 
   private restartCLI(): void {
     try {
+      // The restart re-executes this CLI with the arguments the user started
+      // it with. They come from the process's own argv - the trust boundary
+      // the OS already enforces. The spawn is hardened regardless:
+      // - the entry point is validated as a script path, so nothing the Node
+      //   executable would parse as its own option can reach the child (Node
+      //   only reads options before the script path, never after it);
+      // - empty arguments are dropped so the child argv stays well-formed;
+      // - the array form without `shell` never routes through a shell, so no
+      //   argument is ever re-parsed as command syntax.
       const entryPoint = process.argv[1];
-      const cliArgs = process.argv.slice(2);
+      if (!entryPoint || entryPoint.startsWith("-")) {
+        logger.debug("Skipping CLI restart: no script entry point in argv");
+        return;
+      }
+      const restartArgs = [
+        entryPoint,
+        ...process.argv
+          .slice(2)
+          .filter((arg) => typeof arg === "string" && arg.length > 0),
+      ];
       const nodeExecutable = process.execPath;
 
       logger.debug(
-        `Preparing for CLI restart with: ${nodeExecutable} ${entryPoint} ${cliArgs.join(
+        `Preparing for CLI restart with: ${nodeExecutable} ${restartArgs.join(
           " ",
         )}`,
       );
@@ -280,7 +298,7 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       }
 
       // Spawn a new detached tnt process
-      const child = spawn(nodeExecutable, [entryPoint, ...cliArgs], {
+      const child = spawn(nodeExecutable, restartArgs, {
         detached: true,
         stdio: "inherit",
         env: {

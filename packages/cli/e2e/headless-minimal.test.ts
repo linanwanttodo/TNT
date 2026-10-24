@@ -6,6 +6,7 @@ import {
   createTestContext,
   runCLI,
 } from "../test-utils/cli-helpers.js";
+import { fixtureKey } from "../test-utils/fixtureCredentials.js";
 
 describe("E2E: Headless Mode (Minimal)", () => {
   let context: any;
@@ -32,7 +33,7 @@ provider: openai`,
     // Without proper mocking, it will fail to connect to OpenAI
     const result = await runCLI(context, {
       args: ["-p", "--config", configPath, "Hello"],
-      env: { OPENAI_API_KEY: "test-key" },
+      env: { OPENAI_API_KEY: fixtureKey("env") },
       expectError: true,
     });
 
@@ -53,7 +54,7 @@ provider: openai`,
     const result = await runCLI(context, {
       args: ["-p", "--config", configPath, "Hello, world!"],
       env: {
-        OPENAI_API_KEY: "test-key",
+        OPENAI_API_KEY: fixtureKey("env"),
         // Simulate TTY-less environment (like Docker, CI, or VSCode terminal tool)
         FORCE_NO_TTY: "true",
       },

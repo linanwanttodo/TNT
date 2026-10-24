@@ -1,42 +1,22 @@
 /**
- * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
+ * Splits streaming Markdown text at a point that keeps the formatting intact.
  *
- * NOTICE: This file has been modified from the original Gemini CLI source
- * for integration with TNT (tnt)
+ * When streamed content outgrows one display chunk it has to be divided, and
+ * a naive character-limit split corrupts Markdown - most critically fenced
+ * code blocks, but also lists and blockquotes. `findSafeSplitPoint` returns
+ * an index that respects the document structure:
+ *
+ * 1. Content at or under `idealMaxLength` is not split.
+ * 2. A split never lands inside a fenced code block. If the limit falls
+ *    inside one, the split moves before the block; a block that starts at
+ *    the very beginning and is itself too long yields 0, pushing the whole
+ *    block into the next chunk.
+ * 3. Otherwise the split walks backwards from `idealMaxLength` to the
+ *    nearest paragraph break (`\n\n`), then the nearest single newline,
+ *    never choosing one inside a code block.
+ * 4. With no structural boundary available, one unbreakable run may push the
+ *    result past `idealMaxLength` rather than corrupt the formatting.
  */
-
-/*
-**Background & Purpose:**
-
-The `findSafeSplitPoint` function is designed to address the challenge of displaying or processing large, potentially streaming, pieces of Markdown text. When content (e.g., from an LLM like Gemini) arrives in chunks or grows too large for a single display unit (like a message bubble), it needs to be split. A naive split (e.g., just at a character limit) can break Markdown formatting, especially critical for multi-line elements like code blocks, lists, or blockquotes, leading to incorrect rendering.
-
-This function aims to find an *intelligent* or "safe" index within the provided `content` string at which to make such a split, prioritizing the preservation of Markdown integrity.
-
-**Key Expectations & Behavior (Prioritized):**
-
-1.  **No Split if Short Enough:**
-    * If `content.length` is less than or equal to `idealMaxLength`, the function should return `content.length` (indicating no split is necessary for length reasons).
-
-2.  **Code Block Integrity (Highest Priority for Safety):**
-    * The function must try to avoid splitting *inside* a fenced code block (i.e., between ` ``` ` and ` ``` `).
-    * If `idealMaxLength` falls within a code block:
-        * The function will attempt to return an index that splits the content *before* the start of that code block.
-        * If a code block starts at the very beginning of the `content` and `idealMaxLength` falls within it (meaning the block itself is too long for the first chunk), the function might return `0`. This effectively makes the first chunk empty, pushing the entire oversized code block to the second part of the split.
-    * When considering splits near code blocks, the function prefers to keep the entire code block intact in one of the resulting chunks.
-
-3.  **Markdown-Aware Newline Splitting (If Not Governed by Code Block Logic):**
-    * If `idealMaxLength` does not fall within a code block (or after code block considerations have been made), the function will look for natural break points by scanning backwards from `idealMaxLength`:
-        * **Paragraph Breaks:** It prioritizes splitting after a double newline (`\n\n`), as this typically signifies the end of a paragraph or a block-level element.
-        * **Single Line Breaks:** If no double newline is found in a suitable range, it will look for a single newline (`\n`).
-    * Any newline chosen as a split point must also not be inside a code block.
-
-4.  **Fall back to `idealMaxLength`:**
-    * If no "safer" split point (respecting code blocks or finding suitable newlines) is identified before or at `idealMaxLength`, and `idealMaxLength` itself is not determined to be an unsafe split point (e.g., inside a code block), the function may return a length larger than `idealMaxLength`, again it CANNOT break markdown formatting. This could happen with very long lines of text without Markdown block structures or newlines.
-
-**In essence, `findSafeSplitPoint` tries to be a good Markdown citizen when forced to divide content, preferring structural boundaries over arbitrary character limits, with a strong emphasis on not corrupting code blocks.**
-*/
 
 /**
  * Checks if a given character index within a string is inside a fenced (```) code block.

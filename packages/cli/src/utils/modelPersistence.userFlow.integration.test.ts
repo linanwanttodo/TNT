@@ -5,6 +5,7 @@ import * as path from "path";
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
 import { getModelName, updateModelName } from "../auth/workos.js";
 import * as config from "../config/index.js";
 import { ModelService } from "../services/ModelService.js";
@@ -38,21 +39,21 @@ describe("Model Persistence User Flow", () => {
           provider: "openai",
           model: "gpt-4",
           name: "GPT-4",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
         {
           provider: "anthropic",
           model: "claude-3-5-sonnet-20241022",
           name: "Claude 3.5 Sonnet",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
         {
           provider: "anthropic",
           model: "claude-3-opus-20240229",
           name: "Claude 3 Opus",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
       ],

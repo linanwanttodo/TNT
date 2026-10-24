@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 
@@ -11,6 +11,10 @@ import {
   runCLI,
   type CLITestContext,
 } from "../test-utils/cli-helpers.js";
+import {
+  fixtureApiKeyLine,
+  fixtureKey,
+} from "../test-utils/fixtureCredentials.js";
 
 describe("E2E: Git Branch Display", () => {
   let context: CLITestContext;
@@ -23,7 +27,7 @@ models:
   - name: gpt-4
     model: gpt-4
     provider: openai
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     roles:
       - chat`;
 
@@ -60,7 +64,9 @@ models:
 
         // Create and checkout a test branch
         const testBranchName = "feature/test-branch";
-        execSync(`git checkout -b ${testBranchName}`, { stdio: "ignore" });
+        execFileSync("git", ["checkout", "-b", testBranchName], {
+          stdio: "ignore",
+        });
 
         // Create config file
         await createTestConfig(context, testConfig);
@@ -147,7 +153,7 @@ models:
             encoding: "utf-8",
           },
         ).trim();
-        execSync(`git checkout ${firstCommit}`, { stdio: "ignore" });
+        execFileSync("git", ["checkout", firstCommit], { stdio: "ignore" });
 
         // Test git functions in detached HEAD state
         const { getGitBranch, isGitRepo } = await import("../src/utils/git.js");
@@ -187,7 +193,9 @@ models:
 
         // Create branch with special characters
         const specialBranchName = "feature/fix-123_with-dashes.and.dots";
-        execSync(`git checkout -b "${specialBranchName}"`, { stdio: "ignore" });
+        execFileSync("git", ["checkout", "-b", specialBranchName], {
+          stdio: "ignore",
+        });
 
         // Test git functions
         const { getGitBranch } = await import("../src/utils/git.js");
@@ -232,9 +240,8 @@ models:
         execSync("git checkout -b test-branch", { stdio: "ignore" });
 
         // Test the formatting function
-        const { getResponsiveRepoText } = await import(
-          "../src/ui/hooks/useTUIChatHooks.js"
-        );
+        const { getResponsiveRepoText } =
+          await import("../src/ui/hooks/useTUIChatHooks.js");
         const repoText = getResponsiveRepoText();
 
         // Should include both repo and branch
@@ -253,9 +260,8 @@ models:
       process.chdir(context.testDir);
 
       // Test without git repo
-      const { getRepoUrlText } = await import(
-        "../src/ui/hooks/useTUIChatHooks.js"
-      );
+      const { getRepoUrlText } =
+        await import("../src/ui/hooks/useTUIChatHooks.js");
       const repoText = getRepoUrlText();
 
       // Should not contain branch separator

@@ -6,6 +6,8 @@ vi.mock("../utils/prompt.js", () => ({
   question: (...args: unknown[]) => questionMock(...args),
 }));
 
+import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
+
 import {
   PROTOCOLS,
   buildConfigYaml,
@@ -18,7 +20,7 @@ describe("provider setup config generation", () => {
   const base: ProviderSetup = {
     protocol: "openai-chat-completions",
     apiBase: "https://api.openai.com/v1",
-    apiKey: "sk-test-key",
+    apiKey: fixtureKey("test"),
     model: "gpt-4.1",
   };
 
@@ -71,7 +73,7 @@ describe("provider setup config generation", () => {
     const yaml = buildConfigYaml({
       protocol: "openai-compatible",
       apiBase: "https://api.deepseek.com/v1",
-      apiKey: "sk-deepseek",
+      apiKey: fixtureKey("deepseek"),
       model: "",
     });
 
@@ -89,7 +91,7 @@ describe("provider setup config generation", () => {
     expect(yaml).toContain("provider: openai");
     expect(yaml).toContain(`model: \"gpt-4.1\"`);
     expect(yaml).toContain(`apiBase: \"https://api.openai.com/v1\"`);
-    expect(yaml).toContain(`apiKey: \"sk-test-key\"`);
+    expect(yaml).toContain(`apiKey: \"${fixtureKey("test")}\"`);
     expect(yaml).not.toContain("roles:");
     expect(yaml).not.toContain("defaultCompletionOptions:");
   });
@@ -103,7 +105,7 @@ describe("provider setup config generation", () => {
     const yaml = buildConfigYaml({
       protocol: "openai-compatible",
       apiBase: "",
-      apiKey: 'sk-secret\\key"quote',
+      apiKey: 'secret\\key"quote',
       model: 'model"name\\with\\slashes',
     });
     expect(yaml).toContain('model: "model\\"name\\\\with\\\\slashes"');
@@ -129,7 +131,7 @@ describe("interactive provider setup flow", () => {
     questionMock
       .mockResolvedValueOnce("5") // protocol: any OpenAI-compatible endpoint
       .mockResolvedValueOnce("http://localhost:8000/v1") // base URL
-      .mockResolvedValueOnce("sk-local") // API key
+      .mockResolvedValueOnce(fixtureKey("local")) // API key
       .mockResolvedValueOnce("qwen2.5-coder"); // model
 
     const setup = await runProviderSetup();
@@ -137,7 +139,7 @@ describe("interactive provider setup flow", () => {
     expect(setup).toEqual({
       protocol: "openai-compatible",
       apiBase: "http://localhost:8000/v1",
-      apiKey: "sk-local",
+      apiKey: fixtureKey("local"),
       model: "qwen2.5-coder",
     });
     expect(questionMock).toHaveBeenCalledTimes(4);
@@ -147,7 +149,7 @@ describe("interactive provider setup flow", () => {
     questionMock
       .mockResolvedValueOnce("3") // Anthropic Messages
       .mockResolvedValueOnce("") // accept default URL
-      .mockResolvedValueOnce("sk-ant-key")
+      .mockResolvedValueOnce(fixtureKey("anthropic"))
       .mockResolvedValueOnce(""); // accept default model
 
     const setup = await runProviderSetup();
@@ -162,12 +164,12 @@ describe("interactive provider setup flow", () => {
       .mockResolvedValueOnce("1") // OpenAI Chat Completions
       .mockResolvedValueOnce("") // default URL
       .mockResolvedValueOnce("   ") // blank key, should re-ask
-      .mockResolvedValueOnce("sk-real")
+      .mockResolvedValueOnce(fixtureKey("real"))
       .mockResolvedValueOnce("gpt-4.1");
 
     const setup = await runProviderSetup();
 
-    expect(setup.apiKey).toBe("sk-real");
+    expect(setup.apiKey).toBe(fixtureKey("real"));
     expect(questionMock).toHaveBeenCalledTimes(5);
   });
 

@@ -1,17 +1,18 @@
 /**
  * Hook configuration loader.
  *
- * Loads hooks from settings files in the same locations as Claude Code:
+ * Loads hooks from settings files in these locations:
  * - ~/.tnt/settings.json  (user-global)
  * - .tnt/settings.json    (project, committable)
  * - .tnt/settings.local.json (project-local, gitignored)
  *
- * Also supports Claude Code's native locations for cross-compatibility:
+ * Also reads the equivalent external-agent settings locations for
+ * cross-compatibility:
  * - ~/.claude/settings.json
  * - .claude/settings.json
  * - .claude/settings.local.json
  *
- * Hooks from all sources are merged (project > user, continue > claude).
+ * Hooks from all sources are merged (project > user, tnt > compat).
  */
 
 import * as fs from "fs";
@@ -42,7 +43,7 @@ function loadSettingsFile(filePath: string): HookSettingsFile | null {
 
 /**
  * Merge two hook configs. Later config entries are appended (not replaced).
- * This matches Claude Code's behavior: hooks from multiple sources all run.
+ * Hooks from multiple sources all run.
  */
 function mergeHooksConfigs(
   base: HooksConfig,

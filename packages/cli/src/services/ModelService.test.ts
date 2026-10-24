@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 vi.mock("../config/index.js");
 vi.mock("../auth/workos.js");
 
+import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
 import * as workos from "../auth/workos.js";
 import { AuthConfig } from "../auth/workos.js";
 import * as config from "../config/index.js";
@@ -29,21 +30,21 @@ describe("ModelService", () => {
           provider: "openai",
           model: "gpt-4",
           name: "GPT-4",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
         {
           provider: "anthropic",
           model: "claude-3",
           name: "Claude 3",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
         {
           provider: "openai",
           model: "gpt-3.5",
           name: "GPT-3.5",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["embed"],
         } as ModelConfig,
       ],
@@ -197,7 +198,7 @@ describe("ModelService", () => {
             provider: "local",
             model: "llama-2",
             name: "Llama 2",
-            apiKey: "test-key",
+            apiKey: fixtureKey("default"),
             // roles is undefined
           } as ModelConfig,
         ],

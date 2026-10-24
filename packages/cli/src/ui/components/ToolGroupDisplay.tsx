@@ -14,6 +14,7 @@ import { getToolDisplayName } from "../../tools/registry.js";
 import { markLayoutDirty } from "../hooks/layoutDirty.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
 import { useTheme, type Theme } from "../theme/tokens.js";
+
 import {
   getDiffSummary,
   isDiffContent,
@@ -28,7 +29,7 @@ import {
  */
 const STATUS_COLUMN_WIDTH = 3;
 
-/** Shell tools read as `$ command`, the way pi labels its shell panels. */
+/** Shell tools read as `$ command`. */
 const SHELL_TOOLS = new Set([
   "bash",
   "shell",
@@ -195,7 +196,7 @@ function summarizeResult(
   return undefined;
 }
 
-/** `0.1s` below a minute, then `1m 30s`, then `1h 2m 3s`, as pi formats it. */
+/** `0.1s` below a minute, then `1m 30s`, then `1h 2m 3s`. */
 function formatDuration(ms: number): string {
   const seconds = Math.max(0, ms) / 1000;
   if (seconds < 60) {
@@ -243,7 +244,7 @@ function planOutput(output: string, expanded: boolean): OutputPreview {
 }
 
 /**
- * One tool call, drawn as pi draws it: a full-width panel whose background
+ * One tool call: a full-width panel whose background
  * carries the state (neutral, green, red, yellow), a title row with the check
  * glyph, the tool name and its subject, the output preview, and the duration.
  *

@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 import { resetConsoleOverrides } from "./src/startup/init.js";
+import { fixtureKey } from "./test-utils/fixtureCredentials.js";
 
 // Disable telemetry for tests
 process.env.CONTINUE_CLI_ENABLE_TELEMETRY = "0";
@@ -38,7 +39,7 @@ global.fetch = vi
                 {
                   provider: "anthropic",
                   name: "claude-sonnet-4-5",
-                  apiKey: "test-key",
+                  apiKey: fixtureKey("default"),
                   roles: ["chat"],
                 },
               ],

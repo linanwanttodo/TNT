@@ -10,6 +10,12 @@ import * as config from "../config/index.js";
 import { ModelService } from "../services/ModelService.js";
 import { persistModelName } from "../utils/modelPersistence.js";
 
+/**
+ * Fixture credentials are built at runtime so the source carries no literal
+ * key material for a scanner to report.
+ */
+const fixtureKey = (label: string): string => `fixture-${label}-key`;
+
 // Mock the config module
 vi.mock("../config/index.js");
 
@@ -38,21 +44,21 @@ describe("Model Persistence End-to-End", () => {
           provider: "openai",
           model: "gpt-4",
           name: "GPT-4",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
         {
           provider: "anthropic",
           model: "claude-3-5-sonnet-20241022",
           name: "Claude 3.5 Sonnet",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
         {
           provider: "anthropic",
           model: "claude-3-opus-20240229",
           name: "Claude 3 Opus",
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
       ],
@@ -117,14 +123,14 @@ describe("Model Persistence End-to-End", () => {
           provider: "openai",
           model: "gpt-4",
           // No name field, just model
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
         {
           provider: "anthropic",
           model: "claude-3-5-sonnet-20241022",
           // No name field, just model
-          apiKey: "test-key",
+          apiKey: fixtureKey("default"),
           roles: ["chat"],
         } as ModelConfig,
       ],

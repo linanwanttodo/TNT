@@ -121,7 +121,7 @@ function executeCommandHook(
       CONTINUE_PROJECT_DIR: cwd,
     };
 
-    // Use shell to execute the command (matches Claude Code behavior). The
+    // Use shell to execute the command. The
     // hook gets its own process group on POSIX (see killProcessTree).
     const shell = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
     const shellArgs =
@@ -271,7 +271,7 @@ async function executeHttpHook(
     clearTimeout(timeout);
 
     if (!response.ok) {
-      // Non-2xx = non-blocking error (matches Claude Code behavior)
+      // Non-2xx = non-blocking error.
       logger.warn(`HTTP hook returned ${response.status}: ${handler.url}`);
       return {
         output: null,
@@ -316,7 +316,7 @@ async function executeHttpHook(
 
 /**
  * Single-turn LLM evaluation. The prompt receives the hook input as $ARGUMENTS
- * and must answer with the Claude Code hook JSON schema.
+ * and must answer with the hook JSON schema.
  */
 async function executePromptHook(
   handler: PromptHookHandler,

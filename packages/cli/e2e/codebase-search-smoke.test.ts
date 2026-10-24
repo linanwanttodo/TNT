@@ -8,6 +8,10 @@ import {
   runCLI,
 } from "../test-utils/cli-helpers.js";
 import {
+  fixtureApiKeyLine,
+  fixtureKey,
+} from "../test-utils/fixtureCredentials.js";
+import {
   cleanupMockLLMServer,
   createMockLLMServer,
 } from "../test-utils/mock-llm-server.js";
@@ -193,14 +197,14 @@ models:
   - name: chat
     provider: openai
     model: gpt-4
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     apiBase: ${mockServer.url}
     roles:
       - chat
   - name: embed
     provider: openai
     model: text-embedding-3-small
-    apiKey: test-key
+${fixtureApiKeyLine("    ", fixtureKey("default"))}
     apiBase: ${mockServer.url}
     roles:
       - embed

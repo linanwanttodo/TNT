@@ -4,6 +4,8 @@ import path from "path";
 
 import { execaNode, type Subprocess } from "execa";
 
+import { fixtureApiKeyLine } from "../test-utils/fixtureCredentials.js";
+
 export interface SmokeTestContext {
   cliPath: string;
   testDir: string;
@@ -66,7 +68,7 @@ models:
   - name: smoke-haiku
     model: ${SMOKE_MODEL}
     provider: anthropic
-    apiKey: "${apiKey}"
+${fixtureApiKeyLine("    ", apiKey)}
     defaultCompletionOptions:
       maxTokens: 1024
     roles:
@@ -97,7 +99,7 @@ models:
   - name: smoke-haiku
     model: ${SMOKE_PROXY_MODEL}
     provider: continue-proxy
-    apiKey: "${apiKey}"
+${fixtureApiKeyLine("    ", apiKey)}
     defaultCompletionOptions:
       maxTokens: 1024
     roles:

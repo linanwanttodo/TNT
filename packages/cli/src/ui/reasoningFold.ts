@@ -4,8 +4,8 @@ import { useSyncExternalStore } from "react";
  * Whether finished reasoning rows show their full text.
  *
  * This is a view preference rather than a property of a message: the same
- * stored turn can be read collapsed or expanded. Finished blocks start folded,
- * as Claude Code's do; a live block is opened by its `isStreaming` flag until
+ * stored turn can be read collapsed or expanded. Finished blocks start folded;
+ * a live block is opened by its `isStreaming` flag until
  * the round ends. Keeping it outside the message means the transcript does not
  * have to be rewritten to change the view.
  */

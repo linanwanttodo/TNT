@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
+import type { Express, Request, Response } from "express";
 
 import { describeChangedFiles } from "../agent/changedFiles.js";
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
@@ -12,11 +13,13 @@ import {
 } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
+import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import { services } from "../services/index.js";
-import { updateSessionTitle } from "../session/index.js";
 import { runAgentTurn } from "../session/controller.js";
+import { updateSessionTitle } from "../session/index.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { formatError } from "../utils/formatError.js";
+import { getGitDiffSnapshot } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -249,6 +252,71 @@ export interface ServerState {
   serverRunning: boolean;
   pendingPermission: PendingPermission | null;
   systemMessage?: string;
+}
+
+/**
+ * GET /events - Stream the engine event contract as server-sent events.
+ * The polling /state endpoint stays for the current remote client; a client
+ * that understands events gets reasoning, tool lifecycle, and approvals
+ * without waiting for the next snapshot.
+ */
+export function registerSseEventRoute(
+  app: Express,
+  state: ServerState,
+): void {
+  app.get("/events", (req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    const unsubscribe = subscribeAgentEvents((event) => {
+      res.write(`event: ${event.type}\n`);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
+
+    const keepAlive = setInterval(() => {
+      res.write(": keep-alive\n\n");
+    }, 15_000);
+
+    req.on("close", () => {
+      clearInterval(keepAlive);
+      unsubscribe();
+    });
+  });
+}
+
+/**
+ * GET /diff - Return git diff against main branch.
+ */
+export function registerDiffRoute(app: Express, state: ServerState): void {
+  app.get("/diff", async (_req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+
+    try {
+      const diffResult = await getGitDiffSnapshot();
+
+      if (!diffResult.repoFound) {
+        res.status(404).json({
+          error: "Not in a git repository or main branch doesn't exist",
+          diff: "",
+        });
+        return;
+      }
+
+      res.json({
+        diff: diffResult.diff,
+      });
+    } catch (error) {
+      logger.error(`Git diff error: ${formatError(error)}`);
+      res.status(500).json({
+        error: `Failed to get git diff: ${formatError(error)}`,
+        diff: "",
+      });
+    }
+  });
 }
 
 /**

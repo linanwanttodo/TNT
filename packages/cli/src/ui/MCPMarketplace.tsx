@@ -15,7 +15,7 @@ interface MCPMarketplaceProps {
 
 /**
  * `/mcp market`: a catalog of MCP servers written to mcp.json in the
- * Claude-compatible shape. Enter adds the highlighted server; a restart is
+ * compatible shape. Enter adds the highlighted server; a restart is
  * what connects it.
  */
 export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({ onCancel }) => {

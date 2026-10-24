@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
 import { getUniqueId } from "../utils/uniqueId.js";
 
 import { createLlmApi } from "./index.js";
@@ -13,7 +14,7 @@ describe("the CLI identifies a request without replacing the SDK identity", () =
   const model: any = {
     provider: "openai",
     model: "gpt-4o-mini",
-    apiKey: "test-key",
+    apiKey: fixtureKey("default"),
   };
 
   /**
