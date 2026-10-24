@@ -54,6 +54,7 @@ rules:
 | --- | --- |
 | `~/.tnt/settings.json` | 权限、钩子、环境变量、语言、输出风格和默认模式 |
 | `~/.tnt/mcp.json` | MCP 服务器，见 [MCP](/zh/cli/mcp) |
+| `<workspace>/.mcp.json` | Claude 兼容格式的项目级 MCP 服务器；此处只读（同 `.claude` 层），仅对已信任的项目生效 |
 
 `config.yaml` 不读取 `mcpServers` 和 `permissions`；MCP 服务器属于 `mcp.json`，
 工具策略属于 `settings.json` 的 `permissions` 键。
@@ -93,7 +94,20 @@ rules:
 | `~/.tnt/.env` | `${{ secrets.* }}` 使用的密钥 |
 | `.tnt/` | 项目设置和 MCP 服务器（需信任） |
 
-可以通过全局目录环境变量迁移主目录，`sessions`、`logs` 和插件目录也会一起迁移。
+可以通过 `TNT_GLOBAL_DIR` 迁移主目录，`sessions`、`logs` 和插件目录也会一起迁移。
+
+## 环境变量
+
+| 变量 | 含义 |
+| --- | --- |
+| `TNT_GLOBAL_DIR` | 迁移主目录；`sessions`、`logs` 和插件目录一起移动 |
+| `TNT_TRUST_PROJECT` | 免提示将当前工作区标记为已信任 |
+| `TNT_API_BASE` | 覆盖配置中的 API base URL |
+| `TNT_HEADLESS_TIMEOUT` | 无头模式的回合墙钟上限（秒），等同 `--request-timeout` |
+| `TNT_PLUGINS_DIR` | 迁移插件目录 |
+| `TNT_THEME` | 为本次会话选择界面主题 |
+
+`CONTINUE_GLOBAL_DIR` 与 `CONTINUE_API_BASE` 会作为对应 `TNT_*` 变量的回退被读取。
 
 ## 密钥
 

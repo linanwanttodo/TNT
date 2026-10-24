@@ -29,6 +29,9 @@ cat error.log | tnt -p "Explain what went wrong"
 | `--allow`, `--ask`, `--exclude` | override permission policies for this run |
 | `--permission-mode <mode>` | start in `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` or `dontAsk` |
 | `--readonly`, `--auto` | legacy aliases for `plan` and `bypassPermissions` |
+| `--output-schema <path>` | validate the final answer against a JSON Schema file, only with `-p` |
+| `--request-timeout <seconds>` | cut the turn short after this many seconds, covering every tool round (default 300, `0` disables) |
+| `--fork <sessionId>` | fork from an existing session instead of starting a new one |
 
 ## Environments without a TTY
 
