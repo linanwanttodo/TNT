@@ -2,6 +2,7 @@ import { Text } from "ink";
 import React from "react";
 
 import { MarkdownRenderer } from "./MarkdownRenderer.js";
+import { darkTheme } from "./theme/tokens.js";
 
 describe("MarkdownRenderer", () => {
   // Helper function to simulate calling the component function directly
@@ -62,7 +63,7 @@ describe("MarkdownRenderer", () => {
     expect(result.length).toBe(3);
     expect(result[0]).toBe("This is ");
     expect(React.isValidElement(result[1])).toBe(true);
-    expect((result[1] as any).props.color).toBe("cyanBright");
+    expect((result[1] as any).props.color).toBe(darkTheme.accent);
     expect((result[1] as any).props.children).toBe("code");
     expect(result[2]).toBe(" text");
   });

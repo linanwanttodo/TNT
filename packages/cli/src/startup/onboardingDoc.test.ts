@@ -89,9 +89,12 @@ describe("spec/onboarding.md agrees with the flow", () => {
   });
 
   it("matches the interactive path and its saved message", () => {
+    expect(flow).toContain("await runProviderSetupInk()");
     expect(flow).toContain("await runProviderSetup()");
     expect(flow).toContain("writeConfig(buildConfigYaml(setup))");
     expect(flow).toContain('t("setup.saved"');
+    expect(doc).toContain("`runProviderSetupInk()`");
+    expect(doc).toContain("`ProviderSetupScreen`");
     expect(doc).toContain("`runProviderSetup()`");
     expect(doc).toContain("`writeConfig()`");
     expect(doc).toContain("`setup.saved`");

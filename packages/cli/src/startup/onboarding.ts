@@ -2,6 +2,8 @@ import * as fs from "fs";
 import * as path from "path";
 
 import chalk from "chalk";
+import { render } from "ink";
+import React from "react";
 
 import type { AuthConfig } from "../auth/workos.js";
 import { env } from "../config/env.js";
@@ -13,10 +15,34 @@ import {
   checkHasAcceptableModel,
   runProviderSetup,
   writeConfig,
+  type ProviderSetup,
 } from "../config/providerSetup.js";
 import { t } from "../i18n/index.js";
 
+import { ProviderSetupScreen } from "./ProviderSetupScreen.js";
+
 export { checkHasAcceptableModel };
+
+/**
+ * The first-run box, rendered outside the main TUI because onboarding finishes
+ * before the chat screen exists. It resolves after the screen exits; a null
+ * result means the user cancelled.
+ */
+export async function runProviderSetupInk(): Promise<ProviderSetup | null> {
+  let result: ProviderSetup | null = null;
+  const app = render(
+    React.createElement(ProviderSetupScreen, {
+      onComplete: (setup: ProviderSetup) => {
+        result = setup;
+      },
+      onCancel: () => {
+        result = null;
+      },
+    }),
+  );
+  await app.waitUntilExit();
+  return result;
+}
 
 export async function runOnboardingFlow(
   configPath: string | undefined,
@@ -53,8 +79,15 @@ export async function runOnboardingFlow(
   }
 
   // Step 4: Ask which provider to use, then for its URL, key and model. The
-  // answers become the config file; no provider is assumed.
-  const setup = await runProviderSetup();
+  // answers become the config file; no provider is assumed. A real terminal
+  // gets the single-box Ink flow; environments where Ink cannot render fall
+  // back to the line prompts.
+  const setup = process.stdout.isTTY
+    ? await runProviderSetupInk()
+    : await runProviderSetup();
+  if (!setup) {
+    return false;
+  }
 
   writeConfig(buildConfigYaml(setup));
   console.log(chalk.green(t("setup.saved", { path: CONFIG_PATH })));

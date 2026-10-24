@@ -31,12 +31,20 @@ TTY, no prompt runs. If `ANTHROPIC_API_KEY` is set the flow prints
 
 ## Interactive runs
 
-`runProviderSetup()` asks for the provider, its base URL, key and model; `writeConfig()`
-writes the resulting configuration and the flow prints `setup.saved` with the path. No
+On a real terminal, `runProviderSetupInk()` renders one bordered
+`ProviderSetupScreen`: a numbered protocol list (Up/Down or a number key, Enter), then
+the base URL, API key and model in the same box, one field at a time. No protocol is
+preselected; Enter on the list asks for a choice instead of accepting a default. Enter
+confirms a field, Esc cancels, and the API key is masked while it is typed.
+
+When stdout is not a TTY, `runProviderSetup()` asks for the same fields with line
+prompts. Both paths return the same `ProviderSetup`; `writeConfig()` writes the
+resulting configuration and the flow prints `setup.saved` with the path. No
 login or hosted assistant is required.
 
 ## Source
 
 - `src/startup/onboarding.ts` - the flow, first-run check and marker
-- `src/config/providerSetup.ts` - provider prompt and config writing
+- `src/config/providerSetup.ts` - protocols, defaults and config writing
+- `src/startup/ProviderSetupScreen.tsx` - the single-box Ink setup screen
 - `src/services/index.ts` - when onboarding is invoked

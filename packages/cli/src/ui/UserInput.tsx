@@ -19,7 +19,7 @@ import { InputHistory } from "../utils/inputHistory.js";
 
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
-import { ModeIndicator, modeBorderColor } from "./components/ModeIndicator.js";
+import { ModeIndicator } from "./components/ModeIndicator.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { consumeComposerDraft, useComposerDraft } from "./composerDraft.js";
 import { FileSearchUI } from "./FileSearchUI.js";
@@ -31,6 +31,7 @@ import {
 } from "./hooks/useUserInput.js";
 import { SlashCommandUI } from "./SlashCommandUI.js";
 import { TextBuffer } from "./TextBuffer.js";
+import { useTheme } from "./theme/tokens.js";
 import { isTerminalMouseSequence } from "./utils/mouse.js";
 
 // Small presentational helpers to reduce cyclomatic complexity in UserInput
@@ -141,15 +142,18 @@ const UserInput: React.FC<UserInputProps> = ({
   onShowEditSelector,
 }) => {
   const locale = useLocale();
+  const theme = useTheme();
   const [textBuffer] = useState(() => new TextBuffer());
   const [inputHistory] = useState(() => new InputHistory());
   const lastEscapePressRef = useRef<number>(0);
+  const handleTextBufferUpdateRef = useRef<() => void>(() => {});
 
-  // Stable callback for TextBuffer state changes to prevent race conditions
+  // Stable callback for TextBuffer state changes to prevent race conditions.
+  // Finalized rapid input replaces the buffer wholesale, so it has to refresh
+  // the slash palette and every other derived state, not just the text.
   const onStateChange = useCallback(() => {
-    setInputText(textBuffer.text);
-    setCursorPosition(textBuffer.cursor);
-  }, [textBuffer]);
+    handleTextBufferUpdateRef.current();
+  }, []);
 
   // Set up callback for when TextBuffer state changes (e.g., rapid input finalized)
   React.useEffect(() => {
@@ -797,6 +801,7 @@ const UserInput: React.FC<UserInputProps> = ({
     updateBashModeState(newText);
     inputHistory.resetNavigation();
   };
+  handleTextBufferUpdateRef.current = handleTextBufferUpdate;
 
   // A queued message moved back for editing arrives as a one-shot draft.
   const pendingDraft = useComposerDraft();
@@ -1024,11 +1029,7 @@ const UserInput: React.FC<UserInputProps> = ({
       <ModeIndicator
         mode={currentMode}
         borderColor={
-          showBashMode
-            ? "yellow"
-            : isRemoteMode
-              ? "cyan"
-              : modeBorderColor(currentMode)
+          showBashMode ? "yellow" : isRemoteMode ? "cyan" : theme.accent
         }
       />
 
@@ -1038,15 +1039,11 @@ const UserInput: React.FC<UserInputProps> = ({
         borderTop={false}
         paddingX={1}
         borderColor={
-          showBashMode
-            ? "yellow"
-            : isRemoteMode
-              ? "cyan"
-              : modeBorderColor(currentMode)
+          showBashMode ? "yellow" : isRemoteMode ? "cyan" : theme.accent
         }
       >
         <Text
-          color={showBashMode ? "yellow" : isRemoteMode ? "cyan" : "blue"}
+          color={showBashMode ? "yellow" : isRemoteMode ? "cyan" : theme.accent}
           bold
         >
           {showBashMode ? "$ " : isRemoteMode ? "◉ " : "> "}
