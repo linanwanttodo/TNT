@@ -30,14 +30,12 @@ import {
   getSessionPromptProfile,
   loadOrCreateSessionById,
 } from "../session/index.js";
-import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { reportFailureTool } from "../tools/reportFailure.js";
 import { runEnvironmentInstallSafe } from "../utils/environmentHandler.js";
 import { gracefulExit, updateAgentMetadata } from "../utils/exit.js";
 import { formatError } from "../utils/formatError.js";
-import { getGitDiffSnapshot } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 import { readStdinSync } from "../utils/stdin.js";
 
@@ -49,6 +47,8 @@ import {
   endServedSession,
   finishServedTurn,
   prepareServedPrompt,
+  registerDiffRoute,
+  registerSseEventRoute,
   removePartialAssistantMessage,
   startServedSession,
   streamServeResponse,
@@ -260,31 +260,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   });
 
   // GET /events - Stream the engine event contract as server-sent events.
-  // The polling /state endpoint stays for the current remote client; a client
-  // that understands events gets reasoning, tool lifecycle, and approvals
-  // without waiting for the next snapshot.
-  app.get("/events", (req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
-
-    const unsubscribe = subscribeAgentEvents((event) => {
-      res.write(`event: ${event.type}\n`);
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-    });
-
-    const keepAlive = setInterval(() => {
-      res.write(": keep-alive\n\n");
-    }, 15_000);
-
-    req.on("close", () => {
-      clearInterval(keepAlive);
-      unsubscribe();
-    });
-  });
+  registerSseEventRoute(app, state);
 
   // POST /message - Queue a message and potentially interrupt
   app.post("/message", async (req: Request, res: Response) => {
@@ -369,31 +345,7 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   });
 
   // GET /diff - Return git diff against main branch
-  app.get("/diff", async (_req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-
-    try {
-      const diffResult = await getGitDiffSnapshot();
-
-      if (!diffResult.repoFound) {
-        res.status(404).json({
-          error: "Not in a git repository or main branch doesn't exist",
-          diff: "",
-        });
-        return;
-      }
-
-      res.json({
-        diff: diffResult.diff,
-      });
-    } catch (error) {
-      logger.error(`Git diff error: ${formatError(error)}`);
-      res.status(500).json({
-        error: `Failed to get git diff: ${formatError(error)}`,
-        diff: "",
-      });
-    }
-  });
+  registerDiffRoute(app, state);
 
   // Track intervals for cleanup
   let inactivityChecker: NodeJS.Timeout | null = null;

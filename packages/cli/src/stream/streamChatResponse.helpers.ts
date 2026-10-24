@@ -22,8 +22,13 @@ export {
   processToolCallDelta,
   trackFirstTokenTime,
 } from "./chunkProcessing.js";
-export { cacheTokensFrom, recordStreamTelemetry } from "./usageTelemetry.js";
+export {
+  cacheTokensFrom,
+  recordRoundAccounting,
+  recordStreamTelemetry,
+} from "./usageTelemetry.js";
 export {
   executeStreamedToolCalls,
   preprocessStreamedToolCalls,
 } from "./toolExecution.js";
+export { dispatchApprovedCall, noteToolUpdate } from "./toolDispatch.js";

@@ -23,6 +23,14 @@ const packageRoot = path.resolve(
 );
 
 const SERVE = path.join(packageRoot, "src", "commands", "serve.ts");
+// The SSE and diff routes register from the helpers file beside the rest of
+// the serve plumbing, so both sources keep the same registration promise.
+const SERVE_HELPERS = path.join(
+  packageRoot,
+  "src",
+  "commands",
+  "serve.helpers.ts",
+);
 const ENTRY = path.join(packageRoot, "src", "index.ts");
 const CLIENT = path.join(
   packageRoot,
@@ -34,7 +42,10 @@ const CLIENT = path.join(
 const SPEC = path.join(packageRoot, "spec", "wire-format.md");
 
 function routes(): string[] {
-  const source = readFileSync(SERVE, "utf-8");
+  const source = [
+    readFileSync(SERVE, "utf-8"),
+    readFileSync(SERVE_HELPERS, "utf-8"),
+  ].join("\n");
   return [
     ...new Set(
       [
