@@ -454,6 +454,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           isBashToolRunning={isBashToolRunning}
           scrollTop={scrollTop}
           onScrollMetrics={onMetrics}
+          showScrollbar
         />
 
         <Composer
