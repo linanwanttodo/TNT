@@ -8,6 +8,8 @@ on:
 
 jobs:
   build-and-upload-vsix:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     strategy:

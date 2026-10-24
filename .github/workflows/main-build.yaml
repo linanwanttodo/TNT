@@ -13,6 +13,8 @@ on:
 
 jobs:
   republish-pr-artifacts:
+      # SUSPENDED (2026-10-24): IDE extensions are dormant pending rework; remove this guard to re-enable.
+    if: false
     runs-on: ubuntu-latest
     strategy:
       matrix:
