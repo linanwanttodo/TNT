@@ -36,7 +36,7 @@ function frameOf(element: React.ReactElement): string {
 
 describe("GoalIndicator", () => {
   it("renders nothing when no goal is set", async () => {
-    expect(frameOf(<GoalIndicator />)).not.toContain("Goal:");
+    expect(frameOf(<GoalIndicator />)).not.toContain("GOAL");
   });
 
   it("renders the goal line above the composer", async () => {
@@ -49,7 +49,7 @@ describe("GoalIndicator", () => {
 
     const frame = frameOf(<GoalIndicator />);
 
-    expect(frame).toContain("Goal:");
+    expect(frame).toContain("GOAL");
     expect(frame).toContain("Ship the TNT cli resume flow");
   });
 });

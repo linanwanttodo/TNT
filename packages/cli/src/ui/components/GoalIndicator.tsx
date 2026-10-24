@@ -1,8 +1,8 @@
 import { Text } from "ink";
 import React from "react";
 
-import { t } from "../../i18n/index.js";
 import { getSessionGoal } from "../../session/index.js";
+import { useTheme } from "../theme/tokens.js";
 
 const MAX_VISIBLE_CHARS = 80;
 const ELLIPSIS = "...";
@@ -27,6 +27,7 @@ export function truncateGoal(goal: string, maxChars = MAX_VISIBLE_CHARS) {
 
 const GoalIndicator: React.FC = () => {
   const goal = getSessionGoal();
+  const theme = useTheme();
 
   if (!goal) {
     return null;
@@ -34,12 +35,10 @@ const GoalIndicator: React.FC = () => {
 
   return (
     <Text wrap="truncate-end">
-      <Text color="blue" bold>
-        {t("goal.label")}
+      <Text color={theme.accent} bold>
+        GOAL{" "}
       </Text>
-      <Text color="gray" dimColor>
-        {truncateGoal(goal)}
-      </Text>
+      <Text color={theme.text.primary}>{truncateGoal(goal)}</Text>
     </Text>
   );
 };

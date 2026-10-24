@@ -3,47 +3,70 @@ import React from "react";
 
 import { t } from "../../i18n/index.js";
 import { readTodoState } from "../../tools/todo.js";
+import { useTheme } from "../theme/tokens.js";
 
 const MAX_VISIBLE = 5;
 
 interface TodoIndicatorProps {
-  /** Number of todo rows to show before collapsing into a counter. */
+  /** Number of open todo rows to show before collapsing into a summary row. */
   maxRows?: number;
 }
 
 /**
- * Compact list of what is still left, rendered directly above the composer.
- * Only unfinished rows are drawn, at most maxRows of them; the rest travel as a
- * counter on the header so a long list cannot push the composer upward.
+ * The open todo list, rendered directly above the composer.
+ *
+ * A single vertical spine guides the eye from the header down the rows and
+ * every row hangs off it with a short branch. Finished rows hide themselves -
+ * the header keeps their count so progress against the whole plan stays
+ * readable - and open rows past the budget collapse into one trailing summary
+ * line, so a long list cannot push the composer upward.
  */
 const TodoIndicator: React.FC<TodoIndicatorProps> = ({
   maxRows = MAX_VISIBLE,
 }) => {
   const { todos } = readTodoState();
-  const unfinished = todos.filter((todo) => !todo.done);
+  const theme = useTheme();
 
-  if (unfinished.length === 0) {
+  const open = todos.filter((todo) => !todo.done);
+  const done = todos.length - open.length;
+
+  if (open.length === 0) {
     return null;
   }
 
-  const done = todos.length - unfinished.length;
-  const visible = unfinished.slice(0, Math.max(1, maxRows));
-  const hidden = unfinished.length - visible.length;
-  const count = t("tool.todosCount", { done, total: todos.length });
+  const visible = open.slice(0, Math.max(1, maxRows));
+  const hidden = open.length - visible.length;
+  const branch = (isLast: boolean): string => (isLast ? "└─" : "├─");
 
   return (
     <Box flexDirection="column">
-      <Box>
-        <Text color="gray" dimColor>
-          {hidden > 0 ? `${count} · +${hidden}` : count}
+      <Text>
+        <Text color={theme.accent} bold>
+          TODO
         </Text>
-      </Box>
-      {visible.map((todo) => (
-        <Box key={todo.id}>
-          <Text color="gray">○ </Text>
-          <Text>{todo.text}</Text>
-        </Box>
-      ))}
+        <Text color={theme.text.secondary}>
+          {" · "}
+          {done}/{todos.length}
+        </Text>
+      </Text>
+      {visible.map((todo, index) => {
+        const isLast = hidden === 0 && index === visible.length - 1;
+        return (
+          <Text key={todo.id}>
+            <Text color={theme.text.subtle}>{branch(isLast)} </Text>
+            <Text color={theme.text.secondary}>☐ </Text>
+            {todo.text}
+          </Text>
+        );
+      })}
+      {hidden > 0 && (
+        <Text>
+          <Text color={theme.text.subtle}>└─ </Text>
+          <Text color={theme.text.secondary}>
+            {t("ui.todoMore", { count: hidden })}
+          </Text>
+        </Text>
+      )}
     </Box>
   );
 };
