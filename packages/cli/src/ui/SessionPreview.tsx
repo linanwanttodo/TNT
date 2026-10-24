@@ -1,11 +1,19 @@
 import type { ChatHistoryItem } from "core/index.js";
-import { Box, Text } from "ink";
-import React, { useMemo } from "react";
+import { Box, type DOMElement, measureElement, Text, useInput } from "ink";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
 
 import { t } from "../i18n/index.js";
 
-import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import { ScrollBarColumn } from "./components/ScrollBarColumn.js";
 import { defaultBoxStyles } from "./styles.js";
+import { scrollbarGeometry } from "./utils/scrollbar.js";
 
 interface SessionPreviewProps {
   chatHistory: ChatHistoryItem[];
@@ -25,13 +33,63 @@ function formatMessageContent(content: string | any): string {
   return "(unknown content type)";
 }
 
+/**
+ * The preview pane of the session selector: the whole conversation, laid out
+ * in full and clipped to the pane, with a scrollbar and PageUp/PageDown for
+ * the part that does not fit. Nothing here guesses how tall a message is -
+ * the earlier fixed-height slice could only ever show the first few messages
+ * of a long session.
+ */
 export function SessionPreview({
   chatHistory,
   sessionTitle,
 }: SessionPreviewProps) {
-  const { rows: terminalHeight } = useTerminalSize();
+  const viewportRef = useRef<DOMElement>(null);
+  const contentRef = useRef<DOMElement>(null);
+  const [metrics, setMetrics] = useState({
+    contentHeight: 0,
+    viewportHeight: 0,
+  });
+  const [scrollTop, setScrollTop] = useState(0);
 
-  // Filter and format messages for preview
+  // A different selection replaces the content; the read starts from the top.
+  useEffect(() => {
+    setScrollTop(0);
+  }, [chatHistory, sessionTitle]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+
+    const next = {
+      contentHeight: measureElement(content).height,
+      viewportHeight: measureElement(viewport).height,
+    };
+    setMetrics((previous) =>
+      previous.contentHeight === next.contentHeight &&
+      previous.viewportHeight === next.viewportHeight
+        ? previous
+        : next,
+    );
+  });
+
+  const maxScrollTop = Math.max(
+    0,
+    metrics.contentHeight - metrics.viewportHeight,
+  );
+  const page = Math.max(1, metrics.viewportHeight - 1);
+
+  // The selector's own handler owns the list keys; the preview only reads the
+  // page keys, which no other surface on this screen consumes.
+  useInput((input, key) => {
+    if (key.pageUp) {
+      setScrollTop((previous) => Math.max(0, previous - page));
+    } else if (key.pageDown) {
+      setScrollTop((previous) => Math.min(maxScrollTop, previous + page));
+    }
+  });
+
   const previewMessages = useMemo(() => {
     return chatHistory
       .filter((item) => {
@@ -52,20 +110,12 @@ export function SessionPreview({
       }));
   }, [chatHistory]);
 
-  // Calculate how many messages we can display based on terminal height
-  const maxMessages = useMemo(() => {
-    // Account for:
-    // - Box border (top + bottom): 2 lines
-    // - Box padding (top + bottom): 2 lines
-    // - Title line: 1 line
-    // - Empty line after title: 1 line
-    // - "... and X more messages" line: 1 line
-    // - Each message: ~4 lines (role + content + marginBottom)
-    const OVERHEAD = 7;
-    const LINES_PER_MESSAGE = 4;
-    const availableHeight = Math.max(1, terminalHeight - OVERHEAD);
-    return Math.max(1, Math.floor(availableHeight / LINES_PER_MESSAGE));
-  }, [terminalHeight]);
+  const clampedScrollTop = Math.min(scrollTop, maxScrollTop);
+  const geometry = scrollbarGeometry(
+    clampedScrollTop,
+    metrics.viewportHeight,
+    metrics.contentHeight,
+  );
 
   if (previewMessages.length === 0) {
     return (
@@ -84,30 +134,39 @@ export function SessionPreview({
         {sessionTitle}
       </Text>
       <Text> </Text>
-      {previewMessages.slice(0, maxMessages).map((msg, index) => {
-        const roleColor = msg.role === "user" ? "green" : "cyan";
-        const roleLabel =
-          msg.role === "user" ? t("session.you") : t("session.assistant");
-        // Truncate long messages for preview
-        const truncatedContent =
-          msg.content.length > 150
-            ? msg.content.substring(0, 150) + "..."
-            : msg.content;
+      <Box flexDirection="row" flexGrow={1} flexShrink={1} minHeight={0}>
+        <Box
+          ref={viewportRef}
+          flexDirection="column"
+          flexGrow={1}
+          flexShrink={1}
+          minHeight={0}
+          overflowY="hidden"
+        >
+          <Box
+            ref={contentRef}
+            flexDirection="column"
+            flexShrink={0}
+            marginTop={-clampedScrollTop}
+          >
+            {previewMessages.map((msg, index) => {
+              const roleColor = msg.role === "user" ? "green" : "cyan";
+              const roleLabel =
+                msg.role === "user" ? t("session.you") : t("session.assistant");
 
-        return (
-          <Box key={index} flexDirection="column" marginBottom={1}>
-            <Text color={roleColor} bold>
-              {roleLabel}:
-            </Text>
-            <Text wrap="truncate-end">{truncatedContent}</Text>
+              return (
+                <Box key={index} flexDirection="column" marginBottom={1}>
+                  <Text color={roleColor} bold>
+                    {roleLabel}:
+                  </Text>
+                  <Text>{msg.content}</Text>
+                </Box>
+              );
+            })}
           </Box>
-        );
-      })}
-      {previewMessages.length > maxMessages && (
-        <Text color="gray" italic>
-          ... and {previewMessages.length - maxMessages} more messages
-        </Text>
-      )}
+        </Box>
+        <ScrollBarColumn geometry={geometry} />
+      </Box>
     </Box>
   );
 }
