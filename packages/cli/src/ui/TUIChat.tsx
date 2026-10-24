@@ -195,10 +195,13 @@ const TUIChat: React.FC<TUIChatProps> = ({
   // state does not track (the selected config or model).
   const [, setStaticRefreshTrigger] = useState(0);
 
-  // The chat owns the alternate screen, so replacing the conversation can
-  // clear it outright; the reader's normal scrollback is untouched.
+  // Replacing the conversation remounts the transcript subtree: Ink diffs the
+  // frame and erases exactly the rows that went away. Writing a raw clear here
+  // instead would desync the escape sequence from Ink's frame state and leave
+  // the reader on a blank screen until something else happened to re-render.
+  const [transcriptEpoch, setTranscriptEpoch] = useState(0);
   const resetTranscript = useCallback(() => {
-    process.stdout.write("\x1b[2J\x1b[H");
+    setTranscriptEpoch((epoch) => epoch + 1);
   }, []);
 
   // Session currently on screen. Used to label and lock a delegated
@@ -441,6 +444,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     <ThemeProvider theme={currentTheme}>
       <Box flexDirection="column" height={rows} overflowY="hidden">
         <MainContent
+          key={transcriptEpoch}
           showIntroMessage={showIntroMessage && !isRemoteMode}
           chatHistory={chatHistory}
           queuedMessages={queuedMessages}
