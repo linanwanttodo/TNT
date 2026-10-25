@@ -52,9 +52,11 @@ import {
 import {
   anthropicBreakpointBudget,
   applyCacheControlFormat,
+  applyCacheTtl,
   capBreakpointsForAnthropic,
   sanitizeReasoningBlocks,
 } from "./cacheControl.js";
+import { cacheRetention, resolveCachePolicy } from "./cachePolicy.js";
 import type { CacheControlFormat } from "./cacheControl.js";
 import {
   BaseLlmApi,
@@ -112,6 +114,14 @@ export class AnthropicApi implements BaseLlmApi {
   private _convertBody(oaiBody: ChatCompletionCreateParams) {
     // Step 1: Convert to clean Anthropic body (no caching)
     const cleanBody = this._convertToCleanAnthropicBody(oaiBody);
+    const cachePolicy = resolveCachePolicy(
+      "anthropic",
+      oaiBody.model,
+      this.apiBase,
+    );
+    if (cachePolicy.retention === "none") {
+      return cleanBody;
+    }
 
     // Step 2: Apply caching strategy
     const cachingStrategy =
@@ -148,10 +158,14 @@ export class AnthropicApi implements BaseLlmApi {
       (isDeepSeekEndpoint(this.apiBase, oaiBody.model)
         ? DEEPSEEK_ACCEPTS_NO_BREAKPOINTS
         : undefined);
-    if (format) {
-      return applyCacheControlFormat(pruned, format);
-    }
-    return capBreakpointsForAnthropic(pruned, anthropicBreakpointBudget());
+    const capped = format
+      ? applyCacheControlFormat(pruned, format)
+      : capBreakpointsForAnthropic(pruned, anthropicBreakpointBudget());
+    return cachePolicy.mode === "explicit" &&
+      cachePolicy.retention === "long" &&
+      cachePolicy.supportsLongRetention
+      ? applyCacheTtl(capped, "1h")
+      : capped;
   }
 
   private maxTokensForModel(model: string): number {
@@ -507,7 +521,8 @@ export class AnthropicApi implements BaseLlmApi {
   }
 
   private getHeaders(): Record<string, string> {
-    const enableCaching = this.config?.cachingStrategy !== "none";
+    const enableCaching =
+      this.config?.cachingStrategy !== "none" && cacheRetention() !== "none";
     return getAnthropicHeaders(this.config.apiKey, enableCaching, this.apiBase);
   }
 

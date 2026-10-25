@@ -20,6 +20,7 @@ import {
 } from "./AnthropicUtils.js";
 import {
   ANTHROPIC_BREAKPOINTS_KEPT,
+  applyCacheTtl,
   capBreakpointsForAnthropic,
 } from "./cacheControl.js";
 
@@ -160,6 +161,7 @@ const convertToAnthropic = (
 export const applyAnthropicCachingToOpenRouterBody = (
   body: ChatCompletionCreateParams,
   strategy: CachingStrategyName,
+  ttl?: "1h",
 ): void => {
   const { anthropicBody, systemMappings, messageMappings } =
     convertToAnthropic(body);
@@ -188,6 +190,9 @@ export const applyAnthropicCachingToOpenRouterBody = (
     cachedBody,
     ANTHROPIC_BREAKPOINTS_KEPT,
   );
+  if (ttl) {
+    cachedBody = applyCacheTtl(cachedBody, ttl);
+  }
 
   const cachedSystem = Array.isArray(cachedBody.system)
     ? cachedBody.system

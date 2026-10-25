@@ -241,6 +241,13 @@ export {
 } from "./apis/AnthropicUtils.js";
 
 export { isResponsesModel } from "./apis/openaiResponses.js";
+export {
+  cacheRetention,
+  resolveCachePolicy,
+  type CacheMode,
+  type CachePolicy,
+  type CacheRetention,
+} from "./apis/cachePolicy.js";
 export { normalizeUsage } from "./util.js";
 export { OPENROUTER_HEADERS } from "./apis/OpenRouter.js";
 export { extractBase64FromDataUrl, parseDataUrl } from "./util/url.js";

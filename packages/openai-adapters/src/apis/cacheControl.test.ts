@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ANTHROPIC_BREAKPOINTS_KEPT,
   applyCacheControlFormat,
+  applyCacheTtl,
   capBreakpointsForAnthropic,
   countMessageBreakpoints,
   sanitizeReasoningBlocks,
@@ -329,5 +330,53 @@ describe("applyCacheControlFormat", () => {
     expect(countMessageBreakpoints(result.messages)).toBe(0);
     expect((result.tools[0] as any).cache_control).toBeUndefined();
     expect((result.system[0] as any).cache_control).toBeUndefined();
+  });
+});
+
+describe("applyCacheTtl", () => {
+  const extended = { type: "ephemeral", ttl: "1h" };
+
+  const body = () => ({
+    system: [{ type: "text", text: "s", cache_control: marked }],
+    tools: [{ name: "Read", cache_control: marked }, { name: "Bash" }],
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "m", cache_control: marked }],
+      },
+      { role: "assistant", content: "plain" },
+    ],
+  });
+
+  it("stamps the ttl on every marker and leaves the rest alone", () => {
+    const result = applyCacheTtl(body(), "1h") as any;
+
+    expect(result.system[0].cache_control).toEqual(extended);
+    expect(result.tools[0].cache_control).toEqual(extended);
+    expect(result.messages[0].content[0].cache_control).toEqual(extended);
+    expect(result.tools[1]).not.toHaveProperty("cache_control");
+    expect(result.messages[1]).toEqual({ role: "assistant", content: "plain" });
+  });
+
+  it("does not mutate the body it was given", () => {
+    const input = body();
+    applyCacheTtl(input, "1h");
+
+    expect(input.system[0].cache_control).toEqual(marked);
+    expect(input.tools[0].cache_control).toEqual(marked);
+    expect((input.messages[0].content as any[])[0].cache_control).toEqual(
+      marked,
+    );
+  });
+
+  it("marks a message-level breakpoint as well as block-level ones", () => {
+    const result = applyCacheTtl(
+      {
+        messages: [{ role: "user", content: "plain", cache_control: marked }],
+      },
+      "1h",
+    ) as any;
+
+    expect(result.messages[0].cache_control).toEqual(extended);
   });
 });

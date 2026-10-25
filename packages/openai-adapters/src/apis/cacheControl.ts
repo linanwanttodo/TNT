@@ -259,6 +259,48 @@ function stripCacheControlDeep<T>(value: T): T {
   return out as T;
 }
 
+/**
+ * Applies a TTL to every breakpoint that survived the cap. The provider reads
+ * each marker's own TTL, so the choice has to travel with the marker rather
+ * than with the request.
+ */
+export function applyCacheTtl<T extends Record<string, any>>(
+  body: T,
+  ttl: "1h",
+): T {
+  const withTtl = (item: any): any => {
+    if (!isObject(item)) {
+      return item;
+    }
+    const out: Record<string, any> = hasCacheControl(item)
+      ? {
+          ...item,
+          cache_control: {
+            ...(item as Record<string, any>).cache_control,
+            ttl,
+          },
+        }
+      : { ...item };
+    if (Array.isArray(out.content)) {
+      out.content = out.content.map((block: any) =>
+        isObject(block) && hasCacheControl(block)
+          ? { ...block, cache_control: { ...block.cache_control, ttl } }
+          : block,
+      );
+    }
+    return out;
+  };
+
+  return {
+    ...body,
+    ...(Array.isArray(body.system) ? { system: body.system.map(withTtl) } : {}),
+    ...(Array.isArray(body.tools) ? { tools: body.tools.map(withTtl) } : {}),
+    ...(Array.isArray(body.messages)
+      ? { messages: body.messages.map(withTtl) }
+      : {}),
+  } as T;
+}
+
 function hasBreakpointAnywhere(item: unknown): boolean {
   if (hasCacheControl(item)) {
     return true;
