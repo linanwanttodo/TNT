@@ -24,6 +24,26 @@ export interface LspSymbol {
   };
 }
 
+export interface LspLocation {
+  uri?: string;
+  range?: { start?: { line?: number; character?: number } };
+}
+
+export interface LspCallSite {
+  name: string;
+  uri?: string;
+  /** Line counting from 1, as an editor shows it. */
+  line?: number;
+  /** Column counting from 1. */
+  character?: number;
+}
+
+export interface LspCallHierarchy {
+  symbol: string;
+  direction: "incoming" | "outgoing";
+  sites: LspCallSite[];
+}
+
 interface RunningServer {
   name: string;
   client: LspClient;
@@ -206,6 +226,90 @@ export class LspManager {
   }
 
   /**
+   * Every place a server reports for the symbol at a position. Each server is
+   * tried until one answers with references; a server that does not index the
+   * project answers with nothing, which is not the same as no references.
+   */
+  async referencesAt(
+    filePath: string,
+    line: number,
+    character: number,
+    includeDeclaration = true,
+  ): Promise<LspLocation[]> {
+    const absolute = path.resolve(filePath);
+    let text: string;
+    try {
+      text = fs.readFileSync(absolute, "utf-8");
+    } catch {
+      return [];
+    }
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    for (const client of clients) {
+      client.openOrUpdate(absolute, text);
+      try {
+        const answer = await client.request("textDocument/references", {
+          textDocument: { uri: pathToFileURL(absolute).toString() },
+          position: { line: line - 1, character: character - 1 },
+          context: { includeDeclaration },
+        });
+        if (Array.isArray(answer) && answer.length > 0) {
+          return answer as LspLocation[];
+        }
+      } catch {
+        continue;
+      }
+    }
+    return [];
+  }
+
+  /**
+   * The call hierarchy around a position. The protocol needs two requests -
+   * prepare, then incoming or outgoing for the prepared item - so a server that
+   * supports neither yields null rather than a misleading empty list.
+   */
+  async callHierarchyAt(
+    filePath: string,
+    line: number,
+    character: number,
+    direction: "incoming" | "outgoing",
+  ): Promise<LspCallHierarchy | null> {
+    const absolute = path.resolve(filePath);
+    let text: string;
+    try {
+      text = fs.readFileSync(absolute, "utf-8");
+    } catch {
+      return null;
+    }
+    const clients = [...this.servers.values()].map((entry) => entry.client);
+    for (const client of clients) {
+      client.openOrUpdate(absolute, text);
+      try {
+        const prepared = await client.request(
+          "textDocument/prepareCallHierarchy",
+          {
+            textDocument: { uri: pathToFileURL(absolute).toString() },
+            position: { line: line - 1, character: character - 1 },
+          },
+        );
+        const item = Array.isArray(prepared) ? prepared[0] : undefined;
+        if (!item || typeof item !== "object") {
+          continue;
+        }
+        const answer = await client.request(
+          direction === "incoming"
+            ? "callHierarchy/incomingCalls"
+            : "callHierarchy/outgoingCalls",
+          { item },
+        );
+        return normalizeCallHierarchy(item, answer, direction);
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Opens a document in every running server and waits a bounded time for the
    * diagnostics. A server that never answers yields the empty list rather than
    * blocking the caller.
@@ -328,6 +432,48 @@ export function renderHover(answer: unknown): string | null {
 }
 
 let manager: LspManager | null = null;
+
+function oneBased(value: unknown): number | undefined {
+  return typeof value === "number" ? value + 1 : undefined;
+}
+
+function normalizeCallHierarchy(
+  item: Record<string, unknown>,
+  answer: unknown,
+  direction: "incoming" | "outgoing",
+): LspCallHierarchy {
+  const sites: LspCallSite[] = [];
+  if (Array.isArray(answer)) {
+    for (const call of answer as Array<Record<string, any>>) {
+      if (direction === "incoming") {
+        const from = call?.from ?? {};
+        const range = Array.isArray(call?.fromRanges)
+          ? call.fromRanges[0]?.start
+          : undefined;
+        sites.push({
+          name: String(from.name ?? "unnamed"),
+          uri: from.uri,
+          line: oneBased(range?.line),
+          character: oneBased(range?.character),
+        });
+      } else {
+        const to = call?.to ?? {};
+        const start = to.selectionRange?.start ?? to.range?.start;
+        sites.push({
+          name: String(to.name ?? "unnamed"),
+          uri: to.uri,
+          line: oneBased(start?.line),
+          character: oneBased(start?.character),
+        });
+      }
+    }
+  }
+  return {
+    symbol: String(item.name ?? "symbol"),
+    direction,
+    sites,
+  };
+}
 
 export function getLspManager(): LspManager {
   if (!manager) {

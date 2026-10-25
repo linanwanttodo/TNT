@@ -6,6 +6,7 @@ import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
 import { browserTool } from "./browser.js";
+import { callHierarchyTool } from "./callHierarchy.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 import { codebaseSearchTool } from "./codebaseSearch.js";
 import { completionTool } from "./completion.js";
@@ -24,6 +25,7 @@ import { multiEditTool } from "./multiEdit.js";
 import { notebookEditTool } from "./notebookEdit.js";
 import { enterPlanModeTool, exitPlanModeTool } from "./planMode.js";
 import { readFileTool } from "./readFile.js";
+import { referencesTool } from "./references.js";
 import { reportFailureTool } from "./reportFailure.js";
 import { runTerminalCommandTool } from "./runTerminalCommand.js";
 import { checkIfRipgrepIsInstalled, searchCodeTool } from "./searchCode.js";
@@ -103,6 +105,8 @@ const WORKSPACE_TOOLS: Tool[] = [
   findSymbolTool,
   hoverTool,
   completionTool,
+  referencesTool,
+  callHierarchyTool,
 ];
 
 // Get all builtin tools including dynamic ones, with capability-based filtering

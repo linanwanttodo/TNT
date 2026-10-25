@@ -95,6 +95,93 @@ function handle(message) {
       });
       break;
     }
+    case "textDocument/references": {
+      const position = message.params?.position;
+      respond(message.id, [
+        {
+          uri: "file:///workspace/src/decl.ts",
+          range: {
+            start: { line: 1, character: 4 },
+            end: { line: 1, character: position?.line ?? 0 },
+          },
+        },
+        {
+          uri: "file:///workspace/src/use.ts",
+          range: {
+            start: { line: 6, character: 2 },
+            end: { line: 6, character: 8 },
+          },
+        },
+      ]);
+      break;
+    }
+    case "textDocument/prepareCallHierarchy":
+      respond(message.id, [
+        {
+          name: "knownSymbol",
+          kind: 12,
+          uri: "file:///workspace/src/known.ts",
+          range: {
+            start: { line: 4, character: 2 },
+            end: { line: 4, character: 14 },
+          },
+          selectionRange: {
+            start: { line: 4, character: 2 },
+            end: { line: 4, character: 14 },
+          },
+        },
+      ]);
+      break;
+    case "callHierarchy/incomingCalls":
+      respond(message.id, [
+        {
+          from: {
+            name: "callerFn",
+            kind: 12,
+            uri: "file:///workspace/src/caller.ts",
+            range: {
+              start: { line: 2, character: 0 },
+              end: { line: 2, character: 20 },
+            },
+            selectionRange: {
+              start: { line: 2, character: 4 },
+              end: { line: 2, character: 12 },
+            },
+          },
+          fromRanges: [
+            {
+              start: { line: 2, character: 4 },
+              end: { line: 2, character: 10 },
+            },
+          ],
+        },
+      ]);
+      break;
+    case "callHierarchy/outgoingCalls":
+      respond(message.id, [
+        {
+          to: {
+            name: "calleeFn",
+            kind: 12,
+            uri: "file:///workspace/src/callee.ts",
+            range: {
+              start: { line: 7, character: 2 },
+              end: { line: 7, character: 12 },
+            },
+            selectionRange: {
+              start: { line: 7, character: 2 },
+              end: { line: 7, character: 12 },
+            },
+          },
+          fromRanges: [
+            {
+              start: { line: 4, character: 6 },
+              end: { line: 4, character: 12 },
+            },
+          ],
+        },
+      ]);
+      break;
     case "workspace/symbol":
       // One match per query prefix, so a test can assert both hit and miss.
       respond(
