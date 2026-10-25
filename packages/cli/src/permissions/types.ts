@@ -56,6 +56,13 @@ export interface ToolPermissionPolicy {
    * that cannot ask refuses it. The arguments decide where the bytes land.
    */
   workspaceOnly?: boolean;
+  /**
+   * This rule is the explicit override: it answers for the call even where the
+   * tool's own analysis would narrow it. Only the bypass table sets it, so an
+   * allow rule that merely names a tool still lets the safety analysis put the
+   * human back in front of a command that can run arbitrary code.
+   */
+  allowUnsafeCalls?: boolean;
 }
 
 export interface ToolPermissions {

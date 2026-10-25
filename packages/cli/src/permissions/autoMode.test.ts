@@ -20,12 +20,19 @@ import {
  */
 describe("auto mode", () => {
   it("keeps write and command tools out of the safe allowlist", () => {
-    for (const name of ["Read", "Glob", "Search", "List", "Diff"]) {
+    for (const name of ["Read", "Glob", "List", "Diff"]) {
       expect(AUTO_SAFE_TOOLS.has(name)).toBe(true);
     }
     for (const name of ["Write", "Edit", "MultiEdit", "Bash", "Fetch"]) {
       expect(AUTO_SAFE_TOOLS.has(name)).toBe(false);
     }
+  });
+
+  it("does not fast-path a search, because its target can leave the workspace", () => {
+    // The acceptEdits check in resolveAutoModeDecision still lets an
+    // in-workspace search through without a classifier call; one that names an
+    // outside target reaches the classifier instead.
+    expect(AUTO_SAFE_TOOLS.has("Search")).toBe(false);
   });
 
   it("falls back to prompting after the denial limits", () => {
