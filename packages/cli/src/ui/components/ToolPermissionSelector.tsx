@@ -5,12 +5,17 @@ import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
 
 import { t } from "../../i18n/index.js";
 import { ToolCallPreview } from "../../tools/types.js";
-import { theme } from "../theme/tokens.js";
+import { useTheme } from "../theme/tokens.js";
 
+import { ToolDiffView } from "./ToolDiffView.js";
+import { isShellTool } from "./ToolGroupDisplay.js";
 import { ToolPreview } from "./ToolPreview.js";
 
 // show dangerous commmand warning only once per CLI process
 let hasShownDangerousCommandWarning = false;
+
+/** Rows of the change preview kept visible before the reader asks for more. */
+const COLLAPSED_DIFF_LINES = 8;
 
 interface PermissionOption {
   id: string;
@@ -71,9 +76,16 @@ const getPermissionOptions = (): PermissionOption[] => {
 
 /**
  * The approval prompt, in the same compact shape as the transcript: the call
- * on one row, its command behind a `|` guide, the choices below. A permission
- * request replaces the composer, so it never needs a frame of its own and the
- * transcript above it keeps the reader's place.
+ * on one row, the body hanging from a left guide, the choices below. A
+ * permission request replaces the composer, so it never needs a frame of its
+ * own and the transcript above it keeps the reader's place.
+ *
+ * The body follows the tool being approved. A shell call prints the whole
+ * command verbatim, newlines and indentation included, over the working
+ * directory it will run in. A change to a file renders the engine's diff
+ * preview through the same diff view the transcript uses, folded to eight
+ * rows that `e` expands and folds. Every other tool keeps the argument
+ * preview the engine built.
  */
 export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
   toolName,
@@ -83,14 +95,29 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
   hasDynamicEvaluation = false,
   onResponse,
 }) => {
+  const activeTheme = useTheme();
   const permissionOptions = getPermissionOptions();
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [diffExpanded, setDiffExpanded] = useState(false);
   const [initialHasShownDangerousCommand] = useState(
     hasShownDangerousCommandWarning,
   );
   hasShownDangerousCommandWarning = false;
   const showDynamicWarning =
     hasDynamicEvaluation && !initialHasShownDangerousCommand;
+
+  const shellCommand =
+    isShellTool(toolName) && typeof toolArgs?.command === "string"
+      ? toolArgs.command
+      : null;
+  const diffContent = (toolCallPreview ?? [])
+    .filter((preview) => preview.type === "diff")
+    .map((preview) => preview.content)
+    .join("\n\n");
+  const isDiffCard = shellCommand === null && diffContent.length > 0;
+  const textEntries = isDiffCard
+    ? (toolCallPreview ?? []).filter((preview) => preview.type !== "diff")
+    : undefined;
 
   const choose = (option: PermissionOption) => {
     onResponse(
@@ -143,6 +170,12 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
       );
     }
 
+    // The diff card folds to a few rows; e is the only free letter left.
+    if (isDiffCard && input === "e") {
+      setDiffExpanded((expanded) => !expanded);
+      return;
+    }
+
     // Also support y/n for quick responses
     if (input === "y" || input === "Y") {
       onResponse(requestId, true, false, false);
@@ -157,7 +190,7 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={theme.status.warning}>●</Text>
+        <Text color={activeTheme.status.warning}>●</Text>
         <Box marginLeft={1} flexShrink={1} minWidth={0}>
           <ToolCallTitle toolName={toolName} args={toolArgs} />
         </Box>
@@ -172,22 +205,56 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
         borderRight={false}
         borderTop={false}
         borderBottom={false}
-        borderColor={theme.border.default}
+        borderColor={activeTheme.border.default}
       >
-        <ToolPreview
-          toolName={toolName}
-          toolArgs={toolArgs}
-          toolCallPreview={toolCallPreview}
-        />
+        {shellCommand === null ? (
+          isDiffCard ? (
+            <Box flexDirection="column">
+              <ToolPreview
+                toolName={toolName}
+                toolArgs={toolArgs}
+                toolCallPreview={textEntries}
+              />
+              <Box marginTop={1}>
+                <ToolDiffView
+                  diffContent={diffContent}
+                  expanded={diffExpanded}
+                  collapsedLines={COLLAPSED_DIFF_LINES}
+                  customTheme={activeTheme}
+                />
+              </Box>
+              <Box marginTop={1}>
+                <Text color={activeTheme.tool.hint} dimColor>
+                  {t("permission.diffToggle")}
+                </Text>
+              </Box>
+            </Box>
+          ) : (
+            <ToolPreview
+              toolName={toolName}
+              toolArgs={toolArgs}
+              toolCallPreview={toolCallPreview}
+            />
+          )
+        ) : (
+          <Box flexDirection="column">
+            <Text>{shellCommand}</Text>
+            <Box marginTop={1}>
+              <Text color={activeTheme.text.secondary} dimColor>
+                {t("permission.workingDirectory")}: {process.cwd()}
+              </Text>
+            </Box>
+          </Box>
+        )}
         {showDynamicWarning && (
-          <Text color={theme.status.warning} dimColor>
+          <Text color={activeTheme.status.warning} dimColor>
             {t("permission.note")}
           </Text>
         )}
       </Box>
 
       <Box flexDirection="column" marginTop={1} marginLeft={2}>
-        <Text color={theme.text.primary} bold>
+        <Text color={activeTheme.text.primary} bold>
           {t("permission.prompt")}
         </Text>
 
@@ -196,11 +263,13 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
 
           return (
             <Box key={option.id} marginTop={index === 0 ? 1 : 0}>
-              <Text color={isSelected ? theme.accent : theme.text.primary}>
+              <Text
+                color={isSelected ? activeTheme.accent : activeTheme.text.primary}
+              >
                 {isSelected ? "❯ " : "  "}
                 {index + 1}. {option.name}
               </Text>
-              <Text color={theme.text.secondary} dimColor>
+              <Text color={activeTheme.text.secondary} dimColor>
                 {"  "}
                 {option.shortcut}
               </Text>
@@ -209,7 +278,7 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
         })}
 
         <Box marginTop={1}>
-          <Text color={theme.text.secondary} dimColor>
+          <Text color={activeTheme.text.secondary} dimColor>
             {t("permission.hint")}
           </Text>
         </Box>

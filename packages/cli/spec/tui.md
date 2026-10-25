@@ -65,6 +65,17 @@ transcript settles without the reader clicking anything. The markers are `✓`
 done, `o` pending, `⊷` running, `x` failed and `-` cancelled
 (`src/ui/components/ToolGroupDisplay.tsx`). Shell calls read as `$ command`.
 
+## Permission prompt
+
+A pending permission replaces the composer rows. The call's title sits on the
+first row and the body hangs from a left guide. The body follows the tool: a
+shell approval prints the whole command verbatim, newlines and indentation
+included, with the working directory it will run in under it; an edit, write or
+patch approval renders the engine's diff preview folded to eight rows that `e`
+expands and folds; every other tool keeps the argument preview the engine
+built. The choices below keep their numbers and shortcuts
+(`src/ui/components/ToolPermissionSelector.tsx`).
+
 ## Messages
 
 A user turn starts with a blue `>` and the prompt uses the primary text colour,

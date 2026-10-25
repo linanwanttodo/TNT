@@ -674,6 +674,8 @@ const en = {
   "permission.note":
     "Dangerous commands are blocked regardless of your choice.",
   "permission.hint": "Up/Down to choose, Enter to confirm, Esc to refuse",
+  "permission.workingDirectory": "Working directory",
+  "permission.diffToggle": "press e to expand or collapse the diff",
   "edit.none": "No user messages to edit.",
   "edit.exitHint": "Press Esc to exit",
   "edit.inputHint": "Enter to submit, Esc to cancel, Shift+Enter for newline",
@@ -1273,6 +1275,8 @@ const zhCN: Record<TranslationKey, string> = {
   "permission.prompt": "是否允许执行这个工具？",
   "permission.note": "危险命令无论选择什么都会被阻止。",
   "permission.hint": "上下键选择，回车确认，Esc 拒绝",
+  "permission.workingDirectory": "当前工作目录",
+  "permission.diffToggle": "按 e 展开或收起 diff",
   "edit.none": "没有可编辑的用户消息。",
   "edit.exitHint": "按 Esc 退出",
   "edit.inputHint": "回车提交，Esc 取消，Shift+Enter 换行",

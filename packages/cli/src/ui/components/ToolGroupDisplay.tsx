@@ -32,7 +32,7 @@ const SHELL_TOOLS = new Set([
   "powershell",
 ]);
 
-function isShellTool(displayName: string): boolean {
+export function isShellTool(displayName: string): boolean {
   return SHELL_TOOLS.has(displayName.toLowerCase());
 }
 
