@@ -5,6 +5,7 @@ import type { ChatCompletionTool } from "openai/resources.mjs";
 
 import {
   assessCacheBreak,
+  forgetCacheRound,
   recallCacheRound,
   recordCacheRound,
   writeCacheBreakReport,
@@ -270,47 +271,58 @@ export function recordRoundAccounting(options: {
       ...(missOwner ? { cacheMissOwner: missOwner } : {}),
     });
 
-    // A break is called out only when the bill shows it: a drop of a few points,
-    // or one on a request too short for the provider to have cached anything, is
-    // noise and would train nobody to ignore the line. The diff goes to a file
-    // because "the tool list moved" is not something a reader can act on.
-    const round = { inputTokens: reportedInput, cacheReadTokens: cacheRead };
-    const breakAssessment = assessCacheBreak(
-      recallCacheRound(promptCacheKey),
-      round,
-    );
-    let reportPath: string | undefined;
-    if (breakAssessment.report && cachePrefixComparison) {
-      reportPath = writeCacheBreakReport({
-        verdict: cachePrefixVerdict,
-        previous: cachePrefixComparison.previous ?? cachePrefixComparison.current,
-        current: cachePrefixComparison.current,
-        assessment: breakAssessment,
-      });
-      logger.warn("Cache break", {
-        hitRateBefore: Number(breakAssessment.previousRate.toFixed(4)),
-        hitRateAfter: Number(breakAssessment.currentRate.toFixed(4)),
-        dropPoints: Number(breakAssessment.dropPoints.toFixed(2)),
-        prefixState: cachePrefixVerdict?.state ?? COLD_PREFIX_STATE,
-        prefixReasons: cachePrefixVerdict?.reasons ?? [],
-        ...(missOwner ? { cacheMissOwner: missOwner } : {}),
-        ...(reportPath ? { reportPath } : {}),
-      });
-    }
+    // A break is called out only when the bill shows it: more than the noise
+    // floor of the previous round's prompt was billed again instead of read
+    // from the cache. A provider that never reported cache activity is not
+    // judged at all. Compaction rewrites the context, so the next prompt is new
+    // content rather than re-billed content, and it resets the baseline.
+    if (isCompacting) {
+      forgetCacheRound(promptCacheKey);
+    } else {
+      const round = {
+        inputTokens: reportedInput,
+        cacheReadTokens: cacheRead,
+        cacheWriteTokens: cacheWrite,
+      };
+      const breakAssessment = assessCacheBreak(
+        recallCacheRound(promptCacheKey),
+        round,
+      );
+      let reportPath: string | undefined;
+      if (breakAssessment.report && cachePrefixComparison) {
+        reportPath = writeCacheBreakReport({
+          verdict: cachePrefixVerdict,
+          previous:
+            cachePrefixComparison.previous ?? cachePrefixComparison.current,
+          current: cachePrefixComparison.current,
+          assessment: breakAssessment,
+        });
+        logger.warn("Cache break", {
+          hitRateBefore: Number(breakAssessment.previousRate.toFixed(4)),
+          hitRateAfter: Number(breakAssessment.currentRate.toFixed(4)),
+          dropPoints: Number(breakAssessment.dropPoints.toFixed(2)),
+          missedTokens: breakAssessment.missedTokens,
+          prefixState: cachePrefixVerdict?.state ?? COLD_PREFIX_STATE,
+          prefixReasons: cachePrefixVerdict?.reasons ?? [],
+          ...(missOwner ? { cacheMissOwner: missOwner } : {}),
+          ...(reportPath ? { reportPath } : {}),
+        });
+      }
 
-    // Held for the status bar: the session-wide ratio is an average and cannot
-    // say why this round re-read everything. A request with no verdict is the
-    // first of a conversation, so there is nothing to report yet - and nothing
-    // stale to keep either, since the holder starts empty.
-    if (cachePrefixVerdict) {
-      rememberLastRequestCacheState({
-        state: cachePrefixVerdict.state,
-        reasons: cachePrefixVerdict.reasons,
-        hitRate: Number((cacheRead / reportedInput).toFixed(4)),
-        ...(reportPath ? { reportPath } : {}),
-      });
+      // Held for the status bar: the session-wide ratio is an average and
+      // cannot say why this round re-read everything. A request with no verdict
+      // is the first of a conversation, so there is nothing to report yet - and
+      // nothing stale to keep either, since the holder starts empty.
+      if (cachePrefixVerdict) {
+        rememberLastRequestCacheState({
+          state: cachePrefixVerdict.state,
+          reasons: cachePrefixVerdict.reasons,
+          hitRate: Number((cacheRead / reportedInput).toFixed(4)),
+          ...(reportPath ? { reportPath } : {}),
+        });
+      }
+      recordCacheRound(promptCacheKey, round);
     }
-    recordCacheRound(promptCacheKey, round);
   }
 
   return { cost, cacheTokens };
