@@ -23,12 +23,6 @@ import {
   ToolDiffView,
 } from "./ToolDiffView.js";
 
-/**
- * Width of the status column. The glyphs are one cell wide; the spare cell
- * keeps every tool name on the same column whatever the status is.
- */
-const STATUS_COLUMN_WIDTH = 3;
-
 /** Shell tools read as `$ command`. */
 const SHELL_TOOLS = new Set([
   "bash",
@@ -56,10 +50,15 @@ export interface ToolItemDisplayProps {
 interface ToolStatusStyle {
   glyph: string;
   color: string;
-  background: string;
+  borderColor: string;
 }
 
-/** The glyph and panel colour that report a tool call's state. */
+/**
+ * The glyph and frame colour that report a tool call's state. The border
+ * carries the state the way the reference cards do: a running call lights up
+ * in the accent colour, a finished one fades to the dim spine colour, and
+ * only failures and cancellations keep a loud hue.
+ */
 function statusStyle(
   status: ToolCallState["status"],
   activeTheme: Theme,
@@ -69,25 +68,25 @@ function statusStyle(
       return {
         glyph: "✓",
         color: activeTheme.status.success,
-        background: activeTheme.tool.successBackground,
+        borderColor: activeTheme.text.subtle,
       };
     case "errored":
       return {
         glyph: "x",
         color: activeTheme.status.error,
-        background: activeTheme.tool.errorBackground,
+        borderColor: activeTheme.status.error,
       };
     case "canceled":
       return {
         glyph: "-",
         color: activeTheme.status.warning,
-        background: activeTheme.tool.canceledBackground,
+        borderColor: activeTheme.status.warning,
       };
     case "calling":
       return {
         glyph: "⊷",
         color: activeTheme.status.running,
-        background: activeTheme.tool.pendingBackground,
+        borderColor: activeTheme.accent,
       };
     case "generated":
     case "generating":
@@ -95,7 +94,7 @@ function statusStyle(
       return {
         glyph: "o",
         color: activeTheme.status.success,
-        background: activeTheme.tool.pendingBackground,
+        borderColor: activeTheme.accent,
       };
   }
 }
@@ -243,19 +242,21 @@ function planOutput(output: string, expanded: boolean): OutputPreview {
   };
 }
 
+/** Source for the border fill: long enough for any terminal, clipped by flex. */
+const BORDER_FILL = "─".repeat(500);
+
 /**
- * One tool call: a full-width panel whose background
- * carries the state (neutral, green, red, yellow), a title row with the check
- * glyph, the tool name and its subject, the output preview, and the duration.
- *
- * Dedicated diff rendering is applied for file edit / patch tools.
- * Output collapses by itself when the call finishes and toggles on click.
+ * One tool call: a rounded frame whose border colour carries the state (a
+ * running call lights up in the accent colour, a finished one fades to the
+ * dim spine colour, failures stay loud). The title lives inside the top
+ * border bar the way the reference cards draw it; the output or diff preview
+ * sits in the body and collapses by itself when the call finishes.
  */
 export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
   const activeTheme = useTheme();
   const toolName = toolState.toolCall.function.name;
   const args = toolState.parsedArgs;
-  const { glyph, color, background } = statusStyle(
+  const { glyph, color, borderColor } = statusStyle(
     toolState.status,
     activeTheme,
   );
@@ -269,6 +270,7 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
     rawOutput ||
     (toolState.status === "errored" ? t("tool.executionFailed") : "");
   const summary = summarizeResult(toolName, toolState.status, output);
+  const shell = isShellTool(displayName);
 
   const terminal = isTerminalStatus(toolState.status);
   const panelRef = useRef<DOMElement>(null);
@@ -329,75 +331,92 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
         ? "click to collapse"
         : "";
 
+  const titleRow = (
+    <Text wrap="truncate-end">
+      <Text color={color} bold>
+        {glyph}{" "}
+      </Text>
+      {shell && description ? (
+        <>
+          <Text color={activeTheme.text.secondary}>$ </Text>
+          <Text color={activeTheme.text.primary}>{description}</Text>
+        </>
+      ) : (
+        <>
+          <Text bold color={activeTheme.accent}>
+            {displayName}
+          </Text>
+          {description ? (
+            <Text color={activeTheme.text.secondary}>: {description}</Text>
+          ) : null}
+        </>
+      )}
+      {summary ? (
+        <Text color={activeTheme.text.subtle}> · {summary}</Text>
+      ) : null}
+    </Text>
+  );
+
   return (
-    <Box
-      ref={panelRef}
-      flexDirection="column"
-      width="100%"
-      marginTop={1}
-      paddingX={1}
-      backgroundColor={background}
-    >
-      <Box flexDirection="row" flexWrap="wrap">
-        <Box width={STATUS_COLUMN_WIDTH} flexShrink={0}>
-          <Text color={color} bold>
-            {glyph}
+    <Box ref={panelRef} flexDirection="column" width="100%" marginTop={1}>
+      <Box flexDirection="row" width="100%" flexShrink={0}>
+        <Text color={borderColor}>╭─ </Text>
+        <Box flexShrink={1} minWidth={0}>
+          {titleRow}
+        </Box>
+        <Text color={borderColor}> </Text>
+        <Box flexGrow={1} flexShrink={1} flexBasis={0} minWidth={0}>
+          <Text color={borderColor} wrap="truncate-end">
+            {BORDER_FILL}
           </Text>
         </Box>
-        <Box flexShrink={1} minWidth={0} flexDirection="row">
-          <Text wrap="truncate">
-            <Text bold color={activeTheme.text.primary}>
-              {isShellTool(displayName) && description
-                ? `$ ${description}`
-                : displayName}
-            </Text>
-            {!isShellTool(displayName) && description ? (
-              <Text color={activeTheme.text.secondary}> {description}</Text>
-            ) : null}
-            {summary ? (
-              <Text color={activeTheme.accent}> → {summary}</Text>
-            ) : null}
-          </Text>
-        </Box>
+        <Text color={borderColor}>╮</Text>
       </Box>
 
-      {hasDiff ? (
-        <Box flexDirection="column" marginTop={1}>
-          {notes ? (
-            <Box marginBottom={1}>
-              <Text color={activeTheme.text.secondary}>{notes}</Text>
-            </Box>
-          ) : null}
-          <ToolDiffView
-            diffContent={diff}
-            expanded={expanded}
-            customTheme={activeTheme}
-          />
-        </Box>
-      ) : output ? (
-        <Box flexDirection="column" marginTop={1}>
-          {preview.hiddenAbove > 0 ? (
-            <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
-          ) : null}
-          <Text color={activeTheme.tool.output}>
-            {preview.lines.join("\n")}
-          </Text>
-          {preview.hiddenBelow > 0 ? (
-            <Text color={activeTheme.tool.hint}>
-              ... ({preview.hiddenBelow} more lines)
+      <Box
+        flexDirection="column"
+        width="100%"
+        borderStyle="round"
+        borderTop={false}
+        borderColor={borderColor}
+        paddingX={1}
+      >
+        {hasDiff ? (
+          <Box flexDirection="column">
+            {notes ? (
+              <Box marginBottom={1}>
+                <Text color={activeTheme.text.secondary}>{notes}</Text>
+              </Box>
+            ) : null}
+            <ToolDiffView
+              diffContent={diff}
+              expanded={expanded}
+              customTheme={activeTheme}
+            />
+          </Box>
+        ) : output ? (
+          <Box flexDirection="column">
+            {preview.hiddenAbove > 0 ? (
+              <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
+            ) : null}
+            <Text color={activeTheme.tool.output}>
+              {preview.lines.join("\n")}
             </Text>
-          ) : null}
-          {preview.hiddenAbove === 0 && expanded ? (
-            <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
-          ) : null}
-        </Box>
-      ) : null}
+            {preview.hiddenBelow > 0 ? (
+              <Text color={activeTheme.tool.hint}>
+                ... ({preview.hiddenBelow} more lines)
+              </Text>
+            ) : null}
+            {preview.hiddenAbove === 0 && expanded ? (
+              <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
+            ) : null}
+          </Box>
+        ) : null}
 
-      {duration ? (
-        <Box marginTop={1}>
-          <Text color={activeTheme.tool.hint}>{`Tool ${duration}`}</Text>
-        </Box>
-      ) : null}
+        {duration ? (
+          <Text color={activeTheme.tool.hint}>({duration})</Text>
+        ) : null}
+      </Box>
     </Box>
   );
 });

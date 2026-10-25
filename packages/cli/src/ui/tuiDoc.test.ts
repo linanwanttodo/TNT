@@ -119,9 +119,9 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
   it("describes the tool panels where they are built", () => {
     const group = read(path.join(here, "components", "ToolGroupDisplay.tsx"));
 
-    expect(/full-width panel/.test(flat)).toBe(/width="100%"/.test(group));
-    expect(/flat background reports the state/.test(flat)).toBe(
-      /backgroundColor/.test(group),
+    expect(/rounded frame/.test(flat)).toBe(/borderStyle="round"/.test(group));
+    expect(/border colour reports the state/.test(flat)).toBe(
+      /borderColor/.test(group),
     );
     expect(/click to expand/.test(flat)).toBe(/click to expand/.test(group));
     expect(/folds itself/.test(flat)).toBe(/setExpanded\(false\)/.test(group));
