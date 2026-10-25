@@ -1,6 +1,7 @@
 import path from "path";
 
 import { ConfigHandler } from "core/config/ConfigHandler.js";
+import type { Chunk } from "core/index.js";
 import { CodebaseIndexer } from "core/indexing/CodebaseIndexer.js";
 import { FullTextSearchCodebaseIndex } from "core/indexing/FullTextSearchCodebaseIndex.js";
 import { LanceDbIndex } from "core/indexing/LanceDbIndex.js";
@@ -17,6 +18,56 @@ export interface RetrievalHit {
   startLine: number;
   endLine: number;
   content: string;
+}
+
+/** The one method a reranker needs; the configured model already implements it. */
+type Reranker = {
+  rerank(query: string, chunks: Chunk[]): Promise<number[]>;
+};
+
+function toRerankChunks(hits: readonly RetrievalHit[]): Chunk[] {
+  return hits.map((hit, index) => ({
+    content: hit.content,
+    startLine: hit.startLine,
+    endLine: hit.endLine,
+    filepath: hit.filepath,
+    digest: `${hit.filepath}:${hit.startLine}:${hit.endLine}`,
+    index,
+  }));
+}
+
+/**
+ * Reorders the merged hits by the configured reranker's score. Retrieval must
+ * survive a reranker that is down, slow, or returns the wrong number of scores:
+ * the caller keeps the full-text order rather than losing every hit to a
+ * secondary stage.
+ */
+export async function rerankHits(
+  reranker: Reranker | undefined,
+  query: string,
+  hits: RetrievalHit[],
+): Promise<RetrievalHit[]> {
+  if (!reranker || hits.length <= 1) {
+    return hits;
+  }
+
+  try {
+    const scores = await reranker.rerank(query, toRerankChunks(hits));
+    if (scores.length !== hits.length) {
+      logger.debug("Reranker returned a different number of scores", {
+        hits: hits.length,
+        scores: scores.length,
+      });
+      return hits;
+    }
+    return hits
+      .map((hit, index) => ({ hit, index, score: scores[index] }))
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((entry) => entry.hit);
+  } catch (error) {
+    logger.debug("Rerank failed; keeping the retrieval order", error as Error);
+    return hits;
+  }
 }
 
 /** Keeps the primary order, drops duplicates, and caps the combined list. */
@@ -154,7 +205,22 @@ export class RetrievalService {
     }
     const ftsHits = await this.fullTextSearch(query, n);
     const vectorHits = await this.vectorSearch(query, n);
-    return mergeHits(ftsHits, vectorHits, n);
+    const merged = mergeHits(ftsHits, vectorHits, n);
+    return rerankHits(await this.getReranker(), query, merged);
+  }
+
+  /**
+   * The config's rerank role, when one is selected. A config that never names
+   * a reranker keeps the merged order and pays nothing for this stage.
+   */
+  private async getReranker(): Promise<Reranker | undefined> {
+    try {
+      const { config } = await this.configHandler.loadConfig();
+      return config?.selectedModelByRole.rerank;
+    } catch (error) {
+      logger.debug("No reranker available", error as Error);
+      return undefined;
+    }
   }
 
   private async fullTextSearch(
