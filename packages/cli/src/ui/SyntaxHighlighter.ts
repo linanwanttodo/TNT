@@ -83,7 +83,23 @@ export function highlightCode(
   code: string,
   language: string = "javascript",
   theme: SyntaxHighlighterTheme = defaultTheme,
+  decoration?: {
+    /** Background painted under every span, so highlighted code can sit on a
+     * diff line's state colour without losing it between tokens. */
+    backgroundColor?: string;
+    dimColor?: boolean;
+  },
 ): React.ReactNode[] {
+  const decorate = (
+    props: Record<string, unknown>,
+  ): Record<string, unknown> => ({
+    ...props,
+    ...(decoration?.backgroundColor
+      ? { backgroundColor: decoration.backgroundColor }
+      : {}),
+    ...(decoration?.dimColor ? { dimColor: true } : {}),
+  });
+
   try {
     // Create lowlight instance with common languages
     const lowlight = createLowlight(common);
@@ -104,10 +120,10 @@ export function highlightCode(
         if (text) {
           return React.createElement(
             Text,
-            {
+            decorate({
               key: `text-${keyCounter++}`,
               color: parentColor,
-            },
+            }),
             text,
           );
         }
@@ -151,10 +167,10 @@ export function highlightCode(
         if (textContent) {
           return React.createElement(
             Text,
-            {
+            decorate({
               key: `element-${keyCounter++}`,
               color,
-            },
+            }),
             textContent,
           );
         }
@@ -196,11 +212,88 @@ export function highlightCode(
     return [
       React.createElement(
         Text,
-        { key: "error-fallback", color: theme.default },
+        decorate({
+          key: "error-fallback",
+          color: theme.default,
+        }),
         code,
       ),
     ];
   }
+}
+
+/** Source-file extension to a lowlight language, for diff and preview use. */
+const EXTENSION_LANGUAGE: Record<string, string> = {
+  ts: "typescript",
+  tsx: "typescript",
+  mts: "typescript",
+  cts: "typescript",
+  js: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  py: "python",
+  rs: "rust",
+  go: "go",
+  java: "java",
+  c: "c",
+  h: "c",
+  cpp: "cpp",
+  cc: "cpp",
+  hpp: "cpp",
+  cs: "csharp",
+  php: "php",
+  rb: "ruby",
+  sh: "bash",
+  bash: "bash",
+  zsh: "bash",
+  json: "json",
+  yaml: "yaml",
+  yml: "yaml",
+  md: "markdown",
+  markdown: "markdown",
+  html: "xml",
+  htm: "xml",
+  xml: "xml",
+  css: "css",
+  scss: "scss",
+  less: "less",
+  sql: "sql",
+  swift: "swift",
+  kt: "kotlin",
+  lua: "lua",
+  toml: "ini",
+  ini: "ini",
+};
+
+/**
+ * The lowlight language for a source path, or undefined when the extension is
+ * unknown and the caller should fall back to plain text.
+ */
+export function languageFromFileName(path: string): string | undefined {
+  const base = path.split(/[\\/]/).pop() ?? "";
+  if (/^dockerfile$/i.test(base)) {
+    return "bash";
+  }
+  const ext = base.includes(".")
+    ? base.split(".").pop()?.toLowerCase()
+    : undefined;
+  return ext ? EXTENSION_LANGUAGE[ext] : undefined;
+}
+
+/** The `+++ b/<path>` (or `--- a/<path>`) header of a unified diff, if any. */
+export function diffFilePath(diffText: string): string | undefined {
+  for (const line of diffText.split("\n")) {
+    const plus = line.match(/^\+\+\+ (?:b\/)?(.+?)(?:\t.*)?$/);
+    if (plus && plus[1] !== "/dev/null") {
+      return plus[1];
+    }
+    const minus = line.match(/^--- (?:a\/)?(.+?)(?:\t.*)?$/);
+    if (minus && minus[1] !== "/dev/null") {
+      return minus[1];
+    }
+  }
+  return undefined;
 }
 
 export function detectLanguage(code: string): string {

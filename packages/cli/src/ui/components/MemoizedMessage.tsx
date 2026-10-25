@@ -140,7 +140,10 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
             {isUser ? (
               <Text color={theme.text.primary}>{formattedContent}</Text>
             ) : (
-              <MarkdownRenderer content={formattedContent} />
+              <MarkdownRenderer
+                content={formattedContent}
+                theme={theme.syntax}
+              />
             )}
             {isStreaming && (
               <Text color={theme.text.secondary} dimColor>

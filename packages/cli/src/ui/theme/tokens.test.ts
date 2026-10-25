@@ -23,6 +23,13 @@ describe("Theme system", () => {
     expect(darkTheme.border.focus).toBe("#5ac8fa");
   });
 
+  it("carries syntax tokens on every theme so code blocks follow the theme", () => {
+    expect(darkTheme.syntax.keyword).toBe("magenta");
+    expect(tencentDarkTheme.syntax.string).toBe("#48d597");
+    expect(tencentLightTheme.syntax.keyword).toBe("#0052d9");
+    expect(getTheme("tencent-light").syntax.default).toBe("#181818");
+  });
+
   it("resolves registered themes by name", () => {
     expect(getTheme("dark")).toBe(darkTheme);
     expect(getTheme("tencent-dark")).toBe(tencentDarkTheme);

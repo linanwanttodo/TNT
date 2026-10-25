@@ -3,6 +3,7 @@ import React from "react";
 
 import { t } from "../../i18n/index.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
+import { useTheme } from "../theme/tokens.js";
 
 interface CompactionBoundaryProps {
   /** Summary that replaced the compacted turns. */
@@ -17,6 +18,8 @@ interface CompactionBoundaryProps {
  * summary is rendered inline instead of being folded into a collapsed card.
  */
 const CompactionBoundary: React.FC<CompactionBoundaryProps> = ({ summary }) => {
+  const theme = useTheme();
+
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
@@ -28,7 +31,7 @@ const CompactionBoundary: React.FC<CompactionBoundaryProps> = ({ summary }) => {
           {" ──"}
         </Text>
       </Box>
-      <MarkdownRenderer content={summary} />
+      <MarkdownRenderer content={summary} theme={theme.syntax} />
     </Box>
   );
 };
