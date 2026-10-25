@@ -1,5 +1,7 @@
 import type { MessageParam } from "@anthropic-ai/sdk/resources";
 
+import { ANTHROPIC_MAX_CACHE_BREAKPOINTS } from "./AnthropicUtils.js";
+
 /**
  * Prompt cache breakpoint maintenance.
  *
@@ -136,14 +138,45 @@ export function countMessageBreakpoints(messages: MessageParam[]): number {
  * is four and lives in `AnthropicUtils.ts` as `ANTHROPIC_MAX_CACHE_BREAKPOINTS`.
  * The two were once declared under one name, so asking this package for "the cap"
  * returned whichever of 2 and 4 the importer happened to reach.
+ *
+ * A higher budget is available for measurement, because whether the extra
+ * writes pay for the extra turns cached is a property of the provider and the
+ * turn sizes, not of this comment. The default stays at two until a real cost
+ * measurement says otherwise.
  */
 export const ANTHROPIC_BREAKPOINTS_KEPT = 2;
+
+/**
+ * The request's breakpoint budget: the send policy, overridable for a measured
+ * A/B. A value the provider cannot read, or one outside 1..4, falls back to the
+ * default rather than producing a request that is rejected or unbounded.
+ */
+export function anthropicBreakpointBudget(
+  raw = process.env.CONTINUE_CLI_ANTHROPIC_BREAKPOINTS,
+): number {
+  if (raw === undefined || raw.trim() === "") {
+    return ANTHROPIC_BREAKPOINTS_KEPT;
+  }
+  const parsed = Number(raw);
+  if (
+    !Number.isInteger(parsed) ||
+    parsed < 1 ||
+    parsed > ANTHROPIC_MAX_CACHE_BREAKPOINTS
+  ) {
+    return ANTHROPIC_BREAKPOINTS_KEPT;
+  }
+  return parsed;
+}
 
 /**
  * Keeps the breakpoint on the newest message and the one on the stable head, and
  * strips whatever else the strategy marked. The head is the last tool when tools
  * carry one - a breakpoint there covers the system block and every tool before it -
  * and the last system block when they do not.
+ *
+ * A budget above two keeps intermediate message breakpoints, newest first,
+ * because those are the spans a later change would otherwise invalidate. The
+ * head is still kept: it is the part that survives between turns.
  */
 export function capBreakpointsForAnthropic<T extends Record<string, any>>(
   body: T,
@@ -165,15 +198,24 @@ export function capBreakpointsForAnthropic<T extends Record<string, any>>(
     return body;
   }
 
+  const keyOf = (spot: { section: number; index: number }) =>
+    `${spot.section}:${spot.index}`;
   const keep = new Set<string>();
   if (max > 0) {
     const newest = positions[positions.length - 1];
-    keep.add(`${newest.section}:${newest.index}`);
+    keep.add(keyOf(newest));
     if (max > 1) {
       const head =
         [...positions].reverse().find((spot) => spot.section === 1) ??
         [...positions].reverse().find((spot) => spot.section === 0);
-      if (head) keep.add(`${head.section}:${head.index}`);
+      if (head) keep.add(keyOf(head));
+    }
+    if (max > 2) {
+      const newestKey = keyOf(newest);
+      const intermediates = positions
+        .filter((spot) => spot.section === 2 && keyOf(spot) !== newestKey)
+        .slice(-(max - 2));
+      for (const spot of intermediates) keep.add(keyOf(spot));
     }
   }
 
