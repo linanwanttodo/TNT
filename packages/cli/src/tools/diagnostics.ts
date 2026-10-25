@@ -1,11 +1,29 @@
 import fs from "fs";
 import path from "path";
 
+import type { LspDiagnostic } from "../lsp/client.js";
 import { getLspManager } from "../lsp/manager.js";
 
 import { Tool } from "./types.js";
 
 const SEVERITY_NAMES = ["error", "warning", "info", "hint"];
+
+/** One diagnostic as the model reads it: file:line:column severity source. */
+export function formatDiagnostic(
+  filePath: string,
+  diagnostic: LspDiagnostic,
+): string {
+  const start = (
+    diagnostic.range as { start?: { line?: number; character?: number } }
+  )?.start;
+  const where =
+    typeof start?.line === "number"
+      ? `${start.line + 1}:${(start.character ?? 0) + 1}`
+      : "?";
+  const severity = SEVERITY_NAMES[(diagnostic.severity ?? 1) - 1] ?? "error";
+  const source = diagnostic.source ? ` [${diagnostic.source}]` : "";
+  return `${filePath}:${where} ${severity}${source}: ${diagnostic.message}`;
+}
 
 /**
  * Lets the model check its own edit against a plugin's language server instead
@@ -51,19 +69,9 @@ Returns nothing useful when the project has no language server configured.`,
       return `No diagnostics for ${file_path}.`;
     }
 
-    const lines = diagnostics.map((diagnostic) => {
-      const start = (
-        diagnostic.range as { start?: { line?: number; character?: number } }
-      )?.start;
-      const where =
-        typeof start?.line === "number"
-          ? `${start.line + 1}:${(start.character ?? 0) + 1}`
-          : "?";
-      const severity =
-        SEVERITY_NAMES[(diagnostic.severity ?? 1) - 1] ?? "error";
-      const source = diagnostic.source ? ` [${diagnostic.source}]` : "";
-      return `${file_path}:${where} ${severity}${source}: ${diagnostic.message}`;
-    });
+    const lines = diagnostics.map((diagnostic) =>
+      formatDiagnostic(file_path, diagnostic),
+    );
     return `${diagnostics.length} diagnostic(s) for ${file_path}:\n${lines.join("\n")}`;
   },
 };

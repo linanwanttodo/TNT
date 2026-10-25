@@ -1,7 +1,4 @@
-import {
-  firePostToolUse,
-  firePostToolUseFailure,
-} from "../hooks/fireHook.js";
+import { firePostToolUse, firePostToolUseFailure } from "../hooks/fireHook.js";
 import type { HookEventResult } from "../hooks/types.js";
 import { services } from "../services/index.js";
 import { executeToolCall } from "../tools/index.js";
@@ -10,6 +7,7 @@ import type { PreprocessedToolCall } from "../tools/types.js";
 import { logger } from "../utils/logger.js";
 
 import type { ToolResultWithStatus } from "./permissionFlow.js";
+import { postEditDiagnostics } from "./postEditDiagnostics.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
 import { spillOversizedToolResult } from "./toolResultStorage.js";
 
@@ -69,7 +67,11 @@ export async function dispatchApprovedCall(options: {
   preHook: HookEventResult;
   entriesByIndex: Map<number, ToolResultWithStatus>;
   callbacks?: StreamCallbacks;
-  onToolOutcome?: (toolName: string, succeeded: boolean, error?: unknown) => void;
+  onToolOutcome?: (
+    toolName: string,
+    succeeded: boolean,
+    error?: unknown,
+  ) => void;
 }): Promise<void> {
   const {
     index,
@@ -111,11 +113,18 @@ export async function dispatchApprovedCall(options: {
       toolResult,
       call.id,
     );
+    const diagnostics = await postEditDiagnostics(
+      effectiveCall.name,
+      effectiveCall.arguments,
+    );
+    const withDiagnostics = diagnostics
+      ? `${stowed}\n\n${diagnostics}`
+      : stowed;
     const reminder = callbacks?.onTailReminder?.(effectiveCall.name);
     const content = withHookContext(
       reminder
-        ? `${stowed}\n\n<system-reminder>${reminder}</system-reminder>`
-        : stowed,
+        ? `${withDiagnostics}\n\n<system-reminder>${reminder}</system-reminder>`
+        : withDiagnostics,
       [
         [`PreToolUse:${effectiveCall.name}`, preHook.additionalContext],
         [`PostToolUse:${effectiveCall.name}`, postHook.additionalContext],
