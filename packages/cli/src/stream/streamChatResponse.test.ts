@@ -642,6 +642,27 @@ describe("preprocessStreamedToolCalls", () => {
     expect(callbacks.onToolError).not.toHaveBeenCalled();
   });
 
+  it("repairs a numeric string before validation rejects the call", async () => {
+    const toolCalls: ToolCall[] = [
+      {
+        id: "call_repair",
+        name: "Read",
+        arguments: { filepath: "/tmp/tnt-repair-test.txt", start_line: "1" },
+        argumentsStr:
+          '{"filepath":"/tmp/tnt-repair-test.txt","start_line":"1"}',
+        startNotified: false,
+      },
+    ];
+
+    const { preprocessedCalls, errorChatEntries } =
+      await preprocessStreamedToolCalls(true, toolCalls);
+
+    expect(errorChatEntries).toHaveLength(0);
+    expect(preprocessedCalls).toHaveLength(1);
+    expect(preprocessedCalls[0].arguments.start_line).toBe(1);
+    expect(preprocessedCalls[0].preprocessResult?.args.start_line).toBe(1);
+  });
+
   it("answers a bad call with what the tool wanted, not with a mock", async () => {
     const toolCalls: ToolCall[] = [
       {

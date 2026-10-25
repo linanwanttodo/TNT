@@ -15,6 +15,7 @@ import {
   Tool,
   validateToolCallArgs,
 } from "../tools/index.js";
+import { repairToolInput } from "../tools/inputRepair.js";
 import { MARKER_PERMISSION_DENIED } from "../tools/resultMarkers.js";
 import { planToolCalls } from "../tools/specs/planner.js";
 import { PreprocessedToolCall, ToolCall } from "../tools/types.js";
@@ -55,6 +56,20 @@ export async function preprocessStreamedToolCalls(
           ContinueErrorReason.ToolNotFound,
           `Tool ${toolCall.name} not found. It is either not installed or withheld from this mode; the tools you can call are the ones in this run's tool list.`,
         );
+      }
+
+      // Repair the shapes a model gets structurally wrong but semantically
+      // right before validation turns them into a lost round. Renaming a
+      // near-miss key is deliberately not part of this: the validator names
+      // the arrived key and the wanted one, and guessing could write the
+      // wrong field.
+      const repaired = repairToolInput(toolCall.arguments, tool.parameters);
+      if (repaired.repairs.length > 0) {
+        logger.debug("Repaired tool argument shapes", {
+          name: toolCall.name,
+          repairs: repaired.repairs,
+        });
+        toolCall.arguments = repaired.input;
       }
 
       validateToolCallArgs(toolCall, tool);

@@ -13,7 +13,12 @@ import {
   Tool,
 } from "../index.js";
 
-import { selectRequestTools } from "./deferral.js";
+import {
+  buildDeferredCatalog,
+  deferredForRequest,
+  selectRequestTools,
+  TOOL_SEARCH_NAME,
+} from "./deferral.js";
 
 /**
  * The tools one request should advertise: availability first, then the policy
@@ -73,7 +78,19 @@ export async function getRequestTools(
     // the environment override still decides either way.
   }
 
-  return selectRequestTools(allowedTools, { contextWindow }).map(
-    convertToolToChatCompletionTool,
-  );
+  const deferralOptions = { contextWindow };
+  const selected = selectRequestTools(allowedTools, deferralOptions);
+  const deferred = deferredForRequest(allowedTools, deferralOptions);
+  const catalog = deferred.length > 0 ? buildDeferredCatalog(deferred) : "";
+
+  return selected
+    .map((tool) =>
+      tool.name === TOOL_SEARCH_NAME && catalog
+        ? {
+            ...tool,
+            description: `${tool.description}\n\nDeferred tools (schemas withheld; search for them or pass select:<name>):\n${catalog}`,
+          }
+        : tool,
+    )
+    .map(convertToolToChatCompletionTool);
 }

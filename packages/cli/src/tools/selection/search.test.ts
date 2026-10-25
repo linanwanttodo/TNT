@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Tool } from "../types.js";
 
-import { formatToolMatches, rankTools } from "./search.js";
+import { formatToolMatches, matchDeferredTools, rankTools } from "./search.js";
 
 function mcp(name: string, description?: string, padding = 0): Tool {
   return {
@@ -47,16 +47,16 @@ describe("ranking the catalog", () => {
 });
 
 describe("the catalog answer", () => {
-  it("says when no MCP server is connected", () => {
+  it("says when nothing is deferred", () => {
     expect(formatToolMatches({ matches: [], total: 0, query: "x" })).toContain(
-      "No MCP tools are connected",
+      "No deferred tools are available",
     );
   });
 
   it("names the total so a miss does not read as an empty server", () => {
     const answer = formatToolMatches({ matches: [], total: 9, query: "x" });
 
-    expect(answer).toContain("9 tools are connected");
+    expect(answer).toContain("9 tools are deferred");
     expect(answer).toContain("empty one");
   });
 
@@ -84,5 +84,42 @@ describe("the catalog answer", () => {
 
     expect(answer.length).toBeLessThanOrEqual(12_200);
     expect(answer).toContain("narrow the query");
+  });
+});
+
+describe("matching deferred tools", () => {
+  const catalog = [
+    mcp("list_issues", "List the issues in a project"),
+    mcp("create_issue", "Create an issue with a title"),
+  ];
+
+  it("selects exact names, case-insensitively", () => {
+    const matched = matchDeferredTools(
+      catalog,
+      "select:MCP__SERVER__CREATE_ISSUE, missing",
+      5,
+    );
+
+    expect(matched.map((entry) => entry.name)).toEqual([
+      "mcp__server__create_issue",
+    ]);
+  });
+
+  it("caps a select list at the requested limit", () => {
+    const matched = matchDeferredTools(
+      catalog,
+      "select:mcp__server__list_issues,mcp__server__create_issue",
+      1,
+    );
+
+    expect(matched).toHaveLength(1);
+  });
+
+  it("falls back to ranking for a normal query", () => {
+    const matched = matchDeferredTools(catalog, "create", 5);
+
+    expect(matched.map((entry) => entry.name)).toEqual([
+      "mcp__server__create_issue",
+    ]);
   });
 });
