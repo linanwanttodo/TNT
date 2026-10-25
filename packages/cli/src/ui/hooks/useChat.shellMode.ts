@@ -40,7 +40,8 @@ export const handleBashModeProcessing = async (
       command: bashCommand,
     })
     .then((result) => {
-      services.chatHistory.addToolResult(toolCallId, result, "done");
+      const content = typeof result === "string" ? result : result.content;
+      services.chatHistory.addToolResult(toolCallId, content, "done");
     })
     .catch((error) => {
       const errorMessage = `Bash command failed: ${getErrorString(error)}`;

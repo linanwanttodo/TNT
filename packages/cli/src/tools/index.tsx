@@ -12,9 +12,10 @@ import type {
   ToolCall,
   ToolParametersSchema,
   ToolRunContext,
+  ToolRunResult,
 } from "./types.js";
 
-export type { Tool, ToolCall, ToolParametersSchema };
+export type { Tool, ToolCall, ToolParametersSchema, ToolRunResult };
 
 /**
  * The tool layer's public surface.
@@ -78,7 +79,7 @@ export function convertToolToChatCompletionTool(
 export async function executeToolCall(
   toolCall: PreprocessedToolCall,
   options: { parallelToolCallCount: number } = { parallelToolCallCount: 1 },
-): Promise<string> {
+): Promise<ToolRunResult> {
   const startTime = Date.now();
 
   try {
@@ -115,7 +116,9 @@ export async function executeToolCall(
     });
     logger.debug("Tool execution completed", {
       toolName: toolCall.name,
-      resultLength: result?.length || 0,
+      resultLength:
+        typeof result === "string" ? result.length : result.content.length,
+      imageCount: typeof result === "string" ? 0 : (result.images?.length ?? 0),
     });
 
     return result;

@@ -39,7 +39,7 @@ function writeOnDisk(content: string): void {
 }
 
 async function readWithTool(): Promise<string> {
-  return readFileTool.run!({ filepath: target });
+  return (await readFileTool.run!({ filepath: target })) as string;
 }
 
 function editArgs(oldString: string, newString: string) {

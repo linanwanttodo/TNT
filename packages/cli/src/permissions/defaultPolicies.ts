@@ -23,6 +23,7 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
     },
     { tool: "CheckBackgroundJob", permission: "allow" },
     { tool: "Browser", permission: "ask" },
+    { tool: "Computer", permission: "ask" },
     { tool: "AskQuestion", permission: "allow" },
     { tool: "EnterPlanMode", permission: "allow" },
     { tool: "ExitPlanMode", permission: "ask" },
@@ -81,6 +82,7 @@ export const PLAN_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Bash", permission: "allow", readOnlyOnly: true },
   { tool: "CheckBackgroundJob", permission: "allow" },
   { tool: "Browser", permission: "ask" },
+  { tool: "Computer", permission: "ask" },
   { tool: "AskQuestion", permission: "allow" },
   // Entering plan mode only narrows what may happen, so it needs no prompt;
   // leaving it is what allows changes again, and that one is asked for.
@@ -124,6 +126,7 @@ export const ACCEPT_EDITS_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "NotebookEdit", permission: "ask", workspaceOnly: true },
   { tool: "CheckBackgroundJob", permission: "allow" },
   { tool: "Browser", permission: "ask" },
+  { tool: "Computer", permission: "ask" },
   { tool: "AskQuestion", permission: "allow" },
   { tool: "EnterPlanMode", permission: "allow" },
   { tool: "ExitPlanMode", permission: "ask" },

@@ -1,7 +1,11 @@
+import { textRun } from "../../test-utils/toolText.js";
+
 import {
   isRunningInWsl,
   runTerminalCommandTool,
 } from "./runTerminalCommand.js";
+
+const runText = textRun(runTerminalCommandTool);
 
 describe("runTerminalCommandTool", () => {
   const isWindows = process.platform === "win32";
@@ -21,7 +25,7 @@ describe("runTerminalCommandTool", () => {
         expectedOutput = "hello world";
       }
 
-      const result = await runTerminalCommandTool.run({ command });
+      const result = await runText({ command });
       expect(result.trim()).toBe(expectedOutput);
     });
 
@@ -34,7 +38,7 @@ describe("runTerminalCommandTool", () => {
         command = "pwd";
       }
 
-      const result = await runTerminalCommandTool.run({ command });
+      const result = await runText({ command });
 
       if (isWindows) {
         // Windows paths like C:\path\to\dir
@@ -54,7 +58,7 @@ describe("runTerminalCommandTool", () => {
         command = "ls";
       }
 
-      const result = await runTerminalCommandTool.run({ command });
+      const result = await runText({ command });
       // Should return some directory content (not empty)
       expect(result.length).toBeGreaterThan(0);
     });
@@ -62,7 +66,7 @@ describe("runTerminalCommandTool", () => {
     it("should handle command that produces version info", async () => {
       // Node.js should be available on all platforms in CI
       const command = "node --version";
-      const result = await runTerminalCommandTool.run({ command });
+      const result = await runText({ command });
 
       // Should contain version number (starts with v)
       expect(result.trim()).toMatch(/^v\d+\.\d+\.\d+/);
@@ -73,7 +77,7 @@ describe("runTerminalCommandTool", () => {
     it("should handle non-existent commands", async () => {
       const command = "definitely-not-a-real-command-xyz123";
 
-      await expect(runTerminalCommandTool.run({ command })).rejects.toMatch(
+      await expect(runText({ command })).rejects.toMatch(
         /Error \(exit code|Command timed out|not found|not recognized/,
       );
     });
@@ -82,7 +86,7 @@ describe("runTerminalCommandTool", () => {
   describe("platform-specific features", () => {
     if (isWindows) {
       it("should work with Windows commands", async () => {
-        const result = await runTerminalCommandTool.run({
+        const result = await runText({
           command: "Write-Output $env:OS",
         });
         expect(result.trim()).toBe("Windows_NT");
@@ -91,7 +95,7 @@ describe("runTerminalCommandTool", () => {
 
     if (isMac) {
       it("should work with macOS commands", async () => {
-        const result = await runTerminalCommandTool.run({
+        const result = await runText({
           command: "uname -s",
         });
         expect(result.trim()).toBe("Darwin");
@@ -100,7 +104,7 @@ describe("runTerminalCommandTool", () => {
 
     if (isLinux) {
       it("should work with Linux commands", async () => {
-        const result = await runTerminalCommandTool.run({
+        const result = await runText({
           command: "uname -s",
         });
         expect(result.trim()).toBe("Linux");

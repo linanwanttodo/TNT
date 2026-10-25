@@ -22,8 +22,8 @@ function write(relative: string, content = "x"): void {
   fs.writeFileSync(full, content);
 }
 
-function run(args: Record<string, unknown>): Promise<string> {
-  return globFilesTool.run!(args);
+async function run(args: Record<string, unknown>): Promise<string> {
+  return (await globFilesTool.run!(args)) as string;
 }
 
 beforeEach(() => {

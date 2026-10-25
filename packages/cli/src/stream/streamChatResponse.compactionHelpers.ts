@@ -95,13 +95,13 @@ export async function handlePreApiCompaction(
   // provider's cache has expired is paying full price for old tool results, so
   // their bulk goes first. It is the cheapest reduction available and it leaves the
   // conversation's shape alone.
-  if (isCacheCold()) {
+  if (isCacheCold(Date.now(), model.provider, model.model)) {
     const micro = microCompactHistory(chatHistory);
     if (micro.clearedResults > 0) {
       logger.info("Micro-compacted after a cache gap", {
         clearedResults: micro.clearedResults,
         droppedChars: micro.droppedChars,
-        gapMs: cacheGapMs(),
+        gapMs: cacheGapMs(model.provider, model.model),
       });
       const svc = services.chatHistory;
       if (typeof svc?.isReady === "function" && svc.isReady()) {

@@ -9,6 +9,10 @@ import { logger } from "../utils/logger.js";
 import type { ToolResultWithStatus } from "./permissionFlow.js";
 import { postEditDiagnostics } from "./postEditDiagnostics.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
+import {
+  imageObservationContent,
+  normalizeToolResult,
+} from "./toolResultMedia.js";
 import { spillOversizedToolResult } from "./toolResultStorage.js";
 
 /**
@@ -96,13 +100,14 @@ export async function dispatchApprovedCall(options: {
         parallelToolCallCount: parallelCount,
       }),
     );
+    const { content: resultText, images } = normalizeToolResult(toolResult);
     // The model is given a preview of anything oversized before the hook
     // notes are appended, so a hook's context is never the part that gets
     // cut - and the post hook still sees the result whole.
     const stowed = await spillOversizedToolResult({
       toolName: effectiveCall.name,
       callId: call.id,
-      content: String(toolResult),
+      content: resultText,
     });
     // The post hook runs before the result is published so its context
     // can join the answer the model reads; the UI sees the call a hook's
@@ -110,7 +115,7 @@ export async function dispatchApprovedCall(options: {
     const postHook = await firePostToolUse(
       effectiveCall.name,
       effectiveCall.arguments,
-      toolResult,
+      resultText,
       call.id,
     );
     const diagnostics = await postEditDiagnostics(
@@ -146,6 +151,11 @@ export async function dispatchApprovedCall(options: {
     // Immediate service update for UI feedback
     try {
       services.chatHistory.addToolResult(call.id, content, "done");
+      if (images.length > 0) {
+        services.chatHistory.addUserMessage(
+          imageObservationContent(effectiveCall.name, images),
+        );
+      }
     } catch {}
   } catch (error) {
     const errorMessage = `Error executing tool ${call.name}: ${

@@ -42,13 +42,32 @@ export interface ToolRunContext {
   parallelToolCallCount: number;
 }
 
+/** A bitmap a tool wants the model to see, encoded for a data URL. */
+export interface ToolImage {
+  mimeType: string;
+  /** Base64 payload, without the data-URL prefix. */
+  data: string;
+}
+
+/**
+ * Most tools answer with text. A tool whose result is only useful when looked
+ * at - a desktop screenshot - adds images, which the host publishes as an
+ * observation the model can see.
+ */
+export interface ToolResult {
+  content: string;
+  images?: ToolImage[];
+}
+
+export type ToolRunResult = string | ToolResult;
+
 export interface Tool {
   name: string;
   displayName: string;
   description: string;
   parameters: ToolParametersSchema;
   preprocess?: (args: any) => Promise<PreprocessToolCallResult>;
-  run: (args: any, context?: ToolRunContext) => Promise<string>;
+  run: (args: any, context?: ToolRunContext) => Promise<ToolRunResult>;
   readonly?: boolean; // Indicates if the tool is readonly
   isBuiltIn: boolean;
   evaluateToolCallPolicy?: (

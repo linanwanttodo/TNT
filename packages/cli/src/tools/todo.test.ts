@@ -38,7 +38,7 @@ function assistantItem(results: { name: string; content: string }[]) {
 }
 
 async function run(args: Record<string, unknown>) {
-  return todoTool.run(args);
+  return (await todoTool.run(args)) as string;
 }
 
 describe("todo tool", () => {

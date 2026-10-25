@@ -16,7 +16,8 @@ import { setWorkspaceFileService } from "./workspaceFiles.js";
 let dir: string;
 const previousCwd = process.cwd();
 
-const run = (patch: string): Promise<string> => applyPatchTool.run!({ patch });
+const run = async (patch: string): Promise<string> =>
+  (await applyPatchTool.run!({ patch })) as string;
 
 function write(relative: string, content: string): void {
   const full = path.join(dir, relative);

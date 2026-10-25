@@ -62,6 +62,20 @@ describe("deniedTools", () => {
     ).toBe("allow");
   });
 
+  it("cuts desktop control from every restricted child", () => {
+    for (const restriction of ["readonly", "no-writes"] as const) {
+      const result = narrowPermissions(
+        { policies: [{ tool: "*", permission: "allow" }] },
+        { restriction },
+      );
+      expect(
+        checkToolPermission({ name: "Computer", arguments: {} }, result)
+          .permission,
+        restriction,
+      ).toBe("exclude");
+    }
+  });
+
   it("names the missing tools in the child's prompt", () => {
     const child = createChildContext(
       parent({ policies: [{ tool: "*", permission: "allow" }] }),
