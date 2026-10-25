@@ -474,6 +474,19 @@ export async function waitForCondition(
   }
 }
 
+/**
+ * A just-rendered tree can paint its welcome screen before the effect that
+ * installs the key handler has run; a test that writes Esc immediately then
+ * loses the input under load. Waiting for the prompt and yielding one turn
+ * makes the keypress land on a mounted tree.
+ */
+export async function waitForPromptReady(
+  lastFrame: () => string | undefined,
+): Promise<void> {
+  await waitForCondition(() => (lastFrame() ?? "").includes("Ask anything"));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
 // Make runTest available globally for test files
 declare global {
   var runTest: (

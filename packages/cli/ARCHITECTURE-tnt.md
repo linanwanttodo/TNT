@@ -152,8 +152,8 @@ The prefix is assembled in build order, each part announced so it can be attribu
   rewording one clause in `base` moves all of them.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `fddd0b7c530ef75f` over 30 tools and 22590 characters (name + description + parameter schema, in
-  `tools/stableOrder.ts` order). All 30 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  `f15314d100ff08d5` over 34 tools and 25954 characters (name + description + parameter schema, in
+  `tools/stableOrder.ts` order). All 34 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
   default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is

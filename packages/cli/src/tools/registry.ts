@@ -5,9 +5,11 @@ import type { MCPServiceState, ModelServiceState } from "../services/types.js";
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
+import { browserTool } from "./browser.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 import { codebaseSearchTool } from "./codebaseSearch.js";
 import { completionTool } from "./completion.js";
+import { deleteFileTool } from "./deleteFile.js";
 import { diagnosticsTool } from "./diagnostics.js";
 import { editTool } from "./edit.js";
 import { exitTool } from "./exit.js";
@@ -18,6 +20,7 @@ import { hoverTool } from "./hover.js";
 import { listFilesTool } from "./listFiles.js";
 import { mcpToolsFromConnections } from "./mcp.js";
 import { multiEditTool } from "./multiEdit.js";
+import { notebookEditTool } from "./notebookEdit.js";
 import { enterPlanModeTool, exitPlanModeTool } from "./planMode.js";
 import { readFileTool } from "./readFile.js";
 import { reportFailureTool } from "./reportFailure.js";
@@ -36,6 +39,7 @@ import {
 import type { Tool } from "./types.js";
 import { uploadArtifactTool } from "./uploadArtifact.js";
 import { viewDiffTool } from "./viewDiff.js";
+import { webSearchTool } from "./webSearch.js";
 import { writeChecklistTool } from "./writeChecklist.js";
 import { writeFileTool } from "./writeFile.js";
 
@@ -65,14 +69,18 @@ function getAgentIdFromArgs(): string | undefined {
 const BASE_BUILTIN_TOOLS: Tool[] = [
   readFileTool,
   writeFileTool,
+  deleteFileTool,
+  notebookEditTool,
   listFilesTool,
   runTerminalCommandTool,
   fetchTool,
   writeChecklistTool,
   checkBackgroundJobTool,
   askQuestionTool,
+  browserTool,
   enterPlanModeTool,
   exitPlanModeTool,
+  webSearchTool,
 ];
 
 const BUILTIN_SEARCH_TOOLS: Tool[] = [searchCodeTool, globFilesTool];
