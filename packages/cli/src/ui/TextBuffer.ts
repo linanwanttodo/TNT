@@ -2,11 +2,27 @@ import { Key } from "ink";
 
 import { t } from "../i18n/index.js";
 
-export const COLLAPSE_SIZE = 800; // Characters threshold for collapsing pasted content
+export const COLLAPSE_SIZE = 500; // Characters threshold for collapsing pasted content
+export const COLLAPSE_LINES = 8; // Lines threshold: a paste reaching this many rows collapses too
 export const RAPID_INPUT_THRESHOLD = 200; // Minimum characters to trigger rapid input detection
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB per image
 export const MAX_IMAGE_COUNT = 20; // Maximum number of images
 export const MAX_TOTAL_IMAGE_MEMORY = 50 * 1024 * 1024; // 50MB total image memory
+
+/**
+ * Whether one pasted block is large enough to fold behind a placeholder:
+ * the first of the two thresholds it reaches wins, so an eight-row paste
+ * collapses no matter how short its lines and a 500-character one-line
+ * paste collapses without any rows to count.
+ */
+export function shouldCollapsePaste(text: string): boolean {
+  if (text.length >= COLLAPSE_SIZE) return true;
+  return pasteLineCount(text) >= COLLAPSE_LINES;
+}
+
+function pasteLineCount(text: string): number {
+  return text.split(/\r\n|\r|\n/).length;
+}
 
 export class TextBuffer {
   private _text: string = "";
@@ -298,12 +314,12 @@ export class TextBuffer {
   // Creates placeholder for single line or multi-line pastes
   private createPlaceholder(originalText: string): string {
     this._pasteCounter++;
-    const lineCount = originalText.split(/\r\n|\r|\n/).length;
+    const lineCount = pasteLineCount(originalText);
 
     if (lineCount === 1) {
-      return `[Paste #${this._pasteCounter}]`;
+      return `[Pasted Text #${this._pasteCounter} · ${originalText.length} chars]`;
     } else {
-      return `[Paste #${this._pasteCounter}, ${lineCount} lines]`;
+      return `[Pasted Text #${this._pasteCounter} · ${lineCount} lines]`;
     }
   }
 
@@ -324,7 +340,7 @@ export class TextBuffer {
     if (input === "\u001b[201~") {
       this._inPasteMode = false;
 
-      if (this._pasteBuffer.length > COLLAPSE_SIZE) {
+      if (shouldCollapsePaste(this._pasteBuffer)) {
         const placeholder = this.createPlaceholder(this._pasteBuffer);
         this._pasteMap.set(placeholder, this._pasteBuffer);
         this.insertText(placeholder);
@@ -396,7 +412,7 @@ export class TextBuffer {
 
   // Called after rapid input timer expires to collapse or insert buffered content
   private finalizeRapidInput(): void {
-    if (this._rapidInputBuffer.length > COLLAPSE_SIZE) {
+    if (shouldCollapsePaste(this._rapidInputBuffer)) {
       const placeholder = this.createPlaceholder(this._rapidInputBuffer);
       this._pasteMap.set(placeholder, this._rapidInputBuffer);
 
@@ -539,8 +555,14 @@ export class TextBuffer {
   }
 
   private handleTextInput(input: string): boolean {
-    // Direct paste detection: single large input - but delay insertion to catch split pastes
-    if (input.length > COLLAPSE_SIZE && this._rapidInputBuffer.length === 0) {
+    // Direct paste detection: single large input - but delay insertion to catch split pastes.
+    // A newline inside one input event can only come from a paste (typing
+    // delivers Enter as its own event), so multi-row pastes enter the same
+    // delayed path even when they are short.
+    const looksLikePaste =
+      input.length > COLLAPSE_SIZE ||
+      (input.length > 1 && input.includes("\n"));
+    if (looksLikePaste && this._rapidInputBuffer.length === 0) {
       // Start rapid input mode immediately to delay placeholder creation
       this._rapidInputStartPos = this._cursor;
       this._rapidInputBuffer = input;

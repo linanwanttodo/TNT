@@ -180,6 +180,8 @@ const en = {
   "config.failedToLoadConfigDetails": "Failed to load config:\\n{details}",
   "mcp.toolNotFoundOnServer": "Tool {name} not found on {server}",
   "mcp.toolNotFound": "Tool {name} not found",
+  "composer.historySearchHint":
+    'history search "{query}" · {current}/{total} · ctrl+f next · enter select · esc cancel',
   "composer.placeholder":
     "Ask anything, @ for context, / for slash commands, ! for shell mode",
   "composer.placeholderRemote":
@@ -822,6 +824,8 @@ const zhCN: Record<TranslationKey, string> = {
   "config.failedToLoadConfigDetails": "加载配置失败：\\n{details}",
   "mcp.toolNotFoundOnServer": "在 {server} 上未找到工具 {name}",
   "mcp.toolNotFound": "未找到工具 {name}",
+  "composer.historySearchHint":
+    '历史搜索 "{query}" · {current}/{total} · ctrl+f 下一条 · 回车选中 · esc 取消',
   "composer.placeholder": "输入内容，@ 引用上下文，/ 打开命令，! 执行 shell",
   "composer.placeholderRemote": "输入内容，/ 打开命令，! 执行 shell",
   "commands.noMatches": "没有匹配的命令",

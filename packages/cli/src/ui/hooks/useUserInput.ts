@@ -21,6 +21,22 @@ interface ControlKeysOptions {
   queueActionsEnabled?: boolean;
 }
 
+/**
+ * How many Esc presses the bytes of one input event carry.
+ *
+ * Two quick presses reach a terminal reader either as two events or, when the
+ * writes coalesce, as one `escape` event whose input still holds the second
+ * ESC byte - Ink 6.8 delivers the second form. Counting the bytes is what
+ * keeps "double Esc" meaning two presses: a timer that waits for a second
+ * *event* never sees one, and the shortcut dies depending on how the
+ * terminal buffered the keystrokes.
+ */
+export function escapePresses(input: string, key: any): number {
+  if (!key.escape) return 0;
+  const extra = (input.match(/\x1b/g) ?? []).length;
+  return 1 + extra;
+}
+
 export function handleControlKeys(options: ControlKeysOptions): boolean {
   const {
     input,
