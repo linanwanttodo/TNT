@@ -43,6 +43,16 @@ export interface ScreenContentProps {
   chatHistory?: ChatHistoryItem[];
   handleEditMessage?: (messageIndex: number, newContent: string) => void;
   onShowEditSelector?: () => void;
+  /** Previews a theme in place while the theme picker is open. */
+  onPreviewTheme?: (
+    themeName: "auto" | "dark" | "tencent-dark" | "tencent-light" | "light",
+  ) => void;
+  /** Rolls the preview back and closes the picker. */
+  onCancelThemePreview?: () => void;
+  /** Persists the choice and keeps it applied. */
+  onSelectTheme?: (
+    themeName: "auto" | "dark" | "tencent-dark" | "tencent-light" | "light",
+  ) => void;
   /** Set while a delegated transcript is open, so it can be labelled. */
   subagentView?: { parentSessionId: string; subagentType: string } | null;
 }

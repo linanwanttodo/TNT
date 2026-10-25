@@ -34,6 +34,7 @@ export interface SlashCommandResult {
   loadSessionId?: string;
   openJobsSelector?: boolean;
   openExportSelector?: boolean;
+  openThemeSelector?: boolean;
   compact?: boolean;
   diffContent?: string;
 }

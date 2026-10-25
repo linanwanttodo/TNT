@@ -38,6 +38,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     },
     info: handleInfoSlashCommand,
     model: () => ({ openModelSelector: true }),
+    theme: () => ({ openThemeSelector: true }),
     compact: () => {
       return { compact: true };
     },

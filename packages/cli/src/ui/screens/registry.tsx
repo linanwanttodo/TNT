@@ -3,6 +3,7 @@ import React from "react";
 import { ChatScreenContent } from "../components/ChatScreenContent.js";
 import type { ScreenContentProps } from "../components/ScreenContent.js";
 import { SessionSelectorWithLoading } from "../components/SessionSelectorWithLoading.js";
+import { ThemeSelector } from "../components/ThemeSelector.js";
 import { ConfigSelector } from "../ConfigSelector.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { DiffViewer } from "../DiffViewer.js";
@@ -44,6 +45,16 @@ export const SCREENS: readonly ScreenDefinition[] = [
   {
     id: "update",
     render: (props) => <UpdateSelector onCancel={props.closeCurrentScreen} />,
+  },
+  {
+    id: "theme",
+    render: (props) => (
+      <ThemeSelector
+        onPreview={props.onPreviewTheme ?? (() => {})}
+        onCancel={props.onCancelThemePreview ?? props.closeCurrentScreen}
+        onSelect={props.onSelectTheme ?? (() => {})}
+      />
+    ),
   },
   {
     id: "model",

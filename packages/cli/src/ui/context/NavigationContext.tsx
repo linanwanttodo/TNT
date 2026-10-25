@@ -22,7 +22,8 @@ export type NavigationScreen =
   | "update" // Update selector
   | "edit" // Edit message selector
   | "jobs" // Background Jobs selector
-  | "export"; // Export session selector
+  | "export" // Export session selector
+  | "theme"; // Theme picker with live preview
 
 interface NavigationState {
   currentScreen: NavigationScreen;

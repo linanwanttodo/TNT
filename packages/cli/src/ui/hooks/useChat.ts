@@ -68,6 +68,7 @@ export function useChat({
   onShowConfigSelector,
   onShowModelSelector,
   onShowUpdateSelector,
+  onShowThemeSelector,
   onShowMCPSelector,
   onShowMcpMarketplace,
   onShowSessionSelector,
@@ -507,6 +508,7 @@ export function useChat({
       onLoadSession,
       onShowJobsSelector,
       onShowUpdateSelector,
+      onShowThemeSelector,
       onShowExportSelector,
       onClear,
     });
