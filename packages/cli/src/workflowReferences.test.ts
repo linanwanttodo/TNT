@@ -55,6 +55,18 @@ function triggersOf(document: Record<string, any>): Record<string, any> {
   return document.on ?? document[String(true)] ?? {};
 }
 
+/** The `with:` block of the stale-branches step, which is where the sweeper's
+ * safety lives. */
+function sweeperInputs(): Record<string, unknown> {
+  const jobs = workflowDocument("delete-stale-branches.yaml").jobs ?? {};
+  const [job] = Object.values(jobs);
+  const step = (job?.steps ?? []).find((entry: any) =>
+    String(entry.uses ?? "").startsWith("crs-k/stale-branches@"),
+  );
+  if (!step) throw new Error("the sweeper no longer runs crs-k/stale-branches");
+  return (step as any).with ?? {};
+}
+
 /** The table rows that name workflows, with the trigger column beside them. */
 function docRows(): { names: string[]; trigger: string }[] {
   const rows: { names: string[]; trigger: string }[] = [];
@@ -174,5 +186,46 @@ describe("the CI dependency document", () => {
     }
     expect(jobs).toBeGreaterThanOrEqual(20);
     expect(missing).toEqual([]);
+  });
+
+  it("makes the branch sweeper structurally unable to reach a human branch", () => {
+    const inputs = sweeperInputs();
+    const pattern = String(inputs["branches-filter-regex"] ?? "");
+    expect(pattern, "the sweeper must name what it may delete").not.toBe("");
+
+    // crs-k/stale-branches keeps `branches.filter(b => pattern.test(b.branchName))`
+    // and deletes what survives the filter, so the regex is a selection, not an
+    // exclusion. The previous `^(?!cla-signatures$).*` therefore selected every
+    // branch in the repository but one, and on 2026-10-26 its scheduled run
+    // deleted 157 of them, 9 named by people (`fix/brace-expansion-vulnerability`,
+    // `ollama-models-update`, `call-undefined`). Holding the invariant as names
+    // rather than as a wording check is what makes it survive a rewrite: an
+    // exclusion pattern goes red here on the first human branch it would match.
+    const selection = new RegExp(pattern);
+    const human = [
+      "main",
+      "cla-signatures",
+      "release/v1.0.9",
+      "dev/p0-hardening",
+      "lin/wip-retrieval",
+      "fix/empty-text-content-blocks",
+    ];
+    const bot = [
+      "snyk-fix-0350a414d7bb357f145244bbf7f4d12e",
+      "dependabot/npm_and_yarn/core/axios-1.16.0",
+      "dependabot/github_actions/actions/checkout-5",
+      "copilot/fix-the-flaky-test",
+      "renovate/typescript-5-x",
+    ];
+
+    expect(
+      human.filter((name) => selection.test(name)),
+      "a human branch is inside the delete set",
+    ).toEqual([]);
+    expect(
+      bot.filter((name) => !selection.test(name)),
+      "a bot branch escaped the sweep",
+    ).toEqual([]);
+    expect(Number(inputs["days-before-delete"])).toBeGreaterThanOrEqual(90);
   });
 });
