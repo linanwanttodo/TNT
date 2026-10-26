@@ -13,6 +13,10 @@ type FileStamp = {
   ino: number;
 };
 
+const MAX_SNAPSHOT_BYTES = 64 * 1024;
+const MAX_SNAPSHOTS = 24;
+const snapshots = new Map<string, string>();
+
 const lastSeen = new Map<string, FileStamp | undefined>();
 
 /**
@@ -51,9 +55,36 @@ function seenKey(filePath: string): string {
   }
 }
 
+function snapshotOf(filePath: string): string | undefined {
+  try {
+    if (fs.statSync(filePath).size > MAX_SNAPSHOT_BYTES) {
+      return undefined;
+    }
+    const content = fs.readFileSync(filePath, "utf-8");
+    return content.includes("\u0000") ? undefined : content;
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberSnapshot(filePath: string): void {
+  const content = snapshotOf(filePath);
+  snapshots.delete(filePath);
+  if (content === undefined) {
+    return;
+  }
+  snapshots.set(filePath, content);
+  while (snapshots.size > MAX_SNAPSHOTS) {
+    const oldest = snapshots.keys().next().value;
+    if (oldest === undefined) break;
+    snapshots.delete(oldest);
+  }
+}
+
 export function markFileAsSeen(filePath: string): void {
   const key = seenKey(filePath);
   lastSeen.set(key, stampOf(key));
+  rememberSnapshot(key);
   // Re-reading is the reset: a change after this point is news again.
   announced.delete(key);
 }
@@ -66,6 +97,8 @@ export interface ChangedFile {
   path: string;
   /** The file is gone rather than different. */
   deleted: boolean;
+  /** The content the model was shown, when a bounded snapshot exists. */
+  previous?: string;
 }
 
 /**
@@ -83,7 +116,11 @@ export function changedFilesSinceSeen(): ChangedFile[] {
     if (announced.has(key) && sameStamp(announced.get(key), current)) continue;
 
     announced.set(key, current);
-    changed.push({ path: key, deleted: !current });
+    changed.push({
+      path: key,
+      deleted: !current,
+      previous: snapshots.get(key),
+    });
   }
 
   return changed.sort((a, b) =>
@@ -112,4 +149,5 @@ export function changedSinceSeen(filePath: string): boolean {
 export function forgetSeenFiles(): void {
   lastSeen.clear();
   announced.clear();
+  snapshots.clear();
 }

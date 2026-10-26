@@ -58,6 +58,17 @@ describe("describeChangedFiles", () => {
     expect(note).toContain("changed on disk since you read them");
   });
 
+  it("shows the changed lines, not only the path", () => {
+    const seen = file("a.ts", "export const a = 1;\n");
+    markFileAsSeen(seen);
+    touch(seen, "export const a = 22;\n");
+
+    const note = describeChangedFiles();
+
+    expect(note).toContain("- export const a = 1;");
+    expect(note).toContain("+ export const a = 22;");
+  });
+
   it("marks a deleted file as deleted", () => {
     const seen = file("gone.ts", "content\n");
     markFileAsSeen(seen);
