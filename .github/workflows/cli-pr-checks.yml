@@ -3,18 +3,22 @@ name: CLI PR Checks
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "docs-site/**"
+      - "*.md"
+      - "**/*.md"
 
   # Work lands on main through a direct push as well as through a PR. A gate
   # that only listens to pull_request would never run for those commits, which
   # is how a broken install path stayed invisible.
   push:
     branches: [main]
-
-paths-ignore:
-  - "docs/**"
-  - "docs-site/**"
-  - "*.md"
-  - "**/*.md"
+    paths-ignore:
+      - "docs/**"
+      - "docs-site/**"
+      - "*.md"
+      - "**/*.md"
 
 # One transcript-changing push at a time per ref; superseded runs are cancelled.
 concurrency:
