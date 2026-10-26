@@ -61,7 +61,7 @@ The `models` section defines the language models used in your configuration. Mod
 
 - `apiBase`: Can be used to override the default API base that is specified per model
 
-- `roles`: An array specifying the roles this model can fulfill, such as `chat`, `autocomplete`, `embed`, `rerank`, `edit`, `apply`, `summarize`. The default value is `[chat, edit, apply, summarize]`. Note that the `summarize` role is not currently used.
+- `roles`: An array specifying the roles this model can fulfill, such as `chat`, `autocomplete`, `embed`, `rerank`, `edit`, `apply`, `summarize`. The default value is `[chat, edit, apply, summarize]`. Note that the `summarize` role is not currently used. The `autocomplete` role is deprecated: it is still accepted so existing configs keep validating, but tab autocomplete has been removed from TNT and the role no longer activates anything.
 
 - `capabilities`: Array of strings denoting model capabilities, which will overwrite the autodetection based on provider and model. Supported capabilities include:
 
@@ -72,7 +72,7 @@ The `models` section defines the language models used in your configuration. Mod
 
 - `maxStopWords`: Maximum number of stop words allowed, to avoid API errors with extensive lists.
 
-- `promptTemplates`: Can be used to override the default prompt templates for different model roles. Valid keys are `chat`, `edit`, `apply` and `autocomplete`. The `chat` property must be a valid template name, such as `llama3` or `anthropic`.
+- `promptTemplates`: Can be used to override the default prompt templates for different model roles. Valid keys are `chat`, `edit` and `apply`. The `chat` property must be a valid template name, such as `llama3` or `anthropic`. The `autocomplete` key is still accepted for compatibility with existing configs but has no effect, because tab autocomplete has been removed.
 
 - `chatOptions`: If the model includes role `chat`, these settings apply for Agent and Chat mode:
 
@@ -118,7 +118,7 @@ The `models` section defines the language models used in your configuration. Mod
     - `key`: Path to the client certificate key file.
     - `passphrase`: Optional passphrase for the client certificate key file.
 
-- `autocompleteOptions`: If the model includes role `autocomplete`, these settings apply for tab autocompletion:
+- `autocompleteOptions`: Deprecated and inert. Tab autocomplete has been removed from TNT, so these settings are parsed to keep existing configs valid but no longer change any behavior. They previously configured tab autocompletion when the model includes role `autocomplete`:
 
   - `disable`: If `true`, disables autocomplete for this model.
   - `maxPromptTokens`: Maximum number of tokens for the autocomplete prompt.
@@ -152,12 +152,6 @@ models:
   - name: Codestral
     provider: mistral
     model: codestral-latest
-    roles:
-      - autocomplete
-    autocompleteOptions:
-      debounceDelay: 250
-      maxPromptTokens: 1024
-      onlyMyCode: true
   - name: My Model - OpenAI-Compatible
     provider: openai
     apiBase: http://my-endpoint/v1
@@ -371,12 +365,6 @@ models:
   - name: Ollama Starcoder
     provider: ollama
     model: starcoder
-    roles:
-      - autocomplete
-    autocompleteOptions:
-      debounceDelay: 350
-      maxPromptTokens: 1024
-      onlyMyCode: true
     defaultCompletionOptions:
       temperature: 0.3
       stop:
@@ -443,12 +431,6 @@ models:
     <<: *model_defaults
     model: qwen2.5-coder-7b
     useLegacyCompletionsEndpoint: false
-    roles:
-      - autocomplete
-    autocompleteOptions:
-      debounceDelay: 350
-      maxPromptTokens: 1024
-      onlyMyCode: true
 ```
 
 ---
