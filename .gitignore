@@ -182,3 +182,14 @@ keys
 # Test artifacts written with a stray "file:" prefix
 file:/
 core/file:/
+
+# Local agent and analysis tool state. These trees reach hundreds of megabytes
+# and are never part of a build, so they must not be committable.
+.mimosa/
+.v2c/
+.zion-mcp/
+.vitest/
+
+# esbuild's analysis output, written next to the CLI package rather than into
+# dist so that it never ships with a release.
+packages/cli/build-meta.json
