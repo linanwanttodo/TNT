@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
 import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
@@ -7,7 +8,7 @@ import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import { markFileAsSeen } from "./fileState.js";
 import { formatToolArgument } from "./formatters.js";
-import { Tool, ToolRunContext } from "./types.js";
+import { Tool, ToolResult, ToolRunContext } from "./types.js";
 import {
   isWorkspaceFileServiceActive,
   readWorkspaceTextFile,
@@ -123,11 +124,55 @@ export function readRange(
 // Read state is tracked with what the file looked like at the time, so a write
 // can tell an unchanged file from one edited outside TNT. See fileState.ts.
 
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
+
+/** Base64 grows by a third; 3 MB of bytes stays under the inline request cap. */
+const MAX_INLINE_IMAGE_BYTES = 3 * 1024 * 1024;
+
+/**
+ * Images are perception, not text: return their bytes so the host can attach
+ * them to the conversation. The text limits below do not apply, and a file too
+ * large for one request is refused with the size rather than cut.
+ */
+function imageResult(filepath: string): ToolResult | string | undefined {
+  const mimeType =
+    IMAGE_MIME_BY_EXTENSION[path.extname(filepath).toLowerCase()];
+  if (!mimeType) return undefined;
+  let size: number;
+  try {
+    size = fs.statSync(filepath).size;
+  } catch {
+    return undefined;
+  }
+  if (size > MAX_INLINE_IMAGE_BYTES) {
+    return `Image is too large to read inline: ${filepath} (${(
+      size /
+      (1024 * 1024)
+    ).toFixed(1)} MB). The limit is 3 MB; crop or resize it first.`;
+  }
+  try {
+    const data = fs.readFileSync(filepath);
+    return {
+      content: `Read ${filepath} (${mimeType}, ${data.length} bytes).`,
+      images: [{ mimeType, data: data.toString("base64") }],
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export const readFileTool: Tool = {
   name: "Read",
   displayName: "Read",
   description: `Read the contents of a file at the specified path.
 One call returns at most ${DEFAULT_READ_FILE_MAX_LINES} lines or ${DEFAULT_READ_FILE_MAX_CHARS} characters; a larger file is refused rather than cut, so pass start_line and end_line to read the section you need instead of guessing at the whole file.
+Image files (png, jpg, jpeg, webp, gif) are returned as image content so a vision model can look at them; start_line and end_line apply to text only.
 Do not read a file back just to confirm an edit landed: the edit would have failed if it did not apply, and the file's state is tracked for you.`,
   parameters: {
     type: "object",
@@ -168,7 +213,7 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
   run: async (
     args: { filepath: string; start_line?: number; end_line?: number },
     context?: ToolRunContext,
-  ): Promise<string> => {
+  ): Promise<ToolResult | string> => {
     try {
       let { filepath } = args;
       if (filepath.startsWith("./")) {
@@ -179,6 +224,11 @@ Do not read a file back just to confirm an edit landed: the edit would have fail
       // (`stream/streamChatResponse.helpers.ts`) and shell mode already calls a tool's
       // `run()` directly, so the check cannot be load-bearing where it was.
       throwIfFileIsSecurityConcern(filepath);
+
+      const image = imageResult(filepath);
+      if (image) {
+        return image;
+      }
 
       if (!isWorkspaceFileServiceActive() && !fs.existsSync(filepath)) {
         throw new ContinueError(
