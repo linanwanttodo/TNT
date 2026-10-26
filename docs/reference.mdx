@@ -77,7 +77,7 @@ The `models` section defines the language models used in your configuration. Mod
 
 - `maxStopWords`: Maximum number of stop words allowed, to avoid API errors with extensive lists.
 
-- `promptTemplates`: Can be used to override the default prompt templates for different model roles. Valid values are [`chat`](), [`edit`](/customize/model-roles/edit#prompt-templating), [`apply`](/customize/model-roles/apply#prompt-templating) and [`autocomplete`](/customize/model-roles/autocomplete#prompt-templating). The `chat` property must be a valid template name, such as `llama3` or `anthropic`.
+- `promptTemplates`: Can be used to override the default prompt templates for different model roles. Valid keys are `chat`, `edit`, `apply` and `autocomplete`. The `chat` property must be a valid template name, such as `llama3` or `anthropic`.
 
 - `chatOptions`: If the model includes role `chat`, these settings apply for Agent and Chat mode:
 
@@ -183,8 +183,6 @@ models:
 
 The `context` section defines context providers, which supply additional information or context to the language models. Each context provider can be configured with specific parameters.
 
-More information about usage/params for each context provider can be found [here](/customize/deep-dives/custom-providers)
-
 **Properties:**
 
 - `provider` (**required**): The identifier or name of the context provider (e.g., `code`, `docs`, `web`)
@@ -212,9 +210,9 @@ context:
 
 ### `rules`
 
-Rules are concatenated into the system message for all [Agent](/ide-extensions/agent/quick-start), [Chat](/ide-extensions/chat/quick-start), and [Edit](/ide-extensions/edit/quick-start) requests. 
+Rules are concatenated into the system message for all [Agent, Chat and Edit](/cli/modes) requests.
 
-Confiugration example:
+Configuration example:
 
 ```yaml title="config.yaml"
 name: My Config
@@ -235,7 +233,7 @@ name: Pirate rule
 Talk like a pirate
 ```
 
-See the [rules deep dive](/customize/deep-dives/rules) for more details.
+See [Rules and prompts](/cli/configuration#rules-and-prompts) for more details.
 
 ---
 
@@ -265,7 +263,7 @@ invokable: true
 Rewrite all comments in the active file to talk like a pirate
 ```
 
-See the [prompts deep dive](/customize/deep-dives/prompts) for more details.
+See [Rules and prompts](/cli/configuration#rules-and-prompts) for the prompt overrides.
 
 ---
 
@@ -328,7 +326,7 @@ mcpServers:
 
 ### `data`
 
-Destinations to which [development data](/customize/deep-dives/development-data) will be sent.
+Destinations to which development data will be sent.
 
 **Properties:**
 
@@ -480,4 +478,4 @@ models:
 
 ## `config.json` Deprecation
 
-`config.yaml `replaces `config.json`, which is deprecated. View the **[Migration Guide](/reference/yaml-migration)** for help transitioning from the old format.
+`config.yaml` replaces `config.json`, which is deprecated. The [configuration guide](/cli/configuration) describes the current layout: models and selection in `config.yaml`, permissions, hooks and environment in `settings.json`.
