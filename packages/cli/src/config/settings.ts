@@ -110,8 +110,9 @@ export function isValidSettings(value: unknown): value is TntSettings {
 
 /**
  * Model definitions and the current model live in config.yaml. A settings file
- * that carries them has those two keys dropped with a warning; the rest of the
- * file still applies.
+ * that carries them has those two keys dropped; the rest of the file still
+ * applies. This is the normal shape of a Claude-compatible settings file, so
+ * the drop is a debug note rather than a warning that reads as a failure.
  */
 function sanitizeSettings(parsed: unknown, file: string): TntSettings | null {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -121,7 +122,7 @@ function sanitizeSettings(parsed: unknown, file: string): TntSettings | null {
   if ("model" in copy || "models" in copy) {
     delete copy.model;
     delete copy.models;
-    logger.warn("Ignoring model fields in settings.json", { path: file });
+    logger.debug("Ignoring model fields in settings.json", { path: file });
   }
   if (!isValidSettings(copy)) {
     logger.warn("Invalid settings.json structure", { path: file });

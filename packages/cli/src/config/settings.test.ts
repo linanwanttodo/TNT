@@ -2,7 +2,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { describe, expect, it, beforeEach, afterAll } from "vitest";
+import { describe, expect, it, beforeEach, afterAll, vi } from "vitest";
+
+import { logger } from "../utils/logger.js";
 
 import {
   loadPermissionPoliciesFromSettings,
@@ -62,6 +64,16 @@ describe("settings.json", () => {
     expect(settings.permissions).toEqual({ allow: ["Read"] });
     expect("model" in settings).toBe(false);
     expect("models" in settings).toBe(false);
+  });
+
+  it("drops model fields without an alarming warning", () => {
+    const warn = vi.spyOn(logger, "warn");
+    write({ model: "claude", permissions: { allow: ["Read"] } });
+
+    loadSettings();
+
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("maps deny to exclude, most restrictive first", () => {
