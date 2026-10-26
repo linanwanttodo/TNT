@@ -4,11 +4,6 @@ const directories = [
   // core
   "./core/node_modules",
   "./core/dist",
-  // binary
-  "./binary/node_modules",
-  "./binary/bin",
-  "./binary/dist",
-  "./binary/out",
   // packages
   "./packages/config-types/node_modules",
   "./packages/config-types/dist",
