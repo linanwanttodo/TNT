@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -13,7 +14,9 @@ import { describe, expect, it } from "vitest";
  *
  * Both directions are held: a name in the document must exist on disk, and a
  * workflow on disk must appear in the document. The second half is what makes
- * adding a job an act of documentation rather than an invisible change.
+ * adding a job an act of documentation rather than an invisible change. The
+ * tables also claim a schedule and a ceiling per workflow, so those two claims
+ * are read out of the YAML rather than trusted.
  */
 const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -35,6 +38,39 @@ function workflowFiles(): string[] {
     .readdirSync(WORKFLOWS)
     .filter((name) => /\.(?:ya?ml)$/.test(name))
     .sort();
+}
+
+function workflowText(name: string): string {
+  return fs.readFileSync(path.join(WORKFLOWS, name), "utf8");
+}
+
+/**
+ * `yaml` reads a bare `on:` as the boolean key `true`, the way GitHub does.
+ */
+function workflowDocument(name: string): Record<string, any> {
+  return parse(workflowText(name)) as Record<string, any>;
+}
+
+function triggersOf(document: Record<string, any>): Record<string, any> {
+  return document.on ?? document[String(true)] ?? {};
+}
+
+/** The table rows that name workflows, with the trigger column beside them. */
+function docRows(): { names: string[]; trigger: string }[] {
+  const rows: { names: string[]; trigger: string }[] = [];
+  for (const line of fs.readFileSync(DOC, "utf8").split("\n")) {
+    if (!line.trimStart().startsWith("|")) continue;
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    if (cells.length < 2) continue;
+    const names = [...cells[0].matchAll(/`([a-z0-9-]+\.(?:yml|yaml))`/g)].map(
+      (m) => m[1],
+    );
+    if (names.length) rows.push({ names, trigger: cells[1] });
+  }
+  return rows;
 }
 
 /**
@@ -85,5 +121,58 @@ describe("the CI dependency document", () => {
     );
     expect(names.length).toBeGreaterThanOrEqual(8);
     expect(unread).toEqual([]);
+  });
+
+  it("calls a schedule by the frequency its cron encodes", () => {
+    const scheduled: Record<string, string[]> = {};
+    for (const file of workflowFiles()) {
+      for (const entry of triggersOf(workflowDocument(file)).schedule ?? []) {
+        const [, , , , dayOfWeek] = String(entry.cron).split(/\s+/);
+        const phrase =
+          dayOfWeek === "*"
+            ? "daily"
+            : dayOfWeek === "1-5"
+              ? "weekday"
+              : `cron ${entry.cron}`;
+        (scheduled[file] ??= []).push(phrase);
+      }
+    }
+    // Two scheduled workflows today; an empty walk would agree with no rows.
+    expect(Object.keys(scheduled).sort()).toEqual([
+      "delete-stale-branches.yaml",
+      "stale-issue-helper.yaml",
+    ]);
+
+    const wrong: string[] = [];
+    for (const [file, phrases] of Object.entries(scheduled)) {
+      const row = docRows().find((entry) => entry.names.includes(file));
+      expect(row, `${file} has no row in the tables`).toBeDefined();
+      for (const phrase of phrases) {
+        if (!row?.trigger.includes(phrase)) {
+          wrong.push(
+            `${file}: cron says "${phrase}", the table says "${row?.trigger}"`,
+          );
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it("keeps the ceiling every job promises", () => {
+    const missing: string[] = [];
+    let jobs = 0;
+    for (const file of workflowFiles()) {
+      for (const [id, job] of Object.entries(
+        workflowDocument(file).jobs ?? {},
+      )) {
+        jobs++;
+        // A job that only forwards to a reusable workflow takes no ceiling of
+        // its own; the ceiling belongs inside the reusable workflow.
+        if (typeof (job as any).uses === "string") continue;
+        if (!(job as any)["timeout-minutes"]) missing.push(`${file}/${id}`);
+      }
+    }
+    expect(jobs).toBeGreaterThanOrEqual(20);
+    expect(missing).toEqual([]);
   });
 });
