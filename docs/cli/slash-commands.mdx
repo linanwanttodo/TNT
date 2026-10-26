@@ -22,16 +22,19 @@ language, see [Language](/cli/i18n).
 | `/export` | export the session to a JSON file |
 | `/import` | import a session from a JSON file |
 | `/goal` | set the goal that the session is working towards |
+| `/todos` | list this session's todo items |
 
 ## Model and configuration
 
 | Command | Effect |
 | --- | --- |
 | `/model` | switch between the configured models |
-| `/config` | switch the active configuration |
 | `/init` | create an `AGENTS.md` file |
 | `/language` | change the interface language |
 | `/update` | update the TNT installation |
+| `/theme` | pick the UI theme with a live preview |
+| `/profile` | switch the mode of work |
+| `/output-style` | switch the output style |
 
 ## Capabilities
 
@@ -43,6 +46,7 @@ language, see [Language](/cli/i18n).
 | `/import-skill` | import a skill into `~/.tnt/skills` |
 | `/subagents` | show the sessions delegated from this one |
 | `/back` | return from a delegated session to its parent |
+| `/parent` | alias for `/back` |
 | `/jobs` | list background jobs |
 
 ## Context and workspace
@@ -52,6 +56,8 @@ language, see [Language](/cli/i18n).
 | `/compact` | summarise the history into a compact form |
 | `/diff` | show the current diff from the remote environment |
 | `/apply` | apply that diff to the local working tree |
+| `/index` | show or manage the codebase index |
+| `/diagnostics` | show language server diagnostics |
 
 <Note>
 Commands that open a picker, such as `/model`, `/sessions` and `/mcp`, accept the
