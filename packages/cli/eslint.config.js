@@ -52,7 +52,10 @@ export default [
       eqeqeq: "error",
 
       // TypeScript specific rules
-      // "@typescript-eslint/no-floating-promises": "error",
+      // A floating promise is how an async failure disappears: the CLI keeps
+      // running and the user sees nothing. It starts as a warning so the
+      // existing calls can be triaged instead of landing as one red build.
+      "@typescript-eslint/no-floating-promises": "warn",
       "@typescript-eslint/no-explicit-any": "error",
       // "@typescript-eslint/member-ordering": [
       //   "error",

@@ -210,7 +210,17 @@ jobs:
           cd packages/cli
           npm run test:smoke
 
+      # The coverage floor runs once, on the floor platform, because the
+      # numbers come from that platform and instrumentation makes the suite
+      # measurably slower; the other two operating systems run it plain.
+      - name: Run tests with the coverage floor
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd packages/cli
+          npm run test:coverage
+
       - name: Run tests
+        if: matrix.os != 'ubuntu-latest'
         run: |
           cd packages/cli
           npm test
