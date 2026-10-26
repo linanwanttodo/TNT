@@ -163,7 +163,7 @@ describe("the gap itself", () => {
       CONTINUE_GLOBAL_DIR: process.env.CONTINUE_GLOBAL_DIR,
       CONTINUE_CLI_TEST_SESSION_ID: process.env.CONTINUE_CLI_TEST_SESSION_ID,
       CONTINUE_CLI_CACHE_GAP_MS: process.env.CONTINUE_CLI_CACHE_GAP_MS,
-      CONTINUE_CLI_CACHE_RETENTION: process.env.CONTINUE_CLI_CACHE_RETENTION,
+      TNT_CACHE_RETENTION: process.env.TNT_CACHE_RETENTION,
     };
     globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-gap-"));
     process.env.CONTINUE_GLOBAL_DIR = globalDir;
@@ -208,7 +208,7 @@ describe("the gap itself", () => {
 
   it("takes the gap from each provider's own cache lifetime", () => {
     delete process.env.CONTINUE_CLI_CACHE_GAP_MS;
-    delete process.env.CONTINUE_CLI_CACHE_RETENTION;
+    delete process.env.TNT_CACHE_RETENTION;
 
     expect(defaultCacheGapMs("deepseek", "deepseek-reasoner")).toBe(
       LONG_LIVED_CACHE_GAP_MS,
@@ -227,7 +227,7 @@ describe("the gap itself", () => {
     expect(cacheGapMs("ollama", "llama3")).toBe(Number.POSITIVE_INFINITY);
 
     // Long retention selects the provider's longer window.
-    process.env.CONTINUE_CLI_CACHE_RETENTION = "long";
+    process.env.TNT_CACHE_RETENTION = "long";
     expect(cacheGapMs("anthropic", "claude-sonnet")).toBe(60 * 60 * 1000);
     expect(cacheGapMs("openai", "gpt-5.6-sol")).toBe(12 * 60 * 60 * 1000);
     expect(cacheGapMs("deepseek")).toBe(LONG_LIVED_CACHE_GAP_MS);

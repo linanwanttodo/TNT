@@ -64,7 +64,7 @@ describe("CheckBackgroundJob", () => {
   });
 
   it("warns how long the cache survives when a job outlasts the wait", async () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_RETENTION", "");
+    vi.stubEnv("TNT_CACHE_RETENTION", "");
     const job = backgroundJobService.registerPolledJob(
       "sleep 60",
       { poll: async () => ({ done: false, output: "partial\n" }) },

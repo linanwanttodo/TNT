@@ -29,7 +29,7 @@ function mcp(name: string, description?: string, padding = 0): Tool {
 }
 
 const ORIGINAL_OVERRIDE = process.env.CONTINUE_CLI_DEFER_MCP_TOOLS;
-const ORIGINAL_BUILTIN_OVERRIDE = process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS;
+const ORIGINAL_BUILTIN_OVERRIDE = process.env.TNT_DEFER_BUILTIN_TOOLS;
 
 afterEach(() => {
   if (ORIGINAL_OVERRIDE === undefined) {
@@ -38,9 +38,9 @@ afterEach(() => {
     process.env.CONTINUE_CLI_DEFER_MCP_TOOLS = ORIGINAL_OVERRIDE;
   }
   if (ORIGINAL_BUILTIN_OVERRIDE === undefined) {
-    delete process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS;
+    delete process.env.TNT_DEFER_BUILTIN_TOOLS;
   } else {
-    process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS = ORIGINAL_BUILTIN_OVERRIDE;
+    process.env.TNT_DEFER_BUILTIN_TOOLS = ORIGINAL_BUILTIN_OVERRIDE;
   }
 });
 
@@ -213,7 +213,7 @@ describe("deferred built-ins", () => {
   });
 
   it("lets the operator turn built-in deferral off", () => {
-    process.env.CONTINUE_CLI_DEFER_BUILTIN_TOOLS = "0";
+    process.env.TNT_DEFER_BUILTIN_TOOLS = "0";
     const tools = [
       ...core.map((name) => builtin(name)),
       builtin("WebSearch"),
