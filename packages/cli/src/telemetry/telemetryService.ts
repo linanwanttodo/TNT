@@ -75,15 +75,24 @@ class TelemetryService {
       process.env.OTEL_METRICS_EXPORTER
     );
 
+    // TNT_* is the current spelling and CONTINUE_* stays readable, so a shell
+    // profile written before the rename keeps working. Same rule as the log
+    // level in utils/logger.ts.
+    const metricsEnabled =
+      process.env.TNT_METRICS_ENABLED ?? process.env.CONTINUE_METRICS_ENABLED;
+    const telemetryRequested =
+      process.env.TNT_ENABLE_TELEMETRY ??
+      process.env.CONTINUE_CLI_ENABLE_TELEMETRY;
+
     let telemetryEnabled = true;
-    if (process.env.CONTINUE_METRICS_ENABLED === "0") {
+    if (metricsEnabled === "0") {
       telemetryEnabled = false;
-    } else if (process.env.CONTINUE_METRICS_ENABLED === "1") {
+    } else if (metricsEnabled === "1") {
       telemetryEnabled = true;
     } else {
       // Telemetry is off by default; enable explicitly via
-      // CONTINUE_CLI_ENABLE_TELEMETRY=1 together with an OTEL endpoint.
-      telemetryEnabled = process.env.CONTINUE_CLI_ENABLE_TELEMETRY === "1";
+      // TNT_ENABLE_TELEMETRY=1 together with an OTEL endpoint.
+      telemetryEnabled = telemetryRequested === "1";
     }
 
     const enabled = telemetryEnabled && hasOtelConfig;
