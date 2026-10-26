@@ -182,6 +182,40 @@ function displaySessionUsage(): void {
   }
 }
 
+interface FlushableStream {
+  writableLength?: number;
+  write: (chunk: string, callback?: () => void) => unknown;
+}
+
+/**
+ * Waits for the bytes already handed to a stream to reach the pipe. On Windows
+ * `process.exit()` can run before stdout has drained, which truncates the last
+ * answer; the callback (or a short timeout) is the only portable signal.
+ */
+export function flushStream(
+  stream: FlushableStream,
+  timeoutMs = 500,
+): Promise<void> {
+  if (!stream || stream.writableLength === 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    try {
+      stream.write("", finish);
+    } catch {
+      finish();
+    }
+  });
+}
+
 /**
  * Exit the process after flushing telemetry and error reporting.
  * Use this instead of process.exit() to avoid losing metrics/logs.
@@ -221,6 +255,9 @@ export async function gracefulExit(code: number = 0): Promise<void> {
   // exit with 1 instead to signal failure
   const finalCode = code === 0 && hadUnhandledError() ? 1 : code;
 
-  // Exit the process
+  // Exit the process. stdout/stderr go first: the logger flush above does not
+  // cover the answer already written to the pipe, and Windows truncates it
+  // when the process leaves first.
+  await Promise.all([flushStream(process.stdout), flushStream(process.stderr)]);
   process.exit(finalCode);
 }
