@@ -90,7 +90,9 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
   // Handle Ctrl+D to exit
   if (key.ctrl && input === "d") {
     exit();
-    import("../../utils/exit.js").then(({ gracefulExit }) => gracefulExit(0));
+    void import("../../utils/exit.js").then(({ gracefulExit }) =>
+      gracefulExit(0),
+    );
   }
 
   // Handle Ctrl+L to refresh screen (clear terminal artifacts)

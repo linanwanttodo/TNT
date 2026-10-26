@@ -71,10 +71,10 @@ export function setupRemotePolling({
   };
 
   // Start polling immediately
-  pollServerState();
+  void pollServerState();
 
   // Set up interval for continuous polling
-  pollInterval = setInterval(pollServerState, 500);
+  pollInterval = setInterval(() => void pollServerState(), 500);
 
   return () => {
     isMounted = false;

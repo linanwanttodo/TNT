@@ -54,7 +54,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       }
     };
 
-    loadModels();
+    void loadModels();
   }, []);
 
   return (

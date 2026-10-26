@@ -98,13 +98,13 @@ const FileSearchUI: React.FC<FileSearchUIProps> = ({
       }
     };
 
-    fetchFilteredFiles();
+    void fetchFilteredFiles();
   }, [fileIndexServiceState?.files, filter, onFilesUpdated]);
 
   // Handle Ctrl+R to refresh file index
   useInput((input, key) => {
     if (key.ctrl && input === "r") {
-      services.fileIndex.refreshIndex(true); // Bypass timeout for manual refresh
+      void services.fileIndex.refreshIndex(true); // Bypass timeout for manual refresh
     }
   });
 

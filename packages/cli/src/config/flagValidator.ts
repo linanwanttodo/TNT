@@ -486,6 +486,6 @@ export function handleValidationErrors(errors: ValidationError[]): never {
   }
 
   // Use async graceful exit without awaiting (we must satisfy never)
-  import("../utils/exit.js").then(({ gracefulExit }) => gracefulExit(1));
+  void import("../utils/exit.js").then(({ gracefulExit }) => gracefulExit(1));
   throw new Error("Exiting due to validation errors");
 }
