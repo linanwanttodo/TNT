@@ -46,6 +46,7 @@ jobs:
   preflight:
     name: Check release credentials
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       has_credentials: ${{ steps.check.outputs.has_credentials }}
     env:
@@ -69,6 +70,7 @@ jobs:
     needs: preflight
     if: needs.preflight.outputs.has_credentials == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: ${{ inputs.package-path }}
