@@ -61,6 +61,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Install root dependencies
+        # The .prettierrc loads prettier-plugin-tailwindcss, so the plugin has to
+        # be present before the check runs - an npx-resolved prettier alone fails.
+        run: npm ci
+
       - name: Check code formatting with Prettier
         run: npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}" --ignore-path .gitignore --ignore-path .prettierignore
 
