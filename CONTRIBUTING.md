@@ -1,290 +1,182 @@
-# Contributing to Continue
+# Contributing to TNT
 
 ## Table of Contents
 
-- [Contributing to Continue](#contributing-to-continue)
-  - [Table of Contents](#table-of-contents)
-- [❤️ Ways to Contribute](#️-ways-to-contribute)
-  - [👋 Continue Contribution Ideas](#-continue-contribution-ideas)
-  - [🐛 Report Bugs](#-report-bugs)
-  - [✨ Suggest Enhancements](#-suggest-enhancements)
-  - [📖 Updating / Improving Documentation](#-updating--improving-documentation)
-    - [Running the Documentation Server Locally](#running-the-documentation-server-locally)
-      - [Method 1: NPM Script](#method-1-npm-script)
-      - [Method 2: VS Code Task](#method-2-vs-code-task)
-  - [🧑‍💻 Contributing Code](#-contributing-code)
-    - [Environment Setup](#environment-setup)
-      - [Pre-requisites](#pre-requisites)
-      - [Fork the Continue Repository](#fork-the-continue-repository)
-      - [VS Code](#vs-code)
-        - [Debugging](#debugging)
-      - [JetBrains](#jetbrains)
-    - [Our Git Workflow](#our-git-workflow)
-    - [Development Workflow](#development-workflow)
-    - [Formatting](#formatting)
-    - [Theme Colors](#theme-colors)
-    - [Testing](#testing)
-    - [Review Process](#review-process)
-    - [Getting Help](#getting-help)
-  - [Contributing new LLM Providers/Models](#contributing-new-llm-providersmodels)
-    - [Adding an LLM Provider](#adding-an-llm-provider)
-    - [Adding Models](#adding-models)
-  - [📐 Continue Architecture](#-continue-architecture)
-    - [Continue VS Code Extension](#continue-vs-code-extension)
-    - [Continue JetBrains Extension](#continue-jetbrains-extension)
-  - [Contributor License Agreement](#contributor-license-agreement-cla)
+- [Ways to Contribute](#ways-to-contribute)
+  - [Report Bugs](#report-bugs)
+  - [Suggest Enhancements](#suggest-enhancements)
+  - [Update Documentation](#update-documentation)
+- [Setting Up the Environment](#setting-up-the-environment)
+  - [Prerequisites](#prerequisites)
+  - [Install and Build](#install-and-build)
+  - [Run TNT From Source](#run-tnt-from-source)
+  - [Preview the Documentation](#preview-the-documentation)
+- [Git Workflow](#git-workflow)
+- [What Makes a Good PR](#what-makes-a-good-pr)
+- [Code Rules](#code-rules)
+- [Formatting](#formatting)
+- [Testing](#testing)
+- [Review Process](#review-process)
+- [Adding an LLM Provider](#adding-an-llm-provider)
+- [Adding a Model](#adding-a-model)
+- [Getting Help](#getting-help)
+- [Contributor License Agreement](#contributor-license-agreement-cla)
 
-# ❤️ Ways to Contribute
+# Ways to Contribute
 
-## Contribution Ideas
+## Report Bugs
 
-[This GitHub project board](https://github.com/linanwanttodo/TNT/issues) is a list of ideas for how you can
-contribute to TNT. These aren't the only ways, but are a great starting point if you are new to the project. You
-can also browse the list
-of [good first issues](https://github.com/linanwanttodo/TNT/issues?q=is:issue%20state:open%20label:good-first-issue).
+If you find a bug, [create an issue](https://github.com/linanwanttodo/TNT/issues). A good report includes:
 
-## 🐛 Report Bugs
+- The exact `tnt` command and flags you ran, plus `tnt --version`
+- The terminal, OS and Node.js version
+- Steps to reproduce, expected behavior, actual behavior
+- The relevant part of the session transcript, or `--output-format stream-json` output for a headless run
 
-If you find a bug, please [create an issue](https://github.com/linanwanttodo/TNT/issues) to report it! A great bug
-report includes:
+## Suggest Enhancements
 
-- A description of the bug
-- Steps to reproduce
-- What you expected to happen
-- What actually happened
-- Screenshots or videos
+- First check whether a similar proposal already exists.
+- Describe the enhancement in detail and, most importantly, what task it makes possible that is awkward today.
+- Runtime behavior changes land through an issue plus a plan in `docs/superpowers/plans/`.
 
-## ✨ Suggest Enhancements
+## Update Documentation
 
-Continue is quickly adding features, and we'd love to hear which are the most important to you. The best ways to suggest
-an enhancement are:
+Documentation lives in two places and both are part of a feature:
 
-- Create an issue
+- `docs/` — the Mintlify source. Every page has an English original and a Chinese twin under `docs/zh/`.
+- `docs-site/` — the Next.js site that renders `docs/` and is published to GitHub Pages.
 
-  - First, check whether a similar proposal has already been made
-  - If not, [create an issue](https://github.com/linanwanttodo/TNT/issues)
-  - Please describe the enhancement in as much detail as you can, and why it would be useful
+A change to a user-visible flag, config key, tool or hook needs the English page, the Chinese page, and the navigation entry in `docs/docs.json` and `docs/docs.zh.json` updated in the same PR.
 
-- Join the [GitHub Discussions](https://github.com/linanwanttodo/TNT/discussions) and tell us about your idea
+# Setting Up the Environment
 
-## 📖 Updating / Improving Documentation
+## Prerequisites
 
-Continue is continuously improving, but a feature isn't complete until it is reflected in the documentation! If you see
-something out-of-date or missing, you can help by clicking "Edit this page" at the bottom of any page
-on [TNT Docs](https://github.com/linanwanttodo/TNT/tree/main/docs).
+- Node.js `v20.20.1`, matching `.nvmrc`: run `nvm use` in the repository root.
+- Git, and a package manager that can install `sqlite3` native bindings.
 
-### Running the Documentation Server Locally
+## Install and Build
 
-You can run the documentation server locally using either of the following methods:
-
-#### Method 1: NPM Script
-
-1. Open your terminal and navigate to the `docs` subdirectory of the project. The `favicon.png` file you'll see
-   there is a sign you're in the right place.
-
-2. Run the following command to install the necessary dependencies for the documentation server:
-
-   ```bash
-   npm install
-   ```
-
-3. Run the following command to start the documentation server:
-
-   ```bash
-   npm run dev
-   ```
-
-#### Method 2: VS Code Task
-
-1. Open VS Code in the root directory of the project.
-
-2. Open the VS Code command pallet (`cmd/ctrl+shift+p`) and select `Tasks: Run Task`.
-
-3. Look for the `docs:start` task and select it.
-
-This will start a local server and you can see the documentation rendered in your default browser, typically accessible
-at `http://localhost:3000`.
-
-## 🧑‍💻 Contributing Code
-
-We welcome contributions from developers of all experience levels - from first-time contributors to seasoned open source
-maintainers. While we aim to maintain high standards for reliability and maintainability, our goal is to keep the
-process as welcoming and straightforward as possible.
-
-### Environment Setup
-
-#### Pre-requisites
-
-You should have Node.js version 20.20.1 (LTS) or higher installed. You can get it
-on [nodejs.org](https://nodejs.org/en/download) or, if you are using NVM (Node Version Manager), you can set the correct
-version of Node.js for this project by running the following command in the root of the project:
+The packages depend on each other in a fixed order, so build them with the script rather than by hand:
 
 ```bash
-nvm use
+node ./scripts/build-packages.js   # config-types, terminal-security -> fetch, config-yaml, llm-info -> openai-adapters, sdk
+bash scripts/install-dependencies.sh
 ```
 
-Then, install Vite globally
+On Windows, run `pwsh scripts/install-dependencies.ps1`.
+
+`core/` is the shared engine layer. The CLI imports it through the `core/*` path mapping in `packages/cli/tsconfig.json`, so it must be built before the CLI type-checks:
 
 ```bash
-npm i -g vite
+cd core && npm install && npm run build
 ```
 
-#### Fork the Continue Repository
+## Run TNT From Source
 
-1. Go to the [Continue GitHub repository](https://github.com/linanwanttodo/TNT) and fork it to your GitHub account.
+```bash
+cd packages/cli
+npm run dev                                    # tsx src/dev.ts, no build needed
+npm run build && node dist/tnt.js              # the bundle the e2e suites spawn
+```
 
-2. Clone your forked repository to your local machine. Use: `git clone https://github.com/YOUR_USERNAME/continue.git`
+## Preview the Documentation
 
-3. Navigate to the cloned directory and make sure you are on the main branch. Create your feature/fix branch from there,
-   like so: `git checkout -b 123-my-feature-branch`
+```bash
+cd docs && npm install && npm run dev          # Mintlify preview
+cd docs-site && npm install && npm run dev     # the published site on http://localhost:3005
+```
 
-4. Send your pull request to the main branch.
+# Git Workflow
 
-#### VS Code
+`main` is the only long-lived branch. Cut a feature branch from it, open the PR back into it, and keep each commit to one reviewable change.
 
-1. Open the VS Code command pallet (`cmd/ctrl+shift+p`) and select `Tasks: Run Task` and then select
-   `install-all-dependencies`
+A CLI release is a tag plus one workflow dispatch: push `v<version>` and run **Release the CLI for every desktop OS** with the same version. A tag ref pushed under a branch name is not a tag — push it as `refs/tags/v<version>`.
 
-2. Start debugging:
+# What Makes a Good PR
 
-   1. Switch to Run and Debug view
-   2. Select `Launch extension` from drop down
-   3. Hit play button
-   4. This will start the extension in debug mode and open a new VS Code window with it installed
-      1. The new VS Code window with the extension is referred to as the _Host VS Code_
-      2. The window you started debugging from is referred to as the _Main VS Code_
+- Open or comment on an issue before writing code, so the change matches the direction.
+- Keep it focused. Unrelated fixes belong in separate PRs.
+- New behavior ships with a test that fails without it. Prove the test bites: break the source on purpose and read which test goes red.
+- Update both documentation languages when anything user-visible changes.
+- For terminal UI changes, attach a recording or screenshot of the real terminal.
+- Run the gates locally and paste the output in the PR body.
 
-3. To package the extension, run `npm run package` in the `ide/vscode` directory, select `Tasks: Run Task` and
-   then select `vscode-extension:package`. This will generate `ide/vscode/build/continue-{VERSION}.vsix`, which
-   you can install by right-clicking and selecting "Install Extension VSIX".
+# Code Rules
 
-##### Debugging
+One engine drives four surfaces — the interactive terminal, headless, `serve`, and ACP. A change to a capability belongs in the engine; a surface only renders or wires it. A feature that lands on one surface and not the others needs an explicit reason in the PR.
 
-**Breakpoints** can be used in both the `core` and `ide/vscode` folders while debugging, but are not currently
-supported inside of `gui` code.
+`packages/cli/eslint.config.js` enforces, among others: `max-lines` 500 (blank lines and comments excluded), `max-statements` 50, `complexity` 30, `max-depth` 4, `max-params` 5. When a file crosses a limit, split it — do not add an override.
 
-**Hot-reloading** is enabled with Vite, so if you make any changes to the `gui`, they should be automatically reflected
-without rebuilding. In some cases, you may need to refresh the _Host VS Code_ window to see the changes.
+`packages/cli/spec/` holds the behavioral contracts, and each has a guard test that reads the source. When you change something a spec page describes, update the page and the guard together.
 
-Similarly, any changes to `core` or `ide/vscode` will be automatically included by just reloading the _Host VS
-Code_ window with cmd/ctrl+shift+p "Reload Window".
+Comments and file names describe behavior in neutral terms. Do not name other products or vendors in them.
 
-#### JetBrains
+# Formatting
 
-See [`intellij/CONTRIBUTING.md`](./ide/intellij/CONTRIBUTING.md) for the JetBrains extension.
+Prettier formats JavaScript, TypeScript, JSON, CSS and Markdown from the repository root:
 
-### Our Git Workflow
+```bash
+npm run format         # write
+npm run format:check   # verify, this is what CI runs
+```
 
-We keep a single permanent branch: `main`. When we are ready to create a "pre-release" version, we create a tag on the
-`main` branch titled `v1.3.x-vscode`, which automatically triggers the workflow
-in [preview.yaml](./.github/workflows/preview.yaml), which builds and releases a version of the VS Code extension. When
-a release has been sufficiently tested, we will create a new release titled `v1.2.x-vscode`, triggering a similar
-workflow in [main.yaml](./.github/workflows/main.yaml), which will build and release a main release of the VS Code
-extension. Any hotfixes can be made by creating a feature branch from the tag for the release in question. This workflow
-is well explained by <http://releaseflow.org>.
+# Testing
 
-### What makes a good PR?
+```bash
+cd packages/cli
+npm test                                   # unit tests; e2e is excluded by vitest.config.ts
+npm run test:e2e                           # spawns the built bundle - run npm run build first
+npx vitest run src/path/to/file.test.ts    # one file
+npm run lint                               # tsc --noEmit && eslint .
 
-To keep the Continue codebase clean and maintainable, we expect the following from our own team and all contributors:
+cd packages/openai-adapters && npm test
+cd core && npm test && npm run vitest      # core is mid-migration: *.test.ts is Jest, *.vitest.ts is Vitest
+```
 
-- Open a new issue or comment on an existing one before writing code. This ensures your proposed changes are aligned
-  with the project direction
-- Keep changes focused. Multiple unrelated fixes should be opened as separate PRs
-- Write or update tests for new functionality
-- Update relevant documentation in the `docs` folder
-- **For new features**: Include a short screen recording or screenshot demonstrating the new functionality. This makes it much easier for us as contributors to review and understand your changes. See [this PR](https://github.com/linanwanttodo/TNT/pull/6455) as a good example
-- Open a PR against the `main` branch. Make sure to fill in the PR template
+Provider-facing tests are named `*.live.test.ts` and are excluded from the default run because they need a real key; run one deliberately:
 
-### Formatting
+```bash
+cd packages/openai-adapters
+DEEPSEEK_API_KEY=... npx vitest run src/test/deepseek-cache.live.test.ts
+```
 
-Continue uses [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) to format
-JavaScript/TypeScript. Please install the Prettier extension in VS Code and enable "Format on Save" in your settings.
+Never pipe a test run through `grep` or `head` when you need its exit code — a pipeline reports the last command.
 
-### Theme Colors
+# Review Process
 
-Continue has a set of named theme colors that we map to extension colors and tailwind classes, which can be found in [ide/gui/src/styles/theme.ts](ide/gui/src/styles/theme.ts)
+- **Initial review** — a maintainer is assigned as the primary reviewer.
+- **Feedback loop** — changes may be requested; the engine boundaries and the guards above are not negotiable, everything else is a discussion.
+- **Approval and merge** — once approved, the PR lands on `main`.
 
-Guidelines for using theme colors:
+# Adding an LLM Provider
 
-- Use Tailwind colors whenever possible. If developing in VS Code, download the [Tailwind CSS Intellisense extension](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss) for great suggestions
-- Avoid using any explicit classes and CSS variables outside the theme (e.g. `text-yellow-400`)
+TNT runs models through `core/llm/llms`. To add one:
 
-Guidelines for adding/updating theme colors:
+1. Create `core/llm/llms/<Provider>.ts` exporting a class that extends `BaseLLM`. [`LlamaCpp.ts`](./core/llm/llms/LlamaCpp.ts) is the smallest example.
+2. Add the provider to the `LLMs` array in [`core/llm/llms/index.ts`](./core/llm/llms/index.ts).
+3. If it accepts images, add its provider key to `PROVIDER_SUPPORTS_IMAGES` in [`core/llm/autodetect.ts`](./core/llm/autodetect.ts).
+4. If it speaks a wire protocol the CLI has not used before, add the protocol to the selection in `packages/cli/src/config` and its adapter in `packages/openai-adapters`.
+5. Add a provider page under `docs/cli/` and its Chinese twin under `docs/zh/cli/`, with a runnable `config.yaml` example, then register both in the navigation files.
 
-- Choose sensible VS Code variables to add/update in [ide/gui/src/styles/theme.ts](ide/gui/src/styles/theme.ts) (see [here](https://code.visualstudio.com/api/references/theme-color) and [here](https://www.notion.so/1fa1d55165f78097b551e3bc296fcf76?pvs=25) for inspiration)
-- Choose sensible JetBrains named colors to add/update in `GetTheme.kt` (flagship LLMs can give you good suggestions to try)
-- Update `tailwind.config.js` if needed
-- Use the Theme Test Page to check colors. This can be accessed by going to `Settings` -> `Help` -> `Theme Test Page` in dev/debug mode.
+# Adding a Model
 
-### Testing
+A model that works with a supported provider needs no code: configure it in `config.yaml`. Add it to the repository only when TNT should recommend it, and then check the pieces that steer behavior:
 
-We have a mix of unit, functional, and e2e test suites, with a primary focus on functional testing. These tests run on
-each pull request. If your PR causes one of these tests to fail, we will ask you to resolve the issue before we
-merge.
+- `core/llm/autodetect.ts` — `autodetectTemplateType` should recognize the name, or the chat template is picked wrongly.
+- `packages/openai-adapters/src/apis/cachePolicy.ts` — prompt-cache behavior, when the provider has one.
+- The provider page in `docs/cli/` and `docs/zh/cli/`.
 
-When contributing, please update or create the appropriate tests to help verify the correctness of your implementation.
+# Getting Help
 
-### Review Process
+Open [an issue](https://github.com/linanwanttodo/TNT/issues).
 
-- **Initial Review** - A maintainer will be assigned as primary reviewer
-- **Feedback Loop** - The reviewer may request changes. We value your work, but also want to ensure the code is
-  maintainable and follows our patterns.
-- **Approval & Merge** - Once the PR is approved, it will be merged into the `main` branch.
+# Contributor License Agreement (CLA)
 
-### Getting Help
+Every contributor signs the CLA by commenting on the pull request:
 
-Join the [GitHub Discussions](https://github.com/linanwanttodo/TNT/discussions) to engage with maintainers and other contributors.
+```text
+I have read the CLA Document and I hereby sign the CLA
+```
 
-## Contributing New LLM Providers/Models
-
-### Adding an LLM Provider
-
-Continue has support for more than a dozen different LLM "providers", making it easy to use models running on OpenAI,
-Ollama, Together, LM Studio, Msty, and more. You can find all of the existing
-providers [here](https://github.com/linanwanttodo/TNT/tree/main/core/llm/llms), and if you see one missing, you can
-add it with the following steps:
-
-1. Create a new file in the `core/llm/llms` directory. The name of the file should be the name of the provider, and it
-   should export a class that extends `BaseLLM`. This class should contain the following minimal implementation. We
-   recommend viewing pre-existing providers for more details. The [LlamaCpp Provider](./core/llm/llms/LlamaCpp.ts) is a
-   good simple example.
-2. Add your provider to the `LLMs` array in [core/llm/llms/index.ts](./core/llm/llms/index.ts).
-3. If your provider supports images, add it to the `PROVIDER_SUPPORTS_IMAGES` array
-   in [core/llm/autodetect.ts](./core/llm/autodetect.ts).
-4. Add a documentation page for your provider under [`docs/cli`](./docs/cli). This should show an example
-   of configuring your provider in `config.yaml` and explain what options are available.
-
-### Adding Models
-
-While any model that works with a supported provider can be used with Continue, we keep a list of recommended models
-that can be automatically configured from the UI or `config.json`. The following files should be updated when adding a
-model:
-
-- [AddNewModel page](./ide/gui/src/pages/AddNewModel/configs/) - This directory defines which model options are shown in the
-  side bar model selection UI. To add a new model:
-  1. Add a `ModelPackage` entry for the model into [configs/models.ts](./ide/gui/src/pages/AddNewModel/configs/models.ts),
-     following the lead of the many examples near the top of the file
-  2. Add the model within its provider's array
-     to [configs/providers.ts](./ide/gui/src/pages/AddNewModel/configs/providers.ts) (add provider if needed)
-- LLM Providers: Since many providers use their own custom strings to identify models, you'll have to add the
-  translation from TNT's model name (the one you added to `index.d.ts`) and the model string for each of these
-  providers: [Ollama](./core/llm/llms/Ollama.ts), [Together](./core/llm/llms/Together.ts),
-  and [Replicate](./core/llm/llms/Replicate.ts). You can find their full model lists
-  here: [Ollama](https://ollama.ai/library), [Together](https://docs.together.ai/docs/inference-models), [Replicate](https://replicate.com/collections/streaming-language-models).
-- [Prompt Templates](./core/llm/autodetect.ts) - In this file you'll find the `autodetectTemplateType` function. Make
-  sure that for the model name you just added, this function returns the correct template type. This is assuming that
-  the chat template for that model is already built in Continue. If not, you will have to add the template type and
-  corresponding edit and chat templates.
-
-## Contributor License Agreement (CLA)
-
-We require all contributors to accept the CLA and have made it as easy as commenting on your PR:
-
-1. Open your pull request.
-2. Paste the following comment (or reply `recheck` if you’ve signed before):
-
-   ```text
-   I have read the CLA Document and I hereby sign the CLA
-   ```
-
-3. The CLA-Assistant bot records your signature in the repo and marks the status check as passed.
+Reply `recheck` if you have signed before. The CLA-Assistant bot records the signature and marks the check as passed.

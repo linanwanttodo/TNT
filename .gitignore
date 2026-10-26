@@ -51,8 +51,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 .playwright-cli/
-ide/gui/preview.html
-ide/gui/src/preview/
 
 # Translations
 *.mo
@@ -155,7 +153,6 @@ notes.md
 
 manual-testing-sandbox/.idea/**
 manual-testing-sandbox/.continue/**
-ide/intellij/.idea/**
 
 **/.idea/workspace.xml
 **/.idea/usage.statistics.xml
@@ -165,7 +162,6 @@ ide/intellij/.idea/**
 **/.idea/kotlinc.xml
 
 
-ide/intellij/bin
 packages/cli/.continue-debug/
 
 *.vsix

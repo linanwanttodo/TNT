@@ -486,9 +486,9 @@ mod tests {
     }
 
     #[test]
-    fn test_on_vscode_extension() {
+    fn test_on_local_crate() {
         let results = sync(&Tag {
-            dir: Path::new("../ide/vscode"),
+            dir: Path::new("."),
             branch: "nate/pyO3",
             provider_id: "default",
         });

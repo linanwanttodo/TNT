@@ -1,11 +1,4 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/server/.venv/bin/python3",
-  "rust-analyzer.linkedProjects": ["./server/Cargo.toml"],
-  "python.analysis.extraPaths": [],
-  "python.autoComplete.extraPaths": [],
-  "python.testing.pytestArgs": ["server"],
-  "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true,
   "terminal.integrated.defaultProfile.linux": "bash",
   "terminal.integrated.profiles.linux": {
     "bash": {
@@ -17,6 +10,7 @@
     "source.organizeImports": "explicit"
   },
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
   "search.exclude": {
     "**/package-lock.json": true,
     "binary/bin/**": true,
@@ -29,31 +23,39 @@
     "core/llm/llamaTokenizer.mjs": true,
     "core/vendor/**": true,
     "docs/.docusaurus/**": true,
-    "ide/intellij/build/**": true,
-    "ide/vscode/bin/**": true,
-    "ide/vscode/build/**": true,
-    "ide/vscode/gui/**": true,
-    "ide/vscode/models/all-MiniLM-L6-v2/**": true,
-    "ide/vscode/out/**": true,
-    "ide/vscode/tag-qry/**": true,
-    "ide/vscode/textmate-syntaxes/**": true,
-    "ide/vscode/tree-sitter/**": true,
-    "ide/gui/dist/**": true,
-    "ide/vscode/e2e/.test-extensions": true,
-    "ide/vscode/e2e/_output": true,
-    "ide/vscode/e2e/storage": true,
-    "ide/vscode/e2e/vsix": true,
+    "docs-site/.next/**": true,
+    "docs-site/out/**": true,
     "packages/cli/.continue-debug": true,
     "packages/cli/dist/**": true,
-    "packages/config-yaml/dist/**": true
-    // "sync/**": true
+    "packages/config-yaml/dist/**": true,
+    "packages/openai-adapters/dist/**": true
   },
-  "editor.formatOnSave": true,
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "core/dist/**": true,
+    "docs-site/.next/**": true,
+    "docs-site/out/**": true,
+    "packages/**/dist/**": true
+  },
   "eslint.workingDirectories": ["./core"],
   "typescript.tsdk": "node_modules/typescript/lib",
   "conventionalCommits.showNewVersionNotes": false,
   "conventionalCommits.promptBody": false,
   "conventionalCommits.promptFooter": false,
   "conventionalCommits.promptScopes": true,
-  "conventionalCommits.scopes": ["reg"]
+  "conventionalCommits.scopes": [
+    "cli",
+    "tui",
+    "tools",
+    "core",
+    "adapters",
+    "config",
+    "ci",
+    "cache",
+    "permissions",
+    "retrieval",
+    "session",
+    "stream",
+    "subagent"
+  ]
 }

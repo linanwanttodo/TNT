@@ -1,7 +1,6 @@
-# This is used in a task in .vscode/tasks.json when on windows
-# Start developing with:
-# - Run Task -> Install Dependencies
-# - Debug -> Extension
+# Installs the dependencies for the TNT engine and its CLI surface on Windows.
+# Run with: pwsh scripts/install-dependencies.ps1
+# Then: cd packages/cli; npm run dev
 
 # Everything needs node and npm
 Write-Host "`nChecking for dependencies that may require manual installation...`n" -ForegroundColor White
@@ -79,38 +78,15 @@ npm install
 Write-Host "`nBuilding packages (fetch, openai-adapters, config-yaml)..." -ForegroundColor White
 node ./scripts/build-packages.js
 
-Write-Host "`nInstalling Core extension dependencies..." -ForegroundColor White
+Write-Host "`nInstalling core dependencies..." -ForegroundColor White
 Push-Location core
 npm install
 npm link
 Pop-Location
 
-Write-Output "`nInstalling GUI extension dependencies..." -ForegroundColor White
-Push-Location ide/gui
+Write-Output "`nInstalling CLI dependencies..." -ForegroundColor White
+Push-Location packages/cli
 npm install
-npm link @tnt/core
-npm run build
-Pop-Location
-
-# VSCode Extension (will also package GUI)
-Write-Output "`nInstalling VSCode extension dependencies..." -ForegroundColor White
-Push-Location ide/vscode
-
-# This does way too many things inline but is the common denominator between many of the scripts
-npm install
-npm link @tnt/core
-npm run prepackage
-npm run package
-
-Pop-Location
-
-
-Write-Output "`nInstalling binary dependencies..." -ForegroundColor White
-Push-Location binary
-
-npm install
-npm run build
-
 Pop-Location
 
 Write-Output "`nInstalling docs dependencies..." -ForegroundColor White
