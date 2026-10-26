@@ -20,7 +20,7 @@ describe("onboarding config flag handling", () => {
 
   beforeEach(() => {
     // Create a temporary directory for test config files
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "continue-test-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-test-"));
 
     // Auth config is always null after Hub removal
     mockAuthConfig = null;
@@ -250,16 +250,24 @@ describe("CONTINUE_USE_BEDROCK environment variable", () => {
 describe("interactive provider onboarding writes a real config file", () => {
   let tempDir: string;
   const originalGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
-  const originalIsTTY = process.stdin.isTTY;
+  const originalGithubActions = process.env.GITHUB_ACTIONS;
+  const originalStdinIsTTY = process.stdin.isTTY;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "continue-onboard-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-onboard-"));
     process.env.CONTINUE_GLOBAL_DIR = tempDir;
-    // Force the interactive branch (not the non-TTY test guard).
+    // Force the interactive branch (not the non-TTY test guard). Every signal
+    // the guard reads has to be neutralised here, because GitHub Actions sets
+    // GITHUB_ACTIONS in addition to CI and the first cut of this file only
+    // cleared CI - so the flow skipped the prompts it was meant to exercise and
+    // wrote no config.
     process.stdin.isTTY = true;
+    // stdout stays non-TTY under any test runner, so step 4 always takes the
+    // line prompts that read the mocked `question`, never the Ink box.
     process.env.NODE_ENV = "development";
     process.env.CI = "";
     process.env.VITEST = "";
+    process.env.GITHUB_ACTIONS = "";
     questionMock.mockReset();
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.resetModules();
@@ -271,7 +279,12 @@ describe("interactive provider onboarding writes a real config file", () => {
     } else {
       process.env.CONTINUE_GLOBAL_DIR = originalGlobalDir;
     }
-    process.stdin.isTTY = originalIsTTY;
+    if (originalGithubActions === undefined) {
+      delete process.env.GITHUB_ACTIONS;
+    } else {
+      process.env.GITHUB_ACTIONS = originalGithubActions;
+    }
+    process.stdin.isTTY = originalStdinIsTTY;
     vi.restoreAllMocks();
     fs.rmSync(tempDir, { recursive: true, force: true });
   });

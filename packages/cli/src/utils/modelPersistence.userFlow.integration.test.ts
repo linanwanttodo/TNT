@@ -24,7 +24,7 @@ describe("Model Persistence User Flow", () => {
     vi.clearAllMocks();
 
     // Create a temporary directory for testing
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), "continue-test-"));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-test-"));
     originalContinueHome = process.env.CONTINUE_GLOBAL_DIR;
     process.env.CONTINUE_GLOBAL_DIR = testDir;
 
