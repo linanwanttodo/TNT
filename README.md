@@ -20,6 +20,30 @@
 
 TNT is a coding agent that runs as a CLI: one engine driving the interactive terminal, headless runs, a local HTTP server, and ACP editors.
 
+## Install
+
+macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
+```
+
+With Node.js 20 or newer, npm works too:
+
+```bash
+npm i -g @tnt/cli
+```
+
+Add a model to `~/.tnt/config.yaml`, then run `tnt` inside a repository. The
+[quickstart](https://github.com/linanwanttodo/TNT/blob/main/docs/cli/quickstart.mdx)
+takes it from there.
+
 ## Documentation
 
 To learn how to configure TNT, how it works, and how to customize it, check out the [TNT Docs](https://github.com/linanwanttodo/TNT/tree/main/docs).
