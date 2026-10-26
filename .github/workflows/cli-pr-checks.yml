@@ -127,7 +127,14 @@ jobs:
           cd packages/cli
           npm test
 
-      # e2e tests are failing on Windows specifically - likely due to stdout flush issues
+      # Windows e2e ran red on stdout that had not drained before exit; the
+      # exit path now waits for the pipe. Keep the TUI/PTY suites off Windows,
+      # but the headless suites are cross-platform and run here.
+      - name: Run headless e2e tests
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd packages/cli
+          npx vitest run --config vitest.e2e.config.ts headless
       - name: Run e2e tests
         if: matrix.os != 'windows-latest'
         run: |
