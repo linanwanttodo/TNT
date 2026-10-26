@@ -257,8 +257,6 @@ export function buildConfigYaml(setup: ProviderSetup): string {
   const model = setup.model || getDefaultModel(setup.protocol, apiBase);
   const lines = [
     "name: TNT",
-    "version: 1.0.0",
-    "schema: v1",
     "models:",
     `  - name: "${escapeYaml(model)}"`,
     `    provider: ${mapProtocolToProvider(setup.protocol, apiBase)}`,
