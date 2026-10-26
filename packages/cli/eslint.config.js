@@ -209,6 +209,13 @@ export default [
       "vitest.config.ts",
       "*.config.js",
       "*.config.ts",
+      // Local agent scratch that never enters a checkout; linting it makes the
+      // local gate disagree with CI, which cannot see these files at all.
+      "**/.zcode/**",
+      "**/.mimosa/**",
+      "**/.vitest/**",
+      "**/.v2c/**",
+      "**/.zion-mcp/**",
     ],
   },
 ];

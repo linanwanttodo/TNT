@@ -25,6 +25,7 @@
 ### Task 1: Land the install/config fix and the pending capability work
 
 **Files:**
+
 - Modify: `packages/cli/src/config/settings.ts`
 - Modify: `packages/cli/src/config/settings.test.ts`
 - Modify: `docs/cli/troubleshooting.mdx`
@@ -32,6 +33,7 @@
 - Stage: the DocumentSymbol / ImportGraph / MCP documentation files already modified or untracked in the working tree.
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `loadSettings()` still drops `model`/`models`; it now logs at debug instead of warn. No signature change.
 
@@ -99,10 +101,12 @@ Expected: the two earlier tool commits and both new commits reach `origin/main`.
 ### Task 2: Make the seven-chain workflow replayable
 
 **Files:**
+
 - Create (ignored): `packages/cli/src/.zcode/workflow-drafts/seven-dimension-review.dwf.ts`
 - Source: the script supplied as the 2026-10-26 attachment (406 lines).
 
 **Interfaces:**
+
 - Consumes: the workflow DSL (`agent`, `phase`, `report`, `artifact`, `log`).
 - Produces: a script whose `report()` calls happen only after the join, in fixed order, and whose final value is named `summary`, not `report`.
 
@@ -181,9 +185,18 @@ for (const f of check.findings) report({ ...f, dimension: d.name });
 Insert immediately after `const [prior, ...dimResults] = await Promise.all(...)`:
 
 ```ts
-report({ dimension: "既有研究对账", stage: prior.items.length > 0 ? "已完成" : "失败" }, "进度");
+report(
+  {
+    dimension: "既有研究对账",
+    stage: prior.items.length > 0 ? "已完成" : "失败",
+  },
+  "进度",
+);
 for (const result of dimResults) {
-  report({ dimension: result.dimension, stage: result.error ? "失败" : "已完成" }, "进度");
+  report(
+    { dimension: result.dimension, stage: result.error ? "失败" : "已完成" },
+    "进度",
+  );
 }
 for (const result of dimResults) {
   for (const finding of result.findings) {
@@ -215,10 +228,12 @@ Expected: `PRODUCT-GAP-ANALYSIS-2026-10-24.md` is rewritten; `artifact.file` pub
 ### Task 3: Fallback manual completion of the four open dimensions
 
 **Files:**
+
 - Create: `PRODUCT-GAP-ANALYSIS-2026-10-26.md` (untracked working report)
 - Read: `packages/cli/src/{retrieval,loop,stream,compaction,tools,permissions,subagent}/`, `core/`, and the reference trees.
 
 **Interfaces:**
+
 - Consumes: Task 2's output if the workflow ran; otherwise this is the only analysis path.
 - Produces: one section per dimension with inventory, ≤6 findings, TNT `path:line` and reference `path:line` evidence.
 
@@ -251,10 +266,12 @@ Re-open each cited line; mark a finding unconfirmed if the line moved or the beh
 ### Task 4: Complete the closed-source comparison
 
 **Files:**
+
 - Modify: `CLOSED-SOURCE-CAPABILITY-ANALYSIS-2026-10-25.md` (untracked)
 - Read only: the installed IDE tree under `/usr/share/`, the npm-global agent package, and the official CLI package under the Node global prefix.
 
 **Interfaces:**
+
 - Consumes: Task 3's report structure.
 - Produces: a capability table covering prompts, tool inventory/schemas, context/permission policy, retrieval/index behavior, and the gaps TNT still has.
 
@@ -279,12 +296,14 @@ For each TNT gap, give the mechanism, the TNT entry point, and whether it is tra
 ### Task 5: Measure the real-key cache behavior
 
 **Files:**
+
 - Modify only if the data justifies it: `packages/openai-adapters/src/apis/cachePolicy.ts` and its tests.
 - Run: `packages/openai-adapters/src/test/anthropic-caching.live.test.ts`
 - Run: `packages/openai-adapters/src/test/anthropic-caching-scenarios.live.test.ts`
 - Run: `packages/openai-adapters/src/test/deepseek-cache.live.test.ts`
 
 **Interfaces:**
+
 - Consumes: a key the owner supplies or explicitly authorizes.
 - Produces: per-provider cache-read numbers for two consecutive rounds and, if measured, a justified default breakpoint budget.
 
@@ -318,10 +337,12 @@ Add the measured numbers to the analysis report. If a default changes, update `c
 ### Task 6: Audit the remaining P2 items and produce their sub-plan
 
 **Files:**
+
 - Create: `docs/superpowers/plans/2026-10-27-p2-followups.md`
 - Read: the files named below.
 
 **Interfaces:**
+
 - Consumes: the handoff's §4.3 P2 list.
 - Produces: one TDD task per still-open item, each with its own failing test and file list.
 

@@ -264,7 +264,9 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
           return (
             <Box key={option.id} marginTop={index === 0 ? 1 : 0}>
               <Text
-                color={isSelected ? activeTheme.accent : activeTheme.text.primary}
+                color={
+                  isSelected ? activeTheme.accent : activeTheme.text.primary
+                }
               >
                 {isSelected ? "❯ " : "  "}
                 {index + 1}. {option.name}

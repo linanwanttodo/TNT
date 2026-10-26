@@ -34,11 +34,13 @@
 ### Task 1: Position-based Definition tool
 
 **Files:**
+
 - Modify: `packages/cli/src/lsp/manager.ts`
 - Create: `packages/cli/src/tools/definition.ts`, `definition.test.ts`
 - Modify: `tools/allBuiltIns.ts`, `tools/builtInToolNames.ts`, `tools/registry.ts`, `permissions/defaultPolicies.ts`, `permissions/autoMode.ts`, `tools/selection/deferral.ts`, `tools/documentedSurface.test.ts`, `tools/toolPrefixFingerprint.test.ts`, `test-fixtures/fake-lsp-server.mjs`
 
 **Interfaces:**
+
 - Produces: `LspManager.definitionAt(filePath: string, line: number, character: number, kind: "definition" | "implementation"): Promise<LspLocation[]>`
 - Produces: tool `Definition`, params `{ file_path: string; line: number; character: number; kind: "definition" | "implementation" }`.
 
@@ -52,7 +54,10 @@ Add cases for `textDocument/definition` and `textDocument/implementation` return
 it("reports the definition the server returns", async () => {
   writePlugin();
   const result = await definitionTool.run({
-    file_path: file(), line: 5, character: 3, kind: "definition",
+    file_path: file(),
+    line: 5,
+    character: 3,
+    kind: "definition",
   });
   expect(result).toContain("decl.ts:2:5");
   expect(result).not.toContain("file:///");
@@ -78,10 +83,12 @@ Run the four gates; commit as `feat(tools): resolve definitions and implementati
 ### Task 2: Read displays images
 
 **Files:**
+
 - Modify: `packages/cli/src/tools/readFile.ts`, `readFile.test.ts`
 - Reuse: `stream/toolResultMedia.ts` (already attaches images to the observation)
 
 **Interfaces:**
+
 - `readFileTool.run` returns `ToolResult` for `.png`/`.jpg`/`.jpeg`: `{ content: "Read <path> (<WxH>).", images: [{ mimeType, data }] }`.
 - Text files keep returning a string.
 
@@ -102,21 +109,23 @@ Sniff the extension; cap at 4.5 MB base64; for larger images return a text error
 ### Task 3: Stream Static, in two slices
 
 **Files:**
+
 - Modify: `packages/cli/src/ui/components/ScreenContent.tsx`, `ui/TUIChat.tsx`
 - Create: `packages/cli/src/ui/utils/streamSplit.ts`, `streamSplit.test.ts`
 - Reuse: `ui/utils/transcriptSegments.ts`
 
 **Interfaces:**
+
 - `splitForStreaming(text: string): { settled: string; live: string }` never splits inside an unclosed code fence.
 
 - [ ] **Step 1: Write the failing split test**
 
-```ts
+````ts
 expect(splitForStreaming("a\n\n```ts\nconst x = 1;")).toEqual({
   settled: "a",
   live: "\n\n```ts\nconst x = 1;",
 });
-```
+````
 
 - [ ] **Step 2: Implement the fence scanner** (line scan, toggles on ```).
 
@@ -133,10 +142,12 @@ Render `ScreenContent` with two settled transcript items and one live item; asse
 ### Task 4: System-message section merge-patch
 
 **Files:**
+
 - Create: `packages/cli/src/stream/systemPromptDiff.ts`, `systemPromptDiff.test.ts`
 - Modify: `packages/cli/src/services/SystemMessageService.ts`, `stream/systemPromptRound.ts`
 
 **Interfaces:**
+
 - `diffSections(previous: string[], next: string[]): { added: string[]; removed: string[]; changed: { index: number; text: string }[] }`
 - `SystemMessageService` exposes the diff on each build; the prompt round appends only changed sections.
 
@@ -151,10 +162,12 @@ Render `ScreenContent` with two settled transcript items and one live item; asse
 ### Task 5: Context budget note
 
 **Files:**
+
 - Modify: `packages/cli/src/stream/toolDispatch.ts` or the tail-reminder source
 - Test: `tools/contextBudget.test.ts` (new pure formatter)
 
 **Interfaces:**
+
 - `formatContextBudget({ used, limit }): string` returns `Context: 18.2k/200k (9%) left this turn.` or empty when no limit.
 
 - [ ] **Step 1: Failing formatter test** with exact strings for a known limit and for no limit.
@@ -166,9 +179,11 @@ Render `ScreenContent` with two settled transcript items and one live item; asse
 ### Task 6: Changed-file diff snippets
 
 **Files:**
+
 - Modify: `packages/cli/src/agent/changedFiles.ts`, `changedFiles.test.ts`
 
 **Interfaces:**
+
 - `describeChangedFiles` keeps the path list and appends up to two hunks per file, capped at 40 lines total.
 
 - [ ] **Step 1: Failing test** with a temp file changed after being seen; assert the note contains the path and a `-`/`+` line.
@@ -180,10 +195,12 @@ Render `ScreenContent` with two settled transcript items and one live item; asse
 ### Task 7: Token preemption and classified retries
 
 **Files:**
+
 - Modify: `packages/cli/src/loop/turnBudget.ts`, `stream/streamChatResponse.ts`
 - Test: `loop/turnBudget.test.ts`, `stream/streamChatResponse.retry.test.ts`
 
 **Interfaces:**
+
 - `TurnBudget.recordUsage(promptTokens: number, limit: number): void` tracks a token ceiling.
 - `classifyRetry(error): "retry" | "wait" | "fatal"`; a wait carries `retryAfterMs`.
 
@@ -197,11 +214,13 @@ Render `ScreenContent` with two settled transcript items and one live item; asse
 ### Task 8: Persistent task tools
 
 **Files:**
+
 - Create: `packages/cli/src/services/TaskStore.ts`, tests
 - Create: `tools/taskCreate.ts`, `taskList.ts`, `taskUpdate.ts`
 - Modify: registry, names, policies, deferral, fingerprint
 
 **Interfaces:**
+
 - Store at `$CONTINUE_GLOBAL_DIR/tasks.json`, atomic write.
 - `TaskCreate(input): Task`, `TaskList(): Task[]`, `TaskUpdate(id, patch): Task`.
 - States: `pending | in_progress | completed | blocked`; optional `owner`, `dependsOn`.
@@ -216,6 +235,7 @@ Render `ScreenContent` with two settled transcript items and one live item; asse
 ### Task 9: Recorded replay and Windows headless coverage
 
 **Files:**
+
 - Create: `packages/cli/e2e/fixtures/recorded/*.jsonl`, `e2e/replay.test.ts`
 - Modify: `.github/workflows/*`
 

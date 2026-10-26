@@ -28,9 +28,7 @@ import {
   consumeProviderStream,
   type StreamAccumulator,
 } from "./responseChunks.js";
-import {
-  recordRoundAccounting,
-} from "./streamChatResponse.helpers.js";
+import { recordRoundAccounting } from "./streamChatResponse.helpers.js";
 import {
   getDefaultCompletionOptions,
   StreamCallbacks,

@@ -96,7 +96,8 @@ type RequiredLLMOptions =
   | "completionOptions";
 
 export interface ILLM
-  extends Omit<LLMOptions, RequiredLLMOptions>,
+  extends
+    Omit<LLMOptions, RequiredLLMOptions>,
     Required<Pick<LLMOptions, RequiredLLMOptions>> {
   get providerName(): string;
   get underlyingProviderName(): string;
@@ -180,10 +181,7 @@ export interface ModelInstaller {
 
 export type ContextProviderType = "normal" | "query" | "submenu";
 export type ContextIndexingType =
-  | "chunk"
-  | "embeddings"
-  | "fullTextSearch"
-  | "codeSnippets";
+  "chunk" | "embeddings" | "fullTextSearch" | "codeSnippets";
 
 export interface ContextProviderDescription {
   title: ContextProviderName;
@@ -398,11 +396,7 @@ export interface CompletionOptions extends BaseCompletionOptions {
 }
 
 export type ChatMessageRole =
-  | "user"
-  | "assistant"
-  | "thinking"
-  | "system"
-  | "tool";
+  "user" | "assistant" | "thinking" | "system" | "tool";
 
 export type TextMessagePart = {
   type: "text";
@@ -1459,10 +1453,7 @@ export interface StreamableHTTPOptions {
 }
 
 export type TransportOptions =
-  | StdioOptions
-  | WebSocketOptions
-  | SSEOptions
-  | StreamableHTTPOptions;
+  StdioOptions | WebSocketOptions | SSEOptions | StreamableHTTPOptions;
 
 export type MCPConnectionStatus =
   | "disabled"
@@ -1632,8 +1623,7 @@ interface StreamDiffLinesOptionsApply extends StreamDiffLinesOptionsBase {
 }
 
 type StreamDiffLinesPayload =
-  | StreamDiffLinesOptionsApply
-  | StreamDiffLinesOptionsEdit;
+  StreamDiffLinesOptionsApply | StreamDiffLinesOptionsEdit;
 
 export interface HighlightedCodePayload {
   rangeInFileWithContents: RangeInFileWithContents;
@@ -1917,9 +1907,7 @@ export interface Config {
   embeddingsProvider?: EmbeddingsProviderDescription | ILLM;
   /** The model that Continue will use for tab autocompletions. */
   tabAutocompleteModel?:
-    | CustomLLM
-    | JSONModelDescription
-    | (CustomLLM | JSONModelDescription)[];
+    CustomLLM | JSONModelDescription | (CustomLLM | JSONModelDescription)[];
   /** Options for tab autocomplete */
   tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
   /** UI styles customization */

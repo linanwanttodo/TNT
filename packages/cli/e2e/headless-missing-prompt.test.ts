@@ -4,7 +4,10 @@ import {
   runCLI,
   createTestConfig,
 } from "../test-utils/cli-helpers.js";
-import { fixtureApiKeyLine, fixtureKey } from "../test-utils/fixtureCredentials.js";
+import {
+  fixtureApiKeyLine,
+  fixtureKey,
+} from "../test-utils/fixtureCredentials.js";
 
 describe("E2E: Headless Mode - Missing Prompt", () => {
   let context: any;
