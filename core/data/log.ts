@@ -11,7 +11,7 @@ import { fetchwithRequestOptions } from "@tnt/fetch";
 import * as URI from "uri-js";
 import { fileURLToPath } from "url";
 import { AnyZodObject } from "zod";
-import { Core } from "../core.js";
+import type { ConfigHandler } from "../config/ConfigHandler.js";
 import { ContinueConfig, IdeInfo, IdeSettings } from "../index.js";
 import { getDevDataFilePath } from "../util/paths.js";
 import { joinPathsToUri } from "../util/uri.js";
@@ -20,7 +20,12 @@ const DEFAULT_DEV_DATA_LEVEL: DataLogLevel = "all";
 export const LOCAL_DEV_DATA_VERSION = "0.2.0";
 export class DataLogger {
   private static instance: DataLogger | null = null;
-  core?: Core;
+  /**
+   * The session host this logger reads the profile id and the remote-logging
+   * destination from. Only the Core session host ever assigned it, and the
+   * logger keeps working without it: both reads fall back to an empty value.
+   */
+  core?: { configHandler: ConfigHandler };
   ideSettingsPromise?: Promise<IdeSettings>;
   ideInfoPromise?: Promise<IdeInfo>;
 

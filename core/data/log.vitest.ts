@@ -11,7 +11,6 @@ import {
   vi,
 } from "vitest";
 import { IdeInfo, IdeSettings } from "..";
-import { Core } from "../core";
 import { getDevDataFilePath } from "../util/paths";
 import { DataLogger } from "./log";
 
@@ -88,7 +87,7 @@ describe("DataLogger", () => {
           },
         },
       },
-    } as unknown as Core;
+    } as unknown as NonNullable<DataLogger["core"]>;
 
     dataLogger.ideSettingsPromise = Promise.resolve({
       userToken: "test-user-token",
