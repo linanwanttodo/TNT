@@ -22,6 +22,29 @@ uses `url` and optional `headers`. Secrets written as `${{ secrets.NAME }}` are
 resolved from the environment and the `.env` files listed in
 [Configuration](/cli/configuration).
 
+## Code-graph servers
+
+The built-in tool surface already reads the module graph and the language-server
+graph: `ImportGraph` follows imports and dependents across the workspace,
+`References` and `CallHierarchy` ask a language server, and `DocumentSymbol`
+outlines one file. Retrieval is served by the FTS5 trigram index plus, when an
+embedding model is configured, the vector index and reranker.
+
+A whole-repository semantic graph - definitions, cross-file edges, incremental
+indexing beyond what a language server exposes - is best connected as an MCP
+server rather than built into the CLI:
+
+```yaml
+mcpServers:
+  - name: code-graph
+    command: <graph-server-command>
+    args: ["<workspace>"]
+```
+
+Any server that indexes the workspace and exposes search or graph tools works;
+the CLI does not require a particular one. Its tools join the deferred catalog,
+so they cost one compact line each until the model loads them with `ToolSearch`.
+
 ## Managing connections
 
 ```
