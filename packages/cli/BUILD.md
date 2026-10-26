@@ -29,7 +29,7 @@ The `build.mjs` script uses esbuild to:
 - **Stub for Optional Dependencies**: `react-devtools-core` is stubbed to prevent runtime errors
 - **CommonJS Compatibility**: Adds `createRequire` to support packages that use dynamic requires
 - **Source Maps**: Generates source maps for debugging
-- **Metadata**: Creates `dist/meta.json` with bundle analysis information
+- **Metadata**: Creates `build-meta.json` beside the package with bundle analysis information (kept out of `dist` so it is never published)
 
 ## Testing
 
@@ -55,11 +55,11 @@ The smoke tests verify:
 
 1. **Module not found errors**: Check if the module needs to be added to the external list in `build.mjs`
 2. **Native module issues**: Native modules should be marked as external
-3. **Bundle too large**: Review bundled packages in `dist/meta.json` and consider marking large packages as external
+3. **Bundle too large**: Review bundled packages in `build-meta.json` and consider marking large packages as external
 
 ### Analyzing the Bundle
 
-After building, check `dist/meta.json` to see:
+After building, check `build-meta.json` to see:
 
 - What packages were bundled
 - Bundle size breakdown

@@ -41,7 +41,7 @@ const OWNED_DOCS = [
  * What `npm run build` writes. Named so a fresh clone cannot fail the gate, and so
  * the list is only useful while the documents still mention each entry.
  */
-const GENERATED_PATHS = ["dist/tnt.js", "dist/meta.json"];
+const GENERATED_PATHS = ["dist/tnt.js", "build-meta.json"];
 
 const DOCUMENTED_PATH =
   /`([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@*-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|ya?ml))`/g;

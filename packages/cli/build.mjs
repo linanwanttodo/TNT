@@ -125,14 +125,26 @@ const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
     },
   });
 
-  // Write metafile for analysis
-  writeFileSync("dist/meta.json", JSON.stringify(result.metafile, null, 2));
+  // Write metafile for analysis. It stays out of dist: dist is what the
+  // package and the release tarball copy wholesale, and a 5.7 MB analysis file
+  // has no business travelling with the binary.
+  writeFileSync("build-meta.json", JSON.stringify(result.metafile, null, 2));
 
-  // Create wrapper script with shebang that explicitly runs the CLI
+  // Create wrapper script with shebang that explicitly runs the CLI.
   // Note: We must call runCli(); a plain dynamic import will not execute the CLI.
+  //
+  // The bundle carries both the development and the production React build and
+  // picks one when the reconciler first loads. Without a default, a normal
+  // install runs the development build, because NODE_ENV is unset for users.
+  // The assignment has to happen before the import runs, and a static import
+  // would be hoisted above it, so the entry is loaded dynamically. An explicit
+  // NODE_ENV still wins, which is what the tests and --acp-worker rely on.
   writeFileSync(
     "dist/tnt.js",
-    "#!/usr/bin/env node\nimport { runCli } from './index.js';\nawait runCli();\n",
+    "#!/usr/bin/env node\n" +
+      'process.env.NODE_ENV ??= "production";\n' +
+      'const { runCli } = await import("./index.js");\n' +
+      "await runCli();\n",
   );
   // Copy worker files needed by JSDOM
   const workerSource = resolve(

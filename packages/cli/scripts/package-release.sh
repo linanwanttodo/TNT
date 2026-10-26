@@ -27,6 +27,12 @@ cp -r dist "$STAGING/package/dist"
 cp package.json "$STAGING/package/package.json"
 cp README.md "$STAGING/package/README.md" 2>/dev/null || true
 
+# Source maps are build diagnostics: they are roughly 75 MB of the staged tree,
+# every platform tarball pays for them on download, and nothing at runtime opens
+# one. Keep them out of the shipped artifact; a crash report still names the
+# chunk and the offsets inside it.
+find "$STAGING/package/dist" -name '*.map' -delete
+
 # Prune the dependency set to the single runtime native the bundle needs, and
 # install it so the prebuilt binding ships inside the tarball.
 node - "$STAGING/package/package.json" <<'EOF'

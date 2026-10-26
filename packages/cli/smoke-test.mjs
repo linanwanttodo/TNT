@@ -169,13 +169,15 @@ runTest("CLI can be invoked", () => {
 });
 
 // Test 8: Check metadata file
+// The metafile sits beside the package rather than inside dist, so that the
+// dist directory the package and the release tarball copy is only runtime code.
 runTest("Build metadata exists", () => {
-  if (!existsSync(resolve(__dirname, "dist/meta.json"))) {
-    throw new Error("dist/meta.json not found");
+  if (!existsSync(resolve(__dirname, "build-meta.json"))) {
+    throw new Error("build-meta.json not found");
   }
 
   const meta = JSON.parse(
-    readFileSync(resolve(__dirname, "dist/meta.json"), "utf8"),
+    readFileSync(resolve(__dirname, "build-meta.json"), "utf8"),
   );
   if (!meta.inputs || !meta.outputs) {
     throw new Error("Invalid metadata structure");
