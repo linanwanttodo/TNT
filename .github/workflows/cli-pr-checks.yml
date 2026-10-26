@@ -69,6 +69,11 @@ jobs:
 
       - name: Build the SDK that the CLI bundles
         shell: bash
+        env:
+          # The typescript package builds through a bash script, and its api
+          # sibling chains cd through forward slashes; Git Bash handles that on
+          # the Windows runner, as the release matrix already does.
+          npm_config_script_shell: bash
         # Installing the CLI also runs its prepare script, which bundles the CLI
         # and imports the generated SDK. scripts/build-packages.js only runs the
         # typescript package's own no-op build, so without this step the bundle
@@ -142,6 +147,11 @@ jobs:
 
       - name: Build the SDK that the CLI bundles
         shell: bash
+        env:
+          # The typescript package builds through a bash script, and its api
+          # sibling chains cd through forward slashes; Git Bash handles that on
+          # the Windows runner, as the release matrix already does.
+          npm_config_script_shell: bash
         # Installing the CLI also runs its prepare script, which bundles the CLI
         # and imports the generated SDK. scripts/build-packages.js only runs the
         # typescript package's own no-op build, so without this step the bundle
@@ -220,6 +230,11 @@ jobs:
 
       - name: Build the SDK that the CLI bundles
         shell: bash
+        env:
+          # The typescript package builds through a bash script, and its api
+          # sibling chains cd through forward slashes; Git Bash handles that on
+          # the Windows runner, as the release matrix already does.
+          npm_config_script_shell: bash
         # Installing the CLI also runs its prepare script, which bundles the CLI
         # and imports the generated SDK. scripts/build-packages.js only runs the
         # typescript package's own no-op build, so without this step the bundle
