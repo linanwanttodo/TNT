@@ -2,12 +2,12 @@ import { expect, test, vi } from "vitest";
 import { DEFAULT_GIT_DIFF_LINE_LIMIT, viewDiffImpl } from "./viewDiff";
 
 // Mock the getDiffsFromCache function
-vi.mock("../../autocomplete/snippets/gitDiffCache", () => ({
+vi.mock("../../diff/gitDiffCache", () => ({
   getDiffsFromCache: vi.fn(),
 }));
 
 import { ToolExtras } from "../..";
-import { getDiffsFromCache } from "../../autocomplete/snippets/gitDiffCache";
+import { getDiffsFromCache } from "../../diff/gitDiffCache";
 const mockExtras = {
   fetch: vi.fn() as any,
   ide: {} as any,

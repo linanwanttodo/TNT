@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "path";
 
-import { languageForFilepath } from "../autocomplete/constants/AutocompleteLanguageInfo.js";
+import { languageForFilepath } from "./languageInfo.js";
 import { ChatMessage, IDE } from "../index.js";
 import { renderChatMessage } from "../util/messageContent.js";
 import { getContinueGlobalPath } from "../util/paths.js";

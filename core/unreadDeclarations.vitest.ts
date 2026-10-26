@@ -28,7 +28,7 @@ const CAPABILITY_CASES: string[] = [
 ];
 
 const UNREAD_DECLARATIONS: string[] = [
-  "autocomplete/filtering/BracketMatchingService.ts:allLines",
+  "util/BracketMatchingService.ts:allLines",
   "codeRenderer/CodeRenderer.ts:CodeRendererOptions",
   "codeRenderer/CodeRenderer.ts:editorBackground",
   "codeRenderer/CodeRenderer.ts:editorForeground",

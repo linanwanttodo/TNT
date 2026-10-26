@@ -1,4 +1,4 @@
-import { IDE } from "../..";
+import { IDE } from "..";
 
 type GetDiffFn = () => Promise<string[]>;
 

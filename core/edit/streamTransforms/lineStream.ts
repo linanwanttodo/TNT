@@ -1,10 +1,10 @@
 import { distance } from "fastest-levenshtein";
 
-import { DiffLine } from "../../..";
-import { LineStream } from "../../../diff/util";
+import { DiffLine } from "../..";
+import { LineStream } from "../../diff/util";
 
-import { headerIsMarkdown, isMarkdownFile } from "../../../utils/markdownUtils";
-import { processBlockNesting as processBlockNestingUtil } from "../../../utils/streamMarkdownUtils";
+import { headerIsMarkdown, isMarkdownFile } from "../../utils/markdownUtils";
+import { processBlockNesting as processBlockNestingUtil } from "../../utils/streamMarkdownUtils";
 
 export { filterCodeBlockLines } from "./filterCodeBlock";
 

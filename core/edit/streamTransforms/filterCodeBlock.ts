@@ -1,14 +1,14 @@
-import { LineStream } from "../../../diff/util";
+import { LineStream } from "../../diff/util";
 
 import {
   collectAllLines,
   MarkdownBlockStateTracker,
-} from "../../../utils/markdownUtils";
+} from "../../utils/markdownUtils";
 
 import {
   processBlockNesting,
   shouldStopAtMarkdownBlock,
-} from "../../../utils/streamMarkdownUtils";
+} from "../../utils/streamMarkdownUtils";
 
 import { hasNestedMarkdownBlocks, shouldChangeLineAndStop } from "./lineStream";
 

@@ -1,11 +1,11 @@
-import { getUriFileExtension } from "../../util/uri";
-import { BracketMatchingService } from "../filtering/BracketMatchingService";
+import { getUriFileExtension } from "./uri";
+import { BracketMatchingService } from "./BracketMatchingService";
 import {
   CharacterFilter,
   LineFilter,
-} from "../filtering/streamTransforms/lineStream";
+} from "../edit/streamTransforms/lineStream";
 
-export interface AutocompleteLanguageInfo {
+export interface LanguageInfo {
   /**
    * The display name of the language
    */
@@ -281,7 +281,7 @@ export const Lua = {
 };
 
 // YAML
-export const YAML: AutocompleteLanguageInfo = {
+export const YAML: LanguageInfo = {
   name: "YAML",
   topLevelKeywords: [],
   singleLineComment: "#",
@@ -322,7 +322,7 @@ export const YAML: AutocompleteLanguageInfo = {
   ],
 };
 
-export const Json: AutocompleteLanguageInfo = {
+export const Json: LanguageInfo = {
   name: "JSON",
   topLevelKeywords: [],
   singleLineComment: "//",
@@ -341,7 +341,7 @@ export const Json: AutocompleteLanguageInfo = {
   ],
 };
 
-export const Markdown: AutocompleteLanguageInfo = {
+export const Markdown: LanguageInfo = {
   name: "Markdown",
   topLevelKeywords: [],
   singleLineComment: "",
@@ -366,7 +366,7 @@ export const Markdown: AutocompleteLanguageInfo = {
   },
 };
 
-export const LANGUAGES: { [extension: string]: AutocompleteLanguageInfo } = {
+export const LANGUAGES: { [extension: string]: LanguageInfo } = {
   ts: Typescript,
   js: JavaScript,
   tsx: Typescript,
@@ -411,7 +411,7 @@ export const LANGUAGES: { [extension: string]: AutocompleteLanguageInfo } = {
   luau: Lua,
 };
 
-export function languageForFilepath(fileUri: string): AutocompleteLanguageInfo {
+export function languageForFilepath(fileUri: string): LanguageInfo {
   const extension = getUriFileExtension(fileUri);
   return LANGUAGES[extension] || Typescript;
 }
