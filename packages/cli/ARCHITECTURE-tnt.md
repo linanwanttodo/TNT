@@ -152,8 +152,13 @@ The prefix is assembled in build order, each part announced so it can be attribu
   rewording one clause in `base` moves all of them.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `7adf6e7f8f221a81` over 40 tools and 31934 characters (name + description + parameter schema, in
-  `tools/stableOrder.ts` order). All 40 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  `d74095fb50891a45` over 40 tools and 31872 characters (name + description + parameter schema, in
+  `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
+  description used to interpolate `process.cwd()`, so every machine billed a different
+  prefix - a runner disagreed with a laptop by the length of its path, and moving the
+  project into another directory cold-started the cache for every session. The working
+  directory is still stated, once, in the environment block.
+  All 40 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
   default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is
