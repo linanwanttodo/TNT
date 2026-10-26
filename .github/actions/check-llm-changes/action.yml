@@ -2,7 +2,7 @@ name: "Check LLM Changes"
 description: "Check if LLM-related files have changed and set environment variable to control API tests"
 outputs:
   llm_changed:
-    description: "Whether LLM-related files have changed"
+    description: "Whether LLM-related files changed"
     value: ${{ steps.check-changes.outputs.llm_changed }}
   ignore_api_tests:
     description: "Whether to ignore API tests based on file changes and other conditions"
@@ -16,6 +16,10 @@ inputs:
     description: "Whether this is a dependabot PR"
     required: false
     default: "false"
+  has_provider_keys:
+    description: "Whether the run has provider credentials available"
+    required: false
+    default: "true"
 
 runs:
   using: "composite"
@@ -23,14 +27,25 @@ runs:
     - name: Check if LLM-related files changed
       id: check-changes
       shell: bash
+      # Every event- or input-derived value arrives through the environment:
+      # interpolating them into the script itself would let a branch name or
+      # actor identity execute shell code.
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        IS_FORK: ${{ inputs.is_fork }}
+        IS_DEPENDABOT: ${{ inputs.is_dependabot }}
+        HAS_PROVIDER_KEYS: ${{ inputs.has_provider_keys }}
       run: |
-        if [ "${{ github.event_name }}" = "push" ]; then
+        set -euo pipefail
+
+        if [ "$EVENT_NAME" = "push" ]; then
           # For push events, compare against the previous commit
           CHANGED_FILES=$(git diff --name-only HEAD~1...HEAD)
         else
           # For PR events, compare against the base branch
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD)
+          git fetch --no-tags origin "$BASE_REF"
+          CHANGED_FILES=$(git diff --name-only FETCH_HEAD...HEAD)
         fi
 
         echo "Changed files:"
@@ -38,18 +53,18 @@ runs:
 
         # Check if any LLM-related files were changed
         LLM_CHANGED=false
-        if echo "$CHANGED_FILES" | grep -E "(^core/llm/|^core/index\.ts|^core/package\.json|^core/jest\.config\.js|^packages/.*/(.*llm.*|.*openai.*|.*anthropic.*)|\.github/workflows/pr-checks\.yaml|\.github/actions/check-llm-changes/)" > /dev/null; then
+        if echo "$CHANGED_FILES" | grep -E "(^core/llm/|^core/index\.ts|^core/package\.json|^core/jest\.config\.js|^packages/.*/(.*llm.*|.*openai.*|.*anthropic.*)|\.github/workflows/engine-checks\.yml|\.github/actions/check-llm-changes/)" > /dev/null; then
           LLM_CHANGED=true
         fi
 
         echo "LLM files changed: $LLM_CHANGED"
-        echo "llm_changed=$LLM_CHANGED" >> $GITHUB_OUTPUT
+        echo "llm_changed=$LLM_CHANGED" >> "$GITHUB_OUTPUT"
 
-        # Determine whether to ignore API tests
+        # Provider tests need credentials, an in-repo run, and a reason to look.
         IGNORE_API_TESTS=false
-        if [ "${{ inputs.is_fork }}" = "true" ] || [ "${{ inputs.is_dependabot }}" = "true" ] || [ "$LLM_CHANGED" = "false" ]; then
+        if [ "$IS_FORK" = "true" ] || [ "$IS_DEPENDABOT" = "true" ] || [ "$HAS_PROVIDER_KEYS" != "true" ] || [ "$LLM_CHANGED" = "false" ]; then
           IGNORE_API_TESTS=true
         fi
 
         echo "Ignore API tests: $IGNORE_API_TESTS"
-        echo "ignore_api_tests=$IGNORE_API_TESTS" >> $GITHUB_OUTPUT
+        echo "ignore_api_tests=$IGNORE_API_TESTS" >> "$GITHUB_OUTPUT"

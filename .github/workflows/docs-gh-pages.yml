@@ -6,6 +6,7 @@ on:
     paths:
       - "docs/**"
       - "docs-site/**"
+      - ".github/workflows/docs-gh-pages.yml"
 
   workflow_dispatch:
 
@@ -22,9 +23,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
@@ -36,6 +37,10 @@ jobs:
 
       - name: Build
         working-directory: docs-site
+        # A project site lives under /<repository>; the export inlines this at
+        # build time, so raw asset paths (search index, images) get prefixed.
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build
 
       - name: Upload artifact
