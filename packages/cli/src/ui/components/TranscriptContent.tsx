@@ -1,3 +1,4 @@
+import { Box, Static } from "ink";
 import React from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
@@ -6,6 +7,7 @@ import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
+import { alternateScreenEnabled } from "../utils/terminalScreen.js";
 
 import { ActionStatus } from "./ActionStatus.js";
 import { QueuedMessages } from "./QueuedMessages.js";
@@ -93,18 +95,8 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     );
   }, [streamingText, processedChatHistory, renderMessage]);
 
-  return (
-    <ScrollView
-      scrollTop={scrollTop}
-      onMetrics={onMetrics}
-      showScrollbar={showScrollbar}
-    >
-      {showIntro && <IntroMessage />}
-
-      {processedChatHistory.map((item, index) =>
-        renderMessage(item, index, processedChatHistory),
-      )}
-
+  const live = (
+    <>
       {streamingReasoning && (
         <ThinkingMessage thought={streamingReasoning} isStreaming />
       )}
@@ -131,6 +123,42 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         showSpinner={true}
         loadingColor="grey"
       />
+    </>
+  );
+
+  const history = processedChatHistory.map((item, index) => (
+    <React.Fragment key={`history-${index}`}>
+      {renderMessage(item, index, processedChatHistory)}
+    </React.Fragment>
+  ));
+
+  if (!alternateScreenEnabled()) {
+    // The normal buffer gives the terminal its scrollback: settled rows are
+    // written once through Static, and only the live tail is redrawn.
+    return (
+      <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0}>
+        <Static
+          items={[
+            ...(showIntro ? [<IntroMessage key="intro" />] : []),
+            ...history,
+          ]}
+        >
+          {(item) => item}
+        </Static>
+        {live}
+      </Box>
+    );
+  }
+
+  return (
+    <ScrollView
+      scrollTop={scrollTop}
+      onMetrics={onMetrics}
+      showScrollbar={showScrollbar}
+    >
+      {showIntro && <IntroMessage />}
+      {history}
+      {live}
     </ScrollView>
   );
 };
