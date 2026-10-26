@@ -47,7 +47,15 @@ const DOCUMENTED_PATH =
   /`([A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@*-]+)+\.(?:ts|tsx|js|jsx|mjs|cjs|json|ya?ml))`/g;
 
 function markdownFiles(dir: string, found: string[] = []): string[] {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    // A tool test may remove its temporary workspace while this scan is in
+    // flight; a directory that is gone holds no documents to check.
+    return found;
+  }
+  for (const entry of entries) {
     if (entry.name === "node_modules" || entry.name === "dist") {
       continue;
     }
