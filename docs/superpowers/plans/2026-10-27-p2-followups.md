@@ -14,12 +14,12 @@
 
 - Task 1 Definition: **done** (`d0422f850`). 40 tools, fingerprint `7adf6e7f8f221a81` after Task 2.
 - Task 2 Read images: **done** (`b0462f417`). `Read` returns `ToolResult` for png/jpg/jpeg/webp/gif, 3 MB cap.
-- Task 3 Static: **opt-in done**. `CONTINUE_CLI_ALT_SCREEN=0` now keeps the normal buffer and renders settled history through `<Static>`, leaving only the live tail in the frame; the default alternate-screen `ScrollView` path is unchanged. The content-level safe split is now wired too: `ui/utils/streamSplit.ts` keeps an unclosed fence live, settled prefixes move to their own rows, and only the tail redraws.
-- Task 4 merge-patch: **needs design**. `advanceSystemPrompt` already appends the whole changed prompt as an in-history update (`stream/systemPromptRound.ts`); a section patch changes what the cached prefix and update list mean, so it is not a drop-in.
+- Task 3 Static: **opt-in done, default stays the alternate screen** (owner-delegated 2026-10-26; visual verification is the owner's read-back). `TNT_ALT_SCREEN=0` now keeps the normal buffer and renders settled history through `<Static>`, leaving only the live tail in the frame; the default alternate-screen `ScrollView` path is unchanged. The content-level safe split is now wired too: `ui/utils/streamSplit.ts` keeps an unclosed fence live, settled prefixes move to their own rows, and only the tail redraws.
+- Task 4 merge-patch: **decided skip** (owner-delegated 2026-10-26). `advanceSystemPrompt` already appends the whole changed prompt as an in-history update, and a section patch changes what the cached prefix and update list mean; shipping it without its own cache measurement would be a guess.
 - Task 5 context budget: **already implemented**. `loop/contextBudget.ts` is wired through `state.contextBudget.reminder(...)` in `stream/streamChatResponse.ts:329`; no work needed.
 - Task 6 changed-file diff: **done** (`098858b60`). `fileState` keeps bounded snapshots (24 files, 64 KB each); the note shows a capped line diff. A separate flake was fixed: the docs scan now skips a directory that vanished mid-scan.
 - Task 7 retry classification: **already implemented**. `utils/exponentialBackoff.ts` has `isRetryable` and `retryAfterMs` (Retry-After parsing) plus the backoff wrapper.
-- Task 8 task store: **product decision**. `Todo` (session list) and `Checklist` (history marker) already cover task tracking; a third persistent store needs a use case that those two cannot serve.
+- Task 8 task store: **decided skip** (owner-delegated 2026-10-26). `Todo` (session list) and `Checklist` (history marker) already cover task tracking; a third persistent store has no use case those two cannot serve.
 - Task 9 Windows headless e2e: **done** (`5a69a2393`, `93a667d05`, `0d72dce20`). Exit flushes stdio first, the session helper reads the v2 `.jsonl` transcript, and CI runs the headless filter on Windows. A separate recorded-replay fixture layer was **not added**: the existing `headless-mock-llm` and sibling suites already replay scripted SSE frames.
 
 ## Global Constraints
