@@ -27,29 +27,38 @@ describe("E2E: ls --format json", () => {
 
   it("lists a session that exists on disk", async () => {
     const globalDir = path.join(context.testDir, ".tnt");
-    const sessionDir = path.join(globalDir, "sessions");
-    fs.mkdirSync(sessionDir, { recursive: true });
+    // The v2 store keeps one directory per session, with an append-only
+    // transcript inside. `sessions/<id>.json` plus a `sessions.json` index is
+    // the v1 layout this test was written against, and listing no longer reads
+    // it - so the fixture has to be a real v2 session, not a legacy file.
+    const sessionRoot = path.join(globalDir, "sessions", "e2e-listed-session");
+    fs.mkdirSync(sessionRoot, { recursive: true });
 
     const sessionId = "e2e-listed-session";
+    const now = new Date().toISOString();
+    const header = {
+      type: "session",
+      version: 2,
+      sessionId,
+      createdAt: now,
+      cwd: context.testDir,
+      title: "written by the e2e",
+      source: "cli",
+    };
+    // A transcript with only its header is a session with no conversation, and
+    // listing leaves it out - so the fixture has to carry one message.
+    const message = {
+      type: "message",
+      messageId: "e2e-message-1",
+      item: {
+        messageId: "e2e-message-1",
+        message: { role: "user", content: "written by the e2e" },
+        contextItems: [],
+      },
+    };
     fs.writeFileSync(
-      path.join(sessionDir, `${sessionId}.json`),
-      JSON.stringify({
-        sessionId,
-        title: "written by the e2e",
-        workspaceDirectory: context.testDir,
-        history: [],
-      }),
-    );
-    fs.writeFileSync(
-      path.join(sessionDir, "sessions.json"),
-      JSON.stringify([
-        {
-          sessionId,
-          title: "written by the e2e",
-          workspaceDirectory: context.testDir,
-          dateCreated: Date.now(),
-        },
-      ]),
+      path.join(sessionRoot, "session.jsonl"),
+      `${JSON.stringify(header)}\n${JSON.stringify(message)}\n`,
     );
 
     const result = await runCLI(context, {
