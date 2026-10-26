@@ -152,16 +152,16 @@ The prefix is assembled in build order, each part announced so it can be attribu
   rewording one clause in `base` moves all of them.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `33221c2477cc087b` over 39 tools and 30973 characters (name + description + parameter schema, in
-  `tools/stableOrder.ts` order). All 39 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  `a48e50bc4ac25fee` over 40 tools and 31784 characters (name + description + parameter schema, in
+  `tools/stableOrder.ts` order). All 40 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
   default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is
   advertised only while something is deferred; since 2026-10-25 a fixed set of situational
   built-ins is deferred too, with a compact name/signature listing in its description.
   `Computer` joined on 2026-10-25 with the desktop driver, and `References` / `CallHierarchy` /
-  `DocumentSymbol` joined the same day as the LSP-side reads of the call graph, and
-  `ImportGraph` as the persisted module graph. `tools/toolPrefixFingerprint.test.ts`
+  `DocumentSymbol` and `Definition` joined the same day as the LSP-side reads of
+  the call graph, and `ImportGraph` as the persisted module graph. `tools/toolPrefixFingerprint.test.ts`
   freezes it and reads this file for the same digest, so the text cannot move without a line here: a
   reworded description is not a copy edit, it cold-starts the first request of every new session. The
   same guard discovers every `Tool` this directory exports, so declaring a built-in tool that the

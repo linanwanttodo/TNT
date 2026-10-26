@@ -12,6 +12,7 @@ export const BUILT_IN_TOOL_NAMES = [
   "CallHierarchy",
   "Completion",
   "Computer",
+  "Definition",
   "Delete",
   "Diagnostics",
   "DocumentSymbol",

@@ -23,6 +23,7 @@ export const AUTO_SAFE_TOOLS = new Set([
   "FindSymbol",
   "References",
   "CallHierarchy",
+  "Definition",
   "DocumentSymbol",
   "Hover",
   "ImportGraph",

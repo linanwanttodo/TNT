@@ -11,6 +11,7 @@ import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 import { codebaseSearchTool } from "./codebaseSearch.js";
 import { completionTool } from "./completion.js";
 import { computerTool } from "./computer.js";
+import { definitionTool } from "./definition.js";
 import { deleteFileTool } from "./deleteFile.js";
 import { diagnosticsTool } from "./diagnostics.js";
 import { documentSymbolTool } from "./documentSymbol.js";
@@ -50,6 +51,7 @@ export const ALL_BUILT_IN_TOOLS = [
   codebaseSearchTool,
   completionTool,
   computerTool,
+  definitionTool,
   deleteFileTool,
   diagnosticsTool,
   documentSymbolTool,
