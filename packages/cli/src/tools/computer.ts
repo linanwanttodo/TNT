@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
 
@@ -76,8 +76,8 @@ export function resetComputerScreen(): void {
 
 function numberArg(value: unknown, name: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Computer ${name} must be a number.`,
     );
   }
@@ -104,8 +104,8 @@ function pointArg(
  */
 function assertOnScreen(point: Point): void {
   if (point.x < 0 || point.y < 0) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Point ${point.x},${point.y} is outside the screen.`,
     );
   }
@@ -113,8 +113,8 @@ function assertOnScreen(point: Point): void {
     return;
   }
   if (point.x >= lastScreen.view.width || point.y >= lastScreen.view.height) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Point ${point.x},${point.y} is outside the last screenshot (${lastScreen.view.width}x${lastScreen.view.height}). Take a new screenshot if the screen changed.`,
     );
   }
@@ -149,8 +149,8 @@ function buttonArg(value: unknown): MouseButton {
   if (value === "left" || value === "right" || value === "middle") {
     return value;
   }
-  throw new ContinueError(
-    ContinueErrorReason.Unspecified,
+  throw new TntError(
+    TntErrorReason.Unspecified,
     'Computer button must be "left", "right" or "middle".',
   );
 }
@@ -161,8 +161,8 @@ function countArg(value: unknown): number {
   }
   const count = numberArg(value, "count");
   if (count < 1 || count > 3) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "Computer count must be between 1 and 3.",
     );
   }
@@ -171,14 +171,14 @@ function countArg(value: unknown): number {
 
 function textArg(value: unknown): string {
   if (typeof value !== "string" || value.length === 0) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "Computer text must be a non-empty string.",
     );
   }
   if (value.length > MAX_TYPE_CHARS) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Computer text may be at most ${MAX_TYPE_CHARS} characters.`,
     );
   }
@@ -194,8 +194,8 @@ function directionArg(value: unknown): ScrollDirection {
   ) {
     return value;
   }
-  throw new ContinueError(
-    ContinueErrorReason.Unspecified,
+  throw new TntError(
+    TntErrorReason.Unspecified,
     'Computer direction must be "up", "down", "left" or "right".',
   );
 }
@@ -206,8 +206,8 @@ function scrollAmountArg(value: unknown): number {
   }
   const amount = numberArg(value, "amount");
   if (amount < 1 || amount > MAX_SCROLL_STEPS) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Computer amount must be between 1 and ${MAX_SCROLL_STEPS}.`,
     );
   }
@@ -220,8 +220,8 @@ function waitArg(value: unknown): number {
   }
   const ms = numberArg(value, "ms");
   if (ms < 0 || ms > MAX_WAIT_MS) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Computer ms must be between 0 and ${MAX_WAIT_MS}.`,
     );
   }
@@ -239,14 +239,14 @@ function saveScreenshot(buffer: Buffer, filepath?: string): string | undefined {
   }
   const absolute = path.resolve(filepath);
   if (!isWithinWorkspace(absolute)) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Screenshots must be written inside the workspace: ${filepath}`,
     );
   }
   if (!absolute.toLowerCase().endsWith(".png")) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "A screenshot filepath must end in .png.",
     );
   }
@@ -328,8 +328,8 @@ async function runAction(args: ComputerArgs): Promise<ToolRunResult> {
       return `Waited ${ms} ms.`;
     }
     default:
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Unknown computer action: ${String(args.action)}.`,
       );
   }

@@ -4,7 +4,7 @@ import path from "path";
 import { validateSingleEdit } from "core/edit/searchAndReplace/findAndReplaceUtils.js";
 import { executeFindAndReplace } from "core/edit/searchAndReplace/performReplace.js";
 import { throwIfFileIsSecurityConcern } from "core/indexing/ignore.js";
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
@@ -32,8 +32,8 @@ export function validateAndResolveFilePath(args: any): {
   const { file_path } = args;
 
   if (!file_path) {
-    throw new ContinueError(
-      ContinueErrorReason.FindAndReplaceMissingFilepath,
+    throw new TntError(
+      TntErrorReason.FindAndReplaceMissingFilepath,
       "file_path is required",
     );
   }
@@ -50,16 +50,16 @@ export function validateAndResolveFilePath(args: any): {
   // Check if file exists. A client-owned buffer can hold a file that is not on
   // disk yet; the read in preprocess is the authoritative check there.
   if (!clientFs && !fs.existsSync(resolvedPath)) {
-    throw new ContinueError(
-      ContinueErrorReason.FileNotFound,
+    throw new TntError(
+      TntErrorReason.FileNotFound,
       `File ${file_path} does not exist`,
     );
   }
 
   // Check if file has been read
   if (!hasSeenFile(resolvedPath)) {
-    throw new ContinueError(
-      ContinueErrorReason.EditToolFileNotRead,
+    throw new TntError(
+      TntErrorReason.EditToolFileNotRead,
       `You must use the ${readFileTool.name} tool to read ${file_path} before editing it.`,
     );
   }
@@ -68,8 +68,8 @@ export function validateAndResolveFilePath(args: any): {
   // against a file someone else changed in the meantime. A client buffer has no
   // reliable disk mtime to compare; its write goes through the client anyway.
   if (!clientFs && changedSinceSeen(resolvedPath)) {
-    throw new ContinueError(
-      ContinueErrorReason.EditToolFileNotRead,
+    throw new TntError(
+      TntErrorReason.EditToolFileNotRead,
       `${file_path} changed since you read it. Use the ${readFileTool.name} tool to read it again before editing.`,
     );
   }
@@ -175,8 +175,8 @@ WARNINGS:
       // replaced are checked again here instead of trusting the preview.
       const current = await readWorkspaceTextFile(args.resolvedPath);
       if (current.content !== args.oldContent) {
-        throw new ContinueError(
-          ContinueErrorReason.EditToolFileNotRead,
+        throw new TntError(
+          TntErrorReason.EditToolFileNotRead,
           `${args.resolvedPath} changed while this edit was awaiting approval. Read it again before editing.`,
         );
       }
@@ -214,11 +214,11 @@ WARNINGS:
 
       return `${MARKER_FILE_EDITED} ${args.resolvedPath}\nDiff:\n${diff}`;
     } catch (error) {
-      if (error instanceof ContinueError) {
+      if (error instanceof TntError) {
         throw error;
       }
-      throw new ContinueError(
-        ContinueErrorReason.FileWriteError,
+      throw new TntError(
+        TntErrorReason.FileWriteError,
         `Error: failed to edit ${args.resolvedPath}: ${
           error instanceof Error ? error.message : String(error)
         }`,

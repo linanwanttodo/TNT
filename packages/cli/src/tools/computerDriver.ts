@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 export type MouseButton = "left" | "right" | "middle";
 export type ScrollDirection = "up" | "down" | "left" | "right";
@@ -31,8 +31,8 @@ export const execRunner: CommandRunner = {
               .toString("utf8")
               .trim();
             reject(
-              new ContinueError(
-                ContinueErrorReason.Unspecified,
+              new TntError(
+                TntErrorReason.Unspecified,
                 `${path.basename(file)} failed: ${detail || error.message}`,
               ),
             );
@@ -124,8 +124,8 @@ export function parseKeyCombo(raw: string): string[] {
     .map((token) => token.trim())
     .filter(Boolean);
   if (tokens.length === 0) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "A keypress needs at least one key, for example ctrl+shift+t.",
     );
   }
@@ -140,8 +140,8 @@ export function parseKeyCombo(raw: string): string[] {
     if (/^[a-z0-9]$/i.test(token)) {
       return token;
     }
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Unsupported key "${token}". Use a letter, a digit, F1-F24 or a named key.`,
     );
   });
@@ -259,8 +259,8 @@ class X11Backend implements ComputerBackend {
     const x = Number(/^X=(-?\d+)$/m.exec(text)?.[1]);
     const y = Number(/^Y=(-?\d+)$/m.exec(text)?.[1]);
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "Could not read the pointer position from xdotool.",
       );
     }
@@ -306,8 +306,8 @@ function macBackend(runner: CommandRunner): ComputerBackend {
 
     async drag(from: Point, to: Point, button: MouseButton): Promise<void> {
       if (button !== "left") {
-        throw new ContinueError(
-          ContinueErrorReason.Unspecified,
+        throw new TntError(
+          TntErrorReason.Unspecified,
           "macOS dragging supports the left button only.",
         );
       }
@@ -357,15 +357,15 @@ function macBackend(runner: CommandRunner): ComputerBackend {
       _amount: number,
       _at?: Point,
     ): Promise<void> {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "Scrolling is not implemented on macOS; use keypress with page_up or page_down.",
       );
     },
 
     async cursorPosition(): Promise<Point> {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "cursor_position is not available on macOS.",
       );
     },
@@ -408,8 +408,8 @@ const MAC_KEY_CODES: Record<string, number> = {
 function macKeyCode(key: string): number {
   const code = MAC_KEY_CODES[key.toLowerCase()];
   if (code === undefined) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Unsupported macOS key "${key}".`,
     );
   }
@@ -432,16 +432,16 @@ export function detectComputerBackend(
   const has = options.hasCommand ?? commandExists;
 
   if (platform === "win32") {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "Desktop control is not implemented on Windows yet. Use Browser for browser work, or an MCP desktop server.",
     );
   }
 
   if (platform === "darwin") {
     if (!has("cliclick", env)) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "Desktop control on macOS needs cliclick for the pointer: brew install cliclick.",
       );
     }
@@ -449,21 +449,21 @@ export function detectComputerBackend(
   }
 
   if (platform !== "linux") {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Desktop control is not supported on ${platform}.`,
     );
   }
 
   if (!has("xdotool", env)) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "Desktop control on Linux needs xdotool for the pointer and keyboard: install xdotool (it works on X11 and on XWayland windows).",
     );
   }
   if (env.DISPLAY === undefined && env.WAYLAND_DISPLAY === undefined) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "No DISPLAY or WAYLAND_DISPLAY is set, so there is no desktop to control.",
     );
   }
@@ -474,8 +474,8 @@ export function detectComputerBackend(
   if (has("import", env)) {
     return new X11Backend(runner, "import");
   }
-  throw new ContinueError(
-    ContinueErrorReason.Unspecified,
+  throw new TntError(
+    TntErrorReason.Unspecified,
     "No screenshot tool found: install grim (Wayland) or ImageMagick's import (X11).",
   );
 }

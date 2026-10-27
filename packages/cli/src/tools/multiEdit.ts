@@ -1,6 +1,6 @@
 import { validateMultiEdit } from "core/edit/searchAndReplace/multiEditValidation.js";
 import { executeMultiFindAndReplace } from "core/edit/searchAndReplace/performReplace.js";
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
@@ -148,8 +148,8 @@ WARNINGS:
       // planning, and approval can take longer than that snapshot is true.
       const current = await readWorkspaceTextFile(args.file_path);
       if (current.content !== args.originalContent) {
-        throw new ContinueError(
-          ContinueErrorReason.EditToolFileNotRead,
+        throw new TntError(
+          TntErrorReason.EditToolFileNotRead,
           `${args.file_path} changed while this edit was awaiting approval. Read it again before editing.`,
         );
       }
@@ -187,11 +187,11 @@ WARNINGS:
 
       return `${MARKER_FILE_EDITED} ${args.file_path} with ${args.editCount} edit${args.editCount === 1 ? "" : "s"}\nDiff:\n${diff}`;
     } catch (error) {
-      if (error instanceof ContinueError) {
+      if (error instanceof TntError) {
         throw error;
       }
-      throw new ContinueError(
-        ContinueErrorReason.FileWriteError,
+      throw new TntError(
+        TntErrorReason.FileWriteError,
         `Error: failed to edit ${args.file_path}: ${
           error instanceof Error ? error.message : String(error)
         }`,

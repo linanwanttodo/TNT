@@ -1,5 +1,5 @@
 // @ts-ignore
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { ChatCompletionTool } from "openai/resources.mjs";
 
 import { services } from "../services/index.js";
@@ -126,9 +126,7 @@ export async function executeToolCall(
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorReason =
-      error instanceof ContinueError
-        ? error.reason
-        : ContinueErrorReason.Unknown;
+      error instanceof TntError ? error.reason : TntErrorReason.Unknown;
 
     telemetryService.logToolResult({
       toolName: toolCall.name,

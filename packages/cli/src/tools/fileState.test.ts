@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The tools' side effects outside the file itself are not what is under test.
@@ -100,8 +100,8 @@ describe("Edit against a file that moved", () => {
       editArgs("const value = 222;", "const value = 3;"),
     ).catch((e) => e);
 
-    expect(error).toBeInstanceOf(ContinueError);
-    expect(error.reason).toBe(ContinueErrorReason.EditToolFileNotRead);
+    expect(error).toBeInstanceOf(TntError);
+    expect(error.reason).toBe(TntErrorReason.EditToolFileNotRead);
     expect(error.message).toContain("changed since you read it");
   });
 
@@ -130,7 +130,7 @@ describe("Edit against a file that moved", () => {
     writeOnDisk("const value = 222;\n");
     const error = await editTool.run!(planned.args).catch((e) => e);
 
-    expect(error).toBeInstanceOf(ContinueError);
+    expect(error).toBeInstanceOf(TntError);
     expect(error.message).toContain("awaiting approval");
     expect(fs.readFileSync(target, "utf-8")).toBe("const value = 222;\n");
   });
@@ -194,7 +194,7 @@ describe("MultiEdit against a file that moved", () => {
     writeOnDisk("const value = 1;\nexport const flag = 222;\n");
     const error = await multiEditTool.run!(planned.args).catch((e) => e);
 
-    expect(error).toBeInstanceOf(ContinueError);
+    expect(error).toBeInstanceOf(TntError);
     expect(error.message).toContain("awaiting approval");
     expect(fs.readFileSync(target, "utf-8")).toContain("flag = 222");
   });
@@ -229,7 +229,7 @@ describe("Write against a file that moved", () => {
       content: "export const dropped = 1;\n",
     }).catch((e) => e);
 
-    expect(error).toBeInstanceOf(ContinueError);
+    expect(error).toBeInstanceOf(TntError);
     expect(error.message).toContain("changed since you read it");
     expect(fs.readFileSync(target, "utf-8")).toBe("const value = 222;\n");
   });

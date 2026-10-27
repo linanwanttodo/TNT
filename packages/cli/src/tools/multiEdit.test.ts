@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -80,8 +80,8 @@ describe("multiEditTool CLI specific", () => {
       };
 
       const error = await multiEditTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(ContinueErrorReason.EditToolFileNotRead);
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.EditToolFileNotRead);
     });
 
     it("should throw error if file does not exist", async () => {
@@ -100,8 +100,8 @@ describe("multiEditTool CLI specific", () => {
       };
 
       const error = await multiEditTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(ContinueErrorReason.FileNotFound);
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.FileNotFound);
     });
 
     it("should throw error if file_path is missing", async () => {
@@ -115,10 +115,8 @@ describe("multiEditTool CLI specific", () => {
       };
 
       const error = await multiEditTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(
-        ContinueErrorReason.FindAndReplaceMissingFilepath,
-      );
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.FindAndReplaceMissingFilepath);
     });
   });
 
@@ -194,8 +192,8 @@ describe("multiEditTool CLI specific", () => {
       };
 
       const error = await multiEditTool.run(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(ContinueErrorReason.FileWriteError);
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.FileWriteError);
     });
   });
 

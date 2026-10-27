@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
@@ -56,8 +56,8 @@ function locateCell(
   if (typeof args.cell_id === "string" && args.cell_id !== "") {
     const index = cells.findIndex((cell) => cell.id === args.cell_id);
     if (index < 0) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `No cell with id ${args.cell_id} in ${args.filepath}.`,
       );
     }
@@ -70,24 +70,24 @@ function locateCell(
       args.cell_index < 0 ||
       args.cell_index >= cells.length
     ) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Cell index ${args.cell_index} is out of range for ${args.filepath}.`,
       );
     }
     return { index: args.cell_index, cell: cells[args.cell_index] };
   }
 
-  throw new ContinueError(
-    ContinueErrorReason.Unspecified,
+  throw new TntError(
+    TntErrorReason.Unspecified,
     "NotebookEdit needs cell_id or cell_index for this edit.",
   );
 }
 
 function assertCellType(value: unknown): CellType {
   if (value !== "code" && value !== "markdown") {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Unsupported notebook cell type: ${String(value)}. Use code or markdown.`,
     );
   }
@@ -170,14 +170,14 @@ export const notebookEditTool: Tool = {
   run: async (args: NotebookEditArgs): Promise<string> => {
     const mode: EditMode = args.edit_mode ?? "replace";
     if (!["replace", "insert", "delete"].includes(mode)) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Unknown notebook edit mode: ${String(args.edit_mode)}.`,
       );
     }
     if (mode !== "delete" && typeof args.new_source !== "string") {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `${mode} needs new_source.`,
       );
     }
@@ -187,14 +187,14 @@ export const notebookEditTool: Tool = {
     try {
       notebook = JSON.parse(file.content) as Notebook;
     } catch {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `${args.filepath} is not a JSON notebook.`,
       );
     }
     if (!Array.isArray(notebook.cells)) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `${args.filepath} has no cells array.`,
       );
     }
@@ -214,8 +214,8 @@ export const notebookEditTool: Tool = {
           args.cell_index < 0 ||
           args.cell_index > notebook.cells.length
         ) {
-          throw new ContinueError(
-            ContinueErrorReason.Unspecified,
+          throw new TntError(
+            TntErrorReason.Unspecified,
             `Insert index ${args.cell_index} is out of range for ${args.filepath}.`,
           );
         }

@@ -36,7 +36,7 @@ import {
   StreamDiffLinesPayload,
   ToolCall,
 } from "../";
-import { ContinueErrorReason } from "../util/errors";
+import { TntErrorReason } from "../util/errors";
 
 export enum OnboardingModes {
   API_KEY = "API Key",
@@ -250,7 +250,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     {
       contextItems: ContextItem[];
       errorMessage?: string;
-      errorReason?: ContinueErrorReason;
+      errorReason?: TntErrorReason;
       mcpUiState?: McpUiState;
     },
   ];
@@ -267,7 +267,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     { toolName: string; args: Record<string, unknown> },
     {
       preprocessedArgs?: Record<string, unknown>;
-      errorReason?: ContinueErrorReason;
+      errorReason?: TntErrorReason;
       errorMessage?: string;
     },
   ];

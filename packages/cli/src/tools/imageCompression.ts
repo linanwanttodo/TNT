@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import {
   commandExists,
@@ -45,8 +45,8 @@ export function pngSize(buffer: Buffer): { width: number; height: number } {
     buffer.subarray(0, 8).toString("hex") === "89504e470d0a1a0a" &&
     buffer.subarray(12, 16).toString("ascii") === "IHDR";
   if (!isPng) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "The screen capture did not return a PNG image.",
     );
   }
@@ -137,8 +137,8 @@ export async function compressScreenshot(
     if (base64Size(buffer) < 8 * 1024 * 1024) {
       return { buffer, mimeType: "image/png", ...size, resized: false };
     }
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "The screenshot is too large to attach. Install ImageMagick (magick or convert) so it can be downscaled.",
     );
   }
@@ -172,8 +172,8 @@ export async function compressScreenshot(
   }
 
   if (base64Size(smallest) >= 8 * 1024 * 1024) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "The screenshot could not be compressed enough to attach.",
     );
   }

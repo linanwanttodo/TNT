@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { ChatCompletionToolMessageParam } from "openai/resources/chat/completions.mjs";
 
 import { firePreToolUse } from "../hooks/fireHook.js";
@@ -52,8 +52,8 @@ export async function preprocessStreamedToolCalls(
     try {
       const tool = availableTools.find((t) => t.name === toolCall.name);
       if (!tool) {
-        throw new ContinueError(
-          ContinueErrorReason.ToolNotFound,
+        throw new TntError(
+          TntErrorReason.ToolNotFound,
           `Tool ${toolCall.name} not found. It is either not installed or withheld from this mode; the tools you can call are the ones in this run's tool list.`,
         );
       }
@@ -97,9 +97,7 @@ export async function preprocessStreamedToolCalls(
       });
 
       const errorReason =
-        error instanceof ContinueError
-          ? error.reason
-          : ContinueErrorReason.Unknown;
+        error instanceof TntError ? error.reason : TntErrorReason.Unknown;
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);

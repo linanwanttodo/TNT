@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
  * prefix on identifiers. Renaming all of it in one sweep is how a branding change ends up
  * half-done: the files that were missed keep working, so nothing reports them.
  *
- * The ledger below totals 1179 tokens across nine areas. It is the number to drive down, area by area.
+ * The ledger below totals 720 tokens across nine areas. It is the number to drive down, area by area.
  *
  * This guard holds two things. The first is zero tolerance for the three names the engine
  * reads off disk (`.continueignore`, `.continuerules`, `.continuerc.json`) - those were
@@ -129,8 +129,8 @@ export function continueTokenLedger(): {
 const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 9,
   actions: 30,
-  core: 500,
-  "packages/cli": 416,
+  core: 354,
+  "packages/cli": 103,
   "packages/config-yaml": 7,
   "packages/llm-info": 1,
   "packages/openai-adapters": 11,

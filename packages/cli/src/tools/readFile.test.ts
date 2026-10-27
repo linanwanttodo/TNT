@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { ContinueError } from "core/util/errors.js";
+import { TntError } from "core/util/errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { textRun } from "../../test-utils/toolText.js";
@@ -100,9 +100,7 @@ describe("Read with a line range", () => {
       Array.from({ length: 6000 }, (_, index) => `line ${index}`).join("\n"),
     );
 
-    await expect(runText({ filepath: big } as any)).rejects.toThrow(
-      ContinueError,
-    );
+    await expect(runText({ filepath: big } as any)).rejects.toThrow(TntError);
     await expect(runText({ filepath: big } as any)).rejects.toThrow(
       /start_line and end_line/,
     );

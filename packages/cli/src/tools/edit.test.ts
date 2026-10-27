@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -72,8 +72,8 @@ describe("editTool", () => {
       };
 
       const error = await editTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(ContinueErrorReason.EditToolFileNotRead);
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.EditToolFileNotRead);
     });
 
     it("should throw error if file does not exist", async () => {
@@ -88,8 +88,8 @@ describe("editTool", () => {
       };
 
       const error = await editTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(ContinueErrorReason.FileNotFound);
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.FileNotFound);
     });
 
     it("should throw error if old_string is not found", async () => {
@@ -103,10 +103,8 @@ describe("editTool", () => {
       };
 
       const error = await editTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(
-        ContinueErrorReason.FindAndReplaceOldStringNotFound,
-      );
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.FindAndReplaceOldStringNotFound);
       // The failure the model reads says what the file has and what to do,
       // not just that the search failed.
       expect(error.message).toContain('Searched for the line "Not found"');
@@ -124,9 +122,9 @@ describe("editTool", () => {
       };
 
       const error = await editTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
+      expect(error).toBeInstanceOf(TntError);
       expect(error.reason).toBe(
-        ContinueErrorReason.FindAndReplaceMultipleOccurrences,
+        TntErrorReason.FindAndReplaceMultipleOccurrences,
       );
     });
 
@@ -140,9 +138,9 @@ describe("editTool", () => {
       };
 
       const error = await editTool.preprocess!(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
+      expect(error).toBeInstanceOf(TntError);
       expect(error.reason).toBe(
-        ContinueErrorReason.FindAndReplaceIdenticalOldAndNewStrings,
+        TntErrorReason.FindAndReplaceIdenticalOldAndNewStrings,
       );
     });
 
@@ -218,8 +216,8 @@ describe("editTool", () => {
       };
 
       const error = await editTool.run(args).catch((e) => e);
-      expect(error).toBeInstanceOf(ContinueError);
-      expect(error.reason).toBe(ContinueErrorReason.FileWriteError);
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.FileWriteError);
     });
   });
 

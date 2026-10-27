@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { getCurrentSessionId } from "../session/index.js";
 import { ensureSessionScopedDir } from "../session/paths.js";
@@ -67,22 +67,22 @@ export const uploadArtifactTool: Tool = {
   run: async (args: { filePath: string }): Promise<string> => {
     const trimmedPath = args.filePath?.trim();
     if (!trimmedPath) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "filePath is required to save an artifact.",
       );
     }
     if (!fs.existsSync(trimmedPath)) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `File not found: ${trimmedPath}`,
       );
     }
 
     const stats = fs.statSync(trimmedPath);
     if (!stats.isFile()) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Not a file: ${trimmedPath}`,
       );
     }
@@ -90,16 +90,16 @@ export const uploadArtifactTool: Tool = {
     const filename = path.basename(trimmedPath);
     const extension = path.extname(filename).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(extension)) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `File type not supported: ${extension || filename}. Only images (png, jpg, jpeg, gif, webp), videos (mp4, mov, avi, webm), and text files (log, txt, json, xml, csv, html) can be saved as artifacts.`,
       );
     }
 
     const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
     if (stats.size > MAX_ARTIFACT_BYTES) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `File is too large (${sizeMB} MB). Maximum allowed size is 50MB. Consider compressing the file or splitting it into smaller parts.`,
       );
     }
@@ -107,8 +107,8 @@ export const uploadArtifactTool: Tool = {
     const dir = ensureSessionScopedDir("artifacts", getCurrentSessionId());
     const target = path.join(dir, filename);
     if (stats.size + bytesIn(dir, target) > MAX_SESSION_BYTES) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "Session artifacts are at their 500MB limit. Delete a session you no longer need, or save fewer files.",
       );
     }
@@ -121,8 +121,8 @@ export const uploadArtifactTool: Tool = {
       fs.renameSync(partial, target);
     } catch (error) {
       fs.rmSync(partial, { force: true });
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Failed to save artifact: ${error instanceof Error ? error.message : String(error)}`,
       );
     }

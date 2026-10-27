@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { Tool } from "./types.js";
 
@@ -111,8 +111,8 @@ async function searchJsonEndpoint(
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Web search failed: ${response.status} ${response.statusText}`,
     );
   }
@@ -152,8 +152,8 @@ async function searchPublicHtml(
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Web search failed: ${response.status} ${response.statusText}`,
     );
   }
@@ -194,8 +194,8 @@ The default endpoint is a public HTML search page and can be rate-limited; set C
   run: async (args: { query: string; count?: number }): Promise<string> => {
     const query = typeof args.query === "string" ? args.query.trim() : "";
     if (!query) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         "WebSearch needs a query.",
       );
     }

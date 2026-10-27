@@ -1,5 +1,5 @@
 import { EditOperation } from "../../tools/definitions/multiEdit";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { TntError, TntErrorReason } from "../../util/errors";
 import {
   SearchMatchResult,
   describeSearchFailure,
@@ -99,8 +99,8 @@ export function executeFindAndReplace(
     // The message leads with what the file does contain near the anchor line:
     // a failure that only echoes the search leaves the model retrying the same
     // guess, which is the loop this text exists to break.
-    throw new ContinueError(
-      ContinueErrorReason.FindAndReplaceOldStringNotFound,
+    throw new TntError(
+      TntErrorReason.FindAndReplaceOldStringNotFound,
       `Edit at index ${editIndex}: the text to replace was not found in the file.\n${describeSearchFailure(fileContent, oldString)}`,
     );
   }
@@ -125,8 +125,8 @@ export function executeFindAndReplace(
   } else {
     // For single replacement, check for multiple matches first
     if (matches.length > 1) {
-      throw new ContinueError(
-        ContinueErrorReason.FindAndReplaceMultipleOccurrences,
+      throw new TntError(
+        TntErrorReason.FindAndReplaceMultipleOccurrences,
         `Edit at index ${editIndex}: String "${oldString}" appears ${matches.length} times in the file. Either provide a more specific string with surrounding context to make it unique, or use replace_all=true to replace all occurrences.`,
       );
     }
@@ -174,13 +174,13 @@ export function executeMultiFindAndReplace(
       );
     } catch (error) {
       if (
-        error instanceof ContinueError &&
-        error.reason === ContinueErrorReason.FindAndReplaceOldStringNotFound &&
+        error instanceof TntError &&
+        error.reason === TntErrorReason.FindAndReplaceOldStringNotFound &&
         editIndex > 0 &&
         result !== fileContent &&
         findSearchMatches(fileContent, edit.old_string).length > 0
       ) {
-        throw new ContinueError(
+        throw new TntError(
           error.reason,
           `${error.message}\n${EARLY_EDIT_CAUSE_LINE}`,
         );

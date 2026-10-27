@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { toDisplayPath } from "../utils/displayPath.js";
 
@@ -37,8 +37,8 @@ export const listFilesTool: Tool = {
     );
 
     if (!fs.existsSync(dirPath)) {
-      throw new ContinueError(
-        ContinueErrorReason.DirectoryNotFound,
+      throw new TntError(
+        TntErrorReason.DirectoryNotFound,
         // Display form only: a refusal must name the path the caller gave,
         // not a cwd-relative one that loses the absolute part.
         `Directory does not exist: ${toDisplayPath(dirPath)}`,
@@ -46,8 +46,8 @@ export const listFilesTool: Tool = {
     }
 
     if (!fs.statSync(dirPath).isDirectory()) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `Error: Path is not a directory: ${dirPath}`,
       );
     }

@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 
-import { ContinueError, ContinueErrorReason } from "core/util/errors.js";
+import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { globalDir } from "../config/globalDir.js";
 import { t } from "../i18n/index.js";
@@ -30,17 +30,14 @@ export function assertDeletablePath(
   root: string = workspaceRoot(),
 ): DeletablePath {
   if (typeof filepath !== "string" || filepath.trim() === "") {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
-      "Delete needs a filepath.",
-    );
+    throw new TntError(TntErrorReason.Unspecified, "Delete needs a filepath.");
   }
 
   const resolvedRoot = path.resolve(root);
   const absolute = path.resolve(filepath);
   if (absolute === resolvedRoot) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "Refusing to delete the workspace root.",
     );
   }
@@ -48,8 +45,8 @@ export function assertDeletablePath(
   // Decide containment before touching the path, so a path outside the
   // workspace is refused as such even when it does not exist.
   if (!isWithinWorkspace(path.dirname(absolute), resolvedRoot)) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Delete only removes paths inside the workspace: ${filepath}`,
     );
   }
@@ -58,8 +55,8 @@ export function assertDeletablePath(
   try {
     stat = fs.lstatSync(absolute);
   } catch {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `No such file or directory: ${filepath}`,
     );
   }
@@ -68,16 +65,16 @@ export function assertDeletablePath(
   // is decided by the link's directory. A regular path must be inside itself.
   const container = stat.isSymbolicLink() ? path.dirname(absolute) : absolute;
   if (!isWithinWorkspace(container, resolvedRoot)) {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       `Delete only removes paths inside the workspace: ${filepath}`,
     );
   }
 
   const relative = path.relative(resolvedRoot, absolute);
   if (relative.split(path.sep)[0] === ".git") {
-    throw new ContinueError(
-      ContinueErrorReason.Unspecified,
+    throw new TntError(
+      TntErrorReason.Unspecified,
       "Refusing to delete .git: version history is not recoverable from the trash.",
     );
   }
@@ -155,8 +152,8 @@ Directories need recursive: true; deleting one without it is refused rather than
   run: async (args: { filepath: string; recursive?: boolean }) => {
     const target = assertDeletablePath(args.filepath);
     if (target.isDirectory && args.recursive !== true) {
-      throw new ContinueError(
-        ContinueErrorReason.Unspecified,
+      throw new TntError(
+        TntErrorReason.Unspecified,
         `${args.filepath} is a directory. Pass recursive: true to delete it.`,
       );
     }
