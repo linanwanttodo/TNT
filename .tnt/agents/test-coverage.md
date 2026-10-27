@@ -50,6 +50,6 @@ Review this pull request to determine if new functionality has adequate test cov
 
 ## Test Infrastructure Reference
 
-- **Core**: Jest (`*.test.ts`) + Vitest (`*.vitest.ts`) in `core/`
+- **Core**: Vitest (`*.vitest.ts`) in `core/`
 - **CLI**: Vitest (`*.test.ts`, `*.e2e.test.ts`) in `packages/cli/`
 - **Packages**: Vitest in each `packages/*/` directory

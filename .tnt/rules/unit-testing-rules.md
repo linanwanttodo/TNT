@@ -8,7 +8,7 @@ For unit testing in this project:
 
 ## 1. Testing frameworks
 
-The project uses Vitest and Jest for testing. Prefer Vitest.
+The project uses Vitest for testing, everywhere.
 
 ## 2. Test execution location
 
@@ -22,14 +22,13 @@ Run tests from within the specific package directory (e.g., `cd core && ..`).
   cd [directory] && vitest -- [test file path]
   ```
 
-## 4. Jest tests
+## 4. Package test scripts
 
-- Test files follow the pattern `*.test.ts`
-- Run tests using `npm test` from within the specific package/module directory:
+- CLI and `packages/*` test files follow the pattern `*.test.ts`; `core` uses `*.vitest.ts`
+- Run the whole suite using `npm test` from within the specific package/module directory:
   ```bash
   cd [directory] && npm test -- [test file path]
   ```
-- The test script uses experimental VM modules via NODE_OPTIONS flag
 
 ## 5. Test structure
 

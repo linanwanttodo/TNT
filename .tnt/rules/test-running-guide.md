@@ -8,13 +8,13 @@ When working with test files, use the following commands to run tests:
 
 Core tests:
 
-- Run Jest tests: `cd core && npm test`
-- Run Vitest tests: `cd core && npm run vitest`
+- Run the suite: `cd core && npm test`
+- Run one file: `cd core && npx vitest run util/lcs.vitest.ts`
 
 CLI tests:
 
 - Run one file: `cd packages/cli && npx vitest run src/path/to/file.test.ts`
-- Run the e2e suite: `cd packages/cli && npx vitest run --config vitest.e2e.config.ts`
+- Run the e2e suite: `cd packages/cli && npm run test:e2e`
 
 Packages tests:
 
@@ -22,10 +22,10 @@ Packages tests:
 
 Test file patterns:
 
-- Core: `*.test.ts` files use Jest, `*.vitest.ts` files use Vitest
+- Core: `*.vitest.ts` — one runner collects them all, so a `.test.ts` there is collected by nothing
 - CLI and packages: `*.test.ts` use Vitest, `*.e2e.test.ts` run under the e2e config
 
 Best practices:
 
-- We are transitioning to vitest, so use that when creating new tests
+- Every package runs Vitest; there is no second runner to check separately
 - Build the workspace before an e2e run, since those suites spawn the built bundle
