@@ -245,7 +245,6 @@ export interface SiteIndexingConfig {
   startUrl: string;
   maxDepth?: number;
   faviconUrl?: string;
-  useLocalCrawling?: boolean;
   sourceFile?: string;
 }
 
@@ -1106,7 +1105,6 @@ export type ContextProviderName =
   | "repo-map"
   | "url"
   | "commit"
-  | "web"
   | "discord"
   | "clipboard"
   | string;
