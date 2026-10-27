@@ -17,6 +17,19 @@ describe("E2E: Headless lifecycle hooks", () => {
   let mockServer: MockLLMServer;
   let logPath: string;
 
+  /**
+   * `echo X >> file` under cmd.exe writes `X \r\n`: the space before the
+   * redirect belongs to the echoed text, and the line ending is CRLF. Reading
+   * the log back as event names means trimming both, which a POSIX shell never
+   * adds and therefore never hides.
+   */
+  function loggedEvents(log: string): string[] {
+    return log
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }
+
   function appendingHooks(events: string[]) {
     const handler = (event: string) => [
       {
@@ -84,7 +97,7 @@ describe("E2E: Headless lifecycle hooks", () => {
 
     expect(result.exitCode).toBe(0);
     const log = await fs.readFile(logPath, "utf-8");
-    expect(log.trim().split("\n")).toEqual([
+    expect(loggedEvents(log)).toEqual([
       "SessionStart",
       "UserPromptSubmit",
       "Stop",
@@ -119,7 +132,7 @@ describe("E2E: Headless lifecycle hooks", () => {
     const log = await fs.readFile(logPath, "utf-8");
     // The blocking handler owns UserPromptSubmit, and the turn never runs, so
     // only the session boundaries land in the log; the session still ends.
-    expect(log.trim().split("\n")).toEqual(["SessionStart", "SessionEnd"]);
+    expect(loggedEvents(log)).toEqual(["SessionStart", "SessionEnd"]);
   }, 30000);
 
   it("carries a SessionStart note into the request and names a readable transcript", async () => {
