@@ -71,7 +71,9 @@ console.log("core sources bundled:", core.length);'
 | 其中 `core/vendor/@xenova/transformers` | 14 个文件 |
 | CLI 源码中对 `core/context` 的引用 | **0 次** |
 
-也就是说：这 44 个 context provider、43 个遗留工具定义、66 个 provider 类**永远不会被 CLI 调用**，但每一个都进了用户的安装包。
+也就是说：这 44 个 context provider、43 个遗留工具定义、66 个 provider 类**没有一个是 CLI 源码直接引用的**（见上表「CLI 源码中对 `core/context` 的引用 0 次」），但每一个都进了用户安装包里、并且被配置层的 eager 闭包拉着求值。
+
+> **本节的 sourcemap 计数只适合描述「dist 里有什么」，不适合验证惰性化是否生效。** `splitting: true` 下被延迟的代码仍在 `dist/` 里，只是换了 chunk，所以这个数在改动前后恒为 306。验证请用 Task 7 Step 3 的 metafile eager 闭包。
 
 ### 2.2 传导链已定位到具体行
 
@@ -82,7 +84,7 @@ packages/cli/src/retrieval/service.ts:1
       → core/config/load.ts           (870 行)
 ```
 
-`core/config/load.ts` 顶部的 9 行运行时导入，加上 `core/llm/index.ts` 的 1 行，就是全部原因：
+下表是**改动前 `core/config/load.ts` 的 9 行 + `core/llm/index.ts` 的 1 行**，共 10 处。当时据此写下「就是全部原因」，这句已被推翻：注册表经 5 个文件共 25 处进入配置层，下表只是最大的一处。完整清单与各自状态见交接文档 §3.1。
 
 | 行 | 导入 | 拖进来的东西 |
 | --- | --- | --- |
@@ -658,6 +660,12 @@ git commit -m "chore(lint): make a floating promise an error and freeze the back
 
 **背景：** esbuild 只看静态的运行时导入。守住这几个文件的导入形态，就守住了 306 个 core 文件的打包面。这与 `packages/cli/src/architecture.test.ts` 的做法一致：读源码文本，按棘轮冻结。
 
+> **本节是最初的设计稿，落地版本与它有三处不同，以 `core/staticImportBoundary.vitest.ts` 现文件为准**：
+> ① 匹配按 `path.resolve` 的**真实路径**，不是 specifier 字符串前缀（字符串比较深度敏感，`../../tools` 会静默漏报）；
+> ② `../tools` 按**精确 barrel** 匹配，不匹配 `../tools/applyToolOverrides.js`——它是只引类型与一个包的叶子，按前缀匹配会把它误报成泄漏；
+> ③ 读取的是 **6 个** consumer 而非 2 个，注册表内部互引不计。
+> 见交接文档 §5 与其变异测试表。
+
 - [ ] **Step 1: 写失败的测试**
 
 Create `core/staticImportBoundary.vitest.ts`:
@@ -899,25 +907,43 @@ find dist -name '*.js' -exec du -cb {} + | tail -1
 ls -S dist/*.js | head -1
 ```
 
-- [ ] **Step 3: 用 sourcemap 验证打包面真的缩小了**
+- [ ] **Step 3: 用 metafile 的 chunk 归属验证惰性化真的生效**
+
+**不要用 sourcemap 的 source 计数做这一步。** `packages/cli/build.mjs` 开了 `splitting: true`，被延迟的代码仍然在 `dist/` 里，只是进了独立 chunk——所以 2.1 节那个「306」在惰性化前后都是 306，永远不降。它衡量「dist 里有什么」，不衡量「哪条路径要加载什么」。据此会得出「改了等于没改」的错误结论。
 
 ```bash
 node -e '
-const fs=require("fs");const all=new Set();
-for(const f of fs.readdirSync("dist").filter(f=>f.endsWith(".js.map"))){
-  const m=JSON.parse(fs.readFileSync("dist/"+f,"utf8"));
-  for(const s of (m.sources||[])) all.add(s);}
-const core=[...all].filter(s=>s.includes("/core/")&&!s.includes("node_modules"));
-const byDir={};for(const s of core){const i=s.indexOf("/core/");const d=s.slice(i+6).split("/")[0];byDir[d]=(byDir[d]||0)+1;}
-console.log("core sources bundled:", core.length);
-console.log(Object.entries(byDir).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+": "+v).join("\n"));'
+const fs=require("fs");const m=JSON.parse(fs.readFileSync("build-meta.json","utf8"));
+const out=m.outputs;
+// 入口是 dist/index.js（dist/tnt.js 只是 await import("./index.js") 的壳）
+function closure(entry){const seen=new Set(),q=[entry];
+  while(q.length){const k=q.pop();if(seen.has(k))continue;seen.add(k);
+    for(const i of (out[k].imports||[])) if(i.kind==="import-statement"&&out[i.path]) q.push(i.path);}
+  return seen;}
+function tally(keys){let b=0,n=0,ctx=0,tools=0,llms=0;
+  for(const k of keys) for(const [p,i] of Object.entries(out[k].inputs)){b+=i.bytesInOutput;n++;
+    if(p.includes("/core/context/"))ctx+=i.bytesInOutput;
+    if(p.includes("/core/tools/"))tools+=i.bytesInOutput;
+    if(p.includes("/core/llm/llms/"))llms+=i.bytesInOutput;}
+  return {b,n,ctx,tools,llms};}
+const svc=Object.keys(out).filter(k=>/^dist\/service-.*\.js$/.test(k))
+  .sort((a,b)=>tally([b]).b-tally([a]).b)[0];
+for(const [label,keys] of [["进程启动",closure("dist/index.js")],["配置路径",closure(svc)]]){
+  const r=tally([...keys]);
+  console.log(label+" eager 闭包: "+r.n+" inputs / "+r.b.toLocaleString()+" B  ctx="+r.ctx+" tools="+r.tools+" llms="+r.llms);}'
 ```
 
-Expected: `core sources bundled` 明显低于 306，且 `context:`、`vendor:` 与 `tools:` 不应再作为大项出现。若 `context:` 仍然存在，说明还有第二条静态导入路径，回到 Step 1 用 `grep -rn "context/" core/config core/llm --include='*.ts'` 找出来。
+Expected: **进程启动那一行在改动前后完全不变**（844,600 B / 442 inputs，且 `ctx`/`tools`/`llms` 恒为 0——配置层根本不在入口的 eager 闭包里）。要看的是「配置路径」那一行的 `inputs` 与 `ctx` 下降。
+
+若 `ctx` 仍然存在，说明还有第二条静态导入路径，回到 Step 1 用 `grep -rn "context/" core/config core/llm --include='*.ts'` 找出来。
+
+> **「最大的 chunk 就是启动 chunk」是错的**，别用它当指标：`service-*.js` 只被 `dynamic-import` 边引用，是 retrieval service 的 chunk（`packages/cli/src/retrieval/service.ts` 是全仓唯一 import `ConfigHandler` 的文件）。详见交接文档 §3.5。
 
 - [ ] **Step 4: 把实测数字写进守卫的注释与架构文档**
 
-把 Step 1/2/3 的数字（改动前后的 `core sources bundled`、`dist` 的 JS 总量、最大 chunk）写进 `core/staticImportBoundary.vitest.ts` 文件头的注释，替换掉 `2026-10-27` 那句实测说明里的旧数字；同时在 `packages/cli/ARCHITECTURE-tnt.md` 的「The cached prefix」之外新起一节记录这次变化，风格对齐既有条目（先写机制，再写被哪个测试固定）。
+把 Step 1/2/3 的数字（改动前后的「进程启动 eager 闭包」与「配置路径 eager 闭包」的 inputs 和字节、`dist` 的 JS 总量）写进 `core/staticImportBoundary.vitest.ts` 文件头的注释，替换掉 `2026-10-27` 那句实测说明里的旧数字；同时在 `packages/cli/ARCHITECTURE-tnt.md` 的「The cached prefix」之外新起一节记录这次变化，风格对齐既有条目（先写机制，再写被哪个测试固定）。
+
+不要写「最大 chunk」：它的身份会随 chunk 边界重划而漂移（本轮改动后最大 chunk 就变成了 `chunk-OIMSHNAI.js`，与启动无关）。
 
 - [ ] **Step 5: 跑两端门禁并提交**
 
