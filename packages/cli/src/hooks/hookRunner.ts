@@ -107,6 +107,31 @@ function tryParseJson(str: string): HookOutput | null {
   }
 }
 
+/**
+ * How a hook's command string reaches a shell.
+ *
+ * `cmd.exe` with `/s` strips the first and last quote of everything after `/c`, so the
+ * command is wrapped exactly once: `echo hi` arrives as `"echo hi"`, and a command that
+ * already quotes its arguments - which any Windows path with a space forces - arrives as
+ * `""C:\a b\node.exe" "script.mjs""`, whose outer pair is the one stripped, leaving the
+ * quotes the user wrote. `windowsVerbatimArguments` is what stops Node from escaping those
+ * inner quotes with backslashes, which cmd.exe does not read as escapes; without it the
+ * first and last arguments arrive glued to their quotes and the hook runs the wrong thing.
+ */
+export function hookShellCommand(
+  command: string,
+  platform: NodeJS.Platform = process.platform,
+): { shell: string; args: string[]; verbatim: boolean } {
+  if (platform === "win32") {
+    return {
+      shell: "cmd.exe",
+      args: ["/d", "/s", "/c", `"${command}"`],
+      verbatim: true,
+    };
+  }
+  return { shell: "/bin/sh", args: ["-c", command], verbatim: false };
+}
+
 function executeCommandHook(
   handler: CommandHookHandler,
   input: HookInput,
@@ -121,18 +146,13 @@ function executeCommandHook(
       CONTINUE_PROJECT_DIR: cwd,
     };
 
-    // Use shell to execute the command. The
-    // hook gets its own process group on POSIX (see killProcessTree).
-    const shell = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
-    const shellArgs =
-      process.platform === "win32"
-        ? ["/c", handler.command]
-        : ["-c", handler.command];
-
-    const child = spawn(shell, shellArgs, {
+    // The hook gets its own process group on POSIX (see killProcessTree).
+    const invocation = hookShellCommand(handler.command);
+    const child = spawn(invocation.shell, invocation.args, {
       cwd,
       env,
       detached: process.platform !== "win32",
+      windowsVerbatimArguments: invocation.verbatim,
     });
 
     let stdout = "";
