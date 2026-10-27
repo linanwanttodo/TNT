@@ -15,6 +15,7 @@ import {
   discoverInstalledPlugins,
   type LoadedPlugin,
   substitutePluginVariables,
+  substitutePluginVariablesDeep,
 } from "./manifest.js";
 import { applyPluginEnablement } from "./pluginEnablement.js";
 import {
@@ -143,21 +144,14 @@ function resolvePluginPath(plugin: LoadedPlugin, entry: string): string {
 }
 
 /**
- * Substitute the plugin variables inside a nested config value. Falls back to
- * the original value when the round trip fails, so a config that cannot be
- * re-serialized still reaches the caller instead of disappearing.
+ * Substitute the plugin variables inside a nested config value, one string at a
+ * time - see `substitutePluginVariablesDeep`.
  */
 function substituteVariablesDeep(
   value: Record<string, unknown>,
   plugin: LoadedPlugin,
 ): Record<string, unknown> {
-  try {
-    return JSON.parse(
-      substitutePluginVariables(JSON.stringify(value), plugin),
-    ) as Record<string, unknown>;
-  } catch {
-    return value;
-  }
+  return substitutePluginVariablesDeep(value, plugin);
 }
 
 /**
@@ -437,15 +431,10 @@ function loadPluginMcpServers(
 
     for (const [name, serverConfig] of Object.entries(resolved)) {
       if (typeof serverConfig !== "object" || serverConfig === null) continue;
-      const substituted = substitutePluginVariables(
-        JSON.stringify(serverConfig),
+      servers[`${plugin.name}-${name}`] = substitutePluginVariablesDeep(
+        serverConfig,
         plugin,
       );
-      try {
-        servers[`${plugin.name}-${name}`] = JSON.parse(substituted);
-      } catch {
-        servers[`${plugin.name}-${name}`] = serverConfig;
-      }
     }
   }
 
