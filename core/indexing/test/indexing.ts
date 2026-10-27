@@ -1,7 +1,6 @@
 import { vi } from "vitest";
 
 import { IndexTag } from "../..";
-import { IContinueServerClient } from "../../continueServer/interface";
 import { ChunkCodebaseIndex } from "../chunk/ChunkCodebaseIndex";
 import { CodebaseIndex, RefreshIndexResults } from "../types";
 
@@ -32,16 +31,6 @@ export const mockTag: IndexTag = {
 
 export const mockTagString = tagToString(mockTag);
 
-export const testContinueServerClient = {
-  connected: false,
-  getFromIndexCache: vi.fn(),
-} as unknown as IContinueServerClient;
-
-const mockContinueServerClient = {
-  connected: false,
-  getFromIndexCache: vi.fn(),
-} as unknown as IContinueServerClient;
-
 const mockResults: RefreshIndexResults = {
   compute: [],
   addTag: [],
@@ -54,11 +43,7 @@ const mockMarkComplete = vi
   .mockImplementation(() => Promise.resolve()) as any;
 
 export async function insertMockChunks() {
-  const index = new ChunkCodebaseIndex(
-    testIde.readFile.bind(testIde),
-    mockContinueServerClient,
-    1000,
-  );
+  const index = new ChunkCodebaseIndex(testIde.readFile.bind(testIde), 1000);
 
   addToTestDir([[mockFilename, mockFileContents]]);
 
