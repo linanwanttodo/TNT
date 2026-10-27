@@ -148,6 +148,11 @@ export class CodebaseIndexer {
   protected async getIndexesToBuild(): Promise<CodebaseIndex[]> {
     const { config } = await this.configHandler.loadConfig();
     if (!config) {
+      // Nothing is built and nothing is said, which reads downstream as "this
+      // workspace has nothing to find". Both empty outcomes here are worth a
+      // line: this one, and the one below for a config whose providers ask for
+      // no indexing at all.
+      Logger.debug("Not building indexes: no config loaded");
       return [];
     }
 
@@ -160,6 +165,17 @@ export class CodebaseIndexer {
         .filter((indexType) => Array.isArray(indexType)) // remove undefined indexTypes
         .flat(),
     );
+
+    if (indexTypesToBuild.size === 0) {
+      // The other silent empty: a config that loaded, holding no provider that
+      // asks for an index. Names, because "which providers did this load see"
+      // is the question every search that returns nothing raises.
+      Logger.debug("No provider in the loaded config asks for indexing", {
+        contextProviders: config.contextProviders.map(
+          (provider) => provider.description.title,
+        ),
+      });
+    }
 
     const indexTypeToIndexerMapping: Record<
       ContextIndexingType,
