@@ -142,3 +142,51 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 改 CLI 产物后必须重建 core 的 `dist`（`cd core && npm run build`），否则 `packages/cli` 的类型门禁读的是 `.d.ts` 旧签名——这是报告 P1-1 的真实复现。
 
 覆盖率地板是 `statements 70 / branches 80 / functions 80`（`packages/cli/vitest.config.ts`）。删代码会动这些数字，CI 的 ubuntu 跑会先撞上，注意别让它因为**分母变化**而红。
+
+---
+
+## 五、执行结果（实测，非计划）
+
+| commit           | 内容                             | 配置路径 eager 闭包         | 其中 puppeteer       |
+| ---------------- | -------------------------------- | --------------------------- | -------------------- |
+| 基线 `c8672b613` | —                                | 3,806 inputs / 21,138,081 B | 280 模块 / 854,372 B |
+| `46a8a555b` P1   | `embedModelsAreEqual` 独立成模块 | 2,479 / 15,319,691          | **0**                |
+| `adb21c612` P2   | Chromium 爬虫按需加载            | 2,479 / 15,319,691          | 0                    |
+| `3dd291f7c` P3   | 清掉 9 条冻结泄漏，守卫归零      | **1,669 / 14,104,098**      | 0                    |
+| `ecfc10ade` P4   | 交付图 e2e 守卫                  | 1,669 / 14,104,098          | 0                    |
+
+**合计 −2,137 inputs（−56%）、−7,033,983 B（−33%）。**
+
+P2 的数字不在配置路径上，而在 **docs 索引路径**自己的闭包：2,547 inputs / 15,711,798 B → 2,073 / 13,649,126 B，其中 puppeteer 由 280 模块 / 854,374 B 归零。它影响的是「配置了 docs 的人抓一个静态站点」，P1 已经把这条路径从配置层摘掉了，所以两个数不能相加。
+
+### 没有变化的东西（必须写清，否则数字会被误读）
+
+- **进程启动闭包全程一字未动**：442 inputs / 844,600 B。这不是启动优化。
+- **`dist` 里的 JS 总量几乎没变**：30,760,015 → 30,726,959 B。`splitting: true` 下代码只是换了 chunk，**没有被删除**。改变的是「为了回答一次请求必须先求值什么」，不是「安装包里有什么」。想真正减少交付体积，得走到报告 B3 那一步——把这些模块从 fork 里删掉，那是产品决策，不在本计划范围。
+
+### 与计划的偏离
+
+1. **P4 的锚点换了实现**：计划写「service chunk」，落地按「含 `src/retrieval/service.ts` 的 chunk」定位——实测两者是同一个，但后者不依赖 chunk 大小或命名，chunk 身份会随改动漂移（本会话已两次观察到）。
+2. **P3 之后守卫的地板换了机制**：原本指望「非空冻结清单」顺带证明扫描读到了文件；清单归零后这个证明消失了。我先尝试用「文件是否提及注册位」做地板，**变异测试证明它无效**——`llm/index.ts` 本身就在 `core/llm` 子树内，它对自身目录的任何导入都算提及，永远非零。改成逐文件字节地板（>1,000，最小者 3,562，有余量）。两条变异都验过：重新加一条 eager import → 泄漏测试红；把某个 consumer 换成小桩 → 地板红。
+3. **P4 额外加了「闭包非空」断言**（两个闭包各 >100 inputs）：否则锚点查找失败会得出空集，空集满足所有「应当为空」的断言。
+
+### 配置路径闭包里剩下的是什么（不是泄漏，别去切）
+
+`core/context/providers/utils.ts`（被 `context/retrieval/retrieval.ts` 取一个常量）、`core/context/providers/URLContextProvider.ts`（被 `tools/implementations/fetchUrlContent.ts` 取 `getUrlContextItems` 函数）、`context/mcp/MCPConnection|MCPOauth`、`core/tools/` 下 29 个模块。都是**被真实调用**的代码，且守卫的 barrel 规则不把它们算作注册表。合计 ctx 12 模块 / 25,104 B、tools 29 模块 / 23,066 B。
+
+### 本轮门禁最终状态
+
+| 门禁                                         | 结果                                                                                                                    |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| core `vitest`（`IGNORE_API_KEY_TESTS=true`） | 146 files / 2,225 tests passed（+1 文件 +4 用例来自 P2）                                                                |
+| packages/cli `vitest`                        | 466 files / 3,764 tests passed                                                                                          |
+| `test:e2e`                                   | **35 files / 123 tests passed**（+1 文件 +3 用例来自 P4）                                                               |
+| `tsc` core / packages/cli                    | exit 0 / exit 0                                                                                                         |
+| `eslint .` packages/cli                      | 0 problems                                                                                                              |
+| `eslint .` core                              | 11 errors / 18 warnings，**与本轮开始前逐条一致**，全在 `core/vendor/**` 与 vendored `llamaTokenizer.js`，改动文件 0 条 |
+| `prettier --check`（仓库根二进制）           | 全部改动文件通过                                                                                                        |
+
+### 顺带发现的两处既有问题（未修，供后续判断）
+
+1. `core/config/profile/LocalProfileLoader.vitest.ts:15` 的 mock 有 TDZ 缺陷，运行时会打 `Cannot access 'mockDoLoadConfig' before initialization`，但**测试仍然通过**——它落入配置加载的错误处理里了。该现象在本轮任何改动之前就存在（已对最早的 core 全量日志核过）。
+2. `core/indexing/docs/crawlers/DocsCrawler.vitest.ts` **整套位于 `describe.skip`**（要抓真实站点并下载 Chromium）。所以 P2 改的是一条原本无自动化覆盖的路径，P2 为此补了 4 个离线用例。
