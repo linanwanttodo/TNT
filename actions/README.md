@@ -1,6 +1,7 @@
-# Continue PR Review Actions
+# TNT PR Review Actions
 
-GitHub Actions that provide automated code reviews for pull requests using TNT CLI.
+GitHub Actions that provide automated code reviews for pull requests using the TNT
+CLI.
 
 ## Available Actions
 
@@ -11,7 +12,7 @@ This repository provides a GitHub Action for automated PR reviews:
 Provides high-level PR assessment with overall feedback and recommendations.
 
 - **Path:** `linanwanttodo/TNT/actions/general-review@main`
-- **Trigger:** `@continue-review`
+- **Trigger:** `@tnt-review`
 - **Output:** Summary comment with strengths, issues, and recommendations
 
 ## Quick Start
@@ -35,43 +36,52 @@ jobs:
   review:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: linanwanttodo/TNT/actions/general-review@main
         with:
-          continue-api-key: ${{ secrets.CONTINUE_API_KEY }}
-          continue-org: "your-org-name"
-          continue-config: "your-org-name/review-bot"
+          agent-file: ".tnt/agents/review.md"
 ```
 
 ## Inputs
 
 The action accepts the following inputs:
 
-| Input              | Description                            | Required |
-| ------------------ | -------------------------------------- | -------- |
-| `continue-api-key` | API key for Continue service           | Yes      |
-| `continue-org`     | Organization for Continue config       | Yes      |
-| `continue-config`  | Config path (e.g., "myorg/review-bot") | Yes      |
+| Input         | Description                                                      | Required |
+| ------------- | ---------------------------------------------------------------- | -------- |
+| `agent-file`  | Repository-relative agent markdown file to review with           | Yes      |
+| `config-file` | Assistant configuration to use, defaulting to the CLI's own pick | No       |
 
 ## Setup Requirements
 
-### 1. Continue API Key
+### 1. An agent file in the repository
 
-Add your Continue API key as a secret named `CONTINUE_API_KEY` in your repository:
+The CLI loads an agent from a local markdown file with YAML frontmatter, e.g.
+`.tnt/agents/review.md`:
 
-1. Go to your repository's Settings
-2. Navigate to Secrets and variables → Actions
-3. Click "New repository secret"
-4. Name: `CONTINUE_API_KEY`
-5. Value: Your Continue API key
+```markdown
+---
+name: review
+description: Reviews a pull request against the diff the action wrote
+model: claude-sonnet-4-5
+---
 
-### 2. Continue Configuration
+Review the changes described in `pr_diff.txt` and report strengths, issues by
+severity, and an overall recommendation.
+```
 
-Set up your review bot configuration in Continue:
+`model:` names a model **defined in the assistant configuration** - it is matched
+against the models that configuration loads, not downloaded.
 
-1. Create a configuration for your organization
-2. Configure the review bot settings
-3. Note your organization name and config path
+### 2. Model credentials
+
+The review runs on the assistant configuration found in the checkout, so the
+provider key comes from that file's `apiKey` reference - usually a secret mapped
+into the job environment, as in the Quick Start above.
+
+There is no platform key to register. The hosted service this action used to
+require has been removed from the product, and the CLI reads no such variable.
 
 ### 3. Workflow Permissions
 
@@ -94,7 +104,7 @@ The action can be triggered in two ways:
 
 Team members can trigger reviews by commenting on any pull request:
 
-- `@continue-review` - Triggers a review
+- `@tnt-review` - Triggers a review
 
 ## Review Output
 
@@ -108,10 +118,13 @@ The general review provides a structured comment that includes:
 ## How It Works
 
 1. Checks out repository code
-2. Fetches PR diff using GitHub CLI
-3. Generates a comprehensive review prompt
-4. Runs TNT CLI with specified configuration
-5. Posts review as a PR comment
+2. Fetches the PR diff with the GitHub CLI
+3. Builds a review prompt from the diff
+4. Runs the CLI headless with the agent file, reading the prompt from stdin
+5. Posts the review as a PR comment
+
+The run is given no shell tool: the reviewer needs the diff the action already
+wrote, not a shell in a checkout of a branch that may not be trusted.
 
 ## Versioning
 
@@ -131,18 +144,18 @@ uses: linanwanttodo/TNT/actions/general-review@main
 
 - Ensure the PR author or commenter has appropriate permissions (OWNER, MEMBER, or COLLABORATOR)
 - Check that the workflow file is in the default branch
-- Verify the Continue API key is correctly set as a repository secret
+- Check that the trigger comment contains `@tnt-review`
 
 ### No review output generated
 
-- Check the action logs for any errors
-- Verify your Continue configuration is correct
-- Ensure your Continue API key is valid
+- Read the action logs: the CLI's stderr is printed there
+- Verify `agent-file` points at a markdown file committed on the revision under review
+- Verify the provider credential that the assistant configuration names is set as a job secret
 
 ## Support
 
 For issues or questions:
 
-- [Continue Documentation](https://github.com/linanwanttodo/TNT/tree/main/docs)
+- [TNT Documentation](https://github.com/linanwanttodo/TNT/tree/main/docs)
 - [GitHub Issues](https://github.com/linanwanttodo/TNT/issues)
 - [GitHub Discussions](https://github.com/linanwanttodo/TNT/discussions)

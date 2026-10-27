@@ -1,17 +1,15 @@
-name: "Continue PR Review"
+name: "TNT PR Review"
 description: "Automated code review for pull requests using TNT CLI"
 author: "TNT"
 
 inputs:
-  continue-api-key:
-    description: "API key for Continue service"
+  agent-file:
+    description: "Repository-relative agent markdown file to review with (e.g. .tnt/agents/review.md)"
     required: true
-  continue-org:
-    description: "Organization for Continue config"
-    required: true
-  continue-agent:
-    description: 'Agent path to use (e.g., "myorg/review-bot")'
-    required: true
+  config-file:
+    description: "Optional assistant configuration file; defaults to the one the CLI finds in the checkout"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -62,7 +60,7 @@ runs:
             }
           } else if (context.eventName === 'issue_comment') {
             // Check if it's a PR comment with the trigger phrase
-            const hasTrigger = context.payload.comment.body.includes('@continue-review');
+            const hasTrigger = context.payload.comment.body.includes('@tnt-review');
             if (context.payload.issue.pull_request && hasTrigger) {
               const commenter = context.payload.comment.user.login;
               try {
@@ -91,7 +89,7 @@ runs:
                 }
               }
             } else {
-              skipReason = 'Comment does not contain @continue-review trigger, or is not on a PR';
+              skipReason = 'Comment does not contain @tnt-review trigger, or is not on a PR';
             }
           } else {
             skipReason = `Unsupported event type: ${context.eventName}`;
@@ -120,39 +118,39 @@ runs:
       shell: bash
       run: |
         # Create directory for scripts
-        mkdir -p .continue-action-scripts
+        mkdir -p .tnt-action-scripts
 
-        # Check if we're running in the Continue repo itself (scripts exist locally)
+        # Check if we're running in the TNT repo itself (scripts exist locally)
         if [ -f "actions/general-review/scripts/buildPrompt.js" ] && [ -f "actions/general-review/scripts/writeMarkdown.js" ]; then
-          echo "Running in Continue repo - using local scripts from current checkout"
-          cp actions/general-review/scripts/buildPrompt.js .continue-action-scripts/buildPrompt.js
-          cp actions/general-review/scripts/writeMarkdown.js .continue-action-scripts/writeMarkdown.js
+          echo "Running in TNT repo - using local scripts from current checkout"
+          cp actions/general-review/scripts/buildPrompt.js .tnt-action-scripts/buildPrompt.js
+          cp actions/general-review/scripts/writeMarkdown.js .tnt-action-scripts/writeMarkdown.js
         else
-          echo "Running in external repo - downloading scripts from Continue repo"
+          echo "Running in external repo - downloading scripts from the TNT repo"
           
-          # Download scripts from Continue repo
+          # Download scripts from the TNT repo
           echo "Downloading buildPrompt.js..."
           curl -sSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/actions/general-review/scripts/buildPrompt.js \
-            -o .continue-action-scripts/buildPrompt.js
+            -o .tnt-action-scripts/buildPrompt.js
           
           echo "Downloading writeMarkdown.js..."
           curl -sSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/actions/general-review/scripts/writeMarkdown.js \
-            -o .continue-action-scripts/writeMarkdown.js
+            -o .tnt-action-scripts/writeMarkdown.js
         fi
 
         # Verify scripts exist
-        if [ ! -f .continue-action-scripts/buildPrompt.js ]; then
+        if [ ! -f .tnt-action-scripts/buildPrompt.js ]; then
           echo "Error: buildPrompt.js not found"
           exit 1
         fi
 
-        if [ ! -f .continue-action-scripts/writeMarkdown.js ]; then
+        if [ ! -f .tnt-action-scripts/writeMarkdown.js ]; then
           echo "Error: writeMarkdown.js not found"
           exit 1
         fi
 
         echo "Scripts ready:"
-        ls -lh .continue-action-scripts/
+        ls -lh .tnt-action-scripts/
 
     - name: Post Initial Comment
       if: env.SHOULD_RUN == 'true'
@@ -160,7 +158,7 @@ runs:
       uses: actions/github-script@v7
       with:
         script: |
-          const marker = '<!-- continue-agent-review -->';
+          const marker = '<!-- tnt-agent-review -->';
 
           // Get PR number based on event type
           let prNumber;
@@ -179,7 +177,7 @@ runs:
             per_page: 100
           });
 
-          // Find existing Continue review comment
+          // Find existing TNT review comment
           const existingComment = comments
             .filter(c => c.body && c.body.includes(marker))
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
@@ -194,13 +192,13 @@ runs:
             initialMessage = `${marker}\n**🔄 Review In Progress**\n\n*Triggered by @${context.payload.comment.user.login}'s request*\n\n`;
           }
 
-          initialMessage += `Continue AI is analyzing the code changes...\n\n`;
+          initialMessage += `TNT is analyzing the code changes...\n\n`;
           initialMessage += `📊 **Review Scope:**\n`;
           initialMessage += `- Repository: ${context.repo.owner}/${context.repo.repo}\n`;
           initialMessage += `- PR #${prNumber}\n\n`;
           initialMessage += `⏱️ This typically takes 1-2 minutes.\n\n`;
           initialMessage += `[View live progress →](${workflowRunUrl})\n\n`;
-          initialMessage += `---\n<!-- ${new Date().toISOString()} | Powered by Continue (https://github.com/linanwanttodo/TNT) -->`;
+          initialMessage += `---\n<!-- ${new Date().toISOString()} | Powered by TNT (https://github.com/linanwanttodo/TNT) -->`;
 
           if (existingComment) {
             // Check if comment is less than 1 hour old
@@ -257,16 +255,15 @@ runs:
         # Gather PR context and build prompt without heredocs
         gh pr diff "$PR_NUMBER" > pr_diff.txt
         gh pr view "$PR_NUMBER" --json title,author,body,files > pr_data.json
-        node .continue-action-scripts/buildPrompt.js "$PR_NUMBER"
+        node .tnt-action-scripts/buildPrompt.js "$PR_NUMBER"
         rm -f pr_data.json
 
     - name: Run TNT CLI Review
       if: env.SHOULD_RUN == 'true'
       shell: bash
       env:
-        CONTINUE_API_KEY: ${{ inputs.continue-api-key }}
-        CONTINUE_ORG: ${{ inputs.continue-org }}
-        CONTINUE_AGENT: ${{ inputs.continue-agent }}
+        TNT_AGENT_FILE: ${{ inputs.agent-file }}
+        TNT_CONFIG_FILE: ${{ inputs.config-file }}
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         echo "Running TNT CLI with prompt:"
@@ -276,54 +273,60 @@ runs:
         echo "=================================="
         echo ""
 
-        # Validate API key
-        if [ -z "$CONTINUE_API_KEY" ]; then
-          echo "Warning: CONTINUE_API_KEY environment variable is not set"
-          # Create fallback review and continue
-          node .continue-action-scripts/writeMarkdown.js code_review.md missing_api_key
-          echo "SKIP_CLI=true" >> $GITHUB_ENV
-        else
-          echo "SKIP_CLI=false" >> $GITHUB_ENV
+        # The review runs on the assistant configuration found in the checkout, and
+        # the model credential comes from whatever that file names in the job
+        # environment. Nothing here passes a key to the CLI, because nothing reads one.
+        skip_cli=false
+        if [ -z "$TNT_AGENT_FILE" ] || [ ! -f "$TNT_AGENT_FILE" ]; then
+          echo "Warning: the agent file is not in the checkout: $TNT_AGENT_FILE"
+          node .tnt-action-scripts/writeMarkdown.js code_review.md missing_agent_file
+          skip_cli=true
         fi
 
-        # Validate inputs to prevent command injection
-        if [[ ! "$CONTINUE_ORG" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-          echo "Error: Invalid organization name. Must contain only alphanumeric characters, hyphens, and underscores."
+        # Validate the paths before a shell sees them. An agent is a local markdown
+        # file now, so a two-part slug cannot work and both values stay inside a
+        # plain path charset.
+        if [[ ! "$TNT_AGENT_FILE" =~ ^[A-Za-z0-9_./-]+$ ]]; then
+          echo "Error: Invalid agent file path. Use a repository-relative markdown path."
           exit 1
         fi
 
-        if [[ ! "$CONTINUE_AGENT" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
-          echo "Error: Invalid config path. Must contain only alphanumeric characters, hyphens, underscores, and forward slashes."
+        if [ -n "$TNT_CONFIG_FILE" ] && [[ ! "$TNT_CONFIG_FILE" =~ ^[A-Za-z0-9_./-]+$ ]]; then
+          echo "Error: Invalid config file path. Use a repository-relative path."
           exit 1
         fi
 
-        # Test TNT CLI availability
-        if [ "$SKIP_CLI" != "true" ]; then
+        # Test TNT CLI availability. `$GITHUB_ENV` only reaches later steps, so the
+        # decision that skips the run below has to live in this shell.
+        if [ "$skip_cli" != "true" ]; then
           echo "Testing TNT CLI..."
-          if ! which cn > /dev/null 2>&1; then
+          if ! which tnt > /dev/null 2>&1; then
             echo "Warning: TNT CLI not found or not working"
-            node .continue-action-scripts/writeMarkdown.js code_review.md cli_install_failed
-            echo "SKIP_CLI=true" >> $GITHUB_ENV
+            node .tnt-action-scripts/writeMarkdown.js code_review.md cli_install_failed
+            skip_cli=true
           else
-            echo "TNT CLI found at: $(which cn)"
-            echo "TNT CLI version: $(cn --version 2>/dev/null || echo 'version check failed')"
+            echo "TNT CLI found at: $(which tnt)"
+            echo "TNT CLI version: $(tnt --version 2>/dev/null || echo 'version check failed')"
           fi
         fi
 
-        # Run the CLI with validated config and error handling
-        if [ "$SKIP_CLI" != "true" ]; then
-          echo "Executing TNT CLI with config: $CONTINUE_ORG/$CONTINUE_AGENT"
-          
-          # Write prompt to temp file for headless mode
-          PROMPT_FILE="/tmp/continue-review-$RANDOM.txt"
-          cp review_prompt.txt "$PROMPT_FILE"
-          echo "Prompt file: $PROMPT_FILE"
-          echo "Prompt length: $(wc -c < "$PROMPT_FILE") characters"
-          
+        # Run the CLI with the validated agent file
+        if [ "$skip_cli" != "true" ]; then
+          echo "Executing TNT CLI with agent file: $TNT_AGENT_FILE"
+
+          CLI_ARGS=(--agent "$TNT_AGENT_FILE")
+          if [ -n "$TNT_CONFIG_FILE" ]; then
+            CLI_ARGS+=(--config "$TNT_CONFIG_FILE")
+          fi
+
+          # The prompt is piped in: `-p` is a switch rather than a value, and a
+          # headless turn reads stdin. Bash is not allowed on purpose - the reviewer
+          # has the diff the action already wrote, and needs no shell in a checkout
+          # of a branch that may not be trusted.
+          echo "Executing command: tnt ${CLI_ARGS[*]} -p"
+
           # Use timeout to prevent hanging (360 seconds = 6 minutes)
-          echo "Executing command: cn --agent $CONTINUE_ORG/$CONTINUE_AGENT -p @$PROMPT_FILE --allow Bash"
-          
-          if timeout 360 cn --agent "$CONTINUE_ORG/$CONTINUE_AGENT" -p "@$PROMPT_FILE" --allow Bash > code_review_raw.md 2>cli_error.log; then
+          if timeout 360 tnt "${CLI_ARGS[@]}" -p < review_prompt.txt > code_review_raw.md 2>cli_error.log; then
             echo "TNT CLI completed successfully"
             echo "Raw output length: $(wc -c < code_review_raw.md) characters"
             
@@ -338,7 +341,7 @@ runs:
             # Check if output is empty
             if [ ! -s code_review.md ]; then
               echo "Warning: TNT CLI returned empty output"
-              node .continue-action-scripts/writeMarkdown.js code_review.md empty_output
+              node .tnt-action-scripts/writeMarkdown.js code_review.md empty_output
             fi
           else
             echo "Error: TNT CLI command failed with exit code $?"
@@ -347,21 +350,20 @@ runs:
             
             # Check for specific error patterns
             if grep -q "not found\|ENOENT" cli_error.log 2>/dev/null; then
-              node .continue-action-scripts/writeMarkdown.js code_review.md cli_not_found
+              node .tnt-action-scripts/writeMarkdown.js code_review.md cli_not_found
             elif grep -q "config\|assistant" cli_error.log 2>/dev/null; then
-              node .continue-action-scripts/writeMarkdown.js code_review.md config_error
+              node .tnt-action-scripts/writeMarkdown.js code_review.md config_error
             elif grep -q "api\|auth" cli_error.log 2>/dev/null; then
-              node .continue-action-scripts/writeMarkdown.js code_review.md auth_error
+              node .tnt-action-scripts/writeMarkdown.js code_review.md auth_error
             else
-              node .continue-action-scripts/writeMarkdown.js code_review.md generic_failure
+              node .tnt-action-scripts/writeMarkdown.js code_review.md generic_failure
             fi
           fi
-          
-          # Clean up temp file
-          rm -f "$PROMPT_FILE"
         else
-          echo "Review generation successfully completed"
+          echo "Skipped the CLI run; code_review.md holds the reason"
         fi
+
+        echo "SKIP_CLI=$skip_cli" >> $GITHUB_ENV
 
     - name: Upload Review Results
       if: env.SHOULD_RUN == 'true' && always()
@@ -389,7 +391,7 @@ runs:
             } else {
               // Build direct link to workflow logs
               const workflowRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-              reviewContent = `⚠️ AI review completed but no review output was generated.\n\n**Likely cause:** Expired CONTINUE_API_KEY or missing tnt/review-bot assistant\n\n[📋 View workflow logs](${workflowRunUrl}) for details.`;
+              reviewContent = `⚠️ AI review completed but no review output was generated.\n\n**Likely cause:** the agent file or assistant configuration is missing, or the provider refused the run's credentials\n\n[📋 View workflow logs](${workflowRunUrl}) for details.`;
             }
 
             // Get PR number based on event type
@@ -408,10 +410,10 @@ runs:
 
             // Add footer with timestamp and branding
             const timestamp = new Date().toISOString();
-            reviewContent += `\n\n---\n<!-- ${timestamp} | Powered by Continue (https://github.com/linanwanttodo/TNT) -->`;
+            reviewContent += `\n\n---\n<!-- ${timestamp} | Powered by TNT (https://github.com/linanwanttodo/TNT) -->`;
 
             // Look for existing review comment to update (sticky comment)
-            const marker = '<!-- continue-agent-review -->';
+            const marker = '<!-- tnt-agent-review -->';
 
             // Try to get comment_id from the initial comment step
             const initialCommentId = '${{ steps.initial-comment.outputs.comment_id }}';
@@ -439,7 +441,7 @@ runs:
                   per_page: 100
                 });
 
-                // Find existing Continue review comment
+                // Find existing TNT review comment
                 const existingComment = comments
                   .filter(c => c.body && c.body.includes(marker))
                   .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
@@ -472,7 +474,7 @@ runs:
                 per_page: 100
               });
 
-              // Find existing Continue review comment
+              // Find existing TNT review comment
               const existingComment = comments
                 .filter(c => c.body && c.body.includes(marker))
                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];

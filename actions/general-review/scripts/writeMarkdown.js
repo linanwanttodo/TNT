@@ -2,13 +2,13 @@ const fs = require("fs");
 const path = require("path");
 
 const messages = {
-  missing_api_key: `## Code Review Summary
+  missing_agent_file: `## Code Review Summary
 
-⚠️ AI review skipped: CONTINUE_API_KEY not configured.
+⚠️ AI review skipped: the agent file is not in the checkout.
 
 ### Configuration Required
-- Please set the CONTINUE_API_KEY secret in repository settings
-- Verify that the organization and config path are valid
+- Pass \`agent-file\` as a repository-relative path to an agent markdown file
+- Confirm that file is committed on the revision the workflow checked out
 `,
   cli_install_failed: `## Code Review Summary
 
@@ -28,20 +28,20 @@ const messages = {
 `,
   config_error: `## Code Review Summary
 
-⚠️ Continue configuration error. Please verify that the assistant exists in Continue Hub.
+⚠️ TNT configuration error. Check the assistant configuration and the agent file the action was given.
 `,
   auth_error: `## Code Review Summary
 
-⚠️ Continue API authentication failed. Please check your CONTINUE_API_KEY.
+⚠️ The model provider refused the request. Check the credential the assistant configuration reads from the job environment.
 `,
   generic_failure: `## Code Review Summary
 
-⚠️ AI review failed. Please check the Continue API key and configuration.
+⚠️ AI review failed.
 
 ### Troubleshooting
-- Verify the CONTINUE_API_KEY secret is set correctly
-- Check that the organization and config path are valid
-- Ensure the Continue service is accessible
+- Read the CLI error output in the workflow logs
+- Verify the agent file and assistant configuration in the checkout
+- Confirm the provider credential named by that configuration is set as a job secret
 `,
 };
 
