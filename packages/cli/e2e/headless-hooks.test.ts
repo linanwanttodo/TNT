@@ -11,9 +11,11 @@ import {
   setupMockLLMTest,
   type MockLLMServer,
 } from "../test-utils/mock-llm-server.js";
+import { HookFixtures } from "../test-utils/hookFixtures.js";
 
 describe("E2E: Headless lifecycle hooks", () => {
   let context: any;
+  let fixtures: HookFixtures;
   let mockServer: MockLLMServer;
   let logPath: string;
 
@@ -68,6 +70,7 @@ describe("E2E: Headless lifecycle hooks", () => {
 
   beforeEach(async () => {
     context = await createTestContext();
+    fixtures = new HookFixtures(context.testDir);
     mockServer = await setupMockLLMTest(context, {
       response: "Hello there.",
     });
@@ -114,7 +117,13 @@ describe("E2E: Headless lifecycle hooks", () => {
           hooks: [
             {
               type: "command",
-              command: 'echo "tnt-blocked prompt" 1>&2; exit 2',
+              // `echo "..." 1>&2; exit 2` is what the case used to spell this,
+              // and cmd.exe reads that as one word: nothing was blocked, the
+              // reason came back inside the message. The fixture is a node
+              // script with two quoted arguments, the one form both shells
+              // agree on, so Windows tests the blocking hook instead of
+              // testing whether cmd.exe speaks POSIX.
+              command: fixtures.fail("tnt-blocked prompt", 2),
             },
           ],
         },
