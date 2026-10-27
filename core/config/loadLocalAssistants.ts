@@ -29,7 +29,7 @@ export function isTntConfigRelatedUri(uri: string): boolean {
   );
 }
 
-export function isContinueAgentConfigFile(uri: string): boolean {
+export function isTntAgentConfigFile(uri: string): boolean {
   const isYaml = uri.endsWith(".yaml") || uri.endsWith(".yml");
   if (!isYaml) {
     return false;
@@ -101,7 +101,7 @@ export interface LoadAssistantFilesOptions {
   fileExtType?: "yaml" | "markdown";
 }
 
-export function getDotContinueSubDirs(
+export function getDotTntSubDirs(
   ide: IDE,
   options: LoadAssistantFilesOptions,
   workspaceDirs: string[],
@@ -128,7 +128,7 @@ export function getDotContinueSubDirs(
  * This method searches in both the global config dir and the workspace counterpart
  * for all YAML/Markdown files in the specified subdirectory, for example .tnt/assistants or .tnt/prompts
  */
-export async function getAllDotContinueDefinitionFiles(
+export async function getAllDotTntDefinitionFiles(
   ide: IDE,
   options: LoadAssistantFilesOptions,
   subDirName: string,
@@ -136,12 +136,7 @@ export async function getAllDotContinueDefinitionFiles(
   const workspaceDirs = await ide.getWorkspaceDirs();
 
   // Get all directories to check for assistant files
-  const fullDirs = getDotContinueSubDirs(
-    ide,
-    options,
-    workspaceDirs,
-    subDirName,
-  );
+  const fullDirs = getDotTntSubDirs(ide, options, workspaceDirs, subDirName);
 
   // Get all definition files from the directories
   const definitionFiles = (

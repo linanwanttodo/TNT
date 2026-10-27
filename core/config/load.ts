@@ -50,8 +50,8 @@ import {
   getConfigJsonPath,
   getConfigJsPath,
   getConfigTsPath,
-  getContinueDotEnv,
-  getContinueGlobalPath,
+  getTntDotEnv,
+  getTntGlobalPath,
   getEsbuildBinaryPath,
 } from "../util/paths";
 import { localPathToUri } from "../util/pathToUri";
@@ -76,7 +76,7 @@ export function resolveSerializedConfig(filepath: string): SerializedTntConfig {
   if (config.env && Array.isArray(config.env)) {
     const env = {
       ...process.env,
-      ...getContinueDotEnv(),
+      ...getTntDotEnv(),
     };
 
     config.env.forEach((envVar) => {
@@ -667,7 +667,7 @@ async function handleEsbuildInstallation(
     // Try resolving from the global config dir's node_modules as a courtesy
     try {
       const userEsbuild = path.join(
-        getContinueGlobalPath(),
+        getTntGlobalPath(),
         "node_modules",
         "esbuild",
       );
@@ -680,7 +680,7 @@ async function handleEsbuildInstallation(
       await ide.showToast(
         "error",
         [
-          "config.ts has been deprecated and esbuild is no longer automatically installed by Continue.",
+          "config.ts has been deprecated and esbuild is no longer automatically installed by TNT.",
           "To use config.ts, install esbuild manually:",
           "",
           `    ${installCmd}`,

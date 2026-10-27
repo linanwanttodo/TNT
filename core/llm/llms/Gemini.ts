@@ -21,7 +21,7 @@ import {
   GeminiChatResponse,
   GeminiGenerationConfig,
   GeminiToolFunctionDeclaration,
-  convertContinueToolToGeminiFunction,
+  convertToolToGeminiFunction,
   mergeConsecutiveGeminiMessages,
 } from "./gemini-types";
 
@@ -348,7 +348,7 @@ class Gemini extends BaseLLM {
       const functions: GeminiToolFunctionDeclaration[] = [];
       options.tools.forEach((tool) => {
         try {
-          functions.push(convertContinueToolToGeminiFunction(tool));
+          functions.push(convertToolToGeminiFunction(tool));
         } catch (e) {
           console.warn(
             `Failed to convert tool to gemini function definition. Skipping: ${JSON.stringify(tool, null, 2)}`,
