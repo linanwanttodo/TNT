@@ -122,6 +122,11 @@ export class LspClient {
     this.child.on("error", (error) => {
       this.fail(`${error.message}`);
     });
+    // A server that has stopped reading breaks the pipe on our side, and the
+    // write error surfaces on the stdin stream rather than on the child. Nothing
+    // listening there turns a goodbye frame into an uncaught exception; the exit
+    // handler and the request timeout are what report a server that really died.
+    this.child.stdin.on("error", () => {});
     this.child.on("exit", (code, signal) => {
       if (this.disposed) return;
       const detail = signal ? `signal ${signal}` : `code ${code}`;
@@ -223,10 +228,37 @@ export class LspClient {
     if (!this.child.killed) {
       this.child.kill();
     }
+    // The pipe we hold on the server's stdin is ours until we close it, and on
+    // Windows it keeps the server's working directory locked after the kill.
+    this.child.stdin.destroy();
+  }
+
+  /**
+   * The process is gone from the OS point of view only once it is reaped: a
+   * killed-but-unreaped child still holds its working directory on Windows.
+   */
+  private waitForExit(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (this.child.exitCode !== null || this.child.signalCode !== null) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(resolve, 2000);
+      this.child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
   }
 
   async dispose(): Promise<void> {
-    if (this.disposed) return;
+    if (this.disposed) {
+      // `killNow` already let go of the process, but only this path can wait for
+      // the reaping, and a caller that clears a temporary directory right after
+      // dispose needs the child actually gone.
+      await this.waitForExit();
+      return;
+    }
     for (const uri of this.openDocuments.keys()) {
       // Best effort: a server that is going away does not need didClose.
       this.sendFrame({
@@ -251,22 +283,13 @@ export class LspClient {
     if (!this.child.killed) {
       this.child.kill();
     }
+    this.child.stdin.destroy();
     // Windows keeps the server's working directory locked until the process is
     // reaped, so a caller that clears its temp directory right after this
     // returns hits EBUSY for as long as the exit is still pending. The wait is
     // bounded, and costs nothing once the server has already exited. `killNow`
     // stays synchronous because only sync work runs on process exit.
-    await new Promise<void>((resolve) => {
-      if (this.child.exitCode !== null || this.child.signalCode !== null) {
-        resolve();
-        return;
-      }
-      const timer = setTimeout(resolve, 2000);
-      this.child.once("exit", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
+    await this.waitForExit();
   }
 
   private send(payload: unknown): void {

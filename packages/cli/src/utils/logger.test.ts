@@ -1,3 +1,7 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { flushTransports, resolveLogLevel } from "./logger.js";
@@ -49,5 +53,57 @@ describe("flushTransports", () => {
 
     await expect(flushTransports([{ close }], 10)).resolves.toBeUndefined();
     expect(close).toHaveBeenCalledOnce();
+  });
+});
+
+function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs;
+    const tick = () => {
+      if (check()) {
+        resolve();
+        return;
+      }
+      if (Date.now() > deadline) {
+        reject(new Error("the log file never appeared"));
+        return;
+      }
+      setTimeout(tick, 20);
+    };
+    tick();
+  });
+}
+
+describe("closeLogs", () => {
+  it("leaves nothing that can reopen the log file", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-log-close-"));
+    const previous = process.env.CONTINUE_GLOBAL_DIR;
+    process.env.CONTINUE_GLOBAL_DIR = home;
+    vi.resetModules();
+
+    try {
+      const { logger, closeLogs } = await import("./logger.js");
+      logger.info("written while the transport is attached");
+      // The file transport opens lazily, so the line lands a tick later.
+      await waitFor(() => fs.existsSync(path.join(home, "logs", "tnt.log")));
+
+      await closeLogs();
+      fs.rmSync(home, { recursive: true, force: true });
+
+      // A transport that is only drained reopens the file on the next line, and
+      // the reopened handle is what makes Windows refuse the directory around it.
+      logger.warn("written after the close");
+      await new Promise((resolve) => setTimeout(resolve, 250));
+
+      expect(fs.existsSync(path.join(home, "logs"))).toBe(false);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CONTINUE_GLOBAL_DIR;
+      } else {
+        process.env.CONTINUE_GLOBAL_DIR = previous;
+      }
+      fs.rmSync(home, { recursive: true, force: true });
+      vi.resetModules();
+    }
   });
 });

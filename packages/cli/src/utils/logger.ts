@@ -212,6 +212,21 @@ export function flushLogs(timeoutMs = 1000): Promise<void> {
   );
 }
 
+/**
+ * Drains the log file and takes the transports off the logger.
+ *
+ * Closing alone is not enough: a later line reopens the file, and on Windows the
+ * reopened handle locks the directory around it. A caller that is about to delete
+ * the home the log sits in needs the transport gone, not merely flushed.
+ */
+export async function closeLogs(timeoutMs = 1000): Promise<void> {
+  const transports = [
+    ...winstonLogger.transports,
+  ] as unknown as ReadonlyArray<ClosableTransport>;
+  winstonLogger.clear();
+  await flushTransports(transports, timeoutMs);
+}
+
 // Function to configure headless mode
 export function configureHeadlessMode(headless: boolean) {
   isHeadlessMode = headless;
