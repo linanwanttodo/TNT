@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-
 import { ConfigHandler } from "core/config/ConfigHandler.js";
 import type { Chunk } from "core/index.js";
 import { CodebaseIndexer } from "core/indexing/CodebaseIndexer.js";
@@ -12,6 +9,7 @@ import FileSystemIde from "core/util/filesystem.js";
 import { GlobalContext } from "core/util/GlobalContext.js";
 import { localPathToUri } from "core/util/pathToUri.js";
 
+import { canonicalPath } from "../utils/canonicalPath.js";
 import { logger } from "../utils/logger.js";
 
 export interface RetrievalHit {
@@ -107,26 +105,6 @@ export function mergeHits(
  * an embeddings model selected, search also asks the vector index and merges
  * its hits behind the full-text ones.
  */
-/**
- * The one spelling a workspace and its files are indexed under.
- *
- * `path.resolve` normalises `..` and separators but never follows a symlink, and
- * a symlinked workspace is the normal case rather than an edge one: on macOS
- * `/var` is a link to `/private/var`, so `process.cwd()` reports one and a path
- * built from `os.tmpdir()` - or from a `TMPDIR` a runner injected - reports the
- * other. The index was tagged with the first and the refreshed file arrived as
- * the second, `findUriInDirs` found no match, and `refreshFile` returned without
- * indexing anything. A path that cannot be resolved (a file deleted before the
- * refresh lands) keeps its resolved form, because there is nothing to follow.
- */
-function canonicalPath(localPath: string): string {
-  try {
-    return fs.realpathSync.native(path.resolve(localPath));
-  } catch {
-    return path.resolve(localPath);
-  }
-}
-
 export class RetrievalService {
   private readonly workspaceDir: string;
   private readonly ide: FileSystemIde;
