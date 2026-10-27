@@ -56,12 +56,17 @@ describe("background job cleanup on exit", () => {
   it("kills a running job when the process exits", async () => {
     const pidFile = path.join(workDir, "job.pid");
     const job = backgroundJobService.createJob(
-      `echo $$ > ${pidFile}; sleep 30`,
+      `${process.execPath} -e writePid ${pidFile}`,
     );
     expect(job).not.toBeNull();
-    const started = backgroundJobService.startJob(job!.id, "/bin/sh", [
-      "-c",
-      `echo $$ > ${pidFile}; sleep 30`,
+    // A node child that records its own pid, rather than `/bin/sh -c 'echo $$'`:
+    // there is no /bin/sh on Windows and no `$$` for cmd.exe, so the job this
+    // case is about never started there and the pid file stayed missing.
+    const started = backgroundJobService.startJob(job!.id, process.execPath, [
+      "-e",
+      "require('fs').writeFileSync(process.argv[1], String(process.pid));" +
+        " setInterval(() => {}, 1000);",
+      pidFile,
     ]);
     expect(started).not.toBeNull();
     await waitFor(() => fs.existsSync(pidFile));

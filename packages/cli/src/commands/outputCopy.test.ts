@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getLocale, setLocale, t } from "../i18n/index.js";
+import { toDisplayPath } from "../utils/displayPath.js";
 
 import { formatChecksSummary } from "./checks.js";
 import { renderServerStartupHelp } from "./serve.help.js";
@@ -150,7 +151,9 @@ function rawThrownCopy(): string[] {
         .replace(/\s+/g, " ")
         .trim();
       if (!/[A-Za-z]{4,}/.test(literal)) continue;
-      offenders.push(`${path.relative(COMMAND_DIR, file)} :: ${literal}`);
+      offenders.push(
+        `${toDisplayPath(path.relative(COMMAND_DIR, file))} :: ${literal}`,
+      );
     }
   }
 
@@ -184,7 +187,7 @@ describe("the copy an argv subcommand prints", () => {
             .split("\n")
             .length.toString();
           offenders.push(
-            `${path.relative(COMMAND_DIR, file)}:${line} ${literal}`,
+            `${toDisplayPath(path.relative(COMMAND_DIR, file))}:${line} ${literal}`,
           );
         }
       }
