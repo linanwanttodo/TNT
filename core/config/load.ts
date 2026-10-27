@@ -431,7 +431,7 @@ async function intermediateToFinalConfig({
 
   // Load context providers
   const { providers: contextProviders, errors: contextErrors } =
-    loadConfigContextProviders(
+    await loadConfigContextProviders(
       config.contextProviders
         ?.filter((cp) => isContextProviderWithParams(cp))
         .map((cp) => ({
