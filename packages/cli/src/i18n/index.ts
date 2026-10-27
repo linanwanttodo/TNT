@@ -299,7 +299,7 @@ const en = {
   "session.goalSet": "Goal set: {goal}",
   "session.fileNotFound": "File not found: {path}",
   "session.invalidFile":
-    "Invalid session file: expected a valid Continue exported session (version 1).",
+    "Invalid session file: expected a valid TNT exported session (version 1).",
   "plugin.none": "No plugins installed.",
   "plugin.addMarketplaceHint":
     "Add a marketplace: /plugin marketplace add <name> github:<owner>/<repo>",
@@ -938,8 +938,7 @@ const zhCN: Record<TranslationKey, string> = {
   "session.goalCleared": "目标已清除",
   "session.goalSet": "目标已设置：{goal}",
   "session.fileNotFound": "文件不存在：{path}",
-  "session.invalidFile":
-    "会话文件无效：需要 Continue 导出的合法会话（版本 1）。",
+  "session.invalidFile": "会话文件无效：需要 TNT 导出的合法会话（版本 1）。",
   "plugin.none": "未安装任何插件。",
   "plugin.addMarketplaceHint":
     "添加插件市场：/plugin marketplace add <名称> github:<owner>/<repo>",

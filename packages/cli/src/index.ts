@@ -414,7 +414,7 @@ program
   )
   .option(
     "--id <storageId>",
-    "Upload session snapshots to Continue-managed storage using the provided identifier",
+    "Upload session snapshots to managed storage using the provided identifier",
   )
   .option(
     "--beta-upload-artifact-tool",
