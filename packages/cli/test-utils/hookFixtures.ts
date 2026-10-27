@@ -27,7 +27,12 @@ export class HookFixtures {
       `import fs from "node:fs";
 const [payloadFile, token] = process.argv.slice(2);
 let text = fs.readFileSync(payloadFile, "utf8");
-if (token) text = text.split(token).join(process.env.CLAUDE_PROJECT_DIR ?? "");
+if (token) {
+  // The value is spliced into a JSON string the case then parses, so it has to
+  // be escaped: a Windows directory is full of backslashes.
+  const dir = process.env.CLAUDE_PROJECT_DIR ?? "";
+  text = text.split(token).join(JSON.stringify(dir).slice(1, -1));
+}
 process.stdout.write(text);
 `,
     );

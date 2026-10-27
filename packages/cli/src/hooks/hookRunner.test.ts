@@ -13,7 +13,14 @@ const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-hooks-"));
 const fixtures = new HookFixtures(workDir);
 
 afterAll(() => {
-  fs.rmSync(workDir, { recursive: true, force: true });
+  // A hook's child is still being reaped when the last case returns on Windows,
+  // and the directory is locked until it is.
+  fs.rmSync(workDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 40,
+    retryDelay: 250,
+  });
 });
 
 function toolCall(toolName = "Bash"): PreToolUseInput {
