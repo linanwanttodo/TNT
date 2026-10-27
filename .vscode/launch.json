@@ -77,24 +77,20 @@
       "cwd": "${workspaceFolder}/packages/cli"
     },
     {
-      "name": "[Core] Jest Test Debugger, Current Open File",
+      "name": "[Core] Vitest Test Debugger, Current Open File",
       "type": "node",
       "request": "launch",
       "runtimeArgs": [
         "--inspect-brk",
-        "${workspaceRoot}/core/node_modules/jest/bin/jest.js",
-        "--runInBand",
-        "--config",
-        "${workspaceRoot}/core/jest.config.js",
+        "${workspaceRoot}/core/node_modules/vitest/vitest.mjs",
+        "run",
         "${relativeFile}"
       ],
       "cwd": "${workspaceRoot}/core",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "env": {
-        "NODE_OPTIONS": "--experimental-vm-modules",
-        "CI": "true",
-        "DEBUG": "jest"
+        "CI": "true"
       }
     },
     {

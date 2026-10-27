@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "noEmitOnError": false,
-    "types": ["jest", "node"],
+    "types": ["node"],
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true
