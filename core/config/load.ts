@@ -65,10 +65,10 @@ import {
  * Registries are loaded on first use, never at import time.
  *
  * This module is reached by the CLI through `ConfigHandler`, so a static import
- * here decides what ships in a user's installation. Loading the provider, legacy
- * tool and context registries eagerly put 306 core source files in the bundle -
- * every context provider the CLI never calls, every legacy tool definition and
- * 66 provider classes. `core/staticImportBoundary.vitest.ts` holds the boundary.
+ * here is fetched before the config layer can answer with a model or a context
+ * provider. Loading the provider, legacy tool and context registries eagerly put
+ * every one of them in that fetch, including the vendored transformers runtime.
+ * `core/staticImportBoundary.vitest.ts` holds the boundary.
  *
  * The cache is a module-level promise rather than a boolean so that concurrent
  * config loads share one set of module evaluations instead of racing.
