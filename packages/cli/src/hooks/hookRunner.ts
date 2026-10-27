@@ -39,7 +39,13 @@ function killProcessTree(child: ChildProcess): void {
   }
   try {
     if (process.platform === "win32") {
-      child.kill("SIGKILL");
+      // There is no process group to signal on Windows, and killing `cmd.exe`
+      // alone leaves the program it launched running with the files it opened.
+      // `taskkill /T` walks the tree from the pid instead; the direct kill is
+      // the fallback if the system tool is somehow unavailable.
+      spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], {
+        stdio: "ignore",
+      }).on("error", () => child.kill("SIGKILL"));
     } else {
       process.kill(-child.pid, "SIGKILL");
     }
