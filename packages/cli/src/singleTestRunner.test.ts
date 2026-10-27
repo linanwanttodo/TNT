@@ -22,8 +22,11 @@ const packageRoot = path.resolve(
 );
 const repoRoot = path.resolve(packageRoot, "..", "..");
 
-/** Directories that ship their own dependency trees and are not ours to police. */
-const VENDOR = /(?:^|\/)(?:node_modules|dist|vendor|out|build)(?:\/|$)/;
+/** Directories that ship their own dependency trees and are not ours to police.
+ * Decided on the entry name, never on a joined path: `path.relative` returns
+ * `core\node_modules\...` on Windows, and a `/`-based test there walks straight
+ * into the dependencies it was meant to skip. */
+const SKIP_DIRS = new Set(["node_modules", "dist", "vendor", "out", "build"]);
 
 function manifests(): { file: string; json: any }[] {
   const roots = [repoRoot, path.join(repoRoot, "core")];
@@ -54,11 +57,11 @@ function jestConfigFiles(): string[] {
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (entry.name.startsWith(".")) continue;
+      if (SKIP_DIRS.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
-      if (VENDOR.test(path.relative(repoRoot, full))) continue;
       if (entry.isDirectory()) walk(full);
       else if (/^jest\.config\.(?:js|cjs|mjs|json|ts)$/.test(entry.name))
-        hits.push(path.relative(repoRoot, full));
+        hits.push(path.relative(repoRoot, full).split(path.sep).join("/"));
     }
   };
   walk(repoRoot);
