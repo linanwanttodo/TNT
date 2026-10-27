@@ -20,7 +20,7 @@ import { v4 as uuidv4 } from "uuid";
 import { TntErrorReason } from "../../../../core/util/errors.js";
 import { getVersion } from "../startup/version.js";
 import { isHeadlessMode } from "../utils/cli.js";
-import { isContinueRemoteAgent, isGitHubActions } from "../utils/git.js";
+import { isRemoteAgent, isGitHubActions } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 
 import { detectTerminalType, parseOtelHeaders } from "./headerUtils.js";
@@ -356,7 +356,7 @@ class TelemetryService {
     const sessionAttributes = this.getStandardAttributes({
       is_headless: isHeadlessMode().toString(),
       is_github_actions: isGitHubActionsEnv.toString(),
-      is_continue_remote_agent: isContinueRemoteAgent().toString(),
+      is_continue_remote_agent: isRemoteAgent().toString(),
     });
 
     this.sessionCounter.add(1, sessionAttributes);

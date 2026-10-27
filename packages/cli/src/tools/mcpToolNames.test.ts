@@ -12,7 +12,7 @@ import type {
 import { setBetaSubagentToolEnabled } from "./toolsConfig.js";
 
 import {
-  convertMcpToolToContinueTool,
+  convertMcpToolToInternalTool,
   getAllAvailableTools,
   mcpToolName,
   mcpToolsFromConnections,
@@ -131,7 +131,7 @@ describe("MCP tool names", () => {
   });
 
   it("still converts a single tool handed to it directly", () => {
-    const converted = convertMcpToolToContinueTool(
+    const converted = convertMcpToolToInternalTool(
       tool("x"),
       "srv",
       "mcp__srv__x",
