@@ -1,3 +1,4 @@
+import fs from "fs";
 import path from "path";
 
 import { ConfigHandler } from "core/config/ConfigHandler.js";
@@ -106,6 +107,26 @@ export function mergeHits(
  * an embeddings model selected, search also asks the vector index and merges
  * its hits behind the full-text ones.
  */
+/**
+ * The one spelling a workspace and its files are indexed under.
+ *
+ * `path.resolve` normalises `..` and separators but never follows a symlink, and
+ * a symlinked workspace is the normal case rather than an edge one: on macOS
+ * `/var` is a link to `/private/var`, so `process.cwd()` reports one and a path
+ * built from `os.tmpdir()` - or from a `TMPDIR` a runner injected - reports the
+ * other. The index was tagged with the first and the refreshed file arrived as
+ * the second, `findUriInDirs` found no match, and `refreshFile` returned without
+ * indexing anything. A path that cannot be resolved (a file deleted before the
+ * refresh lands) keeps its resolved form, because there is nothing to follow.
+ */
+function canonicalPath(localPath: string): string {
+  try {
+    return fs.realpathSync.native(path.resolve(localPath));
+  } catch {
+    return path.resolve(localPath);
+  }
+}
+
 export class RetrievalService {
   private readonly workspaceDir: string;
   private readonly ide: FileSystemIde;
@@ -118,7 +139,7 @@ export class RetrievalService {
   constructor(workspaceDir: string = process.cwd()) {
     // Core's IDE abstraction speaks file URIs, so the workspace the indexer
     // sees and the directory it tags the index with are both URI-shaped.
-    this.workspaceDir = localPathToUri(path.resolve(workspaceDir));
+    this.workspaceDir = localPathToUri(canonicalPath(workspaceDir));
     // The CLI is neither of the two IDE types core knows, so it says so and
     // keeps the editor-specific defaults out of the config it loads.
     this.ide = new FileSystemIde(this.workspaceDir, "cli");
@@ -192,7 +213,7 @@ export class RetrievalService {
    * workspace are ignored by the indexer.
    */
   async refreshFile(filePath: string): Promise<void> {
-    await this.indexer.refreshFile(localPathToUri(path.resolve(filePath)), [
+    await this.indexer.refreshFile(localPathToUri(canonicalPath(filePath)), [
       this.workspaceDir,
     ]);
   }
@@ -363,7 +384,7 @@ const services = new Map<string, RetrievalService>();
 export function getRetrievalService(
   workspaceDir: string = process.cwd(),
 ): RetrievalService {
-  const key = path.resolve(workspaceDir);
+  const key = canonicalPath(workspaceDir);
   let service = services.get(key);
   if (!service) {
     service = new RetrievalService(key);

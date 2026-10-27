@@ -109,6 +109,39 @@ describe("retrieval over the workspace", () => {
     }
   }, 60_000);
 
+  it("indexes a file whose workspace was opened through a symlink", async () => {
+    // The macOS shape: `process.cwd()` reports `/private/var/...` while a path
+    // built from `os.tmpdir()` says `/var/...`. Tagging the index with one and
+    // refreshing the other made `refreshFile` find no workspace to put the file
+    // in, and it returned without indexing anything.
+    const real = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-link-real-"));
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-link-parent-"));
+    const link = path.join(parent, "workspace");
+    fs.writeFileSync(
+      path.join(real, "first.ts"),
+      "export const firstMarker = 1;\n",
+    );
+    fs.symlinkSync(real, link, "dir");
+
+    try {
+      const service = new RetrievalService(link);
+      await service.update();
+
+      const written = path.join(real, "written.ts");
+      fs.writeFileSync(written, "export const afterWriteMarker = 2;\n");
+      await service.refreshFile(written);
+
+      const hits = await service.search("afterWriteMarker");
+      expect(hits.map((hit) => hit.filepath)).toContain(
+        localPathToUri(written),
+      );
+    } finally {
+      fs.rmSync(link, { recursive: true, force: true });
+      fs.rmSync(real, { recursive: true, force: true });
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  }, 120_000);
+
   it("starts indexing without waiting for it", async () => {
     const fresh = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-index-start-"));
     fs.writeFileSync(
