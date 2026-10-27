@@ -3,14 +3,6 @@ import {
   ConfigValidationError,
 } from "@tnt/config-yaml";
 import { IContextProvider, IdeType } from "..";
-import { contextProviderClassFromName } from "../context/providers";
-import CurrentFileContextProvider from "../context/providers/CurrentFileContextProvider";
-import DiffContextProvider from "../context/providers/DiffContextProvider";
-import DocsContextProvider from "../context/providers/DocsContextProvider";
-import FileContextProvider from "../context/providers/FileContextProvider";
-import ProblemsContextProvider from "../context/providers/ProblemsContextProvider";
-import RulesContextProvider from "../context/providers/RulesContextProvider";
-import TerminalContextProvider from "../context/providers/TerminalContextProvider";
 
 /*
     Loads context providers based on configuration
@@ -18,15 +10,41 @@ import TerminalContextProvider from "../context/providers/TerminalContextProvide
     - other providers will be loaded if configured
 
     NOTE the MCPContextProvider is added in doLoadConfig if any resources are present
+
+    The provider registry is loaded on first call, never at import time. This
+    module is reached statically by `config/load.ts`, so an eager import here
+    decides what the config path evaluates: the barrel exports all 29 providers
+    and the concrete classes pull their own dependencies in with them.
+    `core/staticImportBoundary.vitest.ts` holds the boundary.
 */
-export function loadConfigContextProviders(
+export async function loadConfigContextProviders(
   configContext: AssistantUnrolledNonNullable["context"],
   hasDocs: boolean,
   ideType: IdeType,
-): {
+): Promise<{
   providers: IContextProvider[];
   errors: ConfigValidationError[];
-} {
+}> {
+  const [
+    { contextProviderClassFromName },
+    { default: CurrentFileContextProvider },
+    { default: DiffContextProvider },
+    { default: DocsContextProvider },
+    { default: FileContextProvider },
+    { default: ProblemsContextProvider },
+    { default: RulesContextProvider },
+    { default: TerminalContextProvider },
+  ] = await Promise.all([
+    import("../context/providers"),
+    import("../context/providers/CurrentFileContextProvider"),
+    import("../context/providers/DiffContextProvider"),
+    import("../context/providers/DocsContextProvider"),
+    import("../context/providers/FileContextProvider"),
+    import("../context/providers/ProblemsContextProvider"),
+    import("../context/providers/RulesContextProvider"),
+    import("../context/providers/TerminalContextProvider"),
+  ]);
+
   const providers: IContextProvider[] = [];
   const errors: ConfigValidationError[] = [];
 
