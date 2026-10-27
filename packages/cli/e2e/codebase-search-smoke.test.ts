@@ -76,6 +76,8 @@ async function describeRunArtifacts(testDir: string): Promise<string> {
     parts.push(`index dir: none (${(error as Error).message})`);
   }
 
+  parts.push(await describeIndexDb(path.join(indexDir, "index.sqlite")));
+
   const lancedb = path.join(indexDir, "lancedb");
   try {
     const tables = await fs.readdir(lancedb);
@@ -95,6 +97,49 @@ async function describeRunArtifacts(testDir: string): Promise<string> {
   }
 
   return parts.join("\n");
+}
+
+/**
+ * Row counts of the index database. "The search found nothing" has at least
+ * three causes behind it - nothing indexed, indexed under a key the query does
+ * not use, indexed and not matched - and only the counts separate them. Never
+ * throws: a diagnostic that can break a run is worse than no diagnostic.
+ */
+async function describeIndexDb(dbPath: string): Promise<string> {
+  try {
+    const sqlite3 = await import("sqlite3");
+    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
+
+    /** The driver is callback-shaped; this is the smallest promise wrapper. */
+    const all = (sql: string) =>
+      new Promise<Record<string, unknown>[]>((resolve, reject) =>
+        db.all(sql, (error, rows) =>
+          error ? reject(error) : resolve(rows as Record<string, unknown>[]),
+        ),
+      );
+
+    try {
+      const tables = await all(
+        "SELECT name FROM sqlite_master WHERE type = 'table'",
+      );
+
+      const counts = await Promise.all(
+        tables.map(async (table) => {
+          const rows = await all(
+            `SELECT COUNT(*) AS n FROM "${String(table.name)}"`,
+          );
+
+          return `${String(table.name)}=${String(rows[0]?.n ?? "?")}`;
+        }),
+      );
+
+      return `index tables: ${counts.join(", ") || "(none)"}`;
+    } finally {
+      await new Promise<void>((resolve) => db.close(() => resolve()));
+    }
+  } catch (error) {
+    return `index tables: unreadable (${(error as Error).message})`;
+  }
 }
 
 describe("E2E: codebase search reaches the model", () => {
