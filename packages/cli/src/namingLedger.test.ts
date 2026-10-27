@@ -9,7 +9,11 @@ import { describe, expect, it } from "vitest";
  * prefix on identifiers. Renaming all of it in one sweep is how a branding change ends up
  * half-done: the files that were missed keep working, so nothing reports them.
  *
- * The ledger below totals 525 tokens across nine areas. It is the number to drive down, area by area.
+ * The ledger below totals 525 tokens across nine areas. It is the number to drive down,
+ * area by area, with two deliberate holds: `packages/sdk` is dominated by the generated
+ * OpenAPI client for the operator's platform API, whose names are the remote contract the
+ * generator emits, and a sentence in the past tense about the upstream project stays
+ * spelled the way history spells it.
  *
  * This guard holds two things. The first is zero tolerance for the three names the engine
  * reads off disk (`.continueignore`, `.continuerules`, `.continuerc.json`) - those were
