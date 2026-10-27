@@ -20,12 +20,12 @@ describe("ClawRouterApi", () => {
     expect(api["config"].apiBase).toBe("http://custom:8080/v1/");
   });
 
-  it("should include Continue headers", () => {
+  it("identifies the client to the router", () => {
     const api = new ClawRouterApi(baseConfig);
     const headers = api["getHeaders"]();
 
-    expect(headers["User-Agent"]).toBe("Continue/IDE");
-    expect(headers["X-Continue-Provider"]).toBe("clawrouter");
+    expect(headers["User-Agent"]).toBe("TNT/IDE");
+    expect(headers["X-TNT-Provider"]).toBe("clawrouter");
   });
 
   it("should include standard OpenAI headers", () => {

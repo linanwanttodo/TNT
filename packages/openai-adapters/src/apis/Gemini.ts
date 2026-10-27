@@ -62,7 +62,7 @@ interface GeminiToolDelta
 }
 
 // The Google Gen AI SDK composes request URLs as <baseUrl>/<apiVersion>/...,
-// while Continue stores both parts in a single apiBase such as
+// while TNT stores both parts in a single apiBase such as
 // "https://generativelanguage.googleapis.com/v1beta/". Splitting them keeps
 // custom endpoints, proxies and gateways working without duplicating the
 // version segment in the path.
