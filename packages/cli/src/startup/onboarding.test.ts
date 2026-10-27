@@ -34,8 +34,8 @@ describe("onboarding config flag handling", () => {
         force: true,
         // Windows holds the directory until the logger's handle closes, which lands
         // after the flow returns: the runner failed here with `ENOTEMPTY ...\logs`.
-        maxRetries: 10,
-        retryDelay: 100,
+        maxRetries: 40,
+        retryDelay: 250,
       });
     }
   });
@@ -298,8 +298,8 @@ describe("interactive provider onboarding writes a real config file", () => {
       force: true,
       // Windows holds the directory until the logger's handle closes, which lands
       // after the flow returns: the runner failed here with `ENOTEMPTY ...\logs`.
-      maxRetries: 10,
-      retryDelay: 100,
+      maxRetries: 40,
+      retryDelay: 250,
     });
   });
 

@@ -57,10 +57,11 @@ describe("the Search tool spawns its program without a shell", () => {
   });
 
   it("never runs what the pattern itself spells", async () => {
-    const result = await searchCodeTool.run({
-      pattern: `hello"; touch ${path.join(workDir, "marker_pattern")}; #`,
-      path: workDir,
-    });
+    // A relative marker: the pattern is also a regex, and a Windows path's
+    // backslashes are not a valid escape sequence, so ripgrep would refuse the query.
+    const result = await searchCodeTool
+      .run({ pattern: 'hello"; touch marker_pattern; #', path: workDir })
+      .catch((error: Error) => error.message);
 
     expect(result).toContain("No matches found");
     expect(fs.existsSync(path.join(workDir, "marker_pattern"))).toBe(false);
