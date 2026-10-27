@@ -1,3 +1,5 @@
+import path from "path";
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getCurrentSessionId, startNewSession } from "../session/index.js";
@@ -40,7 +42,10 @@ describe("sessionApprovalKey", () => {
     expect(edit).toContain("Edit(");
     expect(edit).not.toBe(write);
     expect(edit).toBe(elsewhere);
-    expect(edit?.endsWith("/src/a.ts)")).toBe(true);
+    // The key carries a resolved path, which is `C:\...\src\a.ts` on Windows;
+    // naming the whole key says the same thing on every platform and is a
+    // stronger claim than the trailing-slash match it replaces.
+    expect(edit).toBe(`Edit(${path.resolve("src/a.ts")})`);
   });
 
   it("refuses to build a key for what it cannot bound", () => {
