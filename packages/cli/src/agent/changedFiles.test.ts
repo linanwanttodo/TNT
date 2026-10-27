@@ -22,8 +22,9 @@ describe("describeChangedFiles", () => {
   }
 
   function touch(target: string, content: string): void {
-    // A different size, so the change is detectable even when the clock behind
-    // mtime has not moved on.
+    // The stamp the detector compares is size + mtime + ino, so a rewrite has to
+    // change the file's size: on Windows two same-size writes can land in one
+    // mtime tick and read as unchanged. Every caller passes a longer payload.
     fs.writeFileSync(target, content);
   }
 
@@ -80,19 +81,19 @@ describe("describeChangedFiles", () => {
   it("mentions each change once, until the file moves again", () => {
     const seen = file("a.ts", "one\n");
     markFileAsSeen(seen);
-    touch(seen, "two\n");
+    touch(seen, "two\n\n");
 
     expect(describeChangedFiles()).toContain(seen);
     expect(describeChangedFiles()).toBeUndefined();
 
-    touch(seen, "three\n");
+    touch(seen, "three\n\n\n");
     expect(describeChangedFiles()).toContain(seen);
   });
 
   it("stops reporting a change once the model has read the file again", () => {
     const seen = file("a.ts", "one\n");
     markFileAsSeen(seen);
-    touch(seen, "two\n");
+    touch(seen, "two\n\n");
 
     expect(describeChangedFiles()).toContain(seen);
 
@@ -106,8 +107,8 @@ describe("describeChangedFiles", () => {
     const alpha = file("alpha.ts", "one\n");
     markFileAsSeen(zebra);
     markFileAsSeen(alpha);
-    touch(zebra, "two\n");
-    touch(alpha, "two\n");
+    touch(zebra, "two\n\n");
+    touch(alpha, "two\n\n");
 
     const note = describeChangedFiles();
 
@@ -122,7 +123,7 @@ describe("describeChangedFiles", () => {
       paths.push(target);
     }
     for (const target of paths) {
-      touch(target, "two\n");
+      touch(target, "two\n\n");
     }
 
     const note = describeChangedFiles();

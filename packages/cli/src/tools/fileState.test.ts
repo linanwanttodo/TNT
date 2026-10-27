@@ -264,7 +264,9 @@ describe("changed-file snapshots", () => {
     const target = path.join(dir, "a.ts");
     fs.writeFileSync(target, "old\n");
     markFileAsSeen(target);
-    fs.writeFileSync(target, "new\n");
+    // Longer than what is on disk: the stamp compares size + mtime + ino, and on
+    // Windows two same-size writes can land in one mtime tick and read as unchanged.
+    fs.writeFileSync(target, "new\n\n");
 
     expect(changedFilesSinceSeen()).toEqual([
       { path: fs.realpathSync(target), deleted: false, previous: "old\n" },
