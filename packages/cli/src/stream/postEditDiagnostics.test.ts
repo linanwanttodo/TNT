@@ -1,3 +1,5 @@
+import * as path from "path";
+
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -81,7 +83,9 @@ describe("collectPostEditDiagnostics", () => {
   });
 
   it("formats the diagnostics a server published", async () => {
-    const file = "/workspace/src/a.ts";
+    // The product resolves the edit against the root before asking the server, and on
+    // Windows that is a drive-qualified path; key the fake the same way.
+    const file = path.resolve("/workspace", "src/a.ts");
     const fake = manager({
       diagnostics: { [file]: [diagnostic(2, "Type error")] },
     });
@@ -122,7 +126,9 @@ describe("collectPostEditDiagnostics", () => {
   });
 
   it("caps the number of lines it returns", async () => {
-    const file = "/workspace/src/a.ts";
+    // The product resolves the edit against the root before asking the server, and on
+    // Windows that is a drive-qualified path; key the fake the same way.
+    const file = path.resolve("/workspace", "src/a.ts");
     const many = Array.from({ length: 30 }, (_, index) =>
       diagnostic(index, `problem ${index}`),
     );

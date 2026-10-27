@@ -80,7 +80,7 @@ describe("marketplace source parsing", () => {
       parseMarketplaceSource("file:/srv/market/manifest.json").source,
     ).toEqual({
       source: "file",
-      path: "/srv/market/manifest.json",
+      path: path.resolve("/srv/market/manifest.json"),
     });
   });
 

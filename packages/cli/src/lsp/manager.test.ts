@@ -46,14 +46,14 @@ afterEach(async () => {
     force: true,
     // The server child is disposed above, but Windows keeps the directory
     // busy until its handle closes - `EBUSY` on the runner.
-    maxRetries: 10,
-    retryDelay: 100,
+    maxRetries: 40,
+    retryDelay: 250,
   });
   fs.rmSync(workDir, {
     recursive: true,
     force: true,
-    maxRetries: 10,
-    retryDelay: 100,
+    maxRetries: 40,
+    retryDelay: 250,
   });
 });
 

@@ -33,8 +33,8 @@ afterEach(async () => {
     force: true,
     // `dispose()` waits for the kill, yet Windows keeps the directory busy
     // until the child's handle is gone: all six cases failed there, not here.
-    maxRetries: 10,
-    retryDelay: 100,
+    maxRetries: 40,
+    retryDelay: 250,
   });
   fs.mkdirSync(fixtureDir, { recursive: true });
 });
