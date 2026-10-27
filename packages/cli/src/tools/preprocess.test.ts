@@ -109,7 +109,10 @@ describe("Tool preprocess functions", () => {
 
       expect(result.args.dirpath).toBe(process.cwd());
       expect(result.preview).toEqual([
-        { type: "text", content: `Will list files in: ${process.cwd()}` },
+        {
+          type: "text",
+          content: `Will list files in: ${formatToolArgument(process.cwd())}`,
+        },
       ]);
     });
 
