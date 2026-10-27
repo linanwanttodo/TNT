@@ -48,9 +48,7 @@ import mergeJson from "../util/merge";
 import {
   DEFAULT_CONFIG_TS_CONTENTS,
   getConfigJsonPath,
-  getConfigJsonPathForRemote,
   getConfigJsPath,
-  getConfigJsPathForRemote,
   getConfigTsPath,
   getContinueDotEnv,
   getContinueGlobalPath,
@@ -138,17 +136,6 @@ function loadSerializedConfig(
 
   if (config.allowAnonymousTelemetry === undefined) {
     config.allowAnonymousTelemetry = true;
-  }
-
-  if (ideSettings.remoteConfigServerUrl) {
-    try {
-      const remoteConfigJson = resolveSerializedConfig(
-        getConfigJsonPathForRemote(ideSettings.remoteConfigServerUrl),
-      );
-      config = mergeJson(config, remoteConfigJson, "merge", configMergeKeys);
-    } catch (e) {
-      console.warn("Error loading remote config: ", e);
-    }
   }
 
   for (const workspaceConfig of workspaceConfigs) {
@@ -858,25 +845,6 @@ async function loadContinueConfigFromJson(
       intermediate = module.modifyConfig(intermediate);
     } catch (e) {
       console.log("Error loading config.ts: ", e);
-    }
-  }
-
-  // Apply remote config.js to modify intermediate config
-  if (ideSettings.remoteConfigServerUrl) {
-    try {
-      const configJsPathForRemote = getConfigJsPathForRemote(
-        ideSettings.remoteConfigServerUrl,
-      );
-      const module = await import(configJsPathForRemote);
-      if (typeof require !== "undefined") {
-        delete require.cache[require.resolve(configJsPathForRemote)];
-      }
-      if (!module.modifyConfig) {
-        throw new Error("config.ts does not export a modifyConfig function.");
-      }
-      intermediate = module.modifyConfig(intermediate);
-    } catch (e) {
-      console.log("Error loading remotely set config.js: ", e);
     }
   }
 

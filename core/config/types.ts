@@ -658,8 +658,6 @@ declare global {
   }
   
   export interface IdeSettings {
-    remoteConfigServerUrl: string | undefined;
-    remoteConfigSyncPeriod: number;
     userToken: string;
     pauseCodebaseIndexOnStart: boolean;
   }

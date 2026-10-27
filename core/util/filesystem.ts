@@ -75,8 +75,6 @@ class FileSystemIde implements IDE {
 
   async getIdeSettings(): Promise<IdeSettings> {
     return {
-      remoteConfigServerUrl: undefined,
-      remoteConfigSyncPeriod: 60,
       userToken: "",
       continueTestEnvironment: "none",
       pauseCodebaseIndexOnStart: false,

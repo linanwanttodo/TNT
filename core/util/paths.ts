@@ -344,41 +344,6 @@ export function getDocsSqlitePath(): string {
   return path.join(getIndexFolderPath(), "docs.sqlite");
 }
 
-export function getRemoteConfigsFolderPath(): string {
-  const dir = path.join(getContinueGlobalPath(), ".configs");
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir);
-  }
-  return dir;
-}
-
-export function getPathToRemoteConfig(remoteConfigServerUrl: string): string {
-  let url: URL | undefined = undefined;
-  try {
-    url =
-      typeof remoteConfigServerUrl !== "string" || remoteConfigServerUrl === ""
-        ? undefined
-        : new URL(remoteConfigServerUrl);
-  } catch (e) {}
-  const dir = path.join(getRemoteConfigsFolderPath(), url?.hostname ?? "None");
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir);
-  }
-  return dir;
-}
-
-export function getConfigJsonPathForRemote(
-  remoteConfigServerUrl: string,
-): string {
-  return path.join(getPathToRemoteConfig(remoteConfigServerUrl), "config.json");
-}
-
-export function getConfigJsPathForRemote(
-  remoteConfigServerUrl: string,
-): string {
-  return path.join(getPathToRemoteConfig(remoteConfigServerUrl), "config.js");
-}
-
 export function getContinueDotEnv(): { [key: string]: string } {
   const filepath = path.join(getContinueGlobalPath(), ".env");
   if (fs.existsSync(filepath)) {

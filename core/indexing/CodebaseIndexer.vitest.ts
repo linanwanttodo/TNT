@@ -713,9 +713,8 @@ describe("CodebaseIndexer", () => {
         };
 
         mockIdeSettings = {
-          remoteConfigServerUrl: "http://test.com",
           userToken: "test-token",
-        };
+        } as any;
 
         mockConfig = {
           selectedModelByRole: {
