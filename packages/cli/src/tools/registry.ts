@@ -138,11 +138,13 @@ export async function getAllAvailableTools(
   const agentId = getAgentIdFromArgs();
   if (agentId) {
     tools.push(reportFailureTool, statusTool);
+  }
 
-    // UploadArtifact tool is gated behind beta flag
-    if (isBetaUploadArtifactToolEnabled()) {
-      tools.push(uploadArtifactTool);
-    }
+  // The artifact tool writes into whichever session the run already has, so its
+  // beta flag is the whole gate; it used to sit inside the `--id` branch and be
+  // unreachable in a plain `tnt` run.
+  if (isBetaUploadArtifactToolEnabled()) {
+    tools.push(uploadArtifactTool);
   }
 
   const modelState = await serviceContainer.get<ModelServiceState>(

@@ -45,7 +45,7 @@ describe("tool policy coverage", () => {
     Search: "needs ripgrep on the machine",
     Status: "posts to the platform for an agent, which --id names",
     ReportFailure: "reports to the platform for an agent, which --id names",
-    UploadArtifact: "needs --id and the beta flag",
+    UploadArtifact: "needs the beta flag",
     Subagent: "needs the beta flag and a run below the depth limit",
     ListSubagents: "needs the beta flag and a run below the depth limit",
   };

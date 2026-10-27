@@ -65,7 +65,7 @@ const GATED_TOOLS: Record<string, string> = {
   Exit: "a headless run",
   Status: "--id names an agent",
   ReportFailure: "--id names an agent",
-  UploadArtifact: "an agent plus the beta upload flag",
+  UploadArtifact: "the beta upload flag",
   Subagent: "the beta delegation flag and a run below the depth limit",
   ListSubagents: "the beta delegation flag and a run below the depth limit",
 };
@@ -165,7 +165,7 @@ describe("the composed tool surface is a partition", () => {
     expect(agent.has("Status")).toBe(true);
     expect(agent.has("ReportFailure")).toBe(true);
 
-    const upload = new Set(await offered({ agent: true, betaUpload: true }));
+    const upload = new Set(await offered({ betaUpload: true }));
     expect(upload.has("UploadArtifact")).toBe(true);
 
     const beta = new Set(await offered({ betaSubagent: true }));

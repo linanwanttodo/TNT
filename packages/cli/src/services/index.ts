@@ -9,7 +9,6 @@ import { logger } from "../utils/logger.js";
 
 import { AgentFileService } from "./AgentFileService.js";
 import { ApiClientService } from "./ApiClientService.js";
-import { ArtifactUploadService } from "./ArtifactUploadService.js";
 import { AuthService } from "./AuthService.js";
 import { backgroundJobService } from "./BackgroundJobService.js";
 import { ChatHistoryService } from "./ChatHistoryService.js";
@@ -52,7 +51,6 @@ const storageSyncService = new StorageSyncService();
 const agentFileService = new AgentFileService();
 const toolPermissionService = new ToolPermissionService();
 const systemMessageService = new SystemMessageService();
-const artifactUploadService = new ArtifactUploadService();
 const gitAiIntegrationService = new GitAiIntegrationService();
 const hookService = new HookService();
 
@@ -286,12 +284,6 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   );
 
   serviceContainer.register(
-    SERVICE_NAMES.ARTIFACT_UPLOAD,
-    () => artifactUploadService.initialize(),
-    [],
-  );
-
-  serviceContainer.register(
     SERVICE_NAMES.CHAT_HISTORY,
     () => chatHistoryService.initialize(undefined, initOptions.headless),
     [], // No dependencies for now, but could depend on SESSION in future
@@ -376,7 +368,6 @@ export const services = {
   storageSync: storageSyncService,
   agentFile: agentFileService,
   toolPermissions: toolPermissionService,
-  artifactUpload: artifactUploadService,
   gitAiIntegration: gitAiIntegrationService,
   backgroundJobs: backgroundJobService,
   quiz: quizService,
