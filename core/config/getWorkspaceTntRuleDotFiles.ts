@@ -1,9 +1,9 @@
 import { ConfigValidationError } from "@tnt/config-yaml";
 import { IDE, RuleWithSource } from "..";
 import { joinPathsToUri } from "../util/uri";
-export const SYSTEM_PROMPT_DOT_FILE = ".continuerules";
+export const SYSTEM_PROMPT_DOT_FILE = ".tntrules";
 
-export async function getWorkspaceContinueRuleDotFiles(ide: IDE) {
+export async function getWorkspaceTntRuleDotFiles(ide: IDE) {
   const dirs = await ide.getWorkspaceDirs();
 
   const errors: ConfigValidationError[] = [];
@@ -17,7 +17,7 @@ export async function getWorkspaceContinueRuleDotFiles(ide: IDE) {
         rules.push({
           rule: content,
           sourceFile: dotFile,
-          source: ".continuerules",
+          source: ".tntrules",
         });
       }
     } catch (e) {

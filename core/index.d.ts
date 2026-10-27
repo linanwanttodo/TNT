@@ -2025,7 +2025,7 @@ export type RuleSource =
   | "rules-block"
   | "colocated-markdown"
   | "json-systemMessage"
-  | ".continuerules"
+  | ".tntrules"
   | "agentFile";
 
 export interface RuleMetadata {

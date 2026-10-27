@@ -144,7 +144,7 @@ continue_server.dist
 Icon
 Icon?
 
-.continuerc.json
+.tntrc.json
 .aider*
 
 *.notes.md
@@ -169,7 +169,7 @@ packages/cli/.continue-debug/
 # intellij module library files
 *.iml
 
-.continuerules
+.tntrules
 **/.continue/assistants/
 keys
 

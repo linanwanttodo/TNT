@@ -35,8 +35,8 @@ vi.mock("../load", () => ({
 vi.mock("../migrateSharedConfig", () => ({
   migrateJsonSharedConfig: vi.fn(),
 }));
-vi.mock("../getWorkspaceContinueRuleDotFiles", () => ({
-  getWorkspaceContinueRuleDotFiles: vi
+vi.mock("../getWorkspaceTntRuleDotFiles", () => ({
+  getWorkspaceTntRuleDotFiles: vi
     .fn()
     .mockResolvedValue({ rules: [], errors: [] }),
 }));

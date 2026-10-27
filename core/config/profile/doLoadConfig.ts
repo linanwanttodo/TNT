@@ -29,7 +29,7 @@ import { getConfigJsonPath, getConfigYamlPath } from "../../util/paths";
 import { localPathOrUriToPath } from "../../util/pathToUri";
 import { IdeInfoService } from "../../util/IdeInfoService";
 import { TTS } from "../../util/tts";
-import { getWorkspaceContinueRuleDotFiles } from "../getWorkspaceContinueRuleDotFiles";
+import { getWorkspaceTntRuleDotFiles } from "../getWorkspaceTntRuleDotFiles";
 import { loadContinueConfigFromJson } from "../load";
 import { CodebaseRulesCache } from "../markdown/loadCodebaseRules";
 import { loadMarkdownRules } from "../markdown/loadMarkdownRules";
@@ -41,9 +41,9 @@ async function loadRules(ide: IDE) {
   const rules: RuleWithSource[] = [];
   const errors = [];
 
-  // Add rules from .continuerules files
+  // Add rules from .tntrules files
   const { rules: yamlRules, errors: continueRulesErrors } =
-    await getWorkspaceContinueRuleDotFiles(ide);
+    await getWorkspaceTntRuleDotFiles(ide);
   rules.unshift(...yamlRules);
   errors.push(...continueRulesErrors);
 

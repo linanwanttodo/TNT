@@ -277,10 +277,10 @@ describe("walkDir functions", () => {
       expect(files).not.toContain("c/e.py");
     });
 
-    it("should handle both gitignore and continueignore", async () => {
+    it("should handle both gitignore and tntignore", async () => {
       addToTestDir([
         [".gitignore", "*.py"],
-        [".continueignore", "*.ts"],
+        [".tntignore", "*.ts"],
         ["a.txt", "content"],
         ["b.py", "content"],
         ["c.ts", "content"],

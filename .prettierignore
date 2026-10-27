@@ -4,7 +4,7 @@ docs/**/*.mdx
 docs-site/.next
 docs-site/out
 packages/cli/.continue-debug
-**/.continueignore
+**/.tntignore
 .tnt/rules/mintlify-formatting.md
 CHANGELOG.md
 **/continue_tutorial.py
