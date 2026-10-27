@@ -151,7 +151,10 @@ describe("loadAllPlugins", () => {
       args: string[];
     };
     expect(mcpServer.command).toBe("node");
-    expect(mcpServer.args[0]).toBe(path.join(root, "server.js"));
+    // The separator between the plugin root and the script is the plugin
+    // author's, so the substituted string can mix spellings; `path.resolve`
+    // compares the directory, not the slash.
+    expect(path.resolve(mcpServer.args[0])).toBe(path.join(root, "server.js"));
   });
 
   it("keeps two plugins that both ship agents/reviewer.md apart", () => {
