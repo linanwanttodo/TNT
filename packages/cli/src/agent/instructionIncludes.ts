@@ -42,7 +42,17 @@ const NON_TEXT_EXTENSIONS = new Set([
 // ending, or a dotted name that is actually on disk. That leaves "@author",
 // "@v2.1" and an address in prose alone, and still refuses "@flow.pdf".
 const INCLUDED_SUFFIXES = [".md", ".markdown", ".mdx", ".txt", ".rst", ".adoc"];
-const INCLUDE = /(^|[\s,([{])@((?:[~/][\w.~/\\-]*)|[\w.~-][\w.~/\\-]*)/g;
+const INCLUDE =
+  /(^|[\s,([{])@((?:[~/][\w.~/\\-]*)|(?:[A-Za-z]:[\\/])?[\w.~-][\w.~/\\-]*)/g;
+
+/**
+ * The include targets a line names, in order. `expand` runs the same pattern with a
+ * replacement callback; this exposes the tokenising half so the pattern can be asserted
+ * on its own - the Windows spelling (`C:\...`) is the one that used to end at the `C`.
+ */
+export function includeTargets(line: string): string[] {
+  return [...line.matchAll(INCLUDE)].map((match) => match[2]);
+}
 
 function isIncludeIntent(target: string, resolved: string): boolean {
   return (
