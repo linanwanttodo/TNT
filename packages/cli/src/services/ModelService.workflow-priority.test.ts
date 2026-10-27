@@ -1,7 +1,6 @@
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AuthConfig } from "../auth/workos.js";
 import * as config from "../config/index.js";
 import { logger } from "../utils/logger.js";
 
@@ -9,8 +8,9 @@ import { ModelService } from "./ModelService.js";
 import { AgentFileServiceState } from "./types.js";
 
 // Mock the dependencies
-vi.mock("../auth/workos.js", () => ({
-  getModelName: vi.fn(() => null),
+vi.mock("../utils/modelPersistence.js", () => ({
+  getPersistedModelName: vi.fn(() => null),
+  persistModelName: vi.fn(),
 }));
 
 vi.mock("../config/index.js", () => ({
@@ -33,7 +33,6 @@ vi.mock("../utils/logger.js", () => ({
 describe("ModelService agent file model prioritization", () => {
   let modelService: ModelService;
   let mockAssistant: AssistantUnrolled;
-  let mockAuthConfig: AuthConfig;
   let mockModels: ModelConfig[];
 
   beforeEach(() => {
@@ -48,8 +47,6 @@ describe("ModelService agent file model prioritization", () => {
     mockAssistant = {
       models: mockModels,
     } as AssistantUnrolled;
-
-    mockAuthConfig = null;
 
     // Reset mocks
     vi.clearAllMocks();
@@ -84,7 +81,6 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       agentFileServiceState,
     );
 
@@ -98,7 +94,6 @@ describe("ModelService agent file model prioritization", () => {
     // Should have called createLlmApi with the agent-file-specified model
     expect(createLlmApiMock).toHaveBeenCalledWith(
       expect.objectContaining({ name: "gpt-4" }),
-      mockAuthConfig,
     );
   });
 
@@ -115,9 +110,10 @@ describe("ModelService agent file model prioritization", () => {
       parsedTools: null,
     };
 
-    // Mock getModelName to return a persisted model
-    const { getModelName } = await import("../auth/workos.js");
-    vi.mocked(getModelName).mockReturnValue("claude-3-sonnet");
+    // Mock getPersistedModelName to return a persisted model
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue("claude-3-sonnet");
 
     const createLlmApiMock = vi.mocked(config.createLlmApi);
     createLlmApiMock.mockImplementation(
@@ -130,7 +126,6 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       agentFileServiceState,
     );
 
@@ -143,7 +138,6 @@ describe("ModelService agent file model prioritization", () => {
 
     expect(createLlmApiMock).toHaveBeenCalledWith(
       expect.objectContaining({ name: "claude-3-sonnet" }),
-      mockAuthConfig,
     );
   });
 
@@ -172,7 +166,6 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       agentFileServiceState,
     );
 
@@ -184,7 +177,7 @@ describe("ModelService agent file model prioritization", () => {
     );
 
     // Should have fallen back to getLlmApi
-    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant, mockAuthConfig);
+    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant);
   });
 
   it("should use default model when no agent file exists", async () => {
@@ -196,9 +189,10 @@ describe("ModelService agent file model prioritization", () => {
       parsedTools: null,
     };
 
-    // Make sure getModelName returns null (no persisted model)
-    const { getModelName } = await import("../auth/workos.js");
-    vi.mocked(getModelName).mockReturnValue(null);
+    // Make sure getPersistedModelName returns null (no persisted model)
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue(null);
 
     const getLlmApiMock = vi.mocked(config.getLlmApi);
     getLlmApiMock.mockReturnValue([
@@ -208,7 +202,6 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       agentFileServiceState,
     );
 
@@ -219,7 +212,7 @@ describe("ModelService agent file model prioritization", () => {
       }),
     );
 
-    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant, mockAuthConfig);
+    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant);
   });
 
   it("should prioritize agent file model over persisted model", async () => {
@@ -240,8 +233,9 @@ describe("ModelService agent file model prioritization", () => {
     };
 
     // Mock getModelName to return a different persisted model
-    const { getModelName } = await import("../auth/workos.js");
-    vi.mocked(getModelName).mockReturnValue("claude-3-haiku");
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue("claude-3-haiku");
 
     const createLlmApiMock = vi.mocked(config.createLlmApi);
     createLlmApiMock.mockImplementation(
@@ -254,7 +248,6 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       agentFileServiceState,
     );
 
@@ -268,13 +261,13 @@ describe("ModelService agent file model prioritization", () => {
 
     expect(createLlmApiMock).toHaveBeenCalledWith(
       expect.objectContaining({ name: "gpt-4" }),
-      mockAuthConfig,
     );
   });
 
   it("uses the config.yaml selection ahead of the legacy persisted name", async () => {
-    const { getModelName } = await import("../auth/workos.js");
-    vi.mocked(getModelName).mockReturnValue("claude-3-sonnet");
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue("claude-3-sonnet");
 
     const createLlmApiMock = vi.mocked(config.createLlmApi);
     createLlmApiMock.mockImplementation(
@@ -287,7 +280,6 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       undefined,
       "gpt-4",
     );
@@ -297,7 +289,6 @@ describe("ModelService agent file model prioritization", () => {
     );
     expect(createLlmApiMock).toHaveBeenCalledWith(
       expect.objectContaining({ name: "gpt-4" }),
-      mockAuthConfig,
     );
   });
 
@@ -329,7 +320,6 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       agentFileServiceState,
       "gpt-4",
     );
@@ -351,12 +341,11 @@ describe("ModelService agent file model prioritization", () => {
 
     const result = await modelService.doInitialize(
       mockAssistant,
-      mockAuthConfig,
       undefined,
       "not-configured",
     );
 
-    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant, mockAuthConfig);
+    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant);
     expect(result.model).toEqual(
       expect.objectContaining({ name: "default-model" }),
     );

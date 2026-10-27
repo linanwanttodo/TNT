@@ -1,20 +1,11 @@
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
-// Mock dependencies
-vi.mock("../auth/workos.js");
-
-import type { AuthConfig } from "../auth/workos.js";
-
 import { getLlmApi } from "./index.js";
 
 describe("config", () => {
-  let mockAuthConfig: AuthConfig;
-
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockAuthConfig = null;
   });
 
   describe("getLlmApi()", () => {
@@ -25,7 +16,7 @@ describe("config", () => {
         models: [],
       };
 
-      expect(() => getLlmApi(assistant, mockAuthConfig)).toThrow(
+      expect(() => getLlmApi(assistant)).toThrow(
         "No models found in the configured assistant",
       );
     });
@@ -44,7 +35,7 @@ describe("config", () => {
         ],
       };
 
-      expect(() => getLlmApi(assistant, mockAuthConfig)).toThrow(
+      expect(() => getLlmApi(assistant)).toThrow(
         "No models with the chat role found in the configured assistant",
       );
     });
@@ -65,7 +56,7 @@ describe("config", () => {
 
       // The provider would answer 400 about a field the user never wrote; the
       // mismatch is named here instead.
-      expect(() => getLlmApi(assistant, mockAuthConfig)).toThrow(
+      expect(() => getLlmApi(assistant)).toThrow(
         /Claude model, but it is configured with provider: openai/,
       );
     });
@@ -88,7 +79,7 @@ describe("config", () => {
       // and the assertion is only that the mismatch check let it through.
       let raised: unknown;
       try {
-        getLlmApi(openRouter, mockAuthConfig);
+        getLlmApi(openRouter);
       } catch (error) {
         raised = error;
       }

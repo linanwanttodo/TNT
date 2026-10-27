@@ -23,10 +23,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - **TUI mode**: Terminal User Interface using Ink/React
    - **Standard mode**: Traditional readline-based chat interface
 
-2. **Authentication** (`src/auth/`): WorkOS-based authentication system
-
-   - `uriUtils.ts`: path/slug/URI conversions for auth config
-   - `workos.ts`: WorkOS configuration and token management
+2. **URI helpers** (`src/auth/`): `uriUtils.ts`, path/slug/URI conversions
 
 3. **Terminal UI** (`src/ui/`): React/Ink-based TUI components
 

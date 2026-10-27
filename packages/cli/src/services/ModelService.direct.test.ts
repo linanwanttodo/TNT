@@ -16,7 +16,7 @@ describe("ModelService - Direct Testing", () => {
   });
 
   it("should throw 'ModelService not initialized' when switching without initialization", async () => {
-    // The service is created but not initialized (no assistant or authConfig)
+    // The service is created but not initialized (no assistant)
     expect(modelService.getCurrentModelIndex()).toBe(-1);
 
     // Try to switch model without initialization
@@ -32,7 +32,7 @@ describe("ModelService - Direct Testing", () => {
     }
   });
 
-  it("should handle model switching with null authConfig for non-proxy models", async () => {
+  it("should handle model switching for non-proxy models", async () => {
     // Initialize the service properly
     const mockAssistant = {
       name: "Test Assistant",
@@ -55,24 +55,19 @@ describe("ModelService - Direct Testing", () => {
       ],
     };
 
-    // Initialize with null authConfig - valid for non-proxy models
     const initialState = await modelService.initialize(
       mockAssistant as any,
       null as any,
     );
 
-    // Verify initialization succeeded with null authConfig
     expect(initialState.assistant).toBe(mockAssistant);
-    expect(initialState.authConfig).toBe(null);
     expect(initialState.model).toBeDefined();
     expect((initialState.model as any).name).toBe("claude-3.5-sonnet");
 
-    // Should be able to switch models even with null authConfig
     const switchedState = await modelService.switchModel(1);
     expect(switchedState.model).toBeDefined();
     expect((switchedState.model as any).name).toBe("GPT-4");
     expect(switchedState.assistant).toBe(mockAssistant);
-    expect(switchedState.authConfig).toBe(null);
 
     // Verify the model info
     const modelInfo = modelService.getModelInfo();
@@ -103,15 +98,8 @@ describe("ModelService - Direct Testing", () => {
       ],
     };
 
-    const mockAuthConfig = {
-      token: "test-token",
-    };
-
     // Initialize the service (note: initialize calls doInitialize and sets the state)
-    const initialState = await modelService.initialize(
-      mockAssistant as any,
-      mockAuthConfig as any,
-    );
+    const initialState = await modelService.initialize(mockAssistant as any);
 
     // Verify we have models and the first one is selected
     const availableModels = modelService.getAvailableChatModels();
@@ -142,11 +130,7 @@ describe("ModelService - Direct Testing", () => {
       ],
     };
 
-    const mockAuthConfig = {
-      token: "test-token",
-    };
-
-    await modelService.initialize(mockAssistant as any, mockAuthConfig as any);
+    await modelService.initialize(mockAssistant as any);
 
     // Try to switch to invalid index
     try {
@@ -180,12 +164,8 @@ describe("ModelService - Direct Testing", () => {
       ],
     };
 
-    const mockAuthConfig = {
-      token: "test-token",
-    };
-
     // Initialize the service properly through initialize method (which sets isInitialized)
-    await modelService.initialize(mockAssistant as any, mockAuthConfig as any);
+    await modelService.initialize(mockAssistant as any);
 
     // Verify initialization
     expect(modelService.isReady()).toBe(true);

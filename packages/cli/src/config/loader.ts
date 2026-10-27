@@ -12,8 +12,6 @@ import {
 import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 import chalk from "chalk";
 
-import type { AuthConfig } from "../auth/workos.js";
-import { getAccessToken, getOrganizationId } from "../auth/workos.js";
 import { t } from "../i18n/index.js";
 import { CLIPlatformClient } from "../platform/CLIPlatformClient.js";
 
@@ -36,21 +34,18 @@ export type ConfigSource =
  * with clear precedence and fallback logic in a single testable function.
  */
 export async function loadConfiguration(
-  authConfig: AuthConfig,
   cliConfigPath: string | undefined,
   apiClient: DefaultApiInterface,
   injectBlocks: PackageIdentifier[],
   isHeadless: boolean | undefined,
 ): Promise<ConfigLoadResult> {
-  const organizationId = getOrganizationId(authConfig);
-  const accessToken = getAccessToken(authConfig);
+  // The unroll API in @tnt/config-yaml still accepts an account's token and
+  // organization; there is no account to take them from, so they stay null here.
+  const organizationId: string | null = null;
+  const accessToken: string | null = null;
 
   // Step 1: Determine config source using precedence rules
-  const configSource = determineConfigSource(
-    authConfig,
-    cliConfigPath,
-    isHeadless,
-  );
+  const configSource = determineConfigSource(cliConfigPath, isHeadless);
 
   // Step 2: Load configuration from the determined source
   const config = await loadFromSource(
@@ -85,7 +80,6 @@ function selectedModelOf(source: ConfigSource): string | null {
  * 3. Default resolution (if no flag and no saved URI)
  */
 function determineConfigSource(
-  authConfig: AuthConfig,
   cliConfigPath: string | undefined,
   _isHeadless: boolean | undefined,
 ): ConfigSource {

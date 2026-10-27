@@ -9,7 +9,6 @@ import { logger } from "../utils/logger.js";
 
 import { AgentFileService } from "./AgentFileService.js";
 import { ApiClientService } from "./ApiClientService.js";
-import { AuthService } from "./AuthService.js";
 import { backgroundJobService } from "./BackgroundJobService.js";
 import { ChatHistoryService } from "./ChatHistoryService.js";
 import { ConfigService } from "./ConfigService.js";
@@ -29,7 +28,6 @@ import {
 import {
   AgentFileServiceState,
   ApiClientServiceState,
-  AuthServiceState,
   ConfigServiceState,
   MCPServiceState,
   SERVICE_NAMES,
@@ -38,7 +36,6 @@ import {
 import { UpdateService } from "./UpdateService.js";
 
 // Service instances
-const authService = new AuthService();
 const configService = new ConfigService();
 const modelService = new ModelService();
 const apiClientService = new ApiClientService();
@@ -79,7 +76,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   }
   // Handle onboarding for TUI mode (headless: false) unless explicitly skipped
   if (!initOptions.headless && !initOptions.skipOnboarding) {
-    await initializeWithOnboarding(null, commandOptions.config);
+    await initializeWithOnboarding(commandOptions.config);
   }
 
   // Interactive runs confirm project trust before any reader loads the project
@@ -92,39 +89,26 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   }
 
   serviceContainer.register(
-    SERVICE_NAMES.AUTH,
+    SERVICE_NAMES.API_CLIENT,
     async () => {
-      return await authService.initialize();
+      return apiClientService.initialize();
     },
     [], // No dependencies
   );
 
   serviceContainer.register(
-    SERVICE_NAMES.API_CLIENT,
-    async () => {
-      const authState = await serviceContainer.get<AuthServiceState>(
-        SERVICE_NAMES.AUTH,
-      );
-      return apiClientService.initialize(authState.authConfig);
-    },
-    [SERVICE_NAMES.AUTH], // Depends on auth
-  );
-
-  serviceContainer.register(
     SERVICE_NAMES.AGENT_FILE,
     async () => {
-      const [authState, apiClientState] = await Promise.all([
-        serviceContainer.get<AuthServiceState>(SERVICE_NAMES.AUTH),
-        serviceContainer.get<ApiClientServiceState>(SERVICE_NAMES.API_CLIENT),
-      ]);
+      const apiClientState = await serviceContainer.get<ApiClientServiceState>(
+        SERVICE_NAMES.API_CLIENT,
+      );
 
       return await agentFileService.initialize(
         commandOptions.agent,
-        authState,
         apiClientState,
       );
     },
-    [SERVICE_NAMES.AUTH, SERVICE_NAMES.API_CLIENT],
+    [SERVICE_NAMES.API_CLIENT],
   );
 
   serviceContainer.register(
@@ -191,8 +175,7 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   serviceContainer.register(
     SERVICE_NAMES.CONFIG,
     async () => {
-      const [authState, apiClientState, agentFileState] = await Promise.all([
-        serviceContainer.get<AuthServiceState>(SERVICE_NAMES.AUTH),
+      const [apiClientState, agentFileState] = await Promise.all([
         serviceContainer.get<ApiClientServiceState>(SERVICE_NAMES.API_CLIENT),
         serviceContainer.get<AgentFileServiceState>(SERVICE_NAMES.AGENT_FILE),
       ]);
@@ -212,7 +195,6 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
           : currentState.configPath);
 
       return await configService.initialize({
-        authConfig: authState.authConfig,
         configPath,
         apiClient: apiClientState.apiClient,
         agentFileState,
@@ -220,15 +202,14 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
         isHeadless: initOptions.headless,
       });
     },
-    [SERVICE_NAMES.AUTH, SERVICE_NAMES.API_CLIENT, SERVICE_NAMES.AGENT_FILE], // Dependencies
+    [SERVICE_NAMES.API_CLIENT, SERVICE_NAMES.AGENT_FILE], // Dependencies
   );
 
   serviceContainer.register(
     SERVICE_NAMES.MODEL,
     async () => {
-      const [configState, authState, agentFileState] = await Promise.all([
+      const [configState, agentFileState] = await Promise.all([
         serviceContainer.get<ConfigServiceState>(SERVICE_NAMES.CONFIG),
-        serviceContainer.get<AuthServiceState>(SERVICE_NAMES.AUTH),
         serviceContainer.get<AgentFileServiceState>(SERVICE_NAMES.AGENT_FILE),
       ]);
 
@@ -238,12 +219,11 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
 
       return modelService.initialize(
         configState.config,
-        authState.authConfig,
         agentFileState,
         configState.selectedModel ?? null,
       );
     },
-    [SERVICE_NAMES.CONFIG, SERVICE_NAMES.AUTH, SERVICE_NAMES.AGENT_FILE], // Depends on config, auth, and agentFile
+    [SERVICE_NAMES.CONFIG, SERVICE_NAMES.AGENT_FILE], // Depends on config and agentFile
   );
 
   serviceContainer.register(
@@ -355,7 +335,6 @@ export function getServiceStates() {
  * Direct access to service instances for complex operations
  */
 export const services = {
-  auth: authService,
   config: configService,
   model: modelService,
   apiClient: apiClientService,
