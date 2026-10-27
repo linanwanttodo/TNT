@@ -71,7 +71,10 @@ describe("marketplace source parsing", () => {
     });
     expect(parseMarketplaceSource("directory:/srv/market").source).toEqual({
       source: "directory",
-      path: "/srv/market",
+      // The parser resolves the path it is given, and on Windows that means a
+      // drive-qualified one: assert what the platform produces, not the POSIX
+      // spelling of the input string.
+      path: path.resolve("/srv/market"),
     });
     expect(
       parseMarketplaceSource("file:/srv/market/manifest.json").source,
@@ -91,7 +94,10 @@ describe("marketplace source parsing", () => {
   it("treats a bare path as a directory source", () => {
     expect(parseMarketplaceSource("/srv/market").source).toEqual({
       source: "directory",
-      path: "/srv/market",
+      // The parser resolves the path it is given, and on Windows that means a
+      // drive-qualified one: assert what the platform produces, not the POSIX
+      // spelling of the input string.
+      path: path.resolve("/srv/market"),
     });
     expect(parseMarketplaceSource("./local").source.source).toBe("directory");
   });
