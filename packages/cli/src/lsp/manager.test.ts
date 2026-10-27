@@ -41,8 +41,20 @@ afterEach(async () => {
   } else {
     process.env.TNT_PLUGINS_DIR = previousOverride;
   }
-  fs.rmSync(pluginsDir, { recursive: true, force: true });
-  fs.rmSync(workDir, { recursive: true, force: true });
+  fs.rmSync(pluginsDir, {
+    recursive: true,
+    force: true,
+    // The server child is disposed above, but Windows keeps the directory
+    // busy until its handle closes - `EBUSY` on the runner.
+    maxRetries: 10,
+    retryDelay: 100,
+  });
+  fs.rmSync(workDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
 });
 
 describe("starting plugin language servers", () => {
