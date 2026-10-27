@@ -39,7 +39,7 @@ describe.skip("DocsCrawler", () => {
     const pages: PageData[] = [];
     const generator = docsCrawler.crawl(new URL(url));
     let done = false;
-    let crawler: DocsCrawlerType = "default";
+    let crawler: DocsCrawlerType = "cheerio";
     while (!done) {
       const result = await generator.next();
       if (result.done) {
@@ -63,7 +63,7 @@ describe.skip("DocsCrawler", () => {
     let crawlerUsed: DocsCrawlerType;
 
     beforeAll(async () => {
-      docsCrawler = new DocsCrawler(mockIde, config, 5, 5, false);
+      docsCrawler = new DocsCrawler(mockIde, config, 5, 5);
       const { pages, crawler } = await runCrawl(repoUrl);
       crawlerUsed = crawler;
       crawlResults = pages;
@@ -114,7 +114,7 @@ describe.skip("DocsCrawler", () => {
     let shouldUseChromiumSpy: any;
 
     beforeAll(async () => {
-      docsCrawler = new DocsCrawler(mockIde, config, 5, 5, true);
+      docsCrawler = new DocsCrawler(mockIde, config, 5, 5);
       await chromiumInstaller.install();
       shouldUseChromiumSpy = vi
         .spyOn(docsCrawler as any, "shouldUseChromium")
@@ -138,55 +138,9 @@ describe.skip("DocsCrawler", () => {
     });
   });
 
-  describe("Default Crawler", () => {
-    beforeAll(() => {
-      docsCrawler = new DocsCrawler(mockIde, config, 2, 2, false);
-    });
-
-    test(
-      "works on static site",
-      async () => {
-        const { pages, crawler } = await runCrawl("https://amplified.dev/");
-        expect(pages.length).toBeGreaterThanOrEqual(1);
-        expect(crawler).toEqual("default");
-      },
-      TIMEOUT_MS,
-    );
-
-    commonDocsSites.forEach((url) => {
-      test(
-        `Default crawler common site: ${url}`,
-        async () => {
-          // Retry logic to handle flaky network requests to TRIAL_PROXY_URL
-          let lastError;
-          const maxRetries = 3;
-
-          for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-              const { pages, crawler } = await runCrawl(url);
-              expect(pages.length).toBeGreaterThanOrEqual(1);
-              expect(crawler).toEqual("default");
-              return; // Test passed, exit retry loop
-            } catch (error) {
-              lastError = error;
-              if (attempt === maxRetries) {
-                throw error; // Final attempt failed, throw the error
-              }
-              // Wait before retrying (exponential backoff)
-              await new Promise((resolve) =>
-                setTimeout(resolve, 1000 * attempt),
-              );
-            }
-          }
-        },
-        TIMEOUT_MS,
-      );
-    });
-  });
-
   describe("Cheerio Crawler", () => {
     beforeAll(() => {
-      docsCrawler = new DocsCrawler(mockIde, config, 2, 2, true);
+      docsCrawler = new DocsCrawler(mockIde, config, 2, 2);
     });
     test(
       "works on static site",

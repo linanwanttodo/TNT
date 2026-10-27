@@ -216,7 +216,6 @@ export const siteIndexingConfigSchema = z.object({
   title: z.string(),
   maxDepth: z.number().optional(),
   faviconUrl: z.string().optional(),
-  useLocalCrawling: z.boolean().optional(),
   sourceFile: z.string().optional(),
 });
 
