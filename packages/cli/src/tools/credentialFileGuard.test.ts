@@ -2,7 +2,10 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { DEFAULT_SECURITY_IGNORE_FILETYPES } from "core/indexing/ignore.js";
+import {
+  DEFAULT_SECURITY_IGNORE_FILETYPES,
+  isSecurityConcern,
+} from "core/indexing/ignore.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { editTool } from "./edit.js";
@@ -30,8 +33,13 @@ describe("the credential-file guard holds at both tool boundaries", () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-secret-guard-"));
-    const extension = DEFAULT_SECURITY_IGNORE_FILETYPES[0];
-    secretPath = path.join(dir, `keys${extension}`);
+    // The list element is a pattern, not a suffix: `keys*.env` is a legal name on
+    // Linux and an illegal one on Windows, where the write itself died with
+    // `ENOENT` and every case in this file failed for a reason that had nothing
+    // to do with the guard. Dropping the glob keeps the file inside what the
+    // pattern covers, which the floor case now checks directly.
+    const pattern = DEFAULT_SECURITY_IGNORE_FILETYPES[0];
+    secretPath = path.join(dir, `keys${pattern.replace(/^\*/, "")}`);
     ordinaryPath = path.join(dir, "ordinary.ts");
     fs.writeFileSync(secretPath, "API_KEY=super-secret-value\n");
     fs.writeFileSync(ordinaryPath, "export const a = 1;\n");
@@ -44,6 +52,8 @@ describe("the credential-file guard holds at both tool boundaries", () => {
   it("names a file the guard list really covers", () => {
     // Floor: without this the next two cases could pass against a filename nothing blocks.
     expect(DEFAULT_SECURITY_IGNORE_FILETYPES.length).toBeGreaterThan(0);
+    expect(isSecurityConcern(secretPath)).toBe(true);
+    expect(isSecurityConcern(ordinaryPath)).toBe(false);
   });
 
   it("refuses Read before any content is produced", async () => {
