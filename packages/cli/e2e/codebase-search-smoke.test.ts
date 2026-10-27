@@ -55,6 +55,48 @@ function readBody(req: http.IncomingMessage): Promise<any> {
   });
 }
 
+/**
+ * What the run left behind, as text: whether an index directory was created at
+ * all, and the last lines of the CLI's own log. A red lane with this attached
+ * distinguishes "never indexed" from "indexed and still missed"; a red lane
+ * without it cannot.
+ */
+async function describeRunArtifacts(testDir: string): Promise<string> {
+  const parts: string[] = [];
+
+  const indexDir = path.join(testDir, ".tnt", "index");
+  try {
+    const entries = await fs.readdir(indexDir, { withFileTypes: true });
+    parts.push(
+      `index dir: ${entries
+        .map((entry) => `${entry.name}${entry.isDirectory() ? "/" : ""}`)
+        .join(", ")}`,
+    );
+  } catch (error) {
+    parts.push(`index dir: none (${(error as Error).message})`);
+  }
+
+  const lancedb = path.join(indexDir, "lancedb");
+  try {
+    const tables = await fs.readdir(lancedb);
+    parts.push(`lancedb tables: ${tables.join(", ") || "(empty)"}`);
+  } catch {
+    parts.push("lancedb: absent");
+  }
+
+  try {
+    const log = await fs.readFile(
+      path.join(testDir, ".tnt", "logs", "tnt.log"),
+      "utf-8",
+    );
+    parts.push(`cli log tail:\n${log.split("\n").slice(-25).join("\n")}`);
+  } catch {
+    parts.push("cli log: absent");
+  }
+
+  return parts.join("\n");
+}
+
 describe("E2E: codebase search reaches the model", () => {
   let context: Awaited<ReturnType<typeof createTestContext>>;
   let mockServer: Awaited<ReturnType<typeof createMockLLMServer>>;
@@ -247,9 +289,16 @@ context:
 
     // An empty result is the only symptom this suite had for a long time, and
     // it says nothing about which stage came up short: the tool echoes the
-    // query into "No matches", so the run's own stderr and the requests the
-    // mock actually saw are what make a red run here readable.
-    const detail = `tool result: ${JSON.stringify(toolResult)}\nrequests seen: ${requestPaths.join(", ")}\nstderr: ${result.stderr.slice(-1500)}`;
+    // query into "No matches", so the run's own log, the index directory it
+    // left behind and the requests the mock actually saw are what make a red
+    // run here readable. The CI lanes failed twice with no way to tell whether
+    // the index was never built or built and then missed.
+    const detail = [
+      `tool result: ${JSON.stringify(toolResult)}`,
+      `requests seen: ${requestPaths.join(", ")}`,
+      `stderr: ${result.stderr.slice(-800)}`,
+      await describeRunArtifacts(context.testDir),
+    ].join("\n");
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout, detail).toContain("Cited the search result.");
