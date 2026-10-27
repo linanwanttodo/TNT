@@ -12,10 +12,13 @@ vi.mock("../services/index.js", () => ({
   serviceContainer: { get: async () => ({}) },
 }));
 
+import { HookFixtures } from "../../test-utils/hookFixtures.js";
+
 import { HookService } from "./HookService.js";
 import type { PreToolUseInput } from "./types.js";
 
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-hook-service-"));
+const fixtures = new HookFixtures(workDir);
 
 afterAll(() => {
   return fs.promises.rm(workDir, { recursive: true, force: true });
@@ -49,7 +52,7 @@ describe("HookService once wiring", () => {
         hooks: [
           {
             type: "command",
-            command: `n=$(cat "${counter}" 2>/dev/null || echo 0); echo $((n+1)) > "${counter}"`,
+            command: fixtures.bump(counter),
             once: true,
           },
         ],
@@ -73,7 +76,7 @@ describe("HookService once wiring", () => {
         hooks: [
           {
             type: "command",
-            command: `n=$(cat "${counter}" 2>/dev/null || echo 0); echo $((n+1)) > "${counter}"`,
+            command: fixtures.bump(counter),
             once: true,
           },
         ],
@@ -90,7 +93,7 @@ describe("HookService once wiring", () => {
         hooks: [
           {
             type: "command",
-            command: `n=$(cat "${counter}" 2>/dev/null || echo 0); echo $((n+1)) > "${counter}"`,
+            command: fixtures.bump(counter),
             once: true,
           },
         ],

@@ -4,10 +4,13 @@ import path from "path";
 
 import { afterAll, describe, expect, it } from "vitest";
 
+import { HookFixtures } from "../../test-utils/hookFixtures.js";
+
 import { runHooks } from "./hookRunner.js";
 import type { HookHandler, HooksConfig, PreToolUseInput } from "./types.js";
 
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-hooks-"));
+const fixtures = new HookFixtures(workDir);
 
 afterAll(() => {
   fs.rmSync(workDir, { recursive: true, force: true });
@@ -36,7 +39,7 @@ function commands(...command: string[]): HooksConfig {
 describe("command hook exit codes", () => {
   it("proceeds on exit 0 and parses JSON output", async () => {
     const result = await runHooks(
-      commands(`printf '{"systemMessage":"hello"}'`),
+      commands(fixtures.echo('{"systemMessage":"hello"}')),
       toolCall(),
       workDir,
     );
@@ -60,7 +63,7 @@ describe("command hook exit codes", () => {
 
   it("blocks on a JSON decision even with exit 0", async () => {
     const result = await runHooks(
-      commands(`printf '{"decision":"block","reason":"policy"}'`),
+      commands(fixtures.echo('{"decision":"block","reason":"policy"}')),
       toolCall(),
       workDir,
     );
@@ -122,7 +125,9 @@ describe("one handler failing next to another", () => {
     const result = await runHooks(
       commands(
         "definitely-not-a-real-binary-xyz --flag",
-        `printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"ls -la"}}}'`,
+        fixtures.echo(
+          '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"command":"ls -la"}}}',
+        ),
       ),
       toolCall(),
       workDir,
@@ -149,7 +154,7 @@ describe("command hook environment", () => {
 
   it("exposes the project directory to the command", async () => {
     const result = await runHooks(
-      commands(`printf '{"dir":"%s"}' "$CLAUDE_PROJECT_DIR"`),
+      commands(fixtures.echoWithProjectDir('{"dir":"{{projectDir}}"}')),
       toolCall(),
       workDir,
     );
@@ -163,7 +168,7 @@ describe("hook matching", () => {
     PreToolUse: [
       {
         matcher: "^Bash$",
-        hooks: [{ type: "command", command: `printf '{"ran":true}'` }],
+        hooks: [{ type: "command", command: fixtures.echo('{"ran":true}') }],
       },
     ],
   };
@@ -241,7 +246,7 @@ describe("command hook limits", () => {
           hooks: [
             {
               type: "command",
-              command: `sh -c 'sleep 30 & echo $! > ${pidFile}; wait'`,
+              command: fixtures.spawnTree(pidFile),
               timeout: 1,
             },
           ],
@@ -296,7 +301,7 @@ describe("once handlers", () => {
   function countingConfig(counter: string, once: boolean): HooksConfig {
     const handler: HookHandler = {
       type: "command",
-      command: `n=$(cat "${counter}" 2>/dev/null || echo 0); echo $((n+1)) > "${counter}"`,
+      command: fixtures.bump(counter),
       ...(once ? { once: true } : {}),
     };
     return { PreToolUse: [{ matcher: "*", hooks: [handler] }] };

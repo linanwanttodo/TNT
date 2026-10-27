@@ -4,12 +4,14 @@ import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { HookFixtures } from "../../test-utils/hookFixtures.js";
 import { runHooks } from "../hooks/hookRunner.js";
 import type { HooksConfig, PreToolUseInput } from "../hooks/types.js";
 
 import { loadAllPlugins } from "./loader.js";
 
 let pluginsDir: string;
+let fixtures: HookFixtures;
 let previousOverride: string | undefined;
 
 function writePlugin(
@@ -41,7 +43,7 @@ function writePlugin(
               hooks: [
                 {
                   type: "command",
-                  command: `printf '{"from":"tnt-manifest-file"}'`,
+                  command: fixtures.echo('{"from":"tnt-manifest-file"}'),
                 },
               ],
             },
@@ -77,6 +79,7 @@ function ownGroups(config: HooksConfig): unknown[] {
 beforeEach(() => {
   previousOverride = process.env.TNT_PLUGINS_DIR;
   pluginsDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-plugin-hooks-"));
+  fixtures = new HookFixtures(pluginsDir);
   process.env.TNT_PLUGINS_DIR = pluginsDir;
 });
 
@@ -204,7 +207,11 @@ describe("hooks contributed by a plugin", () => {
               hooks: [
                 {
                   type: "command",
-                  command: "${CLAUDE_PLUGIN_ROOT}/scripts/hook.sh",
+                  // node is the interpreter; the point of the case is that the loader
+                  // expands the second token, which stays untouched in the manifest.
+                  command:
+                    `"${process.execPath}" ` +
+                    "${CLAUDE_PLUGIN_ROOT}/scripts/hook.mjs",
                 },
               ],
             },
@@ -213,6 +220,9 @@ describe("hooks contributed by a plugin", () => {
       },
     });
 
+    // A `#!/bin/sh` script with 0o755 is not something cmd.exe can run, so the
+    // hook is a node script addressed by absolute path: the substitution of
+    // CLAUDE_PLUGIN_ROOT is what this case pins, not the shebang.
     const script = path.join(
       pluginsDir,
       "cache",
@@ -220,14 +230,13 @@ describe("hooks contributed by a plugin", () => {
       "voice",
       "1.0.0",
       "scripts",
-      "hook.sh",
+      "hook.mjs",
     );
     fs.mkdirSync(path.dirname(script), { recursive: true });
     fs.writeFileSync(
       script,
-      "#!/bin/sh\necho 'tnt-rooted hook' 1>&2\nexit 2\n",
+      'process.stderr.write("tnt-rooted hook");\nprocess.exit(2);\n',
     );
-    fs.chmodSync(script, 0o755);
 
     const { hooks } = loadAllPlugins();
     const result = await runHooks(hooks.config, toolCall(), pluginsDir);
