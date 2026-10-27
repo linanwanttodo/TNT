@@ -1,20 +1,8 @@
-import path from "path";
-import { fileURLToPath } from "url";
-
 import { getLspManager } from "../lsp/manager.js";
 
+import { describeLspUri } from "./lspLocations.js";
 import { symbolKindName } from "./lspSymbolKinds.js";
 import { Tool } from "./types.js";
-
-function describeLocation(uri: string | undefined): string {
-  if (!uri) return "?";
-  if (!uri.startsWith("file://")) return uri;
-  try {
-    return path.relative(process.cwd(), fileURLToPath(uri)) || ".";
-  } catch {
-    return uri;
-  }
-}
 
 /**
  * Asks the project's language servers where a name is defined. This answers with
@@ -58,8 +46,8 @@ Returns nothing when the project has no language server configured.`,
       const start = symbol.location?.range?.start;
       const where =
         typeof start?.line === "number"
-          ? `${describeLocation(symbol.location?.uri)}:${start.line + 1}:${(start.character ?? 0) + 1}`
-          : describeLocation(symbol.location?.uri);
+          ? `${describeLspUri(symbol.location?.uri)}:${start.line + 1}:${(start.character ?? 0) + 1}`
+          : describeLspUri(symbol.location?.uri);
       const kind = symbolKindName(symbol.kind);
       const container = symbol.containerName
         ? ` in ${symbol.containerName}`
