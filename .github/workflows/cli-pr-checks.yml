@@ -300,8 +300,6 @@ jobs:
 
       - name: Run smoke API tests
         env:
-          # The name is the upstream proxy service's contract, not a TNT switch.
-          CONTINUE_API_KEY: ${{ secrets.CONTINUE_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cd packages/cli
