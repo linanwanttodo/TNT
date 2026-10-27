@@ -251,6 +251,22 @@ export class LspClient {
     if (!this.child.killed) {
       this.child.kill();
     }
+    // Windows keeps the server's working directory locked until the process is
+    // reaped, so a caller that clears its temp directory right after this
+    // returns hits EBUSY for as long as the exit is still pending. The wait is
+    // bounded, and costs nothing once the server has already exited. `killNow`
+    // stays synchronous because only sync work runs on process exit.
+    await new Promise<void>((resolve) => {
+      if (this.child.exitCode !== null || this.child.signalCode !== null) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(resolve, 2000);
+      this.child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
   }
 
   private send(payload: unknown): void {
