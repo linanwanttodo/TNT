@@ -4,7 +4,7 @@ import sqlite3 from "sqlite3";
 
 import {
   Chunk,
-  ContinueConfig,
+  TntConfig,
   DocsIndexingDetails,
   IDE,
   IdeInfo,
@@ -125,8 +125,8 @@ const docConfigsAreEqualExceptTitleAndFavicon = (
 const siteIndexingConfigsAreEqual = (
   siteConfig1: SiteIndexingConfig,
   siteConfig2: SiteIndexingConfig,
-  contConfig1: ContinueConfig | undefined,
-  contConfig2: ContinueConfig,
+  contConfig1: TntConfig | undefined,
+  contConfig2: TntConfig,
 ) => {
   return (
     docConfigsAreEqual(siteConfig1, siteConfig2) &&
@@ -140,8 +140,8 @@ const siteIndexingConfigsAreEqual = (
 const siteIndexingConfigsAreEqualExceptTitleAndFavicon = (
   siteConfig1: SiteIndexingConfig,
   siteConfig2: SiteIndexingConfig,
-  contConfig1: ContinueConfig | undefined,
-  contConfig2: ContinueConfig,
+  contConfig1: TntConfig | undefined,
+  contConfig2: TntConfig,
 ) => {
   return (
     docConfigsAreEqualExceptTitleAndFavicon(siteConfig1, siteConfig2) &&
@@ -176,7 +176,7 @@ export default class DocsService {
   private docsIndexingQueue = new Set<string>();
   private lanceTableNamesSet = new Set<string>();
 
-  private config!: ContinueConfig;
+  private config!: TntConfig;
   private sqliteDb?: Database;
 
   private ideInfoPromise: Promise<IdeInfo>;
@@ -364,7 +364,7 @@ export default class DocsService {
 
   private async handleConfigUpdate({
     config: newConfig,
-  }: ConfigResult<ContinueConfig>) {
+  }: ConfigResult<TntConfig>) {
     if (newConfig) {
       const oldConfig = this.config;
       this.config = newConfig; // IMPORTANT - need to set up top, other methods below use this without passing it in
@@ -922,8 +922,8 @@ export default class DocsService {
    * Sync with no embeddings provider change
    */
   private async syncDocs(
-    oldConfig: ContinueConfig | undefined,
-    newConfig: ContinueConfig,
+    oldConfig: TntConfig | undefined,
+    newConfig: TntConfig,
     forceReindex: boolean,
   ) {
     try {

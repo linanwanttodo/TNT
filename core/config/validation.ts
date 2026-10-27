@@ -1,13 +1,13 @@
 import { ConfigValidationError } from "@tnt/config-yaml";
 
-import { ModelDescription, SerializedContinueConfig } from "../";
+import { ModelDescription, SerializedTntConfig } from "../";
 
 /**
- * Validates a SerializedContinueConfig object to ensure all properties are correctly formed.
+ * Validates a SerializedTntConfig object to ensure all properties are correctly formed.
  * @param config The configuration object to validate.
  * @returns An array of error messages if there are any. Otherwise, the config is valid.
  */
-export function validateConfig(config: SerializedContinueConfig) {
+export function validateConfig(config: SerializedTntConfig) {
   const errors: ConfigValidationError[] = [];
 
   // Validate chat models
@@ -142,7 +142,7 @@ export function validateConfig(config: SerializedContinueConfig) {
   // Validate other boolean flags
   const booleanFlags: Array<
     keyof Pick<
-      SerializedContinueConfig,
+      SerializedTntConfig,
       "allowAnonymousTelemetry" | "disableIndexing" | "disableSessionTitles"
     >
   > = ["allowAnonymousTelemetry", "disableIndexing", "disableSessionTitles"];

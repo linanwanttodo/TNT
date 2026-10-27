@@ -1,6 +1,6 @@
 import { ConfigResult } from "@tnt/config-yaml";
 import type {
-  BrowserSerializedContinueConfig,
+  BrowserSerializedTntConfig,
   ContextItemWithId,
   ContextProviderName,
   IndexingProgressUpdate,
@@ -11,7 +11,7 @@ import type { ProfileDescription } from "../config/ProfileLifecycleManager.js";
 export type ToWebviewFromIdeOrCoreProtocol = {
   configUpdate: [
     {
-      result: ConfigResult<BrowserSerializedContinueConfig>;
+      result: ConfigResult<BrowserSerializedTntConfig>;
       profileId: string | null;
       profiles: ProfileDescription[];
     },

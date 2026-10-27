@@ -317,7 +317,7 @@ describe("TUIChat - Tool Permission Tests", () => {
 
     await vi.advanceTimersByTimeAsync(50);
 
-    // Press escape key to trigger the "No, and tell Continue what to do differently" option
+    // Press escape key to trigger the "No, and tell it what to do instead" option
     stdin.write("\x1b"); // ESC key
 
     await vi.advanceTimersByTimeAsync(50);
@@ -349,7 +349,7 @@ describe("TUIChat - Tool Permission Tests", () => {
 
     await vi.advanceTimersByTimeAsync(50);
 
-    // Press 'n' key to trigger the "No, and tell Continue what to do differently" option
+    // Press 'n' key to trigger the "No, and tell it what to do instead" option
     stdin.write("n");
 
     await vi.advanceTimersByTimeAsync(50);

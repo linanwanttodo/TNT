@@ -8,11 +8,11 @@ import {
 } from "@tnt/config-yaml";
 
 import {
-  ContinueConfig,
+  TntConfig,
   IDE,
   ILLMLogger,
   RuleWithSource,
-  SerializedContinueConfig,
+  SerializedTntConfig,
   SlashCommandDescWithSource,
   Tool,
 } from "../../";
@@ -30,12 +30,12 @@ import { localPathOrUriToPath } from "../../util/pathToUri";
 import { IdeInfoService } from "../../util/IdeInfoService";
 import { TTS } from "../../util/tts";
 import { getWorkspaceTntRuleDotFiles } from "../getWorkspaceTntRuleDotFiles";
-import { loadContinueConfigFromJson } from "../load";
+import { loadTntConfigFromJson } from "../load";
 import { CodebaseRulesCache } from "../markdown/loadCodebaseRules";
 import { loadMarkdownRules } from "../markdown/loadMarkdownRules";
 import { migrateJsonSharedConfig } from "../migrateSharedConfig";
 import { rectifySelectedModelsFromGlobalContext } from "../selectedModels";
-import { loadContinueConfigFromYaml } from "../yaml/loadYaml";
+import { loadTntConfigFromYaml } from "../yaml/loadYaml";
 
 async function loadRules(ide: IDE) {
   const rules: RuleWithSource[] = [];
@@ -64,12 +64,12 @@ async function loadRules(ide: IDE) {
 export default async function doLoadConfig(options: {
   ide: IDE;
   llmLogger: ILLMLogger;
-  overrideConfigJson?: SerializedContinueConfig;
+  overrideConfigJson?: SerializedTntConfig;
   overrideConfigYaml?: AssistantUnrolled;
   profileId: string;
   overrideConfigYamlByPath?: string;
   packageIdentifier: PackageIdentifier;
-}): Promise<ConfigResult<ContinueConfig>> {
+}): Promise<ConfigResult<TntConfig>> {
   const {
     ide,
     llmLogger,
@@ -95,7 +95,7 @@ export default async function doLoadConfig(options: {
     overrideConfigYamlByPath || getConfigYamlPath(ideInfo.ideType),
   );
 
-  let newConfig: ContinueConfig | undefined;
+  let newConfig: TntConfig | undefined;
   let errors: ConfigValidationError[] | undefined;
   let configLoadInterrupted = false;
   let configName: string | undefined;
@@ -109,7 +109,7 @@ export default async function doLoadConfig(options: {
     hasPreReadContent ||
     fs.existsSync(configYamlPath)
   ) {
-    const result = await loadContinueConfigFromYaml({
+    const result = await loadTntConfigFromYaml({
       ide,
       ideSettings,
       ideInfo,
@@ -123,7 +123,7 @@ export default async function doLoadConfig(options: {
     configLoadInterrupted = result.configLoadInterrupted;
     configName = result.configName;
   } else {
-    const result = await loadContinueConfigFromJson(
+    const result = await loadTntConfigFromJson(
       ide,
       ideSettings,
       ideInfo,

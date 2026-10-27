@@ -1,6 +1,6 @@
 import { ModelRole } from "@tnt/config-yaml";
 
-import { ContinueConfig, ILLM } from "..";
+import { TntConfig, ILLM } from "..";
 import { LLMConfigurationStatuses } from "../llm/constants";
 import {
   GlobalContext,
@@ -8,9 +8,9 @@ import {
 } from "../util/GlobalContext";
 
 export function rectifySelectedModelsFromGlobalContext(
-  continueConfig: ContinueConfig,
+  continueConfig: TntConfig,
   profileId: string,
-): ContinueConfig {
+): TntConfig {
   const configCopy = { ...continueConfig };
 
   const globalContext = new GlobalContext();

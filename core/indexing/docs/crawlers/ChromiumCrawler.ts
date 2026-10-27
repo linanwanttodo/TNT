@@ -7,11 +7,11 @@ import { Handler, HTTPResponse, Page } from "puppeteer";
 // @prettier-ignore
 import PCR from "puppeteer-chromium-resolver";
 
-import { ContinueConfig, IDE } from "../../..";
+import { TntConfig, IDE } from "../../..";
 import {
   editConfigFile,
   getChromiumPath,
-  getContinueUtilsPath,
+  getTntUtilsPath,
 } from "../../../util/paths";
 import { PageData } from "./DocsCrawler";
 
@@ -199,11 +199,11 @@ export class ChromiumCrawler {
 }
 
 export class ChromiumInstaller {
-  static PCR_CONFIG = { downloadPath: getContinueUtilsPath() };
+  static PCR_CONFIG = { downloadPath: getTntUtilsPath() };
 
   constructor(
     private readonly ide: IDE,
-    private readonly config: ContinueConfig,
+    private readonly config: TntConfig,
   ) {
     if (this.shouldInstallOnStartup()) {
       console.log("Installing Chromium");

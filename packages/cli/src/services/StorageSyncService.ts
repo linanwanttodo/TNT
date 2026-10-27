@@ -83,7 +83,7 @@ export class StorageSyncService {
 
     if (!accessToken) {
       logger.warn(
-        "Storage sync requested but no Continue API key is available; skipping uploads.",
+        "Storage sync requested but no API key is available; skipping uploads.",
       );
       return false;
     }

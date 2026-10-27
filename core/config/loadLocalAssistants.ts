@@ -13,7 +13,7 @@ import { localPathToUri } from "../util/pathToUri";
 import { getUriPathBasename, joinPathsToUri } from "../util/uri";
 import { SYSTEM_PROMPT_DOT_FILE } from "./getWorkspaceTntRuleDotFiles";
 import { SUPPORTED_AGENT_FILES } from "./markdown";
-export function isContinueConfigRelatedUri(uri: string): boolean {
+export function isTntConfigRelatedUri(uri: string): boolean {
   return (
     uri.endsWith(".tntrc.json") ||
     uri.endsWith(".prompt") ||

@@ -27,10 +27,10 @@ const mockLoadJson = vi.fn().mockResolvedValue({
 });
 
 vi.mock("../yaml/loadYaml", () => ({
-  loadContinueConfigFromYaml: (...args: any[]) => mockLoadYaml(...args),
+  loadTntConfigFromYaml: (...args: any[]) => mockLoadYaml(...args),
 }));
 vi.mock("../load", () => ({
-  loadContinueConfigFromJson: (...args: any[]) => mockLoadJson(...args),
+  loadTntConfigFromJson: (...args: any[]) => mockLoadJson(...args),
 }));
 vi.mock("../migrateSharedConfig", () => ({
   migrateJsonSharedConfig: vi.fn(),

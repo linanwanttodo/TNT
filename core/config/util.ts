@@ -3,7 +3,7 @@ import os from "os";
 
 import { ModelConfig } from "@tnt/config-yaml";
 import {
-  ContinueConfig,
+  TntConfig,
   ExperimentalModelRoles,
   IDE,
   ILLM,
@@ -105,7 +105,7 @@ export function deleteModel(title: string) {
 }
 
 export function getModelByRole<T extends keyof ExperimentalModelRoles>(
-  config: ContinueConfig,
+  config: TntConfig,
   role: T,
 ): ILLM | undefined {
   const roleTitle = config.experimental?.modelRoles?.[role];

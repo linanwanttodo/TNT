@@ -177,7 +177,7 @@ declare global {
   export type FetchFunction = (url: string | URL, init?: any) => Promise<any>;
   
   export interface ContextProviderExtras {
-    config: ContinueConfig;
+    config: TntConfig;
     fullInput: string;
     embeddingsProvider: ILLM;
     reranker: ILLM | undefined;
@@ -188,7 +188,7 @@ declare global {
   }
   
   export interface LoadSubmenuItemsArgs {
-    config: ContinueConfig;
+    config: TntConfig;
     ide: IDE;
     fetch: FetchFunction;
   }
@@ -762,7 +762,7 @@ declare global {
   
   // Slash Commands
   
-  export interface ContinueSDK {
+  export interface TntSDK {
     ide: IDE;
     llm: ILLM;
     addContextItem: (item: ContextItemWithId) => void;
@@ -771,7 +771,7 @@ declare global {
     params?: { [key: string]: any } | undefined;
     contextItems: ContextItemWithId[];
     selectedCode: RangeInFile[];
-    config: ContinueConfig;
+    config: TntConfig;
     fetch: FetchFunction;
   }
   
@@ -779,7 +779,7 @@ declare global {
     name: string;
     description: string;
     params?: { [key: string]: any };
-    run: (sdk: ContinueSDK) => AsyncGenerator<string | undefined>;
+    run: (sdk: TntSDK) => AsyncGenerator<string | undefined>;
   }
   
   // Config
@@ -1033,7 +1033,7 @@ declare global {
     transport: TransportOptions;
   }
   
-  export interface ContinueUIConfig {
+  export interface TntUIConfig {
     codeBlockToolbarPosition?: "top" | "bottom";
     fontSize?: number;
     displayRawMarkdown?: boolean;
@@ -1143,7 +1143,7 @@ declare global {
   }
   
   // config.json
-  export interface SerializedContinueConfig {
+  export interface SerializedTntConfig {
     env?: string[];
     allowAnonymousTelemetry?: boolean;
     models: ModelDescription[];
@@ -1159,7 +1159,7 @@ declare global {
     embeddingsProvider?: EmbeddingsProviderDescription;
     tabAutocompleteModel?: ModelDescription | ModelDescription[];
     tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     reranker?: RerankerDescription;
     experimental?: ExperimentalConfig;
     analytics?: AnalyticsConfig;
@@ -1168,7 +1168,7 @@ declare global {
   
   export type ConfigMergeType = "merge" | "overwrite";
   
-  export type ContinueRcJson = Partial<SerializedContinueConfig> & {
+  export type TntRcJson = Partial<SerializedTntConfig> & {
     mergeBehavior: ConfigMergeType;
   };
   
@@ -1209,7 +1209,7 @@ declare global {
     /** Options for tab autocomplete */
     tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
     /** UI styles customization */
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     /** Options for the reranker */
     reranker?: RerankerDescription | ILLM;
     /** Experimental configuration */
@@ -1219,7 +1219,7 @@ declare global {
   }
   
   // in the actual Continue source code
-  export interface ContinueConfig {
+  export interface TntConfig {
     allowAnonymousTelemetry?: boolean;
     models: ILLM[];
     systemMessage?: string;
@@ -1233,7 +1233,7 @@ declare global {
     embeddingsProvider: ILLM;
     tabAutocompleteModels?: ILLM[];
     tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     reranker?: ILLM;
     experimental?: ExperimentalConfig;
     analytics?: AnalyticsConfig;
@@ -1241,7 +1241,7 @@ declare global {
     tools: Tool[];
   }
   
-  export interface BrowserSerializedContinueConfig {
+  export interface BrowserSerializedTntConfig {
     allowAnonymousTelemetry?: boolean;
     models: ModelDescription[];
     systemMessage?: string;
@@ -1253,7 +1253,7 @@ declare global {
     disableSessionTitles?: boolean;
     userToken?: string;
     embeddingsProvider?: string;
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     reranker?: RerankerDescription;
     experimental?: ExperimentalConfig;
     analytics?: AnalyticsConfig;

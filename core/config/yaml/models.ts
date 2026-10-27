@@ -1,6 +1,6 @@
 import { mergeConfigYamlRequestOptions, ModelConfig } from "@tnt/config-yaml";
 
-import { ContinueConfig, ILLMLogger, LLMOptions } from "../..";
+import { TntConfig, ILLMLogger, LLMOptions } from "../..";
 import { BaseLLM } from "../../llm";
 import { LLMClasses } from "../../llm/llms";
 
@@ -54,7 +54,7 @@ async function modelConfigToBaseLLM({
   model: ModelConfig;
   uniqueId: string;
   llmLogger: ILLMLogger;
-  config: ContinueConfig;
+  config: TntConfig;
   isFromAutoDetect?: boolean;
 }): Promise<BaseLLM | undefined> {
   const cls = getModelClass(model);
@@ -155,7 +155,7 @@ async function autodetectModels({
   model: ModelConfig;
   uniqueId: string;
   llmLogger: ILLMLogger;
-  config: ContinueConfig;
+  config: TntConfig;
 }): Promise<BaseLLM[]> {
   try {
     const modelNames = await llm.listModels();
@@ -194,7 +194,7 @@ export async function llmsFromModelConfig({
   model: ModelConfig;
   uniqueId: string;
   llmLogger: ILLMLogger;
-  config: ContinueConfig;
+  config: TntConfig;
 }): Promise<BaseLLM[]> {
   const baseLlm = await modelConfigToBaseLLM({
     model,

@@ -12,7 +12,7 @@ import { GlobalContextModelSelections } from "../util/GlobalContext";
 
 import {
   BaseSessionMetadata,
-  BrowserSerializedContinueConfig,
+  BrowserSerializedTntConfig,
   ChatMessage,
   CompiledMessagesResult,
   CompleteOnboardingPayload,
@@ -29,7 +29,7 @@ import {
   MessageOption,
   PromptLog,
   RangeInFile,
-  SerializedContinueConfig,
+  SerializedTntConfig,
   Session,
   SiteIndexingConfig,
   SlashCommandDescWithSource,
@@ -66,7 +66,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "config/addOpenAiKey": [string, void];
   "config/addModel": [
     {
-      model: SerializedContinueConfig["models"][number];
+      model: SerializedTntConfig["models"][number];
       role?: keyof ExperimentalModelRoles;
     },
     void,
@@ -83,7 +83,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "config/getSerializedProfileInfo": [
     undefined,
     {
-      result: ConfigResult<BrowserSerializedContinueConfig>;
+      result: ConfigResult<BrowserSerializedTntConfig>;
       profileId: string | null;
       profiles: ProfileDescription[];
     },

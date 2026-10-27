@@ -12,7 +12,7 @@ import {
   RuleWithSource,
 } from "../..";
 
-export function convertYamlRuleToContinueRule(rule: Rule): RuleWithSource {
+export function convertYamlRuleToTntRule(rule: Rule): RuleWithSource {
   if (typeof rule === "string") {
     return {
       rule: rule,

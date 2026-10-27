@@ -3,7 +3,7 @@ import * as fs from "fs/promises";
 import { ConfigHandler } from "../config/ConfigHandler.js";
 import {
   ContextIndexingType,
-  ContinueConfig,
+  TntConfig,
   IDE,
   IndexingProgressUpdate,
   IndexTag,
@@ -57,7 +57,7 @@ export class CodebaseIndexer {
   // We normally allow this to run in the background,
   // and only need to `await` it for tests.
   public initPromise: Promise<void>;
-  private config!: ContinueConfig;
+  private config!: TntConfig;
   private indexingCancellationController: AbortController;
   private codebaseIndexingState: IndexingProgressUpdate;
   private readonly pauseToken: PauseToken;
@@ -838,8 +838,8 @@ export class CodebaseIndexer {
   }
 
   private isIndexingConfigSame(
-    config1: ContinueConfig | undefined,
-    config2: ContinueConfig,
+    config1: TntConfig | undefined,
+    config2: TntConfig,
   ) {
     return embedModelsAreEqual(
       config1?.selectedModelByRole.embed,
@@ -849,7 +849,7 @@ export class CodebaseIndexer {
 
   private async handleConfigUpdate({
     config: newConfig,
-  }: ConfigResult<ContinueConfig>) {
+  }: ConfigResult<TntConfig>) {
     if (newConfig) {
       const ideSettings = await this.ide.getIdeSettings();
       const pauseCodebaseIndexOnStart = ideSettings.pauseCodebaseIndexOnStart;
