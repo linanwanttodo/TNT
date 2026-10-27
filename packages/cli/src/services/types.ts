@@ -111,7 +111,7 @@ export interface StorageSyncServiceState {
 export interface AgentFileServiceState {
   agentFile: AgentFile | null;
   slug: string | null;
-  agentFileModel: ModelConfig | null;
+  agentFileModel: { name: string } | null;
   parsedTools: ReturnType<typeof parseAgentFileTools> | null;
   parsedRules: ReturnType<typeof parseAgentFileRules> | null;
 }
