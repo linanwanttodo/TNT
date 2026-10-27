@@ -1,3 +1,5 @@
+import path from "path";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { globalDir, globalDirOverride } from "./globalDir.js";
@@ -36,6 +38,9 @@ describe("the global directory", () => {
   it("falls back to the home directory under the given root", () => {
     delete process.env.TNT_GLOBAL_DIR;
     delete process.env.CONTINUE_GLOBAL_DIR;
-    expect(globalDir("/home/lin")).toBe("/home/lin/.tnt");
+    // Built the way the implementation builds it. The literal `"/home/lin/.tnt"`
+    // matched on Linux and macOS only: `path.join` answers `\home\lin\.tnt` on
+    // Windows, so the assertion was pinning a separator, not the layout.
+    expect(globalDir("/home/lin")).toBe(path.join("/home/lin", ".tnt"));
   });
 });
