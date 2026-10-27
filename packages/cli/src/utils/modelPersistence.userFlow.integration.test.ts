@@ -5,11 +5,11 @@ import * as path from "path";
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { getPersistedModelName, persistModelName } from "./modelPersistence.js";
-
 import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
 import * as config from "../config/index.js";
 import { ModelService } from "../services/ModelService.js";
+
+import { getPersistedModelName, persistModelName } from "./modelPersistence.js";
 
 // Mock the config module
 vi.mock("../config/index.js");
