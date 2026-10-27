@@ -10,11 +10,10 @@ export const LOCAL_ONBOARDING_EMBEDDINGS_TITLE = "Nomic Embed";
 
 type OnboardingModel = NonNullable<ConfigYaml["models"]>[number];
 
-// These model definitions are inlined copies of the corresponding Continue Hub
-// blocks (e.g. anthropic/claude-sonnet-4-6) that onboarding previously resolved
-// via `uses:` slugs. Since Hub/slug resolution has been removed, we reproduce
-// the exact block contents here, with `apiKey` substituted for the block's
-// `${{ inputs.*_API_KEY }}` placeholder. Keep these in sync with the Hub blocks.
+// These model definitions are what onboarding used to resolve through `uses:`
+// slugs against the upstream package hub (e.g. anthropic/claude-sonnet-4-6).
+// Slug resolution is gone, so the blocks are reproduced here in full, with
+// `apiKey` substituted for each block's `${{ inputs.*_API_KEY }}` placeholder.
 const ANTHROPIC_ONBOARDING_MODELS = (apiKey: string): OnboardingModel[] => [
   {
     name: "Claude Sonnet 4.6",

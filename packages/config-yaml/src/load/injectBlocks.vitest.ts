@@ -389,7 +389,7 @@ name: Mixed Variables Block
 version: 1.0.0
 schema: v1
 rules:
-  - "Input: \${{ inputs.userSetting }} | Secret: \${{ secrets.apiKey }} | Continue: \${{ continue.workspaceRoot }}"
+  - "Input: \${{ inputs.userSetting }} | Secret: \${{ secrets.apiKey }} | Config: \${{ continue.workspaceRoot }}"
 `;
 
     const blockId: PackageIdentifier = {
@@ -422,7 +422,7 @@ rules:
 
     // Input should be converted to secret and then to FQSN, others should also get FQSN treatment
     expect(ruleText).toBe(
-      "Input: ${{ secrets.//userSetting }} | Secret: ${{ secrets.//apiKey }} | Continue: ${{ continue.workspaceRoot }}",
+      "Input: ${{ secrets.//userSetting }} | Secret: ${{ secrets.//apiKey }} | Config: ${{ continue.workspaceRoot }}",
     );
 
     // Verify only inputs were converted

@@ -276,7 +276,7 @@ describe("sanitizeShellArgument - integration tests", () => {
   it("should handle git stash message use case safely", () => {
     // This mirrors the actual usage in VsCodeMessenger.ts:269
     const agentId = "agent-123; rm -rf /";
-    const stashMessage = `Continue: Stashed before opening agent ${agentId}`;
+    const stashMessage = `TNT: Stashed before opening agent ${agentId}`;
     const sanitized = sanitizeShellArgument(stashMessage);
 
     // Simulate the git stash command (using echo as a safe substitute)
@@ -285,7 +285,7 @@ describe("sanitizeShellArgument - integration tests", () => {
 
     // The message should contain the full literal string including dangerous chars
     expect(result).toContain("agent-123; rm -rf /");
-    expect(result).toContain("Continue: Stashed before opening agent");
+    expect(result).toContain("TNT: Stashed before opening agent");
     // Verify it's one line (not executed as multiple commands)
     expect(result.split("\n").length).toBe(1);
   });

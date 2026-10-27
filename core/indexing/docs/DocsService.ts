@@ -949,7 +949,7 @@ export default class DocsService {
             (d) => d.startUrl === doc.startUrl,
           );
 
-          // TODO: Changes to the docs config made while Continue isn't running won't be caught
+          // TODO: Changes to the docs config made while TNT isn't running won't be caught
           if (
             oldConfigDoc &&
             !siteIndexingConfigsAreEqual(
@@ -976,7 +976,7 @@ export default class DocsService {
             if (forceReindex) {
               changedDocs.push(doc);
             } else {
-              // This is a temperary fix to catch the changes to the docs config that were made when Continue isn't running
+              // This is a temperary fix to catch the changes to the docs config that were made when TNT isn't running
               // We only update title and faviconUrl here
               await this.updateMetadataInSqlite(doc);
               // if get's here, not changed, no update needed, mark as complete
