@@ -63,6 +63,23 @@ describe("handleToolCalls - duplicate tool_result prevention", () => {
     vi.mocked(services.chatHistory.isReady).mockReturnValue(true);
   });
 
+  it("stores assistant content when the stream is aborted without tool calls", async () => {
+    vi.mocked(services.chatHistory.isReady).mockReturnValue(false);
+
+    await handleToolCalls({
+      toolCalls: [],
+      chatHistory,
+      content: "partial answer",
+      callbacks: undefined,
+      isHeadless: false,
+    });
+
+    expect(chatHistory.at(-1)?.message).toMatchObject({
+      role: "assistant",
+      content: "partial answer",
+    });
+  });
+
   it("passes the reasoning channel to the assistant message", async () => {
     const toolCalls = [
       {

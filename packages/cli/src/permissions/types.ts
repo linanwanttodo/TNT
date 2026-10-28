@@ -74,6 +74,12 @@ export interface ToolCallRequest {
   name: string;
   arguments: Record<string, any>;
   preview?: ToolCallPreview[];
+  /**
+   * The stream's tool call id, when the request comes from one. Surfaces pair
+   * an answer with its request by request id; the engine pairs the request
+   * with the call it belongs to by this id.
+   */
+  toolCallId?: string;
 }
 
 export interface PermissionCheckResult {

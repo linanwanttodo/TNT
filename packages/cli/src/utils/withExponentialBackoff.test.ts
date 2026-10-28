@@ -74,6 +74,34 @@ describe("withExponentialBackoff", () => {
     expect(generatorFactory).toHaveBeenCalledTimes(2);
   });
 
+  it("should not retry a retryable error after yielding a chunk", async () => {
+    let callCount = 0;
+    const generatorFactory = vi.fn(async () => {
+      callCount++;
+      return (async function* () {
+        yield "partial";
+        const error = new Error("Connection reset");
+        (error as any).code = "ECONNRESET";
+        throw error;
+      })();
+    });
+    const results: string[] = [];
+    const generator = withExponentialBackoff(
+      generatorFactory,
+      abortController.signal,
+      { maxRetries: 2, initialDelay: 0 },
+    );
+
+    await expect(async () => {
+      for await (const chunk of generator) {
+        results.push(chunk);
+      }
+    }).rejects.toThrow("Connection reset");
+
+    expect(results).toEqual(["partial"]);
+    expect(generatorFactory).toHaveBeenCalledTimes(1);
+  });
+
   it("should not retry on non-retryable errors", async () => {
     const generatorFactory = vi.fn(async (retryAbortSignal: AbortSignal) => {
       const error = new Error("Bad request");
