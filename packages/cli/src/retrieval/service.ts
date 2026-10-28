@@ -127,6 +127,13 @@ export class RetrievalService {
 
   /** Walks the workspace and brings the index up to date with it. */
   async update(): Promise<void> {
+    // Constructing the indexer kicks off a build of its own from the config it
+    // loads, and `refreshCodebaseIndex` cancels whatever build is in flight
+    // before starting. Whichever of the two lands second decides who survives -
+    // and if the loser is the build a caller awaited, that caller goes on to
+    // search an index its own cancelled build had written nothing to. Waiting
+    // for the indexer's start makes this the build that lands second.
+    await this.indexer.initPromise;
     await this.indexer.refreshCodebaseIndex([this.workspaceDir]);
   }
 
