@@ -52,13 +52,15 @@ describe("tool-level working rules", () => {
   it("says what a fetch brings back and what it cannot", () => {
     const fetchCopy = fetchTool.description;
 
-    // The three things worth knowing before the call: the page arrives as
-    // markdown, a page built by scripts arrives nearly empty, and an empty
-    // answer is about the fetcher, not about the topic.
+    // The four things worth knowing before the call: the page arrives as
+    // markdown, a long page arrives in parts that name the offset for the next
+    // one, a page built by scripts arrives nearly empty, and an empty answer is
+    // about the fetcher, not about the topic.
     expect(fetchCopy).toContain("markdown");
+    expect(fetchCopy).toContain("one part at a time");
+    expect(fetchCopy).toContain("offset");
     expect(fetchCopy).toContain("Scripts do not run");
     expect(fetchCopy).toContain("not evidence that the page has nothing");
-    expect(fetchCopy).toContain("truncated");
   });
 
   it("states the shell hygiene the reference insists on", () => {
