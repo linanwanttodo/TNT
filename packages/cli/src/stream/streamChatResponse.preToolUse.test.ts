@@ -100,7 +100,9 @@ describe("PreToolUse decisions at execution time", () => {
         preview: [
           expect.objectContaining({ content: "Will read /rewritten.txt" }),
         ],
+        toolCallId: "call_1",
       }),
+      expect.any(Number),
     );
     expect(run).toHaveBeenCalledWith(
       { normalizedPath: "/rewritten.txt" },
@@ -208,7 +210,9 @@ describe("PreToolUse ask escalates to the prompt", () => {
         preview: expect.arrayContaining([
           expect.objectContaining({ content: "touching a protected path" }),
         ]),
+        toolCallId: "call_1",
       }),
+      expect.any(Number),
     );
     expect(hasRejection).toBe(true);
     expect(chatHistoryEntries[0]?.status).toBe("canceled");
@@ -344,7 +348,9 @@ describe("a write outside the workspace escalates", () => {
             content: expect.stringContaining("Outside the workspace"),
           }),
         ]),
+        toolCallId: "call_1",
       }),
+      expect.any(Number),
     );
     expect(executeToolCall).toHaveBeenCalled();
     expect(chatHistoryEntries[0]?.status).toBe("done");

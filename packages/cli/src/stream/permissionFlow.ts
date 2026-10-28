@@ -12,7 +12,12 @@ import {
 } from "../permissions/autoMode.js";
 import { ACCEPT_EDITS_MODE_POLICIES } from "../permissions/defaultPolicies.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
-import { toolPermissionManager } from "../permissions/permissionManager.js";
+import {
+  DEFAULT_PERMISSION_TIMEOUT_MS,
+  PermissionRequestResult,
+  toolPermissionManager,
+  ToolPermissionManager,
+} from "../permissions/permissionManager.js";
 import { hasSessionApproval } from "../permissions/sessionApprovals.js";
 import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
 import {
@@ -67,6 +72,8 @@ export async function requestUserPermission(
   toolCall: PreprocessedToolCall,
   callbacks?: StreamCallbacks,
   note?: string,
+  permissionManager: ToolPermissionManager = toolPermissionManager,
+  timeoutMs = DEFAULT_PERMISSION_TIMEOUT_MS,
 ): Promise<boolean> {
   if (!callbacks?.onToolPermissionRequest) {
     return false;
@@ -80,38 +87,50 @@ export async function requestUserPermission(
     preview: note
       ? [{ type: "text" as const, content: note }, ...(basePreview ?? [])]
       : basePreview,
+    toolCallId: toolCall.id,
   };
 
-  // Set up listener for permissionRequested event
+  // Request permission using the proper API. requestPermission emits its
+  // event synchronously, so the first event a listener sees is always its
+  // own request; later events belong to other concurrent requests and must
+  // not re-open this one's prompt.
+  let requestId: string | undefined;
   const handlePermissionRequested = (event: {
     requestId: string;
     toolCall: ToolCallRequest;
   }) => {
-    if (event.toolCall.name === toolCall.name) {
-      toolPermissionManager.off(
-        "permissionRequested",
-        handlePermissionRequested,
-      );
-      // Notify UI about permission request
-      callbacks.onToolPermissionRequest!(
-        event.toolCall.name,
-        event.toolCall.arguments,
-        event.requestId,
-        event.toolCall.preview,
-        toolCall.id,
-      );
+    if (requestId !== undefined) {
+      return;
     }
+    requestId = event.requestId;
+    // Notify UI about permission request
+    callbacks.onToolPermissionRequest!(
+      event.toolCall.name,
+      event.toolCall.arguments,
+      event.requestId,
+      event.toolCall.preview,
+      event.toolCall.toolCallId ?? toolCall.id,
+    );
   };
 
-  toolPermissionManager.on("permissionRequested", handlePermissionRequested);
+  permissionManager.on("permissionRequested", handlePermissionRequested);
 
-  // Request permission using the proper API
-  const permissionResult =
-    await toolPermissionManager.requestPermission(toolCallRequest);
+  let permissionResult: PermissionRequestResult;
+  try {
+    permissionResult = await permissionManager.requestPermission(
+      toolCallRequest,
+      timeoutMs,
+    );
+  } finally {
+    permissionManager.off("permissionRequested", handlePermissionRequested);
+  }
 
-  // Clean up listener in case the condition above was never met
-  // This is a safety net to ensure no listeners are left behind
-  toolPermissionManager.off("permissionRequested", handlePermissionRequested);
+  if (permissionResult.timedOut) {
+    logger.warn("Permission request timed out unanswered", {
+      name: toolCall.name,
+      requestId,
+    });
+  }
 
   return permissionResult.approved;
 }
