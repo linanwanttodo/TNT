@@ -79,27 +79,44 @@ describe("retrieval benchmark", () => {
     run = await runBenchmark();
   }, 420_000);
 
-  afterAll(() => {
+  afterAll(async () => {
     // The run sat inside its own working directory to reach the grammars, and on
     // Windows the copied wasm files are still open by the parser when the last
     // query returns: the first `rmdir` answers `ENOTEMPTY` for the parent, which
     // `force` does not cover. The sibling temp-directory cleanups retry for the
-    // same reason. A run that still cannot clear its own directory says so
-    // instead of failing the suite - every scored assertion above has already
-    // been checked, and the next run is handed a fresh directory.
-    try {
-      fs.rmSync(run.dir, {
-        recursive: true,
-        force: true,
-        maxRetries: 40,
-        retryDelay: 250,
-      });
-    } catch (error) {
-      console.warn(
-        `retrieval benchmark left ${run.dir} behind: ${(error as Error).message}`,
-      );
+    // same reason - but `maxRetries` belongs to `rmSync`, which applies it to
+    // every entry it visits, and twenty-seven grammar files at 40 × 250 ms made
+    // this hook cost 200 seconds on the runner (12 seconds in the run before
+    // it), long enough to starve the render polls in the lanes sharing the
+    // machine and past the hook's own 30 second timeout. So the budget lives
+    // here, around the whole attempt: one delete, then a bounded wait between
+    // tries, with the hook timeout outside it rather than discovered by a red
+    // lane.
+    //
+    // A directory the operating system still refuses is named on the console
+    // rather than thrown. The scored assertions above have already been
+    // recorded, whichever way they went, and the next run is handed a fresh
+    // directory - so a leftover costs a temp entry and nothing else, while
+    // failing the suite would hide the very numbers this run exists to report.
+    const deadline = Date.now() + 6_000;
+    let failure: Error | undefined;
+    for (;;) {
+      try {
+        fs.rmSync(run.dir, { recursive: true, force: true });
+        return;
+      } catch (error) {
+        failure = error as Error;
+      }
+      if (Date.now() >= deadline) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
-  });
+
+    console.warn(
+      `retrieval benchmark left ${run.dir} behind: ${failure?.message}`,
+    );
+  }, 20_000);
 
   /** Only the tree-sitter chunks are what a shipped CLI ranks with. */
   function requireRealChunks(ctx: { skip: () => void }): void {
