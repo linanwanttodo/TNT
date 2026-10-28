@@ -6,6 +6,7 @@ import { ChatDescriber } from "core/util/chatDescriber.js";
 
 import { expandMentions } from "../agent/atMentions.js";
 import { describeChangedFiles } from "../agent/changedFiles.js";
+import { describeContextBudget } from "../compaction/contextBudget.js";
 import {
   compactChatHistory,
   findCompactionIndex,
@@ -765,6 +766,7 @@ async function runHeadlessMode(
       takeSessionStartContext(),
       promptHook?.additionalContext,
       describeChangedFiles(),
+      describeContextBudget(chatHistory, model),
       schemaNote,
     ];
     const leading = hookNotes.filter((note): note is string => Boolean(note));

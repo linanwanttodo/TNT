@@ -5,6 +5,7 @@ import { useApp } from "ink";
 import { useEffect, useRef, useState } from "react";
 
 import { describeChangedFiles } from "../../agent/changedFiles.js";
+import { describeContextBudget } from "../../compaction/contextBudget.js";
 import { findCompactionIndex } from "../../compaction/index.js";
 import {
   fireSessionEnd,
@@ -597,6 +598,7 @@ export function useChat({
       takeSessionStartContext(),
       promptHook.additionalContext,
       describeChangedFiles(),
+      model ? describeContextBudget(currentHistory, model) : undefined,
     ];
     const leading = hookNotes.filter((note): note is string => Boolean(note));
     if (leading.length > 0) {
