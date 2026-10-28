@@ -22,6 +22,12 @@ import {
   takeSessionStartContext,
 } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
+import {
+  describeTermination,
+  exitCodeForTermination,
+  isNormalTermination,
+  type TerminationReason,
+} from "../loop/termination.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { initializeServices, services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
@@ -204,14 +210,22 @@ async function getStreamingResponse(
   turnBudgetLimits?: Partial<TurnBudgetLimits>,
   extraCallbacks?: StreamCallbacks,
   timeoutSeconds?: number,
-): Promise<{ text: string; deadlineSeconds: number; timedOut: boolean }> {
+): Promise<{
+  text: string;
+  deadlineSeconds: number;
+  timedOut: boolean;
+  terminationReason?: TerminationReason;
+  terminationNotice?: string;
+}> {
   const abortController = new AbortController();
   // Captured rather than logged: a truncated turn still returns usable text, so
-  // the caller has to know to label it as incomplete.
+  // the caller has to know to label it as incomplete and exit accordingly.
   let truncationNotice: string | undefined;
+  let terminationReason: TerminationReason | undefined;
   const callbacks: StreamCallbacks = {
     ...extraCallbacks,
     onTurnTerminated: (reason, detail) => {
+      terminationReason = reason;
       truncationNotice = detail?.notice;
       extraCallbacks?.onTurnTerminated?.(reason, detail);
     },
@@ -256,7 +270,13 @@ async function getStreamingResponse(
     safeStderr(`\n[${truncationNotice}]\n`);
   }
 
-  return { text: response, deadlineSeconds, timedOut };
+  return {
+    text: response,
+    deadlineSeconds,
+    timedOut,
+    terminationReason,
+    terminationNotice: truncationNotice,
+  };
 }
 
 // Helper function to process and output response in headless mode
@@ -265,7 +285,7 @@ function processAndOutputResponse(
   isHeadless: boolean,
   silent?: boolean,
   format?: OutputFormat,
-  timeoutNotice?: string,
+  boundedNotice?: string,
 ): void {
   // The event stream already carried the text, and the run ends with a result
   // line that repeats the final answer; printing it again would leave a bare
@@ -284,11 +304,11 @@ function processAndOutputResponse(
       // A consumer pipes this format straight into a parser, so stdout is always
       // one document; a bounded run says error inside it instead of going quiet.
       safeStdout(
-        (timeoutNotice
+        (boundedNotice
           ? JSON.stringify({
               response: processedResponse,
               status: "error",
-              error: timeoutNotice,
+              error: boundedNotice,
             })
           : processJsonOutput(processedResponse)) + "\n",
       );
@@ -461,7 +481,8 @@ async function requestSchemaRepair(
 async function processMessage(options: ProcessMessageOptions): Promise<{
   compactionIndex?: number | null;
   finalText?: string;
-  timeoutNotice?: string;
+  boundedNotice?: string;
+  terminationReason?: TerminationReason;
 } | void> {
   const {
     userInput,
@@ -532,9 +553,20 @@ async function processMessage(options: ProcessMessageOptions): Promise<{
       timeoutSeconds,
     );
     let finalResponse = streamed.text;
-    const timeoutNotice = streamed.timedOut
+    // A bounded run is one that did not end normally: the wall clock fired,
+    // or the loop stopped for one of its own reasons. The timeout text stays
+    // the specific one; any other truncation reuses the notice the stream
+    // already printed to stderr.
+    const truncated =
+      streamed.timedOut ||
+      (streamed.terminationReason !== undefined &&
+        !isNormalTermination(streamed.terminationReason));
+    const boundedNotice = streamed.timedOut
       ? t("chat.timedOut", { seconds: streamed.deadlineSeconds })
-      : undefined;
+      : truncated
+        ? (streamed.terminationNotice ??
+          describeTermination(streamed.terminationReason!, { maxSteps }))
+        : undefined;
 
     // A run asked for a schema-shaped answer is not done until the answer
     // matches it: one repair round, and then the run fails instead of
@@ -559,13 +591,17 @@ async function processMessage(options: ProcessMessageOptions): Promise<{
       isHeadless,
       silent,
       format,
-      timeoutNotice,
+      boundedNotice,
     );
 
     // Save session after each successful response
     updateSessionHistory(services.chatHistory.getHistory());
 
-    return { finalText: finalResponse, timeoutNotice };
+    return {
+      finalText: finalResponse,
+      boundedNotice,
+      terminationReason: streamed.terminationReason,
+    };
   } catch (e: any) {
     const error = e instanceof Error ? e : new Error(String(e));
 
@@ -695,6 +731,7 @@ async function runHeadlessMode(
   // hook report the answer that was actually accepted.
   let acceptedText: string | undefined;
   let boundedNotice: string | undefined;
+  let terminationReason: TerminationReason | undefined;
   while (true) {
     // When in headless mode, don't ask for user input
     if (!isFirstMessage && initialUserInput && options.headless) {
@@ -757,8 +794,11 @@ async function runHeadlessMode(
     if (result && result.finalText !== undefined) {
       acceptedText = result.finalText;
     }
-    if (result?.timeoutNotice) {
-      boundedNotice = result.timeoutNotice;
+    if (result?.boundedNotice) {
+      boundedNotice = result.boundedNotice;
+    }
+    if (result?.terminationReason !== undefined) {
+      terminationReason = result.terminationReason;
     }
   }
 
@@ -784,8 +824,9 @@ async function runHeadlessMode(
   // the same payload Codex hands its notifier. It cannot fail the run.
   await runCompletionNotify(answeredText ?? "");
 
-  // exit after headless mode completes; a bounded run is a failed run
-  await gracefulExit(boundedNotice ? 1 : 0);
+  // Exit after headless mode completes; a bounded run is a failed run, and the
+  // status comes from the reason so every truncation is reported the same way.
+  await gracefulExit(exitCodeForTermination(terminationReason));
 }
 
 export async function chat(prompt?: string, options: ChatOptions = {}) {
