@@ -49,6 +49,7 @@ interface ComposerProps {
   chatHistory: ChatHistoryItem[];
   handleEditMessage: (messageIndex: number, newContent: string) => void;
   onShowEditSelector: () => void;
+  onOpenPalette?: () => void;
   /** Previews a theme in place while the theme picker is open. */
   onPreviewTheme?: (themeName: ThemeName | "auto") => void;
   /** Rolls the preview back and closes the picker. */
@@ -120,6 +121,7 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         chatHistory={props.chatHistory}
         handleEditMessage={props.handleEditMessage}
         onShowEditSelector={props.onShowEditSelector}
+        onOpenPalette={props.onOpenPalette}
         onPreviewTheme={props.onPreviewTheme}
         onCancelThemePreview={props.onCancelThemePreview}
         onSelectTheme={props.onSelectTheme}

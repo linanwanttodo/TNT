@@ -19,6 +19,8 @@ interface ControlKeysOptions {
    * the queued-message shortcuts then fall through to the focused widget.
    */
   queueActionsEnabled?: boolean;
+  /** Opens the command palette; absent when the caller has no palette. */
+  onOpenPalette?: () => void;
 }
 
 /**
@@ -46,6 +48,7 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
     textBuffer,
     onTextBufferUpdate,
     queueActionsEnabled = true,
+    onOpenPalette,
   } = options;
 
   // Handle Ctrl+C with two-stage exit, Ctrl+D immediately exits
@@ -93,6 +96,12 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
     void import("../../utils/exit.js").then(({ gracefulExit }) =>
       gracefulExit(0),
     );
+  }
+
+  // Ctrl+P opens the command list, the one key a person tries for a palette.
+  if (key.ctrl && input === "p" && onOpenPalette) {
+    onOpenPalette();
+    return true;
   }
 
   // Handle Ctrl+L to refresh screen (clear terminal artifacts)

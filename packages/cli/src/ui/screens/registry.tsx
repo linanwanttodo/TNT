@@ -1,5 +1,6 @@
 import React from "react";
 
+import { CommandPalette } from "../CommandPalette.js";
 import { ChatScreenContent } from "../components/ChatScreenContent.js";
 import type { ScreenContentProps } from "../components/ScreenContent.js";
 import { SessionSelectorWithLoading } from "../components/SessionSelectorWithLoading.js";
@@ -53,6 +54,19 @@ export const SCREENS: readonly ScreenDefinition[] = [
         onPreview={props.onPreviewTheme ?? (() => {})}
         onCancel={props.onCancelThemePreview ?? props.closeCurrentScreen}
         onSelect={props.onSelectTheme ?? (() => {})}
+      />
+    ),
+  },
+  {
+    id: "palette",
+    render: (props) => (
+      <CommandPalette
+        assistant={props.services?.config?.config}
+        onRun={(command) => {
+          props.closeCurrentScreen();
+          props.handleUserMessage(command);
+        }}
+        onCancel={props.closeCurrentScreen}
       />
     ),
   },
@@ -139,6 +153,7 @@ export const SCREENS: readonly ScreenDefinition[] = [
         isInputDisabled={props.isInputDisabled}
         isRemoteMode={props.isRemoteMode}
         onShowEditSelector={props.onShowEditSelector}
+        onOpenPalette={props.onOpenPalette}
         subagentView={props.subagentView}
       />
     ),
