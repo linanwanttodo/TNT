@@ -37,7 +37,9 @@ If you find a bug, [create an issue](https://github.com/linanwanttodo/TNT/issues
 
 - First check whether a similar proposal already exists.
 - Describe the enhancement in detail and, most importantly, what task it makes possible that is awkward today.
-- Runtime behavior changes land through an issue plus a plan in `docs/superpowers/plans/`.
+- Runtime behavior changes land through an issue plus a plan written to
+  `docs/superpowers/plans/`. That directory is ignored: a plan is the working
+  list of whoever wrote it, not documentation the site builds.
 
 ## Update Documentation
 
