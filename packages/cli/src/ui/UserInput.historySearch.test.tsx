@@ -57,6 +57,38 @@ async function untilFrame(
 }
 
 /**
+ * Deliver one keystroke and wait for the frame it must produce.
+ *
+ * ink-testing-library's mock stdin can swallow a write that lands while React
+ * is still committing the previous update - on a loaded Windows runner this
+ * dropped a byte in roughly one run in three, and the assertions below read
+ * like a broken filter when only the delivery was broken. A terminal re-sends
+ * what got missed; the harness does the same, at most three times, and still
+ * fails with the last frame when the behaviour itself is broken.
+ */
+async function press(
+  tree: ReturnType<typeof render>,
+  key: string,
+  want: (frame: string) => boolean,
+): Promise<string> {
+  let lastFrame = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await tick(150);
+    tree.stdin.write(key);
+    const deadline = Date.now() + 1_500;
+    while (Date.now() < deadline) {
+      lastFrame = tree.lastFrame() ?? "";
+      if (want(lastFrame)) return lastFrame;
+      await tick(25);
+    }
+  }
+  throw new Error(
+    `keystroke ${JSON.stringify(key)} never produced its frame within 3 deliveries\n` +
+      `  last frame: ${lastFrame.split("\n")[0] ?? "(empty)"}`,
+  );
+}
+
+/**
  * Ctrl+F searches the input history in place: a muted hint line above the
  * composer carries the query and the position, typing filters, repeated
  * Ctrl+F walks older matches, Esc restores what the box held before the
@@ -84,10 +116,10 @@ describe("UserInput history search", () => {
   /** Seeds the history through the real path: typing a line and submitting. */
   const seed = async (tree: ReturnType<typeof render>, ...lines: string[]) => {
     for (const line of lines) {
-      tree.stdin.write(line);
-      await tick();
-      tree.stdin.write("\r");
-      await tick();
+      await press(tree, line, (f) => f.includes(line));
+      // The box has to be empty again before the next line: a submit that has
+      // been counted but not yet cleared would seed the search's opening query.
+      await press(tree, "\r", (f) => !f.includes(line));
     }
   };
 
@@ -105,20 +137,16 @@ describe("UserInput history search", () => {
         "hs-beta three",
       );
 
-      tree.stdin.write("\x06"); // ctrl+f opens the search, empty query
-      const hint = await untilFrame(tree, (frame) =>
-        frame.includes("history search"),
-      );
+      await press(tree, "\x06", (f) => f.includes("history search"));
+      const hint = tree.lastFrame() ?? "";
       expect(hint).toContain("history search");
       expect(hint).toContain("0/0");
 
-      tree.stdin.write("hs-alpha");
-      let frame = await untilFrame(tree, (f) => f.includes("1/2"));
+      let frame = await press(tree, "hs-alpha", (f) => f.includes("1/2"));
       expect(frame).toContain("1/2");
       expect(frame).toContain("hs-alpha yak two"); // newest match first
 
-      tree.stdin.write("\x06"); // next-older match
-      frame = await untilFrame(tree, (f) => f.includes("2/2"));
+      frame = await press(tree, "\x06", (f) => f.includes("2/2")); // next-older match
       expect(frame).toContain("2/2");
       expect(frame).toContain("hs-alpha zebra one");
 
@@ -140,18 +168,15 @@ describe("UserInput history search", () => {
     try {
       await seed(tree, "hs-keep-me");
       // Half-typed text is the search's initial query and its restore point.
-      tree.stdin.write("hs-keep");
-      await tick();
+      await press(tree, "hs-keep", (f) => f.includes("hs-keep"));
 
-      tree.stdin.write("\x06");
-      await tick();
-      tree.stdin.write("\x06"); // walk to the match
-      await untilFrame(tree, (f) => f.includes("hs-keep-me"));
+      await press(tree, "\x06", (f) => f.includes("history search"));
+      await press(tree, "\x06", (f) => f.includes("hs-keep-me")); // walk to the match
       expect(tree.lastFrame() ?? "").toContain("hs-keep-me");
 
-      tree.stdin.write("\x1b");
-      const frame = await untilFrame(
+      const frame = await press(
         tree,
+        "\x1b",
         (f) => !f.includes("history search") && f.includes("hs-keep"),
       );
       expect(frame).not.toContain("history search");
@@ -167,15 +192,13 @@ describe("UserInput history search", () => {
       await seed(tree, "hs-pick-me");
       const submitsBefore = onSubmit.mock.calls.length;
 
-      tree.stdin.write("\x06");
-      await tick();
-      tree.stdin.write("pick");
-      await untilFrame(tree, (f) => f.includes("hs-pick-me"));
-      expect(tree.lastFrame() ?? "").toContain("hs-pick-me");
+      await press(tree, "\x06", (f) => f.includes("history search"));
+      let frame = await press(tree, "pick", (f) => f.includes("hs-pick-me"));
+      expect(frame).toContain("hs-pick-me");
 
-      tree.stdin.write("\r");
-      const frame = await untilFrame(
+      frame = await press(
         tree,
+        "\r",
         (f) => !f.includes("history search") && f.includes("hs-pick-me"),
       );
       expect(frame).not.toContain("history search");
@@ -184,8 +207,11 @@ describe("UserInput history search", () => {
       expect(onSubmit.mock.calls.length).toBe(submitsBefore);
 
       // A second Enter submits the selected line like any other input.
-      tree.stdin.write("\r");
-      await until(() => onSubmit.mock.calls.length === submitsBefore + 1);
+      await press(
+        tree,
+        "\r",
+        () => onSubmit.mock.calls.length === submitsBefore + 1,
+      );
       expect(onSubmit.mock.calls.at(-1)?.[0]).toBe("hs-pick-me");
     } finally {
       tree.unmount();
@@ -197,14 +223,12 @@ describe("UserInput history search", () => {
     try {
       await seed(tree, "hs-narrow-yes", "hs-narrow-no");
 
-      tree.stdin.write("\x06");
-      await tick();
-      tree.stdin.write("hs-narrow-y");
-      await untilFrame(tree, (f) => f.includes("1/1"));
-      expect(tree.lastFrame() ?? "").toContain("1/1");
+      await press(tree, "\x06", (f) => f.includes("history search"));
+      let frame = await press(tree, "hs-narrow-y", (f) => f.includes("1/1"));
+      expect(frame).toContain("1/1");
 
-      tree.stdin.write("\x7f"); // drop the y: both entries match again
-      const frame = await untilFrame(tree, (f) => f.includes("1/2"));
+      // drop the y: both entries match again
+      frame = await press(tree, "\x7f", (f) => f.includes("1/2"));
       expect(frame).toContain("1/2");
       expect(frame).toContain("hs-narrow-no"); // newest first again
     } finally {
