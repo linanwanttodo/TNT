@@ -65,6 +65,72 @@ describe("TUIChat - Tool Permission Tests", () => {
     expect(frame).not.toContain("Cancel");
   });
 
+  it("prints the whole shell command over the directory it runs in", async () => {
+    // A shell approval is the one decision a reader cannot take back, so the
+    // card shows every line of what will run and where - not the first fifty
+    // characters of the first argument.
+    const command =
+      "npm run build &&\nnode scripts/check.mjs --strict --report out/bundle.json";
+    const { lastFrame } = track(
+      <ToolPermissionSelector
+        toolName="Bash"
+        toolArgs={{ command }}
+        requestId="shell-request"
+        onResponse={vi.fn()}
+      />,
+    );
+
+    await vi.advanceTimersByTimeAsync(50);
+
+    const frame = lastFrame();
+    expect(frame).toContain("npm run build &&");
+    // The tail of the second line is past the fifty characters the old card kept.
+    expect(frame).toContain("out/bundle.json");
+    expect(frame).toContain(process.cwd());
+  });
+
+  it("folds a long change to its last rows until the reader asks for the rest", async () => {
+    // A change is read from its end, so the folded card keeps the last rows and
+    // says how many it hid; `e` shows the whole diff the engine produced.
+    //
+    // Real timers: the fold is a React state change, and ink flushes its frame
+    // on its own schedule, which the file's fake clock does not drive.
+    vi.useRealTimers();
+    const added = Array.from(
+      { length: 30 },
+      (_, index) => `+row-${String(index + 1).padStart(2, "0")}`,
+    );
+    const diff = [
+      "--- a/file.ts",
+      "+++ b/file.ts",
+      "@@ -1,1 +1,30 @@",
+      ...added,
+    ].join("\n");
+    const { lastFrame, stdin } = track(
+      <ToolPermissionSelector
+        toolName="Edit"
+        toolArgs={{ file_path: "/tmp/file.ts" }}
+        toolCallPreview={[{ type: "diff", content: diff }]}
+        requestId="diff-request"
+        onResponse={vi.fn()}
+      />,
+    );
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+    await settle();
+    const folded = lastFrame();
+    expect(folded).toContain("row-30");
+    expect(folded).toContain("earlier lines");
+    expect(folded).not.toContain("row-01");
+
+    stdin.write("e");
+    await settle();
+
+    const expanded = lastFrame();
+    expect(expanded).not.toContain("earlier lines");
+    expect(expanded).toContain("row-30");
+  });
+
   it("handles keyboard shortcuts for permission approval and rejection", async () => {
     const handleResponse = vi.fn();
 
