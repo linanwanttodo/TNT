@@ -15,6 +15,7 @@ import {
 import { ColoredDiff } from "./ColoredDiff.js";
 import { ChecklistDisplay } from "./components/ChecklistDisplay.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import { symbols } from "./symbols.js";
 import {
   blockLineBudget,
   blockOverflowNotice,
@@ -48,7 +49,10 @@ function todoSummaryLine(content: string): string {
     const done = todos.filter((todo) => todo.done).length;
     const preview = todos
       .slice(0, MAX_TODO_PREVIEW)
-      .map((todo) => `${todo.done ? "✓" : "○"} #${todo.id} ${todo.text}`)
+      .map(
+        (todo) =>
+          `${todo.done ? symbols().check : symbols().ring} #${todo.id} ${todo.text}`,
+      )
       .join("\n");
     const overflow =
       todos.length > MAX_TODO_PREVIEW

@@ -9,6 +9,8 @@ import {
   marketplaceConfigPath,
 } from "../mcp/marketplace.js";
 
+import { symbols } from "./symbols.js";
+
 interface MCPMarketplaceProps {
   onCancel: () => void;
 }
@@ -80,7 +82,7 @@ export const MCPMarketplace: React.FC<MCPMarketplaceProps> = ({ onCancel }) => {
         return (
           <Box key={server.name}>
             <Text color={isSelected ? "cyan" : "white"} bold={isSelected}>
-              {isSelected ? "❯ " : "  "}
+              {isSelected ? `${symbols().selected} ` : "  "}
               {server.title.padEnd(22)}
             </Text>
             <Text color={isSelected ? "cyan" : "gray"}>

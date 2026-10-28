@@ -9,6 +9,7 @@ import {
 import { truncateOutputFromStart } from "../utils/truncateOutput.js";
 
 import { defaultBoxStyles } from "./styles.js";
+import { symbols } from "./symbols.js";
 
 interface JobsSelectorProps {
   onCancel: () => void;
@@ -180,7 +181,7 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
 
       {jobs.map((job, index) => {
         const isSelected = index === selectedIndex;
-        const prefix = isSelected ? "❯ " : "  ";
+        const prefix = isSelected ? `${symbols().selected} ` : "  ";
 
         return (
           <Box key={job.id} flexDirection="row" gap={1}>

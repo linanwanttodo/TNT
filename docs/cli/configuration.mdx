@@ -111,6 +111,7 @@ The home directory can be relocated with `TNT_GLOBAL_DIR`, which also moves
 | `TNT_PLUGINS_DIR` | relocate the plugin tree |
 | `TNT_ALT_SCREEN` | set to `0` to use the terminal's normal buffer and scrollback; settled rows render once through `Static` and only the live tail redraws |
 | `TNT_THEME` | pick the UI theme for this session: `auto` (default, follows the terminal's own background), `dark`, `tencent-dark`, `tencent-light`, `light`, or the name of a file in `~/.tnt/themes/<name>.json` |
+| `TNT_SYMBOLS` | glyph preset for the interface: `unicode` (default), `ascii` for seven-bit terminals, or `nerd` for a Nerd Font |
 | `TNT_WARM_RETRIEVAL` | set to `0` to stop the codebase index being built when a session opens; it is built then only when the config selects the `codebase` provider |
 
 Every variable the CLI reads is `TNT_*`; the older `CONTINUE_*` spellings are no

@@ -5,6 +5,7 @@ import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
 
 import { t } from "../../i18n/index.js";
 import { ToolCallPreview } from "../../tools/types.js";
+import { symbols } from "../symbols.js";
 import { useTheme } from "../theme/tokens.js";
 
 import { ToolDiffView } from "./ToolDiffView.js";
@@ -190,7 +191,7 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={activeTheme.status.warning}>●</Text>
+        <Text color={activeTheme.status.warning}>{symbols().bullet}</Text>
         <Box marginLeft={1} flexShrink={1} minWidth={0}>
           <ToolCallTitle toolName={toolName} args={toolArgs} />
         </Box>
@@ -268,7 +269,7 @@ export const ToolPermissionSelector: React.FC<ToolPermissionSelectorProps> = ({
                   isSelected ? activeTheme.accent : activeTheme.text.primary
                 }
               >
-                {isSelected ? "❯ " : "  "}
+                {isSelected ? `${symbols().selected} ` : "  "}
                 {index + 1}. {option.name}
               </Text>
               <Text color={activeTheme.text.secondary} dimColor>

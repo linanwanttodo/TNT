@@ -2,6 +2,7 @@ import { Box, Text } from "ink";
 import React from "react";
 
 import { MARKER_TASK_LIST } from "../../tools/resultMarkers.js";
+import { symbols } from "../symbols.js";
 
 interface ChecklistDisplayProps {
   content: string;
@@ -44,7 +45,7 @@ export const ChecklistDisplay: React.FC<ChecklistDisplayProps> = ({
             <Box key={index}>
               <Text>{indent}</Text>
               <Text color={isCompleted ? "green" : "yellow"}>
-                {isCompleted ? "✓" : "○"}
+                {isCompleted ? symbols().check : symbols().ring}
               </Text>
               <Text> </Text>
               <Text
