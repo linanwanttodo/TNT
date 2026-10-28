@@ -275,6 +275,8 @@ export async function* withExponentialBackoff<T>(
   let lastError: any;
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
+    let yieldedChunk = false;
+
     // Create a new AbortController for this retry attempt
     // This prevents accumulating listeners on the original signal
     const retryAbortController = new AbortController();
@@ -305,6 +307,7 @@ export async function* withExponentialBackoff<T>(
           throw new Error("Request aborted");
         }
 
+        yieldedChunk = true;
         yield chunk;
       }
 
@@ -323,8 +326,10 @@ export async function* withExponentialBackoff<T>(
         abortSignal.removeEventListener("abort", abortListener);
       }
 
-      // Don't retry if the request was aborted
-      if (abortSignal.aborted) {
+      // Don't retry if the request was aborted or if this attempt already
+      // exposed chunks to its consumer. Restarting after a partial response
+      // would replay text and merge duplicate tool-call deltas downstream.
+      if (abortSignal.aborted || yieldedChunk) {
         throw err;
       }
 
