@@ -1,4 +1,5 @@
 import { ContextBudgetTracker } from "../loop/contextBudget.js";
+import { RepeatCallGuard } from "../loop/repeatCallGuard.js";
 import { TerminalStopTracker } from "../loop/terminalStop.js";
 import { TodoReminderTracker } from "../loop/todoReminder.js";
 import { ToolFailureTracker } from "../loop/toolFailureTracker.js";
@@ -13,12 +14,9 @@ import type { SystemPromptRoundState } from "./systemPromptRound.js";
  * but the counters reset with each prompt: a second message from the user is a
  * new turn, not a continuation of the first one's exhausted budget. Holding
  * them in one object makes that boundary explicit - the loop reads a decision
- * instead of threading six locals through every extracted phase.
- *
- * This mirrors the reference CLIs. Gemini CLI keeps its limit in `Config`, its
- * per-session counter on the client, and resets per-prompt state when a prompt
- * changes; the Claude agent loop treats `maxTurns` as a per-query option. Here
- * the per-prompt boundary is the same one `streamChatResponse` is called on.
+ * instead of threading six locals through every extracted phase. The boundary
+ * is the `streamChatResponse` call: a new prompt builds a new state, so no
+ * counter leaks from the previous answer.
  */
 export interface TurnState {
   readonly budget: TurnBudget;
@@ -26,6 +24,8 @@ export interface TurnState {
   readonly terminalStops: TerminalStopTracker;
   readonly todoReminder: TodoReminderTracker;
   readonly contextBudget: ContextBudgetTracker;
+  /** Advice for identical calls; never a reason to stop the turn. */
+  readonly repeatCallGuard: RepeatCallGuard;
   /**
    * What the last round sent as the head of the prompt, and the updates that
    * ride after it. It cannot be rebuilt from the history: the Anthropic and
@@ -53,6 +53,7 @@ export function createTurnState(limits?: Partial<TurnBudgetLimits>): TurnState {
     terminalStops: new TerminalStopTracker(),
     todoReminder: new TodoReminderTracker(),
     contextBudget: new ContextBudgetTracker(),
+    repeatCallGuard: new RepeatCallGuard(),
     systemPrompt: { updates: [] },
     coldTurn: true,
     historyRewritten: false,

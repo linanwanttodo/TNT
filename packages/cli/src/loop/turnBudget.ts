@@ -1,29 +1,42 @@
 /**
  * Per-turn budget for the conversation loop.
  *
- * The loop must terminate even when the model keeps requesting tool calls
- * forever, so the caller gets a ceiling it can tune rather than an unbounded
- * walk. The ceiling counts every model round of one user turn, including the
- * rounds a compaction checkpoint adds, because those cost the same tokens and
- * the same wall clock as any other round.
+ * A turn has no round ceiling by default: the loop follows the model for as
+ * long as it keeps asking for tools, and ends on an actual ending - the model
+ * replying without one, the user aborting, or one of the safeguards below. A
+ * caller can still ask for a ceiling (the CLI's `--max-steps`); it is honored
+ * when given and absent otherwise.
+ *
+ * The safeguards that do bound a turn:
+ *
+ * - Repeated output: `loopDetector` ends a turn whose text starts repeating.
+ * - Compaction failure: after a few consecutive compactions that do not
+ *   shrink history, automatic compaction stops for the turn.
+ * - Unrecoverable context: a conversation that no longer fits and cannot be
+ *   compacted ends instead of looping on refusals.
+ * - Wall clock: headless runs carry a deadline (`--request-timeout`, 300s by
+ *   default) that aborts the whole turn.
+ *
+ * Repeating one tool call with identical arguments is not a bound: the
+ * repeat-call guard advises the model so it can change tack, and the turn
+ * keeps running.
  *
  * There is deliberately no "diminishing returns" rule here. An earlier version
  * ended the turn after three consecutive rounds whose completion_tokens stayed
  * under 500, but that is what a normal tool round looks like: the model emits a
  * sentence and a tool call, and the tool may read a large file. The rule
  * therefore killed the turn after three files no matter how much context was
- * left. Gemini CLI and Claude Code bound a turn with the round ceiling and with
- * detection of actually repeated output or identical tool calls, so those are
- * the only two bounds kept here.
+ * left.
  */
 
 export interface TurnBudgetLimits {
   /**
-   * Hard ceiling on model rounds within one user turn. Reaching it ends the
-   * turn with `max_steps` rather than throwing, so a runaway loop degrades
-   * into a visible partial answer.
+   * Optional ceiling on model rounds within one user turn. Unset by default,
+   * so the loop keeps going while the model asks for tools. When set (the CLI
+   * passes `--max-steps`), reaching it ends the turn with `max_steps` rather
+   * than throwing, so a runaway loop degrades into a visible partial answer.
    */
-  maxSteps: number;
+  maxSteps?: number;
 
   /**
    * Consecutive failed compaction attempts before automatic compaction stops
@@ -41,7 +54,6 @@ export interface TurnBudgetLimits {
 }
 
 export const DEFAULT_TURN_BUDGET_LIMITS: TurnBudgetLimits = {
-  maxSteps: 128,
   maxConsecutiveCompactionFailures: 3,
   compactionMinReductionRatio: 0.01,
 };
@@ -64,9 +76,12 @@ export class TurnBudget {
     this.limits = { ...DEFAULT_TURN_BUDGET_LIMITS, ...limits };
   }
 
-  /** True once the round ceiling is reached. */
+  /** True once an explicitly configured round ceiling is reached. */
   get stepsExhausted(): boolean {
-    return this.stepsDone >= this.limits.maxSteps;
+    return (
+      this.limits.maxSteps !== undefined &&
+      this.stepsDone >= this.limits.maxSteps
+    );
   }
 
   /** True once automatic compaction has failed too many times in a row. */
