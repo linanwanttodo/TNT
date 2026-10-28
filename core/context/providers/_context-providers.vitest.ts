@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 
 import { afterAll, describe, expect, test } from "vitest";
-import { contextProviderClassFromName } from ".";
+import { contextProviderClassFromName, Providers } from ".";
 import {
   ContextProviderExtras,
   ContextProviderWithParams,
@@ -67,5 +67,23 @@ describe("Should successfully run all context providers", () => {
 
       expect(Array.isArray(items)).toBe(true);
     });
+  });
+});
+
+describe("looking a provider up by name", () => {
+  test("answers for an entry the registry has not finished filling in", () => {
+    // The Windows lane threw here on 2026-10-28: a module cycle left one entry
+    // unset while this list was still being evaluated, and reading its
+    // `description` aborted the whole config load - so a run that selected
+    // `codebase` came up with no context providers at all and the search tool
+    // answered "No matches".
+    Providers.unshift(undefined as never);
+    try {
+      expect(contextProviderClassFromName("codebase")?.description.title).toBe(
+        "codebase",
+      );
+    } finally {
+      Providers.shift();
+    }
   });
 });
