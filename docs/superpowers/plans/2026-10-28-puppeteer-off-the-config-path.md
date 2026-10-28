@@ -244,9 +244,11 @@ lancedb tables: (empty)
 
 责任归属仍按二分记：CI 在 `90b22748a`（较早那次注册表惰性化）绿，在 `ac7475f96` 红——现在能说出原因了，就是上面那次异步化把「配置先 settle」的顺序拆掉了。这**不推翻** `9c6485dc6` 的目标与守卫（注册表确实不在静态图里了，P4 的 e2e 断言长期守着），修复也不动它。
 
-### 6.2 Windows lane 的红**先于本分支**
+### 6.2 Windows lane：红换了位置
 
-main 的 windows 作业失败在 `src/lsp/managerShutdown.test.ts:64` 的 `EBUSY: resource busy or locked, rmdir '…\tnt-lsp-stop-work-…'`；本分支最新一轮仍是同一族的 LSP `EBUSY`，外加 `src/ui/components/ThemeSelector.test.tsx:82` 偶发拿到 `['dark','dark']`（本地 3/3 稳）。本分支改的 Windows 项（hook 日志按行解析、阻塞 hook 走 `HookFixtures`）已不再出现在失败列表里。LSP 清理与主题渲染这两处不属于本计划的范围，需要单独判断。
+main 的 windows 作业红在**单元测试步**——`src/lsp/managerShutdown.test.ts:64` 的 `EBUSY: resource busy or locked, rmdir '…\tnt-lsp-stop-work-…'`，那一步一红，后面的 e2e 步就被跳过了，所以 **main 上从没跑过 windows e2e**。本分支最新一次（head `a7297f249`）单测步过了（同一族的 LSP `EBUSY` 没复现），于是 windows e2e 第一次真跑，红在 `e2e/headless-tool-calls.test.ts:74`：子进程 15 s 预算被 kill，而这条用例断言的正是「stdout 为空」，被杀掉和跑对在注解里长得一样。`a8692a22c` 把预算抬到 30 s（本地同一用例 3.6 s），断言没动。
+
+本分支改的另外两项 Windows 问题（hook 日志按行解析、阻塞 hook 走 `HookFixtures`）已经不在失败列表里。剩下两处不属于本计划范围，需要单独判断：LSP 临时目录清理的 `EBUSY`（间歇，main 上就红），和 `src/ui/components/ThemeSelector.test.tsx:82` 偶发拿到 `['dark','dark']`（本地 3/3 稳）。
 
 ### 6.3 CLA
 
