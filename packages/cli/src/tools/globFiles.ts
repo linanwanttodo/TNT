@@ -101,7 +101,15 @@ export const globFilesTool: Tool = {
       const { stdout } = await execFilePromise(
         "rg",
         ["--files", "--glob", pattern, root],
-        { maxBuffer: 10 * 1024 * 1024 },
+        {
+          maxBuffer: 10 * 1024 * 1024,
+          // A glob with a slash in it is anchored to the working directory, not
+          // to the path argument, so searching from anywhere else silently found
+          // nothing: `path: "packages/cli"` with `src/**/*.ts` answered "no
+          // files match" while the files were there. Anchor at the directory the
+          // caller named, and the pattern means what it says against it.
+          cwd: root,
+        },
       );
       listed = stdout;
     } catch (error) {
