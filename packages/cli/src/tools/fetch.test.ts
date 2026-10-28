@@ -276,4 +276,16 @@ describe("fetchTool", () => {
       expect(mockFetchUrlContentImpl).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe("the URL guard", () => {
+    it("refuses before it reaches the network or the cache", async () => {
+      const rejected = fetchTool.run({ url: "file:///etc/passwd" });
+
+      await expect(rejected).rejects.toThrow(/http and https/);
+      await expect(
+        fetchTool.run({ url: "file:///etc/passwd" }),
+      ).rejects.toThrow(/http and https/);
+      expect(mockFetchUrlContentImpl).not.toHaveBeenCalled();
+    });
+  });
 });
