@@ -1,6 +1,6 @@
 # 计划：把 puppeteer 与注册表残留从 CLI 的静态图上切掉
 
-**分支**：`test`
+**分支**：`test`（已合入 `main`，merge commit `2a4094f79`）
 **起点**：`1db115dd8`
 **写法**：每一步都给了「复现命令 + 预期数字 + 回滚方式」。任何一步的数字对不上，就是这一步的结论有问题，不是测量方法有问题。
 
@@ -129,8 +129,8 @@ llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
 ### P5 — 版本号、推送、CI 修到绿
 
 - `packages/cli/package.json` 版本 1.0.8 → 1.0.9，标记交付产物结构变化。已核：`cli-release.yml` 是 `workflow_dispatch`（要手填版本），`release-*.yml` 只认 **push 到 main** 且按包目录过滤，所以分支推送与 PR **不会发布任何东西**。已核：仓库内没有断言 `1.0.8` 这个字面量的测试。
-- 推 `test` 到 `origin`，开 PR → `main`。这几份文档用短 hash 引用 commit，而任何改写历史的操作（rebase、amend、改 message）都会让引用悄悄失效，所以改过历史必须逐条重核：`git grep -nE '\b[0-9a-f]{9}\b' -- docs`，再对每个 hash 跑一次 `git log -1 --format=%s`。已核 `test` 与 `origin/main` 文件集零重叠、`git merge-tree` 干净。
-- 盯 `CLI PR Checks`（lint、ubuntu/win/mac × node20/22 的测试矩阵含覆盖率地板、smoke、e2e、smoke-api）、`Engine Checks`、`Docs PR Checks`。红了就在 `test` 上修、重推，循环到全绿。
+- 推 `test` 到 `origin`，开 PR → `main`（已合入，merge commit `2a4094f79`；`test` 分支合并后删除）。这几份文档用短 hash 引用 commit，而任何改写历史的操作（rebase、amend、改 message）都会让引用悄悄失效，所以改过历史必须逐条重核：`git grep -nE '\b[0-9a-f]{9}\b' -- docs`，再对每个 hash 跑一次 `git log -1 --format=%s`。已核 `test` 与 `origin/main` 文件集零重叠、`git merge-tree` 干净。
+- 盯 `CLI PR Checks`（lint、ubuntu/win/mac × node20/22 的测试矩阵含覆盖率地板、smoke、e2e、smoke-api）、`Engine Checks`、`Docs PR Checks`。红了就在新分支上修、重推，循环到全绿。
 
 ---
 

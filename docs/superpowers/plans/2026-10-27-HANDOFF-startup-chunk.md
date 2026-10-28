@@ -21,15 +21,15 @@
 
 ## 2. 环境：先跑这两条命令
 
-| 项                                     | 值                                                                                                                                       |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 共享检出（另一个任务在用，**不要动**） | `/home/lin/All_projects/GithubProjects/continue` on `dev/p0-hardening`（`c94fced7f`）                                                    |
-| 本任务工作区                           | `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree` on `test`                                                              |
-| 分支顶端                               | 本轮所有 commit 都在 `255b2d136..test` 这个区间里（含本文自己），用 `git log --oneline 255b2d136..test` 核对。别把某个 hash 抄成永久顶端 |
+| 项                                     | 值                                                                                                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 共享检出（另一个任务在用，**不要动**） | `/home/lin/All_projects/GithubProjects/continue` on `dev/p0-hardening`（`c94fced7f`）                                                              |
+| 本任务工作区                           | `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree` on `test`（已合入 `main`）                                                       |
+| 分支顶端                               | 本轮所有 commit 都在 `255b2d136..2a4094f79` 这个区间里（含本文自己），用 `git log --oneline 255b2d136..2a4094f79` 核对。别把某个 hash 抄成永久顶端 |
 
 ```bash
 cd /home/lin/All_projects/GithubProjects/continue/.vitest/worktree
-git log --oneline 255b2d136..test   # 本轮的全部 commit
+git log --oneline 255b2d136..2a4094f79   # 本轮的全部 commit
 git status --short                  # 应为空
 ```
 
@@ -259,9 +259,9 @@ cd packages/cli && npm run build      # 重建后用 §6 的脚本复算
 
 ## 10. 交接时的仓库实际状态
 
-| 项                    | 状态                                                                                                                                                                                                           |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `test` 分支           | **干净**，本轮 commit 全部落在 `255b2d136..test` 区间：惰性化 + 21 个调用点、守卫改真实路径匹配、两份计划文档勘误、守卫与 `load.ts` 的注释口径                                                                 |
-| 相对 `origin/main`    | `test` 从 `e532b4971` 分叉；`origin/main` 现为 `3c2b598ef`，`dev/p0-hardening` 现为 `c94fced7f`。`test` 与两者**文件集无重叠**，`git merge-tree` 试合并均 exit 0，没有冲突。合并前仍需 rebase 到 `origin/main` |
-| 共享检出              | `dev/p0-hardening` 干净，本任务全程未触碰                                                                                                                                                                      |
-| worktree 里的构建产物 | `packages/cli/dist`、`core/dist`、`build-meta.json` 都已按当前 HEAD 重建，全部 gitignored                                                                                                                      |
+| 项                                | 状态                                                                                                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test` 分支（已合入 main 后删除） | **干净**，本轮 commit 全部落在 `255b2d136..2a4094f79` 区间：惰性化 + 21 个调用点、守卫改真实路径匹配、两份计划文档勘误、守卫与 `load.ts` 的注释口径                                                            |
+| 相对 `origin/main`                | `test` 从 `e532b4971` 分叉；`origin/main` 现为 `3c2b598ef`，`dev/p0-hardening` 现为 `c94fced7f`。`test` 与两者**文件集无重叠**，`git merge-tree` 试合并均 exit 0，没有冲突。合并前仍需 rebase 到 `origin/main` |
+| 共享检出                          | `dev/p0-hardening` 干净，本任务全程未触碰                                                                                                                                                                      |
+| worktree 里的构建产物             | `packages/cli/dist`、`core/dist`、`build-meta.json` 都已按当前 HEAD 重建，全部 gitignored                                                                                                                      |

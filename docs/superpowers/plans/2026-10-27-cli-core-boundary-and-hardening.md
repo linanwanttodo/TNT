@@ -1,6 +1,6 @@
 # CLI 打包边界收敛与交付面硬化实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. 单一写者：本仓库同一时间只允许一个 agent 写代码；本计划在 `test` 分支执行，不要切到 `dev/p0-hardening`。
+> 步骤用 checkbox（`- [ ]`）跟踪，逐条验收。本计划在独立工作区执行，与主检出上那条线互不重叠；内容已合入 `main`（merge commit `2a4094f79`）。
 
 **Goal:** 让 CLI 的打包面只包含它真正调用的 core 代码，并把「文档 / 契约 / 类型」三类已经存在的隐性漂移变成会失败的守卫测试。
 
@@ -12,13 +12,13 @@
 
 ## 一、执行环境（分支隔离）
 
-另一个 agent 正在 `dev/p0-hardening` 上工作，因此本计划**不在主检出目录里改任何文件**。
+主检出目录另有其在用的分支（`dev/p0-hardening`），因此本计划**不在主检出目录里改任何文件**。
 
-| 项                     | 值                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| 主检出（另一个 agent） | `/home/lin/All_projects/GithubProjects/continue`，分支 `dev/p0-hardening`      |
-| 本计划的隔离工作区     | `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree`，分支 `test` |
-| 基线提交               | `e532b4971`（与 `origin/main` 同一提交）                                       |
+| 项                     | 值                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 主检出（另一条线在用） | `/home/lin/All_projects/GithubProjects/continue`，分支 `dev/p0-hardening`                                   |
+| 本计划的隔离工作区     | `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree`，分支 `test`（已合入 `main`，分支已删除） |
+| 基线提交               | `e532b4971`（与 `origin/main` 同一提交）                                                                    |
 
 隔离工作区已用 `git worktree add` 建好，位置放在 `.vitest/` 下——该目录在 `.gitignore`、`.prettierignore`（`.vitest`）和 `packages/cli/eslint.config.js`（`**/.vitest/**`）里都已忽略，所以它不会污染主检出的 `git status`、格式化检查和 lint 检查，也不需要在仓库里新增任何忽略条目。
 
