@@ -56,6 +56,27 @@ function readBody(req: http.IncomingMessage): Promise<any> {
 }
 
 /**
+ * Both logs the run can write to. `tnt.log` is the CLI's own; `core.log` is
+ * core's winston file transport, and the index pipeline - the part that decides
+ * whether to build an index at all - only ever speaks there. Reading the first
+ * alone is how a red run came to look like a build that never ran.
+ */
+async function readRunLogs(testDir: string): Promise<string> {
+  const chunks: string[] = [];
+  for (const name of ["tnt.log", "core.log"]) {
+    try {
+      chunks.push(
+        await fs.readFile(path.join(testDir, ".tnt", "logs", name), "utf-8"),
+      );
+    } catch {
+      chunks.push(`# ${name}: absent\n`);
+    }
+  }
+
+  return chunks.join("\n");
+}
+
+/**
  * The run's own verdict lines, on their own and first: a CI annotation is
  * truncated, and in the last red runs everything past the tenth line went away -
  * which is exactly where "why did it build no index" sits.
@@ -64,19 +85,13 @@ async function describeLogDecisions(testDir: string): Promise<string> {
   const decisions =
     /Not building indexes|asks for indexing|Unknown context provider|search failed|No matches|Indexed \d+ files|Starting file index|filesDiscovered|walk cancelled|indexing/i;
 
-  try {
-    const log = await fs.readFile(
-      path.join(testDir, ".tnt", "logs", "tnt.log"),
-      "utf-8",
-    );
-    const lines = log.split("\n").filter((line) => decisions.test(line));
+  const log = await readRunLogs(testDir);
+  const lines = log.split("\n");
+  const chosen = lines.filter((line) => decisions.test(line));
 
-    return `decisions (${lines.length} of ${log.split("\n").length} lines):\n${lines
-      .slice(-10)
-      .join("\n")}`;
-  } catch {
-    return "cli log: absent";
-  }
+  return `decisions (${chosen.length} of ${lines.length} lines, tnt.log + core.log):\n${chosen
+    .slice(-10)
+    .join("\n")}`;
 }
 
 /**
