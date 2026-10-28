@@ -570,8 +570,10 @@ async function processMessage(options: ProcessMessageOptions): Promise<{
 
     // A run asked for a schema-shaped answer is not done until the answer
     // matches it: one repair round, and then the run fails instead of
-    // printing something the caller said it cannot accept.
-    if (outputSchema !== undefined && finalResponse.trim()) {
+    // printing something the caller said it cannot accept. A bounded run has
+    // already been given up on, and both this and the title below would spend
+    // model calls after the deadline has fired - unbounded work behind a bound.
+    if (!truncated && outputSchema !== undefined && finalResponse.trim()) {
       finalResponse = await enforceOutputSchema(
         finalResponse,
         outputSchema,
@@ -581,7 +583,12 @@ async function processMessage(options: ProcessMessageOptions): Promise<{
     }
 
     // Generate session title after first assistant response
-    if (firstAssistantResponse && finalResponse && finalResponse.trim()) {
+    if (
+      !truncated &&
+      firstAssistantResponse &&
+      finalResponse &&
+      finalResponse.trim()
+    ) {
       await handleTitleGeneration(finalResponse, llmApi, model);
     }
 

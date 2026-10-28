@@ -40,6 +40,13 @@ export interface ToolRunContext {
    * Tools should divide their output limits by this number to avoid context overflow.
    */
   parallelToolCallCount: number;
+  /**
+   * Aborts when the run's deadline fires. Cooperative tools stop what they are
+   * doing and return; a tool that ignores it finishes under its own timeout,
+   * which is why the run reads this at the next round boundary instead of
+   * assuming the tool died with the deadline.
+   */
+  signal?: AbortSignal;
 }
 
 /** A bitmap a tool wants the model to see, encoded for a data URL. */
