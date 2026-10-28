@@ -75,9 +75,9 @@ class TelemetryService {
       process.env.OTEL_METRICS_EXPORTER
     );
 
-    // TNT_* is the current spelling and CONTINUE_* stays readable, so a shell
-    // profile written before the rename keeps working. Same rule as the log
-    // level in utils/logger.ts.
+    // One name per switch, the same rule as the log level in utils/logger.ts: a
+    // shell profile written before the rename has to be edited, because reading
+    // both would mean two ways to set one thing and no way to tell which won.
     const metricsEnabled = process.env.TNT_METRICS_ENABLED;
     const telemetryRequested = process.env.TNT_ENABLE_TELEMETRY;
 
