@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { pressUntilMet, tick } from "../../../test-utils/renderPress.js";
 import { writeSettingsValue } from "../../config/settingsFiles.js";
 import { setLocale } from "../../i18n/index.js";
 import { getTheme } from "../theme/tokens.js";
@@ -68,14 +69,18 @@ describe("ThemeSelector", () => {
       />,
     );
 
-    // Down twice: dark -> tencent-dark preview, then Enter commits. Each key
-    // waits a frame so the selector's navigation prop updates between keys.
-    tree.stdin.write("\u001b[B");
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    tree.stdin.write("\u001b[B");
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    tree.stdin.write("\r");
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    // Down twice: dark -> tencent-dark preview, then Enter commits. Each key is
+    // waited for by its effect: a fixed sleep lost a keystroke on the Windows
+    // lane and read as a selector that does not navigate.
+    await pressUntilMet(tree, "\u001b[B", () => previews.includes("dark"));
+    await pressUntilMet(tree, "\u001b[B", () =>
+      previews.includes("tencent-dark"),
+    );
+    // The preview fires from the navigation callback; the index Enter reads is
+    // committed a frame later. Delivery is the helper's business, this settle is
+    // the component's.
+    await tick(50);
+    await pressUntilMet(tree, "\r", () => selections.length > 0);
     tree.unmount();
 
     expect(previews).toContain("dark");

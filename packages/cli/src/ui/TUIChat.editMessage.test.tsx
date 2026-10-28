@@ -1,3 +1,4 @@
+import { pressUntil } from "../../test-utils/renderPress.js";
 import {
   renderInMode,
   testBothModes,
@@ -27,15 +28,13 @@ describe("TUIChat - Message Edit Feature", () => {
     expect(frame).toBeDefined();
     expect(frame).not.toContain("No user messages to edit");
 
-    // Press Esc twice quickly (within 500ms)
-    stdin.write("\u001b"); // First Esc
-    stdin.write("\u001b"); // Second Esc
+    // Press Esc twice quickly (within 500ms). Both bytes go in one burst, and
+    // the burst is re-delivered if the mock stdin dropped one: a single dropped
+    // escape is a lost double press, not a broken feature.
+    frame = await pressUntil({ stdin, lastFrame }, "\u001b\u001b", (current) =>
+      current.includes("No user messages to edit"),
+    );
 
-    // Wait for UI to update
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Verify selector is now open
-    frame = lastFrame();
     expect(frame).toBeDefined();
     expect(frame).toContain("No user messages to edit");
   });
