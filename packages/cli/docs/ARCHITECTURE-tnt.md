@@ -254,7 +254,14 @@ Prompt cache reuse is the reason most of the request-shaping code exists.
   `isDeepSeekEndpoint`): DeepSeek's API takes no cache parameter, caches every prefix
   it recognises on its own, and reports the split afterwards as
   `prompt_cache_hit_tokens` against `prompt_cache_miss_tokens`, so a breakpoint there
-  is a paid write nobody reads. The same module also removes reasoning blocks whose
+  is a paid write nobody reads. The two halves of that paragraph are not the same
+  kind of claim and should not be read as if they were: the DeepSeek behaviour is
+  measured against that endpoint (read tokens of 0, then 384, then 384 across three
+  rounds against a 498-token prefix), while the Anthropic cap and the write/read
+  ratios above come from published documentation and have never been measured here -
+  a real-key A/B was declined, so the only Anthropic-shaped endpoint this repository
+  has ever run against is the one DeepSeek speaks. Nothing about a real Anthropic
+  response is asserted below or in `spec/`. The same module also removes reasoning blocks whose
   signature cannot be verified, which would otherwise be rejected wholesale and take
   the cached span with them.
 - `src/cache/prefixState.ts` classifies each request as `full`, `passthrough` or
