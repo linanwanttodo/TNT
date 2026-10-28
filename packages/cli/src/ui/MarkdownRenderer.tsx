@@ -3,6 +3,7 @@ import React from "react";
 
 import { closedThinkBlockPattern } from "../utils/thinkingTags.js";
 
+import { hyperlink } from "./hyperlink.js";
 import {
   defaultTheme,
   detectLanguage,
@@ -23,6 +24,12 @@ interface MarkdownRendererProps {
 
 interface MarkdownPattern {
   regex: RegExp;
+  /**
+   * What a match keeps as its text. The default takes the second capture when
+   * there is one (a heading's text) and the first otherwise; a link needs its
+   * label plus the target it will open.
+   */
+  contentOf?: (match: RegExpExecArray) => string;
   render: (content: string, key: string) => React.ReactNode;
 }
 
@@ -48,6 +55,18 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         regex: /^(#{1,6})\s+(.+)$/gm,
         render: (content, key) => (
           <Text key={key} bold>
+            {content}
+          </Text>
+        ),
+      },
+      {
+        // Links render as the label, linked where the terminal understands it:
+        // the label is what a reader quotes, and the URL is a keystroke away in
+        // the terminals that do understand OSC 8.
+        regex: /\[([^\]]+)\]\(([^)\s]+)\)/g,
+        contentOf: (link) => hyperlink(link[1], link[2]),
+        render: (content, key) => (
+          <Text key={key} color={uiTheme.accent} underline>
             {content}
           </Text>
         ),
@@ -149,7 +168,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             allMatches.push({
               index: match.index,
               length: match[0].length,
-              content: match[2] || match[1], // Use second capture group for headings, first for others
+              content: pattern.contentOf?.(match) ?? (match[2] || match[1]),
               render: pattern.render,
             });
           }

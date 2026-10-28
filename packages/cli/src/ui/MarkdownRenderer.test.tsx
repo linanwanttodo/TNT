@@ -204,3 +204,42 @@ describe("MarkdownRenderer", () => {
     });
   });
 });
+
+describe("markdown links", () => {
+  function linkParts(content: string) {
+    const ComponentType = (MarkdownRenderer as any).type || MarkdownRenderer;
+    const component = ComponentType({ content });
+    return (component as any).props.children as any[];
+  }
+
+  it("renders the label, opened where the terminal understands OSC 8", () => {
+    const parts = linkParts("read [the docs](https://example.com/docs) first");
+    const link = parts.find((part) => React.isValidElement(part));
+
+    expect(link).toBeTruthy();
+    expect((link as any).props.underline).toBe(true);
+    expect((link as any).props.children).toContain("the docs");
+    // The label carries the target as an OSC 8 sequence; a terminal that does
+    // not know it shows the label alone.
+    expect((link as any).props.children).toContain(
+      "\u001B]8;;https://example.com/docs",
+    );
+  });
+
+  it("renders the bare label when hyperlinks are turned off", () => {
+    const previous = process.env.TNT_HYPERLINKS;
+    process.env.TNT_HYPERLINKS = "0";
+    try {
+      const parts = linkParts("[the docs](https://example.com/docs)");
+      const link = parts.find((part) => React.isValidElement(part));
+
+      expect((link as any).props.children).toBe("the docs");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.TNT_HYPERLINKS;
+      } else {
+        process.env.TNT_HYPERLINKS = previous;
+      }
+    }
+  });
+});
