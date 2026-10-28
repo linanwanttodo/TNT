@@ -110,7 +110,7 @@ describe("the CI dependency document", () => {
   it("lists workflows that exist", () => {
     const names = referencedNames();
     // A scan that found nothing would pass the check below by accident.
-    expect(names.length).toBeGreaterThanOrEqual(10);
+    expect(names.length).toBeGreaterThanOrEqual(8);
     const missing = names.filter(
       (name) => !fs.existsSync(path.join(WORKFLOWS, name)),
     );
@@ -119,7 +119,8 @@ describe("the CI dependency document", () => {
 
   it("documents every workflow the repository ships", () => {
     const files = workflowFiles();
-    expect(files.length).toBeGreaterThanOrEqual(10);
+    // Eight workflows ship, and the document used to describe ten.
+    expect(files.length).toBeGreaterThanOrEqual(8);
     const documented = new Set(referencedNames());
     expect(files.filter((name) => !documented.has(name))).toEqual([]);
   });
@@ -179,13 +180,13 @@ describe("the CI dependency document", () => {
         workflowDocument(file).jobs ?? {},
       )) {
         jobs++;
-        // A job that only forwards to a reusable workflow takes no ceiling of
-        // its own; the ceiling belongs inside the reusable workflow.
-        if (typeof (job as any).uses === "string") continue;
         if (!(job as any)["timeout-minutes"]) missing.push(`${file}/${id}`);
       }
     }
-    expect(jobs).toBeGreaterThanOrEqual(20);
+    // 18 jobs across the eight shipped workflows, measured here rather than
+    // remembered: a workflow added without a ceiling has to be counted, and an
+    // empty scan must not pass.
+    expect(jobs).toBeGreaterThanOrEqual(17);
     expect(missing).toEqual([]);
   });
 
