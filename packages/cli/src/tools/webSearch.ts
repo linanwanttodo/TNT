@@ -99,6 +99,29 @@ export function parseDuckDuckGoLite(
   return results;
 }
 
+/** A result belongs to a domain when its host is that domain or under it. */
+export function matchesDomain(url: string, domain: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    const wanted = domain.toLowerCase().replace(/^\./, "");
+    return host === wanted || host.endsWith(`.${wanted}`);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The search engines behind both endpoints honour `site:`, which is what makes
+ * a domain filter actually find results instead of discarding the five the page
+ * happened to return. Three terms is the usual ceiling before the query stops
+ * being a query.
+ */
+export function queryWithDomains(query: string, domains: string[]): string {
+  return [query, ...domains.slice(0, 3).map((domain) => `site:${domain}`)].join(
+    " ",
+  );
+}
+
 function boundedCount(value: unknown): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -180,7 +203,7 @@ export const webSearchTool: Tool = {
   name: "WebSearch",
   displayName: "Web Search",
   description: `Search the web and return titles, URLs and short snippets. Use it when the answer depends on something outside the workspace: current documentation, a release note, an error message from a project this repository does not contain, or a fact the model may have stale.
-The default endpoint is a public HTML search page and can be rate-limited; set TNT_WEB_SEARCH_URL to a JSON endpoint that returns {"results":[{"title","url","description"}]}, and TNT_WEB_SEARCH_KEY if it needs a bearer token. Results are search snippets, not evidence: open a promising page with Fetch before relying on its content.`,
+The default endpoint is a public HTML search page and can be rate-limited; set TNT_WEB_SEARCH_URL to a JSON endpoint that returns {"results":[{"title","url","description"}]}, and TNT_WEB_SEARCH_KEY if it needs a bearer token. Results are search snippets, not evidence: open a promising page with Fetch before relying on its content. Pass domains to keep the search to a site or two.`,
   parameters: {
     type: "object",
     required: ["query"],
@@ -192,6 +215,12 @@ The default endpoint is a public HTML search page and can be rate-limited; set T
       count: {
         type: "number",
         description: `How many results to return (default ${DEFAULT_COUNT}, maximum ${MAX_COUNT})`,
+      },
+      domains: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Only return results from these domains, e.g. docs.python.org; the first three are sent as site: terms",
       },
     },
   },
@@ -206,7 +235,11 @@ The default endpoint is a public HTML search page and can be rate-limited; set T
       },
     ],
   }),
-  run: async (args: { query: string; count?: number }): Promise<string> => {
+  run: async (args: {
+    query: string;
+    count?: number;
+    domains?: string[];
+  }): Promise<string> => {
     const query = typeof args.query === "string" ? args.query.trim() : "";
     if (!query) {
       throw new TntError(
@@ -214,13 +247,27 @@ The default endpoint is a public HTML search page and can be rate-limited; set T
         "WebSearch needs a query.",
       );
     }
+    const domains = (Array.isArray(args.domains) ? args.domains : [])
+      .filter((domain): domain is string => typeof domain === "string")
+      .map((domain) => domain.trim())
+      .filter((domain) => domain !== "");
     const count = boundedCount(args.count);
-    const results = process.env.TNT_WEB_SEARCH_URL
-      ? await searchJsonEndpoint(query, count)
-      : await searchPublicHtml(query, count);
+    const searchQuery =
+      domains.length > 0 ? queryWithDomains(query, domains) : query;
+    const found = process.env.TNT_WEB_SEARCH_URL
+      ? await searchJsonEndpoint(searchQuery, count)
+      : await searchPublicHtml(searchQuery, count);
+    // The site: terms are a request, not a guarantee, so the filter holds.
+    const results =
+      domains.length > 0
+        ? found.filter((result) =>
+            domains.some((domain) => matchesDomain(result.url, domain)),
+          )
+        : found;
 
+    const scope = domains.length > 0 ? ` on ${domains.join(", ")}` : "";
     if (results.length === 0) {
-      return `No web results for "${query}".`;
+      return `No web results for "${query}"${scope}.`;
     }
     const lines = results.map(
       (result, index) =>
@@ -228,6 +275,6 @@ The default endpoint is a public HTML search page and can be rate-limited; set T
           result.snippet ? `\n   ${result.snippet}` : ""
         }`,
     );
-    return `Web results for "${query}":\n\n${lines.join("\n\n")}`;
+    return `Web results for "${query}"${scope}:\n\n${lines.join("\n\n")}`;
   },
 };

@@ -3,7 +3,12 @@ import type { AddressInfo } from "net";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { parseDuckDuckGoLite, webSearchTool } from "./webSearch.js";
+import {
+  matchesDomain,
+  parseDuckDuckGoLite,
+  queryWithDomains,
+  webSearchTool,
+} from "./webSearch.js";
 
 let server: http.Server;
 let base: string;
@@ -22,6 +27,25 @@ beforeEach(async () => {
     res.writeHead(200, { "Content-Type": "application/json" });
     if (lastUrl.pathname === "/empty") {
       res.end(JSON.stringify({ results: [] }));
+      return;
+    }
+    if (lastUrl.pathname === "/mixed") {
+      res.end(
+        JSON.stringify({
+          results: [
+            {
+              title: "TS on example",
+              url: "https://example.com/ts",
+              description: "Not the one asked for.",
+            },
+            {
+              title: "Python typing",
+              url: "https://docs.python.org/3/library/typing.html",
+              description: "The one asked for.",
+            },
+          ],
+        }),
+      );
       return;
     }
     res.end(
@@ -152,5 +176,53 @@ describe("WebSearch", () => {
     const processed = await webSearchTool.preprocess!({ query: "typescript" });
 
     expect(JSON.stringify(processed.preview)).toContain("typescript");
+  });
+});
+
+describe("the domain filter", () => {
+  it("treats a host as its domain and the subdomains under it", () => {
+    expect(matchesDomain("https://example.com/a", "example.com")).toBe(true);
+    expect(matchesDomain("https://docs.example.com/a", "example.com")).toBe(
+      true,
+    );
+    expect(matchesDomain("https://notexample.com/a", "example.com")).toBe(
+      false,
+    );
+    expect(
+      matchesDomain("https://example.com.evil.test/a", "example.com"),
+    ).toBe(false);
+    expect(matchesDomain("not a url", "example.com")).toBe(false);
+  });
+
+  it("sends at most three site: terms, and none for an empty list", () => {
+    expect(queryWithDomains("ts", ["a.com", "b.com", "c.com", "d.com"])).toBe(
+      "ts site:a.com site:b.com site:c.com",
+    );
+    expect(queryWithDomains("ts", [])).toBe("ts");
+  });
+
+  it("keeps only the results from the named domains", async () => {
+    vi.stubEnv("TNT_WEB_SEARCH_URL", `${base}/mixed`);
+
+    const text = await webSearchTool.run!({
+      query: "ts",
+      domains: ["docs.python.org"],
+    });
+
+    expect(lastUrl?.searchParams.get("q")).toBe("ts site:docs.python.org");
+    expect(text).toContain("docs.python.org");
+    expect(text).not.toContain("example.com");
+    expect(text).toContain('Web results for "ts" on docs.python.org:');
+  });
+
+  it("says when nothing matched the domains", async () => {
+    vi.stubEnv("TNT_WEB_SEARCH_URL", `${base}/mixed`);
+
+    const text = await webSearchTool.run!({
+      query: "ts",
+      domains: ["nowhere.test"],
+    });
+
+    expect(text).toBe('No web results for "ts" on nowhere.test.');
   });
 });
