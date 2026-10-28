@@ -41,6 +41,9 @@ export interface QueryOutcome {
   /** Rank of the first returned hit for any expectation, for the mean rank. */
   firstRank?: number;
   expectations: ExpectationOutcome[];
+  /** How many files the tool answered with, and the first few it named. */
+  returnedFiles: number;
+  sample: string[];
 }
 
 /** Does this returned hit quote the labelled line? */
@@ -106,6 +109,12 @@ export function scoreQuery(
     recalled,
     firstRank: ranks.length > 0 ? Math.min(...ranks) : undefined,
     expectations: outcomes,
+    // Diagnostics first: a 0.000 bucket means either "answered nothing" or
+    // "answered paths that name no label", and only the returned files can
+    // tell those apart. A mapping failure shows up here as a sample full of
+    // `../..` rather than a corpus path.
+    returnedFiles: order.length,
+    sample: order.slice(0, 3),
   };
 }
 
