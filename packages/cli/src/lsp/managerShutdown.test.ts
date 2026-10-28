@@ -60,8 +60,23 @@ afterEach(async () => {
   } else {
     process.env.TNT_PLUGINS_DIR = previousOverride;
   }
-  fs.rmSync(pluginsDir, { recursive: true, force: true });
-  fs.rmSync(workDir, { recursive: true, force: true });
+
+  // The server ran with this directory as its cwd. Windows keeps the handle
+  // alive until the child is fully gone, so the first `rmdir` answers `EBUSY`
+  // there - which `force` does not cover, because it is about `ENOENT`. The
+  // sibling suites already retry for this; this one had not been brought along.
+  fs.rmSync(pluginsDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 40,
+    retryDelay: 250,
+  });
+  fs.rmSync(workDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 40,
+    retryDelay: 250,
+  });
 });
 
 describe("language server shutdown", () => {
