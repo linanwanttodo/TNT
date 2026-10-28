@@ -130,9 +130,14 @@ export interface StagedRun {
 }
 
 function stageCorpus(): StagedRun {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-retrieval-eval-"));
-  const root = path.join(dir, "corpus");
-  const workDir = path.join(dir, "work");
+  // Resolved at the one boundary where the run creates the tree, so the
+  // directory the tools are pointed at and the directory the index reports are
+  // the same spelling from the start.
+  const base = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "tnt-retrieval-eval-")),
+  );
+  const root = path.join(base, "corpus");
+  const workDir = path.join(base, "work");
   fs.cpSync(CORPUS, root, { recursive: true });
   fs.mkdirSync(workDir, { recursive: true });
   corpusFiles(root).forEach((rel, index) => {
@@ -140,7 +145,7 @@ function stageCorpus(): StagedRun {
     const full = path.join(root, rel);
     fs.utimesSync(full, at, at);
   });
-  return { dir, root, workDir };
+  return { dir: base, root, workDir };
 }
 
 function writeConfig(semantic: boolean): void {

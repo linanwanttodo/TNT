@@ -10,6 +10,7 @@
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import { EvalQuery, ToolName } from "./labels.js";
 import { RankedHit, ResolvedExpectation } from "./metrics.js";
@@ -131,11 +132,26 @@ export function fromGlobOutput(root: string, output: string): RankedHit[] {
 }
 
 function relative(root: string, target: string): string {
-  const plain = target.replace(/^file:\/\//, "");
-  const inside = path.isAbsolute(plain)
-    ? path.relative(root, plain)
-    : plain.replace(`${root}${path.sep}`, "");
-  return inside.split(path.sep).join("/");
+  // The two spellings of one file. The index reports the workspace as core
+  // canonicalized it (`/private/var/...` on macOS, the long path on Windows)
+  // while the run created it through a symlinked or short-named temp directory,
+  // and `path.relative` of those two strings produces `../../private/...`
+  // instead of a corpus path - which reads as "the tool found nothing" on the
+  // lanes where `/tmp` is a link. Compare file identity, not spelling.
+  const base = canonical(root);
+  const plain = target.startsWith("file:") ? fileURLToPath(target) : target;
+  const absolute = path.isAbsolute(plain) ? plain : path.resolve(root, plain);
+  return path.relative(base, canonical(absolute)).split(path.sep).join("/");
+}
+
+function canonical(file: string): string {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    // A path that cannot be resolved is used as given; it will simply not match,
+    // which is the same answer the old string comparison gave.
+    return path.resolve(file);
+  }
 }
 
 export type Runner = (tool: ToolName, query: string) => Promise<RankedHit[]>;
