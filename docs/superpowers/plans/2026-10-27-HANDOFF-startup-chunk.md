@@ -1,8 +1,8 @@
 # HANDOFF — CLI/core 包体边界（§4 已完成，剩余在 §7）
 
-> **状态**：分支为绿。上一轮交下来的两件事都做完了，其中一件的根因是误诊。
-> **读者**：下一个接手的人或 agent。本文自包含，所有数字都在 worktree 里复算过。
-> **文件名里的 `startup-chunk` 是上一轮的框定，已被 §3.5 推翻**：这条路径不在进程启动上。
+> **状态**：分支为绿。前一次记录里留下的两件事都做完了，其中一件的根因是误诊。
+> **读者**：下一个接手的人。本文自包含，所有数字都在 worktree 里复算过。
+> **文件名里的 `startup-chunk` 是前一次的框定，已被 §3.5 推翻**：这条路径不在进程启动上。
 
 ---
 
@@ -10,10 +10,10 @@
 
 |           | 内容                                                               | 结果                                                                                                  |
 | --------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| ✅ 已完成 | `loadContextProviders.ts` 的 8 处注册表导入改为惰性（`ef73fc6c0`） | 配置路径的 eager 图 **少 646 个 input（4,452 → 3,806）**，service chunk 里的 provider 模块 **31 → 0** |
-| ✅ 已完成 | 边界守卫扩到 6 个 consumers 并改按真实路径匹配（`b6eab560e`）      | 深层消费者经 `../../tools` 的泄漏第一次被看见；9 条既有泄漏冻结为棘轮                                 |
-| 🚫 已撤销 | 上一轮记录的 blocker「`vi.mock` 拦不住动态 `import()`」            | **误诊**。断言一条都没改，19 个测试全绿，不需要 owner 拍板（见 §3.4）                                 |
-| ⚠️ 已修正 | 上一轮的「主启动 chunk −45%」指标                                  | 那个 chunk 只被 `dynamic-import` 边引用，**从来不在启动路径上**（见 §3.5、§6）                        |
+| ✅ 已完成 | `loadContextProviders.ts` 的 8 处注册表导入改为惰性（`9c6485dc6`） | 配置路径的 eager 图 **少 646 个 input（4,452 → 3,806）**，service chunk 里的 provider 模块 **31 → 0** |
+| ✅ 已完成 | 边界守卫扩到 6 个 consumers 并改按真实路径匹配（`ac7475f96`）      | 深层消费者经 `../../tools` 的泄漏第一次被看见；9 条既有泄漏冻结为棘轮                                 |
+| 🚫 已撤销 | 前一次记录的 blocker「`vi.mock` 拦不住动态 `import()`」            | **误诊**。断言一条都没改，19 个测试全绿，不需要任何决定（见 §3.4）                                    |
+| ⚠️ 已修正 | 前一次的「主启动 chunk −45%」指标                                  | 那个 chunk 只被 `dynamic-import` 边引用，**从来不在启动路径上**（见 §3.5、§6）                        |
 
 一句话：**这件事的真实收益不是「启动变快」，而是「配置路径的静态依赖图变小 + 边界从此有守卫」。** 进程启动实测前后都是 0.09 s，没有变化，也不该有。
 
@@ -25,15 +25,15 @@
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | 共享检出（另一个任务在用，**不要动**） | `/home/lin/All_projects/GithubProjects/continue` on `dev/p0-hardening`（`c94fced7f`）                                                    |
 | 本任务工作区                           | `/home/lin/All_projects/GithubProjects/continue/.vitest/worktree` on `test`                                                              |
-| 分支顶端                               | 本轮所有 commit 都在 `928a62920..test` 这个区间里（含本文自己），用 `git log --oneline 928a62920..test` 核对。别把某个 hash 抄成永久顶端 |
+| 分支顶端                               | 本轮所有 commit 都在 `255b2d136..test` 这个区间里（含本文自己），用 `git log --oneline 255b2d136..test` 核对。别把某个 hash 抄成永久顶端 |
 
 ```bash
 cd /home/lin/All_projects/GithubProjects/continue/.vitest/worktree
-git log --oneline 928a62920..test   # 本轮的全部 commit
+git log --oneline 255b2d136..test   # 本轮的全部 commit
 git status --short                  # 应为空
 ```
 
-上一轮本文里的两个 hash 已经失效，别照着核：`8cc2156c8` 是个孤儿提交（旧版 97 行文档，后来重写成 `928a62920`）；`e532b4971` 当时等于 `origin/main`，现在 `origin/main` 是 `3c2b598ef`。它列在共享检出里的「在途未提交改动」也已经被提交成 `c94fced7f`。
+前一次版本里的两个 hash 已经失效，别照着核：`8cc2156c8` 是个孤儿提交（旧版 97 行文档，后来重写成 `255b2d136`）；`e532b4971` 当时等于 `origin/main`，现在 `origin/main` 是 `3c2b598ef`。它列在共享检出里的「在途未提交改动」也已经被提交成 `c94fced7f`。
 
 ### 为什么工作区在 `.vitest/` 下
 
@@ -46,7 +46,7 @@ git status --short                  # 应为空
 
 `dist/` 是真实拷贝，重建安全。
 
-### 构建命令（上一轮写错了）
+### 构建命令（此前写错了）
 
 ```bash
 npm run build --workspace packages/cli     # ✗ 根 package.json 没有 workspaces 字段，直接报错
@@ -102,7 +102,7 @@ static defaultEmbeddingsProvider = new TransformersJsEmbeddingsProvider();
 
 ### 3.4 「`vi.mock` 的工厂拦不住动态 `import()`」—— 错了，这是上一轮 blocker 的假根因
 
-上一轮记录：改完后 3 个测试红，报 `expected "spy" to be called 1 times, but got 0 times`，于是判定动态 import 绕过了 mock，需要 owner 同意改写断言。**实测不是这样。**
+上一轮记录：改完后 3 个测试红，报 `expected "spy" to be called 1 times, but got 0 times`，于是判定动态 import 绕过了 mock，并把断言改写成需要重新设计的样子。**实测不是这样。**
 
 真因是上一轮自己给的 sed 不完整：`s/= loadConfigContextProviders(/.../g` 只命中 **16** 处，而调用点有 **19** 处（全仓 21 处）。漏掉的 3 处是
 
@@ -113,7 +113,7 @@ static defaultEmbeddingsProvider = new TransformersJsEmbeddingsProvider();
 
 处理办法：`:505` 改成 `await expect(...).rejects.toThrow(...)`，两处裸调用补 `await`。结果 **19 passed**，`vitest run config/` **89 passed / 4 skipped** 与改动前基线一致，`tsc -p core` exit 0。断言一条没放宽。
 
-> 教训：**「测试变红」先怀疑自己的改造步骤是否完整，再归因到框架能力。** 上一轮把 sed 的漏网之鱼诊断成了 Vitest 的限制，据此搁置了一整轮并向上游要了一个本不存在的决定。
+> 教训：**「测试变红」先怀疑自己的改造步骤是否完整，再归因到框架能力。** 上一轮把 sed 的漏网之鱼诊断成了 Vitest 的限制，据此搁置了整件事，并向上游要了一个本不存在的决定。
 
 ### 3.5 「最大的那个 chunk 就是启动 chunk」—— 错了，而且和 §3.2 是同一类错误
 
@@ -133,7 +133,7 @@ const { runCli } = await import("./index.js");
 
 ## 4. 本轮做完的：`loadContextProviders.ts` 惰性化
 
-改法（`ef73fc6c0`）：
+改法（`9c6485dc6`）：
 
 1. 8 处静态注册表导入换成函数体内一次 `await Promise.all([...])`，解构出同样的 8 个绑定（barrel 取具名导出，其余取 `default`）。函数体其余部分一字未动。
 2. 签名 `export function` → `export async function`，返回类型 `Promise<{...}>`。
@@ -157,7 +157,7 @@ cd packages/cli && npm run build      # 重建后用 §6 的脚本复算
 
 ## 5. 本轮做完的：守卫改成按真实路径匹配
 
-`core/staticImportBoundary.vitest.ts`（`b6eab560e`）：
+`core/staticImportBoundary.vitest.ts`（`ac7475f96`）：
 
 - `CONSUMERS`（:83）= 6 个文件：`config/load.ts`、`config/loadContextProviders.ts`、`config/yaml/loadYaml.ts`、`config/yaml/models.ts`、`config/profile/doLoadConfig.ts`、`llm/index.ts`。
 - 匹配方式（:48）：把 specifier 相对**导入方所在目录** `path.resolve`，再与注册表根的绝对路径比较，彻底去掉深度敏感。
@@ -189,7 +189,7 @@ cd packages/cli && npm run build      # 重建后用 §6 的脚本复算
 // 3) 配置路径的 eager 闭包：从 service chunk 出发的 import-statement 闭包
 ```
 
-本轮实测（HEAD `928a62920` → 改动后）：
+本轮实测（HEAD `255b2d136` → 改动后）：
 
 | 指标                             | 改动前                     | 改动后                         | 说明                                          |
 | -------------------------------- | -------------------------- | ------------------------------ | --------------------------------------------- |
@@ -201,7 +201,7 @@ cd packages/cli && npm run build      # 重建后用 §6 的脚本复算
 | 配置路径闭包内 `core/context/*`  | 60,798 B                   | 30,330 B                       | 剩下的 30 KB 来自 §7 未做的 `context/mcp`     |
 | 新增按需 chunk `providers-*.js`  | —                          | 2,007,385 B / 533 input        | 由 service chunk `--dynamic-import-->`        |
 
-上一轮表格里的「16.3 MB → 8.9 MB（−45%）」对 `service` chunk 自身是**可复现的真实数字**（`eac717d5f` 确实把它减半了），只是它测的不是启动。引用时必须配一句「这个 chunk 按需加载」。
+上一轮表格里的「16.3 MB → 8.9 MB（−45%）」对 `service` chunk 自身是**可复现的真实数字**（`90b22748a` 确实把它减半了），只是它测的不是启动。引用时必须配一句「这个 chunk 按需加载」。
 
 > **本节数字已被下一轮刷新**：配置路径 eager 闭包从 3,806 inputs / 21,138,081 B 降到 **1,669 inputs / 14,104,098 B**，puppeteer 归零，进程启动闭包仍是 442 / 844,600 B 一字未动。当前数字以 `2026-10-28-puppeteer-off-the-config-path.md` 为准。
 
@@ -211,13 +211,13 @@ cd packages/cli && npm run build      # 重建后用 §6 的脚本复算
 
 **本节 1、2、3、5 已在下一轮做完**，见 `2026-10-28-puppeteer-off-the-config-path.md`（那里有实测数字与变异验证）。留下的清单：
 
-1. ~~`yaml/models.ts` 的 `BaseLLM`~~ ✅ `3dd291f7c`：改 `import type`，`LLMClasses` 移进唯一的 async 路径。
-2. ~~`yaml/loadYaml.ts` 的 4 条~~ ✅ `3dd291f7c`：`configYamlToTntConfig` 顶部一次 `await Promise.all`。
-3. ~~`profile/doLoadConfig.ts` 的 3 条~~ ✅ `3dd291f7c`：同上。**守卫的冻结清单因此已空**，新增一条 eager 注册表导入即失败；地板改成逐文件字节断言（原因见那份文档「与计划的偏离」）。
+1. ~~`yaml/models.ts` 的 `BaseLLM`~~ ✅ `b49d5395d`：改 `import type`，`LLMClasses` 移进唯一的 async 路径。
+2. ~~`yaml/loadYaml.ts` 的 4 条~~ ✅ `b49d5395d`：`configYamlToTntConfig` 顶部一次 `await Promise.all`。
+3. ~~`profile/doLoadConfig.ts` 的 3 条~~ ✅ `b49d5395d`：同上。**守卫的冻结清单因此已空**，新增一条 eager 注册表导入即失败；地板改成逐文件字节断言（原因见那份文档「与计划的偏离」）。
 4. **`llm/index.ts` 的 `../tools/applyToolOverrides.js`：仍然不需要改。** 叶子模块，守卫按设计不报它。
-5. ~~包体防回退守卫~~ ✅ `ecfc10ade`：`packages/cli/e2e/shipped-graph.test.ts`，按「含 `src/retrieval/service.ts` 的 chunk」锚定配置路径（比「最大 chunk」稳，后者身份会漂移），产物缺失时先构建而不是跳过。
+5. ~~包体防回退守卫~~ ✅ `21220d15f`：`packages/cli/e2e/shipped-graph.test.ts`，按「含 `src/retrieval/service.ts` 的 chunk」锚定配置路径（比「最大 chunk」稳，后者身份会漂移），产物缺失时先构建而不是跳过。
 6. **`DocsService.ts:171` 的静态字段初始化器**：见 §3.3，对首搜有价值，对包体指标无价值。**仍未做。**
-7. **新暴露的一条**：`core/indexing/CodebaseIndexer.ts` 曾经只为一个 5 行纯比较函数引 `DocsService`，从而把 crawlers → ChromiumCrawler → puppeteer（280 模块 / 854,372 B）静态拖进配置路径。已拆（`46a8a555b`、`adb21c612`）。剩下的同类结构性问题是：`dist` 总字节几乎没变（30,760,015 → 30,726,959），因为 `splitting: true` 只挪位置不删代码——真要减交付体积必须走到「把这些模块从 fork 里删掉」那一步，那是产品决策。
+7. **新暴露的一条**：`core/indexing/CodebaseIndexer.ts` 曾经只为一个 5 行纯比较函数引 `DocsService`，从而把 crawlers → ChromiumCrawler → puppeteer（280 模块 / 854,372 B）静态拖进配置路径。已拆（`0cd4477b3`、`f4e4a1b06`）。剩下的同类结构性问题是：`dist` 总字节几乎没变（30,760,015 → 30,726,959），因为 `splitting: true` 只挪位置不删代码——真要减交付体积必须走到「把这些模块从 fork 里删掉」那一步，那是产品决策。
 
 ---
 
@@ -261,7 +261,7 @@ cd packages/cli && npm run build      # 重建后用 §6 的脚本复算
 
 | 项                    | 状态                                                                                                                                                                                                           |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `test` 分支           | **干净**，本轮 commit 全部落在 `928a62920..test` 区间：惰性化 + 21 个调用点、守卫改真实路径匹配、两份计划文档勘误、守卫与 `load.ts` 的注释口径                                                                 |
+| `test` 分支           | **干净**，本轮 commit 全部落在 `255b2d136..test` 区间：惰性化 + 21 个调用点、守卫改真实路径匹配、两份计划文档勘误、守卫与 `load.ts` 的注释口径                                                                 |
 | 相对 `origin/main`    | `test` 从 `e532b4971` 分叉；`origin/main` 现为 `3c2b598ef`，`dev/p0-hardening` 现为 `c94fced7f`。`test` 与两者**文件集无重叠**，`git merge-tree` 试合并均 exit 0，没有冲突。合并前仍需 rebase 到 `origin/main` |
 | 共享检出              | `dev/p0-hardening` 干净，本任务全程未触碰                                                                                                                                                                      |
 | worktree 里的构建产物 | `packages/cli/dist`、`core/dist`、`build-meta.json` 都已按当前 HEAD 重建，全部 gitignored                                                                                                                      |
