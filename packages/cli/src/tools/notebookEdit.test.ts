@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -40,7 +41,7 @@ function readNotebook() {
 }
 
 beforeEach(() => {
-  workspace = fs.mkdtempSync(path.join(process.cwd(), ".tnt-notebook-"));
+  workspace = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-notebook-"));
   file = path.join(workspace, "notebook.ipynb");
   fs.writeFileSync(file, JSON.stringify(sample()));
 });

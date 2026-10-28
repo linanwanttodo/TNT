@@ -10,15 +10,25 @@ import { assertDeletablePath, deleteFileTool } from "./deleteFile.js";
 
 let workspace: string;
 let trashHome: string;
+let previousCwd: string;
 
 beforeEach(() => {
-  workspace = fs.mkdtempSync(path.join(process.cwd(), ".tnt-delete-"));
+  previousCwd = process.cwd();
+  // The scratch tree lives in the system temporary directory, not in the
+  // package: a directory another suite is walking can disappear mid-walk, and
+  // the tool's own workspace default is the working directory, so the run sits
+  // inside the tree it is deleting from.
+  workspace = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "tnt-delete-")),
+  );
+  process.chdir(workspace);
   trashHome = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-trash-"));
   vi.stubEnv("CONTINUE_GLOBAL_DIR", trashHome);
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  process.chdir(previousCwd);
   fs.rmSync(workspace, { recursive: true, force: true });
   fs.rmSync(trashHome, { recursive: true, force: true });
 });

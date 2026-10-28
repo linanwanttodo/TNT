@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -35,12 +36,21 @@ function fakeClient(options: {
 }
 
 let workspace: string;
+let previousCwd: string;
 
 beforeEach(() => {
-  workspace = fs.mkdtempSync(path.join(process.cwd(), ".tnt-browser-"));
+  previousCwd = process.cwd();
+  // A screenshot path is checked against the workspace, which is the working
+  // directory, so the run sits inside the temporary tree it writes into - the
+  // scratch does not belong in the package for another suite to walk.
+  workspace = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), "tnt-browser-")),
+  );
+  process.chdir(workspace);
 });
 
 afterEach(() => {
+  process.chdir(previousCwd);
   fs.rmSync(workspace, { recursive: true, force: true });
 });
 
