@@ -78,9 +78,17 @@ export function convertToolToChatCompletionTool(
 
 export async function executeToolCall(
   toolCall: PreprocessedToolCall,
-  options: { parallelToolCallCount: number } = { parallelToolCallCount: 1 },
+  options: { parallelToolCallCount: number; signal?: AbortSignal } = {
+    parallelToolCallCount: 1,
+  },
 ): Promise<ToolRunResult> {
   const startTime = Date.now();
+
+  // The run gave up before this call started: report it as not run rather than
+  // spawning work whose result nothing will read.
+  if (options.signal?.aborted) {
+    return `Not executed: the run reached its time limit before this call started.`;
+  }
 
   try {
     logger.debug("Executing tool", {
@@ -95,6 +103,7 @@ export async function executeToolCall(
     const context: ToolRunContext = {
       toolCallId: toolCall.id,
       parallelToolCallCount: options.parallelToolCallCount,
+      signal: options.signal,
     };
 
     // IMPORTANT: if preprocessed args are present, uses preprocessed args instead of original args

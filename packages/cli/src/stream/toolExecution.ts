@@ -155,6 +155,8 @@ async function approveAndDispatchCall(options: {
   execution?: {
     permissions?: ToolPermissions;
     autoContext?: { llmApi?: any; model?: any; history?: any[] };
+    /** The run's abort signal, forwarded so a tool can stop when the deadline fires. */
+    signal?: AbortSignal;
   };
   callbacks?: StreamCallbacks;
   isHeadless?: boolean;
@@ -294,6 +296,7 @@ async function approveAndDispatchCall(options: {
       entriesByIndex,
       callbacks,
       onToolOutcome,
+      signal: execution?.signal,
     });
     return false;
   } catch (error) {
@@ -355,6 +358,8 @@ export async function executeStreamedToolCalls(
   execution?: {
     permissions?: ToolPermissions;
     autoContext?: { llmApi?: any; model?: any; history?: any[] };
+    /** The run's abort signal, forwarded so a tool can stop when the deadline fires. */
+    signal?: AbortSignal;
   },
 ): Promise<{
   hasRejection: boolean;
