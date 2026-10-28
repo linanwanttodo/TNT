@@ -6,6 +6,7 @@ import {
   createTestContext,
   runCLI,
 } from "../test-utils/cli-helpers.js";
+import { HookFixtures } from "../test-utils/hookFixtures.js";
 import {
   cleanupMockLLMServer,
   setupMockLLMTest,
@@ -14,8 +15,22 @@ import {
 
 describe("E2E: Headless lifecycle hooks", () => {
   let context: any;
+  let fixtures: HookFixtures;
   let mockServer: MockLLMServer;
   let logPath: string;
+
+  /**
+   * `echo X >> file` under cmd.exe writes `X \r\n`: the space before the
+   * redirect belongs to the echoed text, and the line ending is CRLF. Reading
+   * the log back as event names means trimming both, which a POSIX shell never
+   * adds and therefore never hides.
+   */
+  function loggedEvents(log: string): string[] {
+    return log
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }
 
   function appendingHooks(events: string[]) {
     const handler = (event: string) => [
@@ -55,6 +70,7 @@ describe("E2E: Headless lifecycle hooks", () => {
 
   beforeEach(async () => {
     context = await createTestContext();
+    fixtures = new HookFixtures(context.testDir);
     mockServer = await setupMockLLMTest(context, {
       response: "Hello there.",
     });
@@ -84,7 +100,7 @@ describe("E2E: Headless lifecycle hooks", () => {
 
     expect(result.exitCode).toBe(0);
     const log = await fs.readFile(logPath, "utf-8");
-    expect(log.trim().split("\n")).toEqual([
+    expect(loggedEvents(log)).toEqual([
       "SessionStart",
       "UserPromptSubmit",
       "Stop",
@@ -101,7 +117,13 @@ describe("E2E: Headless lifecycle hooks", () => {
           hooks: [
             {
               type: "command",
-              command: 'echo "tnt-blocked prompt" 1>&2; exit 2',
+              // `echo "..." 1>&2; exit 2` is what the case used to spell this,
+              // and cmd.exe reads that as one word: nothing was blocked, the
+              // reason came back inside the message. The fixture is a node
+              // script with two quoted arguments, the one form both shells
+              // agree on, so Windows tests the blocking hook instead of
+              // testing whether cmd.exe speaks POSIX.
+              command: fixtures.fail("tnt-blocked prompt", 2),
             },
           ],
         },
@@ -119,7 +141,7 @@ describe("E2E: Headless lifecycle hooks", () => {
     const log = await fs.readFile(logPath, "utf-8");
     // The blocking handler owns UserPromptSubmit, and the turn never runs, so
     // only the session boundaries land in the log; the session still ends.
-    expect(log.trim().split("\n")).toEqual(["SessionStart", "SessionEnd"]);
+    expect(loggedEvents(log)).toEqual(["SessionStart", "SessionEnd"]);
   }, 30000);
 
   it("carries a SessionStart note into the request and names a readable transcript", async () => {

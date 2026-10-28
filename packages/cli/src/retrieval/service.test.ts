@@ -97,6 +97,53 @@ describe("retrieval over the workspace", () => {
     expect(hits).toEqual([]);
   }, 120_000);
 
+  it("starts its own build only after the indexer's first has settled", async () => {
+    // Two builds of one directory cancel each other and the later start wins.
+    // The indexer kicks one off from the config load in its own constructor, so
+    // a caller that builds immediately can end up awaiting the loser - and then
+    // search an index that its cancelled build wrote nothing to.
+    const fresh = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-index-order-"));
+    fs.writeFileSync(
+      path.join(fresh, "ordered.ts"),
+      "export const orderMarker = 1;\n",
+    );
+
+    try {
+      const service = new RetrievalService(fresh);
+      const indexer = (service as any).indexer as {
+        initPromise: Promise<void>;
+        refreshCodebaseIndex: (dirs: string[]) => Promise<void>;
+      };
+
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const started = indexer.initPromise;
+      indexer.initPromise = Promise.all([started, gate]).then(() => undefined);
+
+      const builds: string[][] = [];
+      const real = indexer.refreshCodebaseIndex.bind(indexer);
+      indexer.refreshCodebaseIndex = async (dirs: string[]) => {
+        builds.push(dirs);
+        return real(dirs);
+      };
+
+      const pending = service.update();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(builds).toHaveLength(0);
+
+      release();
+      await pending;
+
+      expect(builds).toHaveLength(1);
+      expect(builds[0]).toHaveLength(1);
+      expect(await service.hasIndex()).toBe(true);
+    } finally {
+      fs.rmSync(fresh, { recursive: true, force: true });
+    }
+  }, 120_000);
+
   it("accepts the bundled local embeddings model", async () => {
     const configPath = path.join(env.continueHome, "config.yaml");
     fs.writeFileSync(configPath, LOCAL_EMBEDDINGS_CONFIG);

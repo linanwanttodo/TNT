@@ -127,6 +127,13 @@ export class RetrievalService {
 
   /** Walks the workspace and brings the index up to date with it. */
   async update(): Promise<void> {
+    // Constructing the indexer kicks off a build of its own from the config it
+    // loads, and `refreshCodebaseIndex` cancels whatever build is in flight
+    // before starting. Whichever of the two lands second decides who survives -
+    // and if the loser is the build a caller awaited, that caller goes on to
+    // search an index its own cancelled build had written nothing to. Waiting
+    // for the indexer's start makes this the build that lands second.
+    await this.indexer.initPromise;
     await this.indexer.refreshCodebaseIndex([this.workspaceDir]);
   }
 
@@ -150,11 +157,22 @@ export class RetrievalService {
   /**
    * Builds the index on first use and reuses it afterwards. Two callers that
    * race on an unbuilt workspace share one build.
+   *
+   * A build already in flight is joined before the tag catalog is trusted:
+   * `markComplete` records a file's tag row as the first thing it does, while
+   * the chunk and full-text tables are written after it, so answering from the
+   * catalog alone can report "indexed" for a workspace a search still finds
+   * nothing in.
    */
   async ensureIndexed(): Promise<void> {
+    if (this.buildPromise) {
+      await this.buildPromise;
+    }
+
     if (await this.hasIndex()) {
       return;
     }
+
     this.buildPromise ??= this.update().finally(() => {
       this.buildPromise = null;
     });

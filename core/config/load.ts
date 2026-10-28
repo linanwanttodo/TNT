@@ -35,12 +35,7 @@ import {
 import { getLegacyBuiltInSlashCommandFromDescription } from "../commands/slash/built-in-legacy";
 import { convertCustomCommandToSlashCommand } from "../commands/slash/customSlashCommand";
 import { slashCommandFromPromptFile } from "../commands/slash/promptFileSlashCommand";
-import { MCPManagerSingleton } from "../context/mcp/MCPManagerSingleton";
-import { BaseLLM } from "../llm";
-import { LLMClasses, llmFromDescription } from "../llm/llms";
-import CustomLLMClass from "../llm/llms/CustomLLM";
-import { LLMReranker } from "../llm/llms/llm";
-import TransformersJsEmbeddingsProvider from "../llm/llms/TransformersJsEmbeddingsProvider";
+import type { BaseLLM } from "../llm";
 import { getAllPromptFiles } from "../promptFiles/getPromptFiles";
 import { copyOf } from "../util";
 import { GlobalContext } from "../util/GlobalContext";
@@ -56,9 +51,6 @@ import {
 } from "../util/paths";
 import { localPathToUri } from "../util/pathToUri";
 
-import { loadJsonMcpConfigs } from "../context/mcp/json/loadJsonMcpConfigs";
-import CustomContextProviderClass from "../context/providers/CustomContextProvider";
-import { getBaseToolDefinitions, serializeTool } from "../tools";
 import { resolveRelativePathInDir } from "../util/ideUtils";
 import { getWorkspaceRcConfigs } from "./json/loadRcConfigs";
 import { loadConfigContextProviders } from "./loadContextProviders";
@@ -68,6 +60,72 @@ import {
   isSupportedLanceDbCpuTargetForLinux,
   serializePromptTemplates,
 } from "./util";
+
+/**
+ * Registries are loaded on first use, never at import time.
+ *
+ * This module is reached by the CLI through `ConfigHandler`, so a static import
+ * here is fetched before the config layer can answer with a model or a context
+ * provider. Loading the provider, legacy tool and context registries eagerly put
+ * every one of them in that fetch, including the vendored transformers runtime.
+ * `core/staticImportBoundary.vitest.ts` holds the boundary.
+ *
+ * The cache is a module-level promise rather than a boolean so that concurrent
+ * config loads share one set of module evaluations instead of racing.
+ */
+let registryCache:
+  | Promise<{
+      LLMClasses: (typeof import("../llm/llms"))["LLMClasses"];
+      llmFromDescription: (typeof import("../llm/llms"))["llmFromDescription"];
+      CustomLLMClass: (typeof import("../llm/llms/CustomLLM"))["default"];
+      LLMReranker: (typeof import("../llm/llms/llm"))["LLMReranker"];
+      TransformersJsEmbeddingsProvider: (typeof import("../llm/llms/TransformersJsEmbeddingsProvider"))["default"];
+      MCPManagerSingleton: (typeof import("../context/mcp/MCPManagerSingleton"))["MCPManagerSingleton"];
+      loadJsonMcpConfigs: (typeof import("../context/mcp/json/loadJsonMcpConfigs"))["loadJsonMcpConfigs"];
+      CustomContextProviderClass: (typeof import("../context/providers/CustomContextProvider"))["default"];
+      getBaseToolDefinitions: (typeof import("../tools"))["getBaseToolDefinitions"];
+      serializeTool: (typeof import("../tools"))["serializeTool"];
+    }>
+  | undefined;
+
+function loadRegistries() {
+  registryCache ??= (async () => {
+    const [
+      llms,
+      customLlm,
+      llmModule,
+      transformers,
+      mcp,
+      mcpJson,
+      customContextProvider,
+      tools,
+    ] = await Promise.all([
+      import("../llm/llms"),
+      import("../llm/llms/CustomLLM"),
+      import("../llm/llms/llm"),
+      import("../llm/llms/TransformersJsEmbeddingsProvider"),
+      import("../context/mcp/MCPManagerSingleton"),
+      import("../context/mcp/json/loadJsonMcpConfigs"),
+      import("../context/providers/CustomContextProvider"),
+      import("../tools"),
+    ]);
+
+    return {
+      LLMClasses: llms.LLMClasses,
+      llmFromDescription: llms.llmFromDescription,
+      CustomLLMClass: customLlm.default,
+      LLMReranker: llmModule.LLMReranker,
+      TransformersJsEmbeddingsProvider: transformers.default,
+      MCPManagerSingleton: mcp.MCPManagerSingleton,
+      loadJsonMcpConfigs: mcpJson.loadJsonMcpConfigs,
+      CustomContextProviderClass: customContextProvider.default,
+      getBaseToolDefinitions: tools.getBaseToolDefinitions,
+      serializeTool: tools.serializeTool,
+    };
+  })();
+
+  return registryCache;
+}
 import { validateConfig } from "./validation.js";
 
 export function resolveSerializedConfig(filepath: string): SerializedTntConfig {
@@ -234,6 +292,18 @@ async function intermediateToFinalConfig({
   llmLogger: ILLMLogger;
   loadPromptFiles?: boolean;
 }): Promise<{ config: TntConfig; errors: ConfigValidationError[] }> {
+  const {
+    LLMClasses,
+    llmFromDescription,
+    CustomLLMClass,
+    LLMReranker,
+    TransformersJsEmbeddingsProvider,
+    MCPManagerSingleton,
+    loadJsonMcpConfigs,
+    CustomContextProviderClass,
+    getBaseToolDefinitions,
+  } = await loadRegistries();
+
   const errors: ConfigValidationError[] = [];
   const workspaceDirs = await ide.getWorkspaceDirs();
   const getUriFromPath = (path: string) => {
@@ -361,7 +431,7 @@ async function intermediateToFinalConfig({
 
   // Load context providers
   const { providers: contextProviders, errors: contextErrors } =
-    loadConfigContextProviders(
+    await loadConfigContextProviders(
       config.contextProviders
         ?.filter((cp) => isContextProviderWithParams(cp))
         .map((cp) => ({
@@ -614,6 +684,8 @@ async function finalToBrowserConfig(
   final: TntConfig,
   ide: IDE,
 ): Promise<BrowserSerializedTntConfig> {
+  const { serializeTool } = await loadRegistries();
+
   return {
     allowAnonymousTelemetry: final.allowAnonymousTelemetry,
     completionOptions: final.completionOptions,

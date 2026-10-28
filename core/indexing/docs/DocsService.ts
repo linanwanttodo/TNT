@@ -26,6 +26,7 @@ import {
   getLanceDbPath,
 } from "../../util/paths";
 
+import { embedModelsAreEqual } from "../embedModels.js";
 import {
   ArticleWithChunks,
   htmlPageToArticleWithChunks,
@@ -89,17 +90,6 @@ const hasIndexingFailed = (siteIndexingConfig: SiteIndexingConfig) => {
   const failedDocs = globalContext.get("failedDocs") ?? [];
   return failedDocs.find((d) => docConfigsAreEqual(siteIndexingConfig, d));
 };
-
-export function embedModelsAreEqual(
-  llm1: ILLM | null | undefined,
-  llm2: ILLM | null | undefined,
-): boolean {
-  return (
-    llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
-    llm1?.title === llm2?.title &&
-    llm1?.maxEmbeddingChunkSize === llm2?.maxEmbeddingChunkSize
-  );
-}
 
 const docConfigsAreEqual = (
   siteConfig1: SiteIndexingConfig,
