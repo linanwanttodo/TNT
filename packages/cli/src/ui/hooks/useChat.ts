@@ -27,6 +27,7 @@ import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
 import { handleSlashCommands } from "../commands/index.js";
+import { notifyTurnComplete } from "../notify.js";
 
 import {
   handleAutoCompaction,
@@ -407,6 +408,12 @@ export function useChat({
       ]);
     } finally {
       // Stop active time tracking
+      if (typeof responseStartTime === "number") {
+        notifyTurnComplete({
+          elapsedMs: Date.now() - responseStartTime,
+          text: t("notify.turnComplete"),
+        });
+      }
       telemetryService.stopActiveTime();
       fireStop(lastAssistantTextRef.current ?? undefined).catch(() => {});
 
