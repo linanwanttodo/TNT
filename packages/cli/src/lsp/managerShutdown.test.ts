@@ -110,8 +110,14 @@ describe("language server shutdown", () => {
     writePlugin(pidFile);
     await getLspManager().ensureStarted(workDir);
     await waitFor(() => fs.existsSync(pidFile));
+    // The pid is read before the stop, and the case waits on it: the server was
+    // started with `workDir` as its cwd, and on Windows that directory stays
+    // busy for as long as the process is alive, so a cleanup that does not wait
+    // spends its whole retry budget on a handle nobody intends to release.
+    const pid = Number(fs.readFileSync(pidFile, "utf-8"));
 
     getLspManager().stopAllNow();
+    await waitFor(() => !isAlive(pid));
 
     expect(await getLspManager().collectDiagnostics(workDir)).toEqual([]);
   });
