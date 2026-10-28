@@ -123,18 +123,32 @@ export async function runCLI(
   let killed = false;
 
   try {
-    // Run the wrapper via Node for cross-platform consistency
-    const result = await execaNode(context.cliPath, args, execOptions);
-    stdout = result.stdout;
-    stderr = result.stderr;
+    // Run the wrapper via Node for cross-platform consistency.
+    //
+    // `buffer: false` because execa only hands its collected output back when
+    // the child is gone, and a run killed at its timeout never gets there: every
+    // `timed out ... (partial output: )` this suite has printed reads as though
+    // the CLI said nothing, whether it hung at startup or streamed for
+    // 29 seconds and stopped. Reading the pipes as they fill is the only way the
+    // timeout message can say where the run stopped, and it makes these two
+    // strings the single source rather than a second copy that agrees sometimes.
+    const subprocess = execaNode(context.cliPath, args, {
+      ...execOptions,
+      buffer: false,
+    });
+    subprocess.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    subprocess.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    const result = await subprocess;
     exitCode = result.exitCode ?? 0;
     killed = result.timedOut === true || result.isTerminated === true;
   } catch (thrown: any) {
     if (!expectError) {
       throw thrown;
     }
-    stdout = thrown.stdout || "";
-    stderr = thrown.stderr || "";
     exitCode = thrown.exitCode ?? 1;
     error = thrown;
     killed = thrown.timedOut === true || thrown.isTerminated === true;
@@ -142,8 +156,9 @@ export async function runCLI(
 
   if (killed) {
     throw new Error(
-      `tnt ${args.join(" ")} timed out after ${timeout}ms` +
-        ` (partial output: ${String(stdout).slice(0, 200)})`,
+      `tnt ${args.join(" ")} timed out after ${timeout}ms\n` +
+        `  stdout (${stdout.length} chars): ${stdout.slice(0, 400)}\n` +
+        `  stderr (${stderr.length} chars): ${stderr.slice(0, 400)}`,
     );
   }
 
