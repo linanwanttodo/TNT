@@ -138,40 +138,64 @@ function relative(root: string, target: string): string {
   // `realpath` answered one side with the 8.3 short form (`C:\Users\RUNNER~1\...`)
   // and the other with the long name. Subtracting those walks out of the corpus
   // instead of naming a file in it, and reads as "the tool found nothing".
-  // Identity beats arithmetic: the corpus is twelve files, so index them.
-  const known = identities(root).get(canonical(target));
+  const plain = target.startsWith("file:") ? fileURLToPath(target) : target;
+  const absolute = path.isAbsolute(plain) ? plain : path.resolve(root, plain);
+
+  // Identity first: both spellings of every corpus file, resolved.
+  const indexed = identities(root);
+  const known = indexed.byPath.get(canonical(absolute));
   if (known) {
     return known;
   }
-  const plain = target.startsWith("file:") ? fileURLToPath(target) : target;
-  const absolute = path.isAbsolute(plain) ? plain : path.resolve(root, plain);
-  return path
-    .relative(canonical(root), canonical(absolute))
-    .split(path.sep)
-    .join("/");
+
+  // Then the only tail the two spellings are guaranteed to agree on: the corpus
+  // directory the run created and everything under it. Windows gave realpath a
+  // short name on one side and a long name on the other, and neither resolved
+  // through the other, so no amount of canonicalizing matches them - the suffix
+  // below is what survives both.
+  const tail = `/${forward(path.basename(root))}/`;
+  const normalized = forward(absolute).toLowerCase();
+  for (const rel of indexed.names) {
+    if (normalized.endsWith(tail + forward(rel).toLowerCase())) {
+      return rel;
+    }
+  }
+
+  return forward(path.relative(canonical(root), canonical(absolute)));
 }
 
-const identitiesByRoot = new Map<string, Map<string, string>>();
+function forward(file: string): string {
+  return file.split(path.sep).join("/");
+}
 
-/** Every corpus file under both of its spellings, mapped to the labelled name. */
-function identities(root: string): Map<string, string> {
+interface CorpusIdentities {
+  byPath: Map<string, string>;
+  names: string[];
+}
+
+const identitiesByRoot = new Map<string, CorpusIdentities>();
+
+/** Every corpus file, under each spelling it is reachable by. */
+function identities(root: string): CorpusIdentities {
   const cached = identitiesByRoot.get(root);
   if (cached) {
     return cached;
   }
-  const map = new Map<string, string>();
-  for (const rel of corpusFiles(root)) {
+  const byPath = new Map<string, string>();
+  const names = corpusFiles(root);
+  for (const rel of names) {
     const given = path.resolve(root, rel);
-    map.set(given, rel);
+    byPath.set(given, rel);
     try {
-      map.set(fs.realpathSync(given), rel);
+      byPath.set(fs.realpathSync(given), rel);
     } catch {
-      // An unresolvable file keeps only the spelling it was given; the
-      // arithmetic above still has a chance of matching it.
+      // An unresolvable file keeps only the spelling it was given; the suffix
+      // rule above still answers for it.
     }
   }
-  identitiesByRoot.set(root, map);
-  return map;
+  const created = { byPath, names };
+  identitiesByRoot.set(root, created);
+  return created;
 }
 
 function canonical(file: string): string {
