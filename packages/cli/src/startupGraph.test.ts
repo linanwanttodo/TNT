@@ -101,7 +101,8 @@ describe("the bundle's eager startup graph", () => {
     if (!built) {
       ctx.skip();
     }
-    // Measured 2026-10-28 at `ff98d6535`: 14 chunks, 854,159 bytes (834 KB).
+    // Measured on two builds of this tree - 854,159 bytes, then 853,931 after a
+    // rebuild: 14 chunks, 834 KB either way, the difference being chunk hashing.
     // The headroom is for a dependency bump, not for a new startup import: the
     // retrieval service chunk alone is 77,733 bytes, and the embeddings provider
     // chunk drags thirty-six more chunks in behind it.
