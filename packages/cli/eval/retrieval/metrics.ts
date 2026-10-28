@@ -44,7 +44,7 @@ export interface QueryOutcome {
 }
 
 /** Does this returned hit quote the labelled line? */
-export function hitCovers(hit: RankedHit, expectation: ResolvedExpectation) {
+function hitCovers(hit: RankedHit, expectation: ResolvedExpectation) {
   if (hit.file !== expectation.file) {
     return false;
   }

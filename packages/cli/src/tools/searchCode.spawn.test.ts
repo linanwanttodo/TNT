@@ -96,32 +96,6 @@ describe("the Search tool spawns its program without a shell", () => {
     expect(result).not.toContain("hello world");
   });
 
-  it("anchors a file pattern with a slash at the directory being searched", async () => {
-    fs.mkdirSync(path.join(workDir, "src"), { recursive: true });
-    fs.writeFileSync(path.join(workDir, "src", "hit.ts"), "hello in src\n");
-    fs.writeFileSync(path.join(workDir, "other.ts"), "hello elsewhere\n");
-
-    // A filter like `src/*.ts` is written against the directory the caller
-    // named, but ripgrep anchors a slash-bearing glob at the working directory.
-    // Running from anywhere else therefore filtered every file out.
-    const previous = process.cwd();
-    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-search-cwd-"));
-    process.chdir(elsewhere);
-    try {
-      const result = await searchCodeTool.run({
-        pattern: "hello",
-        path: workDir,
-        file_pattern: "src/*.ts",
-      });
-
-      expect(result).toContain("hello in src");
-      expect(result).not.toContain("hello elsewhere");
-    } finally {
-      process.chdir(previous);
-      fs.rmSync(elsewhere, { recursive: true, force: true });
-    }
-  });
-
   it("searches anyway when one ignore line is not a glob it can compile", async () => {
     // `[[` is an unclosed character class: ripgrep refuses it and exits 2, so
     // the whole argument vector is rejected before any file is read. Without

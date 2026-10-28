@@ -64,16 +64,27 @@ core looks for its tree-sitter grammars under `<cwd>/node_modules/tree-sitter-wa
 when `NODE_ENV=test`, and next to its own compiled output otherwise. Under a
 plain ESM import the second branch resolves a `__dirname` that does not exist,
 and the indexer falls back to line-based chunks - which would have the benchmark
-rank chunks production never produces. The harness links the workspace's own
-copy of the grammars and the report line names the chunker that actually ran:
+rank chunks production never produces.
+
+So the run works from a directory of its own, `…/work`, whose `node_modules`
+holds a link to the workspace's copy of the grammars. It deliberately does not
+create that link in the repository's `node_modules`: a link there changes how
+every _other_ suite chunks its fixtures, and a benchmark does not get to decide
+that. The report line names what actually ran:
 
 ```
 retrieval benchmark (lexical track, tree-sitter chunker, index 2289ms, queries 549ms)
 ```
 
+Where the link cannot be made - a platform that needs a privilege for it, or an
+install without the grammars - the two scoring cases skip themselves instead of
+measuring line-based chunks against floors from tree-sitter ones; the label and
+documentation cases still run. `TNT_EVAL_GRAMMARS=0` forces that path, which is
+how the skip is checked on a machine where linking would succeed.
+
 The semantic track (`TNT_EVAL_EMBEDDINGS=1`) needs a reachable embeddings model
-and is not part of the CI floor. Nothing here sends a request: the scored tracks
-run on the full-text index, which needs no provider.
+and is not part of the CI floor. Nothing else here sends a request: the scored
+tracks run on the full-text index, which needs no provider.
 
 ## Reading the floors
 

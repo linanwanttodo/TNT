@@ -165,6 +165,40 @@ describe("searchCodeTool", () => {
       }
       expect(options.length).toBeGreaterThan(0);
     });
+
+    it("searches from the directory it was given, not from wherever the run is", async () => {
+      const childProc = await import("child_process");
+      const calls: any[] = [];
+      vi.mocked(childProc.execFile as any).mockImplementation(
+        (...args: any[]) => {
+          calls.push(args);
+          const cb = args[args.length - 1];
+          cb(null, "", "");
+          return {} as any;
+        },
+      );
+
+      // A directory that exists and is not the one the run sits in.
+      const target = path.resolve(process.cwd(), "..");
+      const { searchCodeTool } = await import("./searchCode.js");
+      await searchCodeTool.run({
+        pattern: "match",
+        path: target,
+        file_pattern: "src/*.ts",
+      });
+
+      // A `--glob` with a slash in it is anchored at the working directory, not
+      // at the path argument, so filtering `src/*.ts` while sitting elsewhere
+      // filtered every file out: the tool answered "no matches" about a tree that
+      // plainly had them. The probe that only asks whether the program exists is
+      // not a search and carries no path to anchor.
+      const searches = calls.filter((args: any[]) => args[1]?.includes("--"));
+      expect(searches.length).toBeGreaterThan(0);
+      for (const args of searches) {
+        expect(args[1]).toContain(target);
+        expect(args[2]?.cwd).toBe(target);
+      }
+    });
   });
 });
 
