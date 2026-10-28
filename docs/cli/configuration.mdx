@@ -114,6 +114,7 @@ The home directory can be relocated with `TNT_GLOBAL_DIR`, which also moves
 | `TNT_SYMBOLS` | glyph preset for the interface: `unicode` (default), `ascii` for seven-bit terminals, or `nerd` for a Nerd Font |
 | `TNT_HYPERLINKS` | set to `0` for a terminal that prints OSC 8 escapes literally instead of making links clickable |
 | `TNT_NOTIFY` | `bell` or `1` to have the terminal signal a finished turn that ran at least ten seconds; unset means no signal |
+| `TNT_STREAM_REVEAL` | set to `1` to draw the streaming answer a few characters at a time; off by default because it redraws the frame at about 30 frames a second |
 | `TNT_WARM_RETRIEVAL` | set to `0` to stop the codebase index being built when a session opens; it is built then only when the config selects the `codebase` provider |
 
 Every variable the CLI reads is `TNT_*`; the older `CONTINUE_*` spellings are no

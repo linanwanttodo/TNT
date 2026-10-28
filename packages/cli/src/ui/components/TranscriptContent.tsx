@@ -6,6 +6,7 @@ import { t } from "../../i18n/index.js";
 import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
+import { useRevealedText } from "../streamReveal.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
 import { findLastSafeSplitPoint } from "../utils/streamSplit.js";
 import { alternateScreenEnabled } from "../utils/terminalScreen.js";
@@ -104,9 +105,9 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     }
   }, [streamingText]);
 
-  const liveText = streamingText
-    ? streamingText.slice(settledOffset.current)
-    : null;
+  const liveText = useRevealedText(
+    streamingText ? streamingText.slice(settledOffset.current) : null,
+  );
 
   // The live answer is not in the history yet, so it renders straight from the
   // stream overlay, after everything that has already arrived.
