@@ -51,8 +51,7 @@ The generator lives in the parent package (`@tnt/sdk-generator`):
 
 ```bash
 cd packages/sdk
-npm run generate-client:typescript   # openapi.yaml -> typescript/api
-npm run generate-client:ALL          # and the python client
+npm run generate-client              # openapi.yaml -> typescript/api
 ```
 
 `cd packages/sdk/typescript && npm run build` runs `tsc` over `src/` and the generated
