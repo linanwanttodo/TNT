@@ -45,10 +45,20 @@ initialization resolves without waiting for them. Each server keeps its own
 connection and state, and the service exposes the tools and prompts of all
 connected servers to the model.
 
-A server is `idle`, `connecting`, `connected` or `error`; only `connected`
-servers contribute prompts and tools. A server that connects but fails to list
-prompts or tools records warnings for the TUI instead of failing the whole
-service. On exit every connection is shut down.
+A server is `idle`, `connecting`, `connected` or `error`. A server that connects
+but fails to list prompts or tools records warnings for the TUI instead of
+failing the whole service. On exit every connection is shut down.
+
+An idle server is reclaimed: `TNT_MCP_IDLE_TIMEOUT_MS` (default 300000, `0` or a
+negative value disables) is how long a connected server may go without a tool
+call before its process is released. The check runs on a sweep that fires every
+30 seconds at most, and sooner while the window is under a minute: half the
+window, never under 25 milliseconds. Reclaiming keeps the server's tool list
+published, so the model still sees what it was told about, and the next call to
+one of those tools reconnects the server before running it. Only a teardown
+somebody asked for clears the list - `stopServer`, `restartServer`,
+`restartAllServers`, a reload, exit - because that is when the configured
+servers themselves change.
 
 Only servers from the loaded configuration files are connected. MCP logging goes
 through the winston logger, never `console.log`.

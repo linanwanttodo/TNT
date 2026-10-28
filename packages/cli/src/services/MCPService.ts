@@ -11,6 +11,11 @@ import { registerShutdownCallback } from "../utils/processShutdown.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";
 import {
+  IdleReclaimer,
+  idleTimeoutMs,
+  ReclaimableConnection,
+} from "./mcpIdleReclaim.js";
+import {
   constructHttpTransport,
   constructSseTransport,
   constructStdioTransport,
@@ -24,7 +29,7 @@ import {
   SERVICE_NAMES,
 } from "./types.js";
 
-interface ServerConnection extends MCPConnectionInfo {
+interface ServerConnection extends MCPConnectionInfo, ReclaimableConnection {
   client: Client | null;
 }
 
@@ -73,6 +78,18 @@ export class MCPService
   private isShuttingDown = false;
   private isHeadless: boolean | undefined;
   private apiKeyCache: Map<string, string> = new Map();
+  private reclaimer = new IdleReclaimer<ServerConnection>(
+    () => [...this.connections.values()],
+    (connection) => {
+      logger.debug("Reclaiming idle MCP server", {
+        name: connection.config?.name,
+        idleMs: idleTimeoutMs(),
+      });
+      // The tool list is kept: releasing the process must not silently take
+      // capability away from a model that was already told about it.
+      return this.shutdownConnection(connection, { keepTools: true });
+    },
+  );
 
   getDependencies(): string[] {
     return [SERVICE_NAMES.CONFIG, SERVICE_NAMES.AUTH];
@@ -183,11 +200,15 @@ export class MCPService
     const connections: MCPConnectionInfo[] = Array.from(
       this.connections.values(),
     ).map(({ client: _, ...rest }) => rest);
-    const connectedServers = connections.filter(
-      (c) => c.status === "connected",
+    // A reclaimed server is not connected but is still known: its tool list is
+    // kept precisely so the model can see and select it, and the next call
+    // reconnects. Dropping the list with the process would turn saving memory
+    // into silently losing capabilities, which is the worse trade.
+    const listed = connections.filter(
+      (c) => c.status === "connected" || c.tools.length > 0,
     );
-    const tools = connectedServers.flatMap((s) => s.tools);
-    const prompts = connectedServers.flatMap((s) => s.prompts);
+    const tools = listed.flatMap((s) => s.tools);
+    const prompts = listed.flatMap((s) => s.prompts);
 
     const newState: MCPServiceState = {
       mcpService: this,
@@ -267,21 +288,41 @@ export class MCPService
       const owner = connection.config?.name;
       if (!owner) continue;
       if (serverName && owner !== serverName) continue;
-      if (connection.status !== "connected" || !connection.client) continue;
 
       const tool = connection.tools.find((t) => t.name === name);
       if (!tool) continue;
+      // Still coming up from the startup connect: not this call's problem, and
+      // reconnecting a connecting server would only double-spawn it.
+      if (connection.status === "connecting") continue;
 
-      return await this.withTokenRefresh(owner, async () => {
-        const conn = this.connections.get(owner);
-        if (!conn?.client) {
-          throw new Error(`Client for ${owner} not available`);
-        }
-        return await conn.client.callTool({
-          name,
-          arguments: args,
+      if (connection.status !== "connected" || !connection.client) {
+        // Reclaimed by the idle sweep, or never reached: bring it back rather
+        // than advertising a tool and then failing on it.
+        await this.connectServer(connection.config);
+      }
+
+      const live = this.connections.get(owner);
+      if (live) {
+        live.inFlight += 1;
+        live.lastUsedAt = Date.now();
+      }
+      try {
+        return await this.withTokenRefresh(owner, async () => {
+          const conn = this.connections.get(owner);
+          if (!conn?.client) {
+            throw new Error(`Client for ${owner} not available`);
+          }
+          return await conn.client.callTool({
+            name,
+            arguments: args,
+          });
         });
-      });
+      } finally {
+        const done = this.connections.get(owner);
+        if (done) {
+          done.inFlight = Math.max(0, done.inFlight - 1);
+        }
+      }
     }
     throw new Error(
       serverName
@@ -332,6 +373,8 @@ export class MCPService
       tools: [],
       status: "connecting",
       warnings: [],
+      lastUsedAt: Date.now(),
+      inFlight: 0,
     };
     const serverName = serverConfig.name;
     this.connections.set(serverName, connection);
@@ -359,6 +402,8 @@ TNT stores secrets locally and does not use an external hub.`;
 
       connection.client = client;
       connection.status = "connected";
+      connection.lastUsedAt = Date.now();
+      this.reclaimer.start();
       this.updateState();
 
       const capabilities = client.getServerCapabilities();
@@ -445,15 +490,21 @@ TNT stores secrets locally and does not use an external hub.`;
     const shutdownPromises = Array.from(this.connections.values()).map(
       (connection) => this.shutdownConnection(connection),
     );
+    this.reclaimer.stop();
     await Promise.all(shutdownPromises);
     this.updateState();
   }
 
   /**
-   * Shutdown a single connection
+   * Shutdown a single connection.
+   *
+   * `keepTools` is the reclaim path: the process and its socket go, the tool
+   * list stays, so the catalog the model reads does not quietly shrink because
+   * nobody called a server for five minutes.
    */
   private async shutdownConnection(
     connection: ServerConnection,
+    options: { keepTools?: boolean } = {},
   ): Promise<void> {
     try {
       if (connection.client) {
@@ -462,8 +513,10 @@ TNT stores secrets locally and does not use an external hub.`;
       connection.status = "idle";
       connection.warnings = [];
       connection.client = null;
-      connection.tools = [];
-      connection.prompts = [];
+      if (!options.keepTools) {
+        connection.tools = [];
+        connection.prompts = [];
+      }
       connection.error = undefined;
       this.updateState();
     } catch (error) {
@@ -475,11 +528,16 @@ TNT stores secrets locally and does not use an external hub.`;
     }
   }
 
+  /**
+   * Stops sweeping with the service: the timer is unref'd, but a teardown that
+   * leaves it running would race the connections it just closed.
+   */
   public async cleanup(): Promise<void> {
     if (this.isShuttingDown) return;
     this.isShuttingDown = true;
 
     this.removeAllListeners();
+    this.reclaimer.stop();
     await this.shutdownConnections();
   }
 

@@ -21,6 +21,7 @@ const doc = read("spec", "mcp.md");
 const config = read("src", "config", "mcpConfig.ts");
 const service = read("src", "services", "MCPService.ts");
 const transports = read("src", "services", "mcpTransports.ts");
+const reclaim = read("src", "services", "mcpIdleReclaim.ts");
 const selector = read("src", "ui", "MCPSelector.tsx");
 const i18n = read("src", "i18n", "index.ts");
 
@@ -76,6 +77,42 @@ describe("spec/mcp.md agrees with the implementation", () => {
     expect(doc).toMatch(/never blocks service initialization/);
     expect(doc).toMatch(/`idle`, `connecting`, `connected` or `error`/);
     expect(doc).toMatch(/winston logger, never `console\.log`/);
+  });
+
+  it("matches the idle reclaiming the service performs", () => {
+    expect(reclaim).toContain("process.env.TNT_MCP_IDLE_TIMEOUT_MS");
+    expect(reclaim).toContain("const DEFAULT_MCP_IDLE_TIMEOUT_MS = 300_000;");
+    expect(reclaim).toContain("const IDLE_SWEEP_INTERVAL_MS = 30_000;");
+    expect(reclaim).toContain("const MIN_SWEEP_INTERVAL_MS = 25;");
+    expect(reclaim).toContain("Math.max(MIN_SWEEP_INTERVAL_MS, idleMs / 2)");
+    expect(reclaim).toContain("!connection.reclaiming");
+    expect(reclaim).toContain("connection.inFlight === 0");
+    expect(reclaim).toContain("timer.unref?.()");
+    expect(service).toMatch(
+      /shutdownConnection\(connection, \{\s*keepTools: true,?\s*\}\)/,
+    );
+    expect(service).toContain("this.reclaimer.start()");
+    expect(service).toContain("this.reclaimer.stop()");
+    expect(service).toContain("await this.connectServer(connection.config)");
+    // The list a reclaimed server keeps is the list the model reads.
+    expect(service).toContain('c.status === "connected" || c.tools.length > 0');
+
+    expect(doc).toMatch(
+      /`TNT_MCP_IDLE_TIMEOUT_MS` \(default 300000, `0` or a\s+negative value disables\)/,
+    );
+    expect(doc).toMatch(/every\s+30 seconds at most/);
+    expect(doc).toMatch(/half the\s+window, never under 25 milliseconds/);
+    expect(doc).toMatch(/keeps the server's tool list\s+published/);
+    expect(doc).toMatch(/reconnects the server before running it/);
+    expect(doc).toMatch(/teardown\s+somebody asked for clears the list/);
+    for (const teardown of [
+      "stopServer",
+      "restartServer",
+      "restartAllServers",
+    ]) {
+      expect(service).toContain(`public async ${teardown}`);
+      expect(doc).toContain(`\`${teardown}\``);
+    }
   });
 
   it("describes the menu the selector builds", () => {
