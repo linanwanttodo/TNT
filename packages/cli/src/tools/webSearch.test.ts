@@ -79,12 +79,33 @@ describe("parseDuckDuckGoLite", () => {
       [],
     );
   });
+
+  it("keeps a snippet with the result it followed", () => {
+    // The lite page emits a `result-snippet` cell only when there is something
+    // to show, so a page can carry three links and two snippets. Pairing the
+    // two lists by index - which this parser used to do - hands the third
+    // result's snippet to the second one and reports the real pair as empty,
+    // i.e. a citation the model believes because nothing contradicted it.
+    const html = [
+      `<a href="https://example.com/a" class="result-link">First</a>`,
+      `<td class="result-snippet">One</td>`,
+      `<a href="https://example.com/b" class="result-link">Second</a>`,
+      `<a href="https://example.com/c" class="result-link">Third</a>`,
+      `<td class="result-snippet">Three</td>`,
+    ].join("\n");
+
+    expect(parseDuckDuckGoLite(html, 3)).toEqual([
+      { title: "First", url: "https://example.com/a", snippet: "One" },
+      { title: "Second", url: "https://example.com/b", snippet: "" },
+      { title: "Third", url: "https://example.com/c", snippet: "Three" },
+    ]);
+  });
 });
 
 describe("WebSearch", () => {
   it("uses the configured JSON endpoint and formats its results", async () => {
-    vi.stubEnv("CONTINUE_CLI_WEB_SEARCH_URL", `${base}/search`);
-    vi.stubEnv("CONTINUE_CLI_WEB_SEARCH_KEY", "secret");
+    vi.stubEnv("TNT_WEB_SEARCH_URL", `${base}/search`);
+    vi.stubEnv("TNT_WEB_SEARCH_KEY", "secret");
 
     const text = await webSearchTool.run!({ query: "typescript", count: 2 });
 
@@ -98,7 +119,7 @@ describe("WebSearch", () => {
   });
 
   it("caps the requested count at ten", async () => {
-    vi.stubEnv("CONTINUE_CLI_WEB_SEARCH_URL", `${base}/search`);
+    vi.stubEnv("TNT_WEB_SEARCH_URL", `${base}/search`);
 
     await webSearchTool.run!({ query: "typescript", count: 50 });
 
@@ -106,7 +127,7 @@ describe("WebSearch", () => {
   });
 
   it("says when the endpoint returned nothing", async () => {
-    vi.stubEnv("CONTINUE_CLI_WEB_SEARCH_URL", `${base}/empty`);
+    vi.stubEnv("TNT_WEB_SEARCH_URL", `${base}/empty`);
 
     await expect(webSearchTool.run!({ query: "nothing" })).resolves.toContain(
       'No web results for "nothing"',
@@ -114,7 +135,7 @@ describe("WebSearch", () => {
   });
 
   it("reports an endpoint failure", async () => {
-    vi.stubEnv("CONTINUE_CLI_WEB_SEARCH_URL", `${base}/fail`);
+    vi.stubEnv("TNT_WEB_SEARCH_URL", `${base}/fail`);
 
     await expect(webSearchTool.run!({ query: "typescript" })).rejects.toThrow(
       /Web search failed: 500/,
