@@ -46,7 +46,7 @@ The smoke tests verify:
 - Bundle files exist
 - CLI commands work (--version, --help)
 - Bundle size is inside the gate `smoke-test.mjs` actually applies: over 10 MB and
-  under 40 MB across the split chunks. A full build measures 29.5 MB over 252
+  under 40 MB across the split chunks. A full build measures 29.6 MB over 256
   files, and the test prints that number on every run.
 - Local packages are properly bundled
 - No missing runtime dependencies
