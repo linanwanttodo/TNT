@@ -212,6 +212,10 @@ export default [
       "vitest.config.ts",
       "*.config.js",
       "*.config.ts",
+      // The benchmark's fixtures are data the harness copies to a temp directory
+      // and asks questions about; they are never compiled, so linting them would
+      // only report on code nobody runs.
+      "eval/retrieval/corpus/**",
       // Local agent scratch that never enters a checkout; linting it makes the
       // local gate disagree with CI, which cannot see these files at all.
       "**/.mimosa/**",

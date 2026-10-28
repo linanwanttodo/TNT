@@ -6,7 +6,16 @@ export default defineConfig({
     globals: true,
     environment: "node",
     setupFiles: ["./vitest.global-dir-setup.ts", "./vitest.setup.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "**/*.e2e.*", "**/e2e/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.e2e.*",
+      "**/e2e/**",
+      // The benchmark's fixtures are data: one of them is a test file on
+      // purpose, because a spec that names the same symbols as its
+      // implementation is exactly the distractor the near-miss track needs.
+      "**/eval/retrieval/corpus/**",
+    ],
     coverage: {
       reporter: ["text", "json", "html"],
       exclude: [
@@ -17,6 +26,7 @@ export default defineConfig({
         "**/test-utils/**",
         "**/types/**",
         "**/__mocks__/**",
+        "eval/retrieval/corpus/",
       ],
       // The floor sits a little under the measured numbers (72.9 statements,
       // 82.6 branches, 83.0 functions) so a platform difference does not fail
