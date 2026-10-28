@@ -30,15 +30,15 @@ export const checkBackgroundJobTool: Tool = {
   description: `Check the status and output of a background job.
 Returns the current status, exit code (if finished), and all available output.
 If the job is still running, returns partial output with "running" status.
-Pass block_until_ms to wait for the job to finish before returning.`,
+Pass block_until_ms to wait for the job to finish before returning.
+Leave job_id out to list the jobs this session started, with their status.`,
   parameters: {
     type: "object",
-    required: ["job_id"],
     properties: {
       job_id: {
         type: "string",
         description:
-          "The ID of the background job to check (e.g., bg-1-1234567890)",
+          "The ID of the background job to check (e.g., bg-1-1234567890); omit to list the jobs this session started",
       },
       block_until_ms: {
         type: "number",
@@ -53,9 +53,25 @@ Pass block_until_ms to wait for the job to finish before returning.`,
     job_id,
     block_until_ms,
   }: {
-    job_id: string;
+    job_id?: string;
     block_until_ms?: number;
   }): Promise<string> => {
+    // The listing is the same entry point doing the same job: a model that lost
+    // the id - or never had one, because a turn was compacted - should not have
+    // to guess one to find out what is running.
+    if (!job_id) {
+      return JSON.stringify({
+        jobs: services.backgroundJobs.getAllJobs().map((j: BackgroundJob) => ({
+          id: j.id,
+          status: j.status,
+          command:
+            j.command.substring(0, 50) + (j.command.length > 50 ? "..." : ""),
+          started_at: j.startTime.toISOString(),
+          ...(j.exitCode === null ? {} : { exit_code: j.exitCode }),
+        })),
+      });
+    }
+
     // A job owned by the editor's terminal has no local process, so its output
     // and status only change when this check asks the client.
     let job = await services.backgroundJobs.refreshJob(job_id);

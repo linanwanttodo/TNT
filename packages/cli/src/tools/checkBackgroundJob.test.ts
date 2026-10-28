@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { textRun } from "../../test-utils/toolText.js";
 import { backgroundJobService } from "../services/BackgroundJobService.js";
@@ -7,12 +7,27 @@ import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
 
 const runText = textRun(checkBackgroundJobTool);
 
+/**
+ * The service is a process-wide singleton and keeps finished jobs so a session
+ * can look them up again, so the map outlives the cases that made them. The
+ * listing cases are about what the *tool* returns, not about that history.
+ */
+function emptyJobRegistry(): void {
+  (
+    backgroundJobService as unknown as { jobs: Map<string, unknown> }
+  ).jobs.clear();
+}
+
 afterEach(async () => {
   await backgroundJobService.cancelPolledJobs();
   vi.unstubAllEnvs();
 });
 
 describe("CheckBackgroundJob", () => {
+  beforeEach(() => {
+    emptyJobRegistry();
+  });
+
   it("polls a terminal-backed job before reporting it", async () => {
     const job = backgroundJobService.registerPolledJob(
       "sleep 1",
@@ -83,6 +98,46 @@ describe("CheckBackgroundJob", () => {
     expect(result.waited_ms).toBeGreaterThan(0);
     expect(result.prompt_cache_ttl_seconds).toBe(300);
     expect(result.cache_hint).toContain("5 minutes");
+  });
+
+  it("lists the session's jobs when asked without an id", async () => {
+    const finished = backgroundJobService.registerPolledJob(
+      "ls -la",
+      {
+        poll: async () => ({ done: true, output: "out\n", exitCode: 0 }),
+      },
+      "session-1",
+    );
+    const running = backgroundJobService.registerPolledJob(
+      "npm test",
+      {
+        poll: async () => ({ done: false, output: "still going\n" }),
+      },
+      "session-1",
+    );
+    await runText({ job_id: finished!.id });
+
+    const result = JSON.parse(await runText({}));
+
+    expect(result.jobs.map((job: { id: string }) => job.id)).toEqual([
+      finished!.id,
+      running!.id,
+    ]);
+    const completed = result.jobs.find(
+      (job: { id: string }) => job.id === finished!.id,
+    );
+    expect(completed.status).toBe("completed");
+    expect(completed.exit_code).toBe(0);
+    const pending = result.jobs.find(
+      (job: { id: string }) => job.id === running!.id,
+    );
+    expect(pending.status).toBe("running");
+  });
+
+  it("says there are none when the session has not started a job", async () => {
+    const result = JSON.parse(await runText({}));
+
+    expect(result).toEqual({ jobs: [] });
   });
 
   it("returns immediately when a finished job is checked", async () => {
