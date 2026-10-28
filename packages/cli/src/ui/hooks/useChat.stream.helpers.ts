@@ -361,7 +361,7 @@ interface ExecuteStreamingOptions {
   controller: AbortController;
   streamCallbacks: any;
   currentCompactionIndex: number | null;
-  /** Model rounds allowed for this turn; unset means the budget defaults. */
+  /** Model rounds allowed for this turn; unset means no round ceiling. */
   maxSteps?: number;
 }
 
