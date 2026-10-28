@@ -68,6 +68,14 @@ export async function cleanupTestContext(
   }
 }
 
+/** One trailing line ending, the way execa's `stripFinalNewline` leaves text. */
+function stripFinalNewline(text: string): string {
+  if (text.endsWith("\r\n")) {
+    return text.slice(0, -2);
+  }
+  return text.endsWith("\n") ? text.slice(0, -1) : text;
+}
+
 /**
  * Runs the CLI with given options
  */
@@ -153,6 +161,13 @@ export async function runCLI(
     error = thrown;
     killed = thrown.timedOut === true || thrown.isTerminated === true;
   }
+
+  // execa strips one trailing newline from a buffered run; reading the pipes
+  // directly skips that, so restore it here. The CLI ends every line it prints,
+  // and the callers that compare whole output (`--version`) state the value, not
+  // the newline.
+  stdout = stripFinalNewline(stdout);
+  stderr = stripFinalNewline(stderr);
 
   if (killed) {
     throw new Error(
