@@ -30,13 +30,13 @@ streaming answer, the running tool call and a permission prompt, is redrawn.
 
 The line under the composer reports, from left to right:
 
-| Item | Meaning |
-| --- | --- |
-| workspace | current directory and git branch |
-| context | share of the context window already used |
-| cache | share of prompt tokens served from cache, to two decimals |
-| model | selected model |
-| thinking | reasoning effort when the model exposes it |
+| Item      | Meaning                                                   |
+| --------- | --------------------------------------------------------- |
+| workspace | current directory and git branch                          |
+| context   | share of the context window already used                  |
+| cache     | share of prompt tokens served from cache, to two decimals |
+| model     | selected model                                            |
+| thinking  | reasoning effort when the model exposes it                |
 
 ## Composer
 
@@ -100,24 +100,30 @@ the palette without running anything.
 
 ## Keys
 
-| Key | Action |
-| --- | --- |
-| `Enter` | send |
-| `Shift+Enter` | insert a newline instead of sending |
-| `Shift+Tab` | cycle the permission mode |
-| `Esc` | interrupt the current turn |
-| `Up` / `Down` | move through earlier input |
-| `Tab` | accept the highlighted completion |
-| `Ctrl+V` | attach an image from the clipboard |
-| `PageUp` / `PageDown` | scroll the transcript one page |
-| `Home` / `End` | jump to the start / live tail |
-| `Ctrl+End` | jump to the live tail while the composer has focus |
-| mouse wheel | scroll the transcript |
-| click the `↓` hint | jump to the live tail |
-| `Ctrl+P` | open the command palette |
-| `Ctrl+C` | clear the input, twice to exit |
+| Key                   | Action                                                |
+| --------------------- | ----------------------------------------------------- |
+| `Enter`               | send                                                  |
+| `Shift+Enter`         | insert a newline instead of sending                   |
+| `Shift+Tab`           | cycle the permission mode                             |
+| `Ctrl+F`              | search the input history                              |
+| `Ctrl+O`              | expand or fold reasoning rows                         |
+| `Ctrl+B`              | send the running tool call to the background          |
+| `Ctrl+X` / `Ctrl+R`   | take the newest queued message back (R also edits it) |
+| `Esc`                 | interrupt the current turn                            |
+| `Up` / `Down`         | move through earlier input                            |
+| `Tab`                 | accept the highlighted completion                     |
+| `Ctrl+V`              | attach an image from the clipboard                    |
+| `PageUp` / `PageDown` | scroll the transcript one page                        |
+| `Home` / `End`        | jump to the start / live tail                         |
+| `Ctrl+End`            | jump to the live tail while the composer has focus    |
+| mouse wheel           | scroll the transcript                                 |
+| click the `↓` hint    | jump to the live tail                                 |
+| `Ctrl+P`              | open the command palette                              |
+| `Ctrl+L`              | clear the screen                                      |
+| `Ctrl+C`              | clear the input, twice to exit                        |
+| `Ctrl+D`              | exit                                                  |
 
 <Tip>
-`/exit` and `Ctrl+C` twice leave the session. Sessions are saved as they run, so
-`tnt --resume` picks the same conversation back up.
+  `/exit` and `Ctrl+C` twice leave the session. Sessions are saved as they run,
+  so `tnt --resume` picks the same conversation back up.
 </Tip>
