@@ -67,6 +67,30 @@ works under XWayland; a pure Wayland session without XWayland needs
 `wl-clipboard` installed. macOS reads the clipboard through `osascript` and
 Windows through PowerShell, with the bundled helper as the fallback.
 
+## Themes
+
+`/theme` picks a built-in palette with a live preview: `auto` follows the
+terminal's own light or dark background, and `dark`, `tencent-dark`,
+`tencent-light` and `light` are fixed. The same choice can be set with
+`TNT_THEME` or `theme:` in `config.yaml`.
+
+A theme of your own is a JSON file in `~/.tnt/themes/<name>.json`, selected with
+`TNT_THEME=<name>`:
+
+```json title="~/.tnt/themes/night.json"
+{
+  "accent": "#ff79c6",
+  "text": { "primary": "#f8f8f2" },
+  "diff": { "addText": "#50fa7b" }
+}
+```
+
+Only the tokens you name change; the rest come from the dark palette, so a file
+that only wants a different accent is two lines. A key the palette does not have,
+or a value that is not a string, is ignored and the token keeps its built-in
+colour - a typo cannot blank a panel. A file that is not JSON is ignored the same
+way, and a name with no file behind it falls back to `dark`.
+
 ## Keys
 
 | Key | Action |

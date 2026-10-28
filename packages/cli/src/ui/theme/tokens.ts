@@ -1,6 +1,13 @@
+import fs from "fs";
+import path from "path";
+
 import React, { createContext, useContext, type ReactNode } from "react";
 
+import { globalDir } from "../../config/globalDir.js";
+import { logger } from "../../utils/logger.js";
 import type { SyntaxHighlighterTheme } from "../SyntaxHighlighter.js";
+
+import { mergeTheme, readThemeFile } from "./externalTheme.js";
 
 /**
  * Semantic color tokens for the terminal UI.
@@ -219,9 +226,17 @@ export const tencentLightTheme: Theme = {
   },
 };
 
-export type ThemeName = "dark" | "tencent-dark" | "tencent-light" | "light";
+export type BuiltInThemeName =
+  "dark" | "tencent-dark" | "tencent-light" | "light";
 
-export const themes: Record<ThemeName, Theme> = {
+/**
+ * A built-in name, or the name of a file under `<home>/themes/<name>.json`.
+ * The `string & {}` keeps the built-in names completing while letting a user's
+ * own theme name through - a closed union would silently rewrite it to `dark`.
+ */
+export type ThemeName = BuiltInThemeName | (string & {});
+
+export const themes: Record<BuiltInThemeName, Theme> = {
   dark: darkTheme,
   "tencent-dark": tencentDarkTheme,
   "tencent-light": tencentLightTheme,
@@ -232,11 +247,25 @@ export const themes: Record<ThemeName, Theme> = {
  * Returns the theme matching the provided name.
  * Falls back to darkTheme if unknown or unspecified.
  */
+export function themeFileFor(name: string): string {
+  return path.join(globalDir(), "themes", `${name}.json`);
+}
+
+/**
+ * A file theme is read once per modification: the palette is resolved on every
+ * render, and a theme file is small enough that re-reading it is not a feature.
+ */
+const fileThemes = new Map<string, { at: number; theme: Theme }>();
+
 export function getTheme(name?: string): Theme {
   if (!name) return darkTheme;
   const normalized = name.toLowerCase().trim();
   if (normalized in themes) {
-    return themes[normalized as ThemeName];
+    return themes[normalized as BuiltInThemeName];
+  }
+  const fromFile = externalTheme(normalized);
+  if (fromFile) {
+    return fromFile;
   }
   if (normalized.includes("light")) {
     return tencentLightTheme;
@@ -245,6 +274,34 @@ export function getTheme(name?: string): Theme {
     return tencentDarkTheme;
   }
   return darkTheme;
+}
+
+function externalTheme(name: string): Theme | undefined {
+  const file = themeFileFor(name);
+  let modified: number;
+  try {
+    modified = fs.statSync(file).mtimeMs;
+  } catch {
+    return undefined;
+  }
+  const cached = fileThemes.get(file);
+  if (cached && cached.at === modified) {
+    return cached.theme;
+  }
+
+  const { overrides, rejected, problem } = readThemeFile(file);
+  if (problem || !overrides) {
+    if (problem) logger.debug(`Theme ${name}: ${problem}`);
+    return undefined;
+  }
+  if (rejected.length > 0) {
+    // Named, because a typo in a colour that silently does nothing is the
+    // failure mode a theme file has.
+    logger.debug(`Theme ${name}: ignoring ${rejected.join(", ")}`);
+  }
+  const theme = mergeTheme(darkTheme, overrides);
+  fileThemes.set(file, { at: modified, theme });
+  return theme;
 }
 
 /** Default theme reference for backward compatibility */

@@ -10,7 +10,9 @@
  * falls back to dark, which is the default theme.
  */
 
-import type { ThemeName } from "./tokens.js";
+import fs from "fs";
+
+import { themeFileFor, type ThemeName } from "./tokens.js";
 
 const OSC_BACKGROUND_QUERY = "\x1b]11;?\x1b\\";
 const OSC_RESPONSE_TIMEOUT_MS = 250;
@@ -185,6 +187,11 @@ export function resolveThemeName(name?: string): ThemeName {
     }
     if (normalized.includes("tencent")) {
       return "tencent-dark";
+    }
+    // A name this build has no palette for may still be a theme file the user
+    // put under the home directory; `getTheme` reads it, or falls back to dark.
+    if (fs.existsSync(themeFileFor(normalized))) {
+      return normalized;
     }
     return "dark";
   }
