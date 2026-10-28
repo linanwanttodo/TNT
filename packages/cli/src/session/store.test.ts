@@ -69,25 +69,25 @@ function contents(session: Session): string[] {
 }
 
 beforeEach(() => {
-  previousGlobalDir = process.env.CONTINUE_GLOBAL_DIR;
+  previousGlobalDir = process.env.TNT_GLOBAL_DIR;
   previousTntDir = process.env.TNT_GLOBAL_DIR;
-  previousCliTest = process.env.CONTINUE_CLI_TEST;
+  previousCliTest = process.env.TNT_TEST;
   testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-session-store-"));
-  process.env.CONTINUE_GLOBAL_DIR = testRoot;
+  process.env.TNT_GLOBAL_DIR = testRoot;
   delete process.env.TNT_GLOBAL_DIR;
-  delete process.env.CONTINUE_CLI_TEST;
+  delete process.env.TNT_TEST;
   sessionStore.clearAll();
 });
 
 afterEach(() => {
   sessionStore.releaseAll();
   fs.rmSync(testRoot, { recursive: true, force: true });
-  if (previousGlobalDir === undefined) delete process.env.CONTINUE_GLOBAL_DIR;
-  else process.env.CONTINUE_GLOBAL_DIR = previousGlobalDir;
+  if (previousGlobalDir === undefined) delete process.env.TNT_GLOBAL_DIR;
+  else process.env.TNT_GLOBAL_DIR = previousGlobalDir;
   if (previousTntDir === undefined) delete process.env.TNT_GLOBAL_DIR;
   else process.env.TNT_GLOBAL_DIR = previousTntDir;
-  if (previousCliTest === undefined) delete process.env.CONTINUE_CLI_TEST;
-  else process.env.CONTINUE_CLI_TEST = previousCliTest;
+  if (previousCliTest === undefined) delete process.env.TNT_TEST;
+  else process.env.TNT_TEST = previousCliTest;
 });
 
 describe("SessionStore", () => {

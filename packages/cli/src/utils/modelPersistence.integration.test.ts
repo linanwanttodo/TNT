@@ -13,8 +13,8 @@ describe("Model Persistence Integration", () => {
   beforeEach(() => {
     // Create a temporary directory for testing
     testDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-test-"));
-    originalTntHome = process.env.CONTINUE_GLOBAL_DIR;
-    process.env.CONTINUE_GLOBAL_DIR = testDir;
+    originalTntHome = process.env.TNT_GLOBAL_DIR;
+    process.env.TNT_GLOBAL_DIR = testDir;
 
     // Clear GlobalContext for clean test state
     persistModelName(null);
@@ -26,9 +26,9 @@ describe("Model Persistence Integration", () => {
       fs.rmSync(testDir, { recursive: true });
     }
     if (originalTntHome) {
-      process.env.CONTINUE_GLOBAL_DIR = originalTntHome;
+      process.env.TNT_GLOBAL_DIR = originalTntHome;
     } else {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     }
   });
 

@@ -220,7 +220,7 @@ export async function executeBrowserAction(
 export const browserTool: Tool = {
   name: "Browser",
   displayName: "Browser",
-  description: `Drive a browser the user started with a remote debugging port (default http://127.0.0.1:9222, override with CONTINUE_CLI_BROWSER_ENDPOINT). Actions: navigate (http/https), snapshot (title, URL, visible text and links), click (CSS selector), type (text, optional selector and submit), screenshot (write a .png inside the workspace).
+  description: `Drive a browser the user started with a remote debugging port (default http://127.0.0.1:9222, override with TNT_BROWSER_ENDPOINT). Actions: navigate (http/https), snapshot (title, URL, visible text and links), click (CSS selector), type (text, optional selector and submit), screenshot (write a .png inside the workspace).
 The browser must already be running and visible; this tool does not launch a hidden one. It reads the page the user has open, so a click or a typed message is a real action on that page.`,
   parameters: {
     type: "object",

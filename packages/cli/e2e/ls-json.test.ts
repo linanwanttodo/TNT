@@ -63,7 +63,7 @@ describe("E2E: ls --format json", () => {
 
     const result = await runCLI(context, {
       args: ["ls", "--json"],
-      env: { CONTINUE_GLOBAL_DIR: globalDir },
+      env: { TNT_GLOBAL_DIR: globalDir },
       timeout: 30000,
     });
 
@@ -86,7 +86,7 @@ describe("E2E: ls --format json", () => {
 
     const result = await runCLI(context, {
       args: ["ls", "--format", "json"],
-      env: { CONTINUE_GLOBAL_DIR: globalDir },
+      env: { TNT_GLOBAL_DIR: globalDir },
       timeout: 30000,
     });
 
@@ -104,7 +104,7 @@ describe("E2E: ls --format json", () => {
 
     const result = await runCLI(context, {
       args: ["ls", "--json"],
-      env: { CONTINUE_GLOBAL_DIR: globalDir },
+      env: { TNT_GLOBAL_DIR: globalDir },
       timeout: 30000,
     });
 

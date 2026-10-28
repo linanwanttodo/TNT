@@ -158,7 +158,7 @@ const MAX_SEARCH_HEAD_LIMIT = 500;
 
 function getSearchMaxResults(): number {
   return parseEnvNumber(
-    process.env.CONTINUE_CLI_SEARCH_CODE_MAX_RESULTS,
+    process.env.TNT_SEARCH_CODE_MAX_RESULTS,
     DEFAULT_SEARCH_MAX_RESULTS,
   );
 }
@@ -171,7 +171,7 @@ function resolveMaxResults(requested: unknown): number {
 
 function getSearchMaxResultChars(): number {
   return parseEnvNumber(
-    process.env.CONTINUE_CLI_SEARCH_CODE_MAX_RESULT_CHARS,
+    process.env.TNT_SEARCH_CODE_MAX_RESULT_CHARS,
     DEFAULT_SEARCH_MAX_RESULT_CHARS,
   );
 }

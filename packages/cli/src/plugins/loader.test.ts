@@ -359,7 +359,7 @@ describe("loadAllPlugins", () => {
     });
     // The real settings file, in this worker's own global directory.
     const settingsFile = path.join(
-      process.env.CONTINUE_GLOBAL_DIR as string,
+      process.env.TNT_GLOBAL_DIR as string,
       "settings.json",
     );
     writeJson(settingsFile, { enabledPlugins: ["someone-else", "typo"] });

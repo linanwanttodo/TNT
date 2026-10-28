@@ -180,7 +180,7 @@ export function estimateSchemaTokens(tools: readonly Tool[]): number {
 /**
  * Whether this request should trade inline MCP schemas for the catalog tool.
  *
- * `CONTINUE_CLI_DEFER_MCP_TOOLS=1` forces it on and `=0` forces it off; the
+ * `TNT_DEFER_MCP_TOOLS=1` forces it on and `=0` forces it off; the
  * default is `auto`, which decides from the share of the context window the
  * hidden definitions would occupy.
  */
@@ -188,9 +188,7 @@ export function shouldDeferMcpTools(
   tools: readonly Tool[],
   options: DeferralOptions = {},
 ): boolean {
-  const override = (process.env.CONTINUE_CLI_DEFER_MCP_TOOLS ?? "")
-    .trim()
-    .toLowerCase();
+  const override = (process.env.TNT_DEFER_MCP_TOOLS ?? "").trim().toLowerCase();
   if (override === "0" || override === "false" || override === "off") {
     return false;
   }

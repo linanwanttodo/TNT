@@ -4,8 +4,8 @@ import { resetConsoleOverrides } from "./src/startup/init.js";
 import { fixtureKey } from "./test-utils/fixtureCredentials.js";
 
 // Disable telemetry for tests
-process.env.CONTINUE_CLI_ENABLE_TELEMETRY = "0";
-process.env.CONTINUE_ALLOW_ANONYMOUS_TELEMETRY = "0";
+process.env.TNT_ENABLE_TELEMETRY = "0";
+process.env.TNT_ALLOW_ANONYMOUS_TELEMETRY = "0";
 
 // Pin the locale so suites that assert English strings do not follow the
 // machine's LANG. Tests that need another locale call setLocale explicitly.
@@ -83,7 +83,7 @@ vi.mock("./src/agent/systemMessage.js", async (importOriginal) => {
   };
 });
 
-// NOTE: CONTINUE_GLOBAL_DIR is set to a unique per-worker temp dir in
+// NOTE: TNT_GLOBAL_DIR is set to a unique per-worker temp dir in
 // ./vitest.global-dir-setup.ts (which runs first) to isolate the shared
 // GlobalContext store across parallel test files. Do not override it here.
 

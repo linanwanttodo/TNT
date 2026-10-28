@@ -85,7 +85,7 @@ function writePathFor(session: TestSession): string {
 beforeAll(async () => {
   globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "core-history-"));
   // Resolved when the paths module is first imported, so it has to be set first.
-  process.env.CONTINUE_GLOBAL_DIR = globalDir;
+  process.env.TNT_GLOBAL_DIR = globalDir;
   sessionDir = path.join(globalDir, "sessions");
   fs.mkdirSync(sessionDir, { recursive: true });
   fs.writeFileSync(path.join(sessionDir, "sessions.json"), "[]");

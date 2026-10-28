@@ -10,7 +10,7 @@ import { uploadArtifactTool } from "./uploadArtifact.js";
 
 /**
  * The tool writes into the current session's own directory, so every case here
- * runs against a throwaway `HOME` with `CONTINUE_CLI_TEST` set - the same pair the
+ * runs against a throwaway `HOME` with `TNT_TEST` set - the same pair the
  * session store reads - and then names the path it expects rather than trusting
  * the tool to report where it put the file.
  */
@@ -46,18 +46,18 @@ async function save(filePath: string): Promise<string> {
 beforeEach(() => {
   previous = {
     home: process.env.HOME,
-    test: process.env.CONTINUE_CLI_TEST,
+    test: process.env.TNT_TEST,
   };
   home = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-artifacts-"));
   sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-artifact-src-"));
   process.env.HOME = home;
-  process.env.CONTINUE_CLI_TEST = "1";
+  process.env.TNT_TEST = "1";
 });
 
 afterEach(() => {
   for (const [key, value] of [
     ["HOME", previous.home],
-    ["CONTINUE_CLI_TEST", previous.test],
+    ["TNT_TEST", previous.test],
   ] as [string, string | undefined][]) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;

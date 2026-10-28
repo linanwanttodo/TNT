@@ -98,8 +98,8 @@ describe("instruction layers", () => {
     write("managed-rules/nested/deep.md", "NESTED_MANAGED_RULE");
     write(".tnt/rules/project.md", "PROJECT_RULE");
 
-    const previous = process.env.CONTINUE_CLI_MANAGED_RULES_DIR;
-    process.env.CONTINUE_CLI_MANAGED_RULES_DIR = managed;
+    const previous = process.env.TNT_MANAGED_RULES_DIR;
+    process.env.TNT_MANAGED_RULES_DIR = managed;
     try {
       const bodies = loadMarkdownRulesWithMetadata().map((rule) =>
         rule.rule.trim(),
@@ -112,9 +112,9 @@ describe("instruction layers", () => {
       expect(at("ZED_MANAGED_RULE")).toBeLessThan(at("PROJECT_RULE"));
     } finally {
       if (previous === undefined) {
-        delete process.env.CONTINUE_CLI_MANAGED_RULES_DIR;
+        delete process.env.TNT_MANAGED_RULES_DIR;
       } else {
-        process.env.CONTINUE_CLI_MANAGED_RULES_DIR = previous;
+        process.env.TNT_MANAGED_RULES_DIR = previous;
       }
     }
   });

@@ -149,6 +149,10 @@ function executeCommandHook(
     const env = {
       ...process.env,
       CLAUDE_PROJECT_DIR: cwd,
+      TNT_PROJECT_DIR: cwd,
+      // The old spelling is a contract handed to a script the user wrote, so it
+      // is written alongside the new one for one major version. Nothing in this
+      // repository reads it any more.
       CONTINUE_PROJECT_DIR: cwd,
     };
 

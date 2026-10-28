@@ -28,14 +28,14 @@ function mcp(name: string, description?: string, padding = 0): Tool {
   return tool(`mcp__server__${name}`, description, padding);
 }
 
-const ORIGINAL_OVERRIDE = process.env.CONTINUE_CLI_DEFER_MCP_TOOLS;
+const ORIGINAL_OVERRIDE = process.env.TNT_DEFER_MCP_TOOLS;
 const ORIGINAL_BUILTIN_OVERRIDE = process.env.TNT_DEFER_BUILTIN_TOOLS;
 
 afterEach(() => {
   if (ORIGINAL_OVERRIDE === undefined) {
-    delete process.env.CONTINUE_CLI_DEFER_MCP_TOOLS;
+    delete process.env.TNT_DEFER_MCP_TOOLS;
   } else {
-    process.env.CONTINUE_CLI_DEFER_MCP_TOOLS = ORIGINAL_OVERRIDE;
+    process.env.TNT_DEFER_MCP_TOOLS = ORIGINAL_OVERRIDE;
   }
   if (ORIGINAL_BUILTIN_OVERRIDE === undefined) {
     delete process.env.TNT_DEFER_BUILTIN_TOOLS;
@@ -84,13 +84,13 @@ describe("deciding what to advertise", () => {
   it("lets the operator force the decision either way", () => {
     const wide = ["a", "b", "c", "d", "e", "f"].map((name) => mcp(name));
 
-    process.env.CONTINUE_CLI_DEFER_MCP_TOOLS = "0";
+    process.env.TNT_DEFER_MCP_TOOLS = "0";
     expect(shouldDeferMcpTools(wide)).toBe(false);
 
-    process.env.CONTINUE_CLI_DEFER_MCP_TOOLS = "1";
+    process.env.TNT_DEFER_MCP_TOOLS = "1";
     expect(shouldDeferMcpTools([mcp("only")])).toBe(true);
 
-    process.env.CONTINUE_CLI_DEFER_MCP_TOOLS = "auto";
+    process.env.TNT_DEFER_MCP_TOOLS = "auto";
     expect(shouldDeferMcpTools(wide)).toBe(false);
   });
 });

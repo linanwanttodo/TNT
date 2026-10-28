@@ -152,7 +152,7 @@ export const ANTHROPIC_BREAKPOINTS_KEPT = 2;
  * default rather than producing a request that is rejected or unbounded.
  */
 export function anthropicBreakpointBudget(
-  raw = process.env.CONTINUE_CLI_ANTHROPIC_BREAKPOINTS,
+  raw = process.env.TNT_ANTHROPIC_BREAKPOINTS,
 ): number {
   if (raw === undefined || raw.trim() === "") {
     return ANTHROPIC_BREAKPOINTS_KEPT;

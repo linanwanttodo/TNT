@@ -73,8 +73,8 @@ describe("E2E: the cached prefix stays byte identical", () => {
   }
 
   const runEnv = () => ({
-    CONTINUE_CLI_TEST_SESSION_ID: "cache-guard-session",
-    CONTINUE_GLOBAL_DIR: path.join(context.testDir, ".tnt"),
+    TNT_TEST_SESSION_ID: "cache-guard-session",
+    TNT_GLOBAL_DIR: path.join(context.testDir, ".tnt"),
   });
 
   const streamingTurns = () =>

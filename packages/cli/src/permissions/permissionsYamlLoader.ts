@@ -12,7 +12,7 @@ import { PermissionPolicy, ToolPermissionPolicy } from "./types.js";
 
 /**
  * Resolved at call time, not import time: the home directory comes from
- * CONTINUE_GLOBAL_DIR, which tests and embedding callers set after this module
+ * TNT_GLOBAL_DIR, which tests and embedding callers set after this module
  * has already been loaded.
  */
 export function permissionsYamlPath(): string {

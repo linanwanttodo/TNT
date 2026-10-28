@@ -68,8 +68,8 @@ describe("the session's approval store", () => {
   let previousSessionId: string | undefined;
 
   beforeEach(() => {
-    previousSessionId = process.env.CONTINUE_CLI_TEST_SESSION_ID;
-    process.env.CONTINUE_CLI_TEST_SESSION_ID = "approvals-test-one";
+    previousSessionId = process.env.TNT_TEST_SESSION_ID;
+    process.env.TNT_TEST_SESSION_ID = "approvals-test-one";
     startNewSession();
     clearSessionApprovals();
   });
@@ -77,9 +77,9 @@ describe("the session's approval store", () => {
   afterEach(() => {
     clearSessionApprovals();
     if (previousSessionId === undefined) {
-      delete process.env.CONTINUE_CLI_TEST_SESSION_ID;
+      delete process.env.TNT_TEST_SESSION_ID;
     } else {
-      process.env.CONTINUE_CLI_TEST_SESSION_ID = previousSessionId;
+      process.env.TNT_TEST_SESSION_ID = previousSessionId;
     }
     startNewSession();
   });

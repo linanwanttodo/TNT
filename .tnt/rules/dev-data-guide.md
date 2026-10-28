@@ -18,7 +18,7 @@ produces none of it, on any surface.
 - `core/util/paths.ts` — `getDevDataPath()` joins the global directory with
   `dev_data`; `getDevDataFilePath(event, version)` builds
   `{eventName}.jsonl` under the schema version. The global directory is `~/.tnt`
-  (`TNT_GLOBAL_DIR` / `CONTINUE_GLOBAL_DIR` override), so the default path is
+  (`TNT_GLOBAL_DIR` / `TNT_GLOBAL_DIR` override), so the default path is
   `~/.tnt/dev_data/0.2.0/{eventName}.jsonl`, with `devdata.sqlite` beside it.
   `LOCAL_DEV_DATA_VERSION` in `core/data/log.ts` is `0.2.0`.
 - `packages/config-yaml/src/schemas/data/` — one directory per event type plus

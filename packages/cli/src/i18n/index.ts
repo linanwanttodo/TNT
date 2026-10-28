@@ -281,7 +281,7 @@ const en = {
   "setup.apiKeyRequired": "An API key is required.",
   "setup.invalidProtocol": "Choose a number between 1 and {count}.",
   "setup.saved": "Config file written to {path}",
-  "setup.bedrock": "Using AWS Bedrock (CONTINUE_USE_BEDROCK detected)",
+  "setup.bedrock": "Using AWS Bedrock (TNT_USE_BEDROCK detected)",
   "language.title": "Language",
   "skills.unknown": 'Unknown skill "{name}". Run /skills to see the list.',
   "skills.none":
@@ -918,7 +918,7 @@ const zhCN: Record<TranslationKey, string> = {
   "setup.apiKeyRequired": "API 密钥不能为空。",
   "setup.invalidProtocol": "请输入 1 到 {count} 之间的数字。",
   "setup.saved": "配置文件已写入 {path}",
-  "setup.bedrock": "正在使用 AWS Bedrock（检测到 CONTINUE_USE_BEDROCK）",
+  "setup.bedrock": "正在使用 AWS Bedrock（检测到 TNT_USE_BEDROCK）",
   "language.title": "语言",
   "skills.unknown": "未知技能“{name}”。运行 /skills 查看列表。",
   "skills.none": "没有找到技能。把技能放在 .tnt/skills 或 .claude/skills 下。",

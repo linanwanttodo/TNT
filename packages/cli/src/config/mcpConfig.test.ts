@@ -8,11 +8,11 @@ import { loadMcpJsonServers, mcpJsonPaths } from "./mcpConfig.js";
 import { trustProject } from "./trust.js";
 
 describe("mcp.json", () => {
-  const previousHome = process.env.CONTINUE_GLOBAL_DIR;
+  const previousHome = process.env.TNT_GLOBAL_DIR;
   let project: string;
 
   beforeEach(() => {
-    process.env.CONTINUE_GLOBAL_DIR = fs.mkdtempSync(
+    process.env.TNT_GLOBAL_DIR = fs.mkdtempSync(
       path.join(os.tmpdir(), "tnt-mcp-home-"),
     );
     project = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-mcp-project-"));
@@ -21,9 +21,9 @@ describe("mcp.json", () => {
 
   afterAll(() => {
     if (previousHome === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = previousHome;
+      process.env.TNT_GLOBAL_DIR = previousHome;
     }
   });
 
@@ -33,7 +33,7 @@ describe("mcp.json", () => {
   };
 
   it("reads the user file", () => {
-    write(path.join(process.env.CONTINUE_GLOBAL_DIR!, "mcp.json"), {
+    write(path.join(process.env.TNT_GLOBAL_DIR!, "mcp.json"), {
       github: { command: "npx", args: ["github-server"] },
     });
 
@@ -43,7 +43,7 @@ describe("mcp.json", () => {
   });
 
   it("merges project servers by name after the user file", () => {
-    write(path.join(process.env.CONTINUE_GLOBAL_DIR!, "mcp.json"), {
+    write(path.join(process.env.TNT_GLOBAL_DIR!, "mcp.json"), {
       github: { command: "user-github" },
       shared: { command: "user-shared" },
     });
@@ -66,7 +66,7 @@ describe("mcp.json", () => {
     });
 
     expect(mcpJsonPaths(project)).toEqual([
-      path.join(process.env.CONTINUE_GLOBAL_DIR!, "mcp.json"),
+      path.join(process.env.TNT_GLOBAL_DIR!, "mcp.json"),
     ]);
     expect(loadMcpJsonServers(project)).toEqual([]);
   });
@@ -84,7 +84,7 @@ describe("mcp.json", () => {
 
   it("ignores malformed files and entries without taking the others down", () => {
     fs.writeFileSync(
-      path.join(process.env.CONTINUE_GLOBAL_DIR!, "mcp.json"),
+      path.join(process.env.TNT_GLOBAL_DIR!, "mcp.json"),
       "{not json",
       "utf-8",
     );

@@ -40,7 +40,7 @@ describe("E2E: validation errors follow the stored locale", () => {
 
     const result = await runCLI(context, {
       args: ["--mode", "bogus", "-p", "hi"],
-      env: { CONTINUE_GLOBAL_DIR: globalDir },
+      env: { TNT_GLOBAL_DIR: globalDir },
       timeout: 30000,
     });
 

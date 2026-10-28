@@ -49,7 +49,7 @@ describe("spec/tty-less-support.md agrees with the guards", () => {
 
   it("names every environment variable the stdin guard reads", () => {
     const source = read(STDIN);
-    for (const name of ["FORCE_NO_TTY", "CONTINUE_CLI_TEST"]) {
+    for (const name of ["FORCE_NO_TTY", "TNT_TEST"]) {
       expect(source).toContain(name);
       expect(flat).toContain(name);
     }

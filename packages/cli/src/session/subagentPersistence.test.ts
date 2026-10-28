@@ -24,7 +24,7 @@ import {
  * These cases run the real writer and the real readers against the worker's
  * temporary global directory.
  */
-const sessionDir = path.join(process.env.CONTINUE_GLOBAL_DIR!, "sessions");
+const sessionDir = path.join(process.env.TNT_GLOBAL_DIR!, "sessions");
 const listPath = path.join(sessionDir, "sessions.json");
 
 const childHistory = [

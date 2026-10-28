@@ -57,15 +57,14 @@ let previous: Record<string, string | undefined>;
 
 beforeEach(() => {
   previous = {
-    CONTINUE_GLOBAL_DIR: process.env.CONTINUE_GLOBAL_DIR,
-    CONTINUE_CLI_MAX_TOOL_RESULT_CHARS:
-      process.env.CONTINUE_CLI_MAX_TOOL_RESULT_CHARS,
-    CONTINUE_CLI_TEST_SESSION_ID: process.env.CONTINUE_CLI_TEST_SESSION_ID,
+    TNT_GLOBAL_DIR: process.env.TNT_GLOBAL_DIR,
+    TNT_MAX_TOOL_RESULT_CHARS: process.env.TNT_MAX_TOOL_RESULT_CHARS,
+    TNT_TEST_SESSION_ID: process.env.TNT_TEST_SESSION_ID,
   };
   globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-spill-loop-"));
-  process.env.CONTINUE_GLOBAL_DIR = globalDir;
-  process.env.CONTINUE_CLI_MAX_TOOL_RESULT_CHARS = "100";
-  process.env.CONTINUE_CLI_TEST_SESSION_ID = "test-session";
+  process.env.TNT_GLOBAL_DIR = globalDir;
+  process.env.TNT_MAX_TOOL_RESULT_CHARS = "100";
+  process.env.TNT_TEST_SESSION_ID = "test-session";
 });
 
 afterEach(() => {

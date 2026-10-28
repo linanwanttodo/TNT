@@ -20,7 +20,7 @@ describe("cacheHitFloor", () => {
   });
 
   it("takes a ratio from the environment", () => {
-    vi.stubEnv("CONTINUE_CLI_CACHE_HIT_FLOOR", "0.99");
+    vi.stubEnv("TNT_CACHE_HIT_FLOOR", "0.99");
     expect(cacheHitFloor()).toBe(0.99);
   });
 

@@ -18,21 +18,21 @@ const tick = (ms = 100) => new Promise((r) => setTimeout(r, ms));
  * anything else.
  */
 describe("MCPMarketplace", () => {
-  const previousHome = process.env.CONTINUE_GLOBAL_DIR;
+  const previousHome = process.env.TNT_GLOBAL_DIR;
   let home: string;
   let onCancel: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     home = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-market-ui-"));
-    process.env.CONTINUE_GLOBAL_DIR = home;
+    process.env.TNT_GLOBAL_DIR = home;
     onCancel = vi.fn();
   });
 
   afterEach(() => {
     if (previousHome === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = previousHome;
+      process.env.TNT_GLOBAL_DIR = previousHome;
     }
     vi.restoreAllMocks();
   });

@@ -58,8 +58,8 @@ describe("spec/shell-mode.md agrees with the implementation", () => {
   it("matches the output caps and the inactivity timeout", () => {
     expect(runner).toContain("DEFAULT_BASH_MAX_CHARS = 50000");
     expect(runner).toContain("DEFAULT_BASH_MAX_LINES = 1000");
-    expect(runner).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS");
-    expect(runner).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_LINES");
+    expect(runner).toContain("TNT_BASH_MAX_OUTPUT_CHARS");
+    expect(runner).toContain("TNT_BASH_MAX_OUTPUT_LINES");
     expect(runner).toContain("TIMEOUT_MS = 180000");
     expect(runner).toContain("Math.min(timeout, 600)");
     expect(runner).toContain("seconds of no output");
@@ -67,8 +67,8 @@ describe("spec/shell-mode.md agrees with the implementation", () => {
 
     expect(doc).toContain("50,000");
     expect(doc).toContain("1,000");
-    expect(doc).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_CHARS");
-    expect(doc).toContain("CONTINUE_CLI_BASH_MAX_OUTPUT_LINES");
+    expect(doc).toContain("TNT_BASH_MAX_OUTPUT_CHARS");
+    expect(doc).toContain("TNT_BASH_MAX_OUTPUT_LINES");
     expect(doc).toContain("180 seconds");
     expect(doc).toContain("600 seconds");
     expect(doc).toContain("TEST_TERMINAL_TIMEOUT");

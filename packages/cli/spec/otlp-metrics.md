@@ -6,8 +6,8 @@ that control export. The instruments and defaults below are the ones the service
 
 ## Enablement
 
-`CONTINUE_METRICS_ENABLED` wins when set: `0` disables telemetry, `1` enables it. When
-it is unset, `CONTINUE_CLI_ENABLE_TELEMETRY=1` enables telemetry. When neither is set,
+`TNT_METRICS_ENABLED` wins when set: `0` disables telemetry, `1` enables it. When
+it is unset, `TNT_ENABLE_TELEMETRY=1` enables telemetry. When neither is set,
 telemetry is off.
 
 The switch alone does not start anything. Telemetry is only on when it is enabled **and**
@@ -69,4 +69,4 @@ events are not shipped to a collector.
 ## Privacy
 
 Prompt content is redacted by default, the account UUID can be omitted, and telemetry
-can be disabled entirely with `CONTINUE_METRICS_ENABLED=0`.
+can be disabled entirely with `TNT_METRICS_ENABLED=0`.

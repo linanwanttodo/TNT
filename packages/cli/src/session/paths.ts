@@ -45,7 +45,7 @@ export function fsSessionName(sessionId: string): string {
 }
 
 export function getSessionDir(): string {
-  if (process.env.CONTINUE_CLI_TEST && process.env.HOME) {
+  if (process.env.TNT_TEST && process.env.HOME) {
     const dir = path.join(process.env.HOME, ".tnt", "sessions");
     fs.mkdirSync(dir, { recursive: true });
     return dir;

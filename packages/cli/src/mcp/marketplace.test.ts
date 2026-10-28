@@ -17,19 +17,19 @@ import {
  * fact that a malformed file is replaced rather than corrupted further.
  */
 describe("MCP marketplace", () => {
-  const previousHome = process.env.CONTINUE_GLOBAL_DIR;
+  const previousHome = process.env.TNT_GLOBAL_DIR;
   let home: string;
 
   beforeEach(() => {
     home = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-mcp-market-"));
-    process.env.CONTINUE_GLOBAL_DIR = home;
+    process.env.TNT_GLOBAL_DIR = home;
   });
 
   afterEach(() => {
     if (previousHome === undefined) {
-      delete process.env.CONTINUE_GLOBAL_DIR;
+      delete process.env.TNT_GLOBAL_DIR;
     } else {
-      process.env.CONTINUE_GLOBAL_DIR = previousHome;
+      process.env.TNT_GLOBAL_DIR = previousHome;
     }
   });
 

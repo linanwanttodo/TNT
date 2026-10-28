@@ -4,7 +4,7 @@
  *   npx tsx eval/retrieval/runEval.ts [--json]
  *
  * The global directory is pointed at a temp home before anything imports core,
- * because core resolves `CONTINUE_GLOBAL_DIR` into a constant at import time -
+ * because core resolves `TNT_GLOBAL_DIR` into a constant at import time -
  * setting it later would leave the index database in a real user's directory.
  */
 

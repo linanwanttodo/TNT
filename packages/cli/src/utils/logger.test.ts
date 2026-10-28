@@ -77,8 +77,8 @@ function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
 describe("closeLogs", () => {
   it("leaves nothing that can reopen the log file", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-log-close-"));
-    const previous = process.env.CONTINUE_GLOBAL_DIR;
-    process.env.CONTINUE_GLOBAL_DIR = home;
+    const previous = process.env.TNT_GLOBAL_DIR;
+    process.env.TNT_GLOBAL_DIR = home;
     vi.resetModules();
 
     try {
@@ -98,9 +98,9 @@ describe("closeLogs", () => {
       expect(fs.existsSync(path.join(home, "logs"))).toBe(false);
     } finally {
       if (previous === undefined) {
-        delete process.env.CONTINUE_GLOBAL_DIR;
+        delete process.env.TNT_GLOBAL_DIR;
       } else {
-        process.env.CONTINUE_GLOBAL_DIR = previous;
+        process.env.TNT_GLOBAL_DIR = previous;
       }
       fs.rmSync(home, { recursive: true, force: true });
       vi.resetModules();

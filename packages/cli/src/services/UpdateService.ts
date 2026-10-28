@@ -161,7 +161,7 @@ export class UpdateService extends BaseService<UpdateServiceState> {
           isUpdateAvailable,
           status: this.currentState.status,
           // Already auto updated once, preventing sequential auto-update.
-          alreadyAutoUpdated: Boolean(process.env.CONTINUE_CLI_AUTO_UPDATED),
+          alreadyAutoUpdated: Boolean(process.env.TNT_AUTO_UPDATED),
         })
       ) {
         await this.performUpdate(true);
@@ -303,7 +303,7 @@ export class UpdateService extends BaseService<UpdateServiceState> {
         stdio: "inherit",
         env: {
           ...process.env,
-          CONTINUE_CLI_AUTO_UPDATED: "true",
+          TNT_AUTO_UPDATED: "true",
         },
       });
 

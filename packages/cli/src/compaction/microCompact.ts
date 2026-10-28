@@ -40,7 +40,7 @@ export function defaultCacheGapMs(
 
 export function cacheGapMs(provider?: string, modelName?: string): number {
   return parseEnvNumber(
-    process.env.CONTINUE_CLI_CACHE_GAP_MS,
+    process.env.TNT_CACHE_GAP_MS,
     defaultCacheGapMs(provider, modelName),
   );
 }

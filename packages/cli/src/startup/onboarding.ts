@@ -51,8 +51,8 @@ export async function runOnboardingFlow(
     return false;
   }
 
-  // Step 2: Check for CONTINUE_USE_BEDROCK environment variable first (before test env check)
-  if (process.env.CONTINUE_USE_BEDROCK === "1") {
+  // Step 2: Check for TNT_USE_BEDROCK environment variable first (before test env check)
+  if (process.env.TNT_USE_BEDROCK === "1") {
     console.log(chalk.blue(t("setup.bedrock")));
     return true;
   }

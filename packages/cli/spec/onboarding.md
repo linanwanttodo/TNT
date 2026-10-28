@@ -17,7 +17,7 @@ The config is loaded and validated first; a failure throws
 returns false, so a supplied config neither runs the interactive setup nor marks
 onboarding complete.
 
-## `CONTINUE_USE_BEDROCK=1`
+## `TNT_USE_BEDROCK=1`
 
 Before any prompt, the flow prints the `setup.bedrock` message and returns true, so
 onboarding is marked complete. AWS credentials must already be available through the

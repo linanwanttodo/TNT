@@ -160,14 +160,14 @@ describe("the gap itself", () => {
 
   beforeEach(() => {
     previous = {
-      CONTINUE_GLOBAL_DIR: process.env.CONTINUE_GLOBAL_DIR,
-      CONTINUE_CLI_TEST_SESSION_ID: process.env.CONTINUE_CLI_TEST_SESSION_ID,
-      CONTINUE_CLI_CACHE_GAP_MS: process.env.CONTINUE_CLI_CACHE_GAP_MS,
+      TNT_GLOBAL_DIR: process.env.TNT_GLOBAL_DIR,
+      TNT_TEST_SESSION_ID: process.env.TNT_TEST_SESSION_ID,
+      TNT_CACHE_GAP_MS: process.env.TNT_CACHE_GAP_MS,
       TNT_CACHE_RETENTION: process.env.TNT_CACHE_RETENTION,
     };
     globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-gap-"));
-    process.env.CONTINUE_GLOBAL_DIR = globalDir;
-    process.env.CONTINUE_CLI_TEST_SESSION_ID = "gap-session";
+    process.env.TNT_GLOBAL_DIR = globalDir;
+    process.env.TNT_TEST_SESSION_ID = "gap-session";
     forgetLastRequest();
   });
 
@@ -181,17 +181,17 @@ describe("the gap itself", () => {
   });
 
   it("defaults to the five minutes a provider caches for", () => {
-    delete process.env.CONTINUE_CLI_CACHE_GAP_MS;
+    delete process.env.TNT_CACHE_GAP_MS;
     expect(cacheGapMs()).toBe(DEFAULT_CACHE_GAP_MS);
     expect(DEFAULT_CACHE_GAP_MS).toBe(5 * 60 * 1000);
 
-    process.env.CONTINUE_CLI_CACHE_GAP_MS = "1000";
+    process.env.TNT_CACHE_GAP_MS = "1000";
     expect(cacheGapMs()).toBe(1000);
   });
 
   it("measures a resumed session from the session file's own timestamp", async () => {
     const { getSessionFilePath } = await import("../session/index.js");
-    process.env.CONTINUE_CLI_CACHE_GAP_MS = "1000";
+    process.env.TNT_CACHE_GAP_MS = "1000";
     const sessionFile = getSessionFilePath();
     fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
     fs.writeFileSync(sessionFile, "{}", "utf-8");
@@ -207,7 +207,7 @@ describe("the gap itself", () => {
   });
 
   it("takes the gap from each provider's own cache lifetime", () => {
-    delete process.env.CONTINUE_CLI_CACHE_GAP_MS;
+    delete process.env.TNT_CACHE_GAP_MS;
     delete process.env.TNT_CACHE_RETENTION;
 
     expect(defaultCacheGapMs("deepseek", "deepseek-reasoner")).toBe(
@@ -233,12 +233,12 @@ describe("the gap itself", () => {
     expect(cacheGapMs("deepseek")).toBe(LONG_LIVED_CACHE_GAP_MS);
 
     // An explicit override still wins over the provider default.
-    process.env.CONTINUE_CLI_CACHE_GAP_MS = "1000";
+    process.env.TNT_CACHE_GAP_MS = "1000";
     expect(cacheGapMs("deepseek")).toBe(1000);
   });
 
   it("does not prune a long-lived cache after six idle minutes", () => {
-    delete process.env.CONTINUE_CLI_CACHE_GAP_MS;
+    delete process.env.TNT_CACHE_GAP_MS;
     const now = Date.now();
     noteRequestSent(now - 6 * 60 * 1000);
 
@@ -248,7 +248,7 @@ describe("the gap itself", () => {
 
   it("prefers this process's own last request once one has been sent", async () => {
     const { getSessionFilePath } = await import("../session/index.js");
-    process.env.CONTINUE_CLI_CACHE_GAP_MS = "1000";
+    process.env.TNT_CACHE_GAP_MS = "1000";
     const sessionFile = getSessionFilePath();
     fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
     fs.writeFileSync(sessionFile, "{}", "utf-8");

@@ -132,16 +132,46 @@ export function fromGlobOutput(root: string, output: string): RankedHit[] {
 }
 
 function relative(root: string, target: string): string {
-  // The two spellings of one file. The index reports the workspace as core
-  // canonicalized it (`/private/var/...` on macOS, the long path on Windows)
-  // while the run created it through a symlinked or short-named temp directory,
-  // and `path.relative` of those two strings produces `../../private/...`
-  // instead of a corpus path - which reads as "the tool found nothing" on the
-  // lanes where `/tmp` is a link. Compare file identity, not spelling.
-  const base = canonical(root);
+  // The index reports the workspace as the operating system canonicalized it,
+  // while the run created it through another spelling of the same file:
+  // `/private/var` where the temp directory says `/var` on macOS, and on Windows
+  // `realpath` answered one side with the 8.3 short form (`C:\Users\RUNNER~1\...`)
+  // and the other with the long name. Subtracting those walks out of the corpus
+  // instead of naming a file in it, and reads as "the tool found nothing".
+  // Identity beats arithmetic: the corpus is twelve files, so index them.
+  const known = identities(root).get(canonical(target));
+  if (known) {
+    return known;
+  }
   const plain = target.startsWith("file:") ? fileURLToPath(target) : target;
   const absolute = path.isAbsolute(plain) ? plain : path.resolve(root, plain);
-  return path.relative(base, canonical(absolute)).split(path.sep).join("/");
+  return path
+    .relative(canonical(root), canonical(absolute))
+    .split(path.sep)
+    .join("/");
+}
+
+const identitiesByRoot = new Map<string, Map<string, string>>();
+
+/** Every corpus file under both of its spellings, mapped to the labelled name. */
+function identities(root: string): Map<string, string> {
+  const cached = identitiesByRoot.get(root);
+  if (cached) {
+    return cached;
+  }
+  const map = new Map<string, string>();
+  for (const rel of corpusFiles(root)) {
+    const given = path.resolve(root, rel);
+    map.set(given, rel);
+    try {
+      map.set(fs.realpathSync(given), rel);
+    } catch {
+      // An unresolvable file keeps only the spelling it was given; the
+      // arithmetic above still has a chance of matching it.
+    }
+  }
+  identitiesByRoot.set(root, map);
+  return map;
 }
 
 function canonical(file: string): string {

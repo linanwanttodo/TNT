@@ -410,7 +410,7 @@ describe("a measured breakpoint budget", () => {
 
   it("reads the budget from the environment and falls back on nonsense", () => {
     expect(anthropicBreakpointBudget(undefined)).toBe(2);
-    vi.stubEnv("CONTINUE_CLI_ANTHROPIC_BREAKPOINTS", "4");
+    vi.stubEnv("TNT_ANTHROPIC_BREAKPOINTS", "4");
     expect(anthropicBreakpointBudget()).toBe(4);
     vi.unstubAllEnvs();
     for (const raw of ["", "0", "5", "1.5", "x"]) {

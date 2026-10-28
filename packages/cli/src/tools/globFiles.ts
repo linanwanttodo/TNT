@@ -15,7 +15,7 @@ const execFilePromise = util.promisify(execFile);
 const DEFAULT_GLOB_MAX_RESULTS = 1000;
 
 function maxResults(): number {
-  const configured = Number(process.env.CONTINUE_CLI_GLOB_MAX_RESULTS);
+  const configured = Number(process.env.TNT_GLOB_MAX_RESULTS);
   if (!Number.isFinite(configured) || configured <= 0) {
     return DEFAULT_GLOB_MAX_RESULTS;
   }
