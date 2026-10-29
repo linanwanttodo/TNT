@@ -102,6 +102,10 @@ export async function startTUIChat(
   // Start the TUI immediately - it will handle loading states
   const renderOptions: RenderOptions = {
     exitOnCtrlC: false, // Disable Ink's default Ctrl+C handling so we can implement two-stage exit
+    // Incremental row updates instead of the full-frame erase and redraw the
+    // fullscreen branch otherwise does every render - the visible flicker on
+    // terminals without synchronized-output support comes from that redraw.
+    incrementalRendering: true,
     stdin: stdinToUse,
     stdout: process.stdout,
     stderr: process.stderr,
