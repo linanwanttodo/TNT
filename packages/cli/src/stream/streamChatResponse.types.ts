@@ -5,6 +5,10 @@ import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
 import type { TerminationReason } from "../loop/termination.js";
 import type { ToolPermissions } from "../permissions/types.js";
 import type { PermissionMode } from "../permissions/types.js";
+import {
+  getReasoningOverride,
+  restoreReasoningOverride,
+} from "../session/reasoningOverride.js";
 import { ToolCallPreview } from "../tools/types.js";
 
 export interface StreamCallbacks {
@@ -102,11 +106,43 @@ export function getDefaultCompletionOptions(
   opts?: CompletionOptions,
 ): Partial<ChatCompletionCreateParamsStreaming> {
   if (!opts) return {};
+  restoreReasoningOverride();
+  const override = getReasoningOverride();
+  // A `/think` command pins the session's reasoning depth; it wins over the
+  // model's static default so the rest of the turn streams at the chosen level.
+  // "off" disables reasoning; "default" falls back to the model config.
+  const reasoning =
+    override === null
+      ? opts.reasoning
+      : override === "off"
+        ? false
+        : override === "default"
+          ? opts.reasoning
+          : true;
+  const reasoningEffort =
+    override === "default" || override === null
+      ? opts.reasoningEffort
+      : override === "off"
+        ? undefined
+        : override;
   return {
     max_tokens: opts.maxTokens,
     temperature: opts.temperature,
     frequency_penalty: opts.frequencyPenalty,
     presence_penalty: opts.presencePenalty,
     top_p: opts.topP,
+    // Reasoning models read these on Chat Completions; the adapter only forwards
+    // `reasoning_effort` to providers that accept it (o-series / gpt-5+), so a
+    // model that does not understand reasoning leaves the request untouched
+    // rather than rejecting it.
+    ...(reasoning === undefined ? {} : { reasoning }),
+    // The config schema allows "max" where the OpenAI SDK type stops at
+    // "high"; providers that take the field clamp it, the rest never see it.
+    ...(reasoningEffort
+      ? { reasoning_effort: reasoningEffort as "low" | "medium" | "high" }
+      : {}),
+    ...(opts.reasoningBudgetTokens
+      ? { reasoning_budget_tokens: opts.reasoningBudgetTokens }
+      : {}),
   };
 }

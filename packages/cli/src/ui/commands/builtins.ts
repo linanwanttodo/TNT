@@ -24,6 +24,7 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "theme", descriptionKey: "cmd.theme" },
   { name: "info", descriptionKey: "cmd.info" },
   { name: "model", descriptionKey: "cmd.model" },
+  { name: "think", descriptionKey: "cmd.think" },
   {
     name: "mcp",
     descriptionKey: "cmd.mcp",
