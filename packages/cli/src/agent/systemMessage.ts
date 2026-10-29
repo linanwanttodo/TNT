@@ -124,6 +124,31 @@ Notes:
 `;
 
 /**
+ * The auto-memory clause. TNT keeps a memory file per project and per machine;
+ * the model appends to it on its own when something is worth carrying across
+ * sessions. Selective by design: only what changes how the next session works,
+ * never a running commentary, so the file stays small enough to always load.
+ */
+const memoryClause = `
+
+# Memory
+A memory file lives at .tnt/TNT.md in this project, and a machine-wide one at
+~/.tnt/TNT.md. Their contents are loaded into your context at the start of every
+session. When a turn teaches you something that will matter next time - a build
+or test command that failed in a non-obvious way, a preference the user states
+about how they want work done, a convention the repository follows that the code
+does not make obvious, a tool or file location you had to search for - append
+ONE short line about it to the project memory file with the file write tool,
+creating the file with a "# TNT Memory" heading if it does not exist.
+
+Be selective: a note earns its place only if it would save the next session real
+time or prevent repeating a mistake. Never record what the code or git history
+already shows, the steps of a routine task, or anything from this conversation
+that will not matter again. Do not rewrite or reorganize existing notes; append
+only. The .tnt directory is kept out of version control through the local
+exclude file rather than .gitignore: never stage it, never add it to .gitignore.`;
+
+/**
  * The machine-shaped half of the prompt: where the CLI was started, what the
  * working tree looked like when it started, and today's date.
  *
@@ -315,6 +340,28 @@ export interface SystemMessageSection {
 }
 
 /**
+ * The memory file TNT keeps itself, global first then the project's, so a
+ * lesson learned in one project can apply everywhere without overriding a
+ * project-specific decision. Both sit beside the settings they belong to.
+ */
+function memoryLayers(): string[] {
+  const layers: string[] = [];
+  const globalMemory = path.join(env.continueHome, "TNT.md");
+  if (fs.existsSync(globalMemory)) {
+    layers.push(
+      `Global memory from TNT.md:\n${loadInstructionFile(globalMemory)}`,
+    );
+  }
+  const projectMemory = path.join(process.cwd(), ".tnt", "TNT.md");
+  if (fs.existsSync(projectMemory)) {
+    layers.push(
+      `Project memory from TNT.md:\n${loadInstructionFile(projectMemory)}`,
+    );
+  }
+  return layers;
+}
+
+/**
  * Renders the prefix as named parts. The parts are joined in the order they are
  * built, so a cached prefix only moves when a part actually changes.
  */
@@ -326,7 +373,7 @@ export async function buildSystemMessageSections(
   profile?: PromptProfile,
 ): Promise<SystemMessageSection[]> {
   const agentFiles = ["AGENTS.md", "AGENT.md", "CLAUDE.md", "CODEX.md"];
-  const layers: string[] = [];
+  const layers: string[] = [...memoryLayers()];
 
   try {
     for (const fileName of agentFiles) {
@@ -392,7 +439,11 @@ export async function buildSystemMessageSections(
   // cached prefix is billed as a whole, and the only fix for a move is knowing
   // what caused it.
   const sections: SystemMessageSection[] = [
-    { name: "base", text: baseSystemMessage, volatile: false },
+    {
+      name: "base",
+      text: `${baseSystemMessage}${memoryClause}`,
+      volatile: false,
+    },
   ];
 
   // Plan is one text, whichever way it was chosen: the permission mode and the
