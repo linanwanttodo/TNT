@@ -7,7 +7,6 @@ import {
 } from "../../index.js";
 import { renderChatMessage, stripImages } from "../../util/messageContent.js";
 import { BaseLLM } from "../index.js";
-import { DEFAULT_REASONING_TOKENS } from "../constants.js";
 
 class Cohere extends BaseLLM {
   static providerName = "cohere";
@@ -124,8 +123,11 @@ class Cohere extends BaseLLM {
       thinking: options.reasoning
         ? {
             type: "enabled" as const,
-            token_budget:
-              options.reasoningBudgetTokens ?? DEFAULT_REASONING_TOKENS,
+            // A fixed small budget truncates the model mid-thought; omitted,
+            // Cohere lets the model spend what it needs.
+            ...(options.reasoningBudgetTokens
+              ? { token_budget: options.reasoningBudgetTokens }
+              : {}),
           }
         : // Reasoning is enabled by default for models that support it.
           // https://docs.cohere.com/reference/chat-stream#request.body.thinking

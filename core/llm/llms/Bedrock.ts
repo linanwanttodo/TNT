@@ -23,6 +23,7 @@ import { safeParseToolCallArgs } from "../../tools/parseArgs.js";
 import { renderChatMessage, stripImages } from "../../util/messageContent.js";
 import { parseDataUrl } from "../../util/url.js";
 import { BaseLLM } from "../index.js";
+import { thinkingBudgetForEffort } from "../constants.js";
 import { PROVIDER_TOOL_SUPPORT } from "../toolSupport.js";
 import { getSecureID } from "../utils/getSecureID.js";
 
@@ -345,7 +346,18 @@ class Bedrock extends BaseLLM {
         thinking: options.reasoning
           ? {
               type: "enabled",
-              budget_tokens: options.reasoningBudgetTokens,
+              // Claude requires 1024 <= budget_tokens < max_tokens. An unset
+              // budget scales with the requested effort instead of a fixed
+              // small number that cuts the model off mid-thought, and always
+              // leaves room for the answer under the shared ceiling.
+              budget_tokens: Math.min(
+                Math.max(
+                  1024,
+                  options.reasoningBudgetTokens ??
+                    thinkingBudgetForEffort(options.reasoningEffort),
+                ),
+                Math.max(1024, (options.maxTokens ?? 4096) - 1024),
+              ),
             }
           : undefined,
         anthropic_beta: options.model.includes("claude")
