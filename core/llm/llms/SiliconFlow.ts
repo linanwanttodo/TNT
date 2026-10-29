@@ -1,11 +1,16 @@
 import { streamSse } from "@tnt/fetch";
 import { Chunk, CompletionOptions, LLMOptions } from "../../index.js";
+import { LlmApiRequestType } from "../openaiTypeConverters.js";
 import { osModelsEditPrompt } from "../templates/edit.js";
 
 import OpenAI from "./OpenAI.js";
 
 class SiliconFlow extends OpenAI {
   static providerName = "siliconflow";
+  // The class builds FIM itself against a /completions endpoint that is not
+  // the OpenAI chat surface, so the base class's delegation flag would
+  // promise a hand-off that never happens. Declare the truth instead.
+  protected useOpenAIAdapterFor: (LlmApiRequestType | "*")[] = [];
   static defaultOptions: Partial<LLMOptions> = {
     apiBase: "https://api.siliconflow.cn/v1/",
     model: "Qwen/Qwen2.5-Coder-32B-Instruct",

@@ -75,4 +75,48 @@ describe("InputHistory", () => {
       expect(result).toBe(null);
     });
   });
+
+  describe("two instances writing one file", () => {
+    it("keeps the other window's entry after both save", () => {
+      // Two CLI processes each hold their own view; the file is the shared
+      // record between them.
+      const windowA = new InputHistory();
+      const windowB = new InputHistory();
+
+      windowA.addEntry("from window a");
+      windowB.addEntry("from window b");
+
+      // A reload must see both lines: whichever saved last read the other's
+      // entry back before writing its own.
+      const reloaded = new InputHistory();
+      const texts = reloaded.getHistory().map((entry) => entry.text);
+      expect(texts).toContain("from window a");
+      expect(texts).toContain("from window b");
+    });
+
+    it("deduplicates a line both windows submitted", () => {
+      const windowA = new InputHistory();
+      const windowB = new InputHistory();
+
+      windowA.addEntry("shared line");
+      windowB.addEntry("shared line");
+
+      const reloaded = new InputHistory();
+      const matches = reloaded
+        .getHistory()
+        .filter((entry) => entry.text === "shared line");
+      expect(matches).toHaveLength(1);
+    });
+
+    it("the newest entry lands first after a merge", () => {
+      const windowA = new InputHistory();
+      windowA.addEntry("older");
+
+      const windowB = new InputHistory();
+      windowB.addEntry("newer");
+
+      const reloaded = new InputHistory();
+      expect(reloaded.getHistory()[0]?.text).toBe("newer");
+    });
+  });
 });

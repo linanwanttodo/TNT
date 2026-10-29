@@ -1,5 +1,6 @@
 import { streamSse } from "@tnt/fetch";
 import { ChatMessage, CompletionOptions, LLMOptions } from "../../index.js";
+import { LlmApiRequestType } from "../openaiTypeConverters.js";
 
 import { ChatCompletionCreateParams } from "@tnt/openai-adapters";
 import { APPLY_UNIQUE_TOKEN } from "../../edit/constants.js";
@@ -35,15 +36,11 @@ class Inception extends OpenAI {
     return true;
   }
 
-  // It seems like this should be inherited automatically from the parent OpenAI class, but it sometimes doesn't.
-  // protected useOpenAIAdapterFor: (LlmApiRequestType | "*")[] = [
-  //   "chat",
-  //   "embed",
-  //   "list",
-  //   "rerank",
-  //   "streamChat",
-  //   "streamFim",
-  // ];
+  // Fill-in-the-middle posts to Inception's own apply/completions endpoint
+  // below, and the base class's delegation set would hand the request to an
+  // adapter that does not know that protocol - so declare the self-built
+  // truth instead of an inherited promise.
+  protected useOpenAIAdapterFor: (LlmApiRequestType | "*")[] = [];
 
   protected modifyChatBody(
     body: ChatCompletionCreateParams,
