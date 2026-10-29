@@ -6,6 +6,12 @@ import { OpenAIApi } from "./OpenAI.js";
 import { FimCreateParamsStreaming } from "./base.js";
 
 export const DEEPSEEK_API_BASE = "https://api.deepseek.com/";
+
+/**
+ * The beta fill-in-the-middle endpoint. The request is the OpenAI FIM
+ * completion shape against `POST https://api.deepseek.com/beta/completions`:
+ * https://api-docs.deepseek.com/api/create-completion/
+ */
 export class DeepSeekApi extends OpenAIApi {
   constructor(config: DeepseekConfig) {
     super({
@@ -29,8 +35,6 @@ export class DeepSeekApi extends OpenAIApi {
         max_tokens: body.max_tokens,
         temperature: body.temperature,
         top_p: body.top_p,
-        frequency_penalty: body.frequency_penalty,
-        presence_penalty: body.presence_penalty,
         stop: body.stop,
         stream: true,
       }),
