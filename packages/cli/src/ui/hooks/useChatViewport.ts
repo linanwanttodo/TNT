@@ -31,6 +31,8 @@ export interface ChatViewport {
   maxScrollTop: number;
   viewportHeight: number;
   contentHeight: number;
+  /** Whether the terminal is reporting mouse events to the app. */
+  mouseCapture: boolean;
   onMetrics: (metrics: ScrollViewMetrics) => void;
   scrollBy: (rows: number) => void;
   scrollTo: (row: number) => void;
@@ -61,6 +63,13 @@ export function useChatViewport({
   isActive,
 }: ChatViewportOptions): ChatViewport {
   const [state, setState] = useState<ViewportState>(INITIAL_STATE);
+  // Mouse reporting is on by default so the wheel scrolls the transcript;
+  // Ctrl+T releases the terminal's mouse so a drag selects and copies text
+  // the normal way, and again to take it back. TNT_DISABLE_MOUSE=1 starts
+  // released, for terminals whose copy-on-select the user never wants broken.
+  const [mouseCapture, setMouseCapture] = useState(
+    process.env.TNT_DISABLE_MOUSE !== "1",
+  );
   // A nested panel can change height without rendering this hook; the returned
   // revision is unused on purpose - its re-render is what lets ScrollView
   // measure the layout that was just committed.
@@ -149,7 +158,9 @@ export function useChatViewport({
       // Home and drag the viewport to the top on a click.
       if (isTerminalMouseSequence(input)) return;
 
-      if (key.pageUp) {
+      if (key.ctrl && input === "t") {
+        setMouseCapture((previous) => !previous);
+      } else if (key.pageUp) {
         scrollBy(-page);
       } else if (key.pageDown) {
         scrollBy(page);
@@ -172,7 +183,7 @@ export function useChatViewport({
         dispatchClick(event.row, event.col);
       }
     },
-    { isActive },
+    { isActive: isActive && mouseCapture },
   );
 
   return {
@@ -183,6 +194,7 @@ export function useChatViewport({
     maxScrollTop: maxScrollTopOf(state),
     viewportHeight: state.viewportHeight,
     contentHeight: state.contentHeight,
+    mouseCapture,
     onMetrics,
     scrollBy,
     scrollTo,
