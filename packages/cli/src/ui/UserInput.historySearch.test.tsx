@@ -1,7 +1,8 @@
-import { render } from "ink-testing-library";
 import fs from "fs";
 import os from "os";
 import path from "path";
+
+import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
