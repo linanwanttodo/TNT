@@ -16,12 +16,17 @@ function supportsCacheOptions(model: string | undefined): boolean {
   return !!match && Number(match[1]) >= 3;
 }
 
+const MOONSHOT_API_BASE = "https://api.moonshot.cn/v1/";
+
 export class MoonshotApi extends OpenAIApi {
-  apiBase: string = "https://api.moonshot.cn/";
   constructor(config: MoonshotConfig) {
     super({
       ...config,
       provider: "openai",
+      // Passed through super rather than re-declared as a class field: a
+      // field definition would run after super() and overwrite a configured
+      // apiBase back to the default.
+      apiBase: config.apiBase ?? MOONSHOT_API_BASE,
     });
   }
 
@@ -46,7 +51,11 @@ export class MoonshotApi extends OpenAIApi {
     body: FimCreateParamsStreaming,
     signal: AbortSignal,
   ): AsyncGenerator<ChatCompletionChunk, any, unknown> {
-    const endpoint = new URL("v1/chat/completions", this.apiBase);
+    // Kimi has no fill-in-the-middle endpoint; the documented way to complete
+    // the middle of a snippet is a chat completion whose single user message
+    // marks the hole with `[fill]`:
+    // https://platform.moonshot.cn/docs/api/chat
+    const endpoint = new URL("chat/completions", this.apiBase);
     const resp = await customFetch(this.config.requestOptions)(endpoint, {
       method: "POST",
       body: JSON.stringify({
@@ -60,8 +69,6 @@ export class MoonshotApi extends OpenAIApi {
         max_tokens: body.max_tokens,
         temperature: body.temperature,
         top_p: body.top_p,
-        frequency_penalty: body.frequency_penalty,
-        presence_penalty: body.presence_penalty,
         stop: body.stop,
         stream: true,
       }),
