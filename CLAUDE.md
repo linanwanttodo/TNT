@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-TNT is a community fork of Continue rebuilt around the CLI: one agent engine driving four surfaces — the Ink TUI, headless `-p` runs, `tnt serve` (HTTP/SSE), and ACP editor sessions. The editor extensions and GUI from the original release are gone.
+TNT is a community fork rebuilt around the CLI: one agent engine driving four surfaces — the Ink TUI, headless `-p` runs, `tnt serve` (HTTP/SSE), and ACP editor sessions. The editor extensions and GUI from the original release are gone.
 
 The per-package guidance for the CLI lives in `packages/cli/AGENTS.md` — read it before working there. The systematic architecture reference is `docs/ARCHITECTURE-tnt.md`, and `packages/cli/ARCHITECTURE-tnt.md` is the rulings ledger whose every number must be reproducible by a command.
 
@@ -13,7 +13,7 @@ The per-package guidance for the CLI lives in `packages/cli/AGENTS.md` — read 
 | Path                                                                                    | Role                                                                                                                                      |
 | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/cli`                                                                          | The TNT CLI: Ink TUI, agent engine (`stream/`, `loop/`, `tools/`, `permissions/`, `hooks/`, `subagent/`, …), slash commands, hooks system |
-| `core/`                                                                                 | The LLM engine shared with the upstream Continue lineage: providers, LLM classes, embeddings                                              |
+| `core/`                                                                                 | The LLM engine inherited from the upstream project: providers, LLM classes, embeddings                                                    |
 | `packages/openai-adapters`                                                              | OpenAI-shaped request/response conversion to provider APIs (e.g. OpenAI-to-Anthropic body conversion)                                     |
 | `packages/config-types`, `config-yaml`, `fetch`, `llm-info`, `terminal-security`, `sdk` | Small support packages the CLI and core depend on                                                                                         |
 
