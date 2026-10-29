@@ -1,5 +1,6 @@
 import { Mutex } from "async-mutex";
 import { spawn } from "child_process";
+import { LlmApiRequestType } from "../openaiTypeConverters.js";
 import { LLMOptions, ModelInstaller } from "../../index.js";
 import OpenAI from "./OpenAI.js";
 
@@ -16,6 +17,10 @@ import OpenAI from "./OpenAI.js";
  */
 class Docker extends OpenAI implements ModelInstaller {
   static providerName = "docker";
+  // The engine exposes a Docker Model Runner protocol under /engines/v1/,
+  // which is not an OpenAI-compatible surface - constructLlmApi has no
+  // adapter for it, so the base class's delegation flag must not claim one.
+  protected useOpenAIAdapterFor: (LlmApiRequestType | "*")[] = [];
   static defaultOptions: Partial<LLMOptions> = {
     apiBase: "http://localhost:12434/engines/v1/",
     model: "gemma3-4B-F4", // Default model
