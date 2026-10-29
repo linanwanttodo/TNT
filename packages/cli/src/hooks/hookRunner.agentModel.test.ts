@@ -49,6 +49,12 @@ vi.mock("../utils/exponentialBackoff.js", () => ({
       },
     };
   }),
+  withExponentialBackoff: vi.fn(async function* <T>(
+    factory: (signal: AbortSignal) => Promise<AsyncGenerator<T>>,
+    _signal: AbortSignal,
+  ): AsyncGenerator<T> {
+    yield* await factory(new AbortController().signal);
+  }),
 }));
 
 vi.mock("../utils/logger.js", () => ({
