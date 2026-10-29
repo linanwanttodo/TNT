@@ -95,3 +95,47 @@ export async function until(
     await tick(25);
   }
 }
+
+/**
+ * Type into a field, and make sure the text arrived.
+ *
+ * Typed text cannot be re-sent the way a key can: the buffer appends, so a
+ * second delivery of `sk-test` leaves `sk-testsk-test` and the test then
+ * describes an input nobody typed. The retry therefore clears the field first
+ * (Ctrl+U, which the screens that use this support) and writes the text once
+ * more. Failing here says the keystroke was lost rather than leaving a later
+ * assertion to report a placeholder it never looked at.
+ */
+export async function typeIntoField(
+  tree: {
+    stdin: { write: (key: string) => void };
+    lastFrame: () => string | undefined;
+  },
+  text: string,
+  want: (frame: string) => boolean = (frame) => frame.includes(text),
+  options: { attempts?: number; deliverMs?: number } = {},
+): Promise<string> {
+  const attempts = options.attempts ?? 3;
+  const deliverMs = options.deliverMs ?? 1_500;
+  let lastFrame = "";
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (attempt > 0) {
+      // Ctrl+U: drop what is in the field so the re-send lands as the same text.
+      tree.stdin.write("\u0015");
+      await tick(150);
+    }
+    tree.stdin.write(text);
+    const deadline = Date.now() + deliverMs;
+    while (Date.now() < deadline) {
+      lastFrame = tree.lastFrame() ?? "";
+      if (want(lastFrame)) {
+        return lastFrame;
+      }
+      await tick(25);
+    }
+  }
+  throw new Error(
+    `typing ${JSON.stringify(text)} never reached the field within ${attempts} deliveries\n` +
+      `  last frame: ${lastFrame.split("\n")[0] ?? "(empty)"}`,
+  );
+}

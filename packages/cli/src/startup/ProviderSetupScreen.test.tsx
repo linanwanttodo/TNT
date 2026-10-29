@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   pressUntil,
   pressUntilMet,
-  until,
+  typeIntoField,
 } from "../../test-utils/renderPress.js";
 import { setLocale } from "../i18n/index.js";
 
@@ -33,14 +33,11 @@ function renderScreen() {
   return { tree, onComplete, onCancel };
 }
 
-/** The frame a step transition must have produced, so a lost keystroke is
- * re-sent instead of being mistaken for a broken screen. Only Enter and the
- * protocol digits are re-sent: they set a state absolutely. Typed text is
- * appended, so waiting for it never re-delivers. */
-const frameHas =
-  (tree: { lastFrame: () => string | undefined }) => (text: string) =>
-    (tree.lastFrame() ?? "").includes(text);
-
+/**
+ * Enter and the protocol digits set state absolutely, so a lost one is simply
+ * sent again. Typed text appends, so it is typed through `typeIntoField`, which
+ * clears the field before a retry instead of doubling what is in it.
+ */
 describe("ProviderSetupScreen", () => {
   it("collects protocol, base URL, key and model in one box", async () => {
     const { tree, onComplete } = renderScreen();
@@ -49,18 +46,17 @@ describe("ProviderSetupScreen", () => {
     await pressUntil(tree, "\r", (frame) => frame.includes("Base URL"));
     expect(tree.lastFrame() ?? "").toContain("http://localhost:11434/v1/");
 
-    tree.stdin.write("http://127.0.0.1:8080/v1");
-    await until(() => frameHas(tree)("http://127.0.0.1:8080/v1"));
+    await typeIntoField(tree, "http://127.0.0.1:8080/v1");
     expect(tree.lastFrame() ?? "").not.toContain("http://localhost:11434/v1/");
     await pressUntil(tree, "\r", (frame) => frame.includes("API key"));
 
-    tree.stdin.write("sk-local-key");
-    await until(() => frameHas(tree)("*".repeat("sk-local-key".length)));
+    await typeIntoField(tree, "sk-local-key", (frame) =>
+      frame.includes("*".repeat("sk-local-key".length)),
+    );
     expect(tree.lastFrame() ?? "").not.toContain("sk-local-key");
     await pressUntil(tree, "\r", (frame) => frame.includes("Model name"));
 
-    tree.stdin.write("qwen2.5-coder");
-    await until(() => frameHas(tree)("qwen2.5-coder"));
+    await typeIntoField(tree, "qwen2.5-coder");
     await pressUntilMet(tree, "\r", () => onComplete.mock.calls.length > 0);
 
     expect(onComplete).toHaveBeenCalledWith({
@@ -91,8 +87,9 @@ describe("ProviderSetupScreen", () => {
 
     expect(onComplete).not.toHaveBeenCalled();
 
-    tree.stdin.write("sk-test");
-    await until(() => frameHas(tree)("*".repeat("sk-test".length)));
+    await typeIntoField(tree, "sk-test", (frame) =>
+      frame.includes("*".repeat("sk-test".length)),
+    );
     await pressUntil(tree, "\r", (frame) => frame.includes("Model name"));
     await pressUntilMet(tree, "\r", () => onComplete.mock.calls.length > 0);
 
