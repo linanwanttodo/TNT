@@ -2,6 +2,11 @@ import { Text } from "ink";
 import { common, createLowlight } from "lowlight";
 import React from "react";
 
+// One highlighter for the process: building it registers every common
+// language, which is the expensive part, and streaming re-renders this file
+// per chunk - a fresh instance per call made that cost pay every time.
+const lowlight = createLowlight(common);
+
 export interface SyntaxHighlighterTheme {
   keyword: string;
   string: string;
@@ -101,9 +106,6 @@ export function highlightCode(
   });
 
   try {
-    // Create lowlight instance with common languages
-    const lowlight = createLowlight(common);
-
     const result = lowlight.highlight(language, code, { prefix: "" });
 
     // Convert the hast tree to React elements
