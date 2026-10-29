@@ -7,6 +7,7 @@ import {
   RawMessageDeltaEvent,
   RawMessageStartEvent,
   RawMessageStreamEvent,
+  ThinkingConfigParam,
   Tool,
   ToolUseBlock,
 } from "@anthropic-ai/sdk/resources";
@@ -71,6 +72,52 @@ import {
 // to the cost calculation and to the cache hit ratio.
 function positive(value: unknown): number {
   return typeof value === "number" && value > 0 ? value : 0;
+}
+
+/**
+ * The thinking configuration for a request that asks for reasoning: the budget
+ * scales with the requested depth rather than a fixed small number that
+ * truncates the model mid-thought, and never crowds the answer out of
+ * max_tokens.
+ */
+export function anthropicThinkingConfig(oaiBody: ChatCompletionCreateParams): {
+  thinking?: ThinkingConfigParam;
+} {
+  const extra = oaiBody as unknown as Record<string, unknown>;
+  const effort = extra.reasoning_effort;
+  const reasoning = extra.reasoning;
+  if (reasoning === false) {
+    return {};
+  }
+  if (typeof effort !== "string" || effort.length === 0) {
+    return {};
+  }
+
+  const maxTokens = oaiBody.max_tokens ?? 32_000;
+  const budgetByEffort: Record<string, number> = {
+    minimal: 1024,
+    low: 2048,
+    medium: 8192,
+    high: 16384,
+    // The SDK type stops at "high"; config may carry xhigh/max.
+    xhigh: 32768,
+    max: 65536,
+  };
+  const budget =
+    typeof extra.reasoning_budget_tokens === "number" &&
+    extra.reasoning_budget_tokens > 0
+      ? extra.reasoning_budget_tokens
+      : (budgetByEffort[effort] ?? 16384);
+
+  return {
+    thinking: {
+      type: "enabled",
+      budget_tokens: Math.min(
+        Math.max(1024, budget),
+        Math.max(1024, maxTokens - 1024),
+      ),
+    },
+  };
 }
 
 export function anthropicUsage(raw: unknown): NormalizedUsage | undefined {
@@ -237,6 +284,7 @@ export class AnthropicApi implements BaseLlmApi {
       stream: oaiBody.stream ?? undefined,
       tools,
       tool_choice: openAiToolChoiceToAnthropicToolChoice(oaiBody.tool_choice),
+      ...anthropicThinkingConfig(oaiBody),
     };
 
     return anthropicBody;
