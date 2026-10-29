@@ -285,6 +285,12 @@ export interface SessionUsage extends Usage {
    */
   unreportedUsageRequests?: number;
   /**
+   * Requests whose token counts did reach this session, kept beside the count
+   * above so a ratio can say what it covers instead of implying it covers
+   * everything.
+   */
+  reportedUsageRequests?: number;
+  /**
    * Usage of the first request in this session, kept apart from the totals.
    *
    * A session-wide hit rate is diluted by every request after the first, so it

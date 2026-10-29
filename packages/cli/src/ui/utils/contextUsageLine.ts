@@ -5,8 +5,6 @@ export interface UsageLineLabels {
   cache?: string;
   out?: string;
   cost?: string;
-  /** Names the rounds whose usage never arrived, beside the cache ratio. */
-  noUsage?: string;
 }
 
 export interface UsageLineInput {
@@ -15,11 +13,13 @@ export interface UsageLineInput {
   contextPercentage?: number;
   cacheHitRatio?: number;
   /**
-   * Requests this session made that the provider never reported tokens for. The
-   * ratio is built from the rounds that did report, so this says what it left
-   * out rather than letting the number look like a full account.
+   * How many rounds the ratio above is made of: the rounds whose provider
+   * reported their counts, over the rounds this session sent. A round cut off
+   * mid-stream is billed by the provider and unknown here, and the platform's
+   * own rate counts it - so this fraction says whether the number beside it is
+   * a full account or a partial one. Only shown when the two differ.
    */
-  unreportedUsage?: number;
+  usageCoverage?: { reported: number; sent: number };
   outputTokens?: number;
   cost?: number;
   /** Replaces the whole cost group, for a caller that says more than an amount. */
@@ -76,13 +76,13 @@ export function contextUsageLine(input: UsageLineInput): string | undefined {
   if (input.cacheHitRatio !== undefined && labels.cache) {
     // Only ever a qualifier of a ratio that is being shown: a session whose
     // provider never reports usage has no ratio to make misleading.
-    const unreported = input.unreportedUsage ?? 0;
-    const qualifier =
-      unreported > 0 && labels.noUsage
-        ? ` (+${unreported} ${labels.noUsage})`
+    const coverage = input.usageCoverage;
+    const shown =
+      coverage && coverage.sent > coverage.reported
+        ? ` (${coverage.reported}/${coverage.sent})`
         : "";
     groups.push(
-      `${labels.cache} ${percentText(input.cacheHitRatio, 2)}${qualifier}`,
+      `${labels.cache} ${percentText(input.cacheHitRatio, 2)}${shown}`,
     );
   }
   if (input.outputTokens !== undefined && labels.out) {
