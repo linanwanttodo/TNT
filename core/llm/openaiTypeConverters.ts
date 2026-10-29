@@ -638,6 +638,15 @@ function handleReasoningTextDone(
   return thinking;
 }
 
+/**
+ * Turns one Responses-API stream event into a ChatMessage for the legacy
+ * self-built stream in llms/OpenAI.ts. The adapter layer keeps its own
+ * event-to-chunk mapping (packages/openai-adapters/src/apis/openaiResponses.ts
+ * `fromResponsesChunk`) because the two consume different shapes: this yields
+ * whole messages, that one accumulates delta chunks in a state machine. The
+ * split is deliberate; changing which events carry text here must be mirrored
+ * there, or one path will repeat or drop what the other handles.
+ */
 function handleResponsesStreamEvent(
   e: ResponseStreamEvent,
 ): ChatMessage | undefined {
