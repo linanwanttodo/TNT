@@ -3,7 +3,7 @@ import { vi } from "vitest";
 import {
   calculateDelay,
   isRetryableError,
-  type ExponentialBackoffOptions,
+  type RetryDelayOptions,
 } from "./exponentialBackoff.js";
 
 describe("exponentialBackoff utilities", () => {
@@ -165,13 +165,11 @@ describe("exponentialBackoff utilities", () => {
   });
 
   describe("calculateDelay", () => {
-    const defaultOptions: Required<ExponentialBackoffOptions> = {
-      maxRetries: 3,
+    const defaultOptions: RetryDelayOptions = {
       initialDelay: 1000,
       maxDelay: 30000,
       backoffMultiplier: 2,
       jitter: false,
-      hiddenRetries: 2,
     };
 
     it("should calculate exponential backoff without jitter", () => {

@@ -108,6 +108,7 @@ The home directory can be relocated with `TNT_GLOBAL_DIR`, which also moves
 | `TNT_TRUST_PROJECT` | mark the current workspace trusted without the prompt |
 | `TNT_API_BASE` | override the API base URL from the config |
 | `TNT_HEADLESS_TIMEOUT` | headless turn wall-clock bound in seconds, same as `--request-timeout` |
+| `TNT_STREAM_IDLE_TIMEOUT_MS` | how long one provider stream may stay silent before that attempt is cut and retried, default `120000`; `0` removes the bound |
 | `TNT_PLUGINS_DIR` | relocate the plugin tree |
 | `TNT_ALT_SCREEN` | set to `0` to use the terminal's normal buffer and scrollback; settled rows render once through `Static` and only the live tail redraws |
 | `TNT_THEME` | pick the UI theme for this session: `auto` (default, follows the terminal's own background), `dark`, `tencent-dark`, `tencent-light`, `light`, or the name of a file in `~/.tnt/themes/<name>.json` |

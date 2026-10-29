@@ -19,6 +19,38 @@ export interface ExponentialBackoffOptions {
   jitter?: boolean;
   /** Number of retries to hide from logging */
   hiddenRetries?: number;
+  /**
+   * How long one attempt may go without a chunk before it is cut. `0` removes
+   * the bound.
+   */
+  idleMs?: number;
+}
+
+/**
+ * The silence that ends one attempt.
+ *
+ * A provider that accepts a request and then stops sending throws nothing: the
+ * wait for the next chunk simply never returns, so the round is neither retried
+ * nor reported and every later message queues behind a stream that will never
+ * finish. Two minutes of total silence is already a lost turn from the
+ * operator's side, and it sits above the first-token latency of the gateways
+ * this CLI is used against, so the bound cuts the dead request rather than a
+ * slow one. `0` means no bound, for a gateway that holds a stream open while it
+ * waits on something behind it.
+ */
+export const DEFAULT_STREAM_IDLE_MS = 120_000;
+
+export function streamIdleTimeoutMs(
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const raw = env.TNT_STREAM_IDLE_TIMEOUT_MS?.trim();
+  if (!raw) {
+    return DEFAULT_STREAM_IDLE_MS;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0
+    ? Math.trunc(parsed)
+    : DEFAULT_STREAM_IDLE_MS;
 }
 
 const DEFAULT_OPTIONS: Required<ExponentialBackoffOptions> = {
@@ -28,7 +60,85 @@ const DEFAULT_OPTIONS: Required<ExponentialBackoffOptions> = {
   backoffMultiplier: 1.6,
   jitter: true,
   hiddenRetries: 2,
+  idleMs: DEFAULT_STREAM_IDLE_MS,
 };
+
+/**
+ * The environment is read per call, not once at import: a process that starts
+ * with no opinion about the bound should still honour one set later, and a
+ * caller that passes `idleMs` outranks both.
+ */
+function resolveOptions(
+  options: ExponentialBackoffOptions,
+): Required<ExponentialBackoffOptions> {
+  return { ...DEFAULT_OPTIONS, idleMs: streamIdleTimeoutMs(), ...options };
+}
+
+/**
+ * Worded for the pattern the round loop already treats as a transport fault
+ * worth another attempt, and coded for this file's own retry classifier - a new
+ * fault has to be visible to both budgets or it ends the turn silently.
+ */
+function streamStallError(idleMs: number): Error {
+  return Object.assign(
+    new Error(`Provider stream stalled: no chunk within ${idleMs}ms`),
+    { name: "StreamStalled", code: "ETIMEDOUT", idleMs },
+  );
+}
+
+function nextChunkWithin<T>(
+  next: Promise<T>,
+  idleMs: number,
+  onStall: () => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      onStall();
+      reject(streamStallError(idleMs));
+    }, idleMs);
+    next.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+/**
+ * Hands on the chunks of one attempt, refusing to wait longer than `idleMs`
+ * between two of them. On the expiry the attempt's own signal is aborted, which
+ * is what releases the request; the generator is then closed without awaiting
+ * it, because a generator parked on the promise that never settles would hold
+ * the retry open as well.
+ */
+async function* chunksWithinIdleBound<T>(
+  generator: AsyncGenerator<T>,
+  idleMs: number,
+  onStall: () => void,
+): AsyncGenerator<T> {
+  if (!idleMs) {
+    yield* generator;
+    return;
+  }
+
+  const iterator = generator[Symbol.asyncIterator]();
+  try {
+    while (true) {
+      const result = await nextChunkWithin(iterator.next(), idleMs, onStall);
+      if (result.done) {
+        return;
+      }
+      yield result.value;
+    }
+  } finally {
+    void iterator.return?.(undefined).catch(() => {});
+  }
+}
 
 /**
  * Checks if the error is a network-related error
@@ -117,11 +227,21 @@ export function isRetryableError(error: any): boolean {
 }
 
 /**
+ * The delay maths needs these four numbers and nothing else, so it does not
+ * take the whole option bag: a caller deciding how long a silent stream may be
+ * has no bearing on how long to wait before an attempt.
+ */
+export type RetryDelayOptions = Pick<
+  Required<ExponentialBackoffOptions>,
+  "initialDelay" | "maxDelay" | "backoffMultiplier" | "jitter"
+>;
+
+/**
  * Calculates the delay for the next retry attempt
  */
 export function calculateDelay(
   attempt: number,
-  options: Required<ExponentialBackoffOptions>,
+  options: RetryDelayOptions,
 ): number {
   const baseDelay =
     options.initialDelay * Math.pow(options.backoffMultiplier, attempt);
@@ -185,7 +305,7 @@ export async function chatCompletionStreamWithBackoff(
   abortSignal: AbortSignal,
   options: ExponentialBackoffOptions = {},
 ): Promise<AsyncGenerator<any>> {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const opts = resolveOptions(options);
   let lastError: any;
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
@@ -271,7 +391,7 @@ export async function* withExponentialBackoff<T>(
   abortSignal: AbortSignal,
   options: ExponentialBackoffOptions = {},
 ): AsyncGenerator<T> {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const opts = resolveOptions(options);
   let lastError: any;
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
@@ -300,8 +420,12 @@ export async function* withExponentialBackoff<T>(
 
       const generator = await generatorFactory(retryAbortController.signal);
 
-      // Iterate through the generator and yield each value
-      for await (const chunk of generator) {
+      // Iterate through the generator and yield each value, refusing to wait
+      // forever for the next one.
+      const bounded = chunksWithinIdleBound(generator, opts.idleMs, () =>
+        retryAbortController.abort(),
+      );
+      for await (const chunk of bounded) {
         // Check abort signal during iteration
         if (abortSignal.aborted) {
           throw new Error("Request aborted");
