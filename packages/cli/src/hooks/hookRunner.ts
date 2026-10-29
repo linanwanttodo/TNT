@@ -373,7 +373,7 @@ async function executePromptHook(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const { chatCompletionStreamWithBackoff } =
+    const { withExponentialBackoff } =
       await import("../utils/exponentialBackoff.js");
 
     const prompt = handler.prompt.replace(
@@ -381,18 +381,25 @@ async function executePromptHook(
       JSON.stringify(input),
     );
 
-    const stream = await chatCompletionStreamWithBackoff(
-      llmApi,
-      {
-        model: handler.model ?? model.model,
-        messages: [{ role: "user", content: prompt }],
-        stream: true,
-      } as any,
+    const streamWithBackoff = withExponentialBackoff(
+      async (retrySignal: AbortSignal) => {
+        const { chatCompletionStreamWithBackoff } =
+          await import("../utils/exponentialBackoff.js");
+        return await chatCompletionStreamWithBackoff(
+          llmApi,
+          {
+            model: handler.model ?? model.model,
+            messages: [{ role: "user", content: prompt }],
+            stream: true,
+          } as any,
+          retrySignal,
+        );
+      },
       controller.signal,
     );
 
     let text = "";
-    for await (const chunk of stream) {
+    for await (const chunk of streamWithBackoff) {
       const delta = chunk?.choices?.[0]?.delta?.content;
       if (typeof delta === "string") {
         text += delta;
