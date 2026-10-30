@@ -17,6 +17,7 @@ import {
 import { t } from "../../i18n/index.js";
 import { interactionBroker } from "../../permissions/interactionBroker.js";
 import { services } from "../../services/index.js";
+import { turnRunnerService } from "../../services/TurnRunnerService.js";
 import {
   createSession,
   resumeSession,
@@ -56,6 +57,40 @@ import {
   AttachedFile,
   UseChatProps,
 } from "./useChat.types.js";
+
+/**
+ * One queued message as delivered by the shared drain loop. The render
+ * settle stays here so the TUI paints the dequeue before the next turn
+ * starts; a signal aborted before entry means the turn was stopped.
+ */
+export const runOneTurn = async (
+  queued: QueuedMessage,
+  signal: AbortSignal,
+  processQueuedMessage: (
+    message: string,
+    imageMap?: Map<string, Buffer>,
+  ) => Promise<void>,
+): Promise<void> => {
+  if (signal.aborted) {
+    return;
+  }
+
+  logger.debug("processing queued message", { queued: queued.message });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  await processQueuedMessage(queued.message, queued.imageMap);
+};
+
+/**
+ * Bridges stop requests from other surfaces to the TUI's interrupt path. The
+ * hook registers `handleInterrupt` through this so a web stop button truncates
+ * the in-flight turn the same way Esc does; the ref indirection keeps the
+ * handler reading current hook state, not the mount-time closure.
+ */
+export const registerStopRequestListener = (
+  getHandleInterrupt: () => () => void,
+): (() => void) => {
+  return turnRunnerService.onStopRequest(() => getHandleInterrupt()());
+};
 
 export function useChat({
   assistant,
@@ -437,19 +472,12 @@ export function useChat({
         );
       }
 
-      // Check if there are queued messages and process them after a microtask delay
-      // This ensures the GUI state has been updated before processing the next message
-      const queuedMessageData = messageQueue.getNextMessage();
-      if (queuedMessageData) {
-        const { message: latestQueuedMessage, imageMap } = queuedMessageData;
-        logger.debug("processing queued message", { latestQueuedMessage });
-
-        // The dequeue event already removed this row from the view.
-        await new Promise((resolve) => setTimeout(resolve, 100)); // add timeout for react to render the tui
-
-        // Process the queued message - it will handle adding to history and compaction display
-        await processQueuedMessage(latestQueuedMessage, imageMap);
-      }
+      // Hand the queue to the shared drain loop. Unconditional, even when
+      // empty: this is what lets a browser-enqueued message reach an idle
+      // TUI. The dequeue event already removed the row from the view.
+      turnRunnerService.startDraining((queued, signal) =>
+        runOneTurn(queued, signal, processQueuedMessage),
+      );
     }
   };
 
@@ -778,6 +806,23 @@ export function useChat({
     await processMessage(message, imageMap, true);
   };
 
+  // A browser-enqueued message can arrive long after the last drain loop
+  // retired, so the pipeline is registered process-wide: any surface that
+  // needs the queue drained starts a loop running turns through this hook.
+  // The ref indirection keeps the pipeline reading current hook state.
+  const queuedPipelineRef = useRef(async (queued: QueuedMessage) => {
+    await processQueuedMessage(queued.message, queued.imageMap);
+  });
+  queuedPipelineRef.current = async (queued: QueuedMessage) => {
+    await processQueuedMessage(queued.message, queued.imageMap);
+  };
+
+  useEffect(() => {
+    turnRunnerService.setDefaultRunTurn((queued, signal) =>
+      runOneTurn(queued, signal, () => queuedPipelineRef.current(queued)),
+    );
+  }, []);
+
   const handleUserMessage = async (
     message: string,
     imageMap?: Map<string, Buffer>,
@@ -986,6 +1031,15 @@ export function useChat({
     setActiveQuizQuestion(null);
     interactionBroker.answerQuestion(requestId, answer);
   };
+
+  // A stop request from another surface (the web UI) truncates the in-flight
+  // turn the same way Esc does. The ref keeps the handler reading current
+  // state rather than the mount-time closure.
+  const interruptRef = useRef(handleInterrupt);
+  interruptRef.current = handleInterrupt;
+  useEffect(() => {
+    return registerStopRequestListener(() => interruptRef.current);
+  }, []);
 
   return {
     chatHistory,
