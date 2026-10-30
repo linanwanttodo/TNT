@@ -55,6 +55,7 @@ const ROOTS = [
 const EXTERNAL_PATHS: string[] = [
   ".claude/settings.json",
   ".tnt/settings.json",
+  ".tnt/TNT.md",
   ".claude-plugin/plugin.json",
   "agents/review.md",
 ];
