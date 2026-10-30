@@ -72,10 +72,9 @@ export interface WebUiHandle {
  *
  * The drain loop is shared with every other surface through turnRunnerService.
  * A message from the browser only runs when somebody drains the queue, so POST
- * /message calls startDraining after enqueueing - but only when the caller
- * supplied a runTurn. Task 5 passes the TUI's own turn pipeline; without one
- * (a standalone process before Task 5, tests) the message stays queued rather
- * than being consumed by a turn that cannot run.
+ * /message calls startDraining after enqueueing. With no argument it falls
+ * back to the default run turn registered at startup (the TUI's pipeline, the
+ * standalone entrypoint's), and no-ops harmlessly in tests where none exists.
  *
  * Auth: every route sits behind a per-launch token gate except GET / (the
  * bootstrap page) and POST /webui-session (the exchange that turns the token
@@ -90,6 +89,11 @@ export class WebUiService {
   private activeHandle: WebUiHandle | null = null;
 
   async start(options: WebUiServiceOptions = {}): Promise<WebUiHandle> {
+    // One server at a time: a second /webui in the same TUI would otherwise
+    // overwrite activeHandle and strand the first server, still bound and
+    // still accepting its old token.
+    await this.close();
+
     const app = express();
     app.use(express.json());
 
@@ -126,13 +130,16 @@ export class WebUiService {
     // GET / - token bootstrap when unauthenticated, the app otherwise. The
     // fragment `#token=...` never reaches the server, so this page reads
     // location.hash and posts the token to /webui-session, which sets the
-    // cookie; on success it replaces itself with the real app.
+    // cookie; on success it replaces itself with the real app. The bootstrap
+    // page must win even when a dist exists: the SPA itself holds no token
+    // exchange, so serving it to an unauthenticated request would strand the
+    // user on a page that can never authenticate.
     app.get("/", (req: Request, res: Response) => {
-      if (hasDist) {
-        res.sendFile(path.join(distDir, "index.html"));
-        return;
-      }
       if (this.requestToken(req) === token) {
+        if (hasDist) {
+          res.sendFile(path.join(distDir, "index.html"));
+          return;
+        }
         res.redirect("/app/");
         return;
       }
@@ -182,7 +189,7 @@ export class WebUiService {
       state.lastActivity = Date.now();
 
       const { message } = req.body;
-      if (!message) {
+      if (typeof message !== "string" || message.trim() === "") {
         return res.status(400).json({ error: "Message field is required" });
       }
 
@@ -194,10 +201,11 @@ export class WebUiService {
       });
 
       // Idempotent: a live loop (the TUI already draining) ignores this; an
-      // idle engine starts one that will pick the message up.
-      if (options.runTurn) {
-        turnRunnerService.startDraining(options.runTurn);
-      }
+      // idle engine starts one that will pick the message up. The no-arg call
+      // is what keeps an idle TUI picking up browser messages - the TUI
+      // registered its pipeline through setDefaultRunTurn, and by the time a
+      // browser message can arrive the turn-end drain loop may have exited.
+      turnRunnerService.startDraining(options.runTurn);
     });
 
     // POST /permission - Approve or reject a pending tool permission. The
@@ -475,6 +483,11 @@ export class WebUiService {
           close: () =>
             new Promise<void>((resolve, reject) => {
               server.close((error) => (error ? reject(error) : resolve()));
+              // An open SSE stream never ends on its own, and server.close
+              // waits for every connection to finish - without this a single
+              // browser tab keeps the server (or the standalone process)
+              // alive after /exit or stop.
+              server.closeAllConnections();
             }),
         };
       } catch (error) {

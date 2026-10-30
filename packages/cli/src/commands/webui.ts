@@ -19,6 +19,7 @@ import {
   type ConfigServiceState,
   type ModelServiceState,
 } from "../services/index.js";
+import { turnRunnerService } from "../services/TurnRunnerService.js";
 import { webUiService } from "../services/WebUiService.js";
 import { runAgentTurn } from "../session/controller.js";
 import { createSession, loadSession } from "../session/index.js";
@@ -296,10 +297,23 @@ export async function webui(
   const url = `http://127.0.0.1:${handle.port}/#token=${handle.token}`;
   console.log(chalk.green(t("webui.listening", { url })));
   console.log(chalk.dim(t("webui.stopHint")));
+  // commander's --no-open makes this false; absence leaves it true.
+  if (options.open !== false) {
+    const { default: openBrowser } = await import("open");
+    await openBrowser(url).catch((error: unknown) => {
+      logger.warn(`Failed to open browser: ${String(error)}`);
+      console.log(chalk.dim(t("webui.openManually")));
+    });
+  }
   writePidFile(process.pid);
 
   if (prompt && prompt.trim() !== "") {
     await messageQueue.enqueueMessage(prompt);
+    // serve's sibling: the initial prompt runs immediately, not whenever a
+    // later browser message happens to start a drain.
+    turnRunnerService.startDraining((queued, signal) =>
+      runStandaloneTurn(state, llmApi, model, queued, signal),
+    );
   }
 
   const shutdown = async (code: number) => {

@@ -122,7 +122,9 @@ describe("WebUiService", () => {
     await turnStarted;
   });
 
-  it("enqueues only when no runTurn option is provided", async () => {
+  it("enqueues and drains through the default run turn when none is provided", async () => {
+    // A plain spy: the queue stays observable, no simulated turn consumes it.
+    startDrainingSpy.mockImplementation(() => {});
     const { base, auth } = await started();
 
     const response = await fetch(`${base}/message`, {
@@ -132,8 +134,11 @@ describe("WebUiService", () => {
     });
     expect(response.status).toBe(200);
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(startDrainingSpy).not.toHaveBeenCalled();
+    // The no-arg call is what wakes an idle TUI whose turn-end drain loop
+    // has already exited; it falls back to the registered default pipeline.
+    await vi.waitFor(() =>
+      expect(startDrainingSpy).toHaveBeenCalledWith(undefined),
+    );
     expect(messageQueue.getQueueLength()).toBe(1);
   });
 
@@ -148,6 +153,48 @@ describe("WebUiService", () => {
     expect(response.status).toBe(400);
     expect(startDrainingSpy).not.toHaveBeenCalled();
     expect(messageQueue.getQueueLength()).toBe(0);
+  });
+
+  it("rejects a non-string message instead of enqueueing it", async () => {
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/message`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...auth },
+      body: JSON.stringify({ message: { text: "an object" } }),
+    });
+    expect(response.status).toBe(400);
+    expect(messageQueue.getQueueLength()).toBe(0);
+  });
+
+  it("serves the token bootstrap page to an unauthenticated request even when a dist exists", async () => {
+    // The SPA holds no token exchange of its own: if the dist shell won the
+    // unauthenticated GET /, a real browser could never authenticate.
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), "webui-dist-"));
+    fs.writeFileSync(path.join(distDir, "index.html"), "<html>app</html>");
+    try {
+      const { base } = await started({ distDir });
+      const response = await fetch(base);
+      const body = await response.text();
+      expect(response.status).toBe(200);
+      expect(body).toContain("/webui-session");
+      expect(body).not.toContain("<html>app</html>");
+    } finally {
+      fs.rmSync(distDir, { recursive: true, force: true });
+    }
+  });
+
+  it("serves the dist app to an authenticated request", async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), "webui-dist-"));
+    fs.writeFileSync(path.join(distDir, "index.html"), "<html>app</html>");
+    try {
+      const { base, auth } = await started({ distDir });
+      const response = await fetch(base, { headers: auth });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("<html>app</html>");
+    } finally {
+      fs.rmSync(distDir, { recursive: true, force: true });
+    }
   });
 
   it("answers a pending permission through the interaction broker", async () => {
