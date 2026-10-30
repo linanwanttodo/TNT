@@ -1060,8 +1060,6 @@ const UserInput: React.FC<UserInputProps> = ({
 
       <TodoIndicator />
 
-      {onOpenJobs && <BackgroundTasksIndicator onOpenJobs={onOpenJobs} />}
-
       {/* Active mode is embedded in the composer's top border rule. */}
       <ModeIndicator
         mode={currentMode}
@@ -1087,6 +1085,8 @@ const UserInput: React.FC<UserInputProps> = ({
         </Text>
         {renderInputText()}
       </Box>
+
+      {onOpenJobs && <BackgroundTasksIndicator onOpenJobs={onOpenJobs} />}
     </Box>
   );
 };

@@ -7,7 +7,8 @@ import { useClickRegion } from "../hooks/useClickRegion.js";
 import { useTheme } from "../theme/tokens.js";
 
 /**
- * The one-line summary of running background work, docked above the composer.
+ * The one-line footer of running background work, under the input box - the
+ * same placement Claude Code gives its `↳ N background tasks` pill.
  *
  * The pill counts only live jobs, grouped the way a reader parses them: jobs
  * sharing one verb collapse into a single count (`2 shells`), a lone job names
@@ -34,15 +35,15 @@ const BackgroundTasksIndicator: React.FC<{
   useClickRegion(ref, onOpenJobs);
 
   return (
-    <Box>
-      <Text dimColor>└─ </Text>
+    <Box paddingLeft={2}>
+      <Text dimColor>↳ </Text>
       <Box ref={ref}>
         <Text backgroundColor={theme.accent} color="black" bold>
           {" "}
           {summary}{" "}
         </Text>
       </Box>
-      <Text dimColor> · jobs (/jobs for details)</Text>
+      <Text dimColor> (click to view)</Text>
     </Box>
   );
 };
