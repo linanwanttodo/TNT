@@ -44,6 +44,10 @@ import {
 } from "./hooks/useTUIChatEffects.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
 import {
+  useTerminalStatusLight,
+  type SessionStatus,
+} from "./terminalStatusLight.js";
+import {
   detectedTerminalIsDark,
   normalizeThemeChoice,
   probeTerminalIsDark,
@@ -487,6 +491,21 @@ const TUIChat: React.FC<TUIChatProps> = ({
   }, [configuredChoice]);
 
   const currentTheme = themeOfChoice(activeChoice, detected);
+
+  // The terminal tab as a status light: green idle, yellow working, red
+  // waiting for an approval or quiz answer. The name is the workspace the
+  // session runs in; a session id refines it when one exists.
+  const sessionStatus: SessionStatus = activePermissionRequest
+    ? "waiting"
+    : activeQuizQuestion
+      ? "waiting"
+      : isWaitingForResponse || isCompacting
+        ? "working"
+        : "idle";
+  useTerminalStatusLight(
+    sessionStatus,
+    process.cwd().split(/[\\/]/).filter(Boolean).pop() ?? "",
+  );
 
   const handlePreviewTheme = useCallback((themeName: ThemeName | "auto") => {
     setPreviewChoice(themeName);
