@@ -61,9 +61,12 @@ vi.mock("../permissions/permissionManager.js", async (importOriginal) => {
 const liveServers: http.Server[] = [];
 
 async function started(options: Parameters<WebUiService["start"]>[0] = {}) {
-  const handle = await new WebUiService().start(options);
+  const handle = await new WebUiService().start({ port: 0, ...options });
   liveServers.push(handle.server);
-  return { handle, base: `http://127.0.0.1:${handle.port}` };
+  // Every route but GET / and POST /webui-session sits behind the token gate,
+  // so the suites below authenticate with the header.
+  const auth = { authorization: `Bearer ${handle.token}` };
+  return { handle, base: `http://127.0.0.1:${handle.port}`, auth };
 }
 
 beforeEach(() => {
@@ -100,7 +103,7 @@ describe("WebUiService", () => {
       })();
     });
 
-    const { base } = await started({
+    const { base, auth } = await started({
       runTurn: async (message: QueuedMessage) => {
         expect(message.message).toBe("hello from the browser");
       },
@@ -108,7 +111,7 @@ describe("WebUiService", () => {
 
     const response = await fetch(`${base}/message`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...auth },
       body: JSON.stringify({ message: "hello from the browser" }),
     });
     expect(response.status).toBe(200);
@@ -120,11 +123,11 @@ describe("WebUiService", () => {
   });
 
   it("enqueues only when no runTurn option is provided", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const response = await fetch(`${base}/message`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...auth },
       body: JSON.stringify({ message: "queued only" }),
     });
     expect(response.status).toBe(200);
@@ -135,11 +138,11 @@ describe("WebUiService", () => {
   });
 
   it("rejects a message without content", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const response = await fetch(`${base}/message`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...auth },
       body: "{}",
     });
     expect(response.status).toBe(400);
@@ -148,11 +151,11 @@ describe("WebUiService", () => {
   });
 
   it("answers a pending permission through the interaction broker", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const response = await fetch(`${base}/permission`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...auth },
       body: JSON.stringify({ requestId: "tool-request-7", approved: true }),
     });
     expect(response.status).toBe(200);
@@ -163,11 +166,11 @@ describe("WebUiService", () => {
   });
 
   it("rejects a permission when approved is false", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const response = await fetch(`${base}/permission`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...auth },
       body: JSON.stringify({ requestId: "tool-request-8", approved: false }),
     });
     expect(response.status).toBe(200);
@@ -176,7 +179,7 @@ describe("WebUiService", () => {
   });
 
   it("answers the broker even when the live query is empty again", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const { toolPermissionManager } =
       await import("../permissions/permissionManager.js");
@@ -191,7 +194,7 @@ describe("WebUiService", () => {
 
     const response = await fetch(`${base}/permission`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...auth },
       body: JSON.stringify({ requestId: "tool-request-404", approved: true }),
     });
     expect(response.status).toBe(200);
@@ -199,11 +202,11 @@ describe("WebUiService", () => {
   });
 
   it("refuses a permission without a requestId", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const response = await fetch(`${base}/permission`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...auth },
       body: JSON.stringify({ approved: true }),
     });
     expect(response.status).toBe(400);
@@ -211,9 +214,12 @@ describe("WebUiService", () => {
   });
 
   it("calls requestStop on POST /pause", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
-    const response = await fetch(`${base}/pause`, { method: "POST" });
+    const response = await fetch(`${base}/pause`, {
+      method: "POST",
+      headers: auth,
+    });
     expect(response.status).toBe(200);
     const body = (await response.json()) as { success: boolean };
     expect(body.success).toBe(true);
@@ -227,9 +233,9 @@ describe("WebUiService", () => {
       workspaceDirectory: process.cwd(),
       history: [],
     }));
-    const { base } = await started({ getSession });
+    const { base, auth } = await started({ getSession });
 
-    const response = await fetch(`${base}/state`);
+    const response = await fetch(`${base}/state`, { headers: auth });
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, unknown>;
 
@@ -246,7 +252,7 @@ describe("WebUiService", () => {
   });
 
   it("reports the first pending permission in GET /state", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const { toolPermissionManager } =
       await import("../permissions/permissionManager.js");
@@ -261,7 +267,7 @@ describe("WebUiService", () => {
       toolCall: { name: "bash", arguments: { command: "ls" } },
     });
 
-    const response = await fetch(`${base}/state`);
+    const response = await fetch(`${base}/state`, { headers: auth });
     const body = (await response.json()) as {
       pendingPermission: { requestId: string; toolName: string } | null;
     };
@@ -277,10 +283,11 @@ describe("WebUiService", () => {
   });
 
   it("streams server-sent events on GET /events", async () => {
-    const { base } = await started();
+    const { base, auth } = await started();
 
     const controller = new AbortController();
     const response = await fetch(`${base}/events`, {
+      headers: auth,
       signal: controller.signal,
     });
     expect(response.status).toBe(200);
@@ -288,12 +295,12 @@ describe("WebUiService", () => {
     controller.abort();
   });
 
-  it("serves the missing-dist fallback page on GET /", async () => {
-    const { base } = await started({
+  it("serves the missing-dist fallback page on an authenticated GET /", async () => {
+    const { base, auth } = await started({
       distDir: path.join(os.tmpdir(), `no-such-dist-${crypto.randomUUID()}`),
     });
 
-    const response = await fetch(`${base}/`);
+    const response = await fetch(`${base}/`, { headers: auth });
     expect(response.status).toBe(200);
     const html = await response.text();
     expect(html).toContain("tnt-webui");
@@ -312,15 +319,17 @@ describe("WebUiService", () => {
       "console.log('app')",
     );
 
-    const { base } = await started({ distDir });
+    const { base, auth } = await started({ distDir });
 
-    const root = await fetch(`${base}/`);
+    const root = await fetch(`${base}/`, { headers: auth });
     expect(await root.text()).toContain("frontend bundle");
 
-    const asset = await fetch(`${base}/app/assets/app.js`);
+    const asset = await fetch(`${base}/app/assets/app.js`, {
+      headers: auth,
+    });
     expect(await asset.text()).toContain("console.log('app')");
 
-    const missing = await fetch(`${base}/no/such/route`);
+    const missing = await fetch(`${base}/no/such/route`, { headers: auth });
     expect(missing.status).toBe(404);
   });
 

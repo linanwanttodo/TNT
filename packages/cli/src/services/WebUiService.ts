@@ -11,6 +11,8 @@ import {
   type PendingPermission,
   type ServerState,
 } from "../commands/serve.helpers.js";
+import { globalDir } from "../config/globalDir.js";
+import { t } from "../i18n/index.js";
 import { interactionBroker } from "../permissions/interactionBroker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import {
@@ -25,6 +27,8 @@ import { turnRunnerService, type RunTurn } from "./TurnRunnerService.js";
 export type { RunTurn };
 
 export const DEFAULT_WEBUI_PORT = 47610;
+export const WEBUI_TOKEN_FILE = "webui-token";
+const TOKEN_COOKIE = "tnt_webui_token";
 const MAX_PORT_ATTEMPTS = 100;
 
 export interface WebUiServiceOptions {
@@ -41,12 +45,18 @@ export interface WebUiServiceOptions {
   distDir?: string;
   /** Test seam: how many ports may be probed before giving up. */
   maxAttempts?: number;
+  /**
+   * Long-lived mode (`tnt webui`, Task 5): reuse the token stored under
+   * globalDir so a restart keeps serving the same URL. Defaults to false,
+   * where every launch generates a fresh token.
+   */
+  persistToken?: boolean;
 }
 
 export interface WebUiHandle {
   /** The port the server actually bound, after probing. */
   port: number;
-  /** Placeholder until Task 4 wires the token gate. */
+  /** The token every gated route demands, via cookie or Bearer header. */
   token: string;
   server: http.Server;
   close(): Promise<void>;
@@ -67,8 +77,14 @@ export interface WebUiHandle {
  * (a standalone process before Task 5, tests) the message stays queued rather
  * than being consumed by a turn that cannot run.
  *
- * Task 4 adds token auth as middleware on this app; nothing gates the routes
- * yet.
+ * Auth: every route sits behind a per-launch token gate except GET / (the
+ * bootstrap page) and POST /webui-session (the exchange that turns the token
+ * into the cookie). The browser opens `http://127.0.0.1:PORT/#token=...` - the
+ * fragment never reaches the server - and the bootstrap page posts the token
+ * to /webui-session, which validates it and sets an HttpOnly cookie. The
+ * exempt set is deliberately minimal: /app/* static assets stay gated because
+ * the SPA shell is useless without the API, and gating them keeps the
+ * unauthenticated surface to two known shapes (both loopback-bound).
  */
 export class WebUiService {
   private activeHandle: WebUiHandle | null = null;
@@ -77,16 +93,71 @@ export class WebUiService {
     const app = express();
     app.use(express.json());
 
-    // registerSseEventRoute only touches lastActivity on the state it is
-    // handed; the routes below do the same, so a minimal object carries them.
-    const state = {
-      lastActivity: Date.now(),
-    } as ServerState;
+    const token = this.resolveToken(options);
 
     const distDir =
       options.distDir ??
       process.env.TNT_WEBUI_DIST ??
       path.resolve(process.cwd(), "node_modules", "tnt-webui", "dist");
+    const hasDist = fs.existsSync(distDir);
+
+    // The gate must register before every route: registerStaticRoutes ends in
+    // a catch-all when the dist is missing, and anything mounted after it
+    // never sees the request.
+    app.use((req, res, next) => {
+      // Exempt: the bootstrap page and the exchange that mints the cookie.
+      // Everything else - API routes, /app/* assets, the missing-dist
+      // fallback - demands the token.
+      if (req.method === "GET" && req.path === "/") {
+        next();
+        return;
+      }
+      if (req.method === "POST" && req.path === "/webui-session") {
+        next();
+        return;
+      }
+      if (tokenEquals(this.requestToken(req) ?? "", token)) {
+        next();
+        return;
+      }
+      res.status(401).json({ error: t("services.webuiUnauthorized") });
+    });
+
+    // GET / - token bootstrap when unauthenticated, the app otherwise. The
+    // fragment `#token=...` never reaches the server, so this page reads
+    // location.hash and posts the token to /webui-session, which sets the
+    // cookie; on success it replaces itself with the real app.
+    app.get("/", (req: Request, res: Response) => {
+      if (hasDist) {
+        res.sendFile(path.join(distDir, "index.html"));
+        return;
+      }
+      if (this.requestToken(req) === token) {
+        res.redirect("/app/");
+        return;
+      }
+      res.status(200).type("html").send(this.bootstrapPage());
+    });
+
+    // POST /webui-session - exchange the launch token for the session cookie.
+    app.post("/webui-session", (req: Request, res: Response) => {
+      const presented = req.body?.token;
+      if (typeof presented !== "string" || !tokenEquals(presented, token)) {
+        res.status(401).json({ error: t("services.webuiUnauthorized") });
+        return;
+      }
+      res.setHeader(
+        "Set-Cookie",
+        `${TOKEN_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`,
+      );
+      res.json({ ok: true });
+    });
+
+    // registerSseEventRoute only touches lastActivity on the state it is
+    // handed; the routes below do the same, so a minimal object carries them.
+    const state = {
+      lastActivity: Date.now(),
+    } as ServerState;
 
     // GET /state - Return the live engine snapshot.
     app.get("/state", (_req: Request, res: Response) => {
@@ -177,12 +248,103 @@ export class WebUiService {
 
     // Static routes come last: the missing-dist fallback is a catch-all, and
     // registering it first would shadow every API route below it.
-    this.registerStaticRoutes(app, distDir);
+    this.registerStaticRoutes(app, distDir, hasDist);
 
-    const handle = await this.listen(app, options);
+    const handle = await this.listen(app, options, token);
     this.activeHandle = handle;
 
     return handle;
+  }
+
+  /**
+   * The token this launch demands: reused from globalDir in long-lived mode
+   * (0600, so only the user reads it), otherwise freshly generated.
+   */
+  private resolveToken(options: WebUiServiceOptions): string {
+    if (!options.persistToken) {
+      return crypto.randomBytes(32).toString("base64url");
+    }
+
+    const file = path.join(globalDir(), WEBUI_TOKEN_FILE);
+    try {
+      const persisted = fs.readFileSync(file, "utf8").trim();
+      if (persisted.length > 0) {
+        return persisted;
+      }
+    } catch {
+      // Missing or unreadable: fall through to generating a fresh one.
+    }
+
+    const generated = crypto.randomBytes(32).toString("base64url");
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, generated, { mode: 0o600 });
+    try {
+      // The mode option does not survive an existing file and some platforms
+      // ignore it; the permission is the point of the file, so enforce it.
+      fs.chmodSync(file, 0o600);
+    } catch {
+      // Windows and sandboxes without chmod still get a usable token file.
+    }
+    return generated;
+  }
+
+  /** The token a request carries: the session cookie or a Bearer header. */
+  private requestToken(req: Request): string | undefined {
+    const header = req.headers.authorization;
+    if (typeof header === "string" && header.startsWith("Bearer ")) {
+      return header.slice("Bearer ".length);
+    }
+
+    const cookies = req.headers.cookie;
+    if (typeof cookies !== "string") {
+      return undefined;
+    }
+    for (const segment of cookies.split(";")) {
+      const at = segment.indexOf("=");
+      if (at === -1 || segment.slice(0, at).trim() !== TOKEN_COOKIE) {
+        continue;
+      }
+      return segment.slice(at + 1).trim();
+    }
+    return undefined;
+  }
+
+  private bootstrapPage(): string {
+    return `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>tnt web ui</title></head>
+  <body>
+    <p id="bootstrap-error" hidden></p>
+    <script>
+      (function () {
+        var token = location.hash.match(/token=([^&]+)/);
+        var error = document.getElementById("bootstrap-error");
+        if (!token) {
+          error.textContent = "Missing token in URL fragment.";
+          error.hidden = false;
+          return;
+        }
+        fetch("/webui-session", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token: decodeURIComponent(token[1]) })
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              error.textContent = "Token rejected by the server.";
+              error.hidden = false;
+              return;
+            }
+            location.replace("/");
+          })
+          .catch(function (err) {
+            error.textContent = String(err && err.message ? err.message : err);
+            error.hidden = false;
+          });
+      })();
+    </script>
+  </body>
+</html>`;
   }
 
   /** Closes the server this instance last started, if any. */
@@ -241,9 +403,11 @@ export class WebUiService {
     };
   }
 
-  private registerStaticRoutes(app: Express, distDir: string): void {
-    const hasDist = fs.existsSync(distDir);
-
+  private registerStaticRoutes(
+    app: Express,
+    distDir: string,
+    hasDist: boolean,
+  ): void {
     if (hasDist) {
       app.use(express.static(distDir));
       // SPA-style fallback: any /app/* path serves the shell. Express 5 uses
@@ -290,6 +454,7 @@ export class WebUiService {
   private async listen(
     app: Express,
     options: WebUiServiceOptions,
+    token: string,
   ): Promise<WebUiHandle> {
     const startPort = options.port ?? DEFAULT_WEBUI_PORT;
     const maxAttempts = options.maxAttempts ?? MAX_PORT_ATTEMPTS;
@@ -305,7 +470,7 @@ export class WebUiService {
         const address = server.address();
         return {
           port: typeof address === "object" && address ? address.port : port,
-          token: crypto.randomBytes(32).toString("base64url"),
+          token,
           server,
           close: () =>
             new Promise<void>((resolve, reject) => {
@@ -328,3 +493,13 @@ export class WebUiService {
 }
 
 export const webUiService = new WebUiService();
+
+/** Constant-time token comparison; lengths are guarded before comparing. */
+function tokenEquals(presented: string, expected: string): boolean {
+  const presentedBytes = Buffer.from(presented, "utf8");
+  const expectedBytes = Buffer.from(expected, "utf8");
+  return (
+    presentedBytes.length === expectedBytes.length &&
+    crypto.timingSafeEqual(presentedBytes, expectedBytes)
+  );
+}
