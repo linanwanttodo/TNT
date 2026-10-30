@@ -50,10 +50,10 @@ rules:
 
 Everything else lives in its own file:
 
-| File                   | Contents                                                            |
-| ---------------------- | ------------------------------------------------------------------- |
-| `~/.tnt/settings.json` | permissions, hooks, environment, locale, output style, default mode |
-| `~/.tnt/mcp.json`      | MCP servers, see [MCP](/cli/mcp)                                    |
+| File                    | Contents                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `~/.tnt/settings.json`  | permissions, hooks, environment, locale, output style, default mode                                                                  |
+| `~/.tnt/mcp.json`       | MCP servers, see [MCP](/cli/mcp)                                                                                                     |
 | `<workspace>/.mcp.json` | project MCP servers in the Claude-compatible shape; read-only here, like the `.claude` layers, and applied only to a trusted project |
 
 `mcpServers` and `permissions` are not read from `config.yaml`; MCP servers
@@ -82,41 +82,61 @@ section, with a deprecation warning. It is never written again; new rules go to
 
 ## Directory layout
 
-| Path                           | Purpose                                |
-| ------------------------------ | -------------------------------------- |
-| `~/.tnt/config.yaml`           | models and rules                       |
-| `~/.tnt/mcp.json`              | MCP servers                            |
-| `~/.tnt/settings.json`         | permissions, hooks and settings        |
-| `~/.tnt/auth.json`             | credentials                            |
-| `~/.tnt/trusted-projects.json` | content hashes of trusted projects     |
-| `~/.tnt/permissions.yaml`      | legacy permission policies (read-only) |
-| `~/.tnt/sessions/`             | saved sessions                         |
-| `~/.tnt/skills/`               | user skills                            |
-| `~/.tnt/plugins/`              | installed plugins                      |
-| `~/.tnt/logs/tnt.log`          | log file                               |
-| `~/.tnt/.env`                  | secrets for `${{ secrets.* }}`         |
+| Path                           | Purpose                                    |
+| ------------------------------ | ------------------------------------------ |
+| `~/.tnt/config.yaml`           | models and rules                           |
+| `~/.tnt/mcp.json`              | MCP servers                                |
+| `~/.tnt/settings.json`         | permissions, hooks and settings            |
+| `~/.tnt/auth.json`             | credentials                                |
+| `~/.tnt/trusted-projects.json` | content hashes of trusted projects         |
+| `~/.tnt/permissions.yaml`      | legacy permission policies (read-only)     |
+| `~/.tnt/sessions/`             | saved sessions                             |
+| `~/.tnt/skills/`               | user skills                                |
+| `~/.tnt/plugins/`              | installed plugins                          |
+| `~/.tnt/logs/tnt.log`          | log file                                   |
+| `~/.tnt/.env`                  | secrets for `${{ secrets.* }}`             |
 | `.tnt/`                        | project settings and MCP servers (trusted) |
 
 The home directory can be relocated with `TNT_GLOBAL_DIR`, which also moves
 `sessions`, `logs` and the plugin tree with it.
 
+## The project .tnt folder
+
+A repository can keep a `.tnt/` folder as the workspace for everything the agent
+reads and writes there:
+
+| Path             | Purpose                                                                  |
+| ---------------- | ------------------------------------------------------------------------ |
+| `.tnt/AGENTS.md` | project instructions for every agent, loaded ahead of a root `AGENTS.md` |
+| `.tnt/TNT.md`    | memory the agent appends to on its own across sessions                   |
+| `.tnt/rules/`    | markdown rules, loaded into every session (least to most specific)       |
+| `.tnt/checks/`   | checklists `tnt review` runs                                             |
+| `.tnt/agents/`   | agent definitions for `tnt review`                                       |
+| `.tnt/prompts/`  | `.prompt` files invokable from the composer                              |
+
+The folder is gitignored on purpose: the skeleton travels with the repository
+as tracked `.keep` placeholders, while the content is per-machine. Rule and
+check documents, the memory file and agent instructions are things each
+maintainer keeps locally; commit them only if a team decides to share them, by
+removing the matching line from `.gitignore`.
+
 ## Environment variables
 
-| Variable | Meaning |
-| --- | --- |
-| `TNT_GLOBAL_DIR` | relocate the home directory; `sessions`, `logs` and the plugin tree move with it |
-| `TNT_TRUST_PROJECT` | mark the current workspace trusted without the prompt |
-| `TNT_API_BASE` | override the API base URL from the config |
-| `TNT_HEADLESS_TIMEOUT` | headless turn wall-clock bound in seconds, same as `--request-timeout` |
-| `TNT_STREAM_IDLE_TIMEOUT_MS` | how long one provider stream may stay silent before that attempt is cut and retried, default `120000`; `0` removes the bound |
-| `TNT_PLUGINS_DIR` | relocate the plugin tree |
-| `TNT_ALT_SCREEN` | set to `0` to use the terminal's normal buffer and scrollback; settled rows render once through `Static` and only the live tail redraws |
-| `TNT_THEME` | pick the UI theme for this session: `auto` (default, follows the terminal's own background), `dark`, `tencent-dark`, `tencent-light`, `light`, or the name of a file in `~/.tnt/themes/<name>.json` |
-| `TNT_SYMBOLS` | glyph preset for the interface: `unicode` (default), `ascii` for seven-bit terminals, or `nerd` for a Nerd Font |
-| `TNT_HYPERLINKS` | set to `0` for a terminal that prints OSC 8 escapes literally instead of making links clickable |
-| `TNT_NOTIFY` | `bell` or `1` to have the terminal signal a finished turn that ran at least ten seconds; unset means no signal |
-| `TNT_STREAM_REVEAL` | set to `1` to draw the streaming answer a few characters at a time; off by default because it redraws the frame at about 30 frames a second |
-| `TNT_WARM_RETRIEVAL` | set to `0` to stop the codebase index being built when a session opens; it is built then only when the config selects the `codebase` provider |
+| Variable                     | Meaning                                                                                                                                                                                             |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TNT_GLOBAL_DIR`             | relocate the home directory; `sessions`, `logs` and the plugin tree move with it                                                                                                                    |
+| `TNT_TRUST_PROJECT`          | mark the current workspace trusted without the prompt                                                                                                                                               |
+| `TNT_API_BASE`               | override the API base URL from the config                                                                                                                                                           |
+| `TNT_HEADLESS_TIMEOUT`       | headless turn wall-clock bound in seconds, same as `--request-timeout`                                                                                                                              |
+| `TNT_STREAM_IDLE_TIMEOUT_MS` | how long one provider stream may stay silent before that attempt is cut and retried, default `120000`; `0` removes the bound                                                                        |
+| `TNT_PLUGINS_DIR`            | relocate the plugin tree                                                                                                                                                                            |
+| `TNT_ALT_SCREEN`             | set to `0` to use the terminal's normal buffer and scrollback; settled rows render once through `Static` and only the live tail redraws                                                             |
+| `TNT_THEME`                  | pick the UI theme for this session: `auto` (default, follows the terminal's own background), `dark`, `tencent-dark`, `tencent-light`, `light`, or the name of a file in `~/.tnt/themes/<name>.json` |
+| `TNT_SYMBOLS`                | glyph preset for the interface: `unicode` (default), `ascii` for seven-bit terminals, or `nerd` for a Nerd Font                                                                                     |
+| `TNT_HYPERLINKS`             | set to `0` for a terminal that prints OSC 8 escapes literally instead of making links clickable                                                                                                     |
+| `TNT_NOTIFY`                 | `bell` or `1` to have the terminal signal a finished turn that ran at least ten seconds; unset means no signal                                                                                      |
+| `TNT_STREAM_REVEAL`          | set to `1` to draw the streaming answer a few characters at a time; off by default because it redraws the frame at about 30 frames a second                                                         |
+| `TNT_WARM_RETRIEVAL`         | set to `0` to stop the codebase index being built when a session opens; it is built then only when the config selects the `codebase` provider                                                       |
 
 Every variable the CLI reads is `TNT_*`; the older `CONTINUE_*` spellings are no
 longer read at all. One name points the other way, because it is a contract with
