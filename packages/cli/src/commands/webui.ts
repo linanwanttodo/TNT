@@ -110,12 +110,12 @@ export async function stopWebuiProcess(): Promise<boolean> {
  * body: hook gating, mention expansion, streaming with tool calls, session
  * naming. Interruption belongs to the abort signal the drain loop provides.
  */
-async function runStandaloneTurn(
+export async function runStandaloneTurn(
   state: ServerState,
   llmApi: any,
   model: any,
   queued: QueuedMessage,
-  _signal: AbortSignal,
+  signal: AbortSignal,
 ): Promise<void> {
   const prepared = await prepareServedPrompt(queued.message);
   if (prepared.blocked) {
@@ -143,12 +143,23 @@ async function runStandaloneTurn(
   }
 
   try {
-    const response = await runAgentTurn({
-      chatHistory: state.session.history,
-      model,
-      llmApi,
-      abortController: new AbortController(),
-    });
+    // Stop must truncate this in-flight turn the way esc does in the TUI:
+    // runAgentTurn polls this controller, so wire it to the drain-loop
+    // signal instead of handing down an unrelated one.
+    const abortController = new AbortController();
+    const onAbort = () => abortController.abort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    let response: string;
+    try {
+      response = await runAgentTurn({
+        chatHistory: state.session.history,
+        model,
+        llmApi,
+        abortController,
+      });
+    } finally {
+      signal.removeEventListener("abort", onAbort);
+    }
 
     await titleServeSessionIfUntitled(
       state.session,
@@ -171,7 +182,9 @@ async function runStandaloneTurn(
       );
     }
   } catch (e: any) {
-    if (e.name === "AbortError") {
+    // Aborting a node-fetch stream mid-flight surfaces as a plain
+    // "Premature close", so the drain signal is the reliable interrupt test.
+    if (e.name === "AbortError" || signal.aborted) {
       logger.debug("Response interrupted");
       removePartialAssistantMessage(state.session.history);
     } else {
@@ -300,7 +313,8 @@ export async function webui(
   process.on("SIGINT", () => void shutdown(0));
   process.on("SIGTERM", () => void shutdown(0));
 
-  // The long-running promise: this process serves until signaled. The
-  // interval only keeps the event loop alive; all work happens in handlers.
+  // The long-running promise: this process serves until signaled. The HTTP
+  // server's listening handle keeps the event loop alive, so a POST /exit
+  // that closes the server also ends this process naturally.
   await new Promise<void>(() => {});
 }
