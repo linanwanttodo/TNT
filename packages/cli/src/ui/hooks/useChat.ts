@@ -17,6 +17,7 @@ import {
 import { t } from "../../i18n/index.js";
 import { interactionBroker } from "../../permissions/interactionBroker.js";
 import { services } from "../../services/index.js";
+import { turnRunnerService } from "../../services/TurnRunnerService.js";
 import {
   createSession,
   resumeSession,
@@ -56,6 +57,28 @@ import {
   AttachedFile,
   UseChatProps,
 } from "./useChat.types.js";
+
+/**
+ * One queued message as delivered by the shared drain loop. The render
+ * settle stays here so the TUI paints the dequeue before the next turn
+ * starts; a signal aborted before entry means the turn was stopped.
+ */
+export const runOneTurn = async (
+  queued: QueuedMessage,
+  signal: AbortSignal,
+  processQueuedMessage: (
+    message: string,
+    imageMap?: Map<string, Buffer>,
+  ) => Promise<void>,
+): Promise<void> => {
+  if (signal.aborted) {
+    return;
+  }
+
+  logger.debug("processing queued message", { queued: queued.message });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  await processQueuedMessage(queued.message, queued.imageMap);
+};
 
 export function useChat({
   assistant,
@@ -437,19 +460,12 @@ export function useChat({
         );
       }
 
-      // Check if there are queued messages and process them after a microtask delay
-      // This ensures the GUI state has been updated before processing the next message
-      const queuedMessageData = messageQueue.getNextMessage();
-      if (queuedMessageData) {
-        const { message: latestQueuedMessage, imageMap } = queuedMessageData;
-        logger.debug("processing queued message", { latestQueuedMessage });
-
-        // The dequeue event already removed this row from the view.
-        await new Promise((resolve) => setTimeout(resolve, 100)); // add timeout for react to render the tui
-
-        // Process the queued message - it will handle adding to history and compaction display
-        await processQueuedMessage(latestQueuedMessage, imageMap);
-      }
+      // Hand the queue to the shared drain loop. Unconditional, even when
+      // empty: this is what lets a browser-enqueued message reach an idle
+      // TUI. The dequeue event already removed the row from the view.
+      turnRunnerService.startDraining((queued, signal) =>
+        runOneTurn(queued, signal, processQueuedMessage),
+      );
     }
   };
 
