@@ -58,10 +58,9 @@ non-obvious ways, user preferences, conventions the code does not make obvious.
 One short line per note.
 \`\`\`
 
-Create the .tnt directory if it does not exist. Keep .tnt/ out of version
-control WITHOUT touching .gitignore: append ".tnt/" to .git/info/exclude (the
-local exclude file git already reads, which is never committed). Skip this when
-the directory is not a git repository.
+Create the .tnt directory if it does not exist. The .tnt/ directory is kept out
+of version control through .gitignore; the repository already carries that
+ignore rule, so only create the directory and the file.
 
 Please create all three files using the Write tool after analyzing the repository. Focus on providing actionable information that would help both AI agents and human developers understand and work effectively with this codebase. Keep the files concise but informational.`;
 }
