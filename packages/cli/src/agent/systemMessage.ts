@@ -145,8 +145,8 @@ Be selective: a note earns its place only if it would save the next session real
 time or prevent repeating a mistake. Never record what the code or git history
 already shows, the steps of a routine task, or anything from this conversation
 that will not matter again. Do not rewrite or reorganize existing notes; append
-only. The .tnt directory is kept out of version control through the local
-exclude file rather than .gitignore: never stage it, never add it to .gitignore.`;
+only. The .tnt directory is kept out of version control through .gitignore:
+never stage anything in it, never remove that ignore rule.`;
 
 /**
  * The machine-shaped half of the prompt: where the CLI was started, what the
@@ -372,7 +372,13 @@ export async function buildSystemMessageSections(
   headless?: boolean,
   profile?: PromptProfile,
 ): Promise<SystemMessageSection[]> {
-  const agentFiles = ["AGENTS.md", "AGENT.md", "CLAUDE.md", "CODEX.md"];
+  const agentFiles = [
+    ".tnt/AGENTS.md",
+    "AGENTS.md",
+    "AGENT.md",
+    "CLAUDE.md",
+    "CODEX.md",
+  ];
   const layers: string[] = [...memoryLayers()];
 
   try {

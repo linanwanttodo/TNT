@@ -65,11 +65,16 @@ export function getPluginDataDir(pluginId: string): string {
 /**
  * Every directory that may hold installed plugins. TNT's own tree comes
  * first; the Claude Code tree is read as a migration source so users who
- * already installed plugins elsewhere keep working.
+ * already installed plugins elsewhere keep working. The migration root sits
+ * under the real home directory, so it can be pointed elsewhere with
+ * TNT_CLAUDE_PLUGINS_DIR - tests point it at an empty directory, and a user
+ * who does not want their Claude Code plugins picked up can do the same.
  */
 export function getPluginSearchRoots(): string[] {
   const roots = [getPluginCacheDirectory()];
-  const claudePlugins = path.join(os.homedir(), ".claude", "plugins", "cache");
+  const claudePlugins =
+    process.env.TNT_CLAUDE_PLUGINS_DIR ??
+    path.join(os.homedir(), ".claude", "plugins", "cache");
   if (fs.existsSync(claudePlugins)) {
     roots.push(claudePlugins);
   }
