@@ -142,6 +142,7 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         navState={props.navState}
         navigateTo={props.navigateTo}
         closeCurrentScreen={props.closeCurrentScreen}
+        onOpenJobs={props.onOpenJobs}
         contextPercentage={props.contextPercentage}
         contextTokens={props.contextTokens}
         isVerboseMode={props.isVerboseMode}

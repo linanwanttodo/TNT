@@ -34,7 +34,6 @@ interface ChatScreenContentProps {
   isRemoteMode: boolean;
   onShowEditSelector?: () => void;
   onOpenPalette?: () => void;
-  onOpenJobs?: () => void;
   /** Set while a delegated transcript is open. */
   subagentView?: { parentSessionId: string; subagentType: string } | null;
 }
@@ -56,7 +55,6 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
   isRemoteMode,
   onShowEditSelector,
   onOpenPalette,
-  onOpenJobs,
   subagentView,
 }) => {
   if (activeQuizQuestion) {
@@ -105,7 +103,6 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
         isRemoteMode={isRemoteMode}
         onShowEditSelector={onShowEditSelector}
         onOpenPalette={onOpenPalette}
-        onOpenJobs={onOpenJobs}
       />
     </>
   );

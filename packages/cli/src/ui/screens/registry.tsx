@@ -154,7 +154,6 @@ export const SCREENS: readonly ScreenDefinition[] = [
         isRemoteMode={props.isRemoteMode}
         onShowEditSelector={props.onShowEditSelector}
         onOpenPalette={props.onOpenPalette}
-        onOpenJobs={props.onOpenJobs}
         subagentView={props.subagentView}
       />
     ),

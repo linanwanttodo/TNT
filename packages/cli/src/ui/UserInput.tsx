@@ -23,7 +23,6 @@ import { escapeEvents } from "../utils/cli.js";
 import { InputHistory } from "../utils/inputHistory.js";
 
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
-import { BackgroundTasksIndicator } from "./components/BackgroundTasksIndicator.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator } from "./components/ModeIndicator.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
@@ -169,7 +168,6 @@ interface UserInputProps {
   isRemoteMode?: boolean;
   onShowEditSelector?: () => void;
   onOpenPalette?: () => void;
-  onOpenJobs?: () => void;
 }
 
 /**
@@ -211,7 +209,6 @@ const UserInput: React.FC<UserInputProps> = ({
   isRemoteMode = false,
   onShowEditSelector,
   onOpenPalette,
-  onOpenJobs,
 }) => {
   const locale = useLocale();
   const theme = useTheme();
@@ -1085,8 +1082,6 @@ const UserInput: React.FC<UserInputProps> = ({
         </Text>
         {renderInputText()}
       </Box>
-
-      {onOpenJobs && <BackgroundTasksIndicator onOpenJobs={onOpenJobs} />}
     </Box>
   );
 };

@@ -5,9 +5,17 @@ import { logger } from "../utils/logger.js";
 export type BackgroundJobStatus =
   "pending" | "running" | "completed" | "failed" | "cancelled";
 
+/**
+ * What launched the job. The footer collapses counts per kind (`1 shell`,
+ * `1 shell · 1 monitor`), so a new producer declares itself here instead of
+ * every label site learning it.
+ */
+export type BackgroundJobKind = "shell" | "monitor" | "polled";
+
 export interface BackgroundJob {
   id: string;
   status: BackgroundJobStatus;
+  kind: BackgroundJobKind;
   command: string;
   output: string;
   exitCode: number | null;
@@ -85,7 +93,10 @@ export class BackgroundJobService {
 
   private jobCounter = 0;
 
-  createJob(command: string): BackgroundJob | null {
+  createJob(
+    command: string,
+    kind: BackgroundJobKind = "shell",
+  ): BackgroundJob | null {
     const runningCount = this.getRunningJobCount();
     if (runningCount >= MAX_CONCURRENT_JOBS) {
       logger.warn(
@@ -98,6 +109,7 @@ export class BackgroundJobService {
     const job: BackgroundJob = {
       id,
       status: "pending",
+      kind,
       command,
       output: "",
       exitCode: null,
@@ -149,6 +161,7 @@ export class BackgroundJobService {
     command: string,
     child: ChildProcess,
     existingOutput: string = "",
+    kind: BackgroundJobKind = "shell",
   ): BackgroundJob | null {
     const runningCount = this.getRunningJobCount();
     if (runningCount >= MAX_CONCURRENT_JOBS) {
@@ -162,6 +175,7 @@ export class BackgroundJobService {
     const job: BackgroundJob = {
       id,
       status: "running",
+      kind,
       command,
       output: existingOutput,
       exitCode: null,
@@ -200,6 +214,7 @@ export class BackgroundJobService {
     job: PolledJob,
     sessionId: string,
     existingOutput: string = "",
+    kind: BackgroundJobKind = "shell",
   ): BackgroundJob | null {
     const runningCount = this.getRunningJobCount();
     if (runningCount >= MAX_CONCURRENT_JOBS) {
@@ -213,6 +228,7 @@ export class BackgroundJobService {
     const created: BackgroundJob = {
       id,
       status: "running",
+      kind,
       command,
       output: existingOutput,
       exitCode: null,

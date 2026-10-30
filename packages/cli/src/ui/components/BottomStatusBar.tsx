@@ -25,6 +25,8 @@ import {
   formatCostAmount,
 } from "../utils/contextUsageLine.js";
 
+import { JobsFooterSegment } from "./BackgroundTasksIndicator.js";
+
 export interface BottomStatusBarProps {
   remoteUrl?: string;
   isRemoteMode: boolean;
@@ -32,6 +34,8 @@ export interface BottomStatusBarProps {
   navState: any;
   navigateTo: (screen: NavigationScreen, data?: any) => void;
   closeCurrentScreen: () => void;
+  /** Opens the background-jobs list. */
+  onOpenJobs?: () => void;
   contextPercentage?: number;
   contextTokens?: number;
   isVerboseMode?: boolean;
@@ -208,6 +212,39 @@ const UsageSegment: React.FC<{
 };
 
 /**
+ * The right-hand group: model, reasoning depth and the clickable background
+ * jobs count. Kept out of the component so the render function stays under
+ * the project's complexity cap.
+ */
+function buildRightParts(input: {
+  modelName: string;
+  shownModelName: string;
+  thinkingText: string;
+  showThinking: boolean;
+  onOpenJobs?: () => void;
+}): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  if (input.modelName) {
+    parts.push(
+      <Text key="model" color="white" wrap="truncate-end">
+        {input.shownModelName}
+      </Text>,
+    );
+  }
+  if (input.showThinking) {
+    parts.push(
+      <Text key="thinking" color="cyan" wrap="truncate-end">
+        {`${symbols().thinking} ${input.thinkingText}`}
+      </Text>,
+    );
+  }
+  if (input.onOpenJobs) {
+    parts.push(<JobsFooterSegment key="jobs" onOpenJobs={input.onOpenJobs} />);
+  }
+  return parts;
+}
+
+/**
  * One row under the composer: where the session is, what it has spent, the
  * model, its reasoning depth and the update state. Everything shares the row
  * and the location side truncates first when the terminal is narrow.
@@ -219,6 +256,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   navState: _navState,
   navigateTo: _navigateTo,
   closeCurrentScreen: _closeCurrentScreen,
+  onOpenJobs,
   contextPercentage,
   contextTokens,
   isVerboseMode,
@@ -313,21 +351,13 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
       thinkingText,
     }) <= columns;
 
-  const rightParts: React.ReactNode[] = [];
-  if (modelName) {
-    rightParts.push(
-      <Text key="model" color="white" wrap="truncate-end">
-        {`◈ ${shownModelName}`}
-      </Text>,
-    );
-  }
-  if (showThinking) {
-    rightParts.push(
-      <Text key="thinking" color="cyan" wrap="truncate-end">
-        {`${symbols().thinking} ${thinkingText}`}
-      </Text>,
-    );
-  }
+  const rightParts = buildRightParts({
+    modelName,
+    shownModelName,
+    thinkingText,
+    showThinking,
+    onOpenJobs,
+  });
 
   return (
     <Box
