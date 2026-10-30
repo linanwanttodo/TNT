@@ -4,6 +4,7 @@ import { handleInfoSlashCommand } from "../../../startup/infoScreen.js";
 import type { CommandHandler } from "../types.js";
 
 import { handleIndex } from "./codebaseIndex.js";
+import { handleCost } from "./cost.js";
 import { handleDiagnostics } from "./diagnostics.js";
 import { handleHelp } from "./help.js";
 import { handleLanguage } from "./language.js";
@@ -64,6 +65,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
       return { openUpdateSelector: true };
     },
     jobs: handleJobs,
+    cost: handleCost,
     todos: handleTodos,
     skills: () => handleSkills(),
     "import-skill": (args) => handleImportSkill(args),
