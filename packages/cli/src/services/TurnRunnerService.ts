@@ -29,6 +29,7 @@ export class TurnRunnerService {
   private options: TurnRunnerOptions;
   private draining = false;
   private currentAbortController: AbortController | null = null;
+  private stopListeners = new Set<() => void>();
 
   constructor(options: Partial<TurnRunnerOptions> = {}) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
@@ -45,9 +46,24 @@ export class TurnRunnerService {
     void this.drainLoop(runTurn);
   }
 
-  /** Aborts the turn in flight; a no-op when the runner is idle. */
+  /**
+   * Registers a callback for stop requests from other surfaces, so a surface
+   * whose interrupt lives outside this controller (the TUI) can truncate its
+   * in-flight turn too. Returns an unsubscribe function.
+   */
+  onStopRequest(listener: () => void): () => void {
+    this.stopListeners.add(listener);
+    return () => {
+      this.stopListeners.delete(listener);
+    };
+  }
+
+  /** Aborts the turn in flight and notifies stop listeners; no-op when idle. */
   requestStop(): void {
     this.currentAbortController?.abort();
+    for (const listener of this.stopListeners) {
+      listener();
+    }
   }
 
   isRunning(): boolean {

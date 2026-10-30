@@ -80,6 +80,18 @@ export const runOneTurn = async (
   await processQueuedMessage(queued.message, queued.imageMap);
 };
 
+/**
+ * Bridges stop requests from other surfaces to the TUI's interrupt path. The
+ * hook registers `handleInterrupt` through this so a web stop button truncates
+ * the in-flight turn the same way Esc does; the ref indirection keeps the
+ * handler reading current hook state, not the mount-time closure.
+ */
+export const registerStopRequestListener = (
+  getHandleInterrupt: () => () => void,
+): (() => void) => {
+  return turnRunnerService.onStopRequest(() => getHandleInterrupt()());
+};
+
 export function useChat({
   assistant,
   model,
@@ -1002,6 +1014,15 @@ export function useChat({
     setActiveQuizQuestion(null);
     interactionBroker.answerQuestion(requestId, answer);
   };
+
+  // A stop request from another surface (the web UI) truncates the in-flight
+  // turn the same way Esc does. The ref keeps the handler reading current
+  // state rather than the mount-time closure.
+  const interruptRef = useRef(handleInterrupt);
+  interruptRef.current = handleInterrupt;
+  useEffect(() => {
+    return registerStopRequestListener(() => interruptRef.current);
+  }, []);
 
   return {
     chatHistory,

@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  turnRunnerService,
   TurnRunnerService,
   type RunTurn,
 } from "../../services/TurnRunnerService.js";
 import { messageQueue, type QueuedMessage } from "../../stream/messageQueue.js";
 
-import { runOneTurn } from "./useChat.js";
+import { registerStopRequestListener, runOneTurn } from "./useChat.js";
 
 // Short intervals so idle loops expire quickly between tests.
 const fastOptions = { pollIntervalMs: 5, idleTimeoutMs: 50 };
@@ -116,5 +117,17 @@ describe("useChat queue drain seam", () => {
     await runOneTurn(queued, controller.signal, processQueuedMessage);
 
     expect(processQueuedMessage).not.toHaveBeenCalled();
+  });
+
+  it("routes a stop request from another surface to the interrupt handler", async () => {
+    const handleInterrupt = vi.fn();
+    const unsubscribe = registerStopRequestListener(() => handleInterrupt);
+
+    turnRunnerService.requestStop();
+    expect(handleInterrupt).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    turnRunnerService.requestStop();
+    expect(handleInterrupt).toHaveBeenCalledTimes(1);
   });
 });

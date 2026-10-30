@@ -119,4 +119,32 @@ describe("TurnRunnerService", () => {
       "follow-up",
     ]);
   });
+
+  it("requestStop notifies registered listeners and unsubscribing removes them", async () => {
+    const runner = createRunner();
+    const listener = vi.fn();
+    const unsubscribe = runner.onStopRequest(listener);
+
+    await messageQueue.enqueueMessage("interruptible prompt");
+    runner.startDraining(
+      (_message, signal) =>
+        new Promise<void>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    await vi.waitFor(() => expect(runner.isRunning()).toBe(true));
+
+    runner.requestStop();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(runner.isRunning()).toBe(false));
+
+    unsubscribe();
+    await messageQueue.enqueueMessage("second prompt");
+    runner.startDraining(async () => {});
+    await vi.waitFor(() => expect(runner.isRunning()).toBe(true));
+
+    runner.requestStop();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
 });
