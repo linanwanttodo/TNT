@@ -46,7 +46,7 @@ function codeLines(): string[] {
 describe("README quick start agrees with the command surface", () => {
   it("registers the commands the README lists", () => {
     expect(new Set(registered)).toEqual(
-      new Set(["ls", "serve", "checks", "review"]),
+      new Set(["ls", "serve", "checks", "review", "webui"]),
     );
   });
 

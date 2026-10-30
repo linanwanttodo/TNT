@@ -8,60 +8,62 @@ language, see [Language](/cli/i18n).
 
 ## Session
 
-| Command | Effect |
-| --- | --- |
-| `/help` | show the help message |
-| `/clear` | clear the chat history |
-| `/info` | show session information |
-| `/exit` | leave the chat |
-| `/sessions` | show all saved sessions |
-| `/resume` | resume a previous session |
-| `/fork` | start a new session from the current history |
-| `/title` | set the session title |
-| `/rename` | rename the session |
-| `/export` | export the session to a JSON file |
-| `/import` | import a session from a JSON file |
-| `/goal` | set the goal that the session is working towards |
-| `/todos` | list this session's todo items |
+| Command     | Effect                                           |
+| ----------- | ------------------------------------------------ |
+| `/help`     | show the help message                            |
+| `/clear`    | clear the chat history                           |
+| `/info`     | show session information                         |
+| `/exit`     | leave the chat                                   |
+| `/sessions` | show all saved sessions                          |
+| `/resume`   | resume a previous session                        |
+| `/fork`     | start a new session from the current history     |
+| `/title`    | set the session title                            |
+| `/rename`   | rename the session                               |
+| `/export`   | export the session to a JSON file                |
+| `/import`   | import a session from a JSON file                |
+| `/goal`     | set the goal that the session is working towards |
+| `/todos`    | list this session's todo items                   |
 
 ## Model and configuration
 
-| Command | Effect |
-| --- | --- |
-| `/model` | switch between the configured models |
-| `/think` | set or show the reasoning depth for this session (`off`, `low`, `medium`, `high`, `xhigh`, `max`, `default`) |
-| `/init` | create an `AGENTS.md` file |
-| `/language` | change the interface language |
-| `/update` | update the TNT installation |
-| `/theme` | pick the UI theme with a live preview |
-| `/profile` | switch the mode of work |
-| `/output-style` | switch the output style |
+| Command         | Effect                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/model`        | switch between the configured models                                                                         |
+| `/think`        | set or show the reasoning depth for this session (`off`, `low`, `medium`, `high`, `xhigh`, `max`, `default`) |
+| `/init`         | create an `AGENTS.md` file                                                                                   |
+| `/language`     | change the interface language                                                                                |
+| `/update`       | update the TNT installation                                                                                  |
+| `/theme`        | pick the UI theme with a live preview                                                                        |
+| `/profile`      | switch the mode of work                                                                                      |
+| `/output-style` | switch the output style                                                                                      |
 
 ## Capabilities
 
-| Command | Effect |
-| --- | --- |
-| `/mcp` | manage MCP server connections |
-| `/plugins` | list installed plugins and what they contribute |
-| `/skills` | list the available skills |
-| `/import-skill` | import a skill into `~/.tnt/skills` |
-| `/subagents` | show the sessions delegated from this one |
-| `/back` | return from a delegated session to its parent |
-| `/parent` | alias for `/back` |
-| `/jobs` | list background jobs |
-| `/cost` | show context, cache, output and cost for this session |
+| Command         | Effect                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `/mcp`          | manage MCP server connections                                                            |
+| `/plugins`      | list installed plugins and what they contribute                                          |
+| `/skills`       | list the available skills                                                                |
+| `/import-skill` | import a skill into `~/.tnt/skills`                                                      |
+| `/subagents`    | show the sessions delegated from this one                                                |
+| `/back`         | return from a delegated session to its parent                                            |
+| `/parent`       | alias for `/back`                                                                        |
+| `/jobs`         | list background jobs                                                                     |
+| `/cost`         | show context, cache, output and cost for this session                                    |
+| `/webui`        | serve this session's web view and open it in a browser (`stop`, `--no-open`, `--port=N`) |
 
 ## Context and workspace
 
-| Command | Effect |
-| --- | --- |
-| `/compact` | summarise the history into a compact form |
-| `/diff` | show the current diff from the remote environment |
-| `/apply` | apply that diff to the local working tree |
-| `/index` | show or manage the codebase index |
-| `/diagnostics` | show language server diagnostics |
+| Command        | Effect                                            |
+| -------------- | ------------------------------------------------- |
+| `/compact`     | summarise the history into a compact form         |
+| `/diff`        | show the current diff from the remote environment |
+| `/apply`       | apply that diff to the local working tree         |
+| `/index`       | show or manage the codebase index                 |
+| `/diagnostics` | show language server diagnostics                  |
 
 <Note>
-Commands that open a picker, such as `/model`, `/sessions` and `/mcp`, accept the
-arrow keys and Enter, and `Esc` returns to the composer without changing anything.
+  Commands that open a picker, such as `/model`, `/sessions` and `/mcp`, accept
+  the arrow keys and Enter, and `Esc` returns to the composer without changing
+  anything.
 </Note>

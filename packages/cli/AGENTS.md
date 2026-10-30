@@ -63,7 +63,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
    - `service.ts`: `CommandService.create()` runs every loader in parallel and freezes the result
    - `handlers/`: in-process command implementations, grouped by domain
    - `dispatch.ts`: `handleSlashCommands()` entry point
-   - `src/commands/`: argv subcommands (`ls`, `serve` - hidden, `checks`, `review`),
+   - `src/commands/`: argv subcommands (`ls`, `serve` - hidden, `webui` - hidden, `checks`, `review`),
      with `tnt ls --json` as the machine-readable listing (the root `--format` is not
      consulted by `ls`, so passing it silently falls back to the interactive picker),
      separate from slash commands. With no subcommand the default action runs the chat
@@ -79,7 +79,7 @@ This is a CLI tool for TNT that provides an interactive AI-assisted development 
 | `index.ts`, `dev.ts`                                                                                    | CLI entry points (bundled build and the tsx dev runner)                                             |
 | `acp/`                                                                                                  | Agent Client Protocol supervisor, per-session worker, update/permission bridges                     |
 | `agent/`                                                                                                | System prompt assembly                                                                              |
-| `commands/`                                                                                             | argv subcommands: `ls`, `serve`, `checks`, `review`                                                 |
+| `commands/`                                                                                             | argv subcommands: `ls`, `serve`, `webui`, `checks`, `review`                                        |
 | `compaction/`                                                                                           | History compaction and prefix preservation                                                          |
 | `config/`                                                                                               | Assistant and configuration loading, env, provider setup, rules, CLI flag parsing, shared constants |
 | `platform/`                                                                                             | TNT platform API client                                                                             |

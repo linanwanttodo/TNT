@@ -806,6 +806,23 @@ export function useChat({
     await processMessage(message, imageMap, true);
   };
 
+  // A browser-enqueued message can arrive long after the last drain loop
+  // retired, so the pipeline is registered process-wide: any surface that
+  // needs the queue drained starts a loop running turns through this hook.
+  // The ref indirection keeps the pipeline reading current hook state.
+  const queuedPipelineRef = useRef(async (queued: QueuedMessage) => {
+    await processQueuedMessage(queued.message, queued.imageMap);
+  });
+  queuedPipelineRef.current = async (queued: QueuedMessage) => {
+    await processQueuedMessage(queued.message, queued.imageMap);
+  };
+
+  useEffect(() => {
+    turnRunnerService.setDefaultRunTurn((queued, signal) =>
+      runOneTurn(queued, signal, () => queuedPipelineRef.current(queued)),
+    );
+  }, []);
+
   const handleUserMessage = async (
     message: string,
     imageMap?: Map<string, Buffer>,

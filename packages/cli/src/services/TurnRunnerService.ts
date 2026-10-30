@@ -30,20 +30,35 @@ export class TurnRunnerService {
   private draining = false;
   private currentAbortController: AbortController | null = null;
   private stopListeners = new Set<() => void>();
+  private defaultRunTurn: RunTurn | null = null;
 
   constructor(options: Partial<TurnRunnerOptions> = {}) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
   }
 
+  /**
+   * Registers the turn pipeline that outlives any single drain request. The
+   * TUI's hook sets it once on mount, so a message enqueued from another
+   * surface while the engine is idle can start a loop that runs turns
+   * through the TUI's own pipeline instead of sitting in the queue.
+   */
+  setDefaultRunTurn(runTurn: RunTurn): void {
+    this.defaultRunTurn = runTurn;
+  }
+
   /** Starts the drain loop unless one is already running (idempotent). */
-  startDraining(runTurn: RunTurn): void {
+  startDraining(runTurn?: RunTurn): void {
     if (this.draining) {
       logger.debug("TurnRunner: drain loop already running");
       return;
     }
+    const pipeline = runTurn ?? this.defaultRunTurn;
+    if (!pipeline) {
+      return;
+    }
 
     this.draining = true;
-    void this.drainLoop(runTurn);
+    void this.drainLoop(pipeline);
   }
 
   /**

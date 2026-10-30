@@ -24,6 +24,7 @@ import {
 import { handleExport, handleImport } from "./sessionTransfer.js";
 import { handleImportSkill, handleSkills } from "./skills.js";
 import { handleThink } from "./think.js";
+import { handleWebui } from "./webui.js";
 
 /**
  * Built-in commands that run in-process. Commands contributed by prompts,
@@ -66,6 +67,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     },
     jobs: handleJobs,
     cost: handleCost,
+    webui: handleWebui,
     todos: handleTodos,
     skills: () => handleSkills(),
     "import-skill": (args) => handleImportSkill(args),
