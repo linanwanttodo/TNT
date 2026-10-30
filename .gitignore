@@ -203,3 +203,8 @@ analysis/
 # working the items, never built or shipped, and a private work-list does not
 # belong in a documentation tree that the site build walks.
 docs/superpowers/
+
+# The TNT workspace folder: rules, checks, prompts and memory TNT keeps itself.
+# Nothing in it belongs to a fresh clone, so none of it is tracked - not even
+# .tnt/AGENTS.md, which every machine maintains for its own agents.
+.tnt/
