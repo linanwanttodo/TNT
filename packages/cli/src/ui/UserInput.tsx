@@ -23,6 +23,7 @@ import { escapeEvents } from "../utils/cli.js";
 import { InputHistory } from "../utils/inputHistory.js";
 
 import { getAllSlashCommands, type SlashCommand } from "./commands/index.js";
+import { BackgroundTasksIndicator } from "./components/BackgroundTasksIndicator.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
 import { ModeIndicator } from "./components/ModeIndicator.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
@@ -168,6 +169,7 @@ interface UserInputProps {
   isRemoteMode?: boolean;
   onShowEditSelector?: () => void;
   onOpenPalette?: () => void;
+  onOpenJobs?: () => void;
 }
 
 /**
@@ -209,6 +211,7 @@ const UserInput: React.FC<UserInputProps> = ({
   isRemoteMode = false,
   onShowEditSelector,
   onOpenPalette,
+  onOpenJobs,
 }) => {
   const locale = useLocale();
   const theme = useTheme();
@@ -1051,11 +1054,13 @@ const UserInput: React.FC<UserInputProps> = ({
         onFilesUpdated={setCurrentFiles}
       />
 
-      {/* Goal and todo rows belong to the dock above the box; the mode badge
-          below is the box's own top border. */}
+      {/* Goal, todos and running background work belong to the dock above the
+          box; the mode badge below is the box's own top border. */}
       <GoalIndicator />
 
       <TodoIndicator />
+
+      {onOpenJobs && <BackgroundTasksIndicator onOpenJobs={onOpenJobs} />}
 
       {/* Active mode is embedded in the composer's top border rule. */}
       <ModeIndicator

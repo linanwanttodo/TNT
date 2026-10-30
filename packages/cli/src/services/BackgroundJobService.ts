@@ -48,6 +48,8 @@ export class BackgroundJobService {
   private processes: Map<string, ChildProcess> = new Map();
   private polled: Map<string, { sessionId: string; job: PolledJob }> =
     new Map();
+  private listeners = new Set<() => void>();
+  private version = 0;
 
   constructor() {
     // A background job cannot be checked once the process that tracked it is
@@ -58,6 +60,29 @@ export class BackgroundJobService {
       process.once("exit", () => this.killAllJobs());
     }
   }
+
+  /**
+   * The composer's task indicator reads the job list through this store: the
+   * lifecycle methods bump the version and the hook re-renders on it.
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  getVersion(): number {
+    return this.version;
+  }
+
+  private notify(): void {
+    this.version++;
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
+
   private jobCounter = 0;
 
   createJob(command: string): BackgroundJob | null {
@@ -81,6 +106,7 @@ export class BackgroundJobService {
     };
 
     this.jobs.set(id, job);
+    this.notify();
     return job;
   }
 
@@ -95,6 +121,7 @@ export class BackgroundJobService {
 
     const child = spawn(shell, args, { stdio: "pipe" });
     this.processes.set(jobId, child);
+    this.notify();
 
     child.stdout?.setEncoding("utf8");
     child.stderr?.setEncoding("utf8");
@@ -144,6 +171,7 @@ export class BackgroundJobService {
 
     this.jobs.set(id, job);
     this.processes.set(id, child);
+    this.notify();
 
     child.stdout?.setEncoding("utf8");
     child.stderr?.setEncoding("utf8");
@@ -194,6 +222,7 @@ export class BackgroundJobService {
 
     this.jobs.set(id, created);
     this.polled.set(id, { sessionId, job });
+    this.notify();
     return created;
   }
 
@@ -272,6 +301,7 @@ export class BackgroundJobService {
       job.endTime = new Date();
       this.processes.delete(jobId);
       this.polled.delete(jobId);
+      this.notify();
     }
   }
 
@@ -283,6 +313,7 @@ export class BackgroundJobService {
       job.endTime = new Date();
       this.processes.delete(jobId);
       this.polled.delete(jobId);
+      this.notify();
     }
   }
 
@@ -300,6 +331,7 @@ export class BackgroundJobService {
     this.polled.delete(jobId);
     job.status = "cancelled";
     job.endTime = new Date();
+    this.notify();
     return true;
   }
 
@@ -342,6 +374,7 @@ export class BackgroundJobService {
       }
     }
     this.polled.clear();
+    this.notify();
   }
 }
 

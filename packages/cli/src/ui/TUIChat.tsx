@@ -564,6 +564,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           handleEditMessage={handleEditMessage}
           onShowEditSelector={() => navigateTo("edit")}
           onOpenPalette={() => navigateTo("palette")}
+          onOpenJobs={() => navigateTo("jobs")}
           onPreviewTheme={handlePreviewTheme}
           onCancelThemePreview={handleCancelThemePreview}
           onSelectTheme={handleSelectTheme}
