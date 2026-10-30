@@ -148,13 +148,14 @@ The status bar is one row. Left to right:
   process working directory
 - the git branch, when the process is in a repository and not in remote mode
 - the prefix state, only when the last request invalidated or extended the cache prefix
-- the compaction spend, only when a compaction ran in this session
-- the usage figures: context occupancy, the session cache-hit ratio (printed with two
-  decimals), output tokens and cost when the session has spent anything
+- the count of running background jobs, clickable and collapsed per job kind, when
+  any job is live
 
 The right end holds the model name, the reasoning depth when the selected model declares
-one, and the update state. The location side truncates first on a narrow terminal; the
-bar never wraps onto a second row.
+one, and the update state. The context occupancy, cache ratio, output tokens and cost
+are not on the row: `/cost` prints them on demand
+(`src/ui/commands/handlers/cost.ts`). The location side truncates first on a narrow
+terminal; the bar never wraps onto a second row.
 
 No GitHub owner or repository is displayed. The status bar resolves the branch only and
 never looks up the remote.

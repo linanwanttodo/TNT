@@ -207,10 +207,9 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(REPO_LOOKUP.test(flat)).toBe(REPO_LOOKUP.test(status));
   });
 
-  it("names the usage figures the status bar renders", () => {
-    expect(/cacheHitRatio/.test(status)).toBe(/cache-hit ratio/.test(flat));
-    expect(/t\("status\.output"\)/.test(status)).toBe(
-      /output tokens/.test(flat),
-    );
+  it("sends the usage figures to /cost only while the doc says so", () => {
+    const cost = read(path.join(here, "commands", "handlers", "cost.ts"));
+    expect(/cache ratio/.test(flat)).toBe(/Cache hit/.test(cost));
+    expect(/output tokens/.test(flat)).toBe(/Output:/.test(cost));
   });
 });
