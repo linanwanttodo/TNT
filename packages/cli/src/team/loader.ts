@@ -4,10 +4,10 @@ import * as path from "path";
 import { parseMarkdownRule } from "@tnt/config-yaml";
 
 import { env } from "../config/env.js";
-import { SubagentRestriction } from "../subagent/runContext.js";
 import { logger } from "../utils/logger.js";
 
 import { DEFAULT_TEAMS } from "./defaultTeams.js";
+import { SubagentRestriction } from "./restrictions.js";
 
 export interface TeamMember {
   name: string;

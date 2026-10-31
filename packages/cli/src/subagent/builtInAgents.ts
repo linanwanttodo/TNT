@@ -1,4 +1,4 @@
-import type { SubagentRestriction } from "./runContext.js";
+import type { SubagentRestriction } from "../team/restrictions.js";
 
 /**
  * Agents the CLI can run without the user configuring a model for them.
