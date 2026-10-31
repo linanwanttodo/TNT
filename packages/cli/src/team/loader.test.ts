@@ -6,7 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { logger } from "../utils/logger.js";
 
-import { getTeam, invalidateTeamCache, loadTeams } from "./loader.js";
+import {
+  getTeam,
+  invalidateTeamCache,
+  loadFileTeams,
+  loadTeams,
+} from "./loader.js";
 
 let projectDir: string;
 let globalRoot: string;
@@ -37,11 +42,22 @@ function writeMember(
   file: string,
   frontmatter: string,
   body: string,
-  isGlobal = false,
 ): void {
-  const memberDir = isGlobal
-    ? path.join(dir, "teams", team)
-    : path.join(dir, ".tnt", "teams", team);
+  const memberDir = path.join(dir, ".tnt", "teams", team);
+  fs.mkdirSync(memberDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(memberDir, file),
+    `---\n${frontmatter}\n---\n${body}\n`,
+  );
+}
+
+function writeGlobalMember(
+  team: string,
+  file: string,
+  frontmatter: string,
+  body: string,
+): void {
+  const memberDir = path.join(globalRoot, "teams", team);
   fs.mkdirSync(memberDir, { recursive: true });
   fs.writeFileSync(
     path.join(memberDir, file),
@@ -71,16 +87,8 @@ describe("loadTeams", () => {
       ARCHITECT_MEMBER,
       "project body",
     );
-    writeMember(
-      globalRoot,
-      "dev",
-      "architect.md",
-      ARCHITECT_MEMBER,
-      "global body",
-      true,
-    );
-    writeMember(
-      globalRoot,
+    writeGlobalMember("dev", "architect.md", ARCHITECT_MEMBER, "global body");
+    writeGlobalMember(
       "dev",
       "reviewer.md",
       `name: reviewer
@@ -89,7 +97,6 @@ team: dev
 lead: false
 `,
       "global reviewer body",
-      true,
     );
 
     const teams = loadTeams(projectDir);
@@ -114,7 +121,7 @@ team: dev
       "body",
     );
 
-    const teams = loadTeams(projectDir);
+    const teams = loadFileTeams(projectDir);
     const dev = teams.find((team) => team.name === "dev");
     expect(dev?.members ?? []).toHaveLength(0);
     expect(warn).toHaveBeenCalled();
@@ -129,7 +136,7 @@ team: dev
       "not frontmatter at all",
     );
 
-    const teams = loadTeams(projectDir);
+    const teams = loadFileTeams(projectDir);
     expect(teams).toHaveLength(0);
     expect(warn).toHaveBeenCalled();
   });
@@ -138,7 +145,7 @@ team: dev
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
     writeMember(projectDir, "dev", "architect.md", PLAIN_MEMBER, "body");
 
-    const teams = loadTeams(projectDir);
+    const teams = loadFileTeams(projectDir);
     expect(teams.find((team) => team.name === "dev")).toBeUndefined();
     expect(warn).toHaveBeenCalled();
   });
