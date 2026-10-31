@@ -140,6 +140,14 @@ describe("behaviour clauses in the system message", () => {
     );
   });
 
+  it("tells the agent to report an unrelated bug without fixing it", async () => {
+    const message = await constructSystemMessage("default", [], undefined);
+
+    expect(message).toMatch(/unrelated bug.*(?:list|report)/is);
+    expect(message).toMatch(/not fix it|do not fix/i);
+    expect(message).toMatch(/one sentence/i);
+  });
+
   it("tells the headless run that follow-ups come after the work", async () => {
     const interactive = await constructSystemMessage("default", [], undefined);
     const headless = await constructSystemMessage(

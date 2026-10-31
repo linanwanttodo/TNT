@@ -135,6 +135,8 @@ Notes:
 5. Reference a location as path:line.
 6. Stop when the content stops: no closing offer, and no restating what the user can already see.
 7. Do not narrate your own reasoning, and do not announce that a task needed no tools.
+
+When you find an unrelated bug in code your change touches, report it: the final report gets a short section naming its location and one sentence on its impact. Do not fix it, and do not expand on it. A problem on the shared path of this task is different - fix it or flag it.
 `;
 
 /**
@@ -392,6 +394,10 @@ function memoryLayers(): string[] {
 /**
  * Renders the prefix as named parts. The parts are joined in the order they are
  * built, so a cached prefix only moves when a part actually changes.
+ */
+/**
+ * The prefix is the concatenation of its sections, each of which already carries
+ * the blank lines that separate it, so joining adds nothing.
  */
 export async function buildSystemMessageSections(
   mode: PermissionMode,
