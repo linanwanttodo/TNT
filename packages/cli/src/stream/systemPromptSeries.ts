@@ -21,6 +21,28 @@ import type { SystemPromptRoundState } from "./systemPromptRound.js";
 const MAX_SERIES_ENTRIES = 32;
 const seriesStates = new Map<string, SystemPromptRoundState>();
 
+/**
+ * Make room for a new entry. Clearing the whole map would drop the live
+ * conversation's series with the stale ones and re-bill its cached head, so
+ * only one entry goes: the oldest one nothing has read recently. Reads and
+ * writes refresh an entry's position, so the conversation making rounds stays
+ * at the far end of the map while a delegated run that finished long ago is
+ * what gets evicted; the caller's own key is skipped outright.
+ */
+function evictOneEntry(cacheKey: string, entryKey: string): void {
+  for (const key of seriesStates.keys()) {
+    if (
+      key === entryKey ||
+      key === cacheKey ||
+      key.startsWith(`${cacheKey}::run::`)
+    ) {
+      continue;
+    }
+    seriesStates.delete(key);
+    return;
+  }
+}
+
 export function systemPromptSeriesState(
   cacheKey = "default",
   overrideSystemMessage?: string,
@@ -29,13 +51,17 @@ export function systemPromptSeriesState(
     ? `${cacheKey}::run::${overrideSystemMessage}`
     : cacheKey;
   let state = seriesStates.get(key);
-  if (!state) {
+  if (state) {
+    // Refresh the LRU position: the conversation making rounds must look
+    // newer than entries nobody has touched since.
+    seriesStates.delete(key);
+  } else {
     if (seriesStates.size >= MAX_SERIES_ENTRIES) {
-      seriesStates.clear();
+      evictOneEntry(cacheKey, key);
     }
     state = { updates: [] };
-    seriesStates.set(key, state);
   }
+  seriesStates.set(key, state);
   return state;
 }
 
