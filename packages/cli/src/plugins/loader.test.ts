@@ -8,6 +8,7 @@ import { env } from "../config/env.js";
 
 import { getPluginCacheDirectory, getPluginsDirectory } from "./directories.js";
 import {
+  invalidatePluginCache,
   isBlockedMarketplaceName,
   loadAllPlugins,
   selectForcedOutputStyle,
@@ -70,9 +71,11 @@ describe("loadAllPlugins", () => {
 
   beforeEach(() => {
     created = [];
+    invalidatePluginCache();
   });
 
   afterEach(() => {
+    invalidatePluginCache();
     for (const dir of created) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -92,6 +95,21 @@ describe("loadAllPlugins", () => {
     const result = loadAllPlugins();
     expect(Array.isArray(result.plugins)).toBe(true);
     expect(result.plugins.length).toBe(0);
+  });
+
+  it("picks up a plugin installed after the memoized load", () => {
+    expect(loadAllPlugins().plugins.length).toBe(0);
+
+    const root = installPlugin("acme", "late", "1.0.0");
+    writeJson(path.join(root, ".claude-plugin", "plugin.json"), {
+      name: "late",
+      version: "1.0.0",
+      description: "Installed after the first load",
+    });
+
+    // The fingerprint watches the cache roots, so a directory-tree change
+    // reloads without an explicit invalidation - install cannot go unnoticed.
+    expect(loadAllPlugins().plugins.map((p) => p.name)).toContain("late");
   });
 
   it("loads manifest, hooks, commands, agents, skills and mcp servers", () => {
