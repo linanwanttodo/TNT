@@ -347,4 +347,26 @@ describe("SessionStore", () => {
     ).toBe(false);
     expect(fs.readFileSync(getLegacySessionsListPath(), "utf-8")).toBe("[]");
   });
+
+  it("skips the metadata rewrite when a sync changes nothing", () => {
+    const session = makeSession([user("one")]);
+    sessionStore.ensureSession(session, { persistEmpty: true });
+
+    const metaPath = path.join(getSessionRoot(session.sessionId), "meta.json");
+    const before = fs.readFileSync(metaPath, "utf-8");
+    const metaStat = fs.statSync(metaPath);
+
+    sessionStore.sync({ ...session });
+    sessionStore.sync({ ...session });
+
+    // A redundant save must not touch the cache: no mtime churn, no updatedAt
+    // drift, and the on-disk bytes stay exactly what the first write left.
+    const after = fs.readFileSync(metaPath, "utf-8");
+    const afterStat = fs.statSync(metaPath);
+    expect(after).toBe(before);
+    expect(afterStat.mtimeMs).toBe(metaStat.mtimeMs);
+    expect(sessionStore.getMeta(session.sessionId)?.updatedAt).toBe(
+      JSON.parse(before).updatedAt,
+    );
+  });
 });
