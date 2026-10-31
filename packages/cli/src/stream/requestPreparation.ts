@@ -1,6 +1,8 @@
 import type { ModelConfig } from "@tnt/config-yaml";
 import type { BaseLlmApi } from "@tnt/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
+import { calculateMaxOutputTokens } from "core/util/contextPolicy.js";
+import { encode } from "gpt-tokenizer";
 import type { ChatCompletionTool } from "openai/resources.mjs";
 
 import {
@@ -14,20 +16,15 @@ import type { RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
 import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
-import { validateContextLength } from "../utils/tokenizer.js";
-
-import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
-import type { StreamCallbacks } from "./streamChatResponse.types.js";
-
-import { encode } from "gpt-tokenizer";
-
 import {
   countChatHistoryItemTokens,
   countToolDefinitionTokens,
   getModelContextLimit,
   getModelMaxTokens,
 } from "../utils/tokenizer.js";
-import { calculateMaxOutputTokens } from "core/util/contextPolicy.js";
+
+import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
+import type { StreamCallbacks } from "./streamChatResponse.types.js";
 
 /**
  * The pre-request phase of one round: compact if the window is full, then say
@@ -198,7 +195,11 @@ export function pruneHistoryToContextLimit(options: {
     if (prunedChatHistory.length === history.length) {
       break;
     }
-    historyCount -= itemTokens[history.length - 1] ?? 0;
+    // A prune may drop two messages (a prompt whose reply would be left
+    // dangling), so sum the removed tail's counts, not just the last item.
+    for (let i = prunedChatHistory.length; i < history.length; i++) {
+      historyCount -= itemTokens[i] ?? 0;
+    }
     history = prunedChatHistory;
     validation = totalWith(historyCount + fixedTokens);
   }
