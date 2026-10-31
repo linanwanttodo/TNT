@@ -538,7 +538,6 @@ export function shouldAutoCompact(params: AutoCompactParams): boolean {
   logger.debug("Context usage check", {
     inputTokens,
     fromMeasurement: measuredTokens !== undefined,
-    historyTokens: countChatHistoryTokens(chatHistory, model),
     systemTokens,
     toolTokens,
     contextLimit,
