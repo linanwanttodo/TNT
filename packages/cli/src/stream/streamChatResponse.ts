@@ -9,6 +9,7 @@ import { noteMeasuredRequest } from "../compaction/measuredContext.js";
 import { noteRequestSent } from "../compaction/microCompact.js";
 import { t } from "../i18n/index.js";
 import { OVERFLOW_RECOVERIES } from "../loop/terminalStop.js";
+import { getModelContextLimit } from "../utils/tokenizer.js";
 import {
   REQUEST_TIMEOUT_ABORT,
   describeTermination,
@@ -81,11 +82,17 @@ export async function streamChatResponse(
 
   let fullResponse = "";
   let finalResponse = "";
-  // Counters and flags for this user turn, in one owner. The budget's limits
-  // come from configuration; everything else resets with the next prompt.
-  const state = createTurnState(turnBudgetLimits);
   /** The cache slot this turn's requests share, and the scope of the prefix memory. */
   const promptCacheKey = currentPromptCacheKey();
+  // Counters and flags for this user turn, in one owner. The budget's limits
+  // come from configuration and the system prompt series is borrowed from the
+  // session-scoped registry (so a new turn does not rewrite the cached head);
+  // everything else resets with the next prompt.
+  const state = createTurnState(
+    turnBudgetLimits,
+    promptCacheKey,
+    runOverrides?.systemMessage,
+  );
 
   /**
    * End the turn, tell the caller why, and return the text produced so far.
@@ -343,9 +350,10 @@ export async function streamChatResponse(
         ...callbacks,
         onTailReminder: (toolName, argumentsJson) => {
           const notes = [
-            state.contextBudget.reminder(
-              model.defaultCompletionOptions?.contextLength,
-            ),
+            // Same source as every other window read: the model-level
+            // contextLength must reach the context notice too, not just
+            // defaultCompletionOptions.
+            state.contextBudget.reminder(getModelContextLimit(model)),
             state.todoReminder.recordToolResult(
               toolName,
               readTodoState().todos,

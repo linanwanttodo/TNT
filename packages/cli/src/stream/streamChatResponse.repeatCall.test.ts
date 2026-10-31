@@ -63,6 +63,7 @@ vi.mock("../session/index.js", () => ({
 vi.mock("../utils/tokenizer.js", () => ({
   countChatHistoryItemTokens: vi.fn(() => 100),
   validateContextLength: vi.fn(() => ({ isValid: true })),
+  getModelContextLimit: vi.fn(() => 200_000),
 }));
 
 vi.mock("../telemetry/telemetryService.js", () => ({
