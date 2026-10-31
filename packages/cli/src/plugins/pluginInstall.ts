@@ -4,6 +4,7 @@ import path from "path";
 import { t } from "../i18n/index.js";
 
 import { getPluginCacheDirectory } from "./directories.js";
+import { invalidatePluginCache } from "./loader.js";
 import { parseMarketplaceManifest } from "./marketplaceManager.js";
 import {
   loadInstalledPlugins,
@@ -249,6 +250,7 @@ export async function installPlugin(
     gitCommitSha,
   });
 
+  invalidatePluginCache();
   return { id, installPath: target, version, gitCommitSha, reused: false };
 }
 
@@ -355,5 +357,7 @@ export async function installPluginWithDependencies(
 }
 
 export function uninstallPlugin(id: string): number {
-  return removePluginInstallation(id);
+  const removed = removePluginInstallation(id);
+  invalidatePluginCache();
+  return removed;
 }
