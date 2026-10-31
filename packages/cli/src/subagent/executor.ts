@@ -6,16 +6,18 @@ import { services } from "../services/index.js";
 import { ModelServiceState } from "../services/types.js";
 import { runAgentTurn } from "../session/controller.js";
 import { getCurrentSession, saveSubagentSession } from "../session/index.js";
+import { getSessionActiveTeam } from "../session/index.js";
+import { loadTeams } from "../team/loader.js";
 import { escapeEvents } from "../utils/cli.js";
 import { logger } from "../utils/logger.js";
 
-import { builtInAgentByName } from "./builtInAgents.js";
 import {
   canDelegate,
   DEFAULT_MAX_SUBAGENT_DEPTH,
   delegationDepthOf,
   resolveChildDepth,
 } from "./depth.js";
+import { resolveDispatchableAgent } from "./get-agents.js";
 import { createChildContext, type AgentRunContext } from "./runContext.js";
 import { type SubAgentVerdict, parseVerdict } from "./verdict.js";
 
@@ -122,17 +124,26 @@ export async function executeSubAgent(
     );
 
     const agentType = subAgent.model?.name ?? "agent";
-    const builtIn = builtInAgentByName(agentType);
+    const activeTeamName = getSessionActiveTeam();
+    const activeTeam = activeTeamName
+      ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
+      : undefined;
+    const dispatchable = resolveDispatchableAgent(
+      agentType,
+      subAgent,
+      activeTeam,
+    );
 
     const childContext = createChildContext(resolvedParent, {
       id: `${resolvedParent.id}:${childDepth}:${agentType}`,
       delegationDepth: childDepth,
       systemMessage,
       abortSignal: abortController.signal,
-      // A built-in role declares what it may not do; a configured agent keeps
-      // whatever the session allowed, as it did before this existed.
-      restriction: builtIn?.restriction,
-      deniedTools: builtIn?.deniedTools,
+      // A built-in role or a team member declares what it may not do; a plain
+      // configured agent keeps whatever the session allowed, as it did before
+      // this existed.
+      restriction: dispatchable?.restriction,
+      deniedTools: dispatchable?.deniedTools,
     });
 
     const agentId = childContext.id;

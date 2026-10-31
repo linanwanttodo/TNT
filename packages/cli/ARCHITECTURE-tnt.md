@@ -157,8 +157,14 @@ The prefix is assembled in build order, each part announced so it can be attribu
   split holds: adding and removing an untracked file no longer moves any of the four digests, while
   rewording one clause in `base` moves all of them.
 
+- **Prefix changelog, 2026-10-31:** the `Subagent` tool's `parameters.properties`
+  gained the advisory `files` array (keyed parallelism, Task 2 of the team plan) and the
+  `subagent_name` property description moved into the tool file. Digest
+  `e691729a9be4f3a9`/32559 characters became `e643e3597265f28b` over 40 tools and 32838
+  characters - 279 characters of schema, a one-time cold start per session.
+
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `e691729a9be4f3a9` over 40 tools and 32559 characters (name + description + parameter schema, in
+  `e643e3597265f28b` over 40 tools and 32838 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the

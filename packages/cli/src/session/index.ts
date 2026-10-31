@@ -734,6 +734,30 @@ export function getSessionPromptProfile(): string | undefined {
 }
 
 /**
+ * The /team roster activated for this session, by name. The dispatch chain
+ * reads it to widen the list of agents a model may delegate to, and the
+ * system message reads it to inject the roster's lead prompt. In-memory
+ * session state (v1): it survives a resume through the session store but
+ * nothing outside the session sets it.
+ */
+export function getSessionActiveTeam(): string | undefined {
+  const chosen = SessionManager.getInstance().getCurrentSession().activeTeam;
+  return chosen?.trim() || undefined;
+}
+
+export function setSessionActiveTeam(name: string | undefined): void {
+  const manager = SessionManager.getInstance();
+  const session = manager.getCurrentSession();
+  const normalized = name?.trim();
+  if (normalized) {
+    session.activeTeam = normalized;
+  } else {
+    delete session.activeTeam;
+  }
+  manager.updateHistory(session.history);
+}
+
+/**
  * Stored on the session like the output style, so a resumed conversation is
  * still in the mode of work it was in, and a new session starts at the default
  * rather than inheriting one nobody chose.
