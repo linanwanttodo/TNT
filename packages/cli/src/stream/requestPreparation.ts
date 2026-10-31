@@ -19,6 +19,16 @@ import { validateContextLength } from "../utils/tokenizer.js";
 import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
 
+import { encode } from "gpt-tokenizer";
+
+import {
+  countChatHistoryItemTokens,
+  countToolDefinitionTokens,
+  getModelContextLimit,
+  getModelMaxTokens,
+} from "../utils/tokenizer.js";
+import { calculateMaxOutputTokens } from "core/util/contextPolicy.js";
+
 /**
  * The pre-request phase of one round: compact if the window is full, then say
  * whether the prefix this request sends can still be read from the provider's
@@ -141,35 +151,62 @@ export function pruneHistoryToContextLimit(options: {
 
   // Safety buffer to account for tokenization estimation errors
   const SAFETY_BUFFER = 100;
-  const systemMessageHistory = systemMessageUpdates.map((content) => ({
-    message: { role: "system" as const, content },
-    contextItems: [],
-  }));
 
-  let validation = validateContextLength({
-    chatHistory: [...history, ...systemMessageHistory],
-    model,
-    safetyBuffer: SAFETY_BUFFER,
-    systemMessage,
-    tools,
-  });
+  // Fixed parts of the count, computed once: re-tokenizing the system message
+  // and the tool list per prune would be wasted work, since pruning only
+  // removes history items. The in-history updates are separate messages the
+  // request really sends, so they count here even though pruning never
+  // touches them (per message: content + role overhead + the per-item
+  // structure overhead the history count would have added).
+  const systemTokens = systemMessage ? encode(systemMessage).length + 4 : 0;
+  const updateTokens = systemMessageUpdates.reduce(
+    (sum, content) => sum + encode(content).length + 5,
+    0,
+  );
+  const toolTokens = tools?.length ? countToolDefinitionTokens(tools) : 0;
+  // Per-item counts are computed once too. validateContextLength re-encodes
+  // the whole history, which made the prune loop quadratic on long sessions;
+  // subtracting the dropped item's own count keeps the same arithmetic at
+  // O(n) after the first pass.
+  const itemTokens = history.map(
+    (item) => countChatHistoryItemTokens(item, model) + 3,
+  );
+  const historyTokens = itemTokens.reduce((sum, n) => sum + n, 0);
+  const contextLimit = getModelContextLimit(model);
+  const configuredMaxTokens = getModelMaxTokens(model);
+  const totalWith = (tokens: number) => {
+    const reservedForOutput = calculateMaxOutputTokens(
+      contextLimit,
+      tokens,
+      configuredMaxTokens,
+      Math.max(SAFETY_BUFFER, 64),
+    );
+    return {
+      reservedForOutput,
+      isValid:
+        reservedForOutput > 0 &&
+        tokens + reservedForOutput + SAFETY_BUFFER <= contextLimit,
+      maxTokens: reservedForOutput,
+    };
+  };
+
+  const fixedTokens = systemTokens + updateTokens + toolTokens;
+  let historyCount = historyTokens;
+  let validation = totalWith(historyCount + fixedTokens);
   while (history.length > 1 && !validation.isValid) {
     const prunedChatHistory = pruneLastMessage(history);
     if (prunedChatHistory.length === history.length) {
       break;
     }
+    historyCount -= itemTokens[history.length - 1] ?? 0;
     history = prunedChatHistory;
-    validation = validateContextLength({
-      chatHistory: [...history, ...systemMessageHistory],
-      model,
-      safetyBuffer: SAFETY_BUFFER,
-      systemMessage,
-      tools,
-    });
+    validation = totalWith(historyCount + fixedTokens);
   }
   if (!validation.isValid) {
     throw new Error(
-      t("stream.contextValidationFailed", { error: String(validation.error) }),
+      t("stream.contextValidationFailed", {
+        error: "the pruned history still exceeds the context limit",
+      }),
     );
   }
 
