@@ -675,6 +675,11 @@ export class SessionStore {
 
     if (records.length > 0) {
       this.appendRecords(session.sessionId, records);
+    } else {
+      // Nothing changed in the transcript, so the metadata cache is already
+      // accurate: a redundant saveSession() must not pay a statSync plus an
+      // atomic rewrite, and updatedAt stays the time of the last real change.
+      return;
     }
 
     const meta = this.buildMeta(session, previous.meta.source, previous.meta);

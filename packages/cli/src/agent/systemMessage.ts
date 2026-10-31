@@ -33,16 +33,22 @@ export const RULES_PREAMBLE =
   "These instructions come from the user's own files for this project and override how you would otherwise choose to work. Follow each one. Where two of them conflict, the one closer to the project and to the file being changed wins; say which you followed when the choice mattered. When a request cannot be met under them, say so instead of quietly dropping the rule.";
 
 /**
- * Check if current directory is a git repository
+ * Check if current directory is a git repository. Memoized per process: the
+ * answer cannot change while the CLI runs, and re-running it per round would
+ * cost one subprocess per round on the prefix's critical path.
  */
 function isGitRepo(): boolean {
-  try {
-    execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
+  if (gitRepoChecked === undefined) {
+    try {
+      execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
+      gitRepoChecked = true;
+    } catch {
+      gitRepoChecked = false;
+    }
   }
+  return gitRepoChecked;
 }
+let gitRepoChecked: boolean | undefined;
 
 // A large tree can be thousands of entries, and this block rides along with
 // every request in the session, so it is bounded and says what it dropped.
@@ -71,22 +77,30 @@ export function formatGitStatus(raw: string): string {
 }
 
 /**
- * Get git status
+ * Get git status. Cached per process: the block's own wording promises the
+ * model a snapshot from the start of the conversation, and re-running the
+ * subprocess per round would both betray that promise and move the cached
+ * prefix whenever the user touches a file mid-session.
  */
 function getGitStatus(): string {
-  try {
-    if (!isGitRepo()) {
-      return "Not a git repository";
+  if (gitStatusSnapshot === undefined) {
+    try {
+      if (!isGitRepo()) {
+        gitStatusSnapshot = "Not a git repository";
+      } else {
+        const result = execSync("git status --porcelain", {
+          encoding: "utf-8",
+          cwd: process.cwd(),
+        });
+        gitStatusSnapshot = formatGitStatus(result);
+      }
+    } catch {
+      gitStatusSnapshot = "Git status not available";
     }
-    const result = execSync("git status --porcelain", {
-      encoding: "utf-8",
-      cwd: process.cwd(),
-    });
-    return formatGitStatus(result);
-  } catch {
-    return "Git status not available";
   }
+  return gitStatusSnapshot;
 }
+let gitStatusSnapshot: string | undefined;
 
 const baseSystemMessage = `You are an agent in TNT. Given the user's prompt, you should use the tools available to you to answer the user's question.
 
@@ -157,6 +171,20 @@ never stage anything in it, never remove that ignore rule.`;
  * one thing the cached prefix is supposed to survive. It is its own volatile
  * section now, and it is appended last, so it moves the tail only.
  */
+/**
+ * The session's start date, frozen for the process. The environment section is
+ * part of the volatile tail, but a midnight rollover would still rewrite it
+ * mid-session and rebill the tail every round of a long-running CLI, so the
+ * date is the day the session started, which is also the honest one.
+ */
+function sessionDate(): string {
+  if (sessionStartDate === undefined) {
+    sessionStartDate = new Date().toISOString().split("T")[0];
+  }
+  return sessionStartDate;
+}
+let sessionStartDate: string | undefined;
+
 export function environmentSection(): string {
   return `
 Here is useful information about the environment you are running in:
@@ -164,7 +192,7 @@ Here is useful information about the environment you are running in:
 Working directory: ${process.cwd()}
 Is directory a git repo: ${isGitRepo()}
 Platform: ${process.platform}
-Today's date: ${new Date().toISOString().split("T")[0]}
+Today's date: ${sessionDate()}
 </env>
 
 As you answer the user's questions, you can use the following context:

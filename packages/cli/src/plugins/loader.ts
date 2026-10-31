@@ -605,9 +605,38 @@ function loadPluginLspServers(plugins: LoadedPlugin[]): PluginLspServer[] {
  * Load every installed plugin and project it onto the subsystems TNT already
  * has. Failures are contained: a broken plugin is skipped and logged rather
  * than taking down startup.
+ *
+ * The result is memoized against a fingerprint of the plugin cache roots'
+ * directory trees, because the call sites sit on the per-round critical path
+ * (the system message's output style, the subagent roster, the hook table):
+ * re-walking every plugin directory several times a round is wasted I/O.
+ * Installing or uninstalling changes the fingerprint and triggers a reload;
+ * `invalidatePluginCache` covers anything else that mutates plugin files.
  */
+let pluginCache: { fingerprint: string; result: PluginLoadResult } | null =
+  null;
+
+function fingerprintSearchRoots(roots: string[]): string {
+  const parts: string[] = [];
+  for (const root of roots) {
+    try {
+      const stat = fs.statSync(root);
+      parts.push(`${root}:${stat.mtimeMs}:${stat.size}`);
+    } catch {
+      parts.push(`${root}:missing`);
+    }
+  }
+  return parts.join("|");
+}
+
 export function loadAllPlugins(): PluginLoadResult {
-  const installed = discoverInstalledPlugins(getPluginSearchRoots());
+  const roots = getPluginSearchRoots();
+  const fingerprint = fingerprintSearchRoots(roots);
+  if (pluginCache && pluginCache.fingerprint === fingerprint) {
+    return pluginCache.result;
+  }
+
+  const installed = discoverInstalledPlugins(roots);
   // Installing is not enabling: a settings list decides which of them may load.
   const { plugins, disabledPlugins, unknownEnabledPlugins } =
     applyPluginEnablement(installed);
@@ -615,7 +644,7 @@ export function loadAllPlugins(): PluginLoadResult {
   // plugin contributes defaults, below every settings file.
   setPluginSettingsBase(mergePluginSettings(plugins));
 
-  return {
+  const result: PluginLoadResult = {
     plugins,
     hooks: loadPluginHooks(plugins),
     commands: loadPluginCommands(plugins),
@@ -627,4 +656,14 @@ export function loadAllPlugins(): PluginLoadResult {
     disabledPlugins,
     unknownEnabledPlugins,
   };
+  pluginCache = { fingerprint, result };
+  return result;
+}
+
+/**
+ * Drop the memoized plugin load, for callers that changed a plugin's files in
+ * place (the fingerprint only watches the roots' directory entries).
+ */
+export function invalidatePluginCache(): void {
+  pluginCache = null;
 }
