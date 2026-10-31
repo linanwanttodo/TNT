@@ -52,11 +52,21 @@ function teamSearchRoots(cwd: string): {
 /**
  * The result is memoized against a fingerprint of the roster roots, because
  * the loader sits on the per-round critical path (the dispatch chain and the
- * /team listing). Adding or removing a roster file changes the fingerprint and
- * triggers a reload; invalidateTeamCache covers anything else that mutates the
- * files in place.
+ * /team listing). Adding, removing or rewriting a roster file changes the
+ * fingerprint and triggers a reload; /team invalidates the cache explicitly
+ * for anything else.
  */
 let teamCache: { fingerprint: string; result: TeamDefinition[] } | null = null;
+
+function fingerprintMemberFile(memberPath: string): string {
+  try {
+    const memberStat = fs.statSync(memberPath);
+    if (!memberStat.isFile()) return `${memberPath}:skipped`;
+    return `${memberPath}:${memberStat.mtimeMs}:${memberStat.size}`;
+  } catch {
+    return `${memberPath}:missing`;
+  }
+}
 
 function fingerprintRoots(roots: { dir: string }[]): string {
   const parts: string[] = [];
@@ -64,6 +74,16 @@ function fingerprintRoots(roots: { dir: string }[]): string {
     try {
       const stat = fs.statSync(dir);
       parts.push(`${dir}:${stat.mtimeMs}:${stat.size}`);
+      // The roots' own stats do not move when a roster file inside a team
+      // directory is edited in place, so the member files themselves are
+      // fingerprinted one level down.
+      for (const teamName of sortedDirEntries(dir)) {
+        const teamDir = path.join(dir, teamName);
+        if (!fs.statSync(teamDir).isDirectory()) continue;
+        for (const file of sortedDirEntries(teamDir)) {
+          parts.push(fingerprintMemberFile(path.join(teamDir, file)));
+        }
+      }
     } catch {
       parts.push(`${dir}:missing`);
     }
@@ -172,11 +192,14 @@ function sortedDirEntries(dir: string): string[] {
 }
 
 /**
- * Load every team roster, default teams first and user rosters layered on top.
- * A team with no lead member is dropped with a warning rather than handed to
- * the dispatch chain, which expects exactly one.
+ * Load every file-based roster as-is, lead included even when a team has none
+ * or several: the callers apply the lead contract — loadFileTeams to
+ * standalone teams with a warning, loadTeams after merging over the defaults,
+ * where a default lead can supply the one the roster lacks.
  */
-function loadAllTeams(cwd: string): TeamDefinition[] {
+function loadAllTeams(cwd: string): (TeamDefinition & {
+  lead: TeamMember | undefined;
+})[] {
   const roots = teamSearchRoots(cwd);
   const byTeam = new Map<string, Map<string, TeamMember>>();
 
@@ -202,16 +225,10 @@ function loadAllTeams(cwd: string): TeamDefinition[] {
     }
   }
 
-  const teams: TeamDefinition[] = [];
+  const teams: (TeamDefinition & { lead: TeamMember | undefined })[] = [];
   for (const [teamName, members] of byTeam) {
     const list = [...members.values()];
     const leads = list.filter((member) => member.lead);
-    if (leads.length !== 1) {
-      logger.warn(
-        `Team ${teamName} has ${leads.length} lead members: skipping the team`,
-      );
-      continue;
-    }
     teams.push({ name: teamName, members: list, lead: leads[0] });
   }
   return teams.sort((a, b) => a.name.localeCompare(b.name));
@@ -223,7 +240,56 @@ function loadAllTeams(cwd: string): TeamDefinition[] {
  * applies to; loadTeams layers the defaults on top.
  */
 export function loadFileTeams(cwd: string): TeamDefinition[] {
-  return loadAllTeams(cwd);
+  return loadAllTeams(cwd).flatMap((team) => {
+    const leadCount = team.members.filter((member) => member.lead).length;
+    if (leadCount === 1) return [team];
+    if (leadCount === 0) {
+      logger.warn(`Team ${team.name} has no lead member: skipping the team`);
+    } else {
+      logger.warn(
+        `Team ${team.name} has ${leadCount} lead members: skipping the team`,
+      );
+    }
+    return [];
+  });
+}
+
+/**
+ * Layer a file-defined team over a compiled-in default of the same name: a
+ * roster member with the same name replaces the built-in one (the user copy
+ * wins). A roster lead replaces the default lead outright, since the file's
+ * roster redefines who leads; without one the default lead keeps the team
+ * dispatchable. A merged team with none or several leads is skipped with a
+ * warning, like a standalone one.
+ */
+function mergeDefaultTeam(
+  def: TeamDefinition,
+  file: TeamDefinition & { lead: TeamMember | undefined },
+): TeamDefinition | undefined {
+  const fileLeads = file.members.filter((member) => member.lead);
+  const members = new Map(
+    def.members
+      .filter((member) => !(member.lead && fileLeads.length > 0))
+      .map((member) => [member.name, member]),
+  );
+  for (const member of file.members) {
+    if (members.has(member.name)) {
+      logger.warn(
+        `duplicate team member ${member.name} in team ${def.name}: the roster entry replaces the default`,
+      );
+    }
+    members.set(member.name, member);
+  }
+
+  const list = [...members.values()];
+  const leads = list.filter((member) => member.lead);
+  if (leads.length !== 1) {
+    logger.warn(
+      `Team ${def.name} has ${leads.length} lead members after merging the roster: skipping the team`,
+    );
+    return undefined;
+  }
+  return { name: def.name, members: list, lead: leads[0] };
 }
 
 export function loadTeams(cwd: string): TeamDefinition[] {
@@ -232,7 +298,34 @@ export function loadTeams(cwd: string): TeamDefinition[] {
   if (teamCache && teamCache.fingerprint === fingerprint) {
     return teamCache.result;
   }
-  const result = [...loadAllTeams(cwd), ...DEFAULT_TEAMS];
+  const fileTeams = loadAllTeams(cwd);
+  const fileByName = new Map(fileTeams.map((team) => [team.name, team]));
+  const result: TeamDefinition[] = [];
+  for (const def of DEFAULT_TEAMS) {
+    const file = fileByName.get(def.name);
+    if (!file) {
+      result.push(def);
+      continue;
+    }
+    fileByName.delete(def.name);
+    const merged = mergeDefaultTeam(def, file);
+    if (merged) {
+      result.push(merged);
+    }
+  }
+  for (const team of fileByName.values()) {
+    const leadCount = team.members.filter((member) => member.lead).length;
+    if (leadCount === 1) {
+      result.push(team);
+    } else if (leadCount === 0) {
+      logger.warn(`Team ${team.name} has no lead member: skipping the team`);
+    } else {
+      logger.warn(
+        `Team ${team.name} has ${leadCount} lead members: skipping the team`,
+      );
+    }
+  }
+  result.sort((a, b) => a.name.localeCompare(b.name));
   teamCache = { fingerprint, result };
   return result;
 }

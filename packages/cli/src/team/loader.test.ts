@@ -173,7 +173,8 @@ deniedTools: Exit, AskQuestion
   it("sees a file added after invalidateTeamCache", () => {
     const dev = () => getTeam("dev", projectDir);
     writeMember(projectDir, "dev", "lead.md", LEAD_MEMBER, "lead body");
-    expect(dev()!.members).toHaveLength(1);
+    // The file lead replaces the default lead outright.
+    expect(dev()!.lead.name).toBe("lead");
 
     invalidateTeamCache();
     writeMember(
@@ -186,7 +187,64 @@ team: dev
 `,
       "second body",
     );
-    expect(dev()!.members).toHaveLength(2);
+    expect(dev()!.members.find((m) => m.name === "second")?.systemMessage).toBe(
+      "second body",
+    );
+  });
+
+  it("sees an in-place edit inside an existing team directory without invalidateTeamCache", () => {
+    const dev = () => getTeam("dev", projectDir);
+    writeMember(projectDir, "dev", "lead.md", LEAD_MEMBER, "first body");
+    expect(dev()!.lead.systemMessage).toBe("first body");
+
+    // The roots' own mtime/size do not move when a file inside them changes,
+    // so the fingerprint has to reach one level down or this goes stale.
+    writeMember(projectDir, "dev", "lead.md", LEAD_MEMBER, "second body");
+    expect(dev()!.lead.systemMessage).toBe("second body");
+  });
+
+  it("a file roster without a lead augments the default team, keeping the default lead", () => {
+    const sec = () => getTeam("sec", projectDir);
+    expect(sec()!.lead.name).toBe("security-review");
+
+    writeMember(
+      projectDir,
+      "sec",
+      "verification.md",
+      `name: verification
+description: User's own verifier
+team: sec
+lead: false
+`,
+      "user verifier body",
+    );
+    expect(sec()!.lead.name).toBe("security-review");
+    expect(sec()!.members.find((m) => m.name === "verification")!.source).toBe(
+      "project",
+    );
+  });
+
+  it("a user roster entry replaces a same-named default member with a warning", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    // "verification" is a member of the compiled-in sec team.
+    writeMember(
+      projectDir,
+      "sec",
+      "verification.md",
+      `name: verification
+description: User's own verifier
+team: sec
+lead: false
+`,
+      "user verifier body",
+    );
+
+    const sec = loadTeams(projectDir).find((team) => team.name === "sec");
+    expect(sec).toBeDefined();
+    const verifiers = sec!.members.filter((m) => m.name === "verification");
+    expect(verifiers).toHaveLength(1);
+    expect(verifiers[0].source).toBe("project");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("duplicate"));
   });
 });
 
