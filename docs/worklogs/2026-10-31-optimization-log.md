@@ -76,10 +76,20 @@
 
 **验证：** src/session + ChatHistoryService + ui/hooks 共 21 文件 193 项全绿（含新增第 12 条测试），tsc 通过。
 
+### 7. headless 懒加载 TUI-only 服务（commit c667c5606）
+
+**做了什么：** `services/index.ts` 的 `initializeServices` 在 headless 模式（`-p`、ACP worker、review worker）只急切加载核心九项（API_CLIENT、AGENT_FILE、CONFIG、MODEL、MCP、TOOL_PERMISSIONS、SYSTEM_MESSAGE、CHAT_HISTORY、HOOKS）；FILE_INDEX、GIT_AI_INTEGRATION、QUIZ、RESOURCE_MONITORING、STORAGE_SYNC 留给首次请求时加载。TUI 保持全量急切初始化。顺带把 `headless` 传给 `updateService.initialize()`（其 `doInitialize(headless?)` 本就支持，用于跳过自动更新网络检查，但一直没接到）。
+
+**为什么：** 逐个查了急切集的成本：FILE_INDEX 启动即全工作区 fdir 爬取（1 秒超时竞速），但唯一消费方是 TUI 的 @ 文件搜索（FileSearchUI/UserInput）；GIT_AI 启动即 `exec("git-ai --version")` 子进程探测，消费方 tools/index.tsx 直接走实例且对未探测状态（null）天然安全；QUIZ/STORAGE_SYNC 无 headless 用途。这些在 headless 下是纯启动延迟。
+
+**依据来源：** pi 的按需初始化（surface 不需要的服务不启动）；claude-code 的 headless 冷启动优先（首 token 延迟优先于后台完备性）。
+
+**验证：** src/services + acp + review + commands 共 77 文件 662 项全绿，tsc 通过。MCP headless 握手语义未动（MCP 在核心九项里，headless 仍等握手并在失败时报错）。
+
 ## 待办（按报告优先级）
 
 - P0（已确认就位，无需改）：DeepSeek usage 归一（openai-adapters/util.ts normalizeUsage 已认 `prompt_cache_hit_tokens`，OpenAI.ts 两条路径已接入，有测试）
-- P2：14 个服务启动期急切初始化；headless 阻塞 MCP 握手
+- P2（已完成）：14 个服务启动期急切初始化——见第 7 项；headless 仍阻塞 MCP 握手（属 `-p` 的语义需求：工具清单要先于首请求确定，故保留）
 - /team 专家团 v1（等设计评审）：六个人格进 builtInAgents.ts，Claude Code 的开发能力作为提示词与 agent 循环纪律的主要参考；Codex 的 UI 设计能力、pi 的纯净性为辅。
 
 ---
