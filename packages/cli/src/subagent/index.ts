@@ -22,6 +22,12 @@ export const SUBAGENT_TOOL_META: Tool = {
         type: "string",
         description: "The type of specialized agent to use for this task.",
       },
+      files: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "The paths this agent will read or write. Subagent calls whose file scopes do not overlap may run in parallel; scopes that overlap are serialized. Omit to run exclusively, serialized against every other subagent.",
+      },
     },
   },
   run: async () => "",
