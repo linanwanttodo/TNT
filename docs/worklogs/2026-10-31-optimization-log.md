@@ -150,3 +150,27 @@ turnState 的 import 排序），属既有欠账，与 base commit 229ca4ba3 一
 HEAD 还原被覆盖的跟踪文件、删除 stash 引入的未跟踪文件、从备份恢复 worklog
 的 Task 1 条目；stash@{0} 本身未被改动。随后重做 Task 2 三处修改并重跑了
 RED→GREEN 与回归套件。
+
+### 10. /team v1 Task 3：TeamService 名册加载（commit 见 git log）
+
+**做了什么：** 新增 `packages/cli/src/team/loader.ts`——三层名册（项目
+`.tnt/teams/` > 全局 `<continueHome>/teams/` > 默认 TS 常量）合并；`TeamMember`
+/`TeamDefinition` 形状（含 `builtInRef` 预留位由 Task 4 使用）；frontmatter 解析
+复用 `@tnt/config-yaml` 的 `parseMarkdownRule`（YAML 解析，字段按 untyped record
+读取）；mtime 指纹 memoize + `invalidateTeamCache()` 照 plugins/loader.ts
+4ebaf9ec9 的模式；无 lead 或多 lead 的团队告警跳过；坏 frontmatter/缺 name 告警
+跳过。`services/types.ts` SERVICE_NAMES 加 `TEAM: "team"`。占位
+`defaultTeams.ts`（空数组，Task 4 填充）。
+
+**为什么：** /team 设计第二部分。memoize 因加载点在每轮关键路径（派发查询链与
+/team 列表）。lead 校验因派发链与领队注入都依赖"恰好一个领队"。
+
+**依据来源：** spec 第二部分（名册格式与三层优先级、taken-set 语义）；
+plugins/loader.ts 的逐行扫描与指纹缓存模式；`TNT_GLOBAL_DIR` 为全局目录唯一
+override 名（globalDir.ts 注释）。
+
+**验证：** TDD RED（6 条测试在模块不存在时失败）→ GREEN 6/6；
+`npx tsc --noEmit` 通过；测试中途发现并修复实现 bug（loadMembersFromDir 多套
+一层目录遍历，把成员文件当子目录读——被 "sees a file added after invalidateTeamCache"
+测试抓住）。全局层目录布局为 `<TNT_GLOBAL_DIR>/teams/<team>/`（无 `.tnt` 中段，
+continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
