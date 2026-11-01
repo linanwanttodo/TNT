@@ -1,0 +1,228 @@
+/*
+ * Theme tokens for the TNT web ui.
+ *
+ * The values are the ones the Claude Code desktop shell renders with, read
+ * off a 1x capture of the reference: a near-black canvas, a slightly darker
+ * sidebar, one clay accent, and a warm gray scale that never reaches pure
+ * white or pure black. Dark is the default because that is the shell's
+ * native appearance; the light block keeps the same relationships.
+ */
+:root,
+:root[data-theme="dark"] {
+  /* Surfaces */
+  --dsw-alias-bg-base: #1c1c1c;
+  --dsw-alias-bg-layer-1: #181818;
+  --dsw-alias-bg-layer-2: #262626;
+  --dsw-alias-bg-layer-3: #3a3a3a;
+  --dsw-alias-bg-overlay: #2c2c2b;
+
+  /* Borders */
+  --dsw-alias-border-l1: #303030;
+  --dsw-alias-border-l2: #333333;
+  --dsw-alias-border-l3: #3c3c3c;
+
+  /* Accent */
+  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-text: #faf9f5;
+  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-hover: #c6613f;
+  --dsw-alias-button-elevated-fill: #3a3a3a;
+  --dsw-alias-button-floating-fill: #2c2c2b;
+  --dsw-alias-button-floating-hover: #3a3a3a;
+  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-hover: #c6613f;
+
+  /* Interaction */
+  --dsw-alias-interactive-bg-active: rgba(217, 119, 87, 0.3);
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.08);
+  --dsw-alias-interactive-bg-hover-solid: #3a3a3a;
+  --dsw-alias-interactive-bg-hover-danger: rgba(229, 83, 75, 0.12);
+
+  /* Labels */
+  --dsw-alias-label-primary: #f0efec;
+  --dsw-alias-label-primary-foreground: #141413;
+  --dsw-alias-label-secondary: #c3c2b7;
+  --dsw-alias-label-tertiary: #888680;
+  --dsw-alias-label-caption: #6b6a65;
+  --dsw-alias-label-shimmer: color-mix(in srgb, #f0efec 45%, transparent);
+
+  /* State */
+  --dsw-alias-state-success-primary: #8cbf96;
+  --dsw-alias-state-warn-primary: #e2a45f;
+  --dsw-alias-state-warn-secondary: #57452a;
+  --dsw-alias-state-warn-tertiary: #2e2718;
+  --dsw-alias-state-warn-label: #e2a45f;
+  --dsw-alias-state-error-primary: #e5534b;
+  --dsw-alias-state-error-secondary: #5a332f;
+  --dsw-alias-state-error-tertiary: #331f1d;
+  --dsw-alias-state-idle-primary: #888680;
+  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-tertiary: #3a2a22;
+  --dsw-alias-link: #e08a6d;
+
+  /* Markdown */
+  --dsw-alias-markdown-code-block: #181818;
+  --dsw-alias-markdown-code-block-banner: #262626;
+  --dsw-alias-markdown-inline-code: rgba(255, 255, 255, 0.05);
+
+  /* Shell specifics */
+  --dsw-specific-bubble: rgba(255, 255, 255, 0.06);
+  --dsw-specific-input-major: #252524;
+  --dsw-specific-selector: #3a3a3a;
+  --dsw-specific-sidebar-fill: #181818;
+  --dsw-specific-menu: #2c2c2b;
+  --dsw-shadow-lv2:
+    0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.14);
+
+  /* Claude surfaces */
+  --dsh-claude-canvas: #1c1c1c;
+  --dsh-claude-sidebar-canvas: #181818;
+  --dsh-claude-card: #262626;
+  --dsh-claude-chip: #2c2c2b;
+  --dsh-claude-hover-bg: rgba(255, 255, 255, 0.08);
+  --dsh-claude-inline-code-bg: rgba(255, 255, 255, 0.05);
+  --dsh-claude-inline-code-fg: #e8a08a;
+  --dsh-claude-link: #8ab4f8;
+  --dsh-claude-link-underline: rgba(138, 180, 248, 0.6);
+  --dsh-claude-table-head: #262626;
+  --dsh-claude-scrollbar: rgba(88, 86, 80, 0.9);
+  --dsh-claude-scrollbar-hover: rgba(136, 134, 128, 0.9);
+  --dsh-claude-inverse-fill: #f0efec;
+  --dsh-claude-inverse-ink: #141413;
+
+  /*
+   * Shell tokens: the pieces the reference draws that no alias covers.
+   */
+  --dsh-shell-segment-fill: #262626;
+  --dsh-shell-segment-active: #3c3c3c;
+  --dsh-shell-row-active: #3a3a3a;
+  --dsh-shell-button-fill: #3a3a3a;
+  --dsh-shell-button-hover: #454545;
+  --dsh-shell-pill-fill: #252524;
+  --dsh-shell-pill-border: #333333;
+  --dsh-shell-window-control: #2c2c2b;
+  --dsh-shell-worktree-fill: #0b2544;
+  --dsh-shell-worktree-ink: #6da5eb;
+  --dsh-shell-branch: #35b148;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --dsw-alias-bg-base: #fcfcfb;
+  --dsw-alias-bg-layer-1: #fbfbf9;
+  --dsw-alias-bg-layer-2: #f2f1ed;
+  --dsw-alias-bg-layer-3: #e9e7e0;
+  --dsw-alias-bg-overlay: #ffffff;
+  --dsw-alias-border-l1: #e8e6dc;
+  --dsw-alias-border-l2: #dedcd2;
+  --dsw-alias-border-l3: #d0cdc1;
+  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-text: #faf9f5;
+  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-hover: #c6613f;
+  --dsw-alias-button-elevated-fill: #ffffff;
+  --dsw-alias-button-floating-fill: #ffffff;
+  --dsw-alias-button-floating-hover: #f2f1ed;
+  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-hover: #c6613f;
+  --dsw-alias-interactive-bg-active: rgba(217, 119, 87, 0.3);
+  --dsw-alias-interactive-bg-hover: rgba(0, 0, 0, 0.08);
+  --dsw-alias-interactive-bg-hover-solid: #f0efec;
+  --dsw-alias-interactive-bg-hover-danger: rgba(179, 38, 30, 0.08);
+  --dsw-alias-label-primary: #141413;
+  --dsw-alias-label-primary-foreground: #faf9f5;
+  --dsw-alias-label-secondary: #6e6a60;
+  --dsw-alias-label-tertiary: #8f8a7e;
+  --dsw-alias-label-caption: #a6a094;
+  --dsw-alias-label-shimmer: color-mix(in srgb, #141413 30%, transparent);
+  --dsw-alias-state-success-primary: #3d7550;
+  --dsw-alias-state-warn-primary: #a4621d;
+  --dsw-alias-state-warn-secondary: #e0c9a0;
+  --dsw-alias-state-warn-tertiary: #f7efe0;
+  --dsw-alias-state-warn-label: #a4621d;
+  --dsw-alias-state-error-primary: #b3261e;
+  --dsw-alias-state-error-secondary: #e7c5c2;
+  --dsw-alias-state-error-tertiary: #f9ecea;
+  --dsw-alias-state-idle-primary: #8f8a7e;
+  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-tertiary: #e9dfd2;
+  --dsw-alias-link: #c6613f;
+  --dsw-alias-markdown-code-block: #ffffff;
+  --dsw-alias-markdown-code-block-banner: #ffffff;
+  --dsw-alias-markdown-inline-code: rgba(0, 0, 0, 0.05);
+  --dsw-specific-bubble: #f0f0ef;
+  --dsw-specific-input-major: #ffffff;
+  --dsw-specific-selector: #fbfbf9;
+  --dsw-specific-sidebar-fill: #fbfbf9;
+  --dsw-specific-menu: #ffffff;
+  --dsw-shadow-lv2:
+    0 4px 18px rgba(20, 20, 19, 0.1), 0 1px 3px rgba(20, 20, 19, 0.05);
+  --dsh-claude-canvas: #fcfcfb;
+  --dsh-claude-sidebar-canvas: #fbfbf9;
+  --dsh-claude-card: #fcfcfb;
+  --dsh-claude-chip: #f6f6f4;
+  --dsh-claude-hover-bg: rgba(0, 0, 0, 0.08);
+  --dsh-claude-inline-code-bg: rgba(0, 0, 0, 0.05);
+  --dsh-claude-inline-code-fg: #943333;
+  --dsh-claude-link: #184f95;
+  --dsh-claude-link-underline: rgba(24, 79, 95, 0.6);
+  --dsh-claude-table-head: #f0f0ef;
+  --dsh-claude-scrollbar: rgba(208, 205, 193, 0.9);
+  --dsh-claude-scrollbar-hover: rgba(143, 138, 126, 0.8);
+  --dsh-claude-inverse-fill: #141413;
+  --dsh-claude-inverse-ink: #faf9f5;
+  --dsh-shell-segment-fill: #f2f1ed;
+  --dsh-shell-segment-active: #e9e7e0;
+  --dsh-shell-row-active: #e9e7e0;
+  --dsh-shell-button-fill: #e9e7e0;
+  --dsh-shell-button-hover: #f0efec;
+  --dsh-shell-pill-fill: #ffffff;
+  --dsh-shell-pill-border: #dedcd2;
+  --dsh-shell-window-control: #e9e7e0;
+  --dsh-shell-worktree-fill: #0b2544;
+  --dsh-shell-worktree-ink: #6da5eb;
+  --dsh-shell-branch: #2f8f3d;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--dsh-claude-canvas);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsh-font-sans);
+  font-size: 13px;
+  line-height: 1.25rem;
+  font-variation-settings: var(--dsh-font-axis-regular);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dsh-claude-scrollbar);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dsh-claude-scrollbar-hover);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

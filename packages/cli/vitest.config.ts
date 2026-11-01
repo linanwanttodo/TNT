@@ -11,6 +11,9 @@ export default defineConfig({
       "**/dist/**",
       "**/*.e2e.*",
       "**/e2e/**",
+      // The webui subapp runs its own suite (npm test inside webui/) under a
+      // jsdom environment; the CLI's node environment cannot render it.
+      "webui/**",
       // The benchmark's fixtures are data: one of them is a test file on
       // purpose, because a spec that names the same symbols as its
       // implementation is exactly the distractor the near-miss track needs.
@@ -27,6 +30,9 @@ export default defineConfig({
         "**/types/**",
         "**/__mocks__/**",
         "eval/retrieval/corpus/",
+        // The webui subapp runs its own jsdom suite inside webui/; counting
+        // its sources here would report them at zero forever.
+        "webui/",
       ],
       // The floor sits a little under the measured numbers (72.9 statements,
       // 82.6 branches, 83.0 functions) so a platform difference does not fail

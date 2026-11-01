@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import http from "http";
+import net from "net";
 import os from "os";
 import path from "path";
 
@@ -26,6 +27,18 @@ const { approveSpy, rejectSpy, startDrainingSpy, requestStopSpy } = vi.hoisted(
     requestStopSpy: vi.fn(),
   }),
 );
+
+const { listSessionsSpy } = vi.hoisted(() => ({
+  listSessionsSpy: vi.fn(async () => [] as unknown[]),
+}));
+
+vi.mock("../session/index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../session/index.js")>();
+  return {
+    ...actual,
+    listSessions: listSessionsSpy,
+  };
+});
 
 vi.mock("../permissions/interactionBroker.js", () => ({
   interactionBroker: {
@@ -197,6 +210,23 @@ describe("WebUiService", () => {
     }
   });
 
+  it("resolves a relative TNT_WEBUI_DIST against the process cwd", async () => {
+    // res.sendFile demands an absolute path, so a relative env value must be
+    // anchored at startup, not at serve time (express.static tolerates the
+    // relative form, which is why the regression only hit GET /).
+    const distDir = fs.mkdtempSync(path.join(process.cwd(), "webui-dist-"));
+    fs.writeFileSync(path.join(distDir, "index.html"), "<html>app</html>");
+    const relative = path.relative(process.cwd(), distDir);
+    try {
+      const { base, auth } = await started({ distDir: relative });
+      const response = await fetch(base, { headers: auth });
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("<html>app</html>");
+    } finally {
+      fs.rmSync(distDir, { recursive: true, force: true });
+    }
+  });
+
   it("answers a pending permission through the interaction broker", async () => {
     const { base, auth } = await started();
 
@@ -290,12 +320,91 @@ describe("WebUiService", () => {
       "isProcessing",
       "messageQueueLength",
       "pendingPermission",
+      "permissionMode",
       "session",
     ]);
     expect(body.isProcessing).toBe(true);
     expect((body.session as { sessionId: string }).sessionId).toBe("session-1");
     expect(body.pendingPermission).toBeNull();
     expect(getSession).toHaveBeenCalled();
+  });
+
+  it("reports the current permission mode from GET /state", async () => {
+    const { base, auth } = await started();
+    const { services } = await import("../services/index.js");
+    services.toolPermissions.switchMode("plan");
+
+    const response = await fetch(`${base}/state`, { headers: auth });
+    const body = (await response.json()) as { permissionMode: string };
+    expect(body.permissionMode).toBe("plan");
+
+    services.toolPermissions.switchMode("default");
+  });
+
+  it("switches the permission mode on POST /permission-mode", async () => {
+    const { base, auth } = await started();
+    const { services } = await import("../services/index.js");
+
+    const response = await fetch(`${base}/permission-mode`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "acceptEdits" }),
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { permissionMode: string };
+    expect(body.permissionMode).toBe("acceptEdits");
+    expect(services.toolPermissions.getState().currentMode).toBe("acceptEdits");
+
+    services.toolPermissions.switchMode("default");
+  });
+
+  it("rejects an unknown permission mode on POST /permission-mode", async () => {
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/permission-mode`, {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "sudo" }),
+    });
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { error: string };
+    expect(body.error).toContain("mode");
+  });
+
+  it("lists the sidebar sessions from GET /sessions", async () => {
+    listSessionsSpy.mockResolvedValueOnce([
+      {
+        sessionId: "session-a",
+        title: "First conversation",
+        workspaceDirectory: "/work/alpha",
+        dateCreated: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+      },
+      {
+        sessionId: "session-b",
+        title: "Second conversation",
+        workspaceDirectory: "/work/beta",
+        dateCreated: "2026-01-03T00:00:00.000Z",
+      },
+    ]);
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/sessions`, { headers: auth });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      sessions: Array<Record<string, unknown>>;
+    };
+
+    expect(body.sessions).toHaveLength(2);
+    expect(body.sessions[0]).toEqual({
+      sessionId: "session-a",
+      title: "First conversation",
+      workspaceDirectory: "/work/alpha",
+      dateCreated: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+    expect(body.sessions[1]?.updatedAt).toBeUndefined();
+    expect(listSessionsSpy).toHaveBeenCalled();
   });
 
   it("reports the first pending permission in GET /state", async () => {
@@ -378,6 +487,36 @@ describe("WebUiService", () => {
 
     const missing = await fetch(`${base}/no/such/route`, { headers: auth });
     expect(missing.status).toBe(404);
+  });
+
+  it("does not serve files outside the dist through the /app prefix", async () => {
+    // fetch normalizes ".." away, so this goes over a raw socket: the guard
+    // must reject sibling dists whose path merely shares the dist's prefix.
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), "webui-dist-"));
+    fs.writeFileSync(path.join(distDir, "index.html"), "<html>app</html>");
+    const siblingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "webui-dist-"));
+    fs.writeFileSync(path.join(siblingRoot, "secret.txt"), "escaped");
+    try {
+      const { handle, base } = await started({ distDir });
+      const { port } = handle;
+      const token = handle.token;
+      const target = path.resolve(siblingRoot).slice(1);
+      const raw = `GET /app/../${target}/secret.txt HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer ${token}\r\nConnection: close\r\n\r\n`;
+      const body = await new Promise<string>((resolve, reject) => {
+        const socket = net.connect(port, "127.0.0.1");
+        socket.on("error", reject);
+        socket.on("connect", () => socket.end(raw));
+        let data = "";
+        socket.on("data", (chunk: Buffer) => {
+          data += chunk.toString();
+        });
+        socket.on("close", () => resolve(data));
+      });
+      expect(body).not.toContain("escaped");
+    } finally {
+      fs.rmSync(distDir, { recursive: true, force: true });
+      fs.rmSync(siblingRoot, { recursive: true, force: true });
+    }
   });
 
   it("probes to the next port when the requested one is taken", async () => {

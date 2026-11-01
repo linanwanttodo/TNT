@@ -15,9 +15,12 @@ import { globalDir } from "../config/globalDir.js";
 import { t } from "../i18n/index.js";
 import { interactionBroker } from "../permissions/interactionBroker.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
+import { PERMISSION_MODES, type PermissionMode } from "../permissions/types.js";
+import { services } from "../services/index.js";
 import {
   getCompleteStateSnapshot,
   getCurrentSession,
+  listSessions,
 } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { logger } from "../utils/logger.js";
@@ -99,10 +102,14 @@ export class WebUiService {
 
     const token = this.resolveToken(options);
 
+    // The sendFile routes need an absolute path (express.static tolerates a
+    // relative one, which is how a relative env value passes unnoticed until
+    // GET / 500s), so anchor every form here.
+    const configuredDist = options.distDir ?? process.env.TNT_WEBUI_DIST;
     const distDir =
-      options.distDir ??
-      process.env.TNT_WEBUI_DIST ??
-      path.resolve(process.cwd(), "node_modules", "tnt-webui", "dist");
+      configuredDist === undefined
+        ? path.resolve(process.cwd(), "node_modules", "tnt-webui", "dist")
+        : path.resolve(process.cwd(), configuredDist);
     const hasDist = fs.existsSync(distDir);
 
     // The gate must register before every route: registerStaticRoutes ends in
@@ -171,14 +178,54 @@ export class WebUiService {
       state.lastActivity = Date.now();
       const session = this.resolveSession(options);
       const pending = this.currentPendingPermission();
-      res.json(
-        getCompleteStateSnapshot(
+      res.json({
+        ...getCompleteStateSnapshot(
           session,
           turnRunnerService.isRunning(),
           messageQueue.getQueueLength(),
           pending,
         ),
-      );
+        permissionMode: services.toolPermissions.getState().currentMode,
+      });
+    });
+
+    // POST /permission-mode - Switch the session's permission mode. The pill
+    // in the status bar posts here when its dropdown picks an entry.
+    app.post("/permission-mode", (req: Request, res: Response) => {
+      state.lastActivity = Date.now();
+
+      const { mode } = req.body ?? {};
+      if (
+        typeof mode !== "string" ||
+        !PERMISSION_MODES.includes(mode as PermissionMode)
+      ) {
+        res.status(400).json({
+          error: `mode must be one of: ${PERMISSION_MODES.join(", ")}`,
+        });
+        return;
+      }
+
+      services.toolPermissions.switchMode(mode as PermissionMode);
+      res.json({
+        permissionMode: services.toolPermissions.getState().currentMode,
+      });
+    });
+
+    // GET /sessions - The conversation list the sidebar renders. The store's
+    // metadata cache carries the title and timestamp, so listing does not
+    // open every transcript.
+    app.get("/sessions", async (_req: Request, res: Response) => {
+      state.lastActivity = Date.now();
+      const sessions = await listSessions();
+      res.json({
+        sessions: sessions.map((session) => ({
+          sessionId: session.sessionId,
+          title: session.title,
+          workspaceDirectory: session.workspaceDirectory,
+          dateCreated: session.dateCreated,
+          updatedAt: session.updatedAt,
+        })),
+      });
     });
 
     // GET /events - Stream the engine event contract as server-sent events.
