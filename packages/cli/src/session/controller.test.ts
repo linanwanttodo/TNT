@@ -93,6 +93,70 @@ describe("session controller", () => {
     expect(events[1]).toMatchObject({ reason: "user_abort" });
   });
 
+  it("reports a normal no-tool-calls ending as completed, not interrupted", async () => {
+    streamChatResponse.mockImplementation(
+      (...args: unknown[]) =>
+        new Promise<string>((resolve) => {
+          const callbacks = args[4] as {
+            onTurnTerminated?: (reason: string) => void;
+          };
+          callbacks?.onTurnTerminated?.("no_tool_calls");
+          resolve("answer");
+        }),
+    );
+    const { events, onEvent } = eventsOf();
+
+    const response = await runAgentTurn({
+      chatHistory: [],
+      model,
+      llmApi,
+      onEvent,
+    });
+
+    expect(response).toBe("answer");
+    expect(events.map((event) => event.type)).toEqual([
+      "turn.started",
+      "turn.completed",
+    ]);
+    expect(events[1]).toMatchObject({ content: "answer" });
+  });
+
+  it("reports a truncated turn as interrupted with its notice", async () => {
+    streamChatResponse.mockImplementation(
+      (...args: unknown[]) =>
+        new Promise<string>((resolve) => {
+          const callbacks = args[4] as {
+            onTurnTerminated?: (
+              reason: string,
+              detail?: { notice?: string },
+            ) => void;
+          };
+          callbacks?.onTurnTerminated?.("max_steps", {
+            notice: "Stopped after reaching the step limit.",
+          });
+          resolve("partial");
+        }),
+    );
+    const { events, onEvent } = eventsOf();
+
+    const response = await runAgentTurn({
+      chatHistory: [],
+      model,
+      llmApi,
+      onEvent,
+    });
+
+    expect(response).toBe("partial");
+    expect(events.map((event) => event.type)).toEqual([
+      "turn.started",
+      "turn.interrupted",
+    ]);
+    expect(events[1]).toMatchObject({
+      reason: "max_steps",
+      notice: "Stopped after reaching the step limit.",
+    });
+  });
+
   it("keeps one turn id and one sequence per run", async () => {
     streamChatResponse.mockResolvedValue("ok");
     const first = eventsOf();
