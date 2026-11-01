@@ -174,3 +174,48 @@ override 名（globalDir.ts 注释）。
 一层目录遍历，把成员文件当子目录读——被 "sees a file added after invalidateTeamCache"
 测试抓住）。全局层目录布局为 `<TNT_GLOBAL_DIR>/teams/<team>/`（无 `.tnt` 中段，
 continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
+
+## 11. 默认专家团（Task 4）
+
+**做了什么：** 新增 `src/team/defaultTeams.ts`，编译进 CLI 的两个默认团队——dev（12 成员：PM 领队 + 需求/架构/实现/测试/审查/UI/文档 8 个自写角色 + debug/shell/explore/best-of-n 4 个内置引用）与 sec（5 成员：security-review 领队内置引用 + 逆向/渗透/验证/shell）。`loadTeams` 把默认团队垫底，用户文件花名册同名覆盖默认。测试 `defaultTeams.test.ts` 钉住花名册名单、每队恰好一个领队、builtInRef 可解析、hacker 提示词含授权边界条款、source/team 标记。
+
+**为什么：** 让全新克隆不配置就有可用的专家团；内置引用（builtInRef）让内置 agent 人格被团队复用而不复制提示词。
+
+**依据：** 计划 Task 4；规格花名册表。计划写"11 成员"是笔误，规格表为 12 个（8 自写 + 4 内置引用），以规格为约束权威，已记入 SDD 台账 Ruling。
+
+**验证：** `npx vitest run src/team` 12/12 通过；`npx eslint src/team/` 无错误；`npx tsc --noEmit` 干净。发现 DEFAULT_TEAMS 非空后 3 个 loader 隔离测试被默认团队污染，为此拆出 `loadFileTeams`（仅文件层）供这些测试使用。
+
+## 12. 派发查询链接线（Task 5）
+
+**做了什么：** `get-agents.ts` 新增 `resolveDispatchableAgent(name, modelState, activeTeam?)`，统一三段查找：ModelService 配置+内置 → 激活团队成员（builtInRef 按内置注册表解析 systemMessage/restriction/deniedTools）→ plugin agent（`plugin:` 前缀查找，默认 no-writes 限制），返回统一 `DispatchableAgent` 形状。`executor.ts` 的 restriction/deniedTools 解析改走它（内置角色的 narrowing 从注册表随身携带，不再二次查找）；list 工具输出追加激活团队成员行，plugin 行改为 `plugin:` 前缀显示（修复"能列出不能派发"缺口——之前列出的是裸名，派发找不到）。会话态：core `Session` 类型与 session store 全链路加 `activeTeam` 标量（与 outputStyle 同形状），`session/index.ts` 暴露 `getSessionActiveTeam`/`setSessionActiveTeam`。
+
+**为什么：** 激活团队后成员要真的可派发，list 输出要即时反映；plugin agent 之前可列出但派发必失败。
+
+**依据：** 计划 Task 5；规格"派发查询链"节。
+
+**验证：** `npx vitest run src/subagent src/tools src/session` 83 文件 678 测试全绿；eslint 我触碰的文件干净；tsc 干净。工具前缀 digest 变化（Subagent schema 加 files 数组）：`e691729a9be4f3a9`/32559 → `e643e3597265f28b`/32838，守卫测试与 ARCHITECTURE-tnt.md changelog 同步更新，成本为每会话一次冷启动。两个既有 executor 测试的 session mock 补 `getSessionActiveTeam` 导出。
+
+## 13. /team 命令（Task 6）
+
+**做了什么：** 新增 `/team` 内置斜杠命令（`handleTeamCommand`）：无参数列出名册及当前激活态，`/team <name>` 激活（写入会话 activeTeam），`/team off` 关闭，`/team create <name> [--from <file>]` 在 `.tnt/teams/<name>/lead.md` 生成领队模板或从文件导入，写后 `invalidateTeamCache()`。注册进 BUILTIN_SLASH_COMMANDS 与 createCommandHandlers，i18n en/zh 成对补齐，中英文档表格各加一行。
+
+**为什么：** 名册加载器与派发链已就位（条目 11/12），需要一个用户入口来列出、激活团队并生成名册脚手架；激活态沿用 outputStyle handler 的会话标量形状。
+
+**依据：** spec「/team 命令」节（list/activate/off/create 四态；create 拒绝已存在路径）；文档守卫 handlerCoverage 与 slashCommandsDoc 要求三处同步。
+
+**验证：** RED：team.test.ts 6 用例先行失败（模块不存在）；GREEN 后 `vitest run src/ui/commands src/slashCommandsDoc.test.ts src/i18n/unusedKeys.test.ts` → 19 文件 116 用例全绿；prettier/eslint/tsc 通过；提交 6a76606ca。
+
+## 14. 领队注入与主提示词条款（Task 7）及两项回归修复
+
+**做了什么：**
+
+- baseSystemMessage 末尾新增"报告但不修"条款：改动触碰的代码里发现无关 bug 时，最终报告用一小节列出位置与一句话影响，不修、不展开；共享路径上的问题仍须修或上报。systemPrefixFingerprint 四个 digest 同步（61314b4e4101cd8e/5269 → cbe14346d198d77f/5547 等），ARCHITECTURE-tnt.md 补 2026-10-31 prefix changelog。
+- systemMessage.ts 新增 activeTeamLeadBlock()：会话激活团队时，把领队提示词作为 `<context name="team-lead" source="<team>">` 块追加进 volatile 的 userRules 节；无激活团队时不产生该块，激活/关闭只重刷 userRules，不触碰静态 spine。
+- 回归修复一：Task 5 引入了 subagent↔team 环（team/loader 导入 subagent/runContext 的 SubagentRestriction，subagent 又导入 team），architecture.test.ts 守卫红。将类型移到 src/team/restrictions.ts，runContext 重新导出，依赖方向恢复单向。
+- 回归修复二：72f54865b 从 shouldAutoCompact 的 "Context usage check" 日志删掉 historyTokens 但没更新 tokenizer.test.ts 的断言，测试红。按新契约（日志只报 measured/local 的 inputTokens）更新测试。
+
+**为什么：** 条款让派发出去的实现者报告而非顺手修无关 bug（Task 1 纪律第 5 节）；领队注入是 /team 激活的最后一块——激活后主 agent 每轮都读得到领队的工作纪律。两个回归是全量回归（vitest run，509 文件）暴露的既有欠账，不修不能收口。
+
+**依据：** spec「领队注入」节（userRules 汇入、volatile、latch）；systemPrefixFingerprint 守卫要求 digest 与架构文档同步；architecture.test.ts 模块依赖方向守卫。
+
+**验证：** RED：条款断言与 teamInjection 4 用例先行失败；GREEN：src/agent 116 用例全绿；全量 `npx vitest run` → 4040 passed / 0 failed（修复前 2 failed）；tsc/eslint/prettier 通过。提交：4c9db393e（条款）、579e0d866（注入）、1e329ed41（依赖环）、48b1f6fa1（tokenizer 日志断言）。
