@@ -109,6 +109,98 @@ export async function fetchState(): Promise<StateSnapshot> {
   return (await res.json()) as StateSnapshot;
 }
 
+/** Every mode the status-bar dropdown offers; mirrors the server's table. */
+export const PERMISSION_MODES = [
+  "auto",
+  "default",
+  "acceptEdits",
+  "plan",
+  "bypassPermissions",
+  "dontAsk",
+] as const;
+
+export type PermissionMode = (typeof PERMISSION_MODES)[number];
+
+/**
+ * One dropdown entry: the mode, its label and the one-line description the
+ * reference menu shows under each label.
+ */
+export interface PermissionModeOption {
+  mode: PermissionMode;
+  label: string;
+  description: string;
+}
+
+/** Labels and descriptions copied from the desktop reference menu. */
+export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
+  {
+    mode: "auto",
+    label: "Auto",
+    description: "Claude can modify or delete files without asking",
+  },
+  {
+    mode: "default",
+    label: "Manual",
+    description: "Always ask before making changes",
+  },
+  {
+    mode: "acceptEdits",
+    label: "Accept edits",
+    description: "Automatically accept all file edits",
+  },
+  {
+    mode: "plan",
+    label: "Plan",
+    description: "Create a plan before making changes",
+  },
+  {
+    mode: "bypassPermissions",
+    label: "Bypass permissions",
+    description: "Claude can modify or delete files without asking",
+  },
+];
+
+/**
+ * Switch the session's permission mode.
+ * @returns the mode the server now reports.
+ */
+export async function setPermissionMode(
+  mode: PermissionMode,
+): Promise<PermissionMode> {
+  const res = await fetch("/permission-mode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  if (!res.ok) {
+    throw new Error(`POST /permission-mode failed: ${res.status}`);
+  }
+  const body = (await res.json()) as { permissionMode: PermissionMode };
+  return body.permissionMode;
+}
+
+/** One conversation as the sidebar list renders it. */
+export interface SessionSummary {
+  sessionId: string;
+  title: string;
+  workspaceDirectory: string;
+  dateCreated: string;
+  updatedAt?: string | undefined;
+}
+
+/**
+ * The conversations the sidebar lists, newest first.
+ * @returns the summaries the server reports.
+ */
+export async function fetchSessions(): Promise<SessionSummary[]> {
+  const res = await fetch("/sessions");
+  if (!res.ok) {
+    throw new Error(`GET /sessions failed: ${res.status}`);
+  }
+  const body = (await res.json()) as { sessions: SessionSummary[] };
+  return body.sessions;
+}
+
 export async function sendMessage(text: string): Promise<void> {
   await post("/message", { message: text });
 }

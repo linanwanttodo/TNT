@@ -81,7 +81,7 @@ describe("session store", () => {
     });
   });
 
-  it("permission.requested sets pendingPermission and approve clears it", () => {
+  it("permission.requested sets pendingPermission and approve clears it", async () => {
     dispatch(ev(1, {
       type: "permission.requested", requestId: "r1", toolName: "bash",
       toolArgs: { cmd: "rm" },
@@ -90,7 +90,9 @@ describe("session store", () => {
       requestId: "r1", toolName: "bash",
     });
     useSessionStore.getState().approve(true);
-    expect(useSessionStore.getState().pendingPermission).toBeNull();
+    await vi.waitFor(() =>
+      expect(useSessionStore.getState().pendingPermission).toBeNull(),
+    );
   });
 
   it("turn.interrupted clears waiting and streaming", () => {
@@ -122,5 +124,53 @@ describe("session store", () => {
       role: "user", text: "hi",
     });
     expect(useSessionStore.getState().isWaiting).toBe(true);
+  });
+
+  it("a failed send reverts waiting and records an error", async () => {
+    const { sendMessage } = await import("../api/client.js");
+    (sendMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("POST /message failed: 500"),
+    );
+    await useSessionStore.getState().send("hi");
+    const s = useSessionStore.getState();
+    expect(s.isWaiting).toBe(false);
+    expect(s.items.at(-1)).toMatchObject({ kind: "error" });
+  });
+
+  it("a failed approve keeps the permission pending", async () => {
+    dispatch(ev(1, {
+      type: "permission.requested", requestId: "r1", toolName: "bash",
+      toolArgs: { cmd: "rm" },
+    }));
+    const { approve } = await import("../api/client.js");
+    (approve as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("POST /permission failed: 500"),
+    );
+    await useSessionStore.getState().approve(true);
+    expect(useSessionStore.getState().pendingPermission).toMatchObject({
+      requestId: "r1",
+    });
+  });
+
+  it("hydrate seeds the transcript and a pending permission from /state", () => {
+    useSessionStore.getState().hydrate({
+      history: [
+        { message: { role: "user", content: "list files" } },
+        { message: { role: "assistant", content: "a b c" } },
+      ],
+      pendingPermission: {
+        requestId: "r9", toolName: "bash", toolArgs: { cmd: "ls" },
+        toolCallPreview: [{ text: "ls" }],
+      },
+    });
+    const s = useSessionStore.getState();
+    expect(s.items).toEqual([
+      { kind: "message", role: "user", text: "list files" },
+      { kind: "message", role: "assistant", text: "a b c" },
+    ]);
+    expect(s.pendingPermission).toEqual({
+      requestId: "r9", toolName: "bash", toolArgs: { cmd: "ls" },
+      preview: [{ text: "ls" }],
+    });
   });
 });

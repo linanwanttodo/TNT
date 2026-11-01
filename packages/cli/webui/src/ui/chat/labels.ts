@@ -21,7 +21,9 @@ export const chatLabels = {
   reasoningTitle: "Thinking",
   sendLabel: "Send",
   stopLabel: "Stop",
-  inputPlaceholder: "Message tnt…",
+  inputPlaceholder: "Describe a task or ask a question",
+  autoModeSuggestion: "Turn on auto mode",
+  attachLabel: "Attach a file",
   disconnected: "Connection lost — reconnecting…",
   inputAria: "Message input",
 };

@@ -1,21 +1,32 @@
 /**
- * App shell: sidebar over the conversation canvas, matching the Claude Code
- * Desktop layout the dsh-claude-style skin recreates. The session store is
- * the single source of truth; SSE and POSTs go through the api client.
+ * App shell: the left rail beside the conversation canvas, drawn to the
+ * Claude Code desktop layout. The session store is the single source of truth
+ * for the conversation; SSE and POSTs go through the api client.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
-  approve as postApproval,
   connectEvents,
+  fetchSessions,
   fetchState,
   stopTurn,
+  type SessionSummary,
 } from "./api/client.js";
 import { useSessionStore } from "./stores/session-store.js";
 import { ChatView } from "./ui/chat/ChatView.tsx";
 import { Composer } from "./ui/chat/Composer.tsx";
-import css from "./App.module.css";
 import { chatLabels } from "./ui/chat/labels.js";
+import { EmptyState } from "./ui/shell/EmptyState.tsx";
+import { Sidebar, groupSessions } from "./ui/shell/Sidebar.tsx";
+import { StatusBar } from "./ui/shell/StatusBar.tsx";
+import { TitleBar } from "./ui/shell/TitleBar.tsx";
+import css from "./App.module.css";
+
+/** Title a conversation has before the engine names it. */
+const DEFAULT_TITLE = "New session";
+
+/** Model shown before the session reports one. */
+const DEFAULT_MODEL = "Deepseek-V4.1-Flash";
 
 export function App() {
   const items = useSessionStore((s) => s.items);
@@ -27,46 +38,91 @@ export function App() {
   const status = useSessionStore((s) => s.status);
 
   const applyEvent = useSessionStore((s) => s.applyEvent);
-  const send = useSessionStore((s) => s.send);
   const approve = useSessionStore((s) => s.approve);
+  const send = useSessionStore((s) => s.send);
   const setStatus = useSessionStore((s) => s.setStatus);
 
-  const connected = useRef(false);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [title, setTitle] = useState(DEFAULT_TITLE);
+  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [permissionMode, setPermissionMode] = useState<string | undefined>();
+
+  const hydrate = useSessionStore((s) => s.hydrate);
+
+  // StrictMode mounts effects twice: the ref guard alone would leave the
+  // second mount without a stream, so the effect returns its cleanup and
+  // re-connects on the second run.
   useEffect(() => {
-    if (connected.current) return;
-    connected.current = true;
     const close = connectEvents(applyEvent, setStatus);
-    void fetchState().catch(() => {});
+    void fetchState()
+      .then((state) => {
+        hydrate(state);
+        const session = state.session;
+        if (!session) return;
+        if (typeof session.title === "string" && session.title !== "") {
+          setTitle(session.title);
+        }
+        const chatModel = session.chatModelTitle;
+        if (typeof chatModel === "string" && chatModel !== "") {
+          setModel(chatModel);
+        }
+        const mode = (state as { permissionMode?: unknown }).permissionMode;
+        if (typeof mode === "string" && mode !== "") {
+          setPermissionMode(mode);
+        }
+      })
+      .catch(() => {});
     return close;
-  }, [applyEvent, setStatus]);
+  }, [applyEvent, hydrate, setStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void fetchSessions()
+        .then((next) => {
+          if (!cancelled) setSessions(next);
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const groups = useMemo(() => groupSessions(sessions), [sessions]);
+  const isEmpty = items.length === 0 && streaming === null && !isWaiting;
 
   return (
     <div className={css.shell}>
-      <aside className={css.sidebar}>
-        <div className={css.brand}>tnt</div>
-        <div className={css.sidebarFooter}>
-          <span className={css.status} data-status={status}>
-            {status}
-          </span>
-        </div>
-      </aside>
+      <Sidebar groups={groups} status={status} />
       <main className={css.canvas}>
-        {status !== "live" && (
+        <TitleBar title={title} />
+        <div className={css.conversation}>
+          {isEmpty ? (
+            <EmptyState label={chatLabels.autoModeSuggestion} />
+          ) : (
+            <ChatView
+              items={items}
+              streaming={streaming}
+              reasoning={reasoning}
+              pendingPermission={pendingPermission}
+              notices={notices}
+              onAnswer={(approved) => void approve(approved)}
+            />
+          )}
+        </div>
+        {status !== "live" ? (
           <div className={css.banner} role="status">{chatLabels.disconnected}</div>
-        )}
-        <ChatView
-          items={items}
-          streaming={streaming}
-          reasoning={reasoning}
-          pendingPermission={pendingPermission}
-          notices={notices}
-          onAnswer={(approved) => void approve(approved)}
-        />
+        ) : null}
         <Composer
           waiting={isWaiting}
           onSend={(text) => void send(text)}
           onStop={() => void stopTurn()}
         />
+        <StatusBar model={model} permissionMode={permissionMode} />
       </main>
     </div>
   );

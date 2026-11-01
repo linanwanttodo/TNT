@@ -57,6 +57,10 @@ interface SessionState {
   seenTurnId: string | null;
   seenSeq: number;
   applyEvent: (event: AgentEvent) => void;
+  hydrate: (state: {
+    history?: unknown[];
+    pendingPermission?: unknown;
+  }) => void;
   send: (text: string) => Promise<void>;
   approve: (approved: boolean) => Promise<void>;
   setStatus: (status: ConnStatus) => void;
@@ -182,14 +186,72 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       items: [...get().items, { kind: "message", role: "user", text: trimmed }],
       isWaiting: true,
     });
-    await postMessage(trimmed);
+    try {
+      await postMessage(trimmed);
+    } catch (error) {
+      set({
+        isWaiting: false,
+        items: [
+          ...get().items,
+          {
+            kind: "error",
+            text: error instanceof Error ? error.message : String(error),
+          },
+        ],
+      });
+    }
   },
 
   approve: async (approved) => {
     const pending = get().pendingPermission;
     if (pending === null) return;
-    set({ pendingPermission: null });
-    await postApproval(pending.requestId, approved);
+    try {
+      await postApproval(pending.requestId, approved);
+      // Clear only once the broker has the answer; a failed POST leaves the
+      // card up so the user can retry.
+      set({ pendingPermission: null });
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+    }
+  },
+
+  hydrate: (state) => {
+    const items = (state.history ?? []).flatMap((item): ChatItem[] => {
+      const message = (item as { message?: { role?: string; content?: unknown } })
+        .message;
+      if (!message || typeof message.content !== "string") return [];
+      if (message.role === "user" || message.role === "assistant") {
+        return [{ kind: "message", role: message.role, text: message.content }];
+      }
+      return [];
+    });
+    const pending = state.pendingPermission as
+      | {
+          requestId?: unknown;
+          toolName?: unknown;
+          toolArgs?: unknown;
+          toolCallPreview?: unknown;
+        }
+      | null
+      | undefined;
+    set({
+      items,
+      pendingPermission:
+        pending && typeof pending.requestId === "string" &&
+        typeof pending.toolName === "string"
+          ? {
+              requestId: pending.requestId,
+              toolName: pending.toolName,
+              toolArgs: pending.toolArgs,
+              preview: pending.toolCallPreview,
+            }
+          : null,
+    });
   },
 
   setStatus: (status) => set({ status }),

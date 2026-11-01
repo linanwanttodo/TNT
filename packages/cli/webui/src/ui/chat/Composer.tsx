@@ -1,6 +1,11 @@
-/** The composer: text area with a send button that becomes stop while waiting. */
+/**
+ * The composer: a rounded input field with a leading plus button. The send
+ * button appears once there is something to send; while a turn runs it
+ * becomes a stop button.
+ */
 import { useState, type KeyboardEvent } from "react";
 import { Button, IconSendOutlineRegular, IconStopFillRegular } from "../primitives/index.ts";
+import { ShellIcon } from "../shell/icons.tsx";
 import css from "./Composer.module.css";
 import { chatLabels } from "./labels.js";
 
@@ -24,9 +29,14 @@ export function Composer({ waiting, onSend, onStop }: {
     }
   };
 
+  const hasText = text.trim() !== "";
+
   return (
     <div className={css.frame}>
       <div className={css.box}>
+        <button type="button" className={css.leading} aria-label={chatLabels.attachLabel}>
+          <ShellIcon glyph="plus-compact" size={12} />
+        </button>
         <textarea
           className={css.input}
           value={text}
@@ -48,18 +58,19 @@ export function Composer({ waiting, onSend, onStop }: {
                 <IconStopFillRegular size={14} />
               </Button>
             )
-          : (
-              <Button
-                variant="primary"
-                size="sm"
-                className={css.action}
-                aria-label={chatLabels.sendLabel}
-                disabled={text.trim() === ""}
-                onClick={submit}
-              >
-                <IconSendOutlineRegular size={14} />
-              </Button>
-            )}
+          : hasText
+            ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className={css.action}
+                  aria-label={chatLabels.sendLabel}
+                  onClick={submit}
+                >
+                  <IconSendOutlineRegular size={14} />
+                </Button>
+              )
+            : null}
       </div>
     </div>
   );

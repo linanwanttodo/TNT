@@ -20,7 +20,12 @@ export function ChatView({ items, streaming, reasoning, pendingPermission, notic
   useEffect(() => {
     const scroll = scrollRef.current;
     if (scroll === null) return;
-    scroll.scrollTop = scroll.scrollHeight;
+    // Follow the tail only for a reader already at it; someone scrolled up
+    // re-reading keeps their place until they return.
+    const distance = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight;
+    if (distance < 80) {
+      scroll.scrollTop = scroll.scrollHeight;
+    }
   }, [tailKey]);
 
   return (
