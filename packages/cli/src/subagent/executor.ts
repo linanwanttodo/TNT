@@ -2,6 +2,8 @@ import type { ChatHistoryItem } from "core";
 
 import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
+import { publishAgentEvent } from "../protocol/eventBus.js";
+import { type AgentEvent, type AgentEventInput } from "../protocol/events.js";
 import { services } from "../services/index.js";
 import { ModelServiceState } from "../services/types.js";
 import { runAgentTurn } from "../session/controller.js";
@@ -93,6 +95,22 @@ export async function executeSubAgent(
     parentContext,
   } = options;
 
+  // Delegation lives on the agent event bus too, so a surface that is not the
+  // caller (SSE) can follow the subagent's lifecycle. Events carry the parent
+  // session id; the child turn's own controller events stay separate.
+  let nextSeq = 0;
+  let agentType = subAgent.model?.name ?? "agent";
+  const emit = (event: AgentEventInput): void => {
+    nextSeq += 1;
+    publishAgentEvent({
+      ...event,
+      sessionId: options.parentSessionId,
+      turnId: agentType,
+      seq: nextSeq,
+      timestamp: Date.now(),
+    } as AgentEvent);
+  };
+
   try {
     logger.debug("Starting subagent execution", {
       agent: subAgent.model?.name,
@@ -123,7 +141,6 @@ export async function executeSubAgent(
       maxDelegationDepth,
     });
 
-    const agentType = subAgent.model?.name ?? "agent";
     const activeTeamName = getSessionActiveTeam();
     const activeTeam = activeTeamName
       ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
@@ -153,6 +170,8 @@ export async function executeSubAgent(
     });
 
     const agentId = childContext.id;
+
+    emit({ type: "subagent.started", agentName: agentType, prompt });
 
     await fireSubagentStart(agentId, agentType).catch(() => {});
 
@@ -234,6 +253,21 @@ export async function executeSubAgent(
 
       await fireSubagentStop(agentId, agentType, response).catch(() => {});
 
+      emit({
+        type: "subagent.reported",
+        agentName: agentType,
+        content: response,
+      });
+      emit({
+        type: "subagent.finished",
+        agentName: agentType,
+        content: response,
+        success: true,
+        ...(parseVerdict(response)
+          ? { verdict: parseVerdict(response) as string }
+          : {}),
+      });
+
       return {
         success: true,
         response,
@@ -249,6 +283,17 @@ export async function executeSubAgent(
       agent: subAgent.model?.name,
       error: error.message,
     });
+
+    // The catch may fire before the started event existed (model resolution
+    // failed); only a begun lifecycle gets a finished event.
+    if (nextSeq > 0) {
+      emit({
+        type: "subagent.finished",
+        agentName: subAgent.model?.name ?? "agent",
+        content: error.message ?? "",
+        success: false,
+      });
+    }
 
     return {
       success: false,
