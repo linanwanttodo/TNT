@@ -219,3 +219,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec「领队注入」节（userRules 汇入、volatile、latch）；systemPrefixFingerprint 守卫要求 digest 与架构文档同步；architecture.test.ts 模块依赖方向守卫。
 
 **验证：** RED：条款断言与 teamInjection 4 用例先行失败；GREEN：src/agent 116 用例全绿；全量 `npx vitest run` → 4040 passed / 0 failed（修复前 2 failed）；tsc/eslint/prettier 通过。提交：4c9db393e（条款）、579e0d866（注入）、1e329ed41（依赖环）、48b1f6fa1（tokenizer 日志断言）。
+
+## 15. 目标开发流程规范（goal-PRD 设计交付顺序第 1 步）
+
+**做了什么：** docs/agent-discipline.md 新增第 8 节"目标开发流程"，九小节：goal 对齐、召集判定（双入口 + 可观察信号 + autoConvoke 默认 false）、PRD 契约（九节结构、验收标准可判定性、变更必有记录）、pre-mortem 纪律、迭代闭环规则、收口格式与六状态词汇表（progress/waiting/ready/blocked/failed/dropped，含 blocked/dropped 边界纪律与 PM/verification/主 agent 三类收口格式）、主代理受理纪律与注意力经济（四条转呈纪律）、确定性状态判定（证据优先、五条件自上而下首条命中表、非法迁移拒绝）、流程与外部规划插件裁决。派生关系表同步：PM/requirements-analyst/tester/code-reviewer/verification 增列第 8 节，主 agent 行由"领队注入段"改为"受理纪律注入段"。
+
+**为什么：** 设计规格要求规范先行——第 2-7 交付步（goal 注入、PM 提示词升级、受理注入、召集开关、闭环测试、i18n）的角色提示词与状态机全部从第 8 节派生，先落规范再接线。
+
+**依据：** `.tnt/superpowers/specs/2026-11-01-goal-prd-flow-design.md` 第五部分（九小节清单）与第三部分第 6、7、8 点；dsh-superagent-prototype 的状态词汇表与注意力经济结论已按附录裁决合并进 8.6/8.7。
+
+**验证：** 文档改动，无代码路径；prettier 经 lint-staged 通过；提交 095510cdf。
