@@ -6,7 +6,6 @@ import { ToolFailureTracker } from "../loop/toolFailureTracker.js";
 import { TurnBudget, type TurnBudgetLimits } from "../loop/turnBudget.js";
 
 import type { SystemPromptRoundState } from "./systemPromptRound.js";
-
 import { systemPromptSeriesState } from "./systemPromptSeries.js";
 
 /**
