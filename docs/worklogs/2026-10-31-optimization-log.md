@@ -249,3 +249,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec 第一部分（流程总览与 Task 7 修订）、第二部分（PRD 九节格式）、第三部分第 3-6、8 点；docs/agent-discipline.md 第 8 节（上一条目落地的规范）。
 
 **验证：** RED：defaultTeams.test.ts 新增四用例先行失败（PM 无 PRD/pre-mortem/九节、收口无六状态词）；GREEN 后 src/team 两套件 19 用例、src/subagent 九套件 72 用例全绿，tsc 干净。提交 78cc84823。
+
+## 18. 受理纪律注入替换领队注入（goal-PRD 设计交付顺序第 4 步）
+
+**做了什么：** systemMessage.ts 的 activeTeamLeadBlock() 改产出 `<context name="team-reception" source="<team>">` 块，内容为 i18n `agent.receptionistDiscipline`（en/zh 成对，源自设计第四部分层次二：受理/转派 PM/按计划派发/转呈求助，不自行规划，不处理流程外请求，PRD 唯一事实来源，注意力纪律，goal 未设流程不启动）。领队提示词不再注入主 agent——它经派发链流向团队子代理；builtInRef 解析逻辑随之移除（builtInAgentByName 导入不再需要）。teamInjection 测试更新为受理契约：块出现/消失、getTeam 解析、builtInRef 团队同样产出受理块、受理块在 goal-align 块之后、领队提示词文本不在主 agent 提示里。userRules 全是 volatile 内容，systemPrefixFingerprint 四 digest 不变、ARCHITECTURE-tnt.md 无需同步。
+
+**为什么：** 设计修订 Task 7：主 agent 兼任领队会把两种身份混进一个上下文；激活态注入的是"老板代理"的受理纪律，PM 才是管理者。
+
+**依据：** spec 第三部分第 3 点（受理纪律注入修订 Task 7）、第四部分层次二全文；交付顺序第 4 步（fingerprint 仅在 base 被触碰时同步——本次未触碰）。
+
+**验证：** RED：新受理契约用例 2 个先行失败（无 team-reception 块）；旧领队注入断言按设计更新。GREEN：src/agent 124 用例、src/team 19 用例、src/i18n 19 用例全绿；systemPrefixFingerprint 不变；tsc 干净。提交 700c36c90。
