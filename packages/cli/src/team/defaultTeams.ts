@@ -200,6 +200,13 @@ function buildDev(): TeamDefinition {
       builtInRef: "best-of-n",
       systemMessage: "",
     }),
+    member("dev", {
+      name: "research",
+      description: "信息搜集：外部事实、库行为、公开资料，带来源与置信度。",
+      lead: false,
+      builtInRef: "research",
+      systemMessage: "",
+    }),
   ];
   const lead = members.find((m) => m.lead)!;
   return { name: "dev", members, lead };
@@ -249,6 +256,13 @@ function buildSec(): TeamDefinition {
       restriction: "no-writes",
       deniedTools: ["AskQuestion", "Exit"],
       builtInRef: "shell",
+      systemMessage: "",
+    }),
+    member("sec", {
+      name: "research",
+      description: "公开情报搜集：漏洞库、公开报告，带来源与置信度。",
+      lead: false,
+      builtInRef: "research",
       systemMessage: "",
     }),
   ];
