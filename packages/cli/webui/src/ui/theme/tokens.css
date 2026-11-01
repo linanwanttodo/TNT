@@ -1,0 +1,176 @@
+/*
+ * Theme tokens for the TNT web ui. Values follow the dsh-claude-style skin's
+ * Claude palette (see THIRD_PARTY_NOTICES.md): never pure white, never pure
+ * black, never cool grays; one clay accent used sparingly. Light and dark are
+ * both defined here and switched by the `data-theme` attribute on <html>.
+ */
+:root,
+:root[data-theme='light'] {
+  --dsw-alias-bg-base: #fcfcfb;
+  --dsw-alias-bg-layer-1: #fcfcfb;
+  --dsw-alias-bg-layer-2: #fbfbf9;
+  --dsw-alias-bg-layer-3: #f9f9f6;
+  --dsw-alias-bg-overlay: #ffffff;
+  --dsw-alias-border-l1: #e8e6dc;
+  --dsw-alias-border-l2: #dedcd2;
+  --dsw-alias-border-l3: #d0cdc1;
+  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-text: #faf9f5;
+  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-hover: #c6613f;
+  --dsw-alias-button-elevated-fill: #ffffff;
+  --dsw-alias-button-floating-fill: #ffffff;
+  --dsw-alias-button-floating-hover: #ffffff;
+  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-hover: #c6613f;
+  --dsw-alias-interactive-bg-active: rgba(217, 119, 87, 0.3);
+  --dsw-alias-interactive-bg-hover: rgba(0, 0, 0, 0.08);
+  --dsw-alias-interactive-bg-hover-solid: #f0efe9;
+  --dsw-alias-label-primary: #141413;
+  --dsw-alias-label-primary-foreground: #faf9f5;
+  --dsw-alias-label-secondary: #6e6a60;
+  --dsw-alias-label-tertiary: #8f8a7e;
+  --dsw-alias-label-caption: #a6a094;
+  --dsw-alias-label-shimmer: color-mix(in srgb, #141413 30%, transparent);
+  --dsw-alias-state-success-primary: #3d7550;
+  --dsw-alias-state-warn-primary: #a4621d;
+  --dsw-alias-state-warn-label: #a4621d;
+  --dsw-alias-state-error-primary: #b3261e;
+  --dsw-alias-state-idle-primary: #8f8a7e;
+  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-tertiary: #e9dfd2;
+  --dsw-alias-link: #c6613f;
+  --dsw-alias-markdown-code-block: #ffffff;
+  --dsw-alias-markdown-code-block-banner: #ffffff;
+  --dsw-alias-markdown-inline-code: rgba(0, 0, 0, 0.05);
+  --dsw-specific-bubble: #f0f0ef;
+  --dsw-specific-input-major: #ffffff;
+  --dsw-specific-selector: #fbfbf9;
+  --dsw-specific-sidebar-fill: #fbfbf9;
+  --dsw-specific-menu: #ffffff;
+  --dsw-shadow-lv2: 0 4px 18px rgba(20, 20, 19, 0.1), 0 1px 3px rgba(20, 20, 19, 0.05);
+  --dsh-claude-canvas: #fcfcfb;
+  --dsh-claude-sidebar-canvas: #fbfbf9;
+  --dsh-claude-card: #fcfcfb;
+  --dsh-claude-chip: #f6f6f4;
+  --dsh-claude-hover-bg: rgba(0, 0, 0, 0.08);
+  --dsh-claude-inline-code-bg: rgba(0, 0, 0, 0.05);
+  --dsh-claude-inline-code-fg: #943333;
+  --dsh-claude-link: #184f95;
+  --dsh-claude-link-underline: rgba(24, 79, 149, 0.6);
+  --dsh-claude-table-head: #f0f0ef;
+  --dsh-claude-scrollbar: rgba(208, 205, 193, 0.9);
+  --dsh-claude-scrollbar-hover: rgba(143, 138, 126, 0.8);
+  --dsh-claude-inverse-fill: #141413;
+  --dsh-claude-inverse-ink: #faf9f5;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --dsw-alias-bg-base: #141413;
+  --dsw-alias-bg-layer-1: #1c1b1a;
+  --dsw-alias-bg-layer-2: #242320;
+  --dsw-alias-bg-layer-3: #2e2c29;
+  --dsw-alias-bg-overlay: #242320;
+  --dsw-alias-border-l1: rgba(255, 255, 255, 0.09);
+  --dsw-alias-border-l2: rgba(255, 255, 255, 0.18);
+  --dsw-alias-border-l3: rgba(255, 255, 255, 0.3);
+  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-text: #faf9f5;
+  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-hover: #e08a6d;
+  --dsw-alias-button-elevated-fill: #242320;
+  --dsw-alias-button-floating-fill: #242320;
+  --dsw-alias-button-floating-hover: #2e2c29;
+  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-hover: #e08a6d;
+  --dsw-alias-interactive-bg-active: rgba(217, 119, 87, 0.3);
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.08);
+  --dsw-alias-interactive-bg-hover-solid: #2e2c29;
+  --dsw-alias-label-primary: #faf9f5;
+  --dsw-alias-label-primary-foreground: #141413;
+  --dsw-alias-label-secondary: #b0aea5;
+  --dsw-alias-label-tertiary: #8f8d84;
+  --dsw-alias-label-caption: #6b6a65;
+  --dsw-alias-label-shimmer: color-mix(in srgb, #faf9f5 45%, transparent);
+  --dsw-alias-state-success-primary: #8cbf96;
+  --dsw-alias-state-warn-primary: #e2a45f;
+  --dsw-alias-state-warn-label: #e2a45f;
+  --dsw-alias-state-error-primary: #e5534b;
+  --dsw-alias-state-idle-primary: #8f8d84;
+  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-tertiary: #3a2a22;
+  --dsw-alias-link: #e08a6d;
+  --dsw-alias-markdown-code-block: #1c1b1a;
+  --dsw-alias-markdown-code-block-banner: #242320;
+  --dsw-alias-markdown-inline-code: rgba(255, 255, 255, 0.05);
+  --dsw-specific-bubble: rgba(255, 255, 255, 0.06);
+  --dsw-specific-input-major: #0f0e0d;
+  --dsw-specific-selector: #2e2c29;
+  --dsw-specific-sidebar-fill: #141413;
+  --dsw-specific-menu: #242320;
+  --dsw-shadow-lv2: 0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.14);
+  --dsh-claude-canvas: #141413;
+  --dsh-claude-sidebar-canvas: #141413;
+  --dsh-claude-card: #1e1e1d;
+  --dsh-claude-chip: #2e2c29;
+  --dsh-claude-hover-bg: rgba(255, 255, 255, 0.08);
+  --dsh-claude-inline-code-bg: rgba(255, 255, 255, 0.05);
+  --dsh-claude-inline-code-fg: #e8a08a;
+  --dsh-claude-link: #8ab4f8;
+  --dsh-claude-link-underline: rgba(138, 180, 248, 0.6);
+  --dsh-claude-table-head: #242320;
+  --dsh-claude-scrollbar: rgba(58, 56, 51, 0.9);
+  --dsh-claude-scrollbar-hover: rgba(107, 106, 101, 0.9);
+  --dsh-claude-inverse-fill: #faf9f5;
+  --dsh-claude-inverse-ink: #141413;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--dsh-claude-canvas);
+  color: var(--dsw-alias-label-primary);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dsh-claude-scrollbar);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dsh-claude-scrollbar-hover);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
