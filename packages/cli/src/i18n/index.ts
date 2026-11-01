@@ -428,6 +428,10 @@ const en = {
   "team.created":
     "Team {name} scaffolded at {path}. Edit the lead prompt, add member files, then /team {name}.",
   "team.createFailed": "Could not write {path}: {message}",
+  "team.goalMissing":
+    "No session goal is set. The team works on a goal: set one with /goal <objective> and the goal-development flow can start.",
+  "team.goalActive":
+    "Working on the session goal: {goal}. Reports will come when a result is ready, a decision is needed, or the work failed.",
   "agent.goalAlignmentLine":
     "Current session goal: {goal}. Align your work and decisions with this goal; confirm before acting on anything outside it.",
   "agent.receptionistDiscipline":
@@ -1110,6 +1114,10 @@ const zhCN: Record<TranslationKey, string> = {
   "team.created":
     "团队 {name} 已在 {path} 生成模板。编辑领队提示词、添加成员文件，然后 /team {name} 激活。",
   "team.createFailed": "无法写入 {path}：{message}",
+  "team.goalMissing":
+    "未设置会话目标。团队基于目标工作：先用 /goal <目标> 设置目标，目标开发流程即可启动。",
+  "team.goalActive":
+    "正在推进会话目标：{goal}。仅在结果就绪、需要你决定、或无法完成时汇报。",
   "agent.goalAlignmentLine":
     "当前会话目标：{goal}。你的工作与决策对齐此目标；目标外的事项先确认再动。",
   "agent.receptionistDiscipline":
