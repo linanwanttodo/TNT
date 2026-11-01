@@ -60,3 +60,15 @@ export { Toast } from './Toast.tsx'
 export { siteGlyph } from './SiteGlyph.tsx'
 export { MarkdownText } from './markdown/MarkdownText.tsx'
 export type { MarkdownLabels } from './markdown/render.tsx'
+export {
+  IconCheckOutlineRegular,
+  IconCloseOutlineRegular,
+  IconEditOutlineRegular,
+  IconPlusOutlineRegular,
+  IconRefreshOutlineRegular,
+  IconSendOutlineRegular,
+  IconStopFillRegular,
+  IconThinkOutlineRegular,
+  IconWarningTriangleOutlineRegular,
+  type IconProps,
+} from './icons/index.tsx'

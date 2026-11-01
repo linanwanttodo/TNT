@@ -1,0 +1,37 @@
+.frame {
+  padding: 8px 24px 16px;
+}
+
+.box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 748px;
+  margin: 0 auto;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg, 16px);
+  background: var(--dsw-specific-input-major);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 15px;
+  line-height: 22px;
+  resize: none;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--dsw-alias-label-caption);
+}
+
+.action {
+  flex: none;
+}

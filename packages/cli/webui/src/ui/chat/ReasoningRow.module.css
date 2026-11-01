@@ -1,0 +1,22 @@
+.root:not([data-expanded]) {
+  contain: size layout;
+  height: 24px;
+}
+
+.thinkIcon {
+  display: inline-flex;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.summary {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.summaryRunning {
+  color: var(--dsw-alias-label-shimmer);
+}
+
+.body {
+  padding: 4px 0;
+  color: var(--dsw-alias-label-secondary);
+}
