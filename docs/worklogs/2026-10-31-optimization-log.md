@@ -269,3 +269,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec 第三部分第 2 点（召集判定双入口 + 偏好开关）、第五部分 8.2；交付顺序第 5 步。
 
 **验证：** RED：settingsFiles 布尔读取器 4 用例、team 命令 goal 语义 2 用例先行失败；GREEN 后 12 + 8 用例、src/i18n 19 用例、slashCommandsDoc 守卫 4 用例全绿，tsc 干净。提交 d08049ec5。
+
+## 20. 收口词汇表与确定性 PRD 状态机（goal-PRD 设计交付顺序第 6 步）
+
+**做了什么：** 新增 src/team/closure.ts（CLOSURE_STATUSES 六状态、closureStatusOf 首行状态词识别——中英文状态词均合法，状态词埋在正文不算收口、requiresChangeRecord 仅 dropped 需变更记录）与 src/team/prdState.ts（PrdEvidence 五类证据、STATE_TABLE 五行自上而下首条命中、prdStatusOf 机械推导、ILLEGAL_TRANSITIONS 已验收→待开发必须走变更记录）。关键裁决落在表内：未通过行要求判定之后没有新的 dispatch/tester/code-reviewer 证据——"未通过回开发中必须指向新派发记录"作为首条命中的一部分机械成立；已验收行取最后一条 verification 判定为 PASS。新代码放 src/team/ 新文件，未触碰 500 行豁免清单。
+
+**为什么：** 设计的状态判定是测试口径："给定收口证据序列，状态字段可机械推出；implementer 声称完成而无 tester/verification 证据时不得推进到已实现"。
+
+**依据：** spec 第三部分第 6、8 点；docs/agent-discipline.md 8.6/8.8；交付顺序第 6 步。
+
+**验证：** RED：两套件因模块缺失收集失败、随后 1 用例红（未通过回开发生的循环回接语义）；GREEN 后 src/team 34 用例全绿，tsc 干净。提交 5102c900c。
