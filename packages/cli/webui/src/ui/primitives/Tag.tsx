@@ -1,28 +1,28 @@
 // Tag: read-only capsule badge. The selectable capsule button is `Pill` —
 // a tag takes no `onClick` and no `active`, and carries no copy of its own.
 
-import type { ReactNode } from 'react'
-import clsx from 'clsx'
-import css from './Tag.module.css'
+import type { ReactNode } from "react";
+import clsx from "clsx";
+import css from "./Tag.module.css";
 
 /** Palette selector; each tone names one shipped appearance. */
 export type TagTone =
   /** Hairline outline on tertiary text: the read-only default. */
-  | 'outline'
+  | "outline"
   /** Inverted fill: one tag per group that names the current selection. */
-  | 'solid'
+  | "solid"
   /** Platform-gray fill: a neutral fact with no status meaning. */
-  | 'neutral'
+  | "neutral"
   /** Text only, no fill: a fact stated more quietly than `neutral`. */
-  | 'quiet'
+  | "quiet"
   /** Tinted green: a healthy or enabled state. */
-  | 'success'
+  | "success"
   /** Tinted blue: informational classification, not health. */
-  | 'info'
+  | "info"
   /** Tinted amber: attention needed, not yet a failure. */
-  | 'warning'
+  | "warning"
   /** Tinted red: a failure. */
-  | 'danger'
+  | "danger";
 
 /**
  * Render a read-only tag.
@@ -31,12 +31,20 @@ export type TagTone =
  * @param props.children - the localized label, owned by the render site.
  * @returns the tag element.
  */
-export function Tag({ tone = 'outline', className, children }: {
-  tone?: TagTone
+export function Tag({
+  tone = "outline",
+  className,
+  children,
+}: {
+  tone?: TagTone;
   // `| undefined` so a caller can forward an optional class straight through
   // under exactOptionalPropertyTypes (a CSS-module lookup is string|undefined).
-  className?: string | undefined
-  children?: ReactNode
+  className?: string | undefined;
+  children?: ReactNode;
 }) {
-  return <span className={clsx(css.tag, className)} data-tone={tone}>{children}</span>
+  return (
+    <span className={clsx(css.tag, className)} data-tone={tone}>
+      {children}
+    </span>
+  );
 }

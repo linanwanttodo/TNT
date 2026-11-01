@@ -16,7 +16,7 @@
   cursor: pointer;
 }
 
-.switch[aria-checked='true'] {
+.switch[aria-checked="true"] {
   background: var(--dsw-alias-brand-primary);
 }
 
@@ -26,7 +26,8 @@
 }
 
 .switch:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline: var(--dsw-focus-ring-width) solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
 
@@ -40,10 +41,10 @@
   transition: transform 120ms ease;
 }
 
-.switch[aria-checked='false'] .thumb {
+.switch[aria-checked="false"] .thumb {
   background: var(--dsw-alias-switch-thumb);
 }
 
-.switch[aria-checked='true'] .thumb {
+.switch[aria-checked="true"] .thumb {
   transform: translateX(16px);
 }

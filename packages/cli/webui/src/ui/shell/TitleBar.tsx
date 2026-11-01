@@ -30,10 +30,18 @@ export function TitleBar({ title }: TitleBarProps) {
         </button>
       </div>
       <div className={css.windowControls}>
-        <button type="button" className={css.windowControl} aria-label="Minimize">
+        <button
+          type="button"
+          className={css.windowControl}
+          aria-label="Minimize"
+        >
           <span className={css.minimize} />
         </button>
-        <button type="button" className={css.windowControl} aria-label="Maximize">
+        <button
+          type="button"
+          className={css.windowControl}
+          aria-label="Maximize"
+        >
           <span className={css.maximize} />
         </button>
         <button type="button" className={css.windowControl} aria-label="Close">

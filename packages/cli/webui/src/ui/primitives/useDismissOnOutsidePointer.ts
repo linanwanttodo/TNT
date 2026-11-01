@@ -2,8 +2,8 @@
  * Outside-pointer dismissal for trigger-owned popovers (jobs list, Cordis
  * panel): while the surface is open, a pointerdown outside the root closes it.
  */
-import { useEffect } from 'react'
-import type { RefObject } from 'react'
+import { useEffect } from "react";
+import type { RefObject } from "react";
 
 /**
  * Close an open popover when a pointerdown lands outside its root element.
@@ -20,15 +20,19 @@ export function useDismissOnOutsidePointer(
   portal?: RefObject<HTMLElement | null>,
 ): void {
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const closeOutside = (event: PointerEvent): void => {
-      if (event.target instanceof Node
-        && root.current?.contains(event.target) !== true
-        && portal?.current?.contains(event.target) !== true) {
-        setOpen(false)
+      if (
+        event.target instanceof Node &&
+        root.current?.contains(event.target) !== true &&
+        portal?.current?.contains(event.target) !== true
+      ) {
+        setOpen(false);
       }
-    }
-    document.addEventListener('pointerdown', closeOutside)
-    return () => { document.removeEventListener('pointerdown', closeOutside) }
-  }, [root, open, setOpen, portal])
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+    };
+  }, [root, open, setOpen, portal]);
 }

@@ -4,7 +4,10 @@ import type { ChatHistoryItem } from "core/index.js";
 
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { captureRunSnapshot } from "../config/snapshot.js";
-import { isNormalTermination, type TerminationReason } from "../loop/termination.js";
+import {
+  isNormalTermination,
+  type TerminationReason,
+} from "../loop/termination.js";
 import type { TurnBudgetLimits } from "../loop/turnBudget.js";
 import { publishAgentEvent } from "../protocol/eventBus.js";
 import type { AgentEvent } from "../protocol/events.js";

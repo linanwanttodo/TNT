@@ -25,39 +25,51 @@
   animation: tooltip-in 150ms var(--ds-ease-in-out);
 }
 
-.bubble[data-portal] { z-index: 1100; }
-.bubble[data-pinned] { pointer-events: auto; }
-.label { min-width: 0; }
+.bubble[data-portal] {
+  z-index: 1100;
+}
+.bubble[data-pinned] {
+  pointer-events: auto;
+}
+.label {
+  min-width: 0;
+}
 
 /* A 16px keycap centered beside a 20px label has 5px of vertical clearance. */
-.bubble[data-has-shortcut] { padding-inline-end: 5px; }
-.bubble[data-has-shortcut]:not(:has(.label)) { padding: 3px; }
+.bubble[data-has-shortcut] {
+  padding-inline-end: 5px;
+}
+.bubble[data-has-shortcut]:not(:has(.label)) {
+  padding: 3px;
+}
 
-.bubble[data-side='right'],
-.bubble[data-side='left'] {
+.bubble[data-side="right"],
+.bubble[data-side="left"] {
   transform: translateY(-50%);
 }
 
-.bubble[data-side='bottom'] {
+.bubble[data-side="bottom"] {
   transform: translateX(-50%);
 }
 
-.bubble[data-side='top'] {
+.bubble[data-side="top"] {
   transform: translate(-50%, -100%);
 }
 
 /* End alignment: `left` carries the anchor's right edge, so the bubble sits
    fully left of it instead of centering. */
-.bubble[data-side='bottom'][data-align='end'] {
+.bubble[data-side="bottom"][data-align="end"] {
   transform: translateX(-100%);
 }
 
-.bubble[data-side='top'][data-align='end'] {
+.bubble[data-side="top"][data-align="end"] {
   transform: translate(-100%, -100%);
 }
 
 @keyframes tooltip-in {
-  from { opacity: 0; }
+  from {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

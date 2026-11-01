@@ -89,7 +89,12 @@ export function Sidebar({
       </div>
 
       <div className={css.segmented} role="tablist" aria-label="Workspace">
-        <button type="button" role="tab" className={css.segment} aria-selected={false}>
+        <button
+          type="button"
+          role="tab"
+          className={css.segment}
+          aria-selected={false}
+        >
           <ShellIcon glyph="cowork" size={12} />
           <span>Cowork</span>
         </button>
@@ -130,9 +135,16 @@ export function Sidebar({
             <header className={css.groupHeader}>
               <span className={css.groupName}>
                 {group.name}
-                <IconChevronDownOutlineRegular size={14} className={css.groupChevron} />
+                <IconChevronDownOutlineRegular
+                  size={14}
+                  className={css.groupChevron}
+                />
               </span>
-              <button type="button" className={css.groupAdd} aria-label={`New session in ${group.name}`}>
+              <button
+                type="button"
+                className={css.groupAdd}
+                aria-label={`New session in ${group.name}`}
+              >
                 <ShellIcon glyph="plus" size={12} />
               </button>
             </header>
@@ -145,8 +157,15 @@ export function Sidebar({
                 onClick={() => onSelectSession?.(session.sessionId)}
               >
                 <span className={css.sessionTitle}>{session.title}</span>
-                <ShellIcon glyph="branch" size={12} className={css.sessionBadge} />
-                <IconEllipsisOutlineRegular size={14} className={css.sessionMenu} />
+                <ShellIcon
+                  glyph="branch"
+                  size={12}
+                  className={css.sessionBadge}
+                />
+                <IconEllipsisOutlineRegular
+                  size={14}
+                  className={css.sessionMenu}
+                />
               </button>
             ))}
           </section>
@@ -158,7 +177,10 @@ export function Sidebar({
         <span className={css.accountName}>lin</span>
         <span className={css.accountSeparator}>·</span>
         <span className={css.accountGateway}>Gateway</span>
-        <IconChevronDownOutlineRegular size={14} className={css.accountChevron} />
+        <IconChevronDownOutlineRegular
+          size={14}
+          className={css.accountChevron}
+        />
         <span className={css.accountStatus} data-status={status} />
         <IconSearchOutlineRegular size={14} className={css.accountSearch} />
       </div>

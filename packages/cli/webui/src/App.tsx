@@ -115,7 +115,9 @@ export function App() {
           )}
         </div>
         {status !== "live" ? (
-          <div className={css.banner} role="status">{chatLabels.disconnected}</div>
+          <div className={css.banner} role="status">
+            {chatLabels.disconnected}
+          </div>
         ) : null}
         <Composer
           waiting={isWaiting}

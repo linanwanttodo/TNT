@@ -15,9 +15,9 @@
  * tag name regardless of namespace.
  */
 
-import { createElement } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
-import katex from 'katex'
+import { createElement } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import katex from "katex";
 
 /**
  * Convert one inline `style` attribute string into React's style object.
@@ -25,34 +25,37 @@ import katex from 'katex'
  * nameless declarations), so camel-casing the property is the whole mapping.
  */
 function styleObject(css: string): CSSProperties {
-  const style: Record<string, string> = {}
-  for (const declaration of css.split(';')) {
-    const colon = declaration.indexOf(':')
-    if (colon === -1) continue
-    const name = declaration.slice(0, colon).trim()
-    const key = name.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
-    style[key] = declaration.slice(colon + 1).trim()
+  const style: Record<string, string> = {};
+  for (const declaration of css.split(";")) {
+    const colon = declaration.indexOf(":");
+    if (colon === -1) continue;
+    const name = declaration.slice(0, colon).trim();
+    const key = name.replace(/-([a-z])/g, (_, letter: string) =>
+      letter.toUpperCase(),
+    );
+    style[key] = declaration.slice(colon + 1).trim();
   }
-  return style
+  return style;
 }
 
 /** Map one parsed DOM node onto a React element (text nodes pass through). */
 function domToReact(node: ChildNode, key: number): ReactNode {
-  if (node.nodeType === Node.TEXT_NODE) return node.textContent
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent;
   /* v8 ignore next 2 -- KaTeX output holds only elements and text; other
      node kinds cannot appear in its serialized vocabulary. */
-  if (node.nodeType !== Node.ELEMENT_NODE) return null
-  const element = node as Element
-  const props: Record<string, unknown> = { key }
+  if (node.nodeType !== Node.ELEMENT_NODE) return null;
+  const element = node as Element;
+  const props: Record<string, unknown> = { key };
   for (const attribute of element.attributes) {
-    if (attribute.name === 'class') props['className'] = attribute.value
-    else if (attribute.name === 'style') props['style'] = styleObject(attribute.value)
-    else props[attribute.name] = attribute.value
+    if (attribute.name === "class") props["className"] = attribute.value;
+    else if (attribute.name === "style")
+      props["style"] = styleObject(attribute.value);
+    else props[attribute.name] = attribute.value;
   }
-  const children = [...element.childNodes].map(domToReact)
+  const children = [...element.childNodes].map(domToReact);
   return children.length === 0
     ? createElement(element.localName, props)
-    : createElement(element.localName, props, ...children)
+    : createElement(element.localName, props, ...children);
 }
 
 /**
@@ -63,13 +66,20 @@ function domToReact(node: ChildNode, key: number): ReactNode {
  * @returns KaTeX's element tree, or the error span when the source does not
  * parse (colored with KaTeX's stock `errorColor`, matching rehype-katex).
  */
-export function renderTexToReact(value: string, displayMode: boolean): ReactNode {
-  let html: string
+export function renderTexToReact(
+  value: string,
+  displayMode: boolean,
+): ReactNode {
+  let html: string;
   try {
-    html = katex.renderToString(value, { displayMode, throwOnError: true })
+    html = katex.renderToString(value, { displayMode, throwOnError: true });
   } catch (error) {
     try {
-      html = katex.renderToString(value, { displayMode, strict: 'ignore', throwOnError: false })
+      html = katex.renderToString(value, {
+        displayMode,
+        strict: "ignore",
+        throwOnError: false,
+      });
     } catch {
       // KaTeX renders ParseErrors itself under throwOnError: false; only its
       // internal errors reach here, so mirror rehype-katex's manual span.
@@ -77,14 +87,14 @@ export function renderTexToReact(value: string, displayMode: boolean): ReactNode
       return (
         <span
           className="katex-error"
-          style={{ color: '#cc0000' }}
+          style={{ color: "#cc0000" }}
           title={String(error)}
         >
           {value}
         </span>
-      )
+      );
     }
   }
-  const parsed = new DOMParser().parseFromString(html, 'text/html')
-  return [...parsed.body.childNodes].map(domToReact)
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  return [...parsed.body.childNodes].map(domToReact);
 }

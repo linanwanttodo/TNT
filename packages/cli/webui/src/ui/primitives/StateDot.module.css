@@ -6,7 +6,7 @@
 }
 
 .dot::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 20%;
   border-radius: 50%;
@@ -14,20 +14,20 @@
   background: currentColor;
 }
 
-.dot[data-state='done'] {
+.dot[data-state="done"] {
   color: var(--dsw-alias-state-success-primary);
 }
 
-.dot[data-state='warning'] {
+.dot[data-state="warning"] {
   color: var(--dsw-alias-state-warn-primary);
 }
 
-.dot[data-state='error'] {
+.dot[data-state="error"] {
   color: var(--dsw-alias-state-error-primary);
 }
 
 /* Idle is the absence of activity and uses the theme's neutral state step. */
-.dot[data-state='idle'] {
+.dot[data-state="idle"] {
   color: var(--dsw-alias-state-idle-primary);
 }
 
@@ -62,7 +62,9 @@
 }
 
 @keyframes dsh-state-dot-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes dsh-state-dot-dash {
@@ -94,7 +96,25 @@
   }
 }
 
-.step { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; corner-shape: round; border: 1.5px solid var(--dsw-alias-label-tertiary); color: var(--dsw-alias-label-primary-foreground); }
-.step[data-state='done'] { border-color: var(--dsw-alias-state-success-primary); background: var(--dsw-alias-state-success-primary); }
-.step[data-state='error'] { border-color: var(--dsw-alias-state-error-primary); background: var(--dsw-alias-state-error-primary); }
-.step[data-state='warning'] { border-color: var(--dsw-alias-state-warn-primary); }
+.step {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 50%;
+  corner-shape: round;
+  border: 1.5px solid var(--dsw-alias-label-tertiary);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+.step[data-state="done"] {
+  border-color: var(--dsw-alias-state-success-primary);
+  background: var(--dsw-alias-state-success-primary);
+}
+.step[data-state="error"] {
+  border-color: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-state-error-primary);
+}
+.step[data-state="warning"] {
+  border-color: var(--dsw-alias-state-warn-primary);
+}

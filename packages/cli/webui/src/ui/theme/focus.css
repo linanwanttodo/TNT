@@ -8,14 +8,17 @@
  * unnamed ring stayed at `auto 1px` while every declared ring used the standard geometry.
  * Declared rings also read this color, including rings on descendants and pseudo-elements. */
 :focus-visible {
-  outline-color: var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-color: var(
+    --dsw-focus-ring-color,
+    var(--dsw-alias-state-business-primary)
+  );
   outline-width: var(--dsw-focus-ring-width);
 }
 
 /* ui-primitives/input-modality publishes the attribute. Editable controls keep
  * their focus feedback on click; other controls reveal rings on keyboard
  * navigation. Only ring paint is suppressed, not elevation or selected borders. */
-html[data-input-modality='pointer'] body :focus-visible:not(:read-write) {
+html[data-input-modality="pointer"] body :focus-visible:not(:read-write) {
   --dsw-focus-ring-color: transparent;
   outline-color: transparent;
 }

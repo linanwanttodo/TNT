@@ -5,7 +5,10 @@ import { MarkdownText } from "../primitives/markdown/MarkdownText.tsx";
 import css from "./ReasoningRow.module.css";
 import { chatLabels, markdownLabels } from "./labels.js";
 
-export function ReasoningRow({ text, running }: {
+export function ReasoningRow({
+  text,
+  running,
+}: {
   text: string;
   running: boolean;
 }) {
@@ -17,12 +20,25 @@ export function ReasoningRow({ text, running }: {
         expandable
         running={running}
         onToggle={() => setExpanded((e) => !e)}
-        icon={<span className={css.thinkIcon}><IconThinkOutlineRegular size={14} /></span>}
+        icon={
+          <span className={css.thinkIcon}>
+            <IconThinkOutlineRegular size={14} />
+          </span>
+        }
         title={chatLabels.reasoningTitle}
-        collapsedContent={<span className={running ? css.summaryRunning : css.summary}>{firstLine(text)}</span>}
+        collapsedContent={
+          <span className={running ? css.summaryRunning : css.summary}>
+            {firstLine(text)}
+          </span>
+        }
       >
         <div className={css.body}>
-          <MarkdownText text={text} streaming={running} labels={markdownLabels} variant="compact" />
+          <MarkdownText
+            text={text}
+            streaming={running}
+            labels={markdownLabels}
+            variant="compact"
+          />
         </div>
       </DisclosureRow>
     </div>

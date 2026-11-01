@@ -66,28 +66,48 @@ describe("session store", () => {
   });
 
   it("tool.started creates a tool card and tool.finished settles it", () => {
-    dispatch(ev(1, {
-      type: "tool.started", toolCallId: "c1", toolName: "bash", args: { cmd: "ls" },
-    }));
+    dispatch(
+      ev(1, {
+        type: "tool.started",
+        toolCallId: "c1",
+        toolName: "bash",
+        args: { cmd: "ls" },
+      }),
+    );
     expect(useSessionStore.getState().items.at(-1)).toMatchObject({
-      kind: "tool", toolName: "bash", status: "calling",
+      kind: "tool",
+      toolName: "bash",
+      status: "calling",
     });
-    dispatch(ev(2, {
-      type: "tool.finished", toolCallId: "c1", toolName: "bash",
-      status: "done", result: "out",
-    }));
+    dispatch(
+      ev(2, {
+        type: "tool.finished",
+        toolCallId: "c1",
+        toolName: "bash",
+        status: "done",
+        result: "out",
+      }),
+    );
     expect(useSessionStore.getState().items.at(-1)).toMatchObject({
-      kind: "tool", toolName: "bash", status: "done", result: "out",
+      kind: "tool",
+      toolName: "bash",
+      status: "done",
+      result: "out",
     });
   });
 
   it("permission.requested sets pendingPermission and approve clears it", async () => {
-    dispatch(ev(1, {
-      type: "permission.requested", requestId: "r1", toolName: "bash",
-      toolArgs: { cmd: "rm" },
-    }));
+    dispatch(
+      ev(1, {
+        type: "permission.requested",
+        requestId: "r1",
+        toolName: "bash",
+        toolArgs: { cmd: "rm" },
+      }),
+    );
     expect(useSessionStore.getState().pendingPermission).toMatchObject({
-      requestId: "r1", toolName: "bash",
+      requestId: "r1",
+      toolName: "bash",
     });
     useSessionStore.getState().approve(true);
     await vi.waitFor(() =>
@@ -121,7 +141,8 @@ describe("session store", () => {
   it("user messages are appended by send", () => {
     useSessionStore.getState().send("hi");
     expect(useSessionStore.getState().items.at(-1)).toMatchObject({
-      role: "user", text: "hi",
+      role: "user",
+      text: "hi",
     });
     expect(useSessionStore.getState().isWaiting).toBe(true);
   });
@@ -138,10 +159,14 @@ describe("session store", () => {
   });
 
   it("a failed approve keeps the permission pending", async () => {
-    dispatch(ev(1, {
-      type: "permission.requested", requestId: "r1", toolName: "bash",
-      toolArgs: { cmd: "rm" },
-    }));
+    dispatch(
+      ev(1, {
+        type: "permission.requested",
+        requestId: "r1",
+        toolName: "bash",
+        toolArgs: { cmd: "rm" },
+      }),
+    );
     const { approve } = await import("../api/client.js");
     (approve as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new Error("POST /permission failed: 500"),
@@ -159,7 +184,9 @@ describe("session store", () => {
         { message: { role: "assistant", content: "a b c" } },
       ],
       pendingPermission: {
-        requestId: "r9", toolName: "bash", toolArgs: { cmd: "ls" },
+        requestId: "r9",
+        toolName: "bash",
+        toolArgs: { cmd: "ls" },
         toolCallPreview: [{ text: "ls" }],
       },
     });
@@ -169,7 +196,9 @@ describe("session store", () => {
       { kind: "message", role: "assistant", text: "a b c" },
     ]);
     expect(s.pendingPermission).toEqual({
-      requestId: "r9", toolName: "bash", toolArgs: { cmd: "ls" },
+      requestId: "r9",
+      toolName: "bash",
+      toolArgs: { cmd: "ls" },
       preview: [{ text: "ls" }],
     });
   });

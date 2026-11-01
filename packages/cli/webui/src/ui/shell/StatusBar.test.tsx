@@ -1,12 +1,26 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const setPermissionMode = vi.fn();
 
 vi.mock("../../api/client.js", () => ({
   PERMISSION_MODE_OPTIONS: [
-    { mode: "plan", label: "Plan", description: "Create a plan before making changes" },
-    { mode: "default", label: "Manual", description: "Always ask before making changes" },
+    {
+      mode: "plan",
+      label: "Plan",
+      description: "Create a plan before making changes",
+    },
+    {
+      mode: "default",
+      label: "Manual",
+      description: "Always ask before making changes",
+    },
   ],
   setPermissionMode: (...args: unknown[]) => setPermissionMode(...(args as [])),
 }));

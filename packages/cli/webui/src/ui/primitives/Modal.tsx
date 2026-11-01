@@ -1,29 +1,30 @@
-import { useRef } from 'react'
-import type { KeyboardEventHandler, ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import clsx from 'clsx'
-import { IconCloseOutlineRegular } from './icons/index.tsx'
-import { useModalLayer } from './useModalLayer.ts'
-import css from './Modal.module.css'
+import { useRef } from "react";
+import type { KeyboardEventHandler, ReactNode } from "react";
+import { createPortal } from "react-dom";
+import clsx from "clsx";
+import { IconCloseOutlineRegular } from "./icons/index.tsx";
+import { useModalLayer } from "./useModalLayer.ts";
+import css from "./Modal.module.css";
 
 interface ModalBaseProps {
-  open: boolean
-  onClose: () => void
-  title: string
-  description?: string
-  children?: ReactNode
-  footer?: ReactNode
-  className?: string
-  contentClassName?: string
-  shortcutModal?: string
-  onKeyDownCapture?: KeyboardEventHandler<HTMLDivElement>
-  backdropBlur?: boolean
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: string;
+  children?: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+  contentClassName?: string;
+  shortcutModal?: string;
+  onKeyDownCapture?: KeyboardEventHandler<HTMLDivElement>;
+  backdropBlur?: boolean;
 }
 
-type ModalProps = ModalBaseProps & (
-  | { headless: true; closeLabel?: never }
-  | { headless?: false; closeLabel: string }
-)
+type ModalProps = ModalBaseProps &
+  (
+    | { headless: true; closeLabel?: never }
+    | { headless?: false; closeLabel: string }
+  );
 
 /**
  * Render a centered, body-portaled modal over a blurred page mask.
@@ -46,17 +47,37 @@ type ModalProps = ModalBaseProps & (
  * @returns null when closed; otherwise the overlay tree.
  */
 export function Modal({
-  open, onClose, title, closeLabel, description, children, footer, className, contentClassName,
-  onKeyDownCapture, headless = false, backdropBlur = true, shortcutModal,
+  open,
+  onClose,
+  title,
+  closeLabel,
+  description,
+  children,
+  footer,
+  className,
+  contentClassName,
+  onKeyDownCapture,
+  headless = false,
+  backdropBlur = true,
+  shortcutModal,
 }: ModalProps) {
-  const dialog = useRef<HTMLDivElement>(null)
-  useModalLayer(dialog, open, onClose)
+  const dialog = useRef<HTMLDivElement>(null);
+  useModalLayer(dialog, open, onClose);
 
-  if (!open) return null
+  if (!open) return null;
 
-  return createPortal((
-    <div className={css.root} role="presentation" onKeyDownCapture={onKeyDownCapture}>
-      <div className={css.mask} style={backdropBlur ? undefined : { backdropFilter: 'none' }} aria-hidden="true" onClick={onClose} />
+  return createPortal(
+    <div
+      className={css.root}
+      role="presentation"
+      onKeyDownCapture={onKeyDownCapture}
+    >
+      <div
+        className={css.mask}
+        style={backdropBlur ? undefined : { backdropFilter: "none" }}
+        aria-hidden="true"
+        onClick={onClose}
+      />
       <div
         ref={dialog}
         tabIndex={-1}
@@ -66,26 +87,34 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
       >
-        {headless
-          ? children
-          : (
-            <>
-              <div className={clsx(css.content, contentClassName)}>
-                <div className={css.header}>
-                  <h2 className={css.title}>{title}</h2>
-                  <button type="button" className={css.close} aria-label={closeLabel} onClick={onClose}>
-                    <IconCloseOutlineRegular size={14} />
-                  </button>
-                </div>
-                {description !== undefined && description !== '' && (
-                  <p className={css.description}>{description}</p>
-                )}
-                {children !== undefined && <div className={css.body}>{children}</div>}
+        {headless ? (
+          children
+        ) : (
+          <>
+            <div className={clsx(css.content, contentClassName)}>
+              <div className={css.header}>
+                <h2 className={css.title}>{title}</h2>
+                <button
+                  type="button"
+                  className={css.close}
+                  aria-label={closeLabel}
+                  onClick={onClose}
+                >
+                  <IconCloseOutlineRegular size={14} />
+                </button>
               </div>
-              {footer !== undefined && <div className={css.footer}>{footer}</div>}
-            </>
-          )}
+              {description !== undefined && description !== "" && (
+                <p className={css.description}>{description}</p>
+              )}
+              {children !== undefined && (
+                <div className={css.body}>{children}</div>
+              )}
+            </div>
+            {footer !== undefined && <div className={css.footer}>{footer}</div>}
+          </>
+        )}
       </div>
-    </div>
-  ), document.body)
+    </div>,
+    document.body,
+  );
 }

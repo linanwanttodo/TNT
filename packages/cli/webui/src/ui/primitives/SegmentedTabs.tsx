@@ -1,14 +1,14 @@
-import type { KeyboardEvent, ReactNode } from 'react'
-import clsx from 'clsx'
-import { Pill } from './Pill.tsx'
-import css from './SegmentedTabs.module.css'
+import type { KeyboardEvent, ReactNode } from "react";
+import clsx from "clsx";
+import { Pill } from "./Pill.tsx";
+import css from "./SegmentedTabs.module.css";
 
 /** A tab links its localized label to a caller-owned panel. */
 export interface SegmentedTab<Value extends string = string> {
-  value: Value
-  label: ReactNode
-  id: string
-  panelId: string
+  value: Value;
+  label: ReactNode;
+  id: string;
+  panelId: string;
 }
 
 /**
@@ -22,34 +22,56 @@ export interface SegmentedTab<Value extends string = string> {
  * @param props.size - `sm` draws 30px tabs with a 2px inset (34px tall); the default `md` draws 34px tabs with a 4px inset (42px tall).
  * @returns the tab list, without its panels.
  */
-export function SegmentedTabs<Value extends string>({ items, value, onChange, label, className, size = 'md' }: {
-  items: readonly [SegmentedTab<Value>, ...SegmentedTab<Value>[]]
-  value: Value
-  onChange: (value: Value) => void
-  label: string
-  className?: string | undefined
-  size?: 'sm' | 'md' | undefined
+export function SegmentedTabs<Value extends string>({
+  items,
+  value,
+  onChange,
+  label,
+  className,
+  size = "md",
+}: {
+  items: readonly [SegmentedTab<Value>, ...SegmentedTab<Value>[]];
+  value: Value;
+  onChange: (value: Value) => void;
+  label: string;
+  className?: string | undefined;
+  size?: "sm" | "md" | undefined;
 }): ReactNode {
-  const selectedIndex = items.findIndex(item => item.value === value)
+  const selectedIndex = items.findIndex((item) => item.value === value);
 
-  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    let next: number
+  const onKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    let next: number;
     switch (event.key) {
-      case 'ArrowLeft': next = (index + items.length - 1) % items.length; break
-      case 'ArrowRight': next = (index + 1) % items.length; break
-      case 'Home': next = 0; break
-      case 'End': next = items.length - 1; break
-      default: return
+      case "ArrowLeft":
+        next = (index + items.length - 1) % items.length;
+        break;
+      case "ArrowRight":
+        next = (index + 1) % items.length;
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = items.length - 1;
+        break;
+      default:
+        return;
     }
-    event.preventDefault()
-    event.stopPropagation()
-    const tablist = event.currentTarget.parentElement
-    const nextItem = items[next]
+    event.preventDefault();
+    event.stopPropagation();
+    const tablist = event.currentTarget.parentElement;
+    const nextItem = items[next];
     /* v8 ignore next -- the event comes from a mounted direct child and next is bounded by non-empty items. */
-    if (tablist === null || nextItem === undefined) return
-    tablist.querySelectorAll<HTMLButtonElement>('[role="tab"]').item(next).focus()
-    onChange(nextItem.value)
-  }
+    if (tablist === null || nextItem === undefined) return;
+    tablist
+      .querySelectorAll<HTMLButtonElement>('[role="tab"]')
+      .item(next)
+      .focus();
+    onChange(nextItem.value);
+  };
 
   return (
     <div
@@ -62,7 +84,10 @@ export function SegmentedTabs<Value extends string>({ items, value, onChange, la
       <span
         className={css.indicator}
         aria-hidden="true"
-        style={{ width: `calc((100% - 2 * var(--segmented-tabs-inset)) / ${items.length})`, transform: `translateX(${selectedIndex * 100}%)` }}
+        style={{
+          width: `calc((100% - 2 * var(--segmented-tabs-inset)) / ${items.length})`,
+          transform: `translateX(${selectedIndex * 100}%)`,
+        }}
       />
       {items.map((item, index) => (
         <Pill
@@ -73,12 +98,16 @@ export function SegmentedTabs<Value extends string>({ items, value, onChange, la
           aria-selected={value === item.value}
           aria-controls={item.panelId}
           tabIndex={value === item.value ? 0 : -1}
-          onClick={() => { onChange(item.value) }}
-          onKeyDown={(event) => { onKeyDown(event, index) }}
+          onClick={() => {
+            onChange(item.value);
+          }}
+          onKeyDown={(event) => {
+            onKeyDown(event, index);
+          }}
         >
           {item.label}
         </Pill>
       ))}
     </div>
-  )
+  );
 }

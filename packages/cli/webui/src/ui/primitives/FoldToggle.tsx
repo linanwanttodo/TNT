@@ -1,14 +1,14 @@
 interface FoldToggleProps {
-  className: string | undefined
-  expanded: boolean
-  hidden: number
+  className: string | undefined;
+  expanded: boolean;
+  hidden: number;
   labels: {
-    collapseAria: string
-    expandAria: (hidden: number) => string
-    collapse: string
-    expand: (hidden: number) => string
-  }
-  onToggle: () => void
+    collapseAria: string;
+    expandAria: (hidden: number) => string;
+    collapse: string;
+    expand: (hidden: number) => string;
+  };
+  onToggle: () => void;
 }
 
 /**
@@ -17,7 +17,11 @@ interface FoldToggleProps {
  * @returns The accessible expand or collapse button.
  */
 export function FoldToggle({
-  className, expanded, hidden, labels, onToggle,
+  className,
+  expanded,
+  hidden,
+  labels,
+  onToggle,
 }: FoldToggleProps) {
   return (
     <button
@@ -29,5 +33,5 @@ export function FoldToggle({
     >
       {expanded ? labels.collapse : labels.expand(hidden)}
     </button>
-  )
+  );
 }

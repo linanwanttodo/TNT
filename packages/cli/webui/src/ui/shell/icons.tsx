@@ -3,11 +3,7 @@
  * traced from the Claude Code desktop reference, so they carry no stroke
  * weight variants: one symbol per glyph.
  */
-import {
-  SHELL_ARTWORK,
-  shellSymbolId,
-  type ShellGlyph,
-} from "./artwork.ts";
+import { SHELL_ARTWORK, shellSymbolId, type ShellGlyph } from "./artwork.ts";
 
 export type { ShellGlyph } from "./artwork.ts";
 

@@ -1,71 +1,71 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode, SyntheticEvent } from 'react'
-import { createPortal } from 'react-dom'
-import clsx from 'clsx'
-import { IconCheckOutlineRegular } from './icons/index.tsx'
-import { overlayTopMargin } from './overlay-top-margin.ts'
-import { usePointerGrace } from './pointer-grace.ts'
-import { isBehindModal } from './useModalLayer.ts'
-import { observeComposition } from './keyboard-composition.ts'
-import { focusWithoutRing } from './focus.ts'
-import { ShortcutKeys } from './ShortcutKeys.tsx'
-import { MenuSurface } from './MenuSurface.tsx'
-import css from './Menu.module.css'
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode, SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
+import clsx from "clsx";
+import { IconCheckOutlineRegular } from "./icons/index.tsx";
+import { overlayTopMargin } from "./overlay-top-margin.ts";
+import { usePointerGrace } from "./pointer-grace.ts";
+import { isBehindModal } from "./useModalLayer.ts";
+import { observeComposition } from "./keyboard-composition.ts";
+import { focusWithoutRing } from "./focus.ts";
+import { ShortcutKeys } from "./ShortcutKeys.tsx";
+import { MenuSurface } from "./MenuSurface.tsx";
+import css from "./Menu.module.css";
 
 /** Selectable row (optionally with a nested submenu). */
 export interface MenuItem {
-  id: string
-  label: ReactNode
-  disabled?: boolean
+  id: string;
+  label: ReactNode;
+  disabled?: boolean;
   /** Effective binding supplied by the command owner; omitted for unbound actions. */
-  shortcut?: { keys: readonly string[]; aria?: string | undefined }
+  shortcut?: { keys: readonly string[]; aria?: string | undefined };
   /** Leading icon (figma .Menu_cell gap 8). */
-  icon?: ReactNode
+  icon?: ReactNode;
   /** Destructive row: error-colored text/icon and danger hover fill. */
-  danger?: boolean
+  danger?: boolean;
   /** Nested card opened to the right on hover/focus. */
-  submenu?: readonly MenuItem[]
+  submenu?: readonly MenuItem[];
 }
 
 /** Hairline between item groups (not selectable). */
 export interface MenuSeparator {
-  type: 'separator'
-  id: string
+  type: "separator";
+  id: string;
 }
 
 /** Non-interactive heading row above a group of items. */
 export interface MenuLabel {
-  type: 'label'
-  id: string
-  text: string
+  type: "label";
+  id: string;
+  text: string;
 }
 
 /** One primary-menu entry: a row, a separator, or a heading label. */
-export type MenuEntry = MenuItem | MenuSeparator | MenuLabel
+export type MenuEntry = MenuItem | MenuSeparator | MenuLabel;
 
 /** Props for one component-rendered menu row. */
 export interface MenuItemButtonProps {
   /** Visible row label. */
-  children: ReactNode
+  children: ReactNode;
   /** Effective binding supplied by the command owner; omitted for unbound actions. */
-  shortcut?: MenuItem['shortcut']
+  shortcut?: MenuItem["shortcut"];
   /** Leading icon (figma .Menu_cell gap 8). */
-  icon?: ReactNode
+  icon?: ReactNode;
   /** Whether this row identifies the currently displayed page or view. */
-  current?: boolean
+  current?: boolean;
   /** Whether the row cannot be activated. */
-  disabled?: boolean
+  disabled?: boolean;
   /** Destructive row: error-colored text/icon and danger hover fill. */
-  danger?: boolean
+  danger?: boolean;
   /**
    * Start a new group: a hairline above this row, the same one a
    * `{ type: 'separator' }` data entry draws. It comes and goes with the row,
    * so a row that renders nothing leaves no stray line; a data separator
    * directly before it draws no second line, and the list's first row draws none.
    */
-  separatorBefore?: boolean
+  separatorBefore?: boolean;
   /** Row activation (click, Enter, or Tab on the focused row). */
-  onSelect: () => void
+  onSelect: () => void;
 }
 
 /**
@@ -85,7 +85,14 @@ export interface MenuItemButtonProps {
  * @returns one menu-item row.
  */
 export function MenuItemButton({
-  children, shortcut, icon, current, disabled = false, danger = false, separatorBefore = false, onSelect,
+  children,
+  shortcut,
+  icon,
+  current,
+  disabled = false,
+  danger = false,
+  separatorBefore = false,
+  onSelect,
 }: MenuItemButtonProps) {
   return (
     <div className={css.itemWrap}>
@@ -96,27 +103,31 @@ export function MenuItemButton({
         className={clsx(css.item, danger && css.danger)}
         disabled={disabled}
         aria-keyshortcuts={shortcut?.aria}
-        aria-current={current === true ? 'page' : undefined}
+        aria-current={current === true ? "page" : undefined}
         onClick={onSelect}
       >
         {icon !== undefined && <span className={css.itemIcon}>{icon}</span>}
         <span className={css.itemLabel}>{children}</span>
-        {shortcut !== undefined && <span aria-hidden="true" className={css.shortcut}><ShortcutKeys keys={shortcut.keys} className={css.shortcutKeys} /></span>}
+        {shortcut !== undefined && (
+          <span aria-hidden="true" className={css.shortcut}>
+            <ShortcutKeys keys={shortcut.keys} className={css.shortcutKeys} />
+          </span>
+        )}
       </button>
     </div>
-  )
+  );
 }
 
 function isSeparator(entry: MenuEntry): entry is MenuSeparator {
-  return 'type' in entry && entry.type === 'separator'
+  return "type" in entry && entry.type === "separator";
 }
 
 function isLabel(entry: MenuEntry): entry is MenuLabel {
-  return 'type' in entry && entry.type === 'label'
+  return "type" in entry && entry.type === "label";
 }
 
 /** Unplaced portal list: hidden but laid out at a fixed origin so offsetWidth/offsetHeight are real. */
-const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
+const MEASURE_STYLE: CSSProperties = { visibility: "hidden", left: 0, top: 0 };
 
 /**
  * Render an anchored dropdown menu. While the list is open its keys mirror the
@@ -170,40 +181,62 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * document.body outside the owner's DOM subtree.
  * @returns anchor wrapper with the conditional list.
  */
-export function Menu({ open, anchor, items = [], children, selectedId, selectedIds, onSelect, onClose, align = 'start', side = 'bottom', portal = false, closeOnPointerLeave = false, dense = false, compact = false, autoFocus = false, selection = 'check', getAnchorRect, minWidthFromAnchor = false, footer, className, listClassName }: {
-  open: boolean
-  autoFocus?: boolean
-  anchor: ReactNode
-  items?: readonly MenuEntry[]
-  children?: ReactNode
-  footer?: readonly MenuEntry[]
-  selectedId?: string | undefined
-  selectedIds?: readonly string[] | undefined
-  onSelect?: (id: string) => void
-  onClose: () => void
-  align?: 'start' | 'end'
-  side?: 'bottom' | 'top' | 'right'
-  portal?: boolean
-  closeOnPointerLeave?: boolean
-  dense?: boolean
-  compact?: boolean
-  selection?: 'check' | 'fill'
-  getAnchorRect?: () => DOMRect | null
-  minWidthFromAnchor?: boolean
-  className?: string | undefined
-  listClassName?: string | undefined
+export function Menu({
+  open,
+  anchor,
+  items = [],
+  children,
+  selectedId,
+  selectedIds,
+  onSelect,
+  onClose,
+  align = "start",
+  side = "bottom",
+  portal = false,
+  closeOnPointerLeave = false,
+  dense = false,
+  compact = false,
+  autoFocus = false,
+  selection = "check",
+  getAnchorRect,
+  minWidthFromAnchor = false,
+  footer,
+  className,
+  listClassName,
+}: {
+  open: boolean;
+  autoFocus?: boolean;
+  anchor: ReactNode;
+  items?: readonly MenuEntry[];
+  children?: ReactNode;
+  footer?: readonly MenuEntry[];
+  selectedId?: string | undefined;
+  selectedIds?: readonly string[] | undefined;
+  onSelect?: (id: string) => void;
+  onClose: () => void;
+  align?: "start" | "end";
+  side?: "bottom" | "top" | "right";
+  portal?: boolean;
+  closeOnPointerLeave?: boolean;
+  dense?: boolean;
+  compact?: boolean;
+  selection?: "check" | "fill";
+  getAnchorRect?: () => DOMRect | null;
+  minWidthFromAnchor?: boolean;
+  className?: string | undefined;
+  listClassName?: string | undefined;
 }) {
-  const rootRef = useRef<HTMLSpanElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   /** Index the arrow walk last focused, the resume point when focus left the rows. */
-  const walkIndex = useRef<number | null>(null)
+  const walkIndex = useRef<number | null>(null);
   /**
    * The control that had the keyboard when this menu opened — its own trigger,
    * which an anchor that wraps several controls (a split button) would not be
    * able to name by position.
    */
-  const triggerRef = useRef<HTMLElement | null>(null)
-  const selectingWithTab = useRef(false)
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const selectingWithTab = useRef(false);
 
   /**
    * Hand the keyboard back to the trigger that opened the menu — or, when the
@@ -213,13 +246,19 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
    * @param navigation - whether explicit keyboard traversal should retain its focus indicator.
    */
   const refocusAnchor = (navigation = false): void => {
-    const trigger = triggerRef.current
-    const target = trigger !== null && document.contains(trigger) && !(trigger as HTMLButtonElement).disabled
-      ? trigger : rootRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')
-    if (target == null) return
-    if (navigation) target.focus()
-    else focusWithoutRing(target)
-  }
+    const trigger = triggerRef.current;
+    const target =
+      trigger !== null &&
+      document.contains(trigger) &&
+      !(trigger as HTMLButtonElement).disabled
+        ? trigger
+        : rootRef.current?.querySelector<HTMLButtonElement>(
+            "button:not(:disabled)",
+          );
+    if (target == null) return;
+    if (navigation) target.focus();
+    else focusWithoutRing(target);
+  };
 
   /**
    * Post-selection focus, for the paths where the rows unmount with the list.
@@ -229,18 +268,23 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
    * its removal produced) comes back to the trigger.
    */
   const refocusAfterSelection = (): void => {
-    const navigation = selectingWithTab.current
+    const navigation = selectingWithTab.current;
     queueMicrotask(() => {
-      if (openRef.current) return
-      const active = document.activeElement
-      if (active === null || active === document.body || listRef.current?.contains(active) === true) refocusAnchor(navigation)
-    })
-  }
-  const openRef = useRef(open)
-  openRef.current = open
-  const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null)
-  const [fixedPos, setFixedPos] = useState<CSSProperties | null>(null)
-  const { arm: armClose, cancel: cancelClose } = usePointerGrace(onClose)
+      if (openRef.current) return;
+      const active = document.activeElement;
+      if (
+        active === null ||
+        active === document.body ||
+        listRef.current?.contains(active) === true
+      )
+        refocusAnchor(navigation);
+    });
+  };
+  const openRef = useRef(open);
+  openRef.current = open;
+  const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null);
+  const [fixedPos, setFixedPos] = useState<CSSProperties | null>(null);
+  const { arm: armClose, cancel: cancelClose } = usePointerGrace(onClose);
 
   // Portal mode: fixed-position the list from the anchor rect before paint;
   // track the anchor while open (capture-phase scroll catches nested panes).
@@ -248,64 +292,77 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   // runs before the parent's, so a wrapper the host positions in its own
   // effect measures stale here — the host callback owns the truth instead.
   useLayoutEffect(() => {
-    if (!open || !portal) { setFixedPos(null); return }
+    if (!open || !portal) {
+      setFixedPos(null);
+      return;
+    }
     const place = () => {
-      let r: DOMRect | null
+      let r: DOMRect | null;
       if (getAnchorRect !== undefined) {
-        r = getAnchorRect()
+        r = getAnchorRect();
       } else {
         /* v8 ignore next 2 -- the ref is attached before the layout effect runs and the listeners die with it. */
-        r = rootRef.current?.getBoundingClientRect() ?? null
+        r = rootRef.current?.getBoundingClientRect() ?? null;
       }
-      if (r === null) return
-      const MARGIN = 12
-      const GAP = 4
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      const listEl = listRef.current
+      if (r === null) return;
+      const MARGIN = 12;
+      const GAP = 4;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const listEl = listRef.current;
       if (listEl !== null) {
-        const minimum = minWidthFromAnchor ? `${Math.min(r.width, Math.max(0, vw - MARGIN * 2))}px` : ''
-        if (listEl.style.minWidth !== minimum) listEl.style.minWidth = minimum
+        const minimum = minWidthFromAnchor
+          ? `${Math.min(r.width, Math.max(0, vw - MARGIN * 2))}px`
+          : "";
+        if (listEl.style.minWidth !== minimum) listEl.style.minWidth = minimum;
       }
-      const lw = listEl?.offsetWidth ?? 0
-      const lh = listEl?.offsetHeight ?? 0
+      const lw = listEl?.offsetWidth ?? 0;
+      const lh = listEl?.offsetHeight ?? 0;
 
-      let x: number
-      let y: number
-      if (side === 'right') {
-        x = r.right + GAP
-        y = r.top
-      } else if (align === 'start') {
-        x = r.left
-        y = side === 'bottom' ? r.bottom + GAP : r.top - lh - GAP
+      let x: number;
+      let y: number;
+      if (side === "right") {
+        x = r.right + GAP;
+        y = r.top;
+      } else if (align === "start") {
+        x = r.left;
+        y = side === "bottom" ? r.bottom + GAP : r.top - lh - GAP;
       } else {
-        x = r.right - lw
-        y = side === 'bottom' ? r.bottom + GAP : r.top - lh - GAP
+        x = r.right - lw;
+        y = side === "bottom" ? r.bottom + GAP : r.top - lh - GAP;
       }
 
-      if (lw > 0) x = Math.min(Math.max(x, MARGIN), vw - lw - MARGIN)
-      if (lh > 0) y = Math.min(Math.max(y, overlayTopMargin(MARGIN, r, GAP)), vh - lh - MARGIN)
+      if (lw > 0) x = Math.min(Math.max(x, MARGIN), vw - lw - MARGIN);
+      if (lh > 0)
+        y = Math.min(
+          Math.max(y, overlayTopMargin(MARGIN, r, GAP)),
+          vh - lh - MARGIN,
+        );
 
-      setFixedPos(current => current?.left === x && current.top === y ? current : { left: x, top: y })
-    }
+      setFixedPos((current) =>
+        current?.left === x && current.top === y
+          ? current
+          : { left: x, top: y },
+      );
+    };
     // First run measures the hidden pre-render (same commit as `open`), so
     // end/top alignment and clamping use real dimensions before anything
     // paints — no visible jump from a zero-size first guess.
-    place()
+    place();
     // Dragging or transforming an ancestor moves the anchor without a scroll or resize event.
     const track = () => {
-      place()
-      frame = requestAnimationFrame(track)
-    }
-    let frame = requestAnimationFrame(track)
-    window.addEventListener('scroll', place, true)
-    window.addEventListener('resize', place)
+      place();
+      frame = requestAnimationFrame(track);
+    };
+    let frame = requestAnimationFrame(track);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
     return () => {
-      cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', place, true)
-      window.removeEventListener('resize', place)
-    }
-  }, [open, portal, align, side, getAnchorRect, minWidthFromAnchor])
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, portal, align, side, getAnchorRect, minWidthFromAnchor]);
 
   // Opening remembers where the keyboard was, so closing can hand it back to
   // that control — an anchor wrapping several (a split button) cannot be asked
@@ -313,82 +370,105 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   // sees the trigger, not the row autoFocus is about to focus.
   useEffect(() => {
     if (!open) {
-      triggerRef.current = null
-      return
+      triggerRef.current = null;
+      return;
     }
-    const active = document.activeElement
-    triggerRef.current = active instanceof HTMLElement && rootRef.current?.contains(active) === true ? active : null
-  }, [open])
+    const active = document.activeElement;
+    triggerRef.current =
+      active instanceof HTMLElement &&
+      rootRef.current?.contains(active) === true
+        ? active
+        : null;
+  }, [open]);
 
   useEffect(() => {
-    if (!open || !autoFocus) return
-    const first = listRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')
-    walkIndex.current = first === undefined || first === null ? null : 0
-    if (first != null) focusWithoutRing(first)
-  }, [open, autoFocus])
+    if (!open || !autoFocus) return;
+    const first = listRef.current?.querySelector<HTMLButtonElement>(
+      "button:not(:disabled)",
+    );
+    walkIndex.current = first === undefined || first === null ? null : 0;
+    if (first != null) focusWithoutRing(first);
+  }, [open, autoFocus]);
 
   useEffect(() => {
     if (!open) {
-      setOpenSubmenuId(null)
-      walkIndex.current = null
-      return
+      setOpenSubmenuId(null);
+      walkIndex.current = null;
+      return;
     }
-    const composition = observeComposition(document)
+    const composition = observeComposition(document);
     const onPointerDown = (e: PointerEvent) => {
-      if (!(e.target instanceof Node)) return
+      if (!(e.target instanceof Node)) return;
       // The portaled list is outside the anchor subtree; check both.
-      if (rootRef.current?.contains(e.target) === true) return
-      if (listRef.current?.contains(e.target) === true) return
-      onClose()
-    }
+      if (rootRef.current?.contains(e.target) === true) return;
+      if (listRef.current?.contains(e.target) === true) return;
+      onClose();
+    };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (composition.guards(e) || isBehindModal(rootRef.current) || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return
+      if (
+        composition.guards(e) ||
+        isBehindModal(rootRef.current) ||
+        e.defaultPrevented ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.metaKey
+      )
+        return;
       // Where the keyboard is, computed once: the menu owns it when it holds a
       // row or sits on its anchor region.
-      const focused = document.activeElement
-      const insideList = listRef.current?.contains(focused) === true
-      const anchored = rootRef.current?.contains(focused) === true || insideList
-      if (e.key === 'Escape' && !e.shiftKey) {
-        e.preventDefault()
-        if (e.repeat) return
+      const focused = document.activeElement;
+      const insideList = listRef.current?.contains(focused) === true;
+      const anchored =
+        rootRef.current?.contains(focused) === true || insideList;
+      if (e.key === "Escape" && !e.shiftKey) {
+        e.preventDefault();
+        if (e.repeat) return;
         // Closing hands the keyboard back when the menu had it — and, as this
         // primitive always did for autoFocus menus, when it held the keyboard
         // and lost it again (a row that unmounted under it).
-        onClose()
-        if (anchored || autoFocus) refocusAnchor()
+        onClose();
+        if (anchored || autoFocus) refocusAnchor();
       }
       // Tab settles like Enter and Shift+Tab leaves like Escape, so a menu's
       // keys mean what they mean in the composer. Only a keyboard already on
       // the trigger or inside the list is intercepted: Tab elsewhere on the
       // page keeps the browser's traversal even while a menu is open.
-      if (e.key === 'Tab') {
-        const list = listRef.current
-        if (list === null || !anchored) return
+      if (e.key === "Tab") {
+        const list = listRef.current;
+        if (list === null || !anchored) return;
         if (e.shiftKey) {
-          e.preventDefault()
-          onClose()
-          refocusAnchor(true)
-          return
+          e.preventDefault();
+          onClose();
+          refocusAnchor(true);
+          return;
         }
         // Tab settles the row it is on; from anywhere else in the menu region
         // it enters the list. A focused control that is not a row (a retry
         // button inside an error strip) and a list with no enabled row keep the
         // browser's traversal instead of being swallowed.
         if (insideList) {
-          if (focused instanceof Element && focused.getAttribute('role') === 'menuitem') {
-            e.preventDefault()
-            selectingWithTab.current = true
-            try { (focused as HTMLElement).click() }
-            finally { selectingWithTab.current = false }
+          if (
+            focused instanceof Element &&
+            focused.getAttribute("role") === "menuitem"
+          ) {
+            e.preventDefault();
+            selectingWithTab.current = true;
+            try {
+              (focused as HTMLElement).click();
+            } finally {
+              selectingWithTab.current = false;
+            }
           }
-          return
+          return;
         }
-        const row = list.querySelector<HTMLButtonElement>('button:not(:disabled)')
-        if (row === null) return
-        e.preventDefault()
-        row.focus()
-        walkIndex.current = 0
-        return
+        const row = list.querySelector<HTMLButtonElement>(
+          "button:not(:disabled)",
+        );
+        if (row === null) return;
+        e.preventDefault();
+        row.focus();
+        walkIndex.current = 0;
+        return;
       }
       // Arrows walk the list whether or not the menu focused its first item on
       // open, so `autoFocus` chooses only that entry behavior. A keyboard still
@@ -398,98 +478,156 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       // that refused focus (a hidden portal frame, a detached node) would
       // otherwise re-enter at the near end on every press and the walk would
       // alternate between two rows.
-      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
-      const list = listRef.current
-      if (list === null || !anchored) return
-      const buttons = Array.from(list.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
-      if (buttons.length === 0) return
-      const index = buttons.indexOf(focused as HTMLButtonElement)
-      const from = index >= 0 ? index : walkIndex.current
-      const next = e.key === 'Home' ? 0 : e.key === 'End' ? buttons.length - 1
-        : from === null
-          ? (e.key === 'ArrowDown' ? 0 : buttons.length - 1)
-          : (from + (e.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
-      e.preventDefault()
-      walkIndex.current = next
-      buttons[next]?.focus()
-    }
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+      const list = listRef.current;
+      if (list === null || !anchored) return;
+      const buttons = Array.from(
+        list.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+      );
+      if (buttons.length === 0) return;
+      const index = buttons.indexOf(focused as HTMLButtonElement);
+      const from = index >= 0 ? index : walkIndex.current;
+      const next =
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? buttons.length - 1
+            : from === null
+              ? e.key === "ArrowDown"
+                ? 0
+                : buttons.length - 1
+              : (from + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) %
+                buttons.length;
+      e.preventDefault();
+      walkIndex.current = next;
+      buttons[next]?.focus();
+    };
     // A pointerdown inside a cross-origin iframe (a sandboxed HTML preview)
     // never reaches this document; the focus move it causes blurs the window
     // instead. Only that case closes: an app or tab switch leaves the
     // document's focus where it was, so activeElement is not an iframe.
     const onWindowBlur = () => {
-      if (document.activeElement instanceof HTMLIFrameElement) onClose()
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    const onEscape = (event: KeyboardEvent): void => { if (event.key === 'Escape') onKeyDown(event) }
-    const onOtherKey = (event: KeyboardEvent): void => { if (event.key !== 'Escape') onKeyDown(event) }
-    document.addEventListener('keydown', onOtherKey)
-    document.addEventListener('keydown', onEscape, true)
-    window.addEventListener('blur', onWindowBlur)
+      if (document.activeElement instanceof HTMLIFrameElement) onClose();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") onKeyDown(event);
+    };
+    const onOtherKey = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") onKeyDown(event);
+    };
+    document.addEventListener("keydown", onOtherKey);
+    document.addEventListener("keydown", onEscape, true);
+    window.addEventListener("blur", onWindowBlur);
     return () => {
-      composition.dispose()
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onOtherKey)
-      document.removeEventListener('keydown', onEscape, true)
-      window.removeEventListener('blur', onWindowBlur)
-    }
-  }, [open, onClose, autoFocus])
+      composition.dispose();
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onOtherKey);
+      document.removeEventListener("keydown", onEscape, true);
+      window.removeEventListener("blur", onWindowBlur);
+    };
+  }, [open, onClose, autoFocus]);
 
   // A close from selection/Escape/outside click outruns a pending grace close;
   // left armed it would shut a list reopened inside the grace window. Its own
   // effect, not the listener effect above: that one re-runs on every `onClose`
   // identity change and would cancel the grace mid-transit.
   useEffect(() => {
-    if (!open) cancelClose()
-  }, [open, cancelClose])
+    if (!open) cancelClose();
+  }, [open, cancelClose]);
 
   // The submenu card is absolutely positioned outside the list box; the
   // scroll clip would crop it, so only submenu-free menus get the height cap.
-  const scrollable = !items.some(entry => !isSeparator(entry) && !isLabel(entry) && entry.submenu !== undefined && entry.submenu.length > 0)
+  const scrollable = !items.some(
+    (entry) =>
+      !isSeparator(entry) &&
+      !isLabel(entry) &&
+      entry.submenu !== undefined &&
+      entry.submenu.length > 0,
+  );
 
   const renderEntry = (entry: MenuEntry) => {
     if (isSeparator(entry)) {
-      return <div key={entry.id} className={css.separator} role="separator" />
+      return <div key={entry.id} className={css.separator} role="separator" />;
     }
     if (isLabel(entry)) {
-      return <div key={entry.id} className={css.label} role="presentation">{entry.text}</div>
+      return (
+        <div key={entry.id} className={css.label} role="presentation">
+          {entry.text}
+        </div>
+      );
     }
-    const hasSub = entry.submenu !== undefined && entry.submenu.length > 0
-    const subOpen = hasSub && openSubmenuId === entry.id
-    const selected = entry.id === selectedId || selectedIds?.includes(entry.id) === true
+    const hasSub = entry.submenu !== undefined && entry.submenu.length > 0;
+    const subOpen = hasSub && openSubmenuId === entry.id;
+    const selected =
+      entry.id === selectedId || selectedIds?.includes(entry.id) === true;
     return (
       <div
         key={entry.id}
         className={css.itemWrap}
-        onMouseEnter={hasSub ? () => { setOpenSubmenuId(entry.id) } : undefined}
-        onMouseLeave={() => { setOpenSubmenuId(null) }}
+        onMouseEnter={
+          hasSub
+            ? () => {
+                setOpenSubmenuId(entry.id);
+              }
+            : undefined
+        }
+        onMouseLeave={() => {
+          setOpenSubmenuId(null);
+        }}
       >
         <button
           type="button"
           role="menuitem"
-          className={clsx(css.item, selected && (selection === 'fill' ? css.selectedFill : css.selected), entry.danger === true && css.danger)}
+          className={clsx(
+            css.item,
+            selected &&
+              (selection === "fill" ? css.selectedFill : css.selected),
+            entry.danger === true && css.danger,
+          )}
           disabled={entry.disabled}
           aria-keyshortcuts={entry.shortcut?.aria}
-          aria-haspopup={hasSub ? 'menu' : undefined}
+          aria-haspopup={hasSub ? "menu" : undefined}
           aria-expanded={hasSub ? subOpen : undefined}
-          onFocus={hasSub ? () => { setOpenSubmenuId(entry.id) } : undefined}
+          onFocus={
+            hasSub
+              ? () => {
+                  setOpenSubmenuId(entry.id);
+                }
+              : undefined
+          }
           onClick={() => {
             if (hasSub) {
-              setOpenSubmenuId(entry.id)
-              return
+              setOpenSubmenuId(entry.id);
+              return;
             }
-            onSelect?.(entry.id)
+            onSelect?.(entry.id);
           }}
         >
-          {entry.icon !== undefined && <span className={css.itemIcon}>{entry.icon}</span>}
+          {entry.icon !== undefined && (
+            <span className={css.itemIcon}>{entry.icon}</span>
+          )}
           <span className={css.itemLabel}>{entry.label}</span>
-          {entry.shortcut !== undefined && <span aria-hidden="true" className={css.shortcut}><ShortcutKeys keys={entry.shortcut.keys} className={css.shortcutKeys} /></span>}
+          {entry.shortcut !== undefined && (
+            <span aria-hidden="true" className={css.shortcut}>
+              <ShortcutKeys
+                keys={entry.shortcut.keys}
+                className={css.shortcutKeys}
+              />
+            </span>
+          )}
           {/* Selection marker is a trailing check (figma .Menu_cell) unless the fill mode carries it. */}
-          {selected && selection === 'check' && <IconCheckOutlineRegular className={css.check} />}
+          {selected && selection === "check" && (
+            <IconCheckOutlineRegular className={css.check} />
+          )}
         </button>
         {subOpen && entry.submenu !== undefined && (
-          <MenuSurface compact={compact} className={clsx(css.submenu, compact && css.compactList)} role="menu">
-            {entry.submenu.map(sub => (
+          <MenuSurface
+            compact={compact}
+            className={clsx(css.submenu, compact && css.compactList)}
+            role="menu"
+          >
+            {entry.submenu.map((sub) => (
               <button
                 key={sub.id}
                 type="button"
@@ -497,39 +635,64 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
                 className={css.item}
                 disabled={sub.disabled}
                 aria-keyshortcuts={sub.shortcut?.aria}
-                onClick={() => { onSelect?.(sub.id); refocusAfterSelection() }}
+                onClick={() => {
+                  onSelect?.(sub.id);
+                  refocusAfterSelection();
+                }}
               >
-                {sub.icon !== undefined && <span className={css.itemIcon}>{sub.icon}</span>}
+                {sub.icon !== undefined && (
+                  <span className={css.itemIcon}>{sub.icon}</span>
+                )}
                 <span className={css.itemLabel}>{sub.label}</span>
-                {sub.shortcut !== undefined && <span aria-hidden="true" className={css.shortcut}><ShortcutKeys keys={sub.shortcut.keys} className={css.shortcutKeys} /></span>}
+                {sub.shortcut !== undefined && (
+                  <span aria-hidden="true" className={css.shortcut}>
+                    <ShortcutKeys
+                      keys={sub.shortcut.keys}
+                      className={css.shortcutKeys}
+                    />
+                  </span>
+                )}
               </button>
             ))}
           </MenuSurface>
         )}
       </div>
-    )
-  }
+    );
+  };
 
   // Submenu exclusivity is decided from the list's own bubble, by DOM:
   // reaching a top-level row that is not a submenu parent — by pointer or by
   // focus, data row or component row — closes the open card. A parent opens
   // its card in its own handlers; rows inside the card are not top-level rows.
   const collapseSubmenuFrom = (e: SyntheticEvent<HTMLDivElement>): void => {
-    const row = e.target instanceof Element ? e.target.closest('button[role="menuitem"]') : null
-    if (row === null || row.getAttribute('aria-haspopup') === 'menu') return
-    if (row.closest('[role="menu"]') !== e.currentTarget) return
-    setOpenSubmenuId(null)
-  }
+    const row =
+      e.target instanceof Element
+        ? e.target.closest('button[role="menuitem"]')
+        : null;
+    if (row === null || row.getAttribute("aria-haspopup") === "menu") return;
+    if (row.closest('[role="menu"]') !== e.currentTarget) return;
+    setOpenSubmenuId(null);
+  };
 
   // Portal lists render hidden until placed: the placement effect measures
   // this pre-render in the same commit, so the first painted frame is
   // already at the final position (with getAnchorRect returning null the
   // list simply stays hidden).
   const list = open && (
-    <MenuSurface compact={compact}
+    <MenuSurface
+      compact={compact}
       ref={listRef}
-      className={clsx(css.list, listClassName, dense && css.denseList, compact && css.compactList, scrollable && css.scrollable, portal && css.portal, side === 'top' && !portal && css.sideTop, align === 'end' && !portal && css.alignEnd)}
-      style={portal ? fixedPos ?? MEASURE_STYLE : undefined}
+      className={clsx(
+        css.list,
+        listClassName,
+        dense && css.denseList,
+        compact && css.compactList,
+        scrollable && css.scrollable,
+        portal && css.portal,
+        side === "top" && !portal && css.sideTop,
+        align === "end" && !portal && css.alignEnd,
+      )}
+      style={portal ? (fixedPos ?? MEASURE_STYLE) : undefined}
       role="menu"
       // React portals bubble synthetic events through the REACT tree: without
       // this stop, an item click re-fires the anchor row's own onClick
@@ -538,9 +701,13 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       // post-selection focus return is decided once here, after the row's
       // own handler ran; a submenu parent only opened its card.
       onClick={(e) => {
-        e.stopPropagation()
-        const row = e.target instanceof Element ? e.target.closest('button[role="menuitem"]') : null
-        if (row !== null && row.getAttribute('aria-haspopup') !== 'menu') refocusAfterSelection()
+        e.stopPropagation();
+        const row =
+          e.target instanceof Element
+            ? e.target.closest('button[role="menuitem"]')
+            : null;
+        if (row !== null && row.getAttribute("aria-haspopup") !== "menu")
+          refocusAfterSelection();
       }}
       onMouseOver={collapseSubmenuFrom}
       onFocus={collapseSubmenuFrom}
@@ -555,7 +722,7 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
         </div>
       )}
     </MenuSurface>
-  )
+  );
 
   // Pointer-leave dismissal watches the WRAPPER, not the list: React's
   // enter/leave traversal runs over the React tree, so trigger and portaled
@@ -566,10 +733,16 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       ref={rootRef}
       className={clsx(css.root, className)}
       onPointerEnter={closeOnPointerLeave ? cancelClose : undefined}
-      onPointerLeave={closeOnPointerLeave ? () => { if (open) armClose() } : undefined}
+      onPointerLeave={
+        closeOnPointerLeave
+          ? () => {
+              if (open) armClose();
+            }
+          : undefined
+      }
     >
       {anchor}
-      {portal ? (list !== false && createPortal(list, document.body)) : list}
+      {portal ? list !== false && createPortal(list, document.body) : list}
     </span>
-  )
+  );
 }

@@ -32,6 +32,6 @@
   background: var(--dsw-alias-menu-group-header-fill);
 }
 
-:global(html:not([data-platform='darwin'])) .heading {
+:global(html:not([data-platform="darwin"])) .heading {
   border-radius: var(--dsw-radius-md);
 }

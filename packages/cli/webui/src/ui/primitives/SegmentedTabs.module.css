@@ -10,7 +10,8 @@
 
 .indicator {
   position: absolute;
-  inset: var(--segmented-tabs-inset) auto var(--segmented-tabs-inset) var(--segmented-tabs-inset);
+  inset: var(--segmented-tabs-inset) auto var(--segmented-tabs-inset)
+    var(--segmented-tabs-inset);
   box-sizing: border-box;
   border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-md);
@@ -32,7 +33,7 @@
   transition: color 180ms ease;
 }
 
-.tab[aria-selected='true'] {
+.tab[aria-selected="true"] {
   background: transparent;
   color: var(--dsw-alias-label-primary);
 }
@@ -44,21 +45,21 @@
   }
 }
 
-.tab[aria-selected='true'] {
+.tab[aria-selected="true"] {
   font-weight: 600;
 }
 
-.tabs[data-size='sm'] {
+.tabs[data-size="sm"] {
   --segmented-tabs-inset: 2px;
 
   border-radius: calc(var(--dsw-radius-md) + var(--segmented-tabs-inset));
 }
 
-.tabs[data-size='sm'] .tab {
+.tabs[data-size="sm"] .tab {
   height: 30px;
 }
 
-.tabs[data-size='sm'] .tab[aria-selected='true'] {
+.tabs[data-size="sm"] .tab[aria-selected="true"] {
   font-weight: 500;
 }
 

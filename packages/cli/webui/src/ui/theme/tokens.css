@@ -8,7 +8,7 @@
  * native appearance; the light block keeps the same relationships.
  */
 :root,
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   /* Surfaces */
   --dsw-alias-bg-base: #1c1c1c;
   --dsw-alias-bg-layer-1: #181818;
@@ -71,7 +71,8 @@
   --dsw-specific-selector: #3a3a3a;
   --dsw-specific-sidebar-fill: #181818;
   --dsw-specific-menu: #2c2c2b;
-  --dsw-shadow-lv2: 0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.14);
+  --dsw-shadow-lv2:
+    0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.14);
 
   /* Claude surfaces */
   --dsh-claude-canvas: #1c1c1c;
@@ -107,7 +108,7 @@
   color-scheme: dark;
 }
 
-:root[data-theme='light'] {
+:root[data-theme="light"] {
   --dsw-alias-bg-base: #fcfcfb;
   --dsw-alias-bg-layer-1: #fbfbf9;
   --dsw-alias-bg-layer-2: #f2f1ed;
@@ -155,7 +156,8 @@
   --dsw-specific-selector: #fbfbf9;
   --dsw-specific-sidebar-fill: #fbfbf9;
   --dsw-specific-menu: #ffffff;
-  --dsw-shadow-lv2: 0 4px 18px rgba(20, 20, 19, 0.1), 0 1px 3px rgba(20, 20, 19, 0.05);
+  --dsw-shadow-lv2:
+    0 4px 18px rgba(20, 20, 19, 0.1), 0 1px 3px rgba(20, 20, 19, 0.05);
   --dsh-claude-canvas: #fcfcfb;
   --dsh-claude-sidebar-canvas: #fbfbf9;
   --dsh-claude-card: #fcfcfb;

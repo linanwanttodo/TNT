@@ -177,7 +177,7 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-.sessionRow[data-active='true'] {
+.sessionRow[data-active="true"] {
   background: var(--dsh-shell-row-active);
   color: var(--dsw-alias-label-primary);
 }
@@ -202,7 +202,7 @@
 }
 
 .sessionRow:hover .sessionMenu,
-.sessionRow[data-active='true'] .sessionMenu {
+.sessionRow[data-active="true"] .sessionMenu {
   opacity: 1;
 }
 
@@ -245,11 +245,11 @@
   background: var(--dsw-alias-state-success-primary);
 }
 
-.accountStatus[data-status='reconnecting'] {
+.accountStatus[data-status="reconnecting"] {
   background: var(--dsw-alias-state-warn-primary);
 }
 
-.accountStatus[data-status='offline'] {
+.accountStatus[data-status="offline"] {
   background: var(--dsw-alias-state-error-primary);
 }
 

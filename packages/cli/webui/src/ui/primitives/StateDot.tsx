@@ -1,12 +1,12 @@
-import clsx from 'clsx'
-import css from './StateDot.module.css'
-import { IconCheckOutlineRegular } from './icons/index.tsx'
+import clsx from "clsx";
+import css from "./StateDot.module.css";
+import { IconCheckOutlineRegular } from "./icons/index.tsx";
 
 /**
  * State semantic: green done / amber user-attention / tertiary-grey loading /
  * red error / neutral-grey idle for a tracked subject with nothing in progress.
  */
-export type StateDotState = 'done' | 'warning' | 'ongoing' | 'error' | 'idle'
+export type StateDotState = "done" | "warning" | "ongoing" | "error" | "idle";
 
 /**
  * Pin the loader's CSS animations to document time zero. A CSS animation starts
@@ -17,9 +17,11 @@ export type StateDotState = 'done' | 'warning' | 'ongoing' | 'error' | 'idle'
  * @param element - the mounted loader, or null on unmount.
  */
 function syncSpinner(element: SVGSVGElement | null): void {
-  if (element === null) return
-  pinSpinner(element)
-  element.addEventListener('animationstart', () => { pinSpinner(element) })
+  if (element === null) return;
+  pinSpinner(element);
+  element.addEventListener("animationstart", () => {
+    pinSpinner(element);
+  });
 }
 
 /**
@@ -29,8 +31,9 @@ function syncSpinner(element: SVGSVGElement | null): void {
 function pinSpinner(element: SVGSVGElement): void {
   // jsdom (the unit lane) implements no Web Animations despite lib.dom's
   // non-optional typing; the optional call leaves that lane unsynced.
-  const spinner = element as { getAnimations?: SVGSVGElement['getAnimations'] }
-  for (const animation of spinner.getAnimations?.({ subtree: true }) ?? []) animation.startTime = 0
+  const spinner = element as { getAnimations?: SVGSVGElement["getAnimations"] };
+  for (const animation of spinner.getAnimations?.({ subtree: true }) ?? [])
+    animation.startTime = 0;
 }
 
 /**
@@ -41,14 +44,19 @@ function pinSpinner(element: SVGSVGElement): void {
  * @param props.appearance - compact dot by default; step uses a filled check or hollow pending circle.
  * @returns the dot element (aria-hidden; pair with text for accessibility).
  */
-export function StateDot({ state, size, className, appearance = 'dot' }: {
-  state: StateDotState
-  size?: number | undefined
-  className?: string | undefined
-  appearance?: 'dot' | 'step'
+export function StateDot({
+  state,
+  size,
+  className,
+  appearance = "dot",
+}: {
+  state: StateDotState;
+  size?: number | undefined;
+  className?: string | undefined;
+  appearance?: "dot" | "step";
 }) {
-  const edge = size ?? (state === 'ongoing' ? 14 : 10)
-  if (state === 'ongoing') {
+  const edge = size ?? (state === "ongoing" ? 14 : 10);
+  if (state === "ongoing") {
     return (
       <svg
         ref={syncSpinner}
@@ -64,14 +72,18 @@ export function StateDot({ state, size, className, appearance = 'dot' }: {
           <circle className={css.spinnerArc} cx="12" cy="12" r="9.5" />
         </g>
       </svg>
-    )
+    );
   }
   return (
     <span
-      className={clsx(appearance === 'step' ? css.step : css.dot, className)}
+      className={clsx(appearance === "step" ? css.step : css.dot, className)}
       data-state={state}
       style={{ width: edge, height: edge }}
       aria-hidden="true"
-    >{appearance === 'step' && state === 'done' && <IconCheckOutlineRegular size={edge - 2} />}</span>
-  )
+    >
+      {appearance === "step" && state === "done" && (
+        <IconCheckOutlineRegular size={edge - 2} />
+      )}
+    </span>
+  );
 }

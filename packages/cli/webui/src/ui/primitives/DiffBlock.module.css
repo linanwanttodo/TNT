@@ -17,11 +17,11 @@
   white-space: pre;
 }
 
-.block[data-code-wrap='true'] .body {
+.block[data-code-wrap="true"] .body {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.block[data-code-wrap='true'] .line {
+.block[data-code-wrap="true"] .line {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -36,7 +36,7 @@
 }
 
 .del::before {
-  content: '- ';
+  content: "- ";
 }
 
 .del {
@@ -46,7 +46,7 @@
 }
 
 .add::before {
-  content: '+ ';
+  content: "+ ";
 }
 
 .add {
@@ -60,7 +60,7 @@
 }
 
 .context::before {
-  content: '  ';
+  content: "  ";
 }
 
 .expand {

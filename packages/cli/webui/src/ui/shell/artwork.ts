@@ -25,7 +25,11 @@ const STROKE = 1.5;
  * @param stroke - stroke width in viewBox units.
  * @returns a complete SVG document string.
  */
-function outline(viewBox: string, body: string, stroke: number = STROKE): string {
+function outline(
+  viewBox: string,
+  body: string,
+  stroke: number = STROKE,
+): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill="none" stroke="currentColor" stroke-width="${stroke}">${body}</svg>`;
 }
 
@@ -52,7 +56,7 @@ export const SHELL_ARTWORK = {
   },
 
   /** Panel toggle: a square split by a vertical rule a third from the left. */
-  'panel-left': {
+  "panel-left": {
     width: 16,
     height: 16,
     svg: outline(
@@ -62,7 +66,7 @@ export const SHELL_ARTWORK = {
   },
 
   /** Left-pointing arrow with a 1.5px shaft. */
-  'arrow-left': {
+  "arrow-left": {
     width: 16,
     height: 16,
     svg: outline(
@@ -72,7 +76,7 @@ export const SHELL_ARTWORK = {
   },
 
   /** Right-pointing arrow with a 1.5px shaft. */
-  'arrow-right': {
+  "arrow-right": {
     width: 16,
     height: 16,
     svg: outline(
@@ -92,7 +96,7 @@ export const SHELL_ARTWORK = {
   },
 
   /** Code segment glyph: a left chevron, a slash, and a right chevron. */
-  'code-brackets': {
+  "code-brackets": {
     width: 16,
     height: 16,
     svg: outline(
@@ -112,7 +116,7 @@ export const SHELL_ARTWORK = {
   },
 
   /** The composer's leading plus: a 12px cross with a 2px stroke. */
-  'plus-compact': {
+  "plus-compact": {
     width: 12,
     height: 12,
     svg: outline("0 0 12 12", '<path d="M6 1V11"/><path d="M1 6H11"/>', 2),
@@ -187,10 +191,7 @@ export const SHELL_ARTWORK = {
   terminal: {
     width: 16,
     height: 16,
-    svg: outline(
-      "0 0 16 16",
-      '<path d="M2 1L7 5L2 9"/><path d="M7 9H13"/>',
-    ),
+    svg: outline("0 0 16 16", '<path d="M2 1L7 5L2 9"/><path d="M7 9H13"/>'),
   },
 
   /** Folder outline with a tab on the upper left. */

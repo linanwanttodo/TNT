@@ -1,37 +1,45 @@
-import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
-import clsx from 'clsx'
-import { IconChevronDownOutlineRegular, IconChevronUpOutlineRegular } from './icons/index.tsx'
-import { TextShimmer } from './TextShimmer.tsx'
-import css from './DisclosureRow.module.css'
+import {
+  memo,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import clsx from "clsx";
+import {
+  IconChevronDownOutlineRegular,
+  IconChevronUpOutlineRegular,
+} from "./icons/index.tsx";
+import { TextShimmer } from "./TextShimmer.tsx";
+import css from "./DisclosureRow.module.css";
 
 /** Shared 24px process row: tertiary text and icons, secondary on hover. */
 export interface DisclosureRowProps {
-  icon: ReactNode
-  title: string
-  open: boolean
-  expandable: boolean
-  onToggle: () => void
+  icon: ReactNode;
+  title: string;
+  open: boolean;
+  expandable: boolean;
+  onToggle: () => void;
   /** Animate the complete header while its owning operation is running. */
-  running?: boolean | undefined
+  running?: boolean | undefined;
   /** Makes the title row the disclosure target; with an accessory, it shrinks to its content width. */
-  expandOnRowClick?: boolean | undefined
+  expandOnRowClick?: boolean | undefined;
   /** Replaces the collapsed icon with a chevron while the row is hovered. */
-  previewChevron?: boolean | undefined
+  previewChevron?: boolean | undefined;
   /** Keeps `collapsedContent` inline while open. */
-  keepContentWhenOpen?: boolean | undefined
-  collapsedContent?: ReactNode
+  keepContentWhenOpen?: boolean | undefined;
+  collapsedContent?: ReactNode;
   /** Independent action beside the title, outside the disclosure target and shimmer. */
-  headerAccessory?: ReactNode
-  children?: ReactNode
-  className?: string | undefined
-  rowClassName?: string | undefined
+  headerAccessory?: ReactNode;
+  children?: ReactNode;
+  className?: string | undefined;
+  rowClassName?: string | undefined;
   /** Sizing class for the header text area, beside the leading icon. */
-  contentClassName?: string | undefined
+  contentClassName?: string | undefined;
   /** Layout class shared by the header text and its decorative copy. */
-  contentLayoutClassName?: string | undefined
-  leadingClassName?: string | undefined
-  chevronClassName?: string | undefined
-  titleClassName?: string | undefined
+  contentLayoutClassName?: string | undefined;
+  leadingClassName?: string | undefined;
+  chevronClassName?: string | undefined;
+  titleClassName?: string | undefined;
 }
 
 /**
@@ -61,36 +69,44 @@ export const DisclosureRow = memo(function DisclosureRow({
   chevronClassName,
   titleClassName,
 }: DisclosureRowProps) {
-  const rowExpands = expandable && expandOnRowClick
+  const rowExpands = expandable && expandOnRowClick;
   const toggleFromLeading = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation()
-    onToggle()
-  }
+    event.stopPropagation();
+    onToggle();
+  };
   const toggleFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!rowExpands || (event.key !== 'Enter' && event.key !== ' ')) return
-    event.preventDefault()
-    onToggle()
-  }
-  const collapsedLeading = previewChevron
-    ? (
-      <>
-        <span className={css.iconIdle}>{icon}</span>
-        <IconChevronDownOutlineRegular className={clsx(chevronClassName, css.chevronHover)} />
-      </>
-    )
-    : icon
-  const leading = open
-    ? <IconChevronUpOutlineRegular className={chevronClassName} />
-    : collapsedLeading
+    if (!rowExpands || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    onToggle();
+  };
+  const collapsedLeading = previewChevron ? (
+    <>
+      <span className={css.iconIdle}>{icon}</span>
+      <IconChevronDownOutlineRegular
+        className={clsx(chevronClassName, css.chevronHover)}
+      />
+    </>
+  ) : (
+    icon
+  );
+  const leading = open ? (
+    <IconChevronUpOutlineRegular className={chevronClassName} />
+  ) : (
+    collapsedLeading
+  );
 
   return (
     <div className={clsx(css.root, className)} data-open={open || undefined}>
-      <div className={css.header} data-disclosure-header data-has-accessory={!!headerAccessory || undefined}>
+      <div
+        className={css.header}
+        data-disclosure-header
+        data-has-accessory={!!headerAccessory || undefined}
+      >
         <div
           className={clsx(css.row, rowClassName)}
           data-disclosure-row
           data-expandable={rowExpands || undefined}
-          role={rowExpands ? 'button' : undefined}
+          role={rowExpands ? "button" : undefined}
           tabIndex={rowExpands ? 0 : undefined}
           aria-expanded={rowExpands ? open : undefined}
           onClick={rowExpands ? onToggle : undefined}
@@ -111,8 +127,14 @@ export const DisclosureRow = memo(function DisclosureRow({
               {leading}
             </span>
           )}
-          <TextShimmer active={running} className={contentClassName} contentClassName={contentLayoutClassName}>
-            <TextShimmer className={clsx(css.title, titleClassName)}>{title}</TextShimmer>
+          <TextShimmer
+            active={running}
+            className={contentClassName}
+            contentClassName={contentLayoutClassName}
+          >
+            <TextShimmer className={clsx(css.title, titleClassName)}>
+              {title}
+            </TextShimmer>
             {(keepContentWhenOpen || !open) && collapsedContent}
           </TextShimmer>
         </div>
@@ -120,5 +142,5 @@ export const DisclosureRow = memo(function DisclosureRow({
       </div>
       {open && children}
     </div>
-  )
-})
+  );
+});

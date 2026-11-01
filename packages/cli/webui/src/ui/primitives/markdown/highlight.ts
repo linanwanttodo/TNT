@@ -18,17 +18,20 @@
  * monospace) — never an error.
  */
 
-import { createHighlighterCoreSync, createCssVariablesTheme } from 'shiki/core'
-import { createJavaScriptRegexEngine, defaultJavaScriptRegexConstructor } from 'shiki/engine/javascript'
-import langTs from '@shikijs/langs/typescript'
-import langBash from '@shikijs/langs/shellscript'
-import langJson from '@shikijs/langs/json'
-import type { GrammarState, HighlighterCore, ThemedToken } from 'shiki/core'
-import type { CSSProperties } from 'react'
+import { createHighlighterCoreSync, createCssVariablesTheme } from "shiki/core";
+import {
+  createJavaScriptRegexEngine,
+  defaultJavaScriptRegexConstructor,
+} from "shiki/engine/javascript";
+import langTs from "@shikijs/langs/typescript";
+import langBash from "@shikijs/langs/shellscript";
+import langJson from "@shikijs/langs/json";
+import type { GrammarState, HighlighterCore, ThemedToken } from "shiki/core";
+import type { CSSProperties } from "react";
 
 /** A shiki grammar module's default export (a `LanguageRegistration[]`), taken
  *  from a boot grammar so no direct `@shikijs/types` dependency is needed. */
-type LangModule = { default: typeof langTs }
+type LangModule = { default: typeof langTs };
 
 /**
  * Grammars the singleton loads at boot; each entry's own `name` is the id
@@ -39,7 +42,7 @@ type LangModule = { default: typeof langTs }
  * trade to keep the boot set to one JS-family grammar. Every other language in
  * the shared extension table loads lazily through {@link LAZY_GRAMMARS}.
  */
-const LANGS = [langTs, langBash, langJson]
+const LANGS = [langTs, langBash, langJson];
 
 /**
  * Replace the Go grammar's repeated one-line struct-field rule with the rule
@@ -55,23 +58,35 @@ const LANGS = [langTs, langBash, langJson]
  * `struct_variables_types_fields`, or that entry has no or several such rules.
  * The lazy load then rejects unhandled and Go code renders as plain text.
  */
-export function patchGoGrammar(grammars: LangModule['default']): LangModule['default'] {
-  const go = grammars.find(grammar => grammar.name === 'go')
-  const fields = go?.repository.struct_variables_types_fields
-  const patterns = fields?.patterns ?? []
-  const rules = patterns.filter(rule => typeof rule.match === 'string' && rule.match.includes('[^"/`\\s]+;?'))
+export function patchGoGrammar(
+  grammars: LangModule["default"],
+): LangModule["default"] {
+  const go = grammars.find((grammar) => grammar.name === "go");
+  const fields = go?.repository.struct_variables_types_fields;
+  const patterns = fields?.patterns ?? [];
+  const rules = patterns.filter(
+    (rule) =>
+      typeof rule.match === "string" && rule.match.includes('[^"/`\\s]+;?'),
+  );
   if (go === undefined || fields === undefined || rules.length !== 1) {
-    throw new Error(`ui-primitives: expected exactly one Go struct-field rule to patch for worlpaker/go-syntax#25, found ${
-      rules.length}; update or delete the patch`)
+    throw new Error(
+      `ui-primitives: expected exactly one Go struct-field rule to patch for worlpaker/go-syntax#25, found ${
+        rules.length
+      }; update or delete the patch`,
+    );
   }
-  const repository = { ...go.repository }
+  const repository = { ...go.repository };
   repository.struct_variables_types_fields = {
     ...fields,
-    patterns: patterns.map(rule => rule === rules[0]
-      ? { ...rule, match: '(?:(?<=\\{)([^/\\`"]*[^\\s/\\`"])\\s*(?=\\}))' }
-      : rule),
-  }
-  return grammars.map(grammar => grammar === go ? { ...go, repository } : grammar)
+    patterns: patterns.map((rule) =>
+      rule === rules[0]
+        ? { ...rule, match: '(?:(?<=\\{)([^/\\`"]*[^\\s/\\`"])\\s*(?=\\}))' }
+        : rule,
+    ),
+  };
+  return grammars.map((grammar) =>
+    grammar === go ? { ...go, repository } : grammar,
+  );
 }
 
 /**
@@ -84,64 +99,69 @@ export function patchGoGrammar(grammars: LangModule['default']): LangModule['def
  * already loaded, so no alias value ever points at a missing entry here.
  */
 const LAZY_GRAMMARS = new Map<string, () => Promise<LangModule>>([
-  ['python', () => import('@shikijs/langs/python')],
-  ['ruby', () => import('@shikijs/langs/ruby')],
-  ['go', async () => ({ default: patchGoGrammar((await import('@shikijs/langs/go')).default) })],
-  ['rust', () => import('@shikijs/langs/rust')],
-  ['java', () => import('@shikijs/langs/java')],
-  ['c', () => import('@shikijs/langs/c')],
-  ['cpp', () => import('@shikijs/langs/cpp')],
-  ['csharp', () => import('@shikijs/langs/csharp')],
-  ['kotlin', () => import('@shikijs/langs/kotlin')],
-  ['swift', () => import('@shikijs/langs/swift')],
-  ['php', () => import('@shikijs/langs/php')],
-  ['yaml', () => import('@shikijs/langs/yaml')],
-  ['toml', () => import('@shikijs/langs/toml')],
-  ['ini', () => import('@shikijs/langs/ini')],
-  ['markdown', () => import('@shikijs/langs/markdown')],
-  ['mdx', () => import('@shikijs/langs/mdx')],
-  ['html', () => import('@shikijs/langs/html')],
-  ['css', () => import('@shikijs/langs/css')],
-  ['scss', () => import('@shikijs/langs/scss')],
-  ['less', () => import('@shikijs/langs/less')],
-  ['sql', () => import('@shikijs/langs/sql')],
-  ['xml', () => import('@shikijs/langs/xml')],
-  ['lua', () => import('@shikijs/langs/lua')],
-  ['bat', () => import('@shikijs/langs/bat')],
-  ['powershell', () => import('@shikijs/langs/powershell')],
-  ['fish', () => import('@shikijs/langs/fish')],
-  ['dotenv', () => import('@shikijs/langs/dotenv')],
-  ['log', () => import('@shikijs/langs/log')],
-  ['csv', () => import('@shikijs/langs/csv')],
-  ['diff', () => import('@shikijs/langs/diff')],
-  ['http', () => import('@shikijs/langs/http')],
-  ['rst', () => import('@shikijs/langs/rst')],
-  ['latex', () => import('@shikijs/langs/latex')],
-  ['bibtex', () => import('@shikijs/langs/bibtex')],
-  ['asciidoc', () => import('@shikijs/langs/asciidoc')],
-  ['r', () => import('@shikijs/langs/r')],
-  ['julia', () => import('@shikijs/langs/julia')],
-  ['dart', () => import('@shikijs/langs/dart')],
-  ['scala', () => import('@shikijs/langs/scala')],
-  ['clojure', () => import('@shikijs/langs/clojure')],
-  ['erlang', () => import('@shikijs/langs/erlang')],
-  ['elixir', () => import('@shikijs/langs/elixir')],
-  ['haskell', () => import('@shikijs/langs/haskell')],
-  ['fsharp', () => import('@shikijs/langs/fsharp')],
-  ['vb', () => import('@shikijs/langs/vb')],
-  ['perl', () => import('@shikijs/langs/perl')],
-  ['verilog', () => import('@shikijs/langs/verilog')],
-  ['system-verilog', () => import('@shikijs/langs/system-verilog')],
-  ['graphql', () => import('@shikijs/langs/graphql')],
-  ['proto', () => import('@shikijs/langs/proto')],
-  ['hcl', () => import('@shikijs/langs/hcl')],
-  ['nix', () => import('@shikijs/langs/nix')],
-  ['vue', () => import('@shikijs/langs/vue')],
-  ['svelte', () => import('@shikijs/langs/svelte')],
-  ['make', () => import('@shikijs/langs/make')],
-  ['cmake', () => import('@shikijs/langs/cmake')],
-  ['groovy', () => import('@shikijs/langs/groovy')],
-])
+  ["python", () => import("@shikijs/langs/python")],
+  ["ruby", () => import("@shikijs/langs/ruby")],
+  [
+    "go",
+    async () => ({
+      default: patchGoGrammar((await import("@shikijs/langs/go")).default),
+    }),
+  ],
+  ["rust", () => import("@shikijs/langs/rust")],
+  ["java", () => import("@shikijs/langs/java")],
+  ["c", () => import("@shikijs/langs/c")],
+  ["cpp", () => import("@shikijs/langs/cpp")],
+  ["csharp", () => import("@shikijs/langs/csharp")],
+  ["kotlin", () => import("@shikijs/langs/kotlin")],
+  ["swift", () => import("@shikijs/langs/swift")],
+  ["php", () => import("@shikijs/langs/php")],
+  ["yaml", () => import("@shikijs/langs/yaml")],
+  ["toml", () => import("@shikijs/langs/toml")],
+  ["ini", () => import("@shikijs/langs/ini")],
+  ["markdown", () => import("@shikijs/langs/markdown")],
+  ["mdx", () => import("@shikijs/langs/mdx")],
+  ["html", () => import("@shikijs/langs/html")],
+  ["css", () => import("@shikijs/langs/css")],
+  ["scss", () => import("@shikijs/langs/scss")],
+  ["less", () => import("@shikijs/langs/less")],
+  ["sql", () => import("@shikijs/langs/sql")],
+  ["xml", () => import("@shikijs/langs/xml")],
+  ["lua", () => import("@shikijs/langs/lua")],
+  ["bat", () => import("@shikijs/langs/bat")],
+  ["powershell", () => import("@shikijs/langs/powershell")],
+  ["fish", () => import("@shikijs/langs/fish")],
+  ["dotenv", () => import("@shikijs/langs/dotenv")],
+  ["log", () => import("@shikijs/langs/log")],
+  ["csv", () => import("@shikijs/langs/csv")],
+  ["diff", () => import("@shikijs/langs/diff")],
+  ["http", () => import("@shikijs/langs/http")],
+  ["rst", () => import("@shikijs/langs/rst")],
+  ["latex", () => import("@shikijs/langs/latex")],
+  ["bibtex", () => import("@shikijs/langs/bibtex")],
+  ["asciidoc", () => import("@shikijs/langs/asciidoc")],
+  ["r", () => import("@shikijs/langs/r")],
+  ["julia", () => import("@shikijs/langs/julia")],
+  ["dart", () => import("@shikijs/langs/dart")],
+  ["scala", () => import("@shikijs/langs/scala")],
+  ["clojure", () => import("@shikijs/langs/clojure")],
+  ["erlang", () => import("@shikijs/langs/erlang")],
+  ["elixir", () => import("@shikijs/langs/elixir")],
+  ["haskell", () => import("@shikijs/langs/haskell")],
+  ["fsharp", () => import("@shikijs/langs/fsharp")],
+  ["vb", () => import("@shikijs/langs/vb")],
+  ["perl", () => import("@shikijs/langs/perl")],
+  ["verilog", () => import("@shikijs/langs/verilog")],
+  ["system-verilog", () => import("@shikijs/langs/system-verilog")],
+  ["graphql", () => import("@shikijs/langs/graphql")],
+  ["proto", () => import("@shikijs/langs/proto")],
+  ["hcl", () => import("@shikijs/langs/hcl")],
+  ["nix", () => import("@shikijs/langs/nix")],
+  ["vue", () => import("@shikijs/langs/vue")],
+  ["svelte", () => import("@shikijs/langs/svelte")],
+  ["make", () => import("@shikijs/langs/make")],
+  ["cmake", () => import("@shikijs/langs/cmake")],
+  ["groovy", () => import("@shikijs/langs/groovy")],
+]);
 
 /**
  * Language ids (and aliases) the highlighter accepts; everything else renders
@@ -156,118 +176,118 @@ const LAZY_GRAMMARS = new Map<string, () => Promise<LangModule>>([
  * {@link LAZY_GRAMMARS} entry loaded on first use.
  */
 const LANG_ALIASES = new Map<string, string>([
-  ['typescript', 'typescript'],
-  ['ts', 'typescript'],
-  ['tsx', 'typescript'],
-  ['javascript', 'typescript'],
-  ['js', 'typescript'],
-  ['jsx', 'typescript'],
-  ['shellscript', 'shellscript'],
-  ['bash', 'shellscript'],
-  ['sh', 'shellscript'],
-  ['shell', 'shellscript'],
-  ['zsh', 'shellscript'],
-  ['json', 'json'],
-  ['jsonc', 'json'],
-  ['py', 'python'],
-  ['python', 'python'],
-  ['rb', 'ruby'],
-  ['ruby', 'ruby'],
-  ['go', 'go'],
-  ['rs', 'rust'],
-  ['rust', 'rust'],
-  ['java', 'java'],
-  ['c', 'c'],
-  ['cpp', 'cpp'],
-  ['cs', 'csharp'],
-  ['csharp', 'csharp'],
-  ['kotlin', 'kotlin'],
-  ['swift', 'swift'],
-  ['php', 'php'],
-  ['yaml', 'yaml'],
-  ['yml', 'yaml'],
-  ['toml', 'toml'],
-  ['ini', 'ini'],
-  ['md', 'markdown'],
-  ['markdown', 'markdown'],
-  ['mdx', 'mdx'],
-  ['html', 'html'],
-  ['css', 'css'],
-  ['scss', 'scss'],
-  ['less', 'less'],
-  ['sql', 'sql'],
-  ['xml', 'xml'],
-  ['lua', 'lua'],
-  ['bat', 'bat'],
-  ['batch', 'bat'],
-  ['powershell', 'powershell'],
-  ['ps1', 'powershell'],
-  ['ps', 'powershell'],
-  ['fish', 'fish'],
-  ['properties', 'ini'],
-  ['dotenv', 'dotenv'],
-  ['env', 'dotenv'],
-  ['log', 'log'],
-  ['csv', 'csv'],
-  ['diff', 'diff'],
-  ['patch', 'diff'],
-  ['http', 'http'],
-  ['rst', 'rst'],
-  ['latex', 'latex'],
-  ['tex', 'latex'],
-  ['bibtex', 'bibtex'],
-  ['bib', 'bibtex'],
-  ['asciidoc', 'asciidoc'],
-  ['adoc', 'asciidoc'],
-  ['r', 'r'],
-  ['julia', 'julia'],
-  ['jl', 'julia'],
-  ['dart', 'dart'],
-  ['scala', 'scala'],
-  ['clojure', 'clojure'],
-  ['clj', 'clojure'],
-  ['erlang', 'erlang'],
-  ['erl', 'erlang'],
-  ['elixir', 'elixir'],
-  ['ex', 'elixir'],
-  ['exs', 'elixir'],
-  ['haskell', 'haskell'],
-  ['hs', 'haskell'],
-  ['fsharp', 'fsharp'],
-  ['fs', 'fsharp'],
-  ['fsi', 'fsharp'],
-  ['fsx', 'fsharp'],
-  ['vb', 'vb'],
-  ['vbnet', 'vb'],
-  ['perl', 'perl'],
-  ['pl', 'perl'],
-  ['pm', 'perl'],
-  ['verilog', 'verilog'],
+  ["typescript", "typescript"],
+  ["ts", "typescript"],
+  ["tsx", "typescript"],
+  ["javascript", "typescript"],
+  ["js", "typescript"],
+  ["jsx", "typescript"],
+  ["shellscript", "shellscript"],
+  ["bash", "shellscript"],
+  ["sh", "shellscript"],
+  ["shell", "shellscript"],
+  ["zsh", "shellscript"],
+  ["json", "json"],
+  ["jsonc", "json"],
+  ["py", "python"],
+  ["python", "python"],
+  ["rb", "ruby"],
+  ["ruby", "ruby"],
+  ["go", "go"],
+  ["rs", "rust"],
+  ["rust", "rust"],
+  ["java", "java"],
+  ["c", "c"],
+  ["cpp", "cpp"],
+  ["cs", "csharp"],
+  ["csharp", "csharp"],
+  ["kotlin", "kotlin"],
+  ["swift", "swift"],
+  ["php", "php"],
+  ["yaml", "yaml"],
+  ["yml", "yaml"],
+  ["toml", "toml"],
+  ["ini", "ini"],
+  ["md", "markdown"],
+  ["markdown", "markdown"],
+  ["mdx", "mdx"],
+  ["html", "html"],
+  ["css", "css"],
+  ["scss", "scss"],
+  ["less", "less"],
+  ["sql", "sql"],
+  ["xml", "xml"],
+  ["lua", "lua"],
+  ["bat", "bat"],
+  ["batch", "bat"],
+  ["powershell", "powershell"],
+  ["ps1", "powershell"],
+  ["ps", "powershell"],
+  ["fish", "fish"],
+  ["properties", "ini"],
+  ["dotenv", "dotenv"],
+  ["env", "dotenv"],
+  ["log", "log"],
+  ["csv", "csv"],
+  ["diff", "diff"],
+  ["patch", "diff"],
+  ["http", "http"],
+  ["rst", "rst"],
+  ["latex", "latex"],
+  ["tex", "latex"],
+  ["bibtex", "bibtex"],
+  ["bib", "bibtex"],
+  ["asciidoc", "asciidoc"],
+  ["adoc", "asciidoc"],
+  ["r", "r"],
+  ["julia", "julia"],
+  ["jl", "julia"],
+  ["dart", "dart"],
+  ["scala", "scala"],
+  ["clojure", "clojure"],
+  ["clj", "clojure"],
+  ["erlang", "erlang"],
+  ["erl", "erlang"],
+  ["elixir", "elixir"],
+  ["ex", "elixir"],
+  ["exs", "elixir"],
+  ["haskell", "haskell"],
+  ["hs", "haskell"],
+  ["fsharp", "fsharp"],
+  ["fs", "fsharp"],
+  ["fsi", "fsharp"],
+  ["fsx", "fsharp"],
+  ["vb", "vb"],
+  ["vbnet", "vb"],
+  ["perl", "perl"],
+  ["pl", "perl"],
+  ["pm", "perl"],
+  ["verilog", "verilog"],
   // Shiki's own `v` grammar is the V language; the fence label and the `.v`
   // extension both name Verilog here, so a future V registration needs a
   // different alias.
-  ['v', 'verilog'],
-  ['system-verilog', 'system-verilog'],
-  ['systemverilog', 'system-verilog'],
-  ['sv', 'system-verilog'],
-  ['svh', 'system-verilog'],
-  ['graphql', 'graphql'],
-  ['gql', 'graphql'],
-  ['proto', 'proto'],
-  ['protobuf', 'proto'],
-  ['hcl', 'hcl'],
-  ['tf', 'hcl'],
-  ['tfvars', 'hcl'],
-  ['nix', 'nix'],
-  ['vue', 'vue'],
-  ['svelte', 'svelte'],
-  ['make', 'make'],
-  ['makefile', 'make'],
-  ['mk', 'make'],
-  ['cmake', 'cmake'],
-  ['groovy', 'groovy'],
-  ['gradle', 'groovy'],
-])
+  ["v", "verilog"],
+  ["system-verilog", "system-verilog"],
+  ["systemverilog", "system-verilog"],
+  ["sv", "system-verilog"],
+  ["svh", "system-verilog"],
+  ["graphql", "graphql"],
+  ["gql", "graphql"],
+  ["proto", "proto"],
+  ["protobuf", "proto"],
+  ["hcl", "hcl"],
+  ["tf", "hcl"],
+  ["tfvars", "hcl"],
+  ["nix", "nix"],
+  ["vue", "vue"],
+  ["svelte", "svelte"],
+  ["make", "make"],
+  ["makefile", "make"],
+  ["mk", "make"],
+  ["cmake", "cmake"],
+  ["groovy", "groovy"],
+  ["gradle", "groovy"],
+]);
 
 /**
  * Resolve a language hint to the grammar id {@link LANG_ALIASES} selects.
@@ -275,7 +295,7 @@ const LANG_ALIASES = new Map<string, string>([
  * @returns The resolved grammar id, or `undefined` when the table aliases no grammar.
  */
 export function grammarForHint(lang: string | undefined): string | undefined {
-  return lang === undefined ? undefined : LANG_ALIASES.get(lang.toLowerCase())
+  return lang === undefined ? undefined : LANG_ALIASES.get(lang.toLowerCase());
 }
 
 /**
@@ -284,15 +304,15 @@ export function grammarForHint(lang: string | undefined): string | undefined {
  * @returns Whether the hint resolves to a supported grammar.
  */
 export function supportsHighlighting(lang: string | undefined): boolean {
-  return grammarForHint(lang) !== undefined
+  return grammarForHint(lang) !== undefined;
 }
 
 /** All token colors resolve through `--shiki-*` custom properties (theme package sheets). */
 const cssVariablesTheme = createCssVariablesTheme({
-  name: 'css-variables',
-  variablePrefix: '--shiki-',
+  name: "css-variables",
+  variablePrefix: "--shiki-",
   fontStyle: true,
-})
+});
 
 /**
  * The client regex engine compiles each TextMate pattern when its scanner is
@@ -303,10 +323,11 @@ const cssVariablesTheme = createCssVariablesTheme({
  */
 const regexEngine = createJavaScriptRegexEngine({
   forgiving: true,
-  regexConstructor: pattern => defaultJavaScriptRegexConstructor(pattern, {
-    lazyCompileLength: Number.POSITIVE_INFINITY,
-  }),
-})
+  regexConstructor: (pattern) =>
+    defaultJavaScriptRegexConstructor(pattern, {
+      lazyCompileLength: Number.POSITIVE_INFINITY,
+    }),
+});
 
 /**
  * Lines at least this many UTF-16 units long render as one uncolored token.
@@ -316,16 +337,16 @@ const regexEngine = createJavaScriptRegexEngine({
  * line leaves the grammar state unchanged: a multi-line construct that opens
  * or closes on it colors the following lines as if the line were absent.
  */
-const TOKENIZE_MAX_LINE_LENGTH = 1000
+const TOKENIZE_MAX_LINE_LENGTH = 1000;
 
-let singleton: HighlighterCore | undefined
+let singleton: HighlighterCore | undefined;
 
 /** Representative paths through every boot grammar, compiled before user content is timed. */
 const BOOT_GRAMMAR_WARMUPS = [
-  { lang: 'typescript', code: 'const answer: number = 42' },
-  { lang: 'shellscript', code: 'printf \'%s\\n\' "$HOME"' },
-  { lang: 'json', code: '{"ready":true}' },
-] as const
+  { lang: "typescript", code: "const answer: number = 42" },
+  { lang: "shellscript", code: "printf '%s\\n' \"$HOME\"" },
+  { lang: "json", code: '{"ready":true}' },
+] as const;
 
 /** Construct and pre-tokenize the boot grammars outside the user-content scan budget. */
 function createHighlighter(): HighlighterCore {
@@ -333,29 +354,29 @@ function createHighlighter(): HighlighterCore {
     themes: [cssVariablesTheme],
     langs: LANGS,
     engine: regexEngine,
-  })
+  });
   for (const sample of BOOT_GRAMMAR_WARMUPS) {
     instance.codeToTokens(sample.code, {
       lang: sample.lang,
-      theme: 'css-variables',
+      theme: "css-variables",
       tokenizeTimeLimit: 0,
-    })
+    });
   }
-  return instance
+  return instance;
 }
 
 /** The synchronous highlighter (one instance per document); pre-warmed below, lazy as the fallback. */
 function highlighter(): HighlighterCore {
-  singleton ??= createHighlighter()
-  return singleton
+  singleton ??= createHighlighter();
+  return singleton;
 }
 
 /** Grammar ids whose lazy import is in flight or done, so it is requested once. */
-const requested = new Set<string>()
+const requested = new Set<string>();
 /** Subscribers re-rendered after a lazy grammar registers (React callers). */
-const listeners = new Set<() => void>()
+const listeners = new Set<() => void>();
 /** Bumped on each lazy-grammar load; the `useSyncExternalStore` snapshot. */
-let loadCount = 0
+let loadCount = 0;
 
 /**
  * Subscribe to lazy-grammar load completions; `listener` fires after a
@@ -367,8 +388,10 @@ let loadCount = 0
  * @returns a disposer that removes the listener.
  */
 export function subscribeGrammarLoaded(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => { listeners.delete(listener) }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 /**
@@ -378,7 +401,7 @@ export function subscribeGrammarLoaded(listener: () => void): () => void {
  * @returns the current load count.
  */
 export function grammarLoadCount(): number {
-  return loadCount
+  return loadCount;
 }
 
 /**
@@ -391,19 +414,19 @@ export function grammarLoadCount(): number {
  * @returns whether the grammar is registered and ready to tokenize now.
  */
 function ensureGrammar(resolved: string): boolean {
-  const load = LAZY_GRAMMARS.get(resolved)
+  const load = LAZY_GRAMMARS.get(resolved);
   // A boot grammar (already registered) has no lazy loader; it is always ready.
-  if (load === undefined) return true
-  if (highlighter().getLoadedLanguages().includes(resolved)) return true
+  if (load === undefined) return true;
+  if (highlighter().getLoadedLanguages().includes(resolved)) return true;
   if (!requested.has(resolved)) {
-    requested.add(resolved)
+    requested.add(resolved);
     void load().then((mod) => {
-      highlighter().loadLanguageSync(mod.default)
-      loadCount += 1
-      for (const listener of listeners) listener()
-    })
+      highlighter().loadLanguageSync(mod.default);
+      loadCount += 1;
+      for (const listener of listeners) listener();
+    });
   }
-  return false
+  return false;
 }
 
 // Engine + grammar construction costs a long task (~120-175ms); building it
@@ -412,8 +435,10 @@ function ensureGrammar(resolved: string): boolean {
 // boot) instead; the lazy path above stays as the correctness fallback for a
 // fence that renders before the timer fires. `unref` (Node-only) keeps a
 // non-browser import from pinning the event loop.
-const warmupTimer = setTimeout(() => { highlighter() }, 0)
-;(warmupTimer as { unref?: () => void }).unref?.()
+const warmupTimer = setTimeout(() => {
+  highlighter();
+}, 0);
+(warmupTimer as { unref?: () => void }).unref?.();
 
 /**
  * Highlight `code` into shiki's HTML (a single `<pre class="shiki">` tree)
@@ -425,13 +450,18 @@ const warmupTimer = setTimeout(() => { highlighter() }, 0)
  * @param lang - the language hint (a markdown fence info string or a fixed caller id).
  * @returns the highlighted HTML, or `undefined` for unknown or not-yet-loaded languages.
  */
-export function highlightToHtml(code: string, lang: string | undefined): string | undefined {
-  const resolved = grammarForHint(lang)
-  if (resolved === undefined) return undefined
-  if (!ensureGrammar(resolved)) return undefined
+export function highlightToHtml(
+  code: string,
+  lang: string | undefined,
+): string | undefined {
+  const resolved = grammarForHint(lang);
+  if (resolved === undefined) return undefined;
+  if (!ensureGrammar(resolved)) return undefined;
   return highlighter().codeToHtml(code, {
-    lang: resolved, theme: 'css-variables', tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
-  })
+    lang: resolved,
+    theme: "css-variables",
+    tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
+  });
 }
 
 /**
@@ -441,12 +471,15 @@ export function highlightToHtml(code: string, lang: string | undefined): string 
  * rather than a bare color so a run spreads onto a `<span style>` uniformly.
  */
 export interface HighlightSpan {
-  text: string
-  style: CSSProperties
+  text: string;
+  style: CSSProperties;
 }
 
 /** vscode-textmate FontStyle bits shiki folds into `text-decoration` values. */
-const DECORATION_BITS: readonly (readonly [number, string])[] = [[4, 'underline'], [8, 'line-through']]
+const DECORATION_BITS: readonly (readonly [number, string])[] = [
+  [4, "underline"],
+  [8, "line-through"],
+];
 
 /**
  * The inline style shiki's HTML arm assigns one token (`getTokenStyleObject`
@@ -458,14 +491,15 @@ const DECORATION_BITS: readonly (readonly [number, string])[] = [[4, 'underline'
  * occurs; the arm-parity tests fail loud if a shiki upgrade changes that.
  */
 function spanStyle(token: ThemedToken): CSSProperties {
-  const style: CSSProperties = { color: token.color }
+  const style: CSSProperties = { color: token.color };
   /* v8 ignore next -- fontStyle is optional in ThemedToken's type; tokenizeWithTheme always stamps it. */
-  const bits = token.fontStyle ?? 0
-  if ((bits & 1) !== 0) style.fontStyle = 'italic'
-  if ((bits & 2) !== 0) style.fontWeight = 'bold'
-  const decorations = DECORATION_BITS.filter(([bit]) => (bits & bit) !== 0)
-  if (decorations.length > 0) style.textDecoration = decorations.map(([, value]) => value).join(' ')
-  return style
+  const bits = token.fontStyle ?? 0;
+  if ((bits & 1) !== 0) style.fontStyle = "italic";
+  if ((bits & 2) !== 0) style.fontWeight = "bold";
+  const decorations = DECORATION_BITS.filter(([bit]) => (bits & bit) !== 0);
+  if (decorations.length > 0)
+    style.textDecoration = decorations.map(([, value]) => value).join(" ");
+  return style;
 }
 
 /**
@@ -482,17 +516,20 @@ function spanStyle(token: ThemedToken): CSSProperties {
  * its own span, as in shiki.
  */
 function lineSpans(line: ThemedToken[]): HighlightSpan[] {
-  const spans: HighlightSpan[] = []
-  let pendingWhitespace = ''
+  const spans: HighlightSpan[] = [];
+  let pendingWhitespace = "";
   for (const [index, token] of line.entries()) {
     if (/^\s+$/.test(token.content) && index + 1 < line.length) {
-      pendingWhitespace += token.content
-      continue
+      pendingWhitespace += token.content;
+      continue;
     }
-    spans.push({ text: pendingWhitespace + token.content, style: spanStyle(token) })
-    pendingWhitespace = ''
+    spans.push({
+      text: pendingWhitespace + token.content,
+      style: spanStyle(token),
+    });
+    pendingWhitespace = "";
   }
-  return spans
+  return spans;
 }
 
 /**
@@ -510,36 +547,36 @@ function lineSpans(line: ThemedToken[]): HighlightSpan[] {
  */
 export class StreamingHighlightSession {
   /** Grammar id the cache was built with; a different resolution resets it. */
-  private resolved: string | undefined
+  private resolved: string | undefined;
   /** Newline-terminated source prefix covered by {@link spans}. */
-  private prefix = ''
+  private prefix = "";
   /** Cached spans, one entry per completed line of {@link prefix}. */
-  private spans: HighlightSpan[][] = []
+  private spans: HighlightSpan[][] = [];
   /** Grammar state after {@link prefix}; undefined = the grammar's initial state. */
-  private state: GrammarState | undefined
-  private lastCode: string | undefined
-  private lastLang: string | undefined
-  private lastResult: HighlightSpan[][] | undefined
-  private generation = 0
-  private lastFrame: StreamingHighlightFrame | undefined
+  private state: GrammarState | undefined;
+  private lastCode: string | undefined;
+  private lastLang: string | undefined;
+  private lastResult: HighlightSpan[][] | undefined;
+  private generation = 0;
+  private lastFrame: StreamingHighlightFrame | undefined;
 
   private reset(resolved: string | undefined): void {
-    this.resolved = resolved
-    this.prefix = ''
-    this.spans = []
-    this.state = undefined
-    this.generation += 1
-    this.lastFrame = undefined
+    this.resolved = resolved;
+    this.prefix = "";
+    this.spans = [];
+    this.state = undefined;
+    this.generation += 1;
+    this.lastFrame = undefined;
   }
 
   /** Tokenize `text` with `resolved`, resuming from the cached grammar state when one exists. */
   private tokenize(resolved: string, text: string): ThemedToken[][] {
     return highlighter().codeToTokensBase(text, {
       lang: resolved,
-      theme: 'css-variables',
+      theme: "css-variables",
       tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
       ...(this.state === undefined ? {} : { grammarState: this.state }),
-    })
+    });
   }
 
   /**
@@ -548,35 +585,44 @@ export class StreamingHighlightSession {
    * @param lang - the language hint.
    * @returns Newly completed lines plus the current tail, or `undefined` for the plain arm.
    */
-  updateFrame(code: string, lang: string | undefined): StreamingHighlightFrame | undefined {
-    if (code === this.lastCode && lang === this.lastLang && this.lastFrame !== undefined) {
-      return this.lastFrame
+  updateFrame(
+    code: string,
+    lang: string | undefined,
+  ): StreamingHighlightFrame | undefined {
+    if (
+      code === this.lastCode &&
+      lang === this.lastLang &&
+      this.lastFrame !== undefined
+    ) {
+      return this.lastFrame;
     }
-    this.lastCode = code
-    this.lastLang = lang
-    this.lastResult = undefined
-    const resolved = grammarForHint(lang)
+    this.lastCode = code;
+    this.lastLang = lang;
+    this.lastResult = undefined;
+    const resolved = grammarForHint(lang);
     if (resolved === undefined || !ensureGrammar(resolved)) {
-      this.reset(undefined)
-      return undefined
+      this.reset(undefined);
+      return undefined;
     }
-    if (resolved !== this.resolved || !code.startsWith(this.prefix)) this.reset(resolved)
-    const firstNewLine = this.spans.length
-    const rest = code.slice(this.prefix.length)
-    const lastNewline = rest.lastIndexOf('\n')
+    if (resolved !== this.resolved || !code.startsWith(this.prefix))
+      this.reset(resolved);
+    const firstNewLine = this.spans.length;
+    const rest = code.slice(this.prefix.length);
+    const lastNewline = rest.lastIndexOf("\n");
     if (lastNewline >= 0) {
-      const grownEnd = rest[lastNewline - 1] === '\r' ? lastNewline - 1 : lastNewline
-      const tokens = this.tokenize(resolved, rest.slice(0, grownEnd))
-      for (const line of tokens) this.spans.push(lineSpans(line))
-      this.state = highlighter().getLastGrammarState(tokens)
-      this.prefix = code.slice(0, this.prefix.length + lastNewline + 1)
+      const grownEnd =
+        rest[lastNewline - 1] === "\r" ? lastNewline - 1 : lastNewline;
+      const tokens = this.tokenize(resolved, rest.slice(0, grownEnd));
+      for (const line of tokens) this.spans.push(lineSpans(line));
+      this.state = highlighter().getLastGrammarState(tokens);
+      this.prefix = code.slice(0, this.prefix.length + lastNewline + 1);
     }
     this.lastFrame = {
       generation: this.generation,
       appended: this.spans.slice(firstNewLine),
       tail: this.tokenize(resolved, rest.slice(lastNewline + 1)).map(lineSpans),
-    }
-    return this.lastFrame
+    };
+    return this.lastFrame;
   }
 
   /**
@@ -591,25 +637,32 @@ export class StreamingHighlightSession {
    * @param lang - the language hint (a markdown fence info string).
    * @returns one entry per line of `code` (each an array of runs), or `undefined` for unknown or not-yet-loaded languages.
    */
-  update(code: string, lang: string | undefined): readonly HighlightSpan[][] | undefined {
-    if (code === this.lastCode && lang === this.lastLang && this.lastResult !== undefined) {
-      return this.lastResult
+  update(
+    code: string,
+    lang: string | undefined,
+  ): readonly HighlightSpan[][] | undefined {
+    if (
+      code === this.lastCode &&
+      lang === this.lastLang &&
+      this.lastResult !== undefined
+    ) {
+      return this.lastResult;
     }
-    const frame = this.updateFrame(code, lang)
-    if (frame === undefined) return undefined
-    this.lastResult = [...this.spans, ...frame.tail]
-    return this.lastResult
+    const frame = this.updateFrame(code, lang);
+    if (frame === undefined) return undefined;
+    this.lastResult = [...this.spans, ...frame.tail];
+    return this.lastResult;
   }
 }
 
 /** One retained-renderer update from {@link StreamingHighlightSession.updateFrame}. */
 export interface StreamingHighlightFrame {
   /** Changes whenever prior completed lines must be discarded. */
-  readonly generation: number
+  readonly generation: number;
   /** Completed lines added since the preceding frame in this generation. */
-  readonly appended: readonly HighlightSpan[][]
+  readonly appended: readonly HighlightSpan[][];
   /** The still-growing final line or lines, replaced by the next frame. */
-  readonly tail: readonly HighlightSpan[][]
+  readonly tail: readonly HighlightSpan[][];
 }
 
 /**
@@ -628,21 +681,32 @@ export interface StreamingHighlightFrame {
  * @param lang - the language hint (a file-extension-derived language id).
  * @returns one entry per source line (each an array of runs), or `undefined` for unknown or not-yet-loaded languages.
  */
-export function highlightLines(code: string, lang: string | undefined): HighlightSpan[][] | undefined {
-  const resolved = grammarForHint(lang)
-  if (resolved === undefined) return undefined
-  if (!ensureGrammar(resolved)) return undefined
+export function highlightLines(
+  code: string,
+  lang: string | undefined,
+): HighlightSpan[][] | undefined {
+  const resolved = grammarForHint(lang);
+  if (resolved === undefined) return undefined;
+  if (!ensureGrammar(resolved)) return undefined;
   const { tokens } = highlighter().codeToTokens(code, {
-    lang: resolved, theme: 'css-variables', tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
-  })
+    lang: resolved,
+    theme: "css-variables",
+    tokenizeMaxLineLength: TOKENIZE_MAX_LINE_LENGTH,
+  });
   // shiki tokenizes `a\nb` into two lines; a trailing newline (`a\n`) adds a
   // third, empty line the caller's own line array does not carry. Drop that
   // one terminator line so the two structures stay in step. The explicit
   // `last !== undefined` (over `tokens[...]?.length`) keeps a single branch for
   // per-file coverage, matching TerminalBlock's terminator check.
-  const last = tokens[tokens.length - 1]
-  const lines = tokens.length > 1 && last !== undefined && last.length === 0
-    ? tokens.slice(0, -1)
-    : tokens
-  return lines.map(line => line.map(token => ({ text: token.content, style: { color: token.color } })))
+  const last = tokens[tokens.length - 1];
+  const lines =
+    tokens.length > 1 && last !== undefined && last.length === 0
+      ? tokens.slice(0, -1)
+      : tokens;
+  return lines.map((line) =>
+    line.map((token) => ({
+      text: token.content,
+      style: { color: token.color },
+    })),
+  );
 }

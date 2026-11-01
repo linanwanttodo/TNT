@@ -13,22 +13,22 @@
   white-space: nowrap;
 }
 
-.tag[data-tone='outline'] {
+.tag[data-tone="outline"] {
   border: 0.5px solid var(--dsw-alias-border-l4);
   color: var(--dsw-alias-label-tertiary);
 }
 
-.tag[data-tone='solid'] {
+.tag[data-tone="solid"] {
   background: var(--dsw-alias-label-primary);
   color: var(--dsw-alias-bg-layer-3);
 }
 
-.tag[data-tone='neutral'] {
+.tag[data-tone="neutral"] {
   background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-label-secondary);
 }
 
-.tag[data-tone='quiet'] {
+.tag[data-tone="quiet"] {
   color: var(--dsw-alias-label-tertiary);
 }
 
@@ -36,22 +36,38 @@
  * fill and text together and neither needs a second token. The tint is 10%,
  * except `warning`, which keeps the 12% the plugin inventory's conditional
  * tag shipped with — matching it is what makes this a pure consolidation. */
-.tag[data-tone='success'] {
-  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);
+.tag[data-tone="success"] {
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-state-success-primary) 10%,
+    transparent
+  );
   color: var(--dsw-alias-state-success-primary);
 }
 
-.tag[data-tone='info'] {
-  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);
+.tag[data-tone="info"] {
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-state-business-primary) 10%,
+    transparent
+  );
   color: var(--dsw-alias-state-business-primary);
 }
 
-.tag[data-tone='warning'] {
-  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent);
+.tag[data-tone="warning"] {
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-state-warn-primary) 12%,
+    transparent
+  );
   color: var(--dsw-alias-state-warn-primary);
 }
 
-.tag[data-tone='danger'] {
-  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
+.tag[data-tone="danger"] {
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-state-error-primary) 10%,
+    transparent
+  );
   color: var(--dsw-alias-state-error-primary);
 }

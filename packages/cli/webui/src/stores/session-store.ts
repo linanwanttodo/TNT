@@ -6,7 +6,10 @@
 import { create } from "zustand";
 
 import type { AgentEvent, ToolStatusName } from "../types/agent-events.js";
-import { approve as postApproval, sendMessage as postMessage } from "../api/client.js";
+import {
+  approve as postApproval,
+  sendMessage as postMessage,
+} from "../api/client.js";
 import type { ConnStatus } from "../api/client.js";
 
 export interface UserMessageItem {
@@ -35,7 +38,8 @@ export interface ErrorItem {
   text: string;
 }
 
-export type ChatItem = UserMessageItem | AssistantMessageItem | ToolCardItem | ErrorItem;
+export type ChatItem =
+  UserMessageItem | AssistantMessageItem | ToolCardItem | ErrorItem;
 
 export interface PendingPermission {
   requestId: string;
@@ -153,7 +157,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         break;
       case "turn.completed": {
         const text = event.content ?? get().streaming ?? "";
-        const message: AssistantMessageItem = { kind: "message", role: "assistant", text };
+        const message: AssistantMessageItem = {
+          kind: "message",
+          role: "assistant",
+          text,
+        };
         set({
           items: [...items, message],
           streaming: null,
@@ -222,8 +230,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
   hydrate: (state) => {
     const items = (state.history ?? []).flatMap((item): ChatItem[] => {
-      const message = (item as { message?: { role?: string; content?: unknown } })
-        .message;
+      const message = (
+        item as { message?: { role?: string; content?: unknown } }
+      ).message;
       if (!message || typeof message.content !== "string") return [];
       if (message.role === "user" || message.role === "assistant") {
         return [{ kind: "message", role: message.role, text: message.content }];
@@ -242,7 +251,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     set({
       items,
       pendingPermission:
-        pending && typeof pending.requestId === "string" &&
+        pending &&
+        typeof pending.requestId === "string" &&
         typeof pending.toolName === "string"
           ? {
               requestId: pending.requestId,

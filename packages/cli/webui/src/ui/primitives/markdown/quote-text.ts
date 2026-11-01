@@ -6,5 +6,9 @@
  * @returns one `> `-prefixed line per normalized input line.
  */
 export function formatQuoteText(text: string): string {
-  return text.replace(/\r\n?/gu, '\n').split('\n').map(line => `> ${line}`).join('\n')
+  return text
+    .replace(/\r\n?/gu, "\n")
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
 }

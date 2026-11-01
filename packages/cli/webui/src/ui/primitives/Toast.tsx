@@ -1,13 +1,13 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import { IconCheckCircleOutlineRegular } from './icons/index.tsx'
-import css from './Toast.module.css'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { IconCheckCircleOutlineRegular } from "./icons/index.tsx";
+import css from "./Toast.module.css";
 
 /** Full-opacity hold before the fade starts, when the owner names none. */
-const HOLD_MS = 3000
+const HOLD_MS = 3000;
 /** Fade duration. Must agree with the stylesheet's toast-fade duration. */
-const FADE_MS = 1000
+const FADE_MS = 1000;
 
 /**
  * Transient top-center banner: slides in, holds at full opacity, fades out,
@@ -43,53 +43,83 @@ const FADE_MS = 1000
  * @param props.onDone - called once the fade completes; unmount the toast here.
  * @returns the floating banner.
  */
-export function Toast({ text, icon, tone, anchor, holdMs = HOLD_MS, actions, onDone }: {
-  text: string
-  icon?: ReactNode
-  tone?: 'success'
-  anchor?: HTMLElement | null
-  holdMs?: number
-  actions?: readonly { label: string; prefix?: string; onClick: () => void }[]
-  onDone: () => void
+export function Toast({
+  text,
+  icon,
+  tone,
+  anchor,
+  holdMs = HOLD_MS,
+  actions,
+  onDone,
+}: {
+  text: string;
+  icon?: ReactNode;
+  tone?: "success";
+  anchor?: HTMLElement | null;
+  holdMs?: number;
+  actions?: readonly { label: string; prefix?: string; onClick: () => void }[];
+  onDone: () => void;
 }) {
-  const latestOnDone = useRef(onDone)
-  useLayoutEffect(() => { latestOnDone.current = onDone }, [onDone])
+  const latestOnDone = useRef(onDone);
+  useLayoutEffect(() => {
+    latestOnDone.current = onDone;
+  }, [onDone]);
   useEffect(() => {
-    const timer = setTimeout(() => { latestOnDone.current() }, holdMs + FADE_MS)
-    return () => { clearTimeout(timer) }
-  }, [holdMs])
+    const timer = setTimeout(() => {
+      latestOnDone.current();
+    }, holdMs + FADE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [holdMs]);
   // Anchor-centered placement re-measures on window resizes; the banner lives
   // four seconds, so sub-window layout drift within that span stays out of
   // scope.
-  const [left, setLeft] = useState<number | null>(null)
+  const [left, setLeft] = useState<number | null>(null);
   useLayoutEffect(() => {
-    if (anchor == null) return
+    if (anchor == null) return;
     const measure = (): void => {
-      const rect = anchor.getBoundingClientRect()
-      setLeft(rect.left + rect.width / 2)
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => { window.removeEventListener('resize', measure) }
-  }, [anchor])
+      const rect = anchor.getBoundingClientRect();
+      setLeft(rect.left + rect.width / 2);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+    };
+  }, [anchor]);
   return createPortal(
     <div
       className={css.toast}
       role="alert"
-      style={{
-        ...left === null ? {} : { left },
-        '--dsh-toast-hold': `${String(holdMs)}ms`,
-      } as CSSProperties}
+      style={
+        {
+          ...(left === null ? {} : { left }),
+          "--dsh-toast-hold": `${String(holdMs)}ms`,
+        } as CSSProperties
+      }
     >
-      {tone === 'success'
-        ? <span className={`${css.icon} ${css.success}`} aria-hidden><IconCheckCircleOutlineRegular /></span>
-        : icon !== undefined && <span className={css.icon} aria-hidden>{icon}</span>}
+      {tone === "success" ? (
+        <span className={`${css.icon} ${css.success}`} aria-hidden>
+          <IconCheckCircleOutlineRegular />
+        </span>
+      ) : (
+        icon !== undefined && (
+          <span className={css.icon} aria-hidden>
+            {icon}
+          </span>
+        )
+      )}
       <span className={css.text}>
         {text}
-        {actions?.map(action => (
+        {actions?.map((action) => (
           <Fragment key={action.label}>
             {action.prefix}
-            <button type="button" className={css.action} onClick={action.onClick}>
+            <button
+              type="button"
+              className={css.action}
+              onClick={action.onClick}
+            >
               {action.label}
             </button>
           </Fragment>
@@ -97,5 +127,5 @@ export function Toast({ text, icon, tone, anchor, holdMs = HOLD_MS, actions, onD
       </span>
     </div>,
     document.body,
-  )
+  );
 }

@@ -32,15 +32,15 @@
   background: var(--dsw-alias-state-idle-primary);
 }
 
-.toolDot[data-kind='running'] {
+.toolDot[data-kind="running"] {
   background: var(--dsw-alias-state-business-primary);
 }
 
-.toolDot[data-kind='done'] {
+.toolDot[data-kind="done"] {
   background: var(--dsw-alias-state-success-primary);
 }
 
-.toolDot[data-kind='failed'] {
+.toolDot[data-kind="failed"] {
   background: var(--dsw-alias-state-error-primary);
 }
 

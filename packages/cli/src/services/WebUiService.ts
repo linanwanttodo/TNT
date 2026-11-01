@@ -199,9 +199,9 @@ export class WebUiService {
         typeof mode !== "string" ||
         !PERMISSION_MODES.includes(mode as PermissionMode)
       ) {
-        res
-          .status(400)
-          .json({ error: `mode must be one of: ${PERMISSION_MODES.join(", ")}` });
+        res.status(400).json({
+          error: `mode must be one of: ${PERMISSION_MODES.join(", ")}`,
+        });
         return;
       }
 

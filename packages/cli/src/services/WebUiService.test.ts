@@ -33,8 +33,7 @@ const { listSessionsSpy } = vi.hoisted(() => ({
 }));
 
 vi.mock("../session/index.js", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../session/index.js")>();
+  const actual = await importOriginal<typeof import("../session/index.js")>();
   return {
     ...actual,
     listSessions: listSessionsSpy,
@@ -354,9 +353,7 @@ describe("WebUiService", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { permissionMode: string };
     expect(body.permissionMode).toBe("acceptEdits");
-    expect(services.toolPermissions.getState().currentMode).toBe(
-      "acceptEdits",
-    );
+    expect(services.toolPermissions.getState().currentMode).toBe("acceptEdits");
 
     services.toolPermissions.switchMode("default");
   });

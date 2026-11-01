@@ -61,11 +61,16 @@ function deltaEvent(delta: string): AgentEvent {
 describe("api client", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.stubGlobal("EventSource", MockEventSource as unknown as typeof EventSource);
+    vi.stubGlobal(
+      "EventSource",
+      MockEventSource as unknown as typeof EventSource,
+    );
     MockEventSource.instances = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 })),
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 })),
     );
   });
 
@@ -90,7 +95,10 @@ describe("api client", () => {
 
   it("reports reconnecting on error and live after reopening", async () => {
     const statuses: string[] = [];
-    connectEvents(() => {}, (s) => statuses.push(s));
+    connectEvents(
+      () => {},
+      (s) => statuses.push(s),
+    );
     const first = MockEventSource.instances[0];
 
     first.error();
@@ -103,7 +111,10 @@ describe("api client", () => {
   });
 
   it("backs off exponentially and caps at 10s", async () => {
-    connectEvents(() => {}, () => {});
+    connectEvents(
+      () => {},
+      () => {},
+    );
     const first = MockEventSource.instances[0];
     first.error();
 
@@ -128,7 +139,10 @@ describe("api client", () => {
   });
 
   it("stop reconnecting on close()", async () => {
-    const close = connectEvents(() => {}, () => {});
+    const close = connectEvents(
+      () => {},
+      () => {},
+    );
     MockEventSource.instances[0].error();
     close();
     await vi.advanceTimersByTimeAsync(10_000);
@@ -163,7 +177,11 @@ describe("api client", () => {
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response(JSON.stringify(snapshot), { status: 200 })),
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(snapshot), { status: 200 }),
+        ),
     );
     const state = await fetchState();
     expect(state.isProcessing).toBe(true);

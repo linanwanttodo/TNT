@@ -20,7 +20,9 @@ describe("chat view", () => {
     render(
       <div>
         <ChatItemView item={{ kind: "message", role: "user", text: "hello" }} />
-        <ChatItemView item={{ kind: "message", role: "assistant", text: "hi there" }} />
+        <ChatItemView
+          item={{ kind: "message", role: "assistant", text: "hi there" }}
+        />
       </div>,
     );
     expect(screen.getByText("hello")).toBeTruthy();
@@ -54,7 +56,9 @@ describe("chat view", () => {
   it("renders a reasoning row collapsed by default", () => {
     render(<ReasoningRow text="why am I doing this" running />);
     expect(screen.getByText("Thinking")).toBeTruthy();
-    expect(screen.getAllByText("why am I doing this").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("why am I doing this").length).toBeGreaterThan(
+      0,
+    );
   });
 
   it("leaves the scroll position alone when the user is scrolled up", () => {
@@ -70,13 +74,17 @@ describe("chat view", () => {
     );
     const { container, rerender } = render(view);
     // frame > scroll: the element whose scrollTop the effect drives.
-    const scroll = container.firstElementChild!.firstElementChild as HTMLElement;
+    const scroll = container.firstElementChild!
+      .firstElementChild as HTMLElement;
     Object.defineProperty(scroll, "clientHeight", { value: 100 });
     Object.defineProperty(scroll, "scrollHeight", { value: 500 });
     scroll.scrollTop = 0;
     rerender(
       <ChatView
-        items={[{ kind: "message", role: "user", text: "q" }, { kind: "message", role: "assistant", text: "a" }]}
+        items={[
+          { kind: "message", role: "user", text: "q" },
+          { kind: "message", role: "assistant", text: "a" },
+        ]}
         streaming={null}
         reasoning={null}
         pendingPermission={null}

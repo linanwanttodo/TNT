@@ -13,7 +13,10 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 18px 8px 22px;
-  background: var(--dsl-code-block-background, var(--dsw-alias-markdown-code-block));
+  background: var(
+    --dsl-code-block-background,
+    var(--dsw-alias-markdown-code-block)
+  );
   border-top-left-radius: inherit;
   border-top-right-radius: inherit;
   color: var(--dsw-alias-label-secondary);
@@ -74,7 +77,8 @@
 }
 
 .action:focus-visible {
-  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline: 1px solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
 

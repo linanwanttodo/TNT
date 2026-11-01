@@ -7,7 +7,7 @@
 
 /* The preview remains hit-testable so pointer entry cancels the grace close. */
 .card {
-  --dsw-hovercard-bg: #2C2C2E;
+  --dsw-hovercard-bg: #2c2c2e;
   position: fixed;
   z-index: 100;
   box-sizing: border-box;
@@ -23,7 +23,8 @@
 }
 
 .copyable:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline: var(--dsw-focus-ring-width) solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
 
@@ -34,7 +35,7 @@
 }
 
 .copied {
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 14px;
   line-height: 20px;
   text-align: center;
@@ -64,7 +65,9 @@
 }
 
 @starting-style {
-  .preview { opacity: 0; }
+  .preview {
+    opacity: 0;
+  }
 }
 
 .preview[data-closing] {
@@ -73,10 +76,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .preview { transition: none; }
+  .preview {
+    transition: none;
+  }
 }
 
-.inline { display: inline; }
+.inline {
+  display: inline;
+}
 .media {
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);

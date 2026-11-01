@@ -1,15 +1,15 @@
-import { useCallback, useMemo, useState } from 'react'
-import clsx from 'clsx'
-import { parseAnsiLines, type AnsiLine } from './ansi.ts'
-import { headTailCap } from './head-tail-cap.ts'
-import { useClipboardCopy } from './use-clipboard-copy.ts'
-import { Pill } from './Pill.tsx'
-import { StateDot, type StateDotState } from './StateDot.tsx'
-import css from './TerminalBlock.module.css'
-import { CommandText } from './CommandText.tsx'
+import { useCallback, useMemo, useState } from "react";
+import clsx from "clsx";
+import { parseAnsiLines, type AnsiLine } from "./ansi.ts";
+import { headTailCap } from "./head-tail-cap.ts";
+import { useClipboardCopy } from "./use-clipboard-copy.ts";
+import { Pill } from "./Pill.tsx";
+import { StateDot, type StateDotState } from "./StateDot.tsx";
+import css from "./TerminalBlock.module.css";
+import { CommandText } from "./CommandText.tsx";
 
 /** Output lines shown before the height cap collapses the middle. */
-export const DEFAULT_TERMINAL_MAX_LINES = 16
+export const DEFAULT_TERMINAL_MAX_LINES = 16;
 
 /**
  * Display copy for the terminal surface; the owner passes localized labels
@@ -17,77 +17,77 @@ export const DEFAULT_TERMINAL_MAX_LINES = 16
  */
 export interface TerminalBlockLabels {
   /** Accessible name for an overflowing authored command line, numbered from one. */
-  commandLine: (line: number) => string
+  commandLine: (line: number) => string;
   /** Status pill text for a signal-terminated command. */
-  signal: (signal: string) => string
+  signal: (signal: string) => string;
   /** Status pill text for a non-zero exit code. */
-  exitCode: (exitCode: number) => string
+  exitCode: (exitCode: number) => string;
   /** Status pill text for a command that ended without an exit code: killed by a signal the view does not know, or never started. */
-  noExitCode: string
+  noExitCode: string;
   /** Run-state text while the command is still running. */
-  running: string
+  running: string;
   /** Run-state text for a signal or non-zero-exit settle. */
-  failed: string
+  failed: string;
   /** Run-state text for a clean settle. */
-  done: string
+  done: string;
   /** Copy-button idle label. */
-  copy: string
+  copy: string;
   /** Copy-button label during the post-copy confirmation window. */
-  copied: string
+  copied: string;
   /** Placeholder when a settled command produced no visible output. */
-  noOutput: string
+  noOutput: string;
   /** Collapse-toggle aria label while expanded. */
-  collapseAria: string
+  collapseAria: string;
   /** Collapse-toggle text while expanded. */
-  collapse: string
+  collapse: string;
   /** Expand-toggle aria label while capped, given the hidden line count. */
-  expandAria: (hidden: number) => string
+  expandAria: (hidden: number) => string;
   /** Expand-toggle text while capped, given the hidden line count. */
-  expand: (hidden: number) => string
+  expand: (hidden: number) => string;
 }
 
 export interface TerminalBlockProps {
   /** The command, rendered verbatim after the prompt label; long lines scroll horizontally unless the host enables wrapping. */
-  command: string
+  command: string;
   /** Working directory for the prompt label; absent renders a plain `$`. */
-  cwd?: string | undefined
+  cwd?: string | undefined;
   /** Absolute home directory, so a cwd equal to it collapses to `~`; absent disables that collapse. */
-  home?: string | undefined
+  home?: string | undefined;
   /** The command's output text; may contain ANSI escape sequences. */
-  output?: string | undefined
+  output?: string | undefined;
   /** Settled exit code; a non-zero value renders the status pill, and null (settled without one) the no-exit-code pill. */
-  exitCode?: number | null | undefined
+  exitCode?: number | null | undefined;
   /** Settled terminating signal name; any value renders the status pill, taking precedence over the exit code. */
-  signal?: string | undefined
+  signal?: string | undefined;
   /**
    * The command is still running: with no `output` the block shows the prompt
    * line alone; with output it renders the live text under the running state.
    */
-  running?: boolean | undefined
+  running?: boolean | undefined;
   /**
    * The call launches background work (default false). `running` describes the
    * launch call only; after it returns, retain the command without job status
    * or output. An explicit `copyText` override remains available.
    */
-  background?: boolean | undefined
+  background?: boolean | undefined;
   /** Height cap in output lines before the middle collapses (default {@link DEFAULT_TERMINAL_MAX_LINES}); Infinity disables the cap. */
-  maxLines?: number | undefined
+  maxLines?: number | undefined;
   /**
    * Copy-control payload override; the control copies the raw output when
    * absent. Supplying it also keeps the control rendered before any output
    * exists — a command is copyable before it prints.
    */
-  copyText?: string | undefined
+  copyText?: string | undefined;
   /**
    * Draw the run-state dot and its assistive label in the card gutter
    * (default true). Hosts whose surrounding row already carries the same
    * state omit both and reclaim the gutter via `--dsl-terminal-gutter`.
    */
-  runStateDot?: boolean | undefined
+  runStateDot?: boolean | undefined;
   /** Extra class merged onto the wrapper (callers position; this component draws). */
-  className?: string | undefined
+  className?: string | undefined;
   /** Localized display copy supplied by the owning render site. */
-  labels: TerminalBlockLabels
+  labels: TerminalBlockLabels;
 }
 
 /**
@@ -100,10 +100,10 @@ export interface TerminalBlockProps {
  * @returns the prompt label.
  */
 function promptLabel(cwd: string, home: string | undefined): string {
-  const trimmed = cwd.replace(/[/\\]+$/, '')
-  if (home !== undefined && trimmed === home.replace(/[/\\]+$/, '')) return '~'
-  const segment = trimmed.split(/[/\\]/).pop()
-  return segment === undefined || segment === '' ? cwd : segment
+  const trimmed = cwd.replace(/[/\\]+$/, "");
+  if (home !== undefined && trimmed === home.replace(/[/\\]+$/, "")) return "~";
+  const segment = trimmed.split(/[/\\]/).pop();
+  return segment === undefined || segment === "" ? cwd : segment;
 }
 
 /**
@@ -120,10 +120,11 @@ function statusText(
   signal: string | undefined,
   labels: TerminalBlockLabels,
 ): string | undefined {
-  if (signal !== undefined) return labels.signal(signal)
-  if (exitCode === null) return labels.noExitCode
-  if (exitCode !== undefined && exitCode !== 0) return labels.exitCode(exitCode)
-  return undefined
+  if (signal !== undefined) return labels.signal(signal);
+  if (exitCode === null) return labels.noExitCode;
+  if (exitCode !== undefined && exitCode !== 0)
+    return labels.exitCode(exitCode);
+  return undefined;
 }
 
 /**
@@ -148,9 +149,10 @@ function runState(
   signal: string | undefined,
   labels: TerminalBlockLabels,
 ): { state: StateDotState; label: string } {
-  if (running) return { state: 'ongoing', label: labels.running }
-  if (statusText(exitCode, signal, labels) !== undefined) return { state: 'error', label: labels.failed }
-  return { state: 'done', label: labels.done }
+  if (running) return { state: "ongoing", label: labels.running };
+  if (statusText(exitCode, signal, labels) !== undefined)
+    return { state: "error", label: labels.failed };
+  return { state: "done", label: labels.done };
 }
 
 /**
@@ -160,9 +162,15 @@ function runState(
  * @returns the line's children.
  */
 function renderLine(line: AnsiLine) {
-  return line.map((span, index) => span.style === undefined
-    ? span.text
-    : <span key={index} style={span.style}>{span.text}</span>)
+  return line.map((span, index) =>
+    span.style === undefined ? (
+      span.text
+    ) : (
+      <span key={index} style={span.style}>
+        {span.text}
+      </span>
+    ),
+  );
 }
 
 /**
@@ -185,8 +193,8 @@ export function TerminalBlock({
   className,
   labels,
 }: TerminalBlockProps) {
-  const copy = labels
-  const text = output ?? ''
+  const copy = labels;
+  const text = output ?? "";
   // A command's output ends with a newline; that terminator is not an extra
   // blank line to draw or to count against the height cap. The check runs on the
   // PARSED lines rather than on the raw text, because a reset after the final
@@ -195,57 +203,71 @@ export function TerminalBlock({
   // line — the double newline — survives, since it has a real empty line before
   // the terminator. The copy control's payload is unaffected.
   const lines = useMemo(() => {
-    const parsed = parseAnsiLines(text)
-    const last = parsed[parsed.length - 1]
-    const terminated = parsed.length > 1 && last !== undefined
-      && last.every(span => span.text === '')
-    return terminated ? parsed.slice(0, -1) : parsed
-  }, [text])
-  const [expanded, setExpanded] = useState(false)
+    const parsed = parseAnsiLines(text);
+    const last = parsed[parsed.length - 1];
+    const terminated =
+      parsed.length > 1 &&
+      last !== undefined &&
+      last.every((span) => span.text === "");
+    return terminated ? parsed.slice(0, -1) : parsed;
+  }, [text]);
+  const [expanded, setExpanded] = useState(false);
   // The raw output (or the caller's override), never the rendered tree: the
   // prompt line and the status pill are chrome the user did not run.
-  const { copied, onCopy } = useClipboardCopy(copyText ?? text)
+  const { copied, onCopy } = useClipboardCopy(copyText ?? text);
 
-  const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
+  const onToggle = useCallback(() => {
+    setExpanded((value) => !value);
+  }, []);
 
-  const status = background ? undefined : statusText(exitCode, signal, copy)
-  const state = runState(running, exitCode, signal, copy)
-  const showState = runStateDot && (!background || running)
+  const status = background ? undefined : statusText(exitCode, signal, copy);
+  const state = runState(running, exitCode, signal, copy);
+  const showState = runStateDot && (!background || running);
   // A multi-line command gets one prompt row per line, so a two-command shell
   // snippet reads as the two commands it is instead of collapsing into one
   // ellipsized row. A trailing newline is a terminator, not an empty command.
   const commandLines = useMemo(() => {
-    const body = command.endsWith('\n') ? command.slice(0, -1) : command
-    return body.split('\n')
-  }, [command])
+    const body = command.endsWith("\n") ? command.slice(0, -1) : command;
+    return body.split("\n");
+  }, [command]);
   // Read from the parsed lines the card actually renders, not from the raw text:
   // output that is only escapes or control bytes (a lone reset, an OSC title, an
   // erase) survives `text.trim()` yet parses to nothing visible. Judging it on
   // the raw text would draw an output box of blank rows plus a copy control
   // for invisible bytes, and hide the placeholder that belongs there.
-  const empty = lines.every(line => line.every(span => span.text.trim() === ''))
-  const { hidden, capped, headLines, tailLines } = headTailCap(lines.length, maxLines, expanded)
+  const empty = lines.every((line) =>
+    line.every((span) => span.text.trim() === ""),
+  );
+  const { hidden, capped, headLines, tailLines } = headTailCap(
+    lines.length,
+    maxLines,
+    expanded,
+  );
   // A running command with nothing printed yet is banner-only; once it has
   // printed, the output streams in under the banner as it would in a terminal.
-  const body = !background && (!running || !empty)
+  const body = !background && (!running || !empty);
 
   return (
     <div
       className={clsx(css.block, className)}
       data-terminal=""
-      data-running={running ? '' : undefined}
-      data-body={body ? '' : undefined}
+      data-running={running ? "" : undefined}
+      data-body={body ? "" : undefined}
     >
       <div className={css.header}>
         <div className={css.prompt}>
-          {showState && <span className={css.runStateLabel}>{state.label}</span>}
+          {showState && (
+            <span className={css.runStateLabel}>{state.label}</span>
+          )}
           {commandLines.map((line, index) => (
             <div key={index} className={css.promptLine}>
               {/* One dot for the card, on the first row: the exit status the
                   view carries is the whole call's, and bash reports no
                   per-command status, so a dot per row would assert a
                   per-line outcome nothing here knows. */}
-              {index === 0 && showState && <StateDot state={state.state} className={css.runState} />}
+              {index === 0 && showState && (
+                <StateDot state={state.state} className={css.runState} />
+              )}
               {/* The cwd labels the CALL, so only its first row carries it. The
                   view knows one working directory — where the call started —
                   and a later line may well run somewhere else (a `cd` in the
@@ -253,9 +275,13 @@ export function TerminalBlock({
                   assert a directory per line that nothing here knows. Later
                   rows keep a bare `$` to stay aligned as prompts. */}
               <span className={css.cwd}>
-                {index > 0 || cwd === undefined ? '$' : promptLabel(cwd, home)}
+                {index > 0 || cwd === undefined ? "$" : promptLabel(cwd, home)}
               </span>
-              <CommandText className={css.command} text={line} label={copy.commandLine(index + 1)} />
+              <CommandText
+                className={css.command}
+                text={line}
+                label={copy.commandLine(index + 1)}
+              />
             </div>
           ))}
         </div>
@@ -266,29 +292,37 @@ export function TerminalBlock({
           </button>
         )}
       </div>
-      {body && (empty
-        ? <div className={css.empty}>{copy.noOutput}</div>
-        : (
+      {body &&
+        (empty ? (
+          <div className={css.empty}>{copy.noOutput}</div>
+        ) : (
           <div className={css.output}>
             {(capped ? lines.slice(0, headLines) : lines).map((line, index) => (
-              <div key={index} className={css.line}>{renderLine(line)}</div>
+              <div key={index} className={css.line}>
+                {renderLine(line)}
+              </div>
             ))}
             {hidden > 0 && (
               <button
                 type="button"
                 className={css.expand}
                 aria-expanded={expanded}
-                aria-label={expanded ? copy.collapseAria : copy.expandAria(hidden)}
+                aria-label={
+                  expanded ? copy.collapseAria : copy.expandAria(hidden)
+                }
                 onClick={onToggle}
               >
                 {expanded ? copy.collapse : copy.expand(hidden)}
               </button>
             )}
-            {capped && lines.slice(lines.length - tailLines).map((line, index) => (
-              <div key={index} className={css.line}>{renderLine(line)}</div>
-            ))}
+            {capped &&
+              lines.slice(lines.length - tailLines).map((line, index) => (
+                <div key={index} className={css.line}>
+                  {renderLine(line)}
+                </div>
+              ))}
           </div>
         ))}
     </div>
-  )
+  );
 }

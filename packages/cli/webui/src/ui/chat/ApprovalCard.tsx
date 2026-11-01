@@ -3,13 +3,20 @@ import { Button, StateDot } from "../primitives/index.ts";
 import css from "./ApprovalCard.module.css";
 import { chatLabels } from "./labels.js";
 
-export function ApprovalCard({ pending, onAnswer }: {
+export function ApprovalCard({
+  pending,
+  onAnswer,
+}: {
   pending: { requestId: string; toolName: string; toolArgs: unknown };
   onAnswer: (approved: boolean) => void;
 }) {
   const detail = summarizeArgs(pending.toolArgs);
   return (
-    <div className={css.card} data-request-id={pending.requestId} aria-busy="false">
+    <div
+      className={css.card}
+      data-request-id={pending.requestId}
+      aria-busy="false"
+    >
       <div className={css.strip}>
         <StateDot state="warning" />
         <span>{chatLabels.waiting}</span>
@@ -19,7 +26,11 @@ export function ApprovalCard({ pending, onAnswer }: {
         {detail !== "" && <div className={css.command}>{detail}</div>}
       </div>
       <div className={css.actionRow}>
-        <Button variant="outline" className={css.reject} onClick={() => onAnswer(false)}>
+        <Button
+          variant="outline"
+          className={css.reject}
+          onClick={() => onAnswer(false)}
+        >
           {chatLabels.reject}
         </Button>
         <Button variant="primary" onClick={() => onAnswer(true)}>

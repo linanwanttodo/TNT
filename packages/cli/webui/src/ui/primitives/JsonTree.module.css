@@ -17,7 +17,7 @@
   overscroll-behavior-y: auto;
 }
 
-:global(:root[data-theme='dark']) .root {
+:global(:root[data-theme="dark"]) .root {
   --json-tree-property: #5db0d7;
   --json-tree-string: #f28b82;
   --json-tree-number: #99c8ff;
@@ -43,7 +43,9 @@
   padding: 6px 8px 8px 14px;
 }
 
-.expandedTopLevel:has(> .topLevelBracket[data-json-root-row][data-json-copy-active]) {
+.expandedTopLevel:has(
+  > .topLevelBracket[data-json-root-row][data-json-copy-active]
+) {
   background: var(--json-tree-hover);
 }
 
@@ -89,7 +91,7 @@
   left: 0;
   height: var(--json-tree-row-height, 16px);
   background: var(--json-tree-hover);
-  content: '';
+  content: "";
   pointer-events: none;
 }
 
@@ -102,7 +104,7 @@
     left: 0;
     height: var(--json-tree-row-height, 16px);
     background: var(--json-tree-hover);
-    content: '';
+    content: "";
     pointer-events: none;
   }
 }
@@ -163,7 +165,7 @@
   height: 16px;
 }
 
-.stringRaw[data-wrap='true'] {
+.stringRaw[data-wrap="true"] {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   word-break: break-all;
@@ -207,7 +209,8 @@
 }
 
 .stringToggle:focus-visible {
-  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline: 1px solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 
@@ -309,16 +312,17 @@
   }
 }
 
-.actionButton[aria-pressed='true'] {
+.actionButton[aria-pressed="true"] {
   color: var(--dsw-alias-state-business-primary);
 }
 
 .actionButton:focus-visible {
-  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline: 1px solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -1px;
 }
 
-.actionButton[data-state='failed'] {
+.actionButton[data-state="failed"] {
   color: var(--dsw-alias-state-error-primary);
 }
 
@@ -345,7 +349,7 @@
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   border-left: 6px solid currentColor;
-  content: '';
+  content: "";
   transform: scale(0.75);
   transform-origin: 33.333% center;
 }
@@ -371,11 +375,16 @@
 }
 
 .collapsedContent::after {
-  content: '…';
+  content: "…";
 }
 
 @media (hover: none) {
-  .copySlot { opacity: 1; pointer-events: auto; }
+  .copySlot {
+    opacity: 1;
+    pointer-events: auto;
+  }
 
-  .row:has(> .copySlot) { padding-right: 24px; }
+  .row:has(> .copySlot) {
+    padding-right: 24px;
+  }
 }

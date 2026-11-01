@@ -9,10 +9,22 @@
  * @param gap - the distance the overlay keeps below `anchor`.
  * @returns the frame clearance plus 20px (20px in fullscreen), capped by a visible `anchor`, but never below `min`.
  */
-export function overlayTopMargin(min: number, anchor?: { readonly top: number; readonly bottom: number }, gap = 0): number {
-  const root = document.documentElement
-  const clearance = Number.parseFloat(getComputedStyle(root).getPropertyValue('--dsh-frame-top-clearance'))
-  if (Number.isNaN(clearance)) return min
-  const cap = anchor !== undefined && anchor.top >= 0 ? anchor.bottom + gap : Number.POSITIVE_INFINITY
-  return Math.max(min, Math.min((root.hasAttribute('data-fullscreen') ? 0 : clearance) + 20, cap))
+export function overlayTopMargin(
+  min: number,
+  anchor?: { readonly top: number; readonly bottom: number },
+  gap = 0,
+): number {
+  const root = document.documentElement;
+  const clearance = Number.parseFloat(
+    getComputedStyle(root).getPropertyValue("--dsh-frame-top-clearance"),
+  );
+  if (Number.isNaN(clearance)) return min;
+  const cap =
+    anchor !== undefined && anchor.top >= 0
+      ? anchor.bottom + gap
+      : Number.POSITIVE_INFINITY;
+  return Math.max(
+    min,
+    Math.min((root.hasAttribute("data-fullscreen") ? 0 : clearance) + 20, cap),
+  );
 }

@@ -4,12 +4,20 @@
  * becomes a stop button.
  */
 import { useState, type KeyboardEvent } from "react";
-import { Button, IconSendOutlineRegular, IconStopFillRegular } from "../primitives/index.ts";
+import {
+  Button,
+  IconSendOutlineRegular,
+  IconStopFillRegular,
+} from "../primitives/index.ts";
 import { ShellIcon } from "../shell/icons.tsx";
 import css from "./Composer.module.css";
 import { chatLabels } from "./labels.js";
 
-export function Composer({ waiting, onSend, onStop }: {
+export function Composer({
+  waiting,
+  onSend,
+  onStop,
+}: {
   waiting: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
@@ -23,7 +31,11 @@ export function Composer({ waiting, onSend, onStop }: {
   };
 
   const keydown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
       event.preventDefault();
       submit();
     }
@@ -34,7 +46,11 @@ export function Composer({ waiting, onSend, onStop }: {
   return (
     <div className={css.frame}>
       <div className={css.box}>
-        <button type="button" className={css.leading} aria-label={chatLabels.attachLabel}>
+        <button
+          type="button"
+          className={css.leading}
+          aria-label={chatLabels.attachLabel}
+        >
           <ShellIcon glyph="plus-compact" size={12} />
         </button>
         <textarea
@@ -46,31 +62,27 @@ export function Composer({ waiting, onSend, onStop }: {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={keydown}
         />
-        {waiting
-          ? (
-              <Button
-                variant="primary"
-                size="sm"
-                className={css.action}
-                aria-label={chatLabels.stopLabel}
-                onClick={onStop}
-              >
-                <IconStopFillRegular size={14} />
-              </Button>
-            )
-          : hasText
-            ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className={css.action}
-                  aria-label={chatLabels.sendLabel}
-                  onClick={submit}
-                >
-                  <IconSendOutlineRegular size={14} />
-                </Button>
-              )
-            : null}
+        {waiting ? (
+          <Button
+            variant="primary"
+            size="sm"
+            className={css.action}
+            aria-label={chatLabels.stopLabel}
+            onClick={onStop}
+          >
+            <IconStopFillRegular size={14} />
+          </Button>
+        ) : hasText ? (
+          <Button
+            variant="primary"
+            size="sm"
+            className={css.action}
+            aria-label={chatLabels.sendLabel}
+            onClick={submit}
+          >
+            <IconSendOutlineRegular size={14} />
+          </Button>
+        ) : null}
       </div>
     </div>
   );
