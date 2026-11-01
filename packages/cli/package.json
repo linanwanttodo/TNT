@@ -40,7 +40,8 @@
     "watch:logs": "touch ~/.tnt/logs/tnt.log && tail -f ~/.tnt/logs/tnt.log",
     "prepare": "npm run build",
     "semantic-release": "semantic-release",
-    "semantic-release:dry-run": "semantic-release --dry-run"
+    "semantic-release:dry-run": "semantic-release --dry-run",
+    "webui-e2e": "TNT_GLOBAL_DIR=/tmp/tnt-webui-home TNT_WEBUI_DIST=./webui/dist tsx src/dev.ts webui --no-open --port 47693"
   },
   "author": "linanwanttodo",
   "license": "Apache-2.0",
