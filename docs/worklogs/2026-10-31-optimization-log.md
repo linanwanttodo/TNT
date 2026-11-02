@@ -289,3 +289,13 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** `.tnt/superpowers/specs/2026-11-01-goal-prd-flow-design.md` 交付顺序第 7 步与事件契约（agentName + content 字段、既有封套形状）；AgentEventInput 分布式 Omit 类型复用 events.ts 既有定义。
 
 **验证：** RED：executor.events.test.ts 两用例先行失败（事件联合类型无变体、无事件发出）；GREEN 后 src/subagent + src/protocol + src/session 189 用例全绿，tsc 干净，prettier 经 lint-staged 通过。提交 5286218bc。
+
+## 22. lint 门错误清理与 autoConvoke 生产接线（goal-PRD 收尾）
+
+**做了什么：** 两步。第一步清 CI lint 门错误：executor.ts 生命周期封套变量 agentType 改 const（emit 只读不改写）；systemMessage.ts 的 buildSystemMessageSections 语句数 51 超上限 50，把规则收集前半段（agent 文件层、--rule 处理、yaml 规则、markdown 规则去重）抽为独立函数 collectRuleMaterial()，主函数降到上限内，纯移动不改行为。第二步补 autoConvoke 的生产消费线：readSettingsBoolean("team.autoConvoke") 此前只有实现与测试、无任何调用方（死设置）——systemMessage.ts 新增 autoConvokeBlock()（开关为 true 时产出 `<context name="team-convoke">` 块，内容为 i18n `agent.autoConvoke` en/zh 成对：召集信号三条件、召集后转呈告知一次、小活不召集；false/未设置块不存在，反目标守卫），接入 userRules 组装（goal-align 之后、team-reception 之前）。goalAlignment 测试新增 3 用例。
+
+**为什么：** lint 门是 CI 硬约束（51 条语句会挂 cli-pr-checks）；autoConvoke 是交付顺序第 5 步的一半——设置面有了，注入面缺失意味着"开启后自动召集"对主 agent 完全不可见，等于功能没实现。
+
+**依据：** spec 第三部分第 2 点（偏好开关开启后主 agent 对含召集信号的大目标自动进入流程）、第五部分 8.2 召集信号清单（多子任务拆解/多角色协作/用户点名）；设计第四部分"两个层次都是动态内容（volatile 节）"——convoke 块同样只进 volatile userRules。
+
+**验证：** RED：convoke 开启用例先行失败（userRules 无 team-convoke 块；fixture 初版写错 .tntrc.json 路径，改 .tnt/settings.json 后按预期红）。GREEN：goalAlignment 8 用例、src/agent + src/team + settingsFiles + team handler + executor.events 共 175 用例全绿，tsc 干净，eslint 两个文件零错误。systemPrefixFingerprint 四 digest 不变（userRules 全 volatile）。提交 81dbcd4eb、f2f9aab50。
