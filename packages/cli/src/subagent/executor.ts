@@ -2,20 +2,24 @@ import type { ChatHistoryItem } from "core";
 
 import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
+import { publishAgentEvent } from "../protocol/eventBus.js";
+import { type AgentEvent, type AgentEventInput } from "../protocol/events.js";
 import { services } from "../services/index.js";
 import { ModelServiceState } from "../services/types.js";
 import { runAgentTurn } from "../session/controller.js";
 import { getCurrentSession, saveSubagentSession } from "../session/index.js";
+import { getSessionActiveTeam } from "../session/index.js";
+import { loadTeams } from "../team/loader.js";
 import { escapeEvents } from "../utils/cli.js";
 import { logger } from "../utils/logger.js";
 
-import { builtInAgentByName } from "./builtInAgents.js";
 import {
   canDelegate,
   DEFAULT_MAX_SUBAGENT_DEPTH,
   delegationDepthOf,
   resolveChildDepth,
 } from "./depth.js";
+import { resolveDispatchableAgent } from "./get-agents.js";
 import { createChildContext, type AgentRunContext } from "./runContext.js";
 import { type SubAgentVerdict, parseVerdict } from "./verdict.js";
 
@@ -56,12 +60,17 @@ export interface SubAgentResult {
 async function buildAgentSystemMessage(
   agent: ModelServiceState,
   mode: string,
+  dispatchablePrompt?: string,
 ): Promise<string> {
   const baseMessage = services.systemMessage
     ? await services.systemMessage.getSystemMessage(mode as any)
     : "";
 
-  const agentPrompt = agent.model?.chatOptions?.baseSystemMessage || "";
+  // A configured model agent carries its prompt on the entry itself; a team
+  // member or a plugin agent has none there - the dispatch chain resolved
+  // their persona instead.
+  const agentPrompt =
+    agent.model?.chatOptions?.baseSystemMessage || dispatchablePrompt || "";
 
   // Combine base system message with agent-specific prompt
   if (agentPrompt) {
@@ -85,6 +94,22 @@ export async function executeSubAgent(
     onOutputUpdate,
     parentContext,
   } = options;
+
+  // Delegation lives on the agent event bus too, so a surface that is not the
+  // caller (SSE) can follow the subagent's lifecycle. Events carry the parent
+  // session id; the child turn's own controller events stay separate.
+  let nextSeq = 0;
+  const agentType = subAgent.model?.name ?? "agent";
+  const emit = (event: AgentEventInput): void => {
+    nextSeq += 1;
+    publishAgentEvent({
+      ...event,
+      sessionId: options.parentSessionId,
+      turnId: agentType,
+      seq: nextSeq,
+      timestamp: Date.now(),
+    } as AgentEvent);
+  };
 
   try {
     logger.debug("Starting subagent execution", {
@@ -116,26 +141,37 @@ export async function executeSubAgent(
       maxDelegationDepth,
     });
 
+    const activeTeamName = getSessionActiveTeam();
+    const activeTeam = activeTeamName
+      ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
+      : undefined;
+    const dispatchable = resolveDispatchableAgent(
+      agentType,
+      subAgent,
+      activeTeam,
+    );
+
     const systemMessage = await buildAgentSystemMessage(
       subAgent,
       resolvedParent.mode,
+      dispatchable?.systemMessage,
     );
-
-    const agentType = subAgent.model?.name ?? "agent";
-    const builtIn = builtInAgentByName(agentType);
 
     const childContext = createChildContext(resolvedParent, {
       id: `${resolvedParent.id}:${childDepth}:${agentType}`,
       delegationDepth: childDepth,
       systemMessage,
       abortSignal: abortController.signal,
-      // A built-in role declares what it may not do; a configured agent keeps
-      // whatever the session allowed, as it did before this existed.
-      restriction: builtIn?.restriction,
-      deniedTools: builtIn?.deniedTools,
+      // A built-in role or a team member declares what it may not do; a plain
+      // configured agent keeps whatever the session allowed, as it did before
+      // this existed.
+      restriction: dispatchable?.restriction,
+      deniedTools: dispatchable?.deniedTools,
     });
 
     const agentId = childContext.id;
+
+    emit({ type: "subagent.started", agentName: agentType, prompt });
 
     await fireSubagentStart(agentId, agentType).catch(() => {});
 
@@ -217,6 +253,21 @@ export async function executeSubAgent(
 
       await fireSubagentStop(agentId, agentType, response).catch(() => {});
 
+      emit({
+        type: "subagent.reported",
+        agentName: agentType,
+        content: response,
+      });
+      emit({
+        type: "subagent.finished",
+        agentName: agentType,
+        content: response,
+        success: true,
+        ...(parseVerdict(response)
+          ? { verdict: parseVerdict(response) as string }
+          : {}),
+      });
+
       return {
         success: true,
         response,
@@ -232,6 +283,17 @@ export async function executeSubAgent(
       agent: subAgent.model?.name,
       error: error.message,
     });
+
+    // The catch may fire before the started event existed (model resolution
+    // failed); only a begun lifecycle gets a finished event.
+    if (nextSeq > 0) {
+      emit({
+        type: "subagent.finished",
+        agentName: subAgent.model?.name ?? "agent",
+        content: error.message ?? "",
+        success: false,
+      });
+    }
 
     return {
       success: false,

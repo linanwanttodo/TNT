@@ -4,7 +4,11 @@ import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getSettingsFilePaths, readSettingsString } from "./settingsFiles.js";
+import {
+  getSettingsFilePaths,
+  readSettingsBoolean,
+  readSettingsString,
+} from "./settingsFiles.js";
 
 let home: string;
 let project: string;
@@ -115,5 +119,52 @@ describe("reading a settings value", () => {
 
     write(path.join(project, ".tnt", "settings.json"), { outputStyle: "  " });
     expect(readSettingsString("outputStyle", project, home)).toBeUndefined();
+  });
+});
+
+describe("reading a boolean settings value", () => {
+  it("returns undefined when no file defines the key", () => {
+    expect(
+      readSettingsBoolean("team.autoConvoke", project, home),
+    ).toBeUndefined();
+  });
+
+  it("reads a user-global true and lets the project override", () => {
+    write(path.join(home, ".tnt", "settings.json"), {
+      "team.autoConvoke": true,
+    });
+    expect(readSettingsBoolean("team.autoConvoke", project, home)).toBe(true);
+
+    write(path.join(project, ".tnt", "settings.json"), {
+      "team.autoConvoke": false,
+    });
+    expect(readSettingsBoolean("team.autoConvoke", project, home)).toBe(false);
+  });
+
+  it("reads a project-local file over the committed project value", () => {
+    write(path.join(project, ".tnt", "settings.json"), {
+      "team.autoConvoke": true,
+    });
+    write(path.join(project, ".tnt", "settings.local.json"), {
+      "team.autoConvoke": false,
+    });
+
+    expect(readSettingsBoolean("team.autoConvoke", project, home)).toBe(false);
+  });
+
+  it("ignores truthy non-booleans instead of guessing", () => {
+    write(path.join(project, ".tnt", "settings.json"), {
+      "team.autoConvoke": "true",
+    });
+    expect(
+      readSettingsBoolean("team.autoConvoke", project, home),
+    ).toBeUndefined();
+
+    write(path.join(project, ".tnt", "settings.json"), {
+      "team.autoConvoke": 1,
+    });
+    expect(
+      readSettingsBoolean("team.autoConvoke", project, home),
+    ).toBeUndefined();
   });
 });

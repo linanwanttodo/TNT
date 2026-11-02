@@ -7,6 +7,7 @@ import {
 } from "../../services/index.js";
 import type { ToolPermissionServiceState } from "../../services/ToolPermissionService.js";
 import type { ModelServiceState } from "../../services/types.js";
+import { getModelContextLimit } from "../../utils/tokenizer.js";
 import {
   convertToolToChatCompletionTool,
   getAllAvailableTools,
@@ -72,7 +73,12 @@ export async function getRequestTools(
     const modelState = await serviceContainer.get<ModelServiceState>(
       SERVICE_NAMES.MODEL,
     );
-    contextWindow = modelState.model?.defaultCompletionOptions?.contextLength;
+    // The model-level configLength must win here too: reading only
+    // defaultCompletionOptions silently ignores a configured 1M window and
+    // defers tools against the 200k default.
+    if (modelState.model) {
+      contextWindow = getModelContextLimit(modelState.model);
+    }
   } catch {
     // Without a resolved model the decision falls back to the default window;
     // the environment override still decides either way.

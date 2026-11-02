@@ -378,7 +378,6 @@ describe("tokenizer", () => {
 
       expect(logger.debug).toHaveBeenCalledWith("Context usage check", {
         inputTokens: expect.any(Number),
-        historyTokens: expect.any(Number),
         systemTokens: expect.any(Number),
         toolTokens: expect.any(Number),
         contextLimit: 1000,
@@ -389,7 +388,9 @@ describe("tokenizer", () => {
         retainTokens: 128,
         shouldCompact: expect.any(Boolean),
         // Nothing was measured for this call, so the number above is the local
-        // count and the log says which of the two it was.
+        // count and the log says which of the two it was. historyTokens is not
+        // logged: it would re-encode the whole history just to print a number
+        // nobody reads.
         fromMeasurement: false,
       });
     });

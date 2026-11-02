@@ -27,7 +27,12 @@ export interface ChatHistoryState {
  * Provides immutable updates and automatic React integration via events
  */
 export class ChatHistoryService extends BaseService<ChatHistoryState> {
-  // Simple undo/redo stacks for history snapshots
+  // Simple undo/redo stacks for history snapshots. Each entry is a shallow
+  // copy of the whole history at a boundary, so the stack is bounded: an
+  // unbounded one holds a full copy per commit for the session's life, which
+  // on a long agentic session is gigabytes for snapshots the user can
+  // practically reach only a few steps into anyway.
+  private static readonly MAX_UNDO_STEPS = 20;
   private past: ChatHistoryItem[][] = [];
   private future: ChatHistoryItem[][] = [];
   /** Ordered messages, stable ids, and the staging batch. */
@@ -77,6 +82,9 @@ export class ChatHistoryService extends BaseService<ChatHistoryState> {
     const prev = this.currentState.history;
     if (recordUndo) {
       this.past.push([...prev]);
+      if (this.past.length > ChatHistoryService.MAX_UNDO_STEPS) {
+        this.past.shift();
+      }
       this.future = [];
     }
     const resolvedCompactionIndex =

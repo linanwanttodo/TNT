@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { resetSystemPromptSeries } from "./systemPromptSeries.js";
 import {
   createTurnState,
   noteCompaction,
@@ -7,15 +8,19 @@ import {
 } from "./turnState.js";
 
 describe("the state one turn owns", () => {
-  it("starts every turn with its own empty system prompt series", () => {
-    const first = createTurnState();
+  it("continues the same system prompt series across turns", async () => {
+    resetSystemPromptSeries("series-test");
+    const first = createTurnState(undefined, "series-test");
     first.systemPrompt.previous = "sent earlier";
     first.systemPrompt.request = "sent earlier";
     first.systemPrompt.updates = ["update"];
 
-    // A system prompt comparison belongs to the turn that made it: a new prompt
-    // must rewrite the field rather than inherit the previous turn's head.
-    expect(createTurnState().systemPrompt).toEqual({ updates: [] });
+    // The system field and its updates are the bytes the provider has cached;
+    // a new turn that reset them would rewrite the head and re-bill it. The
+    // new turn borrows the same series object, so its first round compares
+    // against what was actually sent and can keep the prefix.
+    const next = createTurnState(undefined, "series-test");
+    expect(next.systemPrompt).toBe(first.systemPrompt);
   });
 
   it("remembers that a compaction rewrote the history", () => {
