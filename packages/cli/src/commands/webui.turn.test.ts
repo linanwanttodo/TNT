@@ -34,6 +34,10 @@ vi.mock("../utils/logger.js", () => ({
 }));
 
 import { removePartialAssistantMessage } from "./serve.helpers.js";
+import {
+  getCurrentSession,
+  loadOrCreateSessionById,
+} from "../session/index.js";
 import { runStandaloneTurn } from "./webui.js";
 
 /**
@@ -49,11 +53,20 @@ describe("runStandaloneTurn", () => {
     vi.restoreAllMocks();
   });
 
-  const makeState = () => ({
-    session: { history: [] as any[], title: "s" },
-    model: { model: "m" },
-    serverRunning: true,
-  });
+  /**
+   * A turn writes to the session the process currently holds (a /session/
+   * select can re-point it between messages), so the harness plants its
+   * history array on the SessionManager's current session.
+   */
+  const makeState = () => {
+    const session = getCurrentSession();
+    session.history = [];
+    return {
+      session,
+      model: { model: "m" },
+      serverRunning: true,
+    };
+  };
 
   const makeQueued = (): QueuedMessage =>
     ({
@@ -136,5 +149,26 @@ describe("runStandaloneTurn", () => {
       addUser.mockRestore();
       addAssistant.mockRestore();
     }
+  });
+
+  it("lands on the session the process now holds after a switch", async () => {
+    // The SessionManager is where /session/select installs the switched
+    // session; a turn that captured a stale history array would write the
+    // message into the conversation the user just left.
+    const { loadOrCreateSessionById } = await import("../session/index.js");
+    const switched = loadOrCreateSessionById("webui-turn-switched", []);
+    runAgentTurnMock.mockResolvedValue("ok");
+    await runStandaloneTurn(
+      makeState() as any,
+      {} as any,
+      { model: "m" },
+      makeQueued(),
+      new AbortController().signal,
+    );
+
+    expect(runAgentTurnMock).toHaveBeenCalledTimes(1);
+    expect(runAgentTurnMock.mock.calls[0][0].chatHistory).toBe(
+      switched.history,
+    );
   });
 });
