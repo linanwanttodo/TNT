@@ -99,7 +99,7 @@ export async function executeSubAgent(
   // caller (SSE) can follow the subagent's lifecycle. Events carry the parent
   // session id; the child turn's own controller events stay separate.
   let nextSeq = 0;
-  let agentType = subAgent.model?.name ?? "agent";
+  const agentType = subAgent.model?.name ?? "agent";
   const emit = (event: AgentEventInput): void => {
     nextSeq += 1;
     publishAgentEvent({

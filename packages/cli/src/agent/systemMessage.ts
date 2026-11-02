@@ -336,16 +336,12 @@ function goalAlignmentBlock(): string | undefined {
 }
 
 /**
- * The prefix is the concatenation of its sections, each of which already carries
- * the blank lines that separate it, so joining adds nothing.
+ * The rule material the userRules section carries: the memory/agent-file
+ * layers as one content string, plus every processed rule source in order.
  */
-export async function buildSystemMessageSections(
-  mode: PermissionMode,
+async function collectRuleMaterial(
   additionalRules?: string[],
-  format?: OutputFormat,
-  headless?: boolean,
-  profile?: PromptProfile,
-): Promise<SystemMessageSection[]> {
+): Promise<{ agentContent: string; processedRules: string[] }> {
   const agentFiles = [
     ".tnt/AGENTS.md",
     "AGENTS.md",
@@ -413,6 +409,23 @@ export async function buildSystemMessageSections(
       existingRulesSet.add(rule.rule);
     }
   }
+
+  return { agentContent, processedRules };
+}
+
+/**
+ * The prefix is the concatenation of its sections, each of which already carries
+ * the blank lines that separate it, so joining adds nothing.
+ */
+export async function buildSystemMessageSections(
+  mode: PermissionMode,
+  additionalRules?: string[],
+  format?: OutputFormat,
+  headless?: boolean,
+  profile?: PromptProfile,
+): Promise<SystemMessageSection[]> {
+  const { agentContent, processedRules } =
+    await collectRuleMaterial(additionalRules);
 
   // Each part of the prefix is built as its own section so a later request can
   // say which part moved instead of only that the system message differs: the
