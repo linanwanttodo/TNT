@@ -6,6 +6,7 @@ import chalk from "chalk";
 import { t } from "../../../i18n/index.js";
 import {
   getSessionActiveTeam,
+  getSessionGoal,
   setSessionActiveTeam,
 } from "../../../session/index.js";
 import {
@@ -77,7 +78,23 @@ function activateTeam(name: string, cwd: string): SlashCommandResult {
   }
 
   setSessionActiveTeam(team.name);
-  return { output: t("team.set", { name: team.name, lead: team.lead.name }) };
+  // The goal-development flow works on a goal: activating a team without one
+  // tells the user explicitly instead of letting the flow start on nothing.
+  const goal = getSessionGoal();
+  if (!goal) {
+    return {
+      output: `${t("team.set", {
+        name: team.name,
+        lead: team.lead.name,
+      })}\n${t("team.goalMissing")}`,
+    };
+  }
+  return {
+    output: `${t("team.set", {
+      name: team.name,
+      lead: team.lead.name,
+    })}\n${t("team.goalActive", { goal })}`,
+  };
 }
 
 const ROSTER_TEMPLATE = `name: lead

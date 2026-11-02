@@ -219,3 +219,83 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec「领队注入」节（userRules 汇入、volatile、latch）；systemPrefixFingerprint 守卫要求 digest 与架构文档同步；architecture.test.ts 模块依赖方向守卫。
 
 **验证：** RED：条款断言与 teamInjection 4 用例先行失败；GREEN：src/agent 116 用例全绿；全量 `npx vitest run` → 4040 passed / 0 failed（修复前 2 failed）；tsc/eslint/prettier 通过。提交：4c9db393e（条款）、579e0d866（注入）、1e329ed41（依赖环）、48b1f6fa1（tokenizer 日志断言）。
+
+## 15. 目标开发流程规范（goal-PRD 设计交付顺序第 1 步）
+
+**做了什么：** docs/agent-discipline.md 新增第 8 节"目标开发流程"，九小节：goal 对齐、召集判定（双入口 + 可观察信号 + autoConvoke 默认 false）、PRD 契约（九节结构、验收标准可判定性、变更必有记录）、pre-mortem 纪律、迭代闭环规则、收口格式与六状态词汇表（progress/waiting/ready/blocked/failed/dropped，含 blocked/dropped 边界纪律与 PM/verification/主 agent 三类收口格式）、主代理受理纪律与注意力经济（四条转呈纪律）、确定性状态判定（证据优先、五条件自上而下首条命中表、非法迁移拒绝）、流程与外部规划插件裁决。派生关系表同步：PM/requirements-analyst/tester/code-reviewer/verification 增列第 8 节，主 agent 行由"领队注入段"改为"受理纪律注入段"。
+
+**为什么：** 设计规格要求规范先行——第 2-7 交付步（goal 注入、PM 提示词升级、受理注入、召集开关、闭环测试、i18n）的角色提示词与状态机全部从第 8 节派生，先落规范再接线。
+
+**依据：** `.tnt/superpowers/specs/2026-11-01-goal-prd-flow-design.md` 第五部分（九小节清单）与第三部分第 6、7、8 点；dsh-superagent-prototype 的状态词汇表与注意力经济结论已按附录裁决合并进 8.6/8.7。
+
+**验证：** 文档改动，无代码路径；prettier 经 lint-staged 通过；提交 095510cdf。
+
+## 16. goal 对齐行注入（goal-PRD 设计交付顺序第 2 步）
+
+**做了什么：** systemMessage.ts 新增 goalAlignmentBlock()：会话设有 goal 时，userRules volatile 节在 team-lead 块之前追加 `<context name="goal-align">` 块，内容为 i18n 的 `agent.goalAlignmentLine`（en/zh 成对：目标原文 + 对齐/越界先确认两条指令）。无 goal 时块不产生，userRules 节与现状逐字节一致；goal 增删改只重刷 userRules 节，静态 spine 不动。新增 systemMessage.goalAlignment.test.ts 五用例：无 goal 形状不变、有 goal 无团队仅对齐行、激活团队时对齐行与受理内容并存、/goal clear 下一 turn 消失、同 goal 两次构建文本一致（volatile latch）。
+
+**为什么：** 设计的通用层：goal 是会话级锚点，现状下 goal 无任何消费者；这是"主 agent 干活时对 goal 对齐与自检"的落地，未激活团队也生效。
+
+**依据：** spec 第三部分第 1 点（userRules volatile 节 goal 分行、独立成行）与第四部分层次一文本；交付顺序第 2 步。
+
+**验证：** RED：新用例 2 个先行失败（无 goal-align 块）；GREEN：src/agent 三套件 14 用例、src/i18n 19 用例全绿，systemPrefixFingerprint 四 digest 不变，tsc 干净。提交 291aff647。
+
+## 17. PM 与需求分析提示词升级到 PRD 契约（goal-PRD 设计交付顺序第 3 步）
+
+**做了什么：** defaultTeams.ts 的 PM_PROMPT 从"领队：拆解、派 brief"改为"管理者：产出 PRD、跑 pre-mortem、写迭代计划、裁决迭代结果、更新 PRD 状态"：九节 PRD 结构与 .tnt/prd/ 位置、验收标准可判定性（PRD ≠ 功能清单）、变更必有记录（PRD ≠ 一次性文档）、pre-mortem 三项式风险条目、迭代闭环最小单位、五条件确定性状态机（8.8 的表格文字化）、六状态收口词汇与 PM 收口格式、dropped 静默关闭但写变更记录、verification 判定行机械转写契约。REQUIREMENTS_PROMPT 对齐 PRD 契约：素材供 PM、验收标准直接进 PRD、补非功能需求与 MoSCoW。TESTER_PROMPT 收口格式改为六状态首行 + 按条目编号引用。PM 成员描述同步，不再自称领队。派发职责未写入 PM 提示词（派发权在主 agent）。
+
+**为什么：** 设计对 Task 7 原设计的修订：主 agent 是受理臂不戴 PM 帽，PM 是产出书面计划的团队子代理；PRD 是团队共享状态板，PM 提示词是它的写入方契约。
+
+**依据：** spec 第一部分（流程总览与 Task 7 修订）、第二部分（PRD 九节格式）、第三部分第 3-6、8 点；docs/agent-discipline.md 第 8 节（上一条目落地的规范）。
+
+**验证：** RED：defaultTeams.test.ts 新增四用例先行失败（PM 无 PRD/pre-mortem/九节、收口无六状态词）；GREEN 后 src/team 两套件 19 用例、src/subagent 九套件 72 用例全绿，tsc 干净。提交 78cc84823。
+
+## 18. 受理纪律注入替换领队注入（goal-PRD 设计交付顺序第 4 步）
+
+**做了什么：** systemMessage.ts 的 activeTeamLeadBlock() 改产出 `<context name="team-reception" source="<team>">` 块，内容为 i18n `agent.receptionistDiscipline`（en/zh 成对，源自设计第四部分层次二：受理/转派 PM/按计划派发/转呈求助，不自行规划，不处理流程外请求，PRD 唯一事实来源，注意力纪律，goal 未设流程不启动）。领队提示词不再注入主 agent——它经派发链流向团队子代理；builtInRef 解析逻辑随之移除（builtInAgentByName 导入不再需要）。teamInjection 测试更新为受理契约：块出现/消失、getTeam 解析、builtInRef 团队同样产出受理块、受理块在 goal-align 块之后、领队提示词文本不在主 agent 提示里。userRules 全是 volatile 内容，systemPrefixFingerprint 四 digest 不变、ARCHITECTURE-tnt.md 无需同步。
+
+**为什么：** 设计修订 Task 7：主 agent 兼任领队会把两种身份混进一个上下文；激活态注入的是"老板代理"的受理纪律，PM 才是管理者。
+
+**依据：** spec 第三部分第 3 点（受理纪律注入修订 Task 7）、第四部分层次二全文；交付顺序第 4 步（fingerprint 仅在 base 被触碰时同步——本次未触碰）。
+
+**验证：** RED：新受理契约用例 2 个先行失败（无 team-reception 块）；旧领队注入断言按设计更新。GREEN：src/agent 124 用例、src/team 19 用例、src/i18n 19 用例全绿；systemPrefixFingerprint 不变；tsc 干净。提交 700c36c90。
+
+## 19. 召集偏好开关与 /team 转呈语义（goal-PRD 设计交付顺序第 5 步）
+
+**做了什么：** settingsFiles.ts 新增 readSettingsBoolean()：与字符串读取器同优先级规则（六文件自低到高，后写覆盖），只有 JSON true/false 计数——"true" 字符串与数字 1 不猜测转换，未设置返回 undefined。ui/commands/handlers/team.ts 的激活输出追加 goal 语义：未设 goal 时附加 team.goalMissing（显式提示先 /goal，流程不静默启动；激活态本身照常写入，等待目标）；已设 goal 时附加 team.goalActive（引用目标原文 + 注意力转呈说明）。i18n en/zh 成对。对话发起的召集判定条款与 team.autoConvoke 的自动召集语义已编译进 agent-discipline.md 8.2（前置条目 15）与受理纪律注入文本（前置条目 18），偏好键名采用 `team.autoConvoke`（默认 false——读取器返回 undefined 时调用方按关闭处理）。
+
+**为什么：** 设计要求双入口：显式命令路径上"未设 goal → 明确报错不静默"是硬要求；偏好开关是"大目标自动召集"（C 方案）的数据面，默认 false 是反目标守卫（未开启时主 agent 不自动进流程）。
+
+**依据：** spec 第三部分第 2 点（召集判定双入口 + 偏好开关）、第五部分 8.2；交付顺序第 5 步。
+
+**验证：** RED：settingsFiles 布尔读取器 4 用例、team 命令 goal 语义 2 用例先行失败；GREEN 后 12 + 8 用例、src/i18n 19 用例、slashCommandsDoc 守卫 4 用例全绿，tsc 干净。提交 d08049ec5。
+
+## 20. 收口词汇表与确定性 PRD 状态机（goal-PRD 设计交付顺序第 6 步）
+
+**做了什么：** 新增 src/team/closure.ts（CLOSURE_STATUSES 六状态、closureStatusOf 首行状态词识别——中英文状态词均合法，状态词埋在正文不算收口、requiresChangeRecord 仅 dropped 需变更记录）与 src/team/prdState.ts（PrdEvidence 五类证据、STATE_TABLE 五行自上而下首条命中、prdStatusOf 机械推导、ILLEGAL_TRANSITIONS 已验收→待开发必须走变更记录）。关键裁决落在表内：未通过行要求判定之后没有新的 dispatch/tester/code-reviewer 证据——"未通过回开发中必须指向新派发记录"作为首条命中的一部分机械成立；已验收行取最后一条 verification 判定为 PASS。新代码放 src/team/ 新文件，未触碰 500 行豁免清单。
+
+**为什么：** 设计的状态判定是测试口径："给定收口证据序列，状态字段可机械推出；implementer 声称完成而无 tester/verification 证据时不得推进到已实现"。
+
+**依据：** spec 第三部分第 6、8 点；docs/agent-discipline.md 8.6/8.8；交付顺序第 6 步。
+
+**验证：** RED：两套件因模块缺失收集失败、随后 1 用例红（未通过回开发生的循环回接语义）；GREEN 后 src/team 34 用例全绿，tsc 干净。提交 5102c900c。
+
+## 21. 子代理生命周期事件接入 agent 事件总线（goal-PRD 设计交付顺序第 7 步）
+
+**做了什么：** protocol/events.ts 的 AgentEvent 联合类型新增三个 add-only 变体：subagent.started {agentName, prompt}、subagent.reported {agentName, content}、subagent.finished {agentName, content, success, verdict?}。subagent/executor.ts 新增函数级 emit()：publishAgentEvent 封套 {sessionId: 父会话 id, turnId: 子代理类型名, seq: 本生命周期内单调递增, timestamp}；childContext 建立后发 started，fireSubagentStop 后依次发 reported（response 全文）与 finished（success: true，parseVerdict 命中时带 verdict）；catch 块仅在生命周期已开始（nextSeq > 0）时发 finished {success: false, content: error.message}——模型解析失败等 started 之前的中途失败不发事件。事件进 agent 事件总线，webui 的 SSE 转发通道自动获得，WebUiService.ts 与 handlers/webui.ts 零改动。新增 executor.events.test.ts 两用例：成功路径 started/reported/finished 顺序与父会话封套、失败路径 finished success: false。
+
+**为什么：** 目标-PRD 流程的最后一根管道：前端（webui）需要在不进入主会话转写的情况下观察子代理派发、上报与收口；事件走既有总线而非新通道，保持"一个引擎、四个面"的输出词汇表统一。
+
+**依据：** `.tnt/superpowers/specs/2026-11-01-goal-prd-flow-design.md` 交付顺序第 7 步与事件契约（agentName + content 字段、既有封套形状）；AgentEventInput 分布式 Omit 类型复用 events.ts 既有定义。
+
+**验证：** RED：executor.events.test.ts 两用例先行失败（事件联合类型无变体、无事件发出）；GREEN 后 src/subagent + src/protocol + src/session 189 用例全绿，tsc 干净，prettier 经 lint-staged 通过。提交 5286218bc。
+
+## 22. lint 门错误清理与 autoConvoke 生产接线（goal-PRD 收尾）
+
+**做了什么：** 两步。第一步清 CI lint 门错误：executor.ts 生命周期封套变量 agentType 改 const（emit 只读不改写）；systemMessage.ts 的 buildSystemMessageSections 语句数 51 超上限 50，把规则收集前半段（agent 文件层、--rule 处理、yaml 规则、markdown 规则去重）抽为独立函数 collectRuleMaterial()，主函数降到上限内，纯移动不改行为。第二步补 autoConvoke 的生产消费线：readSettingsBoolean("team.autoConvoke") 此前只有实现与测试、无任何调用方（死设置）——systemMessage.ts 新增 autoConvokeBlock()（开关为 true 时产出 `<context name="team-convoke">` 块，内容为 i18n `agent.autoConvoke` en/zh 成对：召集信号三条件、召集后转呈告知一次、小活不召集；false/未设置块不存在，反目标守卫），接入 userRules 组装（goal-align 之后、team-reception 之前）。goalAlignment 测试新增 3 用例。
+
+**为什么：** lint 门是 CI 硬约束（51 条语句会挂 cli-pr-checks）；autoConvoke 是交付顺序第 5 步的一半——设置面有了，注入面缺失意味着"开启后自动召集"对主 agent 完全不可见，等于功能没实现。
+
+**依据：** spec 第三部分第 2 点（偏好开关开启后主 agent 对含召集信号的大目标自动进入流程）、第五部分 8.2 召集信号清单（多子任务拆解/多角色协作/用户点名）；设计第四部分"两个层次都是动态内容（volatile 节）"——convoke 块同样只进 volatile userRules。
+
+**验证：** RED：convoke 开启用例先行失败（userRules 无 team-convoke 块；fixture 初版写错 .tntrc.json 路径，改 .tnt/settings.json 后按预期红）。GREEN：goalAlignment 8 用例、src/agent + src/team + settingsFiles + team handler + executor.events 共 175 用例全绿，tsc 干净，eslint 两个文件零错误。systemPrefixFingerprint 四 digest 不变（userRules 全 volatile）。提交 81dbcd4eb、f2f9aab50。

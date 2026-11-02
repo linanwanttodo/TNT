@@ -61,7 +61,7 @@ afterEach(() => {
 });
 
 describe("the active team lead prompt in the userRules section", () => {
-  it("carries the lead prompt of the active team, and drops it when none is active", async () => {
+  it("carries the reception block for the active team, and drops it when none is active", async () => {
     activeTeam.value = "dev";
 
     const sections = await buildSystemMessageSections("default");
@@ -69,24 +69,24 @@ describe("the active team lead prompt in the userRules section", () => {
 
     expect(rules).toBeDefined();
     expect(rules?.volatile).toBe(true);
-    expect(rules?.text).toContain("You lead the dev team");
+    expect(rules?.text).toContain("team-reception");
     expect(rules?.text).toContain('source="dev"');
 
     activeTeam.value = undefined;
     const off = await buildSystemMessageSections("default");
     const offRules = off.find((section) => section.name === "userRules");
-    expect(offRules?.text ?? "").not.toContain("You lead the dev team");
+    expect(offRules?.text ?? "").not.toContain("team-reception");
   });
 
-  it("injects through getTeam so the prompt is the roster's own bytes", async () => {
+  it("resolves through getTeam so the block names the roster's own team", async () => {
     activeTeam.value = "dev";
 
     const team = getTeam("dev", process.cwd());
-    expect(team?.lead.systemMessage).toContain("You lead the dev team");
+    expect(team?.name).toBe("dev");
 
     const sections = await buildSystemMessageSections("default");
     const rules = sections.find((section) => section.name === "userRules");
-    expect(rules?.text).toContain(team?.lead.systemMessage.trim() ?? "");
+    expect(rules?.text).toContain(`source="${team?.name}"`);
   });
 
   it("latches: two calls with the same active team produce the same text", async () => {
@@ -106,13 +106,47 @@ describe("the active team lead prompt in the userRules section", () => {
     ).toBeUndefined();
   });
 
-  it("resolves a default team's builtInRef lead to the built-in prompt", async () => {
+  it("resolves a default team's builtInRef lead to the same reception block", async () => {
     activeTeam.value = "sec";
 
     const sections = await buildSystemMessageSections("default");
     const rules = sections.find((section) => section.name === "userRules");
 
     expect(rules?.text).toContain('source="sec"');
-    expect(rules?.text).toContain("security review agent");
+    expect(rules?.text).toContain("the sec team is active");
+  });
+
+  // The goal-PRD design replaces the lead injection: the main agent's block is
+  // the receptionist discipline (受理纪律), not the roster lead's prompt. The
+  // lead prompt keeps flowing to the PM through the dispatch chain instead.
+  it("injects the receptionist discipline, not the lead prompt", async () => {
+    activeTeam.value = "dev";
+
+    const sections = await buildSystemMessageSections("default");
+    const rules = sections.find((section) => section.name === "userRules");
+
+    expect(rules?.text).toContain("team-reception");
+    expect(rules?.text).toContain("the dev team is active");
+    // The lead's own prompt stays out: the lead is a team subagent now.
+    expect(rules?.text).not.toContain("You lead the dev team");
+  });
+
+  it("keeps the discipline beside the goal alignment block", async () => {
+    activeTeam.value = "dev";
+
+    const { setSessionGoal, getSessionGoal } =
+      await import("../session/index.js");
+    setSessionGoal("把 goal-PRD 流程接完");
+    expect(getSessionGoal()).toBeDefined();
+
+    const sections = await buildSystemMessageSections("default");
+    const rules = sections.find((section) => section.name === "userRules");
+    const text = rules?.text ?? "";
+
+    expect(text).toContain("goal-align");
+    expect(text).toContain("team-reception");
+    expect(text.indexOf("goal-align")).toBeLessThan(
+      text.indexOf("team-reception"),
+    );
   });
 });

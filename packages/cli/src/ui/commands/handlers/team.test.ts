@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getSessionActiveTeam,
   setSessionActiveTeam,
+  setSessionGoal,
 } from "../../../session/index.js";
 import { invalidateTeamCache } from "../../../team/loader.js";
 
@@ -91,6 +92,30 @@ lead: true
 
     expect(result.output).toContain("dev");
     expect(getSessionActiveTeam()).toBe("dev");
+  });
+
+  // The goal-PRD flow needs a goal to work on: activating a team without one
+  // is an explicit ask to set /goal first, never a silent start.
+  it("asks for /goal when a team is activated without one", () => {
+    writeMember(projectDir, "dev", "lead.md", LEAD, "lead prompt body");
+    invalidateTeamCache();
+
+    const result = handleTeamCommand(["dev"]);
+
+    expect(getSessionActiveTeam()).toBe("dev");
+    expect(result.output).toContain("/goal");
+  });
+
+  it("reports the goal with the activation message when one is set", () => {
+    writeMember(projectDir, "dev", "lead.md", LEAD, "lead prompt body");
+    invalidateTeamCache();
+    setSessionGoal("给 /goal 流程接上团队");
+
+    const result = handleTeamCommand(["dev"]);
+
+    expect(getSessionActiveTeam()).toBe("dev");
+    expect(result.output).toContain("给 /goal 流程接上团队");
+    setSessionGoal(undefined);
   });
 
   it("deactivates with off", () => {

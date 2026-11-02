@@ -428,6 +428,16 @@ const en = {
   "team.created":
     "Team {name} scaffolded at {path}. Edit the lead prompt, add member files, then /team {name}.",
   "team.createFailed": "Could not write {path}: {message}",
+  "team.goalMissing":
+    "No session goal is set. The team works on a goal: set one with /goal <objective> and the goal-development flow can start.",
+  "team.goalActive":
+    "Working on the session goal: {goal}. Reports will come when a result is ready, a decision is needed, or the work failed.",
+  "agent.goalAlignmentLine":
+    "Current session goal: {goal}. Align your work and decisions with this goal; confirm before acting on anything outside it.",
+  "agent.receptionistDiscipline":
+    "You are the user's proxy while the {team} team is active: take the goal in, forward it to project-manager as a brief, dispatch per the PM's written plan, report back and escalate. Do not plan yourself - the plan comes from the PM, and deviations go back to the PM. Do not answer off-flow requests as a general assistant; surface them to the user instead. The PRD (.tnt/prd/<topic>.md) is the single source of truth: briefs cite R numbers, your reports cite the PRD path and status. Attention discipline: surface to the user only when a result is ready, a decision is needed, or the work failed; intermediate progress stays in the PRD and the role reports; confirm each request once. When a subagent closes abnormally, verification fails, or a new requirement arrives, act on the goal-development flow (agent-discipline.md section 8). The flow discipline is compiled there; do not load external planning skills on top of it. Without a session goal the flow does not start: tell the user to set one with /goal first.",
+  "agent.autoConvoke":
+    "The user has enabled auto-convoke for large goals. When a session goal carries the convoke signals - work that must be broken into several deliverable subtasks, collaboration across roles, or the user naming the team - activate the team flow as if the user had run /team, and tell the user once which team you convened and how to stop it with /team off. Small single-piece work stays with you: never convene a team for it.",
   "cmd.diagnostics": "Language server diagnostics",
   "cmd.index": "Codebase index",
   "index.usage": "Usage: /index [status] | /index embed [name]",
@@ -1106,6 +1116,16 @@ const zhCN: Record<TranslationKey, string> = {
   "team.created":
     "团队 {name} 已在 {path} 生成模板。编辑领队提示词、添加成员文件，然后 /team {name} 激活。",
   "team.createFailed": "无法写入 {path}：{message}",
+  "team.goalMissing":
+    "未设置会话目标。团队基于目标工作：先用 /goal <目标> 设置目标，目标开发流程即可启动。",
+  "team.goalActive":
+    "正在推进会话目标：{goal}。仅在结果就绪、需要你决定、或无法完成时汇报。",
+  "agent.goalAlignmentLine":
+    "当前会话目标：{goal}。你的工作与决策对齐此目标；目标外的事项先确认再动。",
+  "agent.receptionistDiscipline":
+    "你是使用者的代理，{team} 团队激活期间：受理目标、转派 project-manager、按 PM 的书面计划派发执行、向使用者转呈与求助。流程期间不自行规划：计划由 PM 产出，你执行；执行中的偏差回到 PM 裁决。流程期间不以通用助手身份处理流程外请求：转呈用户，由用户决定是否中断流程。PRD（.tnt/prd/<topic>.md）是唯一事实来源：派发 brief 引用 R 编号；你的报告引用 PRD 路径与状态。注意力纪律：只在结果就绪、需要用户决定、确定无法完成三种情况转呈用户；中间进展留在 PRD 与各角色收口记录里，不进对话；每个请求只确认一次。收口异常、验证未通过、新需求——按目标开发流程（agent-discipline.md 第 8 节）行动。流程纪律已编译进该文档；不调用外部规划类插件技能。未设 goal 时流程不启动：提示用户先 /goal。",
+  "agent.autoConvoke":
+    "用户已开启大目标自动召集。当会话目标带有召集信号——需要拆解成多个可交付子任务、涉及多角色协作、或用户点名团队——按等价于 /team 的方式进入团队流程，并转呈告知一次你召集了哪个团队、如何用 /team off 停止。小活不召集：单一交付物的任务由你自己完成。",
   "cmd.diagnostics": "语言服务器诊断",
   "cmd.index": "代码库索引",
   "index.usage": "用法：/index [status] | /index embed [名称]",

@@ -5,7 +5,10 @@ import * as path from "path";
 import { env } from "../config/env.js";
 import { processRule } from "../config/hubLoader.js";
 import type { OutputFormat } from "../config/outputFormat.js";
-import { readSettingsString } from "../config/settingsFiles.js";
+import {
+  readSettingsBoolean,
+  readSettingsString,
+} from "../config/settingsFiles.js";
 import { t } from "../i18n/index.js";
 import { PermissionMode } from "../permissions/types.js";
 import {
@@ -15,9 +18,9 @@ import {
 } from "../plugins/loader.js";
 import {
   getSessionActiveTeam,
+  getSessionGoal,
   getSessionOutputStyle,
 } from "../session/index.js";
-import { builtInAgentByName } from "../subagent/builtInAgents.js";
 import { getTeam } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
@@ -299,10 +302,13 @@ function memoryLayers(): string[] {
  * built, so a cached prefix only moves when a part actually changes.
  */
 /**
- * The active team's lead prompt as its own context block, or nothing. The lead's
- * prompt joins the rules it is supposed to shape, not the head of the prefix:
- * activating a team or turning it off is a session decision and must not
- * re-bill the static spine.
+ * The receptionist discipline for the active team as its own context block, or
+ * nothing. The main agent is the user's proxy arm while a team is active: it
+ * takes the goal in, forwards it to the PM, dispatches per the PM's written
+ * plan, reports back and escalates. It does not plan and does not wear the
+ * lead's hat - the lead prompt flows to the team subagent through the dispatch
+ * chain instead. Activation is a session decision and must not re-bill the
+ * static spine, so the block rides the volatile userRules channel.
  */
 function activeTeamLeadBlock(): string | undefined {
   const activeTeamName = getSessionActiveTeam();
@@ -311,27 +317,49 @@ function activeTeamLeadBlock(): string | undefined {
     : undefined;
   if (!activeTeam) return undefined;
 
-  // A default team's lead is a builtInRef with an empty roster prompt; the
-  // prompt lives in the built-in registry, not on the member.
-  const lead = activeTeam.lead;
-  const leadPrompt = lead.builtInRef
-    ? (builtInAgentByName(lead.builtInRef)?.systemMessage ?? lead.systemMessage)
-    : lead.systemMessage;
-
-  return `<context name="team-lead" source="${activeTeam.name}">\n${leadPrompt.trim()}\n</context>`;
+  return `<context name="team-reception" source="${activeTeam.name}">\n${t(
+    "agent.receptionistDiscipline",
+    { team: activeTeam.name },
+  )}\n</context>`;
 }
 
 /**
- * The prefix is the concatenation of its sections, each of which already carries
- * the blank lines that separate it, so joining adds nothing.
+ * The session goal as its own context block, or nothing. The goal is generic
+ * session state (it applies with or without a team), so it rides the same
+ * volatile userRules channel as the team block: setting, changing or clearing
+ * it re-renders only that section and never moves the cached spine.
  */
-export async function buildSystemMessageSections(
-  mode: PermissionMode,
+function goalAlignmentBlock(): string | undefined {
+  const goal = getSessionGoal();
+  if (!goal) return undefined;
+
+  return `<context name="goal-align">\n${t("agent.goalAlignmentLine", {
+    goal: goal.trim(),
+  })}\n</context>`;
+}
+
+/**
+ * The auto-convoke instruction as its own context block, or nothing. The
+ * `team.autoConvoke` switch declares that a goal carrying the convoke signals
+ * (multi-part work, multi-role collaboration, an explicit team callout) may
+ * start the flow without the user naming a team; when it is off or unset the
+ * block is absent, so the main agent never convenes a team on its own. The
+ * switch is a settings-file decision, so the block rides the same volatile
+ * userRules channel and flips on the next turn without moving the spine.
+ */
+function autoConvokeBlock(): string | undefined {
+  if (readSettingsBoolean("team.autoConvoke") !== true) return undefined;
+
+  return `<context name="team-convoke">\n${t("agent.autoConvoke")}\n</context>`;
+}
+
+/**
+ * The rule material the userRules section carries: the memory/agent-file
+ * layers as one content string, plus every processed rule source in order.
+ */
+async function collectRuleMaterial(
   additionalRules?: string[],
-  format?: OutputFormat,
-  headless?: boolean,
-  profile?: PromptProfile,
-): Promise<SystemMessageSection[]> {
+): Promise<{ agentContent: string; processedRules: string[] }> {
   const agentFiles = [
     ".tnt/AGENTS.md",
     "AGENTS.md",
@@ -399,6 +427,23 @@ export async function buildSystemMessageSections(
       existingRulesSet.add(rule.rule);
     }
   }
+
+  return { agentContent, processedRules };
+}
+
+/**
+ * The prefix is the concatenation of its sections, each of which already carries
+ * the blank lines that separate it, so joining adds nothing.
+ */
+export async function buildSystemMessageSections(
+  mode: PermissionMode,
+  additionalRules?: string[],
+  format?: OutputFormat,
+  headless?: boolean,
+  profile?: PromptProfile,
+): Promise<SystemMessageSection[]> {
+  const { agentContent, processedRules } =
+    await collectRuleMaterial(additionalRules);
 
   // Each part of the prefix is built as its own section so a later request can
   // say which part moved instead of only that the system message differs: the
@@ -474,11 +519,21 @@ Example response format:
   // The rules block is the last thing in the prefix, so its own wording stays
   // fixed and only the user's text changes.
   const teamLeadBlock = activeTeamLeadBlock();
+  const goalBlock = goalAlignmentBlock();
+  const convokeBlock = autoConvokeBlock();
 
-  if (agentContent || processedRules.length > 0 || teamLeadBlock) {
+  if (
+    agentContent ||
+    processedRules.length > 0 ||
+    teamLeadBlock ||
+    goalBlock ||
+    convokeBlock
+  ) {
     const blocks = [RULES_PREAMBLE];
     if (agentContent) blocks.push(agentContent);
     blocks.push(...processedRules);
+    if (goalBlock) blocks.push(goalBlock);
+    if (convokeBlock) blocks.push(convokeBlock);
     if (teamLeadBlock) blocks.push(teamLeadBlock);
 
     sections.push({
