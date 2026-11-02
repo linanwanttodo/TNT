@@ -43,13 +43,25 @@ describe("chat view", () => {
 
   it("renders the composer with a send button that flips to stop", () => {
     const { rerender } = render(
-      <Composer waiting={false} onSend={() => {}} onStop={() => {}} />,
+      <Composer
+        waiting={false}
+        onSend={() => {}}
+        onStop={() => {}}
+        onOpenMenu={() => {}}
+      />,
     );
-    // The reference hides the send button on an empty input; it appears with text.
-    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    // The arrow is always drawn; it only lights up once there is text.
+    expect(screen.queryByRole("button", { name: "Send" })).toBeTruthy();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "hi" } });
     expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
-    rerender(<Composer waiting onSend={() => {}} onStop={() => {}} />);
+    rerender(
+      <Composer
+        waiting
+        onSend={() => {}}
+        onStop={() => {}}
+        onOpenMenu={() => {}}
+      />,
+    );
     expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
   });
 

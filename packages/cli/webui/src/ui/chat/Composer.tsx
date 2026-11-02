@@ -1,15 +1,14 @@
 /**
- * The composer: a rounded input field with a leading plus button. The send
- * button appears once there is something to send; while a turn runs it
- * becomes a stop button.
+ * The composer: a fully-rounded pill field, Cursor-style. The plus on the
+ * left opens the settings menu (new session, mode and session facts); the
+ * circular up arrow on the right sends, and becomes a stop while a turn runs.
  */
 import { useState, type KeyboardEvent } from "react";
 import {
-  Button,
+  IconPlusOutlineMedium,
   IconSendOutlineRegular,
   IconStopFillRegular,
 } from "../primitives/index.ts";
-import { ShellIcon } from "../shell/icons.tsx";
 import css from "./Composer.module.css";
 import { chatLabels } from "./labels.js";
 
@@ -17,10 +16,13 @@ export function Composer({
   waiting,
   onSend,
   onStop,
+  onOpenMenu,
 }: {
   waiting: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
+  /** The leading plus opens the settings menu anchored to the composer. */
+  onOpenMenu: () => void;
 }) {
   const [text, setText] = useState("");
 
@@ -49,9 +51,10 @@ export function Composer({
         <button
           type="button"
           className={css.leading}
-          aria-label={chatLabels.attachLabel}
+          aria-label={chatLabels.menuLabel}
+          onClick={onOpenMenu}
         >
-          <ShellIcon glyph="plus-compact" size={12} />
+          <IconPlusOutlineMedium size={16} />
         </button>
         <textarea
           className={css.input}
@@ -63,26 +66,26 @@ export function Composer({
           onKeyDown={keydown}
         />
         {waiting ? (
-          <Button
-            variant="primary"
-            size="sm"
+          <button
+            type="button"
             className={css.action}
             aria-label={chatLabels.stopLabel}
+            data-state="stop"
             onClick={onStop}
           >
             <IconStopFillRegular size={14} />
-          </Button>
-        ) : hasText ? (
-          <Button
-            variant="primary"
-            size="sm"
+          </button>
+        ) : (
+          <button
+            type="button"
             className={css.action}
             aria-label={chatLabels.sendLabel}
+            data-ready={hasText}
             onClick={submit}
           >
-            <IconSendOutlineRegular size={14} />
-          </Button>
-        ) : null}
+            <IconSendOutlineRegular size={16} />
+          </button>
+        )}
       </div>
     </div>
   );

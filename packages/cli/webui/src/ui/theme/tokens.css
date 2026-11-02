@@ -100,6 +100,12 @@
   --dsh-shell-button-hover: #454545;
   --dsh-shell-pill-fill: #252524;
   --dsh-shell-pill-border: #333333;
+  --dsh-shell-composer-fill: #212121;
+  --dsh-shell-composer-border: rgba(240, 240, 240, 0.12);
+  --dsh-shell-composer-border-hover: rgba(240, 240, 240, 0.16);
+  --dsh-shell-composer-icon-fill: rgba(240, 240, 240, 0.08);
+  --dsh-shell-composer-send-idle-fill: rgba(240, 240, 240, 0.06);
+  --dsh-shell-composer-send-idle-ink: rgba(240, 240, 240, 0.36);
   --dsh-shell-window-control: #2c2c2b;
   --dsh-shell-worktree-fill: #0b2544;
   --dsh-shell-worktree-ink: #6da5eb;
@@ -179,6 +185,12 @@
   --dsh-shell-button-hover: #f0efec;
   --dsh-shell-pill-fill: #ffffff;
   --dsh-shell-pill-border: #dedcd2;
+  --dsh-shell-composer-fill: #f2f1ed;
+  --dsh-shell-composer-border: rgba(20, 20, 19, 0.12);
+  --dsh-shell-composer-border-hover: rgba(20, 20, 19, 0.16);
+  --dsh-shell-composer-icon-fill: rgba(20, 20, 19, 0.08);
+  --dsh-shell-composer-send-idle-fill: rgba(20, 20, 19, 0.06);
+  --dsh-shell-composer-send-idle-ink: rgba(20, 20, 19, 0.36);
   --dsh-shell-window-control: #e9e7e0;
   --dsh-shell-worktree-fill: #0b2544;
   --dsh-shell-worktree-ink: #6da5eb;
