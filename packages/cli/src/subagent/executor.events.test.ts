@@ -5,6 +5,7 @@ import {
   subscribeAgentEvents,
 } from "../protocol/eventBus.js";
 import type { AgentEvent } from "../protocol/events.js";
+
 import { executeSubAgent } from "./executor.js";
 
 vi.mock("../hooks/fireHook.js", () => ({
