@@ -17,7 +17,11 @@ import {
 
 import { messageQueue, type QueuedMessage } from "../stream/messageQueue.js";
 
-import { WebUiService } from "./WebUiService.js";
+import {
+  WebUiService,
+  resolveWebUiDist,
+  webuiDistCandidates,
+} from "./WebUiService.js";
 
 const { approveSpy, rejectSpy, startDrainingSpy, requestStopSpy } = vi.hoisted(
   () => ({
@@ -230,6 +234,76 @@ describe("WebUiService", () => {
       expect(await response.text()).toContain("<html>app</html>");
     } finally {
       fs.rmSync(distDir, { recursive: true, force: true });
+    }
+  });
+
+  it("takes the package's own dist when nothing is configured", () => {
+    // The tarball publishes dist/ alone, so the frontend has to be copied to
+    // dist/webui at build time; a source checkout keeps the vite output at
+    // webui/dist instead. Both sit under the package root, which is found by
+    // walking up from the module rather than assumed from the layout, because
+    // the bundle and the sources live at different depths.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "webui-pkg-"));
+    const moduleDir = path.join(root, "src", "services");
+    fs.mkdirSync(moduleDir, { recursive: true });
+    fs.writeFileSync(path.join(root, "package.json"), "{}");
+    const bundled = path.join(root, "dist", "webui");
+    const source = path.join(root, "webui", "dist");
+    try {
+      expect(webuiDistCandidates(moduleDir, "/cwd")).toEqual([
+        bundled,
+        source,
+        path.resolve("/cwd", "node_modules", "tnt-webui", "dist"),
+      ]);
+
+      // Nothing built: the first candidate is reported as the place looked in.
+      const empty = resolveWebUiDist(moduleDir, undefined, "/cwd");
+      expect(empty.hasDist).toBe(false);
+      expect(empty.distDir).toBe(bundled);
+      expect(empty.searched).toEqual(webuiDistCandidates(moduleDir, "/cwd"));
+
+      // The source-tree build wins over a hand-installed package.
+      fs.mkdirSync(source, { recursive: true });
+      expect(resolveWebUiDist(moduleDir, undefined, "/cwd").distDir).toBe(
+        source,
+      );
+
+      // And the bundled copy outranks it, which is what an installed CLI has.
+      fs.mkdirSync(bundled, { recursive: true });
+      expect(resolveWebUiDist(moduleDir, undefined, "/cwd").distDir).toBe(
+        bundled,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses only the configured directory when one is given", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "webui-pkg-"));
+    const moduleDir = path.join(root, "src", "services");
+    fs.mkdirSync(moduleDir, { recursive: true });
+    fs.writeFileSync(path.join(root, "package.json"), "{}");
+    const configured = path.join(root, "elsewhere");
+    try {
+      const resolved = resolveWebUiDist(moduleDir, configured, "/cwd");
+      expect(resolved.distDir).toBe(configured);
+      // A deliberate override is not reported against the fallback chain: the
+      // page must name the path the operator actually set.
+      expect(resolved.searched).toEqual([configured]);
+      expect(resolved.hasDist).toBe(false);
+
+      fs.mkdirSync(configured);
+      expect(resolveWebUiDist(moduleDir, configured, "/cwd").hasDist).toBe(
+        true,
+      );
+
+      // An empty override is a slip of the hand, not a request to serve the
+      // working directory as a frontend.
+      expect(resolveWebUiDist(moduleDir, "", "/cwd").searched).toEqual(
+        webuiDistCandidates(moduleDir, "/cwd"),
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
     }
   });
 
@@ -551,15 +625,23 @@ describe("WebUiService", () => {
   });
 
   it("serves the missing-dist fallback page on an authenticated GET /", async () => {
+    const missing = path.join(
+      os.tmpdir(),
+      `no-such-dist-${crypto.randomUUID()}`,
+    );
     const { base, auth } = await started({
-      distDir: path.join(os.tmpdir(), `no-such-dist-${crypto.randomUUID()}`),
+      distDir: missing,
     });
 
     const response = await fetch(`${base}/`, { headers: auth });
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain("tnt-webui");
-    expect(html).toContain("npm install");
+    // The page names the path it looked in and the override that would fix it.
+    expect(html).toContain(missing);
+    expect(html).toContain("TNT_WEBUI_DIST");
+    // It must not send the user to the registry: the frontend package is
+    // private and was never published, so that install can never succeed.
+    expect(html).not.toContain("npm install");
   });
 
   it("answers 404 outside the fallback when a dist is served", async () => {
