@@ -5,7 +5,10 @@ import * as path from "path";
 import { env } from "../config/env.js";
 import { processRule } from "../config/hubLoader.js";
 import type { OutputFormat } from "../config/outputFormat.js";
-import { readSettingsString } from "../config/settingsFiles.js";
+import {
+  readSettingsBoolean,
+  readSettingsString,
+} from "../config/settingsFiles.js";
 import { t } from "../i18n/index.js";
 import { PermissionMode } from "../permissions/types.js";
 import {
@@ -336,6 +339,21 @@ function goalAlignmentBlock(): string | undefined {
 }
 
 /**
+ * The auto-convoke instruction as its own context block, or nothing. The
+ * `team.autoConvoke` switch declares that a goal carrying the convoke signals
+ * (multi-part work, multi-role collaboration, an explicit team callout) may
+ * start the flow without the user naming a team; when it is off or unset the
+ * block is absent, so the main agent never convenes a team on its own. The
+ * switch is a settings-file decision, so the block rides the same volatile
+ * userRules channel and flips on the next turn without moving the spine.
+ */
+function autoConvokeBlock(): string | undefined {
+  if (readSettingsBoolean("team.autoConvoke") !== true) return undefined;
+
+  return `<context name="team-convoke">\n${t("agent.autoConvoke")}\n</context>`;
+}
+
+/**
  * The rule material the userRules section carries: the memory/agent-file
  * layers as one content string, plus every processed rule source in order.
  */
@@ -502,12 +520,20 @@ Example response format:
   // fixed and only the user's text changes.
   const teamLeadBlock = activeTeamLeadBlock();
   const goalBlock = goalAlignmentBlock();
+  const convokeBlock = autoConvokeBlock();
 
-  if (agentContent || processedRules.length > 0 || teamLeadBlock || goalBlock) {
+  if (
+    agentContent ||
+    processedRules.length > 0 ||
+    teamLeadBlock ||
+    goalBlock ||
+    convokeBlock
+  ) {
     const blocks = [RULES_PREAMBLE];
     if (agentContent) blocks.push(agentContent);
     blocks.push(...processedRules);
     if (goalBlock) blocks.push(goalBlock);
+    if (convokeBlock) blocks.push(convokeBlock);
     if (teamLeadBlock) blocks.push(teamLeadBlock);
 
     sections.push({
