@@ -32,7 +32,7 @@ export function getDefaultToolPolicies(): ToolPermissionPolicy[] {
     { tool: "Skills", permission: "allow" },
     { tool: "Exit", permission: "allow" }, // Exit tool is generally safe (headless mode only)
     { tool: "Fetch", permission: "allow" }, // Technically not read only but edge casey to post w query params
-    { tool: "WebSearch", permission: "ask" },
+    { tool: "WebSearch", permission: "allow" }, // Searching is not a dangerous action; Fetch is the sibling allow
     { tool: "List", permission: "allow" },
     { tool: "Read", permission: "allow" },
     { tool: "Search", permission: "allow" },
@@ -152,7 +152,7 @@ export const ACCEPT_EDITS_MODE_POLICIES: ToolPermissionPolicy[] = [
   { tool: "Skills", permission: "allow" },
   { tool: "Exit", permission: "allow" },
   { tool: "Fetch", permission: "allow" },
-  { tool: "WebSearch", permission: "ask" },
+  { tool: "WebSearch", permission: "allow" },
   { tool: "List", permission: "allow" },
   { tool: "Read", permission: "allow" },
   { tool: "Search", permission: "allow" },

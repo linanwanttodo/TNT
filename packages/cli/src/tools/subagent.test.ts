@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { executeSubAgent } from "../subagent/executor.js";
-import { getAgentNames, getSubagent } from "../subagent/get-agents.js";
+import { getAgentNames } from "../subagent/get-agents.js";
 
 import { subagentTool } from "./subagent.js";
 
@@ -24,7 +24,23 @@ vi.mock("../services/index.js", () => ({
 }));
 
 describe("subagentTool", () => {
-  const modelServiceState = {} as any;
+  const sessionModel = {
+    name: "work-model",
+    provider: "openai",
+    model: "gpt-x",
+    roles: ["chat"],
+  };
+  const configuredAgent = {
+    ...sessionModel,
+    name: "test-model",
+    roles: ["subagent"],
+    chatOptions: { baseSystemMessage: "persona" },
+  };
+  const modelServiceState = {
+    model: sessionModel,
+    llmApi: null,
+    assistant: { models: [configuredAgent] },
+  } as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -45,25 +61,15 @@ describe("subagentTool", () => {
     await expect(tool.preprocess!(args)).rejects.toThrow(
       "Unknown agent type: unknown-agent",
     );
-    expect(vi.mocked(getSubagent)).toHaveBeenCalledWith(
-      modelServiceState,
-      "unknown-agent",
-    );
   });
 
   it("preprocess includes agent model name when agent exists", async () => {
-    vi.mocked(getAgentNames).mockReturnValue(["code-agent"]);
-
     const tool = await subagentTool();
-
-    vi.mocked(getSubagent).mockReturnValue({
-      model: { name: "test-model" },
-    } as any);
 
     const args = {
       description: "Handle specialized task",
       prompt: "Do it",
-      subagent_name: "code-agent",
+      subagent_name: "test-model",
     };
 
     const result = await tool.preprocess!(args);
@@ -74,17 +80,9 @@ describe("subagentTool", () => {
         content: "Spawning test-model to: Handle specialized task",
       },
     ]);
-    expect(vi.mocked(getSubagent)).toHaveBeenCalledWith(
-      modelServiceState,
-      "code-agent",
-    );
   });
 
   it("run executes subagent and returns formatted output", async () => {
-    vi.mocked(getAgentNames).mockReturnValue(["code-agent"]);
-    vi.mocked(getSubagent).mockReturnValue({
-      model: { name: "test-model" },
-    } as any);
     vi.mocked(executeSubAgent).mockResolvedValue({
       success: true,
       response: "subagent-output",
@@ -95,13 +93,14 @@ describe("subagentTool", () => {
     const result = await tool.run(
       {
         prompt: "Subagent prompt",
-        subagent_name: "code-agent",
+        subagent_name: "test-model",
       },
       { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
     );
 
     expect(vi.mocked(executeSubAgent)).toHaveBeenCalledTimes(1);
     const [options] = vi.mocked(executeSubAgent).mock.calls[0];
+    expect(options.agent.model?.name).toBe("test-model");
 
     expect(options.prompt).toBe("Subagent prompt");
     expect(options.parentSessionId).toBe("parent-session-id");
@@ -120,9 +119,15 @@ describe("subagentTool", () => {
   });
 
   it("carries the verdict a verification agent reported", async () => {
-    vi.mocked(getAgentNames).mockReturnValue(["verification"]);
-    vi.mocked(getSubagent).mockReturnValue({
-      model: { name: "verification" },
+    const verificationModel = {
+      ...sessionModel,
+      name: "verification",
+      roles: ["subagent"],
+      chatOptions: { baseSystemMessage: "verifier persona" },
+    };
+    vi.mocked(serviceContainer.get).mockResolvedValue({
+      ...modelServiceState,
+      assistant: { models: [verificationModel] },
     } as any);
     vi.mocked(executeSubAgent).mockResolvedValue({
       success: true,

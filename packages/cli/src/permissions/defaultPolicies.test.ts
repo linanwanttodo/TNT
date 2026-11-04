@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { getDefaultToolPolicies } from "./defaultPolicies.js";
+import {
+  ACCEPT_EDITS_MODE_POLICIES,
+  DONT_ASK_MODE_POLICIES,
+  PLAN_MODE_POLICIES,
+  getDefaultToolPolicies,
+} from "./defaultPolicies.js";
+import type { ToolPermissionPolicy } from "./types.js";
 const DEFAULT_TOOL_POLICIES = getDefaultToolPolicies();
 
 describe("defaultPolicies", () => {
@@ -78,5 +84,14 @@ describe("defaultPolicies", () => {
     }
 
     expect(defaults.find((p) => p.tool === "Read")?.permission).toBe("allow");
+  });
+
+  it("allows WebSearch everywhere: searching is not a dangerous action", () => {
+    const byName = (policies: ToolPermissionPolicy[]) =>
+      policies.find((p) => p.tool === "WebSearch")?.permission;
+    expect(byName(getDefaultToolPolicies())).toBe("allow");
+    expect(byName(ACCEPT_EDITS_MODE_POLICIES)).toBe("allow");
+    expect(byName(PLAN_MODE_POLICIES)).toBe("allow");
+    expect(byName(DONT_ASK_MODE_POLICIES)).toBe("allow");
   });
 });

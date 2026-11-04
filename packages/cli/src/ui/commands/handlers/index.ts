@@ -23,6 +23,7 @@ import {
 } from "./sessions.js";
 import { handleExport, handleImport } from "./sessionTransfer.js";
 import { handleImportSkill, handleSkills } from "./skills.js";
+import { handleTeamCommand } from "./team.js";
 import { handleThink } from "./think.js";
 import { handleWebui } from "./webui.js";
 
@@ -56,6 +57,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     goal: handleGoal,
     plugins: handlePlugins,
     "output-style": handleOutputStyle,
+    team: handleTeamCommand,
     profile: handleProfile,
     diagnostics: (args) => handleDiagnostics(args),
     index: (args) => handleIndex(args),

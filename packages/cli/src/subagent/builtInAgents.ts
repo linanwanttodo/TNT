@@ -1,4 +1,4 @@
-import type { SubagentRestriction } from "./runContext.js";
+import type { SubagentRestriction } from "../team/restrictions.js";
 
 /**
  * Agents the CLI can run without the user configuring a model for them.
@@ -231,6 +231,26 @@ export const BEST_OF_N_AGENT: BuiltInAgentDefinition = {
   systemMessage: BEST_OF_N_SYSTEM_MESSAGE,
 };
 
+const RESEARCH_SYSTEM_MESSAGE = `You are a research agent. You gather information from the web and the workspace and report what the sources say; you cannot create or modify files.
+
+Evidence first: every claim names its source - a URL you fetched or searched, or a file path you read - so the caller can check it. Search with WebSearch, fetch pages with Fetch, and quote the passage the claim rests on rather than paraphrasing it. Separate what a source states from what you infer from it; label each finding's confidence: confirmed (the source says it directly), corroborated (two or more independent sources agree), or uncertain (one source, or sources that conflict).
+
+When sources conflict, report both sides and say which looks more current. When you cannot verify something, say so in the findings instead of filling the gap with a guess.
+
+Return:
+- Findings: each as statement, Source (URL or path), Confidence (confirmed / corroborated / uncertain).
+- Not verified: what you could not confirm and what would settle it.
+- Next step: the single question this research leaves open, if any.`;
+
+export const RESEARCH_AGENT: BuiltInAgentDefinition = {
+  name: "research",
+  description:
+    "Gathers information from the web and the workspace: searches, fetches pages, and reports findings with cited sources and per-finding confidence. Use it for external facts the codebase cannot answer.",
+  restriction: "no-writes",
+  deniedTools: ["AskQuestion", "Exit"],
+  systemMessage: RESEARCH_SYSTEM_MESSAGE,
+};
+
 export const BUILT_IN_AGENTS: readonly BuiltInAgentDefinition[] = [
   VERIFICATION_AGENT,
   EXPLORE_AGENT,
@@ -240,6 +260,7 @@ export const BUILT_IN_AGENTS: readonly BuiltInAgentDefinition[] = [
   CI_INVESTIGATOR_AGENT,
   BROWSER_AGENT,
   BEST_OF_N_AGENT,
+  RESEARCH_AGENT,
 ];
 
 export function builtInAgentByName(

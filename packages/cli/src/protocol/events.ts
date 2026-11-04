@@ -70,6 +70,23 @@ export type AgentEvent = AgentEventBase &
       }
     | { type: "queue.changed"; length: number }
     | { type: "session.changed"; sessionId: string }
+    | {
+        type: "subagent.started";
+        agentName: string;
+        prompt: string;
+      }
+    | {
+        type: "subagent.reported";
+        agentName: string;
+        content: string;
+      }
+    | {
+        type: "subagent.finished";
+        agentName: string;
+        content: string;
+        success: boolean;
+        verdict?: string;
+      }
   );
 
 export type AgentEventType = AgentEvent["type"];

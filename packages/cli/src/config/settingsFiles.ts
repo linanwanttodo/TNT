@@ -154,3 +154,25 @@ export function readSettingsStringArray(
   }
   return value;
 }
+
+/**
+ * The boolean value of a key across the settings files, same precedence rules
+ * as the string reader. Only a JSON true or false counts: "true" the string
+ * or 1 the number are ignored rather than coerced, because a switch a file
+ * never really set must not read as on.
+ */
+export function readSettingsBoolean(
+  key: string,
+  cwd: string = process.cwd(),
+  homeDir?: string,
+): boolean | undefined {
+  let value: boolean | undefined;
+  for (const filePath of getSettingsFilePaths(cwd, homeDir)) {
+    const settings = readSettingsFile(filePath);
+    const candidate = settings?.[key];
+    if (typeof candidate === "boolean") {
+      value = candidate;
+    }
+  }
+  return value;
+}
