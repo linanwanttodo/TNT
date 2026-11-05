@@ -23,7 +23,7 @@ export const chatLabels = {
   stopLabel: "Stop",
   inputPlaceholder: "Describe a task or ask a question",
   autoModeSuggestion: "Turn on auto mode",
-  attachLabel: "Attach a file",
+  menuLabel: "Settings",
   disconnected: "Connection lost — reconnecting…",
   inputAria: "Message input",
 };

@@ -107,6 +107,10 @@ export class QuizService extends EventEmitter {
     this.pendingRequests.clear();
     return this.currentState;
   }
+
+  getState(): QuizServiceState {
+    return this.currentState;
+  }
 }
 
 export const quizService = new QuizService();

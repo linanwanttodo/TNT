@@ -40,18 +40,81 @@ export function getGitBranch(): string | null {
 }
 
 /**
- * Check if current directory is a git repository
+ * Check if a directory is inside a git repository
+ * @param cwd The directory to ask from (defaults to the process's)
  */
-export function isGitRepo(): boolean {
+export function isGitRepo(cwd: string = process.cwd()): boolean {
   try {
     execSync("git rev-parse --is-inside-work-tree", {
       stdio: "ignore",
-      cwd: process.cwd(),
+      cwd,
     });
     return true;
   } catch {
     return false;
   }
+}
+
+/** One entry of `git worktree list`: a checkout of the repository on disk. */
+export interface WorktreeInfo {
+  /** Absolute path of the checkout. */
+  path: string;
+  /** The branch it holds, null when detached or bare. */
+  branch: string | null;
+  /** The commit its HEAD points at. */
+  head: string;
+  /** True when HEAD is a commit rather than a branch. */
+  detached: boolean;
+  /** True for the bare repository itself, which has no working tree. */
+  bare: boolean;
+}
+
+/**
+ * Every checkout of the repository the directory belongs to.
+ * @param cwd The directory to ask from (defaults to the process's)
+ * @returns the worktrees in git's own order, empty when this is not a repository
+ */
+export function listWorktrees(cwd: string = process.cwd()): WorktreeInfo[] {
+  let raw: string;
+  try {
+    raw = execFileSync("git", ["worktree", "list", "--porcelain"], {
+      encoding: "utf-8",
+      cwd,
+      stdio: "pipe",
+    });
+  } catch {
+    return [];
+  }
+
+  const worktrees: WorktreeInfo[] = [];
+  let current: WorktreeInfo | null = null;
+  for (const line of raw.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      current = {
+        path: line.slice("worktree ".length).trim(),
+        branch: null,
+        head: "",
+        detached: false,
+        bare: false,
+      };
+      worktrees.push(current);
+      continue;
+    }
+    if (!current) continue;
+    if (line === "detached") {
+      current.detached = true;
+    } else if (line === "bare") {
+      current.bare = true;
+    } else if (line.startsWith("HEAD ")) {
+      current.head = line.slice("HEAD ".length).trim();
+    } else if (line.startsWith("branch ")) {
+      current.branch = line
+        .slice("branch ".length)
+        .trim()
+        .replace(/^refs\/heads\//, "");
+    }
+  }
+  return worktrees.filter((worktree) => !worktree.bare);
 }
 
 /**

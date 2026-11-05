@@ -22,14 +22,14 @@
   --dsw-alias-border-l3: #3c3c3c;
 
   /* Accent */
-  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-primary: #5ac8fa;
   --dsw-alias-brand-text: #faf9f5;
-  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-fill: #5ac8fa;
   --dsw-alias-button-primary-hover: #c6613f;
   --dsw-alias-button-elevated-fill: #3a3a3a;
   --dsw-alias-button-floating-fill: #2c2c2b;
   --dsw-alias-button-floating-hover: #3a3a3a;
-  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-fill: #5ac8fa;
   --dsw-alias-button-info-hover: #c6613f;
 
   /* Interaction */
@@ -56,7 +56,7 @@
   --dsw-alias-state-error-secondary: #5a332f;
   --dsw-alias-state-error-tertiary: #331f1d;
   --dsw-alias-state-idle-primary: #888680;
-  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-primary: #5ac8fa;
   --dsw-alias-state-business-tertiary: #3a2a22;
   --dsw-alias-link: #e08a6d;
 
@@ -100,6 +100,12 @@
   --dsh-shell-button-hover: #454545;
   --dsh-shell-pill-fill: #252524;
   --dsh-shell-pill-border: #333333;
+  --dsh-shell-composer-fill: #212121;
+  --dsh-shell-composer-border: rgba(240, 240, 240, 0.12);
+  --dsh-shell-composer-border-hover: rgba(240, 240, 240, 0.16);
+  --dsh-shell-composer-icon-fill: rgba(240, 240, 240, 0.08);
+  --dsh-shell-composer-send-idle-fill: rgba(240, 240, 240, 0.06);
+  --dsh-shell-composer-send-idle-ink: rgba(240, 240, 240, 0.36);
   --dsh-shell-window-control: #2c2c2b;
   --dsh-shell-worktree-fill: #0b2544;
   --dsh-shell-worktree-ink: #6da5eb;
@@ -117,14 +123,14 @@
   --dsw-alias-border-l1: #e8e6dc;
   --dsw-alias-border-l2: #dedcd2;
   --dsw-alias-border-l3: #d0cdc1;
-  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-primary: #5ac8fa;
   --dsw-alias-brand-text: #faf9f5;
-  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-fill: #5ac8fa;
   --dsw-alias-button-primary-hover: #c6613f;
   --dsw-alias-button-elevated-fill: #ffffff;
   --dsw-alias-button-floating-fill: #ffffff;
   --dsw-alias-button-floating-hover: #f2f1ed;
-  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-fill: #5ac8fa;
   --dsw-alias-button-info-hover: #c6613f;
   --dsw-alias-interactive-bg-active: rgba(217, 119, 87, 0.3);
   --dsw-alias-interactive-bg-hover: rgba(0, 0, 0, 0.08);
@@ -145,7 +151,7 @@
   --dsw-alias-state-error-secondary: #e7c5c2;
   --dsw-alias-state-error-tertiary: #f9ecea;
   --dsw-alias-state-idle-primary: #8f8a7e;
-  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-primary: #5ac8fa;
   --dsw-alias-state-business-tertiary: #e9dfd2;
   --dsw-alias-link: #c6613f;
   --dsw-alias-markdown-code-block: #ffffff;
@@ -179,6 +185,12 @@
   --dsh-shell-button-hover: #f0efec;
   --dsh-shell-pill-fill: #ffffff;
   --dsh-shell-pill-border: #dedcd2;
+  --dsh-shell-composer-fill: #f2f1ed;
+  --dsh-shell-composer-border: rgba(20, 20, 19, 0.12);
+  --dsh-shell-composer-border-hover: rgba(20, 20, 19, 0.16);
+  --dsh-shell-composer-icon-fill: rgba(20, 20, 19, 0.08);
+  --dsh-shell-composer-send-idle-fill: rgba(20, 20, 19, 0.06);
+  --dsh-shell-composer-send-idle-ink: rgba(20, 20, 19, 0.36);
   --dsh-shell-window-control: #e9e7e0;
   --dsh-shell-worktree-fill: #0b2544;
   --dsh-shell-worktree-ink: #6da5eb;

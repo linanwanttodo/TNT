@@ -122,7 +122,7 @@ export const SHELL_ARTWORK = {
     svg: outline("0 0 12 12", '<path d="M6 1V11"/><path d="M1 6H11"/>', 2),
   },
 
-  /** Toolbox for the Customize row: a case with a handle and a seam. */
+  /** Toolbox for the Settings plugins row: a case with a handle and a seam. */
   toolbox: {
     width: 12,
     height: 12,
@@ -204,13 +204,13 @@ export const SHELL_ARTWORK = {
     ),
   },
 
-  /** The Anthropic sunburst mark. */
+  /** The TNT mark: the CLI banner's block letterform. */
   sunburst: {
     width: 16,
     height: 16,
     svg: filled(
       "0 0 16 16",
-      '<path d="M6.55 9L7.5 14.5L8.45 9ZM5.93 8.32L4 13.56L7.57 9.27ZM5.73 7.43L1.44 11L6.68 9.07ZM6 6.55L0.5 7.5L6 8.45ZM6.68 5.93L1.44 4L5.73 7.57ZM7.57 5.73L4 1.44L5.93 6.68ZM8.45 6L7.5 0.5L6.55 6ZM9.07 6.68L11 1.44L7.43 5.73ZM9.27 7.57L13.56 4L8.32 5.93ZM9 8.45L14.5 7.5L9 6.55ZM8.32 9.07L13.56 11L9.27 7.43ZM7.43 9.27L11 13.56L9.07 8.32Z"/>',
+      '<path d="M0 2h5v2H0zM2 4h1v8H2zM6 2h1v10H6zM10 2h1v10h-1zM7 4h1v2H7zM8 6h1v2H8zM9 8h1v2H9zM11 2h5v2h-5zM13 4h1v8h-1z"/>',
     ),
   },
 

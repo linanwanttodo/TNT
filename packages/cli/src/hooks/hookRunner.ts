@@ -666,7 +666,10 @@ function aggregateResults(
         result.stdout &&
         (eventName === "UserPromptSubmit" || eventName === "SessionStart")
       ) {
-        additionalContextParts.push(result.stdout);
+        // A hook that writes a JSON note without the event wrapper still means
+        // the note, not the envelope: the raw braces would arrive in the
+        // transcript as though the user had typed them.
+        additionalContextParts.push(output?.additionalContext ?? result.stdout);
       }
       continue;
     }
