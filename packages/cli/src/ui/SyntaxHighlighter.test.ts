@@ -1,4 +1,9 @@
-import { detectLanguage } from "./SyntaxHighlighter.js";
+import {
+  defaultTheme,
+  detectLanguage,
+  highlightCode,
+  type SyntaxHighlighterTheme,
+} from "./SyntaxHighlighter.js";
 
 describe("detectLanguage", () => {
   it("should detect JavaScript from import statements", () => {
@@ -203,5 +208,33 @@ interface Props {
 name: John
 age: 30`;
     expect(detectLanguage(code)).toBe("yaml");
+  });
+});
+
+describe("highlightCode cache", () => {
+  const code = "const x = require('y');\nfunction f(a) { return a + 1; }";
+  const otherTheme: SyntaxHighlighterTheme = {
+    ...defaultTheme,
+    keyword: "#ff00ff",
+  };
+
+  it("reuses the tokens of an identical request", () => {
+    const first = highlightCode(code, "javascript");
+    expect(highlightCode(code, "javascript")).toBe(first);
+  });
+
+  it("re-highlights when the code changes", () => {
+    const first = highlightCode(code, "javascript");
+    expect(highlightCode(code + "\n", "javascript")).not.toBe(first);
+  });
+
+  it("re-highlights when the language changes", () => {
+    const js = highlightCode(code, "javascript");
+    expect(highlightCode(code, "python")).not.toBe(js);
+  });
+
+  it("re-highlights when the theme changes", () => {
+    const themed = highlightCode(code, "javascript", defaultTheme);
+    expect(highlightCode(code, "javascript", otherTheme)).not.toBe(themed);
   });
 });
