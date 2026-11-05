@@ -459,16 +459,18 @@ WHAT COMES BACK:
       child.stderr.on("data", onStderr);
 
       child.on("close", (code) => {
+        // The group id can be reused once the shell is gone, so a pending
+        // escalation must not aim at whatever owns it then. This runs before
+        // the resolution guard because the abort and timeout paths have
+        // already resolved, and they are exactly the paths that armed it.
+        if (killTimer) {
+          clearTimeout(killTimer);
+        }
         if (isResolved) return;
         isResolved = true;
 
         if (timeoutId) {
           clearTimeout(timeoutId);
-        }
-        // The group id can be reused once the shell is gone; a pending
-        // escalation must not aim at whatever owns it then.
-        if (killTimer) {
-          clearTimeout(killTimer);
         }
 
         backgroundSignalManager.removeListener(
@@ -507,14 +509,14 @@ WHAT COMES BACK:
       });
 
       child.on("error", (error) => {
+        if (killTimer) {
+          clearTimeout(killTimer);
+        }
         if (isResolved) return;
         isResolved = true;
 
         if (timeoutId) {
           clearTimeout(timeoutId);
-        }
-        if (killTimer) {
-          clearTimeout(killTimer);
         }
         backgroundSignalManager.off("backgroundRequested", moveToBackground);
         reject(`Error: ${error.message}`);

@@ -187,6 +187,29 @@ describe("runTerminalCommandTool", () => {
       expect(isAlive(pid)).toBe(false);
     }, 30_000);
 
+    it("cancels the escalation once the stopped command has exited", async () => {
+      const signals: string[] = [];
+      const realKill = process.kill;
+      process.kill = ((target: number, signal?: string) => {
+        signals.push(String(signal));
+        return realKill.call(process, target as never, signal as never);
+      }) as typeof process.kill;
+
+      try {
+        // A plain sleep dies on TERM, so the group is gone long before the
+        // escalation would be worth sending.
+        await runWithAbort("sleep 30", 400);
+        // Past the five-second window: an armed timer would fire here and
+        // signal a group id the shell has already released for reuse.
+        await new Promise((r) => setTimeout(r, 6_000));
+      } finally {
+        process.kill = realKill;
+      }
+
+      expect(signals).toContain("SIGTERM");
+      expect(signals.filter((s) => s === "SIGKILL")).toEqual([]);
+    }, 30_000);
+
     it("reports a command whose shell could not be spawned", async () => {
       const previous = process.env.SHELL;
       process.env.SHELL = "/nonexistent/tnt-test-shell";
