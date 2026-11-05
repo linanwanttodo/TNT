@@ -7,6 +7,8 @@
  * bell on every turn is noise, and it stays quiet for a turn that ended so fast
  * the reader never left the window - which is what the duration gate is for.
  */
+
+import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 export type NotifyMode = "off" | "bell" | "osc9";
 
 /** Turns shorter than this never notify: nobody switched away in ten seconds. */
@@ -31,7 +33,9 @@ export function notifySequence(
     return "\u0007";
   }
   if (mode === "osc9") {
-    return `\u001B]9;${text}\u0007`;
+    // The text goes inside an OSC string: a byte that ends one early hands
+    // the rest of the line to the terminal as control.
+    return `\u001B]9;${sanitizeTerminalText(text)}\u0007`;
   }
   return undefined;
 }
