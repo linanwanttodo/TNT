@@ -11,6 +11,12 @@ import { describe, expect, it } from "vitest";
  *
  * Adding a component that renders tool output lands in this list by itself and
  * fails until it sanitizes or hands the text to a component that does.
+ *
+ * What this does NOT do: it checks that a file calls the sanitizer, not that
+ * the call wraps the right value. Measured - replacing the argument of the
+ * call in ToolGroupDisplay with an empty string keeps this file green while the
+ * behavioral tests in `*.escape.test.tsx` and the output tests go red. Those
+ * carry correctness; this one carries completeness.
  */
 const EXTERNAL_FIELDS = [
   "toolState.output",
@@ -33,12 +39,17 @@ const DELEGATES_TO: Record<string, string> = {
 
 /**
  * Files sanitized beyond what the derived rule asks for, with what makes them
- * safe today. `ActionStatus` only ever receives translated constants, so the
- * scan cannot see it as a sink; the entry keeps the boundary from rotting
- * rather than letting it quietly become one.
+ * safe today. The scan only knows the fields it names, so a component fed by
+ * some other channel is invisible to it: `ActionStatus` receives translated
+ * constants, and the four below receive model-authored text under field names
+ * too generic to scan for. The entries keep those boundaries from rotting.
  */
 const HARDENED: Record<string, string> = {
   "components/ActionStatus.tsx": "every call site passes t()",
+  "components/ChecklistDisplay.tsx": "todo lines come from the model",
+  "components/GoalIndicator.tsx": "the goal is model or user authored",
+  "components/QueuedMessages.tsx": "queued prompts are typed text",
+  "components/QuizPrompt.tsx": "the question and options come from the model",
 };
 
 function uiFiles(dir: string, base = dir): string[] {
@@ -65,10 +76,13 @@ describe("terminal text safety coverage", () => {
     if (!source.includes("<Text")) return false;
     return EXTERNAL_FIELDS.some((field) => {
       const lines = source.split("\n").filter((line) => line.includes(field));
-      // A file that only names the field in its props type and hands it to a
-      // child draws nothing itself, so it cannot be the sink.
+      // Two shapes read the field without drawing it: its declaration in a
+      // props type, and a JSX attribute that hands it straight to a child.
+      // Anything else, including `{props.x}` inside a `<Text>`, is a draw.
       return lines.some(
-        (line) => !line.includes("props.") && !/^\s*\w+\??: string/.test(line),
+        (line) =>
+          !/^\s*\w+\??: string/.test(line) &&
+          !/^\s*\w+=\{props\.\w+[,}]\s*$/.test(line),
       );
     });
   });
