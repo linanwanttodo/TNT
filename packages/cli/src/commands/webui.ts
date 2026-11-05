@@ -11,6 +11,8 @@ import { processCommandFlags } from "../config/flagProcessor.js";
 import { globalDir } from "../config/globalDir.js";
 import { loadSettings } from "../config/settings.js";
 import { t } from "../i18n/index.js";
+import { publishAgentEvent } from "../protocol/eventBus.js";
+import { buildContextBreakdown } from "../services/contextBreakdown.js";
 import {
   getService,
   initializeServices,
@@ -19,8 +21,14 @@ import {
   type ConfigServiceState,
   type ModelServiceState,
 } from "../services/index.js";
+import { listChatModels, switchChatModel } from "../services/modelCatalog.js";
 import { turnRunnerService } from "../services/TurnRunnerService.js";
 import { webUiService } from "../services/WebUiService.js";
+import {
+  currentCheckout,
+  listCheckouts,
+  moveToCheckout,
+} from "../services/worktreeCatalog.js";
 import { runAgentTurn } from "../session/controller.js";
 import {
   createSession,
@@ -29,6 +37,8 @@ import {
 } from "../session/index.js";
 import { messageQueue, type QueuedMessage } from "../stream/messageQueue.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
+import { getRequestTools } from "../tools/selection/requestTools.js";
+import { hyperlink } from "../ui/hyperlink.js";
 import { gracefulExit, updateAgentMetadata } from "../utils/exit.js";
 import { formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
@@ -129,6 +139,13 @@ export async function runStandaloneTurn(
   signal: AbortSignal,
 ): Promise<void> {
   const session = getCurrentSession();
+  // The browser can switch the model while the process lives, so the turn
+  // runs on the model the service holds now, not the one captured at
+  // startup.
+  const live = services.model.getState();
+  const turnLlmApi = live?.llmApi ?? llmApi;
+  const turnModel = live?.model ?? model;
+  state.model = turnModel;
   const prepared = await prepareServedPrompt(queued.message);
   if (prepared.blocked) {
     const reason = prepared.blockReason ?? "blocked by UserPromptSubmit hook";
@@ -165,15 +182,20 @@ export async function runStandaloneTurn(
     try {
       response = await runAgentTurn({
         chatHistory: session.history,
-        model,
-        llmApi,
+        model: turnModel,
+        llmApi: turnLlmApi,
         abortController,
       });
     } finally {
       signal.removeEventListener("abort", onAbort);
     }
 
-    await titleServeSessionIfUntitled(session, response, llmApi, state.model);
+    await titleServeSessionIfUntitled(
+      session,
+      response,
+      turnLlmApi,
+      state.model,
+    );
     await finishServedTurn(response);
 
     try {
@@ -299,12 +321,49 @@ export async function webui(
     // POST /session/new must produce a session shaped like the startup one,
     // system message included, or the first turn on it would run without one.
     createNewSession: () => createSession(initialHistory),
+    // The browser's model chip posts here; the switch is the /model screen's
+    // recipe, so the next turn runs on the model chosen in the page.
+    listModels: listChatModels,
+    switchModel: (index) => switchChatModel(index),
+    // The worktree chip reads the repository's checkouts and may move this
+    // process into one of them. The tools read the process's working
+    // directory, so the move is real here and refused everywhere else.
+    listWorktrees: listCheckouts,
+    currentWorktree: currentCheckout,
+    getContextBreakdown: async () => {
+      const activeSession = getCurrentSession();
+      const currentModel = services.model.getState()?.model ?? model;
+      const tools = await getRequestTools(true);
+      return buildContextBreakdown(activeSession.history, currentModel, tools);
+    },
+    switchWorktree: async (target) => {
+      const checkout = moveToCheckout(target);
+      // A transcript belongs to the checkout it was written in: the move
+      // starts a fresh session rather than carrying the old one across.
+      const session = createSession(initialHistory);
+      state.session = session;
+      try {
+        await services.chatHistory.initialize(session, false);
+      } catch {
+        logger.debug(
+          "ChatHistoryService init failed after a worktree move; the turn continues on arrays",
+        );
+      }
+      publishAgentEvent({
+        sessionId: session.sessionId,
+        turnId: `workspace-${Date.now()}`,
+        seq: 0,
+        timestamp: Date.now(),
+        type: "session.changed",
+      });
+      return checkout;
+    },
     runTurn: (queued, signal) =>
       runStandaloneTurn(state, llmApi, model, queued, signal),
   });
 
   const url = `http://127.0.0.1:${handle.port}/#token=${handle.token}`;
-  console.log(chalk.green(t("webui.listening", { url })));
+  console.log(chalk.green(t("webui.listening", { url: hyperlink(url, url) })));
   console.log(chalk.dim(t("webui.stopHint")));
   // commander's --no-open makes this false; absence leaves it true.
   if (options.open !== false) {

@@ -1,7 +1,8 @@
 /*
- * The composer, measured off Cursor's own chat input: a 42px capsule whose
- * 20px caps make both ends half-circles, a 24px circle holding the plus on
- * the left, and a 24px filled circle holding the up arrow on the right.
+ * The composer, shaped off Cursor's chat input: one line shows a capsule whose
+ * ends are exact half-circles (radius-full), and from the second line the frame
+ * is a rounded rectangle at a single fixed radius (radius-xl) on every corner.
+ * A 24px circle holds the plus on the left, a 24px filled circle the up arrow.
  */
 
 /* The frame spans the canvas so the capsule's own max-width resolves against
@@ -22,9 +23,17 @@
   gap: 4px;
   padding: 8px;
   border: 1px solid var(--dsh-shell-composer-border);
-  border-radius: 20px;
+  border-radius: var(--dsw-radius-full);
+  /* The theme's superellipse turns an uncapped radius into a squircle, which
+   * reads as a square with rounded corners instead of a half circle. */
+  corner-shape: round;
   background: var(--dsh-shell-composer-fill);
   transition: border-color 100ms ease-in-out;
+}
+
+.box[data-shape="card"] {
+  align-items: flex-end;
+  border-radius: var(--dsw-radius-xl);
 }
 
 .box:hover,
@@ -41,8 +50,9 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 999px;
-  background: var(--dsh-shell-composer-icon-fill);
+  border-radius: var(--dsw-radius-full);
+  corner-shape: round;
+  background: var(--dsh-shell-composer-border);
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
   transition:
@@ -55,6 +65,8 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* Composer.tsx grows the field one line at a time and stops at max-height, so
+ * that value and the 24px line box are the two numbers the shape test reads. */
 .input {
   flex: 1 1 auto;
   min-width: 0;
@@ -85,7 +97,8 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--dsw-radius-full);
+  corner-shape: round;
   background: var(--dsh-shell-composer-send-idle-fill);
   color: var(--dsh-shell-composer-send-idle-ink);
   cursor: pointer;
@@ -97,7 +110,7 @@
 
 .action[data-ready="true"] {
   background: var(--dsw-alias-label-primary);
-  color: var(--dsw-alias-label-primary-foreground);
+  color: var(--dsw-alias-bg-primary);
 }
 
 .action[data-state="stop"] {

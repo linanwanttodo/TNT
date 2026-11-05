@@ -122,7 +122,7 @@ export const SHELL_ARTWORK = {
     svg: outline("0 0 12 12", '<path d="M6 1V11"/><path d="M1 6H11"/>', 2),
   },
 
-  /** Toolbox for the Customize row: a case with a handle and a seam. */
+  /** Toolbox for the Settings plugins row: a case with a handle and a seam. */
   toolbox: {
     width: 12,
     height: 12,

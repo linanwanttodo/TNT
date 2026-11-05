@@ -242,4 +242,25 @@ describe("markdown links", () => {
       }
     }
   });
+
+  it("links a bare URL the way it links written markdown", () => {
+    const parts = linkParts("open http://127.0.0.1:47693/#token=abc to view");
+    const link = parts.find(
+      (part) => React.isValidElement(part) && (part as any).props.underline,
+    );
+
+    expect(link).toBeTruthy();
+    expect((link as any).props.children).toContain(
+      "\u001B]8;;http://127.0.0.1:47693/#token=abc",
+    );
+  });
+
+  it("does not relink the URL inside a written markdown link", () => {
+    const parts = linkParts("[the docs](https://example.com/docs)");
+    const linked = parts.filter(
+      (part) => React.isValidElement(part) && (part as any).props.underline,
+    );
+
+    expect(linked).toHaveLength(1);
+  });
 });

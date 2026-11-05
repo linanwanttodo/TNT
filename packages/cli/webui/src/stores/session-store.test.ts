@@ -15,8 +15,33 @@ vi.mock("../api/client.js", () => ({
     session: { sessionId: "", title: "", history: [] },
     pendingPermission: null,
   }),
+  fetchModels: vi.fn().mockResolvedValue({
+    available: true,
+    models: [],
+    current: null,
+  }),
+  chooseModel: vi.fn().mockResolvedValue({
+    index: 1,
+    name: "gpt-5.2",
+    provider: "openai",
+    current: true,
+  }),
+  fetchWorktrees: vi.fn().mockResolvedValue({
+    available: true,
+    worktrees: [],
+    current: null,
+    switchable: false,
+  }),
+  chooseWorktree: vi.fn().mockResolvedValue({
+    path: "/repo/side",
+    branch: "side",
+    head: "b".repeat(40),
+    detached: false,
+    bare: false,
+  }),
 }));
 
+import * as client from "../api/client.js";
 import { useSessionStore } from "./session-store.js";
 import type { AgentEvent } from "../types/agent-events.js";
 
@@ -42,6 +67,13 @@ describe("session store", () => {
       sessionId: null,
       title: null,
       chatModelTitle: null,
+      models: [],
+      currentModel: null,
+      worktrees: [],
+      currentWorktree: null,
+      worktreeSwitchable: false,
+      worktreeChosen: false,
+      isProcessing: false,
       items: [],
       streaming: null,
       reasoning: null,
@@ -53,6 +85,10 @@ describe("session store", () => {
       seenTurnId: null,
       seenSeq: -1,
     });
+    vi.mocked(client.fetchModels).mockClear();
+    vi.mocked(client.chooseModel).mockClear();
+    vi.mocked(client.fetchWorktrees).mockClear();
+    vi.mocked(client.chooseWorktree).mockClear();
   });
 
   it("concatenates content deltas into the streaming buffer", () => {
@@ -373,5 +409,199 @@ describe("session store", () => {
     expect(s.title).toBe("Fix the login bug");
     expect(s.chatModelTitle).toBe("Sonnet");
     expect(s.items).toEqual([{ kind: "message", role: "user", text: "hi" }]);
+  });
+
+  it("settles reasoning into the transcript when the answer starts", () => {
+    dispatch(ev(1, { type: "turn.started", model: "m", historyLength: 0 }));
+    dispatch(ev(2, { type: "reasoning.delta", delta: "first " }));
+    dispatch(ev(3, { type: "reasoning.delta", delta: "then this" }));
+    dispatch(ev(4, { type: "content.delta", delta: "the answer" }));
+
+    const state = useSessionStore.getState();
+    expect(state.items).toEqual([
+      { kind: "reasoning", text: "first then this" },
+    ]);
+    expect(state.reasoning).toBeNull();
+  });
+
+  it("keeps thinking ahead of the tool call it led", () => {
+    dispatch(ev(1, { type: "turn.started", model: "m", historyLength: 0 }));
+    dispatch(ev(2, { type: "reasoning.delta", delta: "let me look" }));
+    dispatch(
+      ev(3, {
+        type: "tool.started",
+        toolCallId: "c1",
+        toolName: "read_file",
+        args: { path: "a.ts" },
+      }),
+    );
+
+    expect(useSessionStore.getState().items.map((item) => item.kind)).toEqual([
+      "reasoning",
+      "tool",
+    ]);
+  });
+
+  it("settles thinking that outlived the turn instead of dropping it", () => {
+    dispatch(ev(1, { type: "turn.started", model: "m", historyLength: 0 }));
+    dispatch(ev(2, { type: "reasoning.delta", delta: "almost done" }));
+    dispatch(ev(3, { type: "turn.completed" }));
+
+    expect(useSessionStore.getState().items.map((item) => item.kind)).toEqual([
+      "reasoning",
+      "message",
+    ]);
+  });
+
+  it("hydrate restores reasoning, tool cards and the user's own words", () => {
+    useSessionStore.getState().hydrate({
+      session: {
+        sessionId: "s1",
+        history: [
+          {
+            message: {
+              role: "user",
+              content:
+                "<system-reminder>\nrepo uses pnpm\n</system-reminder>\n\nhi",
+            },
+          },
+          {
+            message: { role: "assistant", content: "" },
+            reasoning: { active: false, text: "the user said hi", startAt: 0 },
+            toolCallStates: [
+              {
+                toolCallId: "c1",
+                toolCall: { function: { name: "read_file" } },
+                status: "done",
+                parsedArgs: { path: "a.ts" },
+                output: [{ text: "file body" }],
+              },
+            ],
+          },
+          { message: { role: "assistant", content: "hello back" } },
+        ],
+      },
+      pendingPermission: null,
+    });
+
+    expect(useSessionStore.getState().items).toEqual([
+      { kind: "message", role: "user", text: "hi" },
+      { kind: "reasoning", text: "the user said hi" },
+      {
+        kind: "tool",
+        toolCallId: "c1",
+        toolName: "read_file",
+        status: "done",
+        args: { path: "a.ts" },
+        result: "file body",
+      },
+      { kind: "message", role: "assistant", text: "hello back" },
+    ]);
+  });
+
+  it("hydrates isProcessing from the /state snapshot", () => {
+    useSessionStore.getState().hydrate({
+      session: { sessionId: "s1", title: "", history: [] },
+      isProcessing: true,
+    });
+    expect(useSessionStore.getState().isProcessing).toBe(true);
+  });
+
+  it("tracks the running turn on the server", () => {
+    dispatch(ev(1, { type: "turn.started", model: "m", historyLength: 0 }));
+    expect(useSessionStore.getState().isProcessing).toBe(true);
+    dispatch(ev(2, { type: "turn.completed", content: "ok" }));
+    expect(useSessionStore.getState().isProcessing).toBe(false);
+  });
+
+  it("loads the model list and names the current model", async () => {
+    vi.mocked(client.fetchModels).mockResolvedValueOnce({
+      available: true,
+      models: [
+        {
+          index: 0,
+          name: "Deepseek-V4.1-Flash",
+          provider: "deepseek",
+          current: true,
+        },
+        { index: 1, name: "gpt-5.2", provider: "openai", current: false },
+      ],
+      current: {
+        index: 0,
+        name: "Deepseek-V4.1-Flash",
+        provider: "deepseek",
+        current: true,
+      },
+    });
+    await useSessionStore.getState().refreshModels();
+    expect(useSessionStore.getState().models).toHaveLength(2);
+    expect(useSessionStore.getState().currentModel?.name).toBe(
+      "Deepseek-V4.1-Flash",
+    );
+    expect(useSessionStore.getState().chatModelTitle).toBe(
+      "Deepseek-V4.1-Flash",
+    );
+  });
+
+  it("re-pulls the model list on a model.changed event", async () => {
+    dispatch(ev(1, { type: "model.changed", model: "gpt-5.2" }));
+    await Promise.resolve();
+    expect(client.fetchModels).toHaveBeenCalled();
+  });
+
+  it("switches the model through the server", async () => {
+    await useSessionStore.getState().pickModel(1);
+    expect(client.chooseModel).toHaveBeenCalledWith(1);
+    expect(useSessionStore.getState().currentModel?.name).toBe("gpt-5.2");
+    expect(useSessionStore.getState().chatModelTitle).toBe("gpt-5.2");
+  });
+
+  it("loads the checkouts and their switchability", async () => {
+    vi.mocked(client.fetchWorktrees).mockResolvedValueOnce({
+      available: true,
+      worktrees: [
+        {
+          path: "/repo/main",
+          branch: "main",
+          head: "a".repeat(40),
+          detached: false,
+          bare: false,
+        },
+        {
+          path: "/repo/side",
+          branch: "side",
+          head: "b".repeat(40),
+          detached: false,
+          bare: false,
+        },
+      ],
+      current: {
+        path: "/repo/main",
+        branch: "main",
+        head: "a".repeat(40),
+        detached: false,
+        bare: false,
+      },
+      switchable: true,
+    });
+    await useSessionStore.getState().refreshWorktrees();
+    expect(useSessionStore.getState().worktrees).toHaveLength(2);
+    expect(useSessionStore.getState().currentWorktree?.path).toBe("/repo/main");
+    expect(useSessionStore.getState().worktreeSwitchable).toBe(true);
+  });
+
+  it("re-pulls the checkouts on a workspace.changed event", async () => {
+    dispatch(
+      ev(1, { type: "workspace.changed", path: "/repo/side", branch: "side" }),
+    );
+    await Promise.resolve();
+    expect(client.fetchWorktrees).toHaveBeenCalled();
+  });
+
+  it("moves the process through the server and marks the chip chosen", async () => {
+    await useSessionStore.getState().pickWorktree("/repo/side");
+    expect(client.chooseWorktree).toHaveBeenCalledWith("/repo/side");
+    expect(useSessionStore.getState().currentWorktree?.branch).toBe("side");
+    expect(useSessionStore.getState().worktreeChosen).toBe(true);
   });
 });

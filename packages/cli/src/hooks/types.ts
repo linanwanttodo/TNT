@@ -328,6 +328,12 @@ export interface HookOutput {
   decision?: "approve" | "block";
   systemMessage?: string;
   reason?: string;
+  /**
+   * A note for the session or the prompt, for a hook that writes it without the
+   * event wrapper. The wrapper stays the documented shape; this is the reading
+   * that keeps a hook's JSON out of the transcript when it forgets it.
+   */
+  additionalContext?: string;
   hookSpecificOutput?: HookSpecificOutput;
 }
 

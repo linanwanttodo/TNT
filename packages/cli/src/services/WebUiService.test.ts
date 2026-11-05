@@ -15,8 +15,10 @@ import {
   vi,
 } from "vitest";
 
+import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import { messageQueue, type QueuedMessage } from "../stream/messageQueue.js";
 
+import { turnRunnerService } from "./TurnRunnerService.js";
 import {
   WebUiService,
   resolveWebUiDist,
@@ -217,6 +219,34 @@ describe("WebUiService", () => {
       expect(await response.text()).toContain("<html>app</html>");
     } finally {
       fs.rmSync(distDir, { recursive: true, force: true });
+    }
+  });
+
+  it("serves the dist when its path runs through a dot directory", async () => {
+    // The published CLI installs under ~/.tnt, and send() answers 404 for any
+    // absolute path containing a dot-prefixed segment unless the file is
+    // resolved against a root, so shipping dist inside the package broke the
+    // frontend for every install while every /tmp-based test stayed green.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "webui-home-"));
+    const distDir = path.join(root, ".tnt", "cli", "package", "dist", "webui");
+    fs.mkdirSync(path.join(distDir, "assets"), { recursive: true });
+    fs.writeFileSync(path.join(distDir, "index.html"), "<html>app</html>");
+    fs.writeFileSync(
+      path.join(distDir, "assets", "index.js"),
+      "console.log(1)",
+    );
+    try {
+      const { base, auth } = await started({ distDir });
+      const shell = await fetch(`${base}/app/`, { headers: auth });
+      expect(shell.status).toBe(200);
+      expect(await shell.text()).toContain("<html>app</html>");
+      const asset = await fetch(`${base}/app/assets/index.js`, {
+        headers: auth,
+      });
+      expect(asset.status).toBe(200);
+      expect(await asset.text()).toContain("console.log(1)");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
     }
   });
 
@@ -737,5 +767,351 @@ describe("WebUiService", () => {
 
     await handle.close();
     await expect(fetch(`${base}/state`)).rejects.toThrow();
+  });
+});
+
+describe("WebUiService model and workspace routes", () => {
+  const models = [
+    {
+      index: 0,
+      name: "Deepseek-V4.1-Flash",
+      provider: "deepseek",
+      current: true,
+    },
+    { index: 1, name: "gpt-5.2", provider: "openai", current: false },
+  ];
+  const worktrees = [
+    {
+      path: "/repo/main",
+      branch: "main",
+      head: "a".repeat(40),
+      detached: false,
+      bare: false,
+    },
+    {
+      path: "/repo/side",
+      branch: "side",
+      head: "b".repeat(40),
+      detached: false,
+      bare: false,
+    },
+  ];
+
+  // The module mock answers "a turn is running" because most routes read that
+  // to decide whether they may act; these routes need both answers.
+  beforeEach(() => {
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(true);
+  });
+  afterEach(() => {
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(true);
+  });
+
+  it("lists the chat models the surface offers on GET /models", async () => {
+    const { base, auth } = await started({ listModels: () => models });
+
+    const response = await fetch(`${base}/models`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      available: true,
+      models,
+      current: models[0],
+    });
+  });
+
+  it("says there is no model choice when the surface offers none", async () => {
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/models`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      available: false,
+      models: [],
+      current: null,
+    });
+  });
+
+  it("switches the model on POST /model and answers with what is now in use", async () => {
+    const switchModel = vi.fn(async () => models[1]);
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel,
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 1 }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ model: models[1] });
+    expect(switchModel).toHaveBeenCalledWith(1);
+  });
+
+  it("answers a bad model index with the reason the switch gave", async () => {
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel: async () => {
+        throw new Error("No chat model at index 7 (2 available)");
+      },
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 7 }),
+    });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/index 7/);
+  });
+
+  it("needs a number for the model index on POST /model", async () => {
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel: vi.fn(),
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: "one" }),
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses to switch a model the surface never offered", async () => {
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 0 }),
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it("lists the repository's checkouts on GET /worktrees", async () => {
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+    });
+
+    const response = await fetch(`${base}/worktrees`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      available: true,
+      worktrees,
+      current: worktrees[0],
+      switchable: true,
+    });
+  });
+
+  it("says the workspace has no other checkout when the process is hosted", async () => {
+    const { base, auth } = await started({
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+    });
+
+    const response = await fetch(`${base}/worktrees`, { headers: auth });
+    expect(await response.json()).toMatchObject({ switchable: false });
+  });
+
+  it("says the workspace is not a repository when there is nothing to list", async () => {
+    const { base, auth } = await started({
+      listWorktrees: () => [],
+      currentWorktree: () => null,
+    });
+
+    const response = await fetch(`${base}/worktrees`, { headers: auth });
+    expect(await response.json()).toEqual({
+      available: false,
+      worktrees: [],
+      current: null,
+      switchable: false,
+    });
+  });
+
+  it("moves the session's workspace on POST /worktree when the process owns it", async () => {
+    const switchWorktree = vi.fn(async () => worktrees[1]);
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ worktree: worktrees[1] });
+    expect(switchWorktree).toHaveBeenCalledWith("/repo/side");
+  });
+
+  it("refuses to move a server that does not own its session", async () => {
+    const switchWorktree = vi.fn();
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(403);
+    expect(switchWorktree).not.toHaveBeenCalled();
+  });
+
+  it("waits for the running turn before moving the workspace", async () => {
+    const switchWorktree = vi.fn();
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(409);
+    expect(switchWorktree).not.toHaveBeenCalled();
+  });
+
+  it("refuses to move into a directory the repository does not have", async () => {
+    const switchWorktree = vi.fn();
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree,
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/somewhere/else" }),
+    });
+    expect(response.status).toBe(400);
+    expect(switchWorktree).not.toHaveBeenCalled();
+  });
+
+  it("reports the failure when the move itself goes wrong", async () => {
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree: async () => {
+        throw new Error("the directory vanished");
+      },
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toMatch(/vanished/);
+  });
+
+  it("tells every open tab about the workspace the browser moved", async () => {
+    const events: string[] = [];
+    const unsubscribe = subscribeAgentEvents((event) => {
+      events.push(event.type);
+    });
+    vi.mocked(turnRunnerService.isRunning).mockReturnValue(false);
+    const { base, auth } = await started({
+      ownsSession: true,
+      listWorktrees: () => worktrees,
+      currentWorktree: () => worktrees[0],
+      switchWorktree: async () => worktrees[1],
+    });
+
+    const response = await fetch(`${base}/worktree`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/repo/side" }),
+    });
+    unsubscribe();
+
+    expect(response.status).toBe(200);
+    expect(events).toContain("workspace.changed");
+  });
+
+  it("tells every open tab about the model the browser chose", async () => {
+    const events: string[] = [];
+    const unsubscribe = subscribeAgentEvents((event) => {
+      events.push(event.type);
+    });
+    const { base, auth } = await started({
+      listModels: () => models,
+      switchModel: async () => models[1],
+    });
+
+    const response = await fetch(`${base}/model`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ index: 1 }),
+    });
+    unsubscribe();
+
+    expect(response.status).toBe(200);
+    expect(events).toContain("model.changed");
+  });
+
+  it("reports the context breakdown from the getContextBreakdown seam", async () => {
+    const breakdown = {
+      usedTokens: 1200,
+      contextLimit: 100_000,
+      freeTokens: 98_800,
+      percentUsed: 1,
+      categories: {
+        systemPrompt: 400,
+        tools: 300,
+        conversation: 300,
+        toolResults: 100,
+        contextItems: 100,
+      },
+    };
+    const { base, auth } = await started({
+      getContextBreakdown: () => breakdown,
+    });
+
+    const response = await fetch(`${base}/context`, { headers: auth });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(breakdown);
+  });
+
+  it("requires authentication for GET /context", async () => {
+    const { base } = await started({
+      getContextBreakdown: () => ({
+        usedTokens: 0,
+        contextLimit: 200_000,
+        freeTokens: 200_000,
+        percentUsed: 0,
+        categories: {
+          systemPrompt: 0,
+          tools: 0,
+          conversation: 0,
+          toolResults: 0,
+          contextItems: 0,
+        },
+      }),
+    });
+
+    const response = await fetch(`${base}/context`);
+    expect(response.status).toBe(401);
   });
 });
