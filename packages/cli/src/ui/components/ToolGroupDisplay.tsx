@@ -15,6 +15,7 @@ import { markLayoutDirty } from "../hooks/layoutDirty.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
 import { symbols } from "../symbols.js";
 import { useTheme, type Theme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import {
   getDiffSummary,
@@ -23,7 +24,6 @@ import {
   separateDiffAndNotes,
   ToolDiffView,
 } from "./ToolDiffView.js";
-import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 /** Shell tools read as `$ command`. */
 const SHELL_TOOLS = new Set([
