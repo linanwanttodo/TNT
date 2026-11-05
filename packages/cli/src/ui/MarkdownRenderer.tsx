@@ -4,6 +4,7 @@ import React from "react";
 import { closedThinkBlockPattern } from "../utils/thinkingTags.js";
 
 import { hyperlink } from "./hyperlink.js";
+import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 import {
   defaultTheme,
   detectLanguage,
@@ -34,7 +35,14 @@ interface MarkdownPattern {
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
-  ({ content, theme = defaultTheme }) => {
+  ({ content: untrusted, theme = defaultTheme }) => {
+    // Everything this renders can come from a tool, a file or the network,
+    // and an escape inside it would be executed by the terminal rather than
+    // shown. Colour survives; anything that commands the terminal does not.
+    const content =
+      untrusted === null || untrusted === undefined
+        ? untrusted
+        : sanitizeTerminalText(untrusted);
     const patterns: MarkdownPattern[] = [
       {
         regex: /```(?:(\w+)\n)?([\s\S]*?)```/g,

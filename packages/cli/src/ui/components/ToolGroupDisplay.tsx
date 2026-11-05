@@ -23,6 +23,7 @@ import {
   separateDiffAndNotes,
   ToolDiffView,
 } from "./ToolDiffView.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 /** Shell tools read as `$ command`. */
 const SHELL_TOOLS = new Set([
@@ -262,10 +263,12 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
     activeTheme,
   );
   const displayName = getToolDisplayName(toolName);
-  const description = describeCall(toolName, args);
-  const rawOutput = toolState.output?.length
-    ? toolState.output.map((item) => item.content).join("\n")
-    : "";
+  const description = sanitizeTerminalText(describeCall(toolName, args));
+  const rawOutput = sanitizeTerminalText(
+    toolState.output?.length
+      ? toolState.output.map((item) => item.content).join("\n")
+      : "",
+  );
   // A failed call with no captured output still has to say what happened.
   const output =
     rawOutput ||

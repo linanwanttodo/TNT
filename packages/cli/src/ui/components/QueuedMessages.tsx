@@ -3,6 +3,7 @@ import React from "react";
 
 import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { theme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 const MAX_PREVIEW = 80;
 
@@ -33,7 +34,9 @@ export const QueuedMessages: React.FC<QueuedMessagesProps> = ({ messages }) => {
           <Text color={theme.text.secondary} dimColor>
             {"[queued] "}
           </Text>
-          <Text color={theme.text.primary}>{preview(message.message)}</Text>
+          <Text color={theme.text.primary}>
+            {sanitizeTerminalText(preview(message.message))}
+          </Text>
           {index === messages.length - 1 && (
             <Text color={theme.text.subtle} dimColor>
               {"  ctrl+x remove  ctrl+r edit"}

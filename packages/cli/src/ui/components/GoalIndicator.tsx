@@ -3,6 +3,7 @@ import React from "react";
 
 import { getSessionGoal } from "../../session/index.js";
 import { useTheme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 const MAX_VISIBLE_CHARS = 80;
 const ELLIPSIS = "...";
@@ -38,7 +39,9 @@ const GoalIndicator: React.FC = () => {
       <Text color={theme.accent} bold>
         GOAL{" "}
       </Text>
-      <Text color={theme.text.primary}>{truncateGoal(goal)}</Text>
+      <Text color={theme.text.primary}>
+        {sanitizeTerminalText(truncateGoal(goal))}
+      </Text>
     </Text>
   );
 };

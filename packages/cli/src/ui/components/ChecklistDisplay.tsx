@@ -3,6 +3,7 @@ import React from "react";
 
 import { MARKER_TASK_LIST } from "../../tools/resultMarkers.js";
 import { symbols } from "../symbols.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 interface ChecklistDisplayProps {
   content: string;
@@ -63,7 +64,7 @@ export const ChecklistDisplay: React.FC<ChecklistDisplayProps> = ({
           // Non-checkbox lines (headers, etc.)
           return (
             <Box key={index}>
-              <Text color="white">{line}</Text>
+              <Text color="white">{sanitizeTerminalText(line)}</Text>
             </Box>
           );
         } else {

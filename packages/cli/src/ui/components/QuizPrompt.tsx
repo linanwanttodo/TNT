@@ -5,6 +5,7 @@ import { t } from "../../i18n/index.js";
 import { defaultBoxStyles } from "../styles.js";
 import { symbols } from "../symbols.js";
 import { theme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 interface QuizPromptProps {
   question: string;
@@ -112,7 +113,7 @@ export const QuizPrompt: React.FC<QuizPromptProps> = ({
         <Text color={theme.accent} bold>
           ?{" "}
         </Text>
-        <Text bold>{question}</Text>
+        <Text bold>{sanitizeTerminalText(question)}</Text>
       </Box>
 
       {hasOptions && !isCustomMode && (
@@ -126,7 +127,7 @@ export const QuizPrompt: React.FC<QuizPromptProps> = ({
                   bold={isSelected}
                 >
                   {isSelected ? `${symbols().selected} ` : "  "}
-                  {option}
+                  {sanitizeTerminalText(option)}
                 </Text>
               </Box>
             );

@@ -8,6 +8,7 @@ import { ColoredDiff } from "../ColoredDiff.js";
 import { theme } from "../theme/tokens.js";
 
 import { ChecklistDisplay } from "./ChecklistDisplay.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 interface ToolPreviewProps {
   toolCallPreview?: ToolCallPreview[];
@@ -34,7 +35,7 @@ export const ToolPreview: React.FC<ToolPreviewProps> = ({
             return (
               <Box key={index} paddingLeft={preview.paddingLeft ?? 0}>
                 <Text color={preview.color ?? theme.text.secondary}>
-                  {preview.content}
+                  {sanitizeTerminalText(preview.content)}
                 </Text>
               </Box>
             );
@@ -64,7 +65,7 @@ export const ToolPreview: React.FC<ToolPreviewProps> = ({
 
   return (
     <Box>
-      <Text color={theme.text.secondary}>{message}</Text>
+      <Text color={theme.text.secondary}>{sanitizeTerminalText(message)}</Text>
     </Box>
   );
 };
