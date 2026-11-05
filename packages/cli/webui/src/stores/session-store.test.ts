@@ -84,6 +84,7 @@ describe("session store", () => {
       queueLength: 0,
       seenTurnId: null,
       seenSeq: -1,
+      flushedSegments: false,
     });
     vi.mocked(client.fetchModels).mockClear();
     vi.mocked(client.chooseModel).mockClear();
@@ -107,6 +108,42 @@ describe("session store", () => {
     expect(s.streaming).toBeNull();
     expect(s.isWaiting).toBe(false);
     expect(s.items.at(-1)).toMatchObject({ role: "assistant", text: "answer" });
+  });
+
+  it("settles the text emitted before a tool call above the tool card", () => {
+    dispatch(ev(1, { type: "turn.started", model: "m", historyLength: 0 }));
+    dispatch(ev(2, { type: "content.delta", delta: "Let me read it." }));
+    dispatch(
+      ev(3, { type: "tool.started", toolCallId: "c1", toolName: "Read" }),
+    );
+    dispatch(
+      ev(4, {
+        type: "tool.finished",
+        toolCallId: "c1",
+        toolName: "Read",
+        status: "done",
+        result: "42 lines",
+      }),
+    );
+    dispatch(ev(5, { type: "content.delta", delta: "Done." }));
+    // The server's real payload: streamChatResponse returns the whole turn's
+    // text (fullResponse accumulates every round), not just the tail.
+    dispatch(
+      ev(6, { type: "turn.completed", content: "Let me read it.Done." }),
+    );
+    // Without the flush the prose only lands at turn.completed, i.e. below
+    // the card it caused.
+    expect(useSessionStore.getState().items).toEqual([
+      { kind: "message", role: "assistant", text: "Let me read it." },
+      {
+        kind: "tool",
+        toolCallId: "c1",
+        toolName: "Read",
+        status: "done",
+        result: "42 lines",
+      },
+      { kind: "message", role: "assistant", text: "Done." },
+    ]);
   });
 
   it("tracks reasoning deltas separately from content", () => {
@@ -229,11 +266,16 @@ describe("session store", () => {
   });
 
   it("hydrate seeds the transcript and a pending permission from /state", () => {
+    // The shape is the server's: getCompleteStateSnapshot nests the
+    // transcript under `session`, so a top-level `history` here would pin
+    // the bug instead of the contract.
     useSessionStore.getState().hydrate({
-      history: [
-        { message: { role: "user", content: "list files" } },
-        { message: { role: "assistant", content: "a b c" } },
-      ],
+      session: {
+        history: [
+          { message: { role: "user", content: "list files" } },
+          { message: { role: "assistant", content: "a b c" } },
+        ],
+      },
       pendingPermission: {
         requestId: "r9",
         toolName: "bash",
