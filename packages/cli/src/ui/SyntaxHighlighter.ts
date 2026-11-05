@@ -84,6 +84,18 @@ const tokenColorMap: Record<string, keyof SyntaxHighlighterTheme> = {
   link: "string",
 };
 
+/**
+ * Highlight results per theme, so a streamed message reuses the tokens of the
+ * code blocks it already rendered instead of re-tokenizing them on every
+ * delta. Capped per theme; the cap clears the whole map, which is enough for
+ * the handful of blocks one transcript shows.
+ */
+const highlightCache = new WeakMap<
+  SyntaxHighlighterTheme,
+  Map<string, React.ReactNode[]>
+>();
+const HIGHLIGHT_CACHE_LIMIT = 64;
+
 export function highlightCode(
   code: string,
   language: string = "javascript",
@@ -91,6 +103,32 @@ export function highlightCode(
   decoration?: {
     /** Background painted under every span, so highlighted code can sit on a
      * diff line's state colour without losing it between tokens. */
+    backgroundColor?: string;
+    dimColor?: boolean;
+  },
+): React.ReactNode[] {
+  const key = `${language}\u0000${
+    decoration ? JSON.stringify(decoration) : ""
+  }\u0000${code}`;
+  let byKey = highlightCache.get(theme);
+  if (!byKey) {
+    byKey = new Map();
+    highlightCache.set(theme, byKey);
+  }
+  const cached = byKey.get(key);
+  if (cached) return cached;
+
+  const result = highlightTokens(code, language, theme, decoration);
+  if (byKey.size >= HIGHLIGHT_CACHE_LIMIT) byKey.clear();
+  byKey.set(key, result);
+  return result;
+}
+
+function highlightTokens(
+  code: string,
+  language: string,
+  theme: SyntaxHighlighterTheme,
+  decoration?: {
     backgroundColor?: string;
     dimColor?: boolean;
   },
