@@ -37,3 +37,72 @@
 .streaming {
   min-height: 24px;
 }
+
+.messageRail {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 2px;
+  width: 18px;
+  pointer-events: none;
+}
+
+.railTick {
+  position: absolute;
+  left: 0;
+  width: 12px;
+  height: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 1px;
+  corner-shape: round;
+  background: var(--dsw-alias-border-l2);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.railTick:hover {
+  background: var(--dsw-alias-label-tertiary);
+}
+
+.jumpToLatest {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-bg-primary);
+  color: var(--dsw-alias-label-secondary);
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.jumpToLatest:hover {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.streaming::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 16px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--dsw-alias-state-business-primary);
+  animation: streamCaret 1s steps(2, start) infinite;
+}
+
+@keyframes streamCaret {
+  50% {
+    opacity: 0;
+  }
+}

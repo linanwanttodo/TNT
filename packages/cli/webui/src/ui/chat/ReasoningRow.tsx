@@ -1,5 +1,5 @@
 /** Assistant reasoning disclosure, adapted from dsh ui-chat's ReasoningRow. */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DisclosureRow, IconThinkOutlineRegular } from "../primitives/index.ts";
 import { MarkdownText } from "../primitives/markdown/MarkdownText.tsx";
 import css from "./ReasoningRow.module.css";
@@ -12,7 +12,12 @@ export function ReasoningRow({
   text: string;
   running: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // Open while the model is still writing, folded once it stopped: a reader
+  // watches the thinking as it happens and gets the answer's room back after.
+  const [expanded, setExpanded] = useState(running);
+  useEffect(() => {
+    if (!running) setExpanded(false);
+  }, [running]);
   return (
     <div className={css.root} data-expanded={expanded || undefined}>
       <DisclosureRow

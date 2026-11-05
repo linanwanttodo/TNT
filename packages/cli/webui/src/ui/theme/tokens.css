@@ -15,6 +15,7 @@
   --dsw-alias-bg-layer-2: #262626;
   --dsw-alias-bg-layer-3: #3a3a3a;
   --dsw-alias-bg-overlay: #2c2c2b;
+  --dsw-alias-bg-primary: #141413;
 
   /* Borders */
   --dsw-alias-border-l1: #303030;
@@ -22,14 +23,14 @@
   --dsw-alias-border-l3: #3c3c3c;
 
   /* Accent */
-  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-primary: #5ac8fa;
   --dsw-alias-brand-text: #faf9f5;
-  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-fill: #5ac8fa;
   --dsw-alias-button-primary-hover: #c6613f;
   --dsw-alias-button-elevated-fill: #3a3a3a;
   --dsw-alias-button-floating-fill: #2c2c2b;
   --dsw-alias-button-floating-hover: #3a3a3a;
-  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-fill: #5ac8fa;
   --dsw-alias-button-info-hover: #c6613f;
 
   /* Interaction */
@@ -48,6 +49,7 @@
 
   /* State */
   --dsw-alias-state-success-primary: #8cbf96;
+  --dsw-alias-state-success-secondary: #4ac25c;
   --dsw-alias-state-warn-primary: #e2a45f;
   --dsw-alias-state-warn-secondary: #57452a;
   --dsw-alias-state-warn-tertiary: #2e2718;
@@ -56,7 +58,7 @@
   --dsw-alias-state-error-secondary: #5a332f;
   --dsw-alias-state-error-tertiary: #331f1d;
   --dsw-alias-state-idle-primary: #888680;
-  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-primary: #5ac8fa;
   --dsw-alias-state-business-tertiary: #3a2a22;
   --dsw-alias-link: #e08a6d;
 
@@ -98,6 +100,12 @@
   --dsh-shell-button-hover: #454545;
   --dsh-shell-pill-fill: #252524;
   --dsh-shell-pill-border: #333333;
+  --dsh-shell-composer-fill: #212121;
+  --dsh-shell-composer-border: rgba(240, 240, 240, 0.12);
+  --dsh-shell-composer-border-hover: rgba(240, 240, 240, 0.16);
+  --dsh-shell-composer-icon-fill: rgba(240, 240, 240, 0.08);
+  --dsh-shell-composer-send-idle-fill: rgba(240, 240, 240, 0.06);
+  --dsh-shell-composer-send-idle-ink: rgba(240, 240, 240, 0.36);
   --dsh-shell-window-control: #2c2c2b;
   --dsh-shell-worktree-fill: #0b2544;
   --dsh-shell-worktree-ink: #6da5eb;
@@ -156,17 +164,18 @@
   --dsw-alias-bg-layer-2: #f2f1ed;
   --dsw-alias-bg-layer-3: #e9e7e0;
   --dsw-alias-bg-overlay: #ffffff;
+  --dsw-alias-bg-primary: #fcfcfb;
   --dsw-alias-border-l1: #e8e6dc;
   --dsw-alias-border-l2: #dedcd2;
   --dsw-alias-border-l3: #d0cdc1;
-  --dsw-alias-brand-primary: #d97757;
+  --dsw-alias-brand-primary: #5ac8fa;
   --dsw-alias-brand-text: #faf9f5;
-  --dsw-alias-button-primary-fill: #d97757;
+  --dsw-alias-button-primary-fill: #5ac8fa;
   --dsw-alias-button-primary-hover: #c6613f;
   --dsw-alias-button-elevated-fill: #ffffff;
   --dsw-alias-button-floating-fill: #ffffff;
   --dsw-alias-button-floating-hover: #f2f1ed;
-  --dsw-alias-button-info-fill: #d97757;
+  --dsw-alias-button-info-fill: #5ac8fa;
   --dsw-alias-button-info-hover: #c6613f;
   --dsw-alias-interactive-bg-active: rgba(217, 119, 87, 0.3);
   --dsw-alias-interactive-bg-hover: rgba(0, 0, 0, 0.08);
@@ -179,6 +188,7 @@
   --dsw-alias-label-caption: #a6a094;
   --dsw-alias-label-shimmer: color-mix(in srgb, #141413 30%, transparent);
   --dsw-alias-state-success-primary: #3d7550;
+  --dsw-alias-state-success-secondary: #2e8b46;
   --dsw-alias-state-warn-primary: #a4621d;
   --dsw-alias-state-warn-secondary: #e0c9a0;
   --dsw-alias-state-warn-tertiary: #f7efe0;
@@ -187,7 +197,7 @@
   --dsw-alias-state-error-secondary: #e7c5c2;
   --dsw-alias-state-error-tertiary: #f9ecea;
   --dsw-alias-state-idle-primary: #8f8a7e;
-  --dsw-alias-state-business-primary: #d97757;
+  --dsw-alias-state-business-primary: #5ac8fa;
   --dsw-alias-state-business-tertiary: #e9dfd2;
   --dsw-alias-link: #c6613f;
   --dsw-alias-markdown-code-block: #ffffff;
@@ -219,6 +229,12 @@
   --dsh-shell-button-hover: #f0efec;
   --dsh-shell-pill-fill: #ffffff;
   --dsh-shell-pill-border: #dedcd2;
+  --dsh-shell-composer-fill: #f2f1ed;
+  --dsh-shell-composer-border: rgba(20, 20, 19, 0.12);
+  --dsh-shell-composer-border-hover: rgba(20, 20, 19, 0.16);
+  --dsh-shell-composer-icon-fill: rgba(20, 20, 19, 0.08);
+  --dsh-shell-composer-send-idle-fill: rgba(20, 20, 19, 0.06);
+  --dsh-shell-composer-send-idle-ink: rgba(20, 20, 19, 0.36);
   --dsh-shell-window-control: #e9e7e0;
   --dsh-shell-worktree-fill: #0b2544;
   --dsh-shell-worktree-ink: #6da5eb;
@@ -292,6 +308,8 @@
  * once. `neutral-bluish-00` is the near-white a dark tooltip writes with.
  */
 :root {
+  --dsw-static-neutral-00: #fcfcfb;
+  --dsw-static-neutral-400: #8b8a83;
   --dsw-static-neutral-bluish-00: #fcfcfb;
   --dsw-static-neutral-bluish-300: #a6a094;
   --dsw-static-deepseek-400: #e08a6d;
@@ -299,6 +317,9 @@
   --dsw-static-deepseek-500: #d97757;
   --dsw-static-amber-400: #e2a45f;
   --dsw-static-amber-500: #d9903f;
+  --dsw-static-blue-400: #6da5eb;
+  --dsw-static-blue-500: #57c0d6;
+  --dsw-static-blue-600: #2f9fb5;
   --dsw-static-green-500: #35b148;
   --dsw-static-red-600: #b3261e;
 }

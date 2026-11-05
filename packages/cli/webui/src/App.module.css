@@ -1,5 +1,5 @@
 /*
- * The app shell: a 200px rail on the left and the conversation canvas on the
+ * The app shell: a 264px rail on the left and the conversation canvas on the
  * right. The canvas stacks the title bar, the transcript, the composer and
  * the status strip, so the composer always sits just above the status bar.
  */
@@ -24,6 +24,26 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.composerWrap {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+}
+
+/* The menu opens above the composer's plus, its left edge lined up with the
+ * button: the plus sits 8px inside the capsule's left cap. The capsule is 42px
+ * tall and the plus top sits 33px above its bottom edge, so 41px leaves the
+ * menu 8px clear of the button. */
+.menuAboveComposer {
+  top: auto;
+  bottom: 41px;
+  left: max(16px, calc((100% - 780px) / 2 + 8px));
+  right: auto;
+  width: 260px;
+  transform: none;
 }
 
 .banner {

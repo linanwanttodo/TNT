@@ -59,6 +59,11 @@ const en = {
     "Failed to load agent from {path}. Not a markdown file",
   "services.agentLoadFailed": "Failed to load agent from {path}: {message}",
   "services.webuiUnauthorized": "A valid web UI token is required.",
+  "services.noChatModelAtIndex":
+    "No chat model at index {index} ({count} available)",
+  "services.noWorktreeAt": "No worktree at {path}",
+  "services.cannotEnterWorktree": "Cannot enter {path}: {message}",
+  "services.pluginNotInstalled": "Plugin not installed: {name}",
   "plugins.manifestNotObject": "Marketplace manifest must be an object",
   "plugins.manifestNoName": "Marketplace manifest has no name",
   "plugins.manifestImpersonates":
@@ -785,6 +790,11 @@ const zhCN: Record<TranslationKey, string> = {
   "services.agentNotMarkdown": "无法从 {path} 加载智能体：不是 Markdown 文件",
   "services.agentLoadFailed": "无法从 {path} 加载智能体：{message}",
   "services.webuiUnauthorized": "需要有效的 Web UI 令牌。",
+  "services.noChatModelAtIndex":
+    "索引 {index} 处没有聊天模型（共有 {count} 个）",
+  "services.noWorktreeAt": "{path} 处没有工作树",
+  "services.cannotEnterWorktree": "无法进入 {path}：{message}",
+  "services.pluginNotInstalled": "插件未安装：{name}",
   "plugins.manifestNotObject": "插件市场清单必须是一个对象",
   "plugins.manifestNoName": "插件市场清单缺少 name",
   "plugins.manifestImpersonates": "插件市场名称冒充官方目录：{name}",

@@ -145,6 +145,7 @@ Icon
 Icon?
 
 .tntrc.json
+.claude/
 .aider*
 
 *.notes.md

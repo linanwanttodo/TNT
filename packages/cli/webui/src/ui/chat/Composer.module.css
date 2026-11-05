@@ -1,31 +1,44 @@
 /*
- * The composer: the shell column, 44px tall, with the leading plus button,
- * the placeholder and the send/stop button on the right.
+ * The composer, shaped off Cursor's chat input: one line shows a capsule whose
+ * ends are exact half-circles (radius-full), and from the second line the frame
+ * is a rounded rectangle at a single fixed radius (radius-xl) on every corner.
+ * A 24px circle holds the plus on the left, a 24px filled circle the up arrow.
  */
 
+/* The frame spans the canvas so the capsule's own max-width resolves against
+ * the page; shrink-wrapping it to 780 would make that 100% read as 780. */
 .frame {
   display: flex;
   justify-content: center;
   flex: 0 0 auto;
+  width: 100%;
 }
 
 .box {
-  /* The same box the transcript column draws on: the canvas gutter is 24px
-     per side, so both edges land together at every width. */
-  width: min(var(--dsh-column), 100% - 48px);
-  height: 44px;
+  box-sizing: border-box;
+  width: 780px;
+  max-width: calc(100% - 32px);
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 0 16px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 14px;
-  background: var(--dsh-shell-pill-fill);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--dsh-shell-composer-border);
+  border-radius: var(--dsw-radius-full);
+  /* The theme's superellipse turns an uncapped radius into a squircle, which
+   * reads as a square with rounded corners instead of a half circle. */
+  corner-shape: round;
+  background: var(--dsh-shell-composer-fill);
+  transition: border-color 100ms ease-in-out;
 }
 
+.box[data-shape="card"] {
+  align-items: flex-end;
+  border-radius: var(--dsw-radius-xl);
+}
+
+.box:hover,
 .box:focus-within {
-  border-color: var(--dsw-alias-border-l3);
+  border-color: var(--dsh-shell-composer-border-hover);
 }
 
 .leading {
@@ -33,29 +46,42 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
-  background: transparent;
-  color: var(--dsw-alias-label-secondary);
+  border-radius: var(--dsw-radius-full);
+  corner-shape: round;
+  background: var(--dsh-shell-composer-border);
+  color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
+  transition:
+    background 100ms ease,
+    color 100ms ease;
 }
 
 .leading:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);
 }
 
+/* Composer.tsx grows the field one line at a time and stops at max-height, so
+ * that value and the 24px line box are the two numbers the shape test reads. */
 .input {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0;
+  min-height: 24px;
+  max-height: 120px;
+  padding: 0 0 0 4px;
   border: none;
   background: transparent;
   color: var(--dsw-alias-label-primary);
   font: inherit;
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 15px;
+  line-height: 24px;
   resize: none;
   outline: none;
+  overflow-y: auto;
 }
 
 .input::placeholder {
@@ -63,5 +89,39 @@
 }
 
 .action {
-  flex: none;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--dsw-radius-full);
+  corner-shape: round;
+  background: var(--dsh-shell-composer-send-idle-fill);
+  color: var(--dsh-shell-composer-send-idle-ink);
+  cursor: pointer;
+  transition:
+    transform 50ms ease,
+    background 100ms ease,
+    color 100ms ease;
+}
+
+.action[data-ready="true"] {
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-primary);
+}
+
+.action[data-state="stop"] {
+  background: var(--dsh-shell-composer-icon-fill);
+  color: var(--dsw-alias-label-primary);
+}
+
+.action:hover {
+  opacity: 0.9;
+}
+
+.action:active {
+  transform: scale(0.98);
 }

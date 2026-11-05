@@ -151,7 +151,13 @@ export async function dispatchApprovedCall(options: {
       status: "done",
     };
     entriesByIndex.set(index, entry);
-    callbacks?.onToolResult?.(content, call.name, "done", call.id);
+    callbacks?.onToolResult?.(
+      content,
+      call.name,
+      "done",
+      call.id,
+      effectiveCall.arguments,
+    );
     noteToolUpdate(callbacks, call.name, "done", {
       toolCallId: call.id,
       result: content,

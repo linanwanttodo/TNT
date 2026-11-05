@@ -21,6 +21,10 @@ import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { formatError } from "../utils/formatError.js";
 import { getGitDiffSnapshot } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
+import {
+  composeServedPrompt,
+  splitServedPrompt,
+} from "../utils/promptNotes.js";
 
 /**
  * Remove partial assistant message if the last message is an empty assistant message.
@@ -88,10 +92,11 @@ export async function prepareServedPrompt(message: string): Promise<{
     takeSessionStartContext(),
     promptHook?.additionalContext,
     describeChangedFiles(),
-  ]
-    .filter((note): note is string => Boolean(note))
-    .join("\n\n");
-  return { text: notes ? `${notes}\n\n${message}` : message, blocked: false };
+  ].filter((note): note is string => Boolean(note));
+  return {
+    text: composeServedPrompt(message, notes),
+    blocked: false,
+  };
 }
 
 /** A served turn that produced an answer is a Stop; an interrupted one is not. */
@@ -210,8 +215,10 @@ export interface PendingPermission {
 
 /**
  * Name an untitled session from the first assistant response, matching the
- * TUI and headless surfaces; a title set earlier is kept. A failure here must
- * never fail the served turn.
+ * TUI and headless surfaces; a title set earlier is kept. The describer can
+ * fail or stay silent - a small model, a rate limit - so the user's own words
+ * name the session instead, and "Untitled Session" never piles up in the
+ * list. A failure here must never fail the served turn.
  */
 export async function titleServeSessionIfUntitled(
   session: Session,
@@ -226,12 +233,23 @@ export async function titleServeSessionIfUntitled(
     if (!response || !response.trim()) {
       return undefined;
     }
-    const { ChatDescriber } = await import("core/util/chatDescriber.js");
-    const generated = await ChatDescriber.describeWithBaseLlmApi(
-      llmApi,
-      model,
-      response,
-    );
+    let generated: string | undefined;
+    try {
+      const { ChatDescriber } = await import("core/util/chatDescriber.js");
+      generated = await ChatDescriber.describeWithBaseLlmApi(
+        llmApi,
+        model,
+        response,
+      );
+    } catch (error) {
+      logger.debug("Serve session title generation failed:", error as Error);
+    }
+    if (!generated || !generated.trim()) {
+      const firstPrompt = firstUserText(session.history);
+      if (firstPrompt) {
+        generated = firstPrompt;
+      }
+    }
     if (generated) {
       updateSessionTitle(generated);
     }
@@ -240,6 +258,32 @@ export async function titleServeSessionIfUntitled(
     logger.debug("Serve session title generation failed:", error as Error);
     return undefined;
   }
+}
+
+/** The session's first prompt as a one-line title candidate. */
+function firstUserText(history: Session["history"]): string | undefined {
+  for (const item of history) {
+    if (item.message.role !== "user") continue;
+    const content = item.message.content;
+    const text =
+      typeof content === "string"
+        ? content
+        : Array.isArray(content)
+          ? content
+              .map((part) =>
+                typeof part === "string"
+                  ? part
+                  : ((part as { text?: string }).text ?? ""),
+              )
+              .join(" ")
+          : "";
+    const served = splitServedPrompt(text).userText.trim();
+    if (served) {
+      const oneLine = served.replace(/\s+/g, " ");
+      return oneLine.length > 60 ? `${oneLine.slice(0, 57)}...` : oneLine;
+    }
+  }
+  return undefined;
 }
 
 export interface ServerState {
