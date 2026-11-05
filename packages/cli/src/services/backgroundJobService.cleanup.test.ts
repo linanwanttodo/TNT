@@ -87,3 +87,86 @@ describe("background job cleanup on exit", () => {
     }).not.toThrow();
   });
 });
+
+const posixIt = process.platform === "win32" ? it.skip : it;
+
+/** Records the job's own pid and its child's pid, then idles. */
+const PARENT_AND_CHILD =
+  "const fs=require('fs');const{spawn}=require('child_process');" +
+  "const c=spawn(process.execPath,['-e','setInterval(()=>{},1000);']);" +
+  "fs.writeFileSync(process.argv[1],String(process.pid)+' '+String(c.pid));" +
+  "setInterval(()=>{},1000);";
+
+function pidsOf(pidFile: string): [number, number] {
+  const [parent, child] = fs.readFileSync(pidFile, "utf-8").split(" ");
+  return [Number(parent), Number(child)];
+}
+
+describe("background job process control", () => {
+  posixIt(
+    "sweeps the processes a job started, not only the job",
+    async () => {
+      const pidFile = path.join(workDir, "group.pid");
+      const job = backgroundJobService.createJob("group sweep");
+      const started = backgroundJobService.startJob(job!.id, process.execPath, [
+        "-e",
+        PARENT_AND_CHILD,
+        pidFile,
+      ]);
+      expect(started).not.toBeNull();
+      await waitFor(() => fs.existsSync(pidFile));
+      const [, childPid] = pidsOf(pidFile);
+      expect(isAlive(childPid)).toBe(true);
+
+      runExitHandlers();
+      await waitFor(() => !isAlive(childPid));
+      expect(isAlive(childPid)).toBe(false);
+    },
+    20_000,
+  );
+
+  posixIt(
+    "cancels a job that ignores SIGTERM",
+    async () => {
+      const pidFile = path.join(workDir, "trap.pid");
+      const job = backgroundJobService.createJob("trapped job");
+      const started = backgroundJobService.startJob(job!.id, process.execPath, [
+        "-e",
+        "process.on('SIGTERM',()=>{});" +
+          "require('fs').writeFileSync(process.argv[1],String(process.pid));" +
+          "setInterval(()=>{},1000);",
+        pidFile,
+      ]);
+      expect(started).not.toBeNull();
+      await waitFor(() => fs.existsSync(pidFile));
+      const [pid] = pidsOf(pidFile);
+
+      expect(backgroundJobService.cancelJob(job!.id)).toBe(true);
+      // The escalation window is 5s; eight seconds allows for scheduling.
+      await waitFor(() => !isAlive(pid), 8_000);
+      expect(isAlive(pid)).toBe(false);
+    },
+    20_000,
+  );
+
+  posixIt(
+    "cancels the processes a job started",
+    async () => {
+      const pidFile = path.join(workDir, "cancel-group.pid");
+      const job = backgroundJobService.createJob("cancel group");
+      const started = backgroundJobService.startJob(job!.id, process.execPath, [
+        "-e",
+        PARENT_AND_CHILD,
+        pidFile,
+      ]);
+      expect(started).not.toBeNull();
+      await waitFor(() => fs.existsSync(pidFile));
+      const [, childPid] = pidsOf(pidFile);
+
+      backgroundJobService.cancelJob(job!.id);
+      await waitFor(() => !isAlive(childPid));
+      expect(isAlive(childPid)).toBe(false);
+    },
+    20_000,
+  );
+});
