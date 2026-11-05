@@ -100,91 +100,98 @@ export function AccountMenu({
         <span>{copy.accountSettings}</span>
         <span className={css.shortcut}>Ctrl+,</span>
       </button>
+      
 
       <div className={css.divider} />
 
-      <button
-        type="button"
-        role="menuitem"
-        className={css.item}
-        aria-expanded={submenu === "theme"}
-        onClick={() =>
-          setSubmenu((current) => (current === "theme" ? null : "theme"))
-        }
-      >
-        <ShellIcon glyph="sunburst" size={15} className={css.icon} />
-        <span>{copy.accountTheme}</span>
-        <span className={css.value}>{themeLabel}</span>
-        <IconChevronDownOutlineRegular size={13} className={css.chevron} />
-      </button>
-      {submenu === "theme" ? (
-        <div className={css.submenu}>
-          {themes.map((option) => (
+      <div style={{ position: "relative" }}>
+        <button
+          type="button"
+          role="menuitem"
+          className={css.item}
+          aria-expanded={submenu === "theme"}
+          onClick={() =>
+            setSubmenu((current) => (current === "theme" ? null : "theme"))
+          }
+        >
+          <img src="/tnt-logo.svg" alt="" className={css.icon} />
+          <span>{copy.accountTheme}</span>
+          <span className={css.value}>{themeLabel}</span>
+          <IconChevronDownOutlineRegular size={13} className={css.chevron} />
+        </button>
+        {submenu === "theme" ? (
+          <div className={css.submenu}>
+            {themes.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={theme === option.value}
+                className={css.subItem}
+                data-active={theme === option.value}
+                onClick={() => {
+                  setTheme(option.value);
+                  setSubmenu(null);
+                }}
+              >
+                <span className={css.subDot} />
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ position: "relative" }}>
+        <button
+          type="button"
+          role="menuitem"
+          className={css.item}
+          aria-expanded={submenu === "language"}
+          onClick={() =>
+            setSubmenu((current) =>
+              current === "language" ? null : "language",
+            )
+          }
+        >
+          <IconGlobeOutlineRegular size={15} className={css.icon} />
+          <span>{copy.accountLanguage}</span>
+          <span className={css.value}>{languageLabel}</span>
+          <IconChevronDownOutlineRegular size={13} className={css.chevron} />
+        </button>
+        {submenu === "language" ? (
+          <div className={css.submenu}>
             <button
-              key={option.value}
               type="button"
               role="menuitemradio"
-              aria-checked={theme === option.value}
+              aria-checked={language === "en"}
               className={css.subItem}
-              data-active={theme === option.value}
+              data-active={language === "en"}
               onClick={() => {
-                setTheme(option.value);
+                setLanguage("en");
                 setSubmenu(null);
               }}
             >
               <span className={css.subDot} />
-              {option.label}
+              {copy.langEnglish}
             </button>
-          ))}
-        </div>
-      ) : null}
-
-      <button
-        type="button"
-        role="menuitem"
-        className={css.item}
-        aria-expanded={submenu === "language"}
-        onClick={() =>
-          setSubmenu((current) => (current === "language" ? null : "language"))
-        }
-      >
-        <IconGlobeOutlineRegular size={15} className={css.icon} />
-        <span>{copy.accountLanguage}</span>
-        <span className={css.value}>{languageLabel}</span>
-        <IconChevronDownOutlineRegular size={13} className={css.chevron} />
-      </button>
-      {submenu === "language" ? (
-        <div className={css.submenu}>
-          <button
-            type="button"
-            role="menuitemradio"
-            aria-checked={language === "en"}
-            className={css.subItem}
-            data-active={language === "en"}
-            onClick={() => {
-              setLanguage("en");
-              setSubmenu(null);
-            }}
-          >
-            <span className={css.subDot} />
-            {copy.langEnglish}
-          </button>
-          <button
-            type="button"
-            role="menuitemradio"
-            aria-checked={language === "zh"}
-            className={css.subItem}
-            data-active={language === "zh"}
-            onClick={() => {
-              setLanguage("zh");
-              setSubmenu(null);
-            }}
-          >
-            <span className={css.subDot} />
-            {copy.langChinese}
-          </button>
-        </div>
-      ) : null}
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={language === "zh"}
+              className={css.subItem}
+              data-active={language === "zh"}
+              onClick={() => {
+                setLanguage("zh");
+                setSubmenu(null);
+              }}
+            >
+              <span className={css.subDot} />
+              {copy.langChinese}
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       <div className={css.divider} />
 

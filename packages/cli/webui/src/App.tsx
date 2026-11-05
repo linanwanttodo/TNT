@@ -96,6 +96,7 @@ export function App() {
   const [context, setContext] = useState<ContextBreakdown | null>(null);
   const [git, setGit] = useState<GitStatus | null>(null);
   const [view, setView] = useState<ChatViewId>("chat");
+  const [railOpen, setRailOpen] = useState(false);
 
   const hydrate = useSessionStore((s) => s.hydrate);
 
@@ -372,6 +373,7 @@ export function App() {
             hasPendingPermission={pendingPermission !== null}
             view={view}
             onViewChange={setView}
+            onToggleRail={() => setRailOpen((open) => !open)}
           />
         )}
         <div className={css.conversation}>
@@ -477,7 +479,7 @@ export function App() {
           />
         )}
       </main>
-      {settingsOpen ? null : <WorkspaceRail />}
+      {settingsOpen || !railOpen ? null : <WorkspaceRail />}
     </div>
   );
 }

@@ -21,7 +21,9 @@
 }
 
 .mark {
-  color: var(--dsw-alias-brand-primary);
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
   margin-bottom: 6px;
 }
 
