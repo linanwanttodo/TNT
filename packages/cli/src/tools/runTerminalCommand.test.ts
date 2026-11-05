@@ -112,6 +112,102 @@ describe("runTerminalCommandTool", () => {
     }
   });
 
+  describe("process control", () => {
+    // Windows has no process groups and PowerShell has no `trap`; the
+    // semantics under test are the POSIX ones.
+    const runWithAbort = async (
+      command: string,
+      abortAfterMs: number,
+    ): Promise<string> => {
+      const controller = new AbortController();
+      const pending = runTerminalCommandTool.run!(
+        { command },
+        {
+          toolCallId: "call-pc",
+          parallelToolCallCount: 1,
+          signal: controller.signal,
+        },
+      );
+      setTimeout(() => controller.abort(), abortAfterMs);
+      return String(await pending);
+    };
+
+    const isAlive = (pid: number): boolean => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const waitForExit = async (pid: number, limitMs: number): Promise<void> => {
+      const until = Date.now() + limitMs;
+      while (isAlive(pid) && Date.now() < until) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    };
+
+    const pidFrom = (text: string): number => {
+      const match = text.match(/\d+/);
+      return match ? Number(match[0]) : -1;
+    };
+
+    it("keeps a multibyte character split across two output chunks", async () => {
+      // 中 is E4 B8 AD, i.e. \344 \270 \255. The two writes are separated in
+      // time, so the stream delivers a lone lead byte and then the tail;
+      // decoding each chunk on its own turns both into replacements.
+      const result = await runWithAbort(
+        "printf '\\344'; sleep 0.3; printf '\\270\\255'",
+        60_000,
+      );
+      expect(result).toContain("中");
+      expect(result).not.toContain("\uFFFD");
+    }, 30_000);
+
+    it("stops the processes the shell started, not only the shell", async () => {
+      const result = await runWithAbort("sleep 30 & echo $!; wait", 400);
+      const pid = pidFrom(result);
+      expect(pid).toBeGreaterThan(0);
+      await waitForExit(pid, 3_000);
+      expect(isAlive(pid)).toBe(false);
+    }, 30_000);
+
+    it("escalates to SIGKILL when the command ignores SIGTERM", async () => {
+      // A shell that traps TERM keeps going after the group's first sleep is
+      // killed, so only the escalation can end it.
+      const result = await runWithAbort(
+        "trap '' TERM; echo $$; sleep 20; sleep 20; sleep 20",
+        400,
+      );
+      const pid = pidFrom(result);
+      expect(pid).toBeGreaterThan(0);
+      // The escalation window is 5s; eight seconds allows for scheduling.
+      await waitForExit(pid, 8_000);
+      expect(isAlive(pid)).toBe(false);
+    }, 30_000);
+
+    it("reports a command whose shell could not be spawned", async () => {
+      const previous = process.env.SHELL;
+      process.env.SHELL = "/nonexistent/tnt-test-shell";
+      try {
+        const started = Date.now();
+        await expect(
+          runTerminalCommandTool.run!(
+            { command: "echo hi" },
+            { toolCallId: "call-spawn", parallelToolCallCount: 1 },
+          ),
+        ).rejects.toThrow(/tnt-test-shell/);
+        // Without the error handler nothing settles and the call sits until
+        // the idle timeout.
+        expect(Date.now() - started).toBeLessThan(15_000);
+      } finally {
+        if (previous === undefined) delete process.env.SHELL;
+        else process.env.SHELL = previous;
+      }
+    }, 30_000);
+  });
+
   describe("run deadline", () => {
     const sleepCommand = isWindows ? "Start-Sleep -Seconds 30" : "sleep 30";
 
