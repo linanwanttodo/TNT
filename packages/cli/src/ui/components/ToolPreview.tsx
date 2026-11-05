@@ -6,9 +6,9 @@ import { getToolDisplayName } from "../../tools/index.js";
 import { ToolCallPreview } from "../../tools/types.js";
 import { ColoredDiff } from "../ColoredDiff.js";
 import { theme } from "../theme/tokens.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { ChecklistDisplay } from "./ChecklistDisplay.js";
-import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 interface ToolPreviewProps {
   toolCallPreview?: ToolCallPreview[];
