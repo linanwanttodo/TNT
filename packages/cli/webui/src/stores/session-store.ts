@@ -60,9 +60,11 @@ interface SessionState {
   queueLength: number;
   seenTurnId: string | null;
   seenSeq: number;
+  /** Whether this turn already settled streamed prose into items. */
+  flushedSegments: boolean;
   applyEvent: (event: AgentEvent) => void;
   hydrate: (state: {
-    history?: unknown[];
+    session: { history?: unknown[] };
     pendingPermission?: unknown;
   }) => void;
   send: (text: string) => Promise<void>;
@@ -82,10 +84,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   /** The seq watermark per turn; late SSE retries must not replay old events. */
   seenTurnId: null,
   seenSeq: -1,
+  flushedSegments: false,
 
   applyEvent: (event) => {
     if (event.turnId !== get().seenTurnId) {
-      set({ seenTurnId: event.turnId, seenSeq: -1 });
+      set({ seenTurnId: event.turnId, seenSeq: -1, flushedSegments: false });
     }
     if (event.seq <= get().seenSeq) return;
     set({ seenSeq: event.seq });
@@ -103,6 +106,17 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         set({ reasoning: (get().reasoning ?? "") + event.delta });
         break;
       case "tool.started": {
+        // Prose streamed before this call settles above its card. Left in the
+        // buffer it would only land at turn.completed, i.e. below every card
+        // of the turn.
+        const streamed = get().streaming;
+        const settled =
+          streamed === null || streamed === ""
+            ? items
+            : [
+                ...items,
+                { kind: "message", role: "assistant", text: streamed } as const,
+              ];
         const card: ToolCardItem = {
           kind: "tool",
           toolCallId: event.toolCallId,
@@ -110,7 +124,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           status: "calling",
           args: event.args,
         };
-        set({ items: [...items, card] });
+        set({
+          items: [...settled, card],
+          streaming: streamed === null || streamed === "" ? streamed : null,
+          flushedSegments: settled !== items ? true : get().flushedSegments,
+        });
         break;
       }
       case "tool.updated": {
@@ -156,17 +174,28 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         }
         break;
       case "turn.completed": {
-        const text = event.content ?? get().streaming ?? "";
-        const message: AssistantMessageItem = {
-          kind: "message",
-          role: "assistant",
-          text,
-        };
+        // Once segments are settled, the server's full-turn content repeats
+        // them; only the tail after the last card is new.
+        const text = get().flushedSegments
+          ? (get().streaming ?? "")
+          : (event.content ?? get().streaming ?? "");
+        const settled =
+          text === ""
+            ? items
+            : [
+                ...items,
+                {
+                  kind: "message",
+                  role: "assistant",
+                  text,
+                } as AssistantMessageItem,
+              ];
         set({
-          items: [...items, message],
+          items: settled,
           streaming: null,
           reasoning: null,
           isWaiting: false,
+          flushedSegments: false,
         });
         break;
       }
@@ -229,7 +258,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   },
 
   hydrate: (state) => {
-    const items = (state.history ?? []).flatMap((item): ChatItem[] => {
+    const items = (state.session.history ?? []).flatMap((item): ChatItem[] => {
       const message = (
         item as { message?: { role?: string; content?: unknown } }
       ).message;

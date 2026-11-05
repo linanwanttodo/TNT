@@ -58,11 +58,26 @@
   line-height: 18px;
 }
 
+/* The acted-on path/command, as a chip beside the tool name rather than a
+   JSON dump under it. */
+.toolTarget {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-markdown-inline-code);
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .toolResult {
   margin: 0;
   overflow: auto;
-  max-height: 160px;
+  max-height: 240px;
   padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l1);
   border-radius: var(--dsw-radius-sm);
   background: var(--dsw-alias-markdown-code-block);
   color: var(--dsw-alias-label-secondary);
@@ -70,7 +85,8 @@
   font-size: 12px;
   line-height: 17px;
   white-space: pre-wrap;
-  word-break: break-all;
+  /* `break-all` cuts identifiers mid-word; a long path still has to wrap. */
+  overflow-wrap: anywhere;
 }
 
 .errorRow {
