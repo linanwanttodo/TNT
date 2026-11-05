@@ -103,6 +103,9 @@ button.leading {
 
 .title {
   flex: none;
+  /* The collapsed content sits beside the title in one flex row; without a
+     gap the two read as one word ("ThinkingChecking the guard"). */
+  margin-right: 6px;
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: inherit;
