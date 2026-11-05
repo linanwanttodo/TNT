@@ -61,6 +61,37 @@ export function processChunkContent(
   return updatedResponse;
 }
 
+/**
+ * Advances a streamed-arguments scan by one fragment and reports whether the
+ * value closed. Only structural characters are counted: a brace inside a
+ * string is data, not nesting.
+ * @param scan - the state carried between fragments.
+ * @param fragment - the newly arrived characters.
+ * @returns true when the scan left the value complete.
+ */
+function scanArgumentFragment(
+  scan: { depth: number; inString: boolean; escaped: boolean },
+  fragment: string,
+): boolean {
+  let closed = false;
+  for (const character of fragment) {
+    if (scan.escaped) {
+      scan.escaped = false;
+    } else if (scan.inString) {
+      if (character === "\\") scan.escaped = true;
+      else if (character === '"') scan.inString = false;
+    } else if (character === '"') {
+      scan.inString = true;
+    } else if (character === "{" || character === "[") {
+      scan.depth += 1;
+    } else if (character === "}" || character === "]") {
+      scan.depth -= 1;
+      if (scan.depth <= 0) closed = true;
+    }
+  }
+  return closed;
+}
+
 // Helper function to handle tool call delta
 export function processToolCallDelta(
   toolCallDelta: any,
@@ -119,14 +150,23 @@ export function processToolCallDelta(
 
   // Accumulate arguments
   if (toolCallDelta.function?.arguments) {
-    toolCall.argumentsStr += toolCallDelta.function.arguments;
-
-    // Try to parse when we might have complete JSON
-    try {
-      toolCall.arguments = JSON.parse(toolCall.argumentsStr);
-      toolCall.startNotified = true;
-    } catch {
-      // JSON not complete yet, continue
+    const fragment = toolCallDelta.function.arguments;
+    toolCall.argumentsStr += fragment;
+    const scan = toolCall.argScan ?? {
+      depth: 0,
+      inString: false,
+      escaped: false,
+    };
+    toolCall.argScan = scan;
+    // Parsing the growing buffer on every delta is quadratic in the argument
+    // size, and every incomplete attempt throws. Parse once, on close.
+    if (scanArgumentFragment(scan, fragment)) {
+      try {
+        toolCall.arguments = JSON.parse(toolCall.argumentsStr);
+        toolCall.startNotified = true;
+      } catch {
+        // A truncated stream can close a fragment that is not valid JSON.
+      }
     }
   }
 
