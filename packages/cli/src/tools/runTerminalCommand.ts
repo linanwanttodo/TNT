@@ -283,11 +283,39 @@ WHAT COMES BACK:
     const terminalOutput: string = await new Promise((resolve, reject) => {
       // Use same shell logic as core implementation
       const { shell, args } = getShellCommand(command);
-      const child = spawn(shell, args);
+      // Its own process group, so stopping the command stops what the shell
+      // started instead of orphaning it. Windows has no process groups.
+      const child = spawn(shell, args, {
+        detached: process.platform !== "win32",
+      });
       let stdout = "";
       let stderr = "";
       let timeoutId: NodeJS.Timeout;
+      let killTimer: NodeJS.Timeout | undefined;
       let isResolved = false;
+
+      const signalGroup = (signal: NodeJS.Signals) => {
+        if (child.pid !== undefined && process.platform !== "win32") {
+          try {
+            process.kill(-child.pid, signal);
+            return;
+          } catch {
+            // The group is already gone; the direct kill is then a no-op.
+          }
+        }
+        child.kill(signal);
+      };
+
+      /**
+       * SIGTERM lets the shell and its children clean up. A command that
+       * traps TERM would outlive the tool call, so SIGKILL follows five
+       * seconds later.
+       */
+      const terminate = () => {
+        signalGroup("SIGTERM");
+        killTimer = setTimeout(() => signalGroup("SIGKILL"), 5_000);
+        killTimer.unref();
+      };
 
       // Determine timeout: use provided timeout (capped at 600s), test env variable, or default 180s
       const TIMEOUT_MS = resolveBashTimeoutMs(timeout);
@@ -346,7 +374,7 @@ WHAT COMES BACK:
         timeoutId = setTimeout(() => {
           if (isResolved) return;
           isResolved = true;
-          child.kill();
+          terminate();
           let output = stdout + (stderr ? `\nStderr: ${stderr}` : "");
           output += `\n\n[Command timed out after ${TIMEOUT_MS / 1000} seconds of no output]`;
 
@@ -386,7 +414,7 @@ WHAT COMES BACK:
           clearTimeout(timeoutId);
         }
         backgroundSignalManager.off("backgroundRequested", moveToBackground);
-        child.kill();
+        terminate();
         let output = stdout + (stderr ? `\nStderr: ${stderr}` : "");
         output += "\n\n[Command stopped: the run reached its time limit.]";
         const truncationResult = truncateOutputFromStart(output, {
@@ -408,16 +436,21 @@ WHAT COMES BACK:
       // Start the initial timeout
       resetTimeout();
 
-      const onStdout = (data: Buffer) => {
+      // Decoding per stream, not per chunk: a multibyte character split across
+      // two reads survives only when its bytes are carried between them.
+      child.stdout?.setEncoding("utf8");
+      child.stderr?.setEncoding("utf8");
+
+      const onStdout = (data: string) => {
         if (isResolved) return;
-        stdout += data.toString();
+        stdout += data;
         resetTimeout();
         showCurrentOutput();
       };
 
-      const onStderr = (data: Buffer) => {
+      const onStderr = (data: string) => {
         if (isResolved) return;
-        stderr += data.toString();
+        stderr += data;
         resetTimeout();
         showCurrentOutput();
       };
@@ -431,6 +464,11 @@ WHAT COMES BACK:
 
         if (timeoutId) {
           clearTimeout(timeoutId);
+        }
+        // The group id can be reused once the shell is gone; a pending
+        // escalation must not aim at whatever owns it then.
+        if (killTimer) {
+          clearTimeout(killTimer);
         }
 
         backgroundSignalManager.removeListener(
@@ -474,6 +512,9 @@ WHAT COMES BACK:
 
         if (timeoutId) {
           clearTimeout(timeoutId);
+        }
+        if (killTimer) {
+          clearTimeout(killTimer);
         }
         backgroundSignalManager.off("backgroundRequested", moveToBackground);
         reject(`Error: ${error.message}`);
