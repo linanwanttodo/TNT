@@ -1,7 +1,7 @@
 /*
- * The title bar across the canvas: a 36px strip, the title on the left, the
- * actions and window controls on the right with an 11px edge margin. The
- * window controls are 22px circles on a 37px pitch.
+ * The title bar across the canvas: a 36px strip with the title on the left.
+ * The desktop shell's window controls are deliberately absent — a browser tab
+ * cannot minimize, maximize or close itself.
  */
 
 .titleBar {
@@ -9,94 +9,10 @@
   flex: 0 0 36px;
   display: flex;
   align-items: center;
-  padding: 0 11px 0 20px;
+  padding: 0 24px;
 }
 
 .title {
   font-size: 13px;
   color: var(--dsw-alias-label-tertiary);
-}
-
-.actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.action {
-  display: flex;
-  align-items: center;
-  border: none;
-  background: transparent;
-  color: var(--dsw-alias-label-tertiary);
-  cursor: pointer;
-}
-
-.action:hover {
-  color: var(--dsw-alias-label-primary);
-}
-
-.windowControls {
-  margin-left: 28px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.windowControl {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--dsh-shell-window-control);
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
-}
-
-.windowControl:hover {
-  background: var(--dsh-shell-button-hover);
-}
-
-/* The three marks are drawn with borders so they stay one pixel wide. */
-.minimize {
-  width: 8px;
-  height: 1px;
-  background: currentColor;
-}
-
-.maximize {
-  width: 7px;
-  height: 7px;
-  border: 1px solid currentColor;
-  border-radius: 1px;
-}
-
-.close {
-  position: relative;
-  width: 8px;
-  height: 8px;
-}
-
-.close::before,
-.close::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 9px;
-  height: 1px;
-  background: currentColor;
-}
-
-.close::before {
-  transform: rotate(45deg);
-}
-
-.close::after {
-  transform: rotate(-45deg);
 }

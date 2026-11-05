@@ -25,9 +25,6 @@ import css from "./App.module.css";
 /** Title a conversation has before the engine names it. */
 const DEFAULT_TITLE = "New session";
 
-/** Model shown before the session reports one. */
-const DEFAULT_MODEL = "Deepseek-V4.1-Flash";
-
 export function App() {
   const items = useSessionStore((s) => s.items);
   const streaming = useSessionStore((s) => s.streaming);
@@ -44,7 +41,9 @@ export function App() {
 
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [title, setTitle] = useState(DEFAULT_TITLE);
-  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [sessionId, setSessionId] = useState<string | undefined>();
+  const [model, setModel] = useState<string | undefined>();
+  const [workspace, setWorkspace] = useState<string | undefined>();
   const [permissionMode, setPermissionMode] = useState<string | undefined>();
 
   const hydrate = useSessionStore((s) => s.hydrate);
@@ -59,12 +58,22 @@ export function App() {
         hydrate(state);
         const session = state.session;
         if (!session) return;
+        setSessionId(session.sessionId);
         if (typeof session.title === "string" && session.title !== "") {
           setTitle(session.title);
         }
         const chatModel = session.chatModelTitle;
         if (typeof chatModel === "string" && chatModel !== "") {
           setModel(chatModel);
+        }
+        const directory = session.workspaceDirectory;
+        if (typeof directory === "string" && directory !== "") {
+          setWorkspace(
+            directory
+              .replace(/[/\\]+$/, "")
+              .split(/[/\\]/)
+              .pop(),
+          );
         }
         const mode = (state as { permissionMode?: unknown }).permissionMode;
         if (typeof mode === "string" && mode !== "") {
@@ -97,7 +106,7 @@ export function App() {
 
   return (
     <div className={css.shell}>
-      <Sidebar groups={groups} status={status} />
+      <Sidebar groups={groups} activeSessionId={sessionId} status={status} />
       <main className={css.canvas}>
         <TitleBar title={title} />
         <div className={css.conversation}>
@@ -124,7 +133,12 @@ export function App() {
           onSend={(text) => void send(text)}
           onStop={() => void stopTurn()}
         />
-        <StatusBar model={model} permissionMode={permissionMode} />
+        <StatusBar
+          workspace={workspace}
+          model={model}
+          permissionMode={permissionMode}
+          waiting={isWaiting}
+        />
       </main>
     </div>
   );
