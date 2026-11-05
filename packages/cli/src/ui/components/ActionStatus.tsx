@@ -3,6 +3,7 @@ import React from "react";
 
 import { LoadingAnimation } from "../LoadingAnimation.js";
 import { Timer } from "../Timer.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 interface ActionStatusProps {
   visible: boolean;
@@ -28,11 +29,13 @@ const ActionStatus: React.FC<ActionStatusProps> = ({
   return (
     <Box paddingX={1} flexDirection="row" gap={1}>
       {showSpinner && <LoadingAnimation color={loadingColor} visible={true} />}
-      <Text color={color}>{message}</Text>
+      <Text color={color}>{sanitizeTerminalText(message)}</Text>
       <Text color="dim">(</Text>
       <Timer startTime={startTime} />
       <Text color="dim">• esc to interrupt</Text>
-      {additionalHint && <Text color="dim">• {additionalHint}</Text>}
+      {additionalHint && (
+        <Text color="dim">• {sanitizeTerminalText(additionalHint)}</Text>
+      )}
       <Text color="dim">)</Text>
     </Box>
   );

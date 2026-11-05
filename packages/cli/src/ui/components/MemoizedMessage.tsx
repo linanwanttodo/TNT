@@ -12,6 +12,7 @@ import { useTheme } from "../theme/tokens.js";
 import { CompactionBoundary } from "./CompactionBoundary.js";
 import { ThinkingMessage } from "./ThinkingMessage.js";
 import { ToolGroupDisplay } from "./ToolGroupDisplay.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 /**
  * Formats message content for display, converting message parts array back to
@@ -95,7 +96,9 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
       return (
         <Box key={index} marginBottom={1}>
           <Text color={theme.text.secondary} dimColor italic>
-            {message.content}
+            {sanitizeTerminalText(
+              formatMessageContentForDisplay(message.content),
+            )}
           </Text>
         </Box>
       );
@@ -106,16 +109,19 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
       return <CompactionBoundary key={index} summary={conversationSummary} />;
     }
 
-    const rawFormattedContent = formatMessageContentForDisplay(message.content);
+    const rawFormattedContent = sanitizeTerminalText(
+      formatMessageContentForDisplay(message.content),
+    );
     const { thinking: extractedThought, cleanedText: cleanedBody } = isAssistant
       ? extractThinkingContent(rawFormattedContent)
       : { thinking: undefined, cleanedText: rawFormattedContent };
 
-    const reasoningText =
+    const reasoningText = sanitizeTerminalText(
       (item as any).reasoning?.text ||
-      (message as any).reasoning ||
-      extractedThought ||
-      "";
+        (message as any).reasoning ||
+        extractedThought ||
+        "",
+    );
 
     const formattedContent = isAssistant ? cleanedBody : rawFormattedContent;
     const hasContent = formattedContent.length > 0;

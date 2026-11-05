@@ -6,6 +6,7 @@ import { t } from "../i18n/index.js";
 
 import { defaultBoxStyles } from "./styles.js";
 import { TextBuffer } from "./TextBuffer.js";
+import { sanitizeTerminalText } from "./utils/terminalTextSafety.js";
 
 // Infer the Key type from useInput's callback parameters
 type UseInputHandler = Parameters<typeof useInput>[0];
@@ -56,10 +57,11 @@ export function EditMessageSelector({
   // Initialize edit text when selection changes
   React.useEffect(() => {
     if (!isEditing && userMessages[selectedIndex]) {
-      const content =
+      const content = sanitizeTerminalText(
         typeof userMessages[selectedIndex].item.message.content === "string"
           ? userMessages[selectedIndex].item.message.content
-          : "";
+          : "",
+      );
       textBuffer.setText(content);
       setEditText(content);
       setCursorPosition(content.length);
@@ -69,9 +71,11 @@ export function EditMessageSelector({
   // Helper to get message content safely
   const getMessageContent = React.useCallback(
     (index: number): string => {
-      return typeof userMessages[index]?.item.message.content === "string"
-        ? userMessages[index].item.message.content
-        : "";
+      return sanitizeTerminalText(
+        typeof userMessages[index]?.item.message.content === "string"
+          ? userMessages[index].item.message.content
+          : "",
+      );
     },
     [userMessages],
   );
