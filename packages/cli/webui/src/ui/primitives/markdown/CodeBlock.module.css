@@ -83,7 +83,10 @@
   margin: 0 !important;
   overflow-x: auto;
   white-space: pre-wrap;
-  word-break: break-all;
+  /* Wrapping a code line must not cut identifiers: `break-all` does exactly
+     that, and the wrap toggle already owns the no-wrap case below. */
+  word-break: normal;
+  overflow-wrap: anywhere;
   background: var(--dsl-code-block-background);
   /* Bottom radii live on <pre>: overflow:hidden on .block would kill the
      sticky banner, and this opaque fill otherwise squares off the wrapper. */

@@ -1,6 +1,6 @@
 /*
- * The composer: a 768x44 field centred on the canvas, with the leading plus
- * button, the placeholder and the send/stop button on the right.
+ * The composer: the shell column, 44px tall, with the leading plus button,
+ * the placeholder and the send/stop button on the right.
  */
 
 .frame {
@@ -10,16 +10,22 @@
 }
 
 .box {
-  width: 768px;
+  /* The same box the transcript column draws on: the canvas gutter is 24px
+     per side, so both edges land together at every width. */
+  width: min(var(--dsh-column), 100% - 48px);
   height: 44px;
   display: flex;
   align-items: center;
   gap: 15px;
   padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 14px;
   background: var(--dsh-shell-pill-fill);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.box:focus-within {
+  border-color: var(--dsw-alias-border-l3);
 }
 
 .leading {

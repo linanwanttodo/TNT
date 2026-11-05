@@ -7,7 +7,7 @@
 .statusBar {
   height: 44px;
   flex: 0 0 44px;
-  width: 768px;
+  width: min(var(--dsh-column), 100% - 48px);
   margin: 0 auto;
   padding: 0 14px 0 15px;
   display: flex;
@@ -15,18 +15,23 @@
   justify-content: space-between;
   font-size: 12.5px;
   color: var(--dsw-alias-label-secondary);
+  /* The entries are nowrap by design; without a clip a narrow canvas would
+     grow the document instead of ellipsizing the model. */
+  overflow: hidden;
 }
 
 .entries {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
 .right {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .entry {
@@ -64,9 +69,9 @@
   display: flex;
   align-items: center;
   padding: 0 6px;
-  border: none;
+  border: 1px solid var(--dsh-shell-pill-border);
   border-radius: 6px;
-  background: #2a2a2a;
+  background: var(--dsh-shell-pill-fill);
   color: var(--dsw-alias-label-secondary);
   font: inherit;
   font-size: 12px;
@@ -80,10 +85,10 @@
   left: 0;
   width: 312px;
   padding: 8px 0;
-  border: 1px solid #3b3b3a;
+  border: 1px solid var(--dsw-alias-border-l3);
   border-radius: 9px;
-  background: #252524;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  background: var(--dsw-specific-menu);
+  box-shadow: var(--dsw-shadow-lv3);
   z-index: 10;
 }
 
@@ -123,13 +128,13 @@
   font-size: 13px;
   line-height: 17px;
   font-variation-settings: var(--dsh-font-axis-semibold);
-  color: #c3c2b7;
+  color: var(--dsw-alias-label-secondary);
 }
 
 .menuItemDescription {
   font-size: 12px;
   line-height: 16px;
-  color: #6c6a66;
+  color: var(--dsw-alias-label-caption);
   white-space: nowrap;
 }
 
@@ -138,22 +143,38 @@
   width: 10px;
   height: 6px;
   margin-top: 6px;
-  border-left: 1.6px solid #2f74cf;
-  border-bottom: 1.6px solid #2f74cf;
+  border-left: 1.6px solid var(--dsh-claude-link);
+  border-bottom: 1.6px solid var(--dsh-claude-link);
   transform: rotate(-45deg);
 }
 
 .model {
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .spinner {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
   margin-left: 6px;
-  border: 1.5px solid var(--dsw-alias-label-tertiary);
+  border: 1.5px solid var(--dsw-alias-border-l3);
+  border-top-color: var(--dsw-alias-brand-primary);
   border-radius: 50%;
-  opacity: 0.6;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }

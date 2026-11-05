@@ -85,8 +85,6 @@
   --dsh-claude-link: #8ab4f8;
   --dsh-claude-link-underline: rgba(138, 180, 248, 0.6);
   --dsh-claude-table-head: #262626;
-  --dsh-claude-scrollbar: rgba(88, 86, 80, 0.9);
-  --dsh-claude-scrollbar-hover: rgba(136, 134, 128, 0.9);
   --dsh-claude-inverse-fill: #f0efec;
   --dsh-claude-inverse-ink: #141413;
 
@@ -104,6 +102,50 @@
   --dsh-shell-worktree-fill: #0b2544;
   --dsh-shell-worktree-ink: #6da5eb;
   --dsh-shell-branch: #35b148;
+
+  /* Surfaces the ported component sheets ask for and this file never gave.
+     Each one is a `background`/`box-shadow`/`backdrop-filter` value with no
+     fallback at the use site, so an absent token paints nothing. */
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.55);
+  --dsw-alias-bg-module-platform: #262626;
+  --dsw-menu-surface-fill: #2c2c2b;
+  --dsw-alias-menu-group-header-fill: #2c2c2b;
+  --dsw-alias-menu-icon: #888680;
+  --dsw-alias-tooltip-bg: #454545;
+  --dsw-alias-tooltip-key-bg: rgba(255, 255, 255, 0.12);
+  --dsw-alias-toast-bg: #2c2c2b;
+  --dsw-alias-toast-label: #f0efec;
+  --dsw-alias-switch-thumb: #f0efec;
+  --dsw-alias-label-dimmed: #6b6a65;
+
+  /* Borders and fills one step past the published l1-l3 ramp. */
+  --dsw-alias-border-l4: #454545;
+  --dsw-alias-border-l2-darkmode-thin: #3a3a3a;
+  --dsw-alias-button-tool-bar-fill: #2c2c2b;
+  --dsw-alias-button-tool-bar-hover: #3a3a3a;
+  --dsw-alias-button-ghost-active-fill: rgba(217, 119, 87, 0.16);
+  --dsw-alias-button-ghost-active-border: rgba(217, 119, 87, 0.45);
+
+  /* Diff row tints, riding the state ramp rather than a new hue. */
+  --dsw-alias-code-diff-added: rgba(140, 191, 150, 0.12);
+  --dsw-alias-code-diff-deleted: rgba(229, 83, 75, 0.12);
+
+  /* Scrollbars: l1 is the page, l2 the thin bar inside floating surfaces. */
+  --dsw-alias-scrollbar-bg-l1: rgba(88, 86, 80, 0.9);
+  --dsw-alias-scrollbar-hover-l1: rgba(136, 134, 128, 0.9);
+  --dsw-alias-scrollbar-bg-l2: rgba(88, 86, 80, 0.9);
+  --dsw-alias-scrollbar-hover-l2: rgba(136, 134, 128, 0.9);
+
+  /* Elevation, ascending. */
+  --dsw-elevation-soft: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --dsw-shadow-lv3:
+    0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.24);
+  --dsw-elevation-panel:
+    0 8px 28px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+  --dsw-elevation-prominent:
+    0 16px 40px rgba(0, 0, 0, 0.45), 0 3px 10px rgba(0, 0, 0, 0.28);
+  --dsw-mask-blur: blur(8px);
+  --dsw-menu-backdrop-filter: blur(12px);
 
   color-scheme: dark;
 }
@@ -168,8 +210,6 @@
   --dsh-claude-link: #184f95;
   --dsh-claude-link-underline: rgba(24, 79, 95, 0.6);
   --dsh-claude-table-head: #f0f0ef;
-  --dsh-claude-scrollbar: rgba(208, 205, 193, 0.9);
-  --dsh-claude-scrollbar-hover: rgba(143, 138, 126, 0.8);
   --dsh-claude-inverse-fill: #141413;
   --dsh-claude-inverse-ink: #faf9f5;
   --dsh-shell-segment-fill: #f2f1ed;
@@ -184,7 +224,93 @@
   --dsh-shell-worktree-ink: #6da5eb;
   --dsh-shell-branch: #2f8f3d;
 
+  --dsw-alias-bg-mask-1: rgba(20, 20, 19, 0.35);
+  --dsw-alias-bg-module-platform: #f2f1ed;
+  --dsw-menu-surface-fill: #ffffff;
+  --dsw-alias-menu-group-header-fill: #ffffff;
+  --dsw-alias-menu-icon: #8f8a7e;
+  --dsw-alias-tooltip-bg: #30302e;
+  --dsw-alias-tooltip-key-bg: rgba(255, 255, 255, 0.16);
+  --dsw-alias-toast-bg: #ffffff;
+  --dsw-alias-toast-label: #141413;
+  --dsw-alias-switch-thumb: #ffffff;
+  --dsw-alias-label-dimmed: #a6a094;
+
+  --dsw-alias-border-l4: #c2bfb2;
+  --dsw-alias-border-l2-darkmode-thin: #dedcd2;
+  --dsw-alias-button-tool-bar-fill: #ffffff;
+  --dsw-alias-button-tool-bar-hover: #f2f1ed;
+  --dsw-alias-button-ghost-active-fill: rgba(217, 119, 87, 0.14);
+  --dsw-alias-button-ghost-active-border: rgba(217, 119, 87, 0.4);
+
+  --dsw-alias-code-diff-added: rgba(61, 117, 80, 0.1);
+  --dsw-alias-code-diff-deleted: rgba(179, 38, 30, 0.08);
+
+  --dsw-alias-scrollbar-bg-l1: rgba(208, 205, 193, 0.9);
+  --dsw-alias-scrollbar-hover-l1: rgba(143, 138, 126, 0.8);
+  --dsw-alias-scrollbar-bg-l2: rgba(208, 205, 193, 0.9);
+  --dsw-alias-scrollbar-hover-l2: rgba(143, 138, 126, 0.8);
+
+  --dsw-elevation-soft: 0 1px 2px rgba(20, 20, 19, 0.08);
+  --dsw-shadow-lv3:
+    0 12px 32px rgba(20, 20, 19, 0.16), 0 2px 6px rgba(20, 20, 19, 0.08);
+  --dsw-elevation-panel:
+    0 8px 28px rgba(20, 20, 19, 0.14), 0 2px 6px rgba(20, 20, 19, 0.07);
+  --dsw-elevation-prominent:
+    0 16px 40px rgba(20, 20, 19, 0.18), 0 3px 10px rgba(20, 20, 19, 0.09);
+  --dsw-mask-blur: blur(8px);
+  --dsw-menu-backdrop-filter: blur(12px);
+
   color-scheme: light;
+}
+
+/*
+ * Theme-independent tokens.
+ *
+ * The markdown type scale is a set of `font:` shorthand values: the ported
+ * component sheets only ever write `font: var(--dsw-font-markdown-*)`, so a
+ * missing entry drops the whole declaration and the element falls back to the
+ * inherited body font. That is why every heading used to render at body size.
+ * The scale is anchored on the 15px/24px transcript body the shell already
+ * draws, and the code ladder sits two steps below it.
+ */
+:root {
+  --dsw-font-markdown-base: 15px/24px var(--dsw-font-family);
+  --dsw-font-markdown-base-strong: 600 15px/24px var(--dsw-font-family);
+  --dsw-font-markdown-h1: 600 20px/28px var(--dsw-font-family);
+  --dsw-font-markdown-h2: 600 18px/26px var(--dsw-font-family);
+  --dsw-font-markdown-h3: 600 16px/24px var(--dsw-font-family);
+  --dsw-font-markdown-h4: 600 15px/22px var(--dsw-font-family);
+  --dsw-font-markdown-code: 13px/20px var(--ds-font-family-code);
+  --dsw-font-markdown-code-block: 13px/20px var(--ds-font-family-code);
+  --dsw-font-markdown-table: 14px/22px var(--dsw-font-family);
+  --dsw-font-markdown-table-head: 600 13px/20px var(--dsw-font-family);
+}
+
+/*
+ * The static ramp: hues that do not invert with the theme, so they are named
+ * once. `neutral-bluish-00` is the near-white a dark tooltip writes with.
+ */
+:root {
+  --dsw-static-neutral-bluish-00: #fcfcfb;
+  --dsw-static-neutral-bluish-300: #a6a094;
+  --dsw-static-deepseek-400: #e08a6d;
+  --dsw-static-deepseek-450: #dd7c5d;
+  --dsw-static-deepseek-500: #d97757;
+  --dsw-static-amber-400: #e2a45f;
+  --dsw-static-amber-500: #d9903f;
+  --dsw-static-green-500: #35b148;
+  --dsw-static-red-600: #b3261e;
+}
+
+/*
+ * The one column the canvas draws on. The transcript, the composer and the
+ * status strip all take it, so their left edges land on the same pixel and
+ * the row shrinks with the window instead of forcing a horizontal scroll.
+ * Each use pairs it with the canvas' 24px side gutter.
+ */
+:root {
+  --dsh-column: 768px;
 }
 
 * {
@@ -207,22 +333,4 @@ body {
   line-height: 1.25rem;
   font-variation-settings: var(--dsh-font-axis-regular);
   -webkit-font-smoothing: antialiased;
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--dsh-claude-scrollbar);
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--dsh-claude-scrollbar-hover);
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
 }
