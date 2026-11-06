@@ -109,14 +109,17 @@ export async function finishServedTurn(
  * used to sit here was a 100ms poll of a callback the caller passed as
  * `() => false`, so it could only ever add a timer to every response.
  */
-export async function streamServeResponse(
+/**
+ * The stream callbacks shared by every surface that serves a session over
+ * HTTP (serve and webui standalone): permission requests land in the state's
+ * pendingPermission for the HTTP face to expose, and system notices go to
+ * the history. Tool events are no-ops here because ChatHistoryService
+ * already records them.
+ */
+export function buildServedStreamCallbacks(
   state: ServerState,
-  llmApi: any,
-  abortController: AbortController,
-  turnBudgetLimits?: Partial<TurnBudgetLimits>,
-): Promise<string> {
-  // Create callbacks to capture tool events
-  const callbacks: StreamCallbacks = {
+): StreamCallbacks {
+  return {
     onContent: (_: string) => {
       // onContent is empty - doesn't update history during streaming
       // This is just for real-time display purposes
@@ -181,6 +184,15 @@ export async function streamServeResponse(
       }
     },
   };
+}
+
+export async function streamServeResponse(
+  state: ServerState,
+  llmApi: any,
+  abortController: AbortController,
+  turnBudgetLimits?: Partial<TurnBudgetLimits>,
+): Promise<string> {
+  const callbacks = buildServedStreamCallbacks(state);
 
   // The session history keeps the system prompt at its head for the /state
   // snapshot, but the request header re-injects the same prompt (the same
@@ -191,15 +203,21 @@ export async function streamServeResponse(
       ? state.session.history.slice(1)
       : state.session.history;
 
-  const response = await runAgentTurn({
-    chatHistory: history,
-    model: state.model,
-    llmApi,
-    abortController,
-    callbacks,
-    turnBudgetLimits,
-  });
-  return response || "";
+  try {
+    const response = await runAgentTurn({
+      chatHistory: history,
+      model: state.model,
+      llmApi,
+      abortController,
+      callbacks,
+      turnBudgetLimits,
+    });
+    return response || "";
+  } finally {
+    // The permission prompt is answered (or timed out) inside the turn; once
+    // the turn is over there is nothing left to answer, whatever the outcome.
+    state.pendingPermission = null;
+  }
 }
 
 export interface PendingPermission {

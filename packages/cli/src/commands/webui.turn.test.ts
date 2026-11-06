@@ -16,12 +16,14 @@ vi.mock("../agent/atMentions.js", () => ({
   expandMentions: vi.fn(() => ({ contextItems: [] })),
 }));
 
-vi.mock("./serve.helpers.js", () => ({
+vi.mock("./serve.helpers.js", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   prepareServedPrompt: vi.fn(() => Promise.resolve({ text: "hi" })),
   finishServedTurn: vi.fn(),
   titleServeSessionIfUntitled: vi.fn(),
   removePartialAssistantMessage: vi.fn(),
   checkAgentComplete: vi.fn(() => true),
+  buildServedStreamCallbacks: vi.fn(() => ({})),
 }));
 
 vi.mock("../telemetry/telemetryService.js", () => ({
