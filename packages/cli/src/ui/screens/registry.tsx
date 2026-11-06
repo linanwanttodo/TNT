@@ -13,6 +13,7 @@ import { JobsSelector } from "../JobsSelector.js";
 import { MCPMarketplace } from "../MCPMarketplace.js";
 import { MCPSelector } from "../MCPSelector.js";
 import { ModelSelector } from "../ModelSelector.js";
+import { PluginsBrowser } from "../PluginsBrowser.js";
 import { UpdateSelector } from "../UpdateSelector.js";
 
 /**
@@ -42,6 +43,10 @@ export const SCREENS: readonly ScreenDefinition[] = [
   {
     id: "mcpMarket",
     render: (props) => <MCPMarketplace onCancel={props.closeCurrentScreen} />,
+  },
+  {
+    id: "plugins",
+    render: (props) => <PluginsBrowser onCancel={props.closeCurrentScreen} />,
   },
   {
     id: "update",

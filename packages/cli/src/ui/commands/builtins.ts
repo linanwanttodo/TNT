@@ -31,6 +31,8 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
     subcommands: [
       { name: "list", description: t("mcp.sub.list") },
       { name: "market", description: t("mcp.sub.market") },
+      { name: "search", description: t("mcp.sub.search") },
+      { name: "install", description: t("mcp.sub.install") },
     ],
   },
   { name: "init", descriptionKey: "cmd.init" },
