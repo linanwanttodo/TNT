@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
+
 export function getVersion(): string {
   try {
     const here = dirname(fileURLToPath(import.meta.url));
@@ -48,6 +50,7 @@ export async function getLatestVersion(): Promise<string | null> {
       // releases API rather than a registry. The probe must stay asynchronous:
       // it runs during service init, and a synchronous call there froze the
       // whole process - and first paint - for as long as the request took.
+      await assertConfiguredHttpUrl(RELEASE_API);
       const response = await fetch(RELEASE_API, {
         headers: {
           "User-Agent": "tnt-cli",
@@ -69,6 +72,7 @@ export async function getLatestVersion(): Promise<string | null> {
     try {
       // The API allows 60 unauthenticated requests an hour; the release page
       // redirect carries the same tag without spending that quota.
+      await assertConfiguredHttpUrl(RELEASE_PAGE);
       const response = await fetch(RELEASE_PAGE, {
         headers: { "User-Agent": "tnt-cli" },
         redirect: "follow",

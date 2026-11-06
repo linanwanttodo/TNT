@@ -9,6 +9,7 @@ import {
   StdioMcpServer,
 } from "node_modules/@tnt/config-yaml/dist/schemas/mcp/index.js";
 
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
 import { MCPConnectionInfo } from "./types.js";
 
 export function constructSseTransport(
@@ -29,15 +30,23 @@ export function constructSseTransport(
 
   return new SSEClientTransport(new URL(serverConfig.url), {
     eventSourceInit: {
-      fetch: (input, init) =>
-        fetch(input, {
+      // serverConfig.url is operator-configured; every SDK-invoked fetch of
+      // it (SSE stream and POST endpoint alike) is validated first, while
+      // the input itself is handed to the SDK unchanged. The MCPService
+      // connect path catches the thrown guard error as a connection failure.
+      fetch: async (input, init) => {
+        await assertConfiguredHttpUrl(
+          input instanceof URL ? input : new URL(String(input)),
+        );
+        return fetch(input, {
           ...init,
           headers: {
             ...init?.headers,
             ...headers,
           },
           ...(sseAgent && { agent: sseAgent }),
-        }),
+        });
+      },
     },
     requestInit: {
       headers,

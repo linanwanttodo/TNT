@@ -35,14 +35,29 @@ function parseOwnerRepo(
     /github\.com\/([^/]+)\/([^/.]+?)(?:\.git)?$/,
   );
   if (httpsMatch && httpsMatch[1] && httpsMatch[2]) {
-    return { owner: httpsMatch[1], repo: httpsMatch[2] };
+    return validOwnerRepo(httpsMatch[1], httpsMatch[2]);
   }
   // SSH: git@github.com:owner/repo.git
   const sshMatch = remoteUrl.match(/github\.com:([^/]+)\/([^/.]+?)(?:\.git)?$/);
   if (sshMatch && sshMatch[1] && sshMatch[2]) {
-    return { owner: sshMatch[1], repo: sshMatch[2] };
+    return validOwnerRepo(sshMatch[1], sshMatch[2]);
   }
   return null;
+}
+
+// The detectPrUrl fetch host is the fixed api.github.com constant, so no URL
+// guard applies; only the owner/repo path segments taken from the git remote
+// need a shape check before they are interpolated into the request URL.
+const OWNER_REPO_SEGMENT = /^[A-Za-z0-9._-]+$/;
+
+function validOwnerRepo(
+  owner: string,
+  repo: string,
+): { owner: string; repo: string } | null {
+  if (!OWNER_REPO_SEGMENT.test(owner) || !OWNER_REPO_SEGMENT.test(repo)) {
+    return null;
+  }
+  return { owner, repo };
 }
 
 /**

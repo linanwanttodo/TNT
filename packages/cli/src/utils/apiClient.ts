@@ -2,6 +2,7 @@
 import { env } from "../config/env.js";
 
 import { logger } from "./logger.js";
+import { assertConfiguredHttpUrl } from "./urlGuard.js";
 
 export interface ApiRequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
@@ -80,6 +81,9 @@ export async function makeAuthenticatedRequest<T = any>(
     const url = new URL(endpoint, env.apiBase);
     logger.debug(`Making ${method} request to: ${url.toString()}`);
 
+    // apiBase comes from configuration; validate before fetching. The thrown
+    // guard error joins the existing catch below as a request failure.
+    await assertConfiguredHttpUrl(url);
     const response = await fetch(url, requestOptions);
 
     if (!response.ok) {

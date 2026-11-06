@@ -1,5 +1,7 @@
 import { TntError, TntErrorReason } from "core/util/errors.js";
 
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
+
 const DEFAULT_ENDPOINT = "http://127.0.0.1:9222";
 const DISCOVERY_TIMEOUT_MS = 5_000;
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -38,6 +40,10 @@ function browserEndpoint(): string {
 }
 
 async function pageSocketUrl(endpoint: string): Promise<string> {
+  // The endpoint is operator-configured (TNT_BROWSER_ENDPOINT), so the
+  // configured guard permits its deliberate loopback default. No local catch:
+  // the TntError and guard failures both propagate to the tool caller.
+  await assertConfiguredHttpUrl(`${endpoint}/json/list`);
   const response = await fetch(`${endpoint}/json/list`, {
     signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
   });
