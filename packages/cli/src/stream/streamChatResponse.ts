@@ -41,6 +41,12 @@ import {
 } from "./streamChatResponse.types.js";
 import { advanceSystemPrompt } from "./systemPromptRound.js";
 import {
+  clearSectionBaselines,
+  createSectionBaselines,
+  hashSectionText,
+  planSectionReinjection,
+} from "./systemMessageReinjection.js";
+import {
   createTurnState,
   noteCompaction,
   noteOverflowRecovery,
@@ -141,17 +147,90 @@ export async function streamChatResponse(
     const nextSystemMessage =
       runOverrides?.systemMessage ??
       (await services.systemMessage.getSystemMessage(mode));
+    // Section-level reinjection: a section the model already knows keeps its
+    // prefix bytes and restates its change in-history, so a mid-session edit
+    // to a rule file or an output style does not rebill the cached prefix.
+    // Overridden system messages have no sections to plan with, and a test
+    // double of the service may not build sections at all - both skip it.
+    let prefixNext = nextSystemMessage;
+    let sectionAppends: readonly string[] = [];
+    const sectionSource = services.systemMessage as
+      | {
+          getSystemMessageSections?: (
+            mode: string,
+          ) => Promise<{ name: string; text: string }[]>;
+        }
+      | undefined;
+    const sectionBuilder =
+      sectionSource?.getSystemMessageSections?.bind(sectionSource);
+    if (!runOverrides?.systemMessage && sectionBuilder) {
+      const sections = await sectionBuilder(mode);
+      state.systemPrompt.sections ??= createSectionBaselines();
+      const retainedHistory = chatHistory
+        .map((item) => {
+          const content = item.message.content;
+          if (typeof content === "string") return content;
+          if (Array.isArray(content)) {
+            return content
+              .map((part) => (part.type === "text" ? part.text : ""))
+              .join("");
+          }
+          return "";
+        })
+        .join("\n");
+      const plan = planSectionReinjection({
+        sections: sections.map((section) => ({
+          id: section.name,
+          text: section.text,
+        })),
+        baselines: state.systemPrompt.sections,
+        retainedHistory,
+        existingUpdates: state.systemPrompt.updates,
+        carriesInHistory:
+          llmApi.carriesInHistorySystemMessages?.(model.model) === true,
+      });
+      prefixNext = plan.prefixText;
+      sectionAppends = plan.appends;
+      for (const verdict of plan.perSection) {
+        logger.debug(`System section ${verdict.id}: ${verdict.action}`);
+      }
+    }
     // The round advances the prompt state in place; the loop only reads what
     // this request sends.
     const advancedPrompt = advanceSystemPrompt({
       state: state.systemPrompt,
-      next: nextSystemMessage,
+      next: prefixNext,
       modelName: model.model,
       supportsInHistoryUpdate:
         model.chatOptions?.supportsInHistorySystemUpdates,
       carriesInHistory:
         llmApi.carriesInHistorySystemMessages?.(model.model) === true,
     });
+    if (advancedPrompt.action === "rewrite") {
+      // A rewritten prefix carries every section's current bytes, so the
+      // per-section facts restart from this build.
+      if (state.systemPrompt.sections) {
+        clearSectionBaselines(state.systemPrompt.sections);
+        const sections =
+          await services.systemMessage.getSystemMessageSections(mode);
+        for (const section of sections) {
+          const snapshot = {
+            id: section.name,
+            hash: hashSectionText(section.text),
+            text: section.text,
+          };
+          state.systemPrompt.sections.byId.set(section.name, {
+            prefix: { snapshot },
+            told: { snapshot, via: "prefix" },
+          });
+        }
+      }
+    } else if (sectionAppends.length > 0) {
+      state.systemPrompt.updates = [
+        ...state.systemPrompt.updates,
+        ...sectionAppends,
+      ];
+    }
     for (const warning of advancedPrompt.warnings) {
       logger.warn(warning);
     }
