@@ -264,6 +264,13 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+@media (hover: hover) {
+  .sessionRow:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
 .sessionRow[data-active="true"] {
   background: var(--dsh-shell-row-active);
   color: var(--dsw-alias-label-primary);
