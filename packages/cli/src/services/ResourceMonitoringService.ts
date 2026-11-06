@@ -1,11 +1,11 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import * as os from "os";
 import { promisify } from "util";
 
 import { logger } from "../utils/logger.js";
 import { registerShutdownCallback } from "../utils/processShutdown.js";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface ResourceUsage {
   timestamp: number;
@@ -277,8 +277,15 @@ class ResourceMonitoringService {
     }
 
     try {
-      const { stdout } = await execAsync(`lsof -p ${process.pid} | wc -l`);
-      return parseInt(stdout.trim(), 10) - 1; // Subtract 1 for header line
+      // Array form without a shell: process.pid is our own numeric pid and is
+      // one argv element, and the line count happens in-process instead of a
+      // `| wc -l` pipeline.
+      const { stdout } = await execFileAsync("lsof", [
+        "-p",
+        String(process.pid),
+      ]);
+      const lines = stdout.split("\n").filter((line) => line.length > 0);
+      return lines.length - 1; // Subtract 1 for header line
     } catch {
       return null;
     }

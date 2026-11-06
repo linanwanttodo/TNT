@@ -3,7 +3,7 @@ import { promisify } from "util";
 
 import { GlobalContext } from "core/util/GlobalContext.js";
 
-import { logger } from "src/utils/logger.js";
+import { logger } from "../utils/logger.js";
 
 import {
   compareVersions,
@@ -56,6 +56,249 @@ export function shouldAutoUpdate(decision: AutoUpdateDecision): boolean {
     decision.status !== "updating" &&
     !decision.alreadyAutoUpdated
   );
+}
+
+/**
+ * The parsed invocation a post-update restart has to reproduce.
+ *
+ * It is captured from commander's parse result in a `preAction` hook (see
+ * `runCli` in `src/index.ts`), never from raw `process.argv`: by the time the
+ * hook runs, commander has matched every token against the declared flags and
+ * errored on anything unknown, so this spec can only hold parsed values for
+ * options the CLI actually defines. Kept in module state rather than
+ * `GlobalContext`, which persists to disk - this is process-lifetime data.
+ */
+export interface CliLaunchSpec {
+  /** Subcommand name, or null when the root command ran. */
+  command: string | null;
+  /** Parsed option values keyed by commander attribute name. */
+  options: Record<string, unknown>;
+  /**
+   * Attribute names of the options declared on the command that ran. A flag
+   * is only re-emitted when the command declares it: anything else placed
+   * after the subcommand name would be rejected as an unknown option by the
+   * restarted CLI, which would turn an update into a broken launch.
+   */
+  declaredOptions: string[];
+  /** Positional arguments (the prompt, or the checks operands). */
+  operands: string[];
+}
+
+let capturedLaunchSpec: CliLaunchSpec | null = null;
+
+export function captureCliLaunchSpec(spec: CliLaunchSpec): void {
+  capturedLaunchSpec = spec;
+}
+
+export function getCapturedCliLaunchSpec(): CliLaunchSpec | null {
+  return capturedLaunchSpec;
+}
+
+type RestartFlagKind = "flag" | "value" | "list";
+
+interface RestartFlagSpec {
+  /** The exact spelling the restarted CLI parses. */
+  spelling: string;
+  /**
+   * flag: no value. value: one scalar. list: repeatable, one pair per element.
+   */
+  kind: RestartFlagKind;
+  /** Negatable booleans (commander's `--no-x`) emit on false instead of true. */
+  emitWhenFalse?: boolean;
+}
+
+/**
+ * The one place that decides which parsed flags survive a restart.
+ *
+ * `process.argv.slice(2)` never reaches an argument position. Every flag is
+ * rebuilt from this table against commander-parsed values, which is what
+ * gives the child argv a fixed shape:
+ *
+ * - a flag name can only come from this table, so a value can never be
+ *   re-interpreted as a flag (option injection). Flag values that start with
+ *   "-" are refused; operands go behind a `--` separator, which commander
+ *   treats as end-of-options;
+ * - a flag is emitted only when the command that ran declares it, so the
+ *   restarted parse accepts the rebuilt argv;
+ * - anything outside the table, or a value that fails validation, is dropped
+ *   with a debug log. That is deliberate: losing an unusual flag on restart
+ *   is recoverable (the user re-runs the command), while an argv assembled
+ *   from unvalidated tokens is not.
+ */
+const RESTART_FLAGS: Record<string, RestartFlagSpec> = {
+  // Common options (src/config/sharedOptions.ts) - declared on the root
+  // command, so they are only re-emitted for root restarts.
+  config: { spelling: "--config", kind: "value" },
+  org: { spelling: "--org", kind: "value" },
+  readonly: { spelling: "--readonly", kind: "flag" },
+  auto: { spelling: "--auto", kind: "flag" },
+  permissionMode: { spelling: "--permission-mode", kind: "value" },
+  dangerouslySkipPermissions: {
+    spelling: "--dangerously-skip-permissions",
+    kind: "flag",
+  },
+  mode: { spelling: "--mode", kind: "value" },
+  trustProject: { spelling: "--trust-project", kind: "flag" },
+  verbose: { spelling: "--verbose", kind: "flag" },
+  betaStatusTool: { spelling: "--beta-status-tool", kind: "flag" },
+  rule: { spelling: "--rule", kind: "list" },
+  mcp: { spelling: "--mcp", kind: "list" },
+  model: { spelling: "--model", kind: "list" },
+  prompt: { spelling: "--prompt", kind: "list" },
+  allow: { spelling: "--allow", kind: "list" },
+  ask: { spelling: "--ask", kind: "list" },
+  exclude: { spelling: "--exclude", kind: "list" },
+  agent: { spelling: "--agent", kind: "value" },
+  // Root-only options (src/index.ts).
+  print: { spelling: "--print", kind: "flag" },
+  format: { spelling: "--format", kind: "value" },
+  silent: { spelling: "--silent", kind: "flag" },
+  outputSchema: { spelling: "--output-schema", kind: "value" },
+  requestTimeout: { spelling: "--request-timeout", kind: "value" },
+  resume: { spelling: "--resume", kind: "flag" },
+  fork: { spelling: "--fork", kind: "value" },
+  maxSteps: { spelling: "--max-steps", kind: "value" },
+  betaSubagentTool: { spelling: "--beta-subagent-tool", kind: "flag" },
+  acp: { spelling: "--acp", kind: "flag" },
+  // Internal ACP worker flags (hidden from help).
+  acpWorker: { spelling: "--acp-worker", kind: "flag" },
+  sessionId: { spelling: "--session-id", kind: "value" },
+  sessionCwd: { spelling: "--session-cwd", kind: "value" },
+  // Subcommand options.
+  json: { spelling: "--json", kind: "flag" },
+  timeout: { spelling: "--timeout", kind: "value" },
+  port: { spelling: "--port", kind: "value" },
+  host: { spelling: "--host", kind: "value" },
+  id: { spelling: "--id", kind: "value" },
+  betaUploadArtifactTool: {
+    spelling: "--beta-upload-artifact-tool",
+    kind: "flag",
+  },
+  resumeSession: { spelling: "--resume-session", kind: "flag" },
+  // webui's `--no-open` is a negatable option: commander reports it as
+  // attribute `open` with value false when the user wrote `--no-open`.
+  open: { spelling: "--no-open", kind: "flag", emitWhenFalse: true },
+  base: { spelling: "--base", kind: "value" },
+  uncommitted: { spelling: "--uncommitted", kind: "flag" },
+  commit: { spelling: "--commit", kind: "value" },
+  range: { spelling: "--range", kind: "value" },
+  fix: { spelling: "--fix", kind: "flag" },
+  patch: { spelling: "--patch", kind: "flag" },
+  failFast: { spelling: "--fail-fast", kind: "flag" },
+  reviewAgents: { spelling: "--review-agents", kind: "list" },
+  reviewModel: { spelling: "--review-model", kind: "value" },
+};
+
+/**
+ * Values are data for the child process (the spawn is array-form without a
+ * shell), so the one thing to keep out of a value position is text that the
+ * restarted commander would parse as a flag or flag terminator: empty
+ * strings and anything leading with "-". Negative numbers are rejected the
+ * same way; none of the declared numeric flags take them.
+ */
+function isSafeFlagValue(value: string): boolean {
+  return value.length > 0 && !value.startsWith("-");
+}
+
+function safeScalar(value: unknown): string | null {
+  if (typeof value === "string") {
+    return isSafeFlagValue(value) ? value : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const text = String(value);
+    return isSafeFlagValue(text) ? text : null;
+  }
+  return null;
+}
+
+/**
+ * Rebuild the restart argv in a fixed shape: entry point, optional
+ * subcommand, whitelisted flag/value pairs, then operands behind `--`.
+ * Returns null when there is no safe entry point (caller skips the restart).
+ */
+export function buildRestartArgs(
+  entryPoint: string | undefined,
+  spec: CliLaunchSpec | null,
+): string[] | null {
+  if (!entryPoint || !isSafeFlagValue(entryPoint)) {
+    logger.debug("Skipping CLI restart: no script entry point in argv");
+    return null;
+  }
+
+  const args: string[] = [entryPoint];
+
+  // No captured spec means parse never reached a preAction hook (the worker
+  // path exits before parsing). The restart then runs bare: restarting
+  // without arguments is recoverable, an argv built from unvalidated tokens
+  // is not.
+  if (!spec) {
+    return args;
+  }
+
+  if (spec.command === null) {
+    // Root restart: nothing to re-emit.
+  } else if (
+    typeof spec.command === "string" &&
+    isSafeFlagValue(spec.command)
+  ) {
+    args.push(spec.command);
+  } else {
+    logger.debug(
+      `Dropping restart subcommand: ${JSON.stringify(spec.command)}`,
+    );
+  }
+
+  for (const [attribute, flagSpec] of Object.entries(RESTART_FLAGS)) {
+    // Only flags the executed command declares are re-emitted; see
+    // CliLaunchSpec.declaredOptions for why anything else would break parse.
+    if (!spec.declaredOptions.includes(attribute)) {
+      continue;
+    }
+    const value = spec.options[attribute];
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    if (flagSpec.kind === "flag") {
+      const emit = flagSpec.emitWhenFalse ? value === false : value === true;
+      if (emit) {
+        args.push(flagSpec.spelling);
+      }
+      continue;
+    }
+
+    const candidates = flagSpec.kind === "list" ? value : [value];
+    if (!Array.isArray(candidates)) {
+      logger.debug(
+        `Dropping flag ${flagSpec.spelling}: unexpected shape ${typeof value}`,
+      );
+      continue;
+    }
+    for (const candidate of candidates) {
+      const safe = safeScalar(candidate);
+      if (safe === null) {
+        logger.debug(
+          `Dropping flag ${flagSpec.spelling} value: ${JSON.stringify(candidate)}`,
+        );
+        continue;
+      }
+      args.push(flagSpec.spelling, safe);
+    }
+  }
+
+  const operands = Array.isArray(spec.operands)
+    ? spec.operands.filter(
+        (operand): operand is string =>
+          typeof operand === "string" && operand.length > 0,
+      )
+    : [];
+  if (operands.length > 0) {
+    // End-of-options separator: an operand that starts with "-" stays a
+    // positional argument for the restarted parse.
+    args.push("--", ...operands);
+  }
+
+  return args;
 }
 
 const INSTALLER_BASE =
@@ -216,6 +459,10 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       // The CLI is distributed through GitHub Releases; the installer
       // downloads and replaces the local copy, then restartCLI relaunched the
       // process. No npm involved.
+      // The installer command is a compile-time constant (see installerCommand):
+      // the URL is the constant INSTALLER_BASE and no user, config or model
+      // data reaches the string. The shell is required by the pipeline itself
+      // (`curl | bash` / `irm | iex`), not used to interpolate any input.
       const installer = await execAsync(installerCommand(), {
         timeout: 300000,
       });
@@ -257,26 +504,23 @@ export class UpdateService extends BaseService<UpdateServiceState> {
 
   private restartCLI(): void {
     try {
-      // The restart re-executes this CLI with the arguments the user started
-      // it with. They come from the process's own argv - the trust boundary
-      // the OS already enforces. The spawn is hardened regardless:
+      // The restart re-executes this CLI with the invocation the user started
+      // it with, rebuilt from the commander-parsed launch spec (see
+      // buildRestartArgs) rather than from raw process.argv:
       // - the entry point is validated as a script path, so nothing the Node
       //   executable would parse as its own option can reach the child (Node
       //   only reads options before the script path, never after it);
-      // - empty arguments are dropped so the child argv stays well-formed;
+      // - flag names come from the RESTART_FLAGS table only, and every value
+      //   passes the non-flag check, so no token can be injected as an option;
       // - the array form without `shell` never routes through a shell, so no
       //   argument is ever re-parsed as command syntax.
-      const entryPoint = process.argv[1];
-      if (!entryPoint || entryPoint.startsWith("-")) {
-        logger.debug("Skipping CLI restart: no script entry point in argv");
+      const restartArgs = buildRestartArgs(
+        process.argv[1],
+        getCapturedCliLaunchSpec(),
+      );
+      if (!restartArgs) {
         return;
       }
-      const restartArgs = [
-        entryPoint,
-        ...process.argv
-          .slice(2)
-          .filter((arg) => typeof arg === "string" && arg.length > 0),
-      ];
       const nodeExecutable = process.execPath;
 
       logger.debug(

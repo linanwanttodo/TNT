@@ -1,4 +1,4 @@
-import { execSync, fork } from "child_process";
+import { execFileSync, fork } from "child_process";
 
 import chalk from "chalk";
 import React from "react";
@@ -173,12 +173,14 @@ function applyPatches(results: ReviewResult[]): void {
   for (const result of patchResults) {
     try {
       // Dry-run first
-      execSync("git apply --check -", {
+      // Array form without a shell; the patch (model output) goes through
+      // stdin, so it is data for git and never part of a command line.
+      execFileSync("git", ["apply", "--check", "-"], {
         input: result.patch,
         stdio: ["pipe", "pipe", "pipe"],
       });
       // Actually apply
-      execSync("git apply -", {
+      execFileSync("git", ["apply", "-"], {
         input: result.patch,
         stdio: ["pipe", "pipe", "pipe"],
       });
