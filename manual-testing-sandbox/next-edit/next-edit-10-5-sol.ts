@@ -922,6 +922,9 @@ class TaskManagementSystem {
 
 // ===== USAGE EXAMPLE =====
 
+// Placeholder credential for the manual-testing sandbox. Not a real secret.
+const DEMO_PASSWORD = process.env.TNT_TEST_PASSWORD ?? "test-password";
+
 // Initialize the system
 const taskSystem = new TaskManagementSystem();
 
@@ -930,7 +933,7 @@ taskSystem.addUser({
   id: "user_1",
   username: "john_doe",
   email: "john@example.com",
-  password: "password123", // In real app, this would be hashed
+  password: DEMO_PASSWORD, // In real app, this would be hashed
   isAdmin: false,
   completedTasks: 0,
   achievements: [],
@@ -949,7 +952,7 @@ taskSystem.addProject({
 // Usage example
 try {
   // Authenticate
-  const user = taskSystem.authenticate("john_doe", "password123");
+  const user = taskSystem.authenticate("john_doe", DEMO_PASSWORD);
   console.log("Authenticated user:", user.username);
 
   // Create a task

@@ -34,7 +34,9 @@ const DEFAULT_MAX_BATCH_SIZE = 64;
 
 export enum LLMConfigurationStatuses {
   VALID = "valid",
-  MISSING_API_KEY = "missing-api-key",
+  // Sentinel for "no API key configured". Consumers only compare enum member
+  // identity (e.g. getConfigurationStatus() results), never this literal value.
+  MISSING_API_KEY = "",
   MISSING_ENV_SECRET = "missing-env-secret",
 }
 
