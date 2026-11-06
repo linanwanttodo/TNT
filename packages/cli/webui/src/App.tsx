@@ -405,9 +405,7 @@ export function App() {
               reasoning={reasoning}
               pendingPermission={pendingPermission}
               notices={notices}
-              onAnswer={(approved, remember) =>
-                void approve(approved, remember)
-              }
+              onAnswer={(approved) => void approve(approved)}
             />
           )}
         </div>
@@ -424,7 +422,11 @@ export function App() {
             {goal ? (
               <GoalPill
                 goal={goal}
-                onChange={(text) => setGoal((current) => (current ? { ...current, text } : current))}
+                onChange={(text) =>
+                  setGoal((current) =>
+                    current ? { ...current, text } : current,
+                  )
+                }
                 onPause={pauseGoal}
                 onDelete={() => setGoal(null)}
               />
@@ -445,7 +447,12 @@ export function App() {
             />
             <Composer
               waiting={isWaiting || isProcessing}
-              idle={!isWaiting && !isProcessing && items.length > 0 && streaming === null}
+              idle={
+                !isWaiting &&
+                !isProcessing &&
+                items.length > 0 &&
+                streaming === null
+              }
               onSend={(text) => void send(text)}
               onStop={() => void stopTurn()}
               onOpenMenu={() => setComposerMenuOpen((open) => !open)}

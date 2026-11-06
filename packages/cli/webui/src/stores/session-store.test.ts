@@ -141,8 +141,9 @@ describe("session store", () => {
         toolName: "Read",
         status: "done",
         result: "42 lines",
+        args: undefined,
       },
-      { kind: "message", role: "assistant", text: "Done." },
+      { kind: "message", role: "assistant", text: "Done.", changedFiles: [] },
     ]);
   });
 
