@@ -116,7 +116,9 @@ export function buildContextBreakdown(
     if (item.toolCallStates && Array.isArray(item.toolCallStates)) {
       for (const state of item.toolCallStates) {
         toolResults += countToolCallTokens(state.toolCall?.function);
-        toolResults += countOutputs(state.output as Array<{ content?: string }>);
+        toolResults += countOutputs(
+          state.output as Array<{ content?: string }>,
+        );
       }
     }
   }

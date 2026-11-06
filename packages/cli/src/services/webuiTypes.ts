@@ -72,9 +72,7 @@ export interface WebUiServiceOptions {
    * The token breakdown calculation for the current session. Defaults to
    * building it from the session history and active model.
    */
-  getContextBreakdown?: () =>
-    | ContextBreakdown
-    | Promise<ContextBreakdown>;
+  getContextBreakdown?: () => ContextBreakdown | Promise<ContextBreakdown>;
 }
 
 export interface WebUiHandle {

@@ -1010,7 +1010,7 @@ export function useChat({
     // The streamChatResponse will handle showing the appropriate message
     // through its normal onToolStart/onToolError flow
     if (approved) {
-      interactionBroker.approve(requestId);
+      interactionBroker.approve(requestId, createPolicy === true);
     } else {
       interactionBroker.reject(requestId);
 

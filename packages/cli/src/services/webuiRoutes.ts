@@ -96,7 +96,8 @@ export function registerWebUiRoutes(
       }
       const files: string[] = [];
       for (const entry of entries) {
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+        if (entry.name.startsWith(".") || entry.name === "node_modules")
+          continue;
         const path = `${directory}/${entry.name}`;
         if (entry.isDirectory()) {
           files.push(...walk(path, depth + 1));
@@ -136,8 +137,15 @@ export function registerWebUiRoutes(
       }).trim();
       res.json({ output: output || "(no output)" });
     } catch (error) {
-      const err = error as { stdout?: string; stderr?: string; message?: string };
-      res.json({ output: err.stdout?.trim(), error: err.stderr?.trim() ?? err.message });
+      const err = error as {
+        stdout?: string;
+        stderr?: string;
+        message?: string;
+      };
+      res.json({
+        output: err.stdout?.trim(),
+        error: err.stderr?.trim() ?? err.message,
+      });
     }
   });
 
@@ -502,14 +510,16 @@ export function registerWebUiRoutes(
   app.post("/permission", async (req: Request, res: Response) => {
     state.lastActivity = Date.now();
 
-    const { requestId, approved } = req.body;
+    const { requestId, approved, remember } = req.body;
 
     if (!requestId) {
       return res.status(400).json({ error: "requestId is required" });
     }
 
+    // A "remember" answer carries the session scope: the engine's permission
+    // flow holds it, not this route.
     if (approved) {
-      interactionBroker.approve(requestId);
+      interactionBroker.approve(requestId, remember === true);
     } else {
       interactionBroker.reject(requestId);
     }

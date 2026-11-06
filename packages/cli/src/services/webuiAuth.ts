@@ -87,10 +87,7 @@ export function tokenEquals(presented: string, expected: string): boolean {
  * before the routes: the static routes end in a catch-all when the dist is
  * missing, and anything mounted after it never sees the request.
  */
-export function registerWebUiAuthGate(
-  app: Express,
-  token: string,
-): void {
+export function registerWebUiAuthGate(app: Express, token: string): void {
   app.use((req, res, next) => {
     // Exempt: the bootstrap page and the exchange that mints the cookie.
     // Everything else - API routes, /app/* assets, the missing-dist
