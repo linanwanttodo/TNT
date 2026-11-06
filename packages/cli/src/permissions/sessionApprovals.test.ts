@@ -21,15 +21,28 @@ import {
 describe("sessionApprovalKey", () => {
   it("normalizes a shell line without reducing a chain to its first command", () => {
     expect(sessionApprovalKey("Bash", { command: "  ls   -la  " })).toBe(
-      "Bash(ls -la)",
+      `Bash(${process.cwd()}::ls -la)`,
     );
     expect(
       sessionApprovalKey("Bash", { command: "git add . && git commit" }),
-    ).toBe("Bash(git add . && git commit)");
+    ).toBe(`Bash(${process.cwd()}::git add . && git commit)`);
     // Not the same permission as either half on its own.
     expect(sessionApprovalKey("Bash", { command: "git add ." })).not.toBe(
       sessionApprovalKey("Bash", { command: "git add . && git commit" }),
     );
+  });
+
+  it("keys the same relative line differently per working directory", () => {
+    const spy = vi.spyOn(process, "cwd");
+    spy.mockReturnValueOnce("/repo/one");
+    const fromOne = sessionApprovalKey("Bash", { command: "rm notes.txt" });
+    spy.mockReturnValueOnce("/repo/two");
+    const fromTwo = sessionApprovalKey("Bash", { command: "rm notes.txt" });
+    spy.mockRestore();
+
+    expect(fromOne).not.toBe(fromTwo);
+    expect(fromOne).toContain("/repo/one::rm notes.txt");
+    expect(fromTwo).toContain("/repo/two::rm notes.txt");
   });
 
   it("scopes a write to the tool and the resolved file", () => {
@@ -91,7 +104,7 @@ describe("the session's approval store", () => {
 
     const key = rememberSessionApproval("Bash", { command: "npm  run  build" });
 
-    expect(key).toBe("Bash(npm run build)");
+    expect(key).toBe(`Bash(${process.cwd()}::npm run build)`);
     expect(hasSessionApproval("Bash", { command: "npm run build" })).toBe(true);
     expect(hasSessionApproval("Bash", { command: "npm test" })).toBe(false);
     expect(sessionApprovalKeys()).toEqual([key]);

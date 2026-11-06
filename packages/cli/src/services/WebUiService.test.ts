@@ -348,7 +348,7 @@ describe("WebUiService", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { success: boolean };
     expect(body.success).toBe(true);
-    expect(approveSpy).toHaveBeenCalledWith("tool-request-7");
+    expect(approveSpy).toHaveBeenCalledWith("tool-request-7", false);
     expect(rejectSpy).not.toHaveBeenCalled();
   });
 
@@ -385,7 +385,24 @@ describe("WebUiService", () => {
       body: JSON.stringify({ requestId: "tool-request-404", approved: true }),
     });
     expect(response.status).toBe(200);
-    expect(approveSpy).toHaveBeenCalledWith("tool-request-404");
+    expect(approveSpy).toHaveBeenCalledWith("tool-request-404", false);
+  });
+
+  it("forwards a remember answer as the session scope", async () => {
+    const { base, auth } = await started();
+
+    const response = await fetch(`${base}/permission`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...auth },
+      body: JSON.stringify({
+        requestId: "tool-request-8",
+        approved: true,
+        remember: true,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(approveSpy).toHaveBeenCalledWith("tool-request-8", true);
+    expect(rejectSpy).not.toHaveBeenCalled();
   });
 
   it("refuses a permission without a requestId", async () => {

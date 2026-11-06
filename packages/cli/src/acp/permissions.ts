@@ -1,7 +1,6 @@
 import * as acp from "@agentclientprotocol/sdk";
 
 import { toolPermissionManager } from "../permissions/permissionManager.js";
-import { rememberSessionApproval } from "../permissions/sessionApprovals.js";
 
 import { toolKind, toolTitle } from "./updates.js";
 
@@ -57,7 +56,9 @@ export function requestToolPermission(request: ToolPermissionRequest): void {
           : undefined;
 
       if (optionId === "allow_always") {
-        rememberSessionApproval(request.toolName, request.toolArgs);
+        // remember: true rides through the permission manager; the engine's
+        // permission flow holds the session approval, so no surface owns the
+        // store itself.
         toolPermissionManager.approveRequest(request.requestId, true);
         return;
       }

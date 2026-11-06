@@ -36,8 +36,11 @@ export function sessionApprovalKey(
     if (command.trim() === "") return undefined;
     // One line, whitespace folded: the same command written with different
     // spacing is the same permission, and a chain is never reduced to its
-    // first command (that is what the permanent rule used to do).
-    return `Bash(${command.replace(/\s+/g, " ").trim()})`;
+    // first command (that is what the permanent rule used to do). The cwd
+    // rides in the key because a relative path in the line resolves
+    // differently per directory - `rm notes.txt` from two roots are two
+    // permissions, not one.
+    return `Bash(${process.cwd()}::${command.replace(/\s+/g, " ").trim()})`;
   }
 
   if (FILE_SCOPED_TOOLS.has(toolName)) {

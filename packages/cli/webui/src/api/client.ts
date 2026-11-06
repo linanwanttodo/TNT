@@ -210,8 +210,9 @@ export async function sendMessage(text: string): Promise<void> {
 export async function approve(
   requestId: string,
   approved: boolean,
+  remember = false,
 ): Promise<void> {
-  await post("/permission", { requestId, approved });
+  await post("/permission", { requestId, approved, remember });
 }
 
 export async function stopTurn(): Promise<void> {
