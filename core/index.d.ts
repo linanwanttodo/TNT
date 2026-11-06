@@ -617,6 +617,13 @@ interface Reasoning {
 export interface ChatHistoryItem {
   message: ChatMessage;
   contextItems: ContextItemWithId[];
+  /**
+   * What the user actually typed, kept for display. message.content may carry
+   * hook notes (session start context, prompt hook output, file-change notes)
+   * prepended for the model, so surfaces render userText instead of content
+   * to stay in sync with each other.
+   */
+  userText?: string;
   editorState?: any;
   modifiers?: InputModifiers;
   promptLogs?: PromptLog[];
@@ -1513,6 +1520,13 @@ export interface MCPTool {
     type: "object";
     properties?: Record<string, any>;
   };
+  /** Server hints about how the tool behaves, per the MCP annotations spec. */
+  annotations?:
+    | {
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+      }
+    | undefined;
   _meta?: Record<string, unknown> | undefined;
 }
 
