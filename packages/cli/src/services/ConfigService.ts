@@ -6,9 +6,9 @@ import {
 } from "@tnt/config-yaml";
 import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 
-import { loadMarkdownRulesWithMetadata } from "src/agent/systemMessage.js";
-import { isStringRule } from "src/config/hubLoader.js";
-import { getErrorString } from "src/utils/error.js";
+import { loadMarkdownRulesWithMetadata } from "../agent/systemMessage.js";
+import { isStringRule } from "../config/hubLoader.js";
+import { getErrorString } from "../utils/error.js";
 
 import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";
 import {

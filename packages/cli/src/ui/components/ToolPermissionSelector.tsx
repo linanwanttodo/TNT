@@ -1,7 +1,7 @@
 import { Box, Text, useInput } from "ink";
 import React, { useState } from "react";
 
-import { ToolCallTitle } from "src/tools/ToolCallTitle.js";
+import { ToolCallTitle } from "../../tools/ToolCallTitle.js";
 
 import { t } from "../../i18n/index.js";
 import { ToolCallPreview } from "../../tools/types.js";

@@ -2,7 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { initializeServices, services } from "src/services/index.js";
+import { initializeServices, services } from "../../services/index.js";
 
 import { ModeIndicator, modeBadge, modeBorderColor } from "./ModeIndicator.js";
 

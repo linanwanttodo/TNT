@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 
-import { ToolPermissionServiceState } from "src/services/ToolPermissionService.js";
+import { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
 
 import { fireConfigChange } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
@@ -288,6 +288,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowModelSelector: () => navigateTo("model"),
     onShowMCPSelector: () => navigateTo("mcp"),
     onShowMcpMarketplace: () => navigateTo("mcpMarket"),
+    onShowPluginsBrowser: () => navigateTo("plugins"),
     onShowUpdateSelector: () => navigateTo("update"),
     onShowThemeSelector: () => navigateTo("theme"),
     onShowSessionSelector: () => navigateTo("session"),

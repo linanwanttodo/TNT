@@ -9,7 +9,7 @@ import {
   parseAgentFileTools,
 } from "@tnt/config-yaml";
 
-import { getErrorString } from "src/utils/error.js";
+import { getErrorString } from "../utils/error.js";
 
 import { agentFileProcessor, loadPackageFromHub } from "../config/hubLoader.js";
 import { t } from "../i18n/index.js";

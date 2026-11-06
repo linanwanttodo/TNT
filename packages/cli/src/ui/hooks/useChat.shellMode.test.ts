@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { runTerminalCommandTool } from "src/tools/runTerminalCommand.js";
+import { runTerminalCommandTool } from "../../tools/runTerminalCommand.js";
 
 import { services } from "../../services/index.js";
 
 import { handleBashModeProcessing } from "./useChat.shellMode.js";
 
 // Mock the runTerminalCommandTool with the correct path for the import in shellMode.ts
-vi.mock("src/tools/runTerminalCommand.js", () => ({
+vi.mock("../../tools/runTerminalCommand.js", () => ({
   runTerminalCommandTool: {
     run: vi.fn(),
   },
