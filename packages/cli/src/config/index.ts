@@ -1,7 +1,13 @@
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
-import { BaseLlmApi, constructLlmApi, LLMConfig } from "@tnt/openai-adapters";
+import {
+  BaseLlmApi,
+  constructLlmApi,
+  fetchOllamaContextLength,
+  LLMConfig,
+} from "@tnt/openai-adapters";
 import { Configuration, DefaultApi } from "@tnt/sdk/dist/api/dist/index.js";
 
+import { logger } from "../utils/logger.js";
 import { t } from "../i18n/index.js";
 import { getUniqueId } from "../utils/uniqueId.js";
 
@@ -43,6 +49,45 @@ export function createLlmApi(model: ModelConfig): BaseLlmApi | null {
   };
 
   return constructLlmApi(config) ?? null;
+}
+
+/**
+ * Fills an ollama model's context window from the server itself, so the
+ * context budgeting reads the window the model actually runs with instead of
+ * the 200k generic default. Only ollama models without an explicit window are
+ * probed; anything the server does not answer comes back unchanged and the
+ * tokenizer's 8192 floor applies.
+ */
+export async function applyOllamaContextWindow(
+  model: ModelConfig,
+): Promise<ModelConfig> {
+  if (model.provider !== "ollama") {
+    return model;
+  }
+  if (
+    model.contextLength !== undefined ||
+    model.defaultCompletionOptions?.contextLength !== undefined
+  ) {
+    return model;
+  }
+
+  const discovered = await fetchOllamaContextLength(model.apiBase, model.model);
+  if (discovered === null) {
+    logger.warn(
+      "Could not read the Ollama context window from /api/show; falling back to 8192",
+      { model: model.model, apiBase: model.apiBase },
+    );
+    return model;
+  }
+
+  // Mutated in place on purpose: the same object sits in the service state and
+  // the available-models list, and every consumer must see the one window.
+  model.contextLength = discovered;
+  logger.info("Discovered the Ollama context window", {
+    model: model.model,
+    contextLength: discovered,
+  });
+  return model;
 }
 
 export function getLlmApi(

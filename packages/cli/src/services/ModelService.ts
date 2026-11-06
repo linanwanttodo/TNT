@@ -1,6 +1,10 @@
 import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
 
-import { createLlmApi, getLlmApi } from "../config/index.js";
+import {
+  applyOllamaContextWindow,
+  createLlmApi,
+  getLlmApi,
+} from "../config/index.js";
 import { t } from "../i18n/index.js";
 import { BUILT_IN_AGENTS } from "../subagent/builtInAgents.js";
 import { logger } from "../utils/logger.js";
@@ -87,7 +91,7 @@ export class ModelService
         const [llmApi, model] = getLlmApi(assistant);
         return {
           llmApi,
-          model,
+          model: await applyOllamaContextWindow(model),
           assistant,
         };
       } else {
@@ -111,7 +115,7 @@ export class ModelService
 
         return {
           llmApi,
-          model: selectedModel,
+          model: await applyOllamaContextWindow(selectedModel),
           assistant,
         };
       }
@@ -120,7 +124,7 @@ export class ModelService
       const [llmApi, model] = getLlmApi(assistant);
       return {
         llmApi,
-        model,
+        model: await applyOllamaContextWindow(model),
         assistant,
       };
     }
@@ -238,7 +242,7 @@ export class ModelService
 
       this.setState({
         llmApi,
-        model: selectedModel,
+        model: await applyOllamaContextWindow(selectedModel),
         assistant,
       });
 
