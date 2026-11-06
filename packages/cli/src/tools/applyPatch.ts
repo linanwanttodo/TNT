@@ -2,7 +2,10 @@ import fs from "fs";
 import path from "path";
 
 import { t } from "../i18n/index.js";
-import { isWithinWorkspace } from "../permissions/workspacePath.js";
+import {
+  isWithinWorkspace,
+  resolveWithinWorkspace,
+} from "../permissions/workspacePath.js";
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 
 import { changedSinceSeen, markFileAsSeen } from "./fileState.js";
@@ -226,8 +229,10 @@ function describe(files: PatchedFile[]): string {
  */
 function checkedTargets(files: PatchedFile[]): string[] {
   return files.map((file) => {
-    const resolved = path.resolve(file.path);
-    if (!isWithinWorkspace(resolved)) {
+    // The resolution itself is anchored to a workspace root; the follow-up check
+    // keeps the symlink rule: a link inside the workspace pointing out is out.
+    const resolved = resolveWithinWorkspace(file.path);
+    if (!resolved || !isWithinWorkspace(resolved)) {
       throw new Error(t("tools.patchOutsideWorkspace", { path: file.path }));
     }
     return resolved;
@@ -245,7 +250,10 @@ async function planWrites(
   }[] = [];
 
   for (const file of files) {
-    const resolved = path.resolve(file.path);
+    const resolved = resolveWithinWorkspace(file.path);
+    if (!resolved) {
+      fail(`${file.path}: is outside the workspace`);
+    }
 
     if (file.kind === "delete") {
       if (!fs.existsSync(resolved)) {

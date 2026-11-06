@@ -7,6 +7,7 @@ import { getCurrentSessionId } from "../session/index.js";
 import { ensureSessionScopedDir } from "../session/paths.js";
 import { toDisplayPath } from "../utils/displayPath.js";
 import { logger } from "../utils/logger.js";
+import { resolveWithin } from "../utils/pathGuard.js";
 
 import { Tool } from "./types.js";
 
@@ -105,7 +106,9 @@ export const uploadArtifactTool: Tool = {
     }
 
     const dir = ensureSessionScopedDir("artifacts", getCurrentSessionId());
-    const target = path.join(dir, filename);
+    // basename() cannot traverse, but the destination is anchored to the
+    // artifacts directory at resolution time all the same.
+    const target = resolveWithin(dir, filename);
     if (stats.size + bytesIn(dir, target) > MAX_SESSION_BYTES) {
       throw new TntError(
         TntErrorReason.Unspecified,

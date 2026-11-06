@@ -3,7 +3,10 @@ import * as path from "path";
 
 import { TntError, TntErrorReason } from "core/util/errors.js";
 
-import { isWithinWorkspace } from "../permissions/workspacePath.js";
+import {
+  isWithinWorkspace,
+  resolveWithinWorkspace,
+} from "../permissions/workspacePath.js";
 
 import type {
   ComputerBackend,
@@ -237,8 +240,10 @@ function saveScreenshot(buffer: Buffer, filepath?: string): string | undefined {
   if (!filepath) {
     return undefined;
   }
-  const absolute = path.resolve(filepath);
-  if (!isWithinWorkspace(absolute)) {
+  // The resolution itself is anchored to a workspace root; the follow-up check
+  // keeps the symlink rule: a link inside the workspace pointing out is out.
+  const absolute = resolveWithinWorkspace(filepath);
+  if (!absolute || !isWithinWorkspace(absolute)) {
     throw new TntError(
       TntErrorReason.Unspecified,
       `Screenshots must be written inside the workspace: ${filepath}`,
