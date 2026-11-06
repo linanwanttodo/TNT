@@ -23,6 +23,22 @@ export interface MarketplaceServer {
   homepage?: string;
 }
 
+/**
+ * A server resolved from an online registry: either a stdio launch (command +
+ * args) or a remote endpoint (url + transport). Exactly one of the two shapes
+ * is present.
+ */
+export interface ResolvedMarketplaceServer {
+  name: string;
+  title: string;
+  description: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+  transport?: "sse" | "streamable-http";
+  envKeys?: string[];
+}
+
 export const MCP_MARKETPLACE: MarketplaceServer[] = [
   {
     name: "filesystem",
@@ -99,11 +115,13 @@ export function installedMarketplaceNames(
 
 /**
  * Adds (or replaces) one server in the user's mcp.json. Other servers and
- * unknown top-level keys are preserved; the write is atomic.
+ * unknown top-level keys are preserved; the write is atomic. A remote shape
+ * replaces the stdio command with `{url, type}` for registry-resolved servers.
  */
 export function installMarketplaceServer(
   server: MarketplaceServer,
   home: string = env.continueHome,
+  remote?: { url: string; type: "sse" | "streamable-http" },
 ): string {
   const file = marketplaceConfigPath(home);
   let document: Record<string, unknown> = {};
@@ -126,18 +144,55 @@ export function installMarketplaceServer(
       ? (document.mcpServers as Record<string, unknown>)
       : {};
 
-  servers[server.name] = {
-    command: server.command,
-    args: server.args.map((arg) => (arg === "<cwd>" ? process.cwd() : arg)),
-    ...(server.envKeys?.length
-      ? {
-          env: Object.fromEntries(server.envKeys.map((key) => [key, ""])),
-        }
-      : {}),
-  };
+  servers[server.name] = remote
+    ? {
+        url: remote.url,
+        type: remote.type,
+        ...(server.envKeys?.length
+          ? {
+              env: Object.fromEntries(server.envKeys.map((key) => [key, ""])),
+            }
+          : {}),
+      }
+    : {
+        command: server.command,
+        args: server.args.map((arg) => (arg === "<cwd>" ? process.cwd() : arg)),
+        ...(server.envKeys?.length
+          ? {
+              env: Object.fromEntries(server.envKeys.map((key) => [key, ""])),
+            }
+          : {}),
+      };
 
   document.mcpServers = servers;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   writeFileAtomically(file, `${JSON.stringify(document, null, 2)}\n`);
   return file;
+}
+
+/**
+ * Writes a registry-resolved server into mcp.json: a stdio shape for command
+ * servers, `{url, type}` for remotes - both in the compatible mcpServers form.
+ */
+export function installResolvedServer(
+  server: ResolvedMarketplaceServer,
+  home: string = env.continueHome,
+): string {
+  if (!server.command && !server.url) {
+    throw new Error(`Server ${server.name} has no installable transport`);
+  }
+  return installMarketplaceServer(
+    {
+      name: server.name,
+      title: server.title,
+      description: server.description,
+      command: server.command ?? "",
+      args: server.args ?? [],
+      envKeys: server.envKeys,
+    },
+    home,
+    server.url
+      ? { url: server.url, type: server.transport ?? "streamable-http" }
+      : undefined,
+  );
 }

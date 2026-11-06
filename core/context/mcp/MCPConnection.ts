@@ -589,6 +589,12 @@ TNT stores secrets locally and does not use an external hub.`);
       options.args || [],
     );
 
+    // Trust model: the command and args come verbatim from the user's own
+    // MCP server configuration (config file / UI). The user configuring a
+    // server is the same act as running that command themselves, so no
+    // whitelist or option validation applies here - it would only break
+    // legitimate servers. StdioClientTransport spawns array-form (no shell),
+    // so configuration values are argv elements, never shell syntax.
     const cwd = await this.resolveCwd(options.cwd);
 
     const transport = new StdioClientTransport({
