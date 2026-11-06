@@ -11,6 +11,17 @@ import { localPathToUri } from "core/util/pathToUri.js";
 
 import { canonicalPath } from "../utils/canonicalPath.js";
 import { logger } from "../utils/logger.js";
+import { parseEnvNumber } from "../utils/truncateOutput.js";
+
+/** Stat sweeps are cheap, but a tight loop has no business hammering them. */
+const RECONCILE_MIN_INTERVAL_MS = 1_000;
+/** How long an untouched index is trusted before the fallback refresh. */
+const DEFAULT_RECONCILE_INTERVAL_MS = 5 * 60_000;
+/**
+ * How many reconciles may trigger a build on an unchanged staleness picture
+ * before the trigger backs off.
+ */
+const RECONCILE_MAX_REPEATS = 3;
 
 export interface RetrievalHit {
   filepath: string;
@@ -113,6 +124,13 @@ export class RetrievalService {
   private buildPromise: Promise<void> | null = null;
   /** undefined until a search asks; null when the config selects no model. */
   private vectorIndex: LanceDbIndex | null | undefined = undefined;
+  /** When this process last saw an update() land. */
+  private lastSuccessfulUpdateAt = 0;
+  /** When the stat reconciliation last ran, however it decided. */
+  private lastReconcileAt = 0;
+  /** The staleness picture the last reconciles saw, for the backoff. */
+  private lastChangeKey: string | null = null;
+  private staleRun = 0;
 
   constructor(workspaceDir: string = process.cwd()) {
     // Core's IDE abstraction speaks file URIs, so the workspace the indexer
@@ -135,6 +153,7 @@ export class RetrievalService {
     // for the indexer's start makes this the build that lands second.
     await this.indexer.initPromise;
     await this.indexer.refreshCodebaseIndex([this.workspaceDir]);
+    this.lastSuccessfulUpdateAt = Date.now();
   }
 
   /** Whether this directory already has a full-text index to answer from. */
@@ -170,6 +189,12 @@ export class RetrievalService {
     }
 
     if (await this.hasIndex()) {
+      // The catalog answers "was this workspace indexed", not "does the index
+      // still describe it": a save in an editor, a git pull or a checkout all
+      // move the files under an index that looks complete. A stat-level
+      // reconciliation catches that and refreshes in the background, so this
+      // caller still answers immediately from what exists.
+      this.reconcileIndexInBackground();
       return;
     }
 
@@ -177,6 +202,101 @@ export class RetrievalService {
       this.buildPromise = null;
     });
     await this.buildPromise;
+  }
+
+  /**
+   * Decides whether the trusted index needs a refresh, and starts one through
+   * the same single-flight build every other path uses. Two triggers: a file
+   * whose mtime moved past the catalog's lastUpdated (or vanished from disk
+   * entirely), and a fallback that refreshes once the last successful update
+   * is older than the configured interval - a belt for everything a stat
+   * cannot see, from clock skew to an IDE that answers no stats at all.
+   */
+  private reconcileIndexInBackground(): void {
+    const now = Date.now();
+    if (this.buildPromise) {
+      // A build is already bringing the index up to date.
+      return;
+    }
+
+    const intervalMs = parseEnvNumber(
+      process.env.TNT_INDEX_RECONCILE_INTERVAL_MS,
+      DEFAULT_RECONCILE_INTERVAL_MS,
+    );
+    const overdue =
+      this.lastSuccessfulUpdateAt > 0 &&
+      now - this.lastSuccessfulUpdateAt >= intervalMs;
+    if (!overdue && now - this.lastReconcileAt < RECONCILE_MIN_INTERVAL_MS) {
+      return;
+    }
+    this.lastReconcileAt = now;
+
+    void this.detectExternalChanges()
+      .then((changedPaths) => {
+        if (changedPaths.length === 0 && !overdue) {
+          this.staleRun = 0;
+          return;
+        }
+        // The same staleness seen over and over - a clock skew that keeps a
+        // file's mtime ahead of every stamp, most often - must not turn every
+        // search into a rebuild. A few attempts are allowed, then the trigger
+        // backs off until the picture changes.
+        const key = `${overdue ? "overdue" : "fresh"}|${changedPaths.sort().join(",")}`;
+        if (key === this.lastChangeKey) {
+          this.staleRun += 1;
+        } else {
+          this.staleRun = 0;
+          this.lastChangeKey = key;
+        }
+        if (this.staleRun > RECONCILE_MAX_REPEATS) {
+          logger.warn(
+            "Codebase index reconciliation keeps seeing the same staleness; backing off",
+            { changedPaths: changedPaths.length, overdue },
+          );
+          return;
+        }
+        logger.info("Codebase index is stale; refreshing in the background", {
+          changedPaths: changedPaths.length,
+          overdue,
+        });
+        this.startIndexing();
+      })
+      .catch((error) => {
+        logger.debug("Codebase index reconciliation failed", error as Error);
+      });
+  }
+
+  /**
+   * The workspace paths that have moved under the index, judged at stat
+   * level: every indexed path is statted and compared against the lastUpdated
+   * the catalog recorded, the same comparison refreshIndex makes per file
+   * when it decides what to re-chunk. No file content is read here.
+   */
+  private async detectExternalChanges(): Promise<string[]> {
+    const branch = await this.ide.getBranch(this.workspaceDir);
+    const db = await SqliteDb.get();
+    const rows = (await db.all(
+      `SELECT path, MAX(lastUpdated) AS lastUpdated FROM tag_catalog
+       WHERE dir = ? AND branch = ? AND artifactId = ?
+       GROUP BY path`,
+      [this.workspaceDir, branch, FullTextSearchCodebaseIndex.artifactId],
+    )) as { path: string; lastUpdated: number }[];
+    if (rows.length === 0) {
+      // Nothing to reconcile against - treat the whole index as stale.
+      return ["*"];
+    }
+
+    const stats = await this.ide.getFileStats(rows.map((row) => row.path));
+    const changed: string[] = [];
+    for (const row of rows) {
+      const stat = stats[row.path];
+      // A path with no stat was deleted outside the process; a newer mtime
+      // was modified outside it. Both are the indexer's to reconcile.
+      if (!stat || stat.lastModified > row.lastUpdated) {
+        changed.push(row.path);
+      }
+    }
+    return changed;
   }
 
   /**
