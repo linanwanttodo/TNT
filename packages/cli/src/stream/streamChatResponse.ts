@@ -52,7 +52,21 @@ import {
   noteOverflowRecovery,
   noteRequestCompleted,
   takeForcedCompaction,
+  type TurnState,
 } from "./turnState.js";
+
+/**
+ * Compaction re-prices the cached prefix, so keeping the section baselines
+ * would only postpone the reinjection: the next round rebuilds every section
+ * into the prefix at no extra cache cost, and the appended-update list stops
+ * growing. Idempotent - the baselines may not exist yet on a turn that
+ * compacted before its first planned round.
+ */
+function resetSectionBaselinesAfterCompaction(state: TurnState): void {
+  if (state.systemPrompt.sections) {
+    clearSectionBaselines(state.systemPrompt.sections);
+  }
+}
 
 // Re-exported because the per-request seam is tested through this module.
 export { processStreamingResponse };
@@ -279,6 +293,7 @@ export async function streamChatResponse(
     chatHistory = prepared.chatHistory;
     if (prepared.compacted) {
       noteCompaction(state);
+      resetSectionBaselinesAfterCompaction(state);
     }
     const preApiReductionRatio = prepared.reductionRatio;
     const preApiSummarized = prepared.summarized === true;
@@ -485,6 +500,7 @@ export async function streamChatResponse(
     chatHistory = postToolResult.chatHistory;
     if (postToolResult.wasCompacted) {
       noteCompaction(state);
+      resetSectionBaselinesAfterCompaction(state);
     }
     const postToolReductionRatio = postToolResult.reductionRatio;
 
@@ -505,6 +521,7 @@ export async function streamChatResponse(
     chatHistory = compactionResult.chatHistory;
     if (compactionResult.wasCompacted) {
       noteCompaction(state);
+      resetSectionBaselinesAfterCompaction(state);
     }
 
     // A compaction is only progress if it actually removed something. The

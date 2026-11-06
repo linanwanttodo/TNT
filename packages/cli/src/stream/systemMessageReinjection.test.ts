@@ -262,4 +262,38 @@ describe("planSectionReinjection", () => {
     clearSectionBaselines(baselines);
     expect(baselines.byId.size).toBe(0);
   });
+
+  it("reinjected everything whole after a compaction cleared the baselines", () => {
+    const baselines = createSectionBaselines();
+    planSectionReinjection({
+      sections: [{ id: "outputStyle", text: OUTPUT_STYLE_V1 }],
+      baselines,
+      retainedHistory: "",
+      existingUpdates: [],
+      carriesInHistory: true,
+    });
+    planSectionReinjection({
+      sections: [{ id: "outputStyle", text: OUTPUT_STYLE_V2 }],
+      baselines,
+      retainedHistory: "",
+      existingUpdates: [],
+      carriesInHistory: true,
+    });
+
+    // Compaction re-prices the cached prefix anyway, so the baselines are
+    // dropped and the next round carries the current build in full.
+    clearSectionBaselines(baselines);
+    const after = planSectionReinjection({
+      sections: [{ id: "outputStyle", text: OUTPUT_STYLE_V2 }],
+      baselines,
+      retainedHistory: "",
+      existingUpdates: [],
+      carriesInHistory: true,
+    });
+
+    expect(after.prefixText).toBe(OUTPUT_STYLE_V2);
+    expect(after.appends).toEqual([]);
+    expect(after.perSection).toEqual([{ id: "outputStyle", action: "full" }]);
+    expect(baselines.byId.get("outputStyle")?.told.via).toBe("prefix");
+  });
 });
