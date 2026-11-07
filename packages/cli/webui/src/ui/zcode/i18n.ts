@@ -11,6 +11,10 @@ const enUS: Record<string, string> = {
   "chat.history.duration.hour": "h",
   "chat.history.duration.minute": "m",
   "chat.history.duration.second": "s",
+  "workspaceSidebar.toggleSidebar": "Toggle sidebar",
+  "sidebar.newTask": "New task",
+  "taskNav.back": "Go back",
+  "taskNav.forward": "Go forward",
 };
 
 const zhCN: Record<string, string> = {
@@ -20,6 +24,10 @@ const zhCN: Record<string, string> = {
   "chat.history.duration.hour": "时",
   "chat.history.duration.minute": "分",
   "chat.history.duration.second": "秒",
+  "workspaceSidebar.toggleSidebar": "切换侧边栏",
+  "sidebar.newTask": "新建任务",
+  "taskNav.back": "后退",
+  "taskNav.forward": "前进",
 };
 
 function resolveLocale(): string {

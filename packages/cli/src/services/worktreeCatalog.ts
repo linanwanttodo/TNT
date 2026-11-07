@@ -8,8 +8,8 @@
 import path from "path";
 
 import { t } from "../i18n/index.js";
-import { listWorktrees, type WorktreeInfo } from "../utils/git.js";
 import { canonicalPath } from "../utils/canonicalPath.js";
+import { listWorktrees, type WorktreeInfo } from "../utils/git.js";
 
 /**
  * Every checkout of the repository the process is standing in.

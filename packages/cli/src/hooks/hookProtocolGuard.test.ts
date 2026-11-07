@@ -5,7 +5,6 @@ import path from "path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { HookFixtures } from "../../test-utils/hookFixtures.js";
-
 import { logger } from "../utils/logger.js";
 
 import { runHooks } from "./hookRunner.js";
