@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { logger } from "../utils/logger.js";
+
 // The index database path is frozen when core/util/paths.js is first loaded
 // (GLOBAL_DIR is a module-load constant), so the private home has to be in
 // place before the first core import - against the user's real index, the
@@ -70,15 +72,22 @@ afterAll(async () => {
   // The cached connection holds the sqlite file, and a background indexing
   // task may reopen it between the close and the unlink; Windows refuses to
   // delete an open handle, so close again on every retry until the tree goes.
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  // A home that will not release its handle is a leaked temp directory, not a
+  // failed assertion - warn and let the OS clean it up.
+  let removed = false;
+  for (let attempt = 0; attempt < 20 && !removed; attempt += 1) {
     await SqliteDb.close();
     try {
       fs.rmSync(indexHome, { recursive: true, force: true });
-      break;
-    } catch (error) {
-      if (attempt === 19) throw error;
+      removed = true;
+    } catch {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
+  }
+  if (!removed) {
+    logger.warn(
+      `reconcile teardown could not remove ${indexHome}; a handle is still open`,
+    );
   }
   for (const workspace of workspaces) {
     fs.rmSync(workspace, { recursive: true, force: true });
