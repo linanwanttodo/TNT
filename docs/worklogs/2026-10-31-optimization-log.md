@@ -379,3 +379,17 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** `ChatViewTabs` 的 `ChatViewId = "chat" | "trajectory" | "context" | "squad"` 与 `App.tsx:434` 的实际渲染分支对比。
 
 **验证：** webui `npx tsc --noEmit` 干净；webui `npx vitest run` 15 文件 114 用例全绿；grep `SquadView` 零残留。
+
+## 30. 消息链修复：hook 注入截断、转录只显示用户原文、无模型显式报错（2026-11-07）
+
+**做了什么：** 三处。
+
+- `hooks/fireHook.ts`：新增 `capHookContext()`（4 000 字符预算 + 截断标记，标记告知模型完整文档可用 Skills 工具按需读取），`SessionStart` 与 `UserPromptSubmit` 的 `additionalContext` 统一过预算。此前 superpowers 的 SessionStart hook 把整份 SKILL.md 作为上下文注入，TNT 原样转发。
+- `ui/hooks/useChat.ts`：`processMessage` 在拼合 hook 注记前保留用户原文 `userText`，两个 `formatMessageWithFiles` 调用点与两个队列提示条都改传原文；`MemoizedMessage` 渲染用户消息时优先 `item.userText`，`splitServedPrompt` 标记拆分作为存量记录的回退。转录从此显示用户打的那句话，注记只随请求进模型。
+- `ui/hooks/useChat.ts`：`processMessage` 入口增加无模型守卫——`!model || !llmApi` 时向转录写入 `chat.noModelConfigured` 系统消息并返回，不再静默吞掉。
+
+**为什么：** 用户实测 v1.1.2：发 "hi" 后无任何回复，转录里整段 superpowers 提醒原样可见。逐段对照参考实现（pi 的系统提示分节、codex 的 ContextualUserFragment + 约 1k token 截断、atomcode 的合成 user 提醒 UI 隐藏、ZCode 的 uiVisibility/transcriptVisibility 三态 + 24k 截断）后确认 TNT 三处违背：hook 上下文无预算全量转发、注记拼进用户消息且显示层未接 `userText`（机制在 `formatMessageWithFiles` 里已设计但调用点没传）、无模型时静默无响应（会话记录 0 条 assistant、usage 全 0，`~/.tnt/config.yaml` 被重写为 `models: 0` 后 TUI 毫无提示）。
+
+**依据：** 参考实现四家一致的"隐藏 provider 可见上下文 + 预算截断 + 技能惰性加载"模式；TNT 既有 `userText` 设计注释（"surfaces render userText so the terminal matches the webui"）——本条目是把已设计未接线的机制接完。
+
+**验证：** `fireHook.cap.test.ts` 3 用例（短文本不动、整份手册被截断并带指引、截断点在预算内）；src/hooks + 消息渲染相关 17 文件 126 用例全绿；`tsc --noEmit` 与 eslint 干净；headless 在无模型时维持响亮的显式报错。技能惰性加载本身 TNT 已有（Skills 工具 + 技能斜杠命令），泄漏源是 hook 上下文处理而非技能系统。

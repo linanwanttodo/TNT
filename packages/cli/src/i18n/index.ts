@@ -480,6 +480,8 @@ const en = {
   "chat.commandCleared": "Chat history cleared.",
   "chat.commandNeedsTui":
     "{command} needs the interactive terminal: it opens a screen this run has nowhere to put.",
+  "chat.noModelConfigured":
+    "No chat model is configured, so there is nothing to answer with. Add one with /model or in ~/.tnt/config.yaml.",
   "chat.sessionLoadFailed": "Error loading session:",
   "chat.fileReadFailed": "Error reading file {path}:",
   "serve.shuttingDown": "\\nShutting down server...",
@@ -1263,6 +1265,8 @@ const zhCN: Record<TranslationKey, string> = {
   "chat.commandCleared": "聊天历史已清空。",
   "chat.commandNeedsTui":
     "{command} 需要交互终端：它会打开一个本次运行无法承载的界面。",
+  "chat.noModelConfigured":
+    "没有配置任何对话模型，无法回答。请用 /model 添加，或编辑 ~/.tnt/config.yaml。",
   "chat.sessionLoadFailed": "加载会话时出错：",
   "chat.fileReadFailed": "读取文件 {path} 时出错：",
   "serve.shuttingDown": "\\n正在关闭服务器...",

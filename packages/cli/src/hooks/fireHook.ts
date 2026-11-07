@@ -32,6 +32,33 @@ import type {
 
 const NOOP_RESULT: HookEventResult = { blocked: false, results: [] };
 
+/**
+ * The most context a hook may hand the model, in characters. A plugin that
+ * inlines a whole manual (the superpowers SessionStart reminder ships the
+ * full text of a skill) would otherwise ride into every prompt of the run
+ * verbatim; references cap this the same way - codex at roughly a thousand
+ * tokens, ZCode at 24k chars. Skills are meant to be read on invocation, so
+ * what survives the cap is the pointer, not the manual.
+ */
+const MAX_HOOK_CONTEXT_CHARS = 4_000;
+
+export function capHookContext(text: string): string {
+  if (text.length <= MAX_HOOK_CONTEXT_CHARS) return text;
+  const head = text.slice(0, MAX_HOOK_CONTEXT_CHARS).trimEnd();
+  return `${head}\n\n[... hook context truncated at ${MAX_HOOK_CONTEXT_CHARS} characters; read the full document through the Skills tool or the filesystem when the task needs it ...]`;
+}
+
+/** Cap one result's additionalContext in place, when the hook wrote any. */
+function withCappedContext(result: HookEventResult): HookEventResult {
+  if (typeof result.additionalContext === "string") {
+    return {
+      ...result,
+      additionalContext: capHookContext(result.additionalContext),
+    };
+  }
+  return result;
+}
+
 function getCommonFields(): {
   session_id: string;
   transcript_path: string;
@@ -206,7 +233,7 @@ export async function fireUserPromptSubmit(
     prompt,
   };
 
-  return services.hooks.fireEvent(input);
+  return withCappedContext(await services.hooks.fireEvent(input));
 }
 
 /**
@@ -238,7 +265,7 @@ export async function fireSessionStart(
 
   const result = await services.hooks.fireEvent(input);
   if (result.additionalContext) {
-    pendingSessionContext = result.additionalContext;
+    pendingSessionContext = capHookContext(result.additionalContext);
   }
   return result;
 }
