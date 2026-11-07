@@ -22,6 +22,13 @@ import { env } from "./env.js";
 export const CONFIG_PATH = path.join(env.continueHome, "config.yaml");
 
 /**
+ * The context window written for a freshly configured model: the 200k most
+ * long-context models actually ship. Per-entry overrides live in the config
+ * file's own `contextLength` key.
+ */
+export const DEFAULT_CONTEXT_LENGTH = 200_000;
+
+/**
  * A protocol the CLI can talk to. `apiBase` is only a default: the setup asks
  * for the URL either way, so a gateway, a proxy or a self-hosted endpoint can
  * be used with any of them.
@@ -254,28 +261,40 @@ export function mapProtocolToProvider(
  */
 export function buildConfigYaml(setup: ProviderSetup): string {
   const apiBase = normalizeApiBase(setup.protocol, setup.apiBase);
-  const model = setup.model || getDefaultModel(setup.protocol, apiBase);
-  const lines = [
-    "name: TNT",
-    "models:",
-    `  - name: "${escapeYaml(model)}"`,
-    `    provider: ${mapProtocolToProvider(setup.protocol, apiBase)}`,
-    `    model: "${escapeYaml(model)}"`,
-  ];
+  // The model field accepts several ids separated by spaces; every id becomes
+  // its own selectable entry under one provider and key.
+  const modelIds = (setup.model || getDefaultModel(setup.protocol, apiBase))
+    .split(/\s+/)
+    .filter((id) => id !== "");
+  const lines = ["name: TNT", "models:"];
 
-  if (
-    setup.protocol === "openai-chat-completions" ||
-    setup.protocol === "openai-responses" ||
-    setup.protocol === "openai-compatible"
-  ) {
-    lines.push(`    useResponsesApi: ${setup.protocol === "openai-responses"}`);
+  for (const model of modelIds) {
+    lines.push(
+      `  - name: "${escapeYaml(model)}"`,
+      `    provider: ${mapProtocolToProvider(setup.protocol, apiBase)}`,
+      `    model: "${escapeYaml(model)}"`,
+      // A default the provider never states: the 200k window most long
+      // -context models actually ship. Editable per entry in this file.
+      `    contextLength: ${DEFAULT_CONTEXT_LENGTH}`,
+    );
+
+    if (
+      setup.protocol === "openai-chat-completions" ||
+      setup.protocol === "openai-responses" ||
+      setup.protocol === "openai-compatible"
+    ) {
+      lines.push(
+        `    useResponsesApi: ${setup.protocol === "openai-responses"}`,
+      );
+    }
+
+    if (apiBase) {
+      lines.push(`    apiBase: "${escapeYaml(apiBase)}"`);
+    }
+
+    lines.push(`    apiKey: "${escapeYaml(setup.apiKey)}"`);
   }
 
-  if (apiBase) {
-    lines.push(`    apiBase: "${escapeYaml(apiBase)}"`);
-  }
-
-  lines.push(`    apiKey: "${escapeYaml(setup.apiKey)}"`);
   lines.push("");
 
   return lines.join("\n");

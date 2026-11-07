@@ -12,11 +12,16 @@ interface ModelOption extends SelectorOption {
 
 interface ModelSelectorProps {
   onSelect: (model: ModelOption) => void;
+  /** Open the add-model form; offered alongside the list and when it is empty. */
+  onAdd: () => void;
   onCancel: () => void;
 }
 
+const ADD_MODEL_ID = "__add__";
+
 const ModelSelector: React.FC<ModelSelectorProps> = ({
   onSelect,
+  onAdd,
   onCancel,
 }) => {
   const [models, setModels] = useState<ModelOption[]>([]);
@@ -30,12 +35,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       try {
         const availableModels = services.model.getAvailableChatModels();
         const currentIndex = services.model.getCurrentModelIndex();
-
-        if (availableModels.length === 0) {
-          setError(t("models.none"));
-          setLoading(false);
-          return;
-        }
 
         const modelOptions: ModelOption[] = availableModels.map((model) => ({
           id: `${model.provider}-${model.name}-${model.index}`,
@@ -57,20 +56,38 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     void loadModels();
   }, []);
 
+  // The add entry rides at the end of the list - and is the only entry when
+  // nothing is configured, so an empty selector is a door rather than a wall.
+  const options: ModelOption[] = [
+    ...models,
+    {
+      id: ADD_MODEL_ID,
+      name: t("models.add"),
+      index: -1,
+      provider: "",
+    },
+  ];
+
   return (
     <Selector
       title={t("models.title")}
-      options={models}
+      options={options}
       selectedIndex={selectedIndex}
       loading={loading}
-      error={error}
+      error={models.length === 0 ? t("models.none") : error}
       loadingMessage={t("models.loading")}
       currentId={
         currentModelIndex >= 0 && models[currentModelIndex]
           ? models[currentModelIndex].id
           : null
       }
-      onSelect={onSelect}
+      onSelect={(option) => {
+        if (option.id === ADD_MODEL_ID) {
+          onAdd();
+          return;
+        }
+        onSelect(option);
+      }}
       onCancel={onCancel}
       onNavigate={setSelectedIndex}
     />

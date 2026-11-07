@@ -42,6 +42,8 @@ export interface ScreenContentProps {
   chatHistory?: ChatHistoryItem[];
   handleEditMessage?: (messageIndex: number, newContent: string) => void;
   onShowEditSelector?: () => void;
+  /** Opens the provider setup form for adding models to config.yaml. */
+  onShowAddModelSelector?: () => void;
   /** Opens the Ctrl+P command palette. */
   onOpenPalette?: () => void;
   /** Opens the background-jobs list. */
