@@ -6,7 +6,7 @@
  * Example: node analyze-file-hotspots.js 30 20
  */
 
-const { execSync } = require("child_process");
+const { execFileSync } = require("child_process");
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -19,12 +19,16 @@ try {
   sinceDate.setDate(sinceDate.getDate() - days);
   const sinceDateStr = sinceDate.toISOString().split("T")[0];
 
-  // Get the git log with file change stats
-  const gitCommand = `git log --since="${sinceDateStr}" --name-only --pretty=format:`;
-  const output = execSync(gitCommand, {
-    encoding: "utf-8",
-    maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-  });
+  // Get the git log with file change stats. Array form without a shell: the
+  // arguments are data, so nothing here can be re-parsed as command syntax.
+  const output = execFileSync(
+    "git",
+    ["log", `--since=${sinceDateStr}`, "--name-only", "--pretty=format:"],
+    {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+    },
+  );
 
   // Parse the output and count file occurrences
   const fileCount = {};

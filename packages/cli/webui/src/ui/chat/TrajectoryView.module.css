@@ -26,8 +26,17 @@
   background: var(--dsw-alias-border-l2);
 }
 
-.dot[data-kind="done"] {
-  background: var(--dsw-alias-state-success-primary);
+/* Role hues from ZCode's trajectory palette. */
+.dot[data-role="reasoning"] {
+  background: var(--dsh-trajectory-reasoning);
+}
+
+.dot[data-role="tool-call"] {
+  background: var(--dsh-trajectory-tool-call);
+}
+
+.dot[data-role="tool-result"] {
+  background: var(--dsh-trajectory-tool-result);
 }
 
 .dot[data-kind="errored"],
@@ -35,14 +44,23 @@
   background: var(--dsw-alias-state-error-primary);
 }
 
-.dot[data-kind="calling"] {
-  background: var(--dsw-alias-state-business-primary);
-}
-
 .title {
   color: var(--dsw-alias-label-primary);
   font-family: var(--ds-font-family-code);
   font-size: 12.5px;
+}
+
+/* Role-tinted titles at the reference's 80% strength. */
+.title[data-role="reasoning"] {
+  color: color-mix(in srgb, var(--dsh-trajectory-reasoning) 80%, transparent);
+}
+
+.title[data-role="tool-call"] {
+  color: color-mix(in srgb, var(--dsh-trajectory-tool-call) 80%, transparent);
+}
+
+.title[data-role="tool-result"] {
+  color: color-mix(in srgb, var(--dsh-trajectory-tool-result) 80%, transparent);
 }
 
 .detail {

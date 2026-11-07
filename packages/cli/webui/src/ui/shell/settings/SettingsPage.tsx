@@ -214,6 +214,10 @@ export function SettingsPage({ section }: SettingsPageProps) {
             models={data.models}
             onUse={(index) => void data.selectModel(index)}
             onRetry={data.reload}
+            onSave={(input, editName) => data.saveModel(input, editName)}
+            onDelete={(name) => data.removeModel(name)}
+            onReorder={(names) => data.reorderDeclaredModels(names)}
+            onTest={(input) => data.testModelConnection(input)}
           />
         ) : null}
 

@@ -26,6 +26,8 @@ vi.mock("./api/client.js", () => ({
   sendMessage: vi.fn().mockResolvedValue(undefined),
   approve: vi.fn().mockResolvedValue(undefined),
   setPermissionMode: vi.fn().mockResolvedValue(undefined),
+  fetchGoal: vi.fn(async () => null),
+  setSessionGoalText: vi.fn(async () => undefined),
   PERMISSION_MODE_OPTIONS: [
     { mode: "default", label: "Manual", description: "Always ask first" },
   ],

@@ -10,10 +10,6 @@ import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
 import { getSessionActiveTeam } from "../session/index.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
-  formatSubagentToolResult,
-  noteVerificationOutcome,
-} from "../subagent/report.js";
-import {
   generateSubagentToolDescription,
   resolveDispatchableAgent,
   getAgentNames as getSubagentNames,
@@ -22,6 +18,10 @@ import {
   LIST_SUBAGENTS_TOOL_META,
   SUBAGENT_TOOL_META,
 } from "../subagent/index.js";
+import {
+  formatSubagentToolResult,
+  noteVerificationOutcome,
+} from "../subagent/report.js";
 import { loadTeams } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 

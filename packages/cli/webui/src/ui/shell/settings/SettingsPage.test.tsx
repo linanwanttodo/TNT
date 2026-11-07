@@ -192,8 +192,11 @@ describe("SettingsPage", () => {
     });
     render(<SettingsPage section="models" />);
 
-    expect(await screen.findByText("fast-model")).toBeTruthy();
-    expect(screen.getByText("smart-model")).toBeTruthy();
+    // The card shows the name twice (title + model id), so assert on the set.
+    expect((await screen.findAllByText("fast-model")).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText("smart-model").length).toBeGreaterThan(0);
     expect(screen.getByText("Current model")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Use" }));

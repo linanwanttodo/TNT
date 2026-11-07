@@ -1,22 +1,33 @@
 .tabs {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
   height: 28px;
-  padding: 0;
+  padding: 2px;
   border: none;
+  border-radius: 9px;
+  /* The gray layer the tabs float on: a translucent wash derived from the
+     label color, so it reads as gray on both the dark and light themes. */
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-label-primary) 7%,
+    transparent
+  );
 }
 
 .tab {
   height: 24px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+  transition:
+    background 100ms var(--ds-ease-in-out),
+    color 100ms var(--ds-ease-in-out);
 }
 
 .tab:hover {
@@ -24,6 +35,10 @@
 }
 
 .tab[data-active="true"] {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-label-primary) 10%,
+    transparent
+  );
   color: var(--dsw-alias-label-primary);
 }

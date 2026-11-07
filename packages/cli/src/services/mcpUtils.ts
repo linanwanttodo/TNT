@@ -1,5 +1,6 @@
 import { SseError } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { decodeFQSN, getTemplateVariables } from "@tnt/config-yaml";
 
 import { parseEnvNumber } from "../utils/truncateOutput.js";
 
@@ -87,4 +88,37 @@ export function isTransient(error: unknown): boolean {
     return typeof error.code === "number" && isTransientStatusCode(error.code);
   }
   return hasTransientText(error);
+}
+
+/**
+ * Secret names a server config references but the environment did not fill.
+ * A headless run fails on these; a TUI surfaces them as connection warnings.
+ */
+export function unresolvedSecretNames(serverConfig: object): string[] {
+  const vars = getTemplateVariables(JSON.stringify(serverConfig));
+  return vars
+    .filter((v) => v.startsWith("secrets."))
+    .map((v) => decodeFQSN(v.replace("secrets.", "")).secretName);
+}
+
+/** What to tell the user about those names, in both surfaces' wording. */
+export function unresolvedSecretsMessage(
+  serverName: string,
+  secretNames: string[],
+): string {
+  return `${serverName} MCP Server has unresolved secrets: ${secretNames.join(", ")}
+For personal use you can set the secret as an environment variable (e.g. in your shell profile or .tnt config) or pass it directly to the CLI environment.
+TNT stores secrets locally and does not use an external hub.`;
+}
+
+/**
+ * The warning a config with unfilled secrets deserves, or null when every
+ * reference resolved - the one call a connect path needs to make.
+ */
+export function unresolvedSecretsWarning(serverConfig: {
+  name: string;
+}): string | null {
+  const names = unresolvedSecretNames(serverConfig);
+  if (names.length === 0) return null;
+  return unresolvedSecretsMessage(serverConfig.name, names);
 }

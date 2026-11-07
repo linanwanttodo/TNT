@@ -4,12 +4,11 @@ import type { ChatHistoryItem } from "core/index.js";
 import { getLastNPathParts } from "core/util/uri.js";
 import { v4 as uuidv4 } from "uuid";
 
-import { logger } from "../../utils/logger.js";
-
 import { expandMentions } from "../../agent/atMentions.js";
 import { DEFAULT_SESSION_TITLE } from "../../config/constants.js";
 import { loadSession, startNewSession } from "../../session/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
+import { logger } from "../../utils/logger.js";
 import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
 import { symbols } from "../symbols.js";
 
@@ -34,18 +33,10 @@ export async function initChatHistory(
   return [];
 }
 
-/**
- * Handle /config command
- */
-export function handleConfigCommand(onShowConfigSelector: () => void): void {
-  onShowConfigSelector();
-}
-
 interface ProcessSlashCommandResultOptions {
   result: SlashCommandResult;
   chatHistory: ChatHistoryItem[];
   setChatHistory: React.Dispatch<React.SetStateAction<ChatHistoryItem[]>>;
-  onShowConfigSelector: () => void;
   onShowModelSelector?: () => void;
   onShowUpdateSelector?: () => void;
   onShowThemeSelector?: () => void;
@@ -67,7 +58,6 @@ export function processSlashCommandResult({
   result,
   chatHistory,
   setChatHistory,
-  onShowConfigSelector,
   onShowUpdateSelector,
   onShowThemeSelector,
   onShowModelSelector,
@@ -98,7 +88,6 @@ export function processSlashCommandResult({
     [result.openPluginsBrowser, onShowPluginsBrowser],
     [result.openUpdateSelector, onShowUpdateSelector],
     [result.openThemeSelector, onShowThemeSelector],
-    [result.openConfigSelector, onShowConfigSelector],
     [result.openModelSelector, onShowModelSelector],
     [result.openSessionSelector, onShowSessionSelector],
     [result.openSubagentsSelector, onShowSubagentsSelector],
@@ -263,7 +252,6 @@ interface HandleSpecialCommandsOptions {
   message: string;
   isRemoteMode: boolean;
   remoteUrl?: string;
-  onShowConfigSelector: () => void;
   exit: () => void;
   onShowDiff?: (diffContent: string) => void;
   onShowStatusMessage?: (message: string) => void;
@@ -355,18 +343,11 @@ export async function handleSpecialCommands({
   message,
   isRemoteMode,
   remoteUrl,
-  onShowConfigSelector,
   exit,
   onShowDiff,
   onShowStatusMessage,
 }: HandleSpecialCommandsOptions): Promise<boolean> {
   const trimmedMessage = message.trim();
-
-  // Special handling for /config command in TUI
-  if (trimmedMessage === "/config") {
-    handleConfigCommand(onShowConfigSelector);
-    return true;
-  }
 
   // Handle /exit command in remote mode
   if (isRemoteMode && remoteUrl && trimmedMessage === "/exit") {

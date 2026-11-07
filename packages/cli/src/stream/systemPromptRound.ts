@@ -1,10 +1,10 @@
 import { describeSystemMessageTextChange } from "../agent/systemMessage.js";
 
+import type { SectionBaselineState } from "./systemMessageReinjection.js";
 import {
   decideSystemPrompt,
   type SystemPromptAction,
 } from "./systemPromptPolicy.js";
-import type { SectionBaselineState } from "./systemMessageReinjection.js";
 
 /**
  * The system prompt is the head of every cached prefix, so a change to it is

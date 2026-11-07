@@ -10,6 +10,12 @@ import {
   recordCacheRound,
   writeCacheBreakReport,
 } from "../cache/cacheBreakReport.js";
+import {
+  cacheHitFloor,
+  CACHE_HIT_TAIL_ROUNDS,
+  meetsCacheHitFloor,
+  tailCacheHitRate,
+} from "../cache/cacheHitGuard.js";
 import { rememberLastRequestCacheState } from "../cache/lastRequestCacheState.js";
 import {
   attributeCacheMiss,
@@ -21,6 +27,50 @@ import type { RequestHeader } from "../cache/requestHeader.js";
 import { trackSessionUsage } from "../session/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
+
+/**
+ * The last rounds' hit rates per conversation, for the floor check. The break
+ * detector asks whether one round dropped; this asks whether the tail stopped
+ * reading the cache at all, which is the question a floor answers. Kept short
+ * on purpose: an old cold round should not hold a recovered tail down.
+ */
+const cacheHitRates = new Map<string, number[]>();
+/** Conversations already reported, so a persistent miss warns once, not per turn. */
+const reportedFloorMiss = new Set<string>();
+
+function noteCacheHitRate(key: string, rate: number): void {
+  const rates = cacheHitRates.get(key) ?? [];
+  rates.push(rate);
+  if (rates.length > CACHE_HIT_TAIL_ROUNDS) {
+    rates.shift();
+  }
+  cacheHitRates.set(key, rates);
+  if (rates.length < CACHE_HIT_TAIL_ROUNDS) {
+    return;
+  }
+
+  if (meetsCacheHitFloor(rates)) {
+    // Recovery is news the next time it breaks: a session that was fixed and
+    // then regressed deserves its second warning.
+    reportedFloorMiss.delete(key);
+    return;
+  }
+  if (reportedFloorMiss.has(key)) {
+    return;
+  }
+  reportedFloorMiss.add(key);
+  logger.warn("Cache hit rate below floor", {
+    floor: cacheHitFloor(),
+    tailRate: Number((tailCacheHitRate(rates) ?? 0).toFixed(4)),
+    rounds: CACHE_HIT_TAIL_ROUNDS,
+    hint: "TNT_CACHE_HIT_FLOOR overrides the floor for a provider with different cache economics",
+  });
+}
+
+function forgetCacheHitRates(key: string): void {
+  cacheHitRates.delete(key);
+  reportedFloorMiss.delete(key);
+}
 
 function detectProvider(modelName: string): string {
   const normalized = modelName.toLowerCase();
@@ -278,6 +328,7 @@ export function recordRoundAccounting(options: {
     // content rather than re-billed content, and it resets the baseline.
     if (isCompacting) {
       forgetCacheRound(promptCacheKey);
+      forgetCacheHitRates(promptCacheKey ?? "");
     } else {
       const round = {
         inputTokens: reportedInput,
@@ -322,6 +373,13 @@ export function recordRoundAccounting(options: {
         });
       }
       recordCacheRound(promptCacheKey, round);
+
+      // The floor only judges rounds where the provider told us about its
+      // cache: a zero on a provider that never reports one describes the
+      // provider, not this client's prefix.
+      if (cacheRead > 0 || cacheWrite > 0) {
+        noteCacheHitRate(promptCacheKey ?? "", cacheRead / reportedInput);
+      }
     }
   }
 

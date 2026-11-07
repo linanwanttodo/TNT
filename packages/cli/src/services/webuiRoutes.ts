@@ -1,19 +1,13 @@
+import { execFileSync } from "child_process";
 import fs from "fs";
 
-import { execFileSync } from "child_process";
 import type { Express, Request, Response } from "express";
 
 import { registerSseEventRoute } from "../commands/serve.helpers.js";
 import { interactionBroker } from "../permissions/interactionBroker.js";
 import { PERMISSION_MODES, type PermissionMode } from "../permissions/types.js";
 import { publishAgentEvent } from "../protocol/eventBus.js";
-import {
-  getCurrentSession,
-  listSessions,
-  selectSession,
-  startNewSession,
-  updateSessionTitle,
-} from "../session/index.js";
+import { getSessionGoal, setSessionGoal } from "../session/index.js";
 import { messageQueue } from "../stream/messageQueue.js";
 import { formatError } from "../utils/formatError.js";
 import { logger } from "../utils/logger.js";
@@ -22,14 +16,19 @@ import { buildContextBreakdown } from "./contextBreakdown.js";
 import { turnRunnerService } from "./TurnRunnerService.js";
 import { getWebUiGitStatus } from "./webuiGit.js";
 import {
+  installNamedMarketplacePlugin,
+  listMarketplaces,
+  refreshNamedMarketplace,
+} from "./webuiMarketplace.js";
+import {
   listInstalledPlugins,
   reloadPlugins,
   setPluginEnabled,
 } from "./webuiPlugins.js";
-import {
-  deleteStoredSession,
-  renameStoredSession,
-} from "./webuiSessionStore.js";
+import { registerWebUiAutomationRoutes } from "./webuiRoutes.automations.js";
+import { registerWebUiModelRoutes } from "./webuiRoutes.models.js";
+import { registerWebUiSessionRoutes } from "./webuiRoutes.sessions.js";
+import { applyWebUiSlashCommand, webUiNotice } from "./webuiSlashMessage.js";
 import type { WebUiRouteContext } from "./webuiTypes.js";
 
 import { services } from "./index.js";
@@ -116,6 +115,92 @@ export function registerWebUiRoutes(
     });
   });
 
+  // GET /workspace/file - The contents of one workspace file, for the file
+  // tree's preview. Text files only, size-capped: the tree is a browser over
+  // the workspace, not a file server.
+  app.get("/workspace/file", (req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+    const target = typeof req.query.path === "string" ? req.query.path : "";
+    if (target.trim() === "") {
+      res.status(400).json({ error: "path is required" });
+      return;
+    }
+    const session = ctx.resolveSession();
+    const roots = [...new Set([session.workspaceDirectory, process.cwd()])]
+      .filter((root): root is string => Boolean(root))
+      .map((root) => fs.realpathSync.native(root.replace(/[/\\]+$/, "")));
+    let resolved: string;
+    try {
+      resolved = fs.realpathSync.native(target);
+    } catch {
+      res.status(404).json({ error: "file not found" });
+      return;
+    }
+    const inside = roots.some(
+      (root) => resolved === root || resolved.startsWith(`${root}/`),
+    );
+    if (!inside) {
+      res.status(403).json({ error: "path is outside the workspace" });
+      return;
+    }
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(resolved);
+    } catch {
+      res.status(404).json({ error: "file not found" });
+      return;
+    }
+    if (!stat.isFile()) {
+      res.status(400).json({ error: "not a file" });
+      return;
+    }
+    if (stat.size > 256 * 1024) {
+      res.status(413).json({ error: "file is too large to preview" });
+      return;
+    }
+    try {
+      const content = fs.readFileSync(resolved, "utf-8");
+      res.json({
+        path: resolved,
+        content,
+        truncated: content.includes("\uFFFD"),
+      });
+    } catch {
+      // A binary file fails the utf-8 read; say so instead of returning noise.
+      res.status(415).json({ error: "not a text file" });
+    }
+  });
+
+  // GET /git/diff - The working-tree diff of one file, for the git panel's
+  // file rows. A path outside the repository 404s rather than diffing air.
+  app.get("/git/diff", (req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+    const target = typeof req.query.path === "string" ? req.query.path : "";
+    if (target.trim() === "") {
+      res.status(400).json({ error: "path is required" });
+      return;
+    }
+    try {
+      const output = execFileSync(
+        "git",
+        ["diff", "HEAD", "--no-color", "--", target],
+        {
+          cwd: process.cwd(),
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 5_000,
+          maxBuffer: 1024 * 1024,
+        },
+      ).trim();
+      res.json({ path: target, diff: output });
+    } catch (error) {
+      const err = error as { stderr?: string; message?: string };
+      res.status(400).json({
+        error: err.stderr?.trim() ?? err.message ?? "git diff failed",
+      });
+    }
+  });
+
   // POST /terminal - Run one shell command in the current process cwd and
   // return its combined stdout and stderr. Intentionally synchronous so a
   // short command answers with the full output; long-running commands are
@@ -171,139 +256,13 @@ export function registerWebUiRoutes(
     });
   });
 
-  // GET /sessions - The conversation list the sidebar renders. The store's
-  // metadata cache carries the title and timestamp, so listing does not
-  // open every transcript.
-  app.get("/sessions", async (_req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-    const sessions = await listSessions();
-    res.json({
-      sessions: sessions.map((session) => ({
-        sessionId: session.sessionId,
-        title: session.title,
-        workspaceDirectory: session.workspaceDirectory,
-        dateCreated: session.dateCreated,
-        updatedAt: session.updatedAt,
-      })),
-    });
-  });
-
   // GET /events - Stream the engine event contract as server-sent events.
   registerSseEventRoute(app, state);
 
-  // POST /session/new - Start a fresh session in this process and return the
-  // same snapshot shape GET /state reports, so the frontend re-hydrates from
-  // the one response. The SSE stream carries a session.changed event so
-  // every connected tab drops the previous conversation. Only a process
-  // that owns its session may switch it; the TUI's in-process server
-  // refuses rather than desyncing the terminal.
-  app.post("/session/new", (_req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-    if (!options.ownsSession) {
-      res.status(403).json({ error: "this server does not own its session" });
-      return;
-    }
-    const session = (options.createNewSession ?? startNewSession)();
-    publishAgentEvent(ctx.sessionChangedEvent(session.sessionId));
-    res.json(ctx.snapshotFor(session));
-  });
-
-  // POST /session/select - Point the process at a saved conversation.
-  // Sessions persist between commands, so switching re-leases the target
-  // transcript; the response snapshot carries its history.
-  app.post("/session/select", (req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-    if (!options.ownsSession) {
-      res.status(403).json({ error: "this server does not own its session" });
-      return;
-    }
-
-    const { sessionId } = req.body ?? {};
-    if (typeof sessionId !== "string" || sessionId.trim() === "") {
-      res.status(400).json({ error: "sessionId is required" });
-      return;
-    }
-
-    const session = selectSession(sessionId);
-    if (!session) {
-      res.status(404).json({ error: "session not found" });
-      return;
-    }
-
-    publishAgentEvent(ctx.sessionChangedEvent(session.sessionId));
-    res.json(ctx.snapshotFor(session));
-  });
-
-  // POST /session/rename - Set a conversation's title. Renaming another
-  // session than the live one rewrites its meta.json directly; the live
-  // one goes through the manager so the in-memory copy stays in step.
-  app.post("/session/rename", (req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-    const { sessionId, title } = req.body ?? {};
-    if (typeof sessionId !== "string" || sessionId.trim() === "") {
-      res.status(400).json({ error: "sessionId is required" });
-      return;
-    }
-    if (typeof title !== "string" || title.trim() === "") {
-      res.status(400).json({ error: "title is required" });
-      return;
-    }
-
-    try {
-      if (getCurrentSession().sessionId === sessionId) {
-        updateSessionTitle(title.trim());
-      } else {
-        renameStoredSession(sessionId, title.trim());
-      }
-      res.json({ ok: true });
-    } catch (error) {
-      res.status(400).json({
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
-
-  // POST /session/delete - Remove a conversation from disk. The live one
-  // is refused: switch away first, then delete. A missing session 404s.
-  app.post("/session/delete", (req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-    const { sessionId } = req.body ?? {};
-    if (typeof sessionId !== "string" || sessionId.trim() === "") {
-      res.status(400).json({ error: "sessionId is required" });
-      return;
-    }
-
-    try {
-      if (getCurrentSession().sessionId === sessionId) {
-        res.status(409).json({
-          error: "switch to another session before deleting this one",
-        });
-        return;
-      }
-      if (!deleteStoredSession(sessionId)) {
-        res.status(404).json({ error: "session not found" });
-        return;
-      }
-      res.json({ ok: true });
-    } catch (error) {
-      res.status(400).json({
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  });
-
-  // GET /models - The chat models this process can run. The status bar's
-  // model chip reads this; a surface with no model choice says so rather
-  // than listing an empty picker.
-  app.get("/models", (_req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-    const models = options.listModels?.() ?? [];
-    res.json({
-      available: models.length > 0,
-      models,
-      current: models.find((model) => model.current) ?? null,
-    });
-  });
+  // Conversation history and model editing live in their own modules; both
+  // are mounted here so the engine routes read as one list.
+  registerWebUiSessionRoutes(app, ctx);
+  registerWebUiModelRoutes(app, ctx);
 
   // POST /workspace/open - Reveal the session's workspace in the platform
   // file manager. The status bar's folder chip posts here; a failure says
@@ -399,34 +358,6 @@ export function registerWebUiRoutes(
     }
   });
 
-  // POST /model - Move the process to another chat model. The switch is the
-  // /model screen's recipe, so the next turn runs on the new model.
-  app.post("/model", async (req: Request, res: Response) => {
-    state.lastActivity = Date.now();
-    if (!options.switchModel) {
-      res.status(403).json({
-        error: "this server does not offer model switching",
-      });
-      return;
-    }
-
-    const { index } = req.body ?? {};
-    if (typeof index !== "number" || !Number.isInteger(index)) {
-      res.status(400).json({ error: "index must be an integer" });
-      return;
-    }
-
-    try {
-      const model = await options.switchModel(index);
-      publishAgentEvent(ctx.modelChangedEvent(model.name));
-      res.json({ model });
-    } catch (error) {
-      // The index is the request's fault, so a refused switch is the
-      // client's mistake: the reason comes back with the status.
-      res.status(400).json({ error: formatError(error) });
-    }
-  });
-
   // GET /worktrees - The repository's checkouts. A process that does not
   // own its session cannot move between them, and says so instead of
   // offering a control that would fail.
@@ -488,7 +419,25 @@ export function registerWebUiRoutes(
       return res.status(400).json({ error: "Message field is required" });
     }
 
-    await messageQueue.enqueueMessage(message);
+    // A message that starts with a slash is a command, not text: the browser
+    // dispatches it the way the terminal does, answering print commands into
+    // the transcript and reporting the ones whose result needs a picker.
+    const sessionId = ctx.resolveSession().sessionId;
+    const effect = await applyWebUiSlashCommand(
+      message,
+      services.config.getState().config,
+    );
+    if (effect.kind === "answered") {
+      if (effect.sessionChanged) {
+        publishAgentEvent(ctx.sessionChangedEvent(sessionId));
+      }
+      if (effect.notice !== null) {
+        publishAgentEvent(webUiNotice(sessionId, effect.notice));
+      }
+      return res.json(effect.payload);
+    }
+
+    await messageQueue.enqueueMessage(effect.prompt);
 
     res.json({
       queued: true,
@@ -542,6 +491,117 @@ export function registerWebUiRoutes(
       message: "Agent run paused",
     });
   });
+
+  // POST /goal - Store the session goal the way the TUI's goal pill does.
+  // The system message reads the session goal each turn, so a goal set here
+  // steers the agent from the next turn on; clearing sends the same shape
+  // with an empty string.
+  app.post("/goal", (req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+    const { goal } = req.body ?? {};
+    if (goal !== undefined && goal !== null && typeof goal !== "string") {
+      res.status(400).json({ error: "goal must be a string" });
+      return;
+    }
+    setSessionGoal(typeof goal === "string" ? goal : undefined);
+    res.json({ goal: getSessionGoal() ?? null });
+  });
+
+  // GET /goal - The session goal, so a tab that opens later shows the same
+  // objective the TUI is working toward rather than an empty pill.
+  app.get("/goal", (_req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+    res.json({ goal: getSessionGoal() ?? null });
+  });
+
+  // POST /question - Answer a pending engine question (the askQuestion tool
+  // waits on this through quizService). An unknown id means the question was
+  // answered elsewhere already; that is not an error the UI needs to show.
+  app.post("/question", (req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+    const { requestId, answer, isCustomAnswer } = req.body ?? {};
+    if (typeof requestId !== "string" || requestId.trim() === "") {
+      res.status(400).json({ error: "requestId is required" });
+      return;
+    }
+    if (typeof answer !== "string" || answer.trim() === "") {
+      res.status(400).json({ error: "answer is required" });
+      return;
+    }
+    const answered = interactionBroker.answerQuestion(
+      requestId,
+      answer,
+      isCustomAnswer === true,
+    );
+    res.json({ answered });
+  });
+
+  // GET /plugins/marketplaces - What the registered marketplaces carry and
+  // which of their plugins are already installed; the marketplace page reads
+  // this.
+  app.get("/plugins/marketplaces", (_req: Request, res: Response) => {
+    state.lastActivity = Date.now();
+    try {
+      res.json({ marketplaces: listMarketplaces() });
+    } catch (error) {
+      logger.warn("GET /plugins/marketplaces failed", error as Error);
+      res.json({ marketplaces: [] });
+    }
+  });
+
+  // POST /plugins/marketplaces/refresh - Re-fetch one marketplace catalogue
+  // and answer with the fresh listing.
+  app.post(
+    "/plugins/marketplaces/refresh",
+    async (req: Request, res: Response) => {
+      state.lastActivity = Date.now();
+      const { name } = req.body ?? {};
+      if (typeof name !== "string" || name.trim() === "") {
+        res.status(400).json({ error: "name is required" });
+        return;
+      }
+      try {
+        res.json({ marketplaces: await refreshNamedMarketplace(name) });
+      } catch (error) {
+        res.status(400).json({
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  );
+
+  // POST /plugins/marketplaces/install - Install one plugin from a
+  // marketplace and answer with the fresh listing; the loader memo is
+  // dropped so the running session sees the new plugin.
+  app.post(
+    "/plugins/marketplaces/install",
+    async (req: Request, res: Response) => {
+      state.lastActivity = Date.now();
+      const { marketplace, plugin } = req.body ?? {};
+      if (typeof marketplace !== "string" || marketplace.trim() === "") {
+        res.status(400).json({ error: "marketplace is required" });
+        return;
+      }
+      if (typeof plugin !== "string" || plugin.trim() === "") {
+        res.status(400).json({ error: "plugin is required" });
+        return;
+      }
+      try {
+        res.json({
+          marketplaces: await installNamedMarketplacePlugin(
+            marketplace,
+            plugin,
+          ),
+        });
+      } catch (error) {
+        res.status(400).json({
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  );
+
+  registerWebUiAutomationRoutes(app, ctx);
 
   // POST /exit - Close the HTTP server. Deliberately does not exit the
   // process: the TUI hosts this service in-process and must survive it.

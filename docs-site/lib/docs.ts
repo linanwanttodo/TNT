@@ -14,6 +14,24 @@ function docsLocaleDir(locale: Locale): string {
   return locale === "zh" ? path.join(DOCS_DIR, "zh") : DOCS_DIR;
 }
 
+/**
+ * Doc slugs arrive from URL route params and snippet names from MDX content,
+ * so a `../` inside one must not walk the reader out of the docs tree. The
+ * judgment runs on the resolved path, so a normalized escape is caught even
+ * when the raw string never spelled one out.
+ */
+function resolveWithinDocs(root: string, candidate: string): string | null {
+  const resolvedRoot = path.resolve(root);
+  const resolved = path.resolve(resolvedRoot, candidate);
+  if (
+    resolved !== resolvedRoot &&
+    !resolved.startsWith(resolvedRoot + path.sep)
+  ) {
+    return null;
+  }
+  return resolved;
+}
+
 export function loadDocsNav(locale: Locale = DEFAULT_LOCALE): NavTab[] {
   const docsJsonPath = path.join(
     DOCS_DIR,
@@ -89,24 +107,42 @@ export async function loadMdxFile(
   locale: Locale = DEFAULT_LOCALE,
 ): Promise<DocFile | null> {
   const slugPath = slug.join("/");
-  const filePath = path.join(docsLocaleDir(locale), slugPath + ".mdx");
-
-  if (fs.existsSync(filePath)) {
+  const base = docsLocaleDir(locale);
+  // Slugs come from URL route params: anchor every read to the docs tree so
+  // a `../` inside a slug cannot walk the reader out of it. The containment
+  // is judged on the resolved path, not a raw-prefix startswith.
+  const resolvedBase = path.resolve(base);
+  const within = (candidate: string) =>
+    candidate === resolvedBase || candidate.startsWith(resolvedBase + path.sep);
+  const filePath = path.resolve(resolvedBase, slugPath + ".mdx");
+  if (within(filePath) && fs.existsSync(filePath)) {
     return readDocFile(filePath, slug);
   }
 
   // Try index.mdx inside directory
-  const indexPath = path.join(docsLocaleDir(locale), slugPath, "index.mdx");
-  if (fs.existsSync(indexPath)) {
+  const indexPath = path.resolve(
+    resolvedBase,
+    path.join(slugPath, "index.mdx"),
+  );
+  if (within(indexPath) && fs.existsSync(indexPath)) {
     return readDocFile(indexPath, slug);
   }
 
   // A missing translation falls back to English rather than a 404.
   if (locale !== DEFAULT_LOCALE) {
-    const fallback = path.join(DOCS_DIR, slugPath + ".mdx");
-    if (fs.existsSync(fallback)) return readDocFile(fallback, slug);
-    const fallbackIndex = path.join(DOCS_DIR, slugPath, "index.mdx");
-    if (fs.existsSync(fallbackIndex)) {
+    const fallbackRoot = path.resolve(DOCS_DIR);
+    const withinRoot = (candidate: string) =>
+      candidate === fallbackRoot ||
+      candidate.startsWith(fallbackRoot + path.sep);
+    const fallback = path.resolve(fallbackRoot, slugPath + ".mdx");
+    if (withinRoot(fallback) && fs.existsSync(fallback)) {
+      return readDocFile(fallback, slug);
+    }
+    const fallbackIndex = path.resolve(
+      fallbackRoot,
+      path.join(slugPath, "index.mdx"),
+    );
+    if (withinRoot(fallbackIndex) && fs.existsSync(fallbackIndex)) {
       return readDocFile(fallbackIndex, slug);
     }
   }
@@ -120,21 +156,26 @@ export async function loadRawMdxFile(
 ): Promise<{ raw: string; fileName: string } | null> {
   const slugPath = slug.join("/");
   const base = docsLocaleDir(locale);
-  const filePath = path.join(base, slugPath + ".mdx");
 
-  // Prevent path traversal — ensure the resolved path stays inside DOCS_DIR.
-  const docsDirNormalized = base.endsWith(path.sep) ? base : base + path.sep;
-  const isWithinDocsDir = (p: string) => p.startsWith(docsDirNormalized);
-
-  if (isWithinDocsDir(filePath) && fs.existsSync(filePath)) {
+  // Prevent path traversal — anchor the read to the docs tree, judged on the
+  // resolved path rather than a raw-prefix startswith. A `../` inside a slug
+  // resolves outside and is refused here.
+  const resolvedBase = path.resolve(base);
+  const within = (candidate: string) =>
+    candidate === resolvedBase || candidate.startsWith(resolvedBase + path.sep);
+  const filePath = path.resolve(resolvedBase, slugPath + ".mdx");
+  if (within(filePath) && fs.existsSync(filePath)) {
     return {
       raw: fs.readFileSync(filePath, "utf8"),
       fileName: slug[slug.length - 1] + ".md",
     };
   }
 
-  const indexPath = path.join(base, slugPath, "index.mdx");
-  if (isWithinDocsDir(indexPath) && fs.existsSync(indexPath)) {
+  const indexPath = path.resolve(
+    resolvedBase,
+    path.join(slugPath, "index.mdx"),
+  );
+  if (within(indexPath) && fs.existsSync(indexPath)) {
     return {
       raw: fs.readFileSync(indexPath, "utf8"),
       fileName: slug[slug.length - 1] + ".md",
@@ -169,7 +210,24 @@ function preprocessMdx(content: string, slug: string[]): string {
   while ((match = mdxImportRegex.exec(content)) !== null) {
     const componentName = match[1]!;
     const snippetFile = match[2]!;
-    const snippetPath = path.join(DOCS_DIR, "snippets", snippetFile);
+    // The snippet name comes from MDX content: only a plain relative path of
+    // safe segments is accepted, and the resolved file must land inside the
+    // snippets directory.
+    if (
+      !/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*\.mdx$/.test(snippetFile) ||
+      snippetFile.includes("..")
+    ) {
+      continue;
+    }
+    // Resolved containment: the snippet must land inside the snippets dir.
+    const snippetsRoot = path.resolve(DOCS_DIR, "snippets");
+    const snippetPath = path.resolve(snippetsRoot, snippetFile);
+    if (
+      snippetPath !== snippetsRoot &&
+      !snippetPath.startsWith(snippetsRoot + path.sep)
+    ) {
+      continue;
+    }
 
     if (fs.existsSync(snippetPath)) {
       const snippetRaw = fs.readFileSync(snippetPath, "utf8");
@@ -285,12 +343,18 @@ export function getAllDocTitles(
   const base = docsLocaleDir(locale);
 
   for (const slug of slugs) {
-    const filePath = path.join(base, slug + ".mdx");
-    const indexPath = path.join(base, slug, "index.mdx");
+    // Slugs come from the docs nav file; anchor every read to the docs tree
+    // so a `../` in a nav entry cannot walk the reader out of it.
+    const resolvedRoot = path.resolve(base);
+    const direct = path.resolve(resolvedRoot, slug + ".mdx");
+    const index = path.resolve(resolvedRoot, path.join(slug, "index.mdx"));
+    const within = (candidate: string) =>
+      candidate === resolvedRoot ||
+      candidate.startsWith(resolvedRoot + path.sep);
 
     let resolved: string | null = null;
-    if (fs.existsSync(filePath)) resolved = filePath;
-    else if (fs.existsSync(indexPath)) resolved = indexPath;
+    if (within(direct) && fs.existsSync(direct)) resolved = direct;
+    else if (within(index) && fs.existsSync(index)) resolved = index;
 
     if (resolved) {
       const raw = fs.readFileSync(resolved, "utf8");

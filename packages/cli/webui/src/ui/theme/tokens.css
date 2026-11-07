@@ -66,11 +66,27 @@
   --dsw-alias-markdown-inline-code: rgba(255, 255, 255, 0.05);
 
   /* Shell specifics */
-  --dsw-specific-bubble: rgba(255, 255, 255, 0.06);
+  /* User-message bubble wash, ZCode's --color-user-message-bubble. */
+  --dsw-specific-bubble: rgba(255, 255, 255, 0.08);
   --dsw-specific-input-major: #252524;
   --dsw-specific-selector: #3a3a3a;
   --dsw-specific-sidebar-fill: #181818;
   --dsw-specific-menu: #2c2c2b;
+
+  /* Trajectory roles, ZCode's ModelTrajectoryRoleStyles palette. */
+  --dsh-trajectory-user: #60a5fa;
+  --dsh-trajectory-assistant: #2dd4bf;
+  --dsh-trajectory-reasoning: #a78bfa;
+  --dsh-trajectory-tool-call: #f59e0b;
+  --dsh-trajectory-tool-result: #38bdf8;
+
+  /* Context breakdown's single-blue ramp, ZCode's --color-context-breakdown-*
+     (one hue in five steps instead of a saturated rainbow). */
+  --dsh-context-breakdown-1: #0284c7;
+  --dsh-context-breakdown-2: #0ea5e9;
+  --dsh-context-breakdown-3: #38bdf8;
+  --dsh-context-breakdown-4: #7dd3fc;
+  --dsh-context-breakdown-5: #bae6fd;
   --dsw-shadow-lv2:
     0 4px 16px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.14);
 
@@ -199,11 +215,25 @@
   --dsw-alias-markdown-code-block: #ffffff;
   --dsw-alias-markdown-code-block-banner: #ffffff;
   --dsw-alias-markdown-inline-code: rgba(0, 0, 0, 0.05);
-  --dsw-specific-bubble: #f0f0ef;
+  --dsw-specific-bubble: rgba(13, 13, 13, 0.05);
   --dsw-specific-input-major: #ffffff;
   --dsw-specific-selector: #fbfbf9;
   --dsw-specific-sidebar-fill: #fbfbf9;
   --dsw-specific-menu: #ffffff;
+
+  /* Trajectory roles, light theme (ZCode's :root palette). */
+  --dsh-trajectory-user: #2563eb;
+  --dsh-trajectory-assistant: #0f766e;
+  --dsh-trajectory-reasoning: #7c3aed;
+  --dsh-trajectory-tool-call: #d97706;
+  --dsh-trajectory-tool-result: #0284c7;
+
+  /* Context breakdown ramp, light theme. */
+  --dsh-context-breakdown-1: #0284c7;
+  --dsh-context-breakdown-2: #0ea5e9;
+  --dsh-context-breakdown-3: #38bdf8;
+  --dsh-context-breakdown-4: #7dd3fc;
+  --dsh-context-breakdown-5: #bae6fd;
   --dsw-shadow-lv2:
     0 4px 18px rgba(20, 20, 19, 0.1), 0 1px 3px rgba(20, 20, 19, 0.05);
   --dsh-claude-canvas: #fcfcfb;

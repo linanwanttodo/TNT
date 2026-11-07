@@ -49,6 +49,8 @@ export interface SidebarProps {
   onRenameSession?: ((sessionId: string, title: string) => void) | undefined;
   /** Delete a conversation; the caller refreshes the list. */
   onDeleteSession?: ((sessionId: string) => void) | undefined;
+  /** The session whose turn is running; its row shows the live spinner. */
+  runningSessionId?: string | undefined;
   /** Connection state, shown as a dot beside the account name. */
   status?: "live" | "reconnecting" | "offline" | undefined;
 }
@@ -131,6 +133,7 @@ export function Sidebar({
   settingsActive = false,
   onRenameSession,
   onDeleteSession,
+  runningSessionId,
   status = "live",
 }: SidebarProps) {
   const language = useUiPreferences((state) => state.language);
@@ -147,9 +150,13 @@ export function Sidebar({
   const [editing, setEditing] = useState<
     { sessionId: string; initial: string } | undefined
   >(undefined);
-  const [searchOpen, setSearchOpen] = useState(false);
+  // The search field is a persistent fixture, like ZCode's sidebar; the
+  // toolbar button just focuses it.
+  const [searchOpen, setSearchOpen] = useState(true);
   const [query, setQuery] = useState("");
-  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>(
+    {},
+  );
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -296,11 +303,14 @@ export function Sidebar({
               onClick={() => onSelectSession?.(session.sessionId)}
             >
               <span className={css.sessionTitle}>{session.title}</span>
-              {variant === "recent" ? (
-                <span className={css.sessionTime}>
-                  {timeTick >= 0 ? relativeTime(sessionTime(session), language) : ""}
-                </span>
+              {runningSessionId === session.sessionId ? (
+                <span className={css.sessionSpinner} aria-label="Running" />
               ) : null}
+              <span className={css.sessionTime}>
+                {timeTick >= 0
+                  ? relativeTime(sessionTime(session), language)
+                  : ""}
+              </span>
             </button>
             <button
               type="button"
@@ -349,7 +359,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {searchOpen && !collapsed ? (
+      {!collapsed ? (
         <div className={css.searchBar}>
           <IconSearchOutlineRegular size={14} className={css.searchIcon} />
           <input
@@ -444,7 +454,6 @@ export function Sidebar({
             );
           })
         )}
-
       </div>
 
       <div className={css.accountWrap}>

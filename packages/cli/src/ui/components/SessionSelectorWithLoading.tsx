@@ -1,14 +1,13 @@
 import { Box, Text } from "ink";
 import React from "react";
 
-import { logger } from "../../utils/logger.js";
-
 import { t } from "../../i18n/index.js";
 import {
   listSessions,
   listSubagentSessions,
   type ExtendedSessionMetadata,
 } from "../../session/index.js";
+import { logger } from "../../utils/logger.js";
 import { SessionSelector } from "../SessionSelector.js";
 
 interface SessionSelectorWithLoadingProps {

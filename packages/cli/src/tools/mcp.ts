@@ -1,11 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 
-import { logger } from "../utils/logger.js";
 import { services } from "../services/index.js";
 import type { MCPConnectionInfo, MCPTool } from "../services/types.js";
-
-import type { ParameterSchema, Tool, ToolRunContext } from "./types.js";
+import { logger } from "../utils/logger.js";
 
 /**
  * MCP tools are the one part of the surface this package does not declare: the
@@ -124,6 +122,7 @@ export function convertMcpToolToInternalTool(
  */
 export { clearMcpSharedTools, getMcpSharedTools } from "./specs/concurrency.js";
 import { registerMcpSharedTool } from "./specs/concurrency.js";
+import type { ParameterSchema, Tool, ToolRunContext } from "./types.js";
 
 /** The subset of a CallToolResult's content blocks this renderer reads. */
 interface McpContentBlock {

@@ -1,19 +1,20 @@
+import { randomUUID } from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
 
 import type { ChatHistoryItem, Session, ToolCall } from "core/index.js";
 import { convertFromUnifiedHistoryWithSystemMessage } from "core/util/messageConversion.js";
-import { randomUUID } from "crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { historyAdapter } from "./historyAdapter.js";
-import { createSession, resumeSession } from "./index.js";
 import {
   INTERRUPTED_TOOL_RESULT_CONTENT,
   repairDanglingToolCalls,
 } from "./repairDanglingToolCalls.js";
 import { sessionStore } from "./store.js";
+
+import { createSession, resumeSession } from "./index.js";
 
 let previousGlobalDir: string | undefined;
 let testRoot: string;

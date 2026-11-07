@@ -8,10 +8,9 @@ import React, {
   useState,
 } from "react";
 
-import { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
-
 import { fireConfigChange } from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
+import { ToolPermissionServiceState } from "../services/ToolPermissionService.js";
 import {
   ApiClientServiceState,
   ConfigServiceState,
@@ -60,7 +59,6 @@ interface TUIChatProps {
   remoteUrl?: string;
 
   // Local mode props - now optional since we'll get them from services
-  configPath?: string;
   initialPrompt?: string;
   resume?: boolean;
   /** Specific session a resume should open; omitted means the newest root. */
@@ -166,7 +164,6 @@ function useChatHandlers(
 
 const TUIChat: React.FC<TUIChatProps> = ({
   remoteUrl,
-  configPath,
   initialPrompt,
   resume,
   sessionId,
@@ -284,7 +281,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
     maxSteps,
     additionalRules,
     additionalPrompts,
-    onShowConfigSelector: () => navigateTo("config"),
     onShowModelSelector: () => navigateTo("model"),
     onShowMCPSelector: () => navigateTo("mcp"),
     onShowMcpMarketplace: () => navigateTo("mcpMarket"),
@@ -324,8 +320,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
   const { renderMessage } = useMessageRenderer();
 
-  const { handleConfigSelect, handleModelSelect } = useSelectors(
-    configPath,
+  const { handleModelSelect } = useSelectors(
     setChatHistory,
     handleClear,
     setStaticRefreshTrigger,
@@ -554,7 +549,6 @@ const TUIChat: React.FC<TUIChatProps> = ({
           statusMessage={statusMessage}
           isScreenActive={isScreenActive}
           services={services}
-          handleConfigSelect={handleConfigSelect}
           handleModelSelect={handleModelSelect}
           handleSessionSelect={handleSessionSelect}
           handleExportSession={handleExportSession}

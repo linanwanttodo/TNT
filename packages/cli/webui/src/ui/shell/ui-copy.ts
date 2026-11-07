@@ -41,6 +41,21 @@ export interface ShellCopy {
   themeSystem: string;
   langEnglish: string;
   langChinese: string;
+  /* Side pane tabs (ported from ZCode's app-shell side pane). */
+  closeTabMenu: string;
+  closeOtherTabsMenu: string;
+  closeAllTabsMenu: string;
+  sidePaneEmptyHint: string;
+  sidePaneLauncherFiles: string;
+  sidePaneLauncherGit: string;
+  sidePaneLauncherTasks: string;
+  sidePaneLauncherTerminal: string;
+  tabOverview: string;
+  tabOverviewSearch: string;
+  tabOverviewOpen: string;
+  tabOverviewRecent: string;
+  tabOverviewNoResults: string;
+  closeNamedTab: (value: string) => string;
 }
 
 const EN: ShellCopy = {
@@ -65,6 +80,21 @@ const EN: ShellCopy = {
   loadingGit: "Loading git status...",
   notGitRepository: "Not a git repository",
   clean: "Clean",
+  closeTabMenu: "Close tab",
+  closeOtherTabsMenu: "Close other tabs",
+  closeAllTabsMenu: "Close all tabs",
+  sidePaneEmptyHint:
+    "Nothing open. Click a file, a diff or an agent anywhere and it shows up here as a tab.",
+  sidePaneLauncherFiles: "Workspace files",
+  sidePaneLauncherGit: "Git changes",
+  sidePaneLauncherTasks: "Approvals & agents",
+  sidePaneLauncherTerminal: "Terminal",
+  tabOverview: "Open tabs",
+  tabOverviewSearch: "Search tabs",
+  tabOverviewOpen: "Open tabs",
+  tabOverviewRecent: "Recently closed",
+  tabOverviewNoResults: "No results",
+  closeNamedTab: (value: string) => `Close ${value}`,
   clear: "Clear",
   noApprovals: "No approvals waiting",
   approvals: "Approvals",
@@ -127,6 +157,21 @@ const ZH: ShellCopy = {
   loadingGit: "正在加载 Git 状态...",
   notGitRepository: "不是 Git 仓库",
   clean: "无变更",
+  closeTabMenu: "关闭标签页",
+  closeOtherTabsMenu: "关闭其他标签页",
+  closeAllTabsMenu: "关闭全部标签页",
+  sidePaneEmptyHint:
+    "暂无打开的视图。点击任意文件、diff 或代理，它会作为标签页出现在这里。",
+  sidePaneLauncherFiles: "工作区文件",
+  sidePaneLauncherGit: "Git 变更",
+  sidePaneLauncherTasks: "审批与代理",
+  sidePaneLauncherTerminal: "终端",
+  tabOverview: "标签页总览",
+  tabOverviewSearch: "搜索标签页",
+  tabOverviewOpen: "打开的标签页",
+  tabOverviewRecent: "最近关闭",
+  tabOverviewNoResults: "无结果",
+  closeNamedTab: (value: string) => `关闭 ${value}`,
   clear: "清屏",
   noApprovals: "暂无待审批任务",
   approvals: "待审批",

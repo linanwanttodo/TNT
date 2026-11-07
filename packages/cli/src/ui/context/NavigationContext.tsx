@@ -12,7 +12,6 @@ import React, {
  */
 export type NavigationScreen =
   | "chat" // Normal chat interface
-  | "config" // Config selector
   | "model" // Model selector
   | "mcp" // MCP selector
   | "mcpMarket" // MCP marketplace

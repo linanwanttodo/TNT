@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToolPermissionManager } from "../permissions/permissionManager.js";
 import { hasSessionApproval } from "../permissions/sessionApprovals.js";
-import { PreprocessedToolCall } from "../tools/types.js";
 import { startNewSession } from "../session/index.js";
+import { PreprocessedToolCall } from "../tools/types.js";
 
 import { requestUserPermission } from "./permissionFlow.js";
 

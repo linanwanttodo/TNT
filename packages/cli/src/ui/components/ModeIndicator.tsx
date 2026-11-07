@@ -1,11 +1,10 @@
 import { Text } from "ink";
 import React from "react";
 
+import type { PermissionMode } from "../../permissions/types.js";
 import { ToolPermissionServiceState } from "../../services/ToolPermissionService.js";
 import { SERVICE_NAMES } from "../../services/types.js";
 import { useServices } from "../hooks/useService.js";
-
-import type { PermissionMode } from "../../permissions/types.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { composeTopBorder } from "../utils/borderLine.js";
 

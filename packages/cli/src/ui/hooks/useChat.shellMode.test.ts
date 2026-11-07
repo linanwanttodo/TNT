@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { runTerminalCommandTool } from "../../tools/runTerminalCommand.js";
-
 import { services } from "../../services/index.js";
+import { runTerminalCommandTool } from "../../tools/runTerminalCommand.js";
 
 import { handleBashModeProcessing } from "./useChat.shellMode.js";
 

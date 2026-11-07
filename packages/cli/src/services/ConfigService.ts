@@ -7,15 +7,14 @@ import {
 import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 
 import { loadMarkdownRulesWithMetadata } from "../agent/systemMessage.js";
-import { isStringRule } from "../config/hubLoader.js";
-import { getErrorString } from "../utils/error.js";
-
 import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";
+import { isStringRule } from "../config/hubLoader.js";
 import {
   loadConfiguration,
   unrollPackageIdentifiersAsConfigYaml,
 } from "../config/loader.js";
 import { t } from "../i18n/index.js";
+import { getErrorString } from "../utils/error.js";
 import { logger } from "../utils/logger.js";
 
 import { BaseService, ServiceWithDependencies } from "./BaseService.js";

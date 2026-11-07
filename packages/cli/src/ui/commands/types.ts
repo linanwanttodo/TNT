@@ -23,7 +23,6 @@ export interface SlashCommandResult {
   exit?: boolean;
   newInput?: string;
   clear?: boolean;
-  openConfigSelector?: boolean;
   openModelSelector?: boolean;
   openMcpSelector?: boolean;
   openMcpMarketplace?: boolean;

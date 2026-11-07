@@ -33,6 +33,19 @@
   color: var(--dsw-alias-label-shimmer);
 }
 
+/* Duration badge, ported from ZCode's Reasoning header. */
+.duration {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
 .body {
   padding: 4px 0;
   color: var(--dsw-alias-label-secondary);

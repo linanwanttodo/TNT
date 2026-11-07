@@ -2,6 +2,12 @@
  * The six-state closure vocabulary of the goal-development flow
  * (agent-discipline.md 8.6). Every in-flow report opens with one status word;
  * downstream consumers read the word, never the prose.
+ *
+ * SPEC-ONLY for now: the vocabulary is executable and tested, but nothing in
+ * the running agent calls it yet - the flow's report reader has not been
+ * built, and PRD state is not persisted anywhere. A consumer added here must
+ * be deliberate: this module decides how a report closes, so wiring it in
+ * changes what a team run reports, not just how it is formatted.
  */
 
 export const CLOSURE_STATUSES = [

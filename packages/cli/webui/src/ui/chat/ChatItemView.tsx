@@ -12,11 +12,17 @@ import type {
 } from "../../stores/session-store.js";
 import { ChangedFilesPill } from "./ChangedFilesPill.tsx";
 import { MarkdownText } from "../primitives/markdown/MarkdownText.tsx";
+import {
+  IconCheckCircleOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconClockOutlineRegular,
+  IconCloseOutlineRegular,
+} from "../primitives/icons/index.tsx";
+import { ShellIcon } from "../shell/icons.tsx";
 import { ReasoningRow } from "./ReasoningRow.tsx";
 import { UserMessageBubble } from "../primitives/UserMessageBubble.tsx";
 import { DiffBlock, type DiffHunk } from "../primitives/DiffBlock.tsx";
-import { diffLabels } from "./labels.js";
-import { IconChevronRightOutlineRegular } from "../primitives/icons/index.tsx";
+import { chatLabels, diffLabels } from "./labels.js";
 import css from "./ChatItemView.module.css";
 import { markdownLabels } from "./labels.js";
 import { changedPaths } from "./changedFiles.js";
@@ -128,43 +134,78 @@ function ToolRow({ item }: { item: ToolCardItem }) {
     setOpen(!done);
   }, [done, touched]);
 
+  // Status badge, mapped onto the reference's states and icon colors.
+  const badge = done
+    ? {
+        kind: "done",
+        icon: <IconCheckCircleOutlineRegular size={12} />,
+        label: chatLabels.toolOk,
+      }
+    : failed
+      ? {
+          kind: "failed",
+          icon: <IconCloseOutlineRegular size={12} />,
+          label:
+            item.status === "canceled"
+              ? chatLabels.toolCanceled
+              : chatLabels.toolFailed,
+        }
+      : {
+          kind: "running",
+          icon: <IconClockOutlineRegular size={12} />,
+          label: chatLabels.toolRunning,
+        };
+
   return (
-    <div className={css.toolRow} data-status={item.status}>
-      <span
-        className={css.toolDot}
-        data-kind={done ? "done" : failed ? "failed" : "running"}
-      />
-      <div className={css.toolBody}>
-        <button
-          type="button"
-          className={css.toolToggle}
-          aria-expanded={open}
-          onClick={() => {
-            setTouched(true);
-            setOpen((value) => !value);
-          }}
-        >
-          <IconChevronRightOutlineRegular
-            size={12}
-            className={css.toolCaret}
-            data-open={open}
-          />
+    <div className={css.toolCard} data-status={item.status}>
+      <button
+        type="button"
+        className={css.toolHeader}
+        aria-expanded={open}
+        onClick={() => {
+          setTouched(true);
+          setOpen((value) => !value);
+        }}
+      >
+        <span className={css.toolHeaderLeft}>
+          <ShellIcon glyph="toolbox" size={14} className={css.toolHeaderIcon} />
           <span className={css.toolName}>{item.toolName}</span>
+          <span className={css.toolBadge} data-kind={badge.kind}>
+            {badge.icon}
+            {badge.label}
+          </span>
+          {running ? (
+            <span className={css.toolProgress}>
+              <span className={css.toolProgressFill} />
+            </span>
+          ) : null}
           {summary ? <span className={css.toolSummary}>{summary}</span> : null}
-          {running ? <span className={css.toolPending} /> : null}
-        </button>
-        <div className={css.toolPanel} data-open={open}>
-          <div className={css.toolPanelInner}>
-            {item.result !== undefined &&
-              (() => {
-                const diffs = hunksFromDiff(item.result);
-                return diffs.length > 0 ? (
+        </span>
+        <IconChevronDownOutlineRegular
+          size={14}
+          className={css.toolChevron}
+          data-open={open}
+        />
+      </button>
+      <div className={css.toolPanel} data-open={open}>
+        <div className={css.toolPanelInner}>
+          {item.result !== undefined &&
+            (() => {
+              const diffs = hunksFromDiff(item.result);
+              return diffs.length > 0 ? (
+                <div className={css.toolSection}>
+                  <div className={css.toolSectionLabel}>
+                    {diffLabels.codeLabel}
+                  </div>
                   <DiffBlock diffs={diffs} labels={diffLabels} />
-                ) : (
+                </div>
+              ) : (
+                <div className={css.toolSection}>
+                  <div className={css.toolSectionLabel}>Result</div>
                   <pre className={css.toolResult}>{item.result}</pre>
-                );
-              })()}
-          </div>
+                </div>
+              );
+            })()}
         </div>
       </div>
     </div>

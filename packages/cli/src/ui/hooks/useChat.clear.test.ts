@@ -42,7 +42,6 @@ describe("useChat clear command", () => {
       result,
       chatHistory,
       setChatHistory: mockSetChatHistory,
-      onShowConfigSelector: vi.fn(),
       onClear: mockOnClear,
     });
 
@@ -88,7 +87,6 @@ describe("useChat clear command", () => {
         result,
         chatHistory,
         setChatHistory: mockSetChatHistory,
-        onShowConfigSelector: vi.fn(),
         // onClear is not provided
       });
     }).not.toThrow();
@@ -123,7 +121,6 @@ describe("useChat clear command", () => {
       result,
       chatHistory,
       setChatHistory: mockSetChatHistory,
-      onShowConfigSelector: vi.fn(),
       onClear: mockOnClear,
     });
 
@@ -144,7 +141,6 @@ describe("useChat clear command", () => {
       result,
       chatHistory,
       setChatHistory: mockSetChatHistory,
-      onShowConfigSelector: vi.fn(),
       onClear: mockOnClear,
     });
 

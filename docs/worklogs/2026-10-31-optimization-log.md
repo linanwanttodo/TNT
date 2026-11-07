@@ -299,3 +299,83 @@ continueHome 本身即 TNT 目录），测试 fixture 已按此修正。
 **依据：** spec 第三部分第 2 点（偏好开关开启后主 agent 对含召集信号的大目标自动进入流程）、第五部分 8.2 召集信号清单（多子任务拆解/多角色协作/用户点名）；设计第四部分"两个层次都是动态内容（volatile 节）"——convoke 块同样只进 volatile userRules。
 
 **验证：** RED：convoke 开启用例先行失败（userRules 无 team-convoke 块；fixture 初版写错 .tntrc.json 路径，改 .tnt/settings.json 后按预期红）。GREEN：goalAlignment 8 用例、src/agent + src/team + settingsFiles + team handler + executor.events 共 175 用例全绿，tsc 干净，eslint 两个文件零错误。systemPrefixFingerprint 四 digest 不变（userRules 全 volatile）。提交 81dbcd4eb、f2f9aab50。
+
+## 23. 命令文档守卫修复：/loop 与 /ide（2026-11-07）
+
+**做了什么：** `docs/cli/slash-commands.mdx` 与 `docs/zh/cli/slash-commands.mdx` 的「能力」表补 `/loop`（`every 20 minutes <prompt>`、cron 表达式、`off`）、`/mcp` 后补 `/ide`（`/ide`、`/ide connect jetbrains`、`/ide tools <server>`、`/ide diagnostics <file>`），中英成对。
+
+**为什么：** `slashCommandsDoc.test.ts` 在 HEAD 上是红的：`/loop` 早已完整实现（automation registry + scheduler，`handlers/loop.ts`）却从未进文档表；补完 `/loop` 后 `assert` 立刻报出下一个缺失项 `/ide`（同样已实现且有 handler）。这个守卫是双向的，红一次只报一个名字，所以要修到它闭嘴才算完。
+
+**依据：** `.tnt/AGENTS.md` 的守卫文化（加命令必须同步 en/zh 文档表）；`handlerCoverage.test.ts` 已确认两条命令都有 handler。
+
+**验证：** `npx vitest run src/slashCommandsDoc.test.ts src/ui/commands/handlerCoverage.test.ts` → 7 用例全绿；`npx prettier --check` 两文件通过。
+
+## 24. lint 门清零（2026-11-07）
+
+**做了什么：** 先 `npx eslint "src/**/*.{ts,tsx}" --fix` 清掉 96 个 `import/order`，再把 7 个不可自动修的结构性问题逐个真修：
+
+- `automationStore.ts`：`nextRunFromCron` 的 hour×minute 双循环抽成 `firstStampOnDay()`（max-depth 5/6 → 3）；`createAutomation` 的 if/else 链抽成 `resolveSchedule()`，用提前返回替代"每层都判断字段缺席"的否定条件（no-negated-condition）。
+- `modelConfigStore.ts`：`updateDeclaredModel` 复杂度 38 拆成 `validateModelPatch()` + `applyModelPatch()`，主函数只留查找、校验调用、写入。
+- `ide.ts`：两处 `!== null` / `!== undefined` 条件反转成正向形式（no-negated-condition）。
+- `webuiRoutes.ts` 839 行：按域拆成 4 个注册模块——`webuiRoutes.sessions.ts`（/sessions 与 /session/_）、`webuiRoutes.models.ts`（/models_ 与 /model）、`webuiRoutes.automations.ts`（/automations* 与 /team），主文件只留注册顺序与引擎路由（现 ~500 行内）。拆分是纯移动，路由表与响应形状逐字节保持。
+- `MCPService.ts` 520 行：模块级 `getPluginMcpServers()` / `warnLegacyMcpConfigOnce()` 移到新文件 `mcpPluginServers.ts`；未解析密钥的提示构造移进 `mcpUtils.ts` 的 `unresolvedSecretNames` / `unresolvedSecretsMessage` / `unresolvedSecretsWarning`，`connectServer` 收敛为一次调用。
+
+**为什么：** `npm run lint` 是 CI 硬门（cli-pr-checks），HEAD 上 103 个错误让它必红。拆 `webuiRoutes` 同时解决后续要改 `/message` 时"再往 839 行的文件里加东西"的问题；`updateDeclaredModel` 与 `resolveSchedule` 的拆分让两处最容易看错的字段校验各自成段。
+
+**依据：** `eslint.config.js` 的 500 行 / complexity 30 / max-depth 4 限制与它自己写明的豁免清单语义（预先存在的热点才豁免，不新增）；`AGENTS.md`「a change is not done until tsc/vitest/prettier all pass」。
+
+**验证：** `npx eslint "src/**/*.{ts,tsx}"` 零错误零警告；`npx tsc --noEmit` 干净；`npx vitest run src/services src/commands/serve.helpers.test.ts` 49 文件 534 用例通过（其中 WebUiService 一例因并行跑测试时端口 24500 被占而 EADDRINUSE，单跑 52/52 全绿——环境问题，非回归）。
+
+## 25. 删除 /config 化石（2026-11-07）
+
+**做了什么：** 整体移除"配置选择器"这条路径：`ui/ConfigSelector.tsx`、`ui/hooks/useConfigSelector.ts` 两文件删除；`NavigationScreen` 去掉 `"config"`、`SCREENS` 去掉对应条目；`useSelectors` 不再接收 `configPath`、不再返回 `handleConfigSelect`；`TUIChat` / `Composer` / `ScreenContent` / `useChat` / `useChat.types` 的整条 prop 链清理；`SlashCommandResult.openConfigSelector` 字段删除；`handleConfigCommand` 与 `handleSpecialCommands` 里的 `/config` 特例删除；i18n `config.loading|select|local|loadFailed` 4 组键（en/zh）与选择器测试用例删除；`docs/cli/configuration.mdx`（en/zh）那句话改成 `--config <path>` 的真实用法。
+
+**为什么：** 选择器只 `push` 一项（`~/.tnt/config.yaml` 存在时），`type: "local" | "assistant" | "create"` 里的后两者是上游 hub 时代遗留、在此 fork 中不可达。选中后唯一动作是 `services.config.updateConfigPath(默认路径)` + 清空会话历史。多配置的真实入口是 `--config`（`src/index.ts:198`）。一个只有一行的选择器不值得占一个命令名，文档又一直在描述它——删除比"补登记"诚实。
+
+**依据：** 用户裁决（三选一选"删掉化石"）；`docs/cli/configuration.mdx` 自己写的「published assistant slug is refused at startup」，即 hub 语义已废。
+
+**验证：** `npx tsc --noEmit` 干净；`npx eslint "src/**/*.{ts,tsx}"` 干净；`npx vitest run src/ui/context/NavigationContext.test.tsx src/ui/CtrlC.test.tsx src/ui/hooks/useChat.clear.test.ts src/ui/hooks/useChat.subagent.test.ts` 31 用例全绿（导航测试里的 `"config"` 屏幕用例改用 `"jobs"`/`"model"`，避免同一屏幕自比）。全仓 grep `ConfigSelector|openConfigSelector|handleConfigSelect|cmd.config` 零残留。
+
+## 26. 斜杠命令下沉：headless 与 WebUI 共用一个分发（2026-11-07）
+
+**做了什么：** 新增 `commands/slashCommandResult.ts` 的 `classifySlashResult()`——把 `SlashCommandResult` 归成 prompt / print / compact / clear / exit / unsupported 六种"下一件事"，`newInput` 优先于 `output`（提示词来源交的是要发的文本，不是要显示的文本）。三处消费：
+
+- **headless**（`commands/chat.ts`）：原来只认 `/compact` 一行，其余斜杠命令被当普通文本发给模型。改为先 `handleSlashCommands()`，再按分类结果动作：print 走 `finalText`（沿用既有 json/text 输出格式）、prompt 替换后续 userInput、compact 复用压缩、clear 调 `services.chatHistory.clear()`、exit 返回告别文案、picker 类返回 `chat.commandNeedsTui` 提示。
+- **WebUI**（`services/webuiSlashMessage.ts` 新模块 + `POST /message` 接线）：print 落进 transcript（`addSystemMessage`）+ `session.changed` 让各标签页重载；prompt 替换入队文本；clear/compact 直接作用于服务并广播；exit 与 picker 类发 `notice` 事件而不是丢给模型。
+- **手动压缩核心**（`compaction/manual.ts` 新模块）：`compactHistoryOnce(history, model, llmApi, commit)` 抽出压缩本体，打印留给调用方；`commands/chat.ts` 的 `handleManualCompaction` 与 WebUI 压缩都走它，避免第二份实现。
+
+**为什么：** 审计发现的"A 引擎四面"不一致：`handleSlashCommands` 此前唯一调用点是 `ui/hooks/useChat.ts`，于是 `tnt -p "/help"` 和浏览器里输入 `/team` 都会被当成提示词送给模型。要么把命令能力下沉，要么在文档里承认只有 TUI 支持——选了前者，因为 headless/浏览器能用的那部分（列表类、技能类、压缩、清空）本来就不需要界面。
+
+**依据：** 审计结论第 2、3 条；`SlashCommandResult` 的既有字段语义（`newInput`/`output`/`compact`/`clear` 都是引擎侧可完成的动作）；`AGENTS.md` 的"one engine, four surfaces"。
+
+**验证：** 新增 `commands/slashCommandResult.test.ts`（6 用例：分类优先级、空 output 不算可打印、picker 归 unsupported）与 `services/webuiSlashMessage.test.ts`（8 用例：普通文本直通、非命令斜杠文本直通、print 落 transcript、prompt 改写、clear+sessionChanged、picker 报错不发给模型、无模型时压缩不抛、无 assistant 时跳过分发）全绿；`npx tsc --noEmit` 干净；`npx eslint` 干净。
+
+## 27. cacheHitGuard 接入遥测（2026-11-07）
+
+**做了什么：** `stream/usageTelemetry.ts` 增加按 `promptCacheKey` 维护的尾部命中率环（长度 `CACHE_HIT_TAIL_ROUNDS`）与"已告警"集合：每轮非压缩请求在 provider 确实报了缓存活动（`cacheRead > 0 || cacheWrite > 0`）时记录 `cacheRead / reportedInput`；尾部均值低于 `cacheHitFloor()` 时 `logger.warn("Cache hit rate below floor", …)` 一次，恢复后清除标记以便下次再报；压缩轮清空基线（同 `forgetCacheRound`）。
+
+**为什么：** `cache/cacheHitGuard.ts` 此前零生产调用方——`TNT_CACHE_HIT_FLOOR` 是个没有任何运行期行为的死设置。审计把它列为空壳（第 10 条）。接进遥测是它本来的用途：判定"尾部是否根本不再读缓存"，与已有的单轮 break 检测（`assessCacheBreak`）互补——后者问"这一轮掉了没有"，前者问"尾部整体还达不达标"。
+
+**依据：** `cacheHitGuard.ts` 自身注释（"the last rounds are the ones a session pays for again and again"、"undefined is not a pass"）；既有 `assessCacheBreak` 的"provider 不报缓存就不评判"原则，此处沿用同一豁免。
+
+**验证：** 新增 `stream/usageTelemetry.cacheFloor.test.ts` 4 用例：尾部低命中只告警一次、健康尾部不告警、冷启动一輪不拖累尾部判定、provider 不报缓存则完全评判；与既有 `usageTelemetry.cacheRound.test.ts` 合计 6 用例全绿；tsc/eslint 干净。
+
+## 28. closure/prdState 标注规格态（对第 20 条条目的勘误及第 10 条同类的第 7 条）
+
+**做了什么：** `team/closure.ts` 与 `team/prdState.ts` 的文件头各加一段 SPEC-ONLY 说明：词汇表与状态机是可执行且有测试的**规格**，运行期没有任何调用方，PRD 没有存储，因此不派发状态；并写明"接线必须是有意为之——本模块决定一次团队运行如何收口，接入会改变行为而不只是格式"。
+
+**为什么：** 审计第 8、9 条：两个模块只有 `*.test.ts` 引用，零生产消费方，而第 20 条 worklog 把它们记成"交付顺序第 6 步完成"。在"接线至真实消费方"与"明确标为规格态并降级"之间选后者：树上没有 PRD 存储，也没有证据采集方，硬接等于用不存在的证据推导状态，是伪接线。诚实标注 + 记录勘误，等 PRD 读取器落地时再按表实现。
+
+**依据：** 审计结论第 8、9 条；第 20 条条目原文（"状态判定是测试口径"，本来只承诺机械可推导，没承诺有消费方）。
+
+**验证：** 纯注释改动；`npx tsc --noEmit` 干净；`npx vitest run src/team` 全绿（含两模块既有用例）。
+
+## 29. 删除 SquadView 死代码（2026-11-07）
+
+**做了什么：** 删除 `webui/src/ui/chat/SquadView.tsx` 与其 `SquadView.module.css`。它由 `ApprovalsPanel` + `SubagentsPanel` + `answerApproval` 组成，全 `webui/src` 无任何引用；`App.tsx` 的 `squad` 标签页渲染的是 `SubagentDirectoryPane`（更强：可点进活跃子代理标签页），而审批与子代理面板本来就在右侧 rail 中。
+
+**为什么：** 审计第 5 条。同一个"agents"视图有两份实现，其中一份是死的——留着的代价是下一个人以为它是入口，改错地方。
+
+**依据：** `ChatViewTabs` 的 `ChatViewId = "chat" | "trajectory" | "context" | "squad"` 与 `App.tsx:434` 的实际渲染分支对比。
+
+**验证：** webui `npx tsc --noEmit` 干净；webui `npx vitest run` 15 文件 114 用例全绿；grep `SquadView` 零残留。

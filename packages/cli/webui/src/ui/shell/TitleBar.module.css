@@ -5,6 +5,7 @@
  */
 
 .titleBar {
+  position: relative;
   height: 36px;
   flex: 0 0 36px;
   display: flex;
@@ -23,10 +24,19 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* The four view tabs sit dead center over the bar with a gray translucent
+   backdrop, the way the Claude desktop shell floats its view switcher over
+   the window chrome. Absolute centering keeps them centered regardless of
+   how wide the title and the action cluster grow. */
 .viewTabs {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   flex: 0 0 auto;
   display: flex;
   justify-content: center;
+  pointer-events: auto;
 }
 
 .backButton {

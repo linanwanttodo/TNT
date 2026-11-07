@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { getGitBranch, getGitRemoteUrl, isGitRepo } from "../../utils/git.js";
-import type { ConfigOption, ModelOption } from "../types/selectorTypes.js";
+import type { ModelOption } from "../types/selectorTypes.js";
 
-import { useConfigSelector } from "./useConfigSelector.js";
 import { useModelSelector } from "./useModelSelector.js";
 
 // Helper function to get repo info for responsive display
@@ -125,29 +124,12 @@ export function useIntroMessage(
 
 // Custom hook to combine all selector logic
 export function useSelectors(
-  configPath: string | undefined,
   setChatHistory: React.Dispatch<React.SetStateAction<any[]>>,
   handleClear: () => void,
   setStaticRefreshTrigger?: React.Dispatch<React.SetStateAction<number>>,
 ): {
-  handleConfigSelect: (config: ConfigOption) => Promise<void>;
   handleModelSelect: (model: ModelOption) => Promise<void>;
 } {
-  const { handleConfigSelect } = useConfigSelector({
-    configPath,
-    onMessage: (message) => {
-      // Convert message to ChatHistoryItem format
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          message: { role: message.role, content: message.content },
-          contextItems: [],
-        },
-      ]);
-    },
-    handleClear,
-  });
-
   const { handleModelSelect } = useModelSelector({
     onMessage: (message) => {
       // Convert message to ChatHistoryItem format
@@ -168,7 +150,6 @@ export function useSelectors(
   });
 
   return {
-    handleConfigSelect,
     handleModelSelect,
   };
 }

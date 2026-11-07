@@ -15,9 +15,9 @@ import {
   mergeParentOptions,
 } from "./config/sharedOptions.js";
 import { t } from "./i18n/index.js";
+import { captureCliLaunchSpec } from "./services/UpdateService.js";
 import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
 import { getVersion } from "./startup/version.js";
-import { captureCliLaunchSpec } from "./services/UpdateService.js";
 import { post } from "./utils/apiClient.js";
 import { markUnhandledError } from "./utils/errorState.js";
 import { gracefulExit } from "./utils/exit.js";

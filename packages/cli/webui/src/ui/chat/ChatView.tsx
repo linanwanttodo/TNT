@@ -3,9 +3,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ChatItem,
   PendingPermission,
+  PendingQuestionState,
 } from "../../stores/session-store.js";
 import { ApprovalCard } from "./ApprovalCard.tsx";
 import { ChatItemView } from "./ChatItemView.tsx";
+import { ChatLoading } from "./ChatLoading.tsx";
+import { QuestionCard } from "./QuestionCard.tsx";
 import { ReasoningRow } from "./ReasoningRow.tsx";
 import css from "./ChatView.module.css";
 
@@ -27,16 +30,22 @@ export function ChatView({
   isStreaming = false,
   reasoning,
   pendingPermission,
+  pendingQuestion = null,
   notices,
+  isWaiting = false,
   onAnswer,
+  onAnswerQuestion = () => {},
 }: {
   items: ChatItem[];
   streaming: string | null;
   isStreaming?: boolean | undefined;
   reasoning: string | null;
   pendingPermission: PendingPermission | null;
+  pendingQuestion?: PendingQuestionState | null;
   notices: string[];
+  isWaiting?: boolean | undefined;
   onAnswer: (approved: boolean) => void;
+  onAnswerQuestion?: ((answer: string) => void) | undefined;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const tailKey = `${items.length}:${streaming?.length ?? 0}:${reasoning?.length ?? 0}`;
@@ -107,7 +116,11 @@ export function ChatView({
       <div className={css.scroll} ref={scrollRef}>
         <div className={css.content}>
           {notices.map((notice, i) => (
-            <div key={i} className={css.notice}>
+            <div
+              key={i}
+              className={css.notice}
+              data-zcode-stream-animate="true"
+            >
               {notice}
             </div>
           ))}
@@ -124,7 +137,7 @@ export function ChatView({
           ))}
           {reasoning !== null && <ReasoningRow text={reasoning} running />}
           {streaming !== null && (
-            <div className={css.streaming}>
+            <div className={css.streaming} data-zcode-stream-animate="true">
               <ChatItemView
                 item={{
                   kind: "message",
@@ -134,6 +147,15 @@ export function ChatView({
                 }}
               />
             </div>
+          )}
+          {isWaiting && streaming === null && reasoning === null ? (
+            <ChatLoading />
+          ) : null}
+          {pendingQuestion !== null && (
+            <QuestionCard
+              pending={pendingQuestion}
+              onAnswer={(answer) => void onAnswerQuestion?.(answer)}
+            />
           )}
           {pendingPermission !== null && (
             <ApprovalCard pending={pendingPermission} onAnswer={onAnswer} />

@@ -8,16 +8,16 @@ import {
   getPluginSearchRoots,
   getPluginsDirectory,
 } from "../plugins/directories.js";
-import {
-  configuredEnabledPlugins,
-  ENABLED_PLUGINS_KEY,
-} from "../plugins/pluginEnablement.js";
 import { invalidatePluginCache, loadAllPlugins } from "../plugins/loader.js";
-import { loadKnownMarketplaces } from "../plugins/marketplaceRegistry.js";
 import {
   discoverInstalledPlugins,
   type LoadedPlugin,
 } from "../plugins/manifest.js";
+import { loadKnownMarketplaces } from "../plugins/marketplaceRegistry.js";
+import {
+  configuredEnabledPlugins,
+  ENABLED_PLUGINS_KEY,
+} from "../plugins/pluginEnablement.js";
 
 export interface PluginSummary {
   id: string;

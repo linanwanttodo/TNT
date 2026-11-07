@@ -1,15 +1,15 @@
 import chalk from "chalk";
 
 import { t } from "../../../i18n/index.js";
-import { loadAllPlugins } from "../../../plugins/loader.js";
-import { runMarketplaceCommand } from "../../../plugins/marketplaceCommand.js";
-import { createDefaultDeps } from "../../../plugins/marketplaceManager.js";
-import { loadKnownMarketplaces } from "../../../plugins/marketplaceRegistry.js";
 import {
   ensureDefaultMarketplace,
   loadMarketplaceCatalogs,
   searchCatalogPlugins,
 } from "../../../plugins/discover.js";
+import { loadAllPlugins } from "../../../plugins/loader.js";
+import { runMarketplaceCommand } from "../../../plugins/marketplaceCommand.js";
+import { createDefaultDeps } from "../../../plugins/marketplaceManager.js";
+import { loadKnownMarketplaces } from "../../../plugins/marketplaceRegistry.js";
 import {
   installPluginWithDependencies,
   uninstallPlugin,
