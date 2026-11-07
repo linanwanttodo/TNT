@@ -5,10 +5,7 @@ const EDITED_ARGUMENT: Record<string, string> = {
 };
 
 /** The paths one finished tool call touched, or an empty list. */
-export function changedPaths(
-  toolName: string,
-  args: unknown,
-): string[] {
+export function changedPaths(toolName: string, args: unknown): string[] {
   if (!args || typeof args !== "object") return [];
   const record = args as Record<string, unknown>;
   if (toolName === "ApplyPatch") {

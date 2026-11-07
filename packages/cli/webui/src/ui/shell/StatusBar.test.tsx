@@ -218,9 +218,7 @@ describe("status bar", () => {
   });
 
   it("shows the context ring and opens its breakdown", () => {
-    render(
-      <StatusBar permissionMode="default" contextBreakdown={context} />,
-    );
+    render(<StatusBar permissionMode="default" contextBreakdown={context} />);
     const ring = screen.getByRole("button", { name: "Context 12% used" });
     expect(ring.querySelector("circle")).toBeTruthy();
     fireEvent.click(ring);

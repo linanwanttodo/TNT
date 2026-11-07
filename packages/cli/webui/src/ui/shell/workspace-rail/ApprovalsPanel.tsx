@@ -22,7 +22,10 @@ export function ApprovalsPanel({
           <div className={css.approval} key={approval.requestId}>
             <div className={css.approvalTitle}>{approval.toolName}</div>
             <div className={css.approvalActions}>
-              <button type="button" onClick={() => onAnswer(approval.requestId, true)}>
+              <button
+                type="button"
+                onClick={() => onAnswer(approval.requestId, true)}
+              >
                 {copy.approve}
               </button>
               <button

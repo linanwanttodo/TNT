@@ -6,7 +6,12 @@ export interface FileTreeNode {
 }
 
 export function buildFileTree(files: string[], root: string): FileTreeNode {
-  const tree: FileTreeNode = { path: root, name: root, kind: "directory", children: [] };
+  const tree: FileTreeNode = {
+    path: root,
+    name: root,
+    kind: "directory",
+    children: [],
+  };
   for (const file of files) {
     const relative = file.replace(`${root}/`, "");
     const parts = relative.split("/");

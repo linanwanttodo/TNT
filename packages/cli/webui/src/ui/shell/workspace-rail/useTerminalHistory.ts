@@ -5,7 +5,9 @@ const STORAGE_KEY = "tnt-webui-terminal-history";
 function readHistory(): string[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === "string") : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((entry) => typeof entry === "string")
+      : [];
   } catch {
     return [];
   }

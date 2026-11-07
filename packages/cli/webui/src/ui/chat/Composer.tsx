@@ -3,7 +3,13 @@
  * left opens the settings menu (new session, mode and session facts); the
  * circular up arrow on the right sends, and becomes a stop while a turn runs.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import {
   IconPlusOutlineMedium,
   IconSendOutlineRegular,
@@ -119,13 +125,20 @@ export function Composer({
           <button
             type="button"
             className={css.action}
-            aria-label={idle && !hasText ? "Continue session" : chatLabels.sendLabel}
+            aria-label={
+              idle && !hasText ? "Continue session" : chatLabels.sendLabel
+            }
             data-ready={idle && !hasText ? true : hasText}
             data-play={idle && !hasText ? "" : undefined}
             onClick={idle && !hasText ? () => onSend("Continue") : submit}
           >
             {idle && !hasText ? (
-              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                aria-hidden="true"
+              >
                 <path d="M5 3.5v9l7-4.5-7-4.5Z" fill="currentColor" />
               </svg>
             ) : (
