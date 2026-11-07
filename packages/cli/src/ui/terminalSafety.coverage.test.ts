@@ -58,7 +58,9 @@ function uiFiles(dir: string, base = dir): string[] {
     if (entry.isDirectory()) return uiFiles(full, base);
     if (!/\.(ts|tsx)$/.test(entry.name)) return [];
     if (/\.test\.(ts|tsx)$/.test(entry.name)) return [];
-    return [path.relative(base, full)];
+    // The manifest keys use POSIX separators; Windows must not make the same
+    // component disappear from the source lookup.
+    return [path.relative(base, full).split(path.sep).join(path.posix.sep)];
   });
 }
 

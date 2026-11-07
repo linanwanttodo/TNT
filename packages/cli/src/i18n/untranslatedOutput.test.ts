@@ -259,7 +259,9 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   config: 2,
   mcp: 1,
   plugins: 1,
-  services: 7,
+  // 6, not 7: the terminal-safety work translated one raw throw in this
+  // directory, and the ratchet records the lower count.
+  services: 6,
   session: 6,
   tools: 6,
   ui: 8,

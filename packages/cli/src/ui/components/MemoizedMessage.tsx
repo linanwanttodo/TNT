@@ -99,7 +99,9 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
         <Box key={index} marginBottom={1}>
           <Text color={theme.text.primary}>
             <Text color={theme.text.secondary}>{symbols().bullet} </Text>
-            {message.content}
+            {sanitizeTerminalText(
+              formatMessageContentForDisplay(message.content),
+            )}
           </Text>
         </Box>
       );
@@ -114,11 +116,13 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
     // hook notes; surfaces show what the user typed. The item's userText is
     // that text when the composer recorded it, and the marker split is the
     // fallback for items stored before the field existed.
-    const rawFormattedContent = isUser
-      ? ((item as { userText?: string }).userText ??
-        splitServedPrompt(formatMessageContentForDisplay(message.content))
-          .userText)
-      : formatMessageContentForDisplay(message.content);
+    const rawFormattedContent = sanitizeTerminalText(
+      isUser
+        ? ((item as { userText?: string }).userText ??
+            splitServedPrompt(formatMessageContentForDisplay(message.content))
+              .userText)
+        : formatMessageContentForDisplay(message.content),
+    );
     const { thinking: extractedThought, cleanedText: cleanedBody } = isAssistant
       ? extractThinkingContent(rawFormattedContent)
       : { thinking: undefined, cleanedText: rawFormattedContent };

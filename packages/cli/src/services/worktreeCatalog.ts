@@ -5,24 +5,11 @@
  * a checkout is not a label but the place the agent works in. This module
  * reads that directory the way git does and moves it when asked.
  */
-import fs from "fs";
 import path from "path";
 
 import { t } from "../i18n/index.js";
+import { canonicalPath } from "../utils/canonicalPath.js";
 import { listWorktrees, type WorktreeInfo } from "../utils/git.js";
-
-/**
- * The real path of a directory, or null when it cannot be read.
- * @param target - the directory to resolve.
- * @returns the resolved path, or null.
- */
-function realPath(target: string): string | null {
-  try {
-    return fs.realpathSync(target);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Every checkout of the repository the process is standing in.
@@ -38,17 +25,16 @@ export function listCheckouts(): WorktreeInfo[] {
  * @returns the checkout, or null when the process is not in a repository.
  */
 export function currentCheckout(): WorktreeInfo | null {
-  const here = realPath(process.cwd());
-  if (!here) return null;
+  const here = canonicalPath(process.cwd());
 
   const checkouts = listCheckouts();
   // The longest match wins: a checkout nested in another one is the closer
   // answer to "where am I working".
   const matches = checkouts
-    .map((checkout) => ({ checkout, root: realPath(checkout.path) }))
+    .map((checkout) => ({ checkout, root: canonicalPath(checkout.path) }))
     .filter(
-      (entry): entry is { checkout: WorktreeInfo; root: string } =>
-        entry.root !== null &&
+      (entry) =>
+        entry.root !== "" &&
         (here === entry.root || here.startsWith(entry.root + path.sep)),
     )
     .sort((a, b) => b.root.length - a.root.length);
@@ -64,9 +50,9 @@ export function currentCheckout(): WorktreeInfo | null {
  * directory cannot be entered.
  */
 export function moveToCheckout(target: string): WorktreeInfo {
-  const wanted = realPath(target);
+  const wanted = canonicalPath(target);
   const checkout = listCheckouts().find(
-    (entry) => realPath(entry.path) === wanted,
+    (entry) => canonicalPath(entry.path) === wanted,
   );
   if (!checkout) {
     throw new Error(t("services.noWorktreeAt", { path: target }));

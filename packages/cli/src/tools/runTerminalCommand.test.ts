@@ -112,7 +112,9 @@ describe("runTerminalCommandTool", () => {
     }
   });
 
-  describe("process control", () => {
+  // Windows has no process groups, no `trap`, and a shell that reads neither
+  // `$!` nor `SHELL`; the semantics under test are the POSIX ones.
+  describe.skipIf(isWindows)("process control", () => {
     // Windows has no process groups and PowerShell has no `trap`; the
     // semantics under test are the POSIX ones.
     const runWithAbort = async (

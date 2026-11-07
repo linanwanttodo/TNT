@@ -1,10 +1,11 @@
 import { execFileSync } from "child_process";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { canonicalPath } from "./canonicalPath.js";
 import {
   getGitBranch,
   getGitHubActionsRepoUrl,
@@ -123,7 +124,7 @@ describe("the worktrees of a repository", () => {
   it("names every worktree with the branch it holds", () => {
     const found = listWorktrees(root);
     expect(found.length).toBeGreaterThanOrEqual(2);
-    const at = (p: string) => realpathSync(p);
+    const at = (p: string) => canonicalPath(p);
     const main = found.find((w) => at(w.path) === at(root));
     const side = found.find((w) => at(w.path) === at(linked));
     expect(main?.branch).toBe("main");

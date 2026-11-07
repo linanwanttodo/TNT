@@ -14,6 +14,8 @@ import "./ui/theme/scrollbar.css";
 import "./ui/theme/focus.css";
 import "./ui/theme/corner-shape.css";
 import "./ui/theme/shiki.css";
+// ZCode styles.css 全量拷贝（Tailwind v4 @theme + 主题变量 + 工具类管线），放在 TNT 自有样式之后。
+import "./ui/zcode/styles.css";
 
 // Every glyph in the app is a `<use>` into one document sprite; without the
 // sprite mounted, the icons render as empty boxes.

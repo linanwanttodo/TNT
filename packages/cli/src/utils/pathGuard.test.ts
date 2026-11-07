@@ -24,9 +24,10 @@ describe("resolveWithin", () => {
 
   it("rejects a .. escape and names the resolved path and the root", () => {
     expect(() => resolveWithin(root, "../escape.txt")).toThrow(
-      new RegExp(
-        `${path.resolve(root, "../escape.txt")}.*${path.resolve(root)}`,
-      ),
+      path.resolve(root, "../escape.txt"),
+    );
+    expect(() => resolveWithin(root, "../escape.txt")).toThrow(
+      path.resolve(root),
     );
     expect(() => resolveWithin(root, "a/../../escape.txt")).toThrow(/outside/);
   });

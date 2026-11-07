@@ -1,5 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
 
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+
+import { HookFixtures } from "../../test-utils/hookFixtures.js";
 import { logger } from "../utils/logger.js";
 
 import { runHooks } from "./hookRunner.js";
@@ -14,7 +19,19 @@ vi.mock("../utils/logger.js", () => ({
   },
 }));
 
-const echo = (json: string) => `echo '${json.replace(/'/g, "'\\''")}'`;
+const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-hook-guard-"));
+const fixtures = new HookFixtures(workDir);
+
+afterAll(() => {
+  fs.rmSync(workDir, {
+    recursive: true,
+    force: true,
+    maxRetries: 40,
+    retryDelay: 250,
+  });
+});
+
+const echo = (json: string) => fixtures.echo(json);
 
 function event(
   hookEventName: string,
