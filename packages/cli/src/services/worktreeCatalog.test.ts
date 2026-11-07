@@ -5,6 +5,7 @@ import path from "path";
 
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { canonicalPath, sameDirectory } from "../utils/canonicalPath.js";
 import {
   currentCheckout,
   listCheckouts,
@@ -56,14 +57,14 @@ describe("the checkouts a process can work in", () => {
   });
 
   it("names the checkout the process is standing in", () => {
-    expect(currentCheckout()?.path).toBe(fs.realpathSync(main));
+    expect(sameDirectory(currentCheckout()?.path ?? "", main)).toBe(true);
   });
 
   it("still names it from a directory inside the checkout", () => {
     const nested = path.join(main, "deep", "er");
     fs.mkdirSync(nested, { recursive: true });
     process.chdir(nested);
-    expect(currentCheckout()?.path).toBe(fs.realpathSync(main));
+    expect(sameDirectory(currentCheckout()?.path ?? "", main)).toBe(true);
   });
 
   it("says nothing when the process is not in a repository", () => {
@@ -73,15 +74,22 @@ describe("the checkouts a process can work in", () => {
       expect(listCheckouts()).toEqual([]);
       expect(currentCheckout()).toBeNull();
     } finally {
-      fs.rmSync(loose, { recursive: true, force: true });
+      // Windows refuses to remove a directory the process stands in.
+      process.chdir(startDir);
+      fs.rmSync(loose, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      });
     }
   });
 
   it("moves the process into another checkout", () => {
-    const moved = moveToCheckout(fs.realpathSync(linked));
+    const moved = moveToCheckout(linked);
     expect(moved.branch).toBe("side");
-    expect(fs.realpathSync(process.cwd())).toBe(fs.realpathSync(linked));
-    expect(currentCheckout()?.path).toBe(fs.realpathSync(linked));
+    expect(sameDirectory(process.cwd(), linked)).toBe(true);
+    expect(sameDirectory(currentCheckout()?.path ?? "", linked)).toBe(true);
   });
 
   it("refuses a directory that is not one of the repository's checkouts", () => {

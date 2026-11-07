@@ -1,6 +1,8 @@
 import { execFile, execFileSync } from "child_process";
 import { promisify } from "util";
 
+import { canonicalPath } from "./canonicalPath.js";
+
 const execFileAsync = promisify(execFile);
 const LARGE_STDIO_BUFFER_BYTES = 10 * 1024 * 1024; // bump buffer for large git output
 
@@ -91,7 +93,10 @@ export function listWorktrees(cwd: string = process.cwd()): WorktreeInfo[] {
   for (const line of raw.split("\n")) {
     if (line.startsWith("worktree ")) {
       current = {
-        path: line.slice("worktree ".length).trim(),
+        // Git spells the checkout with forward slashes and the 8.3 short
+        // names of its own choosing; canonicalPath puts every spelling on
+        // the same footing the other path comparisons in the CLI use.
+        path: canonicalPath(line.slice("worktree ".length).trim()),
         branch: null,
         head: "",
         detached: false,
