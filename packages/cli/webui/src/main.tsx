@@ -14,6 +14,7 @@ import "./ui/theme/scrollbar.css";
 import "./ui/theme/focus.css";
 import "./ui/theme/corner-shape.css";
 import "./ui/theme/shiki.css";
+import "./ui/zcode/zcode-bridge.css";
 
 // Every glyph in the app is a `<use>` into one document sprite; without the
 // sprite mounted, the icons render as empty boxes.
