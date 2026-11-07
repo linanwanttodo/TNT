@@ -15,6 +15,8 @@ const enUS: Record<string, string> = {
   "sidebar.newTask": "New task",
   "taskNav.back": "Go back",
   "taskNav.forward": "Go forward",
+  "chat.message.expand": "Expand",
+  "chat.message.collapse": "Collapse",
 };
 
 const zhCN: Record<string, string> = {
@@ -28,6 +30,8 @@ const zhCN: Record<string, string> = {
   "sidebar.newTask": "新建任务",
   "taskNav.back": "后退",
   "taskNav.forward": "前进",
+  "chat.message.expand": "展开",
+  "chat.message.collapse": "收起",
 };
 
 function resolveLocale(): string {
