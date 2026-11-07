@@ -2,6 +2,7 @@ import type { ChatHistoryItem } from "core/index.js";
 
 import { services } from "../../services/index.js";
 import { logger } from "../../utils/logger.js";
+import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
 
 import { RemoteServerState } from "./useChat.types.js";
 
@@ -20,6 +21,7 @@ async function pollRemoteServerState(
   remoteUrl: string,
 ): Promise<RemoteServerState | null> {
   try {
+    await assertConfiguredHttpUrl(`${remoteUrl}/state`);
     const response = await fetch(`${remoteUrl}/state`);
     if (!response.ok) {
       throw new Error(`Failed to fetch state: ${response.statusText}`);
@@ -135,6 +137,7 @@ export async function handleRemoteExit(
   exit: () => void,
 ): Promise<void> {
   try {
+    await assertConfiguredHttpUrl(`${remoteUrl}/exit`);
     const response = await fetch(`${remoteUrl}/exit`, {
       method: "POST",
     });
@@ -180,6 +183,7 @@ export async function handleRemoteMessage({
   messageContent,
 }: HandleRemoteMessageOptions): Promise<void> {
   try {
+    await assertConfiguredHttpUrl(`${remoteUrl}/message`);
     const response = await fetch(`${remoteUrl}/message`, {
       method: "POST",
       headers: {
@@ -212,6 +216,7 @@ export async function handleRemoteMessage({
  */
 export async function handleRemoteDiff(remoteUrl: string): Promise<void> {
   try {
+    await assertConfiguredHttpUrl(`${remoteUrl}/diff`);
     const response = await fetch(`${remoteUrl}/diff`);
     if (!response.ok) {
       throw new Error(`Failed to fetch diff: ${response.statusText}`);
@@ -245,6 +250,7 @@ export async function handleRemoteDiff(remoteUrl: string): Promise<void> {
  */
 export async function handleRemoteApply(remoteUrl: string): Promise<void> {
   try {
+    await assertConfiguredHttpUrl(`${remoteUrl}/diff`);
     const response = await fetch(`${remoteUrl}/diff`);
     if (!response.ok) {
       throw new Error(`Failed to fetch diff: ${response.statusText}`);

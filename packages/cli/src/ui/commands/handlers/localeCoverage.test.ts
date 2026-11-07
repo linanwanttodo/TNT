@@ -40,7 +40,7 @@ afterEach(() => {
 /** The copy is resolved when the handler runs, not when the module loads. */
 describe("slash command copy follows the active locale", () => {
   it("translates the plugin listing and its hints", async () => {
-    const result = await handlePlugins([]);
+    const result = await handlePlugins(["--text"]);
 
     expect(result.output).toContain("未安装任何插件");
     expect(result.output).toContain("/plugin marketplace add");
@@ -75,7 +75,7 @@ describe("slash command copy follows the active locale", () => {
       }),
     );
 
-    const result = await handlePlugins([]);
+    const result = await handlePlugins(["--text"]);
 
     expect(result.output).toContain("demo");
     expect(result.output).toContain("已注册 1 个插件市场");

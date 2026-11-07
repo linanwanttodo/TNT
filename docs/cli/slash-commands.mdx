@@ -40,18 +40,20 @@ language, see [Language](/cli/i18n).
 
 ## Capabilities
 
-| Command         | Effect                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `/mcp`          | manage MCP server connections                                                            |
-| `/plugins`      | list installed plugins and what they contribute                                          |
-| `/skills`       | list the available skills                                                                |
-| `/import-skill` | import a skill into `~/.tnt/skills`                                                      |
-| `/subagents`    | show the sessions delegated from this one                                                |
-| `/back`         | return from a delegated session to its parent                                            |
-| `/parent`       | alias for `/back`                                                                        |
-| `/jobs`         | list background jobs                                                                     |
-| `/cost`         | show context, cache, output and cost for this session                                    |
-| `/webui`        | serve this session's web view and open it in a browser (`stop`, `--no-open`, `--port=N`) |
+| Command         | Effect                                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| `/mcp`          | manage MCP server connections                                                                              |
+| `/ide`          | bridge an IDE over MCP: `/ide`, `/ide connect jetbrains`, `/ide tools <server>`, `/ide diagnostics <file>` |
+| `/plugins`      | list installed plugins and what they contribute                                                            |
+| `/skills`       | list the available skills                                                                                  |
+| `/import-skill` | import a skill into `~/.tnt/skills`                                                                        |
+| `/subagents`    | show the sessions delegated from this one                                                                  |
+| `/back`         | return from a delegated session to its parent                                                              |
+| `/parent`       | alias for `/back`                                                                                          |
+| `/jobs`         | list background jobs                                                                                       |
+| `/loop`         | schedule a recurring agent run: `every 20 minutes <prompt>`, a cron expression, or `off`                   |
+| `/cost`         | show context, cache, output and cost for this session                                                      |
+| `/webui`        | serve this session's web view and open it in a browser (`stop`, `--no-open`, `--port=N`)                   |
 
 ## Context and workspace
 

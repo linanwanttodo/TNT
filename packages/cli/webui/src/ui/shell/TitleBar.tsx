@@ -13,6 +13,7 @@ import type {
   PermissionMode,
 } from "../../api/client.ts";
 import {
+  IconAppsAddOutlineRegular,
   IconEllipsisOutlineRegular,
   IconPanelLeftOutlineRegular,
   IconPlusOutlineRegular,
@@ -33,6 +34,8 @@ export interface TitleBarProps {
   permissionMode?: string | undefined;
   onSetPermissionMode?: ((mode: PermissionMode) => void) | undefined;
   onNewSession?: (() => void) | undefined;
+  /** Open the plugin marketplace page. */
+  onOpenMarketplace?: (() => void) | undefined;
   /** Facts the menu shows. */
   model?: string | undefined;
   workspaceDirectory?: string | undefined;
@@ -65,6 +68,7 @@ export function TitleBar({
   permissionMode,
   onSetPermissionMode,
   onNewSession,
+  onOpenMarketplace,
   model,
   workspaceDirectory,
   context,
@@ -126,6 +130,15 @@ export function TitleBar({
           onClick={onNewSession}
         >
           <IconPlusOutlineRegular size={14} />
+        </button>
+        <button
+          type="button"
+          className={css.actionButton}
+          aria-label="Plugin marketplace"
+          title="Plugin marketplace"
+          onClick={onOpenMarketplace}
+        >
+          <IconAppsAddOutlineRegular size={14} />
         </button>
         <div className={css.menuAnchor}>
           <button

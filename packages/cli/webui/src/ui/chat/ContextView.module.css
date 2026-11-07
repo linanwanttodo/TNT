@@ -21,10 +21,66 @@
   overflow: hidden;
 }
 
-.bar > span {
+/* Segments ride ZCode's context-breakdown blue ramp, one step per category. */
+.bar > .segment {
   display: block;
   height: 100%;
-  background: var(--dsw-alias-state-business-primary);
+  flex: 0 0 auto;
+  transition: width 200ms var(--ds-ease-in-out);
+}
+
+.bar > .segment[data-step="1"] {
+  background: var(--dsh-context-breakdown-1);
+}
+
+.bar > .segment[data-step="2"] {
+  background: var(--dsh-context-breakdown-2);
+}
+
+.bar > .segment[data-step="3"] {
+  background: var(--dsh-context-breakdown-3);
+}
+
+.bar > .segment[data-step="4"] {
+  background: var(--dsh-context-breakdown-4);
+}
+
+.bar > .segment[data-step="5"] {
+  background: var(--dsh-context-breakdown-5);
+}
+
+.rowLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  corner-shape: round;
+}
+
+.swatch[data-step="1"] {
+  background: var(--dsh-context-breakdown-1);
+}
+
+.swatch[data-step="2"] {
+  background: var(--dsh-context-breakdown-2);
+}
+
+.swatch[data-step="3"] {
+  background: var(--dsh-context-breakdown-3);
+}
+
+.swatch[data-step="4"] {
+  background: var(--dsh-context-breakdown-4);
+}
+
+.swatch[data-step="5"] {
+  background: var(--dsh-context-breakdown-5);
 }
 
 .rows {

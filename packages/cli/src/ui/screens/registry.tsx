@@ -1,11 +1,13 @@
 import React from "react";
 
+import { applyProviderSetup } from "../../services/modelCatalog.js";
+import { ProviderSetupScreen } from "../../startup/ProviderSetupScreen.js";
+import { logger } from "../../utils/logger.js";
 import { CommandPalette } from "../CommandPalette.js";
 import { ChatScreenContent } from "../components/ChatScreenContent.js";
 import type { ScreenContentProps } from "../components/ScreenContent.js";
 import { SessionSelectorWithLoading } from "../components/SessionSelectorWithLoading.js";
 import { ThemeSelector } from "../components/ThemeSelector.js";
-import { ConfigSelector } from "../ConfigSelector.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
 import { DiffViewer } from "../DiffViewer.js";
 import { EditMessageSelector } from "../EditMessageSelector.js";
@@ -13,6 +15,7 @@ import { JobsSelector } from "../JobsSelector.js";
 import { MCPMarketplace } from "../MCPMarketplace.js";
 import { MCPSelector } from "../MCPSelector.js";
 import { ModelSelector } from "../ModelSelector.js";
+import { PluginsBrowser } from "../PluginsBrowser.js";
 import { UpdateSelector } from "../UpdateSelector.js";
 
 /**
@@ -27,21 +30,16 @@ export interface ScreenDefinition {
 
 export const SCREENS: readonly ScreenDefinition[] = [
   {
-    id: "config",
-    render: (props) => (
-      <ConfigSelector
-        onSelect={props.handleConfigSelect}
-        onCancel={props.closeCurrentScreen}
-      />
-    ),
-  },
-  {
     id: "mcp",
     render: (props) => <MCPSelector onCancel={props.closeCurrentScreen} />,
   },
   {
     id: "mcpMarket",
     render: (props) => <MCPMarketplace onCancel={props.closeCurrentScreen} />,
+  },
+  {
+    id: "plugins",
+    render: (props) => <PluginsBrowser onCancel={props.closeCurrentScreen} />,
   },
   {
     id: "update",
@@ -75,6 +73,26 @@ export const SCREENS: readonly ScreenDefinition[] = [
     render: (props) => (
       <ModelSelector
         onSelect={props.handleModelSelect}
+        onAdd={props.onShowAddModelSelector ?? props.closeCurrentScreen}
+        onCancel={props.closeCurrentScreen}
+      />
+    ),
+  },
+  {
+    id: "addModel",
+    render: (props) => (
+      <ProviderSetupScreen
+        standalone={false}
+        onComplete={(setup) => {
+          void applyProviderSetup(setup)
+            .catch((error: unknown) => {
+              logger.error(
+                "Adding the model from the setup screen failed",
+                error,
+              );
+            })
+            .finally(() => props.closeCurrentScreen());
+        }}
         onCancel={props.closeCurrentScreen}
       />
     ),

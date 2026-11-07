@@ -26,6 +26,24 @@ describe("ContextBudgetTracker", () => {
     expect(notice).toContain("100,000 window");
   });
 
+  it("tells the model what survives an early stop (T6.3)", () => {
+    const tracker = new ContextBudgetTracker();
+    tracker.recordRequest(95_000);
+
+    expect(tracker.reminder(100_000)).toContain(
+      "The todo list and your notes carry over into the next window",
+    );
+  });
+
+  it("renders the notice as byte-identical text for the same numbers (T6.1)", () => {
+    const first = new ContextBudgetTracker();
+    first.recordRequest(95_000);
+    const second = new ContextBudgetTracker();
+    second.recordRequest(95_000);
+
+    expect(first.reminder(100_000)).toBe(second.reminder(100_000));
+  });
+
   it("does not repeat itself while the window stays full", () => {
     const tracker = new ContextBudgetTracker();
     tracker.recordRequest(95_000);

@@ -33,6 +33,7 @@ vi.mock("../utils/logger.js", () => ({
 vi.mock("../config/index.js", () => ({
   createLlmApi: vi.fn(),
   getLlmApi: vi.fn(),
+  applyOllamaContextWindow: vi.fn(async (model: any) => model),
 }));
 
 // Mock auth module

@@ -1,8 +1,31 @@
 /**
  * Declares how a tool may be run relative to the other tool calls in the same
  * batch. Pure data: the planner reads this to group calls, and nothing here
- * imports the tool implementations.
+ * imports the tool implementations - the one runtime input is the MCP
+ * read-only side table, fed by the mcp tool builder through the functions
+ * below.
  */
+
+/**
+ * The MCP tool names the server hints are read-only
+ * (`annotations.readOnlyHint`), registered as the tools are built. A tool on
+ * this table may share a concurrency step instead of taking the exclusive
+ * slot an unknown tool conservatively holds.
+ */
+const mcpSharedTools = new Set<string>();
+
+export function registerMcpSharedTool(toolName: string): void {
+  mcpSharedTools.add(toolName);
+}
+
+export function getMcpSharedTools(): ReadonlySet<string> {
+  return mcpSharedTools;
+}
+
+/** Test seam: the table lives for the process, tests need a clean slate. */
+export function clearMcpSharedTools(): void {
+  mcpSharedTools.clear();
+}
 
 export type Concurrency =
   /** Safe to run alongside any number of other calls. */
@@ -261,9 +284,14 @@ export function claimForToolCall(
   const spec = TOOL_CONCURRENCY[toolName];
 
   if (spec === undefined) {
-    // Unknown tools include every MCP tool. MCP servers are frequently
+    // Unknown tools include most MCP tools. MCP servers are frequently
     // stateful in ways this table cannot see, so they are treated as
-    // exclusive rather than assumed safe.
+    // exclusive rather than assumed safe - except the ones the server
+    // itself hints are read-only (annotations.readOnlyHint), which the
+    // mcp tool builder registers as safe to share a step.
+    if (getMcpSharedTools().has(toolName)) {
+      return { exclusive: false, keys: [] };
+    }
     return { exclusive: true, keys: [] };
   }
 

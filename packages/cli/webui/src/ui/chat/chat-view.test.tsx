@@ -83,6 +83,8 @@ describe("chat view", () => {
         }}
       />,
     );
+    // A finished card collapses its output; expand it before reading.
+    fireEvent.click(container.querySelector("button[aria-expanded]")!);
     expect(container.querySelector("[data-diff]")).toBeTruthy();
     const texts = (selector: string) =>
       [...container.querySelectorAll(selector)].map((el) => el.textContent);

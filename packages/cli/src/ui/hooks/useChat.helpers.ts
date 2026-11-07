@@ -4,12 +4,12 @@ import type { ChatHistoryItem } from "core/index.js";
 import { getLastNPathParts } from "core/util/uri.js";
 import { v4 as uuidv4 } from "uuid";
 
-import { logger } from "src/utils/logger.js";
-
 import { expandMentions } from "../../agent/atMentions.js";
 import { DEFAULT_SESSION_TITLE } from "../../config/constants.js";
 import { loadSession, startNewSession } from "../../session/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
+import { logger } from "../../utils/logger.js";
+import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
 import { symbols } from "../symbols.js";
 
 import { processImagePlaceholder } from "./useChat.imageProcessing.js";
@@ -33,23 +33,16 @@ export async function initChatHistory(
   return [];
 }
 
-/**
- * Handle /config command
- */
-export function handleConfigCommand(onShowConfigSelector: () => void): void {
-  onShowConfigSelector();
-}
-
 interface ProcessSlashCommandResultOptions {
   result: SlashCommandResult;
   chatHistory: ChatHistoryItem[];
   setChatHistory: React.Dispatch<React.SetStateAction<ChatHistoryItem[]>>;
-  onShowConfigSelector: () => void;
   onShowModelSelector?: () => void;
   onShowUpdateSelector?: () => void;
   onShowThemeSelector?: () => void;
   onShowMCPSelector?: () => void;
   onShowMcpMarketplace?: () => void;
+  onShowPluginsBrowser?: () => void;
   onShowSessionSelector?: () => void;
   onShowSubagentsSelector?: () => void;
   onLoadSession?: (sessionId: string) => void | Promise<void>;
@@ -65,12 +58,12 @@ export function processSlashCommandResult({
   result,
   chatHistory,
   setChatHistory,
-  onShowConfigSelector,
   onShowUpdateSelector,
   onShowThemeSelector,
   onShowModelSelector,
   onShowMCPSelector,
   onShowMcpMarketplace,
+  onShowPluginsBrowser,
   onShowSessionSelector,
   onShowSubagentsSelector,
   onLoadSession,
@@ -92,9 +85,9 @@ export function processSlashCommandResult({
   > = [
     [result.openMcpSelector, onShowMCPSelector],
     [result.openMcpMarketplace, onShowMcpMarketplace],
+    [result.openPluginsBrowser, onShowPluginsBrowser],
     [result.openUpdateSelector, onShowUpdateSelector],
     [result.openThemeSelector, onShowThemeSelector],
-    [result.openConfigSelector, onShowConfigSelector],
     [result.openModelSelector, onShowModelSelector],
     [result.openSessionSelector, onShowSessionSelector],
     [result.openSubagentsSelector, onShowSubagentsSelector],
@@ -179,6 +172,7 @@ export async function formatMessageWithFiles(
   message: string,
   attachedFiles: Array<{ path: string; content: string }>,
   imageMap?: Map<string, Buffer>,
+  userText?: string,
 ): Promise<import("core/index.js").ChatHistoryItem> {
   // Convert attached files to context items
   const contextItems = attachedFiles.map((file) => ({
@@ -239,6 +233,9 @@ export async function formatMessageWithFiles(
       role: "user",
       content: messageContent,
     },
+    // Display-only: message content may carry hook notes prepended for the
+    // model; surfaces render userText so the terminal matches the webui.
+    userText,
     contextItems: allContextItems,
   };
 }
@@ -255,7 +252,6 @@ interface HandleSpecialCommandsOptions {
   message: string;
   isRemoteMode: boolean;
   remoteUrl?: string;
-  onShowConfigSelector: () => void;
   exit: () => void;
   onShowDiff?: (diffContent: string) => void;
   onShowStatusMessage?: (message: string) => void;
@@ -269,6 +265,7 @@ async function handleRemoteDiffCommand(
   onShowDiff?: (diffContent: string) => void,
 ): Promise<void> {
   try {
+    await assertConfiguredHttpUrl(`${remoteUrl}/diff`);
     const response = await fetch(`${remoteUrl}/diff`);
     if (!response.ok) {
       throw new Error(`Failed to fetch diff: ${response.statusText}`);
@@ -296,6 +293,7 @@ async function handleRemoteApplyCommand(
   onShowStatusMessage?: (message: string) => void,
 ): Promise<void> {
   try {
+    await assertConfiguredHttpUrl(`${remoteUrl}/diff`);
     const response = await fetch(`${remoteUrl}/diff`);
     if (!response.ok) {
       throw new Error(`Failed to fetch diff: ${response.statusText}`);
@@ -345,18 +343,11 @@ export async function handleSpecialCommands({
   message,
   isRemoteMode,
   remoteUrl,
-  onShowConfigSelector,
   exit,
   onShowDiff,
   onShowStatusMessage,
 }: HandleSpecialCommandsOptions): Promise<boolean> {
   const trimmedMessage = message.trim();
-
-  // Special handling for /config command in TUI
-  if (trimmedMessage === "/config") {
-    handleConfigCommand(onShowConfigSelector);
-    return true;
-  }
 
   // Handle /exit command in remote mode
   if (isRemoteMode && remoteUrl && trimmedMessage === "/exit") {

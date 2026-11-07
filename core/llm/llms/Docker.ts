@@ -115,7 +115,11 @@ class Docker extends OpenAI implements ModelInstaller {
     signal?: AbortSignal,
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      const proc = spawn("docker", args, { shell: true });
+      // Array form without a shell: a model name can carry shell
+      // metacharacters (it comes from config or a fallback to the raw name),
+      // and with `shell: true` those would be executed instead of passed to
+      // docker. Every element stays one argv value here.
+      const proc = spawn("docker", args, { shell: false });
 
       let stdout = "";
       let stderr = "";

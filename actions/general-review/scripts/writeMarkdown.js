@@ -60,7 +60,17 @@ function main() {
     process.exit(1);
   }
 
-  const absolutePath = path.resolve(process.cwd(), outputPath);
+  // The output path arrives as a workflow input; anchor it to the checkout so
+  // a `../` inside it cannot write outside the repository.
+  const repoRoot = path.resolve(process.cwd());
+  const absolutePath = path.resolve(repoRoot, outputPath);
+  if (
+    absolutePath !== repoRoot &&
+    !absolutePath.startsWith(repoRoot + path.sep)
+  ) {
+    console.error(`Refusing to write outside the repository: ${outputPath}`);
+    process.exit(1);
+  }
   fs.writeFileSync(absolutePath, message, "utf8");
   console.log(`Wrote ${messageKey} message to ${absolutePath}`);
 }

@@ -47,13 +47,28 @@ export function ContextView({ context }: { context: ContextBreakdown | null }) {
           {compact(context.contextLimit)}
         </span>
       </div>
+      {/* Segmented breakdown bar: one blue-ramp segment per category, the
+          palette ZCode's context breakdown uses instead of a rainbow. */}
       <div className={css.bar}>
-        <span style={{ width: `${Math.min(100, context.percentUsed)}%` }} />
+        {rows.map(([label, tokens], index) => (
+          <span
+            key={label}
+            className={css.segment}
+            data-step={index + 1}
+            style={{
+              width: `${(tokens / Math.max(1, context.contextLimit)) * 100}%`,
+            }}
+            title={`${label}: ${compact(tokens)}`}
+          />
+        ))}
       </div>
       <div className={css.rows}>
-        {rows.map(([label, tokens]) => (
+        {rows.map(([label, tokens], index) => (
           <div className={css.row} key={label}>
-            <span>{label}</span>
+            <span className={css.rowLabel}>
+              <span className={css.swatch} data-step={index + 1} />
+              {label}
+            </span>
             <span>{compact(tokens)}</span>
           </div>
         ))}

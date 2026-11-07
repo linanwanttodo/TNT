@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BaseLLM } from "./index.js";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 vi.mock("../data/devdataSqlite.js", () => ({ DevDataSqliteDb: {} }));
 vi.mock("../data/log.js", () => ({ DataLogger: {} }));
 vi.mock("../util/Logger.js", () => ({ Logger: {} }));
@@ -31,7 +33,7 @@ describe("streamOptions model configuration", () => {
       name: "Strict endpoint",
       provider: "openai",
       model: "endpoint",
-      apiKey: "test-key",
+      apiKey: TEST_API_KEY,
       streamOptions: false,
     });
 
@@ -46,7 +48,7 @@ describe("streamOptions model configuration", () => {
 
   it("includes streaming usage when the setting is omitted", () => {
     expect(
-      new TestOpenAI({ model: "gpt-4", apiKey: "test-key" }).streamingBody(),
+      new TestOpenAI({ model: "gpt-4", apiKey: TEST_API_KEY }).streamingBody(),
     ).toHaveProperty("stream_options.include_usage", true);
   });
 });

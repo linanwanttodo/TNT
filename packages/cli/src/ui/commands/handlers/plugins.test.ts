@@ -47,8 +47,15 @@ function writeManifest(dir: string): void {
 }
 
 describe("plugin slash handler", () => {
-  it("points at the marketplace command when nothing is installed", async () => {
+  it("opens the browser when called with no arguments", async () => {
     const result = await handlePlugins([]);
+
+    expect(result.openPluginsBrowser).toBe(true);
+    expect(result.output).toBeUndefined();
+  });
+
+  it("lists installed plugins in text mode for an unknown subcommand", async () => {
+    const result = await handlePlugins(["--text"]);
 
     expect(result.output).toContain("No plugins installed");
     expect(result.output).toContain("/plugin marketplace add");
@@ -83,7 +90,7 @@ describe("plugin slash handler", () => {
     const installed = await handlePlugins(["install", "formatter"]);
 
     expect(installed.output).toContain("Installed formatter@local");
-    const listed = await handlePlugins([]);
+    const listed = await handlePlugins(["--text"]);
     expect(listed.output).toContain("formatter");
   });
 
@@ -142,10 +149,13 @@ describe("plugin slash handler", () => {
     expect(again.output).toContain("No installation recorded");
   });
 
-  it("explains that a marketplace is needed before installing", async () => {
+  it("falls back to the official marketplace when installing with none registered", async () => {
     const result = await handlePlugins(["install", "formatter"]);
 
-    expect(result.output).toContain("No marketplaces registered");
+    // The official catalogue is auto-added; the install then fails on the
+    // name, not on the missing marketplace.
+    expect(result.output).toContain("Could not install formatter");
+    expect(result.output).not.toContain("No marketplaces registered");
   });
 
   it("counts registered marketplaces next to an empty plugin list", async () => {
@@ -157,7 +167,7 @@ describe("plugin slash handler", () => {
       `directory:${marketDir}`,
     ]);
 
-    const result = await handlePlugins([]);
+    const result = await handlePlugins(["--text"]);
 
     expect(result.output).toContain("1 marketplace(s) registered");
   });

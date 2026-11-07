@@ -9,6 +9,8 @@ import { DEFAULT_CONTEXT_LENGTH } from "./constants";
 import { LLMClasses } from "./llms";
 import { LLMLogger } from "./logger";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 class DummyLLM extends BaseLLM {
   static providerName = "openai";
   static defaultOptions: Partial<LLMOptions> = {
@@ -51,7 +53,7 @@ describe("BaseLLM", () => {
         templateMessages: templatMessagesFunction,
         logger: llmLogger,
         llmRequestHook: () => {},
-        apiKey: "testApiKey",
+        apiKey: TEST_API_KEY,
         aiGatewaySlug: "testSlug",
         apiBase: "https://api.example.com",
         accountId: "testAccountId",
@@ -73,7 +75,7 @@ describe("BaseLLM", () => {
       expect(instance.promptTemplates).toEqual({});
       expect(instance.templateMessages).toEqual(templatMessagesFunction);
       expect(instance.logger).toBe(llmLogger);
-      expect(instance.apiKey).toBe("testApiKey");
+      expect(instance.apiKey).toBe(TEST_API_KEY);
       expect(instance.aiGatewaySlug).toBe("testSlug");
       expect(instance.apiBase).toBe("https://api.example.com/");
       expect(instance.accountId).toBe("testAccountId");

@@ -8,6 +8,43 @@ import type { SystemMessageSection } from "./systemMessage.js";
  */
 
 /**
+ * How a section may move while a session runs. A stable section only changes
+ * with a release. A volatile section changes when the user acts. A diffable
+ * section is volatile with a recorded previous version, so a change can be
+ * restated as a delta instead of a rewritten prefix.
+ */
+export const SECTION_KINDS = ["stable", "volatile", "diffable"] as const;
+export type SectionKind = (typeof SECTION_KINDS)[number];
+
+/**
+ * Freezes a section registry, refusing the three mistakes a growing table
+ * makes: two definitions answering for one id, an id that names nothing, and
+ * a definition that never declared how it may move.
+ */
+export function createSectionRegistry<
+  Def extends { readonly id: string; readonly kind: SectionKind },
+>(definitions: readonly Def[]): readonly Def[] {
+  const seen = new Set<string>();
+  for (const definition of definitions) {
+    if (definition.id === "") {
+      throw new Error("A system message section definition has an empty id");
+    }
+    if (seen.has(definition.id)) {
+      throw new Error(`Duplicate system message section id: ${definition.id}`);
+    }
+    seen.add(definition.id);
+    if (!SECTION_KINDS.includes(definition.kind)) {
+      throw new Error(
+        `System message section ${definition.id} has an unknown kind: ${String(
+          definition.kind,
+        )}`,
+      );
+    }
+  }
+  return Object.freeze([...definitions]);
+}
+
+/**
  * Each part of the prefix announces itself, and the report reads the prefix back
  * by those announcements instead of keeping a second list of what is where. The
  * drift guard is `systemMessage.sections.test.ts`, which rebuilds the prefix and

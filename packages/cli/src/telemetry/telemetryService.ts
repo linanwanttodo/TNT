@@ -1,20 +1,5 @@
-import os from "os";
-
 import { metrics } from "@opentelemetry/api";
-import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
-import { resourceFromAttributes } from "@opentelemetry/resources";
-import {
-  ConsoleMetricExporter,
-  MeterProvider,
-  PeriodicExportingMetricReader,
-} from "@opentelemetry/sdk-metrics";
-import {
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-  SEMRESATTRS_HOST_NAME,
-  SEMRESATTRS_OS_TYPE,
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_SERVICE_VERSION,
-} from "@opentelemetry/semantic-conventions";
+import type { MeterProvider } from "@opentelemetry/sdk-metrics";
 import { v4 as uuidv4 } from "uuid";
 
 import { TntErrorReason } from "../../../../core/util/errors.js";
@@ -23,7 +8,8 @@ import { isHeadlessMode } from "../utils/cli.js";
 import { isRemoteAgent, isGitHubActions } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 
-import { detectTerminalType, parseOtelHeaders } from "./headerUtils.js";
+import { detectTerminalType } from "./headerUtils.js";
+import { createMeterProvider } from "./otelSetup.js";
 
 export interface TelemetryConfig {
   enabled: boolean;
@@ -64,7 +50,7 @@ class TelemetryService {
   constructor() {
     this.config = this.loadConfig();
     if (this.config.enabled) {
-      this.initialize();
+      void this.initialize();
     }
   }
 
@@ -106,73 +92,17 @@ class TelemetryService {
     };
   }
 
-  private initialize() {
+  private async initialize() {
     try {
-      // Create resource
-      const resource = resourceFromAttributes({
-        [SEMRESATTRS_SERVICE_NAME]: TELEMETRY_SERVICE_NAME,
-        [SEMRESATTRS_SERVICE_VERSION]: getVersion(),
-        [SEMRESATTRS_HOST_NAME]: os.hostname(),
-        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]:
-          process.env.NODE_ENV || "development",
-        [SEMRESATTRS_OS_TYPE]: os.type(),
-      });
+      // The metrics SDK and the OTLP exporter are several hundred kilobytes
+      // that only matter when an endpoint is configured: otelSetup imports
+      // them at call time, off the eager startup graph the guard tests
+      // measure.
+      const { meterProvider, exporters: metricsExporters } =
+        await createMeterProvider(TELEMETRY_SERVICE_NAME);
+      this.meterProvider = meterProvider;
 
-      // Configure exporters
-      const readers: any[] = [];
-      const metricsExporters = (
-        process.env.OTEL_METRICS_EXPORTER || "console"
-      ).split(",");
-
-      for (const exporterType of metricsExporters) {
-        switch (exporterType.trim()) {
-          case "otlp":
-            readers.push(
-              new PeriodicExportingMetricReader({
-                exporter: new OTLPMetricExporter({
-                  url: (() => {
-                    const metricsEndpoint =
-                      process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
-                    if (metricsEndpoint && metricsEndpoint.trim().length > 0) {
-                      return metricsEndpoint;
-                    }
-                    const base = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
-                    if (base && base.trim().length > 0) {
-                      const normalized = base.replace(/\/$/, "");
-                      return `${normalized}/v1/metrics`;
-                    }
-                    return "http://localhost:4318/v1/metrics";
-                  })(),
-                  headers: parseOtelHeaders(
-                    process.env.OTEL_EXPORTER_OTLP_HEADERS || "",
-                  ),
-                }),
-                exportIntervalMillis: parseInt(
-                  process.env.OTEL_METRIC_EXPORT_INTERVAL || "20000",
-                ),
-              }),
-            );
-            break;
-          case "console":
-            readers.push(
-              new PeriodicExportingMetricReader({
-                exporter: new ConsoleMetricExporter(),
-                exportIntervalMillis: parseInt(
-                  process.env.OTEL_METRIC_EXPORT_INTERVAL || "20000",
-                ),
-              }),
-            );
-            break;
-        }
-      }
-
-      // Create meter provider
-      this.meterProvider = new MeterProvider({
-        resource,
-        readers,
-      });
-
-      metrics.setGlobalMeterProvider(this.meterProvider);
+      metrics.setGlobalMeterProvider(meterProvider);
       this.meter = metrics.getMeter(TELEMETRY_SERVICE_NAME, getVersion());
 
       this.initializeMetrics();

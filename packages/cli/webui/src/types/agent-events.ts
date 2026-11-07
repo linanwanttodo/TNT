@@ -59,6 +59,7 @@ export type AgentEvent = AgentEventBase &
         options?: readonly string[];
         defaultAnswer?: string;
       }
+    | { type: "question.answered"; requestId: string }
     | { type: "notice"; message: string }
     | { type: "compaction.started" }
     | { type: "compaction.finished"; reductionRatio?: number }
@@ -107,4 +108,6 @@ export interface SubagentState {
   content?: string;
   success?: boolean;
   verdict?: string;
+  /** Client-captured wall clock of the started event, for the directory. */
+  startedAt?: number;
 }

@@ -19,7 +19,6 @@ interface ComposerProps {
   statusMessage: string;
   isScreenActive: (screen: any) => boolean;
   services: any;
-  handleConfigSelect: (config: any) => Promise<void>;
   handleModelSelect: (model: any) => Promise<void>;
   handleSessionSelect: (sessionId: string) => Promise<void>;
   handleExportSession: (sessionId: string) => Promise<void>;
@@ -49,6 +48,7 @@ interface ComposerProps {
   chatHistory: ChatHistoryItem[];
   handleEditMessage: (messageIndex: number, newContent: string) => void;
   onShowEditSelector: () => void;
+  onShowAddModelSelector?: () => void;
   onOpenPalette?: () => void;
   /** Opens the background-jobs list. */
   onOpenJobs?: () => void;
@@ -100,7 +100,6 @@ export const Composer: React.FC<ComposerProps> = (props) => {
       <ScreenContent
         isScreenActive={props.isScreenActive}
         services={props.services}
-        handleConfigSelect={props.handleConfigSelect}
         handleModelSelect={props.handleModelSelect}
         handleSessionSelect={props.handleSessionSelect}
         handleExportSession={props.handleExportSession}
@@ -123,6 +122,7 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         chatHistory={props.chatHistory}
         handleEditMessage={props.handleEditMessage}
         onShowEditSelector={props.onShowEditSelector}
+        onShowAddModelSelector={props.onShowAddModelSelector}
         onOpenPalette={props.onOpenPalette}
         onOpenJobs={props.onOpenJobs}
         onPreviewTheme={props.onPreviewTheme}

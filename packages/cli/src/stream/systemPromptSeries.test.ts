@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  clearSeriesSectionBaselines,
   resetSystemPromptSeries,
   systemPromptSeriesState,
 } from "./systemPromptSeries.js";
@@ -52,5 +53,33 @@ describe("the session-scoped system prompt series", () => {
       systemPromptSeriesState(`filler-${i}`);
       expect(systemPromptSeriesState("live")).toBe(live);
     }
+  });
+
+  it("clears one series' section baselines without touching the series itself", async () => {
+    resetSystemPromptSeries("rewind");
+    const state = systemPromptSeriesState("rewind");
+    const { createSectionBaselines } =
+      await import("./systemMessageReinjection.js");
+    const baselines = createSectionBaselines();
+    baselines.byId.set("base", {
+      prefix: { snapshot: { id: "base", hash: "h", text: "BASE" } },
+      told: {
+        snapshot: { id: "base", hash: "h", text: "BASE" },
+        via: "prefix",
+      },
+    });
+    state.sections = baselines;
+    state.previous = "the remembered head";
+
+    clearSeriesSectionBaselines("rewind");
+
+    // The section facts are gone, but the cached head the provider still has
+    // stays remembered - a rollback is not a reason to re-bill the prefix.
+    expect(baselines.byId.size).toBe(0);
+    expect(state.previous).toBe("the remembered head");
+
+    // Idempotent, and safe for a series that never planned sections.
+    clearSeriesSectionBaselines("rewind");
+    clearSeriesSectionBaselines("never-planned");
   });
 });

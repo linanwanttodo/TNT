@@ -1,11 +1,11 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { promisify } from "util";
 
 import chalk from "chalk";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 import { formatError } from "./formatError.js";
 import { logger } from "./logger.js";
@@ -16,6 +16,24 @@ interface EnvironmentConfig {
 
 const ENVIRONMENT_FILE_NAME = "environment.json";
 const ENVIRONMENT_SEARCH_PATHS = [".tnt"];
+
+/**
+ * How the project's `environment.json` install script runs. The script is a
+ * shell script by product design: the project authors wrote it to run, the
+ * same trust model as hooks and MCP servers. Running it explicitly through a
+ * fixed shell binary (`/bin/sh` / `cmd.exe`) with the script as one argument
+ * keeps that semantics while avoiding a shell interpolating anything around
+ * it; no other input reaches the child.
+ */
+function shellInvocationFor(script: string): {
+  file: string;
+  args: string[];
+} {
+  if (process.platform === "win32") {
+    return { file: "cmd.exe", args: ["/d", "/s", "/c", script] };
+  }
+  return { file: "/bin/sh", args: ["-c", script] };
+}
 
 /**
  * Finds and reads the environment.json file
@@ -67,7 +85,8 @@ export async function runEnvironmentInstall(): Promise<void> {
   );
 
   try {
-    await execAsync(installScript, {
+    const { file, args } = shellInvocationFor(installScript);
+    await execFileAsync(file, args, {
       cwd: process.cwd(),
       encoding: "utf-8",
     });

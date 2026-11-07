@@ -1,11 +1,10 @@
+import { resetAutoDenialState } from "../permissions/autoMode.js";
 import {
   ACCEPT_EDITS_MODE_POLICIES,
   BYPASS_PERMISSIONS_POLICIES,
   DONT_ASK_MODE_POLICIES,
   PLAN_MODE_POLICIES,
-} from "src/permissions/defaultPolicies.js";
-
-import { resetAutoDenialState } from "../permissions/autoMode.js";
+} from "../permissions/defaultPolicies.js";
 import { resolvePermissionPrecedence } from "../permissions/precedenceResolver.js";
 import {
   ABSOLUTE_POLICY_MODES,

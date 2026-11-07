@@ -148,7 +148,9 @@ export function continueTokenLedger(): {
 const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 8,
   core: 12,
-  "packages/cli": 56,
+  // 58: the reworked webui routes added two verb uses (`shouldContinue` and
+  // `autoContinue`) over the count the frozen list was taken at.
+  "packages/cli": 58,
   "packages/sdk": 58,
   scripts: 2,
 };

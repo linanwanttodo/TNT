@@ -17,6 +17,7 @@ import {
 import { splitServedPrompt } from "../utils/transcript.js";
 import {
   approve as postApproval,
+  answerQuestion as postAnswerQuestion,
   chooseModel as postChooseModel,
   chooseWorktree as postChooseWorktree,
   fetchModels as postFetchModels,
@@ -81,6 +82,14 @@ export interface PendingPermission {
   preview?: unknown;
 }
 
+/** A question the engine is waiting on, as question.requested carries it. */
+export interface PendingQuestionState {
+  requestId: string;
+  question: string;
+  options?: string[];
+  defaultAnswer?: string;
+}
+
 interface SessionState {
   sessionId: string | null;
   /** Title the server gave the conversation, or null before the first turn. */
@@ -106,8 +115,16 @@ interface SessionState {
   streaming: string | null;
   /** Reasoning still arriving; settled into an item when anything follows it. */
   reasoning: string | null;
+  /**
+   * Whether this turn already settled streamed prose into items: once it has,
+   * the turn-completed payload repeats those segments and only the tail after
+   * the last card is new.
+   */
+  flushedSegments: boolean;
   isWaiting: boolean;
   pendingPermission: PendingPermission | null;
+  /** A question the engine is waiting on (the askQuestion tool). */
+  pendingQuestion: PendingQuestionState | null;
   notices: string[];
   status: ConnStatus;
   queueLength: number;
@@ -115,8 +132,6 @@ interface SessionState {
   pendingChangedFiles: string[];
   seenTurnId: string | null;
   seenSeq: number;
-  /** Whether this turn already settled streamed prose into items. */
-  flushedSegments: boolean;
   applyEvent: (event: AgentEvent) => void;
   hydrate: (state: {
     history?: unknown[];
@@ -127,6 +142,8 @@ interface SessionState {
   }) => void;
   send: (text: string) => Promise<void>;
   approve: (approved: boolean) => Promise<void>;
+  /** Answer the engine's pending question through the broker. */
+  answerPendingQuestion: (answer: string) => Promise<void>;
   /**
    * Point the server at a saved conversation. Resolves with the session id
    * on success, or null when the server refused (the transcript stays).
@@ -214,8 +231,10 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   items: [],
   streaming: null,
   reasoning: null,
+  flushedSegments: false,
   isWaiting: false,
   pendingPermission: null,
+  pendingQuestion: null,
   notices: [],
   status: "live",
   queueLength: 0,
@@ -224,7 +243,6 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   /** The seq watermark per turn; late SSE retries must not replay old events. */
   seenTurnId: null,
   seenSeq: -1,
-  flushedSegments: false,
 
   applyEvent: (event) => {
     if (event.turnId !== get().seenTurnId) {
@@ -241,6 +259,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           isWaiting: true,
           isProcessing: true,
           pendingPermission: null,
+          pendingQuestion: null,
           seenTurnId: event.turnId,
           flushedSegments: false,
         });
@@ -323,6 +342,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
               name: event.agentName,
               prompt: event.prompt,
               status: "running",
+              startedAt: Date.now(),
             },
           ],
         });
@@ -352,8 +372,23 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         });
         break;
       case "question.requested":
-        // The question flow is a later task; surface it as a notice for now.
-        set({ notices: [...get().notices, event.question] });
+        // The engine is waiting on this answer (the askQuestion tool blocks
+        // until quizService resolves), so it gets an interactive card.
+        set({
+          pendingQuestion: {
+            requestId: event.requestId,
+            question: event.question,
+            options: event.options ? [...event.options] : undefined,
+            defaultAnswer: event.defaultAnswer,
+          },
+        });
+        break;
+      case "question.answered":
+        // Another tab answered it; drop the card unless a newer question
+        // replaced it in the meantime.
+        if (get().pendingQuestion?.requestId === event.requestId) {
+          set({ pendingQuestion: null });
+        }
         break;
       case "notice":
         set({ notices: [...get().notices, event.message] });
@@ -366,8 +401,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         }
         break;
       case "turn.completed": {
-        // With prose already settled, the server's full-turn content would
-        // repeat it; only the tail after the last card is new.
+        // Once segments are settled, the server's full-turn content repeats
+        // them; only the tail after the last card is new.
         const text = get().flushedSegments
           ? (get().streaming ?? "")
           : (event.content ?? get().streaming ?? "");
@@ -386,6 +421,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           reasoning: null,
           isWaiting: false,
           isProcessing: false,
+          flushedSegments: false,
         });
         break;
       }
@@ -485,6 +521,26 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     }
   },
 
+  answerPendingQuestion: async (answer) => {
+    const pending = get().pendingQuestion;
+    if (pending === null) return;
+    try {
+      // Clear only once the broker has the answer; a failed POST leaves the
+      // card up so the user can retry or pick another option.
+      await postAnswerQuestion(pending.requestId, answer);
+      if (get().pendingQuestion?.requestId === pending.requestId) {
+        set({ pendingQuestion: null });
+      }
+    } catch (error) {
+      set({
+        notices: [
+          ...get().notices,
+          error instanceof Error ? error.message : String(error),
+        ],
+      });
+    }
+  },
+
   hydrate: (state) => {
     // /state nests the transcript under session.history; some callers pass a
     // bare {history} shape. Both must seed the transcript.
@@ -552,9 +608,32 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           toolArgs?: unknown;
           toolCallPreview?: unknown;
           question?: unknown;
+          options?: unknown;
+          defaultAnswer?: unknown;
         }
       | null
       | undefined;
+    // The snapshot folds the engine's pending question into the same field
+    // as a pending permission; a question-shaped entry goes to the question
+    // card (its answer is a text, not an approval).
+    const questionPending =
+      pending &&
+      typeof pending.requestId === "string" &&
+      typeof pending.question === "string"
+        ? {
+            requestId: pending.requestId,
+            question: pending.question,
+            options: Array.isArray(pending.options)
+              ? pending.options.filter(
+                  (option): option is string => typeof option === "string",
+                )
+              : undefined,
+            defaultAnswer:
+              typeof pending.defaultAnswer === "string"
+                ? pending.defaultAnswer
+                : undefined,
+          }
+        : null;
     set({
       sessionId:
         typeof session.sessionId === "string"
@@ -570,23 +649,16 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       queueLength:
         typeof queueLength === "number" ? queueLength : get().queueLength,
       items,
+      pendingQuestion: questionPending,
       pendingPermission:
         pending &&
         typeof pending.requestId === "string" &&
-        (typeof pending.toolName === "string" ||
-          typeof pending.question === "string")
+        typeof pending.toolName === "string"
           ? {
               requestId: pending.requestId,
-              toolName:
-                typeof pending.toolName === "string"
-                  ? pending.toolName
-                  : "Question",
+              toolName: pending.toolName,
               toolArgs: pending.toolArgs,
-              preview:
-                pending.toolCallPreview ??
-                (typeof pending.question === "string"
-                  ? pending.question
-                  : undefined),
+              preview: pending.toolCallPreview,
             }
           : null,
       subagents: Array.isArray(state.subagents) ? state.subagents : [],

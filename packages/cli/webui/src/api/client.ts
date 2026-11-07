@@ -29,6 +29,7 @@ const EVENT_TYPES = [
   "tool.finished",
   "permission.requested",
   "question.requested",
+  "question.answered",
   "notice",
   "compaction.started",
   "compaction.finished",
@@ -138,7 +139,7 @@ export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
   {
     mode: "auto",
     label: "Auto",
-    description: "Claude can modify or delete files without asking",
+    description: "Accept safe actions automatically, ask for the rest",
   },
   {
     mode: "default",
@@ -156,9 +157,14 @@ export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
     description: "Create a plan before making changes",
   },
   {
+    mode: "dontAsk",
+    label: "Don't ask",
+    description: "Never prompt; tools that would ask are unavailable",
+  },
+  {
     mode: "bypassPermissions",
     label: "Bypass permissions",
-    description: "Claude can modify or delete files without asking",
+    description: "Skip every permission check",
   },
 ];
 
@@ -210,12 +216,56 @@ export async function sendMessage(text: string): Promise<void> {
 export async function approve(
   requestId: string,
   approved: boolean,
+  remember = false,
 ): Promise<void> {
-  await post("/permission", { requestId, approved });
+  await post("/permission", { requestId, approved, remember });
 }
 
 export async function stopTurn(): Promise<void> {
   await post("/pause");
+}
+
+/**
+ * The session goal the engine's system message reads each turn.
+ * @returns the goal text, or null when no goal is set.
+ */
+export async function fetchGoal(): Promise<string | null> {
+  const res = await fetch("/goal");
+  if (!res.ok) {
+    throw new Error(`GET /goal failed: ${res.status}`);
+  }
+  const body = (await res.json()) as { goal: string | null };
+  return body.goal;
+}
+
+/**
+ * Store or clear the session goal. The system message reads it from the next
+ * turn on, so the agent works toward what the goal pill shows. An empty
+ * string clears it.
+ */
+export async function setSessionGoalText(goal: string): Promise<void> {
+  await post("/goal", { goal });
+}
+
+/**
+ * Answer a pending engine question (the askQuestion tool waits on it).
+ * @returns false when the question was answered elsewhere already.
+ */
+export async function answerQuestion(
+  requestId: string,
+  answer: string,
+  isCustomAnswer = false,
+): Promise<boolean> {
+  const res = await fetch("/question", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ requestId, answer, isCustomAnswer }),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /question failed: ${res.status}`);
+  }
+  const body = (await res.json()) as { answered: boolean };
+  return body.answered;
 }
 
 /**
@@ -269,6 +319,144 @@ export interface ModelsResponse {
   available: boolean;
   models: ChatModelOption[];
   current: ChatModelOption | null;
+  /** The entries config.yaml declares; present on servers with the store. */
+  declared?: DeclaredModel[];
+  /** The file the declared entries live in, for the settings footer. */
+  configPath?: string | null;
+}
+
+/**
+ * One config.yaml model entry, as the Models settings page edits it. The
+ * secret itself never travels: only whether an apiKey is set.
+ */
+export interface DeclaredModel {
+  name: string;
+  model: string;
+  provider: string;
+  hasApiKey: boolean;
+  apiBase: string | null;
+  roles: string[];
+  contextLength: number | null;
+}
+
+/** The writable fields of a model entry, as POST /models accepts them. */
+export interface ModelConfigInput {
+  name: string;
+  model: string;
+  provider: string;
+  apiKey?: string;
+  apiBase?: string;
+  roles?: string[];
+  contextLength?: number;
+}
+
+/** What a successful create/update/delete answers with: the fresh list. */
+export interface ModelMutationResponse {
+  declared: DeclaredModel[];
+  configPath: string;
+}
+
+/** POST /models/test: one real provider round trip. */
+export interface ModelTestResult {
+  ok: boolean;
+  detail: string;
+  latencyMs: number;
+}
+
+async function readError(res: Response, fallback: string): Promise<Error> {
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  return new Error(body.error ?? fallback);
+}
+
+/**
+ * Add a model entry to the server's config.yaml; the process reloads its
+ * model list, so the entry is usable without a restart.
+ */
+export async function addModel(
+  input: ModelConfigInput,
+): Promise<ModelMutationResponse> {
+  const res = await fetch("/models", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /models failed: ${res.status}`);
+  }
+  return (await res.json()) as ModelMutationResponse;
+}
+
+/**
+ * Patch one model entry by name. An apiKey of "" keeps the stored secret.
+ */
+export async function updateModel(
+  name: string,
+  patch: Partial<ModelConfigInput>,
+): Promise<ModelMutationResponse> {
+  const res = await fetch("/models/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, patch }),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /models/update failed: ${res.status}`);
+  }
+  return (await res.json()) as ModelMutationResponse;
+}
+
+/**
+ * Remove one model entry by name; a deleted selection moves to the first
+ * remaining entry.
+ */
+export async function deleteModel(
+  name: string,
+): Promise<ModelMutationResponse> {
+  const res = await fetch("/models/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /models/delete failed: ${res.status}`);
+  }
+  return (await res.json()) as ModelMutationResponse;
+}
+
+/**
+ * Persist a drag-reorder: the submitted list must be a permutation of the
+ * declared entries; the server rewrites config.yaml's ordering.
+ */
+export async function reorderModels(
+  names: string[],
+): Promise<ModelMutationResponse> {
+  const res = await fetch("/models/reorder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ names }),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /models/reorder failed: ${res.status}`);
+  }
+  return (await res.json()) as ModelMutationResponse;
+}
+
+/**
+ * Send one tiny completion to the provider the form describes, so "Test
+ * connection" answers with a real latency and the provider's own error when
+ * the credentials are wrong.
+ */
+export async function testModel(
+  input: ModelConfigInput,
+): Promise<ModelTestResult> {
+  const res = await fetch("/models/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /models/test failed: ${res.status}`);
+  }
+  return (await res.json()) as ModelTestResult;
 }
 
 /** GET /worktrees: the checkouts, the one in use, and whether a move is allowed. */
@@ -407,6 +595,234 @@ export async function fetchWorkspaces(): Promise<WorkspacesResponse> {
     throw new Error(`GET /workspaces failed: ${res.status}`);
   }
   return (await res.json()) as WorkspacesResponse;
+}
+
+/** GET /workspace/file: one text file's contents, for the tree's preview. */
+export interface WorkspaceFile {
+  path: string;
+  content: string;
+  truncated: boolean;
+}
+
+export async function fetchWorkspaceFile(path: string): Promise<WorkspaceFile> {
+  const res = await fetch(`/workspace/file?path=${encodeURIComponent(path)}`);
+  if (!res.ok) {
+    throw await readError(res, `GET /workspace/file failed: ${res.status}`);
+  }
+  return (await res.json()) as WorkspaceFile;
+}
+
+/** GET /git/diff: the working-tree diff of one file. */
+export interface GitFileDiff {
+  path: string;
+  diff: string;
+}
+
+export async function fetchGitFileDiff(path: string): Promise<GitFileDiff> {
+  const res = await fetch(`/git/diff?path=${encodeURIComponent(path)}`);
+  if (!res.ok) {
+    throw await readError(res, `GET /git/diff failed: ${res.status}`);
+  }
+  return (await res.json()) as GitFileDiff;
+}
+
+/** GET /team: the rosters this workspace knows, with the active one flagged. */
+export interface TeamResponse {
+  teams: Array<{
+    name: string;
+    active: boolean;
+    members: Array<{
+      name: string;
+      description: string;
+      lead: boolean;
+      source: "project" | "global" | "default";
+    }>;
+  }>;
+}
+
+export async function fetchTeam(): Promise<TeamResponse> {
+  const res = await fetch("/team");
+  if (!res.ok) {
+    throw await readError(res, `GET /team failed: ${res.status}`);
+  }
+  return (await res.json()) as TeamResponse;
+}
+
+/** One plugin inside a registered marketplace's manifest. */
+export interface MarketplacePlugin {
+  name: string;
+  description: string;
+  version: string;
+  category: string;
+  installed: boolean;
+}
+
+/** GET /plugins/marketplaces: the catalogues and what they carry. */
+export interface MarketplacesResponse {
+  marketplaces: Array<{
+    name: string;
+    lastUpdated: string | null;
+    plugins: MarketplacePlugin[];
+  }>;
+}
+
+export async function fetchMarketplaces(): Promise<MarketplacesResponse> {
+  const res = await fetch("/plugins/marketplaces");
+  if (!res.ok) {
+    throw await readError(
+      res,
+      `GET /plugins/marketplaces failed: ${res.status}`,
+    );
+  }
+  return (await res.json()) as MarketplacesResponse;
+}
+
+/** POST /plugins/marketplaces/refresh: re-fetch one catalogue. */
+export async function refreshMarketplaceApi(
+  name: string,
+): Promise<MarketplacesResponse> {
+  const res = await fetch("/plugins/marketplaces/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    throw await readError(
+      res,
+      `POST /plugins/marketplaces/refresh failed: ${res.status}`,
+    );
+  }
+  return (await res.json()) as MarketplacesResponse;
+}
+
+/** POST /plugins/marketplaces/install: install one plugin from a catalogue. */
+export async function installMarketplacePlugin(
+  marketplace: string,
+  plugin: string,
+): Promise<MarketplacesResponse> {
+  const res = await fetch("/plugins/marketplaces/install", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ marketplace, plugin }),
+  });
+  if (!res.ok) {
+    throw await readError(
+      res,
+      `POST /plugins/marketplaces/install failed: ${res.status}`,
+    );
+  }
+  return (await res.json()) as MarketplacesResponse;
+}
+
+/** One scheduled agent run in the automation registry. */
+export interface Automation {
+  id: string;
+  title: string;
+  prompt: string;
+  cronExpr?: string;
+  recurring: boolean;
+  maxRuns?: number;
+  runCount: number;
+  enabled: boolean;
+  createdAt: number;
+  nextRunAt: number | null;
+  lastRunAt?: number;
+  failCount?: number;
+}
+
+/** GET /automations: the registry's contents. */
+export interface AutomationsResponse {
+  automations: Automation[];
+}
+
+export async function fetchAutomations(): Promise<AutomationsResponse> {
+  const res = await fetch("/automations");
+  if (!res.ok) {
+    throw await readError(res, `GET /automations failed: ${res.status}`);
+  }
+  return (await res.json()) as AutomationsResponse;
+}
+
+/** POST /automations: create one; exactly one schedule mode is required. */
+export async function createAutomationApi(input: {
+  title: string;
+  prompt: string;
+  cronExpr?: string;
+  interval?: { unit: "minute" | "hour" | "day" | "week"; value: number };
+  delayMinutes?: number;
+  recurring?: boolean;
+  maxRuns?: number;
+  endAt?: number;
+}): Promise<AutomationsResponse> {
+  const res = await fetch("/automations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /automations failed: ${res.status}`);
+  }
+  return (await res.json()) as AutomationsResponse;
+}
+
+/** POST /automations/delete. */
+export async function deleteAutomationApi(
+  id: string,
+): Promise<AutomationsResponse> {
+  const res = await fetch("/automations/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!res.ok) {
+    throw await readError(
+      res,
+      `POST /automations/delete failed: ${res.status}`,
+    );
+  }
+  return (await res.json()) as AutomationsResponse;
+}
+
+/** POST /automations/enabled: pause or resume one. */
+export async function setAutomationEnabledApi(
+  id: string,
+  enabled: boolean,
+): Promise<AutomationsResponse> {
+  const res = await fetch("/automations/enabled", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, enabled }),
+  });
+  if (!res.ok) {
+    throw await readError(
+      res,
+      `POST /automations/enabled failed: ${res.status}`,
+    );
+  }
+  return (await res.json()) as AutomationsResponse;
+}
+
+/** POST /automations/run: fire one immediately. */
+export async function runAutomationApi(
+  id: string,
+): Promise<AutomationsResponse> {
+  const res = await fetch("/automations/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!res.ok) {
+    throw await readError(res, `POST /automations/run failed: ${res.status}`);
+  }
+  return (await res.json()) as AutomationsResponse;
+}
+
+/**
+ * Close the web UI's HTTP server. In the TUI the terminal keeps running;
+ * standalone (`tnt webui`) the process exits after the response.
+ */
+export async function closeWebUi(): Promise<void> {
+  await post("/exit");
 }
 
 export async function fetchApprovals(): Promise<PendingPermissionSummary[]> {

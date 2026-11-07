@@ -179,13 +179,16 @@ export async function rtkUpgraderCommand(
   return rtkInstallerCommand();
 }
 
-// Runs an installer/upgrader command through the shell. Installers ask
-// nothing and may take minutes; output is not surfaced unless it fails.
+// Runs an installer/upgrader command. The command strings all come from the
+// constants in rtkInstallerCommand/rtkUpgraderCommand - no user or config
+// input. Pipe commands (`curl ... | sh`) need a shell and run as a constant
+// shell line; everything else splits into an argv and spawns without a shell,
+// so no token is re-parsed by a shell.
 async function runInstallerCommand(
   command: string,
   timeoutMs: number,
 ): Promise<void> {
-  const useShell = command.includes("|") || command.includes(" ");
+  const useShell = command.includes("|");
   const [bin, ...rest] = command.split(" ");
   await new Promise<void>((resolve, reject) => {
     const child = spawn(useShell ? command : bin, useShell ? [] : rest, {

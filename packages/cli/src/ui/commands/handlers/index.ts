@@ -7,7 +7,9 @@ import { handleIndex } from "./codebaseIndex.js";
 import { handleCost } from "./cost.js";
 import { handleDiagnostics } from "./diagnostics.js";
 import { handleHelp } from "./help.js";
+import { handleIdeCommand } from "./ide.js";
 import { handleLanguage } from "./language.js";
+import { handleLoop } from "./loop.js";
 import { handleMcp } from "./mcp.js";
 import { handleJobs, handleTodos } from "./misc.js";
 import { handleOutputStyle } from "./outputStyle.js";
@@ -58,6 +60,8 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     plugins: handlePlugins,
     "output-style": handleOutputStyle,
     team: handleTeamCommand,
+    loop: handleLoop,
+    ide: (args) => handleIdeCommand(args),
     profile: handleProfile,
     diagnostics: (args) => handleDiagnostics(args),
     index: (args) => handleIndex(args),

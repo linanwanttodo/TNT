@@ -12,10 +12,11 @@ import React, {
  */
 export type NavigationScreen =
   | "chat" // Normal chat interface
-  | "config" // Config selector
   | "model" // Model selector
+  | "addModel" // Add-model form
   | "mcp" // MCP selector
   | "mcpMarket" // MCP marketplace
+  | "plugins" // Plugin browser
   | "session" // Session selector
   | "subagents" // Delegated transcripts of the current session
   | "diff" // Full-screen diff overlay

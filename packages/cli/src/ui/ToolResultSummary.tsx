@@ -3,10 +3,9 @@ import path from "path";
 import { Box, Text } from "ink";
 import React from "react";
 
-import { getToolDisplayName } from "src/tools/index.js";
-
 import { t } from "../i18n/index.js";
 import { getCurrentSession } from "../session/index.js";
+import { getToolDisplayName } from "../tools/index.js";
 import {
   MARKER_FILE_CREATED,
   MARKER_PERMISSION_DENIED,

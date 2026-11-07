@@ -1,7 +1,6 @@
-import { runTerminalCommandTool } from "src/tools/runTerminalCommand.js";
-import { getErrorString } from "src/utils/error.js";
-
 import { services } from "../../services/index.js";
+import { runTerminalCommandTool } from "../../tools/runTerminalCommand.js";
+import { getErrorString } from "../../utils/error.js";
 
 export const handleBashModeProcessing = async (
   message: string,

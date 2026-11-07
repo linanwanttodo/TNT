@@ -1,5 +1,11 @@
 import { TntError, TntErrorReason } from "core/util/errors.js";
 
+import {
+  assertPublicHttpUrl,
+  hasConfiguredSearchEndpoint,
+  resolveConfiguredSearchEndpoint,
+} from "../utils/urlGuard.js";
+
 import { Tool } from "./types.js";
 
 const DEFAULT_SEARCH_URL = "https://lite.duckduckgo.com/lite/";
@@ -134,7 +140,7 @@ async function searchJsonEndpoint(
   query: string,
   count: number,
 ): Promise<SearchResult[]> {
-  const endpoint = new URL(process.env.TNT_WEB_SEARCH_URL as string);
+  const endpoint = await resolveConfiguredSearchEndpoint();
   endpoint.searchParams.set("q", query);
   endpoint.searchParams.set("count", String(count));
 
@@ -180,7 +186,7 @@ async function searchPublicHtml(
   query: string,
   count: number,
 ): Promise<SearchResult[]> {
-  const endpoint = new URL(DEFAULT_SEARCH_URL);
+  const endpoint = await assertPublicHttpUrl(DEFAULT_SEARCH_URL);
   endpoint.searchParams.set("q", query);
   const response = await fetch(endpoint, {
     headers: {
@@ -254,7 +260,7 @@ The default endpoint is a public HTML search page and can be rate-limited; set T
     const count = boundedCount(args.count);
     const searchQuery =
       domains.length > 0 ? queryWithDomains(query, domains) : query;
-    const found = process.env.TNT_WEB_SEARCH_URL
+    const found = hasConfiguredSearchEndpoint()
       ? await searchJsonEndpoint(searchQuery, count)
       : await searchPublicHtml(searchQuery, count);
     // The site: terms are a request, not a guarantee, so the filter holds.

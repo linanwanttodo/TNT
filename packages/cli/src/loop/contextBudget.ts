@@ -47,6 +47,6 @@ export class ContextBudgetTracker {
       remaining,
       contextLength,
     });
-    return `About ${remaining.toLocaleString("en-US")} tokens of this model's ${contextLength.toLocaleString("en-US")} window are left, measured from the last request. Finish the step you are in cleanly, and say what is unfinished if the turn has to end.`;
+    return `About ${remaining.toLocaleString("en-US")} tokens of this model's ${contextLength.toLocaleString("en-US")} window are left, measured from the last request. Finish the step you are in cleanly, and say what is unfinished if the turn has to end. The todo list and your notes carry over into the next window, so an early stop does not lose them.`;
   }
 }

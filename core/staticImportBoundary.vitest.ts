@@ -172,7 +172,13 @@ describe("the registry imports core loads on behalf of the CLI", () => {
 
   it("loads no provider, tool or context registry beyond the frozen list", () => {
     const measured = CONSUMERS.flatMap((relative) => {
-      const file = path.join(ROOT, relative);
+      // The consumers list is a frozen constant, but anchor every read to the
+      // repository root so a typo inside it cannot read outside the tree.
+      const resolvedRoot = path.resolve(ROOT);
+      const file = path.resolve(resolvedRoot, relative);
+      if (file !== resolvedRoot && !file.startsWith(resolvedRoot + path.sep)) {
+        throw new Error(`Consumer path escapes the repository: ${relative}`);
+      }
 
       return runtimeRegistryImports(file, readFileSync(file, "utf8"));
     }).sort();

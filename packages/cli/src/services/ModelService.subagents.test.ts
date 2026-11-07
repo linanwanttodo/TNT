@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../config/index.js", () => ({
   createLlmApi: vi.fn(() => ({ id: "api" })),
   getLlmApi: vi.fn(() => ({ id: "api" })),
+  applyOllamaContextWindow: vi.fn(async (model: any) => model),
 }));
 
 import { ModelService } from "./ModelService.js";

@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 
 import { globalDir } from "../config/globalDir.js";
+import { resolveWithin } from "../utils/pathGuard.js";
 
 /**
  * Session ids reach the file system. ACP clients send them back in
@@ -44,32 +45,43 @@ export function fsSessionName(sessionId: string): string {
   return `${safe}-${digest}`;
 }
 
+/**
+ * The directory every session artifact lives under.
+ *
+ * The root is the operator's own state directory: `TNT_GLOBAL_DIR` when it is
+ * set, otherwise `~/.tnt`. That root is trusted - it is chosen explicitly by
+ * whoever runs the CLI - so it is the anchor, not the thing to police. What
+ * has to stay inside it is everything derived from a session id, and that is
+ * what `resolveWithin` enforces at every join below.
+ */
 export function getSessionDir(): string {
   if (process.env.TNT_TEST && process.env.HOME) {
-    const dir = path.join(process.env.HOME, ".tnt", "sessions");
+    // HOME is the operator's environment, so anchoring under it is the same
+    // trust decision as anchoring under the global dir.
+    const dir = resolveWithin(process.env.HOME, ".tnt/sessions");
     fs.mkdirSync(dir, { recursive: true });
     return dir;
   }
 
-  const dir = path.join(globalDir(), "sessions");
+  const dir = resolveWithin(globalDir(), "sessions");
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
 export function getSessionRoot(sessionId: string): string {
-  return path.join(getSessionDir(), fsSessionName(sessionId));
+  return resolveWithin(getSessionDir(), fsSessionName(sessionId));
 }
 
 export function getTranscriptPath(sessionId: string): string {
-  return path.join(getSessionRoot(sessionId), "session.jsonl");
+  return resolveWithin(getSessionRoot(sessionId), "session.jsonl");
 }
 
 export function getSessionMetaPath(sessionId: string): string {
-  return path.join(getSessionRoot(sessionId), "meta.json");
+  return resolveWithin(getSessionRoot(sessionId), "meta.json");
 }
 
 export function getSessionLeasePath(sessionId: string): string {
-  return path.join(getSessionRoot(sessionId), "lock");
+  return resolveWithin(getSessionRoot(sessionId), "lock");
 }
 
 export function ensureSessionRoot(sessionId: string): string {
@@ -80,11 +92,11 @@ export function ensureSessionRoot(sessionId: string): string {
 
 export function getLegacySessionPath(sessionId: string): string {
   assertSessionId(sessionId);
-  return path.join(getSessionDir(), `${sessionId}.json`);
+  return resolveWithin(getSessionDir(), `${sessionId}.json`);
 }
 
 export function getLegacySessionsListPath(): string {
-  return path.join(getSessionDir(), "sessions.json");
+  return resolveWithin(getSessionDir(), "sessions.json");
 }
 
 /** The pre-v2 sidecar layout: `<global>/<kind>/<sanitised-id>`. */
@@ -94,14 +106,14 @@ export function getLegacySessionScopedDir(
 ): string {
   assertSessionId(sessionId);
   const safe = sessionId.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 64);
-  return path.join(path.dirname(getSessionDir()), kind, safe);
+  return resolveWithin(path.dirname(getSessionDir()), path.join(kind, safe));
 }
 
 export function ensureSessionScopedDir(
   kind: string,
   sessionId: string,
 ): string {
-  const dir = path.join(getSessionRoot(sessionId), kind);
+  const dir = resolveWithin(getSessionRoot(sessionId), kind);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   return dir;
 }

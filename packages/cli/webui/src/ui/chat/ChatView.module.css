@@ -65,24 +65,45 @@
   background: var(--dsw-alias-label-tertiary);
 }
 
+/* Scroll-to-bottom pill, ported from ZCode's ConversationScrollButton:
+   a 36px rounded-full outline button floating bottom-center. */
 .jumpToLatest {
   position: absolute;
   left: 50%;
-  bottom: 12px;
+  bottom: 16px;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 50%;
+  border-radius: 999px;
   corner-shape: round;
-  background: var(--dsw-alias-bg-primary);
+  background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-secondary);
   transform: translateX(-50%);
   cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  animation: jump-pill-in 0.2s var(--ds-ease-in-out);
+}
+
+@keyframes jump-pill-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jumpToLatest {
+    animation: none;
+  }
 }
 
 .jumpToLatest:hover {

@@ -4,6 +4,7 @@ import * as path from "path";
 
 import { getBlockOverflowDir } from "../../session/index.js";
 import { logger } from "../../utils/logger.js";
+import { resolveWithin } from "../../utils/pathGuard.js";
 
 /**
  * The tallest a single block of text may stand in the transcript, whatever the
@@ -94,7 +95,7 @@ export function blockOverflowNotice(input: {
   const text = overflow.join("\n");
   try {
     const dir = getBlockOverflowDir(sessionId);
-    const candidate = path.join(dir, overflowFileName(toolName, text));
+    const candidate = resolveWithin(dir, overflowFileName(toolName, text));
     if (!fs.existsSync(candidate)) {
       fs.writeFileSync(candidate, `${text}\n`, "utf-8");
       pruneOldest(dir);

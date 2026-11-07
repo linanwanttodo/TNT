@@ -14,9 +14,17 @@ export function useWorkspaceRailData() {
   const [approvals, setApprovals] = useState<PendingPermissionSummary[]>([]);
 
   useEffect(() => {
-    void fetchWorkspaces()
-      .then(setWorkspaces)
-      .catch(() => {});
+    // The tree refreshes on the same cadence as git/approvals: the agent
+    // creates and edits files while a turn runs, so a fetch-once snapshot
+    // goes stale within seconds.
+    const load = () => {
+      void fetchWorkspaces()
+        .then(setWorkspaces)
+        .catch(() => {});
+    };
+    load();
+    const timer = setInterval(load, 5000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {

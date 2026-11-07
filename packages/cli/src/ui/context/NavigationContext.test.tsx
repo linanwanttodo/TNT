@@ -54,10 +54,10 @@ describe("NavigationContext", () => {
         const { result } = renderHook(() => useNavigation(), { wrapper });
 
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("model");
         });
 
-        expect(result.current.state.currentScreen).toBe("config");
+        expect(result.current.state.currentScreen).toBe("model");
       });
 
       it("navigates to a new screen with data", () => {
@@ -65,16 +65,16 @@ describe("NavigationContext", () => {
         const testData = { text: "Some data", resolve: vi.fn() };
 
         act(() => {
-          result.current.navigateTo("config", testData);
+          result.current.navigateTo("model", testData);
         });
 
-        expect(result.current.state.currentScreen).toBe("config");
+        expect(result.current.state.currentScreen).toBe("model");
         expect(result.current.state.screenData).toEqual(testData);
       });
 
       it("can navigate to all valid screens", () => {
         const { result } = renderHook(() => useNavigation(), { wrapper });
-        const screens: NavigationScreen[] = ["chat", "config", "model", "mcp"];
+        const screens: NavigationScreen[] = ["chat", "model", "mcp", "jobs"];
 
         screens.forEach((screen) => {
           act(() => {
@@ -90,12 +90,12 @@ describe("NavigationContext", () => {
         const secondData = { value: 2 };
 
         act(() => {
-          result.current.navigateTo("config", firstData);
+          result.current.navigateTo("model", firstData);
         });
         expect(result.current.state.screenData).toEqual(firstData);
 
         act(() => {
-          result.current.navigateTo("config", secondData);
+          result.current.navigateTo("model", secondData);
         });
         expect(result.current.state.screenData).toEqual(secondData);
       });
@@ -110,7 +110,7 @@ describe("NavigationContext", () => {
         expect(result.current.state.screenData).toEqual(testData);
 
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("model");
         });
         expect(result.current.state.screenData).toBeNull();
       });
@@ -121,9 +121,9 @@ describe("NavigationContext", () => {
         const { result } = renderHook(() => useNavigation(), { wrapper });
 
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("model");
         });
-        expect(result.current.state.currentScreen).toBe("config");
+        expect(result.current.state.currentScreen).toBe("model");
 
         act(() => {
           result.current.closeCurrentScreen();
@@ -136,7 +136,7 @@ describe("NavigationContext", () => {
         const testData = { text: "Test data" };
 
         act(() => {
-          result.current.navigateTo("config", testData);
+          result.current.navigateTo("model", testData);
         });
         expect(result.current.state.screenData).toEqual(testData);
 
@@ -160,10 +160,10 @@ describe("NavigationContext", () => {
 
       it("closes from any screen back to chat", () => {
         const { result } = renderHook(() => useNavigation(), { wrapper });
-        const screens: Array<"config" | "model" | "mcp"> = [
-          "config",
+        const screens: Array<"model" | "mcp" | "jobs"> = [
           "model",
           "mcp",
+          "jobs",
         ];
 
         screens.forEach((screen) => {
@@ -187,17 +187,17 @@ describe("NavigationContext", () => {
         expect(result.current.isScreenActive("chat")).toBe(true);
 
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("model");
         });
 
-        expect(result.current.isScreenActive("config")).toBe(true);
+        expect(result.current.isScreenActive("model")).toBe(true);
         expect(result.current.isScreenActive("chat")).toBe(false);
       });
 
       it("returns false for inactive screens", () => {
         const { result } = renderHook(() => useNavigation(), { wrapper });
 
-        expect(result.current.isScreenActive("config")).toBe(false);
+        expect(result.current.isScreenActive("jobs")).toBe(false);
         expect(result.current.isScreenActive("model")).toBe(false);
         expect(result.current.isScreenActive("mcp")).toBe(false);
         expect(result.current.isScreenActive("session")).toBe(false);
@@ -207,14 +207,14 @@ describe("NavigationContext", () => {
         const { result } = renderHook(() => useNavigation(), { wrapper });
 
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("jobs");
         });
-        expect(result.current.isScreenActive("config")).toBe(true);
+        expect(result.current.isScreenActive("jobs")).toBe(true);
 
         act(() => {
           result.current.navigateTo("model");
         });
-        expect(result.current.isScreenActive("config")).toBe(false);
+        expect(result.current.isScreenActive("jobs")).toBe(false);
         expect(result.current.isScreenActive("model")).toBe(true);
 
         act(() => {
@@ -231,24 +231,24 @@ describe("NavigationContext", () => {
         const initialState = result.current.state;
 
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("model");
         });
 
         expect(result.current.state).not.toBe(initialState);
-        expect(result.current.state.currentScreen).toBe("config");
+        expect(result.current.state.currentScreen).toBe("model");
       });
 
       it("preserves unrelated state when updating", () => {
         const { result } = renderHook(() => useNavigation(), { wrapper });
 
         act(() => {
-          result.current.navigateTo("config", { custom: "data" });
+          result.current.navigateTo("model", { custom: "data" });
         });
 
         const stateWithData = result.current.state;
 
         act(() => {
-          result.current.navigateTo("config", { different: "data" });
+          result.current.navigateTo("model", { different: "data" });
         });
 
         expect(result.current.state.currentScreen).toBe(
@@ -267,13 +267,13 @@ describe("NavigationContext", () => {
 
         // Navigate to a screen with screen data
         act(() => {
-          result.current.navigateTo("config", {
+          result.current.navigateTo("model", {
             text: "Some data",
             resolve: mockResolve,
           });
         });
 
-        expect(result.current.state.currentScreen).toBe("config");
+        expect(result.current.state.currentScreen).toBe("model");
         expect(result.current.state.screenData?.text).toBe("Some data");
         expect(result.current.state.screenData?.resolve).toBe(mockResolve);
 
@@ -291,9 +291,9 @@ describe("NavigationContext", () => {
 
         // Navigate to config selector
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("model");
         });
-        expect(result.current.isScreenActive("config")).toBe(true);
+        expect(result.current.isScreenActive("model")).toBe(true);
 
         // Close after selection
         act(() => {
@@ -307,9 +307,9 @@ describe("NavigationContext", () => {
 
         // Navigate to config
         act(() => {
-          result.current.navigateTo("config");
+          result.current.navigateTo("model");
         });
-        expect(result.current.isScreenActive("config")).toBe(true);
+        expect(result.current.isScreenActive("model")).toBe(true);
 
         // Return to chat
         act(() => {

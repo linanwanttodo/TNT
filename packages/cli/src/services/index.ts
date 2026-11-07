@@ -9,6 +9,7 @@ import { logger } from "../utils/logger.js";
 
 import { AgentFileService } from "./AgentFileService.js";
 import { ApiClientService } from "./ApiClientService.js";
+import { runDueAutomations } from "./automationStore.js";
 import { backgroundJobService } from "./BackgroundJobService.js";
 import { ChatHistoryService } from "./ChatHistoryService.js";
 import { ConfigService } from "./ConfigService.js";
@@ -322,6 +323,86 @@ export async function initializeServices(initOptions: ServiceInitOptions = {}) {
   }
 
   logger.debug("Service registry initialized");
+
+  startAutomationScheduler();
+}
+
+/**
+ * The automation scheduler: a 30s tick that fires due scheduled prompts into
+ * the same pipeline a browser message uses (enqueue on the message queue,
+ * drain through the turn runner), so a cron prompt lands in the live
+ * transcript with the same permission flow. Skipped in tests, which never
+ * own a turn pipeline.
+ */
+let automationSchedulerTimer: ReturnType<typeof setInterval> | null = null;
+let automationListenerBound = false;
+
+/**
+ * ZCode's failure backoff needs the turn's outcome. The scheduler only knows
+ * which automation it last fired, so turn events within a 10-minute window
+ * of a fire are attributed to it: a failure backs the next run off
+ * exponentially, a success resets the streak.
+ */
+const AUTOMATION_EVENT_WINDOW_MS = 10 * 60_000;
+let lastFiredAutomation: { id: string; firedAt: number } | null = null;
+
+function bindAutomationTurnEvents(): void {
+  if (automationListenerBound) return;
+  automationListenerBound = true;
+  void (async () => {
+    const { subscribeAgentEvents } = await import("../protocol/eventBus.js");
+    const { markAutomationFailed, markAutomationSucceeded } =
+      await import("./automationStore.js");
+    subscribeAgentEvents((event) => {
+      if (lastFiredAutomation === null) return;
+      const { id, firedAt } = lastFiredAutomation;
+      if (Date.now() - firedAt > AUTOMATION_EVENT_WINDOW_MS) {
+        lastFiredAutomation = null;
+        return;
+      }
+      if (event.type === "turn.completed") {
+        markAutomationSucceeded(id);
+        lastFiredAutomation = null;
+      } else if (
+        event.type === "turn.failed" ||
+        event.type === "turn.interrupted"
+      ) {
+        markAutomationFailed(id, Date.now());
+        lastFiredAutomation = null;
+      }
+    });
+  })();
+}
+
+export function startAutomationScheduler(): void {
+  if (automationSchedulerTimer !== null || process.env.VITEST) return;
+  bindAutomationTurnEvents();
+  automationSchedulerTimer = setInterval(() => {
+    try {
+      const due = runDueAutomations();
+      if (due.length === 0) return;
+      // Imported lazily so the scheduler does not pin the stream pipeline at
+      // module load; the queue and the turn runner are the POST /message path.
+      void (async () => {
+        const { messageQueue } = await import("../stream/messageQueue.js");
+        const { turnRunnerService } = await import("./TurnRunnerService.js");
+        for (const automation of due) {
+          logger.info(`Automation fired: ${automation.title}`);
+          lastFiredAutomation = { id: automation.id, firedAt: Date.now() };
+          await messageQueue.enqueueMessage(automation.prompt);
+        }
+        turnRunnerService.startDraining();
+      })().catch((error) =>
+        logger.warn("Automation dispatch failed", error as Error),
+      );
+    } catch (error) {
+      logger.warn("Automation scheduler tick failed", error as Error);
+    }
+  }, 30_000);
+  // Do not hold the process open for the scheduler alone.
+  if (typeof automationSchedulerTimer.unref === "function") {
+    automationSchedulerTimer.unref();
+  }
 }
 
 /**

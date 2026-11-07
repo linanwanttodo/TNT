@@ -13,7 +13,7 @@ import {
   vi,
 } from "vitest";
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "path";
 
@@ -121,11 +121,13 @@ describe("CodebaseIndexer", () => {
     tearDownTestDir();
     setUpTestDir();
 
-    execSync("git init", { cwd: TEST_DIR_PATH });
-    execSync('git config user.email "test@example.com"', {
+    execFileSync("git", ["init"], { cwd: TEST_DIR_PATH });
+    execFileSync("git", ["config", "user.email", "test@example.com"], {
       cwd: TEST_DIR_PATH,
     });
-    execSync('git config user.name "Test"', { cwd: TEST_DIR_PATH });
+    execFileSync("git", ["config", "user.name", "Test"], {
+      cwd: TEST_DIR_PATH,
+    });
 
     codebaseIndexer = new TestCodebaseIndexer(
       testConfigHandler,
@@ -269,26 +271,32 @@ describe("CodebaseIndexer", () => {
     });
 
     test("should create git repo for testing", async () => {
-      execSync(
-        `cd ${TEST_DIR_PATH} && git init && git checkout -b main && git add -A && git commit -m "First commit"`,
-      );
+      // Array form with cwd instead of `cd X && ...`: arguments are data, so
+      // the fixture path can never be re-parsed as command syntax.
+      execFileSync("git", ["init"], { cwd: TEST_DIR_PATH });
+      execFileSync("git", ["checkout", "-b", "main"], { cwd: TEST_DIR_PATH });
+      execFileSync("git", ["add", "-A"], { cwd: TEST_DIR_PATH });
+      execFileSync("git", ["commit", "-m", "First commit"], {
+        cwd: TEST_DIR_PATH,
+      });
     });
 
     test.skip("should only re-index the changed files when changing branches", async () => {
-      execSync(`cd ${TEST_DIR_PATH} && git checkout -b test2`);
+      execFileSync("git", ["checkout", "-b", "test2"], { cwd: TEST_DIR_PATH });
       // Rewriting the file
       addToTestDir([["test.ts", "// This is different"]]);
 
       // Should re-compute test.ts, but just re-tag the .py file
       await expectPlan(1, 1, 0, 0);
 
-      execSync(
-        `cd ${TEST_DIR_PATH} && git add -A && git commit -m "Change .ts file"`,
-      );
+      execFileSync("git", ["add", "-A"], { cwd: TEST_DIR_PATH });
+      execFileSync("git", ["commit", "-m", "Change .ts file"], {
+        cwd: TEST_DIR_PATH,
+      });
     });
 
     test.skip("shouldn't re-index anything when changing back to original branch", async () => {
-      execSync(`cd ${TEST_DIR_PATH} && git checkout main`);
+      execFileSync("git", ["checkout", "main"], { cwd: TEST_DIR_PATH });
       await expectPlan(0, 0, 0, 0);
     });
   });

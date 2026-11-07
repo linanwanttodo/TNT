@@ -59,14 +59,19 @@ function stripMdx(content: string): string {
 
 function loadMdxFile(slug: string, locale: Locale) {
   const base = locale === "zh" ? path.join(DOCS_DIR, "zh") : DOCS_DIR;
-  const filePath = path.join(base, slug + ".mdx");
-  if (fs.existsSync(filePath)) {
+  // Slugs come from the docs nav; anchor every read to the docs tree so a
+  // `../` in a nav entry cannot walk the reader out of it.
+  const resolvedRoot = path.resolve(base);
+  const within = (candidate: string) =>
+    candidate === resolvedRoot || candidate.startsWith(resolvedRoot + path.sep);
+  const filePath = path.resolve(resolvedRoot, slug + ".mdx");
+  if (within(filePath) && fs.existsSync(filePath)) {
     const raw = fs.readFileSync(filePath, "utf8");
     const { data, content } = matter(raw);
     return { frontmatter: data, content };
   }
-  const indexPath = path.join(base, slug, "index.mdx");
-  if (fs.existsSync(indexPath)) {
+  const indexPath = path.resolve(resolvedRoot, path.join(slug, "index.mdx"));
+  if (within(indexPath) && fs.existsSync(indexPath)) {
     const raw = fs.readFileSync(indexPath, "utf8");
     const { data, content } = matter(raw);
     return { frontmatter: data, content };
