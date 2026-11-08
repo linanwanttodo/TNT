@@ -32,6 +32,7 @@ export interface SessionInfoContext {
 
 export interface SnapshotContext extends SessionInfoContext {
   messages?: ZCodeMessageWithParts[];
+  runtime?: { eventSeq: number; stateRevision: number };
 }
 
 type ItemWithMessageId = ChatHistoryItem & { messageId?: string };
@@ -451,7 +452,11 @@ export function toZcodeSnapshot(
       activeToolCalls: [],
       backgroundJobs: [],
     },
-    runtime: { eventSeq: 0, stateRevision: 0, pendingRequestIds: [] },
+    runtime: {
+      eventSeq: context.runtime?.eventSeq ?? 0,
+      stateRevision: context.runtime?.stateRevision ?? 0,
+      pendingRequestIds: [],
+    },
     messages: context.messages ?? toZcodeMessages(session),
   };
 }

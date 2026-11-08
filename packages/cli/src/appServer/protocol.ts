@@ -1,7 +1,29 @@
-import { ZCODE_PROTOCOL_VERSION, zcodeProtocolMethods } from "@zcode/shared";
+import {
+  zcodeSessionSetModelParamsSchema,
+  ZCODE_PROTOCOL_VERSION,
+  zcodeProtocolMethods,
+} from "@zcode/shared";
+import { V4_METHODS } from "@zcode/shared/zcode-protocol-v4";
 
-import { isSessionRequestError, SessionHandlers } from "./session.js";
+import type { InteractionBroker } from "../permissions/interactionBroker.js";
+
+import { SessionRuntimeStore } from "./runtime.js";
+import {
+  isSessionRequestError,
+  parseParams,
+  SessionHandlers,
+  type ModelLookup,
+} from "./session.js";
 import type { SessionRegistry } from "./sessionRegistry.js";
+import {
+  ensureAppServerServices,
+  TurnHandlers,
+  type TurnExecutor,
+  type TurnPump,
+  type TurnQueue,
+  type TurnSources,
+} from "./turns.js";
+import { V4Handlers } from "./v4.js";
 
 export const PROTOCOL_PARSE_ERROR = -32700;
 export const PROTOCOL_INVALID_REQUEST = -32600;
@@ -17,6 +39,16 @@ export interface ProtocolSender {
 
 export type ProtocolHandler = (params: unknown) => unknown | Promise<unknown>;
 
+export interface AppServerProtocolOptions {
+  modelLookup?: ModelLookup | null;
+  runTurn?: TurnExecutor;
+  pump?: TurnPump;
+  queue?: TurnQueue;
+  events?: TurnSources;
+  ensureServices?: () => Promise<void>;
+  interactionBroker?: InteractionBroker;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -30,24 +62,52 @@ function isRequestId(value: unknown): value is ProtocolRequestId {
 export class AppServerProtocol {
   private readonly handlers = new Map<string, ProtocolHandler>();
   readonly sessions: SessionHandlers;
+  readonly turns: TurnHandlers;
+  readonly v4: V4Handlers;
 
   constructor(
     private readonly transport: ProtocolSender,
     private readonly registry: SessionRegistry,
+    options: AppServerProtocolOptions = {},
   ) {
-    this.sessions = new SessionHandlers({ sender: transport });
+    const runtimes = new SessionRuntimeStore();
+    this.sessions = new SessionHandlers({
+      sender: transport,
+      modelLookup: options.modelLookup,
+      runtimes,
+    });
+    this.turns = new TurnHandlers({
+      sender: transport,
+      runtimes,
+      executor: options.runTurn,
+      pump: options.pump,
+      queue: options.queue,
+      events: options.events,
+      ensureServices: options.ensureServices,
+    });
+    this.v4 = new V4Handlers({
+      sender: transport,
+      runtimes,
+      sessions: this.sessions,
+      turns: this.turns,
+      interactionBroker: options.interactionBroker,
+    });
     this.handlers.set(zcodeProtocolMethods.runtimeCapabilities, () =>
       this.capabilities(),
     );
     this.handlers.set(zcodeProtocolMethods.sessionLifecycleGetState, () =>
       this.registry.getState(),
     );
-    this.handlers.set(zcodeProtocolMethods.sessionCreate, (params) =>
-      this.sessions.create(params),
-    );
-    this.handlers.set(zcodeProtocolMethods.sessionResume, (params) =>
-      this.sessions.resume(params),
-    );
+    this.handlers.set(zcodeProtocolMethods.sessionCreate, async (params) => {
+      const snapshot = await this.sessions.create(params);
+      this.turns.registerSession(snapshot.session.sessionId);
+      return snapshot;
+    });
+    this.handlers.set(zcodeProtocolMethods.sessionResume, async (params) => {
+      const snapshot = await this.sessions.resume(params);
+      this.turns.registerSession(snapshot.session.sessionId);
+      return snapshot;
+    });
     this.handlers.set(zcodeProtocolMethods.sessionList, (params) =>
       this.sessions.list(params),
     );
@@ -60,9 +120,36 @@ export class AppServerProtocol {
     this.handlers.set(zcodeProtocolMethods.sessionClose, (params) =>
       this.sessions.close(params),
     );
-    this.handlers.set(zcodeProtocolMethods.sessionSetModel, (params) =>
-      this.sessions.setModel(params),
+    this.handlers.set(zcodeProtocolMethods.sessionSend, (params) =>
+      this.turns.send(params),
     );
+    this.handlers.set(zcodeProtocolMethods.sessionSubscribe, (params) =>
+      this.turns.subscribe(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionStop, (params) =>
+      this.turns.stop(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionSetModel, async (params) => {
+      const input = parseParams(zcodeSessionSetModelParamsSchema, params);
+      await (options.ensureServices ?? ensureAppServerServices)();
+      return this.sessions.setModel(input);
+    });
+    this.handlers.set(V4_METHODS.connectionFlow, () => ({}));
+    this.handlers.set(V4_METHODS.conversationSubscribe, (params) =>
+      this.v4.subscribe(params),
+    );
+    this.handlers.set(V4_METHODS.conversationUnsubscribe, (params) =>
+      this.v4.unsubscribe(params),
+    );
+    this.handlers.set(V4_METHODS.conversationResync, (params) =>
+      this.v4.resync(params),
+    );
+    this.handlers.set(V4_METHODS.command, (params) => this.v4.command(params));
+  }
+
+  dispose(): void {
+    this.turns.dispose();
+    this.v4.dispose();
   }
 
   async handle(message: unknown): Promise<void> {

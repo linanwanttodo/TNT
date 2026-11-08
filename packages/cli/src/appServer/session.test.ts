@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { zcodeSessionEventSchema } from "@zcode/shared";
 import type { ChatHistoryItem } from "core/index.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -9,6 +10,7 @@ import { createSession } from "../session/index.js";
 import { sessionStore } from "../session/store.js";
 
 import { AppServerProtocol, PROTOCOL_METHOD_NOT_FOUND } from "./protocol.js";
+import { SessionRuntimeStore } from "./runtime.js";
 import { SessionHandlers, type ModelLookup } from "./session.js";
 import { SessionRegistry } from "./sessionRegistry.js";
 
@@ -192,22 +194,29 @@ describe("SessionHandlers", () => {
     );
   });
 
-  it("emits session/titleUpdated only when the title changes", async () => {
-    const created = await handlers.create({ workspace: workspaceRef() });
+  it("emits one session/event titleUpdated envelope only when the title changes", async () => {
+    const runtimes = new SessionRuntimeStore();
+    const handler = new SessionHandlers({ sender, modelLookup, runtimes });
+    const emitted: unknown[] = [];
+    const created = await handler.create({ workspace: workspaceRef() });
     const sessionId = created.session.sessionId;
+    runtimes.subscribe(sessionId, (event) => emitted.push(event));
 
-    await handlers.setTitle(sessionId, "Generated title", "generated");
-    await handlers.setTitle(sessionId, "Generated title", "generated");
+    await handler.setTitle(sessionId, "Generated title", "generated");
+    await handler.setTitle(sessionId, "Generated title", "generated");
 
-    const notifications = sender.messages.filter(
-      (message) => message.method === "session/titleUpdated",
-    );
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0].params).toEqual({
+    expect(emitted).toHaveLength(1);
+    expect(zcodeSessionEventSchema.parse(emitted[0])).toEqual({
+      eventId: `${sessionId}:event-1`,
       sessionId,
-      previousTitle: "Untitled Session",
-      title: "Generated title",
-      source: "generated",
+      seq: 1,
+      timestamp: expect.any(Number),
+      type: "session.titleUpdated",
+      payload: {
+        previousTitle: "Untitled Session",
+        title: "Generated title",
+        source: "generated",
+      },
     });
   });
 
