@@ -12,6 +12,12 @@
  * The reference directive and the two ambient declarations keep the CLI's
  * pre-existing typecheck green without editing the vendored package. The
  * factories are still bundled from their real sources.
+ *
+ * Both module shims type the package as `any` for the whole program. That is
+ * deliberate and acceptable today: the CLI never calls `yazl` or `node-forge`
+ * directly, they only appear inside the vendored plugin bundle graph, and a
+ * hand-written declaration would have to track upstream releases. If the CLI
+ * ever calls them, replace these with real types.
  */
 
 /// <reference lib="dom.asynciterable" />

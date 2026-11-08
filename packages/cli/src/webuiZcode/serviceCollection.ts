@@ -61,9 +61,9 @@ import {
 
 import { logger } from "../utils/logger.js";
 
-import {
-  getLocalZcodeServices,
-  type LocalZcodeServices,
+import type {
+  ConnectionZcodeServices,
+  LocalZcodeServices,
 } from "./services/local.js";
 import { stubService } from "./services/stubs.js";
 
@@ -72,6 +72,16 @@ export interface ZcodeServiceCollectionDeps {
   workspacePath: string;
   /** Test/host seam; defaults to the process-wide bundle. */
   localServices?: LocalZcodeServices;
+  /** Test seam; defaults to a freshly created per-connection scope. */
+  connectionServices?: ConnectionZcodeServices;
+}
+
+/**
+ * A per-connection collection owns the pty/watcher scope behind it, so the
+ * transport calls `dispose` when the socket ends.
+ */
+export interface ZcodeConnectionCollection extends ServiceCollection {
+  dispose(): void;
 }
 
 type OptionalAccessorKey = {
@@ -178,46 +188,90 @@ export const ZCODE_OPTIONAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unkn
   Object.values(ZCODE_OPTIONAL_SERVICE_DESCRIPTORS_BY_KEY);
 
 /**
- * The channels answered by the process-wide local bundle. Every other
- * descriptor still resolves to a `ZCODE_UNAVAILABLE` stub. Task 11 moves the
- * remaining agent and session channels here.
+ * The channels answered by the local bundle plus the connection's own OS
+ * resources. Every other descriptor still resolves to a `ZCODE_UNAVAILABLE`
+ * stub. Task 11 moves the remaining agent and session channels here.
  */
+interface ResolvedZcodeServices {
+  local: LocalZcodeServices;
+  connection: ConnectionZcodeServices;
+  fileService: IFileService;
+}
+
 const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   ServiceDescriptor<unknown>,
-  (local: LocalZcodeServices) => unknown
+  (services: ResolvedZcodeServices) => unknown
 >([
-  [IFileService, (local) => local.fileService],
-  [IGitService, (local) => local.gitService],
-  [ISettingService, (local) => local.settingService],
-  [ISystemService, (local) => local.systemService],
-  [ITerminalService, (local) => local.terminalService],
-  [IFileWatcherService, (local) => local.fileWatcherService],
-  [IBroadcastService, (local) => local.broadcastService],
-  [IPluginsService, (local) => local.pluginsService],
-  [IPluginManagementService, (local) => local.pluginManagementService],
+  [IFileService, (services) => services.fileService],
+  [IGitService, (services) => services.local.gitService],
+  [ISettingService, (services) => services.local.settingService],
+  [ISystemService, (services) => services.local.systemService],
+  [ITerminalService, (services) => services.connection.terminalService],
+  [IFileWatcherService, (services) => services.connection.fileWatcherService],
+  [IBroadcastService, (services) => services.local.broadcastService],
+  [IPluginsService, (services) => services.local.pluginsService],
+  [
+    IPluginManagementService,
+    (services) => services.local.pluginManagementService,
+  ],
 ]);
 
 export const ZCODE_LOCAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
   [...ZCODE_LOCAL_SERVICE_ACCESSORS.keys()];
 
-export function buildZcodeServiceCollection(
+/**
+ * Builds one connection's channel collection. The local bundle and its node
+ * dependency graph are imported here rather than at module load, so a TUI that
+ * never opens the web shell does not parse them.
+ */
+export async function buildZcodeServiceCollection(
   deps: ZcodeServiceCollectionDeps,
-): ServiceCollection {
+): Promise<ZcodeConnectionCollection> {
+  const [
+    { createConnectionZcodeServices, getLocalZcodeServices },
+    { createWorkspaceScopedFileService },
+  ] = await Promise.all([
+    import("./services/local.js"),
+    import("./services/workspaceScope.js"),
+  ]);
+
   const local = deps.localServices ?? getLocalZcodeServices();
+  const connection =
+    deps.connectionServices ??
+    createConnectionZcodeServices({
+      workspacePath: deps.workspacePath,
+      settingService: local.settingService,
+    });
+  const services: ResolvedZcodeServices = {
+    local,
+    connection,
+    fileService: createWorkspaceScopedFileService(
+      local.fileService,
+      deps.workspacePath,
+    ),
+  };
+
   logger.debug(
-    `webui-zcode: building service scope for ${deps.workspacePath} (local instances shared process-wide)`,
+    `webui-zcode: building service scope for ${deps.workspacePath} (per-connection terminal and watcher)`,
   );
 
-  const collection = new ServiceCollection();
+  const collection = new ServiceCollection() as ZcodeConnectionCollection;
   for (const descriptor of [
     ...ZCODE_REQUIRED_SERVICE_DESCRIPTORS,
     ...ZCODE_OPTIONAL_SERVICE_DESCRIPTORS,
   ]) {
     const resolveLocal = ZCODE_LOCAL_SERVICE_ACCESSORS.get(descriptor);
     const instance = resolveLocal
-      ? resolveLocal(local)
+      ? resolveLocal(services)
       : stubService<unknown>(descriptor.channelName);
     collection.register(descriptor, instance);
   }
+
+  let disposed = false;
+  collection.dispose = (): void => {
+    if (disposed) return;
+    disposed = true;
+    connection.dispose();
+  };
   return collection;
 }

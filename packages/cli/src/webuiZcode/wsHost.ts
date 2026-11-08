@@ -11,6 +11,7 @@ import {
 import type { ServiceCollection } from "@zcode/services";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 
+import { logger } from "../utils/logger.js";
 import { requestToken, tokenEquals } from "../utils/webuiToken.js";
 
 const WS_PATH = "/ws";
@@ -22,10 +23,23 @@ export interface WebUiZcodeHost {
 /**
  * Each connection needs its own service scope: a new ChannelServer disposes
  * the previous connection's subscriptions, so a reconnect must not inherit
- * them. The host therefore accepts either one collection or a per-connection
- * factory.
+ * them. The source may build the scope lazily (the real host dynamic-imports
+ * the service bundle) and may return a promise; it is resolved before the
+ * connection's channels register.
  */
-export type ZcodeServicesSource = ServiceCollection | (() => ServiceCollection);
+export type ZcodeServicesSource =
+  ServiceCollection | (() => ServiceCollection | Promise<ServiceCollection>);
+
+type LoadedZcodeServices = () => ServiceCollection | Promise<ServiceCollection>;
+
+type DisposableServiceCollection = ServiceCollection & { dispose?: () => void };
+
+function disposeServices(services: ServiceCollection): void {
+  const dispose = (services as DisposableServiceCollection).dispose;
+  if (typeof dispose === "function") {
+    dispose.call(services);
+  }
+}
 
 export interface StartWebUiZcodeHostOptions {
   server: http.Server;
@@ -112,7 +126,18 @@ function rejectUpgrade(socket: Duplex, status: number, reason: string): void {
   socket.destroy();
 }
 
-function handleConnection(ws: WebSocket, services: ServiceCollection): void {
+async function handleConnection(
+  ws: WebSocket,
+  loadServices: LoadedZcodeServices,
+): Promise<void> {
+  const services = await loadServices();
+  // The socket can close while the bundle is loading; do not register channels
+  // on a dead transport, and release the scope that was just created.
+  if (ws.readyState !== WebSocket.OPEN) {
+    disposeServices(services);
+    return;
+  }
+
   const socket = wrapWebSocket(ws);
   const protocol = new SocketProtocol(socket);
   const server = new ChannelServer(protocol, "server");
@@ -127,6 +152,7 @@ function handleConnection(ws: WebSocket, services: ServiceCollection): void {
     server.dispose();
     protocol.dispose();
     socket.dispose();
+    disposeServices(services);
   };
   ws.once("close", dispose);
   ws.once("error", dispose);
@@ -143,10 +169,10 @@ export function startWebUiZcodeHost(
   options: StartWebUiZcodeHostOptions,
 ): WebUiZcodeHost {
   const wss = new WebSocketServer({ noServer: true });
-  const servicesFor =
+  const loadServices: LoadedZcodeServices =
     typeof options.services === "function"
       ? options.services
-      : (): ServiceCollection => options.services as ServiceCollection;
+      : () => options.services as ServiceCollection;
 
   const onUpgrade = (
     req: http.IncomingMessage,
@@ -166,7 +192,12 @@ export function startWebUiZcodeHost(
     }
 
     wss.handleUpgrade(req, socket, head, (ws) => {
-      handleConnection(ws, servicesFor());
+      void handleConnection(ws, loadServices).catch((error: unknown) => {
+        logger.warn(
+          `webui-zcode: failed to prepare connection services (${String(error)})`,
+        );
+        ws.terminate();
+      });
     });
   };
 
