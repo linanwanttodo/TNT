@@ -21,6 +21,7 @@ import { messageQueue } from "../stream/messageQueue.js";
 import type { WorktreeInfo } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 import { buildZcodeServiceCollection } from "../webuiZcode/serviceCollection.js";
+import { disposeLocalZcodeServices } from "../webuiZcode/services/local.js";
 import { startWebUiZcodeHost } from "../webuiZcode/wsHost.js";
 
 import { turnRunnerService, type RunTurn } from "./TurnRunnerService.js";
@@ -254,6 +255,10 @@ export class WebUiService {
       this.activeHandle = null;
       await handle.close();
     }
+    // The ZCode services own OS handles (fs watchers, ptys) and outlive every
+    // connection's collection by design; tearing them down with the server
+    // keeps a closed /webui from leaving them attached.
+    disposeLocalZcodeServices();
   }
 
   /** The snapshot shape GET /state returns, reading the live current session. */

@@ -15,15 +15,16 @@ import {
   ISettingService,
   ServiceCollection,
 } from "@zcode/services";
-import { DEFAULT_LOCALE } from "@zcode/shared";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { WebSocket, type RawData } from "ws";
 
 import {
   buildZcodeServiceCollection,
+  ZCODE_LOCAL_SERVICE_DESCRIPTORS,
   ZCODE_OPTIONAL_SERVICE_DESCRIPTORS,
   ZCODE_REQUIRED_SERVICE_DESCRIPTORS,
 } from "./serviceCollection.js";
+import { disposeLocalZcodeServices } from "./services/local.js";
 import { ZCODE_UNAVAILABLE_PREFIX } from "./services/stubs.js";
 import { startWebUiZcodeHost, type ZcodeServicesSource } from "./wsHost.js";
 
@@ -49,6 +50,12 @@ afterEach(async () => {
   while (cleanups.length > 0) {
     await cleanups.pop()?.();
   }
+});
+
+afterAll(() => {
+  // These tests go through the default process-wide bundle; release its
+  // setting/watcher registry instead of leaving it to process exit.
+  disposeLocalZcodeServices();
 });
 
 function toUint8Array(data: RawData): Uint8Array {
@@ -310,7 +317,7 @@ describe("startWebUiZcodeHost", () => {
     expect(factoryCalls).toBe(2);
   });
 
-  it("rejects every required service stub with ZCODE_UNAVAILABLE", async () => {
+  it("rejects every stubbed required service with ZCODE_UNAVAILABLE", async () => {
     const { port } = await startTestServer(() =>
       buildZcodeServiceCollection({ workspacePath: process.cwd() }),
     );
@@ -319,8 +326,14 @@ describe("startWebUiZcodeHost", () => {
     );
     await handle.initialized;
 
+    const localChannels = new Set(
+      ZCODE_LOCAL_SERVICE_DESCRIPTORS.map(
+        (descriptor) => descriptor.channelName,
+      ),
+    );
     const seen = new Set<string>();
     for (const descriptor of ZCODE_REQUIRED_SERVICE_DESCRIPTORS) {
+      if (localChannels.has(descriptor.channelName)) continue;
       expect(seen.has(descriptor.channelName)).toBe(false);
       seen.add(descriptor.channelName);
 
@@ -333,12 +346,14 @@ describe("startWebUiZcodeHost", () => {
         ),
       ).toBe(true);
     }
-    expect(seen.size).toBe(ZCODE_REQUIRED_SERVICE_DESCRIPTORS.length);
+    expect(seen.size).toBe(
+      ZCODE_REQUIRED_SERVICE_DESCRIPTORS.length - localChannels.size,
+    );
   });
 
   it("resolves settingService.get through the channel", async () => {
-    // ZCodeIntlProvider calls get() without a catch on first paint; the stub
-    // must answer the required AppSettings defaults rather than reject.
+    // ZCodeIntlProvider calls get() without a catch on first paint; the real
+    // setting service must answer AppSettings rather than reject.
     const { port } = await startTestServer(() =>
       buildZcodeServiceCollection({ workspacePath: process.cwd() }),
     );
@@ -347,9 +362,12 @@ describe("startWebUiZcodeHost", () => {
     );
     await handle.initialized;
 
-    await expect(
-      channel(handle.client, ISettingService.channelName).call("get"),
-    ).resolves.toEqual({ recentProjects: [], locale: DEFAULT_LOCALE });
+    const settings = (await channel(
+      handle.client,
+      ISettingService.channelName,
+    ).call("get")) as { recentProjects: unknown; locale: unknown };
+    expect(Array.isArray(settings.recentProjects)).toBe(true);
+    expect(typeof settings.locale).toBe("string");
   });
 
   it("registers optional channels so a stub call rejects without the timeout", async () => {
