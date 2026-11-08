@@ -380,10 +380,25 @@ export function translateAgentEvent(
             input: asObject(event.toolArgs),
             options: [
               {
-                optionId: "allow",
+                optionId: "allow_once",
                 kind: "allowOnce",
-                name: "Allow",
+                name: "Allow once",
                 response: { decision: "allow" },
+              },
+              {
+                optionId: "allow_always",
+                kind: "allowAlways",
+                name: "Allow for this session",
+                response: {
+                  decision: "allow",
+                  permissionUpdates: [
+                    {
+                      type: "addRules",
+                      behavior: "allow",
+                      rules: [{ toolName: event.toolName }],
+                    },
+                  ],
+                },
               },
               {
                 optionId: "deny",

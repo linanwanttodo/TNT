@@ -368,6 +368,11 @@ export class TurnHandlers {
     return this.pump.isRunning();
   }
 
+  /** The session whose turn is currently draining, if any. */
+  getActiveSessionId(): string | null {
+    return this.activeSessionId;
+  }
+
   dispose(): void {
     this.unsubscribeBus();
     this.queue.off("messageQueued", this.handleQueued);

@@ -19,6 +19,7 @@ import {
 import { loadSessionById } from "../session/index.js";
 import { logger } from "../utils/logger.js";
 
+import type { InteractionBridge } from "./interactions.js";
 import type { SessionRuntimeStore } from "./runtime.js";
 import {
   parseParams,
@@ -55,6 +56,7 @@ export interface V4HandlerOptions {
   sessions: SessionHandlers;
   turns: V4TurnTarget;
   interactionBroker?: InteractionBroker;
+  interactions?: InteractionBridge | null;
 }
 
 interface SubscriptionRecord {
@@ -79,6 +81,7 @@ export class V4Handlers {
   private readonly sessions: SessionHandlers;
   private readonly turns: V4TurnTarget;
   private readonly broker: InteractionBroker;
+  private readonly interactions: InteractionBridge | null;
   private readonly subscriptions = new Map<string, SubscriptionRecord>();
 
   constructor(options: V4HandlerOptions) {
@@ -87,6 +90,7 @@ export class V4Handlers {
     this.sessions = options.sessions;
     this.turns = options.turns;
     this.broker = options.interactionBroker ?? defaultBroker;
+    this.interactions = options.interactions ?? null;
   }
 
   async subscribe(params: unknown): Promise<unknown> {
@@ -289,23 +293,9 @@ export class V4Handlers {
       envelope.payload,
     );
     const { interactionId, answer } = payload;
-    let resolved = false;
-    if (answer.action === "accept") {
-      resolved = this.broker.approve(interactionId, false);
-    } else if (answer.action === "decline" || answer.action === "cancel") {
-      resolved = this.broker.reject(interactionId);
-    } else {
-      const value = answer.freeText ?? answer.optionId;
-      if (value !== undefined) {
-        resolved = this.broker.answerQuestion(interactionId, value);
-      }
-      if (!resolved && answer.optionId === "allow") {
-        resolved = this.broker.approve(interactionId, false);
-      }
-      if (!resolved) {
-        resolved = this.broker.reject(interactionId);
-      }
-    }
+    const resolved = this.interactions
+      ? this.interactions.resolveInteraction(interactionId, answer)
+      : this.resolveInteractionLegacy(interactionId, answer);
     const revision = this.runtimes.cursor(sessionId).stateRevision;
     if (!resolved) {
       return {
@@ -322,6 +312,33 @@ export class V4Handlers {
         ...(answer.optionId ? { optionId: answer.optionId } : {}),
       },
     });
+  }
+
+  private resolveInteractionLegacy(
+    interactionId: string,
+    answer: {
+      optionId?: string;
+      freeText?: string;
+      action?: "accept" | "decline" | "cancel";
+    },
+  ): boolean {
+    if (answer.action === "accept") {
+      return this.broker.approve(interactionId, false);
+    }
+    if (answer.action === "decline" || answer.action === "cancel") {
+      return this.broker.reject(interactionId);
+    }
+    const value = answer.freeText ?? answer.optionId;
+    if (
+      value !== undefined &&
+      this.broker.answerQuestion(interactionId, value)
+    ) {
+      return true;
+    }
+    if (answer.optionId === "allow") {
+      return this.broker.approve(interactionId, false);
+    }
+    return this.broker.reject(interactionId);
   }
 
   private accepted(
