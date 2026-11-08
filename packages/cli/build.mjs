@@ -220,6 +220,20 @@ const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
   });
   console.log("✓ Copied native clipboard helpers");
 
+  // The frontend is built from the vendored zcode-ui tree, but the release
+  // tarball publishes dist/ alone, so the browser bundle has to sit inside it.
+  const webuiSource = resolve(__dirname, "../zcode-ui/web/dist");
+  const webuiEntry = resolve(webuiSource, "index.html");
+  if (!existsSync(webuiEntry)) {
+    throw new Error(
+      `Missing ${webuiEntry}; run npm run build:webui before bundling`,
+    );
+  }
+  cpSync(webuiSource, resolve(__dirname, "dist", "webui"), {
+    recursive: true,
+  });
+  console.log("✓ Copied webui frontend to dist/webui");
+
   // Make the wrapper script executable
   chmodSync("dist/tnt.js", 0o755);
 

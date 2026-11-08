@@ -267,41 +267,43 @@ describe("WebUiService", () => {
     }
   });
 
-  it("takes the package's own dist when nothing is configured", () => {
-    // The tarball publishes dist/ alone, so the frontend has to be copied to
-    // dist/webui at build time; a source checkout keeps the vite output at
-    // webui/dist instead. Both sit under the package root, which is found by
-    // walking up from the module rather than assumed from the layout, because
-    // the bundle and the sources live at different depths.
+  it("takes the vendored web build when nothing is configured", () => {
+    // The tarball publishes dist/ alone, so the frontend is copied to
+    // dist/webui at build time. A source checkout prefers the vendored build
+    // under packages/zcode-ui, which sits beside the CLI package rather than
+    // inside it; the package root is found by walking up from the module
+    // rather than assumed from the layout, because the bundle and the sources
+    // live at different depths.
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "webui-pkg-"));
-    const moduleDir = path.join(root, "src", "services");
+    const packageRoot = path.join(root, "packages", "cli");
+    const moduleDir = path.join(packageRoot, "src", "services");
     fs.mkdirSync(moduleDir, { recursive: true });
-    fs.writeFileSync(path.join(root, "package.json"), "{}");
-    const bundled = path.join(root, "dist", "webui");
-    const source = path.join(root, "webui", "dist");
+    fs.writeFileSync(path.join(packageRoot, "package.json"), "{}");
+    const vendored = path.join(root, "packages", "zcode-ui", "web", "dist");
+    const bundled = path.join(packageRoot, "dist", "webui");
     try {
       expect(webuiDistCandidates(moduleDir, "/cwd")).toEqual([
+        vendored,
         bundled,
-        source,
         path.resolve("/cwd", "node_modules", "tnt-webui", "dist"),
       ]);
 
       // Nothing built: the first candidate is reported as the place looked in.
       const empty = resolveWebUiDist(moduleDir, undefined, "/cwd");
       expect(empty.hasDist).toBe(false);
-      expect(empty.distDir).toBe(bundled);
+      expect(empty.distDir).toBe(vendored);
       expect(empty.searched).toEqual(webuiDistCandidates(moduleDir, "/cwd"));
 
-      // The source-tree build wins over a hand-installed package.
-      fs.mkdirSync(source, { recursive: true });
-      expect(resolveWebUiDist(moduleDir, undefined, "/cwd").distDir).toBe(
-        source,
-      );
-
-      // And the bundled copy outranks it, which is what an installed CLI has.
+      // The bundled copy serves an installed CLI, which has no vendor tree.
       fs.mkdirSync(bundled, { recursive: true });
       expect(resolveWebUiDist(moduleDir, undefined, "/cwd").distDir).toBe(
         bundled,
+      );
+
+      // A source checkout prefers the live vendored build over that copy.
+      fs.mkdirSync(vendored, { recursive: true });
+      expect(resolveWebUiDist(moduleDir, undefined, "/cwd").distDir).toBe(
+        vendored,
       );
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
