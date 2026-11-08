@@ -75,6 +75,23 @@ describe("sessionApprovalKey", () => {
     expect(sessionApprovalKey("Edit", {})).toBeUndefined();
     expect(sessionApprovalKey("Bash", undefined)).toBeUndefined();
   });
+
+  it("never holds a destructive command for the session", () => {
+    for (const command of [
+      "git reset --hard",
+      "git clean -fd",
+      "git checkout -- src/app.ts",
+      "rm -rf /tmp/outside",
+    ]) {
+      expect(sessionApprovalKey("Bash", { command }), command).toBeUndefined();
+      expect(rememberSessionApproval("Bash", { command })).toBeUndefined();
+      expect(hasSessionApproval("Bash", { command })).toBe(false);
+    }
+    // A normal command still gets its key.
+    expect(sessionApprovalKey("Bash", { command: "git status" })).toContain(
+      "git status",
+    );
+  });
 });
 
 describe("the session's approval store", () => {

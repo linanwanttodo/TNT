@@ -2,6 +2,8 @@ import * as path from "path";
 
 import { getCurrentSessionId } from "../session/index.js";
 
+import { isDestructiveCall } from "./destructiveCommands.js";
+
 // An approval that is kept for the session sits between "once" and "always": the
 // human answers once and the same call is not asked again, but nothing is written
 // to permissions.yaml and a new session starts clean. The scope is the session id,
@@ -30,6 +32,11 @@ export function sessionApprovalKey(
     typeof toolArgs === "object" && toolArgs !== null
       ? (toolArgs as Record<string, unknown>)
       : {};
+
+  // A destructive command is never held for the session. "Don't ask again"
+  // is a scope for the call the user read, and this call destroys history or
+  // a working tree; it has to be read again next time.
+  if (isDestructiveCall(toolName, args)) return undefined;
 
   if (toolName === "Bash") {
     const command = typeof args.command === "string" ? args.command : "";

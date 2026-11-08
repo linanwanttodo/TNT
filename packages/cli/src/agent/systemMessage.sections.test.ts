@@ -28,6 +28,16 @@ vi.mock("../config/hubLoader.js", () => ({
     .fn()
     .mockImplementation((spec: string) => Promise.resolve(spec)),
 }));
+// Discovery reads the checkout this suite runs in; the section shape is what is
+// under test, so pin it to one project document.
+vi.mock("./projectDocs.js", () => ({
+  loadProjectDocs: vi.fn(() => [
+    {
+      label: "AGENTS.md",
+      text: "Rules from AGENTS.md:\nCANNED-INSTRUCTION-BODY",
+    },
+  ]),
+}));
 
 const section = (
   name: string,

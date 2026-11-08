@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
 
+import { DESTRUCTIVE_COMMAND_NOTICE } from "./destructiveCommands.js";
 import {
   DANGEROUS_ALLOW_NOTICE,
   DOCUMENT_ONLY_MODE_DENIAL,
@@ -1046,6 +1047,78 @@ describe("dangerous allow prefixes", () => {
     const result = checkToolPermission(
       { name: "Bash", arguments: {} },
       blanketAllow,
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+});
+
+describe("the destructive-command gate", () => {
+  beforeEach(() => {
+    mockEvaluateToolCallPolicy.mockReset();
+  });
+
+  const blanketAllow: ToolPermissions = {
+    policies: [{ tool: "Bash", permission: "allow" }],
+  };
+
+  const destructive = [
+    "git reset --hard",
+    "git reset --hard HEAD~1",
+    "git checkout -- src/app.ts",
+    "git checkout .",
+    "git clean -fd",
+    "git restore src/app.ts",
+    "git branch -D old-work",
+    "git stash drop",
+    "git push --force origin main",
+    "git filter-branch --all",
+    `rm -rf ${path.join(os.tmpdir(), "tnt-gate-outside")}`,
+  ];
+
+  it.each(destructive)("turns an allow rule into an ask for %s", (command) => {
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command } },
+      blanketAllow,
+    );
+
+    // The rule allowed Bash, not this call: the human reads it again.
+    expect(result.permission).toBe("ask");
+    expect(result.reason).toBe(DESTRUCTIVE_COMMAND_NOTICE);
+    expect(result.matchedPolicy?.tool).toBe("Bash");
+  });
+
+  it("keeps the explicit bypass override", () => {
+    const result = checkToolPermission(
+      { name: "Bash", arguments: { command: "git reset --hard" } },
+      {
+        policies: [{ tool: "*", permission: "allow", allowUnsafeCalls: true }],
+      },
+    );
+
+    expect(result.permission).toBe("allow");
+  });
+
+  it("leaves a large reversible edit and an ordinary removal alone", () => {
+    for (const command of [
+      "git status",
+      "git add .",
+      "npm install pkg",
+      "rm -rf node_modules",
+      "rm file.txt",
+    ]) {
+      const result = checkToolPermission(
+        { name: "Bash", arguments: { command } },
+        blanketAllow,
+      );
+      expect(result.permission, command).toBe("allow");
+    }
+  });
+
+  it("does not read another tool's arguments as a command", () => {
+    const result = checkToolPermission(
+      { name: "Search", arguments: { command: "git reset --hard" } },
+      { policies: [{ tool: "Search", permission: "allow" }] },
     );
 
     expect(result.permission).toBe("allow");

@@ -72,6 +72,33 @@ describe("instruction layers", () => {
     expect(local).toBeGreaterThan(project);
   });
 
+  it("reads nested project documents from the root down to the working directory", async () => {
+    write(".git/HEAD", "ref: refs/heads/main\n");
+    write("AGENTS.md", "ROOT_RULE");
+    write("sub/AGENTS.md", "SUBDIR_RULE");
+    process.chdir(path.join(dir, "sub"));
+
+    const message = await constructSystemMessage("default", [], undefined);
+
+    expect(message).toContain("Rules from AGENTS.md");
+    expect(message).toContain("Rules from sub/AGENTS.md");
+    expect(message).toContain("--- project-doc ---");
+    expect(message.indexOf("ROOT_RULE")).toBeLessThan(
+      message.indexOf("SUBDIR_RULE"),
+    );
+  });
+
+  it("loads the workspace .tntrules dotfile once", async () => {
+    write(".tntrules", "TNT_RULES_DOTFILE");
+
+    const message = await constructSystemMessage("default", [], undefined);
+    const block = message.slice(message.indexOf('<context name="userRules">'));
+
+    expect(block).toContain("Rules from .tntrules:");
+    expect(block).toContain("TNT_RULES_DOTFILE");
+    expect(block.match(/TNT_RULES_DOTFILE/g)).toHaveLength(1);
+  });
+
   it("starts the rules block with what the block is for", async () => {
     write("AGENTS.md", "ONLY_RULE");
 

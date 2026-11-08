@@ -16,6 +16,16 @@ vi.mock("child_process", () => ({
 vi.mock("./instructionIncludes.js", () => ({
   loadInstructionFile: vi.fn(() => "CANNED-INSTRUCTION-BODY"),
 }));
+// Discovery reads the checkout this suite happens to run in; pin it so the
+// composition under test cannot follow a machine's own AGENTS.md files.
+vi.mock("./projectDocs.js", () => ({
+  loadProjectDocs: vi.fn(() => [
+    {
+      label: "AGENTS.md",
+      text: "Rules from AGENTS.md:\nCANNED-INSTRUCTION-BODY",
+    },
+  ]),
+}));
 vi.mock("./markdownRules.js", () => ({
   getConfigYamlRules: vi.fn(async () => []),
   loadMarkdownRulesWithMetadata: vi.fn(() => []),
@@ -75,7 +85,7 @@ const RULES_BLOCK = (contents: string[]): string =>
 
 const AGENTS_LAYER = "Rules from AGENTS.md:\nCANNED-INSTRUCTION-BODY";
 const RULES_PREAMBLE_TEXT =
-  "These instructions come from the user's own files for this project and override how you would otherwise choose to work. Follow each one. Where two of them conflict, the one closer to the project and to the file being changed wins; say which you followed when the choice mattered. When a request cannot be met under them, say so instead of quietly dropping the rule.";
+  "These instructions come from the user's own files for this project and override how you would otherwise choose to work. Follow each one. They are listed from the project root to the working directory; where two of them conflict, the one closer to the project and to the file being changed wins, and AGENTS.override.md wins over the other instruction files in its directory. Say which you followed when the choice mattered. When a request cannot be met under them, say so instead of quietly dropping the rule.";
 
 describe("system message composition characterization", () => {
   it("default mode composes base, rules and environment", async () => {
@@ -289,6 +299,15 @@ describe("the base clause text", () => {
       14. Work inside the patterns and helpers the repository already has. A new abstraction has to remove real complexity, not just give code a shape.
       15. Scale the checking to the blast radius: a narrow change needs a narrow test, and once shared behaviour moves, run the broad suite.
       16. Never undo a change you did not make. Work with it, or say when it makes the task impossible.
+      17. Use the plan tools for work that needs several dependent steps. A request that is already one edit, one command or one lookup does not get a plan.
+
+      # Escalation
+      Some actions need the user's decision every time, even when the surrounding task is approved:
+      - a destructive command the request did not name: rewriting history, a forced clean, or deleting and overwriting files outside the task;
+      - a write that lands outside the workspace;
+      - sending content outside this machine when the user did not approve that content leaving;
+      - launching a GUI application or opening a window on the user's desktop.
+      Ask with what the action changes and why the request needs it. Size is not the trigger: a large edit inside the workspace that can be reverted is the task, not an escalation.
 
       # Communication style
       1. Lead with the answer or the outcome. When something could not be verified, say that first.
@@ -299,7 +318,7 @@ describe("the base clause text", () => {
       6. Stop when the content stops: no closing offer, and no restating what the user can already see.
       7. Do not narrate your own reasoning, and do not announce that a task needed no tools.
 
-      When you find an unrelated bug in code your change touches, report it: the final report gets a short section naming its location and one sentence on its impact. Do not fix it, and do not expand on it. A problem on the shared path of this task is different - fix it or flag it.
+      When you find an unrelated bug or issue while working, report it: the final report gets a short section naming its location and one sentence on its impact. Do not fix it, and do not expand on it. A problem on the shared path of this task is different - fix it or flag it.
 
 
       # Memory

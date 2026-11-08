@@ -6,6 +6,10 @@ import type { Tool } from "../tools/types.js";
 
 import { bashCommandMatches } from "./bashCommandRule.js";
 import { hasDangerousAllowPrefix } from "./dangerousCommandPrefixes.js";
+import {
+  DESTRUCTIVE_COMMAND_NOTICE,
+  isDestructiveCommand,
+} from "./destructiveCommands.js";
 import { isDocumentPath } from "./documentPath.js";
 import { isReadOnlyCommand } from "./readOnlyCommand.js";
 import {
@@ -193,6 +197,10 @@ function permissionPolicyToToolPolicy(
  * command starts. Where the matched command begins with an interpreter, a
  * runner or a shell, the allow is turned back into an ask unless the rule is
  * the explicit bypass override.
+ *
+ * A destructive command goes back to the human on the same terms: a rule or a
+ * session approval written for an earlier call does not answer for a history
+ * rewrite or a deletion the request did not name.
  */
 function narrowDangerousAllow(
   toolCall: ToolCallRequest,
@@ -205,9 +213,19 @@ function narrowDangerousAllow(
   if (toolCall.name !== "Bash") {
     return permission;
   }
+  if (isDestructiveCommand(toolCall.arguments?.command)) {
+    return "ask";
+  }
   return hasDangerousAllowPrefix(toolCall.arguments?.command)
     ? "ask"
     : permission;
+}
+
+/** The notice that explains why an allow was narrowed. */
+function narrowedAllowNotice(command: unknown): string {
+  return isDestructiveCommand(command)
+    ? DESTRUCTIVE_COMMAND_NOTICE
+    : DANGEROUS_ALLOW_NOTICE;
 }
 
 /**
@@ -352,7 +370,10 @@ export function checkToolPermission(
         return {
           permission: narrowed,
           matchedPolicy,
-          reason: narrowed === "allow" ? undefined : DANGEROUS_ALLOW_NOTICE,
+          reason:
+            narrowed === "allow"
+              ? undefined
+              : narrowedAllowNotice(toolCall.arguments?.command),
         };
       }
     }
@@ -385,7 +406,10 @@ export function checkToolPermission(
     return {
       permission: narrowed,
       matchedPolicy,
-      reason: narrowed === basePermission ? undefined : DANGEROUS_ALLOW_NOTICE,
+      reason:
+        narrowed === basePermission
+          ? undefined
+          : narrowedAllowNotice(toolCall.arguments?.command),
     };
   }
 
