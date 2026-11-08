@@ -31,6 +31,7 @@ import {
   buildConversationFrame,
   buildConversationSnapshot,
   createFrameSubscription,
+  derivePendingInteractions,
   type FrameSubscription,
 } from "./v4Frames.js";
 
@@ -137,6 +138,10 @@ export class V4Handlers {
       frame,
       cursor,
       this.turns.isRunning(),
+      derivePendingInteractions(
+        this.runtimes.eventsAfter(sessionId, 0),
+        frame.rows,
+      ),
     );
     const initial = buildConversationFrame(
       frame,
@@ -181,6 +186,10 @@ export class V4Handlers {
       record.frame,
       cursor,
       this.turns.isRunning(),
+      derivePendingInteractions(
+        this.runtimes.eventsAfter(record.sessionId, 0),
+        record.frame.rows,
+      ),
     );
     const wire = buildConversationFrame(
       record.frame,

@@ -176,6 +176,7 @@ export class InteractionBridge {
       return;
     }
     this.permissions.delete(requestId);
+    this.recordPermissionResolved(pending, requestId, record);
     if (pending.outgoing) {
       const outgoing = pending.outgoing;
       pending.outgoing = null;
@@ -421,6 +422,50 @@ export class InteractionBridge {
       return false;
     }
     return this.broker.answerQuestion(requestId, value, isCustomAnswer);
+  }
+
+  private recordPermissionResolved(
+    pending: PendingPermission,
+    requestId: string,
+    event: Record<string, unknown>,
+  ): void {
+    if (this.disposed) {
+      return;
+    }
+    const sessionId = pending.sessionId ?? this.resolveSessionId();
+    if (!sessionId) {
+      return;
+    }
+    if (this.hasPermissionResolved(sessionId, requestId)) {
+      return;
+    }
+    this.runtimes.append(
+      sessionId,
+      "permission.resolved",
+      {
+        requestId,
+        toolCallId: pending.toolCallId ?? requestId,
+        ...(typeof event.approved === "boolean"
+          ? { decision: event.approved ? "allow" : "deny" }
+          : {}),
+      },
+      Date.now(),
+      pending.turnId,
+    );
+  }
+
+  private hasPermissionResolved(sessionId: string, requestId: string): boolean {
+    return this.runtimes
+      .eventsAfter(sessionId, 0)
+      .some(
+        (event) =>
+          event.type === "permission.resolved" &&
+          asRecord(
+            "payload" in event
+              ? (event as { payload?: unknown }).payload
+              : null,
+          ).requestId === requestId,
+      );
   }
 
   private recordResolved(pending: PendingQuestion, answer: unknown): void {

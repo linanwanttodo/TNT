@@ -27,6 +27,7 @@ import { createZcodePluginServices } from "./plugins.js";
 import {
   createWorkspaceScopedTerminalService,
   type DisposableTerminalService,
+  type WorkspaceRoots,
 } from "./workspaceScope.js";
 
 /** Stable prefix so callers and tests can identify a rejected settings write. */
@@ -147,6 +148,8 @@ export interface ConnectionZcodeServices {
 
 export interface CreateConnectionZcodeServicesOptions {
   workspacePath: string;
+  /** Allowed roots; defaults to the connection's primary workspace. */
+  workspaceRoots?: WorkspaceRoots;
   settingService: ISettingService;
   /** Test seam; the default is the vendored node factory. */
   terminalService?: DisposableTerminalService;
@@ -209,7 +212,7 @@ export function createConnectionZcodeServices(
     }) as DisposableTerminalService);
   const terminalService = createWorkspaceScopedTerminalService(
     baseTerminal,
-    options.workspacePath,
+    options.workspaceRoots ?? options.workspacePath,
   );
   const fileWatcherService =
     options.fileWatcherService ?? createFileWatcherService();

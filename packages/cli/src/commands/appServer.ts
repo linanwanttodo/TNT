@@ -66,7 +66,9 @@ export async function appServer(
     input: process.stdin,
     output: new StdioOutput(),
   });
-  const protocol = new AppServerProtocol(transport, registry);
+  const protocol = new AppServerProtocol(transport, registry, {
+    workspacePath: process.cwd(),
+  });
   const inflight = new Set<Promise<void>>();
 
   const track = (operation: Promise<void>): void => {

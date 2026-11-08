@@ -66,14 +66,23 @@ import type {
   LocalZcodeServices,
 } from "./services/local.js";
 import { stubService } from "./services/stubs.js";
+import type { WorkspaceRoots } from "./services/workspaceScope.js";
+import type { WorkspaceEngines } from "./workspaceEngines.js";
 
 export interface ZcodeServiceCollectionDeps {
   /** The checkout the UI shell is showing. */
   workspacePath: string;
+  /**
+   * Allowed roots for file and terminal paths. A workspace added at runtime
+   * grows this set without rebuilding the collection.
+   */
+  workspaceRoots?: WorkspaceRoots;
   /** Test/host seam; defaults to the process-wide bundle. */
   localServices?: LocalZcodeServices;
   /** Test seam; defaults to a freshly created per-connection scope. */
   connectionServices?: ConnectionZcodeServices;
+  /** The process-wide workspace engine registry, when the host provides one. */
+  workspaceEngines?: WorkspaceEngines;
 }
 
 /**
@@ -82,6 +91,8 @@ export interface ZcodeServiceCollectionDeps {
  */
 export interface ZcodeConnectionCollection extends ServiceCollection {
   dispose(): void;
+  /** The host's workspace engine registry, when one was supplied. */
+  workspaceEngines?: WorkspaceEngines;
 }
 
 type OptionalAccessorKey = {
@@ -219,6 +230,13 @@ const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
 export const ZCODE_LOCAL_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
   [...ZCODE_LOCAL_SERVICE_ACCESSORS.keys()];
 
+function rootList(source: WorkspaceRoots): readonly string[] {
+  if (typeof source === "function") {
+    return source();
+  }
+  return typeof source === "string" ? [source] : source;
+}
+
 /**
  * Builds one connection's channel collection. The local bundle and its node
  * dependency graph are imported here rather than at module load, so a TUI that
@@ -236,10 +254,17 @@ export async function buildZcodeServiceCollection(
   ]);
 
   const local = deps.localServices ?? getLocalZcodeServices();
+  // The connection's own workspace stays the primary root (relative paths and
+  // a missing terminal cwd resolve against it); the rest are only additions.
+  const providedRoots = deps.workspaceRoots;
+  const workspaceRoots: WorkspaceRoots = providedRoots
+    ? () => [deps.workspacePath, ...rootList(providedRoots)]
+    : deps.workspacePath;
   const connection =
     deps.connectionServices ??
     createConnectionZcodeServices({
       workspacePath: deps.workspacePath,
+      workspaceRoots,
       settingService: local.settingService,
     });
   const services: ResolvedZcodeServices = {
@@ -247,7 +272,7 @@ export async function buildZcodeServiceCollection(
     connection,
     fileService: createWorkspaceScopedFileService(
       local.fileService,
-      deps.workspacePath,
+      workspaceRoots,
     ),
   };
 
@@ -256,6 +281,9 @@ export async function buildZcodeServiceCollection(
   );
 
   const collection = new ServiceCollection() as ZcodeConnectionCollection;
+  if (deps.workspaceEngines) {
+    collection.workspaceEngines = deps.workspaceEngines;
+  }
   for (const descriptor of [
     ...ZCODE_REQUIRED_SERVICE_DESCRIPTORS,
     ...ZCODE_OPTIONAL_SERVICE_DESCRIPTORS,

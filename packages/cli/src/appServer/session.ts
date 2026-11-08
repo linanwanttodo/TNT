@@ -1,3 +1,6 @@
+import { realpathSync } from "node:fs";
+import path from "node:path";
+
 import {
   elideSessionSnapshotForIndex,
   zcodeSessionCloseParamsSchema,
@@ -86,10 +89,31 @@ export interface SessionNotificationSender {
   send(message: unknown): Promise<void>;
 }
 
+/**
+ * The host uses this to grow the connection's allowed workspace roots when a
+ * request names a workspace the process has not seen yet. A child app-server
+ * does not install one: it only ever serves its own cwd.
+ */
+export interface SessionWorkspaceRegistrar {
+  add(workspacePath: string): void | Promise<void>;
+}
+
 export interface SessionHandlerOptions {
   sender: SessionNotificationSender;
   modelLookup?: ModelLookup | null;
   runtimes?: SessionRuntimeStore;
+  workspaces?: SessionWorkspaceRegistrar;
+  /** The one workspace this process serves; omitted when it serves any. */
+  workspacePath?: string;
+}
+
+function canonicalWorkspace(candidate: string): string {
+  const absolute = path.resolve(candidate);
+  try {
+    return realpathSync(absolute);
+  } catch {
+    return absolute;
+  }
 }
 
 export type TitleSource = "default" | "first_input" | "generated" | "custom";
@@ -154,15 +178,23 @@ export class SessionHandlers {
   private readonly sender: SessionNotificationSender;
   private readonly configuredLookup: ModelLookup | null | undefined;
   private readonly runtimes: SessionRuntimeStore;
+  private readonly workspaces: SessionWorkspaceRegistrar | undefined;
+  private readonly workspacePath: string | undefined;
 
   constructor(options: SessionHandlerOptions) {
     this.sender = options.sender;
     this.configuredLookup = options.modelLookup;
     this.runtimes = options.runtimes ?? new SessionRuntimeStore();
+    this.workspaces = options.workspaces;
+    this.workspacePath = options.workspacePath
+      ? canonicalWorkspace(options.workspacePath)
+      : undefined;
   }
 
   async create(params: unknown): Promise<ZCodeSessionStateSnapshot> {
     const input = parseParams(zcodeSessionCreateParamsSchema, params);
+    this.assertWorkspace(input.workspace.workspacePath);
+    await this.registerWorkspace(input.workspace.workspacePath);
     if (input.sessionId && sessionStore.getMeta(input.sessionId)) {
       throw sessionRequestError(`Session already exists: ${input.sessionId}`);
     }
@@ -193,6 +225,10 @@ export class SessionHandlers {
 
   async resume(params: unknown): Promise<ZCodeSessionStateSnapshot> {
     const input = parseParams(zcodeSessionResumeParamsSchema, params);
+    if (input.workspace?.workspacePath) {
+      this.assertWorkspace(input.workspace.workspacePath);
+      await this.registerWorkspace(input.workspace.workspacePath);
+    }
     const session = resumeSession(input.sessionId);
     if (!session) {
       throw sessionRequestError(`Session not found: ${input.sessionId}`);
@@ -203,6 +239,10 @@ export class SessionHandlers {
 
   async list(params: unknown): Promise<SessionListResult> {
     const input = parseParams(zcodeSessionListParamsSchema, params);
+    if (input.workspace?.workspacePath) {
+      this.assertWorkspace(input.workspace.workspacePath);
+      await this.registerWorkspace(input.workspace.workspacePath);
+    }
     // The store hides archived sessions and applies its own limit, so the
     // request limit is applied after the id filter and only here.
     const metas = sessionStore.list({
@@ -317,6 +357,24 @@ export class SessionHandlers {
       throw sessionRequestError(`Session not found: ${sessionId}`);
     }
     return session;
+  }
+
+  private async registerWorkspace(workspacePath: string): Promise<void> {
+    if (!this.workspaces) {
+      return;
+    }
+    await this.workspaces.add(workspacePath);
+  }
+
+  private assertWorkspace(workspacePath: string): void {
+    if (!this.workspacePath) {
+      return;
+    }
+    if (canonicalWorkspace(workspacePath) !== this.workspacePath) {
+      throw sessionRequestError(
+        `This engine serves ${this.workspacePath}, not ${workspacePath}`,
+      );
+    }
   }
 
   private infoFromMeta(meta: SessionMeta): ZCodeSessionInfo | null {

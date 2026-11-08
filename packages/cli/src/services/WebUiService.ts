@@ -21,6 +21,7 @@ import { messageQueue } from "../stream/messageQueue.js";
 import type { WorktreeInfo } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
 import { buildZcodeServiceCollection } from "../webuiZcode/serviceCollection.js";
+import type { WorkspaceEngines } from "../webuiZcode/workspaceEngines.js";
 import { startWebUiZcodeHost } from "../webuiZcode/wsHost.js";
 
 import { turnRunnerService, type RunTurn } from "./TurnRunnerService.js";
@@ -80,6 +81,7 @@ const MAX_PORT_ATTEMPTS = 100;
  */
 export class WebUiService {
   private activeHandle: WebUiHandle | null = null;
+  private engines: WorkspaceEngines | null = null;
   private questionListener: ((event: unknown) => void) | null = null;
   private questionAnsweredListener: ((event: unknown) => void) | null = null;
 
@@ -164,16 +166,28 @@ export class WebUiService {
     this.activeHandle = handle;
 
     // The ZCode shell speaks RPC over /ws on the same server. Every connection
-    // builds its own service scope; the stubs answer until Tasks 9-11 install
-    // the real services. The workspace is read per connection so a worktree
-    // switch is reflected by the next one.
+    // builds its own service scope; the workspace engine registry is shared by
+    // the process so a second workspace gets exactly one child engine. The
+    // workspace is read per connection so a worktree switch is reflected by the
+    // next one.
     try {
+      const hostWorkspacePath =
+        this.resolveSession(options).workspaceDirectory || process.cwd();
+      const { WorkspaceEngines } =
+        await import("../webuiZcode/workspaceEngines.js");
+      const engines = new WorkspaceEngines({ hostWorkspacePath });
+      this.engines = engines;
+
       const zcodeHost = startWebUiZcodeHost({
         server: handle.server,
         token,
         services: () =>
           buildZcodeServiceCollection({
-            workspacePath: this.resolveSession(options).workspaceDirectory,
+            workspacePath:
+              this.resolveSession(options).workspaceDirectory ||
+              hostWorkspacePath,
+            workspaceRoots: () => engines.roots(),
+            workspaceEngines: engines,
           }),
       });
 
@@ -249,17 +263,24 @@ export class WebUiService {
   /** Closes the server this instance last started, if any. */
   async close(): Promise<void> {
     this.stopListeningForQuestions();
-    if (this.activeHandle) {
-      const handle = this.activeHandle;
-      this.activeHandle = null;
-      await handle.close();
+    const engines = this.engines;
+    this.engines = null;
+    try {
+      if (this.activeHandle) {
+        const handle = this.activeHandle;
+        this.activeHandle = null;
+        await handle.close();
+      }
+    } finally {
+      // Every workspace child is owned by this server; no child outlives close.
+      await engines?.dispose();
+      // The ZCode services own OS handles and a heavy node dependency graph, so
+      // the bundle is loaded lazily per connection; close is the only place the
+      // host has to reach it directly.
+      const { disposeLocalZcodeServices } =
+        await import("../webuiZcode/services/local.js");
+      disposeLocalZcodeServices();
     }
-    // The ZCode services own OS handles and a heavy node dependency graph, so
-    // the bundle is loaded lazily per connection; close is the only place the
-    // host has to reach it directly.
-    const { disposeLocalZcodeServices } =
-      await import("../webuiZcode/services/local.js");
-    disposeLocalZcodeServices();
   }
 
   /** The snapshot shape GET /state returns, reading the live current session. */
