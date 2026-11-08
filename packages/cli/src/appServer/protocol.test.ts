@@ -5,7 +5,7 @@ import path from "node:path";
 import { PassThrough, type Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { NdjsonTransport } from "./transport.js";
 
@@ -23,8 +23,16 @@ class LineQueue {
   private readonly buffered: string[] = [];
   private readonly waiters: LineWaiter[] = [];
   private failure: Error | null = null;
+  private readonly finished: Promise<void>;
+  private resolveFinished: () => void = () => undefined;
 
-  constructor(stream: Readable) {
+  constructor(
+    stream: Readable,
+    private readonly details: () => string = () => "",
+  ) {
+    this.finished = new Promise((resolve) => {
+      this.resolveFinished = resolve;
+    });
     stream.setEncoding("utf8");
     stream.on("data", (chunk: string) => this.onData(chunk));
     stream.on("error", (error: Error) => this.fail(error));
@@ -34,6 +42,7 @@ class LineQueue {
         this.buffer = "";
       }
       this.fail(new Error("stdout closed"));
+      this.resolveFinished();
     });
   }
 
@@ -51,11 +60,27 @@ class LineQueue {
         reject,
         timer: setTimeout(() => {
           this.removeWaiter(waiter);
-          reject(new Error("Timed out waiting for an NDJSON line"));
+          reject(
+            new Error(
+              this.contextualize("Timed out waiting for an NDJSON line"),
+            ),
+          );
         }, timeoutMs),
       };
       this.waiters.push(waiter);
     });
+  }
+
+  contextualize(message: string): string {
+    const details = this.details().trim();
+    return details.length > 0
+      ? `${message}\nchild stderr:\n${details}`
+      : message;
+  }
+
+  async remainingLines(): Promise<string[]> {
+    await this.finished;
+    return [...this.buffered];
   }
 
   close(): void {
@@ -109,7 +134,7 @@ async function nextJson(queue: LineQueue): Promise<Record<string, unknown>> {
   try {
     return JSON.parse(line) as Record<string, unknown>;
   } catch {
-    throw new Error(`stdout line is not JSON: ${line}`);
+    throw new Error(queue.contextualize(`stdout line is not JSON: ${line}`));
   }
 }
 
@@ -122,6 +147,7 @@ function send(
 
 function waitForExit(
   child: ChildProcessWithoutNullStreams,
+  details: () => string = () => "",
   timeoutMs: number = WAIT_MS,
 ): Promise<number | null> {
   if (child.exitCode !== null) {
@@ -129,7 +155,14 @@ function waitForExit(
   }
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error("child process did not exit"));
+      const stderr = details().trim();
+      reject(
+        new Error(
+          stderr.length > 0
+            ? `child process did not exit\nchild stderr:\n${stderr}`
+            : "child process did not exit",
+        ),
+      );
     }, timeoutMs);
     child.once("exit", (code) => {
       clearTimeout(timer);
@@ -142,20 +175,42 @@ describe("app-server stdio protocol", () => {
   let fixtureCwd: string;
   let child: ChildProcessWithoutNullStreams;
   let queue: LineQueue;
+  let childStderr: string;
+
+  const stderrDetails = (): string => childStderr;
+
+  beforeAll(() => {
+    if (!fs.existsSync(CLI_PATH)) {
+      throw new Error(
+        `Missing ${CLI_PATH}. Run \`npm run build:bundle\` before this suite.`,
+      );
+    }
+  });
 
   beforeEach(() => {
     fixtureCwd = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-app-server-"));
+    childStderr = "";
     child = spawn(process.execPath, [CLI_PATH, "app-server", "--stdio"], {
       cwd: fixtureCwd,
     });
-    queue = new LineQueue(child.stdout);
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      childStderr += chunk;
+    });
+    child.stdin.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EPIPE") {
+        return;
+      }
+      childStderr += `stdin error: ${error.message}\n`;
+    });
+    queue = new LineQueue(child.stdout, stderrDetails);
   });
 
   afterEach(async () => {
     queue.close();
     if (child.exitCode === null && child.signalCode === null) {
       child.kill("SIGKILL");
-      await waitForExit(child, 5000).catch(() => undefined);
+      await waitForExit(child, stderrDetails, 5000).catch(() => undefined);
     }
     fs.rmSync(fixtureCwd, { recursive: true, force: true });
   });
@@ -225,10 +280,33 @@ describe("app-server stdio protocol", () => {
     expect(response.id).toBe(4);
   });
 
-  it("exits after stdin closes", async () => {
+  it("exits after stdin closes and reports the stopping lifecycle", async () => {
     child.stdin.end();
 
-    await expect(waitForExit(child)).resolves.toBe(0);
+    const notification = await nextJson(queue);
+    expect(notification).toEqual({
+      method: "session/lifecycle/changed",
+      params: { state: "stopping", cwd: fs.realpathSync(fixtureCwd) },
+    });
+    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+  });
+
+  it("answers a request that arrives with stdin end before shutting down", async () => {
+    child.stdin.end(
+      `${JSON.stringify({
+        id: "tail",
+        method: "runtime/capabilities",
+        params: {},
+      })}\n`,
+    );
+
+    const response = await nextJson(queue);
+    expect(response.id).toBe("tail");
+    expect(response.result).toBeDefined();
+
+    const notification = await nextJson(queue);
+    expect(notification.method).toBe("session/lifecycle/changed");
+    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
   });
 
   it("emits session/lifecycle/changed on SIGTERM before exiting", async () => {
@@ -242,7 +320,36 @@ describe("app-server stdio protocol", () => {
       method: "session/lifecycle/changed",
       params: { state: "stopping", cwd: fs.realpathSync(fixtureCwd) },
     });
-    await expect(waitForExit(child)).resolves.toBe(0);
+    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+  });
+
+  it("emits session/lifecycle/changed on SIGINT before exiting", async () => {
+    send(child, { id: 6, method: "runtime/capabilities", params: {} });
+    await nextJson(queue);
+
+    child.kill("SIGINT");
+
+    const notification = await nextJson(queue);
+    expect(notification).toEqual({
+      method: "session/lifecycle/changed",
+      params: { state: "stopping", cwd: fs.realpathSync(fixtureCwd) },
+    });
+    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+  });
+
+  it("emits exactly one lifecycle notification when stdin end and signals race", async () => {
+    send(child, { id: 7, method: "runtime/capabilities", params: {} });
+    await nextJson(queue);
+
+    child.kill("SIGINT");
+    child.kill("SIGTERM");
+    child.stdin.end();
+
+    const notification = await nextJson(queue);
+    expect(notification.method).toBe("session/lifecycle/changed");
+
+    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+    await expect(queue.remainingLines()).resolves.toEqual([]);
   });
 });
 

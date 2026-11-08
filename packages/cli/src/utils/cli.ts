@@ -5,9 +5,10 @@
 import EventEmitter from "events";
 
 /**
- * Check if running in headless mode (-p/--print flags, or an ACP transport).
- * ACP writes JSON-RPC to stdout, so the process-wide console interception has
- * to start before any dependency can print.
+ * Check if running in headless mode (-p/--print flags, an ACP transport, or
+ * the app-server stdio host). These protocols write machine-readable lines to
+ * stdout, so the process-wide console interception has to start before any
+ * dependency can print.
  */
 export function isHeadlessMode(): boolean {
   const args = process.argv.slice(2);
@@ -15,7 +16,15 @@ export function isHeadlessMode(): boolean {
     args.includes("-p") ||
     args.includes("--print") ||
     args.includes("--acp") ||
-    args.includes("--acp-worker")
+    args.includes("--acp-worker") ||
+    isAppServerStdio(args)
+  );
+}
+
+function isAppServerStdio(args: readonly string[]): boolean {
+  const commandIndex = args.indexOf("app-server");
+  return (
+    commandIndex !== -1 && args.slice(commandIndex + 1).includes("--stdio")
   );
 }
 
