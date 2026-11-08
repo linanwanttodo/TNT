@@ -20,7 +20,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # Faster downloads
 
-$script:RequiredNodeVersion = [version]"20.20.1"
+$script:RequiredNodeVersion = [version]"24.0.0"
 $script:CliCommand = "tnt"
 $script:GithubRepo = "linanwanttodo/TNT"
 $script:InstallDir = if ($env:TNT_CLI_HOME) { $env:TNT_CLI_HOME } else { "$env:LOCALAPPDATA\tnt\cli" }

@@ -34,7 +34,7 @@ Windows (PowerShell):
 irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
 ```
 
-With Node.js 20 or newer, npm works too:
+With Node.js 24 or newer, npm works too:
 
 ```bash
 npm i -g @tnt/cli

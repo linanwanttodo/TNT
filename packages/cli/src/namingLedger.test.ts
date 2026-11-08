@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
  * prefix on identifiers. Renaming all of it in one sweep is how a branding change ends up
  * half-done: the files that were missed keep working, so nothing reports them.
  *
- * The ledger below totals 139 tokens across the five areas that still hold one, and it is
+ * The ledger below totals 276 tokens across the six areas that still hold one, and it is
  * the number to drive down area by area. What is left is counted, not excused, but each
  * group has a reason: `packages/sdk` is the generated OpenAPI client for the operator's
  * platform API - 53 of its 58 tokens are names the generator emitted from `openapi.yaml`,
@@ -148,10 +148,13 @@ export function continueTokenLedger(): {
 const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 8,
   core: 12,
-  // 56: the deleted webui frontend carried two of the tokens; the reworked
-  // routes' `shouldContinue` and `autoContinue` remain in the count.
-  "packages/cli": 56,
+  // 57: 56 product tokens after the webui frontend deletion, plus the vendor
+  // guard's own `"Continue"` search literal in zcodeUiVendor.test.ts, which
+  // has to name the token it counts.
+  "packages/cli": 57,
   "packages/sdk": 58,
+  // Vendored ZCode UI closure: upstream brand copy and identifiers kept as-is.
+  "packages/zcode-ui": 139,
   scripts: 2,
 };
 
