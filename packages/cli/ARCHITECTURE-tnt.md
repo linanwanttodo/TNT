@@ -161,6 +161,14 @@ The prefix is assembled in build order, each part announced so it can be attribu
   split holds: adding and removing an untracked file no longer moves any of the four digests, while
   rewording one clause in `base` moves all of them.
 
+- **Prefix changelog, 2026-11-09:** `AssignTeamModel` joined the built-in tools so the main
+  agent can put a team member on a configured model at run time. One new definition adds
+  608 characters to the digested surface; `e643e3597265f28b`/32838 over 40 tools became
+  `f3ef5fdab202625c`/33446 over 41 tools. It is offered only behind the Subagent beta flag
+  with an active team, so the cold start lands in a session when the tool first appears
+  there; a session that never enables it bills the same bytes as before. The definition is
+  part of the registry digest in every session regardless.
+
 - **Prefix changelog, 2026-10-31:** the `Subagent` tool's `parameters.properties`
   gained the advisory `files` array (keyed parallelism, Task 2 of the team plan) and the
   `subagent_name` property description moved into the tool file. Digest
@@ -168,13 +176,13 @@ The prefix is assembled in build order, each part announced so it can be attribu
   characters - 279 characters of schema, a one-time cold start per session.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `e643e3597265f28b` over 40 tools and 32838 characters (name + description + parameter schema, in
+  `f3ef5fdab202625c` over 41 tools and 33446 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the
   project into another directory cold-started the cache for every session. The working
   directory is still stated, once, in the environment block.
-  All 40 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  All 41 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
   default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is

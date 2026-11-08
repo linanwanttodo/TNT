@@ -1,4 +1,5 @@
 import {
+  ASSIGN_TEAM_MODEL_TOOL_META,
   LIST_SUBAGENTS_TOOL_META,
   SUBAGENT_TOOL_META,
 } from "../subagent/index.js";
@@ -77,6 +78,7 @@ export const ALL_BUILT_IN_TOOLS = [
   toolSearchTool,
   SUBAGENT_TOOL_META,
   LIST_SUBAGENTS_TOOL_META,
+  ASSIGN_TEAM_MODEL_TOOL_META,
   SKILLS_TOOL_META,
   uploadArtifactTool,
   viewDiffTool,

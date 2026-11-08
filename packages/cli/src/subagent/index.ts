@@ -34,6 +34,40 @@ export const SUBAGENT_TOOL_META: Tool = {
 };
 
 /**
+ * Assigns a member of the active team to a configured model for subsequent
+ * dispatches.
+ *
+ * The description is static text rather than a generated listing: it sits in
+ * the cached prompt prefix, and the model it names or the team roster changes
+ * far more often than the sentence does.
+ */
+export const ASSIGN_TEAM_MODEL_TOOL_META: Tool = {
+  name: "AssignTeamModel",
+  displayName: "Assign Team Model",
+  description:
+    "Set the model a team member runs on for subsequent dispatches. Only works while a team is active: the member must be on that team, and the model must be one of the configured models. The member's persona is unchanged, the assignment lasts for this session (including a resume), and it does not affect work already running.",
+  readonly: false,
+  isBuiltIn: true,
+  parameters: {
+    type: "object",
+    required: ["member", "model"],
+    properties: {
+      member: {
+        type: "string",
+        description:
+          "The team member's name, as shown by the agent listing tool.",
+      },
+      model: {
+        type: "string",
+        description:
+          "The configured model name or model id to run this member on.",
+      },
+    },
+  },
+  run: async () => "",
+};
+
+/**
  * Lists the agents available for delegation.
  *
  * This is a separate tool rather than part of the delegation tool's

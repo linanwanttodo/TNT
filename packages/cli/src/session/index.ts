@@ -10,7 +10,10 @@ import type {
 import { v4 as uuidv4 } from "uuid";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import { ModelService } from "../services/ModelService.js";
+import type { ModelServiceState } from "../services/types.js";
 import { delegationDepthOf } from "../subagent/depth.js";
+import type { TeamDefinition } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
 import { historyAdapter } from "./historyAdapter.js";
@@ -761,6 +764,124 @@ export function setSessionActiveTeam(name: string | undefined): void {
     session.activeTeam = normalized;
   } else {
     delete session.activeTeam;
+  }
+  manager.updateHistory(session.history);
+}
+
+/**
+ * Run-time model assignments for the active team, keyed by member name. Kept
+ * beside activeTeam and persisted with the session, so a resumed conversation
+ * dispatches each member on the model the main agent chose. A getter returns a
+ * copy: the session store diffs the scalar it owns, so a caller that mutated
+ * the returned object would change it without a save.
+ */
+export function getSessionTeamModelOverrides():
+  Record<string, string> | undefined {
+  const overrides =
+    SessionManager.getInstance().getCurrentSession().teamModelOverrides;
+  return overrides && Object.keys(overrides).length > 0
+    ? { ...overrides }
+    : undefined;
+}
+
+export function getSessionTeamModelOverride(
+  memberName: string,
+): string | undefined {
+  const normalized = memberName?.trim();
+  if (!normalized) return undefined;
+  const value =
+    SessionManager.getInstance().getCurrentSession().teamModelOverrides?.[
+      normalized
+    ];
+  return value?.trim() || undefined;
+}
+
+export interface TeamModelAssignmentContext {
+  /** The roster the session has active, or undefined when none is. */
+  activeTeam: TeamDefinition | undefined;
+  /** The configured models an assignment may name. */
+  modelState: ModelServiceState;
+}
+
+function configuredModelNames(modelState: ModelServiceState): string[] {
+  const names = (modelState.assistant?.models ?? [])
+    .filter((model) => !!model)
+    .map((model) => model.name || model.model)
+    .filter((name): name is string => !!name);
+  return [...new Set(names)];
+}
+
+/**
+ * Record that a member runs on `modelName` for subsequent dispatches.
+ *
+ * Validation lives here, at the write, rather than at dispatch: an unknown
+ * member or model is a mistake in the assignment call, and admitting it would
+ * leave a session that silently ignores what the main agent asked for. The
+ * model resolves the way dispatch resolves it (configured entry name or model
+ * id), and the roster's persona is untouched.
+ */
+export function setSessionTeamModelOverride(
+  memberName: string,
+  modelName: string,
+  context: TeamModelAssignmentContext,
+): void {
+  const member = typeof memberName === "string" ? memberName.trim() : "";
+  if (!member) {
+    throw new Error("A team member name is required to assign a model.");
+  }
+  const team = context.activeTeam;
+  if (!team) {
+    throw new Error(
+      "No team is active: activate a team before assigning a member model.",
+    );
+  }
+  if (!team.members.some((candidate) => candidate.name === member)) {
+    throw new Error(
+      `Team member "${member}" is not in the active team "${team.name}". ` +
+        `Members: ${team.members.map((candidate) => candidate.name).join(", ")}.`,
+    );
+  }
+
+  const model = typeof modelName === "string" ? modelName.trim() : "";
+  if (!model) {
+    throw new Error(`A model name is required to assign a model to ${member}.`);
+  }
+  if (!ModelService.findConfiguredModel(context.modelState, model)) {
+    const available = configuredModelNames(context.modelState);
+    throw new Error(
+      `Unknown model "${model}". ` +
+        (available.length > 0
+          ? `Configured models: ${available.join(", ")}.`
+          : "No models are configured."),
+    );
+  }
+
+  const manager = SessionManager.getInstance();
+  const session = manager.getCurrentSession();
+  session.teamModelOverrides = {
+    ...(session.teamModelOverrides ?? {}),
+    [member]: model,
+  };
+  manager.updateHistory(session.history);
+}
+
+/**
+ * Remove one member's assignment, or every assignment when called with no
+ * member name. The empty object is kept rather than deleted: a session-info
+ * record only carries the scalar when it changed, so a deleted property would
+ * look like "unchanged" on the next load and the clear would be lost.
+ */
+export function clearSessionTeamModelOverride(memberName?: string): void {
+  const manager = SessionManager.getInstance();
+  const session = manager.getCurrentSession();
+  if (!session.teamModelOverrides) return;
+
+  if (memberName === undefined) {
+    session.teamModelOverrides = {};
+  } else {
+    const next = { ...session.teamModelOverrides };
+    delete next[memberName.trim()];
+    session.teamModelOverrides = next;
   }
   manager.updateHistory(session.history);
 }

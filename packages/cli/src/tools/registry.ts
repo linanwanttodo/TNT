@@ -1,10 +1,12 @@
 import { t } from "../i18n/index.js";
 import { SERVICE_NAMES, serviceContainer } from "../services/index.js";
 import type { MCPServiceState, ModelServiceState } from "../services/types.js";
+import { getSessionActiveTeam } from "../session/index.js";
 
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
+import { assignTeamModelTool } from "./assignTeamModel.js";
 import { browserTool } from "./browser.js";
 import { callHierarchyTool } from "./callHierarchy.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
@@ -166,6 +168,11 @@ export async function getAllAvailableTools(
   if (isBetaSubagentToolEnabled() && canDelegate) {
     tools.push(await subagentTool());
     tools.push(await listSubagentsTool());
+    // Assignment only means something when a roster is active, and offering
+    // the tool without one would cost schema tokens for a call that must fail.
+    if (getSessionActiveTeam()) {
+      tools.push(await assignTeamModelTool());
+    }
   }
 
   tools.push(await skillsTool());

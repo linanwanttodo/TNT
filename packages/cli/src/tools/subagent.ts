@@ -7,7 +7,11 @@ import { services } from "../services/index.js";
 import { ModelService } from "../services/ModelService.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
-import { getSessionActiveTeam } from "../session/index.js";
+import {
+  getSessionActiveTeam,
+  getSessionTeamModelOverride,
+  getSessionTeamModelOverrides,
+} from "../session/index.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
   generateSubagentToolDescription,
@@ -57,6 +61,11 @@ function getPluginAgents(): {
  * id); an unknown name logs and falls back to the session model rather than
  * failing the dispatch. The roster persona stays the base system message, and a
  * configured agent of the same name still shadows the member entirely.
+ *
+ * Priority for a team member: a session assignment made by AssignTeamModel
+ * wins over the roster's `model` field. The assignment is validated when it is
+ * written, but the configuration can change under a resumed session, so an
+ * unknown assigned name falls back exactly like an unknown roster name.
  */
 export function resolveAgentState(
   name: string,
@@ -79,12 +88,19 @@ export function resolveAgentState(
     return null;
   }
 
-  const assigned = dispatchable.model
-    ? ModelService.findModelByName(modelServiceState, dispatchable.model)
+  const override =
+    dispatchable.kind === "team"
+      ? getSessionTeamModelOverride(name)
+      : undefined;
+  const requestedModel = override ?? dispatchable.model;
+  const assigned = requestedModel
+    ? ModelService.findModelByName(modelServiceState, requestedModel)
     : null;
-  if (dispatchable.model && !assigned) {
+  if (requestedModel && !assigned) {
     logger.warn(
-      `Team member ${name} asks for unknown model "${dispatchable.model}": falling back to the session model`,
+      override
+        ? `Team member ${name} is assigned unknown model "${override}": falling back to the session model`
+        : `Team member ${name} asks for unknown model "${requestedModel}": falling back to the session model`,
     );
   }
 
@@ -245,11 +261,29 @@ export const listSubagentsTool = async (): Promise<Tool> => {
         ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
         : undefined;
       if (activeTeam) {
+        const overrides = getSessionTeamModelOverrides();
+        const sessionModelLabel =
+          modelServiceState.model?.name ??
+          modelServiceState.model?.model ??
+          "session default";
         for (const member of activeTeam.members) {
           if (agents.some((agent) => agent.model.name === member.name)) {
             continue;
           }
-          lines.push(`- ${member.name}: ${member.description}`);
+          const override = overrides?.[member.name];
+          const requested = override ?? member.model;
+          const resolved = requested
+            ? ModelService.findConfiguredModel(modelServiceState, requested)
+            : null;
+          const modelLabel = resolved
+            ? (resolved.name ?? resolved.model)
+            : requested
+              ? `${sessionModelLabel} (fallback)`
+              : sessionModelLabel;
+          const assignment = override ? " (assigned)" : "";
+          lines.push(
+            `- ${member.name}: ${member.description} [model: ${modelLabel}${assignment}]`,
+          );
         }
       }
 

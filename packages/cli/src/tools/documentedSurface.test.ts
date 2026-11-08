@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";
+import { setSessionActiveTeam } from "../session/index.js";
 
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { getAllAvailableTools } from "./registry.js";
@@ -68,6 +69,8 @@ const GATED_TOOLS: Record<string, string> = {
   UploadArtifact: "the beta upload flag",
   Subagent: "the beta delegation flag and a run below the depth limit",
   ListSubagents: "the beta delegation flag and a run below the depth limit",
+  AssignTeamModel:
+    "the beta delegation flag, a run below the depth limit and an active team",
 };
 
 /** Names no shipped configuration offers. An entry is a reviewed absence. */
@@ -82,6 +85,7 @@ interface RunConfig {
   betaSubagent?: boolean;
   betaUpload?: boolean;
   canDelegate?: boolean;
+  team?: boolean;
 }
 
 async function offered(config: RunConfig): Promise<string[]> {
@@ -90,6 +94,7 @@ async function offered(config: RunConfig): Promise<string[]> {
     : [...originalArgv];
   setBetaSubagentToolEnabled(config.betaSubagent === true);
   setBetaUploadArtifactToolEnabled(config.betaUpload === true);
+  setSessionActiveTeam(config.team === true ? "dev" : undefined);
   const tools = await getAllAvailableTools(
     config.headless === true,
     config.canDelegate !== false,
@@ -102,6 +107,7 @@ const SHIPPED_CONFIGS: RunConfig[] = [
   { headless: true },
   { agent: true },
   { betaSubagent: true },
+  { betaSubagent: true, team: true },
   { agent: true, betaUpload: true },
 ];
 
@@ -130,6 +136,7 @@ describe("the composed tool surface is a partition", () => {
     process.argv = [...originalArgv];
     setBetaSubagentToolEnabled(false);
     setBetaUploadArtifactToolEnabled(false);
+    setSessionActiveTeam(undefined);
   });
 
   it("accounts for every built-in name under some shipped configuration", async () => {
@@ -171,12 +178,17 @@ describe("the composed tool surface is a partition", () => {
     const beta = new Set(await offered({ betaSubagent: true }));
     expect(beta.has("Subagent")).toBe(true);
     expect(beta.has("ListSubagents")).toBe(true);
+    expect(beta.has("AssignTeamModel")).toBe(false);
+
+    const team = new Set(await offered({ betaSubagent: true, team: true }));
+    expect(team.has("AssignTeamModel")).toBe(true);
 
     const noDelegate = new Set(
       await offered({ betaSubagent: true, canDelegate: false }),
     );
     expect(noDelegate.has("Subagent")).toBe(false);
     expect(noDelegate.has("ListSubagents")).toBe(false);
+    expect(noDelegate.has("AssignTeamModel")).toBe(false);
   });
 
   it("keeps every declared gate a real built-in name", () => {

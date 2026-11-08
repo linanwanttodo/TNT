@@ -32,10 +32,18 @@ import { sortToolsByName } from "./stableOrder.js";
  * file is read as text here. So an intentional prefix change cannot be committed
  * without also putting a line about it where the next reader - and the cache-break
  * report's attribution - will find it.
+ *
+ * 2026-11-09: `AssignTeamModel` joined the registry (team model assignment by
+ * the main agent). The digested static surface gains one definition and 608
+ * characters, so the digest moved from e643e3597265f28b/32838 to
+ * f3ef5fdab202625c/33446 and the count from 40 to 41. The billed effect is a
+ * cold start in sessions that offer the tool (the Subagent beta flag with an
+ * active team); a session that never enables it bills the same bytes as before.
+ * This is a deliberate addition, not a wording edit, and the guard stays exact.
  */
-const PREFIX_FINGERPRINT = "e643e3597265f28b";
-const PREFIX_CHARACTERS = 32_838;
-const PREFIX_TOOLS = 40;
+const PREFIX_FINGERPRINT = "f3ef5fdab202625c";
+const PREFIX_CHARACTERS = 33_446;
+const PREFIX_TOOLS = 41;
 
 const ARCHITECTURE_DOC = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
