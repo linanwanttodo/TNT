@@ -10,6 +10,11 @@ export interface ZCodePlatformStub {
   canOpenLocalFiles: boolean;
   openExternal(href: string): void;
   openExternalFile(path: string): void;
+  openCommunity(): Promise<unknown>;
+  executeDesktopCommand(commandId: string): Promise<unknown>;
+  getDeviceId(): string;
+  captureWindowScreenshot?(): Promise<unknown>;
+  exportLogs(options?: unknown): Promise<{ success?: boolean; error?: string }>;
   openInEditor(
     editorId: string,
     path: string,
@@ -45,6 +50,10 @@ export function usePlatform(): ZCodePlatformStub {
     canOpenLocalFiles: false,
     openExternal: noop,
     openExternalFile: noop,
+    openCommunity: async () => ({}),
+    executeDesktopCommand: async () => ({}),
+    getDeviceId: () => "",
+    exportLogs: async () => ({}),
     saveFile: noopSave,
     openInEditor: noopAsync,
     getInstalledEditors: async () => [],
@@ -56,6 +65,7 @@ export function useOptionalPlatform(): ZCodePlatformStub | undefined {
   return value ?? undefined;
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface WorkspaceServicesStub {
   fileService: {
     stat(params: { path: string }): Promise<FileStat>;
@@ -63,12 +73,51 @@ export interface WorkspaceServicesStub {
       path: string;
     }): Promise<{ url?: string; mediaType: string; dataBase64: string }>;
   };
+  zcodeTaskService: {
+    renameTask(input: {
+      taskId: string;
+      workspacePath?: string;
+      title: string;
+      workspaceIdentity?: string;
+    }): Promise<Record<string, any>>;
+    archiveTask(input: {
+      taskId: string;
+      workspacePath?: string;
+      workspaceIdentity?: string;
+    }): Promise<Record<string, any>>;
+    setTaskPinned(input: {
+      taskId: string;
+      workspacePath?: string;
+      pinned: boolean;
+      workspaceIdentity?: string;
+    }): Promise<Record<string, any>>;
+    setTaskUnread(input: {
+      taskId: string;
+      workspacePath?: string;
+      workspaceIdentity?: string;
+      unread?: boolean;
+    }): Promise<Record<string, any>>;
+  };
+  systemService: {
+    info(): Promise<{ homedir: string }>;
+  };
 }
+
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const servicesStub: WorkspaceServicesStub = {
   fileService: {
     stat: async () => ({ type: "file" }),
     readMediaPreview: async () => ({ mediaType: "image/png", dataBase64: "" }),
+  },
+  zcodeTaskService: {
+    renameTask: async (input) => ({ title: input.title }),
+    archiveTask: async () => ({}),
+    setTaskPinned: async () => ({}),
+    setTaskUnread: async () => ({}),
+  },
+  systemService: {
+    info: async () => ({ homedir: "" }),
   },
 };
 

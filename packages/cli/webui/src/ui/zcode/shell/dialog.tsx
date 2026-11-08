@@ -3,7 +3,7 @@ import { useZCodeIntl } from "../i18n.ts";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { cn } from "../lib/utils.ts";
-import { Button } from "./button.ts";
+import { Button } from "./button.tsx";
 import { XIcon } from "lucide-react";
 
 function DialogCloseText() {

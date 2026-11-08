@@ -17,8 +17,8 @@ import { File, type FileOptions } from "@pierre/diffs/react";
 import type { BundledTheme } from "shiki";
 
 import { cn } from "../lib/utils.ts";
-import { Button } from "./button.ts";
-import { Textarea } from "./textarea.ts";
+import { Button } from "./button.tsx";
+import { Textarea } from "./textarea.tsx";
 import type {
   CodeCommentPreview,
   CodeCommentRange,

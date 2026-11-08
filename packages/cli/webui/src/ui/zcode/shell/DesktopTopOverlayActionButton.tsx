@@ -3,7 +3,7 @@
 // 同目录 Tooltip.tsx（TNT Tooltip 薄封装）；ZCode 原版基于 radix，webui 不引入 radix。
 import type { ReactNode } from "react";
 import { cn } from "../lib/utils.js";
-import { ControlHintTooltip } from "./Tooltip.js";
+import { ControlHintTooltip } from "./Tooltip.tsx";
 
 interface DesktopTopOverlayActionButtonProps {
   title: string;

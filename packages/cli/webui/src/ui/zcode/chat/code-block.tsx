@@ -41,8 +41,8 @@ import {
   getCurrentMermaidDocumentVisibility,
   resolveMermaidAutoRenderDecision,
 } from "../lib/mermaidRenderBudget.js";
-import { MermaidBlock } from "./mermaid-block.ts";
-import { DiagramPreviewDialog } from "./diagram-preview-dialog.ts";
+import { MermaidBlock } from "./mermaid-block.tsx";
+import { DiagramPreviewDialog } from "./diagram-preview-dialog.tsx";
 import { useZCodeIntl } from "../i18n.ts";
 import { logger } from "../lib/logger.ts";
 import type { Theme } from "../useTheme.ts";
