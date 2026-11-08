@@ -10,6 +10,8 @@ import {
   IFileWatcherService,
   IGitCheckpointService,
   IGitService,
+  IPluginManagementService,
+  IPluginsService,
   ISettingService,
   ISystemService,
   ITerminalService,
@@ -86,6 +88,10 @@ describe("buildZcodeServiceCollection", () => {
     expect(collection.get(ITerminalService)).toBe(bundle.terminalService);
     expect(collection.get(IFileWatcherService)).toBe(bundle.fileWatcherService);
     expect(collection.get(IBroadcastService)).toBe(bundle.broadcastService);
+    expect(collection.get(IPluginsService)).toBe(bundle.pluginsService);
+    expect(collection.get(IPluginManagementService)).toBe(
+      bundle.pluginManagementService,
+    );
 
     expect(
       new Set(ZCODE_LOCAL_SERVICE_DESCRIPTORS.map((d) => d.channelName)),
@@ -98,6 +104,8 @@ describe("buildZcodeServiceCollection", () => {
         ITerminalService.channelName,
         IFileWatcherService.channelName,
         IBroadcastService.channelName,
+        IPluginsService.channelName,
+        IPluginManagementService.channelName,
       ]),
     );
   });
