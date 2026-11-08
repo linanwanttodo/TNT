@@ -3,6 +3,8 @@ import { BaseLlmApi } from "@tnt/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
 import * as dotenv from "dotenv";
 
+import { withUserBrief } from "../agent/userBrief.js";
+import { getUserBriefEnabled } from "../agent/userBriefSettings.js";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { type RequestHeader } from "../cache/requestHeader.js";
 import { noteMeasuredRequest } from "../compaction/measuredContext.js";
@@ -77,6 +79,30 @@ function resetSectionBaselinesAfterCompaction(
     clearSectionBaselines(state.systemPrompt.sections);
   }
   reanchorSystemPromptUpdates(state.systemPrompt, historyLength);
+}
+
+/**
+ * Makes the brief visible in the session transcript, not only in the request.
+ * The service may not be ready (a unit test, a bare loop), and a transcript
+ * that is not written is not an error: the request still carries the brief.
+ */
+function persistUserBriefToSession(): void {
+  const chatHistorySvc = services.chatHistory;
+  if (
+    typeof chatHistorySvc?.isReady !== "function" ||
+    !chatHistorySvc.isReady()
+  ) {
+    return;
+  }
+  try {
+    const current = chatHistorySvc.getHistory();
+    const briefed = withUserBrief(current, { enabled: true });
+    if (briefed.item) {
+      chatHistorySvc.setHistory(briefed.history);
+    }
+  } catch (error) {
+    logger.debug("User brief was not persisted to the transcript", { error });
+  }
 }
 
 // Re-exported because the per-request seam is tested through this module.
@@ -159,6 +185,17 @@ export async function streamChatResponse(
     });
     return isHeadless ? finalResponse : fullResponse;
   };
+
+  // The brief belongs to the user's turn, so a delegated run (which has its
+  // own system message and its own brief shape) and a compaction call do not
+  // get one. Off means the history is untouched and the request is unchanged.
+  if (!runOverrides && !isCompacting && getUserBriefEnabled()) {
+    const briefed = withUserBrief(chatHistory, { enabled: true });
+    if (briefed.item) {
+      chatHistory = briefed.history;
+      persistUserBriefToSession();
+    }
+  }
 
   while (true) {
     // The abort signal used to be ignored here, so a cancelled turn kept
