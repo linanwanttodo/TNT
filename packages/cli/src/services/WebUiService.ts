@@ -20,6 +20,11 @@ import {
 import { messageQueue } from "../stream/messageQueue.js";
 import type { WorktreeInfo } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
+import { buildZcodeServiceCollection } from "../webuiZcode/serviceCollection.js";
+import {
+  startWebUiZcodeHost,
+  type WebUiZcodeHost,
+} from "../webuiZcode/wsHost.js";
 
 import { turnRunnerService, type RunTurn } from "./TurnRunnerService.js";
 import {
@@ -78,6 +83,7 @@ const MAX_PORT_ATTEMPTS = 100;
  */
 export class WebUiService {
   private activeHandle: WebUiHandle | null = null;
+  private activeZcodeHost: WebUiZcodeHost | null = null;
   private questionListener: ((event: unknown) => void) | null = null;
   private questionAnsweredListener: ((event: unknown) => void) | null = null;
 
@@ -157,6 +163,15 @@ export class WebUiService {
     this.listenForQuestions(options);
 
     const handle = await this.listen(app, options, token);
+    // The ZCode shell speaks RPC over /ws on the same server. Every connection
+    // builds its own service scope; the stubs answer until Tasks 9-11 install
+    // the real services.
+    const workspacePath = this.resolveSession(options).workspaceDirectory;
+    this.activeZcodeHost = startWebUiZcodeHost({
+      server: handle.server,
+      token,
+      services: () => buildZcodeServiceCollection({ workspacePath }),
+    });
     this.activeHandle = handle;
 
     return handle;
@@ -214,6 +229,11 @@ export class WebUiService {
   /** Closes the server this instance last started, if any. */
   async close(): Promise<void> {
     this.stopListeningForQuestions();
+    if (this.activeZcodeHost) {
+      const host = this.activeZcodeHost;
+      this.activeZcodeHost = null;
+      await host.close();
+    }
     if (this.activeHandle) {
       const handle = this.activeHandle;
       this.activeHandle = null;

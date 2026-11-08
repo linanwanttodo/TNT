@@ -105,6 +105,15 @@ function findLocalPackages(startPath, visited = new Set()) {
       };
 
       for (const [depName, depVersion] of Object.entries(allDeps)) {
+        // The vendored ZCode closure is a normal installed dependency: its
+        // package exports maps point at TypeScript sources, and esbuild
+        // resolves the whole graph through the node_modules links, subpaths
+        // included. An alias here would replace those maps and break exports
+        // such as "@zcode/zcode-cua/broker/ports", whose file is flattened to
+        // broker-ports.js rather than living at the subpath.
+        if (depName.startsWith("@zcode/")) {
+          continue;
+        }
         if (typeof depVersion === "string" && depVersion.startsWith("file:")) {
           // This is a local package
           localPackages.add(depName);
