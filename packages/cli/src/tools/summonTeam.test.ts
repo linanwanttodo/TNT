@@ -20,6 +20,9 @@ import type { ModelServiceState } from "../services/types.js";
 import { SERVICE_NAMES } from "../services/types.js";
 import {
   clearSessionTeamModelOverride,
+  clearSessionTeamRuns,
+  getSessionTeamRuns,
+  MAX_TEAM_RUN_MEMBERS,
   setSessionActiveTeam,
   setSessionTeamModelOverride,
 } from "../session/index.js";
@@ -80,6 +83,7 @@ beforeEach(() => {
   teamsValue.value = [devTeam()];
   setSessionActiveTeam("dev");
   clearSessionTeamModelOverride();
+  clearSessionTeamRuns();
   executeMock.mockReset();
   executeMock.mockResolvedValue({ success: true, response: "lead report" });
   serviceContainer.registerValue(SERVICE_NAMES.MODEL, modelState() as never);
@@ -91,6 +95,7 @@ beforeEach(() => {
 
 afterEach(() => {
   clearSessionTeamModelOverride();
+  clearSessionTeamRuns();
   setSessionActiveTeam(undefined);
   teamsValue.value = [];
   vi.restoreAllMocks();
@@ -140,6 +145,47 @@ describe("the lead brief", () => {
     expect(brief).not.toContain("- project-manager:");
     expect(brief).toContain("Subagent tool");
   });
+
+  it("tells a serial lead to run the members one at a time, in order", () => {
+    const brief = composeLeadBrief(devTeam(), "ship the feature", {
+      mode: "serial",
+    });
+
+    expect(brief).toContain("Run strategy: serial");
+    expect(brief).toContain("one at a time, in the order listed");
+    expect(brief).toContain("do not start a member until the previous");
+  });
+
+  it("tells a parallel lead to dispatch non-overlapping members together", () => {
+    const brief = composeLeadBrief(devTeam(), "ship the feature", {
+      mode: "parallel",
+    });
+
+    expect(brief).toContain("Run strategy: parallel");
+    expect(brief).toContain("together in one batch");
+    expect(brief).toContain("non-overlapping scopes run together");
+  });
+
+  it("lets an auto lead decide the order", () => {
+    const brief = composeLeadBrief(devTeam(), "ship the feature", {
+      mode: "auto",
+    });
+
+    expect(brief).toContain("Run strategy: auto");
+    expect(brief).toContain("Decide the order yourself");
+  });
+
+  it("lists only the requested members and says so", () => {
+    const team = devTeam();
+    const implementer = team.members.find((m) => m.name === "implementer")!;
+    const brief = composeLeadBrief(team, "ship the feature", {
+      members: [implementer],
+    });
+
+    expect(brief).toContain(`- implementer: ${implementer.description}`);
+    expect(brief).not.toContain("- tester:");
+    expect(brief).toContain("Only these members are in scope for this run");
+  });
 });
 
 describe("SummonTeam", () => {
@@ -188,10 +234,7 @@ describe("SummonTeam", () => {
 
   it("runs the lead on a model the main agent assigned", async () => {
     parentSession();
-    setSessionTeamModelOverride("project-manager", "cheap-model", {
-      activeTeam: devTeam(),
-      modelState: modelState(),
-    });
+    setSessionTeamModelOverride("project-manager", "cheap-model");
     const tool = await summonTeamTool();
 
     await tool.run({ goal: "ship the feature" });
@@ -219,6 +262,117 @@ describe("SummonTeam", () => {
       "partial",
       "calling",
     );
+  });
+
+  it("defaults to auto over every non-lead member and opens the ledger", async () => {
+    parentSession();
+    const tool = await summonTeamTool();
+
+    await tool.run({ goal: "ship the feature" });
+
+    const options = executeMock.mock.calls[0][0];
+    expect(options.maxDelegationDepth).toBe(2);
+    expect(options.prompt).toContain("Run strategy: auto");
+
+    const [run] = getSessionTeamRuns();
+    expect(run).toMatchObject({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "auto",
+      status: "completed",
+    });
+    expect(run.members.map((member) => member.name)).toEqual(
+      devTeam()
+        .members.filter((member) => !member.lead)
+        .map((member) => member.name),
+    );
+    expect(run.members.every((member) => member.status === "pending")).toBe(
+      true,
+    );
+  });
+
+  it("passes the chosen mode and member order into the brief and ledger", async () => {
+    parentSession();
+    const tool = await summonTeamTool();
+
+    await tool.run({
+      goal: "ship the feature",
+      mode: "serial",
+      members: ["tester", "implementer"],
+    });
+
+    const options = executeMock.mock.calls[0][0];
+    expect(options.prompt).toContain("Run strategy: serial");
+    expect(options.prompt.indexOf("- tester:")).toBeLessThan(
+      options.prompt.indexOf("- implementer:"),
+    );
+    expect(options.prompt).not.toContain("- code-reviewer:");
+
+    const [run] = getSessionTeamRuns();
+    expect(run.mode).toBe("serial");
+    expect(run.members.map((member) => member.name)).toEqual([
+      "tester",
+      "implementer",
+    ]);
+  });
+
+  it("marks the ledger run failed when the lead fails", async () => {
+    parentSession();
+    executeMock.mockResolvedValue({
+      success: false,
+      response: "",
+      error: "lead stopped",
+    });
+    const tool = await summonTeamTool();
+
+    await tool.run({ goal: "ship the feature" });
+
+    expect(getSessionTeamRuns()[0].status).toBe("failed");
+  });
+
+  it("rejects an unknown member before dispatching", async () => {
+    parentSession();
+    const tool = await summonTeamTool();
+
+    const output = await tool.run({
+      goal: "ship the feature",
+      members: ["no-such-member"],
+    });
+
+    expect(output).toContain("not a dispatchable member");
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(getSessionTeamRuns()).toEqual([]);
+  });
+
+  it("rejects more members than one run may dispatch", async () => {
+    parentSession();
+    const tool = await summonTeamTool();
+    const tooMany = Array.from(
+      { length: MAX_TEAM_RUN_MEMBERS + 1 },
+      (_, index) => `member-${index}`,
+    );
+
+    const output = await tool.run({
+      goal: "ship the feature",
+      members: tooMany,
+    });
+
+    expect(output).toContain(`at most ${MAX_TEAM_RUN_MEMBERS}`);
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(getSessionTeamRuns()).toEqual([]);
+  });
+
+  it("rejects an unknown mode before dispatching", async () => {
+    parentSession();
+    const tool = await summonTeamTool();
+
+    const output = await tool.run({
+      goal: "ship the feature",
+      mode: "everyone-at-once",
+    });
+
+    expect(output).toContain("Unknown run mode");
+    expect(executeMock).not.toHaveBeenCalled();
   });
 });
 

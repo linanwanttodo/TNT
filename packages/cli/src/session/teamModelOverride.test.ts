@@ -1,10 +1,6 @@
 import type { ChatHistoryItem } from "core/index.js";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { ModelServiceState } from "../services/types.js";
-import { DEFAULT_TEAMS } from "../team/defaultTeams.js";
-import type { TeamDefinition } from "../team/loader.js";
-
 import {
   clearSessionTeamModelOverride,
   getCurrentSession,
@@ -21,18 +17,6 @@ const history = [
   },
 ] as unknown as ChatHistoryItem[];
 
-const modelState = {
-  llmApi: null,
-  model: { name: "work-model", provider: "openai", model: "gpt-x" },
-  assistant: {
-    models: [{ name: "cheap-model", provider: "openai", model: "haiku" }],
-  },
-} as unknown as ModelServiceState;
-
-function devTeam(): TeamDefinition {
-  return DEFAULT_TEAMS.find((team) => team.name === "dev")!;
-}
-
 afterEach(() => {
   clearSessionTeamModelOverride();
   setSessionActiveTeam(undefined);
@@ -44,10 +28,7 @@ describe("team model assignments on the session", () => {
     const sessionId = getCurrentSession().sessionId;
 
     setSessionActiveTeam("dev");
-    setSessionTeamModelOverride("implementer", "cheap-model", {
-      activeTeam: devTeam(),
-      modelState,
-    });
+    setSessionTeamModelOverride("implementer", "cheap-model");
 
     const loaded = loadSessionById(sessionId);
 
@@ -61,14 +42,24 @@ describe("team model assignments on the session", () => {
     updateSessionHistory(history);
     const sessionId = getCurrentSession().sessionId;
 
-    setSessionTeamModelOverride("implementer", "cheap-model", {
-      activeTeam: devTeam(),
-      modelState,
-    });
+    setSessionTeamModelOverride("implementer", "cheap-model");
     clearSessionTeamModelOverride();
 
     const loaded = loadSessionById(sessionId);
 
     expect(loaded?.teamModelOverrides).toEqual({});
+  });
+
+  it("stores names as given: validation belongs to the tool", () => {
+    updateSessionHistory(history);
+
+    // The session setter is deliberately storage-only. An unknown member is
+    // the tool's mistake to report, not a reason for the session to import the
+    // roster and model services back into the persistence layer.
+    setSessionTeamModelOverride("  unknown-member ", " not-a-model ");
+
+    expect(getCurrentSession().teamModelOverrides).toEqual({
+      "unknown-member": "not-a-model",
+    });
   });
 });

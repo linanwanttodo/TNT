@@ -6,6 +6,7 @@ import {
   delegationDepthOf,
   resolveChildDepth,
   SubagentDepthError,
+  TEAM_RUN_MAX_SUBAGENT_DEPTH,
 } from "./depth.js";
 
 describe("delegation depth", () => {
@@ -59,5 +60,28 @@ describe("delegation depth", () => {
       maxDelegationDepth: Number.MAX_SAFE_INTEGER,
     };
     expect(() => resolveChildDepth(context)).toThrow(RangeError);
+  });
+});
+
+describe("a summoned team run's depth", () => {
+  const max = TEAM_RUN_MAX_SUBAGENT_DEPTH;
+
+  it("lets the lead at depth 1 dispatch a member at depth 2", () => {
+    const lead = { delegationDepth: 1, maxDelegationDepth: max };
+
+    expect(canDelegate(lead)).toBe(true);
+    expect(resolveChildDepth(lead)).toBe(2);
+  });
+
+  it("does not let a member at depth 2 delegate a third level", () => {
+    const member = { delegationDepth: 2, maxDelegationDepth: max };
+
+    expect(canDelegate(member)).toBe(false);
+    expect(() => resolveChildDepth(member)).toThrow(SubagentDepthError);
+  });
+
+  it("keeps an ordinary dispatch at one level", () => {
+    expect(DEFAULT_MAX_SUBAGENT_DEPTH).toBe(1);
+    expect(max).toBe(2);
   });
 });

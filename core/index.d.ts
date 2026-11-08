@@ -376,6 +376,41 @@ export interface Session {
    * keeps the assignment.
    */
   teamModelOverrides?: Record<string, string>;
+  /**
+   * Optional: the team runs this session summoned, newest last and bounded.
+   * Each run records the lead's goal and strategy and, per member, the model
+   * and delegated session the dispatch resolved to. Persisted with the session
+   * so a resume can show what ran, and so a workflow view can draw the run
+   * without replaying the transcript.
+   */
+  teamRuns?: TeamRunRecord[];
+}
+
+export type TeamRunMode = "auto" | "parallel" | "serial";
+export type TeamRunStatus = "running" | "completed" | "failed";
+export type TeamMemberRunStatus =
+  "pending" | "running" | "completed" | "failed";
+
+export interface TeamRunMemberRecord {
+  name: string;
+  /** The model id the dispatch resolved to, or the member name when unknown. */
+  model?: string;
+  /** The delegated session written by this member's run, when it finished. */
+  subagentSessionId?: string;
+  status: TeamMemberRunStatus;
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+}
+
+export interface TeamRunRecord {
+  runId: string;
+  team: string;
+  goal: string;
+  mode: TeamRunMode;
+  startedAt: string;
+  status: TeamRunStatus;
+  members: TeamRunMemberRecord[];
 }
 
 export interface BaseSessionMetadata {
