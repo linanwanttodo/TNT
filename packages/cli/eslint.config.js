@@ -213,9 +213,6 @@ export default [
       "vitest.config.ts",
       "*.config.js",
       "*.config.ts",
-      // The webui subapp has its own toolchain (vite + jsdom + its own tsconfig
-      // project); the CLI's parserOptions.project cannot see its files.
-      "webui/**",
       // The benchmark's fixtures are data the harness copies to a temp directory
       // and asks questions about; they are never compiled, so linting them would
       // only report on code nobody runs.
