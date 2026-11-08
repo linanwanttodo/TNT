@@ -1,22 +1,39 @@
+import { Text } from "ink";
 import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { ToolCallState } from "../../../../../core/index.js";
+import { BLINK_INTERVAL_MS, blinkVisibleAt } from "../hooks/useBlink.js";
+import { claudeFilledDot } from "../symbols.js";
 import {
+  darkTheme,
   tencentDarkTheme,
   tencentLightTheme,
   ThemeProvider,
 } from "../theme/tokens.js";
 import { clearClickRegions, dispatchClick } from "../utils/clickRegions.js";
 
-import { ToolGroupDisplay, ToolItemDisplay } from "./ToolGroupDisplay.js";
+import {
+  ToolGroupDisplay,
+  ToolItemDisplay,
+  toolDotGlyph,
+  toolDotIsLive,
+  toolDotStyle,
+} from "./ToolGroupDisplay.js";
+import { ToolResultBlock } from "./ToolResultBlock.js";
+
+const DOT = claudeFilledDot();
 
 function frameOf(element: React.ReactElement): string {
   const tree = render(element);
   const frame = tree.lastFrame() ?? "";
   tree.unmount();
   return frame;
+}
+
+function nonEmptyLines(frame: string): string[] {
+  return frame.split("\n").filter((line) => line.trim() !== "");
 }
 
 afterEach(() => {
@@ -45,36 +62,98 @@ function mockToolState(overrides: Partial<ToolCallState> = {}): ToolCallState {
   } as ToolCallState;
 }
 
+describe("the tool dot state machine", () => {
+  it("maps every status to the same Claude dot and its own colour", () => {
+    expect(toolDotStyle("generated", darkTheme)).toEqual({
+      glyph: DOT,
+      color: darkTheme.text.subtle,
+      dim: true,
+    });
+    expect(toolDotStyle("generating", darkTheme)).toEqual({
+      glyph: DOT,
+      color: darkTheme.text.subtle,
+      dim: true,
+    });
+    expect(toolDotStyle("calling", darkTheme)).toEqual({
+      glyph: DOT,
+      color: darkTheme.claude,
+      dim: false,
+    });
+    expect(toolDotStyle("done", darkTheme)).toEqual({
+      glyph: DOT,
+      color: darkTheme.status.success,
+      dim: false,
+    });
+    expect(toolDotStyle("errored", darkTheme)).toEqual({
+      glyph: DOT,
+      color: darkTheme.status.error,
+      dim: false,
+    });
+    expect(toolDotStyle("canceled", darkTheme)).toEqual({
+      glyph: DOT,
+      color: darkTheme.text.subtle,
+      dim: true,
+    });
+  });
+
+  it("animates only a call that is executing", () => {
+    expect(toolDotIsLive("calling")).toBe(true);
+    expect(toolDotIsLive("generated")).toBe(false);
+    expect(toolDotIsLive("done")).toBe(false);
+    expect(toolDotIsLive("errored")).toBe(false);
+    expect(toolDotIsLive("canceled")).toBe(false);
+  });
+
+  it("blinks the running dot to a space every 600 ms", () => {
+    expect(BLINK_INTERVAL_MS).toBe(600);
+    expect(blinkVisibleAt(0)).toBe(true);
+    expect(blinkVisibleAt(599)).toBe(true);
+    expect(blinkVisibleAt(600)).toBe(false);
+    expect(blinkVisibleAt(1199)).toBe(false);
+    expect(blinkVisibleAt(1200)).toBe(true);
+
+    const style = toolDotStyle("calling", darkTheme);
+    expect(toolDotGlyph(style, true)).toBe(DOT);
+    expect(toolDotGlyph(style, false)).toBe(" ");
+  });
+});
+
 describe("ToolItemDisplay", () => {
-  it("renders a completed call as a check, the name, and its subject", () => {
+  it("renders a completed call as a dot, the name, and its subject", () => {
     const state = mockToolState({ status: "done" });
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
-    const firstLine =
-      frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/╭─ ✓ /);
-    expect(firstLine).toContain("$ echo test");
+    const firstLine = nonEmptyLines(frame)[0] ?? "";
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
   });
 
-  it("renders a running call with the executing marker", () => {
+  it("renders a running call with the blinking dot", () => {
     const state = mockToolState({ status: "calling" });
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
-    const firstLine =
-      frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/╭─ ⊷ /);
+    const firstLine = nonEmptyLines(frame)[0] ?? "";
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
   });
 
-  it("renders a pending call with the pending marker", () => {
+  it("renders a queued call with the dim dot", () => {
     const state = mockToolState({ status: "generated" });
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
 
-    const firstLine =
-      frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/╭─ o /);
+    const firstLine = nonEmptyLines(frame)[0] ?? "";
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
+    expect(toolDotStyle(state.status, darkTheme).dim).toBe(true);
   });
 
-  it("renders an errored call with its message", () => {
+  it("renders a cancelled call with the dim dot", () => {
+    const state = mockToolState({ status: "canceled" });
+    const frame = frameOf(<ToolItemDisplay toolState={state} />);
+
+    const firstLine = nonEmptyLines(frame)[0] ?? "";
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
+    expect(toolDotStyle(state.status, darkTheme).dim).toBe(true);
+  });
+
+  it("renders an errored call with its message under the gutter", () => {
     const state = mockToolState({
       status: "errored",
       output: [
@@ -88,10 +167,61 @@ describe("ToolItemDisplay", () => {
     });
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
-    const firstLine =
-      frame.split("\n").find((line) => line.trim() !== "") ?? "";
-    expect(firstLine).toMatch(/╭─ x /);
+    const firstLine = nonEmptyLines(frame)[0] ?? "";
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
     expect(frame).toContain("command not found");
+    expect(frame).toContain("⎿ command not found");
+  });
+
+  it("draws the old per-state glyphs nowhere", () => {
+    for (const status of ["generated", "calling", "done", "errored"] as const) {
+      const frame = frameOf(
+        <ToolItemDisplay toolState={mockToolState({ status })} />,
+      );
+      expect(frame).not.toContain("✓");
+      expect(frame).not.toContain("⊗");
+      expect(frame).not.toContain("✗");
+    }
+  });
+
+  it("hangs a result below the call behind exactly one gutter", () => {
+    const state = mockToolState({
+      status: "done",
+      output: [
+        {
+          id: "out",
+          name: "Bash",
+          description: "",
+          content: "line one\nline two\nline three",
+        } as never,
+      ],
+    });
+
+    const resultLines = frameOf(<ToolItemDisplay toolState={state} />)
+      .split("\n")
+      .filter((line) => /line (one|two|three)/.test(line));
+
+    expect(resultLines).toHaveLength(3);
+    expect(resultLines.filter((line) => line.includes("⎿"))).toHaveLength(1);
+    expect(resultLines[0]).toMatch(/^ {2}⎿ /);
+    for (const line of resultLines.slice(1)) {
+      expect(line.startsWith("    ")).toBe(true);
+    }
+  });
+
+  it("does not repeat the gutter for a nested result", () => {
+    const frame = frameOf(
+      <ToolResultBlock>
+        <Text>outer result</Text>
+        <ToolResultBlock>
+          <Text>inner result</Text>
+        </ToolResultBlock>
+      </ToolResultBlock>,
+    );
+
+    expect(frame.match(/⎿/g) ?? []).toHaveLength(1);
+    expect(frame).toContain("outer result");
+    expect(frame).toContain("inner result");
   });
 
   it("appends how much work a finished read produced", () => {
@@ -274,7 +404,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
 
     expect(frame).not.toMatch(/\p{Extended_Pictographic}/u);
-    expect(frame).not.toContain("\uFE0F");
+    expect(frame).not.toContain("️");
   });
 });
 
@@ -309,7 +439,40 @@ describe("ToolGroupDisplay", () => {
     expect(frame).toContain("WriteFile");
   });
 
-  it("separates consecutive panels with a blank row and a frame each", () => {
+  it("aligns every call's text in the same column", () => {
+    const toolStates: ToolCallState[] = [
+      mockToolState({
+        toolCallId: "call-1",
+        toolCall: {
+          id: "call-1",
+          type: "function",
+          function: { name: "ReadFile", arguments: '{"path":"a.ts"}' },
+        },
+        parsedArgs: { path: "a.ts" },
+      }),
+      mockToolState({
+        toolCallId: "call-2",
+        status: "generated",
+        toolCall: {
+          id: "call-2",
+          type: "function",
+          function: { name: "WriteFile", arguments: '{"path":"b.ts"}' },
+        },
+        parsedArgs: { path: "b.ts" },
+      }),
+    ];
+
+    const lines = frameOf(<ToolGroupDisplay toolStates={toolStates} />).split(
+      "\n",
+    );
+    const first = lines.find((line) => line.includes("ReadFile")) ?? "";
+    const second = lines.find((line) => line.includes("WriteFile")) ?? "";
+
+    expect(first.indexOf("ReadFile")).toBe(2);
+    expect(second.indexOf("WriteFile")).toBe(2);
+  });
+
+  it("separates consecutive calls with a blank row and one dot each", () => {
     const toolStates: ToolCallState[] = [
       mockToolState({ toolCallId: "call-1" }),
       mockToolState({ toolCallId: "call-2" }),
@@ -320,11 +483,8 @@ describe("ToolGroupDisplay", () => {
       "\n",
     );
 
-    expect(lines.filter((line) => line.includes("✓"))).toHaveLength(3);
-    // Each call draws its own rounded frame with the title in the top bar.
-    expect(lines.filter((line) => line.includes("╭─"))).toHaveLength(3);
-    expect(lines.filter((line) => line.includes("╰"))).toHaveLength(3);
-    // Each panel opens with its own blank row before its frame.
+    expect(lines.filter((line) => line.includes(DOT))).toHaveLength(3);
+    // Each call opens with its own blank row before its dot.
     expect(
       lines.filter((line) => line.trim() === "").length,
     ).toBeGreaterThanOrEqual(3);
@@ -361,7 +521,7 @@ describe("ToolGroupDisplay", () => {
     });
 
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
-    expect(frame).toContain("✓");
+    expect(frame).toContain(DOT);
     expect(frame).toContain("Edit");
     expect(frame).toContain("src/math.ts");
     expect(frame).toContain("· +2 -1");
