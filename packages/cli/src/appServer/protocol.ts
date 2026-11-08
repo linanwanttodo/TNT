@@ -1,10 +1,12 @@
 import { ZCODE_PROTOCOL_VERSION, zcodeProtocolMethods } from "@zcode/shared";
 
+import { isSessionRequestError, SessionHandlers } from "./session.js";
 import type { SessionRegistry } from "./sessionRegistry.js";
 
 export const PROTOCOL_PARSE_ERROR = -32700;
 export const PROTOCOL_INVALID_REQUEST = -32600;
 export const PROTOCOL_METHOD_NOT_FOUND = -32601;
+export const PROTOCOL_INVALID_PARAMS = -32602;
 export const PROTOCOL_INTERNAL_ERROR = -32603;
 
 export type ProtocolRequestId = string | number | null;
@@ -27,16 +29,39 @@ function isRequestId(value: unknown): value is ProtocolRequestId {
 
 export class AppServerProtocol {
   private readonly handlers = new Map<string, ProtocolHandler>();
+  readonly sessions: SessionHandlers;
 
   constructor(
     private readonly transport: ProtocolSender,
     private readonly registry: SessionRegistry,
   ) {
+    this.sessions = new SessionHandlers({ sender: transport });
     this.handlers.set(zcodeProtocolMethods.runtimeCapabilities, () =>
       this.capabilities(),
     );
     this.handlers.set(zcodeProtocolMethods.sessionLifecycleGetState, () =>
       this.registry.getState(),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionCreate, (params) =>
+      this.sessions.create(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionResume, (params) =>
+      this.sessions.resume(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionList, (params) =>
+      this.sessions.list(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionRead, (params) =>
+      this.sessions.read(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionMessages, (params) =>
+      this.sessions.messages(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionClose, (params) =>
+      this.sessions.close(params),
+    );
+    this.handlers.set(zcodeProtocolMethods.sessionSetModel, (params) =>
+      this.sessions.setModel(params),
     );
   }
 
@@ -83,7 +108,7 @@ export class AppServerProtocol {
     } catch (error) {
       await this.sendError(
         message.id,
-        PROTOCOL_INTERNAL_ERROR,
+        isSessionRequestError(error) ? error.code : PROTOCOL_INTERNAL_ERROR,
         error instanceof Error ? error.message : String(error),
       );
     }
