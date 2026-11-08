@@ -885,21 +885,21 @@ const UserInput: React.FC<UserInputProps> = ({
   }, [pendingDraft, textBuffer]);
 
   useInput((input, key) => {
-    // Don't handle any input when disabled
-    if (disabled) {
-      return;
-    }
+    // Don't handle any input when disabled; the filter also stands down.
+    // Ink splits a terminal reply at every ESC, so it consumes events one at
+    // a time and decides whether they are a reply or ordinary keys.
+    const currentInput = textBuffer.filterTerminalInput(input, disabled);
 
     // Mouse reports are handled by useMouseEvents; Ink also hands the raw
     // sequence to every useInput listener, where it would land in the prompt.
-    if (isTerminalMouseSequence(input)) {
+    if (currentInput === null || isTerminalMouseSequence(currentInput)) {
       return;
     }
 
     // Ctrl+C / Ctrl+D / Ctrl+P and the queued-message keys.
     if (
       handleControlKeys({
-        input,
+        input: currentInput,
         key,
         exit,
         clearInput,
@@ -918,11 +918,11 @@ const UserInput: React.FC<UserInputProps> = ({
 
     // History search, palettes, modes, escape and the post-turn suggestion
     // own their keys before the buffer sees anything.
-    if (dispatchComposerKeys(input, key)) {
+    if (dispatchComposerKeys(currentInput, key)) {
       return;
     }
 
-    dispatchTextKeys(input, key);
+    dispatchTextKeys(currentInput, key);
   });
 
   const renderInputText = () => {

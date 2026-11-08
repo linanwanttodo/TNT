@@ -2,6 +2,9 @@ import { Key } from "ink";
 
 import { t } from "../i18n/index.js";
 
+import { ComposerTerminalFilter } from "./utils/composerTerminalFilter.js";
+import { bracketedPasteMarker } from "./utils/terminalResponses.js";
+
 export const COLLAPSE_SIZE = 500; // Characters threshold for collapsing pasted content
 export const COLLAPSE_LINES = 8; // Lines threshold: a paste reaching this many rows collapses too
 export const RAPID_INPUT_THRESHOLD = 200; // Minimum characters to trigger rapid input detection
@@ -33,6 +36,10 @@ export class TextBuffer {
   private _rapidInputStartPos: number = 0;
   private _lastInputTime: number = 0;
   private _rapidInputTimer: NodeJS.Timeout | null = null;
+  private _terminalFilter = new ComposerTerminalFilter(
+    (text) => this.insertText(text),
+    () => this._onStateChange?.(),
+  );
   private _onStateChange?: () => void;
   private _pasteMap = new Map<string, string>(); // placeholder -> original content
   private _pasteCounter: number = 0;
@@ -219,6 +226,7 @@ export class TextBuffer {
       clearTimeout(this._rapidInputTimer);
       this._rapidInputTimer = null;
     }
+    this._terminalFilter.reset();
   }
 
   isInPasteMode(): boolean {
@@ -323,10 +331,12 @@ export class TextBuffer {
     }
   }
 
-  // Handles bracketed paste: \e[200~ (start) and \e[201~ (end) sequences
+  // Handles bracketed paste: \e[200~ (start) and \e[201~ (end) sequences.
+  // Ink 6 strips the leading ESC, so the bare `[200~` / `[201~` form is what
+  // the composer actually receives; both are accepted here.
   private handleBracketedPaste(input: string): boolean {
-    // Modern terminals wrap pasted content in escape sequences
-    if (input === "\u001b[200~") {
+    const marker = bracketedPasteMarker(input);
+    if (marker === "start") {
       // Clear any pending rapid input timer to avoid conflicts
       if (this._rapidInputTimer) {
         clearTimeout(this._rapidInputTimer);
@@ -337,7 +347,7 @@ export class TextBuffer {
       return true;
     }
 
-    if (input === "\u001b[201~") {
+    if (marker === "end") {
       this._inPasteMode = false;
 
       if (shouldCollapsePaste(this._pasteBuffer)) {
@@ -587,6 +597,14 @@ export class TextBuffer {
 
     this.insertText(input);
     return true;
+  }
+
+  /**
+   * Consumes one Ink input event and returns the text the composer should
+   * handle, or null when the event was a terminal reply.
+   */
+  filterTerminalInput(input: string, disabled: boolean): string | null {
+    return this._terminalFilter.consume(input, disabled);
   }
 
   handleInput(input: string, key: Key): boolean {

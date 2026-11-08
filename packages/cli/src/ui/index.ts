@@ -11,6 +11,11 @@ import { logger } from "../utils/logger.js";
 
 import { AppRoot } from "./AppRoot.js";
 import {
+  detectedTerminalIsDark,
+  probeTerminalIsDark,
+  setDetectedTerminalIsDark,
+} from "./theme/terminalAppearance.js";
+import {
   alternateScreenEnabled,
   enterAlternateScreen,
   leaveAlternateScreen,
@@ -97,6 +102,21 @@ export async function startTUIChat(
     }
   } else if (!customStdin) {
     logger.warn("stdin is not a TTY or does not support setRawMode");
+  }
+
+  // Resolve the auto theme before Ink owns stdin. The probe writes OSC 11 and
+  // listens for the terminal's answer; if Ink is already reading the same
+  // stream, its parser splits that answer at the ESC and the ESC-stripped
+  // remains are typed into the composer. Awaiting here means no render or
+  // input listener exists yet, so the answer is consumed before Ink parses
+  // anything.
+  if (detectedTerminalIsDark() === undefined) {
+    setDetectedTerminalIsDark(
+      await probeTerminalIsDark({
+        stdin: stdinToUse,
+        stdout: process.stdout,
+      }),
+    );
   }
 
   // Start the TUI immediately - it will handle loading states

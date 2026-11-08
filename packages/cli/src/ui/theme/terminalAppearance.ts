@@ -12,6 +12,8 @@
 
 import fs from "fs";
 
+import { logger } from "../../utils/logger.js";
+
 import { themeFileFor, type ThemeName } from "./tokens.js";
 
 const OSC_BACKGROUND_QUERY = "\x1b]11;?\x1b\\";
@@ -109,16 +111,24 @@ export async function probeTerminalIsDark(
       settled = true;
       clearTimeout(timer);
       io.stdin.removeListener("data", onData);
+      io.stdin.removeListener("close", onClose);
       restoreRawMode();
       resolve(dark);
     };
 
     const onData = (chunk: Buffer | string): void => {
-      const rgb = parseOsc11Color(String(chunk));
+      const bytes = String(chunk);
+      const rgb = parseOsc11Color(bytes);
+      logger.debug("OSC11 reply", {
+        bytes: JSON.stringify(bytes),
+        parsed: Boolean(rgb),
+      });
       if (rgb) {
         finish(perceivedBrightness(rgb) < 128);
       }
     };
+
+    const onClose = (): void => finish(true);
 
     const restoreRawMode = (): void => {
       try {
@@ -139,6 +149,7 @@ export async function probeTerminalIsDark(
         io.stdin.setRawMode(true);
       }
       io.stdin.on("data", onData);
+      io.stdin.once("close", onClose);
       io.stdout.write(OSC_BACKGROUND_QUERY);
     } catch {
       finish(true);
