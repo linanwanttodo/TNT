@@ -1,15 +1,7 @@
 import chalk from "chalk";
 
 import { t } from "../../../i18n/index.js";
-import {
-  listChatModels,
-  switchChatModel,
-} from "../../../services/modelCatalog.js";
 import { webUiService } from "../../../services/WebUiService.js";
-import {
-  currentCheckout,
-  listCheckouts,
-} from "../../../services/worktreeCatalog.js";
 import { hyperlink } from "../../../ui/hyperlink.js";
 import { logger } from "../../../utils/logger.js";
 import type { SlashCommandResult } from "../types.js";
@@ -49,20 +41,7 @@ export async function handleWebui(
 
   let handle;
   try {
-    handle = await webUiService.start({
-      port,
-      // The browser may read the model list and pick another model: the
-      // terminal and the page share one model service, so the change is the
-      // same change the terminal's own /model screen makes.
-      listModels: listChatModels,
-      switchModel: (index) => switchChatModel(index),
-      // The checkouts are readable from here, but this process belongs to the
-      // terminal's session: moving it would desync the two, so the page is
-      // told the move is not available instead of being offered a control
-      // that fails.
-      listWorktrees: listCheckouts,
-      currentWorktree: currentCheckout,
-    });
+    handle = await webUiService.start({ port });
   } catch (error) {
     return {
       output: t("webui.startFailed", {

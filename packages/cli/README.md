@@ -121,6 +121,7 @@ tnt ls --json
 - `tnt checks [action] [pr-url]`: Run or inspect the checks for a pull request
 - `tnt review`: Run AI reviews on your changes (`--base`, `--format`, `--fix` and others)
 - `tnt serve` (hidden): Start HTTP server mode (binds loopback by default; `tnt serve --host 0.0.0.0` exposes an unauthenticated server to the network)
+- `tnt app-server` (hidden): Run the NDJSON app-server protocol host the web UI and per-workspace children use (`tnt app-server --stdio`)
 
 ### Session Listing (`tnt ls`)
 

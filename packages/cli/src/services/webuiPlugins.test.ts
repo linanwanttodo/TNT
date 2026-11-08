@@ -6,11 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { invalidatePluginCache } from "../plugins/loader.js";
 
-import {
-  listInstalledPlugins,
-  reloadPlugins,
-  setPluginEnabled,
-} from "./webuiPlugins.js";
+import { listInstalledPlugins, setPluginEnabled } from "./webuiPlugins.js";
 
 describe("webui plugin registry", () => {
   let root: string;
@@ -195,10 +191,11 @@ describe("webui plugin registry", () => {
     );
   });
 
-  it("reloads the listing after a plugin is installed on disk", () => {
+  it("re-reads the listing after a plugin is installed on disk", () => {
     installPlugin("acme", "alpha");
-    expect(reloadPlugins(projectDir).plugins).toHaveLength(1);
+    expect(listInstalledPlugins(projectDir).plugins).toHaveLength(1);
     installPlugin("acme", "beta");
-    expect(reloadPlugins(projectDir).plugins).toHaveLength(2);
+    invalidatePluginCache();
+    expect(listInstalledPlugins(projectDir).plugins).toHaveLength(2);
   });
 });

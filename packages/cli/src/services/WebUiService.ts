@@ -3,28 +3,15 @@ import type http from "http";
 import type { Session } from "core/index.js";
 import express, { type Express, type Request, type Response } from "express";
 
-import type {
-  PendingPermission,
-  ServerState,
-} from "../commands/serve.helpers.js";
-import { toolPermissionManager } from "../permissions/permissionManager.js";
+import type { ServerState } from "../commands/serve.helpers.js";
 import { publishAgentEvent } from "../protocol/eventBus.js";
-import type { AgentEvent, AgentEventBase } from "../protocol/events.js";
-import { services } from "../services/index.js";
 import { quizService } from "../services/QuizService.js";
-import {
-  getCompleteStateSnapshot,
-  getCurrentSession,
-  getSessionGoal,
-} from "../session/index.js";
-import { messageQueue } from "../stream/messageQueue.js";
-import type { WorktreeInfo } from "../utils/git.js";
+import { getCurrentSession } from "../session/index.js";
 import { logger } from "../utils/logger.js";
 import { buildZcodeServiceCollection } from "../webuiZcode/serviceCollection.js";
 import type { WorkspaceEngines } from "../webuiZcode/workspaceEngines.js";
 import { startWebUiZcodeHost } from "../webuiZcode/wsHost.js";
 
-import { turnRunnerService, type RunTurn } from "./TurnRunnerService.js";
 import {
   registerWebUiAuthGate,
   registerWebUiSessionExchange,
@@ -38,37 +25,22 @@ import {
   type WebUiDist,
 } from "./webuiDist.js";
 import { bootstrapPage } from "./webuiPages.js";
-import { registerWebUiRoutes } from "./webuiRoutes.js";
+import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
-import type {
-  WebUiHandle,
-  WebUiRouteContext,
-  WebUiServiceOptions,
-} from "./webuiTypes.js";
+import type { WebUiHandle, WebUiServiceOptions } from "./webuiTypes.js";
 
-export type { RunTurn };
 export type { WebUiHandle, WebUiServiceOptions };
 export { resolveWebUiDist, webuiDistCandidates };
 export type { WebUiDist };
-export { listInstalledPlugins } from "./webuiPlugins.js";
-export { WEBUI_TOKEN_FILE } from "./webuiAuth.js";
 
 export const DEFAULT_WEBUI_PORT = 47610;
 const MAX_PORT_ATTEMPTS = 100;
 
 /**
  * HTTP surface for a browser frontend. The TUI process can start it in-process
- * (the /webui slash command, Task 5) or a standalone process can host it
- * (`tnt webui`, Task 5). Routes mirror `serve` but read live state: whether a
- * turn is in flight comes from TurnRunnerService and pending permissions come
- * from the permission manager, not from mutable fields only a serve loop
- * updates.
- *
- * The drain loop is shared with every other surface through turnRunnerService.
- * A message from the browser only runs when somebody drains the queue, so POST
- * /message calls startDraining after enqueueing. With no argument it falls
- * back to the default run turn registered at startup (the TUI's pipeline, the
- * standalone entrypoint's), and no-ops harmlessly in tests where none exists.
+ * (the /webui slash command) or a standalone process can host it
+ * (`tnt webui`). It serves the static frontend, the token exchange, the
+ * workspace listing the ZCode entry reads, and the ZCode RPC host at /ws.
  *
  * Auth: every route sits behind a per-launch token gate except GET / (the
  * bootstrap page) and POST /webui-session (the exchange that turns the token
@@ -132,30 +104,19 @@ export class WebUiService {
 
     registerWebUiSessionExchange(app, token);
 
-    // registerSseEventRoute only touches lastActivity on the state it is
-    // handed; the routes below do the same, so a minimal object carries them.
+    // registerWebUiServerInfoRoute only touches lastActivity on the state it
+    // is handed, so a minimal object carries it.
     const state = {
       lastActivity: Date.now(),
     } as ServerState;
 
-    const ctx: WebUiRouteContext = {
-      options,
+    registerWebUiServerInfoRoute(app, {
       state,
-      token,
-      snapshot: () => this.snapshot(options),
-      snapshotFor: (session) => this.snapshotFor(session),
-      sessionChangedEvent: (sessionId) => this.sessionChangedEvent(sessionId),
-      modelChangedEvent: (model) => this.modelChangedEvent(model, options),
-      workspaceChangedEvent: (worktree) =>
-        this.workspaceChangedEvent(worktree, options),
       resolveSession: () => this.resolveSession(options),
-      close: () => this.close(),
-    };
-
-    registerWebUiRoutes(app, ctx);
+    });
 
     // Static routes come last: the missing-dist fallback is a catch-all, and
-    // registering it first would shadow every API route below it.
+    // registering it first would shadow every route above it.
     registerWebUiStaticRoutes(app, dist);
 
     this.listenForQuestions(options);
@@ -229,7 +190,10 @@ export class WebUiService {
         };
       };
       publishAgentEvent({
-        ...this.changeTurnEvent("question", options),
+        sessionId: this.resolveSession(options).sessionId,
+        turnId: `question-${Date.now()}`,
+        seq: 0,
+        timestamp: Date.now(),
         type: "question.requested",
         requestId,
         question: question?.question ?? "",
@@ -240,7 +204,10 @@ export class WebUiService {
     this.questionAnsweredListener = (event: unknown) => {
       const { requestId } = event as { requestId?: string };
       publishAgentEvent({
-        ...this.changeTurnEvent("question", options),
+        sessionId: this.resolveSession(options).sessionId,
+        turnId: `question-${Date.now()}`,
+        seq: 0,
+        timestamp: Date.now(),
         type: "question.answered",
         requestId: requestId ?? "",
       });
@@ -283,85 +250,6 @@ export class WebUiService {
     }
   }
 
-  /** The snapshot shape GET /state returns, reading the live current session. */
-  private snapshot(options: WebUiServiceOptions): Record<string, unknown> {
-    return this.snapshotFor(this.resolveSession(options));
-  }
-
-  /**
-   * The snapshot for an explicit session: the session routes must report the
-   * session they just installed, not whichever one getCurrentSession lazily
-   * conjures, so the session object itself is the argument.
-   */
-  private snapshotFor(session: Session): Record<string, unknown> {
-    return {
-      ...getCompleteStateSnapshot(
-        session,
-        turnRunnerService.isRunning(),
-        messageQueue.getQueueLength(),
-        this.currentPendingPermission() ??
-          quizService.getState().pendingQuestion,
-      ),
-      ...(process.env.VITEST
-        ? {}
-        : { pendingPermissions: this.currentPendingPermissions() }),
-      permissionMode: services.toolPermissions.getState().currentMode,
-      goal: getSessionGoal() ?? null,
-    };
-  }
-
-  /** The SSE signal that makes every connected tab drop the old transcript. */
-  private sessionChangedEvent(sessionId: string): AgentEvent {
-    return {
-      sessionId,
-      turnId: `session-${Date.now()}`,
-      seq: 0,
-      timestamp: Date.now(),
-      type: "session.changed",
-    };
-  }
-
-  /**
-   * The envelope every change event carries: they announce a shift in the
-   * process's own state, so the session they belong to is the live one.
-   */
-  private changeTurnEvent(
-    kind: string,
-    options: WebUiServiceOptions,
-  ): AgentEventBase {
-    return {
-      sessionId: this.resolveSession(options).sessionId,
-      turnId: `${kind}-${Date.now()}`,
-      seq: 0,
-      timestamp: Date.now(),
-    };
-  }
-
-  /** The SSE signal that re-labels the model on every connected tab. */
-  private modelChangedEvent(
-    model: string,
-    options: WebUiServiceOptions,
-  ): AgentEvent {
-    return {
-      ...this.changeTurnEvent("model", options),
-      type: "model.changed",
-      model,
-    };
-  }
-
-  /** The SSE signal that re-labels the checkout on every connected tab. */
-  private workspaceChangedEvent(
-    worktree: WorktreeInfo,
-    options: WebUiServiceOptions,
-  ): AgentEvent {
-    return {
-      ...this.changeTurnEvent("workspace", options),
-      type: "workspace.changed",
-      path: worktree.path,
-      branch: worktree.branch,
-    };
-  }
-
   private resolveSession(options: WebUiServiceOptions): Session {
     if (options.getSession) {
       return options.getSession();
@@ -389,36 +277,6 @@ export class WebUiService {
     };
   }
 
-  private currentPendingPermission(): PendingPermission | null {
-    const [requestId] = toolPermissionManager.getPendingRequestIds();
-    if (!requestId) {
-      return null;
-    }
-
-    const request = toolPermissionManager.getPendingRequest(requestId);
-    if (!request) {
-      return null;
-    }
-
-    return {
-      toolName: request.toolCall.name,
-      toolArgs: request.toolCall.arguments,
-      requestId,
-      timestamp: Date.now(),
-      toolCallPreview: request.toolCall.preview,
-    };
-  }
-
-  private currentPendingPermissions(): PendingPermission[] {
-    return toolPermissionManager.getPendingRequests().map((request) => ({
-      toolName: request.toolCall.name,
-      toolArgs: request.toolCall.arguments,
-      requestId: request.requestId,
-      timestamp: Date.now(),
-      toolCallPreview: request.toolCall.preview,
-    }));
-  }
-
   private async listen(
     app: Express,
     options: WebUiServiceOptions,
@@ -443,10 +301,9 @@ export class WebUiService {
           close: () =>
             new Promise<void>((resolve, reject) => {
               server.close((error) => (error ? reject(error) : resolve()));
-              // An open SSE stream never ends on its own, and server.close
-              // waits for every connection to finish - without this a single
-              // browser tab keeps the server (or the standalone process)
-              // alive after /exit or stop.
+              // server.close waits for every connection to finish - without
+              // this an open browser connection keeps the server (or the
+              // standalone process) alive after /exit or stop.
               server.closeAllConnections();
             }),
         };

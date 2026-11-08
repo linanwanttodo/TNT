@@ -18,17 +18,17 @@ moves - which is why its `src/test-utils` exclude is gone now that the directory
 `tsconfig.json` names both roots, so the type gate still reads every helper, and
 `architecture.test.ts` refuses any production import of one.
 
-| Path                                                                                                    | Role                                                                                                                   |
-| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `index.ts`, `dev.ts`                                                                                    | bundled entry point and the tsx dev runner                                                                             |
-| `acp/`                                                                                                  | ACP supervisor, one worker per session, update and permission bridges                                                  |
-| `agent/`                                                                                                | system prompt assembly (`systemMessage.ts` builds the prefix as named sections)                                        |
-| `stream/`, `loop/`, `tools/`, `permissions/`, `cache/`, `plugins/`, `hooks/`, `subagent/`, `telemetry/` | the agent engine                                                                                                       |
-| `commands/`, `ui/commands/`                                                                             | argv subcommands (`chat`, `serve`, `ls`, `review`, `checks`) and the slash-command pipeline - two separate dispatchers |
-| `services/`                                                                                             | long-lived services resolved through `ServiceContainer`                                                                |
-| `config/`, `session/`, `startup/`, `platform/`                                                          | config loading, session store, bootstrap, platform client                                                              |
-| `i18n/`                                                                                                 | translations and locale switching                                                                                      |
-| `utils/`                                                                                                | leaf helpers; it may not reach upward except through the exemptions the ratchet lists                                  |
+| Path                                                                                                    | Role                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.ts`, `dev.ts`                                                                                    | bundled entry point and the tsx dev runner                                                                                                    |
+| `acp/`                                                                                                  | ACP supervisor, one worker per session, update and permission bridges                                                                         |
+| `agent/`                                                                                                | system prompt assembly (`systemMessage.ts` builds the prefix as named sections)                                                               |
+| `stream/`, `loop/`, `tools/`, `permissions/`, `cache/`, `plugins/`, `hooks/`, `subagent/`, `telemetry/` | the agent engine                                                                                                                              |
+| `commands/`, `ui/commands/`                                                                             | argv subcommands (`chat`, `serve`, `webui`, `app-server`, `ls`, `review`, `checks`) and the slash-command pipeline - two separate dispatchers |
+| `services/`                                                                                             | long-lived services resolved through `ServiceContainer`                                                                                       |
+| `config/`, `session/`, `startup/`, `platform/`                                                          | config loading, session store, bootstrap, platform client                                                                                     |
+| `i18n/`                                                                                                 | translations and locale switching                                                                                                             |
+| `utils/`                                                                                                | leaf helpers; it may not reach upward except through the exemptions the ratchet lists                                                         |
 
 ## One engine, four surfaces
 
@@ -43,6 +43,15 @@ id, and a monotonic sequence, then maps `StreamCallbacks` to the typed events in
 client. `tnt --acp` runs a supervisor that spawns one single-session worker process per editor
 session; the supervisor forwards the same event contract as ACP session/update and forwards
 permission answers through the same `toolPermissionManager`.
+
+The web surface is not a REST mirror of `serve`. `src/services/WebUiService.ts` serves the static
+frontend, the token bootstrap page and exchange (`src/services/webuiPages.ts`,
+`src/services/webuiAuth.ts`), `GET /api/server-info` for the vendored ZCode entry's initial
+workspace, and mounts the ZCode RPC host at `/ws` (`src/webuiZcode/wsHost.ts`). Every
+connection builds its own service scope from `src/webuiZcode/serviceCollection.ts`; the shell
+talks to the engine over that channel, so no `/state`, `/message`, `/permission` or `/events`
+route exists. Both `/webui` and the hidden `tnt webui` command start the same service, and
+`tnt app-server --stdio` is the child engine a second workspace gets.
 
 The transcript in `session/transcript.ts` owns message identity and the staging batch behind
 `ChatHistoryService`: append methods assign ids, an assistant message with tool calls is staged

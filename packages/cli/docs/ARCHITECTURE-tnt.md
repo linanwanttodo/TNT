@@ -31,6 +31,13 @@ on - the same signal the TUI's escape key raises - so `streamServeResponse` in
 only argument was `() => false`, which could not interrupt anything and kept a
 100ms interval alive through every response.
 
+The web surface shares no HTTP contract with `serve`. `src/services/WebUiService.ts` serves the
+vendored frontend, the token bootstrap page and exchange, and `GET /api/server-info`; the
+browser then speaks the ZCode RPC protocol to the same server at `/ws`. Each connection gets
+its own service scope built by `src/webuiZcode/serviceCollection.ts`, and a second workspace is
+served by a `tnt app-server --stdio` child through `src/webuiZcode/workspaceEngines.ts`. The
+old REST and SSE engine routes are gone rather than kept as a second, drifting surface.
+
 Long-lived resources are swept on the way out, not left to the operating
 system: language servers, background jobs, review workers and MCP connections
 each register a synchronous sweep on `exit`, because several code paths call
