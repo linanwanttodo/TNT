@@ -4,7 +4,13 @@ import { fileURLToPath } from "url";
 
 import { describe, expect, it } from "vitest";
 
-import { PRESETS, symbols, symbolsFor } from "./symbols.js";
+import {
+  claudeFilledDot,
+  claudeGlyphs,
+  PRESETS,
+  symbols,
+  symbolsFor,
+} from "./symbols.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,6 +22,11 @@ const OWNED_GLYPHS = [
   "\u25D0",
   "\u2713",
   "\u280B",
+  "\u23FA",
+  "\u23BF",
+  "\u2733",
+  "\u2802",
+  "\u2810",
 ];
 
 function uiSources(dir: string, found: string[] = []): string[] {
@@ -85,5 +96,36 @@ describe("the symbol table", () => {
       )
       .map((file) => path.relative(here, file));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("the Claude glyph set", () => {
+  it("selects the filled dot by platform", () => {
+    expect(claudeFilledDot("darwin")).toBe("\u23FA");
+    expect(claudeFilledDot("linux")).toBe("\u25CF");
+    expect(claudeFilledDot("win32")).toBe("\u25CF");
+    expect(claudeFilledDot()).toBe(claudeFilledDot(process.platform));
+  });
+
+  it("keeps every surveyed mark in its own token", () => {
+    const glyphs = claudeGlyphs("linux");
+
+    expect(Object.keys(glyphs).sort()).toEqual([
+      "filledDot",
+      "promptPointer",
+      "resultGutter",
+      "titleFrames",
+      "titlePrefix",
+    ]);
+    expect(glyphs.filledDot).toBe("\u25CF");
+    expect(glyphs.resultGutter).toBe("\u23BF");
+    expect(glyphs.promptPointer).toBe("\u276F");
+    expect(glyphs.titlePrefix).toBe("\u2733");
+    expect(glyphs.titleFrames).toEqual(["\u2802", "\u2810"]);
+  });
+
+  it("keeps the macOS dot distinct from the plain one", () => {
+    expect(claudeGlyphs("darwin").filledDot).toBe("\u23FA");
+    expect(claudeGlyphs("linux").filledDot).toBe("\u25CF");
   });
 });

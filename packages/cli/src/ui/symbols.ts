@@ -83,3 +83,46 @@ export function symbolsFor(preset?: string): Symbols {
 export function symbols(): Symbols {
   return symbolsFor(process.env.TNT_SYMBOLS);
 }
+
+/**
+ * The marks Claude Code's transcript is built from. They are separate tokens
+ * rather than aliases of `Symbols` because their meanings are narrower: the
+ * filled dot marks one tool call, the gutter hangs its result beneath it, and
+ * the title glyphs live in the terminal title, not in the frame.
+ */
+export interface ClaudeGlyphs {
+  /** The tool-call and assistant dot: U+23FA on macOS, U+25CF elsewhere. */
+  filledDot: string;
+  /** The gutter that places a tool result under its call. */
+  resultGutter: string;
+  /** The pointer before the input. */
+  promptPointer: string;
+  /** The static prefix of the terminal title. */
+  titlePrefix: string;
+  /** The two frames the terminal title alternates while a turn runs. */
+  titleFrames: readonly [string, string];
+}
+
+/** The filled dot for a platform; injected so render code stays testable. */
+export function claudeFilledDot(
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return platform === "darwin" ? "\u23FA" : "\u25CF";
+}
+
+/**
+ * Resolves the Claude glyphs. `platform` is a parameter rather than a read
+ * inside a component so a test can pin both dot variants without owning the
+ * machine it runs on.
+ */
+export function claudeGlyphs(
+  platform: NodeJS.Platform = process.platform,
+): ClaudeGlyphs {
+  return {
+    filledDot: claudeFilledDot(platform),
+    resultGutter: "\u23BF",
+    promptPointer: "\u276F",
+    titlePrefix: "\u2733",
+    titleFrames: ["\u2802", "\u2810"],
+  };
+}

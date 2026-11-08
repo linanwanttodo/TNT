@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveThemeName } from "./terminalAppearance.js";
 import {
+  claudeTheme,
   darkTheme,
   getTheme,
   tencentDarkTheme,
@@ -92,5 +94,29 @@ describe("Theme system", () => {
     for (const [name, candidate] of Object.entries(themes)) {
       expect(getTheme(name)).toBe(candidate);
     }
+  });
+
+  it("resolves the Claude preset to the surveyed values", () => {
+    const preset = getTheme("claude");
+
+    expect(preset).toBe(claudeTheme);
+    expect(resolveThemeName("claude")).toBe("claude");
+    expect(preset.claude).toBe("rgb(215,119,87)");
+    expect(preset.claudeShimmer).toBe("rgb(245,149,117)");
+    expect(preset.permission).toBe("rgb(177,185,249)");
+    expect(preset.suggestion).toBe("rgb(177,185,249)");
+    expect(preset.text.primary).toBe("rgb(255,255,255)");
+    expect(preset.text.inverse).toBe("rgb(0,0,0)");
+    expect(preset.text.subtle).toBe("rgb(80,80,80)");
+    expect(preset.status.success).toBe("rgb(78,186,101)");
+    expect(preset.status.error).toBe("rgb(255,107,128)");
+    expect(preset.status.warning).toBe("rgb(255,193,7)");
+  });
+
+  it("keeps the default theme unchanged", () => {
+    expect(theme).toBe(darkTheme);
+    expect(getTheme()).toBe(darkTheme);
+    expect(getTheme("dark")).toBe(darkTheme);
+    expect(getTheme("claude")).not.toBe(darkTheme);
   });
 });
