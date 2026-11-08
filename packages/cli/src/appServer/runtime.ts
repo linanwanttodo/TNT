@@ -64,6 +64,23 @@ export class SessionRuntimeStore {
     return runtime.events.filter((event) => event.seq > afterSeq);
   }
 
+  /** The timestamp of the retained event with this exact seq, when present. */
+  eventTimestampAt(sessionId: string, seq: number): number | null {
+    const runtime = this.runtimes.get(sessionId);
+    const event = runtime?.events.find((item) => item.seq === seq);
+    return event ? event.timestamp : null;
+  }
+
+  /**
+   * True only between `turn.started` and the terminal turn event. A runtime
+   * that has not begun a turn is idle, not running: `turnTerminal` starts
+   * false, so it cannot be used on its own.
+   */
+  isTurnActive(sessionId: string): boolean {
+    const state = this.runtimes.get(sessionId)?.state;
+    return state ? state.turnStartedAt > 0 && !state.turnTerminal : false;
+  }
+
   hasTerminal(sessionId: string): boolean {
     return this.runtimes.get(sessionId)?.state.turnTerminal ?? true;
   }

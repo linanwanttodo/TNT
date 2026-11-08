@@ -46,6 +46,10 @@ export interface SessionMeta extends BaseSessionMetadata {
   parentSessionId?: string;
   subagentType?: string;
   delegationDepth?: number;
+  /** Stable workspace identity; falls back to the workspace path when absent. */
+  workspaceIdentity?: string;
+  /** Set by an app-server close; the session stays readable but is not listed. */
+  archived?: boolean;
   schemaVersion: 2;
   entryCount: number;
   sizeBytes: number;
@@ -57,6 +61,7 @@ export interface SessionHeaderRecord {
   sessionId: string;
   createdAt: string;
   cwd: string;
+  workspaceIdentity?: string;
   title: string;
   source: SessionSource;
   parentSessionId?: string;
@@ -188,9 +193,46 @@ export interface SessionStoreListOptions {
   includeSubagents?: boolean;
   parentSessionId?: string;
   includeEmpty?: boolean;
+  /** Archived sessions are hidden unless the caller explicitly asks for them. */
+  includeArchived?: boolean;
 }
 
 type ItemWithId = ChatHistoryItem & { messageId?: string };
+type ItemWithMessageTimestamp = ChatHistoryItem & { messageTimestamp?: string };
+
+/**
+ * The store stamps each history item with the ISO time of the record that
+ * introduced it. The message projection uses that as `time.created`; it is not
+ * part of the core `ChatHistoryItem` contract because only persistence knows
+ * when a message entered the transcript.
+ */
+export function messageTimestampOf(item: ChatHistoryItem): string | undefined {
+  const value = (item as ItemWithMessageTimestamp).messageTimestamp;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+export function setMessageTimestamp(item: ChatHistoryItem, iso: string): void {
+  (item as ItemWithMessageTimestamp).messageTimestamp = iso;
+}
+
+function stampMissingTimestamps(
+  items: readonly ChatHistoryItem[],
+  iso: string,
+): void {
+  for (const item of items) {
+    if (messageTimestampOf(item) === undefined) {
+      setMessageTimestamp(item, iso);
+    }
+  }
+}
+
+function workspaceIdentityOf(session: Session): string | undefined {
+  const value = (session as Session & { workspaceIdentity?: string })
+    .workspaceIdentity;
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
 
 function ensureMessageId(item: ChatHistoryItem): string {
   const current = (item as ItemWithId).messageId;
@@ -292,6 +334,7 @@ function projectRecords(records: SessionRecord[]): {
   let history: ChatHistoryItem[] = [];
   let byId = new Map<string, number>();
   const compactionIds = new Set<string>();
+  const timestamps = new Map<string, string>();
   let scalars: SessionScalars = { title: DEFAULT_SESSION_TITLE };
   let lastTimestamp = nowIso();
 
@@ -315,6 +358,8 @@ function projectRecords(records: SessionRecord[]): {
     if (record.type === "message") {
       const item = record.item;
       (item as ItemWithId).messageId = record.messageId;
+      timestamps.set(record.messageId, record.timestamp);
+      setMessageTimestamp(item, record.timestamp);
       history.push(item);
       byId.set(record.messageId, history.length - 1);
       continue;
@@ -324,13 +369,19 @@ function projectRecords(records: SessionRecord[]): {
       const index = byId.get(record.messageId);
       if (index === undefined) continue;
       (record.item as ItemWithId).messageId = record.messageId;
+      timestamps.set(record.messageId, record.timestamp);
+      setMessageTimestamp(record.item, record.timestamp);
       history[index] = record.item;
       continue;
     }
 
     if (record.type === "compaction") {
       history = record.history.map((item) => {
-        ensureMessageId(item);
+        const messageId = ensureMessageId(item);
+        setMessageTimestamp(
+          item,
+          timestamps.get(messageId) ?? record.timestamp,
+        );
         return item;
       });
       compactionIds.add(record.firstKeptMessageId);
@@ -354,7 +405,11 @@ function projectRecords(records: SessionRecord[]): {
 
     if (record.type === "snapshot") {
       history = record.history.map((item) => {
-        ensureMessageId(item);
+        const messageId = ensureMessageId(item);
+        setMessageTimestamp(
+          item,
+          timestamps.get(messageId) ?? record.timestamp,
+        );
         return item;
       });
       rebuildIndex();
@@ -604,6 +659,7 @@ export class SessionStore {
 
     if (compactionChanged) {
       const summaryId = nextIds[compactionIndex];
+      stampMissingTimestamps(next, timestamp);
       records.push({
         type: "compaction",
         timestamp,
@@ -631,20 +687,24 @@ export class SessionStore {
       if (isPrefixExtension) {
         for (let index = 0; index < common; index += 1) {
           if (!isDeepStrictEqual(prev[index], next[index])) {
+            const itemTimestamp = messageTimestampOf(next[index]) ?? timestamp;
+            setMessageTimestamp(next[index], itemTimestamp);
             records.push({
               type: "message-patch",
               messageId: nextIds[index],
-              timestamp,
+              timestamp: itemTimestamp,
               item: next[index],
             });
           }
         }
         for (let index = common; index < next.length; index += 1) {
+          const itemTimestamp = messageTimestampOf(next[index]) ?? timestamp;
+          setMessageTimestamp(next[index], itemTimestamp);
           records.push({
             type: "message",
             messageId: nextIds[index],
             parentId: index > 0 ? nextIds[index - 1] : null,
-            timestamp,
+            timestamp: itemTimestamp,
             item: next[index],
           });
         }
@@ -655,6 +715,7 @@ export class SessionStore {
           messageId: nextIds.length > 0 ? nextIds[nextIds.length - 1] : null,
         });
       } else {
+        stampMissingTimestamps(next, timestamp);
         records.push({
           type: "snapshot",
           timestamp,
@@ -788,6 +849,7 @@ export class SessionStore {
 
     const filtered = [...sessions.values()]
       .filter((meta) => {
+        if (!options.includeArchived && meta.archived) return false;
         if (!options.includeSubagents && meta.parentSessionId) return false;
         if (
           options.parentSessionId !== undefined &&
@@ -831,6 +893,28 @@ export class SessionStore {
       }
     }
     return this.load(sessionId)?.meta ?? null;
+  }
+
+  /**
+   * Marks a session archived without deleting it. Closing an app-server session
+   * is an archive, so a process restart must not resurrect it in `session/list`.
+   * Returns false when the session does not exist.
+   */
+  setArchived(sessionId: string, archived: boolean): boolean {
+    const meta = this.getMeta(sessionId);
+    if (!meta) {
+      return false;
+    }
+    const next: SessionMeta = { ...meta, archived };
+    if (!archived) {
+      delete next.archived;
+    }
+    this.writeMeta(sessionId, next);
+    const bound = this.bound.get(sessionId);
+    if (bound) {
+      this.bound.set(sessionId, { ...bound, meta: next });
+    }
+    return true;
   }
 
   delete(sessionId: string, options: { force?: boolean } = {}): void {
@@ -983,6 +1067,10 @@ export class SessionStore {
       },
     );
 
+    if (!meta.workspaceIdentity && projected.header.workspaceIdentity) {
+      meta.workspaceIdentity = projected.header.workspaceIdentity;
+    }
+
     this.bound.set(sessionId, {
       history: projected.history,
       scalars: projected.scalars,
@@ -991,23 +1079,29 @@ export class SessionStore {
       compactionIds: projected.compactionIds,
     });
 
+    const session: Session = {
+      sessionId,
+      title: meta.title,
+      workspaceDirectory: meta.workspaceDirectory,
+      history: projected.history,
+      mode: projected.scalars.mode,
+      chatModelTitle: projected.scalars.chatModelTitle,
+      usage: projected.scalars.usage,
+      goal: projected.scalars.goal,
+      outputStyle: projected.scalars.outputStyle,
+      promptProfile: projected.scalars.promptProfile,
+      activeTeam: projected.scalars.activeTeam,
+      parentSessionId: projected.header.parentSessionId,
+      subagentType: projected.header.subagentType,
+      delegationDepth: projected.header.delegationDepth,
+    };
+    if (projected.header.workspaceIdentity) {
+      (session as Session & { workspaceIdentity?: string }).workspaceIdentity =
+        projected.header.workspaceIdentity;
+    }
+
     return {
-      session: {
-        sessionId,
-        title: meta.title,
-        workspaceDirectory: meta.workspaceDirectory,
-        history: projected.history,
-        mode: projected.scalars.mode,
-        chatModelTitle: projected.scalars.chatModelTitle,
-        usage: projected.scalars.usage,
-        goal: projected.scalars.goal,
-        outputStyle: projected.scalars.outputStyle,
-        promptProfile: projected.scalars.promptProfile,
-        activeTeam: projected.scalars.activeTeam,
-        parentSessionId: projected.header.parentSessionId,
-        subagentType: projected.header.subagentType,
-        delegationDepth: projected.header.delegationDepth,
-      },
+      session,
       meta,
       origin: "v2",
     };
@@ -1023,6 +1117,7 @@ export class SessionStore {
       sessionId,
       createdAt: timestamp,
       cwd: session.workspaceDirectory,
+      workspaceIdentity: workspaceIdentityOf(session),
       title: session.title,
       source,
       parentSessionId: session.parentSessionId,
@@ -1035,11 +1130,13 @@ export class SessionStore {
     const compactionIds = new Set<string>();
     for (const item of session.history) {
       const messageId = ensureMessageId(item);
+      const itemTimestamp = messageTimestampOf(item) ?? timestamp;
+      setMessageTimestamp(item, itemTimestamp);
       records.push({
         type: "message",
         messageId,
         parentId,
-        timestamp,
+        timestamp: itemTimestamp,
         item,
       });
       parentId = messageId;
@@ -1173,6 +1270,9 @@ export class SessionStore {
       parentSessionId: session.parentSessionId,
       subagentType: session.subagentType,
       delegationDepth: session.delegationDepth,
+      workspaceIdentity:
+        previous?.workspaceIdentity ?? workspaceIdentityOf(session),
+      archived: previous?.archived,
       schemaVersion: 2,
       sizeBytes: overrides.sizeBytes ?? sizeBytes,
     };

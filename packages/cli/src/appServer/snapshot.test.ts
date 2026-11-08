@@ -13,6 +13,8 @@ import type {
 } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
+import { setMessageTimestamp } from "../session/store.js";
+
 import {
   toZcodeMessages,
   toZcodeSessionInfo,
@@ -300,5 +302,186 @@ describe("toZcodeSnapshot", () => {
       pendingRequestIds: [],
     });
     expect(snapshot.messages).toHaveLength(expectedMessages.length);
+  });
+});
+
+describe("message content and identity projection", () => {
+  it("renders the user text instead of the model-facing content with hook notes", () => {
+    const session: Session = {
+      ...fixture,
+      history: [
+        item(
+          { role: "user", content: "session-start hook note\npicked a file" },
+          { userText: "picked a file" },
+        ),
+      ],
+    };
+
+    const [message] = toZcodeMessages(session);
+    const textPart = message.parts.find((part) => part.type === "text");
+    expect(textPart && "text" in textPart ? textPart.text : undefined).toBe(
+      "picked a file",
+    );
+  });
+
+  it("maps image and audio parts to file parts", () => {
+    const session: Session = {
+      ...fixture,
+      history: [
+        item(
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "look" },
+              {
+                type: "imageUrl",
+                imageUrl: { url: "data:image/png;base64,AAAA" },
+              },
+              {
+                type: "audio",
+                audio: { data: "BBBB", format: "wav" },
+              },
+            ],
+          },
+          { userText: "look" },
+        ),
+      ],
+    };
+
+    const [message] = toZcodeMessages(session);
+    const files = message.parts.filter((part) => part.type === "file");
+    expect(files).toHaveLength(2);
+    expect(files[0]).toMatchObject({
+      type: "file",
+      mime: "image/png",
+      url: "data:image/png;base64,AAAA",
+    });
+    expect(files[1]).toMatchObject({
+      type: "file",
+      mime: "audio/wav",
+      url: "data:audio/wav;base64,BBBB",
+    });
+    expect(() => zcodeMessageWithPartsSchema.parse(message)).not.toThrow();
+  });
+
+  it("maps tool calls attached to a thinking message", () => {
+    const session: Session = {
+      ...fixture,
+      history: [
+        item(
+          {
+            role: "thinking",
+            content: "planning",
+            toolCalls: [
+              {
+                id: "thinking-call",
+                type: "function",
+                function: { name: "list_files", arguments: "{}" },
+              },
+            ],
+          },
+          {
+            toolCallStates: [
+              {
+                toolCallId: "thinking-call",
+                toolCall: {
+                  id: "thinking-call",
+                  type: "function",
+                  function: { name: "list_files", arguments: "{}" },
+                },
+                status: "done",
+                parsedArgs: {},
+                output: [{ content: "a.ts", name: "a.ts", description: "" }],
+              },
+            ],
+          },
+        ),
+      ],
+    };
+
+    const [message] = toZcodeMessages(session);
+    const toolPart = message.parts.find((part) => part.type === "tool");
+    expect(toolPart?.type).toBe("tool");
+    if (toolPart?.type === "tool") {
+      expect(toolPart.callId).toBe("thinking-call");
+      expect(toolPart.state.status).toBe("completed");
+    }
+  });
+
+  it("does not point a leading assistant message at its own id", () => {
+    const session: Session = {
+      ...fixture,
+      history: [item({ role: "assistant", content: "hello" })],
+    };
+
+    const [message] = toZcodeMessages(session);
+    expect(message.info.role).toBe("assistant");
+    if (message.info.role === "assistant") {
+      expect(message.info.parentMessageId).not.toBe(message.info.messageId);
+      expect(message.info.parentMessageId).toBe(`${session.sessionId}:root`);
+    }
+  });
+
+  it("derives the session kind from a subagent session and echoes workspaceIdentity", () => {
+    const info = toZcodeSessionInfo(
+      { ...fixture, subagentType: "code-reviewer" },
+      {
+        meta: {
+          source: "subagent",
+          workspaceIdentity: "remote-workspace-1",
+        },
+      },
+    );
+
+    expect(info.sessionKind).toBe("subagent_child");
+    expect(info.workspace.workspaceIdentity).toBe("remote-workspace-1");
+    expect(info.workspace.workspaceKey).toBe("remote-workspace-1");
+    expect(() => zcodeSessionInfoSchema.parse(info)).not.toThrow();
+  });
+
+  it("uses store timestamps and completes the last assistant message when idle", () => {
+    const user = item({ role: "user", content: "hi" });
+    setMessageTimestamp(user, "2026-02-03T04:05:06.000Z");
+    const assistant = item({ role: "assistant", content: "hello" });
+    setMessageTimestamp(assistant, "2026-02-03T04:05:07.000Z");
+    const session: Session = {
+      ...fixture,
+      history: [user, assistant],
+    };
+
+    const snapshot = toZcodeSnapshot(session, {
+      status: "idle",
+      meta: {
+        dateCreated: "2026-02-03T04:05:05.000Z",
+        updatedAt: "2026-02-03T04:05:08.000Z",
+      },
+    });
+
+    const [userMessage, assistantMessage] = snapshot.messages;
+    expect(userMessage.info.time.created).toBe(
+      Date.parse("2026-02-03T04:05:06.000Z"),
+    );
+    expect(assistantMessage.info.time.created).toBe(
+      Date.parse("2026-02-03T04:05:07.000Z"),
+    );
+    expect(assistantMessage.info.role).toBe("assistant");
+    if (assistantMessage.info.role === "assistant") {
+      expect(assistantMessage.info.time.completed).toBe(
+        Date.parse("2026-02-03T04:05:08.000Z"),
+      );
+    }
+    expect(() => zcodeSessionStateSnapshotSchema.parse(snapshot)).not.toThrow();
+  });
+
+  it("leaves the last assistant message open while a turn is running", () => {
+    const snapshot = toZcodeSnapshot(fixture, { status: "running" });
+    const lastAssistant = [...snapshot.messages]
+      .reverse()
+      .find((message) => message.info.role === "assistant");
+
+    expect(lastAssistant?.info.role).toBe("assistant");
+    if (lastAssistant?.info.role === "assistant") {
+      expect(lastAssistant.info.time.completed).toBeUndefined();
+    }
   });
 });

@@ -1,4 +1,5 @@
 import {
+  zcodeSessionCreateParamsSchema,
   zcodeSessionSetModelParamsSchema,
   ZCODE_PROTOCOL_VERSION,
   zcodeProtocolMethods,
@@ -99,7 +100,13 @@ export class AppServerProtocol {
       this.registry.getState(),
     );
     this.handlers.set(zcodeProtocolMethods.sessionCreate, async (params) => {
-      const snapshot = await this.sessions.create(params);
+      const input = parseParams(zcodeSessionCreateParamsSchema, params);
+      if (input.model) {
+        // A create that selects a model validates it, so the config and model
+        // services must be up before the handler runs.
+        await (options.ensureServices ?? ensureAppServerServices)();
+      }
+      const snapshot = await this.sessions.create(input);
       this.turns.registerSession(snapshot.session.sessionId);
       return snapshot;
     });
