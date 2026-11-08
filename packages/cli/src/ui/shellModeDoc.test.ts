@@ -40,7 +40,8 @@ describe("spec/shell-mode.md agrees with the implementation", () => {
 
   it("matches the yellow border and the `$ ` prompt", () => {
     expect(input).toMatch(/showBashMode\s*\?\s*"yellow"/);
-    expect(input).toMatch(/showBashMode\s*\?\s*"\$ "/);
+    expect(input).toContain('"$ "');
+    expect(input).toContain("bash={showBashMode}");
     expect(doc).toContain("yellow");
     expect(doc).toContain("`$ `");
   });

@@ -40,6 +40,8 @@ interface TranscriptContentProps {
   isCompacting: boolean;
   compactionStartTime: number | null;
   isBashToolRunning: boolean;
+  /** Shows the token counter before the 30 s gate. */
+  verbose?: boolean;
 }
 
 const isEmptyConversation = (chatHistory: ChatHistoryItem[]): boolean =>
@@ -68,8 +70,16 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   isCompacting,
   compactionStartTime,
   isBashToolRunning,
+  verbose = false,
 }) => {
   const { columns } = useTerminalSize();
+
+  // The provider reports exact usage only at the end of a turn; while it
+  // streams, the visible answer is the only signal. Four characters per token
+  // is the usual estimate, and it keeps the counter moving with output.
+  const streamingTokens = streamingText
+    ? Math.round(streamingText.length / 4)
+    : 0;
 
   // Filter out system messages without content and split large messages.
   const processedChatHistory = React.useMemo(() => {
@@ -158,6 +168,9 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         message={t("action.thinking")}
         showSpinner={true}
         loadingColor="gray"
+        tokenCount={streamingTokens}
+        verbose={verbose}
+        hasActiveTools={isBashToolRunning}
         additionalHint={isBashToolRunning ? t("action.background") : undefined}
       />
 

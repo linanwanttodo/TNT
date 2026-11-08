@@ -72,7 +72,7 @@ describe("UserInput slash palette", () => {
       expect(frame).not.toContain("/tools");
 
       const paletteIndex = frame.indexOf("/back");
-      const composerIndex = frame.indexOf("│ > /");
+      const composerIndex = frame.indexOf("❯ /");
       expect(paletteIndex).toBeGreaterThan(-1);
       expect(composerIndex).toBeGreaterThan(paletteIndex);
     } finally {

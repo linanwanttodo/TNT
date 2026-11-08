@@ -517,6 +517,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           isCompacting={isCompacting}
           compactionStartTime={compactionStartTime}
           isBashToolRunning={isBashToolRunning}
+          verbose={isVerboseMode}
           scrollTop={scrollTop}
           onScrollMetrics={onMetrics}
           showScrollbar
@@ -545,6 +546,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           }}
           isWaitingForResponse={isWaitingForResponse}
           isCompacting={isCompacting}
+          queuedCount={queuedMessages?.length ?? 0}
           inputMode={inputMode}
           handleInterrupt={handleInterrupt}
           handleFileAttached={handleFileAttached}

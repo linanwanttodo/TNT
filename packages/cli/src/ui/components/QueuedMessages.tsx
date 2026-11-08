@@ -29,7 +29,7 @@ export const QueuedMessages: React.FC<QueuedMessagesProps> = ({ messages }) => {
 
   return (
     <Box flexDirection="column" paddingLeft={2} paddingBottom={1}>
-      {messages.map((message, index) => (
+      {messages.map((message) => (
         <Box key={message.id}>
           <Text color={theme.text.secondary} dimColor>
             {"[queued] "}
@@ -37,11 +37,6 @@ export const QueuedMessages: React.FC<QueuedMessagesProps> = ({ messages }) => {
           <Text color={theme.text.primary}>
             {sanitizeTerminalText(preview(message.message))}
           </Text>
-          {index === messages.length - 1 && (
-            <Text color={theme.text.subtle} dimColor>
-              {"  ctrl+x remove  ctrl+r edit"}
-            </Text>
-          )}
         </Box>
       ))}
     </Box>

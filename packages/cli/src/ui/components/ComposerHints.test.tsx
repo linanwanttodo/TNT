@@ -1,0 +1,125 @@
+import { render } from "ink-testing-library";
+import React from "react";
+import { describe, expect, it } from "vitest";
+
+import {
+  ComposerHints,
+  composerHintText,
+  selectComposerHint,
+  SHORTCUTS_HINT_MIN_COLUMNS,
+} from "./ComposerHints.js";
+
+function frameOf(element: React.ReactElement): string {
+  const tree = render(element);
+  const frame = tree.lastFrame() ?? "";
+  tree.unmount();
+  return frame;
+}
+
+describe("selectComposerHint", () => {
+  it("lets an interruption replace every other hint", () => {
+    const hint = selectComposerHint({
+      wasInterrupted: true,
+      queuedCount: 2,
+      working: true,
+      columns: 120,
+    });
+
+    expect(hint).toEqual({ kind: "interrupted" });
+  });
+
+  it("lets a queued message replace the running hint", () => {
+    const hint = selectComposerHint({
+      wasInterrupted: false,
+      queuedCount: 2,
+      working: true,
+      columns: 120,
+    });
+
+    expect(hint).toEqual({ kind: "queued", count: 2 });
+  });
+
+  it("falls back from working to the shortcuts hint", () => {
+    expect(
+      selectComposerHint({
+        wasInterrupted: false,
+        queuedCount: 0,
+        working: true,
+        columns: 120,
+      }),
+    ).toEqual({ kind: "working" });
+    expect(
+      selectComposerHint({
+        wasInterrupted: false,
+        queuedCount: 0,
+        working: false,
+        columns: 120,
+      }),
+    ).toEqual({ kind: "shortcuts" });
+  });
+
+  it("drops the shortcuts hint when there is no room", () => {
+    expect(
+      selectComposerHint({
+        wasInterrupted: false,
+        queuedCount: 0,
+        working: false,
+        columns: SHORTCUTS_HINT_MIN_COLUMNS - 1,
+      }),
+    ).toBeNull();
+    expect(
+      selectComposerHint({
+        wasInterrupted: false,
+        queuedCount: 0,
+        working: false,
+        columns: SHORTCUTS_HINT_MIN_COLUMNS,
+      }),
+    ).toEqual({ kind: "shortcuts" });
+  });
+
+  it("has no text for a missing hint", () => {
+    expect(composerHintText(null)).toBeNull();
+  });
+});
+
+describe("ComposerHints", () => {
+  it("draws exactly one transient hint", () => {
+    const frame = frameOf(
+      <ComposerHints wasInterrupted queuedCount={2} working />,
+    );
+
+    expect(frame).toContain("Interrupted by user");
+    expect(frame).not.toContain("queued");
+    expect(frame).not.toContain("esc to interrupt");
+    expect(frame).not.toContain("? for shortcuts");
+  });
+
+  it("draws the queue controls instead of the interrupt hint", () => {
+    const frame = frameOf(
+      <ComposerHints wasInterrupted={false} queuedCount={2} working />,
+    );
+
+    expect(frame).toContain("2 queued");
+    expect(frame).toContain("ctrl+x remove");
+    expect(frame).toContain("ctrl+r edit");
+    expect(frame).not.toContain("esc to interrupt");
+    expect(frame).not.toContain("? for shortcuts");
+  });
+
+  it("draws the interrupt hint while a turn runs", () => {
+    const frame = frameOf(
+      <ComposerHints wasInterrupted={false} queuedCount={0} working />,
+    );
+
+    expect(frame).toContain("esc to interrupt");
+    expect(frame).not.toContain("? for shortcuts");
+  });
+
+  it("draws the shortcuts hint when idle", () => {
+    const frame = frameOf(
+      <ComposerHints wasInterrupted={false} queuedCount={0} working={false} />,
+    );
+
+    expect(frame).toContain("? for shortcuts");
+  });
+});

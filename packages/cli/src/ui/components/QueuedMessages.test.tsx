@@ -34,15 +34,15 @@ describe("QueuedMessages", () => {
     expect(frame.indexOf("first")).toBeLessThan(frame.indexOf("second"));
   });
 
-  it("puts the shortcut hint only on the newest row", () => {
+  it("leaves the queue controls to the composer footer", () => {
     const frame = frameOf(
       <QueuedMessages
         messages={[message("a", "first"), message("b", "second")]}
       />,
     );
 
-    expect(frame.match(/ctrl\+x remove/g)).toHaveLength(1);
-    expect(frame).toContain("ctrl+r edit");
+    expect(frame).not.toContain("ctrl+x remove");
+    expect(frame).not.toContain("ctrl+r edit");
   });
 
   it("flattens a multi-line message into one row", () => {

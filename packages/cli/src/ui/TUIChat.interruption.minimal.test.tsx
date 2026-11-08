@@ -2,6 +2,7 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ComposerHints } from "./components/ComposerHints.js";
 import { UserInput } from "./UserInput.js";
 
 // AppRoot subscribes a dozen services through useServices, so every case that
@@ -27,17 +28,8 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
   });
 
   it("shows interruption message when wasInterrupted is true", () => {
-    const mockOnSubmit = vi.fn();
-    const mockOnInterrupt = vi.fn();
-
     const { lastFrame, rerender, unmount } = track(
-      React.createElement(UserInput, {
-        onSubmit: mockOnSubmit,
-        isWaitingForResponse: false,
-        inputMode: true,
-        onInterrupt: mockOnInterrupt,
-        wasInterrupted: false, // Initially false
-      }),
+      <ComposerHints wasInterrupted={false} queuedCount={0} working={false} />,
     );
 
     try {
@@ -49,13 +41,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
 
       // Re-render with wasInterrupted: true
       rerender(
-        React.createElement(UserInput, {
-          onSubmit: mockOnSubmit,
-          isWaitingForResponse: false,
-          inputMode: true,
-          onInterrupt: mockOnInterrupt,
-          wasInterrupted: true, // Now true
-        }),
+        <ComposerHints wasInterrupted queuedCount={0} working={false} />,
       );
 
       // Should show interruption message
@@ -69,17 +55,8 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
   });
 
   it("hides interruption message when wasInterrupted is false", () => {
-    const mockOnSubmit = vi.fn();
-    const mockOnInterrupt = vi.fn();
-
     const { lastFrame, rerender, unmount } = track(
-      React.createElement(UserInput, {
-        onSubmit: mockOnSubmit,
-        isWaitingForResponse: false,
-        inputMode: true,
-        onInterrupt: mockOnInterrupt,
-        wasInterrupted: true, // Initially true
-      }),
+      <ComposerHints wasInterrupted queuedCount={0} working={false} />,
     );
 
     try {
@@ -91,13 +68,11 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
 
       // Re-render with wasInterrupted: false
       rerender(
-        React.createElement(UserInput, {
-          onSubmit: mockOnSubmit,
-          isWaitingForResponse: false,
-          inputMode: true,
-          onInterrupt: mockOnInterrupt,
-          wasInterrupted: false, // Now false
-        }),
+        <ComposerHints
+          wasInterrupted={false}
+          queuedCount={0}
+          working={false}
+        />,
       );
 
       // Should not show interruption message
@@ -164,43 +139,38 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     }
   });
 
-  it("shows interruption message above input box in correct position", () => {
+  it("draws the interruption hint in the footer, below the input", () => {
     const mockOnSubmit = vi.fn();
     const mockOnInterrupt = vi.fn();
 
     const { lastFrame, unmount } = track(
-      React.createElement(UserInput, {
-        onSubmit: mockOnSubmit,
-        isWaitingForResponse: false,
-        inputMode: true,
-        onInterrupt: mockOnInterrupt,
-        wasInterrupted: true,
-      }),
+      <>
+        <UserInput
+          onSubmit={mockOnSubmit}
+          isWaitingForResponse={false}
+          inputMode={true}
+          onInterrupt={mockOnInterrupt}
+          wasInterrupted
+        />
+        <ComposerHints wasInterrupted queuedCount={0} working={false} />
+      </>,
     );
 
     try {
       const frame = lastFrame();
       expect(frame).toBeDefined();
 
-      // The interruption message should appear before the input box
       const frameLines = frame?.split("\n") || [];
+      const foundInterruptionLine = frameLines.findIndex((line) =>
+        line.includes("Interrupted by user"),
+      );
+      const foundInputLine = frameLines.findIndex((line) => line.includes("❯"));
 
-      let foundInterruptionLine = -1;
-      let foundInputBoxLine = -1;
-
-      frameLines.forEach((line, index) => {
-        if (line.includes("Interrupted by user")) {
-          foundInterruptionLine = index;
-        }
-        if (line.includes(">") || line.includes("▋")) {
-          foundInputBoxLine = index;
-        }
-      });
-
-      // Interruption message should come before the input box
       expect(foundInterruptionLine).toBeGreaterThan(-1);
-      expect(foundInputBoxLine).toBeGreaterThan(-1);
-      expect(foundInterruptionLine).toBeLessThan(foundInputBoxLine);
+      expect(foundInputLine).toBeGreaterThan(-1);
+      // The hint belongs to the composer footer, under the input, not to the
+      // input's own dock.
+      expect(foundInterruptionLine).toBeGreaterThan(foundInputLine);
     } finally {
       unmount();
     }

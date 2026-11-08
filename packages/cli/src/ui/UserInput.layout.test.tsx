@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { services } from "../services/index.js";
 
-import { UserInput } from "./UserInput.js";
+import { promptMarker, UserInput } from "./UserInput.js";
 
 vi.mock("../session/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../session/index.js")>();
@@ -62,5 +62,76 @@ describe("UserInput above-composer rows", () => {
     } finally {
       tree.unmount();
     }
+  });
+
+  it("draws one rounded top rule and no bottom rule", async () => {
+    const tree = render(
+      <UserInput
+        onSubmit={vi.fn()}
+        inputMode={true}
+        isWaitingForResponse={false}
+        assistant={{} as any}
+      />,
+    );
+
+    try {
+      await tick();
+      const lines = (tree.lastFrame() ?? "").split("\n");
+      const rule = lines.findIndex((line) => line.includes("[Manual]"));
+
+      expect(rule).toBeGreaterThan(-1);
+      expect(lines[rule].trimStart().startsWith("╭")).toBe(true);
+      expect(lines[rule].trimEnd().endsWith("╮")).toBe(true);
+      expect(lines.some((line) => line.includes("╰"))).toBe(false);
+      expect(lines.some((line) => line.includes("│"))).toBe(false);
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("marks the prompt with the Claude pointer", async () => {
+    const tree = render(
+      <UserInput
+        onSubmit={vi.fn()}
+        inputMode={true}
+        isWaitingForResponse={false}
+        assistant={{} as any}
+      />,
+    );
+
+    try {
+      await tick();
+      const frame = tree.lastFrame() ?? "";
+
+      expect(frame).toContain("❯ ");
+      expect(frame).not.toContain("> ");
+    } finally {
+      tree.unmount();
+    }
+  });
+});
+
+describe("promptMarker", () => {
+  it("uses the subtle Claude pointer at rest", () => {
+    expect(promptMarker({ bash: false, remote: false, busy: false })).toEqual({
+      glyph: "❯ ",
+      tone: "subtle",
+      dim: false,
+    });
+  });
+
+  it("dims the pointer while a turn runs", () => {
+    expect(promptMarker({ bash: false, remote: false, busy: true }).dim).toBe(
+      true,
+    );
+  });
+
+  it("keeps the shell and remote marks", () => {
+    expect(promptMarker({ bash: true, remote: false, busy: false }).glyph).toBe(
+      "$ ",
+    );
+    expect(promptMarker({ bash: false, remote: true, busy: false }).glyph).toBe(
+      "◉ ",
+    );
   });
 });

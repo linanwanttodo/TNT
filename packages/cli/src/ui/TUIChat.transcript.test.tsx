@@ -105,9 +105,9 @@ describe("TUIChat transcript", () => {
 
       expect(answerIndex).toBeGreaterThan(-1);
       expect(composerIndex).toBeGreaterThan(answerIndex);
-      // The composer box is drawn in full: top border, prompt, bottom border.
+      // The composer keeps a single rounded top rule and no bottom rule.
       expect(lines[composerIndex - 1]).toContain("╭");
-      expect(lines[composerIndex + 1]).toContain("╰");
+      expect(lines.some((line) => line.includes("╰"))).toBe(false);
       // The frame stays inside the twelve rows it was given.
       expect(lines.length).toBeLessThanOrEqual(12);
     } finally {
@@ -317,15 +317,17 @@ describe("TUIChat transcript", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       const lines = (lastFrame() ?? "").split("\n");
       const messageIndex = lines.findIndex((line) => line.includes("answer 1"));
-      const spinnerIndex = lines.findIndex((line) =>
-        line.includes("esc to interrupt"),
-      );
+      const spinnerIndex = lines.findIndex((line) => line.includes("Thinking"));
 
       expect(messageIndex).toBeGreaterThan(-1);
       expect(spinnerIndex).toBeGreaterThan(messageIndex);
       // The spinner lives in the transcript flow, not pinned above the
       // composer with the leftover rows in between.
       expect(spinnerIndex - messageIndex).toBeLessThanOrEqual(2);
+      // The interrupt key lives in the composer footer instead.
+      expect(lines.some((line) => line.includes("esc to interrupt"))).toBe(
+        true,
+      );
     } finally {
       unmount();
     }

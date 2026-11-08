@@ -37,23 +37,12 @@ import {
   updateTextBufferState,
 } from "./hooks/useUserInput.js";
 import { SlashCommandUI } from "./SlashCommandUI.js";
+import { claudeGlyphs } from "./symbols.js";
 import { TextBuffer } from "./TextBuffer.js";
 import { useTheme } from "./theme/tokens.js";
 import { isTerminalMouseSequence } from "./utils/mouse.js";
 
-// Small presentational helpers to reduce cyclomatic complexity in UserInput
-const InterruptedBanner: React.FC<{ wasInterrupted: boolean }> = ({
-  wasInterrupted,
-}) => {
-  useLocale();
-  if (!wasInterrupted) return null;
-  return (
-    <Box paddingX={1} marginBottom={0}>
-      <Text color="yellow">{t("interrupted.message")}</Text>
-    </Box>
-  );
-};
-
+// Small presentational helper to reduce cyclomatic complexity in UserInput
 const SlashCommandsMaybe: React.FC<{
   show: boolean;
   inputMode: boolean;
@@ -152,6 +141,62 @@ function visibleSuggestionText(input: {
     ? input.suggestion.text
     : null;
 }
+
+export type PromptMarkerTone = "subtle" | "bash" | "remote";
+
+export interface PromptMarker {
+  glyph: string;
+  tone: PromptMarkerTone;
+  /** A running turn fades the pointer while the answer arrives. */
+  dim: boolean;
+}
+
+/**
+ * The mark before the input. The normal prompt is Claude Code's pointer in the
+ * subtle colour; shell mode keeps its `$` and remote mode its own mark so the
+ * mode stays readable at a glance.
+ */
+export function promptMarker(input: {
+  bash: boolean;
+  remote: boolean;
+  busy: boolean;
+}): PromptMarker {
+  if (input.bash) {
+    return { glyph: "$ ", tone: "bash", dim: input.busy };
+  }
+  if (input.remote) {
+    return { glyph: "◉ ", tone: "remote", dim: input.busy };
+  }
+  return {
+    glyph: `${claudeGlyphs().promptPointer} `,
+    tone: "subtle",
+    dim: input.busy,
+  };
+}
+
+const ComposerPrompt: React.FC<{
+  bash: boolean;
+  remote: boolean;
+  busy: boolean;
+  subtle: string;
+}> = ({ bash, remote, busy, subtle }) => {
+  const marker = promptMarker({ bash, remote, busy });
+  return (
+    <Text
+      color={
+        marker.tone === "bash"
+          ? "yellow"
+          : marker.tone === "remote"
+            ? "cyan"
+            : subtle
+      }
+      dimColor={marker.dim}
+      bold={marker.tone !== "subtle"}
+    >
+      {marker.glyph}
+    </Text>
+  );
+};
 
 interface UserInputProps {
   onSubmit: (message: string, imageMap?: Map<string, Buffer>) => void;
@@ -1025,8 +1070,6 @@ const UserInput: React.FC<UserInputProps> = ({
 
   return (
     <Box flexDirection="column">
-      <InterruptedBanner wasInterrupted={!!wasInterrupted} />
-
       {/* One muted row above the composer while the history search is open:
           the query, the position in the match list, and the keys. */}
       {historySearch.search.active && (
@@ -1068,12 +1111,12 @@ const UserInput: React.FC<UserInputProps> = ({
       />
 
       {/* Goal, todos and running background work belong to the dock above the
-          box; the mode badge below is the box's own top border. */}
+          rule; the mode badge is embedded in that single top rule. */}
       <GoalIndicator />
 
       <TodoIndicator />
 
-      {/* Active mode is embedded in the composer's top border rule. */}
+      {/* Active mode is embedded in the composer's single top rule. */}
       <ModeIndicator
         mode={currentMode}
         borderColor={
@@ -1081,21 +1124,16 @@ const UserInput: React.FC<UserInputProps> = ({
         }
       />
 
-      {/* Input box */}
-      <Box
-        borderStyle="round"
-        borderTop={false}
-        paddingX={1}
-        borderColor={
-          showBashMode ? "yellow" : isRemoteMode ? "cyan" : theme.accent
-        }
-      >
-        <Text
-          color={showBashMode ? "yellow" : isRemoteMode ? "cyan" : theme.accent}
-          bold
-        >
-          {showBashMode ? "$ " : isRemoteMode ? "◉ " : "> "}
-        </Text>
+      {/* The input has no sides, no bottom rule and its own padding: the rule
+          above is the whole frame, as in Claude Code. */}
+      <Box paddingX={1}>
+        {/* A running turn fades the pointer, the same state as the spinner. */}
+        <ComposerPrompt
+          bash={showBashMode}
+          remote={isRemoteMode}
+          busy={isWaitingForResponse || isCompacting}
+          subtle={theme.text.subtle}
+        />
         {renderInputText()}
       </Box>
     </Box>
