@@ -1,3 +1,6 @@
+import { IBroadcastService, ISettingService } from "@zcode/services";
+import { DEFAULT_LOCALE, type AppSettings } from "@zcode/shared";
+
 /**
  * Unavailable services for the ZCode UI host.
  *
@@ -64,4 +67,50 @@ export function stubService<T>(channelName: string): T {
       return rejectUnavailable;
     },
   }) as T;
+}
+
+/**
+ * A stub with a handful of members replaced by working implementations. The
+ * rest keeps `stubService`'s behaviour: events are inert and every other
+ * method rejects `ZCODE_UNAVAILABLE:<channel>`.
+ */
+export function stubServiceWith<T extends object>(
+  channelName: string,
+  overrides: Partial<Record<keyof T, unknown>>,
+): T {
+  const stub = stubService<T>(channelName);
+  return new Proxy(stub as object, {
+    get(target, property, receiver) {
+      if (
+        typeof property === "string" &&
+        Object.prototype.hasOwnProperty.call(overrides, property)
+      ) {
+        return (overrides as Record<string, unknown>)[property];
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  }) as T;
+}
+
+/**
+ * settingService as `ZCodeIntlProvider` consumes it: `get()` resolves the
+ * AppSettings fields the type requires so the provider's uncaught `.then`
+ * chain settles, while every write still reports the service as unavailable.
+ */
+export function stubSettingService(): ISettingService {
+  return stubServiceWith<ISettingService>(ISettingService.channelName, {
+    get: (): Promise<AppSettings> =>
+      Promise.resolve({ recentProjects: [], locale: DEFAULT_LOCALE }),
+  });
+}
+
+/**
+ * broadcastService as `ZCodeIntlProvider` consumes it: the provider calls
+ * `send(...).finally(...)` without a catch, so a rejected send would surface
+ * as an unhandled rejection; the stub accepts the broadcast and drops it.
+ */
+export function stubBroadcastService(): IBroadcastService {
+  return stubServiceWith<IBroadcastService>(IBroadcastService.channelName, {
+    send: (): Promise<void> => Promise.resolve(),
+  });
 }

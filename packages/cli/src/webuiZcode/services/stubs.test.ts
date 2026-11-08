@@ -1,6 +1,13 @@
+import { IBroadcastService, ISettingService } from "@zcode/services";
+import { DEFAULT_LOCALE } from "@zcode/shared";
 import { describe, expect, it, vi } from "vitest";
 
-import { stubService } from "./stubs.js";
+import {
+  ZCODE_UNAVAILABLE_PREFIX,
+  stubBroadcastService,
+  stubService,
+  stubSettingService,
+} from "./stubs.js";
 
 type InertDisposable = { dispose(): void };
 type InertEvent = (listener: (value: unknown) => void) => InertDisposable;
@@ -38,6 +45,43 @@ describe("stubService", () => {
     expect(event).toBe(stub.onDidThing);
 
     const subscription = event(listener);
+    expect(typeof subscription.dispose).toBe("function");
+    subscription.dispose();
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolving service stubs", () => {
+  it("resolves the AppSettings defaults from settingService.get", async () => {
+    await expect(stubSettingService().get()).resolves.toEqual({
+      recentProjects: [],
+      locale: DEFAULT_LOCALE,
+    });
+  });
+
+  it("still rejects setting writes with the channel code", async () => {
+    await expect(
+      stubSettingService().update({ locale: "en-US" }),
+    ).rejects.toThrow(
+      `${ZCODE_UNAVAILABLE_PREFIX}${ISettingService.channelName}`,
+    );
+  });
+
+  it("resolves broadcastService.send while claims stay unavailable", async () => {
+    const service = stubBroadcastService();
+
+    await expect(
+      service.send({ channel: "state:locale", payload: "en-US" }),
+    ).resolves.toBeUndefined();
+    await expect(service.acquireClaim("key")).rejects.toThrow(
+      `${ZCODE_UNAVAILABLE_PREFIX}${IBroadcastService.channelName}`,
+    );
+  });
+
+  it("keeps broadcastService.onMessage inert", () => {
+    const listener = vi.fn();
+    const subscription = stubBroadcastService().onMessage(listener);
+
     expect(typeof subscription.dispose).toBe("function");
     subscription.dispose();
     expect(listener).not.toHaveBeenCalled();
