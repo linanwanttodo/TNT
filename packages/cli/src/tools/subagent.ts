@@ -22,7 +22,7 @@ import {
   formatSubagentToolResult,
   noteVerificationOutcome,
 } from "../subagent/report.js";
-import { loadTeams } from "../team/loader.js";
+import { loadTeams, type TeamDefinition } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 
 import { Tool } from "./types.js";
@@ -51,10 +51,17 @@ function getPluginAgents(): {
  * plugin agent was listed but never dispatched: both run on the session's own
  * model, renamed, with the persona the dispatch chain resolved as their base
  * system message - the same inherit pattern ModelService uses for built-ins.
+ *
+ * A team member that names a model runs on that model instead. The name is
+ * matched the way ModelService.findModelByName matches it (entry name or model
+ * id); an unknown name logs and falls back to the session model rather than
+ * failing the dispatch. The roster persona stays the base system message, and a
+ * configured agent of the same name still shadows the member entirely.
  */
-function resolveAgentState(
+export function resolveAgentState(
   name: string,
   modelServiceState: ModelServiceState,
+  activeTeam?: TeamDefinition,
 ): ModelServiceState | null {
   const configured = ModelService.getSubagentModels(modelServiceState).find(
     (agent) => agent.model.name === name,
@@ -66,13 +73,22 @@ function resolveAgentState(
   const dispatchable = resolveDispatchableAgent(
     name,
     modelServiceState,
-    getActiveTeam(),
+    activeTeam ?? getActiveTeam(),
   );
   if (!dispatchable) {
     return null;
   }
 
-  const inheritFrom = modelServiceState.model;
+  const assigned = dispatchable.model
+    ? ModelService.findModelByName(modelServiceState, dispatchable.model)
+    : null;
+  if (dispatchable.model && !assigned) {
+    logger.warn(
+      `Team member ${name} asks for unknown model "${dispatchable.model}": falling back to the session model`,
+    );
+  }
+
+  const inheritFrom = assigned?.model ?? modelServiceState.model;
   if (!inheritFrom || !dispatchable.systemMessage) {
     return null;
   }

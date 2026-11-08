@@ -23,6 +23,11 @@ export interface TeamMember {
    * their text. Ignored when absent.
    */
   builtInRef?: string;
+  /**
+   * The model this member runs on, resolved by name at dispatch time. Unset
+   * means the member inherits the session's model.
+   */
+  model?: string;
   systemMessage: string;
   source: "project" | "global" | "default";
 }
@@ -131,6 +136,17 @@ function parseMember(
           .filter(Boolean)
       : undefined;
 
+  const modelRaw = frontmatter.model;
+  const model =
+    typeof modelRaw === "string" && modelRaw.trim()
+      ? modelRaw.trim()
+      : undefined;
+  if (modelRaw !== undefined && typeof modelRaw !== "string") {
+    logger.warn(
+      `Team member ${filePath} declares an invalid model "${String(modelRaw)}": ignoring it`,
+    );
+  }
+
   return {
     name,
     description:
@@ -141,6 +157,7 @@ function parseMember(
     lead: frontmatter.lead === true,
     restriction,
     deniedTools,
+    model,
     systemMessage: markdown,
     source,
   };
