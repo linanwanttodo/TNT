@@ -38,7 +38,8 @@
   },
   "scripts": {
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "postinstall": "node ../scripts/apply-vendor-patches.mjs"
   },
   "dependencies": {
     "@zcode/model-option-map": "file:../model-option-map",

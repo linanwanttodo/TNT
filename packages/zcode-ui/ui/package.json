@@ -20,7 +20,8 @@
   },
   "scripts": {
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "postinstall": "node ../scripts/apply-vendor-patches.mjs"
   },
   "dependencies": {
     "@aiden0z/pptx-renderer": "1.2.4",
