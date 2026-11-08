@@ -63,12 +63,22 @@ function writeProjectSetting(key: string, value: unknown): void {
 
 const GOAL = "让 /goal 命令的输出带上下文";
 
+/** The rules block is split per source; its text is every userRules section. */
+function rulesText(
+  sections: readonly { name: string; text: string }[],
+): string {
+  return sections
+    .filter((section) => section.name.startsWith("userRules"))
+    .map((section) => section.text)
+    .join("");
+}
+
 describe("the goal alignment line in the userRules section", () => {
   it("is absent without a goal: the session is byte-identical to the no-goal shape", async () => {
     const sections = await buildSystemMessageSections("default");
 
     expect(
-      sections.find((section) => section.name === "userRules"),
+      sections.find((section) => section.name.startsWith("userRules")),
     ).toBeUndefined();
   });
 
@@ -76,14 +86,13 @@ describe("the goal alignment line in the userRules section", () => {
     sessionState.goal = GOAL;
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
+    const rules = rulesText(sections);
 
-    expect(rules).toBeDefined();
-    expect(rules?.volatile).toBe(true);
-    expect(rules?.text).toContain(GOAL);
-    expect(rules?.text).toContain("goal-align");
+    expect(sections.some((section) => section.name === "userRules")).toBe(true);
+    expect(rules).toContain(GOAL);
+    expect(rules).toContain("goal-align");
     // No receptionist discipline without an active team.
-    expect(rules?.text).not.toContain("team-reception");
+    expect(rules).not.toContain("team-reception");
   });
 
   it("stays present when a team is active, next to the reception discipline", async () => {
@@ -91,10 +100,10 @@ describe("the goal alignment line in the userRules section", () => {
     sessionState.activeTeam = "dev";
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
+    const rules = rulesText(sections);
 
-    expect(rules?.text).toContain("goal-align");
-    expect(rules?.text).toContain(GOAL);
+    expect(rules).toContain("goal-align");
+    expect(rules).toContain(GOAL);
   });
 
   it("disappears on the next turn after /goal clear", async () => {
@@ -105,7 +114,7 @@ describe("the goal alignment line in the userRules section", () => {
     const after = await buildSystemMessageSections("default");
 
     expect(
-      after.find((section) => section.name === "userRules"),
+      after.find((section) => section.name.startsWith("userRules")),
     ).toBeUndefined();
   });
 
@@ -124,19 +133,11 @@ describe("the autoConvoke instruction in the userRules section", () => {
     sessionState.goal = GOAL;
 
     const unset = await buildSystemMessageSections("default");
-    expect(
-      unset
-        .find((section) => section.name === "userRules")
-        ?.text.includes("convoke"),
-    ).toBe(false);
+    expect(rulesText(unset).includes("convoke")).toBe(false);
 
     writeProjectSetting("team.autoConvoke", false);
     const off = await buildSystemMessageSections("default");
-    expect(
-      off
-        .find((section) => section.name === "userRules")
-        ?.text.includes("convoke"),
-    ).toBe(false);
+    expect(rulesText(off).includes("convoke")).toBe(false);
   });
 
   it("carries the convoke instruction when the switch is true, riding the volatile section", async () => {
@@ -144,12 +145,11 @@ describe("the autoConvoke instruction in the userRules section", () => {
     writeProjectSetting("team.autoConvoke", true);
 
     const sections = await buildSystemMessageSections("default");
-    const rules = sections.find((section) => section.name === "userRules");
+    const rules = rulesText(sections);
 
-    expect(rules).toBeDefined();
-    expect(rules?.volatile).toBe(true);
-    expect(rules?.text).toContain("goal-align");
-    expect(rules?.text).toContain("team-convoke");
+    expect(sections.some((section) => section.name === "userRules")).toBe(true);
+    expect(rules).toContain("goal-align");
+    expect(rules).toContain("team-convoke");
   });
 
   it("vanishes on the next turn when the switch turns off", async () => {
@@ -160,10 +160,6 @@ describe("the autoConvoke instruction in the userRules section", () => {
     writeProjectSetting("team.autoConvoke", false);
     const after = await buildSystemMessageSections("default");
 
-    expect(
-      after
-        .find((section) => section.name === "userRules")
-        ?.text.includes("team-convoke"),
-    ).toBe(false);
+    expect(rulesText(after).includes("team-convoke")).toBe(false);
   });
 });

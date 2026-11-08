@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   advanceSystemPrompt,
+  appendSystemPromptUpdates,
+  reanchorSystemPromptUpdates,
   type SystemPromptRoundState,
 } from "./systemPromptRound.js";
 
@@ -126,5 +128,57 @@ describe("the system prompt state a round moves", () => {
     });
 
     expect(result.warnings.join(" ")).toContain("userRules rewritten");
+  });
+});
+
+describe("where an in-history update is produced", () => {
+  it("records the history position the round appended it at", () => {
+    const state = makeState({ previous: "first", request: "first" });
+
+    advanceSystemPrompt({
+      state,
+      next: "second",
+      modelName: "test-model",
+      carriesInHistory: true,
+      historyLength: 7,
+    });
+
+    expect(state.updates).toEqual(["second"]);
+    expect(state.updateAnchors).toEqual([7]);
+  });
+
+  it("keeps the two arrays aligned when more updates arrive", () => {
+    const state = makeState({
+      previous: "first",
+      request: "first",
+      updates: ["old"],
+      updateAnchors: [3],
+    });
+
+    appendSystemPromptUpdates(state, ["one", "two"], 9);
+
+    expect(state.updates).toEqual(["old", "one", "two"]);
+    expect(state.updateAnchors).toEqual([3, 9, 9]);
+  });
+
+  it("re-points every update after a history rewrite", () => {
+    const state = makeState({
+      previous: "first",
+      request: "first",
+      updates: ["one", "two"],
+      updateAnchors: [2, 5],
+    });
+
+    reanchorSystemPromptUpdates(state, 1);
+
+    expect(state.updateAnchors).toEqual([1, 1]);
+    expect(state.updates).toEqual(["one", "two"]);
+  });
+
+  it("does nothing to a series with no updates", () => {
+    const state = makeState();
+    reanchorSystemPromptUpdates(state, 4);
+    expect(state.updates).toEqual([]);
+    expect(state.updateAnchors).toBeUndefined();
   });
 });

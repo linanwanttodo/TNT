@@ -282,23 +282,35 @@ export interface SystemMessageSection {
 }
 
 /**
+ * One independently changeable piece of the rules block. The id is the identity
+ * the reinjection planner tracks across rounds, so editing one rule file only
+ * restates that file's bytes instead of the whole rules block.
+ */
+export interface RuleSource {
+  readonly id: string;
+  readonly text: string;
+}
+
+/**
  * The memory file TNT keeps itself, global first then the project's, so a
  * lesson learned in one project can apply everywhere without overriding a
  * project-specific decision. Both sit beside the settings they belong to.
  */
-function memoryLayers(): string[] {
-  const layers: string[] = [];
+function memoryLayers(): RuleSource[] {
+  const layers: RuleSource[] = [];
   const globalMemory = path.join(env.continueHome, "TNT.md");
   if (fs.existsSync(globalMemory)) {
-    layers.push(
-      `Global memory from TNT.md:\n${loadInstructionFile(globalMemory)}`,
-    );
+    layers.push({
+      id: "userRules:memory:global",
+      text: `Global memory from TNT.md:\n${loadInstructionFile(globalMemory)}`,
+    });
   }
   const projectMemory = path.join(process.cwd(), ".tnt", "TNT.md");
   if (fs.existsSync(projectMemory)) {
-    layers.push(
-      `Project memory from TNT.md:\n${loadInstructionFile(projectMemory)}`,
-    );
+    layers.push({
+      id: "userRules:memory:project",
+      text: `Project memory from TNT.md:\n${loadInstructionFile(projectMemory)}`,
+    });
   }
   return layers;
 }
@@ -360,12 +372,13 @@ function autoConvokeBlock(): string | undefined {
 }
 
 /**
- * The rule material the userRules section carries: the memory/agent-file
- * layers as one content string, plus every processed rule source in order.
+ * The rule material the userRules section carries, kept as separate sources:
+ * the memory/agent-file layers, then every processed rule in order. Keeping
+ * them apart is what lets one edited file restate only its own bytes.
  */
 async function collectRuleMaterial(
   additionalRules?: string[],
-): Promise<{ agentContent: string; processedRules: string[] }> {
+): Promise<RuleSource[]> {
   const agentFiles = [
     ".tnt/AGENTS.md",
     "AGENTS.md",
@@ -373,7 +386,7 @@ async function collectRuleMaterial(
     "CLAUDE.md",
     "CODEX.md",
   ];
-  const layers: string[] = [...memoryLayers()];
+  const sources: RuleSource[] = [...memoryLayers()];
 
   try {
     for (const fileName of agentFiles) {
@@ -382,37 +395,36 @@ async function collectRuleMaterial(
       if (fs.existsSync(filePath)) {
         // The local file is the personal layer over the committed one, so both
         // are read when both exist, and each says which it is.
-        layers.push(
-          `Rules from ${fileName}:\n${loadInstructionFile(filePath)}`,
-        );
+        sources.push({
+          id: `userRules:agent:${fileName}`,
+          text: `Rules from ${fileName}:\n${loadInstructionFile(filePath)}`,
+        });
         break; // Use the first found agent file
       }
     }
 
     const localPath = path.join(process.cwd(), "AGENTS.local.md");
     if (fs.existsSync(localPath)) {
-      layers.push(
-        `Rules from AGENTS.local.md, which is not committed:\n${loadInstructionFile(localPath)}`,
-      );
+      sources.push({
+        id: "userRules:agent-local",
+        text: `Rules from AGENTS.local.md, which is not committed:\n${loadInstructionFile(localPath)}`,
+      });
     }
   } catch (error) {
     // If there's any error reading the file, continue without agent content
     console.warn(t("common.agentConfigReadFailed"), error);
   }
 
-  const agentContent = layers.join("\n\n");
-
   // Process additional rules from --rule flags
-  const processedRules: string[] = [];
   if (additionalRules && additionalRules.length > 0) {
-    for (const ruleSpec of additionalRules) {
+    for (let index = 0; index < additionalRules.length; index++) {
       try {
-        const processedRule = await processRule(ruleSpec);
-        processedRules.push(processedRule);
+        const processedRule = await processRule(additionalRules[index]);
+        sources.push({ id: `userRules:cli:${index}`, text: processedRule });
       } catch (error: any) {
         console.warn(
           t("common.ruleProcessFailed", {
-            rule: ruleSpec,
+            rule: additionalRules[index],
             message: error.message,
           }),
         );
@@ -420,21 +432,37 @@ async function collectRuleMaterial(
     }
   }
 
+  const processedRules = sources
+    .filter((source) => source.id.startsWith("userRules:cli:"))
+    .map((source) => source.text);
   const configYamlRules = await getConfigYamlRules();
-  processedRules.push(...configYamlRules);
+  configYamlRules.forEach((rule, index) => {
+    if (rule) {
+      sources.push({ id: `userRules:config:${index}`, text: rule });
+      processedRules.push(rule);
+    }
+  });
 
   // Load markdown rules from .tnt/rules/ directories
   const markdownRules = loadMarkdownRulesWithMetadata();
   // Deduplicate against already-loaded rules
   const existingRulesSet = new Set(processedRules);
-  for (const rule of markdownRules) {
-    if (!existingRulesSet.has(rule.rule)) {
-      processedRules.push(rule.rule);
-      existingRulesSet.add(rule.rule);
-    }
-  }
+  const seenIds = new Set(sources.map((source) => source.id));
+  markdownRules.forEach((rule, index) => {
+    if (existingRulesSet.has(rule.rule)) return;
+    existingRulesSet.add(rule.rule);
+    const relative = rule.sourceFile
+      ? path.relative(process.cwd(), rule.sourceFile)
+      : "";
+    let id = `userRules:rule:${relative || rule.name || index}`;
+    // Two sources must never share an id: the planner would treat them as one
+    // and restate neither. Fall back to the position when the path repeats.
+    if (seenIds.has(id)) id = `${id}#${index}`;
+    seenIds.add(id);
+    sources.push({ id, text: rule.rule });
+  });
 
-  return { agentContent, processedRules };
+  return sources.filter((source) => source.text !== "");
 }
 
 /**
@@ -448,16 +476,21 @@ interface SectionBuildContext {
   readonly format?: OutputFormat;
   readonly headless?: boolean;
   readonly profile?: PromptProfile;
-  readonly agentContent: string;
-  readonly processedRules: string[];
+  readonly ruleSources: readonly RuleSource[];
 }
 
 interface SectionDefinition {
   /** The section name as every consumer and the marker table know it. */
   readonly id: string;
   readonly kind: SectionKind;
-  /** Null when the section does not apply to this request shape. */
-  build(ctx: SectionBuildContext): SystemMessageSection | null;
+  /**
+   * Null when the section does not apply to this request shape. A definition
+   * may emit several sections: the rules block is one announced part of the
+   * prefix but many independently changeable sources inside it.
+   */
+  build(
+    ctx: SectionBuildContext,
+  ): SystemMessageSection | SystemMessageSection[] | null;
 }
 
 /**
@@ -552,7 +585,9 @@ Example response format:
   },
   {
     // The rules block is the last thing in the prefix, so its own wording stays
-    // fixed and only the user's text changes.
+    // fixed and only the user's text changes. Each source inside it is its own
+    // section: the wrapper and the preamble never move, and an edited rule
+    // restates only the rule that changed instead of the whole block.
     id: "userRules",
     kind: "diffable",
     build: (ctx) => {
@@ -560,30 +595,38 @@ Example response format:
       const goalBlock = goalAlignmentBlock();
       const convokeBlock = autoConvokeBlock();
 
-      if (
-        !ctx.agentContent &&
-        ctx.processedRules.length === 0 &&
-        !teamLeadBlock &&
-        !goalBlock &&
-        !convokeBlock
-      ) {
-        return null;
+      const trailing: RuleSource[] = [];
+      if (goalBlock) trailing.push({ id: "userRules:goal", text: goalBlock });
+      if (convokeBlock) {
+        trailing.push({ id: "userRules:convoke", text: convokeBlock });
+      }
+      if (teamLeadBlock) {
+        trailing.push({ id: "userRules:team", text: teamLeadBlock });
       }
 
-      const blocks = [RULES_PREAMBLE];
-      if (ctx.agentContent) blocks.push(ctx.agentContent);
-      blocks.push(...ctx.processedRules);
-      if (goalBlock) blocks.push(goalBlock);
-      if (convokeBlock) blocks.push(convokeBlock);
-      if (teamLeadBlock) blocks.push(teamLeadBlock);
+      const sources = [...ctx.ruleSources, ...trailing];
+      if (sources.length === 0) return null;
 
-      return {
-        name: "userRules",
-        text: `\n\n<context name="userRules">\n${blocks.join(
-          "\n\n",
-        )}\n</context>`,
-        volatile: true,
-      };
+      // The concatenation is byte-for-byte the single block this used to be:
+      // the opening wrapper and preamble first, each source separated by the
+      // blank line it carries, and the closing tag last.
+      return [
+        {
+          name: "userRules",
+          text: `\n\n<context name="userRules">\n${RULES_PREAMBLE}`,
+          volatile: true,
+        },
+        ...sources.map((source) => ({
+          name: source.id,
+          text: `\n\n${source.text}`,
+          volatile: true,
+        })),
+        {
+          name: "userRules:end",
+          text: "\n</context>",
+          volatile: true,
+        },
+      ];
     },
   },
   {
@@ -606,8 +649,7 @@ export async function buildSystemMessageSections(
   headless?: boolean,
   profile?: PromptProfile,
 ): Promise<SystemMessageSection[]> {
-  const { agentContent, processedRules } =
-    await collectRuleMaterial(additionalRules);
+  const ruleSources = await collectRuleMaterial(additionalRules);
 
   // Each part of the prefix is built as its own section so a later request can
   // say which part moved instead of only that the system message differs: the
@@ -620,14 +662,18 @@ export async function buildSystemMessageSections(
     format,
     headless,
     profile,
-    agentContent,
-    processedRules,
+    ruleSources,
   };
 
   const sections: SystemMessageSection[] = [];
   for (const definition of SECTION_REGISTRY) {
-    const section = definition.build(ctx);
-    if (section !== null) sections.push(section);
+    const built = definition.build(ctx);
+    if (built === null) continue;
+    if (Array.isArray(built)) {
+      sections.push(...built);
+    } else {
+      sections.push(built);
+    }
   }
   return sections;
 }

@@ -179,6 +179,9 @@ Example response format:
       "headless",
       "jsonOutput",
       "userRules",
+      "userRules:agent:AGENTS.md",
+      "userRules:cli:0",
+      "userRules:end",
       "environment",
     ]);
     expect(joinSystemMessageSections(sections)).toBe(
@@ -242,13 +245,17 @@ describe("the section registry guards", () => {
     const ids = SECTION_REGISTRY.map((definition) => definition.id);
     let cursor = 0;
     for (const section of sections) {
-      const at = ids.indexOf(section.name, cursor);
+      // A definition may emit child sections whose names extend its id. They
+      // belong to the same position in the registry order as their owner.
+      const owner = ids.includes(section.name)
+        ? section.name
+        : section.name.split(":")[0];
+      const at = ids.indexOf(owner);
       expect(at).toBeGreaterThanOrEqual(cursor);
-      cursor = at + 1;
-      expect(ids).toContain(section.name);
+      cursor = at;
+      expect(ids).toContain(owner);
     }
-    // Nothing registered was silently renamed: every id is either emitted or
-    // a definition that declined this request shape.
+    // Nothing registered was silently renamed: every emitted name is unique.
     expect(new Set(sections.map((part) => part.name)).size).toBe(
       sections.length,
     );
