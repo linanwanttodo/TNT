@@ -39,6 +39,7 @@ import {
   IZCodeSessionService,
   IZCodeTaskService,
   ServiceCollection,
+  type IServiceAccessor,
   type ServiceDescriptor,
 } from "@zcode/services";
 
@@ -51,54 +52,67 @@ export interface ZcodeServiceCollectionDeps {
   workspacePath: string;
 }
 
+type OptionalAccessorKey = {
+  [K in keyof IServiceAccessor]: undefined extends IServiceAccessor[K]
+    ? K
+    : never;
+}[keyof IServiceAccessor];
+
+type RequiredAccessorKey = Exclude<keyof IServiceAccessor, OptionalAccessorKey>;
+
 /**
  * Every service `IServiceAccessor` declares as required. Tasks 9-11 replace
  * these entries with real implementations; until then the host answers all of
  * them so the shell can paint and show its per-service unavailable state
  * instead of hanging on a channel that never registered.
+ *
+ * A Record rather than an array: `satisfies` pins the coverage, so adding a
+ * required member to `IServiceAccessor` fails `tsc` until it is registered.
  */
+const ZCODE_REQUIRED_SERVICE_DESCRIPTORS_BY_KEY = {
+  fileService: IFileService,
+  gitService: IGitService,
+  gitCheckpointService: IGitCheckpointService,
+  settingService: ISettingService,
+  systemService: ISystemService,
+  terminalService: ITerminalService,
+  broadcastService: IBroadcastService,
+  credentialService: ICredentialService,
+  zcodeTaskService: IZCodeTaskService,
+  zcodeAgentService: IZCodeAgentService,
+  zcodeSessionService: IZCodeSessionService,
+  conversationShareService: IConversationShareService,
+  botsService: IBotsService,
+  fileWatcherService: IFileWatcherService,
+  oauthService: IOAuthService,
+  providerSettingsService: IProviderSettingsService,
+  modelSelectionService: IModelSelectionService,
+  sourceServerWorkspaceService: ISourceServerWorkspaceService,
+  usageStatsService: IUsageStatsService,
+  codingPlanSubscriptionService: ICodingPlanSubscriptionService,
+  clientConfigService: IClientConfigService,
+  clientScenesService: IClientScenesService,
+  offPeakTaskService: IOffPeakTaskService,
+  highspeedCardService: IHighspeedCardService,
+  skillsService: ISkillsService,
+  skillSyncService: ISkillSyncService,
+  mcpSyncService: IMcpSyncService,
+  pluginSyncService: IPluginSyncService,
+  settingsSyncService: ISettingsSyncService,
+  userConfigSyncService: IUserConfigSyncService,
+  pluginsService: IPluginsService,
+  pluginManagementService: IPluginManagementService,
+  subagentsService: ISubagentsService,
+  commandsService: ICommandsService,
+  hooksService: IHooksService,
+  memoryService: IMemoryService,
+  outputStyleService: IOutputStyleService,
+  feedbackService: IFeedbackService,
+  promptAttachmentTransferService: IPromptAttachmentTransferService,
+} satisfies Record<RequiredAccessorKey, ServiceDescriptor<unknown>>;
+
 export const ZCODE_REQUIRED_SERVICE_DESCRIPTORS: readonly ServiceDescriptor<unknown>[] =
-  [
-    IFileService,
-    IGitService,
-    IGitCheckpointService,
-    ISettingService,
-    ISystemService,
-    ITerminalService,
-    IBroadcastService,
-    ICredentialService,
-    IZCodeTaskService,
-    IZCodeAgentService,
-    IZCodeSessionService,
-    IConversationShareService,
-    IBotsService,
-    IFileWatcherService,
-    IOAuthService,
-    IProviderSettingsService,
-    IModelSelectionService,
-    ISourceServerWorkspaceService,
-    IUsageStatsService,
-    ICodingPlanSubscriptionService,
-    IClientConfigService,
-    IClientScenesService,
-    IOffPeakTaskService,
-    IHighspeedCardService,
-    ISkillsService,
-    ISkillSyncService,
-    IMcpSyncService,
-    IPluginSyncService,
-    ISettingsSyncService,
-    IUserConfigSyncService,
-    IPluginsService,
-    IPluginManagementService,
-    ISubagentsService,
-    ICommandsService,
-    IHooksService,
-    IMemoryService,
-    IOutputStyleService,
-    IFeedbackService,
-    IPromptAttachmentTransferService,
-  ];
+  Object.values(ZCODE_REQUIRED_SERVICE_DESCRIPTORS_BY_KEY);
 
 export function buildZcodeServiceCollection(
   deps: ZcodeServiceCollectionDeps,

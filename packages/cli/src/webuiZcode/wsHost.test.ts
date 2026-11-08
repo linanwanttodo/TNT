@@ -230,7 +230,9 @@ describe("startWebUiZcodeHost", () => {
 
   it("gives each connection its own service scope", async () => {
     const probe = createProbeAgent();
+    let factoryCalls = 0;
     const services = (): ServiceCollection => {
+      factoryCalls += 1;
       const collection = new ServiceCollection();
       collection.register(
         IZCodeAgentService,
@@ -262,15 +264,17 @@ describe("startWebUiZcodeHost", () => {
       () => probe.subscriberCount() === 0,
       "server-side subscription disposal",
     );
-    first.dispose();
 
-    const afterClose = await rejection(
-      channel(first.client, IZCodeAgentService.channelName).call(
-        "readSession",
-        [],
-      ),
+    // Issue the request while the transport is closed but the client is not
+    // disposed, then dispose: the client must fail the in-flight request
+    // closed instead of leaving it pending forever.
+    const inFlight = channel(first.client, IZCodeAgentService.channelName).call(
+      "readSession",
+      [],
     );
-    expect(afterClose.message.length).toBeGreaterThan(0);
+    first.dispose();
+    const afterClose = await rejection(inFlight);
+    expect(afterClose.message).toBe("ChannelClient disposed");
     firstSubscription.dispose();
 
     const second = openClient(url);
@@ -294,6 +298,10 @@ describe("startWebUiZcodeHost", () => {
     secondSubscription.dispose();
     await second.closeTransport();
     probe.dispose();
+
+    // One factory run per accepted upgrade: a shared scope would have built
+    // once and let the second connection inherit the first's subscriptions.
+    expect(factoryCalls).toBe(2);
   });
 
   it("rejects every required service stub with ZCODE_UNAVAILABLE", async () => {

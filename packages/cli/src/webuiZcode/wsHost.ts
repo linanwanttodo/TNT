@@ -9,10 +9,9 @@ import {
   type ISocket,
 } from "@zcode/rpc";
 import type { ServiceCollection } from "@zcode/services";
-import type { Request } from "express";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 
-import { requestToken, tokenEquals } from "../services/webuiAuth.js";
+import { requestToken, tokenEquals } from "../utils/webuiToken.js";
 
 const WS_PATH = "/ws";
 
@@ -94,7 +93,7 @@ function wrapWebSocket(ws: WebSocket): ISocket {
 }
 
 function bearerOrCookieToken(req: http.IncomingMessage): string | undefined {
-  return requestToken(req as unknown as Request);
+  return requestToken(req);
 }
 
 function tokenFromUpgrade(req: http.IncomingMessage): string | undefined {
