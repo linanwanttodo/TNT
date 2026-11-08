@@ -161,6 +161,16 @@ The prefix is assembled in build order, each part announced so it can be attribu
   split holds: adding and removing an untracked file no longer moves any of the four digests, while
   rewording one clause in `base` moves all of them.
 
+- **Prefix changelog, 2026-11-09:** `SummonTeam` joined the built-in tools so the main agent
+  can hand the whole active team a goal in one call instead of relaying between the user and
+  the lead. One new definition adds 543 characters to the digested surface;
+  `f3ef5fdab202625c`/33446 over 41 tools became `973748ebc5cddf7a`/33989 over 42 tools. The
+  lead still runs through `executeSubAgent`, so restrictions, depth, permissions,
+  persistence and model resolution are the dispatch chain's. It is offered only behind the
+  Subagent beta flag with an active team, so the cold start lands in a session when the tool
+  first appears there; a session that never enables it bills the same bytes as before. The
+  definition is part of the registry digest in every session regardless.
+
 - **Prefix changelog, 2026-11-09:** `AssignTeamModel` joined the built-in tools so the main
   agent can put a team member on a configured model at run time. One new definition adds
   608 characters to the digested surface; `e643e3597265f28b`/32838 over 40 tools became
@@ -176,13 +186,13 @@ The prefix is assembled in build order, each part announced so it can be attribu
   characters - 279 characters of schema, a one-time cold start per session.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `f3ef5fdab202625c` over 41 tools and 33446 characters (name + description + parameter schema, in
+  `973748ebc5cddf7a` over 42 tools and 33989 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the
   project into another directory cold-started the cache for every session. The working
   directory is still stated, once, in the environment block.
-  All 41 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  All 42 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
   default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is

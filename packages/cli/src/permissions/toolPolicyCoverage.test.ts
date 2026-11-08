@@ -50,6 +50,8 @@ describe("tool policy coverage", () => {
     ListSubagents: "needs the beta flag and a run below the depth limit",
     AssignTeamModel:
       "needs the beta flag, a run below the depth limit and an active team",
+    SummonTeam:
+      "needs the beta flag, a run below the depth limit and an active team",
   };
 
   /** Withheld in every mode of this test's flags, so its absence is checkable. */
