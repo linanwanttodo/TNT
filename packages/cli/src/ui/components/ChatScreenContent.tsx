@@ -9,6 +9,7 @@ import { UserInput } from "../UserInput.js";
 
 import { QuizPrompt } from "./QuizPrompt.js";
 import { SubagentBreadcrumb } from "./SubagentBreadcrumb.js";
+import { SubagentTreeIndicator } from "./SubagentTreeIndicator.js";
 import { ToolPermissionSelector } from "./ToolPermissionSelector.js";
 
 interface ChatScreenContentProps {
@@ -90,6 +91,7 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
           parentSessionId={subagentView.parentSessionId}
         />
       )}
+      <SubagentTreeIndicator active={isWaitingForResponse} />
       <UserInput
         onSubmit={handleUserMessage}
         isWaitingForResponse={isWaitingForResponse}
