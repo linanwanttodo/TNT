@@ -24,6 +24,7 @@ import {
   webuiDistCandidates,
   type WebUiDist,
 } from "./webuiDist.js";
+import { readWebUiModelSource } from "./webuiModelSource.js";
 import { bootstrapPage } from "./webuiPages.js";
 import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
@@ -149,6 +150,7 @@ export class WebUiService {
               hostWorkspacePath,
             workspaceRoots: () => engines.roots(),
             workspaceEngines: engines,
+            modelSelectionSource: readWebUiModelSource,
           }),
       });
 

@@ -5,13 +5,6 @@ import {
   type ModelSelectionViewInput,
 } from "@zcode/services";
 
-import {
-  initializeServices,
-  serviceContainer,
-  SERVICE_NAMES,
-} from "../../services/index.js";
-import type { ConfigServiceState } from "../../services/types.js";
-
 /** The part of a TNT model entry the picker needs. */
 export interface TntModelEntry {
   name: string;
@@ -191,7 +184,7 @@ export function buildModelSelectionView(
  * endpoint from its config, as it does for the TUI picker.
  */
 export function createTntModelSelectionService(
-  read: () => Promise<TntModelSource> = loadTntModelSource,
+  read: () => Promise<TntModelSource>,
 ): IModelSelectionService {
   const changed = new Emitter<ModelSelectionView>();
   let revision = 0;
@@ -202,31 +195,5 @@ export function createTntModelSelectionService(
       revision = Math.max(revision, view.revision) + 1;
       return view;
     },
-  };
-}
-
-async function loadTntModelSource(): Promise<TntModelSource> {
-  await initializeServices({ headless: true });
-  const result = serviceContainer.getSync<ConfigServiceState>(
-    SERVICE_NAMES.CONFIG,
-  );
-  const config = result.state === "ready" ? result.value?.config : null;
-  const models = (config?.models ?? []).filter(
-    (model): model is NonNullable<typeof model> =>
-      typeof model?.name === "string" && model.name.length > 0,
-  );
-  return {
-    models: models.map((model) => ({
-      name: model.name,
-      provider: model.provider,
-      model: model.model,
-      apiBase: model.apiBase,
-      contextLength: model.contextLength,
-      maxOutputTokens: model.defaultCompletionOptions?.maxTokens,
-      useResponsesApi: model.useResponsesApi,
-      roles: model.roles,
-    })),
-    selected:
-      result.state === "ready" ? result.value?.selectedModel : undefined,
   };
 }
