@@ -18,6 +18,7 @@ import {
   IRemoteProjectService,
   ISettingService,
   ISystemService,
+  ITaskGroupService,
   ITerminalService,
   IZCodeAgentService,
   IZCodeSessionService,
@@ -174,6 +175,7 @@ describe("buildZcodeServiceCollection", () => {
         IModelSelectionService.channelName,
         IRemoteProjectService.channelName,
         IProjectService.channelName,
+        ITaskGroupService.channelName,
       ]),
     );
   });

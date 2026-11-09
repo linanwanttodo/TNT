@@ -30,6 +30,26 @@ vi.mock("./commands/index.js", () => ({
 const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * Key handling and the palette's derived state are React state updates, and a
+ * slow Windows runner can take longer than one tick to render them. Waiting on
+ * what the frame shows (or on the handler having fired) is the condition the
+ * test actually needs, not a fixed delay that happens to be long enough here.
+ */
+const waitFor = async (
+  predicate: () => boolean,
+  what: string,
+  timeoutMs = 2000,
+) => {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out waiting for ${what}`);
+    }
+    await tick(10);
+  }
+};
+
+/**
  * The palette used to print every command under the input box, and Enter on a
  * bare "/" ran the first of them. The palette is a short window above the
  * composer, Enter completing an actual prefix, and an empty filter never
@@ -177,9 +197,17 @@ describe("UserInput slash palette", () => {
     const tree = await renderInput();
     try {
       tree.stdin.write("/language z");
-      await tick();
+      // Wait until the child list has descended and applied the filter, so
+      // Enter meets the palette entry rather than the raw line.
+      await waitFor(
+        () => (tree.lastFrame() ?? "").includes("zh-CN"),
+        "the filtered child entry",
+      );
       tree.stdin.write("\r");
-      await tick();
+      await waitFor(
+        () => onSubmit.mock.calls.length > 0,
+        "the child command to be submitted",
+      );
 
       expect(onSubmit).toHaveBeenCalledWith("/language zh-CN");
     } finally {

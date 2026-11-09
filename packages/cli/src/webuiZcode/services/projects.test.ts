@@ -2,9 +2,11 @@ import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createWebUiProjectCatalog } from "../../services/webuiProjectCatalog.js";
+import { createSession } from "../../session/index.js";
+import { sessionStore } from "../../session/store.js";
 
 import {
   createTntProjectService,
@@ -12,8 +14,25 @@ import {
 } from "./projects.js";
 
 const cleanups: string[] = [];
+let previousGlobalDir: string | undefined;
+let testGlobalDir: string;
+
+beforeEach(() => {
+  previousGlobalDir = process.env.TNT_GLOBAL_DIR;
+  testGlobalDir = mkdtempSync(path.join(tmpdir(), "tnt-project-global-"));
+  process.env.TNT_GLOBAL_DIR = testGlobalDir;
+  sessionStore.clearAll();
+});
 
 afterEach(() => {
+  sessionStore.clearAll();
+  sessionStore.releaseAll();
+  rmSync(testGlobalDir, { recursive: true, force: true });
+  if (previousGlobalDir === undefined) {
+    delete process.env.TNT_GLOBAL_DIR;
+  } else {
+    process.env.TNT_GLOBAL_DIR = previousGlobalDir;
+  }
   for (const dir of cleanups.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -85,6 +104,40 @@ describe("createTntProjectService", () => {
     const tree = await service.readTree();
     expect(tree.projects).toEqual(projects);
     expect(tree.tasks).toEqual([]);
+  });
+
+  it("lists the workspace's sessions as project tasks", async () => {
+    const root = workspace();
+    const { service } = build(root);
+    const host = realpathSync(root);
+
+    const session = createSession([], "sess-task-1", {
+      source: "serve",
+      persistEmpty: false,
+    });
+    session.workspaceDirectory = host;
+    session.title = "Fix the flaky test";
+    sessionStore.sync(session);
+
+    // A session recorded in another workspace must not leak into this project.
+    const other = workspace();
+    const foreign = createSession([], "sess-task-other", {
+      source: "serve",
+      persistEmpty: false,
+    });
+    foreign.workspaceDirectory = realpathSync(other);
+    sessionStore.sync(foreign);
+
+    const tree = await service.readTree();
+    expect(tree.tasks.map((task) => task.taskId)).toEqual(["sess-task-1"]);
+    expect(tree.tasks[0]).toMatchObject({
+      title: "Fix the flaky test",
+      workspacePath: host,
+      projectId: `local:${host}`,
+      hostId: "local",
+      archived: false,
+    });
+    expect(tree.tasks[0]!.createdAt).toBeGreaterThan(0);
   });
 
   it("adds a workspace, calls engines.add, and persists it", async () => {

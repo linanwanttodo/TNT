@@ -45,7 +45,12 @@ describe("createWebUiProjectCatalog", () => {
     catalog.update(second.id, { deleted: true });
     catalog.reorder([second.id, first.id]);
 
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    // The 0600 mode is a POSIX guarantee; Windows derives st_mode from the
+    // read-only bit and ignores chmod's group/other bits, so it reports 0o666
+    // for any writable file regardless of this code.
+    if (process.platform !== "win32") {
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+    }
     expect(
       readdirSync(path.dirname(file)).filter((name) => name.endsWith(".tmp")),
     ).toEqual([]);

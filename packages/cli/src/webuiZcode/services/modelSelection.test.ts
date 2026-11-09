@@ -40,9 +40,13 @@ describe("buildModelSelectionView", () => {
     const view = buildModelSelectionView(SOURCE, 1);
 
     expect(view.revision).toBe(1);
+    // The shell's draft initialization rejects a preferredSelection without a
+    // reasoning level from the model's optionSpecs, so the adapter completes
+    // it with the highest offered level, the same rule the reference host uses.
     expect(view.preferredSelection).toEqual({
       providerId: "openai",
       modelId: "local-deepseek",
+      options: { reasoningLevel: "max" },
     });
     const openai = view.providers.find(
       (provider) => provider.providerId === "openai",
@@ -107,6 +111,7 @@ describe("buildModelSelectionView", () => {
     expect(view.preferredSelection).toEqual({
       providerId: "gemini",
       modelId: "gemini",
+      options: { reasoningLevel: "max" },
     });
   });
 

@@ -224,6 +224,7 @@ interface ResolvedZcodeServices {
   modelSelectionService: IModelSelectionService;
   remoteProjectService: IRemoteProjectService;
   projectService: IProjectService;
+  taskGroupService: ITaskGroupService;
   agentService?: IZCodeAgentService;
   sessionService?: IZCodeSessionService;
 }
@@ -242,6 +243,7 @@ const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   [IModelSelectionService, (services) => services.modelSelectionService],
   [IRemoteProjectService, (services) => services.remoteProjectService],
   [IProjectService, (services) => services.projectService],
+  [ITaskGroupService, (services) => services.taskGroupService],
   [IPluginsService, (services) => services.local.pluginsService],
   [
     IPluginManagementService,
@@ -273,12 +275,14 @@ export async function buildZcodeServiceCollection(
     { createTntModelSelectionService },
     { createTntRemoteProjectService },
     { createTntProjectService },
+    { createTntTaskGroupService },
   ] = await Promise.all([
     import("./services/local.js"),
     import("./services/workspaceScope.js"),
     import("./services/modelSelection.js"),
     import("./services/remoteProjects.js"),
     import("./services/projects.js"),
+    import("./services/taskGroups.js"),
   ]);
 
   const local = deps.localServices ?? getLocalZcodeServices();
@@ -315,6 +319,7 @@ export async function buildZcodeServiceCollection(
         ? { workspaceEngines: deps.workspaceEngines }
         : {}),
     }),
+    taskGroupService: createTntTaskGroupService(),
   };
 
   let disposeAgent: (() => void) | null = null;

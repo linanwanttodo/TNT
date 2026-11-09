@@ -19,6 +19,7 @@ import {
   type InteractionBroker,
 } from "../permissions/interactionBroker.js";
 import { loadSessionById, subscribeTeamRunChanges } from "../session/index.js";
+import { sessionStore } from "../session/store.js";
 import { logger } from "../utils/logger.js";
 
 import type { InteractionBridge } from "./interactions.js";
@@ -248,6 +249,8 @@ export class V4Handlers {
     }
     const envelope = parsed.envelope;
     switch (envelope.type) {
+      case "createSession":
+        return this.createSession(envelope);
       case "sendText":
         return this.sendText(envelope);
       case "stop":
@@ -322,6 +325,47 @@ export class V4Handlers {
     this.runtimes.append(sessionId, "session.updated", payload);
   }
 
+  private async createSession(envelope: CommandEnvelope): Promise<CommandAck> {
+    const payload = commandPayloadSchemas.createSession.parse(envelope.payload);
+    const session = await this.sessions.createDraft({
+      workspacePath: payload.workspaceId,
+      ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
+      ...(payload.config ? { config: payload.config } : {}),
+    });
+    this.runtimes.ensure(session.sessionId);
+    if (!payload.firstInput) {
+      return this.accepted(
+        envelope,
+        this.runtimes.cursor(session.sessionId).stateRevision,
+        { type: "createSession", sessionId: session.sessionId },
+      );
+    }
+    // The session was created on the request's config, so the first turn runs
+    // on that selection unless the input overrides it.
+    const selection =
+      payload.firstInput.modelSelection ??
+      payload.config?.modelSelection ??
+      (payload.config?.provider && payload.config.model
+        ? {
+            providerId: payload.config.provider,
+            modelId: payload.config.model,
+          }
+        : undefined);
+    const revision = await this.turns.sendText(
+      session.sessionId,
+      payload.firstInput.text,
+      selection ? { modelSelection: selection } : {},
+    );
+    return this.accepted(envelope, revision, {
+      type: "createSession",
+      sessionId: session.sessionId,
+      input: {
+        delivery: this.turns.isRunning() ? "queue" : "startNow",
+        inputId: envelope.commandId,
+      },
+    });
+  }
+
   private async sendText(envelope: CommandEnvelope): Promise<CommandAck> {
     const sessionId = requireSessionId(envelope);
     const payload = commandPayloadSchemas.sendText.parse(envelope.payload);
@@ -330,6 +374,12 @@ export class V4Handlers {
         ? { modelSelection: payload.modelSelection }
         : {}),
     });
+    // The first input turns a draft into a real task: persist the header
+    // before the ACK so a tree read right after it lists the row.
+    const session = loadSessionById(sessionId);
+    if (session && sessionStore.getMeta(sessionId) === null) {
+      sessionStore.sync(session);
+    }
     return this.accepted(envelope, revision, {
       type: "inputAccepted",
       delivery: this.turns.isRunning() ? "queue" : "startNow",

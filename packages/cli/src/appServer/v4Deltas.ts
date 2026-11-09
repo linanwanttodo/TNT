@@ -106,13 +106,29 @@ function turnStartedDeltas(
     startedAt: event.timestamp,
   };
   frame.rows.push(row);
-  return [
-    { op: "row.appended", row },
-    {
-      op: "state.updated",
-      patch: { control: controlState(true, event.timestamp) },
-    },
-  ];
+  const deltas: ConversationDelta[] = [{ op: "row.appended", row }];
+  // The turn's own input renders under its header, the same order the
+  // snapshot builds from history; without it the user never sees what was sent.
+  const payload = asRecord(
+    "payload" in event ? (event as { payload?: unknown }).payload : undefined,
+  );
+  const input = asText(payload.input);
+  if (input) {
+    frame.nextRowId += 1;
+    const userRow: ConversationRow = {
+      ...turnBase(frame, frame.nextRowId),
+      kind: "userInput",
+      origin: "realUser",
+      text: input,
+    };
+    frame.rows.push(userRow);
+    deltas.push({ op: "row.appended", row: userRow });
+  }
+  deltas.push({
+    op: "state.updated",
+    patch: { control: controlState(true, event.timestamp) },
+  });
+  return deltas;
 }
 
 function partUpsertedDeltas(

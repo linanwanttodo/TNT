@@ -24,6 +24,7 @@ import { serviceContainer } from "../services/ServiceContainer.js";
 import type { ModelServiceState } from "../services/types.js";
 import {
   createSession,
+  getLiveSession,
   loadSessionById,
   resumeSession,
 } from "../session/index.js";
@@ -231,6 +232,56 @@ export class SessionHandlers {
     }
     sessionStore.sync(session);
     return this.snapshot(session);
+  }
+
+  /**
+   * The v4 draft create. Same record as `create`, but the session is not
+   * written until its first turn commits a transcript: an unused prewarm must
+   * not surface in the session list as an empty task. The composer's requested
+   * config is applied up front so the first turn already runs on it.
+   */
+  async createDraft(input: {
+    workspacePath: string;
+    sessionId?: string;
+    config?: {
+      modelSelection?: ModelSelection;
+      provider?: string;
+      model?: string;
+      mode?: string;
+      planEnabled?: boolean;
+    };
+  }): Promise<Session> {
+    this.assertWorkspace(input.workspacePath);
+    await this.registerWorkspace(input.workspacePath);
+    if (
+      input.sessionId &&
+      (sessionStore.getMeta(input.sessionId) ||
+        getLiveSession(input.sessionId) !== null)
+    ) {
+      throw sessionRequestError(`Session already exists: ${input.sessionId}`);
+    }
+    const config = input.config;
+    const selection =
+      config?.modelSelection ??
+      (config?.provider && config.model
+        ? { providerId: config.provider, modelId: config.model }
+        : undefined);
+    if (selection) {
+      this.assertKnownModel(selection);
+    }
+    const session = createSession([], input.sessionId, {
+      source: "serve",
+      persistEmpty: false,
+    });
+    session.workspaceDirectory = this.workspacePath ?? input.workspacePath;
+    session.mode =
+      config?.mode === "plan" || config?.planEnabled === true
+        ? "plan"
+        : "agent";
+    if (selection) {
+      this.rememberModel(session, selection);
+    }
+    return session;
   }
 
   async resume(params: unknown): Promise<ZCodeSessionStateSnapshot> {
