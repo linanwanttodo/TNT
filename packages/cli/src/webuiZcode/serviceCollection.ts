@@ -91,12 +91,14 @@ export interface ZcodeServiceCollectionDeps {
    * import graph (services already imports the web UI host).
    */
   modelSelectionSource?: () => Promise<TntModelSource>;
-  /**
-   * The process-wide local project catalog. Injected by WebUiService from the
+  /** The process-wide local project catalog. Injected by WebUiService from the
    * services group for the same reason as modelSelectionSource: this module
-   * must not import the service registry back into the ZCode host.
-   */
+   * must not import the service registry back into the ZCode host. */
   projectCatalog?: LocalProjectCatalog;
+  /** Provider settings and credentials backed by TNT's own config, injected
+   * from the services group for the same reason as modelSelectionSource. */
+  providerSettingsService?: IProviderSettingsService;
+  credentialService?: ICredentialService;
 }
 
 /**
@@ -225,6 +227,8 @@ interface ResolvedZcodeServices {
   remoteProjectService: IRemoteProjectService;
   projectService: IProjectService;
   taskGroupService: ITaskGroupService;
+  providerSettingsService?: IProviderSettingsService;
+  credentialService?: ICredentialService;
   agentService?: IZCodeAgentService;
   sessionService?: IZCodeSessionService;
 }
@@ -244,6 +248,8 @@ const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   [IRemoteProjectService, (services) => services.remoteProjectService],
   [IProjectService, (services) => services.projectService],
   [ITaskGroupService, (services) => services.taskGroupService],
+  [IProviderSettingsService, (services) => services.providerSettingsService],
+  [ICredentialService, (services) => services.credentialService],
   [IPluginsService, (services) => services.local.pluginsService],
   [
     IPluginManagementService,
@@ -320,6 +326,12 @@ export async function buildZcodeServiceCollection(
         : {}),
     }),
     taskGroupService: createTntTaskGroupService(),
+    ...(deps.providerSettingsService
+      ? { providerSettingsService: deps.providerSettingsService }
+      : {}),
+    ...(deps.credentialService
+      ? { credentialService: deps.credentialService }
+      : {}),
   };
 
   let disposeAgent: (() => void) | null = null;

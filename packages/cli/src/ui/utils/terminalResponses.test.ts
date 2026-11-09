@@ -85,4 +85,27 @@ describe("TerminalResponseFilter", () => {
     expect(filter.consume("/command")).toEqual({ kind: "text" });
     expect(filter.consume("abc")).toEqual({ kind: "text" });
   });
+
+  it("resumes typing when a reply never terminates", () => {
+    // A reply whose terminator never arrives used to drop every later event:
+    // the composer accepted keys and displayed nothing, which reads as a
+    // frozen input. After the retention window the filter must let go.
+    const filter = new TerminalResponseFilter(500);
+    const started = 1_000;
+
+    expect(filter.consume("]", started).kind).toBe("hold");
+    expect(filter.consume("11;rgb:0000/0000/0000", started + 10).kind).toBe(
+      "drop",
+    );
+    expect(filter.consume("hello", started + 2_000)).toEqual({
+      kind: "text",
+    });
+  });
+
+  it("flushes a held prefix once the hold expires", () => {
+    const filter = new TerminalResponseFilter(500);
+
+    expect(filter.consume("]", 1_000).kind).toBe("hold");
+    expect(filter.consume("abc", 5_000)).toEqual({ kind: "text", flush: "]" });
+  });
 });

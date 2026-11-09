@@ -265,8 +265,9 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   // 7, not the earlier 6: the terminal-safety work translated one raw throw in
   // this directory, and `QuizService.askQuestions` now refuses an empty set.
   // 8: the web shell's project catalog rejects malformed storage and invalid
-  // roots with protocol messages a host decodes, not composer copy.
-  services: 8,
+  // roots with protocol messages a host decodes, not composer copy. 9: the
+  // credential store rejects an empty key.
+  services: 9,
   session: 6,
   // 14, not 6: `AskQuestion` validates the new `questions` array field by
   // field, and those messages are read by the model, not the composer.

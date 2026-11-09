@@ -4,6 +4,7 @@ import type { Session } from "core/index.js";
 import express, { type Express, type Request, type Response } from "express";
 
 import type { ServerState } from "../commands/serve.helpers.js";
+import { CONFIG_PATH } from "../config/providerSetup.js";
 import { publishAgentEvent } from "../protocol/eventBus.js";
 import { quizService } from "../services/QuizService.js";
 import { getCurrentSession } from "../session/index.js";
@@ -19,6 +20,7 @@ import {
   resolveWebUiToken,
   webuiModuleDir,
 } from "./webuiAuth.js";
+import { createWebUiCredentialService } from "./webuiCredentials.js";
 import {
   resolveWebUiDist,
   webuiDistCandidates,
@@ -27,6 +29,7 @@ import {
 import { readWebUiModelSource } from "./webuiModelSource.js";
 import { bootstrapPage } from "./webuiPages.js";
 import { getWebUiProjectCatalog } from "./webuiProjectCatalog.js";
+import { createWebUiProviderSettingsService } from "./webuiProviderSettings.js";
 import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
 import type { WebUiHandle, WebUiServiceOptions } from "./webuiTypes.js";
@@ -174,6 +177,14 @@ export class WebUiService {
         }
       }
 
+      // The shell's settings surface edits TNT's own model list: the provider
+      // settings service rewrites the active config.yaml (and the credential
+      // channel keeps the shell-side secrets) so a model added in the browser
+      // is the same model a turn runs on.
+      const providerSettingsService = createWebUiProviderSettingsService({
+        configPath: () => options.config ?? CONFIG_PATH,
+      });
+      const credentialService = createWebUiCredentialService();
       const zcodeHost = startWebUiZcodeHost({
         server: handle.server,
         token,
@@ -185,6 +196,8 @@ export class WebUiService {
             workspaceRoots: () => engines.roots(),
             workspaceEngines: engines,
             projectCatalog,
+            providerSettingsService,
+            credentialService,
             modelSelectionSource: async () => {
               await ensureServices();
               return readWebUiModelSource();

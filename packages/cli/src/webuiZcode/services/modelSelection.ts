@@ -69,9 +69,10 @@ function maxOutputTokens(model: TntModelEntry): number {
  * A complete ZCode model config from a TNT entry. The fields TNT does not
  * model per entry (image/audio input, JSON-schema output, native web search)
  * stay false: TNT never sends those request shapes, so the picker must not
- * advertise them.
+ * advertise them. Exported so the provider settings view describes the same
+ * model the picker does.
  */
-function registryModelConfig(model: TntModelEntry) {
+export function registryModelConfig(model: TntModelEntry) {
   return {
     enabled: true,
     properties: {
