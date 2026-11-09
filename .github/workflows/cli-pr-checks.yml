@@ -239,9 +239,10 @@ jobs:
           cd packages/cli
           npm run test:e2e
 
-  # The browser front end is excluded from the CLI's eslint, vitest, coverage
-  # and tsc scopes on purpose (it has its own vite/jsdom toolchain), so without
-  # this job nothing in CI compiles or tests those 20k lines at all.
+  # The browser front end lives in the vendored `packages/zcode-ui` tree and is
+  # excluded from the CLI's eslint, vitest, coverage and tsc scopes on purpose
+  # (it has its own vite/tsc toolchain). This job builds it the same way the CLI
+  # does, then type checks the web app against the built packages.
   webui:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -253,28 +254,14 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: "npm"
-          cache-dependency-path: packages/cli/webui/package-lock.json
 
-      - name: Install dependencies
-        run: |
-          cd packages/cli/webui
-          npm ci --no-audit --no-fund
+      - name: Build the vendored frontend
+        run: npm --prefix packages/cli run build:webui
 
       - name: Type check
         run: |
-          cd packages/cli/webui
+          cd packages/zcode-ui/web
           npx tsc --noEmit
-
-      - name: Run tests
-        run: |
-          cd packages/cli/webui
-          npx vitest run
-
-      - name: Build
-        run: |
-          cd packages/cli/webui
-          npm run build
 
   smoke-api:
     # Needs in-repo credentials. On a push event there is no pull_request
