@@ -18,6 +18,12 @@ export interface TranslationState {
   turnStartedAt: number;
   turnTerminal: boolean;
   readonly toolStartedAt: Map<string, number>;
+  /**
+   * The tool call whose SummonTeam run is in flight. The ledger carries no
+   * tool-call id, so this is the join key the workflow display uses when the
+   * run opens, before the result event arrives.
+   */
+  summonTeamToolCallId: string | null;
 }
 
 export function createTranslationState(sessionId: string): TranslationState {
@@ -36,6 +42,7 @@ export function createTranslationState(sessionId: string): TranslationState {
     turnStartedAt: 0,
     turnTerminal: false,
     toolStartedAt: new Map(),
+    summonTeamToolCallId: null,
   };
 }
 
@@ -161,6 +168,9 @@ function translateToolFinished(
   event: Extract<AgentEvent, { type: "tool.finished" }>,
 ): ZCodeSessionEvent[] {
   const toolCallId = toolIdentity(event);
+  if (event.toolName === "SummonTeam") {
+    state.summonTeamToolCallId = null;
+  }
   const base = { toolCallId, toolName: event.toolName };
   const startedAt = state.toolStartedAt.get(toolCallId);
   const duration =
@@ -319,6 +329,9 @@ export function translateAgentEvent(
       const toolCallId = toolIdentity(event);
       state.toolCallCount += 1;
       state.toolStartedAt.set(toolCallId, event.timestamp);
+      if (event.toolName === "SummonTeam") {
+        state.summonTeamToolCallId = toolCallId;
+      }
       return [
         stamp(
           state,

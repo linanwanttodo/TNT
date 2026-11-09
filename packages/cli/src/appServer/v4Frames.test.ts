@@ -1,6 +1,9 @@
 import type { ZCodeSessionEvent } from "@zcode/shared";
-import { pendingInteractionSchema } from "@zcode/shared/zcode-protocol-v4";
-import type { Session } from "core/index.js";
+import {
+  pendingInteractionSchema,
+  workflowRunsStateSchema,
+} from "@zcode/shared/zcode-protocol-v4";
+import type { Session, TeamRunRecord } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -161,5 +164,61 @@ describe("derivePendingInteractions", () => {
 
     expect(snapshot.pendingInteractions).toHaveLength(1);
     expect(snapshot.pendingInteractions[0]?.interactionId).toBe("request-1");
+  });
+});
+
+describe("workflowRuns on the conversation snapshot", () => {
+  const teamRun: TeamRunRecord = {
+    runId: "team-1",
+    team: "dev",
+    goal: "Ship the feature",
+    mode: "serial",
+    startedAt: "2026-11-09T00:00:00.000Z",
+    status: "completed",
+    members: [
+      { name: "implementer", status: "completed", model: "cheap-model" },
+      { name: "tester", status: "completed", model: "work-model" },
+    ],
+  };
+
+  it("projects the ledger with its workflow revision", () => {
+    const withRuns = { ...session, teamRuns: [teamRun] } as unknown as Session;
+    const frame = createFrameSubscription(withRuns, "sub-1", "epoch-1");
+    const snapshot = buildConversationSnapshot(
+      withRuns,
+      frame,
+      { eventSeq: 4, stateRevision: 4, workflowRevision: 4 },
+      false,
+    );
+
+    expect(() =>
+      workflowRunsStateSchema.parse(snapshot.workflowRuns),
+    ).not.toThrow();
+    expect(snapshot.workflowRuns).toMatchObject({
+      revision: 4,
+      runs: [
+        {
+          runId: "team-1",
+          status: "completed",
+          phaseNames: ["wave-1", "wave-2"],
+          nodes: [
+            { siteId: "step-1", phase: "settled", outcome: "ok" },
+            { siteId: "step-2", phase: "settled", outcome: "ok" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("publishes an empty state when no team ran", () => {
+    const frame = createFrameSubscription(session, "sub-1", "epoch-1");
+    const snapshot = buildConversationSnapshot(
+      session,
+      frame,
+      { eventSeq: 0, stateRevision: 0, workflowRevision: 0 },
+      false,
+    );
+
+    expect(snapshot.workflowRuns).toEqual({ revision: 0, runs: [] });
   });
 });

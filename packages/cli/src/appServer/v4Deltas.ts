@@ -2,10 +2,13 @@ import type { ZCodeSessionEvent } from "@zcode/shared";
 import type {
   ConversationDelta,
   ConversationRow,
+  ToolCallDisplay,
   ToolCallRow,
 } from "@zcode/shared/zcode-protocol-v4";
+import type { TeamRunRecord } from "core/index.js";
 
 import { controlState, turnBase, type FrameSubscription } from "./v4Frames.js";
+import { activeTeamRun, teamRunWorkflowDisplay } from "./workflowRuns.js";
 
 type Payload = Record<string, unknown>;
 
@@ -142,6 +145,7 @@ function toolCallDeltas(
   frame: FrameSubscription,
   payload: Payload,
   event: ZCodeSessionEvent,
+  teamRuns?: readonly TeamRunRecord[],
 ): ConversationDelta[] {
   const toolCallId = asText(payload.toolCallId) || `tool-${event.seq}`;
   const toolName = asText(payload.toolName) || "tool";
@@ -156,6 +160,7 @@ function toolCallDeltas(
     frame.nextRowId += 1;
     rowId = frame.nextRowId;
   }
+  const run = toolName === "SummonTeam" ? activeTeamRun(teamRuns) : undefined;
   const row: ToolCallRow = {
     rowId,
     turnId: frame.turnId,
@@ -166,6 +171,7 @@ function toolCallDeltas(
     toolName,
     status,
     inputText: JSON.stringify(payload.input ?? {}),
+    ...(run ? { display: teamRunWorkflowDisplay(run, kind !== "error") } : {}),
     ...(kind === "result"
       ? { output: { text: asText(asRecord(payload.result).output) } }
       : {}),
@@ -323,14 +329,58 @@ function userInputDeltas(
   ];
 }
 
+function displayUpsertDeltas(
+  frame: FrameSubscription,
+  payload: Payload,
+): ConversationDelta[] {
+  const toolCallId = asText(payload.toolCallId);
+  if (!toolCallId) return [];
+  const existing =
+    frame.toolRows.get(toolCallId) ??
+    frame.rows.find(
+      (row): row is ToolCallRow =>
+        row.kind === "toolCall" && row.toolCallId === toolCallId,
+    );
+  if (!existing) return [];
+  const display = asRecord(payload.display) as ToolCallDisplay;
+  const row: ToolCallRow = { ...existing, display };
+  frame.toolRows.set(toolCallId, row);
+  frame.rows = frame.rows.filter((candidate) => candidate.rowId !== row.rowId);
+  frame.rows.push(row);
+  return [{ op: "row.upserted", row }];
+}
+
+/**
+ * Team-run changes ride `session.updated`: the ledger publisher appends one
+ * event carrying either the `workflowRun.updated/removed` deltas, a display
+ * for the SummonTeam row, or both. Keeping it on an existing event type means
+ * the frame's seq advances exactly as it does for every other change.
+ */
+function sessionUpdatedDeltas(
+  frame: FrameSubscription,
+  payload: Payload,
+): ConversationDelta[] {
+  const deltas: ConversationDelta[] = [];
+  if (Array.isArray(payload.workflowRunDeltas)) {
+    deltas.push(...(payload.workflowRunDeltas as ConversationDelta[]));
+  }
+  const display = asRecord(payload.teamWorkflowDisplay);
+  deltas.push(...displayUpsertDeltas(frame, display));
+  return deltas.length > 0 ? deltas : [{ op: "state.updated", patch: {} }];
+}
+
 /**
  * Encodes one translated session event as conversation deltas. The shapes are
  * exactly `conversationDeltaSchema`: text growth is `row.delta`, structural
  * change is a whole-row upsert, and everything without a row is a state patch.
+ *
+ * `teamRuns` is the session's current ledger. It lets a SummonTeam row carry
+ * the `create_workflow` graph without the tool result having to transport it.
  */
 export function deltasForEvent(
   frame: FrameSubscription,
   event: ZCodeSessionEvent,
+  options: { teamRuns?: readonly TeamRunRecord[] } = {},
 ): ConversationDelta[] {
   const payload = asRecord(
     "payload" in event ? (event as { payload?: unknown }).payload : undefined,
@@ -348,7 +398,7 @@ export function deltasForEvent(
     case "part.upserted":
       return partUpsertedDeltas(frame, payload);
     case "tool.updated":
-      return toolCallDeltas(frame, payload, event);
+      return toolCallDeltas(frame, payload, event, options.teamRuns);
     case "turn.completed":
       return finalTurnDeltas(
         frame,
@@ -361,6 +411,8 @@ export function deltasForEvent(
       return finalTurnDeltas(frame, "failed", event);
     case "session.titleUpdated":
       return titleDeltas(payload);
+    case "session.updated":
+      return sessionUpdatedDeltas(frame, payload);
     case "permission.requested":
       return permissionDeltas(event, payload);
     case "userInput.requested":

@@ -11,6 +11,7 @@ import {
   getSessionActiveTeam,
   MAX_TEAM_RUN_MEMBERS,
 } from "../session/index.js";
+import { buildTeamWorkflowGraph } from "../session/teamWorkflow.js";
 import { TEAM_RUN_MAX_SUBAGENT_DEPTH } from "../subagent/depth.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import { SUMMON_TEAM_TOOL_META } from "../subagent/index.js";
@@ -250,6 +251,17 @@ export const summonTeamTool = async (): Promise<Tool> => {
         goal,
         mode,
         members: selection.members.map((member) => member.name),
+        // Built from the roster before dispatch, so the tool row can paint
+        // while the members are still running.
+        workflowGraph: buildTeamWorkflowGraph({
+          team: activeTeam.name,
+          goal,
+          mode,
+          members: selection.members.map((member) => ({
+            name: member.name,
+            description: member.description,
+          })),
+        }),
       });
 
       let result: Awaited<ReturnType<typeof executeSubAgent>>;

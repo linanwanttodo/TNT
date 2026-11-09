@@ -212,6 +212,7 @@ describe("translateAgentEvent", () => {
     expect(runtimes.cursor(sessionId)).toEqual({
       eventSeq: 6,
       stateRevision: 6,
+      workflowRevision: 0,
     });
     expect(
       runtimes.eventsAfter(sessionId, 3).map((event) => event.seq),

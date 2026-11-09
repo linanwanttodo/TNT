@@ -1,5 +1,6 @@
 import fs from "fs";
 
+import type { ToolCallCreateWorkflowCausalityGraph } from "@zcode/shared/zcode-protocol-v4";
 import type {
   BaseSessionMetadata,
   ChatHistoryItem,
@@ -27,6 +28,7 @@ import {
 } from "./paths.js";
 import { repairDanglingToolCalls } from "./repairDanglingToolCalls.js";
 import { sessionStore, type SessionSource } from "./store.js";
+import { rememberTeamWorkflowGraph } from "./teamWorkflow.js";
 
 // Re-export BaseSessionMetadata for external consumers
 export type { BaseSessionMetadata };
@@ -873,6 +875,54 @@ export interface BeginTeamRunOptions {
   mode: TeamRunMode;
   /** Member names, already validated against the roster by the caller. */
   members: string[];
+  /**
+   * The static graph built from the roster before dispatch. Remembered only in
+   * process memory so the app-server can paint the exact labels; the ledger
+   * itself stays a session scalar.
+   */
+  workflowGraph?: ToolCallCreateWorkflowCausalityGraph;
+}
+
+/**
+ * Listeners observe the ledger after every mutation (run opened, a member
+ * started or settled, the run settled). The app-server uses this instead of
+ * polling the session while members run.
+ */
+export type TeamRunChangeListener = (
+  sessionId: string,
+  runs: TeamRunRecord[],
+) => void;
+
+const teamRunChangeListeners = new Set<TeamRunChangeListener>();
+
+export function subscribeTeamRunChanges(
+  listener: TeamRunChangeListener,
+): () => void {
+  teamRunChangeListeners.add(listener);
+  return () => {
+    teamRunChangeListeners.delete(listener);
+  };
+}
+
+function cloneTeamRuns(runs: readonly TeamRunRecord[]): TeamRunRecord[] {
+  return runs.map((run) => ({
+    ...run,
+    members: run.members.map((member) => ({ ...member })),
+  }));
+}
+
+function notifyTeamRunsChanged(sessionId: string): void {
+  if (teamRunChangeListeners.size === 0) return;
+  const runs = cloneTeamRuns(
+    SessionManager.getInstance().getCurrentSession().teamRuns ?? [],
+  );
+  for (const listener of [...teamRunChangeListeners]) {
+    try {
+      listener(sessionId, runs);
+    } catch (error) {
+      logger.error("Team-run listener failed:", error);
+    }
+  }
 }
 
 function saveSessionScalars(): void {
@@ -889,6 +939,7 @@ function mutateTeamRuns(
   const session = manager.getCurrentSession();
   session.teamRuns = mutate(session.teamRuns ?? []).slice(-MAX_TEAM_RUNS);
   saveSessionScalars();
+  notifyTeamRunsChanged(session.sessionId);
 }
 
 /**
@@ -909,6 +960,12 @@ export function beginTeamRun(options: BeginTeamRunOptions): TeamRunRecord {
       .slice(0, MAX_TEAM_RUN_MEMBERS)
       .map((name) => ({ name, status: "pending" as TeamMemberRunStatus })),
   };
+
+  if (options.workflowGraph) {
+    // Register before the ledger mutation: the change listener paints the
+    // graph in the same tick the run is opened.
+    rememberTeamWorkflowGraph(run.runId, options.workflowGraph);
+  }
 
   mutateTeamRuns((runs) => [...runs, run]);
   currentTeamRunId = run.runId;
