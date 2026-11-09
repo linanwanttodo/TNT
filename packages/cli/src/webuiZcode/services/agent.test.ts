@@ -400,7 +400,7 @@ describe("ZCode agent service adapter", () => {
     await flush();
     await flush();
 
-    const handler = registry.requestHandler(WORKSPACE);
+    const handler = registry.requestHandler(path.resolve(WORKSPACE));
     const permission = handler(
       zcodeProtocolMethods.interactionRequestPermission,
       permissionRequest(),
@@ -556,7 +556,7 @@ describe("ZCode agent service adapter", () => {
     await flush();
     await flush();
 
-    const pending = registry.requestHandler(WORKSPACE)(
+    const pending = registry.requestHandler(path.resolve(WORKSPACE))(
       zcodeProtocolMethods.interactionRequestPermission,
       permissionRequest("perm-dispose"),
     );
