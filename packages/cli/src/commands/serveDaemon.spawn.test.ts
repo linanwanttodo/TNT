@@ -234,6 +234,19 @@ async function waitForExit(
   });
 }
 
+function expectStopped(exit: {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+}): void {
+  if (process.platform === "win32") {
+    // Windows has no POSIX SIGTERM: libuv terminates the process and may report
+    // no exit code; the descendant check still proves the daemon closed.
+    expect(exit.code === 0 || exit.code === null).toBe(true);
+    return;
+  }
+  expect(exit.code).toBe(0);
+}
+
 describe("tnt serve daemon", () => {
   const tempDirs: string[] = [];
   let daemon: SpawnedDaemon | null = null;
@@ -383,7 +396,7 @@ describe("tnt serve daemon", () => {
     const descendants = collectDescendants(child.pid!);
     child.kill("SIGTERM");
     const exit = await waitForExit(child, WAIT_MS);
-    expect(exit.code).toBe(0);
+    expectStopped(exit);
     for (const pid of descendants) {
       expect(processIsAlive(pid), `child ${pid} survived shutdown`).toBe(false);
     }
@@ -404,6 +417,6 @@ describe("tnt serve daemon", () => {
 
     spawned.child.kill("SIGTERM");
     const exit = await waitForExit(spawned.child, WAIT_MS);
-    expect(exit.code).toBe(0);
+    expectStopped(exit);
   });
 });

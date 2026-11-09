@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import type { ZCodeAgentServiceEvent } from "@zcode/services";
 import {
   zcodeProtocolMethods,
@@ -327,7 +329,7 @@ describe("ZCode agent service adapter", () => {
     await flush();
     await flush();
 
-    registry.emit(WORKSPACE, {
+    registry.emit(path.resolve(WORKSPACE), {
       method: "session/event",
       params: {
         sessionId: SESSION,
@@ -337,7 +339,7 @@ describe("ZCode agent service adapter", () => {
         type: "turn.started",
       },
     });
-    registry.emit(otherWorkspace, {
+    registry.emit(path.resolve(otherWorkspace), {
       method: "session/event",
       params: {
         sessionId: SESSION,
@@ -347,7 +349,7 @@ describe("ZCode agent service adapter", () => {
         type: "turn.started",
       },
     });
-    registry.emit(WORKSPACE, {
+    registry.emit(path.resolve(WORKSPACE), {
       method: "session/event",
       params: {
         sessionId: "other",
@@ -364,7 +366,7 @@ describe("ZCode agent service adapter", () => {
       subscriptionId: "sub-1",
       frame: { topic: `conversation/${SESSION}` },
     } as unknown as ConversationTopicWireCandidate;
-    registry.emit(WORKSPACE, {
+    registry.emit(path.resolve(WORKSPACE), {
       method: "v4/conversation/frame",
       params: frame,
     });

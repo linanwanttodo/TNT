@@ -110,10 +110,20 @@ export interface SessionHandlerOptions {
 function canonicalWorkspace(candidate: string): string {
   const absolute = path.resolve(candidate);
   try {
-    return realpathSync(absolute);
+    // `realpathSync.native` expands Windows 8.3 short names (RUNNER~1), which
+    // the JavaScript implementation leaves in place.
+    return realpathSync.native(absolute);
   } catch {
     return absolute;
   }
+}
+
+/** Windows paths are case-insensitive and may arrive in either separator form. */
+function sameWorkspace(left: string, right: string): boolean {
+  if (process.platform !== "win32") {
+    return left === right;
+  }
+  return path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase();
 }
 
 export type TitleSource = "default" | "first_input" | "generated" | "custom";
@@ -370,7 +380,7 @@ export class SessionHandlers {
     if (!this.workspacePath) {
       return;
     }
-    if (canonicalWorkspace(workspacePath) !== this.workspacePath) {
+    if (!sameWorkspace(canonicalWorkspace(workspacePath), this.workspacePath)) {
       throw sessionRequestError(
         `This engine serves ${this.workspacePath}, not ${workspacePath}`,
       );

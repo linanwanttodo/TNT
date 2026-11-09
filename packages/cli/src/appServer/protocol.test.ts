@@ -358,7 +358,14 @@ describe("app-server stdio protocol", () => {
     child.kill("SIGTERM");
     child.kill("SIGINT");
 
-    await expect(waitForExit(child, stderrDetails)).resolves.toBe(0);
+    const code = await waitForExit(child, stderrDetails);
+    if (process.platform === "win32") {
+      // The second kill terminates the process directly; Windows reports no
+      // exit code for that termination.
+      expect(code === 0 || code === null).toBe(true);
+    } else {
+      expect(code).toBe(0);
+    }
   });
 });
 
