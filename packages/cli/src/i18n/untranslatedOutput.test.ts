@@ -256,6 +256,9 @@ describe("the copy the rest of the CLI prints", () => {
 const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   acp: 2,
   agent: 3,
+  // The app-server speaks the JSON-RPC/NDJSON wire protocol; a thrown message
+  // there is a protocol error a host decodes, not copy a reader sees.
+  appServer: 1,
   config: 2,
   mcp: 1,
   plugins: 1,
@@ -266,6 +269,9 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   tools: 6,
   ui: 8,
   utils: 16,
+  // The web UI host and its services answer an RPC peer; these are JSON-RPC and
+  // auth errors read by a client, not composer copy.
+  webuiZcode: 23,
 };
 
 /**
