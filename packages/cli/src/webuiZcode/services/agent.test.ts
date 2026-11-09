@@ -305,6 +305,37 @@ describe("ZCode agent service adapter", () => {
     });
   });
 
+  it("forwards the host thoughtLevel with the model selection on send", async () => {
+    const registry = buildRegistry();
+    const { service } = createZcodeAgentService(registry);
+
+    await service.sendPrompt({
+      workspacePath: WORKSPACE,
+      sessionId: SESSION,
+      content: "hello",
+      modelSelection: {
+        providerId: "test",
+        modelId: "fake",
+        options: { reasoningLevel: "high" },
+      },
+      thoughtLevel: "low",
+    } as never);
+
+    const send = registry.calls.find(
+      (call) => call.method === zcodeProtocolMethods.sessionSend,
+    );
+    expect(send?.params).toEqual({
+      sessionId: SESSION,
+      content: "hello",
+      modelSelection: {
+        providerId: "test",
+        modelId: "fake",
+        options: { reasoningLevel: "high" },
+      },
+      thoughtLevel: "low",
+    });
+  });
+
   it("bridges session events and conversation frames per workspace", async () => {
     const registry = buildRegistry();
     const { service } = createZcodeAgentService(registry);

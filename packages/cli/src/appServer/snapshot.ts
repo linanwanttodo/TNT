@@ -23,7 +23,15 @@ import type {
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
-import { SERVICE_NAMES, type ModelServiceState } from "../services/types.js";
+import {
+  SERVICE_NAMES,
+  type ConfigServiceState,
+  type ModelServiceState,
+} from "../services/types.js";
+import {
+  getReasoningOverride,
+  REASONING_DEPTH_VALUES,
+} from "../session/reasoningOverride.js";
 import { messageTimestampOf, type SessionMeta } from "../session/store.js";
 import { readTodoState, type Todo } from "../tools/todo.js";
 
@@ -572,7 +580,11 @@ interface ModelLike {
   model?: string;
   name?: string;
   contextLength?: number;
-  defaultCompletionOptions?: { contextLength?: number };
+  defaultCompletionOptions?: {
+    contextLength?: number;
+    reasoning?: boolean;
+    reasoningEffort?: string;
+  };
 }
 
 function explicitContextLength(model: ModelLike | null): number | null {
@@ -581,6 +593,92 @@ function explicitContextLength(model: ModelLike | null): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : null;
+}
+
+function activeModelConfig(): ModelLike | null {
+  const state = serviceContainer.getSync<ModelServiceState>(
+    SERVICE_NAMES.MODEL,
+  );
+  return state.state === "ready" && state.value
+    ? ((state.value.model as ModelLike | null) ?? null)
+    : null;
+}
+
+const THOUGHT_LEVEL_LABELS: Record<string, string> = {
+  off: "Off",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  max: "Max",
+};
+
+export interface ThoughtLevelState {
+  enabled: true;
+  current?: string;
+  defaultLevel?: string;
+  available: Array<{ value: string; label: string }>;
+}
+
+/**
+ * The reasoning depths TNT can actually send. `current` is only reported when
+ * this process pinned a depth (the same store `/think` writes); `defaultLevel`
+ * is the active model's configured effort. Both are omitted rather than
+ * guessed when the source has no value.
+ */
+export function thoughtLevelState(): ThoughtLevelState {
+  const override = getReasoningOverride();
+  const configured =
+    activeModelConfig()?.defaultCompletionOptions?.reasoningEffort;
+  return {
+    enabled: true,
+    ...(override && override !== "default" ? { current: override } : {}),
+    ...(configured ? { defaultLevel: configured } : {}),
+    available: REASONING_DEPTH_VALUES.map((value) => ({
+      value,
+      label: THOUGHT_LEVEL_LABELS[value] ?? value,
+    })),
+  };
+}
+
+function configuredModelSelection(): ModelSelection | undefined {
+  const state = serviceContainer.getSync<ConfigServiceState>(
+    SERVICE_NAMES.CONFIG,
+  );
+  if (state.state !== "ready" || !state.value) {
+    return undefined;
+  }
+  const selected = state.value.selectedModel?.trim();
+  if (!selected) {
+    return undefined;
+  }
+  const match = (state.value.config?.models ?? []).find(
+    (model) => model?.name === selected,
+  );
+  return match?.name
+    ? { providerId: match.provider, modelId: match.name }
+    : undefined;
+}
+
+/**
+ * The session's model selection from data that exists: the model the session
+ * last ran on, else the config's selected model. It never synthesizes one from
+ * the first configured entry.
+ */
+export function sessionModelSelection(
+  session: Session,
+): ModelSelection | undefined {
+  const title = session.chatModelTitle?.trim();
+  if (title) {
+    const slash = title.indexOf("/");
+    if (slash > 0 && slash < title.length - 1) {
+      return {
+        providerId: title.slice(0, slash),
+        modelId: title.slice(slash + 1),
+      };
+    }
+  }
+  return configuredModelSelection();
 }
 
 /**
@@ -708,7 +806,8 @@ export function toZcodeSnapshot(
   context: SnapshotContext = {},
 ): ZCodeSessionStateSnapshot {
   const goal = context.runtime?.goal ?? context.goal ?? null;
-  const info = toZcodeSessionInfo(session, { ...context, goal });
+  const model = context.model ?? sessionModelSelection(session);
+  const info = toZcodeSessionInfo(session, { ...context, model, goal });
   const messages = context.messages ?? toZcodeMessages(session);
   const todos = sessionTodoList(session);
   const contextWindow =
@@ -722,10 +821,10 @@ export function toZcodeSnapshot(
     protocol: { name: ZCODE_PROTOCOL_NAME, version: ZCODE_PROTOCOL_VERSION },
     session: info,
     settings: {
-      model: context.model
-        ? { current: context.model, lastUsed: context.model, available: [] }
+      model: model
+        ? { current: model, lastUsed: model, available: [] }
         : { available: [] },
-      thoughtLevel: { enabled: false, available: [] },
+      thoughtLevel: thoughtLevelState(),
       mode: { current: info.mode },
     },
     projection: {

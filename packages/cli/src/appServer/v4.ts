@@ -28,6 +28,7 @@ import {
   sessionRequestError,
   type SessionHandlers,
 } from "./session.js";
+import type { TurnSelection } from "./turnSelection.js";
 import { deltasForEvent } from "./v4Deltas.js";
 import {
   buildConversationFrame,
@@ -51,7 +52,11 @@ export interface V4Sender {
 }
 
 export interface V4TurnTarget {
-  sendText(sessionId: string, text: string): Promise<number>;
+  sendText(
+    sessionId: string,
+    text: string,
+    selection?: TurnSelection,
+  ): Promise<number>;
   compact(sessionId: string): Promise<number>;
   stopSession(sessionId: string): Promise<void>;
   deleteSession(sessionId: string): Promise<void>;
@@ -320,7 +325,11 @@ export class V4Handlers {
   private async sendText(envelope: CommandEnvelope): Promise<CommandAck> {
     const sessionId = requireSessionId(envelope);
     const payload = commandPayloadSchemas.sendText.parse(envelope.payload);
-    const revision = await this.turns.sendText(sessionId, payload.text);
+    const revision = await this.turns.sendText(sessionId, payload.text, {
+      ...(payload.modelSelection
+        ? { modelSelection: payload.modelSelection }
+        : {}),
+    });
     return this.accepted(envelope, revision, {
       type: "inputAccepted",
       delivery: this.turns.isRunning() ? "queue" : "startNow",

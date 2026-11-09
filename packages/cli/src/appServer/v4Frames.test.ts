@@ -212,6 +212,52 @@ describe("derivePendingInteractions", () => {
     ).toEqual([]);
   });
 
+  it("carries the advertised permission options into the live delta", () => {
+    const frame = createFrameSubscription(session, "sub-1", "epoch-1");
+    const event = {
+      ...permissionRequested(1),
+      payload: {
+        requestId: "request-1",
+        toolCallId: "tool-1",
+        toolName: "bash",
+        reason: "Run a shell command",
+        input: { command: "ls" },
+        options: [
+          {
+            optionId: "allow_once",
+            kind: "allowOnce",
+            name: "Allow once",
+            response: { decision: "allow" },
+          },
+          {
+            optionId: "fullAccess",
+            kind: "custom",
+            name: "Full access",
+            response: { decision: "allow" },
+          },
+          {
+            optionId: "deny",
+            kind: "deny",
+            name: "Deny",
+            response: { decision: "deny" },
+          },
+        ],
+      },
+    } as unknown as ZCodeSessionEvent;
+    const deltas = deltasForEvent(frame, event);
+
+    expect(deltas).toHaveLength(1);
+    const patch = (deltas[0] as { patch: { pendingInteractions: unknown[] } })
+      .patch;
+    expect(conversationDeltaSchema.parse(deltas[0]).op).toBe("state.updated");
+    const parsed = pendingInteractionSchema.parse(patch.pendingInteractions[0]);
+    expect(
+      parsed.payload.kind === "permission"
+        ? parsed.payload.options.map((option) => option.optionId)
+        : [],
+    ).toEqual(["allow_once", "fullAccess", "deny"]);
+  });
+
   it("publishes the pending interactions on the conversation snapshot", () => {
     const frame = createFrameSubscription(session, "sub-1", "epoch-1");
     const snapshot = buildConversationSnapshot(
@@ -474,6 +520,26 @@ describe("usage, goal and plan on the conversation snapshot", () => {
 
     expect(snapshot.goal).toBeNull();
     expect(snapshot.plan).toBeNull();
+  });
+
+  it("reports TNT's real reasoning depths on the session config", () => {
+    const frame = createFrameSubscription(session, "sub-1", "epoch-1");
+    const snapshot = buildConversationSnapshot(
+      session,
+      frame,
+      { eventSeq: 0, stateRevision: 0 },
+      false,
+    );
+
+    expect(snapshot.config.thoughtLevels).toEqual([
+      "off",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
+    expect(() => conversationSnapshotSchema.parse(snapshot)).not.toThrow();
   });
 });
 

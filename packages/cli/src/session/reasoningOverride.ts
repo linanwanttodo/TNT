@@ -14,6 +14,19 @@ import { readSettingsString } from "../config/settingsFiles.js";
 export type ReasoningDepth =
   "off" | "low" | "medium" | "high" | "xhigh" | "max" | "default";
 
+/**
+ * The depths a request can actually carry. "default" is TNT's word for "use
+ * the model's own setting", so it is not a level offered by a picker.
+ */
+export const REASONING_DEPTH_VALUES = [
+  "off",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+
 const EFFORT_VALUES: ReasoningDepth[] = [
   "low",
   "medium",

@@ -401,6 +401,11 @@ export interface TeamRunMemberRecord {
   startedAt?: string;
   finishedAt?: string;
   error?: string;
+  /**
+   * The response text the member returned, kept when the run finished
+   * successfully. This is the member's own final report, not a summary.
+   */
+  report?: string;
 }
 
 export interface TeamRunRecord {
@@ -410,6 +415,12 @@ export interface TeamRunRecord {
   mode: TeamRunMode;
   startedAt: string;
   status: TeamRunStatus;
+  /**
+   * The concurrency the scheduler ran this run with: 1 for `serial`, the
+   * parallel member count for `parallel`, capped by the member limiter. Absent
+   * for `auto`, where the lead chooses the order and TNT makes no claim.
+   */
+  concurrency?: number;
   members: TeamRunMemberRecord[];
 }
 

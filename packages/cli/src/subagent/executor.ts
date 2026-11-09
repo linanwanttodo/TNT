@@ -241,6 +241,7 @@ async function completeChildRun(options: {
     finishTeamMemberRun(options.teamMember.runId, options.agentType, {
       success: true,
       subagentSessionId: child.sessionId,
+      report: response,
     });
     options.bookkeeping.memberFinished = true;
   }

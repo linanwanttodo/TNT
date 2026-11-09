@@ -24,8 +24,10 @@ import { questionSetFrom, zcodeQuestions } from "./interactionPayload.js";
 import {
   contextWindowForSession,
   lastPromptTokens,
+  sessionModelSelection,
   sessionTodoList,
   sessionTodoUpdatedAt,
+  thoughtLevelState,
   toZcodeMessages,
 } from "./snapshot.js";
 import {
@@ -538,7 +540,11 @@ export function buildConversationSnapshot(
   running: boolean,
   pendingInteractions: PendingInteraction[] = [],
 ): ConversationSnapshot {
-  const { provider, model } = modelParts(session.chatModelTitle ?? undefined);
+  const selection = sessionModelSelection(session);
+  const { provider, model } = selection
+    ? { provider: selection.providerId, model: selection.modelId }
+    : modelParts(undefined);
+  const thought = thoughtLevelState();
   const rows = [...frame.rows].sort((left, right) => left.rowId - right.rowId);
   const contextWindow = contextWindowForSession(session);
   const goal = cursor.goal ? goalStateOf(cursor.goal) : null;
@@ -578,8 +584,8 @@ export function buildConversationSnapshot(
     config: {
       provider,
       model,
-      thought: "off",
-      thoughtLevels: [],
+      thought: thought.current ?? thought.defaultLevel ?? "off",
+      thoughtLevels: thought.available.map((option) => option.value),
       followupMode: "queue",
       mode: session.mode ?? "build",
     },

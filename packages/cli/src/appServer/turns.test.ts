@@ -17,7 +17,7 @@ import { messageQueue } from "../stream/messageQueue.js";
 
 import { AppServerProtocol } from "./protocol.js";
 import { SessionRegistry } from "./sessionRegistry.js";
-import type { TurnExecutor, TurnPump } from "./turns.js";
+import type { PendingTurn, TurnExecutor, TurnPump } from "./turns.js";
 
 interface RecordedMessage {
   id?: unknown;
@@ -266,6 +266,53 @@ describe("app-server turns and v4 conversation frames", () => {
     for (const event of events) {
       expect(event.sessionId).toBe(sessionId);
     }
+  });
+
+  it("carries a send's model and reasoning selection into the turn", async () => {
+    const captured: PendingTurn[] = [];
+    const live = new AppServerProtocol(sender, new SessionRegistry(root), {
+      modelLookup: {
+        getAvailableChatModels: () => [
+          { provider: "test", name: "fake", index: 0 },
+        ],
+      },
+      runTurn: async (turn) => {
+        captured.push(turn);
+      },
+      pump,
+      ensureServices: async () => undefined,
+    });
+    protocol.dispose();
+    protocol = live;
+    const sessionId = await createSession();
+
+    await protocol.handle({
+      id: "send",
+      method: "session/send",
+      params: {
+        sessionId,
+        content: "hi",
+        thoughtLevel: "low",
+        modelSelection: {
+          providerId: "test",
+          modelId: "fake",
+          options: { reasoningLevel: "high" },
+        },
+      },
+    });
+    await pump.whenIdle();
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({
+      sessionId,
+      text: "hi",
+      thoughtLevel: "low",
+      modelSelection: {
+        providerId: "test",
+        modelId: "fake",
+        options: { reasoningLevel: "high" },
+      },
+    });
   });
 
   it("aborts the active turn and ends it with an interrupted turn.completed", async () => {

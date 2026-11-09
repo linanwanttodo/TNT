@@ -8,6 +8,7 @@ import type {
 } from "@zcode/shared/zcode-protocol-v4";
 import { WORKFLOW_RUNS_LIMITS } from "@zcode/shared/zcode-protocol-v4";
 import type {
+  Session,
   TeamMemberRunStatus,
   TeamRunRecord,
   TeamRunStatus,
@@ -19,9 +20,32 @@ import {
   teamWorkflowDisplay,
   teamWorkflowGraphFor,
 } from "../session/teamWorkflow.js";
+import { MAX_CONCURRENT_TEAM_MEMBERS } from "../subagent/memberLimiter.js";
+
+import { deriveSubagentCounts } from "./subagents.js";
 
 /** The snapshot keeps the same bounded window the protocol schema does. */
 const RUN_WINDOW = WORKFLOW_RUNS_LIMITS.maxRuns;
+
+/**
+ * What the projection may read besides the ledger. A member's token count is
+ * not persisted in the ledger: it is measured from the child session the
+ * dispatch saved, exactly as the subagents projection does.
+ */
+export interface WorkflowRunProjectionOptions {
+  loadChildSession?: (sessionId: string) => Session | null;
+}
+
+function memberSpentTokens(
+  member: TeamRunRecord["members"][number],
+  options: WorkflowRunProjectionOptions,
+): number | undefined {
+  if (!member.subagentSessionId) return undefined;
+  return deriveSubagentCounts(
+    member.subagentSessionId,
+    options.loadChildSession,
+  ).tokens;
+}
 
 function bounded(value: string, max: number, fallback: string): string {
   const trimmed = value.trim();
@@ -88,6 +112,7 @@ function memberError(run: TeamRunRecord): string | undefined {
 export function projectTeamRun(
   run: TeamRunRecord,
   revision: number,
+  options: WorkflowRunProjectionOptions = {},
 ): WorkflowRunState {
   const waveIds = teamRunWaveIds(run.mode, run.members.length);
 
@@ -157,16 +182,60 @@ export function projectTeamRun(
     .find((entry) => entry.member.status === "running")?.wave;
   const error = run.status === "failed" ? memberError(run) : undefined;
 
+  // Tokens are measured from each member's saved child session; a member with
+  // no session (or a session with no reported usage) contributes nothing.
+  let spentTokens = 0;
+  for (const member of run.members) {
+    const tokens = memberSpentTokens(member, options);
+    if (tokens !== undefined) spentTokens += tokens;
+  }
+
+  // The schema's only report field is the run-level `reports` table, keyed by
+  // (siteId, ordinal). A member's final report is emitted under its node's
+  // identity so the entry lines up with `nodes[]`.
+  const reports = run.members.flatMap((member, index) =>
+    member.report
+      ? [
+          {
+            siteId: `step-${index + 1}`,
+            ordinal: index,
+            preview: member.report.slice(
+              0,
+              WORKFLOW_RUNS_LIMITS.maxReportPreviewLength,
+            ),
+          },
+        ]
+      : [],
+  );
+
+  // `cap` is the number of members this run may have in flight at once;
+  // `ceiling` is the process-wide member limiter. A run ledger that carries no
+  // concurrency (auto mode) claims neither.
+  const concurrency =
+    run.concurrency !== undefined && run.concurrency > 0
+      ? Math.min(run.concurrency, MAX_CONCURRENT_TEAM_MEMBERS)
+      : undefined;
+
   return {
     runId: run.runId.slice(0, 128),
     status: runStatus(run.status),
     usage: {
-      spentTokens: 0,
+      spentTokens,
       nodesUsed: dispatchedCount(run),
     },
     ...(error ? { error } : {}),
     actors,
     nodes,
+    ...(reports.length > 0 ? { reports } : {}),
+    ...(concurrency === undefined
+      ? {}
+      : {
+          concurrency: {
+            cap: concurrency,
+            ceiling: MAX_CONCURRENT_TEAM_MEMBERS,
+          },
+          concurrencyCeiling: MAX_CONCURRENT_TEAM_MEMBERS,
+        }),
     ...(declaredPhases.length > 0 ? { phaseNames: declaredPhases } : {}),
     ...(reachedPhases.length > 0
       ? {
@@ -186,10 +255,13 @@ export function projectTeamRun(
 export function teamRunsToWorkflowRuns(
   runs: readonly TeamRunRecord[],
   revision: number,
+  options: WorkflowRunProjectionOptions = {},
 ): WorkflowRunsState {
   return {
     revision,
-    runs: runs.slice(-RUN_WINDOW).map((run) => projectTeamRun(run, revision)),
+    runs: runs
+      .slice(-RUN_WINDOW)
+      .map((run) => projectTeamRun(run, revision, options)),
   };
 }
 
@@ -203,10 +275,13 @@ function sameRun(left: TeamRunRecord, right: TeamRunRecord): boolean {
  * in `cleared` or the client keeps the stale value.
  */
 const CLEARABLE_HEADER_KEYS = [
+  "concurrency",
+  "concurrencyCeiling",
   "currentPhase",
   "error",
   "phases",
   "phaseNames",
+  "reports",
 ] as const;
 
 function runWindow(runs: readonly TeamRunRecord[]): TeamRunRecord[] {
@@ -224,6 +299,7 @@ export function buildWorkflowRunDeltas(
   previous: readonly TeamRunRecord[] | undefined,
   next: readonly TeamRunRecord[],
   revision: number,
+  options: WorkflowRunProjectionOptions = {},
 ): ConversationDelta[] {
   const previousWindow = runWindow(previous ?? []);
   const nextWindow = runWindow(next);
@@ -234,7 +310,7 @@ export function buildWorkflowRunDeltas(
   for (const run of nextWindow) {
     const before = previousById.get(run.runId);
     if (before && sameRun(before, run)) continue;
-    const projected = projectTeamRun(run, revision);
+    const projected = projectTeamRun(run, revision, options);
     const { actors, nodes, ...header } = projected;
     const headerRecord = header as Record<string, unknown>;
     const cleared = CLEARABLE_HEADER_KEYS.filter(
