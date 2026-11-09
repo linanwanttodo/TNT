@@ -22,6 +22,7 @@ import type {
 } from "core/index.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import { t, type TranslationKey } from "../i18n/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import {
   SERVICE_NAMES,
@@ -604,14 +605,19 @@ function activeModelConfig(): ModelLike | null {
     : null;
 }
 
-const THOUGHT_LEVEL_LABELS: Record<string, string> = {
-  off: "Off",
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra high",
-  max: "Max",
+const THOUGHT_LEVEL_KEYS: Record<string, TranslationKey> = {
+  off: "thought.level.off",
+  low: "thought.level.low",
+  medium: "thought.level.medium",
+  high: "thought.level.high",
+  xhigh: "thought.level.xhigh",
+  max: "thought.level.max",
 };
+
+function thoughtLevelLabel(value: string): string {
+  const key = THOUGHT_LEVEL_KEYS[value];
+  return key === undefined ? value : t(key);
+}
 
 export interface ThoughtLevelState {
   enabled: true;
@@ -636,7 +642,7 @@ export function thoughtLevelState(): ThoughtLevelState {
     ...(configured ? { defaultLevel: configured } : {}),
     available: REASONING_DEPTH_VALUES.map((value) => ({
       value,
-      label: THOUGHT_LEVEL_LABELS[value] ?? value,
+      label: thoughtLevelLabel(value),
     })),
   };
 }
