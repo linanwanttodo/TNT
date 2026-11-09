@@ -8,6 +8,10 @@ import type {
 } from "@zcode/shared/zcode-protocol-v4";
 import type { TeamRunRecord } from "core/index.js";
 
+import {
+  subagentProjectionFromRows,
+  subagentRowFromWire,
+} from "./subagents.js";
 import { controlState, turnBase, type FrameSubscription } from "./v4Frames.js";
 import { activeTeamRun, teamRunWorkflowDisplay } from "./workflowRuns.js";
 
@@ -360,6 +364,38 @@ function displayUpsertDeltas(
   return [{ op: "row.upserted", row }];
 }
 
+function subagentDeltas(
+  frame: FrameSubscription,
+  subagent: Payload,
+  event: ZCodeSessionEvent,
+): ConversationDelta[] {
+  const id = asText(subagent.id);
+  if (!id) {
+    return [];
+  }
+  const existing = frame.subagentRows.get(id);
+  const rowId = existing?.rowId ?? frame.nextRowId + 1;
+  const row = subagentRowFromWire(subagent, rowId, frame.turnId);
+  if (!row) {
+    return [];
+  }
+  if (!existing) {
+    frame.nextRowId = rowId;
+  }
+  frame.subagentRows.set(id, row);
+  frame.rows = frame.rows.filter((candidate) => candidate.rowId !== row.rowId);
+  frame.rows.push(row);
+  return [
+    existing ? { op: "row.upserted", row } : { op: "row.appended", row },
+    {
+      op: "state.updated",
+      patch: {
+        subagents: subagentProjectionFromRows(frame.rows, event.seq),
+      },
+    },
+  ] as ConversationDelta[];
+}
+
 /**
  * Team-run changes ride `session.updated`: the ledger publisher appends one
  * event carrying either the `workflowRun.updated/removed` deltas, a display
@@ -369,6 +405,7 @@ function displayUpsertDeltas(
 function sessionUpdatedDeltas(
   frame: FrameSubscription,
   payload: Payload,
+  event: ZCodeSessionEvent,
 ): ConversationDelta[] {
   const deltas: ConversationDelta[] = [];
   if (frame.workflowRunDeltas) {
@@ -385,6 +422,10 @@ function sessionUpdatedDeltas(
   }
   const display = asRecord(payload.teamWorkflowDisplay);
   deltas.push(...displayUpsertDeltas(frame, display));
+  const subagent = asRecord(payload.subagent);
+  if (Object.keys(subagent).length > 0) {
+    deltas.push(...subagentDeltas(frame, subagent, event));
+  }
   return deltas.length > 0 ? deltas : [{ op: "state.updated", patch: {} }];
 }
 
@@ -431,7 +472,7 @@ export function deltasForEvent(
     case "session.titleUpdated":
       return titleDeltas(payload);
     case "session.updated":
-      return sessionUpdatedDeltas(frame, payload);
+      return sessionUpdatedDeltas(frame, payload, event);
     case "permission.requested":
       return permissionDeltas(event, payload);
     case "userInput.requested":

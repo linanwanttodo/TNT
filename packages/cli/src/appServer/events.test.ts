@@ -1,10 +1,12 @@
 import { zcodeSessionEventSchema } from "@zcode/shared";
+import type { Session, TeamRunRecord } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
 import type { AgentEvent } from "../protocol/events.js";
 
 import { createTranslationState, translateAgentEvent } from "./events.js";
 import { SessionRuntimeStore } from "./runtime.js";
+import type { SubagentSessionRef } from "./subagents.js";
 
 const sessionId = "session-1";
 const turnId = "turn-1";
@@ -435,5 +437,269 @@ describe("translateAgentEvent", () => {
     objective = null;
     turnStarted(8, 6_000);
     expect(state.goal).toBeNull();
+  });
+
+  it("translates started, reported and finished into session.updated rows", () => {
+    const childSession = {
+      sessionId: "child-1",
+      history: [
+        {
+          message: {
+            role: "assistant",
+            content: "done",
+            toolCalls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: { name: "read_file", arguments: "{}" },
+              },
+            ],
+            usage: { promptTokens: 20, completionTokens: 10 },
+          },
+          contextItems: [],
+        },
+      ],
+    } as unknown as Session;
+    let children: SubagentSessionRef[] = [];
+    const state = createTranslationState(sessionId, {
+      readGoal: () => null,
+      readUsage: () => null,
+      readTeamRuns: () => null,
+      readChildSessions: () => children,
+      loadChildSession: () => childSession,
+    });
+    translateAgentEvent(
+      {
+        sessionId,
+        turnId,
+        seq: 1,
+        timestamp: 1_000,
+        type: "turn.started",
+        model: "test-model",
+        historyLength: 0,
+      },
+      state,
+    );
+    const started = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 1,
+        timestamp: 1_100,
+        type: "subagent.started",
+        agentName: "code-reviewer",
+        prompt: "Review the patch\nLook for regressions",
+      },
+      state,
+    );
+    children = [{ sessionId: "child-1", subagentType: "code-reviewer" }];
+    const reported = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 2,
+        timestamp: 1_200,
+        type: "subagent.reported",
+        agentName: "code-reviewer",
+        content: "Found one regression",
+      },
+      state,
+    );
+    const finished = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "code-reviewer",
+        seq: 3,
+        timestamp: 1_300,
+        type: "subagent.finished",
+        agentName: "code-reviewer",
+        content: "Found one regression",
+        success: true,
+        verdict: "FAIL",
+      },
+      state,
+    );
+
+    expect([started, reported, finished]).toHaveLength(3);
+    const payloads = [started, reported, finished].map(
+      (events) =>
+        (events[0].payload as { subagent: Record<string, unknown> }).subagent,
+    );
+    expect(payloads.map((payload) => payload.event)).toEqual([
+      "started",
+      "reported",
+      "finished",
+    ]);
+    expect(payloads[0]).toMatchObject({
+      agentName: "code-reviewer",
+      turnId,
+      status: "running",
+      summary: "Review the patch",
+    });
+    expect(payloads[1]).toMatchObject({
+      status: "running",
+      summary: "Found one regression",
+    });
+    expect(payloads[2]).toMatchObject({
+      status: "success",
+      childSessionId: "child-1",
+      toolUses: 1,
+      tokens: 30,
+    });
+    expect(String(payloads[2].summary)).toContain("1 tool uses");
+    expect(String(payloads[2].summary)).toContain("30 tokens");
+    expect(String(payloads[2].summary)).toContain("verdict: FAIL");
+    for (const events of [started, reported, finished]) {
+      expect(() => zcodeSessionEventSchema.parse(events[0])).not.toThrow();
+    }
+  });
+
+  it("marks a failed subagent and omits counts that were never measured", () => {
+    const state = createTranslationState(sessionId, {
+      readGoal: () => null,
+      readUsage: () => null,
+      readTeamRuns: () => null,
+      readChildSessions: () => [],
+    });
+    translateAgentEvent(
+      {
+        sessionId,
+        turnId,
+        seq: 1,
+        timestamp: 1_000,
+        type: "turn.started",
+        model: "test-model",
+        historyLength: 0,
+      },
+      state,
+    );
+    translateAgentEvent(
+      {
+        sessionId,
+        turnId: "tester",
+        seq: 1,
+        timestamp: 1_100,
+        type: "subagent.started",
+        agentName: "tester",
+        prompt: "Test the change",
+      },
+      state,
+    );
+    const finished = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "tester",
+        seq: 2,
+        timestamp: 1_200,
+        type: "subagent.finished",
+        agentName: "tester",
+        content: "build failed",
+        success: false,
+      },
+      state,
+    );
+    const subagent = (
+      finished[0].payload as { subagent: Record<string, unknown> }
+    ).subagent;
+    expect(subagent.status).toBe("failed");
+    expect(subagent).not.toHaveProperty("childSessionId");
+    expect(subagent).not.toHaveProperty("toolUses");
+    expect(subagent).not.toHaveProperty("tokens");
+    expect(String(subagent.summary)).not.toContain("tool uses");
+    expect(String(subagent.summary)).not.toContain("tokens");
+  });
+
+  it("joins a dispatch to a team run only when the member match is unambiguous", () => {
+    const run = (runId: string, withChild: boolean): TeamRunRecord => ({
+      runId,
+      team: "dev",
+      goal: "Ship it",
+      mode: "serial",
+      startedAt: "2026-11-09T00:00:00.000Z",
+      status: withChild ? "completed" : "running",
+      members: [
+        {
+          name: "implementer",
+          status: withChild ? "completed" : "running",
+          ...(withChild ? { subagentSessionId: "child-9" } : {}),
+        },
+      ],
+    });
+    let runs: TeamRunRecord[] = [run("team-1", false)];
+    const state = createTranslationState(sessionId, {
+      readGoal: () => null,
+      readUsage: () => null,
+      readTeamRuns: () => runs,
+      readChildSessions: () => [],
+    });
+    translateAgentEvent(
+      {
+        sessionId,
+        turnId,
+        seq: 1,
+        timestamp: 1_000,
+        type: "turn.started",
+        model: "test-model",
+        historyLength: 0,
+      },
+      state,
+    );
+    const started = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "implementer",
+        seq: 1,
+        timestamp: 1_100,
+        type: "subagent.started",
+        agentName: "implementer",
+        prompt: "Write the feature",
+      },
+      state,
+    );
+    expect(
+      (started[0].payload as { subagent: Record<string, unknown> }).subagent
+        .runId,
+    ).toBe("team-1");
+    runs = [run("team-1", true)];
+    const finished = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "implementer",
+        seq: 2,
+        timestamp: 1_200,
+        type: "subagent.finished",
+        agentName: "implementer",
+        content: "done",
+        success: true,
+      },
+      state,
+    );
+    expect(
+      (finished[0].payload as { subagent: Record<string, unknown> }).subagent
+        .childSessionId,
+    ).toBe("child-9");
+
+    const ambiguous = createTranslationState(sessionId, {
+      readGoal: () => null,
+      readUsage: () => null,
+      readTeamRuns: () => [run("team-1", false), run("team-2", false)],
+      readChildSessions: () => [],
+    });
+    const ambiguousStart = translateAgentEvent(
+      {
+        sessionId,
+        turnId: "implementer",
+        seq: 1,
+        timestamp: 2_100,
+        type: "subagent.started",
+        agentName: "implementer",
+        prompt: "Write the feature",
+      },
+      ambiguous,
+    );
+    expect(
+      (ambiguousStart[0].payload as { subagent: Record<string, unknown> })
+        .subagent,
+    ).not.toHaveProperty("runId");
   });
 });
