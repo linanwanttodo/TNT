@@ -154,6 +154,58 @@ describe("derivePendingInteractions", () => {
     });
   });
 
+  it("projects an unanswered question set with its tabs", () => {
+    const event = {
+      ...userInputRequested(1),
+      payload: {
+        requestId: "question-1",
+        prompt: "Q1. Which branch?\nQ2. Which tests?",
+        inputType: "choice",
+        choices: ["main", "next"],
+        questions: [
+          {
+            question: "Which branch?",
+            options: ["main", "next"],
+            header: "Branch",
+          },
+          {
+            question: "Which tests?",
+            options: ["unit", "e2e"],
+            multiSelect: true,
+          },
+        ],
+      },
+    } as unknown as ZCodeSessionEvent;
+    const pending = derivePendingInteractions([event]);
+    const parsed = pendingInteractionSchema.parse(pending[0]);
+
+    expect(parsed).toMatchObject({
+      kind: "userInput",
+      payload: {
+        kind: "userInput",
+        questions: [
+          {
+            question: "Which branch?",
+            header: "Branch",
+            options: [
+              { value: "main", label: "main" },
+              { value: "next", label: "next" },
+            ],
+          },
+          {
+            question: "Which tests?",
+            header: "Q2",
+            options: [
+              { value: "unit", label: "unit" },
+              { value: "e2e", label: "e2e" },
+            ],
+            multiSelect: true,
+          },
+        ],
+      },
+    });
+  });
+
   it("drops a question once it is answered", () => {
     expect(
       derivePendingInteractions([userInputRequested(1), userInputResolved(2)]),

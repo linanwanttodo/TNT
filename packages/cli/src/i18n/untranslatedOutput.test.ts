@@ -262,11 +262,13 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   config: 2,
   mcp: 1,
   plugins: 1,
-  // 6, not 7: the terminal-safety work translated one raw throw in this
-  // directory, and the ratchet records the lower count.
-  services: 6,
+  // 7, not the earlier 6: the terminal-safety work translated one raw throw in
+  // this directory, and `QuizService.askQuestions` now refuses an empty set.
+  services: 7,
   session: 6,
-  tools: 6,
+  // 14, not 6: `AskQuestion` validates the new `questions` array field by
+  // field, and those messages are read by the model, not the composer.
+  tools: 14,
   ui: 8,
   utils: 16,
   // The web UI host and its services answer an RPC peer; these are JSON-RPC and

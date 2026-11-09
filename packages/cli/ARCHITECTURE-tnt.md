@@ -191,6 +191,13 @@ The prefix is assembled in build order, each part announced so it can be attribu
   `a71d2947f1555c76`/34467 over the same 42 tools. It still only lands in sessions that
   activate a team behind the Subagent beta flag.
 
+- **Prefix changelog, 2026-11-09:** `AskQuestion` gained an optional `questions`
+  array (up to eight entries, each with optional options, multiSelect, freeText and
+  header) so one tool call can collect a whole form; the legacy `question`/`options`
+  pair still validates. The schema adds 849 characters, moving
+  `a71d2947f1555c76`/34467 to `56d3989dd2fb855c`/35316 over the same 42 tools. It
+  sits in every session's prefix, so the next request cold-starts the cache once.
+
 - **Prefix changelog, 2026-11-09:** `AssignTeamModel` joined the built-in tools so the main
   agent can put a team member on a configured model at run time. One new definition adds
   608 characters to the digested surface; `e643e3597265f28b`/32838 over 40 tools became
@@ -206,7 +213,7 @@ The prefix is assembled in build order, each part announced so it can be attribu
   characters - 279 characters of schema, a one-time cold start per session.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `a71d2947f1555c76` over 42 tools and 34467 characters (name + description + parameter schema, in
+  `56d3989dd2fb855c` over 42 tools and 35316 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the

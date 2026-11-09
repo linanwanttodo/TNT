@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- permission and question requests share the bridge's pending maps */
 import { zcodeProtocolMethods } from "@zcode/shared";
 
 import type { InteractionBroker } from "../permissions/interactionBroker.js";
@@ -9,7 +10,9 @@ import type { ToolCallRequest } from "../permissions/types.js";
 import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import type { AgentEvent } from "../protocol/events.js";
 import {
+  formatQuizAnswer,
   quizService,
+  type QuizItemAnswer,
   type QuizQuestion,
   type QuizService,
 } from "../services/QuizService.js";
@@ -17,9 +20,11 @@ import { logger } from "../utils/logger.js";
 
 import {
   answerFromContent,
+  answersFromContent,
   asRecord,
-  choiceForOption,
+  choiceForQuestions,
   permissionParams,
+  questionSetFrom,
   userInputParams,
   type PendingPermission,
   type PendingQuestion,
@@ -91,8 +96,10 @@ export class InteractionBridge {
       approve: (requestId, remember = false) =>
         permissionManager.approveRequest(requestId, remember),
       reject: (requestId) => permissionManager.rejectRequest(requestId),
-      answerQuestion: (requestId, answer, isCustomAnswer = false) =>
-        quiz.answerQuestion(requestId, answer, isCustomAnswer),
+      answerQuestion: (requestId, answer, isCustomAnswer = false, answers) =>
+        answers
+          ? quiz.answerQuestion(requestId, answer, isCustomAnswer, answers)
+          : quiz.answerQuestion(requestId, answer, isCustomAnswer),
     };
     this.resolveSessionId = options.resolveSessionId ?? (() => null);
     const events = options.events ?? { subscribe: subscribeAgentEvents };
@@ -192,13 +199,13 @@ export class InteractionBridge {
     }
     const record = asRecord(event);
     const requestId = record.requestId;
-    const question = record.question as QuizQuestion | undefined;
-    if (typeof requestId !== "string" || !question) {
+    const questions = questionSetFrom(record);
+    if (typeof requestId !== "string" || !questions) {
       return;
     }
     this.questions.set(requestId, {
       requestId,
-      question,
+      questions,
       sessionId: null,
       turnId: null,
       outgoing: null,
@@ -299,16 +306,20 @@ export class InteractionBridge {
     pending.sessionId = sessionId;
     pending.turnId ??= identity?.turnId ?? null;
     if (!this.hasQuestionEvent(sessionId, "userInput.requested", requestId)) {
-      const choices = pending.question.options ?? [];
+      const first = pending.questions[0];
+      const choices = first?.options ?? [];
       this.runtimes.append(
         sessionId,
         "userInput.requested",
         {
           requestId,
-          prompt: pending.question.question,
+          prompt: first?.question ?? "",
           ...(choices.length > 0
             ? { inputType: "choice", choices: [...choices] }
             : { inputType: "text" }),
+          ...(pending.questions.length > 1
+            ? { questions: pending.questions }
+            : {}),
         },
         Date.now(),
         pending.turnId,
@@ -358,14 +369,27 @@ export class InteractionBridge {
     const record = asRecord(result);
     pending.outgoing = null;
     if (record.action === "accept") {
-      this.broker.answerQuestion(
-        requestId,
-        answerFromContent(record.content),
-        true,
-      );
+      this.answerWithContent(pending, record.content, true);
     } else if (record.action === "decline" || record.action === "cancel") {
       this.broker.answerQuestion(requestId, "");
     }
+  }
+
+  private answerWithContent(
+    pending: PendingQuestion,
+    content: unknown,
+    isCustomAnswer: boolean,
+  ): void {
+    const answers = answersFromContent(pending.questions, content);
+    const answer = answers
+      ? formatQuizAnswer(pending.questions, answers)
+      : answerFromContent(content);
+    this.broker.answerQuestion(
+      pending.requestId,
+      answer,
+      isCustomAnswer,
+      answers,
+    );
   }
 
   private resolvePermission(
@@ -405,23 +429,63 @@ export class InteractionBridge {
     }
     let value: string | undefined;
     let isCustomAnswer = false;
+    let answers: QuizItemAnswer[] | undefined;
     if (answer.freeText !== undefined) {
       value = answer.freeText;
       isCustomAnswer = true;
+      answers = this.assignAnswers(pending.questions, 0, value, true);
     } else if (answer.optionId !== undefined) {
-      const choice = choiceForOption(pending.question, answer.optionId);
-      value = choice ?? answer.optionId;
+      const choice = choiceForQuestions(pending.questions, answer.optionId);
+      value = choice?.value ?? answer.optionId;
       isCustomAnswer = choice === undefined;
+      answers = this.assignAnswers(
+        pending.questions,
+        choice?.index ?? 0,
+        value,
+        isCustomAnswer,
+        choice && pending.questions[choice.index]?.multiSelect === true
+          ? [choice.value]
+          : undefined,
+      );
     } else if (answer.action === "decline" || answer.action === "cancel") {
       value = "";
+      answers = this.assignAnswers(pending.questions, -1, "", false);
     } else if (answer.action === "accept") {
-      value = answerFromContent(answer.content);
+      answers = answersFromContent(pending.questions, answer.content);
+      value = answers
+        ? formatQuizAnswer(pending.questions, answers)
+        : answerFromContent(answer.content);
       isCustomAnswer = true;
     }
     if (value === undefined) {
       return false;
     }
-    return this.broker.answerQuestion(requestId, value, isCustomAnswer);
+    return this.broker.answerQuestion(
+      requestId,
+      value,
+      isCustomAnswer,
+      answers,
+    );
+  }
+
+  /** One question's answer; -1 fills every question with an empty answer. */
+  private assignAnswers(
+    questions: QuizQuestion[],
+    index: number,
+    value: string,
+    isCustomAnswer: boolean,
+    selected?: string[],
+  ): QuizItemAnswer[] {
+    return questions.map((question, questionIndex) =>
+      questionIndex === index
+        ? {
+            question: question.question,
+            answer: value,
+            isCustomAnswer,
+            ...(selected && selected.length > 0 ? { selected } : {}),
+          }
+        : { question: question.question, answer: "", isCustomAnswer: false },
+    );
   }
 
   private recordPermissionResolved(

@@ -1,6 +1,7 @@
 import type { AssistantConfig } from "@tnt/sdk";
 import React from "react";
 
+import type { QuizItemAnswer } from "../../services/QuizService.js";
 import type {
   ActivePermissionRequest,
   ActiveQuizQuestion,
@@ -22,7 +23,12 @@ interface ChatScreenContentProps {
     stopStream?: boolean,
     forSession?: boolean,
   ) => void;
-  handleQuizAnswer: (requestId: string, answer: string) => void;
+  handleQuizAnswer: (
+    requestId: string,
+    answer: string,
+    isCustomAnswer?: boolean,
+    answers?: QuizItemAnswer[],
+  ) => void;
   handleUserMessage: (message: string, imageMap?: Map<string, Buffer>) => void;
   isWaitingForResponse: boolean;
   isCompacting: boolean;
@@ -61,9 +67,7 @@ export const ChatScreenContent: React.FC<ChatScreenContentProps> = ({
   if (activeQuizQuestion) {
     return (
       <QuizPrompt
-        question={activeQuizQuestion.question.question}
-        options={activeQuizQuestion.question.options}
-        defaultAnswer={activeQuizQuestion.question.defaultAnswer}
+        questions={activeQuizQuestion.questions}
         requestId={activeQuizQuestion.requestId}
         onAnswer={handleQuizAnswer}
       />

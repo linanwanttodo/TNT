@@ -20,6 +20,7 @@ import type { Session, TeamRunRecord } from "core/index.js";
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 
 import type { GoalLifecycleState } from "./events.js";
+import { questionSetFrom, zcodeQuestions } from "./interactionPayload.js";
 import {
   contextWindowForSession,
   lastPromptTokens,
@@ -443,6 +444,8 @@ export function derivePendingInteractions(
             (choice): choice is string => typeof choice === "string",
           )
         : [];
+      const questionSet = questionSetFrom(payload);
+      const questions = questionSet ? zcodeQuestions(questionSet) : undefined;
       pending.set(requestId, {
         order,
         interaction: {
@@ -462,6 +465,7 @@ export function derivePendingInteractions(
                   })),
                 }
               : {}),
+            ...(questions ? { questions } : {}),
           },
         },
       });

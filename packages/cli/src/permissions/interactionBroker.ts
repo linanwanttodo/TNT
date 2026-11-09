@@ -1,4 +1,4 @@
-import { quizService } from "../services/QuizService.js";
+import { quizService, type QuizItemAnswer } from "../services/QuizService.js";
 
 import { toolPermissionManager } from "./permissionManager.js";
 
@@ -14,6 +14,8 @@ export interface InteractionBroker {
     requestId: string,
     answer: string,
     isCustomAnswer?: boolean,
+    /** Per-question detail from a multi-question surface. */
+    answers?: QuizItemAnswer[],
   ): boolean;
 }
 
@@ -21,8 +23,10 @@ export const interactionBroker: InteractionBroker = {
   approve: (requestId, remember = false) =>
     toolPermissionManager.approveRequest(requestId, remember),
   reject: (requestId) => toolPermissionManager.rejectRequest(requestId),
-  answerQuestion: (requestId, answer, isCustomAnswer = false) =>
-    quizService.answerQuestion(requestId, answer, isCustomAnswer),
+  answerQuestion: (requestId, answer, isCustomAnswer = false, answers) =>
+    answers
+      ? quizService.answerQuestion(requestId, answer, isCustomAnswer, answers)
+      : quizService.answerQuestion(requestId, answer, isCustomAnswer),
 };
 
 /**

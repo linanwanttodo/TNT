@@ -62,7 +62,9 @@ describe("the quiz prompt", () => {
     tree.stdin.write(ENTER);
     await settle();
 
-    expect(onAnswer).toHaveBeenCalledWith("req-1", "Beta", false);
+    expect(onAnswer).toHaveBeenCalledWith("req-1", "Beta", false, [
+      { question: "Pick one", answer: "Beta", isCustomAnswer: false },
+    ]);
   });
 
   it("does not replace a highlighted option when letters are typed", async () => {
@@ -76,7 +78,9 @@ describe("the quiz prompt", () => {
     tree.stdin.write(ENTER);
     await settle();
 
-    expect(onAnswer).toHaveBeenCalledWith("req-1", "Alpha", false);
+    expect(onAnswer).toHaveBeenCalledWith("req-1", "Alpha", false, [
+      { question: "Pick one", answer: "Alpha", isCustomAnswer: false },
+    ]);
   });
 
   it("switches questions with Tab, Shift+Tab and the arrow keys", async () => {
@@ -130,6 +134,10 @@ describe("the quiz prompt", () => {
       "req-1",
       "Q: First question?\nA: A1\n\nQ: Second question?\nA: B1",
       false,
+      [
+        { question: "First question?", answer: "A1", isCustomAnswer: false },
+        { question: "Second question?", answer: "B1", isCustomAnswer: false },
+      ],
     );
   });
 
@@ -169,7 +177,65 @@ describe("the quiz prompt", () => {
     multi.stdin.write(ENTER);
     await settle();
 
-    expect(onAnswer).toHaveBeenCalledWith("req-1", "One, Two", false);
+    expect(onAnswer).toHaveBeenCalledWith("req-1", "One, Two", false, [
+      {
+        question: "Pick many",
+        answer: "One, Two",
+        isCustomAnswer: false,
+        selected: ["One", "Two"],
+      },
+    ]);
+  });
+
+  it("renders headers and folds a per-question multi-select set", async () => {
+    const onAnswer = vi.fn();
+    const tree = track(
+      <QuizPrompt
+        requestId="req-1"
+        onAnswer={onAnswer}
+        questions={[
+          { question: "First?", options: ["A1", "A2"], header: "Scope" },
+          {
+            question: "Second?",
+            options: ["B1", "B2"],
+            multiSelect: true,
+            header: "Extras",
+          },
+        ]}
+      />,
+    );
+    await settle();
+
+    expect(tree.lastFrame()).toContain("Scope");
+    expect(tree.lastFrame()).toContain("Extras");
+
+    tree.stdin.write(ENTER);
+    await settle();
+    expect(tree.lastFrame()).toContain("Second?");
+
+    tree.stdin.write(" ");
+    await settle();
+    tree.stdin.write(DOWN);
+    await settle();
+    tree.stdin.write(" ");
+    await settle();
+    tree.stdin.write(ENTER);
+    await settle();
+
+    expect(onAnswer).toHaveBeenCalledWith(
+      "req-1",
+      "Q: First?\nA: A1\n\nQ: Second?\nA: B1, B2",
+      false,
+      [
+        { question: "First?", answer: "A1", isCustomAnswer: false },
+        {
+          question: "Second?",
+          answer: "B1, B2",
+          isCustomAnswer: false,
+          selected: ["B1", "B2"],
+        },
+      ],
+    );
   });
 
   it("requires at least one marked option before submitting", async () => {
@@ -208,7 +274,9 @@ describe("the quiz prompt", () => {
     tree.stdin.write(ENTER);
     await settle();
 
-    expect(onAnswer).toHaveBeenCalledWith("req-1", "custom", true);
+    expect(onAnswer).toHaveBeenCalledWith("req-1", "custom", true, [
+      { question: "Pick one", answer: "custom", isCustomAnswer: true },
+    ]);
   });
 
   it("adds typed Other text to a multi-select set", async () => {
@@ -242,7 +310,14 @@ describe("the quiz prompt", () => {
     tree.stdin.write(ENTER);
     await settle();
 
-    expect(onAnswer).toHaveBeenCalledWith("req-1", "custom", true);
+    expect(onAnswer).toHaveBeenCalledWith("req-1", "custom", true, [
+      {
+        question: "Pick many",
+        answer: "custom",
+        isCustomAnswer: true,
+        selected: ["custom"],
+      },
+    ]);
   });
 
   it("accepts a free-text question without options", async () => {
@@ -261,7 +336,13 @@ describe("the quiz prompt", () => {
     tree.stdin.write(ENTER);
     await settle();
 
-    expect(onAnswer).toHaveBeenCalledWith("req-1", "hello", true);
+    expect(onAnswer).toHaveBeenCalledWith("req-1", "hello", true, [
+      {
+        question: "Describe the change",
+        answer: "hello",
+        isCustomAnswer: true,
+      },
+    ]);
   });
 
   it("cancels with a clear answer on Escape", async () => {
@@ -271,7 +352,13 @@ describe("the quiz prompt", () => {
     tree.stdin.write(ESC);
     await settle();
 
-    expect(onAnswer).toHaveBeenCalledWith("req-1", t("quiz.cancelled"), true);
+    expect(onAnswer).toHaveBeenCalledWith("req-1", t("quiz.cancelled"), true, [
+      {
+        question: "Pick one",
+        answer: t("quiz.cancelled"),
+        isCustomAnswer: true,
+      },
+    ]);
   });
 
   it("gives a cancel handler the request instead of an answer", async () => {
