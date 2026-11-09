@@ -425,6 +425,11 @@ export class WorkspaceEngines {
     const canonical =
       this.rootLookup.get(resolved) ??
       (await canonicalWorkspacePath(resolved).catch(() => resolved));
+    // The host engine is the process's own workspace; removing it would drop
+    // the root every relative path and default cwd resolves against.
+    if (canonical === this.hostPath || resolved === this.hostPath) {
+      throw new Error(`The host workspace cannot be removed: ${candidate}`);
+    }
     const engine = this.engines.get(canonical);
     this.engines.delete(canonical);
     this.rootLookup.delete(resolved);
