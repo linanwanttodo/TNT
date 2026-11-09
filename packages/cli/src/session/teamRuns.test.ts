@@ -210,6 +210,30 @@ describe("the team-run ledger", () => {
     expect(runs.at(-1)?.goal).toBe(`goal ${MAX_TEAM_RUNS + 2}`);
   });
 
+  it("marks a cancelled member as cancelled, not failed", () => {
+    const run = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "serial",
+      members: ["implementer"],
+    });
+
+    startTeamMemberRun(run.runId, "implementer");
+    finishTeamMemberRun(run.runId, "implementer", {
+      success: false,
+      cancelled: true,
+      subagentSessionId: "child-session",
+      error: "Subagent execution was cancelled by the user.",
+    });
+
+    const [stored] = getSessionTeamRuns();
+    expect(stored.members[0]).toMatchObject({
+      name: "implementer",
+      status: "cancelled",
+      subagentSessionId: "child-session",
+    });
+  });
+
   it("does not attribute a run that has already been settled", () => {
     const run = beginTeamRun({
       team: "dev",

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- the dispatch lifecycle keeps start, failure and cancellation in one ordered flow */
 import type { ChatHistoryItem } from "core";
 
 import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
@@ -14,6 +15,7 @@ import {
   getSessionActiveTeam,
   saveSubagentSession,
   startTeamMemberRun,
+  updateSubagentSession,
 } from "../session/index.js";
 import { loadTeams } from "../team/loader.js";
 import { escapeEvents } from "../utils/cli.js";
@@ -205,6 +207,45 @@ interface MemberBookkeeping {
   memberFinished: boolean;
 }
 
+/** The host notice a stop leaves in the child transcript. */
+const CANCELLED_NOTICE = "Subagent execution was cancelled by the user.";
+
+/**
+ * Throw the abort shape the catch path recognizes as a cancellation. A run
+ * that returns after the parent aborted must not be recorded as a success.
+ */
+function throwIfCancelled(signal: AbortSignal): void {
+  if (!signal.aborted) {
+    return;
+  }
+  const abort = new Error(CANCELLED_NOTICE);
+  abort.name = "AbortError";
+  throw abort;
+}
+
+function beginSubagentDispatch(options: {
+  parentSessionId: string;
+  agentType: string;
+  prompt: string;
+  chatHistory: ChatHistoryItem[];
+  childDepth: number;
+  emit: (event: AgentEventInput) => void;
+}): string {
+  const child = saveSubagentSession({
+    parentSessionId: options.parentSessionId,
+    subagentType: options.agentType,
+    history: options.chatHistory,
+    delegationDepth: options.childDepth,
+  });
+  options.emit({
+    type: "subagent.started",
+    agentName: options.agentType,
+    prompt: options.prompt,
+    ...(child.sessionId ? { childSessionId: child.sessionId } : {}),
+  });
+  return child.sessionId;
+}
+
 /** Saves the child session, settles the ledger and publishes the success events. */
 async function completeChildRun(options: {
   chatHistory: ChatHistoryItem[];
@@ -213,6 +254,8 @@ async function completeChildRun(options: {
   agentType: string;
   parentSessionId: string;
   childDepth: number;
+  /** The session created at dispatch start; updated, never recreated. */
+  childSessionId?: string;
   teamMember: { runId: string } | undefined;
   bookkeeping: MemberBookkeeping;
   emit: (event: AgentEventInput) => void;
@@ -230,17 +273,28 @@ async function completeChildRun(options: {
     responseLength: response.length,
   });
 
-  const child = saveSubagentSession({
-    parentSessionId: options.parentSessionId,
-    subagentType: options.agentType,
-    history: options.chatHistory,
-    delegationDepth: options.childDepth,
-  });
+  let child = options.childSessionId
+    ? updateSubagentSession({
+        sessionId: options.childSessionId,
+        history: options.chatHistory,
+      })
+    : null;
+  if (!child) {
+    // A missing child means the start save never landed; create it rather than
+    // leaving the dispatch without a transcript.
+    child = saveSubagentSession({
+      parentSessionId: options.parentSessionId,
+      subagentType: options.agentType,
+      history: options.chatHistory,
+      delegationDepth: options.childDepth,
+    });
+  }
+  const childSessionId = child.sessionId;
 
   if (options.teamMember) {
     finishTeamMemberRun(options.teamMember.runId, options.agentType, {
       success: true,
-      subagentSessionId: child.sessionId,
+      subagentSessionId: childSessionId,
       report: response,
     });
     options.bookkeeping.memberFinished = true;
@@ -272,23 +326,43 @@ function recordChildFailure(options: {
   error: unknown;
   agentName: string;
   nextSeq: number;
+  /** True when the parent's controller was aborted, i.e. a user stop. */
+  cancelled: boolean;
+  childSessionId?: string;
+  chatHistory?: ChatHistoryItem[];
   teamMember: { runId: string } | undefined;
   bookkeeping: MemberBookkeeping;
   emit: (event: AgentEventInput) => void;
 }): void {
-  const message =
-    options.error instanceof Error
+  const message = options.cancelled
+    ? CANCELLED_NOTICE
+    : options.error instanceof Error
       ? options.error.message
       : String(options.error);
 
   logger.error("Subagent execution failed", {
     agent: options.agentName,
+    cancelled: options.cancelled,
     error: message,
   });
+
+  // Persist the transcript the run actually produced, including the terminal
+  // notice, so a failed dispatch still has a real child session behind it.
+  if (options.childSessionId && options.chatHistory) {
+    updateSubagentSession({
+      sessionId: options.childSessionId,
+      history: options.chatHistory,
+      notice: options.cancelled
+        ? CANCELLED_NOTICE
+        : `Subagent execution failed: ${message}`,
+    });
+  }
 
   if (options.teamMember && !options.bookkeeping.memberFinished) {
     finishTeamMemberRun(options.teamMember.runId, options.agentName, {
       success: false,
+      cancelled: options.cancelled,
+      subagentSessionId: options.childSessionId,
       error: message,
     });
     options.bookkeeping.memberFinished = true;
@@ -302,6 +376,7 @@ function recordChildFailure(options: {
       agentName: options.agentName,
       content: message,
       success: false,
+      ...(options.cancelled ? { cancelled: true } : {}),
     });
   }
 }
@@ -344,6 +419,10 @@ export async function executeSubAgent(
   let memberSlotHeld = false;
   const bookkeeping: MemberBookkeeping = { memberFinished: false };
   let detachAbort: (() => void) | undefined;
+  // The initial transcript exists from dispatch start so a running child is
+  // inspectable, and so a failure has a real transcript to persist.
+  let chatHistory: ChatHistoryItem[] = [];
+  let childSessionId: string | undefined;
 
   try {
     logger.debug("Starting subagent execution", {
@@ -354,6 +433,16 @@ export async function executeSubAgent(
     if (!model || !llmApi) {
       throw new Error(t("subagent.modelUnavailable"));
     }
+
+    chatHistory = [
+      {
+        message: {
+          role: "user",
+          content: prompt,
+        },
+        contextItems: [],
+      },
+    ] as ChatHistoryItem[];
 
     const { resolvedParent, maxDelegationDepth } = resolveParentAndDepth(
       options,
@@ -414,29 +503,36 @@ export async function executeSubAgent(
       );
     }
 
-    emit({ type: "subagent.started", agentName: agentType, prompt });
+    // The child session is created at dispatch start, before the run: a
+    // running dispatch then has a real transcript and id to drill into, and
+    // the finish path updates this same session instead of creating another.
+    childSessionId = beginSubagentDispatch({
+      parentSessionId: options.parentSessionId,
+      agentType,
+      prompt,
+      chatHistory,
+      childDepth,
+      emit,
+    });
 
     await fireSubagentStart(agentId, agentType).catch(() => {});
 
-    const chatHistory = [
-      {
-        message: {
-          role: "user",
-          content: prompt,
-        },
-        contextItems: [],
-      },
-    ] as ChatHistoryItem[];
-
     const escapeHandler = () => {
       abortController.abort();
-      chatHistory.push({
-        message: {
-          role: "user",
-          content: "Subagent execution was cancelled by the user.",
-        },
-        contextItems: [],
-      });
+      const alreadyNoted = chatHistory.some(
+        (item) =>
+          item.message.role === "user" &&
+          item.message.content === CANCELLED_NOTICE,
+      );
+      if (!alreadyNoted) {
+        chatHistory.push({
+          message: {
+            role: "user",
+            content: CANCELLED_NOTICE,
+          },
+          contextItems: [],
+        });
+      }
     };
 
     escapeEvents.on("user-escape", escapeHandler);
@@ -493,6 +589,10 @@ export async function executeSubAgent(
         },
       );
 
+      // A run that returns after the parent was aborted still counts as a
+      // cancellation: the user stopped it, even if the provider resolved.
+      throwIfCancelled(abortController.signal);
+
       const response = await completeChildRun({
         chatHistory,
         modelName: model.name,
@@ -500,6 +600,7 @@ export async function executeSubAgent(
         agentType,
         parentSessionId: options.parentSessionId,
         childDepth,
+        childSessionId,
         teamMember,
         bookkeeping,
         emit,
@@ -514,10 +615,18 @@ export async function executeSubAgent(
       escapeEvents.removeListener("user-escape", escapeHandler);
     }
   } catch (error: any) {
+    const cancelled =
+      abortController.signal.aborted ||
+      /cancelled by the user/i.test(
+        error instanceof Error ? error.message : String(error),
+      );
     recordChildFailure({
       error,
       agentName: agentType,
       nextSeq,
+      cancelled,
+      childSessionId,
+      chatHistory,
       teamMember,
       bookkeeping,
       emit,
@@ -526,7 +635,11 @@ export async function executeSubAgent(
     return {
       success: false,
       response: "",
-      error: error.message,
+      error: cancelled
+        ? CANCELLED_NOTICE
+        : error instanceof Error
+          ? error.message
+          : String(error),
     };
   } finally {
     if (memberSlotHeld) {

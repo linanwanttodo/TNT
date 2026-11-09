@@ -23,6 +23,8 @@ export type AgentEvent = AgentEventBase &
         type: "turn.started";
         model: string;
         historyLength: number;
+        /** The input this turn answers, when the surface should show it. */
+        userInput?: string;
       }
     | { type: "content.delta"; delta: string }
     | { type: "reasoning.delta"; delta: string }
@@ -85,6 +87,11 @@ export type AgentEvent = AgentEventBase &
         type: "subagent.started";
         agentName: string;
         prompt: string;
+        /**
+         * The child session created before the run starts. A running dispatch
+         * can then be inspected instead of pointing at an empty transcript.
+         */
+        childSessionId?: string;
       }
     | {
         type: "subagent.reported";
@@ -96,6 +103,8 @@ export type AgentEvent = AgentEventBase &
         agentName: string;
         content: string;
         success: boolean;
+        /** A user stop aborted the run; the member is cancelled, not failed. */
+        cancelled?: boolean;
         verdict?: string;
       }
     /** The chat model this process now runs. */

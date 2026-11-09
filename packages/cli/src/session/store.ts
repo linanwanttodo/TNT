@@ -101,12 +101,14 @@ export interface SessionInfoRecord {
   mode?: Session["mode"];
   chatModelTitle?: Session["chatModelTitle"];
   usage?: Session["usage"];
-  goal?: string;
+  goal?: string | null;
   outputStyle?: string;
   promptProfile?: string;
   activeTeam?: string;
   teamModelOverrides?: Record<string, string>;
   teamRuns?: TeamRunRecord[];
+  /** null is an explicit clear; undefined means the record predates the field. */
+  goalState?: Session["goalState"] | null;
 }
 
 export interface SessionRewindRecord {
@@ -181,6 +183,7 @@ interface SessionScalars {
   activeTeam?: string;
   teamModelOverrides?: Record<string, string>;
   teamRuns?: TeamRunRecord[];
+  goalState?: Session["goalState"];
 }
 
 interface BoundSession {
@@ -266,6 +269,7 @@ function scalarOf(session: Session): SessionScalars {
     activeTeam: session.activeTeam,
     teamModelOverrides: session.teamModelOverrides,
     teamRuns: session.teamRuns,
+    goalState: session.goalState,
   };
 }
 
@@ -429,7 +433,7 @@ function projectRecords(records: SessionRecord[]): {
       if (record.chatModelTitle !== undefined)
         scalars.chatModelTitle = record.chatModelTitle;
       if (record.usage !== undefined) scalars.usage = record.usage;
-      if (record.goal !== undefined) scalars.goal = record.goal;
+      if (record.goal !== undefined) scalars.goal = record.goal ?? undefined;
       if (record.outputStyle !== undefined)
         scalars.outputStyle = record.outputStyle;
       if (record.promptProfile !== undefined)
@@ -439,6 +443,9 @@ function projectRecords(records: SessionRecord[]): {
       if (record.teamModelOverrides !== undefined)
         scalars.teamModelOverrides = record.teamModelOverrides;
       if (record.teamRuns !== undefined) scalars.teamRuns = record.teamRuns;
+      if (record.goalState !== undefined) {
+        scalars.goalState = record.goalState ?? undefined;
+      }
     }
   }
 
@@ -743,12 +750,13 @@ export class SessionStore {
         mode: scalars.mode,
         chatModelTitle: scalars.chatModelTitle,
         usage: scalars.usage,
-        goal: scalars.goal,
+        goal: scalars.goal ?? null,
         outputStyle: scalars.outputStyle,
         promptProfile: scalars.promptProfile,
         activeTeam: scalars.activeTeam,
         teamModelOverrides: scalars.teamModelOverrides,
         teamRuns: scalars.teamRuns,
+        goalState: scalars.goalState ?? null,
       });
     }
 
@@ -1068,6 +1076,7 @@ export class SessionStore {
         activeTeam: projected.scalars.activeTeam,
         teamModelOverrides: projected.scalars.teamModelOverrides,
         teamRuns: projected.scalars.teamRuns,
+        goalState: projected.scalars.goalState,
         parentSessionId: projected.header.parentSessionId,
         subagentType: projected.header.subagentType,
         delegationDepth: projected.header.delegationDepth,
@@ -1107,6 +1116,7 @@ export class SessionStore {
       activeTeam: projected.scalars.activeTeam,
       teamModelOverrides: projected.scalars.teamModelOverrides,
       teamRuns: projected.scalars.teamRuns,
+      goalState: projected.scalars.goalState,
       parentSessionId: projected.header.parentSessionId,
       subagentType: projected.header.subagentType,
       delegationDepth: projected.header.delegationDepth,
@@ -1167,12 +1177,13 @@ export class SessionStore {
       mode: scalars.mode,
       chatModelTitle: scalars.chatModelTitle,
       usage: scalars.usage,
-      goal: scalars.goal,
+      goal: scalars.goal ?? null,
       outputStyle: scalars.outputStyle,
       promptProfile: scalars.promptProfile,
       activeTeam: scalars.activeTeam,
       teamModelOverrides: scalars.teamModelOverrides,
       teamRuns: scalars.teamRuns,
+      goalState: scalars.goalState ?? null,
     });
 
     this.writeTranscript(sessionId, records);
