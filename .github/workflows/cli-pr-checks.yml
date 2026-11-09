@@ -261,7 +261,7 @@ jobs:
       - name: Type check
         run: |
           cd packages/zcode-ui/web
-          npx tsc --noEmit
+          npx tsc -b
 
   smoke-api:
     # Needs in-repo credentials. On a push event there is no pull_request
