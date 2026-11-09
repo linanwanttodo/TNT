@@ -57,9 +57,15 @@ describe("E2E: @-mention context in a headless run", () => {
     });
 
     expect(result.exitCode).toBe(0);
+    // The environment context now rides the first user message, so find the
+    // message that carries the typed prompt rather than assuming position.
     const userMessage = mockServer.requests[0].body.messages.find(
-      (m: any) => m.role === "user",
+      (m: any) =>
+        m.role === "user" && String(m.content ?? "").includes("Say hello"),
     );
-    expect(userMessage.content).toBe("Say hello");
+    expect(userMessage.content).toContain("Say hello");
+    // No file mention was expanded; the environment context block is expected.
+    expect(userMessage.content).not.toContain('name="subject.ts"');
+    expect(userMessage.content).not.toContain("onlyInThisFile");
   }, 20000);
 });
