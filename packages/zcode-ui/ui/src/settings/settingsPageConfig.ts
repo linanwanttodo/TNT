@@ -24,6 +24,7 @@ import {
   RefreshCw,
   User,
 } from "lucide-react";
+import { getHostCapabilities } from "@/host-capabilities.js";
 import { isSettingsSectionEnabled, type SettingsSectionId } from "@/lib/settingsNavigation.js";
 import type { Theme } from "@/useTheme.js";
 
@@ -262,5 +263,11 @@ export function isSettingsSectionAvailable(
   section: SettingsSectionId,
   isDesktop: boolean,
 ): boolean {
+  if (getHostCapabilities().localProvidersOnly) {
+    // Remote devices and cloud data sync are ZCode account features; this
+    // host has no account, so they stay hidden even when local-file settings
+    // make the rest of the desktop sections available.
+    return !DESKTOP_ONLY_SETTINGS_SECTIONS.has(section);
+  }
   return isDesktop || !DESKTOP_ONLY_SETTINGS_SECTIONS.has(section);
 }

@@ -116,6 +116,7 @@ import { ensureProviderFamilyDomainMigration } from "@/lib/providerFamilyDomainM
 import { useSettings } from "@/hooks/useSettingService.js";
 import { CLOSE_ACTIVE_CONTEXT_REQUEST_EVENT } from "@/lib/closeActiveContext.js";
 import { AssistantCodeCommentFeatureProvider } from "@/AssistantCodeCommentFeatureProvider.js";
+import { getHostCapabilities } from "@/host-capabilities.js";
 import {
   disposeConversationTelemetrySupervisors,
   reconcileConversationTelemetryWorkspaceScopes,
@@ -1491,8 +1492,12 @@ function RootInner({
     </ScopedErrorBoundary>
   );
 
+  // Settings that edit files (personalization, memory) are local-host
+  // surfaces; a shell serving its own machine can offer them even though it
+  // runs in a browser window.
+  const settingsLocalHost = isDesktop || getHostCapabilities().localFileSettings;
   const settingsLayerProps = {
-    isDesktop,
+    isDesktop: settingsLocalHost,
     isMacDesktop,
     isWindowsDesktop,
     isWebRemoteControl: Boolean(webRemoteControlWorkspaceSwitcher),

@@ -263,6 +263,38 @@ describe("provider settings mutations", () => {
     expect(readModels().map((model) => model.name)).toEqual(["local"]);
   });
 
+  it("keeps a typed endpoint and key when the first model is added quickly", async () => {
+    writeConfig([]);
+    const settings = service();
+
+    await settings.savePersonalProviderOverlay("openai", {
+      api: {
+        type: "openai-chat-completions",
+        baseUrl: "http://127.0.0.1:3425/v1",
+      },
+      access: { type: "api-key", apiKey: "magpie" },
+    } as never);
+
+    // No model exists yet, but the form must still show what was typed.
+    let view = await settings.getView();
+    const provider = view.providers.find(
+      (entry) => entry.providerId === "openai",
+    );
+    expect(provider?.effectiveConfig.api?.baseUrl).toBe(
+      "http://127.0.0.1:3425/v1",
+    );
+
+    await settings.addPersonalModel("openai", "fast", {});
+    const entry = readModels().find((model) => model.name === "fast");
+    expect(entry?.apiBase).toBe("http://127.0.0.1:3425/v1");
+    expect(entry?.apiKey).toBe("magpie");
+
+    view = await settings.getView();
+    expect(
+      view.providers.find((item) => item.providerId === "openai")?.models,
+    ).toHaveLength(1);
+  });
+
   it("keeps the shell-side display name across service instances", async () => {
     await service().savePersonalProviderOverlay(
       "openai",

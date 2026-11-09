@@ -70,15 +70,28 @@ export interface ProviderSettingsIO {
   reload(): Promise<void>;
 }
 
+interface ProviderOverlayValues {
+  baseUrl?: string;
+  apiKey?: string;
+  useResponsesApi?: boolean;
+}
+
 interface ProviderShellState {
   /** Shell-side display names per provider family. */
   names: Record<string, string>;
   order: string[];
   /** Providers created but not yet backed by a model entry. */
   drafts: Array<{ id: string; family: string; name: string }>;
+  /** Endpoint and key typed before the first model entry exists. */
+  overlays: Record<string, ProviderOverlayValues>;
 }
 
-const EMPTY_STATE: ProviderShellState = { names: {}, order: [], drafts: [] };
+const EMPTY_STATE: ProviderShellState = {
+  names: {},
+  order: [],
+  drafts: [],
+  overlays: {},
+};
 
 /** TNT families the settings picker offers, with the protocol each speaks. */
 const PROVIDER_TEMPLATES: ReadonlyArray<{
@@ -152,11 +165,13 @@ function shellStateFile(): string {
 
 /** The loaded config's path when a boot reached it, else the default file. */
 function defaultConfigPath(): string {
-  const state = serviceContainer.getSync<ConfigServiceState>(
-    SERVICE_NAMES.CONFIG,
-  );
-  if (state.state === "ready" && state.value?.configPath) {
-    return state.value.configPath;
+  if (serviceContainer.has(SERVICE_NAMES.CONFIG)) {
+    const state = serviceContainer.getSync<ConfigServiceState>(
+      SERVICE_NAMES.CONFIG,
+    );
+    if (state.state === "ready" && state.value?.configPath) {
+      return state.value.configPath;
+    }
   }
   return CONFIG_PATH;
 }
@@ -168,9 +183,32 @@ function readShellState(filePath: string): ProviderShellState {
       return { ...EMPTY_STATE };
     }
     const record = parsed as Partial<ProviderShellState>;
+    const overlays: Record<string, ProviderOverlayValues> = {};
+    if (record.overlays && typeof record.overlays === "object") {
+      for (const [family, value] of Object.entries(
+        record.overlays as Record<string, unknown>,
+      )) {
+        if (!value || typeof value !== "object") {
+          continue;
+        }
+        const entry = value as Record<string, unknown>;
+        overlays[family] = {
+          ...(typeof entry.baseUrl === "string" && entry.baseUrl
+            ? { baseUrl: entry.baseUrl }
+            : {}),
+          ...(typeof entry.apiKey === "string" && entry.apiKey
+            ? { apiKey: entry.apiKey }
+            : {}),
+          ...(typeof entry.useResponsesApi === "boolean"
+            ? { useResponsesApi: entry.useResponsesApi }
+            : {}),
+        };
+      }
+    }
     return {
       names:
         record.names && typeof record.names === "object" ? record.names : {},
+      overlays,
       order: Array.isArray(record.order)
         ? record.order.filter((id) => typeof id === "string")
         : [],
@@ -223,6 +261,9 @@ function defaultIO(configPath: () => string): ProviderSettingsIO {
     return { configPath: file, models };
   };
   const reloadIfRegistered = async (): Promise<void> => {
+    if (!serviceContainer.has(SERVICE_NAMES.CONFIG)) {
+      return;
+    }
     const state = serviceContainer.getSync<ConfigServiceState>(
       SERVICE_NAMES.CONFIG,
     );
@@ -297,14 +338,22 @@ function providerView(
   state: ProviderShellState,
 ): ProviderSettingsProviderView {
   const first = entries[0];
-  const apiType = apiTypeForFamily(family, first?.useResponsesApi);
+  // The overlay is what the form last saved. A provider without a model has
+  // no entry to carry it, and a quick "fill the key, add a model" sequence can
+  // reach the model editor before the next entry is written; the form must
+  // still show, and the model must still inherit, the values that were typed.
+  const overlay = state.overlays[family];
+  const baseUrl = overlay?.baseUrl ?? first?.apiBase;
+  const apiKey = overlay?.apiKey ?? first?.apiKey;
+  const useResponsesApi = overlay?.useResponsesApi ?? first?.useResponsesApi;
+  const apiType = apiTypeForFamily(family, useResponsesApi);
   const api = apiType
     ? {
         type: apiType.type,
-        ...(first?.apiBase ? { baseUrl: first.apiBase } : {}),
+        ...(baseUrl ? { baseUrl } : {}),
       }
     : undefined;
-  const access = { type: "api-key" as const, apiKey: first?.apiKey ?? "" };
+  const access = { type: "api-key" as const, apiKey: apiKey ?? "" };
   const personalConfig = {
     group: "standard-personal" as const,
     visibility: "visible" as const,
@@ -373,6 +422,13 @@ export function buildProviderSettingsView(
   for (const draft of state.drafts) {
     if (!groups.has(draft.family)) {
       groups.set(draft.family, []);
+    }
+  }
+  // An endpoint typed before its first model is still a provider the page
+  // shows; otherwise the form would blank the values the user just saved.
+  for (const family of Object.keys(state.overlays)) {
+    if (!groups.has(family)) {
+      groups.set(family, []);
     }
   }
   const families = [...groups.keys()];
@@ -522,14 +578,13 @@ export function createWebUiProviderSettingsService(
         access && "apiKey" in access ? (access.apiKey ?? undefined) : undefined;
       const overlayName = metadata?.providerName?.trim();
       const nextFamily = familyForApiType(apiType) ?? family;
+      const values: ProviderOverlayValues = {
+        ...(baseUrl ? { baseUrl } : {}),
+        ...(apiKey ? { apiKey } : {}),
+        ...(apiType ? { useResponsesApi: apiType === "openai-responses" } : {}),
+      };
       if (draft) {
-        pendingOverlays.set(providerId, {
-          ...(baseUrl ? { baseUrl } : {}),
-          ...(apiKey ? { apiKey } : {}),
-          ...(apiType
-            ? { useResponsesApi: apiType === "openai-responses" }
-            : {}),
-        });
+        pendingOverlays.set(providerId, values);
       }
       updateState((current) => ({
         ...current,
@@ -539,6 +594,13 @@ export function createWebUiProviderSettingsService(
         drafts: current.drafts.map((item) =>
           item.id === providerId ? { ...item, family: nextFamily } : item,
         ),
+        overlays: {
+          ...current.overlays,
+          [nextFamily]: {
+            ...current.overlays[nextFamily],
+            ...values,
+          },
+        },
       }));
       return mutate((models) =>
         models.map((entry) => {
@@ -611,7 +673,9 @@ export function createWebUiProviderSettingsService(
       const state = snapshotState();
       const draft = state.drafts.find((item) => item.id === providerId);
       const family = draft?.family ?? providerId;
-      const pending = draft ? pendingOverlays.get(draft.id) : undefined;
+      const pending =
+        (draft ? pendingOverlays.get(draft.id) : undefined) ??
+        state.overlays[family];
       const fields = modelFields(config);
       return mutate((models) => {
         const sibling = models.find(
