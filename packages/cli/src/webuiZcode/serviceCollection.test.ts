@@ -11,8 +11,11 @@ import {
   IFileWatcherService,
   IGitCheckpointService,
   IGitService,
+  IModelSelectionService,
   IPluginManagementService,
   IPluginsService,
+  IProjectService,
+  IRemoteProjectService,
   ISettingService,
   ISystemService,
   ITerminalService,
@@ -141,6 +144,17 @@ describe("buildZcodeServiceCollection", () => {
     );
     expect(collection.get(ITerminalService)).toBeDefined();
     expect(collection.get(IFileWatcherService)).toBeDefined();
+    // The shell loads its model picker and remote-project directory on paint;
+    // both are answered locally instead of surfacing an unavailable toast.
+    expect(
+      await collection.get(IModelSelectionService).getView(),
+    ).toBeDefined();
+    expect(await collection.get(IRemoteProjectService).readDirectory()).toEqual(
+      { hosts: [], entries: [] },
+    );
+    const tree = await collection.get(IProjectService).readTree();
+    expect(tree.projects[0]?.roots[0]?.rootPath).toBe(resolve(process.cwd()));
+    expect(tree.tasks).toEqual([]);
 
     expect(
       new Set(ZCODE_LOCAL_SERVICE_DESCRIPTORS.map((d) => d.channelName)),
@@ -155,6 +169,9 @@ describe("buildZcodeServiceCollection", () => {
         IBroadcastService.channelName,
         IPluginsService.channelName,
         IPluginManagementService.channelName,
+        IModelSelectionService.channelName,
+        IRemoteProjectService.channelName,
+        IProjectService.channelName,
       ]),
     );
   });

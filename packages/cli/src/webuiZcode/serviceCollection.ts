@@ -207,6 +207,9 @@ interface ResolvedZcodeServices {
   local: LocalZcodeServices;
   connection: ConnectionZcodeServices;
   fileService: IFileService;
+  modelSelectionService: IModelSelectionService;
+  remoteProjectService: IRemoteProjectService;
+  projectService: IProjectService;
   agentService?: IZCodeAgentService;
   sessionService?: IZCodeSessionService;
 }
@@ -222,6 +225,9 @@ const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   [ITerminalService, (services) => services.connection.terminalService],
   [IFileWatcherService, (services) => services.connection.fileWatcherService],
   [IBroadcastService, (services) => services.local.broadcastService],
+  [IModelSelectionService, (services) => services.modelSelectionService],
+  [IRemoteProjectService, (services) => services.remoteProjectService],
+  [IProjectService, (services) => services.projectService],
   [IPluginsService, (services) => services.local.pluginsService],
   [
     IPluginManagementService,
@@ -250,9 +256,15 @@ export async function buildZcodeServiceCollection(
   const [
     { createConnectionZcodeServices, getLocalZcodeServices },
     { createWorkspaceScopedFileService },
+    { createTntModelSelectionService },
+    { createTntRemoteProjectService },
+    { createTntProjectService },
   ] = await Promise.all([
     import("./services/local.js"),
     import("./services/workspaceScope.js"),
+    import("./services/modelSelection.js"),
+    import("./services/remoteProjects.js"),
+    import("./services/projects.js"),
   ]);
 
   const local = deps.localServices ?? getLocalZcodeServices();
@@ -269,13 +281,20 @@ export async function buildZcodeServiceCollection(
       workspaceRoots,
       settingService: local.settingService,
     });
+  const fileService = createWorkspaceScopedFileService(
+    local.fileService,
+    workspaceRoots,
+  );
   const services: ResolvedZcodeServices = {
     local,
     connection,
-    fileService: createWorkspaceScopedFileService(
-      local.fileService,
-      workspaceRoots,
-    ),
+    fileService,
+    modelSelectionService: createTntModelSelectionService(),
+    remoteProjectService: createTntRemoteProjectService(),
+    projectService: createTntProjectService({
+      workspacePath: deps.workspacePath,
+      fileService,
+    }),
   };
 
   let disposeAgent: (() => void) | null = null;

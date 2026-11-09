@@ -19,6 +19,11 @@ function resolveZCodeEnv(value: string | undefined): "test" | "production" {
 export default defineConfig(({ mode }) => ({
   plugins: [pdfJsCMapsPlugin(), react(), tailwindcss()],
   resolve: {
+    // The vendored packages are installed per package (file: links) instead of
+    // the upstream workspace hoist, so `ui` and `web` each get a React copy.
+    // Two copies break hooks: the shell renders with one, the component reads
+    // useContext from the other. Dedupe to this app's copy.
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": resolve(HERE, "../ui/src"),
       // d3-shape 3.x needs d3-path's Path export; pin prebundling to the 3.x
