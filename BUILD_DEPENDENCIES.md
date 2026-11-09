@@ -15,8 +15,11 @@ wants a credential is therefore inert rather than failing:
 
 - `Release @tnt/*` runs a preflight and skips when the semantic-release tokens
   are absent, instead of turning every package commit red.
-- `CLI PR Checks > smoke-api` skips on a push event and on a fork PR without
-  secrets; the aggregate job lists it under `allowed-skips`.
+- `CLI PR Checks > smoke-api` runs on same-repo PRs and on pushes to `main` when
+  `ANTHROPIC_API_KEY` exists; a `smoke-key` gate job reports the absence and the
+  aggregate job lists the resulting skip under `allowed-skips`. The smoke suites
+  themselves also `skipIf` the key is missing, so a green job never claims a run
+  that did not happen.
 - Core's provider tests are skipped when no key exists
   (`IGNORE_API_KEY_TESTS`, set by `.github/actions/check-llm-changes` from the
   changed files and from `TNT_HAS_PROVIDER_KEYS`).
