@@ -393,6 +393,15 @@ export function ModelProviderSectionDetail({
   }, [selectedItemKey]);
 
   if (!selectedNavItem) {
+    // With no provider at all there is nothing that will finish loading; a
+    // permanent spinner reads as a broken page. Say what the empty state is.
+    if (navigationItems.length === 0) {
+      return (
+        <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed border-border px-4 py-8 text-ui-base text-foreground-subtle">
+          {intl.formatMessage({ id: "settings.modelProvider.empty" })}
+        </div>
+      );
+    }
     return <ModelProviderLoadingCard loadingLabel={loadingLabel} />;
   }
 
