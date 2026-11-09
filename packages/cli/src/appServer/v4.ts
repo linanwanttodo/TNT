@@ -4,6 +4,7 @@ import type {
 } from "@zcode/shared/zcode-protocol-v4";
 import {
   commandPayloadSchemas,
+  clampWorkflowRunsForLegacy,
   parseCommandEnvelope,
   parseConversationTopic,
   V4_NOTIFICATIONS,
@@ -37,6 +38,7 @@ import {
 } from "./v4Frames.js";
 import {
   buildWorkflowRunDeltas,
+  teamRunsToWorkflowRuns,
   teamRunWorkflowDisplay,
 } from "./workflowRuns.js";
 
@@ -119,7 +121,12 @@ export class V4Handlers {
     subscriptionCounter += 1;
     const subscriptionId = `sub-${subscriptionCounter}-${sessionId}`;
     const logEpoch = `epoch-${sessionId}`;
-    const frame = createFrameSubscription(session, subscriptionId, logEpoch);
+    const frame = createFrameSubscription(
+      session,
+      subscriptionId,
+      logEpoch,
+      input.workflowRunDeltas === true,
+    );
     const cursor = this.runtimes.cursor(sessionId);
     const unsubscribe = this.runtimes.subscribe(sessionId, (event) => {
       if (event.seq <= frame.lastFrameSeq) {
@@ -290,6 +297,12 @@ export class V4Handlers {
     const payload: Record<string, unknown> = {};
     if (deltas.length > 0) {
       payload.workflowRunDeltas = deltas;
+      // Capable subscribers consume the deltas. A subscriber that did not
+      // declare the capability sees this whole key instead, already clamped to
+      // the legacy actor/node bounds.
+      payload.workflowRuns = clampWorkflowRunsForLegacy(
+        teamRunsToWorkflowRuns(runs, this.runtimes.workflowRevision(sessionId)),
+      );
     }
     if (newRun) {
       const toolCallId =

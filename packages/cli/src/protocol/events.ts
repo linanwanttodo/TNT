@@ -4,6 +4,8 @@
  * UI, or the service container.
  */
 
+import type { Usage } from "core/index.js";
+
 export type ToolStatusName =
   "generated" | "generating" | "calling" | "done" | "errored" | "canceled";
 
@@ -63,12 +65,19 @@ export type AgentEvent = AgentEventBase &
     | { type: "notice"; message: string }
     | { type: "compaction.started" }
     | { type: "compaction.finished"; reductionRatio?: number }
-    | { type: "turn.completed"; content?: string }
+    | {
+        type: "turn.completed";
+        content?: string;
+        /** The turn's own usage, when the producer knows it. */
+        usage?: Usage;
+      }
     | { type: "turn.failed"; message: string }
     | {
         type: "turn.interrupted";
         reason: string;
         notice?: string;
+        /** The turn's own usage, when the producer knows it. */
+        usage?: Usage;
       }
     | { type: "queue.changed"; length: number }
     | { type: "session.changed"; sessionId: string }

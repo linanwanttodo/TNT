@@ -1,18 +1,31 @@
+/* eslint-disable max-lines -- the row, snapshot and projection builders share one frame model */
 import type { ZCodeSessionEvent } from "@zcode/shared";
 import type {
   ConversationRow,
   ConversationSnapshot,
   ConversationTopicFrame,
   ConversationTopicWireFrame,
+  GoalState,
   PendingInteraction,
+  PlanState,
   ToolCallRow,
 } from "@zcode/shared/zcode-protocol-v4";
-import { V4_WIRE_PROTOCOL_VERSION } from "@zcode/shared/zcode-protocol-v4";
+import {
+  clampWorkflowRunsForLegacy,
+  V4_WIRE_PROTOCOL_VERSION,
+} from "@zcode/shared/zcode-protocol-v4";
 import type { Session } from "core/index.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 
-import { toZcodeMessages } from "./snapshot.js";
+import type { GoalLifecycleState } from "./events.js";
+import {
+  contextWindowForSession,
+  lastPromptTokens,
+  sessionTodoList,
+  sessionTodoUpdatedAt,
+  toZcodeMessages,
+} from "./snapshot.js";
 import {
   activeTeamRun,
   teamRunsToWorkflowRuns,
@@ -39,6 +52,8 @@ export interface FrameSubscription {
     "running" | "completedSuccess" | "completedInterrupted" | "failed";
   turnStartedAt: number;
   readonly toolRows: Map<string, ToolCallRow>;
+  /** Whether this subscriber asked for `workflowRun.*` key-level deltas. */
+  readonly workflowRunDeltas: boolean;
 }
 
 function modelParts(title: string | undefined): {
@@ -162,6 +177,7 @@ export function createFrameSubscription(
   session: Session,
   subscriptionId: string,
   logEpoch: string,
+  workflowRunDeltas = true,
 ): FrameSubscription {
   const rows = rowsFromSession(session);
   const turnNumber = rows.filter((row) => row.kind === "turnHeader").length;
@@ -184,6 +200,7 @@ export function createFrameSubscription(
     turnHeaderState: "completedSuccess",
     turnStartedAt: 0,
     toolRows: new Map(),
+    workflowRunDeltas,
   };
 }
 
@@ -367,6 +384,51 @@ export function derivePendingInteractions(
     .map((entry) => entry.interaction);
 }
 
+function goalStateOf(goal: GoalLifecycleState): GoalState {
+  return {
+    targetId: goal.targetId,
+    objective: goal.objective,
+    summaryTitle: null,
+    status: goal.status,
+    iteration: goal.iteration,
+    timeUsedSeconds: goal.timeUsedSeconds,
+    activeRunStartedAtMs: goal.activeRunStartedAtMs,
+    verifications: goal.verifications.map((verification) => ({
+      iteration: verification.iteration,
+      outcome: verification.outcome,
+      at: verification.at,
+      anchorRowId: verification.anchorRowId,
+      ...(verification.reason ? { reason: verification.reason } : {}),
+    })),
+    // TNT has no goal-iteration step detail; an empty list is the honest shape.
+    iterations: [],
+  };
+}
+
+function planStateOf(session: Session): PlanState | null {
+  const todos = sessionTodoList(session);
+  if (todos.length === 0) {
+    return null;
+  }
+  return {
+    items: todos.map((todo) => ({
+      id: String(todo.id),
+      content: todo.text,
+      status: todo.done ? "completed" : "pending",
+    })),
+    updatedAt: sessionTodoUpdatedAt(session),
+  };
+}
+
+function cumulativeUsage(session: Session) {
+  return {
+    inputTokens: session.usage?.promptTokens ?? 0,
+    outputTokens: session.usage?.completionTokens ?? 0,
+    cacheReadTokens: session.usage?.promptTokensDetails?.cachedTokens ?? 0,
+    cacheWriteTokens: session.usage?.promptTokensDetails?.cacheWriteTokens ?? 0,
+  };
+}
+
 export function buildConversationSnapshot(
   session: Session,
   frame: FrameSubscription,
@@ -374,12 +436,19 @@ export function buildConversationSnapshot(
     eventSeq: number;
     stateRevision: number;
     workflowRevision?: number;
+    goal?: GoalLifecycleState | null;
   },
   running: boolean,
   pendingInteractions: PendingInteraction[] = [],
 ): ConversationSnapshot {
   const { provider, model } = modelParts(session.chatModelTitle ?? undefined);
   const rows = [...frame.rows].sort((left, right) => left.rowId - right.rowId);
+  const contextWindow = contextWindowForSession(session);
+  const goal = cursor.goal ? goalStateOf(cursor.goal) : null;
+  const workflowRuns = teamRunsToWorkflowRuns(
+    session.teamRuns ?? [],
+    cursor.workflowRevision ?? 0,
+  );
   return {
     protocolVersion: 1,
     sessionId: session.sessionId,
@@ -418,30 +487,31 @@ export function buildConversationSnapshot(
     },
     modelTransition: null,
     usage: {
-      contextWindow: null,
-      cumulative: {
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-      },
+      contextWindow:
+        contextWindow === null
+          ? null
+          : {
+              usedTokens: lastPromptTokens(session),
+              maxTokens: contextWindow,
+              autoCompactThresholdTokens: null,
+            },
+      cumulative: cumulativeUsage(session),
     },
     queue: { items: [], autoDrain: true },
     pendingInteractions,
     pendingCommands: [],
     backgroundWorks: [],
-    goal: null,
-    plan: null,
+    goal,
+    plan: planStateOf(session),
     workspaceHookAdmission: null,
     rows: {
       window: rows,
       totalCount: rows.length,
       firstRowId: rows[0]?.rowId ?? null,
     },
-    workflowRuns: teamRunsToWorkflowRuns(
-      session.teamRuns ?? [],
-      cursor.workflowRevision ?? 0,
-    ),
+    workflowRuns: frame.workflowRunDeltas
+      ? workflowRuns
+      : clampWorkflowRunsForLegacy(workflowRuns),
   };
 }
 

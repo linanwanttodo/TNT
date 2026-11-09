@@ -42,6 +42,7 @@ import type {
 } from "@zcode/shared/zcode-protocol-v4";
 import {
   clientHelloSchema,
+  clientSupportsWorkflowRunDeltas,
   commandPayloadSchemas,
   conversationTopic,
   V4_METHODS,
@@ -323,6 +324,8 @@ class ZcodeAgentAdapter {
   private readonly routes = new Map<string, { topic: string }>();
   private readonly pendingInteractions = new Map<string, PendingInteraction>();
   private disposed = false;
+  /** What this connection's clientHello declared, applied to its subscribes. */
+  private clientWorkflowRunDeltas = false;
 
   constructor(private readonly engines: ZcodeEngineRegistry) {}
 
@@ -461,7 +464,7 @@ class ZcodeAgentAdapter {
         workspaceHookReview: false,
         independentPlanState: false,
         genUiContext: false,
-        workflowRunDeltas: false,
+        workflowRunDeltas: true,
         historyFirst: false,
         inputPrediction: false,
         residentRowsRange: false,
@@ -472,6 +475,9 @@ class ZcodeAgentAdapter {
 
   async initializeConversationV4(clientHello: ClientHello): Promise<void> {
     clientHelloSchema.parse(clientHello);
+    // A client only declares this after seeing it in the hello. Absent means a
+    // legacy consumer: keep it on the clamped, whole-key path.
+    this.clientWorkflowRunDeltas = clientSupportsWorkflowRunDeltas(clientHello);
   }
 
   async subscribeConversationV4(
@@ -485,6 +491,7 @@ class ZcodeAgentAdapter {
         connectionId: this.connectionId,
         clientMode: CLIENT_MODE,
         workspace: workspaceRef(params),
+        ...(this.clientWorkflowRunDeltas ? { workflowRunDeltas: true } : {}),
         ...(params.base ? { base: params.base } : {}),
         ...(params.visibility ? { visibility: params.visibility } : {}),
         ...(params.retryInitialization

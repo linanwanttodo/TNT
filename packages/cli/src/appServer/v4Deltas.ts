@@ -4,6 +4,7 @@ import type {
   ConversationRow,
   ToolCallDisplay,
   ToolCallRow,
+  WorkflowRunsState,
 } from "@zcode/shared/zcode-protocol-v4";
 import type { TeamRunRecord } from "core/index.js";
 
@@ -195,6 +196,14 @@ function finalTurnDeltas(
 ): ConversationDelta[] {
   frame.turnHeaderState = state;
   const deltas: ConversationDelta[] = [];
+  const payload = asRecord(
+    "payload" in event ? (event as { payload?: unknown }).payload : undefined,
+  );
+  const usage = asRecord(payload.usage);
+  const outputTokens =
+    typeof usage.outputTokens === "number" && usage.outputTokens >= 0
+      ? usage.outputTokens
+      : undefined;
   if (frame.turnHeaderRowId !== null) {
     const row: ConversationRow = {
       ...turnBase(frame, frame.turnHeaderRowId),
@@ -203,6 +212,7 @@ function finalTurnDeltas(
       state,
       startedAt: frame.turnStartedAt,
       endedAt: event.timestamp,
+      ...(outputTokens === undefined ? {} : { outputTokens }),
     };
     frame.rows = frame.rows.filter(
       (candidate) => candidate.rowId !== frame.turnHeaderRowId,
@@ -361,8 +371,17 @@ function sessionUpdatedDeltas(
   payload: Payload,
 ): ConversationDelta[] {
   const deltas: ConversationDelta[] = [];
-  if (Array.isArray(payload.workflowRunDeltas)) {
-    deltas.push(...(payload.workflowRunDeltas as ConversationDelta[]));
+  if (frame.workflowRunDeltas) {
+    if (Array.isArray(payload.workflowRunDeltas)) {
+      deltas.push(...(payload.workflowRunDeltas as ConversationDelta[]));
+    }
+  } else if (payload.workflowRuns !== undefined) {
+    // A subscriber without the capability gets the whole key, already clamped
+    // by the producer, instead of key-level deltas it does not understand.
+    deltas.push({
+      op: "state.updated",
+      patch: { workflowRuns: payload.workflowRuns as WorkflowRunsState },
+    });
   }
   const display = asRecord(payload.teamWorkflowDisplay);
   deltas.push(...displayUpsertDeltas(frame, display));

@@ -4,6 +4,7 @@ import type {
   ModelSelection,
   ZCodeMessagePart,
   ZCodeMessageWithParts,
+  ZCodeSessionGoal,
   ZCodeSessionKind,
   ZCodeSessionInfo,
   ZCodeSessionMode,
@@ -21,7 +22,12 @@ import type {
 } from "core/index.js";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import { serviceContainer } from "../services/ServiceContainer.js";
+import { SERVICE_NAMES, type ModelServiceState } from "../services/types.js";
 import { messageTimestampOf, type SessionMeta } from "../session/store.js";
+import { readTodoState, type Todo } from "../tools/todo.js";
+
+import type { GoalLifecycleState } from "./events.js";
 
 const DEFAULT_AGENT = "tnt";
 
@@ -32,11 +38,19 @@ export interface SessionInfoContext {
   meta?: Partial<SessionMeta> | null;
   model?: ModelSelection;
   status?: SessionStatus;
+  /** Lifecycle observed for the session goal, when the runtime saw one. */
+  goal?: GoalLifecycleState | null;
 }
 
 export interface SnapshotContext extends SessionInfoContext {
   messages?: ZCodeMessageWithParts[];
-  runtime?: { eventSeq: number; stateRevision: number };
+  runtime?: {
+    eventSeq: number;
+    stateRevision: number;
+    goal?: GoalLifecycleState | null;
+  };
+  /** Omit to resolve the active model's window from the service container. */
+  contextWindow?: number | null;
 }
 
 type ItemWithMessageId = ChatHistoryItem & { messageId?: string };
@@ -525,6 +539,9 @@ export function toZcodeSessionInfo(
   if (context.model) {
     info.model = context.model;
   }
+  if (context.goal) {
+    info.target = legacyGoalOf(session, context.goal);
+  }
   return info;
 }
 
@@ -550,12 +567,154 @@ function totalTokenCount(session: Session): number {
   );
 }
 
+interface ModelLike {
+  provider?: string;
+  model?: string;
+  name?: string;
+  contextLength?: number;
+  defaultCompletionOptions?: { contextLength?: number };
+}
+
+function explicitContextLength(model: ModelLike | null): number | null {
+  const value =
+    model?.contextLength ?? model?.defaultCompletionOptions?.contextLength;
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
+/**
+ * The active model's context window, taken from configuration rather than a
+ * built-in default. Null means the window is genuinely unknown; a caller must
+ * not turn that into a number.
+ */
+export function contextWindowForSession(session: Session): number | null {
+  const state = serviceContainer.getSync<ModelServiceState>(
+    SERVICE_NAMES.MODEL,
+  );
+  if (state.state !== "ready" || !state.value) {
+    return null;
+  }
+  const models = (state.value.assistant?.models ??
+    []) as unknown as ModelLike[];
+  const title = session.chatModelTitle?.trim();
+  if (title) {
+    const slash = title.indexOf("/");
+    if (slash > 0 && slash < title.length - 1) {
+      const provider = title.slice(0, slash);
+      const modelId = title.slice(slash + 1);
+      const matched = models.find(
+        (model) =>
+          model.provider === provider &&
+          (model.model === modelId || model.name === modelId),
+      );
+      const length = explicitContextLength(matched ?? null);
+      if (length !== null) {
+        return length;
+      }
+    }
+  }
+  return explicitContextLength((state.value.model as ModelLike) ?? null);
+}
+
+/** The prompt size of the last measured request: the closest real context use. */
+export function lastPromptTokens(session: Session): number {
+  for (let index = session.history.length - 1; index >= 0; index -= 1) {
+    const message = session.history[index]?.message;
+    if (message?.role === "assistant") {
+      const prompt = (message as AssistantChatMessage).usage?.promptTokens;
+      if (typeof prompt === "number" && prompt > 0) {
+        return prompt;
+      }
+    }
+  }
+  return 0;
+}
+
+/**
+ * The Todo tool's replayed state, or an empty list when the history carries
+ * none. Callers must omit the protocol key for an empty list rather than
+ * claiming the session has an empty plan.
+ */
+export function sessionTodoList(session: Session): Todo[] {
+  return readTodoState(session.history).todos.filter(
+    (todo) => todo.text.trim().length > 0,
+  );
+}
+
+/** When the Todo payload that produced the current list was last written. */
+export function sessionTodoUpdatedAt(session: Session): number {
+  for (let index = session.history.length - 1; index >= 0; index -= 1) {
+    const item = session.history[index];
+    if (!item) continue;
+    const toolCall = (item.toolCallStates ?? []).some(
+      (state) => state.toolCall?.function?.name === "Todo",
+    );
+    const carried = (item.contextItems ?? []).some((contextItem) =>
+      contextItem.content.includes("tnt-todo:"),
+    );
+    if (toolCall || carried) {
+      return timestampOf(messageTimestampOf(item));
+    }
+  }
+  return 0;
+}
+
+function legacyGoalOf(
+  session: Session,
+  goal: GoalLifecycleState,
+): ZCodeSessionGoal {
+  // The legacy enum has only active/paused/budget_limited/complete. A settled
+  // verdict maps to `complete`; the V4 projection keeps the exact outcome.
+  const status: ZCodeSessionGoal["status"] =
+    goal.status === "active"
+      ? "active"
+      : goal.status === "paused"
+        ? "paused"
+        : "complete";
+  return {
+    sessionId: session.sessionId,
+    targetId: goal.targetId,
+    objective: goal.objective,
+    summaryTitle: null,
+    status,
+    tokenBudget: null,
+    tokensUsed: totalTokenCount(session),
+    timeUsedSeconds: goal.timeUsedSeconds,
+    ...(goal.activeRunStartedAtMs === null
+      ? {}
+      : { activeRunStartedAtMs: goal.activeRunStartedAtMs }),
+    createdAt: goal.createdAt,
+    updatedAt: goal.updatedAt,
+  };
+}
+
+function todoItems(todos: readonly Todo[]): Array<{
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+  priority: "high" | "medium" | "low";
+}> {
+  return todos.map((todo) => ({
+    content: todo.text,
+    status: todo.done ? "completed" : "pending",
+    // The schema requires a priority and TNT's Todo has none; the neutral value
+    // is the only honest choice for a field the source cannot fill.
+    priority: "medium",
+  }));
+}
+
 export function toZcodeSnapshot(
   session: Session,
   context: SnapshotContext = {},
 ): ZCodeSessionStateSnapshot {
-  const info = toZcodeSessionInfo(session, context);
+  const goal = context.runtime?.goal ?? context.goal ?? null;
+  const info = toZcodeSessionInfo(session, { ...context, goal });
   const messages = context.messages ?? toZcodeMessages(session);
+  const todos = sessionTodoList(session);
+  const contextWindow =
+    context.contextWindow === undefined
+      ? contextWindowForSession(session)
+      : context.contextWindow;
   if (info.status === "idle" || info.status === "completed") {
     markLastAssistantCompleted(messages, timestampOf(context.meta?.updatedAt));
   }
@@ -576,11 +735,12 @@ export function toZcodeSnapshot(
       turnCount: session.history.filter((item) => item.message.role === "user")
         .length,
       totalTokenCount: totalTokenCount(session),
-      contextUsed: 0,
-      contextWindow: 0,
+      contextUsed: lastPromptTokens(session),
+      contextWindow: contextWindow ?? 0,
       pendingPermissions: [],
       activeToolCalls: [],
       backgroundJobs: [],
+      ...(goal ? { target: legacyGoalOf(session, goal) } : {}),
     },
     runtime: {
       eventSeq: context.runtime?.eventSeq ?? 0,
@@ -588,5 +748,6 @@ export function toZcodeSnapshot(
       pendingRequestIds: [],
     },
     messages,
+    ...(todos.length > 0 ? { todos: todoItems(todos) } : {}),
   };
 }

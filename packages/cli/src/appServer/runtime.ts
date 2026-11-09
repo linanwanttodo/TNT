@@ -6,6 +6,7 @@ import {
   createTranslationState,
   stamp,
   translateAgentEvent,
+  type GoalLifecycleState,
   type TranslationState,
 } from "./events.js";
 
@@ -26,6 +27,11 @@ export interface SessionRuntimeCursor {
   eventSeq: number;
   stateRevision: number;
   workflowRevision: number;
+  /**
+   * The goal lifecycle observed for this session, or null when no turn under a
+   * goal has been seen. Snapshots project it; nothing is inferred without it.
+   */
+  goal: GoalLifecycleState | null;
 }
 
 /**
@@ -61,6 +67,7 @@ export class SessionRuntimeStore {
       eventSeq: runtime?.state.seq ?? 0,
       stateRevision: runtime?.state.stateRevision ?? 0,
       workflowRevision: runtime?.workflowRevision ?? 0,
+      goal: runtime?.state.goal ?? null,
     };
   }
 
