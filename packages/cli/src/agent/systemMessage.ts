@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- the system message assembles every prompt layer in one place so ordering is reviewable */
 import { execFileSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -23,6 +24,7 @@ import {
 } from "../session/index.js";
 import { getTeam } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
+import { isMemoryEnabled } from "../utils/memoryState.js";
 
 import { loadInstructionFile } from "./instructionIncludes.js";
 import {
@@ -308,6 +310,9 @@ export interface RuleSource {
  */
 function memoryLayers(): RuleSource[] {
   const layers: RuleSource[] = [];
+  if (!isMemoryEnabled()) {
+    return layers;
+  }
   const globalMemory = path.join(env.continueHome, "TNT.md");
   if (fs.existsSync(globalMemory)) {
     layers.push({

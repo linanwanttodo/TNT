@@ -340,15 +340,34 @@ let lazyServicesReady: Promise<void> | null = null;
 export function ensureServicesInitialized(
   initOptions: ServiceInitOptions = { headless: true },
 ): Promise<void> {
-  const current = serviceContainer.getSync<ModelServiceState>(
-    SERVICE_NAMES.MODEL,
-  );
-  if (
-    current.state === "ready" &&
-    current.value?.llmApi &&
-    current.value.model
-  ) {
-    return Promise.resolve();
+  // A ready CONFIG is the proof that this process already initialized, even
+  // when no model is selected (an empty `models:` list leaves MODEL without an
+  // llmApi). The second initialize would re-run every factory and leave CONFIG
+  // in its error state.
+  if (serviceContainer.has(SERVICE_NAMES.CONFIG)) {
+    const configState = serviceContainer.getSync<ConfigServiceState>(
+      SERVICE_NAMES.CONFIG,
+    );
+    if (configState.state === "ready") {
+      return Promise.resolve();
+    }
+    if (configState.state === "loading") {
+      return serviceContainer
+        .get<ConfigServiceState>(SERVICE_NAMES.CONFIG)
+        .then(() => undefined);
+    }
+  }
+  if (serviceContainer.has(SERVICE_NAMES.MODEL)) {
+    const current = serviceContainer.getSync<ModelServiceState>(
+      SERVICE_NAMES.MODEL,
+    );
+    if (
+      current.state === "ready" &&
+      current.value?.llmApi &&
+      current.value.model
+    ) {
+      return Promise.resolve();
+    }
   }
   lazyServicesReady ??= initializeServices(initOptions)
     .then(() => undefined)

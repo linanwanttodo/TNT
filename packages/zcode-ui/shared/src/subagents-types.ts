@@ -137,7 +137,9 @@ export interface AgentDeleteParams {
 }
 
 export interface BuiltInSubagentModelOverrideParams {
-  agentName: BuiltInSubagentName;
+  /** The built-in agent's name. TNT defines its own built-ins, so this is not
+   * limited to the two ZCode names. */
+  agentName: string;
   modelSelection?: ModelSelection;
 }
 

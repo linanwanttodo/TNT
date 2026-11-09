@@ -39,7 +39,8 @@ export const SKILLS_TOOL_META: Tool = {
 };
 
 export const skillsTool = async (): Promise<Tool> => {
-  const { skills } = await loadMarkdownSkills();
+  const { skills: allSkills } = await loadMarkdownSkills();
+  const skills = allSkills.filter((skill) => skill.enabled !== false);
 
   return {
     ...SKILLS_TOOL_META,

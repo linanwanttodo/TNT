@@ -23,6 +23,7 @@ import {
   type PluginSubagentModelSelectionOverrides,
   type SubAgentConfig,
   type SubagentsListMode,
+  type ModelSelection,
   type ZCodeProvider,
 } from "@zcode/shared";
 import { normalizeSubagentModelSelection } from "./subagentModelSelection.js";
@@ -694,7 +695,9 @@ export function createSubagentsService(options?: SubagentsServiceOptions): ISuba
     async setBuiltInModelOverride(params: BuiltInSubagentModelOverrideParams): Promise<void> {
       const runUpdate = async () => {
         const state = await readAgentStateFile(storageOptions);
-        const builtInModelSelectionOverrides = {
+        // Built-in agents come from the host; TNT names its own set, so the
+        // override map is keyed by an arbitrary agent name.
+        const builtInModelSelectionOverrides: Record<string, ModelSelection> = {
           ...state.builtInModelSelectionOverrides,
         };
         const modelSelection = normalizeSubagentModelSelection(params.modelSelection);

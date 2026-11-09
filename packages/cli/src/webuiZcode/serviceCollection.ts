@@ -99,6 +99,13 @@ export interface ZcodeServiceCollectionDeps {
    * from the services group for the same reason as modelSelectionSource. */
   providerSettingsService?: IProviderSettingsService;
   credentialService?: ICredentialService;
+  /** Agent-surface adapters backed by TNT's own files, injected by the host. */
+  subagentsService?: ISubagentsService;
+  skillsService?: ISkillsService;
+  commandsService?: ICommandsService;
+  hooksService?: IHooksService;
+  memoryService?: IMemoryService;
+  usageStatsService?: IUsageStatsService;
 }
 
 /**
@@ -229,6 +236,12 @@ interface ResolvedZcodeServices {
   taskGroupService: ITaskGroupService;
   providerSettingsService?: IProviderSettingsService;
   credentialService?: ICredentialService;
+  subagentsService?: ISubagentsService;
+  skillsService?: ISkillsService;
+  commandsService?: ICommandsService;
+  hooksService?: IHooksService;
+  memoryService?: IMemoryService;
+  usageStatsService?: IUsageStatsService;
   agentService?: IZCodeAgentService;
   sessionService?: IZCodeSessionService;
 }
@@ -250,6 +263,12 @@ const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   [ITaskGroupService, (services) => services.taskGroupService],
   [IProviderSettingsService, (services) => services.providerSettingsService],
   [ICredentialService, (services) => services.credentialService],
+  [ISubagentsService, (services) => services.subagentsService],
+  [ISkillsService, (services) => services.skillsService],
+  [ICommandsService, (services) => services.commandsService],
+  [IHooksService, (services) => services.hooksService],
+  [IMemoryService, (services) => services.memoryService],
+  [IUsageStatsService, (services) => services.usageStatsService],
   [IPluginsService, (services) => services.local.pluginsService],
   [
     IPluginManagementService,
@@ -331,6 +350,16 @@ export async function buildZcodeServiceCollection(
       : {}),
     ...(deps.credentialService
       ? { credentialService: deps.credentialService }
+      : {}),
+    ...(deps.subagentsService
+      ? { subagentsService: deps.subagentsService }
+      : {}),
+    ...(deps.skillsService ? { skillsService: deps.skillsService } : {}),
+    ...(deps.commandsService ? { commandsService: deps.commandsService } : {}),
+    ...(deps.hooksService ? { hooksService: deps.hooksService } : {}),
+    ...(deps.memoryService ? { memoryService: deps.memoryService } : {}),
+    ...(deps.usageStatsService
+      ? { usageStatsService: deps.usageStatsService }
       : {}),
   };
 

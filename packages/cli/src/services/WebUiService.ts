@@ -20,19 +20,25 @@ import {
   resolveWebUiToken,
   webuiModuleDir,
 } from "./webuiAuth.js";
+import { createTntCommandsService } from "./webuiCommands.js";
 import { createWebUiCredentialService } from "./webuiCredentials.js";
 import {
   resolveWebUiDist,
   webuiDistCandidates,
   type WebUiDist,
 } from "./webuiDist.js";
+import { createTntHooksService } from "./webuiHooks.js";
+import { createTntMemoryService } from "./webuiMemory.js";
 import { readWebUiModelSource } from "./webuiModelSource.js";
 import { bootstrapPage } from "./webuiPages.js";
 import { getWebUiProjectCatalog } from "./webuiProjectCatalog.js";
 import { createWebUiProviderSettingsService } from "./webuiProviderSettings.js";
 import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
+import { createTntSkillsService } from "./webuiSkills.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
+import { createTntSubagentsService } from "./webuiSubagents.js";
 import type { WebUiHandle, WebUiServiceOptions } from "./webuiTypes.js";
+import { createTntUsageStatsService } from "./webuiUsageStats.js";
 
 import { ensureServicesInitialized } from "./index.js";
 
@@ -185,6 +191,11 @@ export class WebUiService {
         configPath: () => options.config ?? CONFIG_PATH,
       });
       const credentialService = createWebUiCredentialService();
+      const subagentsService = createTntSubagentsService();
+      const skillsService = createTntSkillsService();
+      const commandsService = createTntCommandsService();
+      const hooksService = createTntHooksService();
+      const usageStatsService = createTntUsageStatsService();
       const zcodeHost = startWebUiZcodeHost({
         server: handle.server,
         token,
@@ -198,6 +209,15 @@ export class WebUiService {
             projectCatalog,
             providerSettingsService,
             credentialService,
+            subagentsService,
+            skillsService,
+            commandsService,
+            hooksService,
+            usageStatsService,
+            memoryService: createTntMemoryService(
+              this.resolveSession(options).workspaceDirectory ||
+                hostWorkspacePath,
+            ),
             modelSelectionSource: async () => {
               await ensureServices();
               return readWebUiModelSource();

@@ -619,6 +619,9 @@ export async function runHooks(
 
   for (const group of matchingGroups) {
     for (const handler of group.hooks) {
+      // A disabled handler stays declared (settings can turn it back on) but
+      // costs no subprocess and answers no event.
+      if (handler.enabled === false) continue;
       const key = getHandlerDedupeKey(handler);
       if (seen.has(key)) continue;
       if (handler.once && onceKeys?.has(key)) continue;
