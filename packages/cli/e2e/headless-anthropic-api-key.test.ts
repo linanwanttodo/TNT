@@ -80,11 +80,13 @@ ${fixtureApiKeyLine("    ", fixtureKey("default"))}
     // The prompt request plus the title request for the new session
     expect(mockServer.requests).toHaveLength(2);
 
-    // Find the user message in the request
+    // Find the user message that carries the typed prompt; the environment
+    // context now rides the first user message.
     const userMessage = mockServer.requests[0].body.messages.find(
-      (m: any) => m.role === "user",
+      (m: any) =>
+        m.role === "user" && String(m.content ?? "").includes("Hi there"),
     );
-    expect(userMessage.content).toBe("Hi there");
+    expect(userMessage.content).toContain("Hi there");
   }, 20000);
 
   it("refuses a Claude model configured under an OpenAI provider", async () => {
