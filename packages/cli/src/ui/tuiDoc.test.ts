@@ -168,11 +168,14 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     );
   });
 
-  it("describes streaming, the spinner and the palette where they are built", () => {
+  it("describes streaming, the spinner and the suggestion overlay where they are built", () => {
     const chat = read(CHAT);
     const transcript = read(TRANSCRIPT);
     const helpers = read(path.join(here, "hooks", "useChat.stream.helpers.ts"));
-    const palette = read(path.join(here, "SlashCommandUI.tsx"));
+    const overlay = read(
+      path.join(here, "components", "SuggestionOverlay.tsx"),
+    );
+    const sources = read(path.join(here, "suggestionSources.ts"));
     const composer = read(path.join(here, "UserInput.tsx"));
 
     // The working indicator sits at the end of the transcript content, after
@@ -187,23 +190,30 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     expect(/throttled overlay/.test(flat)).toBe(
       /STREAM_RENDER_INTERVAL_MS/.test(helpers) && /streamingText/.test(chat),
     );
-    expect(/at most five entries/.test(flat)).toBe(
-      /MAX_VISIBLE_COMMANDS = 5/.test(palette),
+    // The overlay's five-row window, its type marks, its level header and the
+    // rule that a command needs a prefix before Enter runs it are read back
+    // from the code that draws them.
+    expect(/Five rows are visible/.test(flat)).toBe(
+      /MAX_VISIBLE_SUGGESTIONS = 5/.test(sources),
     );
-    expect(/never executes anything/.test(flat)).toBe(
+    expect(/type marks/.test(flat)).toBe(
+      /file: "\+"/.test(sources) &&
+        /agent: "\*"/.test(sources) &&
+        /mcp: "◇"/.test(sources),
+    );
+    expect(/completes rather than runs/.test(flat)).toBe(
       /slashCommandFilter !== ""/.test(composer),
     );
-    // The palette's level model and its highlighted row are read from source.
     expect(/subcommands/.test(flat)).toBe(
       /subcommands\?: SlashSubcommand\[\]/.test(
         read(path.join(here, "commands", "types.ts")),
       ),
     );
-    expect(/filled\s+background/.test(flat)).toBe(
-      /backgroundColor=\{isSelected \? "#005f5f"/.test(palette),
+    expect(/top-level directories and\s+files/.test(flat)).toBe(
+      /topLevelPathItems/.test(sources),
     );
-    expect(/-- \/language --/.test(flat)).toBe(
-      /-- \$\{levelLabel\} --/.test(palette),
+    expect(/-- \/parent --/.test(flat)).toBe(
+      /-- \$\{levelLabel\} --/.test(overlay),
     );
   });
 

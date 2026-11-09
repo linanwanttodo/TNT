@@ -40,6 +40,13 @@ transcript. A narrow terminal or `NO_COLOR` falls back to the two-line
 half-block wordmark with the version beside it
 (`src/startup/asciiArt.ts`).
 
+## Terminal title
+
+The tab title carries the static `✳` prefix. While a turn runs it alternates
+`⠂` and `⠐` every 960 ms; an idle title never animates. The title is written as
+OSC 0, sanitised of C0 controls and DEL, cut to 100 characters, and restored to
+the idle prefix on exit (`src/ui/terminalStatusLight.ts`).
+
 ## Streaming and the working spinner
 
 The answer streams into the transcript as it arrives. Chunks never touch the
@@ -64,6 +71,31 @@ panel shows the whole output and the next click folds it again. A finished call
 folds itself, so the transcript settles without the reader clicking anything
 (`src/ui/components/ToolGroupDisplay.tsx`). Shell calls read as `$ command`.
 
+## Messages
+
+A user turn starts with a blue `>` and the prompt uses the primary text colour,
+so the reader's own words do not recede behind the answer. A model turn starts
+with a cyan `✦` and renders its markdown. Reasoning that arrives on the
+provider's separate channel is stored beside the assistant message and renders
+above the answer as the thought itself in the muted italic colour, keeping its
+paragraph breaks, with no label or rule. A live thought streams open; when the
+round ends the stored block folds behind a single `Thinking...` line. Clicking
+one block toggles only that block, and `Ctrl+O` sets the default for every
+finished block (`src/ui/components/MemoizedMessage.tsx`,
+`src/ui/components/ThinkingMessage.tsx`).
+
+## Agent questions
+
+A pending question replaces the composer rows with a rounded card. One tab per
+question sits on the first row, marked `○` while unanswered and `✓` once
+answered; `Tab`, `Shift+Tab` and the left/right arrows move between questions.
+The question is bold under a `?`, options below it use the `❯` pointer for the
+focused row, and a final `Other` row becomes free text as soon as it is
+selected or typed into. A multi-select question marks rows with `[✓]`/`[ ]`
+and `Space` toggles them; an empty submission prints a required warning. A
+question with no options is pure free text and accepts Enter for its default.
+`Esc` (or `Ctrl+C`) cancels the whole set (`src/ui/components/QuizPrompt.tsx`).
+
 ## Permission prompt
 
 A pending permission replaces the composer rows. The call's title sits on the
@@ -75,19 +107,71 @@ expands and folds; every other tool keeps the argument preview the engine
 built. The choices below keep their numbers and shortcuts
 (`src/ui/components/ToolPermissionSelector.tsx`).
 
-## Messages
+## Composer
 
-A user turn starts with a blue `>` and the prompt uses the primary text colour,
-so the reader's own words do not recede behind the answer. A model turn starts
-with a cyan `✦` and renders its markdown. Reasoning that arrives on the
-provider's separate channel is stored beside the assistant message and renders
-above the answer as the thought itself in the muted italic colour, keeping its
-paragraph breaks, with no label or rule. A live thought streams open; when the
-round ends the stored block folds behind a single `Thinking...` line. Clicking
-one block toggles only that block, and `Ctrl+O` sets the default for every
-finished block, the way Claude Code's `Thought for …` summaries work
-(`src/ui/components/MemoizedMessage.tsx`,
-`src/ui/components/ThinkingMessage.tsx`).
+The input has one rounded rule above it and no sides or bottom rule. The mode
+badge is embedded in that rule, and the rule's colour reports the mode. The
+prompt marker is `❯` in the subtle text colour, `$` in shell mode and `◉` in
+remote mode; while a turn runs the marker dims instead of moving. The session
+goal and the todo list render above the rule, not between it and the input. At
+most five unfinished todos are drawn; completed items appear only in the
+`Todos done/total` count, and unfinished items past the fifth collapse into a
+`· +N` counter on the same header, so the panel cannot push the input up by
+more than six rows (`src/ui/UserInput.tsx`,
+`src/ui/components/TodoIndicator.tsx`,
+`src/ui/components/GoalIndicator.tsx`).
+
+`Ctrl+F` opens history search as one muted row above the composer; the query,
+the match position and the keys are in that row. `Ctrl+V` attaches a clipboard
+image. A post-turn suggestion sits faint in the empty composer and `Tab`
+accepts it.
+
+## Suggestion overlay
+
+One list floats above the composer for the token under the cursor. A `/` token
+shows slash commands; an `@` token shows files, subagents and MCP resources
+from every connected server, in that group order. Rows carry Claude Code's
+type marks: `+` for a file, `*` for an agent, `◇` for an MCP resource, and
+commands are plain `/name`. Filtering is case-insensitive over each row's name
+and description; an empty query after `@` shows the top-level directories and
+files to descend into.
+
+Five rows are visible at a time and the window slides to keep the selection in
+view, with an `n/total` counter once the list is longer. `Up`/`Down` move,
+`Enter`/`Tab` accept, and `Esc` closes the list without changing the text. A
+slash command completes rather than runs until a prefix has been typed; a
+parent with `subcommands` completes with a trailing space and its children then
+replace the list under a `-- /parent --` header, where accepting runs
+`/parent child`. An accepted `@` row replaces the token with `@value` and one
+separating space; a directory row keeps the path open with no trailing space,
+and a file row is read and attached. `Ctrl+R` refreshes the file index while
+the `@` list is open (`src/ui/UserInput.tsx`,
+`src/ui/components/SuggestionOverlay.tsx`, `src/ui/suggestionSources.ts`).
+
+The two established pickers remain the fallback until the assistant context
+loads (`src/ui/SlashCommandUI.tsx`, `src/ui/FileSearchUI.tsx`).
+
+## Plugin details
+
+Selecting a plugin in the plugins browser opens a details view. It prints the
+name, marketplace, version, status, description, author, source and, when an
+update exists, `from -> to`. A `Will install:` block lists the commands,
+agents, skills and MCP servers the plugin contributes, or states that the
+manifest cannot be read. The action row follows the install state: install,
+update, enable/disable, uninstall and back. Installed plugins carry a status
+cell in the list (enabled, disabled, update available, pending, error), and a
+failed catalog load prints a warning banner naming the marketplaces that did
+not answer (`src/ui/PluginDetailsView.tsx`, `src/ui/PluginsBrowser.tsx`).
+
+## Subagent tree
+
+Delegated agents render under the composer as a box-drawing tree: `├─` for a
+sibling and `└─` for the last row, a type badge, an optional description, the
+tool-use and token counts known from the child transcript, and a `⎿`
+continuation carrying the run's status line. Running agents stay visible;
+finished and failed rows fold into a one-line summary once the turn ends or
+their finish ages out, with the failure count appended when any failed
+(`src/ui/components/SubagentTree.tsx`, `src/ui/subagentTree.ts`).
 
 ## Images
 
@@ -110,32 +194,6 @@ needs `wl-clipboard`. macOS uses `osascript`, Windows uses PowerShell, and both
 fall back to the bundled helper. The prebuilds live in `native/<platform>/`
 and are copied to `dist/native/` by the build
 (`src/utils/clipboardImage.ts`, `src/utils/nativeClipboard.ts`).
-
-## Composer rows
-
-The session goal and the todo list render above the composer box, outside its
-top border, not between the border and the input row. At most five unfinished
-todos are drawn; completed items appear only in the `Todos done/total` count,
-and unfinished items past the fifth collapse into a `· +N` counter on the same
-header, so the panel cannot push the input up by more than six rows. With no
-unfinished todo the panel draws nothing (`src/ui/UserInput.tsx`,
-`src/ui/components/TodoIndicator.tsx`,
-`src/ui/components/GoalIndicator.tsx`).
-
-## Command palette
-
-Typing `/` as the first character opens the command window above the composer
-box, outside its border. It shows at most five entries with a sliding selection
-and ▲/▼ overflow markers (`MAX_VISIBLE_COMMANDS` in
-`src/ui/SlashCommandUI.tsx`), and the highlighted row draws its name and
-description in blue, so the selection reads clearly without a marker or a
-full-row colour band. The window follows the typed path:
-a command with `subcommands` (for example `/language`) is completed with a
-trailing space instead of running, and its children then replace the list under
-a `-- /language --` header, filtered by the next token; picking one runs
-`/parent child`. Enter runs a leaf only once a prefix has been typed, so a bare
-`/` plus Enter never executes anything, and Esc closes the window at any level
-(`src/ui/UserInput.tsx`).
 
 ## Status bar
 
@@ -161,7 +219,7 @@ never looks up the remote.
 
 ## Mode badge
 
-The composer's top border carries `[Manual]` in white, `[Accept edits]` in cyan, `[Plan]` in blue,
-`[Auto]` in green, or `[Bypass permissions]` in red
-(`src/ui/components/ModeIndicator.tsx`). Agent mode draws no badge and the plain border.
+The composer's single top rule carries `[Manual]` in white, `[Accept edits]` in cyan,
+`[Plan]` in blue, `[Auto]` in green, or `[Bypass permissions]` in red
+(`src/ui/components/ModeIndicator.tsx`). Agent mode draws no badge and the plain rule.
 The mode does not change the status bar.
