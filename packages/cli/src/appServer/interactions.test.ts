@@ -2,12 +2,20 @@ import {
   zcodePermissionRequestParamsSchema,
   zcodeUserInputRequestParamsSchema,
 } from "@zcode/shared";
+import { permissionRequestPayloadSchema } from "@zcode/shared/zcode-protocol-v4";
 import { describe, expect, it, vi } from "vitest";
 
 import { t } from "../i18n/index.js";
 import { ToolPermissionManager } from "../permissions/permissionManager.js";
+import {
+  clearSessionApprovals,
+  clearSessionFullAccess,
+  hasSessionApproval,
+  hasSessionFullAccess,
+} from "../permissions/sessionApprovals.js";
 import type { AgentEvent } from "../protocol/events.js";
 import { QuizService, type QuizQuestion } from "../services/QuizService.js";
+import { requestUserPermission } from "../stream/permissionFlow.js";
 
 import { FREE_TEXT_OPTION_VALUE } from "./interactionPayload.js";
 import {
@@ -100,8 +108,34 @@ describe("permission interactions", () => {
     expect(params.options.map((option) => option.optionId)).toEqual([
       "allow_once",
       "allow_always",
+      "fullAccess",
       "deny",
     ]);
+    const fullAccess = params.options.find(
+      (option) => option.optionId === "fullAccess",
+    );
+    expect(fullAccess).toMatchObject({
+      kind: "custom",
+      name: t("permission.fullAccess"),
+      response: { decision: "allow" },
+    });
+    // The same option must survive the v4 snapshot's permission schema.
+    const v4Payload = permissionRequestPayloadSchema.parse({
+      kind: "permission",
+      toolCallId: "call-1",
+      toolName: "bash",
+      summary: "Tool requires permission",
+      detail: {},
+      options: params.options.map((option) => ({
+        optionId: option.optionId,
+        label: option.name,
+        kind: option.kind,
+        response: option.response,
+      })),
+    });
+    expect(v4Payload.options.map((option) => option.optionId)).toContain(
+      "fullAccess",
+    );
 
     const requestId = manager.getPendingRequestIds()[0] ?? "";
     expect(
@@ -159,6 +193,74 @@ describe("permission interactions", () => {
       false,
     );
     bridge.dispose();
+  });
+});
+
+describe("full access interactions", () => {
+  it("grants full access for the session and treats a late answer as a no-op", async () => {
+    clearSessionApprovals();
+    const { manager, bridge } = createBridge();
+    const pending = manager.requestPermission(
+      { name: "bash", arguments: { command: "ls" } },
+      0,
+    );
+    await flush();
+    const requestId = manager.getPendingRequestIds()[0] ?? "";
+
+    expect(
+      bridge.resolveInteraction(requestId, { optionId: "fullAccess" }),
+    ).toBe(true);
+    await expect(pending).resolves.toEqual({
+      approved: true,
+      remember: false,
+    });
+    expect(hasSessionFullAccess("session-1")).toBe(true);
+
+    // A late duplicate is not an approval, so it must not re-create the grant.
+    clearSessionFullAccess();
+    expect(
+      bridge.resolveInteraction(requestId, { optionId: "fullAccess" }),
+    ).toBe(false);
+    expect(hasSessionFullAccess("session-1")).toBe(false);
+    bridge.dispose();
+    clearSessionApprovals();
+  });
+
+  it("keeps allow_always on the engine's session approval path", async () => {
+    clearSessionApprovals();
+    const { manager, bridge } = createBridge();
+    const call = {
+      id: "call-1",
+      name: "Write",
+      arguments: { filepath: "/tmp/interactions-allow-always.txt" },
+      argumentsStr: JSON.stringify({
+        filepath: "/tmp/interactions-allow-always.txt",
+      }),
+      startNotified: false,
+      tool: {},
+    } as any;
+    const pending = requestUserPermission(
+      call,
+      { onToolPermissionRequest: vi.fn() },
+      undefined,
+      manager,
+    );
+    await flush();
+    const requestId = manager.getPendingRequestIds()[0] ?? "";
+
+    expect(
+      bridge.resolveInteraction(requestId, { optionId: "allow_always" }),
+    ).toBe(true);
+    await expect(pending).resolves.toBe(true);
+    expect(
+      hasSessionApproval("Write", {
+        filepath: "/tmp/interactions-allow-always.txt",
+      }),
+    ).toBe(true);
+    expect(hasSessionFullAccess()).toBe(false);
+
+    bridge.dispose();
+    clearSessionApprovals();
   });
 });
 

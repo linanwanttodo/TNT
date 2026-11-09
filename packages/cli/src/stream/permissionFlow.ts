@@ -11,6 +11,7 @@ import {
   noteAutoSuccess,
 } from "../permissions/autoMode.js";
 import { ACCEPT_EDITS_MODE_POLICIES } from "../permissions/defaultPolicies.js";
+import { isDestructiveCall } from "../permissions/destructiveCommands.js";
 import { checkToolPermission } from "../permissions/permissionChecker.js";
 import {
   DEFAULT_PERMISSION_TIMEOUT_MS,
@@ -20,6 +21,7 @@ import {
 } from "../permissions/permissionManager.js";
 import {
   hasSessionApproval,
+  hasSessionFullAccess,
   rememberSessionApproval,
 } from "../permissions/sessionApprovals.js";
 import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
@@ -265,9 +267,18 @@ export async function checkToolPermissionApproval(
     permissionCheck.permission === "ask" ||
     (permissionCheck.permission === "allow" && hookAskReason)
   ) {
+    // A full-access grant is a human decision already on record, so it answers
+    // ordinary asks in its session even in a headless process: the web shell
+    // runs headless but still has a person on its RPC surface. The grant is
+    // memory-only and session-keyed, so a genuine headless run cannot have
+    // one, and a destructive call never qualifies.
+    const fullAccessApplies =
+      hasSessionFullAccess() &&
+      !isDestructiveCall(toolCall.name, toolCall.arguments);
+
     const autoActive = services.toolPermissions.getCurrentMode() === "auto";
 
-    if (isHeadless && !autoActive) {
+    if (isHeadless && !autoActive && !fullAccessApplies) {
       // "ask" tools are excluded in headless so this is either a policy
       // evaluation that landed on ask or a hook escalation, and with no human
       // to answer either one the call is refused.
@@ -296,6 +307,10 @@ export async function checkToolPermissionApproval(
     // Answered once in this session is enough for this exact call; a hook still
     // gets its veto above, and nothing here reaches permissions.yaml.
     if (hasSessionApproval(toolCall.name, toolCall.arguments)) {
+      return { approved: true };
+    }
+
+    if (fullAccessApplies) {
       return { approved: true };
     }
 

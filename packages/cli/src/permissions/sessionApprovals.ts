@@ -10,10 +10,17 @@ import { isDestructiveCall } from "./destructiveCommands.js";
 // so a resumed or second session cannot inherit a grant it was never shown.
 const MAX_SESSIONS = 20;
 const MAX_KEYS_PER_SESSION = 500;
+const MAX_FULL_ACCESS_SESSIONS = 20;
 
 const FILE_SCOPED_TOOLS = new Set(["Edit", "MultiEdit", "Write"]);
 
 const approvals = new Map<string, Set<string>>();
+
+// A session can be granted full access: ordinary permission asks in that
+// session stop prompting, without changing the mode for the process or for any
+// other session. The grant is memory-only and follows the same bounded,
+// oldest-first eviction as the approval cache.
+const fullAccessSessions = new Set<string>();
 
 /**
  * What a "don't ask again this session" answer actually covers, or nothing when
@@ -104,7 +111,40 @@ export function sessionApprovalKeys(): string[] {
   return [...(approvals.get(getCurrentSessionId()) ?? [])];
 }
 
+/**
+ * Grant full access to the current session. Full access answers ordinary
+ * permission asks for the rest of the session; it is not a process-wide mode
+ * and cannot be inherited by a resumed or second session.
+ */
+export function grantSessionFullAccess(sessionId?: string): void {
+  const session = sessionId ?? getCurrentSessionId();
+  // Re-insert so the oldest untouched grant is the one evicted.
+  fullAccessSessions.delete(session);
+  fullAccessSessions.add(session);
+  if (fullAccessSessions.size > MAX_FULL_ACCESS_SESSIONS) {
+    const oldest = fullAccessSessions.values().next().value;
+    if (oldest !== undefined && oldest !== session) {
+      fullAccessSessions.delete(oldest);
+    }
+  }
+}
+
+export function hasSessionFullAccess(sessionId?: string): boolean {
+  return fullAccessSessions.has(sessionId ?? getCurrentSessionId());
+}
+
+export function clearSessionFullAccess(sessionId?: string): void {
+  if (sessionId === undefined) fullAccessSessions.clear();
+  else fullAccessSessions.delete(sessionId);
+}
+
+/** Drop one session's approvals and full-access grant, or the whole store. */
 export function clearSessionApprovals(sessionId?: string): void {
-  if (sessionId === undefined) approvals.clear();
-  else approvals.delete(sessionId);
+  if (sessionId === undefined) {
+    approvals.clear();
+    fullAccessSessions.clear();
+    return;
+  }
+  approvals.delete(sessionId);
+  fullAccessSessions.delete(sessionId);
 }

@@ -6,6 +6,7 @@ import type { AgentEvent } from "../protocol/events.js";
 import { sessionStore } from "../session/store.js";
 import { logger } from "../utils/logger.js";
 
+import { fullAccessPermissionOption } from "./interactionPayload.js";
 import {
   deriveSubagentCounts,
   firstLine,
@@ -876,6 +877,7 @@ export function translateAgentEvent(
                   ],
                 },
               },
+              fullAccessPermissionOption(),
               {
                 optionId: "deny",
                 kind: "deny",

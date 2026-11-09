@@ -3,6 +3,7 @@ import type {
   ZCodeUserInputQuestion,
   ZCodeUserInputRequestParams,
 } from "@zcode/shared";
+import { PERMISSION_FULL_ACCESS_OPTION_ID } from "@zcode/shared/zcode-protocol-v4";
 
 import { t } from "../i18n/index.js";
 import type { ToolCallRequest } from "../permissions/types.js";
@@ -38,6 +39,25 @@ function permissionReason(toolCall: ToolCallRequest): string {
   const preview = toolCall.preview?.find((entry) => entry.type === "text");
   const reason = preview?.content?.trim();
   return reason && reason.length > 0 ? reason : "Tool requires permission";
+}
+
+/**
+ * The extra option that grants full access to the session. It is an ordinary
+ * answer on the wire; the grant itself is applied by the interaction bridge
+ * when this option id comes back, never by the option's own response payload.
+ */
+export function fullAccessPermissionOption(): {
+  optionId: string;
+  kind: "custom";
+  name: string;
+  response: { decision: "allow" };
+} {
+  return {
+    optionId: PERMISSION_FULL_ACCESS_OPTION_ID,
+    kind: "custom",
+    name: t("permission.fullAccess"),
+    response: { decision: "allow" },
+  };
 }
 
 export function permissionParams(
@@ -76,6 +96,7 @@ export function permissionParams(
           ],
         },
       },
+      fullAccessPermissionOption(),
       {
         optionId: "deny",
         kind: "deny",

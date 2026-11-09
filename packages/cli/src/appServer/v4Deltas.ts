@@ -251,6 +251,69 @@ function titleDeltas(payload: Payload): ConversationDelta[] {
   ];
 }
 
+const PERMISSION_OPTION_KINDS = new Set([
+  "allowOnce",
+  "allowAlways",
+  "deny",
+  "custom",
+]);
+
+/**
+ * The options the request actually advertised, not a second copy of the three
+ * built-in ones. events.ts stores the same list the RPC request used, so a
+ * live delta and a resynced snapshot show the same choices (including
+ * `fullAccess` when the host offers it).
+ */
+function permissionOptions(payload: Payload) {
+  const stored = Array.isArray(payload.options) ? payload.options : [];
+  const mapped = stored.flatMap((candidate) => {
+    const option = asRecord(candidate);
+    const optionId = asText(option.optionId);
+    const kind = asText(option.kind);
+    const label = asText(option.name);
+    if (!optionId || !label || !PERMISSION_OPTION_KINDS.has(kind)) {
+      return [];
+    }
+    return [
+      {
+        optionId,
+        label,
+        kind: kind as "allowOnce" | "allowAlways" | "deny" | "custom",
+        ...(option.response === undefined
+          ? {}
+          : {
+              response: option.response as {
+                decision: "allow" | "deny" | "escalate" | "modify";
+              },
+            }),
+      },
+    ];
+  });
+  if (mapped.length > 0) {
+    return mapped;
+  }
+  return [
+    {
+      optionId: "allow_once",
+      label: "Allow once",
+      kind: "allowOnce",
+      response: { decision: "allow" },
+    },
+    {
+      optionId: "allow_always",
+      label: "Allow for this session",
+      kind: "allowAlways",
+      response: { decision: "allow" },
+    },
+    {
+      optionId: "deny",
+      label: "Deny",
+      kind: "deny",
+      response: { decision: "deny" },
+    },
+  ];
+}
+
 function permissionDeltas(
   event: ZCodeSessionEvent,
   payload: Payload,
@@ -272,35 +335,9 @@ function permissionDeltas(
               toolName: asText(payload.toolName),
               summary: asText(payload.reason) || "Tool requires permission",
               detail: payload.input ?? {},
-              options: [
-                {
-                  optionId: "allow_once",
-                  label: "Allow once",
-                  kind: "allowOnce",
-                  response: { decision: "allow" },
-                },
-                {
-                  optionId: "allow_always",
-                  label: "Allow for this session",
-                  kind: "allowAlways",
-                  response: {
-                    decision: "allow",
-                    permissionUpdates: [
-                      {
-                        type: "addRules",
-                        behavior: "allow",
-                        rules: [{ toolName: asText(payload.toolName) }],
-                      },
-                    ],
-                  },
-                },
-                {
-                  optionId: "deny",
-                  label: "Deny",
-                  kind: "deny",
-                  response: { decision: "deny" },
-                },
-              ],
+              // The stored list is the same one the RPC request sent; the delta
+              // schema validates it, so the helper only shapes the fields.
+              options: permissionOptions(payload) as never[],
             },
           },
         ],

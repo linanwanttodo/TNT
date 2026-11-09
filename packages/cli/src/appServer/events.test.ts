@@ -2,6 +2,7 @@ import { zcodeSessionEventSchema } from "@zcode/shared";
 import type { Session, TeamRunRecord } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
+import { t } from "../i18n/index.js";
 import type { AgentEvent } from "../protocol/events.js";
 
 import { createTranslationState, translateAgentEvent } from "./events.js";
@@ -192,6 +193,26 @@ describe("translateAgentEvent", () => {
 
     expect(permission).toHaveLength(1);
     expect(permission[0].type).toBe("permission.requested");
+    const storedOptions = (
+      permission[0].payload as {
+        options: {
+          optionId: string;
+          kind: string;
+          name: string;
+          response: unknown;
+        }[];
+      }
+    ).options;
+    expect(storedOptions.map((option) => option.optionId)).toContain(
+      "fullAccess",
+    );
+    expect(
+      storedOptions.find((option) => option.optionId === "fullAccess"),
+    ).toMatchObject({
+      kind: "custom",
+      name: t("permission.fullAccess"),
+      response: { decision: "allow" },
+    });
     expect(question).toHaveLength(1);
     expect(question[0].payload).toMatchObject({
       requestId: "quiz-1",
