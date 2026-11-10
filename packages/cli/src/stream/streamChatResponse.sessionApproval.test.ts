@@ -5,6 +5,7 @@ import {
   clearSessionApprovals,
   rememberSessionApproval,
 } from "../permissions/sessionApprovals.js";
+import { services } from "../services/index.js";
 import { runTerminalCommandTool } from "../tools/runTerminalCommand.js";
 import type { PreprocessedToolCall } from "../tools/types.js";
 import { writeFileTool } from "../tools/writeFile.js";
@@ -52,6 +53,9 @@ describe("a session approval in front of the prompt", () => {
   let callbacks: { onToolPermissionRequest: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
+    // The prompt flow under test lives in default mode; auto is the startup
+    // mode and hands every ask to its classifier first.
+    services.toolPermissions.switchMode("default");
     clearSessionApprovals();
     // The UI answers as soon as it is asked, so the promise under test settles.
     prompts = vi.fn((_name: string, _args: unknown, requestId: string) => {

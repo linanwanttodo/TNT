@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HookEventResult } from "../hooks/types.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
+import { services } from "../services/index.js";
 import { readFileTool } from "../tools/readFile.js";
 import type { PreprocessedToolCall } from "../tools/types.js";
 
@@ -46,6 +47,9 @@ const bashCall: PreprocessedToolCall = {
  */
 describe("permission-prompt notifications", () => {
   beforeEach(() => {
+    // The prompt flow under test lives in default mode; auto is the startup
+    // mode and hands every ask to its classifier first.
+    services.toolPermissions.switchMode("default");
     fireHooks.fireNotification.mockClear();
     fireHooks.firePermissionRequest.mockClear();
     vi.spyOn(toolPermissionManager, "on").mockImplementation(

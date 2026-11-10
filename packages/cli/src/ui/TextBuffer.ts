@@ -2,30 +2,11 @@ import { Key } from "ink";
 
 import { t } from "../i18n/index.js";
 
+import * as bufferLimits from "./utils/bufferLimits.js";
 import { ComposerTerminalFilter } from "./utils/composerTerminalFilter.js";
 import { bracketedPasteMarker } from "./utils/terminalResponses.js";
 
-export const COLLAPSE_SIZE = 500; // Characters threshold for collapsing pasted content
-export const COLLAPSE_LINES = 8; // Lines threshold: a paste reaching this many rows collapses too
 export const RAPID_INPUT_THRESHOLD = 200; // Minimum characters to trigger rapid input detection
-export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB per image
-export const MAX_IMAGE_COUNT = 20; // Maximum number of images
-export const MAX_TOTAL_IMAGE_MEMORY = 50 * 1024 * 1024; // 50MB total image memory
-
-/**
- * Whether one pasted block is large enough to fold behind a placeholder:
- * the first of the two thresholds it reaches wins, so an eight-row paste
- * collapses no matter how short its lines and a 500-character one-line
- * paste collapses without any rows to count.
- */
-export function shouldCollapsePaste(text: string): boolean {
-  if (text.length >= COLLAPSE_SIZE) return true;
-  return pasteLineCount(text) >= COLLAPSE_LINES;
-}
-
-function pasteLineCount(text: string): number {
-  return text.split(/\r\n|\r|\n/).length;
-}
 
 export class TextBuffer {
   private _text: string = "";
@@ -257,18 +238,20 @@ export class TextBuffer {
   // Add image to buffer and return placeholder
   addImage(imageBuffer: Buffer): string {
     // Validate image size
-    if (imageBuffer.length > MAX_IMAGE_SIZE) {
+    if (imageBuffer.length > bufferLimits.MAX_IMAGE_SIZE) {
       throw new Error(
         t("ui.imageTooLarge", {
           size: (imageBuffer.length / 1024 / 1024).toFixed(1),
-          max: MAX_IMAGE_SIZE / 1024 / 1024,
+          max: bufferLimits.MAX_IMAGE_SIZE / 1024 / 1024,
         }),
       );
     }
 
     // Check image count limit
-    if (this._imageMap.size >= MAX_IMAGE_COUNT) {
-      throw new Error(t("ui.tooManyImages", { count: MAX_IMAGE_COUNT }));
+    if (this._imageMap.size >= bufferLimits.MAX_IMAGE_COUNT) {
+      throw new Error(
+        t("ui.tooManyImages", { count: bufferLimits.MAX_IMAGE_COUNT }),
+      );
     }
 
     // Check total memory usage
@@ -277,9 +260,12 @@ export class TextBuffer {
       0,
     );
 
-    if (currentMemoryUsage + imageBuffer.length > MAX_TOTAL_IMAGE_MEMORY) {
+    if (
+      currentMemoryUsage + imageBuffer.length >
+      bufferLimits.MAX_TOTAL_IMAGE_MEMORY
+    ) {
       const currentUsageMB = (currentMemoryUsage / 1024 / 1024).toFixed(1);
-      const maxUsageMB = MAX_TOTAL_IMAGE_MEMORY / 1024 / 1024;
+      const maxUsageMB = bufferLimits.MAX_TOTAL_IMAGE_MEMORY / 1024 / 1024;
       throw new Error(
         t("ui.imageMemoryLimit", {
           current: currentUsageMB,
@@ -324,7 +310,7 @@ export class TextBuffer {
   // Creates placeholder for single line or multi-line pastes
   private createPlaceholder(originalText: string): string {
     this._pasteCounter++;
-    const lineCount = pasteLineCount(originalText);
+    const lineCount = bufferLimits.pasteLineCount(originalText);
 
     if (lineCount === 1) {
       return `[Pasted Text #${this._pasteCounter} · ${originalText.length} chars]`;
@@ -352,7 +338,7 @@ export class TextBuffer {
     if (marker === "end") {
       this._inPasteMode = false;
 
-      if (shouldCollapsePaste(this._pasteBuffer)) {
+      if (bufferLimits.shouldCollapsePaste(this._pasteBuffer)) {
         const placeholder = this.createPlaceholder(this._pasteBuffer);
         this._pasteMap.set(placeholder, this._pasteBuffer);
         this.insertText(placeholder);
@@ -432,7 +418,7 @@ export class TextBuffer {
 
   // Called after rapid input timer expires to collapse or insert buffered content
   private finalizeRapidInput(): void {
-    if (shouldCollapsePaste(this._rapidInputBuffer)) {
+    if (bufferLimits.shouldCollapsePaste(this._rapidInputBuffer)) {
       const placeholder = this.createPlaceholder(this._rapidInputBuffer);
       this._pasteMap.set(placeholder, this._rapidInputBuffer);
 
@@ -589,7 +575,7 @@ export class TextBuffer {
     // delivers Enter as its own event), so multi-row pastes enter the same
     // delayed path even when they are short.
     const looksLikePaste =
-      input.length > COLLAPSE_SIZE ||
+      input.length > bufferLimits.COLLAPSE_SIZE ||
       (input.length > 1 && input.includes("\n"));
     if (looksLikePaste && this._rapidInputBuffer.length === 0) {
       // Start rapid input mode immediately to delay placeholder creation

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HookEventResult } from "../hooks/types.js";
 import { toolPermissionManager } from "../permissions/permissionManager.js";
 import { workspaceRoot } from "../permissions/workspacePath.js";
+import { services } from "../services/index.js";
 import { readFileTool } from "../tools/readFile.js";
 import { runTerminalCommandTool } from "../tools/runTerminalCommand.js";
 import type { PreprocessedToolCall, Tool } from "../tools/types.js";
@@ -30,6 +31,13 @@ vi.mock("../hooks/fireHook.js", () => ({
 
 const allowAll = { policies: [{ tool: "*", permission: "allow" as const }] };
 const askAll = { policies: [{ tool: "*", permission: "ask" as const }] };
+
+// Auto is the startup mode now, and with no classifier available it
+// fail-closes every ask before the policy verdict these tests pin is seen.
+// The rules-layer semantics under test live in default mode.
+beforeEach(() => {
+  services.toolPermissions.switchMode("default");
+});
 
 function readCall(filepath: string): PreprocessedToolCall {
   return {

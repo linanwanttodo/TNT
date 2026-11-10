@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { services } from "../services/index.js";
 const toolPermissionService = services.toolPermissions;
 describe("UserInput Keyboard Shortcuts", () => {
-  beforeEach(() => {
-    // Reset to normal mode for each test
-    toolPermissionService.initialize({});
+  beforeEach(async () => {
+    // Reset to normal mode for each test. The await matters: initialize
+    // captures its state synchronously, so switching mode before it settles
+    // lets the assignment overwrite the switch with the captured one.
+    await toolPermissionService.initialize({});
+    toolPermissionService.switchMode("default");
   });
 
   describe("mode cycling logic", () => {

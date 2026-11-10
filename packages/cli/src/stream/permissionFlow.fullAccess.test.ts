@@ -6,6 +6,7 @@ import {
   grantSessionFullAccess,
 } from "../permissions/sessionApprovals.js";
 import type { ToolPermissions } from "../permissions/types.js";
+import { services } from "../services/index.js";
 import { startNewSession } from "../session/index.js";
 import type { PreprocessedToolCall } from "../tools/types.js";
 
@@ -38,6 +39,9 @@ const flush = (): Promise<void> =>
  */
 describe("session-scoped full access", () => {
   beforeEach(() => {
+    // The prompt flow under test lives in default mode; auto is the startup
+    // mode and hands every ask to its classifier first.
+    services.toolPermissions.switchMode("default");
     startNewSession();
     clearSessionApprovals();
     grantSessionFullAccess();
