@@ -335,7 +335,12 @@ export async function buildZcodeServiceCollection(
     remoteProjectService: createTntRemoteProjectService(),
     projectService: createTntProjectService({
       workspacePath: deps.workspacePath,
-      fileService,
+      // The project picker browses the whole machine: it is how a folder
+      // outside the current workspace joins the project list in the first
+      // place. The workspace-scoped service would refuse every candidate that
+      // is not an ancestor of the current workspace, so the picker could only
+      // ever offer directories that already hold the session.
+      fileService: local.fileService,
       ...(deps.projectCatalog ? { catalog: deps.projectCatalog } : {}),
       ...(deps.workspaceEngines
         ? { workspaceEngines: deps.workspaceEngines }

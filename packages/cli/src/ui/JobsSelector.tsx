@@ -8,8 +8,9 @@ import {
 } from "../services/BackgroundJobService.js";
 import { truncateOutputFromStart } from "../utils/truncateOutput.js";
 
-import { defaultBoxStyles } from "./styles.js";
+import { themedBoxStyles } from "./styles.js";
 import { symbols } from "./symbols.js";
+import { useTheme, type Theme } from "./theme/tokens.js";
 
 interface JobsSelectorProps {
   onCancel: () => void;
@@ -17,10 +18,10 @@ interface JobsSelectorProps {
 
 type ViewMode = "list" | "detail";
 
-function getStatusColor(status: BackgroundJob["status"]): string {
-  if (status === "running" || status === "pending") return "yellow";
-  if (status === "completed") return "green";
-  return "red";
+function getStatusColor(theme: Theme, status: BackgroundJob["status"]): string {
+  if (status === "running" || status === "pending") return theme.status.warning;
+  if (status === "completed") return theme.status.success;
+  return theme.status.error;
 }
 
 function formatDuration(job: BackgroundJob): string {
@@ -29,6 +30,7 @@ function formatDuration(job: BackgroundJob): string {
 }
 
 export function JobsSelector({ onCancel }: JobsSelectorProps) {
+  const theme = useTheme();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedJob, setSelectedJob] = useState<BackgroundJob | null>(null);
@@ -96,14 +98,14 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
 
   if (jobs.length === 0) {
     return (
-      <Box {...defaultBoxStyles("blue")}>
-        <Text color="blue" bold>
+      <Box {...themedBoxStyles(theme)}>
+        <Text color={theme.accent} bold>
           Background Jobs
         </Text>
         <Text> </Text>
-        <Text color="gray">{t("jobs.none")}</Text>
+        <Text color={theme.text.secondary}>{t("jobs.none")}</Text>
         <Text> </Text>
-        <Text color="gray">{t("jobs.backHint")}</Text>
+        <Text color={theme.text.secondary}>{t("jobs.backHint")}</Text>
       </Box>
     );
   }
@@ -116,37 +118,45 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
     });
 
     return (
-      <Box {...defaultBoxStyles("blue")} flexDirection="column">
-        <Text color="blue" bold>
+      <Box {...themedBoxStyles(theme)} flexDirection="column">
+        <Text color={theme.accent} bold>
           Job Details
         </Text>
-        <Text color="gray">{t("jobs.listHint")}</Text>
+        <Text color={theme.text.secondary}>{t("jobs.listHint")}</Text>
         <Text> </Text>
 
         <Box flexDirection="row" gap={1}>
-          <Text color="gray">ID:</Text>
-          <Text color="cyan">{freshJob.id}</Text>
+          <Text color={theme.text.secondary}>ID:</Text>
+          <Text color={theme.border.focus}>{freshJob.id}</Text>
         </Box>
 
         <Box flexDirection="row" gap={1}>
-          <Text color="gray">{t("jobs.status")}</Text>
-          <Text color={getStatusColor(freshJob.status)}>{freshJob.status}</Text>
+          <Text color={theme.text.secondary}>{t("jobs.status")}</Text>
+          <Text color={getStatusColor(theme, freshJob.status)}>
+            {freshJob.status}
+          </Text>
         </Box>
 
         <Box flexDirection="row" gap={1}>
-          <Text color="gray">{t("jobs.duration")}</Text>
+          <Text color={theme.text.secondary}>{t("jobs.duration")}</Text>
           <Text>{formatDuration(freshJob)}</Text>
         </Box>
 
         <Box flexDirection="row" gap={1}>
-          <Text color="gray">{t("jobs.command")}</Text>
+          <Text color={theme.text.secondary}>{t("jobs.command")}</Text>
           <Text>{freshJob.command}</Text>
         </Box>
 
         {freshJob.exitCode !== null && (
           <Box flexDirection="row" gap={1}>
-            <Text color="gray">{t("jobs.exitCode")}</Text>
-            <Text color={freshJob.exitCode === 0 ? "green" : "red"}>
+            <Text color={theme.text.secondary}>{t("jobs.exitCode")}</Text>
+            <Text
+              color={
+                freshJob.exitCode === 0
+                  ? theme.status.success
+                  : theme.status.error
+              }
+            >
               {freshJob.exitCode}
             </Text>
           </Box>
@@ -154,14 +164,18 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
 
         {freshJob.error && (
           <Box flexDirection="row" gap={1}>
-            <Text color="gray">{t("jobs.error")}</Text>
-            <Text color="red">{freshJob.error}</Text>
+            <Text color={theme.text.secondary}>{t("jobs.error")}</Text>
+            <Text color={theme.status.error}>{freshJob.error}</Text>
           </Box>
         )}
 
         <Text> </Text>
-        <Text color="gray">{t("jobs.outputTail")}</Text>
-        <Box borderStyle="single" borderColor="gray" paddingX={1}>
+        <Text color={theme.text.secondary}>{t("jobs.outputTail")}</Text>
+        <Box
+          borderStyle="single"
+          borderColor={theme.border.default}
+          paddingX={1}
+        >
           <Text>{lastOutput || "(no output)"}</Text>
         </Box>
       </Box>
@@ -170,11 +184,11 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
 
   // List screen
   return (
-    <Box {...defaultBoxStyles("blue")}>
-      <Text color="blue" bold>
+    <Box {...themedBoxStyles(theme)}>
+      <Text color={theme.accent} bold>
         Background Jobs ({jobs.length})
       </Text>
-      <Text color="gray">
+      <Text color={theme.text.secondary}>
         ↑/↓ to navigate, Enter to view details, Esc to exit
       </Text>
       <Text> </Text>
@@ -185,12 +199,14 @@ export function JobsSelector({ onCancel }: JobsSelectorProps) {
 
         return (
           <Box key={job.id} flexDirection="row" gap={1}>
-            <Text color={isSelected ? "cyan" : undefined}>{prefix}</Text>
-            <Text color={getStatusColor(job.status)}>
+            <Text color={isSelected ? theme.border.focus : undefined}>
+              {prefix}
+            </Text>
+            <Text color={getStatusColor(theme, job.status)}>
               {job.status.padEnd(10)}
             </Text>
-            <Text color="cyan">{job.id}</Text>
-            <Text color="gray">({formatDuration(job)})</Text>
+            <Text color={theme.border.focus}>{job.id}</Text>
+            <Text color={theme.text.secondary}>({formatDuration(job)})</Text>
             <Text>
               {job.command.substring(0, 30)}
               {job.command.length > 30 ? "..." : ""}

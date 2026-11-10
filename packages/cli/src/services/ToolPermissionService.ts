@@ -49,7 +49,7 @@ export class ToolPermissionService
   constructor() {
     super("ToolPermissionService", {
       permissions: { policies: [] },
-      currentMode: "default",
+      currentMode: "auto",
       isHeadless: false,
       modePolicyCount: 0,
     });
@@ -293,10 +293,11 @@ export class ToolPermissionService
     // auto mode hand its decisions straight back to the human.
     resetAutoDenialState();
 
-    // Store original policies when leaving agent mode for the first time
+    // Store original policies when leaving a normal policy mode for an absolute mode.
     if (
-      currentMode === "default" &&
+      (currentMode === "default" || currentMode === "auto") &&
       newMode !== "default" &&
+      newMode !== "auto" &&
       !this.currentState.originalPolicies
     ) {
       // Deep copy the policies array to preserve the original state
@@ -323,12 +324,12 @@ export class ToolPermissionService
     if (ABSOLUTE_POLICY_MODES.includes(newMode)) {
       allPolicies = [...modePolicies];
     } else {
-      // Default mode: restore original policies if we have them
+      // Default and auto modes restore the original user policies if present.
       if (this.currentState.originalPolicies) {
         // Restore the original user policies
-        // When original policies were stored in agent mode, they had 0 mode policies
+        // Normal modes have no mode-specific policy table.
         // So we need to slice from the number of mode policies that were active when stored
-        const originalModePolicyCount = 0; // Agent mode has no mode policies
+        const originalModePolicyCount = 0;
         const originalNonModePolicies =
           this.currentState.originalPolicies.policies.slice(
             originalModePolicyCount,
@@ -380,9 +381,13 @@ export class ToolPermissionService
    * Useful after policy changes to update the in-memory permissions
    */
   async reloadPermissions(): Promise<void> {
-    // Only reload if we're in agent mode - other modes have absolute overrides
-    if (this.currentState.currentMode !== "default") {
-      logger.debug("Skipping permission reload in non-agent mode");
+    // Only normal policy modes reload user configuration; the other modes
+    // have absolute policy tables.
+    if (
+      this.currentState.currentMode !== "default" &&
+      this.currentState.currentMode !== "auto"
+    ) {
+      logger.debug("Skipping permission reload in an absolute mode");
       return;
     }
 

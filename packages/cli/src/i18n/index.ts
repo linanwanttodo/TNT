@@ -80,14 +80,14 @@ const en = {
   "cmd.loop":
     "Schedule a recurring agent run: /loop every 20 minutes <prompt>, /loop 0 9 * * * <prompt>, /loop, /loop off",
   "cmd.ide":
-    "IDE integration: /ide (status), /ide connect jetbrains (bridge JetBrains' MCP Server), /ide tools <server>, /ide diagnostics <file>",
+    "JetBrains IDE integration: /ide (status), /ide connect jetbrains (bridge the built-in MCP Server), /ide tools <server>, /ide diagnostics <file>",
   "ide.statusHeader": "IDE integration:",
   "ide.terminalUnknown": "No IDE terminal detected (plain shell).",
   "ide.jetbrainsMcp": "JetBrains MCP Server:",
   "ide.channelDown":
-    "not reachable (install the JetBrains MCP Server plugin or start the IDE)",
+    "not reachable (check that your JetBrains IDE is running and its built-in MCP Server is enabled)",
   "ide.jetbrainsPluginHint":
-    "Start the IDE with its built-in MCP Server plugin enabled, then /ide again.",
+    "Enable the built-in MCP Server in your JetBrains IDE, then run /ide again. This applies to IntelliJ IDEA, WebStorm, PyCharm and other JetBrains IDEs.",
   "ide.lspChannel": "LSP (static errors):",
   "ide.serversRunning": "{count} language server(s) running",
   "ide.lspNone": "no language servers (declared by plugins)",
@@ -295,7 +295,7 @@ const en = {
     "Ask anything, / for slash commands, ! for shell mode",
   "composer.interruptHint": "esc to interrupt",
   "composer.queuedHint": "{count} queued · ctrl+x remove · ctrl+r edit",
-  "composer.shortcutsHint": "? for shortcuts",
+  "composer.helpHint": "/help",
   "commands.noMatches": "No matching commands found",
   "commands.navigation": "↑/↓ to navigate, Enter to select, Tab to complete",
   "cmd.help": "Show help message",
@@ -763,6 +763,8 @@ const en = {
   "webui.listening": "Web UI listening on {url}",
   "webui.stopHint": "Stop with /webui stop (TUI) or `tnt webui stop`.",
   "webui.openManually": "Open the URL above to view this session.",
+  "webui.lanWarning":
+    "The web UI is reachable from the network: the token in the URL is the only protection, so use it on a network you trust.",
   "webui.stopped": "Web UI stopped.",
   "webui.badPort": "Invalid port: {value}",
   "webui.startFailed": "Web UI failed to start: {reason}",
@@ -1030,13 +1032,14 @@ const zhCN: Record<TranslationKey, string> = {
   "cmd.loop":
     "定时执行：/loop every 20 minutes <提示词>、/loop 0 9 * * * <提示词>、/loop、/loop off",
   "cmd.ide":
-    "IDE 集成：/ide（状态）、/ide connect jetbrains（桥接 JetBrains MCP Server）、/ide tools <server>、/ide diagnostics <文件>",
+    "JetBrains IDE \u96c6\u6210\uff1a/ide\uff08\u72b6\u6001\uff09\u3001/ide connect jetbrains\uff08\u6865\u63a5\u5185\u7f6e MCP Server\uff09\u3001/ide tools <server>\u3001/ide diagnostics <\u6587\u4ef6>",
   "ide.statusHeader": "IDE 集成：",
   "ide.terminalUnknown": "未检测到 IDE 终端（普通 shell）。",
   "ide.jetbrainsMcp": "JetBrains MCP Server：",
-  "ide.channelDown": "不可达（请安装 JetBrains MCP Server 插件或启动 IDE）",
+  "ide.channelDown":
+    "\u4e0d\u53ef\u8fbe\uff08\u8bf7\u786e\u8ba4 JetBrains IDE \u5df2\u542f\u52a8\u5e76\u542f\u7528\u5185\u7f6e MCP Server\uff09",
   "ide.jetbrainsPluginHint":
-    "启动 IDE 并启用其内置 MCP Server 插件后再试 /ide。",
+    "\u5728 JetBrains IDE \u4e2d\u542f\u7528\u5185\u7f6e MCP Server\uff0c\u7136\u540e\u91cd\u65b0\u6267\u884c /ide\u3002IntelliJ IDEA\u3001WebStorm\u3001PyCharm \u7b49 JetBrains IDE \u5747\u9002\u7528\u3002",
   "ide.lspChannel": "LSP（静态报错）：",
   "ide.serversRunning": "{count} 个语言服务器运行中",
   "ide.lspNone": "无语言服务器（由插件声明）",
@@ -1210,7 +1213,7 @@ const zhCN: Record<TranslationKey, string> = {
   "composer.placeholderRemote": "输入内容，/ 打开命令，! 执行 shell",
   "composer.interruptHint": "esc 中断",
   "composer.queuedHint": "{count} 条待发送 · ctrl+x 移除 · ctrl+r 编辑",
-  "composer.shortcutsHint": "? 查看快捷键",
+  "composer.helpHint": "/help",
   "commands.noMatches": "没有匹配的命令",
   "commands.navigation": "↑/↓ 选择，Enter 确认，Tab 补全",
   "cmd.help": "显示帮助信息",
@@ -1650,6 +1653,8 @@ const zhCN: Record<TranslationKey, string> = {
   "webui.listening": "Web UI 已启动：{url}",
   "webui.stopHint": "用 /webui stop（TUI 内）或 `tnt webui stop` 停止。",
   "webui.openManually": "打开上方链接查看本会话。",
+  "webui.lanWarning":
+    "Web UI 已暴露到局域网：URL 里的 token 是唯一凭据，请只在可信网络中使用。",
   "webui.stopped": "Web UI 已停止。",
   "webui.badPort": "无效端口：{value}",
   "webui.startFailed": "Web UI 启动失败：{reason}",

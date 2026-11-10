@@ -9,7 +9,8 @@ import { ExtendedSessionMetadata, loadSessionById } from "../session/index.js";
 import { ScrollBarColumn } from "./components/ScrollBarColumn.js";
 import { useTerminalSize } from "./hooks/useTerminalSize.js";
 import { SessionPreview } from "./SessionPreview.js";
-import { defaultBoxStyles } from "./styles.js";
+import { themedBoxStyles } from "./styles.js";
+import { useTheme } from "./theme/tokens.js";
 import { scrollbarGeometry } from "./utils/scrollbar.js";
 
 interface SessionSelectorProps {
@@ -50,6 +51,7 @@ export function SessionSelector({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [previewSession, setPreviewSession] = useState<Session | null>(null);
   const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
+  const theme = useTheme();
 
   // Load the selected session for preview
   useEffect(() => {
@@ -113,9 +115,9 @@ export function SessionSelector({
 
   if (sessions.length === 0) {
     return (
-      <Box {...defaultBoxStyles("blue")}>
-        <Text color="yellow">{t("session.empty")}</Text>
-        <Text color="gray">{t("session.pressEsc")}</Text>
+      <Box {...themedBoxStyles(theme)}>
+        <Text color={theme.status.warning}>{t("session.empty")}</Text>
+        <Text color={theme.text.secondary}>{t("session.pressEsc")}</Text>
       </Box>
     );
   }
@@ -129,13 +131,13 @@ export function SessionSelector({
   return (
     <Box flexDirection="row" width={terminalWidth}>
       {/* Left side: Session list */}
-      <Box {...defaultBoxStyles("blue")} width={listWidth}>
-        <Text color="blue" bold>
+      <Box {...themedBoxStyles(theme)} width={listWidth}>
+        <Text color={theme.accent} bold>
           {title ?? t("session.recent")}{" "}
           {sessions.length > displaySessions.length &&
             `(${selectedIndex + 1}/${sessions.length})`}
         </Text>
-        <Text color="gray">{t("session.navigate")}</Text>
+        <Text color={theme.text.secondary}>{t("session.navigate")}</Text>
         <Text> </Text>
 
         <Box flexDirection="row" flexGrow={1} flexShrink={1} minHeight={0}>
@@ -144,7 +146,7 @@ export function SessionSelector({
               const globalIndex = index + scrollOffset;
               const isSelected = globalIndex === selectedIndex;
               const indicator = isSelected ? "➤ " : "  ";
-              const color = isSelected ? "blue" : "white";
+              const color = isSelected ? theme.accent : theme.text.primary;
 
               return (
                 <Box key={session.sessionId} flexDirection="column">
@@ -155,7 +157,7 @@ export function SessionSelector({
                     </Text>
                   </Box>
                   <Box marginLeft={2}>
-                    <Text color="gray">
+                    <Text color={theme.text.secondary}>
                       {formatTimestamp(new Date(session.dateCreated))}
                       {session.isRemote
                         ? ` ${t("session.remote")}`
@@ -189,14 +191,14 @@ export function SessionSelector({
             />
           ) : (
             <Box
-              {...defaultBoxStyles("blue")}
+              {...themedBoxStyles(theme)}
               flexDirection="column"
               width="100%"
             >
-              <Text color="blue" bold>
+              <Text color={theme.accent} bold>
                 Preview
               </Text>
-              <Text color="gray">
+              <Text color={theme.text.secondary}>
                 {sessions[selectedIndex]?.isRemote
                   ? "(remote session preview not available)"
                   : "(loading...)"}

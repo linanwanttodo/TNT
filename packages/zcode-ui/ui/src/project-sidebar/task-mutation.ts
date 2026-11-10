@@ -1,4 +1,5 @@
 import { parseRemoteWorkspaceIdentity } from "@zcode/shared";
+import type { ZCodeTaskMeta } from "@zcode/shared";
 import type {
   ProjectTaskRef,
   IZCodeTaskService,
@@ -29,7 +30,7 @@ export function readProjectTaskMeta(
   ports: ProjectTaskPorts,
   task: ProjectTaskRef,
   remoteSessionId?: string,
-) {
+): Promise<ZCodeTaskMeta | null> {
   return ports.controller
     ? ports.controller.getTaskMeta({ address: taskAddress(task, remoteSessionId) })
     : ports.service.getTaskMeta(task);
@@ -40,7 +41,7 @@ export async function mutateProjectTask(
   task: ProjectTaskRef,
   mutation: ProjectTaskMutation,
   remoteSessionId?: string | null,
-) {
+): Promise<ZCodeTaskMeta | null> {
   const target = {
     workspacePath: task.workspacePath,
     workspaceIdentity: task.workspaceIdentity,
@@ -58,6 +59,9 @@ export async function mutateProjectTask(
         : ports.service.unarchiveTask(target);
     case "delete":
       await ports.service.deleteTask(target);
+      return null;
+    case "delete-archived":
+      await ports.service.deleteArchivedTask(target);
       return null;
     case "rename":
       return ports.service.renameTask({ ...target, title: mutation.title });

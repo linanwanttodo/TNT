@@ -3,6 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createUITestContext } from "../../test-utils/ui-test-context.js";
+import { services } from "../services/index.js";
 
 import { AppRoot } from "./AppRoot.js";
 
@@ -66,11 +67,12 @@ describe("TUIChat transcript", () => {
 
   const tick = () => new Promise((resolve) => setTimeout(resolve, 50));
 
-  beforeEach(() => {
+  beforeEach(async () => {
     context = createUITestContext({
       allServicesReady: true,
       serviceState: "ready",
     });
+    await services.toolPermissions.doInitialize({ mode: "auto" });
   });
 
   afterEach(() => {
@@ -105,9 +107,10 @@ describe("TUIChat transcript", () => {
 
       expect(answerIndex).toBeGreaterThan(-1);
       expect(composerIndex).toBeGreaterThan(answerIndex);
-      // The composer's mode rule opens the frame and a rule closes it.
-      expect(lines[composerIndex - 1]).toContain("[Manual]");
+      // The composer's mode rule opens the input and a plain rule closes it.
+      expect(lines[composerIndex - 1]).toContain("[Auto]");
       expect(lines[composerIndex + 1].replace(/─/g, "").trim()).toBe("");
+      expect(lines.some((line) => line.includes("│"))).toBe(false);
       // The frame stays inside the twelve rows it was given.
       expect(lines.length).toBeLessThanOrEqual(12);
     } finally {

@@ -726,6 +726,15 @@ export type CuaOsSupport =
  * 比如 native dialog、窗口生命周期控制等。
  * 业务服务（文件、终端、凭据等）走 IServiceAccessor 的 RPC 通道。
  */
+export interface WebUiAccessInfo {
+  /** 服务器是否监听局域网，而不是只监听本机回环地址。 */
+  lanEnabled: boolean;
+  /** 手机可以打开的地址，回环地址排在第一位；每个 URL 自带 token。 */
+  urls: string[];
+  /** 服务器实际监听的端口。 */
+  port: number;
+}
+
 export interface IPlatformService {
   /** 是否支持当前客户端本机文件的默认应用与目录操作；Web 不具备此能力。 */
   canOpenLocalFiles?: boolean;
@@ -741,6 +750,12 @@ export interface IPlatformService {
 
   /** 打开系统目录选择框，返回选中路径或 null */
   selectDirectory(): Promise<string | null>;
+
+  /**
+   * 手机远程访问所需的地址：服务器是否监听局域网，以及手机可以打开的 URL
+ * （URL 自带 token）。只有 Web 端实现；桌面端没有手机扫码入口，缺席即不出。
+ */
+  getWebUiAccessInfo?(): Promise<WebUiAccessInfo | null>;
 
   /** 打开系统多目录选择框，返回 Host 可访问的本地路径；取消返回空数组，Web 不提供 */
   selectDirectories?(): Promise<string[]>;

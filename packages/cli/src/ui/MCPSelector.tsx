@@ -11,30 +11,31 @@ import {
 import { logger } from "../utils/logger.js";
 
 import { useServices } from "./hooks/useService.js";
-import { defaultBoxStyles } from "./styles.js";
+import { themedBoxStyles } from "./styles.js";
+import { useTheme, type Theme } from "./theme/tokens.js";
 
 // Utility function to get status icon and color based on server connection
-const getServerStatusDisplay = (conn: MCPConnectionInfo) => {
+const getServerStatusDisplay = (conn: MCPConnectionInfo, theme: Theme) => {
   let icon = "⚪️"; // note, white circle causes extra blank line bug
-  let color: "green" | "yellow" | "red" | "white" | "dim" = "white";
+  let color: string = theme.text.primary;
   let statusText = t("mcp.statusIdle");
 
   if (conn.status === "connecting") {
     icon = "🟡";
-    color = "yellow";
+    color = theme.status.warning;
     statusText = t("mcp.statusConnecting");
   } else if (conn.status === "error") {
     icon = "🔴";
-    color = "red";
+    color = theme.status.error;
     statusText = t("mcp.statusError");
   } else if (conn.status === "connected") {
     if (conn.warnings && conn.warnings.length > 0) {
       icon = "🟡";
-      color = "yellow";
+      color = theme.status.warning;
       statusText = t("mcp.statusWithWarnings");
     } else {
       icon = "🟢";
-      color = "green";
+      color = theme.status.success;
       statusText = t("mcp.statusConnected");
     }
   }
@@ -54,6 +55,7 @@ interface MCPMenuItem {
 }
 
 export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
+  const theme = useTheme();
   const [menuState, setMenuState] = useState<MCPMenuState>("main");
   const [selectedServer, setSelectedServer] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -86,7 +88,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
     // Add individual servers first
     if (connections.length > 0) {
       connections.forEach((conn) => {
-        const { icon } = getServerStatusDisplay(conn);
+        const { icon } = getServerStatusDisplay(conn, theme);
 
         let serverLabel = `${icon} ${conn.config.name}`;
 
@@ -163,21 +165,21 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
         {/* Add error if server has error status */}
         {serverInfo.status === "error" && serverInfo.error && (
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="red" bold>
+            <Text color={theme.status.error} bold>
               {t("mcp.errorLabel")}
             </Text>
-            <Text color="red">{serverInfo.error}</Text>
+            <Text color={theme.status.error}>{serverInfo.error}</Text>
           </Box>
         )}
 
         {/* Add warnings if any */}
         {serverInfo.warnings.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="yellow" bold>
+            <Text color={theme.status.warning} bold>
               {t("mcp.warningsLabel")}
             </Text>
             {serverInfo.warnings.map((warning, index) => (
-              <Text key={index} color="yellow">
+              <Text key={index} color={theme.status.warning}>
                 • {warning}
               </Text>
             ))}
@@ -187,7 +189,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
         {/* Add prompts if any */}
         {serverInfo.prompts.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="blue">
+            <Text color={theme.accent}>
               {t("mcp.promptsLabel", { count: serverInfo.prompts.length })}
             </Text>
             {serverInfo.prompts.map((prompt, index) => (
@@ -201,7 +203,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
         {/* Add tools if any */}
         {serverInfo.tools.length > 0 && (
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="blue">
+            <Text color={theme.accent}>
               {t("mcp.toolsLabel", { count: serverInfo.tools.length })}
             </Text>
             {serverInfo.tools.map((tool, index) => (
@@ -333,12 +335,14 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
   const renderHeader = () => {
     return (
       <Box flexDirection="column" marginBottom={1}>
-        <Text bold color="blue">
+        <Text bold color={theme.accent}>
           {menuState === "server-detail" && selectedServer
             ? t("mcp.serverTitle", { name: selectedServer })
             : t("mcp.title")}
         </Text>
-        {connections.length === 0 && <Text color="gray">{t("mcp.none")}</Text>}
+        {connections.length === 0 && (
+          <Text color={theme.text.secondary}>{t("mcp.none")}</Text>
+        )}
         {menuState === "server-detail" &&
           selectedServer &&
           (() => {
@@ -347,8 +351,10 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
             );
             if (!serverInfo) return null;
 
-            const { color: statusColor, statusText } =
-              getServerStatusDisplay(serverInfo);
+            const { color: statusColor, statusText } = getServerStatusDisplay(
+              serverInfo,
+              theme,
+            );
 
             let configText = "";
             if ("command" in serverInfo.config) {
@@ -376,12 +382,18 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
   };
 
   return (
-    <Box {...defaultBoxStyles("blue", { minHeight: 10 })}>
+    <Box {...themedBoxStyles(theme, "accent", { minHeight: 10 })}>
       {renderHeader()}
 
       {message && (
         <Box marginBottom={1}>
-          <Text color={message.startsWith("Error:") ? "red" : "green"}>
+          <Text
+            color={
+              message.startsWith("Error:")
+                ? theme.status.error
+                : theme.status.success
+            }
+          >
             {message}
           </Text>
         </Box>
@@ -391,7 +403,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
 
       {isLoading ? (
         <Box>
-          <Text color="yellow">{t("mcp.working")}</Text>
+          <Text color={theme.status.warning}>{t("mcp.working")}</Text>
         </Box>
       ) : (
         <Box flexDirection="column">
@@ -401,7 +413,7 @@ export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
             return (
               <Text
                 key={`${item.value}-${index}`}
-                color={isSelected ? "blue" : "white"}
+                color={isSelected ? theme.accent : theme.text.primary}
                 bold={isSelected}
               >
                 {isSelected ? "➤ " : "  "}

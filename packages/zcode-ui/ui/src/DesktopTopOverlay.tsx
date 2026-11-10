@@ -123,6 +123,8 @@ export function DesktopTopOverlay({
             usesCustomCaptionArea && "h-12",
             // Windows/Linux 工具组计入 4px 外沿留白和 1px 边框，较 8px 左边距右移 5px。
             usesCustomCaptionArea && "pl-3 ml-px",
+            // Web 端没有标题栏留白，工具组自己让开左沿，按钮不再贴着窗口边缘。
+            !isMacDesktop && !usesCustomCaptionArea && "pl-3",
             isMacDesktop &&
               (isMacFullscreen ? (!isSidebarVisible ? "pl-5 pt-1" : "pl-3 pt-1") : "pt-1"),
           )}
@@ -135,7 +137,7 @@ export function DesktopTopOverlay({
               "pointer-events-auto flex items-center gap-1 shrink-0 [app-region:no-drag]",
             )}
           >
-            {usesCustomCaptionArea && (
+            {usesCustomCaptionArea ? (
               <DesktopTopOverlayActionButton
                 title={toggleSidebarTitle}
                 shortcut={toggleSidebarShortcutLabel}
@@ -153,13 +155,12 @@ export function DesktopTopOverlay({
                 </span>
                 <SidebarToggleIcon className="absolute inset-0 m-auto size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" />
               </DesktopTopOverlayActionButton>
-            )}
-
-            {isMacDesktop && (
+            ) : (
               <DesktopTopOverlayActionButton
                 title={toggleSidebarTitle}
                 shortcut={toggleSidebarShortcutLabel}
                 ariaLabel={toggleSidebarTitle}
+                testId="desktop-top-sidebar-toggle"
                 onClick={onToggleSidebar}
               >
                 <SidebarToggleIcon className="size-4" />

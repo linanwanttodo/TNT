@@ -6,6 +6,7 @@ import { ToolPermissionServiceState } from "../../services/ToolPermissionService
 import { SERVICE_NAMES } from "../../services/types.js";
 import { useServices } from "../hooks/useService.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
+import { darkTheme, useTheme, type Theme } from "../theme/tokens.js";
 import { composeTopBorder } from "../utils/borderLine.js";
 
 interface ModeIndicatorProps {
@@ -18,24 +19,37 @@ interface Badge {
   color: React.ComponentProps<typeof Text>["color"];
 }
 
-const MODE_BADGE: Record<PermissionMode, Badge> = {
-  default: { label: "Manual", color: "white" },
-  acceptEdits: { label: "Accept edits", color: "cyan" },
-  plan: { label: "Plan", color: "blue" },
-  auto: { label: "Auto", color: "green" },
-  bypassPermissions: { label: "Bypass permissions", color: "red" },
+const MODE_BADGE: Record<
+  PermissionMode,
+  { label: string; color: (theme: Theme) => string }
+> = {
+  default: { label: "Manual", color: (theme) => theme.text.primary },
+  acceptEdits: { label: "Accept edits", color: (theme) => theme.border.focus },
+  plan: { label: "Plan", color: (theme) => theme.accent },
+  auto: { label: "Auto", color: (theme) => theme.status.success },
+  bypassPermissions: {
+    label: "Bypass permissions",
+    color: (theme) => theme.status.error,
+  },
   // dontAsk is headless/serve semantics and never reaches the TUI; the label
   // stays honest if a caller renders it anyway.
-  dontAsk: { label: "Don't ask", color: "gray" },
+  dontAsk: { label: "Don't ask", color: (theme) => theme.text.secondary },
 };
 
-export function modeBadge(mode: PermissionMode): Badge {
-  return MODE_BADGE[mode] ?? MODE_BADGE.default;
+export function modeBadge(
+  mode: PermissionMode,
+  theme: Theme = darkTheme,
+): Badge {
+  const badge = MODE_BADGE[mode] ?? MODE_BADGE.default;
+  return { label: badge.label, color: badge.color(theme) };
 }
 
 /** The composer border follows the mode, under bash and remote priority. */
-export function modeBorderColor(mode: PermissionMode): Badge["color"] {
-  return modeBadge(mode).color;
+export function modeBorderColor(
+  mode: PermissionMode,
+  theme: Theme = darkTheme,
+): Badge["color"] {
+  return modeBadge(mode, theme).color;
 }
 
 /**
@@ -44,13 +58,13 @@ export function modeBorderColor(mode: PermissionMode): Badge["color"] {
  * which policy is in effect.
  */
 const ModeIndicator: React.FC<ModeIndicatorProps> = ({ mode, borderColor }) => {
+  const theme = useTheme();
   const { services } = useServices<{
     toolPermissions: ToolPermissionServiceState;
   }>([SERVICE_NAMES.TOOL_PERMISSIONS]);
-  const currentMode =
-    mode ?? services.toolPermissions?.currentMode ?? "default";
+  const currentMode = mode ?? services.toolPermissions?.currentMode ?? "auto";
   const { columns } = useTerminalSize();
-  const badge = modeBadge(currentMode);
+  const badge = modeBadge(currentMode, theme);
   const lineColor = borderColor ?? badge.color;
 
   const { prefix, label, suffix } = composeTopBorder(

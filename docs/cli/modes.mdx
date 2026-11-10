@@ -11,7 +11,7 @@ in the TUI and over ACP.
 | `default` (Manual) | reads and searches allowed; writes and other risky calls ask | day-to-day work |
 | `acceptEdits` | the four write tools are allowed inside the workspace; Bash still asks | editing a known change |
 | `plan` | write tools are disabled and only non-mutating shell commands run | investigating before a change |
-| `auto` | a classifier decides the calls that would otherwise ask; failures fail closed | unattended work with a safety check |
+| `auto` (startup default) | a classifier decides the calls that would otherwise ask; failures fail closed | day-to-day work |
 | `bypassPermissions` | every tool is allowed | a fully trusted, explicit run |
 | `dontAsk` | the default table with every ask turned into a refusal | headless and serve runs |
 
@@ -34,8 +34,8 @@ The legacy flags still work and print a deprecation warning:
 | `--auto` | `bypassPermissions` |
 
 `TNT_PERMISSION_MODE` or `CLAUDE_CODE_PERMISSION_MODE` sets the startup mode when
-no flag does. `defaultMode` in `settings.json` is the last fallback. A value that
-is not one of the six is refused at startup.
+no flag does. `defaultMode` in `settings.json` overrides the built-in `auto`
+startup default. A value that is not one of the six is refused at startup.
 
 `bypassPermissions` always needs the explicit
 `--dangerously-skip-permissions` flag, unless the environment variable or a

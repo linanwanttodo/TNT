@@ -14,6 +14,28 @@ import { persistProviderDisplayOrder } from "@/lib/providerDisplayOrderPersisten
 import { persistPersonalProviderDeletion } from "@/lib/providerPersonalPersistence.js";
 import { persistPersonalProvider } from "@/lib/providerPersonalSave.js";
 import type { ProviderOrderView } from "@/lib/modelProviderOrdering.js";
+import type {
+  ProviderSettingsCreationResult,
+  ProviderSettingsTemplateView,
+  SavePersonalModelDraftInput,
+} from "@zcode/provider";
+import type {
+  ProviderConfigObject,
+  ProviderTemplateId,
+  ProviderTemplateLocale,
+} from "@zcode/provider";
+
+/**
+ * The provider facade types its creation input inline, so the UI restates it
+ * here: naming the parameter keeps the emitted declaration portable instead of
+ * pointing at whichever copy of the provider package the host installed.
+ */
+interface CreatePersonalProviderInput {
+  readonly templateId?: ProviderTemplateId;
+  readonly providerName?: string;
+  readonly locale?: ProviderTemplateLocale;
+  readonly initialConfig?: ProviderConfigObject;
+}
 
 export function useModelProviders(target: {
   workspacePath: string;
@@ -27,8 +49,12 @@ export function useModelProviders(target: {
 }) {
   const { providerSettingsService, fileService } = useServices();
   const providerSettingsRead = useProviderSettingsServiceView(providerSettingsService);
-  const providerSettingsView =
+  // The annotation keeps the emitted declaration pointing at the services
+  // package instead of the provider copy the host happens to have installed.
+  const providerSettingsView: ProviderSettingsView | null =
     providerSettingsRead.state.status === "ready" ? providerSettingsRead.state.view : null;
+  const providerTemplates: readonly ProviderSettingsTemplateView[] =
+    providerSettingsView?.providerTemplates ?? [];
   const effectiveModelProviders = useMemo(
     () =>
       resolveProviderSettingsFormProviders({
@@ -86,7 +112,9 @@ export function useModelProviders(target: {
   );
 
   const createPersonalProvider = useCallback(
-    async (input?: Parameters<typeof providerSettingsService.createPersonalProvider>[0]) => {
+    async (
+      input?: CreatePersonalProviderInput,
+    ): Promise<ProviderSettingsCreationResult> => {
       const created = await providerSettingsService.createPersonalProvider(input);
       commitProviderSettingsView(created.view);
       return created;
@@ -111,7 +139,7 @@ export function useModelProviders(target: {
   );
 
   const savePersonalModelDraft = useCallback(
-    async (input: Parameters<typeof providerSettingsService.savePersonalModelDraft>[0]) => {
+    async (input: SavePersonalModelDraftInput) => {
       const view = await providerSettingsService.savePersonalModelDraft(input);
       commitProviderSettingsView(view);
       return view;
@@ -225,7 +253,7 @@ export function useModelProviders(target: {
 
   return {
     modelProviders: effectiveModelProviders,
-    providerTemplates: providerSettingsView?.providerTemplates ?? [],
+    providerTemplates,
     displayOrder: providerOrdering.displayOrder,
     reorderableProviderIds: providerOrdering.reorderableProviderIds,
     loading: providerSettingsRead.state.status === "loading",

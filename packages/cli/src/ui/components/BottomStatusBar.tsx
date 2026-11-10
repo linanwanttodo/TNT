@@ -1,3 +1,5 @@
+import os from "node:os";
+
 import type { ModelConfig } from "@tnt/config-yaml";
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
@@ -54,9 +56,27 @@ export function costLineText(
     : `${t("status.cost")} ${amount}`;
 }
 
+/**
+ * The working directory as the other agents print it: the home prefix
+ * collapses to "~" and no glyph sits in front of the path. A triangle there
+ * read like a disclosure marker for something that was not expandable.
+ */
+export const WORKSPACE_LOCATION_MAX_CHARS = 28;
+
+export function formatWorkspaceLocation(cwd: string, home: string): string {
+  const relative =
+    home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
+  if (relative.length <= WORKSPACE_LOCATION_MAX_CHARS) {
+    return relative;
+  }
+  // A long path keeps the home marker at the front and the project folder at
+  // the back; the middle is the part nobody reads.
+  const tail = relative.slice(-(WORKSPACE_LOCATION_MAX_CHARS - 6));
+  return `${relative.slice(0, 5)}…${tail}`;
+}
+
 function currentDirectory(): string {
-  const parts = process.cwd().split(/[\\/]/).filter(Boolean);
-  return parts[parts.length - 1] || process.cwd();
+  return formatWorkspaceLocation(process.cwd(), os.homedir());
 }
 
 /**
@@ -97,7 +117,10 @@ export function estimateStatusRowWidth(input: {
   shownModelName: string;
   thinkingText: string;
 }): number {
-  const workspace = input.workspaceName.length;
+  // The location is the flexible field: the row gives it a small budget and
+  // lets it take more when the terminal has room. Counting the full path
+  // instead would drop the reasoning depth over a long directory name.
+  const workspace = Math.min(input.workspaceName.length, 10);
   const branch = input.branch ? 4 + input.branch.length : 0;
   const prefix = input.prefixState ? 3 + input.prefixState.length : 0;
   const usage = input.usageLine?.length ?? 0;
@@ -133,7 +156,7 @@ function buildLeftParts(input: {
   if (input.workspaceName) {
     parts.push(
       <Text key="workspace" color="dim" wrap="truncate-start">
-        {`▸ ${input.workspaceName}`}
+        {input.workspaceName}
       </Text>,
     );
   }

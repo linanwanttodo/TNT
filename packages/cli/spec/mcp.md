@@ -80,8 +80,10 @@ status; the actions are `Restart server`, and `Stop server` only while the
 server is connected. Below them the view shows the server's error, its warnings,
 and the prompts and tools it contributes.
 
-Status icons are green for a connected server, yellow while connecting or when
-a connected server has warnings, red for an error, and gray for idle.
+Status icons are the success colour for a connected server, the warning colour
+while connecting or when a connected server has warnings, the error colour for
+an error, and the primary text colour for idle. The colours come from the
+active theme, so a palette change moves them with everything else.
 
 ## Marketplace
 

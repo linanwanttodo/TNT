@@ -34,6 +34,7 @@ import { bootstrapPage } from "./webuiPages.js";
 import { getWebUiProjectCatalog } from "./webuiProjectCatalog.js";
 import { createWebUiProviderSettingsService } from "./webuiProviderSettings.js";
 import { registerWebUiServerInfoRoute } from "./webuiServerInfo.js";
+import { registerWebUiAccessRoute } from "./webuiAccess.js";
 import { createTntSkillsService } from "./webuiSkills.js";
 import { registerWebUiStaticRoutes } from "./webuiStatic.js";
 import { createTntSubagentsService } from "./webuiSubagents.js";
@@ -126,6 +127,14 @@ export class WebUiService {
     registerWebUiServerInfoRoute(app, {
       state,
       resolveSession: () => this.resolveSession(options),
+    });
+
+    // The phone pairing flow asks the server which addresses a phone may
+    // open. The handle is read at request time, because the port is only
+    // known once the listener is bound.
+    registerWebUiAccessRoute(app, {
+      getHandle: () => this.activeHandle,
+      getBoundHost: () => options.host ?? "127.0.0.1",
     });
 
     // Static routes come last: the missing-dist fallback is a catch-all, and
@@ -362,7 +371,7 @@ export class WebUiService {
       const port = startPort + attempt;
       try {
         const server = await new Promise<http.Server>((resolve, reject) => {
-          const bound = app.listen(port, "127.0.0.1");
+          const bound = app.listen(port, options.host ?? "127.0.0.1");
           bound.once("listening", () => resolve(bound));
           bound.once("error", reject);
         });

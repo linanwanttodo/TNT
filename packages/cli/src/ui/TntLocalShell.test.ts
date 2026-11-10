@@ -169,4 +169,32 @@ describe("TNT local Web UI", () => {
     const sidebar = read("packages/zcode-ui/ui/src/WorkspaceSidebarFooter.tsx");
     expect(sidebar).not.toContain("sidebar.usage.plan.openStats");
   });
+
+  it("draws every picker frame from the theme instead of a fixed ANSI colour", () => {
+    // A frame that pins "blue" is rendered by the terminal in whatever hue it
+    // likes, which is how the pickers ended up purple on one profile and
+    // amber on another. The theme is the only place a colour may come from.
+    const pickers = [
+      "packages/cli/src/ui/Selector.tsx",
+      "packages/cli/src/ui/SessionSelector.tsx",
+      "packages/cli/src/ui/SessionPreview.tsx",
+      "packages/cli/src/ui/JobsSelector.tsx",
+      "packages/cli/src/ui/MCPSelector.tsx",
+      "packages/cli/src/ui/EditMessageSelector.tsx",
+      "packages/cli/src/ui/ServiceDebugger.tsx",
+      "packages/cli/src/ui/components/SessionSelectorWithLoading.tsx",
+      "packages/cli/src/ui/components/ModeIndicator.tsx",
+    ];
+
+    for (const picker of pickers) {
+      const source = read(picker);
+      expect(source, picker).not.toMatch(
+        /color="(blue|cyan|yellow|green|red)"/,
+      );
+      expect(source, picker).not.toMatch(
+        /defaultBoxStyles\("(blue|cyan|yellow)"/,
+      );
+      expect(source, picker).not.toMatch(/borderColor="(blue|cyan|yellow)"/);
+    }
+  });
 });

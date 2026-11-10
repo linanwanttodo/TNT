@@ -3,6 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createUITestContext } from "../../test-utils/ui-test-context.js";
+import { services } from "../services/index.js";
 
 import { AppRoot } from "./AppRoot.js";
 
@@ -20,7 +21,7 @@ vi.mock("./hooks/useTerminalSize.js", () => ({
 describe("TUIChat layout", () => {
   let context: ReturnType<typeof createUITestContext>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // The shell that runs the suite may export NO_COLOR; the header under
     // test is the colour plate, so ask for it explicitly.
     vi.stubEnv("NO_COLOR", "");
@@ -29,6 +30,7 @@ describe("TUIChat layout", () => {
       serviceState: "ready",
       serviceValue: { some: "data" },
     });
+    await services.toolPermissions.doInitialize({ mode: "auto" });
   });
 
   afterEach(() => {
@@ -80,17 +82,16 @@ describe("TUIChat layout", () => {
         line.includes("Ask anything"),
       );
       expect(composerIndex).toBeGreaterThan(-1);
-      // The mode rule opens the composer and a plain rule closes it; there
-      // are no side rails.
-      expect(content[composerIndex - 1]).toContain("[Manual]");
+      // The mode rule and the closing rule frame the input without side rails.
+      expect(content[composerIndex - 1]).toContain("[Auto]");
       expect(content[composerIndex + 1].replace(/─/g, "").trim()).toBe("");
       expect(content.some((line) => line.includes("│"))).toBe(false);
       // The composer footer carries the transient hint row.
-      expect(content[composerIndex + 2]).toContain("? for shortcuts");
+      expect(content[composerIndex + 2]).toContain("/help");
       // A single status row follows the composer footer: workspace and model
       // share it. The installed version is not repeated here.
       const status = content[composerIndex + 3];
-      expect(status).toContain("▸");
+      expect(status).not.toContain("▸");
       expect(status).not.toContain("TNT");
 
       // Nothing follows the status row: it is the bottom of the screen.

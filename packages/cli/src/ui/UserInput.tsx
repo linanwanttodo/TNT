@@ -452,8 +452,7 @@ const UserInput: React.FC<UserInputProps> = ({
   const { services: permissionServices } = useServices<{
     toolPermissions: ToolPermissionServiceState;
   }>([SERVICE_NAMES.TOOL_PERMISSIONS]);
-  const currentMode =
-    permissionServices.toolPermissions?.currentMode ?? "default";
+  const currentMode = permissionServices.toolPermissions?.currentMode ?? "auto";
 
   // The unified list needs the loaded assistant context. Without it the two
   // established pickers stay in charge, so an early screen or a failed load
@@ -1249,9 +1248,9 @@ const UserInput: React.FC<UserInputProps> = ({
   }
 
   const composerColor = showBashMode
-    ? "yellow"
+    ? theme.status.warning
     : isRemoteMode
-      ? "cyan"
+      ? theme.border.focus
       : theme.accent;
 
   return (
@@ -1346,11 +1345,11 @@ const UserInput: React.FC<UserInputProps> = ({
       <TodoIndicator />
 
       {/* Active mode is embedded in the composer's top rule; the rule below
-          closes the frame, as in the reference CLI. */}
+          closes the frame. */}
       <ModeIndicator mode={currentMode} borderColor={composerColor} />
 
-      {/* The prompt sits flush with the rules above and below, as in the
-          reference CLI; wrapped rows align under the text after the pointer. */}
+      {/* Keep the composer open on the sides; the mode and closing rules are
+          the only frame lines. */}
       <Box>
         {/* A running turn fades the pointer, the same state as the spinner. */}
         <ComposerPrompt

@@ -150,16 +150,16 @@ describe("spec/mcp.md agrees with the implementation", () => {
 
   it("keeps the status colours the selector assigns", () => {
     expect(selector).toContain('icon = "🟢"');
-    expect(selector).toContain('color = "green"');
+    expect(selector).toContain("theme.status.success");
     expect(selector).toContain('icon = "🟡"');
-    expect(selector).toContain('color = "yellow"');
+    expect(selector).toContain("theme.status.warning");
     expect(selector).toContain('icon = "🔴"');
-    expect(selector).toContain('color = "red"');
+    expect(selector).toContain("theme.status.error");
 
-    expect(doc).toMatch(/green for a connected server/);
-    expect(doc).toMatch(/yellow while connecting/);
-    expect(doc).toMatch(/red for an error/);
-    expect(doc).toMatch(/gray for idle/);
+    expect(doc).toMatch(/success colour for a connected server/);
+    expect(doc).toMatch(/warning colour/);
+    expect(doc).toMatch(/error colour for/);
+    expect(doc).toMatch(/primary text colour for idle/);
   });
 
   it("documents the market where it is implemented", () => {

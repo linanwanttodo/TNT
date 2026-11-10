@@ -191,7 +191,9 @@ export function useClaudeSessionMigration(params: {
     supportState.supported,
   ]);
 
-  const importSessions = useCallback(async (sessionIds: string[]) => {
+  const importSessions = useCallback(async (
+    sessionIds: string[],
+  ): Promise<ZCodeImportSessionsResult | null> => {
     if (!supportState.supported || sessionIds.length === 0) {
       return null;
     }

@@ -3,7 +3,8 @@ import React, { ReactNode } from "react";
 
 import { t } from "../i18n/index.js";
 
-import { defaultBoxStyles } from "./styles.js";
+import { themedBoxStyles } from "./styles.js";
+import { useTheme } from "./theme/tokens.js";
 
 export interface SelectorOption {
   id: string;
@@ -42,6 +43,8 @@ export function Selector<T extends SelectorOption>({
   onNavigate,
   renderOption,
 }: SelectorProps<T>) {
+  const theme = useTheme();
+
   // Handle input for loading and error states
   useInput((input, key) => {
     if (loading || error) {
@@ -78,12 +81,12 @@ export function Selector<T extends SelectorOption>({
 
   if (loading) {
     return (
-      <Box {...defaultBoxStyles("blue")}>
-        <Text color="blue" bold>
+      <Box {...themedBoxStyles(theme)}>
+        <Text color={theme.accent} bold>
           {title}
         </Text>
         <Text> </Text>
-        <Text italic color="gray">
+        <Text italic color={theme.text.secondary}>
           {loadingMessage}
         </Text>
       </Box>
@@ -92,12 +95,12 @@ export function Selector<T extends SelectorOption>({
 
   if (error) {
     return (
-      <Box {...defaultBoxStyles("blue")}>
-        <Text color="red" bold>
+      <Box {...themedBoxStyles(theme)}>
+        <Text color={theme.status.error} bold>
           Error
         </Text>
-        <Text color="red">{error}</Text>
-        <Text color="gray" dimColor>
+        <Text color={theme.status.error}>{error}</Text>
+        <Text color={theme.text.secondary} dimColor>
           Press Esc to cancel
         </Text>
       </Box>
@@ -111,7 +114,13 @@ export function Selector<T extends SelectorOption>({
   ) => (
     <>
       <Text
-        color={isSelected ? "blue" : isCurrent ? "green" : "white"}
+        color={
+          isSelected
+            ? theme.accent
+            : isCurrent
+              ? theme.status.success
+              : theme.text.primary
+        }
         bold={isSelected}
       >
         {isSelected ? "➤ " : "  "}
@@ -119,7 +128,7 @@ export function Selector<T extends SelectorOption>({
         {option.displaySuffix || ""}
       </Text>
       {isCurrent && (
-        <Text bold color="green">
+        <Text bold color={theme.status.success}>
           {" ✔"}
         </Text>
       )}
@@ -127,8 +136,8 @@ export function Selector<T extends SelectorOption>({
   );
 
   return (
-    <Box {...defaultBoxStyles("blue")}>
-      <Text color="blue" bold>
+    <Box {...themedBoxStyles(theme)}>
+      <Text color={theme.accent} bold>
         {title}
       </Text>
       <Box flexDirection="column" marginTop={1}>
@@ -143,7 +152,7 @@ export function Selector<T extends SelectorOption>({
         })}
       </Box>
       <Box marginTop={1}>
-        <Text color="gray" dimColor>
+        <Text color={theme.text.secondary} dimColor>
           ↑/↓ to navigate, Enter to select, Esc to cancel
         </Text>
       </Box>

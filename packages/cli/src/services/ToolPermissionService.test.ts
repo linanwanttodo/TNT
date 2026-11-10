@@ -27,7 +27,7 @@ describe("ToolPermissionService", () => {
 
       expect(state).toEqual({
         permissions: { policies: [] },
-        currentMode: "default",
+        currentMode: "auto",
         isHeadless: false,
         modePolicyCount: 0,
       });
@@ -488,6 +488,27 @@ describe("ToolPermissionService", () => {
         personalSettings: true,
         useDefaults: true,
       });
+    });
+
+    test("should reload permissions from files in auto mode", async () => {
+      const mockPolicies = [{ tool: "Read", permission: "allow" as const }];
+      vi.mocked(precedenceResolver.resolvePermissionPrecedence).mockReturnValue(
+        mockPolicies,
+      );
+
+      const service = new ToolPermissionService();
+      service.initializeSync({ mode: "auto" });
+      vi.mocked(precedenceResolver.resolvePermissionPrecedence).mockClear();
+
+      await service.reloadPermissions();
+
+      expect(
+        precedenceResolver.resolvePermissionPrecedence,
+      ).toHaveBeenCalledWith({
+        personalSettings: true,
+        useDefaults: true,
+      });
+      expect(service.getPermissions().policies).toEqual(mockPolicies);
     });
 
     test("should skip reload in non-normal modes", async () => {

@@ -17,6 +17,20 @@ export function createWebPlatform(): IPlatformService {
     saveFile: saveBrowserFile,
     // Web 端无法打开系统目录选择框
     selectDirectory: () => Promise.resolve(null),
+    // 手机远程：服务器自己报告哪些地址可以打开，桌面端没有这个入口。
+    async getWebUiAccessInfo() {
+      try {
+        const response = await fetch("/api/access", { cache: "no-store" });
+        if (!response.ok) {
+          return null;
+        }
+        return (await response.json()) as Awaited<
+          ReturnType<NonNullable<IPlatformService["getWebUiAccessInfo"]>>
+        >;
+      } catch {
+        return null;
+      }
+    },
     // Web 端无法打开系统文件选择框
     selectFile: () => Promise.resolve(null),
     selectFiles: () => Promise.resolve([]),

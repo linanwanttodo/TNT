@@ -6,6 +6,11 @@ export interface WebUiServiceOptions {
   /** Port to try first; occupied ports are probed upwards. */
   port?: number;
   /**
+   * The interface to bind. Defaults to loopback; "0.0.0.0" puts the web UI
+   * on the network so a phone on the same Wi-Fi can reach it.
+   */
+  host?: string;
+  /**
    * The session `/api/server-info` reports. Defaults to the process's current
    * session.
    */

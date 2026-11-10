@@ -155,7 +155,7 @@ export function useIntranetProbe(
   latestRequestRef.current = request;
   const requestStableKey = createIntranetProbeRequestStableKey(request);
 
-  const probeNow = useCallback(async () => {
+  const probeNow = useCallback(async (): Promise<IntranetProbeResult | null> => {
     // 并发探测需要代际控制，否则先发起的请求可能晚返回并覆盖新状态。
     // 这里用 runId 守卫，只允许最新一次探测落库，避免 isIntranet 在网络抖动时来回闪烁。
     const runId = latestProbeRunIdRef.current + 1;

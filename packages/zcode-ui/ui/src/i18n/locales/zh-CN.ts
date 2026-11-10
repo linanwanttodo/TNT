@@ -2941,6 +2941,19 @@ const zhCN: Record<string, string> = {
 
   // 设置页
   "settings.title": "设置",
+  // 侧栏底部：偏好（语言/主题/界面）与设置页是两件事，名称必须分开。
+  "sidebar.footer.preferences": "偏好",
+  "sidebar.footer.mobileRemote": "手机远程",
+  // 手机远程：扫码在同一网络下打开 Web UI
+  "mobileRemote.title": "手机远程访问",
+  "mobileRemote.description":
+    "手机与电脑在同一网络时，扫码即可在手机上打开这个 Web UI，继续当前会话。",
+  "mobileRemote.qrAlt": "手机远程访问二维码",
+  "mobileRemote.loading": "正在获取访问地址…",
+  "mobileRemote.unavailable": "当前环境不提供手机远程访问。",
+  "mobileRemote.loopbackTitle": "当前只监听本机地址",
+  "mobileRemote.loopbackHint":
+    "用下面的命令重新启动 Web UI，手机就能扫码访问。",
   "settings.breadcrumbLabel": "设置路径",
   "settings.subtitle": "从左侧切换主要设置项，右侧查看详细配置。",
   "settings.navLabel": "主要项",

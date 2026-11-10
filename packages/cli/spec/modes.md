@@ -3,7 +3,7 @@
 A mode decides where tool policies come from. The values match Claude Code:
 `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions`, `dontAsk`.
 
-## `default` (default)
+## `default` (Manual)
 
 The configuration layers apply in this order:
 
@@ -75,7 +75,8 @@ build their policies from the mode alone.
 - `--readonly` maps to `plan`
 - `--auto` maps to `bypassPermissions`
 
-All three print a deprecation warning. `TNT_PERMISSION_MODE` and
+All three print a deprecation warning. A new TUI session starts in `auto`
+unless another mode is selected explicitly. `TNT_PERMISSION_MODE` and
 `CLAUDE_CODE_PERMISSION_MODE` accept the same six values when no flag selects a mode;
 the TNT variable wins.
 
@@ -84,7 +85,8 @@ the TNT variable wins.
 `defaultMode` in `settings.json` selects the startup mode when no flag, legacy
 alias or environment variable names one. The precedence is
 `--permission-mode` and the legacy flags, then the environment variables, then
-the settings key, then `default`. A value that is not one of the six modes is
+the settings key. With no explicit setting, TUI and CLI sessions start in
+`auto`. A value that is not one of the six modes is
 refused at startup with a reason. A persisted
 `bypassPermissions` counts as the explicit setting, so it does not need
 `--dangerously-skip-permissions`. The key applies to headless and serve runs
@@ -101,5 +103,5 @@ mode itself is shown on the composer border, each mode in its own colour.
 
 An ACP client sees the same five modes through `session/set_mode` and
 `current_mode_update`; `dontAsk` is not offered. The worker starts in
-`defaultMode` from `settings.json`, or `default` when none is set. A mode change
+`defaultMode` from `settings.json`, or `auto` when none is set. A mode change
 applies to that worker only, so two sessions can run in different modes.

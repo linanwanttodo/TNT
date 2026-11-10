@@ -9,6 +9,7 @@ import {
 } from "../../session/index.js";
 import { logger } from "../../utils/logger.js";
 import { SessionSelector } from "../SessionSelector.js";
+import { useTheme } from "../theme/tokens.js";
 
 interface SessionSelectorWithLoadingProps {
   onSelect: (sessionId: string) => Promise<void>;
@@ -24,6 +25,7 @@ interface SessionSelectorWithLoadingProps {
 export const SessionSelectorWithLoading: React.FC<
   SessionSelectorWithLoadingProps
 > = ({ onSelect, onExit, source = "sessions", parentSessionId }) => {
+  const theme = useTheme();
   const [sessions, setSessions] = React.useState<ExtendedSessionMetadata[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -60,8 +62,8 @@ export const SessionSelectorWithLoading: React.FC<
 
   if (isLoading) {
     return (
-      <Box paddingX={1} borderStyle="round" borderColor="blue">
-        <Text color="blue">
+      <Box paddingX={1} borderStyle="round" borderColor={theme.accent}>
+        <Text color={theme.accent}>
           {source === "subagents"
             ? t("subagent.loading")
             : t("session.loading")}
