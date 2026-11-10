@@ -92,7 +92,10 @@ describe("TUIChat layout", () => {
       // share it. The installed version is not repeated here.
       const status = content[composerIndex + 3];
       expect(status).not.toContain("▸");
-      expect(status).not.toContain("TNT");
+      // The banner carries "TNT CLI v<x.y.z>"; pin that, not the bare
+      // wordmark - the workspace path in this row can itself contain "TNT"
+      // without repeating the version.
+      expect(status).not.toContain("TNT CLI v");
 
       // Nothing follows the status row: it is the bottom of the screen.
       expect(content[content.length - 1]).toBe(status);
