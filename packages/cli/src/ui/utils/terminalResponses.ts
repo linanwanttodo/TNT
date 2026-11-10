@@ -174,3 +174,35 @@ export function bracketedPasteMarker(
   }
   return undefined;
 }
+
+/**
+ * Locates the first paste marker anywhere in the event. The terminal
+ * coalesces reads and ink only splits at ESC, so a marker arrives glued to
+ * whatever text surrounds it as often as alone; matching one by
+ * whole-string equality used to swallow a glued end marker into the paste
+ * payload and strand paste mode with the keyboard silently buffered.
+ *
+ * Both forms are accepted: the raw one carries its own ESC (`\x1b[200~`) and
+ * the bare one is what ink 6 delivers after stripping it (`[200~`).
+ */
+export function firstPasteMarker(
+  input: string,
+): { at: number; length: number; kind: "start" | "end" } | null {
+  const bareStart = input.indexOf("[200~");
+  const bareEnd = input.indexOf("[201~");
+  if (bareStart === -1 && bareEnd === -1) {
+    return null;
+  }
+  const bareAt =
+    bareStart === -1
+      ? bareEnd
+      : bareEnd === -1
+        ? bareStart
+        : Math.min(bareStart, bareEnd);
+  const kind: "start" | "end" =
+    bareStart !== -1 && (bareEnd === -1 || bareStart < bareEnd)
+      ? "start"
+      : "end";
+  const at = bareAt > 0 && input[bareAt - 1] === "\x1b" ? bareAt - 1 : bareAt;
+  return { at, length: bareAt - at + 5, kind };
+}

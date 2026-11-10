@@ -4,15 +4,14 @@ import { t } from "../i18n/index.js";
 
 import * as bufferLimits from "./utils/bufferLimits.js";
 import { ComposerTerminalFilter } from "./utils/composerTerminalFilter.js";
-import { bracketedPasteMarker } from "./utils/terminalResponses.js";
+import { PasteModeHandler } from "./utils/pasteMode.js";
+import { firstPasteMarker } from "./utils/terminalResponses.js";
 
 export const RAPID_INPUT_THRESHOLD = 200; // Minimum characters to trigger rapid input detection
 
 export class TextBuffer {
   private _text: string = "";
   private _cursor: number = 0;
-  private _pasteBuffer: string = "";
-  private _inPasteMode: boolean = false;
   private _rapidInputBuffer: string = "";
   private _rapidInputStartPos: number = 0;
   private _lastInputTime: number = 0;
@@ -24,6 +23,23 @@ export class TextBuffer {
   private _onStateChange?: () => void;
   private _pasteMap = new Map<string, string>(); // placeholder -> original content
   private _pasteCounter: number = 0;
+
+  // The bracketed-paste state machine; see utils/pasteMode.ts. Field order
+  // matters: the collapse callback reads _pasteMap, declared above.
+  private _paste = new PasteModeHandler(
+    (text) => this.insertText(text),
+    (buffered) => {
+      const placeholder = this.createPlaceholder(buffered);
+      this._pasteMap.set(placeholder, buffered);
+      return placeholder;
+    },
+    () => {
+      if (this._rapidInputTimer) {
+        clearTimeout(this._rapidInputTimer);
+        this._rapidInputTimer = null;
+      }
+    },
+  );
   private _imageMap = new Map<string, Buffer>(); // placeholder -> image buffer
   private _imageCounter: number = 0;
 
@@ -198,8 +214,7 @@ export class TextBuffer {
     this._pasteCounter = 0;
     this._imageMap.clear();
     this._imageCounter = 0;
-    this._pasteBuffer = "";
-    this._inPasteMode = false;
+    this._paste.clear();
     this._rapidInputBuffer = "";
     this._rapidInputStartPos = 0;
     this._lastInputTime = 0;
@@ -211,7 +226,7 @@ export class TextBuffer {
   }
 
   isInPasteMode(): boolean {
-    return this._inPasteMode;
+    return this._paste.inPasteMode;
   }
 
   isInRapidInputMode(): boolean {
@@ -317,40 +332,6 @@ export class TextBuffer {
     } else {
       return `[Pasted Text #${this._pasteCounter} · ${lineCount} lines]`;
     }
-  }
-
-  // Handles bracketed paste: \e[200~ (start) and \e[201~ (end) sequences.
-  // Ink 6 strips the leading ESC, so the bare `[200~` / `[201~` form is what
-  // the composer actually receives; both are accepted here.
-  private handleBracketedPaste(input: string): boolean {
-    const marker = bracketedPasteMarker(input);
-    if (marker === "start") {
-      // Clear any pending rapid input timer to avoid conflicts
-      if (this._rapidInputTimer) {
-        clearTimeout(this._rapidInputTimer);
-        this._rapidInputTimer = null;
-      }
-      this._inPasteMode = true;
-      this._pasteBuffer = "";
-      return true;
-    }
-
-    if (marker === "end") {
-      this._inPasteMode = false;
-
-      if (bufferLimits.shouldCollapsePaste(this._pasteBuffer)) {
-        const placeholder = this.createPlaceholder(this._pasteBuffer);
-        this._pasteMap.set(placeholder, this._pasteBuffer);
-        this.insertText(placeholder);
-      } else {
-        this.insertText(this._pasteBuffer);
-      }
-
-      this._pasteBuffer = "";
-      return true;
-    }
-
-    return false;
   }
 
   // Fallback paste detection: detects rapid chunks by timing and size RAPID_INPUT_THRESHOLD
@@ -613,16 +594,12 @@ export class TextBuffer {
   }
 
   handleInput(input: string, key: Key): boolean {
-    // Handle bracketed paste sequences first
-    if (this.handleBracketedPaste(input)) {
-      return true;
-    }
-
-    // If we're in paste mode, accumulate the pasted content but DON'T insert it yet
-    if (this._inPasteMode) {
-      this._pasteBuffer += input;
-      // Don't insert text during paste mode - wait until paste ends
-      return true;
+    // Handle bracketed paste sequences first; utils/pasteMode.ts owns why
+    // markers are matched by position and why the silence timer exists.
+    if (this._paste.inPasteMode || firstPasteMarker(input)) {
+      if (this._paste.consume(input)) {
+        return true;
+      }
     }
 
     // Handle special keys (option, ctrl, meta, arrows, delete)

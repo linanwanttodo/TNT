@@ -9,10 +9,7 @@ import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
 import { loadMarkdownRulesWithMetadata } from "../agent/systemMessage.js";
 import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";
 import { isStringRule } from "../config/hubLoader.js";
-import {
-  loadConfiguration,
-  unrollPackageIdentifiersAsConfigYaml,
-} from "../config/loader.js";
+import { loadConfiguration } from "../config/loader.js";
 import { t } from "../i18n/index.js";
 import { getErrorString } from "../utils/error.js";
 import { logger } from "../utils/logger.js";
@@ -26,15 +23,6 @@ import {
   ConfigServiceState,
   SERVICE_NAMES,
 } from "./types.js";
-
-const DEFAULT_MODEL_IDENTIFIER: PackageIdentifier = {
-  uriType: "slug",
-  fullSlug: {
-    ownerSlug: "anthropic",
-    packageSlug: "claude-sonnet-4-6",
-    versionSlug: "1.0.0",
-  },
-};
 
 interface ConfigServiceInit {
   configPath: string | undefined;
@@ -213,35 +201,18 @@ export class ConfigService
 
   async addDefaultChatModelIfNone(
     config: AssistantUnrolled,
-    apiClient: DefaultApiInterface,
     isHeadless?: boolean,
   ): Promise<AssistantUnrolled> {
     const hasChatModel = !!config.models?.find(
       (m) => !!m && (!m.roles || m.roles.includes("chat")),
     );
-    if (!hasChatModel) {
-      try {
-        const modelConfig = await unrollPackageIdentifiersAsConfigYaml(
-          [DEFAULT_MODEL_IDENTIFIER],
-          null,
-          null,
-          apiClient,
-        );
-        const defaultModel = modelConfig?.models?.[0];
-        if (!defaultModel) {
-          throw new Error(t("services.defaultModelNoBlock"));
-        }
-        config.models = [...(config.models || []), defaultModel];
-      } catch (e) {
-        if (isHeadless) {
-          throw new Error(t("services.noModelHeadless"));
-        } else {
-          logger.error(
-            "Failed to load default model with no model specified",
-            e,
-          );
-        }
-      }
+    if (!hasChatModel && isHeadless) {
+      // Headless has nobody to answer the provider setup, so a run without a
+      // chat model fails loudly. Interactive runs land on the provider setup
+      // instead; the slug fallback that used to fill this gap resolved
+      // through the package hub, which no longer exists - every startup
+      // without a model printed its own failure to the terminal.
+      throw new Error(t("services.noModelHeadless"));
     }
     return config;
   }
@@ -279,7 +250,6 @@ export class ConfigService
 
     const withModel = await this.addDefaultChatModelIfNone(
       merged,
-      apiClient,
       init.isHeadless,
     );
 
