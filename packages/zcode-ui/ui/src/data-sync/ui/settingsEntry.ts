@@ -14,9 +14,7 @@ import {
 export function shouldShowRemoteSyncActions(params: {
   remoteSessionId?: string | null;
   remoteTarget?: RemoteTarget | null;
-  isWebRemoteControl?: boolean;
 }): boolean {
-  if (params.isWebRemoteControl) return false;
   return Boolean(
     params.remoteSessionId?.trim() && isDataSyncEntryRemoteTarget(params.remoteTarget),
   );

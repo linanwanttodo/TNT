@@ -1443,7 +1443,6 @@ export function AnimatedSidePanePanel({
                                 isDesktop={isDesktop}
                                 isWindowsDesktop={isWindowsDesktop}
                                 isMacDesktop={isMacDesktop}
-                                isWebRemoteControl={mobileOverlay}
                               />
                             </div>
                           </ServiceProvider>

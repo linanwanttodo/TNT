@@ -79,7 +79,6 @@ function Fixture() {
         <PermissionDialog
           request={request}
           workspacePath="/example"
-          isWebRemoteControl={innerWidth < 600}
           onRespond={(_id, option) => setResponse(option.optionId)}
         />
       )}

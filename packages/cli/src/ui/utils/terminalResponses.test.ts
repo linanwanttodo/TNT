@@ -52,8 +52,7 @@ describe("TerminalResponseFilter", () => {
     const filter = new TerminalResponseFilter();
 
     expect(filter.consume("]").kind).toBe("hold");
-    expect(filter.consume("11;rgb:0000/0000/0000").kind).toBe("drop");
-    expect(filter.consume("\\").kind).toBe("drop");
+    expect(filter.consume("11;rgb:0000/0000/0000\\")).toEqual({ kind: "drop" });
     expect(filter.flushHeld()).toBeUndefined();
   });
 
@@ -68,15 +67,18 @@ describe("TerminalResponseFilter", () => {
     const filter = new TerminalResponseFilter();
 
     expect(filter.consume("P").kind).toBe("hold");
-    expect(filter.consume("1$r0m").kind).toBe("drop");
-    expect(filter.consume("\\").kind).toBe("drop");
+    expect(filter.consume("1$r0m\\")).toEqual({ kind: "drop" });
   });
 
   it("returns a held prefix when the next event is not a reply", () => {
     const filter = new TerminalResponseFilter();
 
     expect(filter.consume("]").kind).toBe("hold");
-    expect(filter.consume("abc")).toEqual({ kind: "text", flush: "]" });
+    expect(filter.consume("abc")).toEqual({
+      kind: "text",
+      flush: "]",
+      text: "abc",
+    });
   });
 
   it("passes ordinary text through", () => {
@@ -94,9 +96,9 @@ describe("TerminalResponseFilter", () => {
     const started = 1_000;
 
     expect(filter.consume("]", started).kind).toBe("hold");
-    expect(filter.consume("11;rgb:0000/0000/0000", started + 10).kind).toBe(
-      "drop",
-    );
+    expect(filter.consume("11;rgb:0000/0000/0000\\", started + 10)).toEqual({
+      kind: "drop",
+    });
     expect(filter.consume("hello", started + 2_000)).toEqual({
       kind: "text",
     });
@@ -106,6 +108,10 @@ describe("TerminalResponseFilter", () => {
     const filter = new TerminalResponseFilter(500);
 
     expect(filter.consume("]", 1_000).kind).toBe("hold");
-    expect(filter.consume("abc", 5_000)).toEqual({ kind: "text", flush: "]" });
+    expect(filter.consume("abc", 5_000)).toEqual({
+      kind: "text",
+      flush: "]",
+      text: "abc",
+    });
   });
 });

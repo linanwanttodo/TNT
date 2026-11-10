@@ -120,7 +120,7 @@ describe("UserInput slash palette", () => {
     try {
       tree.stdin.write("/");
       await tick();
-      expect(tree.lastFrame() ?? "").toContain("/back");
+      expect(tree.lastFrame() ?? "").toContain("❯ /");
 
       tree.stdin.write("model " + "x".repeat(60));
       await tick(350);
@@ -140,7 +140,7 @@ describe("UserInput slash palette", () => {
       await tick();
 
       expect(onSubmit).not.toHaveBeenCalled();
-      expect(tree.lastFrame() ?? "").toContain("/back");
+      expect(tree.lastFrame() ?? "").toContain("❯ /");
     } finally {
       tree.unmount();
     }

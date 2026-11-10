@@ -1,4 +1,3 @@
-import { CodingPlanEntryButton } from "@/settings/CodingPlanEntryButton.js";
 import { useEffect, useRef } from "react";
 import type { CodingPlanBillingDiscountConfig } from "@zcode/shared";
 import { InfoIcon, RocketIcon, XIcon } from "lucide-react";
@@ -121,35 +120,7 @@ export function ConversationQuotaBanner({
           <InfoIcon className="size-4 shrink-0" />
           <div className="min-w-0 break-words">{message}</div>
         </div>
-        {onUpgrade ? (
-          <div className="inline-flex shrink-0 items-center gap-1">
-            <CodingPlanEntryButton
-              type="button"
-              size="sm"
-              className={cn(
-                "h-auto gap-1.5 rounded-full",
-                // Bugfix：V4 迁移时只带回了白色活动徽标，漏掉同款升级按钮的活动背景，
-                // 导致默认黑底和徽标拼接突兀。这里与 Model Settings / Context 面板统一。
-                showBillingDiscountBadge &&
-                  "button-gradient pr-px text-white hover:bg-transparent hover:opacity-90 dark:bg-[#484A58] dark:hover:bg-[#484A58]",
-              )}
-              onClick={onUpgrade}
-            >
-              <RocketIcon className="size-3.5" />
-              {intl.formatMessage({ id: upgradeActionLabelId })}
-              {showBillingDiscountBadge ? (
-                <CodingPlanBillingDiscountBadgePill
-                  config={billingDiscountConfig}
-                  iconVisible={false}
-                  variant="surface"
-                />
-              ) : null}
-            </CodingPlanEntryButton>
-            {showBillingDiscountBadge ? (
-              <CodingPlanBillingDiscountInfoDialog config={billingDiscountConfig} />
-            ) : null}
-          </div>
-        ) : null}
+        {null}
         {state.dismissible ? (
           <Button
             type="button"

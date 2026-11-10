@@ -1,4 +1,3 @@
-import type { WebRemoteControlAuthStateChange } from "./web-remote-control.js";
 /* eslint-disable max-lines -- 通信频道和请求响应映射必须集中定义，避免跨进程 channel 字符串散落。 */
 import type {
   ResourceUsageSnapshot,
@@ -9,18 +8,6 @@ import type {
   SaveCliMcpToUserDirectoryRequest,
 } from "./index.js";
 import type { OAuthStateRegistration } from "./oauth.js";
-import type {
-  WebRemoteControlContext,
-  WebRemoteControlReconnectWorkspaceRequest,
-  WebRemoteControlReconnectWorkspaceResult,
-  WebRemoteControlStartOperationResult,
-  WebRemoteControlStatus,
-  WebRemoteControlWorkspaceTarget,
-} from "./web-remote-control.js";
-import type {
-  WebRemoteControlRendererActionRequest,
-  WebRemoteControlRendererActionResult,
-} from "#src/web-remote-relay/index.js";
 import type { AppSettings, Locale } from "./protocol.js";
 import type { StorageCleanRequest, StorageCleanResult, StorageUsageSnapshot } from "./storage.js";
 import type {
@@ -154,8 +141,6 @@ export const ServiceChannels = {
   ClientConfig: "client-config",
   /** ZCode 客户端场景配置服务 */
   ClientScenes: "client-scenes",
-  CloudContent: "cloud-content",
-  MarketingTouch: "marketing-touch",
   /** Skills 管理服务 */
   Skills: "skills",
   /** SSH 远程 skills 同步服务 */
@@ -248,16 +233,6 @@ export const PlatformChannels = {
   CancelPendingRemoteConnection: "zcode:cancel-pending-remote-connection",
   /** Renderer → Main：绑定远程 logical session 的 canonical workspace context */
   BindRemoteWorkspaceSessionContext: "zcode:bind-remote-workspace-session-context",
-  /** 为当前 workspace 开启 Web 远程控制 */
-  StartWebRemoteControl: "zcode:start-web-remote-control",
-  /** 关闭当前窗口的 Web 远程控制 */
-  StopWebRemoteControl: "zcode:stop-web-remote-control",
-  /** 查询当前窗口的 Web 远程控制状态 */
-  GetWebRemoteControlStatus: "zcode:get-web-remote-control-status",
-  /** Renderer → Main：OAuth 会话变化通知，不携带凭据 */
-  WebRemoteControlAuthStateChanged: "zcode:web-remote-control-auth-state-changed",
-  /** Main → Renderer：当前窗口 Web 远程控制状态变化 */
-  WebRemoteControlStatusChanged: "zcode:web-remote-control-status-changed",
   /** 释放当前窗口里的远程 session */
   DisposeRemoteSession: "zcode:dispose-remote-session",
   /** Renderer → Main：检查本机 Docker daemon 是否可用 */
@@ -278,12 +253,6 @@ export const PlatformChannels = {
   Log: "zcode:log",
   /** Renderer → Main：同步当前窗口所有 tab 的 workspace 路径 */
   SyncWindowTabs: "zcode:sync-window-tabs",
-  /** Renderer → Main：同步当前窗口可供 Web 远程控制切换的 workspace */
-  SyncWebRemoteControlWorkspaces: "zcode:sync-web-remote-control-workspaces",
-  /** Main → Renderer：手机端请求重连当前窗口里的远程 workspace */
-  WebRemoteControlReconnectWorkspace: "zcode:web-remote-control-reconnect-workspace",
-  /** Main → Renderer：手机请求置顶/归档任务或新建本地项目，Renderer 按侧栏同一路径执行 */
-  WebRemoteControlRendererAction: "zcode:web-remote-control-renderer-action",
   /** Renderer → Main：同步当前窗口的未读 task 数 */
   SyncWindowUnreadCount: "zcode:sync-window-unread-count",
   /** Renderer → Main：当前窗口 active task，只更新 Main 的临时焦点映射。 */
@@ -878,26 +847,6 @@ export interface PlatformChannelMap {
     request: BindRemoteWorkspaceSessionContextRequest;
     response: import("./platform.js").BindRemoteWorkspaceSessionContextIpcResult;
   };
-  [PlatformChannels.StartWebRemoteControl]: {
-    request: WebRemoteControlContext;
-    response: WebRemoteControlStartOperationResult;
-  };
-  [PlatformChannels.StopWebRemoteControl]: {
-    request: void;
-    response: void;
-  };
-  [PlatformChannels.WebRemoteControlAuthStateChanged]: {
-    request: WebRemoteControlAuthStateChange;
-    response: void;
-  };
-  [PlatformChannels.GetWebRemoteControlStatus]: {
-    request: void;
-    response: WebRemoteControlStatus;
-  };
-  [PlatformChannels.WebRemoteControlStatusChanged]: {
-    request: WebRemoteControlStatus;
-    response: void;
-  };
   [PlatformChannels.DisposeRemoteSession]: {
     request: string;
     response: void;
@@ -933,18 +882,6 @@ export interface PlatformChannelMap {
   [PlatformChannels.Log]: {
     request: { level: "info" | "warn" | "error"; args: unknown[] };
     response: void;
-  };
-  [PlatformChannels.SyncWebRemoteControlWorkspaces]: {
-    request: WebRemoteControlWorkspaceTarget[];
-    response: void;
-  };
-  [PlatformChannels.WebRemoteControlReconnectWorkspace]: {
-    request: WebRemoteControlReconnectWorkspaceRequest;
-    response: WebRemoteControlReconnectWorkspaceResult;
-  };
-  [PlatformChannels.WebRemoteControlRendererAction]: {
-    request: WebRemoteControlRendererActionRequest;
-    response: WebRemoteControlRendererActionResult;
   };
   [PlatformChannels.SyncWindowUnreadCount]: {
     request: number;

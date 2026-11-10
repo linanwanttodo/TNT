@@ -1,7 +1,5 @@
 /* eslint-disable max-lines -- Model Provider 设置页需要集中编排导航、表单和 OAuth 交互，后续整体拆分时再收敛。 */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useStore } from "zustand";
-import { marketingNavigation, finishMarketingNavigation } from "@/lib/marketingNavigation.js";
 import {
   getProviderFormApiKey,
   type ProviderSettingsFormProvider,
@@ -23,7 +21,6 @@ import {
   ZAI_PROVIDER_ID,
 } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { getHostCapabilities } from "@/host-capabilities.js";
 import { Button } from "@/components/ui/button.js";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
 import { useModelProviders } from "@/hooks/useModelProviders.js";
@@ -33,7 +30,6 @@ import { useServices } from "@/hooks/useServices.js";
 import { useZCodeStore } from "@/store/StoreProvider.js";
 import { logger } from "@/logger.js";
 import {
-  PRESET_PROVIDER_SPECS,
   PRESET_SUBSCRIPTION_TIMEOUT_MS,
   BIGMODEL_REGISTRATION_URL,
   type CodingPlanStatus,
@@ -148,37 +144,6 @@ function shouldRefreshCodingPlanEntitlementsAfterSave(
     (previousProvider ? getProviderFormApiKey(previousProvider).trim() : "") !==
     getProviderFormApiKey(nextProvider).trim()
   );
-}
-
-function resolveBuiltinPresetOAuthProvider(
-  presetId: BuiltinModelProviderId,
-): OAuthProviderId | null {
-  if (
-    presetId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan ||
-    presetId === BUILTIN_MODEL_PROVIDER_IDS.zaiTeamCodingPlan ||
-    presetId === BUILTIN_MODEL_PROVIDER_IDS.zaiStartPlan
-  ) {
-    return ZAI_PROVIDER_ID;
-  }
-  if (
-    presetId === BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan ||
-    presetId === BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan ||
-    presetId === BUILTIN_MODEL_PROVIDER_IDS.bigmodelStartPlan
-  ) {
-    return BIGMODEL_PROVIDER_ID;
-  }
-  return null;
-}
-
-function shouldShowPresetProviderForActiveOAuth(
-  presetId: BuiltinModelProviderId,
-  providerFamilyDomain: ProviderFamilyDomain | null | undefined,
-): boolean {
-  const presetOAuthProvider = resolveBuiltinPresetOAuthProvider(presetId);
-  if (!providerFamilyDomain || !presetOAuthProvider) {
-    return true;
-  }
-  return resolveModelProviderFamilyIdByProviderId(presetId) === providerFamilyDomain;
 }
 
 function clearPendingProviderFamilyConnectionSelection(
@@ -610,17 +575,8 @@ export function ModelProviderSection({
   }, [providerConnectionRefreshSignal, refreshCodingPlanPurchaseTokenState]);
 
   const presetProviders = useMemo(
-    () =>
-      (getHostCapabilities().localProvidersOnly
-        ? []
-        : PRESET_PROVIDER_SPECS.filter((preset) =>
-            shouldShowPresetProviderForActiveOAuth(preset.id, effectiveProviderFamilyDomain),
-          )
-      ).map((preset) => ({
-        ...preset,
-        provider: modelProviders.find((provider) => provider.providerId === preset.id) ?? null,
-      })),
-    [effectiveProviderFamilyDomain, modelProviders],
+    () => [],
+    [],
   );
 
   useEffect(() => {
@@ -1017,47 +973,6 @@ export function ModelProviderSection({
     },
     [createPersonalProvider, locale],
   );
-
-  const marketingRequest = useStore(marketingNavigation, (state) => state.request);
-  useEffect(() => {
-    if (marketingRequest?.target.page !== "settings" || !marketingRequest.target.provider_id)
-      return;
-    if (
-      loading ||
-      modelProvidersRefreshing ||
-      sharedSettingsLoading ||
-      navigationItems.some((item) => item.type === "codingPlanLoading")
-    )
-      return;
-    const providerId = marketingRequest.target.provider_id;
-    const item = navigationItems.find((item) =>
-      item.type === "custom"
-        ? // 当前表单契约使用 providerId；旧 id 会让所有自定义提供商被误判为不存在。
-          item.provider.providerId === providerId
-        : "presetId" in item &&
-          item.presetId === providerId &&
-          (!isStartPlanModelProviderId(providerId) || item.type === "codingPlan"),
-    );
-    if (!item) {
-      finishMarketingNavigation(marketingRequest.id, new Error("marketing_provider_unavailable"));
-      return;
-    }
-    const key = resolveModelProviderSideSelectionKey(item);
-    if (selectedNodeKey !== key) {
-      // 只定位侧栏节点；禁止复用带 mode 的选择路径，避免营销导航修改套餐连接。
-      setSelectedNodeKey(key);
-    } else if (selectedNavItem) {
-      finishMarketingNavigation(marketingRequest.id);
-    }
-  }, [
-    marketingRequest,
-    loading,
-    modelProvidersRefreshing,
-    sharedSettingsLoading,
-    navigationItems,
-    selectedNodeKey,
-    selectedNavItem,
-  ]);
 
   const handleReorderProviderIds = useCallback(
     async (orderedGroupProviderIds: string[]) => {

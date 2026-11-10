@@ -98,14 +98,12 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     );
   });
 
-  it("keeps the intro out of the transcript once the conversation starts", () => {
+  it("keeps the intro in the transcript once the conversation starts", () => {
     const transcript = read(TRANSCRIPT);
 
-    expect(
-      /only rendered while the conversation has no non-system message/.test(
-        flat,
-      ),
-    ).toBe(/isEmptyConversation/.test(transcript));
+    expect(/first row of the transcript/.test(flat)).toBe(
+      /showIntro && <IntroMessage/.test(transcript),
+    );
     expect(/half-block wordmark/.test(flat)).toBe(
       /█/.test(read(path.join(here, "..", "startup", "asciiArt.ts"))) &&
         /MIN_WIDTH_FOR_ASCII_ART = 30/.test(

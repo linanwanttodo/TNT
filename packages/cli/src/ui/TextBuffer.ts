@@ -307,12 +307,14 @@ export class TextBuffer {
   }
 
   // Test helper: forces immediate finalization without waiting for timers
-  flushPendingInput(): void {
+  flushPendingInput(): boolean {
     if (this._rapidInputTimer) {
       clearTimeout(this._rapidInputTimer);
       this._rapidInputTimer = null;
       this.finalizeRapidInput();
+      return true;
     }
+    return false;
   }
 
   private escapeRegex(str: string): string {
@@ -367,6 +369,14 @@ export class TextBuffer {
 
   // Fallback paste detection: detects rapid chunks by timing and size RAPID_INPUT_THRESHOLD
   private handleRapidInput(input: string): boolean {
+    if (
+      /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
+        input,
+      )
+    ) {
+      this._lastInputTime = Date.now();
+      return false;
+    }
     const now = Date.now();
     const timeSinceLastInput = now - this._lastInputTime;
 
@@ -565,6 +575,15 @@ export class TextBuffer {
   }
 
   private handleTextInput(input: string): boolean {
+    if (
+      /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
+        input,
+      )
+    ) {
+      this.insertText(input);
+      this._lastInputTime = Date.now();
+      return true;
+    }
     // Direct paste detection: single large input - but delay insertion to catch split pastes.
     // A newline inside one input event can only come from a paste (typing
     // delivers Enter as its own event), so multi-row pastes enter the same

@@ -76,18 +76,22 @@ describe("TUIChat layout", () => {
       // The banner/transcript comes first; the composer is the last block.
       expect(frame.indexOf("Ask anything")).toBeGreaterThan(0);
 
-      const composerBorder = content.findIndex((line) => line.includes("╭"));
-      expect(composerBorder).toBeGreaterThan(-1);
-      expect(content[composerBorder + 1]).toContain("Ask anything");
-      // The input has a single top rule: no bottom rule and no side rails.
-      expect(content.some((line) => line.includes("╰"))).toBe(false);
+      const composerIndex = content.findIndex((line) =>
+        line.includes("Ask anything"),
+      );
+      expect(composerIndex).toBeGreaterThan(-1);
+      // The mode rule opens the composer and a plain rule closes it; there
+      // are no side rails.
+      expect(content[composerIndex - 1]).toContain("[Manual]");
+      expect(content[composerIndex + 1].replace(/─/g, "").trim()).toBe("");
       expect(content.some((line) => line.includes("│"))).toBe(false);
       // The composer footer carries the transient hint row.
-      expect(content[composerBorder + 2]).toContain("? for shortcuts");
+      expect(content[composerIndex + 2]).toContain("? for shortcuts");
       // A single status row follows the composer footer: workspace and model
-      // share it.
-      const status = content[composerBorder + 3];
-      expect(status).toContain("TNT");
+      // share it. The installed version is not repeated here.
+      const status = content[composerIndex + 3];
+      expect(status).toContain("▸");
+      expect(status).not.toContain("TNT");
 
       // Nothing follows the status row: it is the bottom of the screen.
       expect(content[content.length - 1]).toBe(status);

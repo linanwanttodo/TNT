@@ -105,9 +105,9 @@ describe("TUIChat transcript", () => {
 
       expect(answerIndex).toBeGreaterThan(-1);
       expect(composerIndex).toBeGreaterThan(answerIndex);
-      // The composer keeps a single rounded top rule and no bottom rule.
-      expect(lines[composerIndex - 1]).toContain("╭");
-      expect(lines.some((line) => line.includes("╰"))).toBe(false);
+      // The composer's mode rule opens the frame and a rule closes it.
+      expect(lines[composerIndex - 1]).toContain("[Manual]");
+      expect(lines[composerIndex + 1].replace(/─/g, "").trim()).toBe("");
       // The frame stays inside the twelve rows it was given.
       expect(lines.length).toBeLessThanOrEqual(12);
     } finally {

@@ -44,9 +44,6 @@ interface TranscriptContentProps {
   verbose?: boolean;
 }
 
-const isEmptyConversation = (chatHistory: ChatHistoryItem[]): boolean =>
-  !chatHistory.some((item) => item.message.role !== "system");
-
 /**
  * The conversation, drawn inside the app-owned alternate screen.
  *
@@ -90,8 +87,10 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     return splitChatHistory(filtered, columns);
   }, [chatHistory, columns]);
 
-  const showIntro =
-    showIntroMessage && isEmptyConversation(processedChatHistory);
+  // The header belongs to the transcript, as in the reference CLI: it stays
+  // above the first answer and scrolls up as the conversation grows instead
+  // of vanishing when the reader sends something.
+  const showIntro = showIntroMessage;
 
   // A long answer is split at the last safe boundary and the settled prefix is
   // rendered once. Only the tail keeps redrawing, which is both the flicker

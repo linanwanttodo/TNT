@@ -145,11 +145,6 @@ const appWorkspaceSessionEntrySchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-const webRemoteControlRelayV2DeviceSchema = z.object({
-  deviceSid: z.string().min(1),
-  userId: z.string().min(1),
-  endpointOrigin: z.url(),
-});
 const remoteConversationWorkspaceRecordSchema = z
   .object({
     workspacePath: nonEmptyStringSchema,
@@ -157,14 +152,6 @@ const remoteConversationWorkspaceRecordSchema = z
   })
   .strict();
 
-const webRemoteControlExternalRelayDeviceSchema = z.object({
-  deviceSid: nonEmptyStringSchema,
-});
-const webRemoteControlLastEnabledContextSchema = z.object({
-  workspacePath: nonEmptyStringSchema,
-  workspaceIdentity: nonEmptyStringSchema.optional(),
-  initialTaskId: nonEmptyStringSchema.optional(),
-});
 const zcodeEndpointOriginSchema = z.preprocess((value) => {
   if (typeof value !== "string") {
     return undefined;
@@ -577,9 +564,6 @@ const appSettingsObjectSchema = z.object({
   autoDownloadAndInstallUpdates: z.boolean().default(false),
   skippedElectronUpdateVersions: skippedElectronUpdateVersionsSchema,
   settingsSyncFirstRunPromptHandled: z.boolean().optional(),
-  webRemoteControlRelayV2Device: webRemoteControlRelayV2DeviceSchema.optional(),
-  webRemoteControlExternalRelayDevice: webRemoteControlExternalRelayDeviceSchema.optional(),
-  webRemoteControlLastEnabledContext: webRemoteControlLastEnabledContextSchema.optional(),
   zcodeEndpointOrigin: zcodeEndpointOriginSchema.optional(),
 });
 
@@ -689,8 +673,5 @@ export const appSettingsPatchSchema = z.object({
     .partialRecord(electronReleaseChannelSchema, nonEmptyStringSchema)
     .optional(),
   settingsSyncFirstRunPromptHandled: z.boolean().optional(),
-  webRemoteControlRelayV2Device: webRemoteControlRelayV2DeviceSchema.optional(),
-  webRemoteControlExternalRelayDevice: webRemoteControlExternalRelayDeviceSchema.optional(),
-  webRemoteControlLastEnabledContext: webRemoteControlLastEnabledContextSchema.optional(),
   zcodeEndpointOrigin: zcodeEndpointOriginSchema.optional(),
 });

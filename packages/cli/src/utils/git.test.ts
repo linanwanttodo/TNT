@@ -12,6 +12,7 @@ import {
   isGitRepo,
   isGitHubActions,
   listWorktrees,
+  resetGitBranchCache,
 } from "./git.js";
 
 describe("git utilities - GitHub Actions detection", () => {
@@ -91,8 +92,34 @@ describe("git utilities - GitHub Actions detection", () => {
     it("should return null when not in a git repo or when git command fails", () => {
       // Since we can't easily mock git commands in this test environment,
       // we just test that the function returns either a string or null
+      resetGitBranchCache();
       const result = getGitBranch();
       expect(typeof result === "string" || result === null).toBe(true);
+    });
+
+    it("caches the branch for a moment and refreshes on reset", () => {
+      const dir = mkdtempSync(join(tmpdir(), "tnt-branch-cache-"));
+      const git = (args: string[]) =>
+        execFileSync("git", args, { cwd: dir, stdio: "pipe" });
+      const previous = process.cwd();
+
+      try {
+        git(["init", "-b", "main"]);
+        process.chdir(dir);
+
+        resetGitBranchCache();
+        expect(getGitBranch()).toBe("main");
+
+        git(["checkout", "-b", "next"]);
+        expect(getGitBranch()).toBe("main");
+
+        resetGitBranchCache();
+        expect(getGitBranch()).toBe("next");
+      } finally {
+        process.chdir(previous);
+        resetGitBranchCache();
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 });

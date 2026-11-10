@@ -11,14 +11,30 @@
 
 // Ink stripped the ESC from the ST terminator (ESC\), leaving the backslash.
 const OSC_COLOR_REPLY =
-  /^\](?:1[01]|4(?:;\d+)?);rgb:[0-9a-fA-F]{1,4}(?:\/[0-9a-fA-F]{1,4}){2}(?:\x1b?\\|\x07)$/;
+  /^\x1b?\](?:1[01]|4(?:;\d+)?);rgb:[0-9a-fA-F]{1,4}(?:\/[0-9a-fA-F]{1,4}){2}(?:\x1b?\\|\x07)$/;
+const ESC_STRIPPED_OSC_REPLY =
+  /^\](?:1[01]|4(?:;\d+)?);rgb:[0-9a-fA-F]{1,4}(?:\/[0-9a-fA-F]{1,4}){2}\\$/;
 
 // DECRQSS replies (`P1$r...`) and XTVERSION replies (`P>|...`).
 const DCS_REPLY = /^P(?:\d+\$r|[>|])[^\x1b\x07]*(?:\x1b?\\|\x07)$/;
+const RAW_DCS_REPLY = /^\x1bP(?:\d+\$r|[>|])[^\x1b\x07]*(?:\x1b?\\|\x07)$/;
+const OSC_REPLY_PAYLOAD =
+  /^(?:1[01]|4(?:;\d+)?);rgb:[0-9a-fA-F]{1,4}(?:\/[0-9a-fA-F]{1,4}){2}(?:\x1b?\\|\x07)$/;
+const OSC_REPLY_PAYLOAD_WITHOUT_TERMINATOR =
+  /^(?:1[01]|4(?:;\d+)?);rgb:[0-9a-fA-F]{1,4}(?:\/[0-9a-fA-F]{1,4}){2}$/;
+const DCS_REPLY_PAYLOAD = /^(?:\d+\$r|[>|])[^\x1b\x07]*(?:\x1b?\\|\x07)$/;
+const OSC_REPLY_START =
+  /^\x1b?\](?:1[01]|4(?:;\d+)?);rgb:[0-9a-fA-F]{1,4}(?:\/[0-9a-fA-F]{1,4}){2}$/;
+const OSC_REPLY_FIRST_EVENT = /^\x1b\]$/;
 
 /** True for a complete OSC colour or DCS reply that should be dropped. */
 export function isTerminalResponseSequence(input: string): boolean {
-  return OSC_COLOR_REPLY.test(input) || DCS_REPLY.test(input);
+  return (
+    OSC_COLOR_REPLY.test(input) ||
+    ESC_STRIPPED_OSC_REPLY.test(input) ||
+    DCS_REPLY.test(input) ||
+    RAW_DCS_REPLY.test(input)
+  );
 }
 
 export interface FilteredInput {
@@ -30,9 +46,6 @@ export interface FilteredInput {
   text?: string;
 }
 
-const OSC_PAYLOAD = /^(?:1[01]|4(?:;\d+)?);rgb:/;
-const DCS_PAYLOAD = /^(?:\d+\$r|[>|])/;
-
 /**
  * Consumes one Ink input event at a time. Ink splits a terminal reply at each
  * ESC, so `ESC]11;rgb:...ESC\` arrives as `]`, `11;rgb:...`, `\`. The leading
@@ -40,7 +53,7 @@ const DCS_PAYLOAD = /^(?:\d+\$r|[>|])/;
  * ordinary key; callers flush it with `flushHeld` when no follow-up arrives.
  */
 export class TerminalResponseFilter {
-  private held: { text: string; payload: RegExp; since: number } | null = null;
+  private replyPrefix: "osc" | "dcs" | null = null;
   private awaitingTerminator = false;
   private waitingSince = 0;
 
@@ -51,6 +64,57 @@ export class TerminalResponseFilter {
   constructor(private readonly retentionMs = 500) {}
 
   consume(input: string, now = Date.now()): FilteredInput {
+    const printable = input.replace(/^\x1b/, "");
+    const strippedInput = input.replace(/\x1b/g, "");
+    if (OSC_REPLY_FIRST_EVENT.test(input)) {
+      this.replyPrefix = "osc";
+      this.waitingSince = now;
+      return { kind: "hold" };
+    }
+    if (
+      isTerminalResponseSequence(printable) ||
+      isTerminalResponseSequence(strippedInput)
+    ) {
+      this.awaitingTerminator = false;
+      this.waitingSince = 0;
+      return { kind: "drop" };
+    }
+    if (OSC_REPLY_START.test(printable)) {
+      this.awaitingTerminator = true;
+      this.waitingSince = now;
+      return { kind: "drop" };
+    }
+    if (printable === "]" || printable === "P") {
+      this.replyPrefix = printable === "]" ? "osc" : "dcs";
+      this.waitingSince = now;
+      return { kind: "hold" };
+    }
+    if (this.replyPrefix || printable !== input) {
+      const prefix = this.replyPrefix;
+      this.replyPrefix = null;
+      if (!prefix && printable !== input) {
+        if (isTerminalResponseSequence(printable)) return { kind: "drop" };
+        return { kind: "text", text: printable };
+      }
+      if (!prefix) return { kind: "text" };
+      const payload = prefix === "osc" ? OSC_REPLY_PAYLOAD : DCS_REPLY_PAYLOAD;
+      const splitOscPayload =
+        prefix === "osc" &&
+        OSC_REPLY_PAYLOAD_WITHOUT_TERMINATOR.test(printable);
+      if (splitOscPayload) {
+        this.awaitingTerminator = true;
+        this.waitingSince = now;
+        return { kind: "drop" };
+      }
+      if (
+        now - this.waitingSince <= this.retentionMs &&
+        payload.test(printable)
+      ) {
+        return { kind: "drop" };
+      }
+      const flush = prefix === "osc" ? "]" : "P";
+      return { kind: "text", flush, text: printable };
+    }
     if (this.awaitingTerminator) {
       if (now - this.waitingSince > this.retentionMs) {
         this.awaitingTerminator = false;
@@ -70,56 +134,25 @@ export class TerminalResponseFilter {
       }
     }
 
-    if (this.held) {
-      const held = this.held;
-      this.held = null;
-      if (now - held.since > this.retentionMs) {
-        return { kind: "text", flush: held.text };
-      }
-      if (held.payload.test(input)) {
-        const bel = input.indexOf("\x07");
-        if (bel >= 0) {
-          const rest = input.slice(bel + 1);
-          return rest ? { kind: "text", text: rest } : { kind: "drop" };
-        }
-        if (input.endsWith("\\")) {
-          return { kind: "drop" };
-        }
-        this.awaitingTerminator = true;
-        this.waitingSince = now;
-        return { kind: "drop" };
-      }
-      // Not a reply after all: the held prefix is ordinary text. Flush it and
-      // let the current input take the normal path.
-      return { kind: "text", flush: held.text };
-    }
-
-    if (isTerminalResponseSequence(input)) {
+    if (isTerminalResponseSequence(printable)) {
       return { kind: "drop" };
     }
 
-    if (input === "]") {
-      this.held = { text: "]", payload: OSC_PAYLOAD, since: now };
-      return { kind: "hold" };
-    }
-    if (input === "P") {
-      this.held = { text: "P", payload: DCS_PAYLOAD, since: now };
-      return { kind: "hold" };
-    }
-
-    return { kind: "text" };
+    return printable === input
+      ? { kind: "text" }
+      : { kind: "text", text: printable };
   }
 
   /** Gives back a held prefix when no follow-up event arrived. */
   flushHeld(): string | undefined {
-    const held = this.held;
-    this.held = null;
-    return held?.text;
+    const prefix = this.replyPrefix;
+    this.replyPrefix = null;
+    return prefix === "osc" ? "]" : prefix === "dcs" ? "P" : undefined;
   }
 
   /** Drops any half-seen reply, e.g. when the composer is cleared. */
   reset(): void {
-    this.held = null;
+    this.replyPrefix = null;
     this.awaitingTerminator = false;
   }
 }

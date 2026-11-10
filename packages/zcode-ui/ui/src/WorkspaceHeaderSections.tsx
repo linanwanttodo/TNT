@@ -103,7 +103,6 @@ export function WorkspaceHeaderTitleSection({
   isMacDesktop: _isMacDesktop,
   isMacFullscreen: _isMacFullscreen,
   isWindowsDesktop: _isWindowsDesktop,
-  isWebRemoteControl: _isWebRemoteControl = false,
   selectedEditor: _selectedEditor,
   simplifyForNarrowRemote = false,
   compact = false,

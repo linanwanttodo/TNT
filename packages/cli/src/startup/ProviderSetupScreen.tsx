@@ -8,6 +8,7 @@ import {
   type ProviderSetup,
 } from "../config/providerSetup.js";
 import { t } from "../i18n/index.js";
+import { splitTrailingEnter } from "../utils/coalescedEnter.js";
 
 /** Matches the dark theme accent; onboarding renders before its provider. */
 const ACCENT = "#5ac8fa";
@@ -81,9 +82,9 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
     setError(undefined);
   };
 
-  const submit = (current: Step) => {
+  const submit = (current: Step, value = valueFor(current)) => {
     if (current === "baseUrl") {
-      const raw = baseUrl.trim() || protocol.defaultApiBase;
+      const raw = value.trim() || protocol.defaultApiBase;
       const normalized = normalizeApiBase(protocol.id, raw);
       if (!isHttpUrl(normalized)) {
         setError(t("setup.invalidBaseUrl"));
@@ -97,20 +98,20 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
     }
 
     if (current === "apiKey") {
-      const value = apiKey.trim();
-      if (!value) {
+      const trimmed = value.trim();
+      if (!trimmed) {
         setError(t("setup.apiKeyRequired"));
         return;
       }
-      setApiKey(value);
+      setApiKey(trimmed);
       setError(undefined);
       setStep("model");
       return;
     }
 
     if (current === "model") {
-      const value = model.trim() || getDefaultModel(protocol.id, baseUrl);
-      if (!value) {
+      const selected = value.trim() || getDefaultModel(protocol.id, baseUrl);
+      if (!selected) {
         setError(t("setup.modelRequired"));
         return;
       }
@@ -118,52 +119,60 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
         protocol: protocol.id,
         apiBase: baseUrl,
         apiKey,
-        model: value,
+        model: selected,
       });
     }
   };
 
   useInput((input, key) => {
+    // The terminal can deliver the typed run and the Enter together, and some
+    // send Enter as a bare "\n": both must act as Enter, or setup looks hung.
+    const coalesced = key.shift ? null : splitTrailingEnter(input);
+    const typed = coalesced?.body ?? input;
+    const enter = key.return || coalesced !== null;
+
     if (key.escape) {
       cancel();
       return;
     }
 
     if (step === "protocol") {
-      if (/^[1-9]$/.test(input)) {
-        const index = Number.parseInt(input, 10) - 1;
+      // A digit chooses; the same read can carry the Enter that confirms it.
+      let chosen = protocolIndex;
+      if (/^[1-9]$/.test(typed)) {
+        const index = Number.parseInt(typed, 10) - 1;
         if (index < PROTOCOLS.length) {
+          chosen = index;
           setProtocolIndex(index);
           setError(undefined);
         }
-        return;
-      }
-
-      if (key.upArrow) {
+        if (!enter) {
+          return;
+        }
+      } else if (key.upArrow) {
         setProtocolIndex((index) =>
           index === null ? PROTOCOLS.length - 1 : Math.max(0, index - 1),
         );
+        return;
       } else if (key.downArrow) {
         setProtocolIndex((index) =>
           index === null ? 0 : Math.min(PROTOCOLS.length - 1, index + 1),
         );
-      } else if (key.return) {
-        if (protocolIndex === null) {
+        return;
+      }
+
+      if (enter) {
+        if (chosen === null) {
           setError(t("setup.protocolRequired"));
           return;
         }
-        const selected = PROTOCOLS[protocolIndex];
+        const selected = PROTOCOLS[chosen];
         setProtocol(selected);
         setBaseUrl("");
         setModel("");
         setError(undefined);
         setStep("baseUrl");
       }
-      return;
-    }
-
-    if (key.return) {
-      submit(step);
       return;
     }
 
@@ -177,9 +186,14 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
       return;
     }
 
-    const printable = input.replace(/[\u0000-\u001f\u007f]/g, "");
+    const printable = typed.replace(/[\u0000-\u001f\u007f]/g, "");
+    const nextValue = valueFor(step) + printable;
     if (printable) {
-      setValueFor(step, valueFor(step) + printable);
+      setValueFor(step, nextValue);
+    }
+
+    if (enter) {
+      submit(step, nextValue);
     }
   });
 

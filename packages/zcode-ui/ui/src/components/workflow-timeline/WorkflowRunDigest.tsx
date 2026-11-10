@@ -263,9 +263,9 @@ export function WorkflowRunDigest({
       {shown === undefined || !hasRail ? null : (
         // 收起时只隐藏代理，保留阶段线作为运行进度概览。
         <div
-          className={cn("wf-digest-plot overflow-hidden")}
+          className={cn("wf-digest-plot overflow-hidden grid")}
           data-testid="workflow-digest-plot"
-          style={{ height: timelineHeight(shown) + 8 }}
+          style={{ gridTemplateRows: `${timelineHeight(shown) + 8}px` }}
         >
           <WorkflowTimeline
             className="py-1"

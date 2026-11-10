@@ -534,16 +534,14 @@ export function createWebUiProviderSettingsService(
     },
     async createPersonalProvider(input) {
       const state = snapshotState();
+      const templateId = input?.templateId?.trim();
       const family =
-        (input?.templateId
-          ? familyForApiType(
-              PROVIDER_TEMPLATES.find(
-                (item) => item.family === input.templateId,
-              )?.apiType,
-            )
-          : undefined) ??
-        input?.templateId ??
-        "openai";
+        (templateId
+          ? (familyForApiType(
+              PROVIDER_TEMPLATES.find((item) => item.family === templateId)
+                ?.apiType,
+            ) ?? templateId)
+          : undefined) ?? "openai";
       const existing = new Set([
         ...state.drafts.map((draft) => draft.id),
         ...((await io.read())?.models.map((entry) => entry.provider || "tnt") ??
@@ -577,7 +575,7 @@ export function createWebUiProviderSettingsService(
       const apiKey =
         access && "apiKey" in access ? (access.apiKey ?? undefined) : undefined;
       const overlayName = metadata?.providerName?.trim();
-      const nextFamily = familyForApiType(apiType) ?? family;
+      const nextFamily = familyForApiType(apiType) ?? (family || "openai");
       const values: ProviderOverlayValues = {
         ...(baseUrl ? { baseUrl } : {}),
         ...(apiKey ? { apiKey } : {}),

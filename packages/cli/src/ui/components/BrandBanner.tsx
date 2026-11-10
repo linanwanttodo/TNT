@@ -1,15 +1,14 @@
 import { Box, Text } from "ink";
 import React from "react";
 
-import type { ModelServiceState } from "../../services/types.js";
 import { getDisplayableAsciiArt } from "../../startup/asciiArt.js";
-import { useServices } from "../hooks/useService.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 
 /**
  * The intro header, laid out like the reference CLI's: a compact four-row
- * wordmark on the left with the name, version and selected model to its
- * right, top-aligned, in the terminal's top-left corner. Static on purpose.
+ * wordmark on the left with the name and version to its right, top-aligned, in
+ * the terminal's top-left corner. The model lives in the status row instead.
+ * Static on purpose.
  */
 const LOGO_ROWS = [
   "███████  ██   ██  ███████",
@@ -26,11 +25,19 @@ interface BrandBannerProps {
 
 export const BrandBanner: React.FC<BrandBannerProps> = ({ version }) => {
   const { columns } = useTerminalSize();
-  const { services } = useServices<{ model: ModelServiceState }>(["model"]);
-  const modelName = services.model?.model?.name;
 
   if (columns < 44 || process.env.NO_COLOR) {
-    return <Text>{getDisplayableAsciiArt()}</Text>;
+    return (
+      <Box
+        flexDirection="column"
+        paddingLeft={1}
+        marginTop={1}
+        marginBottom={1}
+      >
+        <Text>{getDisplayableAsciiArt()}</Text>
+        <Text>TNT CLI v{version}</Text>
+      </Box>
+    );
   }
 
   return (
@@ -47,8 +54,6 @@ export const BrandBanner: React.FC<BrandBannerProps> = ({ version }) => {
           <Text bold>TNT CLI</Text>
           <Text color="gray"> v{version}</Text>
         </Box>
-        <Box height={1} />
-        {modelName && <Text color="gray">{modelName}</Text>}
       </Box>
     </Box>
   );

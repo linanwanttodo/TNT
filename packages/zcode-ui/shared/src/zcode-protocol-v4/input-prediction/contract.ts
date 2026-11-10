@@ -1,5 +1,4 @@
 // 手机远控输入预测（ghost hint）的 v4 只读查询线格式。
-// 规格：docs/web-remote-control/mobile-input-prediction.md。
 //
 // 两种模式共用一个方法：
 // - 草稿为空：预测用户下一条完整输入（多轮之后才有意义）；

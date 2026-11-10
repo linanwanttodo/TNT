@@ -163,7 +163,11 @@ export function updateTextBufferState(options: TextBufferStateOptions) {
     inputHistory,
   } = options;
 
-  // Skip state updates during rapid input mode to avoid conflicts with timer-based updates
+  // A buffered paste would otherwise leave stale composer text on screen;
+  // small input during a paste burst settles the buffer instead of waiting.
+  if (textBuffer.isInRapidInputMode() && textBuffer.flushPendingInput()) {
+    // Continue below so palette state follows the settled buffer.
+  }
   if (!textBuffer.isInRapidInputMode()) {
     const newText = textBuffer.text;
     const newCursor = textBuffer.cursor;

@@ -58,7 +58,6 @@ import {
   createCodingPlanFunnelContext,
   resolveCodingPlanEntryPlanState,
 } from "@/lib/codingPlanFunnelTelemetry.js";
-import { useCodingPlanUpgradeDialog } from "@/settings/CodingPlanUpgradeDialogProvider.js";
 import { useProviderSettingsView } from "@/hooks/useProviderSettingsView.js";
 import type { ProviderSettingsView } from "@zcode/services";
 import type { SavePersonalModelDraftInput } from "@zcode/provider";
@@ -305,7 +304,6 @@ export function ModelProviderSectionDetail({
   providerSettingsView?: ProviderSettingsView | null;
 }) {
   const { intl } = useZCodeIntl();
-  const { openCodingPlanUpgrade } = useCodingPlanUpgradeDialog();
   const loadingLabel = intl.formatMessage({ id: "common.loading" });
   const [upgradePlansVisibleProviderId, setUpgradePlansVisibleProviderId] =
     useState<BuiltinModelProviderId | null>(null);
@@ -553,32 +551,6 @@ export function ModelProviderSectionDetail({
         );
         return;
       }
-      const nextFunnelContext = createCodingPlanFunnelContext({
-        providerId: selectedNavItem.presetId,
-        upgradeSource:
-          audience === "team" ? "setting_team_plan_banner" : "setting_personal_plan_banner",
-        eventRegion: "app.setting",
-        eventText:
-          options.eventText ??
-          intl.formatMessage({
-            id:
-              audience === "team"
-                ? "settings.modelProvider.codingPlan.purchaseBanner.teamTitle"
-                : "settings.modelProvider.codingPlan.purchaseBanner.personalTitle",
-          }),
-        entryPlanState: resolveCodingPlanEntryPlanState({
-          displayStatus: statusPanelViewState.displayStatus,
-          providerId: selectedNavItem.presetId,
-          planLevel: selectedNavItem.planLevel,
-        }),
-        purchaseAudience: audience,
-      });
-      openCodingPlanUpgrade({
-        providerId: selectedNavItem.presetId,
-        initialAudience: audience,
-        initialTeamPlanKey: options.initialTeamPlanKey,
-        funnelContext: nextFunnelContext,
-      });
     };
     const codingPlanFamilyHeader = (
       <ProviderFamilyHeader selectedNavItem={selectedNavItem} trailingAction={planModeSwitch} />
@@ -690,13 +662,7 @@ export function ModelProviderSectionDetail({
               options,
             );
           }}
-          onOpenUpgradePlans={(options) => {
-            openCodingPlanUpgrade({
-              providerId: selectedNavItem.presetId,
-              initialAudience: options.initialAudience,
-              funnelContext: options.funnelContext ?? undefined,
-            });
-          }}
+          onOpenUpgradePlans={() => undefined}
           upgradePlansVisible={upgradePlansVisible}
           onUpgradePlansVisibleChange={handleUpgradePlansVisibleChange}
           purchaseInitialAudience={selectedNavItem.type === "teamPlan" ? "team" : "personal"}
@@ -810,13 +776,7 @@ export function ModelProviderSectionDetail({
                 : undefined
             }
             disconnectLoading={codingPlanDisconnectProviderId === selectedNavItem.presetId}
-            onOpenUpgradePlans={(options) => {
-              openCodingPlanUpgrade({
-                providerId: selectedNavItem.presetId,
-                initialAudience: options.initialAudience,
-                funnelContext: options.funnelContext ?? undefined,
-              });
-            }}
+            onOpenUpgradePlans={() => undefined}
             upgradePlansVisible={upgradePlansVisible}
             onUpgradePlansVisibleChange={handleUpgradePlansVisibleChange}
             purchaseInitialAudience={selectedNavItem.type === "teamPlan" ? "team" : "personal"}
@@ -1013,14 +973,8 @@ function CodingPlanPurchaseChoiceBanners({
           key={item.key}
           type="button"
           className={item.className}
-          disabled={
-            !accountDisconnected && item.key !== "startPlan" && entryGate.status === "loading"
-          }
+          disabled={false}
           onClick={() => {
-            if (!accountDisconnected && item.key !== "startPlan" && entryGate.status !== "ready") {
-              entryGate.retry?.();
-              return;
-            }
             item.onClick?.();
           }}
         >
