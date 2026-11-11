@@ -57,6 +57,8 @@ export interface ComposerHintsProps {
 /**
  * The single hint row under the composer. The row is always allocated so a
  * transient hint cannot move the input by a row and restart the layout.
+ * Idle carries no occupancy filler: command discovery lives in the "/" slash
+ * menu.
  */
 export const ComposerHints: React.FC<ComposerHintsProps> = ({
   wasInterrupted,

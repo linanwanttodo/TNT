@@ -954,6 +954,11 @@ const UserInput: React.FC<UserInputProps> = ({
 
   const handleEnterKey = (key: any): boolean => {
     if (key.return && !key.shift) {
+      // Flush a stranded paste before submit so Enter does not send a blank
+      // line while the silence timer still holds the real content.
+      if (textBuffer.flushPasteMode()) {
+        handleTextBufferUpdateRef.current();
+      }
       if (textBuffer.text.trim() === "/") {
         return true;
       }

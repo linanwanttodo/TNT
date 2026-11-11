@@ -4010,9 +4010,11 @@ export function SessionPane({
             taskGroupId,
           );
         } catch (error) {
-          if (sessionId === null && isProviderNotReadyError(error)) {
+          if (isProviderNotReadyError(error)) {
             // UI 预检查与 Host getClient 之间 registry 仍可能失效。竞态命中时收敛成
-            // 同一个正常等待态，不走异常发送路径，也不清空 composer。
+            // 同一个正常等待态，不走异常发送路径，也不清空 composer。已有会话同样
+            // 收敛：注册表失效时静默 re-throw 的结果就是“点击没反应”，横幅才是
+            // 用户能行动的反馈。
             markDraftProviderNotReady();
             return "blocked" as const;
           }
