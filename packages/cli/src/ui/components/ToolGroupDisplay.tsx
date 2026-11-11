@@ -16,6 +16,7 @@ import { useBlink } from "../hooks/useBlink.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
 import { claudeGlyphs } from "../symbols.js";
 import { useTheme, type Theme } from "../theme/tokens.js";
+import { useToolOutputExpanded } from "../toolOutputFold.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import {
@@ -286,7 +287,11 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
 
   const terminal = isTerminalStatus(toolState.status);
   const panelRef = useRef<DOMElement>(null);
-  const [expanded, setExpanded] = useState(!terminal);
+  // The reference CLI owns the fold on ctrl+o; a click keeps its per-block
+  // override and the global sets the default.
+  const globalExpanded = useToolOutputExpanded();
+  const [override, setOverride] = useState<boolean | null>(null);
+  const expanded = override ?? (globalExpanded || !terminal);
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const wasTerminal = useRef(terminal);
   const startedAt = useRef<number | null>(null);
@@ -296,7 +301,7 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
   // later in a resumed session starts folded, since no clock was observed.
   useEffect(() => {
     if (terminal && !wasTerminal.current) {
-      setExpanded(false);
+      setOverride(false);
     }
     wasTerminal.current = terminal;
   }, [terminal]);
@@ -317,7 +322,7 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
   }, [terminal, durationMs]);
 
   useClickRegion(panelRef, () => {
-    setExpanded((current) => !current);
+    setOverride(!(override ?? (globalExpanded || !terminal)));
   });
 
   // Folding, unfolding and adding the duration row change this panel's height
@@ -338,9 +343,9 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
     preview.hiddenAbove > 0
       ? `... (${preview.hiddenAbove} earlier ${
           preview.hiddenAbove === 1 ? "line" : "lines"
-        }, click to expand)`
+        }, ctrl+o to expand)`
       : expanded && output
-        ? "click to collapse"
+        ? "ctrl+o to collapse"
         : "";
 
   const titleRow = (
@@ -370,7 +375,7 @@ export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
   );
 
   return (
-    <Box ref={panelRef} flexDirection="column" width="100%" marginTop={1}>
+    <Box ref={panelRef} flexDirection="column" width="100%">
       <Box flexDirection="row" width="100%">
         <Box minWidth={2} flexShrink={0}>
           <Text color={dot.color} dimColor={dot.dim}>

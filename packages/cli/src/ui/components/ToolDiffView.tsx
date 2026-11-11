@@ -238,9 +238,9 @@ export const ToolDiffView = memo<ToolDiffViewProps>(
       hiddenAbove > 0
         ? `... (${hiddenAbove} earlier ${
             hiddenAbove === 1 ? "line" : "lines"
-          }, click to expand)`
+          }, ctrl+o to expand)`
         : expanded
-          ? "click to collapse"
+          ? "ctrl+o to collapse"
           : "";
 
     if (total === 0) {

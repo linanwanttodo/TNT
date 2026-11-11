@@ -5,6 +5,7 @@ import { logger } from "../../utils/logger.js";
 import { requestComposerDraft } from "../composerDraft.js";
 import { toggleReasoningExpanded } from "../reasoningFold.js";
 import type { TextBuffer } from "../TextBuffer.js";
+import { toggleToolOutputExpanded } from "../toolOutputFold.js";
 
 // Helper function to handle control keys
 interface ControlKeysOptions {
@@ -116,9 +117,11 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
     return true;
   }
 
-  // Toggle reasoning rows between the first line and the full thought.
+  // Toggle reasoning rows between the first line and the full thought. The
+  // tool-output previews fold on the same key, as in the reference CLI.
   if (key.ctrl && input === "o") {
     toggleReasoningExpanded();
+    toggleToolOutputExpanded();
     return true;
   }
 

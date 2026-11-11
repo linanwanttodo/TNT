@@ -90,7 +90,7 @@ describe("ToolDiffView Component", () => {
       />,
     );
 
-    expect(frame).toContain("earlier lines, click to expand");
+    expect(frame).toContain("earlier lines, ctrl+o to expand");
     expect(frame).toContain("line5");
     expect(frame).toContain("line4");
     expect(frame).not.toContain("line1");
@@ -105,7 +105,7 @@ describe("ToolDiffView Component", () => {
     expect(frame).toContain("-");
     expect(frame).toContain("line2_modified");
     expect(frame).toContain("line2");
-    expect(frame).toContain("click to collapse");
+    expect(frame).toContain("ctrl+o to collapse");
   });
 
   it("renders with custom Tencent dark and light themes without crashing", () => {

@@ -273,7 +273,7 @@ describe("ToolItemDisplay", () => {
     expect(frame).toContain("output-line-10");
     expect(frame).toContain("output-line-7");
     expect(frame).not.toContain("output-line-1\n");
-    expect(frame).toContain("... (6 earlier lines, click to expand)");
+    expect(frame).toContain("... (6 earlier lines, ctrl+o to expand)");
   });
 
   it("expands the folded output when the panel is clicked", async () => {
@@ -316,7 +316,7 @@ describe("ToolItemDisplay", () => {
 
       const frame = tree.lastFrame() ?? "";
       expect(frame).toContain("output-line-1");
-      expect(frame).toContain("click to collapse");
+      expect(frame).toContain("ctrl+o to collapse");
     } finally {
       tree.unmount();
     }
@@ -345,7 +345,7 @@ describe("ToolItemDisplay", () => {
 
       const frame = tree.lastFrame() ?? "";
       expect(frame).toContain("output-line-10");
-      expect(frame).toContain("earlier lines, click to expand");
+      expect(frame).toContain("earlier lines, ctrl+o to expand");
       expect(frame).not.toContain("output-line-1\n");
     } finally {
       tree.unmount();
@@ -393,7 +393,7 @@ describe("ToolItemDisplay", () => {
 
       const frame = tree.lastFrame() ?? "";
       expect(frame).toContain("· +1 -1");
-      expect(frame).toContain("click to expand");
+      expect(frame).toContain("ctrl+o to expand");
     } finally {
       tree.unmount();
     }
@@ -474,7 +474,7 @@ describe("ToolGroupDisplay", () => {
     expect(second.indexOf("WriteFile")).toBe(2);
   });
 
-  it("separates consecutive calls with a blank row and one dot each", () => {
+  it("draws one dot per call and sits tight between consecutive calls", () => {
     const toolStates: ToolCallState[] = [
       mockToolState({ toolCallId: "call-1" }),
       mockToolState({ toolCallId: "call-2" }),
@@ -486,10 +486,9 @@ describe("ToolGroupDisplay", () => {
     );
 
     expect(lines.filter((line) => line.includes(DOT))).toHaveLength(3);
-    // Each call opens with its own blank row before its dot.
-    expect(
-      lines.filter((line) => line.trim() === "").length,
-    ).toBeGreaterThanOrEqual(3);
+    // Consecutive calls sit tight, as in the reference CLI: no blank row is
+    // reserved per call.
+    expect(lines.filter((line) => line.trim() === "").length).toBe(0);
   });
 
   it("renders diff output with dedicated diff view and addition/deletion summary", () => {

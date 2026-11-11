@@ -34,15 +34,22 @@ describe("QueuedMessages", () => {
     expect(frame.indexOf("first")).toBeLessThan(frame.indexOf("second"));
   });
 
-  it("leaves the queue controls to the composer footer", () => {
+  it("trails the queue controls on the last queued row only", () => {
     const frame = frameOf(
       <QueuedMessages
         messages={[message("a", "first"), message("b", "second")]}
       />,
     );
 
-    expect(frame).not.toContain("ctrl+x remove");
-    expect(frame).not.toContain("ctrl+r edit");
+    // The controls belong on the rows, as in the reference CLI: one copy,
+    // trailing the newest entry, so no dedicated footer row is kept.
+    expect(frame).toContain("ctrl+x remove");
+    expect(frame).toContain("ctrl+r edit");
+    expect(frame.split("ctrl+x remove").length - 1).toBe(1);
+    // The controls trail the newest entry, not the first.
+    expect(frame.indexOf("ctrl+x remove")).toBeGreaterThan(
+      frame.indexOf("[queued] first"),
+    );
   });
 
   it("flattens a multi-line message into one row", () => {

@@ -22,6 +22,26 @@ function createMockChatHistoryItem(
 
 describe("messageHistorySplitting", () => {
   describe("splitChatHistory", () => {
+    it("never splits a user message, however bloated the served prompt is", () => {
+      // The served prompt leads with injected reminders (skill notes,
+      // context), which alone exceed the height threshold. Splitting copied
+      // the typed userText onto every chunk and the message displayed once
+      // per chunk.
+      const injected = Array(30)
+        .fill("<system-reminder>You have superpowers.</system-reminder>")
+        .join("\n\n");
+      const chatHistory = [
+        createMockChatHistoryItem(`${injected}\n\nhi,您是什么模型?`, "user"),
+      ];
+
+      const result = splitChatHistory(chatHistory, 80);
+
+      expect(result).toHaveLength(1);
+      expect(
+        (result[0] as SplitChatHistoryItem)[SPLIT_CONTINUATION],
+      ).toBeUndefined();
+    });
+
     it("should split multiple large messages in chat history", () => {
       const chatHistory = [
         createMockChatHistoryItem("Short message 1"),

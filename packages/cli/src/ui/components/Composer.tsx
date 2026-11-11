@@ -4,11 +4,10 @@ import React, { useRef } from "react";
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { t } from "../../i18n/index.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
-import { theme } from "../theme/tokens.js";
+import { theme, useTheme } from "../theme/tokens.js";
 import type { ThemeName } from "../theme/tokens.js";
 
 import { BottomStatusBar } from "./BottomStatusBar.js";
-import { ComposerHints } from "./ComposerHints.js";
 import { ResourceDebugBar } from "./ResourceDebugBar.js";
 import { ScreenContent } from "./ScreenContent.js";
 
@@ -75,6 +74,25 @@ interface ComposerProps {
  * (usually the composer), the verbose debug bar and the status bar. It is the
  * bottom of the Ink frame, directly under the live transcript rows.
  */
+/**
+ * The transient interruption notice, between the input and the bottom bar: it
+ * appears only while the last turn was interrupted, in the conversation's dim
+ * tone, and leaves once the session continues - no dedicated row is kept.
+ */
+export const InterruptedNotice: React.FC<{ visible: boolean }> = ({
+  visible,
+}) => {
+  const activeTheme = useTheme();
+  if (!visible) return null;
+  return (
+    <Box paddingX={2} flexShrink={0}>
+      <Text color={activeTheme.text.subtle} dimColor>
+        {t("interrupted.message")}
+      </Text>
+    </Box>
+  );
+};
+
 export const Composer: React.FC<ComposerProps> = (props) => {
   const hintRef = useRef<DOMElement>(null);
 
@@ -134,15 +152,11 @@ export const Composer: React.FC<ComposerProps> = (props) => {
         subagentView={props.subagentView}
       />
 
-      <ComposerHints
-        wasInterrupted={props.wasInterrupted}
-        queuedCount={props.queuedCount}
-        working={props.isWaitingForResponse || props.isCompacting}
-      />
-
       {props.isVerboseMode && !props.isRemoteMode && (
         <ResourceDebugBar visible={props.navState.currentScreen === "chat"} />
       )}
+
+      <InterruptedNotice visible={props.wasInterrupted} />
 
       <BottomStatusBar
         remoteUrl={props.remoteUrl}

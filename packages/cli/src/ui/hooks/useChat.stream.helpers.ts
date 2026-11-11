@@ -106,6 +106,14 @@ export function createStreamCallbacks(
     // no content for onContentComplete to report.
     onReasoningComplete: clearReasoningOverlay,
 
+    // The current round's unrecorded overlay: what the reader has watched
+    // stream but the history does not hold yet. An interrupted turn records
+    // it, so the partial answer and the reasoning survive the abort.
+    getAccumulated: () => ({
+      text: pendingStreamText ?? "",
+      reasoning: pendingReasoning ?? "",
+    }),
+
     onContentComplete: async (content: string) => {
       clearStreamOverlay();
       clearReasoningOverlay();

@@ -77,8 +77,8 @@ export const darkTheme: Theme = {
   status: {
     success: "green",
     error: "red",
-    warning: "yellow",
-    running: "yellow",
+    warning: "gray",
+    running: "gray",
     idle: "gray",
   },
   border: {
@@ -262,7 +262,7 @@ export const claudeTheme: Theme = {
   status: {
     success: "rgb(78,186,101)",
     error: "rgb(255,107,128)",
-    warning: "rgb(255,193,7)",
+    warning: "rgb(153,153,153)",
     running: "rgb(215,119,87)",
     idle: "rgb(153,153,153)",
   },
