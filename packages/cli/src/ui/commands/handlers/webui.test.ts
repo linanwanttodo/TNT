@@ -30,6 +30,15 @@ describe("handleWebui", () => {
     expect(closeSpy).toHaveBeenCalledTimes(1);
     expect(startSpy).not.toHaveBeenCalled();
     expect(result.output).toBeTruthy();
+    expect(result.localOnly).toBe(true);
+  });
+
+  it("keeps the pairing URL off the conversation history", async () => {
+    startSpy.mockResolvedValue({ port: 12345, token: "secret-token" });
+    const result = await handleWebui(["--no-open"]);
+
+    expect(result.output).toContain("secret-token");
+    expect(result.localOnly).toBe(true);
   });
 
   it("starts without opening a browser for --no-open", async () => {

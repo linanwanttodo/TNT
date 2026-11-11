@@ -3,6 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InterruptedNotice } from "./components/Composer.js";
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 // AppRoot subscribes a dozen services through useServices, so every case that
@@ -82,13 +83,17 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     const mockOnInterrupt = vi.fn();
 
     const { stdin, unmount } = track(
-      React.createElement(UserInput, {
-        onSubmit: mockOnSubmit,
-        isWaitingForResponse: false,
-        inputMode: true,
-        onInterrupt: mockOnInterrupt,
-        wasInterrupted: true, // Interrupted state
-      }),
+      React.createElement(
+        KeypressProvider,
+        null,
+        React.createElement(UserInput, {
+          onSubmit: mockOnSubmit,
+          isWaitingForResponse: false,
+          inputMode: true,
+          onInterrupt: mockOnInterrupt,
+          wasInterrupted: true, // Interrupted state
+        }),
+      ),
     );
 
     try {
@@ -102,24 +107,34 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     }
   });
 
-  it("calls onSubmit with typed content when typing new message after interruption", () => {
+  it("calls onSubmit with typed content when typing new message after interruption", async () => {
+    // Real timers: the parser's fast-return window needs a real pause between
+    // the typed run and the confirming Enter.
+    vi.useRealTimers();
     const mockOnSubmit = vi.fn();
     const mockOnInterrupt = vi.fn();
 
     const { stdin, unmount } = track(
-      React.createElement(UserInput, {
-        onSubmit: mockOnSubmit,
-        isWaitingForResponse: false,
-        inputMode: true,
-        onInterrupt: mockOnInterrupt,
-        wasInterrupted: true, // Interrupted state
-      }),
+      React.createElement(
+        KeypressProvider,
+        null,
+        React.createElement(UserInput, {
+          onSubmit: mockOnSubmit,
+          isWaitingForResponse: false,
+          inputMode: true,
+          onInterrupt: mockOnInterrupt,
+          wasInterrupted: true, // Interrupted state
+        }),
+      ),
     );
 
     try {
-      // Type a new message
+      // Type a new message, then Enter after a real pause: the parser
+      // rewrites an Enter that lands within 30ms of typing into a newline.
       stdin.write("New message after interruption");
+      await new Promise((resolve) => setTimeout(resolve, 60));
       stdin.write("\r");
+      await new Promise((resolve) => setTimeout(resolve, 60));
 
       // Should call onSubmit with the typed content
       expect(mockOnSubmit).toHaveBeenCalledWith(
@@ -136,7 +151,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
     const mockOnInterrupt = vi.fn();
 
     const { lastFrame, unmount } = track(
-      <>
+      <KeypressProvider>
         <UserInput
           onSubmit={mockOnSubmit}
           isWaitingForResponse={false}
@@ -145,7 +160,7 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
           wasInterrupted
         />
         <InterruptedNotice visible />
-      </>,
+      </KeypressProvider>,
     );
 
     try {
@@ -156,7 +171,9 @@ describe("TUIChat - Interruption UI (Minimal Test)", () => {
       const foundInterruptionLine = frameLines.findIndex((line) =>
         line.includes("Interrupted by user"),
       );
-      const foundInputLine = frameLines.findIndex((line) => line.includes("❯"));
+      const foundInputLine = frameLines.findIndex((line) =>
+        line.includes("> "),
+      );
 
       expect(foundInterruptionLine).toBeGreaterThan(-1);
       expect(foundInputLine).toBeGreaterThan(-1);

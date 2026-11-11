@@ -1,20 +1,16 @@
 import { messageQueue } from "../../stream/messageQueue.js";
 import { backgroundSignalManager } from "../../utils/backgroundSignalManager.js";
-import { getClipboardImage } from "../../utils/clipboard.js";
-import { logger } from "../../utils/logger.js";
 import { requestComposerDraft } from "../composerDraft.js";
 import { toggleReasoningExpanded } from "../reasoningFold.js";
-import type { TextBuffer } from "../TextBuffer.js";
 import { toggleToolOutputExpanded } from "../toolOutputFold.js";
+
+import type { Key } from "./useKeypress.js";
 
 // Helper function to handle control keys
 interface ControlKeysOptions {
-  input: string;
-  key: any;
+  key: Key;
   exit: () => void;
   clearInput?: () => void;
-  textBuffer?: TextBuffer;
-  onTextBufferUpdate?: () => void;
   /**
    * False while a completion popup owns Ctrl+R or the composer is disabled;
    * the queued-message shortcuts then fall through to the focused widget.
@@ -25,35 +21,27 @@ interface ControlKeysOptions {
 }
 
 /**
- * How many Esc presses the bytes of one input event carry.
- *
- * Two quick presses reach a terminal reader either as two events or, when the
- * writes coalesce, as one `escape` event whose input still holds the second
- * ESC byte - Ink 6.8 delivers the second form. Counting the bytes is what
- * keeps "double Esc" meaning two presses: a timer that waits for a second
- * *event* never sees one, and the shortcut dies depending on how the
- * terminal buffered the keystrokes.
+ * How many escape presses one event carries. The gemini parser emits one
+ * escape event per ESC byte, so a single press is one event; the sequence is
+ * counted anyway in case a terminal coalesces the bytes into one read.
  */
-export function escapePresses(input: string, key: any): number {
-  if (!key.escape) return 0;
-  const extra = (input.match(/\x1b/g) ?? []).length;
-  return 1 + extra;
+export function escapePresses(key: Key): number {
+  if (key.name !== "escape") return 0;
+  const escapes = (key.sequence.match(/\x1b/g) ?? []).length;
+  return Math.max(1, escapes);
 }
 
 export function handleControlKeys(options: ControlKeysOptions): boolean {
   const {
-    input,
     key,
     exit,
     clearInput,
-    textBuffer,
-    onTextBufferUpdate,
     queueActionsEnabled = true,
     onOpenPalette,
   } = options;
 
   // Handle Ctrl+C with two-stage exit, Ctrl+D immediately exits
-  if (key.ctrl && input === "c") {
+  if (key.ctrl && key.name === "c") {
     // Clear input box if clearInput function is provided
     if (clearInput) {
       clearInput();
@@ -63,63 +51,36 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
     return true;
   }
 
-  // Handle Ctrl+V for clipboard paste (including images)
-  // Note: Cmd+V often doesn't work for image pasting as terminals don't send the key event
-  if (key.ctrl && input === "v" && textBuffer) {
-    logger.debug("Handling Ctrl+V clipboard paste");
-
-    // Read the image directly: the cheap status probe and the full read use
-    // different backends on a Linux box that only has the native X11 helper.
-    getClipboardImage()
-      .then((imageBuffer) => {
-        if (!imageBuffer) return;
-        try {
-          textBuffer.addImage(imageBuffer);
-          // Trigger UI update
-          if (onTextBufferUpdate) {
-            onTextBufferUpdate();
-          }
-        } catch (error) {
-          logger.debug("Error adding clipboard image:", error);
-        }
-      })
-      .catch((error) => {
-        logger.debug("Error reading clipboard image:", error);
-      });
-
-    // Don't consume the event - let normal text paste handling continue
-    return false;
-  }
-
   // Handle Ctrl+D to exit
-  if (key.ctrl && input === "d") {
+  if (key.ctrl && key.name === "d") {
     exit();
     void import("../../utils/exit.js").then(({ gracefulExit }) =>
       gracefulExit(0),
     );
+    return true;
   }
 
   // Ctrl+P opens the command list, the one key a person tries for a palette.
-  if (key.ctrl && input === "p" && onOpenPalette) {
+  if (key.ctrl && key.name === "p" && onOpenPalette) {
     onOpenPalette();
     return true;
   }
 
   // Handle Ctrl+L to refresh screen (clear terminal artifacts)
-  if (key.ctrl && input === "l") {
+  if (key.ctrl && key.name === "l") {
     process.stdout.write("\x1b[2J\x1b[H");
     return true;
   }
 
   // Handle Ctrl+B to send current tool execution to background
-  if (key.ctrl && input === "b") {
+  if (key.ctrl && key.name === "b") {
     backgroundSignalManager.signalBackground();
     return true;
   }
 
   // Toggle reasoning rows between the first line and the full thought. The
   // tool-output previews fold on the same key, as in the reference CLI.
-  if (key.ctrl && input === "o") {
+  if (key.ctrl && key.name === "o") {
     toggleReasoningExpanded();
     toggleToolOutputExpanded();
     return true;
@@ -127,12 +88,16 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
 
   // Queued-message actions apply to the newest entry: the one a person just
   // added and is most likely to want back.
-  if (queueActionsEnabled && key.ctrl && (input === "x" || input === "r")) {
+  if (
+    queueActionsEnabled &&
+    key.ctrl &&
+    (key.name === "x" || key.name === "r")
+  ) {
     const queued = messageQueue.getAllMessages();
     const newest = queued[queued.length - 1];
     if (newest) {
       messageQueue.removeMessage(newest.id);
-      if (input === "r") {
+      if (key.name === "r") {
         requestComposerDraft(newest.message);
       }
     }
@@ -140,45 +105,4 @@ export function handleControlKeys(options: ControlKeysOptions): boolean {
   }
 
   return false;
-}
-
-// Helper to update text buffer state
-interface TextBufferStateOptions {
-  handled: boolean;
-  textBuffer: any;
-  setInputText: (text: string) => void;
-  setCursorPosition: (pos: number) => void;
-  updateSlashCommandState: (text: string, cursor: number) => void;
-  updateFileSearchState: (text: string, cursor: number) => void;
-  updateBashModeState: (text: string) => void;
-  inputHistory: any;
-}
-
-export function updateTextBufferState(options: TextBufferStateOptions) {
-  const {
-    handled: _handled,
-    textBuffer,
-    setInputText,
-    setCursorPosition,
-    updateSlashCommandState,
-    updateFileSearchState,
-    updateBashModeState,
-    inputHistory,
-  } = options;
-
-  // A buffered paste would otherwise leave stale composer text on screen;
-  // small input during a paste burst settles the buffer instead of waiting.
-  if (textBuffer.isInRapidInputMode() && textBuffer.flushPendingInput()) {
-    // Continue below so palette state follows the settled buffer.
-  }
-  if (!textBuffer.isInRapidInputMode()) {
-    const newText = textBuffer.text;
-    const newCursor = textBuffer.cursor;
-    setInputText(newText);
-    setCursorPosition(newCursor);
-    updateSlashCommandState(newText, newCursor);
-    updateFileSearchState(newText, newCursor);
-    updateBashModeState(newText);
-    inputHistory.resetNavigation();
-  }
 }

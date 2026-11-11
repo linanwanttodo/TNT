@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { services } from "../services/index.js";
 
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 const { fileIndexState } = vi.hoisted(() => ({
@@ -45,12 +46,14 @@ const tick = (ms = 80) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const renderInput = async (onSubmit = vi.fn()) => {
   const tree = render(
-    <UserInput
-      onSubmit={onSubmit}
-      inputMode={true}
-      isWaitingForResponse={false}
-      assistant={{} as any}
-    />,
+    <KeypressProvider>
+      <UserInput
+        onSubmit={onSubmit}
+        inputMode={true}
+        isWaitingForResponse={false}
+        assistant={{} as any}
+      />
+    </KeypressProvider>,
   );
   await tick();
   return { tree, onSubmit };

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { services } from "../services/index.js";
 
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 const tick = (ms = 120) => new Promise((r) => setTimeout(r, ms));
@@ -15,12 +16,14 @@ const tick = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 describe("UserInput Shift+Tab cycle", () => {
   const renderInput = async () => {
     const tree = render(
-      <UserInput
-        onSubmit={vi.fn()}
-        inputMode={true}
-        isWaitingForResponse={false}
-        assistant={{} as any}
-      />,
+      <KeypressProvider>
+        <UserInput
+          onSubmit={vi.fn()}
+          inputMode={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
     );
     await tick();
     return tree;
@@ -45,11 +48,13 @@ describe("UserInput Shift+Tab cycle", () => {
         badges.push(tree.lastFrame() ?? "");
       }
 
-      expect(badges[1]).toContain("[Accept edits]");
-      expect(badges[2]).toContain("[Plan]");
-      expect(badges[3]).toContain("[Auto]");
-      expect(badges[4]).toContain("[Bypass permissions]");
-      expect(badges[5]).toContain("[Manual]");
+      // The mode badge moved into the footer row: a plain label, no
+      // bracketed border decoration.
+      expect(badges[1]).toContain("Accept edits");
+      expect(badges[2]).toContain("Plan");
+      expect(badges[3]).toContain("Auto");
+      expect(badges[4]).toContain("Bypass permissions");
+      expect(badges[5]).toContain("Manual");
       // The menu is gone: no entries, no navigation hint.
       expect(badges[1]).not.toContain("Ask before writes and commands");
       expect(badges[1]).not.toContain("Esc to cancel");

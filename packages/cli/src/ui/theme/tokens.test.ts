@@ -110,7 +110,7 @@ describe("Theme system", () => {
     expect(preset.text.subtle).toBe("rgb(80,80,80)");
     expect(preset.status.success).toBe("rgb(78,186,101)");
     expect(preset.status.error).toBe("rgb(255,107,128)");
-    expect(preset.status.warning).toBe("rgb(255,193,7)");
+    expect(preset.status.warning).toBe("rgb(153,153,153)");
   });
 
   it("keeps the default theme unchanged", () => {

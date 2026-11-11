@@ -32,6 +32,7 @@ import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
 import { composeServedPrompt } from "../../utils/promptNotes.js";
+import { liveHub } from "../../webuiZcode/liveHub.js";
 import { handleSlashCommands } from "../commands/index.js";
 import { notifyTurnComplete } from "../notify.js";
 
@@ -396,6 +397,9 @@ export function useChat({
     setAbortController(controller);
     setIsWaitingForResponse(true);
     turnRunningRef.current = true;
+    // The shared view learns the turn began and what it answers, the same
+    // way the terminal shows the typed line (atomcode's input echo).
+    liveHub.publishTurnStarted(lastUserMessageRef.current ?? "");
     setResponseStartTime(Date.now());
     setInputMode(false);
     logger.debug("Starting chat response stream", {
@@ -406,7 +410,7 @@ export function useChat({
     // watching when the round died.
     let streamCallbacks: any = null;
     try {
-      streamCallbacks = createStreamCallbacks({
+      const baseCallbacks = createStreamCallbacks({
         setChatHistory: setChatHistory,
         setActivePermissionRequest,
         llmApi,
@@ -417,6 +421,36 @@ export function useChat({
         onStreamingText: setStreamingText,
         onStreamingReasoning: setStreamingReasoning,
       });
+      // The shared view follows the same stream the terminal renders. The
+      // base callbacks stay first so the screen never depends on the hub.
+      streamCallbacks = {
+        ...baseCallbacks,
+        onContent: (content: string) => {
+          baseCallbacks.onContent?.(content);
+          liveHub.publishContent(content);
+        },
+        onReasoning: (delta: string) => {
+          baseCallbacks.onReasoning?.(delta);
+          liveHub.publishReasoning(delta);
+        },
+        onToolStart: (
+          toolName: string,
+          toolArgs?: unknown,
+          toolCallId?: string,
+        ) => {
+          baseCallbacks.onToolStart?.(toolName, toolArgs, toolCallId);
+          liveHub.publishToolStarted(toolName, toolArgs, toolCallId);
+        },
+        onToolResult: (
+          result: string,
+          toolName: string,
+          status: any,
+          toolCallId?: string,
+        ) => {
+          baseCallbacks.onToolResult?.(result, toolName, status, toolCallId);
+          liveHub.publishToolFinished(toolName, status, result, toolCallId);
+        },
+      };
 
       // Execute streaming chat response
       await executeStreaming({
@@ -427,6 +461,11 @@ export function useChat({
         streamCallbacks,
         currentCompactionIndex,
         maxSteps,
+      });
+
+      // The shared view closes the turn with the same answer it streamed.
+      liveHub.publishTurnCompleted({
+        content: streamCallbacks?.getAccumulated()?.text ?? "",
       });
 
       // Save the updated session with the latest chat history that includes the assistant's reply
@@ -461,9 +500,11 @@ export function useChat({
       }
 
       if (controller.signal.aborted) {
+        liveHub.publishTurnCompleted({ interrupted: true });
         setWasInterrupted(true);
       } else {
         const errorMessage = `Error: ${formatError(error)}`;
+        liveHub.publishTurnFailed(errorMessage);
         setChatHistory((prev) => [
           ...prev,
           {
@@ -597,6 +638,7 @@ export function useChat({
       onShowThemeSelector,
       onShowExportSelector,
       onClear,
+      onShowStatusMessage,
     });
 
     // A prompt command falls through to start a turn of its own; mid-turn

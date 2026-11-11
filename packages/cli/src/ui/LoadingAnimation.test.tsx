@@ -38,8 +38,19 @@ describe("LoadingAnimation", () => {
     expect(frameOf(<LoadingAnimation visible={false} />)).toBe("");
   });
 
-  it("uses Claude Code's six-frame set", () => {
-    expect(SPINNER_FRAMES).toEqual(["·", "✢", "✱", "✶", "✻", "✽"]);
+  it("uses the gemini braille dot set", () => {
+    expect(SPINNER_FRAMES).toEqual([
+      "⠋",
+      "⠙",
+      "⠹",
+      "⠸",
+      "⠼",
+      "⠴",
+      "⠦",
+      "⠧",
+      "⠇",
+      "⠏",
+    ]);
     expect(new Set(SPINNER_FRAMES).size).toBe(SPINNER_FRAMES.length);
     for (const frame of SPINNER_FRAMES) {
       expect([...frame]).toHaveLength(1);
@@ -62,7 +73,9 @@ describe("LoadingAnimation", () => {
       expect(tree.lastFrame()).toBe(SPINNER_FRAMES[1]);
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(SPINNER_INTERVAL_MS * 5);
+        await vi.advanceTimersByTimeAsync(
+          SPINNER_INTERVAL_MS * (SPINNER_FRAMES.length - 1),
+        );
       });
       expect(tree.lastFrame()).toBe(SPINNER_FRAMES[0]);
     } finally {

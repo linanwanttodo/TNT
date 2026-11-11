@@ -20,8 +20,8 @@ describe("TUIChat - Message Display Tests", () => {
     // Should show the interface
     expect(frame).toContain("Ask anything");
 
-    // Should have the composer's top rule with the mode badge.
-    expect(frame).toContain("[Manual]");
+    // The mode badge lives in the footer row under the input box.
+    expect(frame).toContain("Manual");
 
     // Mode-specific assertions
     if (mode === "remote") {

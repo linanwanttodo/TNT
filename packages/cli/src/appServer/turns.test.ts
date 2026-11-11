@@ -387,6 +387,81 @@ describe("app-server turns and v4 conversation frames", () => {
     expectsTerminal(events);
   });
 
+  it("stops the in-flight turn when the browser sends a stale sessionId", async () => {
+    // A directory switch or a resumed task leaves the browser holding an id
+    // that no longer matches the running turn. The stop must still reach the
+    // one turn this process can be running.
+    const sessionId = await createSession();
+    const started = deferred();
+    executor = async (turn, signal) => {
+      publishAgentEvent({
+        sessionId: turn.sessionId,
+        turnId: "turn-stale-stop",
+        seq: 1,
+        timestamp: 2_000,
+        type: "turn.started",
+        model: "test-model",
+        historyLength: 0,
+      });
+      publishAgentEvent({
+        sessionId: turn.sessionId,
+        turnId: "turn-stale-stop",
+        seq: 2,
+        timestamp: 2_010,
+        type: "content.delta",
+        delta: "partial",
+      });
+      started.resolve();
+      await new Promise<void>((resolve) => {
+        signal.addEventListener(
+          "abort",
+          () => {
+            publishAgentEvent({
+              sessionId: turn.sessionId,
+              turnId: "turn-stale-stop",
+              seq: 3,
+              timestamp: 2_020,
+              type: "turn.interrupted",
+              reason: "user_abort",
+            });
+            resolve();
+          },
+          { once: true },
+        );
+      });
+    };
+    const live = new AppServerProtocol(sender, new SessionRegistry(root), {
+      runTurn: executor,
+      pump,
+      ensureServices: async () => undefined,
+    });
+    protocol.dispose();
+    protocol = live;
+
+    await protocol.handle({
+      id: "sub",
+      method: "session/subscribe",
+      params: { sessionId, deliveryKind: "desktop-continuous" },
+    });
+    await protocol.handle({
+      id: "send",
+      method: "session/send",
+      params: { sessionId, content: "hi" },
+    });
+    await started.promise;
+    await protocol.handle({
+      id: "stop",
+      method: "session/stop",
+      params: { sessionId: "workspace-scoped-stale-id" },
+    });
+    await pump.whenIdle();
+
+    const events = sender
+      .notifications("session/event")
+      .map((message) => zcodeSessionEventSchema.parse(message.params));
+    expectsTerminal(events);
+  });
+
   it("answers v4 subscribe with an ack plus a snapshot wire frame and streams rows", async () => {
     const sessionId = await createSession();
     await protocol.handle({

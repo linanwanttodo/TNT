@@ -1,6 +1,7 @@
 import React from "react";
 
 import { NavigationProvider } from "./context/NavigationContext.js";
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { TUIChat } from "./TUIChat.js";
 
 interface AppRootProps {
@@ -23,8 +24,10 @@ interface AppRootProps {
  */
 export const AppRoot: React.FC<AppRootProps> = (props) => {
   return (
-    <NavigationProvider>
-      <TUIChat {...props} />
-    </NavigationProvider>
+    <KeypressProvider>
+      <NavigationProvider>
+        <TUIChat {...props} />
+      </NavigationProvider>
+    </KeypressProvider>
   );
 };

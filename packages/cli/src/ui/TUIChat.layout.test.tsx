@@ -82,26 +82,27 @@ describe("TUIChat layout", () => {
         line.includes("Ask anything"),
       );
       expect(composerIndex).toBeGreaterThan(-1);
-      // The mode rule and the closing rule frame the input without side rails.
-      expect(content[composerIndex - 1]).toContain("[Auto]");
-      expect(content[composerIndex + 1].replace(/─/g, "").trim()).toBe("");
+      // The gemini-style box has no rule lines; the footer row below it
+      // carries the mode and the working directory.
+      expect(frame).not.toContain("[Auto]");
+      const footer = content[composerIndex + 1];
+      expect(footer).toContain("Auto");
       expect(content.some((line) => line.includes("│"))).toBe(false);
       // The composer footer carries the transient hint row: always allocated,
       // but idle renders nothing - command discovery lives in the "/" menu,
       // so no "/help" filler appears anywhere, and the trimmed content skips
       // the blank row entirely.
       expect(frame).not.toContain("/help");
-      // A single status row follows the composer footer: workspace and model
-      // share it. The installed version is not repeated here.
-      const status = content[composerIndex + 2];
-      expect(status).not.toContain("▸");
+      // The footer is a single row: mode, directory, model and reasoning
+      // depth share it, with no separate status row below.
+      expect(footer).not.toContain("▸");
       // The banner carries "TNT CLI v<x.y.z>"; pin that, not the bare
       // wordmark - the workspace path in this row can itself contain "TNT"
       // without repeating the version.
-      expect(status).not.toContain("TNT CLI v");
+      expect(footer).not.toContain("TNT CLI v");
 
-      // Nothing follows the status row: it is the bottom of the screen.
-      expect(content[content.length - 1]).toBe(status);
+      // Nothing follows the footer: it is the bottom of the screen.
+      expect(content[content.length - 1]).toBe(footer);
     } finally {
       unmount();
     }

@@ -106,6 +106,14 @@ export interface SessionHandlerOptions {
   workspaces?: SessionWorkspaceRegistrar;
   /** The one workspace this process serves; omitted when it serves any. */
   workspacePath?: string;
+  /**
+   * A live TUI runtime is sharing this process: a browser "create" that only
+   * names a workspace (a directory pick) must keep the conversation the
+   * screen is already running instead of silently starting another one.
+   */
+  reuseLiveSession?: () => Session | null;
+  /** The browser resumed a session; the screen follows it. */
+  onLiveSessionResumed?: (sessionId: string) => void;
 }
 
 function canonicalWorkspace(candidate: string): string {
@@ -191,6 +199,9 @@ export class SessionHandlers {
   private readonly runtimes: SessionRuntimeStore;
   private readonly workspaces: SessionWorkspaceRegistrar | undefined;
   private readonly workspacePath: string | undefined;
+  private readonly reuseLiveSession: (() => Session | null) | undefined;
+  private readonly onLiveSessionResumed:
+    ((sessionId: string) => void) | undefined;
 
   constructor(options: SessionHandlerOptions) {
     this.sender = options.sender;
@@ -200,12 +211,22 @@ export class SessionHandlers {
     this.workspacePath = options.workspacePath
       ? canonicalWorkspace(options.workspacePath)
       : undefined;
+    this.reuseLiveSession = options.reuseLiveSession;
+    this.onLiveSessionResumed = options.onLiveSessionResumed;
   }
 
   async create(params: unknown): Promise<ZCodeSessionStateSnapshot> {
     const input = parseParams(zcodeSessionCreateParamsSchema, params);
     this.assertWorkspace(input.workspace.workspacePath);
     await this.registerWorkspace(input.workspace.workspacePath);
+    // The shared conversation continues across a directory pick: the screen
+    // owns the session, the browser only re-points its working directory.
+    const live = this.reuseLiveSession?.() ?? null;
+    if (live && !input.sessionId) {
+      live.workspaceDirectory = input.workspace.workspacePath;
+      sessionStore.sync(live);
+      return this.snapshot(live);
+    }
     if (input.sessionId && sessionStore.getMeta(input.sessionId)) {
       throw sessionRequestError(`Session already exists: ${input.sessionId}`);
     }
@@ -295,6 +316,9 @@ export class SessionHandlers {
       throw sessionRequestError(`Session not found: ${input.sessionId}`);
     }
     sessionStore.setArchived(session.sessionId, false);
+    // The browser picked a session from the list; the screen switches to it
+    // so both sides keep showing one conversation.
+    this.onLiveSessionResumed?.(session.sessionId);
     return this.snapshot(session);
   }
 

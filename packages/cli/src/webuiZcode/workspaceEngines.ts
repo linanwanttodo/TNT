@@ -11,6 +11,7 @@ import {
   type ProtocolSender,
 } from "../appServer/protocol.js";
 import { SessionRegistry } from "../appServer/sessionRegistry.js";
+import { getCurrentSession } from "../session/index.js";
 import { sessionStore } from "../session/store.js";
 import { logger } from "../utils/logger.js";
 
@@ -23,6 +24,7 @@ import {
   type EngineNotificationListener,
   type EngineRequestHandler,
 } from "./engineClient.js";
+import { acceptRemoteTextViaBridge, liveHub } from "./liveHub.js";
 import { canonicalWorkspacePath } from "./services/workspaceScope.js";
 
 export {
@@ -313,6 +315,21 @@ export class WorkspaceEngines {
             add: async (candidate: string) => {
               await this.add(candidate);
             },
+          },
+          // A bound TUI runtime turns this process into the shared
+          // conversation: the browser's words join the screen's turn, a
+          // directory pick continues the session, and a browser-side resume
+          // moves the screen. An unbound process (serve, `tnt webui`) leaves
+          // every hook inactive and keeps the headless engine.
+          acceptRemoteText: acceptRemoteTextViaBridge,
+          reuseLiveSession: () =>
+            liveHub.isBound() ? getCurrentSession() : null,
+          onLiveSessionResumed: (sessionId) => {
+            const live = liveHub.current();
+            if (!live?.selectSession) return;
+            void Promise.resolve(live.selectSession(sessionId)).then(() => {
+              liveHub.notifySessionChanged();
+            });
           },
         }));
     this.command = options.command;

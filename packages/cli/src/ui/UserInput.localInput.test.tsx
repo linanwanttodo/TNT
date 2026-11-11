@@ -2,16 +2,19 @@ import { render } from "ink-testing-library";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { UserInput } from "./UserInput.js";
 
 function mount(onSubmit: (text: string) => void) {
   return render(
-    <UserInput
-      onSubmit={onSubmit}
-      inputMode={true}
-      disabled={false}
-      isWaitingForResponse={false}
-    />,
+    <KeypressProvider>
+      <UserInput
+        onSubmit={onSubmit}
+        inputMode={true}
+        disabled={false}
+        isWaitingForResponse={false}
+      />
+    </KeypressProvider>,
   );
 }
 
@@ -35,12 +38,18 @@ describe("local composer input", () => {
     }
   });
 
-  it("submits an IME Chinese commit and Enter delivered in one read", async () => {
+  it("submits an IME Chinese commit followed by Enter in a separate read", async () => {
     const onSubmit = vi.fn();
     const tree = mount(onSubmit);
 
     try {
-      tree.stdin.write("修复登录\r");
+      // The terminal delivers the composed run and the confirming Enter as
+      // two reads; the fast-return guard only rewrites an Enter inside the
+      // same burst.
+      tree.stdin.write("修复登录");
+      await tick();
+      expect(tree.lastFrame()).toContain("修复登录");
+      tree.stdin.write("\r");
       await tick();
       expect(onSubmit).toHaveBeenCalledWith("修复登录", expect.anything());
     } finally {
@@ -56,7 +65,10 @@ describe("local composer input", () => {
       tree.stdin.write("你");
       await tick();
       expect(tree.lastFrame()).toContain("你");
-      tree.stdin.write("好\r");
+      tree.stdin.write("好");
+      await tick();
+      expect(tree.lastFrame()).toContain("你好");
+      tree.stdin.write("\r");
       await tick();
       expect(onSubmit).toHaveBeenCalledWith("你好", expect.anything());
     } finally {
@@ -69,9 +81,14 @@ describe("local composer input", () => {
     const tree = mount(onSubmit);
 
     try {
-      tree.stdin.write("/help\r");
+      tree.stdin.write("/help");
       await tick();
-      expect(onSubmit).toHaveBeenCalledWith("/help", expect.anything());
+      expect(tree.lastFrame()).toContain("/help");
+      tree.stdin.write("\r");
+      await tick();
+      // The slash palette runs the command with a single argument; only
+      // the normal composer submit also carries the image map.
+      expect(onSubmit).toHaveBeenCalledWith("/help");
     } finally {
       tree.unmount();
     }

@@ -148,11 +148,13 @@ export function continueTokenLedger(): {
 const FROZEN_LEDGER: Record<string, number> = {
   "(root)": 8,
   core: 12,
-  // 60: 56 product tokens after the webui frontend deletion, the vendor
-  // guard's own `"Continue"` search literal in zcodeUiVendor.test.ts, two
-  // English uses in port tests, and one frozen ledger comment that names the
-  // deleted webui frontend directory.
-  "packages/cli": 60,
+  // 59: one down from 60 - the composer's key dispatch rewrite dropped a
+  // historical `Continue` mention from useUserInput.ts. The rest is 55 product
+  // tokens after the webui frontend deletion, the vendor guard's own
+  // `"Continue"` search literal in zcodeUiVendor.test.ts, two English uses in
+  // port tests, and one frozen ledger comment that names the deleted webui
+  // frontend directory.
+  "packages/cli": 59,
   "packages/sdk": 58,
   // Vendored ZCode UI closure: upstream brand copy and identifiers kept as-is.
   "packages/zcode-ui": 133,

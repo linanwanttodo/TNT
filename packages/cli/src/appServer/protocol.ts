@@ -5,6 +5,7 @@ import {
   zcodeProtocolMethods,
 } from "@zcode/shared";
 import { V4_METHODS } from "@zcode/shared/zcode-protocol-v4";
+import type { Session } from "core/index.js";
 
 import type { InteractionBroker } from "../permissions/interactionBroker.js";
 import type { ToolPermissionManager } from "../permissions/permissionManager.js";
@@ -55,6 +56,12 @@ export interface AppServerProtocolOptions {
   queue?: TurnQueue;
   events?: TurnSources;
   ensureServices?: () => Promise<void>;
+  /** A live TUI runtime receives the browser's text directly. */
+  acceptRemoteText?: (text: string) => Promise<boolean>;
+  /** A directory pick keeps the screen's conversation instead of forking. */
+  reuseLiveSession?: () => Session | null;
+  /** The browser resumed a session from the list. */
+  onLiveSessionResumed?: (sessionId: string) => void;
   interactionBroker?: InteractionBroker;
   permissionManager?: ToolPermissionManager;
   quizService?: QuizService;
@@ -102,6 +109,8 @@ export class AppServerProtocol {
       runtimes,
       workspaces: options.workspaces,
       workspacePath: options.workspacePath,
+      reuseLiveSession: options.reuseLiveSession,
+      onLiveSessionResumed: options.onLiveSessionResumed,
     });
     this.turns = new TurnHandlers({
       sender: transport,
@@ -111,6 +120,7 @@ export class AppServerProtocol {
       queue: options.queue,
       events: options.events,
       ensureServices: options.ensureServices,
+      acceptRemoteText: options.acceptRemoteText,
     });
     this.interactions =
       options.interactions === false

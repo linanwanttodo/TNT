@@ -34,6 +34,10 @@ export interface Theme {
     default: string;
     focus: string;
   };
+  /** The composer input box surface. */
+  background: {
+    composer: string;
+  };
   accent: string;
   user: string;
   /** The assistant identity colour, e.g. the tool-call dot. */
@@ -84,6 +88,9 @@ export const darkTheme: Theme = {
   border: {
     default: "gray",
     focus: "#5ac8fa",
+  },
+  background: {
+    composer: "#444444",
   },
   accent: "#5ac8fa",
   user: "blue",
@@ -145,6 +152,9 @@ export const tencentDarkTheme: Theme = {
     default: "#30363d",
     focus: "#0052d9",
   },
+  background: {
+    composer: "#252b3a",
+  },
   accent: "#0052d9",
   user: "#366ef4",
   claude: "#0052d9",
@@ -204,6 +214,9 @@ export const tencentLightTheme: Theme = {
   border: {
     default: "#dcdcdc",
     focus: "#0052d9",
+  },
+  background: {
+    composer: "#e4e4e4",
   },
   accent: "#0052d9",
   user: "#0052d9",
@@ -269,6 +282,9 @@ export const claudeTheme: Theme = {
   border: {
     default: "rgb(80,80,80)",
     focus: "rgb(177,185,249)",
+  },
+  background: {
+    composer: "rgb(62,62,60)",
   },
   accent: "rgb(215,119,87)",
   user: "rgb(177,185,249)",

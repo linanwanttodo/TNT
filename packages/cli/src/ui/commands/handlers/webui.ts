@@ -24,7 +24,7 @@ export async function handleWebui(
 
   if (tokens[0]?.toLowerCase() === "stop") {
     await webUiService.close();
-    return { output: t("webui.stopped") };
+    return { output: t("webui.stopped"), localOnly: true };
   }
 
   const open = !tokens.includes("--no-open");
@@ -47,6 +47,7 @@ export async function handleWebui(
       output: t("webui.startFailed", {
         reason: error instanceof Error ? error.message : String(error),
       }),
+      localOnly: true,
     };
   }
 
@@ -63,5 +64,6 @@ export async function handleWebui(
     output: `${t("webui.listening", { url: clickable })}${
       open ? "" : `\n${chalk.dim(t("webui.openManually"))}`
     }`,
+    localOnly: true,
   };
 }

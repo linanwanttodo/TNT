@@ -11,6 +11,7 @@ import { telemetryService } from "../../telemetry/telemetryService.js";
 import { logger } from "../../utils/logger.js";
 import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
 import { symbols } from "../symbols.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { processImagePlaceholder } from "./useChat.imageProcessing.js";
 import { SlashCommandResult } from "./useChat.types.js";
@@ -49,6 +50,7 @@ interface ProcessSlashCommandResultOptions {
   onShowJobsSelector?: () => void;
   onShowExportSelector?: () => void;
   onClear?: () => void;
+  onShowStatusMessage?: (message: string) => void;
 }
 
 /**
@@ -70,11 +72,22 @@ export function processSlashCommandResult({
   onShowJobsSelector,
   onShowExportSelector,
   onClear,
+  onShowStatusMessage,
 }: ProcessSlashCommandResultOptions): string | null {
   if (result.exit) {
     void import("../../utils/exit.js").then(({ gracefulExit }) =>
       gracefulExit(0),
     );
+  }
+
+  // Screen-only answers are shown on the status row and kept out of the
+  // conversation. Writing them into chat history would persist a URL with
+  // its token into the session file and replay it in every shared web view.
+  if (result.localOnly) {
+    if (result.output) {
+      onShowStatusMessage?.(sanitizeTerminalText(result.output));
+    }
+    return null;
   }
 
   // The selector-open requests are one table: the first flag the result set,
