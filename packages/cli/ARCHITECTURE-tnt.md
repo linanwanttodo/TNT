@@ -145,9 +145,9 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
-- The static spine of the system message is the other half of that prefix: `eb91d81a8853eeff` for the
-  TUI (7133 characters), `292c475bc48e09b4` with JSON output (7549), `b4d724150855372f` headless
-  (7677), `4183c5516d15a737` headless + JSON (8093). Only what the builder marks non-volatile is
+- The static spine of the system message is the other half of that prefix: `81a6092e2a935e97` for the
+  TUI (9137 characters), `22bd6daaf8701059` with JSON output (9553), `339cda392f12a90e` headless
+  (9644), `1c420a34ddc25a7c` headless + JSON (10060). Only what the builder marks non-volatile is
   digested - `base`, `headless`, `jsonOutput` - so plan text, a chosen profile, a plugin output
   style, the user's rules and the environment block stay outside it.
   `agent/systemPrefixFingerprint.test.ts` freezes these and reads this file for the same strings.
@@ -161,6 +161,15 @@ The prefix is assembled in build order, each part announced so it can be attribu
   when the model decides the task needs one, or when the user names one; a
   simple question needs none. A plugin manual inlined into a prompt can no
   longer turn that question into a forced skill call.
+- **Prefix changelog, 2026-11-12:** the base spine replaces long procedural
+  checklists with review coverage, cross-file contract checks, scoped validation
+  and bounded evidence claims. Headless wording no longer adds a conflicting
+  follow-up offer, and the Skills tool no longer makes an optional procedure
+  mandatory. The static spine became `81a6092e2a935e97`/9137 (TUI),
+  `22bd6daaf8701059`/9553 (TUI JSON), `339cda392f12a90e`/9644 (headless),
+  `1c420a34ddc25a7c`/10060 (headless JSON). The tool surface became
+  `ed4738cde6061749`/35354 over the same 42 tools. These are one-time cold
+  starts, not a claim that prompt snapshots measure model quality.
 - **Prefix changelog, 2026-11-09:** the base spine gained the escalation contract and the
   small-fix wording: the four classes that always need the user's decision, the statement that
   size alone is not a trigger, a plan threshold for multi-step work, and locating an unrelated
@@ -223,7 +232,7 @@ The prefix is assembled in build order, each part announced so it can be attribu
   characters - 279 characters of schema, a one-time cold start per session.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `56d3989dd2fb855c` over 42 tools and 35316 characters (name + description + parameter schema, in
+  `ed4738cde6061749` over 42 tools and 35354 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the

@@ -51,8 +51,19 @@ the idle prefix on exit (`src/ui/terminalStatusLight.ts`).
 The answer streams into the transcript as it arrives. Chunks never touch the
 chat history - every history write persists the session - so the live text
 renders from a throttled overlay (`STREAM_RENDER_INTERVAL_MS` in
-`src/ui/hooks/useChat.stream.helpers.ts`) until the turn's message lands. The
-working indicator renders after the live rows, directly below the newest
+`src/ui/hooks/useChat.stream.helpers.ts`) until the turn's message lands.
+The live reply is updated as one Markdown component, not split into separate
+messages at paragraph boundaries. Stream updates and the stored reply use the
+same boundary whitespace rules, so completing a reply does not compress its
+paragraph spacing.
+
+While the TUI is mounted, console diagnostics and direct stderr writes are
+routed to the log file. Ink's console patch is disabled, so these diagnostics
+cannot write text over the terminal frame. Teardown restores the console and stderr writers,
+including when the initial render fails (`src/ui/utils/tuiOutput.ts`). Tool
+failures remain in their tool-result rows rather than the input box.
+
+The working indicator renders after the live rows, directly below the newest
 message, as a grey spinner with a `Thinking…` label and the elapsed time
 (`src/ui/components/ActionStatus.tsx`, rendered at the end of
 `src/ui/components/TranscriptContent.tsx`).

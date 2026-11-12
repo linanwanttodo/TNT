@@ -90,15 +90,7 @@ export const fetchTool: Tool = {
         return pageOf(cached, offset, pageSize);
       }
 
-      // Suppress console errors from JSDOM CSS parsing
-      const originalConsoleError = console.error;
-      console.error = () => {};
-
-      // Use the core fetchUrlContent implementation
       const contextItems = await fetchUrlContentImpl({ url }, { fetch });
-
-      // Restore console.error
-      console.error = originalConsoleError;
 
       if (contextItems.length === 0) {
         throw new TntError(

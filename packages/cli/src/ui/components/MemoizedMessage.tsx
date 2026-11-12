@@ -171,7 +171,9 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
         "",
     );
 
-    const formattedContent = isAssistant ? cleanedBody : rawFormattedContent;
+    const formattedContent = isAssistant
+      ? cleanedBody.trim()
+      : rawFormattedContent;
     // Clicking the band hands back what was typed, never the served prompt.
     const userEditSource = isUser
       ? ((item as { userText?: string }).userText ??
@@ -195,7 +197,13 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
       >
         {reasoningText ? (
           <Box marginBottom={hasContent || hasTools ? 1 : 0}>
-            <ThinkingMessage thought={reasoningText} />
+            <ThinkingMessage
+              thought={reasoningText}
+              isStreaming={
+                ("isStreaming" in message && message.isStreaming === true) ||
+                item.reasoning?.active === true
+              }
+            />
           </Box>
         ) : null}
 
@@ -251,6 +259,9 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
     return (
       prevMessage.content === nextMessage.content &&
       prevMessage.role === nextMessage.role &&
+      ("isStreaming" in prevMessage && prevMessage.isStreaming) ===
+        ("isStreaming" in nextMessage && nextMessage.isStreaming) &&
+      prevProps.item.reasoning?.active === nextProps.item.reasoning?.active &&
       prevReasoning === nextReasoning &&
       toolStateSignature(prevToolStates) ===
         toolStateSignature(nextToolStates) &&
