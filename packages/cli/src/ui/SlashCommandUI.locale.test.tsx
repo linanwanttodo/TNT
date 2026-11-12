@@ -21,7 +21,8 @@ describe("SlashCommandUI locale", () => {
     await waitForCondition(() => tree.lastFrame()?.includes("语言") ?? false);
     const frame = tree.lastFrame() ?? "";
     tree.unmount();
-    expect(frame).toContain("↑/↓ 选择");
+    // The footer is a position counter; locale still reloads descriptions.
+    expect(frame).toMatch(/\(\d+\/\d+\)/);
     expect(frame).not.toContain("Language");
   });
 });

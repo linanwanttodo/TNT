@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { capHookContext } from "./fireHook.js";
+import { capHookContext, compactSkillReminder } from "./fireHook.js";
 
 describe("the hook context budget", () => {
   it("leaves short context untouched", () => {
@@ -22,5 +22,29 @@ describe("the hook context budget", () => {
     const capped = capHookContext("y".repeat(10_000));
     // The budget plus the marker, with slack for the notice line.
     expect(capped.length).toBeLessThan(4_200);
+  });
+});
+
+describe("compactSkillReminder", () => {
+  it("replaces an inlined skill manual with a one-line pointer", () => {
+    const manual = [
+      "<system-reminder>",
+      "**Below is the full content of your 'superpowers:using-superpowers' skill**",
+      "Use when starting any conversation - establishes how to find and use skills,",
+      "requiring skill invocation before ANY response including clarifying questions.",
+      "If you think there is even a 1% chance a skill might apply, you ABSOLUTELY MUST invoke the skill.",
+      " ".repeat(1400),
+      "</system-reminder>",
+    ].join("\n");
+    const compact = compactSkillReminder(manual);
+    expect(compact.length).toBeLessThan(300);
+    expect(compact).toContain("Skills are available");
+    expect(compact).toContain("Background context");
+    expect(compact).not.toContain("ABSOLUTELY MUST");
+  });
+
+  it("leaves ordinary hook context alone", () => {
+    const note = "Session started in /tmp with model X";
+    expect(compactSkillReminder(note)).toBe(note);
   });
 });

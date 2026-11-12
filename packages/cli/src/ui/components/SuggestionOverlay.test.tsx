@@ -83,10 +83,10 @@ describe("SuggestionOverlay", () => {
     expect(frame).toContain("/help");
   });
 
-  it("shows the empty text and still draws the key hint", () => {
+  it("shows the empty text and still draws the position counter", () => {
     const frame = renderOverlay([], 0);
     expect(frame).toContain("No matches");
-    expect(frame).toContain("↑/↓ to navigate");
+    expect(frame).toMatch(/\(\d+\/\d+\)/);
   });
 
   it("draws a level label for a parent command's children", () => {

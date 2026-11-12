@@ -63,10 +63,11 @@ export function useChatViewport({
   isActive,
 }: ChatViewportOptions): ChatViewport {
   const [state, setState] = useState<ViewportState>(INITIAL_STATE);
-  // Mouse reporting is on by default so the wheel scrolls the transcript;
-  // Ctrl+T releases the terminal's mouse so a drag selects and copies text
-  // the normal way, and again to take it back. TNT_DISABLE_MOUSE=1 starts
-  // released, for terminals whose copy-on-select the user never wants broken.
+  // The app owns the mouse by default so click-to-place-caret, click to
+  // expand a folded thought, wheel scrolling and click-to-edit all work.
+  // Ctrl+T releases it to the terminal for native drag-select and the system
+  // copy menu; Shift+drag does the same in GNOME without leaving app mode.
+  // TNT_DISABLE_MOUSE=1 starts released for readers who copy most of the time.
   const [mouseCapture, setMouseCapture] = useState(
     process.env.TNT_DISABLE_MOUSE !== "1",
   );

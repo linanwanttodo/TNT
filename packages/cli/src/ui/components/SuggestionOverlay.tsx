@@ -1,7 +1,6 @@
 import { Box, Text } from "ink";
 import React from "react";
 
-import { t } from "../../i18n/index.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import {
   MAX_VISIBLE_SUGGESTIONS,
@@ -67,7 +66,9 @@ const SuggestionOverlay: React.FC<SuggestionOverlayProps> = ({
     Math.max(...labels.map((label) => label.length), 0) + 6,
     Math.floor(columns * 0.45),
   );
-  const hintText = hint ?? t("commands.navigation");
+  // The counter is all the footer needs; the key legend lives in the docs,
+  // not on every frame of the palette.
+  const hintText = hint ?? "";
 
   return (
     <Box
@@ -115,9 +116,7 @@ const SuggestionOverlay: React.FC<SuggestionOverlayProps> = ({
 
       <Box marginTop={1}>
         <Text color="gray" dimColor>
-          {items.length > size
-            ? `${hintText} (${start + visibleItems.length}/${items.length})`
-            : hintText}
+          {hintText ? `${hintText} ` : ""}({selectedIndex + 1}/{items.length})
         </Text>
       </Box>
     </Box>

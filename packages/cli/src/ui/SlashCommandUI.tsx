@@ -161,9 +161,7 @@ const SlashCommandUI: React.FC<SlashCommandUIProps> = ({
 
       <Box marginTop={1}>
         <Text color="gray" dimColor>
-          {filteredCommands.length > MAX_VISIBLE_COMMANDS
-            ? `${t("commands.navigation")} (${windowStart + visibleCommands.length}/${filteredCommands.length})`
-            : t("commands.navigation")}
+          {`(${selectedIndex + 1}/${filteredCommands.length})`}
         </Text>
       </Box>
     </Box>
