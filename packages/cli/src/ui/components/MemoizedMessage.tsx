@@ -123,7 +123,7 @@ function itemBottomMargin(input: {
 }
 
 export const MemoizedMessage = memo<MemoizedMessageProps>(
-  ({ item, index, hideBullet = false }) => {
+  ({ item, index }) => {
     const theme = useTheme();
     const { message, toolCallStates, conversationSummary } = item;
     const isUser = message.role === "user";
@@ -208,7 +208,7 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
             // message.
             <ClickableUserTurn text={userEditSource}>
               <Box flexDirection="row" paddingX={1}>
-                <Text color={theme.user}>{" > "}</Text>
+                <Text color={theme.text.subtle}>{" > "}</Text>
                 <Box flexGrow={1}>
                   <Text wrap="wrap" color={theme.text.primary}>
                     {formattedContent}
@@ -217,9 +217,7 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
               </Box>
             </ClickableUserTurn>
           ) : (
-            <Box>
-              <Text color={theme.accent}>{hideBullet ? " " : "✦"}</Text>
-              <Text> </Text>
+            <Box paddingLeft={1}>
               <MarkdownRenderer
                 content={formattedContent}
                 theme={theme.syntax}
