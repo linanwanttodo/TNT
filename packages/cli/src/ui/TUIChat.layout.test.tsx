@@ -50,12 +50,12 @@ describe("TUIChat layout", () => {
       const logoIndex = lines.findIndex((line) => line.includes("███████"));
 
       expect(logoIndex).toBeGreaterThan(-1);
-      // Top-left: the header is the first thing on screen and starts at the
-      // left margin, far above the composer.
-      expect(logoIndex).toBe(firstContent);
-      // Top-left of the screen, not the last block above the composer.
-      expect(logoIndex).toBeLessThanOrEqual(2);
-      expect(lines[logoIndex].search(/█/)).toBeLessThanOrEqual(2);
+      // Top-left: the welcome frame is the first thing on screen — its top
+      // border opens the frame, the wordmark sits just below it — far above
+      // the composer.
+      expect(firstContent).toBeLessThanOrEqual(2);
+      expect(logoIndex).toBe(firstContent + 1);
+      expect(lines[firstContent]).toContain("╭");
       expect(composerIndex).toBeGreaterThan(logoIndex + 2);
     } finally {
       unmount();
@@ -87,12 +87,16 @@ describe("TUIChat layout", () => {
       expect(frame).not.toContain("[Auto]");
       const footer = content[composerIndex + 1];
       expect(footer).toContain("Auto");
-      expect(content.some((line) => line.includes("│"))).toBe(false);
-      // The composer footer carries the transient hint row: always allocated,
-      // but idle renders nothing - command discovery lives in the "/" menu,
-      // so no "/help" filler appears anywhere, and the trimmed content skips
-      // the blank row entirely.
-      expect(frame).not.toContain("/help");
+      // The welcome frame owns a vertical rule; the composer band itself
+      // carries no side rails of its own.
+      expect(frame).toContain("│");
+      // The dock itself carries no "/help" filler row; command discovery
+      // lives in the "/" menu. The greeting inside the welcome frame is the
+      // only place the word appears.
+      expect(footer).not.toContain("/help");
+      expect(content.slice(content.indexOf(footer)).join("")).not.toContain(
+        "/help",
+      );
       // The footer is a single row: mode, directory, model and reasoning
       // depth share it, with no separate status row below.
       expect(footer).not.toContain("▸");

@@ -1,5 +1,5 @@
-import { Box, Text } from "ink";
-import React, { memo } from "react";
+import { Box, Text, type DOMElement } from "ink";
+import React, { memo, useRef } from "react";
 
 import type {
   ChatHistoryItem,
@@ -7,6 +7,8 @@ import type {
 } from "../../../../../core/index.js";
 import { splitServedPrompt } from "../../utils/promptNotes.js";
 import { extractThinkingContent } from "../../utils/thinkingTags.js";
+import { requestComposerDraft } from "../composerDraft.js";
+import { useClickRegion } from "../hooks/useClickRegion.js";
 import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { symbols } from "../symbols.js";
 import { useTheme } from "../theme/tokens.js";
@@ -87,6 +89,31 @@ interface MemoizedMessageProps {
 }
 
 /** A tool-only item sits tight between its neighbours, as in the reference CLI. */
+/**
+ * The user's own turn is editable in place: clicking the band hands the
+ * original typed text back to the composer, the way recalling a queued
+ * message does. The band is the target because it is the whole row.
+ */
+const ClickableUserTurn: React.FC<{
+  text: string;
+  children: React.ReactNode;
+}> = ({ text, children }) => {
+  const theme = useTheme();
+  const bandRef = useRef<DOMElement>(null);
+  useClickRegion(bandRef, () => {
+    if (text) {
+      requestComposerDraft(text);
+    }
+  });
+  return (
+    <Box ref={bandRef}>
+      <HalfLinePaddedBox backgroundBaseColor={theme.background.composer}>
+        {children}
+      </HalfLinePaddedBox>
+    </Box>
+  );
+};
+
 function itemBottomMargin(input: {
   hasTools: boolean;
   hasContent: boolean;
@@ -145,6 +172,12 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
     );
 
     const formattedContent = isAssistant ? cleanedBody : rawFormattedContent;
+    // Clicking the band hands back what was typed, never the served prompt.
+    const userEditSource = isUser
+      ? ((item as { userText?: string }).userText ??
+        splitServedPrompt(formatMessageContentForDisplay(message.content))
+          .userText)
+      : "";
     const hasContent = formattedContent.length > 0;
     const hasTools = !!(toolCallStates && toolCallStates.length > 0);
     const isStreaming =
@@ -170,7 +203,10 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
           (isUser ? (
             // The user's turn reads like the input box it was typed into: the
             // same solid surface band, the `>` pointer and the raw text.
-            <HalfLinePaddedBox backgroundBaseColor={theme.background.composer}>
+            // Clicking it hands the text back to the composer for editing,
+            // the same gesture the session selector uses to recall a queued
+            // message.
+            <ClickableUserTurn text={userEditSource}>
               <Box flexDirection="row" paddingX={1}>
                 <Text color={theme.user}>{" > "}</Text>
                 <Box flexGrow={1}>
@@ -179,7 +215,7 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
                   </Text>
                 </Box>
               </Box>
-            </HalfLinePaddedBox>
+            </ClickableUserTurn>
           ) : (
             <Box>
               <Text color={theme.accent}>{hideBullet ? " " : "✦"}</Text>
