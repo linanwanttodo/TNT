@@ -176,14 +176,8 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         tokenCount={streamingTokens}
         verbose={verbose}
         hasActiveTools={isBashToolRunning}
-        additionalHint={
-          [
-            t("composer.interruptHint"),
-            isBashToolRunning ? t("action.background") : null,
-          ]
-            .filter(Boolean)
-            .join("  ") || undefined
-        }
+        cancelHint={t("composer.interruptHint")}
+        additionalHint={isBashToolRunning ? t("action.background") : undefined}
       />
 
       <ActionStatus

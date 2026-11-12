@@ -34,6 +34,7 @@ import { logger } from "../../utils/logger.js";
 import { composeServedPrompt } from "../../utils/promptNotes.js";
 import { liveHub } from "../../webuiZcode/liveHub.js";
 import { handleSlashCommands } from "../commands/index.js";
+import { requestComposerDraft } from "../composerDraft.js";
 import { notifyTurnComplete } from "../notify.js";
 
 import {
@@ -555,37 +556,6 @@ export function useChat({
     }
   };
 
-  const handleResumeRequest = async (message: string) => {
-    if (message !== "" || !wasInterrupted) return false;
-
-    // Find the index of the last user or tool message to resume from
-    let lastUserOrToolIndex = -1;
-    for (let i = chatHistory.length - 1; i >= 0; i--) {
-      if (
-        chatHistory[i].message.role === "user" ||
-        !!chatHistory[i].toolCallStates?.length
-      ) {
-        lastUserOrToolIndex = i;
-        break;
-      }
-    }
-
-    if (lastUserOrToolIndex >= 0) {
-      // Truncate history to include up to and including the user/tool message
-      const truncatedHistory = chatHistory.slice(0, lastUserOrToolIndex + 1);
-      setChatHistory(truncatedHistory);
-
-      // Clear the interrupted state and resume
-      setWasInterrupted(false);
-
-      // Re-execute streaming with the truncated history
-      await executeStreamingResponse(truncatedHistory, compactionIndex);
-      return true;
-    }
-
-    return false;
-  };
-
   const handleSlashCommandProcessing = async (
     message: string,
   ): Promise<string | null> => {
@@ -932,16 +902,6 @@ export function useChat({
     message: string,
     imageMap?: Map<string, Buffer>,
   ) => {
-    // Check if this is a resume request (empty message after interruption)
-    if (await handleResumeRequest(message)) {
-      return;
-    }
-
-    // Clear interrupted state if user types a new message
-    if (wasInterrupted && message !== "") {
-      setWasInterrupted(false);
-    }
-
     // Use the common message processing logic
     lastUserMessageRef.current = message;
     await processMessage(message, imageMap, false);
@@ -981,7 +941,13 @@ export function useChat({
     if (abortController && isWaitingForResponse) {
       abortController.abort();
 
-      // Remove the last message if it's from assistant (partial response)
+      // claude code's split: a turn with no answer yet gives the message back
+      // to the composer for editing, so nothing is displayed for it; a turn
+      // that already produced output keeps the partial answer on screen and
+      // the streaming bracket reports the interruption.
+      const producedOutput =
+        (streamingText?.length ?? 0) > 0 ||
+        (streamingReasoning?.length ?? 0) > 0;
       setChatHistory((current) => {
         const lastMessage = current[current.length - 1];
         if (
@@ -993,10 +959,34 @@ export function useChat({
         return current;
       });
 
+      if (!producedOutput) {
+        const lastItem = chatHistory[chatHistory.length - 1];
+        const rolledBack =
+          lastUserMessageRef.current ??
+          (lastItem?.message.role === "user"
+            ? String(lastItem.message.content)
+            : "");
+        if (lastItem?.message.role === "user") {
+          setChatHistory((current) =>
+            current.length > 0 && current[current.length - 1] === lastItem
+              ? current.slice(0, -1)
+              : current,
+          );
+        }
+        if (rolledBack) {
+          requestComposerDraft(rolledBack);
+        }
+        setIsWaitingForResponse(false);
+        setResponseStartTime(null);
+        setInputMode(true);
+        return;
+      }
+
       setWasInterrupted(true);
       setIsWaitingForResponse(false);
       setResponseStartTime(null);
       setInputMode(true);
+      onShowStatusMessage?.(t("interrupted.notice"));
     }
   };
 
