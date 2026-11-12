@@ -19,7 +19,6 @@ import {
   UpdateServiceState,
 } from "../services/types.js";
 import { getCurrentSession, getTotalSessionCost } from "../session/index.js";
-import { alternateScreenEnabled } from "./utils/terminalScreen.js";
 import { logger } from "../utils/logger.js";
 import { liveHub, type LiveRuntime } from "../webuiZcode/liveHub.js";
 
@@ -35,6 +34,7 @@ import { useNavigation } from "./context/NavigationContext.js";
 import { useChat } from "./hooks/useChat.js";
 import { useChatViewport } from "./hooks/useChatViewport.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
+import { useContextReadout } from "./hooks/useContextReadout.js";
 import { useLocale } from "./hooks/useLocale.js";
 import { useMessageRenderer } from "./hooks/useMessageRenderer.js";
 import { useServices } from "./hooks/useService.js";
@@ -45,6 +45,7 @@ import {
   useSubagentView,
 } from "./hooks/useTUIChatEffects.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
+import { useTurnSummary } from "./hooks/useTurnSummary.js";
 import {
   useTerminalStatusLight,
   type SessionStatus,
@@ -200,25 +201,20 @@ const TUIChat: React.FC<TUIChatProps> = ({
   // state does not track (the selected config or model).
   const [, setStaticRefreshTrigger] = useState(0);
 
-  // Replacing the conversation remounts the transcript subtree: Ink diffs the
-  // frame and erases exactly the rows that went away. Writing a raw clear here
-  // instead would desync the escape sequence from Ink's frame state and leave
-  // the reader on a blank screen until something else happened to re-render.
+  // Replacing the conversation remounts the transcript subtree, so Ink erases
+  // exactly the rows that went away.
   const [transcriptEpoch, setTranscriptEpoch] = useState(0);
   const resetTranscript = useCallback(() => {
     setTranscriptEpoch((epoch) => epoch + 1);
   }, []);
 
-  // Session currently on screen. Used to label and lock a delegated
-  // transcript, which is a record of a finished run rather than a
-  // conversation the user can continue.
+  // Session on screen; a delegated transcript is locked and read-only.
   const [displayedSession, setDisplayedSession] = useState<Session | null>(
     null,
   );
   const subagentView = useSubagentView(displayedSession);
 
-  // Slash commands are dispatched inside useChat, but session switching lives
-  // here, so /back reaches the handler through a ref.
+  // Session switching lives here, so /back reaches it through a ref.
   const loadSessionRef = useRef<(sessionId: string) => void>(() => {});
 
   // Use chat handlers hook
@@ -292,7 +288,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowThemeSelector: () => navigateTo("theme"),
     onShowSessionSelector: () => navigateTo("session"),
     onShowSubagentsSelector: () => navigateTo("subagents"),
-    onLoadSession: (sessionId: string) => loadSessionRef.current(sessionId),
+    onLoadSession: (id: string) => loadSessionRef.current(id),
     onShowJobsSelector: () => navigateTo("jobs"),
     onShowExportSelector: () => navigateTo("export"),
     onReload: handleReload,
@@ -306,14 +302,9 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowStatusMessage: handleShowStatusMessage,
   });
 
-  // The live handle stays stable across renders while the handler it wraps
-  // follows the latest one, so the browser always reaches the current turn.
   const handleUserMessageRef = useRef(handleUserMessage);
   handleUserMessageRef.current = handleUserMessage;
 
-  // One live runtime per TUI process: /webui shares the conversation the
-  // screen is running, not a second engine. Remote mode talks to another
-  // process and binds nothing.
   useEffect(() => {
     if (isRemoteMode) return;
     const runtime: LiveRuntime = {
@@ -372,6 +363,16 @@ const TUIChat: React.FC<TUIChatProps> = ({
     chatHistory,
     model: services.model?.model || undefined,
   });
+
+  const contextReadout = useContextReadout(
+    contextData,
+    services.model?.model?.provider,
+  );
+  const turnSummary = useTurnSummary(
+    isWaitingForResponse,
+    responseStartTime,
+    chatHistory,
+  );
 
   const { renderMessage } = useMessageRenderer();
 
@@ -504,9 +505,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     );
   }, [services.config?.config]);
 
-  // The choice, not the resolved palette, is the state: "auto" has to keep
-  // following the probe after the first answer arrives. A preview overrides
-  // it only while the picker is open, and Esc drops the override.
+  // "auto" keeps following the probe; a preview overrides it while open.
   const [themeChoice, setThemeChoice] = useState<ThemeName | "auto">(
     configuredChoice,
   );
@@ -525,10 +524,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
   const currentTheme = themeOfChoice(activeChoice, detected);
 
-  // The terminal title keeps TNT's status semantics (idle, working while the
-  // model streams, waiting for an approval or quiz answer) as its animation
-  // gate: the prefix spins only while working. The name is the workspace the
-  // session runs in; a session id refines it when one exists.
+  // The title spins only while the model works.
   const sessionStatus: SessionStatus = activePermissionRequest
     ? "waiting"
     : activeQuizQuestion
@@ -536,10 +532,10 @@ const TUIChat: React.FC<TUIChatProps> = ({
       : isWaitingForResponse || isCompacting
         ? "working"
         : "idle";
-  useTerminalStatusLight(
-    sessionStatus,
-    process.cwd().split(/[\\/]/).filter(Boolean).pop() ?? "",
-  );
+  // The tab title carries the product and the folder, nothing else.
+  const workspaceName =
+    process.cwd().split(/[\\/]/).filter(Boolean).pop() ?? "";
+  useTerminalStatusLight(sessionStatus, workspaceName);
 
   const handlePreviewTheme = useCallback((themeName: ThemeName | "auto") => {
     setPreviewChoice(themeName);
@@ -560,19 +556,12 @@ const TUIChat: React.FC<TUIChatProps> = ({
     [closeCurrentScreen],
   );
 
-  // The alternate buffer is a fixed-height viewport the app scrolls itself;
-  // the normal buffer streams settled rows into the terminal's scrollback, so
-  // the frame must grow with its content. A fixed height there would show a
-  // screenful of nothing above the composer and push the banner off-screen.
-  const frameHeight = alternateScreenEnabled() ? rows : undefined;
-
+  // Ink's terminal buffer owns the physical rows in both modes. Keep the
+  // composer dock pinned to the bottom; the transcript's ScrollView owns its
+  // viewport and the terminal buffer keeps frame updates from duplicating text.
   return (
     <ThemeProvider theme={currentTheme}>
-      <Box
-        flexDirection="column"
-        height={frameHeight}
-        overflowY={alternateScreenEnabled() ? "hidden" : undefined}
-      >
+      <Box flexDirection="column" height={rows} overflowY="hidden">
         <MainContent
           key={transcriptEpoch}
           showIntroMessage={showIntroMessage && !isRemoteMode}
@@ -580,6 +569,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           queuedMessages={queuedMessages}
           renderMessage={renderMessage}
           streamingText={streamingText}
+          turnSummary={turnSummary}
           streamingReasoning={streamingReasoning}
           isWaitingForResponse={isWaitingForResponse}
           responseStartTime={responseStartTime}
@@ -593,6 +583,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
         />
 
         <Composer
+          contextReadout={contextReadout}
           following={following}
           onJumpToLatest={jumpToBottom}
           statusMessage={statusMessage}
@@ -636,8 +627,8 @@ const TUIChat: React.FC<TUIChatProps> = ({
           subagentView={subagentView}
           navState={navState}
           navigateTo={navigateTo}
-          contextPercentage={contextData?.percentage ?? 0}
-          contextTokens={contextData?.tokenCount}
+          contextPercentage={contextData?.percentage ?? undefined}
+          contextTokens={contextData?.tokenCount ?? undefined}
           isVerboseMode={isVerboseMode}
           totalCost={getTotalSessionCost()}
         />

@@ -28,6 +28,7 @@ import {
 import { generatePromptSuggestion } from "../../session/promptSuggestionGenerator.js";
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { clearSeriesSectionBaselines } from "../../stream/systemPromptSeries.js";
+import { beginTurnUsage, endTurnUsage } from "../../stream/usageTelemetry.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
@@ -398,6 +399,8 @@ export function useChat({
     setAbortController(controller);
     setIsWaitingForResponse(true);
     turnRunningRef.current = true;
+    // The per-round ledger restarts; the turn-end notice reads it once.
+    beginTurnUsage();
     // The shared view learns the turn began and what it answers, the same
     // way the terminal shows the typed line (atomcode's input echo).
     liveHub.publishTurnStarted(lastUserMessageRef.current ?? "");
@@ -464,9 +467,11 @@ export function useChat({
         maxSteps,
       });
 
-      // The shared view closes the turn with the same answer it streamed.
+      // The shared view closes the turn with the same answer it streamed,
+      // plus the ledger: what this turn read, wrote and cost.
       liveHub.publishTurnCompleted({
         content: streamCallbacks?.getAccumulated()?.text ?? "",
+        usage: endTurnUsage() ?? undefined,
       });
 
       // Save the updated session with the latest chat history that includes the assistant's reply
@@ -501,11 +506,15 @@ export function useChat({
       }
 
       if (controller.signal.aborted) {
-        liveHub.publishTurnCompleted({ interrupted: true });
+        liveHub.publishTurnCompleted({
+          interrupted: true,
+          usage: endTurnUsage() ?? undefined,
+        });
         setWasInterrupted(true);
       } else {
         const errorMessage = `Error: ${formatError(error)}`;
         liveHub.publishTurnFailed(errorMessage);
+        endTurnUsage();
         setChatHistory((prev) => [
           ...prev,
           {

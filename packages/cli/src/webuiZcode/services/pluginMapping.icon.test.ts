@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { Catalog } from "./pluginMapping.js";
-
 import { legacyAvailableSummary } from "./pluginMapping.js";
 
 describe("marketplace storefront fields", () => {

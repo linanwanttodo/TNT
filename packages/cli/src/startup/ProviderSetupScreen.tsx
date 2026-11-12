@@ -1,5 +1,6 @@
+/* eslint-disable max-statements -- one wizard owns the ordered input state machine */
 import { Box, Text, useApp, useInput } from "ink";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   getDefaultModel,
@@ -54,7 +55,54 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [modelIndex, setModelIndex] = useState(0);
+  const [loadingModels, setLoadingModels] = useState(false);
   const [error, setError] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (step !== "model" || !apiKey || !baseUrl) return;
+    if (
+      ![
+        "openai-chat-completions",
+        "openai-compatible",
+        "deepseek-preset",
+        "zhipu-preset",
+        "moonshot-preset",
+        "qwen-preset",
+        "siliconflow-preset",
+        "minimax-preset",
+      ].includes(protocol.id)
+    )
+      return;
+    const controller = new AbortController();
+    const load = async () => {
+      setLoadingModels(true);
+      try {
+        const endpoint = `${baseUrl.replace(/\/+$/, "")}/models`;
+        const response = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const body = (await response.json()) as {
+          data?: Array<{ id?: string }>;
+        };
+        const ids = (body.data ?? [])
+          .map((item) => item.id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0)
+          .sort((a, b) => a.localeCompare(b));
+        setAvailableModels(ids);
+        setModelIndex(0);
+      } catch {
+        // Model entry remains available for providers that omit /models.
+      } finally {
+        setLoadingModels(false);
+      }
+    };
+    void load();
+    return () => controller.abort();
+  }, [step, apiKey, baseUrl, protocol.id]);
 
   const finish = (setup: ProviderSetup) => {
     onComplete(setup);
@@ -180,6 +228,23 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
       return;
     }
 
+    if (step === "model" && availableModels.length > 0) {
+      if (key.upArrow) {
+        setModelIndex((index) =>
+          index <= 0 ? availableModels.length - 1 : index - 1,
+        );
+        return;
+      }
+      if (key.downArrow) {
+        setModelIndex((index) => (index + 1) % availableModels.length);
+        return;
+      }
+      if (enter && !model.trim()) {
+        submit("model", availableModels[modelIndex]);
+        return;
+      }
+    }
+
     if (key.ctrl && input === "u") {
       setValueFor(step, "");
       return;
@@ -293,6 +358,25 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
           </Box>
         </Box>
       )}
+
+      {step === "model" && (loadingModels || availableModels.length > 0) ? (
+        <Box marginTop={1} flexDirection="column">
+          <Text color="gray">
+            {loadingModels
+              ? "正在获取模型…"
+              : `模型 (${availableModels.length})`}
+          </Text>
+          {availableModels.slice(0, 8).map((id, index) => (
+            <Text key={id} color={index === modelIndex ? ACCENT : "gray"}>
+              {index === modelIndex ? "❯ " : "  "}
+              {id}
+            </Text>
+          ))}
+          {availableModels.length > 8 ? (
+            <Text color="gray">其余模型可直接输入名称。</Text>
+          ) : null}
+        </Box>
+      ) : null}
 
       {error && (
         <Box marginTop={1}>

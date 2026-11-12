@@ -44,6 +44,7 @@ import { TextInput } from "./components/TextInput.js";
 import { TodoIndicator } from "./components/TodoIndicator.js";
 import { consumeComposerDraft, useComposerDraft } from "./composerDraft.js";
 import { FileSearchUI } from "./FileSearchUI.js";
+import { useDeepSeekBalance } from "./hooks/useDeepSeekBalance.js";
 import { useHistorySearch } from "./hooks/useHistorySearch.js";
 import { useKeypress, type Key } from "./hooks/useKeypress.js";
 import { useLocale } from "./hooks/useLocale.js";
@@ -330,6 +331,8 @@ const ComposerPrompt: React.FC<{
 
 interface UserInputProps {
   onSubmit: (message: string, imageMap?: Map<string, Buffer>) => void;
+  /** Context share and session cost, shown centred under the input box. */
+  contextReadout?: string;
   isWaitingForResponse: boolean;
   isCompacting?: boolean;
   inputMode: boolean;
@@ -374,40 +377,66 @@ const ComposerFooter: React.FC<{
   mode: PermissionMode;
   isRemoteMode: boolean;
   remoteUrl?: string;
-}> = ({ mode, isRemoteMode, remoteUrl }) => {
+  /** Context share and session cost, centred under the box. */
+  contextReadout?: string;
+}> = ({ mode, isRemoteMode, remoteUrl, contextReadout }) => {
   const theme = useTheme();
   const badge = modeBadge(mode, theme);
   const directory =
     remoteUrl ?? formatWorkspaceLocation(process.cwd(), os.homedir());
   const model = services?.model?.getState?.().model as
-    | { name?: string; model?: string; defaultCompletionOptions?: unknown }
+    | {
+        name?: string;
+        model?: string;
+        provider?: string;
+        apiBase?: string;
+        apiKey?: string;
+        defaultCompletionOptions?: unknown;
+      }
     | null
     | undefined;
+  const balances = useDeepSeekBalance(model);
   const modelName = model?.name || model?.model || "";
   const thinkingDepth = getThinkingDepth(model as any);
 
   return (
-    <Box flexDirection="row" justifyContent="space-between" width="100%">
-      <Box flexDirection="row">
-        <Text color={badge.color} bold>
-          {badge.label}
-        </Text>
-        {!isRemoteMode && directory ? (
-          <Text color={theme.text.subtle}> {directory}</Text>
-        ) : null}
-      </Box>
-      <Box flexDirection="row">
-        {modelName ? <Text color={theme.text.primary}>{modelName}</Text> : null}
-        {modelName && thinkingDepth ? (
-          <Text color={theme.border.focus}>
-            {" "}
-            {t("status.think")}:{thinkingDepth}
+    <Box flexDirection="column" width="100%">
+      <Box flexDirection="row" justifyContent="space-between" width="100%">
+        <Box flexDirection="row">
+          <Text color={badge.color} bold>
+            {badge.label}
           </Text>
-        ) : null}
-        <Box marginLeft={1}>
-          <UpdateNotification isRemoteMode={isRemoteMode} />
+          {!isRemoteMode && directory ? (
+            <Text color={theme.text.subtle}> {directory}</Text>
+          ) : null}
+        </Box>
+        <Box flexDirection="row">
+          {modelName ? (
+            <Text color={theme.text.primary}>{modelName}</Text>
+          ) : null}
+          {modelName && thinkingDepth ? (
+            <Text color={theme.border.focus}>
+              {" "}
+              {t("status.think")}:{thinkingDepth}
+            </Text>
+          ) : null}
+          {balances.map((item) => (
+            <Text key={item.currency} color={theme.status.success}>
+              {` · 余额 ${item.total} ${item.currency}`}
+            </Text>
+          ))}
+          <Box marginLeft={1}>
+            <UpdateNotification isRemoteMode={isRemoteMode} />
+          </Box>
         </Box>
       </Box>
+      {/* The context share sits centred under the input box: how much of the
+          window this session holds, and what it costs so far. */}
+      {contextReadout ? (
+        <Box justifyContent="center" width="100%">
+          <Text color={theme.text.subtle}>{contextReadout}</Text>
+        </Box>
+      ) : null}
     </Box>
   );
 };
@@ -416,6 +445,7 @@ const MAX_INPUT_VIEWPORT_HEIGHT = 8;
 
 const UserInput: React.FC<UserInputProps> = ({
   onSubmit,
+  contextReadout,
   isWaitingForResponse,
   isCompacting = false,
   inputMode,
@@ -1219,6 +1249,7 @@ const UserInput: React.FC<UserInputProps> = ({
         mode={currentMode}
         isRemoteMode={isRemoteMode}
         remoteUrl={undefined}
+        contextReadout={contextReadout}
       />
     </Box>
   );

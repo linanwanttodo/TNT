@@ -18,6 +18,8 @@ interface MainContentProps {
   ) => React.ReactElement;
   streamingText: string | null;
   streamingReasoning: string | null;
+  /** The finished turn's ledger, rendered under the answer. */
+  turnSummary?: string;
   isWaitingForResponse: boolean;
   responseStartTime: number | null;
   isCompacting: boolean;
@@ -48,6 +50,7 @@ export const MainContent: React.FC<MainContentProps> = ({
   renderMessage,
   streamingText,
   streamingReasoning,
+  turnSummary,
   isWaitingForResponse,
   responseStartTime,
   isCompacting,
@@ -72,6 +75,7 @@ export const MainContent: React.FC<MainContentProps> = ({
         queuedMessages={queuedMessages}
         renderMessage={renderMessage}
         streamingText={streamingText}
+        turnSummary={turnSummary}
         streamingReasoning={streamingReasoning}
         isWaitingForResponse={isWaitingForResponse}
         responseStartTime={responseStartTime}

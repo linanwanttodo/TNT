@@ -1,4 +1,4 @@
-import { Box, Static } from "ink";
+import { Box, Text } from "ink";
 import React from "react";
 
 import type { ChatHistoryItem } from "../../../../../core/index.js";
@@ -7,9 +7,11 @@ import type { QueuedMessage } from "../../stream/messageQueue.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { IntroMessage } from "../IntroMessage.js";
 import { useRevealedText } from "../streamReveal.js";
+import { useTheme } from "../theme/tokens.js";
 import { splitChatHistory } from "../utils/historySplitting.js";
 import { findLastSafeSplitPoint } from "../utils/streamSplit.js";
 import { alternateScreenEnabled } from "../utils/terminalScreen.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { ActionStatus } from "./ActionStatus.js";
 import { BackgroundTasksNotice } from "./BackgroundTasksIndicator.js";
@@ -36,6 +38,8 @@ interface TranscriptContentProps {
   /** Draws the one-column scrollbar on the right edge of the window. */
   showScrollbar?: boolean;
   isWaitingForResponse: boolean;
+  /** The finished turn's ledger, rendered under the answer. */
+  turnSummary?: string;
   responseStartTime: number | null;
   isCompacting: boolean;
   compactionStartTime: number | null;
@@ -63,6 +67,7 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   onMetrics,
   showScrollbar,
   isWaitingForResponse,
+  turnSummary,
   responseStartTime,
   isCompacting,
   compactionStartTime,
@@ -104,6 +109,13 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   const [settledChunks, setSettledChunks] = React.useState<string[]>([]);
   const settledOffset = React.useRef(0);
   React.useEffect(() => {
+    if (!alternateScreenEnabled()) {
+      // Nothing settles in the normal buffer: the answer stays live until it
+      // lands in the history, which prints it exactly once.
+      settledOffset.current = 0;
+      setSettledChunks((current) => (current.length === 0 ? current : []));
+      return;
+    }
     if (!streamingText) {
       settledOffset.current = 0;
       setSettledChunks((current) => (current.length === 0 ? current : []));
@@ -121,8 +133,15 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     }
   }, [streamingText]);
 
+  // In the fullscreen viewport the settled prefix is rendered once and only
+  // the tail redraws; in the normal buffer nothing settles, so the live frame
+  // carries the whole answer.
   const liveText = useRevealedText(
-    streamingText ? streamingText.slice(settledOffset.current) : null,
+    streamingText
+      ? alternateScreenEnabled()
+        ? streamingText.slice(settledOffset.current)
+        : streamingText
+      : null,
   );
 
   // The live answer is not in the history yet, so it renders straight from the
@@ -153,6 +172,8 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
     </React.Fragment>
   ));
 
+  const theme = useTheme();
+
   const live = (
     <>
       {streamingReasoning && (
@@ -174,11 +195,27 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
         showSpinner={true}
         loadingColor="gray"
         tokenCount={streamingTokens}
+        tokenRate={
+          responseStartTime && isWaitingForResponse
+            ? streamingTokens /
+              Math.max(1, (Date.now() - responseStartTime) / 1000)
+            : undefined
+        }
         verbose={verbose}
         hasActiveTools={isBashToolRunning}
         cancelHint={t("composer.interruptHint")}
         additionalHint={isBashToolRunning ? t("action.background") : undefined}
       />
+
+      {/* The turn's own ledger, shown once the turn ends: what it read, what
+          it wrote, how long it took and what the cache did. */}
+      {turnSummary ? (
+        <Box paddingX={1}>
+          <Text color={theme.text.secondary} italic>
+            {sanitizeTerminalText(turnSummary)}
+          </Text>
+        </Box>
+      ) : null}
 
       <ActionStatus
         visible={isCompacting && !!compactionStartTime}
@@ -197,19 +234,15 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
   ));
 
   if (!alternateScreenEnabled()) {
-    // The normal buffer gives the terminal its scrollback: settled rows are
-    // written once through Static, and only the live tail is redrawn.
+    // The terminal-buffer renderer owns scrollback and redraws only changed
+    // rows. Keep the whole transcript in its tree so the intro, history and
+    // live thinking/tool rows share one coordinate space and are never
+    // duplicated by Static plus the next frame.
     return (
       <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0}>
-        <Static
-          items={[
-            ...(showIntro ? [<IntroMessage key="intro" />] : []),
-            ...history,
-            ...settledStream,
-          ]}
-        >
-          {(item) => item}
-        </Static>
+        {showIntro && <IntroMessage />}
+        {history}
+        {settledStream}
         {live}
       </Box>
     );

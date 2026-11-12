@@ -13,6 +13,15 @@ export interface LiveSessionInfo {
   workspaceDirectory: string;
 }
 
+/** What one turn consumed, projected to the shared view and the terminal. */
+export interface TurnUsageProjection {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cost: number;
+  rounds: number;
+}
+
 export interface LiveRuntime {
   /** Stable for one TUI process; a second bind replaces the first. */
   runtimeId: string;
@@ -153,13 +162,25 @@ class LiveHub {
   }
 
   publishTurnCompleted(
-    options: { interrupted?: boolean; content?: string } = {},
+    options: {
+      interrupted?: boolean;
+      content?: string;
+      usage?: TurnUsageProjection;
+    } = {},
   ): void {
     if (options.interrupted) {
-      this.publish({ type: "turn.interrupted", reason: "user_abort" });
+      this.publish({
+        type: "turn.interrupted",
+        reason: "user_abort",
+        turnTotals: options.usage,
+      });
       return;
     }
-    this.publish({ type: "turn.completed", content: options.content });
+    this.publish({
+      type: "turn.completed",
+      content: options.content,
+      turnTotals: options.usage,
+    });
   }
 
   publishTurnFailed(message: string): void {

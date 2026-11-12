@@ -146,12 +146,20 @@ export async function startTUIChat(
   }
 
   // Start the TUI immediately - it will handle loading states
-  const renderOptions: RenderOptions = {
+  // The fork's own render option, not in its published type yet.
+  const renderOptions: RenderOptions & {
+    terminalBuffer?: boolean;
+  } = {
     exitOnCtrlC: false, // Disable Ink's default Ctrl+C handling so we can implement two-stage exit
     // Incremental row updates instead of the full-frame erase and redraw the
     // fullscreen branch otherwise does every render - the visible flicker on
     // terminals without synchronized-output support comes from that redraw.
     incrementalRendering: true,
+    // The whole frame is rendered into a terminal-sized buffer and written
+    // once. In the normal buffer this is what keeps a redrawn line from
+    // appearing twice: the writer owns the rows it paints, so a settled
+    // message is not printed again by the next frame.
+    terminalBuffer: true,
     stdin: stdinToUse,
     stdout: process.stdout,
     stderr: process.stderr,

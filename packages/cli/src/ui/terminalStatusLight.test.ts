@@ -7,48 +7,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   sessionTitle,
-  TITLE_ANIMATION_INTERVAL_MS,
   TITLE_MAX_LENGTH,
-  titlePrefixAt,
   useTerminalStatusLight,
   writeTerminalTitle,
   type SessionStatus,
 } from "./terminalStatusLight.js";
 
-const STATIC_PREFIX = "✳";
-const FRAME_A = "⠂";
-const FRAME_B = "⠐";
 const OLD_STATUS_EMOJI = /[\u{1F7E2}\u{1F7E1}\u{1F534}]/u;
-
-describe("titlePrefixAt", () => {
-  it("alternates every 960 ms while a turn runs", () => {
-    expect(titlePrefixAt(0, true)).toBe(FRAME_A);
-    expect(titlePrefixAt(959, true)).toBe(FRAME_A);
-    expect(titlePrefixAt(960, true)).toBe(FRAME_B);
-    expect(titlePrefixAt(1919, true)).toBe(FRAME_B);
-    expect(titlePrefixAt(1920, true)).toBe(FRAME_A);
-  });
-
-  it("keeps the static prefix whenever no turn runs", () => {
-    for (const elapsed of [0, 959, 960, 1919, 1920, 50_000]) {
-      expect(titlePrefixAt(elapsed, false), `${elapsed} ms`).toBe(
-        STATIC_PREFIX,
-      );
-    }
-  });
-
-  it("treats a negative clock as the start of the turn", () => {
-    expect(titlePrefixAt(-960, true)).toBe(FRAME_A);
-  });
-});
 
 describe("sessionTitle", () => {
   const cases: Array<[SessionStatus, string, string]> = [
-    ["idle", "myproject", `${STATIC_PREFIX} myproject`],
-    ["working", "myproject", `${FRAME_A} myproject`],
-    ["waiting", "myproject", `${STATIC_PREFIX} myproject`],
-    ["idle", "", STATIC_PREFIX],
-    ["working", "  ", FRAME_A],
+    ["idle", "myproject", "TNT myproject"],
+    ["working", "myproject", "TNT myproject"],
+    ["waiting", "myproject", "TNT myproject"],
+    ["idle", "", "TNT"],
+    ["working", "  ", "TNT"],
   ];
 
   for (const [status, name, expected] of cases) {
@@ -57,19 +30,15 @@ describe("sessionTitle", () => {
     });
   }
 
-  it("uses the same prefix for every state and animates only while working", () => {
-    expect(sessionTitle("idle", "tnt", 960)).toBe(`${STATIC_PREFIX} tnt`);
-    expect(sessionTitle("waiting", "tnt", 960)).toBe(`${STATIC_PREFIX} tnt`);
-    expect(sessionTitle("working", "tnt", 0)).toBe(`${FRAME_A} tnt`);
-    expect(sessionTitle("working", "tnt", 960)).toBe(`${FRAME_B} tnt`);
+  it("keeps the title to the product and working directory", () => {
+    for (const status of ["idle", "working", "waiting"] as const) {
+      expect(sessionTitle(status, "tnt", 960)).toBe("TNT tnt");
+    }
   });
 
   it("leaves no emoji status glyph", () => {
     for (const status of ["idle", "working", "waiting"] as const) {
       expect(sessionTitle(status, "tnt"), status).not.toMatch(OLD_STATUS_EMOJI);
-      expect(sessionTitle(status, "tnt", 1920), status).not.toMatch(
-        OLD_STATUS_EMOJI,
-      );
     }
   });
 });
@@ -99,9 +68,9 @@ describe("writeTerminalTitle", () => {
       .spyOn(process.stdout, "write")
       .mockReturnValue(true as never);
 
-    writeTerminalTitle(`${FRAME_A} tnt`);
+    writeTerminalTitle("TNT tnt");
 
-    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;⠂ tnt\x07");
+    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;TNT tnt\x07");
   });
 
   it("writes nothing when stdout is not a terminal", () => {
@@ -110,7 +79,7 @@ describe("writeTerminalTitle", () => {
       .spyOn(process.stdout, "write")
       .mockReturnValue(true as never);
 
-    writeTerminalTitle(`${FRAME_A} tnt`);
+    writeTerminalTitle("TNT tnt");
 
     expect(stdoutWrite).not.toHaveBeenCalled();
   });
@@ -124,9 +93,9 @@ describe("writeTerminalTitle", () => {
     // The session name is model-chosen, and both BEL and ESC end an OSC
     // string: either one inside the name lets it close the title and hand the
     // remainder to the terminal as control.
-    writeTerminalTitle(`${FRAME_A} ok\u0007\u001b]0;pwned\u0007`);
+    writeTerminalTitle("TNT ok\u0007\u001b]0;pwned\u0007");
 
-    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;⠂ ok]0;pwned\x07");
+    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;TNT ok]0;pwned\x07");
   });
 
   it("keeps newlines out of the title payload", () => {
@@ -135,9 +104,9 @@ describe("writeTerminalTitle", () => {
       .spyOn(process.stdout, "write")
       .mockReturnValue(true as never);
 
-    writeTerminalTitle(`${FRAME_A} a\u0009b\u000ac`);
+    writeTerminalTitle("TNT a\u0009b\u000ac");
 
-    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;⠂ abc\x07");
+    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;TNT abc\x07");
   });
 
   it("bounds the title length", () => {
@@ -183,12 +152,8 @@ describe("useTerminalStatusLight", () => {
     return render(React.createElement(Harness, { status, sessionName: "tnt" }));
   }
 
-  /** The id of the 960 ms animation timer, if the hook started one. */
   function animationTimer(): unknown {
-    const index = setIntervalSpy.mock.calls.findIndex(
-      (call: unknown[]) => call[1] === TITLE_ANIMATION_INTERVAL_MS,
-    );
-    return index < 0 ? undefined : setIntervalSpy.mock.results[index]?.value;
+    return setIntervalSpy.mock.results.at(-1)?.value;
   }
 
   beforeEach(() => {
@@ -211,26 +176,22 @@ describe("useTerminalStatusLight", () => {
     });
   });
 
-  it("starts a 960 ms animation and writes its first frame while working", () => {
+  it("writes the stable TNT and workspace title while working", () => {
     const tree = draw("working");
 
-    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;⠂ tnt\x07");
-    expect(animationTimer()).toBeDefined();
+    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;TNT tnt\x07");
+    expect(animationTimer()).toBeUndefined();
 
     tree.unmount();
   });
 
-  it("stops the animation when the turn ends", () => {
+  it("keeps the same title when the turn ends", () => {
     const tree = draw("working");
-    const timer = animationTimer();
-
     tree.rerender(
       React.createElement(Harness, { status: "idle", sessionName: "tnt" }),
     );
-
-    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;✳ tnt\x07");
-    expect(clearIntervalSpy).toHaveBeenCalledWith(timer);
-
+    expect(stdoutWrite).toHaveBeenLastCalledWith("\x1b]0;TNT tnt\x07");
+    expect(animationTimer()).toBeUndefined();
     tree.unmount();
   });
 
@@ -238,7 +199,7 @@ describe("useTerminalStatusLight", () => {
     const tree = draw("idle");
 
     expect(animationTimer()).toBeUndefined();
-    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;✳ tnt\x07");
+    expect(stdoutWrite).toHaveBeenCalledWith("\x1b]0;TNT tnt\x07");
 
     tree.unmount();
   });
@@ -248,6 +209,6 @@ describe("useTerminalStatusLight", () => {
 
     tree.unmount();
 
-    expect(stdoutWrite).toHaveBeenLastCalledWith("\x1b]0;✳ tnt\x07");
+    expect(stdoutWrite).toHaveBeenLastCalledWith("\x1b]0;TNT tnt\x07");
   });
 });

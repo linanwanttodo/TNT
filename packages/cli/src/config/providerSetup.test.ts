@@ -24,20 +24,32 @@ describe("provider setup config generation", () => {
     model: "gpt-4.1",
   };
 
-  test("offers five protocol choices rather than a vendor list", () => {
+  test("offers protocol families and common direct providers", () => {
     expect(PROTOCOLS.map((protocol) => protocol.id)).toEqual([
       "openai-chat-completions",
       "openai-responses",
       "anthropic-messages",
       "google-generative-ai",
       "openai-compatible",
+      "deepseek-preset",
+      "zhipu-preset",
+      "moonshot-preset",
+      "qwen-preset",
+      "siliconflow-preset",
+      "minimax-preset",
     ]);
     expect(PROTOCOLS.map((protocol) => protocol.label)).toEqual([
       "OpenAI Chat Completions",
       "OpenAI Responses",
       "Anthropic Messages",
       "Google Generative AI",
-      "Ollama / local model",
+      "OpenAI compatible / local model",
+      "DeepSeek",
+      "Zhipu GLM",
+      "Moonshot Kimi",
+      "Qwen / DashScope",
+      "SiliconFlow",
+      "MiniMax",
     ]);
   });
 
@@ -45,6 +57,13 @@ describe("provider setup config generation", () => {
     const ollama = PROTOCOLS[4];
     expect(ollama.defaultApiBase).toBe("http://localhost:11434/v1/");
     expect(ollama.exampleModel).toBe("llama3.2");
+  });
+
+  test("maps the built-in provider presets to supported adapters", () => {
+    expect(mapProtocolToProvider("deepseek-preset")).toBe("deepseek");
+    expect(mapProtocolToProvider("moonshot-preset")).toBe("moonshot");
+    expect(mapProtocolToProvider("zhipu-preset")).toBe("openai");
+    expect(mapProtocolToProvider("qwen-preset")).toBe("openai");
   });
 
   test("maps an OpenAI-compatible protocol to the openai adapter provider", () => {
