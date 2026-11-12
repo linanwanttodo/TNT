@@ -35,6 +35,8 @@ import { logger } from "../utils/logger.js";
  * on purpose: an old cold round should not hold a recovered tail down.
  */
 const cacheHitRates = new Map<string, number[]>();
+/** The last turn round's cache hit ratio, for the status line. */
+let lastRoundRate: number | undefined;
 /** Conversations already reported, so a persistent miss warns once, not per turn. */
 const reportedFloorMiss = new Set<string>();
 
@@ -109,6 +111,15 @@ export function cacheTokensFrom(usage?: any): {
     ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
     ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
   };
+}
+
+/**
+ * The cache hit ratio of the last completed round, when the provider reported
+ * cache activity for it. The status line reads this when no prefix verdict
+ * exists, because a provider without prefix accounting still bills cache hits.
+ */
+export function lastRoundCacheRate(): number | undefined {
+  return lastRoundRate;
 }
 
 // Helper function to record telemetry
@@ -444,6 +455,7 @@ export function recordRoundAccounting(options: {
       // cache: a zero on a provider that never reports one describes the
       // provider, not this client's prefix.
       if (cacheRead > 0 || cacheWrite > 0) {
+        lastRoundRate = cacheRead / reportedInput;
         noteCacheHitRate(promptCacheKey ?? "", cacheRead / reportedInput);
       }
     }

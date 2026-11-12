@@ -410,6 +410,13 @@ const ComposerFooter: React.FC<{
             <Text color={theme.text.subtle}> {directory}</Text>
           ) : null}
         </Box>
+        {/* The context share shares the status row: no extra line under the
+            input box, and the numbers sit where the reader already looks. */}
+        {contextReadout ? (
+          <Box flexDirection="row" justifyContent="center" flexGrow={1}>
+            <Text color={theme.text.subtle}>{contextReadout}</Text>
+          </Box>
+        ) : null}
         <Box flexDirection="row">
           {modelName ? (
             <Text color={theme.text.primary}>{modelName}</Text>
@@ -430,13 +437,6 @@ const ComposerFooter: React.FC<{
           </Box>
         </Box>
       </Box>
-      {/* The context share sits centred under the input box: how much of the
-          window this session holds, and what it costs so far. */}
-      {contextReadout ? (
-        <Box justifyContent="center" width="100%">
-          <Text color={theme.text.subtle}>{contextReadout}</Text>
-        </Box>
-      ) : null}
     </Box>
   );
 };

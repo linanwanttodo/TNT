@@ -1,5 +1,6 @@
 import { Text } from "ink";
 import React from "react";
+import stringWidth from "string-width";
 
 import { closedThinkBlockPattern } from "../utils/thinkingTags.js";
 
@@ -32,6 +33,138 @@ interface MarkdownPattern {
    */
   contentOf?: (match: RegExpExecArray) => string;
   render: (content: string, key: string) => React.ReactNode;
+}
+
+/**
+ * One pipe-table block. Detected before the inline patterns run, the way code
+ * fences are: the inline regexes would eat the pipes and padding as emphasis
+ * and code spans, and a table needs a column grid no inline pass can keep.
+ */
+interface TableBlock {
+  index: number;
+  length: number;
+  header: string[];
+  rows: string[][];
+}
+
+const TABLE_LINE = /^\s*\|.*\|\s*$/;
+const TABLE_DELIMITER = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/;
+
+function splitRow(line: string): string[] {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split("|").map((cell) => cell.trim().replace(/\n/g, " "));
+}
+
+function findTableBlocks(text: string): TableBlock[] {
+  const lines = text.split("\n");
+  const tables: TableBlock[] = [];
+  let offset = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const next = lines[i + 1] ?? "";
+    const isTable = TABLE_LINE.test(line) && TABLE_DELIMITER.test(next);
+    if (!isTable) {
+      offset += line.length + 1;
+      continue;
+    }
+
+    const header = splitRow(line);
+    const rows: string[][] = [];
+    let consumed = line.length + 1 + next.length + 1;
+    let j = i + 2;
+    while (j < lines.length && TABLE_LINE.test(lines[j])) {
+      rows.push(splitRow(lines[j]));
+      consumed += lines[j].length + 1;
+      j++;
+    }
+    tables.push({ index: offset, length: consumed, header, rows });
+    for (let k = i; k < j; k++) {
+      offset += lines[k].length + 1;
+    }
+    i = j - 1;
+  }
+  return tables;
+}
+
+/**
+ * Renders the grid with display-width padding so CJK cells line up. The frame
+ * is the theme's subtle colour and the header is bold. A table wider than the
+ * terminal truncates its cells, because a wrapped grid stops being a grid.
+ */
+function renderTable(block: TableBlock, key: string): React.ReactNode {
+  const columns = Math.max(
+    block.header.length,
+    ...block.rows.map((row) => row.length),
+  );
+  const cell = (row: string[], index: number) => row[index] ?? "";
+  const overhead = 2 * columns + columns + 1;
+  const available = Math.max(12, (process.stdout.columns ?? 80) - 4);
+  const budget = Math.max(2, Math.floor((available - overhead) / columns));
+
+  const widths = Array.from({ length: columns }, (_, index) => {
+    const widest = Math.max(
+      stringWidth(cell(block.header, index)),
+      0,
+      ...block.rows.map((row) => stringWidth(cell(row, index))),
+    );
+    return Math.min(Math.max(widest, 2), budget);
+  });
+
+  const truncate = (value: string, width: number) => {
+    if (stringWidth(value) <= width) return value;
+    let out = "";
+    for (const char of value) {
+      if (stringWidth(out + char) > width - 1) break;
+      out += char;
+    }
+    return out + "\u2026";
+  };
+  const pad = (value: string, width: number) =>
+    truncate(value, width) +
+    " ".repeat(Math.max(0, width - stringWidth(truncate(value, width))));
+  const rule = (left: string, mid: string, right: string) =>
+    left + widths.map((width) => "\u2500".repeat(width + 2)).join(mid) + right;
+  const line = (row: string[], bold: boolean) => {
+    const text =
+      "\u2502" +
+      row
+        .map((value, index) => ` ${pad(value, widths[index])} `)
+        .join("\u2502") +
+      "\u2502";
+    return (
+      <Text key={`${key}-r${bold ? "h" : "b"}`} bold={bold}>
+        {text + "\n"}
+      </Text>
+    );
+  };
+
+  const headerRow = Array.from({ length: columns }, (_, index) =>
+    cell(block.header, index),
+  );
+
+  return (
+    <Text key={key}>
+      <Text color={uiTheme.text.subtle}>
+        {rule("\u250c", "\u252c", "\u2510") + "\n"}
+      </Text>
+      {line(headerRow, true)}
+      <Text color={uiTheme.text.subtle}>
+        {rule("\u251c", "\u253c", "\u2524") + "\n"}
+      </Text>
+      {block.rows.map((row) =>
+        line(
+          Array.from({ length: columns }, (_, cellIndex) =>
+            cell(row, cellIndex),
+          ),
+          false,
+        ),
+      )}
+      <Text color={uiTheme.text.subtle}>
+        {rule("\u2514", "\u2534", "\u2518")}
+      </Text>
+    </Text>
+  );
 }
 
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
@@ -143,6 +276,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
 
       let currentIndex = 0;
 
+      // Tables come before everything: the pipe syntax collides with the
+      // inline emphasis and code patterns, and the grid needs whole rows.
+      const tables = findTableBlocks(text);
+
       // First, handle code blocks separately
       const codeBlockRegex = /```(?:(\w+)\n)?([\s\S]*?)```/g;
       const codeBlocks: Array<{
@@ -183,8 +320,13 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
               match!.index >= block.index &&
               match!.index < block.index + block.length,
           );
+          const isInTable = tables.some(
+            (block) =>
+              match!.index >= block.index &&
+              match!.index < block.index + block.length,
+          );
 
-          if (!isInCodeBlock) {
+          if (!isInCodeBlock && !isInTable) {
             allMatches.push({
               index: match.index,
               length: match[0].length,
@@ -195,16 +337,23 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         }
       });
 
-      // Combine code blocks and other matches
+      // Combine tables, code blocks and other matches
       const combinedMatches: Array<{
         index: number;
         length: number;
-        type: "code" | "other";
+        type: "code" | "other" | "table";
         content?: string;
         render?: (content: string, key: string) => React.ReactNode;
         language?: string;
         code?: string;
+        table?: TableBlock;
       }> = [
+        ...tables.map((block) => ({
+          index: block.index,
+          length: block.length,
+          type: "table" as const,
+          table: block,
+        })),
         ...codeBlocks.map((block) => ({
           index: block.index,
           length: block.length,
@@ -248,7 +397,13 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         }
 
         // Add the formatted match
-        if (match.type === "code") {
+        if (match.type === "table") {
+          if (match.index > currentIndex && text[currentIndex - 1] !== "\n") {
+            parts.push("\n");
+          }
+          parts.push(renderTable(match.table!, `table-${idx}-${match.index}`));
+          parts.push("\n");
+        } else if (match.type === "code") {
           const highlightedCode = highlightCode(
             match.code!,
             match.language!,

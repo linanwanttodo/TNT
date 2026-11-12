@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   contextUsage,
   formatContextUsage,
+  formatSessionReadout,
   formatTokens,
   formatTurnUsage,
 } from "./contextReadout.js";
@@ -26,6 +27,59 @@ describe("provider-measured context readout", () => {
 
   it("does not show a percentage when the model declares no window", () => {
     expect(formatContextUsage(contextUsage(100, 0))).toBe("?/0");
+  });
+});
+
+describe("status line readout", () => {
+  it("reads pi's order and omits zero segments", () => {
+    expect(
+      formatSessionReadout(
+        {
+          promptTokens: 47_000,
+          completionTokens: 524,
+          cacheReadTokens: 447_000,
+          cacheWriteTokens: 635,
+          totalCost: 21.246,
+        },
+        0,
+        0.998,
+        "13.8%/1.0M",
+      ),
+    ).toBe("↑47k ↓524 R447k W635 CH99.8% $21.246 13.8%/1.0M");
+  });
+
+  it("ticks the output arrow with the streaming estimate", () => {
+    expect(
+      formatSessionReadout(
+        {
+          promptTokens: 12_000,
+          completionTokens: 500,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalCost: 0,
+        },
+        250,
+        undefined,
+        "",
+      ),
+    ).toBe("↑12k ↓750");
+  });
+
+  it("says nothing before the first round beyond the context share", () => {
+    expect(
+      formatSessionReadout(
+        {
+          promptTokens: 0,
+          completionTokens: 0,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          totalCost: 0,
+        },
+        0,
+        undefined,
+        "?/200k",
+      ),
+    ).toBe("?/200k");
   });
 });
 

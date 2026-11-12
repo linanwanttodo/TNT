@@ -56,8 +56,8 @@ describe("alternate screen", () => {
 });
 
 describe("alternateScreenEnabled", () => {
-  it("defaults to the normal buffer and accepts the documented on spellings", () => {
-    expect(alternateScreenEnabled({})).toBe(false);
+  it("defaults to the alternate buffer and honours the off spellings", () => {
+    expect(alternateScreenEnabled({})).toBe(true);
     for (const value of ["1", "true", "on", " ON "]) {
       expect(alternateScreenEnabled({ TNT_ALT_SCREEN: value }), value).toBe(
         true,
