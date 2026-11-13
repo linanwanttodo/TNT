@@ -1,5 +1,4 @@
-import { exec, spawn } from "child_process";
-import { promisify } from "util";
+import { spawn } from "child_process";
 
 import { GlobalContext } from "core/util/GlobalContext.js";
 
@@ -13,7 +12,6 @@ import { logger } from "../utils/logger.js";
 import { BaseService } from "./BaseService.js";
 import { serviceContainer } from "./ServiceContainer.js";
 import { UpdateServiceState, UpdateStatus } from "./types.js";
-const execAsync = promisify(exec);
 
 /**
  * A dev build must not ask npm whether it is out of date: the published version is always
@@ -318,6 +316,87 @@ export function installerCommand(
 }
 
 /**
+ * The installer's own step lines, in the order it prints them.
+ *
+ * The download is done by curl inside the script, so there is no byte counter
+ * to read; these are the milestones a reader can actually watch. A percentage
+ * only moves forward, so a later step never rewinds the bar.
+ */
+const INSTALLER_STEPS: ReadonlyArray<readonly [RegExp, number]> = [
+  [/Detected platform/i, 8],
+  [/Using shell profile/i, 12],
+  [/Node\.js meets requirements|Found Node\.js/i, 20],
+  [/Installing fnm|Installing Node\.js/i, 30],
+  [/Node\.js v\S+ installed/i, 40],
+  [/Latest release/i, 50],
+  [/Installing TNT CLI .* from GitHub Releases/i, 62],
+  [/TNT CLI v\S+ installed to/i, 85],
+  [/Removed the previous install/i, 90],
+  [/installation complete/i, 96],
+  [/Ready! Run/i, 100],
+];
+
+/** The progress percent an installer line announces, or null for noise. */
+export function progressFromInstallerOutput(line: string): number | null {
+  for (const [pattern, percent] of INSTALLER_STEPS) {
+    if (pattern.test(line)) return percent;
+  }
+  return null;
+}
+
+interface InstallerRun {
+  stdout: string;
+  stderr: string;
+  code: number | null;
+}
+
+/**
+ * Runs the installer while its step lines drive the progress callback.
+ *
+ * `spawn` rather than `exec`: the installer runs for minutes and streams its
+ * steps, and the reader should see the bar move instead of a frozen line. The
+ * timeout matches the old exec budget so a hung download still fails.
+ */
+function runInstaller(
+  onProgress: (percent: number) => void,
+  timeoutMs = 300_000,
+): Promise<InstallerRun> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(installerCommand(), { shell: true });
+    let stdout = "";
+    let stderr = "";
+    let buffered = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("installer timed out"));
+    }, timeoutMs);
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      stdout += text;
+      buffered += text;
+      const lines = buffered.split(/\r?\n/);
+      buffered = lines.pop() ?? "";
+      for (const line of lines) {
+        const percent = progressFromInstallerOutput(line);
+        if (percent !== null) onProgress(percent);
+      }
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ stdout, stderr, code });
+    });
+  });
+}
+
+/**
  * Service for checking and performing CLI updates
  */
 export class UpdateService extends BaseService<UpdateServiceState> {
@@ -331,6 +410,7 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       // for however long DNS and TLS take.
       message: `TNT v${getVersion()}`,
       error: null,
+      progress: null,
       isUpdateAvailable: false,
       latestVersion: null,
       currentVersion: getVersion(),
@@ -462,19 +542,26 @@ export class UpdateService extends BaseService<UpdateServiceState> {
       // the URL is the constant INSTALLER_BASE and no user, config or model
       // data reaches the string. The shell is required by the pipeline itself
       // (`curl | bash` / `irm | iex`), not used to interpolate any input.
-      const installer = await execAsync(installerCommand(), {
-        timeout: 300000,
+      const installer = await runInstaller((percent) => {
+        // The bar only moves forward: the installer may repeat a step line,
+        // and a finished step must not flash back to a lower number.
+        const current = this.currentState.progress ?? 0;
+        if (percent > current) this.setState({ progress: percent });
       });
       logger.debug("Update output:", {
         stdout: installer.stdout,
         stderr: installer.stderr,
       });
-      const fatal = firstFatalStderrLine(installer.stderr);
-      if (fatal) {
+      if (installer.code !== 0) {
+        const reason =
+          firstFatalStderrLine(installer.stderr) ??
+          installer.stderr ??
+          `installer exited ${installer.code}`;
         this.setState({
           status: UpdateStatus.ERROR,
           message: `Error updating to v${this.currentState.latestVersion}`,
-          error: new Error(installer.stderr),
+          error: new Error(reason),
+          progress: null,
         });
         return;
       }
@@ -483,6 +570,7 @@ export class UpdateService extends BaseService<UpdateServiceState> {
         status: UpdateStatus.UPDATED,
         message: `Updated to v${this.currentState.latestVersion}`,
         isUpdateAvailable: false,
+        progress: 100,
       });
       this.restartCLI();
     } catch (error: any) {
@@ -491,6 +579,7 @@ export class UpdateService extends BaseService<UpdateServiceState> {
         status: UpdateStatus.ERROR,
         message: "Update failed",
         error,
+        progress: null,
       });
       setTimeout(() => {
         this.setState({
