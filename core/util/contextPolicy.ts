@@ -20,7 +20,7 @@ export const CONTEXT_POLICY_REGISTRY = Object.freeze({
     compactRatio: 0.8,
     retainRatio: 0.16,
     outputHeadroomTokens: 64,
-    compactCeilingTokens: 200_000,
+    compactCeilingTokens: 100_000,
     retainCeilingTokens: 32_000,
   }),
 });

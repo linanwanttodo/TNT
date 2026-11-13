@@ -40,7 +40,7 @@ interface VirtualTranscriptProps {
 }
 
 /** Extra viewports rendered above and below the visible window. */
-const OVERSCAN_VIEWPORTS = 0.5;
+const OVERSCAN_VIEWPORTS = 0.25;
 /**
  * The height assumed on the commit before the viewport has been measured.
  * Without it the first commit would mount the whole history once, which is
