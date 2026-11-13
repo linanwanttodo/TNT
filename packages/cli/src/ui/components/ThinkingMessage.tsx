@@ -83,8 +83,7 @@ export const ThinkingMessage: React.FC<ThinkingMessageProps> = ({
     return (
       <Box ref={blockRef}>
         <Text color={activeTheme.text.secondary} italic>
-          {t("ui.reasoningFolded")}
-          {isStreaming ? " " : ""}
+          {isStreaming ? t("ui.reasoningFolded") : t("ui.reasoningFoldedHint")}
         </Text>
       </Box>
     );

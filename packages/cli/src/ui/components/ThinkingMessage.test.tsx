@@ -36,7 +36,7 @@ describe("ThinkingMessage", () => {
     expect(frame).toContain("Checking package dependencies");
     expect(frame).toContain("Finalizing plan");
     // The visible thought has no label or rules of its own.
-    expect(frame).not.toContain("Thinking...");
+    expect(frame).not.toContain("Thinking  click to expand");
     expect(frame).not.toContain("│");
   });
 
@@ -78,7 +78,7 @@ describe("ThinkingMessage", () => {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(tree.lastFrame() ?? "").toContain("Thinking...");
+      expect(tree.lastFrame() ?? "").toContain("Thinking  click to expand");
       expect(tree.lastFrame() ?? "").not.toContain("one line");
 
       expect(dispatchClick(1, 2)).toBe(true);
@@ -87,7 +87,7 @@ describe("ThinkingMessage", () => {
 
       expect(dispatchClick(1, 2)).toBe(true);
       await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(tree.lastFrame() ?? "").toContain("Thinking...");
+      expect(tree.lastFrame() ?? "").toContain("Thinking  click to expand");
       expect(tree.lastFrame() ?? "").not.toContain("one line");
     } finally {
       tree.unmount();
@@ -105,7 +105,7 @@ describe("ThinkingMessage", () => {
 
       tree.rerender(<ThinkingMessage thought={"live thought"} />);
       await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(tree.lastFrame() ?? "").toContain("Thinking...");
+      expect(tree.lastFrame() ?? "").toContain("Thinking  click to expand");
       expect(tree.lastFrame() ?? "").not.toContain("live thought");
     } finally {
       tree.unmount();
@@ -123,7 +123,7 @@ describe("ThinkingMessage", () => {
     toggleReasoningExpanded();
 
     const folded = frameOf(<ThinkingMessage thought={thought} />);
-    expect(folded).toContain("Thinking...");
+    expect(folded).toContain("Thinking  click to expand");
     expect(folded).not.toContain("first line");
   });
 
@@ -132,7 +132,7 @@ describe("ThinkingMessage", () => {
 
     const frame = frameOf(<ThinkingMessage thought={"first line"} />);
 
-    expect(frame).toContain("思考中…");
+    expect(frame).toContain("思考过程  点击展开");
     expect(frame).not.toContain("Thinking...");
   });
 });
@@ -165,7 +165,7 @@ describe("MemoizedMessage with think tags", () => {
     };
 
     const frame = frameOf(<MemoizedMessage item={item} index={1} />);
-    expect(frame).toContain("Thinking...");
+    expect(frame).toContain("Thinking  click to expand");
     expect(frame).not.toContain("Ongoing reasoning stream");
     expect(frame).not.toContain("<think>");
   });
