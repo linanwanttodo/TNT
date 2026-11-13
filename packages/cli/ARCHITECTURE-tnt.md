@@ -197,6 +197,20 @@ The prefix is assembled in build order, each part announced so it can be attribu
   bytes; the eviction is position-deterministic so the cache prefix only moves at the tail.
   The static spine is unchanged - the eviction never touches the system message. See
   `stream/toolOutputEviction.ts`.
+- **Composer changelog, 2026-11-14 (fast return):** `bufferFastReturn` only folds a return
+  into a newline inside a machine-speed burst (the last two insertable keys landed ≤8ms
+  apart - a legacy paste). A fast typist pressing enter right after the last character now
+  submits again; pasted multi-line text keeps folding every embedded return. `FAST_RETURN_BURST_GAP`
+  tunes the burst gap.
+- **Composer changelog, 2026-11-14 (collapsed tool rows):** a finished tool call renders its
+  command row and a `N earlier lines, click to expand` hint - no output rows - and a failed
+  call keeps a three-line tail. File edits collapse to a three-line diff digest; the hints
+  read click to expand/collapse. The session dot in the status bar blinks gray/white while a
+  turn runs, settles green on completion and red on a failed turn (`turnStatus` in useChat).
+- **Snapshot changelog, 2026-11-14 (slashCommands):** `toZcodeSnapshot` passes
+  `slashCommands` (name/description/source) from the command registry through the session
+  snapshot, so the webui palette lists real commands instead of an empty list; the async
+  subscribe path re-reads the registry live.
 - **Prefix changelog, 2026-11-13 (memory clause):** the base memory clause now gates its
   "append one line" instruction on project memory being enabled and says explicitly not to
   write either memory file when it is disabled. The static spine became
