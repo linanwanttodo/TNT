@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 
+import { useLayoutRevision } from "../hooks/layoutDirty.js";
 import { scrollbarGeometry } from "../utils/scrollbar.js";
 
 import { ScrollBarColumn } from "./ScrollBarColumn.js";
@@ -70,6 +71,22 @@ function clampRows(value: number): number {
  * the measurement replaces it and `onContentShift` compensates the offset, so
  * a wrong estimate costs one frame, not a visible jump.
  */
+/**
+ * Drops the measured heights when a nested block reports that its own height
+ * changed. Such a block (an expanded tool panel, an opened thought) keeps its
+ * node identity, so the per-node check would otherwise trust a stale number.
+ */
+function useRevalidatedMeasurements(
+  measuredNodes: React.MutableRefObject<Map<string, React.ReactNode>>,
+): void {
+  const layoutRevision = useLayoutRevision();
+  const measuredRevision = useRef(layoutRevision);
+  if (measuredRevision.current !== layoutRevision) {
+    measuredRevision.current = layoutRevision;
+    measuredNodes.current.clear();
+  }
+}
+
 export const VirtualTranscript: React.FC<VirtualTranscriptProps> = ({
   items,
   scrollTop,
@@ -96,6 +113,8 @@ export const VirtualTranscript: React.FC<VirtualTranscriptProps> = ({
     measuredNodes.current.clear();
     setRevision((value) => value + 1);
   }, [width]);
+
+  useRevalidatedMeasurements(measuredNodes);
 
   const setItemRef = useCallback(
     (key: string) => (element: DOMElement | null) => {
