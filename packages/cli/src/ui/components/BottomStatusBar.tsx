@@ -16,8 +16,10 @@ import {
 } from "../../session/reasoningOverride.js";
 import { getGitBranch } from "../../utils/git.js";
 import type { NavigationScreen } from "../context/NavigationContext.js";
+import { useBlink } from "../hooks/useBlink.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
-import { symbols } from "../symbols.js";
+import { claudeFilledDot, symbols } from "../symbols.js";
+import { useTheme } from "../theme/tokens.js";
 import { UpdateNotification } from "../UpdateNotification.js";
 import { formatCostAmount } from "../utils/contextUsageLine.js";
 
@@ -36,7 +38,34 @@ export interface BottomStatusBarProps {
   contextTokens?: number;
   isVerboseMode?: boolean;
   totalCost?: number;
+  /**
+   * The session's own state: a solid dot that blinks gray and white while a
+   * turn runs, turns green when it ends and red when the turn failed.
+   */
+  sessionStatus?: "idle" | "running" | "error";
 }
+
+/**
+ * One solid dot for the whole session, the way a terminal program shows it is
+ * busy. It never disappears: the running half alternates gray and white so the
+ * row keeps its shape, and a finished or failed turn settles on one colour.
+ */
+const SessionStatusDot: React.FC<{
+  status: "idle" | "running" | "error";
+}> = ({ status }) => {
+  const activeTheme = useTheme();
+  const running = status === "running";
+  const blinkVisible = useBlink(running);
+  const color =
+    status === "error"
+      ? activeTheme.status.error
+      : running
+        ? blinkVisible
+          ? activeTheme.text.primary
+          : activeTheme.text.subtle
+        : activeTheme.status.success;
+  return <Text color={color}>{`${claudeFilledDot()} `}</Text>;
+};
 
 /**
  * The cost line, or undefined when there is nothing to say. A request whose model
@@ -227,6 +256,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
   contextTokens: _contextTokens,
   isVerboseMode: _isVerboseMode,
   totalCost: _totalCost,
+  sessionStatus = "idle",
 }) => {
   const [_refreshTrigger, setRefreshTrigger] = useState(0);
   // Re-renders the row when a /think command changes the session depth.
@@ -317,6 +347,7 @@ export const BottomStatusBar: React.FC<BottomStatusBarProps> = ({
         minWidth={0}
         overflow="hidden"
       >
+        <SessionStatusDot status={sessionStatus} />
         <Text wrap="truncate-end" color="dim">
           {showingExitMessage ? t("status.exit") : joinParts(leftParts)}
         </Text>

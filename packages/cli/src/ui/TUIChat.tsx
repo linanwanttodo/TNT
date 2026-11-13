@@ -189,6 +189,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     handleEditMessage,
     handleToolPermissionResponse,
     handleQuizAnswer,
+    turnStatus,
   } = useChat({
     assistant: services.config?.config || undefined,
     model: services.model?.model || undefined,
@@ -491,6 +492,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
 
         <Composer
           contextReadout={contextReadout}
+          sessionStatus={turnStatus}
           following={following}
           onJumpToLatest={jumpToBottom}
           statusMessage={statusMessage}

@@ -16,6 +16,8 @@ interface ComposerProps {
   following: boolean;
   /** Context share and session cost, shown centred under the input box. */
   contextReadout?: string;
+  /** The session dot's state: a turn in flight, failed, or idle. */
+  sessionStatus?: "idle" | "running" | "error";
   /** Returns the transcript to the live tail. */
   onJumpToLatest: () => void;
   statusMessage: string;
@@ -155,6 +157,7 @@ export const Composer: React.FC<ComposerProps> = React.memo((props) => {
           contextTokens={props.contextTokens}
           isVerboseMode={props.isVerboseMode}
           totalCost={props.totalCost}
+          sessionStatus={props.sessionStatus}
         />
       )}
     </Box>
