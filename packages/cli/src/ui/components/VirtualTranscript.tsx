@@ -81,6 +81,11 @@ export const VirtualTranscript: React.FC<VirtualTranscriptProps> = ({
   const viewportRef = useRef<DOMElement>(null);
   const itemRefs = useRef(new Map<string, DOMElement>());
   const heights = useRef(new Map<string, number>());
+  /**
+   * The node each cached height was measured from. A row whose node reference
+   * has not changed cannot have changed height, so it is not measured again.
+   */
+  const measuredNodes = useRef(new Map<string, React.ReactNode>());
   const [, setRevision] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 
@@ -88,6 +93,7 @@ export const VirtualTranscript: React.FC<VirtualTranscriptProps> = ({
   // and keeping the old numbers would put every row at the wrong offset.
   useEffect(() => {
     heights.current.clear();
+    measuredNodes.current.clear();
     setRevision((value) => value + 1);
   }, [width]);
 
@@ -173,14 +179,22 @@ export const VirtualTranscript: React.FC<VirtualTranscriptProps> = ({
     const anchorKey = anchorIndex >= 0 ? items[anchorIndex]?.key : undefined;
     const anchorTop = anchorIndex >= 0 ? offsets[anchorIndex] : undefined;
 
-    const current = new Map(heights.current);
+    // A row whose node is untouched cannot have changed height. Measuring the
+    // whole window on every commit was the per-frame cost that made scrolling
+    // and typing wait behind layout queries: a streaming delta only changes
+    // the live row, and a scroll notch changes no content at all.
     for (const item of rendered) {
       const element = itemRefs.current.get(item.key);
       if (!element) continue;
+      const measuredFor = measuredNodes.current.get(item.key);
+      if (measuredFor === item.node && heights.current.has(item.key)) {
+        continue;
+      }
       const height = measureElement(element).height;
       if (!Number.isFinite(height) || height <= 0) continue;
-      if (current.get(item.key) !== height) {
-        current.set(item.key, height);
+      measuredNodes.current.set(item.key, item.node);
+      if (heights.current.get(item.key) !== height) {
+        heights.current.set(item.key, height);
         changed = true;
       }
     }
@@ -192,7 +206,7 @@ export const VirtualTranscript: React.FC<VirtualTranscriptProps> = ({
         let nextTop = 0;
         for (let index = 0; index < anchorPosition; index += 1) {
           nextTop += clampRows(
-            current.get(items[index]!.key) ??
+            heights.current.get(items[index]!.key) ??
               items[index]!.estimate ??
               DEFAULT_ESTIMATE,
           );
@@ -202,13 +216,15 @@ export const VirtualTranscript: React.FC<VirtualTranscriptProps> = ({
     }
 
     if (changed) {
-      heights.current = current;
       // Drop entries for messages the history no longer holds (compaction,
       // rewind) so the cache cannot grow with the session.
-      if (current.size > items.length * 2) {
+      if (heights.current.size > items.length * 2) {
         const live = new Set(items.map((item) => item.key));
-        for (const key of current.keys()) {
-          if (!live.has(key)) current.delete(key);
+        for (const key of heights.current.keys()) {
+          if (!live.has(key)) {
+            heights.current.delete(key);
+            measuredNodes.current.delete(key);
+          }
         }
       }
       setRevision((value) => value + 1);
