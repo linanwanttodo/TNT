@@ -57,7 +57,12 @@ export async function fetchDeepSeekBalance(
           typeof item.currency === "string" &&
           typeof item.total_balance === "string",
       )
-      .map((item) => ({ currency: item.currency, total: item.total_balance }));
+      .map((item) => ({
+        currency: item.currency,
+        // DeepSeek returns "-0.00" once a key is drained: normalise that to a
+        // plain zero so the status line does not read like a debt.
+        total: Number(item.total_balance) === 0 ? "0.00" : item.total_balance,
+      }));
   } catch {
     return [];
   }
