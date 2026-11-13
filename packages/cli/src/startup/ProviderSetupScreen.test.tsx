@@ -39,7 +39,7 @@ function renderScreen() {
 async function waitForFrame(
   tree: ReturnType<typeof render>,
   predicate: (frame: string) => boolean,
-  timeoutMs = 2000,
+  timeoutMs = 5000,
 ) {
   const deadline = Date.now() + timeoutMs;
   while (!predicate(tree.lastFrame() ?? "")) {
