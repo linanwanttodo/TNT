@@ -37,6 +37,7 @@ import {
 } from "./hooks/useTUIChatEffects.js";
 import { useIntroMessage, useSelectors } from "./hooks/useTUIChatHooks.js";
 import { useTurnSummary } from "./hooks/useTurnSummary.js";
+import { useSessionNotices } from "./sessionNotices.js";
 import {
   useTerminalStatusLight,
   type SessionStatus,
@@ -385,6 +386,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
   // useComposerCallbacks.
 
   const isVerboseMode = useMemo(() => process.argv.includes("--verbose"), []);
+  const notices = useSessionNotices();
 
   const isBashToolRunning = useBashToolRunning();
 
@@ -484,6 +486,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           onScrollMetrics={onMetrics}
           onContentShift={onContentShift}
           showScrollbar
+          notices={notices}
         />
 
         <Composer
