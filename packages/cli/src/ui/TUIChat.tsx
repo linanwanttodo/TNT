@@ -24,6 +24,7 @@ import {
 import { useNavigation } from "./context/NavigationContext.js";
 import { useChat } from "./hooks/useChat.js";
 import { useChatViewport } from "./hooks/useChatViewport.js";
+import { useComposerCallbacks } from "./hooks/useComposerCallbacks.js";
 import { useContextPercentage } from "./hooks/useContextPercentage.js";
 import { useContextReadout } from "./hooks/useContextReadout.js";
 import { useLocale } from "./hooks/useLocale.js";
@@ -379,6 +380,10 @@ const TUIChat: React.FC<TUIChatProps> = ({
     !!activePermissionRequest ||
     !!activeQuizQuestion;
 
+  // Every streaming delta re-renders this component; the composer callbacks
+  // are stable wrappers so the input row stays off that path. See
+  // useComposerCallbacks.
+
   const isVerboseMode = useMemo(() => process.argv.includes("--verbose"), []);
 
   const isBashToolRunning = useBashToolRunning();
@@ -388,6 +393,17 @@ const TUIChat: React.FC<TUIChatProps> = ({
     useChatViewport({
       isActive: navState.currentScreen === "chat",
     });
+  const composer = useComposerCallbacks({
+    handleUserMessage,
+    handleInterrupt,
+    handleFileAttached,
+    handleEditMessage,
+    handleToolPermissionResponse,
+    handleQuizAnswer,
+    handleReload,
+    navigateTo,
+    jumpToBottom,
+  });
 
   const configuredChoice = useMemo<ThemeName | "auto">(() => {
     const configured =
@@ -480,35 +496,30 @@ const TUIChat: React.FC<TUIChatProps> = ({
           handleModelSelect={handleModelSelect}
           handleSessionSelect={handleSessionSelect}
           handleExportSession={handleExportSession}
-          handleReload={handleReload}
+          handleReload={composer.reload}
           closeCurrentScreen={closeCurrentScreen}
           activePermissionRequest={activePermissionRequest}
           activeQuizQuestion={activeQuizQuestion}
-          handleToolPermissionResponse={handleToolPermissionResponse}
-          handleQuizAnswer={handleQuizAnswer}
-          handleUserMessage={(message, imageMap) => {
-            // Sending always returns to the live tail, the way every reference
-            // CLI resumes following when the user speaks.
-            jumpToBottom();
-            void handleUserMessage(message, imageMap);
-          }}
+          handleToolPermissionResponse={composer.toolPermission}
+          handleQuizAnswer={composer.quizAnswer}
+          handleUserMessage={composer.submit}
           isWaitingForResponse={isWaitingForResponse}
           isCompacting={isCompacting}
           queuedCount={queuedMessages?.length ?? 0}
           inputMode={inputMode}
-          handleInterrupt={handleInterrupt}
-          handleFileAttached={handleFileAttached}
+          handleInterrupt={composer.interrupt}
+          handleFileAttached={composer.fileAttached}
           isInputDisabled={isInputDisabled}
           wasInterrupted={wasInterrupted}
           isRemoteMode={isRemoteMode}
           remoteUrl={remoteUrl}
           diffContent={diffContent}
           chatHistory={chatHistory}
-          handleEditMessage={handleEditMessage}
-          onShowEditSelector={() => navigateTo("edit")}
-          onShowAddModelSelector={() => navigateTo("addModel")}
-          onOpenPalette={() => navigateTo("palette")}
-          onOpenJobs={() => navigateTo("jobs")}
+          handleEditMessage={composer.editMessage}
+          onShowEditSelector={composer.openEditSelector}
+          onShowAddModelSelector={composer.openAddModel}
+          onOpenPalette={composer.openPalette}
+          onOpenJobs={composer.openJobs}
           onPreviewTheme={handlePreviewTheme}
           onCancelThemePreview={handleCancelThemePreview}
           onSelectTheme={handleSelectTheme}

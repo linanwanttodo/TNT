@@ -173,58 +173,79 @@ export const TranscriptContent: React.FC<TranscriptContentProps> = ({
 
   const theme = useTheme();
 
-  const live = (
-    <>
-      {streamingReasoning && (
-        <ThinkingMessage thought={streamingReasoning} isStreaming />
-      )}
+  // The live overlay changes on every streamed chunk; a scroll tick must not
+  // rebuild it. Memoizing on the values it actually paints means a wheel notch
+  // reuses the committed subtree instead of re-rendering the streaming answer.
+  const live = React.useMemo(
+    () => (
+      <>
+        {streamingReasoning && (
+          <ThinkingMessage thought={streamingReasoning} isStreaming />
+        )}
 
-      {streamingItem}
+        {streamingItem}
 
-      <QueuedMessages messages={queuedMessages} />
+        <QueuedMessages messages={queuedMessages} />
 
-      <BackgroundTasksNotice />
+        <BackgroundTasksNotice />
 
-      {/* The indicator is the last row of the transcript, so it sits directly
+        {/* The indicator is the last row of the transcript, so it sits directly
           under the newest message no matter how tall the viewport is. */}
-      <ActionStatus
-        visible={isWaitingForResponse && !!responseStartTime}
-        startTime={responseStartTime || 0}
-        message={t("action.thinking")}
-        showSpinner={true}
-        loadingColor="gray"
-        tokenCount={streamingTokens}
-        tokenRate={
-          turnProgress && elapsedSeconds > 0
-            ? turnProgress.outputTokens / elapsedSeconds
-            : undefined
-        }
-        turnProgress={turnProgress}
-        verbose={verbose}
-        hasActiveTools={isBashToolRunning}
-        cancelHint={t("composer.interruptHint")}
-        additionalHint={isBashToolRunning ? t("action.background") : undefined}
-      />
+        <ActionStatus
+          visible={isWaitingForResponse && !!responseStartTime}
+          startTime={responseStartTime || 0}
+          message={t("action.thinking")}
+          showSpinner={true}
+          loadingColor="gray"
+          tokenCount={streamingTokens}
+          tokenRate={
+            turnProgress && elapsedSeconds > 0
+              ? turnProgress.outputTokens / elapsedSeconds
+              : undefined
+          }
+          turnProgress={turnProgress}
+          verbose={verbose}
+          hasActiveTools={isBashToolRunning}
+          cancelHint={t("composer.interruptHint")}
+          additionalHint={
+            isBashToolRunning ? t("action.background") : undefined
+          }
+        />
 
-      {/* The turn's own ledger, shown once the turn ends: what it read, what
+        {/* The turn's own ledger, shown once the turn ends: what it read, what
           it wrote, how long it took and what the cache did. */}
-      {turnSummary ? (
-        <Box paddingX={1}>
-          <Text color={theme.text.secondary} italic>
-            {sanitizeTerminalText(turnSummary)}
-          </Text>
-        </Box>
-      ) : null}
+        {turnSummary ? (
+          <Box paddingX={1}>
+            <Text color={theme.text.secondary} italic>
+              {sanitizeTerminalText(turnSummary)}
+            </Text>
+          </Box>
+        ) : null}
 
-      <ActionStatus
-        visible={isCompacting && !!compactionStartTime}
-        startTime={compactionStartTime || 0}
-        message={t("action.compacting")}
-        showSpinner={true}
-        loadingColor="grey"
-        cancelHint={t("composer.interruptHint")}
-      />
-    </>
+        <ActionStatus
+          visible={isCompacting && !!compactionStartTime}
+          startTime={compactionStartTime || 0}
+          message={t("action.compacting")}
+          showSpinner={true}
+          loadingColor="grey"
+          cancelHint={t("composer.interruptHint")}
+        />
+      </>
+    ),
+    [
+      streamingReasoning,
+      streamingItem,
+      queuedMessages,
+      isWaitingForResponse,
+      responseStartTime,
+      streamingTokens,
+      verbose,
+      isBashToolRunning,
+      turnSummary,
+      isCompacting,
+      compactionStartTime,
+      theme,
+    ],
   );
 
   // History rows are rebuilt only when the history or the width changes.

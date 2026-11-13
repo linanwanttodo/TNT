@@ -76,7 +76,7 @@ interface ComposerProps {
  * (usually the composer), the verbose debug bar and the status bar. It is the
  * bottom of the Ink frame, directly under the live transcript rows.
  */
-export const Composer: React.FC<ComposerProps> = (props) => {
+export const Composer: React.FC<ComposerProps> = React.memo((props) => {
   const hintRef = useRef<DOMElement>(null);
 
   useClickRegion(hintRef, () => {
@@ -159,4 +159,4 @@ export const Composer: React.FC<ComposerProps> = (props) => {
       )}
     </Box>
   );
-};
+});
