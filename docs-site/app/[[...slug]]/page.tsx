@@ -26,6 +26,7 @@ import {
   pageSlugFromRoute,
   type Locale,
 } from "@/lib/i18n";
+import { LandingPage } from "@/app/components/LandingPage";
 import "../docs.css";
 
 interface Props {
@@ -80,6 +81,12 @@ export default async function DocsPage({ params }: Props) {
   const { slug } = await params;
   const locale = localeFromSlug(slug);
   const slugPath = pageSlugFromRoute(slug);
+
+  // The root route is the landing page: the wordmark, one tagline, and the
+  // way into the docs. The docs home moves to its locale route.
+  if (!slug || slug.length === 0) {
+    return <LandingPage />;
+  }
 
   // Check redirect first
   const redirectTo = resolveDocsRedirect(slugPath, locale);
