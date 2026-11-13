@@ -448,16 +448,9 @@ function assistantMessage(
 ): ZCodeMessageWithParts {
   const message = item.message as AssistantChatMessage;
   const parts: ZCodeMessagePart[] = [];
-  const text = contentText(message.content);
-  if (text.length > 0) {
-    parts.push({
-      type: "text",
-      partId: `${context.messageId}:part-text`,
-      sessionId: context.session.sessionId,
-      messageId: context.messageId,
-      text,
-    });
-  }
+  // Reasoning leads the answer: the web view derives its row order from the
+  // parts, and a reader expects to see what the model thought before what it
+  // said, the way the stream delivers it.
   const reasoning = item.reasoning?.text;
   if (reasoning && reasoning.length > 0) {
     parts.push({
@@ -466,6 +459,16 @@ function assistantMessage(
       sessionId: context.session.sessionId,
       messageId: context.messageId,
       text: reasoning,
+    });
+  }
+  const text = contentText(message.content);
+  if (text.length > 0) {
+    parts.push({
+      type: "text",
+      partId: `${context.messageId}:part-text`,
+      sessionId: context.session.sessionId,
+      messageId: context.messageId,
+      text,
     });
   }
   const states = item.toolCallStates ?? [];

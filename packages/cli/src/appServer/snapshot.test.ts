@@ -119,7 +119,9 @@ const expectedMessages: ExpectedMessage[] = [
   {
     index: 2,
     role: "assistant",
-    partTypes: ["text", "reasoning", "tool"],
+    // Reasoning leads the answer: the web view derives its row order from the
+    // parts, so this is what puts the thinking block above the reply.
+    partTypes: ["reasoning", "text", "tool"],
     text: "I will read it.",
     reasoning: "Need the file contents.",
     toolCallId: "call-1",
