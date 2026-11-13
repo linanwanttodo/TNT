@@ -432,7 +432,10 @@ describe("tokenizer", () => {
         const model = createModel(contextLength, maxTokens);
         const chatHistory = createChatHistory(135_000);
 
-        expect(shouldAutoCompact({ chatHistory, model })).toBe(false);
+        // The absolute compact ceiling (100k) now binds before the
+        // output-reserved boundary (136k): the working set is a fixed budget
+        // whatever the window, which is what keeps a request's input cost flat.
+        expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
       });
 
       it("should use ratio-based buffer when maxTokens is small", () => {
