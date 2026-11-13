@@ -47,20 +47,30 @@ export class Transcript {
       .messageId;
     let id =
       carried && !this.usedIds.has(carried) ? carried : `msg-${++this.counter}`;
-    const carriedNumber = carried
-      ? /^msg-(\d+)$/.exec(carried)?.[1]
-      : undefined;
-    if (carriedNumber) {
-      this.counter = Math.max(this.counter, Number(carriedNumber));
-    }
+    this.adoptCounter(carried);
     while (this.usedIds.has(id)) {
       id = `msg-${++this.counter}`;
     }
 
+    this.assign(item, id);
+    return id;
+  }
+
+  /**
+   * Keeps the counter ahead of a carried numeric id so a later fresh id cannot
+   * collide with it.
+   */
+  private adoptCounter(id: string | undefined): void {
+    const number = id ? /^msg-(\d+)$/.exec(id)?.[1] : undefined;
+    if (number) {
+      this.counter = Math.max(this.counter, Number(number));
+    }
+  }
+
+  private assign(item: ChatHistoryItem, id: MessageId): void {
     (item as ChatHistoryItem & { messageId?: string }).messageId = id;
     this.ids.set(item, id);
     this.usedIds.add(id);
-    return id;
   }
 
   append(item: ChatHistoryItem): TranscriptEntry {
@@ -91,7 +101,33 @@ export class Transcript {
   }
 
   replace(items: readonly ChatHistoryItem[], _reason: ReplaceReason): void {
-    this.entries = items.map((item) => ({ id: this.idFor(item), item }));
+    // A replace is one consistent view of the conversation, not a new one.
+    // Items that arrive as copies (a tool-state update spreads the message)
+    // carry the id of the entry they replace, and that id is the identity the
+    // store diffs against: treating it as a collision here turned every
+    // streaming update into a full-history snapshot. A carried id is therefore
+    // valid when it is unique within this view, even though an earlier view
+    // already used it.
+    const taken = new Set<MessageId>();
+    this.entries = items.map((item) => {
+      let id = this.ids.get(item);
+      if (id === undefined) {
+        const carried = (item as ChatHistoryItem & { messageId?: string })
+          .messageId;
+        if (carried && !taken.has(carried)) {
+          id = carried;
+          this.adoptCounter(carried);
+        }
+      }
+      if (id === undefined) {
+        do {
+          id = `msg-${++this.counter}`;
+        } while (taken.has(id) || this.usedIds.has(id));
+      }
+      taken.add(id);
+      this.assign(item, id);
+      return { id, item };
+    });
     this.staged = [];
     if (
       this.compactionMarkId &&

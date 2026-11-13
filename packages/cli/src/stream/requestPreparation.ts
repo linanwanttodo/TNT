@@ -14,6 +14,7 @@ import {
 } from "../cache/prefixState.js";
 import type { RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
+import { measuredRequestFor } from "../compaction/measuredContext.js";
 import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -24,6 +25,7 @@ import {
 } from "../utils/tokenizer.js";
 
 import { formatInHistoryUpdate } from "./requestMessages.js";
+import { evictOldToolResults } from "./toolOutputEviction.js";
 import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
 
@@ -80,19 +82,35 @@ export async function prepareRoundRequest(
     compaction,
   } = options;
 
-  const preCompactionResult = await handlePreApiCompaction(
-    options.chatHistory,
-    {
-      model: compaction.model,
-      llmApi: compaction.llmApi,
-      isCompacting,
-      isHeadless: compaction.isHeadless,
-      callbacks: compaction.callbacks,
-      systemMessage: compaction.systemMessage,
-      tools: compaction.tools,
-      force: forceCompaction,
-    },
-  );
+  // Evict dead tool-output bytes before anything else reads the history: the
+  // compaction check and the request itself should both see the trimmed form,
+  // so a session that carries a lot of old tool output does not have to reach
+  // the compaction threshold to stop paying for it. A compaction request
+  // summarizes its own prefix and skips the eviction.
+  const eviction = isCompacting
+    ? { history: options.chatHistory, evicted: 0 }
+    : evictOldToolResults({
+        history: options.chatHistory,
+        contextWindow: getModelContextLimit(compaction.model),
+        measuredInputTokens: measuredRequestFor(promptCacheKey)?.promptTokens,
+      });
+  if (eviction.evicted > 0) {
+    logger.info("Evicted old tool results from the request history", {
+      evicted: eviction.evicted,
+      keepRecentEnv: process.env.TNT_TOOL_EVICTION_KEEP,
+    });
+  }
+
+  const preCompactionResult = await handlePreApiCompaction(eviction.history, {
+    model: compaction.model,
+    llmApi: compaction.llmApi,
+    isCompacting,
+    isHeadless: compaction.isHeadless,
+    callbacks: compaction.callbacks,
+    systemMessage: compaction.systemMessage,
+    tools: compaction.tools,
+    force: forceCompaction,
+  });
 
   // Compared against the last request this session sent, not only against the
   // previous iteration: a prefix that moved between turns is the case that

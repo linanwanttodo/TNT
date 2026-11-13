@@ -24,6 +24,12 @@ vi.mock("../config/hubLoader.js", () => ({
     .fn()
     .mockImplementation((spec: string) => Promise.resolve(spec)),
 }));
+// The base section carries the memory clause only while memory is enabled, and
+// that switch lives in the operator's global directory. Pin it so the digest is
+// a property of the text rather than of the machine running the suite.
+vi.mock("../utils/memoryState.js", () => ({
+  isMemoryEnabled: () => true,
+}));
 
 /**
  * The parts of the system message that are the same for every session are billed
@@ -42,24 +48,24 @@ vi.mock("../config/hubLoader.js", () => ({
  * change cannot be committed without a line saying so.
  */
 const FROZEN_SPINE = [
-  { label: "tui", names: "base", chars: 9137, digest: "81a6092e2a935e97" },
+  { label: "tui", names: "base", chars: 10728, digest: "f39caf08c330955c" },
   {
     label: "tui-json",
     names: "base,jsonOutput",
-    chars: 9553,
-    digest: "22bd6daaf8701059",
+    chars: 11144,
+    digest: "a43e24f9e63fc447",
   },
   {
     label: "headless",
     names: "base,headless",
-    chars: 9644,
-    digest: "339cda392f12a90e",
+    chars: 11235,
+    digest: "8401f7cd2d7735c3",
   },
   {
     label: "headless-json",
     names: "base,headless,jsonOutput",
-    chars: 10060,
-    digest: "1c420a34ddc25a7c",
+    chars: 11651,
+    digest: "22da829352786693",
   },
 ];
 

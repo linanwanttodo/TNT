@@ -1,8 +1,10 @@
 /* eslint-disable max-statements -- one wizard owns the ordered input state machine */
 import { Box, Text, useApp, useInput } from "ink";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
+import { startBrowserLogin } from "../config/openrouterLogin.js";
 import {
+  fetchModelIds,
   getDefaultModel,
   normalizeApiBase,
   PROTOCOLS,
@@ -54,44 +56,35 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
   // rather than append to a URL the user did not ask for.
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("");
+  const [, setModel] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelIndex, setModelIndex] = useState(0);
   const [loadingModels, setLoadingModels] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [browserLogin, setBrowserLogin] = useState<{
+    pending: boolean;
+    url?: string;
+    error?: string;
+  }>({ pending: false });
+  // Ink can deliver a typed run as several data events before React commits a
+  // state update. The ref accumulates across those events; state is only for
+  // painting. Without it, a slow runner keeps only the last chunk.
+  const fieldsRef = useRef({ baseUrl: "", apiKey: "", model: "" });
 
   useEffect(() => {
     if (step !== "model" || !apiKey || !baseUrl) return;
-    if (
-      ![
-        "openai-chat-completions",
-        "openai-compatible",
-        "deepseek-preset",
-        "zhipu-preset",
-        "moonshot-preset",
-        "qwen-preset",
-        "siliconflow-preset",
-        "minimax-preset",
-      ].includes(protocol.id)
-    )
-      return;
+    if (!protocol.modelsPath) return;
     const controller = new AbortController();
     const load = async () => {
       setLoadingModels(true);
       try {
-        const endpoint = `${baseUrl.replace(/\/+$/, "")}/models`;
-        const response = await fetch(endpoint, {
-          headers: { Authorization: `Bearer ${apiKey}` },
+        const ids = await fetchModelIds({
+          apiBase: baseUrl,
+          apiKey,
+          modelsPath: protocol.modelsPath,
           signal: controller.signal,
         });
-        if (!response.ok) return;
-        const body = (await response.json()) as {
-          data?: Array<{ id?: string }>;
-        };
-        const ids = (body.data ?? [])
-          .map((item) => item.id)
-          .filter((id): id is string => typeof id === "string" && id.length > 0)
-          .sort((a, b) => a.localeCompare(b));
+        if (ids.length === 0) return;
         setAvailableModels(ids);
         setModelIndex(0);
       } catch {
@@ -114,20 +107,45 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
     if (standalone) exit();
   };
 
-  const valueFor = (current: Step): string => {
-    switch (current) {
-      case "baseUrl":
-        return baseUrl;
-      case "apiKey":
-        return apiKey;
-      case "model":
-        return model;
-      default:
-        return "";
+  /**
+   * The browser sign-in for a vendor whose key comes from a login. The URL is
+   * printed as well as opened, so a machine without a browser still gets it.
+   * A second Enter while the first login is still waiting must not open a
+   * second callback server and a second browser tab.
+   */
+  const browserLoginPending = useRef(false);
+  const beginBrowserLogin = async () => {
+    if (browserLoginPending.current) return;
+    browserLoginPending.current = true;
+    setBrowserLogin({ pending: true });
+    try {
+      const result = await startBrowserLogin();
+      setBrowserLogin({ pending: false, url: result.url, error: result.error });
+      if (result.key) {
+        setValueFor("apiKey", result.key);
+        setError(undefined);
+        setStep("model");
+      }
+    } catch (error) {
+      setBrowserLogin({
+        pending: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      browserLoginPending.current = false;
     }
   };
 
+  const isField = (current: Step): current is "baseUrl" | "apiKey" | "model" =>
+    current !== "protocol";
+
+  const valueFor = (current: Step): string =>
+    isField(current) ? fieldsRef.current[current] : "";
+
   const setValueFor = (current: Step, value: string) => {
+    if (isField(current)) {
+      fieldsRef.current = { ...fieldsRef.current, [current]: value };
+    }
     if (current === "baseUrl") setBaseUrl(value);
     else if (current === "apiKey") setApiKey(value);
     else if (current === "model") setModel(value);
@@ -142,8 +160,8 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
         setError(t("setup.invalidBaseUrl"));
         return;
       }
-      setBaseUrl(normalized);
-      setModel("");
+      setValueFor("baseUrl", normalized);
+      setValueFor("model", "");
       setError(undefined);
       setStep("apiKey");
       return;
@@ -152,25 +170,30 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
     if (current === "apiKey") {
       const trimmed = value.trim();
       if (!trimmed) {
+        if (protocol.browserLogin) {
+          void beginBrowserLogin();
+          return;
+        }
         setError(t("setup.apiKeyRequired"));
         return;
       }
-      setApiKey(trimmed);
+      setValueFor("apiKey", trimmed);
       setError(undefined);
       setStep("model");
       return;
     }
 
     if (current === "model") {
-      const selected = value.trim() || getDefaultModel(protocol.id, baseUrl);
+      const selected =
+        value.trim() || getDefaultModel(protocol.id, valueFor("baseUrl"));
       if (!selected) {
         setError(t("setup.modelRequired"));
         return;
       }
       finish({
         protocol: protocol.id,
-        apiBase: baseUrl,
-        apiKey,
+        apiBase: valueFor("baseUrl"),
+        apiKey: valueFor("apiKey"),
         model: selected,
       });
     }
@@ -220,8 +243,11 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
         }
         const selected = PROTOCOLS[chosen];
         setProtocol(selected);
-        setBaseUrl("");
-        setModel("");
+        // The URL is a fixed value for a vendor preset, so it starts filled in
+        // rather than as a grey hint the reader has to recognise. Pressing
+        // Enter accepts it; editing it still points the setup at a gateway.
+        setValueFor("baseUrl", selected.defaultApiBase);
+        setValueFor("model", "");
         setError(undefined);
         setStep("baseUrl");
       }
@@ -239,7 +265,7 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
         setModelIndex((index) => (index + 1) % availableModels.length);
         return;
       }
-      if (enter && !model.trim()) {
+      if (enter && !valueFor("model").trim()) {
         submit("model", availableModels[modelIndex]);
         return;
       }
@@ -375,6 +401,23 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
           {availableModels.length > 8 ? (
             <Text color="gray">其余模型可直接输入名称。</Text>
           ) : null}
+        </Box>
+      ) : null}
+
+      {browserLogin.pending ? (
+        <Box marginTop={1} flexDirection="column">
+          <Text color="gray">{t("setup.browserLoginWaiting")}</Text>
+        </Box>
+      ) : browserLogin.url ? (
+        <Box marginTop={1} flexDirection="column">
+          <Text color="gray">{t("setup.browserLoginUrl")}</Text>
+          <Text>{browserLogin.url}</Text>
+        </Box>
+      ) : null}
+
+      {browserLogin.error ? (
+        <Box marginTop={1}>
+          <Text color="red">{browserLogin.error}</Text>
         </Box>
       ) : null}
 

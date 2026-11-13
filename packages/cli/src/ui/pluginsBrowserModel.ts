@@ -42,6 +42,8 @@ export interface ListRow {
   version?: string;
   updateVersion?: string;
   enabled?: boolean;
+  /** Install count from the official marketplace statistics, when known. */
+  installs?: number;
 }
 
 export interface DetailTarget {
@@ -214,9 +216,13 @@ function readMcpServerNames(plugin: LoadedPlugin): string[] {
       const parsed: unknown = JSON.parse(
         fs.readFileSync(path.resolve(plugin.path, value), "utf-8"),
       );
-      return parsed && typeof parsed === "object"
-        ? Object.keys(parsed as Record<string, unknown>)
-        : [];
+      if (!parsed || typeof parsed !== "object") return [];
+      const wrapped = (parsed as Record<string, unknown>).mcpServers;
+      const servers =
+        wrapped && typeof wrapped === "object" && !Array.isArray(wrapped)
+          ? (wrapped as Record<string, unknown>)
+          : (parsed as Record<string, unknown>);
+      return Object.keys(servers);
     } catch {
       return [];
     }
@@ -280,9 +286,10 @@ export function discoverRowsFor(
   catalogs: CatalogEntry[] | null,
   query: string,
   snapshot: BrowserSnapshot,
+  installCounts?: Map<string, number>,
 ): ListRow[] {
   if (catalogs === null) return [];
-  return searchCatalogPlugins(catalogs, query).map((match) => {
+  const rows = searchCatalogPlugins(catalogs, query).map((match) => {
     const key = `${match.plugin.name}@${match.marketplace}`;
     const installed = snapshot.all.find(
       (candidate) => candidate.plugin.id === key,
@@ -296,8 +303,85 @@ export function discoverRowsFor(
       version: match.plugin.version,
       enabled: installed?.enabled,
       updateVersion: updateVersionFor(installed, match.plugin),
+      installs: installCounts?.get(key),
     };
   });
+  return rows.sort((a, b) => {
+    const countA = a.installs ?? 0;
+    const countB = b.installs ?? 0;
+    if (countA !== countB) return countB - countA;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/** Rows for errors: catalogs that failed to load and enabled-but-missing plugins. */
+export function errorRowsFor(
+  failed: string[],
+  unknownEnabled: string[],
+): ListRow[] {
+  return [
+    ...failed.map((name) => ({
+      key: `catalog:${name}`,
+      name: t("plugins.browser.marketplaceRow", { name }),
+      marketplace: name,
+      detail: t("plugins.browser.catalogWarning", { names: name }),
+      installed: false,
+    })),
+    ...unknownEnabled.map((id) => ({
+      key: `enabled:${id}`,
+      name: id,
+      marketplace: "",
+      detail: t("plugins.browser.unknownEnabledWarning", { names: id }),
+      installed: false,
+    })),
+  ];
+}
+
+/** Rows for the stats tab: one row per fact a reader may want to check. */
+export function statsRowsFor(
+  installed: number,
+  marketplaces: number,
+  catalog: number,
+): ListRow[] {
+  return [
+    {
+      key: "stats:total",
+      name: t("plugins.browser.statsSummary", {
+        plugins: installed,
+        marketplaces,
+        catalog,
+      }),
+      marketplace: "",
+      detail: "",
+      installed: false,
+    },
+  ];
+}
+
+/** Rows for installed services: MCP servers, skills and commands from plugins. */
+export function serviceRowsFor(snapshot: BrowserSnapshot): ListRow[] {
+  const rows: ListRow[] = [];
+  for (const installed of snapshot.all) {
+    const components = componentsFor(installed.plugin);
+    if (!hasComponents(components)) continue;
+    for (const [field, label] of [
+      ["mcpServers", "plugins.browser.servicesMcp"],
+      ["skills", "plugins.browser.servicesSkills"],
+      ["commands", "plugins.browser.servicesCommands"],
+      ["agents", "plugins.browser.servicesAgents"],
+    ] as const) {
+      const values = components[field];
+      if (values.length === 0) continue;
+      rows.push({
+        key: `service:${installed.plugin.id}:${field}`,
+        name: `${installed.plugin.id} · ${t(label, { list: values.join(", ") })}`,
+        marketplace: "",
+        detail: "",
+        installed: true,
+      });
+    }
+  }
+  return rows;
 }
 
 export function marketplaceRowsFor(catalogs: CatalogEntry[] | null): ListRow[] {

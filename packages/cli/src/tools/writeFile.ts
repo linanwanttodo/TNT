@@ -9,9 +9,9 @@ import {
   calculateLinesOfCodeDiff,
   getLanguageFromFilePath,
 } from "../telemetry/utils.js";
+import { truncateOutputFromEnd } from "../utils/truncateOutput.js";
 
 import { changedSinceSeen, markFileAsSeen } from "./fileState.js";
-import { readFileTool } from "./readFile.js";
 import { MARKER_FILE_CREATED } from "./resultMarkers.js";
 import { Tool, ToolCallPreview } from "./types.js";
 import {
@@ -143,9 +143,17 @@ To change part of an existing file, prefer Edit: it sends the difference, leaves
       // model did read the file - and what it read is no longer there. A
       // client-owned buffer has no reliable disk mtime to compare.
       if (!isWorkspaceFileServiceActive() && changedSinceSeen(args.filepath)) {
+        const content = truncateOutputFromEnd(
+          oldContent,
+          4000,
+          "current file content",
+        ).output;
         throw new TntError(
           TntErrorReason.EditToolFileNotRead,
-          `${args.filepath} changed since you read it. Use the ${readFileTool.name} tool to read it again before overwriting it.`,
+          t("tools.writeChangedSinceSeen", {
+            path: args.filepath,
+            content,
+          }),
         );
       }
 

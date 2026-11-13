@@ -10,6 +10,11 @@ vi.mock("../services/ServiceContainer.js", () => ({
 vi.mock("../config/hubLoader.js", () => ({
   processRule: vi.fn((spec: string) => Promise.resolve(spec)),
 }));
+vi.mock("../utils/memoryState.js", () => ({
+  isMemoryEnabled: vi.fn(() => true),
+}));
+
+const { isMemoryEnabled } = await import("../utils/memoryState.js");
 
 const { buildSystemMessageSections, constructSystemMessage } =
   await import("./systemMessage.js");
@@ -55,6 +60,50 @@ describe("built-in prompt delivery contracts", () => {
     );
   });
 
+  it("asks before a costly guess and stays silent when evidence settles it", async () => {
+    const message = await baseText();
+    expect(message).toContain(
+      "Ask when the request is ambiguous and a wrong guess would be expensive",
+    );
+    expect(message).toContain(
+      "Do not ask when repository evidence or a safe, reversible default already settles it",
+    );
+  });
+
+  it("declares an order for rules that pull in different directions", async () => {
+    const message = await baseText();
+    expect(message).toContain("# When rules conflict");
+    expect(message).toContain(
+      "safety and per-action approval, then the user's latest instruction, then the requested scope, then completeness, then brevity",
+    );
+    expect(message).toContain(
+      "An explicit stop, report or hand-over from the user outranks any unfinished verification: halt all tool calls immediately and report the unfinished items as unfinished",
+    );
+  });
+
+  it("keeps secrets out of answers, commands and files", async () => {
+    const message = await baseText();
+    expect(message).toContain("# Secrets and private data");
+    expect(message).toContain(
+      "Do not quote, echo or copy a secret into a response, a command line, a commit or another file",
+    );
+    expect(message).toContain("name the location and mask the value");
+    expect(message).toContain(
+      "Do not send local secrets off this machine unless the user approved the transfer",
+    );
+  });
+
+  it("scopes exploration requests to a read-only map", async () => {
+    const message = await baseText();
+    expect(message).toContain("# Explaining a codebase");
+    expect(message).toContain(
+      "An open-ended request to understand or explain a project is read-only",
+    );
+    expect(message).toContain(
+      "Stop when the request's questions are answerable instead of inventorying the tree",
+    );
+  });
+
   it("separates reading, static checks, builds, tests and runtime evidence", async () => {
     const message = await baseText();
     expect(message).toContain(
@@ -75,6 +124,9 @@ describe("built-in prompt delivery contracts", () => {
     );
     expect(message).toContain(
       "Never turn familiar structure, a passing subset or no findings into a claim that all code is correct",
+    );
+    expect(message).toContain(
+      "Check the requested outcome against the evidence, not against the tools you managed to run",
     );
   });
 
@@ -125,6 +177,10 @@ describe("built-in prompt delivery contracts", () => {
     );
     expect(message).toContain("destructive command the request did not name");
     expect(message).toContain("write that lands outside the workspace");
+    expect(message).toContain(
+      "A throwaway write to the OS temp directory, or to a cache the task implies, is not an escalation",
+    );
+    expect(message).toContain("a project's own build output is ordinary work");
     expect(message).toContain("sending content outside this machine");
     expect(message).toContain("launching a GUI application");
     expect(message).toContain("Size is not the trigger");
@@ -197,5 +253,15 @@ describe("built-in prompt delivery contracts", () => {
 
   it("keeps the built-in instruction bytes stable across builds", async () => {
     expect(await baseText()).toBe(await baseText());
+  });
+
+  it("drops the memory clause when project memory is disabled", async () => {
+    expect(await baseText()).toContain("# Memory");
+    vi.mocked(isMemoryEnabled).mockReturnValue(false);
+    try {
+      expect(await baseText()).not.toContain("# Memory");
+    } finally {
+      vi.mocked(isMemoryEnabled).mockReturnValue(true);
+    }
   });
 });

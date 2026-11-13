@@ -27,6 +27,29 @@ import {
 } from "./permissionFlow.js";
 import { StreamCallbacks } from "./streamChatResponse.types.js";
 import { dispatchApprovedCall, noteToolUpdate } from "./toolDispatch.js";
+function repairAndValidateCall(
+  call: ToolCall | PreprocessedToolCall,
+  tool: Tool,
+): void {
+  const argumentsObject =
+    call.arguments &&
+    typeof call.arguments === "object" &&
+    !Array.isArray(call.arguments)
+      ? (call.arguments as Record<string, unknown>)
+      : null;
+  if (argumentsObject) {
+    const repaired = repairToolInput(argumentsObject, tool.parameters);
+    if (repaired.repairs.length > 0) {
+      logger.debug("Repaired tool argument shapes", {
+        name: call.name,
+        repairs: repaired.repairs,
+      });
+      call.arguments = repaired.input;
+      call.argumentsStr = JSON.stringify(repaired.input);
+    }
+  }
+  validateToolCallArgs(call, tool);
+}
 
 export async function preprocessStreamedToolCalls(
   isHeadless: boolean,
@@ -58,21 +81,10 @@ export async function preprocessStreamedToolCalls(
         );
       }
 
-      // Repair the shapes a model gets structurally wrong but semantically
-      // right before validation turns them into a lost round. Renaming a
-      // near-miss key is deliberately not part of this: the validator names
-      // the arrived key and the wanted one, and guessing could write the
-      // wrong field.
-      const repaired = repairToolInput(toolCall.arguments, tool.parameters);
-      if (repaired.repairs.length > 0) {
-        logger.debug("Repaired tool argument shapes", {
-          name: toolCall.name,
-          repairs: repaired.repairs,
-        });
-        toolCall.arguments = repaired.input;
-      }
-
-      validateToolCallArgs(toolCall, tool);
+      // Repair known aliases and type shapes a model gets structurally wrong
+      // before validation turns them into a lost round. Unrecognized near-miss
+      // keys stay for the validator to name, so no unknown field is guessed.
+      repairAndValidateCall(toolCall, tool);
 
       const preprocessedCall: PreprocessedToolCall = {
         ...toolCall,
@@ -166,7 +178,7 @@ async function approveAndDispatchCall(options: {
     toolName: string,
     succeeded: boolean,
     error?: unknown,
-  ) => void;
+  ) => string | undefined;
 }): Promise<boolean> {
   const {
     index,
@@ -220,10 +232,10 @@ async function approveAndDispatchCall(options: {
         argumentsStr: JSON.stringify(preHook.updatedInput),
         preprocessResult: undefined,
       };
-      validateToolCallArgs(effectiveCall, call.tool);
+      repairAndValidateCall(effectiveCall, call.tool);
       if (call.tool.preprocess) {
         effectiveCall.preprocessResult = await call.tool.preprocess(
-          preHook.updatedInput,
+          effectiveCall.arguments,
         );
       }
     }
@@ -356,13 +368,15 @@ export async function executeStreamedToolCalls(
   isHeadless?: boolean,
   /**
    * Notified once per tool call with the outcome, so the caller can keep a
-   * per-tool failure tally without this function knowing why it cares.
+   * per-tool failure tally without this function knowing why it cares. A
+   * returned string rides in the failing call's tool result as the streak's
+   * change-course guidance.
    */
   onToolOutcome?: (
     toolName: string,
     succeeded: boolean,
     error?: unknown,
-  ) => void,
+  ) => string | undefined,
   /**
    * Execution context. `permissions` left unset uses the process-wide policy;
    * a delegated run passes its own narrowed policy, so the check at execution

@@ -1,9 +1,9 @@
 import { getLastRequestCacheState } from "../../cache/lastRequestCacheState.js";
-import { getSessionUsage } from "../../session/index.js";
+import { t } from "../../i18n/index.js";
 import { lastRoundCacheRate } from "../../stream/usageTelemetry.js";
 import {
   formatContextUsage,
-  formatSessionReadout,
+  formatStatusReadout,
 } from "../utils/contextReadout.js";
 
 interface ContextData {
@@ -13,26 +13,14 @@ interface ContextData {
 }
 
 /**
- * The status line, computed pi's way and recomputed on every render: the
- * session's cumulative arrows tick live while the answer streams, the cache
- * rate belongs to the last round, and the context share is the provider's
- * measurement against the model window. The streaming estimate keeps the
- * arrow moving between rounds; the round's own numbers correct it on arrival.
+ * The footer readout: the cache rate of the last round and the provider's
+ * measured context share. Those are the two numbers that change on their own
+ * while a session runs; the session's token arrows and its price are not put
+ * on the footer, and `/cost` reports them on demand.
  */
 export function useContextReadout(
   contextData: ContextData | null | undefined,
-  provider?: string,
-  streamingText?: string | null,
-  streamingReasoning?: string | null,
 ): string | undefined {
-  const streamingTokens =
-    streamingText || streamingReasoning
-      ? Math.round(
-          ((streamingText?.length ?? 0) + (streamingReasoning?.length ?? 0)) /
-            4,
-        )
-      : 0;
-  const usage = getSessionUsage();
   const cache = getLastRequestCacheState();
   const rate = cache?.hitRate ?? lastRoundCacheRate();
   const context = contextData
@@ -42,17 +30,11 @@ export function useContextReadout(
         percent: contextData.percentage ?? null,
       })
     : "";
-  const readout = formatSessionReadout(
-    {
-      promptTokens: usage.promptTokens,
-      completionTokens: usage.completionTokens,
-      cacheReadTokens: usage.promptTokensDetails?.cachedTokens ?? 0,
-      cacheWriteTokens: usage.promptTokensDetails?.cacheWriteTokens ?? 0,
-      totalCost: usage.totalCost,
-    },
-    streamingTokens,
-    rate,
-    context,
+  return (
+    formatStatusReadout({
+      rate,
+      context,
+      cacheLabel: t("status.cache"),
+    }) || undefined
   );
-  return readout || undefined;
 }

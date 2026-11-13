@@ -384,6 +384,9 @@ export function ProviderModelsSection({
   const [addSaving, setAddSaving] = useState(false);
   const addSavingRef = useRef(false);
   const [addCommitError, setAddCommitError] = useState<string | null>(null);
+  const [fetchedModels, setFetchedModels] = useState<string[] | null>(null);
+  const [fetchModelsBusy, setFetchModelsBusy] = useState(false);
+  const [fetchModelsError, setFetchModelsError] = useState<string | null>(null);
   const [addModel] = useState(createEmptyModel);
   const [addDraftErrorField, setAddDraftErrorField] = useState<
     | "id"
@@ -412,6 +415,33 @@ export function ProviderModelsSection({
     setAddCommitError(null);
     setAddDialogOpen(true);
   }, [editor.reset]);
+
+  const fetchModels = useCallback(async () => {
+    setFetchModelsBusy(true);
+    setFetchModelsError(null);
+    try {
+      const result = await providerSettingsService.fetchProviderModels(providerId);
+      setFetchedModels(result.models);
+    } catch (error) {
+      setFetchModelsError(
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setFetchModelsBusy(false);
+    }
+  }, [providerId, providerSettingsService]);
+
+  const openAddDialogWithModel = useCallback(
+    (modelId: string) => {
+      editor.reset(createEmptyModel());
+      editor.change({ idValue: modelId });
+      setAddDraftErrorField(null);
+      setAddCommitError(null);
+      setFetchedModels(null);
+      setAddDialogOpen(true);
+    },
+    [editor],
+  );
 
   const updateAddDraft = (patch: Partial<ProviderModelDraftValues>) => {
     editor.change(patch);
@@ -474,18 +504,71 @@ export function ProviderModelsSection({
         <span className="text-ui-base text-foreground-subtle">
           {intl.formatMessage({ id: "settings.modelProvider.models" })}
         </span>
-        <Button
-          type="button"
-          variant="secondary"
-          size="default"
-          className="rounded-lg"
-          data-testid={TID_MODEL_PROVIDER_ADD_MODEL_BUTTON}
-          onClick={openAddDialog}
-        >
-          <Plus data-icon="inline-start" aria-hidden="true" />
-          {intl.formatMessage({ id: "settings.modelProvider.addModel" })}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="default"
+            className="rounded-lg"
+            disabled={fetchModelsBusy}
+            onClick={() => void fetchModels().catch(() => undefined)}
+          >
+            {fetchModelsBusy
+              ? intl.formatMessage({
+                  id: "settings.modelProvider.fetchModelsBusy",
+                })
+              : intl.formatMessage({
+                  id: "settings.modelProvider.fetchModels",
+                })}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="default"
+            className="rounded-lg"
+            data-testid={TID_MODEL_PROVIDER_ADD_MODEL_BUTTON}
+            onClick={openAddDialog}
+          >
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            {intl.formatMessage({ id: "settings.modelProvider.addModel" })}
+          </Button>
+        </div>
       </div>
+      {fetchModelsError ? (
+        <div className="mb-2 text-ui-sm text-destructive">
+          {intl.formatMessage(
+            { id: "settings.modelProvider.fetchModelsFailed" },
+            { message: fetchModelsError },
+          )}
+        </div>
+      ) : null}
+      {fetchedModels !== null ? (
+        <div className="mb-2 rounded-lg border border-input-border bg-input p-3">
+          <div className="mb-2 text-ui-sm text-foreground-subtle">
+            {fetchedModels.length === 0
+              ? intl.formatMessage({
+                  id: "settings.modelProvider.fetchModelsEmpty",
+                })
+              : intl.formatMessage({
+                  id: "settings.modelProvider.fetchModelsPick",
+                })}
+          </div>
+          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+            {fetchedModels.map((modelId) => (
+              <Button
+                key={modelId}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-md"
+                onClick={() => openAddDialogWithModel(modelId)}
+              >
+                {modelId}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {models.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-input-border bg-input">
           <SortableProviderModelList

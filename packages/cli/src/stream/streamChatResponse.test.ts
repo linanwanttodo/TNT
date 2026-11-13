@@ -663,13 +663,59 @@ describe("preprocessStreamedToolCalls", () => {
     expect(preprocessedCalls[0].preprocessResult?.args.start_line).toBe(1);
   });
 
+  it("repairs a known tool argument alias without spending a failed round", async () => {
+    const toolCalls: ToolCall[] = [
+      {
+        id: "call_alias",
+        name: "Read",
+        arguments: { file_path: "src/a.ts" },
+        argumentsStr: '{"file_path":"src/a.ts"}',
+        startNotified: false,
+      },
+    ];
+
+    const { preprocessedCalls, errorChatEntries } =
+      await preprocessStreamedToolCalls(true, toolCalls);
+
+    expect(errorChatEntries).toHaveLength(0);
+    expect(preprocessedCalls).toHaveLength(1);
+    expect(preprocessedCalls[0].arguments).toEqual({ filepath: "src/a.ts" });
+  });
+
+  it("converts Claude Code's read range without a failed round", async () => {
+    const toolCalls: ToolCall[] = [
+      {
+        id: "call_range",
+        name: "Read",
+        arguments: { file_path: "src/a.ts", offset: 9, limit: 20 },
+        argumentsStr: '{"file_path":"src/a.ts","offset":9,"limit":20}',
+        startNotified: false,
+      },
+    ];
+
+    const { preprocessedCalls, errorChatEntries } =
+      await preprocessStreamedToolCalls(true, toolCalls);
+
+    expect(errorChatEntries).toHaveLength(0);
+    expect(preprocessedCalls[0].arguments).toEqual({
+      filepath: "src/a.ts",
+      start_line: 9,
+      end_line: 28,
+    });
+    expect(preprocessedCalls[0].preprocessResult?.args).toEqual({
+      filepath: "src/a.ts",
+      start_line: 9,
+      end_line: 28,
+    });
+  });
+
   it("answers a bad call with what the tool wanted, not with a mock", async () => {
     const toolCalls: ToolCall[] = [
       {
         id: "call_456",
         name: "Read",
-        arguments: { path: "src/a.ts" },
-        argumentsStr: '{"path":"src/a.ts"}',
+        arguments: { fliepath: "src/a.ts" },
+        argumentsStr: '{"fliepath":"src/a.ts"}',
         startNotified: false,
       },
     ];
@@ -689,8 +735,8 @@ describe("preprocessStreamedToolCalls", () => {
     // the argument that is missing, the one that arrived under another name, and
     // the shape to send.
     const content = String(errorChatEntries[0].content);
-    expect(content).toContain('a value arrived as "path"');
-    expect(content).toContain('this tool names it "filepath"');
+    expect(content).toContain('"filepath": required by this tool and not sent');
+    expect(content).toContain('"filepath": string');
     expect(content).toContain('"filepath": string');
 
     // Callbacks should be called for errors

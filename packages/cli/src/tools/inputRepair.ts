@@ -19,6 +19,15 @@ type FieldRepair =
 const KEEP: FieldRepair = { kind: "keep" };
 const PATH_LIKE_KEY = /path|file|dir/i;
 const MARKDOWN_LINK = /^\[[^\]]*\]\(([^)]+)\)$/;
+const KNOWN_KEY_ALIASES: Record<string, readonly string[]> = {
+  filepath: ["file_path", "filePath", "path", "file"],
+  file_path: ["filepath", "filePath", "path", "file"],
+  start_line: ["startLine", "lineStart"],
+  end_line: ["endLine", "lineEnd"],
+  old_string: ["oldString", "oldText"],
+  new_string: ["newString", "newText"],
+  replace_all: ["replaceAll"],
+};
 
 function set(value: unknown, rule: string, fix: string): FieldRepair {
   return { kind: "set", value, rule, fix };
@@ -219,6 +228,92 @@ function normalizeKeys(
   return working;
 }
 
+function numberOrUndefined(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function convertReadRangeAliases(
+  input: Record<string, unknown>,
+  properties: Record<string, ParameterSchema>,
+  prefix: string,
+  notes: RepairNote[],
+): Record<string, unknown> {
+  if (
+    !("start_line" in properties) ||
+    !("end_line" in properties) ||
+    "offset" in properties ||
+    "limit" in properties ||
+    (!("offset" in input) && !("limit" in input))
+  ) {
+    return input;
+  }
+
+  const working: Record<string, unknown> = { ...input };
+  const explicitRange = "start_line" in working || "end_line" in working;
+  const offset = numberOrUndefined(working.offset);
+  const limit = numberOrUndefined(working.limit);
+  delete working.offset;
+  delete working.limit;
+
+  if (offset !== undefined || limit !== undefined) {
+    const start = offset === undefined ? 1 : Math.max(1, Math.floor(offset));
+    const count = limit === undefined ? 2000 : Math.max(1, Math.floor(limit));
+    if (!explicitRange) working.start_line = start;
+    if (!("end_line" in working)) {
+      const from = numberOrUndefined(working.start_line) ?? start;
+      working.end_line = Math.floor(from) + count - 1;
+    }
+  }
+  notes.push({
+    key: `${prefix}offset`,
+    rule: "convertOffsetLimitToLineRange",
+    fix: explicitRange
+      ? "Dropped duplicate offset and limit aliases."
+      : "Converted offset and limit to start_line and end_line.",
+  });
+  return working;
+}
+
+function canonicalizeKnownAliases(
+  input: Record<string, unknown>,
+  properties: Record<string, ParameterSchema>,
+  prefix: string,
+  notes: RepairNote[],
+): Record<string, unknown> {
+  const working: Record<string, unknown> = { ...input };
+  for (const [canonical, aliases] of Object.entries(KNOWN_KEY_ALIASES)) {
+    if (!(canonical in properties)) continue;
+    const matches = aliases.filter(
+      (alias) => alias in working && !(alias in properties),
+    );
+    if (matches.length === 0) continue;
+    if (canonical in working) {
+      for (const alias of matches) delete working[alias];
+      notes.push({
+        key: `${prefix}${matches[0]}`,
+        rule: "dropDuplicateKnownAlias",
+        fix: `Dropped duplicate alias for \`${canonical}\`.`,
+      });
+      continue;
+    }
+    if (matches.length !== 1) continue;
+    const alias = matches[0];
+    working[canonical] = working[alias];
+    delete working[alias];
+    notes.push({
+      key: `${prefix}${alias}`,
+      rule: "canonicalizeKnownAlias",
+      fix: `Renamed \`${alias}\` to \`${canonical}\`.`,
+    });
+  }
+  return working;
+}
+
 function repairObject(
   input: Record<string, unknown>,
   properties: Record<string, ParameterSchema>,
@@ -226,7 +321,17 @@ function repairObject(
   prefix: string,
   notes: RepairNote[],
 ): Record<string, unknown> {
-  const working = normalizeKeys(input, properties, prefix, notes);
+  const working = convertReadRangeAliases(
+    canonicalizeKnownAliases(
+      normalizeKeys(input, properties, prefix, notes),
+      properties,
+      prefix,
+      notes,
+    ),
+    properties,
+    prefix,
+    notes,
+  );
 
   for (const [name, schema] of Object.entries(properties)) {
     if (!(name in working)) continue;
@@ -265,10 +370,9 @@ function repairObject(
 
 /**
  * Repairs the argument shapes a model gets structurally wrong but semantically
- * right - a number sent as a string, one value where a list was expected - so a
- * recoverable call is not a lost round. It never renames a near-miss key: the
- * validator's name-the-arrived-key message teaches the model, while a silent
- * guess could write the wrong field.
+ * right - a number sent as a string, one value where a list was expected, or a
+ * known alias from another tool's schema. Unknown near-miss keys are left for
+ * the validator to name, so a silent guess cannot write the wrong field.
  */
 export function repairToolInput(
   input: Record<string, unknown>,

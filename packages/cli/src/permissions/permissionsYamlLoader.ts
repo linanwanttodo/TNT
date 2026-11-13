@@ -86,13 +86,21 @@ export function parseToolPattern(
   pattern: string,
   permission: PermissionPolicy,
 ): ToolPermissionPolicy {
-  const match = pattern.match(/^([^(]+)(?:\(([^)]*)\))?$/);
+  // The argument text is everything between the first "(" and the final ")".
+  // It has to allow ")" inside: a Bash rule is the command line the user read,
+  // and a shell command may contain a subshell - `Bash(cd x && (a; b))`. The
+  // previous `[^)]*` failed on exactly that rule, which made one saved approval
+  // poison the whole settings file for every later process.
+  const match = pattern.match(/^([^(]+?)(?:\(([\s\S]*)\))?$/);
   if (!match) {
     throw new Error(t("permissions.invalidToolPattern", { pattern }));
   }
 
   const [, toolName, args] = match;
   const normalizedName = toolName.trim();
+  if (normalizedName === "") {
+    throw new Error(t("permissions.invalidToolPattern", { pattern }));
+  }
 
   const policy: ToolPermissionPolicy = {
     tool: normalizedName,
@@ -132,24 +140,29 @@ export function yamlConfigToPolicies(
 ): ToolPermissionPolicy[] {
   const policies: ToolPermissionPolicy[] = [];
 
-  // Order matters: more restrictive policies first
-  if (config.exclude) {
-    for (const pattern of config.exclude) {
-      policies.push(parseToolPattern(pattern, "exclude"));
+  // Order matters: more restrictive policies first. One unreadable rule is
+  // skipped and named; dropping the whole table over it would silently widen
+  // what the session may do without asking.
+  const add = (
+    patterns: string[] | undefined,
+    permission: PermissionPolicy,
+  ) => {
+    for (const pattern of patterns ?? []) {
+      try {
+        policies.push(parseToolPattern(pattern, permission));
+      } catch (error) {
+        logger.warn("Skipping an unreadable permission rule", {
+          pattern,
+          permission,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
-  }
+  };
 
-  if (config.ask) {
-    for (const pattern of config.ask) {
-      policies.push(parseToolPattern(pattern, "ask"));
-    }
-  }
-
-  if (config.allow) {
-    for (const pattern of config.allow) {
-      policies.push(parseToolPattern(pattern, "allow"));
-    }
-  }
+  add(config.exclude, "exclude");
+  add(config.ask, "ask");
+  add(config.allow, "allow");
 
   return policies;
 }

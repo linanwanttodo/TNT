@@ -1,13 +1,13 @@
-import { useInput } from "ink";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ScrollViewMetrics } from "../components/ScrollView.js";
+import { KeypressPriority } from "../contexts/KeypressContext.js";
 import { dispatchClick } from "../utils/clickRegions.js";
-import { isTerminalMouseSequence } from "../utils/mouse.js";
 import { WheelFrameBatch } from "../utils/wheelFrameBatch.js";
 import { WheelScrollAccelerator } from "../utils/wheelScroll.js";
 
 import { useLayoutRevision } from "./layoutDirty.js";
+import { useKeypress, type Key } from "./useKeypress.js";
 import { useMouseEvents } from "./useMouseEvents.js";
 
 interface ChatViewportOptions {
@@ -37,6 +37,12 @@ export interface ChatViewport {
   scrollBy: (rows: number) => void;
   scrollTo: (row: number) => void;
   jumpToBottom: () => void;
+  /**
+   * Compensates for a measured height replacing an estimate above the window,
+   * so the rows on screen do not move. Not used while following the tail: the
+   * offset there is derived from the new content height anyway.
+   */
+  onContentShift: (rows: number) => void;
 }
 
 const INITIAL_STATE: ViewportState = {
@@ -133,6 +139,20 @@ export function useChatViewport({
     });
   }, []);
 
+  const onContentShift = useCallback((rows: number) => {
+    if (!Number.isFinite(rows) || rows === 0) return;
+
+    setState((previous) => {
+      if (previous.following) return previous;
+      const maxScrollTop = maxScrollTopOf(previous);
+      const next = Math.round(
+        Math.max(0, Math.min(maxScrollTop, previous.scrollTop + rows)),
+      );
+      if (next === previous.scrollTop) return previous;
+      return { ...previous, scrollTop: next };
+    });
+  }, []);
+
   const jumpToBottom = useCallback(() => {
     setState((previous) => {
       const maxScrollTop = maxScrollTopOf(previous);
@@ -152,33 +172,37 @@ export function useChatViewport({
   wheelBatchRef.current ??= new WheelFrameBatch(scrollBy);
   useEffect(() => () => wheelBatchRef.current?.dispose(), []);
 
-  useInput(
-    (input, key) => {
-      // A mouse report also reaches useInput; it must not be read as End or
-      // Home and drag the viewport to the top on a click.
-      if (isTerminalMouseSequence(input)) return;
-
-      // The forked ink (6.6.9) does not expose end/home on the Key type, so
-      // match the raw sequences for the End/Home keys.
-      const isEnd =
-        input === "\x1b[F" || input === "\x1bOF" || input === "\x1b[4~";
-      const isHome =
-        input === "\x1b[H" || input === "\x1bOH" || input === "\x1b[1~";
-
-      if (key.ctrl && input === "t") {
+  const handleKeypress = useCallback(
+    (key: Key): boolean | undefined => {
+      if (key.ctrl && key.name === "t") {
         setMouseCapture((previous) => !previous);
-      } else if (key.pageUp) {
-        scrollBy(-page);
-      } else if (key.pageDown) {
-        scrollBy(page);
-      } else if (isEnd) {
-        jumpToBottom();
-      } else if (isHome) {
-        scrollTo(0);
+        return true;
       }
+      if (key.name === "pageup") {
+        scrollBy(-page);
+        return true;
+      }
+      if (key.name === "pagedown") {
+        scrollBy(page);
+        return true;
+      }
+      if (key.name === "end" && (key.ctrl || key.shift)) {
+        jumpToBottom();
+        return true;
+      }
+      if (key.name === "home" && (key.ctrl || key.shift)) {
+        scrollTo(0);
+        return true;
+      }
+      return undefined;
     },
-    { isActive },
+    [jumpToBottom, page, scrollBy, scrollTo],
   );
+
+  useKeypress(handleKeypress, {
+    isActive,
+    priority: KeypressPriority.Critical,
+  });
 
   useMouseEvents(
     (event) => {
@@ -206,5 +230,6 @@ export function useChatViewport({
     scrollBy,
     scrollTo,
     jumpToBottom,
+    onContentShift,
   };
 }

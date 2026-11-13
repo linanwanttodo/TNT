@@ -2,7 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { safeExtractTarball } from "core/util/safeTarball.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CommandResult,
@@ -13,6 +14,12 @@ import {
 } from "./marketplaceSources.js";
 import { KnownMarketplace, MarketplaceSource } from "./marketplaceTypes.js";
 
+vi.mock("core/util/safeTarball.js", () => ({
+  safeExtractTarball: vi.fn(async () => undefined),
+}));
+
+const mockedExtract = vi.mocked(safeExtractTarball);
+
 let cacheDir: string;
 let previousOverride: string | undefined;
 
@@ -20,6 +27,8 @@ beforeEach(() => {
   previousOverride = process.env.TNT_PLUGINS_DIR;
   cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-source-"));
   process.env.TNT_PLUGINS_DIR = cacheDir;
+  mockedExtract.mockReset();
+  mockedExtract.mockImplementation(async () => undefined);
 });
 
 afterEach(() => {
@@ -355,7 +364,6 @@ describe("npm marketplace source", () => {
           stdout: JSON.stringify([{ filename: "acme-market-1.0.0.tgz" }]),
           stderr: "",
         },
-        { code: 0, stdout: "", stderr: "" },
       ],
     });
 
@@ -367,7 +375,8 @@ describe("npm marketplace source", () => {
 
     expect(calls[0].file).toBe("npm");
     expect(calls[0].args.slice(0, 2)).toEqual(["pack", "acme-market"]);
-    expect(calls[1].file).toBe("tar");
+    expect(mockedExtract).toHaveBeenCalledTimes(1);
+    expect(mockedExtract.mock.calls[0][1]).toBe(checkout("npm-market"));
     expect(resolved.manifestPath).toBe(
       path.join(
         checkout("npm-market"),
@@ -390,6 +399,30 @@ describe("npm marketplace source", () => {
         deps,
       ),
     ).rejects.toThrow(/404 Not Found/);
+    expect(mockedExtract).not.toHaveBeenCalled();
+  });
+
+  it("reports a refused archive instead of extracting it", async () => {
+    const { deps } = createFakeDeps({
+      results: [
+        {
+          code: 0,
+          stdout: JSON.stringify([{ filename: "evil-1.0.0.tgz" }]),
+          stderr: "",
+        },
+      ],
+    });
+    mockedExtract.mockRejectedValueOnce(
+      new Error("Archive entry outside the package directory: ../etc/passwd"),
+    );
+
+    await expect(
+      resolveMarketplaceSource(
+        { source: "npm", package: "evil" },
+        "npm-bad",
+        deps,
+      ),
+    ).rejects.toThrow(/outside the package/);
   });
 
   it("accepts the bare filename that older npm prints", () => {

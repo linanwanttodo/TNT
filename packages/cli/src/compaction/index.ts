@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { ModelConfig } from "@tnt/config-yaml";
 import { BaseLlmApi } from "@tnt/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
-import { calculateContextBudget } from "core/util/contextPolicy.js";
+import {
+  calculateContextBudget,
+  CONTEXT_POLICY_REGISTRY,
+} from "core/util/contextPolicy.js";
 import { compactToolCallOutputs } from "core/util/toolResultCompaction.js";
 import { encode } from "gpt-tokenizer";
 import { ChatCompletionTool } from "openai/resources.mjs";
@@ -12,6 +15,7 @@ import { t } from "../i18n/index.js";
 import { buildTodoCarryContextItem, readTodoState } from "../tools/todo.js";
 import { isContextLengthError } from "../utils/contextLength.js";
 import { logger } from "../utils/logger.js";
+import { parseEnvNumber } from "../utils/truncateOutput.js";
 import {
   countChatHistoryTokens,
   countToolDefinitionTokens,
@@ -25,6 +29,31 @@ import {
   measuredInputTokens,
 } from "./measuredContext.js";
 import { buildSummaryRequest } from "./prefixPreservation.js";
+
+/**
+ * The compaction ceilings an operator can tune without a code change: a
+ * smaller ceiling makes compaction fire earlier, a larger one lets the
+ * working set grow (up to the ratio bound). Defaults come from
+ * `CONTEXT_POLICY_REGISTRY.default`.
+ */
+function tunedContextBudget(
+  contextWindow: number,
+  reservedOutputTokens: number,
+): ReturnType<typeof calculateContextBudget> {
+  const ceiling = parseEnvNumber(
+    process.env.TNT_COMPACT_CEILING,
+    CONTEXT_POLICY_REGISTRY.default.compactCeilingTokens,
+  );
+  const retain = parseEnvNumber(
+    process.env.TNT_COMPACT_RETAIN,
+    CONTEXT_POLICY_REGISTRY.default.retainCeilingTokens,
+  );
+  return calculateContextBudget(contextWindow, reservedOutputTokens, {
+    ...CONTEXT_POLICY_REGISTRY.default,
+    compactCeilingTokens: ceiling,
+    retainCeilingTokens: retain,
+  });
+}
 
 export interface CompactionResult {
   compactedHistory: ChatHistoryItem[];
@@ -274,7 +303,7 @@ export async function compactChatHistory(
     : compactToolCallOutputs(chatHistory).history;
   const contextLimit = getModelContextLimit(model);
   const maxTokens = getModelMaxTokens(model);
-  const contextBudget = calculateContextBudget(contextLimit, maxTokens);
+  const contextBudget = tunedContextBudget(contextLimit, maxTokens);
   const { summaryHistory, retainedHistory } = splitHistoryAtRetainBudget(
     historyToUse,
     contextBudget.retainTokens,
@@ -525,7 +554,7 @@ export function shouldAutoCompact(params: AutoCompactParams): boolean {
   const contextLimit = getModelContextLimit(model);
   const maxTokens = getModelMaxTokens(model);
 
-  const { compactAtTokens, retainTokens } = calculateContextBudget(
+  const { compactAtTokens, retainTokens } = tunedContextBudget(
     contextLimit,
     maxTokens,
   );

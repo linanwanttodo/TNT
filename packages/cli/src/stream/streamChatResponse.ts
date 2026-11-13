@@ -542,14 +542,21 @@ export async function streamChatResponse(
       onToolOutcome: (toolName, succeeded, error) => {
         const notice = state.toolFailures.record(toolName, succeeded, error);
         if (notice) {
-          // Operator-facing only: the model is not told about this streak, and
-          // the tally exists so a log reader can see the repeated failure.
           logger.warn("Tool repeatedly failing", {
             tool: notice.toolName,
             consecutiveFailures: notice.consecutiveFailures,
             lastError: notice.lastError,
           });
+          // The reminder rides in the failing call's own tool result, so the
+          // model reads the change-course guidance exactly where it would
+          // otherwise retry the identical call.
+          return t("loop.toolFailureNotice", {
+            tool: notice.toolName,
+            count: notice.consecutiveFailures,
+            error: notice.lastError,
+          });
         }
+        return undefined;
       },
     });
 
@@ -664,5 +671,12 @@ export async function streamChatResponse(
     if (!shouldContinue && !shouldAutoContinue) {
       return finish("no_tool_calls");
     }
+
+    // A message the user queued while the tools ran is delivered here: the
+    // tool batch is committed, so appending it now cannot split it, and the
+    // next request carries the message in the same turn. The surface owns the
+    // append (formatting, images, hooks); a headless run has no surface and
+    // so no callback.
+    await callbacks?.onRoundBoundary?.();
   }
 }

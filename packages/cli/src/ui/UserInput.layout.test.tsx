@@ -67,8 +67,9 @@ describe("gemini composer layout", () => {
     try {
       const [, footer] = (tree.lastFrame() ?? "").split("\n");
       expect(footer).toContain("Auto");
-      // The home prefix collapses to `~`, the same format as the status bar.
-      expect(footer).toMatch(/~|\//);
+      // POSIX home collapses to `~`; Windows keeps its drive path, so the
+      // assertion accepts either separator rather than assuming `/`.
+      expect(footer).toMatch(/~|[\\/]/);
     } finally {
       tree.unmount();
     }

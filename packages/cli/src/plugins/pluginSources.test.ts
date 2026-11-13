@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   addMarketplace,
@@ -10,6 +10,10 @@ import {
 } from "./marketplaceManager.js";
 import { MarketplaceDeps } from "./marketplaceSources.js";
 import { PluginInstallError, installPlugin } from "./pluginInstall.js";
+
+vi.mock("core/util/safeTarball.js", () => ({
+  safeExtractTarball: vi.fn(async () => undefined),
+}));
 
 let pluginsDir: string;
 let marketDir: string;

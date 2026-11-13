@@ -120,6 +120,45 @@ describe("PreToolUse decisions at execution time", () => {
     expect(chatHistoryEntries[0]?.status).toBe("done");
   });
 
+  it("repairs a known alias in hook-rewritten input before validating it", async () => {
+    fireHooks.firePreToolUse.mockResolvedValueOnce({
+      blocked: false,
+      updatedInput: { file_path: "/rewritten.txt" },
+      results: [],
+    });
+    const preprocess = vi.fn(async (args: { filepath: string }) => ({
+      args: { normalizedPath: args.filepath },
+    }));
+    const run = vi.fn(
+      async (args: { normalizedPath: string }) => args.normalizedPath,
+    );
+    const tool: Tool = { ...readFileTool, preprocess, run };
+    const call: PreprocessedToolCall = {
+      ...readCall("/original.txt"),
+      tool,
+      preprocessResult: await tool.preprocess?.({
+        filepath: "/original.txt",
+      }),
+    };
+
+    const { chatHistoryEntries } = await executeStreamedToolCalls(
+      [call],
+      undefined,
+      false,
+      undefined,
+      { permissions: allowAll },
+    );
+
+    expect(preprocess).toHaveBeenNthCalledWith(2, {
+      filepath: "/rewritten.txt",
+    });
+    expect(run).toHaveBeenCalledWith(
+      { normalizedPath: "/rewritten.txt" },
+      { toolCallId: "call_1", parallelToolCallCount: 1 },
+    );
+    expect(chatHistoryEntries[0]?.status).toBe("done");
+  });
+
   it("no longer lets a hook allow rescue a policy ask in headless", async () => {
     fireHooks.firePreToolUse.mockResolvedValueOnce({
       blocked: false,

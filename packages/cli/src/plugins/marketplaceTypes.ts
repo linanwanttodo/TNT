@@ -81,6 +81,7 @@ export type PluginSourceObject =
   | { source: "npm"; package: string; version?: string; registry?: string }
   | { source: "github"; repo: string; ref?: string }
   | { source: "url"; url: string; ref?: string }
+  | { source: "url"; type: "zip"; url: string; sha256: string; path?: string }
   | { source: "git-subdir"; url: string; path: string; ref?: string }
   | { source: "pip"; package?: string };
 
@@ -94,11 +95,16 @@ export interface MarketplacePluginEntry {
   /** Storefront fields the web UI renders when a catalogue declares them. */
   icon?: string;
   displayName?: string;
+  displayNameI18n?: Record<string, string>;
+  descriptionI18n?: Record<string, string>;
   homepage?: string;
   category?: string;
   tags?: string[];
   author?: MarketplaceAuthor;
   dependencies?: string[];
+  publisherType?: "official" | "community";
+  componentTypes?: string[];
+  requiresPaidPlan?: boolean;
 }
 
 export interface MarketplaceManifest {

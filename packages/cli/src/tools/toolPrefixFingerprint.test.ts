@@ -54,9 +54,15 @@ import { sortToolsByName } from "./stableOrder.js";
  * move the digest from a71d2947f1555c76/34467 to 56d3989dd2fb855c/35316 over
  * the same 42 tools. It sits in every session's prefix, so the cold start is
  * paid once on the next request, not only behind a flag.
+ *
+ * 2026-11-13: `ApplyPatch` now says approved hunks are replayed against the
+ * current file contents and failed hunks include current context. The wording
+ * adds 166 characters, moving the digest from ed4738cde6061749/35354 to
+ * 34b64aa4cb3faffd/35482 over the same 42 tools. This is a one-time cold start
+ * paid to stop stale-approval failures from consuming extra Read and Edit rounds.
  */
-const PREFIX_FINGERPRINT = "ed4738cde6061749";
-const PREFIX_CHARACTERS = 35_354;
+const PREFIX_FINGERPRINT = "34b64aa4cb3faffd";
+const PREFIX_CHARACTERS = 35_482;
 const PREFIX_TOOLS = 42;
 
 const ARCHITECTURE_DOC = path.resolve(

@@ -388,6 +388,13 @@ export function loadPluginMcpServers(
     }
 
     if (!resolved) continue;
+    if (
+      resolved.mcpServers &&
+      typeof resolved.mcpServers === "object" &&
+      !Array.isArray(resolved.mcpServers)
+    ) {
+      resolved = resolved.mcpServers as Record<string, unknown>;
+    }
 
     for (const [name, serverConfig] of Object.entries(resolved)) {
       if (typeof serverConfig !== "object" || serverConfig === null) continue;

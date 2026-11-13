@@ -30,6 +30,8 @@ interface MainContentProps {
   /** Rows hidden above the transcript window. */
   scrollTop: number;
   onScrollMetrics: (metrics: ScrollViewMetrics) => void;
+  /** Compensates the offset when a measured height replaces an estimate. */
+  onContentShift?: (rows: number) => void;
   /** Draws the one-column scrollbar on the transcript's right edge. */
   showScrollbar?: boolean;
 }
@@ -59,6 +61,7 @@ export const MainContent: React.FC<MainContentProps> = ({
   verbose = false,
   scrollTop,
   onScrollMetrics,
+  onContentShift,
   showScrollbar,
 }) => {
   return (
@@ -85,6 +88,7 @@ export const MainContent: React.FC<MainContentProps> = ({
         verbose={verbose}
         scrollTop={scrollTop}
         onMetrics={onScrollMetrics}
+        onContentShift={onContentShift}
         showScrollbar={showScrollbar}
       />
     </Box>

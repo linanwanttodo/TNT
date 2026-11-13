@@ -71,6 +71,14 @@ export interface StreamCallbacks {
     reason: TerminationReason,
     detail?: { maxSteps?: number; notice?: string },
   ) => void;
+  /**
+   * Called at a round boundary - after the tool batch of a round is committed
+   * and before the next request. A surface with a message waiting appends it
+   * to the history here, so the next request carries it without splitting a
+   * tool-call batch; returning true says it did. The engine owns the timing,
+   * the surface owns formatting (images, contexts, hooks).
+   */
+  onRoundBoundary?: () => Promise<boolean | void>;
 }
 
 /**

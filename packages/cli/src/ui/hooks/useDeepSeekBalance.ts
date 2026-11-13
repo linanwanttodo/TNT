@@ -13,17 +13,25 @@ export interface DeepSeekBalance {
 
 const REFRESH_MS = 5 * 60 * 1000;
 
+function isDeepSeekHost(hostname: string): boolean {
+  return hostname.toLowerCase() === "api.deepseek.com";
+}
+
 /**
  * Reads DeepSeek's documented GET /user/balance endpoint. Keys are read from
  * the selected model and only sent to api.deepseek.com; they are never logged
  * or returned from this hook. Other providers have no balance display.
+ *
+ * The host decides, not the provider id: a model on DeepSeek's official API
+ * may be configured through the Anthropic-compatible route (provider
+ * "anthropic" with apiBase .../anthropic/v1) and still has a balance there.
  */
 export async function fetchDeepSeekBalance(
   model: BalanceModel,
   fetcher: typeof fetch = fetch,
   signal?: AbortSignal,
 ): Promise<DeepSeekBalance[]> {
-  if (model.provider !== "deepseek" || !model.apiBase || !model.apiKey) {
+  if (!model.apiBase || !model.apiKey) {
     return [];
   }
   let api: URL;
@@ -32,7 +40,7 @@ export async function fetchDeepSeekBalance(
   } catch {
     return [];
   }
-  if (api.hostname.toLowerCase() !== "api.deepseek.com") return [];
+  if (!isDeepSeekHost(api.hostname)) return [];
 
   try {
     const response = await fetcher(new URL("/user/balance", api.origin), {
@@ -61,7 +69,7 @@ export function useDeepSeekBalance(
   const [balance, setBalance] = useState<DeepSeekBalance[]>([]);
 
   useEffect(() => {
-    if (!model?.apiBase || !model.apiKey || model.provider !== "deepseek") {
+    if (!model?.apiBase || !model.apiKey) {
       setBalance([]);
       return;
     }

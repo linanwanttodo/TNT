@@ -145,9 +145,9 @@ The prefix is assembled in build order, each part announced so it can be attribu
   its own and `plan` adds only the volatile `planMode` one - which is what
   `agent/systemMessage.sections.test.ts` holds. A turn that switches between `auto` and `agent`
   therefore rebills nothing, and immediate effect is what a switch is for.
-- The static spine of the system message is the other half of that prefix: `81a6092e2a935e97` for the
-  TUI (9137 characters), `22bd6daaf8701059` with JSON output (9553), `339cda392f12a90e` headless
-  (9644), `1c420a34ddc25a7c` headless + JSON (10060). Only what the builder marks non-volatile is
+- The static spine of the system message is the other half of that prefix: `f39caf08c330955c` for the
+  TUI (10728 characters), `a43e24f9e63fc447` with JSON output (11144), `8401f7cd2d7735c3` headless
+  (11235), `22da829352786693` headless + JSON (11651). Only what the builder marks non-volatile is
   digested - `base`, `headless`, `jsonOutput` - so plan text, a chosen profile, a plugin output
   style, the user's rules and the environment block stay outside it.
   `agent/systemPrefixFingerprint.test.ts` freezes these and reads this file for the same strings.
@@ -161,6 +161,63 @@ The prefix is assembled in build order, each part announced so it can be attribu
   when the model decides the task needs one, or when the user names one; a
   simple question needs none. A plugin manual inlined into a prompt can no
   longer turn that question into a forced skill call.
+- **Loop changelog, 2026-11-13 (per-tool failure breaker surfaces to the model):** the
+  per-tool consecutive-failure tally (`loop/toolFailureTracker.ts`, threshold 3, once per
+  streak) used to warn only the operator log. `onToolOutcome` now returns the streak
+  notice's text and `toolDispatch` rides it in the failing call's own tool result as a
+  `<system-reminder>` (`loop.toolFailureNotice`, en+zh), so the model reads
+  change-course guidance exactly where it would otherwise retry the identical call -
+  the reference behavior (cursor injects diagnostics into the last tool result rather
+  than spending a round).
+- **Tools changelog, 2026-11-13 (parallel calls audit):** one-turn parallel tool calls were
+  verified end to end and need no new mechanism: the prompt already tells the model
+  independent calls may be sent together (`systemMessage.ts` checking clause), the stream
+  folds every `delta.tool_calls` entry by index (`responseChunks.ts`), and `planToolCalls`
+  (`tools/specs/planner.ts`) orders them into steps - unserialized reads share a step up to
+  `MAX_PARALLEL_READS` (8), slot-claiming writes get a barrier step, results reassemble by
+  index and settle through `Promise.allSettled` so one failure never discards finished work.
+- **Tools changelog, 2026-11-13 (output caps):** Bash output drops from 50k to 30k chars
+  (≈7.5k tokens, matching Claude Code's bash limit) and Read from 100k to 50k chars
+  (≈12.5k tokens). Every byte a tool emits rides in every later request of the session, so
+  the caps are the cheapest context lever; the `TNT_BASH_MAX_OUTPUT_CHARS` /
+  `TNT_READ_FILE_MAX_OUTPUT_CHARS` env overrides are unchanged.
+- **Compaction changelog, 2026-11-13 (absolute budget ceilings):** `ContextPolicy` gains
+  `compactCeilingTokens` (200k) and `retainCeilingTokens` (32k), applied inside
+  `calculateContextBudget`: compaction must fire by the ceiling even when the 0.8×ratio bound
+  would wait for 80% of a 1M window, and the retained tail after summarizing never grows past
+  its ceiling (pi keeps ~20k, Claude Code re-injects a fixed budget; a bare ratio let a large
+  `contextLength` silently raise the whole working set). `TNT_COMPACT_CEILING` and
+  `TNT_COMPACT_RETAIN` tune both from the environment at the CLI call sites
+  (`compaction/index.ts`, `tunedContextBudget`). Windows at or below 250k are unchanged.
+- **Stream changelog, 2026-11-13 (tool-output eviction):** `requestPreparation` now evicts
+  old tool results before the compaction check and the request: past a threshold
+  (`min(100k tokens, 40% of the window)`, overridable via `TNT_TOOL_EVICTION_TOKENS`), every
+  tool result older than the newest N (`TNT_TOOL_EVICTION_KEEP`, default 5) is replaced by
+  `[Old tool result content cleared]` in what is sent. The transcript keeps the original
+  bytes; the eviction is position-deterministic so the cache prefix only moves at the tail.
+  The static spine is unchanged - the eviction never touches the system message. See
+  `stream/toolOutputEviction.ts`.
+- **Prefix changelog, 2026-11-13 (memory clause):** the base memory clause now gates its
+  "append one line" instruction on project memory being enabled and says explicitly not to
+  write either memory file when it is disabled. The static spine became
+  `f39caf08c330955c`/10728 (TUI), `a43e24f9e63fc447`/11144 (TUI JSON),
+  `8401f7cd2d7735c3`/11235 (headless), `22da829352786693`/11651 (headless JSON) -
+  one cold start per session.
+- **Prefix changelog, 2026-11-13 (priority clause):** the `# When rules conflict` precedence gains
+  the user's latest instruction between safety/approval and the requested scope: an explicit stop,
+  report or hand-over outranks any unfinished verification, halting tool calls immediately with the
+  unfinished items reported as unfinished. The static spine became `738ddbacff6a4837`/10621 (TUI),
+  `2438d204a263d882`/11037 (TUI JSON), `33ca198c3c9fae2d`/11128 (headless),
+  `eaff99800ab194ae`/11544 (headless JSON) - one cold start per session.
+- **Prefix changelog, 2026-11-13:** the base spine gains a clarification gate (ask when a
+  wrong guess would be expensive, stay silent when evidence settles it), an explicit precedence
+  order for conflicting rules (safety, scope, completeness, brevity), a `# Secrets and private
+data` section (mask values rather than quoting them), a temp-directory exception to the
+  escalation contract for reversible writes, and a read-only map for "explain this codebase"
+  requests. The memory clause now says memory files are loaded only when project memory is
+  enabled. The static spine became `2e45ebfddab54f9f`/10416 (TUI), `7a73aa9135f7dbb6`/10832
+  (TUI JSON), `db230e5e2a092cb8`/10923 (headless), `ef5162f363335e8e`/11339 (headless JSON) -
+  one cold start per session.
 - **Prefix changelog, 2026-11-12:** the base spine replaces long procedural
   checklists with review coverage, cross-file contract checks, scoped validation
   and bounded evidence claims. Headless wording no longer adds a conflicting
@@ -168,7 +225,7 @@ The prefix is assembled in build order, each part announced so it can be attribu
   mandatory. The static spine became `81a6092e2a935e97`/9137 (TUI),
   `22bd6daaf8701059`/9553 (TUI JSON), `339cda392f12a90e`/9644 (headless),
   `1c420a34ddc25a7c`/10060 (headless JSON). The tool surface became
-  `ed4738cde6061749`/35354 over the same 42 tools. These are one-time cold
+  `34b64aa4cb3faffd`/35482 over the same 42 tools. These are one-time cold
   starts, not a claim that prompt snapshots measure model quality.
 - **Prefix changelog, 2026-11-09:** the base spine gained the escalation contract and the
   small-fix wording: the four classes that always need the user's decision, the statement that
@@ -232,7 +289,7 @@ The prefix is assembled in build order, each part announced so it can be attribu
   characters - 279 characters of schema, a one-time cold start per session.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `ed4738cde6061749` over 42 tools and 35354 characters (name + description + parameter schema, in
+  `34b64aa4cb3faffd` over 42 tools and 35482 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the
@@ -278,7 +335,8 @@ The prefix is assembled in build order, each part announced so it can be attribu
   that ship inside tool descriptions.
 - Writes are bounded twice: `permissions/workspacePath.ts` is consulted by the policy layer
   (`workspaceOnly`, judging every path a patch names) and by the tools themselves;
-  `tools/fileState.ts` refuses to overwrite a file that changed since it was read.
+  `tools/fileState.ts` still guards whole-file writes, while exact edits and hunks are
+  replayed against current contents so unrelated external changes are preserved.
 - Approval keys are per tool and per resolved path (`permissions/sessionApprovals.ts`), so an
   approved edit never becomes an approved overwrite. `ApplyPatch` is the multi-file case: one call,
   one approval, and every file planned before anything is written.

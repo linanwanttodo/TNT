@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 import {
@@ -85,6 +85,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -120,6 +121,55 @@ describe("provider settings view", () => {
     ).toEqual(
       expect.arrayContaining(["openai", "anthropic", "gemini", "ollama"]),
     );
+  });
+});
+
+describe("provider model discovery", () => {
+  it("uses the saved DeepSeek Messages endpoint and its root listing", async () => {
+    writeConfig([
+      {
+        name: "deepseek",
+        provider: "anthropic",
+        model: "deepseek-flash",
+        apiBase: "https://api.deepseek.com/anthropic/v1",
+        apiKey: "fixture-key",
+      },
+    ]);
+    const requested: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      requested.push(url);
+      return new Response(
+        JSON.stringify({
+          data: [{ id: "deepseek-flash" }, { id: "deepseek-v4-pro" }],
+        }),
+      );
+    });
+    await expect(service().fetchProviderModels("anthropic")).resolves.toEqual({
+      models: ["deepseek-flash", "deepseek-v4-pro"],
+    });
+    expect(requested).toEqual(["https://api.deepseek.com/models"]);
+  });
+
+  it("fetches models before the first model is added using the provider overlay", async () => {
+    writeConfig([]);
+    const settings = service();
+    await settings.createPersonalProvider({ templateId: "openai" });
+    await settings.savePersonalProviderOverlay("openai", {
+      api: {
+        type: "openai-chat-completions",
+        baseUrl: "https://gateway.example/v1",
+      },
+      access: { type: "api-key", apiKey: "fixture-key" },
+    });
+    const requested: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      requested.push(url);
+      return new Response(JSON.stringify({ data: [{ id: "listed-model" }] }));
+    });
+    await expect(settings.fetchProviderModels("openai")).resolves.toEqual({
+      models: ["listed-model"],
+    });
+    expect(requested).toEqual(["https://gateway.example/v1/models"]);
   });
 });
 

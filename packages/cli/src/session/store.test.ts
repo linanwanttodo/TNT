@@ -17,6 +17,7 @@ import {
   getTranscriptPath,
 } from "./paths.js";
 import { SessionLeaseError, SessionStoreError, sessionStore } from "./store.js";
+import { Transcript } from "./transcript.js";
 
 let previousGlobalDir: string | undefined;
 let previousTntDir: string | undefined;
@@ -156,6 +157,40 @@ describe("SessionStore", () => {
     expect(raw).toContain('"type":"message-patch"');
   });
 
+  it("still patches when the update arrived through the transcript's replace", () => {
+    const call = toolMessage();
+    const session = makeSession([user("run"), call]);
+    sessionStore.ensureSession(session, { persistEmpty: true });
+
+    // ChatHistoryService.updateToolCallState copies the message and hands the
+    // whole list back through Transcript.replace. That path used to give the
+    // copy a fresh id, so the store saw a different message and wrote a full
+    // snapshot - hundreds of megabytes over one long session.
+    const transcript = new Transcript();
+    transcript.replace(session.history, "load");
+    const updated = {
+      ...transcript.snapshot()[1]!,
+      toolCallStates: [
+        {
+          toolCallId: "call-1",
+          status: "done",
+          output: [{ content: "result", name: "Tool Result" }],
+        },
+      ],
+    } as unknown as ChatHistoryItem;
+    transcript.replace([transcript.snapshot()[0]!, updated], "sync");
+
+    sessionStore.sync({ ...session, history: transcript.snapshot() });
+
+    const raw = fs.readFileSync(getTranscriptPath(session.sessionId), "utf-8");
+    expect(raw).toContain('"type":"message-patch"');
+    expect(raw).not.toContain('"type":"snapshot"');
+    expect(contents(sessionStore.load(session.sessionId)!.session)).toEqual([
+      "run",
+      "",
+    ]);
+  });
+
   it("appends a compaction record but keeps the older bodies", () => {
     const first = user("one");
     const second = assistant("two");
@@ -274,6 +309,37 @@ describe("SessionStore", () => {
     sessionStore.acquireLease(session.sessionId);
     sessionStore.releaseLease(session.sessionId);
     expect(fs.existsSync(lock)).toBe(false);
+  });
+
+  it("hides a session another live process is writing from a resume list", () => {
+    const session = makeSession([user("busy")]);
+    sessionStore.ensureSession(session, { persistEmpty: true });
+    const lock = getSessionLeasePath(session.sessionId);
+    const holder = spawn(process.execPath, [
+      "-e",
+      "setInterval(() => {}, 1000)",
+    ]);
+    holder.unref();
+    fs.writeFileSync(
+      lock,
+      JSON.stringify({
+        pid: holder.pid,
+        writerId: "another-window",
+        startedAt: new Date().toISOString(),
+      }),
+    );
+    try {
+      expect(
+        sessionStore
+          .list({ cwd: process.cwd(), excludeLeased: true })
+          .map((meta) => meta.sessionId),
+      ).toEqual([]);
+      expect(
+        sessionStore.list({ cwd: process.cwd() }).map((meta) => meta.sessionId),
+      ).toContain(session.sessionId);
+    } finally {
+      holder.kill();
+    }
   });
 
   it("rejects path-shaped session ids", () => {

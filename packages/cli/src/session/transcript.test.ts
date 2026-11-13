@@ -77,6 +77,50 @@ describe("Transcript", () => {
     expect(transcript.snapshot()).toEqual(items);
   });
 
+  it("keeps a copied item's id when a replace follows an update", () => {
+    const transcript = new Transcript();
+    const original = {
+      message: { role: "assistant", content: "one" },
+      contextItems: [],
+    } as ChatHistoryItem;
+    transcript.append(original);
+    const id = transcript.entriesSnapshot()[0].id;
+
+    // What updateToolCallState does: the changed item is a copy carrying the
+    // id of the entry it replaces. It must keep that id, or every update looks
+    // like a different message and the store rewrites the whole history.
+    const copy = {
+      ...original,
+      contextItems: [],
+    } as ChatHistoryItem;
+    transcript.replace([copy], "sync");
+
+    expect(transcript.entriesSnapshot()[0].id).toBe(id);
+    expect((copy as ChatHistoryItem & { messageId?: string }).messageId).toBe(
+      id,
+    );
+  });
+
+  it("gives two copies with one carried id distinct ids", () => {
+    const transcript = new Transcript();
+    const first = {
+      message: { role: "assistant", content: "a" },
+      contextItems: [],
+      messageId: "msg-5",
+    } as ChatHistoryItem & { messageId: string };
+    const second = {
+      message: { role: "assistant", content: "b" },
+      contextItems: [],
+      messageId: "msg-5",
+    } as ChatHistoryItem & { messageId: string };
+
+    transcript.replace([first, second], "load");
+    const ids = transcript.entriesSnapshot().map((entry) => entry.id);
+
+    expect(ids[0]).toBe("msg-5");
+    expect(ids[1]).not.toBe("msg-5");
+  });
+
   it("reuses a carried message id on reload", () => {
     const transcript = new Transcript();
     const carried = {

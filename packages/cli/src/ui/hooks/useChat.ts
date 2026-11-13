@@ -23,6 +23,7 @@ import { turnRunnerService } from "../../services/TurnRunnerService.js";
 import {
   createSession,
   resumeSession,
+  takeSessionLeaseConflict,
   updateSessionHistory,
 } from "../../session/index.js";
 import { generatePromptSuggestion } from "../../session/promptSuggestionGenerator.js";
@@ -164,6 +165,13 @@ export function useChat({
       const savedSession = resumeSession(sessionId);
       if (savedSession) {
         return savedSession;
+      }
+      // A null resume with a recorded conflict means another window owns that
+      // transcript. Starting a fresh session is right; silently pretending the
+      // resume worked is not, so the reason reaches the log.
+      const conflict = takeSessionLeaseConflict();
+      if (conflict) {
+        logger.warn("Session is open in another TNT process", conflict);
       }
     }
 
@@ -453,6 +461,53 @@ export function useChat({
         ) => {
           baseCallbacks.onToolResult?.(result, toolName, status, toolCallId);
           liveHub.publishToolFinished(toolName, status, result, toolCallId);
+        },
+        // A message typed while the tools run is delivered at the next round
+        // boundary instead of waiting for the whole turn to finish: the
+        // engine is about to issue another request, so the message rides it.
+        onRoundBoundary: async () => {
+          const pending = messageQueue.peekNextMessage();
+          if (!pending) return false;
+          // A slash command is a turn-level action (processMessage decides
+          // what it means); running one inside a tool batch would race the
+          // stream, so it stays queued for the drain loop.
+          if (pending.message.trimStart().startsWith("/")) return false;
+
+          try {
+            const promptHook = await fireUserPromptSubmit(pending.message);
+            if (promptHook.blocked) {
+              onShowStatusMessage?.(
+                promptHook.blockReason ?? "Blocked by UserPromptSubmit hook",
+              );
+              return false;
+            }
+            const served = composeServedPrompt(
+              pending.message,
+              promptHook.additionalContext
+                ? [promptHook.additionalContext]
+                : [],
+            );
+            const item = await formatMessageWithFiles(
+              served,
+              [],
+              pending.imageMap,
+              pending.message,
+            );
+            // Dequeue by id: another consumer may have taken the entry while
+            // the hook or the formatter awaited, and appending it twice would
+            // duplicate the user's message.
+            if (!messageQueue.removeMessage(pending.id)) return false;
+            services.chatHistory.addHistoryItem(item);
+            setChatHistory(services.chatHistory.getHistory());
+            lastUserMessageRef.current = pending.message;
+            return true;
+          } catch (error) {
+            logger.error(
+              "Could not deliver a queued message at the round boundary",
+              { error },
+            );
+            return false;
+          }
         },
       };
 

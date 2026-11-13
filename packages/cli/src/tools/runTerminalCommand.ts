@@ -24,8 +24,10 @@ import {
 import { getTerminalRunner } from "./terminalRunner.js";
 import { Tool, ToolRunContext } from "./types.js";
 
-// Output truncation defaults
-const DEFAULT_BASH_MAX_CHARS = 50000; // ~12.5k tokens
+// Output truncation defaults. 30k chars ≈ 7.5k tokens: every byte past this
+// rides in every later request of the session, so the cap is deliberately
+// tighter than the reference clients' bash limit (Claude Code uses 30k too).
+const DEFAULT_BASH_MAX_CHARS = 30000;
 const DEFAULT_BASH_MAX_LINES = 1000;
 
 /**

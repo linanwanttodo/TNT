@@ -41,6 +41,15 @@ export interface ProtocolOption {
   defaultModel: string;
   /** Placeholder for a model the user must choose, e.g. a local Ollama tag. */
   exampleModel?: string;
+  /**
+   * Where the vendor lists its models, relative to the API base. The vendor
+   * owns that route, and it is often not the one the requests use: DeepSeek
+   * answers `/models` on the origin root while its traffic goes to
+   * `/anthropic/v1/messages`. Empty means the base URL itself.
+   */
+  modelsPath?: string;
+  /** True when the key is obtained by signing in through a browser. */
+  browserLogin?: boolean;
   contextLength: number;
   maxTokens: number;
 }
@@ -51,6 +60,7 @@ export const PROTOCOLS: ProtocolOption[] = [
     label: "OpenAI Chat Completions",
     defaultApiBase: "https://api.openai.com/v1/",
     defaultModel: "gpt-4.1",
+    modelsPath: "/v1/models",
     contextLength: 200_000,
     maxTokens: 32_768,
   },
@@ -59,6 +69,7 @@ export const PROTOCOLS: ProtocolOption[] = [
     label: "OpenAI Responses",
     defaultApiBase: "https://api.openai.com/v1/",
     defaultModel: "gpt-4.1",
+    modelsPath: "/v1/models",
     contextLength: 200_000,
     maxTokens: 32_768,
   },
@@ -67,6 +78,7 @@ export const PROTOCOLS: ProtocolOption[] = [
     label: "Anthropic Messages",
     defaultApiBase: "https://api.anthropic.com/v1",
     defaultModel: "claude-sonnet-4-5",
+    modelsPath: "/v1/models",
     contextLength: 200_000,
     maxTokens: 64_000,
   },
@@ -75,6 +87,7 @@ export const PROTOCOLS: ProtocolOption[] = [
     label: "Google Generative AI",
     defaultApiBase: "https://generativelanguage.googleapis.com/v1beta",
     defaultModel: "gemini-2.5-pro",
+    modelsPath: "/v1beta/models",
     contextLength: 200_000,
     maxTokens: 65_536,
   },
@@ -83,57 +96,170 @@ export const PROTOCOLS: ProtocolOption[] = [
     label: "OpenAI compatible / local model",
     defaultApiBase: "http://localhost:11434/v1/",
     defaultModel: "",
+    modelsPath: "/v1/models",
     exampleModel: "llama3.2",
     contextLength: 200_000,
     maxTokens: 8_192,
   },
   {
-    id: "deepseek-preset",
-    label: "DeepSeek",
-    defaultApiBase: "https://api.deepseek.com",
-    defaultModel: "deepseek-chat",
-    contextLength: 200_000,
-    maxTokens: 8_192,
+    // DeepSeek's Anthropic-compatible endpoint is the one that speaks native
+    // thinking blocks, mid-conversation tool changes and the Files API; the
+    // OpenAI-shaped route cannot carry any of them. The models come from the
+    // vendor's own listing because they change without notice.
+    id: "deepseek-global-preset",
+    label: "DeepSeek (Global)",
+    defaultApiBase: "https://api.deepseek.com/anthropic/v1",
+    defaultModel: "",
+    modelsPath: "/models",
+    contextLength: 1_000_000,
+    maxTokens: 32_768,
   },
   {
-    id: "zhipu-preset",
-    label: "Zhipu GLM",
+    // Zhipu splits by region, and the split is not two addresses for one
+    // protocol: the international endpoint speaks the Anthropic shape and the
+    // domestic one the OpenAI shape.
+    id: "zhipu-global-preset",
+    label: "Zhipu GLM (Global)",
+    defaultApiBase: "https://api.z.ai/api/anthropic/v1",
+    defaultModel: "",
+    modelsPath: "/api/anthropic/v1/models",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "zhipu-cn-preset",
+    label: "Zhipu GLM (CN)",
     defaultApiBase: "https://open.bigmodel.cn/api/paas/v4",
-    defaultModel: "glm-4.5",
+    defaultModel: "",
+    modelsPath: "/api/paas/v4/models",
     contextLength: 200_000,
-    maxTokens: 8_192,
+    maxTokens: 32_768,
   },
   {
-    id: "moonshot-preset",
-    label: "Moonshot Kimi",
+    id: "moonshot-cn-preset",
+    label: "Moonshot Kimi (CN)",
     defaultApiBase: "https://api.moonshot.cn/v1",
     defaultModel: "kimi-k2.5",
+    modelsPath: "/v1/models",
     contextLength: 200_000,
     maxTokens: 8_192,
   },
   {
-    id: "qwen-preset",
-    label: "Qwen / DashScope",
+    id: "qwen-cn-preset",
+    label: "Qwen / DashScope (CN)",
     defaultApiBase: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     defaultModel: "qwen3.5-plus",
+    modelsPath: "/compatible-mode/v1/models",
     contextLength: 200_000,
     maxTokens: 8_192,
   },
   {
-    id: "siliconflow-preset",
-    label: "SiliconFlow",
+    id: "siliconflow-cn-preset",
+    label: "SiliconFlow (CN)",
     defaultApiBase: "https://api.siliconflow.cn/v1",
     defaultModel: "deepseek-ai/DeepSeek-V3.2",
+    modelsPath: "/v1/models",
     contextLength: 200_000,
     maxTokens: 8_192,
   },
   {
-    id: "minimax-preset",
-    label: "MiniMax",
-    defaultApiBase: "https://api.minimax.io/v1",
-    defaultModel: "MiniMax-M2.5",
+    id: "minimax-global-preset",
+    label: "MiniMax (Global)",
+    defaultApiBase: "https://api.minimaxi.com/v1",
+    defaultModel: "",
     contextLength: 200_000,
-    maxTokens: 8_192,
+    maxTokens: 32_768,
+  },
+  {
+    id: "minimax-cn-preset",
+    label: "MiniMax (CN)",
+    defaultApiBase: "https://api.minimax.cn/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "xiaomi-mimo-cn-preset",
+    label: "Xiaomi MiMo (CN)",
+    defaultApiBase: "https://api.xiaomimimo.com/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "openrouter-global-preset",
+    label: "OpenRouter (Global)",
+    defaultApiBase: "https://openrouter.ai/api/v1",
+    defaultModel: "",
+    modelsPath: "/api/v1/models",
+    browserLogin: true,
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "groq-global-preset",
+    label: "Groq (Global)",
+    defaultApiBase: "https://api.groq.com/openai/v1",
+    defaultModel: "",
+    modelsPath: "/openai/v1/models",
+    contextLength: 128_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "together-global-preset",
+    label: "Together AI (Global)",
+    defaultApiBase: "https://api.together.xyz/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "fireworks-global-preset",
+    label: "Fireworks AI (Global)",
+    defaultApiBase: "https://api.fireworks.ai/inference/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "mistral-global-preset",
+    label: "Mistral AI (Global)",
+    defaultApiBase: "https://api.mistral.ai/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "nebius-global-preset",
+    label: "Nebius AI (Global)",
+    defaultApiBase: "https://api.tokenfactory.nebius.com/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "step-cn-preset",
+    label: "StepFun (CN)",
+    defaultApiBase: "https://api.stepfun.com/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "baichuan-cn-preset",
+    label: "Baichuan (CN)",
+    defaultApiBase: "https://api.baichuan-ai.com/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
+  },
+  {
+    id: "zero-one-cn-preset",
+    label: "01.AI (CN)",
+    defaultApiBase: "https://api.lingyiwanwu.com/v1",
+    defaultModel: "",
+    contextLength: 200_000,
+    maxTokens: 32_768,
   },
 ];
 
@@ -266,8 +392,7 @@ export function normalizeApiBase(protocolId: string, apiBase: string): string {
 export function getDefaultModel(protocolId: string, apiBase: string): string {
   if (
     (protocolId === "openai-compatible" ||
-      protocolId === "openai-chat-completions" ||
-      protocolId === "deepseek-preset") &&
+      protocolId === "openai-chat-completions") &&
     isDeepSeekBase(apiBase)
   ) {
     return "deepseek-chat";
@@ -294,14 +419,26 @@ export function mapProtocolToProvider(
       return "anthropic";
     case "google-generative-ai":
       return "gemini";
-    case "deepseek-preset":
-      return "deepseek";
-    case "moonshot-preset":
+    case "deepseek-global-preset":
+    case "zhipu-global-preset":
+      return "anthropic";
+    case "moonshot-cn-preset":
       return "moonshot";
-    case "zhipu-preset":
-    case "qwen-preset":
-    case "siliconflow-preset":
-    case "minimax-preset":
+    case "qwen-cn-preset":
+    case "siliconflow-cn-preset":
+    case "minimax-global-preset":
+    case "minimax-cn-preset":
+    case "zhipu-cn-preset":
+    case "xiaomi-mimo-cn-preset":
+    case "openrouter-global-preset":
+    case "groq-global-preset":
+    case "together-global-preset":
+    case "fireworks-global-preset":
+    case "mistral-global-preset":
+    case "nebius-global-preset":
+    case "step-cn-preset":
+    case "baichuan-cn-preset":
+    case "zero-one-cn-preset":
       return "openai";
     case "openai-chat-completions":
     case "openai-responses":
@@ -317,6 +454,76 @@ export function mapProtocolToProvider(
  * the capabilities are left off entirely rather than guessed, so the provider
  * adapter decides what it supports instead of the setup claiming it does.
  */
+/**
+ * The context window written for a model. A preset that knows its vendor's
+ * window uses it; anything else gets the 200k most long-context models ship.
+ * The value is a default the provider never states, and it stays editable in
+ * the config file.
+ */
+export async function fetchModelIds(options: {
+  apiBase: string;
+  apiKey: string;
+  modelsPath?: string;
+  signal?: AbortSignal;
+}): Promise<string[]> {
+  const base = new URL(options.apiBase);
+  // A vendor's listing usually sits under the same version prefix as its
+  // requests. DeepSeek is the exception: it lists models on the origin root.
+  const prefix = base.pathname.replace(/\/+$/, "");
+  const listingPath =
+    options.modelsPath ?? `${prefix === "" ? "" : prefix}/models`;
+  const url = new URL(listingPath, base.origin).href;
+  const headerSets: Record<string, string>[] = [
+    { Authorization: `Bearer ${options.apiKey}` },
+    {
+      "x-api-key": options.apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+  ];
+  const timeout = AbortSignal.timeout(15_000);
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, timeout])
+    : timeout;
+
+  let failure: string | undefined;
+  let answered = false;
+  for (const headers of headerSets) {
+    let response: Response;
+    try {
+      response = await fetch(url, { headers, signal });
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+      continue;
+    }
+    if (!response.ok) {
+      failure = `HTTP ${response.status}`;
+      continue;
+    }
+    answered = true;
+    const body = (await response.json().catch(() => undefined)) as
+      { data?: Array<{ id?: string }> } | undefined;
+    const ids = (body?.data ?? [])
+      .map((item) => item.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+      .sort((a, b) => a.localeCompare(b));
+    if (ids.length > 0) return ids;
+  }
+  // A provider that answered but listed nothing is a fact the caller shows;
+  // every attempt failing is a different fact, and swallowing it would make a
+  // refused key look like an empty catalogue.
+  if (!answered) {
+    throw new Error(
+      `Could not list models at ${url}: ${failure ?? "no attempt succeeded"}`,
+    );
+  }
+  return [];
+}
+
+export function contextLengthFor(setup: ProviderSetup): number {
+  const preset = PROTOCOLS.find((protocol) => protocol.id === setup.protocol);
+  return preset?.contextLength ?? DEFAULT_CONTEXT_LENGTH;
+}
+
 export function buildConfigYaml(setup: ProviderSetup): string {
   const apiBase = normalizeApiBase(setup.protocol, setup.apiBase);
   // The model field accepts several ids separated by spaces; every id becomes
@@ -331,9 +538,9 @@ export function buildConfigYaml(setup: ProviderSetup): string {
       `  - name: "${escapeYaml(model)}"`,
       `    provider: ${mapProtocolToProvider(setup.protocol, apiBase)}`,
       `    model: "${escapeYaml(model)}"`,
-      // A default the provider never states: the 200k window most long
-      // -context models actually ship. Editable per entry in this file.
-      `    contextLength: ${DEFAULT_CONTEXT_LENGTH}`,
+      // A default the provider never states: the window the vendor declares,
+      // or the 200k most long-context models ship. Editable per entry here.
+      `    contextLength: ${contextLengthFor(setup)}`,
     );
 
     if (
@@ -342,9 +549,13 @@ export function buildConfigYaml(setup: ProviderSetup): string {
       setup.protocol === "openai-compatible" ||
       setup.protocol.endsWith("-preset")
     ) {
-      lines.push(
-        `    useResponsesApi: ${setup.protocol === "openai-responses"}`,
-      );
+      // The switch is OpenAI-shaped; an Anthropic-shaped preset has no
+      // responses route, and the key would only confuse the adapter.
+      if (mapProtocolToProvider(setup.protocol, apiBase) === "openai") {
+        lines.push(
+          `    useResponsesApi: ${setup.protocol === "openai-responses"}`,
+        );
+      }
     }
 
     if (apiBase) {

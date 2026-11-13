@@ -68,6 +68,9 @@ export interface IProviderSettingsService {
   testModelConnectivity(
     input: ProviderSettingsConnectivityRequest,
   ): Promise<ModelConnectivityResult>;
+  fetchProviderModels(
+    providerId: string,
+  ): Promise<{ models: string[] }>;
 }
 
 export const IProviderSettingsService = createServiceDescriptor<IProviderSettingsService>(
@@ -110,6 +113,7 @@ export function createProviderSettingsService(
   facade: ProviderSettingsFacade,
   ensureReady: () => Promise<void> = async () => {},
   testConnectivity?: ProviderSettingsConnectivityTester,
+  fetchModels?: (providerId: string) => Promise<{ models: string[] }>,
 ): IProviderSettingsService {
   return {
     onDidChange: toEvent((listener) => facade.onDidChange(listener)),
@@ -164,6 +168,10 @@ export function createProviderSettingsService(
     setPersonalModelEnabled: async (providerId, modelId, enabled) => {
       await ensureReady();
       return facade.setPersonalModelEnabled(providerId, modelId, enabled);
+    },
+    fetchProviderModels: async (providerId: string) => {
+      if (fetchModels) return fetchModels(providerId);
+      return { models: [] };
     },
     testModelConnectivity: async (input) => {
       await ensureReady();

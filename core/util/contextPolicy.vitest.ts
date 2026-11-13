@@ -18,6 +18,15 @@ describe("calculateContextBudget", () => {
     });
   });
 
+  it("caps compaction and retention absolutely for very large windows", () => {
+    // A 1M window must not turn 0.8× into an 800k compaction threshold, nor
+    // keep a 150k tail after summarizing: both are absolute caps.
+    expect(calculateContextBudget(1_000_000, 64_000)).toEqual({
+      compactAtTokens: 200_000,
+      retainTokens: 32_000,
+    });
+  });
+
   it("rejects budgets with no safe input space", () => {
     expect(() => calculateContextBudget(64, 0)).toThrow(
       "Context window has no safe input space",

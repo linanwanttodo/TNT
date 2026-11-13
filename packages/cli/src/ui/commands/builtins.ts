@@ -43,6 +43,7 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "title", descriptionKey: "cmd.title" },
   { name: "goal", descriptionKey: "cmd.goal" },
   { name: "plugins", descriptionKey: "cmd.plugins" },
+  { name: "plugin", descriptionKey: "cmd.plugins" },
   { name: "output-style", descriptionKey: "cmd.outputStyle" },
   { name: "team", descriptionKey: "cmd.team" },
   { name: "loop", descriptionKey: "cmd.loop" },

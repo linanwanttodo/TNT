@@ -19,6 +19,7 @@ import {
   unpackNpm,
 } from "./marketplaceSources.js";
 import { PluginSource, sanitizeSegment } from "./marketplaceTypes.js";
+import { installZipPlugin } from "./pluginArchive.js";
 
 export class PluginInstallError extends Error {}
 
@@ -112,6 +113,19 @@ function classifyPluginSource(source: PluginSource): {
   return { kind: "relative", value: source };
 }
 
+function resolveInstallSource(source: PluginSource) {
+  if (typeof source === "object" && "type" in source && source.type === "zip") {
+    return {
+      kind: "zip",
+      value: source.url,
+      ref: undefined,
+      subPath: undefined,
+      zipSource: source,
+    };
+  }
+  return { ...classifyPluginSource(source), zipSource: undefined };
+}
+
 function marketplaceRootOf(manifestPath: string): string {
   // The manifest normally sits at .claude-plugin/marketplace.json; a `file`
   // source points at that file directly, so one more level can be missing.
@@ -183,10 +197,14 @@ export async function installPlugin(
     };
   }
 
-  const { kind, value, ref, subPath } = classifyPluginSource(entry.source);
+  const { kind, value, ref, subPath, zipSource } = resolveInstallSource(
+    entry.source,
+  );
   let gitCommitSha: string | undefined;
 
-  if (kind === "relative") {
+  if (zipSource) {
+    await installZipPlugin(zipSource, target, pluginName, deps);
+  } else if (kind === "relative") {
     const source = path.resolve(
       marketplaceRootOf(record.installLocation),
       value,

@@ -214,13 +214,13 @@ describe("ApplyPatch", () => {
     );
   });
 
-  it("refuses a file that moved since it was read", async () => {
+  it("replays a patch on the file's current contents", async () => {
     write("src/old.ts", "const a = 1;\n");
     const target = path.join(dir, "src", "old.ts");
     markFileAsSeen(target);
     write("src/old.ts", "const a = 1;\nconst injected = 2;\n");
 
-    const error = await run(
+    await run(
       [
         "*** Begin Patch",
         "*** Update File: src/old.ts",
@@ -228,9 +228,9 @@ describe("ApplyPatch", () => {
         "+const a = 5;",
         "*** End Patch",
       ].join("\n"),
-    ).catch((thrown) => thrown);
+    );
 
-    expect(String(error)).toContain("changed since it was read");
+    expect(read("src/old.ts")).toContain("const a = 5;");
     expect(read("src/old.ts")).toContain("injected");
   });
 

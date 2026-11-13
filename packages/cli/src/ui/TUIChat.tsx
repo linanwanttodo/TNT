@@ -273,12 +273,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     model: services.model?.model || undefined,
   });
 
-  const contextReadout = useContextReadout(
-    contextData,
-    services.model?.model?.provider,
-    streamingText,
-    streamingReasoning,
-  );
+  const contextReadout = useContextReadout(contextData);
   const turnSummary = useTurnSummary(
     isWaitingForResponse,
     responseStartTime,
@@ -389,9 +384,10 @@ const TUIChat: React.FC<TUIChatProps> = ({
   const isBashToolRunning = useBashToolRunning();
 
   const { rows } = useTerminalSize();
-  const { following, scrollTop, onMetrics, jumpToBottom } = useChatViewport({
-    isActive: navState.currentScreen === "chat",
-  });
+  const { following, scrollTop, onMetrics, onContentShift, jumpToBottom } =
+    useChatViewport({
+      isActive: navState.currentScreen === "chat",
+    });
 
   const configuredChoice = useMemo<ThemeName | "auto">(() => {
     const configured =
@@ -470,6 +466,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
           verbose={isVerboseMode}
           scrollTop={scrollTop}
           onScrollMetrics={onMetrics}
+          onContentShift={onContentShift}
           showScrollbar
         />
 

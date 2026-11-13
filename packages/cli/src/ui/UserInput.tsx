@@ -22,6 +22,7 @@ import {
   usePromptSuggestion,
 } from "../session/promptSuggestion.js";
 import { messageQueue } from "../stream/messageQueue.js";
+import { getLastTurnUsage, peekTurnUsage } from "../stream/usageTelemetry.js";
 import { escapeEvents } from "../utils/cli.js";
 import { getClipboardImage } from "../utils/clipboard.js";
 import { InputHistory } from "../utils/inputHistory.js";
@@ -69,6 +70,7 @@ import {
 } from "./suggestionSources.js";
 import { useTheme } from "./theme/tokens.js";
 import { UpdateNotification } from "./UpdateNotification.js";
+import { formatCostAmount } from "./utils/contextUsageLine.js";
 
 // Small presentational helper to reduce cyclomatic complexity in UserInput
 const SlashCommandsMaybe: React.FC<{
@@ -398,6 +400,10 @@ const ComposerFooter: React.FC<{
   const balances = useDeepSeekBalance(model);
   const modelName = model?.name || model?.model || "";
   const thinkingDepth = getThinkingDepth(model as any);
+  // The running turn's ledger while it streams, the closed one after it ends;
+  // a turn whose model has no price reports nothing rather than "$0.0000".
+  const turn = peekTurnUsage() ?? getLastTurnUsage();
+  const turnCost = turn && turn.cost > 0 ? turn.cost : undefined;
 
   return (
     <Box flexDirection="column" width="100%">
@@ -429,9 +435,14 @@ const ComposerFooter: React.FC<{
           ) : null}
           {balances.map((item) => (
             <Text key={item.currency} color={theme.status.success}>
-              {` · 余额 ${item.total} ${item.currency}`}
+              {` · ${t("status.balance")} ${item.total} ${item.currency}`}
             </Text>
           ))}
+          {turnCost === undefined ? null : (
+            <Text color={theme.text.subtle}>
+              {` · ${t("status.turnCost")} ${formatCostAmount(turnCost)}`}
+            </Text>
+          )}
           <Box marginLeft={1}>
             <UpdateNotification isRemoteMode={isRemoteMode} />
           </Box>
@@ -704,12 +715,6 @@ const UserInput: React.FC<UserInputProps> = ({
     }
 
     if ((key.name === "enter" && !key.shift) || key.name === "tab") {
-      // A bare "/" has an empty filter: Enter belongs to the prompt line, not
-      // the first palette entry. Tab still completes the highlighted row -
-      // that is how a reader picks a command after moving the selection.
-      if (slashCommandFilter === "" && key.name === "enter") {
-        return false;
-      }
       if (filteredCommands.length > 0) {
         const selected = filteredCommands[selectedCommandIndex];
         const commandName = selected.name;
@@ -730,11 +735,9 @@ const UserInput: React.FC<UserInputProps> = ({
           // A child of the open level: run "/parent child".
           const commandText = `/${fullCommand}`;
           inputHistory.addEntry(commandText);
-          if (!isRemoteMode && (isWaitingForResponse || isCompacting)) {
-            void messageQueue.enqueueMessage(commandText);
-          } else {
-            onSubmit(commandText);
-          }
+          // Submit even mid-turn: the hook runs UI commands at once and
+          // defers turn-scoped ones to the boundary itself.
+          onSubmit(commandText);
           buffer.setText("");
           setShowSlashCommands(false);
           setSlashParent(null);
@@ -744,12 +747,9 @@ const UserInput: React.FC<UserInputProps> = ({
           const commandText = "/" + commandName;
           inputHistory.addEntry(commandText);
 
-          // queue up when responding/generating
-          if (!isRemoteMode && (isWaitingForResponse || isCompacting)) {
-            void messageQueue.enqueueMessage(commandText);
-          } else {
-            onSubmit(commandText);
-          }
+          // Submit even mid-turn: the hook runs UI commands at once and
+          // defers turn-scoped ones to the boundary itself.
+          onSubmit(commandText);
 
           buffer.setText("");
           setShowSlashCommands(false);

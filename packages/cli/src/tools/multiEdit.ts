@@ -2,6 +2,7 @@ import { validateMultiEdit } from "core/edit/searchAndReplace/multiEditValidatio
 import { executeMultiFindAndReplace } from "core/edit/searchAndReplace/performReplace.js";
 import { TntError, TntErrorReason } from "core/util/errors.js";
 
+import { t } from "../i18n/index.js";
 import { scheduleFileRefresh } from "../retrieval/writeRefresh.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import {
@@ -10,6 +11,7 @@ import {
 } from "../telemetry/utils.js";
 
 import { editTool, validateAndResolveFilePath } from "./edit.js";
+import { rebaseMultiEdit, type RebaseEditOperation } from "./editRebase.js";
 import { markFileAsSeen } from "./fileState.js";
 import { readFileTool } from "./readFile.js";
 import { MARKER_FILE_EDITED } from "./resultMarkers.js";
@@ -124,6 +126,7 @@ WARNINGS:
         newContent,
         originalContent: currentContent,
         editCount: edits.length,
+        edits,
       },
       preview: [
         {
@@ -142,28 +145,24 @@ WARNINGS:
     newContent: string;
     originalContent: string;
     editCount: number;
+    edits?: RebaseEditOperation[];
   }) => {
     try {
-      // Same re-check as Edit: the edits were applied to a snapshot taken while
-      // planning, and approval can take longer than that snapshot is true.
       const current = await readWorkspaceTextFile(args.file_path);
-      if (current.content !== args.originalContent) {
-        throw new TntError(
-          TntErrorReason.EditToolFileNotRead,
-          `${args.file_path} changed while this edit was awaiting approval. Read it again before editing.`,
-        );
-      }
-      const written = await writeWorkspaceTextFile(
-        args.file_path,
-        args.newContent,
-      );
+      const rebased = current.content !== args.originalContent;
+      const nextContent = rebaseMultiEdit({
+        currentContent: current.content,
+        baseContent: args.originalContent,
+        plannedContent: args.newContent,
+        ...(args.edits ? { edits: args.edits } : {}),
+      });
+      const written = await writeWorkspaceTextFile(args.file_path, nextContent);
       markFileAsSeen(written.realPath);
       scheduleFileRefresh(written.realPath);
 
-      // Get lines for telemetry
       const { added, removed } = calculateLinesOfCodeDiff(
-        args.originalContent,
-        args.newContent,
+        current.content,
+        nextContent,
       );
       const language = getLanguageFromFilePath(args.file_path);
 
@@ -179,13 +178,13 @@ WARNINGS:
       }
 
       // Generate diff for result display
-      const diff = generateDiff(
-        args.originalContent,
-        args.newContent,
-        args.file_path,
-      );
+      const diff = generateDiff(current.content, nextContent, args.file_path);
 
-      return `${MARKER_FILE_EDITED} ${args.file_path} with ${args.editCount} edit${args.editCount === 1 ? "" : "s"}\nDiff:\n${diff}`;
+      return [
+        `${MARKER_FILE_EDITED} ${args.file_path} with ${args.editCount} edit${args.editCount === 1 ? "" : "s"}`,
+        ...(rebased ? [t("tools.editReapplied")] : []),
+        `Diff:\n${diff}`,
+      ].join("\n");
     } catch (error) {
       if (error instanceof TntError) {
         throw error;

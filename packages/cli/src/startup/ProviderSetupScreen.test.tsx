@@ -11,6 +11,8 @@ import { setLocale } from "../i18n/index.js";
 
 import { ProviderSetupScreen } from "./ProviderSetupScreen.js";
 
+const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
+
 const mounted: { unmount: () => void }[] = [];
 
 beforeEach(() => {
@@ -59,10 +61,15 @@ describe("ProviderSetupScreen", () => {
 
     await pressUntil(tree, "5", (frame) => frame.includes("❯ 5)"));
     await pressUntil(tree, "\r", (frame) => frame.includes("Base URL"));
+    // The URL is prefilled for the preset: the reader sees it and presses
+    // Enter to accept, or types to replace it.
     expect(tree.lastFrame() ?? "").toContain("http://localhost:11434/v1/");
 
-    await typeIntoField(tree, "http://127.0.0.1:8080/v1");
-    expect(tree.lastFrame() ?? "").not.toContain("http://localhost:11434/v1/");
+    // Clear the prefilled URL and type a custom one.
+    tree.stdin.write("\u0015"); // Ctrl+U clears the field.
+    await tick(50);
+    tree.stdin.write("http://127.0.0.1:8080/v1");
+    await tick(50);
     await pressUntil(tree, "\r", (frame) => frame.includes("API key"));
 
     await typeIntoField(tree, "sk-local-key", (frame) =>

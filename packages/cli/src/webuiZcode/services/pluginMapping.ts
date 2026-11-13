@@ -109,9 +109,16 @@ function toListing(
   entry: MarketplacePluginEntry,
 ): ZCodePluginStoreListing | undefined {
   const listing: ZCodePluginStoreListing = {};
+  if (entry.displayName) listing.displayName = entry.displayName;
+  if (entry.displayNameI18n) listing.displayNameI18n = entry.displayNameI18n;
+  if (entry.descriptionI18n) listing.descriptionI18n = entry.descriptionI18n;
   if (entry.category) listing.category = entry.category;
+  if (entry.publisherType) listing.publisherType = entry.publisherType;
   if (entry.author?.name) listing.author = entry.author.name;
   if (entry.author?.url) listing.authorUrl = entry.author.url;
+  if (entry.homepage) listing.homepage = entry.homepage;
+  if (entry.requiresPaidPlan) listing.requiresPaidPlan = entry.requiresPaidPlan;
+  if (entry.icon && /^https:\/\//.test(entry.icon)) listing.icon = entry.icon;
   return Object.keys(listing).length > 0 ? listing : undefined;
 }
 
@@ -281,6 +288,7 @@ export function availableSummary(
     ...(entry.description ? { description: entry.description } : {}),
     ...(entry.version ? { version: entry.version } : {}),
     installed: installedIds.has(id),
+    ...(entry.componentTypes ? { componentTypes: entry.componentTypes } : {}),
     ...(listing ? { listing } : {}),
   };
 }
@@ -365,18 +373,7 @@ export function legacyAvailableSummary(
   installedIds: ReadonlySet<string>,
 ): AvailablePluginSummary {
   const id = `${entry.name}@${catalog.name}`;
-  // The store card reads listing.icon, displayName, author and category. A
-  // catalogue that omits them gets the neutral avatar; one that declares them
-  // must reach the page or every plugin looks identical.
-  const listing = {
-    ...(entry.displayName ? { displayName: entry.displayName } : {}),
-    ...(entry.icon && /^https:\/\//.test(entry.icon)
-      ? { icon: entry.icon }
-      : {}),
-    ...(entry.category ? { category: entry.category } : {}),
-    ...(entry.author?.name ? { author: entry.author.name } : {}),
-    ...(entry.homepage ? { homepage: entry.homepage } : {}),
-  };
+  const listing = toListing(entry);
   return {
     id,
     name: entry.name,
@@ -384,7 +381,7 @@ export function legacyAvailableSummary(
     ...(entry.description ? { description: entry.description } : {}),
     ...(entry.version ? { version: entry.version } : {}),
     installed: installedIds.has(id),
-    ...(Object.keys(listing).length > 0 ? { listing } : {}),
+    ...(listing ? { listing } : {}),
   };
 }
 

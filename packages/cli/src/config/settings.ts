@@ -10,7 +10,10 @@ import {
   yamlConfigToPolicies,
 } from "../permissions/permissionsYamlLoader.js";
 import { withPermissionWriteLock } from "../permissions/permissionWriteLock.js";
-import type { ToolPermissionPolicy } from "../permissions/types.js";
+import type {
+  PermissionPolicy,
+  ToolPermissionPolicy,
+} from "../permissions/types.js";
 import { logger } from "../utils/logger.js";
 
 import { env } from "./env.js";
@@ -153,15 +156,29 @@ export function settingsPermissionsToPolicies(
   permissions: SettingsPermissions,
 ): ToolPermissionPolicy[] {
   const policies: ToolPermissionPolicy[] = [];
-  for (const pattern of permissions.deny ?? []) {
-    policies.push(parseToolPattern(pattern, "exclude"));
-  }
-  for (const pattern of permissions.ask ?? []) {
-    policies.push(parseToolPattern(pattern, "ask"));
-  }
-  for (const pattern of permissions.allow ?? []) {
-    policies.push(parseToolPattern(pattern, "allow"));
-  }
+  // A settings file is shared by every TNT process on the machine, so one
+  // unparseable rule must not cost the rest of the list: the session would
+  // lose the user's approvals, and before this guard it failed to start at
+  // all. The bad entry is named in the log and skipped.
+  const add = (
+    patterns: string[] | undefined,
+    permission: PermissionPolicy,
+  ) => {
+    for (const pattern of patterns ?? []) {
+      try {
+        policies.push(parseToolPattern(pattern, permission));
+      } catch (error) {
+        logger.warn("Skipping an unreadable permission rule", {
+          pattern,
+          permission,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  };
+  add(permissions.deny, "exclude");
+  add(permissions.ask, "ask");
+  add(permissions.allow, "allow");
   return policies;
 }
 
@@ -205,6 +222,10 @@ export function loadPermissionPoliciesFromSettings(
  * write is atomic.
  */
 export async function addSettingsPolicyRule(rule: string): Promise<void> {
+  // Round-trip before writing. A rule the loader cannot read is not a rule,
+  // and the version that wrote one anyway broke every later process that
+  // loaded this shared file.
+  parseToolPattern(rule, "allow");
   const file = settingsPath();
   await withPermissionWriteLock(`${file}.lock`, async () => {
     const settings = readSettingsFile(file)

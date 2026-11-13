@@ -259,8 +259,13 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   // The app-server speaks the JSON-RPC/NDJSON wire protocol; a thrown message
   // there is a protocol error a host decodes, not copy a reader sees.
   appServer: 1,
-  config: 2,
+  // 3, not 2: fetchModelIds now reports "every attempt failed" instead of
+  // returning an empty list, so a refused key and a silent vendor differ.
+  config: 3,
   mcp: 1,
+  // 1, not 3: the archive path check moved into core's safeExtractTarball and
+  // both unpack failures now go through t(), so the directory keeps only the
+  // one raw throw it had before the marketplace work.
   plugins: 1,
   // 7, not the earlier 6: the terminal-safety work translated one raw throw in
   // this directory, and `QuizService.askQuestions` now refuses an empty set.
@@ -274,8 +279,11 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   session: 6,
   // 14, not 6: `AskQuestion` validates the new `questions` array field by
   // field, and those messages are read by the model, not the composer.
-  tools: 14,
-  ui: 8,
+  tools: 15,
+  // 11, not 8: the gemini keypress port added three internal invariant
+  // throws (TextBuffer, KeypressContext, keyBindings) read by developers,
+  // not composer copy. The webui output guard is the same ratchet.
+  ui: 11,
   utils: 16,
   // The web UI host and its services answer an RPC peer; these are JSON-RPC and
   // auth errors read by a client, not composer copy. 39: the task-group admit

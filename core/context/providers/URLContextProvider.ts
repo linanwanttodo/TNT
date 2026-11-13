@@ -30,7 +30,7 @@ export async function getUrlContextItems(
   fetchFn: FetchFunction,
 ): Promise<ContextItem[]> {
   const url = new URL(query);
-  const icon = await fetchFavicon(url);
+  const icon = await fetchFavicon(url, fetchFn);
   const resp = await fetchFn(url);
 
   // Check if the response is not OK

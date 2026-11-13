@@ -124,7 +124,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} ▸ $ echo test`)).toBe(true);
   });
 
   it("renders a running call with the blinking dot", () => {
@@ -132,7 +132,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} ▾ $ echo test`)).toBe(true);
   });
 
   it("renders a queued call with the dim dot", () => {
@@ -140,7 +140,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} ▾ $ echo test`)).toBe(true);
     expect(toolDotStyle(state.status, darkTheme).dim).toBe(true);
   });
 
@@ -149,7 +149,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} ▸ $ echo test`)).toBe(true);
     expect(toolDotStyle(state.status, darkTheme).dim).toBe(true);
   });
 
@@ -168,7 +168,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} ▸ $ echo test`)).toBe(true);
     expect(frame).toContain("command not found");
     expect(frame).toContain("⎿ command not found");
   });
@@ -273,7 +273,7 @@ describe("ToolItemDisplay", () => {
     expect(frame).toContain("output-line-10");
     expect(frame).toContain("output-line-7");
     expect(frame).not.toContain("output-line-1\n");
-    expect(frame).toContain("... (6 earlier lines, ctrl+o to expand)");
+    expect(frame).toContain("... (6 earlier lines, click to expand)");
   });
 
   it("expands the folded output when the panel is clicked", async () => {
@@ -316,7 +316,7 @@ describe("ToolItemDisplay", () => {
 
       const frame = tree.lastFrame() ?? "";
       expect(frame).toContain("output-line-1");
-      expect(frame).toContain("ctrl+o to collapse");
+      expect(frame).toContain("click to collapse");
     } finally {
       tree.unmount();
     }
@@ -345,7 +345,7 @@ describe("ToolItemDisplay", () => {
 
       const frame = tree.lastFrame() ?? "";
       expect(frame).toContain("output-line-10");
-      expect(frame).toContain("earlier lines, ctrl+o to expand");
+      expect(frame).toContain("earlier lines, click to expand");
       expect(frame).not.toContain("output-line-1\n");
     } finally {
       tree.unmount();
@@ -470,8 +470,8 @@ describe("ToolGroupDisplay", () => {
     const first = lines.find((line) => line.includes("ReadFile")) ?? "";
     const second = lines.find((line) => line.includes("WriteFile")) ?? "";
 
-    expect(first.indexOf("ReadFile")).toBe(2);
-    expect(second.indexOf("WriteFile")).toBe(2);
+    expect(first.indexOf("ReadFile")).toBe(4);
+    expect(second.indexOf("WriteFile")).toBe(4);
   });
 
   it("draws one dot per call and sits tight between consecutive calls", () => {

@@ -16,10 +16,33 @@ import {
  * browser and bare installs work before the user has added anything. The
  * official catalogue is the same upstream repo the official tooling ships.
  */
-export const DEFAULT_MARKETPLACE = {
-  name: "claude-plugins-official",
-  repo: "anthropics/claude-plugins-official",
-} as const;
+/**
+ * The marketplaces registered on first discovery.
+ *
+ * The ZCode public catalogue is an HTTP manifest, so it works on a machine
+ * where GitHub is unreachable; the Claude Code official repository is added
+ * beside it. Both are seed sources: the reader can add any other source in the
+ * panel. Neither is a hard dependency.
+ */
+export const DEFAULT_MARKETPLACES: ReadonlyArray<{
+  name: string;
+  source: { source: "url"; url: string } | { source: "github"; repo: string };
+}> = [
+  {
+    name: "zcode-plugins-official",
+    source: {
+      source: "url",
+      url: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
+    },
+  },
+  {
+    name: "claude-plugins-official",
+    source: {
+      source: "github",
+      repo: "anthropics/claude-plugins-official",
+    },
+  },
+];
 
 export interface EnsureDefaultResult {
   registered: boolean;
@@ -33,25 +56,39 @@ export interface EnsureDefaultResult {
  * what is installed.
  */
 export async function ensureDefaultMarketplace(): Promise<EnsureDefaultResult> {
-  if (Object.keys(loadKnownMarketplaces()).length > 0) {
+  const known = loadKnownMarketplaces();
+  // Seeding is a first-run concern. A reader who has registered a marketplace
+  // has taken ownership of the list: do not reach the network on every panel
+  // open to add ours beside theirs.
+  if (Object.keys(known).length > 0) {
     return { registered: false, message: "" };
   }
-  try {
-    const result = await addMarketplace(
-      DEFAULT_MARKETPLACE.name,
-      { source: "github", repo: DEFAULT_MARKETPLACE.repo },
-      createDefaultDeps(),
-    );
-    return {
-      registered: true,
-      message: `Added the official marketplace ${DEFAULT_MARKETPLACE.name} (${result.manifest.plugins.length} plugins)`,
-    };
-  } catch (error) {
-    return {
-      registered: false,
-      message: `Could not add the official marketplace (${(error as Error).message}); /plugins marketplace add <source> still works`,
-    };
+  const missing = DEFAULT_MARKETPLACES;
+  const added: string[] = [];
+  const failures: string[] = [];
+  for (const entry of missing) {
+    try {
+      const result = await addMarketplace(
+        entry.name,
+        entry.source,
+        createDefaultDeps(),
+      );
+      added.push(`${entry.name} (${result.manifest.plugins.length} plugins)`);
+    } catch (error) {
+      failures.push(`${entry.name}: ${(error as Error).message}`);
+    }
   }
+  return {
+    registered: added.length > 0,
+    message: [
+      ...(added.length > 0 ? [`Added marketplaces: ${added.join(", ")}`] : []),
+      ...(failures.length > 0
+        ? [
+            `Could not add: ${failures.join("; ")}. /plugins marketplace add <source> still works`,
+          ]
+        : []),
+    ].join(" "),
+  };
 }
 
 export interface CatalogEntry {

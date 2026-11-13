@@ -6,15 +6,23 @@ import {
   ensureDefaultMarketplace,
   type CatalogEntry,
 } from "../plugins/discover.js";
+import {
+  formatInstallCount,
+  getInstallCounts,
+} from "../plugins/installCounts.js";
+import { loadKnownMarketplaces } from "../plugins/marketplaceRegistry.js";
 
 import { PluginDetailsView } from "./PluginDetailsView.js";
 import { usePluginActions } from "./pluginsBrowserActions.js";
 import {
   discoverRowsFor,
+  errorRowsFor,
   installedRowsFor,
   loadBrowserSnapshot,
   loadCatalogs,
   marketplaceRowsFor,
+  serviceRowsFor,
+  statsRowsFor,
   statusColor,
   statusLabel,
   updateVersionFor,
@@ -25,7 +33,14 @@ import {
 import { symbols } from "./symbols.js";
 import { useTheme } from "./theme/tokens.js";
 
-const TABS = ["installed", "discover", "marketplaces"] as const;
+const TABS = [
+  "installed",
+  "discover",
+  "marketplaces",
+  "services",
+  "errors",
+  "stats",
+] as const;
 type Tab = (typeof TABS)[number];
 
 /** Rows visible at once; the selection scrolls inside this window. */
@@ -43,6 +58,12 @@ function tabLabel(id: Tab): string {
       return t("plugins.browser.tabDiscover");
     case "marketplaces":
       return t("plugins.browser.tabMarketplaces");
+    case "services":
+      return t("plugins.browser.tabServices");
+    case "errors":
+      return t("plugins.browser.tabErrors");
+    case "stats":
+      return t("plugins.browser.tabStats");
   }
 }
 
@@ -74,6 +95,10 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
     t("plugins.browser.loadingCatalog"),
   );
   const [installedVersion, setInstalledVersion] = useState(0);
+  const [installCounts, setInstallCounts] = useState<Map<
+    string,
+    number
+  > | null>(null);
   const [detail, setDetail] = useState<DetailTarget | null>(null);
 
   const reloadCatalogs = () => {
@@ -105,6 +130,8 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
       const loaded = loadCatalogs();
       setCatalogs(loaded.catalogs);
       setCatalogFailures(loaded.failed);
+      const counts = await getInstallCounts();
+      if (!stale) setInstallCounts(counts);
     })();
     return () => {
       stale = true;
@@ -122,8 +149,29 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
   );
 
   const discoverRows = useMemo(
-    () => discoverRowsFor(catalogs, query, snapshot),
-    [catalogs, query, snapshot],
+    () =>
+      discoverRowsFor(catalogs, query, snapshot, installCounts ?? undefined),
+    [catalogs, query, snapshot, installCounts],
+  );
+
+  const errorRows = useMemo(
+    () => errorRowsFor(catalogFailures, snapshot.unknownEnabled),
+    [catalogFailures, snapshot.unknownEnabled],
+  );
+
+  const serviceRows = useMemo(() => serviceRowsFor(snapshot), [snapshot]);
+
+  const statsRows = useMemo(
+    () =>
+      statsRowsFor(
+        snapshot.all.length,
+        Object.keys(loadKnownMarketplaces()).length,
+        catalogs?.reduce(
+          (total, catalog) => total + catalog.plugins.length,
+          0,
+        ) ?? 0,
+      ),
+    [snapshot.all.length, catalogs, installedVersion],
   );
 
   const marketplaceRows = useMemo(
@@ -137,7 +185,13 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
         ? installedRows
         : tab === "discover"
           ? discoverRows
-          : marketplaceRows;
+          : tab === "marketplaces"
+            ? marketplaceRows
+            : tab === "services"
+              ? serviceRows
+              : tab === "errors"
+                ? errorRows
+                : statsRows;
     const needle = query.trim().toLowerCase();
     if (needle === "" || tab === "discover") return source;
     return source.filter(
@@ -145,7 +199,16 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
         row.name.toLowerCase().includes(needle) ||
         row.detail.toLowerCase().includes(needle),
     );
-  }, [tab, installedRows, discoverRows, marketplaceRows, query]);
+  }, [
+    tab,
+    installedRows,
+    discoverRows,
+    marketplaceRows,
+    serviceRows,
+    errorRows,
+    statsRows,
+    query,
+  ]);
 
   useEffect(() => {
     setSelected((prev) => Math.min(prev, Math.max(rows.length - 1, 0)));
@@ -254,9 +317,12 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
       if (row === undefined) return;
       if (tab === "marketplaces") {
         void refreshMarketplaceRow(row);
-      } else {
-        setDetail({ name: row.name, marketplace: row.marketplace });
+        return;
       }
+      if (tab === "services" || tab === "errors" || tab === "stats") {
+        return;
+      }
+      setDetail({ name: row.name, marketplace: row.marketplace });
       return;
     }
     if (key.backspace || key.delete) {
@@ -333,7 +399,11 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
       )}
 
       {rows.length === 0 && catalogs !== null && (
-        <Text dimColor>{t("plugins.browser.noMatches")}</Text>
+        <Text dimColor>
+          {tab === "errors"
+            ? t("plugins.browser.errorsEmpty")
+            : t("plugins.browser.noMatches")}
+        </Text>
       )}
 
       {visibleRows.map((row, index) => {
@@ -348,6 +418,10 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
             </Text>
             <Text color={isSelected ? "cyan" : "gray"}>
               {row.marketplace && `${row.marketplace} · `}
+              {row.installs !== undefined &&
+                `${t("plugins.browser.installs", {
+                  count: formatInstallCount(row.installs),
+                })} · `}
               {row.detail}
             </Text>
             {kind !== null && (

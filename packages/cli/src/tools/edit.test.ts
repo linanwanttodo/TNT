@@ -155,10 +155,13 @@ describe("editTool", () => {
 
       const result = await editTool.preprocess!(args);
 
-      expect(result.args).toEqual({
+      expect(result.args).toMatchObject({
         resolvedPath: testFilePath,
         newContent: "Hi there\nThis is a test file\nGoodbye world",
         oldContent: originalContent,
+        oldString: "Hello world",
+        newString: "Hi there",
+        replaceAll: false,
       });
       expect(result.preview).toHaveLength(2);
       expect(result.preview?.[0]).toEqual({
@@ -186,6 +189,22 @@ describe("editTool", () => {
       expect(result.args.newContent).toBe(
         "Hello universe\nThis is a test file\nGoodbye universe",
       );
+    });
+
+    it("keeps the replacement recipe for a safe rebase after approval", async () => {
+      markFileAsSeen(testFilePath);
+
+      const result = await editTool.preprocess!({
+        file_path: testFilePath,
+        old_string: "Hello world",
+        new_string: "Hi there",
+      });
+
+      expect(result.args).toMatchObject({
+        oldString: "Hello world",
+        newString: "Hi there",
+        replaceAll: false,
+      });
     });
   });
 
@@ -218,6 +237,47 @@ describe("editTool", () => {
       const error = await editTool.run(args).catch((e) => e);
       expect(error).toBeInstanceOf(TntError);
       expect(error.reason).toBe(TntErrorReason.FileWriteError);
+    });
+
+    it("replays the replacement on a file changed during approval", async () => {
+      const changed = "Header added externally\nHello world\nGoodbye world";
+      const args = {
+        resolvedPath: testFilePath,
+        newContent: "Hi there\nThis is a test file\nGoodbye world",
+        oldContent: originalContent,
+        oldString: "Hello world",
+        newString: "Hi there",
+        replaceAll: false,
+      };
+      actualFs.writeFileSync(testFilePath, changed);
+      vi.mocked(fs.readFileSync).mockReturnValue(changed);
+
+      const result = await editTool.run(args);
+
+      expect(result).toContain(`Successfully edited ${testFilePath}`);
+      expect(actualFs.readFileSync(testFilePath, "utf-8")).toBe(
+        "Header added externally\nHi there\nGoodbye world",
+      );
+    });
+
+    it("refuses a stale replacement whose anchor no longer exists", async () => {
+      const changed = "Header added externally\nGoodbye world";
+      const args = {
+        resolvedPath: testFilePath,
+        newContent: "Hi there\nThis is a test file\nGoodbye world",
+        oldContent: originalContent,
+        oldString: "Hello world",
+        newString: "Hi there",
+        replaceAll: false,
+      };
+      actualFs.writeFileSync(testFilePath, changed);
+      vi.mocked(fs.readFileSync).mockReturnValue(changed);
+
+      const error = await editTool.run(args).catch((e) => e);
+
+      expect(error).toBeInstanceOf(TntError);
+      expect(error.reason).toBe(TntErrorReason.FindAndReplaceOldStringNotFound);
+      expect(actualFs.readFileSync(testFilePath, "utf-8")).toBe(changed);
     });
   });
 

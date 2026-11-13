@@ -57,3 +57,47 @@ function isMetadataHost(host: string): boolean {
   // fe80::/10 in every spelling that starts with the segment.
   return /^fe[89ab][0-9a-f]:/.test(host);
 }
+
+/**
+ * A fetch wrapper that refuses every URL the guard refuses and follows
+ * redirects itself, so a 30x to a metadata address cannot slip past the check
+ * on the initial URL. favicon extraction and any secondary request go through
+ * this too, not only the page the model asked for.
+ */
+export function createGuardedFetch(inner: typeof fetch = fetch): typeof fetch {
+  const MAX_REDIRECTS = 5;
+  return (async (input: RequestInfo | URL, init?: RequestInit) => {
+    let target =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    let requestInit = init;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const refusal = urlRefusal(target);
+      if (refusal) throw new Error(refusal);
+      const response = await inner(target, {
+        ...requestInit,
+        redirect: "manual",
+      });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get("location");
+        if (!location) return response;
+        await response.body?.cancel();
+        const next = new URL(location, target);
+        if (next.origin !== new URL(target).origin) {
+          const headers = new Headers(requestInit?.headers);
+          headers.delete("authorization");
+          headers.delete("proxy-authorization");
+          headers.delete("cookie");
+          requestInit = { ...requestInit, headers };
+        }
+        target = next.toString();
+        continue;
+      }
+      return response;
+    }
+    throw new Error("Fetch refused: too many redirects");
+  }) as typeof fetch;
+}
