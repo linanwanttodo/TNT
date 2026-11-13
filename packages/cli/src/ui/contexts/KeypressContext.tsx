@@ -234,15 +234,32 @@ function nonKeyboardEventFilter(
 }
 
 /**
- * Converts return keys pressed quickly after insertable keys into a shift+return
+ * Converts return keys pressed inside a machine-speed burst into a shift+return.
  *
- * This is to accommodate older terminals that paste text without bracketing.
+ * This accommodates older terminals that paste text without bracketing: the
+ * pasted "text\r" arrives as one burst whose characters land a few milliseconds
+ * apart. A human types at least an order of magnitude slower than that, so a
+ * fast typist pressing enter right after the last character must still submit
+ * instead of silently gaining a newline.
  */
-function bufferFastReturn(keypressHandler: KeypressHandler): KeypressHandler {
+export const FAST_RETURN_BURST_GAP = 8;
+
+export function bufferFastReturn(
+  keypressHandler: KeypressHandler,
+): KeypressHandler {
   let lastKeyTime = 0;
+  /** Gap between the last two insertable keys: 0-2ms for a paste burst. */
+  let lastGap = Number.POSITIVE_INFINITY;
   return (key: Key) => {
     const now = Date.now();
-    if (key.name === "enter" && now - lastKeyTime <= FAST_RETURN_TIMEOUT) {
+    const sinceLast =
+      lastKeyTime > 0 ? now - lastKeyTime : Number.POSITIVE_INFINITY;
+    if (
+      key.name === "enter" &&
+      lastKeyTime > 0 &&
+      sinceLast <= FAST_RETURN_TIMEOUT &&
+      lastGap <= FAST_RETURN_BURST_GAP
+    ) {
       keypressHandler({
         ...key,
         name: "enter",
@@ -253,10 +270,20 @@ function bufferFastReturn(keypressHandler: KeypressHandler): KeypressHandler {
         sequence: "\r",
         insertable: true,
       });
-    } else {
-      keypressHandler(key);
+      // The paste may hold more lines: keep the burst window open so every
+      // embedded return folds the same way.
+      lastKeyTime = now;
+      lastGap = 0;
+      return;
     }
-    lastKeyTime = key.insertable ? now : 0;
+    keypressHandler(key);
+    if (key.insertable) {
+      lastGap = sinceLast;
+      lastKeyTime = now;
+    } else {
+      lastGap = Number.POSITIVE_INFINITY;
+      lastKeyTime = 0;
+    }
   };
 }
 
