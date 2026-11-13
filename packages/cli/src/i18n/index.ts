@@ -383,7 +383,7 @@ const en = {
   "thought.level.xhigh": "Extra high",
   "thought.level.max": "Max",
   "think.invalid":
-    "Unknown depth '{value}'. Use one of: off, low, medium, high, default",
+    "Unknown depth '{value}'. Use one of: off, low, medium, high, xhigh, max, default",
   "status.cost": "Cost",
   "status.unpriced": "unpriced",
   "status.cache": "cache",
@@ -1345,7 +1345,7 @@ const zhCN: Record<TranslationKey, string> = {
   "thought.level.xhigh": "极高",
   "thought.level.max": "最高",
   "think.invalid":
-    "未知深度 '{value}'。可选值：off、low、medium、high、default",
+    "未知深度 '{value}'。可选值：off、low、medium、high、xhigh、max、default（也可写 关闭/低/中/高/极高/最高/默认）",
   "status.cost": "费用",
   "status.unpriced": "条未定价",
   "status.cache": "缓存",
