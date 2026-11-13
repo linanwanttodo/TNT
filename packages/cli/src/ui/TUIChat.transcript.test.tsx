@@ -300,6 +300,37 @@ describe("TUIChat transcript", () => {
     }
   });
 
+  it("keeps fast typing while an answer streams", async () => {
+    // Typing during a streaming answer is the reader's normal pace: every
+    // keystroke races a re-render of the transcript. No character may fall
+    // behind and vanish from the buffer.
+    const { lastFrame, stdin, rerender, unmount } = renderChat({
+      isWaitingForResponse: true,
+      streamingText: "working",
+    });
+
+    try {
+      await tick();
+      const word = "fasttyping";
+      for (let index = 0; index < word.length; index += 1) {
+        stdin.write(word[index]!);
+        mockUseChat.mockReturnValue(
+          chatState({
+            isWaitingForResponse: true,
+            streamingText: `working ${index}`,
+          }),
+        );
+        rerender(<AppRoot />);
+      }
+      await tick();
+      await tick();
+
+      expect(lastFrame() ?? "").toContain(word);
+    } finally {
+      unmount();
+    }
+  });
+
   it("holds the reader's position while an answer streams", async () => {
     const { lastFrame, stdin, rerender, unmount } = renderChat();
 
