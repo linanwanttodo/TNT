@@ -225,7 +225,7 @@ data` section (mask values rather than quoting them), a temp-directory exception
   mandatory. The static spine became `81a6092e2a935e97`/9137 (TUI),
   `22bd6daaf8701059`/9553 (TUI JSON), `339cda392f12a90e`/9644 (headless),
   `1c420a34ddc25a7c`/10060 (headless JSON). The tool surface became
-  `34b64aa4cb3faffd`/35482 over the same 42 tools. These are one-time cold
+  `11370bf898bf1ca1`/35481 over the same 42 tools. These are one-time cold
   starts, not a claim that prompt snapshots measure model quality.
 - **Prefix changelog, 2026-11-09:** the base spine gained the escalation contract and the
   small-fix wording: the four classes that always need the user's decision, the statement that
@@ -289,7 +289,7 @@ data` section (mask values rather than quoting them), a temp-directory exception
   characters - 279 characters of schema, a one-time cold start per session.
 
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `34b64aa4cb3faffd` over 42 tools and 35482 characters (name + description + parameter schema, in
+  `11370bf898bf1ca1` over 42 tools and 35481 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the

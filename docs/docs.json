@@ -58,6 +58,11 @@
             "group": "Help",
             "icon": "circle-question",
             "pages": ["cli/troubleshooting", "troubleshooting", "reference"]
+          },
+          {
+            "group": "Research",
+            "icon": "flask",
+            "pages": ["research/token-consumption-comparison"]
           }
         ]
       }
