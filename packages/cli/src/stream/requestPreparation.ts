@@ -25,9 +25,9 @@ import {
 } from "../utils/tokenizer.js";
 
 import { formatInHistoryUpdate } from "./requestMessages.js";
-import { evictOldToolResults } from "./toolOutputEviction.js";
 import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
+import { evictOldToolResults } from "./toolOutputEviction.js";
 
 /**
  * The pre-request phase of one round: compact if the window is full, then say

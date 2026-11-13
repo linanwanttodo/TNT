@@ -15,7 +15,6 @@ import { t } from "../i18n/index.js";
 import { buildTodoCarryContextItem, readTodoState } from "../tools/todo.js";
 import { isContextLengthError } from "../utils/contextLength.js";
 import { logger } from "../utils/logger.js";
-import { parseEnvNumber } from "../utils/truncateOutput.js";
 import {
   countChatHistoryTokens,
   countToolDefinitionTokens,
@@ -23,6 +22,7 @@ import {
   getModelContextLimit,
   getModelMaxTokens,
 } from "../utils/tokenizer.js";
+import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import {
   type MeasuredRequest,
