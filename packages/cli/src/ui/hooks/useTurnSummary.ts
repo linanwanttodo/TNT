@@ -69,17 +69,23 @@ export function useTurnSummary(
       const tools = chatHistory
         .slice(historyStart.current)
         .reduce((total, item) => total + (item.toolCallStates?.length ?? 0), 0);
+      // promptTokens counts every round's full request, cache reads included:
+      // a two-round turn on a 13k context reports ~26k prompt tokens even
+      // though nothing new was sent in the second round. The headline is the
+      // fresh consumption (uncached prompt + output); cache reads are their
+      // own count so the line cannot read as "three questions cost 27k".
+      const fresh = Math.max(0, input - cached - cacheWrite);
       const parts = [
-        `${formatTokens(input + output)} tokens`,
+        `${formatTokens(fresh + output)} tokens`,
         elapsedLabel(Date.now() - (turnStart.current ?? Date.now())),
         `${rounds} 轮`,
         `${tools} 工具`,
       ];
       if (cached > 0) {
-        const rate = Math.round(
-          (cached / Math.max(1, input + cached + cacheWrite)) * 100,
-        );
-        parts.push(`本轮缓存 ${rate}%`);
+        parts.push(`缓存读 ${formatTokens(cached)}`);
+      }
+      if (cacheWrite > 0) {
+        parts.push(`缓存写 ${formatTokens(cacheWrite)}`);
       }
       if (cost > 0) parts.push(`$${cost.toFixed(4)}`);
       setSummary(parts.join(" · "));

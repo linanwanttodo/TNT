@@ -2,6 +2,8 @@ import os from "node:os";
 
 import type { Express, Request, Response } from "express";
 
+import { logger } from "../utils/logger.js";
+
 export interface WebUiAccessHandle {
   port: number;
   token: string;
@@ -12,10 +14,16 @@ export interface WebUiAccessContext {
   getHandle(): WebUiAccessHandle | null;
   /** The interface the server was asked to bind. */
   getBoundHost(): string;
+  /**
+   * Rebinds a loopback-only server onto every interface, so the browser can
+   * open the phone-pairing panel and get a scannable code instead of a
+   * command to copy. Absent when the service cannot rebind.
+   */
+  enableLan?(): Promise<WebUiAccessHandle | null>;
 }
 
 /** The addresses that mean "every interface" when the server binds a LAN. */
-const LAN_BIND_HOSTS = new Set(["0.0.0.0", "::", "::0"]);
+export const LAN_BIND_HOSTS = new Set(["0.0.0.0", "::", "::0"]);
 
 /**
  * The IPv4 addresses of this machine that a phone on the same network could
@@ -59,7 +67,10 @@ export function webuiAccessUrls(
 /**
  * `GET /api/access` answers what a phone needs to reach this server: whether
  * the server listens on the network at all, and the URLs that carry the
- * token. It sits behind the same token gate as the rest of the API.
+ * token. `POST /api/access/lan` asks a loopback-only server to rebind onto
+ * every interface so the pairing panel can show a working QR code without
+ * the user retyping a start command. Both sit behind the same token gate as
+ * the rest of the API.
  */
 export function registerWebUiAccessRoute(
   app: Express,
@@ -75,5 +86,24 @@ export function registerWebUiAccessRoute(
       port: handle.port,
       ...webuiAccessUrls(handle, ctx.getBoundHost()),
     });
+  });
+
+  app.post("/api/access/lan", (_req: Request, res: Response) => {
+    // Acknowledge before rebinding: the rebind closes the very listener this
+    // request arrived on, so awaiting it here would kill the response socket
+    // and the browser would read a network error instead of the answer.
+    res.json({ ok: true });
+    void (async () => {
+      if (!ctx.enableLan) {
+        return;
+      }
+      try {
+        await ctx.enableLan();
+      } catch (error) {
+        logger.warn?.(
+          `WebUiService: LAN rebind failed (${error instanceof Error ? error.message : String(error)})`,
+        );
+      }
+    })();
   });
 }

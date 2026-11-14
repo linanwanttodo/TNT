@@ -262,7 +262,11 @@ export function createWorkspaceScopedFileService(
 /**
  * Terminal creation is the one place this service takes an OS path. A missing
  * cwd defaults to the primary workspace (instead of the host's home directory)
- * and an explicit cwd must resolve inside one of the registered roots.
+ * and an explicit cwd must resolve inside one of the registered roots — but a
+ * cwd that falls outside them degrades to the primary workspace rather than
+ * failing the panel: a shell in the workspace is strictly more useful than a
+ * terminal that refuses to open, and the roots can lag behind a session that
+ * was resumed before its directory was registered.
  */
 export function createWorkspaceScopedTerminalService(
   base: DisposableTerminalService,
@@ -270,11 +274,17 @@ export function createWorkspaceScopedTerminalService(
 ): DisposableTerminalService {
   return {
     async create(params) {
-      const cwd = await resolveWithinRoots(
-        workspaceRoots,
-        params.cwd ?? (await resolvedRoots(workspaceRoots)).primary,
-        "terminal cwd",
-      );
+      let cwd: string;
+      try {
+        cwd = await resolveWithinRoots(
+          workspaceRoots,
+          params.cwd ?? (await resolvedRoots(workspaceRoots)).primary,
+          "terminal cwd",
+        );
+      } catch {
+        const { primary } = await resolvedRoots(workspaceRoots);
+        cwd = await realpathNearest(primary);
+      }
       return base.create({ ...params, cwd });
     },
     write: (params) => base.write(params),

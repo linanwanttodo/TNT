@@ -2953,7 +2953,9 @@ const zhCN: Record<string, string> = {
   "mobileRemote.unavailable": "当前环境不提供手机远程访问。",
   "mobileRemote.loopbackTitle": "当前只监听本机地址",
   "mobileRemote.loopbackHint":
-    "用下面的命令重新启动 Web UI，手机就能扫码访问。",
+    "点击下面的按钮，服务器会直接开放局域网访问，然后显示二维码。",
+  "mobileRemote.enableLan": "开放局域网访问",
+  "mobileRemote.enabling": "正在开放…",
   "settings.breadcrumbLabel": "设置路径",
   "settings.subtitle": "从左侧切换主要设置项，右侧查看详细配置。",
   "settings.navLabel": "主要项",

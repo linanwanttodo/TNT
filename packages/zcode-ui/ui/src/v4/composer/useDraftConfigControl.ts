@@ -323,7 +323,11 @@ export function useDraftConfigControl(params: {
   const sessionConfigPending = sessionId !== null && !currentState.observedConfig;
   const effectiveSelection =
     modelSelectionView && !sessionConfigPending
-      ? (modelSelectionView.effectiveSelection ?? undefined)
+      ? (modelSelectionView.effectiveSelection ??
+        // 服务端拒绝了草稿里记住的选择（浏览器关闭期间配置已改）：
+        // 回退到服务端默认模型，避免输入框区域退回空白占位。
+        modelSelectionView.preferredSelection ??
+        undefined)
       : draft.modelSelection;
   const draftConfig = useMemo<Partial<SessionConfigState>>(
     () => ({

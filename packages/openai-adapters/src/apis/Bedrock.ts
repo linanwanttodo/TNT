@@ -10,6 +10,7 @@ import {
   Message,
   ToolConfiguration,
 } from "@aws-sdk/client-bedrock-runtime";
+import type { AwsCredentialIdentity } from "@smithy/types";
 import { OpenAI } from "openai/index";
 import { v4 as uuidv4 } from "uuid";
 
@@ -121,7 +122,9 @@ export class BedrockApi implements BaseLlmApi {
     }
   }
 
-  async getCreds() {
+  // Annotated so the declaration emit stays portable under TS 5.9+/6
+  // (TS2883: the inferred union referenced @smithy types via .pnpm paths).
+  async getCreds(): Promise<AwsCredentialIdentity> {
     if (this.config?.env?.accessKeyId && this.config?.env?.secretAccessKey) {
       return {
         accessKeyId: this.config.env.accessKeyId,

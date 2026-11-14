@@ -163,7 +163,7 @@ describe("the workspace boundary", () => {
     ).rejects.toThrow(WORKSPACE_BOUNDARY_PREFIX);
   });
 
-  it("rejects a terminal cwd outside and defaults a missing cwd to the workspace", async () => {
+  it("falls a terminal cwd outside back to the workspace and defaults a missing cwd to it", async () => {
     const workspace = await tempDir("tnt-ws-scope-term-ws-");
     const outside = await tempDir("tnt-ws-scope-term-out-");
     const terminal = fakeTerminal();
@@ -172,17 +172,22 @@ describe("the workspace boundary", () => {
       workspace,
     );
 
-    await expect(
-      service.create({ cols: 80, rows: 24, cwd: outside }),
-    ).rejects.toThrow(`${WORKSPACE_BOUNDARY_PREFIX}terminal cwd`);
-    expect(terminal.state.createCalls).toBe(0);
+    // A cwd the session has not registered must not fail the panel: the
+    // terminal degrades to the primary workspace instead of refusing to open.
+    const outsideCreated = await service.create({
+      cols: 80,
+      rows: 24,
+      cwd: outside,
+    });
+    expect(outsideCreated.id).toBe("pty-1");
+    expect(terminal.state.lastCwd).toBe(await realpath(workspace));
 
     const inside = await service.create({
       cols: 80,
       rows: 24,
       cwd: path.join(workspace, "nested"),
     });
-    expect(inside.id).toBe("pty-1");
+    expect(inside.id).toBe("pty-2");
     expect(terminal.state.lastCwd).toBe(
       await resolveWithinWorkspace(
         workspace,

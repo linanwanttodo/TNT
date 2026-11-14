@@ -757,6 +757,13 @@ export interface IPlatformService {
  */
   getWebUiAccessInfo?(): Promise<WebUiAccessInfo | null>;
 
+  /**
+   * 请一个只监听回环地址的 Web 服务器重新绑定到局域网，让配对面板直接给出
+   * 可扫的二维码，而不是一条要手动重启的命令。返回刷新后的访问信息；
+   * 只有 Web 端实现。
+   */
+  enableWebUiLan?(): Promise<WebUiAccessInfo | null>;
+
   /** 打开系统多目录选择框，返回 Host 可访问的本地路径；取消返回空数组，Web 不提供 */
   selectDirectories?(): Promise<string[]>;
 

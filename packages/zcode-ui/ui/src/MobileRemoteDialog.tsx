@@ -30,6 +30,7 @@ export function MobileRemoteDialog({
   const platform = usePlatform();
   const [info, setInfo] = useState<WebUiAccessInfo | null>(null);
   const [failed, setFailed] = useState(false);
+  const [enabling, setEnabling] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,7 +59,11 @@ export function MobileRemoteDialog({
     };
   }, [open, platform]);
 
-  const lanUrl = info?.lanEnabled ? info.urls[1] : undefined;
+  // The server always reports loopback first; the scannable code is the
+  // first address a phone on the same network can actually reach.
+  const lanUrl = info?.lanEnabled
+    ? info.urls.find((url) => !url.startsWith("http://127.0.0.1"))
+    : undefined;
 
   useEffect(() => {
     if (!lanUrl) {
@@ -123,9 +128,29 @@ export function MobileRemoteDialog({
             <p className="text-ui-base text-foreground-subtle">
               {intl.formatMessage({ id: "mobileRemote.loopbackHint" })}
             </p>
-            <code className="w-full break-all rounded-md bg-surface px-3 py-2 font-mono text-ui-sm text-foreground">
-              tnt webui --host 0.0.0.0
-            </code>
+            <Button
+              type="button"
+              size="lg"
+              disabled={enabling}
+              onClick={() => {
+                setEnabling(true);
+                void platform
+                  .enableWebUiLan?.()
+                  .then((access) => {
+                    if (access) {
+                      setInfo(access);
+                    } else {
+                      setFailed(true);
+                    }
+                  })
+                  .catch(() => setFailed(true))
+                  .finally(() => setEnabling(false));
+              }}
+            >
+              {enabling
+                ? intl.formatMessage({ id: "mobileRemote.enabling" })
+                : intl.formatMessage({ id: "mobileRemote.enableLan" })}
+            </Button>
           </div>
         )}
 

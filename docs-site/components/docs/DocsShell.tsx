@@ -171,7 +171,7 @@ function SidebarItem({
         className={`-mx-2.5 block rounded px-2.5 py-1.5 text-[13px] no-underline transition-colors ${
           isActive
             ? "bg-black/[0.04] font-medium text-black/90 dark:bg-white/[0.06] dark:text-white/90"
-            : "text-black/45 hover:text-black/70 dark:text-white/45 dark:hover:text-white/70"
+            : "text-black/45 hover:bg-black/[0.03] hover:text-black/70 dark:text-white/45 dark:hover:bg-white/[0.04] dark:hover:text-white/70"
         }`}
       >
         {slugToLabel(item, titleMap)}
@@ -256,6 +256,9 @@ export function DocsShell({
                   alt="TNT"
                   className="h-8 w-auto dark:invert"
                 />
+                <span className="ml-2.5 font-mono text-[15px] font-bold tracking-[0.18em] text-black/85 dark:text-white/85">
+                  TNT
+                </span>
               </Link>
             </div>
             {/* Mobile logo */}
@@ -266,6 +269,9 @@ export function DocsShell({
                   alt="TNT"
                   className="h-8 w-auto dark:invert"
                 />
+                <span className="ml-2.5 font-mono text-[15px] font-bold tracking-[0.18em] text-black/85 dark:text-white/85">
+                  TNT
+                </span>
               </Link>
             </div>
             {/* Centered search */}
@@ -356,7 +362,7 @@ export function DocsShell({
               >
                 {tab.tab}
                 {selectedTab === tab.tab && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-black/70 dark:bg-white/70" />
+                  <span className="bg-accent dark:bg-accent-light absolute bottom-0 left-0 right-0 h-[2px] rounded-full" />
                 )}
               </button>
             ))}
@@ -394,7 +400,7 @@ export function DocsShell({
 
       {/* ---- Mobile sidebar ---- */}
       <button
-        className="fixed bottom-4 left-4 z-50 rounded-full bg-black/80 p-3 text-white shadow-lg lg:hidden dark:bg-white/80 dark:text-black"
+        className="bg-accent shadow-accent/30 dark:bg-accent-light fixed bottom-4 left-4 z-50 rounded-full p-3 text-white shadow-lg lg:hidden dark:text-black"
         onClick={() => setMobileOpen(!mobileOpen)}
         aria-label="Toggle sidebar"
       >
@@ -421,7 +427,7 @@ export function DocsShell({
                 >
                   {tab.tab}
                   {selectedTab === tab.tab && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-black/70 dark:bg-white/70" />
+                    <span className="bg-accent dark:bg-accent-light absolute bottom-0 left-0 right-0 h-[2px] rounded-full" />
                   )}
                 </button>
               ))}

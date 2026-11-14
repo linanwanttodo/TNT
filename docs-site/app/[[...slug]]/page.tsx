@@ -26,7 +26,6 @@ import {
   pageSlugFromRoute,
   type Locale,
 } from "@/lib/i18n";
-import { LandingPage } from "@/app/components/LandingPage";
 import "../docs.css";
 
 interface Props {
@@ -82,11 +81,9 @@ export default async function DocsPage({ params }: Props) {
   const locale = localeFromSlug(slug);
   const slugPath = pageSlugFromRoute(slug);
 
-  // The root route is the landing page: the wordmark, one tagline, and the
-  // way into the docs. The docs home moves to its locale route.
-  if (!slug || slug.length === 0) {
-    return <LandingPage />;
-  }
+  // The root route IS the docs home (the standalone landing page was
+  // removed): empty slug falls through as ["index"] and renders the
+  // default-locale docs home. /zh serves the Chinese home.
 
   // Check redirect first
   const redirectTo = resolveDocsRedirect(slugPath, locale);
@@ -140,14 +137,14 @@ export default async function DocsPage({ params }: Props) {
     >
       {doc.frontmatter.title && (
         <div className="mb-2 flex items-start justify-between gap-4">
-          <h1 className="text-3xl font-light tracking-tight text-black/90 dark:text-white/90">
+          <h1 className="text-[2rem] font-semibold tracking-tight text-black/90 dark:text-white/90">
             {doc.frontmatter.title}
           </h1>
           <CopyPageButton slug={currentSlug} locale={locale} />
         </div>
       )}
       {doc.frontmatter.description && (
-        <p className="mb-8 text-lg text-black/50 dark:text-white/50">
+        <p className="mb-8 border-b border-black/[0.06] pb-8 text-lg leading-relaxed text-black/50 dark:border-white/[0.06] dark:text-white/50">
           {doc.frontmatter.description.replace(/\*\*/g, "")}
         </p>
       )}

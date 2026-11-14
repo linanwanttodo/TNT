@@ -231,7 +231,18 @@ export class SessionHandlers {
       throw sessionRequestError(`Session already exists: ${input.sessionId}`);
     }
     if (input.model) {
-      this.assertKnownModel(input.model);
+      const known = await this.isKnownModel(input.model);
+      if (known === false) {
+        throw sessionRequestError(
+          `Unknown model: ${input.model.providerId}/${input.model.modelId}`,
+        );
+      }
+      if (known === null) {
+        throw sessionRequestError(
+          "Model service is not ready",
+          INTERNAL_ERROR_CODE,
+        );
+      }
     }
     const session = createSession([], input.sessionId, {
       source: input.importedHistory ? "import" : "serve",
@@ -287,13 +298,22 @@ export class SessionHandlers {
       (config?.provider && config.model
         ? { providerId: config.provider, modelId: config.model }
         : undefined);
-    if (selection) {
-      this.assertKnownModel(selection);
-    }
     const session = createSession([], input.sessionId, {
       source: "serve",
       persistEmpty: false,
     });
+    if (selection) {
+      // The composer prewarms a draft with its remembered pick, which can be
+      // stale (config edited while the browser was closed, or the model
+      // service still initializing right after a refresh). Failing the whole
+      // draft for that surfaced "草稿会话创建失败" on an empty session.
+      // Validate best-effort instead: an unknown pick falls back to the
+      // default model, and the next explicit switch re-validates.
+      const known = await this.isKnownModel(selection);
+      if (known) {
+        this.rememberModel(session, selection);
+      }
+    }
     session.workspaceDirectory = this.workspacePath ?? input.workspacePath;
     session.mode =
       config?.mode === "plan" || config?.planEnabled === true
@@ -409,7 +429,21 @@ export class SessionHandlers {
   async setModel(params: unknown): Promise<ZCodeSessionStateSnapshot> {
     const input = parseParams(zcodeSessionSetModelParamsSchema, params);
     const session = this.loadSession(input.sessionId);
-    this.assertKnownModel(input.model);
+    // Wait for the model service before judging the pick: right after a
+    // browser refresh the request can outrun service initialization, and a
+    // premature throw crashes the composer's switch flow.
+    const known = await this.isKnownModel(input.model);
+    if (known === false) {
+      throw sessionRequestError(
+        `Unknown model: ${input.model.providerId}/${input.model.modelId}`,
+      );
+    }
+    if (known === null) {
+      throw sessionRequestError(
+        "Model service is not ready",
+        INTERNAL_ERROR_CODE,
+      );
+    }
     this.rememberModel(session, input.model);
     sessionStore.sync(session);
     return this.snapshot(session);
@@ -510,26 +544,61 @@ export class SessionHandlers {
     };
   }
 
-  private assertKnownModel(model: ModelSelection): void {
-    const lookup = this.resolveModelLookup();
+  /**
+   * Best-effort validation with patience: unlike a bare sync check this
+   * waits (bounded) for the model service to initialize, because webui
+   * requests can legitimately arrive before it is ready. Returns null when
+   * the service is still unavailable after the wait — the caller decides
+   * whether that is fatal.
+   */
+  private async isKnownModel(model: ModelSelection): Promise<boolean | null> {
+    const lookup =
+      (await this.resolveModelLookupWait()) ?? this.resolveModelLookup();
     if (!lookup) {
-      throw sessionRequestError(
-        "Model service is not ready",
-        INTERNAL_ERROR_CODE,
-      );
+      return null;
     }
-    const known = lookup
+    return this.isKnownByLookup(lookup, model);
+  }
+
+  private isKnownByLookup(lookup: ModelLookup, model: ModelSelection): boolean {
+    return lookup
       .getAvailableChatModels()
       .some(
         (entry) =>
           entry.provider === model.providerId &&
           (entry.model === model.modelId || entry.name === model.modelId),
       );
-    if (!known) {
-      throw sessionRequestError(
-        `Unknown model: ${model.providerId}/${model.modelId}`,
-      );
+  }
+
+  /** Waits (bounded) for the model service instead of failing fast. */
+  private async resolveModelLookupWait(): Promise<ModelLookup | null> {
+    try {
+      const raced = await Promise.race([
+        serviceContainer.get<ModelServiceState>(MODEL_SERVICE_NAME),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
+      if (!raced) {
+        return null;
+      }
+      return this.lookupFromService(raced);
+    } catch {
+      return null;
     }
+  }
+
+  private lookupFromService(service: ModelServiceState): ModelLookup | null {
+    const models = (service.assistant?.models ?? []).filter(
+      (model): model is NonNullable<typeof model> => Boolean(model),
+    );
+    return {
+      getAvailableChatModels: () =>
+        models.map((model, index) => ({
+          provider: model.provider,
+          name: model.name ?? model.model ?? "unnamed",
+          model: model.model,
+          index,
+        })),
+    };
   }
 
   private resolveModelLookup(): ModelLookup | null {
@@ -544,17 +613,6 @@ export class SessionHandlers {
     // The container holds the initialized model state, not the service
     // instance, so the fallback reads the configured models directly and
     // matches a selection the same way ModelService.findModelByName does.
-    const models = (state.value.assistant?.models ?? []).filter(
-      (model): model is NonNullable<typeof model> => Boolean(model),
-    );
-    return {
-      getAvailableChatModels: () =>
-        models.map((model, index) => ({
-          provider: model.provider,
-          name: model.name ?? model.model ?? "unnamed",
-          model: model.model,
-          index,
-        })),
-    };
+    return this.lookupFromService(state.value);
   }
 }

@@ -15,6 +15,7 @@
   "scripts": {
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "build": "tsc -p tsconfig.json",
     "postinstall": "node ../scripts/apply-vendor-patches.mjs"
   },
   "dependencies": {
