@@ -1,0 +1,22 @@
+{
+  "name": "@tnt/sdk-generator",
+  "version": "0.0.1",
+  "description": "SDK Generator for TNT",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'No build step needed'",
+    "test": "echo 'No tests to run'",
+    "generate-client": "openapi-generator-cli generate -i ./openapi.yaml -g typescript-fetch -o ./typescript/api -c ./openapi-generator-config.json",
+    "swagger-ui": "node swagger-ui-server.js"
+  },
+  "author": "linanwanttodo",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@openapitools/openapi-generator-cli": "^2.31.0",
+    "express": "^4.22.0",
+    "swagger-ui-express": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

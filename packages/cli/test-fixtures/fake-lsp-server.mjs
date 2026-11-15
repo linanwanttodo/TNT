@@ -1,0 +1,297 @@
+// Minimal LSP server used by the client tests. It speaks the base protocol over
+// stdio: responds to initialize and shutdown, and publishes one diagnostic per
+// opened document. Run it with node, no build step.
+
+const pidFlag = process.argv.indexOf("--pid-file");
+if (pidFlag !== -1 && process.argv[pidFlag + 1]) {
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(process.argv[pidFlag + 1], String(process.pid));
+}
+
+let buffer = Buffer.alloc(0);
+
+function send(payload) {
+  const body = Buffer.from(JSON.stringify(payload), "utf8");
+  process.stdout.write(`Content-Length: ${body.length}\r\n\r\n`);
+  process.stdout.write(body);
+}
+
+function respond(id, result) {
+  send({ jsonrpc: "2.0", id, result });
+}
+
+function handle(message) {
+  if (message.id === undefined) {
+    // Notification: the client finishing its handshake or opening a document.
+    if (
+      message.method === "textDocument/didOpen" ||
+      message.method === "textDocument/didChange"
+    ) {
+      const doc = message.params?.textDocument;
+      const uri = doc?.uri;
+      const text =
+        message.method === "textDocument/didOpen"
+          ? doc?.text
+          : message.params?.contentChanges?.[0]?.text;
+      const clean = typeof text === "string" && !text.includes("BAD");
+      send({
+        jsonrpc: "2.0",
+        method: "textDocument/publishDiagnostics",
+        params: {
+          uri,
+          diagnostics: clean
+            ? []
+            : [
+                {
+                  range: {
+                    start: { line: 0, character: 0 },
+                    end: { line: 0, character: 1 },
+                  },
+                  severity: 1,
+                  source: "fake-lsp",
+                  message: "fake diagnostic for " + uri,
+                },
+              ],
+        },
+      });
+    }
+    if (message.method === "exit") {
+      process.exit(0);
+    }
+    return;
+  }
+
+  switch (message.method) {
+    case "initialize":
+      respond(message.id, {
+        capabilities: { textDocumentSync: 1 },
+        serverInfo: { name: "fake-lsp", version: "1.0.0" },
+      });
+      break;
+    case "shutdown":
+      respond(message.id, null);
+      break;
+    case "textDocument/hover": {
+      // Echo the position so a test can prove the 1-based to 0-based mapping.
+      const position = message.params?.position;
+      respond(message.id, {
+        contents: `hover at ${position?.line}:${position?.character}`,
+      });
+      break;
+    }
+    case "textDocument/completion": {
+      const position = message.params?.position;
+      respond(message.id, {
+        isIncomplete: false,
+        items: [
+          {
+            label: `candidate at ${position?.line}:${position?.character}`,
+            kind: 2,
+            detail: "fake signature",
+          },
+          { label: "secondCandidate", kind: 6 },
+          { label: "thirdCandidate", kind: 3 },
+        ],
+      });
+      break;
+    }
+    case "textDocument/definition":
+      respond(message.id, [
+        {
+          uri: "file:///workspace/src/def.ts",
+          range: {
+            start: { line: 1, character: 2 },
+            end: { line: 1, character: 8 },
+          },
+        },
+      ]);
+      break;
+    case "textDocument/implementation":
+      respond(message.id, [
+        {
+          uri: "file:///workspace/src/impl.ts",
+          range: {
+            start: { line: 3, character: 4 },
+            end: { line: 3, character: 10 },
+          },
+        },
+      ]);
+      break;
+    case "textDocument/references": {
+      const position = message.params?.position;
+      respond(message.id, [
+        {
+          uri: "file:///workspace/src/decl.ts",
+          range: {
+            start: { line: 1, character: 4 },
+            end: { line: 1, character: position?.line ?? 0 },
+          },
+        },
+        {
+          uri: "file:///workspace/src/use.ts",
+          range: {
+            start: { line: 6, character: 2 },
+            end: { line: 6, character: 8 },
+          },
+        },
+      ]);
+      break;
+    }
+    case "textDocument/prepareCallHierarchy":
+      respond(message.id, [
+        {
+          name: "knownSymbol",
+          kind: 12,
+          uri: "file:///workspace/src/known.ts",
+          range: {
+            start: { line: 4, character: 2 },
+            end: { line: 4, character: 14 },
+          },
+          selectionRange: {
+            start: { line: 4, character: 2 },
+            end: { line: 4, character: 14 },
+          },
+        },
+      ]);
+      break;
+    case "callHierarchy/incomingCalls":
+      respond(message.id, [
+        {
+          from: {
+            name: "callerFn",
+            kind: 12,
+            uri: "file:///workspace/src/caller.ts",
+            range: {
+              start: { line: 2, character: 0 },
+              end: { line: 2, character: 20 },
+            },
+            selectionRange: {
+              start: { line: 2, character: 4 },
+              end: { line: 2, character: 12 },
+            },
+          },
+          fromRanges: [
+            {
+              start: { line: 2, character: 4 },
+              end: { line: 2, character: 10 },
+            },
+          ],
+        },
+      ]);
+      break;
+    case "callHierarchy/outgoingCalls":
+      respond(message.id, [
+        {
+          to: {
+            name: "calleeFn",
+            kind: 12,
+            uri: "file:///workspace/src/callee.ts",
+            range: {
+              start: { line: 7, character: 2 },
+              end: { line: 7, character: 12 },
+            },
+            selectionRange: {
+              start: { line: 7, character: 2 },
+              end: { line: 7, character: 12 },
+            },
+          },
+          fromRanges: [
+            {
+              start: { line: 4, character: 6 },
+              end: { line: 4, character: 12 },
+            },
+          ],
+        },
+      ]);
+      break;
+    case "textDocument/documentSymbol":
+      respond(message.id, [
+        {
+          name: "Greeter",
+          kind: 5,
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 3, character: 1 },
+          },
+          selectionRange: {
+            start: { line: 0, character: 6 },
+            end: { line: 0, character: 13 },
+          },
+          children: [
+            {
+              name: "greet",
+              kind: 6,
+              range: {
+                start: { line: 1, character: 2 },
+                end: { line: 2, character: 3 },
+              },
+              selectionRange: {
+                start: { line: 1, character: 2 },
+                end: { line: 1, character: 7 },
+              },
+              children: [],
+            },
+          ],
+        },
+      ]);
+      break;
+    case "workspace/symbol":
+      // One match per query prefix, so a test can assert both hit and miss.
+      respond(
+        message.id,
+        String(message.params?.query ?? "").startsWith("known")
+          ? [
+              {
+                name: "knownSymbol",
+                kind: 12,
+                location: {
+                  uri: "file:///workspace/src/known.ts",
+                  range: {
+                    start: { line: 4, character: 2 },
+                    end: { line: 4, character: 14 },
+                  },
+                },
+              },
+            ]
+          : [],
+      );
+      break;
+    case "test/slow":
+      // Never answers, so the client timeout path can be exercised.
+      break;
+    default:
+      send({
+        jsonrpc: "2.0",
+        id: message.id,
+        error: { code: -32601, message: `Unknown method ${message.method}` },
+      });
+  }
+}
+
+process.stdin.on("data", (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+  for (;;) {
+    const headerEnd = buffer.indexOf("\r\n\r\n");
+    if (headerEnd === -1) return;
+    const header = buffer.subarray(0, headerEnd).toString("ascii");
+    const match = /Content-Length:\s*(\d+)/i.exec(header);
+    if (!match) {
+      buffer = buffer.subarray(headerEnd + 4);
+      continue;
+    }
+    const length = Number(match[1]);
+    const start = headerEnd + 4;
+    if (buffer.length < start + length) return;
+    const body = buffer.subarray(start, start + length).toString("utf8");
+    buffer = buffer.subarray(start + length);
+    try {
+      handle(JSON.parse(body));
+    } catch {
+      // Ignore a malformed frame; the client tests never send one on purpose.
+    }
+  }
+});
+
+if (process.argv.includes("--die-on-start")) {
+  process.exit(3);
+}

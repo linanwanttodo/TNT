@@ -1,0 +1,176 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import {
+  AgentFile,
+  AssistantUnrolled,
+  ModelConfig,
+  parseAgentFileRules,
+  parseAgentFileTools,
+} from "@tnt/config-yaml";
+import { BaseLlmApi } from "@tnt/openai-adapters";
+import { AssistantConfig } from "@tnt/sdk";
+import { DefaultApiInterface } from "@tnt/sdk/dist/api/dist/index.js";
+
+import { BaseCommandOptions } from "../commands/BaseCommandOptions.js";
+import { PermissionMode } from "../permissions/types.js";
+
+import { type MCPService } from "./MCPService.js";
+
+/**
+ * Service lifecycle states
+ */
+export type ServiceState = "idle" | "loading" | "ready" | "error";
+
+/**
+ * Generic service result with state tracking
+ */
+export interface ServiceResult<T> {
+  value: T | null;
+  state: ServiceState;
+  error: Error | null;
+  lastUpdated?: Date;
+}
+
+/**
+ * Service event types for the EventEmitter
+ */
+export interface ServiceEvents {
+  [key: `${string}:loading`]: [];
+  [key: `${string}:ready`]: [any];
+  [key: `${string}:error`]: [Error];
+  [key: `${string}:changed`]: [any];
+}
+
+export interface ConfigServiceState {
+  config: AssistantUnrolled | null;
+  configPath?: string;
+  /** The `model:` key of the loaded config file, if it has one. */
+  selectedModel?: string | null;
+}
+
+export interface ModelServiceState {
+  llmApi: BaseLlmApi | null;
+  model: ModelConfig | null;
+  assistant: AssistantUnrolled | null;
+}
+
+export type MCPServerStatus = "idle" | "connecting" | "connected" | "error";
+export type MCPTool = Awaited<ReturnType<Client["listTools"]>>["tools"][number];
+export type MCPPrompt = Awaited<
+  ReturnType<Client["listPrompts"]>
+>["prompts"][number];
+export type MCPServerConfig = NonNullable<
+  NonNullable<AssistantConfig["mcpServers"]>[number]
+>;
+
+export interface MCPConnectionInfo {
+  config: MCPServerConfig;
+  status: MCPServerStatus;
+  tools: MCPTool[];
+  prompts: MCPPrompt[];
+  error?: string;
+  warnings: string[];
+}
+
+export interface MCPServiceState {
+  mcpService: MCPService | null;
+  connections: Array<MCPConnectionInfo>;
+  tools: MCPTool[];
+  prompts: MCPPrompt[];
+}
+
+export enum UpdateStatus {
+  IDLE = "idle",
+  CHECKING = "checking",
+  UPDATING = "updating",
+  UPDATED = "updated",
+  ERROR = "error",
+}
+
+export interface UpdateServiceState {
+  autoUpdate: boolean;
+  isAutoUpdate: boolean;
+  status: UpdateStatus;
+  message: string;
+  /**
+   * Installer step progress, 0..100. Null while idle, and while the installer
+   * has not printed a step the reader can anchor on yet.
+   */
+  progress: number | null;
+  error?: Error | null;
+  isUpdateAvailable: boolean;
+  latestVersion: string | null;
+  currentVersion: string;
+}
+
+export interface ApiClientServiceState {
+  apiClient: DefaultApiInterface | null;
+}
+
+export interface StorageSyncServiceState {
+  isEnabled: boolean;
+  storageId?: string;
+  lastUploadAt?: number;
+  lastError?: string | null;
+}
+
+export interface AgentFileServiceState {
+  agentFile: AgentFile | null;
+  slug: string | null;
+  agentFileModel: { name: string } | null;
+  parsedTools: ReturnType<typeof parseAgentFileTools> | null;
+  parsedRules: ReturnType<typeof parseAgentFileRules> | null;
+}
+
+export type {
+  BackgroundJob,
+  BackgroundJobStatus,
+} from "./BackgroundJobService.js";
+export type { ChatHistoryState } from "./ChatHistoryService.js";
+export type { FileIndexServiceState } from "./FileIndexService.js";
+export type { GitAiIntegrationServiceState } from "./GitAiIntegrationService.js";
+
+/**
+ * Service names as constants to prevent typos
+ */
+export const SERVICE_NAMES = {
+  AUTH: "auth",
+  CONFIG: "config",
+  MODEL: "model",
+  MCP: "mcp",
+  API_CLIENT: "apiClient",
+  TOOL_PERMISSIONS: "toolPermissions",
+  FILE_INDEX: "fileIndex",
+  RESOURCE_MONITORING: "resourceMonitoring",
+  SYSTEM_MESSAGE: "systemMessage",
+  CHAT_HISTORY: "chatHistory",
+  UPDATE: "update",
+  STORAGE_SYNC: "storageSync",
+  AGENT_FILE: "agentFile",
+  GIT_AI_INTEGRATION: "gitAiIntegration",
+  BACKGROUND_JOBS: "backgroundJobs",
+  QUIZ: "quiz",
+  HOOKS: "hooks",
+  TEAM: "team",
+} as const;
+
+/**
+ * Service initialization options
+ */
+export interface ServiceInitOptions {
+  options?: BaseCommandOptions; // Command-line options
+  headless?: boolean;
+  skipOnboarding?: boolean; // Skip onboarding check even in TUI mode
+  toolPermissionOverrides?: {
+    allow?: string[];
+    ask?: string[];
+    exclude?: string[];
+    mode?: PermissionMode;
+  };
+}
+
+/**
+ * Service initialization result
+ */
+export interface ServiceInitResult {
+  wasOnboarded?: boolean;
+}

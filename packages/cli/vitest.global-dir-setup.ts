@@ -1,0 +1,38 @@
+// IMPORTANT: This file must run BEFORE any module that imports
+// `core/util/paths.ts`, because that module resolves `TNT_GLOBAL_DIR`
+// into a constant at import time. If multiple test files (which run in
+// parallel worker processes) all share the same global dir, they race on the
+// same `globalContext.json` file on disk, causing flaky failures in the
+// model-persistence tests.
+//
+// To guarantee isolation, give each worker process its own unique global dir.
+// This file is intentionally dependency-free (no imports that transitively
+// load `paths.ts`) and is listed first in `setupFiles` so the env var is set
+// before any other module captures it.
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
+const globalDir = fs.mkdtempSync(path.join(os.tmpdir(), "continue-cli-test-"));
+process.env.TNT_GLOBAL_DIR = globalDir;
+
+// The plugin loader reads ~/.claude/plugins as a migration source. The real
+// tree of whoever runs the suite must not leak into it: a machine with
+// Claude Code plugins installed would fail every "no plugins" assertion.
+// One empty directory per worker, so the tests that create fixtures there
+// stay isolated from each other as well.
+process.env.TNT_CLAUDE_PLUGINS_DIR = fs.mkdtempSync(
+  path.join(os.tmpdir(), "continue-cli-claude-plugins-"),
+);
+
+const claudePluginsDir = process.env.TNT_CLAUDE_PLUGINS_DIR as string;
+
+// Best-effort cleanup of this worker's temp dirs when the process exits.
+process.on("exit", () => {
+  try {
+    fs.rmSync(globalDir, { recursive: true, force: true });
+    fs.rmSync(claudePluginsDir, { recursive: true, force: true });
+  } catch {
+    // Ignore cleanup errors on exit.
+  }
+});

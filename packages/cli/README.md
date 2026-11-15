@@ -1,0 +1,153 @@
+# TNT
+
+TNT (`tnt`) is a customizable command line coding agent.
+
+This project is a fork derived from [Continue](https://github.com/continuedev/continue), an open-source AI code agent. TNT builds on Continue's foundation with its own naming, CLI interface and behavior changes.
+
+![TNT Demo](./media/demo.gif)
+
+## Installation
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
+```
+
+The installer downloads the prebuilt CLI from the [latest GitHub Release](https://github.com/linanwanttodo/TNT/releases/latest); only Node.js 24+ is required, npm is not. It installs to `~/.tnt/cli` (`%LOCALAPPDATA%\tnt\cli` on Windows) and links the `tnt` command into `~/.local/bin`, which keeps the CLI out of any package manager's directory.
+
+**From a checkout (development):**
+
+```bash
+bash packages/cli/scripts/install-local.sh
+```
+
+This builds the working tree with the node scripts and installs it to the same `~/.tnt/cli` layout; npm is not invoked. Pass `--no-build` to reinstall the existing `dist/` without rebuilding.
+
+## Usage
+
+```bash
+tnt
+```
+
+### ACP (Zed and other editors)
+
+`tnt --acp` runs the [Agent Client Protocol](https://agentclientprotocol.com/)
+over stdio. Each ACP session gets its own worker process and persisted
+transcript, so several editor threads can run independently.
+
+Zed configuration:
+
+```json
+{
+  "agent_servers": {
+    "TNT": {
+      "command": "tnt",
+      "args": ["--acp"]
+    }
+  }
+}
+```
+
+See [the ACP spec](./spec/acp.md) and [session files](./spec/sessions.md).
+
+### Headless Mode
+
+Headless mode (`-p` flag) runs without an interactive terminal UI, making it perfect for:
+
+- Scripts and automation
+- CI/CD pipelines
+- Docker containers
+- VSCode/IntelliJ extension integration
+- Environments without a TTY
+
+```bash
+# Basic usage
+tnt -p "Generate a conventional commit name for the current git changes."
+
+# With piped input
+echo "Review this code" | tnt -p
+
+# JSON output for scripting
+tnt -p "Analyze the code" --format json
+
+# Silent mode (strips thinking tags)
+tnt -p --allow Write "Write a README" --silent
+```
+
+A headless run cannot ask for approval, so write tools and Bash are denied by
+default. Grant them explicitly with `--allow <tool>` (repeatable) or
+`--allow '*'` when the pipeline already isolates the workspace.
+
+**TTY-less Environments**: Headless mode is designed to work in environments without a terminal (TTY), such as when called from VSCode/IntelliJ extensions using terminal commands. The CLI will not attempt to read stdin or initialize the interactive UI when running in headless mode with a supplied prompt.
+
+### Session Management
+
+The CLI automatically saves your chat history for each terminal session. You can resume where you left off:
+
+```bash
+# Resume the last session in this terminal
+tnt --resume
+
+# List recent sessions and choose one to resume
+tnt ls
+
+# List sessions in JSON format (for scripting)
+tnt ls --json
+```
+
+## Command Line Options
+
+- `-p`: Run in headless mode (no TUI)
+- `--config <path>`: Load a local config file; hub slugs are refused
+- `--resume`: Resume the last session for this terminal
+- `--allow <tool>` / `--ask <tool>` / `--exclude <tool>`: Tool policies for this run
+- `<prompt>`: Optional prompt to start with
+
+## Environment Variables
+
+- `FORCE_NO_TTY`: Force TTY-less mode, prevents stdin reading (useful for testing and automation)
+
+## Commands
+
+- `tnt`: Start an interactive chat session
+- `tnt ls`: List recent sessions with TUI selector to choose one to resume
+- `tnt checks [action] [pr-url]`: Run or inspect the checks for a pull request
+- `tnt review`: Run AI reviews on your changes (`--base`, `--format`, `--fix` and others)
+- `tnt serve` (hidden): Start the legacy HTTP server, or the Web UI daemon when a daemon flag is present. The daemon binds loopback only and prints a JSON handshake with `--json` (`--port` 0 picks an ephemeral port, `--workspace` selects the project, `--handshake-file` writes the handshake atomically). See [docs/CLIENTS.md](../../docs/CLIENTS.md) for the client contract.
+- `tnt app-server` (hidden): Run the NDJSON app-server protocol host the web UI and per-workspace children use (`tnt app-server --stdio`)
+
+### Session Listing (`tnt ls`)
+
+Shows recent sessions, limited by screen height to ensure it fits on your terminal.
+
+- `--json`: Output in JSON format for scripting (up to 100 sessions)
+
+## TTY-less Support
+
+The CLI fully supports running in environments without a TTY (terminal):
+
+```bash
+# From Docker without TTY allocation
+docker run --rm my-image tnt -p "Generate docs"
+
+# From CI/CD pipeline
+tnt -p "Review changes" --format json
+
+# From VSCode/IntelliJ extension terminal tool
+tnt -p "Analyze code" --silent
+```
+
+The CLI automatically detects TTY-less environments and adjusts its behavior:
+
+- Skips stdin reading when a prompt is supplied
+- Disables interactive UI components
+- Ensures clean stdout/stderr output
+
+For more details, see [`spec/tty-less-support.md`](./spec/tty-less-support.md).

@@ -1,0 +1,97 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  ACCEPT_EDITS_MODE_POLICIES,
+  DONT_ASK_MODE_POLICIES,
+  PLAN_MODE_POLICIES,
+  getDefaultToolPolicies,
+} from "./defaultPolicies.js";
+import type { ToolPermissionPolicy } from "./types.js";
+const DEFAULT_TOOL_POLICIES = getDefaultToolPolicies();
+
+describe("defaultPolicies", () => {
+  it("should have correct permissions for read-only tools", () => {
+    const readOnlyTools = [
+      "Read",
+      "List",
+      "Search",
+      "Fetch",
+      "Exit",
+      "Diff",
+      "Checklist",
+    ];
+
+    for (const tool of readOnlyTools) {
+      const policy = DEFAULT_TOOL_POLICIES.find((p) => p.tool === tool);
+      expect(policy, `Policy should exist for ${tool}`).toBeDefined();
+      expect(policy?.permission, `${tool} should be allowed`).toBe("allow");
+    }
+  });
+
+  it("should not have prefix wildcard policies in defaults", () => {
+    const prefixWildcardPolicy = DEFAULT_TOOL_POLICIES.find(
+      (p) => p.tool.endsWith("*") && p.tool !== "*",
+    );
+    expect(prefixWildcardPolicy).toBeUndefined();
+  });
+
+  it("should have correct permissions for write tools", () => {
+    const writeTools = ["Write", "Edit", "MultiEdit", "Bash"];
+
+    for (const tool of writeTools) {
+      const policy = DEFAULT_TOOL_POLICIES.find((p) => p.tool === tool);
+      expect(policy, `Policy should exist for ${tool}`).toBeDefined();
+      expect(policy?.permission, `${tool} should require confirmation`).toBe(
+        "ask",
+      );
+    }
+  });
+
+  it("should have a catch-all policy", () => {
+    const catchAllPolicy = DEFAULT_TOOL_POLICIES.find((p) => p.tool === "*");
+    expect(catchAllPolicy).toBeDefined();
+    expect(catchAllPolicy?.permission).toBe("ask");
+  });
+
+  it("should include MultiEdit policy", () => {
+    const multiEditPolicy = DEFAULT_TOOL_POLICIES.find(
+      (p) => p.tool === "MultiEdit",
+    );
+    expect(multiEditPolicy).toBeDefined();
+    expect(multiEditPolicy?.permission).toBe("ask");
+  });
+
+  it("should have policies in correct order", () => {
+    // The catch-all policy should be last
+    const catchAllIndex = DEFAULT_TOOL_POLICIES.findIndex(
+      (p) => p.tool === "*",
+    );
+    expect(catchAllIndex).toBe(DEFAULT_TOOL_POLICIES.length - 1);
+  });
+
+  it("should default-deny write tools and Bash, with no headless exception", () => {
+    // The table does not vary by mode: a headless run cannot answer an ask,
+    // so the same ask policies are what keep writes and shell commands out of
+    // a -p request until the caller passes --allow.
+    const defaults = getDefaultToolPolicies();
+
+    for (const tool of ["Write", "Edit", "MultiEdit", "Bash", "*"]) {
+      const policy = defaults.find((p) => p.tool === tool);
+      expect(policy, `Policy should exist for ${tool}`).toBeDefined();
+      expect(policy?.permission, `${tool} should require permission`).toBe(
+        "ask",
+      );
+    }
+
+    expect(defaults.find((p) => p.tool === "Read")?.permission).toBe("allow");
+  });
+
+  it("allows WebSearch everywhere: searching is not a dangerous action", () => {
+    const byName = (policies: ToolPermissionPolicy[]) =>
+      policies.find((p) => p.tool === "WebSearch")?.permission;
+    expect(byName(getDefaultToolPolicies())).toBe("allow");
+    expect(byName(ACCEPT_EDITS_MODE_POLICIES)).toBe("allow");
+    expect(byName(PLAN_MODE_POLICIES)).toBe("allow");
+    expect(byName(DONT_ASK_MODE_POLICIES)).toBe("allow");
+  });
+});

@@ -1,0 +1,28 @@
+core/.continue-test
+docs/.docusaurus
+docs/**/*.mdx
+docs-site/.next
+docs-site/out
+packages/cli/.continue-debug
+**/.tntignore
+.tnt/rules/mintlify-formatting.md
+CHANGELOG.md
+**/continue_tutorial.py
+**/node_modules
+**/CODEOWNERS
+core/vendor
+coverage
+# Local agent and test scratch directories, never part of a checkout.
+.mimosa
+.impeccable
+.v2c
+.vitest
+.zion-mcp
+# Generated inside a package, ignored by that package's own .gitignore. Prettier
+# only reads the ignore files passed to it, so the nested ones are invisible here.
+docs-site/public/search-index*.json
+packages/config-yaml/schema/
+# e2e
+packages/sdk
+.conductor
+packages/zcode-ui/**

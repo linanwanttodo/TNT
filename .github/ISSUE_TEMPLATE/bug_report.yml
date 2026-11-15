@@ -1,0 +1,74 @@
+---
+name: 🐛 Bug report
+description: Create a report to help us fix your bug
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this bug! This will help us find the cause of the problem quickly with less back-and-forth required.
+  - type: checkboxes
+    attributes:
+      label: Before submitting your bug report
+      options:
+        - label: I've tried finding an answer in the [TNT docs](https://github.com/linanwanttodo/TNT/tree/main/docs/)
+          required: false
+        - label: I'm not able to find an [open issue](https://github.com/linanwanttodo/TNT/issues?q=is%3Aopen+is%3Aissue) that reports the same bug
+          required: false
+        - label: I've read the [troubleshooting guide](https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting.mdx)
+          required: false
+  - type: textarea
+    attributes:
+      label: Relevant environment info
+      description: |
+        Feel free to omit any info that is not relevant to your issue.
+
+        - **OS**: macOS
+        - **TNT version**: output of `tnt --version`
+        - **Surface**: interactive terminal / headless / serve / ACP
+        - **Terminal and Node.js**: e.g. GNOME Terminal, xterm-256color, v20.20.1
+        - **Model and wire protocol**: e.g. the config entry name and its protocol
+        - **Configuration**: the relevant part of `config.yaml` and `settings.json`
+      value: |
+        - OS:
+        - TNT version:
+        - Surface:
+        - Terminal and Node.js:
+        - Model:
+        - config:
+          ```yaml
+
+          ```
+        - settings.json:
+          ```json
+
+          ```
+      render: Markdown
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Description
+      description: |
+        Please provide a clear and concise description of the bug
+      placeholder: |
+        Short description
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: To reproduce
+      description: The exact command you ran, plus the steps. For a terminal UI bug, include a recording or screenshot if you can.
+      placeholder: |
+        1. Run `tnt …`
+        2. Type …
+        3. See error
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: |
+        Copy the tail of `~/.tnt/logs/tnt.log` (the newest entries are at the bottom), or the `--output-format stream-json` lines from a headless run. The [troubleshooting guide](https://github.com/linanwanttodo/TNT/tree/main/docs/troubleshooting.mdx) explains how to raise the log level. Redact anything secret before pasting.
+      render: Shell

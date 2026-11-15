@@ -1,0 +1,60 @@
+---
+title: "Permissions"
+description: "Allow, ask or exclude tools, and how the layers override each other."
+---
+
+Every tool call is checked against a policy before it runs.
+
+| Policy | Behaviour |
+| --- | --- |
+| `allow` | run without asking |
+| `ask` | ask the user first, with an accept or reject choice |
+| `exclude` | remove the tool entirely, the model never sees it |
+
+## Precedence
+
+Earlier layers win:
+
+1. The active mode (`plan` and `auto` override everything below).
+2. Command line flags: `--allow`, `--ask`, `--exclude`.
+3. Policies in `config.yaml`.
+4. Policies in `~/.tnt/permissions.yaml`.
+5. Built-in defaults for the bundled tools.
+
+## Tool patterns
+
+- `Read` matches every call to the `Read` tool.
+- `Read(*)` matches the same set.
+- `Read(**/*.ts)` matches calls whose main argument matches the glob.
+
+Argument matching is only meaningful for `allow` and `ask`; an `exclude` policy
+either removes the tool or does not.
+
+## Flags
+
+```bash
+tnt --allow Read --ask Write --exclude Bash
+```
+
+Each flag takes one pattern and may be repeated. They apply to the current run
+only, which makes them a good fit for a single risky task.
+
+## permissions.yaml
+
+```yaml title="~/.tnt/permissions.yaml"
+permissions:
+  allow:
+    - Read(**)
+    - Grep
+  ask:
+    - Write
+    - Edit
+  exclude:
+    - Bash(rm -rf*)
+```
+
+## How this connects to modes
+
+The mode is the strongest layer. `plan` mode forces read only behaviour with
+documentation writes, `auto` allows everything, and `agent` keeps the policies
+above, asking on high risk operations. See [Modes](/cli/modes).

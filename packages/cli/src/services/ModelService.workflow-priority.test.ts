@@ -1,0 +1,345 @@
+import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import * as config from "../config/index.js";
+import { logger } from "../utils/logger.js";
+
+import { ModelService } from "./ModelService.js";
+import { AgentFileServiceState } from "./types.js";
+
+// Mock the dependencies
+vi.mock("../utils/modelPersistence.js", () => ({
+  getPersistedModelName: vi.fn(() => null),
+  persistModelName: vi.fn(),
+}));
+
+vi.mock("../config/index.js", () => ({
+  createLlmApi: vi.fn(() => ({ provider: "test" })),
+  getLlmApi: vi.fn(() => [
+    { provider: "test" },
+    { provider: "test", name: "default-model" },
+  ]),
+  applyOllamaContextWindow: vi.fn(async (model: any) => model),
+}));
+
+vi.mock("../utils/logger.js", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+describe("ModelService agent file model prioritization", () => {
+  let modelService: ModelService;
+  let mockAssistant: AssistantUnrolled;
+  let mockModels: ModelConfig[];
+
+  beforeEach(() => {
+    modelService = new ModelService();
+
+    mockModels = [
+      { provider: "anthropic", name: "claude-3-sonnet" } as ModelConfig,
+      { provider: "openai", name: "gpt-4" } as ModelConfig,
+      { provider: "anthropic", name: "claude-3-haiku" } as ModelConfig,
+    ];
+
+    mockAssistant = {
+      models: mockModels,
+    } as AssistantUnrolled;
+
+    // Reset mocks
+    vi.clearAllMocks();
+  });
+
+  it("should prioritize agent file model over default when agent file has model specified", async () => {
+    const agentFileServiceState: AgentFileServiceState = {
+      agentFile: {
+        name: "test-agent",
+        model: "gpt-4",
+        prompt: "Test agent",
+      },
+      slug: "test/agent",
+      agentFileModel: { name: "gpt-4" },
+      parsedRules: null,
+      parsedTools: null,
+    };
+
+    // Mock createLlmApi to return different models based on the selected model
+    const createLlmApiMock = vi.mocked(config.createLlmApi);
+    createLlmApiMock.mockImplementation(
+      (model: ModelConfig) =>
+        ({
+          provider: model.provider,
+          name: (model as any).name,
+        }) as any,
+    );
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      agentFileServiceState,
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({
+        name: "gpt-4",
+        provider: "openai",
+      }),
+    );
+
+    // Should have called createLlmApi with the agent-file-specified model
+    expect(createLlmApiMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "gpt-4" }),
+    );
+  });
+
+  it("should fall back to persisted model when no agent file model is specified", async () => {
+    const agentFileServiceState: AgentFileServiceState = {
+      agentFile: {
+        name: "test-agent",
+        prompt: "Test agent file",
+        // No model specified
+      },
+      slug: "test/agent",
+      agentFileModel: null,
+      parsedRules: null,
+      parsedTools: null,
+    };
+
+    // Mock getPersistedModelName to return a persisted model
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue("claude-3-sonnet");
+
+    const createLlmApiMock = vi.mocked(config.createLlmApi);
+    createLlmApiMock.mockImplementation(
+      (model: ModelConfig) =>
+        ({
+          provider: model.provider,
+          name: (model as any).name,
+        }) as any,
+    );
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      agentFileServiceState,
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({
+        name: "claude-3-sonnet",
+        provider: "anthropic",
+      }),
+    );
+
+    expect(createLlmApiMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "claude-3-sonnet" }),
+    );
+  });
+
+  it("should fall back to default model when agent file model is not available", async () => {
+    const agentFileServiceState: AgentFileServiceState = {
+      agentFile: {
+        name: "test-agent",
+        model: "non-existent-model", // Model not in available models
+        prompt: "Test agent",
+      },
+      slug: "test/agent",
+      agentFileModel: { name: "non-existent-model" },
+      parsedRules: null,
+      parsedTools: null,
+    };
+
+    const getLlmApiMock = vi.mocked(config.getLlmApi);
+    getLlmApiMock.mockReturnValue([
+      { provider: "default" } as any,
+      { provider: "anthropic", name: "claude-3-sonnet" } as ModelConfig,
+    ]);
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      agentFileServiceState,
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({
+        name: "claude-3-sonnet",
+        provider: "anthropic",
+      }),
+    );
+
+    // Should have fallen back to getLlmApi
+    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant);
+  });
+
+  it("should use default model when no agent file exists", async () => {
+    const agentFileServiceState: AgentFileServiceState = {
+      agentFile: null,
+      slug: null,
+      agentFileModel: null,
+      parsedRules: null,
+      parsedTools: null,
+    };
+
+    // Make sure getPersistedModelName returns null (no persisted model)
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue(null);
+
+    const getLlmApiMock = vi.mocked(config.getLlmApi);
+    getLlmApiMock.mockReturnValue([
+      { provider: "default" } as any,
+      { provider: "anthropic", name: "claude-3-sonnet" } as ModelConfig,
+    ]);
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      agentFileServiceState,
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({
+        name: "claude-3-sonnet",
+        provider: "anthropic",
+      }),
+    );
+
+    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant);
+  });
+
+  it("should prioritize agent file model over persisted model", async () => {
+    const agentFileServiceState: AgentFileServiceState = {
+      agentFile: {
+        name: "test-agent",
+        model: "gpt-4", // Agent file specifies gpt-4
+        prompt: "Test agent",
+      },
+      slug: "test/agent",
+      agentFileModel: { name: "gpt-4" },
+      parsedRules: null,
+      parsedTools: null,
+    };
+
+    // Mock getModelName to return a different persisted model
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue("claude-3-haiku");
+
+    const createLlmApiMock = vi.mocked(config.createLlmApi);
+    createLlmApiMock.mockImplementation(
+      (model: ModelConfig) =>
+        ({
+          provider: model.provider,
+          name: (model as any).name,
+        }) as any,
+    );
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      agentFileServiceState,
+    );
+
+    // Should use agent file model (gpt-4), not persisted model (claude-3-haiku)
+    expect(result.model).toEqual(
+      expect.objectContaining({
+        name: "gpt-4",
+        provider: "openai",
+      }),
+    );
+
+    expect(createLlmApiMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "gpt-4" }),
+    );
+  });
+
+  it("uses the config.yaml selection ahead of the legacy persisted name", async () => {
+    const { getPersistedModelName } =
+      await import("../utils/modelPersistence.js");
+    vi.mocked(getPersistedModelName).mockReturnValue("claude-3-sonnet");
+
+    const createLlmApiMock = vi.mocked(config.createLlmApi);
+    createLlmApiMock.mockImplementation(
+      (model: ModelConfig) =>
+        ({
+          provider: model.provider,
+          name: (model as any).name,
+        }) as any,
+    );
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      undefined,
+      "gpt-4",
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({ name: "gpt-4", provider: "openai" }),
+    );
+    expect(createLlmApiMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "gpt-4" }),
+    );
+  });
+
+  it("keeps the agent file model ahead of the config.yaml selection", async () => {
+    const agentFileServiceState: AgentFileServiceState = {
+      agentFile: {
+        name: "test-agent",
+        prompt: "Test agent",
+        model: "claude-3-haiku",
+      },
+      slug: "test/agent",
+      agentFileModel: { name: "claude-3-haiku" },
+      parsedRules: null,
+      parsedTools: null,
+    };
+
+    const createLlmApiMock = vi.mocked(config.createLlmApi);
+    createLlmApiMock.mockImplementation(
+      (model: ModelConfig) =>
+        ({
+          provider: model.provider,
+          name: (model as any).name,
+        }) as any,
+    );
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      agentFileServiceState,
+      "gpt-4",
+    );
+
+    expect(result.model).toEqual(
+      expect.objectContaining({
+        name: "claude-3-haiku",
+        provider: "anthropic",
+      }),
+    );
+  });
+
+  it("falls back to the default model and warns when the selection is missing", async () => {
+    const getLlmApiMock = vi.mocked(config.getLlmApi);
+    getLlmApiMock.mockReturnValue([
+      { provider: "test" } as any,
+      { provider: "test", name: "default-model" } as any,
+    ]);
+
+    const result = await modelService.doInitialize(
+      mockAssistant,
+      undefined,
+      "not-configured",
+    );
+
+    expect(getLlmApiMock).toHaveBeenCalledWith(mockAssistant);
+    expect(result.model).toEqual(
+      expect.objectContaining({ name: "default-model" }),
+    );
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      "Preferred model is not defined in the loaded config",
+      expect.objectContaining({
+        preferredModelName: "not-configured",
+        modelSource: "config",
+      }),
+    );
+  });
+});

@@ -1,0 +1,66 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { Registry } from "./interfaces/index.js";
+import { PackageIdentifier } from "./interfaces/slugs.js";
+
+interface RegistryClientOptions {
+  rootPath?: string;
+}
+
+export class RegistryClient implements Registry {
+  private readonly rootPath?: string;
+
+  constructor(options: RegistryClientOptions = {}) {
+    this.rootPath = options.rootPath;
+  }
+
+  async getContent(id: PackageIdentifier): Promise<string> {
+    // Return pre-read content if available (for vscode-remote:// URIs in WSL)
+    if (id.uriType === "file" && id.content !== undefined) {
+      return id.content;
+    }
+
+    switch (id.uriType) {
+      case "file":
+        return this.getContentFromFilePath(id.fileUri);
+      case "slug":
+        throw new Error("Slug-based package resolution is not supported");
+      default:
+        throw new Error(
+          `Unknown package identifier type: ${(id as any).uriType}`,
+        );
+    }
+  }
+
+  private getContentFromFilePath(filepath: string): string {
+    if (filepath.startsWith("file://")) {
+      // For Windows file:///C:/path/to/file, we need to handle it properly
+      // On other systems, we might have file:///path/to/file
+      return fs.readFileSync(new URL(filepath), "utf8");
+    } else if (path.isAbsolute(filepath)) {
+      return fs.readFileSync(filepath, "utf8");
+    } else {
+      // Try to resolve relative to current working directory first
+      const resolvedPath = path.resolve(filepath);
+      if (fs.existsSync(resolvedPath)) {
+        return fs.readFileSync(resolvedPath, "utf8");
+      }
+      // Fall back to rootPath if file doesn't exist relative to cwd. The
+      // fallback stays anchored to rootPath: a `../` inside a relative
+      // package reference cannot resolve the read outside of it.
+      if (this.rootPath) {
+        const rooted = path.resolve(this.rootPath, filepath);
+        if (
+          rooted !== this.rootPath &&
+          !rooted.startsWith(path.resolve(this.rootPath) + path.sep)
+        ) {
+          throw new Error(
+            `Package file path escapes the registry root: ${filepath}`,
+          );
+        }
+        return fs.readFileSync(rooted, "utf8");
+      }
+      throw new Error("No rootPath provided for relative file path");
+    }
+  }
+}

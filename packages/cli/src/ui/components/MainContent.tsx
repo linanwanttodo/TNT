@@ -1,0 +1,101 @@
+import { Box } from "ink";
+import React from "react";
+
+import type { ChatHistoryItem } from "../../../../../core/index.js";
+import type { QueuedMessage } from "../../stream/messageQueue.js";
+import type { SessionNotice } from "../sessionNotices.js";
+
+import type { ScrollViewMetrics } from "./ScrollView.js";
+import { TranscriptContent } from "./TranscriptContent.js";
+
+interface MainContentProps {
+  showIntroMessage: boolean;
+  chatHistory: ChatHistoryItem[];
+  queuedMessages: QueuedMessage[];
+  renderMessage: (
+    item: ChatHistoryItem,
+    index: number,
+    allMessages?: ChatHistoryItem[],
+  ) => React.ReactElement;
+  streamingText: string | null;
+  streamingReasoning: string | null;
+  /** The finished turn's ledger, rendered under the answer. */
+  turnSummary?: string;
+  isWaitingForResponse: boolean;
+  responseStartTime: number | null;
+  isCompacting: boolean;
+  compactionStartTime: number | null;
+  isBashToolRunning: boolean;
+  /** Verbose sessions show the spinner's token counter before the 30 s gate. */
+  verbose?: boolean;
+  /** Rows hidden above the transcript window. */
+  scrollTop: number;
+  onScrollMetrics: (metrics: ScrollViewMetrics) => void;
+  /** Compensates the offset when a measured height replaces an estimate. */
+  onContentShift?: (rows: number) => void;
+  /** Draws the one-column scrollbar on the transcript's right edge. */
+  showScrollbar?: boolean;
+  /** Terminal-only rows anchored in the transcript; never in the conversation. */
+  notices?: readonly SessionNotice[];
+}
+
+/**
+ * The transcript area, inside the app-owned screen.
+ *
+ * It takes whatever height the dock leaves. It is not a fixed height computed
+ * from a reserve constant: the root frame is the terminal's height, the dock
+ * keeps its natural height and this box grows into the rest. The working
+ * indicator is part of the transcript content, so it always sits directly
+ * under the newest row instead of under the leftover space of the viewport.
+ */
+export const MainContent: React.FC<MainContentProps> = ({
+  showIntroMessage,
+  chatHistory,
+  queuedMessages,
+  renderMessage,
+  streamingText,
+  streamingReasoning,
+  turnSummary,
+  isWaitingForResponse,
+  responseStartTime,
+  isCompacting,
+  compactionStartTime,
+  isBashToolRunning,
+  verbose = false,
+  scrollTop,
+  onScrollMetrics,
+  onContentShift,
+  showScrollbar,
+  notices,
+}) => {
+  return (
+    <Box
+      flexDirection="column"
+      flexGrow={1}
+      flexShrink={1}
+      minHeight={0}
+      overflowY="hidden"
+    >
+      <TranscriptContent
+        showIntroMessage={showIntroMessage}
+        chatHistory={chatHistory}
+        queuedMessages={queuedMessages}
+        renderMessage={renderMessage}
+        streamingText={streamingText}
+        turnSummary={turnSummary}
+        streamingReasoning={streamingReasoning}
+        isWaitingForResponse={isWaitingForResponse}
+        responseStartTime={responseStartTime}
+        isCompacting={isCompacting}
+        compactionStartTime={compactionStartTime}
+        isBashToolRunning={isBashToolRunning}
+        verbose={verbose}
+        scrollTop={scrollTop}
+        onMetrics={onScrollMetrics}
+        onContentShift={onContentShift}
+        showScrollbar={showScrollbar}
+        notices={notices}
+      />
+    </Box>
+  );
+};

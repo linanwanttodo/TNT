@@ -1,0 +1,86 @@
+import { BaseContextProvider } from "../";
+import { ContextProviderName } from "../../";
+
+import ClipboardContextProvider from "./ClipboardContextProvider";
+import CodebaseContextProvider from "./CodebaseContextProvider";
+import CodeContextProvider from "./CodeContextProvider";
+
+import CurrentFileContextProvider from "./CurrentFileContextProvider";
+import DatabaseContextProvider from "./DatabaseContextProvider";
+import DebugLocalsProvider from "./DebugLocalsProvider";
+import DiffContextProvider from "./DiffContextProvider";
+import DiscordContextProvider from "./DiscordContextProvider";
+import DocsContextProvider from "./DocsContextProvider";
+import FileContextProvider from "./FileContextProvider";
+import FileTreeContextProvider from "./FileTreeContextProvider";
+import FolderContextProvider from "./FolderContextProvider";
+import GitCommitContextProvider from "./GitCommitContextProvider";
+import GitHubIssuesContextProvider from "./GitHubIssuesContextProvider";
+import GitLabMergeRequestContextProvider from "./GitLabMergeRequestContextProvider";
+import GoogleContextProvider from "./GoogleContextProvider";
+import GreptileContextProvider from "./GreptileContextProvider";
+import HttpContextProvider from "./HttpContextProvider";
+import JiraIssuesContextProvider from "./JiraIssuesContextProvider/";
+import MCPContextProvider from "./MCPContextProvider";
+import OpenFilesContextProvider from "./OpenFilesContextProvider";
+import OSContextProvider from "./OSContextProvider";
+import PostgresContextProvider from "./PostgresContextProvider";
+import ProblemsContextProvider from "./ProblemsContextProvider";
+import RepoMapContextProvider from "./RepoMapContextProvider";
+import RulesContextProvider from "./RulesContextProvider";
+import SearchContextProvider from "./SearchContextProvider";
+import TerminalContextProvider from "./TerminalContextProvider";
+import URLContextProvider from "./URLContextProvider";
+
+/**
+ * Note: We are currently omitting the following providers due to bugs:
+ * - `CodeOutlineContextProvider`
+ * - `CodeHighlightsContextProvider`
+ *
+ * See this issue for details: https://github.com/linanwanttodo/TNT/issues/1365
+ */
+export const Providers: (typeof BaseContextProvider)[] = [
+  FileContextProvider,
+  DiffContextProvider,
+  FileTreeContextProvider,
+  GitHubIssuesContextProvider,
+  GoogleContextProvider,
+  TerminalContextProvider,
+  DebugLocalsProvider,
+  OpenFilesContextProvider,
+  HttpContextProvider,
+  SearchContextProvider,
+  OSContextProvider,
+  ProblemsContextProvider,
+  FolderContextProvider,
+  DocsContextProvider,
+  GitLabMergeRequestContextProvider,
+  JiraIssuesContextProvider,
+  PostgresContextProvider,
+  DatabaseContextProvider,
+  CodebaseContextProvider,
+  CodeContextProvider,
+  CurrentFileContextProvider,
+  URLContextProvider,
+  RepoMapContextProvider,
+  DiscordContextProvider,
+  GreptileContextProvider,
+  MCPContextProvider,
+  GitCommitContextProvider,
+  ClipboardContextProvider,
+  RulesContextProvider,
+];
+
+export function contextProviderClassFromName(
+  name: ContextProviderName,
+): typeof BaseContextProvider | undefined {
+  // This module imports `BaseContextProvider` from the barrel it also feeds, so
+  // while the cycle is still being evaluated one of the entries below can be
+  // unset. Reading `.description` off it took the whole config load down with
+  // "Cannot read properties of undefined" on the Windows lane, where nothing
+  // else about the run was wrong; an unset entry is a provider this lookup
+  // cannot name, which is what `undefined` already means here.
+  const provider = Providers.find((cls) => cls?.description?.title === name);
+
+  return provider;
+}

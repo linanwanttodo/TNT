@@ -1,0 +1,258 @@
+import { RenderOptions } from "ink";
+import React from "react";
+
+import { t } from "../i18n/index.js";
+import { enableSigintHandler, setTUIUnmount } from "../index.js";
+import { PermissionMode } from "../permissions/types.js";
+import { initializeServices } from "../services/index.js";
+import { ServiceContainerProvider } from "../services/ServiceContainerContext.js";
+import { isHeadlessMode, isTTYless } from "../utils/cli.js";
+import { logger } from "../utils/logger.js";
+
+import { AppRoot } from "./AppRoot.js";
+import {
+  detectedTerminalIsDark,
+  probeTerminalIsDark,
+  setDetectedTerminalIsDark,
+} from "./theme/terminalAppearance.js";
+import { terminalCapabilityManager } from "./utils/terminalCapabilityManager.js";
+import {
+  disableLineWrapping,
+  enableLineWrapping,
+  shouldDisableLineWrapping,
+} from "./utils/terminalModes.js";
+import {
+  alternateScreenEnabled,
+  enterAlternateScreen,
+  leaveAlternateScreen,
+} from "./utils/terminalScreen.js";
+import { setAmbiguousCharactersWide } from "./utils/textUtils.js";
+import { renderGuardedTui } from "./utils/tuiOutput.js";
+
+export { MarkdownRenderer } from "./MarkdownRenderer.js";
+
+export interface StartTUIChatOptions {
+  initialPrompt?: string;
+  resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
+  fork?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
+  config?: string;
+  org?: string;
+  rule?: string[];
+  prompt?: string[];
+  toolPermissionOverrides?: {
+    allow?: string[];
+    ask?: string[];
+    exclude?: string[];
+    mode?: PermissionMode;
+  };
+  skipOnboarding?: boolean;
+}
+
+export async function startTUIChat(
+  options: StartTUIChatOptions & { customStdin?: NodeJS.ReadStream },
+) {
+  const {
+    initialPrompt,
+    resume,
+    sessionId,
+    fork,
+    maxSteps,
+    config,
+    org,
+    rule,
+    prompt,
+    toolPermissionOverrides,
+    skipOnboarding,
+    customStdin,
+  } = options;
+
+  // Critical safeguard: Prevent TUI initialization in headless mode
+  if (isHeadlessMode()) {
+    throw new Error(
+      "Cannot start TUI in headless mode. This is a programming error - " +
+        "startTUIChat should not be called when -p/--print flag is used.",
+    );
+  }
+
+  // Critical safeguard: Prevent TUI initialization in TTY-less environment
+  if (isTTYless() && !customStdin) {
+    throw new Error(t("ui.ttyLess"));
+  }
+
+  // Initialize services only if not already done (skipOnboarding means already initialized)
+  if (!skipOnboarding) {
+    await initializeServices({
+      options: { config, org, rule, prompt },
+      headless: false,
+      toolPermissionOverrides,
+    });
+  }
+
+  // Validate stdin is available and suitable for Ink
+  const stdinToUse = customStdin || process.stdin;
+
+  // Test raw mode capability (required by Ink)
+  if (
+    stdinToUse.isTTY &&
+    typeof (stdinToUse as any).setRawMode === "function"
+  ) {
+    try {
+      // Test that we can enter raw mode (Ink requirement)
+      (stdinToUse as any).setRawMode(true);
+      (stdinToUse as any).setRawMode(false);
+      logger.debug("Raw mode test passed - TTY is suitable for Ink");
+    } catch {
+      throw new Error(t("ui.rawModeRequired"));
+    }
+  } else if (!customStdin) {
+    logger.warn("stdin is not a TTY or does not support setRawMode");
+  }
+
+  // Resolve the auto theme before Ink owns stdin. The probe writes OSC 11 and
+  // listens for the terminal's answer; if Ink is already reading the same
+  // stream, its parser splits that answer at the ESC and the ESC-stripped
+  // remains are typed into the composer. Awaiting here means no render or
+  // input listener exists yet, so the answer is consumed before Ink parses
+  // anything.
+  if (detectedTerminalIsDark() === undefined) {
+    setDetectedTerminalIsDark(
+      await probeTerminalIsDark({
+        stdin: stdinToUse,
+        stdout: process.stdout,
+      }),
+    );
+  }
+
+  // Capability probe: kitty keyboard support, modifyOtherKeys and the
+  // ambiguous-width answer that drives the anti-ghosting width fix.
+  await terminalCapabilityManager.detectCapabilities();
+  setAmbiguousCharactersWide(
+    terminalCapabilityManager.areAmbiguousCharactersWide(),
+  );
+
+  // Auto-wrap stays off while the alternate buffer is active and on
+  // terminals that render ambiguous-width characters in two cells: a
+  // two-cell border glyph in the last column soft-wraps the row and leaves
+  // stale copies of the previous frame behind on every render.
+  const lineWrappingDisabled = shouldDisableLineWrapping(
+    alternateScreenEnabled(),
+    terminalCapabilityManager.areAmbiguousCharactersWide(),
+  );
+  if (lineWrappingDisabled) {
+    disableLineWrapping();
+  }
+
+  // Start the TUI immediately - it will handle loading states
+  // The fork's own render option, not in its published type yet.
+  const renderOptions: RenderOptions & {
+    terminalBuffer?: boolean;
+  } = {
+    exitOnCtrlC: false, // Disable Ink's default Ctrl+C handling so we can implement two-stage exit
+    // Incremental row updates instead of the full-frame erase and redraw the
+    // fullscreen branch otherwise does every render - the visible flicker on
+    // terminals without synchronized-output support comes from that redraw.
+    incrementalRendering: true,
+    // The whole frame is rendered into a terminal-sized buffer and written
+    // once. In the normal buffer this is what keeps a redrawn line from
+    // appearing twice: the writer owns the rows it paints, so a settled
+    // message is not printed again by the next frame.
+    terminalBuffer: true,
+    stdin: stdinToUse,
+    stdout: process.stdout,
+    stderr: process.stderr,
+  };
+
+  if (alternateScreenEnabled()) {
+    enterAlternateScreen();
+  }
+  const { unmount } = renderGuardedTui(
+    React.createElement(ServiceContainerProvider, {
+      children: React.createElement(AppRoot, {
+        configPath: config,
+        initialPrompt,
+        resume,
+        sessionId,
+        fork,
+        maxSteps,
+        additionalRules: rule,
+        additionalPrompts: prompt,
+      }),
+    }),
+    renderOptions,
+  );
+
+  // Leaving the alternate buffer is part of teardown, not an afterthought: the
+  // shell prompt must come back on the normal screen even when the app exits
+  // through the two-stage Ctrl+C path.
+  const restoreAndUnmount = () => {
+    unmount();
+    leaveAlternateScreen();
+    if (lineWrappingDisabled) {
+      enableLineWrapping();
+    }
+  };
+
+  // Register unmount function with main process for two-stage Ctrl+C exit
+  setTUIUnmount(restoreAndUnmount);
+
+  // Enable the two-stage SIGINT handler for TUI mode
+  enableSigintHandler();
+
+  return { unmount: restoreAndUnmount };
+}
+
+export async function startRemoteTUIChat(
+  remoteUrl: string,
+  initialPrompt?: string,
+) {
+  // Critical safeguard: Prevent TUI initialization in TTY-less environment
+  if (isTTYless()) {
+    throw new Error(t("ui.remoteTtyLess"));
+  }
+
+  // Test raw mode capability for remote TUI
+  if (
+    process.stdin.isTTY &&
+    typeof (process.stdin as any).setRawMode === "function"
+  ) {
+    try {
+      (process.stdin as any).setRawMode(true);
+      (process.stdin as any).setRawMode(false);
+      logger.debug("Raw mode test passed for remote TUI");
+    } catch {
+      throw new Error(t("ui.remoteRawMode"));
+    }
+  }
+
+  // Start the TUI in remote mode - no services needed
+  if (alternateScreenEnabled()) {
+    enterAlternateScreen();
+  }
+  const { unmount } = renderGuardedTui(
+    React.createElement(ServiceContainerProvider, {
+      children: React.createElement(AppRoot, {
+        remoteUrl,
+        initialPrompt,
+      }),
+    }),
+    {
+      stdin: process.stdin,
+      stdout: process.stdout,
+      stderr: process.stderr,
+    },
+  );
+
+  const restoreAndUnmount = () => {
+    unmount();
+    leaveAlternateScreen();
+  };
+
+  // Register unmount function with main process for two-stage Ctrl+C exit
+  setTUIUnmount(restoreAndUnmount);
+
+  return { unmount: restoreAndUnmount };
+}

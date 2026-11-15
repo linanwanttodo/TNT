@@ -1,0 +1,192 @@
+import type { Server } from "http";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { createMinimalTestContext } from "../../test-utils/ui-test-context.js";
+import { setLocale } from "../i18n/index.js";
+
+describe("serve command", () => {
+  let context: any;
+  let originalProcessExit: typeof process.exit;
+  let serverRef: Server | null = null;
+
+  beforeEach(() => {
+    context = createMinimalTestContext();
+
+    // Mock process.exit to prevent actual exit during tests
+    originalProcessExit = process.exit;
+    process.exit = vi.fn() as any;
+
+    // Mock console.log to prevent output during tests
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    // Mock all required modules at test level with correct relative paths
+    vi.mock("../auth/workos.js", () => ({
+      loadAuthConfig: vi.fn(() => null),
+      ensureOrganization: vi.fn(),
+      getOrganizationId: vi.fn(),
+      isAuthenticated: vi.fn(() => false),
+      isAuthenticatedConfig: vi.fn(() => false),
+    }));
+
+    vi.mock("../startup/onboarding.js", () => ({
+      runNormalFlow: vi.fn(() =>
+        Promise.resolve({
+          config: { models: [] },
+          llmApi: { chat: vi.fn() },
+          model: { name: "test-model" },
+        }),
+      ),
+    }));
+
+    vi.mock("../session/index.js", () => ({
+      saveSession: vi.fn(),
+    }));
+
+    vi.mock("../agent/systemMessage.js", () => ({
+      constructSystemMessage: vi.fn(() => Promise.resolve("System message")),
+    }));
+
+    vi.mock("../telemetry/telemetryService.js", () => ({
+      default: {
+        recordSessionStart: vi.fn(),
+        startActiveTime: vi.fn(),
+        stopActiveTime: vi.fn(),
+        updateOrganization: vi.fn(),
+      },
+    }));
+
+    vi.mock("chalk", () => ({
+      default: {
+        blue: (str: string) => str,
+        green: (str: string) => str,
+        dim: (str: string) => str,
+        yellow: (str: string) => str,
+        red: (str: string) => str,
+      },
+    }));
+  });
+
+  afterEach(async () => {
+    context.cleanup();
+
+    // Restore original process.exit
+    process.exit = originalProcessExit;
+
+    // Restore console.log
+    vi.restoreAllMocks();
+
+    // Clean up server if it's still running
+    if (serverRef) {
+      await new Promise<void>((resolve) => {
+        serverRef!.close(() => resolve());
+      });
+      serverRef = null;
+    }
+
+    vi.clearAllMocks();
+  });
+
+  // The /exit endpoint used to sit here as a stub asserting `true`, because the
+  // route is registered inside serve() and there was nowhere to call it. It is
+  // real coverage now, over HTTP, in `e2e/serve-http.test.ts`.
+
+  it("should pass the --org flag through to initializeServices", async () => {
+    // Import the services module to spy on
+    const servicesModule = await import("../services/index.js");
+
+    // Create spy on initializeServices
+    const initializeServicesSpy = vi
+      .spyOn(servicesModule, "initializeServices")
+      .mockResolvedValue({
+        config: { models: [] },
+        llmApi: { chat: vi.fn() },
+        model: { name: "test-model" },
+      } as any);
+
+    // Create spy on getService
+    const getServiceSpy = vi
+      .spyOn(servicesModule, "getService")
+      .mockResolvedValueOnce({
+        config: { name: "test" },
+        llmApi: { chat: vi.fn() },
+        model: { provider: "test", model: "test" },
+      } as any)
+      .mockResolvedValueOnce({
+        config: { name: "test" },
+        llmApi: { chat: vi.fn() },
+        model: { provider: "test", model: "test" },
+      } as any);
+
+    // Import serve after setting up spies
+    const { serve } = await import("./serve.js");
+
+    // Call serve with --org flag
+    const testOptions = {
+      org: "test-organization-slug",
+      timeout: "60",
+      port: "9000",
+    };
+
+    try {
+      await serve("test prompt", testOptions);
+    } catch (error) {
+      // Expected to fail due to incomplete mocking
+    }
+
+    // Check that initializeServices was called with organization option
+    expect(initializeServicesSpy).toHaveBeenCalled();
+    expect(initializeServicesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          org: "test-organization-slug",
+        }),
+      }),
+    );
+
+    // Clean up spies
+    initializeServicesSpy.mockRestore();
+    getServiceSpy.mockRestore();
+  });
+
+  it("prints its startup copy in the active locale", async () => {
+    const servicesModule = await import("../services/index.js");
+    const initializeServicesSpy = vi
+      .spyOn(servicesModule, "initializeServices")
+      .mockResolvedValue({
+        config: { models: [] },
+        llmApi: { chat: vi.fn() },
+        model: { name: "test-model" },
+      } as any);
+    const getServiceSpy = vi
+      .spyOn(servicesModule, "getService")
+      .mockResolvedValue({
+        config: { name: "test" },
+        llmApi: { chat: vi.fn() },
+        model: { provider: "test", model: "test" },
+        currentMode: "default",
+      } as any);
+
+    const consoleSpy = vi.mocked(console.log);
+    consoleSpy.mockClear();
+    setLocale("zh-CN");
+
+    try {
+      const { serve } = await import("./serve.js");
+      // The startup path is mocked only partway; the copy lands before it fails.
+      await serve("test prompt", { timeout: "60", port: "9000" } as any);
+    } catch {
+      // Expected: incomplete mocks for the later startup stages.
+    } finally {
+      setLocale("en");
+      initializeServicesSpy.mockRestore();
+      getServiceSpy.mockRestore();
+    }
+
+    const printed = consoleSpy.mock.calls
+      .map((args) => String(args[0] ?? ""))
+      .join("\n");
+    expect(printed).toContain("配置：");
+    expect(printed).toContain("助手：test");
+  });
+});

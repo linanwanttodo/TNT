@@ -1,0 +1,441 @@
+import { execFileSync, fork } from "child_process";
+
+import chalk from "chalk";
+import React from "react";
+
+import { t } from "../i18n/index.js";
+import { configureConsoleForHeadless } from "../startup/init.js";
+import { logger } from "../utils/logger.js";
+
+import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
+import type { DiffContext, ReviewTarget } from "./review/diffContext.js";
+import {
+  computeDiffContext,
+  reviewTargetFromOptions,
+  worktreeOptionsForTarget,
+} from "./review/diffContext.js";
+import type { ReviewResult } from "./review/renderReport.js";
+import { renderReport } from "./review/renderReport.js";
+import { isLocalPath, resolveReviews } from "./review/resolveReviews.js";
+import { ReviewProgress } from "./review/ReviewProgress.js";
+import type { ReviewState } from "./review/ReviewProgress.js";
+import type { WorkerConfig, WorkerResult } from "./review/reviewWorker.js";
+import { trackWorker, untrackWorker } from "./review/workerPool.js";
+import { createWorktree, cleanupWorktree } from "./review/worktree.js";
+
+export interface ReviewOptions extends ExtendedCommandOptions {
+  base?: string;
+  /** Review only the working tree against HEAD instead of the branch diff. */
+  uncommitted?: boolean;
+  /** Review one commit as it stood, without the working tree riding along. */
+  commit?: string;
+  /** Review an arbitrary git range, e.g. `main...HEAD` or `HEAD~3`. */
+  range?: string;
+  format?: string;
+  fix?: boolean;
+  patch?: boolean;
+  failFast?: boolean;
+  reviewAgents?: string[];
+  /** Run the agents on a model of their own instead of the session's. */
+  reviewModel?: string;
+}
+
+/**
+ * Run a single review in a forked worker process.
+ */
+async function runReviewInWorker(
+  agentSource: string,
+  worktreePath: string,
+  diffContext: DiffContext,
+  options: ReviewOptions,
+): Promise<WorkerResult> {
+  return new Promise<WorkerResult>((resolve, _reject) => {
+    // Fork the current CLI entry point with the internal worker flag
+    const workerPath = process.argv[1];
+    const child = fork(workerPath, ["--internal-review-worker"], {
+      stdio: ["pipe", "pipe", "pipe", "ipc"],
+      env: {
+        ...process.env,
+        // Ensure the worker can find its config
+        NODE_OPTIONS: process.env.NODE_OPTIONS || "",
+      },
+    });
+
+    trackWorker(child);
+
+    let settled = false;
+
+    const timeout = setTimeout(
+      () => {
+        if (!settled) {
+          settled = true;
+          untrackWorker(child);
+          child.kill("SIGTERM");
+          resolve({
+            patch: "",
+            agentOutput: "",
+            duration: 0,
+            error: "Review timed out after 5 minutes",
+          });
+        }
+      },
+      5 * 60 * 1000,
+    ); // 5 minute timeout
+
+    child.on("message", (msg: { type: string; result?: WorkerResult }) => {
+      if (msg.type === "ready") {
+        // Worker is ready, send the config
+        const config: WorkerConfig = {
+          agentSource,
+          worktreePath,
+          diffContext,
+          options: {
+            config: options.config,
+            org: options.org,
+            rule: options.rule,
+            verbose: options.verbose,
+            reviewModel: options.reviewModel,
+          },
+        };
+        child.send({ type: "run-review", config });
+      } else if (msg.type === "result" && msg.result) {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          untrackWorker(child);
+          child.kill("SIGTERM");
+          resolve(msg.result);
+        }
+      }
+    });
+
+    child.on("error", (err) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        untrackWorker(child);
+        resolve({
+          patch: "",
+          agentOutput: "",
+          duration: 0,
+          error: err.message,
+        });
+      }
+    });
+
+    child.on("exit", (code) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        untrackWorker(child);
+        if (code !== 0) {
+          resolve({
+            patch: "",
+            agentOutput: "",
+            duration: 0,
+            error: `Worker exited with code ${code}`,
+          });
+        }
+      }
+    });
+
+    // Capture stderr for debugging
+    if (child.stderr) {
+      let stderr = "";
+      child.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+      child.on("exit", () => {
+        if (stderr.trim()) {
+          logger.debug("Worker stderr:", { stderr: stderr.trim() });
+        }
+      });
+    }
+  });
+}
+
+/**
+ * Apply patches to the real working tree (--fix mode).
+ */
+function applyPatches(results: ReviewResult[]): void {
+  const patchResults = results.filter(
+    (r) => r.status === "fail" && r.patch.trim(),
+  );
+
+  if (patchResults.length === 0) {
+    console.log(chalk.dim(t("review.noPatches")));
+    return;
+  }
+
+  let applied = 0;
+  let failed = 0;
+
+  for (const result of patchResults) {
+    try {
+      // Dry-run first
+      // Array form without a shell; the patch (model output) goes through
+      // stdin, so it is data for git and never part of a command line.
+      execFileSync("git", ["apply", "--check", "-"], {
+        input: result.patch,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      // Actually apply
+      execFileSync("git", ["apply", "-"], {
+        input: result.patch,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      applied++;
+      console.log(chalk.green(t("review.appliedPatch", { name: result.name })));
+    } catch {
+      failed++;
+      console.log(chalk.red(t("review.patchConflict", { name: result.name })));
+    }
+  }
+
+  console.log(
+    t("review.appliedSummary", {
+      applied,
+      total: patchResults.length,
+    }) + (failed > 0 ? t("review.conflictsSuffix", { count: failed }) : ""),
+  );
+}
+
+/**
+ * Mutable props bag for the live Ink UI so we can update it progressively.
+ */
+interface LiveUIProps {
+  checks: ReviewState[];
+  baseBranch?: string;
+  changedFileCount?: number;
+  loading?: boolean;
+}
+
+/**
+ * Mount the Ink live progress UI or return a no-op for non-TTY / special modes.
+ */
+async function mountProgressUI(
+  props: LiveUIProps,
+  options: ReviewOptions,
+): Promise<{ rerender: () => void; unmount: () => void }> {
+  const useLiveUI =
+    process.stdout.isTTY && !options.patch && options.format !== "json";
+
+  if (!useLiveUI) {
+    return {
+      rerender: () => {},
+      unmount: () => {},
+    };
+  }
+
+  const { render } = await import("ink");
+  const instance = render(React.createElement(ReviewProgress, props));
+  return {
+    rerender: () =>
+      instance.rerender(React.createElement(ReviewProgress, props)),
+    unmount: () => instance.unmount(),
+  };
+}
+
+/**
+ * Output results and exit with appropriate code.
+ */
+function outputResultsAndExit(
+  results: ReviewResult[],
+  diffContext: DiffContext,
+  options: ReviewOptions,
+): void {
+  const format = options.format === "json" ? "json" : "text";
+  const report = renderReport(results, { format });
+
+  if (options.patch) {
+    const allPatches = results
+      .filter((r) => r.patch.trim())
+      .map((r) => r.patch)
+      .join("\n");
+    process.stdout.write(allPatches);
+    process.exit(
+      results.some((r) => r.status === "fail" || r.status === "error") ? 1 : 0,
+    );
+  }
+
+  console.log("\n" + report);
+
+  if (options.fix) {
+    console.log(chalk.dim(t("review.applyingFixes")));
+    applyPatches(results);
+  }
+
+  const hasFailed = results.some(
+    (r) => r.status === "fail" || r.status === "error",
+  );
+  process.exit(hasFailed ? 1 : 0);
+}
+
+/**
+ * Main review command handler.
+ */
+export async function review(options: ReviewOptions = {}): Promise<void> {
+  configureConsoleForHeadless(false);
+
+  // A hub-shaped name can only work if hub review resolution exists, and it does not:
+  // `resolveReviews` labels such a value `hub` and the worker then hands it to
+  // `readFileSync`, which fails with ENOENT inside a worktree - after a diff and a
+  // spinner, with no hint about what to do. Refuse it before any of that.
+  const hubShaped = (options.reviewAgents ?? []).filter(
+    (agent) => !isLocalPath(agent),
+  );
+  if (hubShaped.length > 0) {
+    console.log(
+      chalk.red(t("review.hubUnavailable", { names: hubShaped.join(", ") })),
+    );
+    process.exit(1);
+  }
+
+  if (options.verbose) {
+    logger.setLevel("debug");
+  }
+
+  // Mount the live UI immediately with a loading state
+  const uiProps: LiveUIProps = {
+    checks: [],
+    loading: true,
+  };
+  const { rerender, unmount: unmountUI } = await mountProgressUI(
+    uiProps,
+    options,
+  );
+
+  // Step 1: Compute diff
+  let target: ReviewTarget;
+  try {
+    target = reviewTargetFromOptions(options);
+  } catch (error) {
+    console.error(
+      chalk.red(t("review.failed", { message: (error as Error).message })),
+    );
+    process.exit(1);
+  }
+  const diffContext = computeDiffContext(target);
+
+  if (!diffContext.diff.trim() && diffContext.changedFiles.length === 0) {
+    unmountUI();
+    console.log(chalk.yellow(t("review.noChanges")));
+    process.exit(0);
+  }
+
+  // Update UI with diff info (still loading reviews)
+  uiProps.baseBranch = diffContext.baseBranch;
+  uiProps.changedFileCount = diffContext.changedFiles.length;
+  rerender();
+
+  // Step 2: Resolve reviews
+  const reviews = await resolveReviews(options.reviewAgents);
+
+  if (reviews.length === 0) {
+    unmountUI();
+    console.log(chalk.yellow(t("review.none")));
+    process.exit(0);
+  }
+
+  // Build mutable state for the live UI and stop loading
+  const reviewStates: ReviewState[] = reviews.map((c) => ({
+    name: c.name,
+    status: "pending" as const,
+  }));
+  uiProps.checks = reviewStates;
+  uiProps.loading = false;
+  rerender();
+
+  // Step 3: Create worktrees and run reviews
+  const results: ReviewResult[] = [];
+
+  const runSingleReview = async (
+    resolvedReview: (typeof reviews)[number],
+    i: number,
+  ): Promise<ReviewResult> => {
+    const startTime = Date.now();
+    let worktreePath: string | null = null;
+
+    try {
+      // Mark as running
+      reviewStates[i].status = "running";
+      reviewStates[i].startTime = Date.now();
+      rerender();
+
+      worktreePath = await createWorktree(i, worktreeOptionsForTarget(target));
+
+      const workerResult = await runReviewInWorker(
+        resolvedReview.source,
+        worktreePath,
+        diffContext,
+        options,
+      );
+
+      const status = workerResult.error
+        ? ("error" as const)
+        : workerResult.patch.trim()
+          ? ("fail" as const)
+          : ("pass" as const);
+
+      const duration = (Date.now() - startTime) / 1000;
+
+      // Mark as complete
+      reviewStates[i].status = status;
+      reviewStates[i].duration = duration;
+      rerender();
+
+      return {
+        agent: resolvedReview.source,
+        name: resolvedReview.name,
+        status,
+        patch: workerResult.patch,
+        output: workerResult.agentOutput,
+        duration,
+        error: workerResult.error,
+      };
+    } catch (e: any) {
+      const duration = (Date.now() - startTime) / 1000;
+
+      // Mark as error
+      reviewStates[i].status = "error";
+      reviewStates[i].duration = duration;
+      rerender();
+
+      return {
+        agent: resolvedReview.source,
+        name: resolvedReview.name,
+        status: "error" as const,
+        patch: "",
+        output: "",
+        duration,
+        error: e.message || String(e),
+      };
+    } finally {
+      if (worktreePath) {
+        await cleanupWorktree(worktreePath);
+      }
+    }
+  };
+
+  if (options.failFast) {
+    for (let i = 0; i < reviews.length; i++) {
+      const result = await runSingleReview(reviews[i], i);
+      results.push(result);
+      if (result.status === "fail" || result.status === "error") {
+        break;
+      }
+    }
+  } else {
+    const settled = await Promise.allSettled(
+      reviews.map((resolvedReview, i) => runSingleReview(resolvedReview, i)),
+    );
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        results.push(result.value);
+      }
+    }
+  }
+
+  unmountUI();
+  outputResultsAndExit(results, diffContext, options);
+}

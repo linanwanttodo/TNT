@@ -1,0 +1,248 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "tsc:watch",
+      "type": "npm",
+      "script": "tsc:watch",
+      "isBackground": true,
+      "problemMatcher": ["$tsc-watch"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "group": "dev-watchers",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "packages:build",
+      "type": "shell",
+      "command": "node ./scripts/build-packages.js",
+      "problemMatcher": [],
+      "presentation": {
+        "group": "build-tasks",
+        "panel": "shared",
+        "reveal": "always",
+        "close": true,
+        "revealProblems": "onProblem"
+      }
+    },
+    {
+      "label": "core:build",
+      "type": "npm",
+      "script": "build",
+      "group": "build",
+      "problemMatcher": ["$tsc"],
+      "options": {
+        "cwd": "${workspaceFolder}/core"
+      },
+      "presentation": {
+        "group": "build-tasks",
+        "panel": "shared",
+        "reveal": "silent",
+        "revealProblems": "onProblem",
+        "close": true
+      }
+    },
+    {
+      "label": "cli:build",
+      "type": "npm",
+      "script": "build",
+      "group": "build",
+      "problemMatcher": ["$tsc"],
+      "options": {
+        "cwd": "${workspaceFolder}/packages/cli"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    },
+    {
+      "label": "cli:build-no-minify",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build:bundle", "--", "--no-minify"],
+      "group": "build",
+      "problemMatcher": ["$tsc"],
+      "options": {
+        "cwd": "${workspaceFolder}/packages/cli"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false,
+        "close": true
+      }
+    },
+    {
+      "label": "cli:test",
+      "type": "npm",
+      "script": "test",
+      "group": "test",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/cli"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    },
+    {
+      "label": "watch-logs",
+      "type": "shell",
+      "command": "npm run watch:logs",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*$",
+          "endsPattern": "^.*$"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": false
+      },
+      "options": {
+        "cwd": "${workspaceFolder}/packages/cli"
+      }
+    },
+    {
+      "label": "cli:build-and-watch-logs",
+      "dependsOn": ["cli:build-no-minify", "watch-logs"],
+      "dependsOrder": "sequence",
+      "type": "shell",
+      "command": "echo",
+      "args": ["Build and watch logs completed"],
+      "problemMatcher": [],
+      "presentation": {
+        "group": "build-tasks",
+        "panel": "shared",
+        "reveal": "silent",
+        "close": true,
+        "focus": false
+      }
+    },
+    {
+      "label": "docs:start",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/docs"
+      },
+      "presentation": {
+        "group": "docs",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "docs-site:start",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/docs-site"
+      },
+      "presentation": {
+        "group": "docs",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "install-all-dependencies",
+      "type": "shell",
+      "windows": { "command": "./scripts/install-dependencies.ps1" },
+      "command": "./scripts/install-dependencies.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "group": "maintenance",
+        "panel": "shared",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "clean",
+      "type": "shell",
+      "command": "node",
+      "args": ["${workspaceFolder}/scripts/uninstall.js"],
+      "problemMatcher": [],
+      "presentation": {
+        "group": "maintenance",
+        "panel": "shared",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "refresh-dependencies:core",
+      "type": "shell",
+      "command": "npm",
+      "args": ["install"],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/core"
+      },
+      "presentation": {
+        "group": "maintenance",
+        "panel": "shared",
+        "reveal": "silent",
+        "close": true
+      }
+    },
+    {
+      "label": "refresh-dependencies:cli",
+      "type": "shell",
+      "command": "npm",
+      "args": ["install"],
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/packages/cli"
+      },
+      "presentation": {
+        "group": "maintenance",
+        "panel": "shared",
+        "reveal": "silent",
+        "close": true
+      }
+    },
+    {
+      "label": "refresh-dependencies:all",
+      "dependsOn": ["refresh-dependencies:core", "refresh-dependencies:cli"],
+      "type": "shell",
+      "command": "echo",
+      "args": ["Dependencies refreshed"],
+      "problemMatcher": [],
+      "presentation": {
+        "group": "maintenance",
+        "panel": "shared",
+        "reveal": "always"
+      }
+    }
+  ]
+}

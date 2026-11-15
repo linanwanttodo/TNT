@@ -1,0 +1,122 @@
+---
+title: "Troubleshooting"
+description: "How to read the logs and resolve the common failure modes of the TNT CLI: MCP server connection issues, TLS certificate errors and where to report what the docs do not cover."
+---
+
+1. [Check the logs](#check-the-logs)
+2. [MCP Server connection issues](#mcp-server-connection-issues)
+3. [SSL certificate errors](#ssl-certificate-errors)
+4. [Still having trouble?](#still-having-trouble)
+
+## Check the logs
+
+To solve many problems, the first step is reading the logs to find the
+relevant error message.
+
+Open `~/.tnt/logs/tnt.log` to view the CLI log. The most recent entries are at
+the bottom of the file. Debug-level detail requires a higher log level: set
+`TNT_LOG_LEVEL=debug` before reproducing the problem.
+
+Prompt and tool activity for each session also lands in the session's
+transcript under `~/.tnt/sessions/<session-id>/session.jsonl`, which is useful
+when a question is about what the model actually received.
+
+## MCP Server connection issues
+
+### "spawn ENAMETOOLONG" error on macOS
+
+If you're seeing an error like `Failed to connect to "<MCP Server Name>"` with
+`Error: spawn ENAMETOOLONG` when using MCP servers on macOS, this is due to the
+environment being too large when spawning the MCP process.
+
+**Workaround:** Use the full path to the command instead of relying on PATH
+resolution:
+
+```yaml
+mcpServers:
+  - name: Memory MCP server
+    command: /usr/local/bin/npx  # Use full path instead of just "npx"
+    args:
+      - -y
+      - "@modelcontextprotocol/server-memory"
+```
+
+To find the full path to a command on your system:
+- For `npx`: run `which npx`
+- For `docker`: run `which docker`
+- For `uv`/`uvx`: run `which uv` or `which uvx`
+
+This issue typically affects macOS users with large development environments.
+
+## SSL certificate errors
+
+If TNT can reach your model endpoint but cannot verify its TLS certificate
+chain, you may see `fetch failed` alongside errors such as:
+
+- `unable to verify the first certificate`
+- `self signed certificate in certificate chain`
+- `certificate verify failed`
+- `CERT_UNTRUSTED`
+
+This usually happens when you are connecting to a self-hosted model, enterprise
+proxy, or internal endpoint that uses a private CA or an incomplete certificate
+chain.
+
+### Quick fix: trust the CA bundle
+
+Add the root or intermediate certificate for that endpoint to your model's
+`requestOptions.caBundlePath`:
+
+```yaml
+models:
+  - name: Secure endpoint
+    provider: openai
+    model: gpt-4.1
+    apiBase: https://llm.example.com/v1
+    requestOptions:
+      caBundlePath: /path/to/ca-chain.pem
+```
+
+If your setup requires mutual TLS, configure `requestOptions.clientCertificate`
+too.
+
+### Diagnose the certificate problem
+
+1. Reproduce the error in the TNT log so you can confirm the exact hostname
+   that failed.
+2. Test the endpoint directly with `curl`:
+
+   ```bash
+   curl -v https://llm.example.com/v1/models
+   ```
+
+3. Inspect the certificate chain with OpenSSL:
+
+   ```bash
+   openssl s_client -showcerts -connect llm.example.com:443 -servername llm.example.com </dev/null
+   ```
+
+4. Save the required root or intermediate certificate as a PEM file and point
+   `requestOptions.caBundlePath` at it.
+5. Verify the fix with curl before retrying in TNT:
+
+   ```bash
+   curl --cacert /path/to/ca-chain.pem https://llm.example.com/v1/models
+   ```
+
+### Common setups
+
+For self-hosted or enterprise deployments, these options usually help:
+
+- Private CA or corporate proxy: set `requestOptions.caBundlePath`
+- Mutual TLS: set `requestOptions.clientCertificate`
+
+As a temporary debugging step, you can set `requestOptions.verifySsl: false` to
+confirm the failure is certificate-related. Do not leave this disabled in
+normal use.
+
+## Still having trouble?
+
+Create a GitHub issue in the
+[TNT repository](https://github.com/linanwanttodo/TNT/issues/new) with the log
+excerpt and the steps to reproduce.

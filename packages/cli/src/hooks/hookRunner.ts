@@ -1,0 +1,805 @@
+import { ChildProcess, spawn } from "child_process";
+
+import { SERVICE_NAMES, services } from "../services/index.js";
+import type { ModelServiceState } from "../services/types.js";
+import { logger } from "../utils/logger.js";
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
+
+import { getMatchingHookGroups } from "./hookConfig.js";
+import { MATCHER_FIELD_MAP, NO_MATCHER_EVENTS } from "./types.js";
+import type {
+  AgentHookHandler,
+  CommandHookHandler,
+  HookEventName,
+  HookEventResult,
+  HookExecutionResult,
+  HookHandler,
+  HookInput,
+  HookOutput,
+  HttpHookHandler,
+  PromptHookHandler,
+} from "./types.js";
+import type { HooksConfig } from "./types.js";
+
+const DEFAULT_COMMAND_TIMEOUT_SECONDS = 600;
+const DEFAULT_HTTP_TIMEOUT_SECONDS = 30;
+const DEFAULT_PROMPT_TIMEOUT_SECONDS = 30;
+
+/** Output a hook may produce before it is treated as a runaway. */
+const MAX_COMMAND_OUTPUT_CHARS = 10 * 1024 * 1024;
+
+/**
+ * Kills the hook and everything it started. A shell hook usually runs the
+ * real work as its children, which killing the shell alone leaves behind; on
+ * POSIX the hook runs in its own process group precisely so the whole group
+ * can be killed here. Windows keeps the single-process kill.
+ */
+function killProcessTree(child: ChildProcess): void {
+  if (child.pid === undefined) {
+    return;
+  }
+  try {
+    if (process.platform === "win32") {
+      // There is no process group to signal on Windows, and killing `cmd.exe`
+      // alone leaves the program it launched running with the files it opened.
+      // `taskkill /T` walks the tree from the pid instead; the direct kill is
+      // the fallback if the system tool is somehow unavailable.
+      spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], {
+        stdio: "ignore",
+      }).on("error", () => child.kill("SIGKILL"));
+    } else {
+      process.kill(-child.pid, "SIGKILL");
+    }
+  } catch {
+    // Already gone.
+  }
+}
+
+/**
+ * Model state for LLM-backed hooks. Returns null when the model service has
+ * not come up, which is the normal case in unit tests and early startup.
+ */
+async function resolveModelState(): Promise<ModelServiceState | null> {
+  try {
+    if (services.model?.isReady?.()) {
+      const { serviceContainer } = await import("../services/index.js");
+      return await serviceContainer.get<ModelServiceState>(SERVICE_NAMES.MODEL);
+    }
+  } catch {
+    // Hook handlers must never fail the calling flow.
+  }
+  return null;
+}
+
+/**
+ * Resolve the model a hook asked for.
+ *
+ * `model` is part of the handler contract for both LLM-backed hook types. An
+ * unset or unknown name falls back to the session's own model rather than
+ * failing the hook - a hook must not break the flow around it - but the
+ * fallback is logged, because a cheap check that silently became an expensive
+ * one is otherwise invisible.
+ */
+async function resolveHookModel(
+  handler: { model?: string },
+  label: string,
+): Promise<ModelServiceState | null> {
+  const base = await resolveModelState();
+  if (!base?.llmApi || !base.model) {
+    return null;
+  }
+  if (!handler.model) {
+    return base;
+  }
+
+  const { ModelService } = await import("../services/ModelService.js");
+  const named = ModelService.findModelByName(base, handler.model);
+  if (named?.llmApi && named.model) {
+    return named;
+  }
+
+  logger.warn(`${label} hook model not found; using the session model`, {
+    requested: handler.model,
+  });
+  return base;
+}
+
+function tryParseJson(str: string): HookOutput | null {
+  if (typeof str !== "string") return null;
+  const trimmed = str.trim();
+  if (!trimmed || !trimmed.startsWith("{")) return null;
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    // A hook output is an object; an array or a primitive that happens to
+    // parse is not a protocol this consumer can read.
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as HookOutput;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How a hook's command string reaches a shell.
+ *
+ * `cmd.exe` with `/s` strips the first and last quote of everything after `/c`, so the
+ * command is wrapped exactly once: `echo hi` arrives as `"echo hi"`, and a command that
+ * already quotes its arguments - which any Windows path with a space forces - arrives as
+ * `""C:\a b\node.exe" "script.mjs""`, whose outer pair is the one stripped, leaving the
+ * quotes the user wrote. `windowsVerbatimArguments` is what stops Node from escaping those
+ * inner quotes with backslashes, which cmd.exe does not read as escapes; without it the
+ * first and last arguments arrive glued to their quotes and the hook runs the wrong thing.
+ * Trust model: the command string comes from the user's own hook settings
+ * (project or global), the same act as running it in a terminal, so it is run
+ * through the shell verbatim - that is the product semantics, not a gap. The
+ * spawn is array-form around one fixed shell binary and the command is always
+ * a single argument after `-c` / `/c`; no other input is concatenated around
+ * it.
+ */
+export function hookShellCommand(
+  command: string,
+  platform: NodeJS.Platform = process.platform,
+): { shell: string; args: string[]; verbatim: boolean } {
+  if (platform === "win32") {
+    return {
+      shell: "cmd.exe",
+      args: ["/d", "/s", "/c", `"${command}"`],
+      verbatim: true,
+    };
+  }
+  return { shell: "/bin/sh", args: ["-c", command], verbatim: false };
+}
+
+function executeCommandHook(
+  handler: CommandHookHandler,
+  input: HookInput,
+  cwd: string,
+): Promise<HookExecutionResult> {
+  const timeoutMs = (handler.timeout ?? DEFAULT_COMMAND_TIMEOUT_SECONDS) * 1000;
+
+  return new Promise((resolve) => {
+    const env = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: cwd,
+      TNT_PROJECT_DIR: cwd,
+      // The old spelling is a contract handed to a script the user wrote, so it
+      // is written alongside the new one for one major version. Nothing in this
+      // repository reads it any more.
+      CONTINUE_PROJECT_DIR: cwd,
+    };
+
+    // The hook gets its own process group on POSIX (see killProcessTree).
+    const invocation = hookShellCommand(handler.command);
+    const child = spawn(invocation.shell, invocation.args, {
+      cwd,
+      env,
+      detached: process.platform !== "win32",
+      windowsVerbatimArguments: invocation.verbatim,
+    });
+
+    let stdout = "";
+    let stderr = "";
+    let outputExceeded = false;
+    let timedOut = false;
+
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (data: string) => {
+      if (stdout.length + data.length > MAX_COMMAND_OUTPUT_CHARS) {
+        outputExceeded = true;
+        killProcessTree(child);
+        return;
+      }
+      stdout += data;
+    });
+
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (data: string) => {
+      if (stderr.length + data.length > MAX_COMMAND_OUTPUT_CHARS) {
+        return;
+      }
+      stderr += data;
+    });
+
+    // Send JSON input on stdin
+    if (child.stdin) {
+      child.stdin.on("error", (error: NodeJS.ErrnoException) => {
+        if (error.code !== "EPIPE") {
+          logger.warn(
+            `Failed writing hook input to stdin: ${handler.command}`,
+            error,
+          );
+        }
+      });
+      child.stdin.write(JSON.stringify(input));
+      child.stdin.end();
+    }
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killProcessTree(child);
+    }, timeoutMs);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+
+      // A killed hook reports no exit code, which must not read as success:
+      // a timeout and runaway output are failures in their own right.
+      const killedBecause = timedOut
+        ? `Hook timed out after ${timeoutMs / 1000}s`
+        : outputExceeded
+          ? "Hook output exceeded the size limit"
+          : undefined;
+      const exitCode = killedBecause ? 1 : (code ?? 0);
+      const output = tryParseJson(stdout);
+
+      // Determine if the hook blocked the action
+      let blocked = false;
+      let blockReason: string | undefined;
+
+      if (exitCode === 2) {
+        blocked = true;
+        blockReason = stderr.trim() || "Blocked by hook";
+      } else if (output?.decision === "block") {
+        blocked = true;
+        blockReason = output.reason || stderr.trim() || "Blocked by hook";
+      }
+
+      const trimmedStderr = killedBecause
+        ? [stderr.trim(), killedBecause].filter(Boolean).join("\n")
+        : stderr.trim();
+
+      resolve({
+        output,
+        stdout: stdout.trim(),
+        stderr: trimmedStderr,
+        exitCode,
+        blocked,
+        blockReason,
+      });
+    });
+
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      logger.warn(`Hook command failed: ${handler.command}`, error);
+      resolve({
+        output: null,
+        stdout: "",
+        stderr: error.message,
+        exitCode: 1,
+        blocked: false,
+      });
+    });
+  });
+}
+
+function interpolateEnvVars(value: string, allowedVars: string[]): string {
+  return value.replace(/\$\{(\w+)\}|\$(\w+)/g, (_, braced, bare) => {
+    const varName = braced ?? bare;
+    if (allowedVars.includes(varName)) {
+      return process.env[varName] ?? "";
+    }
+    return "";
+  });
+}
+
+async function executeHttpHook(
+  handler: HttpHookHandler,
+  input: HookInput,
+): Promise<HookExecutionResult> {
+  const timeoutMs = (handler.timeout ?? DEFAULT_HTTP_TIMEOUT_SECONDS) * 1000;
+
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (handler.headers) {
+      const allowedVars = handler.allowedEnvVars ?? [];
+      for (const [key, value] of Object.entries(handler.headers)) {
+        headers[key] = interpolateEnvVars(value, allowedVars);
+      }
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    // The hook endpoint is operator-configured, so the guard accepts a
+    // deliberate loopback endpoint and rejects only non-HTTP(S) targets.
+    await assertConfiguredHttpUrl(handler.url);
+    const response = await fetch(handler.url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(input),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      // Non-2xx = non-blocking error.
+      logger.warn(`HTTP hook returned ${response.status}: ${handler.url}`);
+      return {
+        output: null,
+        stdout: "",
+        stderr: `HTTP ${response.status}`,
+        exitCode: 1,
+        blocked: false,
+      };
+    }
+
+    const bodyText = await response.text();
+    const output = tryParseJson(bodyText);
+
+    let blocked = false;
+    let blockReason: string | undefined;
+
+    if (output?.decision === "block") {
+      blocked = true;
+      blockReason = output.reason || "Blocked by hook";
+    }
+
+    return {
+      output,
+      stdout: bodyText.trim(),
+      stderr: "",
+      exitCode: 0,
+      blocked,
+      blockReason,
+    };
+  } catch (error) {
+    // Connection failures and timeouts = non-blocking errors
+    logger.warn(`HTTP hook failed: ${handler.url}`, error);
+    return {
+      output: null,
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+      exitCode: 1,
+      blocked: false,
+    };
+  }
+}
+
+/**
+ * Single-turn LLM evaluation. The prompt receives the hook input as $ARGUMENTS
+ * and must answer with the hook JSON schema.
+ */
+async function executePromptHook(
+  handler: PromptHookHandler,
+  input: HookInput,
+): Promise<HookExecutionResult> {
+  const timeoutMs = (handler.timeout ?? DEFAULT_PROMPT_TIMEOUT_SECONDS) * 1000;
+
+  const modelState = await resolveHookModel(handler, "prompt");
+  const llmApi = modelState?.llmApi ?? null;
+  const model = modelState?.model ?? null;
+
+  if (!llmApi || !model) {
+    logger.warn("Prompt hook skipped: no model available");
+    return {
+      output: null,
+      stdout: "",
+      stderr: "No model available for prompt hook",
+      exitCode: 1,
+      blocked: false,
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const { withExponentialBackoff } =
+      await import("../utils/exponentialBackoff.js");
+
+    const prompt = handler.prompt.replace(
+      /\$ARGUMENTS/g,
+      JSON.stringify(input),
+    );
+
+    const streamWithBackoff = withExponentialBackoff(
+      async (retrySignal: AbortSignal) => {
+        const { chatCompletionStreamWithBackoff } =
+          await import("../utils/exponentialBackoff.js");
+        return await chatCompletionStreamWithBackoff(
+          llmApi,
+          {
+            model: handler.model ?? model.model,
+            messages: [{ role: "user", content: prompt }],
+            stream: true,
+          } as any,
+          retrySignal,
+        );
+      },
+      controller.signal,
+    );
+
+    let text = "";
+    for await (const chunk of streamWithBackoff) {
+      const delta = chunk?.choices?.[0]?.delta?.content;
+      if (typeof delta === "string") {
+        text += delta;
+      }
+    }
+
+    const output = tryParseJson(text);
+    const blocked = output?.decision === "block";
+
+    return {
+      output,
+      stdout: text.trim(),
+      stderr: "",
+      exitCode: 0,
+      blocked,
+      blockReason: blocked ? output?.reason || "Blocked by hook" : undefined,
+    };
+  } catch (error) {
+    logger.warn("Prompt hook failed", error);
+    return {
+      output: null,
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+      exitCode: 1,
+      blocked: false,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Multi-turn subagent evaluation. Runs the prompt through a delegated agent
+ * loop so hook authors can ask for a decision that needs tool access.
+ */
+async function executeAgentHook(
+  handler: AgentHookHandler,
+  input: HookInput,
+): Promise<HookExecutionResult> {
+  const timeoutMs = (handler.timeout ?? DEFAULT_PROMPT_TIMEOUT_SECONDS) * 1000;
+
+  const agent = await resolveHookModel(handler, "agent");
+  if (!agent?.llmApi || !agent.model) {
+    logger.warn("Agent hook skipped: no model available");
+    return {
+      output: null,
+      stdout: "",
+      stderr: "No model available for agent hook",
+      exitCode: 1,
+      blocked: false,
+    };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const { executeSubAgent } = await import("../subagent/executor.js");
+
+    const prompt = handler.prompt.replace(
+      /\$ARGUMENTS/g,
+      JSON.stringify(input),
+    );
+
+    const result = await executeSubAgent({
+      agent,
+      prompt,
+      parentSessionId: input.session_id || "hook",
+      abortController: controller,
+    });
+
+    if (!result.success) {
+      logger.warn(`Agent hook failed: ${result.error}`);
+      return {
+        output: null,
+        stdout: "",
+        stderr: result.error ?? "Agent hook failed",
+        exitCode: 1,
+        blocked: false,
+      };
+    }
+
+    const output = tryParseJson(result.response);
+    const blocked = output?.decision === "block";
+
+    return {
+      output,
+      stdout: result.response.trim(),
+      stderr: "",
+      exitCode: 0,
+      blocked,
+      blockReason: blocked ? output?.reason || "Blocked by hook" : undefined,
+    };
+  } catch (error) {
+    logger.warn("Agent hook failed", error);
+    return {
+      output: null,
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+      exitCode: 1,
+      blocked: false,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function executeHandler(
+  handler: HookHandler,
+  input: HookInput,
+  cwd: string,
+): Promise<HookExecutionResult> {
+  switch (handler.type) {
+    case "command":
+      return {
+        ...(await executeCommandHook(handler, input, cwd)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
+    case "http":
+      return {
+        ...(await executeHttpHook(handler, input)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
+    case "prompt":
+      return {
+        ...(await executePromptHook(handler, input)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
+    case "agent":
+      return {
+        ...(await executeAgentHook(handler, input)),
+        hookSource: getHandlerDedupeKey(handler),
+      };
+    default:
+      logger.warn(`Unknown hook handler type: ${(handler as any).type}`);
+      return {
+        output: null,
+        stdout: "",
+        stderr: "",
+        exitCode: 0,
+        blocked: false,
+        hookSource: getHandlerDedupeKey(handler),
+      };
+  }
+}
+
+function getHandlerDedupeKey(handler: HookHandler): string {
+  switch (handler.type) {
+    case "command":
+      return `command:${handler.command}`;
+    case "http":
+      return `http:${handler.url}`;
+    case "prompt":
+      return `prompt:${handler.prompt}`;
+    case "agent":
+      return `agent:${handler.prompt}`;
+    default:
+      return `unknown:${JSON.stringify(handler)}`;
+  }
+}
+
+function getMatcherValue(input: HookInput): string | undefined {
+  const eventName = input.hook_event_name as HookEventName;
+
+  if (NO_MATCHER_EVENTS.includes(eventName)) {
+    return undefined;
+  }
+
+  const field = MATCHER_FIELD_MAP[eventName];
+  if (!field) return undefined;
+
+  return (input as any)[field] as string | undefined;
+}
+
+export async function runHooks(
+  config: HooksConfig,
+  input: HookInput,
+  cwd: string = process.cwd(),
+  /**
+   * Keys of the `once` handlers this process has already run. The set is owned
+   * by the caller that lives as long as the session does, because the settings
+   * file is not rewritten to forget a handler that has had its one run.
+   */
+  onceKeys?: Set<string>,
+): Promise<HookEventResult> {
+  const eventName = input.hook_event_name;
+  const matcherValue = getMatcherValue(input);
+
+  const matchingGroups = getMatchingHookGroups(config, eventName, matcherValue);
+
+  if (matchingGroups.length === 0) {
+    return { blocked: false, results: [] };
+  }
+
+  // Collect all handlers, deduplicating by key. A `once` handler whose key is
+  // already spent is not collected at all, so it costs no subprocess and cannot
+  // answer the event a second time.
+  const seen = new Set<string>();
+  const handlers: HookHandler[] = [];
+
+  for (const group of matchingGroups) {
+    for (const handler of group.hooks) {
+      // A disabled handler stays declared (settings can turn it back on) but
+      // costs no subprocess and answers no event.
+      if (handler.enabled === false) continue;
+      const key = getHandlerDedupeKey(handler);
+      if (seen.has(key)) continue;
+      if (handler.once && onceKeys?.has(key)) continue;
+      seen.add(key);
+      handlers.push(handler);
+    }
+  }
+
+  if (handlers.length === 0) {
+    return { blocked: false, results: [] };
+  }
+
+  // Marked before they run rather than after: two events in flight must not both
+  // get the handler, and a run that fails has still had its one execution.
+  if (onceKeys) {
+    for (const handler of handlers) {
+      if (handler.once) onceKeys.add(getHandlerDedupeKey(handler));
+    }
+  }
+
+  // Separate async (fire-and-forget) from sync handlers
+  const syncHandlers: HookHandler[] = [];
+  const asyncHandlers: HookHandler[] = [];
+
+  for (const handler of handlers) {
+    if (handler.type === "command" && handler.async) {
+      asyncHandlers.push(handler);
+    } else {
+      syncHandlers.push(handler);
+    }
+  }
+
+  // Fire async hooks (don't await)
+  for (const handler of asyncHandlers) {
+    executeHandler(handler, input, cwd).catch((err) => {
+      logger.warn("Async hook failed:", err);
+    });
+  }
+
+  // Execute sync hooks in parallel
+  const results = await Promise.all(
+    syncHandlers.map((handler) => executeHandler(handler, input, cwd)),
+  );
+
+  // Aggregate results
+  return aggregateResults(results, eventName);
+}
+
+/**
+ * A PermissionRequest decision is whatever the hook wrote, so it is read only
+ * when it is actually the shape the protocol promises.
+ */
+function isPermissionRequestDecision(
+  value: unknown,
+): value is NonNullable<HookEventResult["permissionRequestDecision"]> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const behavior = (value as { behavior?: unknown }).behavior;
+  return behavior === "allow" || behavior === "deny";
+}
+
+function aggregateResults(
+  results: HookExecutionResult[],
+  eventName: string,
+): HookEventResult {
+  const eventResult: HookEventResult = {
+    blocked: false,
+    results,
+  };
+
+  const additionalContextParts: string[] = [];
+
+  for (const result of results) {
+    // Check for blocking
+    if (result.blocked) {
+      eventResult.blocked = true;
+      if (!eventResult.blockReason) {
+        eventResult.blockReason = result.blockReason;
+      }
+    }
+
+    const output = result.output;
+    if (!output?.hookSpecificOutput) {
+      // For exit 0 with no JSON output, stdout can be context
+      // (for UserPromptSubmit and SessionStart)
+      if (
+        result.exitCode === 0 &&
+        result.stdout &&
+        (eventName === "UserPromptSubmit" || eventName === "SessionStart")
+      ) {
+        // A hook that writes a JSON note without the event wrapper still means
+        // the note, not the envelope: the raw braces would arrive in the
+        // transcript as though the user had typed them.
+        additionalContextParts.push(output?.additionalContext ?? result.stdout);
+      }
+      continue;
+    }
+
+    const specific = output.hookSpecificOutput;
+
+    // Extract additionalContext from any hook that supports it
+    if ("additionalContext" in specific && specific.additionalContext) {
+      additionalContextParts.push(specific.additionalContext);
+    }
+
+    // A hook answering a different event than the one fired is speaking out
+    // of turn: its event-specific fields describe a shape this event does not
+    // have, and reading them as this event's would apply another event's
+    // fields by name alone. The context above is shared by every event and
+    // still applies.
+    if (specific.hookEventName !== eventName) {
+      logger.warn(
+        `Hook answered ${String(specific.hookEventName)} for a ${eventName} event; ignoring its event-specific fields`,
+        { hook: result.hookSource ?? "unknown" },
+      );
+      continue;
+    }
+
+    // Event-specific aggregation
+    switch (specific.hookEventName) {
+      case "PreToolUse":
+        if (specific.permissionDecision) {
+          eventResult.permissionDecision = specific.permissionDecision;
+          eventResult.permissionDecisionReason =
+            specific.permissionDecisionReason;
+          if (specific.permissionDecision === "deny") {
+            eventResult.blocked = true;
+            eventResult.blockReason =
+              specific.permissionDecisionReason ||
+              output.reason ||
+              "Blocked by hook";
+          }
+        }
+        if (specific.updatedInput) {
+          eventResult.updatedInput = specific.updatedInput;
+        }
+        break;
+
+      case "PermissionRequest": {
+        // The decision is whatever the hook wrote; a missing or non-object
+        // shape is skipped rather than dereferenced - a TypeError here would
+        // mark an already-successful tool call as errored.
+        if (isPermissionRequestDecision(specific.decision)) {
+          eventResult.permissionRequestDecision = specific.decision;
+          if (specific.decision.behavior === "deny") {
+            eventResult.blocked = true;
+            eventResult.blockReason =
+              "message" in specific.decision &&
+              typeof specific.decision.message === "string" &&
+              specific.decision.message
+                ? specific.decision.message
+                : "Denied by hook";
+          }
+        } else {
+          logger.warn(
+            "PermissionRequest hook returned no usable decision; ignoring it",
+            { hook: result.hookSource ?? "unknown" },
+          );
+        }
+        break;
+      }
+
+      case "PostToolUse":
+        if (specific.updatedMCPToolOutput !== undefined) {
+          eventResult.updatedMCPToolOutput = specific.updatedMCPToolOutput;
+        }
+        break;
+
+      // Other events: additionalContext already handled above
+      default:
+        break;
+    }
+  }
+
+  if (additionalContextParts.length > 0) {
+    eventResult.additionalContext = additionalContextParts.join("\n");
+  }
+
+  return eventResult;
+}

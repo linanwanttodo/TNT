@@ -1,0 +1,535 @@
+import { Box, Text, type DOMElement } from "ink";
+import React, {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+
+import type { ToolCallState } from "../../../../../core/index.js";
+import { t } from "../../i18n/index.js";
+import { formatToolArgument } from "../../tools/formatters.js";
+import { getToolDisplayName } from "../../tools/registry.js";
+import { markLayoutDirty } from "../hooks/layoutDirty.js";
+import { useBlink } from "../hooks/useBlink.js";
+import { useClickRegion } from "../hooks/useClickRegion.js";
+import { claudeGlyphs } from "../symbols.js";
+import { useTheme, type Theme } from "../theme/tokens.js";
+import { useToolOutputExpanded } from "../toolOutputFold.js";
+import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
+
+import {
+  clusterSummary,
+  clusterToolStates,
+  type ToolDisplayCluster,
+} from "./toolClusters.js";
+import {
+  getDiffSummary,
+  isDiffContent,
+  parseDiffLines,
+  separateDiffAndNotes,
+  ToolDiffView,
+} from "./ToolDiffView.js";
+import { ToolResultBlock } from "./ToolResultBlock.js";
+
+/** Shell tools read as `$ command`. */
+const SHELL_TOOLS = new Set([
+  "bash",
+  "shell",
+  "terminal",
+  "exec",
+  "powershell",
+]);
+
+export function isShellTool(displayName: string): boolean {
+  return SHELL_TOOLS.has(displayName.toLowerCase());
+}
+
+/**
+ * Collapsed calls show the command row and nothing else, the way the reference
+ * client does: the output is what made a long transcript unreadable and every
+ * byte of it is still one click away. A failed call keeps its tail, because
+ * the reason is the one thing a reader needs without asking.
+ */
+const COLLAPSED_ERROR_TAIL_LINES = 3;
+
+/** A single expanded block stops being readable well before this. */
+const MAX_EXPANDED_OUTPUT_LINES = 60;
+
+export interface ToolItemDisplayProps {
+  toolState: ToolCallState;
+  isFirst?: boolean;
+}
+
+export interface ToolDotStyle {
+  glyph: string;
+  color: string;
+  dim: boolean;
+}
+
+/**
+ * The dot and colour that report a tool call's state. A queued call waits as
+ * a dim dot, a running one wears the assistant colour and blinks, a clean exit
+ * turns green, a failure red, and a cancellation fades back to the dim spine.
+ */
+export function toolDotStyle(
+  status: ToolCallState["status"],
+  activeTheme: Theme,
+): ToolDotStyle {
+  const { filledDot } = claudeGlyphs();
+  switch (status) {
+    case "done":
+      return {
+        glyph: filledDot,
+        color: activeTheme.status.success,
+        dim: false,
+      };
+    case "errored":
+      return {
+        glyph: filledDot,
+        color: activeTheme.status.error,
+        dim: false,
+      };
+    case "canceled":
+      return {
+        glyph: filledDot,
+        color: activeTheme.text.subtle,
+        dim: true,
+      };
+    case "calling":
+      // A running call blinks gray and white; the base colour is the off half.
+      return {
+        glyph: filledDot,
+        color: activeTheme.text.subtle,
+        dim: false,
+      };
+    case "generated":
+    case "generating":
+    default:
+      return {
+        glyph: filledDot,
+        color: activeTheme.text.subtle,
+        dim: true,
+      };
+  }
+}
+
+/** Only an executing call animates; a queued or finished dot stays still. */
+export function toolDotIsLive(status: ToolCallState["status"]): boolean {
+  return status === "calling";
+}
+
+/**
+ * The dot glyph. The blink no longer removes it: a running call alternates
+ * gray and white so the line keeps its shape instead of the dot blinking out.
+ */
+export function toolDotGlyph(style: ToolDotStyle, _visible: boolean): string {
+  return style.glyph;
+}
+
+function isTerminalStatus(status: ToolCallState["status"]): boolean {
+  return status === "done" || status === "errored" || status === "canceled";
+}
+
+/** Arguments that describe a call best, most specific first. */
+const DESCRIPTION_KEYS = [
+  "command",
+  "file_path",
+  "path",
+  "pattern",
+  "url",
+  "query",
+  "prompt",
+  "text",
+  "name",
+];
+
+/** One short, single-line description of a tool call's subject. */
+function describeCall(toolName: string, args: any): string {
+  if (!args || typeof args !== "object") {
+    return "";
+  }
+
+  let value: unknown;
+  for (const key of DESCRIPTION_KEYS) {
+    if (key in args) {
+      value = (args as Record<string, unknown>)[key];
+      break;
+    }
+  }
+  if (value === undefined) {
+    const first = Object.values(args)[0];
+    value = first;
+  }
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  const text = typeof value === "string" ? value : String(value);
+  const firstLine = text.split("\n")[0].trim();
+  const formatted = formatToolArgument(firstLine);
+  return formatted.length > 100 ? `${formatted.slice(0, 100)}...` : formatted;
+}
+
+/**
+ * The amount of work a finished call produced, in the few words the reference
+ * CLI puts after the arrow. A tool that has nothing worth saying gets no
+ * summary rather than a generic "done".
+ */
+function summarizeResult(
+  toolName: string,
+  status: ToolCallState["status"],
+  output: string,
+): string | undefined {
+  if (status !== "done" || !output) {
+    return undefined;
+  }
+
+  const name = toolName.toLowerCase();
+  const lines = output.length === 0 ? 0 : output.split("\n").length;
+
+  if (name === "read" || name === "read_file" || name === "readfile") {
+    return `${lines} ${lines === 1 ? "line" : "lines"}`;
+  }
+  if (name === "glob" || name === "list" || name === "listfiles") {
+    const entries = output.split("\n").filter((line) => line.trim()).length;
+    return `${entries} ${entries === 1 ? "entry" : "entries"}`;
+  }
+  if (
+    name === "search" ||
+    name === "grep" ||
+    name === "searchcode" ||
+    name === "ripgrep"
+  ) {
+    const matches = output.split("\n").filter((line) => line.trim()).length;
+    return `${matches} ${matches === 1 ? "match" : "matches"}`;
+  }
+  if (
+    name === "edit" ||
+    name === "write" ||
+    name === "multiedit" ||
+    name === "applypatch" ||
+    name === "patch"
+  ) {
+    if (isDiffContent(output)) {
+      const summary = getDiffSummary(parseDiffLines(output));
+      if (summary.additions > 0 || summary.deletions > 0) {
+        return `+${summary.additions} -${summary.deletions}`;
+      }
+    }
+    return "updated";
+  }
+
+  return undefined;
+}
+
+/** `0.1s` below a minute, then `1m 30s`, then `1h 2m 3s`. */
+function formatDuration(ms: number): string {
+  const seconds = Math.max(0, ms) / 1000;
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  if (minutes < 60) {
+    return `${minutes}m ${remainder}s`;
+  }
+
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${remainder}s`;
+}
+
+interface OutputPreview {
+  lines: string[];
+  hiddenAbove: number;
+  hiddenBelow: number;
+}
+
+function planOutput(
+  output: string,
+  expanded: boolean,
+  keepTail: boolean,
+): OutputPreview {
+  const lines = output.replace(/\s+$/, "").split("\n");
+  if (expanded) {
+    if (lines.length <= MAX_EXPANDED_OUTPUT_LINES) {
+      return { lines, hiddenAbove: 0, hiddenBelow: 0 };
+    }
+    return {
+      lines: lines.slice(0, MAX_EXPANDED_OUTPUT_LINES),
+      hiddenAbove: 0,
+      hiddenBelow: lines.length - MAX_EXPANDED_OUTPUT_LINES,
+    };
+  }
+
+  // Collapsed: only a failed call keeps a few lines, so the reason is on
+  // screen. A successful call is its command row and a line count.
+  if (keepTail && lines.length > COLLAPSED_ERROR_TAIL_LINES) {
+    return {
+      lines: lines.slice(-COLLAPSED_ERROR_TAIL_LINES),
+      hiddenAbove: lines.length - COLLAPSED_ERROR_TAIL_LINES,
+      hiddenBelow: 0,
+    };
+  }
+  if (keepTail) {
+    return { lines, hiddenAbove: 0, hiddenBelow: 0 };
+  }
+  return { lines: [], hiddenAbove: lines.length, hiddenBelow: 0 };
+}
+
+/**
+ * One tool call: a two-column dot gutter, then the name and its subject, with
+ * the output hanging underneath behind the U+23BF result gutter. Clicking the
+ * call folds or unfolds the output; a finished call folds itself so the
+ * transcript settles on its own.
+ */
+export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
+  const activeTheme = useTheme();
+  const toolName = toolState.toolCall.function.name;
+  const args = toolState.parsedArgs;
+  const dot = toolDotStyle(toolState.status, activeTheme);
+  const live = toolDotIsLive(toolState.status);
+  const blinkVisible = useBlink(live);
+  const dotGlyph = toolDotGlyph(dot, blinkVisible);
+  // Gray on the off half, white on the on half, so a running call reads as
+  // alive without the dot disappearing from the line.
+  const dotColor = live
+    ? blinkVisible
+      ? activeTheme.text.primary
+      : activeTheme.text.subtle
+    : dot.color;
+  const displayName = getToolDisplayName(toolName);
+  const description = sanitizeTerminalText(describeCall(toolName, args));
+  const rawOutput = sanitizeTerminalText(
+    toolState.output?.length
+      ? toolState.output.map((item) => item.content).join("\n")
+      : "",
+  );
+  // A failed call with no captured output still has to say what happened.
+  const output =
+    rawOutput ||
+    (toolState.status === "errored" ? t("tool.executionFailed") : "");
+  const summary = summarizeResult(toolName, toolState.status, output);
+  const shell = isShellTool(displayName);
+
+  const terminal = isTerminalStatus(toolState.status);
+  const panelRef = useRef<DOMElement>(null);
+  // The reference CLI owns the fold on ctrl+o; a click keeps its per-block
+  // override and the global sets the default.
+  const globalExpanded = useToolOutputExpanded();
+  const [override, setOverride] = useState<boolean | null>(null);
+  const expanded = override ?? (globalExpanded || !terminal);
+  const [durationMs, setDurationMs] = useState<number | null>(null);
+  const wasTerminal = useRef(terminal);
+  const startedAt = useRef<number | null>(null);
+  const endedAt = useRef<number | null>(null);
+
+  // A finished call folds its output without a second click. A call opened
+  // later in a resumed session starts folded, since no clock was observed.
+  useEffect(() => {
+    if (terminal && !wasTerminal.current) {
+      setOverride(false);
+    }
+    wasTerminal.current = terminal;
+  }, [terminal]);
+
+  useEffect(() => {
+    if (!terminal && startedAt.current === null) {
+      startedAt.current = Date.now();
+    }
+    if (
+      terminal &&
+      startedAt.current !== null &&
+      endedAt.current === null &&
+      durationMs === null
+    ) {
+      endedAt.current = Date.now();
+      setDurationMs(endedAt.current - startedAt.current);
+    }
+  }, [terminal, durationMs]);
+
+  useClickRegion(panelRef, () => {
+    setOverride(!(override ?? (globalExpanded || !terminal)));
+  });
+
+  // Folding, unfolding and adding the duration row change this panel's height
+  // without rendering the ScrollView that clips it. Tell the viewport so the
+  // new height is measured and the live tail stays pinned to the bottom.
+  useLayoutEffect(() => {
+    markLayoutDirty();
+  }, [expanded, durationMs]);
+
+  const hasDiff = isDiffContent(output);
+  const { notes, diff } = hasDiff
+    ? separateDiffAndNotes(output)
+    : { notes: "", diff: "" };
+
+  const preview = planOutput(output, expanded, toolState.status === "errored");
+  const duration = durationMs === null ? undefined : formatDuration(durationMs);
+  const toggleHint =
+    preview.hiddenAbove > 0
+      ? `... (${preview.hiddenAbove} earlier ${
+          preview.hiddenAbove === 1 ? "line" : "lines"
+        }, click to expand)`
+      : expanded && output
+        ? "click to collapse"
+        : "";
+
+  const titleRow = (
+    <Text wrap="truncate-end">
+      <Text color={activeTheme.text.subtle}>{expanded ? "▾ " : "▸ "}</Text>
+      {shell && description ? (
+        <>
+          <Text color={activeTheme.text.secondary}>$ </Text>
+          <Text color={activeTheme.text.primary}>{description}</Text>
+        </>
+      ) : (
+        <>
+          <Text bold color={activeTheme.accent}>
+            {displayName}
+          </Text>
+          {description ? (
+            <Text color={activeTheme.text.secondary}>: {description}</Text>
+          ) : null}
+        </>
+      )}
+      {summary ? (
+        <Text color={activeTheme.text.subtle}> · {summary}</Text>
+      ) : null}
+      {duration ? (
+        <Text color={activeTheme.tool.hint}> · ({duration})</Text>
+      ) : null}
+    </Text>
+  );
+
+  return (
+    <Box ref={panelRef} flexDirection="column" width="100%">
+      <Box flexDirection="row" width="100%">
+        <Box minWidth={2} flexShrink={0}>
+          <Text color={dotColor} dimColor={dot.dim}>
+            {dotGlyph}
+          </Text>
+        </Box>
+        <Box flexGrow={1} flexShrink={1} flexBasis={0} minWidth={0}>
+          {titleRow}
+        </Box>
+      </Box>
+
+      {hasDiff ? (
+        <ToolResultBlock>
+          <Box flexDirection="column">
+            {notes ? (
+              <Box marginBottom={1}>
+                <Text color={activeTheme.text.secondary}>{notes}</Text>
+              </Box>
+            ) : null}
+            <ToolDiffView
+              diffContent={diff}
+              expanded={expanded}
+              customTheme={activeTheme}
+            />
+          </Box>
+        </ToolResultBlock>
+      ) : output ? (
+        <ToolResultBlock>
+          <Box flexDirection="column">
+            {preview.hiddenAbove > 0 ? (
+              <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
+            ) : null}
+            <Text color={activeTheme.tool.output}>
+              {preview.lines.join("\n")}
+            </Text>
+            {preview.hiddenBelow > 0 ? (
+              <Text color={activeTheme.tool.hint}>
+                ... ({preview.hiddenBelow} more lines)
+              </Text>
+            ) : null}
+            {preview.hiddenAbove === 0 && expanded ? (
+              <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
+            ) : null}
+          </Box>
+        </ToolResultBlock>
+      ) : null}
+    </Box>
+  );
+});
+
+ToolItemDisplay.displayName = "ToolItemDisplay";
+
+export interface ToolGroupDisplayProps {
+  toolStates: ToolCallState[];
+}
+
+const ClusterRow = memo<{
+  cluster: ToolDisplayCluster;
+  displayName: string;
+  onToggle: () => void;
+}>(({ cluster, displayName, onToggle }) => {
+  const activeTheme = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const panelRef = useRef<DOMElement>(null);
+  useClickRegion(panelRef, () => {
+    setExpanded((value) => !value);
+    onToggle();
+  });
+  const summary = clusterSummary(cluster, displayName);
+  const showSummary = cluster.collapsed && !expanded;
+
+  return (
+    <Box ref={panelRef} flexDirection="column" width="100%">
+      {showSummary ? (
+        <Text color={activeTheme.text.secondary}>
+          {summary.label} · click to expand
+        </Text>
+      ) : (
+        cluster.states.map((state, index) => (
+          <ToolItemDisplay
+            key={state.toolCallId || `${cluster.key}-${index}`}
+            toolState={state}
+          />
+        ))
+      )}
+    </Box>
+  );
+});
+ClusterRow.displayName = "ClusterRow";
+
+/**
+ * The tool calls of one assistant step. Consecutive completed calls of the
+ * same tool fold into one line so a long run stays readable; running, failed
+ * and short runs keep their individual rows and full state.
+ */
+export const ToolGroupDisplay = memo<ToolGroupDisplayProps>(
+  ({ toolStates }) => {
+    if (!toolStates || toolStates.length === 0) {
+      return null;
+    }
+    const clusters = clusterToolStates(toolStates);
+
+    return (
+      <Box flexDirection="column">
+        {clusters.map((cluster) =>
+          cluster.collapsed ? (
+            <ClusterRow
+              key={cluster.key}
+              cluster={cluster}
+              displayName={getToolDisplayName(cluster.toolName)}
+              onToggle={() => markLayoutDirty()}
+            />
+          ) : (
+            cluster.states.map((state, index) => (
+              <ToolItemDisplay
+                key={state.toolCallId || `${cluster.key}-${index}`}
+                toolState={state}
+              />
+            ))
+          ),
+        )}
+      </Box>
+    );
+  },
+);
+
+ToolGroupDisplay.displayName = "ToolGroupDisplay";

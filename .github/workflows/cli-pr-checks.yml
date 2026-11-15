@@ -1,0 +1,375 @@
+name: CLI PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "docs-site/**"
+      - "*.md"
+      - "**/*.md"
+
+  # Work lands on main through a direct push as well as through a PR. A gate
+  # that only listens to pull_request would never run for those commits, which
+  # is how a broken install path stayed invisible.
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "docs-site/**"
+      - "*.md"
+      - "**/*.md"
+
+# One transcript-changing push at a time per ref; superseded runs are cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  track-rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.run_attempt > 1
+    steps:
+      - uses: actions/checkout@v6
+      - name: Track workflow rerun
+        uses: ./.github/actions/track-rerun
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "npm"
+          cache-dependency-path: packages/cli/package-lock.json
+
+      - name: Setup packages
+        uses: ./.github/actions/setup-packages
+      - name: Setup core component
+        uses: ./.github/actions/setup-component
+        with:
+          component: core
+          include-root: true
+
+      - name: Build core
+        run: |
+          cd core
+          npm run build
+
+      - name: Build the SDK that the CLI bundles
+        shell: bash
+        env:
+          # The typescript package builds through a bash script, and its api
+          # sibling chains cd through forward slashes; Git Bash handles that on
+          # the Windows runner, as the release matrix already does.
+          npm_config_script_shell: bash
+        # Installing the CLI also runs its prepare script, which bundles the CLI
+        # and imports the generated SDK. scripts/build-packages.js only runs the
+        # typescript package's own no-op build, so without this step the bundle
+        # cannot resolve @tnt/sdk and npm ci fails on every operating system.
+        run: |
+          cd packages/sdk/typescript
+          npm install --no-audit --no-fund
+          cd api
+          npm install --no-audit --no-fund
+          cd ..
+          npm run build
+
+      - name: Install dependencies
+        run: |
+          cd packages/cli
+          npm ci --include=optional
+
+      - name: Run linting
+        run: |
+          cd packages/cli
+          npm run lint
+
+  test:
+    strategy:
+      matrix:
+        # The floor (ubuntu + node 24, matching the engines field) runs the full
+        # e2e suite; every operating system runs that same floor. Widen here,
+        # not per-PR.
+        include:
+          - os: ubuntu-latest
+            node-version: 24
+          - os: windows-latest
+            node-version: 24
+          - os: macos-latest
+            node-version: 24
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+          cache-dependency-path: packages/cli/package-lock.json
+
+      - name: Cache CLI node_modules
+        uses: actions/cache@v5
+        with:
+          path: packages/cli/node_modules
+          key: ${{ runner.os }}-node${{ matrix.node-version }}-cli-modules-${{ hashFiles('packages/cli/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node${{ matrix.node-version }}-cli-modules-
+
+      - name: Setup packages
+        uses: ./.github/actions/setup-packages
+      - name: Setup core component
+        uses: ./.github/actions/setup-component
+        with:
+          component: core
+          include-root: true
+
+      - name: Build core
+        run: |
+          cd core
+          npm run build
+
+      - name: Build the SDK that the CLI bundles
+        shell: bash
+        env:
+          # The typescript package builds through a bash script, and its api
+          # sibling chains cd through forward slashes; Git Bash handles that on
+          # the Windows runner, as the release matrix already does.
+          npm_config_script_shell: bash
+        # Installing the CLI also runs its prepare script, which bundles the CLI
+        # and imports the generated SDK. scripts/build-packages.js only runs the
+        # typescript package's own no-op build, so without this step the bundle
+        # cannot resolve @tnt/sdk and npm ci fails on every operating system.
+        run: |
+          cd packages/sdk/typescript
+          npm install --no-audit --no-fund
+          cd api
+          npm install --no-audit --no-fund
+          cd ..
+          npm run build
+
+      - name: Install dependencies
+        run: |
+          cd packages/cli
+          npm ci --include=optional
+
+      - name: Build
+        run: |
+          cd packages/cli
+          npm run build
+
+      # Search and Glob register themselves only when `rg` is on PATH, so a
+      # runner without it silently tests a different tool catalog than a
+      # developer's machine - and then the guards that count that catalog fail.
+      - name: Provide ripgrep for the Search and Glob tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v rg >/dev/null 2>&1; then
+            rg --version | head -1
+            exit 0
+          fi
+          case "$RUNNER_OS" in
+            Linux)
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq ripgrep
+              ;;
+            macOS)
+              brew install ripgrep
+              ;;
+            Windows)
+              choco install ripgrep --no-progress -y
+              echo "C:/tools/bin" >> "$GITHUB_PATH"
+              ;;
+            *)
+              echo "No ripgrep install path for $RUNNER_OS" >&2
+              exit 1
+              ;;
+          esac
+          export PATH="$PATH:/c/tools/bin"
+          rg --version | head -1
+
+      - name: Run smoke tests
+        run: |
+          cd packages/cli
+          npm run test:smoke
+
+      # The coverage floor runs once, on the floor platform, because the
+      # numbers come from that platform and instrumentation makes the suite
+      # measurably slower; the other two operating systems run it plain.
+      - name: Run tests with the coverage floor
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd packages/cli
+          npm run test:coverage
+
+      - name: Run tests
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          cd packages/cli
+          npm test
+
+      # Windows e2e ran red on stdout that had not drained before exit; the
+      # exit path now waits for the pipe. Keep the TUI/PTY suites off Windows,
+      # but the headless suites are cross-platform and run here.
+      - name: Run headless e2e tests
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd packages/cli
+          npx vitest run --config vitest.e2e.config.ts headless
+      - name: Run e2e tests
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd packages/cli
+          npm run test:e2e
+
+  # The browser front end lives in the vendored `packages/zcode-ui` tree and is
+  # excluded from the CLI's eslint, vitest, coverage and tsc scopes on purpose
+  # (it has its own vite/tsc toolchain). This job builds it the same way the CLI
+  # does, then type checks the web app against the built packages.
+  webui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Build the vendored frontend
+        run: npm --prefix packages/cli run build:webui
+
+      - name: Type check
+        run: |
+          cd packages/zcode-ui/web
+          npx tsc -b
+
+  # A job-level `if` cannot read `secrets`, so this gate job reports whether
+  # the key exists. Without it the smoke job could only run on a same-repo PR:
+  # the old condition had no true branch on a push, so the gate that is supposed
+  # to measure the shipped CLI never ran for anything landing on main.
+  smoke-key:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      present: ${{ steps.check.outputs.present }}
+    steps:
+      - id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY is not configured; the smoke API gate skips."
+          fi
+
+  smoke-api:
+    needs: smoke-key
+    # Pushes to main and same-repo PRs carry the repository's secrets; a fork PR
+    # does not. The job is only meaningful when the key exists.
+    if: needs.smoke-key.outputs.present == 'true' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "npm"
+          cache-dependency-path: packages/cli/package-lock.json
+
+      - name: Setup packages
+        uses: ./.github/actions/setup-packages
+      - name: Setup core component
+        uses: ./.github/actions/setup-component
+        with:
+          component: core
+          include-root: true
+
+      - name: Build core
+        run: |
+          cd core
+          npm run build
+
+      - name: Build the SDK that the CLI bundles
+        shell: bash
+        env:
+          # The typescript package builds through a bash script, and its api
+          # sibling chains cd through forward slashes; Git Bash handles that on
+          # the Windows runner, as the release matrix already does.
+          npm_config_script_shell: bash
+        # Installing the CLI also runs its prepare script, which bundles the CLI
+        # and imports the generated SDK. scripts/build-packages.js only runs the
+        # typescript package's own no-op build, so without this step the bundle
+        # cannot resolve @tnt/sdk and npm ci fails on every operating system.
+        run: |
+          cd packages/sdk/typescript
+          npm install --no-audit --no-fund
+          cd api
+          npm install --no-audit --no-fund
+          cd ..
+          npm run build
+
+      - name: Install dependencies
+        run: |
+          cd packages/cli
+          npm ci --include=optional
+
+      - name: Build
+        run: |
+          cd packages/cli
+          npm run build
+
+      - name: Run smoke API tests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          cd packages/cli
+          npm run test:smoke-api
+
+  # GitHub does not have a way of requiring that all checks pass (you must manually select each job)
+  # This action at least lets us manage the list of required tests via source control
+  # so that creators of new jobs can add them to this list
+  require-all-checks-to-pass-cli:
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - lint
+      - test
+      - webui
+      - smoke-key
+      - smoke-api
+
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          # smoke-api may skip only when its key is absent or the PR is a fork;
+          # the gate job's notice says which. A failed smoke run still fails.
+          allowed-skips: smoke-api
+          jobs: ${{ toJSON(needs) }}

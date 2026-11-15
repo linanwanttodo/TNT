@@ -1,0 +1,44 @@
+{
+  "name": "@tnt/config-yaml",
+  "version": "1.23.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "browser": "./dist/browser.js",
+      "node": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "config-yaml": "./dist/cli.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc",
+    "generate-schema": "tsc && node dist/scripts/generateJsonSchema.js"
+  },
+  "author": "linanwanttodo",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@tnt/config-types": "file:../config-types",
+    "yaml": "^2.8.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^9.2.6",
+    "@semantic-release/npm": "^13.1.5",
+    "@types/node": "^20.19.43",
+    "semantic-release": "^24.2.7",
+    "ts-node": "^10.9.2",
+    "vitest": "^3.2.7",
+    "zod-to-json-schema": "^3.24.5"
+  },
+  "overrides": {
+    "picomatch": "^4.0.4"
+  }
+}

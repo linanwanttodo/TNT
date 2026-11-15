@@ -1,0 +1,57 @@
+{
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.profiles.linux": {
+    "bash": {
+      "path": "bash",
+      "args": ["-l"]
+    }
+  },
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "search.exclude": {
+    "**/package-lock.json": true,
+    "core/dist/**": true,
+    "core/edit/lazy/test-examples/**": true,
+    "core/llm/llamaTokenizer.js": true,
+    "core/llm/llamaTokenizer.mjs": true,
+    "core/vendor/**": true,
+    "docs/.docusaurus/**": true,
+    "docs-site/.next/**": true,
+    "docs-site/out/**": true,
+    "packages/cli/.continue-debug": true,
+    "packages/cli/dist/**": true,
+    "packages/config-yaml/dist/**": true,
+    "packages/openai-adapters/dist/**": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "core/dist/**": true,
+    "docs-site/.next/**": true,
+    "docs-site/out/**": true,
+    "packages/**/dist/**": true
+  },
+  "eslint.workingDirectories": ["./core"],
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "conventionalCommits.showNewVersionNotes": false,
+  "conventionalCommits.promptBody": false,
+  "conventionalCommits.promptFooter": false,
+  "conventionalCommits.promptScopes": true,
+  "conventionalCommits.scopes": [
+    "cli",
+    "tui",
+    "tools",
+    "core",
+    "adapters",
+    "config",
+    "ci",
+    "cache",
+    "permissions",
+    "retrieval",
+    "session",
+    "stream",
+    "subagent"
+  ]
+}

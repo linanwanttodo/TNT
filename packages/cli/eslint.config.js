@@ -1,0 +1,229 @@
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
+import importPlugin from "eslint-plugin-import";
+import unusedImports from "eslint-plugin-unused-imports";
+
+export default [
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+      import: importPlugin,
+      "unused-imports": unusedImports,
+    },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: "./tsconfig.json",
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+    },
+    rules: {
+      // Core rules - all as errors
+      "max-classes-per-file": ["error", 1],
+      "prefer-const": "error",
+      // "class-methods-use-this": [
+      //   "error",
+      //   {
+      //     exceptMethods: [
+      //       "render",
+      //       "shouldComponentUpdate",
+      //       "componentDidMount",
+      //       "componentDidUpdate",
+      //       "componentWillUnmount",
+      //     ],
+      //   },
+      // ],
+      "no-negated-condition": "error",
+      "max-lines": [
+        "error",
+        { max: 500, skipBlankLines: true, skipComments: true },
+      ],
+      complexity: ["error", { max: 30 }],
+      // "max-lines-per-function": [
+      //   "error",
+      //   { max: 150, skipBlankLines: true, skipComments: true },
+      // ],
+      "max-statements": ["error", { max: 50 }],
+      "max-depth": ["error", { max: 4 }],
+      "max-nested-callbacks": ["error", { max: 3 }],
+      "max-params": ["error", { max: 5 }],
+      eqeqeq: "error",
+
+      // TypeScript specific rules
+      // A floating promise is how an async failure disappears: the CLI keeps
+      // running and the user sees nothing. It was a warning while the existing
+      // calls were triaged; the last one is gone, so a new one is now a build
+      // failure rather than a line in the lint output nobody reads.
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+      // "@typescript-eslint/member-ordering": [
+      //   "error",
+      //   {
+      //     default: [
+      //       // Static fields
+      //       "public-static-field",
+      //       "protected-static-field",
+      //       "private-static-field",
+
+      //       // Instance fields
+      //       "public-instance-field",
+      //       "protected-instance-field",
+      //       "private-instance-field",
+
+      //       // Constructors
+      //       "constructor",
+
+      //       // Static methods
+      //       "public-static-method",
+      //       "protected-static-method",
+      //       "private-static-method",
+
+      //       // Instance methods
+      //       "public-instance-method",
+      //       "protected-instance-method",
+      //       "private-instance-method",
+      //     ],
+      //   },
+      // ],
+
+      // Import rules
+      "import/order": [
+        "error",
+        {
+          groups: [
+            "builtin",
+            "external",
+            "internal",
+            "parent",
+            "sibling",
+            "index",
+          ],
+          "newlines-between": "always",
+          alphabetize: {
+            order: "asc",
+            caseInsensitive: true,
+          },
+        },
+      ],
+      "import/no-default-export": "error",
+
+      // Unused code detection
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "error",
+        {
+          vars: "all",
+          varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
+        },
+      ],
+
+      // Turn off rules that might be too strict for CLI
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/explicit-module-boundary-types": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+
+      // Allow console for CLI tool
+      "no-console": "off",
+    },
+    settings: {
+      "import/resolver": {
+        typescript: {
+          project: "./tsconfig.json",
+        },
+        node: true,
+      },
+    },
+  },
+  {
+    // Allow default exports in specific files
+    files: ["src/index.ts", "*.config.js", "*.config.ts"],
+    rules: {
+      "import/no-default-export": "off",
+    },
+  },
+  {
+    // Pre-existing hot spots, exempted so the rest of the tree stays under the
+    // limits rather than the limits being raised for everyone. Each one is a
+    // single coherent module whose split is queued work; this list is not to
+    // grow - put the new code somewhere else instead.
+    files: [
+      "src/commands/chat.ts", // max-lines
+      "src/hooks/hookRunner.ts", // max-lines
+      "src/i18n/index.ts", // max-lines (translation tables)
+      "src/session/index.ts", // max-lines
+      "src/stream/streamChatResponse.ts", // max-lines
+      "src/agent/atMentions.ts", // max-statements (55)
+      "src/stream/streamChatResponse.autoCompaction.ts", // max-statements (54)
+      "src/compaction/index.ts", // max-params (6)
+      "src/loop/loopDetector.ts", // max-depth (5)
+      "src/permissions/permissionChecker.ts", // complexity (31)
+      "src/plugins/marketplaceManager.ts", // complexity (31)
+      "src/lsp/client.ts", // two small classes in one file
+    ],
+    rules: {
+      "max-lines": "off",
+      "max-statements": "off",
+      "max-params": "off",
+      "max-depth": "off",
+      complexity: "off",
+      "max-classes-per-file": "off",
+    },
+  },
+  {
+    // Test files can have different rules
+    files: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "**/test-utils/**/*.ts",
+      "**/test-utils/**/*.tsx",
+      "**/__tests__/**/*.ts",
+      "**/__tests__/**/*.tsx",
+      "**/__mocks__/**/*.ts",
+      "**/__mocks__/**/*.tsx",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "unused-imports/no-unused-vars": "off",
+      "max-classes-per-file": "off",
+      "max-lines": "off",
+      "max-lines-per-function": "off",
+      "max-statements": "off",
+      complexity: "off",
+      "class-methods-use-this": "off",
+      "max-nested-callbacks": "off",
+    },
+  },
+  {
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "../zcode-ui/**",
+      "coverage/**",
+      "*.d.ts",
+      "src/__mocks__/**",
+      "vitest.config.ts",
+      "*.config.js",
+      "*.config.ts",
+      // The benchmark's fixtures are data the harness copies to a temp directory
+      // and asks questions about; they are never compiled, so linting them would
+      // only report on code nobody runs.
+      "eval/retrieval/corpus/**",
+      // Local agent scratch that never enters a checkout; linting it makes the
+      // local gate disagree with CI, which cannot see these files at all.
+      "**/.mimosa/**",
+      "**/.vitest/**",
+      "**/.v2c/**",
+      "**/.zion-mcp/**",
+    ],
+  },
+];

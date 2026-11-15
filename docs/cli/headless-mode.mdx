@@ -1,0 +1,57 @@
+---
+title: "Headless Mode"
+description: "Run one task without the terminal UI, for scripts, CI and editor integrations."
+---
+
+Headless mode runs a single task and prints the answer:
+
+```bash
+tnt -p "Generate a commit message for the staged changes"
+```
+
+Piped input is added as context:
+
+```bash
+git diff --staged | tnt -p "Write a commit message for this diff"
+cat error.log | tnt -p "Explain what went wrong"
+```
+
+## Flags
+
+| Flag | Meaning |
+| --- | --- |
+| `-p`, `--print` | print the response and exit |
+| `--format json` | emit the result as JSON, only with `-p` |
+| `--silent` | strip `think` tags and excess whitespace, only with `-p` |
+| `--max-steps <n>` | cap the model rounds per turn |
+| `--config <path>` | use a specific config file for this run |
+| `--org <slug>` | organization slug, headless only |
+| `--allow`, `--ask`, `--exclude` | override permission policies for this run |
+| `--permission-mode <mode>` | start in `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` or `dontAsk` |
+| `--readonly`, `--auto` | legacy aliases for `plan` and `bypassPermissions` |
+| `--output-schema <path>` | validate the final answer against a JSON Schema file, only with `-p` |
+| `--request-timeout <seconds>` | cut the turn short after this many seconds, covering every tool round (default 300, `0` disables) |
+| `--fork <sessionId>` | fork from an existing session instead of starting a new one |
+
+## Environments without a TTY
+
+When a prompt is supplied, TNT does not read stdin and does not start the
+interactive UI, so it works from Docker without a TTY, from CI runners and from
+editor tool integrations. Set `FORCE_NO_TTY` to require that behaviour explicitly.
+
+```bash
+docker run --rm my-image tnt -p "Review the changes" --format json
+```
+
+## Other entry points
+
+| Command | Purpose |
+| --- | --- |
+| `tnt ls [--json]` | list saved sessions |
+| `tnt review` | review changes against a base ref, with `--fix` and `--patch` |
+| `tnt checks` | show CI check statuses for a PR (`list`, `accept`, `reject`) |
+| `tnt serve` | start the HTTP server mode |
+| `tnt --acp` | run as an Agent Client Protocol agent for an editor; see [ACP](/cli/acp) |
+
+Exit codes follow the run: a completed turn exits `0`, a failed run exits non-zero,
+which makes these commands usable as build steps.

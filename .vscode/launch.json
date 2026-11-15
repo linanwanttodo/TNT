@@ -1,0 +1,97 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  "version": "0.2.0",
+  "compounds": [],
+  "configurations": [
+    {
+      "name": "Debug CLI",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/cli/dist/tnt.js",
+      "args": [],
+      "runtimeArgs": ["--enable-source-maps"],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/packages/cli/dist/**/*.js"],
+      "sourceMapPathOverrides": {
+        "../src/*": "${workspaceFolder}/packages/cli/src/*",
+        "../../core/*": "${workspaceFolder}/core/*"
+      },
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "preLaunchTask": "cli:build-and-watch-logs",
+      "cwd": "${workspaceFolder}/manual-testing-sandbox"
+    },
+    {
+      "name": "Debug CLI - AWS Bedrock",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/cli/dist/tnt.js",
+      "args": [],
+      "runtimeArgs": ["--enable-source-maps"],
+      "env": {
+        "NODE_ENV": "development",
+        "TNT_USE_BEDROCK": "1"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/packages/cli/dist/**/*.js"],
+      "sourceMapPathOverrides": {
+        "../src/*": "${workspaceFolder}/packages/cli/src/*",
+        "../../core/*": "${workspaceFolder}/core/*"
+      },
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "preLaunchTask": "cli:build-and-watch-logs",
+      "cwd": "${workspaceFolder}/manual-testing-sandbox"
+    },
+    {
+      "name": "Debug CLI Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/cli/node_modules/.bin/vitest",
+      "args": ["--run", "--no-cache"],
+      "env": {
+        "NODE_ENV": "test"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "cwd": "${workspaceFolder}/packages/cli"
+    },
+    {
+      "name": "[Core] Vitest Test Debugger, Current Open File",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": [
+        "--inspect-brk",
+        "${workspaceRoot}/core/node_modules/vitest/vitest.mjs",
+        "run",
+        "${relativeFile}"
+      ],
+      "cwd": "${workspaceRoot}/core",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "CI": "true"
+      }
+    }
+  ]
+}

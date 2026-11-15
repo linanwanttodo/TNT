@@ -1,0 +1,436 @@
+---
+title: "config.yaml 参考"
+description: "config.yaml 的完整参考：TNT 读取的每个属性，用来在 YAML 里定义模型、规则、提示词与 MCP 服务器。"
+---
+
+## 简介
+
+TNT 智能体用 `config.yaml` 规范定义。
+
+**智能体**由模型、规则和工具（MCP 服务器）组成。
+
+## 属性
+
+下面是 `config.yaml` 里可以设置的每个属性。
+
+**每一层的所有属性都是可选的，除非明确标为必填。**
+
+`config.yaml` 的顶层属性：
+
+- [`name`](#name)（**必填**）
+- [`models`](#models)
+- [`context`](#context)
+- [`rules`](#rules)
+- [`prompts`](#prompts)
+- [`docs`](#docs)
+- [`mcpServers`](#mcpservers)
+- [`data`](#data)
+
+---
+
+### `name`
+
+`name` 指定项目或配置的名字。
+
+```yaml title="config.yaml"
+name: My Config
+```
+
+---
+
+### 接受但不使用：`version` 与 `schema`
+
+两个键都来自包格式，在那个格式里版本是包标识的一部分。TNT 不读它们：一份配置只需要 `name` 和下面的各节。已有的文件带着它们照常工作，新文件不需要写。
+
+---
+
+### `models`
+
+`models` 定义配置里使用的语言模型。模型用于对话、编辑、摘要等功能。
+
+**属性：**
+
+- `name`（**必填**）：在配置内标识这个模型的唯一名字。
+
+- `provider`（**必填**）：模型提供方（例如 `openai`、`ollama`）。
+
+- `model`（**必填**）：具体的模型名（例如 `gpt-4`、`starcoder`）。
+
+- `apiBase`：覆盖该模型默认的 API 地址。
+
+- `roles`：这个模型承担的角色数组，例如 `chat`、`autocomplete`、`embed`、`rerank`、`edit`、`apply`、`summarize`。默认值是 `[chat, edit, apply, summarize]`。`summarize` 角色目前未被使用。`autocomplete` 角色已废弃：仍然接受，好让现有配置继续通过校验，但 TNT 已经移除了 Tab 补全，这个角色不再激活任何东西。
+
+- `capabilities`：字符串数组，声明模型能力，会覆盖按 provider 和模型做的自动检测。支持的能力：
+
+  - `tool_use`：启用函数/工具调用（Agent 模式需要）
+  - `image_input`：启用图片上传与处理
+
+  对大多数模型 TNT 会自动检测这些能力；使用自定义部署或自动检测不准时可以在这里覆盖。
+
+- `maxStopWords`：允许的停止词上限，避免过长的列表触发 API 错误。
+
+- `promptTemplates`：覆盖不同模型角色的默认提示词模板。有效的键是 `chat`、`edit`、`apply`。`chat` 必须是有效的模板名，例如 `llama3` 或 `anthropic`。`autocomplete` 键为兼容现有配置仍然接受，但没有任何效果，因为 Tab 补全已经移除。
+
+- `chatOptions`：模型带 `chat` 角色时，这些设置作用于 Agent 与 Chat 模式：
+
+  - `baseSystemMessage`：覆盖 **Chat** 模式的默认系统提示词。
+  - `baseAgentSystemMessage`：覆盖 **Agent** 模式的默认系统提示词。
+  - `basePlanSystemMessage`：覆盖 **Plan** 模式的默认系统提示词。
+
+- `embedOptions`：模型带 `embed` 角色时，这些设置作用于向量化：
+
+  - `maxChunkSize`：每个文档分块的最大 token 数，最小 128。
+  - `maxBatchSize`：每次请求的最大分块数，最小 1。
+
+- `defaultCompletionOptions`：模型的默认补全选项。
+
+  - `contextLength`：模型的上下文长度上限，通常以 token 计。
+  - `maxTokens`：一次补全最多生成的 token 数。
+  - `temperature`：控制补全的随机性，取值从 `0.0`（确定）到 `1.0`（随机）。
+  - `topP`：核采样的累计概率。
+  - `topK`：每一步考虑的最大 token 数。
+  - `stop`：终止补全的停止词数组。
+  - `reasoning`：布尔值，为 Anthropic Claude 3.7+ 和部分 Ollama 模型开启思考/推理。
+  - `reasoningBudgetTokens`：Anthropic Claude 3.7+ 模型的思考预算 token 数。
+  - `keepAlive`：对 Ollama，最后一次请求后保持模型加载的秒数（默认 `1800`）。
+
+- `requestOptions`：该模型专用的 HTTP 请求选项。
+
+  - `timeout`：每次请求语言模型的超时时间。
+
+  - `verifySsl`：是否校验请求的 SSL 证书。
+
+  - `caBundlePath`：自定义 CA 证书包的路径。
+
+  - `proxy`：HTTP 请求使用的代理地址。
+
+  - `headers`：HTTP 请求的自定义请求头。
+
+  - `extraBodyProperties`：合并进 HTTP 请求体的额外属性。
+
+  - `noProxy`：绕过上面代理的主机名列表。
+
+  - `clientCertificate`：HTTP 请求使用的客户端证书。
+    - `cert`：客户端证书文件路径。
+    - `key`：客户端证书私钥文件路径。
+    - `passphrase`：私钥文件的可选口令。
+
+- `autocompleteOptions`：已废弃且不起作用。TNT 移除了 Tab 补全，这些设置只为让现有配置继续通过解析，不再改变任何行为。它们以前在模型带 `autocomplete` 角色时配置 Tab 补全：
+
+  - `disable`：为 `true` 时关闭该模型的补全。
+  - `maxPromptTokens`：补全提示词的最大 token 数。
+  - `debounceDelay`：触发补全前的延迟（毫秒）。
+  - `modelTimeout`：补全请求的模型超时（毫秒）。
+  - `maxSuffixPercentage`：提示词分配给后缀的最大百分比。
+  - `prefixPercentage`：输入分配给前缀的百分比。
+  - `transform`：为 `false` 时不修剪多行补全，默认 `true`。对不修剪反而更好的模型有用。
+  - `template`：补全用的 Mustache 模板，可使用 `{{{ prefix }}}`、`{{{ suffix }}}`、`{{{ filename }}}`、`{{{ reponame }}}`、`{{{ language }}}` 变量。
+  - `onlyMyCode`：上下文只包含仓库内的代码。
+  - `useCache`：为 `true` 时缓存补全。
+  - `useImports`：为 `true` 时把 import 放进上下文。
+  - `useRecentlyEdited`：为 `true` 时把最近编辑的文件放进上下文。
+  - `useRecentlyOpened`：为 `true` 时把最近打开的文件放进上下文。
+
+**示例：**
+
+```yaml title="config.yaml"
+name: My Config
+models:
+  - name: GPT-4o
+    provider: openai
+    model: gpt-4o
+    roles:
+      - chat
+      - edit
+      - apply
+    defaultCompletionOptions:
+      temperature: 0.7
+      maxTokens: 1500
+  - name: Codestral
+    provider: mistral
+    model: codestral-latest
+  - name: My Model - OpenAI-Compatible
+    provider: openai
+    apiBase: http://my-endpoint/v1
+    model: my-custom-model
+    capabilities:
+      - tool_use
+      - image_input
+    roles:
+      - chat
+      - edit
+```
+
+---
+
+### `context`
+
+`context` 定义上下文提供方，它们给语言模型补充信息或上下文。每个提供方可以带自己的参数。
+
+**属性：**
+
+- `provider`（**必填**）：上下文提供方的标识或名字（例如 `code`、`docs`、`web`）
+- `name`：提供方的可选名字
+- `params`：配置该提供方行为的可选参数。
+
+**示例：**
+
+```yaml title="config.yaml"
+name: My Config
+context:
+  - provider: file
+  - provider: code
+  - provider: diff
+  - provider: http
+    name: Context Server 1
+    params:
+      url: "https://api.example.com/server1"
+  - provider: terminal
+```
+
+---
+
+### `rules`
+
+规则会拼进所有 [Agent、Chat 与 Edit](/zh/cli/modes) 请求的系统消息。
+
+配置示例：
+
+```yaml title="config.yaml"
+name: My Config
+rules:
+  - uses: sanity/sanity-opinionated
+  - uses: file://user/Desktop/rules.md # 存在本机的规则文件
+```
+
+规则文件示例：
+
+```md title="rules.md"
+---
+name: Pirate rule
+---
+
+Talk like a pirate
+```
+
+详见[规则与提示词](/zh/cli/configuration#规则和提示词)。
+
+---
+
+### `prompts`
+
+提示词可以用 <kbd>/</kbd> 命令调用。
+
+配置示例：
+
+```yaml title="config.yaml"
+name: My Config
+prompts:
+  - uses: supabase/create-functions
+  - uses: file://user/Desktop/prompts.md # 存在本机的提示词文件
+```
+
+提示词文件示例：
+
+```md title="prompts.md"
+---
+name: Make pirate comments
+invokable: true
+---
+
+Rewrite all comments in the active file to talk like a pirate
+```
+
+覆盖写法见[规则与提示词](/zh/cli/configuration#规则和提示词)。
+
+---
+
+### `docs`
+
+要建立索引的文档站点列表。
+
+**属性：**
+
+- `name`（**必填**）：文档站点的名字，会显示在下拉框等处。
+- `startUrl`（**必填**）：抓取的起始页，通常是文档的根页或介绍页
+- `favicon`：站点图标地址（默认取 `startUrl` 下的 `/favicon.ico`）。
+
+**示例：**
+
+```yaml title="config.yaml"
+name: My Config
+docs:
+  - name: TNT
+    startUrl: https://github.com/linanwanttodo/TNT/tree/main/docs
+    favicon: https://github.com/linanwanttodo.png
+```
+
+---
+
+### `mcpServers`
+
+[Model Context Protocol](https://modelcontextprotocol.io/introduction) 是统一提示词、上下文和工具使用的标准。TNT 通过 MCP 上下文提供方支持任何 MCP 服务器。
+
+**属性：**
+
+- `name`（**必填**）：MCP 服务器的名字。
+- `command`（**必填**）：启动服务器使用的命令。
+- `args`：该命令的可选参数数组。
+- `env`：服务器进程的可选环境变量表。
+- `cwd`：运行命令的可选工作目录，可以是绝对或相对路径。
+- `requestOptions`：`sse` 与 `streamable-http` 服务器的可选请求选项，格式同[模型 requestOptions](#models)。
+- `connectionTimeout`：与 MCP 服务器**初次**连接的可选超时。
+
+**示例：**
+
+```yaml title="config.yaml"
+name: My Config
+mcpServers:
+  - name: My MCP Server
+    command: uvx
+    args:
+      - mcp-server-sqlite
+      - --db-path
+      - ./test.db
+    cwd: /Users/NAME/project
+    env:
+      NODE_ENV: production
+```
+
+### `data`
+
+开发数据要发送到的目的地。
+
+**属性：**
+
+- `name`（**必填**）：数据目的地的显示名
+- `destination`（**必填**）：接收数据的目的地/端点，可以是：
+  - 一个 HTTP 端点，会收到带 JSON 数据的 POST 请求
+  - 一个目录的 file URL，事件会写进该目录下的 `.jsonl` 文件
+- `schema`（**必填**）：发送的 JSON 数据所用的 schema 版本，可选 `0.1.0` 与 `0.2.0`
+- `events`：要包含的事件名数组。不写则包含全部事件。
+- `level`：事件字段的预置过滤。可选 `all` 与 `noCode`；后者排除文件内容、提示词、补全这类数据。默认 `all`
+- `apiKey`：随请求发送的 API key（Bearer 头）
+- `requestOptions`：事件 POST 请求的选项，格式同[模型 requestOptions](#models)。
+
+**示例：**
+
+```yaml title="config.yaml"
+name: My Config
+data:
+  - name: Local Data Bank
+    destination: file:///home/you/Documents/external-data
+    schema: 0.2.0
+    level: all
+  - name: My Private Company
+    destination: https://mycompany.com/ingest
+    schema: 0.2.0
+    level: noCode
+    events:
+      - autocomplete
+      - chatInteraction
+```
+
+---
+
+## 完整的 YAML 配置示例
+
+把上面的内容放到一起，下面是一份完整的 `config.yaml`：
+
+```yaml title="config.yaml"
+name: My Config
+models:
+  - uses: anthropic/claude-sonnet-4-6
+    with:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    override:
+      defaultCompletionOptions:
+        temperature: 0.8
+  - name: GPT-4
+    provider: openai
+    model: gpt-4
+    roles:
+      - chat
+      - edit
+    defaultCompletionOptions:
+      temperature: 0.5
+      maxTokens: 2000
+    requestOptions:
+      headers:
+        Authorization: Bearer YOUR_OPENAI_API_KEY
+  - name: Ollama Starcoder
+    provider: ollama
+    model: starcoder
+    defaultCompletionOptions:
+      temperature: 0.3
+      stop:
+        - "\n"
+rules:
+  - Give concise responses
+  - Always assume TypeScript rather than JavaScript
+prompts:
+  - name: test
+    description: Unit test a function
+    prompt: |
+      Please write a complete suite of unit tests for this function. You should use the Jest testing framework.
+      The tests should cover all possible edge cases and should be as thorough as possible.
+      You should also include a description of each test case.
+  - uses: myprofile/my-favorite-prompt
+context:
+  - provider: diff
+  - provider: file
+  - provider: code
+mcpServers:
+  - name: DevServer
+    command: npm
+    args:
+      - run
+      - dev
+    env:
+      PORT: "3000"
+data:
+  - name: My Private Company
+    destination: https://mycompany.com/ingest
+    schema: 0.2.0
+    level: noCode
+    events:
+      - autocomplete
+      - chatInteraction
+```
+
+## 用 YAML 锚点避免配置重复
+
+也可以用锚点避免属性重复。这样写需要加上 YAML 版本头 `%YAML 1.1`，下面是使用锚点的 `config.yaml` 示例：
+
+```yaml title="config.yaml"
+%YAML 1.1
+---
+name: My Config
+model_defaults: &model_defaults
+  provider: openai
+  apiKey: my-api-key
+  apiBase: https://api.example.com/llm
+models:
+  - name: mistral
+    <<: *model_defaults
+    model: mistral-7b-instruct
+    roles:
+      - chat
+      - edit
+  - name: qwen2.5-coder-7b-instruct
+    <<: *model_defaults
+    model: qwen2.5-coder-7b-instruct
+    roles:
+      - chat
+      - edit
+  - name: qwen2.5-coder-7b
+    <<: *model_defaults
+    model: qwen2.5-coder-7b
+    useLegacyCompletionsEndpoint: false
+```
+
+---
+
+## `config.json` 已废弃
+
+`config.yaml` 取代了 `config.json`，后者已废弃。[配置指南](/zh/cli/configuration) 描述了当前布局：模型与选择在 `config.yaml`，权限、钩子与环境在 `settings.json`。

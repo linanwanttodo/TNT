@@ -1,0 +1,197 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import { describe, expect, it } from "vitest";
+
+/**
+ * Every test that renders an Ink tree and never unmounts it leaves the tree's
+ * subscribers attached to the singleton service container, and the container
+ * tolerates 50 handlers per event before it warns. That is why the suite has
+ * been printing `51 toolPermissions:loading listeners added to
+ * [ServiceContainer]` in every gate run: the accumulation is real, but it is
+ * test hygiene, not a product leak, and a warning that fires for the wrong
+ * reason is a warning nobody reads.
+ *
+ * These numbers are the balance of `render(` against `.unmount()` per file,
+ * counted as text. A stray mention of either in a comment shifts a file's
+ * allowance, which only ever makes that file's ceiling looser - so the guard
+ * cannot fail on its own arithmetic, and translating this debt away one file
+ * at a time never turns it red.
+ */
+const KNOWN_UNMOUNTED_RENDERS: Record<string, number> = {
+  "test-utils/renderWithServices.tsx": 1,
+};
+
+const PACKAGE_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
+
+/**
+ * A mount does not have to sit in a test file to be debt: the whole suite's
+ * accumulation lived in what is now `test-utils/TUIChat.dualModeHelper.tsx`, and a
+ * scan limited to `src/ui/*.test.tsx` could not see it. Both trees are checked, with
+ * keys produced by the single expression below so the table and the assertions
+ * can never disagree about what a path looks like.
+ *
+ * Two limits of counting text, both measured rather than assumed. A pass-through
+ * helper that hands the tree back to its caller (renderWithServices returns
+ * unmount inside its result) reads as one mount never released even though its
+ * consumers print no MaxListeners warning at all, so its row is an allowance, not
+ * a proven leak. And a wrapper is invisible on the other side: a caller of
+ * renderWithServices matches neither pattern, so its own mount is counted only
+ * where the real render call sits.
+ */
+const SCAN_TARGETS = [
+  { dir: "src/ui", testFilesOnly: true },
+  // Test helpers live at the package root now; `src/test-utils` is gone, so a
+  // mount planted in either the helpers or their unreferenced corner is visible.
+  { dir: "test-utils", testFilesOnly: false },
+];
+
+function scannedFiles(dir: string, testFilesOnly: boolean): string[] {
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== "__mocks__") {
+        found.push(...scannedFiles(full, testFilesOnly));
+      }
+    } else if (
+      /\.tsx?$/.test(entry.name) &&
+      (!testFilesOnly || /\.test\.tsx?$/.test(entry.name))
+    ) {
+      found.push(full);
+    }
+  }
+  return found;
+}
+
+/**
+ * Renders counted against the calls that give them back, per file. Only files that
+ * import `ink-testing-library` are read: this table is about Ink trees, and a
+ * jsdom suite rendering DOM through `@testing-library/react` matched the same
+ * `render(` text and was charged for trees it never mounted. A release is
+ * counted in both call forms: `const { unmount } = render(...)` followed by
+ * `unmount()` hands the tree back exactly like `tree.unmount()` does, and the
+ * dotted-only count charged four suites for debt they had already paid. A stray
+ * mention of either in a comment shifts that file's allowance and can only make
+ * its ceiling looser, so this cannot fail on its own arithmetic.
+ */
+export function unmountedRenders(): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const target of SCAN_TARGETS) {
+    for (const file of scannedFiles(
+      path.join(PACKAGE_ROOT, target.dir),
+      target.testFilesOnly,
+    )) {
+      const source = fs.readFileSync(file, "utf-8");
+      if (!source.includes('from "ink-testing-library"')) {
+        continue;
+      }
+      const imbalance =
+        (source.match(/\brender\(/g) ?? []).length -
+        (source.match(/\.unmount\(\)/g) ?? []).length -
+        (source.match(/(?<![.\w])unmount\(\)/g) ?? []).length;
+      if (imbalance > 0) {
+        counts[path.relative(PACKAGE_ROOT, file).split(path.sep).join("/")] =
+          imbalance;
+      }
+    }
+  }
+
+  return counts;
+}
+
+/**
+ * Mounts made through a wrapper are invisible to the count above: a file calling
+ * `renderInMode` matches neither of the two patterns that table counts, so this
+ * suite mounts 28 trees per gate run through a path the table cannot see. They
+ * are released only because the helper tracks them and unmounts them in its own
+ * `afterEach` hooks, which the importing suite inherits. Both halves are pinned:
+ * the set of wrapper-mounting files is frozen, and every hook the helper
+ * declares must release what it tracked.
+ */
+const KNOWN_WRAPPER_MOUNT_FILES = [
+  "src/ui/TUIChat.editMessage.test.tsx",
+  "src/ui/TUIChat.fileSearch.test.tsx",
+  "src/ui/TUIChat.input.test.tsx",
+  "src/ui/TUIChat.messages.test.tsx",
+  "src/ui/TUIChat.slashCommands.test.tsx",
+];
+
+const WRAPPER_HELPER = "test-utils/TUIChat.dualModeHelper.tsx";
+
+function wrapperMountFiles(): string[] {
+  const found: string[] = [];
+
+  for (const file of scannedFiles(path.join(PACKAGE_ROOT, "src/ui"), true)) {
+    if (
+      /\b(renderWithServices|renderInMode)\(/.test(
+        fs.readFileSync(file, "utf-8"),
+      )
+    ) {
+      found.push(path.relative(PACKAGE_ROOT, file).split(path.sep).join("/"));
+    }
+  }
+
+  return found.sort();
+}
+
+describe("the Ink trees the UI tests leave mounted", () => {
+  it("adds no file that renders without unmounting", () => {
+    const offenders = Object.entries(unmountedRenders())
+      .filter(
+        ([relative, imbalance]) =>
+          (KNOWN_UNMOUNTED_RENDERS[relative] ?? 0) < imbalance,
+      )
+      .map(([relative, imbalance]) => `${relative} ${imbalance}`);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the frozen list down to the files that still overrender", () => {
+    const present = unmountedRenders();
+
+    expect(
+      Object.keys(KNOWN_UNMOUNTED_RENDERS).filter(
+        (relative) => !(relative in present),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("the Ink trees mounted through the wrapper helper", () => {
+  it("adds no file that mounts through a wrapper", () => {
+    const mounted = wrapperMountFiles();
+
+    // A scan that finds nothing cannot pass: the suites above mount this way.
+    expect(mounted.length).toBeGreaterThanOrEqual(4);
+    expect(
+      mounted.filter((f) => !KNOWN_WRAPPER_MOUNT_FILES.includes(f)),
+    ).toEqual([]);
+  });
+
+  it("keeps the frozen list down to the files that still mount this way", () => {
+    const present = new Set(wrapperMountFiles());
+
+    expect(KNOWN_WRAPPER_MOUNT_FILES.filter((f) => !present.has(f))).toEqual(
+      [],
+    );
+  });
+
+  it("releases what the helper tracked in every hook it declares", () => {
+    const source = fs.readFileSync(
+      path.join(PACKAGE_ROOT, WRAPPER_HELPER),
+      "utf-8",
+    );
+    const hooks = (source.match(/\bafterEach\(/g) ?? []).length;
+
+    expect(hooks).toBeGreaterThanOrEqual(3);
+    expect(
+      (source.match(/afterEach\(\(\) => \{\s*unmountAll\(\);/g) ?? []).length,
+    ).toBe(hooks);
+  });
+});

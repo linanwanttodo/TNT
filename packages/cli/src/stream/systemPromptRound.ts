@@ -1,0 +1,149 @@
+import { describeSystemMessageTextChange } from "../agent/systemMessage.js";
+
+import type { SectionBaselineState } from "./systemMessageReinjection.js";
+import {
+  decideSystemPrompt,
+  type SystemPromptAction,
+} from "./systemPromptPolicy.js";
+
+/**
+ * The system prompt is the head of every cached prefix, so a change to it is
+ * not a copy edit: it decides whether this round appends a second system
+ * message, rewrites the field, or leaves the prefix alone. The policy for that
+ * choice lives in `systemPromptPolicy.ts`; this module owns the state the
+ * change moves - what the request sends, which updates ride after it, and what
+ * the next round compares against.
+ *
+ * The state is mutated in place because its lifetime is the turn's, not the
+ * round's: each round reads the same object, so the loop never has to carry
+ * three locals and write them back in the same order.
+ */
+
+export interface SystemPromptRoundState {
+  /** The text the previous round compared against, undefined before the first. */
+  previous?: string;
+  /** The system field the request keeps sending, set by the last rewrite. */
+  request?: string;
+  /** In-history updates appended since that rewrite. */
+  updates: string[];
+  /**
+   * The history length each update was produced at, parallel to `updates`.
+   * Recorded at production time so the update keeps the prompt position it
+   * first occupied: re-appending it after the whole history every round moves
+   * its bytes down the prompt, and the provider rebills everything after the
+   * old position. Absent on state that never recorded one; those updates stay
+   * at the end.
+   */
+  updateAnchors?: number[];
+  /** Per-section prefix/told facts for the reinjection planner. */
+  sections?: SectionBaselineState;
+}
+
+/**
+ * An update whose anchor is unknown belongs at the current end of the history,
+ * which is where the old tail-append put every update.
+ */
+const TAIL_ANCHOR = Number.MAX_SAFE_INTEGER;
+
+/**
+ * Record updates together with the history position they were produced at.
+ * The two arrays are written in one place so they cannot drift out of step.
+ */
+export function appendSystemPromptUpdates(
+  state: SystemPromptRoundState,
+  texts: readonly string[],
+  historyLength: number,
+): void {
+  if (texts.length === 0) return;
+  const anchors = state.updates.map(
+    (_, index) => state.updateAnchors?.[index] ?? TAIL_ANCHOR,
+  );
+  state.updates = [...state.updates, ...texts];
+  state.updateAnchors = [...anchors, ...texts.map(() => historyLength)];
+}
+
+/**
+ * Re-point existing updates at the end of a rewritten history. Compaction
+ * re-prices the whole prefix, so keeping the old offsets would place the
+ * updates inside a history they no longer belong to; the next round is free to
+ * place them at its new tail.
+ */
+export function reanchorSystemPromptUpdates(
+  state: SystemPromptRoundState,
+  historyLength: number,
+): void {
+  if (state.updates.length === 0) return;
+  state.updateAnchors = state.updates.map(() => historyLength);
+}
+
+export interface AdvanceSystemPromptInput {
+  readonly state: SystemPromptRoundState;
+  readonly next: string;
+  readonly modelName: string;
+  readonly supportsInHistoryUpdate?: boolean;
+  readonly carriesInHistory: boolean;
+  /**
+   * Where the next update belongs, in history items. Omitted by callers that
+   * only model the prompt state; the update then stays at the end.
+   */
+  readonly historyLength?: number;
+}
+
+export interface AdvancedSystemPrompt {
+  /** What this request sends as its system field. */
+  readonly systemMessage: string;
+  /** The policy action this round took, for callers that reset section state on a rewrite. */
+  readonly action: SystemPromptAction;
+  /** Warnings the caller should log, already worded for the log. */
+  readonly warnings: readonly string[];
+}
+
+export function advanceSystemPrompt(
+  input: AdvanceSystemPromptInput,
+): AdvancedSystemPrompt {
+  const { state, next, modelName } = input;
+  const decision = decideSystemPrompt({
+    previous: state.previous,
+    next,
+    supportsInHistoryUpdate: input.supportsInHistoryUpdate,
+    carriesInHistory: input.carriesInHistory,
+    startsSeries: state.previous === undefined,
+  });
+
+  const warnings: string[] = [];
+
+  if (decision.action === "append" && decision.appendedPrompt) {
+    if (decision.forcesUnsupportedDialect) {
+      warnings.push(
+        `Appending the changed system prompt for ${modelName}: this endpoint is not known to carry a second system message, so the update may be dropped by the provider.`,
+      );
+    }
+    // A fresh array, not a push: a header remembered from the previous request
+    // must keep describing the updates that request actually sent.
+    appendSystemPromptUpdates(
+      state,
+      [decision.appendedPrompt],
+      input.historyLength ?? TAIL_ANCHOR,
+    );
+  } else if (decision.action === "rewrite") {
+    state.updates = [];
+    if (state.updateAnchors) state.updateAnchors = [];
+    state.request = next;
+    // Named from the bytes that are actually about to be sent, so the line
+    // cannot disagree with what the provider has to rebill.
+    const moved = describeSystemMessageTextChange(state.previous ?? "", next);
+    if (moved) {
+      warnings.push(
+        `System prompt rewritten, cached tokens rebilled: ${moved}`,
+      );
+    }
+  }
+
+  state.previous = next;
+
+  return {
+    systemMessage: state.request ?? next,
+    action: decision.action,
+    warnings,
+  };
+}

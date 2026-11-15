@@ -1,0 +1,223 @@
+import { Readable } from "stream";
+import { describe, expect, it, test } from "vitest";
+import { parseDataLine, streamJSON, streamSse } from "./stream.js";
+
+function createMockResponse(sseLines: string[]): Response {
+  // Create a Readable stream that emits the SSE lines
+  const stream = new Readable({
+    read() {
+      for (const line of sseLines) {
+        this.push(line + "\n\n");
+      }
+      this.push(null); // End of stream
+    },
+  }) as any;
+
+  // Minimal Response mock
+  return {
+    status: 200,
+    body: stream,
+    text: async () => "",
+  } as unknown as Response;
+}
+
+function createRawMockResponse(chunks: string[]): Response {
+  const stream = new Readable({
+    read() {
+      for (const chunk of chunks) {
+        this.push(chunk);
+      }
+      this.push(null);
+    },
+  }) as any;
+
+  return {
+    status: 200,
+    body: stream,
+    text: async () => "",
+  } as unknown as Response;
+}
+
+describe("streamSse", () => {
+  it("yields parsed SSE data objects that ends with `data:[DONE]`", async () => {
+    const sseLines = [
+      'data: {"foo": "bar"}',
+      'data: {"baz": 42}',
+      "data:[DONE]",
+    ];
+    const response = createMockResponse(sseLines);
+
+    const results = [];
+    for await (const data of streamSse(response)) {
+      results.push(data);
+    }
+
+    expect(results).toEqual([{ foo: "bar" }, { baz: 42 }]);
+  });
+
+  it("yields parsed SSE data objects that ends with `data: [DONE]` (with a space before [DONE]", async () => {
+    const sseLines = [
+      'data: {"foo": "bar"}',
+      'data: {"baz": 42}',
+      "data: [DONE]",
+    ];
+    const response = createMockResponse(sseLines);
+
+    const results = [];
+    for await (const data of streamSse(response)) {
+      results.push(data);
+    }
+
+    expect(results).toEqual([{ foo: "bar" }, { baz: 42 }]);
+  });
+
+  it.each([
+    {
+      name: "a leading ping",
+      chunks: [': ping\n\ndata: {"foo":"bar"}\n\ndata: {"baz":42}\n\n'],
+    },
+    {
+      name: "an interleaved ping",
+      chunks: ['data: {"foo":"bar"}\n\n: ping\n\ndata: {"baz":42}\n\n'],
+    },
+    {
+      name: "a ping split across chunks",
+      chunks: [": pi", 'ng\n\ndata: {"foo":"bar"}\n\ndata: {"baz":42}\n\n'],
+    },
+    {
+      name: "consecutive pings",
+      chunks: [
+        ': ping\n\n: ping\n\ndata: {"foo":"bar"}\n\ndata: {"baz":42}\n\n',
+      ],
+    },
+    {
+      name: "a trailing ping",
+      chunks: ['data: {"foo":"bar"}\n\ndata: {"baz":42}\n\n: ping\n\n'],
+    },
+    {
+      name: "another comment",
+      chunks: [': heartbeat\n\ndata: {"foo":"bar"}\n\ndata: {"baz":42}\n\n'],
+    },
+  ])("keeps draining data after $name", async ({ chunks }) => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      },
+    });
+    const results = [];
+    for await (const data of streamSse(new Response(body))) {
+      results.push(data);
+    }
+
+    expect(results).toEqual([{ foo: "bar" }, { baz: 42 }]);
+  });
+
+  it("throws on malformed JSON", async () => {
+    const sseLines = ['data: {"foo": "bar"', "data:[DONE]"];
+    const response = createMockResponse(sseLines);
+
+    const iterator = streamSse(response)[Symbol.asyncIterator]();
+    await expect(iterator.next()).rejects.toThrow(/Malformed JSON/);
+  });
+});
+
+describe("streamJSON", () => {
+  it("yields the final JSON object even without a trailing newline", async () => {
+    const response = createRawMockResponse(['{"foo":"bar"}\n', '{"baz":42}']);
+
+    const results = [];
+    for await (const data of streamJSON(response)) {
+      results.push(data);
+    }
+
+    expect(results).toEqual([{ foo: "bar" }, { baz: 42 }]);
+  });
+
+  it("reports malformed JSON in the final buffer", async () => {
+    const response = createRawMockResponse(['{"foo":']);
+
+    await expect(streamJSON(response).next()).rejects.toThrow(
+      'Malformed JSON sent from server: {"foo":',
+    );
+  });
+
+  it("discards an incomplete final buffer when the request is aborted", async () => {
+    let controller: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({
+      start(value) {
+        controller = value;
+        value.enqueue(new TextEncoder().encode('{"foo":"bar"}\n{"baz":'));
+      },
+    });
+    const iterator = streamJSON(new Response(body));
+
+    await expect(iterator.next()).resolves.toEqual({
+      value: { foo: "bar" },
+      done: false,
+    });
+    controller!.error(
+      new DOMException("The request was aborted", "AbortError"),
+    );
+    await expect(iterator.next()).resolves.toEqual({
+      value: undefined,
+      done: true,
+    });
+  });
+});
+
+describe("parseDataLine", () => {
+  test("parseDataLine should parse valid JSON data with 'data: ' prefix", () => {
+    const line = 'data: {"message":"hello","status":"ok"}';
+    const result = parseDataLine(line);
+    expect(result).toEqual({ message: "hello", status: "ok" });
+  });
+
+  test("parseDataLine should parse valid JSON data with 'data:' prefix (no space)", () => {
+    const line = 'data:{"message":"hello","status":"ok"}';
+    const result = parseDataLine(line);
+    expect(result).toEqual({ message: "hello", status: "ok" });
+  });
+
+  test("parseDataLine should throw error for malformed JSON", () => {
+    const line = "data: {invalid json}";
+    expect(() => parseDataLine(line)).toThrow(
+      "Malformed JSON sent from server",
+    );
+  });
+
+  test("parseDataLine should throw error when data contains error field", () => {
+    const line = 'data: {"error":"something went wrong"}';
+    expect(() => parseDataLine(line)).toThrow(
+      'Error streaming response: "something went wrong"',
+    );
+  });
+
+  test("parseDataLine should throw error when data contains error object with message", () => {
+    const line = 'data: {"error":{"message":"detailed error message"}}';
+    expect(() => parseDataLine(line)).toThrow(
+      "Error streaming response: detailed error message",
+    );
+  });
+
+  test("parseDataLine should handle empty objects", () => {
+    const line = "data: {}";
+    const result = parseDataLine(line);
+    expect(result).toEqual({});
+  });
+
+  test("parseDataLine should handle arrays", () => {
+    const line = "data: [1,2,3]";
+    const result = parseDataLine(line);
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  test("parseDataLine should handle nested objects", () => {
+    const line = 'data: {"user":{"name":"John","age":30}}';
+    const result = parseDataLine(line);
+    expect(result).toEqual({ user: { name: "John", age: 30 } });
+  });
+});

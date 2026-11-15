@@ -1,0 +1,675 @@
+#!/usr/bin/env node
+/* eslint-disable max-lines -- the argv command registry lives in this entrypoint */
+
+// MUST be the first import - intercepts console/stdout/stderr before any dependencies load
+import "./startup/init.js";
+
+import { Command, Option } from "commander";
+
+import {
+  handleValidationErrors,
+  validateServeFlags,
+  validateFlags,
+} from "./config/flagValidator.js";
+import {
+  addCommonOptions,
+  mergeParentOptions,
+} from "./config/sharedOptions.js";
+import { t } from "./i18n/index.js";
+import { captureCliLaunchSpec } from "./services/UpdateService.js";
+import { configureConsoleForHeadless, safeStderr } from "./startup/init.js";
+import { getVersion } from "./startup/version.js";
+import { post } from "./utils/apiClient.js";
+import { markUnhandledError } from "./utils/errorState.js";
+import { gracefulExit } from "./utils/exit.js";
+import { logger } from "./utils/logger.js";
+import { readStdinSync } from "./utils/stdin.js";
+
+// TUI lifecycle and two-stage exit state management
+let tuiUnmount: (() => void) | null;
+let showExitMessage: boolean;
+let exitMessageCallback: (() => void) | null;
+let lastCtrlCTime: number;
+
+// Agent ID for serve mode - set when serve command is invoked with --id
+let agentId: string | undefined;
+
+// Initialize state immediately to avoid temporal dead zone issues with exported functions
+(function initializeTUIState() {
+  tuiUnmount = null;
+  showExitMessage = false;
+  exitMessageCallback = null;
+  lastCtrlCTime = 0;
+})();
+
+// Set the agent ID for error reporting (called by serve command)
+export function setAgentId(id: string | undefined) {
+  agentId = id;
+}
+
+// Register TUI cleanup function for graceful shutdown
+export function setTUIUnmount(unmount: () => void) {
+  tuiUnmount = unmount;
+}
+
+// Register callback to trigger UI updates when exit message state changes
+export function setExitMessageCallback(callback: () => void) {
+  exitMessageCallback = callback;
+}
+
+// Sets up SIGINT handler that requires double Ctrl+C within 1 second to exit
+export function enableSigintHandler() {
+  // Remove all existing SIGINT listeners first
+  process.removeAllListeners("SIGINT");
+
+  process.on("SIGINT", async () => {
+    const now = Date.now();
+    const timeSinceLastCtrlC = now - lastCtrlCTime;
+
+    if (timeSinceLastCtrlC <= 1000 && lastCtrlCTime !== 0) {
+      // Second Ctrl+C within 1 second - exit
+      showExitMessage = false;
+      if (tuiUnmount) {
+        tuiUnmount();
+      }
+      await gracefulExit(0);
+    } else {
+      // First Ctrl+C or too much time elapsed - show exit message
+      lastCtrlCTime = now;
+      showExitMessage = true;
+      if (exitMessageCallback) {
+        exitMessageCallback();
+      }
+
+      // Hide message after 1 second
+      setTimeout(() => {
+        showExitMessage = false;
+        if (exitMessageCallback) {
+          exitMessageCallback();
+        }
+      }, 1000);
+    }
+  });
+}
+
+// Check if "ctrl+c to exit" message should be displayed
+export function shouldShowExitMessage(): boolean {
+  return showExitMessage;
+}
+
+// Helper to report unhandled errors to the API when running in serve mode
+async function reportUnhandledErrorToApi(error: Error): Promise<void> {
+  if (!agentId) {
+    // Not running in serve mode with an agent ID, skip API reporting
+    return;
+  }
+
+  try {
+    await post(`agents/${agentId}/status`, {
+      status: "FAILED",
+      errorMessage: `Unhandled error: ${error.message}`,
+    });
+    logger.debug(`Reported unhandled error to API for agent ${agentId}`);
+  } catch (apiError) {
+    // If API reporting fails, just log it - don't crash
+    logger.debug(
+      `Failed to report error to API: ${apiError instanceof Error ? apiError.message : String(apiError)}`,
+    );
+  }
+}
+
+// Add global error handlers to prevent uncaught errors from crashing the process
+process.on("unhandledRejection", (reason, promise) => {
+  // Mark that an unhandled error occurred - this will cause non-zero exit
+  markUnhandledError();
+
+  // Extract useful information from the reason
+  const errorDetails = {
+    promiseString: String(promise),
+    reasonType: typeof reason,
+    reasonConstructor: reason?.constructor?.name,
+  };
+
+  // If reason is an Error, use it directly for better stack traces
+  if (reason instanceof Error) {
+    logger.error("Unhandled Promise Rejection", reason, errorDetails);
+    // Report to API if running in serve mode
+    reportUnhandledErrorToApi(reason).catch(() => {
+      // Silently fail if API reporting errors - already logged in helper
+    });
+  } else {
+    // Convert non-Error reasons to Error for consistent handling
+    const error = new Error(`Unhandled rejection: ${String(reason)}`);
+    logger.error("Unhandled Promise Rejection", error, {
+      ...errorDetails,
+      originalReason: String(reason),
+    });
+    // Report to API if running in serve mode
+    reportUnhandledErrorToApi(error).catch(() => {
+      // Silently fail if API reporting errors - already logged in helper
+    });
+  }
+
+  // Don't exit the process immediately, but hasUnhandledError will cause non-zero exit later
+});
+
+process.on("uncaughtException", (error) => {
+  // Mark that an unhandled error occurred - this will cause non-zero exit
+  markUnhandledError();
+
+  logger.error("Uncaught Exception:", error);
+  // Report to API if running in serve mode
+  reportUnhandledErrorToApi(error).catch(() => {
+    // Silently fail if API reporting errors - already logged in helper
+  });
+  // Don't exit the process immediately, but hasUnhandledError will cause non-zero exit later
+});
+
+// keyboard interruption handler for non-TUI flows
+process.on("SIGINT", async () => {
+  await gracefulExit(130);
+});
+
+interface AcpModeOptions {
+  acp?: boolean;
+  acpWorker?: boolean;
+  sessionId?: string;
+  sessionCwd?: string;
+  config?: string;
+  trustProject?: boolean;
+}
+
+async function runAcpMode(
+  prompt: string | undefined,
+  options: AcpModeOptions,
+): Promise<boolean> {
+  if (options.acpWorker) {
+    const { runAcpWorker } = await import("./acp/index.js");
+    await runAcpWorker(options.sessionId, options.config, options.sessionCwd);
+    return true;
+  }
+  if (options.acp) {
+    if (prompt) {
+      safeStderr("tnt --acp does not accept a prompt argument\n");
+      process.exitCode = 1;
+      return true;
+    }
+    const { runAcpSupervisor } = await import("./acp/index.js");
+    await runAcpSupervisor({
+      configPath: options.config,
+      trustProject: options.trustProject,
+    });
+    return true;
+  }
+  return false;
+}
+
+const program = new Command();
+
+program
+  .name("tnt")
+  .description(
+    "TNT - AI-powered development assistant. Starts an interactive session by default, use -p/--print for non-interactive output.",
+  )
+  .version(getVersion(), "-v, --version", "Display version number");
+
+// Root command - chat functionality (default)
+// Add common options to the root command
+addCommonOptions(program)
+  .argument("[prompt]", "Optional prompt to send to the assistant")
+  .option("-p, --print", "Print response and exit (useful for pipes)")
+  .option(
+    "--format <format>",
+    "Output format for headless mode (json, stream-json). Only works with -p/--print flag.",
+  )
+  .option(
+    "--silent",
+    "Strip <think></think> tags and excess whitespace from output. Only works with -p/--print flag.",
+  )
+  .option(
+    "--output-schema <path>",
+    "Validate the final answer of a headless run against a JSON Schema file. Only works with -p/--print flag.",
+  )
+  .option(
+    "--request-timeout <seconds>",
+    "Cut a headless turn short after this many seconds; the deadline is checked between rounds, so a running tool finishes first (default: 300, 0 disables). Only works with -p/--print flag.",
+    (value) => {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isInteger(parsed) && parsed >= 0 ? parsed : Number.NaN;
+    },
+  )
+  .option("--resume", "Resume from last session")
+  .option("--fork <sessionId>", "Fork from an existing session ID")
+  .option(
+    "--max-steps <count>",
+    "Maximum model rounds per turn (default: no limit)",
+    (value) => {
+      // `NaN` is the rejection: the message is produced by `validateFlags` with
+      // every other flag error, where a throw here escaped silently.
+      const parsed = Number.parseInt(value, 10);
+      return Number.isInteger(parsed) && parsed >= 1 ? parsed : Number.NaN;
+    },
+  )
+  .option(
+    "--beta-subagent-tool",
+    "Enable beta Subagent tool for invoking subagents",
+  )
+  .option("--acp", "Run as an Agent Client Protocol agent over stdio")
+  .addOption(
+    new Option(
+      "--acp-worker",
+      "Internal: run one ACP session worker",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--session-id <id>",
+      "Internal: session id owned by the ACP worker",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--session-cwd <path>",
+      "Internal: working directory owned by the ACP worker",
+    ).hideHelp(),
+  )
+  .action(async (prompt, options) => {
+    // ACP owns stdin/stdout. Branch before the piped-input probe, which would
+    // otherwise eat the first JSON-RPC message.
+    if (await runAcpMode(prompt, options)) return;
+
+    // Handle piped input - detect it early and decide on mode
+    let stdinInput = null;
+
+    if (!options.print) {
+      // Check if there's piped input available
+      stdinInput = readStdinSync();
+      if (stdinInput) {
+        // Use piped input as the initial prompt
+        if (prompt) {
+          // Combine stdin and prompt argument
+          prompt = `${stdinInput}\n\n${prompt}`;
+        } else {
+          // Only stdin input, use as initial prompt
+          prompt = stdinInput;
+        }
+
+        // We have piped input but want to use TUI mode
+        // Store a flag to pass custom stdin to TUI
+        (options as any).hasPipedInput = true;
+      }
+    }
+
+    // Configure console overrides FIRST, before any other logging
+    const isHeadless = options.print;
+    configureConsoleForHeadless(isHeadless);
+    logger.configureHeadlessMode(isHeadless);
+
+    // Validate all command line flags
+    const validation = validateFlags({
+      print: options.print,
+      format: options.format,
+      silent: options.silent,
+      outputSchema: options.outputSchema,
+      maxSteps: options.maxSteps,
+      timeoutSeconds: options.requestTimeout,
+      readonly: options.readonly,
+      auto: options.auto,
+      permissionMode: options.permissionMode,
+      dangerouslySkipPermissions: options.dangerouslySkipPermissions,
+      config: options.config,
+      resume: options.resume,
+      fork: options.fork,
+      allow: options.allow,
+      ask: options.ask,
+      exclude: options.exclude,
+      model: options.model,
+      mcp: options.mcp,
+      isRootCommand: true,
+      commandName: "tnt",
+    });
+
+    if (!validation.isValid) {
+      handleValidationErrors(validation.errors);
+    }
+
+    if (options.verbose) {
+      logger.setLevel("debug");
+      const logPath = logger.getLogPath();
+      const sessionId = logger.getSessionId();
+      // In headless mode, suppress these verbose logs
+      if (!isHeadless) {
+        console.log(t("common.verboseLogging", { session: sessionId }));
+        console.log(t("common.logsAt", { path: logPath }));
+        console.log(t("common.filterSession", { sessionId, path: logPath }));
+      }
+      logger.debug("Verbose logging enabled");
+    }
+
+    // Handle piped input for headless mode (only if we haven't already read it)
+    if (options.print && !stdinInput) {
+      const headlessStdinInput = readStdinSync();
+      if (headlessStdinInput) {
+        if (prompt) {
+          // Combine stdin and prompt argument - stdin comes first in XML block
+          prompt = `<stdin>\n${headlessStdinInput}\n</stdin>\n\n${prompt}`;
+        } else {
+          // Only stdin input, use as-is
+          prompt = headlessStdinInput;
+        }
+      }
+    }
+
+    // In headless mode, a prompt has to come from somewhere: the positional message,
+    // `--prompt` (text or a local file), an agent file's own body, or a resumed
+    // session. `--prompt` was missing from this check, so `tnt -p --prompt ...` was
+    // refused by the very error that names the flag.
+    if (
+      options.print &&
+      !prompt &&
+      !options.agent &&
+      !options.resume &&
+      !options.prompt?.length
+    ) {
+      safeStderr(`${t("cli.promptRequired")}\n\n`);
+      safeStderr(`${t("cli.usageExamples")}\n`);
+      safeStderr('  tnt -p "please review my current git diff"\n');
+      safeStderr('  echo "hello" | tnt -p\n');
+      safeStderr('  tnt -p "analyze the code in src/"\n');
+      safeStderr("  tnt -p --agent .tnt/agents/review.md\n");
+      safeStderr("  tnt -p --prompt .tnt/prompts/review.md\n");
+      safeStderr("  tnt -p --resume\n");
+      await gracefulExit(1);
+    }
+
+    // Map --print to headless mode
+    options.headless = options.print;
+    options.print = undefined;
+    const { chat } = await import("./commands/chat.js");
+    await chat(prompt, options);
+  });
+
+// List sessions subcommand
+program
+  .command("ls")
+  .description("List recent chat sessions and select one to resume")
+  .option("--json", "Output in JSON format")
+  .action(
+    async (
+      options: { json?: boolean },
+      command: { parent?: { opts(): { format?: string } } },
+    ) => {
+      // `--format` is a root option and `ls` never consulted it, so the spelling a
+      // reader is most likely to try (`tnt ls --format json`) was accepted, ignored,
+      // and fell back to the interactive picker. Honour it here.
+      const rootFormat = command.parent?.opts().format;
+      const { listSessionsCommand } = await import("./commands/ls.js");
+      await listSessionsCommand({
+        format: options.json || rootFormat === "json" ? "json" : undefined,
+      });
+    },
+  );
+
+// Serve subcommand
+program
+  .command("serve [prompt]", { hidden: true })
+  .description(
+    "Start an HTTP server with /state, /events, /message, /permission, /pause, /diff and /exit endpoints (add --json for the Web UI daemon)",
+  )
+  .option("--timeout <seconds>", "Inactivity timeout in seconds", "300")
+  .option(
+    "--port <port>",
+    "Port to bind (daemon: ephemeral when omitted; legacy server: 8000)",
+  )
+  .option(
+    "--host <addr>",
+    "Interface to bind (default: 127.0.0.1). 0.0.0.0 exposes an unauthenticated server",
+  )
+  .option(
+    "--id <storageId>",
+    "Upload session snapshots to managed storage using the provided identifier",
+  )
+  .option(
+    "--beta-upload-artifact-tool",
+    "Enable beta UploadArtifact tool for uploading screenshots, videos, and logs",
+  )
+  .option(
+    "--workspace <path>",
+    "Workspace to serve in daemon mode (default: the process working directory)",
+  )
+  .option(
+    "--json",
+    "Daemon mode: print one machine-readable handshake line to stdout after listening",
+  )
+  .option(
+    "--handshake-file <path>",
+    "Daemon mode: atomically write the handshake JSON to this path",
+  )
+  .option("--no-tui", "Daemon mode: run without a TUI")
+  .action(async (prompt, options) => {
+    // Merge parent options with subcommand options
+    const mergedOptions = mergeParentOptions(program, options);
+
+    if (mergedOptions.verbose) {
+      logger.setLevel("debug");
+      logger.debug("Verbose logging enabled");
+    }
+
+    // The daemon owns the flags the legacy HTTP server never had. Routing on
+    // them keeps `tnt serve` payload-compatible for existing callers while
+    // giving host clients a stable machine-readable entrypoint.
+    const { isServeDaemonMode, serveDaemon } =
+      await import("./commands/serveDaemon.js");
+    if (isServeDaemonMode(mergedOptions)) {
+      await serveDaemon({
+        port: mergedOptions.port,
+        host: mergedOptions.host,
+        workspace: mergedOptions.workspace,
+        json: mergedOptions.json,
+        handshakeFile: mergedOptions.handshakeFile,
+        tui: mergedOptions.tui,
+        config: mergedOptions.config,
+      });
+      return;
+    }
+
+    const serveValidation = validateServeFlags({
+      port: mergedOptions.port,
+      timeout: mergedOptions.timeout,
+      maxSteps: mergedOptions.maxSteps,
+    });
+    if (!serveValidation.isValid) {
+      handleValidationErrors(serveValidation.errors);
+    }
+
+    const { serve } = await import("./commands/serve.js");
+    await serve(prompt, mergedOptions);
+  });
+
+// Web UI subcommand
+program
+  .command("webui [prompt]", { hidden: true })
+  .description(
+    "Host the web view of a session (loopback only); stop a long-running instance with `tnt webui stop`",
+  )
+  .option("--port <port>", "First port to probe (default 47610)")
+  .option(
+    "--host <addr>",
+    "Interface to bind (loopback only in v1: 127.0.0.1 or localhost)",
+  )
+  .option(
+    "--resume-session",
+    "Resume the most recent session instead of a new one",
+  )
+  .option("--no-open", "Print the URL without opening a browser")
+  .action(async (prompt, options) => {
+    const mergedOptions = mergeParentOptions(program, options);
+
+    if (mergedOptions.verbose) {
+      logger.setLevel("debug");
+      logger.debug("Verbose logging enabled");
+    }
+
+    if (prompt === "stop") {
+      const { stopWebuiProcess } = await import("./commands/webui.js");
+      const stopped = await stopWebuiProcess();
+      if (!stopped) {
+        console.error(t("webui.stopNoInstance"));
+        process.exitCode = 1;
+      }
+      return;
+    }
+
+    const { webui } = await import("./commands/webui.js");
+    await webui(prompt, {
+      port: mergedOptions.port,
+      host: mergedOptions.host,
+      resume: mergedOptions.resumeSession,
+      open: mergedOptions.open,
+      persistToken: true,
+    });
+  });
+
+// App-server subcommand
+program
+  .command("app-server", { hidden: true })
+  .description("Run the TNT app-server NDJSON protocol host (stderr muted)")
+  .option("--stdio", "Serve the protocol over stdin/stdout")
+  .action(async (options: { stdio?: boolean }) => {
+    await (await import("./commands/appServer.js")).appServer(options);
+  });
+
+// Checks subcommand
+program
+  .command("checks [action] [pr-url]")
+  .description(
+    "Show CI check statuses for a PR (actions: list, accept, reject)",
+  )
+  .action(async (action: string | undefined, prUrl: string | undefined) => {
+    // `--format` is a root option, so commander accepts it here whether or not this
+    // command can honour it. `checks` prints text only, and accepting the flag in
+    // silence is the trap `ls` had: the caller believes it asked for a format it
+    // never got. The only value that is not a lie is the one it already prints.
+    const requestedFormat = program.opts().format;
+    if (requestedFormat !== undefined && requestedFormat !== "text") {
+      handleValidationErrors([
+        {
+          code: "INVALID_CHECKS_FORMAT",
+          message: t("cli.unsupportedFormat", {
+            value: requestedFormat,
+            command: "checks",
+            expected: "text",
+          }),
+        },
+      ]);
+    }
+    const { checks } = await import("./commands/checks.js");
+    await checks(action, prUrl);
+  });
+
+// Review subcommand
+program
+  .command("review")
+  .description("Run AI-powered reviews on your changes")
+  .option("--base <ref>", "Base git ref to diff against (default: auto-detect)")
+  .option(
+    "--uncommitted",
+    "Review only uncommitted changes (staged and unstaged) instead of the branch diff",
+  )
+  .option(
+    "--commit <ref>",
+    "Review one commit as it stood, instead of the branch diff",
+  )
+  .option(
+    "--range <spec>",
+    "Review an arbitrary git range (e.g. main...HEAD, HEAD~3)",
+  )
+  .option("--format <format>", "Output format (text, json)")
+  .option("--fix", "Automatically apply suggested fixes")
+  .option("--patch", "Show patches")
+  .option("--fail-fast", "Stop on first failure")
+  .option("--review-agents <agents...>", "Specific review agents to run")
+  .option(
+    "--review-model <name>",
+    "Run the review agents on this model instead of the session model",
+  )
+  .option("--verbose", "Enable verbose logging")
+  .action(async (options) => {
+    // `--format` is declared by the root command as well, and the subcommand's
+    // copy of a colliding value-name is not what commander hands to this action:
+    // `tnt review --format json` used to arrive with no format at all, so the
+    // JSON review output was unreachable from the command line. Read whichever
+    // of the two actually holds a value, and refuse a value no format explains.
+    const requestedFormat = options.format ?? program.opts().format;
+    const { unsupportedReviewFormat } =
+      await import("./commands/reviewFormat.js");
+    if (unsupportedReviewFormat(requestedFormat) !== null) {
+      handleValidationErrors([
+        {
+          code: "INVALID_REVIEW_FORMAT",
+          message: t("cli.unsupportedFormat", {
+            value: requestedFormat,
+            command: "review",
+            expected: "text, json",
+          }),
+        },
+      ]);
+    }
+    const { review } = await import("./commands/review.js");
+    await review({ ...options, format: requestedFormat });
+  });
+
+// Handle unknown commands
+program.on("command:*", () => {
+  console.error(
+    t("common.unknownCommand", { command: program.args.join(" ") }),
+  );
+  program.outputHelp();
+  void gracefulExit(1);
+});
+
+export async function runCli(): Promise<void> {
+  // Handle internal worker subprocess for tnt review
+  if (process.argv.includes("--internal-review-worker")) {
+    const { runReviewWorker } =
+      await import("./commands/review/reviewWorker.js");
+    await runReviewWorker();
+    return;
+  }
+
+  // Parse arguments and handle errors
+  try {
+    // Capture the parsed invocation so UpdateService can rebuild the same
+    // command after a self-update. By the time this hook runs, commander has
+    // matched every token against declared flags and rejected unknown ones,
+    // so the spec holds parsed values only - raw argv never reaches the
+    // restart path (see buildRestartArgs in services/UpdateService.ts).
+    program.hook("preAction", (_thisCommand, actionCommand) => {
+      captureCliLaunchSpec({
+        command: actionCommand.parent ? actionCommand.name() : null,
+        options: {
+          ...(actionCommand.parent?.opts() ?? {}),
+          ...actionCommand.opts(),
+        },
+        declaredOptions: actionCommand.options.map((option) =>
+          option.attributeName(),
+        ),
+        operands: actionCommand.args.filter(
+          (operand) => typeof operand === "string",
+        ),
+      });
+    });
+
+    // parseAsync awaits the action, so a rejection reaches the catch below and a
+    // pending action keeps the process alive instead of draining the loop.
+    await program.parseAsync();
+  } catch (error) {
+    // A stack from the bundle tells a user nothing; the message is the error.
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+
+  process.on("SIGTERM", async () => {
+    await gracefulExit(0);
+  });
+}

@@ -1,0 +1,619 @@
+import {
+  ContentBlockParam,
+  MessageCreateParams,
+  MessageParam,
+  RawContentBlockDeltaEvent,
+  RawContentBlockStartEvent,
+  RawMessageDeltaEvent,
+  RawMessageStartEvent,
+  RawMessageStreamEvent,
+  ThinkingConfigParam,
+  Tool,
+  ToolUseBlock,
+} from "@anthropic-ai/sdk/resources";
+import { streamSse } from "@tnt/fetch";
+import { OpenAI } from "openai/index";
+import {
+  ChatCompletion,
+  ChatCompletionChunk,
+  ChatCompletionContentPartRefusal,
+  ChatCompletionContentPartText,
+  ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionCreateParamsStreaming,
+  Completion,
+  CompletionCreateParamsNonStreaming,
+  CompletionCreateParamsStreaming,
+} from "openai/resources/index";
+import { ChatCompletionCreateParams } from "openai/resources/index.js";
+import { AnthropicConfig } from "../types.js";
+import {
+  chatChunk,
+  chatChunkFromDelta,
+  customFetch,
+  type NormalizedUsage,
+  normalizeUsage,
+  usageChatChunk,
+} from "../util.js";
+import { EMPTY_CHAT_COMPLETION } from "../util/emptyChatCompletion.js";
+import { safeParseArgs } from "../util/parseArgs.js";
+import { extractBase64FromDataUrl } from "../util/url.js";
+import {
+  CACHING_STRATEGIES,
+  CachingStrategyName,
+} from "./AnthropicCachingStrategies.js";
+import {
+  addCacheControlToLastTwoUserMessages,
+  DEEPSEEK_ACCEPTS_NO_BREAKPOINTS,
+  getAnthropicHeaders,
+  getAnthropicMediaTypeFromDataUrl,
+  isDeepSeekEndpoint,
+  openAiToolChoiceToAnthropicToolChoice,
+  openaiToolToAnthropicTool,
+} from "./AnthropicUtils.js";
+import {
+  anthropicBreakpointBudget,
+  applyCacheControlFormat,
+  applyCacheTtl,
+  capBreakpointsForAnthropic,
+  sanitizeReasoningBlocks,
+} from "./cacheControl.js";
+import { cacheRetention, resolveCachePolicy } from "./cachePolicy.js";
+import type { CacheControlFormat } from "./cacheControl.js";
+import {
+  BaseLlmApi,
+  CreateRerankResponse,
+  FimCreateParamsStreaming,
+  RerankCreateParams,
+} from "./base.js";
+
+// Anthropic reports the fresh prefix, the cached part and the newly written part
+// as three separate numbers, and `input_tokens` is only the fresh one. Metered as
+// it arrives, a request that read 100k cached tokens looks like a 5-token request
+// to the cost calculation and to the cache hit ratio.
+function positive(value: unknown): number {
+  return typeof value === "number" && value > 0 ? value : 0;
+}
+
+/**
+ * The thinking configuration for a request that asks for reasoning: the budget
+ * scales with the requested depth rather than a fixed small number that
+ * truncates the model mid-thought, and never crowds the answer out of
+ * max_tokens.
+ */
+export function anthropicThinkingConfig(oaiBody: ChatCompletionCreateParams): {
+  thinking?: ThinkingConfigParam;
+} {
+  const extra = oaiBody as unknown as Record<string, unknown>;
+  const effort = extra.reasoning_effort;
+  const reasoning = extra.reasoning;
+  if (reasoning === false) {
+    return {};
+  }
+  if (typeof effort !== "string" || effort.length === 0) {
+    return {};
+  }
+
+  const maxTokens = oaiBody.max_tokens ?? 32_000;
+  const budgetByEffort: Record<string, number> = {
+    minimal: 1024,
+    low: 2048,
+    medium: 8192,
+    high: 16384,
+    // The SDK type stops at "high"; config may carry xhigh/max.
+    xhigh: 32768,
+    max: 65536,
+  };
+  const budget =
+    typeof extra.reasoning_budget_tokens === "number" &&
+    extra.reasoning_budget_tokens > 0
+      ? extra.reasoning_budget_tokens
+      : (budgetByEffort[effort] ?? 16384);
+
+  return {
+    thinking: {
+      type: "enabled",
+      budget_tokens: Math.min(
+        Math.max(1024, budget),
+        Math.max(1024, maxTokens - 1024),
+      ),
+    },
+  };
+}
+
+export function anthropicUsage(raw: unknown): NormalizedUsage | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const usage = { ...(raw as Record<string, unknown>) };
+  const promptTokens =
+    positive(usage.input_tokens) +
+    positive(usage.cache_read_input_tokens) +
+    positive(usage.cache_creation_input_tokens);
+  if (promptTokens > 0) usage.prompt_tokens = promptTokens;
+  return normalizeUsage(usage);
+}
+
+// A stream reports the prefix in message_start and the completion in
+// message_delta, so the two patches merge into one record. A zero never
+// overwrites a number already known, because several events echo zeros.
+function mergeUsage(target: Record<string, unknown>, patch: unknown): void {
+  if (typeof patch !== "object" || patch === null) return;
+  for (const [key, value] of Object.entries(patch)) {
+    if (typeof value === "object" || value === undefined) continue;
+    if (value === 0 && target[key] !== undefined) continue;
+    target[key] = value;
+  }
+}
+
+export class AnthropicApi implements BaseLlmApi {
+  apiBase: string = "https://api.anthropic.com/v1/";
+
+  constructor(
+    protected config: AnthropicConfig & {
+      cachingStrategy?: CachingStrategyName;
+      cacheControlFormat?: CacheControlFormat;
+    },
+  ) {
+    this.apiBase = config.apiBase ?? this.apiBase;
+    if (!this.apiBase.endsWith("/")) {
+      this.apiBase += "/";
+    }
+  }
+
+  private _convertBody(oaiBody: ChatCompletionCreateParams) {
+    // Step 1: Convert to clean Anthropic body (no caching)
+    const cleanBody = this._convertToCleanAnthropicBody(oaiBody);
+    const cachePolicy = resolveCachePolicy(
+      "anthropic",
+      oaiBody.model,
+      this.apiBase,
+    );
+    if (cachePolicy.retention === "none") {
+      return cleanBody;
+    }
+
+    // Step 2: Apply caching strategy
+    const cachingStrategy =
+      CACHING_STRATEGIES[this.config.cachingStrategy ?? "systemAndTools"];
+    const result = cachingStrategy(cleanBody);
+
+    // Step 3: Cache last two user messages for conversation turn caching
+    // Skip when caching is disabled
+    if ((this.config.cachingStrategy ?? "systemAndTools") !== "none") {
+      addCacheControlToLastTwoUserMessages(result.messages);
+    }
+
+    // Step 4: Remove breakpoints that cannot earn their keep.
+    //
+    // A breakpoint on a reasoning block is wasted: the provider drops a block
+    // whose signature does not verify, and takes the cached span with it. A
+    // block that lost its signature in serialization would therefore cost the
+    // whole prefix rather than just itself.
+    //
+    // Step 5: spend the request's breakpoint budget. Anthropic reads the
+    // sections as one sequence and bills a write per breakpoint, so the cap is
+    // applied across them together - capping each section on its own let a
+    // request leave with three times the intended number.
+    const pruned = {
+      ...result,
+      messages: sanitizeReasoningBlocks(result.messages),
+    };
+
+    // An endpoint that reads no breakpoints gets none; a caller that declared
+    // what its endpoint accepts gets exactly that; anything else gets the
+    // Anthropic default.
+    const format =
+      this.config.cacheControlFormat ??
+      (isDeepSeekEndpoint(this.apiBase, oaiBody.model)
+        ? DEEPSEEK_ACCEPTS_NO_BREAKPOINTS
+        : undefined);
+    const capped = format
+      ? applyCacheControlFormat(pruned, format)
+      : capBreakpointsForAnthropic(pruned, anthropicBreakpointBudget());
+    return cachePolicy.mode === "explicit" &&
+      cachePolicy.retention === "long" &&
+      cachePolicy.supportsLongRetention
+      ? applyCacheTtl(capped, "1h")
+      : capped;
+  }
+
+  private maxTokensForModel(model: string): number {
+    if (model.includes("haiku")) {
+      return 8192;
+    }
+    return 32_000;
+  }
+
+  public _convertToCleanAnthropicBody(
+    oaiBody: ChatCompletionCreateParams,
+  ): MessageCreateParams {
+    let stop = undefined;
+    if (oaiBody.stop && Array.isArray(oaiBody.stop)) {
+      stop = oaiBody.stop.filter((x) => x.trim() !== "");
+    } else if (typeof oaiBody.stop === "string" && oaiBody.stop.trim() !== "") {
+      stop = [oaiBody.stop];
+    }
+
+    const systemMessage = oaiBody.messages.find(
+      (msg) => msg.role === "system",
+    )?.content;
+
+    // TODO support custom tools
+    const functionTools = oaiBody.tools?.filter((t) => t.type === "function");
+    let tools: Tool[] | undefined = undefined;
+
+    if (
+      oaiBody.tool_choice !== "none" &&
+      functionTools &&
+      functionTools.length > 0
+    ) {
+      if (
+        typeof oaiBody.tool_choice !== "string" &&
+        oaiBody.tool_choice?.type === "allowed_tools"
+      ) {
+        const allowedToolNames = new Set(
+          oaiBody.tool_choice?.allowed_tools.tools.map(
+            (tool) => tool["name"],
+          ) ?? [],
+        );
+        const allowedTools = functionTools.filter((t) =>
+          allowedToolNames.has(t.function.name),
+        );
+        tools = allowedTools.map(openaiToolToAnthropicTool);
+      } else {
+        tools = functionTools.map(openaiToolToAnthropicTool);
+      }
+    }
+
+    const anthropicBody: MessageCreateParams = {
+      messages: this._convertMessages(
+        oaiBody.messages.filter((msg) => msg.role !== "system"),
+      ),
+      system:
+        typeof systemMessage === "string"
+          ? [
+              {
+                type: "text",
+                text: systemMessage,
+              },
+            ]
+          : systemMessage,
+      top_p: oaiBody.top_p ?? undefined,
+      temperature: oaiBody.temperature ?? undefined,
+      max_tokens: oaiBody.max_tokens ?? this.maxTokensForModel(oaiBody.model), // max_tokens is required
+      model: oaiBody.model,
+      stop_sequences: stop,
+      stream: oaiBody.stream ?? undefined,
+      tools,
+      tool_choice: openAiToolChoiceToAnthropicToolChoice(oaiBody.tool_choice),
+      ...anthropicThinkingConfig(oaiBody),
+    };
+
+    return anthropicBody;
+  }
+
+  private convertToolCallsToBlocks(
+    toolCall: OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall,
+  ): ToolUseBlock | undefined {
+    const toolCallId = toolCall.id;
+    const toolName = toolCall.function?.name;
+    if (toolCallId && toolName) {
+      return {
+        type: "tool_use",
+        id: toolCallId,
+        name: toolName,
+        input: safeParseArgs(
+          toolCall.function.arguments,
+          `${toolName} ${toolCallId}`,
+        ),
+      };
+    }
+  }
+
+  // 1. ignores empty content
+  // 2. converts string content to text parts
+  // 3. converts text and refusal parts to text blocks
+  // 4. converts image parts to image blocks
+  private convertMessageContentToBlocks(
+    content:
+      | string
+      | OpenAI.Chat.Completions.ChatCompletionContentPart[]
+      | (ChatCompletionContentPartText | ChatCompletionContentPartRefusal)[],
+  ): ContentBlockParam[] {
+    const blocks: ContentBlockParam[] = [];
+    if (typeof content === "string") {
+      if (content) {
+        blocks.push({
+          type: "text",
+          text: content,
+        });
+      }
+    } else {
+      const supportedParts = content.filter(
+        (p) =>
+          p.type === "text" || p.type === "image_url" || p.type === "refusal",
+      );
+      for (const part of supportedParts) {
+        if (part.type === "image_url") {
+          const dataUrl = part.image_url.url;
+          if (dataUrl?.startsWith("data:")) {
+            const base64Data = extractBase64FromDataUrl(dataUrl);
+            if (base64Data) {
+              blocks.push({
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: getAnthropicMediaTypeFromDataUrl(dataUrl),
+                  data: base64Data,
+                },
+              });
+            } else {
+              console.warn(
+                "Anthropic: skipping image with invalid data URL format",
+                dataUrl,
+              );
+            }
+          }
+        } else {
+          const text = part.type === "text" ? part.text : part.refusal;
+          if (text) {
+            blocks.push({
+              type: "text",
+              text,
+            });
+          }
+        }
+      }
+    }
+    return blocks;
+  }
+
+  private getContentBlocksFromChatMessage(
+    message: OpenAI.Chat.Completions.ChatCompletionMessageParam,
+  ): ContentBlockParam[] {
+    switch (message.role) {
+      // One tool message = one tool_result block
+      case "tool":
+        return [
+          {
+            type: "tool_result",
+            tool_use_id: message.tool_call_id,
+            content: message.content,
+          },
+        ];
+      case "user":
+        return this.convertMessageContentToBlocks(message.content);
+      case "assistant":
+        const blocks: ContentBlockParam[] = message.content
+          ? this.convertMessageContentToBlocks(message.content)
+          : [];
+        // If any tool calls are present, always put them last
+        // Loses order vs what was originally sent, but they typically come last
+        for (const toolCall of message.tool_calls ?? []) {
+          if (toolCall.type !== "function") {
+            // TODO support custom tool calls
+            continue;
+          }
+          const block = this.convertToolCallsToBlocks(toolCall);
+          if (block) {
+            blocks.push(block);
+          }
+        }
+        return blocks;
+      // system, etc.
+      default:
+        return [];
+    }
+  }
+
+  private _convertMessages(
+    msgs: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+  ): MessageParam[] {
+    const nonSystemMessages = msgs.filter((m) => m.role !== "system");
+
+    const convertedMessages: MessageParam[] = [];
+    let currentRole: "user" | "assistant" | undefined = undefined;
+    let currentParts: ContentBlockParam[] = [];
+
+    const flushCurrentMessage = () => {
+      if (currentRole && currentParts.length > 0) {
+        convertedMessages.push({
+          role: currentRole,
+          content: currentParts,
+        });
+        currentParts = [];
+      }
+    };
+
+    for (const message of nonSystemMessages) {
+      const newRole =
+        message.role === "user" || message.role === "tool"
+          ? "user"
+          : "assistant";
+      if (currentRole !== newRole) {
+        flushCurrentMessage();
+        currentRole = newRole;
+      }
+      currentParts.push(...this.getContentBlocksFromChatMessage(message));
+    }
+    flushCurrentMessage();
+
+    return convertedMessages;
+  }
+
+  async chatCompletionNonStream(
+    body: ChatCompletionCreateParamsNonStreaming,
+    signal: AbortSignal,
+  ): Promise<ChatCompletion> {
+    const response = await customFetch(this.config.requestOptions)(
+      new URL("messages", this.apiBase),
+      {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify(this._convertBody(body)),
+        signal,
+      },
+    );
+
+    if (response.status === 499) {
+      return EMPTY_CHAT_COMPLETION;
+    }
+
+    const completion = await response.json();
+
+    return {
+      id: completion.id,
+      object: "chat.completion",
+      model: body.model,
+      created: Math.floor(Date.now() / 1000),
+      usage: anthropicUsage(completion.usage),
+      choices: [
+        {
+          logprobs: null,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: completion.content[0].text,
+            refusal: null,
+          },
+          index: 0,
+        },
+      ],
+    };
+  }
+
+  // This is split off so e.g. VertexAI can use it
+  async *handleStreamResponse(response: any, model: string) {
+    let lastToolUseId: string | undefined;
+    let lastToolUseName: string | undefined;
+
+    const usage: Record<string, unknown> = {};
+    for await (const event of streamSse(response)) {
+      // https://docs.anthropic.com/en/api/messages-streaming#event-types
+      const rawEvent = event as RawMessageStreamEvent;
+      switch (rawEvent.type) {
+        case "content_block_start":
+          const blockStartEvent = rawEvent as RawContentBlockStartEvent;
+          if (blockStartEvent.content_block.type === "tool_use") {
+            lastToolUseId = blockStartEvent.content_block.id;
+            lastToolUseName = blockStartEvent.content_block.name;
+          }
+          break;
+        case "message_start":
+          const startEvent = rawEvent as RawMessageStartEvent;
+          mergeUsage(usage, startEvent.message.usage);
+          break;
+        case "message_delta":
+          mergeUsage(usage, (rawEvent as RawMessageDeltaEvent).usage);
+          break;
+        case "content_block_delta":
+          // https://docs.anthropic.com/en/api/messages-streaming#delta-types
+          const blockDeltaEvent = rawEvent as RawContentBlockDeltaEvent;
+          switch (blockDeltaEvent.delta.type) {
+            case "text_delta":
+              yield chatChunk({
+                content: blockDeltaEvent.delta.text,
+                model,
+              });
+              break;
+            case "thinking_delta":
+              yield chatChunkFromDelta({
+                model,
+                delta: {
+                  reasoning_content: blockDeltaEvent.delta.thinking,
+                },
+              });
+              break;
+            case "signature_delta":
+              break;
+            case "input_json_delta":
+              if (!lastToolUseId || !lastToolUseName) {
+                throw new Error("No tool use found");
+              }
+              yield chatChunkFromDelta({
+                model,
+                delta: {
+                  tool_calls: [
+                    {
+                      id: lastToolUseId,
+                      type: "function",
+                      index: 0,
+                      function: {
+                        name: lastToolUseName,
+                        arguments: blockDeltaEvent.delta.partial_json,
+                      },
+                    },
+                  ],
+                },
+              });
+              break;
+          }
+          break;
+        case "content_block_stop":
+          lastToolUseId = undefined;
+          lastToolUseName = undefined;
+          break;
+        default:
+          break;
+      }
+    }
+
+    yield usageChatChunk({
+      model,
+      usage: anthropicUsage(usage),
+    });
+  }
+
+  async *chatCompletionStream(
+    body: ChatCompletionCreateParamsStreaming,
+    signal: AbortSignal,
+  ): AsyncGenerator<ChatCompletionChunk> {
+    const response = await customFetch(this.config.requestOptions)(
+      new URL("messages", this.apiBase),
+      {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify(this._convertBody(body)),
+        signal,
+      },
+    );
+    yield* this.handleStreamResponse(response, body.model);
+  }
+
+  private getHeaders(): Record<string, string> {
+    const enableCaching =
+      this.config?.cachingStrategy !== "none" && cacheRetention() !== "none";
+    return getAnthropicHeaders(this.config.apiKey, enableCaching, this.apiBase);
+  }
+
+  async completionNonStream(
+    body: CompletionCreateParamsNonStreaming,
+    signal: AbortSignal,
+  ): Promise<Completion> {
+    throw new Error("Method not implemented.");
+  }
+  async *completionStream(
+    body: CompletionCreateParamsStreaming,
+    signal: AbortSignal,
+  ): AsyncGenerator<Completion> {
+    throw new Error("Method not implemented.");
+  }
+  async *fimStream(
+    body: FimCreateParamsStreaming,
+    signal: AbortSignal,
+  ): AsyncGenerator<ChatCompletionChunk> {
+    throw new Error("Method not implemented.");
+  }
+
+  async embed(
+    body: OpenAI.Embeddings.EmbeddingCreateParams,
+  ): Promise<OpenAI.Embeddings.CreateEmbeddingResponse> {
+    throw new Error("Method not implemented.");
+  }
+
+  async rerank(body: RerankCreateParams): Promise<CreateRerankResponse> {
+    throw new Error("Method not implemented.");
+  }
+
+  list(): Promise<OpenAI.Models.Model[]> {
+    throw new Error("Method not implemented.");
+  }
+}

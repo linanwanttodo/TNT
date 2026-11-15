@@ -1,0 +1,340 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+import { initializeWithOnboarding } from "./onboarding.js";
+
+const questionMock = vi.fn();
+
+vi.mock("../utils/prompt.js", () => ({
+  question: (...args: unknown[]) => questionMock(...args),
+}));
+
+describe("onboarding config flag handling", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    // Create a temporary directory for test config files
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-test-"));
+
+    // Auth config is always null after Hub removal
+  });
+
+  // These cases write config files here and never point the log transport at it,
+  // so the home goes back the way it came, one directory per case.
+  afterEach(() => {
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("should fail loudly when --config points to non-existent file", async () => {
+    const configPath = path.join(tempDir, "non-existent.yaml");
+
+    // Verify the file doesn't exist
+    expect(fs.existsSync(configPath)).toBe(false);
+
+    // Should throw an error that mentions both the path and the failure
+    await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
+      /Failed to load config from ".*non-existent\.yaml": .*ENOENT/,
+    );
+  });
+
+  test("should fail loudly when --config points to malformed YAML file", async () => {
+    const configPath = path.join(tempDir, "malformed.yaml");
+
+    // Create a malformed YAML file
+    fs.writeFileSync(
+      configPath,
+      `
+name: "Test Config"
+models:
+  - name: "GPT-4"
+    provider: "openai"
+    invalid_yaml_syntax: [unclosed array
+`,
+    );
+
+    // Verify the file exists
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    // Should throw an error mentioning the path and failure to load
+    await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
+      /Failed to load config from ".*malformed\.yaml": .+/,
+    );
+  });
+
+  test("should fail loudly when --config points to file with missing required fields", async () => {
+    const configPath = path.join(tempDir, "incomplete.yaml");
+
+    // Genuinely invalid against the schema rather than merely sparse: `models`
+    // has to be an array. This used to lean on a missing `version`, which the
+    // config no longer requires, and a sparse-but-valid file loads fine.
+    fs.writeFileSync(
+      configPath,
+      `
+name: "Incomplete Config"
+models: "not a list"
+`,
+    );
+
+    // Verify the file exists
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    // Should throw with our specific error format and include path
+    await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
+      /^Failed to load config from ".*": .+/,
+    );
+  });
+
+  test("should handle different config path formats with proper error messages", async () => {
+    const testPaths = [
+      "./non-existent.yaml",
+      "/absolute/path/config.yaml",
+      "../relative/config.yaml",
+      "simple-name.yaml",
+    ];
+
+    for (const configPath of testPaths) {
+      await expect(initializeWithOnboarding(configPath)).rejects.toThrow(
+        /Failed to load config from ".*": .+/,
+      );
+    }
+  });
+
+  test("should handle empty string config path", async () => {
+    // Loads default agent with no error
+    await initializeWithOnboarding("");
+  });
+
+  test("should not fall back to default config when explicit config fails", async () => {
+    const configPath = path.join(tempDir, "bad-config.yaml");
+
+    // Create a bad config file
+    fs.writeFileSync(configPath, "invalid: yaml: content: [");
+
+    const promise = initializeWithOnboarding(configPath);
+
+    await expect(promise).rejects.toThrow();
+
+    try {
+      await promise;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      // CRITICAL: Must have our specific error format from the fix
+      expect(message).toMatch(/^Failed to load config from ".*": .+/);
+
+      // Error should be about the specific config file we provided
+      expect(message).toContain(configPath);
+
+      // Should NOT mention falling back to default config (this was the bug!)
+      expect(message).not.toContain("~/.tnt/config.yaml");
+      expect(message).not.toContain("default config");
+      expect(message).not.toContain("fallback");
+    }
+  });
+
+  test("demonstrates the fix: explicit config failure vs no config provided", async () => {
+    const badConfigPath = path.join(tempDir, "bad.yaml");
+    fs.writeFileSync(badConfigPath, "invalid yaml [");
+
+    // Case 1: Explicit --config that fails should throw our specific error
+    await expect(initializeWithOnboarding(badConfigPath)).rejects.toThrow(
+      /^Failed to load config from "/,
+    );
+
+    // Case 2: No explicit config should follow different logic
+    try {
+      await initializeWithOnboarding(undefined);
+      // If it succeeds, that's fine - the point is it's different behavior
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      // This should NOT have our "Failed to load config from" prefix
+      expect(errorMessage).not.toMatch(/^Failed to load config from "/);
+    }
+  });
+});
+
+// Separate describe block with its own mocking for BEDROCK tests
+describe("TNT_USE_BEDROCK environment variable", () => {
+  const mockConsoleLog = vi.fn();
+  const originalEnv = process.env.TNT_USE_BEDROCK;
+
+  // Mock initialize for these tests only
+  const mockInitialize = vi.fn().mockResolvedValue({
+    config: { name: "test-config", models: [], rules: [] },
+    llmApi: {},
+    model: { name: "test-model" },
+    mcpService: {},
+    apiClient: {},
+  });
+
+  beforeEach(() => {
+    mockConsoleLog.mockClear();
+    mockInitialize.mockClear();
+
+    // Spy on console.log for these tests
+    vi.spyOn(console, "log").mockImplementation(mockConsoleLog);
+
+    // Mock the config module
+    vi.doMock("../config/index.js", () => ({ initialize: mockInitialize }));
+  });
+
+  afterEach(() => {
+    if (originalEnv) {
+      process.env.TNT_USE_BEDROCK = originalEnv;
+    } else {
+      delete process.env.TNT_USE_BEDROCK;
+    }
+    vi.restoreAllMocks();
+    vi.doUnmock("../config/index.js");
+  });
+
+  test("should bypass interactive options when TNT_USE_BEDROCK=1", async () => {
+    process.env.TNT_USE_BEDROCK = "1";
+
+    // Re-import to get the mocked version
+    vi.resetModules();
+    const { runOnboardingFlow } = await import("./onboarding.js");
+
+    const result = await runOnboardingFlow(undefined);
+
+    expect(result).toBe(true);
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      expect.stringContaining("Using AWS Bedrock (TNT_USE_BEDROCK detected)"),
+    );
+  });
+
+  test("should not bypass when TNT_USE_BEDROCK is not '1'", async () => {
+    process.env.TNT_USE_BEDROCK = "0";
+
+    // Re-import to get the mocked version
+    vi.resetModules();
+    const { runOnboardingFlow } = await import("./onboarding.js");
+
+    // Mock non-interactive environment to avoid hanging
+    const originalIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
+
+    try {
+      await runOnboardingFlow(undefined);
+
+      // Verify the Bedrock message was NOT called by checking all calls
+      const allCalls = mockConsoleLog.mock.calls.flat();
+      const hasBedrockMessage = allCalls.some((call) =>
+        String(call).includes("Using AWS Bedrock (TNT_USE_BEDROCK detected)"),
+      );
+      expect(hasBedrockMessage).toBe(false);
+    } finally {
+      process.stdin.isTTY = originalIsTTY;
+    }
+  });
+});
+
+describe("interactive provider onboarding writes a real config file", () => {
+  let tempDir: string;
+  const originalGlobalDir = process.env.TNT_GLOBAL_DIR;
+  const originalGithubActions = process.env.GITHUB_ACTIONS;
+  const originalStdinIsTTY = process.stdin.isTTY;
+
+  beforeEach(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-onboard-"));
+    process.env.TNT_GLOBAL_DIR = tempDir;
+    // Force the interactive branch (not the non-TTY test guard). Every signal
+    // the guard reads has to be neutralised here, because GitHub Actions sets
+    // GITHUB_ACTIONS in addition to CI and the first cut of this file only
+    // cleared CI - so the flow skipped the prompts it was meant to exercise and
+    // wrote no config.
+    process.stdin.isTTY = true;
+    // stdout stays non-TTY under any test runner, so step 4 always takes the
+    // line prompts that read the mocked `question`, never the Ink box.
+    process.env.NODE_ENV = "development";
+    process.env.CI = "";
+    process.env.VITEST = "";
+    process.env.GITHUB_ACTIONS = "";
+    questionMock.mockReset();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.resetModules();
+  });
+
+  afterEach(async () => {
+    // The case re-imported the module graph through `resetModules`, so the log
+    // transport it opened points at this case's home and still holds a handle
+    // there. Close that instance - not the one this file imported first - and the
+    // directory below is removable on the first try.
+    const { closeLogs } = await import("../utils/logger.js");
+    await closeLogs();
+    if (originalGlobalDir === undefined) {
+      delete process.env.TNT_GLOBAL_DIR;
+    } else {
+      process.env.TNT_GLOBAL_DIR = originalGlobalDir;
+    }
+    if (originalGithubActions === undefined) {
+      delete process.env.GITHUB_ACTIONS;
+    } else {
+      process.env.GITHUB_ACTIONS = originalGithubActions;
+    }
+    process.stdin.isTTY = originalStdinIsTTY;
+    vi.restoreAllMocks();
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("protocol -> url -> key -> model lands a minimal config on disk", async () => {
+    questionMock
+      .mockResolvedValueOnce("5") // any OpenAI-compatible endpoint
+      .mockResolvedValueOnce("http://127.0.0.1:8080/v1")
+      .mockResolvedValueOnce("sk-local-key")
+      .mockResolvedValueOnce("qwen2.5-coder");
+
+    const { runOnboardingFlow } = await import("./onboarding.js");
+    const onboarded = await runOnboardingFlow(undefined);
+
+    expect(onboarded).toBe(true);
+
+    const configPath = path.join(tempDir, "config.yaml");
+    expect(fs.existsSync(configPath)).toBe(true);
+
+    const written = fs.readFileSync(configPath, "utf8");
+    expect(written).toContain("name: TNT");
+    // The setup used to write the hub's version and schema keys; a fresh config
+    // now carries only what the CLI reads.
+    expect(written).not.toContain("schema:");
+    expect(written).not.toContain("version:");
+    // openai-compatible is recorded as the openai adapter with a custom URL.
+    expect(written).toContain("provider: openai");
+    expect(written).toContain('apiBase: "http://127.0.0.1:8080/v1"');
+    expect(written).toContain('apiKey: "sk-local-key"');
+    expect(written).toContain('model: "qwen2.5-coder"');
+    // Minimal: no roles or completion options are written.
+    expect(written).not.toContain("roles:");
+    expect(written).not.toContain("defaultCompletionOptions:");
+  });
+
+  test("the built config parses as YAML with one model entry", async () => {
+    questionMock
+      .mockResolvedValueOnce("5")
+      .mockResolvedValueOnce("https://api.deepseek.com/v1")
+      .mockResolvedValueOnce("sk-deepseek")
+      .mockResolvedValueOnce("");
+
+    const { runOnboardingFlow } = await import("./onboarding.js");
+    await runOnboardingFlow(undefined);
+
+    const { parse } = await import("yaml");
+    const parsed = parse(
+      fs.readFileSync(path.join(tempDir, "config.yaml"), "utf8"),
+    );
+    expect(parsed.schema).toBeUndefined();
+    expect(parsed.version).toBeUndefined();
+    expect(parsed.models).toHaveLength(1);
+    expect(parsed.models[0].provider).toBe("deepseek");
+    expect(parsed.models[0].model).toBe("deepseek-chat");
+    expect(parsed.models[0].apiBase).toBe("https://api.deepseek.com/");
+  });
+});

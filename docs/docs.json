@@ -1,0 +1,92 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "TNT",
+  "colors": {
+    "primary": "#4D6BFE",
+    "light": "#ffffff",
+    "dark": "#000000"
+  },
+  "favicon": "/favicon.png",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "TNT CLI",
+        "groups": [
+          {
+            "group": "Get started",
+            "icon": "rocket-launch",
+            "pages": ["index", "cli/quickstart", "cli/headless-mode"]
+          },
+          {
+            "group": "Configure",
+            "icon": "sliders",
+            "pages": [
+              "cli/configuration",
+              "cli/models",
+              "cli/permissions",
+              "cli/i18n"
+            ]
+          },
+          {
+            "group": "Use",
+            "icon": "terminal",
+            "pages": [
+              "cli/tui",
+              "cli/modes",
+              "cli/slash-commands",
+              "cli/context"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "icon": "layer-group",
+            "pages": ["cli/architecture", "cli/acp", "cli/sessions"]
+          },
+          {
+            "group": "Extend",
+            "icon": "puzzle-piece",
+            "pages": [
+              "cli/mcp",
+              "cli/hooks",
+              "cli/skills",
+              "cli/plugins",
+              "cli/subagents"
+            ]
+          },
+          {
+            "group": "Help",
+            "icon": "circle-question",
+            "pages": ["cli/troubleshooting", "troubleshooting", "reference"]
+          },
+          {
+            "group": "Research",
+            "icon": "flask",
+            "pages": ["research/token-consumption-comparison"]
+          }
+        ]
+      }
+    ]
+  },
+  "background": {
+    "color": {
+      "dark": "#1a1a1a"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/customize",
+      "destination": "/"
+    },
+    {
+      "source": "/guides",
+      "destination": "/"
+    }
+  ],
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/linanwanttodo/TNT"
+    }
+  }
+}

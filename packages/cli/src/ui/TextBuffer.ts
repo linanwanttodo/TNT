@@ -1,0 +1,640 @@
+import { Key } from "ink";
+
+import { t } from "../i18n/index.js";
+
+import * as bufferLimits from "./utils/bufferLimits.js";
+import { ComposerTerminalFilter } from "./utils/composerTerminalFilter.js";
+import { PasteModeHandler } from "./utils/pasteMode.js";
+import { firstPasteMarker } from "./utils/terminalResponses.js";
+
+export const RAPID_INPUT_THRESHOLD = 200; // Minimum characters to trigger rapid input detection
+
+export class TextBuffer {
+  private _text: string = "";
+  private _cursor: number = 0;
+  private _rapidInputBuffer: string = "";
+  private _rapidInputStartPos: number = 0;
+  private _lastInputTime: number = 0;
+  private _rapidInputTimer: NodeJS.Timeout | null = null;
+  private _terminalFilter = new ComposerTerminalFilter(
+    (text) => this.insertText(text),
+    () => this._onStateChange?.(),
+  );
+  private _onStateChange?: () => void;
+  private _pasteMap = new Map<string, string>(); // placeholder -> original content
+  private _pasteCounter: number = 0;
+
+  // The bracketed-paste state machine; see utils/pasteMode.ts. Field order
+  // matters: the collapse callback reads _pasteMap, declared above, and the
+  // silence onChange reads _onStateChange, declared above that.
+  private _paste = new PasteModeHandler(
+    (text) => this.insertText(text),
+    (buffered) => {
+      const placeholder = this.createPlaceholder(buffered);
+      this._pasteMap.set(placeholder, buffered);
+      return placeholder;
+    },
+    () => {
+      if (this._rapidInputTimer) {
+        clearTimeout(this._rapidInputTimer);
+        this._rapidInputTimer = null;
+      }
+    },
+    () => this._onStateChange?.(),
+  );
+  private _imageMap = new Map<string, Buffer>(); // placeholder -> image buffer
+  private _imageCounter: number = 0;
+
+  constructor(initialText: string = "") {
+    this._text = initialText;
+    this._cursor = initialText.length;
+  }
+
+  get text(): string {
+    return this._text;
+  }
+
+  get cursor(): number {
+    return this._cursor;
+  }
+
+  setText(text: string): void {
+    this._text = text;
+    this._cursor = Math.min(this._cursor, text.length);
+  }
+
+  setCursor(position: number): void {
+    this._cursor = Math.max(0, Math.min(position, this._text.length));
+  }
+
+  insertText(text: string): void {
+    // Normalize line endings to prevent terminal display issues
+    const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    this._text =
+      this._text.slice(0, this._cursor) +
+      normalizedText +
+      this._text.slice(this._cursor);
+    this._cursor += normalizedText.length;
+  }
+
+  deleteCharAt(position: number): void {
+    if (position >= 0 && position < this._text.length) {
+      this._text =
+        this._text.slice(0, position) + this._text.slice(position + 1);
+      if (this._cursor > position) {
+        this._cursor--;
+      }
+    }
+  }
+
+  deleteBackward(): void {
+    if (this._cursor > 0) {
+      this.deleteCharAt(this._cursor - 1);
+    }
+  }
+
+  deleteForward(): void {
+    if (this._cursor < this._text.length) {
+      this.deleteCharAt(this._cursor);
+    }
+  }
+
+  private findWordBoundary(
+    position: number,
+    direction: "left" | "right",
+  ): number {
+    if (direction === "left") {
+      // Find start of current word or previous word
+      let pos = Math.max(0, position - 1);
+
+      // Skip whitespace
+      while (pos > 0 && /\s/.test(this._text[pos])) {
+        pos--;
+      }
+
+      // Find word boundary
+      while (pos > 0 && !/\s/.test(this._text[pos - 1])) {
+        pos--;
+      }
+
+      return pos;
+    } else {
+      // Find end of current word or next word
+      let pos = position;
+
+      // Skip whitespace
+      while (pos < this._text.length && /\s/.test(this._text[pos])) {
+        pos++;
+      }
+
+      // Find word boundary
+      while (pos < this._text.length && !/\s/.test(this._text[pos])) {
+        pos++;
+      }
+
+      return pos;
+    }
+  }
+
+  moveWordLeft(): void {
+    this._cursor = this.findWordBoundary(this._cursor, "left");
+  }
+
+  moveWordRight(): void {
+    this._cursor = this.findWordBoundary(this._cursor, "right");
+  }
+
+  deleteWordBackward(): void {
+    const wordStart = this.findWordBoundary(this._cursor, "left");
+    if (wordStart < this._cursor) {
+      this._text =
+        this._text.slice(0, wordStart) + this._text.slice(this._cursor);
+      this._cursor = wordStart;
+    }
+  }
+
+  deleteWordForward(): void {
+    const wordEnd = this.findWordBoundary(this._cursor, "right");
+    if (wordEnd > this._cursor) {
+      this._text =
+        this._text.slice(0, this._cursor) + this._text.slice(wordEnd);
+    }
+  }
+
+  private deleteLineBackward(): void {
+    if (this._cursor === 0) {
+      return;
+    }
+
+    const lastNewline = this._text.lastIndexOf("\n", this._cursor - 1);
+    const lineStart = lastNewline === -1 ? 0 : lastNewline + 1;
+
+    if (lineStart === this._cursor) {
+      return;
+    }
+
+    this._text =
+      this._text.slice(0, lineStart) + this._text.slice(this._cursor);
+    this._cursor = lineStart;
+  }
+
+  private deleteLineForward(): void {
+    if (this._cursor >= this._text.length) {
+      return;
+    }
+
+    const nextNewline = this._text.indexOf("\n", this._cursor);
+    const lineEnd = nextNewline === -1 ? this._text.length : nextNewline;
+
+    if (lineEnd === this._cursor) {
+      return;
+    }
+
+    this._text = this._text.slice(0, this._cursor) + this._text.slice(lineEnd);
+  }
+
+  moveToStart(): void {
+    this._cursor = 0;
+  }
+
+  moveToEnd(): void {
+    this._cursor = this._text.length;
+  }
+
+  moveLeft(): void {
+    this._cursor = Math.max(0, this._cursor - 1);
+  }
+
+  moveRight(): void {
+    this._cursor = Math.min(this._text.length, this._cursor + 1);
+  }
+
+  clear(): void {
+    this._text = "";
+    this._cursor = 0;
+    this._pasteMap.clear();
+    this._pasteCounter = 0;
+    this._imageMap.clear();
+    this._imageCounter = 0;
+    this._paste.clear();
+    this._rapidInputBuffer = "";
+    this._rapidInputStartPos = 0;
+    this._lastInputTime = 0;
+    if (this._rapidInputTimer) {
+      clearTimeout(this._rapidInputTimer);
+      this._rapidInputTimer = null;
+    }
+    this._terminalFilter.reset();
+  }
+
+  isInPasteMode(): boolean {
+    return this._paste.inPasteMode;
+  }
+
+  isInRapidInputMode(): boolean {
+    return this._rapidInputBuffer.length > 0;
+  }
+
+  setStateChangeCallback(callback: () => void): void {
+    this._onStateChange = callback;
+  }
+
+  // Called on Enter to expand full pasted content before submission
+  expandAllPasteBlocks(): void {
+    for (const [placeholder, originalContent] of this._pasteMap.entries()) {
+      const regex = new RegExp(this.escapeRegex(placeholder), "g");
+      // Normalize line endings to prevent terminal display issues
+      const normalizedContent = originalContent
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n");
+      this._text = this._text.replace(regex, normalizedContent);
+    }
+    this._pasteMap.clear();
+  }
+
+  // Add image to buffer and return placeholder
+  addImage(imageBuffer: Buffer): string {
+    // Validate image size
+    if (imageBuffer.length > bufferLimits.MAX_IMAGE_SIZE) {
+      throw new Error(
+        t("ui.imageTooLarge", {
+          size: (imageBuffer.length / 1024 / 1024).toFixed(1),
+          max: bufferLimits.MAX_IMAGE_SIZE / 1024 / 1024,
+        }),
+      );
+    }
+
+    // Check image count limit
+    if (this._imageMap.size >= bufferLimits.MAX_IMAGE_COUNT) {
+      throw new Error(
+        t("ui.tooManyImages", { count: bufferLimits.MAX_IMAGE_COUNT }),
+      );
+    }
+
+    // Check total memory usage
+    const currentMemoryUsage = Array.from(this._imageMap.values()).reduce(
+      (total, buffer) => total + buffer.length,
+      0,
+    );
+
+    if (
+      currentMemoryUsage + imageBuffer.length >
+      bufferLimits.MAX_TOTAL_IMAGE_MEMORY
+    ) {
+      const currentUsageMB = (currentMemoryUsage / 1024 / 1024).toFixed(1);
+      const maxUsageMB = bufferLimits.MAX_TOTAL_IMAGE_MEMORY / 1024 / 1024;
+      throw new Error(
+        t("ui.imageMemoryLimit", {
+          current: currentUsageMB,
+          max: maxUsageMB,
+        }),
+      );
+    }
+
+    this._imageCounter++;
+    const placeholder = `[Image #${this._imageCounter}]`;
+    this._imageMap.set(placeholder, imageBuffer);
+    this.insertText(placeholder);
+    return placeholder;
+  }
+
+  // Get all images for message formatting
+  getAllImages(): Map<string, Buffer> {
+    return new Map(this._imageMap);
+  }
+
+  // Clear images after message submission
+  clearImages(): void {
+    this._imageMap.clear();
+    this._imageCounter = 0;
+  }
+
+  // Test helper: forces immediate finalization without waiting for timers
+  flushPendingInput(): boolean {
+    if (this._rapidInputTimer) {
+      clearTimeout(this._rapidInputTimer);
+      this._rapidInputTimer = null;
+      this.finalizeRapidInput();
+      return true;
+    }
+    return false;
+  }
+
+  /** Flushes a stranded/open paste into text, e.g. before Enter submits. */
+  flushPasteMode(): boolean {
+    return this._paste.flush();
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  // Creates placeholder for single line or multi-line pastes
+  private createPlaceholder(originalText: string): string {
+    this._pasteCounter++;
+    const lineCount = bufferLimits.pasteLineCount(originalText);
+
+    if (lineCount === 1) {
+      return `[Pasted Text #${this._pasteCounter} · ${originalText.length} chars]`;
+    } else {
+      return `[Pasted Text #${this._pasteCounter} · ${lineCount} lines]`;
+    }
+  }
+
+  // Fallback paste detection: detects rapid chunks by timing and size RAPID_INPUT_THRESHOLD
+  private handleRapidInput(input: string): boolean {
+    if (
+      /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
+        input,
+      )
+    ) {
+      this._lastInputTime = Date.now();
+      return false;
+    }
+    const now = Date.now();
+    const timeSinceLastInput = now - this._lastInputTime;
+
+    // If we're already in rapid input mode and this comes quickly, add to buffer
+    if (this._rapidInputBuffer.length > 0 && timeSinceLastInput < 200) {
+      const isLikelyTyping = input.length < 50 && timeSinceLastInput >= 50;
+
+      if (!isLikelyTyping) {
+        this._rapidInputBuffer += input;
+        this._lastInputTime = now;
+
+        if (this._rapidInputTimer) {
+          clearTimeout(this._rapidInputTimer);
+        }
+
+        // Reset timer: 200ms pause indicates end of paste
+        this._rapidInputTimer = setTimeout(() => {
+          this.finalizeRapidInput();
+        }, 200);
+
+        return true;
+      }
+    }
+
+    // Fallback paste detection: some terminals send large pastes as rapid chunks
+    // instead of using bracketed paste mode. We detect this by timing between inputs.
+    // The >= 50 char threshold was restored to detect Terminal.app/Ghostty split pastes
+    if (
+      input.length > RAPID_INPUT_THRESHOLD ||
+      (input.length >= 50 && this._rapidInputBuffer.length === 0)
+    ) {
+      this._rapidInputStartPos = this._cursor;
+
+      // Accumulate chunks without inserting to avoid visual flicker
+      this._rapidInputBuffer = input;
+      this._lastInputTime = now;
+
+      if (this._rapidInputTimer) {
+        clearTimeout(this._rapidInputTimer);
+      }
+
+      // 200ms pause indicates end of paste
+      this._rapidInputTimer = setTimeout(() => {
+        this.finalizeRapidInput();
+      }, 200);
+
+      return true; // Consume input without inserting until finalized
+    }
+
+    this._lastInputTime = now;
+    return false;
+  }
+
+  // Called after rapid input timer expires to collapse or insert buffered content
+  private finalizeRapidInput(): void {
+    if (bufferLimits.shouldCollapsePaste(this._rapidInputBuffer)) {
+      const placeholder = this.createPlaceholder(this._rapidInputBuffer);
+      this._pasteMap.set(placeholder, this._rapidInputBuffer);
+
+      this._text =
+        this._text.slice(0, this._rapidInputStartPos) +
+        placeholder +
+        this._text.slice(this._rapidInputStartPos);
+      this._cursor = this._rapidInputStartPos + placeholder.length;
+
+      if (this._onStateChange) {
+        this._onStateChange();
+      }
+    } else {
+      this.insertText(this._rapidInputBuffer);
+
+      if (this._onStateChange) {
+        this._onStateChange();
+      }
+    }
+
+    this._rapidInputBuffer = "";
+    this._rapidInputStartPos = 0;
+    this._rapidInputTimer = null;
+  }
+
+  private handleOptionKey(sequence: string): boolean {
+    // Option + backspace (usually \u001b\u0008 or \u001b\u007f)
+    if (sequence === "\u0008" || sequence === "\u007f") {
+      this.deleteWordBackward();
+      return true;
+    }
+    return true; // Consume other option sequences
+  }
+
+  private handleCtrlKey(input: string): boolean {
+    switch (input) {
+      case "a":
+        this.moveToStart();
+        return true;
+      case "e":
+        this.moveToEnd();
+        return true;
+      case "u":
+        this.deleteLineBackward();
+        return true;
+      case "k":
+        this.deleteLineForward();
+        return true;
+      case "w":
+        this.deleteWordBackward();
+        return true;
+      case "d":
+        this.deleteWordForward();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private handleMetaKey(input: string, key: Key): boolean {
+    if (key.backspace) {
+      this.deleteLineBackward();
+      return true;
+    }
+    if (key.delete) {
+      this.deleteLineForward();
+      return true;
+    }
+    if (key.leftArrow) {
+      this.moveWordLeft();
+      return true;
+    }
+    if (key.rightArrow) {
+      this.moveWordRight();
+      return true;
+    }
+    // Handle option+left/right as characters (on Mac, option+arrow sends character codes)
+    if (input === "b") {
+      this.moveWordLeft();
+      return true;
+    }
+    if (input === "f") {
+      this.moveWordRight();
+      return true;
+    }
+    return false;
+  }
+
+  private handleArrowKeys(key: Key): boolean {
+    if (key.leftArrow && !key.meta) {
+      this.moveLeft();
+      return true;
+    }
+    if (key.rightArrow && !key.meta) {
+      this.moveRight();
+      return true;
+    }
+    return false;
+  }
+
+  private handleDeleteKeys(key: Key): boolean {
+    // On Mac, backspace key registers as key.delete, so treat it as backward deletion
+    if ((key.delete || key.backspace) && !key.meta) {
+      this.deleteBackward();
+      return true;
+    }
+    return false;
+  }
+
+  private handleSpecialKeys(input: string, key: Key): boolean {
+    // Detect option key combinations through escape sequences
+    const isOptionKey = input.startsWith("\u001b") && input.length > 1;
+
+    // Handle option key combinations (detected through escape sequences)
+    if (isOptionKey) {
+      return this.handleOptionKey(input.slice(1));
+    }
+
+    // Handle special key combinations based on input character
+    if (key.ctrl && this.handleCtrlKey(input)) {
+      return true;
+    }
+
+    // Handle meta key combinations (cmd on Mac)
+    if (key.meta && this.handleMetaKey(input, key)) {
+      return true;
+    }
+
+    // Handle arrow keys
+    if (this.handleArrowKeys(key)) {
+      return true;
+    }
+
+    // Handle backspace/delete
+    if (this.handleDeleteKeys(key)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private handleTextInput(input: string): boolean {
+    if (
+      /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
+        input,
+      )
+    ) {
+      this.insertText(input);
+      this._lastInputTime = Date.now();
+      return true;
+    }
+    // Direct paste detection: single large input - but delay insertion to catch split pastes.
+    // A newline inside one input event can only come from a paste (typing
+    // delivers Enter as its own event), so multi-row pastes enter the same
+    // delayed path even when they are short.
+    const looksLikePaste =
+      input.length > bufferLimits.COLLAPSE_SIZE ||
+      (input.length > 1 && input.includes("\n"));
+    if (looksLikePaste && this._rapidInputBuffer.length === 0) {
+      // Start rapid input mode immediately to delay placeholder creation
+      this._rapidInputStartPos = this._cursor;
+      this._rapidInputBuffer = input;
+      this._lastInputTime = Date.now();
+
+      if (this._rapidInputTimer) {
+        clearTimeout(this._rapidInputTimer);
+      }
+
+      // Wait 250ms to see if more content comes (split paste)
+      this._rapidInputTimer = setTimeout(() => {
+        this.finalizeRapidInput();
+      }, 250);
+
+      return true;
+    }
+
+    // Fallback: detect chunked paste operations
+    if (this.handleRapidInput(input)) {
+      return true;
+    }
+
+    this.insertText(input);
+    return true;
+  }
+
+  /**
+   * Consumes one Ink input event and returns the text the composer should
+   * handle, or null when the event was a terminal reply.
+   */
+  filterTerminalInput(input: string, disabled: boolean): string | null {
+    return this._terminalFilter.consume(input, disabled);
+  }
+
+  handleInput(input: string, key: Key): boolean {
+    // Handle bracketed paste sequences first; utils/pasteMode.ts owns why
+    // markers are matched by position and why the silence timer exists.
+    if (this._paste.inPasteMode || firstPasteMarker(input)) {
+      if (this._paste.consume(input)) {
+        return true;
+      }
+    }
+
+    // Handle special keys (option, ctrl, meta, arrows, delete)
+    if (this.handleSpecialKeys(input, key)) {
+      return true;
+    }
+
+    // Handle regular text input
+    const isOptionKey = input.startsWith("\u001b") && input.length > 1;
+    if (input && input.length >= 1 && !key.ctrl && !key.meta && !isOptionKey) {
+      return this.handleTextInput(input);
+    }
+
+    return false;
+  }
+
+  // Helper method to render text with cursor
+  renderWithCursor(placeholder?: string): {
+    text: string;
+    cursorPosition: number;
+  } {
+    if (this._text.length === 0 && placeholder) {
+      return { text: placeholder, cursorPosition: 0 };
+    }
+
+    return {
+      text: this._text,
+      cursorPosition: this._cursor,
+    };
+  }
+}

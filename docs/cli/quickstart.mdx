@@ -1,0 +1,70 @@
+---
+title: "Quickstart"
+description: "Install TNT, configure a model, and start the first session."
+---
+
+import CLIInstall from "/snippets/cli-install.mdx";
+
+## Install
+
+<CLIInstall />
+
+Verify the installation:
+
+```bash
+tnt --version
+```
+
+## Configure a model
+
+TNT reads `~/.tnt/config.yaml`. Start from an OpenAI compatible endpoint:
+
+```yaml title="~/.tnt/config.yaml"
+name: TNT
+models:
+  - name: my-model
+    provider: openai
+    model: gpt-4.1
+    apiBase: https://api.openai.com/v1
+    apiKey: ${{ secrets.OPENAI_API_KEY }}
+```
+
+Secrets written as `${{ secrets.NAME }}` are resolved from the environment, then from
+`~/.tnt/.env`, `<workspace>/.tnt/.env` and `<workspace>/.env`. See
+[Models](/cli/models) for the provider list and the other model options.
+
+## Start a session
+
+```bash
+tnt
+```
+
+Type a request, then press Enter to send it. The transcript stays in the terminal
+scrollback: finished messages are printed once, the newest content sits above the
+composer.
+
+| Key | Action |
+| --- | --- |
+| `Enter` | send the message |
+| `Shift+Tab` | cycle the permission mode (Manual, Accept edits, Plan, Auto, Bypass) |
+| `Esc` | interrupt the running turn |
+| `Up` / `Down` | recall earlier input |
+| `Ctrl+C` | cancel the input, press twice to exit |
+
+## Common flag combinations
+
+| Task | Command |
+| --- | --- |
+| One shot answer in a script | `tnt -p "summarize the staged diff"` |
+| Machine readable output | `tnt -p "list the failing tests" --format json` |
+| Read only exploration | `tnt --permission-mode plan "explain the request path"` |
+| Unattended run | `tnt --permission-mode auto "fix the lint errors"` |
+| Resume the last session here | `tnt --resume` |
+| Pick any saved session | `tnt ls` |
+
+## Next steps
+
+- [Configuration](/cli/configuration) for the full resolution order.
+- [TUI](/cli/tui) for the layout and the interactive controls.
+- [Slash commands](/cli/slash-commands) for everything reachable from `/`.
+- [ACP](/cli/acp) to use TNT from Zed or another ACP editor.

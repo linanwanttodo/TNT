@@ -1,0 +1,32 @@
+export type {
+  PermissionCheckResult,
+  PermissionPolicy,
+  ToolCallRequest,
+  ToolPermissionPolicy,
+  ToolPermissions,
+} from "./types.js";
+
+export {
+  checkToolPermission,
+  matchesArguments,
+  matchesToolPattern,
+} from "./permissionChecker.js";
+export {
+  DESTRUCTIVE_COMMAND_NOTICE,
+  isDestructiveCall,
+  isDestructiveCommand,
+} from "./destructiveCommands.js";
+export {
+  toolPermissionManager,
+  ToolPermissionManager,
+} from "./permissionManager.js";
+export type { PermissionRequestResult } from "./permissionManager.js";
+export {
+  ensurePermissionsYamlExists,
+  loadPermissionsYaml,
+  permissionsYamlPath,
+  yamlConfigToPolicies,
+} from "./permissionsYamlLoader.js";
+export type { PermissionsYamlConfig } from "./permissionsYamlLoader.js";
+export { resolvePermissionPrecedence } from "./precedenceResolver.js";
+export type { PermissionSources } from "./precedenceResolver.js";

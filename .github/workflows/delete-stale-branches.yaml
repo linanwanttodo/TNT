@@ -1,0 +1,32 @@
+name: Delete Stale Branches
+
+on:
+  schedule:
+    - cron: "0 6 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: write
+
+jobs:
+  stale_branches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Stale Branches
+        uses: crs-k/stale-branches@v8.2.2
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          days-before-stale: 59
+          days-before-delete: 90
+          pr-check: true
+          ignore-issue-interaction: true
+          # This regex is an include-list over the bare branch name
+          # (filter-branches.ts: branches.filter(b => pattern.test(b.branchName))),
+          # so writing it as bot prefixes means a human branch can never reach the
+          # delete path. The previous `^(?!cla-signatures$).*` protected one name by
+          # a negative lookahead, which left every future long-lived branch -
+          # release line, months-old WIP - in the default-delete set unless someone
+          # remembered to extend the lookahead.
+          branches-filter-regex: "^(snyk-fix-[0-9a-f]+|dependabot/|copilot/|renovate/)"

@@ -1,0 +1,432 @@
+import { Box, Text, useInput } from "ink";
+import React, { useState } from "react";
+import { quote } from "shell-quote";
+
+import { t } from "../i18n/index.js";
+import {
+  MCPConnectionInfo,
+  MCPServiceState,
+  SERVICE_NAMES,
+} from "../services/types.js";
+import { logger } from "../utils/logger.js";
+
+import { useServices } from "./hooks/useService.js";
+import { themedBoxStyles } from "./styles.js";
+import { useTheme, type Theme } from "./theme/tokens.js";
+
+// Utility function to get status icon and color based on server connection
+const getServerStatusDisplay = (conn: MCPConnectionInfo, theme: Theme) => {
+  let icon = "⚪️"; // note, white circle causes extra blank line bug
+  let color: string = theme.text.primary;
+  let statusText = t("mcp.statusIdle");
+
+  if (conn.status === "connecting") {
+    icon = "🟡";
+    color = theme.status.warning;
+    statusText = t("mcp.statusConnecting");
+  } else if (conn.status === "error") {
+    icon = "🔴";
+    color = theme.status.error;
+    statusText = t("mcp.statusError");
+  } else if (conn.status === "connected") {
+    if (conn.warnings && conn.warnings.length > 0) {
+      icon = "🟡";
+      color = theme.status.warning;
+      statusText = t("mcp.statusWithWarnings");
+    } else {
+      icon = "🟢";
+      color = theme.status.success;
+      statusText = t("mcp.statusConnected");
+    }
+  }
+
+  return { icon, color, statusText };
+};
+
+interface MCPSelectorProps {
+  onCancel: () => void;
+}
+
+type MCPMenuState = "main" | "server-detail";
+
+interface MCPMenuItem {
+  label: string;
+  value: string;
+}
+
+export const MCPSelector: React.FC<MCPSelectorProps> = ({ onCancel }) => {
+  const theme = useTheme();
+  const [menuState, setMenuState] = useState<MCPMenuState>("main");
+  const [selectedServer, setSelectedServer] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const { services } = useServices<{ mcp: MCPServiceState }>([
+    SERVICE_NAMES.MCP,
+  ]);
+  const connections = services.mcp?.connections ?? [];
+  const mcpService = services.mcp?.mcpService;
+
+  const backItem = { label: t("mcp.backLabel"), value: "back" };
+
+  const handleBack = () => {
+    if (menuState === "server-detail") {
+      setSelectedServer(null);
+      setMenuState("main");
+      setSelectedIndex(0);
+    } else {
+      onCancel();
+    }
+    setMessage(null);
+  };
+
+  // Main menu items (includes servers)
+  const getMainMenuItems = (): MCPMenuItem[] => {
+    const options: MCPMenuItem[] = [];
+
+    // Add individual servers first
+    if (connections.length > 0) {
+      connections.forEach((conn) => {
+        const { icon } = getServerStatusDisplay(conn, theme);
+
+        let serverLabel = `${icon} ${conn.config.name}`;
+
+        // Add tools and prompts count if server is connected
+        if (conn.status === "connected") {
+          const toolsCount = conn.tools.length;
+          const promptsCount = conn.prompts.length;
+
+          const counts = [];
+          if (toolsCount > 0) {
+            counts.push(t("mcp.toolsCount", { count: toolsCount }));
+          }
+          if (promptsCount > 0) {
+            counts.push(t("mcp.promptsCount", { count: promptsCount }));
+          }
+
+          if (counts.length > 0) {
+            serverLabel += ` (${counts.join(" ")})`;
+          }
+        }
+
+        options.push({
+          label: serverLabel,
+          value: `server:${conn.config.name}`,
+        });
+      });
+
+      // Add bulk actions
+      options.push(
+        { label: t("mcp.restartAll"), value: "restart-all" },
+        { label: t("mcp.stopAll"), value: "stop-all" },
+      );
+    }
+
+    // Add "Explore MCP Servers" option at the bottom
+    options.push({
+      label: t("mcp.explore"),
+      value: "explore-mcp-servers",
+    });
+
+    return options;
+  };
+
+  // Server detail items
+  const getServerDetailItems = (): MCPMenuItem[] => {
+    if (!selectedServer) return [];
+
+    const serverInfo = connections.find(
+      (conn) => conn.config.name === selectedServer,
+    );
+    if (!serverInfo) return [];
+
+    const items: MCPMenuItem[] = [
+      { label: t("mcp.restartOne"), value: "restart" },
+    ];
+
+    // Only show stop server if it's connected
+    if (serverInfo.status === "connected") {
+      items.push({ label: t("mcp.stopOne"), value: "stop" });
+    }
+
+    return items;
+  };
+  const getServerInfoDisplay = () => {
+    if (menuState !== "server-detail" || !selectedServer) return null;
+
+    const serverInfo = connections.find(
+      (conn) => conn.config.name === selectedServer,
+    );
+    if (!serverInfo) return null;
+
+    return (
+      <Box flexDirection="column">
+        {/* Add error if server has error status */}
+        {serverInfo.status === "error" && serverInfo.error && (
+          <Box flexDirection="column" marginBottom={1}>
+            <Text color={theme.status.error} bold>
+              {t("mcp.errorLabel")}
+            </Text>
+            <Text color={theme.status.error}>{serverInfo.error}</Text>
+          </Box>
+        )}
+
+        {/* Add warnings if any */}
+        {serverInfo.warnings.length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            <Text color={theme.status.warning} bold>
+              {t("mcp.warningsLabel")}
+            </Text>
+            {serverInfo.warnings.map((warning, index) => (
+              <Text key={index} color={theme.status.warning}>
+                • {warning}
+              </Text>
+            ))}
+          </Box>
+        )}
+
+        {/* Add prompts if any */}
+        {serverInfo.prompts.length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            <Text color={theme.accent}>
+              {t("mcp.promptsLabel", { count: serverInfo.prompts.length })}
+            </Text>
+            {serverInfo.prompts.map((prompt, index) => (
+              <Text key={index} color="dim">
+                • {prompt.name}
+              </Text>
+            ))}
+          </Box>
+        )}
+
+        {/* Add tools if any */}
+        {serverInfo.tools.length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            <Text color={theme.accent}>
+              {t("mcp.toolsLabel", { count: serverInfo.tools.length })}
+            </Text>
+            {serverInfo.tools.map((tool, index) => (
+              <Text key={index} color="dim">
+                • {tool.name}
+              </Text>
+            ))}
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
+  let items: MCPMenuItem[] = [];
+
+  switch (menuState) {
+    case "main":
+      items = getMainMenuItems();
+      break;
+    case "server-detail":
+      items = getServerDetailItems();
+      break;
+  }
+
+  items = [...items, backItem];
+
+  const maxIndex = Math.max(0, items.length - 1);
+
+  useInput(async (input, key) => {
+    // Always allow escape/Ctrl+C so users can cancel even when loading
+    if (key.escape || (key.ctrl && input === "c")) {
+      handleBack();
+      return;
+    }
+
+    if (isLoading) return;
+
+    if (key.upArrow) {
+      setSelectedIndex(selectedIndex <= 0 ? maxIndex : selectedIndex - 1);
+      return;
+    }
+
+    if (key.downArrow) {
+      setSelectedIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
+      return;
+    }
+
+    if (key.return) {
+      const selectedItem = items[selectedIndex];
+      if (!selectedItem) return;
+
+      setIsLoading(true);
+      setMessage(null);
+
+      try {
+        switch (menuState) {
+          case "main":
+            await handleMainMenuSelect(selectedItem.value);
+            break;
+          case "server-detail":
+            await handleServerAction(selectedItem.value);
+            break;
+        }
+      } catch (error: any) {
+        setMessage(t("mcp.actionError", { message: error.message }));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  });
+
+  const handleMainMenuSelect = async (value: string) => {
+    if (value.startsWith("server:")) {
+      // Handle server selection
+      const serverName = value.replace("server:", "");
+      setSelectedServer(serverName);
+      setMenuState("server-detail");
+      setSelectedIndex(0);
+      return;
+    }
+
+    switch (value) {
+      case "restart-all":
+        await mcpService?.restartAllServers();
+        setMessage(t("mcp.restarted"));
+        break;
+      case "stop-all":
+        await mcpService?.shutdownConnections();
+        setMessage(t("mcp.stopped"));
+        break;
+      case "explore-mcp-servers":
+        // Open the MCP servers hub in the default browser
+        const open = (await import("open")).default;
+        await open("https://github.com/linanwanttodo/TNT");
+        setMessage(t("mcp.hubOpened"));
+        break;
+      case "back":
+        onCancel();
+        return;
+    }
+  };
+
+  const handleServerAction = async (action: string) => {
+    try {
+      switch (action) {
+        case "restart":
+          if (!selectedServer) {
+            return;
+          }
+          await mcpService?.restartServer(selectedServer);
+          setMessage(t("mcp.serverRestarted", { name: selectedServer }));
+          break;
+        case "stop":
+          if (!selectedServer) {
+            return;
+          }
+          await mcpService?.stopServer(selectedServer);
+          setMessage(t("mcp.serverStopped", { name: selectedServer }));
+          break;
+        case "back":
+          handleBack();
+          return;
+      }
+    } catch {
+      logger.error("Error handling MCP action");
+    }
+  };
+
+  const renderHeader = () => {
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Text bold color={theme.accent}>
+          {menuState === "server-detail" && selectedServer
+            ? t("mcp.serverTitle", { name: selectedServer })
+            : t("mcp.title")}
+        </Text>
+        {connections.length === 0 && (
+          <Text color={theme.text.secondary}>{t("mcp.none")}</Text>
+        )}
+        {menuState === "server-detail" &&
+          selectedServer &&
+          (() => {
+            const serverInfo = connections.find(
+              (conn) => conn.config.name === selectedServer,
+            );
+            if (!serverInfo) return null;
+
+            const { color: statusColor, statusText } = getServerStatusDisplay(
+              serverInfo,
+              theme,
+            );
+
+            let configText = "";
+            if ("command" in serverInfo.config) {
+              const { command, args } = serverInfo.config;
+              const cmd = command ? quote([command, ...(args ?? [])]) : "";
+              if (cmd) {
+                configText = t("mcp.commandFragment", { command: cmd });
+              }
+            } else {
+              const { url } = serverInfo.config;
+              configText = t("mcp.urlFragment", { url });
+            }
+            configText = configText.replace(/\$\{\{.*\}\}/, "(secret)");
+
+            return (
+              <Text color="dim">
+                {t("mcp.statusLabel")}{" "}
+                <Text color={statusColor}>{statusText}</Text>
+                {configText}
+              </Text>
+            );
+          })()}
+      </Box>
+    );
+  };
+
+  return (
+    <Box {...themedBoxStyles(theme, "accent", { minHeight: 10 })}>
+      {renderHeader()}
+
+      {message && (
+        <Box marginBottom={1}>
+          <Text
+            color={
+              message.startsWith("Error:")
+                ? theme.status.error
+                : theme.status.success
+            }
+          >
+            {message}
+          </Text>
+        </Box>
+      )}
+
+      {menuState === "server-detail" && getServerInfoDisplay()}
+
+      {isLoading ? (
+        <Box>
+          <Text color={theme.status.warning}>{t("mcp.working")}</Text>
+        </Box>
+      ) : (
+        <Box flexDirection="column">
+          {items.map((item, index) => {
+            const isSelected = index === selectedIndex;
+
+            return (
+              <Text
+                key={`${item.value}-${index}`}
+                color={isSelected ? theme.accent : theme.text.primary}
+                bold={isSelected}
+              >
+                {isSelected ? "➤ " : "  "}
+                {item.label}
+              </Text>
+            );
+          })}
+        </Box>
+      )}
+
+      <Box marginTop={1}>
+        <Text color="dim">{t("mcp.footerHint")}</Text>
+      </Box>
+    </Box>
+  );
+};

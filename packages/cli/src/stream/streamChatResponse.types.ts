@@ -1,0 +1,157 @@
+import { CompletionOptions } from "@tnt/config-yaml";
+import type { ToolStatus } from "core/index.js";
+import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
+
+import type { TerminationReason } from "../loop/termination.js";
+import type { ToolPermissions } from "../permissions/types.js";
+import type { PermissionMode } from "../permissions/types.js";
+import {
+  getReasoningOverride,
+  restoreReasoningOverride,
+} from "../session/reasoningOverride.js";
+import { ToolCallPreview } from "../tools/types.js";
+
+export interface StreamCallbacks {
+  onContent?: (content: string) => void;
+  /**
+   * A reasoning delta, when the provider separates it from the answer. The
+   * surface folds it; it is never appended to the assistant text.
+   */
+  onReasoning?: (delta: string) => void;
+  /**
+   * The round's reasoning is finished, whether or not it produced any answer
+   * text. A round that only calls tools ends with empty content, so a surface
+   * cannot infer this from `onContentComplete`.
+   */
+  onReasoningComplete?: () => void;
+  onContentComplete?: (content: string) => void;
+  onToolStart?: (toolName: string, toolArgs?: any, toolCallId?: string) => void;
+  /**
+   * A tool status change, for a surface that renders the lifecycle rather
+   * than only the start and the result.
+   */
+  onToolUpdate?: (update: {
+    toolCallId?: string;
+    toolName: string;
+    status: ToolStatus;
+    result?: string;
+  }) => void;
+  onToolResult?: (
+    result: string,
+    toolName: string,
+    status: ToolStatus,
+    toolCallId?: string,
+    toolArgs?: unknown,
+  ) => void;
+  onToolError?: (error: string, toolName?: string) => void;
+  onToolPermissionRequest?: (
+    toolName: string,
+    toolArgs: any,
+    requestId: string,
+    preview?: ToolCallPreview[],
+    toolCallId?: string,
+  ) => void;
+  onSystemMessage?: (message: string) => void;
+  /**
+   * Consulted once per completed tool result; a returned string is appended
+   * to that result as a <system-reminder>, so a reminder travels in the
+   * request tail rather than in the cached prefix. `argumentsJson` is the
+   * document the tool ran with, including any PreToolUse rewrite.
+   */
+  onTailReminder?: (
+    toolName: string,
+    argumentsJson: string,
+  ) => string | undefined;
+  /**
+   * Called once when the turn ends, with the reason. A turn cut short by a
+   * step ceiling or a stalled loop still returns its partial text, so this is
+   * how a caller learns to label that text as incomplete.
+   */
+  onTurnTerminated?: (
+    reason: TerminationReason,
+    detail?: { maxSteps?: number; notice?: string },
+  ) => void;
+  /**
+   * Called at a round boundary - after the tool batch of a round is committed
+   * and before the next request. A surface with a message waiting appends it
+   * to the history here, so the next request carries it without splitting a
+   * tool-call batch; returning true says it did. The engine owns the timing,
+   * the surface owns formatting (images, contexts, hooks).
+   */
+  onRoundBoundary?: () => Promise<boolean | void>;
+}
+
+/**
+ * Values that differ for a delegated run.
+ *
+ * A top-level turn leaves these unset and reads the process-wide services. A
+ * delegated run passes them so two concurrent delegations cannot overwrite each
+ * other's system prompt or permissions.
+ */
+export interface StreamRunOverrides {
+  /** System prompt for this run, already resolved. */
+  readonly systemMessage?: string;
+  /**
+   * Permission mode frozen at run start. Reading the live service between
+   * rounds let a mode switch change the system prompt mid-turn.
+   */
+  readonly mode?: PermissionMode;
+  /** Whether this run has an interactive approver. Defaults to the global. */
+  readonly isHeadless?: boolean;
+  /**
+   * Permissions for this run. Defaults to the global. A delegated run passes
+   * its own narrowed policy so it cannot widen its own scope, and so two
+   * concurrent delegations do not read each other's permissions.
+   */
+  readonly permissions?: ToolPermissions;
+  /**
+   * Whether this run may delegate again. False at the depth limit, which keeps
+   * the delegation tool out of the tool list entirely.
+   */
+  readonly canDelegate?: boolean;
+}
+
+export function getDefaultCompletionOptions(
+  opts?: CompletionOptions,
+): Partial<ChatCompletionCreateParamsStreaming> {
+  if (!opts) return {};
+  restoreReasoningOverride();
+  const override = getReasoningOverride();
+  // A `/think` command pins the session's reasoning depth; it wins over the
+  // model's static default so the rest of the turn streams at the chosen level.
+  // "off" disables reasoning; "default" falls back to the model config.
+  const reasoning =
+    override === null
+      ? opts.reasoning
+      : override === "off"
+        ? false
+        : override === "default"
+          ? opts.reasoning
+          : true;
+  const reasoningEffort =
+    override === "default" || override === null
+      ? opts.reasoningEffort
+      : override === "off"
+        ? undefined
+        : override;
+  return {
+    max_tokens: opts.maxTokens,
+    temperature: opts.temperature,
+    frequency_penalty: opts.frequencyPenalty,
+    presence_penalty: opts.presencePenalty,
+    top_p: opts.topP,
+    // Reasoning models read these on Chat Completions; the adapter only forwards
+    // `reasoning_effort` to providers that accept it (o-series / gpt-5+), so a
+    // model that does not understand reasoning leaves the request untouched
+    // rather than rejecting it.
+    ...(reasoning === undefined ? {} : { reasoning }),
+    // The config schema allows "max" where the OpenAI SDK type stops at
+    // "high"; providers that take the field clamp it, the rest never see it.
+    ...(reasoningEffort
+      ? { reasoning_effort: reasoningEffort as "low" | "medium" | "high" }
+      : {}),
+    ...(opts.reasoningBudgetTokens
+      ? { reasoning_budget_tokens: opts.reasoningBudgetTokens }
+      : {}),
+  };
+}
