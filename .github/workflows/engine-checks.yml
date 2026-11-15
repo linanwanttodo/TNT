@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 10
     if: github.run_attempt > 1
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Track workflow rerun
         uses: ./.github/actions/track-rerun
 
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version-file: ".nvmrc"
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Needed for git diff to work
       - name: Setup packages
@@ -122,7 +122,7 @@ jobs:
     outputs:
       packages: ${{ steps.get-packages.outputs.packages }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Get package list
         id: get-packages
         # `cli` is covered by CLI PR Checks, which builds and tests it on three
@@ -143,7 +143,7 @@ jobs:
       matrix:
         package: ${{ fromJson(needs.get-packages-matrix.outputs.packages) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Needed for git diff to work
       - uses: actions/setup-node@v6

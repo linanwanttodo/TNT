@@ -32,7 +32,7 @@ jobs:
           - os: windows-latest
             platform: win32-x64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
