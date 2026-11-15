@@ -1,0 +1,116 @@
+import * as fs from "fs";
+import * as path from "path";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { resolveReviews } from "./resolveReviews.js";
+
+vi.mock("fs", async () => {
+  const actual = await vi.importActual("fs");
+  return {
+    ...actual,
+    existsSync: vi.fn(),
+    readdirSync: vi.fn(),
+  };
+});
+
+describe("resolveReviews local discovery", () => {
+  const originalCwd = process.cwd;
+
+  beforeEach(() => {
+    process.cwd = () => "/test/repo";
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    vi.mocked(fs.readdirSync).mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    process.cwd = originalCwd;
+    vi.restoreAllMocks();
+  });
+
+  it("discovers files from .tnt/agents/", async () => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
+      return p === path.join("/test/repo", ".tnt", "agents");
+    });
+    vi.mocked(fs.readdirSync).mockImplementation(((p: fs.PathLike) => {
+      if (p === path.join("/test/repo", ".tnt", "agents")) {
+        return ["security-review.md", "style-check.md"];
+      }
+      return [];
+    }) as typeof fs.readdirSync);
+
+    const reviews = await resolveReviews();
+    expect(reviews).toHaveLength(2);
+    expect(reviews[0].name).toBe("security review");
+    expect(reviews[0].sourceType).toBe("local");
+    expect(reviews[0].source).toContain("agents");
+  });
+
+  it("discovers files from .tnt/checks/", async () => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => {
+      return p === path.join("/test/repo", ".tnt", "checks");
+    });
+    vi.mocked(fs.readdirSync).mockImplementation(((p: fs.PathLike) => {
+      if (p === path.join("/test/repo", ".tnt", "checks")) {
+        return ["anti-slop.md"];
+      }
+      return [];
+    }) as typeof fs.readdirSync);
+
+    const reviews = await resolveReviews();
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0].name).toBe("anti slop");
+    expect(reviews[0].source).toContain("checks");
+  });
+
+  it("discovers files from both directories without duplicates", async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readdirSync).mockImplementation(((p: fs.PathLike) => {
+      const dir = String(p);
+      if (dir.endsWith("agents")) {
+        return ["security-review.md", "shared.md"];
+      }
+      if (dir.endsWith("checks")) {
+        return ["anti-slop.md", "shared.md"];
+      }
+      return [];
+    }) as typeof fs.readdirSync);
+
+    const reviews = await resolveReviews();
+    // agents/security-review.md, agents/shared.md, checks/anti-slop.md
+    // checks/shared.md is skipped (duplicate filename, agents/ takes precedence)
+    expect(reviews).toHaveLength(3);
+    const names = reviews.map((r) => r.name);
+    expect(names).toContain("security review");
+    expect(names).toContain("shared");
+    expect(names).toContain("anti slop");
+
+    // The "shared" entry should come from agents/, not checks/
+    const shared = reviews.find((r) => r.name === "shared");
+    expect(shared?.source).toContain("agents");
+  });
+
+  it("returns empty array when neither directory exists", async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    const reviews = await resolveReviews();
+    expect(reviews).toHaveLength(0);
+  });
+
+  it("handles directory read errors gracefully", async () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readdirSync).mockImplementation(() => {
+      throw new Error("Permission denied");
+    });
+
+    const reviews = await resolveReviews();
+    expect(reviews).toHaveLength(0);
+  });
+
+  it("refuses a hub-shaped name instead of labelling it resolvable", async () => {
+    // There is no hub to resolve against, so this has to fail here; letting it
+    // through would hand the string to a worker that reads it as a file.
+    await expect(resolveReviews(["org/agent-name"])).rejects.toThrow(
+      /hub review sources are not available/,
+    );
+  });
+});

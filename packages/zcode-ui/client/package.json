@@ -1,0 +1,21 @@
+{
+  "name": "@zcode/client",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./globals": "./src/globals.d.ts"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
+  },
+  "dependencies": {
+    "@zcode/rpc": "file:../rpc",
+    "@zcode/services": "file:../services",
+    "@zcode/shared": "file:../shared"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  }
+}

@@ -3,20 +3,16 @@ import {
   ConfigResult,
   DevDataLogEvent,
   ModelRole,
-} from "@continuedev/config-yaml";
-import { ToolPolicy } from "@continuedev/terminal-security";
+} from "@tnt/config-yaml";
+import { ToolPolicy } from "@tnt/terminal-security";
 
-import {
-  AutocompleteInput,
-  RecentlyEditedRange,
-} from "../autocomplete/util/types";
 import { ProfileDescription } from "../config/ProfileLifecycleManager";
 import { SharedConfigSchema } from "../config/sharedConfig";
 import { GlobalContextModelSelections } from "../util/GlobalContext";
 
 import {
   BaseSessionMetadata,
-  BrowserSerializedContinueConfig,
+  BrowserSerializedTntConfig,
   ChatMessage,
   CompiledMessagesResult,
   CompleteOnboardingPayload,
@@ -31,23 +27,16 @@ import {
   LLMFullCompletionOptions,
   McpUiState,
   MessageOption,
-  ModelDescription,
   PromptLog,
   RangeInFile,
-  RangeInFileWithNextEditInfo,
-  SerializedContinueConfig,
+  SerializedTntConfig,
   Session,
   SiteIndexingConfig,
   SlashCommandDescWithSource,
   StreamDiffLinesPayload,
   ToolCall,
 } from "../";
-import { AutocompleteCodeSnippet } from "../autocomplete/snippets/types";
-import { GetLspDefinitionsFunction } from "../autocomplete/types";
-import { ConfigHandler } from "../config/ConfigHandler";
-import { ProcessedItem } from "../nextEdit/NextEditPrefetchQueue";
-import { NextEditOutcome } from "../nextEdit/types";
-import { ContinueErrorReason } from "../util/errors";
+import { TntErrorReason } from "../util/errors";
 
 export enum OnboardingModes {
   API_KEY = "API Key",
@@ -77,7 +66,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "config/addOpenAiKey": [string, void];
   "config/addModel": [
     {
-      model: SerializedContinueConfig["models"][number];
+      model: SerializedTntConfig["models"][number];
       role?: keyof ExperimentalModelRoles;
     },
     void,
@@ -94,7 +83,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "config/getSerializedProfileInfo": [
     undefined,
     {
-      result: ConfigResult<BrowserSerializedContinueConfig>;
+      result: ConfigResult<BrowserSerializedTntConfig>;
       profileId: string | null;
       profiles: ProfileDescription[];
     },
@@ -165,50 +154,9 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   ];
   "context/getSymbolsForFiles": [{ uris: string[] }, FileSymbolMap];
   "context/loadSubmenuItems": [{ title: string }, ContextSubmenuItem[]];
-  "autocomplete/complete": [AutocompleteInput, string[]];
   "context/addDocs": [SiteIndexingConfig, void];
   "context/removeDocs": [Pick<SiteIndexingConfig, "startUrl">, void];
   "context/indexDocs": [{ reIndex: boolean }, void];
-  "autocomplete/cancel": [undefined, void];
-  "autocomplete/accept": [{ completionId: string }, void];
-  "nextEdit/predict": [
-    {
-      input: AutocompleteInput;
-      options?: {
-        withChain?: boolean;
-        usingFullFileDiff?: boolean;
-      };
-    },
-    NextEditOutcome | undefined,
-  ];
-  "nextEdit/reject": [{ completionId: string }, void];
-  "nextEdit/accept": [{ completionId: string }, void];
-  "nextEdit/startChain": [undefined, void];
-  "nextEdit/deleteChain": [undefined, void];
-  "nextEdit/isChainAlive": [undefined, boolean];
-  "nextEdit/queue/getProcessedCount": [undefined, number];
-  "nextEdit/queue/dequeueProcessed": [undefined, ProcessedItem | null];
-  "nextEdit/queue/processOne": [
-    {
-      ctx: {
-        completionId: string;
-        manuallyPassFileContents?: string;
-        manuallyPassPrefix?: string;
-        selectedCompletionInfo?: {
-          text: string;
-          range: Range;
-        };
-        isUntitledFile: boolean;
-        recentlyVisitedRanges: AutocompleteCodeSnippet[];
-        recentlyEditedRanges: RecentlyEditedRange[];
-      };
-      recentlyVisitedRanges: AutocompleteCodeSnippet[];
-      recentlyEditedRanges: RecentlyEditedRange[];
-    },
-    void,
-  ];
-  "nextEdit/queue/clear": [undefined, void];
-  "nextEdit/queue/abort": [undefined, void];
   "llm/complete": [
     {
       prompt: string;
@@ -261,6 +209,14 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     undefined,
     { model: string; promptTokens: number; generatedTokens: number }[],
   ];
+  "rtk/getGain": [undefined, import("../util/rtk").RtkGainView];
+  "rtk/install": [undefined, import("../util/rtk").RtkGainView];
+  "rtk/upgrade": [undefined, import("../util/rtk").RtkGainView];
+  "skills/list": [
+    undefined,
+    import("../config/markdown/loadMarkdownSkills").SkillsView,
+  ];
+  "skills/openFile": [{ path: string }, void];
   "tts/kill": [undefined, void];
 
   // Codebase indexing
@@ -278,16 +234,6 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "files/created": [{ uris?: string[] }, void];
   "files/deleted": [{ uris?: string[] }, void];
   "files/closed": [{ uris?: string[] }, void];
-  "files/smallEdit": [
-    {
-      actions: RangeInFileWithNextEditInfo[];
-      configHandler: ConfigHandler;
-      getDefsFromLspFunction: GetLspDefinitionsFunction;
-      recentlyEditedRanges: RecentlyEditedRange[];
-      recentlyVisitedRanges: AutocompleteCodeSnippet[];
-    },
-    void,
-  ];
 
   // Docs etc. Indexing. TODO move codebase to this
   "indexing/reindex": [{ type: string; id: string }, void];
@@ -297,7 +243,6 @@ export type ToCoreFromIdeOrWebviewProtocol = {
   "docs/initStatuses": [undefined, void];
   "docs/getDetails": [{ startUrl: string }, DocsIndexingDetails];
   "docs/getIndexedPages": [{ startUrl: string }, string[]];
-  addAutocompleteModel: [{ model: ModelDescription }, void];
 
   "auth/getAuthUrl": [{ useOnboarding: boolean }, { url: string }];
   "tools/call": [
@@ -305,7 +250,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     {
       contextItems: ContextItem[];
       errorMessage?: string;
-      errorReason?: ContinueErrorReason;
+      errorReason?: TntErrorReason;
       mcpUiState?: McpUiState;
     },
   ];
@@ -322,7 +267,7 @@ export type ToCoreFromIdeOrWebviewProtocol = {
     { toolName: string; args: Record<string, unknown> },
     {
       preprocessedArgs?: Record<string, unknown>;
-      errorReason?: ContinueErrorReason;
+      errorReason?: TntErrorReason;
       errorMessage?: string;
     },
   ];

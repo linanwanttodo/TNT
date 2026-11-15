@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from "react";
 import type { Heading } from "@/lib/docs";
+import { UI, type Locale } from "@/lib/i18n";
 
-export function TableOfContents({ headings }: { headings: Heading[] }) {
+export function TableOfContents({
+  headings,
+  locale,
+}: {
+  headings: Heading[];
+  locale: Locale;
+}) {
   const [activeId, setActiveId] = useState<string>("");
 
   useEffect(() => {
@@ -31,19 +38,19 @@ export function TableOfContents({ headings }: { headings: Heading[] }) {
   return (
     <aside className="hidden w-56 flex-shrink-0 overflow-y-auto px-4 pb-8 pt-8 xl:block">
       <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-black/30 dark:text-white/30">
-        On this page
+        {UI[locale].onThisPage}
       </h4>
       <nav className="space-y-1">
-        {headings.map((heading) => (
+        {headings.map((heading, i) => (
           <a
-            key={heading.id}
+            key={`${heading.id}-${i}`}
             href={`#${heading.id}`}
             className={`block py-1 text-[13px] transition-colors ${
               heading.level === 3 ? "pl-3" : heading.level === 4 ? "pl-6" : ""
             } ${
               activeId === heading.id
-                ? "font-medium text-black/80 dark:text-white/80"
-                : "text-black/35 hover:text-black/60 dark:text-white/35 dark:hover:text-white/60"
+                ? "text-accent-deep dark:text-accent-light font-medium"
+                : "hover:text-accent/80 dark:hover:text-accent-light/80 text-black/35 dark:text-white/35"
             }`}
           >
             {heading.text}

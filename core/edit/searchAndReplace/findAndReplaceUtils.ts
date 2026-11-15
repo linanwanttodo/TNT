@@ -1,4 +1,4 @@
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { TntError, TntErrorReason } from "../../util/errors";
 
 export const FOUND_MULTIPLE_FIND_STRINGS_ERROR =
   "Either provide a more specific string with surrounding context to make it unique, or use replace_all=true to replace all occurrences.";
@@ -15,26 +15,26 @@ export function validateSingleEdit(
   const context = index !== undefined ? `edit at index ${index}: ` : "";
 
   if (oldString === undefined || typeof oldString !== "string") {
-    throw new ContinueError(
-      ContinueErrorReason.FindAndReplaceMissingOldString,
+    throw new TntError(
+      TntErrorReason.FindAndReplaceMissingOldString,
       `${context}string old_string is required`,
     );
   }
   if (newString === undefined || typeof newString !== "string") {
-    throw new ContinueError(
-      ContinueErrorReason.FindAndReplaceMissingNewString,
+    throw new TntError(
+      TntErrorReason.FindAndReplaceMissingNewString,
       `${context}string new_string is required`,
     );
   }
   if (oldString === newString) {
-    throw new ContinueError(
-      ContinueErrorReason.FindAndReplaceIdenticalOldAndNewStrings,
+    throw new TntError(
+      TntErrorReason.FindAndReplaceIdenticalOldAndNewStrings,
       `${context}old_string and new_string must be different`,
     );
   }
   if (replaceAll !== undefined && typeof replaceAll !== "boolean") {
-    throw new ContinueError(
-      ContinueErrorReason.FindAndReplaceInvalidReplaceAll,
+    throw new TntError(
+      TntErrorReason.FindAndReplaceInvalidReplaceAll,
       `${context}replace_all must be a valid boolean`,
     );
   }

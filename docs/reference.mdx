@@ -1,23 +1,13 @@
 ---
 title: "config.yaml Reference"
-description: "Comprehensive guide to the config.yaml format used by Continue.dev for building custom coding agents. Learn how to define models, context providers, rules, prompts, and more using YAML configuration."
+description: "The config.yaml reference: every property TNT reads, for defining models, rules, prompts and MCP servers in YAML."
 ---
 
 ## Introduction
 
-Continue Agents are defined using the `config.yaml` specification.
+TNT agents are defined using the `config.yaml` specification.
 
 **Agents** are composed of models, rules, and tools (MCP servers).
-
-<Columns cols={2}>
-<Card title="Configuring Models, Rules, and Tools" icon="cube" href="/guides/configuring-models-rules-tools">
-Learn how to work with Continue's configuration system, including using hub models, rules, and tools, creating local configurations, and organizing your setup.
-</Card>
-
-  <Card title="Understanding Configs" icon="robot" href="/guides/understanding-configs">
-  Learn how to build and configure configs, understand their capabilities, and customize them for your development workflow.
-  </Card>
-</Columns>
 
 ## Properties
 
@@ -28,8 +18,6 @@ Below are details for each property that can be set in `config.yaml`.
 The top-level properties in the `config.yaml` configuration file are:
 
 - [`name`](#name) (**required**)
-- [`version`](#version) (**required**)
-- [`schema`](#schema) (**required**)
 - [`models`](#models)
 - [`context`](#context)
 - [`rules`](#rules)
@@ -46,19 +34,16 @@ The `name` property specifies the name of your project or configuration.
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 ```
 
 ---
 
-### `version`
+### Accepted but unused: `version` and `schema`
 
-The `version` property specifies the version of your project or configuration.
-
-### `schema`
-
-The `schema` property specifies the schema version used for the `config.yaml`, e.g. `v1`
+Both keys are inherited from the hub package format, where a version was part of
+the package identifier. Nothing in TNT reads them: a configuration needs only
+`name` plus the sections below. Existing files that carry them keep working, and
+new ones do not need them.
 
 ---
 
@@ -76,18 +61,18 @@ The `models` section defines the language models used in your configuration. Mod
 
 - `apiBase`: Can be used to override the default API base that is specified per model
 
-- `roles`: An array specifying the roles this model can fulfill, such as `chat`, `autocomplete`, `embed`, `rerank`, `edit`, `apply`, `summarize`. The default value is `[chat, edit, apply, summarize]`. Note that the `summarize` role is not currently used.
+- `roles`: An array specifying the roles this model can fulfill, such as `chat`, `autocomplete`, `embed`, `rerank`, `edit`, `apply`, `summarize`. The default value is `[chat, edit, apply, summarize]`. Note that the `summarize` role is not currently used. The `autocomplete` role is deprecated: it is still accepted so existing configs keep validating, but tab autocomplete has been removed from TNT and the role no longer activates anything.
 
-- `capabilities`: Array of strings denoting model capabilities, which will overwrite Continue's autodetection based on provider and model. See the [Model Capabilities guide](/customize/deep-dives/model-capabilities) for detailed information. Supported capabilities include:
+- `capabilities`: Array of strings denoting model capabilities, which will overwrite the autodetection based on provider and model. Supported capabilities include:
 
   - `tool_use`: Enables function/tool calling support (required for Agent mode)
   - `image_input`: Enables image upload and processing support
 
-  Continue automatically detects these capabilities for most models, but you can override this when using custom deployments or if autodetection isn't working correctly.
+  TNT automatically detects these capabilities for most models, but you can override this when using custom deployments or if autodetection isn't working correctly.
 
 - `maxStopWords`: Maximum number of stop words allowed, to avoid API errors with extensive lists.
 
-- `promptTemplates`: Can be used to override the default prompt templates for different model roles. Valid values are [`chat`](), [`edit`](/customize/model-roles/edit#prompt-templating), [`apply`](/customize/model-roles/apply#prompt-templating) and [`autocomplete`](/customize/model-roles/autocomplete#prompt-templating). The `chat` property must be a valid template name, such as `llama3` or `anthropic`.
+- `promptTemplates`: Can be used to override the default prompt templates for different model roles. Valid keys are `chat`, `edit` and `apply`. The `chat` property must be a valid template name, such as `llama3` or `anthropic`. The `autocomplete` key is still accepted for compatibility with existing configs but has no effect, because tab autocomplete has been removed.
 
 - `chatOptions`: If the model includes role `chat`, these settings apply for Agent and Chat mode:
 
@@ -133,7 +118,7 @@ The `models` section defines the language models used in your configuration. Mod
     - `key`: Path to the client certificate key file.
     - `passphrase`: Optional passphrase for the client certificate key file.
 
-- `autocompleteOptions`: If the model includes role `autocomplete`, these settings apply for tab autocompletion:
+- `autocompleteOptions`: Deprecated and inert. Tab autocomplete has been removed from TNT, so these settings are parsed to keep existing configs valid but no longer change any behavior. They previously configured tab autocompletion when the model includes role `autocomplete`:
 
   - `disable`: If `true`, disables autocomplete for this model.
   - `maxPromptTokens`: Maximum number of tokens for the autocomplete prompt.
@@ -153,8 +138,6 @@ The `models` section defines the language models used in your configuration. Mod
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 models:
   - name: GPT-4o
     provider: openai
@@ -169,12 +152,6 @@ models:
   - name: Codestral
     provider: mistral
     model: codestral-latest
-    roles:
-      - autocomplete
-    autocompleteOptions:
-      debounceDelay: 250
-      maxPromptTokens: 1024
-      onlyMyCode: true
   - name: My Model - OpenAI-Compatible
     provider: openai
     apiBase: http://my-endpoint/v1
@@ -193,8 +170,6 @@ models:
 
 The `context` section defines context providers, which supply additional information or context to the language models. Each context provider can be configured with specific parameters.
 
-More information about usage/params for each context provider can be found [here](/customize/deep-dives/custom-providers)
-
 **Properties:**
 
 - `provider` (**required**): The identifier or name of the context provider (e.g., `code`, `docs`, `web`)
@@ -205,8 +180,6 @@ More information about usage/params for each context provider can be found [here
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 context:
   - provider: file
   - provider: code
@@ -222,14 +195,12 @@ context:
 
 ### `rules`
 
-Rules are concatenated into the system message for all [Agent](/ide-extensions/agent/quick-start), [Chat](/ide-extensions/chat/quick-start), and [Edit](/ide-extensions/edit/quick-start) requests. 
+Rules are concatenated into the system message for all [Agent, Chat and Edit](/cli/modes) requests.
 
-Confiugration example:
+Configuration example:
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 rules:
   - uses: sanity/sanity-opinionated
   - uses: file://user/Desktop/rules.md # rules file stored on local computer
@@ -245,7 +216,7 @@ name: Pirate rule
 Talk like a pirate
 ```
 
-See the [rules deep dive](/customize/deep-dives/rules) for more details.
+See [Rules and prompts](/cli/configuration#rules-and-prompts) for more details.
 
 ---
 
@@ -257,8 +228,6 @@ Configuration example:
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 prompts:
   - uses: supabase/create-functions
   - uses: file://user/Desktop/prompts.md # prompts file stored on local computer
@@ -275,7 +244,7 @@ invokable: true
 Rewrite all comments in the active file to talk like a pirate
 ```
 
-See the [prompts deep dive](/customize/deep-dives/prompts) for more details.
+See [Rules and prompts](/cli/configuration#rules-and-prompts) for the prompt overrides.
 
 ---
 
@@ -288,25 +257,22 @@ List of documentation sites to index.
 - `name` (**required**): Name of the documentation site, displayed in dropdowns, etc.
 - `startUrl` (**required**): Start page for crawling - usually root or intro page for docs
 - `favicon`: URL for site favicon (default is `/favicon.ico` from `startUrl`).
-- `useLocalCrawling`: Skip the default crawler and only crawl using a local crawler.
 
 **Example:**
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 docs:
-  - name: Continue
-    startUrl: https://docs.continue.dev/intro
-    favicon: https://docs.continue.dev/favicon.ico
+  - name: TNT
+    startUrl: https://github.com/linanwanttodo/TNT/tree/main/docs
+    favicon: https://github.com/linanwanttodo.png
 ```
 
 ---
 
 ### `mcpServers`
 
-The [Model Context Protocol](https://modelcontextprotocol.io/introduction) is a standard proposed by Anthropic to unify prompts, context, and tool use. Continue supports any MCP server with the MCP context provider.
+The [Model Context Protocol](https://modelcontextprotocol.io/introduction) is a standard proposed by Anthropic to unify prompts, context, and tool use. TNT supports any MCP server with the MCP context provider.
 
 **Properties:**
 
@@ -322,8 +288,6 @@ The [Model Context Protocol](https://modelcontextprotocol.io/introduction) is a 
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 mcpServers:
   - name: My MCP Server
     command: uvx
@@ -338,7 +302,7 @@ mcpServers:
 
 ### `data`
 
-Destinations to which [development data](/customize/deep-dives/development-data) will be sent.
+Destinations to which development data will be sent.
 
 **Properties:**
 
@@ -356,11 +320,9 @@ Destinations to which [development data](/customize/deep-dives/development-data)
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 data:
   - name: Local Data Bank
-    destination: file:///Users/dallin/Documents/code/continuedev/continue-extras/external-data
+    destination: file:///home/you/Documents/external-data
     schema: 0.2.0
     level: all
   - name: My Private Company
@@ -380,8 +342,6 @@ Putting it all together, here's a complete example of a `config.yaml` configurat
 
 ```yaml title="config.yaml"
 name: My Config
-version: 1.0.0
-schema: v1
 models:
   - uses: anthropic/claude-sonnet-4-6
     with:
@@ -404,12 +364,6 @@ models:
   - name: Ollama Starcoder
     provider: ollama
     model: starcoder
-    roles:
-      - autocomplete
-    autocompleteOptions:
-      debounceDelay: 350
-      maxPromptTokens: 1024
-      onlyMyCode: true
     defaultCompletionOptions:
       temperature: 0.3
       stop:
@@ -455,8 +409,6 @@ You can also use node anchors to avoid duplication of properties. To do so, addi
 %YAML 1.1
 ---
 name: My Config
-version: 1.0.0
-schema: v1
 model_defaults: &model_defaults
   provider: openai
   apiKey: my-api-key
@@ -478,16 +430,10 @@ models:
     <<: *model_defaults
     model: qwen2.5-coder-7b
     useLegacyCompletionsEndpoint: false
-    roles:
-      - autocomplete
-    autocompleteOptions:
-      debounceDelay: 350
-      maxPromptTokens: 1024
-      onlyMyCode: true
 ```
 
 ---
 
 ## `config.json` Deprecation
 
-`config.yaml `replaces `config.json`, which is deprecated. View the **[Migration Guide](/reference/yaml-migration)** for help transitioning from the old format.
+`config.yaml` replaces `config.json`, which is deprecated. The [configuration guide](/cli/configuration) describes the current layout: models and selection in `config.yaml`, permissions, hooks and environment in `settings.json`.

@@ -35,7 +35,7 @@ export async function renderSecrets(
 
   // Don't use platform client in local mode
   if (platformClient) {
-    // 3. For any secrets not found, we send the FQSNs to the Continue Platform at the `/ide/sync-secrets` endpoint. This endpoint replies for each of the FQSNs with the following information (`SecretResult`): `foundAt`: tells which secret store it was found in (this is “user”, “org”, “package” or null if not found anywhere). If it’s found in an org or a package, it tells us the `secretLocation`, which is either just an org slug, or is a full org/package slug. If it’s found in “user” secrets, we send back the `value`. Full definition of `SecretResult` at [2]. The method of resolving an FQSN to a `SecretResult` is detailed at [3]
+    // 3. For any secrets not found, we send the FQSNs to the operator's platform at the `/ide/sync-secrets` endpoint. This endpoint replies for each of the FQSNs with the following information (`SecretResult`): `foundAt`: tells which secret store it was found in (this is “user”, “org”, “package” or null if not found anywhere). If it’s found in an org or a package, it tells us the `secretLocation`, which is either just an org slug, or is a full org/package slug. If it’s found in “user” secrets, we send back the `value`. Full definition of `SecretResult` at [2]. The method of resolving an FQSN to a `SecretResult` is detailed at [3]
     const secretResults = await platformClient.resolveFQSNs(unresolvedFQSNs);
 
     // 4. (back to the client) Any “user” secrets that were returned back are added to the local secret store so we don’t have to request them again

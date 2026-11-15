@@ -1,12 +1,48 @@
 import winston from "winston";
 
+import { getCoreLogsPath } from "./paths.js";
+
+type LogLevel = "error" | "warn" | "info" | "debug";
+
+// Log level is configurable so a session can be turned up for troubleshooting
+// without a rebuild. Defaults to info.
+//
+// `TNT_LOG_LEVEL` is the name this fork uses and `TNT_LOG_LEVEL` the older
+// one; both are read, in that order, because the CLI's own logger accepts the
+// same pair. Reading only the older name meant a session turned up with the
+// newer one left core at info, so nothing core logs at debug - including the
+// index pipeline's reason for building nothing - ever reached the log file.
+function resolveLogLevel(): LogLevel {
+  const configured = (
+    process.env.TNT_LOG_LEVEL ?? ""
+  ).toLowerCase() as LogLevel;
+  return ["error", "warn", "info", "debug"].includes(configured)
+    ? configured
+    : "info";
+}
+
 class LoggerClass {
   private static instance: LoggerClass;
   private winston: winston.Logger;
 
   private constructor() {
+    // Logs are also written to a file so a session can be inspected after the
+    // fact. File logging is best-effort: a read-only or unavailable directory
+    // must not take down the process that is only trying to log.
+    const fileTransports: winston.transport[] = [];
+    try {
+      fileTransports.push(
+        new winston.transports.File({
+          filename: getCoreLogsPath(),
+          level: resolveLogLevel(),
+        }),
+      );
+    } catch {
+      // Fall back to stderr-only logging.
+    }
+
     this.winston = winston.createLogger({
-      level: "info",
+      level: resolveLogLevel(),
       format: winston.format.combine(
         winston.format.colorize(),
         winston.format.timestamp(),
@@ -14,11 +50,10 @@ class LoggerClass {
           const metaStr = Object.keys(meta).length
             ? ` ${JSON.stringify(meta)}`
             : "";
-          return `[@continuedev] ${level}: ${message}${metaStr}`;
+          return `[@tnt] ${level}: ${message}${metaStr}`;
         }),
       ),
       transports: [
-        // Write all logs with importance level of `info` or higher to `info.log`
         ...(process.env.NODE_ENV === "test"
           ? [
               new winston.transports.File({
@@ -27,6 +62,7 @@ class LoggerClass {
               }),
             ]
           : []),
+        ...fileTransports,
         // Use stderr to avoid corrupting IPC stdout stream in the binary
         new winston.transports.Console({
           stderrLevels: ["error", "warn", "info", "debug"],

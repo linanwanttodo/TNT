@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { ILLM } from "../../../index.js";
 import OpenAI from "../OpenAI.js";
 
+const TEST_API_KEY = process.env.TNT_TEST_API_KEY ?? "test-key";
+
 interface LlmTestCase {
   llm: ILLM;
   methodToTest: keyof ILLM;
@@ -180,7 +182,7 @@ export const createOpenAISubclassTests = (
 
     test("streamChat should send a valid request", async () => {
       const provider = new ProviderClass({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "gpt-4",
         apiBase: config.defaultApiBase || "https://api.openai.com/v1/",
       });
@@ -197,8 +199,8 @@ export const createOpenAISubclassTests = (
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer test-api-key",
-            "api-key": "test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
+            "api-key": TEST_API_KEY,
           },
           body: {
             model: "gpt-4",
@@ -217,7 +219,7 @@ export const createOpenAISubclassTests = (
 
     test("chat should send a valid request", async () => {
       const provider = new ProviderClass({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "gpt-4",
         apiBase: config.defaultApiBase || "https://api.openai.com/v1/",
       });
@@ -234,8 +236,8 @@ export const createOpenAISubclassTests = (
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer test-api-key",
-            "api-key": "test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
+            "api-key": TEST_API_KEY,
           },
           body: {
             model: "gpt-4",
@@ -254,7 +256,7 @@ export const createOpenAISubclassTests = (
 
     test("streamComplete should send a valid request", async () => {
       const provider = new ProviderClass({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "gpt-4",
         apiBase: config.defaultApiBase || "https://api.openai.com/v1/",
       });
@@ -271,8 +273,8 @@ export const createOpenAISubclassTests = (
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer test-api-key",
-            "api-key": "test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
+            "api-key": TEST_API_KEY,
           },
           body:
             config.customStreamCompleteEndpoint === "completions"
@@ -300,7 +302,7 @@ export const createOpenAISubclassTests = (
 
     test("complete should send a valid request", async () => {
       const provider = new ProviderClass({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "gpt-4",
         apiBase: config.defaultApiBase || "https://api.openai.com/v1/",
       });
@@ -314,8 +316,8 @@ export const createOpenAISubclassTests = (
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer test-api-key",
-            "api-key": "test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
+            "api-key": TEST_API_KEY,
           },
           body: {
             model: "gpt-4",
@@ -334,7 +336,7 @@ export const createOpenAISubclassTests = (
 
     test("should handle embeddings", async () => {
       const provider = new ProviderClass({
-        apiKey: "test-api-key",
+        apiKey: TEST_API_KEY,
         model: "text-embedding-ada-002",
         apiBase: config.defaultApiBase || "https://api.openai.com/v1/",
       });
@@ -354,9 +356,9 @@ export const createOpenAISubclassTests = (
             `${config.defaultApiBase || "https://api.openai.com/v1/"}embeddings`,
           method: "POST",
           headers: config.customEmbeddingsHeaders || {
-            Authorization: "Bearer test-api-key",
+            Authorization: `Bearer ${TEST_API_KEY}`,
             "Content-Type": "application/json",
-            "api-key": "test-api-key",
+            "api-key": TEST_API_KEY,
           },
           body: config.customEmbeddingsBody || {
             input: ["Hello", "World"],

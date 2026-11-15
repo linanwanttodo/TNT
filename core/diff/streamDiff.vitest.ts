@@ -56,7 +56,17 @@ function displayDiff(diff: DiffLine[]) {
 }
 
 async function expectDiff(file: string) {
-  const testFilePath = path.join(__dirname, "test-examples", file + ".diff");
+  // The name comes from the hardcoded fixture list, but anchor the read to
+  // the test-examples directory regardless: a `../` in a name must not walk
+  // the reader out of it.
+  const examplesRoot = path.resolve(__dirname, "test-examples");
+  const testFilePath = path.resolve(examplesRoot, file + ".diff");
+  if (
+    testFilePath !== examplesRoot &&
+    !testFilePath.startsWith(examplesRoot + path.sep)
+  ) {
+    throw new Error(`Fixture path escapes the test-examples root: ${file}`);
+  }
   const testFileContents = fs.readFileSync(testFilePath, "utf-8");
   const [oldText, newText, expectedDiff] = testFileContents
     .split("\n---\n")

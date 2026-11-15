@@ -3,7 +3,6 @@ import {
   ContextProviderDescription,
   ContextProviderExtras,
 } from "../../index.js";
-import { isSecurityConcern } from "../../indexing/ignore.js";
 import { getUriDescription } from "../../util/uri.js";
 import { BaseContextProvider } from "../index.js";
 
@@ -29,6 +28,14 @@ class ProblemsContextProvider extends BaseContextProvider {
           problem.filepath,
           workspaceDirs,
         );
+        const redacted = this.redactSecurityConcern(
+          problem.filepath,
+          "Problems in current file",
+          `Warnings in ${baseName}`,
+        );
+        if (redacted) {
+          return redacted;
+        }
         const content = await ide.readFile(problem.filepath);
         const lines = content.split("\n");
         const rangeContent = lines

@@ -1,0 +1,105 @@
+import { TntError, TntErrorReason } from "core/util/errors.js";
+
+import { t } from "../i18n/index.js";
+import {
+  ApiRequestError,
+  AuthenticationRequiredError,
+  post,
+} from "../utils/apiClient.js";
+import { updateAgentMetadata } from "../utils/exit.js";
+import { logger } from "../utils/logger.js";
+
+import { Tool } from "./types.js";
+
+/**
+ * Extract the agent ID from the --id command line flag
+ */
+function getAgentIdFromArgs(): string | undefined {
+  const args = process.argv;
+  const idIndex = args.indexOf("--id");
+  if (idIndex !== -1 && idIndex + 1 < args.length) {
+    return args[idIndex + 1];
+  }
+  return undefined;
+}
+
+export const reportFailureTool: Tool = {
+  name: "ReportFailure",
+  displayName: "Report Failure",
+  description:
+    "Report that the task has failed due to an unrecoverable error. Include a succinct explanation for the user.",
+  parameters: {
+    type: "object",
+    required: ["errorMessage"],
+    properties: {
+      errorMessage: {
+        type: "string",
+        description: "Explain what went wrong and why you cannot continue.",
+      },
+    },
+  },
+  readonly: true,
+  isBuiltIn: true,
+  run: async (args: { errorMessage: string }): Promise<string> => {
+    try {
+      const trimmedMessage = args.errorMessage.trim();
+      if (!trimmedMessage) {
+        throw new TntError(
+          TntErrorReason.Unspecified,
+          "errorMessage is required to report a failure.",
+        );
+      }
+
+      const agentId = getAgentIdFromArgs();
+      if (!agentId) {
+        const errorMessage =
+          "Agent ID is required. Please use the --id flag with tnt serve.";
+        logger.error(errorMessage);
+        throw new TntError(TntErrorReason.Unspecified, errorMessage);
+      }
+
+      await post(`agents/${agentId}/status`, {
+        status: "FAILED",
+        errorMessage: trimmedMessage,
+      });
+
+      // Mark agent as complete since it failed
+      try {
+        await updateAgentMetadata({ isComplete: true });
+        logger.debug("Marked agent as complete due to failure");
+      } catch (metadataErr) {
+        // Non-critical: log but don't fail the failure report
+        logger.debug(
+          "Failed to update completion metadata (non-critical)",
+          metadataErr as any,
+        );
+      }
+
+      logger.info(`Failure reported: ${trimmedMessage}`);
+      return "Failure reported to user.";
+    } catch (error) {
+      if (error instanceof TntError) {
+        throw error;
+      }
+
+      if (error instanceof AuthenticationRequiredError) {
+        logger.error(error.message);
+        throw new Error(t("tools.authRequired"));
+      }
+
+      if (error instanceof ApiRequestError) {
+        throw new Error(
+          t("tools.reportFailureStatus", {
+            status: error.status,
+            detail: error.response || error.statusText,
+          }),
+        );
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(`Error reporting failure: ${errorMessage}`);
+      throw new Error(t("tools.reportFailure", { message: errorMessage }));
+    }
+  },
+};

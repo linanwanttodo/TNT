@@ -8,9 +8,11 @@ import { renderChatMessage } from "./messageContent";
 import { convertFromUnifiedHistory } from "./messageConversion";
 
 export class ChatDescriber {
-  static maxTokens = 16; // Increased from 12 to meet GPT-5 minimum requirement
+  static maxTokens = 48;
+  // A short declarative sentence describing the user's goal ("修复文档站侧边
+  // 栏选中样式"), not a 3-4-word label — titles read like task statements.
   static prompt: string | undefined =
-    "Given the following... please reply with a title for the chat that is 3-4 words in length, all words used should be directly related to the content of the chat, avoid using verbs unless they are directly related to the content of the chat, no additional text or explanation, you don't need ending punctuation.\n\n";
+    "Given the following conversation start, reply with one short declarative sentence that states what the user wants to accomplish, phrased like a task (for example: 修复文档站侧边栏选中样式 or Fix the sidebar selected-item style). Use the same language as the message, at most 20 words, no ending punctuation, no quotes, no extra text.\n\n";
   static messenger: IMessenger<ToCoreProtocol, FromCoreProtocol>;
 
   static async describe(

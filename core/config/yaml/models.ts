@@ -1,11 +1,7 @@
-import {
-  mergeConfigYamlRequestOptions,
-  ModelConfig,
-} from "@continuedev/config-yaml";
+import { mergeConfigYamlRequestOptions, ModelConfig } from "@tnt/config-yaml";
 
-import { ContinueConfig, ILLMLogger, LLMOptions } from "../..";
-import { BaseLLM } from "../../llm";
-import { LLMClasses } from "../../llm/llms";
+import { TntConfig, ILLMLogger, LLMOptions } from "../..";
+import type { BaseLLM } from "../../llm";
 
 const AUTODETECT = "AUTODETECT";
 
@@ -41,9 +37,13 @@ function applyEnvOptions(
   }
 }
 
-function getModelClass(
+async function getModelClass(
   model: ModelConfig,
-): (typeof LLMClasses)[number] | undefined {
+): Promise<
+  (typeof import("../../llm/llms"))["LLMClasses"][number] | undefined
+> {
+  const { LLMClasses } = await import("../../llm/llms");
+
   return LLMClasses.find((llm) => llm.providerName === model.provider);
 }
 
@@ -57,10 +57,10 @@ async function modelConfigToBaseLLM({
   model: ModelConfig;
   uniqueId: string;
   llmLogger: ILLMLogger;
-  config: ContinueConfig;
+  config: TntConfig;
   isFromAutoDetect?: boolean;
 }): Promise<BaseLLM | undefined> {
-  const cls = getModelClass(model);
+  const cls = await getModelClass(model);
 
   if (!cls) {
     return undefined;
@@ -94,6 +94,8 @@ async function modelConfigToBaseLLM({
     baseAgentSystemMessage: model.chatOptions?.baseAgentSystemMessage,
     basePlanSystemMessage: model.chatOptions?.basePlanSystemMessage,
     baseChatSystemMessage: model.chatOptions?.baseSystemMessage,
+    baseDebugSystemMessage: model.chatOptions?.baseDebugSystemMessage,
+    baseMultitaskSystemMessage: model.chatOptions?.baseMultitaskSystemMessage,
     toolOverrides: model.chatOptions?.toolOverrides
       ? Object.entries(model.chatOptions.toolOverrides).map(([name, o]) => ({
           name,
@@ -156,7 +158,7 @@ async function autodetectModels({
   model: ModelConfig;
   uniqueId: string;
   llmLogger: ILLMLogger;
-  config: ContinueConfig;
+  config: TntConfig;
 }): Promise<BaseLLM[]> {
   try {
     const modelNames = await llm.listModels();
@@ -195,7 +197,7 @@ export async function llmsFromModelConfig({
   model: ModelConfig;
   uniqueId: string;
   llmLogger: ILLMLogger;
-  config: ContinueConfig;
+  config: TntConfig;
 }): Promise<BaseLLM[]> {
   const baseLlm = await modelConfigToBaseLLM({
     model,

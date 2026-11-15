@@ -1,0 +1,213 @@
+import * as fs from "fs";
+import fsPromises from "fs/promises";
+import * as path from "path";
+
+import { parseMarkdownRule } from "@tnt/config-yaml";
+import ignoreWalk from "ignore-walk";
+import { z } from "zod";
+
+import { env } from "../config/env.js";
+
+import { isSkillEnabled } from "./skillsState.js";
+
+// ignore-walk ships as CommonJS and Node cannot synthesize a named export for
+// it, so the walker has to come off the default import instead.
+const { WalkerSync } = ignoreWalk;
+
+export interface Skill {
+  name: string;
+  description: string;
+  path: string;
+  /** Absolute SKILL.md path; `path` stays relative for display. */
+  absolutePath?: string;
+  content: string;
+  files: string[];
+  /** False when the operator disabled it in settings. */
+  enabled?: boolean;
+}
+
+export interface LoadSkillsResult {
+  skills: Skill[];
+  errors: { fatal: boolean; message: string }[];
+}
+
+const skillFrontmatterSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+});
+
+const SKILLS_DIR = "skills";
+
+/**get the relative path if the filePath is within the current working directory
+ * otherwise return the absolute path
+ */
+function getRelativePath(cwd: string, filePath: string) {
+  return filePath.startsWith(cwd)
+    ? path.join(".", path.relative(cwd, filePath))
+    : filePath;
+}
+
+function getFilePathsInSkillDirectory(
+  cwd: string,
+  skillFilePath: string,
+): string[] {
+  const skillDir = path.dirname(skillFilePath);
+  if (!fs.existsSync(skillDir)) return [];
+
+  const walker = new WalkerSync({
+    path: skillDir,
+    includeEmpty: false,
+    follow: false,
+  });
+
+  const files = walker.start().result as string[];
+  return files
+    .map((filePath) => path.join(skillDir, filePath))
+    .filter((filePath) => !filePath.endsWith("SKILL.md"))
+    .map((filePath) => getRelativePath(cwd, filePath));
+}
+
+/**get the SKILL.md files from the given directory */
+async function getSkillFilesFromDir(dirPath: string): Promise<string[]> {
+  // check if dirPath exists
+  try {
+    await fsPromises.stat(dirPath);
+  } catch {
+    return [];
+  }
+
+  const skillDirs = (await fsPromises.readdir(dirPath, { withFileTypes: true }))
+    .filter((dir) => dir.isDirectory())
+    .map((dir) => path.join(dirPath, dir.name));
+
+  return (
+    await Promise.all(
+      skillDirs.map(async (skillDir) => {
+        try {
+          const skillFilePath = path.join(skillDir, "SKILL.md");
+          await fsPromises.stat(skillFilePath);
+          return skillFilePath;
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((path) => typeof path === "string");
+}
+
+export async function loadMarkdownSkills(
+  cwdOverride?: string,
+): Promise<LoadSkillsResult> {
+  const errors: { fatal: boolean; message: string }[] = [];
+  const skills: Skill[] = [];
+
+  const cwd = cwdOverride ?? process.cwd();
+
+  try {
+    const skillsDirs = [
+      path.join(cwd, ".tnt", SKILLS_DIR),
+      path.join(cwd, ".claude", SKILLS_DIR),
+      path.join(env.continueHome, SKILLS_DIR),
+    ];
+
+    const skillFilePaths = (
+      await Promise.all(
+        skillsDirs.map((skillDir) => getSkillFilesFromDir(skillDir)),
+      )
+    ).flat();
+
+    await Promise.all(
+      skillFilePaths.map(async (skillFilePath) => {
+        try {
+          const content = await fsPromises.readFile(skillFilePath, "utf-8");
+          const { frontmatter, markdown } = parseMarkdownRule(content) as {
+            frontmatter: { name?: string; description?: string };
+            markdown: string;
+          };
+
+          const validatedFrontmatter =
+            skillFrontmatterSchema.parse(frontmatter);
+
+          const filesInSkillsDirectory = getFilePathsInSkillDirectory(
+            cwd,
+            skillFilePath,
+          );
+
+          skills.push({
+            ...validatedFrontmatter,
+            content: markdown,
+            path: getRelativePath(cwd, skillFilePath),
+            absolutePath: path.resolve(skillFilePath),
+            files: filesInSkillsDirectory,
+            enabled: isSkillEnabled(skillFilePath),
+          });
+        } catch (error) {
+          errors.push({
+            fatal: false,
+            message: `Failed to parse markdown skill file: ${error instanceof Error ? error.message : error}`,
+          });
+        }
+      }),
+    );
+  } catch (err) {
+    errors.push({
+      fatal: false,
+      message: `Error loading markdown skill files: ${err instanceof Error ? err.message : err}`,
+    });
+  }
+
+  const pluginSkills = await loadPluginSkills();
+  skills.push(...pluginSkills);
+
+  return { skills, errors };
+}
+
+/**
+ * Skills contributed by installed plugins. Read from the plugin cache rather
+ * than the workspace so they are available in every project.
+ */
+async function loadPluginSkills(): Promise<Skill[]> {
+  try {
+    const cwd = process.cwd();
+    // Imported lazily so tests that mock the TNT home for the markdown skills
+    // scan do not pull in the plugin loader (and its logger) at module load.
+    const { loadAllPlugins } = await import("../plugins/loader.js");
+    return loadAllPlugins().skills.map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      path: getRelativePath(cwd, skill.path),
+      absolutePath: path.resolve(skill.path),
+      content: fs.readFileSync(skill.path, "utf-8"),
+      files: [],
+      enabled: isSkillEnabled(skill.path),
+    }));
+  } catch {
+    // Plugin skills are best-effort: a missing or broken plugin cache must
+    // not surface errors in the user's skill scan.
+    return [];
+  }
+}
+
+export function getSkillSlashCommandName(skill: Skill): string {
+  // Normalize skill name to lowercase and sanitize for use as command name
+  const base = skill.name.trim().toLowerCase();
+  const safe = base
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+
+  if (safe) {
+    return `skill-${safe}`;
+  }
+
+  // Fallback to directory name if skill name is invalid
+  const dirName = path
+    .basename(path.dirname(skill.path))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+
+  const fallback = dirName || "skill";
+  return `skill-${fallback}`;
+}

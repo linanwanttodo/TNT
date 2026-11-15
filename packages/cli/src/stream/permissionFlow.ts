@@ -1,0 +1,374 @@
+import type { ToolStatus } from "core/index.js";
+import { ChatCompletionToolMessageParam } from "openai/resources/chat/completions.mjs";
+
+import { fireNotification, firePermissionRequest } from "../hooks/fireHook.js";
+import { t } from "../i18n/index.js";
+import {
+  AUTO_SAFE_TOOLS,
+  autoModeShouldPrompt,
+  classifyAutoAction,
+  noteAutoDenial,
+  noteAutoSuccess,
+} from "../permissions/autoMode.js";
+import { ACCEPT_EDITS_MODE_POLICIES } from "../permissions/defaultPolicies.js";
+import { isDestructiveCall } from "../permissions/destructiveCommands.js";
+import { checkToolPermission } from "../permissions/permissionChecker.js";
+import {
+  DEFAULT_PERMISSION_TIMEOUT_MS,
+  PermissionRequestResult,
+  toolPermissionManager,
+  ToolPermissionManager,
+} from "../permissions/permissionManager.js";
+import {
+  hasSessionApproval,
+  hasSessionFullAccess,
+  rememberSessionApproval,
+} from "../permissions/sessionApprovals.js";
+import { ToolCallRequest, ToolPermissions } from "../permissions/types.js";
+import {
+  SERVICE_NAMES,
+  serviceContainer,
+  services,
+} from "../services/index.js";
+import { MARKER_PERMISSION_DENIED } from "../tools/resultMarkers.js";
+import { PreprocessedToolCall } from "../tools/types.js";
+import { logger } from "../utils/logger.js";
+
+import { StreamCallbacks } from "./streamChatResponse.types.js";
+
+export interface ToolResultWithStatus extends ChatCompletionToolMessageParam {
+  status: ToolStatus;
+}
+
+export function handlePermissionDenied(
+  toolCall: PreprocessedToolCall,
+  chatHistoryEntries: ChatCompletionToolMessageParam[],
+  callbacks?: StreamCallbacks,
+  reason: "user" | "policy" = "user",
+): void {
+  const deniedMessage =
+    reason === "policy"
+      ? `Command blocked by security policy`
+      : MARKER_PERMISSION_DENIED;
+
+  logger.info("Tool call denied", {
+    name: toolCall.name,
+    arguments: toolCall.arguments,
+    reason,
+  });
+
+  chatHistoryEntries.push({
+    role: "tool",
+    tool_call_id: toolCall.id,
+    content: deniedMessage,
+  });
+
+  callbacks?.onToolResult?.(
+    deniedMessage,
+    toolCall.name,
+    "canceled",
+    toolCall.id,
+  );
+  logger.debug(`Tool call rejected (${reason}) - stopping stream`);
+}
+
+// Helper function to request user permission
+export async function requestUserPermission(
+  toolCall: PreprocessedToolCall,
+  callbacks?: StreamCallbacks,
+  note?: string,
+  permissionManager: ToolPermissionManager = toolPermissionManager,
+  timeoutMs = DEFAULT_PERMISSION_TIMEOUT_MS,
+): Promise<boolean> {
+  if (!callbacks?.onToolPermissionRequest) {
+    return false;
+  }
+
+  const basePreview = toolCall.preprocessResult?.preview;
+  const toolCallRequest: ToolCallRequest = {
+    name: toolCall.name,
+    arguments: toolCall.preprocessResult?.args ?? toolCall.arguments,
+    // A hook that demanded this prompt owes the user its reason.
+    preview: note
+      ? [{ type: "text" as const, content: note }, ...(basePreview ?? [])]
+      : basePreview,
+    toolCallId: toolCall.id,
+  };
+
+  // Request permission using the proper API. requestPermission emits its
+  // event synchronously, so the first event a listener sees is always its
+  // own request; later events belong to other concurrent requests and must
+  // not re-open this one's prompt.
+  let requestId: string | undefined;
+  const handlePermissionRequested = (event: {
+    requestId: string;
+    toolCall: ToolCallRequest;
+  }) => {
+    if (requestId !== undefined) {
+      return;
+    }
+    requestId = event.requestId;
+    // Notify UI about permission request
+    callbacks.onToolPermissionRequest!(
+      event.toolCall.name,
+      event.toolCall.arguments,
+      event.requestId,
+      event.toolCall.preview,
+      event.toolCall.toolCallId ?? toolCall.id,
+    );
+  };
+
+  permissionManager.on("permissionRequested", handlePermissionRequested);
+
+  let permissionResult: PermissionRequestResult;
+  try {
+    permissionResult = await permissionManager.requestPermission(
+      toolCallRequest,
+      timeoutMs,
+    );
+  } finally {
+    permissionManager.off("permissionRequested", handlePermissionRequested);
+  }
+
+  if (permissionResult.timedOut) {
+    logger.warn("Permission request timed out unanswered", {
+      name: toolCall.name,
+      requestId,
+    });
+  }
+
+  // "Don't ask again this session" is decided at the prompt and held in the
+  // engine's approval cache, so every surface (TUI, serve, webui, ACP) gets
+  // the same scope without each one reimplementing the store.
+  if (permissionResult.approved && permissionResult.remember) {
+    rememberSessionApproval(toolCall.name, toolCall.arguments);
+  }
+
+  return permissionResult.approved;
+}
+
+/**
+ * Auto mode's decision for a call the base policy would ask about. The order
+ * follows the reference implementation: deterministic fast paths first, the
+ * model only for what is left, and a failure never counts as consent.
+ */
+async function resolveAutoModeDecision(
+  toolCall: PreprocessedToolCall,
+  autoContext?: { llmApi?: any; model?: any; history?: any[] },
+): Promise<
+  | { kind: "allow" }
+  | { kind: "deny"; reason: string }
+  | { kind: "prompt"; reason: string }
+> {
+  if (AUTO_SAFE_TOOLS.has(toolCall.name)) {
+    return { kind: "allow" };
+  }
+
+  // An action acceptEdits mode would already allow (a workspace edit) needs no
+  // classifier call at all.
+  const acceptEditsCheck = checkToolPermission(toolCall, {
+    policies: ACCEPT_EDITS_MODE_POLICIES,
+  });
+  if (acceptEditsCheck.permission === "allow") {
+    return { kind: "allow" };
+  }
+
+  if (autoModeShouldPrompt()) {
+    return { kind: "prompt", reason: t("auto.fallback") };
+  }
+
+  let llmApi = autoContext?.llmApi;
+  let model = autoContext?.model;
+  if (!llmApi || !model) {
+    try {
+      const modelState = await serviceContainer.get<any>(SERVICE_NAMES.MODEL);
+      llmApi = llmApi ?? modelState?.llmApi;
+      model = model ?? modelState?.model;
+    } catch {
+      // No model service: fall through to prompting.
+    }
+  }
+  if (!llmApi || !model) {
+    return { kind: "prompt", reason: t("auto.unavailable") };
+  }
+
+  let history = autoContext?.history;
+  if (!history) {
+    try {
+      history = services.chatHistory.getHistory();
+    } catch {
+      history = [];
+    }
+  }
+
+  const verdict = await classifyAutoAction({
+    toolName: toolCall.name,
+    toolArgs: toolCall.arguments,
+    history: history ?? [],
+    actionIndex: history?.length ?? 0,
+    llmApi,
+    model,
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  logger.info("Auto mode decision", {
+    tool: toolCall.name,
+    outcome: verdict.outcome,
+    reason: verdict.reason,
+  });
+
+  if (verdict.outcome === "allow") return { kind: "allow" };
+  if (verdict.outcome === "block") {
+    return { kind: "deny", reason: verdict.reason };
+  }
+  return { kind: "prompt", reason: t("auto.unavailable") };
+}
+
+// Helper function to check if tool permission is needed
+export async function checkToolPermissionApproval(
+  permissions: ToolPermissions,
+  toolCall: PreprocessedToolCall,
+  callbacks?: StreamCallbacks,
+  isHeadless?: boolean,
+  /**
+   * Ask-path context: `hookAskReason` is set when a PreToolUse hook answered
+   * "ask" (escalation outranks the policy), and `autoContext` carries the model
+   * used by the auto-mode classifier. `hookAllowSkipPrompt` marks a hook that
+   * answered "allow": the rule layer below still decides first, so it only
+   * waives the prompt a hook escalation would have added - never a deny, an
+   * exclude or a policy "ask".
+   */
+  options?: {
+    hookAllowSkipPrompt?: boolean;
+    hookAskReason?: string;
+    autoContext?: { llmApi?: any; model?: any; history?: any[] };
+  },
+): Promise<{
+  approved: boolean;
+  denialReason?: "user" | "policy";
+  message?: string;
+}> {
+  const hookAskReason = options?.hookAskReason;
+  const hookAllowSkipPrompt = options?.hookAllowSkipPrompt === true;
+  const autoContext = options?.autoContext;
+  // The rules layer runs before any hook verdict is honored, so a PreToolUse
+  // "allow" cannot reach past a deny or an exclude. The allow counts only as
+  // "no hook escalation" - exactly what an unset hookAskReason means - which
+  // is why a policy "ask" still goes to the human (or fails closed in
+  // headless) even when the hook said allow.
+  const permissionCheck = checkToolPermission(toolCall, permissions);
+
+  if (
+    permissionCheck.permission === "allow" &&
+    (hookAllowSkipPrompt || !hookAskReason)
+  ) {
+    return { approved: true };
+  } else if (
+    permissionCheck.permission === "ask" ||
+    (permissionCheck.permission === "allow" && hookAskReason)
+  ) {
+    // A full-access grant is a human decision already on record, so it answers
+    // ordinary asks in its session even in a headless process: the web shell
+    // runs headless but still has a person on its RPC surface. The grant is
+    // memory-only and session-keyed, so a genuine headless run cannot have
+    // one, and a destructive call never qualifies.
+    const fullAccessApplies =
+      hasSessionFullAccess() &&
+      !isDestructiveCall(toolCall.name, toolCall.arguments);
+
+    const autoActive = services.toolPermissions.getCurrentMode() === "auto";
+
+    if (isHeadless && !autoActive && !fullAccessApplies) {
+      // "ask" tools are excluded in headless so this is either a policy
+      // evaluation that landed on ask or a hook escalation, and with no human
+      // to answer either one the call is refused.
+      return {
+        approved: false,
+        denialReason: "policy",
+        message: permissionCheck.reason,
+      };
+    }
+
+    const hookResult = await firePermissionRequest(
+      toolCall.name,
+      toolCall.arguments,
+    );
+    const decision = hookResult.permissionRequestDecision;
+    if (decision?.behavior === "allow") {
+      return { approved: true };
+    }
+    if (decision?.behavior === "deny") {
+      return { approved: false, denialReason: "policy" };
+    }
+    if (hookResult.blocked) {
+      return { approved: false, denialReason: "policy" };
+    }
+
+    // Answered once in this session is enough for this exact call; a hook still
+    // gets its veto above, and nothing here reaches permissions.yaml.
+    if (hasSessionApproval(toolCall.name, toolCall.arguments)) {
+      return { approved: true };
+    }
+
+    if (fullAccessApplies) {
+      return { approved: true };
+    }
+
+    if (autoActive) {
+      const autoDecision = await resolveAutoModeDecision(toolCall, autoContext);
+      if (autoDecision.kind === "allow") {
+        noteAutoSuccess();
+        return { approved: true };
+      }
+      if (autoDecision.kind === "deny") {
+        noteAutoDenial();
+        return {
+          approved: false,
+          denialReason: "policy",
+          message: t("auto.denied", { reason: autoDecision.reason }),
+        };
+      }
+      // "prompt": the circuit breaker tripped or the classifier was
+      // unavailable. Headless has nobody to ask, so it fails closed.
+      if (isHeadless) {
+        noteAutoDenial();
+        return {
+          approved: false,
+          denialReason: "policy",
+          message: t("auto.denied", { reason: autoDecision.reason }),
+        };
+      }
+    }
+
+    // A prompt is about to open; tell notifier hooks (the reference's
+    // "permission_prompt" notification type).
+    await fireNotification(
+      `TNT needs your permission to use ${toolCall.name}`,
+      "permission_prompt",
+      toolCall.name,
+    ).catch(() => {});
+
+    const userApproved = await requestUserPermission(
+      toolCall,
+      callbacks,
+      // The prompt says why it opened: a hook's reason first, else the policy
+      // that escalated this particular call rather than the tool in general.
+      hookAskReason ?? permissionCheck.reason,
+    );
+    return userApproved
+      ? { approved: true }
+      : { approved: false, denialReason: "user" };
+  } else if (permissionCheck.permission === "exclude") {
+    // Tool blocked by security policy, or by a mode that only reads. The
+    // policy reason is passed through when it explains the refusal.
+    return {
+      approved: false,
+      denialReason: "policy",
+      message: permissionCheck.reason,
+    };
+  }
+
+  return { approved: false, denialReason: "policy" };
+}
+
+// Helper function to track first token time

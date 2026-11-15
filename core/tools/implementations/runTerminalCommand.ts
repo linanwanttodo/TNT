@@ -1,7 +1,8 @@
 import iconv from "iconv-lite";
 import childProcess from "node:child_process";
 import os from "node:os";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { TntError, TntErrorReason } from "../../util/errors";
+import { rewriteCommandWithRtk } from "../../util/rtk";
 
 // Default timeout for terminal commands (2 minutes)
 const DEFAULT_TOOL_TIMEOUT_MS = 120_000;
@@ -22,6 +23,11 @@ function getDecodedOutput(data: Buffer): string {
     return data.toString();
   }
 } // Simple helper function to use login shell on Unix/macOS and PowerShell on Windows
+// Trust model: `command` is the model/user terminal tool call, which the
+// assistant is explicitly asked to execute - running it through a shell IS
+// the product. The spawn is array-form around a fixed shell binary with the
+// command as a single argument, so the shell sees exactly the one command and
+// nothing else is concatenated around it.
 function getShellCommand(command: string): { shell: string; args: string[] } {
   if (process.platform === "win32") {
     // Windows: Use PowerShell
@@ -107,7 +113,11 @@ const getColorEnv = () => ({
 const LOCAL_ONLY = ["", "local"];
 
 export const runTerminalCommandImpl: ToolImpl = async (args, extras) => {
-  const command = getStringArg(args, "command");
+  let command = getStringArg(args, "command");
+  // Route the command through rtk when it knows a more compact equivalent.
+  // Falls back to the original command when rtk is absent or has no rewrite,
+  // so behavior is unchanged on machines without rtk.
+  command = (await rewriteCommandWithRtk(command)) ?? command;
   // Default to waiting for completion if not specified
   const waitForCompletion =
     getBooleanArg(args, "waitForCompletion", false) ?? true;
@@ -449,8 +459,8 @@ export const runTerminalCommandImpl: ToolImpl = async (args, extras) => {
                 if (code === 0) {
                   resolve({ stdout, stderr });
                 } else {
-                  const error = new ContinueError(
-                    ContinueErrorReason.CommandExecutionFailed,
+                  const error = new TntError(
+                    TntErrorReason.CommandExecutionFailed,
                     `Command failed with exit code ${code}`,
                   );
                   (error as any).stderr = stderr;

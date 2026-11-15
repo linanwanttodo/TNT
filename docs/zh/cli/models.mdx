@@ -1,0 +1,56 @@
+---
+title: "模型"
+description: "配置 provider、端点、密钥和上下文限制。"
+---
+
+模型在 `config.yaml` 的 `models` 列表中声明。第一个条目会被使用，直到通过
+`/model` 选择了另一个模型。
+
+```yaml
+models:
+  - name: deepseek
+    provider: openai
+    model: deepseek-chat
+    apiBase: https://api.deepseek.com/v1
+    apiKey: ${{ secrets.DEEPSEEK_API_KEY }}
+```
+
+| 键 | 含义 |
+| --- | --- |
+| `name` | 在 `/model` 和状态栏中显示的标签 |
+| `provider` | 使用的协议适配器，见下表 |
+| `model` | 发送给端点的模型 id |
+| `apiBase` | 基础 URL，OpenAI 兼容端点需要 |
+| `apiKey` | 字面密钥或 `${{ secrets.NAME }}` |
+| `contextLength` | 模型元数据不正确时覆盖上下文窗口 |
+
+## Provider
+
+provider id 选择协议适配器。常见的 id：
+
+| Provider | 用于 |
+| --- | --- |
+| `openai` | OpenAI 以及任何 OpenAI 兼容端点（DeepSeek、vLLM、Groq、Together 等） |
+| `anthropic` | Anthropic Messages API |
+| `gemini` | Google Gemini |
+| `ollama` | 通过 Ollama 运行本地模型 |
+| `bedrock`、`vertexai`、`azure` | 对应的云服务 |
+| `openrouter` | OpenRouter 路由 |
+
+其余 id 与 `packages/openai-adapters` 中的适配器同名，例如 `cohere`、
+`deepseek`、`mistral`、`moonshot`、`minimax`、`sambanova`、`cerebras`、
+`llamacpp`，测试用 `mock`。未知 id 会在启动时直接失败，而不是静默回退。
+
+<Tip>
+自托管端点通常只需要 `provider: openai`，并把 `apiBase` 指向本地服务器。
+</Tip>
+
+## 切换模型
+
+`/model` 打开已配置模型的选择器。选择会随会话保存，之后恢复会话时会使用同一个
+模型。
+
+## 上下文和压缩
+
+TNT 从模型元数据推导上下文窗口，找不到时使用 `contextLength`。用量接近上限时
+会自动压缩会话；见[上下文和压缩](/zh/cli/context)。

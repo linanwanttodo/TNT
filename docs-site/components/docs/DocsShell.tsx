@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Menu, Moon, Sun, X } from "lucide-react";
+import { ChevronDown, Languages, Menu, Moon, Sun, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { type NavGroup, type NavItem, type NavTab } from "@/config/docsNav";
 import { TableOfContents } from "./TableOfContents";
@@ -10,6 +10,7 @@ import { DocsSearch } from "./DocsSearch";
 import { resolveHref } from "@/lib/resolveHref";
 import { withBasePath } from "@/lib/basePath";
 import type { Heading } from "@/lib/docs";
+import { docPath, localeRoot, otherLocale, UI, type Locale } from "@/lib/i18n";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -46,22 +47,12 @@ function slugToLabel(slug: string, titleMap?: Record<string, string>) {
 /*  Top nav constants                                                  */
 /* ------------------------------------------------------------------ */
 
-const NAV_LINK_DEFS = [
-  { label: "Docs", path: "/docs" },
-  { label: "Blog", path: "/blog" },
-];
-
-const NAV_LINKS = NAV_LINK_DEFS.map((d) => ({
-  label: d.label,
-  href: resolveHref(d.path),
-}));
-
 const NAV_LINK_CLASSES =
   "text-[13px] text-black/40 dark:text-white/40 hover:text-black/70 dark:hover:text-white/70 transition-colors tracking-wide uppercase font-mono";
 
 const SIDEBAR_W = "w-64"; // shared sidebar width token
 
-function ThemeToggle() {
+function ThemeToggle({ locale }: { locale: Locale }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -74,7 +65,7 @@ function ThemeToggle() {
     <button
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
       className="p-2 text-black/40 transition-colors hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
-      aria-label="Toggle theme"
+      aria-label={UI[locale].toggleTheme}
     >
       {resolvedTheme === "dark" ? (
         <Moon className="h-4 w-4" />
@@ -180,7 +171,7 @@ function SidebarItem({
         className={`-mx-2.5 block rounded px-2.5 py-1.5 text-[13px] no-underline transition-colors ${
           isActive
             ? "bg-black/[0.04] font-medium text-black/90 dark:bg-white/[0.06] dark:text-white/90"
-            : "text-black/45 hover:text-black/70 dark:text-white/45 dark:hover:text-white/70"
+            : "text-black/45 hover:bg-black/[0.03] hover:text-black/70 dark:text-white/45 dark:hover:bg-white/[0.04] dark:hover:text-white/70"
         }`}
       >
         {slugToLabel(item, titleMap)}
@@ -204,24 +195,49 @@ function SidebarItem({
 /* ------------------------------------------------------------------ */
 
 export function DocsShell({
+  locale,
   currentSlug,
   headings,
   titleMap,
   docsNav,
   children,
 }: {
+  locale: Locale;
   currentSlug: string;
   headings: Heading[];
   titleMap?: Record<string, string>;
   docsNav: NavTab[];
   children: React.ReactNode;
 }) {
+  const t = UI[locale];
+  const docsRoot = localeRoot(locale);
+  const resolve = (path: string) => {
+    if (path.startsWith("/docs/")) {
+      return docPath(locale, path.slice("/docs/".length));
+    }
+    return resolveHref(path);
+  };
+  const navLinks = [
+    { label: t.docs, href: resolveHref(docsRoot), external: false },
+    {
+      label: t.github,
+      href: "https://github.com/linanwanttodo/TNT",
+      external: true,
+    },
+  ];
   const activeTab = findActiveTab(docsNav, currentSlug) ?? docsNav[0]!;
   const [selectedTab, setSelectedTab] = useState(activeTab.tab);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const currentTab = docsNav.find((t) => t.tab === selectedTab) ?? docsNav[0]!;
-  const navLinks = NAV_LINKS;
+
+  useEffect(() => {
+    document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+  }, [locale]);
+
+  useEffect(() => {
+    setSelectedTab(activeTab.tab);
+  }, [activeTab.tab]);
 
   return (
     <div className="flex h-full flex-col">
@@ -234,27 +250,33 @@ export function DocsShell({
             <div
               className={`hidden items-center lg:flex ${SIDEBAR_W} flex-shrink-0 px-5 py-3`}
             >
-              <Link href={resolveHref("/")} className="flex items-center">
+              <Link href={resolveHref(docsRoot)} className="flex items-center">
                 <img
-                  src={withBasePath("/images/continue-logo-light.png")}
-                  alt="Continue"
+                  src={withBasePath("/images/tnt-logo.svg")}
+                  alt="TNT"
                   className="h-8 w-auto dark:invert"
                 />
+                <span className="ml-2.5 font-mono text-[15px] font-bold tracking-[0.18em] text-black/85 dark:text-white/85">
+                  TNT
+                </span>
               </Link>
             </div>
             {/* Mobile logo */}
             <div className="flex items-center px-5 py-3 lg:hidden">
-              <Link href={resolveHref("/")} className="flex items-center">
+              <Link href={resolveHref(docsRoot)} className="flex items-center">
                 <img
-                  src={withBasePath("/images/continue-logo-light.png")}
-                  alt="Continue"
+                  src={withBasePath("/images/tnt-logo.svg")}
+                  alt="TNT"
                   className="h-8 w-auto dark:invert"
                 />
+                <span className="ml-2.5 font-mono text-[15px] font-bold tracking-[0.18em] text-black/85 dark:text-white/85">
+                  TNT
+                </span>
               </Link>
             </div>
             {/* Centered search */}
             <div className="flex flex-1 items-center justify-center px-5 py-3">
-              <DocsSearch resolve={resolveHref} />
+              <DocsSearch resolve={resolve} locale={locale} />
             </div>
             {/* Right nav */}
             <div className="flex items-center gap-6 px-5 py-3">
@@ -263,8 +285,11 @@ export function DocsShell({
                   <Link
                     key={link.label}
                     href={link.href}
+                    {...(link.external
+                      ? { target: "_blank", rel: "noreferrer" }
+                      : {})}
                     className={`${NAV_LINK_CLASSES} ${
-                      link.label === "Docs"
+                      link.label === t.docs
                         ? "text-black/70 dark:text-white/70"
                         : ""
                     }`}
@@ -273,7 +298,15 @@ export function DocsShell({
                   </Link>
                 ))}
               </div>
-              <ThemeToggle />
+              <Link
+                href={docPath(otherLocale(locale), currentSlug)}
+                className="flex items-center gap-1.5 text-[13px] text-black/40 transition-colors hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+                aria-label={t.language}
+              >
+                <Languages className="h-4 w-4" />
+                <span>{locale === "zh" ? "EN" : "中文"}</span>
+              </Link>
+              <ThemeToggle locale={locale} />
               {/* Mobile menu button */}
               <button
                 className="p-2 text-black/40 transition-colors hover:text-black/70 md:hidden dark:text-white/40 dark:hover:text-white/70"
@@ -294,12 +327,22 @@ export function DocsShell({
                 <Link
                   key={link.label}
                   href={link.href}
+                  {...(link.external
+                    ? { target: "_blank", rel: "noreferrer" }
+                    : {})}
                   className={NAV_LINK_CLASSES}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}
                 </Link>
               ))}
+              <Link
+                href={docPath(otherLocale(locale), currentSlug)}
+                className={NAV_LINK_CLASSES}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {locale === "zh" ? "English" : "中文"}
+              </Link>
             </div>
           )}
         </nav>
@@ -319,7 +362,7 @@ export function DocsShell({
               >
                 {tab.tab}
                 {selectedTab === tab.tab && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-black/70 dark:bg-white/70" />
+                  <span className="bg-accent dark:bg-accent-light absolute bottom-0 left-0 right-0 h-[2px] rounded-full" />
                 )}
               </button>
             ))}
@@ -340,7 +383,7 @@ export function DocsShell({
                 group={group}
                 currentSlug={currentSlug}
                 titleMap={titleMap}
-                resolve={resolveHref}
+                resolve={resolve}
               />
             ))}
           </nav>
@@ -352,12 +395,12 @@ export function DocsShell({
         </main>
 
         {/* Table of contents */}
-        <TableOfContents headings={headings} />
+        <TableOfContents headings={headings} locale={locale} />
       </div>
 
       {/* ---- Mobile sidebar ---- */}
       <button
-        className="fixed bottom-4 left-4 z-50 rounded-full bg-black/80 p-3 text-white shadow-lg lg:hidden dark:bg-white/80 dark:text-black"
+        className="bg-accent shadow-accent/30 dark:bg-accent-light fixed bottom-4 left-4 z-50 rounded-full p-3 text-white shadow-lg lg:hidden dark:text-black"
         onClick={() => setMobileOpen(!mobileOpen)}
         aria-label="Toggle sidebar"
       >
@@ -384,7 +427,7 @@ export function DocsShell({
                 >
                   {tab.tab}
                   {selectedTab === tab.tab && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-black/70 dark:bg-white/70" />
+                    <span className="bg-accent dark:bg-accent-light absolute bottom-0 left-0 right-0 h-[2px] rounded-full" />
                   )}
                 </button>
               ))}

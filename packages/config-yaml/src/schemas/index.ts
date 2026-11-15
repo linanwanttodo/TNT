@@ -30,7 +30,6 @@ const docSchema = z.object({
   startUrl: z.string(),
   rootUrl: z.string().optional(),
   faviconUrl: z.string().optional(),
-  useLocalCrawling: z.boolean().optional(),
   sourceFile: z.string().optional(),
 });
 
@@ -99,7 +98,9 @@ const envRecord = z.record(
 
 export const baseConfigYamlSchema = z.object({
   name: z.string(),
-  version: z.string(),
+  // Nothing reads either field: they came from the hub package format, where a
+  // version was part of the identifier. Files that still carry them stay valid.
+  version: z.string().optional(),
   schema: z.string().optional(),
   metadata: z.record(z.string()).and(commonMetadataSchema.partial()).optional(),
   env: envRecord.optional(),

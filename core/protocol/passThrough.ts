@@ -4,8 +4,8 @@ import {
 } from "./coreWebview.js";
 
 // Message types to pass through from webview to core
-// Note: If updating these values, make a corresponding update in
-// extensions/intellij/src/main/kotlin/com/github/continuedev/continueintellijextension/toolWindow/ContinueBrowser.kt
+// Note: If updating these values, mirror the change in the editor bridge that
+// consumes this list, or its dispatch will drift.
 export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
   [
     "ping",
@@ -40,20 +40,6 @@ export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
     "context/addDocs",
     "context/removeDocs",
     "context/indexDocs",
-    "autocomplete/complete",
-    "autocomplete/cancel",
-    "autocomplete/accept",
-    "nextEdit/predict",
-    "nextEdit/reject",
-    "nextEdit/accept",
-    "nextEdit/startChain",
-    "nextEdit/deleteChain",
-    "nextEdit/isChainAlive",
-    "nextEdit/queue/getProcessedCount",
-    "nextEdit/queue/dequeueProcessed",
-    "nextEdit/queue/processOne",
-    "nextEdit/queue/clear",
-    "nextEdit/queue/abort",
     "tts/kill",
     "llm/complete",
     "llm/streamChat",
@@ -64,6 +50,11 @@ export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
     "conversation/compact",
     "stats/getTokensPerDay",
     "stats/getTokensPerModel",
+    "rtk/getGain",
+    "rtk/install",
+    "rtk/upgrade",
+    "skills/list",
+    "skills/openFile",
     // Codebase
     "index/setPaused",
     "index/forceReIndex",
@@ -77,7 +68,6 @@ export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
     "docs/getIndexedPages",
     //
     "onboarding/complete",
-    "addAutocompleteModel",
     "didChangeSelectedProfile",
     "tools/call",
     "tools/evaluatePolicy",
@@ -90,8 +80,8 @@ export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
   ];
 
 // Message types to pass through from core to webview
-// Note: If updating these values, make a corresponding update in
-// extensions/intellij/src/main/kotlin/com/github/continuedev/continueintellijextension/constants/MessageTypes.kt
+// Note: If updating these values, mirror the change in the editor bridge that
+// consumes this list, or its dispatch will drift.
 export const CORE_TO_WEBVIEW_PASS_THROUGH: (keyof ToWebviewFromCoreProtocol)[] =
   [
     "configUpdate",

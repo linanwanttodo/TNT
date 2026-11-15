@@ -6,23 +6,16 @@
   "configurations": [
     {
       "type": "node",
-      "name": "vscode-jest-tests.v2.core",
+      "name": "core-vitest",
       "request": "launch",
-      "args": [
-        "--runInBand",
-        "--watchAll=false"
-        // "--testNamePattern",
-        // "${jest.testNamePattern}",
-        // "--runTestsByPath",
-        // "${jest.testFile}"
-      ],
+      "args": ["run"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "disableOptimisticBPs": true,
-      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
       "windows": {
-        "program": "${workspaceFolder}/node_modules/jest/bin/jest"
+        "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs"
       }
     }
   ]

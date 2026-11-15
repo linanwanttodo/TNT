@@ -10,13 +10,13 @@ import {
   RawMessageStreamEvent,
   ToolUseBlock,
 } from "@anthropic-ai/sdk/resources/messages.mjs";
-import { streamSse } from "@continuedev/fetch";
+import { streamSse } from "@tnt/fetch";
 import {
   addCacheControlToLastTwoUserMessages,
   getAnthropicErrorMessage,
   getAnthropicHeaders,
   getAnthropicMediaTypeFromDataUrl,
-} from "@continuedev/openai-adapters";
+} from "@tnt/openai-adapters";
 import {
   ChatMessage,
   CompletionOptions,
@@ -29,7 +29,6 @@ import {
 import { safeParseToolCallArgs } from "../../tools/parseArgs.js";
 import { renderChatMessage, stripImages } from "../../util/messageContent.js";
 import { extractBase64FromDataUrl } from "../../util/url.js";
-import { DEFAULT_REASONING_TOKENS } from "../constants.js";
 import { BaseLLM } from "../index.js";
 
 class Anthropic extends BaseLLM {
@@ -54,33 +53,78 @@ class Anthropic extends BaseLLM {
     };
   }
 
+  // Context management is a beta feature: only the official Anthropic
+  // endpoint understands it, so cloud resellers that reuse this class
+  // (Vertex AI) never receive it.
+  private supportsContextManagement(options: CompletionOptions): boolean {
+    if (!options.contextManagement || !this.apiBase) {
+      return false;
+    }
+    try {
+      return new URL(this.apiBase).host === "api.anthropic.com";
+    } catch {
+      return false;
+    }
+  }
+
   // Public for use within VertexAI
   public convertArgs(
     options: CompletionOptions,
   ): Omit<MessageCreateParams, "messages"> {
+    // Reasoning is steered with the top-level output_config.effort parameter:
+    // fixed thinking budgets (thinking.type "enabled" + budget_tokens) are
+    // deprecated and rejected by current models.
     const finalOptions = {
       top_k: options.topK,
       top_p: options.topP,
       temperature: options.temperature,
       max_tokens: options.maxTokens ?? 2048,
-      model: options.model === "claude-2" ? "claude-2.1" : options.model,
+      model: options.model,
       stop_sequences: options.stop?.filter((x) => x.trim() !== ""),
       stream: options.stream ?? true,
       tools: options.tools?.map(this.convertToolToAnthropicTool),
-      thinking: options.reasoning
+      // Reasoning is steered with output_config.effort and structured output
+      // rides on the same object under format, so both are merged into one.
+      ...(options.reasoning || options.responseFormat
         ? {
-            type: "enabled" as const,
-            budget_tokens:
-              options.reasoningBudgetTokens ?? DEFAULT_REASONING_TOKENS,
+            output_config: {
+              ...(options.reasoning
+                ? { effort: options.reasoningEffort ?? "high" }
+                : {}),
+              ...(options.responseFormat
+                ? {
+                    format:
+                      options.responseFormat === "json"
+                        ? { type: "json_object" }
+                        : {
+                            type: "json_schema",
+                            schema: options.responseFormat,
+                          },
+                  }
+                : {}),
+            },
           }
-        : undefined,
+        : {}),
+      // Provider-side context trimming: old tool results and thinking blocks
+      // are cleared as the conversation grows, so long agent runs stay within
+      // the context window without client-side pruning.
+      ...(this.supportsContextManagement(options)
+        ? {
+            context_management: {
+              edits: [
+                { type: "clear_tool_uses_20250919" },
+                { type: "clear_thinking_20251015" },
+              ],
+            },
+          }
+        : {}),
       tool_choice: options.toolChoice
         ? {
             type: "tool" as const,
             name: options.toolChoice.function.name,
           }
         : undefined,
-    };
+    } as Omit<MessageCreateParams, "messages">;
 
     return finalOptions;
   }
@@ -105,7 +149,7 @@ class Anthropic extends BaseLLM {
               text: part.text,
             });
           }
-        } else {
+        } else if (part.type === "imageUrl") {
           const base64Data = extractBase64FromDataUrl(part.imageUrl.url);
           if (base64Data) {
             parts.push({
@@ -427,6 +471,7 @@ class Anthropic extends BaseLLM {
       this.apiKey,
       shouldCacheSystemMessage || shouldCachePrompt,
       this.apiBase,
+      this.supportsContextManagement(options),
     );
 
     const body: MessageCreateParams = {

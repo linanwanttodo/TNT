@@ -3,7 +3,7 @@ import {
   ChatCompletionMessageParam,
 } from "openai/resources/index";
 
-import { streamSse } from "@continuedev/fetch";
+import { streamSse } from "@tnt/fetch";
 import {
   ResponseCreateParamsBase,
   ResponseInputItem,
@@ -222,6 +222,12 @@ class OpenAI extends BaseLLM {
     return !!model && (!!model.match(/^o[0-9]+/) || !!model.match(/gpt-[5-9]/));
   }
 
+  // Only the reasoning model families accept a reasoning effort parameter;
+  // older chat models reject it as an unknown field.
+  protected supportsReasoningEffort(model?: string): boolean {
+    return this.isOSeriesOrGpt5PlusModel(model);
+  }
+
   private isFireworksAiModel(model?: string): boolean {
     return !!model && model.startsWith("accounts/fireworks/models");
   }
@@ -252,6 +258,21 @@ class OpenAI extends BaseLLM {
     return {};
   }
 
+  // Request options that only the official OpenAI endpoint understands
+  // (response storage, cache routing, service tier) are gated on this, so
+  // OpenAI-compatible providers and cloud resellers involved in the same
+  // class never receive unknown fields. Azure uses its own apiType.
+  protected isOfficialOpenAIAPI(): boolean {
+    if (this.apiType === "azure" || !this.apiBase) {
+      return false;
+    }
+    try {
+      return new URL(this.apiBase).host === "api.openai.com";
+    } catch {
+      return false;
+    }
+  }
+
   protected getMaxStopWords(): number {
     const url = new URL(this.apiBase!);
 
@@ -279,6 +300,7 @@ class OpenAI extends BaseLLM {
       includeReasoningField: this.supportsReasoningField,
       includeReasoningDetailsField: this.supportsReasoningDetailsField,
       includeReasoningContentField: this.supportsReasoningContentField,
+      includeReasoningEffortField: this.supportsReasoningEffort(options.model),
     });
 
     finalOptions.stop = options.stop?.slice(0, this.getMaxStopWords());
@@ -293,8 +315,22 @@ class OpenAI extends BaseLLM {
       finalOptions.messages = formatMessageForO1OrGpt5(finalOptions.messages);
     }
 
-    if (options.model === "o1") {
-      finalOptions.stream = false;
+    // Server-side storage, prompt cache routing and the service tier are only
+    // understood by the official OpenAI API, so they are gated on the endpoint
+    // and stay off unless the user opted in.
+    if (this.isOfficialOpenAIAPI()) {
+      const opts = options.openaiRequestOptions;
+      if (opts) {
+        if (opts.store !== undefined) {
+          finalOptions.store = opts.store;
+        }
+        if (opts.promptCacheKey) {
+          finalOptions.prompt_cache_key = opts.promptCacheKey;
+        }
+        if (opts.serviceTier) {
+          finalOptions.service_tier = opts.serviceTier;
+        }
+      }
     }
 
     if (options.prediction && this.supportsPrediction(options.model)) {
@@ -330,12 +366,52 @@ class OpenAI extends BaseLLM {
       input,
       temperature: options.temperature ?? null,
       top_p: options.topP ?? null,
-      reasoning: {
-        effort: "medium",
-        summary: "auto",
-      },
-      include: ["reasoning.encrypted_content"],
     };
+
+    // Reasoning effort is configurable per model. Without reasoning enabled
+    // the reasoning block is left out so non-reasoning models are not sent a
+    // field they reject. xhigh/max are not accepted here and clamp to high.
+    if (options.reasoning !== false) {
+      const requested = options.reasoningEffort ?? "medium";
+      const effort =
+        requested === "xhigh" || requested === "max" ? "high" : requested;
+      body.reasoning = { effort, summary: "auto" };
+      body.include = ["reasoning.encrypted_content"];
+    }
+
+    // Structured output uses a different shape here: the format lives under
+    // text rather than a top-level response_format field.
+    if (options.responseFormat) {
+      body.text = {
+        format:
+          options.responseFormat === "json"
+            ? { type: "json_object" }
+            : {
+                type: "json_schema",
+                name: "response",
+                strict: true,
+                schema: options.responseFormat,
+              },
+      } as ResponseCreateParamsBase["text"];
+    }
+
+    // Server-side storage, prompt cache routing and the service tier are only
+    // understood by the official OpenAI API. They stay off unless the user
+    // turns them on, so OpenAI-compatible providers never see the fields.
+    if (this.isOfficialOpenAIAPI()) {
+      const opts = options.openaiRequestOptions;
+      if (opts) {
+        if (opts.store !== undefined) {
+          body.store = opts.store;
+        }
+        if (opts.promptCacheKey) {
+          body.prompt_cache_key = opts.promptCacheKey;
+        }
+        if (opts.serviceTier) {
+          body.service_tier = opts.serviceTier;
+        }
+      }
+    }
 
     // Tools support for Responses API (schema differs from Chat Completions)
     if (options.tools?.length) {
@@ -361,10 +437,6 @@ class OpenAI extends BaseLLM {
 
     if (typeof options.maxTokens === "number") {
       body.max_output_tokens = options.maxTokens;
-    }
-
-    if (model === "o1") {
-      body.stream = false;
     }
 
     return body;
@@ -447,11 +519,6 @@ class OpenAI extends BaseLLM {
 
       // b) don't support system message
       body.messages = formatMessageForO1OrGpt5(body.messages);
-    }
-
-    if (body.model === "o1") {
-      // o1 doesn't support streaming
-      body.stream = false;
     }
 
     if (body.prediction && this.supportsPrediction(body.model)) {
@@ -578,19 +645,6 @@ class OpenAI extends BaseLLM {
     }
 
     const body: any = this._convertArgsResponses(options, messages);
-
-    // o1 does not support streaming
-    if (body.model === "o1") {
-      const res = await this._responses(messages, signal, options);
-      if (Array.isArray(res)) {
-        for (const m of res) {
-          if (m) yield m;
-        }
-      } else if (res) {
-        yield res;
-      }
-      return;
-    }
 
     const response = await this.fetch(this._getEndpoint("responses"), {
       method: "POST",

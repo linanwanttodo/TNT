@@ -1,4 +1,5 @@
 import type { CompletionUsage } from "openai/resources/index.js";
+import { normalizeUsage } from "../util.js";
 import {
   ChatCompletion,
   ChatCompletionAssistantMessageParam,
@@ -11,7 +12,6 @@ import {
   ChatCompletionCreateParams,
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
-  ChatCompletionMessageToolCall,
   ChatCompletionTool,
 } from "openai/resources/index.js";
 import {
@@ -34,7 +34,9 @@ import {
   ResponseUsage,
 } from "openai/resources/responses/responses.js";
 
-const RESPONSES_MODEL_REGEX = /^(?:gpt-5|gpt-5-codex|o[0-9])/i;
+import { resolveCachePolicy } from "./cachePolicy.js";
+
+const RESPONSES_MODEL_REGEX = /^(?:gpt-[5-9]|gpt-\d{2,}|o[0-9])/i;
 
 export function isResponsesModel(model: string): boolean {
   return !!model && RESPONSES_MODEL_REGEX.test(model);
@@ -377,6 +379,38 @@ export function toResponsesInput(
   return inputItems;
 }
 
+/**
+ * Marks the two spans worth writing: the stable head and the newest turn. A
+ * breakpoint on the newest turn reuses everything before it on the next
+ * request, and the head is the part that survives across turns. No breakpoint
+ * is placed on tool output items because the provider only reads the marker
+ * from message content parts.
+ */
+function markResponseCacheBreakpoints(input: ResponseInput): void {
+  const messages = (input as any[]).filter(
+    (item) => item?.type === "message" && Array.isArray(item.content),
+  );
+  const markLastText = (item: any): void => {
+    for (let i = item.content.length - 1; i >= 0; i--) {
+      const part = item.content[i];
+      if (part?.type === "input_text" || part?.type === "output_text") {
+        item.content[i] = { ...part, prompt_cache_breakpoint: true };
+        return;
+      }
+    }
+  };
+  const head = [...messages]
+    .reverse()
+    .find((item) => item.role === "developer");
+  if (head) {
+    markLastText(head);
+  }
+  const newest = messages.at(-1);
+  if (newest && newest !== head) {
+    markLastText(newest);
+  }
+}
+
 export function toResponsesParams(
   params: ChatCompletionCreateParams,
 ): ResponseCreateParams {
@@ -392,6 +426,15 @@ export function toResponsesParams(
     tool_choice: resolveToolChoice(params),
     tools: convertTools(params.tools, params.functions),
   };
+
+  const cachePolicy = resolveCachePolicy("openai", params.model);
+  if (cachePolicy.mode === "explicit") {
+    (responsesParams as any).prompt_cache_options = {
+      mode: "explicit",
+      ttl: cachePolicy.retention === "long" ? "12h" : "30m",
+    };
+    markResponseCacheBreakpoints(input);
+  }
 
   if (params.temperature !== undefined && params.temperature !== null) {
     responsesParams.temperature = params.temperature;
@@ -433,17 +476,10 @@ export function toResponsesParams(
 }
 
 function mapUsage(usage?: ResponseUsage | null): CompletionUsage | undefined {
-  if (!usage) {
-    return undefined;
-  }
-
-  const mapped: CompletionUsage = {
-    completion_tokens: usage.output_tokens,
-    prompt_tokens: usage.input_tokens,
-    total_tokens: usage.total_tokens,
-  };
-
-  return mapped;
+  // The Responses API names the same counts differently and hides the cached and
+  // the reasoning parts inside *_tokens_details, which the old field-by-field
+  // copy dropped; normalizeUsage keeps both.
+  return normalizeUsage(usage);
 }
 
 interface ToolCallState {
@@ -572,6 +608,16 @@ function getToolCallState(
   return state.toolCalls.get(byIndex);
 }
 
+/**
+ * Turns one Responses-API stream event into a ChatCompletionChunk, accumulating
+ * text, refusal and tool-call arguments in `state`. The core layer keeps its
+ * own event-to-message mapping (core/llm/openaiTypeConverters.ts
+ * `handleResponsesStreamEvent`) for the legacy self-built stream, because the
+ * two consume different shapes: this yields delta chunks, that one yields whole
+ * messages. The split is deliberate; changing which events carry text here
+ * must be mirrored there, or one path will repeat or drop what the other
+ * handles.
+ */
 export function fromResponsesChunk(
   state: ResponsesStreamState,
   event: ResponseStreamEvent,

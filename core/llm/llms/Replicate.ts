@@ -86,7 +86,11 @@ class Replicate extends BaseLLM {
       system_prompt: system_prompt,
       max_tokens: options.maxTokens || 2048,
       extended_thinking: options.reasoning,
-      thinking_budget_tokens: options.reasoningBudgetTokens || 1024,
+      // A fixed small budget truncates the model mid-thought; omitted,
+      // Replicate lets the model spend what it needs.
+      ...(options.reasoningBudgetTokens
+        ? { thinking_budget_tokens: options.reasoningBudgetTokens }
+        : {}),
     };
 
     return [

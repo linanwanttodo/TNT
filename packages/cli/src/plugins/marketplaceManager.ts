@@ -1,0 +1,368 @@
+import { execFile, spawnSync } from "child_process";
+import { createHash } from "crypto";
+import fs from "fs";
+import path from "path";
+
+import { t } from "../i18n/index.js";
+import { assertConfiguredHttpUrl } from "../utils/urlGuard.js";
+
+import {
+  isBlockedMarketplaceName,
+  isReservedMarketplaceName,
+} from "./loader.js";
+import {
+  loadInstalledPlugins,
+  loadKnownMarketplaces,
+  rememberMarketplace,
+} from "./marketplaceRegistry.js";
+import {
+  CommandResult,
+  MarketplaceDeps,
+  resolveMarketplaceSource,
+} from "./marketplaceSources.js";
+import {
+  KnownMarketplace,
+  MarketplaceManifest,
+  MarketplacePluginEntry,
+  MarketplaceSource,
+} from "./marketplaceTypes.js";
+import { installPlugin } from "./pluginInstall.js";
+
+export class MarketplaceManifestError extends Error {}
+
+/**
+ * A locale map from an untrusted manifest: kept only when every value is a
+ * string. A half-shaped value would otherwise reach the store listings typed as
+ * `Record<string, string>` while holding something else.
+ */
+function readI18nMap(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) return undefined;
+  if (!entries.every(([, text]) => typeof text === "string")) return undefined;
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+/** Only the upstream organization may claim the reserved catalogue names. */
+function isOfficialSource(source: MarketplaceSource): boolean {
+  if (source.source === "github") {
+    return /^anthropics\//i.test(source.repo);
+  }
+  if (source.source === "git" || source.source === "url") {
+    return /github\.com[/:]anthropics[/.]/i.test(source.url);
+  }
+  return false;
+}
+
+/**
+ * A manifest is machine-supplied content from a remote repository, so every
+ * field that later becomes a path, a command argument or a cache directory is
+ * checked here rather than trusted.
+ */
+export function parseMarketplaceManifest(
+  raw: unknown,
+  expectedName?: string,
+): MarketplaceManifest {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new MarketplaceManifestError(t("plugins.manifestNotObject"));
+  }
+  const value = raw as Record<string, unknown>;
+  const name = typeof value.name === "string" ? value.name : "";
+  if (!name) {
+    throw new MarketplaceManifestError(t("plugins.manifestNoName"));
+  }
+  if (isBlockedMarketplaceName(name)) {
+    throw new MarketplaceManifestError(
+      t("plugins.manifestImpersonates", { name }),
+    );
+  }
+  if (expectedName && expectedName !== name) {
+    throw new MarketplaceManifestError(
+      t("plugins.manifestNameMismatch", {
+        name,
+        expected: expectedName,
+      }),
+    );
+  }
+  const owner = value.owner as Record<string, unknown> | undefined;
+  if (!owner || typeof owner.name !== "string" || !owner.name) {
+    throw new MarketplaceManifestError(t("plugins.manifestNoOwner"));
+  }
+  if (!Array.isArray(value.plugins)) {
+    throw new MarketplaceManifestError(t("plugins.manifestPluginsNotList"));
+  }
+  const plugins: MarketplacePluginEntry[] = [];
+  for (const candidate of value.plugins) {
+    if (!candidate || typeof candidate !== "object") {
+      throw new MarketplaceManifestError(t("plugins.manifestEntryNotObject"));
+    }
+    const entry = candidate as Record<string, unknown>;
+    const pluginName = typeof entry.name === "string" ? entry.name : "";
+    const rawSource = entry.source;
+    const sourceIsUsable =
+      typeof rawSource === "string"
+        ? rawSource.length > 0
+        : Boolean(
+            rawSource &&
+            typeof rawSource === "object" &&
+            typeof (rawSource as { source?: unknown }).source === "string",
+          );
+    if (!pluginName || !sourceIsUsable) {
+      throw new MarketplaceManifestError(
+        t("plugins.manifestEntryNeedsNameAndSource"),
+      );
+    }
+    plugins.push({
+      name: pluginName,
+      source: rawSource as MarketplacePluginEntry["source"],
+      version: typeof entry.version === "string" ? entry.version : undefined,
+      description:
+        typeof entry.description === "string" ? entry.description : undefined,
+      category: typeof entry.category === "string" ? entry.category : undefined,
+      tags: Array.isArray(entry.tags) ? (entry.tags as string[]) : undefined,
+      dependencies: Array.isArray(entry.dependencies)
+        ? (entry.dependencies as string[])
+        : undefined,
+      author: entry.author as MarketplacePluginEntry["author"],
+      displayName:
+        typeof entry.displayName === "string" ? entry.displayName : undefined,
+      displayNameI18n: readI18nMap(entry.displayName_i18n),
+      descriptionI18n: readI18nMap(entry.description_i18n),
+      icon: typeof entry.icon === "string" ? entry.icon : undefined,
+      homepage: typeof entry.homepage === "string" ? entry.homepage : undefined,
+      publisherType:
+        entry.publisherType === "community"
+          ? "community"
+          : entry.publisherType === "official"
+            ? "official"
+            : undefined,
+      componentTypes: Array.isArray(entry.componentTypes)
+        ? (entry.componentTypes as string[])
+        : undefined,
+      requiresPaidPlan: entry.requiresPaidPlan === true ? true : undefined,
+    });
+  }
+  return {
+    name,
+    owner: {
+      name: owner.name,
+      email: typeof owner.email === "string" ? owner.email : undefined,
+      url: typeof owner.url === "string" ? owner.url : undefined,
+    },
+    plugins,
+    metadata: value.metadata as MarketplaceManifest["metadata"],
+    forceRemoveDeletedPlugins:
+      value.forceRemoveDeletedPlugins === true ? true : undefined,
+    allowCrossMarketplaceDependenciesOn: Array.isArray(
+      value.allowCrossMarketplaceDependenciesOn,
+    )
+      ? (value.allowCrossMarketplaceDependenciesOn as string[])
+      : undefined,
+  };
+}
+
+function runCommand(
+  file: string,
+  args: string[],
+  options: { cwd?: string; env?: Record<string, string> },
+): Promise<CommandResult> {
+  return new Promise((resolve) => {
+    execFile(
+      file,
+      args,
+      {
+        cwd: options.cwd,
+        env: { ...process.env, ...options.env },
+        maxBuffer: 1024 * 1024 * 8,
+      },
+      (error, stdout, stderr) => {
+        const code =
+          error && typeof (error as NodeJS.ErrnoException).code === "string"
+            ? 127
+            : error
+              ? 1
+              : 0;
+        resolve({ code, stdout: String(stdout), stderr: String(stderr) });
+      },
+    );
+  });
+}
+
+async function probeGitHubSsh(run: MarketplaceDeps["run"]): Promise<boolean> {
+  // GitHub answers authentication success with exit code 1 and a banner; any
+  // other shape means no usable key, so fall back to HTTPS.
+  const probe = await run(
+    "ssh",
+    [
+      "-T",
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=2",
+      "-o",
+      "StrictHostKeyChecking=yes",
+      "git@github.com",
+    ],
+    { env: {} },
+  );
+  return (
+    probe.stderr.includes("successfully authenticated") ||
+    probe.stdout.includes("successfully authenticated")
+  );
+}
+
+export function createDefaultDeps(): MarketplaceDeps {
+  let gitChecked: boolean | null = null;
+  let sshChecked: boolean | null = null;
+  return {
+    run: runCommand,
+    async fetchJson(url, headers) {
+      // The marketplace URL comes from the operator's marketplace source
+      // configuration; the guard accepts a deliberate self-hosted endpoint.
+      await assertConfiguredHttpUrl(url);
+      const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from ${url}`);
+      }
+      return (await response.json()) as unknown;
+    },
+    gitAvailable() {
+      if (gitChecked === null) {
+        gitChecked = spawnSync("git", ["--version"]).status === 0;
+      }
+      return gitChecked;
+    },
+    async sshConfiguredForGitHub() {
+      if (sshChecked === null) {
+        sshChecked = await probeGitHubSsh(runCommand);
+      }
+      return sshChecked;
+    },
+  };
+}
+
+export interface AddMarketplaceResult {
+  marketplace: KnownMarketplace;
+  manifest: MarketplaceManifest;
+  reused: boolean;
+}
+
+/**
+ * Fetch or reuse a marketplace, validate what came back, and record it. The
+ * registry is written only after validation, so a malformed remote manifest
+ * cannot leave a half-known marketplace behind.
+ */
+export async function addMarketplace(
+  name: string,
+  source: MarketplaceSource,
+  deps: MarketplaceDeps = createDefaultDeps(),
+  registeredName?: string,
+): Promise<AddMarketplaceResult> {
+  const resolved = await resolveMarketplaceSource(source, name, deps);
+  if (!fs.existsSync(resolved.manifestPath)) {
+    throw new MarketplaceManifestError(
+      t("plugins.manifestNotFound", { path: resolved.manifestPath }),
+    );
+  }
+  const manifest = parseMarketplaceManifest(
+    JSON.parse(fs.readFileSync(resolved.manifestPath, "utf-8")),
+    // The registry key is the alias the user chose; the manifest name is only
+    // cross-checked when a caller insists on one.
+    registeredName,
+  );
+  if (isReservedMarketplaceName(manifest.name) && !isOfficialSource(source)) {
+    throw new MarketplaceManifestError(
+      t("plugins.manifestOfficialOnly", { name: manifest.name }),
+    );
+  }
+  const entry: KnownMarketplace = {
+    source,
+    installLocation: path.resolve(resolved.manifestPath),
+    lastUpdated: new Date().toISOString(),
+    manifestDigest: manifestDigest(resolved.manifestPath),
+  };
+  rememberMarketplace(name, entry);
+  return { marketplace: entry, manifest, reused: resolved.reused };
+}
+
+export interface MarketplaceRefresh {
+  name: string;
+  /** True when the manifest differs from the one recorded at the last read. */
+  changed: boolean;
+  updatedPlugins: { id: string; from: string; to: string }[];
+  failed: { id: string; message: string }[];
+}
+
+export function manifestDigest(filePath: string): string {
+  return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+/**
+ * Re-reads a marketplace and, unless asked not to, brings installed plugins up
+ * to the version it now declares. The previous plugin list is read before the
+ * refetch so a plugin that disappeared can be reported rather than silently
+ * dropped from the summary.
+ */
+export async function refreshMarketplace(
+  name: string,
+  deps: MarketplaceDeps = createDefaultDeps(),
+  options: { updatePlugins?: boolean } = {},
+): Promise<MarketplaceRefresh> {
+  const record = loadKnownMarketplaces()[name];
+  if (!record) {
+    throw new MarketplaceManifestError(t("plugins.noMarketplace", { name }));
+  }
+  // Resolved without the reuse shortcut: a refresh exists to see what changed.
+  const resolved = await resolveMarketplaceSource(record.source, name, deps);
+  if (!fs.existsSync(resolved.manifestPath)) {
+    throw new MarketplaceManifestError(
+      t("plugins.manifestNotFound", { path: resolved.manifestPath }),
+    );
+  }
+  const manifest = parseMarketplaceManifest(
+    JSON.parse(fs.readFileSync(resolved.manifestPath, "utf-8")),
+  );
+  rememberMarketplace(name, {
+    ...record,
+    installLocation: path.resolve(resolved.manifestPath),
+    lastUpdated: new Date().toISOString(),
+    manifestDigest: manifestDigest(resolved.manifestPath),
+  });
+
+  const summary: MarketplaceRefresh = {
+    name,
+    changed: manifestDigest(resolved.manifestPath) !== record.manifestDigest,
+    updatedPlugins: [],
+    failed: [],
+  };
+
+  if (options.updatePlugins === false) return summary;
+
+  const suffix = `@${name}`;
+  for (const [id, installations] of Object.entries(
+    loadInstalledPlugins().plugins,
+  )) {
+    if (!id.endsWith(suffix)) continue;
+    const pluginName = id.slice(0, id.length - suffix.length);
+    const entry = manifest.plugins.find(
+      (candidate) => candidate.name === pluginName,
+    );
+    if (!entry) continue;
+    const target = entry.version ?? "0.0.0";
+    const installed = installations[0]?.version;
+    if (installed === target) continue;
+    try {
+      await installPlugin(name, pluginName, deps);
+      summary.updatedPlugins.push({
+        id,
+        from: installed ?? "unknown",
+        to: target,
+      });
+    } catch (error) {
+      summary.failed.push({ id, message: (error as Error).message });
+    }
+  }
+  return summary;
+}

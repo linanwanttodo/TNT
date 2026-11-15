@@ -1,6 +1,10 @@
 import { EditOperation } from "../../tools/definitions/multiEdit";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
-import { SearchMatchResult, findSearchMatches } from "./findSearchMatch";
+import { TntError, TntErrorReason } from "../../util/errors";
+import {
+  SearchMatchResult,
+  describeSearchFailure,
+  findSearchMatches,
+} from "./findSearchMatch";
 
 /**
  * Get the leading whitespace of the first non-empty line in a string.
@@ -92,9 +96,12 @@ export function executeFindAndReplace(
   const matches = findSearchMatches(fileContent, oldString);
 
   if (matches.length === 0) {
-    throw new ContinueError(
-      ContinueErrorReason.FindAndReplaceOldStringNotFound,
-      `Edit at index ${editIndex}: string not found in file: "${oldString}"`,
+    // The message leads with what the file does contain near the anchor line:
+    // a failure that only echoes the search leaves the model retrying the same
+    // guess, which is the loop this text exists to break.
+    throw new TntError(
+      TntErrorReason.FindAndReplaceOldStringNotFound,
+      `Edit at index ${editIndex}: the text to replace was not found in the file.\n${describeSearchFailure(fileContent, oldString)}`,
     );
   }
 
@@ -118,8 +125,8 @@ export function executeFindAndReplace(
   } else {
     // For single replacement, check for multiple matches first
     if (matches.length > 1) {
-      throw new ContinueError(
-        ContinueErrorReason.FindAndReplaceMultipleOccurrences,
+      throw new TntError(
+        TntErrorReason.FindAndReplaceMultipleOccurrences,
         `Edit at index ${editIndex}: String "${oldString}" appears ${matches.length} times in the file. Either provide a more specific string with surrounding context to make it unique, or use replace_all=true to replace all occurrences.`,
       );
     }
@@ -140,6 +147,14 @@ export function executeFindAndReplace(
   }
 }
 
+/**
+ * Names the cause when an edit cannot find text that the file still holds: the
+ * search runs against the buffer the earlier edits already produced, so "not
+ * found in the file" is the wrong answer and retries the same edit forever.
+ */
+export const EARLY_EDIT_CAUSE_LINE =
+  "An earlier edit in this call changed the text this edit looks for. It is still in the file as you read it, but not after the edits before it - search for the text the earlier edit produced, or move this one ahead of it.";
+
 export function executeMultiFindAndReplace(
   fileContent: string,
   edits: EditOperation[],
@@ -149,13 +164,29 @@ export function executeMultiFindAndReplace(
   // Apply edits in sequence
   for (let editIndex = 0; editIndex < edits.length; editIndex++) {
     const edit = edits[editIndex];
-    result = executeFindAndReplace(
-      result,
-      edit.old_string,
-      edit.new_string,
-      edit.replace_all ?? false,
-      editIndex,
-    );
+    try {
+      result = executeFindAndReplace(
+        result,
+        edit.old_string,
+        edit.new_string,
+        edit.replace_all ?? false,
+        editIndex,
+      );
+    } catch (error) {
+      if (
+        error instanceof TntError &&
+        error.reason === TntErrorReason.FindAndReplaceOldStringNotFound &&
+        editIndex > 0 &&
+        result !== fileContent &&
+        findSearchMatches(fileContent, edit.old_string).length > 0
+      ) {
+        throw new TntError(
+          error.reason,
+          `${error.message}\n${EARLY_EDIT_CAUSE_LINE}`,
+        );
+      }
+      throw error;
+    }
   }
 
   return result;

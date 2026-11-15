@@ -1,8 +1,11 @@
 import { MessageCreateParams } from "@anthropic-ai/sdk/resources";
 
-import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
+import {
+  addCacheControlToLastTwoUserMessages,
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+} from "./AnthropicUtils.js";
 
-const MAX_CACHING_MESSAGES = 4;
+const MAX_CACHING_MESSAGES = ANTHROPIC_MAX_CACHE_BREAKPOINTS;
 
 // Caching strategy type - transforms a clean Anthropic body by adding cache_control
 export type CachingStrategy = (
@@ -78,7 +81,11 @@ const systemAndToolsStrategy: CachingStrategy = (body) => {
       ? msg.content.map((block) => ({ ...block }))
       : msg.content,
   }));
-  addCacheControlToLastTwoUserMessages(result.messages);
+  // What is left after the system blocks and the tool list, or the cap is overshot.
+  addCacheControlToLastTwoUserMessages(
+    result.messages,
+    Math.min(2, availableCacheMessages),
+  );
 
   return result;
 };

@@ -1,0 +1,212 @@
+import type { Session } from "core/index.js";
+import { format, isThisWeek, isThisYear, isToday, isYesterday } from "date-fns";
+import { Box, Text, useInput } from "ink";
+import React, { useEffect, useMemo, useState } from "react";
+
+import { t } from "../i18n/index.js";
+import { ExtendedSessionMetadata, loadSessionById } from "../session/index.js";
+
+import { ScrollBarColumn } from "./components/ScrollBarColumn.js";
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import { SessionPreview } from "./SessionPreview.js";
+import { themedBoxStyles } from "./styles.js";
+import { useTheme } from "./theme/tokens.js";
+import { scrollbarGeometry } from "./utils/scrollbar.js";
+
+interface SessionSelectorProps {
+  sessions: ExtendedSessionMetadata[];
+  onSelect: (sessionId: string) => void;
+  onExit: () => void;
+  /** Header for the list; defaults to the recent-sessions heading. */
+  title?: string;
+}
+
+function formatTimestamp(date: Date): string {
+  if (isToday(date)) {
+    return format(date, "h:mm a");
+  } else if (isYesterday(date)) {
+    return "yesterday";
+  } else if (isThisWeek(date)) {
+    return format(date, "EEEE"); // Day name (e.g., "Monday")
+  } else if (isThisYear(date)) {
+    return format(date, "MMM d"); // e.g., "Jan 15"
+  } else {
+    return format(date, "MMM d, yyyy"); // e.g., "Jan 15, 2023"
+  }
+}
+
+function formatMessage(message: string | undefined): string {
+  if (!message) return "(no messages)";
+  // Ensure we're working with a string, handle edge cases from persisted data
+  const messageStr = typeof message === "string" ? message : String(message);
+  return messageStr.split("\n")[0];
+}
+
+export function SessionSelector({
+  sessions,
+  onSelect,
+  onExit,
+  title,
+}: SessionSelectorProps) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [previewSession, setPreviewSession] = useState<Session | null>(null);
+  const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
+  const theme = useTheme();
+
+  // Load the selected session for preview
+  useEffect(() => {
+    const selectedSession = sessions[selectedIndex];
+    if (selectedSession && !selectedSession.isRemote) {
+      const session = loadSessionById(selectedSession.sessionId);
+      setPreviewSession(session);
+    } else {
+      setPreviewSession(null);
+    }
+  }, [selectedIndex, sessions]);
+
+  // Calculate how many sessions we can display based on terminal height and scrolling
+  const { displaySessions, scrollOffset } = useMemo(() => {
+    // Account for:
+    // - Box border (top + bottom): 2 lines
+    // - Box padding (top + bottom): 2 lines
+    // - Header "Recent Sessions": 1 line
+    // - Instructions line: 1 line
+    // - Empty line after instructions: 1 line
+    // - Potential scroll indicators: up to 2 lines (1 above, 1 below)
+    // Total overhead: ~9 lines
+    const MAGIC_NUMBER = 9;
+    const availableHeight = Math.max(1, terminalHeight - MAGIC_NUMBER);
+    const maxDisplayableSessions = Math.floor(availableHeight / 3);
+
+    // If we can display all sessions, no need to scroll
+    if (sessions.length <= maxDisplayableSessions) {
+      return { displaySessions: sessions, scrollOffset: 0 };
+    }
+
+    // Calculate scroll offset to keep selected item visible
+    let scrollOffset = 0;
+    if (selectedIndex >= maxDisplayableSessions) {
+      scrollOffset = Math.min(
+        selectedIndex - maxDisplayableSessions + 1,
+        sessions.length - maxDisplayableSessions,
+      );
+    }
+
+    const displaySessions = sessions.slice(
+      scrollOffset,
+      scrollOffset + maxDisplayableSessions,
+    );
+    return { displaySessions, scrollOffset };
+  }, [sessions, terminalHeight, selectedIndex]);
+
+  useInput((input, key) => {
+    if (key.upArrow || input === "k") {
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : sessions.length - 1));
+    } else if (key.downArrow || input === "j") {
+      setSelectedIndex((prev) => (prev < sessions.length - 1 ? prev + 1 : 0));
+    } else if (key.return) {
+      if (sessions[selectedIndex]) {
+        onSelect(sessions[selectedIndex].sessionId);
+      }
+    } else if (key.escape || (key.ctrl && input === "d")) {
+      onExit();
+    }
+  });
+
+  if (sessions.length === 0) {
+    return (
+      <Box {...themedBoxStyles(theme)}>
+        <Text color={theme.status.warning}>{t("session.empty")}</Text>
+        <Text color={theme.text.secondary}>{t("session.pressEsc")}</Text>
+      </Box>
+    );
+  }
+
+  // Determine if we should show preview (only if terminal is wide enough)
+  const showPreview = terminalWidth > 100;
+  const listWidth = showPreview
+    ? Math.floor(terminalWidth * 0.3)
+    : terminalWidth;
+
+  return (
+    <Box flexDirection="row" width={terminalWidth}>
+      {/* Left side: Session list */}
+      <Box {...themedBoxStyles(theme)} width={listWidth}>
+        <Text color={theme.accent} bold>
+          {title ?? t("session.recent")}{" "}
+          {sessions.length > displaySessions.length &&
+            `(${selectedIndex + 1}/${sessions.length})`}
+        </Text>
+        <Text color={theme.text.secondary}>{t("session.navigate")}</Text>
+        <Text> </Text>
+
+        <Box flexDirection="row" flexGrow={1} flexShrink={1} minHeight={0}>
+          <Box flexDirection="column" flexGrow={1} flexShrink={1} minHeight={0}>
+            {displaySessions.map((session, index) => {
+              const globalIndex = index + scrollOffset;
+              const isSelected = globalIndex === selectedIndex;
+              const indicator = isSelected ? "➤ " : "  ";
+              const color = isSelected ? theme.accent : theme.text.primary;
+
+              return (
+                <Box key={session.sessionId} flexDirection="column">
+                  <Box paddingRight={3}>
+                    <Text bold={isSelected} color={color} wrap="truncate-end">
+                      {indicator}
+                      {formatMessage(session.title)}
+                    </Text>
+                  </Box>
+                  <Box marginLeft={2}>
+                    <Text color={theme.text.secondary}>
+                      {formatTimestamp(new Date(session.dateCreated))}
+                      {session.isRemote
+                        ? ` ${t("session.remote")}`
+                        : ` ${t("session.local")}`}
+                    </Text>
+                  </Box>
+                  {index < displaySessions.length - 1 && (
+                    <Text key={`spacer-${session.sessionId}`}> </Text>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+          <ScrollBarColumn
+            geometry={scrollbarGeometry(
+              scrollOffset * 3,
+              displaySessions.length * 3,
+              sessions.length * 3,
+            )}
+          />
+        </Box>
+      </Box>
+
+      {/* Right side: Preview panel */}
+      {showPreview && (
+        <Box marginLeft={1} flexGrow={1} width="100%">
+          {previewSession ? (
+            <SessionPreview
+              chatHistory={previewSession.history}
+              sessionTitle={previewSession.title}
+            />
+          ) : (
+            <Box
+              {...themedBoxStyles(theme)}
+              flexDirection="column"
+              width="100%"
+            >
+              <Text color={theme.accent} bold>
+                Preview
+              </Text>
+              <Text color={theme.text.secondary}>
+                {sessions[selectedIndex]?.isRemote
+                  ? "(remote session preview not available)"
+                  : "(loading...)"}
+              </Text>
+            </Box>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}

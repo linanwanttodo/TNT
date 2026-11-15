@@ -1,7 +1,3 @@
-import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
-import { NodeHtmlMarkdown } from "node-html-markdown";
-
 import { BaseContextProvider } from "../";
 import {
   ContextItem,
@@ -34,7 +30,7 @@ export async function getUrlContextItems(
   fetchFn: FetchFunction,
 ): Promise<ContextItem[]> {
   const url = new URL(query);
-  const icon = await fetchFavicon(url);
+  const icon = await fetchFavicon(url, fetchFn);
   const resp = await fetchFn(url);
 
   // Check if the response is not OK
@@ -44,6 +40,13 @@ export async function getUrlContextItems(
 
   const html = await resp.text();
 
+  // Parsing one URL is a rare path; JSDOM and the readability stack are
+  // several megabytes that startup must not pay for.
+  const [{ JSDOM }, { Readability }, { NodeHtmlMarkdown }] = await Promise.all([
+    import("jsdom"),
+    import("@mozilla/readability"),
+    import("node-html-markdown"),
+  ]);
   const dom = new JSDOM(html);
   let reader = new Readability(dom.window.document);
   let article = reader.parse();

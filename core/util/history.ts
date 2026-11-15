@@ -4,6 +4,7 @@ import { BaseSessionMetadata, Session } from "../index.js";
 import { ListHistoryOptions } from "../protocol/core.js";
 
 import { NEW_SESSION_TITLE } from "./constants.js";
+import { writeFileAtomically } from "./atomicWrite.js";
 import {
   getSessionFilePath,
   getSessionsFolderPath,
@@ -78,10 +79,7 @@ export class HistoryManager {
       (session) => session.sessionId !== sessionId,
     );
 
-    fs.writeFileSync(
-      sessionsListFile,
-      JSON.stringify(sessionsList, undefined, 2),
-    );
+    writeJsonAtomically(sessionsListFile, sessionsList);
   }
 
   clearAll() {
@@ -128,10 +126,19 @@ export class HistoryManager {
       orderedSession.usage = session.usage;
     }
 
-    fs.writeFileSync(
-      getSessionFilePath(session.sessionId),
-      JSON.stringify(orderedSession, undefined, 2),
-    );
+    // The remaining optional fields - the goal, the output style, the
+    // delegation link - are read back from this file (the root list hides
+    // children by parentSessionId, a resumed child reads its depth), so
+    // everything else the caller attached is copied too. Writing only the
+    // ordered keys above silently dropped them.
+    const written = orderedSession as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(session)) {
+      if (value !== undefined && !(key in written)) {
+        written[key] = value;
+      }
+    }
+
+    writeJsonAtomically(getSessionFilePath(session.sessionId), orderedSession);
 
     // Read and update the sessions list
     const sessionsListFilePath = getSessionsListPath();
@@ -143,7 +150,7 @@ export class HistoryManager {
         sessionsList = JSON.parse(rawSessionsList);
       } catch (e) {
         if (rawSessionsList.trim() === "") {
-          fs.writeFileSync(sessionsListFilePath, JSON.stringify([]));
+          writeJsonAtomically(sessionsListFilePath, []);
           sessionsList = [];
         } else {
           throw e;
@@ -175,10 +182,7 @@ export class HistoryManager {
         sessionsList.push(sessionMetadata);
       }
 
-      fs.writeFileSync(
-        sessionsListFilePath,
-        JSON.stringify(sessionsList, undefined, 2),
-      );
+      writeJsonAtomically(sessionsListFilePath, sessionsList);
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new Error(
@@ -190,6 +194,10 @@ export class HistoryManager {
       );
     }
   }
+}
+
+function writeJsonAtomically(filePath: string, data: unknown): void {
+  writeFileAtomically(filePath, JSON.stringify(data, undefined, 2));
 }
 
 const historyManager = new HistoryManager();

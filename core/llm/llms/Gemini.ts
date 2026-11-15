@@ -1,4 +1,4 @@
-import { streamResponse } from "@continuedev/fetch";
+import { streamResponse } from "@tnt/fetch";
 import { v4 as uuidv4 } from "uuid";
 import {
   AssistantChatMessage,
@@ -21,7 +21,7 @@ import {
   GeminiChatResponse,
   GeminiGenerationConfig,
   GeminiToolFunctionDeclaration,
-  convertContinueToolToGeminiFunction,
+  convertToolToGeminiFunction,
   mergeConsecutiveGeminiMessages,
 } from "./gemini-types";
 
@@ -145,8 +145,7 @@ class Gemini extends BaseLLM {
         const contentArray: Array<MessagePart> =
           userMessage.content as Array<MessagePart>;
         const textPart = contentArray.find((part) => part.type === "text") as
-          | TextMessagePart
-          | undefined;
+          TextMessagePart | undefined;
 
         if (textPart) {
           textPart.text = prefix + textPart.text;
@@ -178,11 +177,9 @@ class Gemini extends BaseLLM {
     signal: AbortSignal,
     options: CompletionOptions,
   ): AsyncGenerator<ChatMessage> {
-    const isV1API = this.apiBase?.includes("/v1/");
-
-    const convertedMsgs = isV1API
-      ? this.removeSystemMessage(messages)
-      : messages;
+    // The system message is carried in systemInstruction, so it is kept out
+    // of the contents list.
+    const convertedMsgs = this.removeSystemMessage(messages);
 
     if (options.model.includes("bison")) {
       for await (const message of this.streamChatBison(
@@ -211,6 +208,11 @@ class Gemini extends BaseLLM {
     }
 
     let data = "";
+    if (part.type === "audio") {
+      // Gemini audio needs a different inline-data path; keep the text and
+      // image support here and do not send a wrong media type.
+      return { text: "[Audio attachment omitted]" };
+    }
     if (part.imageUrl?.url) {
       const extracted = extractBase64FromDataUrl(part.imageUrl.url);
       if (extracted) {
@@ -234,7 +236,6 @@ class Gemini extends BaseLLM {
   public prepareBody(
     messages: ChatMessage[],
     options: CompletionOptions,
-    isV1API: boolean,
     includeToolIds: boolean,
   ): GeminiChatRequestBody {
     const toolCallIdToNameMap = new Map<string, string>();
@@ -253,7 +254,7 @@ class Gemini extends BaseLLM {
 
     const body: GeminiChatRequestBody = {
       contents: messages
-        .filter((msg) => !(msg.role === "system" && isV1API))
+        .filter((msg) => msg.role !== "system")
         .map((msg) => {
           if (msg.role === "tool") {
             let functionName = toolCallIdToNameMap.get(msg.toolCallId);
@@ -333,35 +334,33 @@ class Gemini extends BaseLLM {
       body.generationConfig = this.convertArgs(options);
     }
 
-    // https://ai.google.dev/gemini-api/docs/api-versions
-    if (!isV1API) {
-      if (systemMessage) {
-        body.systemInstruction = {
-          parts: [{ text: stripImages(systemMessage) }],
-        };
-      }
-      // Convert and add tools if present
-      if (options.tools?.length) {
-        // Choosing to map all tools to the functionDeclarations of one tool
-        // Rather than map each tool to its own tool + functionDeclaration
-        // Same difference
-        const functions: GeminiToolFunctionDeclaration[] = [];
-        options.tools.forEach((tool) => {
-          try {
-            functions.push(convertContinueToolToGeminiFunction(tool));
-          } catch (e) {
-            console.warn(
-              `Failed to convert tool to gemini function definition. Skipping: ${JSON.stringify(tool, null, 2)}`,
-            );
-          }
-        });
-        if (functions.length) {
-          body.tools = [
-            {
-              functionDeclarations: functions,
-            },
-          ];
+    // The system message always goes through systemInstruction.
+    if (systemMessage) {
+      body.systemInstruction = {
+        parts: [{ text: stripImages(systemMessage) }],
+      };
+    }
+    // Convert and add tools if present
+    if (options.tools?.length) {
+      // Choosing to map all tools to the functionDeclarations of one tool
+      // Rather than map each tool to its own tool + functionDeclaration
+      // Same difference
+      const functions: GeminiToolFunctionDeclaration[] = [];
+      options.tools.forEach((tool) => {
+        try {
+          functions.push(convertToolToGeminiFunction(tool));
+        } catch (e) {
+          console.warn(
+            `Failed to convert tool to gemini function definition. Skipping: ${JSON.stringify(tool, null, 2)}`,
+          );
         }
+      });
+      if (functions.length) {
+        body.tools = [
+          {
+            functionDeclarations: functions,
+          },
+        ];
       }
     }
     return body;
@@ -468,10 +467,8 @@ class Gemini extends BaseLLM {
       this.apiBase,
     );
 
-    const isV1API = !!this.apiBase?.includes("/v1/");
-
     // Convert chat messages to contents
-    const body = this.prepareBody(messages, options, isV1API, true);
+    const body = this.prepareBody(messages, options, true);
 
     const response = await this.fetch(apiURL, {
       method: "POST",

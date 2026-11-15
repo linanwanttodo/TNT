@@ -1,7 +1,9 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { type NavItem, type NavTab } from "@/config/docsNav";
+import GithubSlugger from "github-slugger";
+import type { NavItem, NavTab } from "@/config/docsNav";
+import { DEFAULT_LOCALE, type Locale } from "./i18n";
 
 const DOCS_DIR = process.env.DOCS_DIR || path.resolve(process.cwd(), "../docs");
 
@@ -9,10 +11,35 @@ export function getDocsDir() {
   return DOCS_DIR;
 }
 
-export function loadDocsNav(): NavTab[] {
-  const docsJsonPath = path.join(DOCS_DIR, "docs.json");
+function docsLocaleDir(locale: Locale): string {
+  return locale === "zh" ? path.join(DOCS_DIR, "zh") : DOCS_DIR;
+}
+
+/**
+ * Doc slugs arrive from URL route params and snippet names from MDX content,
+ * so a `../` inside one must not walk the reader out of the docs tree. The
+ * judgment runs on the resolved path, so a normalized escape is caught even
+ * when the raw string never spelled one out.
+ */
+function resolveWithinDocs(root: string, candidate: string): string | null {
+  const resolvedRoot = path.resolve(root);
+  const resolved = path.resolve(resolvedRoot, candidate);
+  if (
+    resolved !== resolvedRoot &&
+    !resolved.startsWith(resolvedRoot + path.sep)
+  ) {
+    return null;
+  }
+  return resolved;
+}
+
+export function loadDocsNav(locale: Locale = DEFAULT_LOCALE): NavTab[] {
+  const docsJsonPath = path.join(
+    DOCS_DIR,
+    locale === "zh" ? "docs.zh.json" : "docs.json",
+  );
   if (!fs.existsSync(docsJsonPath)) {
-    console.warn(`docs.json not found at ${docsJsonPath}, using empty nav`);
+    console.warn(`docs nav not found at ${docsJsonPath}, using empty nav`);
     return [];
   }
 
@@ -20,10 +47,13 @@ export function loadDocsNav(): NavTab[] {
   return raw.navigation?.tabs ?? [];
 }
 
-export const docsNav: NavTab[] = loadDocsNav();
-
-function loadDocsRedirects(): Map<string, string> {
-  const docsJsonPath = path.join(DOCS_DIR, "docs.json");
+export function loadDocsRedirects(
+  locale: Locale = DEFAULT_LOCALE,
+): Map<string, string> {
+  const docsJsonPath = path.join(
+    DOCS_DIR,
+    locale === "zh" ? "docs.zh.json" : "docs.json",
+  );
   if (!fs.existsSync(docsJsonPath)) return new Map();
 
   const raw = JSON.parse(fs.readFileSync(docsJsonPath, "utf8"));
@@ -35,19 +65,16 @@ function loadDocsRedirects(): Map<string, string> {
   return redirects;
 }
 
-export const docsRedirects: Map<string, string> = loadDocsRedirects();
+// Whitelist of allowed external redirect domains. Empty on purpose: the docs
+// site only redirects inside itself, so an external destination is refused.
+const ALLOWED_REDIRECT_DOMAINS: string[] = [];
 
-// Whitelist of allowed external redirect domains for security
-const ALLOWED_REDIRECT_DOMAINS = [
-  "continue.dev",
-  "docs.continue.dev",
-  "www.continue.dev",
-  "changelog.continue.dev",
-];
-
-export function resolveDocsRedirect(slug: string[]): string | null {
+export function resolveDocsRedirect(
+  slug: string[],
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
   const key = slug.join("/");
-  const dest = docsRedirects.get(key);
+  const dest = loadDocsRedirects(locale).get(key);
   if (!dest) return null;
 
   // Handle external URLs
@@ -76,18 +103,53 @@ export interface DocFile {
   slug: string[];
 }
 
-export async function loadMdxFile(slug: string[]): Promise<DocFile | null> {
+export async function loadMdxFile(
+  slug: string[],
+  locale: Locale = DEFAULT_LOCALE,
+): Promise<DocFile | null> {
+  // Cheap denylist before resolution: a slug segment may never be "..".
+  if (slug.some((segment) => segment === "..")) {
+    return null;
+  }
   const slugPath = slug.join("/");
-  const filePath = path.join(DOCS_DIR, slugPath + ".mdx");
-
-  if (fs.existsSync(filePath)) {
+  const base = docsLocaleDir(locale);
+  // Slugs come from URL route params: anchor every read to the docs tree so
+  // a `../` inside a slug cannot walk the reader out of it. The containment
+  // is judged on the resolved path, not a raw-prefix startswith.
+  const resolvedBase = path.resolve(base);
+  const within = (candidate: string) =>
+    candidate === resolvedBase || candidate.startsWith(resolvedBase + path.sep);
+  const filePath = path.resolve(resolvedBase, slugPath + ".mdx");
+  if (within(filePath) && fs.existsSync(filePath)) {
     return readDocFile(filePath, slug);
   }
 
   // Try index.mdx inside directory
-  const indexPath = path.join(DOCS_DIR, slugPath, "index.mdx");
-  if (fs.existsSync(indexPath)) {
+  const indexPath = path.resolve(
+    resolvedBase,
+    path.join(slugPath, "index.mdx"),
+  );
+  if (within(indexPath) && fs.existsSync(indexPath)) {
     return readDocFile(indexPath, slug);
+  }
+
+  // A missing translation falls back to English rather than a 404.
+  if (locale !== DEFAULT_LOCALE) {
+    const fallbackRoot = path.resolve(DOCS_DIR);
+    const withinRoot = (candidate: string) =>
+      candidate === fallbackRoot ||
+      candidate.startsWith(fallbackRoot + path.sep);
+    const fallback = path.resolve(fallbackRoot, slugPath + ".mdx");
+    if (withinRoot(fallback) && fs.existsSync(fallback)) {
+      return readDocFile(fallback, slug);
+    }
+    const fallbackIndex = path.resolve(
+      fallbackRoot,
+      path.join(slugPath, "index.mdx"),
+    );
+    if (withinRoot(fallbackIndex) && fs.existsSync(fallbackIndex)) {
+      return readDocFile(fallbackIndex, slug);
+    }
   }
 
   return null;
@@ -95,25 +157,34 @@ export async function loadMdxFile(slug: string[]): Promise<DocFile | null> {
 
 export async function loadRawMdxFile(
   slug: string[],
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<{ raw: string; fileName: string } | null> {
+  // Cheap denylist before resolution: a slug segment may never be "..".
+  if (slug.some((segment) => segment === "..")) {
+    return null;
+  }
   const slugPath = slug.join("/");
-  const filePath = path.join(DOCS_DIR, slugPath + ".mdx");
+  const base = docsLocaleDir(locale);
 
-  // Prevent path traversal — ensure the resolved path stays inside DOCS_DIR.
-  const docsDirNormalized = DOCS_DIR.endsWith(path.sep)
-    ? DOCS_DIR
-    : DOCS_DIR + path.sep;
-  const isWithinDocsDir = (p: string) => p.startsWith(docsDirNormalized);
-
-  if (isWithinDocsDir(filePath) && fs.existsSync(filePath)) {
+  // Prevent path traversal — anchor the read to the docs tree, judged on the
+  // resolved path rather than a raw-prefix startswith. A `../` inside a slug
+  // resolves outside and is refused here.
+  const resolvedBase = path.resolve(base);
+  const within = (candidate: string) =>
+    candidate === resolvedBase || candidate.startsWith(resolvedBase + path.sep);
+  const filePath = path.resolve(resolvedBase, slugPath + ".mdx");
+  if (within(filePath) && fs.existsSync(filePath)) {
     return {
       raw: fs.readFileSync(filePath, "utf8"),
       fileName: slug[slug.length - 1] + ".md",
     };
   }
 
-  const indexPath = path.join(DOCS_DIR, slugPath, "index.mdx");
-  if (isWithinDocsDir(indexPath) && fs.existsSync(indexPath)) {
+  const indexPath = path.resolve(
+    resolvedBase,
+    path.join(slugPath, "index.mdx"),
+  );
+  if (within(indexPath) && fs.existsSync(indexPath)) {
     return {
       raw: fs.readFileSync(indexPath, "utf8"),
       fileName: slug[slug.length - 1] + ".md",
@@ -148,7 +219,24 @@ function preprocessMdx(content: string, slug: string[]): string {
   while ((match = mdxImportRegex.exec(content)) !== null) {
     const componentName = match[1]!;
     const snippetFile = match[2]!;
-    const snippetPath = path.join(DOCS_DIR, "snippets", snippetFile);
+    // The snippet name comes from MDX content: only a plain relative path of
+    // safe segments is accepted, and the resolved file must land inside the
+    // snippets directory.
+    if (
+      !/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*\.mdx$/.test(snippetFile) ||
+      snippetFile.includes("..")
+    ) {
+      continue;
+    }
+    // Resolved containment: the snippet must land inside the snippets dir.
+    const snippetsRoot = path.resolve(DOCS_DIR, "snippets");
+    const snippetPath = path.resolve(snippetsRoot, snippetFile);
+    if (
+      snippetPath !== snippetsRoot &&
+      !snippetPath.startsWith(snippetsRoot + path.sep)
+    ) {
+      continue;
+    }
 
     if (fs.existsSync(snippetPath)) {
       const snippetRaw = fs.readFileSync(snippetPath, "utf8");
@@ -220,23 +308,24 @@ export interface Heading {
 
 export function getHeadings(content: string): Heading[] {
   const regex = /^(#{2,4})\s+(.+)$/gm;
+  const slugger = new GithubSlugger();
   const headings: Heading[] = [];
   let match;
 
   while ((match = regex.exec(content)) !== null) {
     const level = match[1]!.length;
     const text = match[2]!.trim();
-    const id = text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/\s+/g, "-");
-    headings.push({ level, text, id });
+    // github-slugger keeps CJK and dedupes, matching the ids rehype-slug
+    // generates for the rendered page (the old ASCII-only slugify stripped
+    // Chinese entirely and left every zh heading with an empty id).
+    if (!text) continue;
+    headings.push({ level, text, id: slugger.slug(text) });
   }
 
   return headings;
 }
 
-export function getAllDocSlugs(): string[] {
+export function getAllDocSlugs(nav: NavTab[] = loadDocsNav()): string[] {
   const slugs: string[] = [];
   function walk(items: NavItem[]) {
     for (const item of items) {
@@ -244,7 +333,7 @@ export function getAllDocSlugs(): string[] {
       else if (item.pages) walk(item.pages);
     }
   }
-  for (const tab of docsNav) {
+  for (const tab of nav) {
     for (const group of tab.groups) {
       walk(group.pages);
     }
@@ -256,18 +345,26 @@ export function getAllDocSlugs(): string[] {
  * Build a map of slug → display title by reading frontmatter from all docs.
  * Prefers sidebarTitle over title, falls back to slug-derived name.
  */
-export function getAllDocTitles(): Record<string, string> {
-  const slugs = getAllDocSlugs();
+export function getAllDocTitles(
+  locale: Locale = DEFAULT_LOCALE,
+): Record<string, string> {
+  const slugs = getAllDocSlugs(loadDocsNav(locale));
   const titles: Record<string, string> = {};
+  const base = docsLocaleDir(locale);
 
   for (const slug of slugs) {
-    const slugPath = slug;
-    const filePath = path.join(DOCS_DIR, slugPath + ".mdx");
-    const indexPath = path.join(DOCS_DIR, slugPath, "index.mdx");
+    // Slugs come from the docs nav file; anchor every read to the docs tree
+    // so a `../` in a nav entry cannot walk the reader out of it.
+    const resolvedRoot = path.resolve(base);
+    const direct = path.resolve(resolvedRoot, slug + ".mdx");
+    const index = path.resolve(resolvedRoot, path.join(slug, "index.mdx"));
+    const within = (candidate: string) =>
+      candidate === resolvedRoot ||
+      candidate.startsWith(resolvedRoot + path.sep);
 
     let resolved: string | null = null;
-    if (fs.existsSync(filePath)) resolved = filePath;
-    else if (fs.existsSync(indexPath)) resolved = indexPath;
+    if (within(direct) && fs.existsSync(direct)) resolved = direct;
+    else if (within(index) && fs.existsSync(index)) resolved = index;
 
     if (resolved) {
       const raw = fs.readFileSync(resolved, "utf8");

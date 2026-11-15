@@ -1,1 +1,14 @@
-{}
+{
+  "files": [],
+  "references": [
+    { "path": "./core" },
+    { "path": "./packages/cli" },
+    { "path": "./packages/config-types" },
+    { "path": "./packages/config-yaml" },
+    { "path": "./packages/fetch" },
+    { "path": "./packages/llm-info" },
+    { "path": "./packages/openai-adapters" },
+    { "path": "./packages/sdk/typescript" },
+    { "path": "./packages/terminal-security" }
+  ]
+}

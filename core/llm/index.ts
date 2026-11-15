@@ -1,11 +1,11 @@
-import { ModelRole } from "@continuedev/config-yaml";
-import { fetchwithRequestOptions } from "@continuedev/fetch";
-import { findLlmInfo } from "@continuedev/llm-info";
+import { ModelRole } from "@tnt/config-yaml";
+import { fetchwithRequestOptions } from "@tnt/fetch";
+import { findLlmInfo } from "@tnt/llm-info";
 import {
   BaseLlmApi,
   ChatCompletionCreateParams,
   constructLlmApi,
-} from "@continuedev/openai-adapters";
+} from "@tnt/openai-adapters";
 import Handlebars from "handlebars";
 
 import { DevDataSqliteDb } from "../data/devdataSqlite.js";
@@ -94,6 +94,15 @@ export abstract class BaseLLM implements ILLM {
   protected supportsReasoningField: boolean = false;
   protected supportsReasoningDetailsField: boolean = false;
   protected supportsReasoningContentField: boolean = false;
+
+  /**
+   * Whether the provider understands a reasoning effort parameter. Only
+   * providers that are known to accept it opt in, so the field is never sent
+   * to an endpoint that would reject it as an unknown parameter.
+   */
+  protected supportsReasoningEffort(_model?: string): boolean {
+    return false;
+  }
 
   get providerName(): string {
     return (this.constructor as typeof BaseLLM).providerName;
@@ -215,7 +224,7 @@ export abstract class BaseLLM implements ILLM {
     };
 
     this.model = options.model;
-    // Use @continuedev/llm-info package to autodetect certain parameters
+    // Use @tnt/llm-info package to autodetect certain parameters
     const llmInfo = findLlmInfo(this.model, this.underlyingProviderName);
 
     const templateType =
@@ -318,6 +327,7 @@ export abstract class BaseLLM implements ILLM {
       requestOptions: this.requestOptions,
       env: this._llmOptions.env,
       useResponsesApi: this._llmOptions.useResponsesApi,
+      streamOptions: this._llmOptions.streamOptions,
     });
   }
 
@@ -402,7 +412,39 @@ export abstract class BaseLLM implements ILLM {
     }
   }
 
+  /**
+   * Copies the response's status and headers onto the error.
+   *
+   * `calculateDelay` in llm/utils/retry.ts reads `error.headers["retry-after"]`
+   * and friends to back off for as long as the provider asked. Nothing was ever
+   * putting them there, so that path could not fire and every rate limit fell
+   * through to exponential backoff -- a guess, when the provider had already
+   * said the answer.
+   *
+   * Header names are lower-cased because that is how `Headers` yields them and
+   * how the reader spells the ones it looks for first.
+   */
+  private annotateError(error: Error, resp: any): Error {
+    const annotated = error as Error & {
+      status?: number;
+      headers?: Record<string, string>;
+    };
+    annotated.status = resp?.status;
+    const headers: Record<string, string> = {};
+    resp?.headers?.forEach?.((value: string, name: string) => {
+      headers[name.toLowerCase()] = value;
+    });
+    if (Object.keys(headers).length > 0) {
+      annotated.headers = headers;
+    }
+    return annotated;
+  }
+
   private async parseError(resp: any): Promise<Error> {
+    return this.annotateError(await this.buildError(resp), resp);
+  }
+
+  private async buildError(resp: any): Promise<Error> {
     let text = await resp.text();
 
     if (resp.status === 404 && !resp.url.includes("/v1")) {
@@ -974,7 +1016,7 @@ export abstract class BaseLLM implements ILLM {
   ): CompletionOptions {
     // As of 01/14/25 streaming is currently not available with o1
     // See these threads:
-    // - https://github.com/continuedev/continue/issues/3698
+    // - https://github.com/linanwanttodo/TNT/issues/3698
     // - https://community.openai.com/t/streaming-support-for-o1-o1-2024-12-17-resulting-in-400-unsupported-value/1085043
     if (completionOptions.model === "o1") {
       completionOptions.stream = false;
@@ -1191,6 +1233,9 @@ export abstract class BaseLLM implements ILLM {
             includeReasoningField: this.supportsReasoningField,
             includeReasoningDetailsField: this.supportsReasoningDetailsField,
             includeReasoningContentField: this.supportsReasoningContentField,
+            includeReasoningEffortField: this.supportsReasoningEffort(
+              completionOptions.model,
+            ),
           });
           body = this.modifyChatBody(body);
 

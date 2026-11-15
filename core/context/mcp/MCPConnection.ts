@@ -3,10 +3,7 @@ import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { homedir } from "os";
 import { fileURLToPath } from "url";
 
-import {
-  decodeSecretLocation,
-  getTemplateVariables,
-} from "@continuedev/config-yaml";
+import { decodeSecretLocation, getTemplateVariables } from "@tnt/config-yaml";
 import {
   SSEClientTransport,
   SseError,
@@ -179,11 +176,9 @@ class MCPConnection {
     });
 
     if (unrendered.length > 0) {
-      this.errors.push(
-        `${this.options.name} MCP Server has unresolved secrets: ${unrendered.join(", ")}.
-For personal use you can set the secret in the hub at https://continue.dev/settings/secrets.
-Org-level secrets can only be used for MCP by Background Agents (https://docs.continue.dev/hub/agents/overview) when \"Include in Env\" is enabled.`,
-      );
+      this.errors.push(`
+For personal use you can set the secret as an environment variable (e.g. in your shell profile or .tnt config) or pass it directly to the CLI environment.
+TNT stores secrets locally and does not use an external hub.`);
     }
 
     this.connectionPromise = Promise.race([
@@ -594,6 +589,12 @@ Org-level secrets can only be used for MCP by Background Agents (https://docs.co
       options.args || [],
     );
 
+    // Trust model: the command and args come verbatim from the user's own
+    // MCP server configuration (config file / UI). The user configuring a
+    // server is the same act as running that command themselves, so no
+    // whitelist or option validation applies here - it would only break
+    // legitimate servers. StdioClientTransport spawns array-form (no shell),
+    // so configuration values are argv elements, never shell syntax.
     const cwd = await this.resolveCwd(options.cwd);
 
     const transport = new StdioClientTransport({

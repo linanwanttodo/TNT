@@ -9,6 +9,7 @@ import {
   ChatCompletionTool,
   ChatCompletionToolChoiceOption,
 } from "openai/resources";
+import type { CacheControlFormat } from "./cacheControl.js";
 
 export function getAnthropicErrorMessage(response: ErrorResponse): string {
   switch (response.error.type) {
@@ -67,13 +68,14 @@ export function getAnthropicHeaders(
   apiKey: string,
   enableCaching: boolean,
   apiBase?: string,
+  enableContextManagement?: boolean,
 ): Record<string, string> {
   const isAzure = isAzureAnthropicEndpoint(apiBase);
 
   // Warn if Azure endpoint is used with Anthropic-style key
   if (isAzure && apiKey.startsWith("sk-ant-")) {
     console.warn(
-      "[Continue] Azure endpoint detected but API key appears to be a standard Anthropic key (sk-ant-*). " +
+      "[TNT] Azure endpoint detected but API key appears to be a standard Anthropic key (sk-ant-*). " +
         "Azure endpoints require Azure API keys from your AI Foundry resource.",
     );
   }
@@ -90,29 +92,102 @@ export function getAnthropicHeaders(
     [authHeaderName]: apiKey,
   };
 
+  // Beta features are advertised through a comma-separated list. Context
+  // management is opt-in and only reaches the official endpoint.
+  const betas: string[] = [];
   if (enableCaching) {
-    headers["anthropic-beta"] = "prompt-caching-2024-07-31";
+    betas.push("prompt-caching-2024-07-31");
+  }
+  if (enableContextManagement) {
+    betas.push("context-management-2025-06-27");
+  }
+  if (betas.length > 0) {
+    headers["anthropic-beta"] = betas.join(",");
   }
   return headers;
 }
 
-export function addCacheControlToLastTwoUserMessages(messages: MessageParam[]) {
-  let userMessages = 0;
-  for (let i = messages.length - 1; i >= 0; i--) {
+/**
+ * Anthropic accepts at most four `cache_control` breakpoints per request, shared by
+ * the system blocks, the tool list and the messages, and a fifth is a 400 rather
+ * than a marker the provider quietly drops. One number for the whole package, so
+ * no placement site can spend a budget it has not looked at.
+ */
+export const ANTHROPIC_MAX_CACHE_BREAKPOINTS = 4;
+
+/**
+ * Count the breakpoints a request body already carries, wherever they sit.
+ *
+ * A caller that wants to mark messages has to know what the system and the tools
+ * already spent; reading it off the body is the only version that cannot drift
+ * from what is about to be sent.
+ */
+export function countCacheBreakpoints(body: {
+  system?: unknown;
+  tools?: unknown;
+  messages?: unknown;
+}): number {
+  const blocksOf = (value: unknown): any[] =>
+    Array.isArray(value) ? (value as any[]) : [];
+  let total = blocksOf(body.system).filter(
+    (block: any) => block?.cache_control,
+  ).length;
+  total += blocksOf(body.tools).filter(
+    (tool: any) => tool?.cache_control,
+  ).length;
+  for (const message of blocksOf(body.messages)) {
+    total += blocksOf(message?.content).filter(
+      (block: any) => block?.cache_control,
+    ).length;
+  }
+  return total;
+}
+
+/**
+ * Top the trailing user turns up to `limit` cache breakpoints, newest first.
+ *
+ * The limit is a parameter because callers reach here having spent part of
+ * ANTHROPIC_MAX_CACHE_BREAKPOINTS on the system blocks and the tool list.
+ *
+ * Two properties this file did not have before, both measured:
+ *
+ * - what counts is a breakpoint that exists. A turn whose content is a plain
+ *   string has nowhere to carry one, and the old loop spent an allowance on it,
+ *   so a conversation ending in string turns got no turn-level cache at all
+ *   while leaving budget unused.
+ * - calling it twice changes nothing the second time, because the markers
+ *   already in the messages are counted against the limit. The caching strategy
+ *   runs first and other callers may follow it, so a non-idempotent helper could
+ *   push a request over the cap.
+ */
+export function addCacheControlToLastTwoUserMessages(
+  messages: MessageParam[],
+  limit = 2,
+): void {
+  const countBreakpoints = (msg: MessageParam): number =>
+    Array.isArray(msg.content)
+      ? msg.content.filter((block: any) => block?.cache_control).length
+      : 0;
+
+  let placed = messages.reduce(
+    (total, msg) => total + countBreakpoints(msg),
+    0,
+  );
+
+  for (let i = messages.length - 1; i >= 0 && placed < limit; i--) {
     const msg = messages[i];
-    if (msg.role === "user") {
-      userMessages++;
-      if (typeof msg.content === "string") {
-        continue;
-      }
-      for (let j = msg.content.length - 1; j >= 0; j--) {
-        const part = msg.content[j];
-        if (part.type === "text") {
-          part.cache_control = { type: "ephemeral" };
-          break;
-        }
-      }
-      if (userMessages >= 2) {
+    if (msg.role !== "user" || !Array.isArray(msg.content)) {
+      continue;
+    }
+    if (countBreakpoints(msg) > 0) {
+      placed++;
+      continue;
+    }
+    for (let j = msg.content.length - 1; j >= 0; j--) {
+      const part = msg.content[j];
+      if (part.type === "text") {
+        (part as any).cache_control = { type: "ephemeral" };
+        placed++;
         break;
       }
     }
@@ -181,4 +256,24 @@ export function getAnthropicMediaTypeFromDataUrl(
     }
   }
   return "image/jpeg";
+}
+
+/**
+ * DeepSeek caches on its own: its API takes no cache parameter at all, it matches
+ * whatever prefix it recognises, and it reports the split in `usage` as
+ * `prompt_cache_hit_tokens` against `prompt_cache_miss_tokens`. So a breakpoint
+ * sent on an Anthropic-shaped request heading for DeepSeek is a write nobody reads,
+ * and the only thing it can do to a prefix is disturb it.
+ */
+export const DEEPSEEK_ACCEPTS_NO_BREAKPOINTS: CacheControlFormat = {
+  acceptsCacheControlOnTools: false,
+  acceptsCacheControlOnMessages: false,
+  maxBreakpoints: 0,
+};
+
+export function isDeepSeekEndpoint(apiBase?: string, model?: string): boolean {
+  return (
+    (apiBase ?? "").toLowerCase().includes("api.deepseek.com") ||
+    (model ?? "").toLowerCase().includes("deepseek")
+  );
 }

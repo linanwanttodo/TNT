@@ -1,0 +1,74 @@
+import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
+import { BaseLlmApi } from "@tnt/openai-adapters";
+import type { Session } from "core/index.js";
+
+import { QuestionRequestedEvent } from "../../services/QuizService.js";
+import { ToolCallPreview } from "../../tools/types.js";
+
+export interface UseChatProps {
+  assistant?: AssistantUnrolled;
+  model?: ModelConfig;
+  llmApi?: BaseLlmApi;
+  initialPrompt?: string;
+  resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
+  fork?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
+  additionalRules?: string[];
+  additionalPrompts?: string[];
+  onShowMCPSelector: () => void;
+  onShowMcpMarketplace?: () => void;
+  onShowPluginsBrowser?: () => void;
+  onShowUpdateSelector: () => void;
+  onShowThemeSelector?: () => void;
+  onShowModelSelector?: () => void;
+  onShowSessionSelector?: () => void;
+  onShowSubagentsSelector?: () => void;
+  onLoadSession?: (sessionId: string) => void | Promise<void>;
+  onShowJobsSelector?: () => void;
+  onShowExportSelector?: () => void;
+  onReload?: () => Promise<void>;
+  onClear?: () => void;
+  onRefreshStatic?: () => void;
+  // Remote mode props
+  isRemoteMode?: boolean;
+  remoteUrl?: string;
+  /**
+   * True while a delegated transcript is open. Slash commands still work so
+   * the user can leave it, but new turns are refused.
+   */
+  isReadOnlySession?: boolean;
+  onShowDiff?: (diffContent: string) => void;
+  onShowStatusMessage?: (message: string) => void;
+}
+
+export interface AttachedFile {
+  path: string;
+  content: string;
+}
+
+export interface ActivePermissionRequest {
+  toolName: string;
+  toolArgs: any;
+  requestId: string;
+  toolCallPreview?: ToolCallPreview[];
+  hasDynamicEvaluation?: boolean;
+}
+
+export type ActiveQuizQuestion = QuestionRequestedEvent;
+
+export interface RemoteServerState {
+  session: Session;
+  isProcessing: boolean;
+  messageQueueLength: number;
+  pendingPermission?: {
+    toolName: string;
+    toolArgs: any;
+    requestId: string;
+    toolCallPreview?: any[];
+  };
+}
+
+export type { SlashCommandResult } from "../commands/types.js";

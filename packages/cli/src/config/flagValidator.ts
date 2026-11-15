@@ -1,0 +1,491 @@
+/**
+ * Centralized command line flag validation
+ * Provides consistent validation across all commands and proper error reporting
+ */
+
+import { t } from "../i18n/index.js";
+import { safeStderr } from "../startup/init.js";
+
+import { isOutputFormat, OUTPUT_FORMATS } from "./outputFormat.js";
+
+export interface ValidationOptions {
+  // Root command specific flags
+  print?: boolean;
+  format?: string;
+  silent?: boolean;
+  outputSchema?: string;
+  maxSteps?: number;
+  timeoutSeconds?: number;
+
+  // Common flags
+  readonly?: boolean;
+  auto?: boolean;
+  mode?: string;
+  permissionMode?: string;
+  dangerouslySkipPermissions?: boolean;
+  config?: string;
+
+  // Session flags
+  resume?: boolean;
+  fork?: string;
+
+  // Hub-backed flags whose loader has been removed
+  model?: string[];
+  mcp?: string[];
+
+  // Permission flags
+  allow?: string[];
+  ask?: string[];
+  exclude?: string[];
+
+  // Command context
+  isRootCommand?: boolean;
+  commandName?: string;
+}
+
+export interface ValidationError {
+  message: string;
+  code: string;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: ValidationError[];
+}
+
+/**
+ * Validate that --format flag only works with -p/--print
+ */
+function validateFormatFlag(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (options.format && !options.print) {
+    errors.push({
+      code: "FORMAT_REQUIRES_PRINT",
+      message: t("cli.formatRequiresPrint"),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Validate that --silent flag only works with -p/--print
+ */
+function validateSilentFlag(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (options.silent && !options.print) {
+    errors.push({
+      code: "SILENT_REQUIRES_PRINT",
+      message: t("cli.silentRequiresPrint"),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Validate that --output-schema only works with -p/--print
+ */
+function validateOutputSchemaFlag(
+  options: ValidationOptions,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (options.outputSchema && !options.print) {
+    errors.push({
+      code: "OUTPUT_SCHEMA_REQUIRES_PRINT",
+      message: t("cli.outputSchemaRequiresPrint"),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Validate format value is supported
+ */
+function validateFormatValue(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (options.format && !isOutputFormat(options.format)) {
+    errors.push({
+      code: "INVALID_FORMAT_VALUE",
+      message: t("cli.invalidFormat", {
+        value: options.format,
+        expected: OUTPUT_FORMATS.join(", "),
+      }),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * `--max-steps` is coerced by commander, so a rejected value arrives here as
+ * `NaN` rather than throwing during parsing: a throw inside the coercion escapes
+ * through commander's own error path and the run ended with exit 1 and no
+ * message at all. Stating the bad value is what makes it a fixable report.
+ */
+function validateMaxStepsFlag(options: ValidationOptions): ValidationError[] {
+  if (options.maxSteps === undefined) {
+    return [];
+  }
+  if (Number.isInteger(options.maxSteps) && options.maxSteps >= 1) {
+    return [];
+  }
+  return [
+    {
+      code: "INVALID_MAX_STEPS",
+      message: t("cli.invalidMaxSteps", { value: String(options.maxSteps) }),
+    },
+  ];
+}
+
+/**
+ * `--timeout` is a bound, so 0 is a legitimate answer meaning "no bound" and
+ * anything else must be a whole number of seconds. A rejected value reaches the
+ * user as a named flag error instead of an unbounded run.
+ */
+function validateTimeoutFlag(options: ValidationOptions): ValidationError[] {
+  if (options.timeoutSeconds === undefined) {
+    return [];
+  }
+  // Its three siblings (--format, --silent, --output-schema) already refuse without -p;
+  // a bound that the TUI never arms is the same inert flag in a different coat.
+  if (!options.print) {
+    return [
+      {
+        code: "REQUEST_TIMEOUT_REQUIRES_PRINT",
+        message: t("cli.requestTimeoutRequiresPrint"),
+      },
+    ];
+  }
+  if (Number.isInteger(options.timeoutSeconds) && options.timeoutSeconds >= 0) {
+    return [];
+  }
+  return [
+    {
+      code: "INVALID_TIMEOUT",
+      message: t("cli.invalidRequestTimeout", {
+        value: String(options.timeoutSeconds),
+      }),
+    },
+  ];
+}
+
+/**
+ * Validate that --readonly and --auto are mutually exclusive
+ * This validation is now handled in flagProcessor.ts, but we keep it here for completeness
+ */
+function validateModeFlags(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (options.readonly && options.auto) {
+    errors.push({
+      code: "CONFLICTING_MODE_FLAGS",
+      message: t("cli.conflictingReadonlyAuto"),
+    });
+  }
+
+  if (options.mode) {
+    if (options.readonly || options.auto) {
+      errors.push({
+        code: "CONFLICTING_MODE_FLAGS",
+        message: t("cli.modeConflictsWithReadonlyAuto"),
+      });
+    }
+
+    if (
+      options.mode !== "agent" &&
+      options.mode !== "plan" &&
+      options.mode !== "auto"
+    ) {
+      errors.push({
+        code: "INVALID_MODE",
+        message: t("cli.invalidMode", { value: options.mode }),
+      });
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Validate session flags
+ */
+function validateSessionFlags(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  if (options.resume && options.fork) {
+    errors.push({
+      code: "CONFLICTING_SESSION_FLAGS",
+      message: t("cli.conflictingResumeFork"),
+    });
+  }
+
+  if (options.fork !== undefined && (!options.fork || !options.fork.trim())) {
+    errors.push({
+      code: "FORK_REQUIRES_SESSION_ID",
+      message: t("cli.forkRequiresSessionId"),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Validate config path exists (basic check)
+ */
+function validateConfigPath(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  // Note: We don't check file existence here since the config loader handles that
+  // and provides better error messages. This is just for basic validation.
+  if (options.config && typeof options.config !== "string") {
+    errors.push({
+      code: "INVALID_CONFIG_PATH",
+      message: t("cli.invalidConfigPath"),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Validate permission flag combinations
+ */
+function validatePermissionFlags(
+  options: ValidationOptions,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  // Check for empty permission arrays (likely user error)
+  if (options.allow?.some((tool) => !tool.trim())) {
+    errors.push({
+      code: "EMPTY_ALLOW_TOOL",
+      message: t("cli.allowRequiresTool"),
+    });
+  }
+
+  if (options.ask?.some((tool) => !tool.trim())) {
+    errors.push({
+      code: "EMPTY_ASK_TOOL",
+      message: t("cli.askRequiresTool"),
+    });
+  }
+
+  if (options.exclude?.some((tool) => !tool.trim())) {
+    errors.push({
+      code: "EMPTY_EXCLUDE_TOOL",
+      message: t("cli.excludeRequiresTool"),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Run all validation checks on the provided options
+ */
+const PERMISSION_MODE_VALUES = [
+  "default",
+  "acceptEdits",
+  "plan",
+  "auto",
+  "bypassPermissions",
+  "dontAsk",
+];
+
+function validatePermissionModeFlag(
+  options: ValidationOptions,
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const value = options.permissionMode;
+
+  if (value) {
+    if (!PERMISSION_MODE_VALUES.includes(value)) {
+      errors.push({
+        code: "INVALID_MODE",
+        message: t("cli.invalidPermissionMode", { value }),
+      });
+    } else if (
+      value === "bypassPermissions" &&
+      !options.dangerouslySkipPermissions &&
+      process.env.TNT_PERMISSION_MODE !== "bypassPermissions"
+    ) {
+      errors.push({
+        code: "BYPASS_MODE_REQUIRES_FLAG",
+        message: t("cli.bypassModeRequiresFlag"),
+      });
+    }
+  }
+
+  const conflicts =
+    Boolean(value && (options.readonly || options.auto || options.mode)) ||
+    Boolean(
+      options.dangerouslySkipPermissions &&
+      (options.readonly ||
+        options.auto ||
+        options.mode ||
+        (value && value !== "bypassPermissions")),
+    );
+  if (conflicts) {
+    errors.push({
+      code: "CONFLICTING_MODE_FLAGS",
+      message: t("cli.permissionModeConflicts"),
+    });
+  }
+
+  return errors;
+}
+
+/**
+ * Only `plan` builds its policies from the mode alone - `ToolPermissionService
+ * .initializeSync` never reads the command-line overrides there. Accepting
+ * `--allow` beside it shipped a flag that silently did nothing, so the
+ * combination is refused here instead of being honoured in appearance only.
+ * `auto` keeps the user's rules (and the classifier sits on top of them), so
+ * overrides stay meaningful there.
+ */
+function validatePermissionOverridesWithMode(
+  options: ValidationOptions,
+): ValidationError[] {
+  const mode =
+    options.permissionMode ??
+    (options.mode === "agent"
+      ? "default"
+      : options.mode === "auto"
+        ? "bypassPermissions"
+        : options.mode === "plan"
+          ? "plan"
+          : options.readonly
+            ? "plan"
+            : options.auto
+              ? "bypassPermissions"
+              : undefined);
+  if (!mode || mode === "default" || mode === "auto") return [];
+
+  const flags = [
+    options.allow?.length ? "--allow" : "",
+    options.ask?.length ? "--ask" : "",
+    options.exclude?.length ? "--exclude" : "",
+  ].filter(Boolean);
+  if (flags.length === 0) return [];
+
+  return [
+    {
+      code: "PERMISSION_FLAGS_IGNORED_BY_MODE",
+      message: t("cli.permissionFlagsWithMode", {
+        flags: flags.join(", "),
+        mode,
+      }),
+    },
+  ];
+}
+
+/**
+ * `--model` and `--mcp` only ever loaded packages from the hub, and `loadPackageFromHub`
+ * has thrown since hub loading was removed. Measured on the bundle: both flags were accepted
+ * and silently ignored - a configured model answered the request. They are refused now, the
+ * way a flag that cannot do its job should be.
+ */
+function validateHubFlags(options: ValidationOptions): ValidationError[] {
+  const errors: ValidationError[] = [];
+  if (options.model?.length) {
+    errors.push({
+      code: "MODEL_FLAG_REMOVED",
+      message: t("cli.modelFlagRemoved"),
+    });
+  }
+  if (options.mcp?.length) {
+    errors.push({ code: "MCP_FLAG_REMOVED", message: t("cli.mcpFlagRemoved") });
+  }
+  return errors;
+}
+
+export function validateFlags(options: ValidationOptions): ValidationResult {
+  const allErrors: ValidationError[] = [];
+
+  // Run all validation functions
+  const validators = [
+    validateFormatFlag,
+    validateSilentFlag,
+    validateOutputSchemaFlag,
+    validateFormatValue,
+    validateMaxStepsFlag,
+    validateTimeoutFlag,
+    validateModeFlags,
+    validatePermissionModeFlag,
+    validateSessionFlags,
+    validateConfigPath,
+    validatePermissionFlags,
+    validatePermissionOverridesWithMode,
+    validateHubFlags,
+  ];
+
+  for (const validator of validators) {
+    allErrors.push(...validator(options));
+  }
+
+  return {
+    isValid: allErrors.length === 0,
+    errors: allErrors,
+  };
+}
+
+/**
+ * Display validation errors and exit process
+ * Provides consistent error formatting across all commands
+ */
+/**
+ * The serve subcommand owns its numbers: `--port` and `--timeout` arrive as
+ * strings, and nothing else reads them before the server binds. Commander hands
+ * `--port abc` straight through, so the failure the user sees is a server that
+ * exited for a reason they cannot connect to the flag they typed.
+ */
+export function validateServeFlags(options: {
+  port?: string;
+  timeout?: string;
+  maxSteps?: number;
+}): ValidationResult {
+  const errors: ValidationError[] = [];
+
+  errors.push(...validateMaxStepsFlag(options));
+  errors.push(...validateTimeoutFlag(options));
+
+  const check = (name: string, raw: string | undefined, max: number) => {
+    if (raw === undefined) {
+      return;
+    }
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1 || value > max) {
+      errors.push({
+        code: `INVALID_SERVE_${name.toUpperCase()}`,
+        message: t("cli.invalidNumericFlag", { name, max, value: raw }),
+      });
+    }
+  };
+
+  check("port", options.port, 65535);
+  check("timeout", options.timeout, 31536000);
+
+  return { isValid: errors.length === 0, errors };
+}
+
+export function handleValidationErrors(errors: ValidationError[]): never {
+  for (const error of errors) {
+    safeStderr(error.message + "\n");
+  }
+
+  if (errors.length > 1) {
+    safeStderr(
+      `\n${t("cli.foundValidationErrors", { count: errors.length })}\n`,
+    );
+  }
+
+  // Use async graceful exit without awaiting (we must satisfy never)
+  void import("../utils/exit.js").then(({ gracefulExit }) => gracefulExit(1));
+  throw new Error("Exiting due to validation errors");
+}

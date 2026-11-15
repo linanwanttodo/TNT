@@ -1,0 +1,388 @@
+import * as fs from "fs";
+import * as path from "path";
+
+import chalk from "chalk";
+import type { Session } from "core/index.js";
+import qrcode from "qrcode-terminal";
+
+import { expandMentions } from "../agent/atMentions.js";
+import { processCommandFlags } from "../config/flagProcessor.js";
+import { globalDir } from "../config/globalDir.js";
+import { loadSettings } from "../config/settings.js";
+import { t } from "../i18n/index.js";
+import {
+  getService,
+  initializeServices,
+  SERVICE_NAMES,
+  services,
+  type ConfigServiceState,
+  type ModelServiceState,
+} from "../services/index.js";
+import { turnRunnerService } from "../services/TurnRunnerService.js";
+import { lanAddresses } from "../services/webuiAccess.js";
+import { webUiService } from "../services/WebUiService.js";
+import { runAgentTurn } from "../session/controller.js";
+import {
+  createSession,
+  getCurrentSession,
+  loadSession,
+} from "../session/index.js";
+import { messageQueue, type QueuedMessage } from "../stream/messageQueue.js";
+import { telemetryService } from "../telemetry/telemetryService.js";
+import { hyperlink } from "../ui/hyperlink.js";
+import { gracefulExit, updateAgentMetadata } from "../utils/exit.js";
+import { formatError } from "../utils/formatError.js";
+import { logger } from "../utils/logger.js";
+
+import {
+  buildServedStreamCallbacks,
+  checkAgentComplete,
+  finishServedTurn,
+  prepareServedPrompt,
+  removePartialAssistantMessage,
+  startServedSession,
+  titleServeSessionIfUntitled,
+  type ServerState,
+} from "./serve.helpers.js";
+
+export interface WebuiCommandOptions {
+  port?: string;
+  host?: string;
+  resume?: boolean;
+  open?: boolean;
+  persistToken?: boolean;
+}
+
+/** The addresses that mean "every interface" when the server binds a LAN. */
+const LAN_BIND_HOSTS = new Set(["0.0.0.0", "::", "::0"]);
+
+/**
+ * Validates that a --host value is one the server may bind. Loopback is the
+ * default; a LAN bind is opt-in and only the web UI offers it, because the
+ * phone pairing flow is the reason to reach the server from another device.
+ * The token is the only protection there is, so the caller has to ask for it
+ * explicitly.
+ */
+export function validateWebuiHost(
+  host: string | undefined,
+  options: { allowLan?: boolean } = {},
+): { valid: true } | { valid: false; error: string } {
+  if (host === undefined || host === "127.0.0.1" || host === "localhost") {
+    return { valid: true };
+  }
+  if (options.allowLan && LAN_BIND_HOSTS.has(host)) {
+    return { valid: true };
+  }
+  return {
+    valid: false,
+    error: `webui binds loopback only (got "${host}"). Use 127.0.0.1 or localhost, or 0.0.0.0 to reach the web UI from a phone on the same network.`,
+  };
+}
+
+/** Writes the pid of the long-running webui process for `tnt webui stop`. */
+/**
+ * Renders the first LAN URL as a terminal QR code, with the address beside
+ * it. The QR uses half-block rows so it keeps its square shape in a terminal
+ * whose line height is roughly twice the character width.
+ */
+function printLanQrCode(url: string): void {
+  qrcode.generate(url, { small: true }, (qr: string) => {
+    const qrLines = qr.replace(/\n+$/, "").split("\n");
+    const qrWidth = Math.max(...qrLines.map((line) => line.length), 0);
+    const labels = [t("webui.scanQr"), url];
+    const rows = Math.max(qrLines.length, labels.length);
+    for (let row = 0; row < rows; row += 1) {
+      const left = (qrLines[row] ?? "").padEnd(qrWidth + 2);
+      console.log(`${left}${labels[row] ?? ""}`);
+    }
+  });
+}
+
+function writePidFile(pid: number): string {
+  const file = path.join(globalDir(), "webui.pid");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, String(pid), { mode: 0o644 });
+  return file;
+}
+
+function readPidFile(): number | null {
+  const file = path.join(globalDir(), "webui.pid");
+  try {
+    const raw = fs.readFileSync(file, "utf8").trim();
+    const pid = Number.parseInt(raw, 10);
+    return Number.isFinite(pid) ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+export function removePidFile(): void {
+  try {
+    fs.unlinkSync(path.join(globalDir(), "webui.pid"));
+  } catch {
+    // Nothing to clean up.
+  }
+}
+
+export async function stopWebuiProcess(): Promise<boolean> {
+  const pid = readPidFile();
+  if (pid === null) {
+    return false;
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    removePidFile();
+    return false;
+  }
+  removePidFile();
+  return true;
+}
+
+/**
+ * One turn of the standalone webui session, mirroring serve's processMessages
+ * body: hook gating, mention expansion, streaming with tool calls, session
+ * naming. Interruption belongs to the abort signal the drain loop provides.
+ *
+ * The turn reads the session the process currently holds, not a captured one:
+ * POST /session/select or /session/new can re-point the process between
+ * queued messages, and the next turn must land on the session now current.
+ * The session object stays stable, but ChatHistoryService replaces the
+ * history array on every commit, so `.history` is re-read at each use.
+ */
+export async function runStandaloneTurn(
+  state: ServerState,
+  llmApi: any,
+  model: any,
+  queued: QueuedMessage,
+  signal: AbortSignal,
+): Promise<void> {
+  const session = getCurrentSession();
+  // The browser can switch the model while the process lives, so the turn
+  // runs on the model the service holds now, not the one captured at
+  // startup.
+  const live = services.model.getState();
+  const turnLlmApi = live?.llmApi ?? llmApi;
+  const turnModel = live?.model ?? model;
+  state.model = turnModel;
+  const prepared = await prepareServedPrompt(queued.message, {
+    model: turnModel,
+  });
+  if (prepared.blocked) {
+    const reason = prepared.blockReason ?? "blocked by UserPromptSubmit hook";
+    logger.info("Served prompt blocked by a UserPromptSubmit hook");
+    try {
+      services.chatHistory.addAssistantMessage(reason);
+    } catch {
+      session.history.push({
+        message: { role: "assistant", content: reason },
+        contextItems: [],
+      });
+    }
+    return;
+  }
+
+  const mentionItems = expandMentions(prepared.text).contextItems;
+  try {
+    services.chatHistory.addUserMessage(prepared.text, mentionItems);
+  } catch {
+    session.history.push({
+      message: { role: "user", content: prepared.text },
+      contextItems: mentionItems,
+    });
+  }
+
+  try {
+    // Stop must truncate this in-flight turn the way esc does in the TUI:
+    // runAgentTurn polls this controller, so wire it to the drain-loop
+    // signal instead of handing down an unrelated one.
+    const abortController = new AbortController();
+    const onAbort = () => abortController.abort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    let response: string;
+    try {
+      response = await runAgentTurn({
+        chatHistory: session.history,
+        model: turnModel,
+        llmApi: turnLlmApi,
+        abortController,
+        callbacks: buildServedStreamCallbacks(state),
+      });
+    } finally {
+      signal.removeEventListener("abort", onAbort);
+      // The permission prompt is answered (or timed out) inside the turn;
+      // once the turn is over there is nothing left to answer.
+      state.pendingPermission = null;
+    }
+
+    await titleServeSessionIfUntitled(
+      session,
+      response,
+      turnLlmApi,
+      state.model,
+    );
+    await finishServedTurn(response);
+
+    try {
+      const history = services.chatHistory?.getHistory();
+      await updateAgentMetadata({
+        history,
+        isComplete: checkAgentComplete(history),
+      });
+    } catch (metadataErr) {
+      logger.debug(
+        "Failed to update metadata after turn (non-critical)",
+        metadataErr as any,
+      );
+    }
+  } catch (e: any) {
+    // Aborting a node-fetch stream mid-flight surfaces as a plain
+    // "Premature close", so the drain signal is the reliable interrupt test.
+    if (e.name === "AbortError" || signal.aborted) {
+      logger.debug("Response interrupted");
+      removePartialAssistantMessage(session.history);
+    } else {
+      logger.error(`Error: ${formatError(e)}`);
+      const errorMessage = `Error: ${formatError(e)}`;
+      try {
+        services.chatHistory.addAssistantMessage(errorMessage);
+      } catch {
+        session.history.push({
+          message: { role: "assistant", content: errorMessage },
+          contextItems: [],
+        });
+      }
+    }
+  }
+}
+
+/**
+ * The `tnt webui` entrypoint: a headless process hosting the web UI against
+ * its own session. It is serve's sibling, not a second engine: turns run
+ * through the same stream pipeline serve uses, the shared drain loop owns
+ * ordering, and the HTTP surface is WebUiService.
+ */
+export async function webui(
+  prompt: string | undefined,
+  options: WebuiCommandOptions,
+): Promise<void> {
+  const hostCheck = validateWebuiHost(options.host, { allowLan: true });
+  if (!hostCheck.valid) {
+    console.error(chalk.red(hostCheck.error));
+    await gracefulExit(1);
+    return;
+  }
+
+  const { permissionOverrides, warnings } = processCommandFlags(
+    options as any,
+    loadSettings().defaultMode,
+  );
+  for (const warning of warnings) console.warn(warning);
+
+  await initializeServices({
+    options: options as any,
+    toolPermissionOverrides: permissionOverrides,
+    headless: true,
+  });
+
+  const [configState, modelState] = await Promise.all([
+    getService<ConfigServiceState>(SERVICE_NAMES.CONFIG),
+    getService<ModelServiceState>(SERVICE_NAMES.MODEL),
+  ]);
+
+  if (!configState.config || !modelState.llmApi || !modelState.model) {
+    console.error(chalk.red(t("serve.servicesUnavailable")));
+    await gracefulExit(1);
+    return;
+  }
+
+  const { llmApi, model } = {
+    llmApi: modelState.llmApi,
+    model: modelState.model,
+  };
+
+  // No system item is preloaded into the history: the engine re-injects the
+  // same constructSystemMessage inputs at request time, so a leading system
+  // item would be sent twice.
+  const resumed = options.resume ? loadSession() : null;
+  const session: Session = resumed ?? createSession([]);
+  try {
+    await services.chatHistory.initialize(session, false);
+  } catch {
+    logger.debug("ChatHistoryService init failed; stream continues on arrays");
+  }
+
+  const state: ServerState = {
+    session,
+    config: configState.config,
+    model,
+    isProcessing: false,
+    lastActivity: Date.now(),
+    currentAbortController: null,
+    serverRunning: true,
+    pendingPermission: null,
+  };
+
+  telemetryService.recordSessionStart();
+  telemetryService.startActiveTime();
+  await startServedSession(false, model?.model);
+
+  const handle = await webUiService.start({
+    port: options.port ? Number.parseInt(options.port, 10) : undefined,
+    persistToken: options.persistToken,
+    host: options.host,
+  });
+
+  const url = `http://127.0.0.1:${handle.port}/#token=${handle.token}`;
+  console.log(chalk.green(t("webui.listening", { url: hyperlink(url, url) })));
+  if (options.host && LAN_BIND_HOSTS.has(options.host)) {
+    // A phone on the same network needs an address that is not loopback.
+    const addresses = lanAddresses();
+    for (const host of addresses) {
+      const lanUrl = `http://${host}:${handle.port}/#token=${handle.token}`;
+      console.log(
+        chalk.green(t("webui.listening", { url: hyperlink(lanUrl, lanUrl) })),
+      );
+    }
+    const first = addresses[0];
+    if (first) {
+      printLanQrCode(`http://${first}:${handle.port}/#token=${handle.token}`);
+    }
+    console.log(chalk.bold(t("webui.lanWarning")));
+  }
+  console.log(chalk.dim(t("webui.stopHint")));
+  // commander's --no-open makes this false; absence leaves it true.
+  if (options.open !== false) {
+    const { default: openBrowser } = await import("open");
+    await openBrowser(url).catch((error: unknown) => {
+      logger.warn(`Failed to open browser: ${String(error)}`);
+      console.log(chalk.dim(t("webui.openManually")));
+    });
+  }
+  writePidFile(process.pid);
+
+  if (prompt && prompt.trim() !== "") {
+    await messageQueue.enqueueMessage(prompt);
+    // serve's sibling: the initial prompt runs immediately, not whenever a
+    // later browser message happens to start a drain.
+    turnRunnerService.startDraining((queued, signal) =>
+      runStandaloneTurn(state, llmApi, model, queued, signal),
+    );
+  }
+
+  const shutdown = async (code: number) => {
+    state.serverRunning = false;
+    removePidFile();
+    await webUiService.close();
+    telemetryService.stopActiveTime();
+    await gracefulExit(code);
+  };
+
+  process.on("SIGINT", () => void shutdown(0));
+  process.on("SIGTERM", () => void shutdown(0));
+
+  // The long-running promise: this process serves until signaled. The HTTP
+  // server's listening handle keeps the event loop alive, so a POST /exit
+  // that closes the server also ends this process naturally.
+  await new Promise<void>(() => {});
+}

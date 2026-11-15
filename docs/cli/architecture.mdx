@@ -1,0 +1,99 @@
+---
+title: "Architecture"
+description: "One engine, four surfaces, and the layers between the editor and the transcript."
+---
+
+TNT is one engine with four surfaces: the Ink TUI, headless `-p`, `tnt serve`
+and the ACP editor integration. The surfaces differ in how they present events;
+they share the turn loop, tools, permissions and session store.
+
+## The layers
+
+```text
+editor / client
+      │  ACP v1 over stdio (NDJSON JSON-RPC)
+      ▼
+ACP supervisor                         one per `tnt --acp` process
+      │  protocol connection, session registry, worker lifecycle
+      ▼
+ACP worker                             one per session
+      │  cwd, services, model, mode, MCP set, permission bridge
+      ▼
+session/controller.ts                  one turn
+      │  abort handle, session id, turn id, event sequence
+      ▼
+stream/streamChatResponse.ts           the agent loop
+      │  provider calls, tool rounds, compaction
+      ▼
+tools · permissions · services · hooks
+      │
+      ▼
+session store                          append-only transcript + metadata + lease
+```
+
+| Layer | Owns | Does not own |
+| --- | --- | --- |
+| Surface | rendering or transporting events | the engine state |
+| ACP supervisor | the client connection, session ids, `session/list`, delete and close, worker start/stop | a turn or a transcript |
+| ACP worker | one session's cwd, services, model, mode and MCP connections; permission answers; ACP updates | other sessions |
+| Turn controller | one run, its abort handle and its ordered event sequence | transport details |
+| Agent loop | provider requests, tool rounds, compaction | the UI or the wire format |
+| Tools and services | file, shell, search, MCP, provider and session services | the protocol |
+| Session store | `session.jsonl`, `meta.json`, sidecars and the writer lease | model or tool state |
+
+## One engine, four surfaces
+
+Every surface reaches the loop through `session/controller.ts`, the only
+production importer of `streamChatResponse.ts`. The controller stamps a turn
+with a session id, a turn id and a monotonic sequence, then maps the engine's
+callbacks to the typed events in `protocol/events.ts`.
+
+The TUI renders those events in Ink. Headless mode prints one result or an
+NDJSON stream. `tnt serve` exposes the same events over SSE. The ACP worker maps
+them to `session/update` notifications. No surface executes a tool itself.
+
+## Why ACP uses one worker per session
+
+The engine still has process-wide service singletons: one chat history, one
+model service, one MCP service, one permission manager. Making all of them
+per-session in-process would be a separate engine rewrite. ACP therefore uses a
+process boundary instead:
+
+- the supervisor owns the editor connection and routes by session id;
+- each session starts one worker with its own cwd and its own copy of the
+  services;
+- different sessions run at the same time;
+- a second prompt in one session is refused while that session's turn is active;
+- a worker crash affects one session, and the next prompt can resume it.
+
+This is the same separation opencode gets from its ACP-client-to-server split
+and reasonix gets from a controller per session, expressed with processes
+because TNT's services are not yet per-session objects.
+
+## Where files live
+
+The session store is part of the architecture, not an afterthought:
+
+- `session.jsonl` is append-only and is the source of truth;
+- `meta.json` is a derived cache used by listings;
+- the per-session `lock` is the writer lease;
+- tool results, cache-break reports and overflow files stay beside the
+  transcript so deleting a session removes all of them.
+
+See [Sessions](/cli/sessions) for the record format and migration path.
+
+<Info>
+The internal [engine and UI boundaries](https://github.com/linanwanttodo/TNT/blob/main/packages/cli/spec/architecture-boundaries.md)
+note records the dependency rules and the guard commands. The public layers
+above are the contract a new surface should depend on.
+</Info>
+
+## Adding a surface
+
+A new surface should:
+
+1. call `session/controller.ts`, never `streamChatResponse.ts` directly;
+2. translate `AgentEvent` into its wire format;
+3. answer permissions through `toolPermissionManager` or an ACP-style bridge;
+4. use the session store instead of writing transcripts itself;
+5. leave stdout clean when its transport owns stdout.

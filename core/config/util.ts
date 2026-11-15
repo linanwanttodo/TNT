@@ -1,9 +1,9 @@
 import fs from "fs";
 import os from "os";
 
-import { ModelConfig } from "@continuedev/config-yaml";
+import { ModelConfig } from "@tnt/config-yaml";
 import {
-  ContinueConfig,
+  TntConfig,
   ExperimentalModelRoles,
   IDE,
   ILLM,
@@ -105,7 +105,7 @@ export function deleteModel(title: string) {
 }
 
 export function getModelByRole<T extends keyof ExperimentalModelRoles>(
-  config: ContinueConfig,
+  config: TntConfig,
   role: T,
 ): ILLM | undefined {
   const roleTitle = config.experimental?.modelRoles?.[role];
@@ -125,7 +125,7 @@ export function getModelByRole<T extends keyof ExperimentalModelRoles>(
  * This check is to determine if the user is on an unsupported CPU
  * target for our Lance DB binaries.
  *
- * See here for details: https://github.com/continuedev/continue/issues/940
+ * See here for details: https://github.com/linanwanttodo/TNT/issues/940
  */
 export function isSupportedLanceDbCpuTargetForLinux(ide?: IDE) {
   const CPU_FEATURES_TO_CHECK = ["avx2", "fma"] as const;
@@ -177,17 +177,10 @@ export function isSupportedLanceDbCpuTargetForLinux(ide?: IDE) {
 }
 
 async function showUnsupportedCpuToast(ide: IDE) {
-  const shouldOpenLink = await ide.showToast(
+  await ide.showToast(
     "warning",
     "Codebase indexing disabled - Your Linux system lacks required CPU features (AVX2, FMA)",
-    "Learn more",
   );
-
-  if (shouldOpenLink) {
-    void ide.openUrl(
-      "https://docs.continue.dev/troubleshooting#i-received-a-codebase-indexing-disabled---your-linux-system-lacks-required-cpu-features-avx2-fma-notification",
-    );
-  }
 }
 
 /**

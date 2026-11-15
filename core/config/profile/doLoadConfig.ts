@@ -5,23 +5,20 @@ import {
   ConfigResult,
   ConfigValidationError,
   PackageIdentifier,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 
 import {
-  ContinueConfig,
+  TntConfig,
   IDE,
   ILLMLogger,
   RuleWithSource,
-  SerializedContinueConfig,
+  SerializedTntConfig,
   SlashCommandDescWithSource,
   Tool,
 } from "../../";
 import { stringifyMcpPrompt } from "../../commands/slash/mcpSlashCommand";
 import { convertRuleBlockToSlashCommand } from "../../commands/slash/ruleBlockSlashCommand";
-import { MCPManagerSingleton } from "../../context/mcp/MCPManagerSingleton";
-import MCPContextProvider from "../../context/providers/MCPContextProvider";
 import { initSlashCommand } from "../../promptFiles/initPrompt";
-import { getConfigDependentToolDefinitions } from "../../tools";
 import { encodeMCPToolUri } from "../../tools/callTool";
 import { getMCPToolName } from "../../tools/mcpToolName";
 import { GlobalContext } from "../../util/GlobalContext";
@@ -29,25 +26,25 @@ import { getConfigJsonPath, getConfigYamlPath } from "../../util/paths";
 import { localPathOrUriToPath } from "../../util/pathToUri";
 import { IdeInfoService } from "../../util/IdeInfoService";
 import { TTS } from "../../util/tts";
-import { getWorkspaceContinueRuleDotFiles } from "../getWorkspaceContinueRuleDotFiles";
-import { loadContinueConfigFromJson } from "../load";
+import { getWorkspaceTntRuleDotFiles } from "../getWorkspaceTntRuleDotFiles";
+import { loadTntConfigFromJson } from "../load";
 import { CodebaseRulesCache } from "../markdown/loadCodebaseRules";
 import { loadMarkdownRules } from "../markdown/loadMarkdownRules";
 import { migrateJsonSharedConfig } from "../migrateSharedConfig";
 import { rectifySelectedModelsFromGlobalContext } from "../selectedModels";
-import { loadContinueConfigFromYaml } from "../yaml/loadYaml";
+import { loadTntConfigFromYaml } from "../yaml/loadYaml";
 
 async function loadRules(ide: IDE) {
   const rules: RuleWithSource[] = [];
   const errors = [];
 
-  // Add rules from .continuerules files
+  // Add rules from .tntrules files
   const { rules: yamlRules, errors: continueRulesErrors } =
-    await getWorkspaceContinueRuleDotFiles(ide);
+    await getWorkspaceTntRuleDotFiles(ide);
   rules.unshift(...yamlRules);
   errors.push(...continueRulesErrors);
 
-  // Add rules from markdown files in .continue/rules
+  // Add rules from markdown files in .tnt/rules
   const { rules: markdownRules, errors: markdownRulesErrors } =
     await loadMarkdownRules(ide);
   rules.unshift(...markdownRules);
@@ -64,12 +61,12 @@ async function loadRules(ide: IDE) {
 export default async function doLoadConfig(options: {
   ide: IDE;
   llmLogger: ILLMLogger;
-  overrideConfigJson?: SerializedContinueConfig;
+  overrideConfigJson?: SerializedTntConfig;
   overrideConfigYaml?: AssistantUnrolled;
   profileId: string;
   overrideConfigYamlByPath?: string;
   packageIdentifier: PackageIdentifier;
-}): Promise<ConfigResult<ContinueConfig>> {
+}): Promise<ConfigResult<TntConfig>> {
   const {
     ide,
     llmLogger,
@@ -79,6 +76,19 @@ export default async function doLoadConfig(options: {
     overrideConfigYamlByPath,
     packageIdentifier,
   } = options;
+
+  // Loaded here rather than at module scope: this is the last step of every
+  // config load, and these three carry the mcp manager, its provider and the
+  // tool definitions behind them.
+  const [
+    { MCPManagerSingleton },
+    { default: MCPContextProvider },
+    { getConfigDependentToolDefinitions },
+  ] = await Promise.all([
+    import("../../context/mcp/MCPManagerSingleton"),
+    import("../../context/providers/MCPContextProvider"),
+    import("../../tools"),
+  ]);
 
   const ideInfo = await ide.getIdeInfo();
   const uniqueId = await ide.getUniqueId();
@@ -95,7 +105,7 @@ export default async function doLoadConfig(options: {
     overrideConfigYamlByPath || getConfigYamlPath(ideInfo.ideType),
   );
 
-  let newConfig: ContinueConfig | undefined;
+  let newConfig: TntConfig | undefined;
   let errors: ConfigValidationError[] | undefined;
   let configLoadInterrupted = false;
   let configName: string | undefined;
@@ -109,7 +119,7 @@ export default async function doLoadConfig(options: {
     hasPreReadContent ||
     fs.existsSync(configYamlPath)
   ) {
-    const result = await loadContinueConfigFromYaml({
+    const result = await loadTntConfigFromYaml({
       ide,
       ideSettings,
       ideInfo,
@@ -123,7 +133,7 @@ export default async function doLoadConfig(options: {
     configLoadInterrupted = result.configLoadInterrupted;
     configName = result.configName;
   } else {
-    const result = await loadContinueConfigFromJson(
+    const result = await loadTntConfigFromJson(
       ide,
       ideSettings,
       ideInfo,

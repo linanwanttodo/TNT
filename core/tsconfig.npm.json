@@ -15,11 +15,19 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "noEmitOnError": false,
-    "types": ["jest", "node"],
+    "types": ["node"],
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true
   },
   "include": ["./**/*.ts", "**/*.js", "./**/*.d.ts"],
-  "exclude": ["test", "dist"]
+  "exclude": [
+    "test",
+    "dist",
+    "**/__mocks__",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.vitest.ts",
+    "**/*.spec.ts"
+  ]
 }

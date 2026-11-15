@@ -1,56 +1,161 @@
 ---
 title: "Configuration"
+description: "Where TNT reads models, MCP servers, permissions and settings from."
 ---
 
-`cn` resolves its configuration (models, MCP servers, rules, etc.) from several sources, in this order:
+## Resolution order
 
-1. **`--config` flag** — a file path passed at launch
-2. **Saved config** — the last-used configuration, persisted across sessions
-3. **Default** — `~/.continue/config.yaml`
+TNT resolves its configuration in this order, first match wins:
 
-## `--config` flag
+1. `--config <path>` passed at launch.
+2. `~/.tnt/config.yaml`, the user-level configuration.
+3. No configuration: the interactive setup runs and writes `~/.tnt/config.yaml`.
 
-Point `cn` at a local YAML file:
+Only local files are read. A `--config` value that is not a path, such as a
+published assistant slug, is refused at startup. Pass `--config <path>` to run
+against another file; `/model` switches the active model inside the one you
+started with.
 
-```bash
-cn --config ./my-config.yaml
+## The config file
+
+`config.yaml` holds the model definitions and the rules. Model definitions and
+the selected model always live in this one file.
+
+```yaml title="~/.tnt/config.yaml"
+name: TNT
+
+models:
+  - name: fast
+    provider: openai
+    model: gpt-4.1-mini
+    apiBase: https://api.openai.com/v1
+    apiKey: ${{ secrets.OPENAI_API_KEY }}
+  - name: deep
+    provider: anthropic
+    model: claude-sonnet-4-5
+    apiKey: ${{ secrets.ANTHROPIC_API_KEY }}
+
+model: fast
+
+rules:
+  - Use the existing test helpers instead of new fixtures.
 ```
 
-This overrides any saved preference for the current session.
+| Field    | Contents                                                  |
+| -------- | --------------------------------------------------------- |
+| `models` | the models the agent can run, see [Models](/cli/models)   |
+| `model`  | the `name` of the selected model; `/model` writes it here |
+| `rules`  | instructions prepended to the system message              |
 
-## Switching at runtime
+Everything else lives in its own file:
 
-Use `/config` inside a TUI session to switch between available configurations:
+| File                    | Contents                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `~/.tnt/settings.json`  | permissions, hooks, environment, locale, output style, default mode                                                                  |
+| `~/.tnt/mcp.json`       | MCP servers, see [MCP](/cli/mcp)                                                                                                     |
+| `<workspace>/.mcp.json` | project MCP servers in the Claude-compatible shape; read-only here, like the `.claude` layers, and applied only to a trusted project |
 
-```
-> /config
-```
+`mcpServers` and `permissions` are not read from `config.yaml`; MCP servers
+belong in `mcp.json` and tool policies in the `permissions` key of
+`settings.json`.
 
-This shows your available local configs. The selection is saved for next time.
+## Settings files
 
-## `config.yaml`
+Settings are read from six files, later files winning:
 
-`cn` looks for `~/.continue/config.yaml`. This file uses the same format as the IDE extensions — see [config.yaml reference](/customize/deep-dives/configuration) for the full schema.
+1. `~/.claude/settings.json`
+2. `~/.tnt/settings.json`
+3. `.claude/settings.json` in the workspace
+4. `.tnt/settings.json` in the workspace
+5. `.claude/settings.local.json` in the workspace
+6. `.tnt/settings.local.json` in the workspace
 
-## CLI-specific flags
+The project layers are applied only after the project is trusted, because they
+can grant permissions and register hooks. TNT prints a warning and ignores them
+otherwise. Run `tnt --trust-project`, or set `TNT_TRUST_PROJECT=1`, to record
+the current contents as trusted; editing a trusted file revokes trust.
 
-Several flags inject configuration at launch without editing a file:
+`permissions.yaml` is still read when `settings.json` has no `permissions`
+section, with a deprecation warning. It is never written again; new rules go to
+`settings.json`.
 
-```bash
-# Add rules (file path or inline string)
-cn --rule ./rules/style.md
-cn --rule "Always use TypeScript strict mode"
+## Directory layout
 
-# Load an agent file
-cn --agent my-org/pr-reviewer
-```
+| Path                           | Purpose                                    |
+| ------------------------------ | ------------------------------------------ |
+| `~/.tnt/config.yaml`           | models and rules                           |
+| `~/.tnt/mcp.json`              | MCP servers                                |
+| `~/.tnt/settings.json`         | permissions, hooks and settings            |
+| `~/.tnt/auth.json`             | credentials                                |
+| `~/.tnt/trusted-projects.json` | content hashes of trusted projects         |
+| `~/.tnt/permissions.yaml`      | legacy permission policies (read-only)     |
+| `~/.tnt/sessions/`             | saved sessions                             |
+| `~/.tnt/skills/`               | user skills                                |
+| `~/.tnt/plugins/`              | installed plugins                          |
+| `~/.tnt/logs/tnt.log`          | log file                                   |
+| `~/.tnt/.env`                  | secrets for `${{ secrets.* }}`             |
+| `.tnt/`                        | project settings and MCP servers (trusted) |
 
-All of these are repeatable — pass them multiple times to add multiple items.
+The home directory can be relocated with `TNT_GLOBAL_DIR`, which also moves
+`sessions`, `logs` and the plugin tree with it.
+
+## The project .tnt folder
+
+A repository can keep a `.tnt/` folder as the workspace for everything the agent
+reads and writes there:
+
+| Path             | Purpose                                                                  |
+| ---------------- | ------------------------------------------------------------------------ |
+| `.tnt/AGENTS.md` | project instructions for every agent, loaded ahead of a root `AGENTS.md` |
+| `.tnt/TNT.md`    | memory the agent appends to on its own across sessions                   |
+| `.tnt/rules/`    | markdown rules, loaded into every session (least to most specific)       |
+| `.tnt/checks/`   | checklists `tnt review` runs                                             |
+| `.tnt/agents/`   | agent definitions for `tnt review`                                       |
+| `.tnt/prompts/`  | `.prompt` files invokable from the composer                              |
+
+The folder is gitignored on purpose: the skeleton travels with the repository
+as tracked `.keep` placeholders, while the content is per-machine. Rule and
+check documents, the memory file and agent instructions are things each
+maintainer keeps locally; commit them only if a team decides to share them, by
+removing the matching line from `.gitignore`.
+
+## Environment variables
+
+| Variable                     | Meaning                                                                                                                                                                                             |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TNT_GLOBAL_DIR`             | relocate the home directory; `sessions`, `logs` and the plugin tree move with it                                                                                                                    |
+| `TNT_TRUST_PROJECT`          | mark the current workspace trusted without the prompt                                                                                                                                               |
+| `TNT_API_BASE`               | override the API base URL from the config                                                                                                                                                           |
+| `TNT_HEADLESS_TIMEOUT`       | headless turn wall-clock bound in seconds, same as `--request-timeout`                                                                                                                              |
+| `TNT_STREAM_IDLE_TIMEOUT_MS` | how long one provider stream may stay silent before that attempt is cut and retried, default `120000`; `0` removes the bound                                                                        |
+| `TNT_PLUGINS_DIR`            | relocate the plugin tree                                                                                                                                                                            |
+| `TNT_ALT_SCREEN`             | set to `0` to use the terminal's normal buffer and scrollback; settled rows render once through `Static` and only the live tail redraws                                                             |
+| `TNT_THEME`                  | pick the UI theme for this session: `auto` (default, follows the terminal's own background), `dark`, `tencent-dark`, `tencent-light`, `light`, or the name of a file in `~/.tnt/themes/<name>.json` |
+| `TNT_SYMBOLS`                | glyph preset for the interface: `unicode` (default), `ascii` for seven-bit terminals, or `nerd` for a Nerd Font                                                                                     |
+| `TNT_HYPERLINKS`             | set to `0` for a terminal that prints OSC 8 escapes literally instead of making links clickable                                                                                                     |
+| `TNT_NOTIFY`                 | `bell` or `1` to have the terminal signal a finished turn that ran at least ten seconds; unset means no signal                                                                                      |
+| `TNT_STREAM_REVEAL`          | set to `1` to draw the streaming answer a few characters at a time; off by default because it redraws the frame at about 30 frames a second                                                         |
+| `TNT_WARM_RETRIEVAL`         | set to `0` to stop the codebase index being built when a session opens; it is built then only when the config selects the `codebase` provider                                                       |
+
+Every variable the CLI reads is `TNT_*`; the older `CONTINUE_*` spellings are no
+longer read at all. One name points the other way, because it is a contract with
+a script the user wrote rather than a setting this program reads: a hook process
+receives `CONTINUE_PROJECT_DIR` beside `TNT_PROJECT_DIR` and
+`CLAUDE_PROJECT_DIR`, and that duplicate goes away one major version from now.
 
 ## Secrets
 
-Store sensitive values (API keys, tokens) as environment variables. Reference them in config with:
+`${{ secrets.NAME }}` is resolved from, in order: the process environment,
+`~/.tnt/.env`, `<workspace>/.tnt/.env`, then `<workspace>/.env`. Keeping keys out
+of `config.yaml` means the config file can be shared.
 
-```yaml
-${{ secrets.MY_API_KEY }}
+## Rules and prompts
+
+Extra instructions can also be passed on the command line, repeatable:
+
+```bash
+tnt --rule ./docs/style.md --rule "Never disable a test to make it pass"
 ```
+
+The `/init` slash command inside a session creates an `AGENTS.md` in the
+workspace, which is loaded automatically for every session in that repository.

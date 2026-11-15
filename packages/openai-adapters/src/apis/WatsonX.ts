@@ -1,4 +1,4 @@
-import { streamSse } from "@continuedev/fetch";
+import { streamSse } from "@tnt/fetch";
 import { OpenAI } from "openai/index";
 import {
   ChatCompletion,

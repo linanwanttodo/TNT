@@ -16,7 +16,6 @@ import {
   AskSageConfig,
   AskSageTool,
   AskSageToolChoice,
-  AskSageToolCall,
   AskSageResponse,
   AskSageTokenResponse,
 } from "../types.js";

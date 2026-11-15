@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import path from "node:path";
 import { IDE } from "..";
 
@@ -11,9 +11,13 @@ export interface ModelInfo {
 
 export async function isOllamaInstalled(): Promise<boolean> {
   return new Promise((resolve, _reject) => {
-    const command =
-      process.platform === "win32" ? "where.exe ollama" : "which ollama";
-    exec(command, (error, _stdout, _stderr) => {
+    // Array form without a shell; the command name is chosen from a fixed
+    // pair, so nothing dynamic reaches the child process.
+    const [file, args] =
+      process.platform === "win32"
+        ? (["where.exe", ["ollama"]] as const)
+        : (["which", ["ollama"]] as const);
+    execFile(file, [...args], (error, _stdout, _stderr) => {
       resolve(!error);
     });
   });

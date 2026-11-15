@@ -1,0 +1,1131 @@
+import { ModelConfig } from "@tnt/config-yaml";
+import { BaseLlmApi } from "@tnt/openai-adapters";
+import type { ChatHistoryItem } from "core/index.js";
+import { convertToUnifiedHistory } from "core/util/messageConversion.js";
+import { TOOL_RESULT_TRUNCATION_MARKER } from "core/util/toolResultCompaction.js";
+import { describe, expect, it, vi } from "vitest";
+
+import { streamChatResponse } from "../stream/streamChatResponse.js";
+import { readTodoState } from "../tools/todo.js";
+
+import {
+  compactChatHistory,
+  dropOldestHistoryTurn,
+  findCompactionIndex,
+  getHistoryForLLM,
+  type SummarizeHistory,
+} from "./index.js";
+
+// Mock the streamChatResponse function
+vi.mock("../stream/streamChatResponse.js", () => ({
+  streamChatResponse: vi.fn(),
+}));
+
+/**
+ * The wiring production uses at its three call sites: the engine is handed down
+ * as the summarizer. Keeping it here means the mock above still decides what the
+ * summary says and how many times it ran, so the assertions below did not have to
+ * change when compaction stopped importing the engine itself.
+ */
+const summarize: SummarizeHistory = async (request) => {
+  const response = await streamChatResponse(
+    request.history,
+    request.model,
+    request.llmApi,
+    request.abortController,
+    request.callbacks,
+    true,
+  );
+
+  return typeof response === "string" ? response : "";
+};
+
+describe("compaction", () => {
+  const mockModel: ModelConfig = {
+    name: "test-model",
+    provider: "test",
+    model: "test-model",
+  } as ModelConfig;
+
+  const claudeModel: ModelConfig = {
+    name: "claude-3-5-sonnet",
+    provider: "anthropic",
+    model: "claude-3-5-sonnet-20241022",
+  } as ModelConfig;
+
+  const mockLlmApi = {} as BaseLlmApi;
+
+  describe("findCompactionIndex", () => {
+    it("should find compaction marker in chat history", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi there" },
+        {
+          role: "assistant",
+          content: `\nThis is a summary`,
+        },
+        { role: "user", content: "Another message" },
+      ]);
+
+      // Add conversationSummary to mark this as a compaction message
+      history[3].conversationSummary = "This is a summary";
+
+      const index = findCompactionIndex(history);
+      expect(index).toBe(3);
+    });
+
+    it("should return null if no compaction marker found", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi there" },
+      ]);
+
+      const index = findCompactionIndex(history);
+      expect(index).toBeNull();
+    });
+
+    it("should return first compaction marker when multiple exist", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "assistant", content: `\nFirst summary` },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: `\nSecond summary` },
+      ]);
+
+      // Add conversationSummary to mark these as compaction messages
+      history[1].conversationSummary = "First summary";
+      history[3].conversationSummary = "Second summary";
+
+      const index = findCompactionIndex(history);
+      expect(index).toBe(1);
+    });
+
+    it("should return null for empty chat history", () => {
+      const history = convertToUnifiedHistory([]);
+      const index = findCompactionIndex(history);
+      expect(index).toBeNull();
+    });
+
+    it("should not match marker in middle of content", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        {
+          role: "assistant",
+          content: `Some text  in the middle`,
+        },
+        { role: "user", content: "Hello" },
+      ]);
+
+      // Don't add conversationSummary - this should not be found
+      const index = findCompactionIndex(history);
+      expect(index).toBeNull();
+    });
+
+    it("should handle non-string content", () => {
+      // Create history items manually since convertToUnifiedHistory will throw on invalid content
+      const history: ChatHistoryItem[] = [
+        {
+          message: { role: "system", content: "System message" },
+          contextItems: [],
+        },
+        {
+          message: { role: "assistant", content: null as any },
+          contextItems: [],
+        },
+        {
+          message: { role: "assistant", content: undefined as any },
+          contextItems: [],
+        },
+        {
+          message: {
+            role: "assistant",
+            content: `\\nValid compaction`,
+          },
+          contextItems: [],
+          conversationSummary: "Valid compaction",
+        },
+      ];
+
+      const index = findCompactionIndex(history);
+      expect(index).toBe(3);
+    });
+
+    it("should only match messages with conversationSummary", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: `\nSystem compaction?` },
+        { role: "user", content: `\nUser compaction?` },
+        { role: "assistant", content: `\nReal compaction` },
+      ]);
+
+      // Only add conversationSummary to the assistant message
+      history[2].conversationSummary = "Real compaction";
+
+      const index = findCompactionIndex(history);
+      expect(index).toBe(2);
+    });
+
+    it("recognizes checkpoint metadata in histories without the legacy summary field", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System" },
+        { role: "assistant", content: "Summary" },
+      ]);
+      Object.assign(history[1], {
+        compactionCheckpoint: {
+          kind: "compact-checkpoint",
+          compactionId: "checkpoint-1",
+        },
+      });
+
+      expect(findCompactionIndex(history)).toBe(1);
+    });
+  });
+
+  describe("getHistoryForLLM", () => {
+    it("should return full history when no compaction index", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi there" },
+      ]);
+
+      const result = getHistoryForLLM(history, null);
+      expect(result).toEqual(history);
+    });
+
+    it("should return compacted history with system message", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi there" },
+        {
+          role: "assistant",
+          content: `\nThis is a summary`,
+        },
+        { role: "user", content: "Another message" },
+      ]);
+
+      const result = getHistoryForLLM(history, 3);
+      expect(result).toEqual([
+        {
+          message: { role: "system", content: "System message" },
+          contextItems: [],
+        },
+        {
+          message: {
+            role: "assistant",
+            content: `\nThis is a summary`,
+          },
+          contextItems: [],
+        },
+        {
+          message: { role: "user", content: "Another message" },
+          contextItems: [],
+        },
+      ]);
+    });
+
+    it("should return compacted history without system message when compaction is at index 0", () => {
+      const history = convertToUnifiedHistory([
+        {
+          role: "assistant",
+          content: `\nThis is a summary`,
+        },
+        { role: "user", content: "Another message" },
+      ]);
+
+      const result = getHistoryForLLM(history, 0);
+      expect(result).toEqual(history);
+    });
+
+    it("should return full history when compactionIndex is out of bounds", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "user", content: "Hello" },
+      ]);
+
+      const result = getHistoryForLLM(history, 10);
+      expect(result).toEqual(history);
+    });
+
+    it("should handle negative compactionIndex", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "user", content: "Hello" },
+      ]);
+
+      const result = getHistoryForLLM(history, -1);
+      // Negative index with slice means "from the end", so -1 gives us only the last message
+      // Since compactionIndex is not > 0, system message is not included
+      expect(result).toEqual([
+        {
+          message: { role: "user", content: "Hello" },
+          contextItems: [],
+        },
+      ]);
+    });
+
+    it("should handle empty history", () => {
+      const history = convertToUnifiedHistory([]);
+      const result = getHistoryForLLM(history, 0);
+      expect(result).toEqual([]);
+    });
+
+    it("should handle history with only system message", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+      ]);
+
+      const result = getHistoryForLLM(history, 0);
+      expect(result).toEqual(history);
+    });
+
+    it("should handle history without system message but with compaction", () => {
+      const history = convertToUnifiedHistory([
+        { role: "user", content: "First message" },
+        { role: "assistant", content: `\nSummary` },
+        { role: "user", content: "New message" },
+      ]);
+
+      const result = getHistoryForLLM(history, 1);
+      expect(result).toEqual([
+        {
+          message: {
+            role: "assistant",
+            content: `\nSummary`,
+          },
+          contextItems: [],
+        },
+        {
+          message: { role: "user", content: "New message" },
+          contextItems: [],
+        },
+      ]);
+    });
+
+    it("should include system message when first message is not system", () => {
+      const history = convertToUnifiedHistory([
+        { role: "user", content: "First user message" },
+        { role: "system", content: "System message in wrong position" },
+        { role: "assistant", content: `\nSummary` },
+        { role: "user", content: "New message" },
+      ]);
+
+      // Since system message is not at index 0, it's not included
+      const result = getHistoryForLLM(history, 2);
+      expect(result).toEqual([
+        {
+          message: {
+            role: "assistant",
+            content: `\nSummary`,
+          },
+          contextItems: [],
+        },
+        {
+          message: { role: "user", content: "New message" },
+          contextItems: [],
+        },
+      ]);
+    });
+
+    it("should preserve message order from compaction point", () => {
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System" },
+        { role: "user", content: "Old 1" },
+        { role: "assistant", content: "Old 2" },
+        { role: "assistant", content: `\nSummary` },
+        { role: "user", content: "New 1" },
+        { role: "assistant", content: "New 2" },
+        { role: "user", content: "New 3" },
+      ]);
+
+      const result = getHistoryForLLM(history, 3);
+      expect(result).toEqual([
+        {
+          message: { role: "system", content: "System" },
+          contextItems: [],
+        },
+        {
+          message: {
+            role: "assistant",
+            content: `\nSummary`,
+          },
+          contextItems: [],
+        },
+        {
+          message: { role: "user", content: "New 1" },
+          contextItems: [],
+        },
+        {
+          message: { role: "assistant", content: "New 2" },
+          contextItems: [],
+        },
+        {
+          message: { role: "user", content: "New 3" },
+          contextItems: [],
+        },
+      ]);
+    });
+  });
+
+  describe("compactChatHistory", () => {
+    it("truncates old tool results before requesting a summary", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      let summaryRequestHistory: ChatHistoryItem[] = [];
+      mockStreamResponse.mockImplementation(async (history) => {
+        summaryRequestHistory = history;
+        return "Summary";
+      });
+
+      const rawMessages: any[] = [{ role: "user", content: "Start" }];
+      for (let i = 0; i < 6; i++) {
+        const id = `call-${i}`;
+        rawMessages.push(
+          {
+            role: "assistant",
+            content: "",
+            tool_calls: [
+              {
+                id,
+                type: "function",
+                function: { name: "read_file", arguments: "{}" },
+              },
+            ],
+          },
+          {
+            role: "tool",
+            content: i === 0 ? "0123456789abcdef".repeat(400) : `result-${i}`,
+            tool_call_id: id,
+          },
+        );
+      }
+      rawMessages.push({ role: "user", content: "Continue" });
+
+      // core/dist/index.d.ts is not emitted (core/index.d.ts is a hand-written
+      // root declaration and .d.ts inputs are not copied to outDir), so the
+      // return type of convertToUnifiedHistory is not resolvable here.
+      const history: ChatHistoryItem[] = convertToUnifiedHistory(rawMessages);
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 128_000, maxTokens: 2048 },
+      } as ModelConfig;
+
+      await compactChatHistory(history, model, mockLlmApi, { summarize });
+
+      const summarizedToolCall = summaryRequestHistory.find((item) =>
+        item.toolCallStates?.some((state) => state.toolCallId === "call-0"),
+      );
+      const summarizedOutput = summarizedToolCall?.toolCallStates?.find(
+        (state) => state.toolCallId === "call-0",
+      )?.output?.[0]?.content;
+      const originalToolCall = history.find((item) =>
+        item.toolCallStates?.some((state) => state.toolCallId === "call-0"),
+      );
+
+      expect(summarizedOutput).toContain(TOOL_RESULT_TRUNCATION_MARKER);
+      expect(
+        originalToolCall?.toolCallStates?.[0].output?.[0]?.content,
+      ).not.toContain(TOOL_RESULT_TRUNCATION_MARKER);
+    });
+
+    it("should compact chat history successfully", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const mockContent = "This is a summary of the conversation";
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.(mockContent);
+          callbacks?.onContentComplete?.(mockContent);
+          return mockContent;
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System message" },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi there" },
+      ]);
+
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
+
+      expect(result.compactedHistory).toHaveLength(2);
+      expect(result.compactedHistory[0]).toEqual({
+        message: {
+          role: "system",
+          content: "System message",
+        },
+        contextItems: [],
+      });
+      expect(result.compactedHistory[1]).toEqual({
+        message: {
+          role: "assistant",
+          content: mockContent,
+        },
+        contextItems: [],
+        conversationSummary: mockContent,
+        compactionCheckpoint: {
+          kind: "compact-checkpoint",
+          compactionId: expect.any(String),
+        },
+      });
+      expect(result.compactionIndex).toBe(1);
+      expect(result.compactionContent).toBe(mockContent);
+    });
+
+    it("should handle callbacks correctly", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const mockContent = "Summary content";
+      const onStreamContent = vi.fn();
+      const onStreamComplete = vi.fn();
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.("Summary ");
+          callbacks?.onContent?.("content");
+          callbacks?.onContentComplete?.(mockContent);
+          return mockContent;
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "user", content: `Hello ${"x".repeat(1000)}` },
+      ]);
+
+      await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+        callbacks: {
+          onStreamContent,
+          onStreamComplete,
+        },
+      });
+
+      expect(onStreamContent).toHaveBeenCalledWith("Summary ");
+      expect(onStreamContent).toHaveBeenCalledWith("content");
+      expect(onStreamComplete).toHaveBeenCalled();
+    });
+
+    it("should handle errors correctly", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const mockError = new Error("Stream failed");
+      const onError = vi.fn();
+
+      mockStreamResponse.mockRejectedValue(mockError);
+
+      const history = convertToUnifiedHistory([
+        { role: "user", content: "Hello" },
+      ]);
+
+      await expect(
+        compactChatHistory(history, mockModel, mockLlmApi, {
+          summarize,
+          callbacks: { onError },
+        }),
+      ).rejects.toThrow("Stream failed");
+
+      expect(onError).toHaveBeenCalledWith(mockError);
+    });
+
+    it("rejects a system-only history that cannot be reduced", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const mockContent = "Summary of system setup";
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.(mockContent);
+          callbacks?.onContentComplete?.(mockContent);
+          return mockContent;
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "You are a helpful assistant" },
+      ]);
+
+      await expect(
+        compactChatHistory(history, mockModel, mockLlmApi, { summarize }),
+      ).rejects.toThrow("Compaction did not reduce context usage");
+    });
+
+    it("should handle empty content from stream", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.("");
+          callbacks?.onContentComplete?.("");
+          return "";
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "user", content: "Hello" },
+      ]);
+
+      await expect(
+        compactChatHistory(history, mockModel, mockLlmApi, { summarize }),
+      ).rejects.toThrow("Compaction summary is empty");
+    });
+
+    it("should correctly construct prompt for compaction", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      let capturedHistory: ChatHistoryItem[] = [];
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          capturedHistory = [...history];
+          callbacks?.onContent?.("Summary");
+          callbacks?.onContentComplete?.("Summary");
+          return "Summary";
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System" },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi" },
+      ]);
+
+      await compactChatHistory(history, mockModel, mockLlmApi, { summarize });
+
+      // Should have original history plus the compaction prompt
+      expect(capturedHistory).toHaveLength(4);
+      expect(capturedHistory[3].message).toEqual({
+        role: "user",
+        content: expect.stringContaining("handoff brief"),
+      });
+    });
+
+    it("carries the todo list through compaction", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      mockStreamResponse.mockImplementation(async () => "Summary");
+
+      const todoPayload = `Added todo #1: ship the carry\n\ntnt-todo:${JSON.stringify(
+        {
+          action: "add",
+          todos: [{ id: 1, text: "ship the carry", done: false }],
+          nextId: 2,
+        },
+      )}`;
+      const messages: any[] = [
+        { role: "system", content: "System" },
+        { role: "user", content: "Start" },
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              id: "todo-1",
+              type: "function",
+              function: { name: "Todo", arguments: "{}" },
+            },
+          ],
+        },
+        { role: "tool", content: todoPayload, tool_call_id: "todo-1" },
+      ];
+      for (let i = 0; i < 100; i++) {
+        messages.push(
+          { role: "user", content: `User ${i} ${"x".repeat(100)}` },
+          { role: "assistant", content: `Assistant ${i} ${"x".repeat(100)}` },
+        );
+      }
+      const history = convertToUnifiedHistory(messages);
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
+      } as ModelConfig;
+
+      const result = await compactChatHistory(history, model, mockLlmApi, {
+        summarize,
+      });
+
+      // The todo call itself was summarized away, so only the carry keeps the
+      // list recoverable - and readable to the model as well.
+      const index = findCompactionIndex(result.compactedHistory)!;
+      const carry = result.compactedHistory[index].contextItems?.[0];
+      expect(carry?.content).toContain("ship the carry");
+      expect(readTodoState(result.compactedHistory)).toEqual({
+        todos: [{ id: 1, text: "ship the carry", done: false }],
+        nextId: 2,
+      });
+    });
+
+    it("should handle history with tool calls and mixed message types", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const mockContent = "Summary including tool usage";
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.(mockContent);
+          callbacks?.onContentComplete?.(mockContent);
+          return mockContent;
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System" },
+        { role: "user", content: "Do something" },
+        { role: "assistant", content: "I'll help", tool_calls: [{} as any] },
+        { role: "tool", content: "Tool result", tool_call_id: "123" },
+        { role: "assistant", content: "Done" },
+      ]);
+
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
+
+      expect(result.compactedHistory).toHaveLength(2);
+      expect(result.compactionContent).toBe(mockContent);
+    });
+
+    it("should handle very long chat histories", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.("Long summary");
+          callbacks?.onContentComplete?.("Long summary");
+          return "Long summary";
+        },
+      );
+
+      // Create a very long history
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "System" },
+      ]);
+
+      for (let i = 0; i < 100; i++) {
+        history.push({
+          message: { role: "user", content: `User message ${i}` },
+          contextItems: [],
+        });
+        history.push({
+          message: { role: "assistant", content: `Assistant response ${i}` },
+          contextItems: [],
+        });
+      }
+
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
+
+      expect(result.compactedHistory).toHaveLength(2); // System + compaction
+      expect(result.compactionIndex).toBe(1);
+    });
+
+    it("retains recent turns after summarizing older history", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      let summaryRequestHistory: ChatHistoryItem[] = [];
+      mockStreamResponse.mockImplementation(async (history) => {
+        summaryRequestHistory = history;
+        return "Summary";
+      });
+
+      const messages: any[] = [{ role: "system", content: "System" }];
+      for (let i = 0; i < 100; i++) {
+        messages.push(
+          { role: "user", content: `User ${i} ${"x".repeat(100)}` },
+          { role: "assistant", content: `Assistant ${i} ${"x".repeat(100)}` },
+        );
+      }
+      const history = convertToUnifiedHistory(messages);
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
+      } as ModelConfig;
+
+      const result = await compactChatHistory(history, model, mockLlmApi, {
+        summarize,
+      });
+
+      expect(
+        result.compactedHistory.slice(-2).map((item) => item.message.content),
+      ).toEqual([
+        `User 99 ${"x".repeat(100)}`,
+        `Assistant 99 ${"x".repeat(100)}`,
+      ]);
+      expect(
+        summaryRequestHistory.some((item) =>
+          String(item.message.content).includes("User 99"),
+        ),
+      ).toBe(false);
+      expect(
+        summaryRequestHistory.some((item) =>
+          String(item.message.content).includes("User 0"),
+        ),
+      ).toBe(true);
+    });
+
+    it("reduces failed summary requests without splitting tool-call pairs", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const requestHistories: ChatHistoryItem[][] = [];
+      mockStreamResponse.mockImplementation(async (history) => {
+        requestHistories.push(history);
+        if (requestHistories.length < 3) {
+          throw new Error("maximum context length exceeded");
+        }
+        return "Summary";
+      });
+
+      const history: ChatHistoryItem[] = [];
+      for (let i = 0; i < 12; i++) {
+        const toolCallId = `call-${i}`;
+        history.push(
+          {
+            message: {
+              role: "user",
+              content: `User ${i} ${"x".repeat(800)}`,
+            },
+            contextItems: [],
+          },
+          {
+            message: {
+              role: "assistant",
+              content: "",
+              toolCalls: [
+                {
+                  id: toolCallId,
+                  type: "function",
+                  function: { name: "read_file", arguments: "{}" },
+                },
+              ],
+            } as any,
+            contextItems: [],
+          },
+          {
+            message: {
+              role: "tool",
+              content: `Result ${i}`,
+              toolCallId,
+            } as any,
+            contextItems: [],
+          },
+          {
+            message: {
+              role: "assistant",
+              content: `Done ${i} ${"x".repeat(800)}`,
+            },
+            contextItems: [],
+          },
+        );
+      }
+      const model = {
+        ...mockModel,
+        defaultCompletionOptions: { contextLength: 10_000, maxTokens: 1_000 },
+      } as ModelConfig;
+
+      await compactChatHistory(history, model, mockLlmApi, { summarize });
+
+      expect(requestHistories).toHaveLength(3);
+      expect(requestHistories[1].length).toBeLessThan(
+        requestHistories[0].length,
+      );
+      expect(requestHistories[2].length).toBeLessThan(
+        requestHistories[1].length,
+      );
+      for (const requestHistory of requestHistories) {
+        const ids = new Set(
+          requestHistory.flatMap((item) =>
+            item.message.role === "tool" && "toolCallId" in item.message
+              ? [item.message.toolCallId]
+              : [],
+          ),
+        );
+        for (const item of requestHistory) {
+          if (
+            item.message.role === "assistant" &&
+            "toolCalls" in item.message
+          ) {
+            for (const toolCall of item.message.toolCalls ?? []) {
+              expect(ids.has(toolCall.id ?? "")).toBe(true);
+            }
+          }
+        }
+      }
+    });
+
+    it("should handle history without system message", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+      const mockContent = "Summary without system";
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.(mockContent);
+          callbacks?.onContentComplete?.(mockContent);
+          return mockContent;
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi" },
+      ]);
+
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
+
+      expect(result.compactedHistory).toHaveLength(1); // Only compaction
+      expect(result.compactedHistory[0].message.role).toBe("assistant");
+      expect(result.compactionIndex).toBe(0);
+    });
+  });
+
+  describe("property-based tests", () => {
+    it("getHistoryForLLM should always return a subset of the original history", () => {
+      const testCases: Array<{
+        history: ChatHistoryItem[];
+        compactionIndex: number | null;
+      }> = [
+        {
+          history: convertToUnifiedHistory([
+            { role: "system", content: "System" },
+            { role: "user", content: "User 1" },
+            { role: "assistant", content: "Assistant 1" },
+          ]),
+          compactionIndex: 1,
+        },
+        {
+          history: convertToUnifiedHistory([
+            { role: "user", content: "User 1" },
+            { role: "assistant", content: "Assistant 1" },
+            { role: "user", content: "User 2" },
+          ]),
+          compactionIndex: 2,
+        },
+        {
+          history: [],
+          compactionIndex: null,
+        },
+      ];
+
+      testCases.forEach(({ history, compactionIndex }) => {
+        const result = getHistoryForLLM(history, compactionIndex);
+
+        // Every message in result should exist in original history
+        result.forEach((msg) => {
+          expect(history).toContainEqual(msg);
+        });
+
+        // Result length should be <= original length
+        expect(result.length).toBeLessThanOrEqual(history.length);
+      });
+    });
+
+    it("getHistoryForLLM should always include system message if it exists at index 0", () => {
+      const systemMessage: ChatHistoryItem = {
+        message: {
+          role: "system",
+          content: "System",
+        },
+        contextItems: [],
+      };
+      const testCases: Array<{
+        history: ChatHistoryItem[];
+        compactionIndex: number | null;
+      }> = [
+        {
+          history: convertToUnifiedHistory([
+            { role: "system", content: "System" },
+            { role: "user", content: "User 1" },
+            { role: "assistant", content: `\nSummary` },
+          ]),
+          compactionIndex: 2,
+        },
+        {
+          history: convertToUnifiedHistory([
+            { role: "system", content: "System" },
+            { role: "assistant", content: `\nSummary` },
+          ]),
+          compactionIndex: 1,
+        },
+      ];
+
+      testCases.forEach(({ history, compactionIndex }) => {
+        const result = getHistoryForLLM(history, compactionIndex);
+
+        if (
+          history[0]?.message?.role === "system" &&
+          compactionIndex !== null &&
+          compactionIndex > 0
+        ) {
+          expect(result[0]).toEqual(history[0]);
+        }
+      });
+    });
+
+    it("compaction should always reduce message count for non-trivial histories", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.("Summary");
+          callbacks?.onContentComplete?.("Summary");
+          return "Summary";
+        },
+      );
+
+      const testHistories: ChatHistoryItem[][] = [
+        convertToUnifiedHistory([
+          { role: "system", content: "System" },
+          { role: "user", content: "User 1" },
+          { role: "assistant", content: "Assistant 1" },
+          { role: "user", content: "User 2" },
+          { role: "assistant", content: "Assistant 2" },
+        ]),
+        convertToUnifiedHistory([
+          { role: "user", content: "User 1" },
+          { role: "assistant", content: "Assistant 1" },
+          { role: "user", content: "User 2" },
+        ]),
+      ];
+
+      for (const history of testHistories) {
+        const result = await compactChatHistory(
+          history,
+          mockModel,
+          mockLlmApi,
+          { summarize },
+        );
+
+        // Compacted history should be shorter than original
+        // (system + compaction) or just compaction
+        expect(result.compactedHistory.length).toBeLessThanOrEqual(2);
+        expect(result.compactedHistory.length).toBeLessThan(history.length);
+      }
+    });
+  });
+
+  describe("invariant tests", () => {
+    it("compactionIndex should always point to a message with conversationSummary", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.("Summary content");
+          callbacks?.onContentComplete?.("Summary content");
+          return "Summary content";
+        },
+      );
+
+      const histories: ChatHistoryItem[][] = [
+        convertToUnifiedHistory([
+          { role: "system", content: "System" },
+          { role: "user", content: `Hello ${"x".repeat(1000)}` },
+        ]),
+        convertToUnifiedHistory([
+          { role: "user", content: `Hello ${"x".repeat(1000)}` },
+          { role: "assistant", content: `Hi ${"x".repeat(1000)}` },
+        ]),
+      ];
+
+      for (const history of histories) {
+        const result = await compactChatHistory(
+          history,
+          mockModel,
+          mockLlmApi,
+          { summarize },
+        );
+
+        // The message at compactionIndex should have a conversationSummary
+        const compactionMessage =
+          result.compactedHistory[result.compactionIndex];
+        expect(compactionMessage.message.role).toBe("assistant");
+        expect(compactionMessage.conversationSummary).toBeDefined();
+      }
+    });
+
+    it("system message should always be preserved in the same position", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.("Summary");
+          callbacks?.onContentComplete?.("Summary");
+          return "Summary";
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "system", content: "You are helpful" },
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi" },
+      ]);
+
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
+
+      // System message should still be at index 0
+      expect(result.compactedHistory[0]).toEqual(history[0]);
+    });
+
+    it("findCompactionIndex should be consistent with compactChatHistory result", async () => {
+      const mockStreamResponse = vi.mocked(streamChatResponse);
+
+      mockStreamResponse.mockImplementation(
+        async (history, model, api, controller, callbacks) => {
+          callbacks?.onContent?.("Summary");
+          callbacks?.onContentComplete?.("Summary");
+          return "Summary";
+        },
+      );
+
+      const history = convertToUnifiedHistory([
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi" },
+      ]);
+
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
+
+      // findCompactionIndex should find the same index
+      const foundIndex = findCompactionIndex(result.compactedHistory);
+      expect(foundIndex).toBe(result.compactionIndex);
+    });
+  });
+
+  describe("dropOldestHistoryTurn", () => {
+    it("keeps a prior compaction summary while dropping the oldest turn", () => {
+      const history: ChatHistoryItem[] = [
+        {
+          message: { role: "assistant", content: "Earlier decisions" },
+          contextItems: [],
+          conversationSummary: "Earlier decisions",
+        },
+        { message: { role: "user", content: "first" }, contextItems: [] },
+        { message: { role: "assistant", content: "one" }, contextItems: [] },
+        { message: { role: "user", content: "second" }, contextItems: [] },
+        { message: { role: "assistant", content: "two" }, contextItems: [] },
+      ];
+
+      const trimmed = dropOldestHistoryTurn(history);
+      expect(trimmed[0].conversationSummary).toBe("Earlier decisions");
+      expect(trimmed.some((item) => item.message.content === "first")).toBe(
+        false,
+      );
+      expect(trimmed.some((item) => item.message.content === "second")).toBe(
+        true,
+      );
+    });
+
+    it("stops when only summaries remain", () => {
+      const history: ChatHistoryItem[] = [
+        {
+          message: { role: "assistant", content: "Layer one" },
+          contextItems: [],
+          conversationSummary: "Layer one",
+        },
+        {
+          message: { role: "assistant", content: "Layer two" },
+          contextItems: [],
+          conversationSummary: "Layer two",
+        },
+      ];
+      expect(dropOldestHistoryTurn(history)).toEqual(history);
+    });
+  });
+});

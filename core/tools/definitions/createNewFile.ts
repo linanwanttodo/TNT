@@ -1,4 +1,4 @@
-import { ToolPolicy } from "@continuedev/terminal-security";
+import { ToolPolicy } from "@tnt/terminal-security";
 import { Tool } from "../..";
 import { ResolvedPath, resolveInputPath } from "../../util/pathResolver";
 import { BUILT_IN_GROUP_NAME, BuiltInToolNames } from "../builtIn";
@@ -56,9 +56,7 @@ export const createNewFileTool: Tool = {
     processedArgs?: Record<string, unknown>,
   ): ToolPolicy => {
     const resolvedPath = processedArgs?.resolvedPath as
-      | ResolvedPath
-      | null
-      | undefined;
+      ResolvedPath | null | undefined;
     if (!resolvedPath) return basePolicy;
 
     return evaluateFileAccessPolicy(basePolicy, resolvedPath.isWithinWorkspace);

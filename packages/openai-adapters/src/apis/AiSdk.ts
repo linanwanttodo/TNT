@@ -16,7 +16,7 @@ import {
   Model,
 } from "openai/resources/index";
 import { AiSdkConfig } from "../types.js";
-import { customFetch, embedding } from "../util.js";
+import { customFetch, embedding, normalizeUsage } from "../util.js";
 import {
   BaseLlmApi,
   CreateRerankResponse,
@@ -105,15 +105,12 @@ export class AiSdkApi implements BaseLlmApi {
     this.initializeProvider();
 
     const { generateText } = await import("ai");
-    const { convertOpenAIMessagesToVercel } = await import(
-      "../openaiToVercelMessages.js"
-    );
-    const { convertToolsToVercelFormat } = await import(
-      "../convertToolsToVercel.js"
-    );
-    const { convertToolChoiceToVercel } = await import(
-      "../convertToolChoiceToVercel.js"
-    );
+    const { convertOpenAIMessagesToVercel } =
+      await import("../openaiToVercelMessages.js");
+    const { convertToolsToVercelFormat } =
+      await import("../convertToolsToVercel.js");
+    const { convertToolChoiceToVercel } =
+      await import("../convertToolChoiceToVercel.js");
 
     const vercelMessages = convertOpenAIMessagesToVercel(body.messages);
     const systemMsg = vercelMessages.find((msg) => msg.role === "system");
@@ -174,12 +171,7 @@ export class AiSdkApi implements BaseLlmApi {
           logprobs: null,
         },
       ],
-      usage: {
-        prompt_tokens: result.usage.inputTokens ?? 0,
-        completion_tokens: result.usage.outputTokens ?? 0,
-        total_tokens:
-          (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0),
-      },
+      usage: normalizeUsage(result.usage),
     };
   }
 
@@ -190,16 +182,13 @@ export class AiSdkApi implements BaseLlmApi {
     this.initializeProvider();
 
     const { streamText } = await import("ai");
-    const { convertOpenAIMessagesToVercel } = await import(
-      "../openaiToVercelMessages.js"
-    );
-    const { convertToolsToVercelFormat } = await import(
-      "../convertToolsToVercel.js"
-    );
+    const { convertOpenAIMessagesToVercel } =
+      await import("../openaiToVercelMessages.js");
+    const { convertToolsToVercelFormat } =
+      await import("../convertToolsToVercel.js");
     const { convertVercelStream } = await import("../vercelStreamConverter.js");
-    const { convertToolChoiceToVercel } = await import(
-      "../convertToolChoiceToVercel.js"
-    );
+    const { convertToolChoiceToVercel } =
+      await import("../convertToolChoiceToVercel.js");
 
     const vercelMessages = convertOpenAIMessagesToVercel(body.messages);
     const systemMsg = vercelMessages.find((msg) => msg.role === "system");

@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "rootDir": "..",
+    "paths": {
+      "@/*": ["../ui/dist/*"],
+      "@zcode/ui": ["../ui/dist/index.d.ts"],
+      "@zcode/ui/button": ["../ui/dist/components/ui/button.d.ts"],
+      "@zcode/ui/dialog": ["../ui/dist/components/ui/dialog.d.ts"],
+      "@zcode/ui/device-platform-icon": ["../ui/dist/components/mobile-ui/DevicePlatformIcon.d.ts"],
+      "@zcode/ui/app-logo": ["../ui/dist/components/mobile-ui/ZCodeAppLogo.d.ts"],
+      "@zcode/ui/bottom-sheet": ["../ui/dist/components/mobile-ui/bottom-sheet.d.ts"],
+      "@zcode/ui/oauth-provider-icon": ["../ui/dist/lib/oauthProviderIcon.d.ts"],
+      "@zcode/ui/remote-workspace-session-store": ["../ui/dist/store/remoteWorkspaceSessionStore.d.ts"],
+      "@zcode/ui/conversation-share-readonly": ["../ui/dist/v4/ConversationShareReadonlyTimeline.d.ts"],
+      "@zcode/ui/useTheme": ["../ui/dist/useTheme.d.ts"],
+      "react": ["../ui/node_modules/@types/react/index.d.ts"],
+      "react/*": ["../ui/node_modules/@types/react/*.d.ts"],
+      "react-dom": ["../ui/node_modules/@types/react-dom/index.d.ts"],
+      "react-dom/*": ["../ui/node_modules/@types/react-dom/*.d.ts"]
+    }
+  },
+  "include": ["src"],
+  "references": []
+}

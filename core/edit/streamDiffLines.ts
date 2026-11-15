@@ -16,7 +16,7 @@ import {
   removeTrailingWhitespace,
   skipLines,
   stopAtLines,
-} from "../autocomplete/filtering/streamTransforms/lineStream";
+} from "./streamTransforms/lineStream";
 import { streamDiff } from "../diff/streamDiff";
 import { streamLines } from "../diff/util";
 import { getSystemMessageWithRules } from "../llm/rules/getSystemMessageWithRules";

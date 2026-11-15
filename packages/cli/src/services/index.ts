@@ -1,0 +1,519 @@
+import { HookService } from "../hooks/HookService.js";
+import { t } from "../i18n/index.js";
+import { initializeWithOnboarding } from "../startup/onboarding.js";
+import { setBetaUploadArtifactToolEnabled } from "../tools/toolsConfig.js";
+import { logger } from "../utils/logger.js";
+
+import { AgentFileService } from "./AgentFileService.js";
+import { ApiClientService } from "./ApiClientService.js";
+import { runDueAutomations } from "./automationStore.js";
+import { backgroundJobService } from "./BackgroundJobService.js";
+import { ChatHistoryService } from "./ChatHistoryService.js";
+import { ConfigService } from "./ConfigService.js";
+import { FileIndexService } from "./FileIndexService.js";
+import { GitAiIntegrationService } from "./GitAiIntegrationService.js";
+import { MCPService } from "./MCPService.js";
+import { ModelService } from "./ModelService.js";
+import { quizService } from "./QuizService.js";
+import { ResourceMonitoringService } from "./ResourceMonitoringService.js";
+import { serviceContainer } from "./ServiceContainer.js";
+import { StorageSyncService } from "./StorageSyncService.js";
+import { SystemMessageService } from "./SystemMessageService.js";
+import {
+  InitializeToolServiceOverrides,
+  ToolPermissionService,
+} from "./ToolPermissionService.js";
+import {
+  AgentFileServiceState,
+  ApiClientServiceState,
+  ConfigServiceState,
+  MCPServiceState,
+  ModelServiceState,
+  SERVICE_NAMES,
+  ServiceInitOptions,
+} from "./types.js";
+import { UpdateService } from "./UpdateService.js";
+
+// Service instances
+const configService = new ConfigService();
+const modelService = new ModelService();
+const apiClientService = new ApiClientService();
+const mcpService = new MCPService();
+const fileIndexService = new FileIndexService();
+const resourceMonitoringService = new ResourceMonitoringService();
+const chatHistoryService = new ChatHistoryService();
+const updateService = new UpdateService();
+const storageSyncService = new StorageSyncService();
+const agentFileService = new AgentFileService();
+const toolPermissionService = new ToolPermissionService();
+const systemMessageService = new SystemMessageService();
+const gitAiIntegrationService = new GitAiIntegrationService();
+const hookService = new HookService();
+
+/**
+ * Initialize all services and register them with the service container
+ * Handles onboarding internally for TUI mode unless skipOnboarding is true
+ */
+export async function initializeServices(initOptions: ServiceInitOptions = {}) {
+  logger.debug("Initializing service registry");
+
+  const commandOptions = initOptions.options || {};
+
+  // Trust is recorded before any reader looks at the project layers; the
+  // environment variable covers headless runs that cannot pass the flag.
+  if (commandOptions.trustProject || process.env.TNT_TRUST_PROJECT === "1") {
+    const { trustProject } = await import("../config/trust.js");
+    trustProject(process.cwd());
+  }
+
+  // Configure beta tools based on command options
+  if (commandOptions.betaUploadArtifactTool) {
+    setBetaUploadArtifactToolEnabled(true);
+  }
+  // Handle onboarding for TUI mode (headless: false) unless explicitly skipped
+  if (!initOptions.headless && !initOptions.skipOnboarding) {
+    await initializeWithOnboarding(commandOptions.config);
+  }
+
+  // Interactive runs confirm project trust before any reader loads the project
+  // layers; headless and serve keep the --trust-project / env gate. The prompt
+  // no-ops outside a TTY, so tests and pipes are untouched.
+  if (!initOptions.headless) {
+    const { maybePromptForProjectTrust } =
+      await import("../startup/trustPrompt.js");
+    await maybePromptForProjectTrust();
+  }
+
+  serviceContainer.register(
+    SERVICE_NAMES.API_CLIENT,
+    async () => {
+      return apiClientService.initialize();
+    },
+    [], // No dependencies
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.AGENT_FILE,
+    async () => await agentFileService.initialize(commandOptions.agent),
+    [],
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.TOOL_PERMISSIONS,
+    async () => {
+      const [mcpState, agentFileState] = await Promise.all([
+        serviceContainer.get<MCPServiceState>(SERVICE_NAMES.MCP),
+        serviceContainer.get<AgentFileServiceState>(SERVICE_NAMES.AGENT_FILE),
+      ]);
+
+      // Initialize mode service with tool permission overrides
+      if (initOptions.toolPermissionOverrides) {
+        const overrides = { ...initOptions.toolPermissionOverrides };
+
+        // Convert mode to boolean flags for ModeService
+        const initArgs: InitializeToolServiceOverrides = {
+          allow: overrides.allow,
+          ask: overrides.ask,
+          exclude: overrides.exclude,
+          isHeadless: initOptions.headless,
+        };
+        // Only set the boolean flag that corresponds to the mode
+        if (overrides.mode) {
+          initArgs.mode = overrides.mode;
+        }
+        // If mode is "default" or undefined, no flags are set
+        return await toolPermissionService.initialize(
+          initArgs,
+          agentFileState,
+          mcpState,
+        );
+      } else {
+        // Even if no overrides, we need to initialize with defaults
+        return await toolPermissionService.initialize(
+          {
+            isHeadless: initOptions.headless,
+          },
+          agentFileState,
+          mcpState,
+        );
+      }
+    },
+    [SERVICE_NAMES.AGENT_FILE, SERVICE_NAMES.MCP],
+  );
+
+  // Initialize SystemMessageService with command options
+  serviceContainer.register(
+    SERVICE_NAMES.SYSTEM_MESSAGE,
+    () =>
+      systemMessageService.initialize({
+        additionalRules: commandOptions.rule,
+        format: (commandOptions as any).format, // format option from CLI
+        headless: initOptions.headless,
+      }),
+    [SERVICE_NAMES.TOOL_PERMISSIONS],
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.UPDATE,
+    () => updateService.initialize(initOptions.headless),
+    [], // No dependencies
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.CONFIG,
+    async () => {
+      const [apiClientState, agentFileState] = await Promise.all([
+        serviceContainer.get<ApiClientServiceState>(SERVICE_NAMES.API_CLIENT),
+        serviceContainer.get<AgentFileServiceState>(SERVICE_NAMES.AGENT_FILE),
+      ]);
+
+      if (!apiClientState.apiClient) {
+        throw new Error(t("services.apiClientUnavailable"));
+      }
+
+      // Use current config path from ConfigService state if available (for reloads),
+      // otherwise use initial options.config (for first initialization)
+      // IMPORTANT: Always prefer explicit --config flag over saved state
+      const currentState = configService.getState();
+      const configPath =
+        commandOptions.config ||
+        (currentState.configPath === undefined
+          ? undefined
+          : currentState.configPath);
+
+      return await configService.initialize({
+        configPath,
+        apiClient: apiClientState.apiClient,
+        agentFileState,
+        injectedConfigOptions: commandOptions,
+        isHeadless: initOptions.headless,
+      });
+    },
+    [SERVICE_NAMES.API_CLIENT, SERVICE_NAMES.AGENT_FILE], // Dependencies
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.MODEL,
+    async () => {
+      const [configState, agentFileState] = await Promise.all([
+        serviceContainer.get<ConfigServiceState>(SERVICE_NAMES.CONFIG),
+        serviceContainer.get<AgentFileServiceState>(SERVICE_NAMES.AGENT_FILE),
+      ]);
+
+      if (!configState.config) {
+        throw new Error(t("services.configUnavailable"));
+      }
+
+      return modelService.initialize(
+        configState.config,
+        agentFileState,
+        configState.selectedModel ?? null,
+      );
+    },
+    [SERVICE_NAMES.CONFIG, SERVICE_NAMES.AGENT_FILE], // Depends on config and agentFile
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.MCP,
+    async () => {
+      const configState = await serviceContainer.get<ConfigServiceState>(
+        SERVICE_NAMES.CONFIG,
+      );
+
+      if (!configState.config) {
+        throw new Error(t("services.configUnavailableForMcp"));
+      }
+      return mcpService.initialize(
+        configState.config,
+        !!initOptions.options?.agent,
+        initOptions.headless,
+      );
+    },
+    [SERVICE_NAMES.CONFIG], // Depends on config
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.FILE_INDEX,
+    () => fileIndexService.initialize(),
+    [],
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.RESOURCE_MONITORING,
+    () => resourceMonitoringService.initialize(),
+    [],
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.STORAGE_SYNC,
+    () => storageSyncService.initialize(),
+    [],
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.CHAT_HISTORY,
+    () => chatHistoryService.initialize(undefined, initOptions.headless),
+    [], // No dependencies for now, but could depend on SESSION in future
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.GIT_AI_INTEGRATION,
+    () => gitAiIntegrationService.initialize(),
+    [], // No dependencies
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.QUIZ,
+    () => quizService.initialize(),
+    [], // No dependencies
+  );
+
+  serviceContainer.register(
+    SERVICE_NAMES.HOOKS,
+    () => hookService.initialize(),
+    [], // No dependencies
+  );
+
+  // Headless runs (-p, ACP workers, review workers) never open the file
+  // search UI, ask quiz questions, or need git-ai probed before the first
+  // edit, and their startup latency is user-visible; those services load on
+  // first request instead of at boot. Interactive TUI keeps the eager set so
+  // the UI has every state subscribed before first render.
+  if (initOptions.headless) {
+    await Promise.all(
+      [
+        SERVICE_NAMES.API_CLIENT,
+        SERVICE_NAMES.AGENT_FILE,
+        SERVICE_NAMES.CONFIG,
+        SERVICE_NAMES.MODEL,
+        SERVICE_NAMES.MCP,
+        SERVICE_NAMES.TOOL_PERMISSIONS,
+        SERVICE_NAMES.SYSTEM_MESSAGE,
+        SERVICE_NAMES.CHAT_HISTORY,
+        SERVICE_NAMES.HOOKS,
+      ].map((name) =>
+        serviceContainer.load(name).catch((error) => {
+          logger.debug(`Failed to initialize service ${name}:`, error);
+        }),
+      ),
+    );
+  } else {
+    // Eagerly initialize all services to ensure they're ready when needed
+    // This avoids race conditions and "service not ready" errors
+    await serviceContainer.initializeAll();
+  }
+
+  // The indexer walks the workspace the first time something asks it to search,
+  // which puts a repository-sized walk inside the turn that asks the first
+  // question about the code. Starting it here moves that work to the session
+  // opening, where the user is still typing. Only a config that selects the
+  // codebase provider starts a build, and the unit suites are skipped because
+  // they open hundreds of sessions in temporary workspaces.
+  if (process.env.VITEST === undefined) {
+    void import("../retrieval/warmup.js")
+      .then(({ warmRetrieval }) => warmRetrieval())
+      .catch((error) =>
+        logger.debug("Retrieval warm-up failed", error as Error),
+      );
+  }
+
+  logger.debug("Service registry initialized");
+
+  startAutomationScheduler();
+}
+
+let lazyServicesReady: Promise<void> | null = null;
+
+/**
+ * The shared lazy entry for hosts that start without the registry (the serve
+ * daemon, the app-server). A ready model means this process already ran
+ * initialization (TUI, `tnt webui`); running it again would re-run every
+ * factory, because `load` does not skip ready services. Concurrent callers
+ * share the one attempt, and a throw resets it so the next caller can retry.
+ */
+export function ensureServicesInitialized(
+  initOptions: ServiceInitOptions = { headless: true },
+): Promise<void> {
+  // A ready CONFIG is the proof that this process already initialized, even
+  // when no model is selected (an empty `models:` list leaves MODEL without an
+  // llmApi). The second initialize would re-run every factory and leave CONFIG
+  // in its error state.
+  if (serviceContainer.has(SERVICE_NAMES.CONFIG)) {
+    const configState = serviceContainer.getSync<ConfigServiceState>(
+      SERVICE_NAMES.CONFIG,
+    );
+    if (configState.state === "ready") {
+      return Promise.resolve();
+    }
+    if (configState.state === "loading") {
+      return serviceContainer
+        .get<ConfigServiceState>(SERVICE_NAMES.CONFIG)
+        .then(() => undefined);
+    }
+  }
+  if (serviceContainer.has(SERVICE_NAMES.MODEL)) {
+    const current = serviceContainer.getSync<ModelServiceState>(
+      SERVICE_NAMES.MODEL,
+    );
+    if (
+      current.state === "ready" &&
+      current.value?.llmApi &&
+      current.value.model
+    ) {
+      return Promise.resolve();
+    }
+  }
+  lazyServicesReady ??= initializeServices(initOptions)
+    .then(() => undefined)
+    .catch((error) => {
+      lazyServicesReady = null;
+      throw error;
+    });
+  return lazyServicesReady;
+}
+
+/**
+ * The automation scheduler: a 30s tick that fires due scheduled prompts into
+ * the same pipeline a browser message uses (enqueue on the message queue,
+ * drain through the turn runner), so a cron prompt lands in the live
+ * transcript with the same permission flow. Skipped in tests, which never
+ * own a turn pipeline.
+ */
+let automationSchedulerTimer: ReturnType<typeof setInterval> | null = null;
+let automationListenerBound = false;
+
+/**
+ * ZCode's failure backoff needs the turn's outcome. The scheduler only knows
+ * which automation it last fired, so turn events within a 10-minute window
+ * of a fire are attributed to it: a failure backs the next run off
+ * exponentially, a success resets the streak.
+ */
+const AUTOMATION_EVENT_WINDOW_MS = 10 * 60_000;
+let lastFiredAutomation: { id: string; firedAt: number } | null = null;
+
+function bindAutomationTurnEvents(): void {
+  if (automationListenerBound) return;
+  automationListenerBound = true;
+  void (async () => {
+    const { subscribeAgentEvents } = await import("../protocol/eventBus.js");
+    const { markAutomationFailed, markAutomationSucceeded } =
+      await import("./automationStore.js");
+    subscribeAgentEvents((event) => {
+      if (lastFiredAutomation === null) return;
+      const { id, firedAt } = lastFiredAutomation;
+      if (Date.now() - firedAt > AUTOMATION_EVENT_WINDOW_MS) {
+        lastFiredAutomation = null;
+        return;
+      }
+      if (event.type === "turn.completed") {
+        markAutomationSucceeded(id);
+        lastFiredAutomation = null;
+      } else if (
+        event.type === "turn.failed" ||
+        event.type === "turn.interrupted"
+      ) {
+        markAutomationFailed(id, Date.now());
+        lastFiredAutomation = null;
+      }
+    });
+  })();
+}
+
+export function startAutomationScheduler(): void {
+  if (automationSchedulerTimer !== null || process.env.VITEST) return;
+  bindAutomationTurnEvents();
+  automationSchedulerTimer = setInterval(() => {
+    try {
+      const due = runDueAutomations();
+      if (due.length === 0) return;
+      // Imported lazily so the scheduler does not pin the stream pipeline at
+      // module load; the queue and the turn runner are the POST /message path.
+      void (async () => {
+        const { messageQueue } = await import("../stream/messageQueue.js");
+        const { turnRunnerService } = await import("./TurnRunnerService.js");
+        for (const automation of due) {
+          logger.info(`Automation fired: ${automation.title}`);
+          lastFiredAutomation = { id: automation.id, firedAt: Date.now() };
+          await messageQueue.enqueueMessage(automation.prompt);
+        }
+        turnRunnerService.startDraining();
+      })().catch((error) =>
+        logger.warn("Automation dispatch failed", error as Error),
+      );
+    } catch (error) {
+      logger.warn("Automation scheduler tick failed", error as Error);
+    }
+  }, 30_000);
+  // Do not hold the process open for the scheduler alone.
+  if (typeof automationSchedulerTimer.unref === "function") {
+    automationSchedulerTimer.unref();
+  }
+}
+
+/**
+ * Get a service from the container (async)
+ */
+export function getService<T>(serviceName: string): Promise<T> {
+  return serviceContainer.get<T>(serviceName);
+}
+
+/**
+ * Get service state synchronously
+ */
+export function getServiceSync<T>(serviceName: string) {
+  return serviceContainer.getSync<T>(serviceName);
+}
+
+/**
+ * Reload a specific service
+ */
+export function reloadService(serviceName: string) {
+  return serviceContainer.reload(serviceName);
+}
+
+/**
+ * Check if all core services are ready
+ */
+export function areServicesReady(): boolean {
+  return Object.values(SERVICE_NAMES).every((name) =>
+    serviceContainer.isReady(name),
+  );
+}
+
+/**
+ * Get service states for debugging
+ */
+export function getServiceStates() {
+  return serviceContainer.getServiceStates();
+}
+
+/**
+ * Direct access to service instances for complex operations
+ */
+export const services = {
+  config: configService,
+  model: modelService,
+  apiClient: apiClientService,
+  mcp: mcpService,
+  fileIndex: fileIndexService,
+  resourceMonitoring: resourceMonitoringService,
+  systemMessage: systemMessageService,
+  chatHistory: chatHistoryService,
+  updateService: updateService,
+  storageSync: storageSyncService,
+  agentFile: agentFileService,
+  toolPermissions: toolPermissionService,
+  gitAiIntegration: gitAiIntegrationService,
+  backgroundJobs: backgroundJobService,
+  quiz: quizService,
+  hooks: hookService,
+} as const;
+
+export type ServicesType = typeof services;
+
+// Export the service container for advanced usage
+export { serviceContainer };
+
+// Export service names and types
+export type * from "./types.js";
+export { SERVICE_NAMES } from "./types.js";

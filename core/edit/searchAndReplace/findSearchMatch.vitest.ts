@@ -1,5 +1,49 @@
 import { describe, expect, it } from "vitest";
-import { findSearchMatch } from "./findSearchMatch";
+import { describeSearchFailure, findSearchMatch } from "./findSearchMatch";
+
+describe("describeSearchFailure", () => {
+  it("points at the closest line with its number and the file text", () => {
+    const content = "line one\nfunction foo(a, b) {\n  return a;\n}\n";
+    const text = describeSearchFailure(content, "function foo(a) {");
+
+    expect(text).toContain('Searched for the line "function foo(a) {"');
+    expect(text).toContain("at line 2");
+    expect(text).toContain("   2| function foo(a, b) {");
+    expect(text).toContain("Read the file again");
+  });
+
+  it("anchors on the first non-empty line of a multi-line search", () => {
+    const content = "const x = 1;\nfunction bar() {}\n";
+    const text = describeSearchFailure(content, "\nfunction bar(a) {}\n");
+
+    expect(text).toContain('Searched for the line "function bar(a) {}"');
+    expect(text).toContain("function bar() {}");
+  });
+
+  it("bounds both the quoted search and the snippet", () => {
+    const longLine = `function longName(${"a".repeat(300)}) {`;
+    const content = `${longLine}\nconst x = 1;\nconst y = 2;\nconst z = 3;\nconst w = 4;\nconst v = 5;\n`;
+
+    const text = describeSearchFailure(content, `${longLine}\n  body();`);
+
+    expect(text).toContain("...");
+    expect(text).not.toContain(longLine);
+    const snippetLines = text
+      .split("\n")
+      .filter((line) => /^\s+\d+\|/.test(line));
+    expect(snippetLines.length).toBeLessThanOrEqual(5);
+  });
+
+  it("says so plainly when nothing is similar", () => {
+    const text = describeSearchFailure(
+      "totally different content here",
+      "zzqqxx-wombat-1234",
+    );
+
+    expect(text).toContain("nothing in the file's 1 lines is close to it");
+    expect(text).toContain("Read the file again");
+  });
+});
 
 describe("findSearchMatch", () => {
   describe("Empty search content", () => {

@@ -1,4 +1,4 @@
-import { DevDataLogEvent } from "@continuedev/config-yaml";
+import { DevDataLogEvent } from "@tnt/config-yaml";
 import fs from "fs";
 import path from "path";
 import {
@@ -11,12 +11,11 @@ import {
   vi,
 } from "vitest";
 import { IdeInfo, IdeSettings } from "..";
-import { Core } from "../core";
 import { getDevDataFilePath } from "../util/paths";
 import { DataLogger } from "./log";
 
 // Only mock fetch, not fs
-vi.mock("@continuedev/fetch");
+vi.mock("@tnt/fetch");
 
 const TEST_EVENT: DevDataLogEvent = {
   name: "tokensGenerated",
@@ -88,7 +87,7 @@ describe("DataLogger", () => {
           },
         },
       },
-    } as unknown as Core;
+    } as unknown as NonNullable<DataLogger["core"]>;
 
     dataLogger.ideSettingsPromise = Promise.resolve({
       userToken: "test-user-token",
@@ -134,7 +133,7 @@ describe("DataLogger", () => {
         eventName: "testEvent",
         timestamp: expect.any(String),
         schema: SCHEMA,
-        userAgent: "VSCode/1.0.0 (Continue/0.1.0)",
+        userAgent: "VSCode/1.0.0 (TNT/0.1.0)",
         selectedProfileId: "test-profile-id",
         userId: "test-user-token",
       });

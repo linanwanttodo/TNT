@@ -12,7 +12,7 @@ cowCopyTargets:
   - app/node_modules
   - core/node_modules
   - core/dist
-  - extensions/*/node_modules # Glob: all services
+  - packages/cli/node_modules
   - packages/*/node_modules # Glob: all packages
   - packages/*/dist # Glob: all package dist builds
   - packages/*/out # Glob: all package out builds

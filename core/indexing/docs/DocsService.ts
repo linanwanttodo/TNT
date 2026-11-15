@@ -1,10 +1,10 @@
-import { ConfigResult } from "@continuedev/config-yaml";
+import { ConfigResult } from "@tnt/config-yaml";
 import { open, type Database } from "sqlite";
 import sqlite3 from "sqlite3";
 
 import {
   Chunk,
-  ContinueConfig,
+  TntConfig,
   DocsIndexingDetails,
   IDE,
   IdeInfo,
@@ -26,6 +26,7 @@ import {
   getLanceDbPath,
 } from "../../util/paths";
 
+import { embedModelsAreEqual } from "../embedModels.js";
 import {
   ArticleWithChunks,
   htmlPageToArticleWithChunks,
@@ -90,17 +91,6 @@ const hasIndexingFailed = (siteIndexingConfig: SiteIndexingConfig) => {
   return failedDocs.find((d) => docConfigsAreEqual(siteIndexingConfig, d));
 };
 
-export function embedModelsAreEqual(
-  llm1: ILLM | null | undefined,
-  llm2: ILLM | null | undefined,
-): boolean {
-  return (
-    llm1?.underlyingProviderName === llm2?.underlyingProviderName &&
-    llm1?.title === llm2?.title &&
-    llm1?.maxEmbeddingChunkSize === llm2?.maxEmbeddingChunkSize
-  );
-}
-
 const docConfigsAreEqual = (
   siteConfig1: SiteIndexingConfig,
   siteConfig2: SiteIndexingConfig,
@@ -118,16 +108,15 @@ const docConfigsAreEqualExceptTitleAndFavicon = (
 ) => {
   return (
     siteConfig1.startUrl === siteConfig2.startUrl &&
-    siteConfig1.maxDepth === siteConfig2.maxDepth &&
-    siteConfig1.useLocalCrawling === siteConfig2.useLocalCrawling
+    siteConfig1.maxDepth === siteConfig2.maxDepth
   );
 };
 
 const siteIndexingConfigsAreEqual = (
   siteConfig1: SiteIndexingConfig,
   siteConfig2: SiteIndexingConfig,
-  contConfig1: ContinueConfig | undefined,
-  contConfig2: ContinueConfig,
+  contConfig1: TntConfig | undefined,
+  contConfig2: TntConfig,
 ) => {
   return (
     docConfigsAreEqual(siteConfig1, siteConfig2) &&
@@ -141,8 +130,8 @@ const siteIndexingConfigsAreEqual = (
 const siteIndexingConfigsAreEqualExceptTitleAndFavicon = (
   siteConfig1: SiteIndexingConfig,
   siteConfig2: SiteIndexingConfig,
-  contConfig1: ContinueConfig | undefined,
-  contConfig2: ContinueConfig,
+  contConfig1: TntConfig | undefined,
+  contConfig2: TntConfig,
 ) => {
   return (
     docConfigsAreEqualExceptTitleAndFavicon(siteConfig1, siteConfig2) &&
@@ -177,7 +166,7 @@ export default class DocsService {
   private docsIndexingQueue = new Set<string>();
   private lanceTableNamesSet = new Set<string>();
 
-  private config!: ContinueConfig;
+  private config!: TntConfig;
   private sqliteDb?: Database;
 
   private ideInfoPromise: Promise<IdeInfo>;
@@ -365,7 +354,7 @@ export default class DocsService {
 
   private async handleConfigUpdate({
     config: newConfig,
-  }: ConfigResult<ContinueConfig>) {
+  }: ConfigResult<TntConfig>) {
     if (newConfig) {
       const oldConfig = this.config;
       this.config = newConfig; // IMPORTANT - need to set up top, other methods below use this without passing it in
@@ -436,8 +425,7 @@ export default class DocsService {
     siteIndexingConfig: SiteIndexingConfig,
     forceReindex: boolean = false,
   ): Promise<void> {
-    const { startUrl, useLocalCrawling, maxDepth, faviconUrl } =
-      siteIndexingConfig;
+    const { startUrl, maxDepth, faviconUrl } = siteIndexingConfig;
 
     // First, if indexing is already in process, don't attempt
     // This queue is necessary because indexAndAdd is invoked circularly by config edits
@@ -548,7 +536,6 @@ export default class DocsService {
         this.config,
         maxDepth,
         undefined,
-        useLocalCrawling,
         this.githubToken,
       );
       const crawlerGen = docsCrawler.crawl(new URL(startUrl));
@@ -750,7 +737,7 @@ export default class DocsService {
       void this.ide.showToast(
         "error",
         "Set up an embeddings model to use the @docs context provider. See: " +
-          "https://docs.continue.dev/customize/model-roles/embeddings",
+          "https://github.com/linanwanttodo/TNT/tree/main/docs/cli/models.mdx",
       );
       return [];
     }
@@ -925,8 +912,8 @@ export default class DocsService {
    * Sync with no embeddings provider change
    */
   private async syncDocs(
-    oldConfig: ContinueConfig | undefined,
-    newConfig: ContinueConfig,
+    oldConfig: TntConfig | undefined,
+    newConfig: TntConfig,
     forceReindex: boolean,
   ) {
     try {
@@ -952,7 +939,7 @@ export default class DocsService {
             (d) => d.startUrl === doc.startUrl,
           );
 
-          // TODO: Changes to the docs config made while Continue isn't running won't be caught
+          // TODO: Changes to the docs config made while TNT isn't running won't be caught
           if (
             oldConfigDoc &&
             !siteIndexingConfigsAreEqual(
@@ -979,7 +966,7 @@ export default class DocsService {
             if (forceReindex) {
               changedDocs.push(doc);
             } else {
-              // This is a temperary fix to catch the changes to the docs config that were made when Continue isn't running
+              // This is a temperary fix to catch the changes to the docs config that were made when TNT isn't running
               // We only update title and faviconUrl here
               await this.updateMetadataInSqlite(doc);
               // if get's here, not changed, no update needed, mark as complete

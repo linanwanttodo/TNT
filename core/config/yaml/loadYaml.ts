@@ -11,37 +11,33 @@ import {
   RegistryClient,
   unrollAssistant,
   validateConfigYaml,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import { dirname } from "node:path";
 
 import {
-  ContinueConfig,
+  TntConfig,
   IDE,
   IdeInfo,
   IdeSettings,
   ILLMLogger,
   InternalMcpOptions,
 } from "../..";
-import { MCPManagerSingleton } from "../../context/mcp/MCPManagerSingleton";
-import TransformersJsEmbeddingsProvider from "../../llm/llms/TransformersJsEmbeddingsProvider";
 import { getAllPromptFiles } from "../../promptFiles/getPromptFiles";
 import { GlobalContext } from "../../util/GlobalContext";
 import { modifyAnyConfigWithSharedConfig } from "../sharedConfig";
 
 import { convertPromptBlockToSlashCommand } from "../../commands/slash/promptBlockSlashCommand";
 import { slashCommandFromPromptFile } from "../../commands/slash/promptFileSlashCommand";
-import { loadJsonMcpConfigs } from "../../context/mcp/json/loadJsonMcpConfigs";
-import { getBaseToolDefinitions } from "../../tools";
 import { getCleanUriPath } from "../../util/uri";
 import { loadConfigContextProviders } from "../loadContextProviders";
-import { getAllDotContinueDefinitionFiles } from "../loadLocalAssistants";
+import { getAllDotTntDefinitionFiles } from "../loadLocalAssistants";
 import { unrollLocalYamlBlocks } from "./loadLocalYamlBlocks";
 import { LocalPlatformClient } from "./LocalPlatformClient";
 import { llmsFromModelConfig } from "./models";
 import {
   convertYamlMcpConfigToInternalMcpOptions,
-  convertYamlRuleToContinueRule,
-} from "./yamlToContinueConfig";
+  convertYamlRuleToTntRule,
+} from "./yamlToTntConfig";
 
 async function loadConfigYaml(options: {
   overrideConfigYaml: AssistantUnrolled | undefined;
@@ -55,7 +51,7 @@ async function loadConfigYaml(options: {
   // Use "content" field to pass pre-read content directly, avoiding
   // fs.readFileSync which fails for vscode-remote:// URIs in WSL (#6242, #7810)
   const localBlockPromises = BLOCK_TYPES.map(async (blockType) => {
-    const localBlocks = await getAllDotContinueDefinitionFiles(
+    const localBlocks = await getAllDotTntDefinitionFiles(
       ide,
       { includeGlobal: true, includeWorkspace: true, fileExtType: "yaml" },
       blockType,
@@ -153,18 +149,33 @@ function nonNullifyConfigYaml(
   };
 }
 
-export async function configYamlToContinueConfig(options: {
+export async function configYamlToTntConfig(options: {
   unrolledAssistant: AssistantUnrolled;
   ide: IDE;
   ideInfo: IdeInfo;
   uniqueId: string;
   llmLogger: ILLMLogger;
-}): Promise<{ config: ContinueConfig; errors: ConfigValidationError[] }> {
+}): Promise<{ config: TntConfig; errors: ConfigValidationError[] }> {
   let { unrolledAssistant, ide, ideInfo, uniqueId, llmLogger } = options;
 
   const localErrors: ConfigValidationError[] = [];
 
-  const continueConfig: ContinueConfig = {
+  // Loaded here rather than at module scope: this file is reached from the
+  // config layer, and each of these four carries the registry behind it - the
+  // tool definitions, the mcp providers, the embeddings runtime.
+  const [
+    { MCPManagerSingleton },
+    { default: TransformersJsEmbeddingsProvider },
+    { loadJsonMcpConfigs },
+    { getBaseToolDefinitions },
+  ] = await Promise.all([
+    import("../../context/mcp/MCPManagerSingleton"),
+    import("../../llm/llms/TransformersJsEmbeddingsProvider"),
+    import("../../context/mcp/json/loadJsonMcpConfigs"),
+    import("../../tools"),
+  ]);
+
+  const continueConfig: TntConfig = {
     slashCommands: [],
     tools: getBaseToolDefinitions(),
     mcpServerStatuses: [],
@@ -196,7 +207,7 @@ export async function configYamlToContinueConfig(options: {
   const config = nonNullifyConfigYaml(unrolledAssistant);
 
   for (const rule of config.rules ?? []) {
-    const convertedRule = convertYamlRuleToContinueRule(rule);
+    const convertedRule = convertYamlRuleToTntRule(rule);
     continueConfig.rules.push(convertedRule);
   }
 
@@ -212,7 +223,6 @@ export async function configYamlToContinueConfig(options: {
     startUrl: doc.startUrl,
     rootUrl: doc.rootUrl,
     faviconUrl: doc.faviconUrl,
-    useLocalCrawling: doc.useLocalCrawling,
     sourceFile: doc.sourceFile,
   }));
 
@@ -312,16 +322,12 @@ export async function configYamlToContinueConfig(options: {
       if (model.roles?.includes("embed")) {
         const { provider } = model;
         if (provider === "transformers.js") {
-          if (ideInfo.ideType === "vscode") {
-            continueConfig.modelsByRole.embed.push(
-              new TransformersJsEmbeddingsProvider(),
-            );
-          } else {
-            localErrors.push({
-              fatal: false,
-              message: `Transformers.js embeddings provider not supported in this IDE.`,
-            });
-          }
+          // The provider runs on Node with bundled weights, so an explicit
+          // config entry works for every host. Only the auto-enable below is
+          // limited to VS Code: downloading a model is a choice, not a default.
+          continueConfig.modelsByRole.embed.push(
+            new TransformersJsEmbeddingsProvider({ title: model.name }),
+          );
         } else {
           continueConfig.modelsByRole.embed.push(...llms);
         }
@@ -354,7 +360,7 @@ export async function configYamlToContinueConfig(options: {
     );
   }
 
-  const { providers, errors: contextErrors } = loadConfigContextProviders(
+  const { providers, errors: contextErrors } = await loadConfigContextProviders(
     config.context,
     !!config.docs?.length,
     ideInfo.ideType,
@@ -382,7 +388,7 @@ export async function configYamlToContinueConfig(options: {
   return { config: continueConfig, errors: localErrors };
 }
 
-export async function loadContinueConfigFromYaml(options: {
+export async function loadTntConfigFromYaml(options: {
   ide: IDE;
   ideSettings: IdeSettings;
   ideInfo: IdeInfo;
@@ -390,7 +396,7 @@ export async function loadContinueConfigFromYaml(options: {
   llmLogger: ILLMLogger;
   overrideConfigYaml: AssistantUnrolled | undefined;
   packageIdentifier: PackageIdentifier;
-}): Promise<ConfigResult<ContinueConfig>> {
+}): Promise<ConfigResult<TntConfig>> {
   const {
     ide,
     ideSettings,
@@ -418,7 +424,7 @@ export async function loadContinueConfigFromYaml(options: {
   }
 
   const { config: continueConfig, errors: localErrors } =
-    await configYamlToContinueConfig({
+    await configYamlToTntConfig({
       unrolledAssistant: configYamlResult.config,
       ide,
       ideInfo,

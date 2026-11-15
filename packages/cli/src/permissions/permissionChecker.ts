@@ -1,0 +1,427 @@
+import type { ToolPolicy } from "@tnt/terminal-security";
+
+import { ALL_BUILT_IN_TOOLS } from "../tools/allBuiltIns.js";
+import { parseApplyPatch } from "../tools/applyPatch.js";
+import type { Tool } from "../tools/types.js";
+
+import { bashCommandMatches } from "./bashCommandRule.js";
+import { hasDangerousAllowPrefix } from "./dangerousCommandPrefixes.js";
+import {
+  DESTRUCTIVE_COMMAND_NOTICE,
+  isDestructiveCommand,
+} from "./destructiveCommands.js";
+import { isDocumentPath } from "./documentPath.js";
+import { isReadOnlyCommand } from "./readOnlyCommand.js";
+import {
+  PermissionCheckResult,
+  PermissionPolicy,
+  ToolCallRequest,
+  ToolPermissionPolicy,
+  ToolPermissions,
+} from "./types.js";
+import { isWithinWorkspace, workspaceRoot } from "./workspacePath.js";
+
+/**
+ * The message the model reads when a read-only mode refuses a command. It
+ * names the mode so the model stops retrying and asks the user to switch,
+ * instead of rewording the same write.
+ */
+export const READ_ONLY_MODE_DENIAL =
+  "Blocked: this mode is read-only, and the command can modify the project. Ask the user to switch to agent mode to run it.";
+
+/**
+ * The message the model reads when a documentation-only mode refuses a write.
+ * It names the accepted extensions so the model files its plan correctly
+ * instead of renaming the same file and retrying.
+ */
+export const DOCUMENT_ONLY_MODE_DENIAL =
+  "Blocked: this mode may only write documentation files (.md, .mdx, .markdown, .rst, .txt). Ask the user to switch to agent mode to change code.";
+
+/**
+ * The message the model reads when an allow rule matched a command that starts
+ * another program. The rule approved the command shape, and the program decides
+ * what happens next, so the human stays in front of this one call.
+ */
+export const DANGEROUS_ALLOW_NOTICE =
+  "This command starts a program that can run arbitrary code, so an allow rule for its first word cannot answer for what it does. Approve this call to run it, or narrow the rule to the exact command.";
+
+/**
+ * The message the model reads when a read-only tool's own analysis says this
+ * call leaves the area the tool can prove safe. An allow rule for the tool does
+ * not extend to that call.
+ */
+export const TOOL_NARROWED_ALLOW_NOTICE =
+  "This call reaches outside the area this read-only tool can search without a decision from you, so it needs approval despite an allow rule for the tool. Approve it to run it, or keep the call inside the workspace.";
+
+/**
+ * The message that explains a write the policy allows but the workspace does not
+ * contain. It names both the destination and the root so the model can move the
+ * file rather than reword the same call, and it reads the same way as the note in
+ * front of a permission prompt and as the refusal a headless run returns.
+ */
+export function outsideWorkspaceNotice(filePath: unknown): string {
+  const named =
+    typeof filePath === "string" && filePath.trim() !== ""
+      ? filePath
+      : "the path this call names";
+  return `Outside the workspace: ${named} is not inside ${workspaceRoot()}. A write into another directory is the user's own decision, so approve this one or keep the write inside the workspace.`;
+}
+
+/**
+ * Every file a write call names. `Write` and `Edit` put one path in an argument,
+ * while `ApplyPatch` carries its paths inside the patch text - so a policy check
+ * that read only the argument would judge a patch that rewrites someone else's
+ * directory as a workspace-bound write, which is a dead rule. A patch this cannot
+ * read names nothing, and naming no destination is not the same as staying inside.
+ */
+function writtenPaths(toolArguments: any): string[] {
+  const single = toolArguments?.filepath ?? toolArguments?.file_path;
+  if (typeof single === "string" && single.trim() !== "") {
+    return [single];
+  }
+
+  if (typeof toolArguments?.patch === "string") {
+    try {
+      return parseApplyPatch(toolArguments.patch).map((file) => file.path);
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Checks if a tool name matches a pattern.
+ * Supports wildcards (*) for pattern matching.
+ * Also handles special Bash command patterns like "Bash(ls*)"
+ */
+export function matchesToolPattern(
+  toolName: string,
+  pattern: string,
+  toolArguments?: Record<string, any>,
+): boolean {
+  if (pattern === "*") return true;
+  if (pattern === toolName) return true;
+
+  // Handle special Bash command patterns like "Bash(ls*)"
+  const bashCommandMatch = pattern.match(/^Bash\((.+)\)$/);
+  if (bashCommandMatch) {
+    // Check if this is a bash/terminal tool
+    const isBashTool = toolName === "Bash";
+    if (isBashTool && toolArguments?.command) {
+      return bashCommandMatches(
+        String(toolArguments.command),
+        bashCommandMatch[1].trim(),
+      );
+    }
+    return false;
+  }
+
+  // Handle regular wildcard patterns like "external_*"
+  if (pattern.includes("*") || pattern.includes("?")) {
+    // Escape all regex metacharacters except * and ?
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    // Convert * and ? to their regex equivalents
+    const regexPattern = escaped.replace(/\*/g, ".*").replace(/\?/g, ".");
+    const regex = new RegExp(`^${regexPattern}$`);
+    return regex.test(toolName);
+  }
+
+  return false;
+}
+
+/**
+ * Checks if tool call arguments match the specified patterns.
+ * Supports glob patterns with * and ? wildcards.
+ */
+export function matchesArguments(
+  args: Record<string, any>,
+  patterns?: Record<string, any>,
+): boolean {
+  if (!patterns) return true;
+
+  for (const [key, pattern] of Object.entries(patterns)) {
+    const argValue = args[key];
+
+    if (pattern === "*") continue; // Wildcard matches anything
+
+    // Handle glob patterns with wildcards (only for string patterns)
+    if (
+      typeof pattern === "string" &&
+      (pattern.includes("*") || pattern.includes("?"))
+    ) {
+      // Convert argValue to string for pattern matching
+      const stringValue = String(argValue ?? "");
+
+      // Escape all regex metacharacters except * and ?
+      const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+      // Convert * and ? to their regex equivalents
+      const regexPattern = escaped.replace(/\*/g, ".*").replace(/\?/g, ".");
+      const regex = new RegExp(`^${regexPattern}$`);
+
+      if (!regex.test(stringValue)) {
+        return false;
+      }
+    } else {
+      // Exact match for non-glob patterns (preserve original behavior)
+      if (argValue !== pattern) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Converts CLI's PermissionPolicy to core's ToolPolicy
+ */
+function permissionPolicyToToolPolicy(
+  permission: PermissionPolicy,
+): ToolPolicy {
+  switch (permission) {
+    case "allow":
+      return "allowedWithoutPermission";
+    case "ask":
+      return "allowedWithPermission";
+    case "exclude":
+      return "disabled";
+    default:
+      return "allowedWithPermission";
+  }
+}
+
+/**
+ * An allow rule answers for the command it matched, not for the program that
+ * command starts. Where the matched command begins with an interpreter, a
+ * runner or a shell, the allow is turned back into an ask unless the rule is
+ * the explicit bypass override.
+ *
+ * A destructive command goes back to the human on the same terms: a rule or a
+ * session approval written for an earlier call does not answer for a history
+ * rewrite or a deletion the request did not name.
+ */
+function narrowDangerousAllow(
+  toolCall: ToolCallRequest,
+  matchedPolicy: ToolPermissionPolicy | undefined,
+  permission: PermissionPolicy,
+): PermissionPolicy {
+  if (permission !== "allow" || matchedPolicy?.allowUnsafeCalls) {
+    return permission;
+  }
+  if (toolCall.name !== "Bash") {
+    return permission;
+  }
+  if (isDestructiveCommand(toolCall.arguments?.command)) {
+    return "ask";
+  }
+  return hasDangerousAllowPrefix(toolCall.arguments?.command)
+    ? "ask"
+    : permission;
+}
+
+/** The notice that explains why an allow was narrowed. */
+function narrowedAllowNotice(command: unknown): string {
+  return isDestructiveCommand(command)
+    ? DESTRUCTIVE_COMMAND_NOTICE
+    : DANGEROUS_ALLOW_NOTICE;
+}
+
+/**
+ * A read-only tool has no write to ask about, so its own
+ * `allowedWithPermission` says this call leaves what the tool can prove safe.
+ * An allow rule for the tool then becomes an ask; the bypass rule remains the
+ * explicit override.
+ */
+function narrowReadOnlyAllow(
+  tool: Tool | undefined,
+  matchedPolicy: ToolPermissionPolicy | undefined,
+  basePermission: PermissionPolicy,
+  evaluatedPolicy: ToolPolicy,
+): PermissionPolicy {
+  if (
+    basePermission !== "allow" ||
+    evaluatedPolicy !== "allowedWithPermission"
+  ) {
+    return basePermission;
+  }
+  if (tool?.readonly !== true || matchedPolicy?.allowUnsafeCalls) {
+    return basePermission;
+  }
+  return "ask";
+}
+
+/**
+ * Evaluates a tool call request against a set of permission policies.
+ * Returns the permission for the first matching policy.
+ */
+export function checkToolPermission(
+  toolCall: ToolCallRequest,
+  permissions: ToolPermissions,
+): PermissionCheckResult {
+  const policies = permissions.policies;
+
+  // The FIRST matching policy wins, which is what makes an allow-all override
+  // work: listing the star rule first lets it beat every rule below it. Callers
+  // that append a star last therefore get a fallback, not an override.
+  let basePermission: PermissionPolicy = "ask";
+  let matchedPolicy = undefined;
+
+  for (const policy of policies) {
+    if (
+      matchesToolPattern(toolCall.name, policy.tool, toolCall.arguments) &&
+      matchesArguments(toolCall.arguments, policy.argumentMatches)
+    ) {
+      basePermission = policy.permission;
+      matchedPolicy = policy;
+      break;
+    }
+  }
+
+  // A documentation-only policy narrows "allow" to the files a planning
+  // session may touch. A tool listing probe carries no path, and refusing
+  // there would drop the tool from the request, so only a real call is judged.
+  if (matchedPolicy?.docsOnly) {
+    const targets = writtenPaths(toolCall.arguments);
+    const hasArguments =
+      typeof toolCall.arguments === "object" &&
+      toolCall.arguments !== null &&
+      Object.keys(toolCall.arguments).length > 0;
+
+    // A real call must name a documentation file. An argument shape that
+    // carries no recognisable path is refused rather than assumed harmless.
+    const nonDocument = targets.filter((file) => !isDocumentPath(file));
+    if (hasArguments && (targets.length === 0 || nonDocument.length > 0)) {
+      return {
+        permission: "exclude",
+        matchedPolicy,
+        reason: DOCUMENT_ONLY_MODE_DENIAL,
+      };
+    }
+  }
+
+  // A write that lands outside the workspace is not the same decision as one
+  // inside it, so an allow policy does not get to make it alone: the call is
+  // escalated to the human, and a run with no human refuses. Only a real call is
+  // judged, because the tool listing probe carries no path and escalating there
+  // would drop the write tools from the request entirely.
+  if (matchedPolicy?.workspaceOnly) {
+    const targets = writtenPaths(toolCall.arguments);
+    const hasArguments =
+      typeof toolCall.arguments === "object" &&
+      toolCall.arguments !== null &&
+      Object.keys(toolCall.arguments).length > 0;
+
+    const outside = targets.filter((file) => !isWithinWorkspace(file));
+    if (hasArguments && (targets.length === 0 || outside.length > 0)) {
+      return {
+        permission: "ask",
+        matchedPolicy,
+        reason: outsideWorkspaceNotice(outside[0]),
+      };
+    }
+  }
+
+  // Check if tool has dynamic policy evaluation
+  const tool = ALL_BUILT_IN_TOOLS.find((t) => t.name === toolCall.name);
+  if (tool?.evaluateToolCallPolicy) {
+    // Convert CLI permission to core policy
+    const basePolicy = permissionPolicyToToolPolicy(basePermission);
+
+    // Evaluate the dynamic policy
+    const evaluatedPolicy = tool.evaluateToolCallPolicy(
+      basePolicy,
+      toolCall.arguments,
+    );
+
+    // If dynamic evaluation says disabled, that ALWAYS takes precedence
+    if (evaluatedPolicy === "disabled") {
+      return {
+        permission: "exclude",
+        matchedPolicy,
+      };
+    }
+
+    const readOnlyNarrowed = narrowReadOnlyAllow(
+      tool,
+      matchedPolicy,
+      basePermission,
+      evaluatedPolicy,
+    );
+    if (readOnlyNarrowed !== basePermission) {
+      return {
+        permission: readOnlyNarrowed,
+        matchedPolicy,
+        reason: TOOL_NARROWED_ALLOW_NOTICE,
+      };
+    }
+
+    // On an ask policy, the read-only branch is an allow: it is what lets
+    // `git status` run in default mode while `git commit` still asks.
+    if (matchedPolicy?.readOnlyAllow) {
+      const command = toolCall.arguments?.command;
+      if (
+        typeof command === "string" &&
+        command.trim() !== "" &&
+        isReadOnlyCommand(command)
+      ) {
+        const narrowed = narrowDangerousAllow(toolCall, matchedPolicy, "allow");
+        return {
+          permission: narrowed,
+          matchedPolicy,
+          reason:
+            narrowed === "allow"
+              ? undefined
+              : narrowedAllowNotice(toolCall.arguments?.command),
+        };
+      }
+    }
+
+    // A read-only policy narrows "allow" to commands that cannot write. The
+    // tool listing probe carries no command, and refusing there would drop the
+    // tool from the request, so only a real call is judged.
+    if (matchedPolicy?.readOnlyOnly) {
+      const command = toolCall.arguments?.command;
+      if (
+        typeof command === "string" &&
+        command.trim() !== "" &&
+        !isReadOnlyCommand(command)
+      ) {
+        return {
+          permission: "exclude",
+          matchedPolicy,
+          reason: READ_ONLY_MODE_DENIAL,
+        };
+      }
+    }
+
+    // Otherwise, user preference wins - return the base permission, narrowed
+    // only where the matched command starts another program.
+    const narrowed = narrowDangerousAllow(
+      toolCall,
+      matchedPolicy,
+      basePermission,
+    );
+    return {
+      permission: narrowed,
+      matchedPolicy,
+      reason:
+        narrowed === basePermission
+          ? undefined
+          : narrowedAllowNotice(toolCall.arguments?.command),
+    };
+  }
+
+  // No dynamic evaluation, return static result
+  const narrowed = narrowDangerousAllow(
+    toolCall,
+    matchedPolicy,
+    basePermission,
+  );
+  return {
+    permission: narrowed,
+    matchedPolicy,
+    reason: narrowed === basePermission ? undefined : DANGEROUS_ALLOW_NOTICE,
+  };
+}

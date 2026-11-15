@@ -1,0 +1,217 @@
+import path from "path";
+
+import { t } from "../i18n/index.js";
+
+import {
+  addMarketplace,
+  createDefaultDeps,
+  refreshMarketplace,
+} from "./marketplaceManager.js";
+import {
+  forgetMarketplace,
+  loadKnownMarketplaces,
+} from "./marketplaceRegistry.js";
+import { MarketplaceSource } from "./marketplaceTypes.js";
+
+const SOURCE_KINDS = [
+  "directory",
+  "file",
+  "url",
+  "github",
+  "git",
+  "npm",
+] as const;
+
+export function parseMarketplaceSource(value: string): {
+  name?: string;
+  source: MarketplaceSource;
+} {
+  const colon = value.indexOf(":");
+  const kind = colon === -1 ? "" : value.slice(0, colon);
+
+  if (kind === "github" || kind === "git" || kind === "url" || kind === "npm") {
+    const rest = value.slice(colon + 1);
+    switch (kind) {
+      case "url":
+      case "git":
+        return { source: { source: kind, url: rest } };
+      case "npm":
+        return { source: { source: "npm", package: rest } };
+      case "github":
+        return { source: { source: "github", repo: rest } };
+    }
+  }
+  if (kind === "directory" || kind === "file") {
+    return {
+      source: { source: kind, path: path.resolve(value.slice(colon + 1)) },
+    };
+  }
+  // A bare filesystem path is a directory marketplace. Checked before the
+  // owner/repo shorthand, which would otherwise read "./local" as a repo.
+  if (
+    value.startsWith("/") ||
+    value.startsWith("./") ||
+    value.startsWith("../")
+  ) {
+    return { source: { source: "directory", path: path.resolve(value) } };
+  }
+  // `owner/repo` is the shape users type most often for a hosted catalogue.
+  if (/^[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*$/.test(value)) {
+    return { source: { source: "github", repo: value } };
+  }
+  throw new Error(
+    t("plugins.unrecognizedMarketplaceSource", {
+      value,
+      kinds: SOURCE_KINDS.map((k) => `${k}:<value>`).join(", "),
+    }),
+  );
+}
+
+export interface MarketplaceCommandResult {
+  output: string;
+}
+
+/**
+ * Handles `/plugin marketplace ...`. The marketplace name is the registry key
+ * the user chooses, so `add team /srv/market` and `add team owner/repo` address
+ * the same slot.
+ */
+export async function runMarketplaceCommand(
+  args: string[],
+): Promise<MarketplaceCommandResult> {
+  const [action, ...rest] = args;
+
+  if (action === "list" || action === undefined) {
+    const all = loadKnownMarketplaces();
+    const names = Object.keys(all).sort();
+    if (names.length === 0) {
+      return { output: t("plugin.marketplace.empty") };
+    }
+    return {
+      output: names
+        .map((name) => {
+          const entry = all[name];
+          const detail = describeSource(entry.source);
+          return `${name} - ${detail} (updated ${entry.lastUpdated})`;
+        })
+        .join("\n"),
+    };
+  }
+
+  if (action === "add") {
+    const [nameOrSource, maybeSource] = rest;
+    if (!nameOrSource) {
+      return {
+        output: t("plugin.marketplace.addUsage"),
+      };
+    }
+    const rawSource = maybeSource ?? nameOrSource;
+    const name = maybeSource ? nameOrSource : suggestedName(rawSource);
+    try {
+      const { source } = parseMarketplaceSource(rawSource);
+      const result = await addMarketplace(name, source, createDefaultDeps());
+      return {
+        output: result.reused
+          ? t("plugin.marketplace.addedReused", {
+              name,
+              count: result.manifest.plugins.length,
+            })
+          : t("plugin.marketplace.added", {
+              name,
+              count: result.manifest.plugins.length,
+            }),
+      };
+    } catch (error) {
+      return {
+        output: t("plugin.marketplace.addFailed", {
+          message: (error as Error).message,
+        }),
+      };
+    }
+  }
+
+  if (action === "refresh") {
+    const registered = Object.keys(loadKnownMarketplaces());
+    const targets = rest[0] ? [rest[0]] : registered;
+    if (targets.length === 0) {
+      return { output: t("plugin.marketplace.empty") };
+    }
+    const lines: string[] = [];
+    for (const target of targets) {
+      try {
+        const summary = await refreshMarketplace(target, createDefaultDeps());
+        lines.push(
+          summary.changed
+            ? t("plugin.marketplace.refreshed", {
+                name: summary.name,
+                updated: summary.updatedPlugins.length,
+              })
+            : t("plugin.marketplace.unchanged", { name: summary.name }),
+        );
+        for (const failure of summary.failed) {
+          lines.push(
+            t("plugin.marketplace.refreshUpdateFailed", {
+              id: failure.id,
+              message: failure.message,
+            }),
+          );
+        }
+      } catch (error) {
+        lines.push(
+          t("plugin.marketplace.refreshFailed", {
+            name: target,
+            message: (error as Error).message,
+          }),
+        );
+      }
+    }
+    return { output: lines.join("\n") };
+  }
+
+  if (action === "remove") {
+    const name = rest[0];
+    if (!name) {
+      return { output: t("plugin.uninstallUsage") };
+    }
+    const removed = forgetMarketplace(name);
+    return {
+      output: removed
+        ? t("plugin.marketplace.removeHint", { name })
+        : t("plugin.marketplace.unknown", { name }),
+    };
+  }
+
+  return {
+    output: t("plugin.marketplace.unknownAction", { action }),
+  };
+}
+
+function describeSource(source: MarketplaceSource): string {
+  switch (source.source) {
+    case "directory":
+      return `directory ${source.path}`;
+    case "file":
+      return `file ${source.path}`;
+    case "url":
+      return `url ${source.url}`;
+    case "github":
+      return `github ${source.repo}`;
+    case "git":
+      return `git ${source.url}`;
+    case "npm":
+      return `npm ${source.package}`;
+  }
+}
+
+function suggestedName(rawSource: string): string {
+  const parsed = parseMarketplaceSource(rawSource);
+  const value =
+    "repo" in parsed.source
+      ? parsed.source.repo.split("/").pop()
+      : "url" in parsed.source
+        ? new URL(parsed.source.url).hostname
+        : "package" in parsed.source
+          ? parsed.source.package.replace(/^@[^/]+\//, "")
+          : path.basename(parsed.source.path);
+  return (value || "marketplace").replace(/[^a-zA-Z0-9._-]/g, "-");
+}

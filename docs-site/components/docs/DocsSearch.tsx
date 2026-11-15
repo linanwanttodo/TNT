@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/command";
 import { create, load, search, type AnyOrama } from "@orama/orama";
 import { withBasePath } from "@/lib/basePath";
+import { UI, type Locale } from "@/lib/i18n";
 
 interface SearchResult {
   title: string;
@@ -21,13 +22,21 @@ interface SearchResult {
   section: string;
 }
 
-export function DocsSearch({ resolve }: { resolve: (path: string) => string }) {
+export function DocsSearch({
+  resolve,
+  locale,
+}: {
+  resolve: (path: string) => string;
+  locale: Locale;
+}) {
+  const t = UI[locale];
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [allDocs, setAllDocs] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const dbRef = useRef<AnyOrama | null>(null);
+  const loadedLocaleRef = useRef<Locale | null>(null);
   const router = useRouter();
 
   // Cmd+K keyboard shortcut
@@ -43,11 +52,18 @@ export function DocsSearch({ resolve }: { resolve: (path: string) => string }) {
   }, []);
 
   useEffect(() => {
-    if (!open || dbRef.current) return;
+    if (!open) return;
+    if (loadedLocaleRef.current === locale && dbRef.current) return;
+    let cancelled = false;
     setLoading(true);
-    fetch(withBasePath("/search-index.json"))
+    fetch(
+      withBasePath(
+        locale === "zh" ? "/search-index.zh.json" : "/search-index.json",
+      ),
+    )
       .then((res) => res.json())
       .then((data) => {
+        if (cancelled) return;
         const db = create({
           schema: {
             title: "string" as const,
@@ -58,6 +74,7 @@ export function DocsSearch({ resolve }: { resolve: (path: string) => string }) {
         });
         load(db, data);
         dbRef.current = db;
+        loadedLocaleRef.current = locale;
         // Get all docs for showing when query is empty
         const allResult = search(db, { term: "", limit: 100 });
         const toResults = (r: typeof allResult) =>
@@ -66,8 +83,18 @@ export function DocsSearch({ resolve }: { resolve: (path: string) => string }) {
           );
         setAllDocs(toResults(allResult));
       })
-      .finally(() => setLoading(false));
-  }, [open]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, locale]);
+
+  useEffect(() => {
+    setQuery("");
+    setResults([]);
+  }, [locale]);
 
   // Search when query changes
   useEffect(() => {
@@ -86,7 +113,7 @@ export function DocsSearch({ resolve }: { resolve: (path: string) => string }) {
         (hit: { document: unknown }) => hit.document as SearchResult,
       ),
     );
-  }, [query]);
+  }, [query, locale]);
 
   const displayResults = query.trim() ? results : allDocs;
 
@@ -103,7 +130,7 @@ export function DocsSearch({ resolve }: { resolve: (path: string) => string }) {
         className="flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-black/10 bg-black/[0.02] px-3 text-[13px] text-black/40 transition-colors hover:border-black/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/40 dark:hover:border-white/20"
       >
         <Search className="h-4 w-4 flex-shrink-0" />
-        <span className="flex-1 text-left">Search...</span>
+        <span className="flex-1 text-left">{t.search}</span>
         <kbd className="hidden h-5 items-center gap-0.5 rounded border border-black/10 bg-black/[0.03] px-1.5 font-mono text-[10px] text-black/40 sm:inline-flex dark:border-white/10 dark:bg-white/[0.06] dark:text-white/40">
           <span className="text-xs">&#8984;</span>K
         </kbd>
@@ -114,20 +141,20 @@ export function DocsSearch({ resolve }: { resolve: (path: string) => string }) {
         dialogClassName="top-[15%] translate-y-0 data-[state=closed]:slide-out-to-top-[10%] data-[state=open]:slide-in-from-top-[10%]"
       >
         <CommandInput
-          placeholder="Search documentation..."
+          placeholder={t.searchPlaceholder}
           value={query}
           onValueChange={setQuery}
         />
         <CommandList className="max-h-[400px]">
           {loading ? (
             <div className="text-muted-foreground py-6 text-center text-sm">
-              Loading search index...
+              {t.searchLoading}
             </div>
           ) : (
             <>
-              <CommandEmpty>No results found.</CommandEmpty>
+              <CommandEmpty>{t.noResults}</CommandEmpty>
               {displayResults.length > 0 && (
-                <CommandGroup heading={query.trim() ? "Results" : "All pages"}>
+                <CommandGroup heading={query.trim() ? t.results : t.allPages}>
                   {displayResults.map((result) => (
                     <CommandItem
                       key={result.path}

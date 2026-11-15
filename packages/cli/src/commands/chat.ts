@@ -1,0 +1,972 @@
+import { ModelConfig } from "@tnt/config-yaml";
+import { BaseLlmApi } from "@tnt/openai-adapters";
+import chalk from "chalk";
+import { ChatHistoryItem, Session } from "core";
+import { ChatDescriber } from "core/util/chatDescriber.js";
+
+import { expandMentions } from "../agent/atMentions.js";
+import { describeChangedFiles } from "../agent/changedFiles.js";
+import { describeContextBudget } from "../compaction/contextBudget.js";
+import { findCompactionIndex } from "../compaction/index.js";
+import { compactHistoryOnce } from "../compaction/manual.js";
+import { processCommandFlags } from "../config/flagProcessor.js";
+import type { OutputFormat } from "../config/outputFormat.js";
+import { loadSettings } from "../config/settings.js";
+import { runCompletionNotify } from "../hooks/completionNotify.js";
+import {
+  fireSessionEnd,
+  fireSessionStart,
+  fireStop,
+  fireUserPromptSubmit,
+  takeSessionStartContext,
+} from "../hooks/fireHook.js";
+import { t } from "../i18n/index.js";
+import {
+  describeTermination,
+  exitCodeForTermination,
+  isNormalTermination,
+  type TerminationReason,
+} from "../loop/termination.js";
+import type { TurnBudgetLimits } from "../loop/turnBudget.js";
+import { initializeServices, services } from "../services/index.js";
+import { serviceContainer } from "../services/ServiceContainer.js";
+import {
+  AgentFileServiceState,
+  ModelServiceState,
+  SERVICE_NAMES,
+} from "../services/types.js";
+import {
+  getSessionUsage,
+  loadSession,
+  updateSessionHistory,
+  updateSessionTitle,
+} from "../session/index.js";
+import { safeStderr, safeStdout } from "../startup/init.js";
+import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
+import { telemetryService } from "../telemetry/telemetryService.js";
+import { handleSlashCommands } from "../ui/commands/index.js";
+import { startTUIChat, type StartTUIChatOptions } from "../ui/index.js";
+import { suppressConsoleInfo } from "../utils/console.js";
+import * as logging from "../utils/console.js";
+import { gracefulExit } from "../utils/exit.js";
+import { formatAnthropicError, formatError } from "../utils/formatError.js";
+import { logger } from "../utils/logger.js";
+import { question } from "../utils/prompt.js";
+import { composeServedPrompt } from "../utils/promptNotes.js";
+import { prependPrompt } from "../utils/promptProcessor.js";
+import { runtimeContextNote } from "../utils/runtimeContextNote.js";
+import { stripThinkTags } from "../utils/thinkingTags.js";
+import {
+  calculateContextUsagePercentage,
+  countChatHistoryTokens,
+} from "../utils/tokenizer.js";
+
+import { ExtendedCommandOptions } from "./BaseCommandOptions.js";
+import { armTimeout, resolveTimeoutSeconds } from "./headlessTimeout.js";
+import {
+  describeSchemaForPrompt,
+  enforceOutputSchema,
+  loadOutputSchema,
+} from "./outputSchema.js";
+import { classifySlashResult } from "./slashCommandResult.js";
+import {
+  createStreamJsonCallbacks,
+  streamJsonErrorLine,
+  streamJsonResultLine,
+} from "./streamJson.js";
+
+/**
+ * Processes and validates JSON output for headless mode
+ * @param response - The raw response from the LLM
+ * @returns Valid JSON string
+ */
+function processJsonOutput(response: string): string {
+  const trimmedResponse = response.trim();
+
+  // Nothing to report is still a report: the wrapped shape below would say the
+  // answer "was not valid JSON", which is a claim about text that is not there.
+  if (trimmedResponse === "") {
+    return JSON.stringify({ response: "", status: "success" });
+  }
+
+  try {
+    // Try to parse the response as JSON to validate it
+    JSON.parse(trimmedResponse);
+    // If it parses successfully, return as-is
+    return trimmedResponse;
+  } catch {
+    // If it's not valid JSON, wrap it in a JSON object
+    return JSON.stringify({
+      response: trimmedResponse,
+      status: "success",
+      note: "Response was not valid JSON, so it was wrapped in a JSON object",
+    });
+  }
+}
+
+export interface ChatOptions extends ExtendedCommandOptions {
+  headless?: boolean;
+  resume?: boolean;
+  /** Specific session a resume should open; omitted means the newest root. */
+  sessionId?: string;
+  fork?: string; // Fork from an existing session ID
+  format?: OutputFormat; // Output format for headless mode
+  silent?: boolean; // Strip <think></think> tags and excess whitespace
+  /** JSON Schema file the final answer of a headless run must conform to. */
+  outputSchema?: string;
+  /** Model rounds allowed per turn before the turn is cut short. */
+  maxSteps?: number;
+  /** Seconds a headless request may run before it is cut short; 0 disables. */
+  requestTimeout?: number;
+}
+
+export async function initializeChatHistory(
+  options: ChatOptions,
+): Promise<ChatHistoryItem[]> {
+  let session: Session | null = null;
+
+  // Fork from an existing session if --fork flag is used
+  if (options.fork) {
+    const { loadSessionById, startNewSession } =
+      await import("../session/index.js");
+    const sessionToFork = loadSessionById(options.fork);
+    if (sessionToFork) {
+      logger.info(chalk.yellow(t("chat.forking")));
+      const newSession = startNewSession(sessionToFork.history);
+      return newSession.history;
+    } else {
+      logger.error(chalk.red(`Session with ID "${options.fork}" not found.`));
+      await gracefulExit(1);
+    }
+  }
+
+  // Load previous session if --resume flag is used
+  if (options.resume) {
+    session = loadSession();
+    if (session) {
+      logger.info(chalk.yellow(t("chat.resuming")));
+      return session.history;
+    } else {
+      logger.info(chalk.yellow(t("chat.noPreviousSession")));
+    }
+  }
+
+  return [];
+}
+
+// Helper function to handle manual compaction
+async function handleManualCompaction(
+  chatHistory: ChatHistoryItem[],
+  model: ModelConfig,
+  llmApi: BaseLlmApi,
+  isHeadless: boolean,
+): Promise<{ compactionIndex?: number | null } | void> {
+  if (!isHeadless) {
+    console.info(chalk.yellow(t("chat.compacting")));
+  }
+
+  try {
+    const result = await compactHistoryOnce(
+      services.chatHistory.getHistory(),
+      model,
+      llmApi,
+      (compacted, compactionIndex) =>
+        services.chatHistory.compact(compacted, compactionIndex),
+    );
+
+    if (isHeadless) {
+      safeStdout(
+        JSON.stringify({
+          status: "success",
+          message: "Chat history compacted",
+          historyLength: services.chatHistory.getHistory().length,
+        }) + "\n",
+      );
+    } else {
+      console.info(chalk.green(t("chat.compacted")));
+    }
+
+    return { compactionIndex: result.compactionIndex };
+  } catch (error) {
+    const errorMsg = `Compaction error: ${formatError(error)}`;
+    if (isHeadless) {
+      safeStdout(JSON.stringify({ status: "error", message: errorMsg }) + "\n");
+    } else {
+      console.error(chalk.red(errorMsg));
+    }
+    return;
+  }
+}
+
+// Helper function to get streaming response based on compaction state
+async function getStreamingResponse(
+  compactionIndex: number | null | undefined,
+  model: ModelConfig,
+  llmApi: BaseLlmApi,
+  turnBudgetLimits?: Partial<TurnBudgetLimits>,
+  extraCallbacks?: StreamCallbacks,
+  timeoutSeconds?: number,
+): Promise<{
+  text: string;
+  deadlineSeconds: number;
+  timedOut: boolean;
+  terminationReason?: TerminationReason;
+  terminationNotice?: string;
+}> {
+  const abortController = new AbortController();
+  // Captured rather than logged: a truncated turn still returns usable text, so
+  // the caller has to know to label it as incomplete and exit accordingly.
+  let truncationNotice: string | undefined;
+  let terminationReason: TerminationReason | undefined;
+  const callbacks: StreamCallbacks = {
+    ...extraCallbacks,
+    onTurnTerminated: (reason, detail) => {
+      terminationReason = reason;
+      truncationNotice = detail?.notice;
+      extraCallbacks?.onTurnTerminated?.(reason, detail);
+    },
+  };
+
+  const history =
+    compactionIndex !== null && compactionIndex !== undefined
+      ? services.chatHistory.getHistoryForLLM(compactionIndex)
+      : services.chatHistory.getHistory();
+
+  // The flag wins over the environment setting; neither present, the default binds.
+  const deadlineSeconds =
+    timeoutSeconds ?? resolveTimeoutSeconds(process.env.TNT_HEADLESS_TIMEOUT);
+  let timedOut = false;
+  const cancelTimeout = armTimeout(abortController, deadlineSeconds, () => {
+    timedOut = true;
+  });
+
+  let response: string;
+  try {
+    // The turn controller pulls in the tool registry and the codebase index,
+    // which is tens of megabytes; loading it here keeps the interactive first
+    // paint from paying for a graph only an actual turn needs.
+    const { runAgentTurn } = await import("../session/controller.js");
+    response = await runAgentTurn({
+      chatHistory: history,
+      model,
+      llmApi,
+      abortController,
+      callbacks,
+      turnBudgetLimits,
+    });
+  } finally {
+    cancelTimeout();
+  }
+
+  if (timedOut) {
+    safeStderr(`\n[${t("chat.timedOut", { seconds: deadlineSeconds })}]\n`);
+  }
+
+  if (truncationNotice) {
+    safeStderr(`\n[${truncationNotice}]\n`);
+  }
+
+  return {
+    text: response,
+    deadlineSeconds,
+    timedOut,
+    terminationReason,
+    terminationNotice: truncationNotice,
+  };
+}
+
+// Helper function to process and output response in headless mode
+function processAndOutputResponse(
+  finalResponse: string,
+  isHeadless: boolean,
+  silent?: boolean,
+  format?: OutputFormat,
+  boundedNotice?: string,
+): void {
+  // The event stream already carried the text, and the run ends with a result
+  // line that repeats the final answer; printing it again would leave a bare
+  // text line inside a stream every consumer parses line by line.
+  if (format === "stream-json") return;
+
+  if (isHeadless) {
+    let processedResponse = finalResponse;
+
+    // Strip think tags if --silent flag is enabled
+    if (silent) {
+      processedResponse = stripThinkTags(processedResponse);
+    }
+
+    if (format === "json") {
+      // A consumer pipes this format straight into a parser, so stdout is always
+      // one document; a bounded run says error inside it instead of going quiet.
+      safeStdout(
+        (boundedNotice
+          ? JSON.stringify({
+              response: processedResponse,
+              status: "error",
+              error: boundedNotice,
+            })
+          : processJsonOutput(processedResponse)) + "\n",
+      );
+    } else if (processedResponse && processedResponse.trim()) {
+      safeStdout(processedResponse + "\n");
+    }
+  }
+}
+
+// Helper function to handle auto-compaction for headless mode
+async function handleAutoCompaction(
+  chatHistory: ChatHistoryItem[],
+  model: ModelConfig,
+  llmApi: BaseLlmApi,
+  isHeadless: boolean,
+  format?: OutputFormat,
+): Promise<number | null> {
+  const { handleAutoCompaction: coreAutoCompaction } =
+    await import("../stream/streamChatResponse.autoCompaction.js");
+
+  // Custom callbacks for headless mode console output
+  const callbacks = {
+    onSystemMessage: (message: string) => {
+      if (
+        message.includes("Auto-compacting") ||
+        message.includes("Approaching")
+      ) {
+        if (!isHeadless) {
+          console.info(chalk.yellow(`\n${message}`));
+        } else if (format === "json") {
+          safeStdout(
+            JSON.stringify({
+              status: "info",
+              message: "Auto-compacting triggered",
+              contextUsage:
+                calculateContextUsagePercentage(
+                  countChatHistoryTokens(
+                    services.chatHistory.getHistory(),
+                    model,
+                  ),
+                  model,
+                ) + "%",
+            }) + "\n",
+          );
+        }
+      } else if (message.includes("✓")) {
+        if (!isHeadless) {
+          console.info(chalk.green(message));
+        } else if (format === "json") {
+          // Omit history length here; service updates occur after compaction completes
+          safeStdout(
+            JSON.stringify({
+              status: "success",
+              message: "Auto-compacted successfully",
+            }) + "\n",
+          );
+        }
+      } else if (message.includes("Warning:")) {
+        if (!isHeadless) {
+          console.error(chalk.red(message));
+          console.info(chalk.yellow(t("chat.compactionSkipped")));
+        } else if (format === "json") {
+          safeStdout(
+            JSON.stringify({
+              status: "warning",
+              message: "Auto-compaction failed, continuing without compaction",
+            }) + "\n",
+          );
+        }
+      }
+    },
+  };
+
+  const result = await coreAutoCompaction(
+    services.chatHistory.getHistory(),
+    model,
+    llmApi,
+    {
+      isHeadless,
+      format,
+      callbacks,
+    },
+  );
+
+  // Update service-driven history
+  services.chatHistory.setHistory(result.chatHistory);
+
+  return result.compactionIndex;
+}
+
+/**
+ * Helper to generate and update session title after first assistant response
+ */
+async function handleTitleGeneration(
+  assistantResponse: string,
+  llmApi: BaseLlmApi,
+  model: ModelConfig,
+): Promise<void> {
+  try {
+    if (!assistantResponse) return;
+
+    const generatedTitle = await ChatDescriber.describeWithBaseLlmApi(
+      llmApi,
+      model,
+      assistantResponse,
+    );
+
+    if (generatedTitle) {
+      updateSessionTitle(generatedTitle);
+      logger.debug("Generated session title:", generatedTitle);
+    }
+  } catch (error) {
+    // Don't fail the response if title generation fails
+    logger.debug("Session title generation failed:", error);
+  }
+}
+
+interface ProcessMessageOptions {
+  userInput: string;
+  chatHistory: ChatHistoryItem[];
+  model: ModelConfig;
+  llmApi: BaseLlmApi;
+  isHeadless: boolean;
+  format?: OutputFormat;
+  silent?: boolean;
+  compactionIndex?: number | null;
+  firstAssistantResponse?: boolean;
+  /** Parsed JSON Schema the final answer must conform to. */
+  outputSchema?: unknown;
+  /** Passed through to the loop so a turn can be capped from the CLI. */
+  maxSteps?: number;
+  /** Resolved headless deadline in seconds; undefined lets the env setting decide. */
+  timeoutSeconds?: number;
+}
+
+/**
+ * One bounded repair call for an answer that does not match --output-schema.
+ * It is a side call like the title request: it does not enter the session
+ * history, because the transcript records what the model said, not what the
+ * schema check made of it.
+ */
+async function requestSchemaRepair(
+  llmApi: BaseLlmApi,
+  model: ModelConfig,
+  invalidText: string,
+  errors: string[],
+  schema: unknown,
+): Promise<string> {
+  const response = await llmApi.chatCompletionNonStream(
+    {
+      model: model.model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You fix JSON responses so that they conform to a JSON Schema. Reply with only the corrected JSON document.",
+        },
+        {
+          role: "user",
+          content: `JSON Schema:\n${JSON.stringify(schema, null, 2)}\n\nResponse to fix:\n${invalidText}\n\nProblems found:\n${errors.map((error) => `- ${error}`).join("\n")}`,
+        },
+      ],
+      stream: false,
+    },
+    new AbortController().signal,
+  );
+  return response.choices?.[0]?.message?.content ?? "";
+}
+
+async function processMessage(options: ProcessMessageOptions): Promise<{
+  compactionIndex?: number | null;
+  finalText?: string;
+  boundedNotice?: string;
+  terminationReason?: TerminationReason;
+} | void> {
+  const {
+    userInput,
+    chatHistory,
+    model,
+    llmApi,
+    isHeadless,
+    format,
+    silent,
+    compactionIndex: initialCompactionIndex,
+    firstAssistantResponse = false,
+    outputSchema,
+    maxSteps,
+    timeoutSeconds,
+  } = options;
+  let compactionIndex = initialCompactionIndex;
+  let prompt = userInput;
+
+  // A prompt that starts with a slash is a command, not text. The terminal has
+  // always dispatched these; a headless run that asks for /help or /cost should
+  // get the answer instead of a model call about the word. The commands whose
+  // result needs a picker are reported rather than silently swallowed.
+  const assistant = services.config.getState().config;
+  if (assistant) {
+    const commandResult = await handleSlashCommands(prompt, assistant);
+    if (commandResult) {
+      const outcome = classifySlashResult(commandResult);
+      switch (outcome.kind) {
+        case "compact":
+          return handleManualCompaction(chatHistory, model, llmApi, isHeadless);
+        case "clear":
+          services.chatHistory.clear();
+          return { finalText: t("chat.commandCleared") };
+        case "exit":
+          return { finalText: t("session.goodbye") };
+        case "print":
+          return { finalText: outcome.output };
+        case "prompt":
+          prompt = outcome.prompt;
+          break;
+        case "unsupported":
+          return {
+            finalText: t("chat.commandNeedsTui", { command: prompt.trim() }),
+          };
+      }
+    }
+  }
+
+  // Track user prompt
+  telemetryService.logUserPrompt(prompt.length, prompt);
+
+  // Check if auto-compacting is needed BEFORE adding user message
+  // The handleAutoCompaction function decides whether compaction is actually needed
+  const autoCompactionResult = await handleAutoCompaction(
+    chatHistory,
+    model,
+    llmApi,
+    isHeadless,
+    format,
+  );
+  if (autoCompactionResult !== null) {
+    compactionIndex = autoCompactionResult;
+    // Service already updated in handleAutoCompaction via setHistory
+  }
+
+  // Add user message to history AFTER potential compaction. A `@path` in the
+  // prompt is the user pointing at code, so it is expanded into context here -
+  // otherwise `tnt -p "@src/x.ts why does this fail"` leaves the model reading
+  // a literal token.
+  services.chatHistory.addUserMessage(
+    prompt,
+    expandMentions(prompt).contextItems,
+  );
+
+  // Get AI response with potential tool usage
+  if (!isHeadless) {
+    console.info(`\n${chalk.bold.blue("Assistant:")}`);
+  }
+
+  // In stream-json mode every notable event becomes one NDJSON line as it
+  // happens, so a CI job can follow the run instead of reading one blob.
+  const streamJsonCallbacks =
+    format === "stream-json"
+      ? createStreamJsonCallbacks((line) => safeStdout(line))
+      : undefined;
+
+  try {
+    // Get AI response with potential tool usage
+    const streamed = await getStreamingResponse(
+      compactionIndex,
+      model,
+      llmApi,
+      maxSteps === undefined ? undefined : { maxSteps },
+      streamJsonCallbacks,
+      timeoutSeconds,
+    );
+    let finalResponse = streamed.text;
+    // A bounded run is one that did not end normally: the wall clock fired,
+    // or the loop stopped for one of its own reasons. The timeout text stays
+    // the specific one; any other truncation reuses the notice the stream
+    // already printed to stderr.
+    const truncated =
+      streamed.timedOut ||
+      (streamed.terminationReason !== undefined &&
+        !isNormalTermination(streamed.terminationReason));
+    const boundedNotice = streamed.timedOut
+      ? t("chat.timedOut", { seconds: streamed.deadlineSeconds })
+      : truncated
+        ? (streamed.terminationNotice ??
+          describeTermination(streamed.terminationReason!, { maxSteps }))
+        : undefined;
+
+    // A run asked for a schema-shaped answer is not done until the answer
+    // matches it: one repair round, and then the run fails instead of
+    // printing something the caller said it cannot accept. A bounded run has
+    // already been given up on, and both this and the title below would spend
+    // model calls after the deadline has fired - unbounded work behind a bound.
+    if (!truncated && outputSchema !== undefined && finalResponse.trim()) {
+      finalResponse = await enforceOutputSchema(
+        finalResponse,
+        outputSchema,
+        (invalidText, errors) =>
+          requestSchemaRepair(llmApi, model, invalidText, errors, outputSchema),
+      );
+    }
+
+    // Generate session title after first assistant response
+    if (
+      !truncated &&
+      firstAssistantResponse &&
+      finalResponse &&
+      finalResponse.trim()
+    ) {
+      await handleTitleGeneration(finalResponse, llmApi, model);
+    }
+
+    // Process and output response in headless mode
+    processAndOutputResponse(
+      finalResponse,
+      isHeadless,
+      silent,
+      format,
+      boundedNotice,
+    );
+
+    // Save session after each successful response
+    updateSessionHistory(services.chatHistory.getHistory());
+
+    return {
+      finalText: finalResponse,
+      boundedNotice,
+      terminationReason: streamed.terminationReason,
+    };
+  } catch (e: any) {
+    const error = e instanceof Error ? e : new Error(String(e));
+
+    // In headless mode, don't output JSON here - let error bubble up to main handler
+    if (!isHeadless) {
+      // Non-headless mode: use colored console output
+      if (model.provider === "anthropic") {
+        logger.error(`\n${chalk.red(`Error: ${formatAnthropicError(error)}`)}`);
+      } else {
+        logger.error(`\n${chalk.red(`Error: ${formatError(error)}`)}`);
+      }
+
+      logger.info(
+        chalk.dim(
+          `Chat history:\n${JSON.stringify(
+            services.chatHistory.getHistory(),
+            null,
+            2,
+          )}`,
+        ),
+      );
+    }
+
+    // In headless mode, re-throw the error to bubble up to main error handler
+    // This preserves downstream logic like telemetry cleanup
+    if (isHeadless) {
+      throw error;
+    }
+  }
+}
+
+async function runHeadlessMode(
+  prompt: string | undefined,
+  options: ChatOptions,
+): Promise<void> {
+  // Initialize services for headless mode
+  const { permissionOverrides, warnings } = processCommandFlags(
+    options,
+    loadSettings().defaultMode,
+  );
+  for (const warning of warnings) console.warn(warning);
+
+  // Loaded before the services start so a bad file fails in seconds instead of
+  // after a model was picked and a session was set up.
+  const outputSchema = options.outputSchema
+    ? loadOutputSchema(options.outputSchema)
+    : undefined;
+  const schemaNote =
+    outputSchema === undefined
+      ? undefined
+      : describeSchemaForPrompt(outputSchema);
+
+  await initializeServices({
+    options,
+    headless: true,
+    toolPermissionOverrides: permissionOverrides,
+  });
+
+  // Get required services from the service container
+  const modelState = await serviceContainer.get<ModelServiceState>(
+    SERVICE_NAMES.MODEL,
+  );
+  const { llmApi, model } = modelState;
+
+  if (!model) {
+    throw new Error(t("cli.noModelsFound"));
+  }
+
+  if (!llmApi) {
+    throw new Error(t("cli.noApiClient"));
+  }
+
+  // Initialize service-driven history (resume if requested)
+  const chatHistory = await initializeChatHistory(options);
+  let compactionIndex: number | null = null;
+  if (options.resume || options.fork) {
+    services.chatHistory.setHistory(chatHistory);
+    compactionIndex = findCompactionIndex(chatHistory);
+  }
+
+  // The lifecycle hooks fire in headless runs too, so a CI job's hooks.json
+  // sees the same events the TUI fires.
+  await fireSessionStart(
+    options.resume ? "resume" : "startup",
+    model.model,
+  ).catch(() => {});
+
+  // Handle additional prompts from --prompt flags
+  const { processAndCombinePrompts } =
+    await import("../utils/promptProcessor.js");
+  const agentFileState = await serviceContainer.get<AgentFileServiceState>(
+    SERVICE_NAMES.AGENT_FILE,
+  );
+
+  const initialPrompt = prependPrompt(
+    agentFileState?.agentFile?.prompt,
+    prompt,
+  );
+  const initialUserInput = await processAndCombinePrompts(
+    options.prompt,
+    initialPrompt,
+  );
+
+  // Critical validation: Ensure we have actual prompt text in headless mode
+  // This prevents the CLI from hanging in TTY-less environments when question() is called
+  // We check AFTER processing all prompts (including agent files) to ensure we have real content
+  // EXCEPTION: Allow empty prompts when resuming/forking since they may just want to view history
+  if (!initialUserInput || !initialUserInput.trim()) {
+    // If resuming or forking, allow empty prompt - just exit successfully after showing history
+    if (options.resume || options.fork) {
+      // For resume/fork with no new input, we've already loaded the history above
+      // Just exit successfully (the history was already loaded into chatHistory)
+      if (options.format === "stream-json") {
+        safeStdout(streamJsonResultLine("", getSessionUsage()));
+      }
+      await fireSessionEnd("other").catch(() => {});
+      // Nothing was ever requested here, so nothing was bounded.
+      await gracefulExit(0);
+      return;
+    }
+
+    throw new Error(t("cli.headlessNeedsPrompt"));
+  }
+
+  let isFirstMessage = true;
+  // The final text after any schema repair, so the result line and the Stop
+  // hook report the answer that was actually accepted.
+  let acceptedText: string | undefined;
+  let boundedNotice: string | undefined;
+  let terminationReason: TerminationReason | undefined;
+  while (true) {
+    // When in headless mode, don't ask for user input
+    if (!isFirstMessage && initialUserInput && options.headless) {
+      break;
+    }
+
+    // Get user input
+    const userInput =
+      isFirstMessage && initialUserInput
+        ? initialUserInput
+        : await question(`\n${chalk.bold.green("You:")} `);
+
+    const isFirstTurn = isFirstMessage;
+    isFirstMessage = false;
+
+    // A UserPromptSubmit hook can block the prompt or prepend context, the
+    // same contract the TUI honors.
+    let effectiveInput = userInput;
+    const promptHook = await fireUserPromptSubmit(userInput).catch(() => null);
+    if (promptHook?.blocked) {
+      safeStderr(
+        `Error: ${promptHook.blockReason ?? t("chat.blockedByPromptHook")}\n`,
+      );
+      await fireSessionEnd("other").catch(() => {});
+      await gracefulExit(1);
+      return;
+    }
+    // The session note leads, then the prompt note, then the files that moved:
+    // all three are context for the model, and the user's own text stays last.
+    const hookNotes = [
+      takeSessionStartContext(),
+      promptHook?.additionalContext,
+      describeChangedFiles(),
+      describeContextBudget(chatHistory, model),
+      runtimeContextNote({ model }),
+      schemaNote,
+    ];
+    effectiveInput = composeServedPrompt(
+      userInput,
+      hookNotes.filter((note): note is string => Boolean(note)),
+    );
+
+    const result = await processMessage({
+      userInput: effectiveInput,
+      chatHistory,
+      model,
+      llmApi,
+      isHeadless: true,
+      format: options.format,
+      silent: options.silent,
+      compactionIndex,
+      firstAssistantResponse: isFirstTurn && !options.resume, // Only generate title for new conversations
+      outputSchema,
+      maxSteps: options.maxSteps,
+      timeoutSeconds: options.requestTimeout,
+    });
+
+    // Update compaction index if compaction occurred
+    if (result && result.compactionIndex !== undefined) {
+      compactionIndex = result.compactionIndex;
+    }
+    if (result && result.finalText !== undefined) {
+      acceptedText = result.finalText;
+    }
+    if (result?.boundedNotice) {
+      boundedNotice = result.boundedNotice;
+    }
+    if (result?.terminationReason !== undefined) {
+      terminationReason = result.terminationReason;
+    }
+  }
+
+  const lastAssistant = services.chatHistory
+    .getHistory()
+    .filter((item) => item.message.role === "assistant")
+    .at(-1);
+  const lastAssistantText =
+    lastAssistant && typeof lastAssistant.message.content === "string"
+      ? lastAssistant.message.content
+      : undefined;
+  const answeredText = acceptedText ?? lastAssistantText;
+  if (options.format === "stream-json") {
+    safeStdout(
+      boundedNotice
+        ? streamJsonErrorLine(boundedNotice)
+        : streamJsonResultLine(answeredText ?? "", getSessionUsage()),
+    );
+  }
+  await fireStop(answeredText).catch(() => {});
+  await fireSessionEnd("other").catch(() => {});
+  // A `notify` command in the settings cascade learns the turn is done, with
+  // the same payload Codex hands its notifier. It cannot fail the run.
+  await runCompletionNotify(answeredText ?? "");
+
+  // Exit after headless mode completes; a bounded run is a failed run, and the
+  // status comes from the reason so every truncation is reported the same way.
+  await gracefulExit(exitCodeForTermination(terminationReason));
+}
+
+export async function chat(prompt?: string, options: ChatOptions = {}) {
+  // Silence console.info for callers that bypass the CLI entry point
+  suppressConsoleInfo(options.headless ?? false);
+
+  // Configure headless-aware logging system
+  logging.configureLogger({ headless: options.headless ?? false });
+
+  try {
+    // Record session start
+    telemetryService.recordSessionStart();
+
+    // Start active time tracking
+    telemetryService.startActiveTime();
+
+    // Critical routing: Explicit separation of headless and interactive modes
+    if (options.headless) {
+      // Headless path - no Ink, no TUI, works in TTY-less environments
+      logger.debug("Running in headless mode (TTY-less compatible)");
+      await runHeadlessMode(prompt, options);
+      return;
+    }
+
+    // Interactive path - requires TTY for Ink rendering
+    // If not in headless mode, use unified initialization with TUI
+    if (!options.headless) {
+      // Process flags for TUI mode
+      const { permissionOverrides, warnings } = processCommandFlags(
+        options,
+        loadSettings().defaultMode,
+      );
+      for (const warning of warnings) console.warn(warning);
+      // Initialize services with onboarding handled internally
+      await initializeServices({
+        options,
+        headless: false,
+        toolPermissionOverrides: permissionOverrides,
+      });
+
+      const agentFileState = await serviceContainer.get<AgentFileServiceState>(
+        SERVICE_NAMES.AGENT_FILE,
+      );
+
+      const initialPrompt = prependPrompt(
+        agentFileState?.agentFile?.prompt,
+        prompt,
+      );
+
+      // Start TUI with skipOnboarding since we already handled it
+      const tuiOptions: StartTUIChatOptions & {
+        customStdin?: NodeJS.ReadStream;
+      } = {
+        initialPrompt,
+        resume: options.resume,
+        sessionId: options.sessionId,
+        fork: options.fork,
+        maxSteps: options.maxSteps,
+        config: options.config,
+        org: options.org,
+        rule: options.rule,
+        prompt: options.prompt,
+        toolPermissionOverrides: permissionOverrides,
+        skipOnboarding: true,
+      };
+
+      // If we detected piped input, create a custom stdin for TUI
+      if ((options as any).hasPipedInput) {
+        const fs = await import("fs");
+        const { ReadStream } = await import("tty");
+        const ttyFd = fs.openSync("/dev/tty", "r");
+        const customStdin = new ReadStream(ttyFd);
+        tuiOptions.customStdin = customStdin;
+        logger.debug("Created custom TTY stdin for TUI mode");
+      }
+
+      await startTUIChat(tuiOptions);
+      return;
+    }
+
+    // Run headless mode
+    await runHeadlessMode(prompt, options);
+  } catch (error: any) {
+    const err = error instanceof Error ? error : new Error(String(error));
+
+    // In headless mode, output error as JSON to stdout
+    if (options.headless) {
+      const errorOutput = {
+        status: "error",
+        message: err.message || String(err),
+      };
+      safeStderr(JSON.stringify(errorOutput) + "\n");
+      if (options.format === "stream-json") {
+        // A stream-json consumer reads stdout, so the event stream ends with a
+        // failed result line rather than stopping mid-stream.
+        safeStdout(streamJsonErrorLine(err.message || String(err)));
+      }
+    } else {
+      // Use headless-aware error logging for non-headless mode
+      logging.error(chalk.red(`Fatal error: ${formatError(err)}`));
+    }
+
+    // Stop active time tracking BEFORE graceful exit
+    telemetryService.stopActiveTime();
+
+    await gracefulExit(1);
+  } finally {
+    // Stop active time tracking for normal completion
+    telemetryService.stopActiveTime();
+  }
+}

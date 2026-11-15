@@ -3,6 +3,7 @@ import { ChatCompletionCreateParams } from "openai/resources/index";
 import { OpenAIConfig } from "../types.js";
 import { OpenAIApi } from "./OpenAI.js";
 import { applyAnthropicCachingToOpenRouterBody } from "./OpenRouterCaching.js";
+import { resolveCachePolicy } from "./cachePolicy.js";
 
 export interface OpenRouterConfig extends OpenAIConfig {
   cachingStrategy?: import("./AnthropicCachingStrategies.js").CachingStrategyName;
@@ -11,8 +12,8 @@ export interface OpenRouterConfig extends OpenAIConfig {
 // TODO: Extract detailed error info from OpenRouter's error.metadata.raw to surface better messages
 
 export const OPENROUTER_HEADERS: Record<string, string> = {
-  "HTTP-Referer": "https://www.continue.dev/",
-  "X-OpenRouter-Title": "Continue",
+  "HTTP-Referer": "https://github.com/linanwanttodo/TNT",
+  "X-OpenRouter-Title": "TNT",
   "X-OpenRouter-Categories": "ide-extension",
 };
 
@@ -46,9 +47,23 @@ export class OpenRouterApi extends OpenAIApi {
       return modifiedBody;
     }
 
+    const cachePolicy = resolveCachePolicy(
+      "openrouter",
+      modifiedBody.model,
+      this.apiBase,
+    );
+    if (cachePolicy.retention === "none") {
+      return modifiedBody;
+    }
+
     applyAnthropicCachingToOpenRouterBody(
       modifiedBody as unknown as ChatCompletionCreateParams,
       (this.config as OpenRouterConfig).cachingStrategy ?? "systemAndTools",
+      cachePolicy.mode === "explicit" &&
+        cachePolicy.retention === "long" &&
+        cachePolicy.supportsLongRetention
+        ? "1h"
+        : undefined,
     );
 
     return modifiedBody;

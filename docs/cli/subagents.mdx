@@ -1,0 +1,59 @@
+---
+title: "Subagents"
+description: "Delegate a task to a child agent that runs on the same engine."
+---
+
+A subagent runs a task in its own session while the parent keeps working. It uses
+the same engine, the same models and the same permission modes as the parent.
+
+<Info>
+The Subagent tool is behind the `--beta-subagent-tool` flag while the delegation
+surface settles.
+</Info>
+
+## Built-in roles
+
+Nine roles ship with the CLI. Each one carries its own system message and its
+own restriction, and runs on whatever model the session is using. `ListSubagents`
+shows the same list to the model.
+
+| Role              | What it does                                                                                   | Cannot                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `verification`    | Runs the build, tests and linters, then tries to break the change; answers PASS/FAIL/PARTIAL    | Edit files                               |
+| `explore`         | Maps how a question is answered by the code, with `file:line` evidence                          | Edit files, run commands                 |
+| `debug`           | Reproduces a failure, narrows it to a root cause, returns the smallest fix and how to check it  | Edit files                               |
+| `security-review` | Reviews a change for injection, authorization, secrets, unsafe file operations and SSRF         | Edit files                               |
+| `shell`           | Runs the commands a task needs and reports each with its exit code and output                   | Edit files                               |
+| `ci-investigator` | Reads a failing run, names the job, step and first error, and maps it to the code or the runner | Edit files, reach a forge it cannot see  |
+| `browser`         | Inspects a page in the open browser: layout, visibility, interaction                            | Edit files; read the DOM, console or network |
+| `best-of-n`       | Writes two or three candidate solutions as diff sketches and ranks them                         | Edit files, run commands                 |
+| `research`        | Gathers web and workspace information and reports findings with cited sources                   | Edit files                               |
+
+Every role is declared without `AskQuestion` and `Exit`: a delegated run has
+nobody watching it to answer a prompt, and `Exit` would end the process the
+result is being reported to.
+
+## Watching and returning
+
+```
+/subagents
+```
+
+lists the sessions delegated from the current one.
+
+```
+/back
+```
+
+returns to the parent session. Delegated transcripts open read only: the child
+session can be inspected, but edits happen in the session that owns the work, so
+two agents cannot rewrite the same conversation.
+
+## Cache behaviour
+
+A subagent inherits the parent prompt cache key, so the shared prefix is served
+from cache instead of being paid for again. Nested delegation is deliberately
+kept shallow: allowing children to fan out further multiplies cache writes, and
+the saving from reuse is lost. If a delegated task needs more parallelism, that
+is a sign the work should be split into two delegated tasks from the parent
+instead.

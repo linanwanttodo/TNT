@@ -180,14 +180,7 @@ export async function getQueryForFile(
     return undefined;
   }
 
-  const sourcePath = path.join(
-    process.env.NODE_ENV === "test" ? process.cwd() : __dirname,
-    "..",
-    ...(process.env.NODE_ENV === "test"
-      ? ["extensions", "vscode", "tree-sitter"]
-      : ["tree-sitter"]),
-    queryPath,
-  );
+  const sourcePath = resolveQueryPath(queryPath);
   if (!fs.existsSync(sourcePath)) {
     return undefined;
   }
@@ -195,6 +188,27 @@ export async function getQueryForFile(
 
   const query = language.query(querySource);
   return query;
+}
+
+function resolveQueryPath(queryPath: string): string {
+  const candidates = [
+    path.join(__dirname, "..", "indexing", "tree-sitter-queries", queryPath),
+    path.join(
+      process.cwd(),
+      "core",
+      "indexing",
+      "tree-sitter-queries",
+      queryPath,
+    ),
+    path.join(process.cwd(), "indexing", "tree-sitter-queries", queryPath),
+    path.join(__dirname, "..", "tree-sitter", queryPath),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0];
 }
 
 async function loadLanguageForFileExt(

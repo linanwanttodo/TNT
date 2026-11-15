@@ -3,23 +3,23 @@ import { walkDirCache } from "../indexing/walkDir";
 import { testIde } from "../test/fixtures";
 import { addToTestDir, setUpTestDir, tearDownTestDir } from "../test/testDir";
 import {
-  getAllDotContinueDefinitionFiles,
+  getAllDotTntDefinitionFiles,
   LoadAssistantFilesOptions,
 } from "./loadLocalAssistants";
-describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", () => {
+describe("ASSISTANTS getAllDotTntDefinitionFiles with fileExtType option", () => {
   beforeEach(() => {
     setUpTestDir();
     walkDirCache.invalidate();
 
     // Add test files to the test directory
     addToTestDir([
-      ".continue/assistants/",
-      [".continue/assistants/assistant1.yaml", "yaml content 1"],
-      [".continue/assistants/assistant2.yml", "yaml content 2"],
-      [".continue/assistants/assistant3.md", "markdown content 1"],
-      [".continue/assistants/assistant4.txt", "txt content"],
-      [".continue/assistants/config.yaml", "txt content"],
-      [".continue/assistants/config.yml", "txt content"],
+      ".tnt/assistants/",
+      [".tnt/assistants/assistant1.yaml", "yaml content 1"],
+      [".tnt/assistants/assistant2.yml", "yaml content 2"],
+      [".tnt/assistants/assistant3.md", "markdown content 1"],
+      [".tnt/assistants/assistant4.txt", "txt content"],
+      [".tnt/assistants/config.yaml", "txt content"],
+      [".tnt/assistants/config.yml", "txt content"],
     ]);
   });
 
@@ -35,7 +35,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "assistants",
@@ -61,7 +61,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "markdown",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "assistants",
@@ -91,7 +91,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       // fileExtType not specified
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "assistants",
@@ -120,7 +120,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "yaml",
     };
 
-    const noWorkspaceResult = await getAllDotContinueDefinitionFiles(
+    const noWorkspaceResult = await getAllDotTntDefinitionFiles(
       testIde,
       workspaceOffOptions,
       "assistants",
@@ -134,7 +134,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "yaml",
     };
 
-    const workspaceResult = await getAllDotContinueDefinitionFiles(
+    const workspaceResult = await getAllDotTntDefinitionFiles(
       testIde,
       workspaceOnOptions,
       "assistants",
@@ -156,9 +156,9 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
     walkDirCache.invalidate();
     setUpTestDir();
     addToTestDir([
-      ".continue/assistants/",
-      [".continue/assistants/nonmatch1.txt", "txt content"],
-      [".continue/assistants/nonmatch2.json", "json content"],
+      ".tnt/assistants/",
+      [".tnt/assistants/nonmatch1.txt", "txt content"],
+      [".tnt/assistants/nonmatch2.json", "json content"],
     ]);
 
     const options: LoadAssistantFilesOptions = {
@@ -168,7 +168,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "assistants",
@@ -187,7 +187,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "assistants",
@@ -202,7 +202,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "assistants",
@@ -215,9 +215,9 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
   it("should filter by file extension case sensitively", async () => {
     // Add files with uppercase extensions
     addToTestDir([
-      [".continue/assistants/assistant5.YAML", "uppercase yaml"],
-      [".continue/assistants/assistant6.YML", "uppercase yml"],
-      [".continue/assistants/assistant7.MD", "uppercase md"],
+      [".tnt/assistants/assistant5.YAML", "uppercase yaml"],
+      [".tnt/assistants/assistant6.YML", "uppercase yml"],
+      [".tnt/assistants/assistant7.MD", "uppercase md"],
     ]);
 
     const yamlOptions: LoadAssistantFilesOptions = {
@@ -226,7 +226,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "yaml",
     };
 
-    const yamlResult = await getAllDotContinueDefinitionFiles(
+    const yamlResult = await getAllDotTntDefinitionFiles(
       testIde,
       yamlOptions,
       "assistants",
@@ -251,7 +251,7 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
       fileExtType: "markdown",
     };
 
-    const markdownResult = await getAllDotContinueDefinitionFiles(
+    const markdownResult = await getAllDotTntDefinitionFiles(
       testIde,
       markdownOptions,
       "assistants",
@@ -266,18 +266,18 @@ describe("ASSISTANTS getAllDotContinueDefinitionFiles with fileExtType option", 
   });
 });
 
-describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () => {
+describe("AGENTS getAllDotTntDefinitionFiles with fileExtType option", () => {
   beforeEach(() => {
     setUpTestDir();
     walkDirCache.invalidate();
 
     // Add test files to the test directory
     addToTestDir([
-      ".continue/agents/",
-      [".continue/agents/agent1.yaml", "yaml content 1"],
-      [".continue/agents/agent2.yml", "yaml content 2"],
-      [".continue/agents/agent3.md", "markdown content 1"],
-      [".continue/agents/agent4.txt", "txt content"],
+      ".tnt/agents/",
+      [".tnt/agents/agent1.yaml", "yaml content 1"],
+      [".tnt/agents/agent2.yml", "yaml content 2"],
+      [".tnt/agents/agent3.md", "markdown content 1"],
+      [".tnt/agents/agent4.txt", "txt content"],
     ]);
   });
 
@@ -293,7 +293,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "agents",
@@ -314,7 +314,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "markdown",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "agents",
@@ -336,7 +336,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       // fileExtType not specified
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "agents",
@@ -359,7 +359,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "yaml",
     };
 
-    const noWorkspaceResult = await getAllDotContinueDefinitionFiles(
+    const noWorkspaceResult = await getAllDotTntDefinitionFiles(
       testIde,
       workspaceOffOptions,
       "agents",
@@ -373,7 +373,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "yaml",
     };
 
-    const workspaceResult = await getAllDotContinueDefinitionFiles(
+    const workspaceResult = await getAllDotTntDefinitionFiles(
       testIde,
       workspaceOnOptions,
       "agents",
@@ -390,9 +390,9 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
     walkDirCache.invalidate();
     setUpTestDir();
     addToTestDir([
-      ".continue/agents/",
-      [".continue/agents/nonmatch1.txt", "txt content"],
-      [".continue/agents/nonmatch2.json", "json content"],
+      ".tnt/agents/",
+      [".tnt/agents/nonmatch1.txt", "txt content"],
+      [".tnt/agents/nonmatch2.json", "json content"],
     ]);
 
     const options: LoadAssistantFilesOptions = {
@@ -402,7 +402,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "agents",
@@ -421,7 +421,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "agents",
@@ -436,7 +436,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "yaml",
     };
 
-    const result = await getAllDotContinueDefinitionFiles(
+    const result = await getAllDotTntDefinitionFiles(
       testIde,
       options,
       "agents",
@@ -449,9 +449,9 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
   it("should filter by file extension case sensitively", async () => {
     // Add files with uppercase extensions
     addToTestDir([
-      [".continue/agents/agent5.YAML", "uppercase yaml"],
-      [".continue/agents/agent6.YML", "uppercase yml"],
-      [".continue/agents/agent7.MD", "uppercase md"],
+      [".tnt/agents/agent5.YAML", "uppercase yaml"],
+      [".tnt/agents/agent6.YML", "uppercase yml"],
+      [".tnt/agents/agent7.MD", "uppercase md"],
     ]);
 
     const yamlOptions: LoadAssistantFilesOptions = {
@@ -460,7 +460,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "yaml",
     };
 
-    const yamlResult = await getAllDotContinueDefinitionFiles(
+    const yamlResult = await getAllDotTntDefinitionFiles(
       testIde,
       yamlOptions,
       "agents",
@@ -480,7 +480,7 @@ describe("AGENTS getAllDotContinueDefinitionFiles with fileExtType option", () =
       fileExtType: "markdown",
     };
 
-    const markdownResult = await getAllDotContinueDefinitionFiles(
+    const markdownResult = await getAllDotTntDefinitionFiles(
       testIde,
       markdownOptions,
       "agents",

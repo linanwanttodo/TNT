@@ -106,6 +106,23 @@ export class SqliteDb {
 
     return SqliteDb.db;
   }
+
+  /**
+   * Close the cached connection so the database file can be deleted while
+   * the process lives on - a test suite cleaning its temporary home, or a
+   * caller re-pointing the global directory, cannot unlink an open handle.
+   */
+  static async close() {
+    const db = SqliteDb.db;
+    SqliteDb.db = null;
+    if (db) {
+      try {
+        await db.close();
+      } catch {
+        // Someone closed it already; the handle is gone either way.
+      }
+    }
+  }
 }
 
 async function getSavedItemsForTag(

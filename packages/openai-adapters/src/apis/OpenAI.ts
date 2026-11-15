@@ -1,4 +1,4 @@
-import { streamSse } from "@continuedev/fetch";
+import { streamSse } from "@tnt/fetch";
 import { OpenAI } from "openai/index";
 import {
   ChatCompletion,
@@ -17,7 +17,7 @@ import type {
 } from "openai/resources/responses/responses.js";
 import { z } from "zod";
 import { OpenAIConfigSchema } from "../types.js";
-import { customFetch } from "../util.js";
+import { customFetch, normalizeUsage } from "../util.js";
 import {
   BaseLlmApi,
   CreateRerankResponse,
@@ -45,12 +45,17 @@ export class OpenAIApi implements BaseLlmApi {
       apiKey: config.apiKey ?? "",
       baseURL: this.apiBase,
       fetch: customFetch(config.requestOptions),
-      timeout: config?.requestOptions?.timeout || undefined,
+      // requestOptions.timeout is in seconds (see packages/fetch getAgentOptions);
+      // the OpenAI SDK expects milliseconds.
+      timeout:
+        config?.requestOptions?.timeout === undefined
+          ? undefined
+          : config.requestOptions.timeout * 1000,
     });
   }
   modifyChatBody<T extends ChatCompletionCreateParams>(body: T): T {
     // Add stream_options to include usage in streaming responses
-    if (body.stream) {
+    if (body.stream && this.config.streamOptions !== false) {
       (body as any).stream_options = { include_usage: true };
     }
 
@@ -87,6 +92,16 @@ export class OpenAIApi implements BaseLlmApi {
     return body;
   }
 
+  /**
+   * The chat body forwards every message, so an appended system message arrives.
+   * The Responses route is not declared: its input items do not carry a system
+   * role in the same way, and an unverified claim is exactly what loses an
+   * instruction quietly.
+   */
+  carriesInHistorySystemMessages(model: string): boolean {
+    return !this.shouldUseResponsesEndpoint(model);
+  }
+
   protected shouldUseResponsesEndpoint(model: string): boolean {
     if (this.config.useResponsesApi === false) {
       return false;
@@ -97,8 +112,7 @@ export class OpenAIApi implements BaseLlmApi {
 
   modifyCompletionBody<
     T extends
-      | CompletionCreateParamsNonStreaming
-      | CompletionCreateParamsStreaming,
+      CompletionCreateParamsNonStreaming | CompletionCreateParamsStreaming,
   >(body: T): T {
     return body;
   }
@@ -140,7 +154,7 @@ export class OpenAIApi implements BaseLlmApi {
         signal,
       },
     );
-    return response;
+    return { ...response, usage: normalizeUsage(response.usage) };
   }
 
   async *chatCompletionStream(
@@ -164,7 +178,7 @@ export class OpenAIApi implements BaseLlmApi {
       // Check if this chunk contains usage information
       if (result.usage) {
         // Store it to emit after all content chunks
-        lastChunkWithUsage = result;
+        lastChunkWithUsage = { ...result, usage: normalizeUsage(result.usage) };
       } else {
         yield result;
       }

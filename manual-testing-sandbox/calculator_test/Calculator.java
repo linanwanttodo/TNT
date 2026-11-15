@@ -1,3 +1,5 @@
+package calculator_test;
+
 public class Calculator {
     public int myAddition(int a, int b, int c) {
         return a + b + c;

@@ -192,26 +192,20 @@ describe("OpenRouterApi Anthropic caching", () => {
 
       applyAnthropicCachingToOpenRouterBody(body, "systemAndTools");
 
+      // The policy is two breakpoints: the head of the prefix and the newest turn.
+      // When a request carries tools the head is the last tool - a breakpoint there
+      // covers the system block and every tool before it - so the system message
+      // goes back out as the string it arrived as and only the newest user turn
+      // keeps a marker of its own. Before this narrowing the same body shipped
+      // four: system, last tool, and the two newest user turns.
       expect(body.messages[0]).toEqual({
         role: "system",
-        content: [
-          {
-            type: "text",
-            text: "You are helpful",
-            cache_control: { type: "ephemeral" },
-          },
-        ],
+        content: "You are helpful",
       });
 
       const userMessages = body.messages.filter((m) => m.role === "user");
       expect(userMessages[0].content).toBe("Alpha");
-      expect(userMessages[1].content).toEqual([
-        {
-          type: "text",
-          text: "Beta",
-          cache_control: { type: "ephemeral" },
-        },
-      ]);
+      expect(userMessages[1].content).toBe("Beta");
       expect(userMessages[2].content).toEqual([
         {
           type: "text",

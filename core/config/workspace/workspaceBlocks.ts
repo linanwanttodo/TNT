@@ -4,10 +4,10 @@ import {
   createPromptMarkdown,
   createRuleMarkdown,
   sanitizeRuleName,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import * as YAML from "yaml";
 import { IDE } from "../..";
-import { getContinueGlobalPath } from "../../util/paths";
+import { getTntGlobalPath } from "../../util/paths";
 import { localPathToUri } from "../../util/pathToUri";
 import { joinPathsToUri } from "../../util/uri";
 
@@ -56,7 +56,7 @@ function getContentsForNewBlock(blockType: BlockType): ConfigYaml {
       configYaml.docs = [
         {
           name: "New docs",
-          startUrl: "https://docs.continue.dev",
+          startUrl: "https://github.com/linanwanttodo/TNT/tree/main/docs",
         },
       ];
       break;
@@ -67,16 +67,6 @@ function getContentsForNewBlock(blockType: BlockType): ConfigYaml {
           description: "New prompt",
           prompt:
             "Please write a thorough suite of unit tests for this code, making sure to cover all relevant edge cases",
-        },
-      ];
-      break;
-    case "mcpServers":
-      configYaml.mcpServers = [
-        {
-          name: "New MCP server",
-          command: "npx",
-          args: ["-y", "<your-mcp-server>"],
-          env: {},
         },
       ];
       break;
@@ -92,11 +82,41 @@ function getFileExtension(blockType: BlockType): string {
   return "yaml";
 }
 
+// The MCP server block starts out fully commented out on purpose: a server
+// entry with unreplaced placeholders would be spawned on every config load and
+// fail to connect, showing up as a broken server in the MCP list. The file is
+// picked up as soon as the user uncomments an entry below.
+function createMcpServerTemplate(): string {
+  return `name: New MCP server
+version: 0.0.1
+schema: v1
+
+# Add your MCP server below and delete the leading "#" characters.
+# Until then this file is ignored, so nothing is started or reported as broken.
+#
+# Local (stdio) server:
+# mcpServers:
+#   - name: my-mcp-server
+#     command: npx
+#     args:
+#       - -y
+#       - "@modelcontextprotocol/server-everything"
+#     env: {}
+#
+# Remote server:
+# mcpServers:
+#   - name: my-remote-server
+#     url: https://example.com/mcp
+`;
+}
+
 export function getFileContent(blockType: BlockType): string {
   if (blockType === "rules") {
     return createRuleMarkdown("New Rule", "Your rule content", {
       description: "A description of your rule",
     });
+  } else if (blockType === "mcpServers") {
+    return createMcpServerTemplate();
   } else if (blockType === "prompts") {
     return createPromptMarkdown(
       "New prompt",
@@ -166,7 +186,7 @@ export async function createNewWorkspaceBlockFile(
     );
   }
 
-  const baseDirUri = joinPathsToUri(workspaceDirs[0], `.continue/${blockType}`);
+  const baseDirUri = joinPathsToUri(workspaceDirs[0], `.tnt/${blockType}`);
 
   const fileUri = await findAvailableFilename(
     baseDirUri,
@@ -188,7 +208,7 @@ export async function createNewGlobalRuleFile(
   baseFilename?: string,
 ): Promise<void> {
   try {
-    const globalDir = localPathToUri(getContinueGlobalPath());
+    const globalDir = localPathToUri(getTntGlobalPath());
 
     // Create the rules subdirectory within the global directory
     const rulesDir = joinPathsToUri(globalDir, "rules");

@@ -1,0 +1,231 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import { describe, expect, it } from "vitest";
+
+/**
+ * `spec/tui.md` described the lower-left corner as the branch, then `owner/repo` when
+ * columns allowed and the directory was a GitHub checkout, then the cwd outside git.
+ * The shipped status bar has none of that: it shows the workspace name, the branch, the
+ * prefix state and the compaction cost, and it never resolves the remote. A reader using
+ * the page to find where something is drawn would look in the wrong corner.
+ *
+ * The claims the page makes are read back from the two components that render them. The
+ * negative one (no owner/repo) is checked against the component as well, so adding such
+ * a line without amending the page reddens here.
+ */
+const here = path.dirname(fileURLToPath(import.meta.url));
+const packageRoot = path.resolve(here, "..", "..");
+
+const DOC = path.join(packageRoot, "spec", "tui.md");
+const STATUS = path.join(here, "components", "BottomStatusBar.tsx");
+const MODE = path.join(here, "components", "ModeIndicator.tsx");
+const TRANSCRIPT = path.join(here, "components", "TranscriptContent.tsx");
+const CHAT = path.join(here, "TUIChat.tsx");
+
+function read(file: string): string {
+  return fs.readFileSync(file, "utf-8");
+}
+
+const REPO_LOOKUP = /owner\/repo|gh repo|gh\s+repo/i;
+
+describe("spec/tui.md agrees with the status bar and mode badge", () => {
+  const doc = read(DOC);
+  const flat = doc.replace(/\s+/g, " ");
+  const status = read(STATUS);
+  const mode = read(MODE);
+
+  it("reads a page and components that render something", () => {
+    expect(doc.length).toBeGreaterThan(300);
+    expect(status.length).toBeGreaterThan(1_000);
+    expect(/currentDirectory/.test(status)).toBe(true);
+  });
+
+  it("names the workspace source the status bar uses", () => {
+    expect(
+      /workspaceName = remoteUrl \?\? currentDirectory\(\)/.test(status),
+    ).toBe(true);
+    expect(doc).toContain("remoteUrl");
+    expect(/currentDirectory|working directory/.test(flat)).toBe(true);
+  });
+
+  it("hides the branch in remote mode only while the source does", () => {
+    const hides = /const branch = isRemoteMode \? null : getGitBranch\(\)/.test(
+      status,
+    );
+    expect(/remote mode/.test(flat)).toBe(hides);
+  });
+
+  it("states the badge colours the component uses", () => {
+    const colours =
+      /default: \{ label: "Manual", color: \(theme\) => theme\.text\.primary \}/.test(
+        mode,
+      ) &&
+      /plan: \{ label: "Plan", color: \(theme\) => theme\.accent \}/.test(
+        mode,
+      ) &&
+      /bypassPermissions: \{[\s\S]*color: \(theme\) => theme\.status\.error/.test(
+        mode,
+      );
+    expect(colours).toBe(true);
+    expect(/\[Manual\]/.test(flat)).toBe(true);
+    expect(/\[Plan\]/.test(flat)).toBe(true);
+    expect(/\[Bypass permissions\]/.test(flat)).toBe(true);
+    expect(/theme/.test(flat)).toBe(true);
+  });
+
+  it("describes the alternate-screen viewport and its in-app scrolling", () => {
+    const chat = read(CHAT);
+    const viewport = read(path.join(here, "hooks", "useChatViewport.ts"));
+    const scrollView = read(path.join(here, "components", "ScrollView.tsx"));
+    const screen = read(path.join(here, "utils", "terminalScreen.ts"));
+    const entry = read(path.join(here, "index.ts"));
+
+    expect(/alternate screen/.test(flat)).toBe(/1049h/.test(screen));
+    expect(/pinned to the bottom/.test(flat)).toBe(
+      /height=\{rows\}/.test(chat),
+    );
+    expect(/useChatViewport/.test(chat)).toBe(true);
+    expect(/measures the rendered transcript/.test(flat)).toBe(
+      /measureElement/.test(scrollView),
+    );
+    expect(/mouse wheel/.test(flat)).toBe(/useMouseEvents/.test(viewport));
+    expect(/move the transcript by whole rows/.test(flat)).toBe(
+      /scrollTop/.test(viewport),
+    );
+    expect(/Jump to latest message/.test(flat)).toBe(
+      /jumpToLatest/.test(read(path.join(here, "components", "Composer.tsx"))),
+    );
+    expect(/restored on every exit path/.test(flat)).toBe(
+      /leaveAlternateScreen/.test(entry),
+    );
+  });
+
+  it("keeps the intro in the transcript once the conversation starts", () => {
+    const transcript = read(TRANSCRIPT);
+
+    expect(/first row of the transcript/.test(flat)).toBe(
+      /if \(showIntro\)[\s\S]{0,120}<IntroMessage/.test(transcript),
+    );
+    expect(/half-block wordmark/.test(flat)).toBe(
+      /█/.test(read(path.join(here, "..", "startup", "asciiArt.ts"))) &&
+        /MIN_WIDTH_FOR_ASCII_ART = 30/.test(
+          read(path.join(here, "..", "startup", "asciiArt.ts")),
+        ),
+    );
+    const banner = read(path.join(here, "components", "BrandBanner.tsx"));
+    expect(/NO_COLOR/.test(flat)).toBe(/NO_COLOR/.test(banner));
+  });
+
+  it("describes the tool rows where they are built", () => {
+    const group = read(path.join(here, "components", "ToolGroupDisplay.tsx"));
+
+    expect(/rounded frame/.test(flat)).toBe(/borderStyle="round"/.test(group));
+    expect(/border colour reports the state/.test(flat)).toBe(
+      /borderColor/.test(group),
+    );
+    expect(/click to expand/.test(flat)).toBe(/click to expand/.test(group));
+    expect(/folds itself/.test(flat)).toBe(/setOverride\(false\)/.test(group));
+    // The state machine and the result gutter are named after the code that
+    // draws them: the status dot, the 600 ms blink and the `⎿` gutter token.
+    expect(/status dot/.test(flat)).toBe(/toolDotStyle/.test(group));
+    expect(/600 ms while running/.test(flat)).toBe(/useBlink/.test(group));
+    expect(/gutter of two spaces, `⎿` and one space/.test(flat)).toBe(
+      /<ToolResultBlock/.test(group),
+    );
+  });
+
+  it("describes the approval card per tool family where it is built", () => {
+    const selector = read(
+      path.join(here, "components", "ToolPermissionSelector.tsx"),
+    );
+
+    expect(/prints the whole command verbatim/.test(flat)).toBe(
+      /toolArgs\?\.command/.test(selector),
+    );
+    expect(/working directory it will run in/.test(flat)).toBe(
+      /process\.cwd\(\)/.test(selector),
+    );
+    expect(/folded to eight rows/.test(flat)).toBe(
+      /COLLAPSED_DIFF_LINES = 8/.test(selector),
+    );
+    expect(/`e` expands and folds/.test(flat)).toBe(
+      /setDiffExpanded/.test(selector),
+    );
+    expect(/every other tool keeps the argument preview/.test(flat)).toBe(
+      /<ToolPreview/.test(selector),
+    );
+  });
+
+  it("describes the user and model prefixes where they are drawn", () => {
+    const message = read(path.join(here, "components", "MemoizedMessage.tsx"));
+
+    expect(/blue `>`/.test(flat)).toBe(/theme.user/.test(message));
+    expect(/cyan `✦`/.test(flat)).toBe(
+      /theme.accent/.test(message) && /✦/.test(message),
+    );
+    expect(/muted italic colour/.test(flat)).toBe(
+      /<ThinkingMessage/.test(message),
+    );
+  });
+
+  it("describes streaming, the spinner and the suggestion overlay where they are built", () => {
+    const chat = read(CHAT);
+    const transcript = read(TRANSCRIPT);
+    const helpers = read(path.join(here, "hooks", "useChat.stream.helpers.ts"));
+    const overlay = read(
+      path.join(here, "components", "SuggestionOverlay.tsx"),
+    );
+    const sources = read(path.join(here, "suggestionSources.ts"));
+    const composer = read(path.join(here, "UserInput.tsx"));
+
+    // The working indicator sits at the end of the transcript content, after
+    // the newest row, and the transcript is above the dock.
+    const spinnerInLiveFrame =
+      transcript.indexOf("<QueuedMessages") <
+        transcript.indexOf("<ActionStatus") &&
+      chat.indexOf("<MainContent") < chat.indexOf("<Composer");
+    expect(/working indicator renders after the live rows/.test(flat)).toBe(
+      spinnerInLiveFrame,
+    );
+    expect(/throttled overlay/.test(flat)).toBe(
+      /STREAM_RENDER_INTERVAL_MS/.test(helpers) && /streamingText/.test(chat),
+    );
+    // The overlay's five-row window, its type marks, its level header and the
+    // rule that a command needs a prefix before Enter runs it are read back
+    // from the code that draws them.
+    expect(/Five rows are visible/.test(flat)).toBe(
+      /MAX_VISIBLE_SUGGESTIONS = 5/.test(sources),
+    );
+    expect(/type marks/.test(flat)).toBe(
+      /file: "\+"/.test(sources) &&
+        /agent: "\*"/.test(sources) &&
+        /mcp: "◇"/.test(sources),
+    );
+    expect(/completes rather than runs/.test(flat)).toBe(
+      /slashCommandFilter !== ""/.test(composer),
+    );
+    expect(/subcommands/.test(flat)).toBe(
+      /subcommands\?: SlashSubcommand\[\]/.test(
+        read(path.join(here, "commands", "types.ts")),
+      ),
+    );
+    expect(/top-level directories and\s+files/.test(flat)).toBe(
+      /topLevelPathItems/.test(sources),
+    );
+    expect(/-- \/parent --/.test(flat)).toBe(
+      /-- \$\{levelLabel\} --/.test(overlay),
+    );
+  });
+
+  it("claims no owner/repo line only while the component has none", () => {
+    expect(REPO_LOOKUP.test(flat)).toBe(REPO_LOOKUP.test(status));
+  });
+
+  it("sends the usage figures to /cost only while the doc says so", () => {
+    const cost = read(path.join(here, "commands", "handlers", "cost.ts"));
+    expect(/cache ratio/.test(flat)).toBe(/Cache hit/.test(cost));
+    expect(/output tokens/.test(flat)).toBe(/Output:/.test(cost));
+  });
+});

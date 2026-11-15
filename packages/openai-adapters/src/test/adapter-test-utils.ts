@@ -60,9 +60,9 @@ function setupMockFetch(mockResponse?: any, mockStream?: any[]) {
 
 function setupReadableStreamPolyfill() {
   // This can be removed if https://github.com/nodejs/undici/issues/2888 is resolved
-  // @ts-ignore
+  // @ts-expect-error static from() is newer than this lib.dom generation
   const originalFrom = ReadableStream.from;
-  // @ts-ignore
+  // @ts-expect-error static from() is newer than this lib.dom generation
   ReadableStream.from = (body) => {
     if (body?.source) {
       return body;
@@ -148,7 +148,7 @@ export async function runAdapterTest(testCase: AdapterTestCase) {
   vi.stubGlobal("fetch", mockFetch);
 
   // For non-OpenAI adapters, mock the fetch package
-  const fetchPackage = await import("@continuedev/fetch");
+  const fetchPackage = await import("@tnt/fetch");
   if (fetchPackage.fetchwithRequestOptions) {
     vi.mocked(fetchPackage.fetchwithRequestOptions).mockImplementation(
       mockFetch as any,

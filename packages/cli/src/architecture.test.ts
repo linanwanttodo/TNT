@@ -1,0 +1,274 @@
+import { readdirSync, readFileSync, statSync } from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import { describe, expect, it } from "vitest";
+
+/**
+ * The module groups the engine is allowed to depend on one way. A cycle between
+ * two groups means neither can be understood, tested or changed on its own, and
+ * several of these have already cost debugging time (a service that resolved as
+ * undefined because the layer below it reached back up into the layer above).
+ *
+ * This is a ratchet, not an achievement list: the set below is the debt that
+ * exists today, the test fails on a cycle that is not in it, and a cycle that is
+ * removed only needs its line deleted here.
+ */
+/**
+ * Measured 2026-10-16 over the production sources. `compaction <-> stream` is the
+ * one that bites hardest: the compaction policy calls the engine it is supposed
+ * to serve, so neither can be exercised without the other, and it is why the
+ * summarizing tests mock a module two layers above them.
+ */
+/**
+ * Test helpers live at the package root's `test-utils/` and exist only for suites. A production
+ * import would drag test scaffolding into the shipped bundle, so the boundary is pinned here.
+ */
+const KNOWN_MUTUAL_COUPLING = [
+  "_root <-> commands",
+  "agent <-> services",
+  // The turn controller is the bridge the event boundary introduced: session
+  // owns the run while the stream owns the loop. The reverse edges are the
+  // existing session-tracking imports inside the engine.
+  "cache <-> session",
+  "session <-> stream",
+  "commands <-> services",
+  "commands <-> ui",
+  "config <-> i18n",
+  "config <-> permissions",
+  "config <-> platform",
+  "config <-> plugins",
+  // The run snapshot reads services, and services read configuration.
+  "config <-> services",
+  "config <-> startup",
+  "config <-> utils",
+  "hooks <-> plugins",
+  "hooks <-> services",
+  "permissions <-> services",
+  "permissions <-> tools",
+  // TurnRunnerService arbitrates the drain loop over the shared message
+  // queue, which lives in stream; stream already imports services.
+  "services <-> stream",
+  "services <-> startup",
+  "services <-> subagent",
+  "services <-> tools",
+  "services <-> utils",
+  "session <-> subagent",
+  "session <-> utils",
+  "subagent <-> tools",
+  "telemetry <-> utils",
+];
+
+const TEST_ONLY = [
+  ".test.",
+  "test-utils",
+  "__mocks__",
+  `${path.sep}e2e${path.sep}`,
+];
+
+const SRC_ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+/** Every `.ts`/`.tsx` under a directory, tests included. */
+function productionSources(dir: string = SRC_ROOT): string[] {
+  const found: string[] = [];
+
+  for (const name of readdirSync(dir)) {
+    if (name === "node_modules" || name === "dist") continue;
+    const full = path.join(dir, name);
+    const isTest = TEST_ONLY.some((marker) => full.includes(marker));
+    if (isTest) continue;
+
+    if (statSync(full).isDirectory()) {
+      found.push(...productionSources(full));
+    } else if (name.endsWith(".ts") || name.endsWith(".tsx")) {
+      found.push(full);
+    }
+  }
+
+  return found;
+}
+
+/** First path segment is the group; a file at the top of src is `_root`. */
+function groupOf(relative: string): string {
+  const parts = relative.split(path.sep);
+
+  return parts.length === 1 ? "_root" : parts[0];
+}
+
+function groupEdges(root: string): Set<string> {
+  const edges = new Set<string>();
+
+  for (const file of productionSources(root)) {
+    const from = groupOf(path.relative(root, file));
+
+    for (const match of readFileSync(file, "utf-8").matchAll(
+      /from\s+["']((?:\.\.?\/)+[^"']+)["']/g,
+    )) {
+      const target = path.resolve(path.dirname(file), match[1]);
+      const relative = path.relative(root, target);
+      if (relative.startsWith("..")) continue;
+
+      const to = groupOf(relative);
+      if (to !== from) edges.add(`${from} -> ${to}`);
+    }
+  }
+
+  return edges;
+}
+
+/**
+ * Each cycle is written from its alphabetically smallest member, so the same
+ * ring always produces the same string no matter which node the walk entered it
+ * from.
+ */
+function mutualPairs(edges: Set<string>): string[] {
+  const pairs = new Set<string>();
+
+  for (const edge of edges) {
+    const [from, to] = edge.split(" -> ");
+    if (from < to && edges.has(`${to} -> ${from}`)) {
+      pairs.add(`${from} <-> ${to}`);
+    }
+  }
+
+  return [...pairs].sort();
+}
+
+describe("the dependency direction between module groups", () => {
+  const root = path.dirname(fileURLToPath(import.meta.url));
+
+  it("scans a real tree of production sources", () => {
+    const count = productionSources(root).length;
+
+    // Guards the guard: an empty or tiny scan would make every assertion below
+    // pass without looking at anything.
+    expect(count).toBeGreaterThan(250);
+  });
+
+  it("adds no group pair that does not already import each other", () => {
+    const pairs = mutualPairs(groupEdges(root));
+    const fresh = pairs.filter((pair) => !KNOWN_MUTUAL_COUPLING.includes(pair));
+
+    expect(fresh).toEqual([]);
+  });
+
+  it("keeps the lowest layer from reaching back up", () => {
+    const edges = groupEdges(root);
+
+    // utils sits under everything, so an import from utils to a feature group is
+    // how a cycle starts. The four below are the pairs already recorded as debt;
+    // a fifth one fails this test until the ring is broken instead of widened.
+    const upwards = [...edges].filter(
+      (edge) =>
+        edge.startsWith("utils -> ") &&
+        ![
+          "utils -> config",
+          "utils -> services",
+          "utils -> session",
+          "utils -> telemetry",
+        ].includes(edge),
+    );
+
+    expect(upwards).toEqual([]);
+  });
+
+  it("keeps test helpers out of production sources", () => {
+    const offenders = productionSources(SRC_ROOT)
+      .filter((file) => readFileSync(file, "utf-8").includes("test-utils"))
+      .map((file) => path.relative(SRC_ROOT, file));
+
+    // A production import would drag test scaffolding into the shipped bundle, and it is
+    // how a helper that has moved to the package root gets pulled back into `src/`.
+    expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * A declaration nothing reads is not clutter - it is a capability that was written and
+ * never wired. This rule exists because two real findings looked like dead code and were
+ * not: `_mergeUserAgentIntoRequestOptions` is the only code anywhere that builds
+ * `user-agent: TNT-CLI/<version>` and `x-tnt-unique-id` and has no caller, so no model
+ * request identifies the CLI today; and `StorageSyncService.targetsExpiresAt` was written
+ * three times as a "60-minute expiration" that nothing compared against, while the real
+ * mechanism was a refresh scheduled at the 50-minute mark (that one was bookkeeping and
+ * went away in `refactor(storage)`).
+ *
+ * Counting stays inside the file on purpose: a name that is not exported cannot be read
+ * from another module, so one occurrence means the only thing that mentions it is its own
+ * declaration. Cross-checked against the compiler rather than trusted: `npx tsc --noEmit
+ * --noUnusedLocals` reports 31 sites in this package, 30 of them inside suites, and the
+ * single production one was `config/index.ts:_mergeUserAgentIntoRequestOptions`, now deleted: the
+ * header it built is sent (`x-tnt-unique-id`), and the `user-agent` half was dropped rather
+ * than wired, because the SDKs already send their own and per-request headers override them.
+ *
+ * KNOWN BLIND SPOT, measured the same day this guard landed, and the reason it is a ratchet and
+ * not a proof: raw-text counting treats a name that appears only in a comment or a string as
+ * read, so the scan under-reports. In the sibling package the identical scanner reported zero
+ * offenders while `tsc --noEmit --noUnusedLocals` reported five, because the dead Bedrock
+ * cache-point method is also named in a comment. Stripping comments and string literals first
+ * was tried and failed the other way - it ate real code between quote characters and invented
+ * offenders - and making the test shell out to the compiler was dropped after its run reported
+ * three of the five that the same command reports manually, because a guard that quietly sees
+ * less than it claims is worse than no guard. So: a new dead name is caught reliably only when
+ * nothing mentions it in prose, and the agreement with the compiler below is checked, not
+ * assumed.
+ */
+const UNREAD_PRODUCTION_DECLARATIONS: string[] = [];
+
+const declarationPatterns = [
+  /(?:^|\n) *(?:(export) +)?(?:async +)?function +([A-Za-z_$][\w$]*)/g,
+  /(?:^|\n) *(?:(export) +)?(?:const|let|var) +([A-Za-z_$][\w$]*) *=/g,
+  /(?:^|\n) *(?:(export) +)?interface +([A-Za-z_$][\w$]*)/g,
+  /(?:^|\n) *(?:(export) +)?type +([A-Za-z_$][\w$]*) *=/g,
+  /(?:^|\n) *private +(?:readonly +)?([A-Za-z_$][\w$]*) *[=(:]/g,
+];
+
+const declaredNames = (text: string): string[] => {
+  const names = new Set<string>();
+  for (const pattern of declarationPatterns) {
+    let match = pattern.exec(text);
+    while (match) {
+      const exported = match[1];
+      const name = match[2] ?? match[1];
+      if (!exported) {
+        names.add(name);
+      }
+      match = pattern.exec(text);
+    }
+    pattern.lastIndex = 0;
+  }
+  return [...names];
+};
+
+const timesMentioned = (text: string, name: string): number => {
+  const escaped = name.replace(/[$]/g, "\$&");
+  return (text.match(new RegExp(`\\b${escaped}\\b`, "g")) ?? []).length;
+};
+
+describe("declarations that nothing reads", () => {
+  const files = productionSources(SRC_ROOT);
+  const unread: string[] = [];
+  let candidates = 0;
+
+  for (const file of files) {
+    const text = readFileSync(file, "utf8");
+    const relativePath = path.relative(SRC_ROOT, file);
+    for (const name of declaredNames(text)) {
+      candidates += 1;
+      if (timesMentioned(text, name) <= 1) {
+        unread.push(`${relativePath}:${name}`);
+      }
+    }
+  }
+
+  it("reads a tree big enough for the answer to mean something", () => {
+    // Floor: a scan that found no candidates would also "find" no offenders, which is
+    // how a guard goes mute while reporting green.
+    expect(files.length).toBeGreaterThan(300);
+    expect(candidates).toBeGreaterThan(500);
+  });
+
+  it("keeps the unread set to what is already accounted for", () => {
+    expect(unread.sort()).toEqual([...UNREAD_PRODUCTION_DECLARATIONS].sort());
+  });
+});

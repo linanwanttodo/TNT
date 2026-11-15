@@ -3,7 +3,7 @@ import * as fs from "fs/promises";
 import { ConfigHandler } from "../config/ConfigHandler.js";
 import {
   ContextIndexingType,
-  ContinueConfig,
+  TntConfig,
   IDE,
   IndexingProgressUpdate,
   IndexTag,
@@ -15,13 +15,12 @@ import { Logger } from "../util/Logger.js";
 import { getIndexSqlitePath, getLanceDbPath } from "../util/paths.js";
 import { findUriInDirs, getUriPathBasename } from "../util/uri.js";
 
-import { ConfigResult } from "@continuedev/config-yaml";
-import { ContinueServerClient } from "../continueServer/stubs/client";
+import { ConfigResult } from "@tnt/config-yaml";
 import { LLMError } from "../llm/index.js";
 import { getRootCause } from "../util/errors.js";
 import { ChunkCodebaseIndex } from "./chunk/ChunkCodebaseIndex.js";
 import { CodeSnippetsCodebaseIndex } from "./CodeSnippetsIndex.js";
-import { embedModelsAreEqual } from "./docs/DocsService.js";
+import { embedModelsAreEqual } from "./embedModels.js";
 import { FullTextSearchCodebaseIndex } from "./FullTextSearchCodebaseIndex.js";
 import { LanceDbIndex } from "./LanceDbIndex.js";
 import { getComputeDeleteAddRemove, IndexLock } from "./refreshIndex.js";
@@ -45,6 +44,9 @@ export class PauseToken {
   }
 }
 
+/** Chunk size used for full-text search when no embeddings model is configured. */
+const DEFAULT_MAX_EMBEDDING_CHUNK_SIZE = 500;
+
 export class CodebaseIndexer {
   /**
    * We batch for two reasons:
@@ -55,7 +57,7 @@ export class CodebaseIndexer {
   // We normally allow this to run in the background,
   // and only need to `await` it for tests.
   public initPromise: Promise<void>;
-  private config!: ContinueConfig;
+  private config!: TntConfig;
   private indexingCancellationController: AbortController;
   private codebaseIndexingState: IndexingProgressUpdate;
   private readonly pauseToken: PauseToken;
@@ -146,46 +148,56 @@ export class CodebaseIndexer {
   protected async getIndexesToBuild(): Promise<CodebaseIndex[]> {
     const { config } = await this.configHandler.loadConfig();
     if (!config) {
+      // Nothing is built and nothing is said, which reads downstream as "this
+      // workspace has nothing to find". Both empty outcomes here are worth a
+      // line: this one, and the one below for a config whose providers ask for
+      // no indexing at all.
+      Logger.debug("Not building indexes: no config loaded");
       return [];
     }
 
     const embeddingsModel = config.selectedModelByRole.embed;
-    if (!embeddingsModel) {
-      return [];
-    }
 
-    const ideSettings = await this.ide.getIdeSettings();
-    if (!ideSettings) {
-      return [];
-    }
-    const continueServerClient = new ContinueServerClient(
-      ideSettings.remoteConfigServerUrl,
-      ideSettings.userToken,
-    );
-    if (!continueServerClient) {
-      return [];
-    }
-
-    const indexTypesToBuild = new Set( // use set to remove duplicates
+    const indexTypesToBuild = new Set(
+      // use set to remove duplicates
       config.contextProviders
         .map((provider) => provider.description.dependsOnIndexing)
         .filter((indexType) => Array.isArray(indexType)) // remove undefined indexTypes
         .flat(),
     );
 
+    if (indexTypesToBuild.size === 0) {
+      // The other silent empty: a config that loaded, holding no provider that
+      // asks for an index. Names, because "which providers did this load see"
+      // is the question every search that returns nothing raises.
+      Logger.debug("No provider in the loaded config asks for indexing", {
+        contextProviders: config.contextProviders.map(
+          (provider) => provider.description.title,
+        ),
+      });
+    }
+
     const indexTypeToIndexerMapping: Record<
       ContextIndexingType,
       () => Promise<CodebaseIndex | null>
     > = {
+      // Chunking stores the chunks the other two indexes read, so it only
+      // needs a chunk-size setting, not an embeddings model.
       chunk: async () =>
         new ChunkCodebaseIndex(
           this.ide.readFile.bind(this.ide),
-          continueServerClient,
-          embeddingsModel.maxEmbeddingChunkSize,
+          embeddingsModel?.maxEmbeddingChunkSize ??
+            DEFAULT_MAX_EMBEDDING_CHUNK_SIZE,
         ),
       codeSnippets: async () => new CodeSnippetsCodebaseIndex(this.ide),
       fullTextSearch: async () => new FullTextSearchCodebaseIndex(),
+      // Only this index needs the embeddings model, and only when the config
+      // selects one: a provider that asks for full-text search alone still
+      // gets its index built.
       embeddings: async () => {
+        if (!embeddingsModel) {
+          return null;
+        }
         const lanceDbIndex = await LanceDbIndex.create(
           embeddingsModel,
           this.ide.readFile.bind(this.ide),
@@ -195,8 +207,22 @@ export class CodebaseIndexer {
     };
 
     const indexes: CodebaseIndex[] = [];
+    // Producers before consumers: full-text search and embeddings read the
+    // chunk table, so chunking (and code snippets, which a provider may also
+    // ask for) has to run in the same pass, not in the next one. The declared
+    // provider order puts them first, which would leave the readers empty on
+    // the first index of a workspace.
+    const buildOrder: Record<ContextIndexingType, number> = {
+      chunk: 0,
+      codeSnippets: 1,
+      fullTextSearch: 2,
+      embeddings: 3,
+    };
+    const orderedIndexTypes = [...indexTypesToBuild].sort(
+      (a, b) => buildOrder[a] - buildOrder[b],
+    );
     // not parallelizing to avoid race conditions in sqlite
-    for (const indexType of indexTypesToBuild) {
+    for (const indexType of orderedIndexTypes) {
       if (indexType && indexType in indexTypeToIndexerMapping) {
         const index = await indexTypeToIndexerMapping[indexType]();
         if (index) {
@@ -390,6 +416,13 @@ export class CodebaseIndexer {
       })) {
         directoryFiles.push(p);
         if (abortSignal.aborted) {
+          // Everything collected so far is dropped without a word, so a build
+          // cancelled here leaves a workspace that searches as empty. The count
+          // is what distinguishes this from an index that was never asked for.
+          Logger.debug("Codebase index walk cancelled mid-directory", {
+            directory,
+            filesDiscovered: directoryFiles.length,
+          });
           yield {
             progress: 0,
             desc: "Indexing cancelled",
@@ -401,6 +434,11 @@ export class CodebaseIndexer {
           yield* this.yieldUpdateAndPause();
         }
       }
+
+      Logger.debug("Discovered files for the codebase index", {
+        directory,
+        filesDiscovered: directoryFiles.length,
+      });
 
       const branch = await this.ide.getBranch(directory);
       const repoName = await this.ide.getRepoName(directory);
@@ -828,8 +866,8 @@ export class CodebaseIndexer {
   }
 
   private isIndexingConfigSame(
-    config1: ContinueConfig | undefined,
-    config2: ContinueConfig,
+    config1: TntConfig | undefined,
+    config2: TntConfig,
   ) {
     return embedModelsAreEqual(
       config1?.selectedModelByRole.embed,
@@ -839,7 +877,7 @@ export class CodebaseIndexer {
 
   private async handleConfigUpdate({
     config: newConfig,
-  }: ConfigResult<ContinueConfig>) {
+  }: ConfigResult<TntConfig>) {
     if (newConfig) {
       const ideSettings = await this.ide.getIdeSettings();
       const pauseCodebaseIndexOnStart = ideSettings.pauseCodebaseIndexOnStart;

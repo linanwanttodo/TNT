@@ -177,7 +177,7 @@ declare global {
   export type FetchFunction = (url: string | URL, init?: any) => Promise<any>;
   
   export interface ContextProviderExtras {
-    config: ContinueConfig;
+    config: TntConfig;
     fullInput: string;
     embeddingsProvider: ILLM;
     reranker: ILLM | undefined;
@@ -188,7 +188,7 @@ declare global {
   }
   
   export interface LoadSubmenuItemsArgs {
-    config: ContinueConfig;
+    config: TntConfig;
     ide: IDE;
     fetch: FetchFunction;
   }
@@ -288,9 +288,10 @@ declare global {
   export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
   
   export interface MessagePart {
-    type: "text" | "imageUrl";
+    type: "text" | "imageUrl" | "audio";
     text?: string;
     imageUrl?: { url: string };
+    audio?: { data: string; format: "wav" | "mp3" };
   }
   
   export type MessageContent = string | MessagePart[];
@@ -306,6 +307,7 @@ declare global {
   
   export interface ToolCallDelta {
     id?: string;
+    index?: number;
     type?: "function";
     function?: {
       name?: string;
@@ -629,7 +631,7 @@ declare global {
     id: number;
   }
   
-  export type IdeType = "vscode" | "jetbrains";
+  export type IdeType = "vscode" | "jetbrains" | "cli";
   
   export interface IdeInfo {
     ideType: IdeType;
@@ -656,8 +658,6 @@ declare global {
   }
   
   export interface IdeSettings {
-    remoteConfigServerUrl: string | undefined;
-    remoteConfigSyncPeriod: number;
     userToken: string;
     pauseCodebaseIndexOnStart: boolean;
   }
@@ -762,7 +762,7 @@ declare global {
   
   // Slash Commands
   
-  export interface ContinueSDK {
+  export interface TntSDK {
     ide: IDE;
     llm: ILLM;
     addContextItem: (item: ContextItemWithId) => void;
@@ -771,7 +771,7 @@ declare global {
     params?: { [key: string]: any } | undefined;
     contextItems: ContextItemWithId[];
     selectedCode: RangeInFile[];
-    config: ContinueConfig;
+    config: TntConfig;
     fetch: FetchFunction;
   }
   
@@ -779,7 +779,7 @@ declare global {
     name: string;
     description: string;
     params?: { [key: string]: any };
-    run: (sdk: ContinueSDK) => AsyncGenerator<string | undefined>;
+    run: (sdk: TntSDK) => AsyncGenerator<string | undefined>;
   }
   
   // Config
@@ -1033,7 +1033,7 @@ declare global {
     transport: TransportOptions;
   }
   
-  export interface ContinueUIConfig {
+  export interface TntUIConfig {
     codeBlockToolbarPosition?: "top" | "bottom";
     fontSize?: number;
     displayRawMarkdown?: boolean;
@@ -1143,7 +1143,7 @@ declare global {
   }
   
   // config.json
-  export interface SerializedContinueConfig {
+  export interface SerializedTntConfig {
     env?: string[];
     allowAnonymousTelemetry?: boolean;
     models: ModelDescription[];
@@ -1159,7 +1159,7 @@ declare global {
     embeddingsProvider?: EmbeddingsProviderDescription;
     tabAutocompleteModel?: ModelDescription | ModelDescription[];
     tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     reranker?: RerankerDescription;
     experimental?: ExperimentalConfig;
     analytics?: AnalyticsConfig;
@@ -1168,17 +1168,17 @@ declare global {
   
   export type ConfigMergeType = "merge" | "overwrite";
   
-  export type ContinueRcJson = Partial<SerializedContinueConfig> & {
+  export type TntRcJson = Partial<SerializedTntConfig> & {
     mergeBehavior: ConfigMergeType;
   };
   
   // config.ts - give users simplified interfaces
   export interface Config {
-    /** If set to true, Continue will collect anonymous usage data to improve the product. If set to false, we will collect nothing. Read here to learn more: https://docs.continue.dev/telemetry */
+    /** If set to true, TNT will collect anonymous usage data to improve the product. If set to false, we will collect nothing. */
     allowAnonymousTelemetry?: boolean;
     /** Each entry in this array will originally be a ModelDescription, the same object from your config.json, but you may add CustomLLMs.
      * A CustomLLM requires you only to define an AsyncGenerator that calls the LLM and yields string updates. You can choose to define either \`streamCompletion\` or \`streamChat\` (or both).
-     * Continue will do the rest of the work to construct prompt templates, handle context items, prune context, etc.
+     * TNT will do the rest of the work to construct prompt templates, handle context items, prune context, etc.
      */
     models: (CustomLLM | ModelDescription)[];
     /** A system message to be followed by all of your models */
@@ -1190,18 +1190,18 @@ declare global {
     /** The list of slash commands that will be available in the sidebar */
     slashCommands?: SlashCommand[];
     /** Each entry in this array will originally be a ContextProviderWithParams, the same object from your config.json, but you may add CustomContextProviders.
-     * A CustomContextProvider requires you only to define a title and getContextItems function. When you type '@title <query>', Continue will call \`getContextItems(query)\`.
+     * A CustomContextProvider requires you only to define a title and getContextItems function. When you type '@title <query>', TNT will call \`getContextItems(query)\`.
      */
     contextProviders?: (CustomContextProvider | ContextProviderWithParams)[];
-    /** If set to true, Continue will not index your codebase for retrieval */
+    /** If set to true, TNT will not index your codebase for retrieval */
     disableIndexing?: boolean;
-    /** If set to true, Continue will not make extra requests to the LLM to generate a summary title of each session. */
+    /** If set to true, TNT will not make extra requests to the LLM to generate a summary title of each session. */
     disableSessionTitles?: boolean;
-    /** An optional token to identify a user. Not used by Continue unless you write custom coniguration that requires such a token */
+    /** An optional token to identify a user. Not used by TNT unless you write custom configuration that requires such a token */
     userToken?: string;
-    /** The provider used to calculate embeddings. If left empty, Continue will use transformers.js to calculate the embeddings with all-MiniLM-L6-v2 */
+    /** The provider used to calculate embeddings. If left empty, TNT will use transformers.js to calculate the embeddings with the default local MiniLM model */
     embeddingsProvider?: EmbeddingsProviderDescription | ILLM;
-    /** The model that Continue will use for tab autocompletions. */
+    /** The model that TNT will use for tab autocompletions. */
     tabAutocompleteModel?:
       | CustomLLM
       | ModelDescription
@@ -1209,7 +1209,7 @@ declare global {
     /** Options for tab autocomplete */
     tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
     /** UI styles customization */
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     /** Options for the reranker */
     reranker?: RerankerDescription | ILLM;
     /** Experimental configuration */
@@ -1218,8 +1218,8 @@ declare global {
     analytics?: AnalyticsConfig;
   }
   
-  // in the actual Continue source code
-  export interface ContinueConfig {
+  // in the actual TNT source code
+  export interface TntConfig {
     allowAnonymousTelemetry?: boolean;
     models: ILLM[];
     systemMessage?: string;
@@ -1233,7 +1233,7 @@ declare global {
     embeddingsProvider: ILLM;
     tabAutocompleteModels?: ILLM[];
     tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     reranker?: ILLM;
     experimental?: ExperimentalConfig;
     analytics?: AnalyticsConfig;
@@ -1241,7 +1241,7 @@ declare global {
     tools: Tool[];
   }
   
-  export interface BrowserSerializedContinueConfig {
+  export interface BrowserSerializedTntConfig {
     allowAnonymousTelemetry?: boolean;
     models: ModelDescription[];
     systemMessage?: string;
@@ -1253,7 +1253,7 @@ declare global {
     disableSessionTitles?: boolean;
     userToken?: string;
     embeddingsProvider?: string;
-    ui?: ContinueUIConfig;
+    ui?: TntUIConfig;
     reranker?: RerankerDescription;
     experimental?: ExperimentalConfig;
     analytics?: AnalyticsConfig;

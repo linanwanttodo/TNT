@@ -3,8 +3,8 @@ import {
   ModelRole,
   PromptTemplates,
   ToolOverrideConfig,
-} from "@continuedev/config-yaml";
-import { ToolPolicy } from "@continuedev/terminal-security";
+} from "@tnt/config-yaml";
+import { ToolPolicy } from "@tnt/terminal-security";
 import { McpUiResourceMeta } from "@modelcontextprotocol/ext-apps";
 import { TextResourceContents } from "@modelcontextprotocol/sdk/types.js";
 import Parser from "web-tree-sitter";
@@ -96,7 +96,8 @@ type RequiredLLMOptions =
   | "completionOptions";
 
 export interface ILLM
-  extends Omit<LLMOptions, RequiredLLMOptions>,
+  extends
+    Omit<LLMOptions, RequiredLLMOptions>,
     Required<Pick<LLMOptions, RequiredLLMOptions>> {
   get providerName(): string;
   get underlyingProviderName(): string;
@@ -180,10 +181,7 @@ export interface ModelInstaller {
 
 export type ContextProviderType = "normal" | "query" | "submenu";
 export type ContextIndexingType =
-  | "chunk"
-  | "embeddings"
-  | "fullTextSearch"
-  | "codeSnippets";
+  "chunk" | "embeddings" | "fullTextSearch" | "codeSnippets";
 
 export interface ContextProviderDescription {
   title: ContextProviderName;
@@ -197,7 +195,7 @@ export interface ContextProviderDescription {
 export type FetchFunction = (url: string | URL, init?: any) => Promise<any>;
 
 export interface ContextProviderExtras {
-  config: ContinueConfig;
+  config: TntConfig;
   fullInput: string;
   embeddingsProvider: ILLM | null;
   reranker: ILLM | null;
@@ -209,7 +207,7 @@ export interface ContextProviderExtras {
 }
 
 export interface LoadSubmenuItemsArgs {
-  config: ContinueConfig;
+  config: TntConfig;
   ide: IDE;
   fetch: FetchFunction;
 }
@@ -247,7 +245,6 @@ export interface SiteIndexingConfig {
   startUrl: string;
   maxDepth?: number;
   faviconUrl?: string;
-  useLocalCrawling?: boolean;
   sourceFile?: string;
 }
 
@@ -274,6 +271,59 @@ export interface IContextProvider {
 export interface SessionUsage extends Usage {
   /** Total cumulative cost in USD for all LLM API calls in this session */
   totalCost: number;
+  /**
+   * Requests whose model has no price in the table. Their cost is not in
+   * `totalCost` at all, because a number invented for a model nobody priced
+   * reads as a measurement; the counter is what keeps the total honest.
+   */
+  unpricedRequests?: number;
+  /**
+   * Requests whose token counts never reached this session - the round cut off
+   * mid-stream, or a provider that ends without sending its usage. The provider
+   * still billed them, so the session sums and the cache ratio made from them
+   * cover fewer requests than the session sent.
+   */
+  unreportedUsageRequests?: number;
+  /**
+   * Requests whose token counts did reach this session, kept beside the count
+   * above so a ratio can say what it covers instead of implying it covers
+   * everything.
+   */
+  reportedUsageRequests?: number;
+  /**
+   * Usage of the first request in this session, kept apart from the totals.
+   *
+   * A session-wide hit rate is diluted by every request after the first, so it
+   * cannot answer the question a user actually asks: why was this session slow
+   * to start. Requests that carry their own independent prefix, such as
+   * compaction or title generation, are not counted here either, because they
+   * do not share this prefix.
+   */
+  coldStart?: {
+    inputTokens: number;
+    cachedTokens: number;
+    cacheWriteTokens: number;
+  };
+  /**
+   * What history compaction has cost so far, kept apart from the totals.
+   *
+   * Compaction is the price paid for a shorter reusable prefix, so it is only
+   * meaningful next to the cache read it bought: a hit rate bought with
+   * expensive compaction is not a saving. Requests that summarise history are
+   * counted here and never in `coldStart`, because their prefix is their own.
+   */
+  compaction?: {
+    /** Number of compaction requests that completed. */
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    /** Cache tokens read by compaction requests. */
+    cachedTokens: number;
+    /** Cache tokens written by compaction requests. */
+    cacheWriteTokens: number;
+    /** Cumulative cost of compaction requests, in USD. */
+    cost: number;
+  };
 }
 
 export interface Session {
@@ -281,12 +331,147 @@ export interface Session {
   title: string;
   workspaceDirectory: string;
   history: ChatHistoryItem[];
-  /** Optional: per-session UI mode (chat/agent/plan/background) */
+  /** Optional: per-session UI mode (agent/plan/debug/multitask/chat) */
   mode?: MessageModes;
   /** Optional: title of the selected chat model for this session */
   chatModelTitle?: string | null;
   /** Optional: cumulative usage and cost for all LLM API calls in this session */
   usage?: SessionUsage;
+  /** Optional: session-wide objective shown above the composer */
+  goal?: string;
+  /** Optional: output style chosen for this session, as "plugin:style" */
+  outputStyle?: string;
+  /** Optional: mode of work chosen for this session, e.g. "debug" or "review" */
+  promptProfile?: string;
+  /**
+   * Optional: session this one was delegated from.
+   *
+   * A child session keeps its parent id so the UI can offer a breadcrumb back
+   * to the conversation that spawned it, and so the root session list can
+   * hide delegated sessions instead of mixing them in with top-level chats.
+   */
+  parentSessionId?: string;
+  /** Optional: label of the delegated agent that owns this session */
+  subagentType?: string;
+  /**
+   * Optional: how deep this session sits in a delegation chain.
+   *
+   * Persisted so that a limit enforced only in memory cannot be reset by
+   * resuming the session, which would make a resumed child look like a
+   * top-level agent. A value read from here is combined with the runtime depth
+   * by taking the larger of the two.
+   */
+  delegationDepth?: number;
+  /**
+   * Optional: name of the /team roster activated for this session. In-memory
+   * session state only (v1); the roster's members become dispatchable and the
+   * lead's prompt rides the userRules section.
+   */
+  activeTeam?: string;
+  /**
+   * Optional: model assignments made at run time for the active team's
+   * members, keyed by member name. The value is a configured model name or id,
+   * as written to the session; dispatch resolves it and the roster's persona
+   * stays the member's system message. Persisted with the session so a resume
+   * keeps the assignment.
+   */
+  teamModelOverrides?: Record<string, string>;
+  /**
+   * Optional: the team runs this session summoned, newest last and bounded.
+   * Each run records the lead's goal and strategy and, per member, the model
+   * and delegated session the dispatch resolved to. Persisted with the session
+   * so a resume can show what ran, and so a workflow view can draw the run
+   * without replaying the transcript.
+   */
+  teamRuns?: TeamRunRecord[];
+  /**
+   * Optional: the goal lifecycle this session's last observed turns produced.
+   *
+   * The app-server derives it from events it actually saw (a turn starting
+   * under a goal, a stop, a delegated verifier's verdict) and persists it so a
+   * restart continues the same iteration, timings and verifications instead of
+   * resetting to iteration 1. Iterations carry the Todo tool's real plan for
+   * that iteration; nothing is synthesized when no plan exists.
+   */
+  goalState?: SessionGoalState;
+}
+
+/** One plan item as the Todo-tool projection reports it. */
+export interface SessionGoalPlanItem {
+  id: string;
+  content: string;
+  status: "pending" | "inProgress" | "completed";
+}
+
+/** The real Todo plan an active goal iteration ran with. */
+export interface SessionGoalIteration {
+  iteration: number;
+  items: SessionGoalPlanItem[];
+  updatedAt: number;
+}
+
+export interface SessionGoalVerification {
+  iteration: number;
+  outcome: "pass" | "notSatisfied" | "failed";
+  at: number;
+  anchorRowId: number | null;
+  reason?: string;
+}
+
+/**
+ * The persisted goal lifecycle. Every field is either observed or the Todo
+ * projection's own value; an absent measurement stays absent rather than
+ * being replaced by a zero.
+ */
+export interface SessionGoalState {
+  /** The objective text this lifecycle belongs to; a changed goal starts over. */
+  objective: string;
+  status: "active" | "paused" | "verified" | "notSatisfied" | "failed";
+  iteration: number;
+  timeUsedSeconds: number;
+  activeRunStartedAtMs: number | null;
+  verifications: SessionGoalVerification[];
+  iterations: SessionGoalIteration[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type TeamRunMode = "auto" | "parallel" | "serial";
+export type TeamRunStatus = "running" | "completed" | "failed";
+export type TeamMemberRunStatus =
+  "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export interface TeamRunMemberRecord {
+  name: string;
+  /** The model id the dispatch resolved to, or the member name when unknown. */
+  model?: string;
+  /** The delegated session written by this member's run, when it finished. */
+  subagentSessionId?: string;
+  status: TeamMemberRunStatus;
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+  /**
+   * The response text the member returned, kept when the run finished
+   * successfully. This is the member's own final report, not a summary.
+   */
+  report?: string;
+}
+
+export interface TeamRunRecord {
+  runId: string;
+  team: string;
+  goal: string;
+  mode: TeamRunMode;
+  startedAt: string;
+  status: TeamRunStatus;
+  /**
+   * The concurrency the scheduler ran this run with: 1 for `serial`, the
+   * parallel member count for `parallel`, capped by the member limiter. Absent
+   * for `auto`, where the lead chooses the order and TNT makes no claim.
+   */
+  concurrency?: number;
+  members: TeamRunMemberRecord[];
 }
 
 export interface BaseSessionMetadata {
@@ -333,11 +518,7 @@ export interface CompletionOptions extends BaseCompletionOptions {
 }
 
 export type ChatMessageRole =
-  | "user"
-  | "assistant"
-  | "thinking"
-  | "system"
-  | "tool";
+  "user" | "assistant" | "thinking" | "system" | "tool";
 
 export type TextMessagePart = {
   type: "text";
@@ -349,7 +530,12 @@ export type ImageMessagePart = {
   imageUrl: { url: string };
 };
 
-export type MessagePart = TextMessagePart | ImageMessagePart;
+export type AudioMessagePart = {
+  type: "audio";
+  audio: { data: string; format: "wav" | "mp3" };
+};
+
+export type MessagePart = TextMessagePart | ImageMessagePart | AudioMessagePart;
 
 export type MessageContent = string | MessagePart[];
 
@@ -364,6 +550,7 @@ export interface ToolCall {
 
 export interface ToolCallDelta {
   id?: string;
+  index?: number;
   type?: "function";
   function?: {
     name?: string;
@@ -492,7 +679,7 @@ export interface PromptLog {
   completion: string;
 }
 
-export type MessageModes = "chat" | "agent" | "plan" | "background";
+export type MessageModes = "agent" | "plan" | "debug" | "multitask" | "chat";
 
 export type ToolStatus =
   | "generating" // Tool call arguments are being streamed from the LLM
@@ -534,6 +721,13 @@ interface Reasoning {
 export interface ChatHistoryItem {
   message: ChatMessage;
   contextItems: ContextItemWithId[];
+  /**
+   * What the user actually typed, kept for display. message.content may carry
+   * hook notes (session start context, prompt hook output, file-change notes)
+   * prepended for the model, so surfaces render userText instead of content
+   * to stay in sync with each other.
+   */
+  userText?: string;
   editorState?: any;
   modifiers?: InputModifiers;
   promptLogs?: PromptLog[];
@@ -542,6 +736,10 @@ export interface ChatHistoryItem {
   reasoning?: Reasoning;
   appliedRules?: RuleMetadata[];
   conversationSummary?: string;
+  compactionCheckpoint?: {
+    kind: "compact-checkpoint";
+    compactionId: string;
+  };
 }
 
 export interface LLMFullCompletionOptions extends BaseCompletionOptions {
@@ -651,6 +849,8 @@ export interface LLMOptions {
   baseAgentSystemMessage?: string;
   basePlanSystemMessage?: string;
   baseChatSystemMessage?: string;
+  baseDebugSystemMessage?: string;
+  baseMultitaskSystemMessage?: string;
   autocompleteOptions?: Partial<TabAutocompleteOptions>;
   contextLength?: number;
   maxStopWords?: number;
@@ -677,6 +877,7 @@ export interface LLMOptions {
 
   useLegacyCompletionsEndpoint?: boolean;
   useResponsesApi?: boolean;
+  streamOptions?: boolean;
 
   // Embedding options
   embeddingId?: string;
@@ -783,7 +984,7 @@ export interface Thread {
   id: number;
 }
 
-export type IdeType = "vscode" | "jetbrains";
+export type IdeType = "vscode" | "jetbrains" | "cli";
 
 export interface IdeInfo {
   ideType: IdeType;
@@ -811,8 +1012,6 @@ export enum FileType {
 }
 
 export interface IdeSettings {
-  remoteConfigServerUrl: string | undefined;
-  remoteConfigSyncPeriod: number;
   userToken: string;
   continueTestEnvironment: "none" | "production" | "staging" | "local";
   pauseCodebaseIndexOnStart: boolean;
@@ -937,7 +1136,7 @@ export interface IDE {
 
 // Slash Commands
 
-export interface ContinueSDK {
+export interface TntSDK {
   ide: IDE;
   llm: ILLM;
   addContextItem: (item: ContextItemWithId) => void;
@@ -946,7 +1145,7 @@ export interface ContinueSDK {
   params?: { [key: string]: any } | undefined;
   contextItems: ContextItemWithId[];
   selectedCode: RangeInFile[];
-  config: ContinueConfig;
+  config: TntConfig;
   fetch: FetchFunction;
   completionOptions?: LLMFullCompletionOptions;
   abortController: AbortController;
@@ -961,11 +1160,11 @@ export interface SlashCommandDescription {
 }
 
 export interface SlashCommand extends SlashCommandDescription {
-  run: (sdk: ContinueSDK) => AsyncGenerator<string | undefined>;
+  run: (sdk: TntSDK) => AsyncGenerator<string | undefined>;
 }
 
 export interface SlashCommandWithSource extends SlashCommandDescription {
-  run?: (sdk: ContinueSDK) => AsyncGenerator<string | undefined>; // Optional - only needed for legacy
+  run?: (sdk: TntSDK) => AsyncGenerator<string | undefined>; // Optional - only needed for legacy
   source: SlashCommandSource;
   sourceFile?: string;
   slug?: string;
@@ -1034,7 +1233,6 @@ export type ContextProviderName =
   | "repo-map"
   | "url"
   | "commit"
-  | "web"
   | "discord"
   | "clipboard"
   | string;
@@ -1118,7 +1316,7 @@ export interface ToolExtras {
     toolCallId: string;
     contextItems: ContextItem[];
   }) => void;
-  config: ContinueConfig;
+  config: TntConfig;
   codeBaseIndexer?: CodebaseIndexer;
 }
 
@@ -1214,8 +1412,45 @@ export interface BaseCompletionOptions {
   toolChoice?: ToolChoice;
   reasoning?: boolean;
   reasoningBudgetTokens?: number;
+  /**
+   * How much effort the model should spend on a response. Providers that
+   * replaced fixed reasoning budgets with adaptive reasoning use this
+   * (Anthropic output_config.effort, OpenAI reasoning_effort, Gemini
+   * thinkingLevel).
+   */
+  reasoningEffort?: ReasoningEffort;
+  /**
+   * Constrains the response to a JSON schema, or to JSON mode when set to
+   * "json". Providers that support structured outputs map this onto their own
+   * parameter (Ollama format, OpenAI text.format, Anthropic
+   * output_config.format).
+   */
+  responseFormat?: "json" | Record<string, unknown>;
+  /**
+   * Enables provider-side context management, which trims long conversation
+   * history automatically (Anthropic clears old tool results and thinking
+   * blocks). Only sent to the official Anthropic endpoint, and only when
+   * explicitly enabled, since it is a beta feature other endpoints reject.
+   */
+  contextManagement?: boolean;
+  /**
+   * Sends OpenAI request options that only the official API accepts: server
+   * side response storage, prompt cache routing, and the service tier. Left
+   * off by default because other OpenAI-compatible providers reject these
+   * fields.
+   */
+  openaiRequestOptions?: {
+    /** store responses server-side so they can be reused by later requests */
+    store?: boolean;
+    /** routing key that keeps related requests on the same prompt cache */
+    promptCacheKey?: string;
+    /** processing tier the request should be served with */
+    serviceTier?: "auto" | "default" | "flex" | "scale" | "priority";
+  };
   promptCaching?: boolean;
 }
+
+export type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface ModelCapability {
   uploadImage?: boolean;
@@ -1243,6 +1478,8 @@ export interface ModelDescription {
   baseAgentSystemMessage?: string;
   basePlanSystemMessage?: string;
   baseChatSystemMessage?: string;
+  baseDebugSystemMessage?: string;
+  baseMultitaskSystemMessage?: string;
   requestOptions?: RequestOptions;
   promptTemplates?: { [key: string]: string };
   cacheBehavior?: CacheBehavior;
@@ -1342,10 +1579,7 @@ export interface StreamableHTTPOptions {
 }
 
 export type TransportOptions =
-  | StdioOptions
-  | WebSocketOptions
-  | SSEOptions
-  | StreamableHTTPOptions;
+  StdioOptions | WebSocketOptions | SSEOptions | StreamableHTTPOptions;
 
 export type MCPConnectionStatus =
   | "disabled"
@@ -1390,6 +1624,13 @@ export interface MCPTool {
     type: "object";
     properties?: Record<string, any>;
   };
+  /** Server hints about how the tool behaves, per the MCP annotations spec. */
+  annotations?:
+    | {
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+      }
+    | undefined;
   _meta?: Record<string, unknown> | undefined;
 }
 
@@ -1445,7 +1686,7 @@ export type MCPServerStatus = InternalMcpOptions & {
   sourceFile?: string;
 };
 
-export interface ContinueUIConfig {
+export interface TntUIConfig {
   codeBlockToolbarPosition?: "top" | "bottom";
   fontSize?: number;
   displayRawMarkdown?: boolean;
@@ -1515,8 +1756,7 @@ interface StreamDiffLinesOptionsApply extends StreamDiffLinesOptionsBase {
 }
 
 type StreamDiffLinesPayload =
-  | StreamDiffLinesOptionsApply
-  | StreamDiffLinesOptionsEdit;
+  StreamDiffLinesOptionsApply | StreamDiffLinesOptionsEdit;
 
 export interface HighlightedCodePayload {
   rangeInFileWithContents: RangeInFileWithContents;
@@ -1733,12 +1973,13 @@ export interface JSONModelDescription {
   aiGatewaySlug?: string;
   useLegacyCompletionsEndpoint?: boolean;
   useResponsesApi?: boolean;
+  streamOptions?: boolean;
   deploymentId?: string;
   isFromAutoDetect?: boolean;
 }
 
 // config.json
-export interface SerializedContinueConfig {
+export interface SerializedTntConfig {
   env?: string[];
   allowAnonymousTelemetry?: boolean;
   models: JSONModelDescription[];
@@ -1754,7 +1995,7 @@ export interface SerializedContinueConfig {
   embeddingsProvider?: EmbeddingsProviderDescription;
   tabAutocompleteModel?: JSONModelDescription | JSONModelDescription[];
   tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   reranker?: RerankerDescription;
   experimental?: ExperimentalConfig;
   analytics?: AnalyticsConfig;
@@ -1764,17 +2005,17 @@ export interface SerializedContinueConfig {
 
 export type ConfigMergeType = "merge" | "overwrite";
 
-export type ContinueRcJson = Partial<SerializedContinueConfig> & {
+export type TntRcJson = Partial<SerializedTntConfig> & {
   mergeBehavior: ConfigMergeType;
 };
 
 // config.ts - give users simplified interfaces
 export interface Config {
-  /** If set to true, Continue will collect anonymous usage data to improve the product. If set to false, we will collect nothing. Read here to learn more: https://docs.continue.dev/telemetry */
+  /** If set to true, TNT will collect anonymous usage data to improve the product. If set to false, we will collect nothing. */
   allowAnonymousTelemetry?: boolean;
   /** Each entry in this array will originally be a JSONModelDescription, the same object from your config.json, but you may add CustomLLMs.
    * A CustomLLM requires you only to define an AsyncGenerator that calls the LLM and yields string updates. You can choose to define either `streamCompletion` or `streamChat` (or both).
-   * Continue will do the rest of the work to construct prompt templates, handle context items, prune context, etc.
+   * TNT will do the rest of the work to construct prompt templates, handle context items, prune context, etc.
    */
   models: (CustomLLM | JSONModelDescription)[];
   /** A system message to be followed by all of your models */
@@ -1786,26 +2027,24 @@ export interface Config {
   /** The list of slash commands that will be available in the sidebar */
   slashCommands?: (SlashCommand | SlashCommandWithSource)[];
   /** Each entry in this array will originally be a ContextProviderWithParams, the same object from your config.json, but you may add CustomContextProviders.
-   * A CustomContextProvider requires you only to define a title and getContextItems function. When you type '@title <query>', Continue will call `getContextItems(query)`.
+   * A CustomContextProvider requires you only to define a title and getContextItems function. When you type '@title <query>', TNT will call `getContextItems(query)`.
    */
   contextProviders?: (CustomContextProvider | ContextProviderWithParams)[];
-  /** If set to true, Continue will not index your codebase for retrieval */
+  /** If set to true, TNT will not index your codebase for retrieval */
   disableIndexing?: boolean;
-  /** If set to true, Continue will not make extra requests to the LLM to generate a summary title of each session. */
+  /** If set to true, TNT will not make extra requests to the LLM to generate a summary title of each session. */
   disableSessionTitles?: boolean;
-  /** An optional token to identify a user. Not used by Continue unless you write custom coniguration that requires such a token */
+  /** An optional token to identify a user. Not used by TNT unless you write custom configuration that requires such a token */
   userToken?: string;
-  /** The provider used to calculate embeddings. If left empty, Continue will use transformers.js to calculate the embeddings with all-MiniLM-L6-v2 */
+  /** The provider used to calculate embeddings. If left empty, TNT will use transformers.js to calculate the embeddings with all-MiniLM-L6-v2 */
   embeddingsProvider?: EmbeddingsProviderDescription | ILLM;
-  /** The model that Continue will use for tab autocompletions. */
+  /** The model that TNT will use for tab autocompletions. */
   tabAutocompleteModel?:
-    | CustomLLM
-    | JSONModelDescription
-    | (CustomLLM | JSONModelDescription)[];
+    CustomLLM | JSONModelDescription | (CustomLLM | JSONModelDescription)[];
   /** Options for tab autocomplete */
   tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
   /** UI styles customization */
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   /** Options for the reranker */
   reranker?: RerankerDescription | ILLM;
   /** Experimental configuration */
@@ -1816,8 +2055,8 @@ export interface Config {
   data?: DataDestination[];
 }
 
-// in the actual Continue source code
-export interface ContinueConfig {
+// in the actual TNT source code
+export interface TntConfig {
   allowAnonymousTelemetry?: boolean;
   // systemMessage?: string;
   completionOptions?: BaseCompletionOptions;
@@ -1828,7 +2067,7 @@ export interface ContinueConfig {
   disableIndexing?: boolean;
   userToken?: string;
   tabAutocompleteOptions?: Partial<TabAutocompleteOptions>;
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   experimental?: ExperimentalConfig;
   analytics?: AnalyticsConfig;
   docs?: SiteIndexingConfig[];
@@ -1840,7 +2079,7 @@ export interface ContinueConfig {
   data?: DataDestination[];
 }
 
-export interface BrowserSerializedContinueConfig {
+export interface BrowserSerializedTntConfig {
   allowAnonymousTelemetry?: boolean;
   // systemMessage?: string;
   completionOptions?: BaseCompletionOptions;
@@ -1850,7 +2089,7 @@ export interface BrowserSerializedContinueConfig {
   disableIndexing?: boolean;
   disableSessionTitles?: boolean;
   userToken?: string;
-  ui?: ContinueUIConfig;
+  ui?: TntUIConfig;
   experimental?: ExperimentalConfig;
   analytics?: AnalyticsConfig;
   docs?: SiteIndexingConfig[];
@@ -1909,13 +2148,17 @@ export type RuleSource =
   | "default-chat"
   | "default-plan"
   | "default-agent"
+  | "default-debug"
+  | "default-multitask"
   | "model-options-chat"
   | "model-options-plan"
   | "model-options-agent"
+  | "model-options-debug"
+  | "model-options-multitask"
   | "rules-block"
   | "colocated-markdown"
   | "json-systemMessage"
-  | ".continuerules"
+  | ".tntrules"
   | "agentFile";
 
 export interface RuleMetadata {
@@ -1940,6 +2183,8 @@ export interface Skill {
   content: string;
   files: string[];
   license?: string;
+  // Absolute uri of the skill's SKILL.md, filled in during loading
+  uri?: string;
 }
 
 export interface CompleteOnboardingPayload {
@@ -1952,6 +2197,18 @@ export interface CompiledMessagesResult {
   compiledChatMessages: ChatMessage[];
   didPrune: boolean;
   contextPercentage: number;
+  tokenBreakdown?: ContextTokenBreakdown;
+}
+
+export interface ContextTokenBreakdown {
+  systemPrompt: number;
+  tools: number;
+  mcp: number;
+  skills: number;
+  conversation: number;
+  used: number;
+  available: number;
+  contextLength: number;
 }
 
 export interface AddToChatPayload {

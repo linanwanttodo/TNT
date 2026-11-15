@@ -1,8 +1,78 @@
 import { describe, expect, it } from "vitest";
 
+import { AnthropicApi } from "./Anthropic.js";
 import { CACHING_STRATEGIES } from "./AnthropicCachingStrategies.js";
 import { addCacheControlToLastTwoUserMessages } from "./AnthropicUtils.js";
-import { AnthropicApi } from "./Anthropic.js";
+
+function sseResponse(events: unknown[]): Response {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    start(controller) {
+      for (const event of events) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+        );
+      }
+      controller.close();
+    },
+  });
+  return new Response(body, {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream" },
+  });
+}
+
+async function collect(stream: AsyncGenerator<any>): Promise<any[]> {
+  const chunks: any[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return chunks;
+}
+
+describe("AnthropicApi streaming", () => {
+  it("emits thinking deltas as reasoning_content, separate from the answer", async () => {
+    const api = new AnthropicApi({
+      provider: "anthropic",
+      apiKey: "key",
+    } as any);
+
+    const chunks = await collect(
+      api.handleStreamResponse(
+        sseResponse([
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: {
+              type: "thinking_delta",
+              thinking: "considering the options",
+            },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "text_delta", text: "the answer" },
+          },
+        ]),
+        "claude-sonnet-4-6",
+      ),
+    );
+
+    const reasoning = chunks.filter(
+      (chunk) => chunk.choices?.[0]?.delta?.reasoning_content !== undefined,
+    );
+    expect(reasoning).toHaveLength(1);
+    expect(reasoning[0].choices[0].delta.reasoning_content).toBe(
+      "considering the options",
+    );
+    expect(reasoning[0].choices[0].delta.content).toBeUndefined();
+    expect(
+      chunks.some(
+        (chunk) => chunk.choices?.[0]?.delta?.content === "the answer",
+      ),
+    ).toBe(true);
+  });
+});
 
 describe("AnthropicApi", () => {
   describe("_convertBody applies cache_control to last two user messages", () => {

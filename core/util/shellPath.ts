@@ -1,7 +1,14 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+// The profile-sourcing snippet is a constant; the only dynamic input is
+// $SHELL, which is passed as the file argument of execFile (array form, no
+// shell), so it cannot be re-parsed as a command line.
+const LOGIN_SNIPPET =
+  'for f in ~/.zprofile ~/.zshrc ~/.bash_profile ~/.bashrc; do [ -f "$f" ] && source "$f" 2>/dev/null; done; echo $PATH';
+
 export async function getEnvPathFromUserShell(
   remoteName?: string,
 ): Promise<string | undefined> {
@@ -11,17 +18,20 @@ export async function getEnvPathFromUserShell(
     return undefined;
   }
 
-  if (!process.env.SHELL) {
+  const userShell = process.env.SHELL;
+  if (!userShell) {
     return undefined;
   }
 
   try {
     // Source common profile files
-    const command = `${process.env.SHELL} -l -c 'for f in ~/.zprofile ~/.zshrc ~/.bash_profile ~/.bashrc; do [ -f "$f" ] && source "$f" 2>/dev/null; done; echo $PATH'`;
-
-    const { stdout } = await execAsync(command, {
-      encoding: "utf8",
-    });
+    const { stdout } = await execFileAsync(
+      userShell,
+      ["-l", "-c", LOGIN_SNIPPET],
+      {
+        encoding: "utf8",
+      },
+    );
 
     return stdout.trim();
   } catch (error) {

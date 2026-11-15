@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "allowUnreachableCode": false,
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmitOnError": false,
+    "types": ["node", "vitest/globals"],
+    "outDir": "dist",
+    "declaration": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "jsx": "react",
+    "baseUrl": ".",
+    "paths": {
+      "core/*": ["../../core/dist/*"],
+      "core": ["../../core/dist/index.js"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "test-utils/**/*",
+    "e2e/**/*",
+    "smoke-api/**/*",
+    "eval/**/*",
+    "vitest.setup.ts",
+    "vitest.global-dir-setup.ts"
+  ],
+  "exclude": ["eval/retrieval/corpus/**"]
+}

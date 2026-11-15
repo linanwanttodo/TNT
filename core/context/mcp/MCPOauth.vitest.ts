@@ -4,6 +4,11 @@ import { GlobalContext } from "../../util/GlobalContext";
 import { getGlobalContextFilePath } from "../../util/paths";
 import { getOauthToken, performAuth, removeMCPAuth } from "./MCPOauth";
 
+const TEST_ACCESS_TOKEN_A =
+  process.env.TNT_TEST_ACCESS_TOKEN_A ?? "test-token-a";
+const TEST_ACCESS_TOKEN_B =
+  process.env.TNT_TEST_ACCESS_TOKEN_B ?? "test-token-b";
+
 // Mock the MCP SDK auth module
 vi.mock("@modelcontextprotocol/sdk/client/auth.js", () => ({
   auth: vi.fn(),
@@ -60,14 +65,14 @@ describe("MCPOauth", () => {
       globalContext.update("mcpOauthStorage", {
         "https://test-server.com": {
           tokens: {
-            access_token: "test-access-token",
+            access_token: TEST_ACCESS_TOKEN_A,
             token_type: "Bearer",
           },
         },
       });
 
       const result = await getOauthToken("https://test-server.com", mockIde);
-      expect(result).toBe("test-access-token");
+      expect(result).toBe(TEST_ACCESS_TOKEN_A);
     });
 
     test("should handle different server URLs independently", async () => {
@@ -75,13 +80,13 @@ describe("MCPOauth", () => {
       globalContext.update("mcpOauthStorage", {
         "https://server1.com": {
           tokens: {
-            access_token: "token1",
+            access_token: TEST_ACCESS_TOKEN_A,
             token_type: "Bearer",
           },
         },
         "https://server2.com": {
           tokens: {
-            access_token: "token2",
+            access_token: TEST_ACCESS_TOKEN_B,
             token_type: "Bearer",
           },
         },
@@ -91,8 +96,8 @@ describe("MCPOauth", () => {
       const result2 = await getOauthToken("https://server2.com", mockIde);
       const result3 = await getOauthToken("https://server3.com", mockIde);
 
-      expect(result1).toBe("token1");
-      expect(result2).toBe("token2");
+      expect(result1).toBe(TEST_ACCESS_TOKEN_A);
+      expect(result2).toBe(TEST_ACCESS_TOKEN_B);
       expect(result3).toBeUndefined();
     });
   });
@@ -125,7 +130,7 @@ describe("MCPOauth", () => {
       globalContext.update("mcpOauthStorage", {
         "https://test-server.com": {
           tokens: {
-            access_token: "test-access-token",
+            access_token: TEST_ACCESS_TOKEN_A,
             token_type: "Bearer",
           },
           clientInformation: {
@@ -136,7 +141,7 @@ describe("MCPOauth", () => {
         },
         "https://other-server.com": {
           tokens: {
-            access_token: "other-access-token",
+            access_token: TEST_ACCESS_TOKEN_B,
             token_type: "Bearer",
           },
         },
@@ -148,7 +153,7 @@ describe("MCPOauth", () => {
       expect(updatedStorage).toEqual({
         "https://other-server.com": {
           tokens: {
-            access_token: "other-access-token",
+            access_token: TEST_ACCESS_TOKEN_B,
             token_type: "Bearer",
           },
         },
@@ -160,7 +165,7 @@ describe("MCPOauth", () => {
       globalContext.update("mcpOauthStorage", {
         "https://other-server.com": {
           tokens: {
-            access_token: "other-access-token",
+            access_token: TEST_ACCESS_TOKEN_B,
             token_type: "Bearer",
           },
         },
@@ -172,7 +177,7 @@ describe("MCPOauth", () => {
       expect(updatedStorage).toEqual({
         "https://other-server.com": {
           tokens: {
-            access_token: "other-access-token",
+            access_token: TEST_ACCESS_TOKEN_B,
             token_type: "Bearer",
           },
         },

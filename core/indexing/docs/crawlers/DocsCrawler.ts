@@ -1,10 +1,9 @@
 import { URL } from "node:url";
 
-import { ContinueConfig, IDE } from "../../..";
+import { TntConfig, IDE } from "../../..";
+import type { ChromiumInstaller } from "./ChromiumCrawler";
 
 import CheerioCrawler from "./CheerioCrawler";
-import { ChromiumCrawler, ChromiumInstaller } from "./ChromiumCrawler";
-import { DefaultCrawler } from "./DefaultCrawler";
 import GitHubCrawler from "./GitHubCrawler";
 
 export type PageData = {
@@ -13,28 +12,42 @@ export type PageData = {
   content: string;
 };
 
-export type DocsCrawlerType = "default" | "cheerio" | "chromium" | "github";
+export type DocsCrawlerType = "cheerio" | "chromium" | "github";
 
 class DocsCrawler {
   private readonly GITHUB_HOST = "github.com";
-  private readonly chromiumInstaller: ChromiumInstaller;
+  private chromiumInstaller?: Promise<ChromiumInstaller>;
 
   constructor(
     private readonly ide: IDE,
-    private readonly config: ContinueConfig,
+    private readonly config: TntConfig,
     private readonly maxDepth: number = 4,
     private readonly maxRequestsPerCrawl: number = 1000,
-    private readonly useLocalCrawling: boolean = false,
     private readonly githubToken: string | undefined = undefined,
   ) {
-    this.chromiumInstaller = new ChromiumInstaller(this.ide, this.config);
+    // Chromium pulls in puppeteer and its chromium-resolver, which a static
+    // site never needs. Opting into Chromium is what starts the download, so
+    // that part keeps happening here rather than at first crawl - the flag is
+    // also what makes loading the module worth it.
+    if (this.config.experimental?.useChromiumForDocsCrawling) {
+      void this.getChromiumInstaller();
+    }
   }
 
-  private shouldUseChromium() {
-    return (
-      this.config.experimental?.useChromiumForDocsCrawling &&
-      this.chromiumInstaller.isInstalled()
+  private getChromiumInstaller(): Promise<ChromiumInstaller> {
+    this.chromiumInstaller ??= import("./ChromiumCrawler").then(
+      ({ ChromiumInstaller }) => new ChromiumInstaller(this.ide, this.config),
     );
+
+    return this.chromiumInstaller;
+  }
+
+  private async shouldUseChromium() {
+    if (!this.config.experimental?.useChromiumForDocsCrawling) {
+      return false;
+    }
+
+    return (await this.getChromiumInstaller()).isInstalled();
   }
 
   /*
@@ -48,23 +61,9 @@ class DocsCrawler {
       return "github";
     }
 
-    if (!this.useLocalCrawling) {
-      try {
-        const pageData = await new DefaultCrawler(
-          startUrl,
-          this.maxRequestsPerCrawl,
-          this.maxDepth,
-        ).crawl();
-        if (pageData.length > 0) {
-          yield* pageData;
-          return "default";
-        }
-      } catch (e) {
-        console.error("Default crawler failed, trying backup: ", e);
-      }
-    }
+    if (await this.shouldUseChromium()) {
+      const { ChromiumCrawler } = await import("./ChromiumCrawler");
 
-    if (this.shouldUseChromium()) {
       yield* new ChromiumCrawler(
         startUrl,
         this.maxRequestsPerCrawl,
@@ -85,21 +84,23 @@ class DocsCrawler {
 
       // We assume that if we failed to crawl a single page,
       // it was due to an error that using Chromium can resolve
+      const chromiumInstaller = await this.getChromiumInstaller();
       const shouldProposeUseChromium =
         !didCrawlSinglePage &&
-        this.chromiumInstaller.shouldProposeUseChromiumOnCrawlFailure();
+        chromiumInstaller.shouldProposeUseChromiumOnCrawlFailure();
 
       if (shouldProposeUseChromium) {
-        const didInstall =
-          await this.chromiumInstaller.proposeAndAttemptInstall(
-            startUrl.toString(),
-          );
+        const didInstall = await chromiumInstaller.proposeAndAttemptInstall(
+          startUrl.toString(),
+        );
 
         if (didInstall) {
           void this.ide.showToast(
             "info",
             `Successfully installed Chromium! Retrying crawl of: ${startUrl.toString()}`,
           );
+
+          const { ChromiumCrawler } = await import("./ChromiumCrawler");
 
           yield* new ChromiumCrawler(
             startUrl,
@@ -116,4 +117,8 @@ class DocsCrawler {
 }
 
 export default DocsCrawler;
-export { CheerioCrawler, ChromiumCrawler, ChromiumInstaller, GitHubCrawler };
+// The Chromium classes are deliberately not re-exported: an `export { X } from
+// "./ChromiumCrawler"` is a static import, and consumers take them from that
+// module directly so that a crawler which never reaches Chromium keeps not
+// loading it.
+export { CheerioCrawler, GitHubCrawler };

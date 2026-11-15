@@ -1,14 +1,11 @@
-import {
-  ConfigValidationError,
-  parseMarkdownRule,
-} from "@continuedev/config-yaml";
+import { ConfigValidationError, parseMarkdownRule } from "@tnt/config-yaml";
 import z from "zod";
 import { IDE, Skill } from "../..";
 import { walkDir } from "../../indexing/walkDir";
 import { localPathToUri } from "../../util/pathToUri";
 import { getGlobalFolderWithName } from "../../util/paths";
 import { findUriInDirs, joinPathsToUri } from "../../util/uri";
-import { getAllDotContinueDefinitionFiles } from "../loadLocalAssistants";
+import { getAllDotTntDefinitionFiles } from "../loadLocalAssistants";
 
 const skillFrontmatterSchema = z.object({
   name: z.string().min(1),
@@ -16,6 +13,23 @@ const skillFrontmatterSchema = z.object({
 });
 
 const SKILLS_DIR = "skills";
+
+// What the settings page shows for one skill, plus where it lives so it can
+// be opened in the editor.
+export interface SkillView {
+  name: string;
+  description: string;
+  path: string;
+  files: string[];
+  // Absolute uri of the SKILL.md, for opening the file
+  uri: string;
+  scope: "global" | "workspace";
+}
+
+export interface SkillsView {
+  skills: SkillView[];
+  errors: ConfigValidationError[];
+}
 
 /**
  * Get skills from .claude/skills directory
@@ -49,7 +63,7 @@ export async function loadMarkdownSkills(ide: IDE) {
   try {
     const yamlAndMarkdownFileUris = [
       ...(
-        await getAllDotContinueDefinitionFiles(
+        await getAllDotTntDefinitionFiles(
           ide,
           {
             includeGlobal: true,
@@ -93,6 +107,7 @@ export async function loadMarkdownSkills(ide: IDE) {
             ? foundRelativeUri.relativePathOrBasename
             : fileUri,
           files: filesInSkillsDirectory,
+          uri: fileUri,
         });
       } catch (error) {
         errors.push({
@@ -109,4 +124,27 @@ export async function loadMarkdownSkills(ide: IDE) {
   }
 
   return { skills, errors };
+}
+
+// Loads the skills for the settings page: what each one is, where its
+// SKILL.md lives, and whether it came from the workspace or the global
+// folder.
+export async function listMarkdownSkills(ide: IDE): Promise<SkillsView> {
+  const { skills, errors } = await loadMarkdownSkills(ide);
+  const workspaceDirs = await ide.getWorkspaceDirs();
+
+  const views: SkillView[] = skills.map((skill) => {
+    const uri = skill.uri ?? skill.path;
+    const found = findUriInDirs(uri, workspaceDirs);
+    return {
+      name: skill.name,
+      description: skill.description,
+      path: skill.path,
+      files: skill.files,
+      uri,
+      scope: found.foundInDir ? "workspace" : "global",
+    };
+  });
+
+  return { skills: views, errors };
 }

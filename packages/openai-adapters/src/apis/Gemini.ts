@@ -25,6 +25,7 @@ import {
   chatChunkFromDelta,
   customFetch,
   embedding,
+  normalizeUsage,
   usageChatChunk,
 } from "../util.js";
 import {
@@ -41,11 +42,6 @@ import {
   FimCreateParamsStreaming,
   RerankCreateParams,
 } from "./base.js";
-
-type UsageInfo = Pick<
-  CompletionUsage,
-  "total_tokens" | "completion_tokens" | "prompt_tokens"
->;
 
 interface GeminiToolCall
   extends OpenAI.Chat.Completions.ChatCompletionMessageFunctionToolCall {
@@ -65,6 +61,34 @@ interface GeminiToolDelta
   };
 }
 
+// The Google Gen AI SDK composes request URLs as <baseUrl>/<apiVersion>/...,
+// while TNT stores both parts in a single apiBase such as
+// "https://generativelanguage.googleapis.com/v1beta/". Splitting them keeps
+// custom endpoints, proxies and gateways working without duplicating the
+// version segment in the path.
+export function splitGeminiApiBase(apiBase: string): {
+  baseUrl: string;
+  apiVersion?: string;
+} {
+  try {
+    const url = new URL(apiBase);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const versionIndex = segments.findIndex((s) =>
+      /^v\d+(alpha|beta)?$/.test(s),
+    );
+    if (versionIndex === -1) {
+      return { baseUrl: `${url.origin}${url.pathname.replace(/\/$/, "")}` };
+    }
+    // Keep any path prefix that precedes the version (gateways often proxy
+    // under one), and hand the version to the SDK separately.
+    const prefix = segments.slice(0, versionIndex).join("/");
+    const origin = prefix ? `${url.origin}/${prefix}` : url.origin;
+    return { baseUrl: origin, apiVersion: segments[versionIndex] };
+  } catch {
+    return { baseUrl: apiBase };
+  }
+}
+
 export class GeminiApi implements BaseLlmApi {
   apiBase: string = "https://generativelanguage.googleapis.com/v1beta/";
   private genAI: GoogleGenAI;
@@ -75,10 +99,21 @@ export class GeminiApi implements BaseLlmApi {
     this.apiBase = config.apiBase ?? this.apiBase;
     // Create GoogleGenAI with native fetch to avoid pollution
     // from Vercel AI SDK packages that can break stream handling
+    //
+    // The SDK builds request URLs as <baseUrl>/<apiVersion>/models/..., so a
+    // configured apiBase is split into its origin and its version segment.
+    // Passing the whole apiBase as baseUrl would duplicate the version in the
+    // path, and omitting it entirely would send custom endpoints and gateways
+    // to Google's official host.
+    const { baseUrl, apiVersion } = splitGeminiApiBase(this.apiBase);
     this.genAI = withNativeFetch(
       () =>
         new GoogleGenAI({
           apiKey: this.config.apiKey,
+          httpOptions: {
+            baseUrl,
+            ...(apiVersion ? { apiVersion } : {}),
+          },
         }),
     );
   }
@@ -114,7 +149,6 @@ export class GeminiApi implements BaseLlmApi {
 
   public _convertBody(
     oaiBody: ChatCompletionCreateParams,
-    isV1API: boolean,
     includeToolCallIds: boolean,
   ) {
     const generationConfig: any = {};
@@ -132,6 +166,24 @@ export class GeminiApi implements BaseLlmApi {
       const stop = Array.isArray(oaiBody.stop) ? oaiBody.stop : [oaiBody.stop];
       generationConfig.stopSequences = stop.filter((x) => x.trim() !== "");
     }
+    // Gemini 3 models steer reasoning with a thinking level rather than a
+    // token budget. Only set when the request carries an effort level, so
+    // models that predate thinking levels are unaffected.
+    if (oaiBody.reasoning_effort) {
+      const levelMap: Record<string, string> = {
+        minimal: "MINIMAL",
+        low: "LOW",
+        medium: "MEDIUM",
+        high: "HIGH",
+        // xhigh/max have no Gemini equivalent; the highest level applies.
+        xhigh: "HIGH",
+        max: "HIGH",
+      };
+      const level = levelMap[oaiBody.reasoning_effort];
+      if (level) {
+        generationConfig.thinkingConfig = { thinkingLevel: level };
+      }
+    }
 
     const toolCallIdToNameMap = new Map<string, string>();
     oaiBody.messages.forEach((msg) => {
@@ -147,7 +199,7 @@ export class GeminiApi implements BaseLlmApi {
 
     const contents = oaiBody.messages
       .map((msg) => {
-        if (msg.role === "system" && !isV1API) {
+        if (msg.role === "system") {
           return null; // Don't include system message in contents
         }
 
@@ -244,36 +296,33 @@ export class GeminiApi implements BaseLlmApi {
       generationConfig,
       contents: mergedContents,
       // if there is a system message, reformat it for Gemini API
-      ...(sysMsg &&
-        !isV1API && {
-          systemInstruction: { parts: [{ text: sysMsg.content }] },
-        }),
+      ...(sysMsg && {
+        systemInstruction: { parts: [{ text: sysMsg.content }] },
+      }),
     };
 
-    if (!isV1API) {
-      // Convert and add tools if present
-      if (oaiBody.tools?.length) {
-        // Choosing to map all tools to the functionDeclarations of one tool
-        // Rather than map each tool to its own tool + functionDeclaration
-        // Same difference
-        const functions: GeminiToolFunctionDeclaration[] = [];
-        oaiBody.tools.forEach((tool) => {
-          try {
-            functions.push(convertOpenAIToolToGeminiFunction(tool));
-          } catch (e) {
-            console.warn(
-              `Failed to convert tool to gemini function definition. Skipping: ${JSON.stringify(tool, null, 2)}`,
-            );
-          }
-        });
-
-        if (functions.length) {
-          finalBody.tools = [
-            {
-              functionDeclarations: functions,
-            },
-          ];
+    // Convert and add tools if present
+    if (oaiBody.tools?.length) {
+      // Choosing to map all tools to the functionDeclarations of one tool
+      // Rather than map each tool to its own tool + functionDeclaration
+      // Same difference
+      const functions: GeminiToolFunctionDeclaration[] = [];
+      oaiBody.tools.forEach((tool) => {
+        try {
+          functions.push(convertOpenAIToolToGeminiFunction(tool));
+        } catch (e) {
+          console.warn(
+            `Failed to convert tool to gemini function definition. Skipping: ${JSON.stringify(tool, null, 2)}`,
+          );
         }
+      });
+
+      if (functions.length) {
+        finalBody.tools = [
+          {
+            functionDeclarations: functions,
+          },
+        ];
       }
     }
 
@@ -285,7 +334,7 @@ export class GeminiApi implements BaseLlmApi {
     signal: AbortSignal,
   ): Promise<ChatCompletion> {
     let completion = "";
-    let usage: UsageInfo | undefined = undefined;
+    let usage: CompletionUsage | undefined = undefined;
     for await (const chunk of this.chatCompletionStream(
       {
         ...body,
@@ -325,15 +374,14 @@ export class GeminiApi implements BaseLlmApi {
     response: AsyncIterable<any>,
     model: string,
   ): AsyncGenerator<ChatCompletionChunk> {
-    let usage: UsageInfo | undefined = undefined;
+    let usage: CompletionUsage | undefined = undefined;
 
     for await (const chunk of response) {
       if (chunk.usageMetadata) {
-        usage = {
-          prompt_tokens: chunk.usageMetadata.promptTokenCount || 0,
-          completion_tokens: chunk.usageMetadata.candidatesTokenCount || 0,
-          total_tokens: chunk.usageMetadata.totalTokenCount || 0,
-        };
+        // promptTokenCount already includes the cached prefix, so it maps
+        // straight through; the cached and thinking parts are what the flat
+        // three-field mapping used to throw away.
+        usage = normalizeUsage(chunk.usageMetadata);
       }
 
       const contentParts = chunk?.candidates?.[0]?.content?.parts;
@@ -422,11 +470,7 @@ export class GeminiApi implements BaseLlmApi {
     body: ChatCompletionCreateParamsStreaming,
     _signal: AbortSignal,
   ): AsyncGenerator<ChatCompletionChunk> {
-    const convertedBody = this._convertBody(
-      body,
-      this.apiBase.includes("/v1/"),
-      true,
-    );
+    const convertedBody = this._convertBody(body, true);
     const response = await this.generateStream(
       this.genAI,
       body.model,
@@ -439,7 +483,7 @@ export class GeminiApi implements BaseLlmApi {
     genAI: GoogleGenAI,
     body: ChatCompletionCreateParamsStreaming,
   ): AsyncGenerator<ChatCompletionChunk> {
-    const convertedBody = this._convertBody(body, false, true);
+    const convertedBody = this._convertBody(body, true);
     const response = await this.generateStream(
       genAI,
       body.model,
@@ -483,9 +527,8 @@ export class GeminiApi implements BaseLlmApi {
           })),
         }),
         headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
           "x-goog-api-key": this.config.apiKey,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
+
           "Content-Type": "application/json",
         },
       },

@@ -1,0 +1,86 @@
+---
+title: "Modes"
+description: "Manual, accept edits, plan, auto and bypass: what each mode allows and how to switch."
+---
+
+A mode is the strongest permission layer. TNT has six values; five are selectable
+in the TUI and over ACP.
+
+| Mode | Behaviour | Typical use |
+| --- | --- | --- |
+| `default` (Manual) | reads and searches allowed; writes and other risky calls ask | day-to-day work |
+| `acceptEdits` | the four write tools are allowed inside the workspace; Bash still asks | editing a known change |
+| `plan` | write tools are disabled and only non-mutating shell commands run | investigating before a change |
+| `auto` (startup default) | a classifier decides the calls that would otherwise ask; failures fail closed | day-to-day work |
+| `bypassPermissions` | every tool is allowed | a fully trusted, explicit run |
+| `dontAsk` | the default table with every ask turned into a refusal | headless and serve runs |
+
+## Starting in a mode
+
+```bash
+tnt --permission-mode default
+tnt --permission-mode acceptEdits
+tnt --permission-mode plan
+tnt --permission-mode auto
+tnt --permission-mode bypassPermissions --dangerously-skip-permissions
+```
+
+The legacy flags still work and print a deprecation warning:
+
+| Flag | Maps to |
+| --- | --- |
+| `--mode agent` | `default` |
+| `--readonly` | `plan` |
+| `--auto` | `bypassPermissions` |
+
+`TNT_PERMISSION_MODE` or `CLAUDE_CODE_PERMISSION_MODE` sets the startup mode when
+no flag does. `defaultMode` in `settings.json` overrides the built-in `auto`
+startup default. A value that is not one of the six is refused at startup.
+
+`bypassPermissions` always needs the explicit
+`--dangerously-skip-permissions` flag, unless the environment variable or a
+persisted `defaultMode` already selected it.
+
+## Switching during a session
+
+`Shift+Tab` cycles:
+
+`Manual → Accept edits → Plan → Auto → Bypass permissions → Manual`
+
+The composer border shows the active mode. `dontAsk` is headless and serve
+semantics and never reaches the TUI or the Shift+Tab cycle.
+
+## Plan mode
+
+Plan mode is enforced before the tool runs, not only described to the model:
+
+- the four write tools (`Edit`, `MultiEdit`, `Write`, `ApplyPatch`) are disabled;
+- the shell tool only runs commands classified as non-mutating;
+- MCP and plugin tools ask, and a headless run refuses them;
+- the model is expected to produce a plan, decisions and a todo list rather than
+  changes.
+
+Switch to `acceptEdits` or `default` when the plan is ready.
+
+## Auto mode
+
+Auto keeps the user's own rules and layers a classifier on top of the calls that
+would otherwise ask. Read-only and metadata tools run directly; a call
+`acceptEdits` would allow also runs directly; the rest go to the classifier.
+After three consecutive or twenty total blocks, the next ask goes back to the
+human. A failed or unparseable classifier never counts as consent: an interactive
+run prompts, and a headless run refuses.
+
+## ACP
+
+An ACP client sees `default`, `acceptEdits`, `plan`, `auto` and
+`bypassPermissions` through `session/set_mode`. `dontAsk` is not offered. Each
+session's worker keeps its own mode, so two editor sessions can use different
+modes at the same time. See [ACP](/cli/acp).
+
+## Relationship to policies
+
+Modes override the policies described in [Permissions](/cli/permissions).
+`plan` and `bypassPermissions` build their policy list from the mode alone, so
+`--allow`, `--ask` and `--exclude` cannot widen them; passing those flags with
+either mode is refused.

@@ -1,7 +1,7 @@
 import ignore from "ignore";
 import type { FileType, IDE } from "../";
 import { findUriInDirs, getUriPathBasename } from "../util/uri";
-import { getGlobalContinueIgArray } from "./continueignore";
+import { getGlobalTntIgArray } from "./tntignore";
 import { defaultIgnoreFileAndDir } from "./ignore";
 import { getIgnoreContext } from "./walkDir";
 
@@ -26,7 +26,7 @@ export async function shouldIgnore(
 
   const defaultAndGlobalIgnores = ignore()
     .add(defaultIgnoreFileAndDir)
-    .add(getGlobalContinueIgArray());
+    .add(getGlobalTntIgArray());
 
   let currentDir = uri;
   let directParent = true;

@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { UI, type Locale } from "@/lib/i18n";
 
-export function CopyPageButton({ slug }: { slug: string }) {
+export function CopyPageButton({
+  slug,
+  locale,
+}: {
+  slug: string;
+  locale: Locale;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -22,7 +29,7 @@ export function CopyPageButton({ slug }: { slug: string }) {
       className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[13px] text-black/35 transition-colors hover:bg-black/[0.04] hover:text-black/60 dark:text-white/35 dark:hover:bg-white/[0.04] dark:hover:text-white/60"
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-      <span>{copied ? "Copied" : "Copy page"}</span>
+      <span>{copied ? UI[locale].copied : UI[locale].copyPage}</span>
     </button>
   );
 }

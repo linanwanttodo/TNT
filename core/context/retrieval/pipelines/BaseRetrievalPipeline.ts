@@ -5,13 +5,13 @@ import {
   BranchAndDir,
   Chunk,
   ContextItem,
-  ContinueConfig,
+  TntConfig,
   IDE,
   ILLM,
   Tool,
   ToolExtras,
 } from "../../../";
-import { openedFilesLruCache } from "../../../autocomplete/util/openedFilesLruCache";
+import { openedFilesLruCache } from "../../../util/openedFilesLruCache";
 import { chunkDocument } from "../../../indexing/chunk/chunk";
 import { FullTextSearchCodebaseIndex } from "../../../indexing/FullTextSearchCodebaseIndex";
 import { LanceDbIndex } from "../../../indexing/LanceDbIndex";
@@ -37,7 +37,7 @@ const AVAILABLE_TOOLS: Tool[] = [
 
 export interface RetrievalPipelineOptions {
   llm: ILLM;
-  config: ContinueConfig;
+  config: TntConfig;
   ide: IDE;
   input: string;
   nRetrieve: number;

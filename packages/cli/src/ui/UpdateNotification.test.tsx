@@ -1,0 +1,215 @@
+// Mock useTerminalSize hook
+vi.mock("./hooks/useTerminalSize.js", () => ({
+  useTerminalSize: () => ({ columns: 80, rows: 24 }),
+}));
+
+import { render } from "ink-testing-library";
+import React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { UpdateStatus } from "../services/types.js";
+
+import { UpdateNotification } from "./UpdateNotification.js";
+
+// Mock useServices hook
+const mockUseServices = vi.fn();
+vi.mock("./hooks/useService.js", () => ({
+  useServices: () => mockUseServices(),
+}));
+
+function frameOf(element: React.ReactElement): string | undefined {
+  const tree = render(element);
+  const frame = tree.lastFrame();
+  tree.unmount();
+  return frame;
+}
+
+describe("UpdateNotification", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default mock implementation - no update available
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.IDLE,
+          message: "TNT v1.0.0",
+          error: null,
+          isUpdateAvailable: false,
+          latestVersion: null,
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("hides the installed version when no update is available", () => {
+    const frame = frameOf(<UpdateNotification />);
+
+    expect(frame ?? "").toBe("");
+  });
+
+  it("should show update available message when update is available", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.IDLE,
+          message: "Update available: v1.0.1",
+          error: null,
+          isUpdateAvailable: true,
+          latestVersion: "1.0.1",
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification />);
+
+    expect(frame).toContain("◉ Update available: v1.0.1");
+  });
+
+  it("stays hidden while the check runs", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.CHECKING,
+          message: "TNT v1.0.0",
+          error: null,
+          isUpdateAvailable: false,
+          latestVersion: null,
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification />);
+
+    expect(frame ?? "").toBe("");
+  });
+
+  it("should show updating message when updating", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.UPDATING,
+          message: "Updating to v1.0.1",
+          error: null,
+          isUpdateAvailable: false,
+          latestVersion: "1.0.1",
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification />);
+
+    expect(frame).toContain("Updating to v1.0.1");
+  });
+
+  it("should show updated message when update completes", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.UPDATED,
+          message: "Auto-updated to v1.0.1",
+          error: null,
+          isUpdateAvailable: false,
+          latestVersion: "1.0.1",
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification />);
+
+    expect(frame).toContain("◉ Auto-updated to v1.0.1");
+  });
+
+  it("should show error message when update fails", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.ERROR,
+          message: "Update failed",
+          error: new Error("Update error"),
+          isUpdateAvailable: true,
+          latestVersion: "1.0.1",
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification />);
+
+    expect(frame).toContain("◉ Update failed");
+  });
+
+  it("should show remote mode when in remote mode and no update available", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.IDLE,
+          message: "TNT v1.0.0",
+          error: null,
+          isUpdateAvailable: false,
+          latestVersion: null,
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification isRemoteMode={true} />);
+
+    expect(frame).toContain("◉ Remote Mode");
+  });
+
+  it("should show update message even in remote mode when update is available", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.IDLE,
+          message: "Update available: v1.0.1",
+          error: null,
+          isUpdateAvailable: true,
+          latestVersion: "1.0.1",
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification isRemoteMode={true} />);
+
+    expect(frame).toContain("◉ Update available: v1.0.1");
+  });
+
+  it("hides the fallback text when update service has no update", () => {
+    mockUseServices.mockReturnValue({
+      services: {
+        update: {
+          autoUpdate: true,
+          status: UpdateStatus.IDLE,
+          message: "",
+          error: null,
+          isUpdateAvailable: false,
+          latestVersion: null,
+          currentVersion: "1.0.0",
+        },
+      },
+    });
+
+    const frame = frameOf(<UpdateNotification />);
+
+    expect(frame ?? "").toBe("");
+  });
+});

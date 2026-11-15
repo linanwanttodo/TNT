@@ -1,7 +1,7 @@
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { ContextItem, McpUiState, Tool, ToolCall, ToolExtras } from "..";
 import { MCPManagerSingleton } from "../context/mcp/MCPManagerSingleton";
-import { ContinueError, ContinueErrorReason } from "../util/errors";
+import { TntError, TntErrorReason } from "../util/errors";
 import { canParseUrl } from "../util/url";
 import { BuiltInToolNames } from "./builtIn";
 
@@ -19,7 +19,6 @@ import { readFileRangeImpl } from "./implementations/readFileRange";
 import { readSkillImpl } from "./implementations/readSkill";
 import { requestRuleImpl } from "./implementations/requestRule";
 import { runTerminalCommandImpl } from "./implementations/runTerminalCommand";
-import { searchWebImpl } from "./implementations/searchWeb";
 import { viewDiffImpl } from "./implementations/viewDiff";
 import { viewRepoMapImpl } from "./implementations/viewRepoMap";
 import { viewSubdirectoryImpl } from "./implementations/viewSubdirectory";
@@ -202,8 +201,6 @@ export async function callBuiltInTool(
       return await fileGlobSearchImpl(args, extras);
     case BuiltInToolNames.RunTerminalCommand:
       return await runTerminalCommandImpl(args, extras);
-    case BuiltInToolNames.SearchWeb:
-      return await searchWebImpl(args, extras);
     case BuiltInToolNames.FetchUrlContent:
       return await fetchUrlContentImpl(args, extras);
     case BuiltInToolNames.ViewDiff:
@@ -239,7 +236,7 @@ export async function callTool(
 ): Promise<{
   contextItems: ContextItem[];
   errorMessage: string | undefined;
-  errorReason?: ContinueErrorReason;
+  errorReason?: TntErrorReason;
   mcpUiState?: McpUiState;
 }> {
   try {
@@ -262,9 +259,9 @@ export async function callTool(
     };
   } catch (e) {
     let errorMessage = `${e}`;
-    let errorReason: ContinueErrorReason | undefined;
+    let errorReason: TntErrorReason | undefined;
 
-    if (e instanceof ContinueError) {
+    if (e instanceof TntError) {
       errorMessage = e.message;
       errorReason = e.reason;
     } else if (e instanceof Error) {

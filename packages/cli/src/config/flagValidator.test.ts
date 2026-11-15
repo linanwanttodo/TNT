@@ -1,0 +1,421 @@
+import { t } from "../i18n/index.js";
+import { BUILT_IN_TOOL_NAMES } from "../tools/builtInToolNames.js";
+
+import {
+  validateFlags,
+  validateServeFlags,
+  handleValidationErrors,
+} from "./flagValidator.js";
+
+describe("validateFlags", () => {
+  describe("format flag validation", () => {
+    test("should pass when format is used with print", () => {
+      const result = validateFlags({
+        format: "json",
+        print: true,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should fail when format is used without print", () => {
+      const result = validateFlags({
+        format: "json",
+        print: false,
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("FORMAT_REQUIRES_PRINT");
+      expect(result.errors[0].message).toContain(
+        "--format flag can only be used with -p/--print",
+      );
+    });
+
+    test("should accept stream-json as a format value", () => {
+      const result = validateFlags({
+        format: "stream-json",
+        print: true,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should fail when format value is invalid", () => {
+      const result = validateFlags({
+        format: "xml",
+        print: true,
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("INVALID_FORMAT_VALUE");
+      expect(result.errors[0].message).toBe(
+        'Error: Unsupported --format "xml". Expected one of: json, stream-json',
+      );
+    });
+  });
+
+  describe("silent flag validation", () => {
+    test("should pass when silent is used with print", () => {
+      const result = validateFlags({
+        silent: true,
+        print: true,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should fail when silent is used without print", () => {
+      const result = validateFlags({
+        silent: true,
+        print: false,
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("SILENT_REQUIRES_PRINT");
+      expect(result.errors[0].message).toContain(
+        "--silent flag can only be used with -p/--print",
+      );
+    });
+  });
+
+  describe("output-schema flag validation", () => {
+    test("should pass when outputSchema is used with print", () => {
+      const result = validateFlags({
+        outputSchema: "/tmp/schema.json",
+        print: true,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should fail when outputSchema is used without print", () => {
+      const result = validateFlags({
+        outputSchema: "/tmp/schema.json",
+        print: false,
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("OUTPUT_SCHEMA_REQUIRES_PRINT");
+      expect(result.errors[0].message).toBe(
+        "Error: --output-schema flag can only be used with -p/--print flag",
+      );
+    });
+  });
+
+  describe("mode flags validation", () => {
+    test("should pass with readonly only", () => {
+      const result = validateFlags({
+        readonly: true,
+        auto: false,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should pass with auto only", () => {
+      const result = validateFlags({
+        readonly: false,
+        auto: true,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should fail when both readonly and auto are used", () => {
+      const result = validateFlags({
+        readonly: true,
+        auto: true,
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("CONFLICTING_MODE_FLAGS");
+      expect(result.errors[0].message).toContain(
+        "Cannot use both --readonly and --auto",
+      );
+    });
+  });
+
+  describe("permission flags validation", () => {
+    test("should pass with valid permission flags", () => {
+      const result = validateFlags({
+        allow: ["readFile", "searchCode"],
+        ask: ["writeFile"],
+        exclude: ["Write", "Bash"],
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should fail with empty tool names in allow", () => {
+      const result = validateFlags({
+        allow: ["readFile", "", "searchCode"],
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("EMPTY_ALLOW_TOOL");
+      expect(result.errors[0].message).toContain(
+        "--allow requires a tool name",
+      );
+    });
+
+    test("should fail with empty tool names in ask", () => {
+      const result = validateFlags({
+        ask: ["writeFile", "   ", "editFile"],
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("EMPTY_ASK_TOOL");
+      expect(result.errors[0].message).toContain("--ask requires a tool name");
+    });
+
+    test("should fail with empty tool names in exclude", () => {
+      const result = validateFlags({
+        exclude: ["Write", "", "Bash"],
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].code).toBe("EMPTY_EXCLUDE_TOOL");
+      expect(result.errors[0].message).toContain(
+        "--exclude requires a tool name",
+      );
+    });
+  });
+
+  describe("multiple errors", () => {
+    test("should return all validation errors", () => {
+      const result = validateFlags({
+        format: "xml",
+        print: false,
+        silent: true,
+        readonly: true,
+        auto: true,
+        allow: ["readFile", ""],
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(1);
+
+      const errorCodes = result.errors.map((e) => e.code);
+      expect(errorCodes).toContain("FORMAT_REQUIRES_PRINT");
+      expect(errorCodes).toContain("INVALID_FORMAT_VALUE");
+      expect(errorCodes).toContain("SILENT_REQUIRES_PRINT");
+      expect(errorCodes).toContain("CONFLICTING_MODE_FLAGS");
+      expect(errorCodes).toContain("EMPTY_ALLOW_TOOL");
+    });
+  });
+
+  describe("config path validation", () => {
+    test("should pass with valid config path", () => {
+      const result = validateFlags({
+        config: "./my-config.yaml",
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    test("should pass with undefined config", () => {
+      const result = validateFlags({
+        config: undefined,
+      });
+
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+});
+
+describe("handleValidationErrors", () => {
+  test("should be a function that accepts validation errors", () => {
+    // Test function signature without calling it (since it calls process.exit)
+    expect(typeof handleValidationErrors).toBe("function");
+    expect(handleValidationErrors.length).toBe(1);
+  });
+
+  test("should accept proper error format", () => {
+    const validErrors = [
+      { code: "TEST_ERROR", message: "Test message" },
+      { code: "ANOTHER_ERROR", message: "Another message" },
+    ];
+
+    // Verify the function exists and would accept this format
+    // We don't call it since it would exit the process
+    expect(() => {
+      const errorArray = validErrors;
+      expect(Array.isArray(errorArray)).toBe(true);
+      expect(errorArray.every((e) => e.code && e.message)).toBe(true);
+    }).not.toThrow();
+  });
+});
+
+describe("validateServeFlags", () => {
+  it("accepts the defaults the option text promises", () => {
+    expect(validateServeFlags({ port: "8000", timeout: "300" })).toEqual({
+      isValid: true,
+      errors: [],
+    });
+    expect(validateServeFlags({}).isValid).toBe(true);
+  });
+
+  it("refuses a port that is not a number the socket layer can use", () => {
+    const result = validateServeFlags({ port: "abc" });
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0].message).toContain("--port expects a whole number");
+    expect(result.errors[0].message).toContain('"abc"');
+
+    expect(validateServeFlags({ port: "65536" }).isValid).toBe(false);
+    expect(validateServeFlags({ port: "0" }).isValid).toBe(false);
+    expect(validateServeFlags({ port: "80.5" }).isValid).toBe(false);
+  });
+
+  it("refuses a timeout that cannot be a duration", () => {
+    expect(validateServeFlags({ timeout: "-1" }).isValid).toBe(false);
+    expect(validateServeFlags({ timeout: "5m" }).isValid).toBe(false);
+  });
+});
+
+describe("validateFlags --max-steps", () => {
+  it("rejects a value the coercion could not turn into a number of rounds", () => {
+    const result = validateFlags({ print: true, maxSteps: Number.NaN });
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0].message).toContain(
+      "--max-steps expects a whole number of rounds of 1 or more",
+    );
+    expect(result.errors[0].message).toContain('"NaN"');
+  });
+
+  it("accepts a real number of rounds and nothing at all", () => {
+    expect(validateFlags({ print: true, maxSteps: 12 }).isValid).toBe(true);
+    expect(validateFlags({ print: true }).isValid).toBe(true);
+  });
+});
+
+describe("validateFlags --timeout", () => {
+  it("rejects a value that is not a whole number of seconds", () => {
+    const result = validateFlags({ print: true, timeoutSeconds: Number.NaN });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors[0].message).toContain(
+      "--request-timeout expects a whole number of seconds of 0 or more",
+    );
+  });
+
+  it("accepts a bound and the zero that means no bound at all", () => {
+    expect(validateFlags({ print: true, timeoutSeconds: 45 }).isValid).toBe(
+      true,
+    );
+    expect(validateFlags({ print: true, timeoutSeconds: 0 }).isValid).toBe(
+      true,
+    );
+  });
+});
+
+describe("permission flags beside a mode that owns the policy", () => {
+  test("refuses --allow with --auto instead of ignoring it", () => {
+    const result = validateFlags({ auto: true, allow: ["Bash"] } as never);
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors.map((e) => e.code)).toContain(
+      "PERMISSION_FLAGS_IGNORED_BY_MODE",
+    );
+  });
+
+  test("refuses --exclude with --readonly and with --mode plan", () => {
+    for (const options of [
+      { readonly: true, exclude: ["Bash"] },
+      { mode: "plan", exclude: ["Bash"] },
+    ]) {
+      const result = validateFlags(options as never);
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.map((e) => e.code)).toContain(
+        "PERMISSION_FLAGS_IGNORED_BY_MODE",
+      );
+    }
+  });
+
+  test("still accepts the same flags in agent mode", () => {
+    const result = validateFlags({
+      allow: ["Bash"],
+      exclude: ["Write"],
+      mode: "default",
+    } as never);
+
+    expect(result.errors.map((e) => e.code)).not.toContain(
+      "PERMISSION_FLAGS_IGNORED_BY_MODE",
+    );
+  });
+});
+
+describe("--request-timeout beside the other headless-only flags", () => {
+  test("refuses without -p, like --format, --silent and --output-schema", () => {
+    const result = validateFlags({ timeoutSeconds: 5 } as never);
+
+    expect(result.errors.map((e) => e.code)).toContain(
+      "REQUEST_TIMEOUT_REQUIRES_PRINT",
+    );
+  });
+
+  test("accepts with -p, including the 0 that means no bound", () => {
+    for (const timeoutSeconds of [5, 0]) {
+      const result = validateFlags({ print: true, timeoutSeconds } as never);
+
+      expect(result.errors.map((e) => e.code)).not.toContain(
+        "REQUEST_TIMEOUT_REQUIRES_PRINT",
+      );
+    }
+  });
+});
+
+describe("the tool-name hints", () => {
+  test("name tools that actually exist", () => {
+    // `--allow readFile` / `--ask writeFile` taught values no tool answers to, so a user
+    // following the hint configured a policy that could never match.
+    for (const { key, flag } of [
+      { key: "cli.allowRequiresTool" as const, flag: "--allow" },
+      { key: "cli.askRequiresTool" as const, flag: "--ask" },
+      { key: "cli.excludeRequiresTool" as const, flag: "--exclude" },
+    ]) {
+      const example = new RegExp(`${flag} (\\w+)[)）]`).exec(t(key))?.[1];
+
+      expect(example, key).toBeDefined();
+      expect(BUILT_IN_TOOL_NAMES as readonly string[]).toContain(example!);
+    }
+  });
+});
+
+describe("flags whose hub loader was removed", () => {
+  test("refuse --model and --mcp instead of ignoring them", () => {
+    const result = validateFlags({
+      model: ["owner/pkg"],
+      mcp: ["owner/pkg"],
+    } as never);
+
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).toContain("MODEL_FLAG_REMOVED");
+    expect(codes).toContain("MCP_FLAG_REMOVED");
+  });
+
+  test("say nothing when neither flag is given", () => {
+    const result = validateFlags({} as never);
+
+    const codes = result.errors.map((e) => e.code);
+    expect(codes).not.toContain("MODEL_FLAG_REMOVED");
+    expect(codes).not.toContain("MCP_FLAG_REMOVED");
+  });
+});

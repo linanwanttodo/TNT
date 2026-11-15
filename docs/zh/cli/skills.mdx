@@ -1,0 +1,48 @@
+---
+title: "技能"
+description: "智能体可以按需加载的可复用指令集。"
+---
+
+技能是一个包含 `SKILL.md` 文件的目录。描述告诉智能体技能何时适用，技能正文只
+在适用时加载。
+
+## 位置
+
+技能从以下位置发现：
+
+1. `<workspace>/.tnt/skills/`
+2. `<workspace>/.claude/skills/`
+3. `~/.tnt/skills/`
+
+相同的目录结构意味着为 Claude Code 约定编写的技能文件夹可以原样放入。
+
+## 结构
+
+```
+~/.tnt/skills/release-notes/
+  SKILL.md
+  template.md
+```
+
+```markdown title="~/.tnt/skills/release-notes/SKILL.md"
+---
+name: release-notes
+description: Write release notes for a version. Use when the user asks for a changelog or release summary.
+---
+
+1. Read the commits since the previous tag.
+2. Group them into breaking changes, features and fixes.
+3. Follow `template.md` for the layout.
+```
+
+frontmatter 中的 `name` 和 `description` 是必填项；正文是自由文本，文件夹中的
+其他文件可以作为参考资料使用。
+
+## 管理技能
+
+| 命令 | 作用 |
+| --- | --- |
+| `/skills` | 列出可用技能及其来源 |
+| `/import-skill` | 从 URL 或名称导入技能到 `~/.tnt/skills` |
+
+插件也可以提供技能；它们会与本地技能一起列出。

@@ -1,0 +1,136 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
+
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import {
+  fromGlobOutput,
+  fromRetrievalHits,
+  fromSearchOutput,
+} from "./adapters.js";
+
+/**
+ * One claim lives here: an adapter maps a returned path to a corpus-relative
+ * name by file identity, not by string prefix.
+ *
+ * The index reports the workspace as the operating system canonicalized it,
+ * while the harness created it through a name that may be a link (`/var` pointing
+ * at `/private/var` on macOS) or a short form (Windows answers `realpath` with the
+ * 8.3 name). Comparing the two spellings made every `CodebaseSearch` query look
+ * like it found nothing on those two lanes. A symlinked parent reproduces the
+ * mismatch on any machine, so the fix is checked where it can be checked.
+ */
+let real: string;
+let linked: string;
+let linkParent: string;
+
+beforeAll(() => {
+  real = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-eval-spell-real-"));
+  linkParent = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-eval-spell-parent-"));
+  linked = path.join(linkParent, "workspace");
+  fs.mkdirSync(path.join(real, "src"), { recursive: true });
+  fs.writeFileSync(path.join(real, "src", "hit.ts"), "export const hit = 1;\n");
+  fs.symlinkSync(real, linked, "dir");
+});
+
+afterAll(() => {
+  fs.rmSync(real, { recursive: true, force: true });
+  fs.rmSync(linkParent, { recursive: true, force: true });
+});
+
+const expected = { file: "src/hit.ts", startLine: 1, endLine: 1 };
+
+describe("path identity in the adapters", () => {
+  it("maps a hit the index spelled through the resolved directory", () => {
+    // The harness knows the workspace as `linked`; the answer names the file
+    // under `real`. Same file, two prefixes.
+    const hits = fromRetrievalHits(linked, [
+      { filepath: path.join(real, "src", "hit.ts"), startLine: 1, endLine: 1 },
+    ]);
+
+    expect(hits).toEqual([expected]);
+  });
+
+  it("maps the other direction too, root resolved and hit through the link", () => {
+    // Windows gave one short form and one long form to the two sides in the same
+    // way; which side carries which spelling is not knowable in advance.
+    const hits = fromRetrievalHits(real, [
+      {
+        filepath: path.join(linked, "src", "hit.ts"),
+        startLine: 1,
+        endLine: 1,
+      },
+    ]);
+
+    expect(hits).toEqual([expected]);
+  });
+
+  it("maps a hit the index handed back as a file URI", () => {
+    const hits = fromRetrievalHits(linked, [
+      {
+        filepath: `file://${path.join(real, "src", "hit.ts")}`,
+        startLine: 1,
+        endLine: 1,
+      },
+    ]);
+
+    expect(hits).toEqual([expected]);
+  });
+
+  it("maps the search output and the file listing the same way", () => {
+    const absolute = path.join(real, "src", "hit.ts");
+
+    expect(
+      fromSearchOutput(linked, `${absolute}:1:export const hit = 1;`),
+    ).toEqual([expected]);
+    expect(fromGlobOutput(linked, absolute)).toEqual([{ file: "src/hit.ts" }]);
+  });
+
+  it("falls back to the corpus tail when no spelling resolves", () => {
+    // The Windows shape: the index answered from a temp directory whose name
+    // differs from the one the run made - `C:\Users\RUNNER~1\...` against
+    // `C:\Users\runneradmin\...` - and `realpath` refuses to unify the two, so
+    // nothing resolves and only the tail below can match.
+    const base = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-eval-tail-"));
+    const staged = path.join(base, "a", "corpus");
+    fs.mkdirSync(path.join(staged, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(staged, "src", "hit.ts"),
+      "export const hit = 1;\n",
+    );
+
+    const elsewhere = path.join(base, "b", "corpus", "src", "hit.ts");
+    const hits = fromRetrievalHits(staged, [
+      { filepath: elsewhere, startLine: 1, endLine: 1 },
+    ]);
+
+    fs.rmSync(base, { recursive: true, force: true });
+    expect(hits).toEqual([expected]);
+  });
+
+  it("maps a case-folded spelling, which is how a Windows path arrives", () => {
+    // Windows names the same file under either case, so an answer spelled
+    // `...\SRC\HIT.TS` is not a different file and must not be scored as one.
+    const hits = fromRetrievalHits(real, [
+      { filepath: path.join(real, "src", "HIT.TS"), startLine: 1, endLine: 1 },
+    ]);
+
+    expect(hits).toEqual([expected]);
+  });
+
+  it("refuses to score a hit the corpus cannot name", () => {
+    // The failure that started this: an answer that matched nothing was subtracted
+    // against the root and carried on scoring, so a mapper bug printed 0.000 and
+    // read as a retrieval regression.
+    expect(() =>
+      fromRetrievalHits(real, [
+        {
+          filepath: path.join(path.dirname(real), "not-in-the-corpus.ts"),
+          startLine: 1,
+          endLine: 1,
+        },
+      ]),
+    ).toThrow(/cannot name/);
+  });
+});

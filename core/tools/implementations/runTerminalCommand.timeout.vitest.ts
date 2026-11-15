@@ -4,15 +4,31 @@ import { IDE, ToolExtras } from "../..";
 import { runTerminalCommandImpl } from "./runTerminalCommand";
 
 // Hoist mock function so it can be referenced in vi.mock factory
-const { mockSpawn } = vi.hoisted(() => ({
+const { mockSpawn, mockExecFile } = vi.hoisted(() => ({
   mockSpawn: vi.fn(),
+  // rtk lookup uses execFile; failing fast keeps the terminal tool offline
+  mockExecFile: vi.fn(
+    (
+      _file: string,
+      _args: unknown,
+      _options: unknown,
+      callback?: (error: Error) => void,
+    ) => {
+      const cb = typeof _options === "function" ? _options : callback;
+      if (typeof cb === "function") {
+        cb(new Error("execFile unavailable in tests"));
+      }
+    },
+  ),
 }));
 
 vi.mock("node:child_process", () => ({
   default: {
     spawn: mockSpawn,
+    execFile: mockExecFile,
   },
   spawn: mockSpawn,
+  execFile: mockExecFile,
 }));
 
 describe("runTerminalCommand timeout functionality", () => {

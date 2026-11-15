@@ -1,0 +1,36 @@
+---
+title: "Language"
+description: "Switch the interface language and understand where the default comes from."
+---
+
+The interface ships in English and Simplified Chinese.
+
+```
+/language
+```
+
+lists the available locales and marks the active one, while
+
+```
+/language zh-CN
+```
+
+switches to it. The change takes effect immediately and is stored, so the next
+launch starts in the same language.
+
+## Default
+
+When no language has been chosen yet, TNT follows the environment: a locale such
+as `zh_CN.UTF-8` selects Simplified Chinese, anything else selects English. The
+variables read are `LC_ALL`, `LC_MESSAGES`, `LANG` and `LANGUAGE`, in that order.
+
+## What is translated
+
+Slash command descriptions, pickers, notices and agent-facing UI strings are
+translated. Model output is not, and code, paths and tool output are shown as
+produced.
+
+## Where the choice is stored
+
+`~/.tnt/settings.json` holds the `locale` field. Deleting the field returns the
+UI to the environment-derived default.

@@ -133,7 +133,6 @@ export function testChat(
                 text: "Hello! Who are you?",
               },
               {
-                // @ts-ignore
                 type: "text",
                 text: "",
               },
@@ -170,7 +169,6 @@ export function testChat(
                 text: "Hello! Who are you?",
               },
               {
-                // @ts-ignore
                 type: "image_url",
                 image_url: {
                   url: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Image_created_with_a_mobile_phone.png/1280px-Image_created_with_a_mobile_phone.png",

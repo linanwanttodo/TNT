@@ -1,0 +1,58 @@
+---
+title: "权限"
+description: "允许、询问或排除工具，以及各层如何互相覆盖。"
+---
+
+每次工具调用在执行前都会检查策略。
+
+| 策略 | 行为 |
+| --- | --- |
+| `allow` | 不询问直接运行 |
+| `ask` | 先询问用户，由用户选择接受或拒绝 |
+| `exclude` | 完全移除工具，模型看不到它 |
+
+## 优先级
+
+越靠前的层越优先：
+
+1. 当前模式（`plan` 和 `auto` 会覆盖下面的所有层）。
+2. 命令行参数：`--allow`、`--ask`、`--exclude`。
+3. `config.yaml` 中的策略。
+4. `~/.tnt/permissions.yaml` 中的策略。
+5. 内置工具的默认策略。
+
+## 工具模式
+
+- `Read` 匹配对 `Read` 工具的所有调用。
+- `Read(*)` 匹配同一组调用。
+- `Read(**/*.ts)` 匹配主要参数符合该 glob 的调用。
+
+参数匹配只对 `allow` 和 `ask` 有实际意义；`exclude` 策略要么移除工具，要么不生效。
+
+## 参数
+
+```bash
+tnt --allow Read --ask Write --exclude Bash
+```
+
+每个参数接受一个模式，可以重复。它们只作用于当前运行，因此很适合一次性的高风险
+任务。
+
+## permissions.yaml
+
+```yaml title="~/.tnt/permissions.yaml"
+permissions:
+  allow:
+    - Read(**)
+    - Grep
+  ask:
+    - Write
+    - Edit
+  exclude:
+    - Bash(rm -rf*)
+```
+
+## 与模式的关系
+
+模式是最强的层。`plan` 模式强制只读行为，`auto` 由分类器决定原本需要询问的调用，
+`default`（手动）保留上面的策略并在高风险操作前询问。见[模式](/zh/cli/modes)。

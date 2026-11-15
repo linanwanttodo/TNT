@@ -7,10 +7,11 @@ import {
   RawMessageDeltaEvent,
   RawMessageStartEvent,
   RawMessageStreamEvent,
+  ThinkingConfigParam,
   Tool,
   ToolUseBlock,
 } from "@anthropic-ai/sdk/resources";
-import { streamSse } from "@continuedev/fetch";
+import { streamSse } from "@tnt/fetch";
 import { OpenAI } from "openai/index";
 import {
   ChatCompletion,
@@ -22,7 +23,6 @@ import {
   Completion,
   CompletionCreateParamsNonStreaming,
   CompletionCreateParamsStreaming,
-  CompletionUsage,
 } from "openai/resources/index";
 import { ChatCompletionCreateParams } from "openai/resources/index.js";
 import { AnthropicConfig } from "../types.js";
@@ -30,6 +30,8 @@ import {
   chatChunk,
   chatChunkFromDelta,
   customFetch,
+  type NormalizedUsage,
+  normalizeUsage,
   usageChatChunk,
 } from "../util.js";
 import { EMPTY_CHAT_COMPLETION } from "../util/emptyChatCompletion.js";
@@ -41,11 +43,22 @@ import {
 } from "./AnthropicCachingStrategies.js";
 import {
   addCacheControlToLastTwoUserMessages,
+  DEEPSEEK_ACCEPTS_NO_BREAKPOINTS,
   getAnthropicHeaders,
   getAnthropicMediaTypeFromDataUrl,
+  isDeepSeekEndpoint,
   openAiToolChoiceToAnthropicToolChoice,
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
+import {
+  anthropicBreakpointBudget,
+  applyCacheControlFormat,
+  applyCacheTtl,
+  capBreakpointsForAnthropic,
+  sanitizeReasoningBlocks,
+} from "./cacheControl.js";
+import { cacheRetention, resolveCachePolicy } from "./cachePolicy.js";
+import type { CacheControlFormat } from "./cacheControl.js";
 import {
   BaseLlmApi,
   CreateRerankResponse,
@@ -53,12 +66,90 @@ import {
   RerankCreateParams,
 } from "./base.js";
 
+// Anthropic reports the fresh prefix, the cached part and the newly written part
+// as three separate numbers, and `input_tokens` is only the fresh one. Metered as
+// it arrives, a request that read 100k cached tokens looks like a 5-token request
+// to the cost calculation and to the cache hit ratio.
+function positive(value: unknown): number {
+  return typeof value === "number" && value > 0 ? value : 0;
+}
+
+/**
+ * The thinking configuration for a request that asks for reasoning: the budget
+ * scales with the requested depth rather than a fixed small number that
+ * truncates the model mid-thought, and never crowds the answer out of
+ * max_tokens.
+ */
+export function anthropicThinkingConfig(oaiBody: ChatCompletionCreateParams): {
+  thinking?: ThinkingConfigParam;
+} {
+  const extra = oaiBody as unknown as Record<string, unknown>;
+  const effort = extra.reasoning_effort;
+  const reasoning = extra.reasoning;
+  if (reasoning === false) {
+    return {};
+  }
+  if (typeof effort !== "string" || effort.length === 0) {
+    return {};
+  }
+
+  const maxTokens = oaiBody.max_tokens ?? 32_000;
+  const budgetByEffort: Record<string, number> = {
+    minimal: 1024,
+    low: 2048,
+    medium: 8192,
+    high: 16384,
+    // The SDK type stops at "high"; config may carry xhigh/max.
+    xhigh: 32768,
+    max: 65536,
+  };
+  const budget =
+    typeof extra.reasoning_budget_tokens === "number" &&
+    extra.reasoning_budget_tokens > 0
+      ? extra.reasoning_budget_tokens
+      : (budgetByEffort[effort] ?? 16384);
+
+  return {
+    thinking: {
+      type: "enabled",
+      budget_tokens: Math.min(
+        Math.max(1024, budget),
+        Math.max(1024, maxTokens - 1024),
+      ),
+    },
+  };
+}
+
+export function anthropicUsage(raw: unknown): NormalizedUsage | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const usage = { ...(raw as Record<string, unknown>) };
+  const promptTokens =
+    positive(usage.input_tokens) +
+    positive(usage.cache_read_input_tokens) +
+    positive(usage.cache_creation_input_tokens);
+  if (promptTokens > 0) usage.prompt_tokens = promptTokens;
+  return normalizeUsage(usage);
+}
+
+// A stream reports the prefix in message_start and the completion in
+// message_delta, so the two patches merge into one record. A zero never
+// overwrites a number already known, because several events echo zeros.
+function mergeUsage(target: Record<string, unknown>, patch: unknown): void {
+  if (typeof patch !== "object" || patch === null) return;
+  for (const [key, value] of Object.entries(patch)) {
+    if (typeof value === "object" || value === undefined) continue;
+    if (value === 0 && target[key] !== undefined) continue;
+    target[key] = value;
+  }
+}
+
 export class AnthropicApi implements BaseLlmApi {
   apiBase: string = "https://api.anthropic.com/v1/";
 
   constructor(
     protected config: AnthropicConfig & {
       cachingStrategy?: CachingStrategyName;
+      cacheControlFormat?: CacheControlFormat;
     },
   ) {
     this.apiBase = config.apiBase ?? this.apiBase;
@@ -70,6 +161,14 @@ export class AnthropicApi implements BaseLlmApi {
   private _convertBody(oaiBody: ChatCompletionCreateParams) {
     // Step 1: Convert to clean Anthropic body (no caching)
     const cleanBody = this._convertToCleanAnthropicBody(oaiBody);
+    const cachePolicy = resolveCachePolicy(
+      "anthropic",
+      oaiBody.model,
+      this.apiBase,
+    );
+    if (cachePolicy.retention === "none") {
+      return cleanBody;
+    }
 
     // Step 2: Apply caching strategy
     const cachingStrategy =
@@ -82,7 +181,38 @@ export class AnthropicApi implements BaseLlmApi {
       addCacheControlToLastTwoUserMessages(result.messages);
     }
 
-    return result;
+    // Step 4: Remove breakpoints that cannot earn their keep.
+    //
+    // A breakpoint on a reasoning block is wasted: the provider drops a block
+    // whose signature does not verify, and takes the cached span with it. A
+    // block that lost its signature in serialization would therefore cost the
+    // whole prefix rather than just itself.
+    //
+    // Step 5: spend the request's breakpoint budget. Anthropic reads the
+    // sections as one sequence and bills a write per breakpoint, so the cap is
+    // applied across them together - capping each section on its own let a
+    // request leave with three times the intended number.
+    const pruned = {
+      ...result,
+      messages: sanitizeReasoningBlocks(result.messages),
+    };
+
+    // An endpoint that reads no breakpoints gets none; a caller that declared
+    // what its endpoint accepts gets exactly that; anything else gets the
+    // Anthropic default.
+    const format =
+      this.config.cacheControlFormat ??
+      (isDeepSeekEndpoint(this.apiBase, oaiBody.model)
+        ? DEEPSEEK_ACCEPTS_NO_BREAKPOINTS
+        : undefined);
+    const capped = format
+      ? applyCacheControlFormat(pruned, format)
+      : capBreakpointsForAnthropic(pruned, anthropicBreakpointBudget());
+    return cachePolicy.mode === "explicit" &&
+      cachePolicy.retention === "long" &&
+      cachePolicy.supportsLongRetention
+      ? applyCacheTtl(capped, "1h")
+      : capped;
   }
 
   private maxTokensForModel(model: string): number {
@@ -154,6 +284,7 @@ export class AnthropicApi implements BaseLlmApi {
       stream: oaiBody.stream ?? undefined,
       tools,
       tool_choice: openAiToolChoiceToAnthropicToolChoice(oaiBody.tool_choice),
+      ...anthropicThinkingConfig(oaiBody),
     };
 
     return anthropicBody;
@@ -328,22 +459,12 @@ export class AnthropicApi implements BaseLlmApi {
 
     const completion = await response.json();
 
-    const usage: Record<string, number> | undefined = completion.usage;
     return {
       id: completion.id,
       object: "chat.completion",
       model: body.model,
       created: Math.floor(Date.now() / 1000),
-      usage: {
-        total_tokens: (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
-        completion_tokens: usage?.output_tokens ?? 0,
-        prompt_tokens: usage?.input_tokens ?? 0,
-        prompt_tokens_details: {
-          cached_tokens: usage?.cache_read_input_tokens ?? 0,
-          cache_read_tokens: usage?.cache_read_input_tokens ?? 0,
-          cache_write_tokens: usage?.cache_creation_input_tokens ?? 0,
-        } as any,
-      },
+      usage: anthropicUsage(completion.usage),
       choices: [
         {
           logprobs: null,
@@ -364,11 +485,7 @@ export class AnthropicApi implements BaseLlmApi {
     let lastToolUseId: string | undefined;
     let lastToolUseName: string | undefined;
 
-    const usage: CompletionUsage = {
-      completion_tokens: 0,
-      prompt_tokens: 0,
-      total_tokens: 0,
-    };
+    const usage: Record<string, unknown> = {};
     for await (const event of streamSse(response)) {
       // https://docs.anthropic.com/en/api/messages-streaming#event-types
       const rawEvent = event as RawMessageStreamEvent;
@@ -382,19 +499,10 @@ export class AnthropicApi implements BaseLlmApi {
           break;
         case "message_start":
           const startEvent = rawEvent as RawMessageStartEvent;
-          usage.prompt_tokens = startEvent.message.usage?.input_tokens ?? 0;
-          usage.prompt_tokens_details = {
-            cache_write_tokens:
-              startEvent.message.usage?.cache_creation_input_tokens ?? 0,
-            cache_read_tokens:
-              startEvent.message.usage?.cache_read_input_tokens ?? 0,
-            cached_tokens:
-              startEvent.message.usage?.cache_read_input_tokens ?? 0,
-          } as any;
+          mergeUsage(usage, startEvent.message.usage);
           break;
         case "message_delta":
-          const deltaEvent = rawEvent as RawMessageDeltaEvent;
-          usage.completion_tokens = deltaEvent.usage?.output_tokens ?? 0;
+          mergeUsage(usage, (rawEvent as RawMessageDeltaEvent).usage);
           break;
         case "content_block_delta":
           // https://docs.anthropic.com/en/api/messages-streaming#delta-types
@@ -405,6 +513,16 @@ export class AnthropicApi implements BaseLlmApi {
                 content: blockDeltaEvent.delta.text,
                 model,
               });
+              break;
+            case "thinking_delta":
+              yield chatChunkFromDelta({
+                model,
+                delta: {
+                  reasoning_content: blockDeltaEvent.delta.thinking,
+                },
+              });
+              break;
+            case "signature_delta":
               break;
             case "input_json_delta":
               if (!lastToolUseId || !lastToolUseName) {
@@ -440,10 +558,7 @@ export class AnthropicApi implements BaseLlmApi {
 
     yield usageChatChunk({
       model,
-      usage: {
-        ...usage,
-        total_tokens: usage.completion_tokens + usage.prompt_tokens,
-      },
+      usage: anthropicUsage(usage),
     });
   }
 
@@ -464,7 +579,8 @@ export class AnthropicApi implements BaseLlmApi {
   }
 
   private getHeaders(): Record<string, string> {
-    const enableCaching = this.config?.cachingStrategy !== "none";
+    const enableCaching =
+      this.config?.cachingStrategy !== "none" && cacheRetention() !== "none";
     return getAnthropicHeaders(this.config.apiKey, enableCaching, this.apiBase);
   }
 

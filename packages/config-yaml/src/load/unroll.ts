@@ -28,11 +28,16 @@ import { ConfigResult, ConfigValidationError } from "../validation.js";
 import { BlockDuplicationDetector } from "./blockDuplicationDetector.js";
 import { packageIdentifierToShorthandSlug } from "./clientRender.js";
 import { BlockType, getBlockType } from "./getBlockType.js";
+import { expandProviderBlocks } from "./providerBlocks.js";
 
 export function parseConfigYaml(configYaml: string): ConfigYaml {
   try {
     const parsed = YAML.parse(configYaml);
-    const result = configYamlSchema.safeParse(parsed);
+    const expanded =
+      typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+        ? expandProviderBlocks(parsed as Record<string, unknown>)
+        : parsed;
+    const result = configYamlSchema.safeParse(expanded);
     if (result.success) {
       return result.data;
     }
@@ -213,13 +218,11 @@ export interface BaseUnrollAssistantOptions {
   injectRequestOptions?: RequestOptions;
 }
 
-export interface DoNotRenderSecretsUnrollAssistantOptions
-  extends BaseUnrollAssistantOptions {
+export interface DoNotRenderSecretsUnrollAssistantOptions extends BaseUnrollAssistantOptions {
   renderSecrets: false;
 }
 
-export interface RenderSecretsUnrollAssistantOptions
-  extends BaseUnrollAssistantOptions {
+export interface RenderSecretsUnrollAssistantOptions extends BaseUnrollAssistantOptions {
   renderSecrets: true;
   currentUserSlug: string;
   platformClient: PlatformClient;

@@ -1,8 +1,8 @@
-# @continuedev/llm-info
+# @tnt/llm-info
 
 A lightweight package providing information about various Large Language Models (LLMs), including embedding, reranking, and other models.
 
-Whereas @continuedev/openai-adapters is responsible for translation between API types, @continuedev/llm-info is concerned with
+Whereas @tnt/openai-adapters is responsible for translation between API types, @tnt/llm-info is concerned with
 
 - Templates
 - Capabilities (e.g. tools, images, streaming, predicted outputs, etc.)
@@ -12,7 +12,7 @@ and openai-adapters might depend on llm-info for some of these things.
 
 ### Goal
 
-We know we are done when the steps required to add support for a new model in Continue are exactly
+We know we are done when the steps required to add support for a new model in TNT are exactly
 
 1. editing a single LlmInfo object, and
 2. adding it to the supporting ModelProviders.
@@ -29,4 +29,4 @@ Providers are defined in the `providers` directory, with all models that they su
 
 - Replace autodetect.ts
 - See usage in `BaseLLM` constructor, and finish the job of using llm-info everywhere relevant.
-- Replace `gui/pages/AddNewModel/configs/[providers/models].ts`
+- Replace `ide/gui/src/pages/AddNewModel/configs/[providers/models].ts`

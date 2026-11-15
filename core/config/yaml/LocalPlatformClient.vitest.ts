@@ -1,4 +1,4 @@
-import { FQSN, SecretResult, SecretType } from "@continuedev/config-yaml";
+import { FQSN, SecretResult, SecretType } from "@tnt/config-yaml";
 import {
   afterEach,
   beforeEach,
@@ -74,17 +74,17 @@ describe("LocalPlatformClient", () => {
   });
 
   describe("searches for secrets in local .env files", () => {
-    let getContinueDotEnv: Mock;
+    let getTntDotEnv: Mock;
     beforeEach(async () => {
       const utilPaths = await import("../../util/paths");
-      getContinueDotEnv = vi.fn(() => envKeyValues);
-      utilPaths.getContinueDotEnv = getContinueDotEnv;
+      getTntDotEnv = vi.fn(() => envKeyValues);
+      utilPaths.getTntDotEnv = getTntDotEnv;
     });
 
-    test("should be able to get secrets from ~/.continue/.env files", async () => {
+    test("should be able to get secrets from ~/.tnt/.env files", async () => {
       const localPlatformClient = new LocalPlatformClient(testIde);
       const resolvedFQSNs = await localPlatformClient.resolveFQSNs([testFQSN]);
-      expect(getContinueDotEnv).toHaveBeenCalled();
+      expect(getTntDotEnv).toHaveBeenCalled();
       expect(resolvedFQSNs.length).toBe(1);
       expect(
         (resolvedFQSNs[0] as SecretResult & { value: unknown })?.value,
@@ -93,27 +93,25 @@ describe("LocalPlatformClient", () => {
   });
 
   describe("should be able to get secrets from workspace .env files", () => {
-    test("should get secrets from <workspace>/.continue/.env and <workspace>/.env", async () => {
+    test("should get secrets from <workspace>/.tnt/.env and <workspace>/.env", async () => {
       const originalIdeFileExists = testIde.fileExists;
       testIde.fileExists = vi.fn(async (fileUri: string) =>
         fileUri.includes(".env") ? true : originalIdeFileExists(fileUri),
       );
 
       const originalIdeReadFile = testIde.readFile;
-      const randomValueForContinueDirDotEnv =
+      const randomValueForTntDirDotEnv =
         "continue-dir-" + Math.floor(Math.random() * 100);
       const randomValueForWorkspaceDotEnv =
         "dotenv-" + Math.floor(Math.random() * 100);
 
       testIde.readFile = vi.fn(async (fileUri: string) => {
-        // fileUri should contain .continue/.env and not .env
-        if (fileUri.match(/.*\.continue\/\.env.*/gi)?.length) {
-          return (
-            envKeyValuesString.split("\n")[0] + randomValueForContinueDirDotEnv
-          );
+        // fileUri should contain .tnt/.env and not .env
+        if (fileUri.match(/.*\.tnt\/\.env.*/gi)?.length) {
+          return envKeyValuesString.split("\n")[0] + randomValueForTntDirDotEnv;
         }
-        // filUri should contain .env and not .continue/.env
-        else if (fileUri.match(/.*(?<!\.continue\/)\.env.*/gi)?.length) {
+        // filUri should contain .env and not .tnt/.env
+        else if (fileUri.match(/.*(?<!\.tnt\/)\.env.*/gi)?.length) {
           return (
             envKeyValuesString.split("\n")[1] + randomValueForWorkspaceDotEnv
           );
@@ -138,32 +136,30 @@ describe("LocalPlatformClient", () => {
         resolvedFQSNs[1] as SecretResult & { value: unknown }
       )?.value;
       expect(continueDirSecretValue).toContain(secretValue);
-      expect(continueDirSecretValue).toContain(randomValueForContinueDirDotEnv);
+      expect(continueDirSecretValue).toContain(randomValueForTntDirDotEnv);
       expect(dotEnvSecretValue).toContain(secretValue + "-workspace");
       expect(dotEnvSecretValue).toContain(randomValueForWorkspaceDotEnv);
     });
 
-    test("should first get secrets from <workspace>/.continue/.env and then <workspace>/.env", async () => {
+    test("should first get secrets from <workspace>/.tnt/.env and then <workspace>/.env", async () => {
       const originalIdeFileExists = testIde.fileExists;
       testIde.fileExists = vi.fn(async (fileUri: string) =>
         fileUri.includes(".env") ? true : originalIdeFileExists(fileUri),
       );
 
-      const randomValueForContinueDirDotEnv =
+      const randomValueForTntDirDotEnv =
         "continue-dir-" + Math.floor(Math.random() * 100);
       const randomValueForWorkspaceDotEnv =
         "dotenv-" + Math.floor(Math.random() * 100);
 
       const originalIdeReadFile = testIde.readFile;
       testIde.readFile = vi.fn(async (fileUri: string) => {
-        // fileUri should contain .continue/.env and not .env
-        if (fileUri.match(/.*\.continue\/\.env.*/gi)?.length) {
-          return (
-            envKeyValuesString.split("\n")[0] + randomValueForContinueDirDotEnv
-          );
+        // fileUri should contain .tnt/.env and not .env
+        if (fileUri.match(/.*\.tnt\/\.env.*/gi)?.length) {
+          return envKeyValuesString.split("\n")[0] + randomValueForTntDirDotEnv;
         }
-        // filUri should contain .env and not .continue/.env
-        else if (fileUri.match(/.*(?<!\.continue\/)\.env.*/gi)?.length) {
+        // filUri should contain .env and not .tnt/.env
+        else if (fileUri.match(/.*(?<!\.tnt\/)\.env.*/gi)?.length) {
           return (
             envKeyValuesString.split("\n")[0] + randomValueForWorkspaceDotEnv
           );
@@ -178,10 +174,10 @@ describe("LocalPlatformClient", () => {
       expect(
         (resolvedFQSNs[0] as SecretResult & { value: unknown })?.value,
       ).toContain(secretValue);
-      // we check that workspace <workspace>.continue/.env does not override the <workspace>/.env secret
+      // we check that workspace <workspace>.tnt/.env does not override the <workspace>/.env secret
       expect(
         (resolvedFQSNs[0] as SecretResult & { value: unknown })?.value,
-      ).toContain(randomValueForContinueDirDotEnv);
+      ).toContain(randomValueForTntDirDotEnv);
       expect(
         (resolvedFQSNs[0] as SecretResult & { value: unknown })?.value,
       ).not.toContain(randomValueForWorkspaceDotEnv);
@@ -194,7 +190,7 @@ describe("LocalPlatformClient", () => {
     beforeEach(async () => {
       // Ensure secrets are not found in local .env files
       const utilPaths = await import("../../util/paths");
-      utilPaths.getContinueDotEnv = vi.fn(() => ({}));
+      utilPaths.getTntDotEnv = vi.fn(() => ({}));
 
       // Ensure secrets are not found in workspace .env files
       testIde.fileExists = vi.fn(async () => false);
@@ -244,10 +240,10 @@ describe("LocalPlatformClient", () => {
       expect(resolvedFQSNs[0]).toBeUndefined();
     });
 
-    test("should prioritize local ~/.continue/.env file over process.env", async () => {
+    test("should prioritize local ~/.tnt/.env file over process.env", async () => {
       const localEnvFileValue = "secret-from-local-dot-continue-env";
       const utilPaths = await import("../../util/paths");
-      utilPaths.getContinueDotEnv = vi.fn(() => ({
+      utilPaths.getTntDotEnv = vi.fn(() => ({
         [testFQSN.secretName]: localEnvFileValue,
       }));
 
@@ -267,14 +263,14 @@ describe("LocalPlatformClient", () => {
     });
 
     test("should prioritize workspace .env files over process.env", async () => {
-      const workspaceContinueEnvValue = "secret-from-workspace-continue-env";
+      const workspaceTntEnvValue = "secret-from-workspace-continue-env";
       testIde.fileExists = vi.fn(async (fileUri: string) =>
-        // Only mock existence for <workspace>/.continue/.env
-        fileUri.includes(".continue/.env"),
+        // Only mock existence for <workspace>/.tnt/.env
+        fileUri.includes(".tnt/.env"),
       );
       testIde.readFile = vi.fn(async (fileUri: string) => {
-        if (fileUri.includes(".continue/.env")) {
-          return `${testFQSN.secretName}=${workspaceContinueEnvValue}`;
+        if (fileUri.includes(".tnt/.env")) {
+          return `${testFQSN.secretName}=${workspaceTntEnvValue}`;
         }
         return "";
       });
@@ -289,7 +285,7 @@ describe("LocalPlatformClient", () => {
       const result = resolvedFQSNs[0];
       expect(result?.found).toBe(true);
       expect((result as SecretResult & { value: unknown })?.value).toBe(
-        workspaceContinueEnvValue,
+        workspaceTntEnvValue,
       );
       // This should be LocalEnv because findSecretInEnvFiles returns LocalEnv for workspace files too
       expect(result?.secretLocation?.secretType).toBe(SecretType.LocalEnv);

@@ -1,0 +1,87 @@
+import * as fs from "fs";
+import * as path from "path";
+
+import { TntError, TntErrorReason } from "core/util/errors.js";
+
+import { toDisplayPath } from "../utils/displayPath.js";
+
+import { formatToolArgument } from "./formatters.js";
+import { Tool } from "./types.js";
+
+// List files in a directory
+export const listFilesTool: Tool = {
+  name: "List",
+  displayName: "List",
+  description:
+    "List the entries in one directory: each name, whether it is a file or a directory, and a file's size. It does not recurse and accepts no pattern, so finding a name anywhere in the project belongs in Bash ('find' or 'rg --files') and finding text inside files belongs in Search.",
+  parameters: {
+    type: "object",
+    properties: {
+      dirpath: {
+        type: "string",
+        description:
+          "The path to the directory to list. Defaults to the current working directory",
+      },
+    },
+  },
+  readonly: true,
+  isBuiltIn: true,
+  preprocess: async (args) => {
+    // A call with no path lists the project the run is already in, which is what
+    // the preview below always said it would do - before, the missing path
+    // reached path.normalize and surfaced as a TypeError.
+    const requested = typeof args?.dirpath === "string" ? args.dirpath : "";
+    const dirPath = path.resolve(
+      process.cwd(),
+      path.normalize(requested || "."),
+    );
+
+    if (!fs.existsSync(dirPath)) {
+      throw new TntError(
+        TntErrorReason.DirectoryNotFound,
+        // Display form only: a refusal must name the path the caller gave,
+        // not a cwd-relative one that loses the absolute part.
+        `Directory does not exist: ${toDisplayPath(dirPath)}`,
+      );
+    }
+
+    if (!fs.statSync(dirPath).isDirectory()) {
+      throw new TntError(
+        TntErrorReason.Unspecified,
+        `Error: Path is not a directory: ${dirPath}`,
+      );
+    }
+
+    return {
+      args: {
+        dirpath: dirPath,
+      },
+      preview: [
+        {
+          type: "text",
+          content: `Will list files in: ${formatToolArgument(dirPath)}`,
+        },
+      ],
+    };
+  },
+  run: async (args: { dirpath: string }): Promise<string> => {
+    try {
+      const files = fs.readdirSync(args.dirpath);
+      const fileDetails = files.map((file) => {
+        const fullPath = path.join(args.dirpath, file);
+        const stats = fs.statSync(fullPath);
+        const type = stats.isDirectory() ? "directory" : "file";
+        const size = stats.isFile() ? `${stats.size} bytes` : "";
+        return `${file} (${type}${size ? `, ${size}` : ""})`;
+      });
+
+      return `Files in ${args.dirpath}:\n${fileDetails.join("\n")}`;
+    } catch (error) {
+      throw new Error(
+        `Error listing files: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  },
+};

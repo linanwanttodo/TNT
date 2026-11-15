@@ -3,3 +3,6 @@ out/
 node_modules/
 public/search-index.json
 public/images/docs/
+
+public/search-index.zh.json
+*.tsbuildinfo

@@ -5,7 +5,7 @@ import { ToolImpl } from ".";
 import { throwIfFileIsSecurityConcern } from "../../indexing/ignore";
 import { getNumberArg, getStringArg } from "../parseArgs";
 import { throwIfFileExceedsHalfOfContext } from "./readFileLimit";
-import { ContinueError, ContinueErrorReason } from "../../util/errors";
+import { TntError, TntErrorReason } from "../../util/errors";
 
 // Use Int.MAX_VALUE from Java/Kotlin (2^31 - 1) instead of JavaScript's Number.MAX_SAFE_INTEGER
 // to ensure compatibility with IntelliJ's Kotlin Position type which uses Int for character field
@@ -18,20 +18,20 @@ export const readFileRangeImpl: ToolImpl = async (args, extras) => {
 
   // Validate that line numbers are positive integers
   if (startLine < 1) {
-    throw new ContinueError(
-      ContinueErrorReason.InvalidLineNumber,
+    throw new TntError(
+      TntErrorReason.InvalidLineNumber,
       "startLine must be 1 or greater. Negative line numbers are not supported - use the terminal tool with 'tail' command for reading from file end.",
     );
   }
   if (endLine < 1) {
-    throw new ContinueError(
-      ContinueErrorReason.InvalidLineNumber,
+    throw new TntError(
+      TntErrorReason.InvalidLineNumber,
       "endLine must be 1 or greater. Negative line numbers are not supported - use the terminal tool with 'tail' command for reading from file end.",
     );
   }
   if (endLine < startLine) {
-    throw new ContinueError(
-      ContinueErrorReason.InvalidLineNumber,
+    throw new TntError(
+      TntErrorReason.InvalidLineNumber,
       `endLine (${endLine}) must be greater than or equal to startLine (${startLine})`,
     );
   }
@@ -39,8 +39,8 @@ export const readFileRangeImpl: ToolImpl = async (args, extras) => {
   // Resolve the path first to get the actual path for security check
   const resolvedPath = await resolveInputPath(extras.ide, filepath);
   if (!resolvedPath) {
-    throw new ContinueError(
-      ContinueErrorReason.FileNotFound,
+    throw new TntError(
+      TntErrorReason.FileNotFound,
       `File "${filepath}" does not exist or is not accessible. You might want to check the path and try again.`,
     );
   }

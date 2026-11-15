@@ -38,7 +38,7 @@ export const modelCapabilitySchema = z.union([
   z.literal("tool_use"),
   z.literal("image_input"),
   z.literal("next_edit"),
-  z.string(), // Needed for forwards compatibility, see https://github.com/continuedev/continue/pull/7676
+  z.string(), // Needed for forwards compatibility, see https://github.com/linanwanttodo/TNT/pull/7676
 ]);
 
 // not ideal but lose type suggestions if use z.infer because of the string fallback
@@ -57,6 +57,20 @@ export const completionOptionsSchema = z.object({
   n: z.number().optional(),
   reasoning: z.boolean().optional(),
   reasoningBudgetTokens: z.number().optional(),
+  reasoningEffort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
+  responseFormat: z
+    .union([z.literal("json"), z.record(z.unknown())])
+    .optional(),
+  contextManagement: z.boolean().optional(),
+  openaiRequestOptions: z
+    .object({
+      store: z.boolean().optional(),
+      promptCacheKey: z.string().optional(),
+      serviceTier: z
+        .enum(["auto", "default", "flex", "scale", "priority"])
+        .optional(),
+    })
+    .optional(),
   promptCaching: z.boolean().optional(),
   stream: z.boolean().optional(),
   keepAlive: z.number().optional(),
@@ -118,6 +132,9 @@ export const chatOptionsSchema = z.object({
   baseSystemMessage: z.string().optional(),
   baseAgentSystemMessage: z.string().optional(),
   basePlanSystemMessage: z.string().optional(),
+  baseDebugSystemMessage: z.string().optional(),
+  baseMultitaskSystemMessage: z.string().optional(),
+  supportsInHistorySystemUpdates: z.boolean().optional(),
   /** Tool overrides keyed by tool name (e.g., "run_terminal_command") */
   toolOverrides: z.record(z.string(), toolOverrideSchema).optional(),
 });
@@ -192,6 +209,7 @@ const baseModelFields = {
   promptTemplates: promptTemplatesSchema.optional(),
   useLegacyCompletionsEndpoint: z.boolean().optional(),
   useResponsesApi: z.boolean().optional(),
+  streamOptions: z.boolean().optional(),
   env: z
     .record(z.string(), z.union([z.string(), z.boolean(), z.number()]))
     .optional(),

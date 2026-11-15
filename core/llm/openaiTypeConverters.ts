@@ -1,4 +1,4 @@
-import { FimCreateParamsStreaming } from "@continuedev/openai-adapters/dist/apis/base";
+import { FimCreateParamsStreaming } from "@tnt/openai-adapters/dist/apis/base";
 import {
   ChatCompletion,
   ChatCompletionAssistantMessageParam,
@@ -36,6 +36,7 @@ import {
   CompletionOptions,
   MessageContent,
   MessagePart,
+  ReasoningEffort,
   TextMessagePart,
   ThinkingChatMessage,
   ToolCallDelta,
@@ -198,6 +199,15 @@ export function toChatMessage(
                 },
               };
             }
+            if (part.type === "audio") {
+              return {
+                type: "input_audio" as const,
+                input_audio: {
+                  data: part.audio.data,
+                  format: part.audio.format,
+                },
+              };
+            }
             return part;
           })
         : message.content
@@ -207,6 +217,38 @@ export function toChatMessage(
   }
 }
 
+// Chat Completions accepts minimal/low/medium/high: the wider provider set is
+// clamped so a configured xhigh/max does not produce an invalid request.
+function clampReasoningEffort(
+  effort: ReasoningEffort,
+): "minimal" | "low" | "medium" | "high" {
+  return effort === "xhigh" || effort === "max" ? "high" : effort;
+}
+
+/**
+ * Maps the config-level responseFormat onto the OpenAI response_format shape.
+ * "json" selects the plain JSON mode; an object is treated as a JSON schema and
+ * wrapped in the json_schema envelope OpenAI expects.
+ */
+export function toOpenAIResponseFormat(
+  responseFormat: CompletionOptions["responseFormat"],
+): Record<string, unknown> | undefined {
+  if (!responseFormat) {
+    return undefined;
+  }
+  if (responseFormat === "json") {
+    return { type: "json_object" };
+  }
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: "response",
+      strict: true,
+      schema: responseFormat,
+    },
+  };
+}
+
 export function toChatBody(
   messages: ChatMessage[],
   options: CompletionOptions,
@@ -214,6 +256,7 @@ export function toChatBody(
     includeReasoningField?: boolean;
     includeReasoningDetailsField?: boolean;
     includeReasoningContentField?: boolean;
+    includeReasoningEffortField?: boolean;
   },
 ): ChatCompletionCreateParams {
   const params: ChatCompletionCreateParams = {
@@ -233,6 +276,22 @@ export function toChatBody(
     prediction: options.prediction,
     tool_choice: options.toolChoice,
   };
+
+  // Reasoning models on Chat Completions take the effort level directly, but
+  // only providers known to accept the parameter receive it: endpoints that do
+  // not understand it can reject the whole request.
+  if (options.reasoningEffort && providerFlags?.includeReasoningEffortField) {
+    (params as any).reasoning_effort = clampReasoningEffort(
+      options.reasoningEffort,
+    );
+  }
+
+  // Structured output is opt-in per model, so a provider only ever sees this
+  // when the user asked for it in the model config.
+  const responseFormat = toOpenAIResponseFormat(options.responseFormat);
+  if (responseFormat) {
+    (params as any).response_format = responseFormat;
+  }
 
   if (options.tools?.length) {
     params.tools = options.tools
@@ -367,6 +426,7 @@ export function fromChatCompletionChunk(
       .filter((tool_call) => !tool_call.type || tool_call.type === "function")
       .map((tool_call) => ({
         id: tool_call.id,
+        index: (tool_call as any).index,
         type: "function" as const,
         function: {
           name: (tool_call as any).function?.name,
@@ -578,6 +638,15 @@ function handleReasoningTextDone(
   return thinking;
 }
 
+/**
+ * Turns one Responses-API stream event into a ChatMessage for the legacy
+ * self-built stream in llms/OpenAI.ts. The adapter layer keeps its own
+ * event-to-chunk mapping (packages/openai-adapters/src/apis/openaiResponses.ts
+ * `fromResponsesChunk`) because the two consume different shapes: this yields
+ * whole messages, that one accumulates delta chunks in a state machine. The
+ * split is deliberate; changing which events carry text here must be mirrored
+ * there, or one path will repeat or drop what the other handles.
+ */
 function handleResponsesStreamEvent(
   e: ResponseStreamEvent,
 ): ChatMessage | undefined {
@@ -806,6 +875,14 @@ function toResponseInputContentList(
         image_url: part.imageUrl.url,
         detail: "auto",
       });
+    } else if (part.type === "audio") {
+      list.push({
+        type: "input_audio",
+        input_audio: {
+          data: part.audio.data,
+          format: part.audio.format,
+        },
+      } as any);
     }
   }
   return list;
@@ -1027,8 +1104,7 @@ export function toResponsesInput(messages: ChatMessage[]): ResponseInput {
         const allRespIds =
           (msg.metadata?.responsesOutputItemIds as string[] | undefined) || [];
         const respId = msg.metadata?.responsesOutputItemId as
-          | string
-          | undefined;
+          string | undefined;
         const fcIds = allRespIds.filter((id) => id.startsWith("fc_"));
         if (fcIds.length === 0 && respId?.startsWith("fc_")) {
           fcIds.push(respId);

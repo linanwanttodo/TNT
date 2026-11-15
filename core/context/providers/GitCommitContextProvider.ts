@@ -11,7 +11,9 @@ import { BaseContextProvider } from "../index.js";
 
 const runGitCommand = (args: string[], cwd: string): Promise<string> => {
   return new Promise((resolve, reject) => {
-    // First argument is the command, rest are arguments
+    // First argument is the command, rest are arguments. Fixed "git" binary,
+    // array form without a shell; every element is one argv value, so no
+    // shell metacharacter in a path or branch name is re-parsed.
     const gitProcess = spawn("git", args, {
       cwd,
     });
@@ -45,7 +47,7 @@ class GitCommitContextProvider extends BaseContextProvider {
   };
 
   get deprecationMessage() {
-    return "The git commits context provider is now deprecated and may be removed in a later version. Please consider using the Git MCP (https://continue.dev/docker/mcp-git) instead.";
+    return "The git commits context provider is now deprecated and may be removed in a later version. Please consider using the Git MCP (https://github.com/linanwanttodo/TNT/docker/mcp-git) instead.";
   }
 
   async getContextItems(

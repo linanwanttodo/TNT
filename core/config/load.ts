@@ -1,22 +1,23 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import * as fs from "fs";
 import os from "os";
 import path from "path";
+import { pathToFileURL } from "url";
 
 import {
   ConfigResult,
   ConfigValidationError,
   mergeConfigYamlRequestOptions,
   ModelRole,
-} from "@continuedev/config-yaml";
+} from "@tnt/config-yaml";
 import * as JSONC from "comment-json";
 
 import {
-  BrowserSerializedContinueConfig,
+  BrowserSerializedTntConfig,
   Config,
   ContextProviderWithParams,
-  ContinueConfig,
-  ContinueRcJson,
+  TntConfig,
+  TntRcJson,
   CustomContextProvider,
   EmbeddingsProviderDescription,
   IDE,
@@ -29,18 +30,13 @@ import {
   LLMOptions,
   ModelDescription,
   RerankerDescription,
-  SerializedContinueConfig,
+  SerializedTntConfig,
   SlashCommandWithSource,
 } from "..";
 import { getLegacyBuiltInSlashCommandFromDescription } from "../commands/slash/built-in-legacy";
 import { convertCustomCommandToSlashCommand } from "../commands/slash/customSlashCommand";
 import { slashCommandFromPromptFile } from "../commands/slash/promptFileSlashCommand";
-import { MCPManagerSingleton } from "../context/mcp/MCPManagerSingleton";
-import { BaseLLM } from "../llm";
-import { LLMClasses, llmFromDescription } from "../llm/llms";
-import CustomLLMClass from "../llm/llms/CustomLLM";
-import { LLMReranker } from "../llm/llms/llm";
-import TransformersJsEmbeddingsProvider from "../llm/llms/TransformersJsEmbeddingsProvider";
+import type { BaseLLM } from "../llm";
 import { getAllPromptFiles } from "../promptFiles/getPromptFiles";
 import { copyOf } from "../util";
 import { GlobalContext } from "../util/GlobalContext";
@@ -48,18 +44,14 @@ import mergeJson from "../util/merge";
 import {
   DEFAULT_CONFIG_TS_CONTENTS,
   getConfigJsonPath,
-  getConfigJsonPathForRemote,
   getConfigJsPath,
-  getConfigJsPathForRemote,
   getConfigTsPath,
-  getContinueDotEnv,
+  getTntDotEnv,
+  getTntGlobalPath,
   getEsbuildBinaryPath,
 } from "../util/paths";
 import { localPathToUri } from "../util/pathToUri";
 
-import { loadJsonMcpConfigs } from "../context/mcp/json/loadJsonMcpConfigs";
-import CustomContextProviderClass from "../context/providers/CustomContextProvider";
-import { getBaseToolDefinitions, serializeTool } from "../tools";
 import { resolveRelativePathInDir } from "../util/ideUtils";
 import { getWorkspaceRcConfigs } from "./json/loadRcConfigs";
 import { loadConfigContextProviders } from "./loadContextProviders";
@@ -69,17 +61,81 @@ import {
   isSupportedLanceDbCpuTargetForLinux,
   serializePromptTemplates,
 } from "./util";
+
+/**
+ * Registries are loaded on first use, never at import time.
+ *
+ * This module is reached by the CLI through `ConfigHandler`, so a static import
+ * here is fetched before the config layer can answer with a model or a context
+ * provider. Loading the provider, legacy tool and context registries eagerly put
+ * every one of them in that fetch, including the vendored transformers runtime.
+ * `core/staticImportBoundary.vitest.ts` holds the boundary.
+ *
+ * The cache is a module-level promise rather than a boolean so that concurrent
+ * config loads share one set of module evaluations instead of racing.
+ */
+let registryCache:
+  | Promise<{
+      LLMClasses: (typeof import("../llm/llms"))["LLMClasses"];
+      llmFromDescription: (typeof import("../llm/llms"))["llmFromDescription"];
+      CustomLLMClass: (typeof import("../llm/llms/CustomLLM"))["default"];
+      LLMReranker: (typeof import("../llm/llms/llm"))["LLMReranker"];
+      TransformersJsEmbeddingsProvider: (typeof import("../llm/llms/TransformersJsEmbeddingsProvider"))["default"];
+      MCPManagerSingleton: (typeof import("../context/mcp/MCPManagerSingleton"))["MCPManagerSingleton"];
+      loadJsonMcpConfigs: (typeof import("../context/mcp/json/loadJsonMcpConfigs"))["loadJsonMcpConfigs"];
+      CustomContextProviderClass: (typeof import("../context/providers/CustomContextProvider"))["default"];
+      getBaseToolDefinitions: (typeof import("../tools"))["getBaseToolDefinitions"];
+      serializeTool: (typeof import("../tools"))["serializeTool"];
+    }>
+  | undefined;
+
+function loadRegistries() {
+  registryCache ??= (async () => {
+    const [
+      llms,
+      customLlm,
+      llmModule,
+      transformers,
+      mcp,
+      mcpJson,
+      customContextProvider,
+      tools,
+    ] = await Promise.all([
+      import("../llm/llms"),
+      import("../llm/llms/CustomLLM"),
+      import("../llm/llms/llm"),
+      import("../llm/llms/TransformersJsEmbeddingsProvider"),
+      import("../context/mcp/MCPManagerSingleton"),
+      import("../context/mcp/json/loadJsonMcpConfigs"),
+      import("../context/providers/CustomContextProvider"),
+      import("../tools"),
+    ]);
+
+    return {
+      LLMClasses: llms.LLMClasses,
+      llmFromDescription: llms.llmFromDescription,
+      CustomLLMClass: customLlm.default,
+      LLMReranker: llmModule.LLMReranker,
+      TransformersJsEmbeddingsProvider: transformers.default,
+      MCPManagerSingleton: mcp.MCPManagerSingleton,
+      loadJsonMcpConfigs: mcpJson.loadJsonMcpConfigs,
+      CustomContextProviderClass: customContextProvider.default,
+      getBaseToolDefinitions: tools.getBaseToolDefinitions,
+      serializeTool: tools.serializeTool,
+    };
+  })();
+
+  return registryCache;
+}
 import { validateConfig } from "./validation.js";
 
-export function resolveSerializedConfig(
-  filepath: string,
-): SerializedContinueConfig {
+export function resolveSerializedConfig(filepath: string): SerializedTntConfig {
   let content = fs.readFileSync(filepath, "utf8");
-  const config = JSONC.parse(content) as unknown as SerializedContinueConfig;
+  const config = JSONC.parse(content) as unknown as SerializedTntConfig;
   if (config.env && Array.isArray(config.env)) {
     const env = {
       ...process.env,
-      ...getContinueDotEnv(),
+      ...getTntDotEnv(),
     };
 
     config.env.forEach((envVar) => {
@@ -92,7 +148,7 @@ export function resolveSerializedConfig(
     });
   }
 
-  return JSONC.parse(content) as unknown as SerializedContinueConfig;
+  return JSONC.parse(content) as unknown as SerializedTntConfig;
 }
 
 const configMergeKeys = {
@@ -110,13 +166,13 @@ const configMergeKeys = {
 };
 
 function loadSerializedConfig(
-  workspaceConfigs: ContinueRcJson[],
+  workspaceConfigs: TntRcJson[],
   ideSettings: IdeSettings,
   ideType: IdeType,
-  overrideConfigJson: SerializedContinueConfig | undefined,
+  overrideConfigJson: SerializedTntConfig | undefined,
   ide: IDE,
-): ConfigResult<SerializedContinueConfig> {
-  let config: SerializedContinueConfig = overrideConfigJson!;
+): ConfigResult<SerializedTntConfig> {
+  let config: SerializedTntConfig = overrideConfigJson!;
   if (!config) {
     try {
       config = resolveSerializedConfig(getConfigJsonPath());
@@ -139,17 +195,6 @@ function loadSerializedConfig(
     config.allowAnonymousTelemetry = true;
   }
 
-  if (ideSettings.remoteConfigServerUrl) {
-    try {
-      const remoteConfigJson = resolveSerializedConfig(
-        getConfigJsonPathForRemote(ideSettings.remoteConfigServerUrl),
-      );
-      config = mergeJson(config, remoteConfigJson, "merge", configMergeKeys);
-    } catch (e) {
-      console.warn("Error loading remote config: ", e);
-    }
-  }
-
   for (const workspaceConfig of workspaceConfigs) {
     config = mergeJson(
       config,
@@ -167,7 +212,7 @@ function loadSerializedConfig(
 }
 
 async function serializedToIntermediateConfig(
-  initial: SerializedContinueConfig,
+  initial: SerializedTntConfig,
   ide: IDE,
 ): Promise<Config> {
   // DEPRECATED - load custom slash commands
@@ -247,7 +292,19 @@ async function intermediateToFinalConfig({
   uniqueId: string;
   llmLogger: ILLMLogger;
   loadPromptFiles?: boolean;
-}): Promise<{ config: ContinueConfig; errors: ConfigValidationError[] }> {
+}): Promise<{ config: TntConfig; errors: ConfigValidationError[] }> {
+  const {
+    LLMClasses,
+    llmFromDescription,
+    CustomLLMClass,
+    LLMReranker,
+    TransformersJsEmbeddingsProvider,
+    MCPManagerSingleton,
+    loadJsonMcpConfigs,
+    CustomContextProviderClass,
+    getBaseToolDefinitions,
+  } = await loadRegistries();
+
   const errors: ConfigValidationError[] = [];
   const workspaceDirs = await ide.getWorkspaceDirs();
   const getUriFromPath = (path: string) => {
@@ -375,7 +432,7 @@ async function intermediateToFinalConfig({
 
   // Load context providers
   const { providers: contextProviders, errors: contextErrors } =
-    loadConfigContextProviders(
+    await loadConfigContextProviders(
       config.contextProviders
         ?.filter((cp) => isContextProviderWithParams(cp))
         .map((cp) => ({
@@ -470,7 +527,7 @@ async function intermediateToFinalConfig({
   }
   const newReranker = getRerankingILLM(config.reranker);
 
-  const continueConfig: ContinueConfig = {
+  const continueConfig: TntConfig = {
     ...config,
     contextProviders,
     tools: getBaseToolDefinitions(),
@@ -609,6 +666,8 @@ function llmToSerializedModelDescription(llm: ILLM): ModelDescription {
     baseAgentSystemMessage: llm.baseAgentSystemMessage,
     basePlanSystemMessage: llm.basePlanSystemMessage,
     baseChatSystemMessage: llm.baseChatSystemMessage,
+    baseDebugSystemMessage: llm.baseDebugSystemMessage,
+    baseMultitaskSystemMessage: llm.baseMultitaskSystemMessage,
     requestOptions: llm.requestOptions,
     promptTemplates: serializePromptTemplates(llm.promptTemplates),
     capabilities: llm.capabilities,
@@ -623,9 +682,11 @@ function llmToSerializedModelDescription(llm: ILLM): ModelDescription {
 }
 
 async function finalToBrowserConfig(
-  final: ContinueConfig,
+  final: TntConfig,
   ide: IDE,
-): Promise<BrowserSerializedContinueConfig> {
+): Promise<BrowserSerializedTntConfig> {
+  const { serializeTool } = await loadRegistries();
+
   return {
     allowAnonymousTelemetry: final.allowAnonymousTelemetry,
     completionOptions: final.completionOptions,
@@ -660,40 +721,42 @@ async function finalToBrowserConfig(
   };
 }
 
-function escapeSpacesInPath(p: string): string {
-  return p.replace(/ /g, "\\ ");
-}
-
 async function handleEsbuildInstallation(
   ide: IDE,
   _ideType: IdeType,
 ): Promise<boolean> {
   // Only check when config.ts is going to be used; never auto-install.
-  const installCmd = "npm i esbuild@x.x.x --prefix ~/.continue";
+  const installCmd = "npm i esbuild@x.x.x --prefix ~/.tnt";
 
   // Try to detect a user-installed esbuild (normal resolution)
   try {
     await import("esbuild");
     return true; // available
   } catch {
-    // Try resolving from ~/.continue/node_modules as a courtesy
+    // Try resolving from the global config dir's node_modules as a courtesy
     try {
-      const userEsbuild = path.join(
-        os.homedir(),
-        ".continue",
-        "node_modules",
-        "esbuild",
-      );
+      // The global path comes from the operator's environment, but the
+      // resolution root is still anchored: node_modules/esbuild must land
+      // inside the global config directory.
+      const globalRoot = path.resolve(getTntGlobalPath());
+      const userEsbuild = path.resolve(globalRoot, "node_modules", "esbuild");
+      if (
+        userEsbuild !== globalRoot &&
+        !userEsbuild.startsWith(globalRoot + path.sep)
+      ) {
+        throw new Error("esbuild path escapes the global config directory");
+      }
       const candidate = require.resolve("esbuild", { paths: [userEsbuild] });
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require(candidate);
-      return true; // available via ~/.continue
+      // Probe that the resolved esbuild actually loads. Dynamic import through
+      // a file URL: no shell, no eval, and the module cache is not needed.
+      await import(pathToFileURL(candidate).href);
+      return true; // available via the global config dir
     } catch {
       // Not available → show friendly instructions and opt out of building
       await ide.showToast(
         "error",
         [
-          "config.ts has been deprecated and esbuild is no longer automatically installed by Continue.",
+          "config.ts has been deprecated and esbuild is no longer automatically installed by TNT.",
           "To use config.ts, install esbuild manually:",
           "",
           `    ${installCmd}`,
@@ -712,18 +775,18 @@ async function tryBuildConfigTs() {
       await buildConfigTsWithNodeModule();
     }
   } catch (e) {
-    console.log(
-      `Build error. Please check your ~/.continue/config.ts file: ${e}`,
-    );
+    console.log(`Build error. Please check your ~/.tnt/config.ts file: ${e}`);
   }
 }
 
 async function buildConfigTsWithBinary() {
-  const cmd = [
-    escapeSpacesInPath(getEsbuildBinaryPath()),
-    escapeSpacesInPath(getConfigTsPath()),
+  // Array form without a shell: the esbuild binary and the config paths are
+  // single argv elements, so spaces in paths need no escaping and nothing is
+  // re-parsed by a shell. The flags are constants.
+  execFileSync(getEsbuildBinaryPath(), [
+    getConfigTsPath(),
     "--bundle",
-    `--outfile=${escapeSpacesInPath(getConfigJsPath())}`,
+    `--outfile=${getConfigJsPath()}`,
     "--platform=node",
     "--format=cjs",
     "--sourcemap",
@@ -732,9 +795,7 @@ async function buildConfigTsWithBinary() {
     "--external:path",
     "--external:os",
     "--external:child_process",
-  ].join(" ");
-
-  execSync(cmd);
+  ]);
 }
 
 async function buildConfigTsWithNodeModule() {
@@ -788,14 +849,14 @@ async function buildConfigTsandReadConfigJs(ide: IDE, ideType: IdeType) {
   return readConfigJs();
 }
 
-async function loadContinueConfigFromJson(
+async function loadTntConfigFromJson(
   ide: IDE,
   ideSettings: IdeSettings,
   ideInfo: IdeInfo,
   uniqueId: string,
   llmLogger: ILLMLogger,
-  overrideConfigJson: SerializedContinueConfig | undefined,
-): Promise<ConfigResult<ContinueConfig>> {
+  overrideConfigJson: SerializedTntConfig | undefined,
+): Promise<ConfigResult<TntConfig>> {
   const workspaceConfigs = await getWorkspaceRcConfigs(ide);
   // Serialized config
   let {
@@ -861,25 +922,6 @@ async function loadContinueConfigFromJson(
     }
   }
 
-  // Apply remote config.js to modify intermediate config
-  if (ideSettings.remoteConfigServerUrl) {
-    try {
-      const configJsPathForRemote = getConfigJsPathForRemote(
-        ideSettings.remoteConfigServerUrl,
-      );
-      const module = await import(configJsPathForRemote);
-      if (typeof require !== "undefined") {
-        delete require.cache[require.resolve(configJsPathForRemote)];
-      }
-      if (!module.modifyConfig) {
-        throw new Error("config.ts does not export a modifyConfig function.");
-      }
-      intermediate = module.modifyConfig(intermediate);
-    } catch (e) {
-      console.log("Error loading remotely set config.js: ", e);
-    }
-  }
-
   // Convert to final config format
   const { config: finalConfig, errors: finalErrors } =
     await intermediateToFinalConfig({
@@ -899,6 +941,6 @@ async function loadContinueConfigFromJson(
 
 export {
   finalToBrowserConfig,
-  loadContinueConfigFromJson,
-  type BrowserSerializedContinueConfig,
+  loadTntConfigFromJson,
+  type BrowserSerializedTntConfig,
 };

@@ -1,0 +1,298 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
+import { TntError, TntErrorReason } from "core/util/errors.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The tools' side effects outside the file itself are not what is under test.
+vi.mock("../retrieval/writeRefresh.js", () => ({
+  scheduleFileRefresh: vi.fn(),
+}));
+vi.mock("../telemetry/telemetryService.js", () => ({
+  telemetryService: {
+    recordLinesOfCodeModified: vi.fn(),
+    logToolResult: vi.fn(),
+  },
+}));
+vi.mock("../telemetry/utils.js", () => ({
+  calculateLinesOfCodeDiff: vi.fn(() => ({ added: 1, removed: 0 })),
+  getLanguageFromFilePath: vi.fn(() => "typescript"),
+}));
+
+import { editTool } from "./edit.js";
+import {
+  changedFilesSinceSeen,
+  changedSinceSeen,
+  forgetSeenFiles,
+  hasSeenFile,
+  markFileAsSeen,
+} from "./fileState.js";
+import { multiEditTool } from "./multiEdit.js";
+import { readFileTool } from "./readFile.js";
+import { writeFileTool } from "./writeFile.js";
+
+let dir: string;
+let target: string;
+
+function writeOnDisk(content: string): void {
+  fs.writeFileSync(target, content);
+}
+
+async function readWithTool(): Promise<string> {
+  return (await readFileTool.run!({ filepath: target })) as string;
+}
+
+function editArgs(oldString: string, newString: string) {
+  return {
+    file_path: target,
+    old_string: oldString,
+    new_string: newString,
+  };
+}
+
+beforeEach(() => {
+  dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "tnt-seen-")));
+  target = path.join(dir, "subject.ts");
+  forgetSeenFiles();
+});
+
+afterEach(() => {
+  forgetSeenFiles();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+describe("read state", () => {
+  it("has nothing to compare before the file was seen", () => {
+    writeOnDisk("const value = 1;\n");
+    expect(hasSeenFile(target)).toBe(false);
+    expect(changedSinceSeen(target)).toBe(false);
+  });
+
+  it("reports no change for a file left alone", () => {
+    writeOnDisk("const value = 1;\n");
+    markFileAsSeen(target);
+    expect(changedSinceSeen(target)).toBe(false);
+  });
+
+  it("reports the change a rewrite outside TNT made", () => {
+    writeOnDisk("const value = 1;\n");
+    markFileAsSeen(target);
+    writeOnDisk("const value = 222;\n");
+    expect(changedSinceSeen(target)).toBe(true);
+  });
+
+  it("treats a file that disappeared as not what was seen", () => {
+    writeOnDisk("const value = 1;\n");
+    markFileAsSeen(target);
+    fs.rmSync(target);
+    expect(changedSinceSeen(target)).toBe(true);
+  });
+});
+
+describe("Edit against a file that moved", () => {
+  it("replays an edit against the file's current contents", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+    writeOnDisk("const injected = 2;\nconst value = 1;\n");
+
+    const planned = await editTool.preprocess!(
+      editArgs("const value = 1;", "const value = 3;"),
+    );
+    const result = await editTool.run!(planned.args);
+
+    expect(result).toContain("Successfully edited");
+    expect(fs.readFileSync(target, "utf-8")).toBe(
+      "const injected = 2;\nconst value = 3;\n",
+    );
+  });
+
+  it("accepts the edit once the model has read the change", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+    writeOnDisk("const value = 222;\n");
+    await readWithTool();
+
+    const planned = await editTool.preprocess!(
+      editArgs("const value = 222;", "const value = 3;"),
+    );
+    await editTool.run!(planned.args);
+
+    expect(fs.readFileSync(target, "utf-8")).toContain("const value = 3;");
+  });
+
+  it("replays an approved edit when the file changed during approval", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+    const planned = await editTool.preprocess!(
+      editArgs("const value = 1;", "const value = 3;"),
+    );
+
+    writeOnDisk("const injected = 2;\nconst value = 1;\n");
+    const result = await editTool.run!(planned.args);
+
+    expect(result).toContain("Reapplied the approved edit");
+    expect(fs.readFileSync(target, "utf-8")).toBe(
+      "const injected = 2;\nconst value = 3;\n",
+    );
+  });
+
+  it("returns current context when a stale edit's anchor disappeared", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+    const planned = await editTool.preprocess!(
+      editArgs("const value = 1;", "const value = 3;"),
+    );
+
+    writeOnDisk("const value = 222;\n");
+    const error = await editTool.run!(planned.args).catch((e) => e);
+
+    expect(error).toBeInstanceOf(TntError);
+    expect(error.reason).toBe(TntErrorReason.FindAndReplaceOldStringNotFound);
+    expect(error.message).toContain("const value = 222");
+    expect(fs.readFileSync(target, "utf-8")).toBe("const value = 222;\n");
+  });
+
+  it("does not mistake its own edit for somebody else's", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+
+    const first = await editTool.preprocess!(
+      editArgs("const value = 1;", "const value = 22;"),
+    );
+    await editTool.run!(first.args);
+
+    const second = await editTool.preprocess!(
+      editArgs("const value = 22;", "const value = 33;"),
+    );
+    await editTool.run!(second.args);
+
+    expect(fs.readFileSync(target, "utf-8")).toContain("const value = 33;");
+  });
+});
+
+describe("MultiEdit against a file that moved", () => {
+  function multiEditArgs(oldString: string, newString: string) {
+    return {
+      file_path: target,
+      edits: [{ old_string: oldString, new_string: newString }],
+    };
+  }
+
+  it("applies none of the edits when one of them cannot be found", async () => {
+    const original = "const value = 1;\nexport const flag = 2;\n";
+    writeOnDisk(original);
+    await readWithTool();
+
+    let failure: unknown;
+    try {
+      await multiEditTool.preprocess!({
+        file_path: target,
+        edits: [
+          { old_string: "const value = 1;", new_string: "const value = 9;" },
+          { old_string: "export const missing = 7;", new_string: "x = 1;" },
+        ],
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(Error);
+    // The tool's own description promises this: a first edit that matched is
+    // not applied either, because half a MultiEdit is a file nobody asked for.
+    expect(fs.readFileSync(target, "utf-8")).toBe(original);
+  });
+
+  it("replays an approved multi-edit when the file changed during approval", async () => {
+    writeOnDisk("const value = 1;\nexport const flag = 2;\n");
+    await readWithTool();
+    const planned = await multiEditTool.preprocess!(
+      multiEditArgs("const value = 1;", "const value = 3;"),
+    );
+    writeOnDisk("const value = 1;\nexport const flag = 222;\n");
+    const result = await multiEditTool.run!(planned.args);
+
+    expect(result).toContain("Reapplied the approved edit");
+    expect(fs.readFileSync(target, "utf-8")).toBe(
+      "const value = 3;\nexport const flag = 222;\n",
+    );
+  });
+
+  it("does not mistake its own edit for somebody else's", async () => {
+    writeOnDisk("const value = 1;\nexport const flag = 2;\n");
+    await readWithTool();
+
+    const first = await multiEditTool.preprocess!(
+      multiEditArgs("const value = 1;", "const value = 22;"),
+    );
+    await multiEditTool.run!(first.args);
+
+    const second = await multiEditTool.preprocess!(
+      multiEditArgs("export const flag = 2;", "export const flag = 33;"),
+    );
+    await multiEditTool.run!(second.args);
+
+    expect(fs.readFileSync(target, "utf-8")).toContain("const value = 22;");
+    expect(fs.readFileSync(target, "utf-8")).toContain("flag = 33;");
+  });
+});
+
+describe("Write against a file that moved", () => {
+  it("refuses to overwrite a file the model read too many edits ago", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+    writeOnDisk("const value = 222;\n");
+
+    const error = await writeFileTool.run!({
+      filepath: target,
+      content: "export const dropped = 1;\n",
+    }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(TntError);
+    expect(error.message).toContain("current content");
+    expect(error.message).toContain("const value = 222");
+    expect(fs.readFileSync(target, "utf-8")).toBe("const value = 222;\n");
+  });
+
+  it("still writes a file nobody read through TNT", async () => {
+    writeOnDisk("const value = 1;\n");
+
+    await writeFileTool.run!({
+      filepath: target,
+      content: "export const created = 1;\n",
+    });
+
+    expect(fs.readFileSync(target, "utf-8")).toContain("export const created");
+  });
+
+  it("counts its own write as the newest thing the model saw", async () => {
+    writeOnDisk("const value = 1;\n");
+    await readWithTool();
+
+    await writeFileTool.run!({
+      filepath: target,
+      content: "export const rewritten = 1;\n",
+    });
+
+    expect(changedSinceSeen(target)).toBe(false);
+  });
+});
+
+describe("changed-file snapshots", () => {
+  it("keeps the content the model was shown", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-snapshot-"));
+    const target = path.join(dir, "a.ts");
+    fs.writeFileSync(target, "old\n");
+    markFileAsSeen(target);
+    // Longer than what is on disk: the stamp compares size + mtime + ino, and on
+    // Windows two same-size writes can land in one mtime tick and read as unchanged.
+    fs.writeFileSync(target, "new\n\n");
+
+    expect(changedFilesSinceSeen()).toEqual([
+      { path: fs.realpathSync(target), deleted: false, previous: "old\n" },
+    ]);
+
+    forgetSeenFiles();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

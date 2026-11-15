@@ -1,0 +1,340 @@
+#!/usr/bin/env node
+
+import * as esbuild from "esbuild";
+import {
+  chmodSync,
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "fs";
+import { basename, dirname, join, resolve } from "path";
+import { fileURLToPath } from "url";
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const noMinify = args.includes("--no-minify");
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// List of packages to mark as external (ONLY native modules that cannot be bundled)
+// Note: Everything else will be bundled to create a self-contained CLI
+// Users should not need to install any additional dependencies
+const external = [
+  "fsevents", // macOS native file watcher (optional dependency)
+  "./xhr-sync-worker.js", // JSDOM worker file that needs to be copied separately
+  // Reached through the codebase index, which the retrieval service hosts:
+  // sqlite stores the full-text index, and the vendored transformers runtime
+  // and vectordb bind native code that esbuild can never inline. sqlite3 is a
+  // regular dependency; the rest are optional and only load when a config
+  // selects the embeddings path, which leaves them out of a default install.
+  "sqlite3",
+  "onnxruntime-node",
+  "onnxruntime-web",
+  "@huggingface/jinja",
+  "vectordb",
+];
+
+console.log("Building CLI with esbuild...");
+
+// Each build hashes its chunks, so a rebuild otherwise leaves the previous
+// generation in dist. The release tarball copies dist wholesale, which turned
+// a 30 MB bundle into hundreds of megabytes of dead chunks.
+const distDir = resolve(__dirname, "dist");
+if (existsSync(distDir)) {
+  rmSync(distDir, { recursive: true, force: true });
+}
+mkdirSync(distDir, { recursive: true });
+
+// Plugin to handle optional react-devtools-core
+const optionalDevtoolsPlugin = {
+  name: "optional-devtools",
+  setup(build) {
+    build.onResolve({ filter: /^react-devtools-core$/ }, () => {
+      // Return path to our stub instead of marking as external
+      return { path: resolve(__dirname, "stubs/react-devtools-core.js") };
+    });
+  },
+};
+
+try {
+  const result = await esbuild.build({
+    entryPoints: ["src/index.ts"],
+    bundle: true,
+    platform: "node",
+    target: "node18",
+    format: "esm",
+    // Code splitting keeps lazily imported graphs (the vendored transformers
+    // runtime and its onnxruntime bindings) in their own chunks, so their
+    // native externals are only resolved when embeddings are actually used
+    // instead of at startup. The tarball therefore ships without them.
+    splitting: true,
+    outdir: "dist",
+    external,
+    sourcemap: true,
+    minify: !noMinify, // Use --no-minify flag to control minification
+    metafile: true,
+    plugins: [optionalDevtoolsPlugin],
+
+    // Handle .js extensions in imports
+    resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
+
+    // Handle TypeScript paths and local packages
+    alias: {
+      "@tnt/config-yaml": resolve(
+        __dirname,
+        "../../packages/config-yaml/dist/index.js",
+      ),
+      "@tnt/openai-adapters": resolve(
+        __dirname,
+        "../../packages/openai-adapters/dist/index.js",
+      ),
+      "@tnt/config-types": resolve(
+        __dirname,
+        "../../packages/config-types/dist/index.js",
+      ),
+      core: resolve(__dirname, "../../core"),
+      "@tnt/fetch": resolve(__dirname, "../../packages/fetch/dist/index.js"),
+      "@tnt/llm-info": resolve(
+        __dirname,
+        "../../packages/llm-info/dist/index.js",
+      ),
+      "@tnt/terminal-security": resolve(
+        __dirname,
+        "../../packages/terminal-security/dist/index.js",
+      ),
+      // Aliased to the package root rather than a file: the SDK is imported
+      // through deep paths such as "@tnt/sdk/dist/api/dist/index.js", and the
+      // alias substitution keeps those subpaths intact.
+      "@tnt/sdk": resolve(__dirname, "../../packages/sdk/typescript"),
+    },
+
+    // Add banner to create require for CommonJS packages, and to give the
+    // bundled CJS sources a __dirname: this output is one ESM file, which has
+    // none, and Node refuses to run one that reads __dirname alongside
+    // top-level await.
+    banner: {
+      js: `import { createRequire as __createRequire } from 'module';
+import { fileURLToPath as __fileURLToPath } from 'url';
+import { dirname as __pathDirname } from 'path';
+const require = __createRequire(import.meta.url);
+const __dirname = __pathDirname(__fileURLToPath(import.meta.url));`,
+    },
+  });
+
+  // Write metafile for analysis. It stays out of dist: dist is what the
+  // package and the release tarball copy wholesale, and a 5.7 MB analysis file
+  // has no business travelling with the binary.
+  writeFileSync("build-meta.json", JSON.stringify(result.metafile, null, 2));
+
+  // Create wrapper script with shebang that explicitly runs the CLI.
+  // Note: We must call runCli(); a plain dynamic import will not execute the CLI.
+  //
+  // The bundle carries both the development and the production React build and
+  // picks one when the reconciler first loads. Without a default, a normal
+  // install runs the development build, because NODE_ENV is unset for users.
+  // The assignment has to happen before the import runs, and a static import
+  // would be hoisted above it, so the entry is loaded dynamically. An explicit
+  // NODE_ENV still wins, which is what the tests and --acp-worker rely on.
+  writeFileSync(
+    "dist/tnt.js",
+    "#!/usr/bin/env node\n" +
+      'process.env.NODE_ENV ??= "production";\n' +
+      'const { runCli } = await import("./index.js");\n' +
+      "await runCli();\n",
+  );
+  // Copy worker files needed by JSDOM
+  const workerSource = resolve(
+    __dirname,
+    "node_modules/jsdom/lib/jsdom/living/xhr/xhr-sync-worker.js",
+  );
+  const workerDest = resolve(__dirname, "dist/xhr-sync-worker.js");
+  try {
+    copyFileSync(workerSource, workerDest);
+    console.log("✓ Copied xhr-sync-worker.js");
+  } catch (error) {
+    console.warn("Warning: Could not copy xhr-sync-worker.js:", error.message);
+  }
+
+  // Copy the tokenizer workers next to the bundle: core spawns them by path at
+  // runtime to chunk the codebase index.
+  for (const worker of [
+    "llamaTokenizerWorkerPool.mjs",
+    "llamaTokenizer.mjs",
+    "tiktokenWorkerPool.mjs",
+  ]) {
+    copyFileSync(
+      resolve(__dirname, "../../core/llm", worker),
+      resolve(__dirname, "dist", worker),
+    );
+    console.log(`✓ Copied ${worker}`);
+  }
+
+  // The chunker loads the tree-sitter runtime and one grammar per language by
+  // path, relative to the bundle. Which grammars exist is read from core's
+  // LanguageName enum rather than copied wholesale, since the package ships
+  // grammars for languages this build does not offer.
+  copyFileSync(
+    resolve(
+      __dirname,
+      "../../core/node_modules/web-tree-sitter/tree-sitter.wasm",
+    ),
+    resolve(__dirname, "dist/tree-sitter.wasm"),
+  );
+  const treeSitterSource = readFileSync(
+    resolve(__dirname, "../../core/util/treeSitter.ts"),
+    "utf-8",
+  );
+  const enumBlock = treeSitterSource.match(
+    /export enum LanguageName \{([\s\S]*?)\}/,
+  );
+  if (!enumBlock) {
+    throw new Error("Could not read LanguageName from core/util/treeSitter.ts");
+  }
+  const languages = [...enumBlock[1].matchAll(/= "([a-z_]+)"/g)].map(
+    (match) => match[1],
+  );
+  const grammarDir = resolve(__dirname, "dist/tree-sitter-wasms");
+  mkdirSync(grammarDir, { recursive: true });
+  for (const language of languages) {
+    copyFileSync(
+      resolve(
+        __dirname,
+        `../../core/node_modules/tree-sitter-wasms/out/tree-sitter-${language}.wasm`,
+      ),
+      join(grammarDir, `tree-sitter-${language}.wasm`),
+    );
+  }
+  console.log(`✓ Copied tree-sitter.wasm and ${languages.length} grammars`);
+
+  // The native clipboard helper is loaded by path; esbuild cannot inline a
+  // .node binary. Ship all platform prebuilds because the release tarball is
+  // built on one OS per artifact and the loader also runs from source.
+  cpSync(resolve(__dirname, "native"), resolve(__dirname, "dist", "native"), {
+    recursive: true,
+  });
+  console.log("✓ Copied native clipboard helpers");
+
+  // esbuild inlines node-pty's JavaScript but not its native addon. The loader
+  // (node-pty/lib/utils.js) probes relative to the bundle, and the release
+  // tarball ships dist/ alone, so the addons have to sit at
+  // dist/prebuilds/<platform>-<arch>/ for a built CLI to open a terminal.
+  const nodePtyDir = resolve(
+    __dirname,
+    "../zcode-ui/services/node_modules/node-pty",
+  );
+  if (!existsSync(nodePtyDir)) {
+    throw new Error(
+      `Missing node-pty at ${nodePtyDir}; run npm install in packages/zcode-ui/services before bundling`,
+    );
+  }
+  const nodePtyPrebuilds = resolve(nodePtyDir, "prebuilds");
+  const distPrebuilds = resolve(distDir, "prebuilds");
+  const targetPlatform = `${process.platform}-${process.arch}`;
+  const targetPrebuildDir = resolve(distPrebuilds, targetPlatform);
+
+  // Upstream prebuilds cover win32 and darwin; debug symbols (*.pdb) are not
+  // loadable artifacts and add tens of megabytes.
+  if (existsSync(nodePtyPrebuilds)) {
+    cpSync(nodePtyPrebuilds, distPrebuilds, {
+      recursive: true,
+      filter: (source) => !source.endsWith(".pdb"),
+    });
+    console.log("✓ Copied node-pty prebuilds (excluding *.pdb)");
+  }
+
+  // No published prebuild covers linux, so a source build supplies the addon
+  // for the current platform. On darwin the spawn-helper must travel with it.
+  mkdirSync(targetPrebuildDir, { recursive: true });
+  const localArtifacts = [
+    "build/Release/pty.node",
+    ...(process.platform === "darwin" ? ["build/Release/spawn-helper"] : []),
+  ];
+  for (const artifact of localArtifacts) {
+    const source = resolve(nodePtyDir, artifact);
+    if (!existsSync(source)) continue;
+    const destination = resolve(targetPrebuildDir, basename(artifact));
+    cpSync(source, destination);
+    if (basename(artifact) === "spawn-helper") {
+      chmodSync(destination, 0o755);
+    }
+    console.log(
+      `✓ Copied node-pty ${basename(artifact)} for ${targetPlatform}`,
+    );
+  }
+
+  // The prebuilds carry spawn-helper for every darwin architecture; keep it
+  // executable even if the installed copy lost its mode bits.
+  if (existsSync(distPrebuilds)) {
+    for (const entry of readdirSync(distPrebuilds)) {
+      const helper = resolve(distPrebuilds, entry, "spawn-helper");
+      if (existsSync(helper)) {
+        chmodSync(helper, 0o755);
+      }
+    }
+  }
+
+  const ptyAddon = resolve(targetPrebuildDir, "pty.node");
+  if (!existsSync(ptyAddon)) {
+    throw new Error(
+      `Missing ${ptyAddon}. The build must ship a node-pty addon for ${targetPlatform}; ` +
+        "run npm rebuild node-pty in packages/zcode-ui/services or provide a matching prebuild.",
+    );
+  }
+  console.log(`✓ Verified node-pty addon for ${targetPlatform}: ${ptyAddon}`);
+
+  // The frontend is built from the vendored zcode-ui tree, but the release
+  // tarball publishes dist/ alone, so the browser bundle has to sit inside it.
+  const webuiSource = resolve(__dirname, "../zcode-ui/web/dist");
+  const webuiEntry = resolve(webuiSource, "index.html");
+  if (!existsSync(webuiEntry)) {
+    throw new Error(
+      `Missing ${webuiEntry}; run npm run build:webui before bundling`,
+    );
+  }
+  cpSync(webuiSource, resolve(__dirname, "dist", "webui"), {
+    recursive: true,
+  });
+  console.log("✓ Copied webui frontend to dist/webui");
+
+  // The notices are distribution obligations, not cosmetic: ship them beside
+  // the bundle and inside the served frontend directory.
+  for (const [source, destination] of [
+    ["../zcode-ui/NOTICE.md", "dist/NOTICE.md"],
+    ["../zcode-ui/THIRD-PARTY-NOTICES.md", "dist/webui/THIRD-PARTY-NOTICES.md"],
+  ]) {
+    const sourcePath = resolve(__dirname, source);
+    if (!existsSync(sourcePath)) {
+      throw new Error(`Missing ${sourcePath}; the build must ship its notices`);
+    }
+    copyFileSync(sourcePath, resolve(__dirname, destination));
+  }
+  console.log("✓ Copied NOTICE.md and THIRD-PARTY-NOTICES.md");
+
+  // Make the wrapper script executable
+  chmodSync("dist/tnt.js", 0o755);
+
+  // `splitting: true` makes `dist/index.js` a stub that imports the chunks, so
+  // reading its byte count printed "0.00 MB" for a bundle that is 29.6M across
+  // 198 files. Measure the directory the way the smoke test does - same
+  // instrument on both sides, so the two numbers cannot drift apart and the
+  // wrapper written outside esbuild is counted too.
+  const bundleFiles = readdirSync("dist").filter((name) =>
+    name.endsWith(".js"),
+  );
+  const bundleBytes = bundleFiles.reduce(
+    (total, name) => total + statSync(join("dist", name)).size,
+    0,
+  );
+  console.log(
+    `✓ Build complete! Bundle size: ${(bundleBytes / 1024 / 1024).toFixed(1)}M across ${bundleFiles.length} files`,
+  );
+} catch (error) {
+  console.error("Build failed:", error);
+  process.exit(1);
+}

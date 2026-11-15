@@ -1,0 +1,313 @@
+import { render } from "ink-testing-library";
+import React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { KeypressProvider } from "./contexts/KeypressContext.js";
+import { UserInput } from "./UserInput.js";
+
+vi.mock("./commands/index.js", () => ({
+  getAllSlashCommands: vi.fn(async () => [
+    { name: "back", description: "d1", category: "system" },
+    { name: "clear", description: "d2", category: "system" },
+    { name: "compact", description: "d3", category: "system" },
+    { name: "exit", description: "d4", category: "system" },
+    { name: "help", description: "d5", category: "system" },
+    { name: "model", description: "d6", category: "system" },
+    { name: "plan", description: "d7", category: "system" },
+    { name: "plugins", description: "d8", category: "system" },
+    { name: "tools", description: "d9", category: "system" },
+    {
+      name: "language",
+      description: "d10",
+      category: "system",
+      subcommands: [
+        { name: "en", description: "English" },
+        { name: "zh-CN", description: "简体中文" },
+      ],
+    },
+  ]),
+}));
+
+const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Key handling and the palette's derived state are React state updates, and a
+ * slow Windows runner can take longer than one tick to render them. Waiting on
+ * what the frame shows (or on the handler having fired) is the condition the
+ * test actually needs, not a fixed delay that happens to be long enough here.
+ */
+const waitFor = async (
+  predicate: () => boolean,
+  what: string,
+  timeoutMs = 2000,
+) => {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out waiting for ${what}`);
+    }
+    await tick(10);
+  }
+};
+
+/**
+ * The palette used to print every command under the input box, and Enter on a
+ * bare "/" ran the first of them. The palette is a short window above the
+ * composer, Enter completing an actual prefix, and an empty filter never
+ * executing anything on its own.
+ */
+describe("UserInput slash palette", () => {
+  let onSubmit: ReturnType<typeof vi.fn>;
+
+  const renderInput = async () => {
+    const tree = render(
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
+    );
+    // The command list loads asynchronously; typing in the same synchronous
+    // batch as the render would race it.
+    await tick();
+    return tree;
+  };
+
+  beforeEach(() => {
+    onSubmit = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("shows at most five commands in a window above the composer", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/");
+      await tick();
+
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain("/back");
+      expect(frame).not.toContain("/tools");
+
+      const paletteIndex = frame.indexOf("/back");
+      const composerIndex = frame.indexOf("> /");
+      expect(paletteIndex).toBeGreaterThan(-1);
+      expect(composerIndex).toBeGreaterThan(paletteIndex);
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("updates the palette for input that arrives faster than a tick", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/");
+      tree.stdin.write("he");
+      await tick();
+
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain("/help");
+      expect(frame).not.toContain("/back");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("refreshes the palette when rapid input is finalized", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("> /");
+
+      tree.stdin.write("model " + "x".repeat(60));
+      await tick(350);
+
+      expect(tree.lastFrame() ?? "").not.toContain("/back");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("never executes a command from a bare slash plus Enter", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/");
+      await tick();
+      tree.stdin.write("\r");
+      await tick();
+
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(tree.lastFrame() ?? "").toContain("> /");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("runs a typed prefix through the palette", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/mo");
+      await tick();
+      tree.stdin.write("\r");
+      await tick();
+
+      expect(onSubmit).toHaveBeenCalledWith("/model");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("runs /plugins so it can open the browser", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/plugins");
+      await tick();
+      tree.stdin.write("\r");
+      await tick();
+
+      expect(onSubmit).toHaveBeenCalledWith("/plugins");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("opens a parent's children instead of running it", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/language");
+      await tick();
+      tree.stdin.write("\r");
+      await tick();
+
+      // Not submitted; completed with a space, which opens the second level.
+      expect(onSubmit).not.toHaveBeenCalled();
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain("-- /language --");
+      expect(frame).toContain("English");
+      expect(frame).toContain("简体中文");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("runs a second-level entry as /parent child", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/language z");
+      // Wait until the child list has descended and applied the filter, so
+      // Enter meets the palette entry rather than the raw line.
+      await waitFor(
+        () => (tree.lastFrame() ?? "").includes("zh-CN"),
+        "the filtered child entry",
+      );
+      // The parser rewrites an Enter arriving within 30ms of the last
+      // insertable key into a newline (unbracketed-paste guard). A real
+      // pause between typing and confirming is longer than that.
+      await tick(50);
+      tree.stdin.write("\r");
+      await waitFor(
+        () => onSubmit.mock.calls.length > 0,
+        "the child command to be submitted",
+      );
+
+      expect(onSubmit).toHaveBeenCalledWith("/language zh-CN");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("escape closes the second level", async () => {
+    const tree = await renderInput();
+    try {
+      tree.stdin.write("/language ");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("English");
+
+      tree.stdin.write("\x1b");
+      // A slow runner can need more than one frame for the palette to close.
+      await waitFor(
+        () => !(tree.lastFrame() ?? "").includes("English"),
+        "the second-level palette to close",
+      );
+    } finally {
+      tree.unmount();
+    }
+  });
+});
+
+describe("UserInput slash palette Tab completion", () => {
+  const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
+
+  it("completes the highlighted command on Tab", async () => {
+    const onSubmit = vi.fn();
+    const tree = render(
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
+    );
+    try {
+      await tick();
+      tree.stdin.write("/");
+      await tick();
+      tree.stdin.write("he");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("/help");
+
+      tree.stdin.write("\t");
+      await tick(200);
+
+      const frame = tree.lastFrame() ?? "";
+      // Tab fills the buffer with the highlighted name instead of submitting.
+      expect(frame).toContain("> /help");
+      expect(onSubmit).not.toHaveBeenCalled();
+    } finally {
+      tree.unmount();
+    }
+  });
+});
+
+describe("UserInput slash palette Tab while a turn runs", () => {
+  const tick = (ms = 80) => new Promise((r) => setTimeout(r, ms));
+
+  it("completes the highlighted command on Tab mid-turn", async () => {
+    const onSubmit = vi.fn();
+    const tree = render(
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={true}
+          isWaitingForResponse={true}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
+    );
+    try {
+      await tick();
+      tree.stdin.write("/");
+      await tick();
+      tree.stdin.write("he");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("/help");
+
+      tree.stdin.write("\t");
+      await tick(200);
+
+      const frame = tree.lastFrame() ?? "";
+      expect(frame).toContain("> /help");
+      expect(onSubmit).not.toHaveBeenCalled();
+    } finally {
+      tree.unmount();
+    }
+  });
+});

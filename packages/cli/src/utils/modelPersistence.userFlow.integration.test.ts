@@ -1,0 +1,111 @@
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+
+import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+import { fixtureKey } from "../../test-utils/fixtureCredentials.js";
+import * as config from "../config/index.js";
+import { ModelService } from "../services/ModelService.js";
+
+import { getPersistedModelName, persistModelName } from "./modelPersistence.js";
+
+// Mock the config module
+vi.mock("../config/index.js");
+
+describe("Model Persistence User Flow", () => {
+  let testDir: string;
+  let originalTntHome: string | undefined;
+  let mockAssistant: AssistantUnrolled;
+  const mockLlmApi = { complete: vi.fn(), stream: vi.fn() };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    // Create a temporary directory for testing
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-test-"));
+    originalTntHome = process.env.TNT_GLOBAL_DIR;
+    process.env.TNT_GLOBAL_DIR = testDir;
+
+    // Clear GlobalContext for clean test state
+    persistModelName(null);
+
+    mockAssistant = {
+      name: "test-assistant",
+      version: "1.0.0",
+      models: [
+        {
+          provider: "openai",
+          model: "gpt-4",
+          name: "GPT-4",
+          apiKey: fixtureKey("default"),
+          roles: ["chat"],
+        } as ModelConfig,
+        {
+          provider: "anthropic",
+          model: "claude-3-5-sonnet-20241022",
+          name: "Claude 3.5 Sonnet",
+          apiKey: fixtureKey("default"),
+          roles: ["chat"],
+        } as ModelConfig,
+        {
+          provider: "anthropic",
+          model: "claude-3-opus-20240229",
+          name: "Claude 3 Opus",
+          apiKey: fixtureKey("default"),
+          roles: ["chat"],
+        } as ModelConfig,
+      ],
+    } as AssistantUnrolled;
+
+    // Setup default mock behavior
+    vi.mocked(config.getLlmApi).mockReturnValue([
+      mockLlmApi as any,
+      mockAssistant.models![0] as ModelConfig,
+    ]);
+    vi.mocked(config.createLlmApi).mockReturnValue(mockLlmApi as any);
+  });
+
+  afterEach(() => {
+    // Cleanup
+    if (fs.existsSync(testDir)) {
+      fs.rmSync(testDir, { recursive: true });
+    }
+    if (originalTntHome) {
+      process.env.TNT_GLOBAL_DIR = originalTntHome;
+    } else {
+      delete process.env.TNT_GLOBAL_DIR;
+    }
+  });
+
+  test("should persist model choice exactly as user experiences it", async () => {
+    // Session 1: User starts CLI
+    // Auth is always null now (Hub removed)
+
+    // Initialize ModelService (what happens on CLI start)
+    const modelService = new ModelService();
+    const state = await modelService.initialize(mockAssistant, null);
+    expect(state.model?.name).toBe("GPT-4");
+
+    // User switches to Claude 3.5 Sonnet via UI
+    await modelService.switchModel(1);
+    const modelInfo = modelService.getModelInfo();
+    expect(modelInfo?.name).toBe("Claude 3.5 Sonnet");
+
+    // updateModelName persists via GlobalContext
+    persistModelName("Claude 3.5 Sonnet");
+
+    // Verify it was saved
+    expect(getPersistedModelName()).toBe("Claude 3.5 Sonnet");
+
+    // Session 2: User reopens CLI
+    // Initialize ModelService with fresh state (auth is always null)
+    const newModelService = new ModelService();
+    const newState = await newModelService.initialize(mockAssistant, null);
+
+    // EXPECTATION: Should restore Claude 3.5 Sonnet
+    expect(newState.model?.name).toBe("Claude 3.5 Sonnet");
+    expect(newState.model?.provider).toBe("anthropic");
+  });
+});

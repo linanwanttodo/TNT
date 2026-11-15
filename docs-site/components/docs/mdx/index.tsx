@@ -5,7 +5,6 @@ import { Steps, Step } from "./Steps";
 import { DocsTabs, DocsTab } from "./DocsTabs";
 import { DocsAccordion, DocsAccordionGroup } from "./DocsAccordion";
 import { Columns } from "./Columns";
-import { ModelRecommendations } from "./ModelRecommendations";
 import { OSAutoDetect } from "./OSAutoDetect";
 import { CodeBlock } from "./CodeBlock";
 import { CodeGroup } from "./CodeGroup";
@@ -47,7 +46,6 @@ export const mdxComponents: MDXComponents = {
   ),
 
   // Custom snippets
-  ModelRecommendations,
   OSAutoDetect,
 
   // Code blocks

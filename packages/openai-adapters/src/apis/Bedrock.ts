@@ -10,6 +10,7 @@ import {
   Message,
   ToolConfiguration,
 } from "@aws-sdk/client-bedrock-runtime";
+import type { AwsCredentialIdentity } from "@smithy/types";
 import { OpenAI } from "openai/index";
 import { v4 as uuidv4 } from "uuid";
 
@@ -21,6 +22,7 @@ import {
   ChatCompletionCreateParamsNonStreaming,
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageToolCall,
+  CompletionUsage,
   Completion,
   CompletionCreateParamsNonStreaming,
   CompletionCreateParamsStreaming,
@@ -32,7 +34,13 @@ import {
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import { fromStatic } from "@aws-sdk/token-providers";
 import { BedrockConfig } from "../types.js";
-import { chatChunk, chatChunkFromDelta, embedding, rerank } from "../util.js";
+import {
+  chatChunk,
+  chatChunkFromDelta,
+  embedding,
+  rerank,
+  usageChatChunk,
+} from "../util.js";
 import { safeParseArgs } from "../util/parseArgs.js";
 import { parseDataUrl } from "../util/url.js";
 import {
@@ -41,24 +49,62 @@ import {
   FimCreateParamsStreaming,
   RerankCreateParams,
 } from "./base.js";
+import { resolveCachePolicy } from "./cachePolicy.js";
 
-// Utility function to get or generate UUID for prompt caching
-function getSecureID(): string {
-  // Adding a type declaration for the static property
-  if (!(getSecureID as any).uuid) {
-    (getSecureID as any).uuid = uuidv4();
+/** Bedrock reads cache points on its Claude and Nova models. */
+function supportsCachePoints(modelId: string): boolean {
+  return /claude|nova/i.test(modelId);
+}
+
+/** Only the 4.5-generation Claude models and later accept the extended TTL. */
+function supportsExtendedTtl(modelId: string): boolean {
+  const match = /claude-(?:opus|sonnet|haiku)-(\d+)(?:-(\d+))?/i.exec(modelId);
+  if (!match) {
+    return false;
   }
-  return `<!-- SID: ${(getSecureID as any).uuid} -->`;
+  const major = Number(match[1]);
+  const minor = Number(match[2] ?? 0);
+  return major > 4 || (major === 4 && minor >= 5);
 }
 
 /**
- * Interface for tool use state tracking
+ * Places the cache points a request can earn: the system head, the tool list,
+ * and the end of the newest turn. Those three mark the longest reusable spans
+ * the request has, and Bedrock's budget is counted across all of them.
  */
-interface ToolUseState {
-  toolUseId: string;
-  name: string;
-  input: string;
+function addCachePoints(body: any, modelId: string): void {
+  if (!supportsCachePoints(modelId)) {
+    return;
+  }
+  const policy = resolveCachePolicy("bedrock", modelId);
+  if (policy.mode !== "explicit" || policy.retention === "none") {
+    return;
+  }
+  const ttl =
+    policy.retention === "long" && supportsExtendedTtl(modelId) ? "1h" : "5m";
+  const point = () => ({ cachePoint: { type: "default" as const, ttl } });
+  let remaining = policy.maxBreakpoints;
+
+  if (remaining > 0 && Array.isArray(body.system)) {
+    body.system.push(point());
+    remaining -= 1;
+  }
+  const tools = body.toolConfig?.tools;
+  if (remaining > 0 && Array.isArray(tools)) {
+    tools.push(point());
+    remaining -= 1;
+  }
+  const newest = (body.messages as any[] | undefined)?.at(-1);
+  if (
+    remaining > 0 &&
+    Array.isArray(newest?.content) &&
+    newest.content.length > 0
+  ) {
+    newest.content.push(point());
+  }
 }
+
+// Utility function to get or generate UUID for prompt caching
 
 export class BedrockApi implements BaseLlmApi {
   constructor(protected config: BedrockConfig) {
@@ -76,7 +122,9 @@ export class BedrockApi implements BaseLlmApi {
     }
   }
 
-  async getCreds() {
+  // Annotated so the declaration emit stays portable under TS 5.9+/6
+  // (TS2883: the inferred union referenced @smithy types via .pnpm paths).
+  async getCreds(): Promise<AwsCredentialIdentity> {
     if (this.config?.env?.accessKeyId && this.config?.env?.secretAccessKey) {
       return {
         accessKeyId: this.config.env.accessKeyId,
@@ -311,25 +359,6 @@ export class BedrockApi implements BaseLlmApi {
     return converted;
   }
 
-  private _addCachingToLastTwoUserMessages(converted: Message[]) {
-    let numCached = 0;
-    for (let i = converted.length - 1; i >= 0; i--) {
-      const message = converted[i];
-      if (message.role === "user") {
-        message.content?.forEach((block) => {
-          if (block.text) {
-            block.text += getSecureID();
-          }
-        });
-        message.content?.push({ cachePoint: { type: "default" } });
-        numCached++;
-      }
-      if (numCached === 2) {
-        break;
-      }
-    }
-  }
-
   private _convertBody(
     oaiBody: ChatCompletionCreateParams,
   ): ConverseStreamCommandInput {
@@ -406,15 +435,15 @@ export class BedrockApi implements BaseLlmApi {
 
     // Add system message if present
     if (systemMessageText) {
-      body.system = false // this.config.cacheBehavior?.cacheSystemMessage // TODO
-        ? [{ text: systemMessageText }, { cachePoint: { type: "default" } }]
-        : [{ text: systemMessageText }];
+      body.system = [{ text: systemMessageText }];
     }
 
     // Add tool config if present
     if (toolConfig) {
       body.toolConfig = toolConfig;
     }
+
+    addCachePoints(body, oaiBody.model);
 
     // Add reasoning if needed
     // TODO REASONING
@@ -438,6 +467,7 @@ export class BedrockApi implements BaseLlmApi {
     let completion = "";
     const toolCalls: ChatCompletionMessageToolCall[] = [];
 
+    let usage: CompletionUsage | undefined;
     for await (const chunk of this.chatCompletionStream(
       {
         ...body,
@@ -445,8 +475,14 @@ export class BedrockApi implements BaseLlmApi {
       },
       signal,
     )) {
-      if (chunk.choices[0].delta.content) {
+      // The usage chunk a stream ends with carries no choices at all.
+      if (chunk.choices[0]?.delta?.content) {
         completion += chunk.choices[0].delta.content;
+      }
+      // The stream's trailing metadata event carries the counts; keeping the
+      // last one is what lets a non-streaming call report them too.
+      if (chunk.usage) {
+        usage = chunk.usage;
       }
       // TODO tool calls not supported
     }
@@ -469,7 +505,7 @@ export class BedrockApi implements BaseLlmApi {
           },
         },
       ],
-      usage: undefined,
+      usage,
     };
   }
 
@@ -492,6 +528,25 @@ export class BedrockApi implements BaseLlmApi {
       }
 
       for await (const chunk of response.stream) {
+        // ConverseStream reports the call's only counts in a trailing metadata
+        // event (the SDK types it as TokenUsage), and dropping it left Bedrock
+        // chat metered as nothing.
+        const counts = chunk.metadata?.usage;
+        if (counts) {
+          const promptTokens = counts.inputTokens ?? 0;
+          const completionTokens = counts.outputTokens ?? 0;
+          yield usageChatChunk({
+            model: body.model,
+            usage: {
+              prompt_tokens: promptTokens,
+              completion_tokens: completionTokens,
+              total_tokens:
+                counts.totalTokens ?? promptTokens + completionTokens,
+            },
+          });
+          continue;
+        }
+
         if (chunk.contentBlockDelta?.delta) {
           const delta: any = chunk.contentBlockDelta.delta;
 

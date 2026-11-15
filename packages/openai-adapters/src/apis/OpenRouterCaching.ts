@@ -14,8 +14,15 @@ import {
 } from "./AnthropicCachingStrategies.js";
 import {
   addCacheControlToLastTwoUserMessages,
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+  countCacheBreakpoints,
   openaiToolToAnthropicTool,
 } from "./AnthropicUtils.js";
+import {
+  ANTHROPIC_BREAKPOINTS_KEPT,
+  applyCacheTtl,
+  capBreakpointsForAnthropic,
+} from "./cacheControl.js";
 
 interface SystemMapping {
   openaiIndex: number;
@@ -154,16 +161,38 @@ const convertToAnthropic = (
 export const applyAnthropicCachingToOpenRouterBody = (
   body: ChatCompletionCreateParams,
   strategy: CachingStrategyName,
+  ttl?: "1h",
 ): void => {
   const { anthropicBody, systemMappings, messageMappings } =
     convertToAnthropic(body);
 
   const cachingStrategy =
     CACHING_STRATEGIES[strategy] ?? CACHING_STRATEGIES.systemAndTools;
-  const cachedBody = cachingStrategy({ ...anthropicBody });
+  let cachedBody = cachingStrategy({ ...anthropicBody });
 
   cachedBody.messages = cachedBody.messages ?? [];
-  addCacheControlToLastTwoUserMessages(cachedBody.messages);
+  // The strategy has already spent part of the four-breakpoint budget on the
+  // system blocks and the tool list. Reading what is there beats trusting it: a
+  // strategy that only marks the system leaves the messages untouched, and
+  // topping those up by two on its heels asked for six.
+  const spent = countCacheBreakpoints(cachedBody);
+  addCacheControlToLastTwoUserMessages(
+    cachedBody.messages,
+    Math.max(0, Math.min(2, ANTHROPIC_MAX_CACHE_BREAKPOINTS - spent)),
+  );
+
+  // Two is what this project sends and the direct route already narrows to it
+  // with this same call. The ceiling only says a fifth marker is refused; it
+  // says nothing about paying a cache write for a span the head already covers,
+  // nor about a body that spent its whole allowance on the system block and left
+  // the newest turn uncached.
+  cachedBody = capBreakpointsForAnthropic(
+    cachedBody,
+    ANTHROPIC_BREAKPOINTS_KEPT,
+  );
+  if (ttl) {
+    cachedBody = applyCacheTtl(cachedBody, ttl);
+  }
 
   const cachedSystem = Array.isArray(cachedBody.system)
     ? cachedBody.system

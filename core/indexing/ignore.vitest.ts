@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { TntError, TntErrorReason } from "../util/errors.js";
 import {
   DEFAULT_SECURITY_IGNORE_DIRS,
   DEFAULT_SECURITY_IGNORE_FILETYPES,
   defaultFileAndFolderSecurityIgnores,
   isSecurityConcern,
+  throwIfFileIsSecurityConcern,
 } from "./ignore";
 
 describe("isSecurityConcern", () => {
@@ -105,7 +107,7 @@ describe("isSecurityConcern", () => {
     });
 
     it("should detect continue directory as security concern", () => {
-      expect(isSecurityConcern(".continue/config.json")).toBe(true);
+      expect(isSecurityConcern(".tnt/config.json")).toBe(true);
     });
 
     it("should detect temporary secret directories as security concerns", () => {
@@ -261,5 +263,52 @@ describe("isSecurityConcern", () => {
         expect(functionResult).toBe(ignoreResult);
       });
     });
+  });
+});
+
+/**
+ * `throwIfFileIsSecurityConcern` is the contract the CLI's Read and Edit tools call, so the
+ * refusal wording and the "ordinary file passes" side both belong here. The predicate above is
+ * tested against the ignore lists; nothing covered the wrapper that turns a match into an error,
+ * which is the half every caller depends on and the half a "cleanup" commit can delete without
+ * any suite noticing.
+ */
+describe("throwIfFileIsSecurityConcern", () => {
+  it("refuses a credential file by name, not by extension alone", () => {
+    expect(() => throwIfFileIsSecurityConcern("/repo/prod.env")).toThrow(
+      TntError,
+    );
+    expect(() => throwIfFileIsSecurityConcern("/repo/prod.env")).toThrow(
+      /not allowed because it is a security concern/,
+    );
+  });
+
+  it("tells the caller not to try again, which is the point of the message", () => {
+    expect(() =>
+      throwIfFileIsSecurityConcern("/repo/.aws/credentials"),
+    ).toThrow(/Do not attempt to read or edit this file in any way/);
+  });
+
+  it("carries the reason a caller can branch on", () => {
+    try {
+      throwIfFileIsSecurityConcern("/repo/server.key");
+      expect.unreachable("the wrapper refused nothing");
+    } catch (error) {
+      expect((error as TntError).reason).toBe(
+        TntErrorReason.FileIsSecurityConcern,
+      );
+    }
+  });
+
+  it("leaves an ordinary path alone", () => {
+    expect(() =>
+      throwIfFileIsSecurityConcern("/repo/src/main.ts"),
+    ).not.toThrow();
+  });
+
+  it("refuses the same file through a file:// uri, the way context providers pass it", () => {
+    expect(() =>
+      throwIfFileIsSecurityConcern("file:///repo/secrets/api.pem"),
+    ).toThrow(TntError);
   });
 });

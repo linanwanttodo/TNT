@@ -12,8 +12,7 @@ import {
 } from "openai/resources/index";
 import type { Response } from "openai/resources/responses/responses.js";
 
-export interface FimCreateParamsStreaming
-  extends CompletionCreateParamsStreaming {
+export interface FimCreateParamsStreaming extends CompletionCreateParamsStreaming {
   suffix: string;
 }
 
@@ -39,6 +38,15 @@ export interface CreateRerankResponse {
 }
 
 export interface BaseLlmApi {
+  /**
+   * Whether a system message placed after the first one in `messages` still
+   * reaches the provider. Adapters that lift one system message into their own
+   * top-level field and filter the rest (`Anthropic`, `Bedrock`, `AiSdk`,
+   * `Cohere`, `Gemini`) do not declare this, because an instruction the CLI
+   * appends there is dropped rather than delayed.
+   */
+  carriesInHistorySystemMessages?(model: string): boolean;
+
   // Chat, no stream
   chatCompletionNonStream(
     body: ChatCompletionCreateParamsNonStreaming,
