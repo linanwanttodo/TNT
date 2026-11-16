@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/stale@v10
+      - uses: actions/stale@v11
         with:
           close-issue-message: "This issue was closed because it wasn't updated for 10 days after being marked stale. Open a new issue with a comment and the current reproduction if it still matters to you; a closed issue is never the end of the discussion."
           stale-issue-message: "This issue hasn't been updated in 90 days and will be closed after an additional 10 days without activity. If it's still important, please leave a comment and share any new information that would help us address the issue."
