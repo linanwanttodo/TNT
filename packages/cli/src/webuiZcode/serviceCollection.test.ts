@@ -99,8 +99,25 @@ function createBundle(): LocalZcodeServices {
 
 async function tempDir(prefix: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), prefix));
-  registerCleanup(() => rm(dir, { recursive: true, force: true }));
+  registerCleanup(() => removeTempDir(dir));
   return dir;
+}
+
+// On Windows a just-disposed PTY can keep its cwd handle briefly, so rmdir
+// reports EBUSY. The lock is transient; retry a few times before giving up.
+async function removeTempDir(dir: string): Promise<void> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await rm(dir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      if (code !== "EBUSY" && code !== "EPERM" && code !== "ENOTEMPTY") {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+    }
+  }
 }
 
 async function buildCollection(
