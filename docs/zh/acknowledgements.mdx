@@ -1,0 +1,27 @@
+---
+title: "开源项目与致谢"
+description: "TNT 所依赖的开源项目、各自贡献了什么，以及许可证文件的位置。"
+---
+
+TNT 建立在多个开源项目之上。下表说明每个项目贡献了什么，并链接到对应上游。
+各项目保留自己的许可证与版权声明，TNT 不对它们重新授权。
+
+| 项目 | TNT 使用了什么 | 链接 |
+| --- | --- | --- |
+| Continue | 基座仓库：智能体引擎、LLM 适配层、配置格式、索引与工具抽象。TNT 是其 2.0.0 最终版的衍生作品，只发展命令行形态。 | [continuedev/continue](https://github.com/continuedev/continue) |
+| ZCode | 浏览器与手机界面。`packages/zcode-ui/*` 是 vendored 的 ZCode 源码（UI、Web 外壳、services、shared 协议、RPC、client 与 provider 包），经改造后运行在 TNT 的本地引擎上。受管 worktree 的设计遵循 ZCode 的 `docs/git/worktree.md`。 | [zai-org/ZCode](https://github.com/zai-org/ZCode) |
+| Gemini CLI | 终端输入组件，逐字移植或裁剪移植：文本缓冲、按键处理、键位绑定、vim 缓冲操作、TextInput 渲染、终端能力探测、终端模式、剪贴板与文本工具，以及斜杠命令补全解析。 | [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
+| pi | 工具与扩展机制的设计调研。子代理派发、团队编排与长上下文处理与 `pi-subagents`、`@agimon-ai/po-team`、`billion-context` 做过逐项对比，结论影响了 TNT 的子代理与 team 机制，这些包也进入插件目录的精选列表。 | [earendil-works/pi](https://github.com/earendil-works/pi) · [pi-subagents](https://pi.dev/packages/pi-subagents) · [billion-context](https://pi.dev/packages/billion-context) · [po-team](https://pi.dev/packages/@agimon-ai/po-team?name=team) |
+| atomcode | WebUI 背后的共享会话模型：让终端与浏览器视图保持一致的命令输出通知，以及输入回显。 | [atomgit_atomcode/atomcode](https://atomgit.com/atomgit_atomcode/atomcode) |
+| Claude Code 插件 | TNT 插件系统读取的声明式插件布局与市场格式：skills、commands、hooks、agents 与输出样式。 | [Claude Code 插件](https://docs.anthropic.com/en/docs/claude-code/plugins) |
+
+## 声明文件在哪里
+
+- [`packages/zcode-ui/NOTICE.md`](https://github.com/linanwanttodo/TNT/blob/main/packages/zcode-ui/NOTICE.md) —— vendored 目录的声明，含各运行形态的能力边界。
+- [`packages/zcode-ui/THIRD-PARTY-NOTICES.md`](https://github.com/linanwanttodo/TNT/blob/main/packages/zcode-ui/THIRD-PARTY-NOTICES.md) —— 第三方依赖清单与许可证正文。
+- [`packages/zcode-ui/UPSTREAM-DIVERGENCES.md`](https://github.com/linanwanttodo/TNT/blob/main/packages/zcode-ui/UPSTREAM-DIVERGENCES.md) —— TNT 在 vendored 目录中改动过的每个文件、原因，以及它服务的 TNT 契约。
+
+## 许可证
+
+TNT 采用 Apache 2.0，© 2023-2026 Continue Dev, Inc. 及各上游作者。
+vendored 与移植的组件保留上述声明文件中列出的条款。

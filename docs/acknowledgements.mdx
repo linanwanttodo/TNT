@@ -1,0 +1,29 @@
+---
+title: "Open source and acknowledgements"
+description: "The open-source projects TNT builds on, what TNT uses from each of them, and where the licenses live."
+---
+
+TNT stands on several open-source projects. The table below says which project
+contributed what, and links to each upstream. Every project keeps its own
+license and copyright; TNT does not relicense any of them.
+
+| Project | What TNT uses | Link |
+| --- | --- | --- |
+| Continue | The base fork: the agent engine, LLM adapters, configuration formats, indexing and tool abstractions. TNT is a derivative work of the final 2.0.0 release, and develops the CLI surface only. | [continuedev/continue](https://github.com/continuedev/continue) |
+| ZCode | The browser and phone interface. The `packages/zcode-ui/*` tree is vendored ZCode source — UI, web shell, services, shared schemas, RPC, client and provider packages — adapted to run against TNT's local engine. The managed-worktree design follows ZCode's `docs/git/worktree.md`. | [zai-org/ZCode](https://github.com/zai-org/ZCode) |
+| Gemini CLI | Terminal input components, ported verbatim or trimmed: the text buffer, keypress provider, key bindings, vim buffer actions, TextInput rendering, terminal capability manager, terminal modes, clipboard and text utilities, and slash-command completion parsing. | [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
+| pi | Tool and extension design research. Subagent dispatch, team orchestration and long-context handling were compared against `pi-subagents`, `@agimon-ai/po-team` and `billion-context`; the findings shaped TNT's subagent and team mechanisms, and the packages are featured in the plugin catalog. | [earendil-works/pi](https://github.com/earendil-works/pi) · [pi-subagents](https://pi.dev/packages/pi-subagents) · [billion-context](https://pi.dev/packages/billion-context) · [po-team](https://pi.dev/packages/@agimon-ai/po-team?name=team) |
+| atomcode | The shared conversation model behind the WebUI: the command-output notice that keeps the terminal and browser views in sync, and the input echo. | [atomgit_atomcode/atomcode](https://atomgit.com/atomgit_atomcode/atomcode) |
+| Claude Code plugins | The declarative plugin layout and marketplace format for skills, commands, hooks, agents and output styles that TNT's plugin system reads. | [Claude Code plugins](https://docs.anthropic.com/en/docs/claude-code/plugins) |
+
+## Where the notices live
+
+- [`packages/zcode-ui/NOTICE.md`](https://github.com/linanwanttodo/TNT/blob/main/packages/zcode-ui/NOTICE.md) — the vendored tree's notice, including what each run surface may do.
+- [`packages/zcode-ui/THIRD-PARTY-NOTICES.md`](https://github.com/linanwanttodo/TNT/blob/main/packages/zcode-ui/THIRD-PARTY-NOTICES.md) — the third-party dependency inventory and license texts.
+- [`packages/zcode-ui/UPSTREAM-DIVERGENCES.md`](https://github.com/linanwanttodo/TNT/blob/main/packages/zcode-ui/UPSTREAM-DIVERGENCES.md) — every file TNT edited in the vendored tree, why, and which TNT contract it serves.
+
+## License
+
+TNT is Apache 2.0, © 2023-2026 Continue Dev, Inc. and the respective upstream
+authors. The vendored and ported components keep the terms listed in the notice
+files above.

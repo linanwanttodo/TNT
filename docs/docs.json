@@ -57,7 +57,12 @@
           {
             "group": "Help",
             "icon": "circle-question",
-            "pages": ["cli/troubleshooting", "troubleshooting", "reference"]
+            "pages": [
+              "cli/troubleshooting",
+              "troubleshooting",
+              "reference",
+              "acknowledgements"
+            ]
           },
           {
             "group": "Research",
