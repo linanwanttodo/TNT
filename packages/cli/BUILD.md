@@ -2,7 +2,7 @@
 
 ## Overview
 
-The TNT CLI uses esbuild to bundle the application along with local packages (`@tnt/config-yaml` and `@tnt/openai-adapters`) into a single distributable file. This ensures that users who install the CLI from npm don't need to worry about local file references.
+The TNT CLI uses esbuild to bundle the application along with local packages (`@tnt/config-yaml` and `@tnt/openai-adapters`) into a single distributable tree. This ensures that users who install the release tarball don't need to worry about local file references.
 
 ## Build Steps
 
@@ -69,12 +69,14 @@ After building, check `build-meta.json` to see:
 
 ## Publishing
 
-When publishing to npm:
+Releases are assembled as per-platform tarballs and uploaded to GitHub Releases:
 
 1. The bundled files in `dist/` are included
-2. Users install via `npm install -g @tnt/cli`
-3. The `tnt` command becomes available globally (`package.json` `bin` points at `dist/tnt.js`)
+2. Users install via the install scripts, which download `tnt-cli-v<version>-<platform>.tar.gz`
+3. The install scripts place the `tnt` binary on PATH (`package.json` `bin` points at `dist/tnt.js`)
 4. No local file references or missing dependencies
+
+TNT is not published on npm.
 
 ## Environment
 

@@ -26,6 +26,7 @@ import {
   pageSlugFromRoute,
   type Locale,
 } from "@/lib/i18n";
+import { withBasePath } from "@/lib/basePath";
 import "../docs.css";
 
 interface Props {
@@ -67,10 +68,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         : "TNT Docs",
     description: doc.frontmatter.description || "",
     alternates: {
-      canonical: docPath(locale, current),
+      canonical: withBasePath(docPath(locale, current)),
       languages: {
-        en: docPath("en", current),
-        "zh-CN": docPath("zh", current),
+        en: withBasePath(docPath("en", current)),
+        "zh-CN": withBasePath(docPath("zh", current)),
       },
     },
   };
@@ -90,7 +91,7 @@ export default async function DocsPage({ params }: Props) {
   if (redirectTo) {
     const target = redirectTo.startsWith("http")
       ? redirectTo
-      : docPath(locale, redirectTo.replace(/^\//, "") || "index");
+      : withBasePath(docPath(locale, redirectTo.replace(/^\//, "") || "index"));
     return <ClientRedirect to={target} />;
   }
 

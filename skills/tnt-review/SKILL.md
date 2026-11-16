@@ -22,16 +22,15 @@ login, no hub, and no service to be configured with.
 
 ## Prerequisites
 
-- Node.js 18+ and a git repository with something to diff
+- Node.js 24+ and a git repository with something to diff
 - A model selected in `~/.tnt/config.yaml` — `tnt review` uses the session's chat model
   unless `--review-model` names another
 
 ```bash
-npm install -g @tnt/cli
 tnt review --uncommitted
 ```
 
-That is the whole setup. `tnt check`, `cn check` and `cn login` are not commands in this CLI;
+TNT is installed from a [GitHub Release](https://github.com/linanwanttodo/TNT/releases), not from npm. That is the whole setup. `tnt check`, `cn check` and `cn login` are not commands in this CLI;
 the capability they described is this one.
 
 ## Running reviews

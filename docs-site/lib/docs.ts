@@ -4,6 +4,7 @@ import matter from "gray-matter";
 import GithubSlugger from "github-slugger";
 import type { NavItem, NavTab } from "@/config/docsNav";
 import { DEFAULT_LOCALE, type Locale } from "./i18n";
+import { checkRedirectDestination } from "./redirectHost";
 
 const DOCS_DIR = process.env.DOCS_DIR || path.resolve(process.cwd(), "../docs");
 
@@ -79,18 +80,17 @@ export function resolveDocsRedirect(
 
   // Handle external URLs
   if (dest.startsWith("https://") || dest.startsWith("http://")) {
-    try {
-      const url = new URL(dest);
-      // Only allow redirects to whitelisted domains
-      if (!ALLOWED_REDIRECT_DOMAINS.includes(url.hostname)) {
-        console.warn(`Blocked redirect to untrusted domain: ${url.hostname}`);
-        return null;
-      }
-      return dest;
-    } catch {
-      console.warn(`Invalid redirect URL: ${dest}`);
+    const check = checkRedirectDestination(dest);
+    if (!check.ok) {
+      console.warn(`Blocked redirect: ${check.reason}`);
       return null;
     }
+    const url = new URL(dest);
+    if (!ALLOWED_REDIRECT_DOMAINS.includes(url.hostname)) {
+      console.warn(`Blocked redirect to untrusted domain: ${url.hostname}`);
+      return null;
+    }
+    return dest;
   }
 
   // Internal redirects - ensure they start with /
