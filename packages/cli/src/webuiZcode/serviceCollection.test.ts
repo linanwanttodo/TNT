@@ -31,6 +31,7 @@ import {
   ITerminalService,
   IZCodeAgentService,
   IZCodeSessionService,
+  IZCodeTaskService,
   type ServiceCollection,
 } from "@zcode/services";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -190,6 +191,7 @@ describe("buildZcodeServiceCollection", () => {
         ITaskGroupService.channelName,
         IProviderSettingsService.channelName,
         ICredentialService.channelName,
+        IZCodeTaskService.channelName,
         ISubagentsService.channelName,
         ISkillsService.channelName,
         ICommandsService.channelName,

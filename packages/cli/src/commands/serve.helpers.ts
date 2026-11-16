@@ -26,7 +26,7 @@ import {
   composeServedPrompt,
   splitServedPrompt,
 } from "../utils/promptNotes.js";
-import { runtimeContextNote } from "../utils/runtimeContextNote.js";
+import { runtimeContextNote } from "../subagent/runtimeContextNote.js";
 
 /**
  * Remove partial assistant message if the last message is an empty assistant message.

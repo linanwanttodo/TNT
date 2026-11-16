@@ -30,6 +30,7 @@ import {
 } from "./webuiDist.js";
 import { createTntHooksService } from "./webuiHooks.js";
 import { createTntMemoryService } from "./webuiMemory.js";
+import { registerWebUiNativeDirectoryRoute } from "./webuiNativeDirectory.js";
 import { readWebUiModelSource } from "./webuiModelSource.js";
 import { bootstrapPage } from "./webuiPages.js";
 import { getWebUiProjectCatalog } from "./webuiProjectCatalog.js";
@@ -117,6 +118,9 @@ export class WebUiService {
     app.get("/", (req: Request, res: Response) => {
       if (requestToken(req) === token) {
         if (dist.hasDist) {
+          // The shell names the hashed asset bundle; a cached copy would keep
+          // serving the previous deployment's UI after a rebuild.
+          res.setHeader("Cache-Control", "no-store");
           res.sendFile("index.html", { root: dist.distDir });
           return;
         }
@@ -127,6 +131,10 @@ export class WebUiService {
     });
 
     registerWebUiSessionExchange(app, token);
+
+    // The project wizard's "选择文件夹" opens the host desktop's own folder
+    // picker; a browser cannot do that, but this server runs on that desktop.
+    registerWebUiNativeDirectoryRoute(app);
 
     // registerWebUiServerInfoRoute only touches lastActivity on the state it
     // is handed, so a minimal object carries it.

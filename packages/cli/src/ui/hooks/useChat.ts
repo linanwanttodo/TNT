@@ -34,7 +34,7 @@ import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
 import { composeServedPrompt } from "../../utils/promptNotes.js";
-import { runtimeContextNote } from "../../utils/runtimeContextNote.js";
+import { runtimeContextNote } from "../../subagent/runtimeContextNote.js";
 import { liveHub } from "../../webuiZcode/liveHub.js";
 import { handleSlashCommands } from "../commands/index.js";
 import { requestComposerDraft } from "../composerDraft.js";

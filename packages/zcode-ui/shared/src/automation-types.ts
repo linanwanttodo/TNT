@@ -237,3 +237,24 @@ export interface ZCodeWorkflowRunSummary {
   resumable: boolean;
   failureMessage?: string;
 }
+
+// ── 受管 worktree（worktree 只是会话 cwd）──
+
+/** 一个受管 worktree 的标识信息；worktreePath 就是新会话的 cwd。 */
+export interface ZCodeManagedWorktreeInfo {
+  worktreePath: string;
+  /** 展示名 "<仓库名> · <bucket>"。 */
+  label: string;
+  /** 检出分支；detached 时缺席。 */
+  branch?: string;
+}
+
+/** 管理弹窗里的一行：worktree 现状 + 占用。 */
+export interface ZCodeManagedWorktreeEntry extends ZCodeManagedWorktreeInfo {
+  /** 该 worktree 有未提交改动。 */
+  dirty: boolean;
+  /** HEAD 短 SHA。 */
+  head?: string;
+  /** cwd 落在这个 worktree 里的会话数；大于 0 时删除被拒。 */
+  usedBySessions: number;
+}

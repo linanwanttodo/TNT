@@ -259,14 +259,14 @@ describe("WorkspaceEngines", () => {
       workspace: { workspacePath: workspaceB, workspaceKey: workspaceB },
     })) as { sessions: Array<{ sessionId: string }> };
 
+    // The session store is global (~/.tnt/sessions) since cross-workspace
+    // listing landed: every surface lists every session so a WebUI opened on
+    // one workspace still reaches the rest. Isolation now lives in the engine
+    // (own process, own pump, own stop), not in the listing.
     expect(listA.sessions.map((entry) => entry.sessionId)).toContain(sessionA);
-    expect(listA.sessions.map((entry) => entry.sessionId)).not.toContain(
-      sessionB,
-    );
+    expect(listA.sessions.map((entry) => entry.sessionId)).toContain(sessionB);
     expect(listB.sessions.map((entry) => entry.sessionId)).toContain(sessionB);
-    expect(listB.sessions.map((entry) => entry.sessionId)).not.toContain(
-      sessionA,
-    );
+    expect(listB.sessions.map((entry) => entry.sessionId)).toContain(sessionA);
 
     const eventsA: EngineNotification[] = [];
     const eventsB: EngineNotification[] = [];

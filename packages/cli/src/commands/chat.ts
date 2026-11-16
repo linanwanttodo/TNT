@@ -54,7 +54,7 @@ import { logger } from "../utils/logger.js";
 import { question } from "../utils/prompt.js";
 import { composeServedPrompt } from "../utils/promptNotes.js";
 import { prependPrompt } from "../utils/promptProcessor.js";
-import { runtimeContextNote } from "../utils/runtimeContextNote.js";
+import { runtimeContextNote } from "../subagent/runtimeContextNote.js";
 import { stripThinkTags } from "../utils/thinkingTags.js";
 import {
   calculateContextUsagePercentage,

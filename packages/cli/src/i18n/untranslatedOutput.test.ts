@@ -275,7 +275,9 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   // adapters (subagents, skills, commands, hooks, memory, usage stats) reject
   // with `ZCODE_UNAVAILABLE: <operation>: <reason>`; that string is the
   // channel's structured refusal for the shell, not copy a reader sees.
-  services: 40,
+  // 42: the native directory chooser reports a missing desktop dialog and a
+  // chooser that cannot open; both are host errors the RPC client surfaces.
+  services: 42,
   session: 6,
   // 14, not 6: `AskQuestion` validates the new `questions` array field by
   // field, and those messages are read by the model, not the composer.
@@ -287,8 +289,11 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   utils: 16,
   // The web UI host and its services answer an RPC peer; these are JSON-RPC and
   // auth errors read by a client, not composer copy. 39: the task-group admit
-  // names the group id it could not find.
-  webuiZcode: 39,
+  // names the group id it could not find. 47: the automations backend and the
+  // managed worktree service throw at the RPC boundary (sendText rejected,
+  // worktree add failed, ref not a repository, …) - structured refusals the
+  // shell surfaces as toasts, not composer copy.
+  webuiZcode: 47,
 };
 
 /**

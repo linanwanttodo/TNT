@@ -11,7 +11,7 @@ import {
   clearLiveSubagentRuns,
   noteSubagentRunStarted,
   noteSubagentRunFinished,
-} from "../subagent/liveRuns.js";
+} from "./liveRuns.js";
 import { runtimeContextNote } from "./runtimeContextNote.js";
 
 vi.mock("../session/index.js", () => ({

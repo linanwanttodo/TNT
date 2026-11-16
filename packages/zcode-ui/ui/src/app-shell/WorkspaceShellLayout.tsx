@@ -45,6 +45,8 @@ import {
 } from "@/v4/usePaneSessionPersistence.js";
 import { requestV4ComposerDraftWorkspaceTransfer } from "@/v4/composer/composerDraftWorkspaceTransfer.js";
 import { ProjectComposerMenu, ProjectDirectoryProvider } from "@/project-sidebar/index.js";
+import { TntWorktreeToggle } from "@/tnt-worktree/TntWorktreeToggle.js";
+import { useTntDraftWorktreeStore } from "@/tnt-worktree/draftWorktreeStore.js";
 import { DesktopTopOverlay } from "@/DesktopTopOverlay.js";
 import { DesktopWindowFrame } from "@/DesktopWindowFrame.js";
 import { WorkspacePluginPreview } from "@/workspace-plugin-preview/index.js";
@@ -1494,6 +1496,13 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
   );
   // 草稿头部保留项目菜单与 Git 分支；项目目录由共享 Provider 提供。
   // Shell 只连接既有导航回调，pane 不持有另一份项目列表或 cwd 归属推断。
+  // Worktree 草稿的开关与检出分支来自 draft store：勾选后分支胶囊切换语义，
+  // 与 TntWorktreeToggle 共用同一份状态，不产生第二个分支选择器。
+  const tntDraftWorktree = useTntDraftWorktreeStore();
+  const draftWorktreeState = tntDraftWorktree.read(workspaceAbsPath);
+  const draftWorktreeEnabled = draftWorktreeState.enabled;
+  const draftWorktreeRef = draftWorktreeState.ref ?? null;
+  const setDraftWorktreeRef = tntDraftWorktree.setRef;
   const draftComposerHeader = useMemo(
     () => (
       <ProjectComposerMenu
@@ -1527,8 +1536,20 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
             // Bugfix（旧注释保真）：输入框区域在底部，Radix 碰撞避让会把分支菜单翻到下方。
             // 这里锁定上方弹出，避免菜单遮挡输入区并保持操作方向稳定。
             avoidPopoverCollisions={false}
+            // Worktree 开启时分支胶囊变成"记录检出分支"：选择不切换主目录，
+            // 只决定新 worktree 从哪检出（docs/git/worktree.md §3.2）。
+            worktreeMode={draftWorktreeEnabled}
+            worktreeSelectedRef={draftWorktreeRef}
+            onWorktreeRefSelect={(ref) =>
+              setDraftWorktreeRef(workspaceAbsPath, ref)
+            }
           />
         ) : null}
+        {/* Worktree 勾选贴最右端（docs/git/worktree.md §3.2）；打开后首发创建受管 worktree。 */}
+        <TntWorktreeToggle
+          workspacePath={workspaceAbsPath}
+          workspaceIdentity={workspaceIdentity}
+        />
       </ProjectComposerMenu>
     ),
     [
@@ -1548,6 +1569,9 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
       onCancelRemoteProject,
       workspaceAbsPath,
       workspaceIdentity,
+      draftWorktreeEnabled,
+      draftWorktreeRef,
+      setDraftWorktreeRef,
     ],
   );
   const handleV4SessionDeleted = useCallback(() => {
@@ -2259,6 +2283,9 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
                                 onSessionCreated={handleV4SessionCreated}
                                 onSessionDeleted={handleV4SessionDeleted}
                                 draftComposerHeader={draftComposerHeader}
+                                onOpenWorktreeSession={(worktreePath, sessionId) =>
+                                  handleSelectTaskInChat(worktreePath, sessionId)
+                                }
                                 onPrimaryDraftDropTargetControllerChange={
                                   setDraftHeaderDropTargetController
                                 }

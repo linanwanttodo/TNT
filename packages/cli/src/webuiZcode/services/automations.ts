@@ -11,7 +11,11 @@ import {
   computeAutomationNextRunAt,
 } from "@zcode/services/node";
 import type { ZCodeAutomation, ZCodeAutomationRun } from "@zcode/shared";
-import type { ZCodeWorkflowRunSummary } from "@zcode/shared";
+import type {
+  ZCodeWorkflowRunSummary,
+  ZCodeManagedWorktreeEntry,
+  ZCodeManagedWorktreeInfo,
+} from "@zcode/shared";
 import {
   commandPayloadSchemas,
   V4_METHODS,
@@ -19,6 +23,12 @@ import {
 
 import { logger } from "../../utils/logger.js";
 
+import {
+  createManagedWorktree,
+  listManagedWorktrees,
+  managedWorktreeAvailable,
+  removeManagedWorktree,
+} from "./managedWorktree.js";
 import { listWorkspaceWorkflowRuns } from "./workflowRuns.js";
 
 /**
@@ -44,6 +54,10 @@ export type AutomationServiceMethods = Pick<
   | "listAutomationRuns"
   | "deleteAutomationRun"
   | "listWorkflowRuns"
+  | "createManagedWorktree"
+  | "listManagedWorktrees"
+  | "removeManagedWorktree"
+  | "managedWorktreeAvailable"
 >;
 
 type CreateParams = Parameters<IZCodeAgentService["createAutomation"]>[0];
@@ -53,6 +67,12 @@ type SetEnabledParams = Parameters<
   IZCodeAgentService["setAutomationEnabled"]
 >[0];
 type DeleteRunParams = Parameters<IZCodeAgentService["deleteAutomationRun"]>[0];
+type WorktreeCreateParams = Parameters<
+  IZCodeAgentService["createManagedWorktree"]
+>[0];
+type WorktreeRemoveParams = Parameters<
+  IZCodeAgentService["removeManagedWorktree"]
+>[0];
 
 export interface AutomationBackend {
   readonly methods: AutomationServiceMethods;
@@ -287,6 +307,27 @@ export function createZcodeAutomationBackend(engines: {
           ...(params.limit !== undefined ? { limit: params.limit } : {}),
         }),
       ),
+    createManagedWorktree: (params: WorktreeCreateParams) =>
+      createManagedWorktree({
+        workspacePath: params.workspacePath,
+        ...(params.ref ? { ref: params.ref } : {}),
+      }),
+    listManagedWorktrees: (params: {
+      workspacePath: string;
+    }): Promise<ZCodeManagedWorktreeEntry[]> =>
+      listManagedWorktrees({ workspacePath: params.workspacePath }),
+    removeManagedWorktree: async (
+      params: WorktreeRemoveParams,
+    ): Promise<void> => {
+      await removeManagedWorktree({
+        workspacePath: params.workspacePath,
+        worktreePath: params.worktreePath,
+        ...(params.force !== undefined ? { force: params.force } : {}),
+      });
+    },
+    managedWorktreeAvailable: (params: {
+      workspacePath: string;
+    }): Promise<boolean> => managedWorktreeAvailable(params.workspacePath),
   };
 
   return {

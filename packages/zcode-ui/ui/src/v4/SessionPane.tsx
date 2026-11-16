@@ -172,6 +172,8 @@ import {
   type ComposerSubmissionConfig,
 } from "@/v4/composer/composerSubmissionConfig.js";
 import { useDraftSessionPrewarm } from "@/v4/composer/useDraftSessionPrewarm.js";
+import { sendDraftIntoManagedWorktree } from "@/v4/tntWorktreeSend.js";
+import { isTntWorktreeDraftEnabled } from "@/v4/tntWorktreeSend.js";
 import { projectSessionConfigToTaskConfigOptions } from "@/v4/composer/sessionConfigTaskCache.js";
 import { useDraftRuntimeRebuildGate } from "@/v4/composer/useDraftRuntimeRebuildGate.js";
 import { useDraftModelReadinessGate } from "@/v4/composer/useDraftModelReadinessGate.js";
@@ -407,6 +409,11 @@ export interface SessionPaneProps {
    * 非 primary pane 不下发（workspace 切换是壳级动作）。
    */
   draftComposerHeader?: ReactNode;
+  /**
+   * Worktree 首发成功后打开新会话。会话出生在受管 worktree 的 workspace 里，
+   * pane 自己的 transport 绑在项目 workspace，只有壳层能跨 workspace 导航。
+   */
+  onOpenWorktreeSession?: (worktreePath: string, sessionId: string) => void;
   /** 主草稿把 drop controller 提给 app shell 的标题栏；其他 pane 只在自身 surface 消费。 */
   onDropTargetControllerChange?: (controller: ConversationDropTargetController | null) => void;
   gitSummary?: GitRepositorySummary | null;
@@ -633,6 +640,7 @@ export function SessionPane({
   onClosePane,
   workspaceBadge,
   draftComposerHeader,
+  onOpenWorktreeSession,
   onDropTargetControllerChange,
   gitSummary,
   gitDirtyFileCount,
@@ -685,6 +693,7 @@ export function SessionPane({
     highspeedCardService,
     modelSelectionService,
     usageStatsService,
+    zcodeAgentService,
     zcodeSessionService,
     zcodeTaskService,
   } = useServices();
@@ -3850,6 +3859,30 @@ export function SessionPane({
       }
       // Bug 根因：首发曾把 binding=null 当成无预热，绕过 owner 再建一个会话。
       // 文本、附件/context 和 goal 都等待同一创建任务，创建失败或换代直接保留草稿。
+      // Worktree 首发不走预热：会话必须出生在受管 worktree 的 workspace 里
+      // （cwd 才是 worktree），由壳层导航打开；附件与划词引用仍落在项目 workspace，退回普通发送。
+      if (
+        sessionId === null &&
+        workspacePath &&
+        isTntWorktreeDraftEnabled(workspaceKey) &&
+        readyAttachments.length === 0 &&
+        !sharedContextRefs?.length &&
+        !options?.conversationQuotes?.length &&
+        !draftSlashCommand
+      ) {
+        await sendDraftIntoManagedWorktree({
+          agentService: zcodeAgentService,
+          workspacePath,
+          workspaceIdentity,
+          text,
+          ...(submission.modelSelection
+            ? { modelSelection: submission.modelSelection }
+            : {}),
+          onSessionOpened: (worktreePath, newSessionId) =>
+            onOpenWorktreeSession?.(worktreePath, newSessionId),
+        });
+        return;
+      }
       const draftBinding = sessionId === null ? await waitForDraftSession() : null;
       if (draftBinding) {
         await ensureDraftPrewarmConfigBeforeSendRef.current(draftBinding.sessionId);
@@ -3978,6 +4011,10 @@ export function SessionPane({
       sessionId,
       settleCurrentQueueInputs,
       waitForDraftSession,
+      workspaceIdentity,
+      workspacePath,
+      zcodeAgentService,
+      onOpenWorktreeSession,
     ],
   );
 

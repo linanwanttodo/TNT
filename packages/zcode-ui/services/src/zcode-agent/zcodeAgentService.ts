@@ -15,6 +15,10 @@ import {
 import { resolveWorkspaceTelemetryDetail } from "@zcode/shared";
 import { isAuxiliarySessionKind } from "@zcode/shared";
 import type { ZCodeWorkflowRunSummary } from "@zcode/shared";
+import type {
+  ZCodeManagedWorktreeEntry,
+  ZCodeManagedWorktreeInfo,
+} from "@zcode/shared";
 import {
   pluginUiToolResultNotificationSchema,
   type PluginUiToolResultNotification,
@@ -293,6 +297,8 @@ import type {
   ZCodeAgentSetAutomationEnabledParams,
   ZCodeAgentDeleteAutomationRunParams,
   ZCodeAgentWorkflowRunsParams,
+  ZCodeAgentManagedWorktreeCreateParams,
+  ZCodeAgentManagedWorktreeRemoveParams,
   ZCodeAgentAttachmentBeginParams,
   ZCodeAgentAttachmentChunkParams,
   ZCodeAgentAttachmentReadParams,
@@ -5794,6 +5800,21 @@ export function createZCodeAgentService(
       params: ZCodeAgentWorkflowRunsParams,
     ): Promise<ZCodeWorkflowRunSummary[]> {
       return [];
+    },
+
+    // 受管 worktree：桌面宿主没有该能力（TNT CLI 实现真正执行者），一律拒绝，
+    // 让 UI 隐藏入口而不是展示一个永远失败的按钮。
+    async createManagedWorktree(): Promise<ZCodeManagedWorktreeInfo> {
+      throw new Error("managed worktree is not available on this host");
+    },
+    async listManagedWorktrees(): Promise<ZCodeManagedWorktreeEntry[]> {
+      return [];
+    },
+    async removeManagedWorktree(): Promise<void> {
+      throw new Error("managed worktree is not available on this host");
+    },
+    async managedWorktreeAvailable(): Promise<boolean> {
+      return false;
     },
 
     async generateWorkspaceText(params: ZCodeAgentGenerateWorkspaceTextParams) {
