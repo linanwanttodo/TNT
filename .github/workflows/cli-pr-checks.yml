@@ -86,6 +86,19 @@ jobs:
           cd ..
           npm run build
 
+      # The CLI resolves @zcode/* through file: links into a vendored tree that
+      # ships TypeScript sources, not declarations. scripts/build-packages.js
+      # never installs them, so on a clean checkout tsc sees unknown types and
+      # half the CLI turns into implicit-any errors. The release matrix runs
+      # this exact script; PR checks must do the same before lint and build.
+      - name: Build the vendored ZCode UI packages
+        shell: bash
+        env:
+          npm_config_script_shell: bash
+        run: |
+          cd packages/cli
+          npm run build:zcode-ui
+
       - name: Install dependencies
         run: |
           cd packages/cli
@@ -164,6 +177,16 @@ jobs:
           cd ..
           npm run build
 
+      # See the lint job: the vendored tree must be installed and built before
+      # tsc can resolve @zcode/* on a clean checkout, on every OS in the matrix.
+      - name: Build the vendored ZCode UI packages
+        shell: bash
+        env:
+          npm_config_script_shell: bash
+        run: |
+          cd packages/cli
+          npm run build:zcode-ui
+
       - name: Install dependencies
         run: |
           cd packages/cli
@@ -176,8 +199,7 @@ jobs:
 
       # Search and Glob register themselves only when `rg` is on PATH, so a
       # runner without it silently tests a different tool catalog than a
-      # developer's machine - and then the guards that count that catalog fail.
-      - name: Provide ripgrep for the Search and Glob tools
+      # developer's machine - and then the guards that count that catalog fail.      - name: Provide ripgrep for the Search and Glob tools
         shell: bash
         run: |
           set -euo pipefail
@@ -333,6 +355,16 @@ jobs:
           npm install --no-audit --no-fund
           cd ..
           npm run build
+
+      # See the lint job: smoke-api builds the CLI too, so the vendored tree
+      # needs the same install/build pass before npm run build.
+      - name: Build the vendored ZCode UI packages
+        shell: bash
+        env:
+          npm_config_script_shell: bash
+        run: |
+          cd packages/cli
+          npm run build:zcode-ui
 
       - name: Install dependencies
         run: |
