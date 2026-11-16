@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- the message projection keeps every part shape in one place */
+import type { AssistantConfig } from "@tnt/sdk";
 import {
   ZCODE_PROTOCOL_NAME,
   ZCODE_PROTOCOL_VERSION,
@@ -40,7 +41,6 @@ import {
 import { messageTimestampOf, type SessionMeta } from "../session/store.js";
 import { readTodoState, type Todo } from "../tools/todo.js";
 import { getAllSlashCommands } from "../ui/commands/index.js";
-import type { AssistantConfig } from "@tnt/sdk";
 
 import type { GoalLifecycleState } from "./events.js";
 

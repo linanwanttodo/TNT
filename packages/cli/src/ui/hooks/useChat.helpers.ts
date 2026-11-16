@@ -10,8 +10,8 @@ import { loadSession, startNewSession } from "../../session/index.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { logger } from "../../utils/logger.js";
 import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
-import { symbols } from "../symbols.js";
 import { appendSessionNotice, clearSessionNotices } from "../sessionNotices.js";
+import { symbols } from "../symbols.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { processImagePlaceholder } from "./useChat.imageProcessing.js";

@@ -4,12 +4,12 @@ import type {
   ZCodeImportableSessionCandidate,
 } from "@zcode/shared";
 
-import { stubServiceWith } from "./stubs.js";
 import {
   importCandidates,
   scanImportCandidates,
   type ImportScanOptions,
 } from "./importSources.js";
+import { stubServiceWith } from "./stubs.js";
 
 /** Options the TNT host may inject for tests or a custom state root. */
 export interface ZcodeImportServiceOptions extends ImportScanOptions {}

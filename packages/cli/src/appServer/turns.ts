@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- the appServer protocol handlers share one ordered state machine */
 import type { ModelSelection, ZCodeSessionStateSnapshot } from "@zcode/shared";
 import {
   zcodeSessionSendParamsSchema,
@@ -6,6 +7,7 @@ import {
 } from "@zcode/shared";
 import type { Session } from "core/index.js";
 
+import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import { subscribeAgentEvents } from "../protocol/eventBus.js";
 import type { AgentEvent } from "../protocol/events.js";
 import {
@@ -22,7 +24,6 @@ import type { ModelServiceState } from "../services/types.js";
 import { runAgentTurn } from "../session/controller.js";
 import { loadSessionById, resumeSession } from "../session/index.js";
 import { sessionStore } from "../session/store.js";
-import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import { messageQueue, type QueuedMessage } from "../stream/messageQueue.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
 import { logger } from "../utils/logger.js";

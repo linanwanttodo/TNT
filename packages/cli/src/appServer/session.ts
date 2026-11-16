@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- the appServer protocol handlers share one ordered state machine */
 import { realpathSync } from "node:fs";
 import path from "node:path";
 

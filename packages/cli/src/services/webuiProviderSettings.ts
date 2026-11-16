@@ -8,8 +8,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import { Emitter } from "@zcode/rpc";
 import { expandProviderBlocks, foldProviderBlocks } from "@tnt/config-yaml";
+import { Emitter } from "@zcode/rpc";
 import type {
   IProviderSettingsService,
   ProviderSettingsProviderView,

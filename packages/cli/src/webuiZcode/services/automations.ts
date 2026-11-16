@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- the CRUD surface and the dispatch scheduler share one module by design */
 import { randomUUID } from "node:crypto";
 
 import {
@@ -14,7 +13,6 @@ import type { ZCodeAutomation, ZCodeAutomationRun } from "@zcode/shared";
 import type {
   ZCodeWorkflowRunSummary,
   ZCodeManagedWorktreeEntry,
-  ZCodeManagedWorktreeInfo,
 } from "@zcode/shared";
 import {
   commandPayloadSchemas,
@@ -88,10 +86,20 @@ function scopeOf(params: {
 } {
   return {
     workspacePath: params.workspacePath,
-    ...(params.workspaceIdentity
-      ? { workspaceIdentity: params.workspaceIdentity }
-      : {}),
+    ...whenDefined("workspaceIdentity", params.workspaceIdentity),
   };
+}
+
+/**
+ * A patch key that is present only when its value is defined. Optional fields
+ * must stay absent rather than explicitly undefined: the repo's update path
+ * reads "key in object" to tell "leave alone" from "clear".
+ */
+function whenDefined<K extends string, V>(
+  key: K,
+  value: V | undefined,
+): Partial<Record<K, V>> {
+  return value === undefined ? {} : ({ [key]: value } as Partial<Record<K, V>>);
 }
 
 /**
@@ -218,14 +226,10 @@ export function createZcodeAutomationBackend(engines: {
     listAllAutomations: (): Promise<ZCodeAutomation[]> => service.list(),
     createAutomation: (params: CreateParams): Promise<ZCodeAutomation> =>
       service.create({
-        ...(params.projectId !== undefined
-          ? { projectId: params.projectId }
-          : {}),
+        ...whenDefined("projectId", params.projectId),
         title: params.title,
         cronExpr: params.cronExpr,
-        ...(params.relativeDelayMinutes !== undefined
-          ? { relativeDelayMinutes: params.relativeDelayMinutes }
-          : {}),
+        ...whenDefined("relativeDelayMinutes", params.relativeDelayMinutes),
         prompt: params.prompt,
         ...(params.modelSelection
           ? { modelSelection: params.modelSelection }
@@ -238,36 +242,27 @@ export function createZcodeAutomationBackend(engines: {
           ? { workspaceIdentity: params.workspaceIdentity }
           : {}),
         recurring: params.recurring ?? true,
-        ...(params.maxRuns !== undefined ? { maxRuns: params.maxRuns } : {}),
-        ...(params.endAt !== undefined ? { endAt: params.endAt } : {}),
+        ...whenDefined("maxRuns", params.maxRuns),
+        ...whenDefined("endAt", params.endAt),
         ...(params.scheduleRule ? { scheduleRule: params.scheduleRule } : {}),
       }),
     updateAutomation: (params: UpdateParams): Promise<ZCodeAutomation | null> =>
       service.update(
         params.automationId,
         {
-          ...(params.title !== undefined ? { title: params.title } : {}),
-          ...(params.cronExpr !== undefined
-            ? { cronExpr: params.cronExpr }
-            : {}),
-          ...(params.prompt !== undefined ? { prompt: params.prompt } : {}),
-          ...(params.modelSelection !== undefined
-            ? { modelSelection: params.modelSelection ?? undefined }
-            : {}),
-          ...(params.mode !== undefined
-            ? { mode: (params.mode ?? undefined) as ZCodeAutomation["mode"] }
-            : {}),
-          ...(params.recurring !== undefined
-            ? { recurring: params.recurring }
-            : {}),
-          ...(params.maxRuns !== undefined ? { maxRuns: params.maxRuns } : {}),
-          ...(params.endAt !== undefined ? { endAt: params.endAt } : {}),
-          ...(params.scheduleRule !== undefined
-            ? { scheduleRule: params.scheduleRule ?? undefined }
-            : {}),
-          ...(params.scheduleEditedByUser !== undefined
-            ? { scheduleEditedByUser: params.scheduleEditedByUser }
-            : {}),
+          ...whenDefined("title", params.title),
+          ...whenDefined("cronExpr", params.cronExpr),
+          ...whenDefined("prompt", params.prompt),
+          ...whenDefined("modelSelection", params.modelSelection ?? undefined),
+          ...whenDefined(
+            "mode",
+            (params.mode ?? undefined) as ZCodeAutomation["mode"],
+          ),
+          ...whenDefined("recurring", params.recurring),
+          ...whenDefined("maxRuns", params.maxRuns),
+          ...whenDefined("endAt", params.endAt),
+          ...whenDefined("scheduleRule", params.scheduleRule ?? undefined),
+          ...whenDefined("scheduleEditedByUser", params.scheduleEditedByUser),
         },
         scopeOf(params),
       ),
@@ -304,7 +299,7 @@ export function createZcodeAutomationBackend(engines: {
       Promise.resolve(
         listWorkspaceWorkflowRuns({
           workspacePath: params.workspacePath,
-          ...(params.limit !== undefined ? { limit: params.limit } : {}),
+          ...whenDefined("limit", params.limit),
         }),
       ),
     createManagedWorktree: (params: WorktreeCreateParams) =>
@@ -322,7 +317,7 @@ export function createZcodeAutomationBackend(engines: {
       await removeManagedWorktree({
         workspacePath: params.workspacePath,
         worktreePath: params.worktreePath,
-        ...(params.force !== undefined ? { force: params.force } : {}),
+        ...whenDefined("force", params.force),
       });
     },
     managedWorktreeAvailable: (params: {

@@ -176,7 +176,7 @@ async function copyIgnoredFiles(
     if (!stat.isFile()) continue;
     // A symlinked parent would let the copy escape the worktree; that is a
     // hard stop, not a skip.
-    let parent = path.dirname(target);
+    const parent = path.dirname(target);
     let insideWorktree = false;
     for (let probe = parent; ; probe = path.dirname(probe)) {
       if (probe === worktreeRoot) {

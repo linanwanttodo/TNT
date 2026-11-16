@@ -6,8 +6,8 @@ import type { ChatHistoryItem } from "core/index.js";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSession, getCurrentSession } from "../session/index.js";
-import { splitServedPrompt } from "../utils/promptNotes.js";
 import { markFileAsSeen } from "../tools/fileState.js";
+import { splitServedPrompt } from "../utils/promptNotes.js";
 
 import {
   endServedSession,

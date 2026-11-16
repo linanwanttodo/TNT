@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { SERVICE_NAMES } from "../services/types.js";

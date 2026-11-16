@@ -1,5 +1,5 @@
-import chalk from "chalk";
 import type { ModelConfig } from "@tnt/config-yaml";
+import chalk from "chalk";
 import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 import type { Express, NextFunction, Request, Response } from "express";
 
@@ -19,6 +19,7 @@ import { services } from "../services/index.js";
 import { runAgentTurn } from "../session/controller.js";
 import { updateSessionTitle } from "../session/index.js";
 import { StreamCallbacks } from "../stream/streamChatResponse.types.js";
+import { runtimeContextNote } from "../subagent/runtimeContextNote.js";
 import { formatError } from "../utils/formatError.js";
 import { getGitDiffSnapshot } from "../utils/git.js";
 import { logger } from "../utils/logger.js";
@@ -26,7 +27,6 @@ import {
   composeServedPrompt,
   splitServedPrompt,
 } from "../utils/promptNotes.js";
-import { runtimeContextNote } from "../subagent/runtimeContextNote.js";
 
 /**
  * Remove partial assistant message if the last message is an empty assistant message.

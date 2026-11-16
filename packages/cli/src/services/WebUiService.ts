@@ -30,8 +30,8 @@ import {
 } from "./webuiDist.js";
 import { createTntHooksService } from "./webuiHooks.js";
 import { createTntMemoryService } from "./webuiMemory.js";
-import { registerWebUiNativeDirectoryRoute } from "./webuiNativeDirectory.js";
 import { readWebUiModelSource } from "./webuiModelSource.js";
+import { registerWebUiNativeDirectoryRoute } from "./webuiNativeDirectory.js";
 import { bootstrapPage } from "./webuiPages.js";
 import { getWebUiProjectCatalog } from "./webuiProjectCatalog.js";
 import { createWebUiProviderSettingsService } from "./webuiProviderSettings.js";
