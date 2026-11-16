@@ -1,6 +1,12 @@
+import os from "node:os";
+import path from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const execFileMock = vi.hoisted(() => ({ execFile: vi.fn() }));
+
+// A real directory on every runner: "/tmp" is absent on Windows.
+const existingDir = path.resolve(os.tmpdir());
 
 vi.mock("node:child_process", () => ({
   execFile: execFileMock.execFile,
@@ -43,9 +49,9 @@ describe("the WebUI native directory chooser", () => {
   });
 
   it("returns the absolute path the desktop chooser selected", async () => {
-    answerOnce({ kind: "path", path: "/tmp" });
+    answerOnce({ kind: "path", path: existingDir });
 
-    await expect(requestNativeDirectory()).resolves.toBe("/tmp");
+    await expect(requestNativeDirectory()).resolves.toBe(existingDir);
     expect(execFileMock.execFile).toHaveBeenCalledWith(
       "zenity",
       expect.any(Array),
@@ -83,9 +89,9 @@ describe("the WebUI native directory chooser", () => {
 
   it("tries the next chooser when one is not installed", async () => {
     answerOnce({ kind: "missing" });
-    answerOnce({ kind: "path", path: "/tmp" });
+    answerOnce({ kind: "path", path: existingDir });
 
-    await expect(requestNativeDirectory()).resolves.toBe("/tmp");
+    await expect(requestNativeDirectory()).resolves.toBe(existingDir);
     expect(execFileMock.execFile).toHaveBeenCalledTimes(2);
   });
 
@@ -100,7 +106,10 @@ describe("the WebUI native directory chooser", () => {
   });
 
   it("rejects a path that is not a directory", async () => {
-    answerOnce({ kind: "path", path: "/definitely-not-a-real-directory-tnt" });
+    answerOnce({
+      kind: "path",
+      path: path.join(existingDir, "tnt-no-such-dir"),
+    });
 
     await expect(requestNativeDirectory()).resolves.toBeNull();
   });

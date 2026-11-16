@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 
+import { splitServedPrompt } from "../src/utils/promptNotes.js";
 import {
   cleanupTestContext,
   createTestContext,
@@ -91,7 +92,9 @@ describe("E2E: Resume Flag", () => {
       (msg: any) => msg.message?.role === "assistant",
     );
 
-    expect(userMessage?.message?.content).toBe("hello");
+    expect(splitServedPrompt(userMessage?.message?.content).userText).toBe(
+      "hello",
+    );
     expect(assistantMessage?.message?.content).toBe("Hello! Nice to meet you.");
 
     // Now run with --resume flag using the same session ID
@@ -207,8 +210,14 @@ describe("E2E: Resume Flag", () => {
 
     expect(userMessages).toHaveLength(2);
     expect(assistantMessages).toHaveLength(2);
-    expect(userMessages[0].message?.content).toBe("first message");
-    expect(userMessages[1].message?.content).toBe("second message");
+    // Stored user rows carry the harness notes that led them; the words the
+    // user typed stay last and are what a resume must round-trip.
+    expect(splitServedPrompt(userMessages[0].message?.content).userText).toBe(
+      "first message",
+    );
+    expect(splitServedPrompt(userMessages[1].message?.content).userText).toBe(
+      "second message",
+    );
     expect(assistantMessages[0].message?.content).toBe("First response");
     expect(assistantMessages[1].message?.content).toBe("Second response");
   }, 30000);
