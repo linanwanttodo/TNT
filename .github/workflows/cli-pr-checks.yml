@@ -199,7 +199,8 @@ jobs:
 
       # Search and Glob register themselves only when `rg` is on PATH, so a
       # runner without it silently tests a different tool catalog than a
-      # developer's machine - and then the guards that count that catalog fail.      - name: Provide ripgrep for the Search and Glob tools
+      # developer's machine - and then the guards that count that catalog fail.
+      - name: Provide ripgrep for the Search and Glob tools
         shell: bash
         run: |
           set -euo pipefail
