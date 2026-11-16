@@ -1,4 +1,4 @@
-/* eslint-disable max-lines -- the dispatch lifecycle keeps start, failure and cancellation in one ordered flow */
+/* eslint-disable max-lines, max-statements -- the dispatch lifecycle keeps start, failure and cancellation in one ordered flow */
 import type { ChatHistoryItem } from "core";
 
 import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";

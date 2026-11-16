@@ -1,8 +1,8 @@
 import type { TeamRunRecord } from "core/index.js";
 
+import { teamRunsToWorkflowRunSummaries } from "../../appServer/workflowRunSummaries.js";
 import { loadSessionById } from "../../session/index.js";
 import { sessionStore } from "../../session/store.js";
-import { teamRunsToWorkflowRunSummaries } from "../../appServer/workflowRunSummaries.js";
 
 /**
  * The Workflow tab of the automations page: every team run of the workspace's

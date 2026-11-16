@@ -6047,6 +6047,12 @@ const zhCN: Record<string, string> = {
   "workflows.runs.status.completed": "已完成",
   "workflows.runs.status.errored": "失败",
   "workflows.runs.status.stopped": "已停止",
+  // TNT：受管 worktree（worktree 只是会话 cwd）。
+  "tnt.worktree.checkbox": "worktree",
+  "tnt.worktree.checkbox.ariaLabel": "在新的 worktree 中运行",
+  "tnt.worktree.tooltip": "在新的 worktree 中运行：创建独立副本，与本地并行工作",
+  "tnt.worktree.refHint": "新 worktree 将从所选分支创建，不切换本地分支",
+  "tnt.worktree.refHead": "当前 HEAD",
   "workflows.hub.sectionTitle": "已保存的工作流",
   "workflows.hub.refresh": "刷新",
   "workflows.hub.openSettings": "工作流设置",

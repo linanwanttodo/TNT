@@ -47,14 +47,14 @@ export function cleanupTerminalOnExit(): void {
 export type TerminalName = string | undefined;
 
 // Kitty keyboard protocol availability: CSI > u flags reply.
-// eslint-disable-next-line no-control-regex
+
 const KITTY_REGEX = new RegExp(`${ESC}\\[\\?\\d+u`);
 // Terminal name reply: CSI < kind ; ver ; patch y (Primary Device Attributes
 // in the DA3 form used by the >q name query).
-// eslint-disable-next-line no-control-regex
+
 const TERMINAL_NAME_REGEX = new RegExp(`${ESC}\\[<(\\d+);\\d+;\\d+y`);
 // modifyOtherKeys response: CSI > 4 ; level m
-// eslint-disable-next-line no-control-regex
+
 const MODIFY_OTHER_KEYS_REGEX = new RegExp(`${ESC}\\[>4;(\\d+)m`);
 // Cursor Position Report: CSI row ; column R. Built from the ESC constant so
 // the control character needs no no-control-regex suppression; global so
@@ -62,7 +62,7 @@ const MODIFY_OTHER_KEYS_REGEX = new RegExp(`${ESC}\\[>4;(\\d+)m`);
 const CURSOR_POSITION_REGEX = new RegExp(`${ESC}\\[(\\d+);(\\d+)R`, "g");
 // Primary Device Attributes reply acts as the sentinel: it is sent last, so
 // receiving it means the terminal processed every query.
-// eslint-disable-next-line no-control-regex
+
 const DEVICE_ATTRIBUTES_REGEX = new RegExp(`${ESC}\\[\\?\\d*;?\\d*c`);
 
 const KITTY_QUERY = `${ESC}[?u`;

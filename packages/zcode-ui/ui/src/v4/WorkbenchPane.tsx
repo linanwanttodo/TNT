@@ -214,6 +214,8 @@ export interface WorkbenchShellBinding {
   onSessionCreated?: (sessionId: string) => void;
   onSessionDeleted?: () => void;
   draftComposerHeader?: ReactNode;
+  /** Worktree 首发成功后由壳层跨 workspace 打开新会话。 */
+  onOpenWorktreeSession?: (worktreePath: string, sessionId: string) => void;
   onPrimaryDraftDropTargetControllerChange?: (
     controller: ConversationDropTargetController | null,
   ) => void;
@@ -430,6 +432,9 @@ export function WorkbenchLeafPane({
           onClosePane={isPrimary ? undefined : handleClosePane}
           workspaceBadge={!isPrimary && !isShellWorkspace ? workspaceBadgeFor(scope) : undefined}
           draftComposerHeader={isPrimary && !primaryBinding ? shell.draftComposerHeader : undefined}
+          onOpenWorktreeSession={
+            isPrimary && !primaryBinding ? shell.onOpenWorktreeSession : undefined
+          }
           // 草稿页头才需要上行拖拽控制器。普通会话上传它会把 Composer 的闭包送回壳层，
           // 再经壳层回调连回旧 SessionPane，形成跨会话的 snapshot / store 保留链。
           onDropTargetControllerChange={

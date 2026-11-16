@@ -57,8 +57,8 @@ import type {
   EngineRequestHandler,
 } from "../engineClient.js";
 
-import { stubServiceWith } from "./stubs.js";
 import { createZcodeAutomationBackend } from "./automations.js";
+import { stubServiceWith } from "./stubs.js";
 
 const CLIENT_MODE = "desktop-continuous" as const;
 const SESSION_EVENT_NOTIFICATION = "session/event";

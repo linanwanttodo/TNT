@@ -245,3 +245,18 @@ export interface ZCodeAgentWorkflowRunsParams extends ZCodeAgentWorkspaceTarget 
   /** 返回条数上限；缺省由服务端裁决。 */
   limit?: number;
 }
+
+// ---- 受管 worktree 参数 ----
+
+export interface ZCodeAgentManagedWorktreeCreateParams
+  extends ZCodeAgentWorkspaceTarget {
+  /** 检出分支、tag 或 sha；缺席 = 当前 HEAD（detached）。 */
+  ref?: string;
+}
+
+export interface ZCodeAgentManagedWorktreeRemoveParams
+  extends ZCodeAgentWorkspaceTarget {
+  worktreePath: string;
+  /** 有会话占用时仍删除。 */
+  force?: boolean;
+}

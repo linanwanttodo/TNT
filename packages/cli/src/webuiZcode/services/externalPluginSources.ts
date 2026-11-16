@@ -1,10 +1,11 @@
-import type { Catalog } from "./pluginMapping.js";
 import type {
   KnownMarketplace,
   MarketplaceManifest,
   MarketplacePluginEntry,
   PluginSource,
 } from "../../plugins/marketplaceTypes.js";
+
+import type { Catalog } from "./pluginMapping.js";
 
 /**
  * A locally cached external plugin source. TNT reads Claude Code's own

@@ -26,7 +26,7 @@ const FOCUS_IN = "\x1b[I";
 const FOCUS_OUT = "\x1b[O";
 
 const SGR_MOUSE_REGEX = /^\x1b\[<(\d+);(\d+);(\d+)([mM])/;
-// eslint-disable-next-line no-control-regex
+
 const X11_MOUSE_REGEX = /^\x1b\[M([\s\S]{3})/;
 
 function isMouseSequence(sequence: string): boolean {

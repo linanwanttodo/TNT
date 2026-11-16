@@ -4,7 +4,6 @@ import * as path from "node:path";
 
 import { globalDirOverride } from "../../config/globalDir.js";
 
-import type { Catalog } from "./pluginMapping.js";
 import {
   entryFromCatalogPlugin,
   entryFromDirectoryListing,
@@ -12,6 +11,7 @@ import {
   uniqueEntries,
   type ExternalPluginSource,
 } from "./externalPluginSources.js";
+import type { Catalog } from "./pluginMapping.js";
 
 /**
  * External plugin sources are read-only Claude Code caches: the official

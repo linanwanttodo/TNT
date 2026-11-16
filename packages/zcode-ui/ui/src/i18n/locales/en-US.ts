@@ -6419,6 +6419,14 @@ const enUS: Record<string, string> = {
   "workflows.runs.status.completed": "Completed",
   "workflows.runs.status.errored": "Failed",
   "workflows.runs.status.stopped": "Stopped",
+  // TNT: managed worktrees (a worktree is only a session cwd).
+  "tnt.worktree.checkbox": "worktree",
+  "tnt.worktree.checkbox.ariaLabel": "Run in a new worktree",
+  "tnt.worktree.tooltip":
+    "Run in a new worktree: an isolated copy that works alongside your checkout",
+  "tnt.worktree.refHint":
+    "The new worktree starts from the selected branch; your local branch is not switched",
+  "tnt.worktree.refHead": "Current HEAD",
   "workflows.hub.sectionTitle": "Saved workflows",
   "workflows.hub.refresh": "Refresh",
   "workflows.hub.openSettings": "Workflow settings",
