@@ -15,8 +15,15 @@ jobs:
   CLAAssistant:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Only run this workflow on the main repository (linanwanttodo/TNT)
-    if: github.repository == 'linanwanttodo/TNT'
+    # Only run this workflow on the main repository (linanwanttodo/TNT).
+    # Bot-authored PRs (dependabot) have no human committer to sign, and an
+    # update-branch brings the maintainer's commits into the PR, so the action
+    # would demand a signature from the repository owner on every sync.
+    if: >-
+      github.repository == 'linanwanttodo/TNT' &&
+      (github.event_name == 'issue_comment' ||
+       (github.event_name == 'pull_request_target' &&
+        github.event.pull_request.user.type != 'Bot'))
     steps:
       - name: "CLA Assistant"
         if: (contains(github.event.comment.body, 'recheck') || contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')) || github.event_name == 'pull_request_target'
