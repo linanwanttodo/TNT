@@ -45,14 +45,14 @@ describe("E2E: Headless Mode with Mock Server", () => {
     expect(result.stdout).toContain("Hello World!");
     expect(result.exitCode).toBe(0);
     // The prompt request plus the title request for the new session; they run
-    // concurrently, so identify them by content instead of arrival order.
+    // concurrently, so identify them by request shape instead of arrival order.
+    // The title describer's wording is configurable and changes over time;
+    // "non-streaming" is the stable fact that separates it from the turn.
     expect(mockServer.requests).toHaveLength(2);
-    const titleRequest = mockServer.requests.find((request: any) =>
-      String(request.body.messages[0]?.content ?? "").includes(
-        "title for the chat",
-      ),
+    const titleRequest = mockServer.requests.find(
+      (request: any) => request.body.stream === false,
     );
-    expect(titleRequest?.body.stream).toBe(false);
+    expect(titleRequest).toBeDefined();
     const mainRequest = mockServer.requests.find((request: any) =>
       request.body.messages.some(
         (m: any) =>
