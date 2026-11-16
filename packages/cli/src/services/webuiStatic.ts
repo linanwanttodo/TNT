@@ -13,7 +13,18 @@ import { missingDistPage } from "./webuiPages.js";
 export function registerWebUiStaticRoutes(app: Express, dist: WebUiDist): void {
   const { distDir, hasDist } = dist;
   if (hasDist) {
-    app.use(express.static(distDir));
+    // index.html names the hashed asset bundle. It must never be cached: an
+    // old shell keeps loading old hashes after a redeploy and the new UI
+    // looks like dead controls. Hashed assets themselves stay cacheable.
+    app.use(
+      express.static(distDir, {
+        setHeaders: (res, filePath) => {
+          if (path.basename(filePath) === "index.html") {
+            res.setHeader("Cache-Control", "no-store");
+          }
+        },
+      }),
+    );
     // SPA-style fallback: any /app path serves the shell. Express 5 uses
     // path-to-regexp v8, where a bare `*` is invalid and a named wildcard
     // matches one segment at least, so the prefix's own two forms are listed
@@ -31,6 +42,7 @@ export function registerWebUiStaticRoutes(app: Express, dist: WebUiDist): void {
         res.sendFile(relative, { root: distDir });
         return;
       }
+      res.setHeader("Cache-Control", "no-store");
       res.sendFile("index.html", { root: distDir });
     });
   } else {

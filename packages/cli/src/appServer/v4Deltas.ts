@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- the appServer protocol handlers share one ordered state machine */
 import type { ZCodeSessionEvent } from "@zcode/shared";
 import type {
   BackgroundWorkSummary,

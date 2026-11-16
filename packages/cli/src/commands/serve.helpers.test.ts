@@ -7,6 +7,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSession, getCurrentSession } from "../session/index.js";
 import { markFileAsSeen } from "../tools/fileState.js";
+import { splitServedPrompt } from "../utils/promptNotes.js";
 
 import {
   endServedSession,
@@ -329,9 +330,12 @@ describe("serve lifecycle hooks", () => {
 
     expect(hooks.userPromptSubmit).toHaveBeenCalledWith("fix the file");
     expect(prepared.blocked).toBe(false);
-    expect(prepared.text).toBe(
-      "<system-reminder>\nstyle: two spaces\n</system-reminder>\n\nfix the file",
-    );
+    // The runtime-context note rides along (clock); the hook note leads and
+    // the user's text stays last, which is what this case pins.
+    expect(splitServedPrompt(prepared.text)).toEqual({
+      userText: "fix the file",
+      notes: ["style: two spaces", expect.stringContaining("Runtime context:")],
+    });
   });
 
   it("leads with the session note on the first prompt only", async () => {
@@ -345,13 +349,16 @@ describe("serve lifecycle hooks", () => {
     const first = await prepareServedPrompt("one");
     const second = await prepareServedPrompt("two");
 
-    expect(first.text).toBe(
-      "<system-reminder>\nrepo uses pnpm\n</system-reminder>\n\n" +
-        "<system-reminder>\nstyle: two spaces\n</system-reminder>\n\none",
-    );
-    expect(second.text).toBe(
-      "<system-reminder>\nstyle: two spaces\n</system-reminder>\n\ntwo",
-    );
+    // The session note leads on the first prompt only; the runtime note rides
+    // every prompt and the user's text stays last.
+    const firstSplit = splitServedPrompt(first.text);
+    expect(firstSplit.userText).toBe("one");
+    expect(firstSplit.notes[0]).toBe("repo uses pnpm");
+    expect(firstSplit.notes).toContain("style: two spaces");
+    const secondSplit = splitServedPrompt(second.text);
+    expect(secondSplit.userText).toBe("two");
+    expect(secondSplit.notes).toContain("style: two spaces");
+    expect(secondSplit.notes).not.toContain("repo uses pnpm");
   });
 
   it("surfaces a refused prompt instead of running the turn", async () => {
@@ -379,7 +386,8 @@ describe("serve lifecycle hooks", () => {
     const prepared = await prepareServedPrompt("keep going");
 
     expect(prepared.blocked).toBe(false);
-    expect(prepared.text).toBe("keep going");
+    // The runtime note still rides; the user's words are untouched.
+    expect(splitServedPrompt(prepared.text).userText).toBe("keep going");
   });
 
   it("carries a moved file in front of the served prompt", async () => {

@@ -1,4 +1,4 @@
-/* eslint-disable max-lines -- the row, snapshot and projection builders share one frame model */
+/* eslint-disable max-lines, complexity -- the row, snapshot and projection builders share one frame model */
 import type { ZCodeSessionEvent } from "@zcode/shared";
 import type {
   BackgroundWorkSummary,

@@ -7,7 +7,6 @@ import { type AssistantConfig } from "@tnt/sdk";
 import { Box, Text, useApp } from "ink";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { keyPerfMark, keyPerfSettle, keyPerfSummary } from "./utils/keyPerf.js";
 import { t } from "../i18n/index.js";
 import type { PermissionMode } from "../permissions/types.js";
 import type { FileIndexServiceState } from "../services/FileIndexService.js";
@@ -72,6 +71,7 @@ import {
 import { useTheme } from "./theme/tokens.js";
 import { UpdateNotification } from "./UpdateNotification.js";
 import { formatCostAmount } from "./utils/contextUsageLine.js";
+import { keyPerfMark, keyPerfSettle, keyPerfSummary } from "./utils/keyPerf.js";
 
 // Small presentational helper to reduce cyclomatic complexity in UserInput
 const SlashCommandsMaybe: React.FC<{

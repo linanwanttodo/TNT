@@ -3,8 +3,9 @@ import type { ModelConfig } from "@tnt/config-yaml";
 import { currentPromptCacheKey } from "../cache/promptCacheKey.js";
 import { measuredRequestFor } from "../compaction/measuredContext.js";
 import { getSessionTeamRuns } from "../session/index.js";
-import { liveSubagentRuns } from "../subagent/liveRuns.js";
-import { getModelContextLimit } from "./tokenizer.js";
+import { getModelContextLimit } from "../utils/tokenizer.js";
+
+import { liveSubagentRuns } from "./liveRuns.js";
 
 /**
  * What the model cannot see about its own session, said once per user message:

@@ -14,8 +14,11 @@ beforeEach(() => {
 afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
 async function archive(entries: string[]): Promise<string> {
-  const file = path.join(root, "archive.tgz");
-  await tar.c({ file, cwd: path.join(root, "source"), gzip: true }, entries);
+  // No gzip: the guards under test are format-independent, and a gzip stream
+  // can still be flushing when afterEach removes the temp root, which shows up
+  // as an unhandled Z_STREAM_ERROR on a loaded CI runner.
+  const file = path.join(root, "archive.tar");
+  await tar.c({ file, cwd: path.join(root, "source") }, entries);
   return file;
 }
 

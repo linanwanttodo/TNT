@@ -80,6 +80,8 @@ export interface V4WorkspaceChatAreaProps {
    * 仅下发给 primary pane——其余 pane 的 draft 不承载壳级 workspace 切换。
    */
   draftComposerHeader?: ReactNode;
+  /** Worktree 首发成功后由壳层跨 workspace 打开新会话。 */
+  onOpenWorktreeSession?: (worktreePath: string, sessionId: string) => void;
   /** 桌面轻量草稿标题栏复用主草稿 composer 的 drop controller。 */
   onPrimaryDraftDropTargetControllerChange?: (
     controller: ConversationDropTargetController | null,
@@ -147,6 +149,7 @@ export function V4WorkspaceChatArea({
   onSessionCreated,
   onSessionDeleted,
   draftComposerHeader,
+  onOpenWorktreeSession,
   onPrimaryDraftDropTargetControllerChange,
   gitSummary,
   gitDirtyFileCount,
@@ -276,6 +279,7 @@ export function V4WorkspaceChatArea({
       onSessionCreated,
       onSessionDeleted,
       draftComposerHeader,
+      onOpenWorktreeSession,
       onPrimaryDraftDropTargetControllerChange,
       gitSummary,
       gitDirtyFileCount,
@@ -324,6 +328,7 @@ export function V4WorkspaceChatArea({
       onSessionCreated,
       onSessionDeleted,
       draftComposerHeader,
+      onOpenWorktreeSession,
       onPrimaryDraftDropTargetControllerChange,
       gitSummary,
       gitDirtyFileCount,

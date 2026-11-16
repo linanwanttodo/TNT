@@ -53,6 +53,8 @@ export interface V4ChatPaneProps {
   onSessionDeleted?: () => void;
   /** 草稿态 composer contextHeader（m5，壳层构造下发）。 */
   draftComposerHeader?: ReactNode;
+  /** Worktree 首发成功后由壳层跨 workspace 打开新会话。 */
+  onOpenWorktreeSession?: (worktreePath: string, sessionId: string) => void;
   gitSummary?: GitRepositorySummary | null;
   gitDirtyFileCount?: number;
   gitWorktreeReviewSourceId?: GitChangeSourceId | null;
@@ -103,6 +105,7 @@ export function V4ChatPane({
   onSessionCreated,
   onSessionDeleted,
   draftComposerHeader,
+  onOpenWorktreeSession,
   gitSummary,
   gitDirtyFileCount,
   gitWorktreeReviewSourceId,
@@ -169,6 +172,7 @@ export function V4ChatPane({
         onSessionCreated={onSessionCreated}
         onSessionDeleted={onSessionDeleted}
         draftComposerHeader={draftComposerHeader}
+        onOpenWorktreeSession={onOpenWorktreeSession}
         gitSummary={gitSummary}
         gitDirtyFileCount={gitDirtyFileCount}
         gitWorktreeReviewSourceId={gitWorktreeReviewSourceId}

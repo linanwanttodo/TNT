@@ -30,11 +30,11 @@ import { generatePromptSuggestion } from "../../session/promptSuggestionGenerato
 import { messageQueue, QueuedMessage } from "../../stream/messageQueue.js";
 import { clearSeriesSectionBaselines } from "../../stream/systemPromptSeries.js";
 import { beginTurnUsage, endTurnUsage } from "../../stream/usageTelemetry.js";
+import { runtimeContextNote } from "../../subagent/runtimeContextNote.js";
 import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
 import { composeServedPrompt } from "../../utils/promptNotes.js";
-import { runtimeContextNote } from "../../utils/runtimeContextNote.js";
 import { liveHub } from "../../webuiZcode/liveHub.js";
 import { handleSlashCommands } from "../commands/index.js";
 import { requestComposerDraft } from "../composerDraft.js";

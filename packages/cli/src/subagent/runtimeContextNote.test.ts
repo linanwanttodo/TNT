@@ -1,25 +1,26 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   clearMeasuredRequests,
   recordMeasuredRequest,
 } from "../compaction/measuredContext.js";
+import { getSessionTeamRuns } from "../session/index.js";
+
 import {
   clearLiveSubagentRuns,
   noteSubagentRunStarted,
   noteSubagentRunFinished,
-} from "../subagent/liveRuns.js";
+} from "./liveRuns.js";
 import { runtimeContextNote } from "./runtimeContextNote.js";
 
 vi.mock("../session/index.js", () => ({
   getCurrentSession: vi.fn(() => ({ sessionId: "t1" })),
   getSessionTeamRuns: vi.fn(() => []),
 }));
-
-import { getSessionTeamRuns } from "../session/index.js";
 
 const MODEL = { contextLength: 200_000, provider: "openai" } as never;
 

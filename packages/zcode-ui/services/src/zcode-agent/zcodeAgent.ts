@@ -11,7 +11,11 @@ import { ServiceChannels } from "@zcode/shared";
 import type { AppUsageRange, AppUsageSnapshot, ZCodeTaskTokenUsageResult } from "@zcode/shared";
 import type { DynamicWorkflowMode } from "@zcode/shared";
 import type { ZCodeAutomation, ZCodeAutomationRun } from "@zcode/shared";
-import type { ZCodeWorkflowRunSummary } from "@zcode/shared";
+import type {
+  ZCodeWorkflowRunSummary,
+  ZCodeManagedWorktreeEntry,
+  ZCodeManagedWorktreeInfo,
+} from "@zcode/shared";
 import type {
   ZCodeStorageStartupState,
   ZCodeDeliveryKind,
@@ -174,6 +178,8 @@ import type {
   ZCodeAgentValidatePluginParams,
   ZCodeAgentWorkspaceTarget,
   ZCodeAgentWorkflowRunsParams,
+  ZCodeAgentManagedWorktreeCreateParams,
+  ZCodeAgentManagedWorktreeRemoveParams,
 } from "./zcodeAgentPluginParams.js";
 import type {
   ZCodeAgentDeleteSavedWorkflowParams,
@@ -854,6 +860,15 @@ export interface IZCodeAgentService {
    * 按最近变动排序。TNT 的工作流就是 team run，二者同一件事。
    */
   listWorkflowRuns(params: ZCodeAgentWorkflowRunsParams): Promise<ZCodeWorkflowRunSummary[]>;
+  // ---- 受管 worktree（worktree 只是会话 cwd，docs/git/worktree.md 第一版）----
+  /** 在受管根目录创建一个 linked worktree，返回作为会话 cwd 的目录。 */
+  createManagedWorktree(params: ZCodeAgentManagedWorktreeCreateParams): Promise<ZCodeManagedWorktreeInfo>;
+  /** 列出源仓库下由 TNT 管理的 worktree（分支、脏态、占用会话数）。 */
+  listManagedWorktrees(params: ZCodeAgentWorkspaceTarget): Promise<ZCodeManagedWorktreeEntry[]>;
+  /** 删除一个受管 worktree；有会话占用时拒绝。 */
+  removeManagedWorktree(params: ZCodeAgentManagedWorktreeRemoveParams): Promise<void>;
+  /** 当前 workspace 是否可以勾选 worktree（主目录是 Git 仓库）。 */
+  managedWorktreeAvailable(params: ZCodeAgentWorkspaceTarget): Promise<boolean>;
   generateWorkspaceText(
     params: ZCodeAgentGenerateWorkspaceTextParams,
   ): Promise<ZCodeWorkspaceGenerateTextResult>;

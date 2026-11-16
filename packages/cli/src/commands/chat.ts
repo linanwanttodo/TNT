@@ -43,6 +43,7 @@ import {
 } from "../session/index.js";
 import { safeStderr, safeStdout } from "../startup/init.js";
 import type { StreamCallbacks } from "../stream/streamChatResponse.types.js";
+import { runtimeContextNote } from "../subagent/runtimeContextNote.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { handleSlashCommands } from "../ui/commands/index.js";
 import { startTUIChat, type StartTUIChatOptions } from "../ui/index.js";
@@ -54,7 +55,6 @@ import { logger } from "../utils/logger.js";
 import { question } from "../utils/prompt.js";
 import { composeServedPrompt } from "../utils/promptNotes.js";
 import { prependPrompt } from "../utils/promptProcessor.js";
-import { runtimeContextNote } from "../utils/runtimeContextNote.js";
 import { stripThinkTags } from "../utils/thinkingTags.js";
 import {
   calculateContextUsagePercentage,

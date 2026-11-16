@@ -10,13 +10,35 @@ async function resolveFeedbackUrl(): Promise<string | undefined> {
   return (await resolveWebHelpConfig()).feedback_url;
 }
 
+/**
+ * "选择文件夹" uses the host's native directory chooser, not the in-page
+ * directory browser: the WebUI server runs on the user's desktop and spawns
+ * zenity/kdialog/yad. A cancelled dialog answers with an empty list. A
+ * missing chooser throws so the wizard shows an error instead of looking
+ * like a dead button.
+ */
+async function selectNativeDirectories(): Promise<string[]> {
+  const response = await fetch("/api/select-directory", {
+    method: "POST",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      `Native folder picker unavailable: ${detail || response.statusText}`,
+    );
+  }
+  const result = (await response.json()) as { path?: string | null };
+  return typeof result.path === "string" && result.path ? [result.path] : [];
+}
+
 export function createWebPlatform(): IPlatformService {
   return {
     canSelectFilePath: false,
     canOpenLocalFiles: false,
     saveFile: saveBrowserFile,
-    // Web 端无法打开系统目录选择框
-    selectDirectory: () => Promise.resolve(null),
+    selectDirectories: selectNativeDirectories,
+    selectDirectory: async () => (await selectNativeDirectories())[0] ?? null,
     // 手机远程：服务器自己报告哪些地址可以打开，桌面端没有这个入口。
     async getWebUiAccessInfo() {
       try {
