@@ -77,10 +77,15 @@ describe("runTerminalCommandTool", () => {
     it("should handle non-existent commands", async () => {
       const command = "definitely-not-a-real-command-xyz123";
 
-      await expect(runText({ command })).rejects.toMatch(
+      // The tool's own inactivity timeout is 180 seconds, which is far past
+      // this test's budget on a loaded runner. Asking for a 10-second tool
+      // timeout keeps the outcome bounded: a fast shell still rejects with
+      // "not found", a slow one produces "[Command timed out ...]" — and the
+      // assertion accepts both shapes.
+      await expect(runText({ command, timeout: 10 })).rejects.toMatch(
         /Error \(exit code|Command timed out|not found|not recognized/,
       );
-    });
+    }, 60_000);
   });
 
   describe("platform-specific features", () => {

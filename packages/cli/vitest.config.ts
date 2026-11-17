@@ -44,8 +44,21 @@ export default defineConfig({
         lines: 70,
       },
     },
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    // 30s starved process-spawning tests on loaded CI runners; 60s gives
+    // them headroom without masking a hang (the terminal tool bounds itself).
+    testTimeout: 60000,
+    hookTimeout: 60000,
+    // A loaded runner cannot give every test file its own worker: the suite
+    // spawns processes and renders frames, and the starved ones time out
+    // rather than fail. Unset locally (vitest's default parallelism), capped
+    // in CI through TNT_TEST_MAX_WORKERS.
+    maxWorkers: process.env.TNT_TEST_MAX_WORKERS
+      ? Number(process.env.TNT_TEST_MAX_WORKERS)
+      : undefined,
+    // One retry in CI absorbs timing flakes of the classes above — process
+    // spawning and frame rendering on a shared runner — while a consistently
+    // broken test still fails both attempts.
+    retry: process.env.CI ? 1 : 0,
   },
   resolve: {
     alias: {

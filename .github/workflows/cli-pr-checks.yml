@@ -239,14 +239,21 @@ jobs:
       # The coverage floor runs once, on the floor platform, because the
       # numbers come from that platform and instrumentation makes the suite
       # measurably slower; the other two operating systems run it plain.
+      # The worker count is capped: the suite spawns processes and renders
+      # frames, and a runner that runs every file at once starves both,
+      # which showed up as timeouts rather than as a real failure.
       - name: Run tests with the coverage floor
         if: matrix.os == 'ubuntu-latest'
+        env:
+          TNT_TEST_MAX_WORKERS: "4"
         run: |
           cd packages/cli
           npm run test:coverage
 
       - name: Run tests
         if: matrix.os != 'ubuntu-latest'
+        env:
+          TNT_TEST_MAX_WORKERS: "4"
         run: |
           cd packages/cli
           npm test

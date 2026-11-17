@@ -39,7 +39,11 @@ function renderScreen() {
 async function waitForFrame(
   tree: ReturnType<typeof render>,
   predicate: (frame: string) => boolean,
-  timeoutMs = 5000,
+  // The screen renders on a timer, so the wait is a poll rather than a
+  // promise. Under a loaded runner (the coverage floor runs the whole suite
+  // in parallel) five seconds was not always enough for the next frame, and
+  // the failure looked like a broken screen rather than a slow one.
+  timeoutMs = 20_000,
 ) {
   const deadline = Date.now() + timeoutMs;
   while (!predicate(tree.lastFrame() ?? "")) {
