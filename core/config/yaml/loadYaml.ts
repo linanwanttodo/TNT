@@ -189,6 +189,7 @@ export async function configYamlToTntConfig(options: {
       rerank: [],
       summarize: [],
       subagent: [],
+      search: [],
     },
     selectedModelByRole: {
       chat: null,
@@ -199,6 +200,7 @@ export async function configYamlToTntConfig(options: {
       rerank: null,
       summarize: null,
       subagent: null,
+      search: null,
     },
     rules: [],
     requestOptions: { ...unrolledAssistant.requestOptions },

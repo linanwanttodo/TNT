@@ -542,6 +542,7 @@ async function intermediateToFinalConfig({
       embed: newEmbedder ? [newEmbedder] : [],
       rerank: newReranker ? [newReranker] : [],
       subagent: [],
+      search: [],
     },
     selectedModelByRole: {
       chat: null, // Not implemented (uses GUI defaultModel)
@@ -552,6 +553,7 @@ async function intermediateToFinalConfig({
       rerank: newReranker ?? null,
       summarize: null, // Not implemented
       subagent: null,
+      search: null,
     },
     rules: [],
   };
