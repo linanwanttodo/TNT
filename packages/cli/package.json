@@ -166,7 +166,9 @@
     "minimatch@<9.0.7": "^9.0.7",
     "qs": "^6.14.2",
     "picomatch": "^4.0.2",
-    "napi-build-utils": "^2.0.0"
+    "napi-build-utils": "^2.0.0",
+    "tar": "^7.5.23",
+    "follow-redirects": "^1.16.3"
   },
   "optionalDependencies": {
     "@huggingface/jinja": "0.1.3",

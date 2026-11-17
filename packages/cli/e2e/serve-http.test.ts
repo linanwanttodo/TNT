@@ -89,17 +89,24 @@ describe("E2E: the serve HTTP surface", () => {
     }
   }
 
-  beforeEach(async () => {
-    context = await createTestContext();
-    mockServer = await setupMockLLMTest(context, {
-      response: "served hello",
-    });
+  /**
+   * Boots one server per test: the arguments a case needs (`--token` for the
+   * gate) go through here, so every test owns its bind.
+   */
+  async function startServe(extraArgs: string[] = []): Promise<void> {
     const port = await freePort();
     baseUrl = `http://127.0.0.1:${port}`;
 
     child = execaNode(
       context.cliPath,
-      ["serve", "--config", context.configPath, "--port", String(port)],
+      [
+        "serve",
+        "--config",
+        context.configPath,
+        "--port",
+        String(port),
+        ...extraArgs,
+      ],
       {
         cwd: context.testDir,
         env: {
@@ -111,6 +118,13 @@ describe("E2E: the serve HTTP surface", () => {
         reject: false,
       },
     );
+  }
+
+  beforeEach(async () => {
+    context = await createTestContext();
+    mockServer = await setupMockLLMTest(context, {
+      response: "served hello",
+    });
   });
 
   afterEach(async () => {
@@ -124,6 +138,7 @@ describe("E2E: the serve HTTP surface", () => {
   });
 
   it("accepts a message, runs the turn, and stops on /exit", async () => {
+    await startServe();
     await waitFor("GET /state to answer", async () => {
       const state = await get("/state");
       return state.status === 200 ? state : undefined;
@@ -161,6 +176,7 @@ describe("E2E: the serve HTTP surface", () => {
   }, 60000);
 
   it("answers the two control endpoints it documents", async () => {
+    await startServe();
     await waitFor("GET /state to answer", async () => {
       const state = await get("/state");
       return state.status === 200 ? state : undefined;
@@ -190,6 +206,7 @@ describe("E2E: the serve HTTP surface", () => {
   }, 60000);
 
   it("binds loopback only by default", async () => {
+    await startServe();
     await waitFor("GET /state to answer", async () => {
       const state = await get("/state");
       return state.status === 200 ? state : undefined;
@@ -271,6 +288,10 @@ describe("E2E: the serve HTTP surface", () => {
         context.configPath,
         "--port",
         String(port),
+        // The token requirement is checked before the bind; carrying one lets
+        // this case reach the bind failure it is here to pin.
+        "--token",
+        "s3cret",
         "--host",
         "203.0.113.7",
       ],
@@ -291,17 +312,12 @@ describe("E2E: the serve HTTP surface", () => {
     expect(output).toContain(`could not bind to 203.0.113.7:${port}`);
   }, 60000);
 
-  it("reaches a non-loopback address when --host asks for it", async () => {
-    const addresses = nonLoopbackAddresses();
-    if (addresses.length === 0) return;
-
-    // The documented escape hatch; without it the loopback default would make serve
-    // unreachable from another container.
-    child?.kill("SIGKILL");
-    await child;
+  it("refuses a non-loopback bind that carries no token", async () => {
+    // The server can post prompts and approve tool permissions, so a bind
+    // beyond the machine without a token is refused instead of started
+    // quietly anonymous.
     const port = await freePort();
-    baseUrl = `http://127.0.0.1:${port}`;
-    child = execaNode(
+    const result = await execaNode(
       context.cliPath,
       [
         "serve",
@@ -324,12 +340,30 @@ describe("E2E: the serve HTTP surface", () => {
       },
     );
 
-    await waitFor("GET /state to answer on loopback", async () => {
-      const state = await get("/state");
-      return state.status === 200 ? state : undefined;
-    });
+    expect(result.exitCode).toBe(1);
+    const output = `${result.stdout}\n${result.stderr}`;
+    expect(output).toContain("TNT_SERVE_TOKEN");
+  }, 60000);
 
-    const statuses = await Promise.all(
+  it("gates every request once a token is set, on loopback and beyond", async () => {
+    const addresses = nonLoopbackAddresses();
+    if (addresses.length === 0) return;
+
+    // The documented escape hatch; without it the loopback default would make serve
+    // unreachable from another container. The token gate is what makes that
+    // escape hatch safe to ask for.
+    await startServe(["--host", "0.0.0.0", "--token", "s3cret"]);
+
+    await waitFor("GET /state to answer with the gate's 401", async () => {
+      const state = await get("/state");
+      return state.status === 401 ? state : undefined;
+    });
+    expect((await get("/state")).status).toBe(401);
+
+    const port = new URL(baseUrl).port;
+    // The exposed interface answers 401 to an anonymous client too: the gate
+    // is ahead of every route, not only on the loopback path.
+    const exposed = await Promise.all(
       addresses.map(async (address) => {
         try {
           const response = await fetch(`http://${address}:${port}/state`, {
@@ -341,7 +375,16 @@ describe("E2E: the serve HTTP surface", () => {
         }
       }),
     );
-    expect(statuses).toContain(200);
+    expect(exposed).toContain(401);
+
+    const withBearer = await fetch(`${baseUrl}/state`, {
+      headers: { Authorization: "Bearer s3cret" },
+      signal: AbortSignal.timeout(5000),
+    });
+    expect(withBearer.status).toBe(200);
+
+    const withQuery = await get("/state?token=s3cret");
+    expect(withQuery.status).toBe(200);
   }, 90000);
 });
 

@@ -104,14 +104,35 @@ describe("the serve HTTP surface agrees with its client and its spec", () => {
     // every interface - and the same section says no authentication is implemented. A
     // reader trusting the first sentence would leave an unauthenticated remote driver
     // reachable from the network, so the claim and the call have to move together.
+    // The default now resolves into `serveHost` before the listen call, so the
+    // constant lives there.
     const source = readFileSync(SERVE, "utf-8");
-    const claimsLoopback = /binds to `127\.0\.0\.1`|localhost only/i.test(spec);
+    const claimsLoopback =
+      /binds `127\.0\.0\.1` by default|localhost only/i.test(spec);
     const bindsLoopback =
       /app\.listen\([\s\S]{0,160}?["'`](?:127\.0\.0\.1|localhost)["'`]/.test(
+        source,
+      ) ||
+      /serveHost = options\.host\?\.trim\(\) \|\| ["'`]127\.0\.0\.1["'`]/.test(
         source,
       );
 
     expect(/app\.listen\(/.test(source)).toBe(true);
     expect(claimsLoopback).toBe(bindsLoopback);
+  });
+
+  it("keeps the spec's token requirement and the server's gate together", () => {
+    // The gate (`serveTokenRefusal` + `registerServeTokenGate`) and the spec
+    // sentence that demands a token beyond loopback describe the same promise;
+    // adding either without the other leaves an integrator or an operator
+    // trusting a contract that is not the shipped one.
+    const source = readFileSync(SERVE, "utf-8");
+
+    const specRequiresToken = /requires a token|TNT_SERVE_TOKEN/.test(spec);
+    const codeEnforcesToken =
+      /serveTokenRefusal/.test(source) && /registerServeTokenGate/.test(source);
+
+    expect(specRequiresToken).toBe(codeEnforcesToken);
+    expect(specRequiresToken).toBe(true);
   });
 });

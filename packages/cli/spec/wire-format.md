@@ -174,9 +174,14 @@ Messages in the chat history can have different types:
 ## Security Considerations
 
 - The server binds `127.0.0.1` by default (localhost only). `--host <addr>`
-  selects the interface; `--host 0.0.0.0` makes it reachable from the network, and
-  there is no authentication, so an exposed port is an unauthenticated remote driver
-  that can post prompts, answer permission requests and pause a run
+  selects the interface. A bind beyond loopback requires a token
+  (`--token <value>` or `TNT_SERVE_TOKEN`): the run is refused instead of
+  starting quietly anonymous, because an exposed port that can post prompts,
+  answer permission requests and pause a run must not be anonymous
+- When a token is configured, every route demands it ahead of every handler:
+  `Authorization: Bearer <token>`, the webui token cookie, or `?token=` (the
+  query form exists because EventSource cannot set request headers). An
+  unauthenticated request answers 401 on every interface
 - A browser page in the same machine can still reach a loopback port, so every
   request passes a browser-origin guard before any handler runs: a Host header
   naming anything but the loopback host on the served port is rejected (DNS

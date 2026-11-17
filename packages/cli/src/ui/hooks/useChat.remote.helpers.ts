@@ -25,6 +25,16 @@ export function historiesEqual(
 }
 
 /**
+ * The token a gated serve instance demands. Loopback servers run without one,
+ * so the header is added only when the operator set the same environment
+ * variable the server reads - one name, one value, both sides.
+ */
+function remoteServeHeaders(): Record<string, string> {
+  const token = process.env.TNT_SERVE_TOKEN?.trim();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
  * Poll remote server for state updates
  */
 async function pollRemoteServerState(
@@ -32,7 +42,9 @@ async function pollRemoteServerState(
 ): Promise<RemoteServerState | null> {
   try {
     await assertConfiguredHttpUrl(`${remoteUrl}/state`);
-    const response = await fetch(`${remoteUrl}/state`);
+    const response = await fetch(`${remoteUrl}/state`, {
+      headers: remoteServeHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch state: ${response.statusText}`);
     }
@@ -150,6 +162,7 @@ export async function handleRemoteExit(
     await assertConfiguredHttpUrl(`${remoteUrl}/exit`);
     const response = await fetch(`${remoteUrl}/exit`, {
       method: "POST",
+      headers: remoteServeHeaders(),
     });
 
     if (response.ok) {
@@ -198,6 +211,7 @@ export async function handleRemoteMessage({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...remoteServeHeaders(),
       },
       body: JSON.stringify({ message: messageContent }),
     });
@@ -227,7 +241,9 @@ export async function handleRemoteMessage({
 export async function handleRemoteDiff(remoteUrl: string): Promise<void> {
   try {
     await assertConfiguredHttpUrl(`${remoteUrl}/diff`);
-    const response = await fetch(`${remoteUrl}/diff`);
+    const response = await fetch(`${remoteUrl}/diff`, {
+      headers: remoteServeHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch diff: ${response.statusText}`);
     }
@@ -261,7 +277,9 @@ export async function handleRemoteDiff(remoteUrl: string): Promise<void> {
 export async function handleRemoteApply(remoteUrl: string): Promise<void> {
   try {
     await assertConfiguredHttpUrl(`${remoteUrl}/diff`);
-    const response = await fetch(`${remoteUrl}/diff`);
+    const response = await fetch(`${remoteUrl}/diff`, {
+      headers: remoteServeHeaders(),
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch diff: ${response.statusText}`);
     }

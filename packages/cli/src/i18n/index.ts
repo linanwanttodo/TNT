@@ -804,6 +804,10 @@ const en = {
     "Skipping initial prompt because existing conversation history was found.",
   "serve.inactivityShutdown":
     "\nShutting down due to {seconds} seconds of inactivity",
+  "serve.tokenRequired":
+    "Refusing to bind {host}: a serve endpoint reachable beyond this machine can post prompts and approve tool permissions, so it requires a token. Pass --token <value> or set TNT_SERVE_TOKEN.",
+  "serve.tokenGateActive":
+    "Token gate active: send Authorization: Bearer <token>, or ?token= on the SSE endpoint.",
   "webui.listening": "Web UI listening on {url}",
   "webui.scanQr": "Scan to open on your phone:",
   "webui.stopHint": "Stop with /webui stop (TUI) or `tnt webui stop`.",
@@ -1734,6 +1738,10 @@ const zhCN: Record<TranslationKey, string> = {
   "serve.processingInitialPrompt": "\n正在处理初始提示词...",
   "serve.skippingInitialPrompt": "已存在会话历史，跳过初始提示词。",
   "serve.inactivityShutdown": "\n已闲置 {seconds} 秒，正在关闭服务器",
+  "serve.tokenRequired":
+    "拒绝绑定 {host}：能从本机之外访问的 serve 端点可以发布提示并批准工具权限，必须携带令牌。请传 --token <值> 或设置 TNT_SERVE_TOKEN。",
+  "serve.tokenGateActive":
+    "令牌门已启用：请求须携带 Authorization: Bearer <令牌>；SSE 端点可用 ?token=。",
   "webui.listening": "Web UI 已启动：{url}",
   "webui.scanQr": "手机扫码打开：",
   "webui.stopHint": "用 /webui stop（TUI 内）或 `tnt webui stop` 停止。",

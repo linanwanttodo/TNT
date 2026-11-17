@@ -48,8 +48,10 @@ import {
   finishServedTurn,
   prepareServedPrompt,
   registerDiffRoute,
+  registerServeTokenGate,
   registerSseEventRoute,
   removePartialAssistantMessage,
+  serveTokenRefusal,
   startServedSession,
   streamServeResponse,
   titleServeSessionIfUntitled,
@@ -61,6 +63,12 @@ interface ServeOptions extends ExtendedCommandOptions {
   port?: string;
   /** Interface to bind. Defaults to loopback; an unauthenticated server. */
   host?: string;
+  /**
+   * Token every request must present. Optional on loopback, mandatory on a
+   * non-loopback `--host`: the server can post prompts and approve tool
+   * permissions, so a reachable instance must not be anonymous.
+   */
+  token?: string;
   /** Storage identifier for remote sync */
   id?: string;
   /** Model rounds allowed per turn before the turn is cut short. */
@@ -105,6 +113,16 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   const timeoutSeconds = parseInt(options.timeout || "300", 10);
   const timeoutMs = timeoutSeconds * 1000;
   const port = parseInt(options.port || "8000", 10);
+
+  // The token is resolved once, before anything binds: a non-loopback host
+  // without one is refused rather than started quietly anonymous.
+  const serveHost = options.host?.trim() || "127.0.0.1";
+  const serveToken =
+    options.token?.trim() || process.env.TNT_SERVE_TOKEN?.trim() || undefined;
+  const tokenRefusal = serveTokenRefusal(serveHost, serveToken);
+  if (tokenRefusal) {
+    throw new Error(tokenRefusal);
+  }
 
   // Environment install script will be deferred until after server startup to avoid blocking
 
@@ -244,6 +262,11 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
   await startServedSession(resumedSession, model?.model);
 
   const app = express();
+  // The token gate sits ahead of every route: with one configured, even the
+  // browser-origin guard never sees an anonymous request.
+  if (serveToken) {
+    registerServeTokenGate(app, serveToken);
+  }
   // Browser-originated requests are rejected before anything else runs, so a
   // page in the user's browser can neither read the state nor post prompts.
   attachBrowserOriginGuard(app, port, options.host);
@@ -407,11 +430,16 @@ export async function serve(prompt?: string, options: ServeOptions = {}) {
     setTimeout(handleExitResponse, 100);
   });
 
-  // Loopback by default: this server is unauthenticated and can post prompts,
-  // answer permission requests and pause a run. Reaching it from another machine
-  // or container is an explicit choice via --host.
-  const server = app.listen(port, options.host ?? "127.0.0.1", async () => {
-    for (const line of renderServerStartupHelp(port, timeoutSeconds)) {
+  // Loopback by default: this server can post prompts, answer permission
+  // requests and pause a run. Loopback access is already private to the
+  // machine; reaching it from elsewhere is an explicit choice via --host, and
+  // that choice requires the token above.
+  const server = app.listen(port, serveHost, async () => {
+    for (const line of renderServerStartupHelp(
+      port,
+      timeoutSeconds,
+      Boolean(serveToken),
+    )) {
       console.log(chalk.dim(line));
     }
 

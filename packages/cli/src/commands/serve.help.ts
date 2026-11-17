@@ -8,11 +8,16 @@ import { t } from "../i18n/index.js";
 export function renderServerStartupHelp(
   port: number,
   timeoutSeconds: number,
+  tokenGateActive = false,
 ): string[] {
-  return [
+  const lines = [
     t("serve.started", { port }),
     t("serve.endpoints"),
     ...t("serve.endpointList").split("\n"),
     t("serve.inactivity", { seconds: timeoutSeconds }),
   ];
+  if (tokenGateActive) {
+    lines.push(t("serve.tokenGateActive"));
+  }
+  return lines;
 }

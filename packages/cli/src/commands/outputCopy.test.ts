@@ -31,6 +31,11 @@ describe("the serve startup banner", () => {
     expect(text).toContain("GET  /state");
     expect(text).toContain("POST /permission");
     expect(text).toContain("300 seconds of inactivity");
+    // The banner stays silent about the gate until a token is in play.
+    expect(text).not.toContain("Token gate active");
+    expect(renderServerStartupHelp(8080, 300, true).join("\n")).toContain(
+      "Token gate active",
+    );
   });
 
   it("keeps every endpoint in the translated list", () => {

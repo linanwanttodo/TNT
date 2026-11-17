@@ -28,6 +28,7 @@ import {
   composeServedPrompt,
   splitServedPrompt,
 } from "../utils/promptNotes.js";
+import { requestToken, tokenEquals } from "../utils/webuiToken.js";
 
 /**
  * Remove partial assistant message if the last message is an empty assistant message.
@@ -347,9 +348,7 @@ export function attachBrowserOriginGuard(
     `localhost:${port}`,
     `[::1]:${port}`,
   ]);
-  const loopback =
-    !boundHost ||
-    ["127.0.0.1", "localhost", "::1"].includes(boundHost.toLowerCase());
+  const loopback = isLoopbackServeHost(boundHost);
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
@@ -373,6 +372,59 @@ export function attachBrowserOriginGuard(
 
     next();
   });
+}
+
+/**
+ * The hosts a serve run may bind without a token: the loopback names only.
+ * Anything else - another machine's interface, a container bridge, a LAN
+ * address - is reachable by others, so it demands the token gate below.
+ */
+export function isLoopbackServeHost(host?: string): boolean {
+  if (!host) return true;
+  return ["127.0.0.1", "localhost", "::1"].includes(host.toLowerCase());
+}
+
+/**
+ * Whether a serve run may start under this host/token pair. `undefined` means
+ * allowed; a string is the translated refusal the caller shows instead of
+ * binding. The requirement is one-directional on purpose: a token is optional
+ * on loopback (the surface is already private to the machine) and mandatory
+ * everywhere else, because the server can post prompts and approve tool
+ * permissions - the two actions a remote attacker wants most.
+ */
+export function serveTokenRefusal(
+  boundHost: string | undefined,
+  token: string | undefined,
+): string | undefined {
+  if (isLoopbackServeHost(boundHost)) return undefined;
+  if (token) return undefined;
+  return t("serve.tokenRequired", { host: boundHost ?? "" });
+}
+
+/**
+ * The request-level token check behind the gate. The token travels as a
+ * Bearer header, the webui cookie (shared shape, so a client that talks to
+ * both surfaces keeps one helper), or a `?token=` query parameter - the last
+ * one exists because EventSource cannot set request headers.
+ */
+export function serveTokenGateHandler(
+  token: string,
+): (req: Request, res: Response, next: NextFunction) => void {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const queryToken =
+      typeof req.query?.token === "string" ? req.query.token : undefined;
+    const presented = requestToken(req) ?? queryToken;
+    if (typeof presented === "string" && tokenEquals(presented, token)) {
+      next();
+      return;
+    }
+    res.status(401).json({ error: t("services.webuiUnauthorized") });
+  };
+}
+
+/** Registers the token gate ahead of every route. */
+export function registerServeTokenGate(app: Express, token: string): void {
+  app.use(serveTokenGateHandler(token));
 }
 
 /**

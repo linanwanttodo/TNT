@@ -129,6 +129,7 @@ rules:
 | `TNT_WARM_RETRIEVAL`         | 设为 `0` 时不在会话开始时构建代码库索引；只有配置里选了 `codebase` provider 才会构建                                                                      |
 | `TNT_AST_SEARCH_MAX_FILES`   | 单次 AstSearch 枚举的文件数上限，默认 `4000`                                                                                                             |
 | `TNT_SYMBOL_INDEX`           | 设为 `0` 关闭本地 tree-sitter 声明索引——无语言服务器时 FindSymbol 由它作答                                                                              |
+| `TNT_SERVE_TOKEN`            | `tnt serve` 每个请求必须携带的令牌；`--host` 绑定到非环回地址时必填，环回时可选用                                                                                              |
 
 CLI 读取的变量一律是 `TNT_*`，旧的 `CONTINUE_*` 拼写已不再被读取。有一个名字朝相反方向：它不是本程序读取的设置，而是交给用户自己写的脚本的契约，因此 hook 进程会同时收到 `CONTINUE_PROJECT_DIR`、`TNT_PROJECT_DIR` 与 `CLAUDE_PROJECT_DIR`，这份重复在一个大版本后移除。
 

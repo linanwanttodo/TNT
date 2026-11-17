@@ -423,7 +423,11 @@ program
   )
   .option(
     "--host <addr>",
-    "Interface to bind (default: 127.0.0.1). 0.0.0.0 exposes an unauthenticated server",
+    "Interface to bind (default: 127.0.0.1). A non-loopback interface requires --token or TNT_SERVE_TOKEN",
+  )
+  .option(
+    "--token <token>",
+    "Token every request must present (Authorization: Bearer, or ?token= for SSE); mandatory for a non-loopback --host",
   )
   .option(
     "--id <storageId>",
