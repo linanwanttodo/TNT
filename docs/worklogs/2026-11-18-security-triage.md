@@ -129,7 +129,11 @@ verdict effect `none`；本文每一条结论都给出可复核的依据（守�
 3. **审计口径**：Mimosa 的依赖离线公告匹配是名称级粗匹配（39 包/244 公告，未给出
    包名），不可据此改依赖；本次以 `npm audit --registry=registry.npmjs.org
 --omit=dev` 为准。npmmirror 镜像不支持 audit 端点，审计需显式指向官方源。
-4. **复扫**：代码与依赖修复合入后，重跑 Mimosa deep 对账本轮 seal。
+4. **复扫结果**：修复合入后重跑 Mimosa deep
+   （`scan-2026-11-17T16-32-07.238Z-95fbf4226a7c`，seal `sha256:1834ba58…`，172 条）：
+   相对首轮仅 +1，即同一 serve `/permission` 候选挪到新行号（serve.ts:317）——静态
+   扫描认不出 `registerServeTokenGate` 中间件就是它的权限检查；功能层面 e2e 已证
+   匿名请求在任一接口都是 401。其余 171 条与首轮逐一相同。
 
 ## 验证
 
