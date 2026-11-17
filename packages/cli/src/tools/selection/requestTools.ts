@@ -1,5 +1,8 @@
 import { checkToolPermission } from "../../permissions/permissionChecker.js";
-import type { ToolPermissions } from "../../permissions/types.js";
+import type {
+  AdvertiseBasis,
+  ToolPermissions,
+} from "../../permissions/types.js";
 import {
   SERVICE_NAMES,
   serviceContainer,
@@ -39,30 +42,46 @@ export async function getRequestTools(
    * the delegation tool at all.
    */
   canDelegate: boolean = true,
+  /**
+   * What the list is advertised under, for a delegated run: the family basis
+   * it inherited. Advertising under the family's view keeps the tool bytes
+   * identical to the run that spawned it, so the provider keeps reading the
+   * shared cached prefix; the run's own narrowed `permissions` still decide
+   * what a call may do at execution time. Left unset, the list is advertised
+   * under this run's own view.
+   */
+  advertise?: AdvertiseBasis,
 ) {
-  const availableTools = await getAllAvailableTools(isHeadless, canDelegate);
+  const wireBasis: AdvertiseBasis = advertise ?? {
+    permissions:
+      permissions ??
+      (
+        await serviceContainer.get<ToolPermissionServiceState>(
+          SERVICE_NAMES.TOOL_PERMISSIONS,
+        )
+      ).permissions,
+    isHeadless,
+    mode: services.toolPermissions.getCurrentMode(),
+  };
 
-  const permissionsState =
-    permissions ??
-    (
-      await serviceContainer.get<ToolPermissionServiceState>(
-        SERVICE_NAMES.TOOL_PERMISSIONS,
-      )
-    ).permissions;
+  const availableTools = await getAllAvailableTools(
+    wireBasis.isHeadless,
+    canDelegate,
+  );
 
   const allowedTools: Tool[] = [];
   // In auto mode the classifier answers the asks, so a headless run must still
   // see those tools; without this the model has nothing to call.
-  const autoModeActive = services.toolPermissions.getCurrentMode() === "auto";
+  const autoModeActive = wireBasis.mode === "auto";
   for (const tool of availableTools) {
     const result = checkToolPermission(
       { name: tool.name, arguments: {} },
-      permissionsState,
+      wireBasis.permissions,
     );
 
     if (
       result.permission === "allow" ||
-      (result.permission === "ask" && (!isHeadless || autoModeActive))
+      (result.permission === "ask" && (!wireBasis.isHeadless || autoModeActive))
     ) {
       allowedTools.push(tool);
     }

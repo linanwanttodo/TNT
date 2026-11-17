@@ -87,4 +87,15 @@ describe("createWorktree", () => {
       await cleanupWorktree(worktree);
     }
   });
+
+  it("rejects a ref that git would parse as an option", async () => {
+    // The ref can arrive from outside; a leading "-" would be argv injection
+    // on the `worktree add` command line.
+    await expect(
+      createWorktree(11, { ref: "--upload-pack=/tmp/evil" }),
+    ).rejects.toThrow(/must not start with '-'/);
+    await expect(createWorktree(12, { ref: "-b" })).rejects.toThrow(
+      /must not start with '-'/,
+    );
+  });
 });

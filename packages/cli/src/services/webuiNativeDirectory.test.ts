@@ -17,7 +17,10 @@ import { requestNativeDirectory } from "./webuiNativeDirectory.js";
 /** promisify's callback is (error, stdout, stderr); execFile's 4th arg. */
 function answerOnce(
   outcome:
-    { kind: "path"; path: string } | { kind: "cancel" } | { kind: "missing" },
+    | { kind: "path"; path: string }
+    | { kind: "cancel" }
+    | { kind: "missing" }
+    | { kind: "failure"; stderr: string },
 ): void {
   execFileMock.execFile.mockImplementationOnce(
     (
@@ -32,6 +35,20 @@ function answerOnce(
       }
       if (outcome.kind === "cancel") {
         callback(Object.assign(new Error("cancelled"), { code: 1 }), "", "");
+        return;
+      }
+      if (outcome.kind === "failure") {
+        // Real execFile attaches stdout/stderr to the rejected error object;
+        // promisify drops the callback's extra arguments on rejection.
+        callback(
+          Object.assign(new Error("exit 1"), {
+            code: 1,
+            stdout: "",
+            stderr: outcome.stderr,
+          }),
+          "",
+          outcome.stderr,
+        );
         return;
       }
       callback(
@@ -64,6 +81,17 @@ describe("the WebUI native directory chooser", () => {
     answerOnce({ kind: "cancel" });
 
     await expect(requestNativeDirectory()).resolves.toBeNull();
+  });
+
+  it("throws a tool failure when the chooser exits non-zero with stderr", async () => {
+    answerOnce({ kind: "failure", stderr: "cannot open display" });
+
+    await expect(requestNativeDirectory()).rejects.toThrow(
+      /zenity.*cannot open display/,
+    );
+    // A broken chooser is not a cancel: the request fails instead of
+    // pretending the user dismissed the dialog.
+    expect(execFileMock.execFile).toHaveBeenCalledTimes(1);
   });
 
   it("treats a desktop-closed dialog as a cancel, not a missing tool", async () => {

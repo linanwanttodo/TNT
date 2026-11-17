@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 import type { ChatHistoryItem } from "../../../../../core/index.js";
 import { t } from "../../i18n/index.js";
 import { useClickRegion } from "../hooks/useClickRegion.js";
-import { theme } from "../theme/tokens.js";
+import { useTheme } from "../theme/tokens.js";
 import type { ThemeName } from "../theme/tokens.js";
 
 import { BottomStatusBar } from "./BottomStatusBar.js";
@@ -79,6 +79,7 @@ interface ComposerProps {
  * bottom of the Ink frame, directly under the live transcript rows.
  */
 export const Composer: React.FC<ComposerProps> = React.memo((props) => {
+  const theme = useTheme();
   const hintRef = useRef<DOMElement>(null);
 
   useClickRegion(hintRef, () => {

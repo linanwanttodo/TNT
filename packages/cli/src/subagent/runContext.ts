@@ -1,4 +1,5 @@
 import type {
+  AdvertiseBasis,
   PermissionMode,
   ToolPermissionPolicy,
   ToolPermissions,
@@ -24,6 +25,14 @@ export interface AgentRunContext {
   readonly delegationDepth: number;
   /** System prompt for this run, resolved once rather than read from a global. */
   readonly systemMessage: string;
+  /**
+   * What the family's requests advertise: the root run's permission view and
+   * headless-ness. Every delegated run inherits it unchanged, so the tool
+   * bytes it sends stay identical to the run that spawned it and the provider
+   * keeps reading the shared cached prefix. Execution still uses this run's
+   * own narrowed `permissions`.
+   */
+  readonly advertise: AdvertiseBasis;
   /**
    * Permissions for this run. Always a subset of the parent's, with every
    * "ask" downgraded to a decision the child can make on its own.
@@ -173,5 +182,6 @@ export function createChildContext(
     }),
     mode: parent.mode,
     abortSignal: overrides.abortSignal ?? parent.abortSignal,
+    advertise: parent.advertise,
   };
 }

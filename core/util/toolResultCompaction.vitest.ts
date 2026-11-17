@@ -61,6 +61,22 @@ describe("compactToolResults", () => {
     expect(twice.messages[0].content).toBe(truncated.messages[0].content);
   });
 
+  it("truncates oversized results that contain the marker inside their body", () => {
+    const head = "h".repeat(4096);
+    const tail = "t".repeat(1024);
+    const body = `${head}${TOOL_RESULT_TRUNCATION_MARKER}${"m".repeat(2048)}${tail}`;
+
+    const { messages: out, truncatedCount } = compactToolResults(
+      [toolResult("a", body)],
+      0,
+    );
+
+    expect(truncatedCount).toBe(1);
+    expect(out[0].content).toBe(
+      `${head}${TOOL_RESULT_TRUNCATION_MARKER}${tail}`,
+    );
+  });
+
   it("leaves non-tool messages untouched", () => {
     const messages: ChatMessage[] = [
       { role: "user", content: "hello" },

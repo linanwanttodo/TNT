@@ -6,7 +6,7 @@ import { t } from "../../i18n/index.js";
 import type { QuizItemAnswer } from "../../services/QuizService.js";
 import { defaultBoxStyles } from "../styles.js";
 import { symbols } from "../symbols.js";
-import { theme } from "../theme/tokens.js";
+import { useTheme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 /**
@@ -148,6 +148,7 @@ function setAt(checked: boolean[], index: number, value: boolean): boolean[] {
 
 /**Quiz prompt component for answering for the AskQuestion tool and QuizService */
 export const QuizPrompt: React.FC<QuizPromptProps> = (props) => {
+  const theme = useTheme();
   const { requestId, onAnswer, onCancel } = props;
   const questions = normalizeQuestions(props);
   const questionsKey = questions.map((item) => JSON.stringify(item)).join("|");

@@ -52,6 +52,12 @@ export interface CompactionHelperResult {
   summarized?: boolean;
   /** Fraction of history entries removed, present only when compaction ran. */
   reductionRatio?: number;
+  /**
+   * The summarization ran but did not shrink the history, so the original
+   * transcript was kept. The caller treats this as an ordinary no-compaction
+   * round: the circuit is not charged and no error is reported.
+   */
+  abandoned?: boolean;
 }
 
 /**
@@ -116,6 +122,7 @@ export async function handlePreApiCompaction(
   const {
     wasCompacted,
     summarized,
+    abandoned,
     chatHistory: preCompactHistory,
   } = await handleAutoCompaction(chatHistory, model, llmApi, {
     isHeadless,
@@ -142,6 +149,7 @@ export async function handlePreApiCompaction(
         wasCompacted: true,
         summarized,
         reductionRatio,
+        ...(abandoned ? { abandoned: true } : {}),
       };
     }
     return {
@@ -149,10 +157,16 @@ export async function handlePreApiCompaction(
       wasCompacted: true,
       summarized,
       reductionRatio,
+      ...(abandoned ? { abandoned: true } : {}),
     };
   }
 
-  return { chatHistory, wasCompacted: false, summarized: false };
+  return {
+    chatHistory,
+    wasCompacted: false,
+    summarized: false,
+    ...(abandoned ? { abandoned: true } : {}),
+  };
 }
 
 /**
@@ -199,6 +213,7 @@ export async function handlePostToolValidation(
     const {
       wasCompacted,
       summarized,
+      abandoned,
       chatHistory: compactedHistory,
     } = await handleAutoCompaction(chatHistory, model, llmApi, {
       isHeadless,
@@ -250,7 +265,13 @@ export async function handlePostToolValidation(
         inputTokens: postCompactionValidation.inputTokens,
         contextLimit: postCompactionValidation.contextLimit,
       });
-      return { chatHistory, wasCompacted: true, summarized, reductionRatio };
+      return {
+        chatHistory,
+        wasCompacted: true,
+        summarized,
+        reductionRatio,
+        ...(abandoned ? { abandoned: true } : {}),
+      };
     } else {
       // Compaction failed, cannot continue
       logger.error("Failed to compact history after tool execution overflow");
@@ -287,6 +308,7 @@ export async function handleNormalAutoCompaction(
   const {
     wasCompacted,
     summarized,
+    abandoned,
     chatHistory: updatedChatHistory,
   } = await handleAutoCompaction(chatHistory, model, llmApi, {
     isHeadless,
@@ -308,6 +330,7 @@ export async function handleNormalAutoCompaction(
         wasCompacted: true,
         summarized,
         reductionRatio,
+        ...(abandoned ? { abandoned: true } : {}),
       };
     }
     // Fallback: return the compacted history directly when service unavailable
@@ -316,8 +339,14 @@ export async function handleNormalAutoCompaction(
       wasCompacted: true,
       summarized,
       reductionRatio,
+      ...(abandoned ? { abandoned: true } : {}),
     };
   }
 
-  return { chatHistory, wasCompacted: false, summarized: false };
+  return {
+    chatHistory,
+    wasCompacted: false,
+    summarized: false,
+    ...(abandoned ? { abandoned: true } : {}),
+  };
 }

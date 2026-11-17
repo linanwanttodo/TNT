@@ -4,23 +4,34 @@ description: "Connect Model Context Protocol servers for extra tools and prompts
 ---
 
 MCP servers extend the agent with tools and prompts that are not built in. They
-are declared in the `mcpServers` list of `config.yaml`.
+are declared in `mcp.json`, keyed by server name:
 
-```yaml
-mcpServers:
-  - name: filesystem
-    command: npx
-    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
-  - name: remote
-    url: https://example.com/mcp
-    headers:
-      Authorization: Bearer ${{ secrets.MCP_TOKEN }}
+```json title="~/.tnt/mcp.json"
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    },
+    "remote": {
+      "url": "https://example.com/mcp",
+      "apiKey": "${{ secrets.MCP_TOKEN }}"
+    }
+  }
+}
 ```
 
+A trusted project can add its own servers through `.tnt/mcp.json` or the
+Claude-compatible `.mcp.json` in the workspace; a later file overrides an
+earlier server with the same name.
+
 A stdio server (`command`, `args`, `env`) runs as a child process; an HTTP server
-uses `url` and optional `headers`. Secrets written as `${{ secrets.NAME }}` are
+uses `url` and optional `apiKey`. Secrets written as `${{ secrets.NAME }}` are
 resolved from the environment and the `.env` files listed in
 [Configuration](/cli/configuration).
+
+The `mcpServers` list in `config.yaml` is deprecated: it still loads with a
+warning, but new server definitions belong in `mcp.json`.
 
 ## Code-graph servers
 
@@ -34,11 +45,15 @@ A whole-repository semantic graph - definitions, cross-file edges, incremental
 indexing beyond what a language server exposes - is best connected as an MCP
 server rather than built into the CLI:
 
-```yaml
-mcpServers:
-  - name: code-graph
-    command: <graph-server-command>
-    args: ["<workspace>"]
+```json
+{
+  "mcpServers": {
+    "code-graph": {
+      "command": "<graph-server-command>",
+      "args": ["<workspace>"]
+    }
+  }
+}
 ```
 
 Any server that indexes the workspace and exposes search or graph tools works;

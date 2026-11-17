@@ -70,6 +70,11 @@ interface ProcessStreamingResponseOptions {
    * of the field that changed.
    */
   cachePrefixComparison?: { previous?: RequestHeader; current: RequestHeader };
+  /** Row dimensions: the dispatching agent this round belongs to. */
+  agentType?: string;
+  sessionId?: string;
+  /** True when this round rewrote the system prompt and rebilled the prefix. */
+  systemPromptRewritten?: boolean;
 }
 
 // Process a single streaming response and return whether we need to continue
@@ -113,6 +118,9 @@ export async function processStreamingResponse(
     isCompacting,
     cachePrefixVerdict,
     cachePrefixComparison,
+    agentType,
+    sessionId,
+    systemPromptRewritten,
   } = options;
 
   let chatHistory = options.chatHistory;
@@ -215,6 +223,9 @@ export async function processStreamingResponse(
       promptCacheKey,
       cachePrefixVerdict,
       cachePrefixComparison,
+      agentType,
+      sessionId,
+      systemPromptRewritten,
     });
     const totalDuration = responseEndTime - requestStartTime;
 

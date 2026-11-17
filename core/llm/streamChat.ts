@@ -7,30 +7,33 @@ import { IMessenger, Message } from "../protocol/messenger";
 import { TTS } from "../util/tts";
 import {
   buildCacheFingerprint,
-  detectCacheBreak,
-  type CacheFingerprint,
+  cacheBreakConversationKey,
+  compareStoredCacheFingerprint,
 } from "../util/cacheBreakDetection";
 import { Logger } from "../util/Logger";
 
 // Prompt caching only helps while the request prefix stays identical. The
-// fingerprint is kept per conversation so a change can be attributed to the
-// system prompt, the tool definitions, or the model, rather than showing up
-// only as a slower, more expensive request.
-const cacheFingerprints = new Map<string, CacheFingerprint>();
-
+// fingerprint is kept per conversation — the store in cacheBreakDetection is
+// keyed by the resolved model plus the conversation's opening user message —
+// so a change can be attributed to the system prompt, the tool definitions,
+// or the model, and two conversations on the same model cannot overwrite each
+// other's fingerprint and report a phantom prefix change.
 function logCacheBreak(
   messages: ChatMessage[],
   completionOptions: ToCoreProtocol["llm/streamChat"][0]["completionOptions"],
   model: { model: string; title?: string },
 ) {
-  const conversationKey = model.title ?? model.model;
+  const resolvedModel = completionOptions.model ?? model.model;
   const fingerprint = buildCacheFingerprint(
     messages,
     completionOptions.tools,
-    completionOptions.model ?? model.model,
+    resolvedModel,
   );
-  const previous = cacheFingerprints.get(conversationKey);
-  const cacheBreak = detectCacheBreak(previous, fingerprint);
+  const conversationKey = cacheBreakConversationKey(messages, resolvedModel);
+  const cacheBreak = compareStoredCacheFingerprint(
+    conversationKey,
+    fingerprint,
+  );
   if (cacheBreak) {
     Logger.debug(
       `[prompt-cache] prefix changed (${cacheBreak.reason})${
@@ -40,7 +43,6 @@ function logCacheBreak(
       }`,
     );
   }
-  cacheFingerprints.set(conversationKey, fingerprint);
 }
 
 export async function* llmStreamChat(

@@ -5,7 +5,7 @@ import { t } from "../../i18n/index.js";
 import { getToolDisplayName } from "../../tools/index.js";
 import { ToolCallPreview } from "../../tools/types.js";
 import { ColoredDiff } from "../ColoredDiff.js";
-import { theme } from "../theme/tokens.js";
+import { useTheme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { ChecklistDisplay } from "./ChecklistDisplay.js";
@@ -27,6 +27,7 @@ export const ToolPreview: React.FC<ToolPreviewProps> = ({
   toolName,
   toolArgs,
 }) => {
+  const theme = useTheme();
   if (toolCallPreview) {
     return (
       <Box display={"flex"} flexDirection="column">

@@ -65,10 +65,34 @@ describe("classifyCachePrefix", () => {
     ).toEqual({ state: "passthrough", reasons: ["appended:tools"] });
   });
 
-  it("blames the system message when it was rewritten", () => {
+  it("calls a suffix-extended system message a passthrough", () => {
+    // A delegated run's prompt is the family prompt with its own notice
+    // appended: every byte the provider cached is still the request's prefix.
+    expect(
+      classifyCachePrefix(
+        { ...base, systemMessage: "base prompt" },
+        { ...base, systemMessage: "base prompt\n\nagent notice" },
+      ),
+    ).toEqual({ state: "passthrough", reasons: ["extended:systemMessage"] });
+  });
+
+  it("blames the system message when it shrinks", () => {
+    expect(
+      classifyCachePrefix(
+        { ...base, systemMessage: "base prompt\n\nagent notice" },
+        { ...base, systemMessage: "base prompt" },
+      ),
+    ).toEqual({ state: "invalidated", reasons: ["systemMessage"] });
+  });
+
+  it("calls a rewritten system message a passthrough while its old bytes still prefix the new ones", () => {
+    // "base prompt v2" carries "base prompt" byte for byte, so the provider
+    // re-reads the cached head and only the tail is new. The judgment layer
+    // reports bytes, not intent; a change that breaks the head mid-string is
+    // the one that invalidates.
     expect(
       classifyCachePrefix(base, { ...base, systemMessage: "base prompt v2" }),
-    ).toEqual({ state: "invalidated", reasons: ["systemMessage"] });
+    ).toEqual({ state: "passthrough", reasons: ["extended:systemMessage"] });
   });
 
   it("blames the tool list when a tool was reordered", () => {
@@ -107,7 +131,10 @@ describe("classifyCachePrefix", () => {
     });
   });
 
-  it("blames the system message when the mode moved the prompt text", () => {
+  it("calls a mode-appended prompt tail a passthrough", () => {
+    // The plan rules are appended after the prompt the provider cached, so the
+    // cached bytes still apply; the rewrite's own cost is billed where it
+    // happens (the system prompt round), not invented here.
     expect(
       classifyCachePrefix(base, {
         ...base,
@@ -115,8 +142,8 @@ describe("classifyCachePrefix", () => {
         systemMessage: `${base.systemMessage} plan rules`,
       }),
     ).toEqual({
-      state: "invalidated",
-      reasons: ["systemMessage"],
+      state: "passthrough",
+      reasons: ["extended:systemMessage"],
     });
   });
 
@@ -177,7 +204,7 @@ describe("classifyCachePrefix", () => {
       ),
     ).toEqual({
       state: "invalidated",
-      reasons: ["systemMessage", HISTORY_REWRITTEN],
+      reasons: ["extended:systemMessage", HISTORY_REWRITTEN],
     });
   });
 });

@@ -489,6 +489,9 @@ class TelemetryService {
     inputTokens?: number;
     outputTokens?: number;
     costUsd?: number;
+    /** The dispatching agent this request belonged to, when one was recorded. */
+    agentType?: string;
+    sessionId?: string;
   }) {
     if (!this.isEnabled()) return;
 
@@ -506,6 +509,8 @@ class TelemetryService {
     if (options.outputTokens)
       attributes.output_tokens = options.outputTokens.toString();
     if (options.costUsd) attributes.cost_usd = options.costUsd.toString();
+    if (options.agentType) attributes.agent_type = options.agentType;
+    if (options.sessionId) attributes.agent_session_id = options.sessionId;
 
     // TODO: Implement OTLP logs export
     logger.debug("API request event", attributes);

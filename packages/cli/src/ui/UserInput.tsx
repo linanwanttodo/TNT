@@ -234,9 +234,10 @@ async function attachFileContent(
     const content = await fs.readFile(absolutePath, "utf-8");
     onFileAttached(absolutePath, content);
   } catch (error) {
-    // If file doesn't exist, just attach the filename without content
+    // If file doesn't exist, attach the filename without content: the path is
+    // already the first argument, and the file content is unavailable.
     if (error instanceof Error && (error as any).code === "ENOENT") {
-      onFileAttached(absolutePath, filePath);
+      onFileAttached(absolutePath, "");
     } else {
       console.error(t("chat.fileReadFailed", { path: filePath }), error);
     }

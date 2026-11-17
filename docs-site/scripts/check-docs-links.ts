@@ -37,25 +37,32 @@ function localeRoot(locale: Locale): string {
 }
 
 const LINK_PATTERNS = [
-  /(?<!\!)\[[^\]]*\]\((\/[^)\s#]+)/,
-  /href="(\/[^"\s#]+)"/,
+  /(?<!\!)\[[^\]]*\]\((\/[^)\s#]+)/g,
+  /href="(\/[^"\s#]+)"/g,
 ];
 
 function internalTargets(file: string, locale: Locale): string[] {
   const content = fs.readFileSync(file, "utf8");
   const targets: string[] = [];
+  const root = localeRoot(locale);
   for (const line of content.split("\n")) {
     for (const pattern of LINK_PATTERNS) {
-      const found = line.match(pattern);
-      if (!found) continue;
-      const relative = found[1].replace(/^\//, "");
-      const withoutLocale =
-        locale === "zh" && relative.startsWith("zh/")
-          ? relative.slice(3)
-          : relative;
-      const root = localeRoot(locale);
-      if (!fs.existsSync(path.join(root, `${withoutLocale}.mdx`))) {
-        targets.push(relative);
+      // The /g flag plus a manual exec loop collects every match on the line;
+      // a plain match() stops at the first one, so a line with several
+      // internal links only checked its first. matchAll needs for..of over an
+      // iterator, which this es5-target tsconfig does not compile.
+      pattern.lastIndex = 0;
+      let found = pattern.exec(line);
+      while (found !== null) {
+        const relative = found[1].replace(/^\//, "");
+        const withoutLocale =
+          locale === "zh" && relative.startsWith("zh/")
+            ? relative.slice(3)
+            : relative;
+        if (!fs.existsSync(path.join(root, `${withoutLocale}.mdx`))) {
+          targets.push(relative);
+        }
+        found = pattern.exec(line);
       }
     }
   }

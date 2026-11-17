@@ -182,6 +182,13 @@ export async function handleAutoCompaction(
    * count it against the compaction circuit.
    */
   summarized: boolean;
+  /**
+   * The summarization ran but did not shrink the history, so the original was
+   * kept. Present only on that path: the caller handles it as an ordinary
+   * no-compaction round, without charging the failure breaker or raising an
+   * error.
+   */
+  abandoned?: boolean;
 }> {
   const {
     isHeadless = false,
@@ -368,6 +375,32 @@ export async function handleAutoCompaction(
         summarize: summarizeWithEngine,
       },
     );
+
+    // The summary ran but bought nothing: keep the original transcript and
+    // carry on. This is a normal no-compaction outcome, not a failure, so the
+    // breaker is left alone and no error is reported.
+    if (result.abandoned) {
+      logger.info(
+        "Compaction abandoned: the summary did not reduce the history; continuing with the original",
+      );
+      setCompactionState(session, { ...compactionState, inFlight: false });
+      if (toolResultCompaction.truncatedCount > 0) {
+        return {
+          chatHistory: historyAfterToolResultCompaction,
+          compactionIndex,
+          wasCompacted: true,
+          summarized: false,
+          abandoned: true,
+        };
+      }
+      return {
+        chatHistory,
+        compactionIndex: null,
+        wasCompacted: false,
+        summarized: false,
+        abandoned: true,
+      };
+    }
 
     const persisted = replaceSessionHistoryIfGeneration(
       expectedGeneration,

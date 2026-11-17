@@ -2,8 +2,10 @@ import fs from "fs";
 
 import type { ToolCallCreateWorkflowCausalityGraph } from "@zcode/shared/zcode-protocol-v4";
 import type {
+  AgentUsageRow,
   BaseSessionMetadata,
   ChatHistoryItem,
+  CompactionReductionBucket,
   Session,
   SessionGoalState,
   SessionUsage,
@@ -17,6 +19,7 @@ import type {
 import { v4 as uuidv4 } from "uuid";
 
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
+import { DEFAULT_TURN_BUDGET_LIMITS } from "../loop/turnBudget.js";
 import { delegationDepthOf } from "../subagent/depth.js";
 import { MAX_CONCURRENT_TEAM_MEMBERS } from "../subagent/memberLimiter.js";
 import { logger } from "../utils/logger.js";
@@ -228,6 +231,8 @@ class SessionManager {
      * nothing to the total, and the counter says why the total is short.
      */
     unpriced: boolean = false,
+    /** Row dimensions for a round that belongs to one agent or rewrote the prompt. */
+    meta?: SessionUsageMeta,
   ): void {
     // Accumulate cost
     this.sessionUsage.totalCost += cost;
@@ -266,6 +271,14 @@ class SessionManager {
       this.sessionUsage.promptTokensDetails.cacheWriteTokens =
         (this.sessionUsage.promptTokensDetails.cacheWriteTokens || 0) +
         usage.promptTokensDetails.cacheWriteTokens;
+    }
+
+    if (meta?.agentType !== undefined || meta?.sessionId !== undefined) {
+      this.recordAgentUsageRow(cost, usage, meta);
+    }
+    if (meta?.systemPromptRewritten) {
+      this.sessionUsage.systemPromptRewrites =
+        (this.sessionUsage.systemPromptRewrites ?? 0) + 1;
     }
 
     if (kind === "compaction") {
@@ -351,6 +364,72 @@ class SessionManager {
       costSoFar: compaction.cost,
       inputTokensSoFar: compaction.inputTokens,
     });
+  }
+
+  /**
+   * One round joins its agent's row, merged per agent so two rows never exist
+   * for the same dispatch. The session totals above are untouched: a reader
+   * who wants the process-wide number still sums to it.
+   */
+  private recordAgentUsageRow(
+    cost: number,
+    usage: Usage,
+    meta: SessionUsageMeta,
+  ): void {
+    const rows = this.sessionUsage.agentRows ?? [];
+    const index = rows.findIndex(
+      (row) =>
+        row.agentType === meta.agentType && row.sessionId === meta.sessionId,
+    );
+    const previous: AgentUsageRow =
+      index >= 0
+        ? rows[index]
+        : {
+            ...(meta.agentType === undefined
+              ? {}
+              : { agentType: meta.agentType }),
+            ...(meta.sessionId === undefined
+              ? {}
+              : { sessionId: meta.sessionId }),
+            cost: 0,
+            promptTokens: 0,
+            completionTokens: 0,
+            rounds: 0,
+          };
+    const updated: AgentUsageRow = {
+      ...previous,
+      cost: previous.cost + cost,
+      promptTokens: previous.promptTokens + usage.promptTokens,
+      completionTokens: previous.completionTokens + usage.completionTokens,
+      rounds: previous.rounds + 1,
+    };
+    if (index >= 0) {
+      rows[index] = updated;
+    } else {
+      rows.push(updated);
+    }
+    this.sessionUsage.agentRows = rows;
+  }
+
+  /**
+   * Counts one completed compaction by how much of the history it removed, so
+   * the session says what compaction buys in distribution rather than only in
+   * total spend.
+   */
+  trackCompactionReduction(reductionRatio: number): void {
+    const bucket = compactionReductionBucket(reductionRatio);
+    const compaction = this.sessionUsage.compaction ?? {
+      requests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedTokens: 0,
+      cacheWriteTokens: 0,
+      cost: 0,
+    };
+    const buckets = { ...compaction.reductionBuckets };
+    buckets[bucket] = (buckets[bucket] ?? 0) + 1;
+    this.sessionUsage.compaction = { ...compaction, reductionBuckets: buckets };
+    saveSession();
   }
 
   getTotalCost(): number {
@@ -637,7 +716,13 @@ export function loadSessionById(sessionId: string): Session | null {
     if (live) {
       return live;
     }
-    return historyAdapter.load(sessionId);
+    const session = historyAdapter.load(sessionId);
+    // A run still marked active on disk was written by a process that no
+    // longer exists; settle it before anything reads the ledger.
+    if (session.teamRuns?.length) {
+      session.teamRuns = settleStaleTeamRuns(session.teamRuns);
+    }
+    return session;
   } catch (error) {
     // A missing session and a corrupt transcript are both "cannot open"; the
     // old loader turned the corrupt case into an empty session and the next
@@ -1186,6 +1271,43 @@ export function clearSessionTeamRuns(): void {
 }
 
 /**
+ * A kill cannot run SummonTeam's finally, so the transcript a dead process
+ * saved can still show a run as active. Nothing owns that run now: settle it
+ * and its unfinished members as failed, so a resumed session does not keep
+ * reporting a team at work that no longer exists.
+ */
+function settleStaleTeamRuns(runs: TeamRunRecord[]): TeamRunRecord[] {
+  let settled = false;
+  const normalized = runs.map((run) => {
+    if (run.status !== "running") return run;
+    settled = true;
+    const finishedAt = new Date().toISOString();
+    return {
+      ...run,
+      status: "failed" as TeamRunStatus,
+      members: run.members.map((member) => {
+        if (
+          member.status === "completed" ||
+          member.status === "failed" ||
+          member.status === "cancelled"
+        ) {
+          return member;
+        }
+        const interrupted: TeamRunMemberRecord = {
+          ...member,
+          status: "failed" as TeamMemberRunStatus,
+          finishedAt,
+          error: "Subagent execution was interrupted by a process restart.",
+        };
+        delete interrupted.report;
+        return interrupted;
+      }),
+    };
+  });
+  return settled ? normalized : runs;
+}
+
+/**
  * Stored on the session like the output style, so a resumed conversation is
  * still in the mode of work it was in, and a new session starts at the default
  * rather than inheriting one nobody chose.
@@ -1445,6 +1567,39 @@ export function startNewSession(history: ChatHistoryItem[] = []): Session {
 }
 
 /**
+ * Row dimensions a single request can carry into the session ledger: which
+ * agent ran it, and whether that round rewrote the system prompt.
+ */
+export interface SessionUsageMeta {
+  agentType?: string;
+  sessionId?: string;
+  systemPromptRewritten?: boolean;
+}
+
+/**
+ * The bucket a compaction's reduction ratio falls into. Below the worthwhile
+ * floor the summary bought almost nothing; above it the buckets show whether
+ * compaction typically halves the history or barely trims it.
+ */
+export function compactionReductionBucket(
+  reductionRatio: number,
+): CompactionReductionBucket {
+  if (reductionRatio < DEFAULT_TURN_BUDGET_LIMITS.compactionMinReductionRatio) {
+    return "threshold_floor";
+  }
+  if (reductionRatio < 0.5) {
+    return "lt_50";
+  }
+  if (reductionRatio < 0.8) {
+    return "50_79";
+  }
+  if (reductionRatio < 1) {
+    return "80_99";
+  }
+  return "gte_100";
+}
+
+/**
  * Track cost for the current session
  */
 export function trackSessionUsage(
@@ -1452,8 +1607,16 @@ export function trackSessionUsage(
   usage: Usage,
   kind: "turn" | "compaction" = "turn",
   unpriced: boolean = false,
+  meta?: SessionUsageMeta,
 ): void {
-  SessionManager.getInstance().trackUsage(cost, usage, kind, unpriced);
+  SessionManager.getInstance().trackUsage(cost, usage, kind, unpriced, meta);
+}
+
+/**
+ * Book one completed compaction's reduction ratio into the session's buckets.
+ */
+export function trackCompactionReduction(reductionRatio: number): void {
+  SessionManager.getInstance().trackCompactionReduction(reductionRatio);
 }
 
 /**

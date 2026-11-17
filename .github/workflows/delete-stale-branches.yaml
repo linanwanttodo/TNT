@@ -8,6 +8,7 @@ on:
 permissions:
   issues: write
   contents: write
+  pull-requests: read
 
 jobs:
   stale_branches:
@@ -29,4 +30,5 @@ jobs:
           # a negative lookahead, which left every future long-lived branch -
           # release line, months-old WIP - in the default-delete set unless someone
           # remembered to extend the lookahead.
-          branches-filter-regex: "^(snyk-fix-[0-9a-f]+|dependabot/|copilot/|renovate/)"
+          # crs-k/stale-branches rejects this input above 50 characters
+          branches-filter-regex: "^(snyk-fix-|dependabot/|copilot/|renovate/)"

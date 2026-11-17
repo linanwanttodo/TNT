@@ -8,6 +8,7 @@ import {
   forgetCacheRound,
   recallCacheRound,
   recordCacheRound,
+  SYSTEM_PROMPT_REWRITE_REASON,
   writeCacheBreakReport,
 } from "../cache/cacheBreakReport.js";
 import {
@@ -24,7 +25,7 @@ import {
   type CachePrefixVerdict,
 } from "../cache/prefixState.js";
 import type { RequestHeader } from "../cache/requestHeader.js";
-import { trackSessionUsage } from "../session/index.js";
+import { trackSessionUsage, type SessionUsageMeta } from "../session/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
 
@@ -123,6 +124,29 @@ export function lastRoundCacheRate(): number | undefined {
 }
 
 // Helper function to record telemetry
+
+/** The row dimensions one provider round can carry into the ledgers. */
+interface RoundUsageDims {
+  agentType?: string;
+  sessionId?: string;
+  systemPromptRewritten?: boolean;
+}
+
+/**
+ * The session ledger's meta for one request, or undefined when the request
+ * carries no row dimension at all, so an ordinary turn round books no row.
+ */
+function usageRowMeta(dims: RoundUsageDims): SessionUsageMeta | undefined {
+  const meta: SessionUsageMeta = {
+    ...(dims.agentType === undefined ? {} : { agentType: dims.agentType }),
+    ...(dims.sessionId === undefined ? {} : { sessionId: dims.sessionId }),
+    ...(dims.systemPromptRewritten === true
+      ? { systemPromptRewritten: true }
+      : {}),
+  };
+  return Object.keys(meta).length > 0 ? meta : undefined;
+}
+
 export function recordStreamTelemetry(options: {
   requestStartTime: number;
   responseEndTime: number;
@@ -136,6 +160,11 @@ export function recordStreamTelemetry(options: {
    * toward this session's cold-start attribution.
    */
   requestKind?: "turn" | "compaction";
+  /** Row dimensions: which agent's dispatch this request belonged to. */
+  agentType?: string;
+  sessionId?: string;
+  /** True when this round rewrote the system prompt and rebilled the prefix. */
+  systemPromptRewritten?: boolean;
 }): number {
   const {
     requestStartTime,
@@ -146,7 +175,11 @@ export function recordStreamTelemetry(options: {
     tools,
     fullUsage,
     requestKind = "turn",
+    agentType,
+    sessionId,
+    systemPromptRewritten,
   } = options;
+  const dims: RoundUsageDims = { agentType, sessionId, systemPromptRewritten };
   const totalDuration = responseEndTime - requestStartTime;
 
   // Calculate cost using comprehensive pricing that includes caching
@@ -226,7 +259,7 @@ export function recordStreamTelemetry(options: {
   if (!unpriced) {
     telemetryService.recordCost(cost, model.model);
   }
-  trackSessionUsage(cost, usage, requestKind, unpriced);
+  trackSessionUsage(cost, usage, requestKind, unpriced, usageRowMeta(dims));
 
   telemetryService.recordResponseTime(
     totalDuration,
@@ -242,6 +275,9 @@ export function recordStreamTelemetry(options: {
     inputTokens: actualInputTokens,
     outputTokens: actualOutputTokens,
     costUsd: cost,
+    ...(dims.agentType === undefined && dims.sessionId === undefined
+      ? {}
+      : { agentType: dims.agentType, sessionId: dims.sessionId }),
   });
 
   return cost;
@@ -266,14 +302,36 @@ export interface TurnUsageSnapshot {
   cacheWriteTokens: number;
   cost: number;
   rounds: number;
+  /** Row dimension: the dispatching agent this row's rounds belong to. */
+  agentType?: string;
+  /** Row dimension: the session the agent's run owned. */
+  sessionId?: string;
+  /** True when a round of this row rewrote the system prompt. */
+  systemPromptRewritten?: boolean;
 }
 
 let turnUsage: TurnUsageSnapshot | null = null;
 let lastTurnUsage: TurnUsageSnapshot | null = null;
+/**
+ * One ledger per delegated agent, keyed by its row dimensions. Parallel
+ * dispatches write their own rows here instead of merging into the main turn's
+ * ledger, so each agent's spend stays readable apart from the others.
+ */
+const agentTurnUsage = new Map<string, TurnUsageSnapshot>();
 
-/** A user turn begins; the per-round ledger restarts. */
-export function beginTurnUsage(): void {
-  turnUsage = {
+/**
+ * The key an agent's row is filed under, or undefined for a round that belongs
+ * to the main surface, which keeps its own row as before.
+ */
+function agentRowKeyOf(dims: RoundUsageDims): string | undefined {
+  if (dims.agentType === undefined && dims.sessionId === undefined) {
+    return undefined;
+  }
+  return `${dims.agentType ?? ""}|${dims.sessionId ?? ""}`;
+}
+
+function emptyRow(): TurnUsageSnapshot {
+  return {
     inputTokens: 0,
     outputTokens: 0,
     cacheReadTokens: 0,
@@ -283,23 +341,45 @@ export function beginTurnUsage(): void {
   };
 }
 
+/** A user turn begins; the per-round ledger restarts. */
+export function beginTurnUsage(): void {
+  turnUsage = emptyRow();
+  agentTurnUsage.clear();
+}
+
 /** One provider round inside the turn joins the ledger. */
-function addRoundUsage(
-  inputTokens: number,
-  outputTokens: number,
-  cacheRead: number,
-  cacheWrite: number,
-  cost: number,
-): void {
-  if (!turnUsage) {
-    turnUsage = {
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      cost: 0,
-      rounds: 0,
+function addRoundUsage(options: {
+  inputTokens: number;
+  outputTokens: number;
+  cacheRead: number;
+  cacheWrite: number;
+  cost: number;
+  dims: RoundUsageDims;
+}): void {
+  const { inputTokens, outputTokens, cacheRead, cacheWrite, cost, dims } =
+    options;
+  const key = agentRowKeyOf(dims);
+  if (key) {
+    const row = agentTurnUsage.get(key) ?? {
+      ...emptyRow(),
+      ...(dims.agentType === undefined ? {} : { agentType: dims.agentType }),
+      ...(dims.sessionId === undefined ? {} : { sessionId: dims.sessionId }),
     };
+    row.inputTokens += inputTokens;
+    row.outputTokens += outputTokens;
+    row.cacheReadTokens += cacheRead;
+    row.cacheWriteTokens += cacheWrite;
+    row.cost += cost;
+    row.rounds += 1;
+    if (dims.systemPromptRewritten) {
+      row.systemPromptRewritten = true;
+    }
+    agentTurnUsage.set(key, row);
+    return;
+  }
+
+  if (turnUsage === null) {
+    turnUsage = emptyRow();
   }
   turnUsage.inputTokens += inputTokens;
   turnUsage.outputTokens += outputTokens;
@@ -307,6 +387,9 @@ function addRoundUsage(
   turnUsage.cacheWriteTokens += cacheWrite;
   turnUsage.cost += cost;
   turnUsage.rounds += 1;
+  if (dims.systemPromptRewritten) {
+    turnUsage.systemPromptRewritten = true;
+  }
 }
 
 /** The turn ended; the ledger is read once and cleared. */
@@ -324,6 +407,22 @@ export function endTurnUsage(): TurnUsageSnapshot | null {
  */
 export function peekTurnUsage(): TurnUsageSnapshot | null {
   return turnUsage;
+}
+
+/**
+ * Every ledger row that has recorded at least one round: the main surface's,
+ * plus one per delegated agent. Summing the rows gives the process-wide total;
+ * reading one gives that agent's own account. A row opened by
+ * `beginTurnUsage` but not yet written to is left out, and a closed main row
+ * is not listed here either.
+ */
+export function peekTurnUsageRows(): TurnUsageSnapshot[] {
+  const rows: TurnUsageSnapshot[] = [];
+  if (turnUsage && turnUsage.rounds > 0) {
+    rows.push(turnUsage);
+  }
+  rows.push(...agentTurnUsage.values());
+  return rows;
 }
 
 /** The last turn's closed ledger, for a footer that keeps showing its cost. */
@@ -347,6 +446,11 @@ export function recordRoundAccounting(options: {
   promptCacheKey?: string;
   cachePrefixVerdict?: CachePrefixVerdict;
   cachePrefixComparison?: { previous?: RequestHeader; current: RequestHeader };
+  /** Row dimensions: the dispatching agent this round belongs to. */
+  agentType?: string;
+  sessionId?: string;
+  /** True when this round rewrote the system prompt and rebilled the prefix. */
+  systemPromptRewritten?: boolean;
 }): {
   cost: number;
   cacheTokens: { cacheReadTokens?: number; cacheWriteTokens?: number };
@@ -363,6 +467,9 @@ export function recordRoundAccounting(options: {
     promptCacheKey,
     cachePrefixVerdict,
     cachePrefixComparison,
+    agentType,
+    sessionId,
+    systemPromptRewritten,
   } = options;
 
   const cost = recordStreamTelemetry({
@@ -374,15 +481,19 @@ export function recordRoundAccounting(options: {
     tools,
     fullUsage,
     requestKind: isCompacting ? "compaction" : "turn",
+    agentType,
+    sessionId,
+    systemPromptRewritten,
   });
   const cacheTokens = cacheTokensFrom(fullUsage);
-  addRoundUsage(
-    fullUsage?.prompt_tokens ?? inputTokens,
-    fullUsage?.completion_tokens ?? outputTokens,
-    cacheTokens.cacheReadTokens ?? 0,
-    cacheTokens.cacheWriteTokens ?? 0,
+  addRoundUsage({
+    inputTokens: fullUsage?.prompt_tokens ?? inputTokens,
+    outputTokens: fullUsage?.completion_tokens ?? outputTokens,
+    cacheRead: cacheTokens.cacheReadTokens ?? 0,
+    cacheWrite: cacheTokens.cacheWriteTokens ?? 0,
     cost,
-  );
+    dims: { agentType, sessionId, systemPromptRewritten },
+  });
 
   // Enhance fullUsage with model and cost for saving to session
   if (fullUsage) {
@@ -434,12 +545,19 @@ export function recordRoundAccounting(options: {
       );
       let reportPath: string | undefined;
       if (breakAssessment.report && cachePrefixComparison) {
+        // A rewrite that lands on the same round is a named cause of the break,
+        // so it merges into the report's reasons instead of living only in the
+        // rewrite warning the log carried before.
+        const rewriteReason = systemPromptRewritten
+          ? [SYSTEM_PROMPT_REWRITE_REASON]
+          : [];
         reportPath = writeCacheBreakReport({
           verdict: cachePrefixVerdict,
           previous:
             cachePrefixComparison.previous ?? cachePrefixComparison.current,
           current: cachePrefixComparison.current,
           assessment: breakAssessment,
+          ...(rewriteReason.length > 0 ? { extraReasons: rewriteReason } : {}),
         });
         logger.warn("Cache break", {
           hitRateBefore: Number(breakAssessment.previousRate.toFixed(4)),
@@ -447,7 +565,10 @@ export function recordRoundAccounting(options: {
           dropPoints: Number(breakAssessment.dropPoints.toFixed(2)),
           missedTokens: breakAssessment.missedTokens,
           prefixState: cachePrefixVerdict?.state ?? COLD_PREFIX_STATE,
-          prefixReasons: cachePrefixVerdict?.reasons ?? [],
+          prefixReasons: [
+            ...(cachePrefixVerdict?.reasons ?? []),
+            ...rewriteReason,
+          ],
           ...(missOwner ? { cacheMissOwner: missOwner } : {}),
           ...(reportPath ? { reportPath } : {}),
         });

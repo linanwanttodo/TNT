@@ -16,7 +16,7 @@ import { Text, Box, type DOMElement } from "ink";
 import React, { useRef } from "react";
 
 import { useClickRegion } from "../hooks/useClickRegion.js";
-import { theme } from "../theme/tokens.js";
+import { useTheme } from "../theme/tokens.js";
 import { cpSlice, cpIndexToOffset } from "../utils/textUtils.js";
 
 import type { TextBuffer } from "./text-buffer.js";
@@ -32,6 +32,7 @@ export function TextInput({
   placeholder = "",
   focus = true,
 }: TextInputProps): React.JSX.Element {
+  const theme = useTheme();
   const { text, visualCursor, viewportVisualLines, visualScrollRow } = buffer;
   const [cursorVisualRowAbsolute, cursorVisualColAbsolute] = visualCursor;
 

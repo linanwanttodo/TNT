@@ -73,6 +73,11 @@ function parentContext(): AgentRunContext {
     permissions: { policies: [{ tool: "*", permission: "allow" }] },
     mode: "default",
     abortSignal: new AbortController().signal,
+    advertise: {
+      permissions: { policies: [{ tool: "*", permission: "allow" }] },
+      isHeadless: false,
+      mode: "default",
+    },
   };
 }
 

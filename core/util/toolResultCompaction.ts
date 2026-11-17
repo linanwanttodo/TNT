@@ -43,10 +43,7 @@ function truncateToolResultContent(content: string): string | undefined {
   const codePoints = Array.from(content);
   const excerptLength =
     DEFAULT_TOOL_RESULT_HEAD_CHARS + DEFAULT_TOOL_RESULT_TAIL_CHARS;
-  if (
-    codePoints.length <= excerptLength ||
-    content.includes(TOOL_RESULT_TRUNCATION_MARKER)
-  ) {
+  if (codePoints.length <= excerptLength) {
     return undefined;
   }
 
@@ -54,6 +51,12 @@ function truncateToolResultContent(content: string): string | undefined {
     codePoints.slice(0, DEFAULT_TOOL_RESULT_HEAD_CHARS).join("") +
     TOOL_RESULT_TRUNCATION_MARKER +
     codePoints.slice(-DEFAULT_TOOL_RESULT_TAIL_CHARS).join("");
+  // Re-excerpting an already truncated result reproduces it exactly, while a
+  // substring check would treat tool output that merely contains the marker
+  // as already truncated and silently bypass compaction.
+  if (candidate === content) {
+    return undefined;
+  }
   return Array.from(candidate).length < codePoints.length
     ? candidate
     : undefined;

@@ -8,6 +8,12 @@ export interface ManualCompactionResult {
   compactionIndex: number;
   /** Length of the history the caller's commit callback installed. */
   historyLength: number;
+  /**
+   * The summary did not shrink the history, so the original was committed.
+   * Present only on that path; a surface can use it to say so instead of
+   * reporting a compaction that never happened.
+   */
+  abandoned?: boolean;
 }
 
 /**
@@ -38,5 +44,6 @@ export async function compactHistoryOnce(
   return {
     compactionIndex: result.compactionIndex,
     historyLength: result.compactedHistory.length,
+    ...(result.abandoned ? { abandoned: true } : {}),
   };
 }

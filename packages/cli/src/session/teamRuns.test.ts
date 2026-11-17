@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   beginTeamRun,
   clearSessionTeamRuns,
+  createSession,
   finishTeamMemberRun,
   finishTeamRun,
   getCurrentSession,
@@ -191,6 +192,45 @@ describe("the team-run ledger", () => {
         ],
       }),
     ]);
+  });
+
+  it("settles a run a killed process left running when its session is restored", () => {
+    const sessionId = getCurrentSession().sessionId;
+    const run = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "parallel",
+      members: ["implementer", "tester"],
+    });
+    startTeamMemberRun(run.runId, "implementer", "cheap-model");
+    // No finishTeamRun: the process died before SummonTeam's finally ran.
+
+    // Leave the live session so the restore reads the transcript rather than
+    // the in-memory copy, the way a restart would.
+    createSession();
+
+    const restored = loadSessionById(sessionId);
+
+    expect(restored?.teamRuns).toEqual([
+      expect.objectContaining({
+        runId: run.runId,
+        status: "failed",
+        members: [
+          expect.objectContaining({
+            name: "implementer",
+            status: "failed",
+            finishedAt: expect.any(String),
+            error: expect.any(String),
+          }),
+          expect.objectContaining({
+            name: "tester",
+            status: "failed",
+            finishedAt: expect.any(String),
+          }),
+        ],
+      }),
+    ]);
+    expect(restored?.teamRuns?.[0].members[0].report).toBeUndefined();
   });
 
   it("keeps only the newest runs", () => {

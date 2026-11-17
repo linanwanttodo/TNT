@@ -300,7 +300,6 @@ const en = {
     "Compaction request exceeds the available context budget",
   "compaction.noSummarizer":
     "Compaction has no summarizer: pass options.summarize to write the summary.",
-  "compaction.noReduction": "Compaction did not reduce context usage",
   "config.failedToLoadConfigWithReason": "Failed to load config: {reason}",
   "config.failedToLoadConfigDetails": "Failed to load config:\\n{details}",
   "mcp.toolNotFoundOnServer": "Tool {name} not found on {server}",
@@ -1264,7 +1263,6 @@ const zhCN: Record<TranslationKey, string> = {
   "compaction.exceedsBudget": "压缩请求超出可用的上下文预算",
   "compaction.noSummarizer":
     "压缩没有摘要器：请传入 options.summarize 来写入摘要。",
-  "compaction.noReduction": "压缩未能减少上下文占用",
   "config.failedToLoadConfigWithReason": "加载配置失败：{reason}",
   "config.failedToLoadConfigDetails": "加载配置失败：\\n{details}",
   "mcp.toolNotFoundOnServer": "在 {server} 上未找到工具 {name}",

@@ -528,7 +528,7 @@ describe("compaction", () => {
       expect(onError).toHaveBeenCalledWith(mockError);
     });
 
-    it("rejects a system-only history that cannot be reduced", async () => {
+    it("keeps the original history when the summary cannot reduce it", async () => {
       const mockStreamResponse = vi.mocked(streamChatResponse);
       const mockContent = "Summary of system setup";
 
@@ -544,9 +544,15 @@ describe("compaction", () => {
         { role: "system", content: "You are a helpful assistant" },
       ]);
 
-      await expect(
-        compactChatHistory(history, mockModel, mockLlmApi, { summarize }),
-      ).rejects.toThrow("Compaction did not reduce context usage");
+      // A summary that buys nothing is an abandonment, not a failure: the
+      // original transcript stays and the caller carries on without compaction.
+      const result = await compactChatHistory(history, mockModel, mockLlmApi, {
+        summarize,
+      });
+
+      expect(result.abandoned).toBe(true);
+      expect(result.compactedHistory).toEqual(history);
+      expect(result.compactionContent).toBe(mockContent);
     });
 
     it("should handle empty content from stream", async () => {

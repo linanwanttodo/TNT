@@ -7,7 +7,10 @@ import { convertToUnifiedHistory } from "core/util/messageConversion.js";
 import type { ChatCompletionChunk } from "openai/resources/chat/completions.mjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { forgetCacheRounds } from "../cache/cacheBreakReport.js";
+import {
+  forgetCacheRounds,
+  SYSTEM_PROMPT_REWRITE_REASON,
+} from "../cache/cacheBreakReport.js";
 import {
   forgetLastRequestCacheState,
   getLastRequestCacheState,
@@ -37,6 +40,7 @@ vi.mock("../session/index.js", async () => {
     getCacheBreaksDir: vi.fn(() => breaksDir),
     updateSessionHistory: vi.fn(),
     trackSessionUsage: vi.fn(),
+    trackCompactionReduction: vi.fn(),
   };
 });
 
@@ -284,7 +288,9 @@ describe("streamChatResponse cache prefix attribution", () => {
     expect(breaks).toHaveLength(1);
     expect(breaks[0]).toEqual(
       expect.objectContaining({
-        prefixReasons: ["systemMessage"],
+        // The rewrite is the decision that rebilled the prefix, so it is named
+        // in the report alongside what the verdict saw.
+        prefixReasons: ["systemMessage", SYSTEM_PROMPT_REWRITE_REASON],
         cacheMissOwner: "prefix",
         hitRateBefore: expect.any(Number),
       }),
@@ -293,7 +299,10 @@ describe("streamChatResponse cache prefix attribution", () => {
     const reportPath = String(breaks[0].reportPath);
     expect(reportPath).toContain("tnt-cb-");
     const body = JSON.parse(fs.readFileSync(reportPath, "utf-8"));
-    expect(body.reasons).toEqual(["systemMessage"]);
+    expect(body.reasons).toEqual([
+      "systemMessage",
+      SYSTEM_PROMPT_REWRITE_REASON,
+    ]);
     expect(body.diff.systemMessage.added.join("\n")).toContain("rules block");
   });
 

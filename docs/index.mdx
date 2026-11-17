@@ -41,8 +41,9 @@ integrations, so anything the agent learns to do works in both places.
 - Delegate work to a subagent that runs on the same engine.
 - Load markdown skills and plugins written for the Claude Code plugin format.
 
-Every action passes through the permission system. `agent` mode asks before
-high risk operations, `plan` mode is read only, `auto` mode allows everything.
+Every action passes through the permission system. `default` (Manual) mode asks
+before high risk operations, `plan` mode is read only, `auto` mode lets a
+classifier decide the calls that would otherwise ask.
 See [Modes](/cli/modes).
 
 ## Where things live

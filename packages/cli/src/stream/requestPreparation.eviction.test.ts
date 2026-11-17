@@ -1,10 +1,11 @@
 import type { ChatHistoryItem } from "core/index.js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // End-to-end check of the request-preparation wiring: the eviction must run
 // inside the real prepareRoundRequest path, not only in its module's own
 // tests. Heavy collaborators are stubbed to pass the history through, so what
-// this file asserts is exactly the wiring.
+// this file asserts is exactly the wiring — including the warm-cache gate,
+// whose temperature comes from microCompact's request clock.
 vi.mock("../cache/prefixState.js", () => ({
   recallCachePrefix: vi.fn(() => undefined),
   rememberCachePrefix: vi.fn(),
@@ -30,6 +31,11 @@ vi.mock("../utils/logger.js", () => ({
   logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), warn: vi.fn() },
 }));
 
+import {
+  forgetLastRequest,
+  noteRequestSent,
+} from "../compaction/microCompact.js";
+
 import { prepareRoundRequest } from "./requestPreparation.js";
 import { EVICTION_PLACEHOLDER } from "./toolOutputEviction.js";
 
@@ -37,6 +43,17 @@ const model = {
   provider: "anthropic",
   model: "deepseek-flash",
 } as any;
+
+const previousGap = process.env.TNT_CACHE_GAP_MS;
+
+afterEach(() => {
+  forgetLastRequest();
+  if (previousGap === undefined) {
+    delete process.env.TNT_CACHE_GAP_MS;
+  } else {
+    process.env.TNT_CACHE_GAP_MS = previousGap;
+  }
+});
 
 function toolHeavyHistory(): ChatHistoryItem[] {
   const items: ChatHistoryItem[] = [
@@ -59,11 +76,11 @@ function toolHeavyHistory(): ChatHistoryItem[] {
   return items;
 }
 
-function options(history: ChatHistoryItem[]) {
+function options(history: ChatHistoryItem[], cacheKey = "test-cache-key") {
   return {
     chatHistory: history,
     requestHeader: { model: "deepseek-flash", systemMessage: "", tools: [] },
-    promptCacheKey: "test-cache-key",
+    promptCacheKey: cacheKey,
     isCompacting: false,
     coldTurn: false,
     historyRewritten: false,
@@ -80,16 +97,20 @@ function options(history: ChatHistoryItem[]) {
 }
 
 describe("prepareRoundRequest eviction wiring", () => {
-  it("evicts old tool results from the history the round actually sends", async () => {
+  // The 8 x 60k-char results ≈ 120k tokens cross the 100k gate on a 1M
+  // window, so the three oldest results are the eviction candidates and the
+  // newest five keep their bytes.
+  it("evicts old tool results when the cache is cold", async () => {
+    process.env.TNT_CACHE_GAP_MS = "1000";
+    noteRequestSent(Date.now() - 60 * 60_000);
     const history = toolHeavyHistory();
     const prepared = await prepareRoundRequest(options(history));
 
     const tools = prepared.chatHistory.filter(
       (item) => item.message.role === "tool",
     );
-    // The 8 x 60k-char results ≈ 120k tokens cross the 100k gate on a 1M
-    // window, so the three oldest results come back as placeholders and the
-    // newest five keep their bytes.
+    // A cold window re-pays nothing for the rewrite, so the three oldest
+    // results come back as placeholders and the newest five keep their bytes.
     expect(
       tools
         .slice(0, 3)
@@ -105,6 +126,41 @@ describe("prepareRoundRequest eviction wiring", () => {
         "x".repeat(60_000),
       );
     }
+    // The first growth is folded into the verdict, so the cache-break report
+    // names the eviction instead of an unexplained miss.
+    expect(prepared.verdict).toMatchObject({
+      state: "invalidated",
+      reasons: ["tool_eviction"],
+    });
+  });
+
+  it("defers growth on a warm cache when the tail re-pay dominates", async () => {
+    process.env.TNT_CACHE_GAP_MS = "1000";
+    noteRequestSent();
+    const history = toolHeavyHistory();
+    const prepared = await prepareRoundRequest(
+      options(history, "warm-defer-scope"),
+    );
+
+    // deepseek-flash has no pricing row, so the conservative 0.1 discount
+    // prices the ~45k-token saving far below re-paying the ~75k-token tail at
+    // full price; growth waits for a cold window and the bytes go unchanged.
+    expect(prepared.chatHistory).toBe(history);
+    expect(prepared.verdict).toBeUndefined();
+  });
+
+  it("keeps an already-applied set stable on a warm cache", async () => {
+    process.env.TNT_CACHE_GAP_MS = "1000";
+    const history = toolHeavyHistory();
+
+    noteRequestSent(Date.now() - 60 * 60_000);
+    const cold = await prepareRoundRequest(options(history, "stable-scope"));
+    noteRequestSent();
+    // Same raw transcript again: the set must not shrink back (that would
+    // move the prefix the other way), it holds at what the cache carries.
+    const warm = await prepareRoundRequest(options(history, "stable-scope"));
+
+    expect(warm.chatHistory).toEqual(cold.chatHistory);
   });
 
   it("sends small histories through untouched", async () => {

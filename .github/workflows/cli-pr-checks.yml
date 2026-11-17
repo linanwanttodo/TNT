@@ -137,14 +137,6 @@ jobs:
           cache: "npm"
           cache-dependency-path: packages/cli/package-lock.json
 
-      - name: Cache CLI node_modules
-        uses: actions/cache@v5
-        with:
-          path: packages/cli/node_modules
-          key: ${{ runner.os }}-node${{ matrix.node-version }}-cli-modules-${{ hashFiles('packages/cli/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node${{ matrix.node-version }}-cli-modules-
-
       - name: Setup packages
         uses: ./.github/actions/setup-packages
       - name: Setup core component

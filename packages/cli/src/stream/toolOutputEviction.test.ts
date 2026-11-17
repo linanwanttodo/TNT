@@ -5,6 +5,7 @@ import {
   EVICTION_PLACEHOLDER,
   evictionTokenThreshold,
   evictOldToolResults,
+  shouldApplyWarmEviction,
 } from "./toolOutputEviction.js";
 
 const previousThreshold = process.env.TNT_TOOL_EVICTION_TOKENS;
@@ -131,6 +132,53 @@ describe("evictOldToolResults", () => {
     expect(result.evicted).toBe(3);
   });
 
+  it("reports the chars it saved and the moving window it would re-pay", () => {
+    const history = historyWithTools(8, SIZE);
+    const result = evictOldToolResults({
+      history,
+      contextWindow: 1_000_000,
+      keepRecent: 5,
+    });
+
+    expect(result.newlyEvictedChars).toBe(3 * SIZE);
+    // Everything after the last placeholder: the five kept results plus the
+    // interleaved assistant turns ("call N" is six chars each).
+    expect(result.movingWindowChars).toBe(5 * SIZE + 5 * 6);
+  });
+
+  it("holds the set at what the cached prefix carries when growth is gated", () => {
+    const history = historyWithTools(9, SIZE);
+    const result = evictOldToolResults({
+      history,
+      contextWindow: 1_000_000,
+      keepRecent: 5,
+      appliedEvicted: 3,
+      allowGrowth: false,
+    });
+
+    // The target is 4, but the cached prefix carries 3 placeholders, so the
+    // fourth result keeps its bytes and the tail is not re-paid.
+    expect(result.evicted).toBe(3);
+    expect(result.newlyEvictedChars).toBe(0);
+    const tools = result.history.filter((item) => item.message.role === "tool");
+    expect(tools[3].message.role === "tool" && tools[3].message.content).toBe(
+      "x".repeat(SIZE),
+    );
+  });
+
+  it("grows the set past what the prefix carries when the caller approves", () => {
+    const history = historyWithTools(9, SIZE);
+    const result = evictOldToolResults({
+      history,
+      contextWindow: 1_000_000,
+      keepRecent: 5,
+      appliedEvicted: 3,
+    });
+
+    expect(result.evicted).toBe(4);
+    expect(result.newlyEvictedChars).toBe(SIZE);
+  });
+
   it("caps the absolute threshold at 40% of the window", () => {
     delete process.env.TNT_TOOL_EVICTION_TOKENS;
     expect(evictionTokenThreshold(200_000)).toBe(80_000);
@@ -146,5 +194,37 @@ describe("evictOldToolResults", () => {
     const history = historyWithTools(8, SIZE);
     const result = evictOldToolResults({ history, contextWindow: 1_000_000 });
     expect(result.evicted).toBe(6);
+  });
+});
+
+describe("shouldApplyWarmEviction", () => {
+  it("always grows for a provider without a cache discount", () => {
+    expect(
+      shouldApplyWarmEviction({
+        newlyEvictedTokens: 1,
+        movingWindowTokens: 1_000_000,
+        cacheReadDiscount: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("grows when the saved discounted re-reads outweigh the full-price tail", () => {
+    expect(
+      shouldApplyWarmEviction({
+        newlyEvictedTokens: 1_000,
+        movingWindowTokens: 100,
+        cacheReadDiscount: 0.1,
+      }),
+    ).toBe(true);
+  });
+
+  it("holds growth when the tail re-pay dominates", () => {
+    expect(
+      shouldApplyWarmEviction({
+        newlyEvictedTokens: 1_000,
+        movingWindowTokens: 100_000,
+        cacheReadDiscount: 0.1,
+      }),
+    ).toBe(false);
   });
 });

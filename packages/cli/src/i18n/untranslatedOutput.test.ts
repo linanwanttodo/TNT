@@ -277,8 +277,13 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   // channel's structured refusal for the shell, not copy a reader sees.
   // 42: the native directory chooser reports a missing desktop dialog and a
   // chooser that cannot open; both are host errors the RPC client surfaces.
-  services: 42,
+  // 43: the managed worktree create refuses an option-like ref before
+  // touching git; the guard is read by the caller, not the composer.
+  services: 43,
   session: 6,
+  // 1: a queued team member dispatch refuses to park on the FIFO after its
+  // lead was cancelled; the rejection is read by the failure recorder.
+  subagent: 1,
   // 14, not 6: `AskQuestion` validates the new `questions` array field by
   // field, and those messages are read by the model, not the composer.
   tools: 15,
@@ -292,8 +297,9 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   // names the group id it could not find. 47: the automations backend and the
   // managed worktree service throw at the RPC boundary (sendText rejected,
   // worktree add failed, ref not a repository, …) - structured refusals the
-  // shell surfaces as toasts, not composer copy.
-  webuiZcode: 47,
+  // shell surfaces as toasts, not composer copy. 48: the worktree create also
+  // refuses an option-like ref before touching git.
+  webuiZcode: 48,
 };
 
 /**

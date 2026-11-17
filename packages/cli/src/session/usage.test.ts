@@ -15,8 +15,10 @@ import { logger } from "../utils/logger.js";
 
 import {
   clearSession,
+  compactionReductionBucket,
   getSessionUsage,
   noteUnreportedRequest,
+  trackCompactionReduction,
   trackSessionUsage,
 } from "./index.js";
 
@@ -224,5 +226,161 @@ describe("requests whose usage the provider never reported", () => {
     clearSession();
 
     expect(getSessionUsage().unreportedUsageRequests ?? 0).toBe(0);
+  });
+});
+
+describe("compaction reduction buckets", () => {
+  beforeEach(() => {
+    clearSession();
+  });
+
+  it("sorts ratios into the threshold floor below the worthwhile minimum", () => {
+    expect(compactionReductionBucket(0.005)).toBe("threshold_floor");
+  });
+
+  it("sorts ratios into the four size buckets", () => {
+    expect(compactionReductionBucket(0.2)).toBe("lt_50");
+    expect(compactionReductionBucket(0.5)).toBe("50_79");
+    expect(compactionReductionBucket(0.79)).toBe("50_79");
+    expect(compactionReductionBucket(0.8)).toBe("80_99");
+    expect(compactionReductionBucket(0.99)).toBe("80_99");
+    expect(compactionReductionBucket(1)).toBe("gte_100");
+  });
+
+  it("counts each compaction into its bucket", () => {
+    trackCompactionReduction(0.6);
+    trackCompactionReduction(0.95);
+    trackCompactionReduction(0.003);
+
+    expect(getSessionUsage().compaction?.reductionBuckets).toEqual({
+      "50_79": 1,
+      "80_99": 1,
+      threshold_floor: 1,
+    });
+  });
+
+  it("keeps the bucket tallies beside the compaction totals", () => {
+    trackSessionUsage(
+      0.25,
+      {
+        promptTokens: 20000,
+        completionTokens: 800,
+        promptTokensDetails: { cachedTokens: 0, cacheWriteTokens: 0 },
+      },
+      "compaction",
+    );
+    trackCompactionReduction(0.7);
+
+    const compaction = getSessionUsage().compaction;
+    expect(compaction?.requests).toBe(1);
+    expect(compaction?.inputTokens).toBe(20000);
+    expect(compaction?.reductionBuckets).toEqual({ "50_79": 1 });
+  });
+});
+
+describe("per-agent usage rows", () => {
+  beforeEach(() => {
+    clearSession();
+  });
+
+  const usage = (promptTokens: number, completionTokens: number) => ({
+    promptTokens,
+    completionTokens,
+  });
+
+  it("keeps two parallel agents' usage in separate rows", () => {
+    trackSessionUsage(0.1, usage(1000, 100), "turn", false, {
+      agentType: "explorer",
+      sessionId: "child-1",
+    });
+    trackSessionUsage(0.2, usage(2000, 200), "turn", false, {
+      agentType: "explorer",
+      sessionId: "child-2",
+    });
+
+    const rows = getSessionUsage().agentRows ?? [];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({
+      agentType: "explorer",
+      sessionId: "child-1",
+      cost: 0.1,
+      promptTokens: 1000,
+      completionTokens: 100,
+      rounds: 1,
+    });
+    expect(rows[1]).toMatchObject({
+      agentType: "explorer",
+      sessionId: "child-2",
+      rounds: 1,
+    });
+  });
+
+  it("merges later rounds of the same agent into its row", () => {
+    trackSessionUsage(0.1, usage(1000, 100), "turn", false, {
+      agentType: "explorer",
+      sessionId: "child-1",
+    });
+    trackSessionUsage(0.05, usage(500, 50), "turn", false, {
+      agentType: "explorer",
+      sessionId: "child-1",
+    });
+
+    const rows = getSessionUsage().agentRows ?? [];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      promptTokens: 1500,
+      completionTokens: 150,
+      rounds: 2,
+    });
+    expect(rows[0].cost).toBeCloseTo(0.15, 10);
+  });
+
+  it("leaves the process-wide totals untouched", () => {
+    trackSessionUsage(0.1, usage(1000, 100), "turn", false, {
+      agentType: "explorer",
+      sessionId: "child-1",
+    });
+    trackSessionUsage(0.3, usage(3000, 300), "turn");
+
+    const session = getSessionUsage();
+    expect(session.totalCost).toBeCloseTo(0.4, 10);
+    expect(session.promptTokens).toBe(4000);
+    expect(session.completionTokens).toBe(400);
+  });
+
+  it("clears the agent rows with the session", () => {
+    trackSessionUsage(0.1, usage(1000, 100), "turn", false, {
+      agentType: "explorer",
+      sessionId: "child-1",
+    });
+    clearSession();
+
+    expect(getSessionUsage().agentRows).toBeUndefined();
+  });
+});
+
+describe("system prompt rewrite audit", () => {
+  beforeEach(() => {
+    clearSession();
+  });
+
+  const usage = { promptTokens: 1000, completionTokens: 100 };
+
+  it("counts the rounds that rewrote the system prompt", () => {
+    trackSessionUsage(0.01, usage, "turn", false, {
+      systemPromptRewritten: true,
+    });
+    trackSessionUsage(0.01, usage, "turn");
+    trackSessionUsage(0.01, usage, "turn", false, {
+      systemPromptRewritten: true,
+    });
+
+    expect(getSessionUsage().systemPromptRewrites).toBe(2);
+  });
+
+  it("stays undefined while no round rewrote", () => {
+    trackSessionUsage(0.01, usage, "turn");
+
+    expect(getSessionUsage().systemPromptRewrites).toBeUndefined();
   });
 });

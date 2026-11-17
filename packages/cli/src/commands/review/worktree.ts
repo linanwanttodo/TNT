@@ -57,6 +57,14 @@ export async function createWorktree(
   index: number,
   options: { ref?: string; includeWorkingTree?: boolean } = {},
 ): Promise<string> {
+  // The ref can arrive from outside (review requests); a ref starting with
+  // "-" would be parsed by git as an option (argv injection) on the
+  // `worktree add` command line below.
+  if (options.ref && options.ref.startsWith("-")) {
+    throw new Error(
+      `invalid worktree ref "${options.ref}": a ref must not start with '-'`,
+    );
+  }
   const includeWorkingTree = options.includeWorkingTree !== false;
   const tmpDir = os.tmpdir();
   const worktreePath = path.join(tmpDir, `tnt-review-${Date.now()}-${index}`);

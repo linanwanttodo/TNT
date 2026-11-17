@@ -386,6 +386,67 @@ describe("handleAutoCompaction", () => {
     expect(compactChatHistory).toHaveBeenCalledTimes(3);
   });
 
+  it("treats a no-reduction summary as abandoned, not failed", async () => {
+    const { compactChatHistory, shouldAutoCompact } =
+      await import("../compaction/index.js");
+    const { replaceSessionHistoryIfGeneration } =
+      await import("../session/index.js");
+    const { logger } = await import("../utils/logger.js");
+    vi.mocked(shouldAutoCompact).mockReturnValue(true);
+    vi.mocked(compactChatHistory).mockResolvedValue({
+      compactedHistory: mockChatHistory,
+      compactionIndex: 0,
+      compactionContent: "A summary that did not shrink anything",
+      abandoned: true,
+    } as any);
+
+    const callbacks = { onSystemMessage: vi.fn() };
+    const result = await handleAutoCompaction(
+      mockChatHistory,
+      mockModel,
+      mockLlmApi,
+      { callbacks },
+    );
+
+    // The original transcript is kept and the round reads as no compaction.
+    expect(result.wasCompacted).toBe(false);
+    expect(result.summarized).toBe(false);
+    expect(result.abandoned).toBe(true);
+    expect(result.chatHistory).toEqual(mockChatHistory);
+    expect(replaceSessionHistoryIfGeneration).not.toHaveBeenCalled();
+
+    // Not a failure: no error line, no warning to the user.
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(callbacks.onSystemMessage).not.toHaveBeenCalledWith(
+      expect.stringContaining("Warning"),
+    );
+  });
+
+  it("does not charge the breaker when summaries are abandoned", async () => {
+    const { compactChatHistory, shouldAutoCompact } =
+      await import("../compaction/index.js");
+    vi.mocked(shouldAutoCompact).mockReturnValue(true);
+    vi.mocked(compactChatHistory).mockResolvedValue({
+      compactedHistory: mockChatHistory,
+      compactionIndex: 0,
+      compactionContent: "A summary that did not shrink anything",
+      abandoned: true,
+    } as any);
+
+    // Three strikes opened the breaker for real failures; an abandoned
+    // summary is a normal result and never counts toward them.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const result = await handleAutoCompaction(
+        mockChatHistory,
+        mockModel,
+        mockLlmApi,
+      );
+      expect(result.abandoned).toBe(true);
+    }
+
+    expect(compactChatHistory).toHaveBeenCalledTimes(4);
+  });
+
   it("does not count a persisted tool-result prune as a summary failure", async () => {
     const { compactChatHistory, shouldAutoCompact } =
       await import("../compaction/index.js");

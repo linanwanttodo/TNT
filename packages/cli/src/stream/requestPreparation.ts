@@ -1,6 +1,7 @@
 import type { ModelConfig } from "@tnt/config-yaml";
 import type { BaseLlmApi } from "@tnt/openai-adapters";
 import type { ChatHistoryItem } from "core/index.js";
+import { cacheReadDiscountRatio } from "core/llm/utils/calculateRequestCost.js";
 import { calculateMaxOutputTokens } from "core/util/contextPolicy.js";
 import { encode } from "gpt-tokenizer";
 import type { ChatCompletionTool } from "openai/resources.mjs";
@@ -15,6 +16,7 @@ import {
 import type { RequestHeader } from "../cache/requestHeader.js";
 import { pruneLastMessage } from "../compaction/index.js";
 import { measuredRequestFor } from "../compaction/measuredContext.js";
+import { cacheGapMs, isCacheCold } from "../compaction/microCompact.js";
 import { t } from "../i18n/index.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -27,7 +29,10 @@ import {
 import { formatInHistoryUpdate } from "./requestMessages.js";
 import { handlePreApiCompaction } from "./streamChatResponse.compactionHelpers.js";
 import type { StreamCallbacks } from "./streamChatResponse.types.js";
-import { evictOldToolResults } from "./toolOutputEviction.js";
+import {
+  evictOldToolResults,
+  shouldApplyWarmEviction,
+} from "./toolOutputEviction.js";
 
 /**
  * The pre-request phase of one round: compact if the window is full, then say
@@ -41,6 +46,14 @@ export interface PrepareRoundOptions {
   chatHistory: ChatHistoryItem[];
   requestHeader: RequestHeader;
   promptCacheKey?: string;
+  /**
+   * The sender's own identity for the client-side prefix memory and the
+   * eviction bookkeeping. A delegated run passes its own id so its verdicts
+   * compare against its own previous request instead of the parent's, whose
+   * header a shared routing key would otherwise clobber in both directions.
+   * Defaults to the routing key.
+   */
+  prefixScope?: string;
   isCompacting: boolean;
   /** False once this turn has issued its first request. */
   coldTurn: boolean;
@@ -75,28 +88,80 @@ export async function prepareRoundRequest(
   const {
     requestHeader,
     promptCacheKey,
+    prefixScope,
     isCompacting,
     coldTurn,
     historyRewritten,
     forceCompaction,
     compaction,
   } = options;
+  const prefixMemoryScope = prefixScope ?? promptCacheKey;
 
   // Evict dead tool-output bytes before anything else reads the history: the
   // compaction check and the request itself should both see the trimmed form,
   // so a session that carries a lot of old tool output does not have to reach
   // the compaction threshold to stop paying for it. A compaction request
   // summarizes its own prefix and skips the eviction.
-  const eviction = isCompacting
-    ? { history: options.chatHistory, evicted: 0 }
+  //
+  // Growth of the evicted set is gated on the cache's temperature. Every newly
+  // swallowed position moves the cached prefix and re-pays the tail at full
+  // price, so on a warm cache growth waits for a natural cold window (TTL
+  // expiry, session resume) unless the evicted bytes clearly outweigh the
+  // re-read; a provider without a cache has nothing to protect. A deferred
+  // growth is retried on the next round, and an already-applied set stays
+  // applied — re-sending its placeholders is byte-stable with the prefix.
+  const provider = compaction.model.provider;
+  const modelName = compaction.model.model;
+  const appliedEvicted =
+    evictionShapes.get(prefixMemoryScope ?? DEFAULT_PREFIX_SCOPE) ?? 0;
+  const planned = isCompacting
+    ? {
+        history: options.chatHistory,
+        evicted: 0,
+        newlyEvictedChars: 0,
+        movingWindowChars: 0,
+      }
     : evictOldToolResults({
         history: options.chatHistory,
         contextWindow: getModelContextLimit(compaction.model),
         measuredInputTokens: measuredRequestFor(promptCacheKey)?.promptTokens,
+        appliedEvicted,
+        allowGrowth: true,
       });
-  if (eviction.evicted > 0) {
+  let eviction = planned;
+  if (!isCompacting && planned.evicted > appliedEvicted) {
+    const noCache = !Number.isFinite(cacheGapMs(provider, modelName));
+    const cold = noCache || isCacheCold(Date.now(), provider, modelName);
+    if (!cold) {
+      const discount = cacheReadDiscountRatio(modelName) ?? 0.1;
+      const worthIt = shouldApplyWarmEviction({
+        newlyEvictedTokens: Math.ceil(planned.newlyEvictedChars / 4),
+        movingWindowTokens: Math.ceil(planned.movingWindowChars / 4),
+        cacheReadDiscount: discount,
+      });
+      logger.info("Warm-cache eviction gate", {
+        appliedEvicted,
+        plannedEvicted: planned.evicted,
+        newlyEvictedTokens: Math.ceil(planned.newlyEvictedChars / 4),
+        movingWindowTokens: Math.ceil(planned.movingWindowChars / 4),
+        discount,
+        worthIt,
+      });
+      if (!worthIt) {
+        eviction = evictOldToolResults({
+          history: options.chatHistory,
+          contextWindow: getModelContextLimit(compaction.model),
+          measuredInputTokens: measuredRequestFor(promptCacheKey)?.promptTokens,
+          appliedEvicted,
+          allowGrowth: false,
+        });
+      }
+    }
+  }
+  if (eviction.evicted > appliedEvicted) {
     logger.info("Evicted old tool results from the request history", {
       evicted: eviction.evicted,
+      newlyEvicted: eviction.evicted - appliedEvicted,
       keepRecentEnv: process.env.TNT_TOOL_EVICTION_KEEP,
     });
   }
@@ -119,22 +184,25 @@ export async function prepareRoundRequest(
   // session prefix.
   const previousHeader = isCompacting
     ? undefined
-    : recallCachePrefix(promptCacheKey);
+    : recallCachePrefix(prefixMemoryScope);
   const verdict = isCompacting
     ? undefined
     : classifyCachePrefix(previousHeader, requestHeader, { historyRewritten });
+  const finalVerdict = isCompacting
+    ? undefined
+    : withEvictionAttribution(prefixMemoryScope, eviction.evicted, verdict);
 
-  if (verdict?.state === "invalidated") {
+  if (finalVerdict?.state === "invalidated") {
     // Named fields rather than a hash: knowing that the tool list moved is
     // actionable, knowing that "something changed" is not.
     logger.warn("Request prefix invalidated", {
-      reasons: verdict.reasons,
+      reasons: finalVerdict.reasons,
       ...cachePrefixKeys(requestHeader),
       scenario: coldTurn ? "turn_start" : "mid_turn",
     });
   }
   if (!isCompacting) {
-    rememberCachePrefix(promptCacheKey, requestHeader);
+    rememberCachePrefix(prefixMemoryScope, requestHeader);
   }
 
   return {
@@ -143,7 +211,39 @@ export async function prepareRoundRequest(
     summarized: preCompactionResult.summarized,
     reductionRatio: preCompactionResult.reductionRatio,
     previousHeader,
-    verdict,
+    verdict: finalVerdict,
+  };
+}
+
+const TOOL_EVICTION_REASON = "tool_eviction";
+
+/** Same fallback prefixState uses for a request with no session yet. */
+const DEFAULT_PREFIX_SCOPE = "__session__";
+
+/** Per-scope count of tool results the last request carried as placeholders. */
+const evictionShapes = new Map<string, number>();
+
+/**
+ * A growing evicted set means this round's bytes diverge from the cached
+ * prefix at the first newly swallowed position, which no header field records
+ * and which would otherwise read as an unexplained full-price round. Folding
+ * it into the verdict keeps the cache-break report honest. A stable set
+ * re-sends the same placeholder bytes, which is a genuine full hit.
+ */
+function withEvictionAttribution(
+  scope: string | undefined,
+  evicted: number,
+  verdict: CachePrefixVerdict | undefined,
+): CachePrefixVerdict | undefined {
+  const key = scope ?? DEFAULT_PREFIX_SCOPE;
+  const remembered = evictionShapes.get(key);
+  evictionShapes.set(key, evicted);
+  if (evicted <= (remembered ?? 0)) {
+    return verdict;
+  }
+  return {
+    state: "invalidated",
+    reasons: [...(verdict?.reasons ?? []), TOOL_EVICTION_REASON],
   };
 }
 

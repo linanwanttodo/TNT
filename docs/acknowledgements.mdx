@@ -9,7 +9,7 @@ license and copyright; TNT does not relicense any of them.
 
 | Project | What TNT uses | Link |
 | --- | --- | --- |
-| Continue | The base fork: the agent engine, LLM adapters, configuration formats, indexing and tool abstractions. TNT is a derivative work of the final 2.0.0 release, and develops the CLI surface only. | [continuedev/continue](https://github.com/continuedev/continue) |
+| continuedev/continue | The base fork: the agent engine, LLM adapters, configuration formats, indexing and tool abstractions. TNT is a derivative work of the final 2.0.0 release, and develops the CLI surface only. | [continuedev/continue](https://github.com/continuedev/continue) |
 | ZCode | The browser and phone interface. The `packages/zcode-ui/*` tree is vendored ZCode source — UI, web shell, services, shared schemas, RPC, client and provider packages — adapted to run against TNT's local engine. The managed-worktree design follows ZCode's `docs/git/worktree.md`. | [zai-org/ZCode](https://github.com/zai-org/ZCode) |
 | Gemini CLI | Terminal input components, ported verbatim or trimmed: the text buffer, keypress provider, key bindings, vim buffer actions, TextInput rendering, terminal capability manager, terminal modes, clipboard and text utilities, and slash-command completion parsing. | [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
 | pi | Tool and extension design research. Subagent dispatch, team orchestration and long-context handling were compared against `pi-subagents`, `@agimon-ai/po-team` and `billion-context`; the findings shaped TNT's subagent and team mechanisms, and the packages are featured in the plugin catalog. | [earendil-works/pi](https://github.com/earendil-works/pi) · [pi-subagents](https://pi.dev/packages/pi-subagents) · [billion-context](https://pi.dev/packages/billion-context) · [po-team](https://pi.dev/packages/@agimon-ai/po-team?name=team) |
@@ -24,6 +24,7 @@ license and copyright; TNT does not relicense any of them.
 
 ## License
 
-TNT is Apache 2.0, © 2023-2026 Continue Dev, Inc. and the respective upstream
-authors. The vendored and ported components keep the terms listed in the notice
-files above.
+TNT is Apache 2.0; the full license text is the [`LICENSE`](https://github.com/linanwanttodo/TNT/blob/main/LICENSE)
+file at the repo root, and the copyright line is spelled out in the
+[README](https://github.com/linanwanttodo/TNT#license). The vendored and ported
+components keep the terms listed in the notice files above.

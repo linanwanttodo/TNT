@@ -5,7 +5,7 @@
 .DESCRIPTION
     Installs Node.js (if needed) and the TNT CLI globally
 .EXAMPLE
-    irm https://github.com/linanwanttodo/TNT | iex
+    irm https://raw.githubusercontent.com/linanwanttodo/TNT/main/packages/cli/scripts/install.ps1 | iex
 .NOTES
     Supports Windows 10/11, Windows Server 2016+
     Requires internet connectivity

@@ -76,13 +76,27 @@ async function runChooser(
       signal?: string | null;
       killed?: boolean;
       message?: string;
+      stdout?: string;
+      stderr?: string;
     };
     // Cancelled dialogs exit non-zero with no output; that is a real user
     // decision, not a failure to try the next chooser. A dialog the desktop
     // closed (SIGTERM) is the same decision.
-    if (typeof failure.code === "number") return { code: failure.code };
     if (failure.killed || failure.signal) return { code: 1 };
     if (isMissingTool(error)) return undefined;
+    if (typeof failure.code === "number") {
+      // A chooser that is installed but cannot open (no DISPLAY, broken
+      // portal) exits non-zero with diagnostics on stderr; that is a tool
+      // failure, so name it instead of silently looking like a cancel.
+      const diagnostics =
+        `${failure.stderr ?? ""}${failure.stdout ?? ""}`.trim();
+      if (failure.code !== 0 && diagnostics !== "") {
+        throw new Error(
+          `Native directory chooser ${command} failed: ${diagnostics}`,
+        );
+      }
+      return { code: failure.code };
+    }
     // zenity exists but cannot open (no DISPLAY, broken portal): say which
     // chooser failed instead of pretending none is installed.
     throw new Error(

@@ -6,12 +6,22 @@ import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
 
 import { RemoteServerState } from "./useChat.types.js";
 
-function historiesEqual(a: ChatHistoryItem[], b: ChatHistoryItem[]): boolean {
+/**
+ * The remote poll runs every 500ms, so this check must stay cheap: the length
+ * plus the last item's JSON is enough to skip the redundant setState that
+ * would re-render the whole transcript twice a second. Remote history only
+ * ever grows at the tail — earlier items are immutable once accepted — so a
+ * same-length, same-tail history is treated as unchanged. Only the last item
+ * is stringified; deep-comparing every item of a large history costs more
+ * than the re-render it saves.
+ */
+export function historiesEqual(
+  a: ChatHistoryItem[],
+  b: ChatHistoryItem[],
+): boolean {
   if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) return false;
-  }
-  return true;
+  if (a.length === 0) return true;
+  return JSON.stringify(a[a.length - 1]) === JSON.stringify(b[b.length - 1]);
 }
 
 /**

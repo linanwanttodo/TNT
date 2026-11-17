@@ -17,9 +17,9 @@ description: "允许、询问或排除工具，以及各层如何互相覆盖。
 
 1. 当前模式（`plan` 和 `auto` 会覆盖下面的所有层）。
 2. 命令行参数：`--allow`、`--ask`、`--exclude`。
-3. `config.yaml` 中的策略。
-4. `~/.tnt/permissions.yaml` 中的策略。
-5. 内置工具的默认策略。
+3. `settings.json` 中 `permissions` 键的策略；没有任何 settings 文件定义
+   permissions 时，才会回退读取旧的 `~/.tnt/permissions.yaml`。
+4. 内置工具的默认策略。
 
 ## 工具模式
 
@@ -39,6 +39,8 @@ tnt --allow Read --ask Write --exclude Bash
 任务。
 
 ## permissions.yaml
+
+新规则应写入 `settings.json` 的 `permissions` 键；此文件仅作为旧格式的回退读取。
 
 ```yaml title="~/.tnt/permissions.yaml"
 permissions:

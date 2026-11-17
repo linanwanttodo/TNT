@@ -59,6 +59,13 @@ export interface CompactionResult {
   compactedHistory: ChatHistoryItem[];
   compactionIndex: number;
   compactionContent: string;
+  /**
+   * The summary ran but did not shrink the history, so the original transcript
+   * is kept instead. This is a normal outcome the caller handles as "no
+   * compaction happened", not a failure: the session breaker is not charged and
+   * no error is raised.
+   */
+  abandoned?: boolean;
 }
 
 export interface CompactionCallbacks {
@@ -426,7 +433,20 @@ export async function compactChatHistory(
     const originalTokens = countChatHistoryTokens(historyToUse, model);
     const compactedTokens = countChatHistoryTokens(compactedHistory, model);
     if (compactedTokens >= originalTokens) {
-      throw new Error(t("compaction.noReduction"));
+      // The summary cost a model call but bought nothing. Abandoning is the
+      // honest outcome: keep the original transcript, hand back what was
+      // produced, and let the caller carry on without compaction rather than
+      // charging the failure breaker or raising an error.
+      logger.info("Summary did not shrink the history; keeping the original", {
+        originalTokens,
+        compactedTokens,
+      });
+      return {
+        compactedHistory: historyToUse,
+        compactionContent,
+        compactionIndex: findCompactionIndex(historyToUse) ?? 0,
+        abandoned: true,
+      };
     }
 
     return {

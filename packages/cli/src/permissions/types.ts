@@ -70,6 +70,19 @@ export interface ToolPermissions {
   policies: ToolPermissionPolicy[];
 }
 
+/**
+ * The basis a request's tool list is advertised under, kept separate from the
+ * permissions a run executes under. A delegated run narrows what it may do,
+ * but advertises the family's tool list unchanged so the bytes it sends share
+ * the provider's cached prefix with the run that spawned it; the narrowing is
+ * enforced at call time instead.
+ */
+export interface AdvertiseBasis {
+  readonly permissions: ToolPermissions;
+  readonly isHeadless: boolean;
+  readonly mode: PermissionMode;
+}
+
 export interface ToolCallRequest {
   name: string;
   arguments: Record<string, any>;

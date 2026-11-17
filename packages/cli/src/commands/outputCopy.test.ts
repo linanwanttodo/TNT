@@ -133,6 +133,7 @@ const RAW_THROWN_COPY = [
   "review/diffContext.ts :: cannot be combined",
   "review/resolveReviews.ts :: hub review sources are not available: is not a file path",
   "review/reviewWorker.ts :: Failed to initialize model service",
+  "review/worktree.ts :: invalid worktree ref \"\": a ref must not start with '-'",
 ];
 
 function rawThrownCopy(): string[] {

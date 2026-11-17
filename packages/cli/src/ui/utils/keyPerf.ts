@@ -16,6 +16,8 @@ const RING_SIZE = 32;
 
 const ring: number[] = [];
 let last = 0;
+/** The settled latency of the most recent completed sample. */
+let lastDelta = 0;
 let max = 0;
 let enabled: boolean | null = null;
 
@@ -37,6 +39,9 @@ export function keyPerfSettle(): void {
   if (!keyPerfEnabled() || !last) return;
   const delta = performance.now() - last;
   last = 0;
+  // `last` doubles as the mark timestamp, so it is reset to 0 here; the
+  // summary must show the measured latency, not that raw timestamp.
+  lastDelta = delta;
   ring.push(delta);
   if (ring.length > RING_SIZE) ring.shift();
   if (delta > max) max = delta;
@@ -46,5 +51,5 @@ export function keyPerfSettle(): void {
 export function keyPerfSummary(): string | null {
   if (!keyPerfEnabled() || ring.length === 0) return null;
   const avg = ring.reduce((sum, value) => sum + value, 0) / ring.length;
-  return `⚡${last.toFixed(0)}ms 均${avg.toFixed(0)}ms 峰${max.toFixed(0)}ms`;
+  return `⚡${lastDelta.toFixed(0)}ms 均${avg.toFixed(0)}ms 峰${max.toFixed(0)}ms`;
 }

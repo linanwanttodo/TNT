@@ -428,7 +428,10 @@ export const PluginsBrowser: React.FC<PluginsBrowserProps> = ({ onCancel }) => {
               {row.detail}
             </Text>
             {kind !== null && (
-              <Text color={statusColor(kind)}> [{statusLabel(kind)}]</Text>
+              <Text color={statusColor(kind, theme)}>
+                {" "}
+                [{statusLabel(kind)}]
+              </Text>
             )}
           </Box>
         );

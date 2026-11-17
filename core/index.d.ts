@@ -268,6 +268,24 @@ export interface IContextProvider {
   get deprecationMessage(): string | null;
 }
 
+/**
+ * How much of the history one compaction removed, as the bucket name a session
+ * tally counts it under. A floor bucket full of barely-shrunk compactions says
+ * the summarizer is not paying its way.
+ */
+export type CompactionReductionBucket =
+  "threshold_floor" | "lt_50" | "50_79" | "80_99" | "gte_100";
+
+/** Usage attributed to one agent's rounds inside the session, merged per agent. */
+export interface AgentUsageRow {
+  agentType?: string;
+  sessionId?: string;
+  cost: number;
+  promptTokens: number;
+  completionTokens: number;
+  rounds: number;
+}
+
 export interface SessionUsage extends Usage {
   /** Total cumulative cost in USD for all LLM API calls in this session */
   totalCost: number;
@@ -323,7 +341,16 @@ export interface SessionUsage extends Usage {
     cacheWriteTokens: number;
     /** Cumulative cost of compaction requests, in USD. */
     cost: number;
+    /**
+     * Counts of completed compactions by how much of the history they removed,
+     * so what compaction buys is readable as a distribution, not only a spend.
+     */
+    reductionBuckets?: Partial<Record<CompactionReductionBucket, number>>;
   };
+  /** Per-agent usage rows, merged per agent; the totals stay process-wide. */
+  agentRows?: AgentUsageRow[];
+  /** Rounds that rewrote the system prompt field, rebilling the cached prefix. */
+  systemPromptRewrites?: number;
 }
 
 export interface Session {

@@ -16,6 +16,7 @@ import {
   type PluginComponents,
   type StatusKind,
 } from "./pluginsBrowserModel.js";
+import { useTheme } from "./theme/tokens.js";
 
 interface PluginDetailsViewProps {
   target: DetailTarget;
@@ -91,6 +92,7 @@ const PluginIdentity: React.FC<{
   updateTo?: string;
   kind: StatusKind;
 }> = ({ target, installed, entry, updateTo, kind }) => {
+  const theme = useTheme();
   const version = installed?.version ?? entry?.version;
   const author = entry?.author?.name ?? installed?.plugin.manifest.author?.name;
   const source = describeSource(entry?.source);
@@ -106,7 +108,7 @@ const PluginIdentity: React.FC<{
           version: version ?? t("plugins.browser.unknown"),
         })}
       </Text>
-      <Text color={statusColor(kind)}>
+      <Text color={statusColor(kind, theme)}>
         {t("plugins.browser.detailsStatus", { status: statusLabel(kind) })}
       </Text>
       {description !== "" && <Text>{description}</Text>}

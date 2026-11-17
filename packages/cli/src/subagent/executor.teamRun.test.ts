@@ -52,6 +52,7 @@ vi.mock("../services/index.js", () => ({
         currentMode: "default",
         permissions: { policies: [{ tool: "*", permission: "allow" }] },
       })),
+      isHeadless: vi.fn(() => false),
     },
   },
 }));
@@ -65,7 +66,12 @@ const state = (name: string) =>
     assistant: {},
   }) as any;
 
-type DepthCall = { agent: string; canDelegate: boolean };
+type DepthCall = {
+  agent: string;
+  canDelegate: boolean;
+  agentType?: string;
+  sessionId?: string;
+};
 
 beforeEach(() => {
   runAgentTurn.mockReset();
@@ -89,6 +95,8 @@ describe("a summoned lead dispatching a member", () => {
       depthCalls.push({
         agent: model.name,
         canDelegate: runOverrides.canDelegate,
+        agentType: runOverrides.agentType,
+        sessionId: runOverrides.sessionId,
       });
 
       if (model.name === "lead") {
@@ -121,9 +129,21 @@ describe("a summoned lead dispatching a member", () => {
     });
 
     expect(result.success).toBe(true);
+    // Each dispatch names itself and its child session in the run overrides,
+    // which is what keys the per-agent usage rows.
     expect(depthCalls).toEqual([
-      { agent: "lead", canDelegate: true },
-      { agent: "implementer", canDelegate: false },
+      {
+        agent: "lead",
+        canDelegate: true,
+        agentType: "lead",
+        sessionId: "member-session",
+      },
+      {
+        agent: "implementer",
+        canDelegate: false,
+        agentType: "implementer",
+        sessionId: "member-session",
+      },
     ]);
     expect(thirdLevel[0].success).toBe(false);
     expect(thirdLevel[0].error).toContain("Cannot delegate any deeper");

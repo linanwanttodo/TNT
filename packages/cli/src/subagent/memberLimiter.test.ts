@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  acquireTeamMemberSlot,
   getActiveTeamMemberCount,
+  releaseTeamMemberSlot,
   resetTeamMemberLimiter,
   withTeamMemberSlot,
 } from "./memberLimiter.js";
@@ -85,6 +87,55 @@ describe("team member concurrency", () => {
 
     const ran = await withTeamMemberSlot(async () => "next");
     expect(ran).toBe("next");
+    expect(getActiveTeamMemberCount()).toBe(0);
+  });
+});
+
+describe("queued dispatch cancellation", () => {
+  afterEach(() => {
+    resetTeamMemberLimiter(2);
+  });
+
+  it("rejects an already-aborted dispatch without taking a slot", async () => {
+    resetTeamMemberLimiter(2);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(acquireTeamMemberSlot(controller.signal)).rejects.toThrow(
+      /cancelled by the user/,
+    );
+    expect(getActiveTeamMemberCount()).toBe(0);
+  });
+
+  it("cancels a queued dispatch when its signal fires, leaving the FIFO clean", async () => {
+    resetTeamMemberLimiter(1);
+    await acquireTeamMemberSlot();
+
+    const controller = new AbortController();
+    const queued = acquireTeamMemberSlot(controller.signal);
+    await Promise.resolve();
+    controller.abort();
+
+    await expect(queued).rejects.toThrow(/cancelled by the user/);
+
+    // The waiter left the FIFO, so a release frees the held slot outright
+    // instead of transferring it to a ghost.
+    releaseTeamMemberSlot();
+    expect(getActiveTeamMemberCount()).toBe(0);
+  });
+
+  it("resolves a queued dispatch released before its abort fires", async () => {
+    resetTeamMemberLimiter(1);
+    await acquireTeamMemberSlot();
+
+    const controller = new AbortController();
+    const queued = acquireTeamMemberSlot(controller.signal);
+    await Promise.resolve();
+    releaseTeamMemberSlot();
+    controller.abort();
+
+    await expect(queued).resolves.toBeUndefined();
+    // The slot transferred to the waiter; releasing it again frees the count.
+    releaseTeamMemberSlot();
     expect(getActiveTeamMemberCount()).toBe(0);
   });
 });

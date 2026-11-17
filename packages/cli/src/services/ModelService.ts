@@ -1,4 +1,4 @@
-import { AssistantUnrolled, ModelConfig } from "@tnt/config-yaml";
+import { AssistantUnrolled, ModelConfig, ModelRole } from "@tnt/config-yaml";
 
 import {
   applyOllamaContextWindow,
@@ -335,6 +335,30 @@ export class ModelService
     name: string,
   ): ModelServiceState | null {
     const match = ModelService.findConfiguredModel(modelState, name);
+    if (!match) {
+      return null;
+    }
+    return {
+      llmApi: createLlmApi(match),
+      model: match,
+      assistant: modelState.assistant,
+    };
+  }
+
+  /**
+   * The first configured entry marked for a supporting role (for example a
+   * cheap model tagged `roles: ["summarize"]` for summary calls), with an
+   * engine built for it. Null when nothing is marked, so the caller keeps its
+   * own model and its behavior is unchanged.
+   */
+  static findModelByRole(
+    modelState: ModelServiceState,
+    role: ModelRole,
+  ): ModelServiceState | null {
+    const match =
+      (modelState.assistant?.models ?? []).find(
+        (model) => !!model && model.roles?.includes(role),
+      ) ?? null;
     if (!match) {
       return null;
     }

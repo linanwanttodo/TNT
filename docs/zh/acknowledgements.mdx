@@ -8,7 +8,7 @@ TNT 建立在多个开源项目之上。下表说明每个项目贡献了什么�
 
 | 项目 | TNT 使用了什么 | 链接 |
 | --- | --- | --- |
-| Continue | 基座仓库：智能体引擎、LLM 适配层、配置格式、索引与工具抽象。TNT 是其 2.0.0 最终版的衍生作品，只发展命令行形态。 | [continuedev/continue](https://github.com/continuedev/continue) |
+| continuedev/continue | 基座仓库：智能体引擎、LLM 适配层、配置格式、索引与工具抽象。TNT 是其 2.0.0 最终版的衍生作品，只发展命令行形态。 | [continuedev/continue](https://github.com/continuedev/continue) |
 | ZCode | 浏览器与手机界面。`packages/zcode-ui/*` 是 vendored 的 ZCode 源码（UI、Web 外壳、services、shared 协议、RPC、client 与 provider 包），经改造后运行在 TNT 的本地引擎上。受管 worktree 的设计遵循 ZCode 的 `docs/git/worktree.md`。 | [zai-org/ZCode](https://github.com/zai-org/ZCode) |
 | Gemini CLI | 终端输入组件，逐字移植或裁剪移植：文本缓冲、按键处理、键位绑定、vim 缓冲操作、TextInput 渲染、终端能力探测、终端模式、剪贴板与文本工具，以及斜杠命令补全解析。 | [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
 | pi | 工具与扩展机制的设计调研。子代理派发、团队编排与长上下文处理与 `pi-subagents`、`@agimon-ai/po-team`、`billion-context` 做过逐项对比，结论影响了 TNT 的子代理与 team 机制，这些包也进入插件目录的精选列表。 | [earendil-works/pi](https://github.com/earendil-works/pi) · [pi-subagents](https://pi.dev/packages/pi-subagents) · [billion-context](https://pi.dev/packages/billion-context) · [po-team](https://pi.dev/packages/@agimon-ai/po-team?name=team) |
@@ -23,5 +23,5 @@ TNT 建立在多个开源项目之上。下表说明每个项目贡献了什么�
 
 ## 许可证
 
-TNT 采用 Apache 2.0，© 2023-2026 Continue Dev, Inc. 及各上游作者。
-vendored 与移植的组件保留上述声明文件中列出的条款。
+TNT 采用 Apache 2.0，完整许可证文本见仓库根目录的 [`LICENSE`](https://github.com/linanwanttodo/TNT/blob/main/LICENSE)，
+版权署名见 [README](https://github.com/linanwanttodo/TNT#license)。vendored 与移植的组件保留上述声明文件中列出的条款。

@@ -96,3 +96,45 @@ export function detectCacheBreak(
   }
   return null;
 }
+
+/**
+ * The fingerprint store is keyed per conversation. The streamChat payload
+ * carries no session id, so the conversation is identified by the resolved
+ * model plus the conversation's opening user message: both stay stable across
+ * the turns of one conversation, and two conversations on the same model
+ * almost never share an opener, so one conversation no longer overwrites
+ * another's fingerprint and reports a phantom prefix change. A rewritten
+ * opener (compaction) simply starts a new key and logs nothing.
+ */
+const CACHE_FINGERPRINT_LIMIT = 64;
+const cacheFingerprints = new Map<string, CacheFingerprint>();
+
+export function cacheBreakConversationKey(
+  messages: ChatMessage[],
+  model: string,
+): string {
+  const opener = messages.find((message) => message.role === "user");
+  const openerText = opener ? renderChatMessage(opener) : "";
+  return `${model}:${hashString(openerText)}`;
+}
+
+/**
+ * Compares a fingerprint against the one stored for this conversation's key
+ * and stores the new one. Returns the same shape as detectCacheBreak.
+ */
+export function compareStoredCacheFingerprint(
+  key: string,
+  fingerprint: CacheFingerprint,
+): CacheBreak | null {
+  const cacheBreak = detectCacheBreak(cacheFingerprints.get(key), fingerprint);
+  cacheFingerprints.set(key, fingerprint);
+  // The store is bounded: the map iterates in insertion order, so the first
+  // key is the oldest entry to drop.
+  if (cacheFingerprints.size > CACHE_FINGERPRINT_LIMIT) {
+    const oldest = cacheFingerprints.keys().next().value;
+    if (oldest !== undefined) {
+      cacheFingerprints.delete(oldest);
+    }
+  }
+  return cacheBreak;
+}

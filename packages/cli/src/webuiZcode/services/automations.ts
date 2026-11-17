@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import {
   IZCodeAgentService,
   type ZCodeAgentRunAutomationNowResult,
@@ -103,6 +101,24 @@ function whenDefined<K extends string, V>(
 }
 
 /**
+ * Stable per-dispatch command id. The engine merges retries by
+ * (sessionId, commandId), so every attempt of one dispatch must reuse the same
+ * value: a fresh random id turns an accepted-but-unacked command into a
+ * duplicate session/send once the retry backoff fires. Manual runs carry their
+ * runId; scheduled claims keep next_run_at unchanged across the retry window,
+ * which is exactly the scheduled runId contract (`automationId:scheduledAt`).
+ */
+function automationCommandId(
+  automation: ZCodeAutomation,
+  run?: ZCodeAutomationRun,
+): string {
+  return (
+    run?.runId ??
+    `${automation.automationId}:${automation.nextRunAt ?? "scheduled"}`
+  );
+}
+
+/**
  * Dispatches one automation prompt. A bound session receives the turn; an
  * unbound automation gets a new session in its workspace whose first input is
  * the prompt, exactly what createSession's firstInput already does for a human.
@@ -112,10 +128,11 @@ async function dispatchAutomation(
     dispatch: (method: string, params: unknown) => Promise<unknown>;
   },
   automation: ZCodeAutomation,
+  commandId: string,
 ): Promise<string | undefined> {
   if (automation.targetTaskId) {
     const ack = (await engines.dispatch(V4_METHODS.command, {
-      commandId: randomUUID(),
+      commandId,
       clientId: "tnt-automations",
       sessionId: automation.targetTaskId,
       type: "sendText",
@@ -125,14 +142,15 @@ async function dispatchAutomation(
         automationId: automation.automationId,
       }),
     })) as { status?: string; result?: { sessionId?: string } };
-    if (ack?.status !== "accepted") {
+    // "duplicate" replays the cached result: the retry was already absorbed.
+    if (ack?.status !== "accepted" && ack?.status !== "duplicate") {
       throw new Error(ack?.status ?? "sendText rejected");
     }
     return automation.targetTaskId;
   }
 
   const ack = (await engines.dispatch(V4_METHODS.command, {
-    commandId: randomUUID(),
+    commandId,
     clientId: "tnt-automations",
     sessionId: null,
     type: "createSession",
@@ -142,7 +160,7 @@ async function dispatchAutomation(
       firstInput: { text: automation.prompt },
     }),
   })) as { status?: string; result?: { sessionId?: string } };
-  if (ack?.status !== "accepted") {
+  if (ack?.status !== "accepted" && ack?.status !== "duplicate") {
     throw new Error(ack?.status ?? "createSession rejected");
   }
   return ack.result?.sessionId;
@@ -159,7 +177,11 @@ export function createZcodeAutomationBackend(engines: {
     run: ZCodeAutomationRun | undefined,
   ): Promise<void> => {
     try {
-      const sessionId = await dispatchAutomation(engines, automation);
+      const sessionId = await dispatchAutomation(
+        engines,
+        automation,
+        automationCommandId(automation, run),
+      );
       await repo.markDispatched(automation.automationId, {
         dispatchedAt: Date.now(),
         nextRunAt: computeAutomationNextRunAt(automation, Date.now()),
@@ -286,7 +308,12 @@ export function createZcodeAutomationBackend(engines: {
         params.automationId,
         scopeOf(params),
       );
-      return { status: created === null ? "duplicate" : "queued" };
+      if (created === null) return { status: "duplicate" };
+      // runNow only records the claimed manual run; the vendored contract has
+      // the current host dispatch it immediately instead of waiting for the
+      // scheduler's stale-claim recovery window to pick it up.
+      await dispatchClaimed(created.automation, created.run);
+      return { status: "queued" };
     },
     listAutomationRuns: (
       params: AutomationIdParams,

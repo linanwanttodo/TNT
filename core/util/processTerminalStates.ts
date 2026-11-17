@@ -69,20 +69,35 @@ export function removeRunningProcess(toolCallId: string): void {
 
 export async function killTerminalProcess(toolCallId: string): Promise<void> {
   const processInfo = processTerminalForegroundStates.get(toolCallId);
-  if (processInfo && !processInfo.process.killed) {
-    const { process } = processInfo;
-
-    process.kill("SIGTERM");
-
-    // Force kill after 5 seconds if still running
-    setTimeout(() => {
-      if (!process.killed) {
-        process.kill("SIGKILL");
-      }
-    }, 5000);
-
-    processTerminalForegroundStates.delete(toolCallId);
+  if (!processInfo) {
+    return;
   }
+  const { process } = processInfo;
+
+  // `killed` only indicates that kill() was called, not that the process has
+  // actually exited, so check exitCode/signalCode instead.
+  const isRunning = () =>
+    process.exitCode === null && process.signalCode === null;
+
+  if (!isRunning()) {
+    processTerminalForegroundStates.delete(toolCallId);
+    return;
+  }
+
+  process.kill("SIGTERM");
+
+  // Force kill after 5 seconds if still running
+  setTimeout(() => {
+    if (isRunning()) {
+      process.kill("SIGKILL");
+    }
+  }, 5000);
+
+  // Keep the entry until the process actually exits so a repeated cancel
+  // can still reach it.
+  process.once("exit", () => {
+    processTerminalForegroundStates.delete(toolCallId);
+  });
 }
 
 // Function to cancel multiple terminal commands at once

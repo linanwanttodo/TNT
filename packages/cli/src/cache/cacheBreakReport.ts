@@ -30,6 +30,13 @@ const ALL_PREFIX_FIELDS = [
   "history_rewritten",
 ];
 
+/**
+ * The cause a system-prompt rewrite contributes when its round also breaks the
+ * cache: the rewrite is the decision that rebilled the prefix, so the report
+ * names it alongside whatever the prefix verdict saw.
+ */
+export const SYSTEM_PROMPT_REWRITE_REASON = "system_prompt_rewrite";
+
 export interface CacheRound {
   /** Billed prompt tokens: uncached input plus cache reads and writes. */
   inputTokens: number;
@@ -287,12 +294,17 @@ export function writeCacheBreakReport(options: {
   previous: RequestHeader;
   current: RequestHeader;
   assessment: CacheBreakAssessment;
+  /** Causes beyond the prefix verdict, merged into the report's reason list. */
+  extraReasons?: readonly string[];
 }): string | undefined {
   const { verdict, previous, current, assessment } = options;
   try {
     const sessionId = getCurrentSession().sessionId;
     const dir = getCacheBreaksDir(sessionId);
-    const reasons = verdict?.reasons ?? ALL_PREFIX_FIELDS;
+    const reasons = [
+      ...(verdict?.reasons ?? ALL_PREFIX_FIELDS),
+      ...(options.extraReasons ?? []),
+    ];
     const body = {
       at: new Date().toISOString(),
       session: sessionId,

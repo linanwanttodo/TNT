@@ -42,7 +42,9 @@ export type CacheMissOwner = "prefix" | "provider";
 
 /**
  * Fields that sit at the head of the request. Moving any of them shifts the
- * bytes the provider cached, so a change here is never a passthrough.
+ * bytes the provider cached, so a change here is never a passthrough — except
+ * when the system message only grew: a string that extends the previous one
+ * byte for byte leaves the cached bytes intact, the way an appended tool does.
  *
  * `maxTokens` is not one of them: the output budget is recomputed from the
  * remaining window on every round and is not part of the prompt the provider
@@ -62,6 +64,15 @@ export const HISTORY_REWRITTEN = "history_rewritten";
 
 function sameValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+/** The old string survives byte for byte at the head of the new one. */
+function isBytePrefixExtension(previous: unknown, current: unknown): boolean {
+  return (
+    typeof previous === "string" &&
+    typeof current === "string" &&
+    current.startsWith(previous)
+  );
 }
 
 function extendsSequence(
@@ -96,9 +107,19 @@ function compareHeaderPrefix(
     return { state: "full", reasons: [] };
   }
 
-  const frozenChanges = FROZEN_FIELDS.filter(
-    (field) => !sameValue(before[field], after[field]),
-  );
+  // A system message that only grew keeps every byte the provider cached —
+  // the request extends the prefix rather than moving it. This is how a
+  // delegated run's prompt is built: the family prompt with the run's own
+  // notice appended, so the child re-reads the parent's cached bytes.
+  const systemExtended =
+    !sameValue(before.systemMessage, after.systemMessage) &&
+    isBytePrefixExtension(before.systemMessage, after.systemMessage);
+  const frozenChanges = FROZEN_FIELDS.filter((field) => {
+    if (field === "systemMessage" && systemExtended) {
+      return false;
+    }
+    return !sameValue(before[field], after[field]);
+  });
   const updatesExtended = extendsSequence(
     before.systemMessageUpdates,
     after.systemMessageUpdates,
@@ -109,6 +130,7 @@ function compareHeaderPrefix(
     return {
       state: "passthrough",
       reasons: [
+        ...(systemExtended ? ["extended:systemMessage"] : []),
         ...(sameValue(before.systemMessageUpdates, after.systemMessageUpdates)
           ? []
           : [APPENDED_UPDATES]),

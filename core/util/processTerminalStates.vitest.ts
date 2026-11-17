@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import { ChildProcess } from "child_process";
+import { EventEmitter } from "events";
 import {
   clearAllBackgroundProcesses,
   getAllBackgroundedProcessIds,
@@ -27,16 +28,16 @@ import {
   updateProcessOutput,
 } from "./processTerminalStates";
 
-// Mock ChildProcess
-const createMockProcess = (
-  pid: number = 123,
-  killed: boolean = false,
-): Mocked<ChildProcess> => {
-  const mockProcess = {
+// Mock ChildProcess. A live ChildProcess reports exitCode/signalCode as null
+// until it actually exits.
+const createMockProcess = (pid: number = 123): Mocked<ChildProcess> => {
+  const mockProcess = Object.assign(new EventEmitter(), {
     pid,
-    killed,
+    killed: false,
+    exitCode: null,
+    signalCode: null,
     kill: vi.fn(),
-  } as unknown as Mocked<ChildProcess>;
+  }) as unknown as Mocked<ChildProcess>;
 
   // Make kill() update the killed property
   mockProcess.kill.mockImplementation(() => {
@@ -45,6 +46,14 @@ const createMockProcess = (
   });
 
   return mockProcess;
+};
+
+const exitMockProcess = (
+  mockProcess: Mocked<ChildProcess>,
+  exitCode: number | null = 0,
+): void => {
+  (mockProcess as any).exitCode = exitCode;
+  mockProcess.emit("exit");
 };
 
 describe("processTerminalStates", () => {
@@ -220,6 +229,11 @@ describe("processTerminalStates", () => {
       await killTerminalProcess(toolCallId);
 
       expect(mockProcess.kill).toHaveBeenCalledWith("SIGTERM");
+      // The entry is kept until the process actually exits so a repeated
+      // cancel can still reach it
+      expect(isProcessRunning(toolCallId)).toBe(true);
+
+      exitMockProcess(mockProcess);
       expect(isProcessRunning(toolCallId)).toBe(false);
     });
 
@@ -229,15 +243,17 @@ describe("processTerminalStates", () => {
       await expect(killTerminalProcess(toolCallId)).resolves.not.toThrow();
     });
 
-    test("should handle cancelling already killed process", async () => {
+    test("should handle cancelling an already exited process", async () => {
       const toolCallId = "test-123";
-      const mockProcess = createMockProcess(123, true); // Already killed
+      const mockProcess = createMockProcess();
+      exitMockProcess(mockProcess);
 
       markProcessAsRunning(toolCallId, mockProcess);
 
       await killTerminalProcess(toolCallId);
 
       expect(mockProcess.kill).not.toHaveBeenCalled();
+      expect(isProcessRunning(toolCallId)).toBe(false);
     });
 
     test("should send SIGKILL after timeout if process not killed", async () => {
@@ -265,13 +281,16 @@ describe("processTerminalStates", () => {
       expect(mockProcess.kill).toHaveBeenCalledWith("SIGKILL");
     });
 
-    test("should not send SIGKILL if process was already killed", async () => {
+    test("should not send SIGKILL if process exited before the timeout", async () => {
       const toolCallId = "test-123";
       const mockProcess = createMockProcess();
 
       markProcessAsRunning(toolCallId, mockProcess);
 
       const cancelPromise = killTerminalProcess(toolCallId);
+
+      // The process exits gracefully after SIGTERM
+      exitMockProcess(mockProcess);
 
       // Fast-forward time to trigger the timeout
       vi.advanceTimersByTime(5000);
@@ -330,6 +349,8 @@ describe("processTerminalStates", () => {
 
       expect(mockProcess1.kill).toHaveBeenCalledWith("SIGTERM");
       expect(mockProcess2.kill).toHaveBeenCalledWith("SIGTERM");
+      exitMockProcess(mockProcess1);
+      exitMockProcess(mockProcess2);
       expect(isProcessRunning(toolCallId1)).toBe(false);
       expect(isProcessRunning(toolCallId2)).toBe(false);
     });
@@ -350,6 +371,8 @@ describe("processTerminalStates", () => {
       expect(cancelledIds).toHaveLength(2);
       expect(mockProcess1.kill).toHaveBeenCalledWith("SIGTERM");
       expect(mockProcess2.kill).toHaveBeenCalledWith("SIGTERM");
+      exitMockProcess(mockProcess1);
+      exitMockProcess(mockProcess2);
       expect(isProcessRunning(toolCallId1)).toBe(false);
       expect(isProcessRunning(toolCallId2)).toBe(false);
     });

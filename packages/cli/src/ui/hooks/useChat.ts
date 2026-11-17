@@ -35,6 +35,7 @@ import { telemetryService } from "../../telemetry/telemetryService.js";
 import { formatError } from "../../utils/formatError.js";
 import { logger } from "../../utils/logger.js";
 import { composeServedPrompt } from "../../utils/promptNotes.js";
+import { assertConfiguredHttpUrl } from "../../utils/urlGuard.js";
 import { liveHub } from "../../webuiZcode/liveHub.js";
 import { handleSlashCommands } from "../commands/index.js";
 import { requestComposerDraft } from "../composerDraft.js";
@@ -720,6 +721,13 @@ export function useChat({
     isQueuedMessage: boolean = false,
     baseHistory?: ChatHistoryItem[],
   ) => {
+    // An empty prompt is never a turn: without this guard, the composer's
+    // interrupted-state gate would let Enter send a bare prompt (served with
+    // only the session notes) to the model.
+    if (!message.trim()) return;
+    // An accepted submission ends the interrupted state, so the composer
+    // gate stops letting empty Enters through.
+    setWasInterrupted(false);
     // Use baseHistory if provided (e.g., when editing a message),
     // otherwise use current chatHistory
     const currentHistory = baseHistory ?? chatHistory;
@@ -986,16 +994,22 @@ export function useChat({
   const handleInterrupt = () => {
     // In remote mode, send interrupt signal to server
     if (isRemoteMode && remoteUrl) {
-      // Send a message to interrupt the remote server
-      fetch(`${remoteUrl}/message`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: "" }), // Empty message triggers interrupt
-      }).catch((error) => {
-        logger.error("Failed to send interrupt to remote server:", error);
-      });
+      // Send a message to interrupt the remote server. Same pre-flight guard
+      // as every other remote call: the configured host is validated before
+      // any bytes leave, even for an interrupt.
+      void assertConfiguredHttpUrl(`${remoteUrl}/message`)
+        .then(() =>
+          fetch(`${remoteUrl}/message`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: "" }), // Empty message triggers interrupt
+          }),
+        )
+        .catch((error: unknown) => {
+          logger.error("Failed to send interrupt to remote server:", error);
+        });
       return;
     }
 

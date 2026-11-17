@@ -22,7 +22,7 @@ import type {
   PluginSource,
 } from "../plugins/marketplaceTypes.js";
 
-import { theme } from "./theme/tokens.js";
+import type { Theme } from "./theme/tokens.js";
 
 export type StatusKind =
   "enabled" | "disabled" | "update" | "pending" | "error" | "not-installed";
@@ -436,7 +436,8 @@ export function statusLabel(kind: StatusKind): string {
   }
 }
 
-export function statusColor(kind: StatusKind): string {
+/** Resolved by the caller's useTheme(): this module renders nothing itself. */
+export function statusColor(kind: StatusKind, theme: Theme): string {
   switch (kind) {
     case "enabled":
       return "green";

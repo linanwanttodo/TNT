@@ -5,87 +5,109 @@ export interface CostBreakdown {
   breakdown: string;
 }
 
+/** Pricing per million tokens (MTok) by model family prefix. */
+const ANTHROPIC_PRICING: Record<
+  string,
+  { input: number; output: number; cacheWrite: number; cacheRead: number }
+> = {
+  // Claude Sonnet 4.6
+  "claude-sonnet-4-6": {
+    input: 3,
+    output: 15,
+    cacheWrite: 3.75,
+    cacheRead: 0.3,
+  },
+
+  // Claude Opus 4.6
+  "claude-opus-4-6": {
+    input: 5,
+    output: 25,
+    cacheWrite: 6.25,
+    cacheRead: 0.5,
+  },
+
+  // Claude Opus 4.5 (previous generation)
+  "claude-opus-4-5": {
+    input: 5,
+    output: 25,
+    cacheWrite: 6.25,
+    cacheRead: 0.5,
+  },
+
+  // Claude Opus 4 (legacy)
+  "claude-3-opus": {
+    input: 15,
+    output: 75,
+    cacheWrite: 18.75,
+    cacheRead: 1.5,
+  },
+
+  // Claude Sonnet 4 (optimal balance)
+  "claude-3-5-sonnet": {
+    input: 3,
+    output: 15,
+    cacheWrite: 3.75,
+    cacheRead: 0.3,
+  },
+
+  // Claude Haiku 3.5 (fastest, most cost-effective)
+  "claude-3-5-haiku": {
+    input: 0.8,
+    output: 4,
+    cacheWrite: 1,
+    cacheRead: 0.08,
+  },
+
+  // Legacy Claude 3 Haiku
+  "claude-3-haiku": {
+    input: 0.25,
+    output: 1.25,
+    cacheWrite: 0.3,
+    cacheRead: 0.03,
+  },
+};
+
+/** Longest-prefix match against the Anthropic pricing table; null when unknown. */
+function matchAnthropicPricing(model: string): {
+  input: number;
+  output: number;
+  cacheWrite: number;
+  cacheRead: number;
+} | null {
+  const normalizedModel = model.toLowerCase();
+  const sortedKeys = Object.keys(ANTHROPIC_PRICING).sort(
+    (a, b) => b.length - a.length,
+  );
+  for (const prefix of sortedKeys) {
+    if (normalizedModel.startsWith(prefix)) {
+      return ANTHROPIC_PRICING[prefix];
+    }
+  }
+  return null;
+}
+
+/**
+ * The provider's cache-read price as a fraction of its full input price, for
+ * models with a known table; undefined otherwise. Callers weighing a cache
+ * rewrite against the bytes it would re-pay at full price need this ratio —
+ * re-reading cached bytes costs `ratio` of what new bytes cost. An unknown
+ * model has no answer, and the caller picks its own conservative default.
+ */
+export function cacheReadDiscountRatio(model: string): number | undefined {
+  const modelPricing = matchAnthropicPricing(model);
+  if (!modelPricing || modelPricing.input <= 0) {
+    return undefined;
+  }
+  return Math.min(modelPricing.cacheRead / modelPricing.input, 1);
+}
+
 function calculateAnthropicCost(
   model: string,
   usage: Usage,
 ): CostBreakdown | null {
-  // Normalize model name to handle various formats
-  const normalizedModel = model.toLowerCase();
+  const modelPricing = matchAnthropicPricing(model);
 
-  // Define pricing per million tokens (MTok) by model family prefix
-  const pricing: Record<
-    string,
-    { input: number; output: number; cacheWrite: number; cacheRead: number }
-  > = {
-    // Claude Sonnet 4.6
-    "claude-sonnet-4-6": {
-      input: 3,
-      output: 15,
-      cacheWrite: 3.75,
-      cacheRead: 0.3,
-    },
-
-    // Claude Opus 4.6
-    "claude-opus-4-6": {
-      input: 5,
-      output: 25,
-      cacheWrite: 6.25,
-      cacheRead: 0.5,
-    },
-
-    // Claude Opus 4.5 (previous generation)
-    "claude-opus-4-5": {
-      input: 5,
-      output: 25,
-      cacheWrite: 6.25,
-      cacheRead: 0.5,
-    },
-
-    // Claude Opus 4 (legacy)
-    "claude-3-opus": {
-      input: 15,
-      output: 75,
-      cacheWrite: 18.75,
-      cacheRead: 1.5,
-    },
-
-    // Claude Sonnet 4 (optimal balance)
-    "claude-3-5-sonnet": {
-      input: 3,
-      output: 15,
-      cacheWrite: 3.75,
-      cacheRead: 0.3,
-    },
-
-    // Claude Haiku 3.5 (fastest, most cost-effective)
-    "claude-3-5-haiku": {
-      input: 0.8,
-      output: 4,
-      cacheWrite: 1,
-      cacheRead: 0.08,
-    },
-
-    // Legacy Claude 3 Haiku
-    "claude-3-haiku": {
-      input: 0.25,
-      output: 1.25,
-      cacheWrite: 0.3,
-      cacheRead: 0.03,
-    },
-  };
-
-  // Sort keys by length (longest first) to match most specific patterns first
-  const sortedKeys = Object.keys(pricing).sort((a, b) => b.length - a.length);
-
-  let modelPricing = null;
-  for (const prefix of sortedKeys) {
-    if (normalizedModel.startsWith(prefix)) {
-      modelPricing = pricing[prefix];
-      break;
-    }
-  }
-
-  if (!modelPricing) {
+  if (modelPricing === null) {
     return null; // Unknown model
   }
 

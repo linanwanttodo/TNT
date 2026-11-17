@@ -20,6 +20,11 @@ function parentContext(): AgentRunContext {
     permissions: agentPermissions(),
     mode: "default",
     abortSignal: new AbortController().signal,
+    advertise: {
+      permissions: agentPermissions(),
+      isHeadless: false,
+      mode: "default",
+    },
   };
 }
 

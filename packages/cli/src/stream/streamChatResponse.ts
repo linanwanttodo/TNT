@@ -18,6 +18,7 @@ import {
 } from "../loop/termination.js";
 import { type TurnBudgetLimits } from "../loop/turnBudget.js";
 import { services } from "../services/index.js";
+import { trackCompactionReduction } from "../session/index.js";
 import { applyChatCompletionToolOverrides } from "../tools/applyToolOverrides.js";
 import { readTodoState } from "../tools/todo.js";
 import { logger } from "../utils/logger.js";
@@ -160,6 +161,7 @@ export async function streamChatResponse(
     isHeadless,
     runOverrides?.permissions,
     runOverrides?.canDelegate,
+    runOverrides?.advertise,
   );
   const tools = applyChatCompletionToolOverrides(
     rawTools,
@@ -340,6 +342,10 @@ export async function streamChatResponse(
       chatHistory,
       requestHeader,
       promptCacheKey,
+      // The client-side prefix memory follows the sender, not the provider
+      // routing key: a delegated run compares against its own previous request
+      // instead of the parent's, whose header it would otherwise clobber.
+      prefixScope: runOverrides?.prefixScope,
       isCompacting,
       coldTurn: state.coldTurn,
       historyRewritten: state.historyRewritten,
@@ -400,6 +406,9 @@ export async function streamChatResponse(
         previous: previousRequestHeader,
         current: requestHeader,
       },
+      agentType: runOverrides?.agentType,
+      sessionId: runOverrides?.sessionId,
+      systemPromptRewritten: advancedPrompt.action === "rewrite",
     });
     noteRequestCompleted(state);
     // What the provider measured for this request is the honest fullness of the
@@ -614,6 +623,13 @@ export async function streamChatResponse(
       compactionResult.reductionRatio ??
       postToolReductionRatio ??
       preApiReductionRatio;
+    // The session's reduction buckets answer "what does compaction buy" as a
+    // distribution. The round's one merged ratio is what the budget judges, so
+    // it is also what the bucket counts, keeping both accounts about the same
+    // compaction.
+    if (state.compactionOccurred && reductionRatio !== undefined) {
+      trackCompactionReduction(reductionRatio);
+    }
     // Only a round that actually ran a summarization counts toward the
     // compaction circuit. In-place tool-result trimming rewrites the history
     // too, but spends no model call and often removes very little, so charging

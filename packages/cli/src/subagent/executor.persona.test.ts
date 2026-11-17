@@ -46,6 +46,7 @@ vi.mock("../services/index.js", () => ({
         currentMode: "default",
         permissions: { policies: [{ tool: "*", permission: "allow" }] },
       })),
+      isHeadless: vi.fn(() => false),
     },
   },
 }));

@@ -21,6 +21,7 @@ function parent(
     permissions,
     mode: "default",
     abortSignal: new AbortController().signal,
+    advertise: { permissions, isHeadless: false, mode: "default" },
     ...overrides,
   };
 }

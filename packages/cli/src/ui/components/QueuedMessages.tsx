@@ -3,7 +3,7 @@ import React from "react";
 
 import { t } from "../../i18n/index.js";
 import type { QueuedMessage } from "../../stream/messageQueue.js";
-import { theme } from "../theme/tokens.js";
+import { useTheme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 const MAX_PREVIEW = 80;
@@ -24,6 +24,7 @@ export interface QueuedMessagesProps {
  * Ctrl+X and Ctrl+R are already outside the text buffer's key set.
  */
 export const QueuedMessages: React.FC<QueuedMessagesProps> = ({ messages }) => {
+  const theme = useTheme();
   if (messages.length === 0) {
     return null;
   }

@@ -3,7 +3,7 @@ import type { ToolStatus } from "core/index.js";
 import type { ChatCompletionCreateParamsStreaming } from "openai/resources.mjs";
 
 import type { TerminationReason } from "../loop/termination.js";
-import type { ToolPermissions } from "../permissions/types.js";
+import type { AdvertiseBasis, ToolPermissions } from "../permissions/types.js";
 import type { PermissionMode } from "../permissions/types.js";
 import {
   getReasoningOverride,
@@ -109,6 +109,27 @@ export interface StreamRunOverrides {
    * the delegation tool out of the tool list entirely.
    */
   readonly canDelegate?: boolean;
+  /**
+   * What the tool list is advertised under. A delegated run passes the family
+   * basis it inherited, so the tool bytes it sends stay identical to the run
+   * that spawned it and the provider keeps reading the shared cached prefix;
+   * execution still uses the narrowed `permissions` above. Left unset, the
+   * list is advertised under this run's own view, as top-level turns want.
+   */
+  readonly advertise?: AdvertiseBasis;
+  /**
+   * The sender's own identity for the client-side prefix memory, kept apart
+   * from the provider routing key so a delegated run's verdicts compare
+   * against its own previous request instead of the parent's.
+   */
+  readonly prefixScope?: string;
+  /**
+   * The dispatching agent's name, for the per-agent usage ledger. Present only
+   * on delegated runs, so the main surface's rounds stay in the main row.
+   */
+  readonly agentType?: string;
+  /** The session this run owns, the second dimension of its usage row. */
+  readonly sessionId?: string;
 }
 
 export function getDefaultCompletionOptions(

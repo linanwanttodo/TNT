@@ -30,16 +30,16 @@ describe("UserInput - Missing File Handling", () => {
       const content = await fsPromises.readFile(absolutePath, "utf-8");
       mockOnFileAttached(absolutePath, content);
     } catch (error) {
-      // If file doesn't exist, just attach the filename without content
+      // If file doesn't exist, attach the filename without content
       if (error instanceof Error && (error as any).code === "ENOENT") {
         const absolutePath = resolveWithin(root, filePath);
-        mockOnFileAttached(absolutePath, filePath); // Just the filename for missing file
+        mockOnFileAttached(absolutePath, ""); // No content for missing file
       } else {
         console.error(`Error reading file ${filePath}:`, error);
       }
     }
 
-    // Should have called onFileAttached with filename as content
-    expect(mockOnFileAttached).toHaveBeenCalledWith(filePath, filePath);
+    // Should have called onFileAttached with the path and no content
+    expect(mockOnFileAttached).toHaveBeenCalledWith(filePath, "");
   });
 });

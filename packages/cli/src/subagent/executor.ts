@@ -139,6 +139,11 @@ function resolveParentAndDepth(
       permissions: services.toolPermissions.getState().permissions,
       mode: services.toolPermissions.getState().currentMode,
       abortSignal: abortController.signal,
+      advertise: {
+        permissions: services.toolPermissions.getState().permissions,
+        isHeadless: services.toolPermissions.isHeadless(),
+        mode: services.toolPermissions.getState().currentMode,
+      },
     } satisfies AgentRunContext);
 
   return { resolvedParent, maxDelegationDepth };
@@ -494,9 +499,12 @@ export async function executeSubAgent(
     const agentId = childContext.id;
 
     // Queue behind the member concurrency cap before the run starts, so a
-    // large roster cannot unpack into unbounded parallel work.
+    // large roster cannot unpack into unbounded parallel work. The lead's own
+    // signal cancels the wait: a queued member whose run handle is isolated
+    // would otherwise wake only after another member releases, with an
+    // already-aborted controller.
     if (teamMember) {
-      await acquireTeamMemberSlot();
+      await acquireTeamMemberSlot(abortController.signal);
       memberSlotHeld = true;
       startTeamMemberRun(
         teamMember.runId,
@@ -567,6 +575,15 @@ export async function executeSubAgent(
             systemMessage: childContext.systemMessage,
             isHeadless: true,
             permissions: childContext.permissions,
+            // Advertise the family's tool list so the request bytes share the
+            // cached prefix with the run that spawned this one; the narrowed
+            // `permissions` above still decide what a call may do.
+            advertise: childContext.advertise,
+            prefixScope: childContext.id,
+            // The usage ledger rows are keyed by agent, so parallel dispatches
+            // account their tokens apart from the parent's and each other's.
+            agentType,
+            sessionId: childSessionId,
             canDelegate: canDelegate({
               delegationDepth: childDepth,
               maxDelegationDepth,

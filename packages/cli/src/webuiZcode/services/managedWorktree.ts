@@ -37,6 +37,7 @@ export class ManagedWorktreeError extends Error {
       | "not-a-repository"
       | "start-ref-missing"
       | "start-ref-missing-subdir"
+      | "invalid-ref"
       | "git-failed"
       | "copy-failed",
     readonly detail?: string,
@@ -214,6 +215,16 @@ export async function createManagedWorktree(options: {
   /** Branch, tag or sha; absent means the current HEAD (detached). */
   ref?: string;
 }): Promise<ManagedWorktreeInfo> {
+  // The ref arrives from the WebUI, so it must never be arguable: a ref
+  // starting with "-" would be parsed by git as an option (argv injection)
+  // once it is pushed onto the `worktree add` command line.
+  if (options.ref && options.ref.startsWith("-")) {
+    throw new ManagedWorktreeError(
+      "a worktree ref must not start with '-'",
+      "invalid-ref",
+      options.ref,
+    );
+  }
   const context = await resolveContext(options.workspacePath);
   const root = managedRoot();
   fs.mkdirSync(root, { recursive: true });
@@ -243,8 +254,23 @@ export async function createManagedWorktree(options: {
       : new ManagedWorktreeError("worktree add failed", "git-failed");
   }
 
-  const taskCwdPath = taskCwd(worktreeRoot, context);
-  const copied = await copyIgnoredFiles(context, worktreeRoot);
+  let taskCwdPath: string;
+  let copied: number;
+  try {
+    taskCwdPath = taskCwd(worktreeRoot, context);
+    copied = await copyIgnoredFiles(context, worktreeRoot);
+  } catch (error) {
+    // The worktree is already registered in the source repo; a failed task cwd
+    // or copy step must recycle it or the orphan is unremovable from the UI.
+    await git(context.toplevel, [
+      "worktree",
+      "remove",
+      "--force",
+      worktreeRoot,
+    ]).catch(() => undefined);
+    await git(context.toplevel, ["worktree", "prune"]).catch(() => undefined);
+    throw error;
+  }
   logger.info("Managed worktree created", {
     worktreePath: taskCwdPath,
     ref: options.ref ?? "HEAD",
@@ -282,7 +308,8 @@ export function managedWorktreeRoot(): string {
 function isManagedPath(candidate: string): boolean {
   const root = managedRoot();
   const relative = path.relative(root, path.resolve(candidate));
-  return !relative.startsWith("..") && relative.split(path.sep).length === 3;
+  // Managed layout is <bucket>/<repoName>: exactly two segments under the root.
+  return !relative.startsWith("..") && relative.split(path.sep).length === 2;
 }
 
 interface WorktreeListEntry {
