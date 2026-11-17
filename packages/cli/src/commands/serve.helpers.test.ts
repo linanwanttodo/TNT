@@ -331,11 +331,15 @@ describe("serve lifecycle hooks", () => {
     expect(hooks.userPromptSubmit).toHaveBeenCalledWith("fix the file");
     expect(prepared.blocked).toBe(false);
     // The runtime-context note rides along (clock); the hook note leads and
-    // the user's text stays last, which is what this case pins.
-    expect(splitServedPrompt(prepared.text)).toEqual({
-      userText: "fix the file",
-      notes: ["style: two spaces", expect.stringContaining("Runtime context:")],
-    });
+    // the user's text stays last, which is what this case pins. A large
+    // workspace may add one exploration note to the same run.
+    const split = splitServedPrompt(prepared.text);
+    expect(split.userText).toBe("fix the file");
+    expect(split.notes[0]).toBe("style: two spaces");
+    expect(split.notes[1]).toContain("Runtime context:");
+    for (const note of split.notes.slice(2)) {
+      expect(note).toContain("Exploration context");
+    }
   });
 
   it("leads with the session note on the first prompt only", async () => {

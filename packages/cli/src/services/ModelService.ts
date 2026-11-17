@@ -383,8 +383,11 @@ export class ModelService
     }));
 
     // Built-in roles are defined by what they do, not by a model someone has to
-    // configure, so they run on the session's own model. A configured agent that
-    // takes the same name wins, because that is the user overriding a default.
+    // configure. A configured agent that takes the same name wins, because that
+    // is the user overriding a default. When a built-in names a preferred role,
+    // a configured model tagged for it (for example a cheap `roles: ["search"]`
+    // model) is inherited instead of the session model; absent one, behavior is
+    // exactly as before.
     const inheritFrom = modelState.model ?? configuredModels[0];
     if (inheritFrom) {
       const declared = new Set(entries.map((entry) => entry.model.name));
@@ -392,12 +395,16 @@ export class ModelService
         if (declared.has(agent.name)) {
           continue;
         }
+        const preferred = agent.preferredRole
+          ? ModelService.findModelByRole(modelState, agent.preferredRole)?.model
+          : undefined;
+        const base = preferred ?? inheritFrom;
         const model: ModelConfig = {
-          ...inheritFrom,
+          ...base,
           name: agent.name,
           roles: ["subagent"],
           chatOptions: {
-            ...inheritFrom.chatOptions,
+            ...base.chatOptions,
             baseSystemMessage: agent.systemMessage,
           },
         };

@@ -4,6 +4,7 @@ import type { ChatHistoryItem, Session, ToolStatus } from "core/index.js";
 import type { Express, NextFunction, Request, Response } from "express";
 
 import { describeChangedFiles } from "../agent/changedFiles.js";
+import { takeExplorationNote } from "../agent/explorationNote.js";
 import { DEFAULT_SESSION_TITLE } from "../config/constants.js";
 import {
   fireSessionEnd,
@@ -98,6 +99,7 @@ export async function prepareServedPrompt(
     promptHook?.additionalContext,
     describeChangedFiles(),
     runtimeContextNote({ model: context?.model }),
+    takeExplorationNote(),
   ].filter((note): note is string => Boolean(note));
   return {
     text: composeServedPrompt(message, notes),

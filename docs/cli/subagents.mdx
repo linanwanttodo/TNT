@@ -14,13 +14,15 @@ surface settles.
 ## Built-in roles
 
 Nine roles ship with the CLI. Each one carries its own system message and its
-own restriction, and runs on whatever model the session is using. `ListSubagents`
-shows the same list to the model.
+own restriction, and runs on whatever model the session is using. The `explore`
+role uses a model tagged `roles: ["search"]` when one is configured, so a cheap
+model can carry the exploration window. `ListSubagents` shows the same list to
+the model.
 
 | Role              | What it does                                                                                   | Cannot                                   |
 | ----------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | `verification`    | Runs the build, tests and linters, then tries to break the change; answers PASS/FAIL/PARTIAL    | Edit files                               |
-| `explore`         | Maps how a question is answered by the code, with `file:line` evidence                          | Edit files, run commands                 |
+| `explore`         | Maps how a question is answered by the code, with `file:line` evidence, using local tools only   | Edit files, run commands                 |
 | `debug`           | Reproduces a failure, narrows it to a root cause, returns the smallest fix and how to check it  | Edit files                               |
 | `security-review` | Reviews a change for injection, authorization, secrets, unsafe file operations and SSRF         | Edit files                               |
 | `shell`           | Runs the commands a task needs and reports each with its exit code and output                   | Edit files                               |

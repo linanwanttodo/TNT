@@ -5,6 +5,7 @@ import { useApp } from "ink";
 import { useEffect, useRef, useState } from "react";
 
 import { describeChangedFiles } from "../../agent/changedFiles.js";
+import { takeExplorationNote } from "../../agent/explorationNote.js";
 import { currentPromptCacheKey } from "../../cache/promptCacheKey.js";
 import { describeContextBudget } from "../../compaction/contextBudget.js";
 import { findCompactionIndex } from "../../compaction/index.js";
@@ -496,6 +497,7 @@ export function useChat({
               [
                 promptHook.additionalContext,
                 runtimeContextNote({ model }),
+                takeExplorationNote(),
               ].filter((note): note is string => Boolean(note)),
             );
             const item = await formatMessageWithFiles(
@@ -802,6 +804,7 @@ export function useChat({
       describeChangedFiles(),
       model ? describeContextBudget(currentHistory, model) : undefined,
       runtimeContextNote({ model }),
+      takeExplorationNote(),
     ];
     message = composeServedPrompt(
       message,

@@ -6,6 +6,7 @@ import { ChatDescriber } from "core/util/chatDescriber.js";
 
 import { expandMentions } from "../agent/atMentions.js";
 import { describeChangedFiles } from "../agent/changedFiles.js";
+import { takeExplorationNote } from "../agent/explorationNote.js";
 import { describeContextBudget } from "../compaction/contextBudget.js";
 import { findCompactionIndex } from "../compaction/index.js";
 import { compactHistoryOnce } from "../compaction/manual.js";
@@ -797,6 +798,7 @@ async function runHeadlessMode(
       describeChangedFiles(),
       describeContextBudget(chatHistory, model),
       runtimeContextNote({ model }),
+      takeExplorationNote(),
       schemaNote,
     ];
     effectiveInput = composeServedPrompt(

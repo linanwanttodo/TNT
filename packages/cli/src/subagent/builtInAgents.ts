@@ -1,3 +1,5 @@
+import type { ModelRole } from "@tnt/config-yaml";
+
 import type { SubagentRestriction } from "../team/restrictions.js";
 
 /**
@@ -6,13 +8,20 @@ import type { SubagentRestriction } from "../team/restrictions.js";
  * TNT's delegated agents are otherwise config entries (`roles: ["subagent"]`
  * plus a system message), which is right for models a user picks and wrong for
  * a role that is defined by what it does. So a built-in carries its own prompt
- * and its own restriction, and runs on whatever model the session is using.
+ * and its own restriction, and runs on whatever model the session is using
+ * unless a cheaper model is tagged for its role.
  */
 export interface BuiltInAgentDefinition {
   name: string;
   /** What the listing tool shows, and the delegation hint for the model. */
   description: string;
   restriction: SubagentRestriction;
+  /**
+   * A configured model with this role is preferred over the session model.
+   * Search is the expensive half of codebase exploration: dead ends and raw
+   * tool output belong in the cheap child's window, not the main model's.
+   */
+  preferredRole?: ModelRole;
   /**
    * Tool names removed from this agent's tool list entirely, on top of what
    * the restriction cuts. An absent tool costs no schema tokens and gives the
@@ -79,6 +88,8 @@ const EXPLORE_SYSTEM_MESSAGE = `You are an exploration agent. You answer a quest
 
 Start from the entry points the caller names. For each, read the file, find the definition, check the call sites that matter, and stop when the answer is evidenced. Prefer Search, CodebaseSearch, FindSymbol, Read and List over guessing: a name you have not opened is not evidence.
 
+Work entirely from local evidence: do not fetch remote services or external code indexes. The caller wants the map, not a transcript of your search - report the conclusion and the evidence behind it, never the raw tool output, the dead ends, or files that turned out to be irrelevant. That output stays in this child session; only your answer returns to the main model.
+
 Return, in this order:
 - Answer: 1-3 sentences that answer the caller's question directly.
 - Path: the files and symbols that matter, one per line, as \`path:line - why it matters\`.
@@ -92,6 +103,7 @@ export const EXPLORE_AGENT: BuiltInAgentDefinition = {
   description:
     "Maps how a question is answered by the codebase: the files, symbols and call path that matter, with file:line evidence. Read-only; use it to locate and understand code before changing it.",
   restriction: "readonly",
+  preferredRole: "search",
   deniedTools: ["AskQuestion", "Exit"],
   systemMessage: EXPLORE_SYSTEM_MESSAGE,
 };

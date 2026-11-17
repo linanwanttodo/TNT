@@ -29,6 +29,8 @@ import { trackSessionUsage, type SessionUsageMeta } from "../session/index.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
 
+import { addContentSections, type ContentSections } from "./contentSections.js";
+
 /**
  * The last rounds' hit rates per conversation, for the floor check. The break
  * detector asks whether one round dropped; this asks whether the tail stopped
@@ -130,6 +132,8 @@ interface RoundUsageDims {
   agentType?: string;
   sessionId?: string;
   systemPromptRewritten?: boolean;
+  /** Local estimate of the request split by content class. */
+  contentSections?: ContentSections;
 }
 
 /**
@@ -165,6 +169,8 @@ export function recordStreamTelemetry(options: {
   sessionId?: string;
   /** True when this round rewrote the system prompt and rebilled the prefix. */
   systemPromptRewritten?: boolean;
+  /** Local estimate of this request split by content class. */
+  contentSections?: ContentSections;
 }): number {
   const {
     requestStartTime,
@@ -178,8 +184,14 @@ export function recordStreamTelemetry(options: {
     agentType,
     sessionId,
     systemPromptRewritten,
+    contentSections,
   } = options;
-  const dims: RoundUsageDims = { agentType, sessionId, systemPromptRewritten };
+  const dims: RoundUsageDims = {
+    agentType,
+    sessionId,
+    systemPromptRewritten,
+    ...(contentSections === undefined ? {} : { contentSections }),
+  };
   const totalDuration = responseEndTime - requestStartTime;
 
   // Calculate cost using comprehensive pricing that includes caching
@@ -308,6 +320,11 @@ export interface TurnUsageSnapshot {
   sessionId?: string;
   /** True when a round of this row rewrote the system prompt. */
   systemPromptRewritten?: boolean;
+  /**
+   * Local estimates of where the input tokens went. Sums per round, not the
+   * provider's bill: the provider reports one input number and no split.
+   */
+  contentSections?: ContentSections;
 }
 
 let turnUsage: TurnUsageSnapshot | null = null;
@@ -347,6 +364,24 @@ export function beginTurnUsage(): void {
   agentTurnUsage.clear();
 }
 
+function addSections(
+  row: TurnUsageSnapshot,
+  sections: ContentSections | undefined,
+): void {
+  if (sections === undefined) {
+    return;
+  }
+  row.contentSections = addContentSections(
+    row.contentSections ?? {
+      system: 0,
+      tools: 0,
+      messages: 0,
+      hookNotes: 0,
+    },
+    sections,
+  );
+}
+
 /** One provider round inside the turn joins the ledger. */
 function addRoundUsage(options: {
   inputTokens: number;
@@ -371,6 +406,7 @@ function addRoundUsage(options: {
     row.cacheWriteTokens += cacheWrite;
     row.cost += cost;
     row.rounds += 1;
+    addSections(row, dims.contentSections);
     if (dims.systemPromptRewritten) {
       row.systemPromptRewritten = true;
     }
@@ -387,6 +423,7 @@ function addRoundUsage(options: {
   turnUsage.cacheWriteTokens += cacheWrite;
   turnUsage.cost += cost;
   turnUsage.rounds += 1;
+  addSections(turnUsage, dims.contentSections);
   if (dims.systemPromptRewritten) {
     turnUsage.systemPromptRewritten = true;
   }
@@ -451,6 +488,8 @@ export function recordRoundAccounting(options: {
   sessionId?: string;
   /** True when this round rewrote the system prompt and rebilled the prefix. */
   systemPromptRewritten?: boolean;
+  /** Local estimate of this request split by content class. */
+  contentSections?: ContentSections;
 }): {
   cost: number;
   cacheTokens: { cacheReadTokens?: number; cacheWriteTokens?: number };
@@ -470,6 +509,7 @@ export function recordRoundAccounting(options: {
     agentType,
     sessionId,
     systemPromptRewritten,
+    contentSections,
   } = options;
 
   const cost = recordStreamTelemetry({
@@ -484,6 +524,7 @@ export function recordRoundAccounting(options: {
     agentType,
     sessionId,
     systemPromptRewritten,
+    ...(contentSections === undefined ? {} : { contentSections }),
   });
   const cacheTokens = cacheTokensFrom(fullUsage);
   addRoundUsage({
@@ -492,7 +533,12 @@ export function recordRoundAccounting(options: {
     cacheRead: cacheTokens.cacheReadTokens ?? 0,
     cacheWrite: cacheTokens.cacheWriteTokens ?? 0,
     cost,
-    dims: { agentType, sessionId, systemPromptRewritten },
+    dims: {
+      agentType,
+      sessionId,
+      systemPromptRewritten,
+      ...(contentSections === undefined ? {} : { contentSections }),
+    },
   });
 
   // Enhance fullUsage with model and cost for saving to session

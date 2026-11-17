@@ -24,6 +24,7 @@ import {
 } from "../utils/exponentialBackoff.js";
 import { logger } from "../utils/logger.js";
 
+import { estimateContentSections } from "./contentSections.js";
 import { composeRequestMessages } from "./requestMessages.js";
 import { pruneHistoryToContextLimit } from "./requestPreparation.js";
 import {
@@ -226,6 +227,13 @@ export async function processStreamingResponse(
       agentType,
       sessionId,
       systemPromptRewritten,
+      contentSections: estimateContentSections({
+        systemMessage,
+        systemMessageUpdates,
+        tools,
+        chatHistory,
+        environmentContext,
+      }),
     });
     const totalDuration = responseEndTime - requestStartTime;
 

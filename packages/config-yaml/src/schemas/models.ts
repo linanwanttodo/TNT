@@ -29,6 +29,7 @@ export const modelRolesSchema = z.enum([
   "apply",
   "summarize",
   "subagent",
+  "search",
 ]);
 export type ModelRole = z.infer<typeof modelRolesSchema>;
 

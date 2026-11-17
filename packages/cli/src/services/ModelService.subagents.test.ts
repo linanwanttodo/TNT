@@ -64,6 +64,36 @@ describe("subagent registry", () => {
       ModelService.getSubagentModels(stateOf({ model: null, assistant: null })),
     ).toEqual([]);
   });
+
+  it("gives exploration the configured search model, not the session model", () => {
+    const cheap = {
+      ...sessionModel,
+      name: "fast-lookup",
+      model: "small-model",
+      roles: ["search"],
+    };
+    const state = stateOf({
+      assistant: { models: [sessionModel, cheap] },
+    });
+    const explore = ModelService.getSubagentModels(state).find(
+      (entry) => entry.model.name === "explore",
+    );
+    expect(explore?.model.model).toBe("small-model");
+    expect(explore?.model.chatOptions?.baseSystemMessage).toContain(
+      "exploration agent",
+    );
+    const verifier = ModelService.getSubagentModels(state).find(
+      (entry) => entry.model.name === "verification",
+    );
+    expect(verifier?.model.model).toBe("gpt-x");
+  });
+
+  it("keeps the session model when no search model is configured", () => {
+    const explore = ModelService.getSubagentModels(stateOf()).find(
+      (entry) => entry.model.name === "explore",
+    );
+    expect(explore?.model.model).toBe("gpt-x");
+  });
 });
 
 describe("findModelByName", () => {
