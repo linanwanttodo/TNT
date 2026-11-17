@@ -16,11 +16,13 @@ import {
   type TerminalStopKind,
 } from "../loop/terminalStop.js";
 import { noteUnreportedRequest } from "../session/index.js";
+import { recordNetworkDebug } from "../telemetry/debugRings.js";
 import { telemetryService } from "../telemetry/telemetryService.js";
 import { ToolCall } from "../tools/index.js";
 import {
   chatCompletionStreamWithBackoff,
   withExponentialBackoff,
+  type TransportEvent,
 } from "../utils/exponentialBackoff.js";
 import { logger } from "../utils/logger.js";
 
@@ -155,6 +157,32 @@ export async function processStreamingResponse(
   const requestStartTime = Date.now();
   const promptCacheKey = currentPromptCacheKey();
 
+  // What the retry loop saw, filed under this conversation so the developer
+  // panel can show a request that was refused, retried or went silent next to
+  // the round it belonged to.
+  const reportTransport = (event: TransportEvent): void => {
+    recordNetworkDebug(promptCacheKey, {
+      statusType:
+        event.kind === "stalled"
+          ? "model_stream_stalled"
+          : event.kind === "retry"
+            ? "model_retry_scheduled"
+            : "model_request_failed",
+      modelId: model.model,
+      providerKind: model.provider,
+      querySource: agentType ? `agent:${agentType}` : "main",
+      attempt: event.attempt,
+      maxAttempts: event.maxAttempts,
+      retryable: event.retryable,
+      statusCode: event.statusCode,
+      delayMs: event.delayMs,
+      idleMs: event.idleMs,
+      reason: event.reason,
+      message: event.message,
+      durationMs: Math.max(0, Date.now() - requestStartTime),
+    });
+  };
+
   const streamFactory = async (retryAbortSignal: AbortSignal) => {
     logger.debug("Creating chat completion stream", {
       model,
@@ -173,6 +201,7 @@ export async function processStreamingResponse(
         ...(promptCacheKey ? { prompt_cache_key: promptCacheKey } : {}),
       },
       retryAbortSignal,
+      { onTransportEvent: reportTransport },
     );
   };
 
@@ -189,12 +218,14 @@ export async function processStreamingResponse(
     inputTokens: 0,
     outputTokens: 0,
     fullUsage: null,
+    firstTokenTime: null,
   };
 
   try {
     const streamWithBackoff = withExponentialBackoff(
       streamFactory,
       abortController.signal,
+      { onTransportEvent: reportTransport },
     );
 
     const chunkCount = await consumeProviderStream(
@@ -234,6 +265,7 @@ export async function processStreamingResponse(
         chatHistory,
         environmentContext,
       }),
+      firstTokenTime: streamState.firstTokenTime,
     });
     const totalDuration = responseEndTime - requestStartTime;
 

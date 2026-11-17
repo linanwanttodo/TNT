@@ -310,4 +310,59 @@ describe("UserInput slash palette Tab while a turn runs", () => {
       tree.unmount();
     }
   });
+
+  // The state that actually reaches this component mid-turn: useChat flips
+  // inputMode off for the length of the answer. The palette used to vanish
+  // for that whole window even though the buffer stayed editable and Enter
+  // still submitted a command - typing "/" showed nothing.
+  it("opens while a turn runs with the composer out of input mode", async () => {
+    const onSubmit = vi.fn();
+    const tree = render(
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={false}
+          isWaitingForResponse={true}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
+    );
+    try {
+      await tick();
+      tree.stdin.write("/");
+      await tick();
+      tree.stdin.write("he");
+      await tick();
+
+      expect(tree.lastFrame() ?? "").toContain("/help");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("opens while compaction is running", async () => {
+    const onSubmit = vi.fn();
+    const tree = render(
+      <KeypressProvider>
+        <UserInput
+          onSubmit={onSubmit}
+          inputMode={false}
+          isCompacting={true}
+          isWaitingForResponse={false}
+          assistant={{} as any}
+        />
+      </KeypressProvider>,
+    );
+    try {
+      await tick();
+      tree.stdin.write("/");
+      await tick();
+      tree.stdin.write("he");
+      await tick();
+
+      expect(tree.lastFrame() ?? "").toContain("/help");
+    } finally {
+      tree.unmount();
+    }
+  });
 });

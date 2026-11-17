@@ -24,6 +24,32 @@ export interface ExponentialBackoffOptions {
    * the bound.
    */
   idleMs?: number;
+  /**
+   * Told what happened to the transport: an attempt refused, a wait scheduled,
+   * a stream gone silent, the budget spent. This layer knows nothing about
+   * conversations, so it reports and lets the caller file the fact - which is
+   * also why the developer panel can show retries without this file importing
+   * the cache or the session.
+   */
+  onTransportEvent?: (event: TransportEvent) => void;
+}
+
+/**
+ * One thing that happened to a request's transport, as the retry loop saw it.
+ * `stalled` carries the silence that ended the attempt; `retry` carries the
+ * wait before the next one; `failed` is the budget running out.
+ */
+export interface TransportEvent {
+  kind: "retry" | "stalled" | "failed";
+  /** 1-based, of `maxAttempts`. */
+  attempt: number;
+  maxAttempts: number;
+  delayMs?: number;
+  idleMs?: number;
+  statusCode?: number;
+  retryable?: boolean;
+  reason?: string;
+  message?: string;
 }
 
 /**
@@ -53,7 +79,16 @@ export function streamIdleTimeoutMs(
     : DEFAULT_STREAM_IDLE_MS;
 }
 
-const DEFAULT_OPTIONS: Required<ExponentialBackoffOptions> = {
+/**
+ * The numeric knobs, all of which have a default. `onTransportEvent` is
+ * deliberately outside this type: a reporter has no default, and folding it in
+ * would make every defaulted read look like it might call something.
+ */
+type ResolvedOptions = Required<
+  Omit<ExponentialBackoffOptions, "onTransportEvent">
+>;
+
+const DEFAULT_OPTIONS: ResolvedOptions = {
   maxRetries: 10,
   initialDelay: 1000,
   maxDelay: 30000,
@@ -68,10 +103,9 @@ const DEFAULT_OPTIONS: Required<ExponentialBackoffOptions> = {
  * with no opinion about the bound should still honour one set later, and a
  * caller that passes `idleMs` outranks both.
  */
-function resolveOptions(
-  options: ExponentialBackoffOptions,
-): Required<ExponentialBackoffOptions> {
-  return { ...DEFAULT_OPTIONS, idleMs: streamIdleTimeoutMs(), ...options };
+function resolveOptions(options: ExponentialBackoffOptions): ResolvedOptions {
+  const { onTransportEvent: _reporter, ...knobs } = options;
+  return { ...DEFAULT_OPTIONS, idleMs: streamIdleTimeoutMs(), ...knobs };
 }
 
 /**
@@ -297,6 +331,26 @@ export function retryAfterMs(
 }
 
 /**
+ * Files one transport fact with the caller's reporter. A reporter that throws
+ * must not turn a retry into a failure of the request itself, so its faults are
+ * swallowed here rather than propagating into the retry loop.
+ */
+function reportTransport(
+  options: ExponentialBackoffOptions,
+  event: Omit<TransportEvent, "maxAttempts">,
+  maxAttempts: number,
+): void {
+  if (!options.onTransportEvent) return;
+  try {
+    options.onTransportEvent({ ...event, maxAttempts });
+  } catch (reportError: any) {
+    logger.debug("Transport reporter threw", {
+      message: reportError?.message ?? String(reportError),
+    });
+  }
+}
+
+/**
  * Wrapper around llmApi.chatCompletionStream with exponential backoff retry logic
  */
 export async function chatCompletionStreamWithBackoff(
@@ -306,6 +360,7 @@ export async function chatCompletionStreamWithBackoff(
   options: ExponentialBackoffOptions = {},
 ): Promise<AsyncGenerator<any>> {
   const opts = resolveOptions(options);
+  const maxAttempts = opts.maxRetries + 1;
   let lastError: any;
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
@@ -355,6 +410,20 @@ export async function chatCompletionStreamWithBackoff(
       const requested = retryAfterMs(err);
       const delay = Math.max(calculateDelay(attempt, opts), requested ?? 0);
 
+      reportTransport(
+        options,
+        {
+          kind: "retry",
+          attempt: attempt + 1,
+          delayMs: delay,
+          statusCode: err.status,
+          retryable: true,
+          reason: err.code ?? err.type,
+          message: err.message,
+        },
+        maxAttempts,
+      );
+
       // Only log retry attempts after the first hiddenRetries attempts
       if (attempt >= opts.hiddenRetries) {
         warn(
@@ -372,6 +441,18 @@ export async function chatCompletionStreamWithBackoff(
   }
 
   // If we get here, all retries failed
+  reportTransport(
+    options,
+    {
+      kind: "failed",
+      attempt: maxAttempts,
+      retryable: false,
+      statusCode: lastError?.status,
+      reason: lastError?.code ?? lastError?.type,
+      message: lastError?.message,
+    },
+    maxAttempts,
+  );
   error(
     `LLM API call failed after ${opts.maxRetries + 1} attempts. Last error: ${
       lastError.message
@@ -392,10 +473,14 @@ export async function* withExponentialBackoff<T>(
   options: ExponentialBackoffOptions = {},
 ): AsyncGenerator<T> {
   const opts = resolveOptions(options);
+  const maxAttempts = opts.maxRetries + 1;
   let lastError: any;
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
     let yieldedChunk = false;
+    // The silence that ended this attempt, so the retry that follows is filed
+    // as a stall rather than as an opaque failure.
+    let stalledAfterMs: number | undefined;
 
     // Create a new AbortController for this retry attempt
     // This prevents accumulating listeners on the original signal
@@ -422,9 +507,10 @@ export async function* withExponentialBackoff<T>(
 
       // Iterate through the generator and yield each value, refusing to wait
       // forever for the next one.
-      const bounded = chunksWithinIdleBound(generator, opts.idleMs, () =>
-        retryAbortController.abort(),
-      );
+      const bounded = chunksWithinIdleBound(generator, opts.idleMs, () => {
+        stalledAfterMs = opts.idleMs;
+        retryAbortController.abort();
+      });
       for await (const chunk of bounded) {
         // Check abort signal during iteration
         if (abortSignal.aborted) {
@@ -470,6 +556,34 @@ export async function* withExponentialBackoff<T>(
       const delay = calculateDelay(attempt, opts);
       logger.debug("Retry attempt", { attempt, delay, error: err.message });
 
+      if (stalledAfterMs !== undefined) {
+        reportTransport(
+          options,
+          {
+            kind: "stalled",
+            attempt: attempt + 1,
+            idleMs: stalledAfterMs,
+            reason: err.code ?? err.name,
+            message: err.message,
+          },
+          maxAttempts,
+        );
+      }
+
+      reportTransport(
+        options,
+        {
+          kind: "retry",
+          attempt: attempt + 1,
+          delayMs: delay,
+          statusCode: err.status,
+          retryable: true,
+          reason: err.code ?? err.type,
+          message: err.message,
+        },
+        maxAttempts,
+      );
+
       // Only log retry attempts after the first opts.hiddenRetries attempts
       if (attempt >= opts.hiddenRetries) {
         warn(
@@ -486,6 +600,18 @@ export async function* withExponentialBackoff<T>(
   }
 
   // If we get here, all retries failed
+  reportTransport(
+    options,
+    {
+      kind: "failed",
+      attempt: maxAttempts,
+      retryable: false,
+      statusCode: lastError?.status,
+      reason: lastError?.code ?? lastError?.type,
+      message: lastError?.message,
+    },
+    maxAttempts,
+  );
   error(
     `Failed after ${opts.maxRetries + 1} attempts. Last error: ${
       lastError.message

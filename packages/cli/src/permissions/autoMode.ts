@@ -11,10 +11,11 @@ import { logger } from "../utils/logger.js";
 
 /**
  * Read-only and metadata tools whose arguments cannot point the call outside
- * what the base policy already answers for. Search is not here: its target
- * path can leave the workspace, so it goes through the acceptEdits check in
- * `resolveAutoModeDecision` - an in-workspace search is still allowed without
- * a classifier call, and one that leaves the workspace is classified.
+ * what the base policy already answers for. Search and AstSearch are not here:
+ * their target path can leave the workspace, so they go through the
+ * acceptEdits check in `resolveAutoModeDecision` - an in-workspace search is
+ * still allowed without a classifier call, and one that leaves the workspace
+ * is classified.
  */
 export const AUTO_SAFE_TOOLS = new Set([
   "Read",

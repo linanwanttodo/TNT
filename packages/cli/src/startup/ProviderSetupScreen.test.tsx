@@ -8,6 +8,7 @@ import {
   typeIntoField,
 } from "../../test-utils/renderPress.js";
 import { setLocale } from "../i18n/index.js";
+import { KeypressProvider } from "../ui/contexts/KeypressContext.js";
 
 import { ProviderSetupScreen } from "./ProviderSetupScreen.js";
 
@@ -28,8 +29,12 @@ afterEach(() => {
 function renderScreen() {
   const onComplete = vi.fn();
   const onCancel = vi.fn();
+  // The screen reads keys through the app's parser, so the provider that
+  // owns the parser has to be mounted, as it is in both real entry points.
   const tree = render(
-    <ProviderSetupScreen onComplete={onComplete} onCancel={onCancel} />,
+    <KeypressProvider>
+      <ProviderSetupScreen onComplete={onComplete} onCancel={onCancel} />
+    </KeypressProvider>,
   );
   mounted.push(tree);
   return { tree, onComplete, onCancel };
@@ -127,6 +132,24 @@ describe("ProviderSetupScreen", () => {
   it("cancels on Escape", async () => {
     const { tree, onCancel, onComplete } = renderScreen();
 
+    await pressUntilMet(tree, "\u001b", () => onCancel.mock.calls.length > 0);
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  // The report that started this fix: at the API-key step Escape did nothing,
+  // because the screen read keys with a parser that could not see Escape once
+  // the terminal had negotiated a richer keyboard protocol. Escape has to
+  // cancel from every step, including the middle of a field.
+  it("cancels on Escape from the API-key step", async () => {
+    const { tree, onCancel, onComplete } = renderScreen();
+
+    await pressUntil(tree, "1", (frame) => frame.includes("❯ 1)"));
+    await pressUntil(tree, "\r", (frame) => frame.includes("Base URL"));
+    await pressUntil(tree, "\r", (frame) => frame.includes("API key"));
+
+    tree.stdin.write("\u001b");
     await pressUntilMet(tree, "\u001b", () => onCancel.mock.calls.length > 0);
 
     expect(onCancel).toHaveBeenCalledOnce();

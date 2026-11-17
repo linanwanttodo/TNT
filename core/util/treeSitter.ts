@@ -214,14 +214,51 @@ function resolveQueryPath(queryPath: string): string {
 async function loadLanguageForFileExt(
   fileExtension: string,
 ): Promise<Language> {
+  const grammarDir = resolveGrammarDir();
+  if (!grammarDir) {
+    throw new Error(
+      "tree-sitter grammars are not installed: no directory holds tree-sitter-*.wasm",
+    );
+  }
   const wasmPath = path.join(
-    process.env.NODE_ENV === "test" ? process.cwd() : __dirname,
-    ...(process.env.NODE_ENV === "test"
-      ? ["node_modules", "tree-sitter-wasms", "out"]
-      : ["tree-sitter-wasms"]),
+    grammarDir,
     `tree-sitter-${supportedLanguages[fileExtension]}.wasm`,
   );
   return await Parser.Language.load(wasmPath);
+}
+
+/**
+ * Where the grammar `.wasm` files live, as opposed to where the runtime does.
+ *
+ * The runtime is resolved by `web-tree-sitter` itself, but the grammars are
+ * this module's own asset and the directory moves between the three ways core
+ * runs: from `dist/` in a bundle (the build copies them beside it), from
+ * `dist/` inside the source tree (they stay in `node_modules`), and from
+ * vitest with the package root as cwd. Naming the candidates here means a
+ * consumer package can also point at them with TNT_TREE_SITTER_WASMS_DIR
+ * without this module knowing that consumer's layout.
+ */
+function resolveGrammarDir(): string | undefined {
+  const candidates = [
+    process.env.TNT_TREE_SITTER_WASMS_DIR,
+    path.join(__dirname, "tree-sitter-wasms"),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "node_modules",
+      "tree-sitter-wasms",
+      "out",
+    ),
+    path.join(__dirname, "..", "node_modules", "tree-sitter-wasms", "out"),
+    path.join(process.cwd(), "node_modules", "tree-sitter-wasms", "out"),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, "tree-sitter-typescript.wasm"))) {
+      return candidate;
+    }
+  }
+  return undefined;
 }
 
 // See https://tree-sitter.github.io/tree-sitter/using-parsers

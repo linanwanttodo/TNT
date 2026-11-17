@@ -6,6 +6,7 @@ import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
 import { assignTeamModelTool } from "./assignTeamModel.js";
+import { astSearchTool } from "./astSearch.js";
 import { browserTool } from "./browser.js";
 import { callHierarchyTool } from "./callHierarchy.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
@@ -89,7 +90,11 @@ const BASE_BUILTIN_TOOLS: Tool[] = [
   webSearchTool,
 ];
 
-const BUILTIN_SEARCH_TOOLS: Tool[] = [searchCodeTool, globFilesTool];
+const BUILTIN_SEARCH_TOOLS: Tool[] = [
+  searchCodeTool,
+  globFilesTool,
+  astSearchTool,
+];
 
 /**
  * Tools that need nothing outside the workspace to answer. The language-server

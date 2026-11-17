@@ -1,4 +1,8 @@
 import { getLspManager } from "../lsp/manager.js";
+import {
+  lookupLocalSymbols,
+  type SymbolIndexHit,
+} from "../retrieval/symbolIndex.js";
 
 import { describeLspUri } from "./lspLocations.js";
 import { symbolKindName } from "./lspSymbolKinds.js";
@@ -9,12 +13,33 @@ import { Tool } from "./types.js";
  * the declaration rather than every mention, which is the question a text search
  * cannot answer on its own.
  */
+
+/**
+ * The knowledge-layer answer: what the local declaration index knows, with
+ * the provenance a model needs to trust it and the instruction that keeps a
+ * heuristic hit from being edited blind.
+ */
+function localLayerAnswer(
+  query: string,
+  hits: SymbolIndexHit[],
+  contextSentence: string,
+): string {
+  const rows = hits.map(
+    (hit) => `${hit.path}:${hit.line} ${hit.kind} ${hit.name}`,
+  );
+  return [
+    `${hits.length} declaration(s) for "${query}" from the local tree-sitter declaration index. ${contextSentence}`,
+    ...rows,
+    "Lines are 1-based and the index is heuristic; Read the file to confirm before editing.",
+  ].join("\n");
+}
+
 export const findSymbolTool: Tool = {
   name: "FindSymbol",
   displayName: "Find Symbol",
   description: `Ask the project's language servers where a symbol is defined.
 Prefer this over searching text when you need the declaration of a function, class or variable and not every use of its name.
-Returns nothing when the project has no language server configured.`,
+When no language server is configured - or one has no match - the answer comes from a local tree-sitter declaration index built from the workspace files, so a common lookup still succeeds without any server.`,
   parameters: {
     type: "object",
     required: ["query"],
@@ -31,15 +56,36 @@ Returns nothing when the project has no language server configured.`,
     if (typeof query !== "string" || !query.trim()) {
       return "FindSymbol needs a query argument.";
     }
+
+    // The layer-first rule: when nothing better exists locally, the local
+    // declaration index is the first thing asked, and only its miss falls
+    // through to a language server. When a server is configured it stays
+    // authoritative, and the index is the second chance on its miss.
     const manager = getLspManager();
     const running = await manager.ensureStarted(process.cwd());
     if (running === 0) {
-      return "No language server is configured. A plugin can declare one under lspServers in its manifest.";
+      const layer = await lookupLocalSymbols(process.cwd(), query);
+      if (layer && layer.length > 0) {
+        return localLayerAnswer(
+          query,
+          layer,
+          "No language server is configured; a plugin can declare one under lspServers in its manifest.",
+        );
+      }
+      return "No language server is configured, and the local declaration index has no match for this name. A plugin can declare one under lspServers in its manifest; Search or CodebaseSearch can still find uses of the name.";
     }
 
     const symbols = await manager.findSymbols(query);
     if (symbols.length === 0) {
-      return `No symbol matched "${query}".`;
+      const layer = await lookupLocalSymbols(process.cwd(), query);
+      if (layer && layer.length > 0) {
+        return localLayerAnswer(
+          query,
+          layer,
+          "The language server had no match for this name; these come from the workspace's local declaration index.",
+        );
+      }
+      return `No symbol matched "${query}" in the language server, and the local declaration index has no match either.`;
     }
 
     const lines = symbols.map((symbol) => {

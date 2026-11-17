@@ -13,6 +13,19 @@ const debugUsageSchema = z
     cachedWriteInputTokens: count.optional(),
   })
   .strict();
+/**
+ * The request's input split by content class. These are the client's own
+ * estimates of the request it assembled, not the provider's bill: the provider
+ * reports one input number and no split.
+ */
+const debugSectionsSchema = z
+  .object({
+    system: count,
+    tools: count,
+    messages: count,
+    hookNotes: count,
+  })
+  .strict();
 export const sessionDebugRoundSchema = z
   .object({
     eventKey: z.string(),
@@ -23,6 +36,11 @@ export const sessionDebugRoundSchema = z
     hitRate: count.nullable(),
     generationDurationMs: count.nullable(),
     tokensPerSecond: count.nullable(),
+    /** Which agent's dispatch this round belonged to; absent for the main surface. */
+    agentType: z.string().optional(),
+    /** A compaction request carries its own prefix, so it is not a turn round. */
+    isCompacting: z.boolean().optional(),
+    sections: debugSectionsSchema.optional(),
   })
   .strict();
 export const sessionDebugNetworkEntrySchema = z
@@ -80,6 +98,7 @@ export const sessionDebugSnapshotSchema = z
   })
   .strict();
 export type SessionDebugSnapshot = z.infer<typeof sessionDebugSnapshotSchema>;
+export type SessionDebugRound = z.infer<typeof sessionDebugRoundSchema>;
 export type SessionDebugNetworkEntry = z.infer<typeof sessionDebugNetworkEntrySchema>;
 
 /** 输出 token 与首输出到请求结束的同源时间；未知值不能用请求总耗时替代。 */

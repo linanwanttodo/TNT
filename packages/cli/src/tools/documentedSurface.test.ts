@@ -135,14 +135,15 @@ describe("the composed tool surface is a partition", () => {
   it("accounts for every built-in name under some shipped configuration", async () => {
     const union = await offeredByConfigs(SHIPPED_CONFIGS);
 
-    // The two search tools depend on a program on the machine, not on a flag;
-    // a machine without it still has to account for every other name.
+    // The three search tools depend on a program on the machine, not on a
+    // flag; a machine without it still has to account for every other name.
     const ripgrep = await checkIfRipgrepIsInstalled();
     const declaredAbsent = new Set(Object.keys(UNEXPOSED_REASONS));
     const expected = ALL_NAMES.filter(
       (name) =>
         !declaredAbsent.has(name) &&
-        (ripgrep || (name !== "Search" && name !== "Glob")),
+        (ripgrep ||
+          (name !== "Search" && name !== "Glob" && name !== "AstSearch")),
     );
 
     // Floor: a broken import would make both sides empty and the comparison

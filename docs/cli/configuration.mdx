@@ -136,6 +136,8 @@ removing the matching line from `.gitignore`.
 | `TNT_NOTIFY`                 | `bell` or `1` to have the terminal signal a finished turn that ran at least ten seconds; unset means no signal                                                                                      |
 | `TNT_STREAM_REVEAL`          | set to `1` to draw the streaming answer a few characters at a time; off by default because it redraws the frame at about 30 frames a second                                                         |
 | `TNT_WARM_RETRIEVAL`         | set to `0` to stop the codebase index being built when a session opens; it is built then only when the config selects the `codebase` provider                                                       |
+| `TNT_AST_SEARCH_MAX_FILES`   | cap on how many files one AstSearch call enumerates, default `4000`                                                                                                                                 |
+| `TNT_SYMBOL_INDEX`           | set to `0` to turn off the local tree-sitter declaration index, the layer FindSymbol answers from when no language server is configured                                                             |
 
 Every variable the CLI reads is `TNT_*`; the older `CONTINUE_*` spellings are no
 longer read at all. One name points the other way, because it is a contract with

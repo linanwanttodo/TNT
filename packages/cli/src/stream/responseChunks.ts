@@ -203,6 +203,12 @@ export interface StreamAccumulator {
   inputTokens: number;
   outputTokens: number;
   fullUsage: any;
+  /**
+   * When the first output token arrived. Kept on the accumulator rather than
+   * inside the loop so the round's books can divide output by the time the
+   * provider was actually generating, instead of by the whole request.
+   */
+  firstTokenTime: number | null;
 }
 
 /**
@@ -224,7 +230,7 @@ export async function consumeProviderStream(
   },
 ): Promise<number> {
   let chunkCount = 0;
-  let firstTokenTime: number | null = null;
+  state.firstTokenTime = null;
 
   for await (const chunk of stream) {
     chunkCount++;
@@ -245,8 +251,8 @@ export async function consumeProviderStream(
     }
 
     // Track first token time
-    firstTokenTime = trackFirstTokenTime(
-      firstTokenTime,
+    state.firstTokenTime = trackFirstTokenTime(
+      state.firstTokenTime,
       chunk,
       options.requestStartTime,
       options.model,

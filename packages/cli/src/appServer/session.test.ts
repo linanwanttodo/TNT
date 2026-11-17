@@ -9,6 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { createSession } from "../session/index.js";
 import { sessionStore, setMessageTimestamp } from "../session/store.js";
+import {
+  recordDebugRound,
+  recordNetworkDebug,
+  resetDebugRings,
+} from "../telemetry/debugRings.js";
 
 import { AppServerProtocol, PROTOCOL_METHOD_NOT_FOUND } from "./protocol.js";
 import { SessionRuntimeStore } from "./runtime.js";
@@ -57,6 +62,7 @@ describe("SessionHandlers", () => {
     fs.mkdirSync(workspace, { recursive: true });
     sender = new RecordingSender();
     handlers = new SessionHandlers({ sender, modelLookup });
+    resetDebugRings();
   });
 
   afterEach(() => {
@@ -384,6 +390,77 @@ describe("SessionHandlers", () => {
     // The sidebar groups by project; a workspace filter here would hide every
     // conversation a user had in another directory.
     expect(listed).toContain(theirs.session.sessionId);
+  });
+
+  it("serves the developer panel this process's rounds and network facts", async () => {
+    const created = await handlers.create({ workspace: workspaceRef() });
+    const sessionId = created.session.sessionId;
+    const key = `tnt-${sessionId}`;
+
+    recordDebugRound(key, {
+      usage: {
+        inputTokens: 100,
+        outputTokens: 20,
+        totalTokens: 120,
+        cachedInputTokens: 60,
+      },
+      hitRate: 0.6,
+      generationDurationMs: 500,
+      tokensPerSecond: 40,
+      sections: { system: 10, tools: 20, messages: 60, hookNotes: 10 },
+    });
+    recordDebugRound(key, {
+      usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 },
+      hitRate: null,
+      generationDurationMs: null,
+      tokensPerSecond: null,
+    });
+    recordNetworkDebug(key, {
+      statusType: "model_retry_scheduled",
+      attempt: 1,
+      maxAttempts: 3,
+      delayMs: 1000,
+      reason: "ECONNRESET",
+    });
+
+    const debug = await handlers.debug({ sessionId });
+
+    expect(debug.sessionId).toBe(sessionId);
+    expect(debug.rounds.map((entry) => entry.requestIndex)).toEqual([1, 2]);
+    expect(debug.rounds[0].sections).toEqual({
+      system: 10,
+      tools: 20,
+      messages: 60,
+      hookNotes: 10,
+    });
+    // The summary counts only the rounds that reported cache usage: a round
+    // that reported none would otherwise read as a miss.
+    expect(debug.cache).toEqual({
+      hitRateRequestCount: 1,
+      totalInputTokens: 100,
+      totalCacheReadTokens: 60,
+      hitRate: 0.6,
+    });
+    expect(debug.networkEntries).toHaveLength(1);
+    expect(debug.networkEntries[0].statusType).toBe("model_retry_scheduled");
+  });
+
+  it("reports an empty panel rather than failing when nothing was recorded", async () => {
+    const created = await handlers.create({ workspace: workspaceRef() });
+
+    const debug = await handlers.debug({
+      sessionId: created.session.sessionId,
+    });
+
+    expect(debug.rounds).toEqual([]);
+    expect(debug.networkEntries).toEqual([]);
+    expect(debug.cache).toBeNull();
+  });
+
+  it("rejects a debug request for a session that does not exist", async () => {
+    await expect(
+      handlers.debug({ sessionId: "no-such-session" }),
+    ).rejects.toThrow(/not found|Unknown session/i);
   });
 
   it("derives a subagent session kind from the stored session type", async () => {

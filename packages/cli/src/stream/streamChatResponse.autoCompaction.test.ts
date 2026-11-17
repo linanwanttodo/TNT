@@ -223,10 +223,14 @@ describe("handleAutoCompaction", () => {
     );
 
     // The provider refusing for length is the evidence; the local estimate that
-    // said it fit is what is being overridden.
+    // said it fit is what is being overridden. The forced decision never
+    // asked the threshold: every threshold call this mock saw was the
+    // post-compaction progress check, which reads the compacted history.
     expect(result.wasCompacted).toBe(true);
     expect(compactChatHistory).toHaveBeenCalled();
-    expect(shouldAutoCompact).not.toHaveBeenCalled();
+    expect(shouldAutoCompact).not.toHaveBeenCalledWith(
+      expect.objectContaining({ chatHistory: mockChatHistory }),
+    );
   });
 
   it("should perform auto-compaction when context limit is approaching", async () => {
@@ -286,8 +290,10 @@ describe("handleAutoCompaction", () => {
       mockModel,
       mockLlmApi,
       expect.objectContaining({
-        callbacks: expect.any(Object),
         systemMessageTokens: expect.any(Number),
+        toolResultsCompacted: true,
+        summarize: expect.any(Function),
+        abortController: undefined,
       }),
     );
     expect(replaceSessionHistoryIfGeneration).toHaveBeenCalledWith(
@@ -422,9 +428,10 @@ describe("handleAutoCompaction", () => {
     );
   });
 
-  it("does not charge the breaker when summaries are abandoned", async () => {
+  it("stops after three no-progress summaries, without erroring", async () => {
     const { compactChatHistory, shouldAutoCompact } =
       await import("../compaction/index.js");
+    const { logger } = await import("../utils/logger.js");
     vi.mocked(shouldAutoCompact).mockReturnValue(true);
     vi.mocked(compactChatHistory).mockResolvedValue({
       compactedHistory: mockChatHistory,
@@ -433,18 +440,74 @@ describe("handleAutoCompaction", () => {
       abandoned: true,
     } as any);
 
-    // Three strikes opened the breaker for real failures; an abandoned
-    // summary is a normal result and never counts toward them.
-    for (let attempt = 0; attempt < 4; attempt++) {
+    // Each attempt is an ordinary outcome: the original transcript is kept and
+    // nothing is reported. But a trigger the history cannot get under would
+    // otherwise summarize on every round forever - the loop the user rode
+    // through a whole session - so the repeat count trips the breaker too.
+    for (let attempt = 0; attempt < 3; attempt++) {
       const result = await handleAutoCompaction(
         mockChatHistory,
         mockModel,
         mockLlmApi,
       );
       expect(result.abandoned).toBe(true);
+      expect(logger.error).not.toHaveBeenCalled();
     }
 
-    expect(compactChatHistory).toHaveBeenCalledTimes(4);
+    await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+
+    expect(compactChatHistory).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not summarize when the caller already interrupted", async () => {
+    const { compactChatHistory, shouldAutoCompact } =
+      await import("../compaction/index.js");
+    vi.mocked(shouldAutoCompact).mockReturnValue(true);
+
+    const controller = new AbortController();
+    controller.abort();
+    const result = await handleAutoCompaction(
+      mockChatHistory,
+      mockModel,
+      mockLlmApi,
+      {
+        abortController: controller,
+      },
+    );
+
+    expect(compactChatHistory).not.toHaveBeenCalled();
+    expect(result.wasCompacted).toBe(false);
+    expect(result.chatHistory).toBe(mockChatHistory);
+  });
+
+  it("counts a compaction that still lands over the trigger as no progress", async () => {
+    // A trigger below the fixed prefix (system message + tool schemas) is one
+    // no compaction can get under: the result comes back already past it, so
+    // treating that as success would reset the breaker and loop forever.
+    const { compactChatHistory, shouldAutoCompact } =
+      await import("../compaction/index.js");
+    vi.mocked(shouldAutoCompact).mockReturnValue(true);
+    vi.mocked(compactChatHistory).mockResolvedValue({
+      compactedHistory: convertToUnifiedHistory([
+        { role: "system", content: "You are a helpful assistant." },
+        { role: "assistant", content: "[COMPACTED HISTORY]" },
+      ]),
+      compactionIndex: 1,
+      compactionContent: "[COMPACTED HISTORY]",
+    } as any);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const result = await handleAutoCompaction(
+        mockChatHistory,
+        mockModel,
+        mockLlmApi,
+      );
+      expect(result.wasCompacted).toBe(true);
+    }
+
+    await handleAutoCompaction(mockChatHistory, mockModel, mockLlmApi);
+
+    expect(compactChatHistory).toHaveBeenCalledTimes(3);
   });
 
   it("does not count a persisted tool-result prune as a summary failure", async () => {

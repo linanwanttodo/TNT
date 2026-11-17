@@ -128,7 +128,6 @@ export async function handlePreApiCompaction(
     isHeadless,
     callbacks: {
       onSystemMessage: callbacks?.onSystemMessage,
-      onContent: callbacks?.onContent,
     },
     systemMessage,
     tools,
@@ -219,7 +218,6 @@ export async function handlePostToolValidation(
       isHeadless,
       callbacks: {
         onSystemMessage: callbacks?.onSystemMessage,
-        onContent: callbacks?.onContent,
       },
       systemMessage,
       tools,
@@ -314,7 +312,6 @@ export async function handleNormalAutoCompaction(
     isHeadless,
     callbacks: {
       onSystemMessage: callbacks?.onSystemMessage,
-      onContent: callbacks?.onContent,
     },
     systemMessage,
     tools,

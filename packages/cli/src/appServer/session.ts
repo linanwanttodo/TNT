@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   elideSessionSnapshotForIndex,
+  sessionDebugParamsSchema,
   zcodeSessionCloseParamsSchema,
   zcodeSessionCreateParamsSchema,
   zcodeSessionListParamsSchema,
@@ -14,6 +15,7 @@ import {
 } from "@zcode/shared";
 import type {
   ModelSelection,
+  SessionDebugSnapshot,
   ZCodeMessageWithParts,
   ZCodeSessionCreateParams,
   ZCodeSessionInfo,
@@ -21,6 +23,7 @@ import type {
 } from "@zcode/shared";
 import type { ChatHistoryItem, Session } from "core/index.js";
 
+import { promptCacheKeyForSession } from "../cache/promptCacheKey.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import type { ModelServiceState } from "../services/types.js";
 import {
@@ -34,6 +37,7 @@ import {
   setMessageTimestamp,
   type SessionMeta,
 } from "../session/store.js";
+import { readDebugRounds, readNetworkDebug } from "../telemetry/debugRings.js";
 
 import { SessionRuntimeStore } from "./runtime.js";
 import {
@@ -417,6 +421,51 @@ export class SessionHandlers {
       messages = messages.slice(0, input.limit);
     }
     return { messages };
+  }
+
+  /**
+   * The live record behind the developer panel: this process's own requests for
+   * one conversation, oldest round first and newest network fact first. It is
+   * read from memory only, so a session resumed from disk shows an empty panel -
+   * which is the truth about what this process sent.
+   */
+  async debug(params: unknown): Promise<SessionDebugSnapshot> {
+    const input = parseParams(sessionDebugParamsSchema, params);
+    const session = this.loadSession(input.sessionId);
+    const key = promptCacheKeyForSession(session);
+    const rounds = readDebugRounds(key);
+    const networkEntries = readNetworkDebug(key);
+
+    // The cache summary covers the same rounds the table shows, and counts only
+    // those that reported cache tokens: an unreported round would otherwise
+    // divide the session's ratio down as if it had missed.
+    let hitRateRequestCount = 0;
+    let totalInputTokens = 0;
+    let totalCacheReadTokens = 0;
+    for (const round of rounds) {
+      if (round.hitRate === null || round.hitRate === undefined) continue;
+      hitRateRequestCount += 1;
+      totalInputTokens += round.usage.inputTokens ?? 0;
+      totalCacheReadTokens += round.usage.cachedInputTokens ?? 0;
+    }
+
+    return {
+      sessionId: input.sessionId,
+      rounds,
+      networkEntries,
+      cache:
+        hitRateRequestCount === 0
+          ? null
+          : {
+              hitRateRequestCount,
+              totalInputTokens,
+              totalCacheReadTokens,
+              hitRate:
+                totalInputTokens > 0
+                  ? totalCacheReadTokens / totalInputTokens
+                  : null,
+            },
+    };
   }
 
   async close(params: unknown): Promise<SessionCloseResult> {

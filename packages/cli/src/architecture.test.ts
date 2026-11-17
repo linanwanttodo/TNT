@@ -55,6 +55,10 @@ const KNOWN_MUTUAL_COUPLING = [
   "services <-> utils",
   "session <-> subagent",
   "session <-> utils",
+  // The provider-setup wizard borrows the TUI's keypress layer before the
+  // theme provider exists, and IntroMessage reads the version from startup.
+  // Measured 2026-11-17 when the wizard moved onto useKeypress.
+  "startup <-> ui",
   "subagent <-> tools",
   "telemetry <-> utils",
 ];

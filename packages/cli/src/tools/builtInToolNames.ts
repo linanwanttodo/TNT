@@ -8,6 +8,7 @@
 export const BUILT_IN_TOOL_NAMES = [
   "ApplyPatch",
   "AskQuestion",
+  "AstSearch",
   "Browser",
   "CallHierarchy",
   "Completion",

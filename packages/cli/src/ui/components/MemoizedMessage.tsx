@@ -146,7 +146,9 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
 
     // Handle conversation summary (compaction)
     if (conversationSummary) {
-      return <CompactionBoundary key={index} summary={conversationSummary} />;
+      // The summary is context for the model only; the transcript shows the
+      // boundary rule so the rewrite stays visible without reprinting it.
+      return <CompactionBoundary key={index} />;
     }
 
     // The transcript stores what the model was served, which may lead with

@@ -30,6 +30,8 @@ import { telemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
 
 import { addContentSections, type ContentSections } from "./contentSections.js";
+import { recordDebugRoundFact } from "./debugRoundFact.js";
+import { calculateFallbackCost, detectProvider } from "./providerCost.js";
 
 /**
  * The last rounds' hit rates per conversation, for the floor check. The break
@@ -75,27 +77,6 @@ function noteCacheHitRate(key: string, rate: number): void {
 function forgetCacheHitRates(key: string): void {
   cacheHitRates.delete(key);
   reportedFloorMiss.delete(key);
-}
-
-function detectProvider(modelName: string): string {
-  const normalized = modelName.toLowerCase();
-  if (normalized.includes("gpt") || normalized.includes("openai")) {
-    return "openai";
-  }
-  if (normalized.includes("claude") || normalized.includes("anthropic")) {
-    return "anthropic";
-  }
-  // Default to anthropic for backward compatibility
-  return "anthropic";
-}
-
-// Simple fallback cost calculation for unknown models
-function calculateFallbackCost(
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  // Default pricing: $1/MTok input, $2/MTok output
-  return (inputTokens * 1 + outputTokens * 2) / 1_000_000;
 }
 
 /**
@@ -490,6 +471,12 @@ export function recordRoundAccounting(options: {
   systemPromptRewritten?: boolean;
   /** Local estimate of this request split by content class. */
   contentSections?: ContentSections;
+  /**
+   * When the first output token arrived, for the developer panel's tokens per
+   * second. Absent when no token was timed, which leaves the rate unknown
+   * rather than dividing by the whole request.
+   */
+  firstTokenTime?: number | null;
 }): {
   cost: number;
   cacheTokens: { cacheReadTokens?: number; cacheWriteTokens?: number };
@@ -510,6 +497,7 @@ export function recordRoundAccounting(options: {
     sessionId,
     systemPromptRewritten,
     contentSections,
+    firstTokenTime,
   } = options;
 
   const cost = recordStreamTelemetry({
@@ -549,6 +537,20 @@ export function recordRoundAccounting(options: {
 
   const cacheRead = cacheTokens.cacheReadTokens ?? 0;
   const cacheWrite = cacheTokens.cacheWriteTokens ?? 0;
+  recordDebugRoundFact({
+    promptCacheKey,
+    inputTokens,
+    outputTokens,
+    fullUsage,
+    cacheRead,
+    cacheWrite,
+    requestStartTime,
+    responseEndTime,
+    firstTokenTime,
+    agentType,
+    isCompacting,
+    contentSections,
+  });
   const reportedInput = fullUsage?.prompt_tokens ?? inputTokens;
   if (reportedInput > 0) {
     const missOwner = attributeCacheMiss({

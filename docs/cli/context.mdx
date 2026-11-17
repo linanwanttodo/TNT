@@ -16,13 +16,25 @@ context policy:
 
 | Setting | Value |
 | --- | --- |
-| Compact when input reaches | 80 percent of the context window |
-| Kept verbatim after compaction | 16 percent of the input capacity |
+| Compact when input reaches | 90 percent of the context window |
+| Kept verbatim after compaction | 16 percent of the input capacity, at most 32k tokens |
 | Headroom reserved for output | 64 tokens |
+
+The 90 percent trigger follows Cursor: the remaining ten percent covers this
+turn's reply, the content the check has not seen yet, and the measurement's own
+lag. There is no fixed absolute cap - a model's declared window is the budget.
+Operators who need to bound the working set on very large windows can set
+`TNT_COMPACT_CEILING` / `TNT_COMPACT_RETAIN`.
 
 Compaction summarises the older part of the conversation, keeps the recent part
 verbatim, and records a boundary in the transcript so it is visible where the
 summary replaced the original messages. The context indicator resets afterwards.
+The summary is model context, not chat output: the terminal draws a one-line
+boundary rule and the web view draws a timeline node, and the summary body is
+never printed into the conversation. After three consecutive compactions that
+do not actually shrink the history - which is what a trigger below the fixed
+prefix causes - the session stops auto-compacting and logs why, instead of
+paying for a summarization call every round.
 
 `/compact` performs the same operation on demand, which is useful before a long
 task rather than in the middle of one.

@@ -7,6 +7,7 @@ import {
 
 import { applyPatchTool } from "./applyPatch.js";
 import { askQuestionTool } from "./askQuestion.js";
+import { astSearchTool } from "./astSearch.js";
 import { browserTool } from "./browser.js";
 import { callHierarchyTool } from "./callHierarchy.js";
 import { checkBackgroundJobTool } from "./checkBackgroundJob.js";
@@ -47,6 +48,7 @@ import { writeFileTool } from "./writeFile.js";
 export const ALL_BUILT_IN_TOOLS = [
   applyPatchTool,
   askQuestionTool,
+  astSearchTool,
   browserTool,
   callHierarchyTool,
   checkBackgroundJobTool,

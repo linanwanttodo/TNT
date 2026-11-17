@@ -181,14 +181,22 @@ The prefix is assembled in build order, each part announced so it can be attribu
   (≈12.5k tokens). Every byte a tool emits rides in every later request of the session, so
   the caps are the cheapest context lever; the `TNT_BASH_MAX_OUTPUT_CHARS` /
   `TNT_READ_FILE_MAX_OUTPUT_CHARS` env overrides are unchanged.
-- **Compaction changelog, 2026-11-13 (absolute budget ceilings):** `ContextPolicy` gains
-  `compactCeilingTokens` (200k) and `retainCeilingTokens` (32k), applied inside
-  `calculateContextBudget`: compaction must fire by the ceiling even when the 0.8×ratio bound
-  would wait for 80% of a 1M window, and the retained tail after summarizing never grows past
-  its ceiling (pi keeps ~20k, Claude Code re-injects a fixed budget; a bare ratio let a large
-  `contextLength` silently raise the whole working set). `TNT_COMPACT_CEILING` and
-  `TNT_COMPACT_RETAIN` tune both from the environment at the CLI call sites
-  (`compaction/index.ts`, `tunedContextBudget`). Windows at or below 250k are unchanged.
+- **Compaction changelog, 2026-11-17 (window-ratio trigger, no absolute cap):** the fixed
+  `compactCeilingTokens` (code 100k, docs 200k) is gone. `ContextPolicy` keeps the ratio
+  (`compactRatio` 0.9, Cursor's trigger) and the retain tail (`retainRatio` 0.16 of input
+  capacity, ceiling 32k); the absolute cap is opt-in via `TNT_COMPACT_CEILING` /
+  `TNT_COMPACT_RETAIN`. The 100k cap compacted a 1M-token model at 10% of its window, and a
+  session whose fixed prefix (system message + tool schemas) plus the retained tail already
+  exceeded the cap compacted again every round - an unbounded loop that also re-printed the
+  summary each time. The loop is closed at the state machine too: a compaction that lands
+  still over the trigger counts as no progress (`recordCompactionNoProgress`, three strikes
+  trip the breaker), as does an abandoned summary, and an interrupted summary cancels the
+  summarizer's request instead of finishing behind the user's ESC. The summary is no longer
+  forwarded to the assistant content channel or rendered in the transcript; surfaces draw a
+  boundary rule instead. See `core/util/contextPolicy.ts`, `core/util/autoCompaction.ts`,
+  `stream/streamChatResponse.autoCompaction.ts`, `ui/components/CompactionBoundary.tsx`,
+  `appServer/snapshot.ts` (the web projection emits a compaction part, not the summary
+  text).
 - **Stream changelog, 2026-11-13 (tool-output eviction):** `requestPreparation` now evicts
   old tool results before the compaction check and the request: past a threshold
   (`min(100k tokens, 40% of the window)`, overridable via `TNT_TOOL_EVICTION_TOKENS`), every
@@ -307,14 +315,25 @@ data` section (mask values rather than quoting them), a temp-directory exception
   `e691729a9be4f3a9`/32559 characters became `e643e3597265f28b` over 40 tools and 32838
   characters - 279 characters of schema, a one-time cold start per session.
 
+- **Prefix changelog, 2026-11-17:** `AstSearch` joined the registry so a shape can be
+  searched for instead of a string: local tree-sitter matching with `$NAME` / `$$$NAME`
+  metavariables over the grammars the CLI already ships, plus a `kind` mode that lists
+  node kinds. It sits in `BUILTIN_SEARCH_TOOLS` beside Search and Glob and needs the
+  same ripgrep listing. One new definition adds 1640 characters, and `FindSymbol`'s
+  description now names its local declaration index (the knowledge layer: layer first,
+  language server on a miss) for another 140; the tool surface became
+  `40dd3dbe369d1946`/37635 over 43 tools (37635 characters), a one-time cold start -
+  the AstSearch half only lands in a run with ripgrep on the machine, whose absence
+  bills the same bytes as before.
+
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `11370bf898bf1ca1` over 42 tools and 35481 characters (name + description + parameter schema, in
+  `40dd3dbe369d1946` over 43 tools and 37635 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the
   project into another directory cold-started the cache for every session. The working
   directory is still stated, once, in the environment block.
-  All 42 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  All 43 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
   default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is

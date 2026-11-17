@@ -17,6 +17,7 @@ import {
   type ProviderSetup,
 } from "../config/providerSetup.js";
 import { t } from "../i18n/index.js";
+import { KeypressProvider } from "../ui/contexts/KeypressContext.js";
 
 import { ProviderSetupScreen } from "./ProviderSetupScreen.js";
 
@@ -30,14 +31,20 @@ export { checkHasAcceptableModel };
 export async function runProviderSetupInk(): Promise<ProviderSetup | null> {
   let result: ProviderSetup | null = null;
   const app = render(
-    React.createElement(ProviderSetupScreen, {
-      onComplete: (setup: ProviderSetup) => {
-        result = setup;
-      },
-      onCancel: () => {
-        result = null;
-      },
-    }),
+    // The screen reads keys through the app's own parser, which needs the
+    // provider; onboarding renders before the main TUI mounts one of its own.
+    React.createElement(
+      KeypressProvider,
+      null,
+      React.createElement(ProviderSetupScreen, {
+        onComplete: (setup: ProviderSetup) => {
+          result = setup;
+        },
+        onCancel: () => {
+          result = null;
+        },
+      }),
+    ),
   );
   await app.waitUntilExit();
   return result;

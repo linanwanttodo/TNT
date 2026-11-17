@@ -5,6 +5,7 @@ import {
   createAutoCompactionState,
   isCompactionBreakerTripped,
   recordCompactionFailure,
+  recordCompactionNoProgress,
   recordCompactionSuccess,
   type AutoCompactionState,
 } from "core/util/autoCompaction.js";
@@ -53,7 +54,9 @@ function setCompactionState(
 interface AutoCompactionCallbacks {
   // For streaming mode
   onSystemMessage?: (message: string) => void;
-  onContent?: (content: string) => void;
+  // NOTE: there is deliberately no summary-content callback here. The
+  // compaction summary is model context; routing it through the assistant's
+  // content channel printed it into the conversation.
 
   // For TUI mode
   setMessages?: React.Dispatch<React.SetStateAction<ChatHistoryItem[]>>;
@@ -75,6 +78,13 @@ interface AutoCompactionOptions {
    * the provider's own refusal for length.
    */
   force?: boolean;
+  /**
+   * The caller's interrupt: a summary call runs for tens of seconds, and a
+   * user who pressed ESC must not have it finish behind their back and swap
+   * the history out underneath them. Passing it through lets the summarizer's
+   * own request be cancelled, not just forgotten.
+   */
+  abortController?: AbortController;
 }
 
 /**
@@ -196,12 +206,24 @@ export async function handleAutoCompaction(
     systemMessage: providedSystemMessage,
     tools,
     force,
+    abortController,
   } = options;
 
   if (!model) {
     return {
       chatHistory,
       compactionIndex: null,
+      wasCompacted: false,
+      summarized: false,
+    };
+  }
+
+  // An interrupt that arrived before this call is a decision, not an error:
+  // the caller stopped the turn and the history must stay exactly as it is.
+  if (abortController?.signal.aborted) {
+    return {
+      chatHistory,
+      compactionIndex: findCompactionIndex(chatHistory),
       wasCompacted: false,
       summarized: false,
     };
@@ -358,32 +380,52 @@ export async function handleAutoCompaction(
       model,
     );
 
-    // Compact the history
+    // Compact the history. The summary is model context, not chat output, so
+    // it is deliberately not wired into the stream callbacks: forwarding the
+    // summarizer's deltas to `onContent` printed the whole brief into the
+    // conversation as if the assistant had written it. Progress is the
+    // "compacting" status and the boundary marker, nothing more.
     const result = await compactChatHistory(
       historyAfterToolResultCompaction,
       model,
       llmApi,
       {
-        callbacks: isHeadless
-          ? undefined
-          : {
-              onStreamContent: callbacks?.onContent,
-              onStreamComplete: () => {},
-            },
+        abortController,
         systemMessageTokens,
         toolResultsCompacted: true,
         summarize: summarizeWithEngine,
       },
     );
 
+    // The caller interrupted while the summary was running: the transcript
+    // stays as it was, the result is dropped, and no breaker is charged - a
+    // cancellation is the user's decision, not a compaction failure.
+    if (abortController?.signal.aborted) {
+      logger.info("Compaction cancelled by interrupt; keeping the history");
+      setCompactionState(session, {
+        ...compactionState,
+        inFlight: false,
+        consecutiveFailures: 0,
+        consecutiveNoProgress: 0,
+      });
+      return {
+        chatHistory,
+        compactionIndex: findCompactionIndex(chatHistory),
+        wasCompacted: false,
+        summarized: false,
+      };
+    }
+
     // The summary ran but bought nothing: keep the original transcript and
-    // carry on. This is a normal no-compaction outcome, not a failure, so the
-    // breaker is left alone and no error is reported.
+    // carry on. This is a normal no-compaction outcome, not a failure - but it
+    // has to be counted, because a trigger the history cannot get under would
+    // otherwise summarize on every round forever, paying a model call each time.
     if (result.abandoned) {
       logger.info(
         "Compaction abandoned: the summary did not reduce the history; continuing with the original",
       );
-      setCompactionState(session, { ...compactionState, inFlight: false });
+      compactionState = recordCompactionNoProgress(compactionState);
+      setCompactionState(session, compactionState);
       if (toolResultCompaction.truncatedCount > 0) {
         return {
           chatHistory: historyAfterToolResultCompaction,
@@ -417,7 +459,27 @@ export async function handleAutoCompaction(
       };
     }
 
-    compactionState = recordCompactionSuccess(compactionState);
+    // A compaction that lands above the trigger bought nothing: the fixed
+    // prefix (system message + tool schemas) plus the summary already fill the
+    // budget, so the next round would summarize again. That has to count as no
+    // progress rather than success, or the breaker never trips and the session
+    // pays a summarization call every round.
+    const stillOverTrigger = shouldAutoCompact({
+      chatHistory: result.compactedHistory,
+      model,
+      systemMessage: providedSystemMessage,
+      tools,
+      measured: undefined,
+      prefixKey,
+    });
+    compactionState = stillOverTrigger
+      ? recordCompactionNoProgress(compactionState)
+      : recordCompactionSuccess(compactionState);
+    if (stillOverTrigger) {
+      logger.warn(
+        "Compaction completed but the history is still at the trigger; counting as no progress",
+      );
+    }
     setCompactionState(session, compactionState);
 
     // Handle success notification
@@ -430,6 +492,24 @@ export async function handleAutoCompaction(
       summarized: true,
     };
   } catch (error: any) {
+    // A cancelled summary surfaces here as an error from the aborted request.
+    // It is not a compaction failure: nothing is reported and the breaker is
+    // left alone, or one ESC press would spend a third of the retry budget.
+    if (abortController?.signal.aborted) {
+      logger.info("Compaction cancelled by interrupt; keeping the history");
+      setCompactionState(session, {
+        ...compactionState,
+        inFlight: false,
+        consecutiveFailures: 0,
+        consecutiveNoProgress: 0,
+      });
+      return {
+        chatHistory,
+        compactionIndex: findCompactionIndex(chatHistory),
+        wasCompacted: false,
+        summarized: false,
+      };
+    }
     // Handle error notification
     handleCompactionError(error, isHeadless, callbacks);
     compactionState =

@@ -51,22 +51,44 @@
 
 - 功能：纯本地的深度受限目录清单，输出入口文件、目录形状与文件数；不含文件内容、不含远程请求。清单按「路径 + 大小 + mtime」指纹缓存在 `~/.tnt/repo-map/`，指纹不变时读缓存，变化时重建；state 目录落在工作区内时会从清单中排除，避免缓存文件使指纹永久失效。缓存不可写时本次仍返回地图。
 
-## 9. 请求内容分段计量（已实现，后端）
+## 9. 请求内容分段计量（已实现）
 
-- 功能：在请求组装处按 system / tools / messages / hookNotes 四段估算输入 token，逐轮累加到 turn 台账与 agent 行。数值是本地估算，不是 provider 的分项账单；用途是看各段占比的趋势，决定下一次优化落在哪一段。WebUI 网格展示未实现。
+- 功能：在请求组装处按 system / tools / messages / hookNotes 四段估算输入 token，逐轮累加到 turn 台账与 agent 行。数值是本地估算，不是 provider 的分项账单；用途是看各段占比的趋势，决定下一次优化落在哪一段。
 - 文件：`packages/cli/src/stream/contentSections.ts`、`packages/cli/src/stream/usageTelemetry.ts`、`packages/cli/src/stream/processStreamingResponse.ts`。
 - 测试：`packages/cli/src/stream/contentSections.test.ts`。
 
+## 10. 请求内容分段的 WebUI 网格（已实现）
+
+- 功能：开发者面板的轮次表新增 Segments 列，用四段堆叠占比条渲染每轮 system/tools/messages/hookNotes 的相对大小；`sections` 缺失或全零时显示 `—`。共享 schema（`packages/zcode-ui/shared/src/session-debug.ts`）补齐 `sections`、`agentType`、`isCompacting`、`calculateOutputTps` 字段，中英文案补齐。
+- 文件：`packages/zcode-ui/shared/src/session-debug.ts`、`packages/zcode-ui/ui/src/DeveloperToolsPane.tsx`、`packages/zcode-ui/ui/src/i18n/locales/en-US.ts`、`zh-CN.ts`。
+
+## 11. 开发者面板的调试环（已实现）
+
+- 功能：`session/debug` 有了 TNT 侧实现。`telemetry/debugRings.ts` 是进程内有界存储（每会话 200 轮、100 条网络事实、16 个会话），`recordRoundAccounting` 逐轮写入轮次（含分段、agent 维度、isCompacting、首 token 时延、TPS），退避层通过 `onTransportEvent` 回调上报 retry/stalled/failed 供 `stream/processStreamingResponse.ts` 落环（头保持空、计数为 0——适配层拿不到原始 HTTP 交换，如实展示）。`appServer/session.ts` 的 `debug()` 按 promptCacheKey 读环并汇总只含上报轮的缓存命中率，protocol 注册 `sessionDebug` 处理器。
+- 文件：`packages/cli/src/telemetry/debugRings.ts`、`packages/cli/src/utils/exponentialBackoff.ts`、`packages/cli/src/stream/processStreamingResponse.ts`、`packages/cli/src/stream/usageTelemetry.ts`、`packages/cli/src/appServer/session.ts`、`packages/cli/src/appServer/protocol.ts`。
+- 测试：`packages/cli/src/telemetry/debugRings.test.ts`（10 例）、`packages/cli/src/appServer/session.test.ts`（+3）。
+
+## 12. AstSearch：本地结构化检索（已实现）
+
+- 功能：ast-grep 等价能力，全部本地。core 侧 `core/util/structuralSearch.ts` 把 `$NAME`/`$$$NAME` 元变量预处理器替换为各语法都合法的占位标识符再按目标语法解析，结构匹配比较语法节点类型与子序列（含匿名记号，注释剔除；`expression_statement` 内的单个 splat 折叠，使 `{ $$$BODY }` 覆盖整段语句）；重复元变量要求文本一致。cli 侧 `packages/cli/src/tools/astSearch.ts` 用 ripgrep `--files`（尊重 .gitignore 与权限 deny globs）枚举 15 种语言的候选文件，按语言惰性编译 pattern，另支持 `kind` 模式直接列出节点种类；上限（默认 4000 文件、1.5MB/文件、40 匹配可调）与中止都如实入答。与 Search/Glob 同属 `BUILTIN_SEARCH_TOOLS`（需要 ripgrep），三条权限表 allow，ACP kind=search，不进 AUTO_SAFE_TOOLS（目标路径可离开工作区，同 Search 走 acceptEdits 快通道）。
+- 文件：`core/util/structuralSearch.ts`、`packages/cli/src/tools/astSearch.ts`。
+- 测试：`packages/cli/src/tools/astSearch.test.ts`（12 例）。
+
+## 13. 本地声明索引：知识层短路（已实现）
+
+- 功能：检索下沉的层。`retrieval/symbolIndex.ts` 用 tree-sitter 按语法 `name` 字段抽取声明（函数/类/方法/变量/类型/接口/枚举/结构体），深度限 3（文件作用域与类成员，函数局部绑定不算），上限 600 文件、256KB/文件、200 符号/文件，按「路径+大小+mtime」指纹缓存到 `~/.tnt/symbol-index.json`，`TNT_SYMBOL_INDEX=0` 可关。`FindSymbol` 先查层：无语言服务器时层即答案（带来源与启发式声明），有服务器时层是服务器未命中后的第二机会；未命中才回落到更重的路径。
+- 文件：`packages/cli/src/retrieval/symbolIndex.ts`、`packages/cli/src/tools/findSymbol.ts`。
+- 测试：`packages/cli/src/retrieval/symbolIndex.test.ts`（6 例）、`packages/cli/src/tools/findSymbol.test.ts`（+2）。
+
 ## 未实现项与边界
 
-- 请求内容分段的 WebUI 网格展示：台账已产出数据，界面未接入。
 - eviction 与 microCompact 的双轨状态机合并、替换决策持久化：冷窗闸门与归因已覆盖主要成本问题；合并会改动已稳定的热路径，留待观察期后处理。
-- 检索下沉的知识层问答短路（先查层、未命中再调工具）：目前地图在会话首轮注入一次，未做按问题类型的自动短路。
-- 远程代码索引与远程 MCP：不引入，检索能力全部本地。
+- 远程代码索引与远程 MCP：不引入，检索能力全部本地（AstSearch 与声明索引都只读工作区文件与 vendored 语法）。
+- 声明索引为精确名匹配（大小写不敏感），不做前缀/子串；跨语言启发式抽取覆盖语法 `name` 字段能命中的声明形态，未见过的语法形态可能漏。
 
 ## 本轮其他改动记录
 
 - 全面体检修复 31 项：worktree 列表与删除、自动化立即运行、派发幂等、团队运行结算、终端进程收尾、压缩绕过、取消后空提交、主题跟随、文档与实现对齐、CI 输入校验等；涉及 `packages/cli/src/webuiZcode/services/`、`core/util/`、`packages/cli/src/session/`、`packages/cli/src/ui/`、`docs/`。
 - ZCode workflow 相关文件同步到 v3.18.2、team 运行页签增强（五态筛选、resumable 入口、本地化时间）；涉及 `packages/zcode-ui/`、`packages/cli/src/appServer/`、`packages/zcode-ui/UPSTREAM-DIVERGENCES.md`。
 - CI 测试饥饿超时的结构性修复：worker 上限、超时余量、CI 单次重试、慢测自带工具超时；涉及 `packages/cli/vitest.config.ts`、`.github/workflows/cli-pr-checks.yml`。
-- 全部改动已通过本地门禁：cli 5253 用例、config-yaml 287 用例、e2e 131 用例、smoke 10 项、lint、cli build、docs-site build。
+- 工具面登记：`AstSearch` 加入注册表（42→43 工具），`FindSymbol` 描述更新；前缀指纹 `40dd3dbe369d1946`/37635/43，`packages/cli/src/tools/toolPrefixFingerprint.test.ts` 与 `packages/cli/ARCHITECTURE-tnt.md` 同步更新。

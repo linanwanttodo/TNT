@@ -22,7 +22,6 @@ import {
   getModelContextLimit,
   getModelMaxTokens,
 } from "../utils/tokenizer.js";
-import { parseEnvNumber } from "../utils/truncateOutput.js";
 
 import {
   type MeasuredRequest,
@@ -33,26 +32,29 @@ import { buildSummaryRequest } from "./prefixPreservation.js";
 /**
  * The compaction ceilings an operator can tune without a code change: a
  * smaller ceiling makes compaction fire earlier, a larger one lets the
- * working set grow (up to the ratio bound). Defaults come from
- * `CONTEXT_POLICY_REGISTRY.default`.
+ * working set grow (up to the ratio bound). Unset means the ratio alone
+ * decides - the model's declared window is the budget, not an assumed one.
  */
 function tunedContextBudget(
   contextWindow: number,
   reservedOutputTokens: number,
 ): ReturnType<typeof calculateContextBudget> {
-  const ceiling = parseEnvNumber(
-    process.env.TNT_COMPACT_CEILING,
-    CONTEXT_POLICY_REGISTRY.default.compactCeilingTokens,
-  );
-  const retain = parseEnvNumber(
-    process.env.TNT_COMPACT_RETAIN,
-    CONTEXT_POLICY_REGISTRY.default.retainCeilingTokens,
-  );
+  const ceiling = optionalEnvNumber(process.env.TNT_COMPACT_CEILING);
+  const retain = optionalEnvNumber(process.env.TNT_COMPACT_RETAIN);
   return calculateContextBudget(contextWindow, reservedOutputTokens, {
     ...CONTEXT_POLICY_REGISTRY.default,
-    compactCeilingTokens: ceiling,
-    retainCeilingTokens: retain,
+    ...(ceiling === undefined ? {} : { compactCeilingTokens: ceiling }),
+    ...(retain === undefined ? {} : { retainCeilingTokens: retain }),
   });
+}
+
+/** Only an explicit, positive value counts; anything else leaves the bound off. */
+function optionalEnvNumber(value: string | undefined): number | undefined {
+  if (value === undefined || value.trim() === "") {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 export interface CompactionResult {

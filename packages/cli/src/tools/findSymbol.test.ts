@@ -79,4 +79,44 @@ describe("the find symbol tool", () => {
 
     expect(result).toContain('No symbol matched "absent"');
   });
+
+  it("answers from the local declaration index when no server is configured", async () => {
+    const previousCwd = process.cwd();
+    process.chdir(workDir);
+    try {
+      fs.writeFileSync(
+        path.join(workDir, "sample.ts"),
+        "export function knownSymbol() {}\n",
+      );
+
+      const result = await findSymbolTool.run({ query: "knownSymbol" });
+
+      expect(result).toContain("local tree-sitter declaration index");
+      expect(result).toContain("sample.ts:1");
+      expect(result).toContain("function_declaration knownSymbol");
+      // The miss message must not stand in for the layer's answer.
+      expect(result).not.toContain("has no match");
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
+
+  it("falls back to the local index when the server has no match", async () => {
+    writePlugin();
+    const previousCwd = process.cwd();
+    process.chdir(workDir);
+    try {
+      fs.writeFileSync(
+        path.join(workDir, "sample.ts"),
+        "export function absent() {}\n",
+      );
+
+      const result = await findSymbolTool.run({ query: "absent" });
+
+      expect(result).toContain("language server had no match");
+      expect(result).toContain("sample.ts:1");
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
 });

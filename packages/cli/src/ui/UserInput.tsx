@@ -1143,6 +1143,12 @@ const UserInput: React.FC<UserInputProps> = ({
     return null;
   }
 
+  // The composer stays editable while a turn runs (typing is queued, and a
+  // slash command submits the moment Enter lands), so the overlays must be
+  // available then too. Gating them on `inputMode` alone is what hid the `/`
+  // palette for the whole length of a running answer.
+  const composerInteractive = inputMode || isWaitingForResponse || isCompacting;
+
   const suggestionText = visibleSuggestionText({
     suggestion: promptSuggestion,
     inputText,
@@ -1183,7 +1189,7 @@ const UserInput: React.FC<UserInputProps> = ({
           <SuggestionOverlay
             show={
               showSlashCommands &&
-              inputMode &&
+              composerInteractive &&
               !hideNormalUI &&
               !historySearch.search.active
             }
@@ -1198,7 +1204,7 @@ const UserInput: React.FC<UserInputProps> = ({
           <SuggestionOverlay
             show={
               showFileSearch &&
-              inputMode &&
+              composerInteractive &&
               !hideNormalUI &&
               !historySearch.search.active
             }
@@ -1218,7 +1224,7 @@ const UserInput: React.FC<UserInputProps> = ({
         <>
           <SlashCommandsMaybe
             show={showSlashCommands && !historySearch.search.active}
-            inputMode={inputMode}
+            inputMode={composerInteractive}
             hideNormalUI={!!hideNormalUI}
             isRemoteMode={!!isRemoteMode}
             assistant={assistant}
@@ -1230,7 +1236,7 @@ const UserInput: React.FC<UserInputProps> = ({
 
           <FileSearchMaybe
             show={showFileSearch && !historySearch.search.active}
-            inputMode={inputMode}
+            inputMode={composerInteractive}
             hideNormalUI={!!hideNormalUI}
             isRemoteMode={!!isRemoteMode}
             filter={fileSearchFilter}

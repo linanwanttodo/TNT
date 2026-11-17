@@ -629,6 +629,15 @@ export function useChat({
       // Hand the queue to the shared drain loop. Unconditional, even when
       // empty: this is what lets a browser-enqueued message reach an idle
       // TUI. The dequeue event already removed the row from the view.
+      //
+      // An interrupted turn is the one exception: the reader pressed ESC to
+      // stop, and a message they typed while the turn ran ("继续啊") must not
+      // start a fresh turn seconds later on its own. Reference CLIs drop the
+      // queue on interrupt; the composer keeps the text for a manual resend.
+      if (controller.signal.aborted) {
+        messageQueue.clearMessages();
+        return;
+      }
       turnRunnerService.startDraining((queued, signal) =>
         runOneTurn(queued, signal, processQueuedMessage),
       );
@@ -876,6 +885,13 @@ export function useChat({
         setCompactionAbortController(null);
       }
 
+      // An interrupted compaction is a stop: the reader cancelled the turn, so
+      // neither the queued text nor a fresh stream may follow it.
+      if (compactionController.signal.aborted) {
+        messageQueue.clearMessages();
+        return;
+      }
+
       // Add the formatted queued message to history after compaction completes
       const newHistory = [...currentChatHistory, formattedQueuedMessage];
       setChatHistory(newHistory);
@@ -943,6 +959,13 @@ export function useChat({
         setIsCompacting(false);
         setCompactionStartTime(null);
         setCompactionAbortController(null);
+      }
+
+      // An interrupted compaction is a stop: the message the reader typed to
+      // trigger it stays unentered, exactly as ESC promises.
+      if (compactionController.signal.aborted) {
+        messageQueue.clearMessages();
+        return;
       }
 
       // Add the formatted user message to history

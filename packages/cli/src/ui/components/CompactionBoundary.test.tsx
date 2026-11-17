@@ -15,14 +15,11 @@ function frameOf(element: React.ReactElement): string {
 }
 
 describe("CompactionBoundary", () => {
-  it("labels the boundary and shows the summary", () => {
-    const frame = frameOf(
-      <CompactionBoundary summary="## recap\n\n- kept the parser change" />,
-    );
+  it("labels the boundary and keeps the summary out of the transcript", () => {
+    const frame = frameOf(<CompactionBoundary />);
 
     expect(frame).toContain("context compacted");
-    expect(frame).toContain("recap");
-    expect(frame).toContain("kept the parser change");
+    expect(frame).not.toContain("recap");
   });
 });
 
@@ -39,10 +36,10 @@ describe("MemoizedMessage compaction item", () => {
     },
   };
 
-  it("renders the compaction summary instead of a bare rule", () => {
+  it("renders only the boundary rule, never the summary body", () => {
     const frame = frameOf(<MemoizedMessage item={item} index={1} />);
 
     expect(frame).toContain("context compacted");
-    expect(frame).toContain(summary);
+    expect(frame).not.toContain(summary);
   });
 });

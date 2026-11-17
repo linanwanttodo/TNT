@@ -397,26 +397,45 @@ describe("tokenizer", () => {
 
     it("should handle model with zero maxTokens correctly", () => {
       const model = createModel(1000, 0); // Explicit zero
+      // Zero maxTokens reserves nothing, so the 90% ratio decides on its own:
+      // 850 tokens is under it, 950 is over.
       const chatHistory = createChatHistory(850);
+      expect(shouldAutoCompact({ chatHistory, model })).toBe(false);
 
-      expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
+      const overflowing = createChatHistory(950);
+      expect(shouldAutoCompact({ chatHistory: overflowing, model })).toBe(true);
     });
 
     describe("real-world scenarios", () => {
       it("should prevent Claude 3.5 Sonnet context overflow", () => {
-        // Claude 3.5 Sonnet: 200k context, often uses 4k max_tokens
+        // Claude 3.5 Sonnet: 200k context, often uses 4k max_tokens. The
+        // trigger is 90% of the window (180k): there is no absolute cap
+        // underneath, so a big model is not compacted at a tenth of it.
         const model = createModel(200_000, 4_000);
-        const chatHistory = createChatHistory(161_000);
+        const comfortable = createChatHistory(161_000);
+        expect(shouldAutoCompact({ chatHistory: comfortable, model })).toBe(
+          false,
+        );
 
-        expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
+        const overflowing = createChatHistory(185_000);
+        expect(shouldAutoCompact({ chatHistory: overflowing, model })).toBe(
+          true,
+        );
       });
 
       it("should prevent GPT-4 context overflow", () => {
-        // GPT-4: 128k context, often uses 4k max_tokens
+        // GPT-4: 128k context, often uses 4k max_tokens; the trigger sits at
+        // 115.2k (90%).
         const model = createModel(128_000, 4_000);
-        const chatHistory = createChatHistory(103_000);
+        const comfortable = createChatHistory(103_000);
+        expect(shouldAutoCompact({ chatHistory: comfortable, model })).toBe(
+          false,
+        );
 
-        expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
+        const overflowing = createChatHistory(120_000);
+        expect(shouldAutoCompact({ chatHistory: overflowing, model })).toBe(
+          true,
+        );
       });
 
       it("should handle models with very high max_tokens", () => {
@@ -430,21 +449,35 @@ describe("tokenizer", () => {
         const contextLength = 200_000;
         const maxTokens = 64_000;
         const model = createModel(contextLength, maxTokens);
-        const chatHistory = createChatHistory(135_000);
+        // The ratio wants 180k, but only 136k of input capacity exists after
+        // the output reservation, and the 64-token headroom comes out of that:
+        // the boundary (135,936) is what binds, so compaction fires the moment
+        // the input reaches it.
+        const justBelow = createChatHistory(135_000);
+        expect(shouldAutoCompact({ chatHistory: justBelow, model })).toBe(
+          false,
+        );
 
-        // The absolute compact ceiling (100k) now binds before the
-        // output-reserved boundary (136k): the working set is a fixed budget
-        // whatever the window, which is what keeps a request's input cost flat.
-        expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
+        const atBoundary = createChatHistory(137_000);
+        expect(shouldAutoCompact({ chatHistory: atBoundary, model })).toBe(
+          true,
+        );
       });
 
       it("should use ratio-based buffer when maxTokens is small", () => {
         const contextLength = 100_000;
         const maxTokens = 1_000;
         const model = createModel(contextLength, maxTokens);
-        const chatHistory = createChatHistory(81_000);
+        // The ratio decides: compaction waits for 90k, not for a fixed cap.
+        const comfortable = createChatHistory(81_000);
+        expect(shouldAutoCompact({ chatHistory: comfortable, model })).toBe(
+          false,
+        );
 
-        expect(shouldAutoCompact({ chatHistory, model })).toBe(true);
+        const overflowing = createChatHistory(95_000);
+        expect(shouldAutoCompact({ chatHistory: overflowing, model })).toBe(
+          true,
+        );
       });
     });
   });

@@ -67,10 +67,26 @@ import { sortToolsByName } from "./stableOrder.js";
  * characters move the digest from 11370bf898bf1ca1/35481 to
  * 62fdad1f57bffbb1/35854 over the same 42 tools. It sits in every delegating
  * session's prefix, so the cold start is paid once on the next request.
+ *
+ * 2026-11-17: `AstSearch` joined the registry, so a shape can be searched for
+ * instead of a string: local tree-sitter matching with $NAME / $$$NAME
+ * metavariables over the grammars the CLI already ships, with a `kind` mode
+ * for listing node kinds. One new definition adds 1640 characters, moving the
+ * digest from 62fdad1f57bffbb1/35854 to 13c8f8a1003f1284/37495 over 43 tools.
+ * It sits in the prefix of every run that has ripgrep on the machine (the
+ * same gate as Search and Glob), so those sessions cold-start once; a session
+ * without ripgrep bills the same bytes as before.
+ *
+ * 2026-11-17: `FindSymbol` now says it answers from the local tree-sitter
+ * declaration index when no language server is configured or the server has
+ * no match - the knowledge layer the retrieval ledger promised. The wording
+ * adds 140 characters, moving the digest from 13c8f8a1003f1284/37495 to
+ * 40dd3dbe369d1946/37635 over the same 43 tools. It is in every prefix, so
+ * the cold start is paid once on the next request.
  */
-const PREFIX_FINGERPRINT = "62fdad1f57bffbb1";
-const PREFIX_CHARACTERS = 35_854;
-const PREFIX_TOOLS = 42;
+const PREFIX_FINGERPRINT = "40dd3dbe369d1946";
+const PREFIX_CHARACTERS = 37_635;
+const PREFIX_TOOLS = 43;
 
 const ARCHITECTURE_DOC = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

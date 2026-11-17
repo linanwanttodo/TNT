@@ -154,7 +154,7 @@ export async function handleAutoCompaction({
   compactionIndex: _compactionIndex,
   setChatHistory,
   setCompactionIndex,
-  abortController: _abortController,
+  abortController,
 }: HandleAutoCompactionOptions): Promise<{
   currentChatHistory: ChatHistoryItem[];
   currentCompactionIndex: number | null;
@@ -162,12 +162,17 @@ export async function handleAutoCompaction({
   // Delegate to core handleAutoCompaction which decides whether compaction is needed
   // Note: TUI mode doesn't have access to tools/systemMessage at this point,
   // so the core function uses a simplified check.
+  //
+  // The abort controller rides along: a summary call runs for tens of seconds
+  // and an ESC pressed during it has to actually cancel it, not leave it
+  // running behind the interrupt to swap the history afterwards.
   const result = await coreHandleAutoCompaction(chatHistory, model, llmApi, {
     isHeadless: false,
     callbacks: {
       setChatHistory,
       setCompactionIndex,
     },
+    abortController,
   });
 
   // PreCompact for the auto trigger is fired by the engine before it summarizes,

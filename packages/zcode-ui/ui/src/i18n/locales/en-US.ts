@@ -5928,6 +5928,13 @@ const enUS: Record<string, string> = {
   "tokenDebug.column.cacheRead": "Cache read",
   "tokenDebug.column.cacheWrite": "Cache write",
   "tokenDebug.column.hitRate": "Hit rate",
+  "tokenDebug.column.sections": "Input mix",
+  "tokenDebug.sectionsDescription":
+    "The request's input split by content class, estimated by the client. The provider bills one input number and no split.",
+  "tokenDebug.section.system": "SYS",
+  "tokenDebug.section.tools": "TOOLS",
+  "tokenDebug.section.messages": "MSG",
+  "tokenDebug.section.hookNotes": "HOOK",
   "tokenDebug.empty": "No main session token records yet",
   "developerTools.title": "Developer tools",
   "developerTools.tokenSection": "Token debug",

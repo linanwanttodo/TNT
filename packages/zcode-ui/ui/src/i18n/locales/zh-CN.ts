@@ -5532,6 +5532,13 @@ const zhCN: Record<string, string> = {
   "tokenDebug.column.cacheRead": "Cache Read",
   "tokenDebug.column.cacheWrite": "Cache Write",
   "tokenDebug.column.hitRate": "命中率",
+  "tokenDebug.column.sections": "输入构成",
+  "tokenDebug.sectionsDescription":
+    "本请求输入按内容类别的估算拆分，由客户端估算；服务商只报一个输入总数，不报拆分。",
+  "tokenDebug.section.system": "系统",
+  "tokenDebug.section.tools": "工具",
+  "tokenDebug.section.messages": "消息",
+  "tokenDebug.section.hookNotes": "钩子",
   "tokenDebug.empty": "暂无 main session token 记录",
   "developerTools.title": "开发者工具",
   "developerTools.tokenSection": "Token 调试",

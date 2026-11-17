@@ -2,38 +2,30 @@ import { Box, Text } from "ink";
 import React from "react";
 
 import { t } from "../../i18n/index.js";
-import { MarkdownRenderer } from "../MarkdownRenderer.js";
 import { useTheme } from "../theme/tokens.js";
-
-interface CompactionBoundaryProps {
-  /** Summary that replaced the compacted turns. */
-  summary: string;
-}
 
 /**
  * Marks where older turns were replaced by a summary.
  *
- * The reference implementations treat compaction as a first-class transcript
- * event rather than a silent rewrite, so the boundary stays visible and the
- * summary is rendered inline instead of being folded into a collapsed card.
+ * The summary itself is model context - every surface keeps it out of the
+ * transcript. The reference clients draw the same one-line rule, and printing
+ * the brief into the conversation is what made a compaction look like the
+ * assistant had suddenly answered with a handoff document.
  */
-const CompactionBoundary: React.FC<CompactionBoundaryProps> = ({ summary }) => {
+const CompactionBoundary: React.FC = () => {
   const theme = useTheme();
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Box>
-        <Text color="gray" dimColor>
-          {"── "}
-        </Text>
-        <Text color={theme.text.subtle} dimColor>
-          {t("compaction.boundary")}
-        </Text>
-        <Text color="gray" dimColor>
-          {" ──"}
-        </Text>
-      </Box>
-      <MarkdownRenderer content={summary} theme={theme.syntax} />
+    <Box marginBottom={1}>
+      <Text color="gray" dimColor>
+        {"── "}
+      </Text>
+      <Text color={theme.text.subtle} dimColor>
+        {t("compaction.boundary")}
+      </Text>
+      <Text color="gray" dimColor>
+        {" ──"}
+      </Text>
     </Box>
   );
 };

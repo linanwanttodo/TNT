@@ -1,6 +1,9 @@
 /* oxlint-disable eslint(max-lines) -- 开发者工具面板集中展示 token 表和网络 headers，后续继续扩展时再按区块拆分。 */
 import { ActivityIcon, BugIcon, NetworkIcon } from "lucide-react";
-import type { SessionDebugNetworkEntry } from "@zcode/shared";
+import type {
+  SessionDebugNetworkEntry,
+  SessionDebugRound,
+} from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useSessionDebug } from "@/hooks/useSessionDebug.js";
 
@@ -58,6 +61,82 @@ function networkStatusLabelId(statusType: SessionDebugNetworkEntry["statusType"]
     case "model_stream_stalled":
       return "developerTools.network.status.stalled";
   }
+}
+
+const SECTION_ORDER = ["system", "tools", "messages", "hookNotes"] as const;
+type SectionKey = (typeof SECTION_ORDER)[number];
+
+const SECTION_BAR_CLASS: Record<SectionKey, string> = {
+  system: "bg-primary",
+  tools: "bg-primary/70",
+  messages: "bg-primary/45",
+  hookNotes: "bg-primary/25",
+};
+
+function sectionLabelId(key: SectionKey): string {
+  switch (key) {
+    case "system":
+      return "tokenDebug.section.system";
+    case "tools":
+      return "tokenDebug.section.tools";
+    case "messages":
+      return "tokenDebug.section.messages";
+    case "hookNotes":
+      return "tokenDebug.section.hookNotes";
+  }
+}
+
+/**
+ * The round's input split by content class. These are the client's own
+ * estimates, so the bar shows where the request's weight sits rather than
+ * claiming the provider's bill was divided the same way.
+ */
+function SectionBar({
+  round,
+  locale,
+  labelFor,
+}: {
+  round: SessionDebugRound;
+  locale: string;
+  labelFor: (key: SectionKey) => string;
+}) {
+  const sections = round.sections;
+  if (!sections) {
+    return <span className="font-mono text-foreground-subtle">—</span>;
+  }
+  const slices = SECTION_ORDER.map((key) => ({
+    key,
+    value: Math.max(0, sections[key]),
+  }));
+  const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+  if (total <= 0) {
+    return <span className="font-mono text-foreground-subtle">—</span>;
+  }
+  return (
+    <div className="min-w-[16rem] space-y-1">
+      <div className="flex h-2 w-full overflow-hidden rounded-sm bg-accent">
+        {slices.map((slice) => {
+          if (slice.value <= 0) return null;
+          return (
+            <div
+              key={slice.key}
+              className={SECTION_BAR_CLASS[slice.key]}
+              style={{ width: `${(slice.value / total) * 100}%` }}
+              title={`${labelFor(slice.key)} ${formatNumber(locale, slice.value)}`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-ui-xs text-foreground-subtle">
+        {slices.map((slice) => (
+          <span key={slice.key}>
+            {labelFor(slice.key)} {formatNumber(locale, slice.value)}
+          </span>
+        ))}
+        <span className="text-foreground">{formatNumber(locale, total)}</span>
+      </div>
+    </div>
+  );
 }
 
 function HeaderDetails({
@@ -141,7 +220,7 @@ export function DeveloperToolsPane({
             </span>
           </div>
           <div className="overflow-auto rounded-md border border-border">
-            <table className="w-full min-w-[38rem] border-collapse text-ui-xs">
+            <table className="w-full min-w-[56rem] border-collapse text-ui-xs">
               <thead className="sticky top-0 bg-background text-foreground-subtle">
                 <tr className="border-b border-border">
                   <th className="px-2 py-1.5 text-left font-medium">
@@ -174,12 +253,18 @@ export function DeveloperToolsPane({
                   <th className="px-2 py-1.5 text-right font-medium">
                     {intl.formatMessage({ id: "tokenDebug.column.hitRate" })}
                   </th>
+                  <th
+                    className="px-2 py-1.5 text-left font-medium"
+                    title={intl.formatMessage({ id: "tokenDebug.sectionsDescription" })}
+                  >
+                    {intl.formatMessage({ id: "tokenDebug.column.sections" })}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {debugState.rounds.length === 0 ? (
                   <tr>
-                    <td className="px-2 py-3 text-center text-foreground-subtle" colSpan={9}>
+                    <td className="px-2 py-3 text-center text-foreground-subtle" colSpan={10}>
                       {intl.formatMessage({ id: "tokenDebug.empty" })}
                     </td>
                   </tr>
@@ -219,6 +304,15 @@ export function DeveloperToolsPane({
                       </td>
                       <td className="px-2 py-1.5 text-right font-mono text-foreground">
                         {formatPercent(locale, round.hitRate)}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <SectionBar
+                          round={round}
+                          locale={locale}
+                          labelFor={(key) =>
+                            intl.formatMessage({ id: sectionLabelId(key) })
+                          }
+                        />
                       </td>
                     </tr>
                   ))

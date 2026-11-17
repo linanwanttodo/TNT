@@ -359,7 +359,7 @@ function collectToolResults(history: ChatHistoryItem[]): Map<string, string> {
 
 function assistantInfo(
   context: MessageContext,
-  usage: AssistantChatMessage["usage"],
+  usage?: AssistantChatMessage["usage"],
 ): ZCodeMessageWithParts["info"] {
   const workspacePath = workspacePathOf(context.session);
   const info: ZCodeMessageWithParts["info"] = {
@@ -518,6 +518,11 @@ export function toZcodeMessages(session: Session): ZCodeMessageWithParts[] {
   let lastUserMessageId: string | undefined;
   let lastMessageId: string | undefined;
 
+  /** The one kind of assistant item whose text is context, not chat output. */
+  const isCompactionItem = (item: ChatHistoryItem): boolean =>
+    item.conversationSummary !== undefined ||
+    item.compactionCheckpoint?.kind === "compact-checkpoint";
+
   session.history.forEach((item, index) => {
     const role = item.message.role;
     if (role === "tool") {
@@ -545,6 +550,25 @@ export function toZcodeMessages(session: Session): ZCodeMessageWithParts[] {
     }
     if (role === "thinking") {
       messages.push(thinkingMessage(item, context));
+      return;
+    }
+    // A compaction item is context for the model, not chat output. The web
+    // view renders it as the timeline separator only: its text part would
+    // print the whole summary brief as if the assistant had written it.
+    if (isCompactionItem(item)) {
+      messages.push({
+        info: assistantInfo(context),
+        parts: [
+          {
+            type: "compaction",
+            partId: `${context.messageId}:part-compaction`,
+            sessionId: context.session.sessionId,
+            messageId: context.messageId,
+            auto: false,
+            summaryMessageId: context.messageId,
+          },
+        ],
+      });
       return;
     }
     messages.push(assistantMessage(item, context));

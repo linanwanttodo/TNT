@@ -1,5 +1,5 @@
 /* eslint-disable max-statements -- one wizard owns the ordered input state machine */
-import { Box, Text, useApp, useInput } from "ink";
+import { Box, Text, useApp } from "ink";
 import React, { useEffect, useRef, useState } from "react";
 
 import { startBrowserLogin } from "../config/openrouterLogin.js";
@@ -11,7 +11,8 @@ import {
   type ProviderSetup,
 } from "../config/providerSetup.js";
 import { t } from "../i18n/index.js";
-import { splitTrailingEnter } from "../utils/coalescedEnter.js";
+import { KeypressPriority } from "../ui/contexts/KeypressContext.js";
+import { useKeypress, type Key } from "../ui/hooks/useKeypress.js";
 
 /**
  * Onboarding renders before the theme provider exists, so it borrows the
@@ -70,6 +71,10 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
   // state update. The ref accumulates across those events; state is only for
   // painting. Without it, a slow runner keeps only the last chunk.
   const fieldsRef = useRef({ baseUrl: "", apiKey: "", model: "" });
+  // The digit that picked a protocol, kept synchronously: a terminal burst
+  // can deliver "5" and its confirming Enter as two adjacent key events, and
+  // the second must see the choice the first made without a render between.
+  const protocolIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (step !== "model" || !apiKey || !baseUrl) return;
@@ -199,98 +204,115 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
     }
   };
 
-  useInput((input, key) => {
-    // The terminal can deliver the typed run and the Enter together, and some
-    // send Enter as a bare "\n": both must act as Enter, or setup looks hung.
-    const coalesced = key.shift ? null : splitTrailingEnter(input);
-    const typed = coalesced?.body ?? input;
-    const enter = key.return || coalesced !== null;
+  // The wizard reads keys through the app's own parser, not ink's: the two
+  // disagree once a terminal negotiates the Kitty keyboard protocol or
+  // modifyOtherKeys, and a screen that cannot see Escape or Enter strands the
+  // user inside it - which is exactly what happened on the API-key step. A
+  // critical priority also keeps the key from reaching anything underneath.
+  //
+  // A bare linefeed arrives as ctrl+j from this parser. Terminals that send
+  // Enter as "\n" are real (the reference flow treated one as Enter), so the
+  // chord counts as Enter here too - a wizard has no other use for it.
+  const isEnter = (key: Key): boolean =>
+    key.name === "enter" || (key.ctrl && key.name === "j");
 
-    if (key.escape) {
-      cancel();
-      return;
-    }
+  useKeypress(
+    (key: Key): boolean => {
+      // Escape cancels from every step; it is never text.
+      if (key.name === "escape") {
+        cancel();
+        return true;
+      }
 
-    if (step === "protocol") {
-      // A digit chooses; the same read can carry the Enter that confirms it.
-      let chosen = protocolIndex;
-      if (/^[1-9]$/.test(typed)) {
-        const index = Number.parseInt(typed, 10) - 1;
-        if (index < PROTOCOLS.length) {
-          chosen = index;
-          setProtocolIndex(index);
+      if (step === "protocol") {
+        if (key.insertable && /^[1-9]$/.test(key.sequence)) {
+          const index = Number.parseInt(key.sequence, 10) - 1;
+          if (index < PROTOCOLS.length) {
+            protocolIndexRef.current = index;
+            setProtocolIndex(index);
+            setError(undefined);
+          }
+          return true;
+        }
+        if (key.name === "up") {
+          setProtocolIndex((index) =>
+            index === null ? PROTOCOLS.length - 1 : Math.max(0, index - 1),
+          );
+          return true;
+        }
+        if (key.name === "down") {
+          setProtocolIndex((index) =>
+            index === null ? 0 : Math.min(PROTOCOLS.length - 1, index + 1),
+          );
+          return true;
+        }
+        if (isEnter(key)) {
+          const chosen = protocolIndexRef.current;
+          if (chosen === null) {
+            setError(t("setup.protocolRequired"));
+            return true;
+          }
+          const selected = PROTOCOLS[chosen];
+          setProtocol(selected);
+          // The URL is a fixed value for a vendor preset, so it starts filled
+          // in rather than as a grey hint the reader has to recognise.
+          // Pressing Enter accepts it; editing it still points the setup at a
+          // gateway.
+          setValueFor("baseUrl", selected.defaultApiBase);
+          setValueFor("model", "");
           setError(undefined);
+          setStep("baseUrl");
         }
-        if (!enter) {
-          return;
+        return true;
+      }
+
+      if (step === "model" && availableModels.length > 0) {
+        if (key.name === "up") {
+          setModelIndex((index) =>
+            index <= 0 ? availableModels.length - 1 : index - 1,
+          );
+          return true;
         }
-      } else if (key.upArrow) {
-        setProtocolIndex((index) =>
-          index === null ? PROTOCOLS.length - 1 : Math.max(0, index - 1),
-        );
-        return;
-      } else if (key.downArrow) {
-        setProtocolIndex((index) =>
-          index === null ? 0 : Math.min(PROTOCOLS.length - 1, index + 1),
-        );
-        return;
-      }
-
-      if (enter) {
-        if (chosen === null) {
-          setError(t("setup.protocolRequired"));
-          return;
+        if (key.name === "down") {
+          setModelIndex((index) => (index + 1) % availableModels.length);
+          return true;
         }
-        const selected = PROTOCOLS[chosen];
-        setProtocol(selected);
-        // The URL is a fixed value for a vendor preset, so it starts filled in
-        // rather than as a grey hint the reader has to recognise. Pressing
-        // Enter accepts it; editing it still points the setup at a gateway.
-        setValueFor("baseUrl", selected.defaultApiBase);
-        setValueFor("model", "");
-        setError(undefined);
-        setStep("baseUrl");
+        if (isEnter(key) && !valueFor("model").trim()) {
+          submit("model", availableModels[modelIndex]);
+          return true;
+        }
       }
-      return;
-    }
 
-    if (step === "model" && availableModels.length > 0) {
-      if (key.upArrow) {
-        setModelIndex((index) =>
-          index <= 0 ? availableModels.length - 1 : index - 1,
-        );
-        return;
+      if (key.ctrl && key.name === "u") {
+        setValueFor(step, "");
+        return true;
       }
-      if (key.downArrow) {
-        setModelIndex((index) => (index + 1) % availableModels.length);
-        return;
+
+      if (key.name === "backspace" || key.name === "delete") {
+        setValueFor(step, valueFor(step).slice(0, -1));
+        return true;
       }
-      if (enter && !valueFor("model").trim()) {
-        submit("model", availableModels[modelIndex]);
-        return;
+
+      if (isEnter(key)) {
+        submit(step);
+        return true;
       }
-    }
 
-    if (key.ctrl && input === "u") {
-      setValueFor(step, "");
-      return;
-    }
-
-    if (key.backspace || key.delete) {
-      setValueFor(step, valueFor(step).slice(0, -1));
-      return;
-    }
-
-    const printable = typed.replace(/[\u0000-\u001f\u007f]/g, "");
-    const nextValue = valueFor(step) + printable;
-    if (printable) {
-      setValueFor(step, nextValue);
-    }
-
-    if (enter) {
-      submit(step, nextValue);
-    }
-  });
+      // Everything insertable - one character or a whole pasted run - joins
+      // the field. Control and alt chords never do.
+      if (
+        key.insertable &&
+        key.sequence.length > 0 &&
+        !key.ctrl &&
+        !key.alt &&
+        !key.cmd
+      ) {
+        setValueFor(step, valueFor(step) + key.sequence);
+      }
+      return true;
+    },
+    { isActive: true, priority: KeypressPriority.Critical },
+  );
 
   const description = (() => {
     switch (step) {

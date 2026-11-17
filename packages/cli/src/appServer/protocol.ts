@@ -195,6 +195,9 @@ export class AppServerProtocol {
       await (options.ensureServices ?? ensureAppServerServices)();
       return this.sessions.setModel(input);
     });
+    this.handlers.set(zcodeProtocolMethods.sessionDebug, (params) =>
+      this.sessions.debug(params),
+    );
     this.handlers.set(V4_METHODS.connectionFlow, () => ({}));
     this.handlers.set(V4_METHODS.conversationSubscribe, (params) =>
       this.v4.subscribe(params),

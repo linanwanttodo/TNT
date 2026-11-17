@@ -16,6 +16,7 @@ const TOOL_KINDS: Record<string, acp.ToolKind> = {
   Glob: "search",
   Grep: "search",
   CodebaseSearch: "search",
+  AstSearch: "search",
   ListFiles: "search",
   FindSymbol: "search",
   Fetch: "fetch",
