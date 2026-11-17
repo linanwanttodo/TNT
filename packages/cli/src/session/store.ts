@@ -22,6 +22,7 @@ import { resolveWithin } from "../utils/pathGuard.js";
 import {
   assertSessionId,
   ensureSessionRoot,
+  fsSessionName,
   getLegacySessionPath,
   getLegacySessionScopedDir,
   getLegacySessionsListPath,
@@ -29,8 +30,16 @@ import {
   getSessionLeasePath,
   getSessionMetaPath,
   getSessionRoot,
+  getSessionsTrashDir,
   getTranscriptPath,
 } from "./paths.js";
+
+/**
+ * How many deleted sessions the trash keeps. A conversation the user asked to
+ * delete stays recoverable here; older ones than this are past saving, which
+ * keeps the trash from growing without bound.
+ */
+const TRASH_KEEP_COUNT = 50;
 
 /**
  * The persisted form of one session.
@@ -1013,14 +1022,14 @@ export class SessionStore {
     }
 
     this.releaseLease(sessionId);
-    fs.rmSync(getSessionRoot(sessionId), { recursive: true, force: true });
+    this.moveToTrash(sessionId);
 
     for (const file of [
       getLegacySessionPath(sessionId),
       `${getLegacySessionPath(sessionId)}.legacy`,
     ]) {
       try {
-        fs.rmSync(file, { force: true });
+        this.moveToTrashPath(file);
       } catch {
         // Best effort.
       }
@@ -1028,10 +1037,7 @@ export class SessionStore {
 
     for (const kind of ["tool-results", "cache-breaks", "block-overflow"]) {
       try {
-        fs.rmSync(getLegacySessionScopedDir(kind, sessionId), {
-          recursive: true,
-          force: true,
-        });
+        this.moveToTrashPath(getLegacySessionScopedDir(kind, sessionId));
       } catch {
         // Best effort.
       }
@@ -1039,6 +1045,68 @@ export class SessionStore {
 
     this.removeLegacyIndexRow(sessionId);
     this.bound.delete(sessionId);
+  }
+
+  /**
+   * Deletion is a rename into the trash, not an unlink. The user asked for it
+   * plainly: a conversation must survive even a delete it did not ask for,
+   * because one wiped transcript was already unrecoverable. The trash keeps
+   * the most recent entries and prunes the rest.
+   */
+  private moveToTrash(sessionId: string): void {
+    const root = getSessionRoot(sessionId);
+    if (!fs.existsSync(root)) {
+      return;
+    }
+    const stamped = `${new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")}-${fsSessionName(sessionId)}`;
+    try {
+      fs.renameSync(root, resolveWithin(getSessionsTrashDir(), stamped));
+    } catch {
+      // A rename across devices fails; keep the old hard-delete behavior
+      // rather than leaving a half-deleted session behind.
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+    this.pruneTrash();
+  }
+
+  private moveToTrashPath(pathName: string): void {
+    if (!fs.existsSync(pathName)) {
+      return;
+    }
+    const stamped = `${new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")}-${path.basename(pathName)}`;
+    try {
+      fs.renameSync(pathName, resolveWithin(getSessionsTrashDir(), stamped));
+    } catch {
+      fs.rmSync(pathName, { recursive: true, force: true });
+    }
+  }
+
+  /** Keep the newest trash entries; the rest are past saving. */
+  private pruneTrash(): void {
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(getSessionsTrashDir(), { withFileTypes: true });
+    } catch {
+      return;
+    }
+    const dirs = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const full = resolveWithin(getSessionsTrashDir(), entry.name);
+        return { full, time: fs.statSync(full).mtimeMs };
+      })
+      .sort((left, right) => right.time - left.time);
+    for (const entry of dirs.slice(TRASH_KEEP_COUNT)) {
+      try {
+        fs.rmSync(entry.full, { recursive: true, force: true });
+      } catch {
+        // Best effort; a locked entry simply survives to the next prune.
+      }
+    }
   }
 
   clearAll(): void {

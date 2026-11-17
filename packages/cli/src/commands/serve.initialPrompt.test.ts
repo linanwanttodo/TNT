@@ -1,7 +1,7 @@
 import type { ChatHistoryItem } from "core/index.js";
 import { describe, expect, it } from "vitest";
 
-import { shouldQueueInitialPrompt } from "./serve.js";
+import { shouldQueueInitialPrompt } from "./serve.helpers.js";
 
 const systemOnly: ChatHistoryItem[] = [
   { message: { role: "system", content: "sys" }, contextItems: [] },

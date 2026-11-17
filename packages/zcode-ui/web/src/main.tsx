@@ -5,9 +5,17 @@ import {
   installDocumentHiddenMotionPause,
   setStreamClientId,
 } from "@zcode/ui";
+import { installInsecureContextCryptoPolyfill } from "@zcode/ui/lib/secureContext";
 import "./styles.css";
 
 import { bootstrapTntWebUi } from "./webuiBootstrap.js";
+
+// The phone on the LAN reaches this app over plain http, which is not a secure
+// context: `crypto.randomUUID` and `crypto.subtle` do not exist there, and
+// every id the UI generates then throws. The polyfill is a no-op on the
+// desktop (127.0.0.1 counts as secure), so it only ever does work where the
+// browser removed the APIs.
+installInsecureContextCryptoPolyfill();
 
 function resolveTntWsUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";

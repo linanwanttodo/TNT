@@ -34,6 +34,26 @@ import { requestToken, tokenEquals } from "../utils/webuiToken.js";
  * Remove partial assistant message if the last message is an empty assistant message.
  * Used when a response is interrupted.
  */
+/**
+ * Decide whether to enqueue the initial prompt on server startup.
+ * We only want to send it when starting a brand-new session; if any non-system
+ * messages already exist (e.g., after resume), skip to avoid replaying.
+ */
+export function shouldQueueInitialPrompt(
+  history: ChatHistoryItem[],
+  prompt?: string | null,
+): boolean {
+  if (!prompt) {
+    return false;
+  }
+
+  // If there are any non-system messages, we already have conversation context
+  const hasConversation = history.some(
+    (item) => item.message.role !== "system",
+  );
+  return !hasConversation;
+}
+
 export function removePartialAssistantMessage(
   sessionHistory: ChatHistoryItem[],
 ): void {

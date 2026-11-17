@@ -111,9 +111,69 @@ TNT 采用 Cursor 的 90% 比例触发（用户指定），去掉固定绝对上
   `ui/hooks`、`ui/components/CompactionBoundary*`、`ui/UserInput.tsx`（渲染条件一处）、
   `startup/ProviderSetupScreen*`、`appServer/snapshot.ts`，与其改动文件不重叠。
 
+## 7. 测试套件清空真实会话目录（已修复，数据不可恢复）
+
+- 现象：`~/.tnt/sessions` 里 4.7MB 的真实会话（c23ba739-…）连同其余全部会话被物理
+  删除，只剩一个测试写进去的 `Test Session`（消息内容 "one"）。关闭/归档会话本身
+  **不删除**文件（`session/close` 与 TUI 关闭只改 archived 状态），所以删它的不是
+  "关闭对话"。
+- 根因（两处叠加）：
+  1. `src/session/paths.ts` 的 `getSessionDir()` 先检查 `TNT_TEST && HOME` 再看
+     `TNT_GLOBAL_DIR`——测试模式把会话根锚到**真实的** `$HOME/.tnt/sessions`，使
+     `vitest.global-dir-setup.ts` 精心准备的每 worker 隔离目录对会话存储完全失效；
+  2. `src/session/store.test.ts` 的 `beforeEach` 先 `TNT_GLOBAL_DIR = testRoot` 然后
+     紧接着 `delete process.env.TNT_GLOBAL_DIR`（自相矛盾的意外），随后
+     `sessionStore.clearAll()` 整目录 `rmSync`——每跑一次该文件就把操作者的全部真实
+     会话清空一次。2026-11-17 23:40 的全量测试运行即是最后一次。
+- 修复：
+  - `paths.ts`：`TNT_GLOBAL_DIR` 永远优先于测试锚；`TNT_TEST && HOME` 只在无显式
+    覆盖时兜底。
+  - `store.test.ts`：删掉自删覆盖的意外行，并在 `clearAll()` 前断言
+    `getSessionDir()` 落在测试目录里。
+  - `paths.test.ts`：新增「覆盖优先于测试锚」回归用例。
+  - `tools/uploadArtifact.test.ts`：改用 `TNT_GLOBAL_DIR` 隔离（旧写法依赖
+    `TNT_TEST+HOME` 锚），路径经 `getSessionRoot` 构造。
+  - `test-utils/cli-helpers.ts` 与 `smoke-api/smoke-api-helpers.ts`：spawn 子进程时
+    显式传 `TNT_GLOBAL_DIR: testDir`，因为它们用 `...process.env` 继承了 runner 的
+    覆盖值。
+- 后果说明：被清空的历史转录无法恢复（`rmSync` 无备份）；`~/.tnt/logs/tnt.log` 仍
+  保留了该会话的压缩循环时间线（21:00–22:21 四次自动摘要调用、227k+ 输入 tokens、
+  最后一次 139,443 输入后以「压缩摘要为空」失败收场），与本文件第 1、2、4 节的根因
+  完全对应。
+
+## 8. 手机局域网 WebUI：`crypto.randomUUID is not a function`（已修复）
+
+- 现象：手机经局域网 `http://192.168.x.x:port` 打开 WebUI 不同步会话、发送消息报
+  「模型报错」；桌面 CLI 与 WebUI（127.0.0.1）都正常。
+- 根因：`randomUUID` 与 `subtle` 是 secure-context-only API。`127.0.0.1` 属于安全
+  上下文所以桌面都有；手机走明文 http 的局域网地址，两者**不存在**——UI 里 21 处
+  `crypto.randomUUID()`（commandFactory 的会话/命令 id、上传事务、hook id 等）在
+  生成 id 时直接抛异常，附件上传的 `subtle.digest` 同样会挂。
+- 修复：新增 `zcode-ui/ui/src/lib/secureContext.ts` 的
+  `installInsecureContextCryptoPolyfill()`——缺失时在 crypto 对象上补
+  `randomUUID`（getRandomValues 出真 v4）与 `subtle.digest("SHA-256")`（纯 JS 实现，
+  输出与原生逐字节一致，已对照 node crypto 验证）；`web/src/main.tsx` 入口安装，
+  桌面安全上下文下是静默 no-op。`ui` 包新增 export `./lib/secureContext`。
+- 验证：ui tsc 通过、ui vitest 16 项通过、`zcode-ui/web` vite build 通过。
+- 生效条件：WebUI 前端是打包产物，需要重新 `build:webui` + 重打包安装后手机才拿到。
+
+## 9. 会话删除改入回收站（已修复）
+
+- 用户要求：会话必须保留，程序不得悄悄销毁。此前 `sessionStore.delete()` 直接
+  `rmSync` 会话目录——webui/ACP 的删除请求一旦误触（或如第 7 节的测试事故）即不可
+  恢复。
+- 修复：`delete()` 改为把会话目录 **rename 到 `<root>/trash/sessions/<时间戳>-<id>`**，
+  legacy 转录与 sidecar 同样入回收站；回收站保留最近 50 个（`TRASH_KEEP_COUNT`），
+  更早的自动裁剪。跨设备 rename 失败时退回原硬删除。新增回归测试：删除后转录在
+  回收站中完整可读。
+- 文件：`src/session/paths.ts`（`getSessionsTrashDir`）、`src/session/store.ts`、
+  `src/session/store.test.ts`。
+
 ## 验证
 
 - `core`：`contextPolicy.vitest.ts` 7 项通过；`tsc -p ./ --noEmit` 通过。
 - `packages/cli`：`npx tsc -p . --noEmit` 通过；`src/stream` + `src/compaction` 68 个文件
   417 项通过；`src/ui` 157 个文件 1079 项通过；`src/startup/ProviderSetupScreen.test.tsx`
-  7 项通过。
+  7 项通过；第 7 节修复后全量 5292 项通过，且整轮测试运行后 `~/.tnt/sessions` 保持
+  原样（不再出现测试写入或删除）；smoke 10 项通过；lint 通过。
+- `packages/zcode-ui/ui`：tsc 通过、vitest 16 项通过；`zcode-ui/web` vite build 通过。

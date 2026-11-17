@@ -12,15 +12,16 @@ import {
   getLegacySessionPath,
   getLegacySessionScopedDir,
   getLegacySessionsListPath,
+  getSessionDir,
   getSessionLeasePath,
   getSessionRoot,
+  getSessionsTrashDir,
   getTranscriptPath,
 } from "./paths.js";
 import { SessionLeaseError, SessionStoreError, sessionStore } from "./store.js";
 import { Transcript } from "./transcript.js";
 
 let previousGlobalDir: string | undefined;
-let previousTntDir: string | undefined;
 let previousCliTest: string | undefined;
 let testRoot: string;
 
@@ -71,12 +72,14 @@ function contents(session: Session): string[] {
 
 beforeEach(() => {
   previousGlobalDir = process.env.TNT_GLOBAL_DIR;
-  previousTntDir = process.env.TNT_GLOBAL_DIR;
   previousCliTest = process.env.TNT_TEST;
   testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-session-store-"));
+  // The override stays set: clearAll() removes the whole sessions root, and
+  // unsetting the override here once aimed it at the operator's real
+  // ~/.tnt/sessions and deleted every real conversation with it.
   process.env.TNT_GLOBAL_DIR = testRoot;
-  delete process.env.TNT_GLOBAL_DIR;
   delete process.env.TNT_TEST;
+  expect(getSessionDir()).toBe(path.join(testRoot, "sessions"));
   sessionStore.clearAll();
 });
 
@@ -85,8 +88,6 @@ afterEach(() => {
   fs.rmSync(testRoot, { recursive: true, force: true });
   if (previousGlobalDir === undefined) delete process.env.TNT_GLOBAL_DIR;
   else process.env.TNT_GLOBAL_DIR = previousGlobalDir;
-  if (previousTntDir === undefined) delete process.env.TNT_GLOBAL_DIR;
-  else process.env.TNT_GLOBAL_DIR = previousTntDir;
   if (previousCliTest === undefined) delete process.env.TNT_TEST;
   else process.env.TNT_TEST = previousCliTest;
 });
@@ -412,6 +413,29 @@ describe("SessionStore", () => {
       ),
     ).toBe(false);
     expect(fs.readFileSync(getLegacySessionsListPath(), "utf-8")).toBe("[]");
+  });
+
+  // Deletion is a rename into the trash, not an unlink: the request that
+  // wiped a whole real session directory once was one `rmSync` away from
+  // being unrecoverable, so a delete the user asked for stays restorable
+  // until the trash prunes it.
+  it("moves a deleted session into the trash with its transcript intact", () => {
+    const session = makeSession([user("recover me later")]);
+    sessionStore.ensureSession(session, { persistEmpty: true });
+
+    sessionStore.delete(session.sessionId);
+
+    const trashDirs = fs
+      .readdirSync(getSessionsTrashDir(), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory());
+    expect(trashDirs.length).toBe(1);
+    const trashed = path.join(getSessionsTrashDir(), trashDirs[0].name);
+    const transcript = fs.readFileSync(
+      path.join(trashed, "session.jsonl"),
+      "utf-8",
+    );
+    expect(transcript).toContain("recover me later");
+    expect(fs.existsSync(getSessionRoot(session.sessionId))).toBe(false);
   });
 
   it("skips the metadata rewrite when a sync changes nothing", () => {

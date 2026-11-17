@@ -46,24 +46,39 @@ export function fsSessionName(sessionId: string): string {
 }
 
 /**
- * The directory every session artifact lives under.
- *
- * The root is the operator's own state directory: `TNT_GLOBAL_DIR` when it is
- * set, otherwise `~/.tnt`. That root is trusted - it is chosen explicitly by
- * whoever runs the CLI - so it is the anchor, not the thing to police. What
- * has to stay inside it is everything derived from a session id, and that is
- * what `resolveWithin` enforces at every join below.
+ * The state root every session artifact and the deletion trash live under.
+ * The precedence is the whole point: `TNT_GLOBAL_DIR` wins even in test mode,
+ * because one suite that unset its own isolation variable before a `clearAll()`
+ * once wiped the operator's real sessions — a transcript cannot come back from
+ * that, so an explicit override always outranks the anchor.
  */
-export function getSessionDir(): string {
-  if (process.env.TNT_TEST && process.env.HOME) {
-    // HOME is the operator's environment, so anchoring under it is the same
-    // trust decision as anchoring under the global dir.
-    const dir = resolveWithin(process.env.HOME, ".tnt/sessions");
-    fs.mkdirSync(dir, { recursive: true });
-    return dir;
+function sessionsBaseRoot(): string {
+  const override = process.env.TNT_GLOBAL_DIR;
+  if (override) {
+    return resolveWithin(override, ".");
   }
+  // Test mode without an explicit override: anchor at the operator's home, the
+  // same trust decision as the default root above.
+  if (process.env.TNT_TEST && process.env.HOME) {
+    return resolveWithin(process.env.HOME, ".tnt");
+  }
+  return resolveWithin(globalDir(), ".");
+}
 
-  const dir = resolveWithin(globalDir(), "sessions");
+/** `<root>/sessions` — live sessions only. */
+export function getSessionDir(): string {
+  const dir = resolveWithin(sessionsBaseRoot(), "sessions");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/**
+ * `<root>/trash/sessions` — where a deleted session goes instead of dying.
+ * Deletion is a rename, so a stray programmatic delete (and even an accidental
+ * user one) stays recoverable until the trash is pruned.
+ */
+export function getSessionsTrashDir(): string {
+  const dir = resolveWithin(sessionsBaseRoot(), "trash/sessions");
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

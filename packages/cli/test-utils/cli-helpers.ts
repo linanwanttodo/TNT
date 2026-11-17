@@ -103,6 +103,10 @@ export async function runCLI(
       ...process.env,
       TNT_TEST: "true",
       HOME: context.testDir,
+      // The session root honors this override ahead of the HOME anchor, so it
+      // has to name the test dir explicitly or sessions land in whatever the
+      // test process inherited.
+      TNT_GLOBAL_DIR: path.join(context.testDir, ".tnt"),
       // Windows-specific home directory variables
       USERPROFILE: context.testDir,
       HOMEDRIVE: path.parse(context.testDir).root,
@@ -362,6 +366,9 @@ export async function withInteractiveInput(
       ...process.env,
       TNT_TEST: "true",
       HOME: context.testDir,
+      // Same override as the headless runner: the session root reads this
+      // ahead of the HOME anchor, so it names the test dir explicitly.
+      TNT_GLOBAL_DIR: path.join(context.testDir, ".tnt"),
       // Windows-specific home directory variables
       USERPROFILE: context.testDir,
       HOMEDRIVE: path.parse(context.testDir).root,

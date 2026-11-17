@@ -5,30 +5,28 @@ import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getCurrentSessionId } from "../session/index.js";
+import { getSessionRoot } from "../session/paths.js";
 
 import { uploadArtifactTool } from "./uploadArtifact.js";
 
 /**
  * The tool writes into the current session's own directory, so every case here
- * runs against a throwaway `HOME` with `TNT_TEST` set - the same pair the
- * session store reads - and then names the path it expects rather than trusting
- * the tool to report where it put the file.
+ * runs against a throwaway global dir - the root the session store reads,
+ * which `TNT_GLOBAL_DIR` names directly - and then names the path it expects
+ * through the same validated helper the store uses, rather than trusting the
+ * tool to report where it put the file. The override is set directly, not via
+ * HOME: an operator-set override outranks the test-mode home anchor, which is
+ * what keeps a stray clearAll() from ever reaching real sessions.
  */
 const MAX_ARTIFACT_BYTES = 50 * 1024 * 1024;
 const MAX_SESSION_BYTES = 500 * 1024 * 1024;
 
-let home: string;
-let previous: { home?: string; test?: string };
+let overrideRoot: string;
+let previous: { override?: string; home?: string; test?: string };
 let sourceDir: string;
 
 function artifactsDir(): string {
-  return path.join(
-    home,
-    ".tnt",
-    "sessions",
-    getCurrentSessionId(),
-    "artifacts",
-  );
+  return path.join(getSessionRoot(getCurrentSessionId()), "artifacts");
 }
 
 /** A file with a given size and no content - `statSync` reports the size. */
@@ -45,24 +43,26 @@ async function save(filePath: string): Promise<string> {
 
 beforeEach(() => {
   previous = {
+    override: process.env.TNT_GLOBAL_DIR,
     home: process.env.HOME,
     test: process.env.TNT_TEST,
   };
-  home = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-artifacts-"));
+  overrideRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-artifacts-"));
   sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-artifact-src-"));
-  process.env.HOME = home;
-  process.env.TNT_TEST = "1";
+  process.env.TNT_GLOBAL_DIR = overrideRoot;
+  delete process.env.TNT_TEST;
 });
 
 afterEach(() => {
   for (const [key, value] of [
+    ["TNT_GLOBAL_DIR", previous.override],
     ["HOME", previous.home],
     ["TNT_TEST", previous.test],
   ] as [string, string | undefined][]) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
-  for (const dir of [home, sourceDir]) {
+  for (const dir of [overrideRoot, sourceDir]) {
     fs.rmSync(dir, {
       recursive: true,
       force: true,

@@ -81,6 +81,33 @@ describe("session paths", () => {
   it("keeps the transcript file name fixed", () => {
     expect(path.basename(getTranscriptPath("b14c0a71"))).toBe("session.jsonl");
   });
+
+  // The override must win even in test mode. The test-mode anchor used to be
+  // checked first, and one suite that unset its own isolation variable before
+  // a clearAll() then resolved the sessions root at the operator's real
+  // ~/.tnt/sessions and deleted every conversation in it.
+  it("prefers TNT_GLOBAL_DIR over the test-mode home anchor", () => {
+    const previousOverride = process.env.TNT_GLOBAL_DIR;
+    const previousTest = process.env.TNT_TEST;
+    const previousHome = process.env.HOME;
+    const overrideRoot = path.join(__dirname, "fixture-override-root");
+    try {
+      process.env.TNT_GLOBAL_DIR = overrideRoot;
+      process.env.TNT_TEST = "true";
+      process.env.HOME = "/nonexistent-operator-home";
+
+      expect(getSessionDir()).toBe(
+        path.join(path.resolve(overrideRoot), "sessions"),
+      );
+    } finally {
+      if (previousOverride === undefined) delete process.env.TNT_GLOBAL_DIR;
+      else process.env.TNT_GLOBAL_DIR = previousOverride;
+      if (previousTest === undefined) delete process.env.TNT_TEST;
+      else process.env.TNT_TEST = previousTest;
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+    }
+  });
 });
 
 describe("session paths stay inside the sessions directory", () => {

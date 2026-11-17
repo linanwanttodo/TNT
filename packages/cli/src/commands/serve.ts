@@ -52,6 +52,7 @@ import {
   registerSseEventRoute,
   removePartialAssistantMessage,
   serveTokenRefusal,
+  shouldQueueInitialPrompt,
   startServedSession,
   streamServeResponse,
   titleServeSessionIfUntitled,
@@ -73,26 +74,6 @@ interface ServeOptions extends ExtendedCommandOptions {
   id?: string;
   /** Model rounds allowed per turn before the turn is cut short. */
   maxSteps?: number;
-}
-
-/**
- * Decide whether to enqueue the initial prompt on server startup.
- * We only want to send it when starting a brand-new session; if any non-system
- * messages already exist (e.g., after resume), skip to avoid replaying.
- */
-export function shouldQueueInitialPrompt(
-  history: ChatHistoryItem[],
-  prompt?: string | null,
-): boolean {
-  if (!prompt) {
-    return false;
-  }
-
-  // If there are any non-system messages, we already have conversation context
-  const hasConversation = history.some(
-    (item) => item.message.role !== "system",
-  );
-  return !hasConversation;
 }
 
 // eslint-disable-next-line max-statements

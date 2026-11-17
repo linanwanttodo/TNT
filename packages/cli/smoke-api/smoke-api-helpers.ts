@@ -96,6 +96,9 @@ export async function runHeadless(
       ...process.env,
       TNT_TEST: "true",
       HOME: ctx.testDir,
+      // The session root honors this override ahead of the HOME anchor, so it
+      // names the test dir explicitly rather than inheriting the runner's.
+      TNT_GLOBAL_DIR: path.join(ctx.testDir, ".tnt"),
       USERPROFILE: ctx.testDir,
       FORCE_NO_TTY: "true",
       ...env,
@@ -126,6 +129,8 @@ export function spawnServe(
       ...process.env,
       TNT_TEST: "true",
       HOME: ctx.testDir,
+      // Same override as runCli: keeps the session root inside the test dir.
+      TNT_GLOBAL_DIR: path.join(ctx.testDir, ".tnt"),
       USERPROFILE: ctx.testDir,
       ...opts.env,
     },
