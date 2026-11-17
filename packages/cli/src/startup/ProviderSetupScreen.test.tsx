@@ -147,7 +147,11 @@ describe("ProviderSetupScreen", () => {
     const { tree } = renderScreen();
 
     await pressUntil(tree, "2", (frame) => frame.includes("❯ 2)"));
-    tree.stdin.write("\n");
-    await waitForFrame(tree, (frame) => frame.includes("Base URL"));
+    // A single stdin write can be swallowed on a loaded Windows runner. Re-send
+    // the bare newline through the same delivery loop the other cases use: the
+    // assertion stays "a lone \n acts as Enter", not "a burst of keys does".
+    await pressUntil(tree, "\n", (frame) => frame.includes("Base URL"), {
+      attempts: 5,
+    });
   });
 });

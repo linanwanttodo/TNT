@@ -4,6 +4,11 @@
 
 涉及仓库目录：`packages/cli/src/`、`packages/config-yaml/src/`、`core/`。
 
+## CI 门禁记录（本日）
+
+- `packages/config-yaml/src/schemas/models.ts` 新增 `search` 用途后，`core/config/load.ts`、`core/config/yaml/loadYaml.ts`、`core/config/yaml/models.vitest.ts` 的 role map 同步补齐该键。共享枚举改动必须同时跑 `core` 的 `tsc -p ./ --noEmit` 与 `npm run build`；cli 的 tsc 不覆盖 core。
+- `packages/cli/src/startup/ProviderSetupScreen.test.tsx` 的裸换行用例改为使用带重发的交付循环：Windows runner 会吞掉单次 stdin 写入，原用例单次写 + 单次等待在 Windows 上表现为超时而不是功能失败。`packages/cli/vitest.config.ts` 的 worker 上限、超时余量与 CI 重试保留。
+
 ## 1. 旧工具输出清理的冷热闸门（已实现）
 
 - 功能：旧工具结果的占位符替换只在缓存冷窗（TTL 过期、会话恢复）或没有缓存折扣的 provider 上执行增长；暖窗仅在「省下的字节 × 折扣率 > 尾部重付字节 × (1 − 折扣率)」时执行。已应用的集合保持稳定，不会反向撤销造成二次前缀分叉。判据与结果写日志。
