@@ -3864,7 +3864,9 @@ export function SessionPane({
       if (
         sessionId === null &&
         workspacePath &&
-        isTntWorktreeDraftEnabled(workspaceKey) &&
+        // 闸门与开关/ref 同键：TntWorktreeToggle 与壳层按 workspacePath 读写
+        // draft worktree store，identity 键查不到开关状态，会静默退回普通发送。
+        isTntWorktreeDraftEnabled(workspacePath) &&
         readyAttachments.length === 0 &&
         !sharedContextRefs?.length &&
         !options?.conversationQuotes?.length &&

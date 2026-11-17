@@ -6,12 +6,9 @@ import { createAgentStateId } from "./subagents-types.js";
 export const subagentRuntimeStateSchema = z
   .object({
     disabledAgentIds: z.array(z.string()),
-    builtInModelSelectionOverrides: z
-      .object({
-        Explore: modelSelectionSchema.optional(),
-        "general-purpose": modelSelectionSchema.optional(),
-      })
-      .strict(),
+    // 内置 agent 名单由宿主决定（TNT 自己命名），覆盖 map 按任意名字键控；
+    // 写死两个默认键会丢弃（strict 下甚至拒绝）非默认命名的覆盖。
+    builtInModelSelectionOverrides: z.record(z.string(), modelSelectionSchema),
     pluginAgentModelSelectionOverrides: z.record(z.string(), modelSelectionSchema),
   })
   .strict();

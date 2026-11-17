@@ -12,7 +12,6 @@ import {
 import { CircleCheck, RotateCcw, TriangleAlert } from "lucide-react";
 import {
   AUTOMATION_CREATE_LIMIT,
-  BUILTIN_MODEL_PROVIDER_IDS,
   isAutomationCreateLimitError,
   resolveWorkspaceKey,
   type ZCodeAutomation,
@@ -55,10 +54,6 @@ import { useProviderSettingsView } from "@/hooks/useProviderSettingsView.js";
 import { useOffPeakEligibility } from "@/hooks/useOffPeakEligibility.js";
 import { useSettings } from "@/hooks/useSettingService.js";
 import { logger } from "@/logger.js";
-import {
-  createIdleTimeCodingPlanFunnelContext,
-  resolveCodingPlanEntryPlanStateFromProviderSettings,
-} from "@/lib/codingPlanFunnelTelemetry.js";
 import {
   useAutomationManagementStore,
   type AutomationRunNowResult,
@@ -130,7 +125,6 @@ import {
   AutomationsPageTitle,
   type AutomationsPageTab,
 } from "@/settings/saved-workflows/AutomationsPageTitleSwitch.js";
-import { useDynamicWorkflowAvailability } from "@/hooks/useDynamicWorkflowAvailability.js";
 import {
   readAutomationsPageTab,
   writeAutomationsPageTab,
@@ -536,7 +530,7 @@ export function AutomationsSection({
   const providerSettingsRead = useProviderSettingsView();
   const providerSettingsView =
     providerSettingsRead.state.status === "ready" ? providerSettingsRead.state.view : null;
-  const { status: entryStatus, label: entryLabel, retry: retryEntry } = useCodingPlanEntryGate();
+  const { label: entryLabel } = useCodingPlanEntryGate();
   const { settings: sharedSettings, update: updateSharedSettings } = useSettings();
   useOffPeakEligibility(sharedSettings, providerSettingsView?.revision);
 
@@ -604,10 +598,6 @@ export function AutomationsSection({
     (filter: AutomationStatusFilter) => setTabState((previous) => ({ ...previous, filter })),
     [],
   );
-  // 动态工作流灰度：未命中就没有「工作流」标签，
-  // 页面退回单一的「自动化」。快照未就绪时 enabled 为 false，宁可标题晚半拍长出切换，也不先闪
-  // 一个标签再收起——中枢很少是用户进 app 后第一眼看的东西。
-  const { enabled: dynamicWorkflowEnabled } = useDynamicWorkflowAvailability();
   // TNT 的工作流就是 team run：主代理派发一队子代理，台账记在会话上。定时任务与工作流
   // 是同一件事的两种触发方式（时钟 vs 编排），所以两个标签都在，而不是二选一。
   const workflowTabEnabled = true;
@@ -1459,7 +1449,7 @@ export function AutomationsSection({
         onOpenSession={(sessionId) =>
           onOpenSession?.({
             sessionId,
-            workspacePath: workspacePath ?? "",
+            workspacePath,
           })
         }
       />

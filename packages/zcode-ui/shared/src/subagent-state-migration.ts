@@ -26,7 +26,13 @@ export function importSubagentStateSelections(input: Record<string, unknown>): R
 } {
   const current = Object.hasOwn(input, "builtInModelSelectionOverrides");
   const selections: BuiltInSubagentModelSelectionOverrides = {};
-  for (const name of ["Explore", "general-purpose"] as const) {
+  // 内置 agent 名单由宿主决定（TNT 自己命名），迁移同样逐键保留：
+  // 新 map 的全部键，或旧双 map 出现过的全部键，不再写死两个默认键。
+  const names = new Set<string>([
+    ...Object.keys(record(input.builtInModelSelectionOverrides)),
+    ...Object.keys(record(input.builtInModelOverrides)),
+  ]);
+  for (const name of names) {
     const selection = current
       ? modelSelectionSchema.safeParse(record(input.builtInModelSelectionOverrides)[name]).data
       : parseSubagentMarkdownSelection({

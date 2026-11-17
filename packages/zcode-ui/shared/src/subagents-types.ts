@@ -7,9 +7,10 @@ export type AgentSource = "built-in" | "user" | "plugin";
 
 export type BuiltInSubagentName = "general-purpose" | "Explore";
 
-export type BuiltInSubagentModelSelectionOverrides = Partial<
-  Record<BuiltInSubagentName, ModelSelection>
->;
+// 内置 agent 名单由宿主决定（TNT 自己命名），覆盖 map 必须接受任意字符串
+// 键；只认两个默认键会把非默认命名的覆盖在读取路径上静默丢弃。值不存
+// undefined（坏值在入口被丢弃，取消覆盖是删除键），所以不是 Partial。
+export type BuiltInSubagentModelSelectionOverrides = Record<string, ModelSelection>;
 
 export type PluginSubagentModelSelectionOverrides = Readonly<Record<string, ModelSelection>>;
 

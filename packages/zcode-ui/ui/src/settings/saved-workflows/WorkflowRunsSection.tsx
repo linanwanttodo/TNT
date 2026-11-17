@@ -4,7 +4,15 @@ import { useServices } from "@/hooks/useServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { Spinner } from "@/components/ui/spinner.js";
 import { cn } from "@/components/lib/utils.js";
+import { formatWorkflowTimestamp } from "@/lib/workflowObservationFormat.js";
 import { SETTINGS_FRAME_CONTENT_CLASSNAME } from "@/settings/SettingsPageParts.js";
+import {
+  DEFAULT_WORKFLOW_RUN_STATUS_FILTER,
+  WORKFLOW_RUN_STATUS_FILTERS,
+  filterWorkflowRunsByStatus,
+  hasWorkflowRunOpenSessionEntry,
+  type WorkflowRunStatusFilter,
+} from "@/settings/saved-workflows/workflowRunsStatusFilter.js";
 
 /**
  * The Workflow tab of the automations page.
@@ -28,12 +36,15 @@ export function WorkflowRunsSection({
   /** 打开一次运行所属的会话。 */
   onOpenSession?: (sessionId: string) => void;
 }) {
-  const { intl } = useZCodeIntl();
+  const { intl, locale } = useZCodeIntl();
   const { zcodeAgentService } = useServices();
   const [runs, setRuns] = useState<readonly ZCodeWorkflowRunSummary[] | null>(
     null,
   );
   const [loading, setLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<WorkflowRunStatusFilter>(
+    DEFAULT_WORKFLOW_RUN_STATUS_FILTER,
+  );
 
   const refresh = useCallback(async () => {
     if (!workspacePath) {
@@ -60,6 +71,9 @@ export function WorkflowRunsSection({
     void refresh();
   }, [refresh]);
 
+  const visibleRuns = runs === null ? null : filterWorkflowRunsByStatus(runs, statusFilter);
+  const showStatusFilter = runs !== null && runs.length > 0;
+
   return (
     <div
       data-workflow-runs-content
@@ -67,7 +81,31 @@ export function WorkflowRunsSection({
     >
       {header}
 
-      <div className="mt-6 flex flex-col gap-2">
+      {showStatusFilter ? (
+        <div
+          className="mt-6 flex flex-wrap items-center gap-1.5"
+          data-workflow-runs-status-filter
+        >
+          {WORKFLOW_RUN_STATUS_FILTERS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={statusFilter === key}
+              className={cn(
+                "rounded-full px-2.5 py-0.5 text-ui-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-input-border-focused",
+                statusFilter === key
+                  ? "bg-selected text-foreground"
+                  : "text-foreground-subtle hover:bg-hover hover:text-foreground",
+              )}
+              onClick={() => setStatusFilter(key)}
+            >
+              {intl.formatMessage({ id: `workflows.runs.statusFilter.${key}` })}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className={cn("flex flex-col gap-2", showStatusFilter ? "mt-3" : "mt-6")}>
         {loading && runs === null ? (
           <div className="flex items-center gap-2 text-ui-base text-foreground-subtle">
             <Spinner />
@@ -81,45 +119,65 @@ export function WorkflowRunsSection({
           </div>
         ) : null}
 
-        {runs?.map((run) => (
-          <button
-            key={`${run.sessionId}:${run.runId}`}
-            type="button"
-            onClick={() => onOpenSession?.(run.sessionId)}
-            className={cn(
-              "rounded-[10px] border border-card-border px-3 py-2 text-left",
-              "transition-colors hover:bg-hover focus-visible:outline-none",
-              "focus-visible:ring-2 focus-visible:ring-input-border-focused",
-            )}
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="truncate text-ui-base font-medium text-foreground">
-                {run.label}
-              </span>
-              <span className="shrink-0 text-ui-small text-foreground-subtlest">
-                {intl.formatMessage(
-                  { id: `workflows.runs.status.${run.status}` },
-                  { time: formatTime(run.updatedAt) },
-                )}
-              </span>
-            </div>
-            <div className="mt-1 truncate text-ui-small text-foreground-subtle">
-              {run.sessionTitle}
-            </div>
-            {run.failureMessage ? (
-              <div className="mt-1 truncate text-ui-small text-foreground-subtlest">
-                {run.failureMessage}
+        {!loading &&
+        runs !== null &&
+        runs.length > 0 &&
+        visibleRuns !== null &&
+        visibleRuns.length === 0 ? (
+          <div className="rounded-[10px] border border-card-border px-3 py-3 text-ui-base text-foreground-subtle">
+            {intl.formatMessage({ id: "workflows.runs.statusFilter.empty" })}
+          </div>
+        ) : null}
+
+        {visibleRuns?.map((run) => {
+          const emphasized = hasWorkflowRunOpenSessionEntry(run);
+          return (
+            <button
+              key={`${run.sessionId}:${run.runId}`}
+              type="button"
+              onClick={() => onOpenSession?.(run.sessionId)}
+              className={cn(
+                "rounded-[10px] border px-3 py-2 text-left",
+                emphasized ? "border-destructive/40" : "border-card-border",
+                "transition-colors hover:bg-hover focus-visible:outline-none",
+                "focus-visible:ring-2 focus-visible:ring-input-border-focused",
+              )}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="truncate text-ui-base font-medium text-foreground">
+                  {run.label}
+                </span>
+                <span className="shrink-0 text-ui-small text-foreground-subtlest">
+                  {intl.formatMessage(
+                    { id: `workflows.runs.status.${run.status}` },
+                    { time: formatWorkflowTimestamp(run.updatedAt, locale) },
+                  )}
+                </span>
               </div>
-            ) : null}
-          </button>
-        ))}
+              <div className="mt-1 truncate text-ui-small text-foreground-subtle">
+                {run.sessionTitle}
+              </div>
+              {run.failureMessage ? (
+                <div
+                  className={cn(
+                    "mt-1 truncate text-ui-small",
+                    emphasized ? "text-destructive" : "text-foreground-subtlest",
+                  )}
+                >
+                  {run.failureMessage}
+                </div>
+              ) : null}
+              {emphasized ? (
+                <div className="mt-1.5 flex justify-end">
+                  <span className="inline-flex items-center rounded-md border border-destructive/40 px-1.5 py-0.5 text-ui-sm font-medium text-destructive">
+                    {intl.formatMessage({ id: "workflows.runs.openSession" })}
+                  </span>
+                </div>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
-}
-
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString();
 }

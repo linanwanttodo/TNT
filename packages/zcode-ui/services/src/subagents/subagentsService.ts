@@ -94,9 +94,7 @@ const PLUGIN_MANIFEST_PATHS = [
 function createBuiltInAgents(
   modelSelectionOverrides: BuiltInSubagentModelSelectionOverrides = {},
 ): AgentSummary[] {
-  const generalPurposeOverride = modelSelectionOverrides["general-purpose"];
-  const exploreOverride = modelSelectionOverrides.Explore;
-  return [
+  const defaults: AgentSummary[] = [
     {
       id: createAgentStateId({
         name: "general-purpose",
@@ -109,8 +107,6 @@ function createBuiltInAgents(
       // 内置子智能体使用显式身份色，避免 UI 按名称 hash 后把 general-purpose 显示为红色。
       color: "blue",
       injectAgentsMd: true,
-      modelSelection: generalPurposeOverride,
-      modelSelectionOverride: generalPurposeOverride,
       systemPrompt: "",
       tools: ["*"],
       path: "built-in:general-purpose",
@@ -129,8 +125,6 @@ function createBuiltInAgents(
       description: "Read-only search agent for broad fan-out searches.",
       color: "cyan",
       injectAgentsMd: false,
-      modelSelection: exploreOverride,
-      modelSelectionOverride: exploreOverride,
       systemPrompt: "",
       tools: ["Bash", "Glob", "Grep", "Read", "WebFetch", "WebSearch", "TodoWrite"],
       path: "built-in:Explore",
@@ -140,6 +134,16 @@ function createBuiltInAgents(
       readOnly: true,
     },
   ];
+  // 内置 agent 名单由宿主决定（TNT 自己命名），覆盖按 agent 名映射；
+  // 查找不再写死在两个默认键上。
+  return defaults.map((agent) => {
+    const override = modelSelectionOverrides[agent.name];
+    return {
+      ...agent,
+      modelSelection: override,
+      modelSelectionOverride: override,
+    };
+  });
 }
 
 function emptyAgentsState(): AgentsStateFile {
@@ -548,10 +552,12 @@ function normalizeBuiltInSelectionOverrides(
 ): BuiltInSubagentModelSelectionOverrides {
   const result: BuiltInSubagentModelSelectionOverrides = {};
   const structuredRecord = isRecord(structured) ? structured : {};
-  const generalPurpose = modelSelectionSchema.safeParse(structuredRecord["general-purpose"]).data;
-  const explore = modelSelectionSchema.safeParse(structuredRecord.Explore).data;
-  if (generalPurpose) result["general-purpose"] = generalPurpose;
-  if (explore) result.Explore = explore;
+  // 内置 agent 名单由宿主决定（TNT 自己命名），逐键校验并保留全部能解析
+  // 为正式选择的键，坏值丢弃；只认两个默认键会静默丢弃其他命名。
+  for (const [name, candidate] of Object.entries(structuredRecord)) {
+    const selection = modelSelectionSchema.safeParse(candidate).data;
+    if (selection) result[name] = selection;
+  }
   return result;
 }
 
