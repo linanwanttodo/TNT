@@ -220,6 +220,17 @@ jobs:
           export PATH="$PATH:/c/tools/bin"
           rg --version | head -1
 
+      # The coverage floor instruments the whole suite on a runner whose
+      # preinstalled toolchains leave little room; a full disk once failed the
+      # job mid-test with "no space left on device". The known bloat goes
+      # before the suite starts.
+      - name: Free disk space for the coverage floor
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/share/swift || true
+          df -h / | tail -1
+
       - name: Run smoke tests
         run: |
           cd packages/cli
