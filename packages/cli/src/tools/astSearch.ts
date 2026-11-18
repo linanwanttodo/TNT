@@ -174,9 +174,10 @@ async function listCandidateFiles(
 
   let files = listed
     .split("\n")
-    .map((file) => (file.startsWith("./") ? file.slice(2) : file))
-    // Windows rg outputs backslash paths; the file_pattern glob uses `/`.
+    // Windows rg outputs `.\src\twice.ts`: normalise separators FIRST, then
+    // strip the `./` prefix, so the file_pattern glob matches on every platform.
     .map((file) => file.replace(/\\/g, "/"))
+    .map((file) => (file.startsWith("./") ? file.slice(2) : file))
     .filter(Boolean);
   if (filePattern) {
     files = files.filter((file) => matchesFilePattern(filePattern, file));
