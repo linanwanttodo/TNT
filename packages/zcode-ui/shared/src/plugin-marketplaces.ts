@@ -60,8 +60,11 @@ export const DEFAULT_PLUGIN_MARKETPLACES: DefaultPluginMarketplace[] = [
   },
 ];
 
-// 商店「公开」分段只有一个 ZCode 官方市场 id，内置与 CDN 不再拆分身份。
-export const PUBLIC_STORE_MARKETPLACE_IDS = [ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID] as const;
+// 商店「公开」分段包含 Claude Code 官方市场（zcode 官方源在 TNT 中已移除）。
+export const PUBLIC_STORE_MARKETPLACE_IDS = [
+  ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
+  CLAUDE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
+] as const;
 
 export function isPublicStoreMarketplaceId(id: string): boolean {
   return (PUBLIC_STORE_MARKETPLACE_IDS as readonly string[]).includes(id);

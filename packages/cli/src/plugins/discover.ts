@@ -31,13 +31,6 @@ export const DEFAULT_MARKETPLACES: ReadonlyArray<{
   source: { source: "url"; url: string } | { source: "github"; repo: string };
 }> = [
   {
-    name: "zcode-plugins-official",
-    source: {
-      source: "url",
-      url: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
-    },
-  },
-  {
     name: "claude-plugins-official",
     source: {
       source: "github",

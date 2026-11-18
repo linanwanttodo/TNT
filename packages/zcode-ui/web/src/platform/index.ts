@@ -16,29 +16,58 @@ async function resolveFeedbackUrl(): Promise<string | undefined> {
  * zenity/kdialog/yad. A cancelled dialog answers with an empty list. A
  * missing chooser throws so the wizard shows an error instead of looking
  * like a dead button.
+ *
+ * On a phone the native dialog opens on the server's desktop, not the phone,
+ * so `canSelectDirectoriesNatively` is false and callers fall back to the
+ * embedded DirectoryBrowser. The fetch also carries a bounded timeout so a
+ * headless server can never latch the wizard's busy state indefinitely.
  */
+const SELECT_DIRECTORY_TIMEOUT_MS = 10_000;
+
+function isTouchDevice(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    (window.matchMedia("(pointer: coarse)").matches ||
+      navigator.maxTouchPoints > 0)
+  );
+}
+
 async function selectNativeDirectories(): Promise<string[]> {
-  const response = await fetch("/api/select-directory", {
-    method: "POST",
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(
-      `Native folder picker unavailable: ${detail || response.statusText}`,
-    );
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    SELECT_DIRECTORY_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch("/api/select-directory", {
+      method: "POST",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(
+        `Native folder picker unavailable: ${detail || response.statusText}`,
+      );
+    }
+    const result = (await response.json()) as { path?: string | null };
+    return typeof result.path === "string" && result.path ? [result.path] : [];
+  } finally {
+    clearTimeout(timer);
   }
-  const result = (await response.json()) as { path?: string | null };
-  return typeof result.path === "string" && result.path ? [result.path] : [];
 }
 
 export function createWebPlatform(): IPlatformService {
+  const canSelectNatively = !isTouchDevice();
   return {
     canSelectFilePath: false,
     canOpenLocalFiles: false,
+    canSelectDirectoriesNatively,
     saveFile: saveBrowserFile,
-    selectDirectories: selectNativeDirectories,
-    selectDirectory: async () => (await selectNativeDirectories())[0] ?? null,
+    selectDirectories: canSelectNatively ? selectNativeDirectories : undefined,
+    selectDirectory: canSelectNatively
+      ? async () => (await selectNativeDirectories())[0] ?? null
+      : undefined,
     // 手机远程：服务器自己报告哪些地址可以打开，桌面端没有这个入口。
     async getWebUiAccessInfo() {
       try {

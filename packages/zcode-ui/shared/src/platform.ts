@@ -767,6 +767,14 @@ export interface IPlatformService {
   /** 打开系统多目录选择框，返回 Host 可访问的本地路径；取消返回空数组，Web 不提供 */
   selectDirectories?(): Promise<string[]>;
 
+  /**
+   * True when `selectDirectories` opens a dialog the user can actually see and
+   * interact with. A Web client served to a phone cannot: the native chooser
+   * spawns on the server's desktop. Callers fall back to the embedded
+   * DirectoryBrowser when this is false.
+   */
+  canSelectDirectoriesNatively?: boolean;
+
   /** 打开系统文件选择框，返回选中文件路径或 null */
   selectFile(): Promise<string | null>;
 

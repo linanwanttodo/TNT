@@ -884,6 +884,27 @@ export function createZcodeAgentService(
     disposeWorkspace: (params) => adapter.disposeWorkspace(params),
     disposeAll: () => adapter.disposeAll(),
     ...automations.methods,
+    getSkillReferenceCatalog: async (params) => {
+      const workspacePath = params.workspacePath;
+      const { createTntSkillsService } =
+        await import("../../services/webuiSkills.js");
+      const skillsService = createTntSkillsService();
+      const listing = await skillsService.list({ workspacePath });
+      return {
+        authority: "workspace" as const,
+        skills: listing.skills
+          .filter((skill) => skill.enabled !== false)
+          .map((skill) => ({
+            id: skill.id,
+            name: skill.name,
+            description: skill.description,
+            path: skill.path,
+            scope: skill.scope as "workspace" | "user" | "plugin",
+            enabled: true as const,
+            ...(skill.pluginName ? { pluginName: skill.pluginName } : {}),
+          })),
+      };
+    },
   };
   return {
     service: stubServiceWith<IZCodeAgentService>(

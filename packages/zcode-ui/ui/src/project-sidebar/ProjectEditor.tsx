@@ -233,7 +233,12 @@ export function ProjectEditor({
       return;
     }
     // 本地曾统一走 Host 文件列表，绕过系统多选；按项目 Host 与平台能力选入口，不能借当前 tab 判定。
-    if ((hostId && hostId !== "local") || !platform?.selectDirectories) {
+    // 手机端没有原生目录选择框（服务端桌面弹窗手机看不到），降级到内嵌 DirectoryBrowser。
+    if (
+      (hostId && hostId !== "local") ||
+      !platform?.selectDirectories ||
+      platform?.canSelectDirectoriesNatively === false
+    ) {
       if (remote) {
         setBusy(true);
         try {
