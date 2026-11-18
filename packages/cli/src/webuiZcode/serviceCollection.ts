@@ -241,6 +241,7 @@ interface ResolvedZcodeServices {
   usageStatsService?: IUsageStatsService;
   agentService?: IZCodeAgentService;
   sessionService?: IZCodeSessionService;
+  offPeakTaskService?: IOffPeakTaskService;
 }
 
 const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
@@ -267,6 +268,7 @@ const ZCODE_LOCAL_SERVICE_ACCESSORS = new Map<
   [IHooksService, (services) => services.hooksService],
   [IMemoryService, (services) => services.memoryService],
   [IUsageStatsService, (services) => services.usageStatsService],
+  [IOffPeakTaskService, (services) => services.offPeakTaskService],
   [ISettingsSyncService, (services) => services.local.settingsSyncService],
   [IPluginsService, (services) => services.local.pluginsService],
   [
@@ -372,14 +374,31 @@ export async function buildZcodeServiceCollection(
 
   let disposeAgent: (() => void) | null = null;
   if (deps.workspaceEngines) {
-    const [{ createZcodeAgentService }, { createZcodeSessionService }] =
-      await Promise.all([
-        import("./services/agent.js"),
-        import("./services/session.js"),
-      ]);
-    const agent = createZcodeAgentService(deps.workspaceEngines);
+    const [
+      { createZcodeAgentService },
+      { createZcodeSessionService },
+      { createZcodeAutomationBackend },
+      { createTntOffPeakTaskService },
+    ] = await Promise.all([
+      import("./services/agent.js"),
+      import("./services/session.js"),
+      import("./services/automations.js"),
+      import("./services/offPeakTask.js"),
+    ]);
+    // One automation backend drives both the agent channel's automations
+    // methods and the off-peak task adapter: two instances would mean two
+    // schedulers racing over the same sqlite repo.
+    const automationBackend = createZcodeAutomationBackend(
+      deps.workspaceEngines,
+    );
+    const agent = createZcodeAgentService(deps.workspaceEngines, {
+      automationBackend,
+    });
     services.agentService = agent.service;
     services.sessionService = createZcodeSessionService(agent.service);
+    services.offPeakTaskService = createTntOffPeakTaskService({
+      backend: automationBackend,
+    });
     disposeAgent = () => agent.dispose();
   }
 

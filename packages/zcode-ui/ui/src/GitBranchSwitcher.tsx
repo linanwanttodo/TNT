@@ -59,14 +59,6 @@ interface GitBranchSwitcherProps {
   popoverSide?: "top" | "bottom" | "left" | "right";
   avoidPopoverCollisions?: boolean;
   showFooterActions?: boolean;
-  /**
-   * Worktree 草稿模式（docs/git/worktree.md §3.2）：选择分支只记录新 worktree 的
-   * 检出点，不对主目录执行 `git switch`；`worktreeSelectedRef` 是已记录的分支，
-   * 列表把它标成选中，底部提示行说明两种模式的差别。
-   */
-  worktreeMode?: boolean;
-  worktreeSelectedRef?: string | null;
-  onWorktreeRefSelect?: (ref: string) => void;
 }
 
 export function GitBranchSwitcher({
@@ -83,9 +75,6 @@ export function GitBranchSwitcher({
   popoverSide = "top",
   avoidPopoverCollisions = true,
   showFooterActions = true,
-  worktreeMode = false,
-  worktreeSelectedRef = null,
-  onWorktreeRefSelect,
 }: GitBranchSwitcherProps) {
   const { intl, locale } = useZCodeIntl();
   const numberFormatter = new Intl.NumberFormat(locale);
@@ -123,22 +112,13 @@ export function GitBranchSwitcher({
     branchesResult?.currentBranchName ?? gitSummary.branchName;
   const triggerLabel = useMemo(
     () =>
-      worktreeMode && worktreeSelectedRef
-        ? // 胶囊文字显示将要检出的分支；主目录的当前分支在下拉列表里另行标记。
-          worktreeSelectedRef
-        : resolveGitBranchTriggerLabel({
-            headRefType: gitSummary.headRefType,
-            currentBranchName: displayedCurrentBranchName,
-            detachedLabel: intl.formatMessage({ id: "git.head.detached" }),
-            fallbackLabel: intl.formatMessage({ id: "git.branchSwitcher.label" }),
-          }),
-    [
-      displayedCurrentBranchName,
-      gitSummary.headRefType,
-      intl,
-      worktreeMode,
-      worktreeSelectedRef,
-    ],
+      resolveGitBranchTriggerLabel({
+        headRefType: gitSummary.headRefType,
+        currentBranchName: displayedCurrentBranchName,
+        detachedLabel: intl.formatMessage({ id: "git.head.detached" }),
+        fallbackLabel: intl.formatMessage({ id: "git.branchSwitcher.label" }),
+      }),
+    [displayedCurrentBranchName, gitSummary.headRefType, intl],
   );
   const currentBranchDirtyLabel = useMemo(
     () =>
@@ -322,10 +302,7 @@ export function GitBranchSwitcher({
                   className="space-y-0.5 p-1 **:[[cmdk-group-heading]]:px-3 **:[[cmdk-group-heading]]:py-2 **:[[cmdk-group-heading]]:text-ui-base **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-foreground-subtle"
                 >
                   {(branchesResult?.branches ?? []).map((branch) => {
-                    // Worktree 模式下"选中"是已记录的检出分支，不再是主目录的当前分支。
-                    const isCurrent = worktreeMode
-                      ? branch.name === worktreeSelectedRef
-                      : branch.name === displayedCurrentBranchName;
+                    const isCurrent = branch.name === displayedCurrentBranchName;
                     return (
                       <CommandItem
                         key={branch.name}
@@ -337,12 +314,6 @@ export function GitBranchSwitcher({
                           "items-start gap-3 rounded-lg px-3 py-2 text-ui-base",
                         )}
                         onSelect={() => {
-                          if (worktreeMode) {
-                            // 只记录检出点：新 worktree 从所选分支创建，主目录不动。
-                            onWorktreeRefSelect?.(branch.name);
-                            setOpen(false);
-                            return;
-                          }
                           void switchBranch(branch.name);
                         }}
                       >
@@ -363,17 +334,7 @@ export function GitBranchSwitcher({
                 </CommandGroup>
               </CommandList>
             </Command>
-            {worktreeMode ? (
-              // docs/git/worktree.md §3.2：worktree 开启时分支下拉底部加提示，
-              // 说明选择只决定新 worktree 从哪检出，不切换本地分支。
-              <div
-                data-worktree-ref-hint="true"
-                className="border-t border-border px-3 py-2 text-ui-small text-foreground-subtle"
-              >
-                {intl.formatMessage({ id: "tnt.worktree.refHint" })}
-              </div>
-            ) : null}
-            {showFooterActions && !worktreeMode ? (
+            {showFooterActions ? (
               <div className="border-t border-border p-1">
                 <Button
                   type="button"

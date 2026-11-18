@@ -57,7 +57,10 @@ import type {
   EngineRequestHandler,
 } from "../engineClient.js";
 
-import { createZcodeAutomationBackend } from "./automations.js";
+import {
+  createZcodeAutomationBackend,
+  type AutomationBackend,
+} from "./automations.js";
 import { stubServiceWith } from "./stubs.js";
 
 const CLIENT_MODE = "desktop-continuous" as const;
@@ -842,12 +845,18 @@ export interface ZcodeAgentServiceHandle {
  * Methods the app-server does not implement are left to the stub fallback, so
  * they reject with the stable `ZCODE_UNAVAILABLE` code instead of pretending
  * to have run.
+ *
+ * `automationBackend` lets a host share one backend instance between this
+ * service and other channels (the off-peak task adapter reads the same repo),
+ * instead of owning two schedulers over one sqlite file.
  */
 export function createZcodeAgentService(
   engines: ZcodeEngineRegistry,
+  options: { automationBackend?: AutomationBackend } = {},
 ): ZcodeAgentServiceHandle {
   const adapter = new ZcodeAgentAdapter(engines);
-  const automations = createZcodeAutomationBackend(engines);
+  const automations =
+    options.automationBackend ?? createZcodeAutomationBackend(engines);
   const overrides: Partial<IZCodeAgentService> = {
     initialize: (params) => adapter.initialize(params),
     createSession: (params) => adapter.createSession(params),

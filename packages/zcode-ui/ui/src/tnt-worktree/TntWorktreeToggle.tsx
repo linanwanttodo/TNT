@@ -14,9 +14,9 @@ import {
  *
  * The checkbox is a pill that matches the project and branch capsules' height
  * contract (`h-7`); a tooltip names what it does. Turning it on does not add
- * any control: the existing branch capsule switches meaning (records the
- * checkout ref instead of switching the main checkout), which is why there is
- * exactly one branch picker on this header in either mode.
+ * any control or change the branch capsule: selecting a branch still switches
+ * the checkout, and the managed worktree is created from that checkout on the
+ * first send (the same shape as ZCode).
  *
  * The checkbox hides itself on hosts without the capability and on
  * non-repository workspaces - fail-closed, like the availability it mirrors.

@@ -298,8 +298,10 @@ const RAW_THROWN_COPY_OUTSIDE_COMMANDS: Record<string, number> = {
   // managed worktree service throw at the RPC boundary (sendText rejected,
   // worktree add failed, ref not a repository, …) - structured refusals the
   // shell surfaces as toasts, not composer copy. 48: the worktree create also
-  // refuses an option-like ref before touching git.
-  webuiZcode: 48,
+  // refuses an option-like ref before touching git. 50: the off-peak task
+  // adapter refuses ticket creation and an absent backend with protocol-level
+  // errors the shell logs, not composer copy.
+  webuiZcode: 50,
 };
 
 /**

@@ -12,6 +12,7 @@ import {
   IFileService,
   IHooksService,
   IMemoryService,
+  IOffPeakTaskService,
   ISkillsService,
   IUsageStatsService,
   ISubagentsService,
@@ -215,6 +216,7 @@ describe("buildZcodeServiceCollection", () => {
         IHooksService.channelName,
         IMemoryService.channelName,
         IUsageStatsService.channelName,
+        IOffPeakTaskService.channelName,
         ISettingsSyncService.channelName,
       ]),
     );

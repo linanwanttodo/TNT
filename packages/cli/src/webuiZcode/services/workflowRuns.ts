@@ -1,3 +1,5 @@
+import path from "path";
+
 import type { TeamRunRecord } from "core/index.js";
 
 import { teamRunsToWorkflowRunSummaries } from "../../appServer/workflowRunSummaries.js";
@@ -29,10 +31,31 @@ export interface WorkspaceWorkflowRun {
   failureMessage?: string;
 }
 
+/**
+ * A session belongs to the served workspace when its recorded directory is the
+ * root itself or sits underneath it. String equality alone misses sessions
+ * created in a subdirectory of the project (a TUI opened deeper in the tree),
+ * which showed the automations page an empty workflow list for a workspace
+ * that had run teams.
+ */
+export function belongsToWorkspace(
+  sessionDirectory: string,
+  servedRoot: string | undefined,
+): boolean {
+  if (!servedRoot) return true;
+  if (!sessionDirectory) return false;
+  const sessionRoot = path.resolve(sessionDirectory);
+  const root = path.resolve(servedRoot);
+  return sessionRoot === root || sessionRoot.startsWith(root + path.sep);
+}
+
 export function listWorkspaceWorkflowRuns(options: {
   workspacePath?: string;
   limit?: number;
 }): WorkspaceWorkflowRun[] {
+  const servedRoot = options.workspacePath
+    ? path.resolve(options.workspacePath)
+    : undefined;
   const metas = sessionStore.list({
     includeSubagents: true,
     limit: MAX_SESSIONS_SCANNED,
@@ -40,10 +63,7 @@ export function listWorkspaceWorkflowRuns(options: {
   const collected: WorkspaceWorkflowRun[] = [];
 
   for (const meta of metas) {
-    if (
-      options.workspacePath &&
-      meta.workspaceDirectory !== options.workspacePath
-    ) {
+    if (!belongsToWorkspace(meta.workspaceDirectory, servedRoot)) {
       continue;
     }
     const session = loadSessionById(meta.sessionId);
