@@ -2,6 +2,7 @@
 import { realpathSync } from "node:fs";
 import path from "node:path";
 
+import type { AssistantConfig } from "@tnt/sdk";
 import {
   elideSessionSnapshotForIndex,
   sessionDebugParamsSchema,
@@ -25,6 +26,7 @@ import type { ChatHistoryItem, Session } from "core/index.js";
 
 import { promptCacheKeyForSession } from "../cache/promptCacheKey.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
+import { SERVICE_NAMES } from "../services/types.js";
 import type { ModelServiceState } from "../services/types.js";
 import {
   createSession,
@@ -38,6 +40,8 @@ import {
   type SessionMeta,
 } from "../session/store.js";
 import { readDebugRounds, readNetworkDebug } from "../telemetry/debugRings.js";
+import { getAllSlashCommands } from "../ui/commands/index.js";
+import type { SlashCommand } from "../ui/commands/types.js";
 
 import { SessionRuntimeStore } from "./runtime.js";
 import {
@@ -230,7 +234,7 @@ export class SessionHandlers {
     if (live && !input.sessionId) {
       live.workspaceDirectory = input.workspace.workspacePath;
       sessionStore.sync(live);
-      return this.snapshot(live);
+      return await this.snapshot(live);
     }
     if (input.sessionId && sessionStore.getMeta(input.sessionId)) {
       throw sessionRequestError(`Session already exists: ${input.sessionId}`);
@@ -268,7 +272,7 @@ export class SessionHandlers {
       this.rememberModel(session, input.model);
     }
     sessionStore.sync(session);
-    return this.snapshot(session);
+    return await this.snapshot(session);
   }
 
   /**
@@ -344,7 +348,7 @@ export class SessionHandlers {
     // The browser picked a session from the list; the screen switches to it
     // so both sides keep showing one conversation.
     this.onLiveSessionResumed?.(session.sessionId);
-    return this.snapshot(session);
+    return await this.snapshot(session);
   }
 
   async list(params: unknown): Promise<SessionListResult> {
@@ -378,8 +382,8 @@ export class SessionHandlers {
     const session = this.loadSession(input.sessionId);
     const snapshot =
       input.contentProfile === "index"
-        ? elideSessionSnapshotForIndex(this.snapshot(session))
-        : this.snapshot(session);
+        ? elideSessionSnapshotForIndex(await this.snapshot(session))
+        : await this.snapshot(session);
     let messages = snapshot.messages;
     if (input.afterSeq !== undefined && input.afterSeq > 0) {
       const cursor = this.runtimes.cursor(input.sessionId);
@@ -497,7 +501,7 @@ export class SessionHandlers {
     }
     this.rememberModel(session, input.model);
     sessionStore.sync(session);
-    return this.snapshot(session);
+    return await this.snapshot(session);
   }
 
   async setTitle(
@@ -518,7 +522,7 @@ export class SessionHandlers {
         source,
       });
     }
-    return this.snapshot(session);
+    return await this.snapshot(session);
   }
 
   private loadSession(sessionId: string): Session {
@@ -558,13 +562,45 @@ export class SessionHandlers {
     });
   }
 
-  private snapshot(session: Session): ZCodeSessionStateSnapshot {
+  private async snapshot(session: Session): Promise<ZCodeSessionStateSnapshot> {
+    const assistant = await this.assistantConfig();
+    const slashCommands = (await getAllSlashCommands(assistant)).map(
+      (command: SlashCommand) => ({
+        name: command.name,
+        description: command.description ?? "",
+        ...(command.inputHint ? { inputHint: command.inputHint } : {}),
+        ...(command.source
+          ? { source: command.source as "builtin" | "custom" }
+          : {}),
+        ...(command.subcommands
+          ? {
+              subcommands: command.subcommands.map((sub) => ({
+                name: sub.name,
+                description: sub.description,
+              })),
+            }
+          : {}),
+      }),
+    );
     return toZcodeSnapshot(session, {
       meta: sessionStore.getMeta(session.sessionId),
       model: this.modelFor(session),
       runtime: this.runtimes.cursor(session.sessionId),
       status: this.statusFor(session.sessionId),
+      slashCommands,
     });
+  }
+
+  /** The assistant config the CLI booted with, for slash-command loading. */
+  private async assistantConfig(): Promise<AssistantConfig> {
+    try {
+      const state = await serviceContainer.get<ModelServiceState>(
+        SERVICE_NAMES.MODEL,
+      );
+      return (state.assistant ?? {}) as AssistantConfig;
+    } catch {
+      return {} as AssistantConfig;
+    }
   }
 
   private statusFor(sessionId: string): SessionStatus {

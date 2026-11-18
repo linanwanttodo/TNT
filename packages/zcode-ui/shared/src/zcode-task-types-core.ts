@@ -421,6 +421,8 @@ export interface ZCodeSlashCommand {
   inputHint?: string;
   /** 命令来源；旧协议可能为空，客户端应按 builtin 兼容处理。 */
   source?: "builtin" | "custom";
+  /** 子命令（如 /think off /think low）。WebUI 面板可据此渲染二级菜单或平铺。 */
+  subcommands?: Array<{ name: string; description: string }>;
 }
 export interface ZCodeTaskModeInfo {
   id: string;

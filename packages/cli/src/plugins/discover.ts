@@ -1,5 +1,7 @@
 import fs from "fs";
 
+import { readExternalCatalogs } from "../webuiZcode/services/externalPluginCatalogs.js";
+
 import {
   addMarketplace,
   createDefaultDeps,
@@ -96,7 +98,11 @@ export interface CatalogEntry {
   plugins: MarketplacePluginEntry[];
 }
 
-/** Reads every registered marketplace's manifest from its recorded location. */
+/**
+ * Reads every registered marketplace's manifest from its recorded location,
+ * plus external Claude Code plugin caches — the same list the WebUI plugin
+ * page reads, so `/plugins search` and the store never disagree.
+ */
 export function loadMarketplaceCatalogs(): CatalogEntry[] {
   const known = loadKnownMarketplaces();
   const catalogs: CatalogEntry[] = [];
@@ -110,6 +116,19 @@ export function loadMarketplaceCatalogs(): CatalogEntry[] {
       // A marketplace whose cached manifest went missing or malformed is
       // skipped here; `/plugins marketplace list` and a refresh surface it.
     }
+  }
+
+  // External Claude Code caches (`~/.claude/plugins`) are read by the WebUI's
+  // plugin page (`readExternalCatalogs`). The TUI previously skipped them, so
+  // a source the WebUI listed was invisible to `/plugins search`.
+  for (const external of readExternalCatalogs()) {
+    if (!external.manifest) continue;
+    const name = external.name;
+    if (catalogs.some((entry) => entry.marketplace === name)) continue;
+    catalogs.push({
+      marketplace: name,
+      plugins: external.manifest.plugins,
+    });
   }
   return catalogs;
 }

@@ -6441,6 +6441,9 @@ const enUS: Record<string, string> = {
   "tnt.worktree.refHint":
     "The new worktree starts from the selected branch; your local branch is not switched",
   "tnt.worktree.refHead": "Current HEAD",
+  "tnt.worktree.refTitle": "Checkout ref for new worktree",
+  "tnt.worktree.refLocal": "Local branches",
+  "tnt.worktree.refRemote": "Remote branches",
   "workflows.hub.sectionTitle": "Saved workflows",
   "workflows.hub.refresh": "Refresh",
   "workflows.hub.openSettings": "Workflow settings",

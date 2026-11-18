@@ -315,3 +315,15 @@ export interface GitCheckpointRestoreResult {
   conflicts?: GitCheckpointConflict[];
   restoredPaths?: string[];
 }
+
+/**
+ * 新 worktree 起点候选（docs/git/worktree.md §3.2）；不执行 fetch，
+ * 远端分支来自本地 remote-tracking ref。
+ */
+export interface ManagedWorktreeStartRefs {
+  /** 当前 HEAD；detached 时 branchName 为 null。仓库无提交时为 null。 */
+  head: { sha: string; branchName: string | null } | null;
+  localBranches: string[];
+  /** 形如 origin/main；不含 <remote>/HEAD 符号引用。 */
+  remoteBranches: string[];
+}

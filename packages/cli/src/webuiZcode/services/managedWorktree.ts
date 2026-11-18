@@ -438,3 +438,82 @@ export async function managedWorktreeAvailable(
     return false;
   }
 }
+
+/**
+ * Start-ref candidates for the worktree branch picker (ZCode §3.2):
+ * current HEAD, local branches and remote-tracking refs. No fetch is performed.
+ */
+export interface ManagedWorktreeStartRefs {
+  /** Current HEAD; branchName is null on a detached HEAD. Null with no commits. */
+  head: { sha: string; branchName: string | null } | null;
+  localBranches: string[];
+  /** "origin/main" shape; symbolic "<remote>/HEAD" refs are excluded. */
+  remoteBranches: string[];
+}
+
+export async function listStartRefs(options: {
+  workspacePath: string;
+}): Promise<ManagedWorktreeStartRefs | null> {
+  const context = await resolveContext(options.workspacePath);
+  let head: { sha: string; branchName: string | null } | null = null;
+  const localBranches: string[] = [];
+  const remoteBranches: string[] = [];
+
+  try {
+    const { stdout: headRaw } = await git(context.toplevel, [
+      "rev-parse",
+      "HEAD",
+    ]);
+    const sha = headRaw.trim();
+    if (sha) {
+      let branchName: string | null = null;
+      try {
+        const { stdout: branchRaw } = await git(context.toplevel, [
+          "rev-parse",
+          "--abbrev-ref",
+          "HEAD",
+        ]);
+        const name = branchRaw.trim();
+        branchName = name === "HEAD" ? null : name;
+      } catch {
+        branchName = null;
+      }
+      head = { sha, branchName };
+    }
+  } catch {
+    head = null;
+  }
+
+  try {
+    const { stdout: localRaw } = await git(context.toplevel, [
+      "branch",
+      "--format=%(refname:short)",
+    ]);
+    localBranches.push(
+      ...localRaw
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    );
+  } catch {
+    // No local branches; fine.
+  }
+
+  try {
+    const { stdout: remoteRaw } = await git(context.toplevel, [
+      "branch",
+      "--remotes",
+      "--format=%(refname:short)",
+    ]);
+    remoteBranches.push(
+      ...remoteRaw
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line !== "" && !line.endsWith("/HEAD")),
+    );
+  } catch {
+    // No remote refs; fine.
+  }
+
+  return { head, localBranches, remoteBranches };
+}

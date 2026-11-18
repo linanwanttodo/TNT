@@ -1,26 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
+// 新建任务 composer 头部的 worktree 复选框与分支选择（docs/git/worktree.md §3.2）。
+// 开关与所选分支存放在 draft store，每次新建草稿重置为关闭；这里不持有第二份状态。
+// 按钮与分支选择 1:1 搬运 ZCode managed-worktrees/WorktreeComposerControls.tsx。
+import { CheckIcon, ChevronDownIcon, GitBranchIcon } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import type { ManagedWorktreeStartRefs } from "@zcode/shared";
+import { TID_WORKTREE_TOGGLE } from "@zcode/shared/test-ids";
+import { Button } from "@/components/ui/button.js";
+import { Checkbox } from "@/components/ui/checkbox.js";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.js";
 import { useServices } from "@/hooks/useServices.js";
-import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { logger } from "@/logger.js";
 import { cn } from "@/components/lib/utils.js";
 import {
-  readTntDraftWorktreeState,
   useTntDraftWorktreeStore,
 } from "@/tnt-worktree/draftWorktreeStore.js";
 
-/**
- * The worktree checkbox at the right end of the draft composer header
- * (docs/git/worktree.md §3.2): `[project ▾] [branch ▾] … [☐ worktree]`.
- *
- * The checkbox is a pill that matches the project and branch capsules' height
- * contract (`h-7`); a tooltip names what it does. Turning it on does not add
- * any control or change the branch capsule: selecting a branch still switches
- * the checkout, and the managed worktree is created from that checkout on the
- * first send (the same shape as ZCode).
- *
- * The checkbox hides itself on hosts without the capability and on
- * non-repository workspaces - fail-closed, like the availability it mirrors.
- */
+/** 分支很多时只展示前若干项，保持菜单紧凑。 */
+const MAX_LISTED_REFS = 30;
+const SHORT_SHA_LENGTH = 7;
+
 export function TntWorktreeToggle({
   workspacePath,
   workspaceIdentity,
@@ -51,50 +57,191 @@ export function TntWorktreeToggle({
     };
   }, [workspacePath, workspaceIdentity, zcodeAgentService]);
 
-  const onToggle = useCallback(() => {
-    const next = !readTntDraftWorktreeState(workspacePath).enabled;
-    // Off clears the recorded ref with it: a stale ref must not survive into
-    // a later, unrelated worktree send.
-    setEnabled(workspacePath, next);
-    if (!next) {
-      useTntDraftWorktreeStore.getState().setRef(workspacePath, undefined);
-    }
-  }, [setEnabled, workspacePath]);
+  const onCheckedChange = useCallback(
+    (checked: boolean) => {
+      setEnabled(workspacePath, checked);
+      if (!checked) {
+        useTntDraftWorktreeStore.getState().setRef(workspacePath, undefined);
+      }
+    },
+    [setEnabled, workspacePath],
+  );
 
   if (available !== true) return null;
 
   return (
-    <ControlHintTooltip
-      standalone
-      side="top"
+    <label
       title={intl.formatMessage({ id: "tnt.worktree.tooltip" })}
+      className={cn(
+        "flex h-7 shrink-0 cursor-pointer select-none items-center gap-2 rounded-full px-3 text-ui-base/relaxed text-foreground-subtle hover:bg-hover hover:text-foreground",
+      )}
     >
-      <label
+      <Checkbox
         data-tnt-worktree-toggle="true"
-        className={cn(
-          // 与项目/分支胶囊同一高度契约（h-7）；全圆角边框胶囊，文字始终用
-          // foreground，不靠 hover 才变亮。hover 只换背景色，克制无动画。
-          "ml-auto flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3",
-          "text-ui-small text-foreground transition-colors",
-          enabled
-            ? "border-input-border-focused bg-selected"
-            : "border-card-border hover:bg-hover",
-          "focus-within:outline-none focus-within:ring-2 focus-within:ring-input-border-focused",
-        )}
+        checked={enabled}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+        aria-label={intl.formatMessage({
+          id: "tnt.worktree.checkbox.ariaLabel",
+        })}
+      />
+      <span>{intl.formatMessage({ id: "tnt.worktree.checkbox" })}</span>
+    </label>
+  );
+}
+
+/**
+ * worktree 模式下的分支胶囊：只记录新 worktree 从哪个分支检出，不切换主目录（§3.2）。
+ * 文字与普通分支胶囊相同，只显示分支名。listStartRefs 由调用方提供（TNT 侧适配）。
+ */
+export function TntWorktreeBranchPicker({
+  selectedRef,
+  currentBranchLabel,
+  listStartRefs,
+  onSelect,
+  className,
+}: {
+  selectedRef: string | null;
+  currentBranchLabel: string;
+  listStartRefs: () => Promise<ManagedWorktreeStartRefs | null>;
+  onSelect: (ref: string | null) => void;
+  className?: string;
+}) {
+  const { intl } = useZCodeIntl();
+  const [open, setOpen] = useState(false);
+  const [refs, setRefs] = useState<ManagedWorktreeStartRefs | null>(null);
+
+  useEffect(() => {
+    if (!open || !listStartRefs) return;
+    let disposed = false;
+    void listStartRefs().then(
+      (next) => {
+        if (!disposed) setRefs(next);
+      },
+      (error: unknown) => logger.warn("[worktree] 读取分支候选失败", { error }),
+    );
+    return () => {
+      disposed = true;
+    };
+  }, [listStartRefs, open]);
+
+  const head = refs?.head ?? null;
+  const headLabel = head
+    ? head.branchName ??
+      intl.formatMessage(
+        { id: "tnt.worktree.refHead" },
+        { sha: head.sha.slice(0, SHORT_SHA_LENGTH) },
+      )
+    : currentBranchLabel;
+  const triggerLabel = selectedRef ?? currentBranchLabel;
+
+  return (
+    <div className={cn("flex items-center px-1 pt-2", className)}>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="default"
+            data-worktree-branch-picker="true"
+            className="min-w-0 max-w-full rounded-full pl-3 pr-2 text-ui-base/relaxed"
+          >
+            <GitBranchIcon className="size-4 text-foreground-subtle" />
+            <span className="min-w-0 max-w-25 truncate text-left">
+              {triggerLabel}
+            </span>
+            <ChevronDownIcon className="size-3.5 text-foreground-subtle" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side="top"
+          align="start"
+          avoidCollisions={false}
+          className="max-h-80 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto"
+        >
+          <DropdownMenuLabel className="text-ui-sm text-foreground-subtle">
+            {intl.formatMessage({ id: "tnt.worktree.refTitle" })}
+          </DropdownMenuLabel>
+          <RefItem
+            label={intl.formatMessage(
+              { id: "tnt.worktree.refHead" },
+              { ref: headLabel },
+            )}
+            selected={selectedRef === null}
+            onSelect={() => onSelect(null)}
+          />
+          <RefGroup
+            label={intl.formatMessage({ id: "tnt.worktree.refLocal" })}
+            refs={refs?.localBranches ?? []}
+            selectedRef={selectedRef}
+            onSelect={onSelect}
+          />
+          <RefGroup
+            label={intl.formatMessage({ id: "tnt.worktree.refRemote" })}
+            refs={refs?.remoteBranches ?? []}
+            selectedRef={selectedRef}
+            onSelect={onSelect}
+          />
+          <DropdownMenuSeparator />
+          <p className="px-2 py-1 text-ui-sm text-foreground-subtle">
+            {intl.formatMessage({ id: "tnt.worktree.refHint" })}
+          </p>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function RefItem({
+  label,
+  selected,
+  onSelect,
+  mono,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+  mono?: boolean;
+}) {
+  return (
+    <DropdownMenuItem onSelect={onSelect} className="justify-between gap-2">
+      <span
+        className={cn("min-w-0 truncate", mono && "font-mono text-ui-sm")}
+        title={label}
       >
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={onToggle}
-          aria-label={intl.formatMessage({
-            id: "tnt.worktree.checkbox.ariaLabel",
-          })}
-          className="size-3.5 accent-[currentColor]"
+        {label}
+      </span>
+      {selected ? <CheckIcon className="size-4 shrink-0" /> : null}
+    </DropdownMenuItem>
+  );
+}
+
+function RefGroup({
+  label,
+  refs,
+  selectedRef,
+  onSelect,
+}: {
+  label: string;
+  refs: readonly string[];
+  selectedRef: string | null;
+  onSelect: (ref: string) => void;
+}) {
+  if (refs.length === 0) return null;
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel className="text-ui-sm text-foreground-subtle">
+        {label}
+      </DropdownMenuLabel>
+      {refs.slice(0, MAX_LISTED_REFS).map((ref) => (
+        <RefItem
+          key={ref}
+          label={ref}
+          mono
+          selected={selectedRef === ref}
+          onSelect={() => onSelect(ref)}
         />
-        <span className="select-none">
-          {intl.formatMessage({ id: "tnt.worktree.checkbox" })}
-        </span>
-      </label>
-    </ControlHintTooltip>
+      ))}
+    </>
   );
 }

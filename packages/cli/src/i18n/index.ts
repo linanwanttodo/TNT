@@ -477,15 +477,15 @@ const en = {
     "Invalid session file: expected a valid TNT exported session (version 1).",
   "plugin.none": "No plugins installed.",
   "plugin.addMarketplaceHint":
-    "Add a marketplace: /plugin marketplace add <name> github:<owner>/<repo>",
-  "plugin.installHint": "Then install: /plugin install <name>@<marketplace>",
+    "Add a marketplace: /plugins marketplace add <name> github:<owner>/<repo>",
+  "plugin.installHint": "Then install: /plugins install <name>@<marketplace>",
   "plugin.placeHint":
     "Or place plugins under ~/.tnt/plugins/cache/<marketplace>/<name>/<version>.",
   "plugin.marketplacesRegistered": "{count} marketplace(s) registered",
   "plugin.installedHeader": "Installed plugins ({count})",
-  "plugin.installUsage": "Usage: /plugin install <name>[@marketplace]",
+  "plugin.installUsage": "Usage: /plugins install <name>[@marketplace]",
   "plugin.noMarketplace": "No marketplace to install from.",
-  "plugin.uninstallUsage": "Usage: /plugin uninstall <name>[@marketplace]",
+  "plugin.uninstallUsage": "Usage: /plugins uninstall <name>[@marketplace]",
   "plugin.needMarketplace": "No marketplaces registered. Add one first.",
   "plugin.chooseMarketplace":
     "Name the marketplace: Registered are {list}. Use {name}@<marketplace>",
@@ -503,7 +503,7 @@ const en = {
     "Removed marketplace {name}. Cached plugins stay until cleaned.",
   "plugin.marketplace.unknown": "No marketplace named {name}.",
   "plugin.marketplace.addUsage":
-    "Usage: /plugin marketplace add <name> <source> | /plugin marketplace add <source>",
+    "Usage: /plugins marketplace add <name> <source> | /plugins marketplace add <source>",
   "plugin.marketplace.addFailed": "Could not add marketplace: {message}",
   "mcp.search.usage": "Usage: /mcp search <keyword>",
   "mcp.search.header": "{count} server(s) found in the MCP registry:",
@@ -1431,13 +1431,13 @@ const zhCN: Record<TranslationKey, string> = {
   "session.invalidFile": "会话文件无效：需要 TNT 导出的合法会话（版本 1）。",
   "plugin.none": "未安装任何插件。",
   "plugin.addMarketplaceHint":
-    "添加插件市场：/plugin marketplace add <名称> github:<owner>/<repo>",
-  "plugin.installHint": "然后安装：/plugin install <名称>@<市场>",
+    "添加插件市场：/plugins marketplace add <名称> github:<owner>/<repo>",
+  "plugin.installHint": "然后安装：/plugins install <名称>@<市场>",
   "plugin.placeHint":
     "或把插件放在 ~/.tnt/plugins/cache/<市场>/<名称>/<版本> 下。",
   "plugin.marketplacesRegistered": "已注册 {count} 个插件市场",
   "plugin.installedHeader": "已安装插件（{count}）",
-  "plugin.installUsage": "用法：/plugin install <名称>[@市场]",
+  "plugin.installUsage": "用法：/plugins install <名称>[@市场]",
   "plugin.noMarketplace": "没有可用于安装的插件市场。",
   "plugin.uninstallUsage": "用法：/plugin uninstall <名称>[@市场]",
   "plugin.needMarketplace": "尚未注册插件市场，请先添加一个。",

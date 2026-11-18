@@ -779,6 +779,8 @@ export const TID_AUTOMATION_CUSTOM_INTERVAL_OPTION = "automation-custom-interval
 export const TID_AUTOMATION_CUSTOM_REPEAT_EDIT = "automation-custom-repeat-edit";
 export const TID_AUTOMATION_CUSTOM_CONFIRM = "automation-custom-confirm";
 export const TID_AUTOMATION_YEAR_MONTHDAY = "automation-year-monthday";
+// worktree toggle（composer 头部勾选框）
+export const TID_WORKTREE_TOGGLE = "worktree-toggle";
 export const TID_AUTOMATION_YEAR_MONTH_OPTION = "automation-year-month-option";
 export const TID_AUTOMATION_YEAR_DAY_OPTION = "automation-year-day-option";
 export const TID_AUTOMATION_SCHEDULE_PREVIEW = "automation-schedule-preview";

@@ -105,14 +105,14 @@ describe("plugin slash handler", () => {
     const result = await handlePlugins([]);
 
     expect(result.openPluginsBrowser).toBe(true);
-    expect(result.output).toBeUndefined();
+    expect(result.output).toBeDefined();
   });
 
   it("lists installed plugins in text mode for an unknown subcommand", async () => {
     const result = await handlePlugins(["--text"]);
 
     expect(result.output).toContain("No plugins installed");
-    expect(result.output).toContain("/plugin marketplace add");
+    expect(result.output).toContain("/plugins marketplace add");
   });
 
   it("routes the marketplace subcommand", async () => {

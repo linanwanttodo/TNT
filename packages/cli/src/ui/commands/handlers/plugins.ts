@@ -142,6 +142,48 @@ async function handleSearch(keyword: string | undefined) {
   };
 }
 
+/**
+ * The installed-plugin listing, as text. Both the terminal (which opens the
+ * plugin browser) and a surface without one (headless, the web UI's message
+ * route) read this, so the two never disagree about what is installed.
+ */
+function listInstalledPlugins(): { output: string } {
+  const result = loadAllPlugins();
+  const installed = result.plugins;
+  const marketplaces = Object.keys(loadKnownMarketplaces()).length;
+
+  if (installed.length === 0) {
+    const lines = [
+      t("plugin.none"),
+      t("plugin.addMarketplaceHint"),
+      t("plugin.installHint"),
+      t("plugin.placeHint"),
+    ];
+    if (marketplaces > 0) {
+      lines.push(t("plugin.marketplacesRegistered", { count: marketplaces }));
+    }
+    return { output: chalk.dim(lines.join("\n")) };
+  }
+
+  const lines = installed.map((plugin) => {
+    const note = plugin.id === plugin.name ? "" : ` (${plugin.id})`;
+    const desc = plugin.description ? ` - ${plugin.description}` : "";
+    return `  ${chalk.cyan(plugin.name)}${chalk.dim(note)}${desc}`;
+  });
+
+  return {
+    output: [
+      chalk.bold(t("plugin.installedHeader", { count: installed.length })),
+      "",
+      ...lines,
+      "",
+      chalk.dim(t("plugin.marketplacesRegistered", { count: marketplaces })),
+      "",
+      chalk.dim(t("plugin.usageHint")),
+    ].join("\n"),
+  };
+}
+
 export async function handlePlugins(
   args: string[] = [],
 ): Promise<SlashCommandResult> {
@@ -161,43 +203,14 @@ export async function handlePlugins(
 
   // No recognized subcommand opens the browser, the way the reference client
   // treats a bare /plugin; text mode stays reachable through the subcommands.
+  // The text listing is what a surface without a browser gets, so the result
+  // carries both: the terminal opens the screen, a headless run prints it.
   if (args.length === 0) {
-    return { openPluginsBrowser: true };
+    const listing = listInstalledPlugins();
+    return { ...listing, openPluginsBrowser: true };
   }
 
-  const result = loadAllPlugins();
-  const installed = result.plugins;
-  const marketplaces = Object.keys(loadKnownMarketplaces()).length;
-
-  if (installed.length === 0) {
-    const lines = [
-      t("plugin.none"),
-      t("plugin.addMarketplaceHint"),
-      t("plugin.installHint"),
-      t("plugin.placeHint"),
-    ];
-    if (marketplaces > 0) {
-      lines.push(t("plugin.marketplacesRegistered", { count: marketplaces }));
-    }
-    return { exit: false, output: chalk.dim(lines.join("\n")) };
-  }
-
-  const lines = installed.map((plugin) => {
-    const note = plugin.id === plugin.name ? "" : ` (${plugin.id})`;
-    const desc = plugin.description ? ` - ${plugin.description}` : "";
-    return `  ${chalk.cyan(plugin.name)}${chalk.dim(note)}${desc}`;
-  });
-
-  return {
-    exit: false,
-    output: [
-      chalk.bold(t("plugin.installedHeader", { count: installed.length })),
-      "",
-      ...lines,
-      "",
-      chalk.dim(t("plugin.marketplacesRegistered", { count: marketplaces })),
-      "",
-      chalk.dim(t("plugin.usageHint")),
-    ].join("\n"),
-  };
+  // An unrecognized subcommand prints the listing rather than failing: the
+  // reference client treats a bare invocation as "show me the plugins".
+  return { exit: false, ...listInstalledPlugins() };
 }

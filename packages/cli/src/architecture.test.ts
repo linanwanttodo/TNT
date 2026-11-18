@@ -46,6 +46,11 @@ const KNOWN_MUTUAL_COUPLING = [
   "hooks <-> services",
   "permissions <-> services",
   "permissions <-> tools",
+  // discover.ts reads external Claude plugin caches via webuiZcode's
+  // externalPluginCatalogs; webuiZcode already imports plugins for the
+  // marketplace backend. Measured 2026-11-18 when /plugins search was wired
+  // to the same catalogue the WebUI reads.
+  "plugins <-> webuiZcode",
   // TurnRunnerService arbitrates the drain loop over the shared message
   // queue, which lives in stream; stream already imports services.
   "services <-> stream",

@@ -12,6 +12,10 @@ export interface SlashCommand {
   category: "system" | "assistant";
   /** Commands that take a fixed set of tokens instead of free-form args. */
   subcommands?: SlashSubcommand[];
+  /** The loader that produced this command; set by the resolver. */
+  source?: CommandSource;
+  /** Argument hint shown next to the command in a palette (`/think <depth>`). */
+  inputHint?: string;
 }
 
 export interface SystemCommand extends SlashCommand {

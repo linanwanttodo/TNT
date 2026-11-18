@@ -27,7 +27,7 @@ export function resolveCommands(sets: LoadedCommandSet[]): ResolvedCommandSet {
 
       if (owner === undefined) {
         owners.set(key, set.source);
-        commands.push(command);
+        commands.push({ ...command, source: set.source });
         continue;
       }
 

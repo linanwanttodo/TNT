@@ -43,7 +43,7 @@ describe("slash command copy follows the active locale", () => {
     const result = await handlePlugins(["--text"]);
 
     expect(result.output).toContain("未安装任何插件");
-    expect(result.output).toContain("/plugin marketplace add");
+    expect(result.output).toContain("/plugins marketplace add");
   });
 
   it("translates the marketplace listing", async () => {
