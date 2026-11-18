@@ -476,6 +476,7 @@ const en = {
   "session.invalidFile":
     "Invalid session file: expected a valid TNT exported session (version 1).",
   "plugin.none": "No plugins installed.",
+  "cmd.worktree": "List, create and remove managed worktrees",
   "plugin.addMarketplaceHint":
     "Add a marketplace: /plugins marketplace add <name> github:<owner>/<repo>",
   "plugin.installHint": "Then install: /plugins install <name>@<marketplace>",
@@ -505,6 +506,22 @@ const en = {
   "plugin.marketplace.addUsage":
     "Usage: /plugins marketplace add <name> <source> | /plugins marketplace add <source>",
   "plugin.marketplace.addFailed": "Could not add marketplace: {message}",
+  "worktree.notGitRepository":
+    "The current directory is not a git repository; worktrees need one.",
+  "worktree.empty": "No managed worktrees.",
+  "worktree.createHint": "/worktree create [ref] to create one.",
+  "worktree.listHeader": "{count} managed worktree(s):",
+  "worktree.dirty": "(dirty)",
+  "worktree.sessions": "[{count} session(s)]",
+  "worktree.created": "Worktree created at {path}",
+  "worktree.startHint":
+    "Start a session in this directory (cd {path}; tnt) or send from the WebUI composer.",
+  "worktree.createFailed": "Could not create worktree: {message}",
+  "worktree.removeUsage": "Usage: /worktree remove <path> [--force]",
+  "worktree.removed": "Removed worktree {path}",
+  "worktree.removeFailed": "Could not remove worktree: {message}",
+  "worktree.removeHint":
+    "/worktree create [ref] to create; /worktree remove <path> [--force] to remove.",
   "mcp.search.usage": "Usage: /mcp search <keyword>",
   "mcp.search.header": "{count} server(s) found in the MCP registry:",
   "mcp.search.noMatches": 'No MCP servers matched "{query}".',
@@ -1430,6 +1447,7 @@ const zhCN: Record<TranslationKey, string> = {
   "session.fileNotFound": "文件不存在：{path}",
   "session.invalidFile": "会话文件无效：需要 TNT 导出的合法会话（版本 1）。",
   "plugin.none": "未安装任何插件。",
+  "cmd.worktree": "列出、创建和移除受管 worktree",
   "plugin.addMarketplaceHint":
     "添加插件市场：/plugins marketplace add <名称> github:<owner>/<repo>",
   "plugin.installHint": "然后安装：/plugins install <名称>@<市场>",
@@ -1456,6 +1474,22 @@ const zhCN: Record<TranslationKey, string> = {
   "plugin.marketplace.addUsage":
     "用法：/plugin marketplace add <名称> <来源> 或 /plugin marketplace add <来源>",
   "plugin.marketplace.addFailed": "添加市场失败：{message}",
+  "worktree.notGitRepository":
+    "当前目录不是 git 仓库，worktree 需要一个 git 仓库。",
+  "worktree.empty": "尚无受管 worktree。",
+  "worktree.createHint": "/worktree create [分支名] 创建一个。",
+  "worktree.listHeader": "{count} 个受管 worktree：",
+  "worktree.dirty": "（有未提交变更）",
+  "worktree.sessions": "［{count} 个会话使用］",
+  "worktree.created": "worktree 已创建：{path}",
+  "worktree.startHint":
+    "在该目录启动会话（cd {path}; tnt）或在 WebUI composer 发送。",
+  "worktree.createFailed": "创建 worktree 失败：{message}",
+  "worktree.removeUsage": "用法：/worktree remove <路径> [--force]",
+  "worktree.removed": "已移除 worktree：{path}",
+  "worktree.removeFailed": "移除 worktree 失败：{message}",
+  "worktree.removeHint":
+    "/worktree create [分支名] 创建；/worktree remove <路径> [--force] 移除。",
   "mcp.search.usage": "用法：/mcp search <关键词>",
   "mcp.search.header": "在 MCP 注册表中找到 {count} 个服务：",
   "mcp.search.noMatches": "没有匹配“{query}”的 MCP 服务。",

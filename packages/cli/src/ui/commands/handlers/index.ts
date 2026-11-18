@@ -29,6 +29,7 @@ import { handleImportSkill, handleSkills } from "./skills.js";
 import { handleTeamCommand } from "./team.js";
 import { handleThink } from "./think.js";
 import { handleWebui } from "./webui.js";
+import { handleWorktree } from "./worktree.js";
 
 /**
  * Built-in commands that run in-process. Commands contributed by prompts,
@@ -60,6 +61,7 @@ export function createCommandHandlers(): Record<string, CommandHandler> {
     rename: handleTitle,
     goal: handleGoal,
     plugins: handlePlugins,
+    worktree: handleWorktree,
     "output-style": handleOutputStyle,
     team: handleTeamCommand,
     loop: handleLoop,
