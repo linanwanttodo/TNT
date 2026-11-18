@@ -175,6 +175,8 @@ async function listCandidateFiles(
   let files = listed
     .split("\n")
     .map((file) => (file.startsWith("./") ? file.slice(2) : file))
+    // Windows rg outputs backslash paths; the file_pattern glob uses `/`.
+    .map((file) => file.replace(/\\/g, "/"))
     .filter(Boolean);
   if (filePattern) {
     files = files.filter((file) => matchesFilePattern(filePattern, file));

@@ -62,12 +62,13 @@ export function createWebPlatform(): IPlatformService {
   return {
     canSelectFilePath: false,
     canOpenLocalFiles: false,
-    canSelectDirectoriesNatively,
+    canSelectDirectoriesNatively: canSelectNatively,
     saveFile: saveBrowserFile,
     selectDirectories: canSelectNatively ? selectNativeDirectories : undefined,
-    selectDirectory: canSelectNatively
-      ? async () => (await selectNativeDirectories())[0] ?? null
-      : undefined,
+    selectDirectory: async () => {
+      if (!canSelectNatively) return null;
+      return (await selectNativeDirectories())[0] ?? null;
+    },
     // 手机远程：服务器自己报告哪些地址可以打开，桌面端没有这个入口。
     async getWebUiAccessInfo() {
       try {
